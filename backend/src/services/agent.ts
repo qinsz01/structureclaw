@@ -1,8 +1,9 @@
 import axios, { AxiosInstance } from 'axios';
 import { ChatOpenAI } from '@langchain/openai';
+import { randomUUID } from 'crypto';
 import { config } from '../config/index.js';
 
-export type AgentToolName = 'convert' | 'validate' | 'analyze' | 'code-check';
+export type AgentToolName = 'text-to-model-draft' | 'convert' | 'validate' | 'analyze' | 'code-check';
 export type AgentRunMode = 'chat' | 'execute' | 'auto';
 
 export interface AgentRunParams {
@@ -42,6 +43,8 @@ export interface AgentToolCall {
 }
 
 export interface AgentRunResult {
+  traceId: string;
+  durationMs: number;
   success: boolean;
   mode: 'rule-based' | 'llm-assisted';
   needsModelInput: boolean;
@@ -49,6 +52,10 @@ export interface AgentRunResult {
   toolCalls: AgentToolCall[];
   model?: Record<string, unknown>;
   analysis?: unknown;
+  clarification?: {
+    missingFields: string[];
+    question: string;
+  };
   response: string;
 }
 
@@ -112,9 +119,11 @@ export class AgentService {
       },
       runResultSchema: {
         type: 'object',
-        required: ['success', 'mode', 'needsModelInput', 'plan', 'toolCalls', 'response'],
+        required: ['traceId', 'durationMs', 'success', 'mode', 'needsModelInput', 'plan', 'toolCalls', 'response'],
         properties: {
           success: { type: 'boolean' },
+          traceId: { type: 'string' },
+          durationMs: { type: 'number' },
           mode: { enum: ['rule-based', 'llm-assisted'] },
           needsModelInput: { type: 'boolean' },
           plan: { type: 'array', items: { type: 'string' } },
@@ -158,6 +167,26 @@ export class AgentService {
         ],
       },
       tools: [
+        {
+          name: 'text-to-model-draft',
+          description: '从自然语言生成最小可计算 StructureModel v1 草案（规则版）',
+          inputSchema: {
+            type: 'object',
+            required: ['message'],
+            properties: {
+              message: { type: 'string' },
+            },
+          },
+          outputSchema: {
+            type: 'object',
+            properties: {
+              inferredType: { type: 'string' },
+              missingFields: { type: 'array', items: { type: 'string' } },
+              model: { type: 'object' },
+            },
+          },
+          errorCodes: ['AGENT_MISSING_MODEL_INPUT'],
+        },
         {
           name: 'convert',
           description: '模型格式转换，统一转为 structuremodel-v1 或导出到目标格式',
@@ -252,10 +281,14 @@ export class AgentService {
   }
 
   async run(params: AgentRunParams): Promise<AgentRunResult> {
+    const startedAt = Date.now();
+    const traceId = randomUUID();
     const runMode: AgentRunMode = params.mode || 'auto';
     if (runMode === 'chat') {
       const response = await this.renderSummary(params.message, '已收到你的问题。当前为纯聊天模式，未触发结构工具调用。');
       return {
+        traceId,
+        durationMs: Date.now() - startedAt,
         success: true,
         mode: this.llm ? 'llm-assisted' : 'rule-based',
         needsModelInput: false,
@@ -275,21 +308,37 @@ export class AgentService {
     const toolCalls: AgentToolCall[] = [];
     const mode: 'rule-based' | 'llm-assisted' = this.llm ? 'llm-assisted' : 'rule-based';
 
-    if (!modelInput) {
-      return {
-        success: false,
-        mode,
-        needsModelInput: true,
-        plan: [
-          '需要结构模型输入（JSON）后再调用工具链',
-          '拿到模型后执行 validate，再根据意图执行 analyze',
-        ],
-        toolCalls,
-        response: '当前 Agent 已接入工具编排，但你的请求缺少结构模型数据。请先提供 StructureModel v1 JSON（或 simple-1）。',
+    let normalizedModel = modelInput;
+    if (!normalizedModel) {
+      plan.push('从自然语言生成结构模型草案');
+      const draftCall: AgentToolCall = {
+        tool: 'text-to-model-draft',
+        input: { message: params.message },
       };
+      toolCalls.push(draftCall);
+      const draft = this.textToModelDraft(params.message);
+      draftCall.output = draft;
+
+      if (!draft.model) {
+        return {
+          traceId,
+          durationMs: Date.now() - startedAt,
+          success: false,
+          mode,
+          needsModelInput: true,
+          plan,
+          toolCalls,
+          clarification: {
+            missingFields: draft.missingFields,
+            question: `请补充以下信息：${draft.missingFields.join('、')}`,
+          },
+          response: `无法从文本直接生成可计算模型，缺少：${draft.missingFields.join('、')}。`,
+        };
+      }
+
+      normalizedModel = draft.model;
     }
 
-    let normalizedModel = modelInput;
     if (sourceFormat !== 'structuremodel-v1') {
       plan.push(`将输入模型从 ${sourceFormat} 转为 structuremodel-v1`);
       const convertInput = {
@@ -308,6 +357,8 @@ export class AgentService {
       } catch (error: any) {
         convertCall.error = this.stringifyError(error);
         return {
+          traceId,
+          durationMs: Date.now() - startedAt,
           success: false,
           mode,
           needsModelInput: false,
@@ -328,8 +379,10 @@ export class AgentService {
       validateCall.output = validated.data;
     } catch (error: any) {
       validateCall.error = this.stringifyError(error);
-      return {
-        success: false,
+        return {
+          traceId,
+          durationMs: Date.now() - startedAt,
+          success: false,
         mode,
         needsModelInput: false,
         plan,
@@ -345,6 +398,8 @@ export class AgentService {
         '模型已通过校验。根据配置未自动执行 analyze。',
       );
       return {
+        traceId,
+        durationMs: Date.now() - startedAt,
         success: true,
         mode,
         needsModelInput: false,
@@ -374,6 +429,8 @@ export class AgentService {
       );
 
       return {
+        traceId,
+        durationMs: Date.now() - startedAt,
         success: Boolean(analyzed.data?.success),
         mode,
         needsModelInput: false,
@@ -386,6 +443,8 @@ export class AgentService {
     } catch (error: any) {
       analyzeCall.error = this.stringifyError(error);
       return {
+        traceId,
+        durationMs: Date.now() - startedAt,
         success: false,
         mode,
         needsModelInput: false,
@@ -398,10 +457,12 @@ export class AgentService {
   }
 
   async *runStream(params: AgentRunParams): AsyncGenerator<AgentStreamChunk> {
+    const traceId = randomUUID();
     try {
       yield {
         type: 'start',
         content: {
+          traceId,
           mode: params.mode || 'auto',
         },
       };
@@ -409,7 +470,7 @@ export class AgentService {
       const result = await this.run(params);
       yield {
         type: 'result',
-        content: result,
+        content: { ...result, traceId: result.traceId || traceId },
       };
       yield { type: 'done' };
     } catch (error: any) {
@@ -464,5 +525,106 @@ export class AgentService {
       return String(error.message);
     }
     return 'Unknown error';
+  }
+
+  private textToModelDraft(message: string): {
+    inferredType: 'beam' | 'truss' | 'unknown';
+    missingFields: string[];
+    model?: Record<string, unknown>;
+  } {
+    const text = message.toLowerCase();
+    const isBeam = text.includes('beam') || text.includes('梁') || text.includes('悬臂');
+    const isTruss = text.includes('truss') || text.includes('桁架');
+
+    const inferredType: 'beam' | 'truss' | 'unknown' = isBeam ? 'beam' : (isTruss ? 'truss' : 'unknown');
+    const missingFields: string[] = [];
+
+    const length = this.extractNumber(text, [
+      /(\d+(?:\.\d+)?)\s*(?:m|米|meter|meters)/i,
+    ]);
+    const load = this.extractNumber(text, [
+      /(\d+(?:\.\d+)?)\s*(?:kn|千牛)/i,
+    ]);
+
+    if (inferredType === 'unknown') {
+      missingFields.push('结构类型（梁或桁架）');
+    }
+    if (length === null) {
+      missingFields.push('跨度/长度（m）');
+    }
+    if (load === null) {
+      missingFields.push('荷载大小（kN）');
+    }
+
+    if (missingFields.length > 0 || length === null || load === null) {
+      return { inferredType, missingFields };
+    }
+
+    if (inferredType === 'truss') {
+      return {
+        inferredType,
+        missingFields: [],
+        model: {
+          schema_version: '1.0.0',
+          nodes: [
+            { id: '1', x: 0, y: 0, z: 0, restraints: [true, false, true, false, false, false] },
+            { id: '2', x: length, y: 0, z: 0, restraints: [false, false, true, false, false, false] },
+          ],
+          elements: [
+            { id: '1', type: 'truss', nodes: ['1', '2'], material: '1', section: '1' },
+          ],
+          materials: [
+            { id: '1', name: 'steel', E: 200000, nu: 0.3, rho: 7850 },
+          ],
+          sections: [
+            { id: '1', name: 'A1', type: 'rod', properties: { A: 0.01 } },
+          ],
+          load_cases: [
+            { id: 'LC1', type: 'other', loads: [{ node: '2', fx: load }] },
+          ],
+          load_combinations: [],
+          metadata: { source: 'text-draft', inferredType },
+        },
+      };
+    }
+
+    return {
+      inferredType: 'beam',
+      missingFields: [],
+      model: {
+        schema_version: '1.0.0',
+        nodes: [
+          { id: '1', x: 0, y: 0, z: 0, restraints: [true, false, true, false, true, false] },
+          { id: '2', x: length, y: 0, z: 0 },
+        ],
+        elements: [
+          { id: '1', type: 'beam', nodes: ['1', '2'], material: '1', section: '1' },
+        ],
+        materials: [
+          { id: '1', name: 'steel', E: 200000, nu: 0.3, rho: 7850 },
+        ],
+        sections: [
+          { id: '1', name: 'B1', type: 'beam', properties: { A: 0.01, Iy: 0.0001 } },
+        ],
+        load_cases: [
+          { id: 'LC1', type: 'other', loads: [{ node: '2', fz: -load }] },
+        ],
+        load_combinations: [],
+        metadata: { source: 'text-draft', inferredType: 'beam' },
+      },
+    };
+  }
+
+  private extractNumber(text: string, patterns: RegExp[]): number | null {
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match && match[1]) {
+        const value = Number.parseFloat(match[1]);
+        if (Number.isFinite(value)) {
+          return value;
+        }
+      }
+    }
+    return null;
   }
 }

@@ -128,6 +128,41 @@ const run = async () => {
     assert(events[events.length - 1] === 'done', 'stream last event should be done');
     console.log('[ok] agent stream events');
   }
+
+  // 5) text-to-model draft success path
+  {
+    const svc = new AgentService();
+    svc.engineClient.post = async (path, payload) => {
+      if (path === '/validate') {
+        return { data: { valid: true, schemaVersion: '1.0.0' } };
+      }
+      if (path === '/analyze') {
+        return {
+          data: {
+            schema_version: '1.0.0',
+            analysis_type: payload.type,
+            success: true,
+            error_code: null,
+            message: 'ok',
+            data: {},
+            meta: {},
+          },
+        };
+      }
+      throw new Error(`unexpected path ${path}`);
+    };
+
+    const result = await svc.run({
+      message: '请按一个3m悬臂梁，端部10kN竖向荷载做静力分析',
+      mode: 'execute',
+    });
+
+    assert(result.success === true, 'text draft orchestration should succeed');
+    assert(result.toolCalls.some((c) => c.tool === 'text-to-model-draft'), 'text draft tool should be called');
+    assert(result.toolCalls.some((c) => c.tool === 'validate'), 'validate should be called after draft');
+    assert(result.toolCalls.some((c) => c.tool === 'analyze'), 'analyze should be called after draft');
+    console.log('[ok] agent text-to-model draft orchestration');
+  }
 };
 
 run().catch((err) => {

@@ -40,12 +40,12 @@
 - 已新增 Agent 编排入口：`POST /api/v1/agent/run`
   - 已新增工具协议查询：`GET /api/v1/agent/tools`
   - 支持自然语言请求 + 工具链执行轨迹返回
-  - 当前最小工具链：`convert -> validate -> analyze`
-  - 无模型输入时返回结构化补数提示（进入澄清流程）
+  - 当前工具链：`text-to-model-draft -> convert -> validate -> analyze`
+  - 无模型输入时先执行文本草模；信息不足则返回结构化缺参提示
 - Chat 已复用 Agent 执行入口：`POST /api/v1/chat/execute`
 - `POST /api/v1/chat/message` 新增 `mode` 开关：`chat/execute/auto`
 - `POST /api/v1/chat/stream` 已支持 `mode`，可流式返回 Agent 执行事件
-- 已新增 Agent 编排回归脚本：缺参澄清/校验失败/成功编排 三类场景
+- 已新增 Agent 编排回归脚本：协议校验/缺参澄清/校验失败/成功编排/流式事件/文本草模 六类场景
 
 ### 2.3 Core（Python/FastAPI）
 
@@ -220,7 +220,7 @@
 
 建议从以下具体事项启动（下一迭代）：
 
-1. 在 backend 固化 Agent 工具协议（schema + error code）并文档化
-2. 增加 `agent-run` 的工具轨迹回归测试（成功/失败/缺参三类）
-3. 将 chat 入口复用到 `agent-run`，统一“问答与执行”链路
-4. 为文本生成模型补齐最小可行约束与可解释错误反馈
+1. 将 `text-to-model-draft` 从规则版升级为 LLM+规则混合版（保留可降级）
+2. 增加“缺参多轮澄清”状态保持（conversation 级补数，而非单轮提示）
+3. 扩展文本草模覆盖类型（门式刚架/双跨梁/平面桁架）
+4. 为 Agent 执行链路增加 trace_id 与耗时指标，接入可观测性
