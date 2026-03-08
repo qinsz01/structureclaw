@@ -40,6 +40,7 @@ echo "Workspace: $ROOT_DIR"
 run_check "Backend build" "npm run build --prefix backend"
 run_check "Backend lint" "npm run lint --prefix backend"
 run_check "Backend test" "npm test --prefix backend -- --runInBand"
+run_check "Agent orchestration regression" "./scripts/validate-agent-orchestration.sh"
 run_check "Prisma schema validate" "npm run db:validate --prefix backend"
 run_check "Frontend type-check" "npm run type-check --prefix frontend"
 run_check "Frontend lint" "npm run lint --prefix frontend"
@@ -59,6 +60,7 @@ if [[ -n "$CORE_PYTHON" ]]; then
   run_check "Core analyze response contract" "./scripts/validate-analyze-contract.sh"
   run_check "Core static regression" "./scripts/validate-static-regression.sh"
   run_check "Core schema examples validation" "./scripts/validate-structure-examples.sh"
+  run_check "Core convert round-trip" "./scripts/validate-convert-roundtrip.sh"
 else
   echo
   echo "==> Core checks"

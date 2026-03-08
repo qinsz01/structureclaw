@@ -19,4 +19,8 @@ echo "==> StructureModel v1 examples"
 ./scripts/validate-structure-examples.sh
 
 echo
+echo "==> Convert round-trip"
+./scripts/validate-convert-roundtrip.sh
+
+echo
 echo "Core regression checks passed."

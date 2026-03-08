@@ -33,9 +33,19 @@
   - `projects`
   - `skills`
   - `analysis`
+  - `agent`
   - `community`
 - 数据层基础能力：Prisma schema + migration + seed 已具备
 - 缓存降级：支持 `REDIS_URL=disabled` 时回落内存缓存
+- 已新增 Agent 编排入口：`POST /api/v1/agent/run`
+  - 已新增工具协议查询：`GET /api/v1/agent/tools`
+  - 支持自然语言请求 + 工具链执行轨迹返回
+  - 当前最小工具链：`convert -> validate -> analyze`
+  - 无模型输入时返回结构化补数提示（进入澄清流程）
+- Chat 已复用 Agent 执行入口：`POST /api/v1/chat/execute`
+- `POST /api/v1/chat/message` 新增 `mode` 开关：`chat/execute/auto`
+- `POST /api/v1/chat/stream` 已支持 `mode`，可流式返回 Agent 执行事件
+- 已新增 Agent 编排回归脚本：缺参澄清/校验失败/成功编排 三类场景
 
 ### 2.3 Core（Python/FastAPI）
 
@@ -51,8 +61,9 @@
   - `POST /design/column`
 - 数据标准化接口：
   - `GET /schema/structure-model-v1`
+  - `GET /schema/converters`（查询已支持转换格式）
   - `POST /validate`
-  - `POST /convert`（当前支持目标版本 `1.0.0`）
+  - `POST /convert`（支持 `structuremodel-v1` 与 `simple-1` 的导入/导出，目标版本当前 `1.0.0`）
 - 现有数据模型雏形：`Node/Element/Material/Section/StructuralModel`
 
 ### 2.4 前端
@@ -70,21 +81,41 @@
 - 已落地静力线弹性 `2D truss + 2D frame`（OpenSees 不可用时的内置求解路径），支持节点力/均布荷载/荷载组合/批量工况分析与黄金算例回归脚本（误差阈值可配置，当前 10 个算例）
 - 静力结果已补充包络字段：位移/轴力/剪力/弯矩/支座反力最大绝对值，并输出按节点/单元/工况的控制值
 - 已补充批量工况明细包络表：按节点位移、按单元内力、按节点反力的控制值与控制工况
+- 已接入格式转换 round-trip 回归：`structuremodel-v1 -> simple-1 -> structuremodel-v1`
 
 ---
 
 ## 3. 目标能力（To-Be）
 
-最终建设以下四类核心能力：
+最终建设以下五类核心能力：
 
-1. 结构计算分析
-2. 结构格式统一转换
-3. 文本到结构生成与计算
-4. 结构规范校核与报告
+1. Agent 编排与工具调用（OpenClaw 模式）
+2. 结构计算分析
+3. 结构格式统一转换
+4. 文本到结构生成与计算
+5. 结构规范校核与报告
 
 ---
 
 ## 4. 分阶段开发路线（建议）
+
+## 阶段 0：Agent 编排层（最高优先级）
+
+目标：建立“LLM 思考 + 工具调用”的统一执行入口，算法能力以 tools 方式被调用。
+
+核心任务：
+
+- 统一工具协议：`tool_name/input_schema/output_schema/error_code`
+- 建立 Agent 入口：`/api/v1/agent/run`
+- 打通最小工具链：`convert -> validate -> analyze`
+- 建立缺参澄清机制（缺模型/缺荷载/缺边界条件）
+- 加入工具调用轨迹与失败分类日志
+
+验收标准：
+
+- 同一自然语言请求可触发多步工具调用并返回轨迹
+- 工具失败时返回结构化错误与下一步建议
+- 无 `OPENAI_API_KEY` 时具备 rule-based 降级能力
 
 ## 阶段 A：统一结构数据底座（最高优先级）
 
@@ -140,9 +171,9 @@
 - 转换失败有结构化错误信息（字段级）
 
 
-## 阶段 D：文本生成、规范校核与自动报告
+## 阶段 D：文本生成、规范校核与自动报告（基于 Agent）
 
-目标：形成“自然语言 -> 结构模型 -> 计算 -> 校核 -> 报告”的闭环。
+目标：形成“自然语言 -> Agent -> 结构模型 -> 计算 -> 校核 -> 报告”的闭环。
 
 核心任务：
 
@@ -171,13 +202,15 @@
 
 ## 6. 建议优先级（执行顺序）
 
-1. 阶段 A（统一数据底座）
-2. 阶段 B（分析 MVP）
-3. 阶段 C（格式转换）
-4. 阶段 D（文本生成 + 规范校核 + 报告）
+1. 阶段 0（Agent 编排层）
+2. 阶段 A（统一数据底座）
+3. 阶段 B（分析 MVP）
+4. 阶段 C（格式转换）
+5. 阶段 D（文本生成 + 规范校核 + 报告）
 
 原因：
 
+- Agent 是用户交互主入口，工具层应服务于 Agent 编排
 - 不先统一模型，后续转换/AI/校核会反复返工
 - 先拿到稳定分析主链路，其他高级能力才能建立在可验证结果之上
 
@@ -187,7 +220,7 @@
 
 建议从以下具体事项启动（下一迭代）：
 
-1. 输出 `StructureModel v1` 字段清单与 JSON Schema 草案
-2. 在 `core` 落地 `schema_version` + `POST /validate`
-3. 为 `POST /analyze` 定义统一响应结构（含元数据与错误码）
-4. 建立首批 10 个基础算例作为回归基线
+1. 在 backend 固化 Agent 工具协议（schema + error code）并文档化
+2. 增加 `agent-run` 的工具轨迹回归测试（成功/失败/缺参三类）
+3. 将 chat 入口复用到 `agent-run`，统一“问答与执行”链路
+4. 为文本生成模型补齐最小可行约束与可解释错误反馈

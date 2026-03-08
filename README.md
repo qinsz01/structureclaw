@@ -18,6 +18,7 @@
 ```text
 Browser
   -> Next.js frontend (:3000)
+  -> Agent Orchestration (/api/v1/agent/run)
   -> Fastify backend (:8000)
   -> FastAPI analysis engine (:8001)
   -> PostgreSQL / Redis
@@ -160,6 +161,7 @@ make logs
 ## 开发文档
 
 - 开发路线与已完成功能清单：`docs/development-roadmap.md`
+- Agent 流式执行协议：`docs/agent-stream-protocol.md`
 
 ## 环境变量
 
@@ -237,6 +239,10 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - `GET /health`
 - `GET /docs`
 - `GET /api/v1`
+- `POST /api/v1/agent/run`
+- `GET /api/v1/agent/tools`
+- `POST /api/v1/chat/execute`
+- `POST /api/v1/chat/stream` (`mode=chat|execute|auto`)
 - `GET /api/v1/users/*`
 - `GET /api/v1/projects/*`
 - `GET /api/v1/skills/*`
@@ -247,6 +253,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 
 - `GET /`
 - `GET /health`
+- `GET /schema/converters`
 - `POST /analyze`
 - `POST /code-check`
 - `POST /design/beam`

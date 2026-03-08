@@ -17,6 +17,7 @@ from fem.seismic_analysis import SeismicAnalyzer
 from design.concrete import ConcreteDesigner
 from design.steel import SteelDesigner
 from design.code_check import CodeChecker
+from converters import get_converter, supported_formats
 from schemas.structure_model_v1 import StructureModelV1
 
 # 配置日志
@@ -60,6 +61,8 @@ class ValidateRequest(BaseModel):
 class ConvertRequest(BaseModel):
     model: Dict[str, Any]
     target_schema_version: str = "1.0.0"
+    source_format: str = "structuremodel-v1"
+    target_format: str = "structuremodel-v1"
 
 
 class AnalysisResponse(BaseModel):
@@ -104,6 +107,16 @@ async def structure_model_schema():
     return StructureModelV1.model_json_schema()
 
 
+@app.get("/schema/converters")
+async def converter_schema():
+    """返回已支持的格式转换器"""
+    return {
+        "supportedFormats": supported_formats(),
+        "defaultSourceFormat": "structuremodel-v1",
+        "defaultTargetFormat": "structuremodel-v1",
+    }
+
+
 @app.post("/validate")
 async def validate_structure_model(request: ValidateRequest):
     """校验结构模型并返回标准化摘要"""
@@ -134,7 +147,7 @@ async def validate_structure_model(request: ValidateRequest):
 
 @app.post("/convert")
 async def convert_structure_model(request: ConvertRequest):
-    """标准化并转换结构模型（当前支持 v1.0.0）"""
+    """标准化并转换结构模型（当前支持 schema v1.0.0）"""
     if request.target_schema_version != "1.0.0":
         raise HTTPException(
             status_code=400,
@@ -144,8 +157,31 @@ async def convert_structure_model(request: ConvertRequest):
             },
         )
 
+    source_converter = get_converter(request.source_format)
+    if source_converter is None:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "errorCode": "UNSUPPORTED_SOURCE_FORMAT",
+                "message": f"source_format '{request.source_format}' is not supported",
+                "supportedFormats": supported_formats(),
+            },
+        )
+
+    target_converter = get_converter(request.target_format)
+    if target_converter is None:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "errorCode": "UNSUPPORTED_TARGET_FORMAT",
+                "message": f"target_format '{request.target_format}' is not supported",
+                "supportedFormats": supported_formats(),
+            },
+        )
+
     try:
-        model = StructureModelV1.model_validate(request.model)
+        normalized_source = source_converter.to_v1(request.model)
+        model = StructureModelV1.model_validate(normalized_source)
     except ValidationError as e:
         raise HTTPException(
             status_code=422,
@@ -156,9 +192,13 @@ async def convert_structure_model(request: ConvertRequest):
             },
         )
 
-    normalized = model.model_dump(mode="json")
-    normalized["schema_version"] = request.target_schema_version
+    normalized = target_converter.from_v1(model)
+    if request.target_format == "structuremodel-v1":
+        normalized["schema_version"] = request.target_schema_version
+
     return {
+        "sourceFormat": request.source_format,
+        "targetFormat": request.target_format,
         "sourceSchemaVersion": model.schema_version,
         "targetSchemaVersion": request.target_schema_version,
         "model": normalized,
