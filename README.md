@@ -162,6 +162,7 @@ make logs
 
 - 开发路线与已完成功能清单：`docs/development-roadmap.md`
 - Agent 流式执行协议：`docs/agent-stream-protocol.md`
+- 批量转换验证脚本：`scripts/validate-convert-batch.sh`
 
 ## 环境变量
 

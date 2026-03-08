@@ -61,6 +61,7 @@ if [[ -n "$CORE_PYTHON" ]]; then
   run_check "Core static regression" "./scripts/validate-static-regression.sh"
   run_check "Core schema examples validation" "./scripts/validate-structure-examples.sh"
   run_check "Core convert round-trip" "./scripts/validate-convert-roundtrip.sh"
+  run_check "Core batch convert report" "./scripts/validate-convert-batch.sh"
 else
   echo
   echo "==> Core checks"
