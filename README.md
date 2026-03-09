@@ -237,17 +237,34 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 
 ## 已验证的运行状态
 
-2026-03-08 在当前环境已验证：
+2026-03-09 在当前环境已验证：
 
 - 后端可成功编译
 - 后端 lint 可运行
-- 后端测试命令可运行（当前无测试用例）
+- 后端测试命令可运行（当前含 Agent 服务回归测试）
 - Prisma schema 校验通过
+- `make backend-regression` 全通过（构建/lint/test + Agent/Chat 契约回归）
 - 前端类型检查通过
 - 前端 lint 通过
+- 前端 `next build` 可通过（已内置 `EXDEV` rename 兼容补丁）
 - `uv 0.10.8` 可创建 Python 3.11 环境
 - `core` 可在 lite 依赖下导入并执行简化静力分析
 - `make doctor`（等价于 `make check-startup`）可通过
+
+## 当前阶段可用性确认（2026-03-09）
+
+当前代码已达到“可直接使用的工程化 MVP”状态，可用于本地联调、接口对接和回归验证：
+
+- Agent 执行闭环可用：`text-to-model-draft -> convert -> validate -> analyze -> code-check -> report`
+- Chat/Agent 双入口可用：`/api/v1/agent/run`、`/api/v1/chat/execute`、`/api/v1/chat/message`、`/api/v1/chat/stream`
+- 会话级缺参澄清可用：同一 `conversationId` 支持多轮补参与继续建模
+- 执行可观测性可用：`traceId/startedAt/completedAt/durationMs` + 工具耗时聚合指标
+- 回归入口可用：`make backend-regression`、`make core-regression`、`make doctor`
+
+当前不属于“完整产品版”：
+
+- 结构分析目前以 2D 线弹性 MVP 为主，3D 与高级工况能力仍在后续阶段
+- 外部工程格式转换尚未完成首批高频格式接入（当前以内部标准与简化格式为主）
 
 说明：
 
