@@ -164,6 +164,7 @@ make logs
 - Agent 流式执行协议：`docs/agent-stream-protocol.md`
 - 批量转换验证脚本：`scripts/validate-convert-batch.sh`
 - Schema 迁移验证脚本：`scripts/validate-schema-migration.sh`
+- 转换通过率验证脚本：`scripts/validate-convert-passrate.sh`
 
 ## 环境变量
 

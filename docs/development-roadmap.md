@@ -84,6 +84,7 @@
 - 静力结果已补充包络字段：位移/轴力/剪力/弯矩/支座反力最大绝对值，并输出按节点/单元/工况的控制值
 - 已补充批量工况明细包络表：按节点位移、按单元内力、按节点反力的控制值与控制工况
 - 已接入格式转换 round-trip 回归：`structuremodel-v1 -> simple-1 -> structuremodel-v1`
+- 已接入 round-trip 通过率校验脚本：`scripts/validate-convert-passrate.sh`（阈值 95%）
 
 ---
 

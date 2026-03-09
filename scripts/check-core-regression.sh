@@ -31,4 +31,8 @@ echo "==> Batch convert report"
 ./scripts/validate-convert-batch.sh
 
 echo
+echo "==> Convert round-trip pass rate"
+./scripts/validate-convert-passrate.sh
+
+echo
 echo "Core regression checks passed."

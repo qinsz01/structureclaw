@@ -63,6 +63,7 @@ if [[ -n "$CORE_PYTHON" ]]; then
   run_check "Core convert round-trip" "./scripts/validate-convert-roundtrip.sh"
   run_check "Core schema migration" "./scripts/validate-schema-migration.sh"
   run_check "Core batch convert report" "./scripts/validate-convert-batch.sh"
+  run_check "Core convert pass rate" "./scripts/validate-convert-passrate.sh"
 else
   echo
   echo "==> Core checks"
