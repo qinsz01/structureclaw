@@ -92,6 +92,27 @@ if missing_envelope:
     raise SystemExit(f'Missing envelope fields for 3D truss: {sorted(missing_envelope)}')
 print('[ok] analyze 3d truss envelope contract')
 
+frame_3d_model = StructureModelV1(
+    schema_version='1.0.0',
+    nodes=[
+        Node(id='1', x=0, y=0, z=0, restraints=[True, True, True, True, True, True]),
+        Node(id='2', x=0, y=3, z=0, restraints=[True, False, True, True, True, True]),
+    ],
+    elements=[Element(id='1', type='beam', nodes=['1', '2'], material='1', section='1')],
+    materials=[Material(id='1', name='steel', E=200000, nu=0.3, rho=7850)],
+    sections=[Section(id='1', name='B1', type='beam', properties={'A': 0.01, 'Iy': 0.0001, 'Iz': 0.0001, 'J': 0.00002, 'G': 79000})],
+    load_cases=[{'id': 'LC1', 'type': 'other', 'loads': [{'node': '2', 'fy': 6.0}]}],
+    load_combinations=[],
+)
+
+frame_3d_request = AnalysisRequest(type='static', model=frame_3d_model, parameters={'loadCaseIds': ['LC1']})
+frame_3d_result = asyncio.run(analyze(frame_3d_request)).model_dump()
+if frame_3d_result['success'] is not True:
+    raise SystemExit('Expected success=true for 3D frame request')
+if frame_3d_result.get('data', {}).get('analysisMode') != 'linear_3d_frame':
+    raise SystemExit(f"Expected analysisMode=linear_3d_frame, got {frame_3d_result.get('data', {}).get('analysisMode')}")
+print('[ok] analyze 3d frame envelope contract')
+
 bad_request = AnalysisRequest(type='unknown', model=model, parameters={})
 try:
     asyncio.run(analyze(bad_request))

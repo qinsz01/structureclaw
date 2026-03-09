@@ -302,7 +302,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - 前端 `next build` 可通过（已内置 `EXDEV` rename 兼容补丁）
 - `uv 0.10.8` 可创建 Python 3.11 环境
 - `core` 可在 lite 依赖下导入并执行简化静力分析
-- Core 静力回归覆盖 2D + 3D truss（单工况/组合/批量包络）算例
+- Core 静力回归覆盖 2D + 3D truss/3D frame 最小子集（单工况/组合/批量包络）算例
 - `make doctor`（等价于 `make check-startup`）可通过
 
 ## 当前阶段可用性确认（2026-03-09）

@@ -149,13 +149,21 @@ class StaticAnalyzer:
         """
         batch_cases = parameters.get('batchCases', [])
 
-        if self._can_run_2d_frame_solver():
+        if self._can_run_2d_frame_solver() and not self._requires_3d_frame_solver(parameters):
             try:
                 if batch_cases:
                     return self._run_batch_cases(parameters, self._run_linear_2d_frame)
                 return self._run_linear_2d_frame(parameters)
             except Exception as e:
                 logger.warning(f"2D frame solver failed, trying truss/zero fallback: {e}")
+
+        if self._can_run_3d_frame_solver() and self._requires_3d_frame_solver(parameters):
+            try:
+                if batch_cases:
+                    return self._run_batch_cases(parameters, self._run_linear_3d_frame)
+                return self._run_linear_3d_frame(parameters)
+            except Exception as e:
+                logger.warning(f"3D frame solver failed, trying 3D truss/2D/zero fallback: {e}")
 
         if self._can_run_3d_truss_solver() and self._requires_3d_truss_solver():
             try:
@@ -361,6 +369,33 @@ class StaticAnalyzer:
         if not self.model.elements:
             return False
         return all(elem.type == 'beam' for elem in self.model.elements)
+
+    def _can_run_3d_frame_solver(self) -> bool:
+        """判断是否可用内置 3D frame 求解器。"""
+        if not self.model.elements:
+            return False
+        return all(elem.type == 'beam' for elem in self.model.elements)
+
+    def _requires_3d_frame_solver(self, parameters: Dict[str, Any]) -> bool:
+        """
+        判断 beam 模型是否需要 3D 求解路径。
+        几何判定：节点 y 坐标存在离散变化。
+        荷载判定：存在 fy / mx / mz 非零节点荷载。
+        """
+        ys = [float(node.y) for node in self.model.nodes]
+        if ys and (max(ys) - min(ys) > 1e-12):
+            return True
+
+        for load in self._collect_nodal_loads(parameters):
+            if str(load.get('type', '')) == 'distributed':
+                continue
+            if abs(float(load.get('fy', 0.0))) > 1e-12:
+                return True
+            if abs(float(load.get('mx', load.get('momentX', 0.0)))) > 1e-12:
+                return True
+            if abs(float(load.get('mz', load.get('momentZ', 0.0)))) > 1e-12:
+                return True
+        return False
 
     def _can_run_3d_truss_solver(self) -> bool:
         """判断是否可用内置 3D truss 求解器。"""
@@ -839,6 +874,269 @@ class StaticAnalyzer:
             'envelope': self._build_envelope(displacements, forces, reactions),
             'summary': self._generate_summary(displacements, forces),
         }
+
+    def _run_linear_3d_frame(self, parameters: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        3D frame/beam 线弹性静力分析（DOF: ux, uy, uz, rx, ry, rz）。
+        说明：当前版本先支持节点荷载工况（不含 3D 分布荷载）。
+        """
+        node_order = sorted(self.model.nodes, key=lambda n: n.id)
+        node_index = {node.id: idx for idx, node in enumerate(node_order)}
+        dof_count = len(node_order) * 6
+
+        K = np.zeros((dof_count, dof_count), dtype=float)
+        F = np.zeros(dof_count, dtype=float)
+
+        element_meta: Dict[str, Dict[str, Any]] = {}
+        for elem in self.model.elements:
+            n1 = self.nodes[elem.nodes[0]]
+            n2 = self.nodes[elem.nodes[1]]
+            mat = self.materials[elem.material]
+            sec = self.sections[elem.section]
+
+            p1 = np.array([float(n1.x), float(n1.y), float(n1.z)], dtype=float)
+            p2 = np.array([float(n2.x), float(n2.y), float(n2.z)], dtype=float)
+            vec = p2 - p1
+            L = float(np.linalg.norm(vec))
+            if L <= 0.0:
+                raise ValueError(f"Element '{elem.id}' has zero length")
+
+            A = float(sec.properties.get('A', 0.0))
+            Iy = float(sec.properties.get('Iy', sec.properties.get('Iz', 0.0)))
+            Iz = float(sec.properties.get('Iz', sec.properties.get('Iy', 0.0)))
+            J = float(sec.properties.get('J', 0.0))
+            E = float(mat.E)
+            G = float(sec.properties.get('G', E / (2.0 * (1.0 + float(mat.nu)))))
+
+            if A <= 0.0 or Iy <= 0.0 or Iz <= 0.0:
+                raise ValueError(f"Element '{elem.id}' requires A/Iy/Iz > 0 for 3D frame solver")
+            if J <= 0.0:
+                # 为最小可用路径提供扭转惯量兜底，避免常见输入缺失导致求解失败。
+                J = max(Iy + Iz, 1e-9)
+
+            R = self._build_3d_rotation_matrix(vec / L)
+            T = np.zeros((12, 12), dtype=float)
+            T[0:3, 0:3] = R
+            T[3:6, 3:6] = R
+            T[6:9, 6:9] = R
+            T[9:12, 9:12] = R
+
+            k_local = self._build_3d_frame_local_stiffness(E, G, A, Iy, Iz, J, L)
+            k_global = T.T @ k_local @ T
+
+            i = node_index[n1.id] * 6
+            j = node_index[n2.id] * 6
+            dofs = [i, i + 1, i + 2, i + 3, i + 4, i + 5, j, j + 1, j + 2, j + 3, j + 4, j + 5]
+            for r in range(12):
+                for c_idx in range(12):
+                    K[dofs[r], dofs[c_idx]] += k_global[r, c_idx]
+
+            element_meta[elem.id] = {
+                'dofs': dofs,
+                'k_local': k_local,
+                'transform': T,
+                'A': A,
+            }
+
+        for load in self._collect_nodal_loads(parameters):
+            if str(load.get('type', '')) == 'distributed':
+                continue
+            node_id = str(load.get('node', ''))
+            if node_id not in node_index:
+                continue
+            i = node_index[node_id] * 6
+            F[i] += float(load.get('fx', 0.0))
+            F[i + 1] += float(load.get('fy', 0.0))
+            F[i + 2] += float(load.get('fz', 0.0))
+            F[i + 3] += float(load.get('mx', load.get('momentX', 0.0)))
+            F[i + 4] += float(load.get('my', load.get('momentY', 0.0)))
+            F[i + 5] += float(load.get('mz', load.get('momentZ', 0.0)))
+
+        fixed_dofs = set()
+        for node in node_order:
+            idx = node_index[node.id] * 6
+            restraints = node.restraints or [False] * 6
+            for k in range(6):
+                if restraints[k]:
+                    fixed_dofs.add(idx + k)
+
+        free_dofs = [i for i in range(dof_count) if i not in fixed_dofs]
+        if not free_dofs:
+            raise ValueError("No free DOFs for solving")
+
+        Kff = K[np.ix_(free_dofs, free_dofs)]
+        Ff = F[free_dofs]
+        Uf = np.linalg.solve(Kff, Ff)
+
+        U = np.zeros(dof_count, dtype=float)
+        U[free_dofs] = Uf
+        Rf = K @ U - F
+
+        displacements = {}
+        for node in node_order:
+            i = node_index[node.id] * 6
+            displacements[node.id] = {
+                'ux': float(U[i]),
+                'uy': float(U[i + 1]),
+                'uz': float(U[i + 2]),
+                'rx': float(U[i + 3]),
+                'ry': float(U[i + 4]),
+                'rz': float(U[i + 5]),
+            }
+
+        forces = {}
+        for elem in self.model.elements:
+            meta = element_meta[elem.id]
+            dofs = meta['dofs']
+            u_global = U[dofs]
+            u_local = meta['transform'] @ u_global
+            f_local = meta['k_local'] @ u_local
+            A = float(meta['A'])
+
+            v1 = float(np.sqrt(f_local[1] ** 2 + f_local[2] ** 2))
+            v2 = float(np.sqrt(f_local[7] ** 2 + f_local[8] ** 2))
+            m1 = float(np.sqrt(f_local[4] ** 2 + f_local[5] ** 2))
+            m2 = float(np.sqrt(f_local[10] ** 2 + f_local[11] ** 2))
+
+            forces[elem.id] = {
+                'n1': {
+                    'N': float(f_local[0]),
+                    'V': v1,
+                    'M': m1,
+                    'V2': float(f_local[1]),
+                    'V3': float(f_local[2]),
+                    'T': float(f_local[3]),
+                    'M2': float(f_local[4]),
+                    'M3': float(f_local[5]),
+                },
+                'n2': {
+                    'N': float(f_local[6]),
+                    'V': v2,
+                    'M': m2,
+                    'V2': float(f_local[7]),
+                    'V3': float(f_local[8]),
+                    'T': float(f_local[9]),
+                    'M2': float(f_local[10]),
+                    'M3': float(f_local[11]),
+                },
+                'axial': float(f_local[0]),
+                'stress': float(f_local[0] / A) if A > 0.0 else 0.0,
+            }
+
+        reactions = {}
+        for node in node_order:
+            i = node_index[node.id] * 6
+            if any((i + k) in fixed_dofs for k in range(6)):
+                reactions[node.id] = {
+                    'fx': float(Rf[i]),
+                    'fy': float(Rf[i + 1]),
+                    'fz': float(Rf[i + 2]),
+                    'mx': float(Rf[i + 3]),
+                    'my': float(Rf[i + 4]),
+                    'mz': float(Rf[i + 5]),
+                }
+
+        return {
+            'status': 'success',
+            'analysisMode': 'linear_3d_frame',
+            'displacements': displacements,
+            'forces': forces,
+            'reactions': reactions,
+            'envelope': self._build_envelope(displacements, forces, reactions),
+            'summary': self._generate_summary(displacements, forces),
+        }
+
+    def _build_3d_rotation_matrix(self, ex: np.ndarray) -> np.ndarray:
+        """构建 3D frame 局部坐标旋转矩阵（局部 x 沿杆轴）。"""
+        ref = np.array([0.0, 0.0, 1.0], dtype=float)
+        if abs(float(np.dot(ex, ref))) > 0.98:
+            ref = np.array([0.0, 1.0, 0.0], dtype=float)
+
+        ey = np.cross(ref, ex)
+        ey_norm = float(np.linalg.norm(ey))
+        if ey_norm <= 0.0:
+            raise ValueError("Cannot construct local y-axis for 3D frame element")
+        ey /= ey_norm
+        ez = np.cross(ex, ey)
+        ez_norm = float(np.linalg.norm(ez))
+        if ez_norm <= 0.0:
+            raise ValueError("Cannot construct local z-axis for 3D frame element")
+        ez /= ez_norm
+        return np.vstack([ex, ey, ez])
+
+    def _build_3d_frame_local_stiffness(
+        self,
+        E: float,
+        G: float,
+        A: float,
+        Iy: float,
+        Iz: float,
+        J: float,
+        L: float,
+    ) -> np.ndarray:
+        """构建 3D frame 局部刚度矩阵（Euler-Bernoulli）。"""
+        k = np.zeros((12, 12), dtype=float)
+
+        EA_L = E * A / L
+        GJ_L = G * J / L
+        EIy = E * Iy
+        EIz = E * Iz
+
+        # Axial
+        k[0, 0] = EA_L
+        k[0, 6] = -EA_L
+        k[6, 0] = -EA_L
+        k[6, 6] = EA_L
+
+        # Torsion
+        k[3, 3] = GJ_L
+        k[3, 9] = -GJ_L
+        k[9, 3] = -GJ_L
+        k[9, 9] = GJ_L
+
+        # Bending about local z (v-rz coupling, uses Iz)
+        k[1, 1] = 12.0 * EIz / (L ** 3)
+        k[1, 5] = 6.0 * EIz / (L ** 2)
+        k[1, 7] = -12.0 * EIz / (L ** 3)
+        k[1, 11] = 6.0 * EIz / (L ** 2)
+
+        k[5, 1] = 6.0 * EIz / (L ** 2)
+        k[5, 5] = 4.0 * EIz / L
+        k[5, 7] = -6.0 * EIz / (L ** 2)
+        k[5, 11] = 2.0 * EIz / L
+
+        k[7, 1] = -12.0 * EIz / (L ** 3)
+        k[7, 5] = -6.0 * EIz / (L ** 2)
+        k[7, 7] = 12.0 * EIz / (L ** 3)
+        k[7, 11] = -6.0 * EIz / (L ** 2)
+
+        k[11, 1] = 6.0 * EIz / (L ** 2)
+        k[11, 5] = 2.0 * EIz / L
+        k[11, 7] = -6.0 * EIz / (L ** 2)
+        k[11, 11] = 4.0 * EIz / L
+
+        # Bending about local y (w-ry coupling, uses Iy)
+        k[2, 2] = 12.0 * EIy / (L ** 3)
+        k[2, 4] = -6.0 * EIy / (L ** 2)
+        k[2, 8] = -12.0 * EIy / (L ** 3)
+        k[2, 10] = -6.0 * EIy / (L ** 2)
+
+        k[4, 2] = -6.0 * EIy / (L ** 2)
+        k[4, 4] = 4.0 * EIy / L
+        k[4, 8] = 6.0 * EIy / (L ** 2)
+        k[4, 10] = 2.0 * EIy / L
+
+        k[8, 2] = -12.0 * EIy / (L ** 3)
+        k[8, 4] = 6.0 * EIy / (L ** 2)
+        k[8, 8] = 12.0 * EIy / (L ** 3)
+        k[8, 10] = 6.0 * EIy / (L ** 2)
+
+        k[10, 2] = -6.0 * EIy / (L ** 2)
+        k[10, 4] = 2.0 * EIy / L
+        k[10, 8] = 6.0 * EIy / (L ** 2)
+        k[10, 10] = 4.0 * EIy / L
+
+        return k
 
     def _collect_nodal_loads(self, parameters: Dict[str, Any]) -> List[Dict[str, Any]]:
         """收集荷载（优先 request.parameters，其次模型中的 load_cases）。"""
