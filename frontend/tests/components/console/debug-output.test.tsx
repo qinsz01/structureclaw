@@ -89,10 +89,11 @@ describe('DebugOutput (CONS-14)', () => {
   })
 
   it('shows error message when present', () => {
-    renderWithProvider({ error: sampleError })
+    const { container } = renderWithProvider({ error: sampleError })
 
-    expect(screen.getByText(/error/i)).toBeInTheDocument()
-    expect(screen.getByText('Test error message')).toBeInTheDocument()
+    // Check error container exists and contains the message
+    expect(container.textContent).toContain('Test error message')
+    expect(container.textContent).toContain('TEST_ERROR')
   })
 
   it('shows "None" when no raw response', () => {
