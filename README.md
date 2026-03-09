@@ -284,6 +284,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - `POST /code-check`
 - `POST /design/beam`
 - `POST /design/column`
+- `POST /code-check` 支持可追溯校核字段（`clause/formula/inputs/utilization`）
 
 ## 已知说明
 

@@ -11,6 +11,10 @@ echo "==> Analyze response contract"
 ./scripts/validate-analyze-contract.sh
 
 echo
+echo "==> Code-check traceability"
+./scripts/validate-code-check-traceability.sh
+
+echo
 echo "==> Static regression cases"
 ./scripts/validate-static-regression.sh
 

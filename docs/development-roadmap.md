@@ -59,6 +59,7 @@
   - `POST /code-check`
   - `POST /design/beam`
   - `POST /design/column`
+  - `POST /code-check` 已支持 traceability 上下文：分析摘要、条文、公式、输入参数与控制校核项
 - 数据标准化接口：
   - `GET /schema/structure-model-v1`
   - `GET /schema/converters`（查询已支持转换格式）

@@ -274,6 +274,7 @@ const run = async () => {
   // 8) analyze -> code-check -> report closed loop
   {
     const svc = new AgentService();
+    let capturedCodeCheckPayload;
     svc.engineClient.post = async (path, payload) => {
       if (path === '/validate') {
         return { data: { valid: true, schemaVersion: '1.0.0' } };
@@ -292,12 +293,28 @@ const run = async () => {
         };
       }
       if (path === '/code-check') {
+        capturedCodeCheckPayload = payload;
         return {
           data: {
             code: payload.code,
             status: 'success',
             summary: { total: payload.elements.length, passed: payload.elements.length, failed: 0, warnings: 0 },
-            details: [],
+            traceability: { analysisSummary: payload.context?.analysisSummary || {} },
+            details: [{
+              elementId: payload.elements[0],
+              status: 'pass',
+              checks: [{
+                name: '强度验算',
+                items: [{
+                  item: '正应力',
+                  clause: 'GB50017-2017 7.1.1',
+                  formula: 'σ = N/A <= f',
+                  inputs: { demand: 0.7, capacity: 1.0, limit: 1.0 },
+                  utilization: 0.7,
+                  status: 'pass',
+                }],
+              }],
+            }],
           },
         };
       }
@@ -320,6 +337,13 @@ const run = async () => {
         autoAnalyze: true,
         autoCodeCheck: true,
         designCode: 'GB50017',
+        parameters: {
+          utilizationByElement: {
+            E1: {
+              '正应力': 0.72,
+            },
+          },
+        },
         includeReport: true,
         reportFormat: 'both',
       },
@@ -329,6 +353,9 @@ const run = async () => {
     assert(result.toolCalls.some((c) => c.tool === 'code-check'), 'code-check should be called');
     assert(result.toolCalls.some((c) => c.tool === 'report'), 'report should be called');
     assert(result.codeCheck?.code === 'GB50017', 'code-check output should exist');
+    assert(capturedCodeCheckPayload?.context?.analysisSummary?.analysisType === 'static', 'analysis summary should be forwarded');
+    assert(capturedCodeCheckPayload?.context?.utilizationByElement?.E1?.['正应力'] === 0.72, 'utilization context should be forwarded');
+    assert(result.codeCheck?.details?.[0]?.checks?.[0]?.items?.[0]?.clause, 'code-check should include traceable clause');
     assert(typeof result.report?.markdown === 'string', 'markdown report should be generated');
     console.log('[ok] analyze code-check report closed loop');
   }

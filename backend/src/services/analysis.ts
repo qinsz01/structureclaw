@@ -183,8 +183,14 @@ export class AnalysisService {
     modelId: string;
     code: string;
     elements: string[];
+    context?: Record<string, unknown>;
   }) {
-    const response = await axios.post(`${this.engineUrl}/code-check`, params);
+    const response = await axios.post(`${this.engineUrl}/code-check`, {
+      model_id: params.modelId,
+      code: params.code,
+      elements: params.elements,
+      context: params.context || {},
+    });
     return response.data;
   }
 }

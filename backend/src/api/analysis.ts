@@ -126,7 +126,7 @@ export async function analysisRoutes(fastify: FastifyInstance) {
       summary: '规范校核',
     },
   }, async (
-    request: FastifyRequest<{ Body: { modelId: string; code: string; elements: string[] } }>,
+    request: FastifyRequest<{ Body: { modelId: string; code: string; elements: string[]; context?: Record<string, unknown> } }>,
     reply: FastifyReply
   ) => {
     const body = request.body;

@@ -58,6 +58,7 @@ if [[ -n "$CORE_PYTHON" ]]; then
   run_check "Core import" "$CORE_PYTHON -c \"import sys; sys.path.insert(0, 'core'); import main; print(main.app.title)\""
   run_check "Core simplified analysis" "$CORE_PYTHON -c \"import sys; sys.path.insert(0, 'core'); from main import AnalysisRequest, analyze; from schemas.structure_model_v1 import StructureModelV1, Node, Element, Material, Section; import asyncio; req=AnalysisRequest(type='static', model=StructureModelV1(nodes=[Node(id='1',x=0,y=0,z=0,restraints=[True,True,True,True,True,True]),Node(id='2',x=0,y=0,z=3)], elements=[Element(id='1',type='beam',nodes=['1','2'],material='1',section='1')], materials=[Material(id='1',name='steel',E=200000,nu=0.3,rho=7850,fy=345)], sections=[Section(id='1',name='W',type='beam',properties={'A':0.01,'E':200000,'Iz':0.0001,'Iy':0.0001,'G':79000,'J':0.0001})]), parameters={}); result=asyncio.run(analyze(req)); print(result.success)\""
   run_check "Core analyze response contract" "./scripts/validate-analyze-contract.sh"
+  run_check "Core code-check traceability" "./scripts/validate-code-check-traceability.sh"
   run_check "Core static regression" "./scripts/validate-static-regression.sh"
   run_check "Core schema examples validation" "./scripts/validate-structure-examples.sh"
   run_check "Core convert round-trip" "./scripts/validate-convert-roundtrip.sh"

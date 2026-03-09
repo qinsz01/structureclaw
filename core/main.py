@@ -85,6 +85,7 @@ class CodeCheckRequest(BaseModel):
     model_id: str
     code: str  # GB50010, GB50017, etc.
     elements: List[str]
+    context: Dict[str, Any] = {}
 
 
 # ============ API 端点 ============
@@ -286,7 +287,7 @@ async def code_check(request: CodeCheckRequest):
     """
     try:
         checker = CodeChecker(request.code)
-        result = checker.check(request.model_id, request.elements)
+        result = checker.check(request.model_id, request.elements, request.context)
         return result
 
     except Exception as e:

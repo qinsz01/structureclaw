@@ -610,6 +610,10 @@ export class AgentService {
           modelId: traceId,
           code: designCode,
           elements: codeCheckElements,
+          context: {
+            analysisSummary: this.extractAnalysisSummary(analyzed.data),
+            utilizationByElement: this.extractUtilizationByElement(analysisParameters),
+          },
         };
         const codeCheckCall = this.startToolCall('code-check', codeCheckInput);
         toolCalls.push(codeCheckCall);
@@ -619,6 +623,7 @@ export class AgentService {
             model_id: codeCheckInput.modelId,
             code: codeCheckInput.code,
             elements: codeCheckInput.elements,
+            context: codeCheckInput.context,
           });
           this.completeToolCallSuccess(codeCheckCall, codeChecked.data);
           codeCheckResult = codeChecked.data;
@@ -784,6 +789,27 @@ export class AgentService {
       json: jsonReport,
       markdown: params.format === 'both' || params.format === 'markdown' ? markdown : undefined,
     };
+  }
+
+  private extractAnalysisSummary(analysis: unknown): Record<string, unknown> {
+    const data = analysis as Record<string, unknown> | undefined;
+    if (!data) {
+      return {};
+    }
+    return {
+      analysisType: data['analysis_type'],
+      success: data['success'],
+      errorCode: data['error_code'],
+      message: data['message'],
+    };
+  }
+
+  private extractUtilizationByElement(parameters: Record<string, unknown>): Record<string, unknown> {
+    const raw = parameters['utilizationByElement'];
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      return raw as Record<string, unknown>;
+    }
+    return {};
   }
 
   private async renderSummary(message: string, fallback: string): Promise<string> {
