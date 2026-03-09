@@ -3,7 +3,7 @@ UV_CACHE_DIR ?= /tmp/uv-cache
 UV_PYTHON_INSTALL_DIR ?= /tmp/uv-python
 CORE_PYTHON_VERSION ?= 3.11
 
-.PHONY: help install setup-core-lite setup-core-full setup-core-lite-uv setup-core-full-uv dev-backend dev-frontend dev-core-lite dev-core-full build db-up db-down db-init docker-up docker-down local-up local-up-full local-up-uv local-up-full-uv local-up-noinfra local-down local-status health check-startup core-regression doctor start start-full stop status logs sclaw-install up
+.PHONY: help install setup-core-lite setup-core-full setup-core-lite-uv setup-core-full-uv dev-backend dev-frontend dev-core-lite dev-core-full build db-up db-down db-init docker-up docker-down local-up local-up-full local-up-uv local-up-full-uv local-up-noinfra local-down local-status health check-startup backend-regression core-regression doctor start start-full stop status logs sclaw-install up
 
 help:
 	@echo "Available targets:"
@@ -30,6 +30,7 @@ help:
 	@echo "  local-down      Stop local app processes and infra"
 	@echo "  local-status    Show local app process/health status"
 	@echo "  health          Check local service health endpoints"
+	@echo "  backend-regression Run backend + agent/chat contract regressions"
 	@echo "  check-startup   Run local startup checks without launching the full stack"
 	@echo "  core-regression Run core analysis regression checks (contract + cases + schema)"
 	@echo "  doctor          Beginner alias of check-startup"
@@ -120,6 +121,9 @@ health:
 
 check-startup:
 	./scripts/check-startup.sh
+
+backend-regression:
+	./scripts/check-backend-regression.sh
 
 core-regression:
 	./scripts/check-core-regression.sh

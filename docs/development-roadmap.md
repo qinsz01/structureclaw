@@ -20,6 +20,7 @@
 - 多服务骨架已可运行：`frontend` + `backend` + `core` + `docker-compose`
 - 本地一键开发命令：`make doctor/start/status/stop/logs`
 - Core 回归入口命令：`make core-regression`（契约 + 静力算例 + 数据模型样例）
+- Backend 回归入口命令：`make backend-regression`（构建/lint/test + Agent/Chat 契约）
 - CI 已接入 Core 回归工作流：`.github/workflows/core-regression.yml`
 - 独立 CLI 已可用：`./sclaw ...`，并支持 npm 安装后直接 `sclaw ...`
 - 基础启动检查已接入：后端/前端/core 的可运行性检查
