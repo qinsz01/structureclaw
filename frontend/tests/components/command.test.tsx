@@ -14,6 +14,14 @@ import {
   useCommandMenu,
 } from '@/components/ui/command'
 
+// ResizeObserver polyfill for cmdk library
+class MockResizeObserver {
+  observe = vi.fn()
+  unobserve = vi.fn()
+  disconnect = vi.fn()
+}
+global.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver
+
 // Polyfills for Radix UI components
 beforeEach(() => {
   HTMLElement.prototype.hasPointerCapture = vi.fn()
