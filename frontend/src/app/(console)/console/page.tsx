@@ -12,6 +12,8 @@ import {
   ArtifactsList,
   DebugOutput,
   StatusIndicator,
+  ErrorDisplay,
+  ClarificationPrompt,
 } from '@/components/console'
 
 /**
@@ -46,21 +48,11 @@ export default function ConsolePage() {
         }
         right={
           <div className="p-4 space-y-4 overflow-auto h-full">
-            {/* Error display - inline until ErrorDisplay component is created in 05-06 */}
-            {error && (
-              <div className="rounded-md bg-destructive/10 p-4 text-destructive">
-                <p className="font-semibold">Error</p>
-                <p className="text-sm mt-1">{error.message}</p>
-                {error.code && (
-                  <p className="text-xs mt-1 opacity-70">Code: {error.code}</p>
-                )}
-                {error.details && (
-                  <pre className="text-xs mt-2 overflow-auto">
-                    {JSON.stringify(error.details, null, 2)}
-                  </pre>
-                )}
-              </div>
-            )}
+            {/* Error display */}
+            <ErrorDisplay error={error} />
+
+            {/* Clarification prompt */}
+            {result?.clarification && <ClarificationPrompt clarification={result.clarification} />}
 
             {/* Result display */}
             {result && <ResultDisplay result={result} />}
