@@ -1,3 +1,5 @@
 export { EndpointSelector } from './endpoint-selector'
 export { MessageInput } from './message-input'
 export { ModelJsonPanel } from './model-json-panel'
+export { ConfigPanel } from './config-panel'
+export { ExecuteButton } from './execute-button'
