@@ -14,6 +14,10 @@ const assert = (cond, msg) => {
 };
 
 const run = async () => {
+  process.env.LLM_API_KEY = '';
+  process.env.OPENAI_API_KEY = '';
+  process.env.ZAI_API_KEY = '';
+  process.env.LLM_PROVIDER = 'openai';
   const fs = await import('node:fs');
   const { AgentService } = await import('./backend/dist/services/agent.js');
 

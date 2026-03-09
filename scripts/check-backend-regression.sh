@@ -39,6 +39,10 @@ echo "==> Chat message routing contract"
 ./scripts/validate-chat-message-routing.sh
 
 echo
+echo "==> Report template contract"
+./scripts/validate-report-template-contract.sh
+
+echo
 echo "==> Prisma schema validate"
 if [[ -z "${DATABASE_URL:-}" ]]; then
   export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/structureclaw"

@@ -816,9 +816,17 @@ export class AgentService {
       ? `校核通过 ${String(codeCheckSummary.passed ?? 0)} / ${String(codeCheckSummary.total ?? 0)}`
       : '未执行规范校核';
     const summary = `分析类型 ${params.analysisType}，分析${analysisSuccess ? '成功' : '失败'}，${codeCheckText}。`;
+    const keyMetrics = this.extractKeyMetrics(params.analysis, params.codeCheck);
+    const clauseTraceability = this.extractClauseTraceability(params.codeCheck);
+    const controllingCases = this.extractControllingCases(params.analysis);
     const jsonReport: Record<string, unknown> = {
+      reportSchemaVersion: '1.0.0',
       intent: params.message,
       analysisType: params.analysisType,
+      summary,
+      keyMetrics,
+      clauseTraceability,
+      controllingCases,
       analysis: params.analysis,
       codeCheck: params.codeCheck,
       generatedAt: new Date().toISOString(),
@@ -834,13 +842,33 @@ export class AgentService {
     const markdown = [
       '# StructureClaw 计算报告',
       '',
+      '## 目录',
+      '1. 执行摘要',
+      '2. 关键指标',
+      '3. 条文追溯',
+      '4. 控制工况',
+      '',
+      '## 执行摘要',
       `- 用户意图：${params.message}`,
       `- 分析类型：${params.analysisType}`,
       `- 分析结果：${analysisSuccess ? '成功' : '失败'}`,
       `- 规范校核：${codeCheckText}`,
       '',
-      '## 结果摘要',
       summary,
+      '',
+      '## 关键指标',
+      `- 最大位移: ${String((keyMetrics as Record<string, unknown>).maxAbsDisplacement ?? 'N/A')}`,
+      `- 最大轴力: ${String((keyMetrics as Record<string, unknown>).maxAbsAxialForce ?? 'N/A')}`,
+      `- 最大剪力: ${String((keyMetrics as Record<string, unknown>).maxAbsShearForce ?? 'N/A')}`,
+      `- 最大弯矩: ${String((keyMetrics as Record<string, unknown>).maxAbsMoment ?? 'N/A')}`,
+      `- 最大反力: ${String((keyMetrics as Record<string, unknown>).maxAbsReaction ?? 'N/A')}`,
+      `- 校核通过率: ${String((keyMetrics as Record<string, unknown>).codeCheckPassRate ?? 'N/A')}`,
+      '',
+      '## 条文追溯',
+      ...this.renderClauseTraceabilityMarkdown(clauseTraceability),
+      '',
+      '## 控制工况',
+      ...this.renderControllingCasesMarkdown(controllingCases),
     ].join('\n');
 
     return {
@@ -848,6 +876,134 @@ export class AgentService {
       json: jsonReport,
       markdown: params.format === 'both' || params.format === 'markdown' ? markdown : undefined,
     };
+  }
+
+  private extractKeyMetrics(analysis: unknown, codeCheck: unknown): Record<string, unknown> {
+    const analysisPayload = analysis && typeof analysis === 'object' ? analysis as Record<string, unknown> : {};
+    const analysisData = analysisPayload['data'];
+    const analysisDataObject = analysisData && typeof analysisData === 'object' ? analysisData as Record<string, unknown> : {};
+    const envelope = analysisDataObject['envelope'];
+    const envelopeObject = envelope && typeof envelope === 'object' ? envelope as Record<string, unknown> : {};
+
+    const codeCheckPayload = codeCheck && typeof codeCheck === 'object' ? codeCheck as Record<string, unknown> : {};
+    const codeCheckSummary = codeCheckPayload['summary'];
+    const codeCheckSummaryObject = codeCheckSummary && typeof codeCheckSummary === 'object'
+      ? codeCheckSummary as Record<string, unknown>
+      : {};
+    const total = Number(codeCheckSummaryObject['total'] ?? 0);
+    const passed = Number(codeCheckSummaryObject['passed'] ?? 0);
+
+    return {
+      maxAbsDisplacement: envelopeObject['maxAbsDisplacement'] ?? null,
+      maxAbsAxialForce: envelopeObject['maxAbsAxialForce'] ?? null,
+      maxAbsShearForce: envelopeObject['maxAbsShearForce'] ?? null,
+      maxAbsMoment: envelopeObject['maxAbsMoment'] ?? null,
+      maxAbsReaction: envelopeObject['maxAbsReaction'] ?? null,
+      codeCheckPassRate: total > 0 ? Number((passed / total).toFixed(4)) : null,
+    };
+  }
+
+  private extractClauseTraceability(codeCheck: unknown): Array<Record<string, unknown>> {
+    const codeCheckPayload = codeCheck && typeof codeCheck === 'object' ? codeCheck as Record<string, unknown> : {};
+    const details = codeCheckPayload['details'];
+    if (!Array.isArray(details)) {
+      return [];
+    }
+
+    const traceRows: Array<Record<string, unknown>> = [];
+    for (const detail of details) {
+      if (!detail || typeof detail !== 'object') {
+        continue;
+      }
+      const detailObject = detail as Record<string, unknown>;
+      const elementId = detailObject['elementId'];
+      const checks = detailObject['checks'];
+      if (!Array.isArray(checks)) {
+        continue;
+      }
+      for (const check of checks) {
+        if (!check || typeof check !== 'object') {
+          continue;
+        }
+        const checkObject = check as Record<string, unknown>;
+        const checkName = checkObject['name'];
+        const items = checkObject['items'];
+        if (!Array.isArray(items)) {
+          continue;
+        }
+        for (const item of items) {
+          if (!item || typeof item !== 'object') {
+            continue;
+          }
+          const itemObject = item as Record<string, unknown>;
+          traceRows.push({
+            elementId: typeof elementId === 'string' ? elementId : 'unknown',
+            check: typeof checkName === 'string' ? checkName : 'unknown',
+            item: typeof itemObject['item'] === 'string' ? itemObject['item'] : 'unknown',
+            clause: typeof itemObject['clause'] === 'string' ? itemObject['clause'] : '',
+            formula: typeof itemObject['formula'] === 'string' ? itemObject['formula'] : '',
+            utilization: itemObject['utilization'] ?? null,
+            status: typeof itemObject['status'] === 'string' ? itemObject['status'] : 'unknown',
+          });
+        }
+      }
+    }
+
+    return traceRows.slice(0, 20);
+  }
+
+  private extractControllingCases(analysis: unknown): Record<string, unknown> {
+    const analysisPayload = analysis && typeof analysis === 'object' ? analysis as Record<string, unknown> : {};
+    const analysisData = analysisPayload['data'];
+    const analysisDataObject = analysisData && typeof analysisData === 'object' ? analysisData as Record<string, unknown> : {};
+    const envelope = analysisDataObject['envelope'];
+    const envelopeObject = envelope && typeof envelope === 'object' ? envelope as Record<string, unknown> : {};
+
+    const controlCase = envelopeObject['controlCase'];
+    const batchControlCase = controlCase && typeof controlCase === 'object' ? controlCase as Record<string, unknown> : {};
+
+    return {
+      batchControlCase,
+      controlNodeDisplacement: envelopeObject['controlNodeDisplacement'] ?? null,
+      controlElementAxialForce: envelopeObject['controlElementAxialForce'] ?? null,
+      controlElementShearForce: envelopeObject['controlElementShearForce'] ?? null,
+      controlElementMoment: envelopeObject['controlElementMoment'] ?? null,
+      controlNodeReaction: envelopeObject['controlNodeReaction'] ?? null,
+    };
+  }
+
+  private renderClauseTraceabilityMarkdown(traceability: Array<Record<string, unknown>>): string[] {
+    if (traceability.length === 0) {
+      return ['- 无条文追溯数据'];
+    }
+    return traceability.slice(0, 8).map((row) => {
+      const elementId = row['elementId'] ?? 'unknown';
+      const check = row['check'] ?? 'unknown';
+      const clause = row['clause'] ?? '';
+      const utilization = row['utilization'] ?? 'N/A';
+      const status = row['status'] ?? 'unknown';
+      return `- 构件 ${String(elementId)} / ${String(check)} / ${String(clause)} / 利用率 ${String(utilization)} / ${String(status)}`;
+    });
+  }
+
+  private renderControllingCasesMarkdown(controllingCases: Record<string, unknown>): string[] {
+    const batchControlCaseRaw = controllingCases['batchControlCase'];
+    const batchControlCase = batchControlCaseRaw && typeof batchControlCaseRaw === 'object'
+      ? batchControlCaseRaw as Record<string, unknown>
+      : {};
+    const lines = [
+      `- 批量位移控制工况: ${String(batchControlCase['displacement'] ?? 'N/A')}`,
+      `- 批量轴力控制工况: ${String(batchControlCase['axialForce'] ?? 'N/A')}`,
+      `- 批量剪力控制工况: ${String(batchControlCase['shearForce'] ?? 'N/A')}`,
+      `- 批量弯矩控制工况: ${String(batchControlCase['moment'] ?? 'N/A')}`,
+      `- 批量反力控制工况: ${String(batchControlCase['reaction'] ?? 'N/A')}`,
+      `- 位移控制节点: ${String(controllingCases['controlNodeDisplacement'] ?? 'N/A')}`,
+      `- 轴力控制单元: ${String(controllingCases['controlElementAxialForce'] ?? 'N/A')}`,
+      `- 剪力控制单元: ${String(controllingCases['controlElementShearForce'] ?? 'N/A')}`,
+      `- 弯矩控制单元: ${String(controllingCases['controlElementMoment'] ?? 'N/A')}`,
+      `- 反力控制节点: ${String(controllingCases['controlNodeReaction'] ?? 'N/A')}`,
+    ];
+    return lines;
   }
 
   private extractAnalysisSummary(analysis: unknown): Record<string, unknown> {

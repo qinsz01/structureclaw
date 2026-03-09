@@ -277,6 +277,7 @@ make backend-regression
 - agent/chat API 契约
 - chat stream 契约
 - chat message 路由契约
+- 报告模板契约（摘要/关键指标/条文追溯/控制工况）
 - prisma schema validate
 
 ### 7.2 Core 回归
