@@ -86,6 +86,7 @@ start_service() {
     return 0
   fi
 
+  printf '=== [%s] starting %s ===\n' "$(date -Iseconds)" "$name" >"$log_file"
   echo "Starting $name..."
   setsid bash -lc "cd \"$ROOT_DIR\" && exec $command" >>"$log_file" 2>&1 &
   echo $! >"$pid_file"
@@ -145,6 +146,33 @@ import sys
 module = sys.argv[1]
 sys.exit(0 if importlib.util.find_spec(module) else 1)
 PY
+}
+
+should_reset_frontend_cache() {
+  local log_file="$LOG_DIR/frontend.log"
+
+  if [[ ! -f "$log_file" ]]; then
+    return 1
+  fi
+
+  if grep -Fq "Cannot find module './" "$log_file" && grep -Fq ".next/server/webpack-runtime.js" "$log_file"; then
+    return 0
+  fi
+
+  return 1
+}
+
+reset_frontend_cache_if_needed() {
+  local frontend_pid_file="$PID_DIR/frontend.pid"
+
+  if is_pid_running "$frontend_pid_file"; then
+    return 0
+  fi
+
+  if should_reset_frontend_cache; then
+    echo "Detected stale frontend build artifacts from previous session; resetting frontend/.next..."
+    rm -rf "$ROOT_DIR/frontend/.next"
+  fi
 }
 
 is_redis_enabled() {
@@ -273,10 +301,14 @@ else
 fi
 
 start_service "backend" "npm run dev --prefix backend"
+reset_frontend_cache_if_needed
 start_service "frontend" "npm run dev --prefix frontend"
 start_service "core" "core/.venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 8001 --reload --app-dir core"
 
 echo
 echo "Local stack started."
 echo "Logs: $LOG_DIR"
+echo "Frontend: http://localhost:3000"
+echo "Backend:  http://localhost:8000 (GET / returns 404 by design; use /health)"
+echo "Core:     http://localhost:8001"
 echo "Use ./scripts/dev-status.sh to inspect services."
