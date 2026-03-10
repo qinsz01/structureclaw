@@ -39,6 +39,26 @@ service_log_path() {
   esac
 }
 
+latest_session_start_line() {
+  local file="$1"
+  if [[ ! -f "$file" ]]; then
+    return 1
+  fi
+  grep -n "^=== \\[" "$file" | tail -1 | cut -d: -f1
+}
+
+print_recent_log_session() {
+  local file="$1"
+  local session_line=""
+
+  session_line="$(latest_session_start_line "$file" || true)"
+  if [[ -n "$session_line" ]]; then
+    sed -n "${session_line},\$p" "$file" | tail -n 120
+  else
+    tail -n 80 "$file"
+  fi
+}
+
 show_logs() {
   local target="${1:-all}"
   local follow="${2:-}"
@@ -63,9 +83,21 @@ show_logs() {
   done
 
   if [[ "$follow" == "--follow" ]]; then
+    for file in "${files[@]}"; do
+      if [[ -f "$file" ]]; then
+        echo "----- $(basename "$file") latest session -----"
+        print_recent_log_session "$file"
+      fi
+    done
+    echo "----- follow mode: streaming full logs -----"
     tail -n 80 -f "${files[@]}"
   else
-    tail -n 80 "${files[@]}" 2>/dev/null || true
+    for file in "${files[@]}"; do
+      if [[ -f "$file" ]]; then
+        echo "----- $(basename "$file") latest session -----"
+        print_recent_log_session "$file"
+      fi
+    done
   fi
 }
 
