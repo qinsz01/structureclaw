@@ -22,17 +22,16 @@ natural language -> draft model -> validate -> analyze -> code-check -> report
 
 ## 3. Prerequisites
 
-Recommended:
-
-- Docker Engine / Docker Desktop
-- Docker Compose v2
-
-For local source development:
+Recommended local setup:
 
 - Node.js 18+
 - Python 3.11
-- PostgreSQL 14+
-- Redis 7+ (optional)
+
+Optional:
+
+- Docker Engine / Docker Desktop
+- Docker Compose v2
+- Redis 7+ (only if you explicitly enable `REDIS_URL`)
 
 ## 4. Repository Structure
 
@@ -55,6 +54,8 @@ make start
 make status
 ```
 
+`make start` is the SQLite local-first startup path. It starts frontend, backend, and core from source and does not invoke Docker.
+
 ### 5.2 Common lifecycle commands
 
 ```bash
@@ -73,6 +74,18 @@ make restart
 ./sclaw stop
 ```
 
+### 5.4 Windows PowerShell
+
+```powershell
+.\make.ps1 doctor
+.\make.ps1 start
+.\make.ps1 status
+.\make.ps1 logs all --follow
+.\make.ps1 stop
+```
+
+`make.ps1` is the native Windows entrypoint for the common local-development lifecycle. `make.cmd` is included as a thin launcher for cmd.exe users. On Windows, the core Python environment defaults to 3.12 because the current OpenSeesPy runtime requires it.
+
 ## 6. Environment and Configuration
 
 Start with `.env.example`.
@@ -86,6 +99,7 @@ Important variables:
 
 Notes:
 
+- `DATABASE_URL` defaults to a local SQLite file under `.runtime/data`.
 - `REDIS_URL=disabled` enables in-memory fallback mode in backend.
 - `ANALYSIS_ENGINE_URL` can be omitted and derived from `CORE_PORT`.
 
@@ -170,7 +184,7 @@ Contribution details: `CONTRIBUTING.md`.
 ## 12. Troubleshooting
 
 - If startup fails, run `make doctor` first.
-- If DB-related tests fail locally, verify PostgreSQL connectivity from `DATABASE_URL`.
+- If DB-related tests fail locally, verify that `DATABASE_URL` starts with `file:` and points to a writable local path.
 - If LLM flow degrades unexpectedly, confirm `LLM_PROVIDER` and API key env variables.
 - If contracts fail, run the corresponding `scripts/validate-*.sh` script directly for focused diagnostics.
 
