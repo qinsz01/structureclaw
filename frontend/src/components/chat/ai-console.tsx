@@ -2964,7 +2964,7 @@ export function AIConsole() {
                   </div>
 
                   {skillsOpen && (
-                    <div className="mt-3 space-y-3">
+                    <div className="mt-3 max-h-[min(48vh,32rem)] space-y-3 overflow-y-auto pr-1 overscroll-contain">
                       <p className="text-xs text-muted-foreground">{t('skillSelectionCatalogHint')}</p>
                       <div className="rounded-2xl border border-border/70 bg-background/60 p-2.5 dark:border-white/10 dark:bg-slate-950/30">
                         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
