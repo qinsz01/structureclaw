@@ -33,6 +33,12 @@ describe('AIConsole grouped skill picker', () => {
               autoLoadByDefault: true,
             },
             {
+              id: 'opensees-static',
+              name: { zh: 'OpenSees 静力分析', en: 'OpenSees Static Analysis' },
+              description: { zh: 'static', en: 'static' },
+              autoLoadByDefault: true,
+            },
+            {
               id: 'opensees-nonlinear',
               name: { zh: '非线性策略', en: 'Nonlinear Policy' },
               description: { zh: 'policy', en: 'policy' },
@@ -51,6 +57,7 @@ describe('AIConsole grouped skill picker', () => {
               { id: 'beam', domain: 'structure-type' },
               { id: 'truss', domain: 'structure-type' },
               { id: 'seismic-policy', domain: 'analysis-strategy' },
+              { id: 'opensees-static', domain: 'analysis-strategy' },
               { id: 'opensees-nonlinear', domain: 'analysis-strategy' },
             ],
             domainSummaries: [
@@ -61,20 +68,22 @@ describe('AIConsole grouped skill picker', () => {
               },
               {
                 domain: 'analysis-strategy',
-                skillIds: ['seismic-policy', 'opensees-nonlinear'],
-                autoLoadSkillIds: ['seismic-policy', 'opensees-nonlinear'],
+                skillIds: ['seismic-policy', 'opensees-static', 'opensees-nonlinear'],
+                autoLoadSkillIds: ['opensees-static'],
               },
             ],
             skillDomainById: {
               beam: 'structure-type',
               truss: 'structure-type',
               'seismic-policy': 'analysis-strategy',
+              'opensees-static': 'analysis-strategy',
               'opensees-nonlinear': 'analysis-strategy',
             },
             validEngineIdsBySkill: {
               beam: ['engine-frame-a'],
               truss: ['engine-truss-a'],
               'seismic-policy': ['engine-seismic-a'],
+              'opensees-static': ['engine-static-a'],
               'opensees-nonlinear': ['engine-nonlinear-a'],
             },
             filteredEngineReasonsBySkill: {},
@@ -82,6 +91,7 @@ describe('AIConsole grouped skill picker', () => {
               'engine-frame-a': ['beam'],
               'engine-truss-a': ['truss'],
               'engine-seismic-a': ['seismic-policy'],
+              'engine-static-a': ['opensees-static'],
               'engine-nonlinear-a': ['opensees-nonlinear'],
             },
           }),
@@ -220,7 +230,7 @@ describe('AIConsole grouped skill picker', () => {
     })
   })
 
-  it('preselects analysis skills for a new conversation', async () => {
+  it('preselects only the OpenSees static analysis skill for a new conversation', async () => {
     const user = userEvent.setup()
     render(<AIConsole />)
 
@@ -232,9 +242,12 @@ describe('AIConsole grouped skill picker', () => {
     await user.selectOptions(screen.getByLabelText(/category view/i), 'analysis')
 
     await waitFor(() => {
-      const skillButton = screen.getByRole('button', { name: 'Seismic Policy' })
-      expect(skillButton.className).toContain('border-cyan-300/50')
-      expect(screen.getByRole('button', { name: /clear category/i })).toBeInTheDocument()
+      const staticSkillButton = screen.getByRole('button', { name: 'OpenSees Static Analysis' })
+      const nonlinearSkillButton = screen.getByRole('button', { name: 'Nonlinear Policy' })
+      const seismicSkillButton = screen.getByRole('button', { name: 'Seismic Policy' })
+      expect(staticSkillButton.className).toContain('border-cyan-300/50')
+      expect(nonlinearSkillButton.className).not.toContain('border-cyan-300/50')
+      expect(seismicSkillButton.className).not.toContain('border-cyan-300/50')
     })
   })
 

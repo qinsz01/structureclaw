@@ -188,6 +188,7 @@ describe('AIConsole SkillHub actions', () => {
     })
 
     await user.click(screen.getByRole('button', { name: /expand skills/i }))
+    await user.click(screen.getByRole('button', { name: 'Beam' }))
     await user.click(screen.getByRole('button', { name: /expand skillhub/i }))
     await user.click(screen.getByRole('button', { name: 'Install' }))
 

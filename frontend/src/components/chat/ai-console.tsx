@@ -303,6 +303,7 @@ function resolveSkillDomainLabel(domain: SkillDomain, t: (key: MessageKey) => st
 }
 
 const STORAGE_KEY = 'structureclaw.console.conversations'
+const DEFAULT_PRELOADED_SKILL_IDS = ['opensees-static'] as const
 
 function createId(prefix: string) {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -1279,8 +1280,8 @@ export function AIConsole() {
   const defaultSelectedSkillIds = useMemo(
     () => availableSkills
       .map((skill) => skill.id)
-      .filter((skillId) => skillDomainById[skillId] === 'analysis'),
-    [availableSkills, skillDomainById]
+      .filter((skillId) => DEFAULT_PRELOADED_SKILL_IDS.includes(skillId as typeof DEFAULT_PRELOADED_SKILL_IDS[number])),
+    [availableSkills]
   )
 
   const groupedSkills = useMemo(() => {
@@ -1504,7 +1505,9 @@ export function AIConsole() {
         }
         const skills = payload as AgentSkillSummary[]
         setAvailableSkills(skills)
-        const defaultSkillIds = skills.filter((skill) => skill.autoLoadByDefault).map((skill) => skill.id)
+        const defaultSkillIds = skills
+          .map((skill) => skill.id)
+          .filter((skillId) => DEFAULT_PRELOADED_SKILL_IDS.includes(skillId as typeof DEFAULT_PRELOADED_SKILL_IDS[number]))
         setSelectedSkillIds((current) => (current.length > 0 ? current : defaultSkillIds))
       } catch {
         if (active) {
