@@ -213,20 +213,20 @@ type SkillDomain =
   | 'unknown'
 
 const ALL_SKILL_DOMAINS: SkillDomain[] = [
-  'analysis',
-  'code-check',
   'data-input',
-  'design',
-  'drawing',
-  'general',
-  'load-boundary',
-  'material',
-  'report-export',
-  'result-postprocess',
-  'section',
   'structure-type',
+  'material',
+  'section',
+  'load-boundary',
+  'analysis',
+  'result-postprocess',
+  'design',
+  'code-check',
   'validation',
+  'report-export',
+  'drawing',
   'visualization',
+  'general',
 ]
 
 type CapabilitySkillSummary = {
@@ -1194,7 +1194,7 @@ export function AIConsole() {
   const [isSending, setIsSending] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [skillsOpen, setSkillsOpen] = useState(false)
-  const [skillHubOpen, setSkillHubOpen] = useState(true)
+  const [skillHubOpen, setSkillHubOpen] = useState(false)
   const [contextOpen, setContextOpen] = useState(false)
   const [modelText, setModelText] = useState('')
   const [modelSyncMessage, setModelSyncMessage] = useState('')
@@ -1343,6 +1343,45 @@ export function AIConsole() {
   const visibleGroupedSkills = useMemo(() => {
     return groupedSkills.filter((group) => group.domain === skillDomainView)
   }, [groupedSkills, skillDomainView])
+
+  const loadedModules = useMemo(() => {
+    const localItems = availableSkills
+      .filter((skill) => selectedSkillIds.includes(skill.id))
+      .map((skill) => ({
+        id: skill.id,
+        domain: skillDomainById[skill.id] || 'unknown',
+        label: locale === 'zh' ? (skill.name.zh || skill.id) : (skill.name.en || skill.id),
+        source: 'local' as const,
+      }))
+
+    const skillHubItems = Object.values(skillHubInstalledById)
+      .filter((item) => item?.id && item.enabled)
+      .map((item) => {
+        const catalogItem = skillHubCatalog.find((catalogEntry) => catalogEntry.id === item.id)
+        return {
+          id: item.id,
+          domain: normalizeSkillDomain(catalogItem?.domain),
+          label: locale === 'zh'
+            ? (catalogItem?.name?.zh || item.id)
+            : (catalogItem?.name?.en || item.id),
+          source: 'skillhub' as const,
+        }
+      })
+
+    const domainOrder = new Map(ALL_SKILL_DOMAINS.map((domain, index) => [domain, index]))
+
+    return [...localItems, ...skillHubItems].sort((a, b) => {
+      const left = domainOrder.get(a.domain) ?? Number.MAX_SAFE_INTEGER
+      const right = domainOrder.get(b.domain) ?? Number.MAX_SAFE_INTEGER
+      if (left !== right) {
+        return left - right
+      }
+      if (a.source !== b.source) {
+        return a.source === 'local' ? -1 : 1
+      }
+      return a.label.localeCompare(b.label)
+    })
+  }, [availableSkills, locale, selectedSkillIds, skillDomainById, skillHubCatalog, skillHubInstalledById])
 
   useEffect(() => {
     if (!groupedSkills.some((group) => group.domain === skillDomainView)) {
@@ -2924,6 +2963,35 @@ export function AIConsole() {
                   {skillsOpen && (
                     <div className="mt-3 space-y-3">
                       <p className="text-xs text-muted-foreground">{t('skillSelectionCatalogHint')}</p>
+                      <div className="rounded-2xl border border-border/70 bg-background/60 p-2.5 dark:border-white/10 dark:bg-slate-950/30">
+                        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <p className="text-xs font-medium text-foreground">{t('loadedModulesTitle')}</p>
+                            <p className="text-xs text-muted-foreground">{t('loadedModulesHint')}</p>
+                          </div>
+                          <Badge variant="outline" className="text-[10px]">
+                            {loadedModules.length}
+                          </Badge>
+                        </div>
+                        {loadedModules.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">{t('loadedModulesEmpty')}</p>
+                        ) : (
+                          <div className="flex flex-wrap gap-2">
+                            {loadedModules.map((module) => (
+                              <div
+                                key={`${module.source}:${module.id}`}
+                                className="flex items-center gap-2 rounded-full border border-border/70 bg-background/70 px-3 py-1.5 text-xs dark:border-white/10 dark:bg-black/20"
+                              >
+                                <span className="font-medium text-foreground">{module.label}</span>
+                                <span className="text-muted-foreground">{resolveSkillDomainLabel(module.domain, t)}</span>
+                                <Badge variant="outline" className="text-[10px]">
+                                  {module.source === 'local' ? t('loadedModulesSourceLocal') : t('loadedModulesSourceSkillHub')}
+                                </Badge>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                       <div className="flex flex-wrap items-center gap-2">
                         <label className="text-xs font-medium text-foreground" htmlFor="skill-domain-view-select">{t('skillSelectionDomainViewLabel')}</label>
                         <select

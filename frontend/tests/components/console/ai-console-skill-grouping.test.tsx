@@ -194,6 +194,22 @@ describe('AIConsole grouped skill picker', () => {
       const selector = screen.getByLabelText(/category view/i)
       const options = selector.querySelectorAll('option')
       expect(options.length).toBe(14)
+      expect(Array.from(options).map((option) => option.value)).toEqual([
+        'data-input',
+        'structure-type',
+        'material',
+        'section',
+        'load-boundary',
+        'analysis',
+        'result-postprocess',
+        'design',
+        'code-check',
+        'validation',
+        'report-export',
+        'drawing',
+        'visualization',
+        'general',
+      ])
     })
 
     await user.selectOptions(screen.getByLabelText(/category view/i), 'material')

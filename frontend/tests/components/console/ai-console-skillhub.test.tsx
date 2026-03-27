@@ -149,6 +149,12 @@ describe('AIConsole SkillHub actions', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/skillhub extensions/i)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /expand skillhub/i })).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /expand skillhub/i }))
+
+    await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Install' })).toBeInTheDocument()
     })
 
@@ -170,6 +176,27 @@ describe('AIConsole SkillHub actions', () => {
     await user.click(screen.getByRole('button', { name: 'Uninstall' }))
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Install' })).toBeInTheDocument()
+    })
+  })
+
+  it('shows all loaded modules from local skills and enabled skillhub skills', async () => {
+    const user = userEvent.setup()
+    render(<AIConsole />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /expand skills/i })).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /expand skills/i }))
+    await user.click(screen.getByRole('button', { name: /expand skillhub/i }))
+    await user.click(screen.getByRole('button', { name: 'Install' }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/loaded modules/i)).toBeInTheDocument()
+      expect(screen.getAllByText('Beam').length).toBeGreaterThan(0)
+      expect(screen.getAllByText('Seismic Simplified Policy').length).toBeGreaterThan(0)
+      expect(screen.getAllByText('Local').length).toBeGreaterThan(0)
+      expect(screen.getAllByText('SkillHub').length).toBeGreaterThan(0)
     })
   })
 })
