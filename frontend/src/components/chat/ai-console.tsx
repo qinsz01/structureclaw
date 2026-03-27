@@ -2565,7 +2565,7 @@ export function AIConsole() {
   return (
     <div
       data-testid="console-layout-grid"
-      className="grid min-h-[calc(100vh-5.5rem)] gap-4 xl:h-[calc(100vh-5.5rem)] xl:min-h-0 xl:grid-cols-[280px_minmax(0,1.3fr)_420px] xl:overflow-hidden"
+      className="grid min-h-[calc(100vh-5.5rem)] gap-4 xl:h-[calc(100vh-5.5rem)] xl:min-h-0 xl:grid-cols-[300px_minmax(0,1.7fr)_460px] xl:overflow-hidden 2xl:grid-cols-[320px_minmax(0,1.9fr)_500px]"
     >
       <aside
         data-testid="console-history-panel"
@@ -2718,10 +2718,10 @@ export function AIConsole() {
                 </Badge>
               </div>
             </div>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
+            <p className="mt-3 max-w-5xl text-sm leading-6 text-muted-foreground">
               {t('aiConsoleIntro')}
             </p>
-            <div className="mt-4 max-w-3xl rounded-[22px] border border-border/70 bg-background/70 px-4 py-3 text-sm text-muted-foreground dark:border-white/10 dark:bg-white/5">
+            <div className="mt-4 max-w-5xl rounded-[22px] border border-border/70 bg-background/70 px-4 py-3 text-sm text-muted-foreground dark:border-white/10 dark:bg-white/5">
               <div className="font-medium text-foreground">{t('databaseAdminConsoleCardTitle')}</div>
               <div className="mt-1 leading-6">{t('databaseAdminConsoleCardBody')}</div>
             </div>
@@ -2732,7 +2732,7 @@ export function AIConsole() {
             data-testid="console-chat-scroll"
             className="flex-1 overflow-auto px-5 py-5 xl:min-h-0"
           >
-            <div className="mx-auto flex max-w-4xl flex-col gap-4">
+            <div className="flex w-full flex-col gap-4">
               {messages.length === 1 && (
                 <div className="grid gap-3 md:grid-cols-3">
                   {quickPrompts.map((prompt) => (
@@ -2936,7 +2936,7 @@ export function AIConsole() {
           </div>
 
           <div data-testid="console-composer" className="border-t border-border/70 px-4 py-3 dark:border-white/10">
-            <div className="mx-auto max-w-4xl space-y-3">
+            <div className="w-full space-y-3">
               {errorMessage && (
                 <div className="rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
                   {errorMessage}
