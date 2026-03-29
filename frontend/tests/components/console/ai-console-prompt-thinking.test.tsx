@@ -109,7 +109,7 @@ describe('AIConsole prompt and thinking details', () => {
 
     const composer = await screen.findByPlaceholderText(/describe your structural goal/i)
     await user.click(screen.getByRole('button', { name: /expand skills/i }))
-    // Beam is auto-selected via autoLoadByDefault; clicking it would deselect and force chat mode instead of execute.
+    await user.click(screen.getByRole('button', { name: 'Beam' }))
     await user.type(composer, 'Run static beam check for prompt debug test')
     await user.click(screen.getByRole('button', { name: /run analysis/i }))
 
