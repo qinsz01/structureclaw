@@ -190,7 +190,8 @@ describe('AIConsole SkillHub actions', () => {
     await user.click(screen.getByRole('button', { name: /expand skills/i }))
     await user.click(screen.getByRole('button', { name: 'Beam' }))
     await user.click(screen.getByRole('button', { name: /expand skillhub/i }))
-    await user.click(screen.getByRole('button', { name: 'Install' }))
+    const installButton = await screen.findByRole('button', { name: 'Install' })
+    await user.click(installButton)
 
     await waitFor(() => {
       expect(screen.getByText(/loaded modules/i)).toBeInTheDocument()

@@ -1345,6 +1345,10 @@ export function AIConsole() {
     return groupedSkills.filter((group) => group.domain === skillDomainView)
   }, [groupedSkills, skillDomainView])
 
+  const skillHubCatalogById = useMemo(() => {
+    return new Map(skillHubCatalog.map((item) => [item.id, item]))
+  }, [skillHubCatalog])
+
   const loadedModules = useMemo(() => {
     const localItems = availableSkills
       .filter((skill) => selectedSkillIds.includes(skill.id))
@@ -1358,7 +1362,7 @@ export function AIConsole() {
     const skillHubItems = Object.values(skillHubInstalledById)
       .filter((item) => item?.id && item.enabled)
       .map((item) => {
-        const catalogItem = skillHubCatalog.find((catalogEntry) => catalogEntry.id === item.id)
+        const catalogItem = skillHubCatalogById.get(item.id)
         return {
           id: item.id,
           domain: normalizeSkillDomain(catalogItem?.domain),
@@ -1382,7 +1386,7 @@ export function AIConsole() {
       }
       return a.label.localeCompare(b.label)
     })
-  }, [availableSkills, locale, selectedSkillIds, skillDomainById, skillHubCatalog, skillHubInstalledById])
+  }, [availableSkills, locale, selectedSkillIds, skillDomainById, skillHubCatalogById, skillHubInstalledById])
 
   useEffect(() => {
     if (!groupedSkills.some((group) => group.domain === skillDomainView)) {
