@@ -67,8 +67,6 @@ _TYPE_TO_KIND: dict[str, int] = {
     "tube": 8,          # 圆管          ShapeVal "D,d"
     "pipe": 8,          # V2 alias for circular hollow section
     "hollow-circular": 8,  # V2 alias for circular hollow section
-    "pipe": 8,          # V2 alias for circular hollow section
-    "hollow-circular": 8,  # V2 alias for circular hollow section
     "double-channel": 9,  # 双槽形
     "cross-I": 10,      # 十字工
     "trapezoid": 11,    # 梯形
