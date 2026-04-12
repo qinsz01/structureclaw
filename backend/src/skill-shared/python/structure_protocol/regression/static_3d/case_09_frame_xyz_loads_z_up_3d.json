@@ -1,10 +1,26 @@
 {
-  "name": "frame_batch_axial_3d",
-  "abs_tolerance": 1e-07,
+  "name": "frame_xyz_loads_z_up_3d",
+  "abs_tolerance": 1e-06,
   "request": {
     "type": "static",
     "model": {
       "schema_version": "1.0.0",
+      "metadata": {
+        "coordinateSemantics": "global-z-up",
+        "elementReferenceVectors": {
+          "1": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "2": [
+            1.0,
+            0.0,
+            0.0
+          ]
+        },
+        "frameDimension": "3d"
+      },
       "nodes": [
         {
           "id": "1",
@@ -24,15 +40,13 @@
           "id": "2",
           "x": 0.0,
           "y": 3.0,
-          "z": 0.0,
-          "restraints": [
-            true,
-            false,
-            true,
-            true,
-            true,
-            true
-          ]
+          "z": 0.0
+        },
+        {
+          "id": "3",
+          "x": 0.0,
+          "y": 3.0,
+          "z": 2.0
         }
       ],
       "elements": [
@@ -42,6 +56,16 @@
           "nodes": [
             "1",
             "2"
+          ],
+          "material": "1",
+          "section": "1"
+        },
+        {
+          "id": "2",
+          "type": "beam",
+          "nodes": [
+            "2",
+            "3"
           ],
           "material": "1",
           "section": "1"
@@ -76,60 +100,31 @@
           "type": "other",
           "loads": [
             {
-              "node": "2",
-              "fy": 6.0
-            }
-          ]
-        },
-        {
-          "id": "LC2",
-          "type": "other",
-          "loads": [
+              "node": "3",
+              "fy": -3.0
+            },
             {
-              "node": "2",
-              "fy": 12.0
+              "node": "3",
+              "fz": -3.0
             }
           ]
         }
       ],
-      "load_combinations": [],
-      "metadata": {
-        "coordinateSemantics": "global-z-up",
-        "frameDimension": "3d",
-        "elementReferenceVectors": {
-          "1": [
-            1.0,
-            0.0,
-            0.0
-          ]
-        }
-      }
+      "load_combinations": []
     },
     "parameters": {
-      "batchCases": [
-        {
-          "id": "C1",
-          "loadCaseIds": [
-            "LC1"
-          ]
-        },
-        {
-          "id": "C2",
-          "loadCaseIds": [
-            "LC2"
-          ]
-        }
+      "loadCaseIds": [
+        "LC1"
       ]
     }
   },
   "expected": {
     "data.analysisMode": "linear_3d_frame",
-    "data.batchCaseCount": 2,
-    "data.envelope.maxAbsDisplacement": 1.8e-05,
-    "data.envelope.controlCase.displacement": "C2",
-    "data.envelopeTables.nodeDisplacement.2.maxAbsDisplacement": 1.8e-05,
-    "data.envelopeTables.nodeDisplacement.2.controlCase": "C2",
-    "data.envelopeTables.elementForce.1.maxAbsAxialForce": 12.0,
-    "data.envelopeTables.elementForce.1.controlCaseAxial": "C2"
+    "data.displacements.3.uy": -0.0008545,
+    "data.displacements.3.uz": -3e-06,
+    "data.reactions.1.fy": 3.0,
+    "data.reactions.1.fz": 3.0,
+    "data.envelope.maxAbsAxialForce": 3.0,
+    "data.envelope.maxAbsMoment": 6.0
   }
 }

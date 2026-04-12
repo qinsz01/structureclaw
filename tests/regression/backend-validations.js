@@ -2887,7 +2887,7 @@ async function validateAgentSkillhubRepositoryDown(context) {
         elements: [{ id: "1", type: "beam", node_i: "1", node_j: "2", material: "mat1", section: "sec1" }],
         materials: [{ id: "mat1", type: "steel", E: 2.06e11, nu: 0.3, density: 7850 }],
         sections: [{ id: "sec1", type: "rectangular", width: 0.3, height: 0.6 }],
-        load_cases: [{ id: "LC1", type: "dead", loads: [{ type: "nodal", node: "2", fy: -10 }] }],
+        load_cases: [{ id: "LC1", type: "dead", loads: [{ type: "nodal", node: "2", fz: -10 }] }],
         load_combinations: [{ id: "ULS1", factors: [{ case: "LC1", factor: 1.0 }] }],
       },
       userDecision: "allow_auto_decide",
@@ -3251,16 +3251,19 @@ async function validateReportNarrativeContract(context) {
 async function validateDevStartupGuards(context) {
   const cliMainPath = path.join(context.rootDir, "scripts", "cli", "main.js");
   const cliMainContent = await fsp.readFile(cliMainPath, "utf8");
+  const cliRuntimePath = path.join(context.rootDir, "scripts", "cli", "runtime.js");
   const linuxNodeInstallerPath = path.join(context.rootDir, "scripts", "install-node-linux.sh");
   const windowsNodeInstallerPath = path.join(context.rootDir, "scripts", "install-node-windows.ps1");
   const readmePath = path.join(context.rootDir, "README.md");
   const readmeCnPath = path.join(context.rootDir, "README_CN.md");
   const [
+    cliRuntimeContent,
     linuxNodeInstallerContent,
     windowsNodeInstallerContent,
     readmeContent,
     readmeCnContent,
   ] = await Promise.all([
+    fsp.readFile(cliRuntimePath, "utf8"),
     fsp.readFile(linuxNodeInstallerPath, "utf8"),
     fsp.readFile(windowsNodeInstallerPath, "utf8"),
     fsp.readFile(readmePath, "utf8"),
@@ -3291,6 +3294,22 @@ async function validateDevStartupGuards(context) {
   assert(
     cliMainContent.includes("appendSessionHeader"),
     "missing log session isolation hook in unified CLI",
+  );
+  assert(
+    cliMainContent.includes("getPortCleanupOptions"),
+    "missing scoped port cleanup options in unified CLI",
+  );
+  assert(
+    cliMainContent.includes("SCLAW_FORCE_PORT_CLEANUP"),
+    "missing opt-in untracked port cleanup guard in unified CLI",
+  );
+  assert(
+    cliRuntimeContent.includes("normalizePortNumber"),
+    "missing port sanitization in CLI runtime cleanup",
+  );
+  assert(
+    cliRuntimeContent.includes("isProjectOwnedPortProcess"),
+    "missing project ownership guard in CLI runtime cleanup",
   );
   assert(
     cliMainContent.includes("persistDockerEnv"),

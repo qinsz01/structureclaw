@@ -18,6 +18,10 @@ import {
   computeMissingLoadDetailKeys,
   mapMissingFieldLabels,
 } from './draft-guidance.js';
+import {
+  STRUCTURAL_COORDINATE_SEMANTICS,
+  stampDraftSemantics,
+} from './coordinate-semantics.js';
 import type { AppLocale } from '../services/locale.js';
 import type { DraftExtraction, DraftFloorLoad, DraftState, InferredModelType } from './types.js';
 
@@ -130,13 +134,13 @@ export function restrictLegacyDraftPatch(
 
 export function mergeLegacyState(existing: DraftState | undefined, patch: DraftExtraction, inferredType: InferredModelType, skillId: string): DraftState {
   const merged = mergeDraftState(existing, { ...patch, inferredType });
-  return {
+  return stampDraftSemantics({
     ...merged,
     inferredType,
     skillId,
     structuralTypeKey: (merged.structuralTypeKey ?? skillId) as DraftState['structuralTypeKey'],
     updatedAt: Date.now(),
-  };
+  });
 }
 
 export function computeLegacyMissing(
@@ -161,5 +165,10 @@ export function buildLegacyModel(state: DraftState): Record<string, unknown> | u
   if (missing.length > 0) {
     return undefined;
   }
-  return buildModel(state);
+  const model = buildModel(state);
+  if (model) {
+    const meta = model.metadata as Record<string, unknown>;
+    meta.coordinateSemantics = STRUCTURAL_COORDINATE_SEMANTICS;
+  }
+  return model;
 }

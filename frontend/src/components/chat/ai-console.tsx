@@ -141,6 +141,7 @@ type ConversationDetail = ConversationSummary & {
     modelSnapshot?: VisualizationSnapshot | null
     resultSnapshot?: VisualizationSnapshot | null
     latestResult?: AgentResult | null
+    staleStructuralData?: boolean
   } | null
 }
 
@@ -183,6 +184,7 @@ type PersistedConversation = ConversationSummary & {
   modelVisualizationSnapshot?: VisualizationSnapshot | null
   resultVisualizationSnapshot?: VisualizationSnapshot | null
   visualizationSnapshot?: VisualizationSnapshot | null
+  staleStructuralData?: boolean
 }
 
 type AgentSkillSummary = SkillMetadataLike & {
@@ -497,6 +499,14 @@ function toModelFromVisualizationSnapshot(snapshot?: VisualizationSnapshot | nul
     })),
   }
 
+  if (snapshot.coordinateSemantics === 'global-z-up') {
+    model.metadata = {
+      coordinateSemantics: 'global-z-up',
+      frameDimension: snapshot.dimension === 3 ? '3d' : '2d',
+      source: 'visualization-snapshot',
+    }
+  }
+
   if (Array.isArray(snapshot.loads) && snapshot.loads.length > 0) {
     const grouped = new Map<string, Array<Record<string, unknown>>>()
     snapshot.loads.forEach((load) => {
@@ -543,25 +553,7 @@ function loadConversationArchive(): Record<string, PersistedConversation> {
     const migrated: Record<string, PersistedConversation> = {}
 
     Object.entries(parsed as Record<string, PersistedConversation>).forEach(([conversationId, value]) => {
-      const archived = value as PersistedConversation
-      const normalizedLatestResult = normalizeAgentResultPayload(archived.latestResult || null)
-      const preferredStoredResultSnapshot = pickPreferredResultSnapshot(
-        archived.resultVisualizationSnapshot,
-        archived.visualizationSnapshot
-      )
-      const synthesizedResultSnapshot = buildResultSnapshotFromResult(
-        normalizedLatestResult,
-        archived.title || 'Conversation',
-        toModelFromVisualizationSnapshot(archived.modelVisualizationSnapshot || preferredStoredResultSnapshot)
-      )
-      const repairedResultSnapshot = pickPreferredResultSnapshot(preferredStoredResultSnapshot, synthesizedResultSnapshot)
-
-      migrated[conversationId] = {
-        ...archived,
-        latestResult: normalizedLatestResult,
-        resultVisualizationSnapshot: repairedResultSnapshot,
-        visualizationSnapshot: repairedResultSnapshot || archived.visualizationSnapshot || null,
-      }
+      migrated[conversationId] = sanitizePersistedConversation(value as PersistedConversation)
     })
 
     return migrated
@@ -706,6 +698,79 @@ function buildVisualizationTitle(result: AgentResult | null, conversationTitle: 
 
 function buildModelVisualizationTitle(baseTitle: string, t: (key: MessageKey) => string) {
   return `${baseTitle} · ${t('visualizationSourceModel')}`
+}
+
+const CANONICAL_COORDINATE_SEMANTICS = 'global-z-up'
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null
+}
+
+function isStaleVisualizationSnapshot(snapshot?: VisualizationSnapshot | null) {
+  if (!snapshot) return false
+  // Only flag as stale if the snapshot actually contains structural model data
+  // (non-trivial nodes and elements). Snapshots without structural data (e.g. empty
+  // or chat-only conversations) must not trigger the stale-data wipe.
+  if (!Array.isArray(snapshot.nodes) || snapshot.nodes.length === 0) return false
+  if (!Array.isArray(snapshot.elements) || snapshot.elements.length === 0) return false
+  return snapshot.coordinateSemantics !== CANONICAL_COORDINATE_SEMANTICS
+}
+
+function isStaleStructuralResult(result: AgentResult | null | undefined) {
+  const normalized = normalizeAgentResultPayload(result ?? null)
+  const model = asRecord(normalized?.model)
+  if (!model) {
+    return false
+  }
+  if (!Array.isArray(model.nodes) || !Array.isArray(model.elements)) {
+    return false
+  }
+  const metadata = asRecord(model.metadata)
+  const inferredType = typeof metadata?.inferredType === 'string' ? metadata.inferredType : undefined
+  if (inferredType === 'unknown') {
+    return false
+  }
+  return metadata?.coordinateSemantics !== CANONICAL_COORDINATE_SEMANTICS
+}
+
+function sanitizePersistedConversation(archived: PersistedConversation): PersistedConversation {
+  const normalizedLatestResult = normalizeAgentResultPayload(archived.latestResult || null)
+  const preferredStoredResultSnapshot = pickPreferredResultSnapshot(
+    archived.resultVisualizationSnapshot,
+    archived.visualizationSnapshot,
+  )
+  const synthesizedResultSnapshot = buildResultSnapshotFromResult(
+    normalizedLatestResult,
+    archived.title || 'Conversation',
+    toModelFromVisualizationSnapshot(archived.modelVisualizationSnapshot || preferredStoredResultSnapshot),
+  )
+  const repairedResultSnapshot = pickPreferredResultSnapshot(preferredStoredResultSnapshot, synthesizedResultSnapshot)
+  const staleStructuralData =
+    isStaleVisualizationSnapshot(archived.modelVisualizationSnapshot)
+    || isStaleVisualizationSnapshot(repairedResultSnapshot)
+    || isStaleStructuralResult(normalizedLatestResult)
+
+  if (staleStructuralData) {
+    return {
+      ...archived,
+      modelText: '',
+      modelSyncMessage: '',
+      activePanel: archived.activePanel === 'report' ? 'analysis' : archived.activePanel,
+      latestResult: null,
+      modelVisualizationSnapshot: null,
+      resultVisualizationSnapshot: null,
+      visualizationSnapshot: null,
+      staleStructuralData: true,
+    }
+  }
+
+  return {
+    ...archived,
+    latestResult: normalizedLatestResult,
+    resultVisualizationSnapshot: repairedResultSnapshot,
+    visualizationSnapshot: repairedResultSnapshot || archived.visualizationSnapshot || null,
+    staleStructuralData: false,
+  }
 }
 
 function snapshotHasResultData(snapshot?: VisualizationSnapshot | null) {
@@ -1663,9 +1728,8 @@ export function AIConsole() {
       return
     }
 
-    setConversationArchive((current) => ({
-      ...current,
-      [conversationId]: {
+    setConversationArchive((current) => {
+      const nextEntry = sanitizePersistedConversation({
         id: conversationId,
         title:
           current[conversationId]?.title
@@ -1692,7 +1756,6 @@ export function AIConsole() {
         hasExplicitToolSelection,
         modelSyncMessage,
         activePanel,
-        // Preserve persisted result/model snapshots during transient null states (e.g. refresh restore sequence).
         latestResult: latestResult ?? current[conversationId]?.latestResult ?? null,
         modelVisualizationSnapshot:
           latestModelVisualizationSnapshot
@@ -1703,8 +1766,19 @@ export function AIConsole() {
           ?? current[conversationId]?.resultVisualizationSnapshot
           ?? current[conversationId]?.visualizationSnapshot
           ?? null,
-      },
-    }))
+        visualizationSnapshot:
+          latestResultVisualizationSnapshot
+          ?? current[conversationId]?.resultVisualizationSnapshot
+          ?? current[conversationId]?.visualizationSnapshot
+          ?? null,
+        staleStructuralData: current[conversationId]?.staleStructuralData ?? false,
+      })
+
+      return {
+        ...current,
+        [conversationId]: nextEntry,
+      }
+    })
   }, [
     activePanel,
     conversationId,
@@ -1811,27 +1885,30 @@ export function AIConsole() {
         ?? existing?.latestResult
         ?? null
 
+      const nextEntry = sanitizePersistedConversation({
+        id: targetConversationId,
+        title: existing?.title || serverConversation?.title || t('untitledConversation'),
+        type: existing?.type || serverConversation?.type || 'general',
+        createdAt: existing?.createdAt || serverConversation?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        messages: existing?.messages || messages,
+        modelText: existing?.modelText ?? modelText,
+        selectedSkillIds: existing?.selectedSkillIds || selectedSkillIds,
+        selectedToolIds: existing?.selectedToolIds || selectedToolIds,
+        hasExplicitSkillSelection: existing?.hasExplicitSkillSelection ?? hasExplicitSkillSelection,
+        hasExplicitToolSelection: existing?.hasExplicitToolSelection ?? hasExplicitToolSelection,
+        modelSyncMessage: existing?.modelSyncMessage || modelSyncMessage,
+        activePanel: existing?.activePanel || activePanel,
+        latestResult: latestResultValue,
+        modelVisualizationSnapshot: modelSnapshot,
+        resultVisualizationSnapshot: resultSnapshot,
+        visualizationSnapshot: resultSnapshot,
+        staleStructuralData: existing?.staleStructuralData ?? false,
+      })
+
       return {
         ...current,
-        [targetConversationId]: {
-          id: targetConversationId,
-          title: existing?.title || serverConversation?.title || t('untitledConversation'),
-          type: existing?.type || serverConversation?.type || 'general',
-          createdAt: existing?.createdAt || serverConversation?.createdAt || new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          messages: existing?.messages || messages,
-          modelText: existing?.modelText ?? modelText,
-          selectedSkillIds: existing?.selectedSkillIds || selectedSkillIds,
-          selectedToolIds: existing?.selectedToolIds || selectedToolIds,
-          hasExplicitSkillSelection: existing?.hasExplicitSkillSelection ?? hasExplicitSkillSelection,
-          hasExplicitToolSelection: existing?.hasExplicitToolSelection ?? hasExplicitToolSelection,
-          modelSyncMessage: existing?.modelSyncMessage || modelSyncMessage,
-          activePanel: existing?.activePanel || activePanel,
-          latestResult: latestResultValue,
-          modelVisualizationSnapshot: modelSnapshot,
-          resultVisualizationSnapshot: resultSnapshot,
-          visualizationSnapshot: resultSnapshot,
-        },
+        [targetConversationId]: nextEntry,
       }
     })
   }
@@ -1898,49 +1975,88 @@ export function AIConsole() {
         session?.model || null
       )
       const nextFinalResultSnapshot = pickPreferredResultSnapshot(nextResolvedResultSnapshot, synthesizedResultSnapshot)
-      const nextModelText =
+      const restoredModelText =
         toModelText(session?.model)
         || archived?.modelText
         || toModelText(nextLatestResult?.model)
         || toModelTextFromSnapshot(nextModelSnapshot)
         || toModelTextFromSnapshot(nextFinalResultSnapshot)
         || ''
+      const hasStaleStructuralData =
+        isStaleVisualizationSnapshot(nextModelSnapshot)
+        || isStaleVisualizationSnapshot(nextFinalResultSnapshot)
+        || isStaleStructuralResult(nextLatestResult)
+      const safeLatestResult = hasStaleStructuralData ? null : nextLatestResult
+      const safeModelSnapshot = hasStaleStructuralData ? null : nextModelSnapshot
+      const safeResultSnapshot = hasStaleStructuralData ? null : nextFinalResultSnapshot
+      const safeModelText = hasStaleStructuralData ? '' : restoredModelText
+      const safeModelSyncMessage = hasStaleStructuralData ? '' : nextModelSyncMessage
+      const safeActivePanel = hasStaleStructuralData ? 'analysis' : nextActivePanel
 
       setConversationId(nextConversationId)
       setMessages(nextMessages)
-      setModelText(nextModelText)
-      setModelSyncMessage(nextModelSyncMessage)
-      setLatestResult(nextLatestResult)
-      setLatestModelVisualizationSnapshot(nextModelSnapshot)
-      setLatestResultVisualizationSnapshot(nextFinalResultSnapshot)
-      setActivePanel(nextActivePanel)
+      setModelText(safeModelText)
+      setModelSyncMessage(safeModelSyncMessage)
+      setLatestResult(safeLatestResult)
+      setLatestModelVisualizationSnapshot(safeModelSnapshot)
+      setLatestResultVisualizationSnapshot(safeResultSnapshot)
+      setActivePanel(safeActivePanel)
+
+      if (hasStaleStructuralData) {
+        setConversationArchive((current) => {
+          const existing = current[nextConversationId]
+          if (!existing) {
+            return current
+          }
+          return {
+            ...current,
+            [nextConversationId]: sanitizePersistedConversation({
+              ...existing,
+              modelText: '',
+              modelSyncMessage: '',
+              activePanel: 'analysis',
+              latestResult: null,
+              modelVisualizationSnapshot: null,
+              resultVisualizationSnapshot: null,
+              visualizationSnapshot: null,
+              staleStructuralData: true,
+            }),
+          }
+        })
+        toast.error(`${t('staleStructuralSessionTitle')}: ${t('staleStructuralSessionBody')}`)
+      }
     } catch (error) {
       if (archived) {
+        const restoredArchive = sanitizePersistedConversation(archived)
         setConversationId(nextConversationId)
-        setMessages(archived.messages.length ? archived.messages : [initialAssistantMessage])
+        setMessages(restoredArchive.messages.length ? restoredArchive.messages : [initialAssistantMessage])
         setModelText(
-          archived.modelText
-          || toModelText(archived.latestResult?.model)
-          || toModelTextFromSnapshot(archived.modelVisualizationSnapshot)
-          || toModelTextFromSnapshot(archived.resultVisualizationSnapshot || archived.visualizationSnapshot)
+          restoredArchive.modelText
+          || toModelText(restoredArchive.latestResult?.model)
+          || toModelTextFromSnapshot(restoredArchive.modelVisualizationSnapshot)
+          || toModelTextFromSnapshot(restoredArchive.resultVisualizationSnapshot || restoredArchive.visualizationSnapshot)
           || ''
         )
-        setModelSyncMessage(archived.modelSyncMessage || '')
-        const archivedLatestResult = normalizeAgentResultPayload(archived.latestResult || null)
+        setModelSyncMessage(restoredArchive.modelSyncMessage || '')
+        const archivedLatestResult = normalizeAgentResultPayload(restoredArchive.latestResult || null)
         setLatestResult(archivedLatestResult)
-        setLatestModelVisualizationSnapshot(archived.modelVisualizationSnapshot || null)
+        setLatestModelVisualizationSnapshot(restoredArchive.modelVisualizationSnapshot || null)
         const archivedSynthesizedResultSnapshot = buildResultSnapshotFromResult(
           archivedLatestResult,
-          archived.title || t('untitledConversation'),
-          toModelFromVisualizationSnapshot(archived.modelVisualizationSnapshot || archived.resultVisualizationSnapshot || archived.visualizationSnapshot)
+          restoredArchive.title || t('untitledConversation'),
+          toModelFromVisualizationSnapshot(restoredArchive.modelVisualizationSnapshot || restoredArchive.resultVisualizationSnapshot || restoredArchive.visualizationSnapshot)
         )
-        setLatestResultVisualizationSnapshot(
-          pickPreferredResultSnapshot(
-            pickPreferredResultSnapshot(archived.resultVisualizationSnapshot, archived.visualizationSnapshot),
-            archivedSynthesizedResultSnapshot
-          )
+        const archivedResultSnapshot = pickPreferredResultSnapshot(
+          pickPreferredResultSnapshot(restoredArchive.resultVisualizationSnapshot, restoredArchive.visualizationSnapshot),
+          archivedSynthesizedResultSnapshot
         )
-        setActivePanel(archived.activePanel || (archivedLatestResult?.report?.markdown ? 'report' : 'analysis'))
+        setLatestResultVisualizationSnapshot(archivedResultSnapshot)
+        setActivePanel(restoredArchive.activePanel || (archivedLatestResult?.report?.markdown ? 'report' : 'analysis'))
+
+        if (restoredArchive.staleStructuralData) {
+          toast.error(`${t('staleStructuralSessionTitle')}: ${t('staleStructuralSessionBody')}`)
+        }
+
         return
       }
 

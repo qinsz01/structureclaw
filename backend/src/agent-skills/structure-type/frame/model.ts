@@ -1,4 +1,8 @@
 import { computeMissingCriticalKeys } from '../../../agent-runtime/draft-guidance.js';
+import {
+  STRUCTURAL_COORDINATE_SEMANTICS,
+} from '../../../agent-runtime/coordinate-semantics.js';
+import { buildElementReferenceVectors } from '../../../agent-runtime/reference-vectors.js';
 import type { DraftState } from '../../../agent-runtime/types.js';
 import { REQUIRED_KEYS } from './constants.js';
 
@@ -109,28 +113,28 @@ function buildFrame2dLocalModel(
   const floorLoads = state.floorLoads!;
   const baseSupport = (state.frameBaseSupportType as string | undefined) ?? 'fixed';
   const xCoords = accumulateCoords(bayWidths);
-  const yCoords = accumulateCoords(storyHeights);
+  const zCoords = accumulateCoords(storyHeights);
   const nodes: Array<Record<string, unknown>> = [];
   const elements: Array<Record<string, unknown>> = [];
   const loads: Array<Record<string, unknown>> = [];
   let elementId = 1;
 
-  for (let storyIdx = 0; storyIdx < yCoords.length; storyIdx++) {
+  for (let storyIdx = 0; storyIdx < zCoords.length; storyIdx++) {
     for (let bayIdx = 0; bayIdx < xCoords.length; bayIdx++) {
-      const node: Record<string, unknown> = { id: n2dId(storyIdx, bayIdx), x: xCoords[bayIdx], y: yCoords[storyIdx], z: 0 };
+      const node: Record<string, unknown> = { id: n2dId(storyIdx, bayIdx), x: xCoords[bayIdx], y: 0, z: zCoords[storyIdx] };
       if (storyIdx === 0) node.restraints = buildBaseRestraint(baseSupport);
       nodes.push(node);
     }
   }
 
-  for (let storyIdx = 1; storyIdx < yCoords.length; storyIdx++) {
+  for (let storyIdx = 1; storyIdx < zCoords.length; storyIdx++) {
     for (let bayIdx = 0; bayIdx < xCoords.length; bayIdx++) {
       elements.push({ id: `C${elementId}`, type: 'beam', nodes: [n2dId(storyIdx - 1, bayIdx), n2dId(storyIdx, bayIdx)], material: '1', section: '1' });
       elementId += 1;
     }
   }
 
-  for (let storyIdx = 1; storyIdx < yCoords.length; storyIdx++) {
+  for (let storyIdx = 1; storyIdx < zCoords.length; storyIdx++) {
     for (let bayIdx = 0; bayIdx < bayWidths.length; bayIdx++) {
       elements.push({ id: `B${elementId}`, type: 'beam', nodes: [n2dId(storyIdx, bayIdx), n2dId(storyIdx, bayIdx + 1)], material: '1', section: '2' });
       elementId += 1;
@@ -140,12 +144,12 @@ function buildFrame2dLocalModel(
   const levelNodeCount = xCoords.length;
   for (const load of floorLoads) {
     const storyIdx = load.story;
-    if (storyIdx <= 0 || storyIdx >= yCoords.length) continue;
+    if (storyIdx <= 0 || storyIdx >= zCoords.length) continue;
     const vPerNode = load.verticalKN !== undefined ? -load.verticalKN / levelNodeCount : undefined;
     const lPerNode = load.lateralXKN !== undefined ? load.lateralXKN / levelNodeCount : undefined;
     for (let bayIdx = 0; bayIdx < xCoords.length; bayIdx++) {
       const nodeLoad: Record<string, unknown> = { node: n2dId(storyIdx, bayIdx) };
-      if (vPerNode !== undefined) nodeLoad.fy = vPerNode;
+      if (vPerNode !== undefined) nodeLoad.fz = vPerNode;
       if (lPerNode !== undefined) nodeLoad.fx = lPerNode;
       if (Object.keys(nodeLoad).length > 1) loads.push(nodeLoad);
     }
@@ -165,6 +169,7 @@ function buildFrame2dLocalModel(
     load_combinations: [{ id: 'ULS', factors: { LC1: 1.0 } }],
     metadata: {
       ...metadata,
+      coordinateSemantics: STRUCTURAL_COORDINATE_SEMANTICS,
       baseSupport,
       material: matProps.resolvedGrade,
       columnSection: colProps.name,
@@ -192,42 +197,42 @@ function buildFrame3dLocalModel(
   const floorLoads = state.floorLoads!;
   const baseSupport = (state.frameBaseSupportType as string | undefined) ?? 'fixed';
   const xCoords = accumulateCoords(bayWidthsX);
-  const zCoords = accumulateCoords(bayWidthsY);
-  const yCoords = accumulateCoords(storyHeights);
+  const yCoords = accumulateCoords(bayWidthsY);
+  const zCoords = accumulateCoords(storyHeights);
   const nodes: Array<Record<string, unknown>> = [];
   const elements: Array<Record<string, unknown>> = [];
   const loads: Array<Record<string, unknown>> = [];
   let elementId = 1;
 
-  for (let storyIdx = 0; storyIdx < yCoords.length; storyIdx++) {
+  for (let storyIdx = 0; storyIdx < zCoords.length; storyIdx++) {
     for (let xIdx = 0; xIdx < xCoords.length; xIdx++) {
-      for (let yIdx = 0; yIdx < zCoords.length; yIdx++) {
-        const node: Record<string, unknown> = { id: n3dId(storyIdx, xIdx, yIdx), x: xCoords[xIdx], y: yCoords[storyIdx], z: zCoords[yIdx] };
+      for (let yIdx = 0; yIdx < yCoords.length; yIdx++) {
+        const node: Record<string, unknown> = { id: n3dId(storyIdx, xIdx, yIdx), x: xCoords[xIdx], y: yCoords[yIdx], z: zCoords[storyIdx] };
         if (storyIdx === 0) node.restraints = buildBaseRestraint(baseSupport);
         nodes.push(node);
       }
     }
   }
 
-  for (let storyIdx = 1; storyIdx < yCoords.length; storyIdx++) {
+  for (let storyIdx = 1; storyIdx < zCoords.length; storyIdx++) {
     for (let xIdx = 0; xIdx < xCoords.length; xIdx++) {
-      for (let yIdx = 0; yIdx < zCoords.length; yIdx++) {
+      for (let yIdx = 0; yIdx < yCoords.length; yIdx++) {
         elements.push({ id: `C${elementId}`, type: 'beam', nodes: [n3dId(storyIdx - 1, xIdx, yIdx), n3dId(storyIdx, xIdx, yIdx)], material: '1', section: '1' });
         elementId += 1;
       }
     }
   }
 
-  for (let storyIdx = 1; storyIdx < yCoords.length; storyIdx++) {
+  for (let storyIdx = 1; storyIdx < zCoords.length; storyIdx++) {
     for (let xIdx = 0; xIdx < bayWidthsX.length; xIdx++) {
-      for (let yIdx = 0; yIdx < zCoords.length; yIdx++) {
+      for (let yIdx = 0; yIdx < yCoords.length; yIdx++) {
         elements.push({ id: `BX${elementId}`, type: 'beam', nodes: [n3dId(storyIdx, xIdx, yIdx), n3dId(storyIdx, xIdx + 1, yIdx)], material: '1', section: '2' });
         elementId += 1;
       }
     }
   }
 
-  for (let storyIdx = 1; storyIdx < yCoords.length; storyIdx++) {
+  for (let storyIdx = 1; storyIdx < zCoords.length; storyIdx++) {
     for (let xIdx = 0; xIdx < xCoords.length; xIdx++) {
       for (let yIdx = 0; yIdx < bayWidthsY.length; yIdx++) {
         elements.push({ id: `BY${elementId}`, type: 'beam', nodes: [n3dId(storyIdx, xIdx, yIdx), n3dId(storyIdx, xIdx, yIdx + 1)], material: '1', section: '2' });
@@ -236,23 +241,25 @@ function buildFrame3dLocalModel(
     }
   }
 
-  const levelNodeCount = xCoords.length * zCoords.length;
+  const levelNodeCount = xCoords.length * yCoords.length;
   for (const load of floorLoads) {
     const storyIdx = load.story;
-    if (storyIdx <= 0 || storyIdx >= yCoords.length) continue;
+    if (storyIdx <= 0 || storyIdx >= zCoords.length) continue;
     const vPerNode = load.verticalKN !== undefined ? -load.verticalKN / levelNodeCount : undefined;
     const lxPerNode = load.lateralXKN !== undefined ? load.lateralXKN / levelNodeCount : undefined;
     const lyPerNode = load.lateralYKN !== undefined ? load.lateralYKN / levelNodeCount : undefined;
     for (let xIdx = 0; xIdx < xCoords.length; xIdx++) {
-      for (let yIdx = 0; yIdx < zCoords.length; yIdx++) {
+      for (let yIdx = 0; yIdx < yCoords.length; yIdx++) {
         const nodeLoad: Record<string, unknown> = { node: n3dId(storyIdx, xIdx, yIdx) };
-        if (vPerNode !== undefined) nodeLoad.fy = vPerNode;
+        if (vPerNode !== undefined) nodeLoad.fz = vPerNode;
         if (lxPerNode !== undefined) nodeLoad.fx = lxPerNode;
-        if (lyPerNode !== undefined) nodeLoad.fz = lyPerNode;
+        if (lyPerNode !== undefined) nodeLoad.fy = lyPerNode;
         if (Object.keys(nodeLoad).length > 1) loads.push(nodeLoad);
       }
     }
   }
+
+  const elementReferenceVectors = buildElementReferenceVectors(elements, nodes);
 
   return {
     schema_version: '1.0.0',
@@ -268,6 +275,8 @@ function buildFrame3dLocalModel(
     load_combinations: [{ id: 'ULS', factors: { LC1: 1.0 } }],
     metadata: {
       ...metadata,
+      coordinateSemantics: STRUCTURAL_COORDINATE_SEMANTICS,
+      elementReferenceVectors,
       baseSupport,
       material: matProps.resolvedGrade,
       columnSection: colProps.name,
@@ -291,7 +300,7 @@ function buildFrameLocalModel(state: DraftState): Record<string, unknown> {
   const matProps = resolveSteelGradeProps(matGrade);
   const colProps = resolveSectionProps(colSection, 'column', storyCount, matProps.G);
   const beamProps = resolveSectionProps(beamSection, 'beam', storyCount, matProps.G);
-  const metadata: Record<string, unknown> = { source: 'markdown-skill-draft', inferredType: 'frame' };
+  const metadata: Record<string, unknown> = { source: 'markdown-skill-draft', inferredType: 'frame', frameDimension: state.frameDimension === '3d' ? '3d' : '2d' };
   if (state.frameDimension === '3d') {
     return buildFrame3dLocalModel(state, matProps, colProps, beamProps, metadata);
   }

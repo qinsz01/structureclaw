@@ -52,6 +52,7 @@ export interface DraftState {
   structuralTypeKey?: StructuralTypeKey;
   supportLevel?: StructuralTypeSupportLevel;
   supportNote?: string;
+  coordinateSemantics?: string;
   skillState?: Record<string, unknown>;
   lengthM?: number;
   spanLengthM?: number;
@@ -82,6 +83,7 @@ export interface DraftExtraction {
   structuralTypeKey?: StructuralTypeKey;
   supportLevel?: StructuralTypeSupportLevel;
   supportNote?: string;
+  coordinateSemantics?: string;
   skillState?: Record<string, unknown>;
   lengthM?: number;
   spanLengthM?: number;

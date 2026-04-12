@@ -1,4 +1,4 @@
-import { describe, expect, test } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, test } from '@jest/globals';
 import fs from 'node:fs';
 import { AgentService } from '../dist/services/agent.js';
 import { prisma } from '../dist/utils/database.js';
@@ -162,7 +162,56 @@ function createPlannerHttpError(status, data, message = 'planner request failed'
   return error;
 }
 
+const prismaMethodDefaults = {
+  conversationCreate: prisma.conversation.create,
+  conversationFindUnique: prisma.conversation.findUnique,
+  messageCreateMany: prisma.message.createMany,
+  messageFindMany: prisma.message.findMany,
+};
+
+let createdConversationCount = 0;
+
+function installConversationPersistenceStubs() {
+  prisma.conversation.create = async ({ data }) => {
+    createdConversationCount += 1;
+    return {
+      id: `conv-test-${createdConversationCount}`,
+      title: data?.title ?? null,
+      type: data?.type ?? 'general',
+      userId: data?.userId ?? null,
+    };
+  };
+
+  prisma.conversation.findUnique = async ({ where }) => {
+    if (!where?.id) {
+      return null;
+    }
+    return { id: where.id };
+  };
+
+  prisma.message.createMany = async ({ data }) => ({
+    count: Array.isArray(data) ? data.length : 0,
+  });
+
+  prisma.message.findMany = async () => [];
+}
+
+function restoreConversationPersistenceStubs() {
+  prisma.conversation.create = prismaMethodDefaults.conversationCreate;
+  prisma.conversation.findUnique = prismaMethodDefaults.conversationFindUnique;
+  prisma.message.createMany = prismaMethodDefaults.messageCreateMany;
+  prisma.message.findMany = prismaMethodDefaults.messageFindMany;
+}
+
 describe('AgentService orchestration', () => {
+  beforeEach(() => {
+    installConversationPersistenceStubs();
+  });
+
+  afterEach(() => {
+    restoreConversationPersistenceStubs();
+  });
+
   test('should not seed an empty interaction session with a default unknown draft', async () => {
     const svc = createServiceWithDefaultSkills();
 
@@ -416,6 +465,113 @@ describe('AgentService orchestration', () => {
     }
 
     expect(deletedKeys).toEqual(['agent:interaction-session:conv-cleanup']);
+  });
+
+  test('should invalidate in-memory session when latestModel has stale structural coordinates', async () => {
+    const svc = createServiceWithDefaultSkills();
+    const staleConversationId = 'conv-stale-session-' + Date.now();
+
+    const { cache } = await import('../dist/utils/cache.js');
+    await cache.setex(
+      'agent:interaction-session:' + staleConversationId,
+      1800,
+      JSON.stringify({
+        draft: { inferredType: 'frame', updatedAt: Date.now() },
+        structuralTypeMatch: { key: 'frame', mappedType: 'frame', skillId: 'frame', supportLevel: 'supported' },
+        latestModel: {
+          schema_version: '1.0.0',
+          nodes: [{ id: '1', x: 0, y: 0, z: 0 }],
+          elements: [],
+          materials: [],
+          sections: [],
+          load_cases: [],
+          load_combinations: [],
+          metadata: { inferredType: 'frame' },
+        },
+        resolved: {},
+        updatedAt: Date.now(),
+      }),
+    );
+
+    const snapshot = await svc.getConversationSessionSnapshot(staleConversationId, 'zh');
+
+    // The stale model should be cleared
+    expect(snapshot?.draft?.inferredType).toBe('unknown');
+    expect(snapshot?.model).toBeUndefined();
+
+    // Clean up
+    await svc.clearConversationSession(staleConversationId);
+  });
+
+
+  test('should invalidate draft-only structural sessions when semantics version is missing', async () => {
+    const svc = createServiceWithDefaultSkills();
+    const staleConversationId = 'conv-stale-draft-only-' + Date.now();
+
+    const { cache } = await import('../dist/utils/cache.js');
+    await cache.setex(
+      'agent:interaction-session:' + staleConversationId,
+      1800,
+      JSON.stringify({
+        draft: { inferredType: 'frame', frameDimension: '3d', updatedAt: Date.now() },
+        structuralTypeMatch: { key: 'frame', mappedType: 'frame', skillId: 'frame', supportLevel: 'supported' },
+        resolved: {},
+        updatedAt: Date.now(),
+      }),
+    );
+
+    const snapshot = await svc.getConversationSessionSnapshot(staleConversationId, 'zh');
+
+    expect(snapshot?.draft?.inferredType).toBe('unknown');
+    expect(snapshot?.model).toBeUndefined();
+
+    await svc.clearConversationSession(staleConversationId);
+  });
+
+  test('should preserve canonical structural sessions in memory', async () => {
+    const svc = createServiceWithDefaultSkills();
+    const validConversationId = 'conv-valid-session-' + Date.now();
+
+    await cache.setex(
+      'agent:interaction-session:' + validConversationId,
+      1800,
+      JSON.stringify({
+        draft: {
+          inferredType: 'beam',
+          skillId: 'generic',
+          structuralTypeKey: 'beam',
+          coordinateSemantics: 'global-z-up',
+          updatedAt: Date.now(),
+        },
+        structuralTypeMatch: { key: 'beam', mappedType: 'beam', skillId: 'generic', supportLevel: 'fallback' },
+        latestModel: {
+          schema_version: '1.0.0',
+          nodes: [
+            { id: '1', x: 0, y: 0, z: 0 },
+            { id: '2', x: 6, y: 0, z: 0 },
+          ],
+          elements: [{ id: 'E1', type: 'beam', nodes: ['1', '2'] }],
+          materials: [],
+          sections: [],
+          load_cases: [],
+          load_combinations: [],
+          metadata: {
+            inferredType: 'beam',
+            frameDimension: '2d',
+            coordinateSemantics: 'global-z-up',
+          },
+        },
+        resolved: {},
+        updatedAt: Date.now(),
+      }),
+    );
+
+    const snapshot = await svc.getConversationSessionSnapshot(validConversationId, 'zh');
+
+    expect(snapshot?.draft?.inferredType).toBe('beam');
+    expect(snapshot?.model?.metadata?.coordinateSemantics).toBe('global-z-up');
+
+    await svc.clearConversationSession(validConversationId);
   });
 
   test('should preserve cache.del behavior after the cleanup-session assertion', async () => {
@@ -2039,7 +2195,7 @@ describe('AgentService orchestration', () => {
           ],
           materials: [{ id: 'mat1', type: 'steel', E: 2.06e11, nu: 0.3, density: 7850 }],
           sections: [{ id: 'sec1', type: 'rectangular', width: 0.3, height: 0.6 }],
-          load_cases: [{ id: 'LC1', type: 'dead', loads: [{ type: 'nodal', node: '2', fy: -10 }] }],
+          load_cases: [{ id: 'LC1', type: 'dead', loads: [{ type: 'nodal', node: '2', fz: -10 }] }],
           load_combinations: [{ id: 'ULS1', factors: [{ case: 'LC1', factor: 1.0 }] }],
         },
         userDecision: 'allow_auto_decide',
@@ -2424,7 +2580,7 @@ describe('AgentService orchestration', () => {
     ]);
     const loads = draft.model?.load_cases?.[0]?.loads ?? [];
     expect(loads).toHaveLength(12);
-    expect(loads.every((load) => typeof load.fx === 'number' && typeof load.fz === 'number')).toBe(true);
+    expect(loads.every((load) => typeof load.fx === 'number' && typeof load.fy === 'number' && typeof load.fz === 'number')).toBe(true);
   });
 
   test('should mirror generic horizontal-load wording to both axes in 3d frame follow-up context', async () => {
@@ -2448,7 +2604,7 @@ describe('AgentService orchestration', () => {
     const loads = second.model?.load_cases?.[0]?.loads ?? [];
     expect(second.interaction?.missingCritical).not.toContain('各层总荷载（kN）');
     expect(loads).toHaveLength(12);
-    expect(loads.every((load) => typeof load.fx === 'number' && typeof load.fz === 'number')).toBe(true);
+    expect(loads.every((load) => typeof load.fx === 'number' && typeof load.fy === 'number' && typeof load.fz === 'number')).toBe(true);
   });
 
   test('should parse chinese two-direction horizontal-load wording in a single 3d frame sentence', async () => {
@@ -2470,7 +2626,7 @@ describe('AgentService orchestration', () => {
     ]);
     const loads = draft.model?.load_cases?.[0]?.loads ?? [];
     expect(loads.length).toBeGreaterThan(0);
-    expect(loads.every((load) => typeof load.fx === 'number' && typeof load.fz === 'number')).toBe(true);
+    expect(loads.every((load) => typeof load.fx === 'number' && typeof load.fy === 'number')).toBe(true);
   });
 
   test('should prefer llm-extracted frame floor loads for natural combined load wording', async () => {
@@ -2938,7 +3094,7 @@ describe('AgentService orchestration', () => {
 
     expect(first.interaction?.missingCritical).not.toContain('各层总荷载（kN）');
     expect(first.model?.load_cases?.[0]?.loads).toHaveLength(12);
-    expect(first.model?.load_cases?.[0]?.loads.every((load) => typeof load.fy === 'number' && typeof load.fx === 'number' && load.fz === undefined)).toBe(true);
+    expect(first.model?.load_cases?.[0]?.loads.every((load) => typeof load.fz === 'number' && typeof load.fx === 'number' && load.fy === undefined)).toBe(true);
 
     const second = await svc.runChatOnly({
       conversationId: 'conv-frame-merge-3d-loads',
@@ -3186,5 +3342,37 @@ describe('AgentService orchestration', () => {
     expect(draft.stateToPersist?.frameDimension).toBe('3d');
     expect(draft.stateToPersist?.bayWidthsXM).toEqual([6, 9, 6]);
     expect(draft.stateToPersist?.bayCountX).toBe(3);
+  });
+
+  test('should preserve explicit z-direction floor loads in chat-driven 3d frame drafting', async () => {
+    const svc = createServiceWithDefaultSkills();
+    svc.llm = null;
+
+    const draft = await svc.textToModelDraft(
+      '3D框架，2层，x向2跨每跨6m，y向1跨每跨5m，每层3m，x方向荷载18kN，y方向荷载12kN，z方向荷载10kN',
+      undefined,
+      'zh',
+    );
+
+    expect(draft.missingFields).toEqual([]);
+    expect(draft.stateToPersist?.frameDimension).toBe('3d');
+    expect(draft.stateToPersist?.floorLoads).toEqual([
+      { story: 1, verticalKN: 10, lateralXKN: 18, lateralYKN: 12 },
+      { story: 2, verticalKN: 10, lateralXKN: 18, lateralYKN: 12 },
+    ]);
+  });
+
+  test('should keep 2d frame wording on the xz plane', async () => {
+    const svc = createServiceWithDefaultSkills();
+    svc.llm = null;
+
+    const draft = await svc.textToModelDraft(
+      '2D frame, 2 stories, 2 bays at 6 m, story height 3 m, z-direction load 120 kN and x-direction load 30 kN',
+      undefined,
+      'en',
+    );
+
+    expect(draft.stateToPersist?.frameDimension).toBe('2d');
+    expect(draft.stateToPersist?.floorLoads?.[0]).toMatchObject({ verticalKN: 120, lateralXKN: 30 });
   });
 });

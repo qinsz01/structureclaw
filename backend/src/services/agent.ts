@@ -38,6 +38,7 @@ import { executeRunCodeCheckStep } from '../agent-tools/builtin/run-code-check.j
 import { executeUpdateModelExecutionStep } from '../agent-tools/builtin/update-model.js';
 // executeValidateModelStep is now accessed via agent-validation.ts
 import { buildTurnContext, type HandlerDeps, type RouteDecision } from './agent-context.js';
+import { STRUCTURAL_COORDINATE_SEMANTICS } from '../agent-runtime/coordinate-semantics.js';
 import { handleChat } from './agent-handlers/index.js';
 import {
   getInteractionSession as getInteractionSessionFromStore,
@@ -832,6 +833,35 @@ export class AgentService {
     const session = await this.getInteractionSession(conversationId);
     if (!session) {
       return undefined;
+    }
+
+    const draftInferredType = typeof session.draft?.inferredType === 'string' ? session.draft.inferredType : undefined;
+    const draftIsStale = Boolean(
+      session.draft
+      && draftInferredType
+      && draftInferredType !== 'unknown'
+      && session.draft.coordinateSemantics !== STRUCTURAL_COORDINATE_SEMANTICS
+    );
+
+    const modelMeta = session.latestModel?.metadata && typeof session.latestModel.metadata === 'object'
+      ? session.latestModel.metadata as Record<string, unknown>
+      : null;
+    const modelInferredType = typeof modelMeta?.inferredType === 'string' ? modelMeta.inferredType : undefined;
+    const modelIsStale = Boolean(
+      session.latestModel
+      && modelInferredType
+      && modelInferredType !== 'unknown'
+      && modelMeta?.coordinateSemantics !== STRUCTURAL_COORDINATE_SEMANTICS
+    );
+
+    if (draftIsStale || modelIsStale) {
+      session.draft = undefined;
+      session.structuralTypeMatch = undefined;
+      session.latestModel = undefined;
+      session.updatedAt = Date.now();
+      if (conversationId?.trim()) {
+        await this.setInteractionSession(conversationId.trim(), session);
+      }
     }
 
     if (this.hasEmptySkillSelection(skillIds)) {
@@ -3903,12 +3933,11 @@ export class AgentService {
       .filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null)
       .map((item) => {
         if (item.type === 'distributed' || item.element !== undefined) {
-          const magnitude = this.asNumber(item.wy ?? item.fy ?? item.wz ?? item.fz, 0);
           return {
             type: 'distributed',
             element: String(item.element ?? ''),
-            wy: magnitude,
-            wz: 0,
+            wy: this.asNumber(item.wy ?? item.fy, 0),
+            wz: this.asNumber(item.wz ?? item.fz, 0),
           };
         }
 

@@ -41,4 +41,90 @@ describe('ConversationService locale handling', () => {
 
     expect(deleted).toBeNull();
   });
+
+  test('returns stale structural snapshots as incompatible when semantics version is missing', async () => {
+    prisma.conversation.findUnique = async () => ({
+      modelSnapshot: { dimension: 3, metadata: { inferredType: 'frame' } },
+      resultSnapshot: { dimension: 3, metadata: { inferredType: 'frame' } },
+      latestResult: { model: { metadata: { inferredType: 'frame' } } },
+    });
+
+    const svc = new ConversationService();
+    const snapshot = await svc.getConversationSnapshot('conv-1');
+
+    expect(snapshot?.staleStructuralData).toBe(true);
+  });
+
+
+  test('marks latestResult as stale when nested model metadata is missing semantics version', async () => {
+    prisma.conversation.findUnique = async () => ({
+      modelSnapshot: null,
+      resultSnapshot: null,
+      latestResult: { model: { metadata: { inferredType: 'frame' } } },
+    });
+
+    const svc = new ConversationService();
+    const snapshot = await svc.getConversationSnapshot('conv-latest-result-stale');
+
+    expect(snapshot?.staleStructuralData).toBe(true);
+  });
+
+  test('marks visualization snapshots with geometry but missing top-level semantics as stale', async () => {
+    prisma.conversation.findUnique = async () => ({
+      modelSnapshot: null,
+      resultSnapshot: {
+        dimension: 3,
+        nodes: [
+          { id: 'N1', x: 0, y: 0, z: 0 },
+          { id: 'N2', x: 1, y: 0, z: 0 },
+        ],
+        elements: [{ id: 'E1', nodes: ['N1', 'N2'] }],
+      },
+      latestResult: null,
+    });
+
+    const svc = new ConversationService();
+    const snapshot = await svc.getConversationSnapshot('conv-visualization-snapshot-stale');
+
+    expect(snapshot?.staleStructuralData).toBe(true);
+  });
+
+  test('returns non-stale when all snapshots are empty', async () => {
+    prisma.conversation.findUnique = async () => ({
+      modelSnapshot: null,
+      resultSnapshot: null,
+      latestResult: null,
+    });
+
+    const svc = new ConversationService();
+    const snapshot = await svc.getConversationSnapshot('conv-2');
+
+    expect(snapshot?.staleStructuralData).toBe(false);
+  });
+
+  test('returns non-stale when all snapshots have unknown inferredType', async () => {
+    prisma.conversation.findUnique = async () => ({
+      modelSnapshot: { dimension: 3, metadata: { inferredType: 'unknown' } },
+      resultSnapshot: null,
+      latestResult: null,
+    });
+
+    const svc = new ConversationService();
+    const snapshot = await svc.getConversationSnapshot('conv-3');
+
+    expect(snapshot?.staleStructuralData).toBe(false);
+  });
+
+  test('returns non-stale when conversation has no structural snapshots', async () => {
+    prisma.conversation.findUnique = async () => ({
+      modelSnapshot: null,
+      resultSnapshot: null,
+      latestResult: { success: true },
+    });
+
+    const svc = new ConversationService();
+    const snapshot = await svc.getConversationSnapshot('conv-4');
+
+    expect(snapshot?.staleStructuralData).toBe(false);
+  });
 });

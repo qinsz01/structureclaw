@@ -58,6 +58,65 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function normalizePortNumber(rawPort) {
+  if (rawPort === undefined || rawPort === null) {
+    return null;
+  }
+  const candidate = typeof rawPort === "number" ? rawPort : Number(String(rawPort).trim());
+  if (!Number.isInteger(candidate) || candidate < 1 || candidate > 65535) {
+    return null;
+  }
+  return candidate;
+}
+
+function normalizePathForMatch(rawValue) {
+  if (!rawValue || typeof rawValue !== "string") {
+    return "";
+  }
+  return rawValue.replace(/\\/gu, "/").toLowerCase();
+}
+
+function normalizeAllowedPids(allowedPids) {
+  const normalized = new Set();
+  for (const value of allowedPids || []) {
+    const pid = Number(value);
+    if (Number.isInteger(pid) && pid > 0) {
+      normalized.add(pid);
+    }
+  }
+  return normalized;
+}
+
+function getNormalizedRootMatchCandidates(rootDir) {
+  const candidates = new Set();
+  for (const value of [rootDir, rootDir ? path.resolve(rootDir) : ""]) {
+    const normalized = normalizePathForMatch(value);
+    if (normalized) {
+      candidates.add(normalized);
+      candidates.add(normalized.replace(/^[a-z]:/u, ""));
+    }
+  }
+  candidates.delete("");
+  return [...candidates];
+}
+
+function isProjectOwnedPortProcess({ pid, commandLine, rootDir, allowedPids }) {
+  const numericPid = Number(pid);
+  const normalizedAllowedPids = normalizeAllowedPids(allowedPids);
+  if (Number.isInteger(numericPid) && normalizedAllowedPids.has(numericPid)) {
+    return true;
+  }
+  if (typeof commandLine !== "string" || !rootDir) {
+    return false;
+  }
+  const normalizedCommandLine = normalizePathForMatch(commandLine);
+  const normalizedRoots = getNormalizedRootMatchCandidates(rootDir);
+  if (!normalizedCommandLine || normalizedRoots.length === 0) {
+    return false;
+  }
+  return normalizedRoots.some((candidate) => normalizedCommandLine.includes(candidate));
+}
+
 function parseDotEnv(rawText) {
   const values = {};
   for (const rawLine of rawText.split(/\r?\n/u)) {
@@ -535,6 +594,129 @@ async function stopProcessTree(pid) {
   }
 }
 
+function listWindowsPortPids(port) {
+  const result = spawnSync(
+    "powershell",
+    [
+      "-NoProfile",
+      "-Command",
+      "Get-NetTCPConnection -LocalPort $args[0] -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess",
+      String(port),
+    ],
+    { encoding: "utf-8", windowsHide: true },
+  );
+  return String(result.stdout || "")
+    .split(/\r?\n/u)
+    .map((value) => Number(value.trim()))
+    .filter((value) => Number.isInteger(value) && value > 0);
+}
+
+function listUnixPortPids(port) {
+  const result = spawnSync("lsof", ["-i", `:${port}`, "-t"], {
+    encoding: "utf-8",
+  });
+  return String(result.stdout || "")
+    .split(/\r?\n/u)
+    .map((value) => Number(value.trim()))
+    .filter((value) => Number.isInteger(value) && value > 0);
+}
+
+function readWindowsProcessCommandLine(pid) {
+  const result = spawnSync(
+    "powershell",
+    [
+      "-NoProfile",
+      "-Command",
+      "(Get-CimInstance Win32_Process -Filter \"ProcessId = $($args[0])\" -ErrorAction SilentlyContinue).CommandLine",
+      String(pid),
+    ],
+    { encoding: "utf-8", windowsHide: true },
+  );
+  return String(result.stdout || "").trim() || null;
+}
+
+function readUnixProcessCommandLine(pid) {
+  const result = spawnSync("ps", ["-o", "command=", "-p", String(pid)], {
+    encoding: "utf-8",
+  });
+  return String(result.stdout || "").trim() || null;
+}
+
+/**
+ * Kill tracked listeners and stale project-owned listeners on the given ports.
+ * Foreign listeners are only terminated when allowForeign=true is set explicitly.
+ */
+function killPortPids(ports, logFn, options = {}) {
+  if (!ports || ports.length === 0) {
+    return;
+  }
+
+  const allowedPids = normalizeAllowedPids(options.allowedPids);
+  const allowForeign = options.allowForeign === true;
+  const allowProjectOwned = options.allowProjectOwned !== false;
+  const rootDir = allowProjectOwned && options.rootDir ? path.resolve(options.rootDir) : undefined;
+
+  for (const rawPort of ports) {
+    const port = normalizePortNumber(rawPort);
+    if (!port) {
+      if (logFn) {
+        logFn(`Skipping unsafe port cleanup target: ${String(rawPort)}`);
+      }
+      continue;
+    }
+
+    try {
+      const pidList = isWindows() ? listWindowsPortPids(port) : listUnixPortPids(port);
+      if (pidList.length === 0) {
+        continue;
+      }
+
+      for (const pid of pidList) {
+        const commandLine = isWindows()
+          ? readWindowsProcessCommandLine(pid)
+          : readUnixProcessCommandLine(pid);
+        const tracked = allowedPids.has(pid);
+        const projectOwned = isProjectOwnedPortProcess({
+          pid,
+          commandLine,
+          rootDir,
+          allowedPids: new Set(),
+        });
+        if (!tracked && !projectOwned && !allowForeign) {
+          if (logFn) {
+            logFn(`Skipping non-project process on port ${port} (pid ${pid}).`);
+          }
+          continue;
+        }
+
+        if (logFn) {
+          logFn(
+            tracked
+              ? `Killing tracked process on port ${port} (pid ${pid}).`
+              : projectOwned
+                ? `Killing project-owned process on port ${port} (pid ${pid}).`
+                : `Force killing foreign process on port ${port} (pid ${pid}).`,
+          );
+        }
+        try {
+          if (isWindows()) {
+            spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], {
+              encoding: "utf-8",
+              windowsHide: true,
+            });
+          } else {
+            process.kill(pid, "SIGKILL");
+          }
+        } catch {
+          // already gone
+        }
+      }
+    } catch {
+      // inspection tool unavailable or no listeners
+    }
+  }
+}
+
 function latestSessionHeader(logFile) {
   if (!pathExists(logFile)) {
     return null;
@@ -675,11 +857,14 @@ module.exports = {
   hasCommand,
   installedPackagesMatchLock,
   isPidRunning,
+  isProjectOwnedPortProcess,
   isWindows,
+  killPortPids,
   latestSessionHeader,
   latestSessionLines,
   loadProjectEnvironment,
   logFilePath,
+  normalizePortNumber,
   normalizeSqliteFileUrl,
   normalizeAptMirror,
   normalizeDockerRegistryMirror,
