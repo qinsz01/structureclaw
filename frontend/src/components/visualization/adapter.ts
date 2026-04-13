@@ -1,7 +1,9 @@
 import type {
+  BucklingMode,
   VisualizationCase,
   VisualizationElement,
   VisualizationElementResults,
+  VisualizationExtensionMap,
   VisualizationLoad,
   VisualizationNode,
   VisualizationNodeResults,
@@ -411,7 +413,7 @@ function derivePlane(nodes: VisualizationNode[], dimension: 2 | 3) {
   return 'xz' as const
 }
 
-function buildAvailableViews(cases: VisualizationCase[], source: VisualizationSource): VisualizationViewMode[] {
+function buildAvailableViews(cases: VisualizationCase[], source: VisualizationSource, hasUtilization = false, hasBuckling = false): VisualizationViewMode[] {
   if (source === 'model') {
     return ['model']
   }
@@ -432,6 +434,8 @@ function buildAvailableViews(cases: VisualizationCase[], source: VisualizationSo
     ...(hasDisplacements ? (['deformed'] as const) : []),
     ...(hasForces ? (['forces'] as const) : []),
     ...(hasReactions ? (['reactions'] as const) : []),
+    ...(hasUtilization ? (['utilization'] as const) : []),
+    ...(hasBuckling ? (['buckling'] as const) : []),
   ]
 }
 
@@ -483,12 +487,55 @@ function deriveUnits(model: Record<string, unknown> | null, analysis: Record<str
   }
 }
 
+function deriveMemberUtilizationMap(
+  data: Record<string, unknown> | null,
+  providedMap?: Record<string, number> | null
+) {
+  if (providedMap && Object.keys(providedMap).length > 0) {
+    return providedMap
+  }
+
+  const steelCheck = asRecord(data?.steelCheck)
+  const codeCheck = asRecord(data?.codeCheck)
+  const nested = asRecord(steelCheck?.memberUtilization) || asRecord(codeCheck?.memberUtilization)
+  if (!nested) {
+    return null
+  }
+
+  return Object.fromEntries(
+    Object.entries(nested)
+      .map(([elementId, value]) => [elementId, asNumber(value)])
+      .filter((entry): entry is [string, number] => entry[1] !== null)
+  )
+}
+
+function deriveBucklingModes(
+  data: Record<string, unknown> | null,
+  providedModes?: BucklingMode[] | null
+) {
+  if (Array.isArray(providedModes) && providedModes.length > 0) {
+    return providedModes
+  }
+
+  const buckling = asRecord(data?.buckling)
+  const modes = Array.isArray(buckling?.modes) ? buckling.modes : []
+  const normalized = modes.filter((entry): entry is BucklingMode => {
+    const record = asRecord(entry)
+    return Boolean(record && typeof record.lambda === 'number' && asRecord(record.modeShape))
+  })
+  return normalized.length > 0 ? normalized : null
+}
+
 export function buildVisualizationSnapshot(params: {
   title: string
   model: Record<string, unknown> | null
   analysis?: Record<string, unknown> | null
   mode?: 'model-only' | 'analysis-result'
   statusMessage?: string
+  /** memberUtilizationMap from backend VisualizationHints: elementId → ratio (0~1+) */
+  memberUtilizationMap?: Record<string, number> | null
+  /** bucklingModes from backend VisualizationHints, sorted by λ ascending */
+  bucklingModes?: BucklingMode[] | null
 }): VisualizationSnapshot | null {
   const model = params.model
   if (!model) {
@@ -611,6 +658,52 @@ export function buildVisualizationSnapshot(params: {
   const semantics = deriveCoordinateSemantics(model)
   const dimension = semantics?.dimension ?? deriveDimension(nodes)
   const plane = semantics?.plane ?? derivePlane(nodes, dimension)
+  const utilizationMap = deriveMemberUtilizationMap(data, params.memberUtilizationMap)
+  const bucklingModes = deriveBucklingModes(data, params.bucklingModes)
+
+  // Inject steel member utilization ratios into all cases' elementResults
+  if (utilizationMap && Object.keys(utilizationMap).length > 0) {
+    cases.forEach((vizCase) => {
+      Object.entries(utilizationMap).forEach(([elementId, ratio]) => {
+        if (typeof ratio === 'number' && Number.isFinite(ratio)) {
+          vizCase.elementResults[elementId] = {
+            ...(vizCase.elementResults[elementId] || {}),
+            utilization: ratio,
+          }
+        }
+      })
+    })
+  }
+
+  // Build availableViews — include 'utilization' when any element has the field
+  const hasUtilization = cases.some((item) =>
+    Object.values(item.elementResults).some((result) => typeof result.utilization === 'number')
+  )
+  const hasBuckling = Array.isArray(bucklingModes) && bucklingModes.length > 0
+  const extensions: VisualizationExtensionMap = {
+    ...(hasUtilization && utilizationMap
+      ? {
+          'builtin.utilization': {
+            id: 'builtin.utilization',
+            available: true,
+            data: {
+              memberUtilizationMap: utilizationMap,
+            },
+          },
+        }
+      : {}),
+    ...(hasBuckling && bucklingModes
+      ? {
+          'builtin.buckling': {
+            id: 'builtin.buckling',
+            available: true,
+            data: {
+              bucklingModes,
+            },
+          },
+        }
+      : {}),
+  }
 
   return normalizeVisualizationSnapshot({
     version: 1,
@@ -620,7 +713,7 @@ export function buildVisualizationSnapshot(params: {
     plane,
     coordinateSemantics: semantics?.semantics,
     analysisType: typeof analysis?.analysis_type === 'string' ? analysis.analysis_type : undefined,
-    availableViews: buildAvailableViews(cases, source),
+    availableViews: buildAvailableViews(cases, source, hasUtilization, hasBuckling),
     defaultCaseId: cases.find((item) => item.kind === 'result')?.id || cases[0]?.id || (source === 'model' ? 'model' : 'result'),
     unitSystem: units.unitSystem,
     lengthUnit: units.lengthUnit,
@@ -638,5 +731,7 @@ export function buildVisualizationSnapshot(params: {
     cases,
     summary: asRecord(data?.summary) || undefined,
     statusMessage: params.statusMessage,
+    extensions: Object.keys(extensions).length > 0 ? extensions : undefined,
+    bucklingModes: hasBuckling ? bucklingModes || undefined : undefined,
   })
 }

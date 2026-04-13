@@ -89,6 +89,7 @@ type AgentResult = {
   report?: {
     summary?: string
     markdown?: string
+    json?: Record<string, unknown>
   }
   clarification?: {
     question?: string
@@ -101,6 +102,7 @@ type AgentResult = {
   durationMs?: number
   requestedEngineId?: string
   routing?: MessageDebugDetails['routing']
+  visualizationHints?: Record<string, unknown>
 }
 
 type StreamPayload =
@@ -110,6 +112,11 @@ type StreamPayload =
   | { type: 'result'; content?: AgentResult }
   | { type: 'done' }
   | { type: 'error'; error?: string }
+
+type VisualizationHintsPayload = {
+  memberUtilizationMap?: Record<string, number>
+  bucklingModes?: Array<{ lambda: number; modeShape: Record<string, [number, number, number]> }>
+}
 
 type ConversationSummary = {
   id: string
@@ -194,6 +201,7 @@ type AgentSkillSummary = SkillMetadataLike & {
   stages?: string[]
   triggers?: string[]
   autoLoadByDefault?: boolean
+  domain?: string
 }
 
 type CapabilitySkillSummary = {
@@ -662,6 +670,31 @@ function extractAnalysis(result: AgentResult | null) {
   return null
 }
 
+function extractVisualizationHints(result: AgentResult | null): VisualizationHintsPayload | null {
+  if (!result) {
+    return null
+  }
+
+  const normalized = normalizeAgentResultPayload(result)
+  if (!normalized) {
+    return null
+  }
+
+  const directHints = toObjectRecord(normalized.visualizationHints)
+  if (directHints) {
+    return directHints as VisualizationHintsPayload
+  }
+
+  const reportRecord = toObjectRecord(normalized.report)
+  const reportJson = toObjectRecord(reportRecord?.json)
+  const jsonHints = toObjectRecord(reportJson?.visualizationHints)
+  if (jsonHints) {
+    return jsonHints as VisualizationHintsPayload
+  }
+
+  return null
+}
+
 function hasAnalysisPayload(result: AgentResult | null | undefined) {
   return Boolean(extractAnalysis(result ?? null))
 }
@@ -870,12 +903,15 @@ function buildResultSnapshotFromResult(
     normalizedResult.model && typeof normalizedResult.model === 'object' && !Array.isArray(normalizedResult.model)
       ? normalizedResult.model
       : null
+  const visualizationHints = extractVisualizationHints(normalizedResult)
 
   return buildVisualizationSnapshot({
     title: buildVisualizationTitle(normalizedResult, title),
     model: modelFromResult ?? fallbackModel ?? null,
     analysis: extractAnalysis(normalizedResult),
     mode: 'analysis-result',
+    memberUtilizationMap: visualizationHints?.memberUtilizationMap,
+    bucklingModes: visualizationHints?.bucklingModes,
   })
 }
 
@@ -1562,7 +1598,7 @@ export function AIConsole() {
       setHasExplicitToolSelection(false)
     }
     capabilityPreferencesHydratedRef.current = true
-  }, [availableSkills, baseCallableToolIds, capabilityMatrixLoaded, defaultSelectedSkillIds, initialDefaultToolIds, skillDomainById, skillNormalization, skillsLoaded])
+  }, [availableSkills, baseCallableToolIds, capabilityMatrix, capabilityMatrixLoaded, defaultSelectedSkillIds, initialDefaultToolIds, skillDomainById, skillNormalization, skillsLoaded])
 
   useEffect(() => {
     let active = true
@@ -2344,6 +2380,7 @@ export function AIConsole() {
             const result = {
               ...(payload.content as AgentResult),
             }
+            const visualizationHints = extractVisualizationHints(result)
             const debugDetails = buildMessageDebugDetails(promptSnapshot, debugSkillIds, debugToolIds, result)
             if (result.model && typeof result.model === 'object' && !Array.isArray(result.model)) {
               applySynchronizedModel(result.model, result.analysis ? 'tool' : 'conversation')
@@ -2353,6 +2390,8 @@ export function AIConsole() {
               model: (result.model && typeof result.model === 'object' && !Array.isArray(result.model) ? result.model : contextModel) ?? null,
               analysis: extractAnalysis(result),
               mode: 'analysis-result',
+              memberUtilizationMap: visualizationHints?.memberUtilizationMap,
+              bucklingModes: visualizationHints?.bucklingModes,
             })
             const modelSnapshot = buildVisualizationSnapshot({
               title: buildVisualizationTitle(result, trimmedInput.slice(0, 48) || t('untitledConversation')),
@@ -2435,7 +2474,7 @@ export function AIConsole() {
   return (
     <div
       data-testid="console-layout-grid"
-      className="grid min-h-[calc(100vh-5.5rem)] gap-4 xl:h-[calc(100vh-5.5rem)] xl:min-h-0 xl:grid-cols-[300px_minmax(0,1.7fr)_460px] xl:overflow-hidden 2xl:grid-cols-[320px_minmax(0,1.9fr)_500px]"
+      className="grid min-h-[calc(100vh-5.5rem)] gap-4 xl:h-[calc(100vh-5.5rem)] xl:min-h-0 xl:grid-cols-[260px_minmax(0,2.2fr)_420px] xl:overflow-hidden 2xl:grid-cols-[280px_minmax(0,2.4fr)_460px]"
     >
       <aside
         data-testid="console-history-panel"
@@ -2569,7 +2608,7 @@ export function AIConsole() {
 
       <section
         data-testid="console-chat-panel"
-        className="relative overflow-hidden rounded-[32px] border border-border/70 bg-card/85 shadow-[0_40px_120px_-50px_rgba(34,211,238,0.2)] backdrop-blur-xl xl:min-h-0 dark:border-white/10 dark:bg-slate-950/70 dark:shadow-[0_40px_120px_-50px_rgba(34,211,238,0.45)]"
+        className="relative flex h-full flex-col overflow-hidden rounded-[32px] border border-border/70 bg-card/85 shadow-[0_40px_120px_-50px_rgba(34,211,238,0.2)] backdrop-blur-xl xl:min-h-0 dark:border-white/10 dark:bg-slate-950/70 dark:shadow-[0_40px_120px_-50px_rgba(34,211,238,0.45)]"
       >
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(249,115,22,0.12),transparent_30%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.22),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(249,115,22,0.18),transparent_30%)]" />
         <div className="relative flex h-full min-h-[320px] flex-col xl:min-h-0">
@@ -2797,7 +2836,7 @@ export function AIConsole() {
             </div>
           </div>
 
-          <div data-testid="console-composer" className="border-t border-border/70 px-4 py-3 dark:border-white/10">
+          <div data-testid="console-composer" className="border-t border-border/70 px-4 py-3 dark:border-white/10 overflow-y-auto max-h-[40vh]">
             <div className="w-full space-y-3">
               {errorMessage && (
                 <div className="rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
@@ -2891,7 +2930,7 @@ export function AIConsole() {
                 </div>
 
                 {contextOpen && (
-                  <div className="mt-3 rounded-[24px] border border-border/70 bg-background/70 p-4 dark:border-white/10 dark:bg-white/5">
+                  <div className="mt-3 max-h-[50vh] overflow-y-auto rounded-[24px] border border-border/70 bg-background/70 p-4 dark:border-white/10 dark:bg-white/5">
                     <div className="space-y-2">
                       <div>
                         <div className="flex flex-wrap items-center justify-between gap-2">

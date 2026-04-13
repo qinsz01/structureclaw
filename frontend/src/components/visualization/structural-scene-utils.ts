@@ -57,6 +57,24 @@ export function getNodeDisplacementMagnitude(activeCase: VisualizationCase, node
   return Math.sqrt((displacement.ux || 0) ** 2 + (displacement.uy || 0) ** 2 + (displacement.uz || 0) ** 2)
 }
 
+/**
+ * Utilization ratio color: HSL rainbow from blue (0%) → green (50%) → yellow (85%) → red (100%+).
+ * ratio > 1 clamps to deep red to highlight overstressed members.
+ */
+export function createUtilizationColor(ratio: number) {
+  const clamped = Math.max(0, ratio)
+  const color = new THREE.Color()
+  if (clamped >= 1) {
+    // Overstressed — deep red
+    color.setRGB(0.85, 0.1, 0.1)
+  } else {
+    // Hue: 240° (blue) → 120° (green) → 60° (yellow) → 0° (red)
+    const hue = (1 - clamped) * 240 / 360
+    color.setHSL(hue, 0.9, 0.48)
+  }
+  return `#${color.getHexString()}`
+}
+
 export function createColorScale(value: number, maxValue: number) {
   const ratio = maxValue <= 0 ? 0 : Math.min(Math.abs(value) / maxValue, 1)
   const color = new THREE.Color()
@@ -100,7 +118,7 @@ export function isRenderableLoadVector(vector: THREE.Vector3) {
 
 export function getLoadArrowLength(snapshot: VisualizationSnapshot, plane: VisualizationPlane) {
   if (!snapshot.nodes.length) {
-    return 0.3
+    return 0.6
   }
 
   let minX = Number.POSITIVE_INFINITY
@@ -125,7 +143,7 @@ export function getLoadArrowLength(snapshot: VisualizationSnapshot, plane: Visua
   const spanZ = maxZ - minZ
   const modelSpan = Math.max(spanX, spanY, spanZ, 1)
 
-  return Math.max(0.15, Math.min(modelSpan / 10, 1.2))
+  return Math.max(0.45, Math.min(modelSpan / 6, 2.4))
 }
 
 function planeGridFallback(plane: VisualizationPlane) {

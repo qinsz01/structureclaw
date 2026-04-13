@@ -69,8 +69,8 @@ describe('AgentSkillHubService.search()', () => {
 
   test('should return all catalog entries when no filters are provided', async () => {
     const result = await service.search();
-    expect(result.total).toBe(6);
-    expect(result.items).toHaveLength(6);
+    expect(result.total).toBe(7);
+    expect(result.items).toHaveLength(7);
     // Each item should have standard shape
     const first = result.items[0];
     expect(first).toHaveProperty('id');
@@ -103,14 +103,17 @@ describe('AgentSkillHubService.search()', () => {
 
   test('should return empty for a domain with no entries', async () => {
     const result = await service.search({ domain: 'visualization' });
-    expect(result.total).toBe(0);
-    expect(result.items).toHaveLength(0);
+    expect(result.total).toBe(1);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].id).toBe('skillhub.steel-connection-viz');
   });
 
   test('should filter by keyword matching id', async () => {
     const result = await service.search({ keyword: 'steel-connection' });
-    expect(result.total).toBe(1);
-    expect(result.items[0].id).toBe(STEEL_CONNECTION_ID);
+    expect(result.total).toBe(2);
+    const ids = result.items.map((i) => i.id);
+    expect(ids).toContain(STEEL_CONNECTION_ID);
+    expect(ids).toContain('skillhub.steel-connection-viz');
   });
 
   test('should filter by keyword matching Chinese name', async () => {
@@ -156,18 +159,20 @@ describe('AgentSkillHubService.search()', () => {
 
   test('should be case-insensitive for keyword matching', async () => {
     const result = await service.search({ keyword: 'STEEL' });
-    expect(result.total).toBe(1);
-    expect(result.items[0].id).toBe(STEEL_CONNECTION_ID);
+    expect(result.total).toBe(2);
+    const ids = result.items.map((i) => i.id);
+    expect(ids).toContain(STEEL_CONNECTION_ID);
+    expect(ids).toContain('skillhub.steel-connection-viz');
   });
 
   test('should treat keyword with only whitespace as no keyword', async () => {
     const result = await service.search({ keyword: '   ' });
-    expect(result.total).toBe(6);
+    expect(result.total).toBe(7);
   });
 
   test('should treat undefined keyword as no keyword', async () => {
     const result = await service.search({ keyword: undefined });
-    expect(result.total).toBe(6);
+    expect(result.total).toBe(7);
   });
 
   test('should mark items as not installed and not enabled by default', async () => {
@@ -871,13 +876,13 @@ describe('AgentSkillHubService environment variable handling', () => {
   test('should NOT throw when SCLAW_SKILLHUB_FORCE_DOWN is set to other values', async () => {
     process.env.SCLAW_SKILLHUB_FORCE_DOWN = '0';
     const result = await service.search();
-    expect(result.total).toBe(6);
+    expect(result.total).toBe(7);
   });
 
   test('should NOT throw when SCLAW_SKILLHUB_FORCE_DOWN is set to "false"', async () => {
     process.env.SCLAW_SKILLHUB_FORCE_DOWN = 'false';
     const result = await service.search();
-    expect(result.total).toBe(6);
+    expect(result.total).toBe(7);
   });
 
   test('should detect offline mode when SCLAW_SKILLHUB_OFFLINE=1', async () => {

@@ -6,6 +6,7 @@ import { Focus, Maximize2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { MessageKey } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
+import { getVisualizationViewLabelKey } from './extensions'
 import type { VisualizationPlane, VisualizationSnapshot, VisualizationViewMode } from './types'
 
 type VisualizationModalShellProps = {
@@ -21,13 +22,6 @@ type VisualizationModalShellProps = {
   t: (key: MessageKey) => string
   children: ReactNode
   aside?: ReactNode
-}
-
-const VIEW_LABELS: Record<VisualizationViewMode, MessageKey> = {
-  model: 'visualizationViewModel',
-  deformed: 'visualizationViewDeformed',
-  forces: 'visualizationViewForces',
-  reactions: 'visualizationViewReactions',
 }
 
 const PLANE_LABELS: Record<VisualizationPlane, MessageKey> = {
@@ -192,7 +186,7 @@ export function VisualizationModalShell({
                   onClick={() => onViewChange(view)}
                   type="button"
                 >
-                  {t(VIEW_LABELS[view])}
+                  {t(getVisualizationViewLabelKey(view))}
                 </button>
               ))}
             </div>
@@ -218,7 +212,7 @@ export function VisualizationModalShell({
 
           <div className="relative flex min-h-0 flex-1 flex-col xl:flex-row">
             <div className="min-h-[300px] flex-1 xl:min-h-0">{children}</div>
-            <aside className="border-t border-border/70 bg-background/50 p-4 xl:w-[320px] xl:border-l xl:border-t-0 dark:border-white/10 dark:bg-white/5">
+            <aside className="overflow-y-auto border-t border-border/70 bg-background/50 p-4 xl:w-[320px] xl:border-l xl:border-t-0 dark:border-white/10 dark:bg-white/5">
               {aside}
             </aside>
           </div>

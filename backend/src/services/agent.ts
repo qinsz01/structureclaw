@@ -378,6 +378,12 @@ export interface AgentStreamChunk {
   error?: string;
 }
 
+/** Returns true when a model object has non-empty materials and sections arrays. */
+function hasCompleteMaterialsAndSections(m: Record<string, unknown> | undefined): boolean {
+  return Boolean(m && Array.isArray(m.materials) && (m.materials as unknown[]).length > 0
+    && Array.isArray(m.sections) && (m.sections as unknown[]).length > 0);
+}
+
 export class AgentService {
   public engineClient: LocalAnalysisEngineClient;
   public structureProtocolClient = createLocalStructureProtocolClient();
@@ -580,7 +586,8 @@ export class AgentService {
     } else if (userDecision === 'revise') {
       workingSession.userApprovedAutoDecide = false;
     }
-    const modelInput = params.context?.model || session?.latestModel;
+    const contextModel = params.context?.model;
+    const modelInput = (hasCompleteMaterialsAndSections(contextModel) ? contextModel : undefined) || session?.latestModel || contextModel;
     const activeSkillIds = await this.runtimeBinder.resolveActiveDomainSkillIds({
       selectedSkillIds: skillIds,
       workingSession,
@@ -1981,7 +1988,17 @@ export class AgentService {
       });
     }
 
-    const candidateModel = modelInput || workingSession.latestModel;
+    let candidateModel = modelInput || workingSession.latestModel;
+    if (candidateModel && !hasCompleteMaterialsAndSections(candidateModel) && workingSession.draft) {
+      try {
+        const rebuilt = await this.skillRuntime.buildModel(workingSession.draft, skillIds);
+        if (hasCompleteMaterialsAndSections(rebuilt)) {
+          candidateModel = rebuilt;
+        }
+      } catch {
+        // keep candidateModel as-is
+      }
+    }
     if (candidateModel && selectedToolId !== 'draft_model') {
       return { ok: true, model: candidateModel };
     }

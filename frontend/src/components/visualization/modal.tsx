@@ -1,11 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { MessageKey } from '@/lib/i18n'
 import type { AppLocale } from '@/lib/stores/slices/preferences'
 import { formatNumber } from '@/lib/utils'
+import { getBucklingModes, BucklingModePanel } from './extensions'
 import { VisualizationModalShell } from './modal-shell'
 import { StructuralScene } from './structural-scene'
+import type { SceneExportHandle } from './structural-scene'
 import { VisualizationToolbar } from './toolbar'
 import type { VisualizationCase, VisualizationPlane, VisualizationSnapshot, VisualizationViewMode } from './types'
 
@@ -84,6 +86,9 @@ export function StructuralVisualizationModal({
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null)
   const [selectedLoadIndex, setSelectedLoadIndex] = useState<number | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
+  const [bucklingModeIndex, setBucklingModeIndex] = useState(0)
+  const exportRef = useRef<SceneExportHandle | null>(null)
 
   const handlePlaneChange = (nextPlane: VisualizationPlane) => {
     setPlane(nextPlane)
@@ -100,12 +105,14 @@ export function StructuralVisualizationModal({
     setSelectedNodeId(null)
     setSelectedElementId(null)
     setSelectedLoadIndex(null)
+    setBucklingModeIndex(0)
   }, [open, snapshot])
 
   const placeholderTitle = useMemo(
     () => snapshot?.title || t('visualizationTitle'),
     [snapshot, t]
   )
+  const bucklingModes = useMemo(() => getBucklingModes(snapshot), [snapshot])
   const activeCase = useMemo<VisualizationCase | null>(
     () => snapshot?.cases.find((item) => item.id === activeCaseId) || snapshot?.cases[0] || null,
     [activeCaseId, snapshot]
@@ -174,6 +181,14 @@ export function StructuralVisualizationModal({
             <div className="rounded-2xl border border-amber-300/30 bg-amber-300/10 p-4 text-sm leading-6 text-amber-900 dark:text-amber-100">
               {snapshot.statusMessage}
             </div>
+          ) : null}
+          {view === 'buckling' && bucklingModes.length ? (
+            <BucklingModePanel
+              modes={bucklingModes}
+              activeIndex={bucklingModeIndex}
+              title={t('visualizationViewBuckling')}
+              onSelect={setBucklingModeIndex}
+            />
           ) : null}
           {snapshot?.unsupportedElementTypes.length ? (
             <div className="rounded-2xl border border-amber-300/30 bg-amber-300/10 p-4 text-sm leading-6 text-amber-900 dark:text-amber-100">
@@ -366,6 +381,7 @@ export function StructuralVisualizationModal({
             onDeformationScaleChange={setDeformationScale}
             onForceMetricChange={setForceMetric}
             onSwitchToForcesView={() => setView('forces')}
+            onSwitchToUtilizationView={() => setView('utilization')}
             onToggleElementLabels={() => setShowElementLabels((current) => !current)}
             onToggleLegend={() => setShowLegend((current) => !current)}
             onToggleLoads={() => setShowLoads((current) => !current)}
@@ -379,10 +395,31 @@ export function StructuralVisualizationModal({
             snapshot={snapshot}
             t={t}
           />
+          <div className="flex items-center justify-end gap-2 border-b border-border/70 px-4 py-2 dark:border-white/10">
+            {([1, 2, 4] as const).map((scale) => (
+              <button
+                key={scale}
+                className="flex items-center gap-1.5 rounded-full border border-border/70 bg-background/70 px-3 py-1.5 text-sm text-muted-foreground transition hover:border-cyan-300/30 hover:text-foreground disabled:opacity-50 dark:border-white/10 dark:bg-white/5"
+                disabled={isExporting}
+                onClick={() => {
+                  if (!snapshot) return
+                  setIsExporting(true)
+                  const filename = `${snapshot.title.replace(/\s+/g, '_')}_${activeCase.id}`
+                  exportRef.current?.exportPng(filename, scale, () => setIsExporting(false))
+                }}
+                title={`${t('visualizationExportPng')} ${scale}x`}
+                type="button"
+              >
+                <span aria-hidden="true">{isExporting ? '…' : '↓'}</span> {t('visualizationExportPng')} {scale}x
+              </button>
+            ))}
+          </div>
           <div className="min-h-0 flex-1" data-testid="visualization-modal-scene">
             <StructuralScene
               activeCase={activeCase}
+              bucklingModeIndex={bucklingModeIndex}
               deformationScale={deformationScale}
+              exportRef={exportRef}
               forceMetric={forceMetric}
               onSelectElement={setSelectedElementId}
               onSelectNode={setSelectedNodeId}
@@ -394,6 +431,7 @@ export function StructuralVisualizationModal({
               resetToken={resetToken}
               plane={plane}
               selectedElementId={selectedElementId}
+              selectedLoadIndex={selectedLoadIndex}
               selectedNodeId={selectedNodeId}
               showElementLabels={showElementLabels}
               showLegend={showLegend}
