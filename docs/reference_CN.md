@@ -187,4 +187,6 @@ Chat 与消息：
 - 英文协议参考：`docs/reference.md`
 - 技能加载机制：`docs/schema/skill-loading_CN.md`
 - 技能加载机制（英文）：`docs/schema/skill-loading.md`
+- 通用工具规格：`docs/schema/utility-tools_CN.md`
+- 通用工具规格（英文）：`docs/schema/utility-tools.md`
 - 英文 Agent 架构：`docs/agent-architecture.md`

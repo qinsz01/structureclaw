@@ -1,0 +1,36 @@
+id: shell
+domain: general
+source: builtin
+name:
+  zh: 受限命令执行
+  en: Restricted Shell Execution
+description:
+  zh: 在沙箱环境中执行受限的 shell 命令，仅允许白名单中的分析引擎和脚本工具。
+  en: Execute restricted shell commands in a sandboxed environment, limited to allowlisted analysis engines and scripting tools.
+triggers:
+  - shell
+  - exec
+  - command
+  - 命令
+  - 执行
+stages:
+  - analysis
+structureType: unknown
+structuralTypeKeys: []
+capabilities:
+  - shell-exec
+grants:
+  - shell
+providesTools: []
+requires: []
+conflicts: []
+autoLoadByDefault: false
+priority: 5
+compatibility:
+  minRuntimeVersion: 0.1.0
+  skillApiVersion: v1
+supportedAnalysisTypes: []
+supportedModelFamilies: []
+materialFamilies: []
+aliases: []
+toolHints: {}

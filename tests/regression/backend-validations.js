@@ -2503,9 +2503,11 @@ async function validateAgentCapabilityMatrix(context) {
   assert(payload.skillDomainById["dead-load"] === "load-boundary", "discoverable load-boundary skills should be exposed in skillDomainById");
   assert(payload.skillDomainById["section-common"] === "section", "discoverable section skills should be exposed in skillDomainById");
   assert(payload.skillDomainById["visualization-frame-summary"] === "visualization", "discoverable visualization skills should be exposed in skillDomainById");
+  assert(payload.skillDomainById["memory"] === "general", "discoverable general utility skills should be exposed in skillDomainById");
   assert(payload.skills.find((skill) => skill.id === "dead-load")?.runtimeStatus === "discoverable", "dead-load should be marked discoverable");
   assert(payload.skills.find((skill) => skill.id === "section-common")?.runtimeStatus === "discoverable", "section-common should be marked discoverable");
   assert(payload.skills.find((skill) => skill.id === "visualization-frame-summary")?.runtimeStatus === "discoverable", "visualization-frame-summary should be marked discoverable");
+  assert(payload.skills.find((skill) => skill.id === "memory")?.runtimeStatus === "discoverable", "memory should be marked discoverable");
   assert(domainSummaryById["structure-type"]?.runtimeStatus === "active", "structure-type domain should be active");
   assert(domainSummaryById["analysis"]?.runtimeStatus === "active", "analysis domain should be active");
   assert(domainSummaryById["validation"]?.runtimeStatus === "partial", "validation domain should be partial");
@@ -2513,15 +2515,16 @@ async function validateAgentCapabilityMatrix(context) {
   assert(domainSummaryById["section"]?.runtimeStatus === "discoverable", "section domain should remain discoverable while builtin skills exist");
   assert(domainSummaryById["load-boundary"]?.runtimeStatus === "discoverable", "load-boundary domain should remain discoverable while builtin skills exist");
   assert(domainSummaryById["visualization"]?.runtimeStatus === "discoverable", "visualization domain should remain discoverable while builtin skills exist");
+  assert(domainSummaryById["general"]?.runtimeStatus === "discoverable", "general domain should be discoverable while builtin utility skills exist");
   assert(domainSummaryById["design"]?.runtimeStatus === "reserved", "design domain should be reserved when it has no runtime skill presence");
   assert(domainSummaryById["data-input"]?.runtimeStatus === "reserved", "data-input domain should be reserved when it has no runtime skill presence");
   assert(domainSummaryById["drawing"]?.runtimeStatus === "reserved", "drawing domain should be reserved when it has no runtime skill presence");
-  assert(domainSummaryById["general"]?.runtimeStatus === "reserved", "general domain should be reserved when it has no runtime skill presence");
   assert(domainSummaryById["material"]?.runtimeStatus === "reserved", "material domain should be reserved when it has no runtime skill presence");
   assert(domainSummaryById["result-postprocess"]?.runtimeStatus === "reserved", "result-postprocess domain should be reserved when it has no runtime skill presence");
   assert(domainSummaryById["load-boundary"]?.skillIds.includes("dead-load"), "load-boundary summary should include discoverable builtin skills");
   assert(domainSummaryById["section"]?.skillIds.includes("section-common"), "section summary should include discoverable builtin skills");
   assert(domainSummaryById["visualization"]?.skillIds.includes("visualization-frame-summary"), "visualization summary should include discoverable builtin skills");
+  assert(domainSummaryById["general"]?.skillIds.includes("memory"), "general summary should include discoverable builtin utility skills");
   assert(Array.isArray(domainSummaryById["design"]?.skillIds), "design domain summary should exist even without runtime skills");
 
     const responseDynamic = await app.inject({ method: "GET", url: "/api/v1/agent/capability-matrix?analysisType=dynamic" });

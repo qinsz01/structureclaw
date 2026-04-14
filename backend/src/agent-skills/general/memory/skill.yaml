@@ -1,0 +1,42 @@
+id: memory
+domain: general
+source: builtin
+name:
+  zh: 上下文记忆
+  en: Context Memory
+description:
+  zh: 在工程会话中维持跨轮次状态，帮助 agent 记住关键参数和决策上下文。
+  en: Maintain cross-turn state in engineering sessions, helping the agent remember key parameters and decision context.
+triggers:
+  - memory
+  - remember
+  - context
+  - 记忆
+  - 记住
+  - 上下文
+stages:
+  - intent
+  - draft
+  - analysis
+  - design
+structureType: unknown
+structuralTypeKeys: []
+capabilities:
+  - context-store
+  - context-retrieve
+  - context-clear
+grants:
+  - memory
+providesTools: []
+requires: []
+conflicts: []
+autoLoadByDefault: true
+priority: 10
+compatibility:
+  minRuntimeVersion: 0.1.0
+  skillApiVersion: v1
+supportedAnalysisTypes: []
+supportedModelFamilies: []
+materialFamilies: []
+aliases: []
+toolHints: {}
