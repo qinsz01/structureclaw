@@ -30,7 +30,7 @@ JSON schema:
 import json
 import os
 
-from YJKAPI import *
+from YJKAPI import YJKSPrePy, YJKSDsnDataPy
 
 LOAD_CASES = [1, 2, 3, 4]
 
