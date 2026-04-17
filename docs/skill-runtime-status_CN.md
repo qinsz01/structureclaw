@@ -24,7 +24,7 @@
 | `section` | `discoverable` | 3 | 3 | 已进入 catalog，并可通过 `skill.yaml` + `handler.ts` 参与运行时加载，但还不会自动进入主 binder。 |
 | `data-input` | `reserved` | 0 | 0 | 当前仓库状态下仅保留 taxonomy 槽位。 |
 | `design` | `reserved` | 0 | 0 | 当前仓库状态下仅保留 taxonomy 槽位。 |
-| `drawing` | `reserved` | 0 | 0 | 当前仓库状态下仅保留 taxonomy 槽位。 |
+| `drawing` | `discoverable` | 2 | 0 | builtin skill 已进入 catalog，有 manifest 和 intent 资产。厂商出图 API runtime 尚未接入。 |
 | `general` | `reserved` | 0 | 0 | 当前仓库状态下仅保留 taxonomy 槽位。 |
 | `material` | `reserved` | 0 | 0 | 当前仓库状态下仅保留 taxonomy 槽位。 |
 | `result-postprocess` | `reserved` | 0 | 0 | 当前仓库状态下仅保留 taxonomy 槽位。 |
@@ -47,6 +47,7 @@
 | `load-boundary` | 10 个 skill 均有 `skill.yaml`；其中 9 个还有 `intent.md` + `runtime.py`；`nodal-constraint` 只有 manifest |
 | `visualization` | 3 个 skill，均有 `skill.yaml` + `intent.md`；暂无 per-skill runtime 模块 |
 | `section` | 3 个 skill，均有 `skill.yaml` + `intent.md` + `handler.ts` + `runtime.py` |
+| `drawing` | 2 个 skill，均有 `skill.yaml` + `intent.md`；暂无 per-skill runtime 模块 |
 
 ## 建议的清理顺序
 

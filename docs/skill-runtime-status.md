@@ -24,7 +24,7 @@ Current status is derived from:
 | `section` | `discoverable` | 3 | 3 | Catalog-visible and runtime-loadable from `skill.yaml` + `handler.ts`, but not auto-activated by the main runtime binder. |
 | `data-input` | `reserved` | 0 | 0 | Taxonomy slot only in current repo state. |
 | `design` | `reserved` | 0 | 0 | Taxonomy slot only in current repo state. |
-| `drawing` | `reserved` | 0 | 0 | Taxonomy slot only in current repo state. |
+| `drawing` | `discoverable` | 2 | 0 | Catalog-visible builtin skills with manifest and intent assets. Vendor API runtime not yet connected. |
 | `general` | `reserved` | 0 | 0 | Taxonomy slot only in current repo state. |
 | `material` | `reserved` | 0 | 0 | Taxonomy slot only in current repo state. |
 | `result-postprocess` | `reserved` | 0 | 0 | Taxonomy slot only in current repo state. |
@@ -47,6 +47,7 @@ Current status is derived from:
 | `load-boundary` | 10 skills with `skill.yaml`; 9 also have `intent.md` + `runtime.py`; `nodal-constraint` is manifest-only |
 | `visualization` | 3 skills with `skill.yaml` + `intent.md`; no per-skill runtime modules |
 | `section` | 3 skills with `skill.yaml` + `intent.md` + `handler.ts` + `runtime.py` |
+| `drawing` | 2 skills with `skill.yaml` + `intent.md`; no per-skill runtime modules yet |
 
 ## Recommended Cleanup Order
 
