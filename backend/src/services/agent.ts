@@ -3,7 +3,6 @@ import { randomUUID } from 'crypto';
 import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 import { config } from '../config/index.js';
-import type { InputJsonValue } from '../utils/json.js';
 import { createChatModel } from '../utils/llm.js';
 import { prisma } from '../utils/database.js';
 import { logger } from '../utils/logger.js';
@@ -126,16 +125,6 @@ export interface InteractionDefaultProposal {
   reason: string;
 }
 
-interface PersistedMessageDebugDetails {
-  promptSnapshot: string;
-  skillIds: string[];
-  activatedSkillIds: string[];
-  routing?: AgentResolvedRouting;
-  responseSummary: string;
-  plan: string[];
-  toolCalls: AgentToolCall[];
-}
-
 export type ActiveToolSet = Set<string> | undefined;
 
 export type AgentPlanKind = 'reply' | 'ask' | 'execute';
@@ -256,6 +245,7 @@ export interface AgentRunInput {
     reportOutput?: AgentReportOutput;
     userDecision?: AgentUserDecision;
     providedValues?: Record<string, unknown>;
+    resumeFromMessage?: string;
     requestOverrides?: import('../agent-runtime/types.js').RequestExecutionOverrides;
   };
 }
@@ -1722,6 +1712,7 @@ export class AgentService {
             skillIds,
             engineId: params.context?.engineId,
             analysisParameters: prepared.analysisParameters,
+            signal,
           });
         } catch (stepError) {
           const rawStepErrorMessage = stepError instanceof Error ? stepError.message : String(stepError);
@@ -1924,6 +1915,7 @@ export class AgentService {
                 draftState: workingSession.draft,
                 skillIds,
                 engineId: params.context?.engineId,
+                signal,
               });
             } catch (fbError) {
               const fbErrorMessage = fbError instanceof Error ? fbError.message : String(fbError);
@@ -1990,6 +1982,7 @@ export class AgentService {
                 draftState: workingSession.draft,
                 skillIds,
                 engineId: params.context?.engineId,
+                signal,
               });
             } catch (ccStepError) {
               const ccStepErrorMessage = ccStepError instanceof Error ? ccStepError.message : String(ccStepError);
@@ -2050,6 +2043,7 @@ export class AgentService {
                 draftState: workingSession.draft,
                 skillIds,
                 engineId: params.context?.engineId,
+                signal,
               });
             } catch (rStepError) {
               const rStepErrorMessage = rStepError instanceof Error ? rStepError.message : String(rStepError);
@@ -2124,6 +2118,7 @@ export class AgentService {
         locale,
         schedulerAnalysis,
         sessionKey,
+        signal,
       );
 
       // Append any validation bypass warnings or plan notes to the response
@@ -2225,7 +2220,7 @@ export class AgentService {
     return { path: 'draft', mode: 'structured' };
   }
 
-  private collectOnlyTextToModelDraft(message: string, existingState?: DraftState, locale: AppLocale = 'en', skillIds?: string[]): Promise<DraftResult> {
+  private collectOnlyTextToModelDraft(message: string, existingState?: DraftState, locale: AppLocale = 'en', skillIds?: string[], signal?: AbortSignal): Promise<DraftResult> {
     if (this.hasEmptySkillSelection(skillIds)) {
       return Promise.resolve({
         inferredType: 'unknown' as const,
@@ -2234,7 +2229,7 @@ export class AgentService {
         stateToPersist: existingState,
       });
     }
-    return this.skillRuntime.extractDraftParameters(this.llm, message, existingState, locale, skillIds)
+    return this.skillRuntime.extractDraftParameters(this.llm, message, existingState, locale, skillIds, signal)
       .then((extraction) => ({
         inferredType: extraction.nextState.inferredType,
         missingFields: [...extraction.missing.critical],
@@ -2303,6 +2298,7 @@ export class AgentService {
       sessionKey,
       workingSession,
       collectOnly: useCollectOnly,
+      signal,
     });
 
     if (genericFallbackDraft) {
@@ -2373,6 +2369,7 @@ export class AgentService {
     sessionKey?: string;
     workingSession: InteractionSession;
     collectOnly?: boolean;
+    signal?: AbortSignal;
   }): Promise<{
     draft: DraftResult;
     genericFallbackDraft: boolean;
@@ -2386,12 +2383,14 @@ export class AgentService {
       sessionKey,
       workingSession,
       collectOnly,
+      signal,
     } = args;
 
     const draftFn = collectOnly
-      ? this.collectOnlyTextToModelDraft.bind(this)
+      ? (msg: string, state?: DraftState, loc: AppLocale = 'en', ids?: string[]) =>
+          this.collectOnlyTextToModelDraft(msg, state, loc, ids, signal)
       : (msg: string, state: DraftState | undefined, loc: AppLocale, ids?: string[]) =>
-          this.textToModelDraft(msg, state, loc, ids, params.conversationId);
+          this.textToModelDraft(msg, state, loc, ids, params.conversationId, signal);
 
     return executeDraftModelInteractiveStep({
       message: params.message,
@@ -3549,11 +3548,11 @@ export class AgentService {
     return artifacts;
   }
 
-  private async renderSummary(message: string, fallback: string, locale: AppLocale, analysisData?: unknown, conversationId?: string): Promise<string> {
-    return resultRenderSummary(this.llm, message, fallback, locale, analysisData, conversationId);
+  private async renderSummary(message: string, fallback: string, locale: AppLocale, analysisData?: unknown, conversationId?: string, signal?: AbortSignal): Promise<string> {
+    return resultRenderSummary(this.llm, message, fallback, locale, analysisData, conversationId, signal);
   }
 
-  private async textToModelDraft(message: string, existingState?: DraftState, locale: AppLocale = 'en', skillIds?: string[], conversationId?: string): Promise<DraftResult> {
+  private async textToModelDraft(message: string, existingState?: DraftState, locale: AppLocale = 'en', skillIds?: string[], conversationId?: string, signal?: AbortSignal): Promise<DraftResult> {
     if (this.hasEmptySkillSelection(skillIds)) {
       return {
         inferredType: 'unknown',
@@ -3568,7 +3567,7 @@ export class AgentService {
 
     const conversationHistory = await this.loadConversationHistory(conversationId);
 
-    const skillDraft = await this.skillRuntime.textToModelDraft(this.llm, message, existingState, locale, skillIds, conversationHistory);
+    const skillDraft = await this.skillRuntime.textToModelDraft(this.llm, message, existingState, locale, skillIds, conversationHistory, signal);
     if (skillDraft.model || skillDraft.inferredType !== 'unknown' || skillDraft.structuralTypeMatch?.skillId) {
       return skillDraft;
     }
@@ -3578,7 +3577,7 @@ export class AgentService {
       return skillDraft;
     }
 
-    const genericDraft = await this.skillRuntime.textToModelDraft(this.llm, message, existingState, locale, ['generic'], conversationHistory);
+    const genericDraft = await this.skillRuntime.textToModelDraft(this.llm, message, existingState, locale, ['generic'], conversationHistory, signal);
     return genericDraft;
   }
 
@@ -3781,15 +3780,24 @@ export class AgentService {
       retries: number;
       traceId: string;
       tool: AgentToolName;
+      signal?: AbortSignal;
     },
   ) {
     let attempt = 0;
     let lastError: unknown;
     while (attempt <= options.retries) {
+      if (options.signal?.aborted) {
+        const abortError = new Error('Engine request aborted');
+        abortError.name = 'AbortError';
+        throw abortError;
+      }
       try {
-        return await this.engineClient.post(path, payload);
+        return await this.engineClient.post(path, payload, { signal: options.signal });
       } catch (error) {
         lastError = error;
+        if (options.signal?.aborted) {
+          throw error;
+        }
         if (!this.shouldRetryEngineCall(error) || attempt === options.retries) {
           throw error;
         }
@@ -3832,7 +3840,7 @@ export class AgentService {
   private async finalizeRunResult(
     traceId: string,
     conversationId: string | undefined,
-    userMessage: string,
+    _userMessage: string,
     result: AgentRunResult,
     skillIds?: string[],
     session?: InteractionSession,
@@ -3841,7 +3849,6 @@ export class AgentService {
     result.conversationId = conversationId;
     result.routing = this.buildResolvedRouting(result, selectedSkillIds, session, skillIds);
     await this.annotateToolCalls(result.toolCalls, skillIds, result.routing);
-    await this.persistConversationMessages(conversationId, userMessage, result, selectedSkillIds, skillIds);
     this.logRunResult(traceId, conversationId, result);
     return result;
   }
@@ -4013,80 +4020,6 @@ export class AgentService {
 
     return routing;
   }
-
-  private buildPersistedDebugDetails(
-    userMessage: string,
-    result: AgentRunResult,
-    skillIds?: string[],
-    activatedSkillIds?: string[],
-  ): PersistedMessageDebugDetails {
-    const safeSkillIds = this.normalizeSkillIds(skillIds);
-    const safeActivatedSkillIds = this.normalizeSkillIds(activatedSkillIds);
-    const promptSnapshot = JSON.stringify({
-      message: userMessage,
-      context: {
-        traceId: result.traceId,
-        skillIds: safeSkillIds,
-        activatedSkillIds: safeActivatedSkillIds,
-      },
-    }, null, 2);
-
-    return {
-      promptSnapshot,
-      skillIds: safeSkillIds,
-      activatedSkillIds: safeActivatedSkillIds,
-      routing: result.routing,
-      responseSummary: result.response || '',
-      plan: Array.isArray(result.plan) ? result.plan : [],
-      toolCalls: Array.isArray(result.toolCalls) ? result.toolCalls : [],
-    };
-  }
-
-  private async persistConversationMessages(
-    conversationId: string | undefined,
-    userMessage: string,
-    result: AgentRunResult,
-    skillIds?: string[],
-    activatedSkillIds?: string[],
-  ): Promise<void> {
-    const assistantMessage = result.response;
-    if (!conversationId || !userMessage.trim() || !assistantMessage?.trim()) {
-      return;
-    }
-
-    const debugDetails = this.buildPersistedDebugDetails(userMessage, result, skillIds, activatedSkillIds);
-
-    try {
-      const conversation = await prisma.conversation.findUnique({
-        where: { id: conversationId },
-        select: { id: true },
-      });
-      if (!conversation) {
-        return;
-      }
-
-      await prisma.message.createMany({
-        data: [
-          {
-            conversationId,
-            role: 'user',
-            content: userMessage.trim(),
-          },
-          {
-            conversationId,
-            role: 'assistant',
-            content: assistantMessage.trim(),
-            metadata: {
-              debugDetails,
-            } as unknown as InputJsonValue,
-          },
-        ],
-      });
-    } catch {
-      // Keep message persistence non-blocking so agent flows still complete.
-    }
-  }
-
   private buildInteractionSessionKey(conversationId: string): string {
     return buildSessionKey(conversationId);
   }
