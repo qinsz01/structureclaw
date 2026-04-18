@@ -47,8 +47,8 @@ describe('AnalysisExecutionService and local client', () => {
   test('should expose analysis local client paths', async () => {
     const calls = [];
     const fakeRunner = {
-      invoke: async (payload) => {
-        calls.push(payload);
+      invoke: async (payload, options) => {
+        calls.push({ payload, options });
         if (payload.action === 'get_engine') {
           return { id: payload.engineId };
         }
@@ -63,6 +63,34 @@ describe('AnalysisExecutionService and local client', () => {
     expect((await client.get('/engines/builtin-opensees')).data.id).toBe('builtin-opensees');
     expect((await client.post('/engines/builtin-opensees/check')).data.checked).toBe('builtin-opensees');
     expect((await client.post('/analyze', { type: 'static' })).data.action).toBe('analyze');
+    expect(calls.map((item) => item.payload.action)).toEqual(['get_engine', 'check_engine', 'analyze']);
+  });
+
+  test('should forward AbortSignal through local execution clients', async () => {
+    const controller = new AbortController();
+    const calls = [];
+    const fakeRunner = {
+      invoke: async (payload, options) => {
+        calls.push({ payload, options });
+        return { action: payload.action, input: payload.input };
+      },
+    };
+
+    const analysisClient = createLocalAnalysisEngineClient(new AnalysisExecutionService(fakeRunner));
+    await analysisClient.post('/analyze', { type: 'static' }, { signal: controller.signal });
+
+    const structureService = new StructureProtocolExecutionService();
+    structureService.runner = fakeRunner;
+    const structureClient = createLocalStructureProtocolClient(structureService);
+    await structureClient.post('/validate', { model: {} }, { signal: controller.signal });
+
+    const codeCheckService = new CodeCheckExecutionService();
+    codeCheckService.runner = fakeRunner;
+    const codeCheckClient = createLocalCodeCheckClient(codeCheckService);
+    await codeCheckClient.post('/code-check', { model_id: 'm1', code: 'GB50017', elements: [] }, { signal: controller.signal });
+
+    expect(calls).toHaveLength(3);
+    expect(calls.every((item) => item.options?.signal === controller.signal)).toBe(true);
   });
 
   test('should expose structure protocol service and local client paths', async () => {

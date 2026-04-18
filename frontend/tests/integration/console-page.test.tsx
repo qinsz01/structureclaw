@@ -374,6 +374,277 @@ describe('ConsolePage Integration (CONS-13)', () => {
     expect(await screen.findByText('历史会话标题')).toBeInTheDocument()
   })
 
+  it('restores paused assistant messages from backend metadata without polluting the message content', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input)
+
+      if (url.includes('/api/v1/agent/skills')) {
+        return {
+          ok: true,
+          json: vi.fn().mockResolvedValue(mockSkills),
+        } as unknown as Response
+      }
+
+      if (url.includes('/api/v1/analysis-engines')) {
+        return {
+          ok: true,
+          json: vi.fn().mockResolvedValue({ engines: [] }),
+        } as unknown as Response
+      }
+
+      if (url.includes('/api/v1/models/latest')) {
+        return {
+          ok: true,
+          json: vi.fn().mockResolvedValue({ model: null }),
+        } as unknown as Response
+      }
+
+      if (url.includes('/api/v1/chat/conversations')) {
+        return {
+          ok: true,
+          json: vi.fn().mockResolvedValue([{ id: 'conv-paused', title: 'Paused conversation', updatedAt: '2026-03-12T12:00:00.000Z' }]),
+        } as unknown as Response
+      }
+
+      if (url.includes('/api/v1/chat/conversation/conv-paused') && !init?.method) {
+        return {
+          ok: true,
+          json: vi.fn().mockResolvedValue({
+            id: 'conv-paused',
+            title: 'Paused conversation',
+            messages: [
+              { id: 'user-1', role: 'user', content: '继续分析', createdAt: '2026-03-12T12:00:00.000Z' },
+              {
+                id: 'assistant-1',
+                role: 'assistant',
+                content: '当前分析尚未完成',
+                createdAt: '2026-03-12T12:00:01.000Z',
+                metadata: { status: 'aborted' },
+              },
+            ],
+            session: null,
+          }),
+        } as unknown as Response
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    await renderConsolePage()
+    fireEvent.click(await screen.findByRole('button', { name: /Paused conversation/ }))
+
+    await waitFor(() => {
+      expect(screen.getByText('当前分析尚未完成')).toBeInTheDocument()
+    })
+    expect(screen.getByText(/Stream stopped|已停止/)).toBeInTheDocument()
+    expect(screen.queryByText(/当前分析尚未完成（已停止）/)).not.toBeInTheDocument()
+  })
+
+  it('sends resumeFromMessage when continuing after an aborted turn', async () => {
+    const streamBodies: Array<Record<string, unknown>> = []
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input)
+
+      if (url.includes('/api/v1/agent/skills')) {
+        return {
+          ok: true,
+          json: vi.fn().mockResolvedValue(mockSkills),
+        } as unknown as Response
+      }
+
+      if (url.includes('/api/v1/analysis-engines')) {
+        return {
+          ok: true,
+          json: vi.fn().mockResolvedValue({ engines: [] }),
+        } as unknown as Response
+      }
+
+      if (url.includes('/api/v1/models/latest')) {
+        return {
+          ok: true,
+          json: vi.fn().mockResolvedValue({ model: null }),
+        } as unknown as Response
+      }
+
+      if (url.includes('/api/v1/chat/conversations')) {
+        return {
+          ok: true,
+          json: vi.fn().mockResolvedValue([{ id: 'conv-resume', title: 'Resume conversation', updatedAt: '2026-03-12T12:00:00.000Z' }]),
+        } as unknown as Response
+      }
+
+      if (url.includes('/api/v1/chat/conversation/conv-resume') && !init?.method) {
+        return {
+          ok: true,
+          json: vi.fn().mockResolvedValue({
+            id: 'conv-resume',
+            title: 'Resume conversation',
+            messages: [
+              { id: 'user-1', role: 'user', content: '设计一个简支梁，跨度10m，梁中间荷载1kN', createdAt: '2026-03-12T12:00:00.000Z' },
+              {
+                id: 'assistant-1',
+                role: 'assistant',
+                content: '',
+                createdAt: '2026-03-12T12:00:01.000Z',
+                metadata: { status: 'aborted' },
+              },
+            ],
+            session: null,
+          }),
+        } as unknown as Response
+      }
+
+      if (url.includes('/api/v1/chat/stream')) {
+        streamBodies.push(JSON.parse(String(init?.body || '{}')) as Record<string, unknown>)
+        return createSseResponse([
+          {
+            type: 'result',
+            content: {
+              response: '继续沿用上一轮简支梁草稿。',
+              success: true,
+            },
+          },
+        ])
+      }
+
+      if (url.includes('/api/v1/chat/conversation/conv-resume/snapshot')) {
+        return {
+          ok: true,
+          json: vi.fn().mockResolvedValue({ success: true }),
+        } as unknown as Response
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    await renderConsolePage()
+    fireEvent.click(await screen.findByRole('button', { name: /Resume conversation/ }))
+
+    await waitFor(() => {
+      expect(screen.getByText('设计一个简支梁，跨度10m，梁中间荷载1kN')).toBeInTheDocument()
+    })
+
+    fireEvent.change(screen.getByPlaceholderText(/Describe your structural goal|描述你的结构目标/), {
+      target: { value: '继续' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^Send$|^发送$/ }))
+
+    await waitFor(() => {
+      expect(streamBodies.length).toBe(1)
+    })
+
+    expect(streamBodies[0]?.message).toBe('继续')
+    expect((streamBodies[0]?.context as Record<string, unknown> | undefined)?.resumeFromMessage).toBe('设计一个简支梁，跨度10m，梁中间荷载1kN')
+  })
+
+  it('persists the paused turn to the backend when stopping an in-flight stream', async () => {
+    let pausedPayload: Record<string, unknown> | null = null
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input)
+
+      if (url.includes('/api/v1/agent/skills')) {
+        return {
+          ok: true,
+          json: vi.fn().mockResolvedValue(mockSkills),
+        } as unknown as Response
+      }
+
+      if (url.includes('/api/v1/analysis-engines')) {
+        return {
+          ok: true,
+          json: vi.fn().mockResolvedValue({ engines: [] }),
+        } as unknown as Response
+      }
+
+      if (url.includes('/api/v1/models/latest')) {
+        return {
+          ok: true,
+          json: vi.fn().mockResolvedValue({ model: null }),
+        } as unknown as Response
+      }
+
+      if (url.includes('/api/v1/chat/conversations')) {
+        return {
+          ok: true,
+          json: vi.fn().mockResolvedValue([]),
+        } as unknown as Response
+      }
+
+      if (url.includes('/api/v1/chat/stream')) {
+        const signal = init?.signal as AbortSignal | undefined
+        const body = new ReadableStream({
+          start(controller) {
+            signal?.addEventListener('abort', () => {
+              controller.error(new DOMException('Aborted', 'AbortError'))
+            }, { once: true })
+          },
+        })
+
+        return {
+          ok: true,
+          body,
+        } as unknown as Response
+      }
+
+      if (url.includes('/api/v1/chat/conversation/conv-stop/messages') && init?.method === 'POST') {
+        pausedPayload = JSON.parse(String(init?.body || '{}')) as Record<string, unknown>
+        return {
+          ok: true,
+          json: vi.fn().mockResolvedValue({ success: true }),
+        } as unknown as Response
+      }
+
+      if (url.includes('/api/v1/chat/conversation') && init?.method === 'POST') {
+        return {
+          ok: true,
+          json: vi.fn().mockResolvedValue({
+            id: 'conv-stop',
+            title: 'Stop conversation',
+            type: 'general',
+            createdAt: '2026-03-12T12:00:00.000Z',
+            updatedAt: '2026-03-12T12:00:00.000Z',
+          }),
+        } as unknown as Response
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    await renderConsolePage()
+
+    fireEvent.change(screen.getByPlaceholderText(/Describe your structural goal|描述你的结构目标/), {
+      target: { value: 'Pause this stream' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^Send$|^发送$/ }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^Stop$|^停止$/ })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /^Stop$|^停止$/ }))
+
+    await waitFor(() => {
+      expect(pausedPayload).not.toBeNull()
+    })
+
+    expect(pausedPayload).toEqual(expect.objectContaining({
+      userMessage: 'Pause this stream',
+      assistantContent: '',
+      assistantAborted: true,
+      traceId: expect.any(String),
+    }))
+    expect(screen.getByText(/Stream stopped|已停止/)).toBeInTheDocument()
+
+    const stored = JSON.parse(window.localStorage.getItem('structureclaw.console.conversations') || '{}')
+    expect(stored['conv-stop']?.messages?.at(-1)).toEqual(expect.objectContaining({
+      role: 'assistant',
+      content: '',
+      status: 'aborted',
+    }))
+  })
+
   it.skipIf(!hasLlmKey)('shows conversation-list timeout when the backend request hangs', async () => {
     vi.useFakeTimers()
 
