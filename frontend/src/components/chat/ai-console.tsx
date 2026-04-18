@@ -1348,6 +1348,7 @@ export function AIConsole() {
   const [streamingSessions, setStreamingSessions] = useState<Map<string, StreamSession>>(new Map())
   const streamingSessionsRef = useRef<Map<string, StreamSession>>(new Map())
   const conversationIdRef = useRef(conversationId)
+  const submittingRef = useRef(false)
   useEffect(() => { conversationIdRef.current = conversationId }, [conversationId])
   const isSendingActive = streamingSessions.get(conversationId)?.status === 'streaming'
   const [errorMessage, setErrorMessage] = useState('')
@@ -2306,9 +2307,10 @@ export function AIConsole() {
 
   async function handleSubmit() {
     const trimmedInput = input.trim()
-    if (!trimmedInput || isSendingActive) {
+    if (!trimmedInput || submittingRef.current) {
       return
     }
+    submittingRef.current = true
 
     const parsedModel = parseModelJson(modelText, t)
     if (parsedModel.error) {
@@ -2351,6 +2353,12 @@ export function AIConsole() {
     try {
       const nextConversationId = await ensureConversation(trimmedInput)
       activeConversationId = nextConversationId
+
+      // Set conversationId immediately so isSendingActive resolves correctly
+      // and the Stop button appears without waiting for the SSE start event.
+      if (nextConversationId !== conversationId) {
+        setConversationId(nextConversationId)
+      }
 
       registerStreamSession({
         conversationId: nextConversationId,
@@ -2628,6 +2636,7 @@ export function AIConsole() {
         }
       }
     } finally {
+      submittingRef.current = false
       if (shouldBumpConversationActivity || abortController.signal.aborted) {
         markConversationActivity(activeConversationId)
       }
