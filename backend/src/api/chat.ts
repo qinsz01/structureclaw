@@ -319,7 +319,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
 
     const abortController = new AbortController();
     const onClose = () => { abortController.abort(); };
-    request.raw.on('close', onClose);
+    reply.raw.on('close', onClose);
 
     try {
       const stream = agentService.runStream({
@@ -368,7 +368,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
         reply.raw.end();
       }
     } finally {
-      request.raw.off('close', onClose);
+      reply.raw.off('close', onClose);
     }
   });
 

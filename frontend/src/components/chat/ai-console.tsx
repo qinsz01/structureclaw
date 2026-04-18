@@ -2440,7 +2440,6 @@ export function AIConsole() {
         if (abortController.signal.aborted) break
         const { value, done } = await reader.read()
         if (done) break
-
         buffer += decoder.decode(value, { stream: true })
         const parts = buffer.split('\n\n')
         buffer = parts.pop() || ''
