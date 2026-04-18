@@ -137,6 +137,44 @@ async function persistLatestConversationResult(params: {
   }
 }
 
+async function persistConversationMessages(params: {
+  conversationId?: string;
+  userId?: string;
+  userMessage: string;
+  assistantContent: string;
+  assistantAborted?: boolean;
+}): Promise<void> {
+  const conversationId = params.conversationId?.trim();
+  if (!conversationId) {
+    return;
+  }
+
+  try {
+    const conversation = await prisma.conversation.findFirst({
+      where: { id: conversationId, userId: params.userId },
+      select: { id: true },
+    });
+
+    if (!conversation) {
+      return;
+    }
+
+    const truncatedAssistant = params.assistantContent.length > 10000
+      ? params.assistantContent.slice(0, 10000)
+      : params.assistantContent;
+
+    const label = params.assistantAborted ? '（已停止）' : '';
+    await prisma.message.createMany({
+      data: [
+        { conversationId, role: 'user', content: params.userMessage },
+        { conversationId, role: 'assistant', content: truncatedAssistant + label },
+      ],
+    });
+  } catch (error) {
+    console.warn('[chat] skip message persistence:', error instanceof Error ? error.message : String(error));
+  }
+}
+
 export async function chatRoutes(fastify: FastifyInstance) {
   // 发送消息
   fastify.post('/message', {
@@ -166,6 +204,13 @@ export async function chatRoutes(fastify: FastifyInstance) {
         conversationId: result.conversationId,
         userId,
         latestResult: result,
+      });
+      const assistantText = result.response || result.clarification?.question || '';
+      await persistConversationMessages({
+        conversationId: result.conversationId,
+        userId,
+        userMessage: body.message,
+        assistantContent: assistantText,
       });
       return reply.send({ result });
     } catch (error) {
@@ -321,6 +366,8 @@ export async function chatRoutes(fastify: FastifyInstance) {
     const onClose = () => { abortController.abort(); };
     reply.raw.on('close', onClose);
 
+    let assistantContent = '';
+
     try {
       const stream = agentService.runStream({
         ...body,
@@ -348,15 +395,48 @@ export async function chatRoutes(fastify: FastifyInstance) {
             userId,
             latestResult: (chunk as { content?: unknown }).content,
           });
+          const resultContent = (chunk as { content?: { response?: string; clarification?: { question?: string } } }).content;
+          if (resultContent?.response) {
+            assistantContent = resultContent.response;
+          } else if (resultContent?.clarification?.question) {
+            assistantContent = resultContent.clarification.question;
+          }
+        }
+        if (
+          chunk
+          && typeof chunk === 'object'
+          && (chunk as { type?: string }).type === 'interaction_update'
+          && (chunk as { content?: { guidanceText?: string } }).content?.guidanceText
+        ) {
+          assistantContent = (chunk as { content: { guidanceText: string } }).content.guidanceText;
         }
         reply.raw.write(`data: ${JSON.stringify(normalizePublicStreamChunk(chunk))}\n\n`);
       }
+
+      // Save user + assistant messages to DB so the next request has context.
+      // This runs for both completed and aborted streams.
+      const wasAborted = abortController.signal.aborted;
+      await persistConversationMessages({
+        conversationId: streamConversationId,
+        userId,
+        userMessage: body.message,
+        assistantContent,
+        assistantAborted: wasAborted,
+      });
 
       reply.raw.write('data: [DONE]\n\n');
       reply.raw.end();
     } catch (error) {
       if (abortController.signal.aborted) {
         request.log.info({ conversationId: streamConversationId }, 'Stream aborted by client');
+        // Save messages even on abort so the next request has context.
+        await persistConversationMessages({
+          conversationId: streamConversationId,
+          userId,
+          userMessage: body.message,
+          assistantContent,
+          assistantAborted: true,
+        }).catch(() => {});
         reply.raw.end();
       } else {
         request.log.error({ err: error }, 'Unexpected error in /api/v1/chat/stream');
