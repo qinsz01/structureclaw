@@ -32,7 +32,7 @@ type Message = {
   id: string
   role: 'user' | 'assistant'
   content: string
-  status?: 'streaming' | 'done' | 'error'
+  status?: 'streaming' | 'done' | 'error' | 'aborted'
   timestamp: string
   debugDetails?: MessageDebugDetails
 }
@@ -2565,9 +2565,39 @@ export function AIConsole() {
       if (error instanceof DOMException && error.name === 'AbortError') {
         replaceMessageForConversation(activeConversationId, assistantMessageId, (message) => ({
           ...message,
-          content: message.content || t('streamAborted'),
-          status: 'done',
+          content: message.content && message.content !== assistantSeed
+            ? `${message.content}\n\n---\n*${t('streamAborted')}*`
+            : t('streamAborted'),
+          status: 'aborted',
         }))
+        // Sync-persist to localStorage so the aborted messages survive a page refresh.
+        // The auto-persist effect is async and may not fire before the user reloads.
+        try {
+          const currentArchive = loadConversationArchive()
+          if (activeConversationId && currentArchive[activeConversationId]) {
+            const existing = currentArchive[activeConversationId]
+            const finalAssistantContent = (existing.messages ?? []).find(
+              (m: Message) => m.id === assistantMessageId
+            )
+            if (finalAssistantContent) {
+              const patched = {
+                ...existing,
+                messages: existing.messages.map((m: Message) =>
+                  m.id === assistantMessageId
+                    ? { ...m, content: finalAssistantContent.content, status: 'aborted' as const }
+                    : m
+                ),
+                updatedAt: new Date().toISOString(),
+              }
+              window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                ...currentArchive,
+                [activeConversationId]: sanitizePersistedConversation(patched),
+              }))
+            }
+          }
+        } catch {
+          // Best-effort; the auto-persist effect may still catch it
+        }
       } else {
         const nextError = error instanceof Error ? error.message : t('requestFailed')
 
@@ -2589,7 +2619,7 @@ export function AIConsole() {
         }
       }
     } finally {
-      if (shouldBumpConversationActivity) {
+      if (shouldBumpConversationActivity || abortController.signal.aborted) {
         markConversationActivity(activeConversationId)
       }
       const finalStatus = abortController.signal.aborted ? 'aborted' : 'completed'
@@ -2818,6 +2848,12 @@ export function AIConsole() {
                       {message.content}
                       {message.status === 'streaming' && (
                         <span className="ml-2 inline-flex h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_18px_rgba(103,232,249,0.9)]" />
+                      )}
+                      {message.status === 'aborted' && (
+                        <span className="ml-2 inline-flex items-center gap-1 text-xs text-rose-500 dark:text-rose-400">
+                          <Square className="h-2.5 w-2.5" />
+                          {t('streamAborted')}
+                        </span>
                       )}
                     </div>
                     {message.role === 'assistant' && message.debugDetails && (
