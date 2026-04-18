@@ -1349,8 +1349,8 @@ export function AIConsole() {
   const streamingSessionsRef = useRef<Map<string, StreamSession>>(new Map())
   const conversationIdRef = useRef(conversationId)
   const submittingRef = useRef(false)
+  const [isStreaming, setIsStreaming] = useState(false)
   useEffect(() => { conversationIdRef.current = conversationId }, [conversationId])
-  const isSendingActive = streamingSessions.get(conversationId)?.status === 'streaming'
   const [errorMessage, setErrorMessage] = useState('')
   const [contextOpen, setContextOpen] = useState(false)
   const [modelText, setModelText] = useState('')
@@ -1564,13 +1564,13 @@ export function AIConsole() {
     if (typeof chatScrollElement.scrollTo === 'function') {
       chatScrollElement.scrollTo({
         top: chatScrollElement.scrollHeight,
-        behavior: isSendingActive ? 'auto' : 'smooth',
+        behavior: isStreaming ? 'auto' : 'smooth',
       })
       return
     }
 
     chatScrollElement.scrollTop = chatScrollElement.scrollHeight
-  }, [messages, isSendingActive])
+  }, [messages, isStreaming])
 
   useEffect(() => {
     setConversationArchive(loadConversationArchive())
@@ -2349,13 +2349,14 @@ export function AIConsole() {
     let activeConversationId = conversationId
     let shouldBumpConversationActivity = false
     const abortController = new AbortController()
+    setIsStreaming(true)
 
     try {
       const nextConversationId = await ensureConversation(trimmedInput)
       activeConversationId = nextConversationId
 
-      // Set conversationId immediately so isSendingActive resolves correctly
-      // and the Stop button appears without waiting for the SSE start event.
+      // Set conversationId immediately so the Stop button appears
+      // without waiting for the SSE start event.
       if (nextConversationId !== conversationId) {
         setConversationId(nextConversationId)
       }
@@ -2637,6 +2638,7 @@ export function AIConsole() {
       }
     } finally {
       submittingRef.current = false
+      setIsStreaming(false)
       if (shouldBumpConversationActivity || abortController.signal.aborted) {
         markConversationActivity(activeConversationId)
       }
@@ -3103,7 +3105,7 @@ export function AIConsole() {
                     </Badge>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    {isSendingActive ? (
+                    {isStreaming ? (
                       <Button
                         type="button"
                         className="rounded-full bg-rose-500 px-5 text-white hover:bg-rose-400"
