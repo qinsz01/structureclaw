@@ -1339,6 +1339,8 @@ export function AIConsole() {
     [t]
   )
   const [messages, setMessages] = useState<Message[]>([initialAssistantMessage])
+  const messagesRef = useRef(messages)
+  useEffect(() => { messagesRef.current = messages }, [messages])
   const [input, setInput] = useState('')
   const [conversationId, setConversationId] = useState('')
   const [serverConversations, setServerConversations] = useState<ConversationSummary[]>([])
@@ -2582,13 +2584,12 @@ export function AIConsole() {
           status: 'aborted',
         }))
         // Sync-persist to localStorage so the aborted messages survive a page refresh.
-        // The auto-persist effect is async and may not fire before the user reloads.
+        // We read from messagesRef (which tracks the latest React state) rather than
+        // the stale archive. This ensures the user message + aborted assistant message
+        // are both captured.
         try {
-          const currentArchive = loadConversationArchive()
           if (activeConversationId) {
-            const existing = currentArchive[activeConversationId]
-            const archivedMessages = existing?.messages ?? []
-            const patchedMessages = archivedMessages.map((m: Message) =>
+            const currentMessages = messagesRef.current.map((m: Message) =>
               m.id === assistantMessageId
                 ? {
                     ...m,
@@ -2599,21 +2600,32 @@ export function AIConsole() {
                   }
                 : m
             )
-            const patched = {
+            const currentArchive = loadConversationArchive()
+            const existing = currentArchive[activeConversationId]
+            const patched = sanitizePersistedConversation({
               id: activeConversationId,
               title: existing?.title || trimmedInput.slice(0, 48),
               type: 'general' as const,
               createdAt: existing?.createdAt || new Date().toISOString(),
               updatedAt: new Date().toISOString(),
-              messages: patchedMessages,
-            }
+              messages: currentMessages,
+              modelText: existing?.modelText || '',
+              latestResult: existing?.latestResult ?? null,
+            })
             window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
               ...currentArchive,
-              [activeConversationId]: sanitizePersistedConversation(patched),
+              [activeConversationId]: patched,
             }))
           }
         } catch {
           // Best-effort; the auto-persist effect may still catch it
+        }
+        // Save snapshot to backend so the conversation context survives
+        // across browser sessions / devices.
+        if (activeConversationId) {
+          saveConversationSnapshotToBackend(activeConversationId, {
+            latestResult: latestResult ?? undefined,
+          }).catch(() => {})
         }
       } else {
         const nextError = error instanceof Error ? error.message : t('requestFailed')
