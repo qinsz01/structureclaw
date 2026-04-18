@@ -282,6 +282,7 @@ export async function repairPlannerResponse(
     locale: AppLocale;
     allowedKinds: AgentPlanKind[];
     availableToolIds: AgentToolName[];
+    signal?: AbortSignal;
   },
 ): Promise<Pick<AgentNextStepPlan, 'kind' | 'replyMode' | 'targetArtifact'> | null> {
   if (!llm) {
@@ -300,7 +301,7 @@ export async function repairPlannerResponse(
   ].join('\n');
 
   try {
-    const repaired = await llm.invoke(prompt);
+    const repaired = await llm.invoke(prompt, { signal: options.signal });
     const repairedRaw = typeof repaired.content === 'string'
       ? repaired.content
       : JSON.stringify(repaired.content);
@@ -390,6 +391,7 @@ export async function planNextStepWithLlm(
     activeToolIds?: ActiveToolSet;
     allowedKinds?: AgentPlanKind[];
     conversationId?: string;
+    signal?: AbortSignal;
   },
   assessInteractionNeeds: AssessInteractionNeedsFn,
 ): Promise<AgentNextStepPlan> {
@@ -447,7 +449,7 @@ export async function planNextStepWithLlm(
     `Planner context: ${JSON.stringify(snapshot)}`,
     ].join('\n');
 
-    const aiMessage = await llm.invoke(prompt);
+    const aiMessage = await llm.invoke(prompt, { signal: options.signal });
     const raw = typeof aiMessage.content === 'string'
       ? aiMessage.content
       : JSON.stringify(aiMessage.content);
@@ -456,6 +458,7 @@ export async function planNextStepWithLlm(
         locale: options.locale,
         allowedKinds,
         availableToolIds,
+        signal: options.signal,
       });
     if (!normalized) {
       throw new Error('LLM_PLANNER_INVALID_RESPONSE');
@@ -582,6 +585,7 @@ export async function planNextStep(
     session?: InteractionSession;
     activeToolIds?: ActiveToolSet;
     conversationId?: string;
+    signal?: AbortSignal;
   },
   assessInteractionNeeds: AssessInteractionNeedsFn,
   hasEmptySkillSelection: HasEmptySkillSelectionFn,
@@ -606,6 +610,7 @@ export async function planNextStep(
           activeToolIds: options.activeToolIds,
           allowedKinds: ['reply', 'ask'],
           conversationId: options.conversationId,
+          signal: options.signal,
         }, assessInteractionNeeds)),
         planningDirective: options.planningDirective,
       };
@@ -629,5 +634,5 @@ export async function planNextStep(
     };
   }
 
-  return planNextStepWithLlm(llm, message, options, assessInteractionNeeds);
+  return planNextStepWithLlm(llm, message, { ...options, signal: options.signal }, assessInteractionNeeds);
 }

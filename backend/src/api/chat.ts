@@ -317,13 +317,19 @@ export async function chatRoutes(fastify: FastifyInstance) {
     reply.raw.setHeader('X-Accel-Buffering', 'no');
     reply.raw.flushHeaders?.();
 
+    const abortController = new AbortController();
+    const onClose = () => { abortController.abort(); };
+    request.raw.on('close', onClose);
+
     try {
       const stream = agentService.runStream({
         ...body,
         userId,
+        signal: abortController.signal,
       });
 
       for await (const chunk of stream) {
+        if (abortController.signal.aborted) break;
         if (
           chunk
           && typeof chunk === 'object'
@@ -349,13 +355,20 @@ export async function chatRoutes(fastify: FastifyInstance) {
       reply.raw.write('data: [DONE]\n\n');
       reply.raw.end();
     } catch (error) {
-      request.log.error({ err: error }, 'Unexpected error in /api/v1/chat/stream');
-      reply.raw.write(`data: ${JSON.stringify({
-        type: 'error',
-        error: error instanceof Error ? error.message : 'stream failed',
-      })}\n\n`);
-      reply.raw.write('data: [DONE]\n\n');
-      reply.raw.end();
+      if (abortController.signal.aborted) {
+        request.log.info({ conversationId: streamConversationId }, 'Stream aborted by client');
+        reply.raw.end();
+      } else {
+        request.log.error({ err: error }, 'Unexpected error in /api/v1/chat/stream');
+        reply.raw.write(`data: ${JSON.stringify({
+          type: 'error',
+          error: error instanceof Error ? error.message : 'stream failed',
+        })}\n\n`);
+        reply.raw.write('data: [DONE]\n\n');
+        reply.raw.end();
+      }
+    } finally {
+      request.raw.off('close', onClose);
     }
   });
 

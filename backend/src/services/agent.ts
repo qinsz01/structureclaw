@@ -235,6 +235,7 @@ export interface AgentRunInput {
   conversationId?: string;
   traceId?: string;
   userId?: string;
+  signal?: AbortSignal;
   context?: {
     locale?: AppLocale;
     projectId?: string;
@@ -612,6 +613,7 @@ export class AgentService {
     activeToolIds?: ActiveToolSet;
     allowedKinds?: AgentPlanKind[];
     conversationId?: string;
+    signal?: AbortSignal;
   }): Promise<AgentNextStepPlan> {
     return routerPlanNextStep(this.llm, message, {
       ...options,
@@ -629,6 +631,7 @@ export class AgentService {
     session?: InteractionSession;
     activeToolIds?: ActiveToolSet;
     conversationId?: string;
+    signal?: AbortSignal;
   }): Promise<AgentNextStepPlan> {
     return routerPlanNextStep(this.llm, message, options, this.assessInteractionNeeds.bind(this), this.hasEmptySkillSelection.bind(this));
   }
@@ -1070,13 +1073,14 @@ export class AgentService {
   ): Promise<AgentRunResult> {
     const preparedInput = await this.ensureConversationRecord(input);
     const traceId = input.traceId || randomUUID();
-    return this.runInternal(preparedInput, traceId, strategy);
+    return this.runInternal(preparedInput, traceId, strategy, input.signal);
   }
 
   private async *runStreamWithStrategy(
     input: AgentRunInput,
     strategy: AgentRunStrategy,
   ): AsyncGenerator<AgentStreamChunk> {
+    const signal = input.signal;
     const preparedInput = await this.ensureConversationRecord(input);
     const traceId = randomUUID();
     const startedAt = new Date().toISOString();
@@ -1090,7 +1094,12 @@ export class AgentService {
         },
       };
 
-      const result = await this.runInternal({ ...preparedInput, traceId }, traceId, strategy);
+      if (signal?.aborted) {
+        yield { type: 'done' };
+        return;
+      }
+
+      const result = await this.runInternal({ ...preparedInput, traceId }, traceId, strategy, signal);
       if (result.interaction && result.interaction.state !== 'completed') {
         yield {
           type: 'interaction_update',
@@ -1103,6 +1112,9 @@ export class AgentService {
       };
       yield { type: 'done' };
     } catch (error: any) {
+      if (signal?.aborted) {
+        return;
+      }
       yield {
         type: 'error',
         error: this.stringifyError(error),
@@ -1114,6 +1126,7 @@ export class AgentService {
     params: AgentRunInput,
     traceId: string,
     strategy: AgentRunStrategy,
+    signal?: AbortSignal,
   ): Promise<AgentRunResult> {
     const startedAtMs = Date.now();
     const startedAt = new Date(startedAtMs).toISOString();
@@ -1146,6 +1159,7 @@ export class AgentService {
         session: workingSession,
         activeToolIds,
         conversationId: sessionKey,
+        signal,
       });
     } catch (error: any) {
       const plannerErrorMessage = typeof error?.message === 'string' ? error.message : 'LLM_PLANNER_UNAVAILABLE';
@@ -1754,6 +1768,7 @@ export class AgentService {
               nextPlan: askPlan,
               params, traceId, startedAt, startedAtMs, locale, orchestrationMode,
               toolCalls, plan, sessionKey, workingSession, activeToolIds,
+              signal,
             });
             if (orchestrationMode === 'directed') {
               return { ...convResult, success: false, needsModelInput: true };
@@ -2167,6 +2182,7 @@ export class AgentService {
       sessionKey,
       workingSession,
       activeToolIds,
+      signal,
     });
   }
 
@@ -2241,8 +2257,9 @@ export class AgentService {
     sessionKey?: string;
     workingSession: InteractionSession;
     activeToolIds?: ActiveToolSet;
+    signal?: AbortSignal;
   }): Promise<AgentRunResult> {
-    const { nextPlan, params, traceId, startedAt, startedAtMs, locale, orchestrationMode, toolCalls, plan, sessionKey, workingSession, activeToolIds } = args;
+    const { nextPlan, params, traceId, startedAt, startedAtMs, locale, orchestrationMode, toolCalls, plan, sessionKey, workingSession, activeToolIds, signal } = args;
     const noSkillMode = this.hasEmptySkillSelection(params.context?.skillIds);
     const route = this.resolveRouteDecision(nextPlan, noSkillMode);
 
@@ -2305,6 +2322,7 @@ export class AgentService {
         sessionKey,
         workingSession,
         draft,
+        signal,
       });
     }
 
@@ -2329,6 +2347,7 @@ export class AgentService {
       workingSession,
       draft,
       resolved,
+      signal,
     });
   }
 
@@ -2417,6 +2436,7 @@ export class AgentService {
     locale: AppLocale,
     conversationId?: string,
     skillIds?: string[],
+    signal?: AbortSignal,
   ): Promise<string> {
     if (!this.llm) {
       return fallback;
@@ -2467,7 +2487,7 @@ export class AgentService {
         this.localize(locale, `用户消息：${message}`, `User message: ${message}`),
         this.localize(locale, `兜底回复：${fallback}`, `Fallback reply: ${fallback}`),
       );
-      const aiMessage = await this.llm.invoke(promptParts.join('\n'));
+      const aiMessage = await this.llm.invoke(promptParts.join('\n'), { signal });
       const content = typeof aiMessage.content === 'string'
         ? aiMessage.content
         : JSON.stringify(aiMessage.content);
@@ -2484,6 +2504,7 @@ export class AgentService {
     locale: AppLocale,
     conversationId?: string,
     skillIds?: string[],
+    signal?: AbortSignal,
   ): Promise<string> {
     if (!this.llm) {
       return fallback;
@@ -2536,7 +2557,7 @@ export class AgentService {
         this.localize(locale, `兜底回复：${fallback}`, `Fallback reply: ${fallback}`),
       );
 
-      const aiMessage = await this.llm.invoke(promptParts.join('\n'));
+      const aiMessage = await this.llm.invoke(promptParts.join('\n'), { signal });
       const content = typeof aiMessage.content === 'string'
         ? aiMessage.content
         : JSON.stringify(aiMessage.content);
@@ -2552,6 +2573,7 @@ export class AgentService {
     startedAt: string;
     startedAtMs: number;
     locale: AppLocale;
+    signal?: AbortSignal;
     orchestrationMode: AgentOrchestrationMode;
     skillIds?: string[];
     plan: string[];
@@ -2578,7 +2600,7 @@ export class AgentService {
     } = args;
 
     plan.push(planNote);
-    const response = await this.renderDirectReply(params.message, fallback, locale, sessionKey, skillIds);
+    const response = await this.renderDirectReply(params.message, fallback, locale, sessionKey, skillIds, args.signal);
 
     return this.finalizeRunResult(traceId, sessionKey, params.message, {
       traceId,
@@ -2611,6 +2633,7 @@ export class AgentService {
     sessionKey?: string;
     workingSession: InteractionSession;
     draft: DraftResult;
+    signal?: AbortSignal;
   }): Promise<AgentRunResult> {
     const {
       nextPlan,
@@ -2628,6 +2651,7 @@ export class AgentService {
       sessionKey,
       workingSession,
       draft,
+      signal,
     } = args;
 
     if (sessionKey) {
@@ -2650,6 +2674,7 @@ export class AgentService {
         sessionKey,
         workingSession,
         draft,
+        signal,
       });
     }
 
@@ -2667,6 +2692,7 @@ export class AgentService {
       sessionKey,
       workingSession,
       draft,
+      signal,
     });
   }
 
@@ -2676,6 +2702,7 @@ export class AgentService {
     startedAt: string;
     startedAtMs: number;
     locale: AppLocale;
+    signal?: AbortSignal;
     orchestrationMode: AgentOrchestrationMode;
     skillIds?: string[];
     noSkillMode: boolean;
@@ -2762,6 +2789,7 @@ export class AgentService {
       locale,
       sessionKey,
       skillIds,
+      args.signal,
     );
 
     if (draft.model) {
@@ -2799,6 +2827,7 @@ export class AgentService {
     sessionKey?: string;
     workingSession: InteractionSession;
     draft: DraftResult;
+    signal?: AbortSignal;
   }): Promise<AgentRunResult> {
     const {
       params,
@@ -2865,6 +2894,7 @@ export class AgentService {
       locale,
       sessionKey,
       skillIds,
+      args.signal,
     );
 
     return this.finalizeRunResult(traceId, sessionKey, params.message, {
@@ -2934,6 +2964,7 @@ export class AgentService {
     workingSession: InteractionSession;
     draft: DraftResult;
     resolved: ResolvedConversationAssessment;
+    signal?: AbortSignal;
   }): Promise<AgentRunResult> {
     const {
       nextPlan,
@@ -2950,6 +2981,7 @@ export class AgentService {
       workingSession,
       draft,
       resolved,
+      signal,
     } = args;
 
     if (sessionKey) {
@@ -2971,6 +3003,7 @@ export class AgentService {
         workingSession,
         draft,
         resolved,
+        signal,
       });
     }
 
@@ -2988,6 +3021,7 @@ export class AgentService {
       workingSession,
       draft,
       resolved,
+      signal,
     });
   }
 
@@ -3005,6 +3039,7 @@ export class AgentService {
     workingSession: InteractionSession;
     draft: DraftResult;
     resolved: ResolvedConversationAssessment;
+    signal?: AbortSignal;
   }): Promise<AgentRunResult> {
     const {
       params,
@@ -3039,6 +3074,7 @@ export class AgentService {
       this.resolveInteractionLocale(params.context?.locale),
       sessionKey,
       skillIds,
+      args.signal,
     );
     return this.finalizeRunResult(traceId, sessionKey, params.message, {
       traceId,
@@ -3071,6 +3107,7 @@ export class AgentService {
     workingSession: InteractionSession;
     draft: DraftResult;
     resolved: ResolvedConversationAssessment;
+    signal?: AbortSignal;
   }): Promise<AgentRunResult> {
     const {
       params,
@@ -3106,6 +3143,7 @@ export class AgentService {
       locale,
       sessionKey,
       skillIds,
+      args.signal,
     );
     return this.finalizeRunResult(traceId, sessionKey, params.message, {
       traceId,

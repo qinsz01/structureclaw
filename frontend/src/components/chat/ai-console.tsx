@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
-import { ArrowUp, Bot, BrainCircuit, Clock3, Cuboid, FileText, Loader2, MessageSquarePlus, Orbit, Sparkles, Trash2, User } from 'lucide-react'
+import { ArrowUp, Bot, BrainCircuit, Clock3, Cuboid, FileText, Loader2, MessageSquarePlus, Orbit, Sparkles, Square, Trash2, User } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -112,6 +112,14 @@ type StreamPayload =
   | { type: 'result'; content?: AgentResult }
   | { type: 'done' }
   | { type: 'error'; error?: string }
+
+type StreamSession = {
+  conversationId: string
+  status: 'streaming' | 'completed' | 'aborted'
+  abortController: AbortController
+  assistantMessageId: string
+  reader: ReadableStreamDefaultReader<Uint8Array> | null
+}
 
 type VisualizationHintsPayload = {
   memberUtilizationMap?: Record<string, number>
@@ -1337,7 +1345,11 @@ export function AIConsole() {
   const [conversationArchive, setConversationArchive] = useState<Record<string, PersistedConversation>>({})
   const [historyLoading, setHistoryLoading] = useState(true)
   const [historyError, setHistoryError] = useState('')
-  const [isSending, setIsSending] = useState(false)
+  const [streamingSessions, setStreamingSessions] = useState<Map<string, StreamSession>>(new Map())
+  const streamingSessionsRef = useRef<Map<string, StreamSession>>(new Map())
+  const conversationIdRef = useRef(conversationId)
+  useEffect(() => { conversationIdRef.current = conversationId }, [conversationId])
+  const isSendingActive = streamingSessions.get(conversationId)?.status === 'streaming'
   const [errorMessage, setErrorMessage] = useState('')
   const [contextOpen, setContextOpen] = useState(false)
   const [modelText, setModelText] = useState('')
@@ -1366,6 +1378,42 @@ export function AIConsole() {
   // 追踪最后有效的结果用于持久化（不会被引擎切换清除）
   const lastValidResultRef = useRef<AgentResult | null>(null)
   const lastValidResultVisualizationRef = useRef<VisualizationSnapshot | null>(null)
+
+  // Streaming session helpers
+  function registerStreamSession(session: StreamSession) {
+    setStreamingSessions((prev) => new Map(prev).set(session.conversationId, session))
+    streamingSessionsRef.current.set(session.conversationId, session)
+  }
+
+  function updateStreamSessionStatus(convId: string, status: StreamSession['status']) {
+    setStreamingSessions((prev) => {
+      const next = new Map(prev)
+      const existing = next.get(convId)
+      if (existing) next.set(convId, { ...existing, status })
+      return next
+    })
+    const existing = streamingSessionsRef.current.get(convId)
+    if (existing) streamingSessionsRef.current.set(convId, { ...existing, status })
+  }
+
+  function removeStreamSession(convId: string) {
+    setStreamingSessions((prev) => {
+      const next = new Map(prev)
+      next.delete(convId)
+      return next
+    })
+    streamingSessionsRef.current.delete(convId)
+  }
+
+  function stopStream(targetConversationId?: string) {
+    const id = targetConversationId || conversationId
+    const session = streamingSessionsRef.current.get(id)
+    if (session?.status === 'streaming') {
+      session.abortController.abort()
+      session.reader?.cancel().catch(() => {})
+      updateStreamSessionStatus(id, 'aborted')
+    }
+  }
 
   // 保持 refs 与最新有效结果同步
   useEffect(() => {
@@ -1515,13 +1563,13 @@ export function AIConsole() {
     if (typeof chatScrollElement.scrollTo === 'function') {
       chatScrollElement.scrollTo({
         top: chatScrollElement.scrollHeight,
-        behavior: isSending ? 'auto' : 'smooth',
+        behavior: isSendingActive ? 'auto' : 'smooth',
       })
       return
     }
 
     chatScrollElement.scrollTop = chatScrollElement.scrollHeight
-  }, [messages, isSending])
+  }, [messages, isSendingActive])
 
   useEffect(() => {
     setConversationArchive(loadConversationArchive())
@@ -1759,8 +1807,11 @@ export function AIConsole() {
     }
   }, [latestModelVisualizationSnapshot, latestResultVisualizationSnapshot, parsedComposerModelError, t, visualizationSource])
 
+  // Track which conversation IDs have been deleted locally to prevent auto-persist from restoring them
+  const deletedConversationIdsRef = useRef<Set<string>>(new Set())
+
   useEffect(() => {
-    if (!conversationId) {
+    if (!conversationId || deletedConversationIdsRef.current.has(conversationId)) {
       return
     }
 
@@ -1873,10 +1924,6 @@ export function AIConsole() {
     return payload.id as string
   }
 
-  function appendMessage(message: Message) {
-    setMessages((current) => [...current, message])
-  }
-
   function markConversationActivity(targetConversationId: string | undefined) {
     if (!targetConversationId) {
       return
@@ -1888,8 +1935,48 @@ export function AIConsole() {
     }))
   }
 
-  function replaceMessage(messageId: string, updater: (message: Message) => Message) {
-    setMessages((current) => current.map((message) => (message.id === messageId ? updater(message) : message)))
+  function appendMessageForConversation(targetConvId: string, message: Message) {
+    if (targetConvId === conversationIdRef.current) {
+      setMessages((current) => [...current, message])
+    } else {
+      setConversationArchive((current) => {
+        const existing = current[targetConvId]
+        if (!existing) return current
+        return {
+          ...current,
+          [targetConvId]: {
+            ...existing,
+            messages: [...existing.messages, message],
+          },
+        }
+      })
+    }
+  }
+
+  function replaceMessageForConversation(
+    targetConvId: string,
+    messageId: string,
+    updater: (message: Message) => Message,
+  ) {
+    if (targetConvId === conversationIdRef.current) {
+      setMessages((current) =>
+        current.map((message) => (message.id === messageId ? updater(message) : message))
+      )
+    } else {
+      setConversationArchive((current) => {
+        const existing = current[targetConvId]
+        if (!existing) return current
+        return {
+          ...current,
+          [targetConvId]: {
+            ...existing,
+            messages: existing.messages.map((message) =>
+              (message.id === messageId ? updater(message) : message)
+            ),
+          },
+        }
+      })
+    }
   }
 
   function persistConversationSnapshotsToArchive(
@@ -1950,7 +2037,7 @@ export function AIConsole() {
   }
 
   async function handleSelectConversation(nextConversationId: string) {
-    if (isSending || nextConversationId === conversationId) {
+    if (nextConversationId === conversationId) {
       return
     }
 
@@ -2116,15 +2203,11 @@ export function AIConsole() {
   }
 
   function handleNewConversation() {
-    if (isSending) {
-      return
-    }
-
     resetConsoleState()
   }
 
   async function handleDeleteConversation(targetConversationId: string) {
-    if (isSending || deletingConversationId || !targetConversationId) {
+    if (streamingSessions.get(targetConversationId)?.status === 'streaming' || deletingConversationId || !targetConversationId) {
       return
     }
 
@@ -2140,9 +2223,15 @@ export function AIConsole() {
         throw new Error(`${t('deleteConversationFailed')} HTTP ${response.status}`)
       }
 
+      deletedConversationIdsRef.current.add(targetConversationId)
       const remainingConversations = mergedConversations.filter((conversation) => conversation.id !== targetConversationId)
       setServerConversations((current) => current.filter((conversation) => conversation.id !== targetConversationId))
       setConversationArchive((current) => {
+        const next = { ...current }
+        delete next[targetConversationId]
+        return next
+      })
+      setConversationActivityAt((current) => {
         const next = { ...current }
         delete next[targetConversationId]
         return next
@@ -2217,7 +2306,7 @@ export function AIConsole() {
 
   async function handleSubmit() {
     const trimmedInput = input.trim()
-    if (!trimmedInput || isSending) {
+    if (!trimmedInput || isSendingActive) {
       return
     }
 
@@ -2240,27 +2329,37 @@ export function AIConsole() {
     const assistantSeed = t('assistantSeedAuto')
 
     setErrorMessage('')
-    appendMessage(userMessage)
-    appendMessage({
+    setInput('')
+    setVisualizationOpen(false)
+    setVisualizationSource('result')
+    setModelSyncMessage('')
+    // Append user message and assistant seed immediately (before async work)
+    setMessages((current) => [...current, userMessage])
+    setMessages((current) => [...current, {
       id: assistantMessageId,
       role: 'assistant',
       content: assistantSeed,
       status: 'streaming',
       timestamp: new Date().toISOString(),
-    })
-    setInput('')
-    setIsSending(true)
-    setVisualizationOpen(false)
-    setVisualizationSource('result')
-    setModelSyncMessage('')
+    }])
     let receivedResult = false
     let assistantContent = assistantSeed
     let activeConversationId = conversationId
     let shouldBumpConversationActivity = false
+    const abortController = new AbortController()
 
     try {
       const nextConversationId = await ensureConversation(trimmedInput)
       activeConversationId = nextConversationId
+
+      registerStreamSession({
+        conversationId: nextConversationId,
+        status: 'streaming',
+        abortController,
+        assistantMessageId,
+        reader: null,
+      })
+
       const storedPreferences = capabilityPreferencesHydratedRef.current ? null : loadCapabilityPreferences()
       const storedSkillIds = storedPreferences
         ? skillNormalization.normalizeSkillIds(storedPreferences.skillIds)
@@ -2311,6 +2410,7 @@ export function AIConsole() {
           conversationId: nextConversationId,
           context: contextPayload,
         }),
+        signal: abortController.signal,
       })
 
       if (!response.ok || !response.body) {
@@ -2318,11 +2418,17 @@ export function AIConsole() {
       }
 
       const reader = response.body.getReader()
+      // Store reader so stopStream can cancel it directly
+      const existingSession = streamingSessionsRef.current.get(nextConversationId)
+      if (existingSession) {
+        existingSession.reader = reader
+      }
       const decoder = new TextDecoder()
       let buffer = ''
       let chatBuffer = ''
 
       while (true) {
+        if (abortController.signal.aborted) break
         const { value, done } = await reader.read()
         if (done) break
 
@@ -2331,6 +2437,7 @@ export function AIConsole() {
         buffer = parts.pop() || ''
 
         for (const part of parts) {
+          if (abortController.signal.aborted) break
           const line = part
             .split('\n')
             .map((item) => item.trim())
@@ -2351,7 +2458,7 @@ export function AIConsole() {
             const token = typeof payload.content === 'string' ? payload.content : ''
             chatBuffer += token
             assistantContent = chatBuffer || assistantSeed
-            replaceMessage(assistantMessageId, (message) => ({
+            replaceMessageForConversation(activeConversationId, assistantMessageId, (message) => ({
               ...message,
               content: assistantContent,
               status: 'streaming',
@@ -2361,7 +2468,7 @@ export function AIConsole() {
           if (payload.type === 'interaction_update') {
             const interactionMessage = buildInteractionMessage(payload, t, locale)
             assistantContent = interactionMessage
-            replaceMessage(assistantMessageId, (message) => ({
+            replaceMessageForConversation(activeConversationId, assistantMessageId, (message) => ({
               ...message,
               content: assistantContent,
               status: 'streaming',
@@ -2371,7 +2478,7 @@ export function AIConsole() {
           // 处理 'start' 类型消息（包含 conversationId）
           if (payload.type === 'start' && payload.content && typeof payload.content === 'object') {
             const { conversationId: newConversationId } = payload.content as { conversationId?: string; startedAt?: string }
-            if (newConversationId) {
+            if (newConversationId && activeConversationId === conversationId) {
               setConversationId(newConversationId)
             }
           }
@@ -2383,7 +2490,9 @@ export function AIConsole() {
             const visualizationHints = extractVisualizationHints(result)
             const debugDetails = buildMessageDebugDetails(promptSnapshot, debugSkillIds, debugToolIds, result)
             if (result.model && typeof result.model === 'object' && !Array.isArray(result.model)) {
-              applySynchronizedModel(result.model, result.analysis ? 'tool' : 'conversation')
+              if (activeConversationId === conversationId) {
+                applySynchronizedModel(result.model, result.analysis ? 'tool' : 'conversation')
+              }
             }
             const visualizationSnapshot = buildVisualizationSnapshot({
               title: buildVisualizationTitle(result, trimmedInput.slice(0, 48) || t('untitledConversation')),
@@ -2399,23 +2508,27 @@ export function AIConsole() {
               mode: 'model-only',
             })
             receivedResult = true
-            setLatestResult(result)
-            setLatestModelVisualizationSnapshot(modelSnapshot)
-            setLatestResultVisualizationSnapshot(visualizationSnapshot)
-            persistConversationSnapshotsToArchive(activeConversationId || nextConversationId, {
+            // Only update active conversation state when this is the foreground stream
+            if (activeConversationId === conversationId) {
+              setLatestResult(result)
+              setLatestModelVisualizationSnapshot(modelSnapshot)
+              setLatestResultVisualizationSnapshot(visualizationSnapshot)
+              setActivePanel(result.report?.markdown ? 'report' : 'analysis')
+            }
+            // Always persist results to archive (for both active and background)
+            persistConversationSnapshotsToArchive(activeConversationId, {
               latestResult: result,
               modelSnapshot,
               resultSnapshot: visualizationSnapshot,
             })
-            // 保存结果快照到后端
-            await saveConversationSnapshotToBackend(activeConversationId, {
+            // 保存结果快照到后端（fire-and-forget to avoid blocking the stream loop）
+            saveConversationSnapshotToBackend(activeConversationId, {
               modelSnapshot,
               resultSnapshot: visualizationSnapshot,
               latestResult: result,
-            })
-            setActivePanel(result.report?.markdown ? 'report' : 'analysis')
+            }).catch(() => {})
             assistantContent = result.response || result.clarification?.question || t('returnedResult')
-            replaceMessage(assistantMessageId, (message) => ({
+            replaceMessageForConversation(activeConversationId, assistantMessageId, (message) => ({
               ...message,
               content: assistantContent,
               status: 'done',
@@ -2427,8 +2540,10 @@ export function AIConsole() {
           if (payload.type === 'error') {
             const nextError = typeof payload.error === 'string' ? payload.error : t('requestFailed')
             assistantContent = nextError
-            setErrorMessage(nextError)
-            replaceMessage(assistantMessageId, (message) => ({
+            if (activeConversationId === conversationId) {
+              setErrorMessage(nextError)
+            }
+            replaceMessageForConversation(activeConversationId, assistantMessageId, (message) => ({
               ...message,
               content: assistantContent,
               status: 'error',
@@ -2438,7 +2553,7 @@ export function AIConsole() {
         }
       }
 
-      replaceMessage(assistantMessageId, (message) => ({
+      replaceMessageForConversation(activeConversationId, assistantMessageId, (message) => ({
         ...message,
         content: message.content || assistantSeed,
         status: message.status === 'error' ? 'error' : 'done',
@@ -2447,27 +2562,39 @@ export function AIConsole() {
         shouldBumpConversationActivity = true
       }
     } catch (error) {
-      const nextError = error instanceof Error ? error.message : t('requestFailed')
-
-      if ((receivedResult || assistantContent !== assistantSeed) && nextError === 'Failed to fetch') {
-        replaceMessage(assistantMessageId, (message) => ({
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        replaceMessageForConversation(activeConversationId, assistantMessageId, (message) => ({
           ...message,
-          status: message.status === 'error' ? 'error' : 'done',
+          content: message.content || t('streamAborted'),
+          status: 'done',
         }))
       } else {
-        setErrorMessage(nextError)
-        replaceMessage(assistantMessageId, (message) => ({
-          ...message,
-          content: nextError,
-          status: 'error',
-        }))
-        shouldBumpConversationActivity = Boolean(activeConversationId)
+        const nextError = error instanceof Error ? error.message : t('requestFailed')
+
+        if ((receivedResult || assistantContent !== assistantSeed) && nextError === 'Failed to fetch') {
+          replaceMessageForConversation(activeConversationId, assistantMessageId, (message) => ({
+            ...message,
+            status: message.status === 'error' ? 'error' : 'done',
+          }))
+        } else {
+          if (activeConversationId === conversationId) {
+            setErrorMessage(nextError)
+          }
+          replaceMessageForConversation(activeConversationId, assistantMessageId, (message) => ({
+            ...message,
+            content: nextError,
+            status: 'error',
+          }))
+          shouldBumpConversationActivity = Boolean(activeConversationId)
+        }
       }
     } finally {
       if (shouldBumpConversationActivity) {
         markConversationActivity(activeConversationId)
       }
-      setIsSending(false)
+      const finalStatus = abortController.signal.aborted ? 'aborted' : 'completed'
+      updateStreamSessionStatus(activeConversationId, finalStatus)
+      setTimeout(() => removeStreamSession(activeConversationId), 2000)
     }
   }
 
@@ -2490,7 +2617,6 @@ export function AIConsole() {
             type="button"
             className="mt-4 w-full rounded-full bg-cyan-300 text-slate-950 hover:bg-cyan-200"
             onClick={handleNewConversation}
-            disabled={isSending}
           >
             <MessageSquarePlus className="h-4 w-4" />
             {t('newConversation')}
@@ -2577,6 +2703,12 @@ export function AIConsole() {
                             <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
                               <Clock3 className="h-3.5 w-3.5" />
                               <span>{formatDate(conversationTimestamp, locale)}</span>
+                              {streamingSessions.get(conversation.id)?.status === 'streaming' && (
+                                <span className="flex items-center gap-1 text-cyan-600 dark:text-cyan-400">
+                                  <span className="inline-flex h-2 w-2 rounded-full bg-cyan-500 animate-pulse" />
+                                  {t('streamingInProgress')}
+                                </span>
+                              )}
                             </div>
                           )}
                           {preview?.content && (
@@ -2917,15 +3049,26 @@ export function AIConsole() {
                     </Badge>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      type="button"
-                      className="rounded-full bg-cyan-300 px-5 text-slate-950 hover:bg-cyan-200"
-                      onClick={() => handleSubmit()}
-                      disabled={isSending || !input.trim()}
-                    >
-                      {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
-                      {t('sendMessage')}
-                    </Button>
+                    {isSendingActive ? (
+                      <Button
+                        type="button"
+                        className="rounded-full bg-rose-500 px-5 text-white hover:bg-rose-400"
+                        onClick={() => stopStream()}
+                      >
+                        <Square className="h-4 w-4" />
+                        {t('stopStreaming')}
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        className="rounded-full bg-cyan-300 px-5 text-slate-950 hover:bg-cyan-200"
+                        onClick={() => handleSubmit()}
+                        disabled={!input.trim()}
+                      >
+                        <ArrowUp className="h-4 w-4" />
+                        {t('sendMessage')}
+                      </Button>
+                    )}
                   </div>
                 </div>
 
