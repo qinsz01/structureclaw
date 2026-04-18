@@ -4,6 +4,7 @@ import {
 } from './registry.js';
 import type { CodeCheckDomainInput } from './types.js';
 import type { CodeCheckClient } from './rule.js';
+import type { ExecutionRequestOptions } from '../analysis/types.js';
 
 export type { CodeCheckDomainInput } from './types.js';
 export {
@@ -128,9 +129,10 @@ export async function executeCodeCheckDomain(
   engineClient: CodeCheckClient,
   input: CodeCheckDomainInput,
   engineId?: string,
+  requestOptions?: ExecutionRequestOptions,
 ): Promise<unknown> {
   const rule = resolveCodeCheckRule(input.code);
-  return rule.execute(engineClient, input, engineId);
+  return rule.execute(engineClient, input, engineId, requestOptions);
 }
 
 export function buildCodeCheckSummaryText(options: {

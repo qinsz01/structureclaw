@@ -94,7 +94,7 @@ export class PythonWorkerRunner<TInput extends object> {
       : { executable: 'python3', args: [] };
   }
 
-  async invoke<T = unknown>(input: TInput): Promise<T> {
+  async invoke<T = unknown>(input: TInput, requestOptions?: { signal?: AbortSignal }): Promise<T> {
     const pythonCommand = await this.resolvePythonCommand();
     const payload = JSON.stringify(input);
     const { stdout, stderr } = await new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
@@ -106,11 +106,23 @@ export class PythonWorkerRunner<TInput extends object> {
       let stdout = '';
       let stderr = '';
       let settled = false;
+      const onAbort = () => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        clearTimeout(timeout);
+        child.kill('SIGKILL');
+        const abortError = new Error('Python worker aborted');
+        abortError.name = 'AbortError';
+        reject(abortError);
+      };
       const timeout = setTimeout(() => {
         if (settled) {
           return;
         }
         settled = true;
+        requestOptions?.signal?.removeEventListener('abort', onAbort);
         child.kill('SIGKILL');
         reject(new Error(`Python worker timed out after ${config.analysisPythonTimeoutMs}ms`));
       }, config.analysisPythonTimeoutMs);
@@ -129,6 +141,7 @@ export class PythonWorkerRunner<TInput extends object> {
         }
         settled = true;
         clearTimeout(timeout);
+        requestOptions?.signal?.removeEventListener('abort', onAbort);
         reject(error);
       });
       child.on('close', () => {
@@ -137,8 +150,14 @@ export class PythonWorkerRunner<TInput extends object> {
         }
         settled = true;
         clearTimeout(timeout);
+        requestOptions?.signal?.removeEventListener('abort', onAbort);
         resolve({ stdout, stderr });
       });
+      if (requestOptions?.signal?.aborted) {
+        onAbort();
+        return;
+      }
+      requestOptions?.signal?.addEventListener('abort', onAbort, { once: true });
       child.stdin.end(payload);
     });
 

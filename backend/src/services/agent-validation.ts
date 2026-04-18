@@ -21,6 +21,7 @@ interface ValidationDeps {
   buildBlockedResult: (response: string) => Promise<AgentRunResult>;
   buildGeneratedModelValidationClarification: (validationError: string) => Promise<AgentRunResult>;
   runValidate: (model: Record<string, unknown>) => Promise<{ input: { model: Record<string, unknown> }; result: Record<string, unknown> }>;
+  signal?: AbortSignal;
 }
 
 export async function tryRepairModel(
@@ -28,6 +29,7 @@ export async function tryRepairModel(
   model: Record<string, unknown>,
   validationError: string,
   locale: AppLocale,
+  signal?: AbortSignal,
 ): Promise<Record<string, unknown> | null> {
   if (!llm) {
     return null;
@@ -49,7 +51,7 @@ export async function tryRepairModel(
   ].join('\n');
 
   try {
-    const aiMessage = await llm.invoke(prompt);
+    const aiMessage = await llm.invoke(prompt, { signal });
     const raw = typeof aiMessage.content === 'string'
       ? aiMessage.content
       : JSON.stringify(aiMessage.content);
@@ -130,7 +132,7 @@ export async function validateWithRetry(
       'Attempting LLM-driven model repair after validation failure',
     );
 
-    const repaired = await tryRepairModel(deps.llm, currentModel, validationError, deps.locale);
+    const repaired = await tryRepairModel(deps.llm, currentModel, validationError, deps.locale, deps.signal);
     if (!repaired) {
       return { ok: false, result: step.result };
     }

@@ -306,6 +306,7 @@ export interface AgentSkillExecutorInput {
   locale: AppLocale;
   existingState?: DraftState;
   selectedSkill: AgentSkillPlugin;
+  signal?: AbortSignal;
 }
 
 // ---------------------------------------------------------------------------

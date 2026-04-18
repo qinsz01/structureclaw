@@ -62,7 +62,7 @@ export class AgentSkillExecutor {
     ].join('\n\n');
 
     try {
-      const aiMessage = await this.llm.invoke(prompt);
+      const aiMessage = await this.llm.invoke(prompt, { signal: input.signal });
       const content = typeof aiMessage.content === 'string' ? aiMessage.content : JSON.stringify(aiMessage.content);
       const parsedJson = this.parseJsonObject(content);
       if (!parsedJson) {

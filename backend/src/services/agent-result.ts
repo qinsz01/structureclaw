@@ -155,6 +155,7 @@ export async function renderSummary(
   locale: AppLocale,
   analysisData?: unknown,
   conversationId?: string,
+  signal?: AbortSignal,
 ): Promise<string> {
   if (!llm) {
     return fallback;
@@ -205,7 +206,7 @@ export async function renderSummary(
       promptParts.push(localize(locale, `分析数据：${compact}`, `Analysis data: ${compact}`));
     }
     const prompt = promptParts.join('\n');
-    const aiMessage = await llm.invoke(prompt);
+    const aiMessage = await llm.invoke(prompt, { signal });
     const content = typeof aiMessage.content === 'string'
       ? aiMessage.content
       : JSON.stringify(aiMessage.content);

@@ -1,3 +1,4 @@
+import type { ExecutionRequestOptions } from '../../analysis/types.js';
 import type { CodeCheckDomainInput } from '../types.js';
 import type { CodeCheckClient } from '../rule.js';
 
@@ -11,6 +12,7 @@ export async function executeGB50011CodeCheckDomain(
   engineClient: CodeCheckClient,
   input: CodeCheckDomainInput,
   engineId?: string,
+  requestOptions?: ExecutionRequestOptions,
 ): Promise<unknown> {
   const response = await engineClient.post('/code-check', {
     model_id: input.modelId,
@@ -18,6 +20,6 @@ export async function executeGB50011CodeCheckDomain(
     elements: input.elements,
     context: input.context,
     engineId,
-  });
+  }, requestOptions);
   return response.data;
 }

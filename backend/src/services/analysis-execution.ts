@@ -4,7 +4,7 @@ import {
   LOCAL_GET_ACTION_BY_PATH,
   LOCAL_POST_ACTION_BY_PATH,
 } from '../agent-skills/analysis/entry.js';
-import type { LocalAnalysisEngineClient } from '../agent-skills/analysis/types.js';
+import type { ExecutionRequestOptions, LocalAnalysisEngineClient } from '../agent-skills/analysis/types.js';
 
 function buildError(message: string, statusCode = 500): Error & { statusCode?: number } {
   const error = new Error(message) as Error & { statusCode?: number };
@@ -35,8 +35,8 @@ export class AnalysisExecutionService {
     return this.runner.invoke({ action: 'check_engine', engineId: id });
   }
 
-  async analyze(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.runner.invoke({ action: 'analyze', input: payload });
+  async analyze(payload: Record<string, unknown>, requestOptions?: ExecutionRequestOptions): Promise<Record<string, unknown>> {
+    return this.runner.invoke({ action: 'analyze', input: payload }, requestOptions);
   }
 }
 
@@ -60,7 +60,7 @@ export function createLocalAnalysisEngineClient(
           throw buildError(`Unsupported local GET action: ${action}`, 400);
       }
     },
-    async post<T = unknown>(path: string, payload: Record<string, unknown> = {}): Promise<{ data: T }> {
+    async post<T = unknown>(path: string, payload: Record<string, unknown> = {}, requestOptions?: ExecutionRequestOptions): Promise<{ data: T }> {
       if (path.startsWith('/engines/') && path.endsWith('/check')) {
         const engineId = decodeURIComponent(path.slice('/engines/'.length, -'/check'.length));
         return { data: await service.checkEngine(engineId) as T };
@@ -71,7 +71,7 @@ export function createLocalAnalysisEngineClient(
       }
       switch (action) {
         case 'analyze':
-          return { data: await service.analyze(payload) as T };
+          return { data: await service.analyze(payload, requestOptions) as T };
         default:
           throw buildError(`Unsupported local POST action: ${action}`, 400);
       }

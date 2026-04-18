@@ -1,3 +1,4 @@
+import type { ExecutionRequestOptions } from '../agent-skills/analysis/types.js';
 import { PythonWorkerRunner, resolveWorkerPath } from '../utils/python-worker-runner.js';
 import type { CodeCheckClient } from '../agent-skills/code-check/rule.js';
 
@@ -11,8 +12,8 @@ export class CodeCheckExecutionService {
     resolveWorkerPath('agent-skills/code-check/worker.py'),
   );
 
-  async codeCheck(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.runner.invoke({ action: 'code_check', input: payload });
+  async codeCheck(payload: Record<string, unknown>, requestOptions?: ExecutionRequestOptions): Promise<Record<string, unknown>> {
+    return this.runner.invoke({ action: 'code_check', input: payload }, requestOptions);
   }
 }
 
@@ -20,13 +21,13 @@ export function createLocalCodeCheckClient(
   service = new CodeCheckExecutionService(),
 ): CodeCheckClient {
   return {
-    async post<T = unknown>(path: string, payload: Record<string, unknown> = {}): Promise<{ data: T }> {
+    async post<T = unknown>(path: string, payload: Record<string, unknown> = {}, requestOptions?: ExecutionRequestOptions): Promise<{ data: T }> {
       if (path !== '/code-check') {
         const error = new Error(`Unsupported local POST path: ${path}`) as Error & { statusCode?: number };
         error.statusCode = 400;
         throw error;
       }
-      return { data: await service.codeCheck(payload) as T };
+      return { data: await service.codeCheck(payload, requestOptions) as T };
     },
   };
 }

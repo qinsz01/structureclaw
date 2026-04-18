@@ -12,8 +12,12 @@ export interface AnalysisExecutionInput {
   input?: Record<string, unknown>;
 }
 
+export interface ExecutionRequestOptions {
+  signal?: AbortSignal;
+}
+
 export interface LocalAnalysisEngineClient {
-  post<T = any>(path: string, payload?: Record<string, unknown>): Promise<{ data: T }>;
+  post<T = any>(path: string, payload?: Record<string, unknown>, requestOptions?: ExecutionRequestOptions): Promise<{ data: T }>;
   get<T = any>(path: string): Promise<{ data: T }>;
 }
 

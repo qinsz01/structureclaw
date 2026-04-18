@@ -11,6 +11,7 @@ export async function tryBuildGenericModelWithLlm(
   state: DraftState,
   locale: AppLocale,
   conversationHistory?: string,
+  signal?: AbortSignal,
 ): Promise<Record<string, unknown> | undefined> {
   if (!llm) {
     return undefined;
@@ -32,7 +33,7 @@ export async function tryBuildGenericModelWithLlm(
     }, 'generic llm model attempt started');
 
     try {
-      const aiMessage = await llm.invoke(prompt);
+      const aiMessage = await llm.invoke(prompt, { signal });
       const content = typeof aiMessage.content === 'string'
         ? aiMessage.content
         : JSON.stringify(aiMessage.content);
