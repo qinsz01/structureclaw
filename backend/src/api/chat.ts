@@ -159,6 +159,17 @@ async function persistConversationMessages(params: {
       return;
     }
 
+    // Skip if the most recent user message already matches (prevents duplicates
+    // when a stream completes after the client aborts and saves again).
+    const lastMessage = await prisma.message.findFirst({
+      where: { conversationId, role: 'user' },
+      orderBy: { createdAt: 'desc' },
+      select: { content: true },
+    });
+    if (lastMessage?.content === params.userMessage) {
+      return;
+    }
+
     const truncatedAssistant = params.assistantContent.length > 10000
       ? params.assistantContent.slice(0, 10000)
       : params.assistantContent;
@@ -364,7 +375,11 @@ export async function chatRoutes(fastify: FastifyInstance) {
 
     const abortController = new AbortController();
     const onClose = () => { abortController.abort(); };
+    // Listen on both reply.raw and request.socket to reliably detect
+    // client disconnect. reply.raw 'close' may not fire on all Node.js
+    // versions; request.socket 'close' fires when the TCP socket closes.
     reply.raw.on('close', onClose);
+    request.socket.on('close', onClose);
 
     let assistantContent = '';
 
@@ -449,6 +464,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
       }
     } finally {
       reply.raw.off('close', onClose);
+      request.socket.off('close', onClose);
     }
   });
 
