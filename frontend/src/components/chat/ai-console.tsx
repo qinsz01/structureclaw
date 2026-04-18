@@ -65,6 +65,8 @@ type MessageDebugDetails = {
 
 type MessageMetadata = {
   debugDetails?: MessageDebugDetails
+  status?: 'done' | 'error' | 'aborted'
+  traceId?: string
 }
 
 type AgentInteraction = {
@@ -182,6 +184,33 @@ async function saveConversationSnapshotToBackend(
     });
   } catch (error) {
     console.warn('Failed to save snapshot to backend:', error);
+  }
+}
+
+async function saveConversationMessagesToBackend(
+  conversationId: string,
+  params: {
+    userMessage: string
+    assistantContent: string
+    assistantAborted?: boolean
+    traceId?: string
+  }
+): Promise<void> {
+  if (!conversationId) return
+
+  try {
+    await fetch(`${API_BASE}/api/v1/chat/conversation/${conversationId}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userMessage: params.userMessage,
+        assistantContent: params.assistantContent,
+        assistantAborted: params.assistantAborted,
+        traceId: params.traceId,
+      }),
+    })
+  } catch (error) {
+    console.warn('Failed to save messages to backend:', error);
   }
 }
 
@@ -455,6 +484,109 @@ function parsePersistedDebugDetails(metadata: unknown): MessageDebugDetails | un
     plan,
     toolCalls,
   }
+}
+
+const LEGACY_ABORTED_SUFFIX_PATTERNS = [
+  /\n\n---\n\*(?:Stream stopped|已停止)\*$/u,
+  /（已停止）$/u,
+] as const
+
+function stripLegacyAbortedSuffix(content: string) {
+  return LEGACY_ABORTED_SUFFIX_PATTERNS.reduce((current, pattern) => current.replace(pattern, ''), content)
+}
+
+function hasLegacyAbortedSuffix(content: string) {
+  return LEGACY_ABORTED_SUFFIX_PATTERNS.some((pattern) => pattern.test(content))
+}
+
+function parsePersistedMessageStatus(metadata: unknown, content: string): Message['status'] {
+  const metadataRecord = toObjectRecord(metadata)
+  const rawStatus = metadataRecord?.status
+
+  if (rawStatus === 'aborted' || rawStatus === 'error' || rawStatus === 'done') {
+    return rawStatus
+  }
+  if (rawStatus === 'streaming') {
+    return 'aborted'
+  }
+  if (hasLegacyAbortedSuffix(content)) {
+    return 'aborted'
+  }
+  return 'done'
+}
+
+function normalizePersistedMessage(message: Message): Message {
+  const normalizedStatus = message.status === 'streaming'
+    ? 'aborted'
+    : (message.status ?? (hasLegacyAbortedSuffix(message.content) ? 'aborted' : 'done'))
+
+  return {
+    ...message,
+    content: stripLegacyAbortedSuffix(message.content),
+    status: normalizedStatus,
+  }
+}
+
+function resolveAbortedAssistantContent(content: string, assistantSeed: string) {
+  return content.trim() === assistantSeed.trim() ? '' : content
+}
+
+const RESUME_MESSAGE_INTENTS = new Set([
+  '继续',
+  '继续吧',
+  '继续分析',
+  '继续执行',
+  '开始',
+  '开始吧',
+  '开始分析',
+  '开始计算',
+  '可以了',
+  '就这样',
+  '确认',
+  '确认执行',
+  'continue',
+  'goahead',
+  'proceed',
+  'start',
+  'startnow',
+  'runit',
+  'confirm',
+])
+
+function inferProceedIntent(message: string) {
+  const normalized = message
+    .trim()
+    .toLowerCase()
+    .replace(/[\s。．.!！?？,，;；:：'"`]+/gu, '')
+
+  return normalized.length > 0 && RESUME_MESSAGE_INTENTS.has(normalized)
+}
+
+function resolveResumeFromMessage(messages: Message[], input: string) {
+  if (!inferProceedIntent(input)) {
+    return undefined
+  }
+
+  const lastAssistantIndex = [...messages].map((message, index) => ({ message, index }))
+    .reverse()
+    .find(({ message }) => message.role === 'assistant')?.index
+
+  if (lastAssistantIndex === undefined || messages[lastAssistantIndex]?.status !== 'aborted') {
+    return undefined
+  }
+
+  for (let index = lastAssistantIndex - 1; index >= 0; index -= 1) {
+    const message = messages[index]
+    if (message.role !== 'user') {
+      continue
+    }
+    const content = message.content.trim()
+    if (content) {
+      return content
+    }
+  }
+
+  return undefined
 }
 
 function buildMessageDebugDetails(promptSnapshot: string, skillIds: string[], toolIds: string[], result: AgentResult): MessageDebugDetails {
@@ -775,6 +907,9 @@ function isStaleStructuralResult(result: AgentResult | null | undefined) {
 }
 
 function sanitizePersistedConversation(archived: PersistedConversation): PersistedConversation {
+  const normalizedMessages = Array.isArray(archived.messages)
+    ? archived.messages.map((message) => normalizePersistedMessage(message))
+    : []
   const normalizedLatestResult = normalizeAgentResultPayload(archived.latestResult || null)
   const preferredStoredResultSnapshot = pickPreferredResultSnapshot(
     archived.resultVisualizationSnapshot,
@@ -794,6 +929,7 @@ function sanitizePersistedConversation(archived: PersistedConversation): Persist
   if (staleStructuralData) {
     return {
       ...archived,
+      messages: normalizedMessages,
       modelText: '',
       modelSyncMessage: '',
       activePanel: archived.activePanel === 'report' ? 'analysis' : archived.activePanel,
@@ -807,6 +943,7 @@ function sanitizePersistedConversation(archived: PersistedConversation): Persist
 
   return {
     ...archived,
+    messages: normalizedMessages,
     latestResult: normalizedLatestResult,
     resultVisualizationSnapshot: repairedResultSnapshot,
     visualizationSnapshot: repairedResultSnapshot || archived.visualizationSnapshot || null,
@@ -2059,8 +2196,8 @@ export function AIConsole() {
         ? payload.messages.map((message) => ({
             id: message.id,
             role: (message.role === 'assistant' ? 'assistant' : 'user') as Message['role'],
-            content: message.content,
-            status: 'done' as const,
+            content: stripLegacyAbortedSuffix(message.content),
+            status: parsePersistedMessageStatus(message.metadata, message.content),
             timestamp: message.createdAt,
             debugDetails: parsePersistedDebugDetails(message.metadata),
           }))
@@ -2320,6 +2457,7 @@ export function AIConsole() {
       setContextOpen(true)
     }
     const contextModel = parsedModel.error ? undefined : parsedModel.model
+    const resumeFromMessage = resolveResumeFromMessage(messagesRef.current, trimmedInput)
 
     const userMessage: Message = {
       id: createId('user'),
@@ -2351,7 +2489,59 @@ export function AIConsole() {
     let activeConversationId = conversationId
     let shouldBumpConversationActivity = false
     const abortController = new AbortController()
+    const traceId = assistantMessageId
     setIsStreaming(true)
+
+    const finalizeAbortedTurn = async () => {
+      const abortedContent = resolveAbortedAssistantContent(assistantContent, assistantSeed)
+
+      replaceMessageForConversation(activeConversationId, assistantMessageId, (message) => ({
+        ...message,
+        content: abortedContent,
+        status: 'aborted',
+      }))
+
+      try {
+        if (activeConversationId) {
+          const currentMessages = messagesRef.current.map((m: Message) =>
+            m.id === assistantMessageId
+              ? {
+                  ...m,
+                  content: abortedContent,
+                  status: 'aborted' as const,
+                }
+              : m
+          )
+          const currentArchive = loadConversationArchive()
+          const existing = currentArchive[activeConversationId]
+          const patched = sanitizePersistedConversation({
+            id: activeConversationId,
+            title: existing?.title || trimmedInput.slice(0, 48),
+            type: 'general' as const,
+            createdAt: existing?.createdAt || new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            messages: currentMessages,
+            modelText: existing?.modelText || '',
+            latestResult: existing?.latestResult ?? null,
+          })
+          window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            ...currentArchive,
+            [activeConversationId]: patched,
+          }))
+        }
+      } catch {
+        // Best-effort; the auto-persist effect may still catch it
+      }
+
+      if (activeConversationId) {
+        await saveConversationMessagesToBackend(activeConversationId, {
+          userMessage: trimmedInput,
+          assistantContent: abortedContent,
+          assistantAborted: true,
+          traceId,
+        })
+      }
+    }
 
     try {
       const nextConversationId = await ensureConversation(trimmedInput)
@@ -2404,6 +2594,7 @@ export function AIConsole() {
         model: contextModel,
         modelFormat: contextModel ? 'structuremodel-v1' : undefined,
         autoCodeCheck: hasSelectedCodeCheckSkill || undefined,
+        resumeFromMessage,
       }
       const promptSnapshot = buildPromptSnapshot(trimmedInput, contextPayload as Record<string, unknown>)
       const debugSkillIds = Array.isArray((contextPayload as Record<string, unknown>).skillIds)
@@ -2419,6 +2610,7 @@ export function AIConsole() {
         body: JSON.stringify({
           message: trimmedInput,
           conversationId: nextConversationId,
+          traceId,
           context: contextPayload,
         }),
         signal: abortController.signal,
@@ -2565,68 +2757,21 @@ export function AIConsole() {
         }
       }
 
-      replaceMessageForConversation(activeConversationId, assistantMessageId, (message) => ({
-        ...message,
-        content: message.content || assistantSeed,
-        status: message.status === 'error' ? 'error' : 'done',
-      }))
-      if (assistantContent !== assistantSeed || receivedResult) {
-        shouldBumpConversationActivity = true
+      if (abortController.signal.aborted) {
+        await finalizeAbortedTurn()
+      } else {
+        replaceMessageForConversation(activeConversationId, assistantMessageId, (message) => ({
+          ...message,
+          content: message.content || assistantSeed,
+          status: message.status === 'error' ? 'error' : 'done',
+        }))
+        if (assistantContent !== assistantSeed || receivedResult) {
+          shouldBumpConversationActivity = true
+        }
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
-        const abortLabel = t('streamAborted')
-        replaceMessageForConversation(activeConversationId, assistantMessageId, (message) => ({
-          ...message,
-          content: message.content && message.content !== assistantSeed
-            ? `${message.content}\n\n---\n*${abortLabel}*`
-            : abortLabel,
-          status: 'aborted',
-        }))
-        // Sync-persist to localStorage so the aborted messages survive a page refresh.
-        // We read from messagesRef (which tracks the latest React state) rather than
-        // the stale archive. This ensures the user message + aborted assistant message
-        // are both captured.
-        try {
-          if (activeConversationId) {
-            const currentMessages = messagesRef.current.map((m: Message) =>
-              m.id === assistantMessageId
-                ? {
-                    ...m,
-                    content: m.content && m.content !== assistantSeed
-                      ? `${m.content}\n\n---\n*${abortLabel}*`
-                      : abortLabel,
-                    status: 'aborted' as const,
-                  }
-                : m
-            )
-            const currentArchive = loadConversationArchive()
-            const existing = currentArchive[activeConversationId]
-            const patched = sanitizePersistedConversation({
-              id: activeConversationId,
-              title: existing?.title || trimmedInput.slice(0, 48),
-              type: 'general' as const,
-              createdAt: existing?.createdAt || new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              messages: currentMessages,
-              modelText: existing?.modelText || '',
-              latestResult: existing?.latestResult ?? null,
-            })
-            window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
-              ...currentArchive,
-              [activeConversationId]: patched,
-            }))
-          }
-        } catch {
-          // Best-effort; the auto-persist effect may still catch it
-        }
-        // Save snapshot to backend so the conversation context survives
-        // across browser sessions / devices.
-        if (activeConversationId) {
-          saveConversationSnapshotToBackend(activeConversationId, {
-            latestResult: latestResult ?? undefined,
-          }).catch(() => {})
-        }
+        await finalizeAbortedTurn()
       } else {
         const nextError = error instanceof Error ? error.message : t('requestFailed')
 
