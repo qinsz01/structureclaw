@@ -2478,7 +2478,9 @@ export function AIConsole() {
           // 处理 'start' 类型消息（包含 conversationId）
           if (payload.type === 'start' && payload.content && typeof payload.content === 'object') {
             const { conversationId: newConversationId } = payload.content as { conversationId?: string; startedAt?: string }
-            if (newConversationId && activeConversationId === conversationId) {
+            // Only update the active conversationId if this stream belongs to the
+            // currently viewed conversation (or we had no conversation selected yet).
+            if (newConversationId && (!conversationIdRef.current || activeConversationId === conversationIdRef.current)) {
               setConversationId(newConversationId)
             }
           }
@@ -2563,37 +2565,44 @@ export function AIConsole() {
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
+        const abortLabel = t('streamAborted')
         replaceMessageForConversation(activeConversationId, assistantMessageId, (message) => ({
           ...message,
           content: message.content && message.content !== assistantSeed
-            ? `${message.content}\n\n---\n*${t('streamAborted')}*`
-            : t('streamAborted'),
+            ? `${message.content}\n\n---\n*${abortLabel}*`
+            : abortLabel,
           status: 'aborted',
         }))
         // Sync-persist to localStorage so the aborted messages survive a page refresh.
         // The auto-persist effect is async and may not fire before the user reloads.
         try {
           const currentArchive = loadConversationArchive()
-          if (activeConversationId && currentArchive[activeConversationId]) {
+          if (activeConversationId) {
             const existing = currentArchive[activeConversationId]
-            const finalAssistantContent = (existing.messages ?? []).find(
-              (m: Message) => m.id === assistantMessageId
+            const archivedMessages = existing?.messages ?? []
+            const patchedMessages = archivedMessages.map((m: Message) =>
+              m.id === assistantMessageId
+                ? {
+                    ...m,
+                    content: m.content && m.content !== assistantSeed
+                      ? `${m.content}\n\n---\n*${abortLabel}*`
+                      : abortLabel,
+                    status: 'aborted' as const,
+                  }
+                : m
             )
-            if (finalAssistantContent) {
-              const patched = {
-                ...existing,
-                messages: existing.messages.map((m: Message) =>
-                  m.id === assistantMessageId
-                    ? { ...m, content: finalAssistantContent.content, status: 'aborted' as const }
-                    : m
-                ),
-                updatedAt: new Date().toISOString(),
-              }
-              window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
-                ...currentArchive,
-                [activeConversationId]: sanitizePersistedConversation(patched),
-              }))
+            const patched = {
+              id: activeConversationId,
+              title: existing?.title || trimmedInput.slice(0, 48),
+              type: 'general' as const,
+              createdAt: existing?.createdAt || new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              messages: patchedMessages,
             }
+            window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
+              ...currentArchive,
+              [activeConversationId]: sanitizePersistedConversation(patched),
+            }))
           }
         } catch {
           // Best-effort; the auto-persist effect may still catch it
