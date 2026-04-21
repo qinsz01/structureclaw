@@ -3,7 +3,8 @@ import { randomUUID } from 'crypto';
 import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 import { config } from '../config/index.js';
-import { createChatModel } from '../utils/llm.js';
+import { hasConfiguredLlmApiKey } from '../config/llm-runtime.js';
+import { createDynamicChatModel } from '../utils/llm.js';
 import { prisma } from '../utils/database.js';
 import { logger } from '../utils/logger.js';
 import { type AppLocale } from './locale.js';
@@ -593,6 +594,7 @@ export class AgentService {
   public structureProtocolClient = createLocalStructureProtocolClient();
   public codeCheckClient = createLocalCodeCheckClient();
   public llm: ChatOpenAI | null;
+  private readonly runtimeLlm: ChatOpenAI;
   private readonly skillRuntime: AgentSkillRuntime;
   private readonly skillCatalog: AgentSkillCatalogService;
   private readonly policy: AgentPolicyService;
@@ -605,7 +607,8 @@ export class AgentService {
   constructor() {
     this.engineClient = createLocalAnalysisEngineClient();
 
-    this.llm = createChatModel(0.1);
+    this.runtimeLlm = createDynamicChatModel(0.1);
+    this.llm = this.runtimeLlm;
     this.skillRuntime = new AgentSkillRuntime();
     this.skillCatalog = new AgentSkillCatalogService();
     this.policy = new AgentPolicyService();
@@ -615,9 +618,21 @@ export class AgentService {
     this.pipelineScheduler = new PipelineScheduler();
   }
 
+  private getCurrentLlm(): ChatOpenAI | null {
+    if (!this.llm) {
+      return null;
+    }
+
+    if (this.llm === this.runtimeLlm) {
+      return hasConfiguredLlmApiKey() ? this.llm : null;
+    }
+
+    return this.llm;
+  }
+
   private buildHandlerDeps(): HandlerDeps {
     return {
-      llm: this.llm,
+      llm: this.getCurrentLlm(),
       skillRuntime: this.skillRuntime,
       policy: this.policy,
       localize: this.localize.bind(this),
@@ -724,7 +739,7 @@ export class AgentService {
     allowedKinds: AgentPlanKind[];
     availableToolIds: AgentToolName[];
   }): Promise<Pick<AgentNextStepPlan, 'kind' | 'replyMode' | 'targetArtifact'> | null> {
-    return routerRepairPlannerResponse(this.llm, raw, options);
+    return routerRepairPlannerResponse(this.getCurrentLlm(), raw, options);
   }
 
   private async planNextStepWithLlm(message: string, options: {
@@ -737,7 +752,7 @@ export class AgentService {
     conversationId?: string;
     signal?: AbortSignal;
   }): Promise<AgentNextStepPlan> {
-    return routerPlanNextStep(this.llm, message, {
+    return routerPlanNextStep(this.getCurrentLlm(), message, {
       ...options,
       planningDirective: 'auto',
       allowToolCall: true,
@@ -755,7 +770,7 @@ export class AgentService {
     conversationId?: string;
     signal?: AbortSignal;
   }): Promise<AgentNextStepPlan> {
-    return routerPlanNextStep(this.llm, message, options, this.assessInteractionNeeds.bind(this), this.hasEmptySkillSelection.bind(this));
+    return routerPlanNextStep(this.getCurrentLlm(), message, options, this.assessInteractionNeeds.bind(this), this.hasEmptySkillSelection.bind(this));
   }
 
   private async resolveInteractivePlanKind(options: {
@@ -1593,8 +1608,9 @@ export class AgentService {
           && nextPlan.targetArtifact !== 'normalizedModel'
           && activeSkillIds && activeSkillIds.length > 0) {
         try {
+          const llm = this.getCurrentLlm();
           const extraction = await this.skillRuntime.extractDraftParameters(
-            this.llm, params.message, { ...workingSession.draft }, locale, activeSkillIds,
+            llm, params.message, { ...workingSession.draft }, locale, activeSkillIds,
           );
           if (extraction.nextState && extraction.plugin) {
             workingSession.draft = extraction.nextState;
@@ -2135,7 +2151,7 @@ export class AgentService {
             codeCheckClient: this.codeCheckClient,
             structureProtocolClient: this.structureProtocolClient,
             message: params.message,
-            llm: this.llm,
+            llm: this.getCurrentLlm(),
             draftState: workingSession.draft,
             skillIds,
             engineId: params.context?.engineId,
@@ -2354,7 +2370,7 @@ export class AgentService {
                 codeCheckClient: this.codeCheckClient,
                 structureProtocolClient: this.structureProtocolClient,
                 message: params.message,
-                llm: this.llm,
+                llm: this.getCurrentLlm(),
                 draftState: workingSession.draft,
                 skillIds,
                 engineId: params.context?.engineId,
@@ -2451,7 +2467,7 @@ export class AgentService {
                 codeCheckClient: this.codeCheckClient,
                 structureProtocolClient: this.structureProtocolClient,
                 message: params.message,
-                llm: this.llm,
+                llm: this.getCurrentLlm(),
                 draftState: workingSession.draft,
                 skillIds,
                 engineId: params.context?.engineId,
@@ -2542,7 +2558,7 @@ export class AgentService {
                 codeCheckClient: this.codeCheckClient,
                 structureProtocolClient: this.structureProtocolClient,
                 message: params.message,
-                llm: this.llm,
+                llm: this.getCurrentLlm(),
                 draftState: workingSession.draft,
                 skillIds,
                 engineId: params.context?.engineId,
@@ -2764,11 +2780,11 @@ export class AgentService {
       return Promise.resolve({
         inferredType: 'unknown' as const,
         missingFields: ['inferredType'],
-        extractionMode: this.llm ? 'llm' as const : 'deterministic' as const,
+        extractionMode: this.getCurrentLlm() ? 'llm' as const : 'deterministic' as const,
         stateToPersist: existingState,
       });
     }
-    return this.skillRuntime.extractDraftParameters(this.llm, message, existingState, locale, skillIds, signal)
+    return this.skillRuntime.extractDraftParameters(this.getCurrentLlm(), message, existingState, locale, skillIds, signal)
       .then((extraction) => ({
         inferredType: extraction.nextState.inferredType,
         missingFields: [...extraction.missing.critical],
@@ -2976,7 +2992,8 @@ export class AgentService {
     skillIds?: string[],
     signal?: AbortSignal,
   ): Promise<string> {
-    if (!this.llm) {
+    const llm = this.getCurrentLlm();
+    if (!llm) {
       return fallback;
     }
 
@@ -3025,7 +3042,7 @@ export class AgentService {
         this.localize(locale, `用户消息：${message}`, `User message: ${message}`),
         this.localize(locale, `兜底回复：${fallback}`, `Fallback reply: ${fallback}`),
       );
-      const aiMessage = await this.llm.invoke(promptParts.join('\n'), { signal });
+      const aiMessage = await llm.invoke(promptParts.join('\n'), { signal });
       const content = typeof aiMessage.content === 'string'
         ? aiMessage.content
         : JSON.stringify(aiMessage.content);
@@ -3044,7 +3061,8 @@ export class AgentService {
     skillIds?: string[],
     signal?: AbortSignal,
   ): Promise<string> {
-    if (!this.llm) {
+    const llm = this.getCurrentLlm();
+    if (!llm) {
       return fallback;
     }
 
@@ -3095,7 +3113,7 @@ export class AgentService {
         this.localize(locale, `兜底回复：${fallback}`, `Fallback reply: ${fallback}`),
       );
 
-      const aiMessage = await this.llm.invoke(promptParts.join('\n'), { signal });
+      const aiMessage = await llm.invoke(promptParts.join('\n'), { signal });
       const content = typeof aiMessage.content === 'string'
         ? aiMessage.content
         : JSON.stringify(aiMessage.content);
@@ -4088,7 +4106,7 @@ export class AgentService {
   }
 
   private async renderSummary(message: string, fallback: string, locale: AppLocale, analysisData?: unknown, conversationId?: string, signal?: AbortSignal): Promise<string> {
-    return resultRenderSummary(this.llm, message, fallback, locale, analysisData, conversationId, signal);
+    return resultRenderSummary(this.getCurrentLlm(), message, fallback, locale, analysisData, conversationId, signal);
   }
 
   private async textToModelDraft(message: string, existingState?: DraftState, locale: AppLocale = 'en', skillIds?: string[], conversationId?: string, signal?: AbortSignal): Promise<DraftResult> {
@@ -4096,7 +4114,7 @@ export class AgentService {
       return {
         inferredType: 'unknown',
         missingFields: ['inferredType'],
-        extractionMode: this.llm ? 'llm' : 'deterministic',
+        extractionMode: this.getCurrentLlm() ? 'llm' : 'deterministic',
         stateToPersist: {
           inferredType: 'unknown',
           updatedAt: Date.now(),
@@ -4105,8 +4123,8 @@ export class AgentService {
     }
 
     const conversationHistory = await this.loadConversationHistory(conversationId);
-
-    const skillDraft = await this.skillRuntime.textToModelDraft(this.llm, message, existingState, locale, skillIds, conversationHistory, signal);
+    const llm = this.getCurrentLlm();
+    const skillDraft = await this.skillRuntime.textToModelDraft(llm, message, existingState, locale, skillIds, conversationHistory, signal);
     if (skillDraft.model || skillDraft.inferredType !== 'unknown' || skillDraft.structuralTypeMatch?.skillId) {
       return skillDraft;
     }
@@ -4116,7 +4134,7 @@ export class AgentService {
       return skillDraft;
     }
 
-    const genericDraft = await this.skillRuntime.textToModelDraft(this.llm, message, existingState, locale, ['generic'], conversationHistory, signal);
+    const genericDraft = await this.skillRuntime.textToModelDraft(llm, message, existingState, locale, ['generic'], conversationHistory, signal);
     return genericDraft;
   }
 
