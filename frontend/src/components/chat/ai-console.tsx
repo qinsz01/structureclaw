@@ -28,7 +28,6 @@ import {
 } from './message-presentation'
 import type { AppLocale } from '@/lib/stores/slices/preferences'
 import { API_BASE } from '@/lib/api-base'
-import { loadCapabilityPreferences, saveCapabilityPreferences } from '@/lib/capability-preference'
 import { ALL_SKILL_DOMAINS, buildSkillNormalizationContext, DEFAULT_CONSOLE_SKILL_IDS, type SkillDomain, type SkillMetadataLike } from '@/lib/skill-normalization'
 import { cn, formatDate, formatNumber } from '@/lib/utils'
 
@@ -281,6 +280,7 @@ type CapabilityToolSummary = {
   id: string
   category?: ToolCategory
   source?: 'builtin' | 'skill'
+  enabledByDefault?: boolean
   requiresTools?: string[]
   displayName?: { zh?: string; en?: string }
   description?: { zh?: string; en?: string }
@@ -298,7 +298,6 @@ type CapabilityMatrixPayload = {
   tools?: CapabilityToolSummary[]
   domainSummaries?: CapabilityDomainSummary[]
   skillDomainById?: Record<string, SkillDomain>
-  foundationToolIds?: string[]
   enabledToolIdsBySkill?: Record<string, string[]>
   validEngineIdsBySkill?: Record<string, string[]>
   filteredEngineReasonsBySkill?: Record<string, Record<string, string[]>>
@@ -307,83 +306,6 @@ type CapabilityMatrixPayload = {
 }
 
 
-
-
-function resolveCallableTools(
-  matrix: CapabilityMatrixPayload | null,
-  selectedSkillIds: string[],
-  skillDomainById: Record<string, SkillDomain>,
-) {
-  const matrixTools = Array.isArray(matrix?.tools) ? matrix.tools : []
-  const foundationToolIds = new Set(Array.isArray(matrix?.foundationToolIds) ? matrix.foundationToolIds : [])
-  const enabledToolIdsBySkill = matrix?.enabledToolIdsBySkill && typeof matrix.enabledToolIdsBySkill === 'object'
-    ? matrix.enabledToolIdsBySkill
-    : {}
-  if (Object.keys(enabledToolIdsBySkill).length === 0) {
-    return matrixTools
-  }
-  const callableToolIds = new Set<string>(foundationToolIds)
-
-  selectedSkillIds.forEach((skillId) => {
-    const toolIds = enabledToolIdsBySkill[skillId]
-    if (!Array.isArray(toolIds)) {
-      if (skillDomainById[skillId] === 'structure-type') {
-        callableToolIds.add('validate_model')
-      }
-      return
-    }
-    toolIds.forEach((toolId) => {
-      if (typeof toolId === 'string' && toolId.trim().length > 0) {
-        callableToolIds.add(toolId)
-      }
-    })
-    if (skillDomainById[skillId] === 'structure-type') {
-      callableToolIds.add('validate_model')
-    }
-  })
-
-  const toolById = new Map(matrixTools.map((tool) => [tool.id, tool]))
-  const queue = [...callableToolIds]
-  while (queue.length > 0) {
-    const toolId = queue.shift()
-    if (!toolId) {
-      continue
-    }
-    const tool = toolById.get(toolId)
-    if (!tool || !Array.isArray(tool.requiresTools)) {
-      continue
-    }
-    tool.requiresTools.forEach((requiredToolId) => {
-      if (typeof requiredToolId !== 'string' || requiredToolId.trim().length === 0 || callableToolIds.has(requiredToolId)) {
-        return
-      }
-      callableToolIds.add(requiredToolId)
-      queue.push(requiredToolId)
-    })
-  }
-
-  return matrixTools.filter((tool) => callableToolIds.has(tool.id))
-}
-
-function toToolIdList(tools: CapabilityToolSummary[]) {
-  return tools.map((tool) => tool.id)
-}
-
-function hasSameIds(left: string[], right: string[]) {
-  const leftSet = new Set(left)
-  const rightSet = new Set(right)
-  if (leftSet.size !== rightSet.size) {
-    return false
-  }
-
-  for (const item of leftSet) {
-    if (!rightSet.has(item)) {
-      return false
-    }
-  }
-
-  return true
-}
 
 function resolveSkillDomainLabel(domain: SkillDomain, t: (key: MessageKey) => string) {
   if (domain === 'analysis') return t('skillDomainAnalysis')
@@ -1790,10 +1712,10 @@ export function AIConsole() {
   const [modelSyncMessage, setModelSyncMessage] = useState('')
   const [availableSkills, setAvailableSkills] = useState<AgentSkillSummary[]>([])
   const [capabilityMatrix, setCapabilityMatrix] = useState<CapabilityMatrixPayload | null>(null)
-  const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([])
-  const [selectedToolIds, setSelectedToolIds] = useState<string[]>([])
-  const [hasExplicitSkillSelection, setHasExplicitSkillSelection] = useState(false)
-  const [hasExplicitToolSelection, setHasExplicitToolSelection] = useState(false)
+  const storeSkillIds = useStore((s) => s.capabilitySkillIds)
+  const storeToolIds = useStore((s) => s.capabilityToolIds)
+  const storeExplicit = useStore((s) => s.capabilityExplicit)
+  const setCapabilityPreferences = useStore((s) => s.setCapabilityPreferences)
   const [allEngines, setAllEngines] = useState<Array<{ id: string; name: string; available: boolean; priority: number; status: string; unavailableReason?: string }>>([])
 
   const [probeResults, setProbeResults] = useState<Record<string, { passed: boolean; durationMs?: number; error?: string; loading?: boolean }>>({})
@@ -1813,7 +1735,7 @@ export function AIConsole() {
   const chatScrollRef = useRef<HTMLDivElement | null>(null)
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const shouldStickToBottomRef = useRef(true)
-  const capabilityPreferencesHydratedRef = useRef(false)
+  const capabilityInitializedRef = useRef(false)
   const [skillsLoaded, setSkillsLoaded] = useState(false)
   const [capabilityMatrixLoaded, setCapabilityMatrixLoaded] = useState(false)
   // 追踪最后有效的结果用于持久化（不会被引擎切换清除）
@@ -1931,33 +1853,37 @@ export function AIConsole() {
   )
   const skillDomainById = skillNormalization.skillDomainById
 
-  const hasSelectedCodeCheckSkill = useMemo(
-    () => selectedSkillIds.some((skillId) => skillDomainById[skillId] === 'code-check'),
-    [selectedSkillIds, skillDomainById]
-  )
+  const selectedSkillIds = useMemo(() => {
+    return skillNormalization.normalizeSkillIds(storeSkillIds)
+      .filter((skillId) => availableSkills.some((skill) => skill.id === skillId))
+  }, [skillNormalization, storeSkillIds, availableSkills])
 
   const defaultSelectedSkillIds = useMemo(() => {
     const available = new Set(availableSkills.map((skill) => skill.id))
     return ['opensees-static', 'generic'].filter((skillId) => available.has(skillId))
   }, [availableSkills])
 
+  const hasSelectedCodeCheckSkill = useMemo(
+    () => selectedSkillIds.some((skillId) => skillDomainById[skillId] === 'code-check'),
+    [selectedSkillIds, skillDomainById]
+  )
+
   const availableTools = useMemo(() => {
-    return [...resolveCallableTools(capabilityMatrix, selectedSkillIds, skillDomainById)].sort((a, b) => {
+    const allTools = Array.isArray(capabilityMatrix?.tools) ? capabilityMatrix.tools : []
+    return [...allTools].sort((a, b) => {
       const left = resolveToolLabel(a, locale)
       const right = resolveToolLabel(b, locale)
       return left.localeCompare(right)
     })
-  }, [capabilityMatrix, locale, selectedSkillIds, skillDomainById])
+  }, [capabilityMatrix, locale])
 
-  const initialDefaultToolIds = useMemo(
-    () => toToolIdList(resolveCallableTools(capabilityMatrix, defaultSelectedSkillIds, skillDomainById)),
-    [capabilityMatrix, defaultSelectedSkillIds, skillDomainById]
-  )
+  const selectedToolIds = useMemo(() => {
+    const allToolIds = new Set(availableTools.map((tool) => tool.id))
+    return storeToolIds.filter((toolId) => allToolIds.has(toolId))
+  }, [storeToolIds, availableTools])
 
-  const baseCallableToolIds = useMemo(
-    () => toToolIdList(resolveCallableTools(capabilityMatrix, [], skillDomainById)),
-    [capabilityMatrix, skillDomainById]
-  )
+  const hasExplicitSkillSelection = storeExplicit
+  const hasExplicitToolSelection = storeExplicit
 
   const loadedModules = useMemo(() => {
     return availableSkills
@@ -2217,37 +2143,17 @@ export function AIConsole() {
   }
 
 
+  // One-time initialization: apply defaults if store is empty
   useEffect(() => {
-    if (capabilityPreferencesHydratedRef.current) {
-      return
-    }
-    if (!skillsLoaded || !capabilityMatrixLoaded) {
-      return
-    }
+    if (capabilityInitializedRef.current) return
+    if (!skillsLoaded || !capabilityMatrixLoaded) return
+    capabilityInitializedRef.current = true
 
-    const storedPreferences = loadCapabilityPreferences()
-    if (storedPreferences) {
-      const validSkillIds = skillNormalization.normalizeSkillIds(storedPreferences.skillIds)
-        .filter((skillId) => availableSkills.some((skill) => skill.id === skillId))
-      const resolvedTools = resolveCallableTools(capabilityMatrix, validSkillIds, skillDomainById)
-      const validToolIds = storedPreferences.toolIds.filter((toolId) => resolvedTools.some((tool) => tool.id === toolId))
-      const shouldRepairLegacyDefaultTools =
-        hasSameIds(validSkillIds, defaultSelectedSkillIds)
-        && hasSameIds(validToolIds, baseCallableToolIds)
-        && initialDefaultToolIds.length > baseCallableToolIds.length
-
-      setSelectedSkillIds(validSkillIds)
-      setSelectedToolIds(shouldRepairLegacyDefaultTools ? initialDefaultToolIds : validToolIds)
-      setHasExplicitSkillSelection(true)
-      setHasExplicitToolSelection(true)
-    } else {
-      setSelectedSkillIds(defaultSelectedSkillIds)
-      setSelectedToolIds(initialDefaultToolIds)
-      setHasExplicitSkillSelection(false)
-      setHasExplicitToolSelection(false)
+    if (storeSkillIds.length === 0 && storeToolIds.length === 0 && !storeExplicit) {
+      const defaultToolIds = availableTools.filter((tool) => tool.enabledByDefault).map((tool) => tool.id)
+      setCapabilityPreferences(defaultSelectedSkillIds, defaultToolIds, false)
     }
-    capabilityPreferencesHydratedRef.current = true
-  }, [availableSkills, baseCallableToolIds, capabilityMatrix, capabilityMatrixLoaded, defaultSelectedSkillIds, initialDefaultToolIds, skillDomainById, skillNormalization, skillsLoaded])
+  }, [availableTools, capabilityMatrixLoaded, defaultSelectedSkillIds, setCapabilityPreferences, skillsLoaded, storeExplicit, storeSkillIds, storeToolIds])
 
   useEffect(() => {
     let active = true
@@ -2281,20 +2187,6 @@ export function AIConsole() {
       active = false
     }
   }, [])
-
-  useEffect(() => {
-    if (!capabilityPreferencesHydratedRef.current) {
-      return
-    }
-    if (!skillsLoaded || !capabilityMatrixLoaded) {
-      return
-    }
-
-    saveCapabilityPreferences({
-      skillIds: skillNormalization.normalizeSkillIds(selectedSkillIds),
-      toolIds: selectedToolIds,
-    })
-  }, [capabilityMatrixLoaded, selectedSkillIds, selectedToolIds, skillNormalization, skillsLoaded])
 
   useEffect(() => {
     let cancelled = false
@@ -3111,12 +3003,6 @@ export function AIConsole() {
         reader: null,
       })
 
-      const storedPreferences = capabilityPreferencesHydratedRef.current ? null : loadCapabilityPreferences()
-      const storedSkillIds = storedPreferences
-        ? skillNormalization.normalizeSkillIds(storedPreferences.skillIds)
-        : []
-      const hasStoredExplicitSkillSelection = Boolean(storedPreferences)
-      const hasStoredExplicitToolSelection = Boolean(storedPreferences)
       const normalizedSkillIds = skillNormalization.normalizeSkillIds(selectedSkillIds)
       const fallbackDefaultSkillIds = skillNormalization.normalizeSkillIds(
         defaultSelectedSkillIds.length > 0
@@ -3127,16 +3013,12 @@ export function AIConsole() {
         ? normalizedSkillIds
         : hasExplicitSkillSelection
           ? []
-          : hasStoredExplicitSkillSelection
-            ? storedSkillIds
-            : fallbackDefaultSkillIds
+          : fallbackDefaultSkillIds
       const effectiveEnabledToolIds = selectedToolIds.length > 0
         ? selectedToolIds
         : hasExplicitToolSelection
           ? []
-          : hasStoredExplicitToolSelection
-            ? storedPreferences?.toolIds ?? []
-            : undefined
+          : undefined
       const contextPayload = {
         locale,
         skillIds: effectiveSkillIds,
@@ -4253,6 +4135,16 @@ export function AIConsole() {
                       >
                         <span className="font-medium text-foreground">{module.label}</span>
                         <span className="text-muted-foreground">{resolveSkillDomainLabel(module.domain, t)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {loadedTools.slice(0, 6).map((tool) => (
+                      <div
+                        key={tool.id}
+                        className="flex items-center gap-2 rounded-full border border-border/70 bg-background/70 px-3 py-1.5 text-[11px] dark:border-white/10 dark:bg-black/20"
+                      >
+                        <span className="text-muted-foreground">{tool.label}</span>
                       </div>
                     ))}
                   </div>
