@@ -16,7 +16,7 @@ import { FileCheckpointer } from './file-checkpointer.js';
 import { streamGraphToChunks, type StreamContext } from './streaming.js';
 import { type AgentState } from './state.js';
 import { getAllowShellTools, getCheckpointerDataDir, getWorkspaceRoot, getWorkspaceSkillRoot } from './config.js';
-import { config } from '../config/index.js';
+import { config as appConfig } from '../config/index.js';
 import type { AgentStreamChunk } from '../types/agent-stream.js';
 import type { AppLocale } from '../services/locale.js';
 import { createLocalAnalysisEngineClient } from '../services/analysis-execution.js';
@@ -146,7 +146,7 @@ export class LangGraphAgentService {
       enabledToolIds: input?.context?.enabledToolIds,
       disabledToolIds: input?.context?.disabledToolIds,
       allowShell: getAllowShellTools(),
-      maxToolCallsPerTurn: config.agentMaxToolCallsPerTurn,
+      maxToolCallsPerTurn: appConfig.agentMaxToolCallsPerTurn,
       _logger: childLogger,
     };
   }
@@ -211,6 +211,7 @@ export class LangGraphAgentService {
     const graph = await this.getGraph();
 
     const config = {
+      recursionLimit: appConfig.agentRecursionLimit,
       configurable: {
         thread_id: conversationId,
         ...this.buildConfigurable(input, traceId, conversationId),
@@ -259,6 +260,7 @@ export class LangGraphAgentService {
     const graph = await this.getGraph();
 
     const config = {
+      recursionLimit: appConfig.agentRecursionLimit,
       configurable: {
         thread_id: conversationId,
         ...this.buildConfigurable(undefined, traceId, conversationId),
@@ -298,6 +300,7 @@ export class LangGraphAgentService {
     const graph = await this.getGraph();
 
     const config = {
+      recursionLimit: appConfig.agentRecursionLimit,
       configurable: {
         thread_id: conversationId,
         ...this.buildConfigurable(input, traceId, conversationId),
@@ -339,6 +342,7 @@ export class LangGraphAgentService {
     const reqStart = Date.now();
     const graph = await this.getGraph();
     const config = {
+      recursionLimit: appConfig.agentRecursionLimit,
       configurable: {
         thread_id: conversationId,
         ...this.buildConfigurable(input, traceId, conversationId),

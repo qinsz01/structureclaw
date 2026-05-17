@@ -105,6 +105,7 @@ type SettingsResponse = {
     allowedShellCommands: ValueField<string>;
     shellTimeoutMs: ValueField<number>;
     maxToolCallsPerTurn: ValueField<number>;
+    recursionLimit: ValueField<number>;
   };
   pkpm: {
     cyclePath: ValueField<string>;
@@ -166,6 +167,7 @@ function buildSettingsResponse(): SettingsResponse {
     allowedShellCommands: 'node,npm,python,python3,./sclaw,./sclaw_cn',
     shellTimeoutMs: 300000,
     agentMaxToolCallsPerTurn: 15,
+    agentRecursionLimit: 200,
     pkpmCyclePath: '',
     pkpmWorkDir: path.join(runtimeBaseDir, 'analysis', 'pkpm'),
     yjkInstallRoot: '',
@@ -228,6 +230,7 @@ function buildSettingsResponse(): SettingsResponse {
       allowedShellCommands: stringSource(file?.agent?.allowedShellCommands, defaults.allowedShellCommands),
       shellTimeoutMs: numberSource(file?.agent?.shellTimeoutMs, defaults.shellTimeoutMs),
       maxToolCallsPerTurn: numberSource(file?.agent?.maxToolCallsPerTurn, defaults.agentMaxToolCallsPerTurn),
+      recursionLimit: numberSource(file?.agent?.recursionLimit, defaults.agentRecursionLimit),
     },
     pkpm: {
       cyclePath: stringSource(file?.pkpm?.cyclePath, defaults.pkpmCyclePath),
@@ -294,6 +297,7 @@ const updateSettingsSchema = z.object({
     allowedShellCommands: z.string().trim().optional(),
     shellTimeoutMs: z.number().int().min(1000).optional(),
     maxToolCallsPerTurn: z.number().int().min(1).max(200).optional(),
+    recursionLimit: z.number().int().min(1).max(1000).optional(),
   }).optional(),
   pkpm: z.object({
     cyclePath: z.string().trim().optional(),
@@ -398,6 +402,7 @@ function applyUpdate(current: SettingsFile, input: UpdateSettingsInput): Setting
     if (input.agent.allowedShellCommands !== undefined) agent.allowedShellCommands = input.agent.allowedShellCommands;
     if (input.agent.shellTimeoutMs !== undefined) agent.shellTimeoutMs = input.agent.shellTimeoutMs;
     if (input.agent.maxToolCallsPerTurn !== undefined) agent.maxToolCallsPerTurn = input.agent.maxToolCallsPerTurn;
+    if (input.agent.recursionLimit !== undefined) agent.recursionLimit = input.agent.recursionLimit;
     next.agent = agent;
   }
 

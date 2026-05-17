@@ -25,7 +25,10 @@ type SettingsResponse = {
   analysis: { pythonBin: Field<string>; pythonTimeoutMs: Field<number>; engineManifestPath: Field<string> }
   storage: { reportsDir: Field<string>; maxFileSize: Field<number> }
   cors: { origins: Field<string> }
-  agent: { workspaceRoot: Field<string>; checkpointDir: Field<string>; allowShell: Field<boolean>; allowedShellCommands: Field<string>; shellTimeoutMs: Field<number> }
+  agent: {
+    workspaceRoot: Field<string>; checkpointDir: Field<string>; allowShell: Field<boolean>; allowedShellCommands: Field<string>;
+    shellTimeoutMs: Field<number>; maxToolCallsPerTurn: Field<number>; recursionLimit: Field<number>
+  }
   pkpm: { cyclePath: Field<string>; workDir: Field<string> }
   yjk: {
     installRoot: Field<string>; exePath: Field<string>; pythonBin: Field<string>; sdkArchivePath: Field<string>; workDir: Field<string>; version: Field<string>;
@@ -93,6 +96,7 @@ const FIELDS: FieldDef[] = [
   { key: 'agent.allowedShellCommands', labelKey: 'generalSettingsAllowedShellLabel', kind: 'text', sectionKey: 'agent', stateKey: 'allowedShellCommands' },
   { key: 'agent.shellTimeoutMs', labelKey: 'generalSettingsShellTimeoutLabel', kind: 'number', sectionKey: 'agent', stateKey: 'shellTimeoutMs', props: { min: 1000 } },
   { key: 'agent.maxToolCallsPerTurn', labelKey: 'generalSettingsMaxToolCallsPerTurnLabel', kind: 'number', sectionKey: 'agent', stateKey: 'maxToolCallsPerTurn', props: { min: 1, max: 200 } },
+  { key: 'agent.recursionLimit', labelKey: 'generalSettingsRecursionLimitLabel', kind: 'number', sectionKey: 'agent', stateKey: 'recursionLimit', props: { min: 1, max: 1000 } },
   // PKPM
   { key: 'pkpm.cyclePath', labelKey: 'generalSettingsPkpmCyclePathLabel', kind: 'text', sectionKey: 'pkpm', stateKey: 'pkpmCyclePath' },
   { key: 'pkpm.workDir', labelKey: 'generalSettingsPkpmWorkDirLabel', kind: 'text', sectionKey: 'pkpm', stateKey: 'pkpmWorkDir' },
@@ -117,7 +121,7 @@ const DEFAULTS: Record<string, string | number | boolean> = {
   pythonBin: '', pythonTimeoutMs: 600000, engineManifestPath: '',
   reportsDir: '', maxFileSize: 104857600,
   origins: '',
-  workspaceRoot: '', checkpointDir: '', allowShell: false, allowedShellCommands: 'node,npm,python,python3,./sclaw,./sclaw_cn', shellTimeoutMs: 300000, maxToolCallsPerTurn: 15,
+  workspaceRoot: '', checkpointDir: '', allowShell: false, allowedShellCommands: 'node,npm,python,python3,./sclaw,./sclaw_cn', shellTimeoutMs: 300000, maxToolCallsPerTurn: 15, recursionLimit: 200,
   pkpmCyclePath: '', pkpmWorkDir: '',
   yjkInstallRoot: '', yjkExePath: '', yjkPythonBin: '', yjkSdkArchivePath: '', yjkWorkDir: '', yjkVersion: '8.0.0', yjkTimeoutS: 600, yjkInvisible: false,
   yjkLauncherPrewarm: 'auto', yjkLauncherPrewarmS: 18, yjkDirectReadyTimeoutS: 12,

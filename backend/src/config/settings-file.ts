@@ -62,6 +62,7 @@ export type SettingsFileAgent = {
   allowedShellCommands?: string;
   shellTimeoutMs?: number;
   maxToolCallsPerTurn?: number;
+  recursionLimit?: number;
 };
 
 export type SettingsFilePkpm = {
@@ -247,7 +248,16 @@ function normalizeAgentSection(raw: unknown): SettingsFileAgent | undefined {
   const allowedShellCommands = normalizeOptionalString(record.allowedShellCommands);
   const shellTimeoutMs = normalizeOptionalNumber(record.shellTimeoutMs);
   const maxToolCallsPerTurn = normalizeOptionalNumber(record.maxToolCallsPerTurn);
-  if (workspaceRoot === undefined && checkpointDir === undefined && allowShell === undefined && allowedShellCommands === undefined && shellTimeoutMs === undefined && maxToolCallsPerTurn === undefined) return undefined;
+  const recursionLimit = normalizeOptionalNumber(record.recursionLimit);
+  if (
+    workspaceRoot === undefined
+    && checkpointDir === undefined
+    && allowShell === undefined
+    && allowedShellCommands === undefined
+    && shellTimeoutMs === undefined
+    && maxToolCallsPerTurn === undefined
+    && recursionLimit === undefined
+  ) return undefined;
   const result: SettingsFileAgent = {};
   if (workspaceRoot !== undefined) result.workspaceRoot = workspaceRoot;
   if (checkpointDir !== undefined) result.checkpointDir = checkpointDir;
@@ -255,6 +265,7 @@ function normalizeAgentSection(raw: unknown): SettingsFileAgent | undefined {
   if (allowedShellCommands !== undefined) result.allowedShellCommands = allowedShellCommands;
   if (shellTimeoutMs !== undefined) result.shellTimeoutMs = shellTimeoutMs;
   if (maxToolCallsPerTurn !== undefined) result.maxToolCallsPerTurn = maxToolCallsPerTurn;
+  if (recursionLimit !== undefined) result.recursionLimit = recursionLimit;
   return result;
 }
 

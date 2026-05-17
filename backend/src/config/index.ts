@@ -74,6 +74,7 @@ const AGENT_DEFAULTS = {
   allowedShellCommands: 'node,npm,python,python3,./sclaw,./sclaw_cn',
   shellTimeoutMs: 300000,
   maxToolCallsPerTurn: 15,
+  recursionLimit: 200,
 } as const;
 
 const DETACHED_HOUSE_API_DEFAULTS = {
@@ -196,6 +197,12 @@ export const config = {
   },
   get agentMaxToolCallsPerTurn() {
     return getCurrentAgentSettings()?.maxToolCallsPerTurn ?? AGENT_DEFAULTS.maxToolCallsPerTurn;
+  },
+  get agentRecursionLimit() {
+    const raw = process.env.AGENT_RECURSION_LIMIT;
+    const parsed = raw ? Number(raw) : NaN;
+    return getCurrentAgentSettings()?.recursionLimit
+      ?? (Number.isFinite(parsed) ? parsed : AGENT_DEFAULTS.recursionLimit);
   },
 
   // Detached-house design API
