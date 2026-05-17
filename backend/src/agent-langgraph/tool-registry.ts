@@ -31,7 +31,7 @@ import {
   DETACHED_HOUSE_API_TOOL_IDS,
   createDetachedHouseApiTool,
   createDetachedHouseBuildAnalysisModelTool,
-  createDetachedHouseSetDesignBasisTool,
+  createDetachedHouseCreateDesignBasisTool,
 } from './detached-house-tools.js';
 
 export type AgentToolRisk = 'low' | 'workspace-read' | 'workspace-write' | 'destructive' | 'shell';
@@ -55,16 +55,16 @@ export interface AgentToolDefinition {
 
 const DETACHED_HOUSE_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   {
-    id: 'detached_house_set_design_basis',
+    id: 'detached_house_create_design_basis',
     category: 'engineering',
     risk: 'low',
     defaultEnabled: true,
-    displayName: { zh: '初始化独立住宅设计', en: 'Set Detached House Design Basis' },
+    displayName: { zh: '创建独立住宅设计意图', en: 'Create Detached House Design Basis' },
     description: {
-      zh: '从 JSON 初始化或替换独立住宅设计 artifact。',
-      en: 'Initialize or replace the detached-house design artifact from JSON.',
+      zh: '从用户意图和图纸提取结果创建独立住宅设计 artifact。',
+      en: 'Create the detached-house design artifact from user intent and extracted drawing data.',
     },
-    create: () => createDetachedHouseSetDesignBasisTool(),
+    create: () => createDetachedHouseCreateDesignBasisTool(),
   },
   ...DETACHED_HOUSE_API_TOOL_IDS.map((toolId): AgentToolDefinition => ({
     id: `detached_house_${toolId}`,

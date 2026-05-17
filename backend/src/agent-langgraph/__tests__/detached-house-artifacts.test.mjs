@@ -8,7 +8,7 @@ import {
 describe('detached-house artifacts', () => {
   test('creates and reads designBasis payloads', () => {
     const design = { version: '0.1', floors: [{ id: 'F1' }] };
-    const envelope = createDetachedHouseDesignBasisEnvelope({ design, previous: undefined, toolId: 'detached_house_set_design_basis' });
+    const envelope = createDetachedHouseDesignBasisEnvelope({ design, previous: undefined, toolId: 'detached_house_create_design_basis' });
 
     expect(envelope.kind).toBe('designBasis');
     expect(envelope.schemaVersion).toBe('detached_house_design@0.1');
@@ -20,7 +20,7 @@ describe('detached-house artifacts', () => {
     const designEnvelope = createDetachedHouseDesignBasisEnvelope({
       design: { floors: [] },
       previous: undefined,
-      toolId: 'detached_house_set_design_basis',
+      toolId: 'detached_house_create_design_basis',
     });
     const modelEnvelope = createDetachedHouseNormalizedModelEnvelope({
       model: { schema_version: '2.0.0', nodes: [] },

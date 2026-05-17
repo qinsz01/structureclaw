@@ -19,7 +19,7 @@ const CURRENT_TOOL_IDS = [
   'detached_house_place_doors_windows',
   'detached_house_propagate_floor_rooms',
   'detached_house_reconcile_global_constraints',
-  'detached_house_set_design_basis',
+  'detached_house_create_design_basis',
   'detached_house_size_members',
   'detached_house_validate_residential_design',
   'detect_structure_type',

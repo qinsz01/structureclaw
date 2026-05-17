@@ -137,7 +137,7 @@ ${summarizeArtifacts(state)}
 ## 工具使用策略
 
 当用户提出独立住宅或 detached-house 设计请求时，使用专用 detached_house 工具链：
-1. 用户提供初始 JSON 时，先调用 detached_house_set_design_basis
+1. 先调用 detached_house_create_design_basis，从用户意图、已解析图纸内容或结构化轮廓信息创建 designBasis
 2. 按顺序调用：detached_house_classify_floor_roles -> detached_house_generate_floor_rooms（标准层）-> detached_house_derive_global_constraints_from_layout -> detached_house_propagate_floor_rooms（相似楼层）-> detached_house_generate_floor_rooms（首层等特殊楼层）-> detached_house_generate_floor_walls（逐层）-> detached_house_reconcile_global_constraints -> detached_house_generate_column_grid -> detached_house_place_doors_windows（逐层）-> detached_house_generate_beam_layout（逐层）-> detached_house_size_members -> detached_house_validate_residential_design
 3. 需要进入结构分析时，调用 detached_house_build_analysis_model，然后调用 validate_model 和 run_analysis
 4. 独立住宅 API 输出不要调用 build_model；build_model 只用于传统 draftState 建模流程
@@ -207,7 +207,7 @@ ${summarizeArtifacts(state)}
 ## Tool Usage Strategy
 
 When the user asks for detached-house design, use the dedicated detached_house tool chain:
-1. If the user provides initial JSON, first call detached_house_set_design_basis
+1. First call detached_house_create_design_basis to create designBasis from user intent, extracted drawing content, or structured outline data
 2. Call these tools in order: detached_house_classify_floor_roles -> detached_house_generate_floor_rooms for the standard floor -> detached_house_derive_global_constraints_from_layout -> detached_house_propagate_floor_rooms for similar floors -> detached_house_generate_floor_rooms for special floors such as the ground floor -> detached_house_generate_floor_walls per floor -> detached_house_reconcile_global_constraints -> detached_house_generate_column_grid -> detached_house_place_doors_windows per floor -> detached_house_generate_beam_layout per floor -> detached_house_size_members -> detached_house_validate_residential_design
 3. To enter structural analysis, call detached_house_build_analysis_model, then validate_model and run_analysis
 4. Do not call build_model for detached-house API output; build_model is only for the traditional draftState modeling workflow

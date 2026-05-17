@@ -1,7 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 import {
   DETACHED_HOUSE_API_TOOL_IDS,
-  createDetachedHouseSetDesignBasisTool,
+  createDetachedHouseCreateDesignBasisTool,
   createDetachedHouseBuildAnalysisModelTool,
   createDetachedHouseApiTool,
 } from '../../../dist/agent-langgraph/detached-house-tools.js';
@@ -37,16 +37,23 @@ describe('detached-house tools', () => {
     ]);
   });
 
-  test('set design basis writes detached-house designBasis artifact', async () => {
-    const tool = createDetachedHouseSetDesignBasisTool();
+  test('create design basis parses user intent into detached-house designBasis artifact', async () => {
+    const tool = createDetachedHouseCreateDesignBasisTool();
     const command = await tool.invoke(
-      { designJson: JSON.stringify({ floors: [{ id: 'F1' }] }) },
+      {
+        message: '设计一个三层独栋住宅，外轮廓 12m x 9m，一层公共活动，二三层卧室。',
+        projectName: '自然语言住宅',
+      },
       cfg(),
     );
 
-    expect(readDetachedHouseDesign(command.update.artifacts)).toEqual({ floors: [{ id: 'F1' }] });
-    expect(command.update.messages[0].name).toBe('detached_house_set_design_basis');
-    expect(JSON.parse(command.update.messages[0].content).floorIds).toEqual(['F1']);
+    const design = readDetachedHouseDesign(command.update.artifacts);
+    expect(design.project).toEqual({ name: '自然语言住宅', units: 'mm', structure_type: 'rc_frame' });
+    expect(design.requirements).toBe('设计一个三层独栋住宅，外轮廓 12m x 9m，一层公共活动，二三层卧室。');
+    expect(design.floors).toHaveLength(3);
+    expect(design.floors[0].outline).toEqual([[0, 0], [12000, 0], [12000, 9000], [0, 9000]]);
+    expect(command.update.messages[0].name).toBe('detached_house_create_design_basis');
+    expect(JSON.parse(command.update.messages[0].content).floorIds).toEqual(['F1', 'F2', 'F3']);
   });
 
   test('API tool reads designBasis and writes updated designBasis', async () => {
@@ -56,9 +63,9 @@ describe('detached-house tools', () => {
         issues: [],
       }),
     };
-    const setTool = createDetachedHouseSetDesignBasisTool();
+    const setTool = createDetachedHouseCreateDesignBasisTool();
     const setCommand = await setTool.invoke(
-      { designJson: JSON.stringify({ floors: [{ id: 'F1' }] }) },
+      { message: '三层住宅，12m x 9m' },
       cfg(),
     );
 
@@ -69,7 +76,11 @@ describe('detached-house tools', () => {
     );
 
     expect(readDetachedHouseDesign(command.update.artifacts)).toEqual({
-      floors: [{ id: 'F1' }],
+      version: '0.1',
+      project: { name: 'Detached house', units: 'mm', structure_type: 'rc_frame' },
+      requirements: '三层住宅，12m x 9m',
+      floors: expect.any(Array),
+      layout_strategy: { generation_order: ['F1', 'F2', 'F3'] },
       touchedBy: 'generate_floor_rooms',
     });
   });
@@ -80,9 +91,9 @@ describe('detached-house tools', () => {
         throw new Error('api should not be called');
       },
     };
-    const setTool = createDetachedHouseSetDesignBasisTool();
+    const setTool = createDetachedHouseCreateDesignBasisTool();
     const setCommand = await setTool.invoke(
-      { designJson: JSON.stringify({ floors: [{ id: 'L1' }, { id: 'L2' }] }) },
+      { message: '两层住宅', floorsJson: JSON.stringify([{ id: 'L1' }, { id: 'L2' }]) },
       cfg(),
     );
 
@@ -102,8 +113,8 @@ describe('detached-house tools', () => {
         { id: 'F2', elevation: 3600, height: 3300, columns: [{ id: 'C1', x: 0, y: 0 }], beams: [] },
       ],
     };
-    const setTool = createDetachedHouseSetDesignBasisTool();
-    const setCommand = await setTool.invoke({ designJson: JSON.stringify(design) }, cfg());
+    const setTool = createDetachedHouseCreateDesignBasisTool();
+    const setCommand = await setTool.invoke({ message: '两层住宅', floorsJson: JSON.stringify(design.floors) }, cfg());
     const modelTool = createDetachedHouseBuildAnalysisModelTool();
     const command = await modelTool.invoke({}, cfg({ artifacts: setCommand.update.artifacts }));
 

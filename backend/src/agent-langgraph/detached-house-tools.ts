@@ -36,12 +36,19 @@ const FLOOR_ID_REQUIRED_TOOLS = new Set<DetachedHouseApiToolId>([
   'generate_beam_layout',
 ]);
 
-export function createDetachedHouseSetDesignBasisTool() {
+export function createDetachedHouseCreateDesignBasisTool() {
   return tool(
-    async (input: { designJson: string }, config: LangGraphRunnableConfig) => {
+    async (input: {
+      message: string;
+      projectName?: string;
+      floorCount?: number;
+      outlineJson?: string;
+      floorsJson?: string;
+      structureType?: string;
+    }, config: LangGraphRunnableConfig) => {
       const state = getAgentState(config);
-      const toolName = 'detached_house_set_design_basis';
-      const design = parseJsonObject(input.designJson, 'designJson');
+      const toolName = 'detached_house_create_design_basis';
+      const design = createDesignBasisFromIntent(input);
       const envelope = createDetachedHouseDesignBasisEnvelope({
         design,
         previous: state?.artifacts?.designBasis,
@@ -56,12 +63,23 @@ export function createDetachedHouseSetDesignBasisTool() {
       });
     },
     {
-      name: 'detached_house_set_design_basis',
+      name: 'detached_house_create_design_basis',
       description:
-        'Initialize or replace the detached-house designBasis artifact from a JSON object string. ' +
-        'Use this before calling detached_house_* design API tools.',
+        'Create the detached-house designBasis artifact from user intent, extracted drawing data, and optional structured floor outlines. ' +
+        'Use this as the entry point before calling detached_house_* design API tools.',
       schema: z.object({
-        designJson: z.string().describe('Complete detached-house design JSON object as a string'),
+        message: z.string().describe('User design intent or extracted drawing description'),
+        projectName: z.string().optional().describe('Optional project name'),
+        floorCount: z.number().int().positive().optional().describe('Optional number of floors'),
+        outlineJson: z
+          .string()
+          .optional()
+          .describe('Optional JSON polygon [[x,y],...] in millimeters for a shared floor outline'),
+        floorsJson: z
+          .string()
+          .optional()
+          .describe('Optional JSON array of floor objects from drawing extraction; may include id, outline, elevation, and height'),
+        structureType: z.string().optional().describe('Optional structure type, default rc_frame'),
       }),
     },
   );
@@ -74,7 +92,7 @@ export function createDetachedHouseApiTool(toolId: DetachedHouseApiToolId, apiCl
       const state = getAgentState(config);
       const existingDesign = readDetachedHouseDesign(state?.artifacts);
       if (!existingDesign) {
-        throw new Error('No detached-house designBasis artifact available. Run detached_house_set_design_basis first.');
+        throw new Error('No detached-house designBasis artifact available. Run detached_house_create_design_basis first.');
       }
       const options = input.optionsJson ? parseJsonObject(input.optionsJson, 'optionsJson') : {};
       validateFloorIdOption(toolName, toolId, existingDesign, options);
@@ -110,7 +128,7 @@ export function createDetachedHouseBuildAnalysisModelTool() {
       const state = getAgentState(config);
       const design = readDetachedHouseDesign(state?.artifacts);
       if (!design) {
-        throw new Error('No detached-house designBasis artifact available. Run detached_house_set_design_basis first.');
+        throw new Error('No detached-house designBasis artifact available. Run detached_house_create_design_basis first.');
       }
       if (!state?.artifacts?.designBasis) {
         throw new Error('Detached-house designBasis envelope is missing.');
@@ -179,6 +197,142 @@ function parseJsonObject(raw: string, label: string): Record<string, unknown> {
     throw new Error(`${label} must be a JSON object`);
   }
   return parsed;
+}
+
+function createDesignBasisFromIntent(input: {
+  message: string;
+  projectName?: string;
+  floorCount?: number;
+  outlineJson?: string;
+  floorsJson?: string;
+  structureType?: string;
+}): Record<string, unknown> {
+  const message = input.message.trim();
+  if (!message) throw new Error('message is required to create detached-house designBasis');
+  const floorsFromInput = input.floorsJson ? parseFloorsJson(input.floorsJson) : null;
+  const outline = input.outlineJson
+    ? parsePolygon(input.outlineJson, 'outlineJson')
+    : floorsFromInput
+      ? parseRectangleOutlineFromMessageOrDefault(message)
+      : parseRectangleOutlineFromMessage(message);
+  const floorCount = input.floorCount ?? floorsFromInput?.length ?? parseFloorCount(message) ?? 3;
+  const floors = floorsFromInput ?? createDefaultFloors(floorCount, outline);
+  const normalizedFloors = normalizeFloors(floors, floorCount, outline);
+  return {
+    version: '0.1',
+    project: {
+      name: input.projectName?.trim() || 'Detached house',
+      units: 'mm',
+      structure_type: input.structureType?.trim() || 'rc_frame',
+    },
+    requirements: message,
+    floors: normalizedFloors,
+    layout_strategy: {
+      generation_order: normalizedFloors.map((floor) => floor.id),
+    },
+  };
+}
+
+function parseFloorsJson(raw: string): Array<Record<string, unknown>> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error('floorsJson must be valid JSON');
+  }
+  if (!Array.isArray(parsed)) throw new Error('floorsJson must be a JSON array');
+  return parsed.filter(isRecord);
+}
+
+function parsePolygon(raw: string, label: string): number[][] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error(`${label} must be valid JSON`);
+  }
+  if (!Array.isArray(parsed)) throw new Error(`${label} must be a polygon array`);
+  const polygon = parsed
+    .filter(Array.isArray)
+    .map((point) => point.map((value) => (typeof value === 'number' ? value : Number.NaN)))
+    .filter((point) => point.length >= 2 && Number.isFinite(point[0]) && Number.isFinite(point[1]))
+    .map((point) => [point[0], point[1]]);
+  if (polygon.length < 3) throw new Error(`${label} must contain at least three points`);
+  return polygon;
+}
+
+function parseRectangleOutlineFromMessage(message: string): number[][] {
+  const match = message.match(/(\d+(?:\.\d+)?)\s*(m|米|mm|毫米)?\s*[xX×*]\s*(\d+(?:\.\d+)?)\s*(m|米|mm|毫米)?/);
+  if (!match) {
+    throw new Error('Could not infer floor outline from message. Provide dimensions such as 12m x 9m or pass outlineJson.');
+  }
+  const width = dimensionToMillimeters(Number(match[1]), match[2]);
+  const depth = dimensionToMillimeters(Number(match[3]), match[4] ?? match[2]);
+  return [[0, 0], [width, 0], [width, depth], [0, depth]];
+}
+
+function parseRectangleOutlineFromMessageOrDefault(message: string): number[][] {
+  try {
+    return parseRectangleOutlineFromMessage(message);
+  } catch {
+    return [[0, 0], [12000, 0], [12000, 9000], [0, 9000]];
+  }
+}
+
+function parseFloorCount(message: string): number | undefined {
+  const numeric = message.match(/(\d+)\s*(层|storeys?|stories|floors?)/i);
+  if (numeric) return Number(numeric[1]);
+  const zhDigits: Record<string, number> = {
+    一: 1,
+    二: 2,
+    两: 2,
+    三: 3,
+    四: 4,
+    五: 5,
+    六: 6,
+  };
+  const zh = message.match(/([一二两三四五六])\s*层/);
+  return zh ? zhDigits[zh[1]] : undefined;
+}
+
+function createDefaultFloors(floorCount: number, outline: number[][]): Array<Record<string, unknown>> {
+  return Array.from({ length: floorCount }, (_value, index) => {
+    const height = index === 0 ? 3600 : 3300;
+    const elevation = index === 0 ? 0 : 3600 + (index - 1) * 3300;
+    return {
+      id: `F${index + 1}`,
+      name: `Level ${index + 1}`,
+      elevation,
+      height,
+      outline,
+    };
+  });
+}
+
+function normalizeFloors(
+  floors: Array<Record<string, unknown>>,
+  floorCount: number,
+  fallbackOutline: number[][],
+): Array<Record<string, unknown>> {
+  const sourceFloors = floors.length > 0 ? floors : createDefaultFloors(floorCount, fallbackOutline);
+  return sourceFloors.map((floor, index) => {
+    const height = typeof floor.height === 'number' ? floor.height : (index === 0 ? 3600 : 3300);
+    const elevation = typeof floor.elevation === 'number' ? floor.elevation : (index === 0 ? 0 : 3600 + (index - 1) * 3300);
+    return {
+      id: typeof floor.id === 'string' && floor.id.trim() ? floor.id : `F${index + 1}`,
+      name: typeof floor.name === 'string' && floor.name.trim() ? floor.name : `Level ${index + 1}`,
+      elevation,
+      height,
+      outline: Array.isArray(floor.outline) ? floor.outline : fallbackOutline,
+      ...floor,
+    };
+  });
+}
+
+function dimensionToMillimeters(value: number, unit: string | undefined): number {
+  const normalized = unit?.toLowerCase();
+  if (normalized === 'mm' || normalized === '毫米') return Math.round(value);
+  return Math.round(value * 1000);
 }
 
 function summarizeDesignUpdate(
