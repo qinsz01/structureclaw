@@ -141,7 +141,6 @@ ${summarizeArtifacts(state)}
 2. 按顺序调用：detached_house_classify_floor_roles -> detached_house_generate_floor_rooms（标准层）-> detached_house_derive_global_constraints_from_layout -> detached_house_propagate_floor_rooms（相似楼层）-> detached_house_generate_floor_rooms（首层等特殊楼层）-> detached_house_generate_floor_walls（逐层）-> detached_house_reconcile_global_constraints -> detached_house_generate_column_grid -> detached_house_place_doors_windows（逐层）-> detached_house_generate_beam_layout（逐层）-> detached_house_size_members -> detached_house_validate_residential_design
 3. 需要进入结构分析时，调用 detached_house_build_analysis_model，然后调用 validate_model 和 run_analysis
 4. 独立住宅 API 输出不要调用 build_model；build_model 只用于传统 draftState 建模流程
-5. 需要 floor_id 时，必须使用上一条 detached_house 工具输出中的 floorIds，不要猜测 F1/F2 等楼层编号
 
 当用户提出结构设计或分析请求时，按以下流程执行：
 1. 同时调用 detect_structure_type 和 extract_draft_params（传入用户的完整原始消息，不要改写或翻译）
@@ -212,7 +211,6 @@ When the user asks for detached-house design, use the dedicated detached_house t
 2. Call these tools in order: detached_house_classify_floor_roles -> detached_house_generate_floor_rooms for the standard floor -> detached_house_derive_global_constraints_from_layout -> detached_house_propagate_floor_rooms for similar floors -> detached_house_generate_floor_rooms for special floors such as the ground floor -> detached_house_generate_floor_walls per floor -> detached_house_reconcile_global_constraints -> detached_house_generate_column_grid -> detached_house_place_doors_windows per floor -> detached_house_generate_beam_layout per floor -> detached_house_size_members -> detached_house_validate_residential_design
 3. To enter structural analysis, call detached_house_build_analysis_model, then validate_model and run_analysis
 4. Do not call build_model for detached-house API output; build_model is only for the traditional draftState modeling workflow
-5. When a tool needs floor_id, use the floorIds from the previous detached_house tool output. Do not invent ids such as F1/F2
 
 When the user makes a structural design or analysis request, follow this workflow:
 1. Call detect_structure_type AND extract_draft_params together (pass the user's EXACT original message — do NOT paraphrase or translate)
