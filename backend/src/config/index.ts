@@ -76,6 +76,11 @@ const AGENT_DEFAULTS = {
   maxToolCallsPerTurn: 15,
 } as const;
 
+const DETACHED_HOUSE_API_DEFAULTS = {
+  baseUrl: 'http://127.0.0.1:8569',
+  timeoutMs: 180000,
+} as const;
+
 const PKPM_DEFAULTS = {
   cyclePath: '',
   workDir: path.join(runtimeBaseDir, 'analysis', 'pkpm'),
@@ -191,6 +196,16 @@ export const config = {
   },
   get agentMaxToolCallsPerTurn() {
     return getCurrentAgentSettings()?.maxToolCallsPerTurn ?? AGENT_DEFAULTS.maxToolCallsPerTurn;
+  },
+
+  // Detached-house design API
+  get detachedHouseApiBaseUrl() {
+    return process.env.DETACHED_HOUSE_API_BASE_URL || DETACHED_HOUSE_API_DEFAULTS.baseUrl;
+  },
+  get detachedHouseApiTimeoutMs() {
+    const raw = process.env.DETACHED_HOUSE_API_TIMEOUT_MS;
+    const parsed = raw ? Number(raw) : NaN;
+    return Number.isFinite(parsed) ? parsed : DETACHED_HOUSE_API_DEFAULTS.timeoutMs;
   },
 
   // PKPM 引擎配置
