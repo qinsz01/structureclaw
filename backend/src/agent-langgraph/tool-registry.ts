@@ -25,6 +25,14 @@ import {
 import { createAnalyzeFileTool } from './file-tools.js';
 import { createShellTool } from './shell-tool.js';
 import { createCalculateTool } from './calc-tool.js';
+import { config } from '../config/index.js';
+import { DetachedHouseApiClient } from '../services/detached-house-api-client.js';
+import {
+  DETACHED_HOUSE_API_TOOL_IDS,
+  createDetachedHouseApiTool,
+  createDetachedHouseBuildAnalysisModelTool,
+  createDetachedHouseSetDesignBasisTool,
+} from './detached-house-tools.js';
 
 export type AgentToolRisk = 'low' | 'workspace-read' | 'workspace-write' | 'destructive' | 'shell';
 export type AgentToolCategory = 'engineering' | 'interaction' | 'session' | 'workspace' | 'memory' | 'shell';
@@ -44,6 +52,54 @@ export interface AgentToolDefinition {
   description: { zh: string; en: string };
   create: (deps: AgentToolFactoryDeps) => StructuredToolInterface;
 }
+
+const DETACHED_HOUSE_TOOL_DEFINITIONS: AgentToolDefinition[] = [
+  {
+    id: 'detached_house_set_design_basis',
+    category: 'engineering',
+    risk: 'low',
+    defaultEnabled: true,
+    displayName: { zh: '初始化独立住宅设计', en: 'Set Detached House Design Basis' },
+    description: {
+      zh: '从 JSON 初始化或替换独立住宅设计 artifact。',
+      en: 'Initialize or replace the detached-house design artifact from JSON.',
+    },
+    create: () => createDetachedHouseSetDesignBasisTool(),
+  },
+  ...DETACHED_HOUSE_API_TOOL_IDS.map((toolId): AgentToolDefinition => ({
+    id: `detached_house_${toolId}`,
+    category: 'engineering',
+    risk: 'low',
+    defaultEnabled: true,
+    displayName: {
+      zh: `独立住宅 ${toolId}`,
+      en: `Detached House ${toolId}`,
+    },
+    description: {
+      zh: `调用独立住宅设计 API 的 ${toolId} 阶段，并更新 designBasis。`,
+      en: `Call detached-house design API stage ${toolId} and update designBasis.`,
+    },
+    create: () => createDetachedHouseApiTool(
+      toolId,
+      new DetachedHouseApiClient({
+        baseUrl: config.detachedHouseApiBaseUrl,
+        timeoutMs: config.detachedHouseApiTimeoutMs,
+      }),
+    ),
+  })),
+  {
+    id: 'detached_house_build_analysis_model',
+    category: 'engineering',
+    risk: 'low',
+    defaultEnabled: true,
+    displayName: { zh: '独立住宅分析模型转换', en: 'Build Detached House Analysis Model' },
+    description: {
+      zh: '将独立住宅设计 artifact 转换为 StructureModelV2，并写入当前分析模型。',
+      en: 'Convert the detached-house design artifact to StructureModelV2 and store it as the current analysis model.',
+    },
+    create: () => createDetachedHouseBuildAnalysisModelTool(),
+  },
+];
 
 export const AGENT_TOOL_DEFINITIONS: readonly AgentToolDefinition[] = [
   {
@@ -142,6 +198,7 @@ export const AGENT_TOOL_DEFINITIONS: readonly AgentToolDefinition[] = [
     },
     create: () => createCalculateTool(),
   },
+  ...DETACHED_HOUSE_TOOL_DEFINITIONS,
   {
     id: 'ask_user_clarification',
     category: 'interaction',
