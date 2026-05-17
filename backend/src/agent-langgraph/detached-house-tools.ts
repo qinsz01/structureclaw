@@ -28,6 +28,14 @@ export const DETACHED_HOUSE_API_TOOL_IDS = [
 
 export type DetachedHouseApiToolId = typeof DETACHED_HOUSE_API_TOOL_IDS[number];
 
+const FLOOR_ID_REQUIRED_TOOLS = new Set<DetachedHouseApiToolId>([
+  'generate_floor_rooms',
+  'propagate_floor_rooms',
+  'generate_floor_walls',
+  'place_doors_windows',
+  'generate_beam_layout',
+]);
+
 export function createDetachedHouseSetDesignBasisTool() {
   return tool(
     async (input: { designJson: string }, config: LangGraphRunnableConfig) => {
@@ -69,6 +77,7 @@ export function createDetachedHouseApiTool(toolId: DetachedHouseApiToolId, apiCl
         throw new Error('No detached-house designBasis artifact available. Run detached_house_set_design_basis first.');
       }
       const options = input.optionsJson ? parseJsonObject(input.optionsJson, 'optionsJson') : {};
+      validateFloorIdOption(toolName, toolId, existingDesign, options);
       const response = await apiClient.runTool(toolId, { design: existingDesign, options });
       const envelope = createDetachedHouseDesignBasisEnvelope({
         design: response.design,
@@ -179,14 +188,56 @@ function summarizeDesignUpdate(
   revision: number,
   issues: Array<Record<string, unknown>>,
 ): Record<string, unknown> {
+  const floorSummaries = summarizeFloors(design);
   return {
     success,
     tool: toolName,
-    floorCount: Array.isArray(design.floors) ? design.floors.length : 0,
+    floorCount: floorSummaries.length,
+    floorIds: floorSummaries.map((floor) => floor.id),
+    floors: floorSummaries,
+    layoutStrategy: isRecord(design.layout_strategy) ? design.layout_strategy : undefined,
     issueCount: issues.length,
     revision,
     issues,
   };
+}
+
+function validateFloorIdOption(
+  toolName: string,
+  toolId: DetachedHouseApiToolId,
+  design: Record<string, unknown>,
+  options: Record<string, unknown>,
+): void {
+  if (!FLOOR_ID_REQUIRED_TOOLS.has(toolId)) return;
+  const floorIds = getFloorIds(design);
+  const floorId = options.floor_id;
+  if (typeof floorId !== 'string' || floorId.trim().length === 0) {
+    throw new Error(`${toolName} requires optionsJson.floor_id. Available floor_ids: ${floorIds.join(', ') || '(none)'}`);
+  }
+  if (!floorIds.includes(floorId)) {
+    throw new Error(`Invalid floor_id '${floorId}' for ${toolName}. Available floor_ids: ${floorIds.join(', ') || '(none)'}`);
+  }
+}
+
+function summarizeFloors(design: Record<string, unknown>): Array<Record<string, unknown>> {
+  const floors = Array.isArray(design.floors) ? design.floors : [];
+  return floors
+    .filter(isRecord)
+    .map((floor) => ({
+      id: floor.id,
+      role: floor.role,
+      reference_floor_id: floor.reference_floor_id,
+      hasRooms: Array.isArray(floor.rooms) && floor.rooms.length > 0,
+      hasWalls: Array.isArray(floor.walls) && floor.walls.length > 0,
+      hasOpenings: Array.isArray(floor.openings) && floor.openings.length > 0,
+      hasColumns: Array.isArray(floor.columns) && floor.columns.length > 0,
+      hasBeams: Array.isArray(floor.beams) && floor.beams.length > 0,
+    }))
+    .filter((floor) => typeof floor.id === 'string' && floor.id.length > 0);
+}
+
+function getFloorIds(design: Record<string, unknown>): string[] {
+  return summarizeFloors(design).map((floor) => String(floor.id));
 }
 
 function summarizeModel(model: Record<string, unknown>): Record<string, unknown> {

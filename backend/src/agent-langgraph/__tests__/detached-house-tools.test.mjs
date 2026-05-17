@@ -46,6 +46,7 @@ describe('detached-house tools', () => {
 
     expect(readDetachedHouseDesign(command.update.artifacts)).toEqual({ floors: [{ id: 'F1' }] });
     expect(command.update.messages[0].name).toBe('detached_house_set_design_basis');
+    expect(JSON.parse(command.update.messages[0].content).floorIds).toEqual(['F1']);
   });
 
   test('API tool reads designBasis and writes updated designBasis', async () => {
@@ -71,6 +72,26 @@ describe('detached-house tools', () => {
       floors: [{ id: 'F1' }],
       touchedBy: 'generate_floor_rooms',
     });
+  });
+
+  test('API tool rejects invalid floor_id before calling the API', async () => {
+    const apiClient = {
+      runTool: async () => {
+        throw new Error('api should not be called');
+      },
+    };
+    const setTool = createDetachedHouseSetDesignBasisTool();
+    const setCommand = await setTool.invoke(
+      { designJson: JSON.stringify({ floors: [{ id: 'L1' }, { id: 'L2' }] }) },
+      cfg(),
+    );
+
+    const apiTool = createDetachedHouseApiTool('generate_floor_rooms', apiClient);
+
+    await expect(apiTool.invoke(
+      { optionsJson: JSON.stringify({ floor_id: 'F1' }) },
+      cfg({ artifacts: setCommand.update.artifacts }),
+    )).rejects.toThrow("Invalid floor_id 'F1' for detached_house_generate_floor_rooms. Available floor_ids: L1, L2");
   });
 
   test('build analysis model writes state.model and normalizedModel', async () => {
