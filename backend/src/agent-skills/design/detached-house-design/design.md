@@ -18,7 +18,7 @@ When the user gives a current-step preference, pass it as `optionsJson.stage_req
    - Upper residential floors should normally contain bedrooms, bathrooms, family/study spaces, and circulation; do not add ground-floor public program there unless requested.
 4. After a reliable anchor layout exists, call `detached_house_derive_global_constraints_from_layout`.
 5. Use `detached_house_propagate_floor_rooms` only for floors that are genuinely similar to a reference floor. Use `detached_house_generate_floor_rooms` for ground-public floors, setback floors, roof/terrace levels, or floors with different requirements.
-6. Generate walls, doors/windows, and beams per floor, waiting for each floor result before calling the next floor.
+6. Generate walls, doors/windows, and beams per floor, waiting for each floor result before calling the next floor. After doors/windows, inspect `openingCount`, `doorCount`, and `windowCount`; do not claim a floor is complete when its target floor still has zero openings or zero needed windows.
 7. Typical downstream sequence: `detached_house_generate_floor_walls` per floor -> `detached_house_reconcile_global_constraints` -> `detached_house_generate_column_grid` -> `detached_house_place_doors_windows` per floor -> `detached_house_generate_beam_layout` per floor -> `detached_house_size_members` -> `detached_house_validate_residential_design`.
 8. For structural analysis, call `detached_house_build_analysis_model`, then `validate_model` and `run_analysis`.
 

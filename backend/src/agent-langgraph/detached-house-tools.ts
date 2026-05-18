@@ -382,16 +382,24 @@ function summarizeFloors(design: Record<string, unknown>): Array<Record<string, 
   const floors = Array.isArray(design.floors) ? design.floors : [];
   return floors
     .filter(isRecord)
-    .map((floor) => ({
-      id: floor.id,
-      role: floor.role,
-      reference_floor_id: floor.reference_floor_id,
-      hasRooms: Array.isArray(floor.rooms) && floor.rooms.length > 0,
-      hasWalls: Array.isArray(floor.walls) && floor.walls.length > 0,
-      hasOpenings: Array.isArray(floor.openings) && floor.openings.length > 0,
-      hasColumns: Array.isArray(floor.columns) && floor.columns.length > 0,
-      hasBeams: Array.isArray(floor.beams) && floor.beams.length > 0,
-    }))
+    .map((floor) => {
+      const openings = Array.isArray(floor.openings) ? floor.openings.filter(isRecord) : [];
+      const doorCount = openings.filter((opening) => opening.type === 'door').length;
+      const windowCount = openings.filter((opening) => opening.type === 'window').length;
+      return {
+        id: floor.id,
+        role: floor.role,
+        reference_floor_id: floor.reference_floor_id,
+        hasRooms: Array.isArray(floor.rooms) && floor.rooms.length > 0,
+        hasWalls: Array.isArray(floor.walls) && floor.walls.length > 0,
+        hasOpenings: openings.length > 0,
+        openingCount: openings.length,
+        doorCount,
+        windowCount,
+        hasColumns: Array.isArray(floor.columns) && floor.columns.length > 0,
+        hasBeams: Array.isArray(floor.beams) && floor.beams.length > 0,
+      };
+    })
     .filter((floor) => typeof floor.id === 'string' && floor.id.length > 0);
 }
 

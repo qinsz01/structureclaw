@@ -259,16 +259,31 @@ function drawOpenings(floor: Record<string, unknown>, bounds: ReturnType<typeof 
     if (kind === 'window' && !layers.windows) return null
     const wallLine = walls.get(String(opening.wall_id || ''))
     if (!wallLine) return null
-    const start = Number(opening.start) || 0
     const width = Number(opening.width) || 900
     const length = Math.hypot(wallLine[2] - wallLine[0], wallLine[3] - wallLine[1]) || 1
+    const rawOffset = opening.offset ?? opening.start
+    const defaultOffset = Math.max(0, (length - width) / 2)
+    const offset = Number.isFinite(Number(rawOffset)) ? Number(rawOffset) : defaultOffset
+    const start = Math.max(0, Math.min(length, offset))
     const t1 = Math.max(0, Math.min(1, start / length))
     const t2 = Math.max(0, Math.min(1, (start + width) / length))
     const p1: Point = [wallLine[0] + (wallLine[2] - wallLine[0]) * t1, wallLine[1] + (wallLine[3] - wallLine[1]) * t1]
     const p2: Point = [wallLine[0] + (wallLine[2] - wallLine[0]) * t2, wallLine[1] + (wallLine[3] - wallLine[1]) * t2]
     const [x1, y1] = mapPoint(p1, bounds)
     const [x2, y2] = mapPoint(p2, bounds)
-    return <line key={String(opening.id || index)} x1={x1} y1={y1} x2={x2} y2={y2} className={kind === 'window' ? 'stroke-sky-500' : 'stroke-emerald-500'} strokeWidth={7} vectorEffect="non-scaling-stroke" />
+    return (
+      <line
+        key={String(opening.id || index)}
+        data-opening-id={String(opening.id || index)}
+        x1={x1}
+        y1={y1}
+        x2={x2}
+        y2={y2}
+        className={kind === 'window' ? 'stroke-sky-500' : 'stroke-emerald-500'}
+        strokeWidth={7}
+        vectorEffect="non-scaling-stroke"
+      />
+    )
   })
 }
 

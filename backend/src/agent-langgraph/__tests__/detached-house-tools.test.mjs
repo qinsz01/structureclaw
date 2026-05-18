@@ -92,6 +92,54 @@ describe('detached-house tools', () => {
     });
   });
 
+  test('API tool summary includes opening counts', async () => {
+    const apiClient = {
+      runTool: async (_toolId, request) => ({
+        design: {
+          ...request.design,
+          floors: [
+            {
+              ...request.design.floors[0],
+              openings: [
+                { id: 'D1', type: 'door', wall_id: 'W1' },
+                { id: 'W1', type: 'window', wall_id: 'W2' },
+              ],
+            },
+            request.design.floors[1],
+          ],
+        },
+        issues: [],
+      }),
+    };
+    const setTool = createDetachedHouseCreateDesignBasisTool();
+    const setCommand = await setTool.invoke(
+      { message: '两层住宅，12m x 9m' },
+      cfg(),
+    );
+
+    const apiTool = createDetachedHouseApiTool('place_doors_windows', apiClient);
+    const command = await apiTool.invoke(
+      { optionsJson: JSON.stringify({ floor_id: 'F1' }) },
+      cfg({ artifacts: setCommand.update.artifacts }),
+    );
+
+    const summary = JSON.parse(command.update.messages[0].content);
+    expect(summary.floors[0]).toMatchObject({
+      id: 'F1',
+      hasOpenings: true,
+      openingCount: 2,
+      doorCount: 1,
+      windowCount: 1,
+    });
+    expect(summary.floors[1]).toMatchObject({
+      id: 'F2',
+      hasOpenings: false,
+      openingCount: 0,
+      doorCount: 0,
+      windowCount: 0,
+    });
+  });
+
   test('API tool rejects invalid floor_id before calling the API', async () => {
     const apiClient = {
       runTool: async () => {
