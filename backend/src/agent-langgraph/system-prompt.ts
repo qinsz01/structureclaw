@@ -11,7 +11,7 @@
  */
 import { SystemMessage, type BaseMessageLike } from '@langchain/core/messages';
 import type { AgentState } from './state.js';
-import type { SkillManifest } from '../agent-runtime/types.js';
+import type { AgentSkillBundle, SkillManifest } from '../agent-runtime/types.js';
 import { DEFAULT_MAX_TOOL_CALLS_PER_TURN } from './graph.js';
 
 // ---------------------------------------------------------------------------
@@ -55,6 +55,81 @@ function summarizeArtifacts(state: AgentState): string {
     .join('\n');
 }
 
+function normalizeForMatch(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function messageMatchesSkillTriggers(message: string, skill: SkillManifest): boolean {
+  const normalizedMessage = normalizeForMatch(message);
+  if (!normalizedMessage) return false;
+  return skill.triggers.some((trigger) => {
+    const normalizedTrigger = normalizeForMatch(trigger);
+    return normalizedTrigger.length > 0 && normalizedMessage.includes(normalizedTrigger);
+  });
+}
+
+function hasDetachedHouseArtifact(state: AgentState): boolean {
+  const payload = state.artifacts?.designBasis?.payload;
+  return (
+    payload != null &&
+    typeof payload === 'object' &&
+    !Array.isArray(payload) &&
+    (payload as Record<string, unknown>).artifactType === 'detached_house_design'
+  );
+}
+
+function skillMatchesCurrentContext(skill: SkillManifest, state: AgentState): boolean {
+  if (messageMatchesSkillTriggers(state.lastUserMessage ?? '', skill)) return true;
+  return skill.id === 'detached-house-design' && hasDetachedHouseArtifact(state);
+}
+
+function resolveActiveManifests(state: AgentState, skillManifests: SkillManifest[]): SkillManifest[] {
+  const selectedIds = new Set(state.selectedSkillIds);
+  return skillManifests.filter((skill) => {
+    if (selectedIds.has(skill.id)) return true;
+    if (!skill.capabilities.includes('prompt-guidance')) return false;
+    return skillMatchesCurrentContext(skill, state);
+  });
+}
+
+function clipGuidance(markdown: string, maxChars = 5000): string {
+  const trimmed = markdown.trim();
+  if (trimmed.length <= maxChars) return trimmed;
+  return `${trimmed.slice(0, maxChars).trimEnd()}\n...`;
+}
+
+function buildSkillGuidance(
+  state: AgentState,
+  activeManifests: SkillManifest[],
+  skillBundles: AgentSkillBundle[] | undefined,
+  isZh: boolean,
+): string {
+  if (!skillBundles?.length) return isZh ? '（无）' : '(none)';
+
+  const bundleById = new Map(skillBundles.map((bundle) => [bundle.id, bundle]));
+  const guidanceBlocks = activeManifests
+    .filter((skill) => skill.capabilities.includes('prompt-guidance'))
+    .map((skill) => {
+      const bundle = bundleById.get(skill.id);
+      if (!bundle) return '';
+      const stageEntries = ['intent', 'design'] as const;
+      const sections = stageEntries
+        .map((stage) => {
+          const markdown = bundle.markdownByStage[stage];
+          if (!markdown?.trim()) return '';
+          return `#### ${stage}\n${clipGuidance(markdown)}`;
+        })
+        .filter(Boolean);
+      if (sections.length === 0) return '';
+      const name = isZh ? skill.name.zh : skill.name.en;
+      return `### ${skill.id} (${name})\n${sections.join('\n\n')}`;
+    })
+    .filter(Boolean);
+
+  if (guidanceBlocks.length === 0) return isZh ? '（无）' : '(none)';
+  return guidanceBlocks.join('\n\n');
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -62,6 +137,7 @@ function summarizeArtifacts(state: AgentState): string {
 export interface SystemPromptContext {
   state: AgentState;
   skillManifests: SkillManifest[];
+  skillBundles?: AgentSkillBundle[];
   maxToolCallsPerTurn?: number;
 }
 
@@ -73,14 +149,11 @@ export interface SystemPromptContext {
  * conversation before invoking the LLM.
  */
 export function buildSystemMessages(ctx: SystemPromptContext): BaseMessageLike[] {
-  const { state, skillManifests, maxToolCallsPerTurn } = ctx;
+  const { state, skillManifests, skillBundles, maxToolCallsPerTurn } = ctx;
   const toolCallLimit = maxToolCallsPerTurn ?? DEFAULT_MAX_TOOL_CALLS_PER_TURN;
   const isZh = state.locale === 'zh';
 
-  const selectedIds = new Set(state.selectedSkillIds);
-  const activeManifests = selectedIds.size > 0
-    ? skillManifests.filter((s) => selectedIds.has(s.id))
-    : [];
+  const activeManifests = resolveActiveManifests(state, skillManifests);
 
   const skillList = activeManifests
     .map((s) => {
@@ -89,10 +162,11 @@ export function buildSystemMessages(ctx: SystemPromptContext): BaseMessageLike[]
       return `- ${s.id} (${name}): ${desc} [domain=${s.domain}, stages=${s.stages.join('/')}]`;
     })
     .join('\n');
+  const skillGuidance = buildSkillGuidance(state, activeManifests, skillBundles, isZh);
 
   const systemContent = isZh
-    ? buildZhPrompt(state, skillList, toolCallLimit)
-    : buildEnPrompt(state, skillList, toolCallLimit);
+    ? buildZhPrompt(state, skillList, skillGuidance, toolCallLimit)
+    : buildEnPrompt(state, skillList, skillGuidance, toolCallLimit);
 
   return [new SystemMessage(systemContent)];
 }
@@ -101,7 +175,7 @@ export function buildSystemMessages(ctx: SystemPromptContext): BaseMessageLike[]
 // Prompt builders (bilingual)
 // ---------------------------------------------------------------------------
 
-function buildZhPrompt(state: AgentState, skillList: string, toolCallLimit: number): string {
+function buildZhPrompt(state: AgentState, skillList: string, skillGuidance: string, toolCallLimit: number): string {
   return `你是 StructureClaw 结构工程 AI 助手。你具备以下能力：
 1. 结构工程分析 — 识别结构类型、提取参数、构建模型、执行分析、规范校核、生成报告
 2. 会话配置 — 设置本轮会话的分析类型、设计规范和已选技能
@@ -110,6 +184,10 @@ function buildZhPrompt(state: AgentState, skillList: string, toolCallLimit: numb
 ## 可用技能
 
 ${skillList}
+
+## 已激活技能指导
+
+${skillGuidance}
 
 ## 当前会话状态
 
@@ -136,11 +214,7 @@ ${summarizeArtifacts(state)}
 
 ## 工具使用策略
 
-当用户提出独立住宅或 detached-house 设计请求时，使用专用 detached_house 工具链：
-1. 先调用 detached_house_create_design_basis，从用户意图、已解析图纸内容或结构化轮廓信息创建 designBasis
-2. 按顺序调用：detached_house_classify_floor_roles -> detached_house_generate_floor_rooms（标准层）-> detached_house_derive_global_constraints_from_layout -> detached_house_propagate_floor_rooms（相似楼层）-> detached_house_generate_floor_rooms（首层等特殊楼层）-> detached_house_generate_floor_walls（逐层）-> detached_house_reconcile_global_constraints -> detached_house_generate_column_grid -> detached_house_place_doors_windows（逐层）-> detached_house_generate_beam_layout（逐层）-> detached_house_size_members -> detached_house_validate_residential_design
-3. 需要进入结构分析时，调用 detached_house_build_analysis_model，然后调用 validate_model 和 run_analysis
-4. 独立住宅 API 输出不要调用 build_model；build_model 只用于传统 draftState 建模流程
+当任务命中某个专用技能时，优先遵循“已激活技能指导”和对应工具描述。技能指导只约束相关任务；无相关指导时，按当前会话状态和工具描述谨慎推进。
 
 当用户提出结构设计或分析请求时，按以下流程执行：
 1. 同时调用 detect_structure_type 和 extract_draft_params（传入用户的完整原始消息，不要改写或翻译）
@@ -171,7 +245,7 @@ ${summarizeArtifacts(state)}
 **重要**: 工具从会话状态中自动读取数据（模型、分析结果、草稿状态等）。不要将 modelJson、analysisJson、stateJson 等参数传递给工具。工具会自动使用上一步的结果。`;
 }
 
-function buildEnPrompt(state: AgentState, skillList: string, toolCallLimit: number): string {
+function buildEnPrompt(state: AgentState, skillList: string, skillGuidance: string, toolCallLimit: number): string {
   return `You are the StructureClaw structural engineering AI assistant. Your capabilities:
 1. Structural analysis — identify type, extract parameters, build model, run analysis, code-check, generate report
 2. Session configuration — set the current session's analysis type, design code, and selected skills
@@ -180,6 +254,10 @@ function buildEnPrompt(state: AgentState, skillList: string, toolCallLimit: numb
 ## Available Skills
 
 ${skillList}
+
+## Active Skill Guidance
+
+${skillGuidance}
 
 ## Current Session State
 
@@ -206,11 +284,7 @@ ${summarizeArtifacts(state)}
 
 ## Tool Usage Strategy
 
-When the user asks for detached-house design, use the dedicated detached_house tool chain:
-1. First call detached_house_create_design_basis to create designBasis from user intent, extracted drawing content, or structured outline data
-2. Call these tools in order: detached_house_classify_floor_roles -> detached_house_generate_floor_rooms for the standard floor -> detached_house_derive_global_constraints_from_layout -> detached_house_propagate_floor_rooms for similar floors -> detached_house_generate_floor_rooms for special floors such as the ground floor -> detached_house_generate_floor_walls per floor -> detached_house_reconcile_global_constraints -> detached_house_generate_column_grid -> detached_house_place_doors_windows per floor -> detached_house_generate_beam_layout per floor -> detached_house_size_members -> detached_house_validate_residential_design
-3. To enter structural analysis, call detached_house_build_analysis_model, then validate_model and run_analysis
-4. Do not call build_model for detached-house API output; build_model is only for the traditional draftState modeling workflow
+When a task matches a specialized skill, follow the Active Skill Guidance and the relevant tool descriptions first. Skill guidance applies only to the matching task; otherwise proceed from the current state and tool descriptions.
 
 When the user makes a structural design or analysis request, follow this workflow:
 1. Call detect_structure_type AND extract_draft_params together (pass the user's EXACT original message — do NOT paraphrase or translate)

@@ -10,7 +10,7 @@
 import { HumanMessage } from '@langchain/core/messages';
 import { randomUUID } from 'crypto';
 import { AgentSkillRuntime } from '../agent-runtime/index.js';
-import type { SkillManifest } from '../agent-runtime/types.js';
+import type { AgentSkillBundle, SkillManifest } from '../agent-runtime/types.js';
 import { buildAgentGraph } from './graph.js';
 import { FileCheckpointer } from './file-checkpointer.js';
 import { streamGraphToChunks, type StreamContext } from './streaming.js';
@@ -179,9 +179,11 @@ export class LangGraphAgentService {
     if (!this.graphPromise) {
       this.graphPromise = (async () => {
         const skillManifests = await this.skillRuntime.listSkillManifests();
+        const skillBundles: AgentSkillBundle[] = this.skillRuntime.listSkills();
         return await buildAgentGraph({
           skillRuntime: this.skillRuntime,
           skillManifests,
+          skillBundles,
           checkpointer: this.checkpointer,
         });
       })();

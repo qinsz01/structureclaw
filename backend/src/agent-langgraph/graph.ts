@@ -27,7 +27,7 @@ import { createRegisteredTools, type AgentToolFactoryDeps, type AgentToolDefinit
 import { loadUserTools } from './user-tool-loader.js';
 import { getWorkspaceToolRoot } from './config.js';
 import { buildSystemMessages } from './system-prompt.js';
-import type { SkillManifest } from '../agent-runtime/types.js';
+import type { AgentSkillBundle, SkillManifest } from '../agent-runtime/types.js';
 import type { AgentConfigurable } from './configurable.js';
 import { resolveActiveToolIds } from './tool-policy.js';
 import type { StructuredToolInterface } from '@langchain/core/tools';
@@ -187,6 +187,7 @@ function transformImageToolMessages(messages: BaseMessage[]): BaseMessage[] {
 
 function createCallModelNode(
   skillManifests: SkillManifest[],
+  skillBundles: AgentSkillBundle[],
   tools: ReturnType<typeof createRegisteredTools>,
 ) {
   return async function callModel(
@@ -229,7 +230,12 @@ function createCallModelNode(
     const modelWithTools = model.bindTools(activeTools);
 
     // Build system prompt
-    const systemMessages = buildSystemMessages({ state, skillManifests, maxToolCallsPerTurn: configurable.maxToolCallsPerTurn });
+    const systemMessages = buildSystemMessages({
+      state,
+      skillManifests,
+      skillBundles,
+      maxToolCallsPerTurn: configurable.maxToolCallsPerTurn,
+    });
 
     // Validate and reconstruct messages — checkpoint deserialization may
     // strip class methods (_getType), leaving plain objects that the LLM API
@@ -400,6 +406,7 @@ export function shouldContinue(
 
 export interface GraphDeps extends AgentToolFactoryDeps {
   skillManifests: SkillManifest[];
+  skillBundles?: AgentSkillBundle[];
   checkpointer?: BaseCheckpointSaver;
 }
 
@@ -417,7 +424,7 @@ function resolveActiveTools(
 }
 
 export async function buildAgentGraph(deps: GraphDeps) {
-  const { skillManifests, checkpointer } = deps;
+  const { skillManifests, skillBundles = [], checkpointer } = deps;
 
   // Load user-defined tools from workspace
   let userToolDefinitions: AgentToolDefinition[] = [];
@@ -436,7 +443,7 @@ export async function buildAgentGraph(deps: GraphDeps) {
 
   // Create tools ONCE — shared between ToolNode and callModel
   const tools = createRegisteredTools({ skillRuntime: deps.skillRuntime, workspaceRoot: deps.workspaceRoot }, userToolDefinitions);
-  const callModel = createCallModelNode(skillManifests, tools);
+  const callModel = createCallModelNode(skillManifests, skillBundles, tools);
 
   const log = getLogger(undefined);
   log.info({ toolCount: tools.length, hasCheckpointer: !!checkpointer }, 'building agent graph');

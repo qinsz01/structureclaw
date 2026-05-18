@@ -1,0 +1,55 @@
+id: detached-house-design
+domain: design
+source: builtin
+name:
+  zh: 独立住宅设计
+  en: Detached House Design
+description:
+  zh: 用于用户请求独立住宅、独栋住宅、别墅或单户住宅的建筑结构方案设计。
+  en: Use when the user asks for detached-house, single-family house, villa, or standalone residential building-structure design.
+triggers:
+  - detached house
+  - single-family house
+  - standalone house
+  - villa
+  - residential house
+  - detached-house
+  - 独立住宅
+  - 独栋住宅
+  - 独栋
+  - 别墅
+  - 单户住宅
+  - 住宅户型
+stages:
+  - intent
+  - design
+structureType: unknown
+structuralTypeKeys: []
+capabilities:
+  - detached-house-workflow
+  - prompt-guidance
+  - residential-layout
+  - structural-model-conversion
+requires: []
+conflicts: []
+priority: 80
+compatibility:
+  minRuntimeVersion: 0.1.0
+  skillApiVersion: v1
+supportedAnalysisTypes: []
+supportedModelFamilies:
+  - generic
+materialFamilies:
+  - concrete
+  - generic
+aliases:
+  - single-family-house-design
+  - villa-design
+toolHints:
+  primary: detached_house_create_design_basis
+runtimeContract:
+  role: assistant
+  consumes: []
+  provides:
+    - designBasis
+    - normalizedModel
