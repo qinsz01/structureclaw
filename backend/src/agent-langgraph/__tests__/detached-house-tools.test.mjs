@@ -37,6 +37,12 @@ describe('detached-house tools', () => {
     ]);
   });
 
+  test('API tool description documents stage_requirements options', () => {
+    const apiTool = createDetachedHouseApiTool('generate_column_grid', { runTool: async () => ({ design: {}, issues: [] }) });
+
+    expect(apiTool.description).toContain('stage_requirements');
+  });
+
   test('create design basis parses user intent into detached-house designBasis artifact', async () => {
     const tool = createDetachedHouseCreateDesignBasisTool();
     const command = await tool.invoke(

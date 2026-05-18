@@ -116,9 +116,12 @@ export function createDetachedHouseApiTool(toolId: DetachedHouseApiToolId, apiCl
       name: toolName,
       description:
         `Run detached-house API tool ${toolId}. Reads detached-house designBasis from state; ` +
-        'pass only optionsJson, not the full design.',
+        'pass only optionsJson, not the full design. Use optionsJson.stage_requirements for current-stage user notes.',
       schema: z.object({
-        optionsJson: z.string().optional().describe('Optional JSON object string for tool options, such as {"floor_id":"F2"}'),
+        optionsJson: z
+          .string()
+          .optional()
+          .describe('Optional JSON object string, e.g. {"floor_id":"F2","stage_requirements":"avoid columns in the living room"}'),
       }),
     },
   );
