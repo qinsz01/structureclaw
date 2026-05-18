@@ -37,4 +37,19 @@ describe('DetachedHouseApiClient', () => {
     await expect(client.runTool('generate_floor_rooms', { design: {}, options: {} }))
       .rejects.toThrow('Detached-house API generate_floor_rooms failed with HTTP 500');
   });
+
+  test('throws a useful error when the detached-house API request times out', async () => {
+    const client = new DetachedHouseApiClient({
+      baseUrl: 'http://api.local',
+      timeoutMs: 1,
+      fetchImpl: async (_url, init) => new Promise((_resolve, reject) => {
+        init.signal?.addEventListener('abort', () => {
+          reject(new DOMException('This operation was aborted', 'AbortError'));
+        });
+      }),
+    });
+
+    await expect(client.runTool('generate_column_grid', { design: {}, options: {} }))
+      .rejects.toThrow('Detached-house API generate_column_grid timed out after 1ms');
+  });
 });

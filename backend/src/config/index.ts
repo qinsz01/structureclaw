@@ -79,7 +79,7 @@ const AGENT_DEFAULTS = {
 
 const DETACHED_HOUSE_API_DEFAULTS = {
   baseUrl: 'http://127.0.0.1:8569',
-  timeoutMs: 180000,
+  timeoutMs: 1800000,
 } as const;
 
 const PKPM_DEFAULTS = {

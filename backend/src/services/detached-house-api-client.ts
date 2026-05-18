@@ -18,7 +18,7 @@ export class DetachedHouseApiClient {
   constructor(args: { baseUrl: string; fetchImpl?: DetachedHouseFetch; timeoutMs?: number }) {
     this.baseUrl = args.baseUrl.replace(/\/+$/, '');
     this.fetchImpl = args.fetchImpl ?? fetch;
-    this.timeoutMs = args.timeoutMs ?? 180000;
+    this.timeoutMs = args.timeoutMs ?? 1800000;
   }
 
   async runTool(toolId: string, request: DetachedHouseToolRequest): Promise<DetachedHouseToolResponse> {
@@ -45,6 +45,11 @@ export class DetachedHouseApiClient {
         throw new Error(`Detached-house API ${toolId} returned non-JSON response: ${text.slice(0, 500)}`);
       }
       return normalizeDetachedHouseToolResponse(toolId, payload);
+    } catch (error) {
+      if (abortController.signal.aborted) {
+        throw new Error(`Detached-house API ${toolId} timed out after ${this.timeoutMs}ms`);
+      }
+      throw error;
     } finally {
       clearTimeout(timeout);
     }
