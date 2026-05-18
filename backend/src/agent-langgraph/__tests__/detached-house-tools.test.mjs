@@ -43,6 +43,24 @@ describe('detached-house tools', () => {
     expect(apiTool.description).toContain('stage_requirements');
   });
 
+  test('derive global constraints requires a source floor id before calling the API', async () => {
+    const setTool = createDetachedHouseCreateDesignBasisTool();
+    const setCommand = await setTool.invoke(
+      { message: '三层住宅，12m x 9m' },
+      cfg(),
+    );
+    const apiTool = createDetachedHouseApiTool('derive_global_constraints_from_layout', {
+      runTool: async () => ({ design: {}, issues: [] }),
+    });
+
+    await expect(
+      apiTool.invoke(
+        { optionsJson: JSON.stringify({}) },
+        cfg({ artifacts: setCommand.update.artifacts }),
+      ),
+    ).rejects.toThrow('requires optionsJson.floor_id');
+  });
+
   test('create design basis parses user intent into detached-house designBasis artifact', async () => {
     const tool = createDetachedHouseCreateDesignBasisTool();
     const command = await tool.invoke(

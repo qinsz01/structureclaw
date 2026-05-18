@@ -30,6 +30,7 @@ export type DetachedHouseApiToolId = typeof DETACHED_HOUSE_API_TOOL_IDS[number];
 
 const FLOOR_ID_REQUIRED_TOOLS = new Set<DetachedHouseApiToolId>([
   'generate_floor_rooms',
+  'derive_global_constraints_from_layout',
   'propagate_floor_rooms',
   'generate_floor_walls',
   'place_doors_windows',
