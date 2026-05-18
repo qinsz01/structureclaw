@@ -125,5 +125,6 @@ describe('detached-house skill prompt guidance', () => {
     expect(manifest.capabilities).toContain('prompt-guidance');
     expect(bundle).toBeDefined();
     expect(bundle.markdownByStage.design).toContain(GUIDANCE_MARKER);
+    expect(bundle.markdownByStage.design).toContain('Call at most one state-mutating detached_house_* tool');
   });
 });

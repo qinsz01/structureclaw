@@ -101,6 +101,8 @@ export function createDetachedHouseApiTool(toolId: DetachedHouseApiToolId, apiCl
         design: response.design,
         previous: state?.artifacts?.designBasis,
         toolId: toolName,
+        floorId: typeof options.floor_id === 'string' ? options.floor_id : undefined,
+        referenceFloorId: typeof options.reference_floor_id === 'string' ? options.reference_floor_id : undefined,
       });
       const summary = summarizeDesignUpdate(true, toolName, response.design, envelope.revision, response.issues);
       return toolResult(getToolCallId(config), toolName, JSON.stringify(summary), {

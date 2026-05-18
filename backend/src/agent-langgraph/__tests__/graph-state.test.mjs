@@ -85,3 +85,91 @@ describe('AgentStateAnnotation: schema shape', () => {
     }
   });
 });
+
+describe('mergeAgentArtifacts: detached-house floor updates', () => {
+  function makeEnvelope({ revision, basedOn = [], floorId, floors }) {
+    return {
+      artifactId: 'detached-house-design-1',
+      kind: 'designBasis',
+      scope: 'session',
+      status: 'ready',
+      revision,
+      createdAt: 1,
+      updatedAt: revision,
+      basedOn,
+      dependencyFingerprint: `rev-${revision}-${floorId ?? 'global'}`,
+      schemaVersion: 'detached_house_design@0.1',
+      provenance: {
+        toolId: 'detached_house_generate_floor_walls',
+        ...(floorId ? { floorId } : {}),
+      },
+      payload: {
+        artifactType: 'detached_house_design',
+        design: { floors },
+      },
+    };
+  }
+
+  test('merges sibling floor-specific detached-house updates from the same base revision', async () => {
+    const { mergeAgentArtifacts } = await import('../../../dist/agent-langgraph/state.js');
+    const baseRef = { kind: 'designBasis', artifactId: 'detached-house-design-1', revision: 1 };
+    const f1Update = makeEnvelope({
+      revision: 2,
+      basedOn: [baseRef],
+      floorId: 'F1',
+      floors: [
+        { id: 'F1', walls: [{ id: 'F1_W1' }] },
+        { id: 'F2' },
+      ],
+    });
+    const f2Update = makeEnvelope({
+      revision: 2,
+      basedOn: [baseRef],
+      floorId: 'F2',
+      floors: [
+        { id: 'F1' },
+        { id: 'F2', walls: [{ id: 'F2_W1' }] },
+      ],
+    });
+
+    const merged = mergeAgentArtifacts(
+      { designBasis: f1Update },
+      { designBasis: f2Update },
+    );
+
+    expect(merged.designBasis.payload.design.floors).toEqual([
+      { id: 'F1', walls: [{ id: 'F1_W1' }] },
+      { id: 'F2', walls: [{ id: 'F2_W1' }] },
+    ]);
+    expect(merged.designBasis.provenance.mergedFloorIds).toEqual(['F1', 'F2']);
+  });
+
+  test('keeps sequential detached-house updates as replace semantics', async () => {
+    const { mergeAgentArtifacts } = await import('../../../dist/agent-langgraph/state.js');
+    const f1Update = makeEnvelope({
+      revision: 2,
+      basedOn: [{ kind: 'designBasis', artifactId: 'detached-house-design-1', revision: 1 }],
+      floorId: 'F1',
+      floors: [
+        { id: 'F1', walls: [{ id: 'F1_W1' }] },
+        { id: 'F2' },
+      ],
+    });
+    const sequentialUpdate = makeEnvelope({
+      revision: 3,
+      basedOn: [{ kind: 'designBasis', artifactId: 'detached-house-design-1', revision: 2 }],
+      floorId: 'F2',
+      floors: [
+        { id: 'F1', walls: [{ id: 'F1_W1' }] },
+        { id: 'F2', walls: [{ id: 'F2_W1' }] },
+      ],
+    });
+
+    const merged = mergeAgentArtifacts(
+      { designBasis: f1Update },
+      { designBasis: sequentialUpdate },
+    );
+
+    expect(merged.designBasis).toEqual(sequentialUpdate);
+  });
+});

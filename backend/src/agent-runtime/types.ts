@@ -387,6 +387,9 @@ export interface ArtifactProvenance {
   toolId?: string;
   toolVersion?: string;
   skillContractVersion?: string;
+  floorId?: string;
+  referenceFloorId?: string;
+  mergedFloorIds?: string[];
   warnings?: string[];
 }
 

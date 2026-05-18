@@ -10,6 +10,8 @@ import type {
   DraftState,
   AgentArtifactState,
   AgentExecutionPolicy,
+  ArtifactEnvelope,
+  ArtifactRef,
   ProviderBindingState,
 } from '../agent-runtime/types.js';
 import type { AppLocale } from '../services/locale.js';
@@ -52,6 +54,134 @@ export function emptySessionState(overrides?: Partial<AgentSessionState>): Agent
   };
 }
 
+export function mergeAgentArtifacts(
+  prev: AgentArtifactState | undefined,
+  next: AgentArtifactState | undefined,
+): AgentArtifactState {
+  const merged: AgentArtifactState = { ...(prev ?? {}), ...(next ?? {}) };
+  if (prev?.designBasis && next?.designBasis) {
+    merged.designBasis = mergeDetachedHouseDesignBasis(prev.designBasis, next.designBasis);
+  }
+  return merged;
+}
+
+function mergeDetachedHouseDesignBasis(
+  prev: ArtifactEnvelope,
+  next: ArtifactEnvelope,
+): ArtifactEnvelope {
+  if (!isDetachedHouseEnvelope(prev) || !isDetachedHouseEnvelope(next)) {
+    return next;
+  }
+  if (isBasedOn(next, prev)) {
+    return next;
+  }
+  if (!hasSameDirectBase(prev, next)) {
+    return next;
+  }
+
+  const nextFloorId = next.provenance.floorId;
+  if (!nextFloorId) {
+    return next;
+  }
+
+  const mergedDesign = mergeDetachedHouseFloor(
+    prev.payload.design,
+    next.payload.design,
+    nextFloorId,
+  );
+  if (!mergedDesign) {
+    return next;
+  }
+
+  const mergedFloorIds = [
+    ...new Set([
+      ...(prev.provenance.mergedFloorIds ?? []),
+      ...(prev.provenance.floorId ? [prev.provenance.floorId] : []),
+      ...(next.provenance.mergedFloorIds ?? []),
+      nextFloorId,
+    ]),
+  ];
+
+  return {
+    ...prev,
+    revision: Math.max(prev.revision, next.revision),
+    updatedAt: Math.max(prev.updatedAt, next.updatedAt),
+    dependencyFingerprint: `${prev.dependencyFingerprint}+${next.dependencyFingerprint}`,
+    provenance: {
+      ...prev.provenance,
+      toolId: next.provenance.toolId ?? prev.provenance.toolId,
+      mergedFloorIds,
+    },
+    payload: {
+      ...prev.payload,
+      design: mergedDesign,
+    },
+  };
+}
+
+function isDetachedHouseEnvelope(
+  envelope: ArtifactEnvelope,
+): envelope is ArtifactEnvelope<{ artifactType: 'detached_house_design'; design: Record<string, unknown> }> {
+  const payload = envelope.payload;
+  return (
+    isRecord(payload) &&
+    payload.artifactType === 'detached_house_design' &&
+    isRecord(payload.design)
+  );
+}
+
+function isBasedOn(envelope: ArtifactEnvelope, base: ArtifactEnvelope): boolean {
+  return envelope.basedOn.some((ref) => artifactRefMatchesEnvelope(ref, base));
+}
+
+function hasSameDirectBase(left: ArtifactEnvelope, right: ArtifactEnvelope): boolean {
+  const leftBase = left.basedOn[0];
+  const rightBase = right.basedOn[0];
+  if (!leftBase || !rightBase) return false;
+  return artifactRefsEqual(leftBase, rightBase);
+}
+
+function artifactRefMatchesEnvelope(ref: ArtifactRef, envelope: ArtifactEnvelope): boolean {
+  return ref.kind === envelope.kind && ref.artifactId === envelope.artifactId && ref.revision === envelope.revision;
+}
+
+function artifactRefsEqual(left: ArtifactRef, right: ArtifactRef): boolean {
+  return left.kind === right.kind && left.artifactId === right.artifactId && left.revision === right.revision;
+}
+
+function mergeDetachedHouseFloor(
+  prevDesign: Record<string, unknown>,
+  nextDesign: Record<string, unknown>,
+  floorId: string,
+): Record<string, unknown> | null {
+  const nextFloors = Array.isArray(nextDesign.floors) ? nextDesign.floors : [];
+  const nextFloor = nextFloors.find((floor) => isRecord(floor) && floor.id === floorId);
+  if (!isRecord(nextFloor)) return null;
+
+  const prevClone = cloneRecord(prevDesign);
+  const prevFloors = Array.isArray(prevClone.floors) ? [...prevClone.floors] : [];
+  const floorIndex = prevFloors.findIndex((floor) => isRecord(floor) && floor.id === floorId);
+  if (floorIndex >= 0) {
+    prevFloors[floorIndex] = cloneValue(nextFloor);
+  } else {
+    prevFloors.push(cloneValue(nextFloor));
+  }
+  prevClone.floors = prevFloors;
+  return prevClone;
+}
+
+function cloneRecord(value: Record<string, unknown>): Record<string, unknown> {
+  return cloneValue(value) as Record<string, unknown>;
+}
+
+function cloneValue<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value != null && typeof value === 'object' && !Array.isArray(value);
+}
+
 /**
  * LangGraph state annotation.
  *
@@ -69,7 +199,7 @@ export const AgentStateAnnotation = Annotation.Root({
     default: () => null,
   }),
   artifacts: Annotation<AgentArtifactState>({
-    reducer: (prev, next) => ({ ...(prev ?? {}), ...next }),
+    reducer: mergeAgentArtifacts,
     default: () => ({}),
   }),
   selectedSkillIds: Annotation<string[]>({

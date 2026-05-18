@@ -17,6 +17,8 @@ export function createDetachedHouseDesignBasisEnvelope(args: {
   design: Record<string, unknown>;
   previous?: ArtifactEnvelope;
   toolId: string;
+  floorId?: string;
+  referenceFloorId?: string;
 }): ArtifactEnvelope<DetachedHouseDesignBasisPayload> {
   const now = Date.now();
   return {
@@ -30,7 +32,11 @@ export function createDetachedHouseDesignBasisEnvelope(args: {
     basedOn: args.previous ? [{ kind: 'designBasis', artifactId: args.previous.artifactId, revision: args.previous.revision }] : [],
     dependencyFingerprint: shortHash(args.design),
     schemaVersion: 'detached_house_design@0.1',
-    provenance: { toolId: args.toolId },
+    provenance: {
+      toolId: args.toolId,
+      ...(args.floorId ? { floorId: args.floorId } : {}),
+      ...(args.referenceFloorId ? { referenceFloorId: args.referenceFloorId } : {}),
+    },
     payload: { artifactType: 'detached_house_design', design: args.design },
   };
 }

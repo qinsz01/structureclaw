@@ -75,6 +75,7 @@ describe('detached-house tools', () => {
       cfg({ artifacts: setCommand.update.artifacts }),
     );
 
+    expect(command.update.artifacts.designBasis.provenance.floorId).toBe('F1');
     expect(readDetachedHouseDesign(command.update.artifacts)).toEqual({
       version: '0.1',
       project: { name: 'Detached house', units: 'mm', structure_type: 'rc_frame' },
