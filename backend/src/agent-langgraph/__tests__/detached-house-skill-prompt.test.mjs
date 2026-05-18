@@ -127,5 +127,7 @@ describe('detached-house skill prompt guidance', () => {
     expect(bundle.markdownByStage.design).toContain(GUIDANCE_MARKER);
     expect(bundle.markdownByStage.design).toContain('Call at most one state-mutating detached_house_* tool');
     expect(bundle.markdownByStage.design).toContain('optionsJson.stage_requirements');
+    expect(bundle.markdownByStage.design).toContain('targetFloor');
+    expect(bundle.markdownByStage.design).toContain('Do not invent ASCII plans');
   });
 });

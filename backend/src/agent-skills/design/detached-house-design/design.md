@@ -8,6 +8,8 @@ Call at most one state-mutating detached_house_* tool in one assistant response.
 
 When the user gives a current-step preference, pass it as `optionsJson.stage_requirements`. Keep global project intent in `design.requirements`; use `stage_requirements` for temporary room, wall, column-grid, opening, beam, sizing, or validation guidance for the current tool call.
 
+Use the tool result's `targetFloor` object when summarizing a per-floor step. Do not invent ASCII plans, room positions, dimensions, doors, windows, or completion claims that are not present in the returned data. If `completionStatus` is `needs_attention` or `issueCount > 0`, state the concrete issue and ask whether to repair it; do not describe the stage as complete.
+
 ## Order
 
 1. Create or reuse `designBasis`: `detached_house_create_design_basis`.

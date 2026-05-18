@@ -140,6 +140,68 @@ describe('detached-house tools', () => {
     });
   });
 
+  test('API tool summary includes compact target floor artifact detail', async () => {
+    const issue = {
+      id: 'floor_windows_missing_F1',
+      level: 'warning',
+      floor_id: 'F1',
+      message: 'Floor F1 has no windows.',
+    };
+    const apiClient = {
+      runTool: async (_toolId, request) => ({
+        design: {
+          ...request.design,
+          floors: [
+            {
+              ...request.design.floors[0],
+              rooms: [
+                { id: 'R1', type: 'living_room', name: 'Living', polygon: [[0, 0], [6000, 0], [6000, 4000], [0, 4000]] },
+              ],
+              walls: [
+                { id: 'W1', kind: 'exterior', line: [0, 0, 6000, 0], adjacent_room_ids: ['R1', 'OUTSIDE'] },
+              ],
+              openings: [
+                { id: 'D1', type: 'door', wall_id: 'W1', offset: 1000, width: 1000, height: 2100 },
+              ],
+            },
+            request.design.floors[1],
+          ],
+        },
+        issues: [issue],
+      }),
+    };
+    const setTool = createDetachedHouseCreateDesignBasisTool();
+    const setCommand = await setTool.invoke(
+      { message: '两层住宅，12m x 9m' },
+      cfg(),
+    );
+
+    const apiTool = createDetachedHouseApiTool('place_doors_windows', apiClient);
+    const command = await apiTool.invoke(
+      { optionsJson: JSON.stringify({ floor_id: 'F1' }) },
+      cfg({ artifacts: setCommand.update.artifacts }),
+    );
+
+    const summary = JSON.parse(command.update.messages[0].content);
+    expect(summary.completionStatus).toBe('needs_attention');
+    expect(summary.targetFloor).toMatchObject({
+      id: 'F1',
+      roomCount: 1,
+      wallCount: 1,
+      openingCount: 1,
+      doorCount: 1,
+      windowCount: 0,
+    });
+    expect(summary.targetFloor.rooms[0]).toEqual({
+      id: 'R1',
+      type: 'living_room',
+      name: 'Living',
+      polygon: [[0, 0], [6000, 0], [6000, 4000], [0, 4000]],
+    });
+    expect(summary.targetFloor.openings[0]).toMatchObject({ id: 'D1', type: 'door', wall_id: 'W1' });
+    expect(summary.targetFloor.issues).toEqual([issue]);
+  });
+
   test('API tool rejects invalid floor_id before calling the API', async () => {
     const apiClient = {
       runTool: async () => {

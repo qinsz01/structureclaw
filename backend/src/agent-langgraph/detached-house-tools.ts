@@ -104,7 +104,9 @@ export function createDetachedHouseApiTool(toolId: DetachedHouseApiToolId, apiCl
         floorId: typeof options.floor_id === 'string' ? options.floor_id : undefined,
         referenceFloorId: typeof options.reference_floor_id === 'string' ? options.reference_floor_id : undefined,
       });
-      const summary = summarizeDesignUpdate(true, toolName, response.design, envelope.revision, response.issues);
+      const summary = summarizeDesignUpdate(true, toolName, response.design, envelope.revision, response.issues, {
+        targetFloorId: typeof options.floor_id === 'string' ? options.floor_id : undefined,
+      });
       return toolResult(getToolCallId(config), toolName, JSON.stringify(summary), {
         artifacts: { designBasis: envelope },
         analysisResult: null,
@@ -346,6 +348,7 @@ function summarizeDesignUpdate(
   design: Record<string, unknown>,
   revision: number,
   issues: Array<Record<string, unknown>>,
+  options: { targetFloorId?: string } = {},
 ): Record<string, unknown> {
   const floorSummaries = summarizeFloors(design);
   return {
@@ -354,7 +357,9 @@ function summarizeDesignUpdate(
     floorCount: floorSummaries.length,
     floorIds: floorSummaries.map((floor) => floor.id),
     floors: floorSummaries,
+    targetFloor: summarizeTargetFloor(design, options.targetFloorId, issues),
     layoutStrategy: isRecord(design.layout_strategy) ? design.layout_strategy : undefined,
+    completionStatus: success && issues.length === 0 ? 'ok' : 'needs_attention',
     issueCount: issues.length,
     revision,
     issues,
@@ -401,6 +406,117 @@ function summarizeFloors(design: Record<string, unknown>): Array<Record<string, 
       };
     })
     .filter((floor) => typeof floor.id === 'string' && floor.id.length > 0);
+}
+
+function summarizeTargetFloor(
+  design: Record<string, unknown>,
+  targetFloorId: string | undefined,
+  issues: Array<Record<string, unknown>>,
+): Record<string, unknown> | undefined {
+  if (!targetFloorId) return undefined;
+  const floors = Array.isArray(design.floors) ? design.floors.filter(isRecord) : [];
+  const floor = floors.find((candidate) => candidate.id === targetFloorId);
+  if (!floor) return undefined;
+
+  const rooms = recordArray(floor.rooms);
+  const walls = recordArray(floor.walls);
+  const openings = recordArray(floor.openings);
+  const columns = recordArray(floor.columns);
+  const beams = recordArray(floor.beams);
+  const doorCount = openings.filter((opening) => opening.type === 'door').length;
+  const windowCount = openings.filter((opening) => opening.type === 'window').length;
+
+  return {
+    id: floor.id,
+    role: floor.role,
+    reference_floor_id: floor.reference_floor_id,
+    elevation: floor.elevation,
+    height: floor.height,
+    outline: floor.outline,
+    roomCount: rooms.length,
+    wallCount: walls.length,
+    openingCount: openings.length,
+    doorCount,
+    windowCount,
+    columnCount: columns.length,
+    beamCount: beams.length,
+    rooms: rooms.slice(0, 30).map(compactRoom),
+    walls: walls.slice(0, 60).map(compactWall),
+    openings: openings.slice(0, 60).map(compactOpening),
+    columns: columns.slice(0, 40).map(compactColumn),
+    beams: beams.slice(0, 60).map(compactBeam),
+    truncated: {
+      rooms: rooms.length > 30,
+      walls: walls.length > 60,
+      openings: openings.length > 60,
+      columns: columns.length > 40,
+      beams: beams.length > 60,
+    },
+    issues: issues.filter((issue) => issueMatchesFloor(issue, targetFloorId)),
+  };
+}
+
+function recordArray(value: unknown): Array<Record<string, unknown>> {
+  return Array.isArray(value) ? value.filter(isRecord) : [];
+}
+
+function compactRoom(room: Record<string, unknown>): Record<string, unknown> {
+  return {
+    id: room.id,
+    type: room.type,
+    name: room.name,
+    polygon: room.polygon,
+  };
+}
+
+function compactWall(wall: Record<string, unknown>): Record<string, unknown> {
+  return {
+    id: wall.id,
+    kind: wall.kind ?? wall.type,
+    line: wall.line,
+    adjacent_room_ids: wall.adjacent_room_ids,
+    thickness: wall.thickness,
+    structural: wall.structural,
+  };
+}
+
+function compactOpening(opening: Record<string, unknown>): Record<string, unknown> {
+  return {
+    id: opening.id,
+    type: opening.type,
+    wall_id: opening.wall_id,
+    offset: opening.offset,
+    start: opening.start,
+    width: opening.width,
+    height: opening.height,
+    room_ids: opening.room_ids,
+  };
+}
+
+function compactColumn(column: Record<string, unknown>): Record<string, unknown> {
+  return {
+    id: column.id,
+    x: column.x,
+    y: column.y,
+    size: column.size,
+    width: column.width,
+    depth: column.depth,
+  };
+}
+
+function compactBeam(beam: Record<string, unknown>): Record<string, unknown> {
+  return {
+    id: beam.id,
+    line: beam.line,
+    start_column_id: beam.start_column_id,
+    end_column_id: beam.end_column_id,
+    width: beam.width,
+    depth: beam.depth,
+  };
+}
+
+function issueMatchesFloor(issue: Record<string, unknown>, floorId: string): boolean {
+  return issue.floor_id === floorId || issue.floorId === floorId || issue.floor === floorId;
 }
 
 function getFloorIds(design: Record<string, unknown>): string[] {
