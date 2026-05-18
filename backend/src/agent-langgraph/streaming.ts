@@ -230,6 +230,7 @@ export function langGraphEventToChunks(
               skillId: extractSkillIdFromContent(content),
               completedAt: new Date().toISOString(),
               output: truncate(content, 500),
+              ...buildDetachedHouseDesignSnapshot(toolName, nodeState),
             },
           });
 
@@ -383,6 +384,28 @@ function emitArtifactSync(toolOutput: string, nodeState?: any): AgentStreamChunk
     // Not JSON — skip artifact sync
   }
   return chunks;
+}
+
+function buildDetachedHouseDesignSnapshot(toolName: string, nodeState?: any): { designSnapshot?: { artifactId?: string; revision?: number; design: Record<string, unknown> } } {
+  if (!toolName.startsWith('detached_house_')) return {};
+  const artifacts = resolveStateValue(nodeState, 'artifacts');
+  if (!artifacts || typeof artifacts !== 'object') return {};
+  const designBasis = (artifacts as Record<string, unknown>).designBasis;
+  if (!designBasis || typeof designBasis !== 'object') return {};
+  const envelope = designBasis as Record<string, unknown>;
+  const payload = envelope.payload;
+  if (!payload || typeof payload !== 'object') return {};
+  const payloadRecord = payload as Record<string, unknown>;
+  if (payloadRecord.artifactType !== 'detached_house_design') return {};
+  const design = payloadRecord.design;
+  if (!design || typeof design !== 'object' || Array.isArray(design)) return {};
+  return {
+    designSnapshot: {
+      ...(typeof envelope.artifactId === 'string' ? { artifactId: envelope.artifactId } : {}),
+      ...(typeof envelope.revision === 'number' ? { revision: envelope.revision } : {}),
+      design: design as Record<string, unknown>,
+    },
+  };
 }
 
 const USER_ACTIONABLE_FAILURE_TOOLS = new Set(['memory']);

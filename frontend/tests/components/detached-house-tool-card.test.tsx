@@ -1,0 +1,41 @@
+import { render, screen, fireEvent } from '@testing-library/react'
+import { describe, expect, it } from 'vitest'
+import { ToolCallCard } from '@/components/chat/tool-call-card'
+import type { TimelineStepItem } from '@/components/chat/message-presentation'
+import { messages } from '@/lib/i18n'
+
+const t = (key: keyof typeof messages.en) => messages.en[key]
+
+describe('detached-house tool card plan viewer', () => {
+  it('shows an inline plan viewer for detached-house tool snapshots', () => {
+    const step: TimelineStepItem = {
+      id: 'step-1',
+      phase: 'modeling',
+      status: 'done',
+      tool: 'detached_house_generate_floor_rooms',
+      title: 'detached_house_generate_floor_rooms',
+      output: '{"success":true}',
+      designSnapshot: {
+        design: {
+          version: '0.1',
+          floors: [
+            {
+              id: 'F1',
+              outline: [[0, 0], [6000, 0], [6000, 4000], [0, 4000]],
+              rooms: [
+                { id: 'R1', type: 'living', polygon: [[0, 0], [6000, 0], [6000, 4000], [0, 4000]] },
+              ],
+            },
+          ],
+        },
+      },
+    }
+
+    render(<ToolCallCard step={step} t={t} attached />)
+
+    fireEvent.click(screen.getByRole('button', { name: /view plan/i }))
+
+    expect(screen.getByText('F1')).toBeInTheDocument()
+    expect(screen.getByLabelText('Detached house plan preview')).toBeInTheDocument()
+  })
+})

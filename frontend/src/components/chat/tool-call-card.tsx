@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Loader2, Map } from 'lucide-react'
 import type { TimelineStepItem } from './message-presentation'
+import { DetachedHousePlanViewer } from './detached-house-plan-viewer'
 import type { MessageKey } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
@@ -32,8 +33,10 @@ function truncateOutput(output: unknown, maxLen = 300): string {
 
 export function ToolCallCard({ step, t, attached = false }: ToolCallCardProps) {
   const [expanded, setExpanded] = useState(false)
+  const [planExpanded, setPlanExpanded] = useState(false)
   const hasArgs = !!(step.args && Object.keys(step.args).length > 0)
   const hasOutput = step.status === 'done' && step.output !== undefined && step.output !== null
+  const hasPlan = step.tool.startsWith('detached_house_') && Boolean(step.designSnapshot?.design)
   const showToggle = hasArgs || hasOutput
 
   const statusIcon = (() => {
@@ -81,11 +84,21 @@ export function ToolCallCard({ step, t, attached = false }: ToolCallCardProps) {
         {step.durationMs != null && step.status === 'done' && (
           <span className="ml-auto text-[10px] text-muted-foreground">{step.durationMs}ms</span>
         )}
+        {hasPlan && (
+          <button
+            type="button"
+            onClick={() => setPlanExpanded(!planExpanded)}
+            className="ml-auto flex items-center gap-1 text-[10px] text-cyan-700 transition-colors hover:text-cyan-900 dark:text-cyan-300 dark:hover:text-cyan-100"
+          >
+            <Map className="h-3 w-3" />
+            {planExpanded ? t('hidePlan') : t('viewPlan')}
+          </button>
+        )}
         {showToggle && (
           <button
             type="button"
             onClick={() => setExpanded(!expanded)}
-            className="ml-auto flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+            className={cn('flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors', hasPlan ? '' : 'ml-auto')}
           >
             {expanded ? (
               <>
@@ -127,6 +140,10 @@ export function ToolCallCard({ step, t, attached = false }: ToolCallCardProps) {
         <div className="border-t border-border/20 px-3 py-1.5 text-[10px] text-muted-foreground truncate">
           {truncateOutput(step.output)}
         </div>
+      ) : null}
+
+      {planExpanded && step.designSnapshot?.design ? (
+        <DetachedHousePlanViewer design={step.designSnapshot.design} />
       ) : null}
 
       {/* Error message */}

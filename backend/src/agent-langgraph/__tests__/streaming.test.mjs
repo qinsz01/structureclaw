@@ -95,4 +95,41 @@ describe('LangGraph streaming adapter', () => {
     expect(summary.summaryText).not.toContain('C:\\\\tmp');
     expect(summary.summaryText.length).toBeLessThanOrEqual(240);
   });
+
+  test('attaches detached-house design snapshots to detached-house tool steps', async () => {
+    const { langGraphEventToChunks } = await import('../../../dist/agent-langgraph/streaming.js');
+    const design = {
+      version: '0.1',
+      floors: [
+        {
+          id: 'F1',
+          outline: [[0, 0], [6000, 0], [6000, 4000], [0, 4000]],
+          rooms: [{ id: 'R1', type: 'living', polygon: [[0, 0], [6000, 0], [6000, 4000], [0, 4000]] }],
+        },
+      ],
+    };
+
+    const chunks = langGraphEventToChunks({
+      tools: {
+        messages: [
+          new ToolMessage({
+            name: 'detached_house_generate_floor_rooms',
+            tool_call_id: 'call-detached',
+            content: JSON.stringify({ success: true, tool: 'detached_house_generate_floor_rooms' }),
+          }),
+        ],
+        artifacts: {
+          designBasis: {
+            payload: { artifactType: 'detached_house_design', design },
+          },
+        },
+      },
+    }, 'updates');
+
+    const step = chunks.find((chunk) => chunk.type === 'step_upsert')?.step;
+    expect(step).toMatchObject({
+      tool: 'detached_house_generate_floor_rooms',
+      designSnapshot: { design },
+    });
+  });
 });

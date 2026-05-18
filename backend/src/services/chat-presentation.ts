@@ -19,6 +19,11 @@ export interface TimelineStepItem {
   startedAt?: string;
   completedAt?: string;
   durationMs?: number;
+  designSnapshot?: {
+    artifactId?: string;
+    revision?: number;
+    design: Record<string, unknown>;
+  };
 }
 
 // --- Phase group ---
