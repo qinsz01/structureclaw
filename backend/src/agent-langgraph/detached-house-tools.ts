@@ -351,6 +351,7 @@ function summarizeDesignUpdate(
   options: { targetFloorId?: string } = {},
 ): Record<string, unknown> {
   const floorSummaries = summarizeFloors(design);
+  const completionStatus = success && issues.length === 0 ? 'ok' : 'needs_attention';
   return {
     success,
     tool: toolName,
@@ -359,11 +360,23 @@ function summarizeDesignUpdate(
     floors: floorSummaries,
     targetFloor: summarizeTargetFloor(design, options.targetFloorId, issues),
     layoutStrategy: isRecord(design.layout_strategy) ? design.layout_strategy : undefined,
-    completionStatus: success && issues.length === 0 ? 'ok' : 'needs_attention',
+    completionStatus,
+    replyGuidance: buildReplyGuidance(completionStatus, options.targetFloorId),
     issueCount: issues.length,
     revision,
     issues,
   };
+}
+
+function buildReplyGuidance(completionStatus: string, targetFloorId: string | undefined): string {
+  const scope = targetFloorId ? `for ${targetFloorId}` : 'for the design';
+  if (completionStatus === 'needs_attention') {
+    return (
+      `Summarize only returned artifact data ${scope}. Do not draw an ASCII plan. ` +
+      'Do not describe the step as complete. Report targetFloor.issues exactly, including area, region_count, and regions when present.'
+    );
+  }
+  return `Summarize only returned artifact data ${scope}. Do not draw an ASCII plan or invent room positions, dimensions, doors, or windows.`;
 }
 
 function validateFloorIdOption(

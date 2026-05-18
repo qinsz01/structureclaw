@@ -200,6 +200,8 @@ describe('detached-house tools', () => {
     });
     expect(summary.targetFloor.openings[0]).toMatchObject({ id: 'D1', type: 'door', wall_id: 'W1' });
     expect(summary.targetFloor.issues).toEqual([issue]);
+    expect(summary.replyGuidance).toContain('Do not draw an ASCII plan');
+    expect(summary.replyGuidance).toContain('Do not describe the step as complete');
   });
 
   test('API tool rejects invalid floor_id before calling the API', async () => {
