@@ -242,9 +242,11 @@ export function createAnalyzeFileTool() {
       if (ext === '.pdf') {
         try {
           // Dynamic import so the server still starts if pdf-parse is not installed
-          const pdfParse = await import('pdf-parse').then((m) => m.default ?? m);
+          // Handle both ES module default export and CommonJS module format
+          const mod = await import('pdf-parse');
+          const pdfParse = 'default' in mod ? mod.default : mod;
           const buf = await fsp.readFile(resolvedPath);
-          const data = await pdfParse(buf);
+          const data = await (pdfParse as (buf: Buffer) => Promise<{ numpages: number; text: string }>)(buf);
           return JSON.stringify({
             success: true,
             type: 'pdf',

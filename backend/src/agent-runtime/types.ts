@@ -24,6 +24,8 @@ export type StructuralTypeKey =
   | 'double-span-beam'
   | 'frame'
   | 'steel-frame'
+  | 'concrete-frame'
+  | 'reinforced-concrete-frame'
   | 'portal'
   | 'girder'
   | 'space-frame'
@@ -66,6 +68,10 @@ export interface DraftState {
   bayWidthsYM?: number[];
   floorLoads?: DraftFloorLoad[];
   frameBaseSupportType?: FrameBaseSupportType;
+  frameConcreteGrade?: string;
+  frameRebarGrade?: string;
+  frameColumnSection?: string;
+  frameBeamSection?: string;
   loadKN?: number;
   loadType?: DraftLoadType;
   loadPosition?: DraftLoadPosition;
@@ -97,6 +103,10 @@ export interface DraftExtraction {
   bayWidthsYM?: number[];
   floorLoads?: DraftFloorLoad[];
   frameBaseSupportType?: FrameBaseSupportType;
+  frameConcreteGrade?: string;
+  frameRebarGrade?: string;
+  frameColumnSection?: string;
+  frameBeamSection?: string;
   loadKN?: number;
   loadType?: DraftLoadType;
   loadPosition?: DraftLoadPosition;
