@@ -139,7 +139,11 @@ export function convertDetachedHouseDesignToStructureModel(design: Record<string
     ],
     wall_openings: [],
     slab_openings: [],
-    metadata: { source: 'detached_house_design' },
+    metadata: {
+      source: 'detached_house_design',
+      coordinateSemantics: 'global-z-up',
+      frameDimension: '3d',
+    },
   };
 }
 

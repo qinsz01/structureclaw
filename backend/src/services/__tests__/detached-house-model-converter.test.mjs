@@ -40,6 +40,16 @@ describe('convertDetachedHouseDesignToStructureModel', () => {
     expect(result.load_combinations.map((combo) => combo.id)).toEqual(['ULS1', 'SLS1']);
   });
 
+  test('marks converted models with canonical z-up coordinate semantics', () => {
+    const result = convertDetachedHouseDesignToStructureModel(design);
+
+    expect(result.metadata).toEqual(expect.objectContaining({
+      source: 'detached_house_design',
+      coordinateSemantics: 'global-z-up',
+      frameDimension: '3d',
+    }));
+  });
+
   test('places detached-house floor beams at each floor ceiling level', () => {
     const result = convertDetachedHouseDesignToStructureModel(design);
     const nodesById = new Map(result.nodes.map((node) => [node.id, node]));

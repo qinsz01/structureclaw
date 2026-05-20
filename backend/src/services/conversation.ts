@@ -146,6 +146,48 @@ function repairGenericLatestResult(latestResult: JsonValue | null): JsonValue | 
   } as JsonValue;
 }
 
+function repairDetachedHouseModelMetadata(model: Record<string, unknown> | null): Record<string, unknown> | null {
+  if (!hasModelGeometry(model)) {
+    return model;
+  }
+  const currentMetadata = asRecord(model?.metadata);
+  if (currentMetadata?.source !== 'detached_house_design') {
+    return model;
+  }
+  if (
+    currentMetadata.coordinateSemantics === STRUCTURAL_COORDINATE_SEMANTICS
+    && currentMetadata.frameDimension === '3d'
+  ) {
+    return model;
+  }
+
+  return {
+    ...model,
+    metadata: {
+      ...currentMetadata,
+      source: 'detached_house_design',
+      coordinateSemantics: STRUCTURAL_COORDINATE_SEMANTICS,
+      frameDimension: '3d',
+    },
+  };
+}
+
+function repairDetachedHouseLatestResult(latestResult: JsonValue | null): JsonValue | null {
+  const latestResultRecord = asRecord(latestResult);
+  if (!latestResultRecord) {
+    return latestResult;
+  }
+  const model = asRecord(latestResultRecord.model);
+  const repairedModel = repairDetachedHouseModelMetadata(model);
+  if (repairedModel === model) {
+    return latestResult;
+  }
+  return {
+    ...latestResultRecord,
+    model: repairedModel,
+  } as JsonValue;
+}
+
 function repairVisualizationSnapshot(
   snapshot: JsonValue | null,
   model: Record<string, unknown> | null,
@@ -270,7 +312,9 @@ export class ConversationService {
 
     if (!conversation) return null;
 
-    const repairedLatestResult = repairGenericLatestResult(conversation.latestResult);
+    const repairedLatestResult = repairDetachedHouseLatestResult(
+      repairGenericLatestResult(conversation.latestResult),
+    );
     const repairedModel = asRecord(asRecord(repairedLatestResult)?.model);
     const repairedModelSnapshot = repairVisualizationSnapshot(conversation.modelSnapshot, repairedModel);
     const repairedResultSnapshot = repairVisualizationSnapshot(conversation.resultSnapshot, repairedModel);
