@@ -24,8 +24,9 @@ export class DetachedHouseApiClient {
   async runTool(toolId: string, request: DetachedHouseToolRequest): Promise<DetachedHouseToolResponse> {
     const abortController = new AbortController();
     const timeout = setTimeout(() => abortController.abort(), this.timeoutMs);
+    const endpoint = `${this.baseUrl}/tools/${toolId}`;
     try {
-      const response = await this.fetchImpl(`${this.baseUrl}/tools/${toolId}`, {
+      const response = await this.fetchImpl(endpoint, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -48,6 +49,9 @@ export class DetachedHouseApiClient {
     } catch (error) {
       if (abortController.signal.aborted) {
         throw new Error(`Detached-house API ${toolId} timed out after ${this.timeoutMs}ms`);
+      }
+      if (isRequestTransportError(error)) {
+        throw new Error(formatRequestTransportError(toolId, endpoint, error));
       }
       throw error;
     } finally {
@@ -72,4 +76,40 @@ function normalizeDetachedHouseToolResponse(toolId: string, payload: unknown): D
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isRequestTransportError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return true;
+  }
+  return error instanceof TypeError || error.name === 'AbortError' || Boolean((error as { cause?: unknown }).cause);
+}
+
+function formatRequestTransportError(toolId: string, endpoint: string, error: unknown): string {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  const cause = error instanceof Error ? formatErrorCause((error as { cause?: unknown }).cause) : null;
+  const causeText = cause ? ` (cause: ${cause})` : '';
+  return `Detached-house API ${toolId} request failed at ${endpoint}: ${errorMessage}${causeText}`;
+}
+
+function formatErrorCause(cause: unknown): string | null {
+  if (!cause) {
+    return null;
+  }
+  if (isRecord(cause)) {
+    const code = typeof cause.code === 'string' ? cause.code : null;
+    const address = typeof cause.address === 'string' ? cause.address : null;
+    const port = typeof cause.port === 'number' || typeof cause.port === 'string' ? String(cause.port) : null;
+    if (code && address && port) {
+      return `${code} ${address}:${port}`;
+    }
+    const compact = [code, address, port].filter(Boolean).join(' ');
+    if (compact) {
+      return compact;
+    }
+  }
+  if (cause instanceof Error) {
+    return cause.message;
+  }
+  return String(cause);
 }

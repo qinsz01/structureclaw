@@ -52,4 +52,24 @@ describe('DetachedHouseApiClient', () => {
     await expect(client.runTool('generate_column_grid', { design: {}, options: {} }))
       .rejects.toThrow('Detached-house API generate_column_grid timed out after 1ms');
   });
+
+  test('includes endpoint and network cause when the detached-house API request fails before response', async () => {
+    const cause = Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:8569'), {
+      code: 'ECONNREFUSED',
+      address: '127.0.0.1',
+      port: 8569,
+    });
+    const fetchError = new TypeError('fetch failed', { cause });
+    const client = new DetachedHouseApiClient({
+      baseUrl: 'http://127.0.0.1:8569',
+      fetchImpl: async () => {
+        throw fetchError;
+      },
+    });
+
+    await expect(client.runTool('generate_floor_rooms', { design: {}, options: {} }))
+      .rejects.toThrow(
+        'Detached-house API generate_floor_rooms request failed at http://127.0.0.1:8569/tools/generate_floor_rooms: fetch failed (cause: ECONNREFUSED 127.0.0.1:8569)',
+      );
+  });
 });
