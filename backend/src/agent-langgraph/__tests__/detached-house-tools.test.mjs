@@ -158,6 +158,297 @@ describe('detached-house tools', () => {
     });
   });
 
+  test('API tool summary marks openings without walls as needing attention', async () => {
+    const apiClient = {
+      runTool: async (_toolId, request) => ({
+        design: {
+          ...request.design,
+          floors: [
+            {
+              ...request.design.floors[0],
+              rooms: [
+                { id: 'R1', type: 'living_room', polygon: [[0, 0], [6000, 0], [6000, 4000], [0, 4000]] },
+              ],
+              walls: [],
+              openings: [
+                { id: 'D1', type: 'door', wall_id: 'W1', offset: 1000, width: 1000 },
+              ],
+            },
+            request.design.floors[1],
+          ],
+        },
+        issues: [],
+      }),
+    };
+    const setTool = createDetachedHouseCreateDesignBasisTool();
+    const setCommand = await setTool.invoke(
+      { message: '两层住宅，12m x 9m' },
+      cfg(),
+    );
+
+    const apiTool = createDetachedHouseApiTool('place_doors_windows', apiClient);
+    const command = await apiTool.invoke(
+      { optionsJson: JSON.stringify({ floor_id: 'F1' }) },
+      cfg({ artifacts: setCommand.update.artifacts }),
+    );
+
+    const summary = JSON.parse(command.update.messages[0].content);
+    expect(summary.completionStatus).toBe('needs_attention');
+    expect(summary.issueCount).toBe(1);
+    expect(summary.issues[0]).toMatchObject({
+      id: 'stage_prerequisite_missing_walls_F1',
+      level: 'error',
+      floor_id: 'F1',
+    });
+    expect(summary.replyGuidance).toContain('Do not describe the step as complete');
+  });
+
+  test('API tool summary marks generated wall step with zero walls as needing attention', async () => {
+    const apiClient = {
+      runTool: async (_toolId, request) => ({
+        design: {
+          ...request.design,
+          floors: [
+            {
+              ...request.design.floors[0],
+              rooms: [
+                { id: 'R1', type: 'living_room', polygon: [[0, 0], [6000, 0], [6000, 4000], [0, 4000]] },
+              ],
+              walls: [],
+            },
+            request.design.floors[1],
+          ],
+        },
+        issues: [],
+      }),
+    };
+    const setTool = createDetachedHouseCreateDesignBasisTool();
+    const setCommand = await setTool.invoke(
+      { message: '两层住宅，12m x 9m' },
+      cfg(),
+    );
+
+    const apiTool = createDetachedHouseApiTool('generate_floor_walls', apiClient);
+    const command = await apiTool.invoke(
+      { optionsJson: JSON.stringify({ floor_id: 'F1' }) },
+      cfg({ artifacts: setCommand.update.artifacts }),
+    );
+
+    const summary = JSON.parse(command.update.messages[0].content);
+    expect(summary.completionStatus).toBe('needs_attention');
+    expect(summary.issueCount).toBe(1);
+    expect(summary.targetFloor.wallCount).toBe(0);
+    expect(summary.issues[0]).toMatchObject({
+      id: 'stage_walls_missing_F1',
+      level: 'error',
+      floor_id: 'F1',
+    });
+    expect(summary.replyGuidance).toContain('Do not describe the step as complete');
+  });
+
+  test('API tool summary marks room layouts without room ids as needing attention', async () => {
+    const apiClient = {
+      runTool: async (_toolId, request) => ({
+        design: {
+          ...request.design,
+          floors: [
+            {
+              ...request.design.floors[0],
+              rooms: [
+                { type: 'living_room', polygon: [[0, 0], [6000, 0], [6000, 4000], [0, 4000]] },
+              ],
+            },
+            request.design.floors[1],
+          ],
+        },
+        issues: [],
+      }),
+    };
+    const setTool = createDetachedHouseCreateDesignBasisTool();
+    const setCommand = await setTool.invoke(
+      { message: '两层住宅，12m x 9m' },
+      cfg(),
+    );
+
+    const apiTool = createDetachedHouseApiTool('generate_floor_rooms', apiClient);
+    const command = await apiTool.invoke(
+      { optionsJson: JSON.stringify({ floor_id: 'F1' }) },
+      cfg({ artifacts: setCommand.update.artifacts }),
+    );
+
+    const summary = JSON.parse(command.update.messages[0].content);
+    expect(summary.completionStatus).toBe('needs_attention');
+    expect(summary.issueCount).toBe(1);
+    expect(summary.issues[0]).toMatchObject({
+      id: 'stage_room_schema_invalid_F1',
+      level: 'error',
+      floor_id: 'F1',
+    });
+  });
+
+  test('API tool summary marks invalid walls as needing attention', async () => {
+    const apiClient = {
+      runTool: async (_toolId, request) => ({
+        design: {
+          ...request.design,
+          floors: [
+            {
+              ...request.design.floors[0],
+              rooms: [
+                { id: 'R1', type: 'living_room', polygon: [[0, 0], [6000, 0], [6000, 4000], [0, 4000]] },
+              ],
+              walls: [
+                { wall_id: 'W1', kind: 'exterior', line: [0, 0, 6000, 0] },
+              ],
+            },
+            request.design.floors[1],
+          ],
+        },
+        issues: [],
+      }),
+    };
+    const setTool = createDetachedHouseCreateDesignBasisTool();
+    const setCommand = await setTool.invoke(
+      { message: '两层住宅，12m x 9m' },
+      cfg(),
+    );
+
+    const apiTool = createDetachedHouseApiTool('generate_floor_walls', apiClient);
+    const command = await apiTool.invoke(
+      { optionsJson: JSON.stringify({ floor_id: 'F1' }) },
+      cfg({ artifacts: setCommand.update.artifacts }),
+    );
+
+    const summary = JSON.parse(command.update.messages[0].content);
+    expect(summary.completionStatus).toBe('needs_attention');
+    expect(summary.issues[0]).toMatchObject({
+      id: 'stage_wall_schema_invalid_F1',
+      level: 'error',
+      floor_id: 'F1',
+      element_ids: ['unknown_wall_1'],
+    });
+  });
+
+  test('API tool summary marks invalid openings as needing attention', async () => {
+    const apiClient = {
+      runTool: async (_toolId, request) => ({
+        design: {
+          ...request.design,
+          floors: [
+            {
+              ...request.design.floors[0],
+              rooms: [
+                { id: 'R1', type: 'living_room', polygon: [[0, 0], [6000, 0], [6000, 4000], [0, 4000]] },
+              ],
+              walls: [
+                { id: 'W1', kind: 'exterior', line: [0, 0, 6000, 0] },
+              ],
+              openings: [
+                { opening_id: 'D1', type: 'door', wall_id: 'W1' },
+              ],
+            },
+            request.design.floors[1],
+          ],
+        },
+        issues: [],
+      }),
+    };
+    const setTool = createDetachedHouseCreateDesignBasisTool();
+    const setCommand = await setTool.invoke(
+      { message: '两层住宅，12m x 9m' },
+      cfg(),
+    );
+
+    const apiTool = createDetachedHouseApiTool('place_doors_windows', apiClient);
+    const command = await apiTool.invoke(
+      { optionsJson: JSON.stringify({ floor_id: 'F1' }) },
+      cfg({ artifacts: setCommand.update.artifacts }),
+    );
+
+    const summary = JSON.parse(command.update.messages[0].content);
+    expect(summary.completionStatus).toBe('needs_attention');
+    expect(summary.issues[0]).toMatchObject({
+      id: 'stage_opening_schema_invalid_F1',
+      level: 'error',
+      floor_id: 'F1',
+      element_ids: ['unknown_opening_1'],
+    });
+  });
+
+  test('API tool summary marks invalid columns and beams as needing attention', async () => {
+    const apiClient = {
+      runTool: async (_toolId, request) => ({
+        design: {
+          ...request.design,
+          floors: [
+            {
+              ...request.design.floors[0],
+              columns: [{ column_id: 'C1', x: 0, y: 0 }],
+              beams: [{ id: 'B1', start: [0, 0], end: [6000, 0] }],
+            },
+            request.design.floors[1],
+          ],
+        },
+        issues: [],
+      }),
+    };
+    const setTool = createDetachedHouseCreateDesignBasisTool();
+    const setCommand = await setTool.invoke(
+      { message: '两层住宅，12m x 9m' },
+      cfg(),
+    );
+
+    const apiTool = createDetachedHouseApiTool('generate_beam_layout', apiClient);
+    const command = await apiTool.invoke(
+      { optionsJson: JSON.stringify({ floor_id: 'F1' }) },
+      cfg({ artifacts: setCommand.update.artifacts }),
+    );
+
+    const summary = JSON.parse(command.update.messages[0].content);
+    expect(summary.completionStatus).toBe('needs_attention');
+    expect(summary.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'stage_column_schema_invalid_F1', element_ids: ['unknown_column_1'] }),
+      expect.objectContaining({ id: 'stage_beam_schema_invalid_F1', element_ids: ['B1'] }),
+    ]));
+  });
+
+  test('API tool summary marks missing member sizes after sizing as needing attention', async () => {
+    const apiClient = {
+      runTool: async (_toolId, request) => ({
+        design: {
+          ...request.design,
+          floors: [
+            {
+              ...request.design.floors[0],
+              columns: [{ id: 'C1', x: 0, y: 0 }],
+              beams: [{ id: 'B1', line: [0, 0, 6000, 0] }],
+            },
+            request.design.floors[1],
+          ],
+        },
+        issues: [],
+      }),
+    };
+    const setTool = createDetachedHouseCreateDesignBasisTool();
+    const setCommand = await setTool.invoke(
+      { message: '两层住宅，12m x 9m' },
+      cfg(),
+    );
+
+    const apiTool = createDetachedHouseApiTool('size_members', apiClient);
+    const command = await apiTool.invoke(
+      { optionsJson: JSON.stringify({}) },
+      cfg({ artifacts: setCommand.update.artifacts }),
+    );
+
+    const summary = JSON.parse(command.update.messages[0].content);
+    expect(summary.completionStatus).toBe('needs_attention');
+    expect(summary.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'stage_column_size_missing_F1_C1' }),
+      expect.objectContaining({ id: 'stage_beam_size_missing_F1_B1' }),
+    ]));
+  });
+
   test('API tool summary includes compact target floor artifact detail', async () => {
     const issue = {
       id: 'floor_windows_missing_F1',

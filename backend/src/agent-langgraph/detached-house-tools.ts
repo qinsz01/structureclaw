@@ -352,21 +352,208 @@ function summarizeDesignUpdate(
   options: { targetFloorId?: string } = {},
 ): Record<string, unknown> {
   const floorSummaries = summarizeFloors(design);
-  const completionStatus = success && issues.length === 0 ? 'ok' : 'needs_attention';
+  const stageIssues = buildStageConsistencyIssues(toolName, design, options.targetFloorId);
+  const allIssues = [...issues, ...stageIssues];
+  const completionStatus = success && allIssues.length === 0 ? 'ok' : 'needs_attention';
   return {
     success,
     tool: toolName,
     floorCount: floorSummaries.length,
     floorIds: floorSummaries.map((floor) => floor.id),
     floors: floorSummaries,
-    targetFloor: summarizeTargetFloor(design, options.targetFloorId, issues),
+    targetFloor: summarizeTargetFloor(design, options.targetFloorId, allIssues),
     layoutStrategy: isRecord(design.layout_strategy) ? design.layout_strategy : undefined,
     completionStatus,
     replyGuidance: buildReplyGuidance(completionStatus, options.targetFloorId),
-    issueCount: issues.length,
+    issueCount: allIssues.length,
     revision,
-    issues,
+    issues: allIssues,
   };
+}
+
+function buildStageConsistencyIssues(
+  toolName: string,
+  design: Record<string, unknown>,
+  targetFloorId: string | undefined,
+): Array<Record<string, unknown>> {
+  const floors = Array.isArray(design.floors) ? design.floors.filter(isRecord) : [];
+  const targetFloors = targetFloorId
+    ? floors.filter((candidate) => candidate.id === targetFloorId)
+    : floors;
+  return targetFloors.flatMap((floor) => buildFloorStageConsistencyIssues(toolName, floor, String(floor.id || 'unknown_floor')));
+}
+
+function buildFloorStageConsistencyIssues(
+  toolName: string,
+  floor: Record<string, unknown>,
+  targetFloorId: string,
+): Array<Record<string, unknown>> {
+  const rooms = recordArray(floor.rooms);
+  const walls = recordArray(floor.walls);
+  const openings = recordArray(floor.openings);
+  const columns = recordArray(floor.columns);
+  const beams = recordArray(floor.beams);
+  const issues: Array<Record<string, unknown>> = [];
+  const invalidRoomIds = invalidRoomSchemaIds(rooms);
+  if (invalidRoomIds.length > 0) {
+    issues.push(schemaIssue(targetFloorId, 'room', invalidRoomIds, toolName));
+  }
+  const invalidWallIds = invalidWallSchemaIds(walls);
+  if (invalidWallIds.length > 0) {
+    issues.push(schemaIssue(targetFloorId, 'wall', invalidWallIds, toolName));
+  }
+  const invalidOpeningIds = invalidOpeningSchemaIds(openings);
+  if (invalidOpeningIds.length > 0) {
+    issues.push(schemaIssue(targetFloorId, 'opening', invalidOpeningIds, toolName));
+  }
+  const invalidColumnIds = invalidColumnSchemaIds(columns);
+  if (invalidColumnIds.length > 0) {
+    issues.push(schemaIssue(targetFloorId, 'column', invalidColumnIds, toolName));
+  }
+  const invalidBeamIds = invalidBeamSchemaIds(beams);
+  if (invalidBeamIds.length > 0) {
+    issues.push(schemaIssue(targetFloorId, 'beam', invalidBeamIds, toolName));
+  }
+  if (toolName === 'detached_house_generate_floor_walls' && rooms.length > 0 && walls.length === 0) {
+    issues.push({
+      id: `stage_walls_missing_${targetFloorId}`,
+      level: 'error',
+      floor_id: targetFloorId,
+      message: `Floor ${targetFloorId} has rooms but no generated walls; wall generation did not produce drawable wall geometry.`,
+      source_tool: 'detached_house_generate_floor_walls',
+    });
+  }
+  if (rooms.length > 0 && openings.length > 0 && walls.length === 0) {
+    issues.push({
+      id: `stage_prerequisite_missing_walls_${targetFloorId}`,
+      level: 'error',
+      floor_id: targetFloorId,
+      message: `Floor ${targetFloorId} has openings but no walls; door/window placement must run after wall generation succeeds.`,
+      source_tool: 'detached_house_place_doors_windows',
+    });
+  }
+  if (toolName === 'detached_house_size_members') {
+    issues.push(...missingMemberSizeIssues(targetFloorId, columns, beams));
+  }
+  return issues;
+}
+
+function invalidRoomSchemaIds(rooms: Array<Record<string, unknown>>): string[] {
+  return rooms.flatMap((room, index) => {
+    if (
+      typeof room.id === 'string'
+      && room.id.trim().length > 0
+      && typeof room.type === 'string'
+      && room.type.trim().length > 0
+      && Array.isArray(room.polygon)
+      && room.polygon.length >= 3
+    ) {
+      return [];
+    }
+    return [typeof room.id === 'string' && room.id.trim().length > 0 ? room.id : `unknown_room_${index + 1}`];
+  });
+}
+
+function invalidWallSchemaIds(walls: Array<Record<string, unknown>>): string[] {
+  return walls.flatMap((wall, index) => {
+    if (
+      typeof wall.id === 'string'
+      && wall.id.trim().length > 0
+      && normalizeLine(wall.line)
+      && typeof wall.kind === 'string'
+      && ['exterior', 'interior', 'virtual'].includes(wall.kind)
+    ) {
+      return [];
+    }
+    return [typeof wall.id === 'string' && wall.id.trim().length > 0 ? wall.id : `unknown_wall_${index + 1}`];
+  });
+}
+
+function invalidOpeningSchemaIds(openings: Array<Record<string, unknown>>): string[] {
+  return openings.flatMap((opening, index) => {
+    if (
+      typeof opening.id === 'string'
+      && opening.id.trim().length > 0
+      && (opening.type === 'door' || opening.type === 'window')
+      && typeof opening.wall_id === 'string'
+      && opening.wall_id.trim().length > 0
+    ) {
+      return [];
+    }
+    return [typeof opening.id === 'string' && opening.id.trim().length > 0 ? opening.id : `unknown_opening_${index + 1}`];
+  });
+}
+
+function invalidColumnSchemaIds(columns: Array<Record<string, unknown>>): string[] {
+  return columns.flatMap((column, index) => {
+    if (
+      typeof column.id === 'string'
+      && column.id.trim().length > 0
+      && typeof column.x === 'number'
+      && typeof column.y === 'number'
+    ) {
+      return [];
+    }
+    return [typeof column.id === 'string' && column.id.trim().length > 0 ? column.id : `unknown_column_${index + 1}`];
+  });
+}
+
+function invalidBeamSchemaIds(beams: Array<Record<string, unknown>>): string[] {
+  return beams.flatMap((beam, index) => {
+    if (typeof beam.id === 'string' && beam.id.trim().length > 0 && normalizeLine(beam.line)) {
+      return [];
+    }
+    return [typeof beam.id === 'string' && beam.id.trim().length > 0 ? beam.id : `unknown_beam_${index + 1}`];
+  });
+}
+
+function schemaIssue(
+  floorId: string,
+  itemName: string,
+  elementIds: string[],
+  toolName: string,
+): Record<string, unknown> {
+  return {
+    id: `stage_${itemName}_schema_invalid_${floorId}`,
+    level: 'error',
+    floor_id: floorId,
+    message: `Floor ${floorId} has invalid ${itemName} schema: ${elementIds.join(', ')}.`,
+    source_tool: toolName,
+    element_ids: elementIds,
+  };
+}
+
+function missingMemberSizeIssues(
+  floorId: string,
+  columns: Array<Record<string, unknown>>,
+  beams: Array<Record<string, unknown>>,
+): Array<Record<string, unknown>> {
+  const issues: Array<Record<string, unknown>> = [];
+  for (const column of columns) {
+    if (typeof column.id !== 'string' || !column.id.trim()) continue;
+    if (typeof column.width === 'number' && typeof column.depth === 'number') continue;
+    issues.push({
+      id: `stage_column_size_missing_${floorId}_${column.id}`,
+      level: 'error',
+      floor_id: floorId,
+      element_id: column.id,
+      message: `Column ${column.id} on floor ${floorId} is missing width/depth size.`,
+      source_tool: 'detached_house_size_members',
+    });
+  }
+  for (const beam of beams) {
+    if (typeof beam.id !== 'string' || !beam.id.trim()) continue;
+    if (typeof beam.width === 'number' && typeof beam.height === 'number') continue;
+    issues.push({
+      id: `stage_beam_size_missing_${floorId}_${beam.id}`,
+      level: 'error',
+      floor_id: floorId,
+      element_id: beam.id,
+      message: `Beam ${beam.id} on floor ${floorId} is missing width/height size.`,
+      source_tool: 'detached_house_size_members',
+    });
+  }
+  return issues;
 }
 
 function buildReplyGuidance(completionStatus: string, targetFloorId: string | undefined): string {
@@ -486,7 +673,7 @@ function compactRoom(room: Record<string, unknown>): Record<string, unknown> {
 function compactWall(wall: Record<string, unknown>): Record<string, unknown> {
   return {
     id: wall.id,
-    kind: wall.kind ?? wall.type,
+    kind: wall.kind,
     line: wall.line,
     adjacent_room_ids: wall.adjacent_room_ids,
     thickness: wall.thickness,
@@ -500,7 +687,6 @@ function compactOpening(opening: Record<string, unknown>): Record<string, unknow
     type: opening.type,
     wall_id: opening.wall_id,
     offset: opening.offset,
-    start: opening.start,
     width: opening.width,
     height: opening.height,
     room_ids: opening.room_ids,
@@ -525,8 +711,14 @@ function compactBeam(beam: Record<string, unknown>): Record<string, unknown> {
     start_column_id: beam.start_column_id,
     end_column_id: beam.end_column_id,
     width: beam.width,
-    depth: beam.depth,
+    height: beam.height,
   };
+}
+
+function normalizeLine(value: unknown): [number, number, number, number] | null {
+  if (!Array.isArray(value) || value.length !== 4) return null;
+  const line = value.map((item) => Number(item));
+  return line.every(Number.isFinite) ? [line[0], line[1], line[2], line[3]] : null;
 }
 
 function issueMatchesFloor(issue: Record<string, unknown>, floorId: string): boolean {

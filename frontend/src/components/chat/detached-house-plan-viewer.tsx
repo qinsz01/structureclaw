@@ -49,6 +49,7 @@ export function DetachedHousePlanViewer({ design }: { design: DetachedHouseDesig
   const [layers, setLayers] = useState(DEFAULT_LAYERS)
   const floor = floors.find((item) => item.id === selectedFloorId) ?? floors[0]
   const bounds = useMemo(() => computeGlobalBounds(floors, design), [floors, design])
+  const diagnostics = floor ? getFloorDiagnostics(floor) : []
 
   if (!floor) {
     return (
@@ -90,6 +91,11 @@ export function DetachedHousePlanViewer({ design }: { design: DetachedHouseDesig
           </label>
         ))}
       </div>
+      {diagnostics.length > 0 ? (
+        <div className="mb-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-800 dark:text-amber-200">
+          {diagnostics.join(' ')}
+        </div>
+      ) : null}
       <svg
         aria-label="Detached house plan preview"
         className="h-[300px] w-full rounded-md border border-border/60 bg-white dark:bg-slate-950"
@@ -108,6 +114,43 @@ export function DetachedHousePlanViewer({ design }: { design: DetachedHouseDesig
       </svg>
     </div>
   )
+}
+
+function getFloorDiagnostics(floor: Record<string, unknown>): string[] {
+  const walls = arrayRecords(floor.walls)
+  const openings = arrayRecords(floor.openings)
+  const diagnostics: string[] = []
+  const invalidWallCount = walls.filter((wall) => !isValidWall(wall)).length
+  const invalidOpeningCount = openings.filter((opening) => !isValidOpening(opening)).length
+  if (invalidWallCount > 0) {
+    diagnostics.push(`${invalidWallCount} wall(s) have invalid id/line/kind schema and may not draw correctly.`)
+  }
+  if (invalidOpeningCount > 0) {
+    diagnostics.push(`${invalidOpeningCount} opening(s) have invalid id/type/wall_id schema and cannot be positioned.`)
+  }
+  if (openings.length === 0) return diagnostics
+  const validWalls = walls.filter(isValidWall)
+  if (validWalls.length === 0) {
+    return [...diagnostics, 'Openings exist but this floor has no walls, so doors/windows cannot be positioned.']
+  }
+  const wallIds = new Set(validWalls.map((wall) => String(wall.id || '')).filter(Boolean))
+  const missingRefs = openings.filter((opening) => isValidOpening(opening) && !wallIds.has(String(opening.wall_id || ''))).length
+  if (missingRefs > 0) {
+    diagnostics.push(`${missingRefs} opening(s) reference missing walls and cannot be drawn.`)
+  }
+  return diagnostics
+}
+
+function isValidWall(wall: Record<string, unknown>) {
+  return typeof wall.id === 'string' && wall.id.trim().length > 0
+    && Boolean(normalizeLine(wall.line))
+    && (wall.kind === 'exterior' || wall.kind === 'interior' || wall.kind === 'virtual')
+}
+
+function isValidOpening(opening: Record<string, unknown>) {
+  return typeof opening.id === 'string' && opening.id.trim().length > 0
+    && (opening.type === 'door' || opening.type === 'window')
+    && typeof opening.wall_id === 'string' && opening.wall_id.trim().length > 0
 }
 
 function normalizeFloors(design: DetachedHouseDesign) {
@@ -212,7 +255,7 @@ function drawWalls(floor: Record<string, unknown>, bounds: ReturnType<typeof com
     if (!line) return null
     const [x1, y1] = mapPoint([line[0], line[1]], bounds)
     const [x2, y2] = mapPoint([line[2], line[3]], bounds)
-    const kind = String(wall.kind || wall.type || '')
+    const kind = String(wall.kind || '')
     const exterior = kind === 'exterior'
     const virtual = kind === 'virtual'
     return (
@@ -254,14 +297,14 @@ function drawColumns(floor: Record<string, unknown>, bounds: ReturnType<typeof c
 function drawOpenings(floor: Record<string, unknown>, bounds: ReturnType<typeof computeGlobalBounds>, layers: Record<LayerKey, boolean>) {
   const walls = new Map(arrayRecords(floor.walls).map((wall) => [String(wall.id || ''), normalizeLine(wall.line)]))
   return arrayRecords(floor.openings).map((opening, index) => {
-    const kind = String(opening.type || opening.kind || '')
+    const kind = String(opening.type || '')
     if (kind === 'door' && !layers.doors) return null
     if (kind === 'window' && !layers.windows) return null
     const wallLine = walls.get(String(opening.wall_id || ''))
     if (!wallLine) return null
     const width = Number(opening.width) || 900
     const length = Math.hypot(wallLine[2] - wallLine[0], wallLine[3] - wallLine[1]) || 1
-    const rawOffset = opening.offset ?? opening.start
+    const rawOffset = opening.offset
     const defaultOffset = Math.max(0, (length - width) / 2)
     const offset = Number.isFinite(Number(rawOffset)) ? Number(rawOffset) : defaultOffset
     const start = Math.max(0, Math.min(length, offset))
