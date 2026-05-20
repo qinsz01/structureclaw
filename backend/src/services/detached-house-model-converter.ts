@@ -24,9 +24,15 @@ export interface DetachedHouseBeam {
 interface EnsureNodeArgs {
   nodes: Array<Record<string, unknown>>;
   nodeIds: Map<string, string>;
-  floor: DetachedHouseFloor;
+  level: DetachedHouseLevel;
   x: number;
   y: number;
+}
+
+interface DetachedHouseLevel {
+  id: string;
+  storyId: string;
+  elevation: number;
 }
 
 export function convertDetachedHouseDesignToStructureModel(design: Record<string, unknown>): Record<string, unknown> {
@@ -48,52 +54,54 @@ export function convertDetachedHouseDesignToStructureModel(design: Record<string
   }));
 
   for (const floor of floors) {
+    const baseLevel = floorBaseLevel(floor);
+    const topLevel = floorTopLevel(floors, floor);
     for (const column of floor.columns ?? []) {
-      ensureNode({ nodes, nodeIds, floor, x: column.x, y: column.y });
+      ensureNode({ nodes, nodeIds, level: baseLevel, x: column.x, y: column.y });
+      ensureNode({ nodes, nodeIds, level: topLevel, x: column.x, y: column.y });
       ensureSection(sections, 'column', column.width ?? 350, column.depth ?? column.width ?? 350);
     }
     for (const beam of floor.beams ?? []) {
-      ensureNode({ nodes, nodeIds, floor, x: beam.line[0], y: beam.line[1] });
-      ensureNode({ nodes, nodeIds, floor, x: beam.line[2], y: beam.line[3] });
+      ensureNode({ nodes, nodeIds, level: topLevel, x: beam.line[0], y: beam.line[1] });
+      ensureNode({ nodes, nodeIds, level: topLevel, x: beam.line[2], y: beam.line[3] });
       ensureSection(sections, 'beam', beam.width ?? 250, beam.height ?? 500);
     }
   }
 
-  for (let i = 0; i < floors.length - 1; i += 1) {
-    const lower = floors[i];
-    const upper = floors[i + 1];
-    for (const column of lower.columns ?? []) {
-      const upperColumn = findColumnAt(upper, column.x, column.y);
-      if (!upperColumn) continue;
+  for (const floor of floors) {
+    const baseLevel = floorBaseLevel(floor);
+    const topLevel = floorTopLevel(floors, floor);
+    for (const column of floor.columns ?? []) {
       const sectionId = sectionIdFor('column', column.width ?? 350, column.depth ?? column.width ?? 350);
       elements.push({
-        id: `COL_${lower.id}_${column.id}`,
+        id: `COL_${floor.id}_${column.id}`,
         type: 'column',
         nodes: [
-          nodeKeyToId(nodeIds, lower.id, column.x, column.y),
-          nodeKeyToId(nodeIds, upper.id, upperColumn.x, upperColumn.y),
+          nodeKeyToId(nodeIds, baseLevel.id, column.x, column.y),
+          nodeKeyToId(nodeIds, topLevel.id, column.x, column.y),
         ],
         material: 'conc1',
         section: sectionId,
-        story: lower.id,
-        concrete_grade: i === 0 ? 'C35' : 'C30',
+        story: floor.id,
+        concrete_grade: (floor.elevation ?? 0) === 0 ? 'C35' : 'C30',
       });
     }
   }
 
   for (const floor of floors) {
+    const topLevel = floorTopLevel(floors, floor);
     for (const beam of floor.beams ?? []) {
       const sectionId = sectionIdFor('beam', beam.width ?? 250, beam.height ?? 500);
       elements.push({
         id: `BM_${floor.id}_${beam.id}`,
         type: 'beam',
         nodes: [
-          nodeKeyToId(nodeIds, floor.id, beam.line[0], beam.line[1]),
-          nodeKeyToId(nodeIds, floor.id, beam.line[2], beam.line[3]),
+          nodeKeyToId(nodeIds, topLevel.id, beam.line[0], beam.line[1]),
+          nodeKeyToId(nodeIds, topLevel.id, beam.line[2], beam.line[3]),
         ],
         material: 'conc1',
         section: sectionId,
-        story: floor.id,
+        story: topLevel.storyId,
         concrete_grade: 'C30',
       });
     }
@@ -191,19 +199,19 @@ function readBeam(value: unknown): DetachedHouseBeam | null {
 }
 
 function ensureNode(args: EnsureNodeArgs): string {
-  const key = nodeKey(args.floor.id, args.x, args.y);
+  const key = nodeKey(args.level.id, args.x, args.y);
   const existing = args.nodeIds.get(key);
   if (existing) return existing;
-  const id = `N_${args.floor.id}_${formatCoord(args.x)}_${formatCoord(args.y)}`;
+  const id = `N_${args.level.id}_${formatCoord(args.x)}_${formatCoord(args.y)}`;
   args.nodeIds.set(key, id);
   const node: Record<string, unknown> = {
     id,
     x: mmToM(args.x),
     y: mmToM(args.y),
-    z: mmToM(args.floor.elevation ?? 0),
-    story: args.floor.id,
+    z: mmToM(args.level.elevation),
+    story: args.level.storyId,
   };
-  if ((args.floor.elevation ?? 0) === 0) {
+  if (args.level.elevation === 0) {
     node.restraints = [true, true, true, true, true, true];
   }
   args.nodes.push(node);
@@ -230,18 +238,51 @@ function ensureSection(
   });
 }
 
-function findColumnAt(floor: DetachedHouseFloor, x: number, y: number): DetachedHouseColumn | undefined {
-  return (floor.columns ?? []).find((column) => column.x === x && column.y === y);
+function floorBaseLevel(floor: DetachedHouseFloor): DetachedHouseLevel {
+  return {
+    id: floor.id,
+    storyId: floor.id,
+    elevation: floor.elevation ?? 0,
+  };
 }
 
-function nodeKeyToId(nodeIds: Map<string, string>, floorId: string, x: number, y: number): string {
-  const id = nodeIds.get(nodeKey(floorId, x, y));
-  if (!id) throw new Error(`Missing node for ${floorId} (${x}, ${y})`);
+function floorTopLevel(floors: DetachedHouseFloor[], floor: DetachedHouseFloor): DetachedHouseLevel {
+  const elevation = floorTopElevation(floor);
+  const matchingFloor = findFloorAtElevation(floors, elevation);
+  if (matchingFloor) {
+    return {
+      id: matchingFloor.id,
+      storyId: matchingFloor.id,
+      elevation,
+    };
+  }
+  return {
+    id: `${floor.id}_TOP`,
+    storyId: floor.id,
+    elevation,
+  };
+}
+
+function floorTopElevation(floor: DetachedHouseFloor): number {
+  return (floor.elevation ?? 0) + (floor.height ?? 3300);
+}
+
+function findFloorAtElevation(floors: DetachedHouseFloor[], elevation: number): DetachedHouseFloor | undefined {
+  return floors.find((floor) => nearlyEqual(floor.elevation ?? 0, elevation));
+}
+
+function nearlyEqual(left: number, right: number): boolean {
+  return Math.abs(left - right) < 1e-6;
+}
+
+function nodeKeyToId(nodeIds: Map<string, string>, levelId: string, x: number, y: number): string {
+  const id = nodeIds.get(nodeKey(levelId, x, y));
+  if (!id) throw new Error(`Missing node for ${levelId} (${x}, ${y})`);
   return id;
 }
 
-function nodeKey(floorId: string, x: number, y: number): string {
-  return `${floorId}:${formatCoord(x)}:${formatCoord(y)}`;
+function nodeKey(levelId: string, x: number, y: number): string {
+  return `${levelId}:${formatCoord(x)}:${formatCoord(y)}`;
 }
 
 function sectionIdFor(purpose: 'column' | 'beam', width: number, height: number): string {

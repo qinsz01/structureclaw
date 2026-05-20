@@ -32,12 +32,40 @@ describe('convertDetachedHouseDesignToStructureModel', () => {
     expect(result.stories.map((story) => story.id)).toEqual(['F1', 'F2', 'F3']);
     expect(result.stories[1].elevation).toBe(3.6);
     expect(result.nodes.some((node) => node.x === 6 && node.y === 0 && node.z === 3.6)).toBe(true);
-    expect(result.elements.filter((element) => element.type === 'column')).toHaveLength(4);
+    expect(result.elements.filter((element) => element.type === 'column')).toHaveLength(6);
     expect(result.elements.filter((element) => element.type === 'beam')).toHaveLength(3);
     expect(result.sections.some((section) => section.id === 'col_400x400')).toBe(true);
     expect(result.sections.some((section) => section.id === 'beam_250x500')).toBe(true);
     expect(result.load_cases.map((loadCase) => loadCase.id)).toEqual(['D', 'L']);
     expect(result.load_combinations.map((combo) => combo.id)).toEqual(['ULS1', 'SLS1']);
+  });
+
+  test('places detached-house floor beams at each floor ceiling level', () => {
+    const result = convertDetachedHouseDesignToStructureModel(design);
+    const nodesById = new Map(result.nodes.map((node) => [node.id, node]));
+    const elementsById = new Map(result.elements.map((element) => [element.id, element]));
+
+    const f1Beam = elementsById.get('BM_F1_B1');
+    expect(f1Beam.story).toBe('F2');
+    expect(f1Beam.nodes.map((nodeId) => nodesById.get(nodeId).z)).toEqual([3.6, 3.6]);
+
+    const f3Beam = elementsById.get('BM_F3_B3');
+    expect(f3Beam.story).toBe('F3');
+    expect(f3Beam.nodes.map((nodeId) => nodesById.get(nodeId).z)).toEqual([10.2, 10.2]);
+  });
+
+  test('spans each floor columns from floor base to that floor ceiling', () => {
+    const result = convertDetachedHouseDesignToStructureModel(design);
+    const nodesById = new Map(result.nodes.map((node) => [node.id, node]));
+    const elementsById = new Map(result.elements.map((element) => [element.id, element]));
+
+    const f1Column = elementsById.get('COL_F1_C1');
+    expect(f1Column.nodes.map((nodeId) => nodesById.get(nodeId).z)).toEqual([0, 3.6]);
+    expect(f1Column.story).toBe('F1');
+
+    const f3Column = elementsById.get('COL_F3_C1');
+    expect(f3Column.nodes.map((nodeId) => nodesById.get(nodeId).z)).toEqual([6.9, 10.2]);
+    expect(f3Column.story).toBe('F3');
   });
 
   test('throws when required structural members are missing', () => {
