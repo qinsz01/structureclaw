@@ -33,9 +33,12 @@ function truncateOutput(output: unknown, maxLen = 300): string {
 
 export function ToolCallCard({ step, t, attached = false }: ToolCallCardProps) {
   const [expanded, setExpanded] = useState(false)
+  const [fullOutputExpanded, setFullOutputExpanded] = useState(false)
   const [planExpanded, setPlanExpanded] = useState(false)
   const hasArgs = !!(step.args && Object.keys(step.args).length > 0)
   const hasOutput = step.status === 'done' && step.output !== undefined && step.output !== null
+  const outputText = hasOutput ? formatJson(step.output) : ''
+  const canExpandFullOutput = outputText.length > 800
   const hasPlan = step.tool.startsWith('detached_house_') && Boolean(step.designSnapshot?.design)
   const showToggle = hasArgs || hasOutput
 
@@ -128,9 +131,26 @@ export function ToolCallCard({ step, t, attached = false }: ToolCallCardProps) {
       {/* Expanded: full output */}
       {expanded && hasOutput ? (
         <div className="border-t border-border/30 bg-background/50 px-3 py-2">
-          <div className="mb-1 text-[10px] font-medium text-muted-foreground">{t('outputLabel')}</div>
-          <pre className="max-h-64 overflow-auto text-[11px] leading-relaxed text-muted-foreground whitespace-pre-wrap break-all">
-            {formatJson(step.output)}
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <div className="text-[10px] font-medium text-muted-foreground">{t('outputLabel')}</div>
+            {canExpandFullOutput ? (
+              <button
+                type="button"
+                onClick={() => setFullOutputExpanded(!fullOutputExpanded)}
+                className="text-[10px] text-cyan-700 transition-colors hover:text-cyan-900 dark:text-cyan-300 dark:hover:text-cyan-100"
+              >
+                {fullOutputExpanded ? t('hideFullOutput') : t('showFullOutput')}
+              </button>
+            ) : null}
+          </div>
+          <pre
+            data-testid="tool-call-output"
+            className={cn(
+              fullOutputExpanded ? 'max-h-none' : 'max-h-64',
+              'overflow-auto text-[11px] leading-relaxed text-muted-foreground whitespace-pre-wrap break-all',
+            )}
+          >
+            {outputText}
           </pre>
         </div>
       ) : null}

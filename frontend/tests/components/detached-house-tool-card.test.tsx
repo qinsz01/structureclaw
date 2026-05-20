@@ -7,6 +7,36 @@ import { messages } from '@/lib/i18n'
 const t = (key: keyof typeof messages.en) => messages.en[key]
 
 describe('detached-house tool card plan viewer', () => {
+  it('can expand long tool output to full height', () => {
+    const step: TimelineStepItem = {
+      id: 'step-1',
+      phase: 'modeling',
+      status: 'done',
+      tool: 'detached_house_generate_floor_rooms',
+      title: 'detached_house_generate_floor_rooms',
+      output: JSON.stringify({
+        success: false,
+        issues: Array.from({ length: 40 }, (_, index) => ({
+          id: `issue-${index}`,
+          level: 'error',
+          message: `Long diagnostic message ${index}`,
+        })),
+      }),
+    }
+
+    render(<ToolCallCard step={step} t={t} attached />)
+
+    fireEvent.click(screen.getByRole('button', { name: /show details/i }))
+
+    const output = screen.getByTestId('tool-call-output')
+    expect(output).toHaveClass('max-h-64')
+
+    fireEvent.click(screen.getByRole('button', { name: /show full output/i }))
+
+    expect(screen.getByRole('button', { name: /hide full output/i })).toBeInTheDocument()
+    expect(output).not.toHaveClass('max-h-64')
+  })
+
   it('shows an inline plan viewer for detached-house tool snapshots', () => {
     const step: TimelineStepItem = {
       id: 'step-1',

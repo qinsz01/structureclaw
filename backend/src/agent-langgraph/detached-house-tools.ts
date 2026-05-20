@@ -354,9 +354,10 @@ function summarizeDesignUpdate(
   const floorSummaries = summarizeFloors(design);
   const stageIssues = buildStageConsistencyIssues(toolName, design, options.targetFloorId);
   const allIssues = [...issues, ...stageIssues];
-  const completionStatus = success && allIssues.length === 0 ? 'ok' : 'needs_attention';
+  const effectiveSuccess = success && !allIssues.some((issue) => issue.level === 'error');
+  const completionStatus = effectiveSuccess && allIssues.length === 0 ? 'ok' : 'needs_attention';
   return {
-    success,
+    success: effectiveSuccess,
     tool: toolName,
     floorCount: floorSummaries.length,
     floorIds: floorSummaries.map((floor) => floor.id),

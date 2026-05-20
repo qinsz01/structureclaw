@@ -286,6 +286,42 @@ describe('detached-house tools', () => {
     });
   });
 
+  test('API tool summary marks API error issues as unsuccessful', async () => {
+    const apiClient = {
+      runTool: async (_toolId, request) => ({
+        design: request.design,
+        issues: [
+          {
+            id: 'floor_room_gap_F1',
+            level: 'error',
+            message: 'Floor F1 has uncovered regions.',
+            floor_id: 'F1',
+          },
+        ],
+      }),
+    };
+    const setTool = createDetachedHouseCreateDesignBasisTool();
+    const setCommand = await setTool.invoke(
+      { message: '两层住宅，12m x 9m' },
+      cfg(),
+    );
+
+    const apiTool = createDetachedHouseApiTool('generate_floor_rooms', apiClient);
+    const command = await apiTool.invoke(
+      { optionsJson: JSON.stringify({ floor_id: 'F1' }) },
+      cfg({ artifacts: setCommand.update.artifacts }),
+    );
+
+    const summary = JSON.parse(command.update.messages[0].content);
+    expect(summary.success).toBe(false);
+    expect(summary.completionStatus).toBe('needs_attention');
+    expect(summary.issues[0]).toMatchObject({
+      id: 'floor_room_gap_F1',
+      level: 'error',
+      floor_id: 'F1',
+    });
+  });
+
   test('API tool summary marks invalid walls as needing attention', async () => {
     const apiClient = {
       runTool: async (_toolId, request) => ({
