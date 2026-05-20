@@ -93,6 +93,7 @@ type MessageMetadata = {
   status?: 'done' | 'error' | 'aborted'
   traceId?: string
   presentation?: AssistantPresentation
+  designSnapshot?: TimelineStepItem['designSnapshot']
 }
 
 type AgentInteraction = {
@@ -746,6 +747,20 @@ function parsePersistedPresentation(metadata: unknown): AssistantPresentation | 
     startedAt,
     completedAt,
     errorMessage,
+  }
+}
+
+function parsePersistedDesignSnapshot(metadata: unknown): TimelineStepItem['designSnapshot'] | undefined {
+  const metadataRecord = toObjectRecord(metadata)
+  const snapshotRecord = toObjectRecord(metadataRecord?.designSnapshot)
+  const design = toObjectRecord(snapshotRecord?.design)
+  if (!design) {
+    return undefined
+  }
+  return {
+    ...(typeof snapshotRecord?.artifactId === 'string' ? { artifactId: snapshotRecord.artifactId } : {}),
+    ...(typeof snapshotRecord?.revision === 'number' ? { revision: snapshotRecord.revision } : {}),
+    design,
   }
 }
 
@@ -2795,6 +2810,7 @@ export function AIConsole() {
                 if (typeof parsed?.skillId === 'string') restoredSkillId = parsed.skillId
               } catch {}
               const toolCallId = (message as any).toolCallId || message.id
+              const designSnapshot = parsePersistedDesignSnapshot(message.metadata)
               return [{
                 id: message.id,
                 role: 'tool' as const,
@@ -2811,6 +2827,7 @@ export function AIConsole() {
                   args: argsByToolCallId.get(toolCallId),
                   output: message.content,
                   completedAt: message.createdAt,
+                  ...(designSnapshot ? { designSnapshot } : {}),
                 },
               }]
             }

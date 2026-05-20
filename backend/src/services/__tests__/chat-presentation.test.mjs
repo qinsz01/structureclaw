@@ -330,4 +330,135 @@ describe('chat presentation reducer', () => {
       await app.close();
     }
   }, 30000);
+
+  test('stream persistence stores design snapshots on matching tool messages', async () => {
+    const { ToolMessage } = await import('@langchain/core/messages');
+    const { LangGraphAgentService } = await import('../../../dist/agent-langgraph/agent-service.js');
+    const { chatRoutes } = await import('../../../dist/api/chat.js');
+    const originalRunStream = LangGraphAgentService.prototype.runStream;
+    const originalGetSnapshot = LangGraphAgentService.prototype.getConversationSessionSnapshot;
+    const conversationId = `conv-design-snapshot-${Date.now()}`;
+    const traceId = 'trace-design-snapshot-001';
+    const designSnapshot = {
+      artifactId: 'detached-house-design-001',
+      revision: 3,
+      design: {
+        version: '0.1',
+        floors: [
+          {
+            id: 'F1',
+            outline: [[0, 0], [6000, 0], [6000, 4000], [0, 4000]],
+            rooms: [
+              { id: 'F1-LIVING', type: 'living', polygon: [[0, 0], [6000, 0], [6000, 4000], [0, 4000]] },
+            ],
+          },
+        ],
+      },
+    };
+
+    await prisma.conversation.create({
+      data: {
+        id: conversationId,
+        title: 'Design snapshot test',
+        type: 'general',
+      },
+    });
+
+    LangGraphAgentService.prototype.runStream = async function* mockRunStream() {
+      yield {
+        type: 'start',
+        content: {
+          traceId,
+          conversationId,
+          startedAt: '2026-04-19T10:00:00.000Z',
+        },
+      };
+      yield {
+        type: 'presentation_init',
+        presentation: createEmptyAssistantPresentation({
+          traceId,
+          mode: 'execution',
+          startedAt: '2026-04-19T10:00:00.000Z',
+        }),
+      };
+      yield {
+        type: 'phase_upsert',
+        phase: {
+          phaseId: 'phase-modeling',
+          phase: 'modeling',
+          title: 'Modeling',
+          status: 'running',
+          steps: [],
+        },
+      };
+      yield {
+        type: 'step_upsert',
+        phaseId: 'phase-modeling',
+        step: {
+          id: 'step-call-rooms',
+          phase: 'modeling',
+          status: 'done',
+          tool: 'detached_house_generate_floor_rooms',
+          title: 'detached_house_generate_floor_rooms',
+          output: '{"success":true}',
+          completedAt: '2026-04-19T10:00:00.030Z',
+          designSnapshot,
+        },
+      };
+      yield {
+        type: 'summary_replace',
+        summaryText: 'Rooms generated.',
+      };
+      yield {
+        type: 'presentation_complete',
+        completedAt: '2026-04-19T10:00:00.050Z',
+      };
+      yield { type: 'done' };
+    };
+
+    LangGraphAgentService.prototype.getConversationSessionSnapshot = async function mockGetSnapshot() {
+      return {
+        snapshot: {},
+        state: {
+          messages: [
+            new ToolMessage({
+              content: '{"success":true}',
+              name: 'detached_house_generate_floor_rooms',
+              tool_call_id: 'call-rooms',
+            }),
+          ],
+        },
+      };
+    };
+
+    const app = Fastify();
+    try {
+      await app.register(chatRoutes, { prefix: '/api/v1/chat' });
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/chat/stream',
+        payload: {
+          message: '生成首层房间',
+          conversationId,
+          traceId,
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+
+      const toolMessage = await prisma.message.findFirst({
+        where: { conversationId, role: 'tool', toolCallId: 'call-rooms' },
+      });
+
+      expect(toolMessage).toBeTruthy();
+      expect(toolMessage?.metadata?.designSnapshot?.revision).toBe(3);
+      expect(toolMessage?.metadata?.designSnapshot?.design?.floors?.[0]?.id).toBe('F1');
+    } finally {
+      LangGraphAgentService.prototype.runStream = originalRunStream;
+      LangGraphAgentService.prototype.getConversationSessionSnapshot = originalGetSnapshot;
+      await prisma.message.deleteMany({ where: { conversationId } });
+      await prisma.conversation.deleteMany({ where: { id: conversationId } });
+      await app.close();
+    }
+  }, 30000);
 });

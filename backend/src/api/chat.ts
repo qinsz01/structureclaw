@@ -145,6 +145,43 @@ function getPersistedMessageTraceId(metadata: unknown): string | undefined {
   return typeof traceId === 'string' && traceId.trim().length > 0 ? traceId : undefined;
 }
 
+interface ToolDesignSnapshotIndex {
+  byToolCallId: Map<string, unknown>;
+  byToolName: Map<string, unknown[]>;
+}
+
+function buildToolDesignSnapshotIndex(presentation: AssistantPresentation | undefined): ToolDesignSnapshotIndex {
+  const byToolCallId = new Map<string, unknown>();
+  const byToolName = new Map<string, unknown[]>();
+  for (const phase of presentation?.phases ?? []) {
+    for (const step of phase.steps ?? []) {
+      if (!step.designSnapshot) continue;
+      byToolCallId.set(step.id, step.designSnapshot);
+      if (step.id.startsWith('step-')) {
+        byToolCallId.set(step.id.slice('step-'.length), step.designSnapshot);
+      }
+      const snapshots = byToolName.get(step.tool) ?? [];
+      snapshots.push(step.designSnapshot);
+      byToolName.set(step.tool, snapshots);
+    }
+  }
+  return { byToolCallId, byToolName };
+}
+
+function resolveToolDesignSnapshot(
+  index: ToolDesignSnapshotIndex,
+  args: { toolCallId?: string; toolName?: string },
+): unknown {
+  if (args.toolCallId) {
+    const exact = index.byToolCallId.get(args.toolCallId);
+    if (exact) return exact;
+  }
+  if (!args.toolName) return undefined;
+  const queue = index.byToolName.get(args.toolName);
+  if (!queue || queue.length === 0) return undefined;
+  return queue.shift();
+}
+
 function setSseCorsHeaders(request: FastifyRequest, reply: FastifyReply) {
   const origin = request.headers.origin;
 
@@ -337,6 +374,7 @@ async function persistConversationWithState(params: {
     if (params.state && Array.isArray(params.state.messages)) {
       let seq = records.length; // continues after user message
       const allMessages: BaseMessage[] = params.state.messages;
+      const designSnapshotIndex = buildToolDesignSnapshotIndex(params.assistantPresentation);
 
       // Id-based dedup against existing DB records
       const existingToolMessages = await prisma.message.findMany({
@@ -376,13 +414,18 @@ async function persistConversationWithState(params: {
         if (getType === 'tool') {
           const toolCallId = (msg as any).tool_call_id || undefined;
           if (toolCallId && existingToolCallIds.has(toolCallId)) continue;
+          const toolName = (msg as any).name || undefined;
+          const designSnapshot = resolveToolDesignSnapshot(designSnapshotIndex, { toolCallId, toolName });
           records.push({
             conversationId,
             role: 'tool',
             content: typeof content === 'string' ? content : JSON.stringify(content),
-            name: (msg as any).name || undefined,
+            name: toolName,
             toolCallId,
             createdAt: new Date(baseTime + seq),
+            metadata: toMessageMetadata({
+              ...(designSnapshot ? { designSnapshot } : {}),
+            }),
           });
           seq += 1;
         } else if (getType === 'ai') {

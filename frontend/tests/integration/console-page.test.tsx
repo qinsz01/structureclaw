@@ -641,6 +641,92 @@ describe('ConsolePage Integration (CONS-13)', () => {
     expect(screen.queryByText(/当前分析尚未完成（已停止）/)).not.toBeInTheDocument()
   })
 
+  it('restores detached-house plan snapshots from persisted tool metadata', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input)
+      const support = mockConsoleSupportRequest(url)
+      if (support) return support
+
+      if (url.includes('/api/v1/agent/skills')) {
+        return {
+          ok: true,
+          json: vi.fn().mockResolvedValue(mockSkills),
+        } as unknown as Response
+      }
+
+      if (url.includes('/api/v1/analysis-engines')) {
+        return {
+          ok: true,
+          json: vi.fn().mockResolvedValue({ engines: [] }),
+        } as unknown as Response
+      }
+
+      if (url.includes('/api/v1/chat/conversations')) {
+        return {
+          ok: true,
+          json: vi.fn().mockResolvedValue([{ id: 'conv-detached-plan', title: 'Detached plan history', updatedAt: '2026-03-12T12:00:00.000Z' }]),
+        } as unknown as Response
+      }
+
+      if (url.includes('/api/v1/chat/conversation/conv-detached-plan') && !init?.method) {
+        return {
+          ok: true,
+          json: vi.fn().mockResolvedValue({
+            id: 'conv-detached-plan',
+            title: 'Detached plan history',
+            messages: [
+              { id: 'user-1', role: 'user', content: '生成首层房间', createdAt: '2026-03-12T12:00:00.000Z' },
+              {
+                id: 'tool-1',
+                role: 'tool',
+                name: 'detached_house_generate_floor_rooms',
+                toolCallId: 'call-rooms',
+                content: '{"success":true}',
+                createdAt: '2026-03-12T12:00:01.000Z',
+                metadata: {
+                  designSnapshot: {
+                    artifactId: 'detached-house-design-001',
+                    revision: 2,
+                    design: {
+                      version: '0.1',
+                      floors: [
+                        {
+                          id: 'F1',
+                          outline: [[0, 0], [6000, 0], [6000, 4000], [0, 4000]],
+                          rooms: [
+                            { id: 'F1-LIVING', type: 'living', polygon: [[0, 0], [6000, 0], [6000, 4000], [0, 4000]] },
+                          ],
+                        },
+                      ],
+                    },
+                  },
+                },
+              },
+              {
+                id: 'assistant-1',
+                role: 'assistant',
+                content: '房间已生成',
+                createdAt: '2026-03-12T12:00:02.000Z',
+              },
+            ],
+            session: null,
+          }),
+        } as unknown as Response
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    await renderConsolePage()
+    fireEvent.click(await screen.findByRole('button', { name: /Detached plan history/ }))
+
+    const viewPlanButton = await screen.findByRole('button', { name: /View Plan|查看平面/ })
+    fireEvent.click(viewPlanButton)
+
+    expect(await screen.findByLabelText('Detached house plan preview')).toBeInTheDocument()
+    expect(screen.getByText('F1')).toBeInTheDocument()
+  })
+
   it('sends resumeFromMessage when continuing after an aborted turn', async () => {
     const streamBodies: Array<Record<string, unknown>> = []
 
