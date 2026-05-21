@@ -64,6 +64,49 @@ describe('convertDetachedHouseDesignToStructureModel', () => {
     expect(f3Beam.nodes.map((nodeId) => nodesById.get(nodeId).z)).toEqual([10.2, 10.2]);
   });
 
+  test('splits beam elements at intermediate column nodes', () => {
+    const result = convertDetachedHouseDesignToStructureModel({
+      version: '0.1',
+      project: { name: 'Beam split test', units: 'mm', structure_type: 'rc_frame' },
+      floors: [
+        {
+          id: 'F1',
+          elevation: 0,
+          height: 3600,
+          columns: [
+            { id: 'C1', x: 0, y: 0, width: 400, depth: 400 },
+            { id: 'C2', x: 5000, y: 0, width: 400, depth: 400 },
+            { id: 'C3', x: 10000, y: 0, width: 400, depth: 400 },
+          ],
+          beams: [{ id: 'B1', line: [0, 0, 10000, 0], width: 250, height: 500 }],
+        },
+        {
+          id: 'F2',
+          elevation: 3600,
+          height: 3300,
+          columns: [
+            { id: 'C1', x: 0, y: 0, width: 350, depth: 350 },
+            { id: 'C2', x: 5000, y: 0, width: 350, depth: 350 },
+            { id: 'C3', x: 10000, y: 0, width: 350, depth: 350 },
+          ],
+          beams: [{ id: 'B2', line: [0, 0, 10000, 0], width: 250, height: 450 }],
+        },
+      ],
+    });
+    const nodesById = new Map(result.nodes.map((node) => [node.id, node]));
+    const f1BeamSegments = result.elements
+      .filter((element) => element.type === 'beam' && String(element.id).startsWith('BM_F1_B1'))
+      .map((element) => element.nodes.map((nodeId) => {
+        const node = nodesById.get(nodeId);
+        return [node.x, node.y, node.z];
+      }));
+
+    expect(f1BeamSegments).toEqual([
+      [[0, 0, 3.6], [5, 0, 3.6]],
+      [[5, 0, 3.6], [10, 0, 3.6]],
+    ]);
+  });
+
   test('spans each floor columns from floor base to that floor ceiling', () => {
     const result = convertDetachedHouseDesignToStructureModel(design);
     const nodesById = new Map(result.nodes.map((node) => [node.id, node]));

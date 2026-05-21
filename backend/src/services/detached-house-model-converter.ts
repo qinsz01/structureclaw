@@ -21,6 +21,11 @@ export interface DetachedHouseBeam {
   height?: number;
 }
 
+interface BeamSegment {
+  id: string;
+  line: [number, number, number, number];
+}
+
 interface EnsureNodeArgs {
   nodes: Array<Record<string, unknown>>;
   nodeIds: Map<string, string>;
@@ -92,18 +97,21 @@ export function convertDetachedHouseDesignToStructureModel(design: Record<string
     const topLevel = floorTopLevel(floors, floor);
     for (const beam of floor.beams ?? []) {
       const sectionId = sectionIdFor('beam', beam.width ?? 250, beam.height ?? 500);
-      elements.push({
-        id: `BM_${floor.id}_${beam.id}`,
-        type: 'beam',
-        nodes: [
-          nodeKeyToId(nodeIds, topLevel.id, beam.line[0], beam.line[1]),
-          nodeKeyToId(nodeIds, topLevel.id, beam.line[2], beam.line[3]),
-        ],
-        material: 'conc1',
-        section: sectionId,
-        story: topLevel.storyId,
-        concrete_grade: 'C30',
-      });
+      const segments = splitBeamAtKnownNodes(beam, topLevel, nodeIds);
+      for (const segment of segments) {
+        elements.push({
+          id: `BM_${floor.id}_${segment.id}`,
+          type: 'beam',
+          nodes: [
+            nodeKeyToId(nodeIds, topLevel.id, segment.line[0], segment.line[1]),
+            nodeKeyToId(nodeIds, topLevel.id, segment.line[2], segment.line[3]),
+          ],
+          material: 'conc1',
+          section: sectionId,
+          story: topLevel.storyId,
+          concrete_grade: 'C30',
+        });
+      }
     }
   }
 
@@ -283,6 +291,79 @@ function nodeKeyToId(nodeIds: Map<string, string>, levelId: string, x: number, y
   const id = nodeIds.get(nodeKey(levelId, x, y));
   if (!id) throw new Error(`Missing node for ${levelId} (${x}, ${y})`);
   return id;
+}
+
+function splitBeamAtKnownNodes(
+  beam: DetachedHouseBeam,
+  level: DetachedHouseLevel,
+  nodeIds: Map<string, string>,
+): BeamSegment[] {
+  const [x1, y1, x2, y2] = beam.line;
+  const points = Array.from(nodeIds.keys())
+    .map((key) => parseNodeKey(key))
+    .filter((point): point is { levelId: string; x: number; y: number } => {
+      return point !== null && point.levelId === level.id && pointOnSegment(point.x, point.y, x1, y1, x2, y2);
+    })
+    .sort((left, right) => pointParameter(left.x, left.y, x1, y1, x2, y2) - pointParameter(right.x, right.y, x1, y1, x2, y2));
+
+  const uniquePoints = deduplicatePoints(points);
+  if (uniquePoints.length <= 2) {
+    return [{ id: beam.id, line: beam.line }];
+  }
+
+  const segments: BeamSegment[] = [];
+  for (let index = 0; index < uniquePoints.length - 1; index += 1) {
+    const start = uniquePoints[index];
+    const end = uniquePoints[index + 1];
+    if (samePoint(start.x, start.y, end.x, end.y)) continue;
+    segments.push({
+      id: `${beam.id}_SEG${index + 1}`,
+      line: [start.x, start.y, end.x, end.y],
+    });
+  }
+  return segments.length > 0 ? segments : [{ id: beam.id, line: beam.line }];
+}
+
+function parseNodeKey(key: string): { levelId: string; x: number; y: number } | null {
+  const parts = key.split(':');
+  if (parts.length !== 3) return null;
+  const x = Number(parts[1].replace(/_/g, '.'));
+  const y = Number(parts[2].replace(/_/g, '.'));
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  return { levelId: parts[0], x, y };
+}
+
+function deduplicatePoints(points: Array<{ x: number; y: number }>): Array<{ x: number; y: number }> {
+  const result: Array<{ x: number; y: number }> = [];
+  for (const point of points) {
+    if (!result.some((existing) => samePoint(existing.x, existing.y, point.x, point.y))) {
+      result.push({ x: point.x, y: point.y });
+    }
+  }
+  return result;
+}
+
+function pointOnSegment(px: number, py: number, x1: number, y1: number, x2: number, y2: number): boolean {
+  const cross = (px - x1) * (y2 - y1) - (py - y1) * (x2 - x1);
+  if (Math.abs(cross) > 1e-6) return false;
+  const minX = Math.min(x1, x2) - 1e-6;
+  const maxX = Math.max(x1, x2) + 1e-6;
+  const minY = Math.min(y1, y2) - 1e-6;
+  const maxY = Math.max(y1, y2) + 1e-6;
+  return px >= minX && px <= maxX && py >= minY && py <= maxY;
+}
+
+function pointParameter(px: number, py: number, x1: number, y1: number, x2: number, y2: number): number {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    return dx === 0 ? 0 : (px - x1) / dx;
+  }
+  return dy === 0 ? 0 : (py - y1) / dy;
+}
+
+function samePoint(leftX: number, leftY: number, rightX: number, rightY: number): boolean {
+  return Math.abs(leftX - rightX) < 1e-6 && Math.abs(leftY - rightY) < 1e-6;
 }
 
 function nodeKey(levelId: string, x: number, y: number): string {
