@@ -26,3 +26,6 @@ export const REQUIRED_KEYS = [
 ] as const;
 
 export const FRAME_MATERIAL_KEYS = ['frameConcreteGrade', 'frameRebarGrade', 'frameColumnSection', 'frameBeamSection'] as const;
+
+/** 方案阶段柱轴力估算默认单位荷载 (kN/m²)，已含恒载、活载及分项系数 */
+export const DEFAULT_FLOOR_LOAD_KN_PER_M2 = 15;
