@@ -137,6 +137,51 @@ export function shouldReplaceEmptyFinalResponse(response: BaseMessage, currentTu
 }
 
 // ---------------------------------------------------------------------------
+// Multimodal: transform image ToolMessages into proper content blocks
+// ---------------------------------------------------------------------------
+
+const IMAGE_JSON_REGEX = /"type"\s*:\s*"image"/;
+
+function transformImageToolMessages(messages: BaseMessage[]): BaseMessage[] {
+  const result: BaseMessage[] = [];
+  for (const message of messages) {
+    if (getMessageType(message) !== 'tool') {
+      result.push(message);
+      continue;
+    }
+    const content = typeof message.content === 'string' ? message.content : '';
+    if (!content || !IMAGE_JSON_REGEX.test(content)) {
+      result.push(message);
+      continue;
+    }
+    let parsed: Record<string, unknown>;
+    try { parsed = JSON.parse(content); } catch { result.push(message); continue; }
+    if (parsed.type !== 'image' || typeof parsed.base64DataUri !== 'string') {
+      result.push(message);
+      continue;
+    }
+
+    const { base64DataUri, ...rest } = parsed;
+    const sanitizedContent = JSON.stringify({
+      ...rest,
+      note: 'Image data forwarded to multimodal context (see attached image block).',
+    });
+    result.push(new ToolMessage({
+      content: sanitizedContent,
+      tool_call_id: (message as any).tool_call_id || '',
+      name: (message as any).name,
+    }));
+    result.push(new HumanMessage({
+      content: [
+        { type: 'text', text: `[Image from ${(message as any).name || 'tool'}: ${parsed.mimeType || 'image'}, ${typeof parsed.size === 'number' ? Math.round((parsed.size as number) / 1024) + ' KB' : 'unknown size'}]` },
+        { type: 'image_url', image_url: { url: base64DataUri as string } },
+      ],
+    }));
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // Node: agent (LLM reasoning)
 // ---------------------------------------------------------------------------
 
@@ -248,6 +293,9 @@ function createCallModelNode(
     }).filter((m): m is BaseMessage => m !== null);
 
     // Count prior tool calls in this turn to enforce max iterations.
+    // Use the original (pre-transform) message array so synthetic
+    // HumanMessages injected by transformImageToolMessages don't
+    // shift the turn boundary or under-count tool calls.
     let lastHumanIndex = -1;
     for (let i = msgs.length - 1; i >= 0; i--) {
       const m = msgs[i];
@@ -285,8 +333,14 @@ function createCallModelNode(
     const configurableAny = config.configurable as Record<string, unknown>;
     configurableAny.agentState = state;
 
+    // Transform ToolMessages with base64 image data into proper multimodal
+    // content blocks (sanitized ToolMessage + synthetic HumanMessage).
+    // Applied after turn-boundary computation so synthetic messages
+    // don't affect tool-call counting or compaction turn detection.
+    const effectiveMsgs = transformImageToolMessages(msgs);
+
     const compaction = compactMessagesForContext({
-      messages: msgs,
+      messages: effectiveMsgs,
       locale: state.locale,
       baseCharCount: estimateMessagesCharLength(systemMessages),
     });
