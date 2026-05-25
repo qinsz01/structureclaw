@@ -84,6 +84,10 @@ export type SettingsFileYjk = {
   directReadyTimeoutS?: number;
 };
 
+export type SettingsFileDetachedHouse = {
+  apiBaseUrl?: string;
+};
+
 export type SettingsFile = {
   server?: SettingsFileServer;
   llm?: SettingsFileLlm;
@@ -95,6 +99,7 @@ export type SettingsFile = {
   agent?: SettingsFileAgent;
   pkpm?: SettingsFilePkpm;
   yjk?: SettingsFileYjk;
+  detachedHouse?: SettingsFileDetachedHouse;
   updatedAt?: string;
 };
 
@@ -323,6 +328,14 @@ function normalizeYjkSection(raw: unknown): SettingsFileYjk | undefined {
   return result;
 }
 
+function normalizeDetachedHouseSection(raw: unknown): SettingsFileDetachedHouse | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const record = raw as Record<string, unknown>;
+  const apiBaseUrl = normalizeOptionalString(record.apiBaseUrl);
+  if (apiBaseUrl === undefined) return undefined;
+  return { apiBaseUrl };
+}
+
 function normalizeSettingsFile(raw: unknown): SettingsFile | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const record = raw as Record<string, unknown>;
@@ -336,8 +349,12 @@ function normalizeSettingsFile(raw: unknown): SettingsFile | null {
   const agent = normalizeAgentSection(record.agent);
   const pkpm = normalizePkpmSection(record.pkpm);
   const yjk = normalizeYjkSection(record.yjk);
+  const detachedHouse = normalizeDetachedHouseSection(record.detachedHouse);
   const updatedAt = normalizeOptionalString(record.updatedAt);
-  if (!server && !llm && !database && !logging && !analysis && !storage && !cors && !agent && !pkpm && !yjk) return null;
+  if (
+    !server && !llm && !database && !logging && !analysis && !storage && !cors && !agent && !pkpm && !yjk
+    && !detachedHouse
+  ) return null;
   const result: SettingsFile = {};
   if (server) result.server = server;
   if (llm) result.llm = llm;
@@ -349,6 +366,7 @@ function normalizeSettingsFile(raw: unknown): SettingsFile | null {
   if (agent) result.agent = agent;
   if (pkpm) result.pkpm = pkpm;
   if (yjk) result.yjk = yjk;
+  if (detachedHouse) result.detachedHouse = detachedHouse;
   if (updatedAt) result.updatedAt = updatedAt;
   return result;
 }

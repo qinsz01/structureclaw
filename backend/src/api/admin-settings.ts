@@ -17,6 +17,7 @@ import {
   type SettingsFileAgent,
   type SettingsFilePkpm,
   type SettingsFileYjk,
+  type SettingsFileDetachedHouse,
 } from '../config/settings-file.js';
 
 // ---------------------------------------------------------------------------
@@ -124,6 +125,9 @@ type SettingsResponse = {
     launcherPrewarmS: ValueField<number>;
     directReadyTimeoutS: ValueField<number>;
   };
+  detachedHouse: {
+    apiBaseUrl: ValueField<string>;
+  };
 };
 
 function buildSettingsResponse(): SettingsResponse {
@@ -181,6 +185,7 @@ function buildSettingsResponse(): SettingsResponse {
     yjkLauncherPrewarm: 'auto',
     yjkLauncherPrewarmS: 18,
     yjkDirectReadyTimeoutS: 12,
+    detachedHouseApiBaseUrl: 'http://127.0.0.1:8569',
   };
 
   const hasApiKey = config.llmApiKey.trim().length > 0;
@@ -249,6 +254,9 @@ function buildSettingsResponse(): SettingsResponse {
       launcherPrewarmS: numberSource(file?.yjk?.launcherPrewarmS, defaults.yjkLauncherPrewarmS),
       directReadyTimeoutS: numberSource(file?.yjk?.directReadyTimeoutS, defaults.yjkDirectReadyTimeoutS),
     },
+    detachedHouse: {
+      apiBaseUrl: stringSource(file?.detachedHouse?.apiBaseUrl, defaults.detachedHouseApiBaseUrl),
+    },
   };
 }
 
@@ -315,6 +323,9 @@ const updateSettingsSchema = z.object({
     launcherPrewarm: z.enum(['auto', 'always', 'off']).optional(),
     launcherPrewarmS: z.number().int().min(0).optional(),
     directReadyTimeoutS: z.number().int().min(0).optional(),
+  }).optional(),
+  detachedHouse: z.object({
+    apiBaseUrl: z.string().trim().url().optional(),
   }).optional(),
 });
 
@@ -427,6 +438,12 @@ function applyUpdate(current: SettingsFile, input: UpdateSettingsInput): Setting
     if (input.yjk.launcherPrewarmS !== undefined) yjk.launcherPrewarmS = input.yjk.launcherPrewarmS;
     if (input.yjk.directReadyTimeoutS !== undefined) yjk.directReadyTimeoutS = input.yjk.directReadyTimeoutS;
     next.yjk = yjk;
+  }
+
+  if (input.detachedHouse) {
+    const detachedHouse: SettingsFileDetachedHouse = { ...(current.detachedHouse ?? {}) };
+    if (input.detachedHouse.apiBaseUrl !== undefined) detachedHouse.apiBaseUrl = input.detachedHouse.apiBaseUrl;
+    next.detachedHouse = detachedHouse;
   }
 
   return next;

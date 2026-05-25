@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import {
-  Server, FileText, FlaskConical, Folder, Globe, Bot, Cpu, Cog, Wand2,
+  Server, FileText, FlaskConical, Folder, Globe, Bot, Cpu, Cog, Wand2, House,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -34,6 +34,7 @@ type SettingsResponse = {
     installRoot: Field<string>; exePath: Field<string>; pythonBin: Field<string>; sdkArchivePath: Field<string>; workDir: Field<string>; version: Field<string>;
     timeoutS: Field<number>; invisible: Field<boolean>; launcherPrewarm: Field<string>; launcherPrewarmS: Field<number>; directReadyTimeoutS: Field<number>
   }
+  detachedHouse: { apiBaseUrl: Field<string> }
 }
 
 type YjkAutoConfigureResponse = {
@@ -52,6 +53,7 @@ interface FieldDef {
   stateKey: string
   props?: Record<string, unknown>
   options?: string[]
+  helpKey?: MessageKey
 }
 
 // ---------------------------------------------------------------------------
@@ -65,6 +67,7 @@ const SECTIONS: { key: string; labelKey: MessageKey; icon: typeof Server }[] = [
   { key: 'storage', labelKey: 'generalSettingsStorageSection', icon: Folder },
   { key: 'cors', labelKey: 'generalSettingsCorsSection', icon: Globe },
   { key: 'agent', labelKey: 'generalSettingsAgentSection', icon: Bot },
+  { key: 'detachedHouse', labelKey: 'generalSettingsDetachedHouseSection', icon: House },
   { key: 'pkpm', labelKey: 'generalSettingsPkpmSection', icon: Cpu },
   { key: 'yjk', labelKey: 'generalSettingsYjkSection', icon: Cog },
 ]
@@ -97,6 +100,15 @@ const FIELDS: FieldDef[] = [
   { key: 'agent.shellTimeoutMs', labelKey: 'generalSettingsShellTimeoutLabel', kind: 'number', sectionKey: 'agent', stateKey: 'shellTimeoutMs', props: { min: 1000 } },
   { key: 'agent.maxToolCallsPerTurn', labelKey: 'generalSettingsMaxToolCallsPerTurnLabel', kind: 'number', sectionKey: 'agent', stateKey: 'maxToolCallsPerTurn', props: { min: 1, max: 200 } },
   { key: 'agent.recursionLimit', labelKey: 'generalSettingsRecursionLimitLabel', kind: 'number', sectionKey: 'agent', stateKey: 'recursionLimit', props: { min: 1, max: 1000 } },
+  // Detached-house API
+  {
+    key: 'detachedHouse.apiBaseUrl',
+    labelKey: 'generalSettingsDetachedHouseApiBaseUrlLabel',
+    kind: 'text',
+    sectionKey: 'detachedHouse',
+    stateKey: 'detachedHouseApiBaseUrl',
+    helpKey: 'generalSettingsDetachedHouseApiUnavailableNotice',
+  },
   // PKPM
   { key: 'pkpm.cyclePath', labelKey: 'generalSettingsPkpmCyclePathLabel', kind: 'text', sectionKey: 'pkpm', stateKey: 'pkpmCyclePath' },
   { key: 'pkpm.workDir', labelKey: 'generalSettingsPkpmWorkDirLabel', kind: 'text', sectionKey: 'pkpm', stateKey: 'pkpmWorkDir' },
@@ -122,6 +134,7 @@ const DEFAULTS: Record<string, string | number | boolean> = {
   reportsDir: '', maxFileSize: 104857600,
   origins: '',
   workspaceRoot: '', checkpointDir: '', allowShell: false, allowedShellCommands: 'node,npm,python,python3,./sclaw,./sclaw_cn', shellTimeoutMs: 300000, maxToolCallsPerTurn: 200, recursionLimit: 200,
+  detachedHouseApiBaseUrl: 'http://127.0.0.1:8569',
   pkpmCyclePath: '', pkpmWorkDir: '',
   yjkInstallRoot: '', yjkExePath: '', yjkPythonBin: '', yjkSdkArchivePath: '', yjkWorkDir: '', yjkVersion: '8.0.0', yjkTimeoutS: 600, yjkInvisible: false,
   yjkLauncherPrewarm: 'auto', yjkLauncherPrewarmS: 18, yjkDirectReadyTimeoutS: 12,
@@ -129,6 +142,7 @@ const DEFAULTS: Record<string, string | number | boolean> = {
 
 // Map stateKey → API field name for sections that use different naming
 const STATE_TO_API_KEY: Record<string, string> = {
+  detachedHouseApiBaseUrl: 'apiBaseUrl',
   pkpmCyclePath: 'cyclePath', pkpmWorkDir: 'workDir',
   yjkInstallRoot: 'installRoot', yjkExePath: 'exePath', yjkPythonBin: 'pythonBin', yjkSdkArchivePath: 'sdkArchivePath', yjkWorkDir: 'workDir',
   yjkVersion: 'version', yjkTimeoutS: 'timeoutS', yjkInvisible: 'invisible',
@@ -379,6 +393,11 @@ export function GeneralSettingsPanel() {
           />
         )}
         <DefaultValueHint value={defaultValue} />
+        {field.helpKey && (
+          <p className="mt-2 text-xs leading-5 text-amber-700 dark:text-amber-200">
+            {t(field.helpKey)}
+          </p>
+        )}
       </div>
     )
   }

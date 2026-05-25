@@ -120,6 +120,10 @@ function getCurrentYjkSettings() {
   return readSettingsFile()?.yjk;
 }
 
+function getCurrentDetachedHouseSettings() {
+  return readSettingsFile()?.detachedHouse;
+}
+
 export const config = {
   // 服务配置
   port: typeof backendPort === 'number' ? backendPort : parseInt(String(backendPort), 10),
@@ -207,7 +211,9 @@ export const config = {
 
   // Detached-house design API
   get detachedHouseApiBaseUrl() {
-    return process.env.DETACHED_HOUSE_API_BASE_URL || DETACHED_HOUSE_API_DEFAULTS.baseUrl;
+    return getCurrentDetachedHouseSettings()?.apiBaseUrl
+      || process.env.DETACHED_HOUSE_API_BASE_URL
+      || DETACHED_HOUSE_API_DEFAULTS.baseUrl;
   },
   get detachedHouseApiTimeoutMs() {
     const raw = process.env.DETACHED_HOUSE_API_TIMEOUT_MS;
