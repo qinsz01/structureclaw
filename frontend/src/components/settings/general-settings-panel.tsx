@@ -100,7 +100,7 @@ const FIELDS: FieldDef[] = [
   { key: 'agent.shellTimeoutMs', labelKey: 'generalSettingsShellTimeoutLabel', kind: 'number', sectionKey: 'agent', stateKey: 'shellTimeoutMs', props: { min: 1000 } },
   { key: 'agent.maxToolCallsPerTurn', labelKey: 'generalSettingsMaxToolCallsPerTurnLabel', kind: 'number', sectionKey: 'agent', stateKey: 'maxToolCallsPerTurn', props: { min: 1, max: 200 } },
   { key: 'agent.recursionLimit', labelKey: 'generalSettingsRecursionLimitLabel', kind: 'number', sectionKey: 'agent', stateKey: 'recursionLimit', props: { min: 1, max: 1000 } },
-  // Detached-house API
+  // Detached-house design service
   {
     key: 'detachedHouse.apiBaseUrl',
     labelKey: 'generalSettingsDetachedHouseApiBaseUrlLabel',
@@ -140,7 +140,7 @@ const DEFAULTS: Record<string, string | number | boolean> = {
   yjkLauncherPrewarm: 'auto', yjkLauncherPrewarmS: 18, yjkDirectReadyTimeoutS: 12,
 }
 
-// Map stateKey → API field name for sections that use different naming
+// Map stateKey to persisted field name for sections that use different naming
 const STATE_TO_API_KEY: Record<string, string> = {
   detachedHouseApiBaseUrl: 'apiBaseUrl',
   pkpmCyclePath: 'cyclePath', pkpmWorkDir: 'workDir',

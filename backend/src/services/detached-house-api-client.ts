@@ -40,17 +40,13 @@ export class DetachedHouseApiClient {
       });
       const text = await response.text();
       if (!response.ok) {
-        throw createDetachedHouseServiceUnavailableError(
-          new Error(`Provider returned HTTP ${response.status}: ${text.slice(0, 500)}`),
-        );
+        throw createDetachedHouseServiceUnavailableError();
       }
       let payload: unknown;
       try {
         payload = JSON.parse(text);
       } catch {
-        throw createDetachedHouseServiceUnavailableError(
-          new Error(`Provider returned non-JSON response: ${text.slice(0, 500)}`),
-        );
+        throw createDetachedHouseServiceUnavailableError();
       }
       return normalizeDetachedHouseToolResponse(toolId, payload);
     } catch (error) {
@@ -58,10 +54,10 @@ export class DetachedHouseApiClient {
         throw error;
       }
       if (abortController.signal.aborted) {
-        throw createDetachedHouseServiceUnavailableError(error);
+        throw createDetachedHouseServiceUnavailableError();
       }
       if (isRequestTransportError(error)) {
-        throw createDetachedHouseServiceUnavailableError(error);
+        throw createDetachedHouseServiceUnavailableError();
       }
       throw error;
     } finally {
@@ -72,11 +68,11 @@ export class DetachedHouseApiClient {
 
 function normalizeDetachedHouseToolResponse(toolId: string, payload: unknown): DetachedHouseToolResponse {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-    throw createDetachedHouseServiceUnavailableError(new Error(`Tool ${toolId} returned invalid response object`));
+    throw createDetachedHouseServiceUnavailableError();
   }
   const record = payload as Record<string, unknown>;
   if (!record.design || typeof record.design !== 'object' || Array.isArray(record.design)) {
-    throw createDetachedHouseServiceUnavailableError(new Error(`Tool ${toolId} response is missing design`));
+    throw createDetachedHouseServiceUnavailableError();
   }
   return {
     design: record.design as Record<string, unknown>,
@@ -99,6 +95,6 @@ function isDetachedHouseServiceUnavailableError(error: unknown): boolean {
   return error instanceof Error && error.message === DETACHED_HOUSE_SERVICE_UNAVAILABLE_MESSAGE;
 }
 
-function createDetachedHouseServiceUnavailableError(_cause?: unknown): Error {
+function createDetachedHouseServiceUnavailableError(): Error {
   return new Error(DETACHED_HOUSE_SERVICE_UNAVAILABLE_MESSAGE);
 }

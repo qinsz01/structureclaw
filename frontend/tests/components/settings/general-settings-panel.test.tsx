@@ -15,7 +15,7 @@ function settingsPayload(detachedHouseApiBaseUrl = 'http://127.0.0.1:8569') {
   }
 }
 
-describe('GeneralSettingsPanel detached-house API setting', () => {
+describe('GeneralSettingsPanel detached-house design service setting', () => {
   beforeEach(() => {
     vi.spyOn(globalThis, 'fetch')
   })
@@ -24,7 +24,7 @@ describe('GeneralSettingsPanel detached-house API setting', () => {
     vi.restoreAllMocks()
   })
 
-  it('shows the detached-house API URL with the local default and unavailable notice', async () => {
+  it('shows the detached-house service URL with the local default and unavailable notice', async () => {
     vi.mocked(globalThis.fetch).mockResolvedValue({
       ok: true,
       json: vi.fn().mockResolvedValue(settingsPayload()),
@@ -32,12 +32,12 @@ describe('GeneralSettingsPanel detached-house API setting', () => {
 
     render(<GeneralSettingsPanel />)
 
-    expect(await screen.findByText('Detached House API')).toBeInTheDocument()
-    expect(screen.getByLabelText('API URL')).toHaveValue('http://127.0.0.1:8569')
+    expect(await screen.findByText('Detached House Design Service')).toBeInTheDocument()
+    expect(screen.getByLabelText('Service URL')).toHaveValue('http://127.0.0.1:8569')
     expect(screen.getByText(/not currently available/i)).toBeInTheDocument()
   })
 
-  it('saves the detached-house API URL under detachedHouse.apiBaseUrl', async () => {
+  it('saves the detached-house service URL under detachedHouse.apiBaseUrl', async () => {
     const fetchMock = vi.mocked(globalThis.fetch)
     fetchMock
       .mockResolvedValueOnce({
@@ -51,7 +51,7 @@ describe('GeneralSettingsPanel detached-house API setting', () => {
 
     render(<GeneralSettingsPanel />)
 
-    const input = await screen.findByLabelText('API URL')
+    const input = await screen.findByLabelText('Service URL')
     fireEvent.change(input, { target: { value: 'http://127.0.0.1:9999' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
 
