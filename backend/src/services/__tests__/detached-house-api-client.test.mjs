@@ -2,6 +2,9 @@ import { describe, expect, test } from '@jest/globals';
 import { DetachedHouseApiClient } from '../../../dist/services/detached-house-api-client.js';
 
 describe('DetachedHouseApiClient', () => {
+  const serviceUnavailableMessage =
+    'Detached-house design service is temporarily unavailable while service integration is being connected. 独立住宅设计服务暂时无法使用，后续会接通。';
+
   test('posts design and options to a detached-house tool endpoint', async () => {
     const calls = [];
     const client = new DetachedHouseApiClient({
@@ -28,17 +31,17 @@ describe('DetachedHouseApiClient', () => {
     });
   });
 
-  test('throws a useful error for non-JSON API failures', async () => {
+  test('throws a user-safe error for service HTTP failures', async () => {
     const client = new DetachedHouseApiClient({
       baseUrl: 'http://api.local',
       fetchImpl: async () => new Response('Internal Server Error', { status: 500 }),
     });
 
     await expect(client.runTool('generate_floor_rooms', { design: {}, options: {} }))
-      .rejects.toThrow('Detached-house API generate_floor_rooms failed with HTTP 500');
+      .rejects.toThrow(serviceUnavailableMessage);
   });
 
-  test('throws a useful error when the detached-house API request times out', async () => {
+  test('throws a user-safe error when the detached-house design service request times out', async () => {
     const client = new DetachedHouseApiClient({
       baseUrl: 'http://api.local',
       timeoutMs: 1,
@@ -50,10 +53,10 @@ describe('DetachedHouseApiClient', () => {
     });
 
     await expect(client.runTool('generate_column_grid', { design: {}, options: {} }))
-      .rejects.toThrow('Detached-house API generate_column_grid timed out after 1ms');
+      .rejects.toThrow(serviceUnavailableMessage);
   });
 
-  test('includes endpoint and network cause when the detached-house API request fails before response', async () => {
+  test('hides endpoint and network cause when the detached-house design service request fails before response', async () => {
     const cause = Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:8569'), {
       code: 'ECONNREFUSED',
       address: '127.0.0.1',
@@ -67,9 +70,15 @@ describe('DetachedHouseApiClient', () => {
       },
     });
 
-    await expect(client.runTool('generate_floor_rooms', { design: {}, options: {} }))
-      .rejects.toThrow(
-        'Detached-house API generate_floor_rooms request failed at http://127.0.0.1:8569/tools/generate_floor_rooms: fetch failed (cause: ECONNREFUSED 127.0.0.1:8569)',
-      );
+    try {
+      await client.runTool('generate_floor_rooms', { design: {}, options: {} });
+      throw new Error('Expected request to fail');
+    } catch (error) {
+      expect(error.message).toBe(serviceUnavailableMessage);
+      expect(error.cause).toBeUndefined();
+      expect(error.message).not.toContain('127.0.0.1');
+      expect(error.message).not.toContain('/tools/generate_floor_rooms');
+      expect(error.message).not.toContain('ECONNREFUSED');
+    }
   });
 });

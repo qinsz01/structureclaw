@@ -101,6 +101,25 @@ describe('tool registry: AGENT_TOOL_DEFINITIONS structure', () => {
     }
   });
 
+  test('detached-house service-backed descriptions do not expose API implementation wording', async () => {
+    const { AGENT_TOOL_DEFINITIONS } = await import('../../../dist/agent-langgraph/tool-registry.js');
+
+    const serviceBackedDefs = AGENT_TOOL_DEFINITIONS.filter((def) => (
+      def.id.startsWith('detached_house_')
+      && def.id !== 'detached_house_create_design_basis'
+      && def.id !== 'detached_house_build_analysis_model'
+    ));
+
+    expect(serviceBackedDefs.length).toBeGreaterThan(0);
+    for (const def of serviceBackedDefs) {
+      const description = `${def.description.zh} ${def.description.en}`;
+      expect(description).not.toContain('API');
+      expect(description.toLowerCase()).not.toContain('endpoint');
+      expect(def.description.zh).toContain('暂未接通');
+      expect(def.description.en).toContain('not available yet');
+    }
+  });
+
   test('destructive tools are correctly classified', async () => {
     const { AGENT_TOOL_DEFINITIONS } = await import('../../../dist/agent-langgraph/tool-registry.js');
 

@@ -76,8 +76,8 @@ const DETACHED_HOUSE_TOOL_DEFINITIONS: AgentToolDefinition[] = [
       en: `Detached House ${toolId}`,
     },
     description: {
-      zh: `调用独立住宅设计 API 的 ${toolId} 阶段，并更新 designBasis。`,
-      en: `Call detached-house design API stage ${toolId} and update designBasis.`,
+      zh: `执行独立住宅设计的 ${toolId} 阶段，并更新 designBasis。托管产品集成暂未接通。`,
+      en: `Run detached-house design stage ${toolId} and update designBasis. Hosted product integration is not available yet.`,
     },
     create: () => createDetachedHouseApiTool(
       toolId,

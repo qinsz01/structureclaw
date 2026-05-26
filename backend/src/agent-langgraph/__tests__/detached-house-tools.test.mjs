@@ -37,10 +37,13 @@ describe('detached-house tools', () => {
     ]);
   });
 
-  test('API tool description documents stage_requirements options', () => {
+  test('service-backed tool description documents stage_requirements without exposing API wording', () => {
     const apiTool = createDetachedHouseApiTool('generate_column_grid', { runTool: async () => ({ design: {}, issues: [] }) });
 
     expect(apiTool.description).toContain('stage_requirements');
+    expect(apiTool.description).toContain('detached-house design stage');
+    expect(apiTool.description).not.toContain('API');
+    expect(apiTool.description.toLowerCase()).not.toContain('endpoint');
   });
 
   test('derive global constraints requires a source floor id before calling the API', async () => {

@@ -67,7 +67,7 @@ export function createDetachedHouseCreateDesignBasisTool() {
       name: 'detached_house_create_design_basis',
       description:
         'Create the detached-house designBasis artifact from user intent, extracted drawing data, and optional structured floor outlines. ' +
-        'Use this as the entry point before calling detached_house_* design API tools.',
+        'Use this as the entry point before calling detached_house_* design tools.',
       schema: z.object({
         message: z.string().describe('User design intent or extracted drawing description'),
         projectName: z.string().optional().describe('Optional project name'),
@@ -118,7 +118,7 @@ export function createDetachedHouseApiTool(toolId: DetachedHouseApiToolId, apiCl
     {
       name: toolName,
       description:
-        `Run detached-house API tool ${toolId}. Reads detached-house designBasis from state; ` +
+        `Run detached-house design stage ${toolId}. Reads detached-house designBasis from state; ` +
         'pass only optionsJson, not the full design. Use optionsJson.stage_requirements for current-stage user notes.',
       schema: z.object({
         optionsJson: z
@@ -160,7 +160,7 @@ export function createDetachedHouseBuildAnalysisModelTool() {
       name: 'detached_house_build_analysis_model',
       description:
         'Convert the detached-house designBasis artifact into StructureModelV2 and store it in state.model. ' +
-        'Use this instead of build_model for detached-house API output.',
+        'Use this instead of build_model for detached-house design output.',
       schema: z.object({}),
     },
   );

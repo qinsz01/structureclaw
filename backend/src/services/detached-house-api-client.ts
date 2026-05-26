@@ -10,6 +10,9 @@ export interface DetachedHouseToolResponse {
 
 export type DetachedHouseFetch = typeof fetch;
 
+const DETACHED_HOUSE_SERVICE_UNAVAILABLE_MESSAGE =
+  'Detached-house design service is temporarily unavailable while service integration is being connected. 独立住宅设计服务暂时无法使用，后续会接通。';
+
 export class DetachedHouseApiClient {
   private readonly baseUrl: string;
   private readonly fetchImpl: DetachedHouseFetch;
@@ -37,21 +40,28 @@ export class DetachedHouseApiClient {
       });
       const text = await response.text();
       if (!response.ok) {
-        throw new Error(`Detached-house API ${toolId} failed with HTTP ${response.status}: ${text.slice(0, 500)}`);
+        throw createDetachedHouseServiceUnavailableError(
+          new Error(`Provider returned HTTP ${response.status}: ${text.slice(0, 500)}`),
+        );
       }
       let payload: unknown;
       try {
         payload = JSON.parse(text);
       } catch {
-        throw new Error(`Detached-house API ${toolId} returned non-JSON response: ${text.slice(0, 500)}`);
+        throw createDetachedHouseServiceUnavailableError(
+          new Error(`Provider returned non-JSON response: ${text.slice(0, 500)}`),
+        );
       }
       return normalizeDetachedHouseToolResponse(toolId, payload);
     } catch (error) {
+      if (isDetachedHouseServiceUnavailableError(error)) {
+        throw error;
+      }
       if (abortController.signal.aborted) {
-        throw new Error(`Detached-house API ${toolId} timed out after ${this.timeoutMs}ms`);
+        throw createDetachedHouseServiceUnavailableError(error);
       }
       if (isRequestTransportError(error)) {
-        throw new Error(formatRequestTransportError(toolId, endpoint, error));
+        throw createDetachedHouseServiceUnavailableError(error);
       }
       throw error;
     } finally {
@@ -62,11 +72,11 @@ export class DetachedHouseApiClient {
 
 function normalizeDetachedHouseToolResponse(toolId: string, payload: unknown): DetachedHouseToolResponse {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-    throw new Error(`Detached-house API ${toolId} returned invalid response object`);
+    throw createDetachedHouseServiceUnavailableError(new Error(`Tool ${toolId} returned invalid response object`));
   }
   const record = payload as Record<string, unknown>;
   if (!record.design || typeof record.design !== 'object' || Array.isArray(record.design)) {
-    throw new Error(`Detached-house API ${toolId} response is missing design`);
+    throw createDetachedHouseServiceUnavailableError(new Error(`Tool ${toolId} response is missing design`));
   }
   return {
     design: record.design as Record<string, unknown>,
@@ -85,31 +95,10 @@ function isRequestTransportError(error: unknown): boolean {
   return error instanceof TypeError || error.name === 'AbortError' || Boolean((error as { cause?: unknown }).cause);
 }
 
-function formatRequestTransportError(toolId: string, endpoint: string, error: unknown): string {
-  const errorMessage = error instanceof Error ? error.message : String(error);
-  const cause = error instanceof Error ? formatErrorCause((error as { cause?: unknown }).cause) : null;
-  const causeText = cause ? ` (cause: ${cause})` : '';
-  return `Detached-house API ${toolId} request failed at ${endpoint}: ${errorMessage}${causeText}`;
+function isDetachedHouseServiceUnavailableError(error: unknown): boolean {
+  return error instanceof Error && error.message === DETACHED_HOUSE_SERVICE_UNAVAILABLE_MESSAGE;
 }
 
-function formatErrorCause(cause: unknown): string | null {
-  if (!cause) {
-    return null;
-  }
-  if (isRecord(cause)) {
-    const code = typeof cause.code === 'string' ? cause.code : null;
-    const address = typeof cause.address === 'string' ? cause.address : null;
-    const port = typeof cause.port === 'number' || typeof cause.port === 'string' ? String(cause.port) : null;
-    if (code && address && port) {
-      return `${code} ${address}:${port}`;
-    }
-    const compact = [code, address, port].filter(Boolean).join(' ');
-    if (compact) {
-      return compact;
-    }
-  }
-  if (cause instanceof Error) {
-    return cause.message;
-  }
-  return String(cause);
+function createDetachedHouseServiceUnavailableError(_cause?: unknown): Error {
+  return new Error(DETACHED_HOUSE_SERVICE_UNAVAILABLE_MESSAGE);
 }
