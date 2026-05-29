@@ -12,6 +12,8 @@ export const GEOMETRY_KEYS = [
 
 export const LOAD_BOUNDARY_KEYS = ['floorLoads', 'frameBaseSupportType'] as const;
 
+export const DESIGN_CONDITION_KEYS = ['siteSeismic', 'wind', 'analysisControl'] as const;
+
 export const REQUIRED_KEYS = [
   'frameDimension',
   'storyCount',

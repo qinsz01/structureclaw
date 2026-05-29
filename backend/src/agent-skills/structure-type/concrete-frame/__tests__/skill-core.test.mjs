@@ -495,6 +495,90 @@ describe('concrete-frame canonicalize core contract', () => {
     ]);
   });
 
+  test('extracts PKPM-oriented RC frame design conditions from detailed chinese request', () => {
+    const message = [
+      '设计计算一个两层混凝土框架，首层4.5米，二层3.8米。',
+      '纵向开间尺寸8米，共5间，横向进深尺寸6米+3米+6米，',
+      '二层楼面恒载1.8kN/㎡，活载3.5kN/㎡，屋面恒载3.5kN/㎡，活载0.5kN/㎡。',
+      '7度0.1g抗震，第三组，场地类别3类，风荷载0.4kN/㎡，场地类别B类，',
+      '混凝土C30，钢筋HRB400。',
+    ].join('');
+    const patch = buildConcreteFrameDraftPatch(message, null, undefined);
+
+    expect(patch).toMatchObject({
+      inferredType: 'frame',
+      frameDimension: '3d',
+      storyCount: 2,
+      storyHeightsM: [4.5, 3.8],
+      bayCountX: 5,
+      bayWidthsXM: [8, 8, 8, 8, 8],
+      bayCountY: 3,
+      bayWidthsYM: [6, 3, 6],
+      frameConcreteGrade: 'C30',
+      frameRebarGrade: 'HRB400',
+      siteSeismic: {
+        intensity: 7,
+        accelerationG: 0.1,
+        designGroup: '第三组',
+        siteCategory: 'III',
+      },
+      wind: {
+        basicPressureKNM2: 0.4,
+        terrainRoughness: 'B',
+      },
+    });
+    expect(patch.floorLoads).toEqual([
+      { story: 1, verticalKN: 1080, liveLoadKN: 2100 },
+      { story: 2, verticalKN: 2100, liveLoadKN: 300 },
+    ]);
+
+    const model = buildConcreteFrameModel({
+      inferredType: 'frame',
+      structuralTypeKey: 'concrete-frame',
+      skillId: 'concrete-frame',
+      updatedAt: 0,
+      ...patch,
+    });
+
+    expect(model).toBeDefined();
+    expect(model.site_seismic).toMatchObject({
+      intensity: 7,
+      design_group: '第三组',
+      site_category: 'III',
+      characteristic_period: 0.65,
+      max_influence_coefficient: 0.08,
+      damping_ratio: 0.05,
+      extra: { acceleration_g: 0.1 },
+    });
+    expect(model.wind).toMatchObject({
+      basic_pressure: 0.4,
+      terrain_roughness: 'B',
+    });
+    expect(model.analysis_control).toMatchObject({
+      p_delta: false,
+      rigid_floor: true,
+      consideration_torsion: true,
+    });
+    expect(model.stories).toEqual([
+      expect.objectContaining({
+        id: 'F1',
+        dead_load: 1.8,
+        live_load: 3.5,
+      }),
+      expect.objectContaining({
+        id: 'F2',
+        dead_load: 3.5,
+        live_load: 0.5,
+      }),
+    ]);
+    expect(model.load_cases.map((loadCase) => loadCase.id)).toEqual(['D', 'L', 'WX', 'WY', 'EX', 'EY']);
+    expect(model.extensions.pkpm).toMatchObject({
+      materialSystem: 'reinforced-concrete',
+      site_seismic: expect.objectContaining({ site_category: 'III' }),
+      wind: expect.objectContaining({ terrain_roughness: 'B' }),
+    });
+  });
+
   test('derives dead load when live load appears before an unlabeled area intensity', () => {
     const patch = buildConcreteFrameDraftPatch(
       '两层3D混凝土框架，X向2跨每跨6m，Y向1跨6m，层高3.6m，活载2kN/㎡，4kN/㎡',

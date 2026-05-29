@@ -490,6 +490,7 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     node_disps = extracted.get("node_displacements", [])
     beams = extracted.get("beams", [])
     columns = extracted.get("columns", [])
+    design_conditions = converter_mappings.get("design_conditions", {})
 
     # ---- Build V2 node → PKPM (floor, pmid) mapping ----
     v2_to_pm: Dict[str, int] = converter_mappings.get("v2_to_pm", {})
@@ -831,6 +832,7 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
             "floors_analyzed": floors_analyzed,
             "beam_count": extracted.get("beam_count", 0),
             "column_count": extracted.get("column_count", 0),
+            "designConditions": design_conditions,
             **pkpm_summary,
         },
         "pkpm_detailed": {
@@ -842,6 +844,7 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
             "storey_stiffness": extracted.get("storey_stiffness", []),
             "bearing_shear": extracted.get("bearing_shear", []),
             "satwe_params": extracted.get("satwe_params", {}),
+            "input_design_conditions": design_conditions,
         },
         "caseResults": case_results,
         "envelopeTables": {

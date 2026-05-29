@@ -5,14 +5,21 @@ import {
 } from '../../../agent-runtime/legacy.js';
 import { composeStructuralDomainPatch } from '../../../agent-runtime/domains/structural-domains.js';
 import { normalizeNumber } from '../../../agent-runtime/fallback.js';
-import type { DraftExtraction, DraftFloorLoad, DraftState } from '../../../agent-runtime/types.js';
+import type {
+  DraftAnalysisControl,
+  DraftExtraction,
+  DraftFloorLoad,
+  DraftSiteSeismicParams,
+  DraftState,
+  DraftWindParams,
+} from '../../../agent-runtime/types.js';
 import {
   canonicalizeConcreteFramePatch,
   fillConcreteFrameDimensionSpecificGeometry,
   hasLateralYFloorLoad as hasLateralYFloorLoadCanonical,
   resolveConcreteFrameDimension,
 } from './canonicalize.js';
-import { GEOMETRY_KEYS, LOAD_BOUNDARY_KEYS } from './constants.js';
+import { DESIGN_CONDITION_KEYS, GEOMETRY_KEYS, LOAD_BOUNDARY_KEYS } from './constants.js';
 import { normalizeConcreteFrameNaturalPatch } from './extract-natural.js';
 import { normalizeConcreteGrade, normalizeSectionName } from './model.js';
 
@@ -22,7 +29,13 @@ export function toConcreteFramePatch(patch: DraftExtraction): DraftExtraction {
     geometryKeys: GEOMETRY_KEYS,
     loadBoundaryKeys: LOAD_BOUNDARY_KEYS,
   });
-  return restrictLegacyDraftPatch(domainPatch, 'frame', [...GEOMETRY_KEYS, ...LOAD_BOUNDARY_KEYS]);
+  const next = restrictLegacyDraftPatch(domainPatch, 'frame', [...GEOMETRY_KEYS, ...LOAD_BOUNDARY_KEYS]);
+  for (const key of DESIGN_CONDITION_KEYS) {
+    if (patch[key] !== undefined) {
+      next[key] = patch[key];
+    }
+  }
+  return next;
 }
 
 function extractLlmScalar(raw: Record<string, unknown> | null | undefined, keys: string[]): number | undefined {
@@ -114,6 +127,110 @@ function extractLineLoadIntensity(message: string): number | undefined {
   }, ['direct']);
 }
 
+function calculateFloorAreaM2(patch: DraftExtraction): number | undefined {
+  const dimension = patch.frameDimension
+    ?? (patch.bayCountY !== undefined || patch.bayWidthsYM?.length ? '3d' : '2d');
+
+  if (dimension === '3d') {
+    const totalSpanX = sumPositive(patch.bayWidthsXM);
+    const totalSpanY = sumPositive(patch.bayWidthsYM);
+    return totalSpanX !== undefined && totalSpanY !== undefined ? totalSpanX * totalSpanY : undefined;
+  }
+
+  const bayWidths2d = patch.bayWidthsM ?? patch.bayWidthsXM;
+  const totalSpan2d = sumPositive(bayWidths2d);
+  return totalSpan2d !== undefined ? totalSpan2d * totalSpan2d : undefined;
+}
+
+function extractAreaLoadPair(segment: string): { dead?: number; live?: number } {
+  const unit = `(?:\\s*${AREA_LOAD_UNIT_PATTERN})?`;
+  const deadMatch = segment.match(new RegExp(`(?:恒载|恒荷载|永久荷载|dead\\s*load|dead-load)\\s*[：:=为是]*\\s*([0-9]+(?:\\.[0-9]+)?)${unit}`, 'i'));
+  const liveMatch = segment.match(new RegExp(`(?:活载|活荷载|live\\s*load|live-load)\\s*[：:=为是]*\\s*([0-9]+(?:\\.[0-9]+)?)${unit}`, 'i'));
+  return {
+    dead: normalizeNumber(deadMatch?.[1]),
+    live: normalizeNumber(liveMatch?.[1]),
+  };
+}
+
+function chineseStoryOrdinal(raw: string): number | undefined {
+  const text = raw.replace(/第/g, '').replace(/层/g, '').trim();
+  const arabic = Number.parseInt(text, 10);
+  if (Number.isFinite(arabic) && arabic > 0) return arabic;
+  const table: Record<string, number> = {
+    一: 1,
+    二: 2,
+    两: 2,
+    三: 3,
+    四: 4,
+    五: 5,
+    六: 6,
+    七: 7,
+    八: 8,
+    九: 9,
+    十: 10,
+  };
+  return table[text];
+}
+
+function extractTargetedAreaFloorLoads(
+  message: string,
+  patch: DraftExtraction,
+): DraftFloorLoad[] | undefined {
+  const storyCount = patch.storyCount ?? patch.storyHeightsM?.length;
+  const floorAreaM2 = calculateFloorAreaM2(patch);
+  if (!storyCount || !floorAreaM2 || floorAreaM2 <= 0) return undefined;
+
+  const byStory = new Map<number, DraftFloorLoad>();
+  const hasRoofLoad = /屋面[^，。；;]*(?:恒载|活载)/.test(message);
+  const storyPattern = /((?:第?[一二两三四五六七八九十]+|[0-9]+)层楼面)([^。；;]*)/g;
+  for (const match of message.matchAll(storyPattern)) {
+    const label = match[1] ?? '';
+    const storyOrdinal = chineseStoryOrdinal(label.replace(/楼面/g, ''));
+    const pair = extractAreaLoadPair(match[2] ?? '');
+    if (storyOrdinal === undefined || (pair.dead === undefined && pair.live === undefined)) continue;
+    const story = hasRoofLoad && storyOrdinal === storyCount && storyCount > 1
+      ? storyCount - 1
+      : storyOrdinal;
+    if (story < 1 || story > storyCount) continue;
+    byStory.set(story, {
+      story,
+      ...(pair.dead !== undefined && { verticalKN: Number((pair.dead * floorAreaM2).toFixed(6)) }),
+      ...(pair.live !== undefined && { liveLoadKN: Number((pair.live * floorAreaM2).toFixed(6)) }),
+    });
+  }
+
+  const roofMatch = message.match(/屋面([^。；;]*)/);
+  if (roofMatch) {
+    const pair = extractAreaLoadPair(roofMatch[1] ?? '');
+    if (pair.dead !== undefined || pair.live !== undefined) {
+      byStory.set(storyCount, {
+        story: storyCount,
+        ...(pair.dead !== undefined && { verticalKN: Number((pair.dead * floorAreaM2).toFixed(6)) }),
+        ...(pair.live !== undefined && { liveLoadKN: Number((pair.live * floorAreaM2).toFixed(6)) }),
+      });
+    }
+  }
+
+  const genericFloorMatch = message.match(/(?:楼面|标准层|各层)([^。；;]*)/);
+  if (!byStory.size && genericFloorMatch) {
+    const pair = extractAreaLoadPair(genericFloorMatch[1] ?? '');
+    if (pair.dead !== undefined || pair.live !== undefined) {
+      const endStory = hasRoofLoad && storyCount > 1 ? storyCount - 1 : storyCount;
+      for (let story = 1; story <= endStory; story++) {
+        byStory.set(story, {
+          story,
+          ...(pair.dead !== undefined && { verticalKN: Number((pair.dead * floorAreaM2).toFixed(6)) }),
+          ...(pair.live !== undefined && { liveLoadKN: Number((pair.live * floorAreaM2).toFixed(6)) }),
+        });
+      }
+    }
+  }
+
+  return byStory.size
+    ? Array.from(byStory.values()).sort((left, right) => left.story - right.story)
+    : undefined;
+}
+
 function deriveFloorLoadsFromIntensity(
   message: string,
   patch: DraftExtraction,
@@ -126,6 +243,8 @@ function deriveFloorLoadsFromIntensity(
   const areaLoadKNm2 = extractDeadLoadIntensity(message) ?? extractAreaLoadIntensity(message);
   const lineLoadKNm = extractLineLoadIntensity(message);
   const liveLoadKNm2 = extractLiveLoadIntensity(message);
+  const targetedAreaLoads = extractTargetedAreaFloorLoads(message, patch);
+  if (targetedAreaLoads?.length) return { ...patch, floorLoads: targetedAreaLoads };
   if (areaLoadKNm2 === undefined && lineLoadKNm === undefined && liveLoadKNm2 === undefined) return patch;
 
   const dimension = patch.frameDimension
@@ -218,6 +337,9 @@ export function buildConcreteFramePatchFromLlm(
   const frameBeamSection = typeof rawPatch?.frameBeamSection === 'string'
     ? normalizeSectionName(rawPatch.frameBeamSection)
     : undefined;
+  const siteSeismic = normalizeSiteSeismicPatch(rawPatch, existingState);
+  const wind = normalizeWindPatch(rawPatch, existingState);
+  const analysisControl = normalizeAnalysisControlPatch(rawPatch, existingState);
 
   return {
     ...normalized,
@@ -231,6 +353,9 @@ export function buildConcreteFramePatchFromLlm(
     ...(frameRebarGrade !== undefined && { frameRebarGrade }),
     ...(frameColumnSection !== undefined && { frameColumnSection }),
     ...(frameBeamSection !== undefined && { frameBeamSection }),
+    ...(siteSeismic !== undefined && { siteSeismic }),
+    ...(wind !== undefined && { wind }),
+    ...(analysisControl !== undefined && { analysisControl }),
   };
 }
 
@@ -277,6 +402,12 @@ export function buildConcreteFrameDraftPatch(
     ?? (rawNaturalPatch.frameColumnSection as string | undefined);
   const frameBeamSection = (normalizedLlmPatch.frameBeamSection as string | undefined)
     ?? (rawNaturalPatch.frameBeamSection as string | undefined);
+  const siteSeismic = (normalizedLlmPatch.siteSeismic as DraftSiteSeismicParams | undefined)
+    ?? (rawNaturalPatch.siteSeismic as DraftSiteSeismicParams | undefined);
+  const wind = (normalizedLlmPatch.wind as DraftWindParams | undefined)
+    ?? (rawNaturalPatch.wind as DraftWindParams | undefined);
+  const analysisControl = (normalizedLlmPatch.analysisControl as DraftAnalysisControl | undefined)
+    ?? (rawNaturalPatch.analysisControl as DraftAnalysisControl | undefined);
 
   return coerceConcreteFrameDimension(
     {
@@ -286,8 +417,131 @@ export function buildConcreteFrameDraftPatch(
       ...(frameRebarGrade !== undefined && { frameRebarGrade }),
       ...(frameColumnSection !== undefined && { frameColumnSection }),
       ...(frameBeamSection !== undefined && { frameBeamSection }),
+      ...(siteSeismic !== undefined && { siteSeismic }),
+      ...(wind !== undefined && { wind }),
+      ...(analysisControl !== undefined && { analysisControl }),
     },
     existingState,
     message,
   );
+}
+
+function normalizePlainRecord(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined;
+}
+
+function normalizeDesignGroup(raw: unknown): string | undefined {
+  if (typeof raw !== 'string' && typeof raw !== 'number') return undefined;
+  const text = String(raw).trim();
+  if (/1|一/.test(text)) return '第一组';
+  if (/2|二|两/.test(text)) return '第二组';
+  if (/3|三/.test(text)) return '第三组';
+  return undefined;
+}
+
+function normalizeSiteCategory(raw: unknown): string | undefined {
+  if (typeof raw !== 'string' && typeof raw !== 'number') return undefined;
+  const text = String(raw).trim().toUpperCase().replace(/类/g, '');
+  if (/^(?:1|一|I)$/.test(text)) return 'I';
+  if (/^(?:2|二|两|II)$/.test(text)) return 'II';
+  if (/^(?:3|三|III)$/.test(text)) return 'III';
+  if (/^(?:4|四|IV)$/.test(text)) return 'IV';
+  return undefined;
+}
+
+function normalizeTerrainRoughness(raw: unknown): DraftWindParams['terrainRoughness'] | undefined {
+  if (typeof raw !== 'string') return undefined;
+  const text = raw.trim().toUpperCase().replace(/类/g, '');
+  return ['A', 'B', 'C', 'D'].includes(text) ? text as DraftWindParams['terrainRoughness'] : undefined;
+}
+
+function normalizeSiteSeismicPatch(
+  rawPatch: Record<string, unknown> | null | undefined,
+  existingState: DraftState | undefined,
+): DraftSiteSeismicParams | undefined {
+  const raw = normalizePlainRecord(rawPatch?.siteSeismic)
+    ?? normalizePlainRecord(rawPatch?.site_seismic)
+    ?? normalizePlainRecord(rawPatch?.seismic);
+  const intensity = extractLlmScalar(raw ?? rawPatch, ['intensity', 'seismicIntensity', 'frameSeismicIntensity']);
+  const accelerationG = extractLlmScalar(raw ?? rawPatch, ['accelerationG', 'seismicAccelerationG', 'frameSeismicAccelerationG']);
+  const characteristicPeriod = extractLlmScalar(raw ?? rawPatch, ['characteristicPeriod', 'characteristic_period']);
+  const maxInfluenceCoefficient = extractLlmScalar(raw ?? rawPatch, ['maxInfluenceCoefficient', 'max_influence_coefficient']);
+  const dampingRatio = extractLlmScalar(raw ?? rawPatch, ['dampingRatio', 'damping_ratio']);
+  const designGroup = normalizeDesignGroup(raw?.designGroup ?? raw?.design_group ?? rawPatch?.frameSeismicDesignGroup);
+  const siteCategory = normalizeSiteCategory(raw?.siteCategory ?? raw?.site_category ?? rawPatch?.frameSeismicSiteCategory);
+  const merged: DraftSiteSeismicParams = {
+    ...(existingState?.siteSeismic ?? {}),
+    ...(intensity !== undefined && { intensity }),
+    ...(accelerationG !== undefined && { accelerationG }),
+    ...(designGroup !== undefined && { designGroup }),
+    ...(siteCategory !== undefined && { siteCategory }),
+    ...(characteristicPeriod !== undefined && { characteristicPeriod }),
+    ...(maxInfluenceCoefficient !== undefined && { maxInfluenceCoefficient }),
+    ...(dampingRatio !== undefined && { dampingRatio }),
+  };
+  return Object.keys(merged).length ? merged : undefined;
+}
+
+function normalizeWindPatch(
+  rawPatch: Record<string, unknown> | null | undefined,
+  existingState: DraftState | undefined,
+): DraftWindParams | undefined {
+  const raw = normalizePlainRecord(rawPatch?.wind)
+    ?? normalizePlainRecord(rawPatch?.windParams);
+  const basicPressureKNM2 = extractLlmScalar(raw ?? rawPatch, ['basicPressureKNM2', 'basic_pressure', 'basicPressure', 'windPressure', 'frameWindBasicPressureKNM2']);
+  const shapeFactor = extractLlmScalar(raw ?? rawPatch, ['shapeFactor', 'shape_factor']);
+  const heightVariationFactor = extractLlmScalar(raw ?? rawPatch, ['heightVariationFactor', 'height_variation_factor']);
+  const terrainRoughness = normalizeTerrainRoughness(raw?.terrainRoughness ?? raw?.terrain_roughness ?? rawPatch?.frameWindTerrainRoughness);
+  const merged: DraftWindParams = {
+    ...(existingState?.wind ?? {}),
+    ...(basicPressureKNM2 !== undefined && { basicPressureKNM2 }),
+    ...(terrainRoughness !== undefined && { terrainRoughness }),
+    ...(shapeFactor !== undefined && { shapeFactor }),
+    ...(heightVariationFactor !== undefined && { heightVariationFactor }),
+  };
+  return Object.keys(merged).length ? merged : undefined;
+}
+
+function normalizeAnalysisControlPatch(
+  rawPatch: Record<string, unknown> | null | undefined,
+  existingState: DraftState | undefined,
+): DraftAnalysisControl | undefined {
+  const raw = normalizePlainRecord(rawPatch?.analysisControl)
+    ?? normalizePlainRecord(rawPatch?.analysis_control);
+  if (!raw) return existingState?.analysisControl;
+  const merged: DraftAnalysisControl = {
+    ...(existingState?.analysisControl ?? {}),
+    ...(typeof raw.pDelta === 'boolean' && { pDelta: raw.pDelta }),
+    ...(typeof raw.p_delta === 'boolean' && { pDelta: raw.p_delta }),
+    ...(typeof raw.rigidFloor === 'boolean' && { rigidFloor: raw.rigidFloor }),
+    ...(typeof raw.rigid_floor === 'boolean' && { rigidFloor: raw.rigid_floor }),
+    ...(typeof raw.considerationTorsion === 'boolean' && { considerationTorsion: raw.considerationTorsion }),
+    ...(typeof raw.consideration_torsion === 'boolean' && { considerationTorsion: raw.consideration_torsion }),
+    ...(typeof raw.liveLoadReduction === 'boolean' && { liveLoadReduction: raw.liveLoadReduction }),
+    ...(typeof raw.live_load_reduction === 'boolean' && { liveLoadReduction: raw.live_load_reduction }),
+    ...(extractLlmScalar(raw, ['periodReductionFactor', 'period_reduction_factor']) !== undefined && {
+      periodReductionFactor: extractLlmScalar(raw, ['periodReductionFactor', 'period_reduction_factor']),
+    }),
+    ...(extractLlmScalar(raw, ['accidentalEccentricity', 'accidental_eccentricity']) !== undefined && {
+      accidentalEccentricity: extractLlmScalar(raw, ['accidentalEccentricity', 'accidental_eccentricity']),
+    }),
+    ...(extractLlmScalar(raw, ['modalCount', 'modal_count']) !== undefined && {
+      modalCount: extractLlmScalar(raw, ['modalCount', 'modal_count']),
+    }),
+    ...(extractLlmScalar(raw, ['basementCount', 'basement_count']) !== undefined && {
+      basementCount: extractLlmScalar(raw, ['basementCount', 'basement_count']),
+    }),
+    ...(extractLlmScalar(raw, ['structureImportanceFactor', 'structure_importance_factor']) !== undefined && {
+      structureImportanceFactor: extractLlmScalar(raw, ['structureImportanceFactor', 'structure_importance_factor']),
+    }),
+    ...(extractLlmScalar(raw, ['dampingRatioWind', 'damping_ratio_wind']) !== undefined && {
+      dampingRatioWind: extractLlmScalar(raw, ['dampingRatioWind', 'damping_ratio_wind']),
+    }),
+    ...(normalizePlainRecord(raw.designParams ?? raw.design_params) !== undefined && {
+      designParams: normalizePlainRecord(raw.designParams ?? raw.design_params),
+    }),
+  };
+  return Object.keys(merged).length ? merged : undefined;
 }

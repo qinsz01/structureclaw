@@ -201,6 +201,7 @@ function writePkpmApiStub(stubsDir) {
       '    def GetCurrentStandFloor(self): return self.floor',
       '    def AddNaturalFloor(self, floor): calls.append({"method": "Model.AddNaturalFloor"})',
       '    def GetProjectPara(self): return self.para',
+      '    def SetOneDesignParaValue(self, index, value): calls.append({"method": "Model.SetOneDesignParaValue", "index": index, "value": value})',
       '    def SaveProjectPara(self): calls.append({"method": "Model.SaveProjectPara"})',
       '    def SavePMModel(self): calls.append({"method": "Model.SavePMModel"})',
     ].join('\n'),
@@ -503,6 +504,53 @@ describe('PKPM frame analysis flow', () => {
     expect(findCalls(payload, 'Column.SetConcreteGrade').map((call) => call.grade)).toEqual(expect.arrayContaining(['C35']));
     expect(findCalls(payload, 'Beam.SetConcreteGrade').map((call) => call.grade)).toEqual(expect.arrayContaining(['C35']));
     expect(findCalls(payload, 'Beam.SetSteelGrade')).toHaveLength(0);
+  });
+
+  test('passes V2 seismic and wind design conditions into PKPM design parameters', () => {
+    const model = buildRcUserScenarioModel();
+    model.site_seismic = {
+      intensity: 7,
+      design_group: '第三组',
+      site_category: 'III',
+      characteristic_period: 0.65,
+      max_influence_coefficient: 0.08,
+      damping_ratio: 0.05,
+    };
+    model.wind = {
+      basic_pressure: 0.4,
+      terrain_roughness: 'B',
+      shape_factor: 1.3,
+    };
+    model.analysis_control = {
+      p_delta: false,
+      rigid_floor: true,
+      consideration_torsion: true,
+    };
+
+    const payload = runPkpmRuntime(model);
+    const designParamCalls = findCalls(payload, 'Model.SetOneDesignParaValue');
+
+    expect(designParamCalls).toEqual(expect.arrayContaining([
+      expect.objectContaining({ index: 25, value: 7 }),
+      expect.objectContaining({ index: 27, value: 3 }),
+      expect.objectContaining({ index: 31, value: 3 }),
+      expect.objectContaining({ index: 33, value: 0.4 }),
+      expect.objectContaining({ index: 37, value: 1.3 }),
+    ]));
+    expect(payload.result.summary.designConditions).toMatchObject({
+      site_seismic: {
+        intensity: 7,
+        design_group: '第三组',
+        site_category: 'III',
+      },
+      wind: {
+        basic_pressure: 0.4,
+        terrain_roughness: 'B',
+      },
+    });
+    expect(payload.result.pkpm_detailed.input_design_conditions.wind).toMatchObject({
+      basic_pressure: 0.4,
+    });
   });
 
   test('accepts generic rectangular section properties for PKPM concrete sections', () => {

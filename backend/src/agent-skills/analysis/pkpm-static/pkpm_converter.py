@@ -513,6 +513,9 @@ def _build_plan_nodes(
 def _configure_satwe_params(
     model: APIPyInterface.Model,
     material_family: str,
+    site_seismic: dict[str, Any] | None = None,
+    wind: dict[str, Any] | None = None,
+    analysis_control: dict[str, Any] | None = None,
 ) -> None:
     """Set SATWE design parameters via ProjectPara (KIND field codes).
 
@@ -533,6 +536,88 @@ def _configure_satwe_params(
     para.SetParaInt(101, 10101)
 
     model.SaveProjectPara()
+
+    # APIPyInterface exposes SATWE calculation controls as a numeric design
+    # parameter vector. The indices below are adapter-local mappings verified
+    # against the installed API defaults via GetOneDesignParaValue().
+    design_param_updates: dict[int, float] = {}
+
+    def _as_float(value: Any) -> float | None:
+        try:
+            if value is None:
+                return None
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _design_group_code(value: Any) -> float | None:
+        text = str(value or "")
+        if "1" in text or "一" in text:
+            return 1.0
+        if "2" in text or "二" in text or "两" in text:
+            return 2.0
+        if "3" in text or "三" in text:
+            return 3.0
+        return None
+
+    def _site_category_code(value: Any) -> float | None:
+        text = str(value or "").strip().upper().replace("类", "")
+        mapping = {
+            "1": 1.0, "一": 1.0, "I": 1.0,
+            "2": 2.0, "二": 2.0, "两": 2.0, "II": 2.0,
+            "3": 3.0, "三": 3.0, "III": 3.0,
+            "4": 4.0, "四": 4.0, "IV": 4.0,
+        }
+        return mapping.get(text)
+
+    if site_seismic:
+        intensity = _as_float(site_seismic.get("intensity"))
+        site_category = _site_category_code(site_seismic.get("site_category"))
+        design_group = _design_group_code(site_seismic.get("design_group"))
+        if design_group is None:
+            characteristic_period = _as_float(site_seismic.get("characteristic_period"))
+            if site_category == 3.0 and characteristic_period is not None and characteristic_period >= 0.64:
+                design_group = 3.0
+            elif site_category == 2.0 and characteristic_period is not None and characteristic_period >= 0.44:
+                design_group = 3.0
+            elif characteristic_period is not None and characteristic_period >= 0.54:
+                design_group = 2.0
+        if intensity is not None:
+            design_param_updates[25] = intensity
+        if site_category is not None:
+            design_param_updates[27] = site_category
+        if design_group is not None:
+            design_param_updates[31] = design_group
+
+    if wind:
+        basic_pressure = _as_float(wind.get("basic_pressure"))
+        shape_factor = _as_float(wind.get("shape_factor"))
+        if basic_pressure is not None:
+            design_param_updates[33] = basic_pressure
+        if shape_factor is not None:
+            design_param_updates[37] = shape_factor
+
+    explicit_design_params = (
+        ((analysis_control or {}).get("design_params") or {})
+        if isinstance((analysis_control or {}).get("design_params"), dict)
+        else {}
+    )
+    pkpm_design_params = explicit_design_params.get("pkpm") if isinstance(explicit_design_params.get("pkpm"), dict) else {}
+    satwe_indices = pkpm_design_params.get("satwe_indices") if isinstance(pkpm_design_params.get("satwe_indices"), dict) else {}
+    for raw_index, raw_value in satwe_indices.items():
+        try:
+            index = int(raw_index)
+        except (TypeError, ValueError):
+            continue
+        value = _as_float(raw_value)
+        if value is not None:
+            design_param_updates[index] = value
+
+    for index, value in sorted(design_param_updates.items()):
+        try:
+            model.SetOneDesignParaValue(index, value)
+        except Exception as exc:
+            sys.stderr.write(f"[pkpm_converter] SetOneDesignParaValue({index}, {value}) failed: {exc}\n")
 
 
 def _log_design_params(model: APIPyInterface.Model) -> None:
@@ -618,6 +703,7 @@ def convert_v2_to_jws(
     site_seismic = data.get("site_seismic") or {}
     structure_system = data.get("structure_system") or {}
     analysis_control = data.get("analysis_control") or {}
+    wind = data.get("wind") or {}
     damping_ratio = float(site_seismic.get("damping_ratio", 0.0))
 
     # ---- Sections ----
@@ -762,7 +848,7 @@ def convert_v2_to_jws(
         model.AddNaturalFloor(rf)
 
     # ---- Configure SATWE design parameters ----
-    _configure_satwe_params(model, material_family)
+    _configure_satwe_params(model, material_family, site_seismic, wind, analysis_control)
     if os.environ.get("PKPM_DEBUG_PARAMS"):
         _log_design_params(model)
 
@@ -774,4 +860,9 @@ def convert_v2_to_jws(
         "stories": stories,
         "normalization": normalization,
         "material_family": material_family,
+        "design_conditions": {
+            "site_seismic": site_seismic,
+            "wind": wind,
+            "analysis_control": analysis_control,
+        },
     }

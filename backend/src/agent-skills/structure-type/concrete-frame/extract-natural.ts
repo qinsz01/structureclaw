@@ -4,6 +4,7 @@ import type { DraftExtraction, DraftState } from '../../../agent-runtime/types.j
 // Enhanced digit pattern for explicit structural context
 // Requires specific leading context to avoid false matches like "其中一层"
 const DIGIT_PATTERN = '[零一二三四五六七八九十百千万两廿0-9]+';
+const DECIMAL_NUMBER_PATTERN = '[0-9]+(?:\\.[0-9]+)?';
 
 // Leading context that indicates structural description (not casual mention)
 // Covers: sentence start, punctuation, or specific aggregate keywords
@@ -168,6 +169,78 @@ function extractBayCountFromDirectionalSegment(segment: string): number | undefi
   ]);
 }
 
+function extractLabeledSegment(message: string, labelPattern: string, stopPattern: string): string {
+  const match = message.match(new RegExp(`${labelPattern}([\\s\\S]*?)(?=${stopPattern}|$)`, 'i'));
+  return match?.[1] ?? '';
+}
+
+const PLAN_SEGMENT_STOP = '(?:横向|纵向|[xXyYzZ](?:方向|向)|首层|一层|二层|三层|每层|层高|楼面|屋面|恒载|活载|抗震|地震|风荷载|基本风压|混凝土|钢筋|柱|梁)';
+
+function extractWidthValuesWithUnit(segment: string): number[] | undefined {
+  const values: number[] = [];
+  const pattern = new RegExp(`(${DECIMAL_NUMBER_PATTERN})\\s*(?:m|米)`, 'gi');
+  for (const match of segment.matchAll(pattern)) {
+    const value = normalizeNumber(match[1]);
+    if (value !== undefined && value > 0) values.push(value);
+  }
+  return values.length ? values : undefined;
+}
+
+function extractBayCountFromOpeningSegment(segment: string): number | undefined {
+  return extractStructuredCount(segment, [
+    new RegExp(`共\\s*(${DIGIT_PATTERN})\\s*(?:间|跨|开间)`, 'i'),
+    new RegExp(`(${DIGIT_PATTERN})\\s*(?:间|跨|开间)`, 'i'),
+  ]);
+}
+
+function extractLongitudinalSegment(message: string): string {
+  return extractLabeledSegment(
+    message,
+    '(?:纵向|[xX](?:方向|向))(?:\\s*(?:开间|跨度|尺寸|轴网|间距|进深))*\\s*',
+    PLAN_SEGMENT_STOP,
+  );
+}
+
+function extractTransverseSegment(message: string): string {
+  return extractLabeledSegment(
+    message,
+    '(?:横向|[yYzZ](?:方向|向))(?:\\s*(?:进深|跨度|尺寸|轴网|间距|开间))*\\s*',
+    PLAN_SEGMENT_STOP,
+  );
+}
+
+function extractLongitudinalBayCount(message: string): number | undefined {
+  const segment = extractLongitudinalSegment(message);
+  return segment ? extractBayCountFromOpeningSegment(segment) : undefined;
+}
+
+function extractLongitudinalBayWidths(message: string, bayCount: number | undefined): number[] | undefined {
+  const segment = extractLongitudinalSegment(message);
+  const values = segment ? extractWidthValuesWithUnit(segment) : undefined;
+  if (!values?.length) return undefined;
+  if (values.length === 1 && bayCount !== undefined) {
+    return Array(bayCount).fill(values[0]);
+  }
+  return values;
+}
+
+function extractTransverseBayCount(message: string): number | undefined {
+  const segment = extractTransverseSegment(message);
+  const explicit = segment ? extractBayCountFromOpeningSegment(segment) : undefined;
+  if (explicit !== undefined) return explicit;
+  return extractTransverseBayWidths(message, undefined)?.length;
+}
+
+function extractTransverseBayWidths(message: string, bayCount: number | undefined): number[] | undefined {
+  const segment = extractTransverseSegment(message);
+  const values = segment ? extractWidthValuesWithUnit(segment) : undefined;
+  if (!values?.length) return undefined;
+  if (values.length === 1 && bayCount !== undefined) {
+    return Array(bayCount).fill(values[0]);
+  }
+  return values;
+}
+
 function extractBayWidthFromDirectionalSegment(segment: string): number[] | undefined {
   return _extractNaturalArray(segment, [
     new RegExp(`(?:每跨|跨度|间隔)(?:都?是|也?是|为|是)?\\s*(${DIGIT_PATTERN}(?:\\.${DIGIT_PATTERN})?)\\s*(?:m|米)`, 'gi'),
@@ -262,6 +335,9 @@ function extractBayCount(message: string): number | undefined {
  * Extract direction-specific bay count for X direction.
  */
 function extractBayCountX(message: string): number | undefined {
+  const longitudinalCount = extractLongitudinalBayCount(message);
+  if (longitudinalCount !== undefined) return longitudinalCount;
+
   const segmentCount = extractBayCountFromDirectionalSegment(extractDirectionalSegment(message, 'x'));
   if (segmentCount !== undefined) return segmentCount;
 
@@ -278,6 +354,9 @@ function extractBayCountX(message: string): number | undefined {
  * Extract direction-specific bay count for Y direction.
  */
 function extractBayCountY(message: string): number | undefined {
+  const transverseCount = extractTransverseBayCount(message);
+  if (transverseCount !== undefined) return transverseCount;
+
   const ySegmentCount = extractBayCountFromDirectionalSegment(extractDirectionalSegment(message, 'y'));
   if (ySegmentCount !== undefined) return ySegmentCount;
   const zSegmentCount = extractBayCountFromDirectionalSegment(extractDirectionalSegment(message, 'z'));
@@ -293,6 +372,9 @@ function extractBayCountY(message: string): number | undefined {
 }
 
 function extractStoryHeights(message: string): number[] | undefined {
+  const explicitStoryHeights = extractExplicitStoryHeights(message);
+  if (explicitStoryHeights?.length) return explicitStoryHeights;
+
   return _extractNaturalArray(message, [
     new RegExp(`(?:层高|story\\s*height)\\s*[：:]*\\s*(${DIGIT_PATTERN}(?:\\.${DIGIT_PATTERN})?)`, 'gi'),
     // English: "4.2m each" - number and unit before "each" or "per story"
@@ -302,8 +384,42 @@ function extractStoryHeights(message: string): number[] | undefined {
   ]);
 }
 
+function storyOrdinalToIndex(raw: string): number | undefined {
+  const normalized = raw.replace(/第/g, '').replace(/层/g, '').trim();
+  if (normalized === '首') return 1;
+  return parseLocalizedNumber(normalized);
+}
+
+function extractExplicitStoryHeights(message: string): number[] | undefined {
+  const values = new Map<number, number>();
+  const pattern = new RegExp(
+    `((?:首|第?[一二两三四五六七八九十]+|[0-9]+)层)\\s*(?:层高|高度)?\\s*(?:为|是|:|：)?\\s*(${DECIMAL_NUMBER_PATTERN})\\s*(?:m|米)`,
+    'gi',
+  );
+  for (const match of message.matchAll(pattern)) {
+    const story = storyOrdinalToIndex(match[1] ?? '');
+    const height = normalizeNumber(match[2]);
+    if (story !== undefined && height !== undefined && height > 0) {
+      values.set(story, height);
+    }
+  }
+  if (!values.size) return undefined;
+  const maxStory = Math.max(...values.keys());
+  const heights: number[] = [];
+  for (let story = 1; story <= maxStory; story++) {
+    const height = values.get(story);
+    if (height === undefined) return undefined;
+    heights.push(height);
+  }
+  return heights;
+}
+
 // Extract bay widths for x-direction (in context of x方向)
 function extractBayWidthsX(message: string): number[] | undefined {
+  const longitudinalCount = extractLongitudinalBayCount(message);
+  const longitudinalWidths = extractLongitudinalBayWidths(message, longitudinalCount);
+  if (longitudinalWidths?.length) return longitudinalWidths;
+
   // Check if message has x-direction context
   if (!/x方向|x向/i.test(message)) {
     return undefined;
@@ -321,6 +437,10 @@ function extractBayWidthsX(message: string): number[] | undefined {
 
 // Extract bay widths for y-direction (in context of y方向)
 function extractBayWidthsY(message: string): number[] | undefined {
+  const transverseCount = extractTransverseBayCount(message);
+  const transverseWidths = extractTransverseBayWidths(message, transverseCount);
+  if (transverseWidths?.length) return transverseWidths;
+
   // Check if message has y-direction context
   if (!/y方向|y向|z方向|z向/i.test(message)) {
     return undefined;
@@ -370,8 +490,78 @@ function extractFrameDimension(message: string): '2d' | '3d' | undefined {
   if (/x方向.*[1-9](?:[0-9])?(?:跨|bay)/i.test(message)) {
     return '3d';
   }
+  if (/(?:纵向|横向|进深|开间尺寸)/i.test(message)) {
+    return '3d';
+  }
   
   return undefined;
+}
+
+function normalizeDesignGroup(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  const text = raw.trim();
+  if (/1|一/.test(text)) return '第一组';
+  if (/2|二|两/.test(text)) return '第二组';
+  if (/3|三/.test(text)) return '第三组';
+  return undefined;
+}
+
+function normalizeSeismicSiteCategory(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  const text = raw.trim().toUpperCase();
+  if (/^(?:1|一|I)$/.test(text)) return 'I';
+  if (/^(?:2|二|两|II)$/.test(text)) return 'II';
+  if (/^(?:3|三|III)$/.test(text)) return 'III';
+  if (/^(?:4|四|IV)$/.test(text)) return 'IV';
+  return undefined;
+}
+
+function extractSiteSeismic(message: string): DraftExtraction['siteSeismic'] {
+  const intensityMatch = message.match(/([6-9](?:\.\d+)?)\s*度(?:\s*设防)?(?:\s*[,，、]?\s*([0-9]+(?:\.[0-9]+)?)\s*g)?/i);
+  const accelerationMatch = message.match(/([0-9]+(?:\.[0-9]+)?)\s*g/i);
+  const designGroupMatch = message.match(/(?:设计地震分组|地震分组)\s*(?:为|是|:|：)?\s*(第?[一二两三123]组?)/i)
+    ?? (/(?:抗震|地震)/.test(message) ? message.match(/(第?[一二两三123]组)/i) : null);
+  const siteCategoryMatch = message.match(/场地类别\s*(I{1,3}|IV|[一二两三四1234])\s*类?/i);
+  const dampingMatch = message.match(/阻尼比\s*(?:为|是|:|：)?\s*([0-9]+(?:\.[0-9]+)?)/i);
+
+  const intensity = normalizeNumber(intensityMatch?.[1]);
+  const accelerationG = normalizeNumber(intensityMatch?.[2]) ?? normalizeNumber(accelerationMatch?.[1]);
+  const designGroup = normalizeDesignGroup(designGroupMatch?.[1]);
+  const siteCategory = normalizeSeismicSiteCategory(siteCategoryMatch?.[1]);
+  const dampingRatio = normalizeNumber(dampingMatch?.[1]);
+
+  if (intensity === undefined && accelerationG === undefined && designGroup === undefined && siteCategory === undefined && dampingRatio === undefined) {
+    return undefined;
+  }
+  return {
+    ...(intensity !== undefined && { intensity }),
+    ...(accelerationG !== undefined && { accelerationG }),
+    ...(designGroup !== undefined && { designGroup }),
+    ...(siteCategory !== undefined && { siteCategory }),
+    ...(dampingRatio !== undefined && { dampingRatio }),
+  };
+}
+
+function extractWind(message: string): DraftExtraction['wind'] {
+  const basicPressureMatch = message.match(/(?:基本风压|风荷载|风压)\s*(?:为|是|:|：)?\s*([0-9]+(?:\.[0-9]+)?)/i);
+  const terrainMatch = message.match(/(?:地面粗糙度|风荷载[^，。；;]*场地类别|场地类别)\s*([ABCD])\s*类?/i);
+  const shapeFactorMatch = message.match(/体型系数\s*(?:为|是|:|：)?\s*([0-9]+(?:\.[0-9]+)?)/i);
+  const heightFactorMatch = message.match(/高度变化系数\s*(?:为|是|:|：)?\s*([0-9]+(?:\.[0-9]+)?)/i);
+
+  const basicPressureKNM2 = normalizeNumber(basicPressureMatch?.[1]);
+  const terrainRoughness = terrainMatch?.[1]?.toUpperCase() as 'A' | 'B' | 'C' | 'D' | undefined;
+  const shapeFactor = normalizeNumber(shapeFactorMatch?.[1]);
+  const heightVariationFactor = normalizeNumber(heightFactorMatch?.[1]);
+
+  if (basicPressureKNM2 === undefined && terrainRoughness === undefined && shapeFactor === undefined && heightVariationFactor === undefined) {
+    return undefined;
+  }
+  return {
+    ...(basicPressureKNM2 !== undefined && { basicPressureKNM2 }),
+    ...(terrainRoughness !== undefined && { terrainRoughness }),
+    ...(shapeFactor !== undefined && { shapeFactor }),
+    ...(heightVariationFactor !== undefined && { heightVariationFactor }),
+  };
 }
 
 // M1: Separate concrete and rebar grade extraction to avoid losing information
@@ -424,6 +614,8 @@ export function normalizeConcreteFrameNaturalPatch(
   const frameRebarGrade = extractRebarGrade(message) ?? existingState?.frameRebarGrade as string | undefined;
   const frameColumnSection = extractFrameColumnSection(message) ?? existingState?.frameColumnSection as string | undefined;
   const frameBeamSection = extractFrameBeamSection(message) ?? existingState?.frameBeamSection as string | undefined;
+  const siteSeismic = extractSiteSeismic(message) ?? existingState?.siteSeismic;
+  const wind = extractWind(message) ?? existingState?.wind;
 
   // Expand storyHeightsM to match storyCount when it represents a uniform value
   // e.g., [3] with storyCount=3 becomes [3, 3, 3]
@@ -466,6 +658,8 @@ export function normalizeConcreteFrameNaturalPatch(
     ...(frameRebarGrade !== undefined && { frameRebarGrade }),
     ...(frameColumnSection !== undefined && { frameColumnSection }),
     ...(frameBeamSection !== undefined && { frameBeamSection }),
+    ...(siteSeismic !== undefined && { siteSeismic }),
+    ...(wind !== undefined && { wind }),
   };
 }
 

@@ -16,6 +16,37 @@ export interface DraftFloorLoad {
   lateralYKN?: number;
 }
 
+export interface DraftSiteSeismicParams {
+  intensity?: number;
+  accelerationG?: number;
+  designGroup?: string;
+  siteCategory?: string;
+  characteristicPeriod?: number;
+  maxInfluenceCoefficient?: number;
+  dampingRatio?: number;
+}
+
+export interface DraftWindParams {
+  basicPressureKNM2?: number;
+  terrainRoughness?: 'A' | 'B' | 'C' | 'D';
+  shapeFactor?: number;
+  heightVariationFactor?: number;
+}
+
+export interface DraftAnalysisControl {
+  pDelta?: boolean;
+  rigidFloor?: boolean;
+  periodReductionFactor?: number;
+  accidentalEccentricity?: number;
+  considerationTorsion?: boolean;
+  modalCount?: number;
+  basementCount?: number;
+  liveLoadReduction?: boolean;
+  structureImportanceFactor?: number;
+  dampingRatioWind?: number;
+  designParams?: Record<string, unknown>;
+}
+
 export type InferredModelType = 'beam' | 'truss' | 'portal-frame' | 'double-span-beam' | 'frame' | 'unknown';
 export type StructuralTypeKey =
   | 'beam'
@@ -72,6 +103,9 @@ export interface DraftState {
   frameRebarGrade?: string;
   frameColumnSection?: string;
   frameBeamSection?: string;
+  siteSeismic?: DraftSiteSeismicParams;
+  wind?: DraftWindParams;
+  analysisControl?: DraftAnalysisControl;
   loadKN?: number;
   loadType?: DraftLoadType;
   loadPosition?: DraftLoadPosition;
@@ -107,6 +141,9 @@ export interface DraftExtraction {
   frameRebarGrade?: string;
   frameColumnSection?: string;
   frameBeamSection?: string;
+  siteSeismic?: DraftSiteSeismicParams;
+  wind?: DraftWindParams;
+  analysisControl?: DraftAnalysisControl;
   loadKN?: number;
   loadType?: DraftLoadType;
   loadPosition?: DraftLoadPosition;

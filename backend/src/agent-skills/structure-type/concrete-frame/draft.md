@@ -38,6 +38,13 @@ A `DraftExtraction` JSON object with the following optional keys (see `constants
 | `frameColumnSection` | `string` | `"400X400"` | Column cross‑section description. See section parsing below. |
 | `frameBeamSection` | `"string"` | `"300X600"` | Beam cross‑section description. |
 
+### Site, Seismic & Wind
+| Key | Type | Example | Notes |
+|-----|------|---------|-------|
+| `siteSeismic` | `object` | `{ "intensity": 7, "accelerationG": 0.1, "designGroup": "第三组", "siteCategory": "III" }` | Use for PKPM/YJK-style seismic design parameters. Normalize "3类" to `"III"`. |
+| `wind` | `object` | `{ "basicPressureKNM2": 0.4, "terrainRoughness": "B" }` | Basic wind pressure in kN/m² and terrain roughness A/B/C/D. |
+| `analysisControl` | `object` | `{ "rigidFloor": true, "modalCount": 15 }` | Optional calculation-control values such as rigid diaphragm, modal count, P-Delta. |
+
 ## Section Parsing
 Concrete frame sections are described as rectangular cross‑sections:
 
@@ -51,7 +58,8 @@ Concrete frame sections are described as rectangular cross‑sections:
 2. **Dimensions**: Extract numbers followed by "m", "米", "mm", "毫米". Convert mm to m for story heights and bay widths.
 3. **Loads**: "dead load 5 kN/m²", "恒载 5 kN/m²", "live load 3 kN/m²", "活载 3 kN/m²". Convert distributed loads to total floor loads using floor area.
 4. **Materials**: Look for concrete grades (C20–C80) and rebar grades (HPB300, HRB400, HRB500).
-5. **Boundary**: "fixed base", "pinned base", "固接", "铰接".
+5. **Seismic / wind design basis**: Extract phrases like "7度0.1g", "第三组", "场地类别3类", "基本风压0.4kN/m²", "地面粗糙度B类".
+6. **Boundary**: "fixed base", "pinned base", "固接", "铰接".
 
 ## Examples
 1. "A 2‑story 1‑bay concrete frame, story heights 4 m, bay width 8 m, concrete C35, rebar HRB400, fixed base."

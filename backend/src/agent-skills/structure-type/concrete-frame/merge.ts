@@ -17,5 +17,14 @@ export function mergeConcreteFrameState(existing: DraftState | undefined, patch:
     frameRebarGrade: (patch.frameRebarGrade as string | undefined) ?? (existing?.frameRebarGrade as string | undefined),
     frameColumnSection: (patch.frameColumnSection as string | undefined) ?? (existing?.frameColumnSection as string | undefined),
     frameBeamSection: (patch.frameBeamSection as string | undefined) ?? (existing?.frameBeamSection as string | undefined),
+    siteSeismic: patch.siteSeismic !== undefined
+      ? { ...(existing?.siteSeismic ?? {}), ...patch.siteSeismic }
+      : existing?.siteSeismic,
+    wind: patch.wind !== undefined
+      ? { ...(existing?.wind ?? {}), ...patch.wind }
+      : existing?.wind,
+    analysisControl: patch.analysisControl !== undefined
+      ? { ...(existing?.analysisControl ?? {}), ...patch.analysisControl }
+      : existing?.analysisControl,
   };
 }
