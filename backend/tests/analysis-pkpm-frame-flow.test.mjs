@@ -581,8 +581,12 @@ describe('PKPM frame analysis flow', () => {
         'DAMP = 5.00',
       ].join('\n'));
       const script = [
-        'import json, sys',
+        'import json, sys, types',
         'from pathlib import Path',
+        'contracts = types.ModuleType("contracts")',
+        'class EngineNotAvailableError(RuntimeError): pass',
+        'contracts.EngineNotAvailableError = EngineNotAvailableError',
+        'sys.modules["contracts"] = contracts',
         'from runtime import _read_wmass_design_params',
         'print(json.dumps(_read_wmass_design_params(Path(sys.argv[1])), ensure_ascii=False))',
       ].join('\n');
