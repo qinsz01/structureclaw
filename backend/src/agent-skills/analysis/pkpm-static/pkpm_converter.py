@@ -64,6 +64,10 @@ _STEEL_GRADE_RE = re.compile(r"^[SQ]\d{3}", re.IGNORECASE)
 _CONCRETE_GRADE_TOKEN_RE = re.compile(r"\bC\d{1,2}\b", re.IGNORECASE)
 
 
+def _as_dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
 def _detect_material_family(data: dict) -> str:
     """Detect dominant material from model: 'steel' or 'concrete'."""
     metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
@@ -588,6 +592,10 @@ def _configure_satwe_params(
         mapping = {"A": 1.0, "B": 2.0, "C": 3.0, "D": 4.0}
         return mapping.get(text)
 
+    site_seismic = _as_dict(site_seismic)
+    wind = _as_dict(wind)
+    analysis_control = _as_dict(analysis_control)
+
     if site_seismic:
         intensity = _as_float(site_seismic.get("intensity"))
         site_category = _site_category_code(site_seismic.get("site_category"))
@@ -648,13 +656,9 @@ def _configure_satwe_params(
         if importance_factor is not None:
             design_param_updates[2] = importance_factor
 
-    explicit_design_params = (
-        ((analysis_control or {}).get("design_params") or {})
-        if isinstance((analysis_control or {}).get("design_params"), dict)
-        else {}
-    )
-    pkpm_design_params = explicit_design_params.get("pkpm") if isinstance(explicit_design_params.get("pkpm"), dict) else {}
-    satwe_indices = pkpm_design_params.get("satwe_indices") if isinstance(pkpm_design_params.get("satwe_indices"), dict) else {}
+    explicit_design_params = _as_dict(analysis_control.get("design_params"))
+    pkpm_design_params = _as_dict(explicit_design_params.get("pkpm"))
+    satwe_indices = _as_dict(pkpm_design_params.get("satwe_indices"))
     for raw_index, raw_value in satwe_indices.items():
         try:
             index = int(raw_index)
@@ -786,11 +790,14 @@ def convert_v2_to_jws(
         mat_id_to_grade[mat["id"]] = grade
 
     # ---- Design parameters from V2 model ----
-    site_seismic = data.get("site_seismic") or {}
-    structure_system = data.get("structure_system") or {}
-    analysis_control = data.get("analysis_control") or {}
-    wind = data.get("wind") or {}
-    damping_ratio = float(site_seismic.get("damping_ratio", 0.0))
+    site_seismic = _as_dict(data.get("site_seismic"))
+    structure_system = _as_dict(data.get("structure_system"))
+    analysis_control = _as_dict(data.get("analysis_control"))
+    wind = _as_dict(data.get("wind"))
+    try:
+        damping_ratio = float(site_seismic.get("damping_ratio", 0.0))
+    except (TypeError, ValueError):
+        damping_ratio = 0.0
 
     # ---- Sections ----
     sec_registry = _build_section_registry(model, data.get("sections", []), data, material_family)

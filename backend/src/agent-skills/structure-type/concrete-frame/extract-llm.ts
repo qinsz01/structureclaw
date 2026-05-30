@@ -20,6 +20,11 @@ import {
   resolveConcreteFrameDimension,
 } from './canonicalize.js';
 import { DESIGN_CONDITION_KEYS, GEOMETRY_KEYS, LOAD_BOUNDARY_KEYS } from './constants.js';
+import {
+  normalizeSeismicDesignGroup,
+  normalizeSeismicSiteCategory,
+  normalizeWindTerrainRoughness,
+} from './design-conditions.js';
 import { normalizeConcreteFrameNaturalPatch } from './extract-natural.js';
 import { normalizeConcreteGrade, normalizeSectionName } from './model.js';
 
@@ -182,14 +187,15 @@ function extractTargetedAreaFloorLoads(
 
   const byStory = new Map<number, DraftFloorLoad>();
   const hasRoofLoad = /屋面[^，。；;]*(?:恒载|活载)/.test(message);
-  const storyPattern = /((?:第?[一二两三四五六七八九十]+|[0-9]+)层楼面)([^。；;]*)/g;
+  const storyLabelPattern = '(?:第?[一二两三四五六七八九十]+|[0-9]+)层楼面';
+  const storyPattern = new RegExp(`(${storyLabelPattern})(.*?)(?=${storyLabelPattern}|屋面|[。；;]|$)`, 'g');
   for (const match of message.matchAll(storyPattern)) {
     const label = match[1] ?? '';
     const storyOrdinal = chineseStoryOrdinal(label.replace(/楼面/g, ''));
     const pair = extractAreaLoadPair(match[2] ?? '');
     if (storyOrdinal === undefined || (pair.dead === undefined && pair.live === undefined)) continue;
-    const story = hasRoofLoad && storyOrdinal === storyCount && storyCount > 1
-      ? storyCount - 1
+    const story = hasRoofLoad && storyOrdinal > 1
+      ? storyOrdinal - 1
       : storyOrdinal;
     if (story < 1 || story > storyCount) continue;
     byStory.set(story, {
@@ -432,31 +438,6 @@ function normalizePlainRecord(value: unknown): Record<string, unknown> | undefin
     : undefined;
 }
 
-function normalizeDesignGroup(raw: unknown): string | undefined {
-  if (typeof raw !== 'string' && typeof raw !== 'number') return undefined;
-  const text = String(raw).trim();
-  if (/1|一/.test(text)) return '第一组';
-  if (/2|二|两/.test(text)) return '第二组';
-  if (/3|三/.test(text)) return '第三组';
-  return undefined;
-}
-
-function normalizeSiteCategory(raw: unknown): string | undefined {
-  if (typeof raw !== 'string' && typeof raw !== 'number') return undefined;
-  const text = String(raw).trim().toUpperCase().replace(/类/g, '');
-  if (/^(?:1|一|I)$/.test(text)) return 'I';
-  if (/^(?:2|二|两|II)$/.test(text)) return 'II';
-  if (/^(?:3|三|III)$/.test(text)) return 'III';
-  if (/^(?:4|四|IV)$/.test(text)) return 'IV';
-  return undefined;
-}
-
-function normalizeTerrainRoughness(raw: unknown): DraftWindParams['terrainRoughness'] | undefined {
-  if (typeof raw !== 'string') return undefined;
-  const text = raw.trim().toUpperCase().replace(/类/g, '');
-  return ['A', 'B', 'C', 'D'].includes(text) ? text as DraftWindParams['terrainRoughness'] : undefined;
-}
-
 function normalizeSiteSeismicPatch(
   rawPatch: Record<string, unknown> | null | undefined,
   existingState: DraftState | undefined,
@@ -469,8 +450,8 @@ function normalizeSiteSeismicPatch(
   const characteristicPeriod = extractLlmScalar(raw ?? rawPatch, ['characteristicPeriod', 'characteristic_period']);
   const maxInfluenceCoefficient = extractLlmScalar(raw ?? rawPatch, ['maxInfluenceCoefficient', 'max_influence_coefficient']);
   const dampingRatio = extractLlmScalar(raw ?? rawPatch, ['dampingRatio', 'damping_ratio']);
-  const designGroup = normalizeDesignGroup(raw?.designGroup ?? raw?.design_group ?? rawPatch?.frameSeismicDesignGroup);
-  const siteCategory = normalizeSiteCategory(raw?.siteCategory ?? raw?.site_category ?? rawPatch?.frameSeismicSiteCategory);
+  const designGroup = normalizeSeismicDesignGroup(raw?.designGroup ?? raw?.design_group ?? rawPatch?.frameSeismicDesignGroup);
+  const siteCategory = normalizeSeismicSiteCategory(raw?.siteCategory ?? raw?.site_category ?? rawPatch?.frameSeismicSiteCategory);
   const merged: DraftSiteSeismicParams = {
     ...(existingState?.siteSeismic ?? {}),
     ...(intensity !== undefined && { intensity }),
@@ -493,7 +474,7 @@ function normalizeWindPatch(
   const basicPressureKNM2 = extractLlmScalar(raw ?? rawPatch, ['basicPressureKNM2', 'basic_pressure', 'basicPressure', 'windPressure', 'frameWindBasicPressureKNM2']);
   const shapeFactor = extractLlmScalar(raw ?? rawPatch, ['shapeFactor', 'shape_factor']);
   const heightVariationFactor = extractLlmScalar(raw ?? rawPatch, ['heightVariationFactor', 'height_variation_factor']);
-  const terrainRoughness = normalizeTerrainRoughness(raw?.terrainRoughness ?? raw?.terrain_roughness ?? rawPatch?.frameWindTerrainRoughness);
+  const terrainRoughness = normalizeWindTerrainRoughness(raw?.terrainRoughness ?? raw?.terrain_roughness ?? rawPatch?.frameWindTerrainRoughness);
   const merged: DraftWindParams = {
     ...(existingState?.wind ?? {}),
     ...(basicPressureKNM2 !== undefined && { basicPressureKNM2 }),

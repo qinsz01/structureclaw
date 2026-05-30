@@ -1,5 +1,10 @@
 import { normalizeNumber } from '../../../agent-runtime/fallback.js';
 import type { DraftExtraction, DraftState } from '../../../agent-runtime/types.js';
+import {
+  normalizeSeismicDesignGroup,
+  normalizeSeismicSiteCategory,
+  normalizeWindTerrainRoughness,
+} from './design-conditions.js';
 
 // Enhanced digit pattern for explicit structural context
 // Requires specific leading context to avoid false matches like "其中一层"
@@ -497,25 +502,6 @@ function extractFrameDimension(message: string): '2d' | '3d' | undefined {
   return undefined;
 }
 
-function normalizeDesignGroup(raw: string | undefined): string | undefined {
-  if (!raw) return undefined;
-  const text = raw.trim();
-  if (/1|一/.test(text)) return '第一组';
-  if (/2|二|两/.test(text)) return '第二组';
-  if (/3|三/.test(text)) return '第三组';
-  return undefined;
-}
-
-function normalizeSeismicSiteCategory(raw: string | undefined): string | undefined {
-  if (!raw) return undefined;
-  const text = raw.trim().toUpperCase();
-  if (/^(?:1|一|I)$/.test(text)) return 'I';
-  if (/^(?:2|二|两|II)$/.test(text)) return 'II';
-  if (/^(?:3|三|III)$/.test(text)) return 'III';
-  if (/^(?:4|四|IV)$/.test(text)) return 'IV';
-  return undefined;
-}
-
 function extractSiteSeismic(message: string): DraftExtraction['siteSeismic'] {
   const intensityMatch = message.match(/([6-9](?:\.\d+)?)\s*度(?:\s*设防)?(?:\s*[,，、]?\s*([0-9]+(?:\.[0-9]+)?)\s*g)?/i);
   const accelerationMatch = message.match(/([0-9]+(?:\.[0-9]+)?)\s*g/i);
@@ -526,7 +512,7 @@ function extractSiteSeismic(message: string): DraftExtraction['siteSeismic'] {
 
   const intensity = normalizeNumber(intensityMatch?.[1]);
   const accelerationG = normalizeNumber(intensityMatch?.[2]) ?? normalizeNumber(accelerationMatch?.[1]);
-  const designGroup = normalizeDesignGroup(designGroupMatch?.[1]);
+  const designGroup = normalizeSeismicDesignGroup(designGroupMatch?.[1]);
   const siteCategory = normalizeSeismicSiteCategory(siteCategoryMatch?.[1]);
   const dampingRatio = normalizeNumber(dampingMatch?.[1]);
 
@@ -549,7 +535,7 @@ function extractWind(message: string): DraftExtraction['wind'] {
   const heightFactorMatch = message.match(/高度变化系数\s*(?:为|是|:|：)?\s*([0-9]+(?:\.[0-9]+)?)/i);
 
   const basicPressureKNM2 = normalizeNumber(basicPressureMatch?.[1]);
-  const terrainRoughness = terrainMatch?.[1]?.toUpperCase() as 'A' | 'B' | 'C' | 'D' | undefined;
+  const terrainRoughness = normalizeWindTerrainRoughness(terrainMatch?.[1]);
   const shapeFactor = normalizeNumber(shapeFactorMatch?.[1]);
   const heightVariationFactor = normalizeNumber(heightFactorMatch?.[1]);
 

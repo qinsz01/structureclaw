@@ -571,6 +571,69 @@ describe('PKPM frame analysis flow', () => {
     });
   });
 
+  test('parses WMASS damping as ratio and percent separately', () => {
+    const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sclaw-pkpm-wmass-'));
+    try {
+      writeFile(path.join(workDir, 'WMASS.OUT'), [
+        'WO = 0.40',
+        'NAF = 7.00',
+        'NMODE = 6',
+        'DAMP = 5.00',
+      ].join('\n'));
+      const script = [
+        'import json, sys',
+        'from pathlib import Path',
+        'from runtime import _read_wmass_design_params',
+        'print(json.dumps(_read_wmass_design_params(Path(sys.argv[1])), ensure_ascii=False))',
+      ].join('\n');
+      const result = spawnSync(
+        pythonCommand.executable,
+        [...pythonCommand.args, '-c', script, workDir],
+        {
+          encoding: 'utf8',
+          env: {
+            ...process.env,
+            PYTHONPATH: [runtimeSupportDir, pkpmDir, process.env.PYTHONPATH]
+              .filter(Boolean)
+              .join(path.delimiter),
+          },
+          windowsHide: process.platform === 'win32',
+        },
+      );
+
+      if (result.status !== 0) {
+        throw new Error(`WMASS parser probe failed\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
+      }
+      const parsed = JSON.parse(result.stdout.trim());
+      expect(parsed.damping_ratio).toBeCloseTo(0.05);
+      expect(parsed.damping_ratio_percent).toBeCloseTo(5);
+    } finally {
+      fs.rmSync(workDir, { recursive: true, force: true });
+    }
+  });
+
+  test('ignores malformed PKPM design-condition containers', () => {
+    const model = buildRcUserScenarioModel();
+    model.site_seismic = 'not-a-map';
+    model.wind = ['not-a-map'];
+    model.analysis_control = {
+      design_params: {
+        pkpm: {
+          satwe_indices: ['not-a-map'],
+        },
+      },
+    };
+
+    const payload = runPkpmRuntime(model);
+
+    expect(payload.result.status).toBe('success');
+    expect(findCalls(payload, 'Model.SetAllDesignPara')).toHaveLength(0);
+    expect(payload.result.pkpm_detailed.input_design_conditions).toMatchObject({
+      site_seismic: {},
+      wind: {},
+    });
+  });
+
   test('accepts generic rectangular section properties for PKPM concrete sections', () => {
     const payload = runPkpmRuntime(buildGenericRcFrameModelWithLegacyRectSections());
 

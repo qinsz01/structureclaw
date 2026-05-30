@@ -495,6 +495,29 @@ describe('concrete-frame canonicalize core contract', () => {
     ]);
   });
 
+  test('maps targeted floor loads to structural stories when a separate roof load is present', () => {
+    const patch = buildConcreteFrameDraftPatch(
+      '三层3D混凝土框架，X向2跨每跨6m，Y向1跨6m，层高3.6m，二层楼面恒载1kN/㎡，活载2kN/㎡，三层楼面恒载3kN/㎡，活载4kN/㎡，屋面恒载5kN/㎡，活载6kN/㎡',
+      {
+        inferredType: 'concrete-frame',
+        frameDimension: '3d',
+        storyCount: 3,
+        bayCountX: 2,
+        bayCountY: 1,
+        storyHeightsM: [3.6, 3.6, 3.6],
+        bayWidthsXM: [6, 6],
+        bayWidthsYM: [6],
+      },
+      undefined,
+    );
+
+    expect(patch.floorLoads).toEqual([
+      { story: 1, verticalKN: 72, liveLoadKN: 144 },
+      { story: 2, verticalKN: 216, liveLoadKN: 288 },
+      { story: 3, verticalKN: 360, liveLoadKN: 432 },
+    ]);
+  });
+
   test('extracts PKPM-oriented RC frame design conditions from detailed chinese request', () => {
     const message = [
       '设计计算一个两层混凝土框架，首层4.5米，二层3.8米。',

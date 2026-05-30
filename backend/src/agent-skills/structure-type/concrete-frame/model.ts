@@ -8,6 +8,12 @@ import type {
   DraftState,
   DraftWindParams,
 } from '../../../agent-runtime/types.js';
+import {
+  normalizeSeismicDesignGroup,
+  normalizeSeismicSiteCategory,
+  normalizeWindTerrainRoughness,
+  seismicDesignGroupIndex,
+} from './design-conditions.js';
 
 interface ConcreteMaterial {
   grade: string;   // 如 "C30"
@@ -381,32 +387,6 @@ type ConcreteFrameModel = {
   }>;
 };
 
-function normalizeSeismicSiteCategory(raw: string | undefined): string | undefined {
-  if (!raw) return undefined;
-  const value = raw.trim().toUpperCase().replace(/类/g, '');
-  if (/^(?:1|一|I)$/.test(value)) return 'I';
-  if (/^(?:2|二|两|II)$/.test(value)) return 'II';
-  if (/^(?:3|三|III)$/.test(value)) return 'III';
-  if (/^(?:4|四|IV)$/.test(value)) return 'IV';
-  return undefined;
-}
-
-function seismicDesignGroupIndex(raw: string | undefined): 1 | 2 | 3 | undefined {
-  if (!raw) return undefined;
-  if (/1|一/.test(raw)) return 1;
-  if (/2|二|两/.test(raw)) return 2;
-  if (/3|三/.test(raw)) return 3;
-  return undefined;
-}
-
-function normalizeSeismicDesignGroup(raw: string | undefined): string | undefined {
-  const index = seismicDesignGroupIndex(raw);
-  if (index === 1) return '第一组';
-  if (index === 2) return '第二组';
-  if (index === 3) return '第三组';
-  return undefined;
-}
-
 function deriveCharacteristicPeriod(designGroup: string | undefined, siteCategory: string | undefined): number | undefined {
   const group = seismicDesignGroupIndex(designGroup);
   const category = normalizeSeismicSiteCategory(siteCategory);
@@ -456,9 +436,10 @@ function buildSiteSeismicRecord(input: DraftSiteSeismicParams | undefined): Reco
 
 function buildWindRecord(input: DraftWindParams | undefined): Record<string, unknown> | undefined {
   if (!input || Object.keys(input).length === 0) return undefined;
+  const terrainRoughness = normalizeWindTerrainRoughness(input.terrainRoughness);
   return {
     ...(input.basicPressureKNM2 !== undefined && { basic_pressure: input.basicPressureKNM2 }),
-    ...(input.terrainRoughness !== undefined && { terrain_roughness: input.terrainRoughness }),
+    ...(terrainRoughness !== undefined && { terrain_roughness: terrainRoughness }),
     ...(input.shapeFactor !== undefined && { shape_factor: input.shapeFactor }),
     ...(input.heightVariationFactor !== undefined && { height_variation_factor: input.heightVariationFactor }),
   };

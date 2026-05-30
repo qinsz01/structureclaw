@@ -194,11 +194,13 @@ def _read_wmass_design_params(project_dir: Path) -> Dict[str, Any]:
         ("characteristic_period", _match_float(r"TG\s*=\s*([\d.]+)")),
         ("max_influence_coefficient", _match_float(r"Rmax1\s*=\s*([\d.]+)")),
         ("period_reduction_factor", _match_float(r"TC\s*=\s*([\d.]+)")),
-        ("damping_ratio", _match_float(r"DAMP\s*=\s*([\d.]+)")),
-        ("damping_ratio_percent", _match_float(r"DAMP\s*=\s*([\d.]+)")),
     ]:
         if value is not None:
             params[key] = value
+    damping = _match_float(r"DAMP\s*=\s*([\d.]+)")
+    if damping is not None:
+        params["damping_ratio"] = damping / 100.0 if damping > 1.0 else damping
+        params["damping_ratio_percent"] = damping if damping > 1.0 else damping * 100.0
 
     terrain = _match_text(r"地面粗糙程度:\s*([ABCD])\s*类")
     if terrain:
