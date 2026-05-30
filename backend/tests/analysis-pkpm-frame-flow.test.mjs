@@ -128,6 +128,8 @@ function writePkpmApiStub(stubsDir) {
       'class ProjectPara:',
       '    def SetParaInt(self, key, value):',
       '        calls.append({"method": "ProjectPara.SetParaInt", "key": key, "value": value})',
+      '    def SetParaDouble(self, key, value):',
+      '        calls.append({"method": "ProjectPara.SetParaDouble", "key": key, "value": value})',
       '',
       'class Node:',
       '    def __init__(self, node_id): self.node_id = node_id',
@@ -184,7 +186,7 @@ function writePkpmApiStub(stubsDir) {
       '    def SetStandFloorIndex(self, index): calls.append({"method": "RealFloor.SetStandFloorIndex", "index": index})',
       '',
       'class Model:',
-      '    def __init__(self): self.floor = StandFloor(); self.next_col_sec = 1; self.next_beam_sec = 1; self.para = ProjectPara()',
+      '    def __init__(self): self.floor = StandFloor(); self.next_col_sec = 1; self.next_beam_sec = 1; self.para = ProjectPara(); self.design_params = [0.0] * 128',
       '    def CreatNewModel(self, work_dir, project_name): calls.append({"method": "Model.CreatNewModel", "work_dir": work_dir, "project_name": project_name})',
       '    def OpenPMModel(self, jws_path): calls.append({"method": "Model.OpenPMModel", "jws_path": jws_path})',
       '    def AddColumnSection(self, section):',
@@ -201,6 +203,12 @@ function writePkpmApiStub(stubsDir) {
       '    def GetCurrentStandFloor(self): return self.floor',
       '    def AddNaturalFloor(self, floor): calls.append({"method": "Model.AddNaturalFloor"})',
       '    def GetProjectPara(self): return self.para',
+      '    def GetAllDesignPara(self):',
+      '        calls.append({"method": "Model.GetAllDesignPara"})',
+      '        return list(self.design_params)',
+      '    def SetAllDesignPara(self, values):',
+      '        self.design_params = list(values)',
+      '        calls.append({"method": "Model.SetAllDesignPara", "values": list(values)})',
       '    def SetOneDesignParaValue(self, index, value): calls.append({"method": "Model.SetOneDesignParaValue", "index": index, "value": value})',
       '    def SaveProjectPara(self): calls.append({"method": "Model.SaveProjectPara"})',
       '    def SavePMModel(self): calls.append({"method": "Model.SavePMModel"})',
@@ -528,14 +536,24 @@ describe('PKPM frame analysis flow', () => {
     };
 
     const payload = runPkpmRuntime(model);
-    const designParamCalls = findCalls(payload, 'Model.SetOneDesignParaValue');
+    const designParams = findCalls(payload, 'Model.SetAllDesignPara').at(-1).values;
 
-    expect(designParamCalls).toEqual(expect.arrayContaining([
-      expect.objectContaining({ index: 25, value: 7 }),
-      expect.objectContaining({ index: 27, value: 3 }),
-      expect.objectContaining({ index: 31, value: 3 }),
-      expect.objectContaining({ index: 33, value: 0.4 }),
-      expect.objectContaining({ index: 37, value: 1.3 }),
+    expect(designParams[24]).toBe(3);
+    expect(designParams[25]).toBe(7);
+    expect(designParams[26]).toBe(3);
+    expect(designParams[33]).toBe(0.4);
+    expect(designParams[34]).toBe(2);
+    expect(designParams[35]).toBe(1);
+    expect(designParams[37]).toBe(1.3);
+    expect(findCalls(payload, 'ProjectPara.SetParaDouble')).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: 202, value: 0.4 }),
+      expect.objectContaining({ key: 312, value: 0.65 }),
+      expect.objectContaining({ key: 313, value: 0.08 }),
+    ]));
+    expect(findCalls(payload, 'ProjectPara.SetParaInt')).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: 301, value: 2 }),
+      expect.objectContaining({ key: 303, value: 3 }),
+      expect.objectContaining({ key: 201, value: 2 }),
     ]));
     expect(payload.result.summary.designConditions).toMatchObject({
       site_seismic: {

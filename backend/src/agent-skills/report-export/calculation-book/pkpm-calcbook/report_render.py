@@ -715,7 +715,12 @@ def _generate_pdf(report: Dict[str, Any], output_path: Path, images: Optional[Li
     params = out_data.get("wmass_params", {})
     if params:
         elements.append(Paragraph("一、设计参数总信息", h1_style))
-        for key, label in [("design_params", "总体信息"), ("earthquake_params", "地震参数"), ("material_params", "材料参数")]:
+        for key, label in [
+            ("design_params", "总体信息"),
+            ("wind_info_params", "风荷载参数"),
+            ("earthquake_params", "地震参数"),
+            ("material_params", "材料参数"),
+        ]:
             section = params.get(key)
             if section:
                 elements.append(Paragraph(label, h2_style))

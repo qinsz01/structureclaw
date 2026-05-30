@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import sys
 import types
+import re
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -24,6 +25,7 @@ from runtime import (
     _extract_story_stiffness,
     _extract_stiff_weight_ratio,
     _generate_markdown,
+    _generate_pdf,
     _resolve_jws_path,
     run_analysis,
 )
@@ -63,6 +65,34 @@ def _make_column(**kwargs):
     c.GetSlenderRatio.return_value = kwargs.get("slender", [15.0])
     c.GetExceedLimitInfo.return_value = []
     return c
+
+
+def _decode_pdf_literal(value: bytes) -> str:
+    raw = bytearray()
+    i = 0
+    while i < len(value):
+        if value[i] == 0x5C:
+            octal = value[i + 1:i + 4]
+            if len(octal) == 3 and all(48 <= b <= 55 for b in octal):
+                raw.append(int(octal, 8))
+                i += 4
+                continue
+            if i + 1 < len(value):
+                raw.append(value[i + 1])
+                i += 2
+                continue
+        raw.append(value[i])
+        i += 1
+    data = bytes(raw)
+    try:
+        return data.decode("utf-16-be")
+    except UnicodeDecodeError:
+        return data.decode("latin-1", errors="ignore")
+
+
+def _extract_uncompressed_pdf_text(pdf_path: Path) -> str:
+    data = pdf_path.read_bytes()
+    return "\n".join(_decode_pdf_literal(value) for value in re.findall(rb"\((.*?)\)\s*Tj", data, flags=re.S))
 
 
 class TestResolveJwsPath:
@@ -184,6 +214,58 @@ class TestGenerateMarkdown:
         assert "# PKPM SATWE 结构计算书" in md
         assert "模态分析" in md
         assert "0.8" in md
+
+
+class TestGeneratePdf:
+    def test_includes_wmass_wind_and_seismic_parameters(self, tmp_path):
+        pytest.importorskip("reportlab")
+        import reportlab.rl_config
+
+        report = {
+            "detailed": {
+                "out_file_data": {
+                    "wmass_params": {
+                        "wind_info_params": "\n".join([
+                            "修正后的基本风压 (kN/m2):             WO     =   0.40",
+                            "地面粗糙程度:                         B 类",
+                        ]),
+                        "earthquake_params": "\n".join([
+                            "计算振型数:                           NMODE  =      6",
+                            "场地类别:                             KD     =III",
+                            "设计地震分组:                         三组",
+                            "特征周期:                             TG     =   0.65",
+                        ]),
+                    }
+                },
+                "modal_analysis": [],
+                "story_stiffness": [],
+                "story_drift": {"earthquake": {}, "wind": {}, "limit_value": None},
+                "base_shear": {"entries": [], "shear_weight_limit": None},
+                "story_mass": [],
+                "stiff_weight_ratio": {"entries": [], "limit_value": None},
+                "beam_design": {},
+                "column_design": {},
+                "code_exceedance": [],
+            }
+        }
+        output = tmp_path / "calcbook.pdf"
+        old_compression = reportlab.rl_config.pageCompression
+        reportlab.rl_config.pageCompression = 0
+        try:
+            _generate_pdf(report, output)
+        finally:
+            reportlab.rl_config.pageCompression = old_compression
+
+        text = _extract_uncompressed_pdf_text(output)
+        assert "风荷载参数" in text
+        assert "WO" in text
+        assert "0.40" in text
+        assert "B 类" in text
+        assert "地震参数" in text
+        assert "NMODE" in text
+        assert "III" in text
+        assert "三组" in text
+        assert "0.65" in text
 
 
 class TestRunAnalysis:

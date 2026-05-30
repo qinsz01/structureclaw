@@ -517,12 +517,26 @@ def _configure_satwe_params(
     wind: dict[str, Any] | None = None,
     analysis_control: dict[str, Any] | None = None,
 ) -> None:
-    """Set SATWE design parameters via ProjectPara (KIND field codes).
+    """Set PMCAD/SATWE design parameters through the official API.
 
-    KIND field codes (from PKPM结构数据字段说明):
-      101 = 结构体系: 10101=框架, 10113=钢框架-中心支撑, 10114=钢框架-偏心支撑, ...
-      102 = 结构所在地区: 10201=全国, 10202=广东, ...
-      103 = 结构材料: 10301=钢筋混凝土, 10302=钢砼混合, 10303=钢结构, 10304=砌体
+    `GetAllDesignPara` / `SetAllDesignPara` indices are defined in
+    PKPMAPI5.0参考手册, "楼层-设计参数":
+      24 = 设计地震分组
+      25 = 地震烈度
+      26 = 场地类别
+      30 = 计算振型个数
+      31 = 周期折减系数
+      33 = 修正后的基本风压
+      34 = 地面粗糙度类别
+      35/36/37 = 体型变化分段数 / 第一段最高层号 / 第一段体型系数
+
+    Some SATWE control values such as Tg and alpha max are persisted through
+    PMProjectPara field ids from PKPM结构数据SQLite化数据表及字段说明:
+      312 = 特征周期Tg
+      313 = 多遇地震影响系数最大值
+    The installed API stores 301/303 as compact internal values:
+      301 = 0/1/2 for 第一/第二/第三组
+      303 = 0/1/2/3/4 for I0/I1/II/III/IV
     """
     para = model.GetProjectPara()
 
@@ -537,9 +551,8 @@ def _configure_satwe_params(
 
     model.SaveProjectPara()
 
-    # APIPyInterface exposes SATWE calculation controls as a numeric design
-    # parameter vector. The indices below are adapter-local mappings verified
-    # against the installed API defaults via GetOneDesignParaValue().
+    project_para_updates_int: dict[int, int] = {}
+    project_para_updates_double: dict[int, float] = {}
     design_param_updates: dict[int, float] = {}
 
     def _as_float(value: Any) -> float | None:
@@ -570,6 +583,11 @@ def _configure_satwe_params(
         }
         return mapping.get(text)
 
+    def _terrain_roughness_code(value: Any) -> float | None:
+        text = str(value or "").strip().upper().replace("类", "")
+        mapping = {"A": 1.0, "B": 2.0, "C": 3.0, "D": 4.0}
+        return mapping.get(text)
+
     if site_seismic:
         intensity = _as_float(site_seismic.get("intensity"))
         site_category = _site_category_code(site_seismic.get("site_category"))
@@ -585,17 +603,50 @@ def _configure_satwe_params(
         if intensity is not None:
             design_param_updates[25] = intensity
         if site_category is not None:
-            design_param_updates[27] = site_category
+            design_param_updates[26] = site_category
+            project_para_updates_int[303] = int(site_category)
         if design_group is not None:
-            design_param_updates[31] = design_group
+            design_param_updates[24] = design_group
+            project_para_updates_int[301] = max(int(design_group) - 1, 0)
+        characteristic_period = _as_float(site_seismic.get("characteristic_period"))
+        if characteristic_period is not None:
+            project_para_updates_double[312] = characteristic_period
+        max_influence_coefficient = _as_float(site_seismic.get("max_influence_coefficient"))
+        if max_influence_coefficient is not None:
+            project_para_updates_double[313] = max_influence_coefficient
+        damping_ratio = _as_float(site_seismic.get("damping_ratio"))
+        if damping_ratio is not None:
+            project_para_updates_double[311] = damping_ratio * 100 if damping_ratio <= 1 else damping_ratio
 
     if wind:
         basic_pressure = _as_float(wind.get("basic_pressure"))
         shape_factor = _as_float(wind.get("shape_factor"))
+        terrain_roughness = _terrain_roughness_code(wind.get("terrain_roughness"))
         if basic_pressure is not None:
             design_param_updates[33] = basic_pressure
+            project_para_updates_double[202] = basic_pressure
+        if terrain_roughness is not None:
+            design_param_updates[34] = terrain_roughness
+            project_para_updates_int[201] = int(terrain_roughness)
         if shape_factor is not None:
+            design_param_updates[35] = 1.0
             design_param_updates[37] = shape_factor
+
+    if analysis_control:
+        modal_count = _as_float(analysis_control.get("modal_count"))
+        if modal_count is not None:
+            design_param_updates[30] = modal_count
+            project_para_updates_int[308] = int(modal_count)
+        period_reduction = _as_float(analysis_control.get("period_reduction_factor"))
+        if period_reduction is not None:
+            design_param_updates[31] = period_reduction
+            project_para_updates_double[310] = period_reduction
+        basement_count = _as_float(analysis_control.get("basement_count"))
+        if basement_count is not None:
+            design_param_updates[4] = basement_count
+        importance_factor = _as_float(analysis_control.get("structure_importance_factor"))
+        if importance_factor is not None:
+            design_param_updates[2] = importance_factor
 
     explicit_design_params = (
         ((analysis_control or {}).get("design_params") or {})
@@ -612,6 +663,41 @@ def _configure_satwe_params(
         value = _as_float(raw_value)
         if value is not None:
             design_param_updates[index] = value
+
+    for key, value in sorted(project_para_updates_int.items()):
+        try:
+            para.SetParaInt(key, value)
+        except Exception as exc:
+            sys.stderr.write(f"[pkpm_converter] ProjectPara.SetParaInt({key}, {value}) failed: {exc}\n")
+    for key, value in sorted(project_para_updates_double.items()):
+        try:
+            para.SetParaDouble(key, value)
+        except Exception as exc:
+            sys.stderr.write(f"[pkpm_converter] ProjectPara.SetParaDouble({key}, {value}) failed: {exc}\n")
+    if project_para_updates_int or project_para_updates_double:
+        try:
+            model.SaveProjectPara()
+        except Exception as exc:
+            sys.stderr.write(f"[pkpm_converter] SaveProjectPara failed: {exc}\n")
+
+    if not design_param_updates:
+        return
+
+    try:
+        design_params = list(model.GetAllDesignPara())
+    except Exception:
+        design_params = []
+    if len(design_params) < 128:
+        design_params.extend([0.0] * (128 - len(design_params)))
+    for index, value in sorted(design_param_updates.items()):
+        if 0 <= index < len(design_params):
+            design_params[index] = value
+
+    try:
+        model.SetAllDesignPara(design_params)
+        return
+    except Exception as exc:
+        sys.stderr.write(f"[pkpm_converter] SetAllDesignPara failed: {exc}\n")
 
     for index, value in sorted(design_param_updates.items()):
         try:
