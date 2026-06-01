@@ -10,7 +10,7 @@ function withTempSettingsDir(settingsText, callback) {
   fs.writeFileSync(path.join(tempDir, 'settings.json'), settingsText, 'utf8');
 
   return Promise.resolve()
-    .then(callback)
+    .then(() => callback(tempDir))
     .finally(() => {
       if (previousDataDir === undefined) {
         delete process.env.SCLAW_DATA_DIR;
@@ -59,6 +59,26 @@ describe('settings file', () => {
 
       expect(readSettingsFile()?.llm?.model).toBe('test-model');
       expect(config.llmModel).toBe('test-model');
+    });
+  });
+
+  test('throws before update when an existing settings file is malformed', async () => {
+    await withTempSettingsDir(`{
+      "server": { "port": 31415 },
+      "llm":
+    }`, async (tempDir) => {
+      const { readSettingsFile, readSettingsFileForUpdate } = await import('../../../dist/config/settings-file.js');
+
+      expect(readSettingsFile()).toBeNull();
+      let updateError;
+      try {
+        readSettingsFileForUpdate();
+      } catch (error) {
+        updateError = error;
+      }
+      expect(updateError).toBeInstanceOf(Error);
+      expect(updateError.message).toMatch(/refusing to overwrite existing settings/);
+      expect(updateError.message).not.toContain(tempDir);
     });
   });
 });
