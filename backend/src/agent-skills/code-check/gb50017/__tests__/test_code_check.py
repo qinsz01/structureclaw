@@ -572,5 +572,138 @@ class TestClauseReferences:
         assert '10.1.1' in slenderness['clause']
 
 
+class TestElementDataBridgeIntegration:
+    """Verify elementData from TS bridge is consumable by gb50017 real formulas.
+
+    Simulates the full flow: steel frame model + OpenSees-like analysis result
+    → extractElementDataForCodeCheck() → gb50017._compute_utilization_overrides()
+    → hand-verified utilization values.
+    """
+
+    def _bridge_like_2d_frame_element_data(self):
+        """Simulate elementData as produced by extractElementDataForCodeCheck()
+        for a simple 2D frame: 1 story, 1 bay, 3.6m height, 6m span.
+
+        Column C1: HW300X300, Q355, N=500kN (axial only)
+        Beam B2:  HN300X150, Q355, M=54kN·m (pure bending)
+        """
+        return {
+            'C1': {
+                'type': 'column',
+                'section': {
+                    'A': 11920.0,           # 0.01192 m² → mm²
+                    'I': 204000000.0,       # Iy mm⁴
+                    'Wx': 1360000.0,        # Wnx ≈ Iy/(H/2) = 2.04e8/150
+                    'Wnx': 1360000.0,
+                    'i': 130.8,
+                    'S': 760000.0,
+                    'tw': 10.0,
+                    'As': 2820.0,
+                    'G': 79000.0,
+                    'shape': {'kind': 'H', 'H': 0.3, 'B': 0.3, 'tw': 0.010, 'tf': 0.015},
+                },
+                'material': {
+                    'name': 'Q355',
+                    'grade': 'Q355',
+                    'category': 'steel',
+                    'fy': 355.0,
+                    'f': 295.0,             # design strength Q355 t≤16mm
+                    'fv': 170.0,
+                    'E': 206000.0,
+                },
+                'forces': {
+                    'N': 500000.0,           # 500 kN → N (envelope: n1/n2 max abs)
+                    'V': 12000.0,
+                    'Mx': 35000000.0,        # 35 kN·m → N·mm
+                },
+                'length': 3600.0,            # 3.6m → mm
+            },
+            'B2': {
+                'type': 'beam',
+                'section': {
+                    'A': 4870.0,             # 0.00487 m² → mm²
+                    'I': 72100000.0,         # Iy mm⁴
+                    'Wx': 480000.0,          # Wnx ≈ Iy/(H/2) = 7.21e7/150
+                    'Wnx': 480000.0,
+                    'i': 121.7,
+                    'S': 286000.0,
+                    'tw': 6.5,
+                    'As': 1833.0,
+                    'G': 79000.0,
+                    'shape': {'kind': 'H', 'H': 0.3, 'B': 0.15, 'tw': 0.0065, 'tf': 0.009},
+                },
+                'material': {
+                    'name': 'Q355',
+                    'grade': 'Q355',
+                    'category': 'steel',
+                    'fy': 355.0,
+                    'f': 295.0,
+                    'fv': 170.0,
+                    'E': 206000.0,
+                },
+                'forces': {
+                    'N': 8000.0,
+                    'V': 36000.0,
+                    'Mx': 54000000.0,        # 54 kN·m → N·mm
+                },
+                'length': 6000.0,            # 6m → mm
+            },
+        }
+
+    def test_column_axial_stress_matches_hand_calc(self):
+        """C1: N=500kN, A=11920mm², Mx=35kN·m, Wnx=1.36e6mm³, f=295
+        σ_axial=41.95, σ_bend=25.74, utilization=(41.95+25.74)/295≈0.2294"""
+        ctx = {'elementData': self._bridge_like_2d_frame_element_data()}
+        result = gb50017._compute_utilization_overrides('C1', ctx)
+
+        assert '正应力' in result
+        σ = 500000.0 / 11920.0 + 35000000.0 / 1360000.0  # 41.95 + 25.74
+        expected = σ / 295.0
+        assert result['正应力'] == pytest.approx(expected, abs=0.001)
+
+    def test_column_not_using_hash_fallback(self):
+        """The hash fallback produces 0.55~0.95 — our real value is ~0.23,
+        proving gb50017 consumed elementData, not the fallback."""
+        ctx = {'elementData': self._bridge_like_2d_frame_element_data()}
+        result = gb50017._compute_utilization_overrides('C1', ctx)
+
+        assert result['正应力'] < 0.5, (
+            f"Expected real utilization ~0.23, got {result['正应力']}. "
+            f"If 0.55~0.95, hash fallback was used instead of elementData."
+        )
+
+    def test_beam_bending_stress_matches_hand_calc(self):
+        """B2: N=8kN, M=54kN·m, A=4870mm², Wnx=480000mm³, f=295
+        σ_axial=1.64, σ_bend=112.5, utilization=(1.64+112.5)/295≈0.3869"""
+        ctx = {'elementData': self._bridge_like_2d_frame_element_data()}
+        result = gb50017._compute_utilization_overrides('B2', ctx)
+
+        assert '正应力' in result
+        σ = 8000.0 / 4870.0 + 54000000.0 / 480000.0  # 1.64 + 112.50
+        expected = σ / 295.0
+        assert result['正应力'] == pytest.approx(expected, abs=0.001)
+
+    def test_beam_shear_stress_computed(self):
+        """B2: V=36kN, S=286000mm³, I=7.21e7mm⁴, tw=6.5mm, fv=170
+        τ = V*S/(I*tw) = 36000*286000/(7.21e7*6.5) ≈ 21.95, utilization≈0.129"""
+        ctx = {'elementData': self._bridge_like_2d_frame_element_data()}
+        result = gb50017._compute_utilization_overrides('B2', ctx)
+
+        assert '剪应力' in result
+        tau = 36000.0 * 286000.0 / (72100000.0 * 6.5)  # ≈ 21.95 N/mm²
+        expected = tau / 170.0  # ≈ 0.1291
+        assert result['剪应力'] == pytest.approx(expected, abs=0.001)
+
+    def test_column_has_chapter_summary_in_full_check(self):
+        """Full check_element flow should include chapter summaries."""
+        checker = MockCodeChecker()
+        ctx = {'elementData': self._bridge_like_2d_frame_element_data()}
+        result = gb50017.check_element(checker, 'C1', ctx)
+
+        assert result['elementType'] == 'column'
+        assert 'chapters' in result
+        assert any(c['chapter'] == '第7章 强度验算' for c in result['chapters'])
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
