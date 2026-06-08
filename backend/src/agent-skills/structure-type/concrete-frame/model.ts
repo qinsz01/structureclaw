@@ -14,6 +14,7 @@ import {
   normalizeWindTerrainRoughness,
   seismicDesignGroupIndex,
 } from './design-conditions.js';
+import type { ConcreteFrameOutput } from './types.js';
 
 interface ConcreteMaterial {
   grade: string;   // 如 "C30"
@@ -556,11 +557,17 @@ function buildConcreteMaterialRecord(concreteProps: ConcreteMaterialProps): Reco
     name: concreteProps.grade,
     grade: concreteProps.grade,
     category: 'concrete',
-    E: concreteProps.E,
+    E: concreteProps.Ec,
     G: concreteProps.G,
     nu: concreteProps.nu,
     rho: concreteProps.rho,
     fc: concreteProps.fc,
+    ft: concreteProps.ft,
+    ftk: concreteProps.ftk,
+    ecu: concreteProps.ecu,
+    alpha1: concreteProps.alpha1,
+    beta1: concreteProps.beta1,
+    fck: concreteProps.fck,
   };
 }
 
@@ -574,12 +581,11 @@ function buildRebarMaterialRecord(rebarProps: RebarMaterialProps): Record<string
     nu: 0.3,
     rho: 7850,
     fy: rebarProps.fy,
-    extra: {
-      fyk: rebarProps.fyk,
-      fstk: rebarProps.fstk,
-      fy_compression: rebarProps.fy_compression,
-      fyv: rebarProps.fyv,
-    },
+    fyv: rebarProps.fyv,
+    fyk: rebarProps.fyk,
+    fstk: rebarProps.fstk,
+    fy_compression: rebarProps.fy_compression,
+    Es: rebarProps.Es,
   };
 }
 
@@ -988,11 +994,37 @@ function buildConcreteFrame3dLocalModel(options: {
 }
 
 /**
- * Build a concrete frame model from draft state.
- * @param state Draft state with concrete frame parameters
- * @returns ConcreteFrameModel ready for analysis, or undefined if critical geometry is missing
+ * Build code-check metadata summary for injection into model metadata.
  */
-export function buildConcreteFrameModel(state: DraftState): ConcreteFrameModel | undefined {
+function buildCodeCheckMetadata(codeCheckResults: ConcreteFrameOutput): Record<string, unknown> {
+  return {
+    beamCount: codeCheckResults.concreteBeams.length,
+    columnCount: codeCheckResults.concreteColumns.length,
+    slabCount: codeCheckResults.concreteSlabs.length,
+    beams: codeCheckResults.concreteBeams.map((b) => ({
+      id: b.id, type: b.type, spanM: b.spanM,
+      heightMM: b.heightMM, widthMM: b.widthMM,
+    })),
+    columns: codeCheckResults.concreteColumns.map((c) => ({
+      id: c.id, type: c.type, heightM: c.heightM,
+      axialLoadRatio: c.axialLoadRatio,
+      widthMM: c.widthMM, heightMM: c.heightMM, diameterMM: c.diameterMM,
+    })),
+  };
+}
+
+/**
+ * Build a concrete frame model from draft state.
+ * Returns a full mesh model (nodes + elements + materials + sections + load cases)
+ * suitable for OpenSees analysis, plus GB 50010 code-check results.
+ * @param state Draft state with concrete frame parameters
+ * @param codeCheckResults Optional code-check results from generateMembers
+ * @returns Record ready for analysis engine (schema 2.0), or undefined if critical geometry missing
+ */
+export function buildConcreteFrameModel(
+  state: DraftState,
+  codeCheckResults?: ConcreteFrameOutput,
+): ConcreteFrameModel | undefined {
   const storyCount = state.storyCount;
   const storyHeightsM = state.storyHeightsM;
 
@@ -1031,6 +1063,47 @@ export function buildConcreteFrameModel(state: DraftState): ConcreteFrameModel |
     ? buildAnalysisControlRecord(state.analysisControl as DraftAnalysisControl | undefined)
     : undefined;
 
+  // PR4: Compute rebar design metadata from code parameters (GB50010 minimums)
+  // These flow through element.metadata → entry.ts → elementData → Python code-check
+  const beamH = beamProps.height ?? 500;
+  const beamB = beamProps.width ?? 300;
+  const beamH0 = beamH - 40;
+  const beamRhoMin = Math.max(0.002, 0.45 * concreteProps.ft / rebarProps.fy);
+  const beamAs = Math.max(beamB * beamH0 * beamRhoMin, Math.PI * 14 * 14 / 2);
+  const beamMainDia = beamH >= 600 ? 25 : (beamH >= 400 ? 20 : 16);
+  const beamRebarMeta: Record<string, unknown> = {
+    As: Math.round(beamAs),
+    Asv: Math.round(Math.PI * 8 * 8 / 2),          // 2-leg Φ8
+    stirrup_dia: 8,
+    stirrup_spacing: 200,
+    main_dia: beamMainDia,
+    cover: 20,
+    crack_cover: 25,
+  };
+
+  const colB = columnProps.width ?? 500;
+  const colH = columnProps.height ?? 500;
+  const colRhoMin = Math.max(0.006, 0.55 * concreteProps.ft / rebarProps.fy);
+  const colAs = Math.max(colB * colH * colRhoMin, Math.PI * 20 * 20);
+  const colRebarMeta: Record<string, unknown> = {
+    As: Math.round(colAs),
+    Asv: Math.round(Math.PI * 8 * 8 / 2),          // 2-leg Φ8
+    stirrup_dia: 8,
+    stirrup_spacing: 200,
+    main_dia: 20,
+    cover: 20,
+  };
+
+  /** Attach rebar design metadata to each element. */
+  function attachRebarMetadata(elements: Array<Record<string, unknown>>): void {
+    for (const elem of elements) {
+      const meta = elem['type'] === 'column' ? colRebarMeta : beamRebarMeta;
+      const existing = (typeof elem['metadata'] === 'object' && elem['metadata'] !== null)
+        ? elem['metadata'] as Record<string, unknown> : {};
+      elem['metadata'] = { ...existing, ...meta };
+    }
+  }
+
   if (frameDimension === '3d') {
     const bayWidthsXM = state.bayWidthsXM?.length ? state.bayWidthsXM : state.bayWidthsM;
     const bayWidthsYM = state.bayWidthsYM?.length ? state.bayWidthsYM : state.bayWidthsM;
@@ -1044,7 +1117,7 @@ export function buildConcreteFrameModel(state: DraftState): ConcreteFrameModel |
       return undefined;
     }
 
-    return buildConcreteFrame3dLocalModel({
+    const model3d = buildConcreteFrame3dLocalModel({
       storyCount,
       bayCountX,
       bayCountY,
@@ -1065,6 +1138,19 @@ export function buildConcreteFrameModel(state: DraftState): ConcreteFrameModel |
       wind,
       analysisControl,
     });
+
+    // PR4: Attach rebar design to model elements → entry.ts → elementData → Python
+    attachRebarMetadata(model3d.elements);
+
+    // PR3: Inject code-check results into metadata
+    if (codeCheckResults) {
+      model3d.metadata = {
+        ...model3d.metadata,
+        codeCheckResults: buildCodeCheckMetadata(codeCheckResults),
+      };
+    }
+
+    return model3d;
   }
 
   const bayCount = state.bayCount;
@@ -1077,7 +1163,7 @@ export function buildConcreteFrameModel(state: DraftState): ConcreteFrameModel |
     return undefined;
   }
 
-  return buildConcreteFrame2dLocalModel({
+  const model2d = buildConcreteFrame2dLocalModel({
     storyCount,
     bayCount,
     storyHeightsM,
@@ -1096,4 +1182,17 @@ export function buildConcreteFrameModel(state: DraftState): ConcreteFrameModel |
     wind,
     analysisControl,
   });
+
+  // PR4: Attach rebar design to model elements → entry.ts → elementData → Python
+  attachRebarMetadata(model2d.elements);
+
+  // PR3: Inject code-check results into metadata
+  if (codeCheckResults) {
+    model2d.metadata = {
+      ...model2d.metadata,
+      codeCheckResults: buildCodeCheckMetadata(codeCheckResults),
+    };
+  }
+
+  return model2d;
 }

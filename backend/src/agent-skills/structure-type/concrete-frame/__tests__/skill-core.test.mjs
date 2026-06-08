@@ -778,6 +778,7 @@ describe('detectConcreteFrameStructuralType branches', () => {
 });
 
 // CRITICAL: model.ts error paths and fallback behavior (H2/H3/H4 fix verification)
+// PR3: model now returns mesh model with metadata; code-check fields moved to metadata
 describe('buildConcreteFrameModel error paths', () => {
   test('falls back to C30 for invalid concrete grade', () => {
     const model = buildConcreteFrameModel({
@@ -793,8 +794,8 @@ describe('buildConcreteFrameModel error paths', () => {
       frameColumnSection: '400X400',
       frameBeamSection: '250X600',
     });
-    expect(model?.frameConcreteGrade).toBe('C30');
-    expect(model?.concreteProps.grade).toBe('C30');
+    expect(model?.metadata.concreteGrade).toBe('C30');
+    expect(model?.metadata.rebarGrade).toBe('HRB400');
   });
 
   test('falls back to HRB400 for invalid rebar grade', () => {
@@ -811,8 +812,8 @@ describe('buildConcreteFrameModel error paths', () => {
       frameColumnSection: '400X400',
       frameBeamSection: '250X600',
     });
-    expect(model?.frameRebarGrade).toBe('HRB400');
-    expect(model?.rebarProps.grade).toBe('HRB400');
+    expect(model?.metadata.concreteGrade).toBe('C30');
+    expect(model?.metadata.rebarGrade).toBe('HRB400');
   });
 
   test('uses default column section when not provided', () => {
@@ -829,7 +830,7 @@ describe('buildConcreteFrameModel error paths', () => {
       frameColumnSection: undefined,
       frameBeamSection: '250X600',
     });
-    expect(model?.frameColumnSection).toBe('500X500');
+    expect(model?.metadata.columnSection).toBe('500X500');
   });
 
   test('uses default beam section when not provided', () => {
@@ -846,7 +847,7 @@ describe('buildConcreteFrameModel error paths', () => {
       frameColumnSection: '400X400',
       frameBeamSection: undefined,
     });
-    expect(model?.frameBeamSection).toBe('300X600');
+    expect(model?.metadata.beamSection).toBe('300X600');
   });
 });
 

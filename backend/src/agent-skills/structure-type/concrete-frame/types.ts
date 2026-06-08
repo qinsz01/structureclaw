@@ -44,6 +44,13 @@ export interface ConcreteFrameInput {
 
   // 荷载信息（用于柱截面估算）
   axialLoadKN?: number; // 估算轴力(kN)
+  floorLoadKNm2?: number; // 楼面均布荷载设计值 (kN/m², 默认 10)
+  tributaryWidthM?: number; // 梁从属宽度 (m, 默认 3)
+
+  // 柱内力参数 (PR3: 成熟版 — 可选, 未提供时自动估算)
+  columnMomentKNm?: number; // 柱端设计弯矩 (kN·m, 默认按 2% 偏心率估算)
+  columnShearKN?: number; // 柱端设计剪力 (kN, 默认按 0.2N 估算)
+  columnLambda?: number; // 剪跨比 λ = M/(Vh0), 1~3 (默认 2.5)
 }
 
 /**
@@ -61,40 +68,34 @@ export interface ConcreteBeam {
   id: string;
   type: 'rectangular' | 't-shaped';
   spanM: number;
-  widthMM?: number; // 矩形梁宽度 (b)
-  heightMM?: number; // 矩形梁高度 (h)
-  webWidthMM?: number; // 腹板宽度 (b)
-  flangeWidthMM_compression?: number; // 受压区翼缘有效宽度 (bf')，仅跨中正弯矩区有效
-  flangeThicknessMM_compression?: number; // 受压区翼缘厚度 (hf')
-  supportEffectiveWidthMM?: number; // 支座有效宽度 (负弯矩区 bf' = b)，等于 webWidthMM
-  totalHeightMM?: number; // 截面总高度 (h)
+  widthMM?: number;
+  heightMM?: number;
+  webWidthMM?: number;
+  flangeWidthMM_compression?: number;
+  flangeThicknessMM_compression?: number;
+  supportEffectiveWidthMM?: number;
+  totalHeightMM?: number;
   spanDepthRatio?: number;
   meetsRequirement?: boolean;
 }
 
-/**
- * 混凝土柱构件
- */
 export interface ConcreteColumn {
   id: string;
   type: 'rectangular' | 'circular';
   heightM: number;
-  widthMM?: number; // 矩形柱宽度
-  heightMM?: number; // 矩形柱高度
-  diameterMM?: number; // 圆形柱直径
-  axialLoadRatio?: number; // 轴压比
+  widthMM?: number;
+  heightMM?: number;
+  diameterMM?: number;
+  axialLoadRatio?: number;
   meetsRequirement?: boolean;
 }
 
-/**
- * 混凝土板构件
- */
 export interface ConcreteSlab {
   id: string;
   type: 'one-way' | 'two-way' | 'flat-slab' | 'waffle';
-  spanXM?: number; // X向跨度
-  spanYM?: number; // Y向跨度
-  thicknessMM: number; // 板厚
+  spanXM?: number;
+  spanYM?: number;
+  thicknessMM: number;
   usage: string;
   spanDepthRatio?: number;
   meetsRequirement?: boolean;

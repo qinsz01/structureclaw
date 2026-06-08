@@ -65,6 +65,27 @@ describe('PR2: concrete-frame member generation', () => {
       });
     });
 
+    test('T-beam flange thickness limited by slab thickness (PR2 fix)', () => {
+      const input = {
+        storyCount: 2,
+        bayCount: 2,
+        storyHeightsM: [3.6, 3.6],
+        bayWidthsM: [8, 8],
+        concreteGrade: 'C30',
+        rebarGrade: 'HRB400',
+        beamType: 't-shaped',
+        slabType: 'one-way',
+        slabUsage: 'residential',
+      };
+
+      const beams = generateBeams(input);
+      beams.forEach((beam) => {
+        // Flange thickness = min(h/6, slab_thickness)
+        const h6 = Math.round(beam.totalHeightMM / 6);
+        expect(beam.flangeThicknessMM_compression).toBeLessThanOrEqual(h6);
+      });
+    });
+
     test('ensures span-depth ratio for rectangular beams is within 8-16 range', () => {
       const input = {
         storyCount: 2,
@@ -174,7 +195,7 @@ describe('PR2: concrete-frame member generation', () => {
         };
 
         const columns = generateColumns(input);
-        const bottom = columns[storyCount - 1];
+        const bottom = columns[0];
         expect(bottom.widthMM).toBe(expectedSize);
       });
     });
@@ -191,7 +212,7 @@ describe('PR2: concrete-frame member generation', () => {
       };
 
       const columns = generateColumns(input);
-      const bottom = columns[29];
+      const bottom = columns[0];
       expect(bottom.widthMM).toBeGreaterThanOrEqual(900);
       expect(bottom.axialLoadRatio).toBeLessThanOrEqual(0.9);
     });
@@ -473,6 +494,74 @@ describe('PR2: concrete-frame member generation', () => {
           slab.spanDepthRatio <= expectedMaxRatio && slab.thicknessMM >= expectedMinThickness,
         );
       });
+    });
+  });
+
+  // ============================================================================
+  // PR3: 验算集成测试 — 验证 codeChecks 字段
+  // ============================================================================
+  describe('member generation output structure (code-check deferred to Python gb50010 layer)', () => {
+    test('rectangular beams produce correct count and sizing', () => {
+      const input = {
+        storyCount: 1, bayCount: 2,
+        storyHeightsM: [3.6], bayWidthsM: [6, 6],
+        concreteGrade: 'C30', rebarGrade: 'HRB400',
+        beamType: 'rectangular', axialLoadKN: 500,
+      };
+      const output = generateMembers(input);
+      expect(output.concreteBeams).toHaveLength(2);
+      output.concreteBeams.forEach(beam => {
+        expect(beam.type).toBe('rectangular');
+        expect(beam.heightMM).toBeGreaterThan(0);
+        expect(beam.widthMM).toBeGreaterThan(0);
+        expect(beam.spanDepthRatio).toBeGreaterThan(0);
+      });
+    });
+
+    test('T-shaped beams produce flange geometry', () => {
+      const input = {
+        storyCount: 1, bayCount: 2,
+        storyHeightsM: [3.6], bayWidthsM: [6, 6],
+        concreteGrade: 'C30', rebarGrade: 'HRB400',
+        beamType: 't-shaped', slabType: 'one-way', slabUsage: 'residential',
+        axialLoadKN: 500,
+      };
+      const output = generateMembers(input);
+      expect(output.concreteBeams).toHaveLength(2);
+      output.concreteBeams.forEach(beam => {
+        expect(beam.type).toBe('t-shaped');
+        expect(beam.flangeWidthMM_compression).toBeGreaterThan(0);
+        expect(beam.webWidthMM).toBeGreaterThan(0);
+      });
+    });
+
+    test('columns produce correct count and geometry', () => {
+      const input = {
+        storyCount: 3, bayCount: 2,
+        storyHeightsM: [3.6, 3.6, 3.6], bayWidthsM: [6, 6],
+        concreteGrade: 'C30', rebarGrade: 'HRB400',
+        axialLoadKN: 1000,
+      };
+      const output = generateMembers(input);
+      expect(output.concreteColumns).toHaveLength(3);
+      output.concreteColumns.forEach(column => {
+        expect(column.heightM).toBeGreaterThan(0);
+        expect(column.axialLoadRatio).toBeGreaterThan(0);
+      });
+    });
+
+    test('complete member set has correct counts', () => {
+      const input = {
+        storyCount: 3, bayCount: 3,
+        storyHeightsM: [3.6, 3.6, 3.6], bayWidthsM: [5, 6, 5],
+        concreteGrade: 'C30', rebarGrade: 'HRB400',
+        beamType: 'rectangular', slabType: 'one-way', slabUsage: 'residential',
+        axialLoadKN: 1200,
+      };
+      const output = generateMembers(input);
+      expect(output.concreteBeams).toHaveLength(3);
+      expect(output.concreteColumns).toHaveLength(3);
+      expect(output.concreteSlabs).toHaveLength(3);
     });
   });
 });

@@ -120,150 +120,107 @@ export function generateMembers(input: ConcreteFrameInput): ConcreteFrameOutput 
 }
 
 /**
- * 生成梁构件
- * 矩形梁: h = span / 10
- * 梁宽 b = h / 2
+ * 生成梁构件 — 仅截面估算，验算交由 Python gb50010 层。
+ * 矩形梁: h = span / 10, b = h / 2
  * T形梁: 根据 GB/T 50010-2010 表 5.2.4 计算翼缘宽度
  */
 export function generateBeams(input: ConcreteFrameInput): ConcreteBeam[] {
   const beams: ConcreteBeam[] = [];
   const { bayWidthsM, beamType = 'rectangular' } = input;
 
-  // 混凝土框架中所有梁均为框架主梁，统一采用 l/10 跨高比
   const spanDepthRatioTarget = 10;
 
   for (let i = 0; i < bayWidthsM.length; i++) {
     const spanM = bayWidthsM[i]!;
     const spanMM = spanM * 1000;
 
-    let heightMM = Math.round((spanMM / spanDepthRatioTarget) / 50) * 50; // 取整到50mm
-    heightMM = Math.max(heightMM, 250); // 最小梁高250mm
+    let heightMM = Math.round((spanMM / spanDepthRatioTarget) / 50) * 50;
+    heightMM = Math.max(heightMM, 250);
 
-    // 梁宽 b = h/2，取整到25mm
     let widthMM = Math.round((heightMM / 2) / 25) * 25;
-    widthMM = Math.max(widthMM, 200); // 最小梁宽200mm
+    widthMM = Math.max(widthMM, 200);
 
     if (beamType === 't-shaped') {
-      // T形梁计算 (GB/T 50010-2010 表 5.2.4)
-      // hf' — 受压区翼缘厚度 (带撇)，取板厚；当前用 h/6 近似 (PR3 修正)
-      const flangeThicknessMM_compression = Math.round(heightMM / 6);
-      // b — 腹板宽度
+      const slabSpanDepthLimit = SPAN_DEPTH_RATIO_LIMITS[input.slabType ?? 'one-way'] ?? 30;
+      const slabMinThicknessKey = `${input.slabType ?? 'one-way'}_${input.slabUsage ?? 'residential'}`;
+      const slabMinThickness = MIN_THICKNESS_MAP[slabMinThicknessKey] ?? 60;
+      const slabThickness = Math.max(
+        Math.ceil((spanMM / slabSpanDepthLimit) / 10) * 10, slabMinThickness);
+      const flangeThicknessMM_compression = Math.min(Math.round(heightMM / 6), slabThickness);
       const bw = widthMM;
-      // bf' — 受压区翼缘有效宽度 (带撇) = min(l₀/k, b + n·hf')
-      // 边梁: l₀/6,  b + 5hf'
-      // 中梁: l₀/3,  b + 12hf'
       const isEdge = i === 0 || i === bayWidthsM.length - 1;
-      const candidateL0 = Math.round(spanMM / (isEdge ? 6 : 3));       // ① l₀/k
-      const candidateHf = bw + (isEdge ? 5 : 12) * flangeThicknessMM_compression; // ③ b + n·hf'
+      const candidateL0 = Math.round(spanMM / (isEdge ? 6 : 3));
+      const candidateHf = bw + (isEdge ? 5 : 12) * flangeThicknessMM_compression;
       const flangeWidthMM_compression = Math.min(candidateL0, candidateHf);
-      // TODO(PR4): 补充净距约束 ② b + sₙ
 
       beams.push({
-        id: `B-${i + 1}`,
-        type: 't-shaped',
-        spanM: spanM,
-        webWidthMM: bw,
-        flangeWidthMM_compression,
-        flangeThicknessMM_compression,
-        supportEffectiveWidthMM: bw, // 支座区 bf' = b (翼缘受拉开裂不计)
-        totalHeightMM: heightMM,
+        id: `B-${i + 1}`, type: 't-shaped', spanM,
+        webWidthMM: bw, flangeWidthMM_compression, flangeThicknessMM_compression,
+        supportEffectiveWidthMM: bw, totalHeightMM: heightMM,
         spanDepthRatio: spanMM / heightMM,
         meetsRequirement: (spanMM / heightMM) >= 8 && (spanMM / heightMM) <= 16,
       });
     } else {
-      // 矩形梁
       beams.push({
-        id: `B-${i + 1}`,
-        type: 'rectangular',
-        spanM: spanM,
-        widthMM: widthMM,
-        heightMM: heightMM,
+        id: `B-${i + 1}`, type: 'rectangular', spanM,
+        widthMM, heightMM,
         spanDepthRatio: spanMM / heightMM,
         meetsRequirement: (spanMM / heightMM) >= 8 && (spanMM / heightMM) <= 16,
       });
     }
   }
 
-  // TODO(PR3): 梁配筋计算（正截面、斜截面）
   return beams;
 }
 
 /**
- * 生成柱构件
- * 估算公式: N ≤ 0.9 × fc × Ac
- * Ac ≥ N / (0.9 × fc)
+ * 生成柱构件 — 仅截面估算，验算交由 Python gb50010 层。
+ * 估算公式: Ac ≥ N / (0.9 × fc)
  */
 export function generateColumns(input: ConcreteFrameInput): ConcreteColumn[] {
   const columns: ConcreteColumn[] = [];
-  const {
-    storyCount,
-    storyHeightsM,
-    bayWidthsM,
-    concreteGrade,
-    axialLoadKN,
-    columnType = 'rectangular',
-  } = input;
+  const { storyCount, storyHeightsM, bayWidthsM, concreteGrade, axialLoadKN, columnType = 'rectangular' } = input;
 
-  // 获取混凝土抗压强度设计值
   const concrete = getConcreteMaterial(concreteGrade);
-  const fc = concrete.fc; // N/mm²
-
-  // 轴压比限值 (四级抗震)
+  const fc = concrete.fc;
   const axialLoadRatioLimit = 0.9;
 
-  // 每层每柱默认轴力(kN)估算：从属面积 × 15 kN/m²
   const avgSpanM = bayWidthsM.reduce((a, b) => a + b, 0) / bayWidthsM.length;
   const baseLoadKN = axialLoadKN ?? (avgSpanM * avgSpanM * storyCount * DEFAULT_FLOOR_LOAD_KN_PER_M2);
 
   for (let story = 0; story < storyCount; story++) {
     const heightM = storyHeightsM[story] ?? 3.6;
 
-    // 各层轴力从上到下线性递增：底层=baseLoadKN, 顶层=baseLoadKN/storyCount
-    const storyN = (baseLoadKN * (story + 1) / storyCount) * 1000; // 转换为 N
-    const storyAc = storyN / (axialLoadRatioLimit * fc);
+    const storyN_N = (baseLoadKN * (storyCount - story) / storyCount) * 1000;
+    const storyAc = storyN_N / (axialLoadRatioLimit * fc);
 
     if (columnType === 'circular') {
-      // 圆形柱：d = sqrt(4*Ac/π)，取整到50mm，最小500mm
-      // TODO(PR3): 配筋计算与圆形柱正截面验算
       let diameterMM = Math.ceil(Math.sqrt(4 * storyAc / Math.PI) / 50) * 50;
       diameterMM = Math.max(diameterMM, 500);
       const Ac_actual = Math.PI * (diameterMM / 2) ** 2;
-      const axialLoadRatio = storyN / (fc * Ac_actual);
+      const axialLoadRatio = storyN_N / (fc * Ac_actual);
 
       columns.push({
-        id: `C-S${story + 1}-1`,
-        type: 'circular',
-        heightM: heightM,
-        diameterMM: diameterMM,
-        axialLoadRatio: Math.round(axialLoadRatio * 100) / 100,
+        id: `C-S${story + 1}-1`, type: 'circular', heightM,
+        diameterMM, axialLoadRatio: Math.round(axialLoadRatio * 100) / 100,
         meetsRequirement: axialLoadRatio <= axialLoadRatioLimit,
       });
     } else {
-      // 矩形柱截面估算，最小 500mm (GB/T 50010-2010 第 11.4.11 条)
-      // TODO(PR3): 矩形柱配筋计算与轴压比精确验算
       const commonSizes = [500, 550, 600, 650, 700, 750, 800, 850, 900];
       let selectedSize = commonSizes[0]!;
       for (const size of commonSizes) {
-        if (size * size >= storyAc) {
-          selectedSize = size;
-          break;
-        }
+        if (size * size >= storyAc) { selectedSize = size; break; }
       }
-      // 所有预设不够时取计算值
       if (selectedSize === commonSizes[0] && commonSizes[0]! ** 2 < storyAc) {
         selectedSize = Math.ceil(Math.sqrt(storyAc) / 50) * 50;
       }
 
-      // 验算轴压比
       const Ac_actual = selectedSize * selectedSize;
-      const axialLoadRatio = storyN / (fc * Ac_actual);
+      const axialLoadRatio = storyN_N / (fc * Ac_actual);
 
       columns.push({
-        id: `C-S${story + 1}-1`,
-        type: 'rectangular',
-        heightM: heightM,
-        widthMM: selectedSize,
-        heightMM: selectedSize,
+        id: `C-S${story + 1}-1`, type: 'rectangular', heightM,
+        widthMM: selectedSize, heightMM: selectedSize,
         axialLoadRatio: Math.round(axialLoadRatio * 100) / 100,
         meetsRequirement: axialLoadRatio <= axialLoadRatioLimit,
       });
@@ -319,7 +276,6 @@ export function generateSlabs(input: ConcreteFrameInput): ConcreteSlab[] {
     });
   }
 
-  // TODO(PR3): 板配筋计算（板底/板面钢筋）
   return slabs;
 }
 
@@ -374,7 +330,27 @@ export const handler: SkillHandler = {
 
   buildModel(state) {
     try {
-      return buildConcreteFrameModel(state);
+      const concreteGrade = (typeof state.frameConcreteGrade === 'string' && isValidConcreteGrade(state.frameConcreteGrade))
+        ? state.frameConcreteGrade : 'C30';
+      const rebarGrade = (typeof state.frameRebarGrade === 'string' && isValidConcreteGrade(state.frameRebarGrade))
+        ? state.frameRebarGrade : 'HRB400';
+
+      const memberInput: ConcreteFrameInput = {
+        storyCount: state.storyCount as number,
+        bayCount: state.bayCount as number,
+        storyHeightsM: state.storyHeightsM as number[],
+        bayWidthsM: state.bayWidthsM as number[],
+        concreteGrade,
+        rebarGrade,
+        beamType: (state.beamType as ConcreteFrameInput['beamType']) ?? 'rectangular',
+        columnType: (state.columnType as ConcreteFrameInput['columnType']) ?? 'rectangular',
+        slabType: (state.slabType as ConcreteFrameInput['slabType']) ?? 'one-way',
+        slabUsage: (state.slabUsage as ConcreteFrameInput['slabUsage']) ?? 'residential',
+        axialLoadKN: state.axialLoadKN as number | undefined,
+      };
+
+      const memberResults = generateMembers(memberInput);
+      return buildConcreteFrameModel(state, memberResults);
     } catch (error) {
       console.error('buildConcreteFrameModel failed:', error);
       return undefined;

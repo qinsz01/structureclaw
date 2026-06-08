@@ -349,11 +349,19 @@ function extractElementDataForCodeCheck(
       ...(typeof elem['lambdaLimit'] === 'number' ? { lambdaLimit: elem['lambdaLimit'] } : {}),
       ...(typeof elem['deflectionLimitN'] === 'number' ? { deflectionLimitN: elem['deflectionLimitN'] } : {}),
       ...(typeof elem['deflection'] === 'number' ? { deflection: elem['deflection'] } : {}),
-      // from metadata
-      ...(typeof elemMetadata['phi'] === 'number' ? { phi: elemMetadata['phi'] } : {}),
-      ...(typeof elemMetadata['phi_b'] === 'number' ? { phi_b: elemMetadata['phi_b'] } : {}),
-      ...(typeof elemMetadata['phi_axial'] === 'number' ? { phi_axial: elemMetadata['phi_axial'] } : {}),
-    };
+    // from metadata — steel design params
+    ...(typeof elemMetadata['phi'] === 'number' ? { phi: elemMetadata['phi'] } : {}),
+    ...(typeof elemMetadata['phi_b'] === 'number' ? { phi_b: elemMetadata['phi_b'] } : {}),
+    ...(typeof elemMetadata['phi_axial'] === 'number' ? { phi_axial: elemMetadata['phi_axial'] } : {}),
+    // from metadata — concrete rebar design (concrete-frame PR4)
+    ...(typeof elemMetadata['As'] === 'number' ? { As: elemMetadata['As'] } : {}),
+    ...(typeof elemMetadata['Asv'] === 'number' ? { Asv: elemMetadata['Asv'] } : {}),
+    ...(typeof elemMetadata['stirrup_dia'] === 'number' ? { stirrup_dia: elemMetadata['stirrup_dia'] } : {}),
+    ...(typeof elemMetadata['stirrup_spacing'] === 'number' ? { stirrup_spacing: elemMetadata['stirrup_spacing'] } : {}),
+    ...(typeof elemMetadata['main_dia'] === 'number' ? { main_dia: elemMetadata['main_dia'] } : {}),
+    ...(typeof elemMetadata['cover'] === 'number' ? { cover: elemMetadata['cover'] } : {}),
+    ...(typeof elemMetadata['crack_cover'] === 'number' ? { crack_cover: elemMetadata['crack_cover'] } : {}),
+  };
   }
 
   return elementData;
