@@ -72,10 +72,9 @@ def _import_apipyinterface() -> None:
 def _patch_material_label(work_dir: Path) -> None:
     """Replace 钢砼结构 with 钢结构 in JWSCYCLE output files.
 
-    JWSCYCLE always auto-detects the material type by scanning sections,
-    and custom sections via SetUserSect get classified as composite even
-    when Set_M(5) and KIND 103=10303 are set correctly.  This post-process
-    patch corrects the cosmetic label without affecting analysis results.
+    JWSCYCLE writes this label before we restore project material parameters
+    below, so this only keeps generated text reports aligned with the final
+    JWS project metadata.  It does not replace the project-parameter fix.
     """
     _OLD = "钢砼结构".encode("gbk")
     _NEW = "钢结构".encode("gbk")
@@ -87,6 +86,78 @@ def _patch_material_label(work_dir: Path) -> None:
         data = fpath.read_bytes()
         if _OLD in data:
             fpath.write_bytes(data.replace(_OLD, _NEW))
+
+
+def _read_project_para_int(para: Any, key: int) -> int | None:
+    try:
+        value = para.GetPara_Int(key)
+    except Exception:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _open_pm_model(model: Any, jws_path: Path) -> Any:
+    open_result = model.OpenPMModel(str(jws_path))
+    if open_result == 0 or open_result is False:
+        raise RuntimeError(f"Failed to open PKPM model: {jws_path}")
+    return open_result
+
+
+def _get_project_para(model: Any, jws_path: Path) -> Any:
+    para = model.GetProjectPara()
+    if para is None:
+        raise RuntimeError(f"Failed to read PKPM project parameters: {jws_path}")
+    return para
+
+
+def _reapply_project_material_params(jws_path: Path, material_family: str) -> dict[str, Any]:
+    """Restore PKPM project parameters that JWSCYCLE clears after analysis."""
+    import APIPyInterface
+
+    target_material = 10303 if material_family == "steel" else 10301
+    target_values = {
+        101: 10101,  # 结构体系：框架结构
+        103: target_material,  # 结构材料信息
+    }
+
+    model = APIPyInterface.Model()
+    open_result = _open_pm_model(model, jws_path)
+    para = _get_project_para(model, jws_path)
+    before = {str(key): _read_project_para_int(para, key) for key in target_values}
+
+    for key, value in target_values.items():
+        para.SetParaInt(key, value)
+    model.SaveProjectPara()
+    model.SavePMModel()
+
+    del para
+    del model
+
+    verify_model = APIPyInterface.Model()
+    verify_open_result = _open_pm_model(verify_model, jws_path)
+    verify_para = _get_project_para(verify_model, jws_path)
+    after = {str(key): _read_project_para_int(verify_para, key) for key in target_values}
+
+    mismatches = {
+        str(key): {"expected": value, "actual": after.get(str(key))}
+        for key, value in target_values.items()
+        if after.get(str(key)) != value
+    }
+    if mismatches:
+        raise RuntimeError(f"PKPM project material parameters were not persisted: {mismatches}")
+
+    return {
+        "material_family": material_family,
+        "open_result": open_result,
+        "verify_open_result": verify_open_result,
+        "target": {str(key): value for key, value in target_values.items()},
+        "before": before,
+        "after": after,
+        "changed": before != after,
+    }
 
 
 def _run_jws_cycle(cycle_path: Path, work_dir: Path, timeout: int = 600) -> None:
@@ -546,7 +617,10 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     timeout = int(parameters.get("timeout", 600))
     _run_jws_cycle(cycle_path, work_dir, timeout=timeout)
 
-    # ---- Phase 2.5: Post-process output files ----
+    # ---- Phase 2.5: Restore project metadata that JWSCYCLE rewrites ----
+    project_parameter_reapply = _reapply_project_material_params(jws_path, material_family)
+
+    # ---- Phase 2.6: Post-process output files ----
     if material_family == "steel":
         _patch_material_label(work_dir)
 
@@ -576,6 +650,7 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     beams = extracted.get("beams", [])
     columns = extracted.get("columns", [])
     design_conditions = converter_mappings.get("design_conditions", {})
+    floor_load_mapping = converter_mappings.get("floor_load_mapping", [])
 
     # ---- Build V2 node → PKPM (floor, pmid) mapping ----
     v2_to_pm: Dict[str, int] = converter_mappings.get("v2_to_pm", {})
@@ -918,6 +993,8 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
             "beam_count": extracted.get("beam_count", 0),
             "column_count": extracted.get("column_count", 0),
             "designConditions": design_conditions,
+            "floorLoadMapping": floor_load_mapping,
+            "projectParameterReapply": project_parameter_reapply,
             **pkpm_summary,
         },
         "pkpm_detailed": {
@@ -930,6 +1007,8 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
             "bearing_shear": extracted.get("bearing_shear", []),
             "satwe_params": extracted.get("satwe_params", {}),
             "input_design_conditions": design_conditions,
+            "input_floor_load_mapping": floor_load_mapping,
+            "project_parameter_reapply": project_parameter_reapply,
         },
         "caseResults": case_results,
         "envelopeTables": {
