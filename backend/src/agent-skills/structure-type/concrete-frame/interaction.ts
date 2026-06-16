@@ -288,7 +288,5 @@ export function buildConcreteFrameReportNarrative(input: SkillReportNarrativeInp
 }
 
 export function resolveConcreteFrameStage(missingKeys: string[]): 'intent' | 'model' | 'loads' | 'analysis' | 'code_check' | 'report' {
-  // M4: Remove unnecessary filter - FRAME_MATERIAL_KEYS are not in the geometry key list
-  // so filtering them has no effect on the stage resolution
   return resolveLegacyStructuralStage(missingKeys);
 }

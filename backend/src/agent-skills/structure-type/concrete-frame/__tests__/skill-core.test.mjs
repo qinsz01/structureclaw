@@ -778,7 +778,7 @@ describe('detectConcreteFrameStructuralType branches', () => {
 });
 
 // CRITICAL: model.ts error paths and fallback behavior (H2/H3/H4 fix verification)
-// PR3: model now returns mesh model with metadata; code-check fields moved to metadata
+// Model returns mesh model with metadata; code-check fields in metadata
 describe('buildConcreteFrameModel error paths', () => {
   test('falls back to C30 for invalid concrete grade', () => {
     const model = buildConcreteFrameModel({
@@ -932,5 +932,147 @@ describe('computeConcreteFrameMissing boundary cases', () => {
     expect(result.critical.length).toBeGreaterThan(0);
     expect(result.critical).toContain('floorLoads');
     expect(result.critical).toContain('frameConcreteGrade');
+  });
+});
+
+// ============================================================================
+// design-conditions.ts 单元测试
+// ============================================================================
+import {
+  seismicDesignGroupIndex,
+  normalizeSeismicDesignGroup,
+  normalizeSeismicSiteCategory,
+  normalizeWindTerrainRoughness,
+} from '../../../../../dist/agent-skills/structure-type/concrete-frame/design-conditions.js';
+
+describe('design-conditions edge cases', () => {
+  describe('seismicDesignGroupIndex', () => {
+    test('returns 1 for first group (Arabic + Chinese)', () => {
+      expect(seismicDesignGroupIndex('1')).toBe(1);
+      expect(seismicDesignGroupIndex('一')).toBe(1);
+      expect(seismicDesignGroupIndex('第一组')).toBe(1);
+    });
+    test('returns 2 for second group', () => {
+      expect(seismicDesignGroupIndex('2')).toBe(2);
+      expect(seismicDesignGroupIndex('二')).toBe(2);
+      expect(seismicDesignGroupIndex('两')).toBe(2);
+    });
+    test('returns 3 for third group', () => {
+      expect(seismicDesignGroupIndex('3')).toBe(3);
+      expect(seismicDesignGroupIndex('三')).toBe(3);
+    });
+    test('returns undefined for invalid input', () => {
+      expect(seismicDesignGroupIndex(undefined)).toBeUndefined();
+      expect(seismicDesignGroupIndex(null)).toBeUndefined();
+      expect(seismicDesignGroupIndex('')).toBeUndefined();
+      expect(seismicDesignGroupIndex(5)).toBeUndefined();
+    });
+  });
+
+  describe('normalizeSeismicDesignGroup', () => {
+    test('normalizes to Chinese group names', () => {
+      expect(normalizeSeismicDesignGroup('1')).toBe('第一组');
+      expect(normalizeSeismicDesignGroup('一')).toBe('第一组');
+      expect(normalizeSeismicDesignGroup('第二组')).toBe('第二组');
+    });
+    test('returns undefined for invalid', () => {
+      expect(normalizeSeismicDesignGroup('四')).toBeUndefined();
+      expect(normalizeSeismicDesignGroup(undefined)).toBeUndefined();
+    });
+  });
+
+  describe('normalizeSeismicSiteCategory', () => {
+    test('normalizes Arabic + Chinese to Roman numerals', () => {
+      expect(normalizeSeismicSiteCategory('1')).toBe('I');
+      expect(normalizeSeismicSiteCategory('2')).toBe('II');
+      expect(normalizeSeismicSiteCategory('3')).toBe('III');
+      expect(normalizeSeismicSiteCategory('4')).toBe('IV');
+      expect(normalizeSeismicSiteCategory('一')).toBe('I');
+      expect(normalizeSeismicSiteCategory('二')).toBe('II');
+      expect(normalizeSeismicSiteCategory('三')).toBe('III');
+      expect(normalizeSeismicSiteCategory('四')).toBe('IV');
+      expect(normalizeSeismicSiteCategory('3类')).toBe('III');
+      expect(normalizeSeismicSiteCategory('II')).toBe('II');
+    });
+    test('returns undefined for invalid', () => {
+      expect(normalizeSeismicSiteCategory('5')).toBeUndefined();
+      expect(normalizeSeismicSiteCategory('五')).toBeUndefined();
+      expect(normalizeSeismicSiteCategory(undefined)).toBeUndefined();
+    });
+  });
+
+  describe('normalizeWindTerrainRoughness', () => {
+    test('normalizes A/B/C/D classes', () => {
+      expect(normalizeWindTerrainRoughness('A')).toBe('A');
+      expect(normalizeWindTerrainRoughness('B')).toBe('B');
+      expect(normalizeWindTerrainRoughness('b')).toBe('B');
+      expect(normalizeWindTerrainRoughness('c')).toBe('C');
+      expect(normalizeWindTerrainRoughness('A类')).toBe('A');
+      expect(normalizeWindTerrainRoughness('B类')).toBe('B');
+    });
+    test('returns undefined for invalid', () => {
+      expect(normalizeWindTerrainRoughness('E')).toBeUndefined();
+      expect(normalizeWindTerrainRoughness(undefined)).toBeUndefined();
+      expect(normalizeWindTerrainRoughness(123)).toBeUndefined();
+    });
+  });
+});
+
+// ============================================================================
+// buildConcreteFrameModel 3D 错误路径测试
+// ============================================================================
+describe('buildConcreteFrameModel 3D error paths', () => {
+  test('returns undefined for 3D model with mismatched bayWidthsXM array length', () => {
+    const model = buildConcreteFrameModel({
+      inferredType: 'frame',
+      updatedAt: 0,
+      frameDimension: '3d',
+      storyCount: 2,
+      bayCountX: 3,
+      bayCountY: 2,
+      storyHeightsM: [3.6, 3.6],
+      bayWidthsXM: [6, 6],  // length=2 ≠ bayCountX=3
+      bayWidthsYM: [5, 5],
+      floorLoads: [{ story: 1, verticalKN: 100 }, { story: 2, verticalKN: 100 }],
+      frameConcreteGrade: 'C30',
+      frameRebarGrade: 'HRB400',
+    });
+    expect(model).toBeUndefined();
+  });
+
+  test('returns undefined for 3D model with missing Y-direction geometry', () => {
+    const model = buildConcreteFrameModel({
+      inferredType: 'frame',
+      updatedAt: 0,
+      frameDimension: '3d',
+      storyCount: 2,
+      bayCountX: 2,
+      // bayCountY missing
+      storyHeightsM: [3.6, 3.6],
+      bayWidthsXM: [6, 6],
+      // bayWidthsYM missing
+      floorLoads: [{ story: 1, verticalKN: 100 }, { story: 2, verticalKN: 100 }],
+      frameConcreteGrade: 'C30',
+      frameRebarGrade: 'HRB400',
+    });
+    expect(model).toBeUndefined();
+  });
+
+  test('returns undefined for 3D model with mismatched bayWidthsYM', () => {
+    const model = buildConcreteFrameModel({
+      inferredType: 'frame',
+      updatedAt: 0,
+      frameDimension: '3d',
+      storyCount: 2,
+      bayCountX: 2,
+      bayCountY: 2,
+      storyHeightsM: [3.6, 3.6],
+      bayWidthsXM: [6, 6],
+      bayWidthsYM: [5],  // length=1 ≠ bayCountY=2
+      floorLoads: [{ story: 1, verticalKN: 100 }, { story: 2, verticalKN: 100 }],
+      frameConcreteGrade: 'C30',
+      frameRebarGrade: 'HRB400',
+    });
+    expect(model).toBeUndefined();
   });
 });

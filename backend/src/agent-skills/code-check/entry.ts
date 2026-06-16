@@ -400,12 +400,14 @@ function extractElementDataForCodeCheck(
     ...(typeof elemMetadata['phi'] === 'number' ? { phi: elemMetadata['phi'] } : {}),
     ...(typeof elemMetadata['phi_b'] === 'number' ? { phi_b: elemMetadata['phi_b'] } : {}),
     ...(typeof elemMetadata['phi_axial'] === 'number' ? { phi_axial: elemMetadata['phi_axial'] } : {}),
-    // from metadata — concrete rebar design (concrete-frame PR4)
+    // from metadata — concrete rebar design (§9.2.1 / §9.3.1)
     ...(typeof elemMetadata['As'] === 'number' ? { As: elemMetadata['As'] } : {}),
     ...(typeof elemMetadata['Asv'] === 'number' ? { Asv: elemMetadata['Asv'] } : {}),
     ...(typeof elemMetadata['stirrup_dia'] === 'number' ? { stirrup_dia: elemMetadata['stirrup_dia'] } : {}),
     ...(typeof elemMetadata['stirrup_spacing'] === 'number' ? { stirrup_spacing: elemMetadata['stirrup_spacing'] } : {}),
     ...(typeof elemMetadata['main_dia'] === 'number' ? { main_dia: elemMetadata['main_dia'] } : {}),
+    ...(typeof elemMetadata['bar_count'] === 'number' ? { bar_count: elemMetadata['bar_count'] } : {}),
+    ...(typeof elemMetadata['sn'] === 'number' ? { sn: elemMetadata['sn'] } : {}),
     ...(typeof elemMetadata['cover'] === 'number' ? { cover: elemMetadata['cover'] } : {}),
     ...(typeof elemMetadata['crack_cover'] === 'number' ? { crack_cover: elemMetadata['crack_cover'] } : {}),
   };

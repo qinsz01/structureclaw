@@ -1,5 +1,163 @@
 {
   "version": "2.0.0",
   "family": "concrete-frame",
-  "scenarios": []
+  "scenarios": [
+    {
+      "scenarioId": "concrete-frame-routing-zh",
+      "category": "routing",
+      "locale": "zh",
+      "messages": [
+        "三层两跨混凝土框架，层高3.6m，跨度6m"
+      ],
+      "variants": {
+        "legacy": {
+          "expect": {
+            "inferredType": "frame",
+            "structuralTypeKey": "concrete-frame"
+          }
+        }
+      }
+    },
+    {
+      "scenarioId": "concrete-frame-routing-en",
+      "category": "routing",
+      "locale": "en",
+      "messages": [
+        "3-story 2-bay concrete frame, story height 3.6m, bay width 6m"
+      ],
+      "variants": {
+        "legacy": {
+          "expect": {
+            "inferredType": "frame",
+            "structuralTypeKey": "concrete-frame"
+          }
+        }
+      }
+    },
+    {
+      "scenarioId": "concrete-frame-routing-rc-zh",
+      "category": "routing",
+      "locale": "zh",
+      "messages": [
+        "钢筋混凝土框架，四层三跨，每层4.2m，每跨8m"
+      ],
+      "variants": {
+        "legacy": {
+          "expect": {
+            "inferredType": "frame",
+            "structuralTypeKey": "concrete-frame"
+          }
+        }
+      }
+    },
+    {
+      "scenarioId": "concrete-frame-routing-rc-en",
+      "category": "routing",
+      "locale": "en",
+      "messages": [
+        "RC frame, 4 stories 3 bays, each story 4.2m, each bay 8m"
+      ],
+      "variants": {
+        "legacy": {
+          "expect": {
+            "inferredType": "frame",
+            "structuralTypeKey": "concrete-frame"
+          }
+        }
+      }
+    },
+    {
+      "scenarioId": "concrete-frame-extract-materials-zh",
+      "category": "extraction",
+      "locale": "zh",
+      "messages": [
+        "两层两跨混凝土框架，C30混凝土，HRB400钢筋，柱500X500，梁300X600，每层3m，每跨6m"
+      ],
+      "variants": {
+        "legacy": {
+          "expect": {
+            "inferredType": "frame",
+            "structuralTypeKey": "concrete-frame",
+            "storyCount": 2,
+            "bayCount": 2,
+            "frameConcreteGrade": "C30",
+            "frameRebarGrade": "HRB400",
+            "frameColumnSection": "500X500",
+            "frameBeamSection": "300X600"
+          }
+        }
+      }
+    },
+    {
+      "scenarioId": "concrete-frame-extract-3d-zh",
+      "category": "extraction",
+      "locale": "zh",
+      "messages": [
+        "三层3D混凝土框架，X向2跨每跨6m，Y向1跨5m，层高3.6m，每层总竖向荷载432kN"
+      ],
+      "variants": {
+        "legacy": {
+          "expect": {
+            "inferredType": "frame",
+            "structuralTypeKey": "concrete-frame",
+            "frameDimension": "3d",
+            "storyCount": 3,
+            "bayCountX": 2,
+            "bayCountY": 1
+          }
+        }
+      }
+    },
+    {
+      "scenarioId": "concrete-frame-extract-seismic-zh",
+      "category": "extraction",
+      "locale": "zh",
+      "messages": [
+        "两层混凝土框架，首层4.5m，二层3.8m，跨度8m共3间，7度0.1g抗震第三组，场地类别3类，风荷载0.4kN/㎡ B类，C30 HRB400"
+      ],
+      "variants": {
+        "legacy": {
+          "expect": {
+            "inferredType": "frame",
+            "structuralTypeKey": "concrete-frame",
+            "storyCount": 2,
+            "frameConcreteGrade": "C30",
+            "frameRebarGrade": "HRB400"
+          }
+        }
+      }
+    },
+    {
+      "scenarioId": "concrete-frame-routing-building-type-zh",
+      "category": "routing",
+      "locale": "zh",
+      "messages": [
+        "五层混凝土办公楼，柱网8m×8m，层高3.6m"
+      ],
+      "variants": {
+        "legacy": {
+          "expect": {
+            "inferredType": "frame",
+            "structuralTypeKey": "concrete-frame"
+          }
+        }
+      }
+    },
+    {
+      "scenarioId": "concrete-frame-irregular-unsupported-zh",
+      "category": "routing",
+      "locale": "zh",
+      "messages": [
+        "不规则混凝土框架，有退台和缺跨"
+      ],
+      "variants": {
+        "legacy": {
+          "expect": {
+            "structuralTypeKey": "concrete-frame",
+            "supportLevel": "unsupported"
+          }
+        }
+      }
+    }
+  ]
 }

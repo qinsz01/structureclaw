@@ -8,7 +8,7 @@ export interface ConcreteFramePatchSources {
 }
 
 // ============================================================================
-// PR2: 构件生成器接口
+// 构件生成器接口
 // ============================================================================
 
 /**
@@ -47,7 +47,7 @@ export interface ConcreteFrameInput {
   floorLoadKNm2?: number; // 楼面均布荷载设计值 (kN/m², 默认 10)
   tributaryWidthM?: number; // 梁从属宽度 (m, 默认 3)
 
-  // 柱内力参数 (PR3: 成熟版 — 可选, 未提供时自动估算)
+  // 柱内力参数 — 可选, 未提供时自动估算
   columnMomentKNm?: number; // 柱端设计弯矩 (kN·m, 默认按 2% 偏心率估算)
   columnShearKN?: number; // 柱端设计剪力 (kN, 默认按 0.2N 估算)
   columnLambda?: number; // 剪跨比 λ = M/(Vh0), 1~3 (默认 2.5)

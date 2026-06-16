@@ -2,9 +2,9 @@ import { describe, expect, test } from '@jest/globals';
 import { generateMembers, generateBeams, generateColumns, generateSlabs } from '../../../../../dist/agent-skills/structure-type/concrete-frame/handler.js';
 
 // ============================================================================
-// PR2: 混凝土构件生成器测试
+// 混凝土构件生成器测试
 // ============================================================================
-describe('PR2: concrete-frame member generation', () => {
+describe('concrete-frame member generation', () => {
   describe('generateBeams', () => {
     test('generates rectangular beams with proper span-depth ratios', () => {
       const input = {
@@ -498,9 +498,9 @@ describe('PR2: concrete-frame member generation', () => {
   });
 
   // ============================================================================
-  // PR3: 验算集成测试 — 验证 codeChecks 字段
+  // 验算集成测试 — code-check deferred to Python gb50010 layer
   // ============================================================================
-  describe('member generation output structure (code-check deferred to Python gb50010 layer)', () => {
+  describe('member generation output structure', () => {
     test('rectangular beams produce correct count and sizing', () => {
       const input = {
         storyCount: 1, bayCount: 2,

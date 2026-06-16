@@ -1063,20 +1063,29 @@ export function buildConcreteFrameModel(
     ? buildAnalysisControlRecord(state.analysisControl as DraftAnalysisControl | undefined)
     : undefined;
 
-  // PR4: Compute rebar design metadata from code parameters (GB50010 minimums)
-  // These flow through element.metadata → entry.ts → elementData → Python code-check
+  // Compute rebar design metadata from code parameters (GB50010 minimums).
+  // These flow through element.metadata → entry.ts → elementData → Python code-check.
   const beamH = beamProps.height ?? 500;
   const beamB = beamProps.width ?? 300;
   const beamH0 = beamH - 40;
   const beamRhoMin = Math.max(0.002, 0.45 * concreteProps.ft / rebarProps.fy);
   const beamAs = Math.max(beamB * beamH0 * beamRhoMin, Math.PI * 14 * 14 / 2);
   const beamMainDia = beamH >= 600 ? 25 : (beamH >= 400 ? 20 : 16);
+  const beamBarArea = Math.PI * beamMainDia * beamMainDia / 4;
+  const beamBarCount = Math.max(2, Math.ceil(beamAs / beamBarArea));
+  // GB50010-2010 §9.2.1: 净距 sₙ — available width minus bar footprint
+  const beamAvailableWidth = beamB - 2 * (20 + 8); // cover + stirrup on both sides
+  const beamSn = beamBarCount > 1
+    ? Math.max(0, (beamAvailableWidth - beamBarCount * beamMainDia) / (beamBarCount - 1))
+    : 0;
   const beamRebarMeta: Record<string, unknown> = {
     As: Math.round(beamAs),
     Asv: Math.round(Math.PI * 8 * 8 / 2),          // 2-leg Φ8
     stirrup_dia: 8,
     stirrup_spacing: 200,
     main_dia: beamMainDia,
+    bar_count: beamBarCount,
+    sn: Math.round(beamSn),
     cover: 20,
     crack_cover: 25,
   };
@@ -1085,12 +1094,26 @@ export function buildConcreteFrameModel(
   const colH = columnProps.height ?? 500;
   const colRhoMin = Math.max(0.006, 0.55 * concreteProps.ft / rebarProps.fy);
   const colAs = Math.max(colB * colH * colRhoMin, Math.PI * 20 * 20);
+  const colMainDia = 20;
+  const colBarArea = Math.PI * colMainDia * colMainDia / 4;
+  const colBarCount = Math.max(4, Math.ceil(colAs / colBarArea));
+  // GB50010-2010 §9.3.1: 净距 sₙ per side face
+  // Corner bars are shared between adjacent sides.
+  // ceil(total/4) gives spaces per side; +1 for the corner bar at far end.
+  const colBarCountPerSide = Math.ceil(colBarCount / 4) + 1;
+  const colMinSide = Math.min(colB, colH);
+  const colAvailableWidth = colMinSide - 2 * (20 + 8); // cover + stirrup on both sides
+  const colSn = colBarCountPerSide > 1
+    ? Math.max(0, (colAvailableWidth - colBarCountPerSide * colMainDia) / (colBarCountPerSide - 1))
+    : 0;
   const colRebarMeta: Record<string, unknown> = {
     As: Math.round(colAs),
     Asv: Math.round(Math.PI * 8 * 8 / 2),          // 2-leg Φ8
     stirrup_dia: 8,
     stirrup_spacing: 200,
-    main_dia: 20,
+    main_dia: colMainDia,
+    bar_count: colBarCount,
+    sn: Math.round(colSn),
     cover: 20,
   };
 
@@ -1139,10 +1162,8 @@ export function buildConcreteFrameModel(
       analysisControl,
     });
 
-    // PR4: Attach rebar design to model elements → entry.ts → elementData → Python
     attachRebarMetadata(model3d.elements);
 
-    // PR3: Inject code-check results into metadata
     if (codeCheckResults) {
       model3d.metadata = {
         ...model3d.metadata,
@@ -1183,10 +1204,8 @@ export function buildConcreteFrameModel(
     analysisControl,
   });
 
-  // PR4: Attach rebar design to model elements → entry.ts → elementData → Python
   attachRebarMetadata(model2d.elements);
 
-  // PR3: Inject code-check results into metadata
   if (codeCheckResults) {
     model2d.metadata = {
       ...model2d.metadata,
