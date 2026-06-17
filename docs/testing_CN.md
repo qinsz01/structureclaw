@@ -34,7 +34,7 @@
 | `tests/regression/analysis-runner.py` | Analysis regression fixture | `node tests/runner.mjs analysis-regression` |
 | `tests/smoke/**` | Native install 与 build smoke 检查 | `node tests/runner.mjs smoke-native` |
 | `tests/llm-integration/**` | 旧 LLM integration harness 与 helper unit test | `node tests/runner.mjs llm-integration` 加本地 helper 测试 |
-| `tests/llm-benchmark/**` | LangGraph agent benchmark 场景与评分 | `node tests/runner.mjs llm-benchmark` |
+| `tests/llm-benchmark/**` | LangGraph agent benchmark 场景与评分（git submodule，源仓库 [structureclaw-benchmark](https://github.com/structureclaw/structureclaw-benchmark)） | `node tests/runner.mjs llm-benchmark` |
 
 ## CI Workflow 边界
 

@@ -106,6 +106,7 @@ jobs:
         with:
           ref: ${{ needs.check-permission.outputs.pr_sha }}
           persist-credentials: false
+          submodules: recursive
 
       - name: Install Linux system dependencies for OpenSeesPy
         if: runner.os == 'Linux'

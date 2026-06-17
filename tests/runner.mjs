@@ -11,7 +11,13 @@ const { runBackendRegression } = require("./regression/backend-regression.js");
 const { runAnalysisRegression } = require("./regression/analysis-regression.js");
 const { runNativeInstallSmoke } = require("./smoke/install-smoke.cjs");
 
-const { runBenchmark } = require("./llm-benchmark/runner.cjs");
+// Benchmark runner lives in a git submodule (tests/llm-benchmark) and is
+// only needed for the `llm-benchmark` command. Load it lazily so CI jobs
+// that don't fetch submodules aren't blocked by the require.
+function loadBenchmarkRunner() {
+  process.env.SCLAW_ROOT = rootDir;
+  return require("./llm-benchmark/runner.cjs");
+}
 
 function parseCliOptions(args) {
   const positionals = [];
@@ -142,7 +148,7 @@ async function main() {
       await runNativeInstallSmoke(rootDir);
       return;
     case "llm-benchmark":
-      await runBenchmark(rootDir, rawArgs);
+      await loadBenchmarkRunner().runBenchmark(rawArgs);
       return;
     default:
       throw new Error(`Unknown command: ${cmd}`);

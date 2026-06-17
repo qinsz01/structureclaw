@@ -1,0 +1,3 @@
+[submodule "tests/llm-benchmark"]
+	path = tests/llm-benchmark
+	url = https://github.com/structureclaw/structureclaw-benchmark.git

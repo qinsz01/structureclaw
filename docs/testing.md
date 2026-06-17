@@ -34,7 +34,7 @@ This document clarifies the current test system for issue #234 and is updated wh
 | `tests/regression/analysis-runner.py` | Analysis regression fixtures | `node tests/runner.mjs analysis-regression` |
 | `tests/smoke/**` | Native install and build smoke checks | `node tests/runner.mjs smoke-native` |
 | `tests/llm-integration/**` | Legacy LLM integration harness and helper unit tests | `node tests/runner.mjs llm-integration` plus local helper tests |
-| `tests/llm-benchmark/**` | LangGraph agent benchmark scenarios and scoring | `node tests/runner.mjs llm-benchmark` |
+| `tests/llm-benchmark/**` | LangGraph agent benchmark scenarios and scoring (git submodule from [structureclaw-benchmark](https://github.com/structureclaw/structureclaw-benchmark)) | `node tests/runner.mjs llm-benchmark` |
 
 ## CI Workflow Boundaries
 
