@@ -25,6 +25,13 @@ import {
 import type { AppLocale } from '../services/locale.js';
 import type { DraftExtraction, DraftFloorLoad, DraftState, InferredModelType } from './types.js';
 
+function normalizeSkillState(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined;
+  }
+  return { ...(value as Record<string, unknown>) };
+}
+
 export function normalizeLegacyDraftPatch(patch: Record<string, unknown> | null | undefined): DraftExtraction {
   if (!patch) {
     return {};
@@ -32,6 +39,7 @@ export function normalizeLegacyDraftPatch(patch: Record<string, unknown> | null 
   return {
     inferredType: normalizeInferredType(patch.inferredType),
     skillId: typeof patch.skillId === 'string' ? patch.skillId : undefined,
+    skillState: normalizeSkillState(patch.skillState),
     lengthM: normalizeNumber(patch.lengthM),
     spanLengthM: normalizeNumber(patch.spanLengthM),
     heightM: normalizeNumber(patch.heightM),
@@ -83,6 +91,30 @@ function mergeFloorLoadsLlmFirst(
   return Array.from(merged.values()).sort((left, right) => left.story - right.story);
 }
 
+function mergeSkillStateLlmFirst(
+  llmState: Record<string, unknown> | undefined,
+  ruleState: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  if (!llmState && !ruleState) {
+    return undefined;
+  }
+
+  const llmInvalid = llmState?.invalidDraftFields;
+  const ruleInvalid = ruleState?.invalidDraftFields;
+  const invalidDraftFields = Array.isArray(llmInvalid) || Array.isArray(ruleInvalid)
+    ? Array.from(new Set([
+      ...(Array.isArray(ruleInvalid) ? ruleInvalid : []),
+      ...(Array.isArray(llmInvalid) ? llmInvalid : []),
+    ].filter((field): field is string => typeof field === 'string')))
+    : undefined;
+
+  return {
+    ...(ruleState ?? {}),
+    ...(llmState ?? {}),
+    ...(invalidDraftFields ? { invalidDraftFields } : {}),
+  };
+}
+
 export function mergeLegacyDraftPatchLlmFirst(
   llmPatch: DraftExtraction,
   rulePatch: DraftExtraction,
@@ -96,6 +128,13 @@ export function mergeLegacyDraftPatchLlmFirst(
   for (const key of keys) {
     if (key === 'floorLoads') {
       nextPatch.floorLoads = mergeFloorLoadsLlmFirst(llmPatch.floorLoads, rulePatch.floorLoads);
+      continue;
+    }
+    if (key === 'skillState') {
+      const skillState = mergeSkillStateLlmFirst(llmPatch.skillState, rulePatch.skillState);
+      if (skillState !== undefined) {
+        nextPatch.skillState = skillState;
+      }
       continue;
     }
     const llmValue = llmPatch[key];
