@@ -59,13 +59,7 @@ export async function tryBuildGenericModelWithLlm(
         continue;
       }
 
-      if (typeof parsed.schema_version !== 'string') {
-        parsed.schema_version = '2.0.0';
-      }
-      if (typeof parsed.unit_system !== 'string') {
-        parsed.unit_system = 'SI';
-      }
-
+      canonicalizeGenericModel(parsed);
       stampCanonicalMetadata(parsed, state);
 
       logger.info({
@@ -94,6 +88,114 @@ export async function tryBuildGenericModelWithLlm(
   }, 'generic llm model exhausted all attempts without a valid model');
 
   return undefined;
+}
+
+function canonicalizeGenericModel(model: Record<string, unknown>): void {
+  model.schema_version = '2.0.0';
+  model.unit_system = 'SI';
+  if (!Array.isArray(model.load_cases)) {
+    return;
+  }
+  model.load_cases = model.load_cases.map((loadCase) => {
+    if (!loadCase || typeof loadCase !== 'object' || Array.isArray(loadCase)) {
+      return loadCase;
+    }
+    const record = loadCase as Record<string, unknown>;
+    return {
+      ...record,
+      loads: Array.isArray(record.loads)
+        ? record.loads.map((load) => normalizeLoadRecord(load))
+        : [],
+    };
+  });
+}
+
+function normalizeLoadRecord(load: unknown): unknown {
+  if (!load || typeof load !== 'object' || Array.isArray(load)) {
+    return load;
+  }
+
+  const record = { ...(load as Record<string, unknown>) };
+  if (record.type === 'nodal_force') {
+    record.type = 'nodal';
+  } else if (record.type === 'line_load' || record.type === 'element_uniform_load' || record.type === 'uniform_load') {
+    record.type = 'distributed';
+  }
+
+  const unit = firstString(record.unit, record.forceUnit, record.force_unit, record.units);
+  if (unit && isNewtonUnit(unit)) {
+    const scale = 1 / 1000;
+    const numericFields = isDistributedLoad(record)
+      ? ['wx', 'wy', 'wz', 'qx', 'qy', 'qz', 'w', 'q', 'value', 'magnitude']
+      : ['fx', 'fy', 'fz', 'px', 'py', 'pz', 'mx', 'my', 'mz', 'value', 'magnitude'];
+    if (shouldScaleNewtonValues(record, numericFields)) {
+      for (const field of numericFields) {
+        record[field] = scaleNumber(record[field], scale);
+      }
+      if (Array.isArray(record.forces)) {
+        record.forces = record.forces.map((value) => scaleNumber(value, scale));
+      }
+    }
+    record.unit = canonicalNewtonUnit(unit);
+  }
+  delete record.forceUnit;
+  delete record.force_unit;
+  delete record.units;
+
+  return record;
+}
+
+function firstString(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return undefined;
+}
+
+function isNewtonUnit(unit: string): boolean {
+  const normalized = unit.trim().toLowerCase().replace(/\s+/g, '');
+  return normalized === 'n' || normalized === 'n/m' || normalized === 'npermeter';
+}
+
+function canonicalNewtonUnit(unit: string): 'kN' | 'kN/m' {
+  const normalized = unit.trim().toLowerCase().replace(/\s+/g, '');
+  return normalized === 'n/m' || normalized === 'npermeter' ? 'kN/m' : 'kN';
+}
+
+function isDistributedLoad(load: Record<string, unknown>): boolean {
+  return load.type === 'distributed' || load.element !== undefined || load.elementId !== undefined || load.element_id !== undefined;
+}
+
+function shouldScaleNewtonValues(record: Record<string, unknown>, fields: string[]): boolean {
+  const values = fields
+    .map((field) => toFiniteNumber(record[field]))
+    .filter((value): value is number => value !== null);
+  if (Array.isArray(record.forces)) {
+    for (const value of record.forces) {
+      const numeric = toFiniteNumber(value);
+      if (numeric !== null) {
+        values.push(numeric);
+      }
+    }
+  }
+  return values.some((value) => Math.abs(value) >= 1000);
+}
+
+function scaleNumber(value: unknown, scale: number): unknown {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value * scale;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed === '') {
+      return value;
+    }
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed * scale : value;
+  }
+  return value;
 }
 
 function parseJsonObject(content: string): Record<string, unknown> | null {
@@ -181,7 +283,11 @@ function toFiniteNumber(value: unknown): number | null {
     return value;
   }
   if (typeof value === 'string') {
-    const parsed = Number(value.trim());
+    const trimmed = value.trim();
+    if (trimmed === '') {
+      return null;
+    }
+    const parsed = Number(trimmed);
     if (Number.isFinite(parsed)) {
       return parsed;
     }

@@ -39,12 +39,65 @@ function getToolCallId(config: LangGraphRunnableConfig): string {
   return id;
 }
 
-export function resolveToolInputMessage(inputMessage: string | undefined, lastUserMessage: string | undefined): string {
-  const explicitMessage = inputMessage?.trim();
-  if (explicitMessage) {
-    return explicitMessage;
+function messageRole(message: unknown): string | null {
+  if (!message || typeof message !== 'object') return null;
+  const record = message as Record<string, unknown>;
+  const getType = record._getType;
+  if (typeof getType === 'function') {
+    return String(getType.call(message));
   }
-  return lastUserMessage || '';
+  if (typeof record.role === 'string') return record.role;
+  if (typeof record.type === 'string') return record.type;
+  if (Array.isArray(record.id) && record.id.some((part) => String(part).includes('HumanMessage'))) {
+    return 'human';
+  }
+  return null;
+}
+
+function messageText(message: unknown): string {
+  if (!message || typeof message !== 'object') return '';
+  const content = (message as { content?: unknown }).content;
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((item) => {
+        if (typeof item === 'string') return item;
+        if (item && typeof item === 'object' && 'text' in item) {
+          return String((item as { text?: unknown }).text ?? '');
+        }
+        return '';
+      })
+      .join('');
+  }
+  return content == null ? '' : String(content);
+}
+
+function latestHumanMessageText(messages: unknown[] | undefined): string {
+  if (!Array.isArray(messages)) return '';
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const role = messageRole(messages[i]);
+    if (role === 'human' || role === 'user') {
+      return messageText(messages[i]).trim();
+    }
+  }
+  return '';
+}
+
+export function resolveToolInputMessage(
+  inputMessage: string | undefined,
+  lastUserMessage: string | undefined,
+  messages?: unknown[],
+): string {
+  const canonicalUserMessage = lastUserMessage?.trim();
+  if (canonicalUserMessage) {
+    return canonicalUserMessage;
+  }
+  const latestHumanMessage = latestHumanMessageText(messages);
+  if (latestHumanMessage) {
+    return latestHumanMessage;
+  }
+  const explicitMessage = inputMessage?.trim();
+  return explicitMessage || '';
 }
 
 const ANALYSIS_SKILL_ENGINE_IDS: Record<string, string> = {
@@ -180,10 +233,47 @@ function hasStableDraftType(state: DraftState | null | undefined): state is Draf
 export function shouldPreserveExistingDraftState(
   existingState: DraftState | null | undefined,
   structuralTypeMatch: StructuralTypeMatch,
+  message?: string,
 ): existingState is DraftState {
-  return hasStableDraftType(existingState)
-    && structuralTypeMatch.key === 'unknown'
-    && structuralTypeMatch.mappedType === 'unknown';
+  if (!hasStableDraftType(existingState)) {
+    return false;
+  }
+  if (structuralTypeMatch.key === 'unknown' && structuralTypeMatch.mappedType === 'unknown') {
+    return true;
+  }
+  return isRetryFeedbackMessage(message) && isConflictingStructuralType(existingState, structuralTypeMatch);
+}
+
+function isRetryFeedbackMessage(message: string | undefined): boolean {
+  const text = message?.trim();
+  if (!text) return false;
+  return /^上次尝试失败[:：]/.test(text) || /^Previous attempt failed[:：]/i.test(text);
+}
+
+export function resolveRetryTaskMessage(message: string | undefined): string {
+  const text = message?.trim();
+  if (!text || !isRetryFeedbackMessage(text)) {
+    return text || '';
+  }
+  const split = text.split(/\r?\n\s*\r?\n/);
+  if (split.length < 2) {
+    return text;
+  }
+  const taskMessage = split.slice(1).join('\n\n').trim();
+  return taskMessage || text;
+}
+
+function isConflictingStructuralType(
+  existingState: DraftState,
+  structuralTypeMatch: StructuralTypeMatch,
+): boolean {
+  if (structuralTypeMatch.mappedType !== existingState.inferredType) {
+    return false;
+  }
+  const existingKey = existingState.structuralTypeKey ?? existingState.inferredType;
+  const nextKey = structuralTypeMatch.key;
+  if (!nextKey || nextKey === 'unknown') return false;
+  return nextKey !== existingKey;
 }
 
 function buildPreservedStructuralTypeMatch(
@@ -584,10 +674,11 @@ export function createDetectStructureTypeTool(skillRuntime: AgentSkillRuntime) {
       const toolCallId = getToolCallId(config);
       const skillIds = configurable.skillScope;
       const locale = (input.locale === 'en' ? 'en' : (state?.locale || 'zh')) as 'zh' | 'en';
-      const message = resolveToolInputMessage(input.message, state?.lastUserMessage);
+      const message = resolveToolInputMessage(input.message, state?.lastUserMessage, state?.messages);
+      const detectionMessage = resolveRetryTaskMessage(message);
       try {
         const match = await skillRuntime.detectStructuralType(
-          message,
+          detectionMessage,
           locale,
           undefined,
           skillIds,
@@ -636,18 +727,31 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
       const existingState = state?.draftState || undefined;
       const skillIds = configurable.skillScope;
       const locale = (input.locale === 'en' ? 'en' : (state?.locale || 'zh')) as 'zh' | 'en';
-      const message = resolveToolInputMessage(input.message, state?.lastUserMessage);
+      const message = resolveToolInputMessage(input.message, state?.lastUserMessage, state?.messages);
+      const extractionMessage = resolveRetryTaskMessage(message);
 
       try {
         // Step 1: Detect structural type
+        log.debug({
+          hasLastUserMessage: !!state?.lastUserMessage,
+          messageCount: Array.isArray(state?.messages) ? state.messages.length : 0,
+          inputMessagePreview: input.message?.slice(0, 120),
+          resolvedMessagePreview: message.slice(0, 120),
+          extractionMessagePreview: extractionMessage.slice(0, 120),
+        }, 'extract_draft_params resolved message');
         const match = await skillRuntime.detectStructuralType(
-          message, locale, existingState, skillIds,
+          extractionMessage, locale, existingState, skillIds,
         );
         const matchedPlugin = match.skillId
           ? await skillRuntime.resolvePluginForType(match.skillId, skillIds)
           : null;
+        log.debug({
+          detectedKey: match.key,
+          detectedSkillId: match.skillId,
+          matchedPluginId: matchedPlugin?.id,
+        }, 'extract_draft_params structural match');
 
-        if (shouldPreserveExistingDraftState(existingState, match)) {
+        if (shouldPreserveExistingDraftState(existingState, match, message)) {
           const preservationPlugin = await resolveExistingDraftPlugin(
             skillRuntime,
             existingState,
@@ -741,11 +845,17 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
 
         // Step 3: Sub-agent extracts parameters (skill manifest driven)
         const { invokeParamExtractor } = await import('./param-extractor.js');
-        const draftPatch = await invokeParamExtractor({ message, existingState, locale, plugin });
+        const draftPatch = await invokeParamExtractor({
+          message: extractionMessage,
+          existingState,
+          locale,
+          plugin,
+          traceLogger: log,
+        });
 
         // Step 4: Handler pipeline (extractDraft → mergeState → computeMissing)
         const patch = plugin.handler.extractDraft({
-          message,
+          message: extractionMessage,
           locale,
           currentState: existingState,
           llmDraftPatch: draftPatch,

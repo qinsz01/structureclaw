@@ -331,12 +331,45 @@ describe('concrete-frame canonicalize core contract', () => {
       }),
     ]);
     expect(model.load_cases.map((loadCase) => loadCase.id)).toEqual(['D']);
+    expect(model.load_cases.find((loadCase) => loadCase.id === 'D').loads).toHaveLength(4);
+    expect(model.load_cases.find((loadCase) => loadCase.id === 'D').loads.reduce((sum, load) => sum + load.fz, 0)).toBeCloseTo(-200);
     expect(model.load_combinations[0]).toMatchObject({
       id: 'ULS',
       combination_type: 'uls',
       code_reference: 'GB50010',
       factors: { D: 1 },
     });
+  });
+
+  test('normalizes duplicate concrete same-story floor loads without dropping signed gravity loads', () => {
+    const model = buildConcreteFrameModel({
+      inferredType: 'concrete-frame',
+      updatedAt: 0,
+      frameDimension: '2d',
+      storyCount: 1,
+      bayCount: 1,
+      storyHeightsM: [3.6],
+      bayWidthsM: [6],
+      floorLoads: [
+        { story: 1, verticalKN: -120 },
+        { story: 1, verticalKN: -120, liveLoadKN: 30 },
+      ],
+      frameBaseSupportType: 'fixed',
+      frameConcreteGrade: 'C30',
+      frameRebarGrade: 'HRB400',
+      frameColumnSection: '400X400',
+      frameBeamSection: '250X600',
+    });
+
+    expect(model).toBeDefined();
+    expect(model.floorLoads).toEqual([
+      { story: 1, verticalKN: -120, liveLoadKN: 30 },
+    ]);
+    expect(model.stories[0]).toMatchObject({ dead_load: 20, live_load: 5 });
+    expect(model.load_cases.find((loadCase) => loadCase.id === 'D').loads).toHaveLength(2);
+    expect(model.load_cases.find((loadCase) => loadCase.id === 'D').loads.reduce((sum, load) => sum + load.fz, 0)).toBeCloseTo(-120);
+    expect(model.load_cases.find((loadCase) => loadCase.id === 'L').loads).toHaveLength(2);
+    expect(model.load_cases.find((loadCase) => loadCase.id === 'L').loads.reduce((sum, load) => sum + load.fz, 0)).toBeCloseTo(-30);
   });
 
   test('builds a 3d concrete frame model with y-direction beams for YJK conversion', () => {
@@ -374,6 +407,10 @@ describe('concrete-frame canonicalize core contract', () => {
       live_load: 2,
     });
     expect(model.load_cases.map((loadCase) => loadCase.id)).toEqual(['D', 'L', 'LAT']);
+    expect(model.load_cases.find((loadCase) => loadCase.id === 'D').loads).toHaveLength(12);
+    expect(model.load_cases.find((loadCase) => loadCase.id === 'D').loads.reduce((sum, load) => sum + load.fz, 0)).toBeCloseTo(-720);
+    expect(model.load_cases.find((loadCase) => loadCase.id === 'L').loads).toHaveLength(12);
+    expect(model.load_cases.find((loadCase) => loadCase.id === 'L').loads.reduce((sum, load) => sum + load.fz, 0)).toBeCloseTo(-240);
   });
 
   test('returns undefined when critical geometry is missing (H2 fix)', () => {
