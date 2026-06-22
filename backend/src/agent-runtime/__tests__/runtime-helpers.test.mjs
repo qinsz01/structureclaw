@@ -20,6 +20,27 @@ describe('agent runtime helper utilities', () => {
     expect((await runtime.resolvePluginForType('concrete-frame'))?.id).toBe('concrete-frame');
   });
 
+  test('keeps owning plugin enabled when scope uses a structural type key', async () => {
+    const { AgentSkillRuntime } = await import('../../../dist/agent-runtime/index.js');
+    const runtime = new AgentSkillRuntime();
+
+    expect((await runtime.resolvePluginForType('steel-frame', ['steel-frame']))?.id).toBe('frame');
+
+    const match = await runtime.detectStructuralType(
+      '2层单跨钢框架，层高3.6m，跨度6m，请建立模型并进行静力分析。',
+      'zh',
+      undefined,
+      ['steel-frame'],
+    );
+
+    expect(match).toMatchObject({
+      key: 'steel-frame',
+      mappedType: 'frame',
+      skillId: 'frame',
+      supportLevel: 'supported',
+    });
+  });
+
   test('dependency fingerprints are stable regardless of reference insertion order', () => {
     const left = computeDependencyFingerprint({
       analysis: { artifactId: 'analysis-1', revision: 3 },
@@ -155,5 +176,317 @@ describe('agent runtime helper utilities', () => {
     expect(parsed.stage).toBe('model');
     expect(parsed.questions?.[0].critical).toBe(true);
     expect(() => skillExecutionSchema.parse({ stage: 'design' })).toThrow();
+  });
+
+  test('legacy draft validation blocks non-positive model parameters until corrected', async () => {
+    const {
+      buildLegacyModel,
+      computeLegacyMissing,
+      mergeLegacyState,
+      normalizeLegacyDraftPatch,
+    } = await import('../../../dist/agent-runtime/legacy.js');
+
+    const invalidPatch = normalizeLegacyDraftPatch({
+      inferredType: 'beam',
+      lengthM: -5,
+      supportType: 'simply-supported',
+      loadKN: 20,
+    });
+    const invalidState = mergeLegacyState(undefined, invalidPatch, 'beam', 'beam');
+
+    expect(invalidState.skillState?.invalidDraftFields).toContain('lengthM');
+    expect(computeLegacyMissing(invalidState, 'execution', ['lengthM', 'supportType', 'loadKN']).critical).toContain('lengthM');
+    expect(buildLegacyModel(invalidState)).toBeUndefined();
+
+    const correctedPatch = normalizeLegacyDraftPatch({ lengthM: 5 });
+    const correctedState = mergeLegacyState(invalidState, correctedPatch, 'beam', 'beam');
+
+    expect(correctedState.skillState?.invalidDraftFields ?? []).not.toContain('lengthM');
+    expect(computeLegacyMissing(correctedState, 'execution', ['lengthM', 'supportType', 'loadKN']).critical).not.toContain('lengthM');
+  });
+
+  test('draft issues mark fields invalid even when invalidDraftFields is omitted', async () => {
+    const {
+      computeLegacyMissing,
+      mergeLegacyState,
+      normalizeLegacyDraftPatch,
+    } = await import('../../../dist/agent-runtime/legacy.js');
+
+    const patch = normalizeLegacyDraftPatch({
+      inferredType: 'portal-frame',
+      spanLengthM: 18,
+      heightM: 6,
+      draftIssues: [{
+        field: 'loadKN',
+        severity: 'ambiguous',
+        reason: 'Negative roof load may mean uplift rather than gravity magnitude.',
+      }],
+    });
+    const state = mergeLegacyState(undefined, patch, 'portal-frame', 'portal-frame');
+
+    expect(state.draftIssues?.[0].field).toBe('loadKN');
+    expect(state.skillState?.invalidDraftFields).toContain('loadKN');
+    expect(computeLegacyMissing(state, 'execution', ['spanLengthM', 'heightM', 'loadKN']).critical).toContain('loadKN');
+  });
+
+  test('detectStructuralType keeps current portal-frame context for parameter updates', async () => {
+    const { AgentSkillRuntime } = await import('../../../dist/agent-runtime/index.js');
+    const runtime = new AgentSkillRuntime();
+
+    const match = await runtime.detectStructuralType('柱高改成9m', 'zh', {
+      inferredType: 'portal-frame',
+      skillId: 'portal-frame',
+      structuralTypeKey: 'portal-frame',
+      spanLengthM: 24,
+      heightM: 8,
+      loadKN: 10,
+      updatedAt: 0,
+    });
+
+    expect(match.skillId).toBe('portal-frame');
+    expect(match.mappedType).toBe('portal-frame');
+  });
+
+  test('detectStructuralType does not treat member parameter edits as structural switches', async () => {
+    const { AgentSkillRuntime } = await import('../../../dist/agent-runtime/index.js');
+    const runtime = new AgentSkillRuntime();
+
+    const match = await runtime.detectStructuralType('change height to 4m for the column', 'en', {
+      inferredType: 'frame',
+      skillId: 'frame',
+      structuralTypeKey: 'steel-frame',
+      storyCount: 2,
+      bayCount: 1,
+      updatedAt: 0,
+    });
+
+    expect(match.skillId).toBe('frame');
+    expect(match.mappedType).toBe('frame');
+  });
+
+  test('detectStructuralType handles explicit English switches with articles', async () => {
+    const { AgentSkillRuntime } = await import('../../../dist/agent-runtime/index.js');
+    const runtime = new AgentSkillRuntime();
+
+    const match = await runtime.detectStructuralType('change to a beam', 'en', {
+      inferredType: 'frame',
+      skillId: 'frame',
+      structuralTypeKey: 'steel-frame',
+      storyCount: 2,
+      bayCount: 1,
+      updatedAt: 0,
+    });
+
+    expect(match.skillId).toBe('beam');
+    expect(match.mappedType).toBe('beam');
+  });
+
+  test('valid engineering draft span arrays clear prior invalid span issues', async () => {
+    const { mergeDraftState } = await import('../../../dist/agent-runtime/fallback.js');
+
+    const state = mergeDraftState({
+      inferredType: 'portal-frame',
+      skillState: { invalidDraftFields: ['spanLengthsM'] },
+      draftIssues: [{
+        field: 'spanLengthsM',
+        severity: 'invalid',
+        reason: 'Span lengths must be positive.',
+      }],
+      updatedAt: 0,
+    }, {
+      engineeringDraft: {
+        geometry: { spanLengthsM: [18, 18] },
+      },
+    });
+
+    expect(state.skillState?.invalidDraftFields ?? []).not.toContain('spanLengthsM');
+    expect(state.draftIssues ?? []).toEqual([]);
+  });
+
+  test('merges engineering draft loads without duplicating repeated load definitions', async () => {
+    const { mergeDraftState } = await import('../../../dist/agent-runtime/fallback.js');
+
+    const first = mergeDraftState(undefined, {
+      engineeringDraft: {
+        structureType: 'frame',
+        loads: [
+          { kind: 'line', magnitude: 10, unit: 'kN/m', direction: 'gravity', target: 'floor 1' },
+        ],
+      },
+    });
+    const second = mergeDraftState(first, {
+      engineeringDraft: {
+        structureType: 'frame',
+        loads: [
+          { kind: 'line', magnitude: 12, unit: 'kN/m', direction: 'gravity', target: 'floor 1' },
+          { kind: 'point', magnitude: 30, unit: 'kN', direction: 'globalX', target: 'roof' },
+        ],
+      },
+    });
+
+    expect(second.engineeringDraft?.loads).toEqual([
+      { kind: 'line', magnitude: 12, unit: 'kN/m', direction: 'gravity', target: 'floor 1' },
+      { kind: 'point', magnitude: 30, unit: 'kN', direction: 'globalX', target: 'roof' },
+    ]);
+  });
+
+  test('projects frame area engineering loads into per-story floor loads', async () => {
+    const { projectEngineeringDraftToLegacyPatch } = await import('../../../dist/agent-runtime/engineering-draft.js');
+
+    const patch = projectEngineeringDraftToLegacyPatch({
+      engineeringDraft: {
+        structureType: 'concrete-frame',
+        geometry: {
+          storyHeightsM: [3.6, 3.6],
+          bayWidthsM: [6],
+        },
+        loads: [
+          { kind: 'area', magnitude: 12, unit: 'kN/m2', direction: 'gravity', target: 'floor 1' },
+          { kind: 'area', magnitude: 12, unit: 'kN/m2', direction: 'gravity', target: 'floor 2' },
+        ],
+      },
+    }, 'frame');
+
+    expect(patch.floorLoads).toEqual([
+      { story: 1, verticalKN: 432 },
+      { story: 2, verticalKN: 432 },
+    ]);
+  });
+
+  test('projects frame line and lateral engineering loads into floor loads', async () => {
+    const { projectEngineeringDraftToLegacyPatch } = await import('../../../dist/agent-runtime/engineering-draft.js');
+
+    const patch = projectEngineeringDraftToLegacyPatch({
+      engineeringDraft: {
+        structureType: 'steel-frame',
+        geometry: {
+          storyHeightsM: [3.3, 3.3],
+          bayWidthsM: [5, 7],
+        },
+        loads: [
+          { kind: 'line', magnitude: 10, unit: 'kN/m', direction: 'gravity' },
+          { kind: 'point', magnitude: 20, unit: 'kN', direction: 'globalX', target: 'roof' },
+        ],
+      },
+    }, 'frame');
+
+    expect(patch.floorLoads).toEqual([
+      { story: 1, verticalKN: 120 },
+      { story: 2, verticalKN: 120, lateralXKN: 20 },
+    ]);
+  });
+
+  test('treats x-only engineering frame spans as 2d geometry', async () => {
+    const { projectEngineeringDraftToLegacyPatch } = await import('../../../dist/agent-runtime/engineering-draft.js');
+
+    const patch = projectEngineeringDraftToLegacyPatch({
+      engineeringDraft: {
+        structureType: 'steel-frame',
+        geometry: {
+          storyHeightsM: [4.5],
+          bayWidthsXM: [6],
+        },
+        loads: [
+          { kind: 'line', magnitude: 10, unit: 'kN/m', direction: 'gravity', target: 'beam' },
+        ],
+      },
+    }, 'frame');
+
+    expect(patch).toMatchObject({
+      frameDimension: '2d',
+      storyCount: 1,
+      bayCount: 1,
+      bayWidthsM: [6],
+      floorLoads: [{ story: 1, verticalKN: 60 }],
+    });
+    expect(patch.bayCountX).toBeUndefined();
+    expect(patch.bayWidthsXM).toBeUndefined();
+  });
+
+  test('maps partial untargeted frame loads by order instead of duplicating to every story', async () => {
+    const { projectEngineeringDraftToLegacyPatch } = await import('../../../dist/agent-runtime/engineering-draft.js');
+
+    const patch = projectEngineeringDraftToLegacyPatch({
+      engineeringDraft: {
+        structureType: 'steel-frame',
+        geometry: {
+          storyHeightsM: [3, 3, 3],
+          bayWidthsM: [6],
+        },
+        loads: [
+          { kind: 'line', magnitude: 10, unit: 'kN/m', direction: 'gravity' },
+          { kind: 'line', magnitude: 12, unit: 'kN/m', direction: 'gravity' },
+        ],
+      },
+    }, 'frame');
+
+    expect(patch.floorLoads).toEqual([
+      { story: 1, verticalKN: 60 },
+      { story: 2, verticalKN: 72 },
+    ]);
+  });
+
+  test('parses compound Chinese story ordinals for targeted frame loads', async () => {
+    const { projectEngineeringDraftToLegacyPatch } = await import('../../../dist/agent-runtime/engineering-draft.js');
+
+    const patch = projectEngineeringDraftToLegacyPatch({
+      engineeringDraft: {
+        structureType: 'steel-frame',
+        geometry: {
+          storyHeightsM: Array.from({ length: 12 }, () => 3),
+          bayWidthsM: [5],
+        },
+        loads: [
+          { kind: 'line', magnitude: 2, unit: 'kN/m', direction: 'gravity', target: '第十一层' },
+        ],
+      },
+    }, 'frame');
+
+    expect(patch.floorLoads).toEqual([{ story: 11, verticalKN: 10 }]);
+  });
+
+  test('does not duplicate excess untargeted frame loads onto every story', async () => {
+    const { projectEngineeringDraftToLegacyPatch } = await import('../../../dist/agent-runtime/engineering-draft.js');
+
+    const patch = projectEngineeringDraftToLegacyPatch({
+      engineeringDraft: {
+        structureType: 'steel-frame',
+        geometry: {
+          storyHeightsM: [3, 3],
+          bayWidthsM: [5],
+        },
+        loads: [
+          { kind: 'line', magnitude: 1, unit: 'kN/m', direction: 'gravity' },
+          { kind: 'line', magnitude: 2, unit: 'kN/m', direction: 'gravity' },
+          { kind: 'line', magnitude: 3, unit: 'kN/m', direction: 'gravity' },
+        ],
+      },
+    }, 'frame');
+
+    expect(patch.floorLoads).toEqual([
+      { story: 1, verticalKN: 5 },
+      { story: 2, verticalKN: 10 },
+    ]);
+  });
+
+  test('does not convert frame load intensity into fallback floor totals', async () => {
+    const { mergeDraftState } = await import('../../../dist/agent-runtime/fallback.js');
+    const { projectEngineeringDraftToLegacyPatch } = await import('../../../dist/agent-runtime/engineering-draft.js');
+
+    const patch = projectEngineeringDraftToLegacyPatch({
+      engineeringDraft: {
+        structureType: 'steel-frame',
+        geometry: {
+          storyHeightsM: [3, 3],
+        },
+        loads: [
+          { kind: 'line', magnitude: 10, unit: 'kN/m', direction: 'gravity' },
+        ],
+      },
+    }, 'frame');
+    const state = mergeDraftState(undefined, patch);
+
+    expect(patch.loadKN).toBeUndefined();
+    expect(state.floorLoads).toBeUndefined();
   });
 });

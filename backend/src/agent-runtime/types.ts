@@ -8,6 +8,79 @@ export type FrameBaseSupportType = 'fixed' | 'pinned';
 export type AgentAnalysisType = 'static' | 'dynamic' | 'seismic' | 'nonlinear';
 export type MaterialFamily = 'steel' | 'concrete' | 'composite' | 'timber' | 'masonry' | 'generic';
 
+export type EngineeringDraftLoadKind = 'point' | 'line' | 'area' | 'nodal' | 'distributed';
+export type EngineeringDraftLoadUnit = 'kN' | 'kN/m' | 'kN/m2';
+export type EngineeringDraftLoadDirection = 'gravity' | 'globalX' | 'globalY' | 'globalZ';
+
+export interface EngineeringDraftGeometry {
+  lengthM?: number;
+  heightM?: number;
+  spanLengthsM?: number[];
+  storyHeightsM?: number[];
+  bayWidthsM?: number[];
+  bayWidthsXM?: number[];
+  bayWidthsYM?: number[];
+}
+
+export interface EngineeringDraftMaterial {
+  family?: MaterialFamily;
+  grade?: string;
+  rebarGrade?: string;
+}
+
+export interface EngineeringDraftSections {
+  beam?: string;
+  column?: string;
+  member?: string;
+}
+
+export interface EngineeringDraftBoundary {
+  supportType?: DraftSupportType;
+  frameBaseSupportType?: FrameBaseSupportType;
+  supportPositionsM?: number[];
+}
+
+export interface EngineeringDraftLoadLocation {
+  xM?: number;
+  spanIndex?: number;
+  nodeRole?: string;
+}
+
+export interface EngineeringDraftLoad {
+  kind: EngineeringDraftLoadKind;
+  magnitude: number;
+  unit: EngineeringDraftLoadUnit;
+  direction?: EngineeringDraftLoadDirection;
+  target?: string;
+  location?: EngineeringDraftLoadLocation;
+}
+
+export interface EngineeringDraftAnalysis {
+  type?: AgentAnalysisType;
+  engineTarget?: 'opensees' | 'pkpm' | 'yjk';
+}
+
+export interface EngineeringDraft {
+  structureType?: StructuralTypeKey;
+  geometry?: EngineeringDraftGeometry;
+  material?: EngineeringDraftMaterial;
+  sections?: EngineeringDraftSections;
+  boundary?: EngineeringDraftBoundary;
+  loads?: EngineeringDraftLoad[];
+  wind?: DraftWindParams;
+  analysis?: EngineeringDraftAnalysis;
+}
+
+export type DraftIssueSeverity = 'invalid' | 'ambiguous' | 'unrealistic' | 'conflict';
+
+export interface DraftIssue {
+  field?: string;
+  value?: unknown;
+  severity: DraftIssueSeverity;
+  reason: string;
+  question?: string;
+}
+
 export interface DraftFloorLoad {
   story: number;
   verticalKN?: number;
@@ -47,9 +120,10 @@ export interface DraftAnalysisControl {
   designParams?: Record<string, unknown>;
 }
 
-export type InferredModelType = 'beam' | 'truss' | 'portal-frame' | 'double-span-beam' | 'frame' | 'unknown';
+export type InferredModelType = 'beam' | 'column' | 'truss' | 'portal-frame' | 'double-span-beam' | 'frame' | 'unknown';
 export type StructuralTypeKey =
   | 'beam'
+  | 'column'
   | 'truss'
   | 'portal-frame'
   | 'double-span-beam'
@@ -83,6 +157,8 @@ export interface DraftState {
   supportLevel?: StructuralTypeSupportLevel;
   supportNote?: string;
   coordinateSemantics?: string;
+  engineeringDraft?: EngineeringDraft;
+  draftIssues?: DraftIssue[];
   skillState?: Record<string, unknown>;
   lengthM?: number;
   spanLengthM?: number;
@@ -121,6 +197,8 @@ export interface DraftExtraction {
   supportLevel?: StructuralTypeSupportLevel;
   supportNote?: string;
   coordinateSemantics?: string;
+  engineeringDraft?: EngineeringDraft;
+  draftIssues?: DraftIssue[];
   skillState?: Record<string, unknown>;
   lengthM?: number;
   spanLengthM?: number;

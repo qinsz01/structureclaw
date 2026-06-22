@@ -2,6 +2,7 @@ import type { AppLocale } from '../services/locale.js';
 import type {
   DraftExtraction,
   DraftFloorLoad,
+  DraftIssue,
   DraftLoadPosition,
   DraftLoadType,
   DraftState,
@@ -13,6 +14,7 @@ import type {
   StructuralTypeMatch,
   StructuralTypeKey,
 } from './types.js';
+import { mergeEngineeringDraft } from './engineering-draft.js';
 import { buildModel as buildDraftModel } from './model-builder.js';
 import { localize } from './plugin-helpers.js';
 
@@ -78,6 +80,74 @@ function mergeFloorLoads(
   return normalized.length > 0 ? normalized : undefined;
 }
 
+function getInvalidDraftFields(state: DraftState | DraftExtraction | undefined): string[] {
+  const fields = state?.skillState?.invalidDraftFields;
+  if (!Array.isArray(fields)) {
+    return [];
+  }
+  return fields.filter((field): field is string => typeof field === 'string');
+}
+
+function collectValidPatchFields(patch: DraftExtraction): Set<string> {
+  const valid = new Set<string>();
+  const checkPositive = (field: string, value: unknown) => {
+    if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+      valid.add(field);
+    }
+  };
+  const checkArray = (field: string, value: unknown) => {
+    if (Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === 'number' && Number.isFinite(item) && item > 0)) {
+      valid.add(field);
+    }
+  };
+  for (const field of ['lengthM', 'spanLengthM', 'heightM', 'loadKN'] as const) {
+    checkPositive(field, patch[field]);
+  }
+  for (const field of ['storyCount', 'bayCount', 'bayCountX', 'bayCountY'] as const) {
+    checkPositive(field, patch[field]);
+  }
+  for (const field of ['storyHeightsM', 'bayWidthsM', 'bayWidthsXM', 'bayWidthsYM'] as const) {
+    checkArray(field, patch[field]);
+  }
+  const geometry = patch.engineeringDraft?.geometry;
+  if (geometry) {
+    checkPositive('lengthM', geometry.lengthM);
+    checkPositive('heightM', geometry.heightM);
+    checkArray('spanLengthsM', geometry.spanLengthsM);
+    checkArray('storyHeightsM', geometry.storyHeightsM);
+    checkArray('bayWidthsM', geometry.bayWidthsM);
+    checkArray('bayWidthsXM', geometry.bayWidthsXM);
+    checkArray('bayWidthsYM', geometry.bayWidthsYM);
+  }
+  return valid;
+}
+
+function mergeInvalidDraftFields(existing: DraftState | undefined, patch: DraftExtraction): string[] | undefined {
+  const patchInvalidFields = getInvalidDraftFields(patch);
+  const patchInvalid = new Set(patchInvalidFields);
+  const clearedByPatch = collectValidPatchFields(patch);
+  const merged = [
+    ...getInvalidDraftFields(existing).filter((field) => !clearedByPatch.has(field) || patchInvalid.has(field)),
+    ...patchInvalidFields,
+  ];
+  const unique = Array.from(new Set(merged));
+  return unique.length ? unique : undefined;
+}
+
+function mergeDraftIssues(
+  existing: DraftState | undefined,
+  patch: DraftExtraction,
+  clearedFields: Set<string>,
+): DraftIssue[] | undefined {
+  const existingIssues = Array.isArray(existing?.draftIssues) ? existing.draftIssues : [];
+  const patchIssues = Array.isArray(patch.draftIssues) ? patch.draftIssues : [];
+  const next = [
+    ...existingIssues.filter((issue) => !issue.field || !clearedFields.has(issue.field)),
+    ...patchIssues,
+  ];
+  return next.length ? next : undefined;
+}
+
 export function normalizeLoadType(value: unknown): DraftLoadType | undefined {
   return value === 'point' || value === 'distributed' ? value : undefined;
 }
@@ -111,7 +181,7 @@ export function normalizeLoadPositionM(value: unknown): number | undefined {
 }
 
 export function normalizeInferredType(value: unknown): InferredModelType | undefined {
-  if (value === 'beam' || value === 'truss' || value === 'portal-frame' || value === 'double-span-beam' || value === 'frame' || value === 'unknown') {
+  if (value === 'beam' || value === 'column' || value === 'truss' || value === 'portal-frame' || value === 'double-span-beam' || value === 'frame' || value === 'unknown') {
     return value;
   }
   return undefined;
@@ -343,24 +413,28 @@ export function mergeDraftState(existing: DraftState | undefined, patch: DraftEx
   const bayWidthsXM = patch.bayWidthsXM ?? existing?.bayWidthsXM;
   const bayWidthsYM = patch.bayWidthsYM ?? existing?.bayWidthsYM;
   const floorLoads = mergeFloorLoads(existing?.floorLoads, patch.floorLoads);
-  const existingInvalidFields = existing?.skillState?.invalidDraftFields;
-  const patchInvalidFields = patch.skillState?.invalidDraftFields;
-  const invalidDraftFields = Array.isArray(existingInvalidFields) || Array.isArray(patchInvalidFields)
-    ? Array.from(new Set([
-      ...(Array.isArray(existingInvalidFields) ? existingInvalidFields : []),
-      ...(Array.isArray(patchInvalidFields) ? patchInvalidFields : []),
-    ].filter((field): field is string => typeof field === 'string')))
-    : undefined;
-  const skillState = existing?.skillState || patch.skillState
+  const engineeringDraft = mergeEngineeringDraft(existing?.engineeringDraft, patch.engineeringDraft);
+  const clearedFields = collectValidPatchFields(patch);
+  const invalidDraftFields = mergeInvalidDraftFields(existing, patch);
+  const draftIssues = mergeDraftIssues(existing, patch, clearedFields);
+  const rawSkillState = existing?.skillState || patch.skillState
     ? {
       ...(existing?.skillState ?? {}),
       ...(patch.skillState ?? {}),
+    }
+    : undefined;
+  const { invalidDraftFields: _discardInvalidDraftFields, ...skillStateWithoutInvalid } = rawSkillState ?? {};
+  const skillState = rawSkillState || invalidDraftFields
+    ? {
+      ...skillStateWithoutInvalid,
       ...(invalidDraftFields ? { invalidDraftFields } : {}),
     }
     : undefined;
 
   return {
     inferredType: mergedType,
+    engineeringDraft,
+    draftIssues,
     lengthM: mergedLength,
     spanLengthM,
     skillState,
@@ -405,6 +479,8 @@ function buildLoadTypeQuestion(type: InferredModelType, locale: AppLocale): stri
   switch (type) {
     case 'beam':
       return localize(locale, '请确认荷载形式（点荷载或均布荷载）。', 'Please confirm the load type (point or distributed).');
+    case 'column':
+      return localize(locale, '请确认柱荷载形式（通常为柱顶轴向点荷载）。', 'Please confirm the column load type (usually a top axial point load).');
     case 'portal-frame':
       return localize(locale, '请确认门式刚架荷载形式（柱顶节点点荷载或檐梁均布荷载）。', 'Please confirm the portal-frame load type (top-node point load or distributed load on the rafter).');
     case 'double-span-beam':
@@ -420,6 +496,8 @@ function buildLoadPositionQuestion(type: InferredModelType, locale: AppLocale): 
   switch (type) {
     case 'beam':
       return localize(locale, '请确认荷载位置（可说端部/跨中/全跨，也可直接给距左端 x m）。', 'Please confirm the load position (end / midspan / full span), or provide an offset x m from the left end.');
+    case 'column':
+      return localize(locale, '请确认柱荷载位置（通常为柱顶节点）。', 'Please confirm the column load position (usually the top joint).');
     case 'portal-frame':
       return localize(locale, '请确认荷载位置（柱顶节点/檐梁全跨）。', 'Please confirm the load position (top nodes / full rafter span).');
     case 'double-span-beam':

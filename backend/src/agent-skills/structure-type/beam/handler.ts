@@ -1,12 +1,13 @@
 import {
-  buildLegacyDraftPatchLlmFirst,
   buildLegacyLabels,
   buildLegacyModel,
   computeLegacyMissing,
   mergeLegacyState,
+  normalizeLlmDraftPatch,
   normalizeLegacyDraftPatch,
   restrictLegacyDraftPatch,
 } from '../../../agent-runtime/legacy.js';
+import { projectEngineeringDraftToLegacyPatch } from '../../../agent-runtime/engineering-draft.js';
 import { combineDomainKeys, composeStructuralDomainPatch } from '../../../agent-runtime/domains/structural-domains.js';
 import { buildStructuralTypeMatch, resolveLegacyStructuralStage } from '../../../agent-runtime/plugin-helpers.js';
 import { buildInteractionQuestions } from '../../../agent-runtime/fallback.js';
@@ -25,15 +26,8 @@ const GEOMETRY_KEYS = ['lengthM'] as const;
 const LOAD_BOUNDARY_KEYS = ['supportType', 'loadKN', 'loadType', 'loadPosition', 'loadPositionM'] as const;
 const ALLOWED_KEYS = combineDomainKeys(GEOMETRY_KEYS, LOAD_BOUNDARY_KEYS);
 
-function applyBeamDefaults(message: string, patch: DraftExtraction): DraftExtraction {
-  const text = message.toLowerCase();
+function applyBeamDefaults(patch: DraftExtraction): DraftExtraction {
   const nextPatch: DraftExtraction = { ...patch };
-
-  if (nextPatch.supportType === undefined) {
-    if (text.includes('cantilever') || text.includes('悬臂')) {
-      nextPatch.supportType = 'cantilever';
-    }
-  }
 
   if (
     nextPatch.loadPosition === undefined
@@ -45,13 +39,21 @@ function applyBeamDefaults(message: string, patch: DraftExtraction): DraftExtrac
   return nextPatch;
 }
 
-function toBeamPatch(patch: DraftExtraction, message = ''): DraftExtraction {
+function toBeamPatch(patch: DraftExtraction): DraftExtraction {
+  const semanticPatch = projectEngineeringDraftToLegacyPatch(patch, 'beam');
   const domainPatch = composeStructuralDomainPatch({
-    patch,
+    patch: semanticPatch,
     geometryKeys: GEOMETRY_KEYS,
     loadBoundaryKeys: LOAD_BOUNDARY_KEYS,
   });
-  return restrictLegacyDraftPatch(applyBeamDefaults(message, domainPatch), 'beam', [...ALLOWED_KEYS]);
+  const nextPatch = restrictLegacyDraftPatch(applyBeamDefaults(domainPatch), 'beam', [...ALLOWED_KEYS]);
+  if (semanticPatch.engineeringDraft) {
+    nextPatch.engineeringDraft = semanticPatch.engineeringDraft;
+  }
+  if (semanticPatch.skillState) {
+    nextPatch.skillState = semanticPatch.skillState;
+  }
+  return nextPatch;
 }
 
 function buildBeamDefaultReason(paramKey: string, locale: AppLocale): string {
@@ -164,7 +166,16 @@ function buildBeamReportNarrative(input: SkillReportNarrativeInput): string {
 export const handler: SkillHandler = {
   detectStructuralType({ message, locale }) {
     const text = message.toLowerCase();
-    if (text.includes('portal frame') || text.includes('门式刚架') || text.includes('桁架') || text.includes('truss') || text.includes('双跨梁') || text.includes('double-span')) {
+    if (
+      text.includes('portal frame')
+      || text.includes('门式刚架')
+      || text.includes('桁架')
+      || text.includes('truss')
+      || text.includes('双跨梁')
+      || text.includes('连续梁')
+      || text.includes('double-span')
+      || text.includes('continuous beam')
+    ) {
       return null;
     }
     if (text.includes('girder') || text.includes('主梁') || text.includes('大梁')) {
@@ -182,8 +193,8 @@ export const handler: SkillHandler = {
     const patch = normalizeLegacyDraftPatch(values);
     return toBeamPatch(patch);
   },
-  extractDraft({ message, llmDraftPatch }) {
-    return toBeamPatch(buildLegacyDraftPatchLlmFirst(message, llmDraftPatch), message);
+  extractDraft({ llmDraftPatch }) {
+    return toBeamPatch(normalizeLlmDraftPatch(llmDraftPatch));
   },
   mergeState(existing, patch) {
     return mergeLegacyState(existing, toBeamPatch(patch), 'beam', 'beam');

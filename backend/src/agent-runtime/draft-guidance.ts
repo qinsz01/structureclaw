@@ -16,6 +16,15 @@ function pushMissing(missing: string[], key: string): void {
   }
 }
 
+function pushInvalidDraftFields(missing: string[], state: DraftState, fields: string[]): void {
+  const invalid = new Set(getInvalidDraftFields(state));
+  for (const field of fields) {
+    if (invalid.has(field)) {
+      pushMissing(missing, field);
+    }
+  }
+}
+
 export function computeMissingCriticalKeys(state: DraftState): string[] {
   const missing: string[] = [];
   if (state.inferredType === 'unknown') {
@@ -56,23 +65,39 @@ export function computeMissingCriticalKeys(state: DraftState): string[] {
     if (!state.floorLoads?.length) {
       missing.push('floorLoads');
     }
+    pushInvalidDraftFields(missing, state, [
+      'frameDimension',
+      'storyCount',
+      'bayCount',
+      'bayCountX',
+      'bayCountY',
+      'storyHeightsM',
+      'bayWidthsM',
+      'bayWidthsXM',
+      'bayWidthsYM',
+      'floorLoads',
+      'loadKN',
+    ]);
     return missing;
   }
   if (state.inferredType === 'truss') {
     if (state.lengthM === undefined) {
       pushMissing(missing, 'lengthM');
     }
-    if (state.bayCount === undefined) {
-      pushMissing(missing, 'bayCount');
-    }
     if (state.loadKN === undefined) {
       pushMissing(missing, 'loadKN');
     }
-    for (const field of getInvalidDraftFields(state)) {
-      if (field === 'lengthM' || field === 'heightM' || field === 'bayCount' || field === 'loadKN' || field === 'trussTopology') {
-        pushMissing(missing, field);
-      }
+    pushInvalidDraftFields(missing, state, ['lengthM', 'heightM', 'bayCount', 'loadKN', 'trussTopology']);
+    return missing;
+  }
+  if (state.inferredType === 'column') {
+    if (state.heightM === undefined && state.lengthM === undefined) {
+      missing.push('heightM');
     }
+    if (state.loadKN === undefined) {
+      missing.push('loadKN');
+    }
+    pushInvalidDraftFields(missing, state, ['heightM', 'lengthM', 'loadKN']);
     return missing;
   }
   if (state.inferredType === 'portal-frame') {
@@ -85,6 +110,7 @@ export function computeMissingCriticalKeys(state: DraftState): string[] {
     if (state.loadKN === undefined) {
       missing.push('loadKN');
     }
+    pushInvalidDraftFields(missing, state, ['spanLengthM', 'lengthM', 'heightM', 'loadKN']);
     return missing;
   }
   if (state.inferredType === 'double-span-beam') {
@@ -94,6 +120,7 @@ export function computeMissingCriticalKeys(state: DraftState): string[] {
     if (state.loadKN === undefined) {
       missing.push('loadKN');
     }
+    pushInvalidDraftFields(missing, state, ['spanLengthM', 'lengthM', 'loadKN']);
     return missing;
   }
   if (state.lengthM === undefined) {
@@ -105,11 +132,12 @@ export function computeMissingCriticalKeys(state: DraftState): string[] {
   if (state.loadKN === undefined) {
     missing.push('loadKN');
   }
+  pushInvalidDraftFields(missing, state, ['lengthM', 'spanLengthM', 'heightM', 'loadKN']);
   return missing;
 }
 
 export function computeMissingLoadDetailKeys(state: DraftState): string[] {
-  if (state.inferredType === 'unknown' || state.inferredType === 'frame') {
+  if (state.inferredType === 'unknown' || state.inferredType === 'frame' || state.inferredType === 'column') {
     return [];
   }
   if (state.inferredType === 'beam' && state.supportType === undefined) {

@@ -1,12 +1,13 @@
 import {
-  buildLegacyDraftPatchLlmFirst,
   buildLegacyLabels,
   buildLegacyModel,
   computeLegacyMissing,
   mergeLegacyState,
+  normalizeLlmDraftPatch,
   normalizeLegacyDraftPatch,
   restrictLegacyDraftPatch,
 } from '../../../agent-runtime/legacy.js';
+import { projectEngineeringDraftToLegacyPatch } from '../../../agent-runtime/engineering-draft.js';
 import { combineDomainKeys, composeStructuralDomainPatch } from '../../../agent-runtime/domains/structural-domains.js';
 import { buildStructuralTypeMatch, resolveLegacyStructuralStage } from '../../../agent-runtime/plugin-helpers.js';
 import { buildInteractionQuestions } from '../../../agent-runtime/fallback.js';
@@ -22,17 +23,25 @@ import type {
 } from '../../../agent-runtime/types.js';
 
 const GEOMETRY_KEYS = ['spanLengthM', 'heightM'] as const;
-const LOAD_BOUNDARY_KEYS = ['loadKN', 'loadType', 'loadPosition'] as const;
+const LOAD_BOUNDARY_KEYS = ['loadKN', 'loadType', 'loadPosition', 'frameBaseSupportType'] as const;
 const ALLOWED_KEYS = combineDomainKeys(GEOMETRY_KEYS, LOAD_BOUNDARY_KEYS);
 
 function toPortalFramePatch(patch: DraftExtraction): DraftExtraction {
+  const semanticPatch = projectEngineeringDraftToLegacyPatch(patch, 'portal-frame');
   const domainPatch = composeStructuralDomainPatch({
-    patch,
+    patch: semanticPatch,
     geometryKeys: GEOMETRY_KEYS,
     loadBoundaryKeys: LOAD_BOUNDARY_KEYS,
     spanLengthAliasFromLength: true,
   });
-  return restrictLegacyDraftPatch(domainPatch, 'portal-frame', [...ALLOWED_KEYS]);
+  const nextPatch = restrictLegacyDraftPatch(domainPatch, 'portal-frame', [...ALLOWED_KEYS]);
+  if (semanticPatch.engineeringDraft) {
+    nextPatch.engineeringDraft = semanticPatch.engineeringDraft;
+  }
+  if (semanticPatch.skillState) {
+    nextPatch.skillState = semanticPatch.skillState;
+  }
+  return nextPatch;
 }
 
 function buildPortalFrameDefaultReason(paramKey: string, locale: AppLocale): string {
@@ -154,8 +163,8 @@ export const handler: SkillHandler = {
   parseProvidedValues(values) {
     return toPortalFramePatch(normalizeLegacyDraftPatch(values));
   },
-  extractDraft({ message, llmDraftPatch }) {
-    return toPortalFramePatch(buildLegacyDraftPatchLlmFirst(message, llmDraftPatch));
+  extractDraft({ llmDraftPatch }) {
+    return toPortalFramePatch(normalizeLlmDraftPatch(llmDraftPatch));
   },
   mergeState(existing, patch) {
     return mergeLegacyState(existing, toPortalFramePatch(patch), 'portal-frame', 'portal-frame');

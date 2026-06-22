@@ -1,12 +1,13 @@
 import {
-  buildLegacyDraftPatchLlmFirst,
   buildLegacyLabels,
   buildLegacyModel,
   computeLegacyMissing,
   mergeLegacyState,
+  normalizeLlmDraftPatch,
   normalizeLegacyDraftPatch,
   restrictLegacyDraftPatch,
 } from '../../../agent-runtime/legacy.js';
+import { projectEngineeringDraftToLegacyPatch } from '../../../agent-runtime/engineering-draft.js';
 import { combineDomainKeys, composeStructuralDomainPatch } from '../../../agent-runtime/domains/structural-domains.js';
 import { buildStructuralTypeMatch, resolveLegacyStructuralStage } from '../../../agent-runtime/plugin-helpers.js';
 import { buildInteractionQuestions } from '../../../agent-runtime/fallback.js';
@@ -26,13 +27,21 @@ const LOAD_BOUNDARY_KEYS = ['loadKN', 'loadType', 'loadPosition'] as const;
 const ALLOWED_KEYS = combineDomainKeys(GEOMETRY_KEYS, LOAD_BOUNDARY_KEYS);
 
 function toDoubleSpanPatch(patch: DraftExtraction): DraftExtraction {
+  const semanticPatch = projectEngineeringDraftToLegacyPatch(patch, 'double-span-beam');
   const domainPatch = composeStructuralDomainPatch({
-    patch,
+    patch: semanticPatch,
     geometryKeys: GEOMETRY_KEYS,
     loadBoundaryKeys: LOAD_BOUNDARY_KEYS,
     spanLengthAliasFromLength: true,
   });
-  return restrictLegacyDraftPatch(domainPatch, 'double-span-beam', [...ALLOWED_KEYS]);
+  const nextPatch = restrictLegacyDraftPatch(domainPatch, 'double-span-beam', [...ALLOWED_KEYS]);
+  if (semanticPatch.engineeringDraft) {
+    nextPatch.engineeringDraft = semanticPatch.engineeringDraft;
+  }
+  if (semanticPatch.skillState) {
+    nextPatch.skillState = semanticPatch.skillState;
+  }
+  return nextPatch;
 }
 
 function buildDoubleSpanDefaultReason(paramKey: string, locale: AppLocale): string {
@@ -144,8 +153,12 @@ export const handler: SkillHandler = {
       text.includes('double-span')
       || text.includes('双跨梁')
       || text.includes('双跨连续梁')
+      || text.includes('连续梁')
+      || text.includes('不等跨连续梁')
       || /两跨.*连续梁/u.test(text)
+      || /[三四五六七八九十\d]\s*跨.*连续梁/u.test(text)
       || /(?:two|2)[-\s]?span.*continuous beam/i.test(text)
+      || /(?:multi|three|3)[-\s]?span.*continuous beam/i.test(text)
     ) {
       return buildStructuralTypeMatch('double-span-beam', 'double-span-beam', 'double-span-beam', 'supported', locale);
     }
@@ -154,8 +167,8 @@ export const handler: SkillHandler = {
   parseProvidedValues(values) {
     return toDoubleSpanPatch(normalizeLegacyDraftPatch(values));
   },
-  extractDraft({ message, llmDraftPatch }) {
-    return toDoubleSpanPatch(buildLegacyDraftPatchLlmFirst(message, llmDraftPatch));
+  extractDraft({ llmDraftPatch }) {
+    return toDoubleSpanPatch(normalizeLlmDraftPatch(llmDraftPatch));
   },
   mergeState(existing, patch) {
     return mergeLegacyState(existing, toDoubleSpanPatch(patch), 'double-span-beam', 'double-span-beam');

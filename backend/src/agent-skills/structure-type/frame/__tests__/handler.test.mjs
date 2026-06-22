@@ -77,6 +77,38 @@ describe('frame handler composed modules', () => {
     ]);
   });
 
+  test('preserves wind design parameters through frame state merge', () => {
+    const state = mergeFrameState(
+      {
+        inferredType: 'frame',
+        frameDimension: '2d',
+        storyCount: 2,
+        storyHeightsM: [3.6, 3.6],
+        bayCount: 1,
+        bayWidthsM: [6],
+        floorLoads: [
+          { story: 1, verticalKN: 120 },
+          { story: 2, verticalKN: 120 },
+        ],
+        updatedAt: 0,
+      },
+      {
+        inferredType: 'frame',
+        wind: { basicPressureKNM2: 0.5, terrainRoughness: 'B' },
+        floorLoads: [
+          { story: 1, lateralXKN: 10.8 },
+          { story: 2, lateralXKN: 10.8 },
+        ],
+      },
+    );
+
+    expect(state.wind).toEqual({ basicPressureKNM2: 0.5, terrainRoughness: 'B' });
+    expect(state.floorLoads).toEqual([
+      { story: 1, verticalKN: 120, lateralXKN: 10.8 },
+      { story: 2, verticalKN: 120, lateralXKN: 10.8 },
+    ]);
+  });
+
   test('does not mark floorLoads missing when llm omits story numbers', () => {
     const patch = handler.extractDraft({
       message: '两层3D钢框架，X向2跨每跨6m，Y向1跨6m，层高3.6m，每层总竖向荷载432kN',
@@ -111,5 +143,36 @@ describe('frame handler composed modules', () => {
       { story: 2, verticalKN: 432 },
     ]);
     expect(missing.critical).not.toContain('floorLoads');
+  });
+
+  test('preserves uneven 2d bay widths from an llm draft patch', () => {
+    const patch = handler.extractDraft({
+      message: '3层2跨框架，层高3.3m，跨度5.4m和6m，每层楼面荷载15kN/m，请进行静力分析',
+      locale: 'zh',
+      currentState: undefined,
+      llmDraftPatch: {
+        inferredType: 'frame',
+        frameDimension: '2d',
+        storyCount: 3,
+        bayCount: 2,
+        storyHeightsM: [3.3, 3.3, 3.3],
+        bayWidthsM: [5.4, 6],
+        floorLoads: [
+          { story: 1, verticalKN: 171 },
+          { story: 2, verticalKN: 171 },
+          { story: 3, verticalKN: 171 },
+        ],
+      },
+      structuralTypeMatch: {
+        key: 'frame',
+        mappedType: 'frame',
+        skillId: 'frame',
+        supportLevel: 'supported',
+      },
+    });
+    const state = handler.mergeState(undefined, patch);
+
+    expect(state.bayWidthsM).toEqual([5.4, 6]);
+    expect(state.bayCount).toBe(2);
   });
 });

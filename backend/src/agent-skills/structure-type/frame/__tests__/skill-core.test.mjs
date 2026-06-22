@@ -1,6 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
 import { canonicalizeFramePatch } from '../../../../../dist/agent-skills/structure-type/frame/canonicalize.js';
-import { normalizeFrameNaturalPatch } from '../../../../../dist/agent-skills/structure-type/frame/extract-natural.js';
 import { buildFrameModel } from '../../../../../dist/agent-skills/structure-type/frame/model.js';
 import {
   buildFrameDraftPatch,
@@ -12,9 +11,8 @@ import { detectFrameStructuralType } from '../../../../../dist/agent-skills/stru
 describe('frame canonicalize core contract', () => {
   test('promotes to 3d when y-direction evidence conflicts with llm 2d output', () => {
     const patch = canonicalizeFramePatch({
-      message: '3D框架，x向2跨每跨6m，y向1跨每跨5m，x向和y向都是20kN',
       existingState: { inferredType: 'frame', updatedAt: 0 },
-      naturalPatch: {
+      supplementalPatch: {
         inferredType: 'frame',
         bayCountX: 2,
         bayCountY: 1,
@@ -30,9 +28,8 @@ describe('frame canonicalize core contract', () => {
 
   test('derives story and bay counts from canonical arrays', () => {
     const patch = canonicalizeFramePatch({
-      message: '2层2跨框架，每层3m，每跨6m',
       existingState: { inferredType: 'frame', updatedAt: 0 },
-      naturalPatch: {
+      supplementalPatch: {
         inferredType: 'frame',
         storyHeightsM: [3, 3],
         bayWidthsM: [6, 6],
@@ -47,7 +44,6 @@ describe('frame canonicalize core contract', () => {
 
   test('merges floor loads by story without dropping earlier values', () => {
     const patch = canonicalizeFramePatch({
-      message: 'y向水平荷载12kN',
       existingState: {
         inferredType: 'frame',
         frameDimension: '3d',
@@ -57,7 +53,7 @@ describe('frame canonicalize core contract', () => {
         ],
         updatedAt: 0,
       },
-      naturalPatch: {
+      supplementalPatch: {
         inferredType: 'frame',
         floorLoads: [
           { story: 1, lateralYKN: 12 },
@@ -73,34 +69,6 @@ describe('frame canonicalize core contract', () => {
     ]);
   });
 
-  test('extracts regular 3d frame geometry from natural chinese phrasing', () => {
-    const patch = normalizeFrameNaturalPatch(
-      '我想设计一个三层框架，x方向4跨，间隔3m，y方向3跨间隔也是3m，每层3m',
-      undefined,
-    );
-
-    expect(patch.frameDimension).toBe('3d');
-    expect(patch.storyCount).toBe(3);
-    expect(patch.storyHeightsM).toEqual([3, 3, 3]);
-    expect(patch.bayCountX).toBe(4);
-    expect(patch.bayCountY).toBe(3);
-    expect(patch.bayWidthsXM).toEqual([3, 3, 3, 3]);
-    expect(patch.bayWidthsYM).toEqual([3, 3, 3]);
-  });
-
-  test('treats z-direction spans as the second plan direction when span context is explicit', () => {
-    const patch = normalizeFrameNaturalPatch(
-      '三层钢框架，X向2跨每跨6m，Z向1跨6m，层高3.6m',
-      undefined,
-    );
-
-    expect(patch.frameDimension).toBe('3d');
-    expect(patch.bayCountX).toBe(2);
-    expect(patch.bayCountY).toBe(1);
-    expect(patch.bayWidthsXM).toEqual([6, 6]);
-    expect(patch.bayWidthsYM).toEqual([6]);
-  });
-
   test('does not claim explicit reinforced-concrete frame prompts', () => {
     const result = detectFrameStructuralType({
       message: '两层钢筋混凝土框架，X向2跨，Z向1跨',
@@ -110,10 +78,15 @@ describe('frame canonicalize core contract', () => {
     expect(result).toBeNull();
   });
 
-  test('extracts repeated english story heights from "4.2m each" phrasing', () => {
+  test('normalizes repeated story and bay scalars into canonical arrays', () => {
     const patch = buildFrameDraftPatch(
-      '3 stories, 4.2m each, single bay 8m, floor load 12kN/m2',
-      null,
+      {
+        inferredType: 'frame',
+        storyCount: 3,
+        storyHeightScalar: 4.2,
+        bayCount: 1,
+        bayWidthScalar: 8,
+      },
       undefined,
     );
 
@@ -123,25 +96,51 @@ describe('frame canonicalize core contract', () => {
     expect(patch.bayWidthsM).toEqual([8]);
   });
 
-  test('parses structured chinese numerals between 21 and 99', () => {
-    const patch = normalizeFrameNaturalPatch(
-      '二十二层框架，每层3m，2跨每跨6m',
-      undefined,
-    );
-
-    expect(patch.storyCount).toBe(22);
-  });
-
-  test('infers 3d when x-direction bay count is present without explicit y-direction', () => {
+  test('keeps x-direction geometry without inventing a 3d frame from one direction', () => {
     const patch = buildFrameDraftPatch(
-      '三层框架，x方向4跨，间隔6m，每层3m，每层竖向荷载100kN',
-      null,
+      {
+        inferredType: 'frame',
+        storyCount: 3,
+        storyHeightScalar: 3,
+        bayCountX: 4,
+        bayWidthXScalar: 6,
+        verticalLoadKN: 100,
+      },
       undefined,
     );
 
-    expect(patch.frameDimension).toBe('3d');
+    expect(patch.frameDimension).toBeUndefined();
     expect(patch.bayCountX).toBe(4);
     expect(patch.bayWidthsXM).toEqual([6, 6, 6, 6]);
+  });
+
+  test('uses only structured engineeringDraft fields for extraction', () => {
+    const patch = buildFrameDraftPatch(
+      {
+        engineeringDraft: {
+          structureType: 'steel-frame',
+          geometry: {
+            storyHeightsM: [3.2, 3.2],
+            bayWidthsM: [7],
+          },
+          loads: [
+            { kind: 'nodal', magnitude: 80, unit: 'kN', direction: 'gravity', target: 'floor' },
+          ],
+        },
+      },
+      undefined,
+    );
+
+    expect(patch.engineeringDraft).toBeDefined();
+    expect(patch.frameDimension).toBe('2d');
+    expect(patch.storyCount).toBe(2);
+    expect(patch.bayCount).toBe(1);
+    expect(patch.storyHeightsM).toEqual([3.2, 3.2]);
+    expect(patch.bayWidthsM).toEqual([7]);
+    expect(patch.floorLoads).toEqual([
+      { story: 1, verticalKN: 80 },
+      { story: 2, verticalKN: 80 },
+    ]);
   });
 
   test('normalizes llm scalar fields into canonical arrays', () => {
@@ -161,32 +160,6 @@ describe('frame canonicalize core contract', () => {
     expect(patch.frameMaterial).toBe('Q345');
     expect(patch.frameColumnSection).toBe('HW350X350');
     expect(patch.frameBeamSection).toBe('HN400X200');
-  });
-
-  test('extracts concrete grade and rectangular sections from natural phrasing', () => {
-    const patch = normalizeFrameNaturalPatch(
-      '两层两跨框架，C30混凝土，柱截面400x400，梁截面250x600，每层3m，每跨6m，每层竖向荷载100kN',
-      undefined,
-    );
-
-    expect(patch.frameMaterial).toBe('C30');
-    expect(patch.frameColumnSection).toBe('400X400');
-    expect(patch.frameBeamSection).toBe('250X600');
-  });
-
-  test('extracts only supported H-section formats', () => {
-    const supported = normalizeFrameNaturalPatch(
-      '两层框架，柱截面H400*200*10*16，梁截面HN400x200',
-      undefined,
-    );
-    const unsupported = normalizeFrameNaturalPatch(
-      '两层框架，柱截面H400x200',
-      undefined,
-    );
-
-    expect(supported.frameColumnSection).toBe('H400X200X10X16');
-    expect(supported.frameBeamSection).toBe('HN400X200');
-    expect(unsupported.frameColumnSection).toBeUndefined();
   });
 
   test('builds rectangular concrete sections for YJK-compatible frame models', () => {
@@ -330,14 +303,17 @@ describe('frame canonicalize core contract', () => {
 
   test('derives 2d per-floor total loads from floor area intensity when single-bay geometry is explicit', () => {
     const patch = buildFrameDraftPatch(
-      '2-story single-bay steel frame, story height 3.6m, bay 6m, floor load 10kN/m2',
       {
-        inferredType: 'frame',
-        frameDimension: '2d',
-        storyCount: 2,
-        bayCount: 1,
-        storyHeightsM: [3.6, 3.6],
-        bayWidthsM: [6],
+        engineeringDraft: {
+          structureType: 'steel-frame',
+          geometry: {
+            storyHeightsM: [3.6, 3.6],
+            bayWidthsM: [6],
+          },
+          loads: [
+            { kind: 'area', magnitude: 10, unit: 'kN/m2', direction: 'gravity' },
+          ],
+        },
       },
       undefined,
     );
@@ -348,9 +324,44 @@ describe('frame canonicalize core contract', () => {
     ]);
   });
 
+  test('projects basic wind pressure into lateral floor loads without dropping gravity loads', () => {
+    const existingState = {
+      inferredType: 'frame',
+      updatedAt: 0,
+      frameDimension: '2d',
+      storyCount: 2,
+      storyHeightsM: [3.6, 3.6],
+      bayCount: 1,
+      bayWidthsM: [6],
+      floorLoads: [
+        { story: 1, verticalKN: 120 },
+        { story: 2, verticalKN: 120 },
+      ],
+    };
+    const patch = buildFrameDraftPatch(
+      {
+        wind: { basicPressureKNM2: 0.5 },
+      },
+      existingState,
+    );
+
+    expect(patch.wind).toEqual({ basicPressureKNM2: 0.5 });
+    expect(patch.floorLoads).toEqual([
+      { story: 1, verticalKN: 120, lateralXKN: 10.8 },
+      { story: 2, verticalKN: 120, lateralXKN: 10.8 },
+    ]);
+
+    const model = buildFrameModel({
+      ...existingState,
+      ...patch,
+    });
+
+    expect(model.load_cases.map((loadCase) => loadCase.id)).toEqual(['D', 'LAT']);
+    expect(model.load_cases.find((loadCase) => loadCase.id === 'LAT').loads.reduce((sum, load) => sum + load.fx, 0)).toBeCloseTo(21.6);
+  });
+
   test('repairs llm floor loads that omit story numbers', () => {
     const patch = buildFrameDraftPatch(
-      '两层3D钢框架，X向2跨每跨6m，Y向1跨6m，层高3.6m，每层总竖向荷载432kN',
       {
         inferredType: 'frame',
         frameDimension: '3d',
@@ -374,60 +385,19 @@ describe('frame canonicalize core contract', () => {
     ]);
   });
 
-  test('derives 3d dead and live floor loads from chinese area-load units', () => {
-    const patch = buildFrameDraftPatch(
-      '两层3D钢框架，X向2跨每跨6m，Y向1跨6m，层高3.6m，恒载4kN/㎡，活载2kN/㎡',
-      {
-        inferredType: 'frame',
-        frameDimension: '3d',
-        storyCount: 2,
-        bayCountX: 2,
-        bayCountY: 1,
-        storyHeightsM: [3.6, 3.6],
-        bayWidthsXM: [6, 6],
-        bayWidthsYM: [6],
-      },
-      undefined,
-    );
-
-    expect(patch.floorLoads).toEqual([
-      { story: 1, verticalKN: 288, liveLoadKN: 144 },
-      { story: 2, verticalKN: 288, liveLoadKN: 144 },
-    ]);
-  });
-
-  test('derives dead load when live load appears before an unlabeled area intensity', () => {
-    const patch = buildFrameDraftPatch(
-      '两层3D钢框架，X向2跨每跨6m，Y向1跨6m，层高3.6m，活载2kN/㎡，4kN/㎡',
-      {
-        inferredType: 'frame',
-        frameDimension: '3d',
-        storyCount: 2,
-        bayCountX: 2,
-        bayCountY: 1,
-        storyHeightsM: [3.6, 3.6],
-        bayWidthsXM: [6, 6],
-        bayWidthsYM: [6],
-      },
-      undefined,
-    );
-
-    expect(patch.floorLoads).toEqual([
-      { story: 1, verticalKN: 288, liveLoadKN: 144 },
-      { story: 2, verticalKN: 288, liveLoadKN: 144 },
-    ]);
-  });
-
   test('derives 2d per-floor total loads from line intensity and total span length', () => {
     const patch = buildFrameDraftPatch(
-      '3层2跨框架，层高3.3m，跨度5.4m和6m，每层楼面荷载15kN/m',
       {
-        inferredType: 'frame',
-        frameDimension: '2d',
-        storyCount: 3,
-        bayCount: 2,
-        storyHeightsM: [3.3, 3.3, 3.3],
-        bayWidthsM: [5.4, 6],
+        engineeringDraft: {
+          structureType: 'steel-frame',
+          geometry: {
+            storyHeightsM: [3.3, 3.3, 3.3],
+            bayWidthsM: [5.4, 6],
+          },
+          loads: [
+            { kind: 'line', magnitude: 15, unit: 'kN/m', direction: 'gravity' },
+          ],
+        },
       },
       undefined,
     );
@@ -450,7 +420,7 @@ describe('frame canonicalize core contract', () => {
         { story: 1, verticalKN: 120, lateralXKN: 30 },
         { story: 2, verticalKN: 120, lateralXKN: 30 },
       ],
-    }, undefined, '两层两跨框架，每层3m');
+    }, undefined);
 
     expect(patch.frameDimension).toBeUndefined();
   });

@@ -44,6 +44,7 @@ function stringValue(value: unknown): string | undefined {
 function inferTypeFromText(value: unknown): InferredModelType | undefined {
   const text = stringValue(value)?.toLowerCase();
   if (!text) return undefined;
+  if (text.includes('column') || text.includes('柱')) return 'column';
   if (text.includes('beam') || text.includes('梁')) return 'beam';
   if (text.includes('truss') || text.includes('桁架')) return 'truss';
   if (text.includes('portal') || text.includes('门式') || text.includes('刚架')) return 'portal-frame';
@@ -72,7 +73,6 @@ function inferLoadTypeFromPatch(patch: Record<string, unknown>): DraftExtraction
 }
 
 function normalizeGenericDraftPatch(
-  message: string,
   llmDraftPatch: Record<string, unknown> | null | undefined,
 ): DraftExtraction {
   const source = llmDraftPatch ?? {};
@@ -102,8 +102,7 @@ function normalizeGenericDraftPatch(
     ?? inferTypeFromText(source.componentType)
     ?? inferTypeFromText(source.structureType)
     ?? inferTypeFromText(source.structuralType)
-    ?? inferTypeFromText(source.type)
-    ?? inferTypeFromText(message);
+    ?? inferTypeFromText(source.type);
 
   const patch: DraftExtraction = {};
   if (inferredType) patch.inferredType = inferredType;
@@ -114,16 +113,13 @@ function normalizeGenericDraftPatch(
     source.supportType
     ?? source.supportCondition
     ?? source.support_condition
-    ?? source.boundaryCondition
-    ?? message,
+    ?? source.boundaryCondition,
   );
   if (supportType) patch.supportType = supportType;
   const loadPosition = normalizeLoadPosition(source.loadPosition ?? source.load_position);
   if (loadPosition) {
     patch.loadPosition = loadPosition;
   } else if (loadType === 'point' && span !== undefined && loadPositionM !== undefined && Math.abs(loadPositionM - span / 2) < 1e-6) {
-    patch.loadPosition = 'midspan';
-  } else if (loadType === 'point' && (message.includes('中间') || message.includes('跨中'))) {
     patch.loadPosition = 'midspan';
   } else if (loadType === 'distributed') {
     patch.loadPosition = 'full-span';
@@ -210,8 +206,8 @@ export const handler: SkillHandler = {
     return patch;
   },
 
-  extractDraft({ message, llmDraftPatch }) {
-    return normalizeGenericDraftPatch(message, llmDraftPatch);
+  extractDraft({ llmDraftPatch }) {
+    return normalizeGenericDraftPatch(llmDraftPatch);
   },
 
   mergeState(existing, patch) {
