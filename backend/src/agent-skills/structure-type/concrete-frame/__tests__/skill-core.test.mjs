@@ -708,12 +708,32 @@ describe('detectConcreteFrameStructuralType branches', () => {
     expect(result).toBeNull();
   });
 
-  test('detects frame with building type context', () => {
+  test('routes concrete building and column-grid context to concrete-frame', () => {
     const result = detectConcreteFrameStructuralType({
       message: '办公楼，混凝土柱网，三层',
       locale: 'zh',
     });
+    expect(result?.key).toBe('concrete-frame');
+    expect(result?.mappedType).toBe('frame');
     expect(result?.supportLevel).toBe('supported');
+  });
+
+  test('routes concrete grade with building and grid context to concrete-frame', () => {
+    const result = detectConcreteFrameStructuralType({
+      message: 'C30办公楼，柱网8m，三层',
+      locale: 'zh',
+    });
+    expect(result?.key).toBe('concrete-frame');
+    expect(result?.mappedType).toBe('frame');
+    expect(result?.supportLevel).toBe('supported');
+  });
+
+  test('does not route building and column-grid context without concrete evidence', () => {
+    const result = detectConcreteFrameStructuralType({
+      message: '办公楼，柱网8m，三层',
+      locale: 'zh',
+    });
+    expect(result).toBeNull();
   });
 
   test('detects frame with concrete grade and context', () => {
@@ -724,13 +744,13 @@ describe('detectConcreteFrameStructuralType branches', () => {
     expect(result?.supportLevel).toBe('supported');
   });
 
-  test('detects from currentState when message does not match', () => {
+  test('does not apply current-state routing inside the skill handler', () => {
     const result = detectConcreteFrameStructuralType({
       message: '请分析这个结构',
       locale: 'zh',
       currentState: { structuralTypeKey: 'concrete-frame', supportLevel: 'supported' },
     });
-    expect(result?.supportLevel).toBe('supported');
+    expect(result).toBeNull();
   });
 
   test('returns null when no concrete frame evidence', () => {
