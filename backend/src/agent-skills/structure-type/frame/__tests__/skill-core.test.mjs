@@ -240,10 +240,8 @@ describe('frame canonicalize core contract', () => {
     ]);
     expect(model.stories[0]).toMatchObject({ dead_load: 10, live_load: 2 });
     expect(model.load_cases.map((loadCase) => loadCase.id)).toEqual(['D', 'L']);
-    expect(model.load_cases.find((loadCase) => loadCase.id === 'D').loads).toHaveLength(4);
-    expect(model.load_cases.find((loadCase) => loadCase.id === 'D').loads.reduce((sum, load) => sum + load.fz, 0)).toBeCloseTo(-360);
-    expect(model.load_cases.find((loadCase) => loadCase.id === 'L').loads).toHaveLength(4);
-    expect(model.load_cases.find((loadCase) => loadCase.id === 'L').loads.reduce((sum, load) => sum + load.fz, 0)).toBeCloseTo(-72);
+    expect(model.load_cases.find((loadCase) => loadCase.id === 'D').loads).toEqual([]);
+    expect(model.load_cases.find((loadCase) => loadCase.id === 'L').loads).toEqual([]);
     expect(model.load_combinations[0]).toMatchObject({ id: 'ULS', factors: { D: 1, L: 1 } });
   });
 
@@ -265,10 +263,8 @@ describe('frame canonicalize core contract', () => {
 
     expect(model).toBeDefined();
     expect(model.stories[0]).toMatchObject({ dead_load: 20, live_load: 5 });
-    expect(model.load_cases.find((loadCase) => loadCase.id === 'D').loads).toHaveLength(2);
-    expect(model.load_cases.find((loadCase) => loadCase.id === 'D').loads.reduce((sum, load) => sum + load.fz, 0)).toBeCloseTo(-120);
-    expect(model.load_cases.find((loadCase) => loadCase.id === 'L').loads).toHaveLength(2);
-    expect(model.load_cases.find((loadCase) => loadCase.id === 'L').loads.reduce((sum, load) => sum + load.fz, 0)).toBeCloseTo(-30);
+    expect(model.load_cases.find((loadCase) => loadCase.id === 'D').loads).toEqual([]);
+    expect(model.load_cases.find((loadCase) => loadCase.id === 'L').loads).toEqual([]);
   });
 
   test('builds custom H sections with star separators', () => {
@@ -385,7 +381,7 @@ describe('frame canonicalize core contract', () => {
     ]);
   });
 
-  test('derives 2d per-floor total loads from line intensity and total span length', () => {
+  test('keeps 2d frame line intensity as beam distributed loads', () => {
     const patch = buildFrameDraftPatch(
       {
         engineeringDraft: {
@@ -402,11 +398,98 @@ describe('frame canonicalize core contract', () => {
       undefined,
     );
 
-    expect(patch.floorLoads).toEqual([
-      { story: 1, verticalKN: 171 },
-      { story: 2, verticalKN: 171 },
-      { story: 3, verticalKN: 171 },
-    ]);
+    expect(patch.floorLoads).toBeUndefined();
+    const model = buildFrameModel({
+      inferredType: 'frame',
+      updatedAt: 0,
+      frameBaseSupportType: 'fixed',
+      ...patch,
+    });
+
+    const lineCase = model.load_cases.find((loadCase) => loadCase.id === 'LINE');
+    expect(lineCase).toBeDefined();
+    expect(lineCase.loads).toHaveLength(6);
+    expect(lineCase.loads.every((load) => load.type === 'distributed')).toBe(true);
+    expect(lineCase.loads.every((load) => load.wz === -15)).toBe(true);
+    expect(lineCase.loads.map((load) => load.element)).toEqual(['B10', 'B11', 'B12', 'B13', 'B14', 'B15']);
+  });
+
+  test('targets Chinese top-story frame line loads to top story beams', () => {
+    const model = buildFrameModel({
+      inferredType: 'frame',
+      structuralTypeKey: 'steel-frame',
+      frameDimension: '2d',
+      storyCount: 3,
+      bayCount: 2,
+      storyHeightsM: [3.3, 3.3, 3.3],
+      bayWidthsM: [5.4, 6],
+      engineeringDraft: {
+        structureType: 'steel-frame',
+        loads: [
+          { kind: 'line', magnitude: 12, unit: 'kN/m', direction: 'gravity', target: '顶层梁' },
+        ],
+      },
+      frameBaseSupportType: 'fixed',
+      updatedAt: 0,
+    });
+
+    const lineCase = model.load_cases.find((loadCase) => loadCase.id === 'LINE');
+    expect(lineCase).toBeDefined();
+    expect(lineCase.loads).toHaveLength(2);
+    expect(lineCase.loads.map((load) => load.story)).toEqual(['F3', 'F3']);
+    expect(lineCase.loads.map((load) => load.element)).toEqual(['B14', 'B15']);
+  });
+
+  test('does not treat member-end top wording as a top-story frame line target', () => {
+    const model = buildFrameModel({
+      inferredType: 'frame',
+      structuralTypeKey: 'steel-frame',
+      frameDimension: '2d',
+      storyCount: 3,
+      bayCount: 2,
+      storyHeightsM: [3.3, 3.3, 3.3],
+      bayWidthsM: [5.4, 6],
+      engineeringDraft: {
+        structureType: 'steel-frame',
+        loads: [
+          { kind: 'line', magnitude: 12, unit: 'kN/m', direction: 'gravity', target: '柱顶梁' },
+        ],
+      },
+      frameBaseSupportType: 'fixed',
+      updatedAt: 0,
+    });
+
+    const lineCase = model.load_cases.find((loadCase) => loadCase.id === 'LINE');
+    expect(lineCase).toBeDefined();
+    expect(lineCase.loads).toHaveLength(6);
+    expect(lineCase.loads.map((load) => load.story)).toEqual(['F1', 'F1', 'F2', 'F2', 'F3', 'F3']);
+  });
+
+  test('targets Chinese x-axis frame line loads to x-direction beams in 3d', () => {
+    const model = buildFrameModel({
+      inferredType: 'frame',
+      structuralTypeKey: 'steel-frame',
+      frameDimension: '3d',
+      storyCount: 2,
+      bayCountX: 1,
+      bayCountY: 1,
+      storyHeightsM: [3.3, 3.3],
+      bayWidthsXM: [6],
+      bayWidthsYM: [5],
+      engineeringDraft: {
+        structureType: 'steel-frame',
+        loads: [
+          { kind: 'line', magnitude: 8, unit: 'kN/m', direction: 'gravity', target: 'X轴梁' },
+        ],
+      },
+      frameBaseSupportType: 'fixed',
+      updatedAt: 0,
+    });
+
+    const lineCase = model.load_cases.find((loadCase) => loadCase.id === 'LINE');
+    expect(lineCase).toBeDefined();
+    expect(lineCase.loads).toHaveLength(4);
+    expect(lineCase.loads.map((load) => load.element)).toEqual(['BX9', 'BX10', 'BX11', 'BX12']);
   });
 
   test('leaves frame dimension undefined when no directional evidence or existing state exists', () => {

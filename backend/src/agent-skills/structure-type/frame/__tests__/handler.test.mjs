@@ -145,6 +145,151 @@ describe('frame handler composed modules', () => {
     expect(missing.critical).not.toContain('floorLoads');
   });
 
+  test('does not mark floorLoads missing when semantic line loads are present', () => {
+    const patch = handler.extractDraft({
+      message: '两层单跨钢框架，跨度6m，层高3.6m，梁上均布荷载60kN/m',
+      locale: 'zh',
+      currentState: undefined,
+      llmDraftPatch: {
+        engineeringDraft: {
+          structureType: 'steel-frame',
+          geometry: {
+            storyHeightsM: [3.6, 3.6],
+            bayWidthsM: [6],
+          },
+          loads: [
+            { kind: 'line', magnitude: 60, unit: 'kN/m', direction: 'gravity' },
+          ],
+        },
+      },
+      structuralTypeMatch: {
+        key: 'frame',
+        mappedType: 'frame',
+        skillId: 'frame',
+        supportLevel: 'supported',
+      },
+    });
+    const state = handler.mergeState(undefined, patch);
+    const missing = handler.computeMissing(state, 'execution');
+
+    expect(state.floorLoads).toBeUndefined();
+    expect(missing.critical).not.toContain('floorLoads');
+  });
+
+  test('preserves existing floor loads when semantic line loads are added', () => {
+    const patch = handler.extractDraft({
+      message: '增加梁上均布荷载60kN/m',
+      locale: 'zh',
+      currentState: {
+        inferredType: 'frame',
+        structuralTypeKey: 'frame',
+        frameDimension: '2d',
+        storyCount: 2,
+        bayCount: 1,
+        storyHeightsM: [3.6, 3.6],
+        bayWidthsM: [6],
+        floorLoads: [
+          { story: 1, verticalKN: 360, liveLoadKN: 72, lateralXKN: 20 },
+          { story: 2, verticalKN: 360, liveLoadKN: 72, lateralXKN: 20 },
+        ],
+        updatedAt: 0,
+      },
+      llmDraftPatch: {
+        engineeringDraft: {
+          structureType: 'steel-frame',
+          loads: [
+            { kind: 'line', magnitude: 60, unit: 'kN/m', direction: 'gravity' },
+          ],
+        },
+      },
+      structuralTypeMatch: {
+        key: 'frame',
+        mappedType: 'frame',
+        skillId: 'frame',
+        supportLevel: 'supported',
+      },
+    });
+    const state = handler.mergeState({
+      inferredType: 'frame',
+      structuralTypeKey: 'frame',
+      frameDimension: '2d',
+      storyCount: 2,
+      bayCount: 1,
+      storyHeightsM: [3.6, 3.6],
+      bayWidthsM: [6],
+      floorLoads: [
+        { story: 1, verticalKN: 360, liveLoadKN: 72, lateralXKN: 20 },
+        { story: 2, verticalKN: 360, liveLoadKN: 72, lateralXKN: 20 },
+      ],
+      updatedAt: 0,
+    }, patch);
+
+    expect(state.floorLoads).toEqual([
+      { story: 1, verticalKN: 360, liveLoadKN: 72, lateralXKN: 20 },
+      { story: 2, verticalKN: 360, liveLoadKN: 72, lateralXKN: 20 },
+    ]);
+  });
+
+  test('drops same-patch stale dead floor loads when semantic line loads are present', () => {
+    const existingState = {
+      inferredType: 'frame',
+      structuralTypeKey: 'frame',
+      frameDimension: '2d',
+      storyCount: 1,
+      bayCount: 1,
+      storyHeightsM: [3.6],
+      bayWidthsM: [6],
+      updatedAt: 0,
+    };
+    const patch = handler.extractDraft({
+      message: '梁上均布荷载60kN/m，同时活荷载72kN',
+      locale: 'zh',
+      currentState: existingState,
+      llmDraftPatch: {
+        floorLoads: [{ story: 1, verticalKN: 360, liveLoadKN: 72, lateralXKN: 20 }],
+        engineeringDraft: {
+          structureType: 'steel-frame',
+          loads: [
+            { kind: 'line', magnitude: 60, unit: 'kN/m', direction: 'gravity' },
+          ],
+        },
+      },
+      structuralTypeMatch: {
+        key: 'frame',
+        mappedType: 'frame',
+        skillId: 'frame',
+        supportLevel: 'supported',
+      },
+    });
+    const state = handler.mergeState(existingState, patch);
+
+    expect(state.floorLoads).toEqual([
+      { story: 1, liveLoadKN: 72, lateralXKN: 20 },
+    ]);
+  });
+
+  test('does not treat non-gravity line loads as executable gravity loads', () => {
+    const missing = handler.computeMissing({
+      inferredType: 'frame',
+      structuralTypeKey: 'frame',
+      frameDimension: '2d',
+      storyCount: 2,
+      bayCount: 1,
+      storyHeightsM: [3.6, 3.6],
+      bayWidthsM: [6],
+      engineeringDraft: {
+        structureType: 'steel-frame',
+        loads: [
+          { kind: 'line', magnitude: 20, unit: 'kN/m', direction: 'globalX' },
+        ],
+      },
+      frameBaseSupportType: 'fixed',
+      updatedAt: 0,
+    }, 'execution');
+
+    expect(missing.critical).toContain('floorLoads');
+  });
+
   test('preserves uneven 2d bay widths from an llm draft patch', () => {
     const patch = handler.extractDraft({
       message: '3层2跨框架，层高3.3m，跨度5.4m和6m，每层楼面荷载15kN/m，请进行静力分析',

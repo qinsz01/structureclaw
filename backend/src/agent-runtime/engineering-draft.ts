@@ -362,10 +362,6 @@ function sumPositive(values: number[] | undefined): number | undefined {
   return Number.isFinite(total) && total > 0 ? total : undefined;
 }
 
-function frameTotalSpanM(patch: DraftExtraction): number | undefined {
-  return sumPositive(patch.bayWidthsM) ?? sumPositive(patch.bayWidthsXM);
-}
-
 function framePlanAreaM2(patch: DraftExtraction): number | undefined {
   const totalSpanX = sumPositive(patch.bayWidthsXM);
   const totalSpanY = sumPositive(patch.bayWidthsYM);
@@ -379,8 +375,7 @@ function framePlanAreaM2(patch: DraftExtraction): number | undefined {
 function frameLoadTotalKN(load: EngineeringDraftLoad, patch: DraftExtraction): number | undefined {
   if (load.unit === 'kN') return load.magnitude;
   if (load.unit === 'kN/m') {
-    const spanM = frameTotalSpanM(patch);
-    return spanM !== undefined ? load.magnitude * spanM : undefined;
+    return undefined;
   }
   if (load.unit === 'kN/m2') {
     const areaM2 = framePlanAreaM2(patch);
@@ -389,10 +384,18 @@ function frameLoadTotalKN(load: EngineeringDraftLoad, patch: DraftExtraction): n
   return undefined;
 }
 
+function isTopStoryTarget(target: string): boolean {
+  const trimmed = target.trim();
+  const text = trimmed.toLowerCase();
+  return text.includes('roof')
+    || /屋面|屋顶|楼顶|顶层|顶楼/u.test(trimmed)
+    || trimmed === '顶';
+}
+
 function parseStoryOrdinal(target: string | undefined, storyCount: number): number | undefined {
   if (!target) return undefined;
   const text = target.toLowerCase();
-  if (text.includes('roof') || target.includes('屋面')) return storyCount;
+  if (isTopStoryTarget(target)) return storyCount;
   const numericMatch = text.match(/(?:floor|story|level)\s*([0-9]+)/i)
     ?? target.match(/第?\s*([0-9]+)\s*层/u);
   if (numericMatch?.[1]) {
