@@ -21,7 +21,7 @@ import { logger } from '../utils/logger.js';
 import { getLogger, logToolCall } from '../utils/agent-logger.js';
 import type { AgentState } from './state.js';
 import type { AgentConfigurable } from './configurable.js';
-import type { AgentSkillPlugin, DraftState, StructuralTypeMatch } from '../agent-runtime/types.js';
+import type { AgentSkillPlugin, DraftState, InteractionQuestion, StructuralTypeMatch } from '../agent-runtime/types.js';
 import { runPkpmCalcbook } from '../agent-skills/report-export/calculation-book/pkpm-calcbook/runner.js';
 // ---------------------------------------------------------------------------
 // Helpers
@@ -83,6 +83,42 @@ function latestHumanMessageText(messages: unknown[] | undefined): string {
   return '';
 }
 
+const ATTACHMENT_DETAIL_MARKERS = [
+  '[Attachment analysis:',
+  '[附件解析:',
+  '[Attachment vision summary:',
+  '[附件视觉摘要:',
+  '[Attachment vision summary unavailable:',
+  '[附件视觉摘要不可用:',
+];
+
+function findAttachmentDetailsStart(message: string): number {
+  return ATTACHMENT_DETAIL_MARKERS.reduce((best, marker) => {
+    const index = message.indexOf(marker);
+    if (index === -1) return best;
+    return best === -1 ? index : Math.min(best, index);
+  }, -1);
+}
+
+function hasAttachmentDetails(message: string | undefined): boolean {
+  const text = message || '';
+  return findAttachmentDetailsStart(text) !== -1;
+}
+
+function canonicalAttachmentDetailsOnly(message: string): string {
+  const start = findAttachmentDetailsStart(message);
+  return start === -1 ? '' : message.slice(start).trim();
+}
+
+function withCanonicalAttachmentDetails(message: string, canonicalUserMessage: string | undefined): string {
+  const canonical = canonicalUserMessage?.trim();
+  if (!canonical || !hasAttachmentDetails(canonical) || hasAttachmentDetails(message)) {
+    return message;
+  }
+  const attachmentDetails = canonicalAttachmentDetailsOnly(canonical);
+  return attachmentDetails ? `${message}\n\n${attachmentDetails}` : message;
+}
+
 export function resolveToolInputMessage(
   inputMessage: string | undefined,
   lastUserMessage: string | undefined,
@@ -90,7 +126,7 @@ export function resolveToolInputMessage(
 ): string {
   const explicitMessage = inputMessage?.trim();
   if (explicitMessage) {
-    return explicitMessage;
+    return withCanonicalAttachmentDetails(explicitMessage, lastUserMessage);
   }
   const canonicalUserMessage = lastUserMessage?.trim();
   if (canonicalUserMessage) {
@@ -203,14 +239,23 @@ function toolResult(
 function buildDraftProgress(
   locale: 'zh' | 'en',
   criticalMissing: string[],
-): { canProceed: boolean; nextAction: 'ask_user_clarification' | 'build_model'; reason?: string } {
+): { canProceed: boolean; nextAction: 'ask_user_clarification' | 'build_model'; reason?: string; instruction: string } {
   if (criticalMissing.length === 0) {
-    return { canProceed: true, nextAction: 'build_model' };
+    return {
+      canProceed: true,
+      nextAction: 'build_model',
+      instruction: locale === 'zh'
+        ? 'criticalMissing 为空。下一步调用 build_model；不要因为可默认或非关键的 draftIssues 先追问。'
+        : 'criticalMissing is empty. Call build_model next; do not ask for clarification first just because defaultable or non-critical draftIssues are present.',
+    };
   }
   const missingText = criticalMissing.join(', ');
   return {
     canProceed: false,
     nextAction: 'ask_user_clarification',
+    instruction: locale === 'zh'
+      ? '存在关键缺失字段。下一步调用 ask_user_clarification；不要调用 build_model。'
+      : 'Critical fields are missing. Call ask_user_clarification next; do not call build_model.',
     reason: locale === 'zh'
       ? `草稿仍缺少关键参数：${missingText}。需要继续向用户澄清，不能直接构建模型或写入 memory。`
       : `The draft is still missing critical parameters: ${missingText}. Continue by asking the user for clarification; do not build the model or store draft values in memory.`,
@@ -227,6 +272,17 @@ function buildPluginUnavailableProgress(
       ? '已保留上一版有效草稿，但无法解析对应结构类型插件，不能可靠计算缺失字段或继续建模。请先确认结构类型或恢复可用 skillScope。'
       : 'The previous valid draft was preserved, but its structure-type plugin could not be resolved. Missing fields cannot be computed reliably, so ask the user to confirm the structural type or restore the available skill scope before building a model.',
   };
+}
+
+function buildClarificationQuestions(
+  plugin: AgentSkillPlugin | null | undefined,
+  criticalMissing: string[],
+  optionalMissing: string[],
+  state: DraftState,
+  locale: 'zh' | 'en',
+): InteractionQuestion[] {
+  if (criticalMissing.length === 0) return [];
+  return plugin?.handler.buildQuestions?.(criticalMissing, optionalMissing, state, locale) ?? [];
 }
 
 function hasStableDraftType(state: DraftState | null | undefined): state is DraftState {
@@ -312,6 +368,9 @@ export function buildPreservedDraftExtractionResult(args: {
   const progress = plugin
     ? buildDraftProgress(args.locale, missing.critical)
     : buildPluginUnavailableProgress(args.locale);
+  const clarificationQuestions = plugin
+    ? buildClarificationQuestions(plugin, missing.critical, missing.optional, nextState, args.locale)
+    : [];
   const preservedMatch = buildPreservedStructuralTypeMatch(nextState, plugin);
   const preservationWarning = args.locale === 'zh'
     ? '本轮描述未能稳定识别为新的结构类型，已保留上一版有效草稿，避免将状态覆盖为 unknown/generic。'
@@ -322,6 +381,7 @@ export function buildPreservedDraftExtractionResult(args: {
       nextState,
       criticalMissing: missing.critical,
       optionalMissing: missing.optional,
+      clarificationQuestions,
       structuralTypeMatch: preservedMatch,
       rejectedStructuralTypeMatch: args.structuralTypeMatch,
       skillId: preservedMatch.skillId,
@@ -669,7 +729,7 @@ async function resolveExistingDraftPlugin(
 
 export function createDetectStructureTypeTool(skillRuntime: AgentSkillRuntime) {
   return tool(
-    async (input: { message: string; locale?: string }, config: LangGraphRunnableConfig) => {
+    async (input: { message?: string; locale?: string }, config: LangGraphRunnableConfig) => {
       const log = getLogger(config.configurable as Partial<AgentConfigurable> | undefined);
       const start = Date.now();
       const configurable = getConfigurable(config);
@@ -692,6 +752,10 @@ export function createDetectStructureTypeTool(skillRuntime: AgentSkillRuntime) {
           skillId: match.skillId,
           supportLevel: match.supportLevel,
           supportNote: match.supportNote,
+          nextAction: 'extract_draft_params',
+          instruction: locale === 'zh'
+            ? '结构类型已识别。若用户请求建模、分析或报告，下一步调用 extract_draft_params；不要只输出结构类型后停止。'
+            : 'Structural type detected. If the user requested modeling, analysis, or reporting, call extract_draft_params next; do not stop after reporting the type.',
         };
         const stateUpdate: Partial<AgentState> = {};
         if (match.key) stateUpdate.structuralTypeKey = match.key;
@@ -708,7 +772,7 @@ export function createDetectStructureTypeTool(skillRuntime: AgentSkillRuntime) {
         'Detect the structural type (beam, truss, frame, portal-frame, etc.) from a user description. ' +
         'Returns the matched type key, mapped model type, and the skill ID to use for further processing.',
       schema: z.object({
-        message: z.string().describe('The user message describing the structure'),
+        message: z.string().describe('The user message describing the structure').optional(),
         locale: z.enum(['zh', 'en']).optional().describe('User locale (defaults to session locale)'),
       }),
     },
@@ -718,7 +782,7 @@ export function createDetectStructureTypeTool(skillRuntime: AgentSkillRuntime) {
 export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
   return tool(
     async (input: {
-      message: string;
+      message?: string;
       locale?: string;
     }, config: LangGraphRunnableConfig) => {
       const log = getLogger(config.configurable as Partial<AgentConfigurable> | undefined);
@@ -798,6 +862,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
             nextState,
             criticalMissing: ['inferredType'],
             optionalMissing: [],
+            clarificationQuestions: [],
             structuralTypeMatch: match,
             skillId: undefined,
             extractionMode: 'deterministic',
@@ -817,6 +882,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
             nextState,
             criticalMissing: ['inferredType'],
             optionalMissing: [],
+            clarificationQuestions: [],
             structuralTypeMatch: match,
             skillId: undefined,
             extractionMode: 'deterministic',
@@ -836,6 +902,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
             nextState,
             criticalMissing: missing.critical,
             optionalMissing: missing.optional,
+            clarificationQuestions: buildClarificationQuestions(plugin, missing.critical, missing.optional, nextState, locale),
             structuralTypeMatch: match,
             skillId: plugin.id,
             extractionMode: 'deterministic',
@@ -902,6 +969,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
           nextState,
           criticalMissing: missing.critical,
           optionalMissing: missing.optional,
+          clarificationQuestions: buildClarificationQuestions(plugin, missing.critical, missing.optional, nextState, locale),
           structuralTypeMatch: match,
           skillId: plugin.id,
           extractionMode,
@@ -936,7 +1004,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
         'Reads existing draft state from conversation state automatically — do NOT pass it as a parameter. ' +
         'Returns updated draft state, missing fields, and the matched structural type.',
       schema: z.object({
-        message: z.string().describe('The user message to extract parameters from'),
+        message: z.string().describe('The user message to extract parameters from').optional(),
         locale: z.enum(['zh', 'en']).optional().describe('User locale'),
       }),
     },

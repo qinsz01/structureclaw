@@ -20,11 +20,39 @@ describe("draft extraction preservation", () => {
       "请分析这个钢框架",
     )).toBe("请分析这个钢框架");
     expect(resolveToolInputMessage(
+      undefined,
+      "请分析这个钢框架",
+    )).toBe("请分析这个钢框架");
+    expect(resolveToolInputMessage(
       "",
       "",
       [{ role: "user", content: "请分析这个钢框架" }],
     )).toBe("请分析这个钢框架");
     expect(resolveToolInputMessage("直接工具调用消息", "")).toBe("直接工具调用消息");
+  });
+
+  test("adds canonical attachment details when tool input omits them", async () => {
+    const { resolveToolInputMessage } = await import("../../../dist/agent-langgraph/tools.js");
+
+    const prompt = "请根据这张结构图识别类型并分析";
+    const canonical = [
+      prompt,
+      "",
+      "[已上传文件]",
+      "下面会提供附件的解析内容。",
+      "- frame-sketch.png (uploads/frame-sketch.png)",
+      "",
+      "[附件视觉摘要: frame-sketch.png]",
+      "结构类型：两层单跨钢框架；跨度 6m；层高 3.6m；楼面荷载 10 kN/m2。",
+    ].join("\n");
+
+    const resolved = resolveToolInputMessage(prompt, canonical);
+    expect(resolved).toContain(prompt);
+    expect(resolved.split(prompt)).toHaveLength(2);
+    expect(resolved).toContain("[附件视觉摘要: frame-sketch.png]");
+    expect(resolved).toContain("两层单跨钢框架");
+    expect(resolved).not.toContain("[已上传文件]");
+    expect(resolved).not.toContain("uploads/frame-sketch.png");
   });
 
   test("strips benchmark retry feedback before structural extraction", async () => {
@@ -187,7 +215,19 @@ describe("draft extraction preservation", () => {
           return { ...existing, ...patch, updatedAt: 1 };
         },
         computeMissing() {
-          return { critical: ["loadKN"], optional: [] };
+          return { critical: ["loadKN"], optional: ["sectionSize"] };
+        },
+        buildQuestions(criticalMissing, optionalMissing) {
+          expect(criticalMissing).toEqual(["loadKN"]);
+          expect(optionalMissing).toEqual(["sectionSize"]);
+          return [{
+            paramKey: "loadKN",
+            label: "Load",
+            question: "What load should be applied?",
+            unit: "kN",
+            required: true,
+            critical: true,
+          }];
         },
       },
     };
@@ -208,6 +248,10 @@ describe("draft extraction preservation", () => {
         mappedType: "beam",
         skillId: "beam",
       }),
+      clarificationQuestions: [expect.objectContaining({
+        paramKey: "loadKN",
+        question: "What load should be applied?",
+      })],
     }));
     expect(result.responseJson.criticalMissing).not.toContain("inferredType");
     expect(result.responseJson.nextState.updatedAt).toBeGreaterThanOrEqual(before);
