@@ -1,8 +1,16 @@
+import { ChatAnthropic } from '@langchain/anthropic';
+import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { ChatOpenAI, ChatOpenAICompletions } from '@langchain/openai';
 import type { config } from '../config/index.js';
 import { getEffectiveLlmSettings, getEffectiveVisionLlmSettings } from '../config/llm-runtime.js';
 import { llmCallLogger } from './llm-logger.js';
 import { logger, logLlmCall } from './agent-logger.js';
+
+export type StructureClawChatModel = BaseChatModel & {
+  bindTools: NonNullable<BaseChatModel['bindTools']>;
+};
+
+export type LlmProvider = 'openai-compatible' | 'anthropic';
 
 type ChatModelConfigLike = Pick<
   typeof config,
@@ -11,6 +19,79 @@ type ChatModelConfigLike = Pick<
 
 export interface ChatModelRuntimeOptions {
   disableStreaming?: boolean;
+}
+
+const OPENAI_DEFAULT_BASE_URL = 'https://api.openai.com/v1';
+
+function normalizeProviderName(rawValue: string | undefined): LlmProvider | undefined {
+  const normalized = rawValue?.trim().toLowerCase();
+  if (!normalized) return undefined;
+  if (['anthropic', 'claude'].includes(normalized)) return 'anthropic';
+  if (['openai', 'openai-compatible', 'openai_compatible', 'compatible'].includes(normalized)) {
+    return 'openai-compatible';
+  }
+  return undefined;
+}
+
+function withoutTrailingSlash(value: string): string {
+  return value.replace(/\/+$/, '');
+}
+
+export function isClaudeModel(modelName: string | undefined): boolean {
+  const normalized = modelName?.trim().toLowerCase();
+  return !!normalized && (normalized === 'claude' || normalized.startsWith('claude-'));
+}
+
+function isDefaultOpenAIBaseUrl(baseUrl: string | undefined): boolean {
+  const normalized = baseUrl?.trim();
+  return !normalized || withoutTrailingSlash(normalized).toLowerCase() === OPENAI_DEFAULT_BASE_URL;
+}
+
+function isAnthropicHostname(hostname: string): boolean {
+  const normalized = hostname.toLowerCase();
+  return normalized === 'anthropic.com' || normalized.endsWith('.anthropic.com');
+}
+
+function isAnthropicNativeBaseUrl(baseUrl: string | undefined): boolean {
+  const normalized = baseUrl?.trim();
+  if (!normalized || isDefaultOpenAIBaseUrl(normalized)) return false;
+  try {
+    const parsed = new URL(normalized);
+    return isAnthropicHostname(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+export function normalizeAnthropicBaseUrl(baseUrl: string | undefined): string | undefined {
+  const normalized = baseUrl?.trim();
+  if (!normalized || isDefaultOpenAIBaseUrl(normalized)) return undefined;
+  try {
+    const parsed = new URL(normalized);
+    const normalizedPath = withoutTrailingSlash(parsed.pathname);
+    if (normalizedPath === '/v1') {
+      parsed.pathname = '';
+    } else if (normalizedPath.toLowerCase().endsWith('/v1')) {
+      parsed.pathname = normalizedPath.slice(0, -3) || '';
+    }
+    return withoutTrailingSlash(parsed.toString());
+  } catch {
+    return withoutTrailingSlash(normalized);
+  }
+}
+
+export function resolveLlmProvider(
+  modelConfig: ChatModelConfigLike,
+  providerOverride: string | undefined = process.env.LLM_PROVIDER,
+): LlmProvider {
+  const explicit = normalizeProviderName(providerOverride);
+  if (explicit) return explicit;
+
+  if (isClaudeModel(modelConfig.llmModel) || isAnthropicNativeBaseUrl(modelConfig.llmBaseUrl)) {
+    return 'anthropic';
+  }
+
+  return 'openai-compatible';
 }
 
 function envListMatchesModel(rawValue: string | undefined, modelName: string | undefined): boolean {
@@ -48,6 +129,30 @@ export function buildChatModelOptions(
     ...(disableStreaming ? { streaming: false } : {}),
     configuration: {
       baseURL: modelConfig.llmBaseUrl,
+    },
+  };
+
+  return shouldOmitTemperature(modelConfig.llmModel)
+    ? options
+    : { ...options, temperature };
+}
+
+export function buildAnthropicChatModelOptions(
+  modelConfig: ChatModelConfigLike,
+  temperature: number,
+  runtimeOptions: ChatModelRuntimeOptions = {},
+) {
+  const disableStreaming = runtimeOptions.disableStreaming ?? false;
+  const anthropicApiUrl = normalizeAnthropicBaseUrl(modelConfig.llmBaseUrl);
+  const options = {
+    model: modelConfig.llmModel,
+    apiKey: modelConfig.llmApiKey,
+    maxRetries: modelConfig.llmMaxRetries,
+    disableStreaming,
+    ...(disableStreaming ? { streaming: false } : {}),
+    ...(anthropicApiUrl ? { anthropicApiUrl } : {}),
+    clientOptions: {
+      timeout: modelConfig.llmTimeoutMs,
     },
   };
 
@@ -186,15 +291,17 @@ function withProviderCompatibility(options: ReturnType<typeof buildChatModelOpti
 export function createChatModel(
   temperature: number,
   runtimeOptions: ChatModelRuntimeOptions = {},
-): ChatOpenAI | null {
+): StructureClawChatModel | null {
   const effectiveSettings = getEffectiveLlmSettings();
-  if (!effectiveSettings.llmApiKey.trim()) {
+  if (!effectiveSettings?.llmApiKey?.trim()) {
     return null;
   }
 
-  const model = new ChatOpenAI(withProviderCompatibility(
-    buildChatModelOptions(effectiveSettings, temperature, runtimeOptions),
-  ));
+  const model = resolveLlmProvider(effectiveSettings) === 'anthropic'
+    ? new ChatAnthropic(buildAnthropicChatModelOptions(effectiveSettings, temperature, runtimeOptions))
+    : new ChatOpenAI(withProviderCompatibility(
+      buildChatModelOptions(effectiveSettings, temperature, runtimeOptions),
+    ));
 
   return wrapWithLlmLogging(model, () => getEffectiveLlmSettings().llmModel);
 }
@@ -202,15 +309,20 @@ export function createChatModel(
 export function createVisionChatModel(
   temperature: number,
   runtimeOptions: ChatModelRuntimeOptions = {},
-): ChatOpenAI | null {
+): StructureClawChatModel | null {
   const effectiveSettings = getEffectiveVisionLlmSettings();
-  if (!effectiveSettings?.llmApiKey.trim()) {
+  if (!effectiveSettings?.llmApiKey?.trim()) {
     return null;
   }
 
-  const model = new ChatOpenAI(withProviderCompatibility(
-    buildChatModelOptions(effectiveSettings, temperature, runtimeOptions),
-  ));
+  const model = resolveLlmProvider(
+    effectiveSettings,
+    process.env.LLM_VISION_PROVIDER ?? process.env.LLM_PROVIDER,
+  ) === 'anthropic'
+    ? new ChatAnthropic(buildAnthropicChatModelOptions(effectiveSettings, temperature, runtimeOptions))
+    : new ChatOpenAI(withProviderCompatibility(
+      buildChatModelOptions(effectiveSettings, temperature, runtimeOptions),
+    ));
 
   return wrapWithLlmLogging(model, () => getEffectiveVisionLlmSettings()?.llmModel ?? effectiveSettings.llmModel);
 }
@@ -222,7 +334,7 @@ function sanitizeBase64ForLogging(text: string): string {
   );
 }
 
-function wrapWithLlmLogging(model: ChatOpenAI, modelName: () => string): ChatOpenAI {
+function wrapWithLlmLogging<TModel extends StructureClawChatModel>(model: TModel, modelName: () => string): TModel {
   const originalInvoke = model.invoke.bind(model);
 
   (model as any).invoke = async function (input: any, options?: any) {
