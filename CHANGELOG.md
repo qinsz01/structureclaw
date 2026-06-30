@@ -2,6 +2,28 @@
 
 All notable changes to StructureClaw are documented in this file.
 
+## [1.1.1-rc.0] - 2026-06-30
+
+### Added
+
+- Anthropic-compatible chat provider support for Claude model endpoints.
+- Concrete-frame skill core implementation, including staged extraction and model building.
+- YJK concrete design result extraction for benchmarked concrete workflows.
+
+### Changed
+
+- Structural routing now follows an LLM-first path, with rule logic kept as auxiliary support.
+- Structural skills use semantic draft data more consistently across extraction and model building.
+- LLM benchmark assets were extracted into a standalone submodule.
+
+### Fixed
+
+- Generic and frame workflows now preserve declared structure types, coordinates, line loads, and normalized load data more reliably.
+- Portal-frame mezzanine loads, panelized truss model generation, and PKPM steel-frame material persistence were corrected.
+- Vision attachments are parsed separately before agent execution.
+- YJK benchmark runs now detach launcher handling, close YJK after benchmark execution, and handle aborts more cleanly.
+- LLM temperature may be omitted for providers that do not accept explicit temperature settings.
+
 ## [1.0.0] - 2026-04-27
 
 ### Added — npm Packaging & Distribution
