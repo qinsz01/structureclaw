@@ -1,9 +1,9 @@
 {
-  "schemaVersion": "structureclaw-paper-baseline/v1",
-  "baselineId": "paper-v2-openclaw-20260729",
+  "schemaVersion": "structureclaw-paper-baseline/v2",
+  "baselineId": "paper-v2-code-20260729-manuscript-20260801",
   "frozenOn": "2026-10-12",
   "timezone": "Asia/Shanghai",
-  "userDecision": "Preserve paper v2 after OpenClaw integration; exclude October 2026 Bench viewer additions.",
+  "userDecision": "Keep the post-OpenClaw system and benchmark pins; correct the paper baseline to the verified remote manuscript at 127aa9d. Do not assert identity with the actual submitted PDF.",
   "archiveDirectory": "G:\\StructureClaw-All\\paper-baselines\\paper-v2-openclaw-20260729",
   "repositories": [
     {
@@ -25,10 +25,11 @@
     {
       "role": "paper",
       "path": "G:/StructureClaw-All/structureclaw_paper/StructureClaw-paper",
-      "commit": "cac536383bbfb0a9ca12a1b2bb4198ed91caa489",
-      "bundle": "paper.bundle",
-      "tag": "paper-v2-openclaw-20260729",
-      "tagObject": "6f9a861b4424569d60feb3e25ee8410d754c1318"
+      "commit": "127aa9d3fae4a99f0ed7d7d622680e11ca6c15c2",
+      "bundle": "paper-manuscript-20260801.bundle",
+      "tag": "paper-v2-manuscript-20260801",
+      "tagObject": "c38594d8b9539455f64ed36bc618ec1e51bfc823",
+      "sourceArchive": "paper-manuscript-20260801-source.zip"
     }
   ],
   "originalExperimentalProvenance": {
@@ -77,29 +78,51 @@
       "matrix": "7348a4a193ba1f46c17b573f13e71e7355088a50dfe24398c71b873d84e4c62b",
       "prompt": "2b16c9c1999e84ff8adb6279d4d8923449841a5350b9603b52957f879cb511f8"
     },
-    "warning": "The 5400-outcome raw formal bundle is not the 4950-outcome publication selection. OpenClaw retains its original development / paperEligible=false metadata. The ZIP contains as-packaged sources and data, which are preserved separately from Git revisions."
+    "warning": "The 5400-outcome raw formal bundle is not the 4950-outcome publication selection. OpenClaw retains its original development / paperEligible=false metadata. The ZIP contains as-packaged sources and data, which are preserved separately from Git revisions. The unchanged July 29 ZIP is a historical package; its reporting tables are not asserted to match all August 1 manuscript revisions."
   },
   "preservation": {
     "localAnnotatedTags": true,
-    "remotePushPerformed": false,
+    "remotePushPerformed": true,
     "bundlesVerified": true,
     "systemBenchmarkGitlinkVerified": true,
     "archiveCopyHashVerified": true,
     "workingTreesReset": false,
     "apiCallsMade": false,
     "credentialsIncludedInRecord": false,
-    "pdf": "Copied local artifact; not recompiled or authenticated against an external submission."
+    "pdf": "Historical local PDF from the initial freeze; not rebuilt for 127aa9d and not authenticated against the actual submitted PDF.",
+    "remoteTagsVerified": true,
+    "paperCheckoutFastForwardedTo": "127aa9d3fae4a99f0ed7d7d622680e11ca6c15c2"
   },
   "files": [
+    {
+      "path": "BASELINE-before-manuscript-correction.json",
+      "bytes": 5757,
+      "sha256": "5c88df60187e077f3a03938e4c3eda90eab9adef622d9ad1568a639c3e3dbfd3"
+    },
     {
       "path": "Code_and_Data_Supplement_AAAI27.zip",
       "bytes": 5922212,
       "sha256": "195f016a4dd1ac2cd4875f9a78af383b6d6ad3abc1a1288a047e4ca6b7b99237"
     },
     {
-      "path": "RESTORE.txt",
+      "path": "REMOTE-PUSH-RECEIPT-before-manuscript-correction.json",
+      "bytes": 1134,
+      "sha256": "9e1119600dff74ae5ad3a02a9e8e0b61f846eaafda8a821d0c0deb36bb663619"
+    },
+    {
+      "path": "REMOTE-PUSH-RECEIPT.json",
+      "bytes": 2213,
+      "sha256": "381e94e05e571f42be6b63d42184e8ee924fa00e818f99c66fef7bdd0b465d6a"
+    },
+    {
+      "path": "RESTORE-before-manuscript-correction.txt",
       "bytes": 2754,
       "sha256": "8cfb63889a1fa4e3a09e3e05ada29cf3da192814beb9a75938b46298b254c7a8"
+    },
+    {
+      "path": "RESTORE.txt",
+      "bytes": 3579,
+      "sha256": "d0742a5333c2324382c9004ef2454229c262e0082221bcf9e1dfc9b86c349713"
     },
     {
       "path": "benchmark.bundle",
@@ -110,6 +133,16 @@
       "path": "original-experiments-manifest.json",
       "bytes": 1652,
       "sha256": "4e450530491a446c0b0e9fad46a94b4b82ee77c74ef2c9c12d40c713f3865b35"
+    },
+    {
+      "path": "paper-manuscript-20260801-source.zip",
+      "bytes": 3086987,
+      "sha256": "cf38e23ffdbf291213f42ef206992d439cc0df60efdd7682c7b061ad3734ddeb"
+    },
+    {
+      "path": "paper-manuscript-20260801.bundle",
+      "bytes": 16188602,
+      "sha256": "e39dbfc93736351f8033a264c48c042cb24c19a5a3b13b75e9510135c8116119"
     },
     {
       "path": "paper.bundle",
@@ -138,10 +171,54 @@
     }
   ],
   "futureWorkRules": [
-    "Do not move, overwrite or delete these baseline tags.",
+    "Preserve current system, benchmark and corrected manuscript tags.",
+    "Do not recreate the deleted paper-only paper-v2-openclaw-20260729 tag.",
+    "Earlier code-tag annotations naming cac5363 are superseded by this corrected manuscript mapping.",
     "Keep future experiments/results separate from this baseline.",
-    "Do not infer an experiment revision from the current checkout or the later integration tag.",
-    "Git bundles are per-repository; restore the benchmark separately inside tests/llm-benchmark.",
-    "Archived API model names do not guarantee that a remote service still serves the same model."
+    "Do not infer the original experiment revision from the later integration or manuscript tags.",
+    "Restore each repository from its specified bundle and tag; submodules are not included in parent bundles.",
+    "Hosted model availability/version and the actual submitted PDF are not established by these source pins."
+  ],
+  "correctedOn": "2026-10-12",
+  "correction": {
+    "date": "2026-10-12",
+    "timezone": "Asia/Shanghai",
+    "reason": "The initial paper tag missed 13 remote follow-up commits, including denominator corrections and resource statistics.",
+    "oldPaper": {
+      "role": "paper",
+      "path": "G:/StructureClaw-All/structureclaw_paper/StructureClaw-paper",
+      "commit": "cac536383bbfb0a9ca12a1b2bb4198ed91caa489",
+      "bundle": "paper.bundle",
+      "tag": "paper-v2-openclaw-20260729",
+      "tagObject": "6f9a861b4424569d60feb3e25ee8410d754c1318"
+    },
+    "newPaper": {
+      "role": "paper",
+      "path": "G:/StructureClaw-All/structureclaw_paper/StructureClaw-paper",
+      "commit": "127aa9d3fae4a99f0ed7d7d622680e11ca6c15c2",
+      "bundle": "paper-manuscript-20260801.bundle",
+      "tag": "paper-v2-manuscript-20260801",
+      "tagObject": "c38594d8b9539455f64ed36bc618ec1e51bfc823",
+      "sourceArchive": "paper-manuscript-20260801-source.zip"
+    },
+    "oldPaperTagDeletedLocally": true,
+    "oldPaperTagDeletedRemotely": true,
+    "systemAndBenchmarkTagsUnchanged": true,
+    "actualSubmittedPdfVerified": false
+  },
+  "historicalArtifacts": [
+    {
+      "path": "paper.bundle",
+      "commit": "cac536383bbfb0a9ca12a1b2bb4198ed91caa489",
+      "status": "superseded; do not restore or push its old tag as the current manuscript baseline"
+    },
+    {
+      "path": "structureclaw.pdf",
+      "status": "historical, not the rebuilt corrected manuscript PDF"
+    },
+    {
+      "pattern": "*-before-manuscript-correction.*",
+      "status": "superseded audit records; current BASELINE.json takes precedence"
+    }
   ]
 }
