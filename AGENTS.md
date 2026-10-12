@@ -270,3 +270,12 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+
+## Frozen Paper v2 Baseline / 论文 v2 冻结基线
+
+- On 2026-10-12 the user explicitly selected the version **after OpenClaw was added**, excluding the October Bench viewer changes, as the preserved paper v2 baseline.
+- Shared annotated tag in the system, benchmark, and paper repositories: `paper-v2-openclaw-20260729`. Never move, replace, or delete this tag during later development.
+- System: `3c36a37241fa9afc9d89329d0d0acd3278fc2e88`; benchmark: `4259fdd92a83f5d93976bc510ef82a0d2d7b9b57`; paper: `cac536383bbfb0a9ca12a1b2bb4198ed91caa489`.
+- The original formal experiment manifest separately records system `6f8b1d0a751e3fe0d0782465140509eca4e0891a` and benchmark `ff55c23a56a0e8ea6087686fe73aefdc9f50b45c`. Do not describe the later OpenClaw baseline as the exact code revision of all original experiments.
+- Tracked provenance: `docs/reproducibility/paper-v2-baseline.json`. Local offline bundles and submitted-data archive: `G:/StructureClaw-All/paper-baselines/paper-v2-openclaw-20260729/`. Tags and bundles do not capture arbitrary ignored files or live API credentials.
+- 后续提到“论文 v2 基线”时，使用上述加入 OpenClaw 后的固定版本；原始实验冻结版本只作为独立溯源记录。新实验另设版本，不覆盖旧标签、归档和结果。

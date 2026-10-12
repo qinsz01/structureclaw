@@ -1,0 +1,147 @@
+{
+  "schemaVersion": "structureclaw-paper-baseline/v1",
+  "baselineId": "paper-v2-openclaw-20260729",
+  "frozenOn": "2026-10-12",
+  "timezone": "Asia/Shanghai",
+  "userDecision": "Preserve paper v2 after OpenClaw integration; exclude October 2026 Bench viewer additions.",
+  "archiveDirectory": "G:\\StructureClaw-All\\paper-baselines\\paper-v2-openclaw-20260729",
+  "repositories": [
+    {
+      "role": "system",
+      "path": "G:/StructureClaw-All/structureclaw",
+      "commit": "3c36a37241fa9afc9d89329d0d0acd3278fc2e88",
+      "bundle": "structureclaw.bundle",
+      "tag": "paper-v2-openclaw-20260729",
+      "tagObject": "a904269e8df5913f4b651dbddec20293f4749c96"
+    },
+    {
+      "role": "benchmark",
+      "path": "G:/StructureClaw-All/structureclaw/tests/llm-benchmark",
+      "commit": "4259fdd92a83f5d93976bc510ef82a0d2d7b9b57",
+      "bundle": "benchmark.bundle",
+      "tag": "paper-v2-openclaw-20260729",
+      "tagObject": "9aa0ffa7f51e9ccc7704ef4ab3ab7bc782c9a834"
+    },
+    {
+      "role": "paper",
+      "path": "G:/StructureClaw-All/structureclaw_paper/StructureClaw-paper",
+      "commit": "cac536383bbfb0a9ca12a1b2bb4198ed91caa489",
+      "bundle": "paper.bundle",
+      "tag": "paper-v2-openclaw-20260729",
+      "tagObject": "6f9a861b4424569d60feb3e25ee8410d754c1318"
+    }
+  ],
+  "originalExperimentalProvenance": {
+    "source": "G:/StructureClaw-All/structureclaw/tests/llm-benchmark/results/formal/aaai27-r123-final-20260727/manifest.json",
+    "frozen": {
+      "main": "6f8b1d0a751e3fe0d0782465140509eca4e0891a",
+      "bench": "ff55c23a56a0e8ea6087686fe73aefdc9f50b45c",
+      "evaluation": "9e67381b7f82d91ce5d6ca125b1015a3c766861f5dc424f2b60a0e6186fb12ef",
+      "matrix": "239e235f39b4f5e6f7c4702262dc84a1407d9f01d27ba3945911a70b81eaa5a4",
+      "prompt": "2b16c9c1999e84ff8adb6279d4d8923449841a5350b9603b52957f879cb511f8"
+    },
+    "counts": {
+      "batches": 108,
+      "uniqueRuns": 108,
+      "atomicRuns": 5400,
+      "uniqueAtomicRuns": 5400,
+      "caseFiles": 5400,
+      "matchedCaseFiles": 5400,
+      "scenarioSetGroups": 4,
+      "issues": 0
+    },
+    "recordedSystemGitlink": "37424d3e92804320bd88183526109c08688a84b0",
+    "warning": "Original formal experiment revisions differ from the selected post-OpenClaw baseline. Explicitly check out the recorded benchmark revision to reconstruct the experimental pair."
+  },
+  "publication": {
+    "source": "G:/StructureClaw-All/Code_and_Data_Supplement_AAAI27.zip",
+    "counts": {
+      "repeats": 3,
+      "conditionsPerRepeat": 33,
+      "batches": 99,
+      "atomicRuns": 4950,
+      "uniqueAtomicRuns": 4950,
+      "scenarioSetGroups": 4,
+      "externalOpenClaw": {
+        "repeats": 3,
+        "conditionsPerRepeat": 4,
+        "batches": 12,
+        "atomicRuns": 600,
+        "evidencePhase": "development",
+        "paperEligible": false
+      },
+      "issues": 0
+    },
+    "protocolFingerprints": {
+      "evaluation": "9e67381b7f82d91ce5d6ca125b1015a3c766861f5dc424f2b60a0e6186fb12ef",
+      "matrix": "7348a4a193ba1f46c17b573f13e71e7355088a50dfe24398c71b873d84e4c62b",
+      "prompt": "2b16c9c1999e84ff8adb6279d4d8923449841a5350b9603b52957f879cb511f8"
+    },
+    "warning": "The 5400-outcome raw formal bundle is not the 4950-outcome publication selection. OpenClaw retains its original development / paperEligible=false metadata. The ZIP contains as-packaged sources and data, which are preserved separately from Git revisions."
+  },
+  "preservation": {
+    "localAnnotatedTags": true,
+    "remotePushPerformed": false,
+    "bundlesVerified": true,
+    "systemBenchmarkGitlinkVerified": true,
+    "archiveCopyHashVerified": true,
+    "workingTreesReset": false,
+    "apiCallsMade": false,
+    "credentialsIncludedInRecord": false,
+    "pdf": "Copied local artifact; not recompiled or authenticated against an external submission."
+  },
+  "files": [
+    {
+      "path": "Code_and_Data_Supplement_AAAI27.zip",
+      "bytes": 5922212,
+      "sha256": "195f016a4dd1ac2cd4875f9a78af383b6d6ad3abc1a1288a047e4ca6b7b99237"
+    },
+    {
+      "path": "RESTORE.txt",
+      "bytes": 2754,
+      "sha256": "8cfb63889a1fa4e3a09e3e05ada29cf3da192814beb9a75938b46298b254c7a8"
+    },
+    {
+      "path": "benchmark.bundle",
+      "bytes": 2598982,
+      "sha256": "ffa948fd3caa7f6cd78f49b29f3ab0ce96e12cf857a25acd342b1fac89982901"
+    },
+    {
+      "path": "original-experiments-manifest.json",
+      "bytes": 1652,
+      "sha256": "4e450530491a446c0b0e9fad46a94b4b82ee77c74ef2c9c12d40c713f3865b35"
+    },
+    {
+      "path": "paper.bundle",
+      "bytes": 16156812,
+      "sha256": "24218bbe1b324f8f90853ad56250ed09cfa01540e19ce955dcdbd4462b9bc831"
+    },
+    {
+      "path": "structureclaw.bundle",
+      "bytes": 5873985,
+      "sha256": "72e40a1925b3f2e2f956c0858b1591486f5d5507cd4619cc74a141898c179938"
+    },
+    {
+      "path": "structureclaw.pdf",
+      "bytes": 798510,
+      "sha256": "9bc833579db98bef5ce96f99e0427ba258d5ba431aa878858cace6e9c3031299"
+    },
+    {
+      "path": "submission-manifest.json",
+      "bytes": 1102,
+      "sha256": "52375d5c650969e27bfc9ecbe0ec791134a4283dff4cee45f459781c711961de"
+    },
+    {
+      "path": "submission-results-manifest.json",
+      "bytes": 1269,
+      "sha256": "eebb66b7899fbf5fa7e6f7402ad0f8c3116700665fc0433f7541e261212a966b"
+    }
+  ],
+  "futureWorkRules": [
+    "Do not move, overwrite or delete these baseline tags.",
+    "Keep future experiments/results separate from this baseline.",
+    "Do not infer an experiment revision from the current checkout or the later integration tag.",
+    "Git bundles are per-repository; restore the benchmark separately inside tests/llm-benchmark.",
+    "Archived API model names do not guarantee that a remote service still serves the same model."
+  ]
+}
