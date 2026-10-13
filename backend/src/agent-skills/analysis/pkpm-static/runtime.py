@@ -35,6 +35,11 @@ from pkpm_diagnostics import (
 
 logger = logging.getLogger(__name__)
 
+_UNAVAILABLE_OUTPUTS = [
+    "nodal-rotations", "nodal-reactions", "physical-member-station-positions",
+    "verified-local-axis-and-endpoint-conventions",
+]
+
 # Thread lock to serialize DirectorySet.conf write + execution within this process.
 # For multi-process deployments, use an external lock mechanism (e.g., file lock).
 _jws_cycle_lock = Lock()
@@ -638,7 +643,8 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     """
     parameters = parameters or {}
     if parameters.get("loadCombinationId"):
-        raise AnalysisCapabilityError(engine="pkpm", capability="user-load-combination", reason="PKPM user combination mapping has not passed native acceptance")
+        from native_results import require_verified_linear_context
+        require_verified_linear_context({"engine": "pkpm", "effectiveSettingsVerified": False, "stationConventionsVerified": False})
     requested_cases = parameters.get("loadCaseIds") or []
     if not isinstance(requested_cases, list) or len(requested_cases) > 1:
         raise AnalysisCapabilityError(engine="pkpm", capability="single-selected-load-case", reason="Select one loadCaseIds entry per native run")
@@ -993,6 +999,8 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
 
         case_results[case_name] = {
             "status": "success",
+            "capabilityStatus": "partial",
+            "missingCapabilities": list(_UNAVAILABLE_OUTPUTS),
             "displacements": case_disps,
             "forces": case_forces_out,
             "reactions": {},
@@ -1085,6 +1093,8 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     # Build result dict
     result_dict: Dict[str, Any] = {
         "status": "success",
+        "capabilityStatus": "partial",
+        "missingCapabilities": list(_UNAVAILABLE_OUTPUTS),
         "analysisMode": "pkpm-satwe",
         "displacements": displacements,
         "forces": forces,
@@ -1096,6 +1106,7 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
             "nodeCount": len(displacements),
             "elementCount": len(forces),
             "reactionResultAvailable": False,
+            "rotationResultAvailable": False,
             "engine": "pkpm-static",
             "requestedLoadCaseIds": requested_cases,
             "nativeDefaultsUsed": not bool(model_dict.get("analysis_control")),

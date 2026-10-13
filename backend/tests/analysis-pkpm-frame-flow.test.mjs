@@ -629,6 +629,7 @@ function buildNativeGradeRcCompilerFixture() {
   model.materials = [{ id: '1', name: 'C30', grade: 'C30', category: 'concrete' }];
   model.sections = model.sections.map(({ id, name, type, purpose, shape }) => ({ id, name, type, purpose, shape }));
   model.elements = model.elements.map(({ rebar_grade: _rebarGrade, ...element }) => element);
+  model.stories = model.stories.map((story) => ({ ...story, load_area_m2: 72 }));
   return model;
 }
 
@@ -1185,6 +1186,12 @@ describe('PKPM frame analysis flow', () => {
     expect(payload.result.caseResults.DL.forces.C1.N).toBe(-100);
     expect(payload.result.envelope.maxAbsReaction).toBeUndefined();
     expect(payload.result.summary.reactionResultAvailable).toBe(false);
+    expect(payload.result.summary.rotationResultAvailable).toBe(false);
+    expect(payload.result.capabilityStatus).toBe('partial');
+    expect(payload.result.caseResults.DL.missingCapabilities).toEqual(expect.arrayContaining([
+      'nodal-rotations', 'nodal-reactions', 'physical-member-station-positions',
+    ]));
+    expect(payload.result.displacements.N5.rx).toBeUndefined();
     expect(payload.result.warnings.join('\n')).toContain('节点反力');
   });
 

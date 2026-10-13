@@ -452,81 +452,8 @@ def _normalize_generic_frame_for_pkpm(data: dict) -> tuple[dict, dict[str, Any]]
 
 
 def _validate_story_derived_loads(data: dict) -> None:
-    """Allow only exact nodal duplicates of the declared story floor loads.
-
-    PKPM consumes ``stories.dead_load/live_load`` directly.  StructureClaw's
-    concrete-frame builder also emits equivalent global-Z nodal loads for
-    OpenSees.  They may be omitted at this adapter only when their totals and
-    targets exactly agree with the story fields.
-    """
-    load_cases = data.get("load_cases", [])
-    explicit_loads = [
-        load
-        for load_case in load_cases
-        if isinstance(load_case, dict)
-        for load in load_case.get("loads", [])
-        if isinstance(load, dict)
-    ]
-    if not explicit_loads:
-        return
-
-    nodes = {str(node.get("id")): node for node in data.get("nodes", []) if isinstance(node, dict)}
-    stories = {
-        str(story.get("id")): story
-        for story in data.get("stories", [])
-        if isinstance(story, dict)
-    }
-    x_values = [_safe_coord(node, "x") for node in nodes.values()]
-    y_values = [_safe_coord(node, "y") for node in nodes.values()]
-    plan_area = (max(x_values) - min(x_values)) * (max(y_values) - min(y_values))
-    if not math.isfinite(plan_area) or plan_area <= 0:
-        raise ValueError("PKPM story floor loads require a positive global X-Y plan area")
-
-    totals: dict[tuple[str, str], float] = {}
-    for load in explicit_loads:
-        story_id = str(load.get("story", ""))
-        load_kind = str(load.get("load_kind", ""))
-        node_id = str(load.get("node", ""))
-        story = stories.get(story_id)
-        node = nodes.get(node_id)
-        if (
-            load.get("source") != "story_floor_loads"
-            or load.get("type") != "nodal"
-            or load.get("reference_frame", "global") != "global"
-            or load_kind not in {"dead", "live"}
-            or story is None
-            or node is None
-        ):
-            raise ValueError(
-                "The PKPM adapter maps story floor loads only; other nodal/member loads are unsupported"
-            )
-        inactive_components = ("fx", "fy", "mx", "my", "mz", "wx", "wy", "wz")
-        if any(abs(_finite_number(load.get(key, 0.0), f"Load '{node_id}' {key}")) > 1e-9 for key in inactive_components):
-            raise ValueError("PKPM story-derived loads must act only in negative global Z")
-        fz = _finite_number(load.get("fz"), f"Load '{node_id}' fz")
-        if fz > 1e-9:
-            raise ValueError("PKPM story-derived gravity loads must act in negative global Z")
-        story_top = _finite_number(story.get("elevation"), f"Story '{story_id}' elevation") + _finite_number(
-            story.get("height"), f"Story '{story_id}' height"
-        )
-        if abs(_safe_coord(node, "z") - story_top) > 1e-6:
-            raise ValueError(f"Story-derived load on node '{node_id}' targets the wrong global Z level")
-        key = (story_id, load_kind)
-        totals[key] = totals.get(key, 0.0) - fz
-
-    for story_id, story in stories.items():
-        dead_load, live_load = _story_dead_live_pair(story)
-        for load_kind, field, declared in (
-            ("dead", "dead_load", dead_load),
-            ("live", "live_load", live_load),
-        ):
-            expected_total = declared * plan_area
-            actual_total = totals.get((story_id, load_kind), 0.0)
-            tolerance = max(1e-6, abs(expected_total) * 1e-9)
-            if abs(actual_total - expected_total) > tolerance:
-                raise ValueError(
-                    f"Story '{story_id}' {load_kind} nodal-load total conflicts with {field}"
-                )
+    from native_model_contract import validate_story_load_totals
+    validate_story_load_totals(data, "PKPM")
 
 
 def _register_section(
@@ -737,14 +664,6 @@ def _configure_satwe_params(
         intensity = _as_float(site_seismic.get("intensity"))
         site_category = _site_category_code(site_seismic.get("site_category"))
         design_group = _design_group_code(site_seismic.get("design_group"))
-        if design_group is None:
-            characteristic_period = _as_float(site_seismic.get("characteristic_period"))
-            if site_category == 3.0 and characteristic_period is not None and characteristic_period >= 0.64:
-                design_group = 3.0
-            elif site_category == 2.0 and characteristic_period is not None and characteristic_period >= 0.44:
-                design_group = 3.0
-            elif characteristic_period is not None and characteristic_period >= 0.54:
-                design_group = 2.0
         if intensity is not None:
             design_param_updates[25] = intensity
         if site_category is not None:

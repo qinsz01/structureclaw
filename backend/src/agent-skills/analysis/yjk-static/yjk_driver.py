@@ -195,7 +195,7 @@ def _setup_paths() -> str:
 
     # Python import paths: YJKS_ROOT itself (for native wrappers) and
     # the driver's own directory (for yjk_converter).
-    for p in (root, SCRIPT_DIR):
+    for p in (root, os.path.join(os.path.dirname(SCRIPT_DIR), "runtime"), SCRIPT_DIR):
         if p and p not in sys.path:
             sys.path.insert(0, p)
 

@@ -576,7 +576,8 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     """
     parameters = parameters or {}
     if parameters.get("loadCombinationId"):
-        raise AnalysisCapabilityError(engine="yjk", capability="user-load-combination", reason="YJK user combination mapping has not passed native acceptance")
+        from native_results import require_verified_linear_context
+        require_verified_linear_context({"engine": "yjk", "effectiveSettingsVerified": False, "stationConventionsVerified": False})
     requested_cases = parameters.get("loadCaseIds") or []
     if not isinstance(requested_cases, list) or len(requested_cases) > 1:
         raise AnalysisCapabilityError(engine="yjk", capability="single-selected-load-case", reason="Select one loadCaseIds entry per native run")

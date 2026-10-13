@@ -239,7 +239,7 @@ describe('analysis YJK engine registry', () => {
       'for x in xs:',
       '    elements.append({"id": f"BY_{x}", "type": "beam", "nodes": [f"N_{x}_0.0_3.6", f"N_{x}_5.0_3.6"], "material": "MB", "section": "SB", "story": "F1"})',
       'loads = [{"type": "nodal", "node": f"N_{x}_{y}_3.6", "fz": -90.0, "story": "F1", "source": "story_floor_loads", "load_kind": "dead", "reference_frame": "global"} for x in xs for y in ys]',
-      'model = {"nodes": nodes, "elements": elements, "materials": [{"id": "MC", "category": "concrete"}, {"id": "MB", "category": "concrete"}], "sections": [{"id": "SC"}, {"id": "SB"}], "stories": [{"id": "F1", "elevation": 0.0, "height": 3.6, "floor_loads": [{"type": "dead", "value": 12.0}], "dead_load": 12.0}], "load_cases": [{"id": "D", "loads": loads}]}',
+      'model = {"nodes": nodes, "elements": elements, "materials": [{"id": "MC", "category": "concrete"}, {"id": "MB", "category": "concrete"}], "sections": [{"id": "SC"}, {"id": "SB"}], "stories": [{"id": "F1", "elevation": 0.0, "height": 3.6, "load_area_m2": 30.0, "floor_loads": [{"type": "dead", "value": 12.0}], "dead_load": 12.0}], "load_cases": [{"id": "D", "loads": loads}]}',
       'runtime._validate_yjk_grid_conversion_scope(model)',
       'def rejected(candidate):',
       '    try:',

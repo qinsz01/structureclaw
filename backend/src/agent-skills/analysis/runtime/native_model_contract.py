@@ -12,6 +12,79 @@ from typing import Any
 from contracts import AnalysisCapabilityError
 
 
+def validate_story_load_totals(data: dict[str, Any], engine: str) -> None:
+    """Check explicitly declared area loads; a bounding box is never a floor.
+
+    This validates duplicate-load bookkeeping only. Native transfer to members
+    is a separate capability and must still pass the solver acceptance gate.
+    """
+    loads = [load for case in data.get("load_cases", []) for load in case.get("loads", [])]
+    if not loads:
+        return
+    nodes = {str(node["id"]): node for node in data.get("nodes", [])}
+    stories = {str(story["id"]): story for story in data.get("stories", [])}
+
+    def number(value: Any, field: str) -> float:
+        if isinstance(value, bool):
+            raise ValueError(f"{field} must be a finite number / 必须提供有限数值")
+        try:
+            result = float(value)
+        except (TypeError, ValueError) as error:
+            raise ValueError(f"{field} must be a finite number / 必须提供有限数值") from error
+        if not math.isfinite(result):
+            raise ValueError(f"{field} must be finite / 必须提供有限数值")
+        return result
+
+    totals: dict[tuple[str, str], float] = {}
+    for load in loads:
+        story_id, node_id = str(load.get("story", "")), str(load.get("node", ""))
+        kind = str(load.get("load_kind", ""))
+        if (load.get("source") != "story_floor_loads" or load.get("type") != "nodal"
+                or load.get("reference_frame", "global") != "global" or kind not in {"dead", "live"}
+                or story_id not in stories or node_id not in nodes):
+            raise ValueError(f"{engine} maps story floor loads only; other nodal/member loads are unsupported / 尚未验收其他节点或构件荷载")
+        if any(abs(number(load.get(key, 0), key)) > 1e-9 for key in ("fx", "fy", "mx", "my", "mz", "wx", "wy", "wz")):
+            raise ValueError(f"{engine} story-derived loads must act only in negative global Z / 楼面等效荷载仅允许负 Z 方向")
+        force = number(load.get("fz"), f"load on {node_id}.fz")
+        if force > 1e-9:
+            raise ValueError(f"{engine} story-derived gravity loads must act in negative global Z / 重力荷载方向错误")
+        story = stories[story_id]
+        top = number(story.get("elevation"), f"stories.{story_id}.elevation") + number(story.get("height"), f"stories.{story_id}.height")
+        if abs(number(nodes[node_id].get("z"), f"nodes.{node_id}.z") - top) > 1e-6:
+            raise ValueError(f"Story-derived load on node '{node_id}' targets the wrong global Z level / 荷载所属层错误")
+        key = (story_id, kind)
+        totals[key] = totals.get(key, 0.0) - force
+
+    for story_id, story in stories.items():
+        declared: dict[str, float] = {}
+        for load in story.get("floor_loads", []):
+            kind = load.get("type")
+            if kind not in {"dead", "live"}:
+                if number(load.get("value", 0), "floor load") != 0:
+                    raise ValueError(f"Unsupported floor load type '{kind}' / 不支持的楼面荷载类型")
+                continue
+            if kind in declared:
+                raise ValueError(f"Duplicate {kind} floor load on '{story_id}' / 楼面荷载重复")
+            declared[kind] = number(load.get("value"), f"stories.{story_id}.floor_loads.{kind}")
+        for kind in ("dead", "live"):
+            if story.get(f"{kind}_load") is not None:
+                value = number(story[f"{kind}_load"], f"stories.{story_id}.{kind}_load")
+                if kind in declared and not math.isclose(value, declared[kind], rel_tol=1e-12, abs_tol=1e-12):
+                    raise ValueError(f"Conflicting {kind} floor load on '{story_id}' / 楼面荷载来源冲突")
+                declared[kind] = value
+        if not any(declared.values()) and not any(totals.get((story_id, kind), 0) for kind in ("dead", "live")):
+            continue
+        if story.get("load_area_m2") is None:
+            raise ValueError(f"stories.{story_id}.load_area_m2 is required; floor area cannot be inferred from a bounding box / 必须声明本层实际受荷面积，不能使用包围矩形猜测")
+        area = number(story["load_area_m2"], f"stories.{story_id}.load_area_m2")
+        if area <= 0:
+            raise ValueError(f"stories.{story_id}.load_area_m2 must be positive / 本层受荷面积必须大于零")
+        for kind in ("dead", "live"):
+            expected, actual = declared.get(kind, 0) * area, totals.get((story_id, kind), 0)
+            if not math.isclose(actual, expected, rel_tol=1e-9, abs_tol=1e-6):
+                raise ValueError(f"Story '{story_id}' {kind} nodal-load total conflicts with {kind}_load and declared area / 等效荷载总量与本层荷载及受荷面积不一致")
+
+
 def reject_native_input(engine: str, code: str, capability: str, fields: list[str], reason: str) -> None:
     error = AnalysisCapabilityError(engine=engine, capability=capability, reason=reason)
     error.error_code = code

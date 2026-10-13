@@ -9,7 +9,7 @@ from unittest.mock import patch
 RUNTIME = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RUNTIME))
 from contracts import AnalysisCapabilityError
-from native_model_contract import pkpm_section_shape, validate_pkpm_material_properties, validate_pkpm_sections
+from native_model_contract import pkpm_section_shape, validate_pkpm_material_properties, validate_pkpm_sections, validate_story_load_totals
 
 
 def load_runtime(engine):
@@ -22,6 +22,35 @@ def load_runtime(engine):
 
 
 class NativeModelContractTest(unittest.TestCase):
+    def test_story_area_uses_each_declared_floor_not_global_bounding_box(self):
+        model = {
+            "nodes": [{"id": "L", "x": 8, "y": 8, "z": 3}, {"id": "S", "x": 4, "y": 4, "z": 6}],
+            "stories": [
+                {"id": "L", "height": 3, "elevation": 0, "dead_load": 2, "load_area_m2": 48},
+                {"id": "S", "height": 3, "elevation": 3, "dead_load": 2, "load_area_m2": 16},
+            ],
+            "load_cases": [{"id": "D", "loads": [
+                {"type": "nodal", "node": "L", "story": "L", "source": "story_floor_loads", "load_kind": "dead", "fz": -96},
+                {"type": "nodal", "node": "S", "story": "S", "source": "story_floor_loads", "load_kind": "dead", "fz": -32},
+            ]}],
+        }
+        for engine in ("PKPM", "YJK"):
+            validate_story_load_totals(model, engine)
+            model["stories"][1]["load_area_m2"] = 64
+            with self.assertRaisesRegex(ValueError, "nodal-load total conflicts"):
+                validate_story_load_totals(model, engine)
+            model["stories"][1]["load_area_m2"] = 16
+        del model["stories"][1]["load_area_m2"]
+        with self.assertRaisesRegex(ValueError, "load_area_m2 is required"):
+            validate_story_load_totals(model, "PKPM")
+
+    def test_floor_load_aliases_conflict_instead_of_overwriting(self):
+        model = {"nodes": [{"id": "N", "z": 3}], "stories": [{"id": "F", "elevation": 0, "height": 3,
+            "load_area_m2": 4, "dead_load": 2, "floor_loads": [{"type": "dead", "value": 3}]}],
+            "load_cases": [{"loads": [{"type": "nodal", "node": "N", "story": "F", "source": "story_floor_loads", "load_kind": "dead", "fz": -8}]}]}
+        with self.assertRaisesRegex(ValueError, "Conflicting dead floor load"):
+            validate_story_load_totals(model, "YJK")
+
     def model(self):
         return {"elements": [{"id": "B1", "material": "C", "section": "S"}],
                 "materials": [{"id": "C", "name": "C30", "grade": "C30"}],

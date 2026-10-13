@@ -243,7 +243,7 @@ describe('YJK RC frame converter', () => {
           encoding: 'utf8',
           env: {
             ...process.env,
-            PYTHONPATH: [stubsDir, converterDir, process.env.PYTHONPATH]
+            PYTHONPATH: [stubsDir, converterDir, path.resolve(converterDir, '..', 'runtime'), process.env.PYTHONPATH]
               .filter(Boolean)
               .join(path.delimiter),
           },
