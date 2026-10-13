@@ -32,7 +32,7 @@ def _native_precision(values: list[float], label: str) -> None:
         raise ValueError(f"{label}: load values exceed native 0.001 precision / 荷载值或位置超出原生三位小数精度")
 
 
-def compile_load_definitions(model: dict) -> list[dict]:
+def compile_load_definitions(model: dict, *, native_precision: bool = True) -> list[dict]:
     """Pure compilation, before touching the SDK; never drop a load component."""
     nodes = {str(node["id"]): node for node in model.get("nodes", [])}
     members = {str(member["id"]): member for member in model.get("elements", [])}
@@ -62,7 +62,8 @@ def compile_load_definitions(model: dict) -> list[dict]:
                 values = [_number(load.get(key, 0), f"{label}.{key}")
                           for key in ("fz", "mx", "my", "fx", "fy", "mz")]
                 values[0] = -values[0]  # SDK first component is downward gravity.
-                _native_precision(values, label)
+                if native_precision:
+                    _native_precision(values, label)
                 if any(_number(load.get(key, 0), f"{label}.{key}") != 0 for key in ("wx", "wy", "wz")):
                     raise ValueError(f"{label}: nodal loads cannot contain line intensities / 节点荷载不能混入线荷载")
                 entry = {"targetKind": "node", "targetId": node_id, "elementKind": -1,
@@ -99,7 +100,8 @@ def compile_load_definitions(model: dict) -> list[dict]:
                     # in metres. Native preprocessing preserves reversed grids.
                     parameters = ([1, value, 0, 0, 0, 0, 0] if a == 0 and b == length
                                   else [11, value, value, a, b-a, 0, 0])
-                _native_precision(parameters, label)
+                if native_precision:
+                    _native_precision(parameters, label)
                 projection_factor = 1.
                 if load['type'] == 'distributed' and float(start['z']) != float(end['z']):
                     # Native type 1 is global-vertical per plan length. Type 81

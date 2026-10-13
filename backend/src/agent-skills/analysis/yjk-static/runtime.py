@@ -464,7 +464,9 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
         model_dict = {**copy.deepcopy(model_dict), 'materials': [normalize_material(row) for row in model_dict['materials']]}
         requested_cases, combination = _result_selection(model_dict, parameters)
         compile_stiffness_plan(model_dict)
-        _validate_yjk_grid_conversion_scope(model_dict)
+        # Physical distances along a slope need not be decimal millimetres.
+        # Audit native serialization after these loads become mesh-node loads.
+        _validate_yjk_grid_conversion_scope(model_dict, native_load_precision=False)
         from member_mesh import compile_member_mesh
         source_model = model_dict
         model_dict, mesh_receipt = compile_member_mesh(source_model)

@@ -71,3 +71,10 @@ def test_roof_breakpoints_keep_validated_natural_floor_with_mixed_explicit_assig
     generated = [node for node in compiled['nodes'] if node['id'] not in {'a', 'b'}]
     assert generated[0]['z'] == 6.5
     assert generated[0]['story'] == 'S2'
+    from yjk_native_loads import compile_load_definitions
+    compile_load_definitions(source, native_precision=False)
+    # The irrational physical distance is gone from the native load vector;
+    # the actual (millimetre-exact) mesh node holds the unchanged point force.
+    definitions = compile_load_definitions(compiled)
+    assert definitions[0]['loads'][0]['targetKind'] == 'node'
+    assert definitions[0]['loads'][0]['components'][0] == 5

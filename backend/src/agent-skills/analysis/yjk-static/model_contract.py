@@ -7,14 +7,14 @@ def validate_execution_settings(data: dict) -> None:
     from yjk_native_settings import compile_settings
     compile_settings(data)
 
-def _validate_story_derived_loads(data: dict) -> None:
+def _validate_story_derived_loads(data: dict, *, native_load_precision: bool = True) -> None:
     from native_model_contract import validate_story_load_totals
     validate_story_load_totals(data, "YJK")
     from yjk_native_loads import compile_load_definitions
-    compile_load_definitions(data)
+    compile_load_definitions(data, native_precision=native_load_precision)
 
 
-def validate_building_model(model_dict: dict) -> None:
+def validate_building_model(model_dict: dict, *, native_load_precision: bool = True) -> None:
     """Validate the physical subset supported by per-floor native compilation."""
     validate_execution_settings(model_dict)
     nodes = [node for node in model_dict.get("nodes", []) if isinstance(node, dict)]
@@ -22,7 +22,7 @@ def validate_building_model(model_dict: dict) -> None:
     if not nodes or not elements:
         raise ValueError("YJK conversion requires non-empty nodes and elements")
 
-    _validate_story_derived_loads(model_dict)
+    _validate_story_derived_loads(model_dict, native_load_precision=native_load_precision)
 
     def coordinate(node: dict) -> tuple[int, int, int]:
         node_id = str(node.get("id"))
