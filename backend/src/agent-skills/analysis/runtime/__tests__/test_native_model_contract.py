@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import copy
 import sys
 import unittest
 from pathlib import Path
@@ -62,15 +63,25 @@ class NativeModelContractTest(unittest.TestCase):
         self.assertEqual(caught.exception.error_code, code)
         self.assertIn(field, caught.exception.detail["inputFields"])
 
-    def test_native_grade_compiler_is_not_numeric_material_calibration(self):
+    def test_isotropic_materials_reach_native_audit_without_losing_authored_values(self):
         validate_pkpm_material_properties(self.model())
-        # Even nominal C30 constants require independent native acceptance.
-        for name, value in {"E": 30000, "nu": 0.2, "rho": 2500, "G": 12500, "fy": 300}.items():
-            with self.subTest(field=name):
-                model = self.model()
-                model["materials"][0][name] = value
-                self.assert_rejected(lambda: validate_pkpm_material_properties(model),
-                                     "PKPM_NATIVE_MATERIAL_PROPERTIES_UNVERIFIED", f"materials.C.{name}")
+        model = self.model()
+        model["materials"][0].update(E=30000, nu=.2, G=12500, rho=2500)
+        before = copy.deepcopy(model)
+        validate_pkpm_material_properties(model)
+        self.assertEqual(model, before)
+        # Input admissibility does not certify the values actually executed.
+        for change, field in (({"G": 12000}, "G"), ({"nu": .5}, "isotropicConstants"),
+                              ({"rho": None}, "isotropicConstants"), ({"fy": 300}, "fy")):
+            with self.subTest(change=change):
+                candidate = copy.deepcopy(model)
+                candidate["materials"][0].update(change)
+                self.assert_rejected(lambda: validate_pkpm_material_properties(candidate),
+                                     "PKPM_NATIVE_MATERIAL_PROPERTIES_UNVERIFIED", f"materials.C.{field}")
+        incomplete = self.model()
+        incomplete["materials"][0]["G"] = 12500
+        self.assert_rejected(lambda: validate_pkpm_material_properties(incomplete),
+                             "PKPM_NATIVE_MATERIAL_PROPERTIES_UNVERIFIED", "materials.C.E")
 
     def test_nested_material_and_reinforcement_overrides_cannot_disappear(self):
         model = self.model()
@@ -82,13 +93,15 @@ class NativeModelContractTest(unittest.TestCase):
         self.assert_rejected(lambda: validate_pkpm_material_properties(model),
                              "PKPM_NATIVE_MATERIAL_PROPERTIES_UNVERIFIED", "elements.B1.rebar_grade")
 
-    def test_section_property_overrides_are_not_discarded_even_when_nominal(self):
-        for key, value in {"A": .18, "Iy": .0054, "Iz": .00135, "J": .003}.items():
-            with self.subTest(field=key):
-                section = self.model()["sections"][0]
-                section["properties"] = {key: value}
-                self.assert_rejected(lambda: pkpm_section_shape(section),
-                                     "PKPM_NATIVE_SECTION_PROPERTIES_UNVERIFIED", f"sections.S.properties.{key}")
+    def test_section_invariants_are_preserved_for_native_readback_audit(self):
+        section = self.model()["sections"][0]
+        section["properties"] = {"A": .18, "Iy": .0054, "Iz": .00135, "J": .003}
+        before = copy.deepcopy(section)
+        self.assertEqual(pkpm_section_shape(section), {"kind": "Rectangle", "B": 300, "H": 600})
+        self.assertEqual(section, before)
+        section["properties"]["Asy"] = .15
+        self.assert_rejected(lambda: pkpm_section_shape(section),
+                             "PKPM_NATIVE_SECTION_PROPERTIES_UNVERIFIED", "sections.S.properties.Asy")
 
     def test_explicit_dimension_contract_never_guesses_by_magnitude(self):
         self.assertEqual(pkpm_section_shape({"id": "S", "type": "rectangular", "width": 10, "height": 20}),
@@ -118,13 +131,13 @@ class NativeModelContractTest(unittest.TestCase):
         self.assert_rejected(lambda: pkpm_section_shape(section),
                              "PKPM_NATIVE_SECTION_INPUT_UNSUPPORTED", "sections.S.width")
 
-    def test_pkpm_formal_physics_rejected_before_environment_or_native_work(self):
+    def test_pkpm_inconsistent_physics_rejected_before_environment_or_native_work(self):
         runtime = load_runtime("pkpm")
         model = self.model()
-        model["materials"][0].update(E=30000, nu=.2, rho=2500)
+        model["materials"][0].update(E=30000, nu=.2, G=12000, rho=2500)
         with patch.object(runtime, "validate_coordinate_contract"), patch.object(runtime, "_check_pkpm_available") as available:
             self.assert_rejected(lambda: runtime.run_analysis(model, {}),
-                                 "PKPM_NATIVE_MATERIAL_PROPERTIES_UNVERIFIED", "materials.C.E")
+                                 "PKPM_NATIVE_MATERIAL_PROPERTIES_UNVERIFIED", "materials.C.G")
         available.assert_not_called()
 
     def test_unmapped_node_springs_and_member_modifiers_are_not_ignored(self):
@@ -137,16 +150,18 @@ class NativeModelContractTest(unittest.TestCase):
         self.assert_rejected(lambda: validate_pkpm_sections(model),
                              "PKPM_NATIVE_MEMBER_NODE_PROPERTIES_UNSUPPORTED", "elements.B1.extra.stiffness_factor")
 
-    def test_yjk_formal_material_grade_rejected_before_environment_or_workdir(self):
+    def test_yjk_explicit_material_conflict_rejected_before_environment_or_workdir(self):
         runtime = load_runtime("yjk")
+        model = self.model()
+        model["materials"][0].update(category="steel", E=30000, nu=.2, G=12500, rho=2500)
         with (patch.object(runtime, "_ensure_v2_model", side_effect=lambda value: value),
               patch.object(runtime, "validate_coordinate_contract"),
               patch.object(runtime, "resolve_model_dimension", return_value="3d"),
               patch.object(runtime, "_validate_yjk_grid_conversion_scope"),
               patch.object(runtime, "_resolve_yjk_python") as available,
               patch.object(runtime, "_resolve_work_dir") as workdir):
-            self.assert_rejected(lambda: runtime.run_analysis(self.model(), {}),
-                                 "YJK_NATIVE_MATERIAL_GRADE_UNVERIFIED", "materials.C.grade")
+            with self.assertRaisesRegex(AnalysisCapabilityError, "category/grade conflict"):
+                runtime.run_analysis(model, {})
         available.assert_not_called()
         workdir.assert_not_called()
 
