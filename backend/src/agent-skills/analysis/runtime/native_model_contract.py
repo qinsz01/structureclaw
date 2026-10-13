@@ -18,7 +18,8 @@ def validate_story_load_totals(data: dict[str, Any], engine: str) -> None:
     This validates duplicate-load bookkeeping only. Native transfer to members
     is a separate capability and must still pass the solver acceptance gate.
     """
-    loads = [load for case in data.get("load_cases", []) for load in case.get("loads", [])]
+    loads = [load for case in data.get("load_cases", []) for load in case.get("loads", [])
+             if load.get("source") == "story_floor_loads"]
     if not loads:
         return
     nodes = {str(node["id"]): node for node in data.get("nodes", [])}
@@ -42,7 +43,7 @@ def validate_story_load_totals(data: dict[str, Any], engine: str) -> None:
         if (load.get("source") != "story_floor_loads" or load.get("type") != "nodal"
                 or load.get("reference_frame", "global") != "global" or kind not in {"dead", "live"}
                 or story_id not in stories or node_id not in nodes):
-            raise ValueError(f"{engine} maps story floor loads only; other nodal/member loads are unsupported / 尚未验收其他节点或构件荷载")
+            raise ValueError(f"{engine} story-derived loads require an existing story/node and dead/live kind / 楼面等效荷载须声明已有楼层、节点与恒活类别")
         if any(abs(number(load.get(key, 0), key)) > 1e-9 for key in ("fx", "fy", "mx", "my", "mz", "wx", "wy", "wz")):
             raise ValueError(f"{engine} story-derived loads must act only in negative global Z / 楼面等效荷载仅允许负 Z 方向")
         force = number(load.get("fz"), f"load on {node_id}.fz")
@@ -148,10 +149,11 @@ def pkpm_section_shape(section: dict[str, Any], schema_version: str = "2.0.0") -
 
     props = section.get("properties") or {}
     legacy_geometry = {"width", "height", "b", "h", "B", "H"}
+    native_checked = {"A", "Iy", "Iz", "J"} if section.get("shape") else set()
     unsupported = [f"{prefix}.properties.{key}" for key, value in props.items()
-                   if value is not None and key not in legacy_geometry]
+                   if value is not None and key not in legacy_geometry | native_checked]
     unsupported += [f"{prefix}.{key}" for key in ("A", "I", "Iy", "Iz", "Iyy", "Izz", "J", "Asy", "Asz")
-                    if section.get(key) is not None]
+                    if section.get(key) is not None and key not in native_checked]
     unsupported += [f"{prefix}.extra.{key}" for key, value in (section.get("extra") or {}).items()
                     if value is not None]
     if unsupported:
@@ -168,14 +170,15 @@ def pkpm_section_shape(section: dict[str, Any], schema_version: str = "2.0.0") -
             reject(fields, "A native standard section cannot also specify unverified geometry overrides")
         return None
 
-    if props:
+    geometry_props = {key: value for key, value in props.items() if key in legacy_geometry}
+    if geometry_props:
         if shape or not str(schema_version).startswith("2.0."):
             reject([f"{prefix}.properties"], "Legacy property dimensions are allowed only for V2.0 without shape; use shape in mm")
         if str(section.get("type", "")).lower() not in {"rectangular", "rectangle", "rect"}:
             reject([f"{prefix}.type"], "Only legacy rectangular property dimensions are supported")
         dimensions = {}
         for canonical, keys in (("B", ("width", "b", "B")), ("H", ("height", "h", "H"))):
-            values = [props[key] for key in keys if props.get(key) is not None]
+            values = [geometry_props[key] for key in keys if geometry_props.get(key) is not None]
             if len(values) != 1:
                 reject([f"{prefix}.properties.{key}" for key in keys], "Specify one unambiguous legacy dimension")
             dimensions[canonical] = float(values[0]) * 1000.0

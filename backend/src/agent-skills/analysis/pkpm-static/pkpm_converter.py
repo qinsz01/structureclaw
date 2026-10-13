@@ -32,20 +32,11 @@ import APIPyInterface
 from coordinate_semantics import resolve_model_dimension, validate_coordinate_contract
 from contracts import AnalysisCapabilityError
 from native_model_contract import pkpm_section_shape, validate_pkpm_material_properties, validate_pkpm_sections
+from native_settings import clear_floor_slab, control_parameters, validate_settings
 
 
 def validate_execution_settings(data: dict) -> None:
-    """Do not silently inherit native defaults for explicit physical controls."""
-    controls = _as_dict(data.get("analysis_control"))
-    unverified = [name for name in ("self_weight", "rigid_floor", "rigid_offsets", "construction_stage", "p_delta")
-                  if controls.get(name) is not None]
-    unverified.extend(f"stories.{story.get('id')}.rigid_diaphragm" for story in data.get("stories", [])
-                      if story.get("rigid_diaphragm") is not None)
-    if unverified:
-        raise AnalysisCapabilityError(
-            engine="pkpm", capability="explicit-native-analysis-settings",
-            reason="PKPM native mapping/readback is not yet verified for: " + ", ".join(unverified),
-        )
+    validate_settings(data)
 
 
 # ---------------------------------------------------------------------------
@@ -499,6 +490,7 @@ def _register_section(
                 raise ValueError(f"Section '{sec['id']}' standard steel section failed: {standard_error}")
         else:
             raise ValueError(f"Section '{sec['id']}' has no usable PKPM section shape.")
+        _verify_section_properties(sec, csec, "column")
         pm_idx = model.AddColumnSection(csec)
     else:
         bsec = APIPyInterface.BeamSection()
@@ -511,9 +503,34 @@ def _register_section(
                 raise ValueError(f"Section '{sec['id']}' standard steel section failed: {standard_error}")
         else:
             raise ValueError(f"Section '{sec['id']}' has no usable PKPM section shape.")
+        _verify_section_properties(sec, bsec, "beam")
         pm_idx = model.AddBeamSection(bsec)
 
     return inferred_role, pm_idx
+
+
+def _verify_section_properties(source: dict, section: Any, role: str) -> dict:
+    """Compare actual native stiffness geometry, including torsion J."""
+    requested = {}
+    for key in ("A", "Iy", "Iz", "J"):
+        values = [mapping[key] for mapping in (source, source.get("properties") or {}) if mapping.get(key) is not None]
+        if not values:
+            continue
+        if any(not math.isfinite(float(value)) or float(value) <= 0 for value in values) or any(value != values[0] for value in values):
+            raise ValueError(f"Section '{source.get('id')}' has conflicting/invalid {key} / 截面属性冲突或无效")
+        requested[key] = float(values[0])
+    if not requested:
+        return {}
+    native = getattr(APIPyInterface.Bardata(), f"GetSectProperty_{role}")(section, APIPyInterface.MaterialData())
+    actual = {key: float(getattr(native, getter)()) for key, getter in
+              (("A", "GetArea"), ("Iy", "GetRjx"), ("Iz", "GetRjy"), ("J", "GetRjz"))}
+    for key, value in requested.items():
+        # Native SDK properties are single precision. This is serialization
+        # precision, not a relaxed structural result acceptance tolerance.
+        if not math.isclose(value, actual[key], rel_tol=5e-7, abs_tol=0):
+            raise AnalysisCapabilityError(engine="pkpm", capability="native-section-properties",
+                reason=f"Section {source.get('id')} {key}: requested {value}, native {actual[key]} / 请求截面属性与原生值不符")
+    return {"requested": requested, "native": actual, "source": f"Bardata.GetSectProperty_{role}"}
 
 
 def _build_section_registry(
@@ -659,6 +676,12 @@ def _configure_satwe_params(
     site_seismic = _as_dict(site_seismic)
     wind = _as_dict(wind)
     analysis_control = _as_dict(analysis_control)
+    native_ints, native_doubles = control_parameters(analysis_control)
+    project_para_updates_int.update(native_ints)
+    project_para_updates_double.update(native_doubles)
+    if native_ints or native_doubles:
+        if not wind: project_para_updates_int[603] = 0
+        if not site_seismic: project_para_updates_int[604] = 0
 
     if site_seismic:
         intensity = _as_float(site_seismic.get("intensity"))
@@ -991,6 +1014,8 @@ def convert_v2_to_jws(
     site_seismic = _as_dict(data.get("site_seismic"))
     structure_system = _as_dict(data.get("structure_system"))
     analysis_control = _as_dict(data.get("analysis_control"))
+    if any(story.get("rigid_diaphragm") is False for story in data.get("stories", [])):
+        analysis_control = {**analysis_control, "rigid_floor": False}
     wind = _as_dict(data.get("wind"))
     try:
         damping_ratio = float(site_seismic.get("damping_ratio", 0.0))
@@ -1021,6 +1046,8 @@ def convert_v2_to_jws(
                 raise RuntimeError("PKPM AddStandFloor did not create an independent standard floor")
         model.SetCurrentStandFloor(standard_floor_index)
         floor = model.GetCurrentStandFloor()
+        if analysis_control.get("rigid_floor") is False:
+            clear_floor_slab(floor)
         top = float(story["elevation"]) + float(story["height"])
         floor_nodes = [node for node in nodes if abs(float(node["z"]) - top) <= 1e-6]
         floor_node_ids, _ = _build_plan_nodes(floor, floor_nodes)
@@ -1097,6 +1124,8 @@ def convert_v2_to_jws(
     for standard_floor_index, (dead_load, live_load) in sorted(standard_floor_loads.items()):
         model.SetCurrentStandFloor(standard_floor_index)
         model.GetCurrentStandFloor().SetDeadLive(dead_load, live_load)
+        if analysis_control.get("rigid_floor") is False:
+            clear_floor_slab(model.GetCurrentStandFloor())
     model.SetCurrentStandFloor(1)
     _configure_satwe_params(model, material_family, site_seismic, wind, analysis_control)
     model.SavePMModel()

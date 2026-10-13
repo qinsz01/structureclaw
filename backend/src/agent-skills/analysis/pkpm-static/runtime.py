@@ -35,6 +35,7 @@ from pkpm_diagnostics import (
     format_pdb_version_mismatch_error,
     format_pdb_version_mismatch_warning,
 )
+from native_settings import verify_effective_settings
 
 logger = logging.getLogger(__name__)
 
@@ -213,6 +214,7 @@ def _run_jws_cycle(cycle_path: Path, work_dir: Path, timeout: int = 600) -> None
     """
     cycle_dir = cycle_path.parent
     conf_path = cycle_dir / "DirectorySet.conf"
+    started_at = time.time()
 
     with _jws_cycle_lock, _cycle_file_lock(cycle_dir / ".structureclaw-cycle.lock", timeout):
         _assert_no_external_cycle(cycle_path)
@@ -267,6 +269,22 @@ def _run_jws_cycle(cycle_path: Path, work_dir: Path, timeout: int = 600) -> None
             f"JWSCYCLE.exe exited with code {proc.returncode}. "
             f"stderr: {stderr_snippet}"
         )
+    _verify_native_completion(work_dir, started_at)
+
+
+def _verify_native_completion(work_dir: Path, started_at: float) -> None:
+    """Launcher exit zero alone also occurs when native stages fail."""
+    required = [work_dir / name for name in ("CommonInfoOut.log", "WMASS.OUT", "WDISP.OUT", "WPJ1.OUT")]
+    databases = list(work_dir.glob("SATWE_*_MODEL0_HOLO.PDB"))
+    if len(databases) != 1:
+        raise RuntimeError("PKPM did not produce one native result database / 原生结果数据库缺失或不唯一")
+    required.extend(databases)
+    for path in required:
+        if not path.is_file() or path.stat().st_size == 0 or path.stat().st_mtime < started_at - 1:
+            raise RuntimeError(f"PKPM native output is missing, empty or stale: {path.name} / 原生输出缺失、为空或过期")
+    log = (work_dir / "CommonInfoOut.log").read_text(encoding="gb18030")
+    if "全部完成" not in log:
+        raise RuntimeError("PKPM native log does not confirm all stages completed / 原生日志未确认全部完成")
 
 
 def _safe_float(val: Any, default: float = 0.0) -> float:
@@ -734,6 +752,8 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
 
     # Verify the settings used; changing the solved project cannot fix a run.
     project_parameter_verification = _verify_project_material_params(jws_path, material_family)
+    native_controls = converter_mappings.get("design_conditions", {}).get("analysis_control", {})
+    effective_settings = verify_effective_settings(work_dir, native_controls)
 
     # ---- Phase 3: Extract results via APIPyInterface ----
     # material_family was already detected in Phase 1 and passed to converter
@@ -1161,6 +1181,7 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
             "designConditions": design_conditions,
             "floorLoadMapping": floor_load_mapping,
             "projectParameterVerification": project_parameter_verification,
+            "effectiveNativeSettings": effective_settings,
             **pkpm_summary,
         },
         "pkpm_detailed": {

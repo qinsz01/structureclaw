@@ -20,6 +20,9 @@ class NativeProcessTest(unittest.TestCase):
         external_cycle = patch.object(runtime, "_assert_no_external_cycle")
         self.external_cycle = external_cycle.start()
         self.addCleanup(external_cycle.stop)
+        completion = patch.object(runtime, "_verify_native_completion")
+        completion.start()
+        self.addCleanup(completion.stop)
 
     def test_existing_native_batch_does_not_change_configuration(self):
         with tempfile.TemporaryDirectory() as directory:

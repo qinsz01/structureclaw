@@ -915,13 +915,12 @@ describe('PKPM frame analysis flow', () => {
     });
   });
 
-  test('rejects explicit physical settings until native write/readback is verified', () => {
+  test('rejects floor pressure loads when explicitly requesting a bare frame', () => {
     const model = buildNativeGradeRcCompilerFixture();
     model.analysis_control = { self_weight: false, rigid_floor: false };
     const payload = runPkpmRuntime(model, { expectFailure: true });
     expect(payload.errorType).toBe('AnalysisCapabilityError');
-    expect(payload.error).toContain('self_weight');
-    expect(payload.error).toContain('rigid_floor');
+    expect(payload.error).toContain('no-slab frame');
     expect(payload.runCalls).toEqual([]);
   });
 

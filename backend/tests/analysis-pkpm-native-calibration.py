@@ -32,7 +32,7 @@ def main() -> int:
                         help="One-story frozen reference or independent two-story diagnostic; neither substitutes for the other")
     parser.add_argument("--native-defaults", action="store_true", help="Diagnostic: retain native settings and record them; does not certify explicit controls")
     parser.add_argument("--omit-setting", type=int, action="append", default=[], help="Diagnostic: omit one explicit native parameter to isolate solver failures")
-    parser.add_argument("--load-pattern", choices=("nodal", "beam-uniform"), default="nodal")
+    parser.add_argument("--load-pattern", choices=("nodal", "beam-uniform", "cantilever-y"), default="nodal")
     parser.add_argument("--load-kn", type=float, default=1.0, help="Signed downward nodal kN or beam kN/m; reference is frozen before execution")
     parser.add_argument("--material", choices=("C30", "Q355"), default="C30")
     parser.add_argument("--bare-frame", action="store_true", help="Native diagnostic: no self-weight, slab or automatic wind/seismic action")
@@ -55,6 +55,16 @@ def main() -> int:
     }
     if args.load_pattern == "beam-uniform":
         reference["method"] = "square frame with four 4m beams under equal vertical UDL q; symmetry gives column P=4q and u=-PL/EA"
+    if args.load_pattern == "cantilever-y":
+        if args.stories != 1 or not args.bare_frame:
+            parser.error("cantilever-y requires --bare-frame and one story")
+        inertia = 0.6**4 / 12
+        nu = 0.3 if args.material == "Q355" else 0.2
+        reference.update(method="four identical cantilevers tied only in global X; equal global Y forces; ties do not deform",
+            scope="independent transverse sign, E*I and rectangular shear-flexibility hypotheses; candidate diagnostic",
+            euler_bernoulli_uy_m=args.load_kn * 3**3 / (3 * modulus * 1000 * inertia),
+            shear_correction_uy_m=args.load_kn * 3 / ((5/6) * modulus * 1000 / (2*(1+nu)) * 0.36),
+            base_moment_kNm=args.load_kn * 3, nu=nu)
     if args.stories == 2:
         reference["method"] = "two stories of four identical columns; equal P on every floor; u1=-2PL/EA and u2=-3PL/EA"
         reference["displacement_by_floor_m"] = {"1": 2 * reference["displacement_m"], "2": 3 * reference["displacement_m"]}
@@ -93,7 +103,8 @@ def main() -> int:
         source_nodes = [{"id": f"N{i}", "x": x, "y": y, "z": 3} for i, (x, y) in enumerate(((0, 0), (4, 0), (4, 4), (0, 4)))]
         targets = {("node", f"N{i}"): node for i, node in enumerate(nodes)}
         source_elements = []
-        for index, (start, end) in enumerate(((0, 1), (1, 2), (2, 3), (3, 0))):
+        beam_pairs = ((0, 1), (2, 3)) if args.load_pattern == "cantilever-y" else ((0, 1), (1, 2), (2, 3), (3, 0))
+        for index, (start, end) in enumerate(beam_pairs):
             net = floor.AddLineNet(nodes[start].GetID(), nodes[end].GetID())
             beam = floor.AddBeamEx(sections[1], net.GetID(), 0, 0, 0, 0.0)
             if args.material == "Q355": beam.SetSteelGrade(api.SteelGrade.Q355)
@@ -101,8 +112,10 @@ def main() -> int:
             targets[("beam", f"B{index}")] = beam
             source_elements.append({"id": f"B{index}", "type": "beam", "nodes": [f"N{start}", f"N{end}"]})
         source_loads = ([{"id": f"P{i}", "type": "nodal", "node": f"N{i}", "fz": -args.load_kn} for i in range(4)]
-                       if args.load_pattern == "nodal" else
+                       if args.load_pattern in {"nodal", "cantilever-y"} else
                        [{"id": f"q{i}", "type": "uniform", "element": f"B{i}", "wz": -args.load_kn} for i in range(4)])
+        if args.load_pattern == "cantilever-y":
+            source_loads = [{"id": f"P{i}", "type": "nodal", "node": f"N{i}", "fy": args.load_kn} for i in range(4)]
         source_load_model = {"nodes": source_nodes, "elements": source_elements, "load_cases": [{"id": "L", "type": "live", "loads": source_loads}]}
         load_mapping = write_native_loads(api, model, plan_native_loads(source_load_model), targets)
         save(root / "load-mapping.json", load_mapping)
@@ -185,6 +198,16 @@ def main() -> int:
                 raise RuntimeError("Native solver materialized a slab in the bare frame")
             evidence["steps"].append({"name": "no-native-slab-and-zero-self-weight-force", "status": "passed"})
         if len(observed["LL"]) != 4 * args.stories: raise RuntimeError("LL must contain four native node translations per story")
+        if args.load_pattern == "cantilever-y":
+            expected = reference["euler_bernoulli_uy_m"] + reference["shear_correction_uy_m"]
+            for row in observed["LL"]:
+                if not math.isclose(row["uy"], expected, rel_tol=reference["relative_tolerance"], abs_tol=reference["absolute_tolerance_m"]):
+                    raise RuntimeError(f"Native transverse displacement {row['uy']} differs from frozen Timoshenko {expected}; EB={reference['euler_bernoulli_uy_m']}")
+            evidence["steps"].append({"name": "independent-cantilever-timoshenko-displacement", "status": "passed"})
+            evidence["status"] = "passed"
+            evidence["numericalCapabilityAccepted"] = True
+            save(root / "acceptance.json", evidence); print(json.dumps(evidence, ensure_ascii=False))
+            return 0
         for row in observed["LL"]:
             expected = reference.get("displacement_by_floor_m", {}).get(str(row["node"][1]), reference["displacement_m"])
             if not math.isclose(row["uz"], expected, rel_tol=reference["relative_tolerance"], abs_tol=reference["absolute_tolerance_m"]):
