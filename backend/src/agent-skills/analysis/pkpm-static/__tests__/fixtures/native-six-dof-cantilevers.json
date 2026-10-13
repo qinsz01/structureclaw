@@ -347,5 +347,599 @@
     "NODEINDEX.SAT": "AACAQAAAoEAAAAAAAADAQAAAAAAAAOBAAAAAAAAAAEEAAAAA",
     "MESH.SAT": "AAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/////AAAAAAAAAAAAAIBAAAAAAP////8AAAAAAACAQAAAAAAAAAAA/////wAAAAAAAIBAAACAQAAAAAD/////AAAAAAAAAAAAAAAAAABAQGQAAAAAAAAAAAAAAAAAgEAAAEBAZAAAAAAAAAAAAIBAAAAAAAAAQEBkAAAAAAAAAAAAgEAAAIBAAABAQGQAAAAAAAAA",
     "WDISPGKNO.OUT": "RElTUDEuU0FUICBETCANCkRJU1AxLlNBVCAgTEwgDQo="
-  }
+  },
+  "apiStationRows": [
+    {
+      "case": "DL",
+      "member": [
+        1008,
+        1
+      ],
+      "stations": [
+        {
+          "nativeStation": 0,
+          "nativeComponents": [
+            0.0,
+            -0.0,
+            0.0,
+            0.0,
+            -0.0,
+            0.0
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        },
+        {
+          "nativeStation": 1,
+          "nativeComponents": [
+            -0.0,
+            0.0,
+            -0.0,
+            -0.0,
+            0.0,
+            -0.0
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        }
+      ]
+    },
+    {
+      "case": "DL",
+      "member": [
+        1010,
+        1
+      ],
+      "stations": [
+        {
+          "nativeStation": 0,
+          "nativeComponents": [
+            0.0,
+            -0.0,
+            0.0,
+            0.0,
+            -0.0,
+            0.0
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        },
+        {
+          "nativeStation": 1,
+          "nativeComponents": [
+            -0.0,
+            0.0,
+            -0.0,
+            -0.0,
+            0.0,
+            -0.0
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        }
+      ]
+    },
+    {
+      "case": "DL",
+      "member": [
+        1014,
+        1
+      ],
+      "stations": [
+        {
+          "nativeStation": 0,
+          "nativeComponents": [
+            0.0,
+            -0.0,
+            0.0,
+            0.0,
+            -0.0,
+            0.0
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        },
+        {
+          "nativeStation": 1,
+          "nativeComponents": [
+            -0.0,
+            0.0,
+            -0.0,
+            -0.0,
+            0.0,
+            -0.0
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        }
+      ]
+    },
+    {
+      "case": "DL",
+      "member": [
+        1012,
+        1
+      ],
+      "stations": [
+        {
+          "nativeStation": 0,
+          "nativeComponents": [
+            0.0,
+            -0.0,
+            0.0,
+            0.0,
+            -0.0,
+            0.0
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        },
+        {
+          "nativeStation": 1,
+          "nativeComponents": [
+            -0.0,
+            0.0,
+            -0.0,
+            -0.0,
+            0.0,
+            -0.0
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        }
+      ]
+    },
+    {
+      "case": "LL",
+      "member": [
+        1008,
+        1
+      ],
+      "stations": [
+        {
+          "nativeStation": 0,
+          "nativeComponents": [
+            -0.5,
+            1.0,
+            0.0,
+            0.20000000298023224,
+            -0.0,
+            3.124999523162842
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        },
+        {
+          "nativeStation": 1,
+          "nativeComponents": [
+            -0.5,
+            1.0,
+            -0.0,
+            0.20000000298023224,
+            0.0,
+            0.125
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        }
+      ]
+    },
+    {
+      "case": "LL",
+      "member": [
+        1010,
+        1
+      ],
+      "stations": [
+        {
+          "nativeStation": 0,
+          "nativeComponents": [
+            -0.75,
+            2.000000476837158,
+            2.980232238769531e-08,
+            0.30000001192092896,
+            0.24999985098838806,
+            5.999999046325684
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        },
+        {
+          "nativeStation": 1,
+          "nativeComponents": [
+            -0.75,
+            2.000000476837158,
+            2.980232238769531e-08,
+            0.30000001192092896,
+            0.2500000596046448,
+            -0.0
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        }
+      ]
+    },
+    {
+      "case": "LL",
+      "member": [
+        1014,
+        1
+      ],
+      "stations": [
+        {
+          "nativeStation": 0,
+          "nativeComponents": [
+            -1.25,
+            -0.0,
+            -1.000000238418579,
+            0.0,
+            2.999999523162842,
+            0.0
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        },
+        {
+          "nativeStation": 1,
+          "nativeComponents": [
+            -1.25,
+            0.0,
+            -1.000000238418579,
+            -0.0,
+            0.0,
+            -0.0
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        }
+      ]
+    },
+    {
+      "case": "LL",
+      "member": [
+        1012,
+        1
+      ],
+      "stations": [
+        {
+          "nativeStation": 0,
+          "nativeComponents": [
+            -1.0,
+            -0.0,
+            3.000000476837158,
+            -0.10000000149011612,
+            -8.999998092651367,
+            0.0
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        },
+        {
+          "nativeStation": 1,
+          "nativeComponents": [
+            -1.0,
+            0.0,
+            3.000000476837158,
+            -0.10000000149011612,
+            0.0,
+            -0.0
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        }
+      ]
+    },
+    {
+      "case": "LL2",
+      "member": [
+        1008,
+        1
+      ],
+      "stations": [
+        {
+          "nativeStation": 0,
+          "nativeComponents": [
+            0.0,
+            -0.0,
+            -0.0,
+            0.0,
+            -0.0,
+            -0.0
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        },
+        {
+          "nativeStation": 1,
+          "nativeComponents": [
+            0.0,
+            -0.0,
+            -0.0,
+            -0.0,
+            0.0,
+            -0.0
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        }
+      ]
+    },
+    {
+      "case": "LL2",
+      "member": [
+        1010,
+        1
+      ],
+      "stations": [
+        {
+          "nativeStation": 0,
+          "nativeComponents": [
+            0.0,
+            -0.0,
+            -0.0,
+            0.0,
+            -0.0,
+            -0.0
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        },
+        {
+          "nativeStation": 1,
+          "nativeComponents": [
+            0.0,
+            -0.0,
+            -0.0,
+            -0.0,
+            0.0,
+            -0.0
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        }
+      ]
+    },
+    {
+      "case": "LL2",
+      "member": [
+        1014,
+        1
+      ],
+      "stations": [
+        {
+          "nativeStation": 0,
+          "nativeComponents": [
+            0.0,
+            -0.0,
+            -0.0,
+            0.0,
+            -0.0,
+            -0.0
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        },
+        {
+          "nativeStation": 1,
+          "nativeComponents": [
+            0.0,
+            -0.0,
+            -0.0,
+            -0.0,
+            0.0,
+            -0.0
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        }
+      ]
+    },
+    {
+      "case": "LL2",
+      "member": [
+        1012,
+        1
+      ],
+      "stations": [
+        {
+          "nativeStation": 0,
+          "nativeComponents": [
+            0.0,
+            -0.0,
+            -0.0,
+            0.0,
+            -0.0,
+            -0.0
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        },
+        {
+          "nativeStation": 1,
+          "nativeComponents": [
+            0.0,
+            -0.0,
+            -0.0,
+            -0.0,
+            0.0,
+            -0.0
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        }
+      ]
+    },
+    {
+      "case": "LL3",
+      "member": [
+        1008,
+        1
+      ],
+      "stations": [
+        {
+          "nativeStation": 0,
+          "nativeComponents": [
+            0.0,
+            -0.0,
+            -0.0,
+            0.0,
+            -0.0,
+            -0.0
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        },
+        {
+          "nativeStation": 1,
+          "nativeComponents": [
+            0.0,
+            -0.0,
+            -0.0,
+            -0.0,
+            0.0,
+            -0.0
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        }
+      ]
+    },
+    {
+      "case": "LL3",
+      "member": [
+        1010,
+        1
+      ],
+      "stations": [
+        {
+          "nativeStation": 0,
+          "nativeComponents": [
+            0.0,
+            -0.0,
+            -0.0,
+            0.0,
+            -0.0,
+            -0.0
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        },
+        {
+          "nativeStation": 1,
+          "nativeComponents": [
+            0.0,
+            -0.0,
+            -0.0,
+            -0.0,
+            0.0,
+            -0.0
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        }
+      ]
+    },
+    {
+      "case": "LL3",
+      "member": [
+        1014,
+        1
+      ],
+      "stations": [
+        {
+          "nativeStation": 0,
+          "nativeComponents": [
+            0.0,
+            -0.0,
+            -0.0,
+            0.0,
+            -0.0,
+            -0.0
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        },
+        {
+          "nativeStation": 1,
+          "nativeComponents": [
+            0.0,
+            -0.0,
+            -0.0,
+            -0.0,
+            0.0,
+            -0.0
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        }
+      ]
+    },
+    {
+      "case": "LL3",
+      "member": [
+        1012,
+        1
+      ],
+      "stations": [
+        {
+          "nativeStation": 0,
+          "nativeComponents": [
+            0.0,
+            -0.0,
+            -0.0,
+            0.0,
+            -0.0,
+            -0.0
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        },
+        {
+          "nativeStation": 1,
+          "nativeComponents": [
+            0.0,
+            -0.0,
+            -0.0,
+            -0.0,
+            0.0,
+            -0.0
+          ],
+          "referenceFrame": "element-local",
+          "source": "APIPyInterface.ColumnDesignData.GetForce",
+          "endpointConvention": "unverified"
+        }
+      ]
+    }
+  ]
 }
