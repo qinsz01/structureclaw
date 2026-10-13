@@ -884,7 +884,7 @@ def _case_descriptors(extracted: dict, raw_case_keys: set[str]) -> list[dict]:
 def _native_case_code(case: dict) -> str | None:
     # dsnGetLDCaseExpName preserves the ASCII code even when its legacy
     # Chinese text is decoded incorrectly by the native SDK.
-    match = re.match(r"^\s*([+-]?[A-Z][A-Z0-9]*)\s+--", str(case.get("expName") or ""))
+    match = re.match(r"^\s*([+-]?[A-Z][A-Z0-9_]*)\s+--", str(case.get("expName") or ""))
     return match.group(1) if match else None
 
 
@@ -1091,6 +1091,33 @@ def _build_analysis_result(
 ) -> dict:
     """Normalize raw YJK result JSON into the app's analysis result shape."""
     meta = extracted.get("meta", {}) if isinstance(extracted.get("meta"), dict) else {}
+    native_fe_model = None
+    source_elements = {}
+    source_load_cases = {}
+    native_context = {}
+    station_errors = {}
+    fe_path = os.path.join(work_dir, "fea.dat")
+    input_path = os.path.join(work_dir, "input.json")
+    if os.path.isfile(fe_path) and os.path.isfile(input_path):
+        from native_fe import parse_fe
+        from native_stations import member_geometry, map_stations, station_envelope, StationConventionUnavailable
+        import hashlib
+        native_fe_model = parse_fe(fe_path)
+        with open(input_path, encoding="utf-8-sig") as stream:
+            source_model = json.load(stream)
+        source_elements = {str(row["id"]): row for row in source_model.get("elements", [])}
+        source_load_cases = {str(row["id"]): row for row in source_model.get("load_cases", [])}
+        native_context = {"engine": "yjk", "stationConventionsVerified": False,
+                          "artifacts": [{"path": "fea.dat", "sha256": native_fe_model["sha256"]}]}
+        context_path = os.path.join(work_dir, "native-physics-context.json")
+        if os.path.isfile(context_path):
+            with open(context_path, encoding="utf-8-sig") as stream:
+                native_context = json.load(stream)
+            model_hash = hashlib.sha256(json.dumps(source_model, sort_keys=True, separators=(",", ":"),
+                                                   ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
+            if (native_context.get("physicalModelHash") != model_hash
+                    or {"path": "fea.dat", "sha256": native_fe_model["sha256"]} not in native_context.get("artifacts", [])):
+                raise RuntimeError("YJK native physics context is not bound to the executed model and FE artifact")
     diagnostics: dict[str, int] = {}
     result_node_lookup = _build_result_node_lookup(extracted, mapping, diagnostics)
     element_lookups = _build_element_lookups(mapping)
@@ -1140,6 +1167,22 @@ def _build_analysis_result(
             raw_case_keys.update(block.keys())
 
     case_descriptors = _case_descriptors(extracted, raw_case_keys)
+    source_case_mappings = mapping.get("load_cases") or []
+    if source_case_mappings:
+        bound_cases = []
+        for source_case in source_case_mappings:
+            native_name = str(source_case["nativeName"])
+            matches = [case for case in case_descriptors
+                       if native_name in {str(case.get("nativeCode")), str(case.get("name"))}]
+            if len(matches) != 1:
+                raise RuntimeError(f"YJK source case '{source_case['sourceCaseId']}' does not map uniquely to '{native_name}'")
+            native = matches[0]
+            bound_cases.append({**native, "native_result_key": native["result_key"],
+                                "result_key": str(source_case["sourceCaseId"]), "nativeCase": dict(native),
+                                "sourceCaseId": str(source_case["sourceCaseId"]), "label": str(source_case["sourceCaseId"])})
+        if len({case["result_key"] for case in bound_cases}) != len(bound_cases):
+            raise RuntimeError("YJK source case mapping contains duplicate identities")
+        case_descriptors = bound_cases
     selection_text = os.environ.get("SC_YJK_SELECTED_CASE")
     if selection_text:
         selection = json.loads(selection_text)
@@ -1147,7 +1190,7 @@ def _build_analysis_result(
         selected = [case for case in case_descriptors if labels & {str(case.get(field)) for field in ("result_key", "name", "expName", "label", "nativeCode")}]
         if len(selected) != 1:
             raise RuntimeError(f"YJK requested case '{selection['id']}' does not map uniquely to a native case by label")
-        case_descriptors = [{**selected[0], "native_result_key": selected[0]["result_key"], "result_key": str(selection["id"])}]
+        case_descriptors = [{**selected[0], "native_result_key": selected[0].get("native_result_key", selected[0]["result_key"]), "result_key": str(selection["id"])}]
     displacement_rows_seen = 0
     nonzero_displacement_rows = 0
     force_rows_seen = 0
@@ -1164,6 +1207,8 @@ def _build_analysis_result(
                 displacement_rows_seen += 1
                 raw_node_id = str(raw_disp.get("id"))
                 node_id = result_node_lookup.get(raw_node_id, raw_node_id)
+                if node_id in case_disps:
+                    raise RuntimeError(f"YJK case '{case_name}' repeats displacement node '{node_id}'")
                 # YJK extracted translations are already expressed in metres.
                 disp = {
                     axis: _finite_result_float(raw_disp.get(axis), f"node {raw_node_id} displacement {axis}")
@@ -1190,6 +1235,7 @@ def _build_analysis_result(
 
         case_forces: dict[str, dict[str, float]] = {}
         case_stations: dict[str, list[dict]] = {}
+        calibrated_elements = set()
         for category in ("columns", "beams", "braces"):
             block = member_force_blocks.get(category, {})
             raw_forces = _case_block(block, descriptor) if isinstance(block, dict) else []
@@ -1241,7 +1287,26 @@ def _build_analysis_result(
                     for index, row in enumerate(rows)
                     if isinstance(row, (list, tuple))
                 ]
-                case_forces[elem_id] = _merge_max_force(case_forces.get(elem_id, {}), force)
+                if native_fe_model is not None and elem_id in source_elements:
+                    try:
+                        if raw_force.get("option") != 1:
+                            raise StationConventionUnavailable("Adjusted native forces are not simultaneous solver output")
+                        source_element = {**mapping["elements"][elem_id],
+                                          "rotation_angle": source_elements[elem_id].get("rotation_angle", 0)}
+                        geometry = member_geometry(native_fe_model, raw_force, source_element,
+                                                   result_node_lookup, mapping["nodes"])
+                        authored_case = source_load_cases.get(str(descriptor.get("sourceCaseId", case_name)), {})
+                        geometry["discontinuities"] = [float(load["position"]) for load in authored_case.get("loads", [])
+                                                       if load.get("element") == elem_id and load.get("position") is not None]
+                        canonical_stations = map_stations(rows, geometry)
+                        case_stations[elem_id] = canonical_stations
+                        force = station_envelope(canonical_stations)
+                        calibrated_elements.add(elem_id)
+                    except StationConventionUnavailable as exc:
+                        station_errors[elem_id] = str(exc)
+                if elem_id in case_forces:
+                    raise RuntimeError(f"YJK case '{case_name}' repeats member '{elem_id}'")
+                case_forces[elem_id] = force
                 forces[elem_id] = _merge_max_force(forces.get(elem_id, {}), force)
                 _accumulate_element_envelope(element_force_envelope, elem_id, case_name, force)
 
@@ -1255,7 +1320,9 @@ def _build_analysis_result(
                 raw_node_id = str(raw_reaction.get("id", raw_reaction.get("node_id")))
                 node_id = result_node_lookup.get(raw_node_id, raw_node_id)
                 reaction = _reaction_from_raw(raw_reaction)
-                case_reactions[node_id] = _merge_max_reaction(case_reactions.get(node_id, {}), reaction)
+                if node_id in case_reactions:
+                    raise RuntimeError(f"YJK case '{case_name}' repeats reaction node '{node_id}'")
+                case_reactions[node_id] = reaction
 
         for label, actual, expected in (
             ("displacement nodes", set(case_disps), expected_nodes),
@@ -1282,6 +1349,11 @@ def _build_analysis_result(
             reactions[node_id] = _merge_max_reaction(reactions.get(node_id, {}), reaction)
             _accumulate_reaction_envelope(node_reaction_envelope, node_id, case_name, reaction)
 
+        stations_verified = calibrated_elements == expected_elements
+        # Modal SRSS/CQC component maxima are not simultaneous signed static
+        # vectors even when they have the same station/component array shape.
+        static_vectors = descriptor.get("nativeCode") not in {"EX", "EY"}
+        case_context = {**native_context, "stationConventionsVerified": stations_verified}
         case_results[case_name] = {
             "status": "partial" if case_flags else "success",
             "flags": case_flags,
@@ -1289,8 +1361,8 @@ def _build_analysis_result(
                 "nodeDisplacements": "available",
                 "nodeReactions": "unverified" if case_flags else "available",
                 "memberStationValues": "available",
-                "memberStationCoordinates": "unverified",
-                "memberLocalAxes": "unverified",
+                "memberStationCoordinates": "available" if stations_verified else "unverified",
+                "memberLocalAxes": "available" if stations_verified else "unverified",
             },
             "key": case_name,
             "label": descriptor.get("label"),
@@ -1301,6 +1373,7 @@ def _build_analysis_result(
             "oldId": descriptor.get("oldId"),
             "nativeResultKey": descriptor.get("native_result_key", case_name),
             "nativeCode": descriptor.get("nativeCode"),
+            "nativeCase": descriptor.get("nativeCase"),
             "displacements": case_disps,
             "forces": {
                 element_id: {**force, "referenceFrame": "element-local"}
@@ -1309,7 +1382,12 @@ def _build_analysis_result(
             "reactions": case_reactions,
             "envelope": {},
             "memberStations": case_stations,
-            "forceSemantics": "signed-component-envelope; memberStations retain native station vectors",
+            "nativeContext": case_context,
+            "units": {"displacement": "m", "rotation": "rad", "force": "kN", "moment": "kN.m"},
+            "forceSemantics": ("simultaneous-signed-stations" if stations_verified and static_vectors
+                               else "native-response-spectrum-components" if not static_vectors
+                               else "signed-component-envelope; memberStations retain native station vectors"),
+            "forceSummarySemantics": "signed-component-envelope",
         }
 
     max_disp = 0.0
@@ -1425,8 +1503,9 @@ def _build_analysis_result(
         "resultCompleteness": {
             "nodeScope": "physical-member-endpoints",
             "caseFlags": {key: case["flags"] for key, case in case_results.items() if case["flags"]},
-            "memberStationCoordinates": "unverified",
-            "memberLocalAxes": "unverified",
+            "memberStationCoordinates": "available" if all(case["nativeContext"]["stationConventionsVerified"] for case in case_results.values()) else "unverified",
+            "memberLocalAxes": "available" if all(case["nativeContext"]["stationConventionsVerified"] for case in case_results.values()) else "unverified",
+            "stationMappingIssues": station_errors,
         },
         "displacements": displacements,
         "forces": {
@@ -1653,6 +1732,19 @@ def _run(model_path: str, work_dir: str, yjks_root: str) -> int:
         )
         return 1
 
+    # Import may replace project parameters. Write the requested settings in
+    # this owned host only after import, and require exact SDK readback.
+    if model_data.get("analysis_control"):
+        try:
+            from native_settings import apply_in_host, compile_settings
+            ownership = _load_json_file(os.path.join(work_dir, "owned-native.json"))
+            apply_in_host(lambda *args: _run_cmd(*args, phase="settings", steps=steps),
+                          work_dir, int(ownership["configured_pid"]), compile_settings(model_data))
+        except Exception as exc:
+            _error(f"YJK native settings failed / 原生设置写入或读回失败: {exc}",
+                   phase="settings", command="native_settings", steps=steps)
+            return 1
+
     # -- Phase 4: Model preparation (exact three_story_steel_frame.py) --
     print("[yjk_driver] Phase 4: model repair / prep", file=sys.stderr, flush=True)
     if not _run_cmd("yjk_repair", phase="model_preparation", steps=steps):
@@ -1671,7 +1763,10 @@ def _run(model_path: str, work_dir: str, yjks_root: str) -> int:
             steps=steps,
         )
         return 1
-    if not _run_cmd("yjk_formslab_alllayer", phase="model_preparation", steps=steps):
+    # A rod model with explicit flexible-floor control has no authored slab.
+    # Creating automatic slabs here would add unrequested stiffness and mass.
+    form_slabs = (model_data.get("analysis_control") or {}).get("rigid_floor") is not False
+    if form_slabs and not _run_cmd("yjk_formslab_alllayer", phase="model_preparation", steps=steps):
         _error(
             "YJK crashed during slab formation",
             phase="model_preparation",

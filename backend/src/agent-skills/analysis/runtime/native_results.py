@@ -62,8 +62,17 @@ def combine_linear_native_results(cases: dict[str, dict], factors: dict[str, flo
         block = prototype.get(field, {})
         if any(set(case.get(field, {})) != set(block) for _, _, case in selected):
             raise ValueError(f"Cases have different {field} object coverage")
-        result[field] = {object_id: vector_sum([(factor, case[field][object_id]) for _, factor, case in selected], set(vector))
-                         for object_id, vector in block.items()}
+        result[field] = {}
+        for object_id, vector in block.items():
+            # R is a derived magnitude, not a signed physical component. Its
+            # linear combination is wrong for non-collinear/cancelling forces.
+            rows = [(factor, {key: value for key, value in case[field][object_id].items()
+                              if field != "reactions" or key != "R"}) for _, factor, case in selected]
+            keys = set(vector) - ({"R"} if field == "reactions" else set())
+            combined = vector_sum(rows, keys)
+            if field == "reactions" and {"fx", "fy", "fz"}.issubset(combined):
+                combined["R"] = math.hypot(combined["fx"], combined["fy"], combined["fz"])
+            result[field][object_id] = combined
     members = prototype.get("memberStations", {})
     if not members or any(set(case.get("memberStations", {})) != set(members) for _, _, case in selected):
         raise ValueError("Cases need identical complete member-station coverage")

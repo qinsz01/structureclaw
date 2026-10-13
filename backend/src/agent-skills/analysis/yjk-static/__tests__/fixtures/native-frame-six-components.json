@@ -1,0 +1,5599 @@
+{
+  "provenance": {
+    "nativeRun": "yjk-load-20261013-171829-dae20b",
+    "source": "YJK 8 native SDK unadjusted simultaneous station results",
+    "resultsSha256": "9bf42b7b4ec0b79fcc842fc745f88fb594e3084e7da75acf1d7035c9961bc781",
+    "feaSha256": "fc18d5aebab7f64970aad3ebacd11d58bb1aa1d9b80580d19d63ef55270355e0",
+    "reference": {
+      "frozenAt": 1791883109.6770368,
+      "AX": {
+        "sumFzKn": 4,
+        "eachUzM": -2.7777777777777776e-07,
+        "toleranceM": 1e-11
+      },
+      "UDL": {
+        "sumFzKn": 16
+      },
+      "singleComponents": [
+        "fx",
+        "fy",
+        "mx",
+        "my",
+        "mz"
+      ],
+      "relativeTolerance": 1e-05
+    }
+  },
+  "model": {
+    "schema_version": "2.2.0",
+    "unit_system": "SI",
+    "coordinate_system": {
+      "dimension": "3d",
+      "plane": null,
+      "semantics": "global-z-up",
+      "version": 1,
+      "dof_order": [
+        "ux",
+        "uy",
+        "uz",
+        "rx",
+        "ry",
+        "rz"
+      ]
+    },
+    "project": {
+      "name": "loadprobe"
+    },
+    "materials": [
+      {
+        "id": "M",
+        "category": "concrete",
+        "grade": "C30",
+        "name": "C30"
+      }
+    ],
+    "sections": [
+      {
+        "id": "B",
+        "name": "B",
+        "type": "rectangular",
+        "shape": {
+          "kind": "rectangular",
+          "B": 600,
+          "H": 600
+        },
+        "width": 600,
+        "height": 600
+      },
+      {
+        "id": "C",
+        "name": "C",
+        "type": "rectangular",
+        "shape": {
+          "kind": "rectangular",
+          "B": 600,
+          "H": 600
+        },
+        "width": 600,
+        "height": 600
+      }
+    ],
+    "analysis_control": {
+      "self_weight": false,
+      "rigid_floor": false,
+      "rigid_offsets": false,
+      "construction_stage": false,
+      "p_delta": false
+    },
+    "stories": [
+      {
+        "id": "F1",
+        "elevation": 0,
+        "height": 3,
+        "rigid_diaphragm": false
+      }
+    ],
+    "nodes": [
+      {
+        "id": "N0_0",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "N0_1",
+        "x": 4,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "N0_2",
+        "x": 4,
+        "y": 4,
+        "z": 0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "N0_3",
+        "x": 0,
+        "y": 4,
+        "z": 0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "N1_0",
+        "x": 0,
+        "y": 0,
+        "z": 3,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "N1_1",
+        "x": 4,
+        "y": 0,
+        "z": 3,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "N1_2",
+        "x": 4,
+        "y": 4,
+        "z": 3,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "N1_3",
+        "x": 0,
+        "y": 4,
+        "z": 3,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      }
+    ],
+    "elements": [
+      {
+        "id": "C0",
+        "nodes": [
+          "N0_0",
+          "N1_0"
+        ],
+        "type": "column",
+        "section": "C",
+        "material": "M",
+        "story": "F1"
+      },
+      {
+        "id": "C1",
+        "nodes": [
+          "N0_1",
+          "N1_1"
+        ],
+        "type": "column",
+        "section": "C",
+        "material": "M",
+        "story": "F1"
+      },
+      {
+        "id": "C2",
+        "nodes": [
+          "N0_2",
+          "N1_2"
+        ],
+        "type": "column",
+        "section": "C",
+        "material": "M",
+        "story": "F1"
+      },
+      {
+        "id": "C3",
+        "nodes": [
+          "N0_3",
+          "N1_3"
+        ],
+        "type": "column",
+        "section": "C",
+        "material": "M",
+        "story": "F1"
+      },
+      {
+        "id": "B0",
+        "nodes": [
+          "N1_0",
+          "N1_1"
+        ],
+        "type": "beam",
+        "section": "B",
+        "material": "M",
+        "story": "F1"
+      },
+      {
+        "id": "B1",
+        "nodes": [
+          "N1_1",
+          "N1_2"
+        ],
+        "type": "beam",
+        "section": "B",
+        "material": "M",
+        "story": "F1"
+      },
+      {
+        "id": "B2",
+        "nodes": [
+          "N1_2",
+          "N1_3"
+        ],
+        "type": "beam",
+        "section": "B",
+        "material": "M",
+        "story": "F1"
+      },
+      {
+        "id": "B3",
+        "nodes": [
+          "N1_3",
+          "N1_0"
+        ],
+        "type": "beam",
+        "section": "B",
+        "material": "M",
+        "story": "F1"
+      }
+    ],
+    "load_cases": [
+      {
+        "id": "AX",
+        "type": "dead",
+        "loads": [
+          {
+            "id": "P0",
+            "type": "nodal",
+            "node": "N1_0",
+            "fz": -1
+          },
+          {
+            "id": "P1",
+            "type": "nodal",
+            "node": "N1_1",
+            "fz": -1
+          },
+          {
+            "id": "P2",
+            "type": "nodal",
+            "node": "N1_2",
+            "fz": -1
+          },
+          {
+            "id": "P3",
+            "type": "nodal",
+            "node": "N1_3",
+            "fz": -1
+          }
+        ]
+      },
+      {
+        "id": "UDL",
+        "type": "dead",
+        "loads": [
+          {
+            "id": "Q0",
+            "type": "distributed",
+            "element": "B0",
+            "wz": -1
+          },
+          {
+            "id": "Q1",
+            "type": "distributed",
+            "element": "B1",
+            "wz": -1
+          },
+          {
+            "id": "Q2",
+            "type": "distributed",
+            "element": "B2",
+            "wz": -1
+          },
+          {
+            "id": "Q3",
+            "type": "distributed",
+            "element": "B3",
+            "wz": -1
+          }
+        ]
+      },
+      {
+        "id": "FX",
+        "type": "other",
+        "loads": [
+          {
+            "id": "fx",
+            "type": "nodal",
+            "node": "N1_2",
+            "fx": 1
+          }
+        ]
+      },
+      {
+        "id": "FY",
+        "type": "other",
+        "loads": [
+          {
+            "id": "fy",
+            "type": "nodal",
+            "node": "N1_2",
+            "fy": 1
+          }
+        ]
+      },
+      {
+        "id": "MX",
+        "type": "other",
+        "loads": [
+          {
+            "id": "mx",
+            "type": "nodal",
+            "node": "N1_2",
+            "mx": 1
+          }
+        ]
+      },
+      {
+        "id": "MY",
+        "type": "other",
+        "loads": [
+          {
+            "id": "my",
+            "type": "nodal",
+            "node": "N1_2",
+            "my": 1
+          }
+        ]
+      },
+      {
+        "id": "MZ",
+        "type": "other",
+        "loads": [
+          {
+            "id": "mz",
+            "type": "nodal",
+            "node": "N1_2",
+            "mz": 1
+          }
+        ]
+      }
+    ]
+  },
+  "mapping": {
+    "compiler": "individual-members-per-floor",
+    "coordinate_contract": {
+      "coordinate_transform": "identity",
+      "dimension": "3d",
+      "dof_order": [
+        "ux",
+        "uy",
+        "uz",
+        "rx",
+        "ry",
+        "rz"
+      ],
+      "plane": null,
+      "semantics": "global-z-up",
+      "source_length_unit": "m",
+      "target_length_unit": "mm",
+      "version": 1
+    },
+    "elements": {
+      "B0": {
+        "floor": "F1",
+        "floor_index": 1,
+        "floor_source": "exact-global-elevation",
+        "geometry_role": "horizontal_x",
+        "material": {
+          "category": "concrete",
+          "fy": null,
+          "grade": "C30",
+          "id": "M",
+          "name": "C30"
+        },
+        "material_id": "M",
+        "native_concrete_grade": 30,
+        "native_endpoint_order": [
+          "N1_0",
+          "N1_1"
+        ],
+        "nodes": [
+          "N1_0",
+          "N1_1"
+        ],
+        "section": {
+          "id": "B",
+          "name": "B",
+          "properties": {},
+          "purpose": null,
+          "shape": {
+            "B": 600,
+            "H": 600,
+            "kind": "rectangular"
+          },
+          "standard_steel_name": null,
+          "type": "rectangular"
+        },
+        "section_id": "B",
+        "type": "beam",
+        "v2_id": "B0",
+        "yjk_model_id": 1014,
+        "yjk_model_id_source": "individual-native-member",
+        "yjk_section_id": 1001
+      },
+      "B1": {
+        "floor": "F1",
+        "floor_index": 1,
+        "floor_source": "exact-global-elevation",
+        "geometry_role": "horizontal_y",
+        "material": {
+          "category": "concrete",
+          "fy": null,
+          "grade": "C30",
+          "id": "M",
+          "name": "C30"
+        },
+        "material_id": "M",
+        "native_concrete_grade": 30,
+        "native_endpoint_order": [
+          "N1_1",
+          "N1_2"
+        ],
+        "nodes": [
+          "N1_1",
+          "N1_2"
+        ],
+        "section": {
+          "id": "B",
+          "name": "B",
+          "properties": {},
+          "purpose": null,
+          "shape": {
+            "B": 600,
+            "H": 600,
+            "kind": "rectangular"
+          },
+          "standard_steel_name": null,
+          "type": "rectangular"
+        },
+        "section_id": "B",
+        "type": "beam",
+        "v2_id": "B1",
+        "yjk_model_id": 1017,
+        "yjk_model_id_source": "individual-native-member",
+        "yjk_section_id": 1001
+      },
+      "B2": {
+        "floor": "F1",
+        "floor_index": 1,
+        "floor_source": "exact-global-elevation",
+        "geometry_role": "horizontal_x",
+        "material": {
+          "category": "concrete",
+          "fy": null,
+          "grade": "C30",
+          "id": "M",
+          "name": "C30"
+        },
+        "material_id": "M",
+        "native_concrete_grade": 30,
+        "native_endpoint_order": [
+          "N1_2",
+          "N1_3"
+        ],
+        "nodes": [
+          "N1_2",
+          "N1_3"
+        ],
+        "section": {
+          "id": "B",
+          "name": "B",
+          "properties": {},
+          "purpose": null,
+          "shape": {
+            "B": 600,
+            "H": 600,
+            "kind": "rectangular"
+          },
+          "standard_steel_name": null,
+          "type": "rectangular"
+        },
+        "section_id": "B",
+        "type": "beam",
+        "v2_id": "B2",
+        "yjk_model_id": 1020,
+        "yjk_model_id_source": "individual-native-member",
+        "yjk_section_id": 1001
+      },
+      "B3": {
+        "floor": "F1",
+        "floor_index": 1,
+        "floor_source": "exact-global-elevation",
+        "geometry_role": "horizontal_y",
+        "material": {
+          "category": "concrete",
+          "fy": null,
+          "grade": "C30",
+          "id": "M",
+          "name": "C30"
+        },
+        "material_id": "M",
+        "native_concrete_grade": 30,
+        "native_endpoint_order": [
+          "N1_3",
+          "N1_0"
+        ],
+        "nodes": [
+          "N1_3",
+          "N1_0"
+        ],
+        "section": {
+          "id": "B",
+          "name": "B",
+          "properties": {},
+          "purpose": null,
+          "shape": {
+            "B": 600,
+            "H": 600,
+            "kind": "rectangular"
+          },
+          "standard_steel_name": null,
+          "type": "rectangular"
+        },
+        "section_id": "B",
+        "type": "beam",
+        "v2_id": "B3",
+        "yjk_model_id": 1023,
+        "yjk_model_id_source": "individual-native-member",
+        "yjk_section_id": 1001
+      },
+      "C0": {
+        "floor": "F1",
+        "floor_index": 1,
+        "floor_source": "exact-global-elevation",
+        "geometry_role": "vertical",
+        "material": {
+          "category": "concrete",
+          "fy": null,
+          "grade": "C30",
+          "id": "M",
+          "name": "C30"
+        },
+        "material_id": "M",
+        "native_concrete_grade": 30,
+        "native_endpoint_order": [
+          "N0_0",
+          "N1_0"
+        ],
+        "nodes": [
+          "N0_0",
+          "N1_0"
+        ],
+        "section": {
+          "id": "C",
+          "name": "C",
+          "properties": {},
+          "purpose": null,
+          "shape": {
+            "B": 600,
+            "H": 600,
+            "kind": "rectangular"
+          },
+          "standard_steel_name": null,
+          "type": "rectangular"
+        },
+        "section_id": "C",
+        "type": "column",
+        "v2_id": "C0",
+        "yjk_model_id": 1008,
+        "yjk_model_id_source": "individual-native-member",
+        "yjk_section_id": 1002
+      },
+      "C1": {
+        "floor": "F1",
+        "floor_index": 1,
+        "floor_source": "exact-global-elevation",
+        "geometry_role": "vertical",
+        "material": {
+          "category": "concrete",
+          "fy": null,
+          "grade": "C30",
+          "id": "M",
+          "name": "C30"
+        },
+        "material_id": "M",
+        "native_concrete_grade": 30,
+        "native_endpoint_order": [
+          "N0_1",
+          "N1_1"
+        ],
+        "nodes": [
+          "N0_1",
+          "N1_1"
+        ],
+        "section": {
+          "id": "C",
+          "name": "C",
+          "properties": {},
+          "purpose": null,
+          "shape": {
+            "B": 600,
+            "H": 600,
+            "kind": "rectangular"
+          },
+          "standard_steel_name": null,
+          "type": "rectangular"
+        },
+        "section_id": "C",
+        "type": "column",
+        "v2_id": "C1",
+        "yjk_model_id": 1009,
+        "yjk_model_id_source": "individual-native-member",
+        "yjk_section_id": 1002
+      },
+      "C2": {
+        "floor": "F1",
+        "floor_index": 1,
+        "floor_source": "exact-global-elevation",
+        "geometry_role": "vertical",
+        "material": {
+          "category": "concrete",
+          "fy": null,
+          "grade": "C30",
+          "id": "M",
+          "name": "C30"
+        },
+        "material_id": "M",
+        "native_concrete_grade": 30,
+        "native_endpoint_order": [
+          "N0_2",
+          "N1_2"
+        ],
+        "nodes": [
+          "N0_2",
+          "N1_2"
+        ],
+        "section": {
+          "id": "C",
+          "name": "C",
+          "properties": {},
+          "purpose": null,
+          "shape": {
+            "B": 600,
+            "H": 600,
+            "kind": "rectangular"
+          },
+          "standard_steel_name": null,
+          "type": "rectangular"
+        },
+        "section_id": "C",
+        "type": "column",
+        "v2_id": "C2",
+        "yjk_model_id": 1010,
+        "yjk_model_id_source": "individual-native-member",
+        "yjk_section_id": 1002
+      },
+      "C3": {
+        "floor": "F1",
+        "floor_index": 1,
+        "floor_source": "exact-global-elevation",
+        "geometry_role": "vertical",
+        "material": {
+          "category": "concrete",
+          "fy": null,
+          "grade": "C30",
+          "id": "M",
+          "name": "C30"
+        },
+        "material_id": "M",
+        "native_concrete_grade": 30,
+        "native_endpoint_order": [
+          "N0_3",
+          "N1_3"
+        ],
+        "nodes": [
+          "N0_3",
+          "N1_3"
+        ],
+        "section": {
+          "id": "C",
+          "name": "C",
+          "properties": {},
+          "purpose": null,
+          "shape": {
+            "B": 600,
+            "H": 600,
+            "kind": "rectangular"
+          },
+          "standard_steel_name": null,
+          "type": "rectangular"
+        },
+        "section_id": "C",
+        "type": "column",
+        "v2_id": "C3",
+        "yjk_model_id": 1011,
+        "yjk_model_id_source": "individual-native-member",
+        "yjk_section_id": 1002
+      }
+    },
+    "engine": "yjk-static",
+    "load_cases": [
+      {
+        "loads": [
+          {
+            "components": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1026,
+            "nativeTargetId": 1004,
+            "shapeVal": "1,0,0,0,0,0,0",
+            "sourceLoadId": "P0",
+            "targetId": "N1_0",
+            "targetKind": "node"
+          },
+          {
+            "components": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1028,
+            "nativeTargetId": 1005,
+            "shapeVal": "1,0,0,0,0,0,0",
+            "sourceLoadId": "P1",
+            "targetId": "N1_1",
+            "targetKind": "node"
+          },
+          {
+            "components": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1030,
+            "nativeTargetId": 1006,
+            "shapeVal": "1,0,0,0,0,0,0",
+            "sourceLoadId": "P2",
+            "targetId": "N1_2",
+            "targetKind": "node"
+          },
+          {
+            "components": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1032,
+            "nativeTargetId": 1007,
+            "shapeVal": "1,0,0,0,0,0,0",
+            "sourceLoadId": "P3",
+            "targetId": "N1_3",
+            "targetKind": "node"
+          }
+        ],
+        "nativeCategory": 0,
+        "nativeDefinitionId": 1025,
+        "nativeKind": 10001,
+        "nativeName": "SC001_AX",
+        "sourceCaseId": "AX"
+      },
+      {
+        "loads": [
+          {
+            "components": [
+              1.0
+            ],
+            "elementKind": 12,
+            "endPositionM": 4.0,
+            "nativeLoadDefinitionId": 1035,
+            "nativeTargetId": 1014,
+            "shapeVal": "1,1,0,0,0,0,0",
+            "sourceLoadId": "Q0",
+            "startPositionM": 0.0,
+            "targetId": "B0",
+            "targetKind": "member"
+          },
+          {
+            "components": [
+              1.0
+            ],
+            "elementKind": 12,
+            "endPositionM": 4.0,
+            "nativeLoadDefinitionId": 1037,
+            "nativeTargetId": 1017,
+            "shapeVal": "1,1,0,0,0,0,0",
+            "sourceLoadId": "Q1",
+            "startPositionM": 0.0,
+            "targetId": "B1",
+            "targetKind": "member"
+          },
+          {
+            "components": [
+              1.0
+            ],
+            "elementKind": 12,
+            "endPositionM": 4.0,
+            "nativeLoadDefinitionId": 1039,
+            "nativeTargetId": 1020,
+            "shapeVal": "1,1,0,0,0,0,0",
+            "sourceLoadId": "Q2",
+            "startPositionM": 0.0,
+            "targetId": "B2",
+            "targetKind": "member"
+          },
+          {
+            "components": [
+              1.0
+            ],
+            "elementKind": 12,
+            "endPositionM": 4.0,
+            "nativeLoadDefinitionId": 1041,
+            "nativeTargetId": 1023,
+            "shapeVal": "1,1,0,0,0,0,0",
+            "sourceLoadId": "Q3",
+            "startPositionM": 0.0,
+            "targetId": "B3",
+            "targetKind": "member"
+          }
+        ],
+        "nativeCategory": 0,
+        "nativeDefinitionId": 1034,
+        "nativeKind": 10003,
+        "nativeName": "SC002_UDL",
+        "sourceCaseId": "UDL"
+      },
+      {
+        "loads": [
+          {
+            "components": [
+              -0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1044,
+            "nativeTargetId": 1006,
+            "shapeVal": "-0,0,0,1,0,0,0",
+            "sourceLoadId": "fx",
+            "targetId": "N1_2",
+            "targetKind": "node"
+          }
+        ],
+        "nativeCategory": 0,
+        "nativeDefinitionId": 1043,
+        "nativeKind": 10005,
+        "nativeName": "SC003_FX",
+        "sourceCaseId": "FX"
+      },
+      {
+        "loads": [
+          {
+            "components": [
+              -0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1047,
+            "nativeTargetId": 1006,
+            "shapeVal": "-0,0,0,0,1,0,0",
+            "sourceLoadId": "fy",
+            "targetId": "N1_2",
+            "targetKind": "node"
+          }
+        ],
+        "nativeCategory": 0,
+        "nativeDefinitionId": 1046,
+        "nativeKind": 10007,
+        "nativeName": "SC004_FY",
+        "sourceCaseId": "FY"
+      },
+      {
+        "loads": [
+          {
+            "components": [
+              -0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1050,
+            "nativeTargetId": 1006,
+            "shapeVal": "-0,1,0,0,0,0,0",
+            "sourceLoadId": "mx",
+            "targetId": "N1_2",
+            "targetKind": "node"
+          }
+        ],
+        "nativeCategory": 0,
+        "nativeDefinitionId": 1049,
+        "nativeKind": 10009,
+        "nativeName": "SC005_MX",
+        "sourceCaseId": "MX"
+      },
+      {
+        "loads": [
+          {
+            "components": [
+              -0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1053,
+            "nativeTargetId": 1006,
+            "shapeVal": "-0,0,1,0,0,0,0",
+            "sourceLoadId": "my",
+            "targetId": "N1_2",
+            "targetKind": "node"
+          }
+        ],
+        "nativeCategory": 0,
+        "nativeDefinitionId": 1052,
+        "nativeKind": 10011,
+        "nativeName": "SC006_MY",
+        "sourceCaseId": "MY"
+      },
+      {
+        "loads": [
+          {
+            "components": [
+              -0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1056,
+            "nativeTargetId": 1006,
+            "shapeVal": "-0,0,0,0,0,1,0",
+            "sourceLoadId": "mz",
+            "targetId": "N1_2",
+            "targetKind": "node"
+          }
+        ],
+        "nativeCategory": 0,
+        "nativeDefinitionId": 1055,
+        "nativeKind": 10013,
+        "nativeName": "SC007_MZ",
+        "sourceCaseId": "MZ"
+      }
+    ],
+    "nodes": {
+      "N0_0": {
+        "floor": null,
+        "floor_index": 0,
+        "floor_source": "exact-global-elevation",
+        "plan_key": "0,0",
+        "v2_id": "N0_0",
+        "x_m": 0.0,
+        "x_mm": 0,
+        "y_m": 0.0,
+        "y_mm": 0,
+        "yjk_std_floor_node_id": null,
+        "yjk_std_floor_node_id_source": null,
+        "z_m": 0.0,
+        "z_mm": 0
+      },
+      "N0_1": {
+        "floor": null,
+        "floor_index": 0,
+        "floor_source": "exact-global-elevation",
+        "plan_key": "4000,0",
+        "v2_id": "N0_1",
+        "x_m": 4.0,
+        "x_mm": 4000,
+        "y_m": 0.0,
+        "y_mm": 0,
+        "yjk_std_floor_node_id": null,
+        "yjk_std_floor_node_id_source": null,
+        "z_m": 0.0,
+        "z_mm": 0
+      },
+      "N0_2": {
+        "floor": null,
+        "floor_index": 0,
+        "floor_source": "exact-global-elevation",
+        "plan_key": "4000,4000",
+        "v2_id": "N0_2",
+        "x_m": 4.0,
+        "x_mm": 4000,
+        "y_m": 4.0,
+        "y_mm": 4000,
+        "yjk_std_floor_node_id": null,
+        "yjk_std_floor_node_id_source": null,
+        "z_m": 0.0,
+        "z_mm": 0
+      },
+      "N0_3": {
+        "floor": null,
+        "floor_index": 0,
+        "floor_source": "exact-global-elevation",
+        "plan_key": "0,4000",
+        "v2_id": "N0_3",
+        "x_m": 0.0,
+        "x_mm": 0,
+        "y_m": 4.0,
+        "y_mm": 4000,
+        "yjk_std_floor_node_id": null,
+        "yjk_std_floor_node_id_source": null,
+        "z_m": 0.0,
+        "z_mm": 0
+      },
+      "N1_0": {
+        "floor": "F1",
+        "floor_index": 1,
+        "floor_source": "exact-global-elevation",
+        "plan_key": "0,0",
+        "v2_id": "N1_0",
+        "x_m": 0.0,
+        "x_mm": 0,
+        "y_m": 0.0,
+        "y_mm": 0,
+        "yjk_std_floor_node_id": 1004,
+        "yjk_std_floor_node_id_source": "Joint_Generate",
+        "z_m": 3.0,
+        "z_mm": 3000
+      },
+      "N1_1": {
+        "floor": "F1",
+        "floor_index": 1,
+        "floor_source": "exact-global-elevation",
+        "plan_key": "4000,0",
+        "v2_id": "N1_1",
+        "x_m": 4.0,
+        "x_mm": 4000,
+        "y_m": 0.0,
+        "y_mm": 0,
+        "yjk_std_floor_node_id": 1005,
+        "yjk_std_floor_node_id_source": "Joint_Generate",
+        "z_m": 3.0,
+        "z_mm": 3000
+      },
+      "N1_2": {
+        "floor": "F1",
+        "floor_index": 1,
+        "floor_source": "exact-global-elevation",
+        "plan_key": "4000,4000",
+        "v2_id": "N1_2",
+        "x_m": 4.0,
+        "x_mm": 4000,
+        "y_m": 4.0,
+        "y_mm": 4000,
+        "yjk_std_floor_node_id": 1006,
+        "yjk_std_floor_node_id_source": "Joint_Generate",
+        "z_m": 3.0,
+        "z_mm": 3000
+      },
+      "N1_3": {
+        "floor": "F1",
+        "floor_index": 1,
+        "floor_source": "exact-global-elevation",
+        "plan_key": "0,4000",
+        "v2_id": "N1_3",
+        "x_m": 0.0,
+        "x_mm": 0,
+        "y_m": 4.0,
+        "y_mm": 4000,
+        "yjk_std_floor_node_id": 1007,
+        "yjk_std_floor_node_id_source": "Joint_Generate",
+        "z_m": 3.0,
+        "z_mm": 3000
+      }
+    },
+    "schema_version": "2.0.0",
+    "sections": {
+      "B": {
+        "id": "B",
+        "name": "B",
+        "role": "beam",
+        "shape_val": "600,600",
+        "type": "rectangular",
+        "yjk_kind": 1,
+        "yjk_mat_type": 6,
+        "yjk_section_id": 1001
+      },
+      "C": {
+        "id": "C",
+        "name": "C",
+        "role": "column",
+        "shape_val": "600,600",
+        "type": "rectangular",
+        "yjk_kind": 1,
+        "yjk_mat_type": 6,
+        "yjk_section_id": 1002
+      }
+    },
+    "source": {
+      "element_count": 8,
+      "node_count": 8,
+      "schema_version": "2.2.0",
+      "story_count": 1
+    },
+    "standard_floors": [
+      {
+        "floor_index": 1,
+        "native_floor_id": 1003,
+        "story": "F1"
+      }
+    ],
+    "stories": [
+      {
+        "elevation_m": 0.0,
+        "elevation_mm": 0,
+        "height_m": 3.0,
+        "height_mm": 3000,
+        "id": "F1",
+        "index": 1,
+        "top_elevation_m": 3.0,
+        "top_elevation_mm": 3000
+      }
+    ],
+    "warnings": [],
+    "ydb_path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-load-20261013-171829-dae20b\\loadprobe.ydb"
+  },
+  "nodes": [
+    {
+      "id": 1,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    {
+      "id": 2,
+      "x": 4.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    {
+      "id": 3,
+      "x": 4.0,
+      "y": 4.0,
+      "z": 0.0
+    },
+    {
+      "id": 4,
+      "x": 0.0,
+      "y": 4.0,
+      "z": 0.0
+    },
+    {
+      "id": 1000001,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 3.0
+    },
+    {
+      "id": 1000002,
+      "x": 4.0,
+      "y": 0.0,
+      "z": 3.0
+    },
+    {
+      "id": 1000003,
+      "x": 4.0,
+      "y": 4.0,
+      "z": 3.0
+    },
+    {
+      "id": 1000004,
+      "x": 0.0,
+      "y": 4.0,
+      "z": 3.0
+    }
+  ],
+  "members": {
+    "columns": [
+      {
+        "id": 1000005,
+        "tot_id": 1000005,
+        "floor": 1,
+        "node_i": 1000001,
+        "node_j": 1,
+        "original_no": 1,
+        "original_floor": 1,
+        "sequence": 1,
+        "native_geometry": {
+          "section_info": [
+            1,
+            600.0,
+            600.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            6,
+            0.0
+          ],
+          "angle_info": 0.0,
+          "rigid": [
+            0.0,
+            0.0
+          ],
+          "ecc": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "id": 1000006,
+        "tot_id": 1000006,
+        "floor": 1,
+        "node_i": 1000002,
+        "node_j": 2,
+        "original_no": 2,
+        "original_floor": 1,
+        "sequence": 2,
+        "native_geometry": {
+          "section_info": [
+            1,
+            600.0,
+            600.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            6,
+            0.0
+          ],
+          "angle_info": 0.0,
+          "rigid": [
+            0.0,
+            0.0
+          ],
+          "ecc": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "id": 1000007,
+        "tot_id": 1000007,
+        "floor": 1,
+        "node_i": 1000003,
+        "node_j": 3,
+        "original_no": 3,
+        "original_floor": 1,
+        "sequence": 3,
+        "native_geometry": {
+          "section_info": [
+            1,
+            600.0,
+            600.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            6,
+            0.0
+          ],
+          "angle_info": 0.0,
+          "rigid": [
+            0.0,
+            0.0
+          ],
+          "ecc": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "id": 1000008,
+        "tot_id": 1000008,
+        "floor": 1,
+        "node_i": 1000004,
+        "node_j": 4,
+        "original_no": 4,
+        "original_floor": 1,
+        "sequence": 4,
+        "native_geometry": {
+          "section_info": [
+            1,
+            600.0,
+            600.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            6,
+            0.0
+          ],
+          "angle_info": 0.0,
+          "rigid": [
+            0.0,
+            0.0
+          ],
+          "ecc": [
+            0.0,
+            0.0
+          ]
+        }
+      }
+    ],
+    "beams": [
+      {
+        "id": 1000001,
+        "tot_id": 1000001,
+        "floor": 1,
+        "node_i": 1000001,
+        "node_j": 1000002,
+        "original_no": 1,
+        "original_floor": 1,
+        "sequence": 1,
+        "native_geometry": {
+          "section_info": [
+            1,
+            600.0,
+            600.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            6,
+            0.0
+          ],
+          "rigid": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "id": 1000002,
+        "tot_id": 1000002,
+        "floor": 1,
+        "node_i": 1000002,
+        "node_j": 1000003,
+        "original_no": 2,
+        "original_floor": 1,
+        "sequence": 2,
+        "native_geometry": {
+          "section_info": [
+            1,
+            600.0,
+            600.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            6,
+            0.0
+          ],
+          "rigid": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "id": 1000003,
+        "tot_id": 1000003,
+        "floor": 1,
+        "node_i": 1000004,
+        "node_j": 1000003,
+        "original_no": 3,
+        "original_floor": 1,
+        "sequence": 3,
+        "native_geometry": {
+          "section_info": [
+            1,
+            600.0,
+            600.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            6,
+            0.0
+          ],
+          "rigid": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "id": 1000004,
+        "tot_id": 1000004,
+        "floor": 1,
+        "node_i": 1000001,
+        "node_j": 1000004,
+        "original_no": 4,
+        "original_floor": 1,
+        "sequence": 4,
+        "native_geometry": {
+          "section_info": [
+            1,
+            600.0,
+            600.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            6,
+            0.0
+          ],
+          "rigid": [
+            0.0,
+            0.0
+          ]
+        }
+      }
+    ],
+    "braces": []
+  },
+  "cases": {
+    "lc_7": {
+      "forces": {
+        "columns": [
+          {
+            "id": 1000005,
+            "tot_id": 1000005,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -3.9779942838287654e-18,
+                1.5189035755604435e-18,
+                -1.965047988434288e-18,
+                -1.2275604308567634e-18,
+                -1.0,
+                4.649378982299125e-20
+              ],
+              [
+                -2.953130946560518e-19,
+                -4.3762403897424206e-18,
+                -1.965047988434288e-18,
+                -1.2275604308567634e-18,
+                -1.0,
+                4.649378982299125e-20
+              ]
+            ]
+          },
+          {
+            "id": 1000006,
+            "tot_id": 1000006,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -9.696342326021862e-20,
+                -7.25181178014267e-19,
+                -8.92469047723649e-19,
+                4.1641251727957406e-19,
+                -1.0,
+                1.2717424512004735e-20
+              ],
+              [
+                -1.3462009815612893e-18,
+                -3.4025884245827906e-18,
+                -8.92469047723649e-19,
+                4.1641251727957406e-19,
+                -1.0,
+                1.2717424512004735e-20
+              ]
+            ]
+          },
+          {
+            "id": 1000007,
+            "tot_id": 1000007,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -2.320107614952009e-18,
+                -7.078753601877694e-18,
+                1.8604197739088338e-18,
+                -6.636871754097912e-19,
+                -1.0,
+                -3.019540108063572e-20
+              ],
+              [
+                -3.2904611457202955e-19,
+                -1.497494486946346e-18,
+                1.8604197739088338e-18,
+                -6.636871754097912e-19,
+                -1.0,
+                -3.019540108063572e-20
+              ]
+            ]
+          },
+          {
+            "id": 1000008,
+            "tot_id": 1000008,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -6.235027412519651e-19,
+                1.9898538942338345e-18,
+                -2.5243608420678905e-18,
+                3.911967693359017e-19,
+                -1.0,
+                -1.2997488965045724e-19
+              ],
+              [
+                -1.7970931009584585e-18,
+                -5.583228425174684e-18,
+                -2.5243608420678905e-18,
+                3.911967693359017e-19,
+                -1.0,
+                -1.2997488965045724e-19
+              ]
+            ]
+          }
+        ],
+        "beams": [
+          {
+            "id": 1000001,
+            "tot_id": 1000001,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -0.0,
+                0.0,
+                -4.831182488816226e-19,
+                3.680676620355768e-18,
+                -1.2964573380520708e-18,
+                7.174412490226083e-19
+              ],
+              [
+                -5.044602738275573e-18,
+                7.62151188311712e-19,
+                -4.831182488816226e-19,
+                3.680676620355768e-18,
+                -1.2964573380520708e-18,
+                7.174412490226083e-19
+              ],
+              [
+                -3.2042644280976893e-18,
+                5.205920638709007e-19,
+                -4.831182488816226e-19,
+                3.680676620355768e-18,
+                -1.2964573380520708e-18,
+                7.174412490226083e-19
+              ],
+              [
+                -1.3639260145222287e-18,
+                2.7903291358069525e-19,
+                -4.831182488816226e-19,
+                3.680676620355768e-18,
+                -1.2964573380520708e-18,
+                7.174412490226083e-19
+              ],
+              [
+                4.764122956556552e-19,
+                3.747377944636115e-20,
+                -4.831182488816226e-19,
+                3.680676620355768e-18,
+                -1.2964573380520708e-18,
+                7.174412490226083e-19
+              ],
+              [
+                2.3167507092311157e-18,
+                -2.0408534822562441e-19,
+                -4.831182488816226e-19,
+                3.680676620355768e-18,
+                -1.2964573380520708e-18,
+                7.174412490226083e-19
+              ],
+              [
+                4.1570888126138465e-18,
+                -4.456444855911328e-19,
+                -4.831182488816226e-19,
+                3.680676620355768e-18,
+                -1.2964573380520708e-18,
+                7.174412490226083e-19
+              ],
+              [
+                5.997427536382037e-18,
+                -6.872036100319441e-19,
+                -4.831182488816226e-19,
+                3.680676620355768e-18,
+                -1.2964573380520708e-18,
+                7.174412490226083e-19
+              ],
+              [
+                -0.0,
+                0.0,
+                -4.831182488816226e-19,
+                3.680676620355768e-18,
+                -1.2964573380520708e-18,
+                7.174412490226083e-19
+              ]
+            ]
+          },
+          {
+            "id": 1000002,
+            "tot_id": 1000002,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -0.0,
+                0.0,
+                5.66790411274717e-19,
+                8.563458635783052e-19,
+                -6.979336418416171e-20,
+                -1.1276893320341016e-18
+              ],
+              [
+                -1.736764750933435e-18,
+                -8.02575246353237e-19,
+                5.66790411274717e-19,
+                8.563458635783052e-19,
+                -6.979336418416171e-20,
+                -1.1276893320341016e-18
+              ],
+              [
+                -1.3085918708430705e-18,
+                -5.191800148664844e-19,
+                5.66790411274717e-19,
+                8.563458635783052e-19,
+                -6.979336418416171e-20,
+                -1.1276893320341016e-18
+              ],
+              [
+                -8.804189907527062e-19,
+                -2.357848092291259e-19,
+                5.66790411274717e-19,
+                8.563458635783052e-19,
+                -6.979336418416171e-20,
+                -1.1276893320341016e-18
+              ],
+              [
+                -4.522460072647654e-19,
+                4.7610383483535535e-20,
+                5.66790411274717e-19,
+                8.563458635783052e-19,
+                -6.979336418416171e-20,
+                -1.1276893320341016e-18
+              ],
+              [
+                -2.407307062885137e-20,
+                3.3100557619619696e-19,
+                5.66790411274717e-19,
+                8.563458635783052e-19,
+                -6.979336418416171e-20,
+                -1.1276893320341016e-18
+              ],
+              [
+                4.0409988216293395e-19,
+                6.144008076829496e-19,
+                5.66790411274717e-19,
+                8.563458635783052e-19,
+                -6.979336418416171e-20,
+                -1.1276893320341016e-18
+              ],
+              [
+                8.322727881026924e-19,
+                8.97795987470914e-19,
+                5.66790411274717e-19,
+                8.563458635783052e-19,
+                -6.979336418416171e-20,
+                -1.1276893320341016e-18
+              ],
+              [
+                -0.0,
+                0.0,
+                5.66790411274717e-19,
+                8.563458635783052e-19,
+                -6.979336418416171e-20,
+                -1.1276893320341016e-18
+              ]
+            ]
+          },
+          {
+            "id": 1000003,
+            "tot_id": 1000003,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -0.0,
+                0.0,
+                -1.268891699235106e-19,
+                3.8712523126455085e-19,
+                -1.3484919616653315e-18,
+                -5.793944595362201e-20
+              ],
+              [
+                1.2878898148575528e-18,
+                7.963165005706282e-20,
+                -1.268891699235106e-19,
+                3.8712523126455085e-19,
+                -1.3484919616653315e-18,
+                -5.793944595362201e-20
+              ],
+              [
+                1.4814523529416458e-18,
+                1.6187069942068922e-20,
+                -1.268891699235106e-19,
+                3.8712523126455085e-19,
+                -1.3484919616653315e-18,
+                -5.793944595362201e-20
+              ],
+              [
+                1.6750149944233153e-18,
+                -4.725751340409924e-20,
+                -1.268891699235106e-19,
+                3.8712523126455085e-19,
+                -1.3484919616653315e-18,
+                -5.793944595362201e-20
+              ],
+              [
+                1.868577635904985e-18,
+                -1.1070209836585454e-19,
+                -1.268891699235106e-19,
+                3.8712523126455085e-19,
+                -1.3484919616653315e-18,
+                -5.793944595362201e-20
+              ],
+              [
+                2.062140173989078e-18,
+                -1.7414668332760984e-19,
+                -1.268891699235106e-19,
+                3.8712523126455085e-19,
+                -1.3484919616653315e-18,
+                -5.793944595362201e-20
+              ],
+              [
+                2.255702918868324e-18,
+                -2.3759126828936514e-19,
+                -1.268891699235106e-19,
+                3.8712523126455085e-19,
+                -1.3484919616653315e-18,
+                -5.793944595362201e-20
+              ],
+              [
+                2.449265456952417e-18,
+                -3.0103584032642336e-19,
+                -1.268891699235106e-19,
+                3.8712523126455085e-19,
+                -1.3484919616653315e-18,
+                -5.793944595362201e-20
+              ],
+              [
+                -0.0,
+                0.0,
+                -1.268891699235106e-19,
+                3.8712523126455085e-19,
+                -1.3484919616653315e-18,
+                -5.793944595362201e-20
+              ]
+            ]
+          },
+          {
+            "id": 1000004,
+            "tot_id": 1000004,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -0.0,
+                0.0,
+                6.68590598683429e-19,
+                5.510926635782955e-18,
+                -7.444421819751408e-19,
+                -1.8658551518645256e-19
+              ],
+              [
+                -7.571622552422515e-18,
+                -8.070996141111724e-19,
+                6.68590598683429e-19,
+                5.510926635782955e-18,
+                -7.444421819751408e-19,
+                -1.8658551518645256e-19
+              ],
+              [
+                -4.816159854916497e-18,
+                -4.72804340618852e-19,
+                6.68590598683429e-19,
+                5.510926635782955e-18,
+                -7.444421819751408e-19,
+                -1.8658551518645256e-19
+              ],
+              [
+                -2.0606963302298666e-18,
+                -1.3850904127713754e-19,
+                6.68590598683429e-19,
+                5.510926635782955e-18,
+                -7.444421819751408e-19,
+                -1.8658551518645256e-19
+              ],
+              [
+                6.947668842640344e-19,
+                1.9578625806457696e-19,
+                6.68590598683429e-19,
+                5.510926635782955e-18,
+                -7.444421819751408e-19,
+                -1.8658551518645256e-19
+              ],
+              [
+                3.4502300987579354e-18,
+                5.300815832556856e-19,
+                6.68590598683429e-19,
+                5.510926635782955e-18,
+                -7.444421819751408e-19,
+                -1.8658551518645256e-19
+              ],
+              [
+                6.205693416649413e-18,
+                8.643768567480059e-19,
+                6.68590598683429e-19,
+                5.510926635782955e-18,
+                -7.444421819751408e-19,
+                -1.8658551518645256e-19
+              ],
+              [
+                8.961156941336044e-18,
+                1.1986721819391146e-18,
+                6.68590598683429e-19,
+                5.510926635782955e-18,
+                -7.444421819751408e-19,
+                -1.8658551518645256e-19
+              ],
+              [
+                -0.0,
+                0.0,
+                6.68590598683429e-19,
+                5.510926635782955e-18,
+                -7.444421819751408e-19,
+                -1.8658551518645256e-19
+              ]
+            ]
+          }
+        ],
+        "braces": []
+      },
+      "reactions": [
+        {
+          "id": 1,
+          "fx": 1.965047983228176e-18,
+          "fy": 1.2275604266496528e-18,
+          "fz": 0.9999999999999999,
+          "mx": 2.9531308835034007e-19,
+          "my": 4.376240397672791e-18,
+          "mz": -4.6493791360339116e-20
+        },
+        {
+          "id": 2,
+          "fx": 8.924690766756368e-19,
+          "fy": -4.16412523403361e-19,
+          "fz": 0.9999999999999999,
+          "mx": 1.3462009940384912e-18,
+          "my": 3.4025884225368937e-18,
+          "mz": -1.2717424207757555e-20
+        },
+        {
+          "id": 3,
+          "fx": -1.8604197094137625e-18,
+          "fy": 6.636871917924547e-19,
+          "fz": 1.0000000000000002,
+          "mx": 3.2904610537618106e-19,
+          "my": 1.497494465138913e-18,
+          "mz": 3.019540108063572e-20
+        },
+        {
+          "id": 4,
+          "fx": 2.5243607389011174e-18,
+          "fy": -3.9119677267969193e-19,
+          "fz": 1.0000000000000004,
+          "mx": 1.797093064810542e-18,
+          "my": 5.583228300113786e-18,
+          "mz": 1.2997489210775407e-19
+        },
+        {
+          "id": 1000001,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        },
+        {
+          "id": 1000002,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        },
+        {
+          "id": 1000003,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        },
+        {
+          "id": 1000004,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        }
+      ],
+      "displacements": [
+        {
+          "id": 1,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": 2,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": 3,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": 4,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": 1000001,
+          "ux": -3.512632265703431e-23,
+          "uy": 2.012805420942189e-23,
+          "uz": -2.7777778655035945e-07,
+          "rx": -1.9783831597985082e-23,
+          "ry": -1.3228411675094768e-23,
+          "rz": 6.368314836553987e-25
+        },
+        {
+          "id": 1000002,
+          "ux": -3.560649282371148e-23,
+          "uy": 1.3260739194990725e-23,
+          "uz": -2.7777778655035945e-07,
+          "rx": -6.681316601337251e-24,
+          "ry": -1.911004498845228e-23,
+          "rz": 1.7419219752686128e-25
+        },
+        {
+          "id": 1000003,
+          "ux": -4.508734819335055e-23,
+          "uy": 1.3234889800848443e-23,
+          "uz": -2.7777778655035945e-07,
+          "rx": -1.2264601142618366e-23,
+          "ry": -3.970485241827534e-23,
+          "rz": -4.1359030627651384e-25
+        },
+        {
+          "id": 1000004,
+          "ux": -4.4587904577037024e-23,
+          "uy": 1.9852334701272664e-23,
+          "uz": -2.7777778655035945e-07,
+          "rx": -1.1206461778539257e-23,
+          "ry": -1.6635992596227365e-23,
+          "rz": -1.780282949886733e-24
+        }
+      ]
+    },
+    "lc_8": {
+      "forces": {
+        "columns": [
+          {
+            "id": 1000005,
+            "tot_id": 1000005,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -0.9424242377281189,
+                0.9424242377281189,
+                -0.4545454680919647,
+                -0.4545454680919647,
+                -4.0,
+                3.316731212902849e-18
+              ],
+              [
+                0.4212121069431305,
+                -0.4212121069431305,
+                -0.4545454680919647,
+                -0.4545454680919647,
+                -4.0,
+                3.316731212902849e-18
+              ]
+            ]
+          },
+          {
+            "id": 1000006,
+            "tot_id": 1000006,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -0.9424242377281189,
+                -0.9424242377281189,
+                0.4545454680919647,
+                -0.4545454680919647,
+                -4.0,
+                5.314390590191887e-18
+              ],
+              [
+                0.4212121069431305,
+                0.4212121069431305,
+                0.4545454680919647,
+                -0.4545454680919647,
+                -4.0,
+                5.314390590191887e-18
+              ]
+            ]
+          },
+          {
+            "id": 1000007,
+            "tot_id": 1000007,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                0.9424242377281189,
+                -0.9424242377281189,
+                0.4545454680919647,
+                0.4545454680919647,
+                -4.0,
+                9.60213754364216e-18
+              ],
+              [
+                -0.4212121069431305,
+                0.4212121069431305,
+                0.4545454680919647,
+                0.4545454680919647,
+                -4.0,
+                9.60213754364216e-18
+              ]
+            ]
+          },
+          {
+            "id": 1000008,
+            "tot_id": 1000008,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                0.9424242377281189,
+                0.9424242377281189,
+                -0.4545454680919647,
+                0.4545454680919647,
+                -4.0,
+                5.745998958161337e-18
+              ],
+              [
+                -0.4212121069431305,
+                -0.4212121069431305,
+                -0.4545454680919647,
+                0.4545454680919647,
+                -4.0,
+                5.745998958161337e-18
+              ]
+            ]
+          }
+        ],
+        "beams": [
+          {
+            "id": 1000001,
+            "tot_id": 1000001,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -0.9424242377281189,
+                0.0,
+                3.9266928731104716e-17,
+                2.0,
+                -0.4545454680919647,
+                -2.3190068029928235e-17
+              ],
+              [
+                -0.0674242451786995,
+                -6.111672924940308e-17,
+                3.9266928731104716e-17,
+                1.5,
+                -0.4545454680919647,
+                -2.3190068029928235e-17
+              ],
+              [
+                0.5575757622718811,
+                -4.148326653821195e-17,
+                3.9266928731104716e-17,
+                1.0,
+                -0.4545454680919647,
+                -2.3190068029928235e-17
+              ],
+              [
+                0.9325757622718811,
+                -2.184980217265959e-17,
+                3.9266928731104716e-17,
+                0.5,
+                -0.4545454680919647,
+                -2.3190068029928235e-17
+              ],
+              [
+                1.0575757026672363,
+                -2.216338220697538e-18,
+                3.9266928731104716e-17,
+                0.0,
+                -0.4545454680919647,
+                -2.3190068029928235e-17
+              ],
+              [
+                0.9325757622718811,
+                1.7417126558445126e-17,
+                3.9266928731104716e-17,
+                -0.5,
+                -0.4545454680919647,
+                -2.3190068029928235e-17
+              ],
+              [
+                0.5575757622718811,
+                3.7050590923997485e-17,
+                3.9266928731104716e-17,
+                -1.0,
+                -0.4545454680919647,
+                -2.3190068029928235e-17
+              ],
+              [
+                -0.0674242451786995,
+                5.668405363518862e-17,
+                3.9266928731104716e-17,
+                -1.5,
+                -0.4545454680919647,
+                -2.3190068029928235e-17
+              ],
+              [
+                -0.9424242377281189,
+                0.0,
+                3.9266928731104716e-17,
+                -2.0,
+                -0.4545454680919647,
+                -2.3190068029928235e-17
+              ]
+            ]
+          },
+          {
+            "id": 1000002,
+            "tot_id": 1000002,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -0.9424242377281189,
+                0.0,
+                -4.8109367056565924e-17,
+                2.0,
+                -0.4545454680919647,
+                2.3190068029928235e-17
+              ],
+              [
+                -0.0674242451786995,
+                6.740693488205642e-17,
+                -4.8109367056565924e-17,
+                1.5,
+                -0.4545454680919647,
+                2.3190068029928235e-17
+              ],
+              [
+                0.5575757622718811,
+                4.335225135377346e-17,
+                -4.8109367056565924e-17,
+                1.0,
+                -0.4545454680919647,
+                2.3190068029928235e-17
+              ],
+              [
+                0.9325757622718811,
+                1.92975678254905e-17,
+                -4.8109367056565924e-17,
+                0.5,
+                -0.4545454680919647,
+                2.3190068029928235e-17
+              ],
+              [
+                1.0575757026672363,
+                -4.757115702792462e-18,
+                -4.8109367056565924e-17,
+                0.0,
+                -0.4545454680919647,
+                2.3190068029928235e-17
+              ],
+              [
+                0.9325757622718811,
+                -2.8811799231075424e-17,
+                -4.8109367056565924e-17,
+                -0.5,
+                -0.4545454680919647,
+                2.3190068029928235e-17
+              ],
+              [
+                0.5575757622718811,
+                -5.2866482759358387e-17,
+                -4.8109367056565924e-17,
+                -1.0,
+                -0.4545454680919647,
+                2.3190068029928235e-17
+              ],
+              [
+                -0.0674242451786995,
+                -7.692116628764135e-17,
+                -4.8109367056565924e-17,
+                -1.5,
+                -0.4545454680919647,
+                2.3190068029928235e-17
+              ],
+              [
+                -0.9424242377281189,
+                0.0,
+                -4.8109367056565924e-17,
+                -2.0,
+                -0.4545454680919647,
+                2.3190068029928235e-17
+              ]
+            ]
+          },
+          {
+            "id": 1000003,
+            "tot_id": 1000003,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -0.9424242377281189,
+                0.0,
+                3.18080194633099e-17,
+                2.0,
+                -0.4545454680919647,
+                -9.276027211971294e-17
+              ],
+              [
+                -0.0674242451786995,
+                -5.1990290041150367e-17,
+                3.18080194633099e-17,
+                1.5,
+                -0.4545454680919647,
+                -9.276027211971294e-17
+              ],
+              [
+                0.5575757622718811,
+                -3.6086280309495416e-17,
+                3.18080194633099e-17,
+                1.0,
+                -0.4545454680919647,
+                -9.276027211971294e-17
+              ],
+              [
+                0.9325757622718811,
+                -2.018226892347924e-17,
+                3.18080194633099e-17,
+                0.5,
+                -0.4545454680919647,
+                -9.276027211971294e-17
+              ],
+              [
+                1.0575757026672363,
+                -4.278260432595208e-18,
+                3.18080194633099e-17,
+                0.0,
+                -0.4545454680919647,
+                -9.276027211971294e-17
+              ],
+              [
+                0.9325757622718811,
+                1.1625748885469436e-17,
+                3.18080194633099e-17,
+                -0.5,
+                -0.4545454680919647,
+                -9.276027211971294e-17
+              ],
+              [
+                0.5575757622718811,
+                2.7529758617124387e-17,
+                3.18080194633099e-17,
+                -1.0,
+                -0.4545454680919647,
+                -9.276027211971294e-17
+              ],
+              [
+                -0.0674242451786995,
+                4.343376834877934e-17,
+                3.18080194633099e-17,
+                -1.5,
+                -0.4545454680919647,
+                -9.276027211971294e-17
+              ],
+              [
+                -0.9424242377281189,
+                0.0,
+                3.18080194633099e-17,
+                -2.0,
+                -0.4545454680919647,
+                -9.276027211971294e-17
+              ]
+            ]
+          },
+          {
+            "id": 1000004,
+            "tot_id": 1000004,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -0.9424242377281189,
+                0.0,
+                -4.1243006966212246e-17,
+                2.0,
+                -0.4545454680919647,
+                4.638013605985647e-17
+              ],
+              [
+                -0.0674242451786995,
+                5.916931447688174e-17,
+                -4.1243006966212246e-17,
+                1.5,
+                -0.4545454680919647,
+                4.638013605985647e-17
+              ],
+              [
+                0.5575757622718811,
+                3.8547814302498066e-17,
+                -4.1243006966212246e-17,
+                1.0,
+                -0.4545454680919647,
+                4.638013605985647e-17
+              ],
+              [
+                0.9325757622718811,
+                1.7926309165030718e-17,
+                -4.1243006966212246e-17,
+                0.5,
+                -0.4545454680919647,
+                4.638013605985647e-17
+              ],
+              [
+                1.0575757026672363,
+                -2.695193490894792e-18,
+                -4.1243006966212246e-17,
+                0.0,
+                -0.4545454680919647,
+                4.638013605985647e-17
+              ],
+              [
+                0.9325757622718811,
+                -2.3316697801181527e-17,
+                -4.1243006966212246e-17,
+                -0.5,
+                -0.4545454680919647,
+                4.638013605985647e-17
+              ],
+              [
+                0.5575757622718811,
+                -4.3938199629926425e-17,
+                -4.1243006966212246e-17,
+                -1.0,
+                -0.4545454680919647,
+                4.638013605985647e-17
+              ],
+              [
+                -0.0674242451786995,
+                -6.4559706421755e-17,
+                -4.1243006966212246e-17,
+                -1.5,
+                -0.4545454680919647,
+                4.638013605985647e-17
+              ],
+              [
+                -0.9424242377281189,
+                0.0,
+                -4.1243006966212246e-17,
+                -2.0,
+                -0.4545454680919647,
+                4.638013605985647e-17
+              ]
+            ]
+          }
+        ],
+        "braces": []
+      },
+      "reactions": [
+        {
+          "id": 1,
+          "fx": 0.4545454545454545,
+          "fy": 0.4545454545454546,
+          "fz": 4.000000000000001,
+          "mx": -0.42121212121212115,
+          "my": 0.42121212121212115,
+          "mz": -3.3167311298557592e-18
+        },
+        {
+          "id": 2,
+          "fx": -0.4545454545454546,
+          "fy": 0.4545454545454546,
+          "fz": 3.999999999999999,
+          "mx": -0.42121212121212137,
+          "my": -0.42121212121212115,
+          "mz": -5.314390590191887e-18
+        },
+        {
+          "id": 3,
+          "fx": -0.45454545454545453,
+          "fy": -0.4545454545454545,
+          "fz": 3.9999999999999996,
+          "mx": 0.42121212121212104,
+          "my": -0.42121212121212126,
+          "mz": -9.60213754364216e-18
+        },
+        {
+          "id": 4,
+          "fx": 0.45454545454545464,
+          "fy": -0.4545454545454547,
+          "fz": 4.000000000000001,
+          "mx": 0.42121212121212126,
+          "my": 0.42121212121212126,
+          "mz": -5.745998954962813e-18
+        },
+        {
+          "id": 1000001,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        },
+        {
+          "id": 1000002,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        },
+        {
+          "id": 1000003,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        },
+        {
+          "id": 1000004,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        }
+      ],
+      "displacements": [
+        {
+          "id": 1,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": 2,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": 3,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": 4,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": 1000001,
+          "ux": 8.417508468028245e-08,
+          "uy": 8.417508468028245e-08,
+          "uz": -1.1111111462014378e-06,
+          "rx": -2.4130190467985813e-06,
+          "ry": 2.4130190467985813e-06,
+          "rz": 4.5429694893554744e-23
+        },
+        {
+          "id": 1000002,
+          "ux": -8.417508468028245e-08,
+          "uy": 8.417508468028245e-08,
+          "uz": -1.1111111462014378e-06,
+          "rx": -2.4130190467985813e-06,
+          "ry": -2.4130190467985813e-06,
+          "rz": 7.279189390466644e-23
+        },
+        {
+          "id": 1000003,
+          "ux": -8.417508468028245e-08,
+          "uy": -8.417508468028245e-08,
+          "uz": -1.1111111462014378e-06,
+          "rx": 2.4130190467985813e-06,
+          "ry": -2.4130190467985813e-06,
+          "rz": 1.315217173959314e-22
+        },
+        {
+          "id": 1000004,
+          "ux": 8.417508468028245e-08,
+          "uy": -8.417508468028245e-08,
+          "uz": -1.1111111462014378e-06,
+          "rx": 2.4130190467985813e-06,
+          "ry": 2.4130190467985813e-06,
+          "rz": 7.870368694815236e-23
+        }
+      ]
+    },
+    "lc_9": {
+      "forces": {
+        "columns": [
+          {
+            "id": 1000005,
+            "tot_id": 1000005,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                0.07545462250709534,
+                -0.08995884656906128,
+                0.08142505586147308,
+                0.059483014047145844,
+                0.0961456149816513,
+                -0.04185537248849869
+              ],
+              [
+                -0.1029944196343422,
+                0.15431632101535797,
+                0.08142505586147308,
+                0.059483014047145844,
+                0.0961456149816513,
+                -0.04185537248849869
+              ]
+            ]
+          },
+          {
+            "id": 1000006,
+            "tot_id": 1000006,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -0.07545462250709534,
+                -0.08796994388103485,
+                0.08048838376998901,
+                -0.059483014047145844,
+                -0.0961456149816513,
+                -0.04403945431113243
+              ],
+              [
+                0.1029944196343422,
+                0.1534952074289322,
+                0.08048838376998901,
+                -0.059483014047145844,
+                -0.0961456149816513,
+                -0.04403945431113243
+              ]
+            ]
+          },
+          {
+            "id": 1000007,
+            "tot_id": 1000007,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -0.07545462250709534,
+                -0.5196877717971802,
+                0.4251934289932251,
+                -0.059483014047145844,
+                -0.20512641966342926,
+                -0.04403945431113243
+              ],
+              [
+                0.1029944196343422,
+                0.7558925151824951,
+                0.4251934289932251,
+                -0.059483014047145844,
+                -0.20512641966342926,
+                -0.04403945431113243
+              ]
+            ]
+          },
+          {
+            "id": 1000008,
+            "tot_id": 1000008,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                0.07545462250709534,
+                -0.5074715614318848,
+                0.4128931164741516,
+                0.059483014047145844,
+                0.20512641966342926,
+                -0.04185537248849869
+              ],
+              [
+                -0.1029944196343422,
+                0.7312077879905701,
+                0.4128931164741516,
+                0.059483014047145844,
+                0.20512641966342926,
+                -0.04185537248849869
+              ]
+            ]
+          }
+        ],
+        "beams": [
+          {
+            "id": 1000001,
+            "tot_id": 1000001,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                0.13036136329174042,
+                -0.11654285341501236,
+                0.059483014047145844,
+                -0.0653996393084526,
+                0.002225941512733698,
+                0.01396267767995596
+              ],
+              [
+                0.09766153991222382,
+                -0.08680135011672974,
+                0.059483014047145844,
+                -0.0653996393084526,
+                0.002225941512733698,
+                0.01396267767995596
+              ],
+              [
+                0.06496171653270721,
+                -0.057059843093156815,
+                0.059483014047145844,
+                -0.0653996393084526,
+                0.002225941512733698,
+                0.01396267767995596
+              ],
+              [
+                0.03226190060377121,
+                -0.027318337932229042,
+                0.059483014047145844,
+                -0.0653996393084526,
+                0.002225941512733698,
+                0.01396267767995596
+              ],
+              [
+                -0.00043792155338451266,
+                0.0024231683928519487,
+                0.059483014047145844,
+                -0.0653996393084526,
+                0.002225941512733698,
+                0.01396267767995596
+              ],
+              [
+                -0.033137742429971695,
+                0.03216467425227165,
+                0.059483014047145844,
+                -0.0653996393084526,
+                0.002225941512733698,
+                0.01396267767995596
+              ],
+              [
+                -0.065837562084198,
+                0.061906181275844574,
+                0.059483014047145844,
+                -0.0653996393084526,
+                0.002225941512733698,
+                0.01396267767995596
+              ],
+              [
+                -0.0985373854637146,
+                0.0916476845741272,
+                0.059483014047145844,
+                -0.0653996393084526,
+                0.002225941512733698,
+                0.01396267767995596
+              ],
+              [
+                -0.1312372088432312,
+                0.12138919532299042,
+                0.059483014047145844,
+                -0.0653996393084526,
+                0.002225941512733698,
+                0.01396267767995596
+              ]
+            ]
+          },
+          {
+            "id": 1000002,
+            "tot_id": 1000002,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -0.0614919438958168,
+                0.16542865335941315,
+                -0.08271432667970657,
+                0.0307459719479084,
+                2.8587361969832636e-16,
+                0.04326725751161575
+              ],
+              [
+                -0.04611895605921745,
+                0.12407148629426956,
+                -0.08271432667970657,
+                0.0307459719479084,
+                2.8587361969832636e-16,
+                0.04326725751161575
+              ],
+              [
+                -0.0307459719479084,
+                0.08271432667970657,
+                -0.08271432667970657,
+                0.0307459719479084,
+                2.8587361969832636e-16,
+                0.04326725751161575
+              ],
+              [
+                -0.0153729859739542,
+                0.04135716333985329,
+                -0.08271432667970657,
+                0.0307459719479084,
+                2.8587361969832636e-16,
+                0.04326725751161575
+              ],
+              [
+                0.0,
+                5.551115123125783e-17,
+                -0.08271432667970657,
+                0.0307459719479084,
+                2.8587361969832636e-16,
+                0.04326725751161575
+              ],
+              [
+                0.0153729859739542,
+                -0.04135716333985329,
+                -0.08271432667970657,
+                0.0307459719479084,
+                2.8587361969832636e-16,
+                0.04326725751161575
+              ],
+              [
+                0.0307459719479084,
+                -0.08271432667970657,
+                -0.08271432667970657,
+                0.0307459719479084,
+                2.8587361969832636e-16,
+                0.04326725751161575
+              ],
+              [
+                0.04611895605921745,
+                -0.12407148629426956,
+                -0.08271432667970657,
+                0.0307459719479084,
+                2.8587361969832636e-16,
+                0.04326725751161575
+              ],
+              [
+                0.0614919438958168,
+                -0.16542865335941315,
+                -0.08271432667970657,
+                0.0307459719479084,
+                2.8587361969832636e-16,
+                0.04326725751161575
+              ]
+            ]
+          },
+          {
+            "id": 1000003,
+            "tot_id": 1000003,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                0.4670690894126892,
+                -0.11654285341501236,
+                0.059483014047145844,
+                -0.23587240278720856,
+                0.4920922517776489,
+                0.01396267767995596
+              ],
+              [
+                0.34913286566734314,
+                -0.08680135011672974,
+                0.059483014047145844,
+                -0.23587240278720856,
+                0.4920922517776489,
+                0.01396267767995596
+              ],
+              [
+                0.23119668662548065,
+                -0.057059843093156815,
+                0.059483014047145844,
+                -0.23587240278720856,
+                0.4920922517776489,
+                0.01396267767995596
+              ],
+              [
+                0.11326048523187637,
+                -0.027318337932229042,
+                0.059483014047145844,
+                -0.23587240278720856,
+                0.4920922517776489,
+                0.01396267767995596
+              ],
+              [
+                -0.004675714764744043,
+                0.0024231683928519487,
+                0.059483014047145844,
+                -0.23587240278720856,
+                0.4920922517776489,
+                0.01396267767995596
+              ],
+              [
+                -0.12261191010475159,
+                0.03216467425227165,
+                0.059483014047145844,
+                -0.23587240278720856,
+                0.4920922517776489,
+                0.01396267767995596
+              ],
+              [
+                -0.24054811894893646,
+                0.061906181275844574,
+                0.059483014047145844,
+                -0.23587240278720856,
+                0.4920922517776489,
+                0.01396267767995596
+              ],
+              [
+                -0.35848429799079895,
+                0.0916476845741272,
+                0.059483014047145844,
+                -0.23587240278720856,
+                0.4920922517776489,
+                0.01396267767995596
+              ],
+              [
+                -0.476420521736145,
+                0.12138919532299042,
+                0.059483014047145844,
+                -0.23587240278720856,
+                0.4920922517776489,
+                0.01396267767995596
+              ]
+            ]
+          },
+          {
+            "id": 1000004,
+            "tot_id": 1000004,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                0.0614919438958168,
+                0.15839822590351105,
+                -0.07919911295175552,
+                -0.0307459719479084,
+                2.8587361969832636e-16,
+                0.04040250927209854
+              ],
+              [
+                0.04611895605921745,
+                0.11879867315292358,
+                -0.07919911295175552,
+                -0.0307459719479084,
+                2.8587361969832636e-16,
+                0.04040250927209854
+              ],
+              [
+                0.0307459719479084,
+                0.07919911295175552,
+                -0.07919911295175552,
+                -0.0307459719479084,
+                2.8587361969832636e-16,
+                0.04040250927209854
+              ],
+              [
+                0.0153729859739542,
+                0.03959955647587776,
+                -0.07919911295175552,
+                -0.0307459719479084,
+                2.8587361969832636e-16,
+                0.04040250927209854
+              ],
+              [
+                0.0,
+                1.1102230246251565e-16,
+                -0.07919911295175552,
+                -0.0307459719479084,
+                2.8587361969832636e-16,
+                0.04040250927209854
+              ],
+              [
+                -0.0153729859739542,
+                -0.03959955647587776,
+                -0.07919911295175552,
+                -0.0307459719479084,
+                2.8587361969832636e-16,
+                0.04040250927209854
+              ],
+              [
+                -0.0307459719479084,
+                -0.07919911295175552,
+                -0.07919911295175552,
+                -0.0307459719479084,
+                2.8587361969832636e-16,
+                0.04040250927209854
+              ],
+              [
+                -0.04611895605921745,
+                -0.11879867315292358,
+                -0.07919911295175552,
+                -0.0307459719479084,
+                2.8587361969832636e-16,
+                0.04040250927209854
+              ],
+              [
+                -0.0614919438958168,
+                -0.15839822590351105,
+                -0.07919911295175552,
+                -0.0307459719479084,
+                2.8587361969832636e-16,
+                0.04040250927209854
+              ]
+            ]
+          }
+        ],
+        "braces": []
+      },
+      "reactions": [
+        {
+          "id": 1,
+          "fx": -0.08142505512147608,
+          "fy": -0.05948301258315224,
+          "fz": -0.09614561182141981,
+          "mx": 0.10299441793876211,
+          "my": -0.15431631537584675,
+          "mz": 0.04185537067219487
+        },
+        {
+          "id": 2,
+          "fx": -0.08048838196751502,
+          "fy": 0.059483012583152306,
+          "fz": 0.0961456118214198,
+          "mx": -0.1029944179387622,
+          "my": -0.15349520104925254,
+          "mz": 0.044039453173179394
+        },
+        {
+          "id": 3,
+          "fx": -0.42519343621430256,
+          "fy": 0.0594830125831523,
+          "fz": 0.2051264256702114,
+          "mx": -0.1029944179387622,
+          "my": -0.7558925421493019,
+          "mz": 0.044039453173179394
+        },
+        {
+          "id": 4,
+          "fx": -0.4128931266967053,
+          "fy": -0.05948301258315226,
+          "fz": -0.20512642567021147,
+          "mx": 0.10299441793876213,
+          "my": -0.7312077914590717,
+          "mz": 0.04185537067219489
+        },
+        {
+          "id": 1000001,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        },
+        {
+          "id": 1000002,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        },
+        {
+          "id": 1000003,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        },
+        {
+          "id": 1000004,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        }
+      ],
+      "displacements": [
+        {
+          "id": 1,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": 2,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": 3,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": 4,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": 1000001,
+          "ux": 1.0802327778947074e-06,
+          "uy": 6.538942329825659e-07,
+          "uz": 2.6707114741952864e-08,
+          "rx": -1.274990637512019e-07,
+          "ry": 2.979512316869659e-07,
+          "rz": -5.732983936468372e-07
+        },
+        {
+          "id": 1000002,
+          "ux": 1.0810572348418646e-06,
+          "uy": -6.538942329825659e-07,
+          "uz": -2.6707114741952864e-08,
+          "rx": 1.274990637512019e-07,
+          "ry": 3.033576660982362e-07,
+          "rz": -6.03214061811741e-07
+        },
+        {
+          "id": 1000003,
+          "ux": 4.9473710532765836e-06,
+          "uy": -6.538942329825659e-07,
+          "uz": -5.697956240169333e-08,
+          "rx": 1.274990637512019e-07,
+          "ry": 1.0935406180578866e-06,
+          "rz": -6.03214061811741e-07
+        },
+        {
+          "id": 1000004,
+          "ux": 4.765114681504201e-06,
+          "uy": 6.538942329825659e-07,
+          "uz": 5.697956240169333e-08,
+          "rx": -1.274990637512019e-07,
+          "ry": 1.035815785144223e-06,
+          "rz": -5.732983936468372e-07
+        }
+      ]
+    },
+    "lc_10": {
+      "forces": {
+        "columns": [
+          {
+            "id": 1000005,
+            "tot_id": 1000005,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                0.08995884656906128,
+                -0.07545462250709534,
+                0.059483014047145844,
+                0.08142505586147308,
+                0.0961456149816513,
+                0.04185537248849869
+              ],
+              [
+                -0.15431632101535797,
+                0.1029944196343422,
+                0.059483014047145844,
+                0.08142505586147308,
+                0.0961456149816513,
+                0.04185537248849869
+              ]
+            ]
+          },
+          {
+            "id": 1000006,
+            "tot_id": 1000006,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                0.5074715614318848,
+                -0.07545462250709534,
+                0.059483014047145844,
+                0.4128931164741516,
+                0.20512641966342926,
+                0.04185537248849869
+              ],
+              [
+                -0.7312077879905701,
+                0.1029944196343422,
+                0.059483014047145844,
+                0.4128931164741516,
+                0.20512641966342926,
+                0.04185537248849869
+              ]
+            ]
+          },
+          {
+            "id": 1000007,
+            "tot_id": 1000007,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                0.5196877717971802,
+                0.07545462250709534,
+                -0.059483014047145844,
+                0.4251934289932251,
+                -0.20512641966342926,
+                0.04403945431113243
+              ],
+              [
+                -0.7558925151824951,
+                -0.1029944196343422,
+                -0.059483014047145844,
+                0.4251934289932251,
+                -0.20512641966342926,
+                0.04403945431113243
+              ]
+            ]
+          },
+          {
+            "id": 1000008,
+            "tot_id": 1000008,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                0.08796994388103485,
+                0.07545462250709534,
+                -0.059483014047145844,
+                0.08048838376998901,
+                -0.0961456149816513,
+                0.04403945431113243
+              ],
+              [
+                -0.1534952074289322,
+                -0.1029944196343422,
+                -0.059483014047145844,
+                0.08048838376998901,
+                -0.0961456149816513,
+                0.04403945431113243
+              ]
+            ]
+          }
+        ],
+        "beams": [
+          {
+            "id": 1000001,
+            "tot_id": 1000001,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                0.0614919438958168,
+                -0.15839822590351105,
+                0.07919911295175552,
+                -0.0307459719479084,
+                0.0,
+                -0.04040250927209854
+              ],
+              [
+                0.04611895605921745,
+                -0.11879867315292358,
+                0.07919911295175552,
+                -0.0307459719479084,
+                0.0,
+                -0.04040250927209854
+              ],
+              [
+                0.0307459719479084,
+                -0.07919911295175552,
+                0.07919911295175552,
+                -0.0307459719479084,
+                0.0,
+                -0.04040250927209854
+              ],
+              [
+                0.0153729859739542,
+                -0.03959955647587776,
+                0.07919911295175552,
+                -0.0307459719479084,
+                0.0,
+                -0.04040250927209854
+              ],
+              [
+                0.0,
+                -1.1102230246251565e-16,
+                0.07919911295175552,
+                -0.0307459719479084,
+                0.0,
+                -0.04040250927209854
+              ],
+              [
+                -0.0153729859739542,
+                0.03959955647587776,
+                0.07919911295175552,
+                -0.0307459719479084,
+                0.0,
+                -0.04040250927209854
+              ],
+              [
+                -0.0307459719479084,
+                0.07919911295175552,
+                0.07919911295175552,
+                -0.0307459719479084,
+                0.0,
+                -0.04040250927209854
+              ],
+              [
+                -0.04611895605921745,
+                0.11879867315292358,
+                0.07919911295175552,
+                -0.0307459719479084,
+                0.0,
+                -0.04040250927209854
+              ],
+              [
+                -0.0614919438958168,
+                0.15839822590351105,
+                0.07919911295175552,
+                -0.0307459719479084,
+                0.0,
+                -0.04040250927209854
+              ]
+            ]
+          },
+          {
+            "id": 1000002,
+            "tot_id": 1000002,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                0.4670690894126892,
+                0.11654285341501236,
+                -0.059483014047145844,
+                -0.23587240278720856,
+                0.4920922517776489,
+                -0.01396267767995596
+              ],
+              [
+                0.34913286566734314,
+                0.08680135011672974,
+                -0.059483014047145844,
+                -0.23587240278720856,
+                0.4920922517776489,
+                -0.01396267767995596
+              ],
+              [
+                0.23119668662548065,
+                0.057059843093156815,
+                -0.059483014047145844,
+                -0.23587240278720856,
+                0.4920922517776489,
+                -0.01396267767995596
+              ],
+              [
+                0.11326048523187637,
+                0.027318337932229042,
+                -0.059483014047145844,
+                -0.23587240278720856,
+                0.4920922517776489,
+                -0.01396267767995596
+              ],
+              [
+                -0.004675714764744043,
+                -0.0024231683928519487,
+                -0.059483014047145844,
+                -0.23587240278720856,
+                0.4920922517776489,
+                -0.01396267767995596
+              ],
+              [
+                -0.12261191010475159,
+                -0.03216467425227165,
+                -0.059483014047145844,
+                -0.23587240278720856,
+                0.4920922517776489,
+                -0.01396267767995596
+              ],
+              [
+                -0.24054811894893646,
+                -0.061906181275844574,
+                -0.059483014047145844,
+                -0.23587240278720856,
+                0.4920922517776489,
+                -0.01396267767995596
+              ],
+              [
+                -0.35848429799079895,
+                -0.0916476845741272,
+                -0.059483014047145844,
+                -0.23587240278720856,
+                0.4920922517776489,
+                -0.01396267767995596
+              ],
+              [
+                -0.476420521736145,
+                -0.12138919532299042,
+                -0.059483014047145844,
+                -0.23587240278720856,
+                0.4920922517776489,
+                -0.01396267767995596
+              ]
+            ]
+          },
+          {
+            "id": 1000003,
+            "tot_id": 1000003,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -0.0614919438958168,
+                -0.16542865335941315,
+                0.08271432667970657,
+                0.0307459719479084,
+                0.0,
+                -0.04326725751161575
+              ],
+              [
+                -0.04611895605921745,
+                -0.12407148629426956,
+                0.08271432667970657,
+                0.0307459719479084,
+                0.0,
+                -0.04326725751161575
+              ],
+              [
+                -0.0307459719479084,
+                -0.08271432667970657,
+                0.08271432667970657,
+                0.0307459719479084,
+                0.0,
+                -0.04326725751161575
+              ],
+              [
+                -0.0153729859739542,
+                -0.04135716333985329,
+                0.08271432667970657,
+                0.0307459719479084,
+                0.0,
+                -0.04326725751161575
+              ],
+              [
+                0.0,
+                -1.1102230246251565e-16,
+                0.08271432667970657,
+                0.0307459719479084,
+                0.0,
+                -0.04326725751161575
+              ],
+              [
+                0.0153729859739542,
+                0.04135716333985329,
+                0.08271432667970657,
+                0.0307459719479084,
+                0.0,
+                -0.04326725751161575
+              ],
+              [
+                0.0307459719479084,
+                0.08271432667970657,
+                0.08271432667970657,
+                0.0307459719479084,
+                0.0,
+                -0.04326725751161575
+              ],
+              [
+                0.04611895605921745,
+                0.12407148629426956,
+                0.08271432667970657,
+                0.0307459719479084,
+                0.0,
+                -0.04326725751161575
+              ],
+              [
+                0.0614919438958168,
+                0.16542865335941315,
+                0.08271432667970657,
+                0.0307459719479084,
+                0.0,
+                -0.04326725751161575
+              ]
+            ]
+          },
+          {
+            "id": 1000004,
+            "tot_id": 1000004,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                0.13036136329174042,
+                0.11654285341501236,
+                -0.059483014047145844,
+                -0.0653996393084526,
+                0.002225941512733698,
+                -0.01396267767995596
+              ],
+              [
+                0.09766153991222382,
+                0.08680135011672974,
+                -0.059483014047145844,
+                -0.0653996393084526,
+                0.002225941512733698,
+                -0.01396267767995596
+              ],
+              [
+                0.06496171653270721,
+                0.057059843093156815,
+                -0.059483014047145844,
+                -0.0653996393084526,
+                0.002225941512733698,
+                -0.01396267767995596
+              ],
+              [
+                0.03226190060377121,
+                0.027318337932229042,
+                -0.059483014047145844,
+                -0.0653996393084526,
+                0.002225941512733698,
+                -0.01396267767995596
+              ],
+              [
+                -0.00043792155338451266,
+                -0.0024231683928519487,
+                -0.059483014047145844,
+                -0.0653996393084526,
+                0.002225941512733698,
+                -0.01396267767995596
+              ],
+              [
+                -0.033137742429971695,
+                -0.03216467425227165,
+                -0.059483014047145844,
+                -0.0653996393084526,
+                0.002225941512733698,
+                -0.01396267767995596
+              ],
+              [
+                -0.065837562084198,
+                -0.061906181275844574,
+                -0.059483014047145844,
+                -0.0653996393084526,
+                0.002225941512733698,
+                -0.01396267767995596
+              ],
+              [
+                -0.0985373854637146,
+                -0.0916476845741272,
+                -0.059483014047145844,
+                -0.0653996393084526,
+                0.002225941512733698,
+                -0.01396267767995596
+              ],
+              [
+                -0.1312372088432312,
+                -0.12138919532299042,
+                -0.059483014047145844,
+                -0.0653996393084526,
+                0.002225941512733698,
+                -0.01396267767995596
+              ]
+            ]
+          }
+        ],
+        "braces": []
+      },
+      "reactions": [
+        {
+          "id": 1,
+          "fx": -0.0594830125831521,
+          "fy": -0.0814250551214761,
+          "fz": -0.09614561182141972,
+          "mx": 0.1543163153758468,
+          "my": -0.10299441793876182,
+          "mz": -0.041855370672194796
+        },
+        {
+          "id": 2,
+          "fx": -0.05948301258315205,
+          "fy": -0.41289312669670486,
+          "fz": -0.2051264256702112,
+          "mx": 0.7312077914590708,
+          "my": -0.10299441793876177,
+          "mz": -0.041855370672194823
+        },
+        {
+          "id": 3,
+          "fx": 0.05948301258315231,
+          "fy": -0.4251934362143022,
+          "fz": 0.20512642567021105,
+          "mx": 0.7558925421493013,
+          "my": 0.10299441793876223,
+          "mz": -0.044039453173179324
+        },
+        {
+          "id": 4,
+          "fx": 0.05948301258315228,
+          "fy": -0.08048838196751507,
+          "fz": 0.09614561182141987,
+          "mx": 0.1534952010492526,
+          "my": 0.1029944179387622,
+          "mz": -0.044039453173179345
+        },
+        {
+          "id": 1000001,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        },
+        {
+          "id": 1000002,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        },
+        {
+          "id": 1000003,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        },
+        {
+          "id": 1000004,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        }
+      ],
+      "displacements": [
+        {
+          "id": 1,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": 2,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": 3,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": 4,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": 1000001,
+          "ux": 6.538942329825659e-07,
+          "uy": 1.0802327778947074e-06,
+          "uz": 2.6707114741952864e-08,
+          "rx": -2.979512316869659e-07,
+          "ry": 1.274990637512019e-07,
+          "rz": 5.732983936468372e-07
+        },
+        {
+          "id": 1000002,
+          "ux": 6.538942329825659e-07,
+          "uy": 4.765114681504201e-06,
+          "uz": 5.697956240169333e-08,
+          "rx": -1.035815785144223e-06,
+          "ry": 1.274990637512019e-07,
+          "rz": 5.732983936468372e-07
+        },
+        {
+          "id": 1000003,
+          "ux": -6.538942329825659e-07,
+          "uy": 4.9473710532765836e-06,
+          "uz": -5.697956240169333e-08,
+          "rx": -1.0935406180578866e-06,
+          "ry": -1.274990637512019e-07,
+          "rz": 6.03214061811741e-07
+        },
+        {
+          "id": 1000004,
+          "ux": -6.538942329825659e-07,
+          "uy": 1.0810572348418646e-06,
+          "uz": -2.6707114741952864e-08,
+          "rx": -3.033576660982362e-07,
+          "ry": -1.274990637512019e-07,
+          "rz": 6.03214061811741e-07
+        }
+      ]
+    },
+    "lc_11": {
+      "forces": {
+        "columns": [
+          {
+            "id": 1000005,
+            "tot_id": 1000005,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -0.04184484854340553,
+                0.01622328907251358,
+                -0.012331660836935043,
+                -0.030726861208677292,
+                -0.03193880245089531,
+                -0.008294385857880116
+              ],
+              [
+                0.05033573880791664,
+                -0.02077169343829155,
+                -0.012331660836935043,
+                -0.030726861208677292,
+                -0.03193880245089531,
+                -0.008294385857880116
+              ]
+            ]
+          },
+          {
+            "id": 1000006,
+            "tot_id": 1000006,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -0.21326029300689697,
+                0.01622328907251358,
+                -0.012331660836935043,
+                -0.13972768187522888,
+                -0.1689092218875885,
+                -0.008294385857880116
+              ],
+              [
+                0.20592275261878967,
+                -0.02077169343829155,
+                -0.012331660836935043,
+                -0.13972768187522888,
+                -0.1689092218875885,
+                -0.008294385857880116
+              ]
+            ]
+          },
+          {
+            "id": 1000007,
+            "tot_id": 1000007,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                0.4351155459880829,
+                -0.01622328907251358,
+                0.012331660836935043,
+                0.1730002909898758,
+                0.1689092218875885,
+                -0.008924196474254131
+              ],
+              [
+                -0.08388535678386688,
+                0.02077169343829155,
+                0.012331660836935043,
+                0.1730002909898758,
+                0.1689092218875885,
+                -0.008924196474254131
+              ]
+            ]
+          },
+          {
+            "id": 1000008,
+            "tot_id": 1000008,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                0.016597503796219826,
+                -0.01622328907251358,
+                0.012331660836935043,
+                -0.002545751631259918,
+                0.03193880245089531,
+                -0.008924196474254131
+              ],
+              [
+                0.02423475868999958,
+                0.02077169343829155,
+                0.012331660836935043,
+                -0.002545751631259918,
+                0.03193880245089531,
+                -0.008924196474254131
+              ]
+            ]
+          }
+        ],
+        "beams": [
+          {
+            "id": 1000001,
+            "tot_id": 1000001,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -0.013917248696088791,
+                0.032258953899145126,
+                -0.016129476949572563,
+                0.0069586243480443954,
+                7.146840492458159e-17,
+                -0.004012506455183029
+              ],
+              [
+                -0.010437936522066593,
+                0.02419421635568142,
+                -0.016129476949572563,
+                0.0069586243480443954,
+                7.146840492458159e-17,
+                -0.004012506455183029
+              ],
+              [
+                -0.0069586243480443954,
+                0.016129476949572563,
+                -0.016129476949572563,
+                0.0069586243480443954,
+                7.146840492458159e-17,
+                -0.004012506455183029
+              ],
+              [
+                -0.0034793121740221977,
+                0.008064738474786282,
+                -0.016129476949572563,
+                0.0069586243480443954,
+                7.146840492458159e-17,
+                -0.004012506455183029
+              ],
+              [
+                -1.734723475976807e-18,
+                2.7755575615628914e-17,
+                -0.016129476949572563,
+                0.0069586243480443954,
+                7.146840492458159e-17,
+                -0.004012506455183029
+              ],
+              [
+                0.0034793121740221977,
+                -0.008064738474786282,
+                -0.016129476949572563,
+                0.0069586243480443954,
+                7.146840492458159e-17,
+                -0.004012506455183029
+              ],
+              [
+                0.0069586243480443954,
+                -0.016129476949572563,
+                -0.016129476949572563,
+                0.0069586243480443954,
+                7.146840492458159e-17,
+                -0.004012506455183029
+              ],
+              [
+                0.010437936522066593,
+                -0.02419421635568142,
+                -0.016129476949572563,
+                0.0069586243480443954,
+                7.146840492458159e-17,
+                -0.004012506455183029
+              ],
+              [
+                0.013917248696088791,
+                -0.032258953899145126,
+                -0.016129476949572563,
+                0.0069586243480443954,
+                7.146840492458159e-17,
+                -0.004012506455183029
+              ]
+            ]
+          },
+          {
+            "id": 1000002,
+            "tot_id": 1000002,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -0.2172728031873703,
+                -0.023964568972587585,
+                0.012331660836935043,
+                0.17586784064769745,
+                -0.1558571606874466,
+                0.002306041307747364
+              ],
+              [
+                -0.12933887541294098,
+                -0.017798736691474915,
+                0.012331660836935043,
+                0.17586784064769745,
+                -0.1558571606874466,
+                0.002306041307747364
+              ],
+              [
+                -0.041404951363801956,
+                -0.011632907204329967,
+                0.012331660836935043,
+                0.17586784064769745,
+                -0.1558571606874466,
+                0.002306041307747364
+              ],
+              [
+                0.04652897268533707,
+                -0.0054670763202011585,
+                0.012331660836935043,
+                0.17586784064769745,
+                -0.1558571606874466,
+                0.002306041307747364
+              ],
+              [
+                0.1344628930091858,
+                0.0006987543893046677,
+                0.012331660836935043,
+                0.17586784064769745,
+                -0.1558571606874466,
+                0.002306041307747364
+              ],
+              [
+                0.2223968207836151,
+                0.006864584982395172,
+                0.012331660836935043,
+                0.17586784064769745,
+                -0.1558571606874466,
+                0.002306041307747364
+              ],
+              [
+                0.31033074855804443,
+                0.013030415400862694,
+                0.012331660836935043,
+                0.17586784064769745,
+                -0.1558571606874466,
+                0.002306041307747364
+              ],
+              [
+                0.39826467633247375,
+                0.019196245819330215,
+                0.012331660836935043,
+                0.17586784064769745,
+                -0.1558571606874466,
+                0.002306041307747364
+              ],
+              [
+                0.4861986041069031,
+                0.025362076237797737,
+                0.012331660836935043,
+                0.17586784064769745,
+                -0.1558571606874466,
+                0.002306041307747364
+              ]
+            ]
+          },
+          {
+            "id": 1000003,
+            "tot_id": 1000003,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                0.013917248696088791,
+                0.034286271780729294,
+                -0.017143135890364647,
+                -0.0069586243480443954,
+                7.146840492458159e-17,
+                0.07868587225675583
+              ],
+              [
+                0.010437936522066593,
+                0.025714704766869545,
+                -0.017143135890364647,
+                -0.0069586243480443954,
+                7.146840492458159e-17,
+                0.07868587225675583
+              ],
+              [
+                0.0069586243480443954,
+                0.017143135890364647,
+                -0.017143135890364647,
+                -0.0069586243480443954,
+                7.146840492458159e-17,
+                0.07868587225675583
+              ],
+              [
+                0.0034793121740221977,
+                0.008571567945182323,
+                -0.017143135890364647,
+                -0.0069586243480443954,
+                7.146840492458159e-17,
+                0.07868587225675583
+              ],
+              [
+                0.0,
+                1.3877787807814457e-17,
+                -0.017143135890364647,
+                -0.0069586243480443954,
+                7.146840492458159e-17,
+                0.07868587225675583
+              ],
+              [
+                -0.0034793121740221977,
+                -0.008571567945182323,
+                -0.017143135890364647,
+                -0.0069586243480443954,
+                7.146840492458159e-17,
+                0.07868587225675583
+              ],
+              [
+                -0.0069586243480443954,
+                -0.017143135890364647,
+                -0.017143135890364647,
+                -0.0069586243480443954,
+                7.146840492458159e-17,
+                0.07868587225675583
+              ],
+              [
+                -0.010437936522066593,
+                -0.025714704766869545,
+                -0.017143135890364647,
+                -0.0069586243480443954,
+                7.146840492458159e-17,
+                0.07868587225675583
+              ],
+              [
+                -0.013917248696088791,
+                -0.034286271780729294,
+                -0.017143135890364647,
+                -0.0069586243480443954,
+                7.146840492458159e-17,
+                0.07868587225675583
+              ]
+            ]
+          },
+          {
+            "id": 1000004,
+            "tot_id": 1000004,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -0.037832342088222504,
+                -0.023964568972587585,
+                0.012331660836935043,
+                0.024980178102850914,
+                -0.014597385190427303,
+                0.002306041307747364
+              ],
+              [
+                -0.025342252105474472,
+                -0.017798736691474915,
+                0.012331660836935043,
+                0.024980178102850914,
+                -0.014597385190427303,
+                0.002306041307747364
+              ],
+              [
+                -0.012852163054049015,
+                -0.011632907204329967,
+                0.012331660836935043,
+                0.024980178102850914,
+                -0.014597385190427303,
+                0.002306041307747364
+              ],
+              [
+                -0.00036207461380399764,
+                -0.0054670763202011585,
+                0.012331660836935043,
+                0.024980178102850914,
+                -0.014597385190427303,
+                0.002306041307747364
+              ],
+              [
+                0.012128014117479324,
+                0.0006987543893046677,
+                0.012331660836935043,
+                0.024980178102850914,
+                -0.014597385190427303,
+                0.002306041307747364
+              ],
+              [
+                0.024618102237582207,
+                0.006864584982395172,
+                0.012331660836935043,
+                0.024980178102850914,
+                -0.014597385190427303,
+                0.002306041307747364
+              ],
+              [
+                0.03710819035768509,
+                0.013030415400862694,
+                0.012331660836935043,
+                0.024980178102850914,
+                -0.014597385190427303,
+                0.002306041307747364
+              ],
+              [
+                0.04959828034043312,
+                0.019196245819330215,
+                0.012331660836935043,
+                0.024980178102850914,
+                -0.014597385190427303,
+                0.002306041307747364
+              ],
+              [
+                0.06208837032318115,
+                0.025362076237797737,
+                0.012331660836935043,
+                0.024980178102850914,
+                -0.014597385190427303,
+                0.002306041307747364
+              ]
+            ]
+          }
+        ],
+        "braces": []
+      },
+      "reactions": [
+        {
+          "id": 1,
+          "fx": 0.012331661268684775,
+          "fy": 0.03072686206647723,
+          "fz": 0.03193880160862562,
+          "mx": -0.05033573880491036,
+          "my": 0.020771694301919486,
+          "mz": 0.00829438577727661
+        },
+        {
+          "id": 2,
+          "fx": 0.01233166126868477,
+          "fy": 0.13972768338806804,
+          "fz": 0.16890922338579514,
+          "mx": -0.20592275666079296,
+          "my": 0.02077169430191948,
+          "mz": 0.008294385777276614
+        },
+        {
+          "id": 3,
+          "fx": -0.012331661268684816,
+          "fy": -0.17300029701855732,
+          "fz": -0.16890922338579517,
+          "mx": 0.0838853539788786,
+          "my": -0.02077169430191956,
+          "mz": 0.008924196408962193
+        },
+        {
+          "id": 4,
+          "fx": -0.012331661268684806,
+          "fy": 0.0025457515640116683,
+          "fz": -0.031938801608625646,
+          "mx": -0.024234758535490983,
+          "my": -0.020771694301919545,
+          "mz": 0.008924196408962198
+        },
+        {
+          "id": 1000001,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        },
+        {
+          "id": 1000002,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        },
+        {
+          "id": 1000003,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        },
+        {
+          "id": 1000004,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        }
+      ],
+      "displacements": [
+        {
+          "id": 1,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": 2,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": 3,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": 4,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": 1000001,
+          "ux": -1.274990637512019e-07,
+          "uy": -2.979512316869659e-07,
+          "uz": -8.871889001227373e-09,
+          "rx": 3.930968262011447e-08,
+          "ry": -2.1057429577808762e-08,
+          "rz": -1.1360927487658046e-07
+        },
+        {
+          "id": 1000002,
+          "ux": -1.274990637512019e-07,
+          "uy": -1.035815785144223e-06,
+          "uz": -4.691922939059623e-08,
+          "rx": -3.397007830585608e-08,
+          "ry": -2.1057429577808762e-08,
+          "rz": -1.1360927487658046e-07
+        },
+        {
+          "id": 1000003,
+          "ux": 1.274990637512019e-07,
+          "uy": -1.0935406180578866e-06,
+          "uz": 4.691922939059623e-08,
+          "rx": 1.6260656821032171e-06,
+          "ry": 2.1057429577808762e-08,
+          "rz": -1.2223587475546083e-07
+        },
+        {
+          "id": 1000004,
+          "ux": 1.274990637512019e-07,
+          "uy": -3.033576660982362e-07,
+          "uz": 8.871889001227373e-09,
+          "rx": 1.890382463898277e-07,
+          "ry": 2.1057429577808762e-08,
+          "rz": -1.2223587475546083e-07
+        }
+      ]
+    },
+    "lc_12": {
+      "forces": {
+        "columns": [
+          {
+            "id": 1000005,
+            "tot_id": 1000005,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                0.01622328907251358,
+                -0.04184484854340553,
+                0.030726861208677292,
+                0.012331660836935043,
+                0.03193880245089531,
+                -0.008294385857880116
+              ],
+              [
+                -0.02077169343829155,
+                0.05033573880791664,
+                0.030726861208677292,
+                0.012331660836935043,
+                0.03193880245089531,
+                -0.008294385857880116
+              ]
+            ]
+          },
+          {
+            "id": 1000006,
+            "tot_id": 1000006,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -0.01622328907251358,
+                0.016597503796219826,
+                0.002545751631259918,
+                -0.012331660836935043,
+                -0.03193880245089531,
+                -0.008924196474254131
+              ],
+              [
+                0.02077169343829155,
+                0.02423475868999958,
+                0.002545751631259918,
+                -0.012331660836935043,
+                -0.03193880245089531,
+                -0.008924196474254131
+              ]
+            ]
+          },
+          {
+            "id": 1000007,
+            "tot_id": 1000007,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -0.01622328907251358,
+                0.4351155459880829,
+                -0.1730002909898758,
+                -0.012331660836935043,
+                -0.1689092218875885,
+                -0.008924196474254131
+              ],
+              [
+                0.02077169343829155,
+                -0.08388535678386688,
+                -0.1730002909898758,
+                -0.012331660836935043,
+                -0.1689092218875885,
+                -0.008924196474254131
+              ]
+            ]
+          },
+          {
+            "id": 1000008,
+            "tot_id": 1000008,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                0.01622328907251358,
+                -0.21326029300689697,
+                0.13972768187522888,
+                0.012331660836935043,
+                0.1689092218875885,
+                -0.008294385857880116
+              ],
+              [
+                -0.02077169343829155,
+                0.20592275261878967,
+                0.13972768187522888,
+                0.012331660836935043,
+                0.1689092218875885,
+                -0.008294385857880116
+              ]
+            ]
+          }
+        ],
+        "beams": [
+          {
+            "id": 1000001,
+            "tot_id": 1000001,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                0.037832342088222504,
+                -0.023964568972587585,
+                0.012331660836935043,
+                -0.024980178102850914,
+                0.014597385190427303,
+                0.002306041307747364
+              ],
+              [
+                0.025342252105474472,
+                -0.017798736691474915,
+                0.012331660836935043,
+                -0.024980178102850914,
+                0.014597385190427303,
+                0.002306041307747364
+              ],
+              [
+                0.012852163054049015,
+                -0.011632907204329967,
+                0.012331660836935043,
+                -0.024980178102850914,
+                0.014597385190427303,
+                0.002306041307747364
+              ],
+              [
+                0.00036207461380399764,
+                -0.0054670763202011585,
+                0.012331660836935043,
+                -0.024980178102850914,
+                0.014597385190427303,
+                0.002306041307747364
+              ],
+              [
+                -0.012128014117479324,
+                0.0006987543893046677,
+                0.012331660836935043,
+                -0.024980178102850914,
+                0.014597385190427303,
+                0.002306041307747364
+              ],
+              [
+                -0.024618102237582207,
+                0.006864584982395172,
+                0.012331660836935043,
+                -0.024980178102850914,
+                0.014597385190427303,
+                0.002306041307747364
+              ],
+              [
+                -0.03710819035768509,
+                0.013030415400862694,
+                0.012331660836935043,
+                -0.024980178102850914,
+                0.014597385190427303,
+                0.002306041307747364
+              ],
+              [
+                -0.04959828034043312,
+                0.019196245819330215,
+                0.012331660836935043,
+                -0.024980178102850914,
+                0.014597385190427303,
+                0.002306041307747364
+              ],
+              [
+                -0.06208837032318115,
+                0.025362076237797737,
+                0.012331660836935043,
+                -0.024980178102850914,
+                0.014597385190427303,
+                0.002306041307747364
+              ]
+            ]
+          },
+          {
+            "id": 1000002,
+            "tot_id": 1000002,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -0.013917248696088791,
+                0.034286271780729294,
+                -0.017143135890364647,
+                0.0069586243480443954,
+                -7.146840492458159e-17,
+                0.07868587225675583
+              ],
+              [
+                -0.010437936522066593,
+                0.025714704766869545,
+                -0.017143135890364647,
+                0.0069586243480443954,
+                -7.146840492458159e-17,
+                0.07868587225675583
+              ],
+              [
+                -0.0069586243480443954,
+                0.017143135890364647,
+                -0.017143135890364647,
+                0.0069586243480443954,
+                -7.146840492458159e-17,
+                0.07868587225675583
+              ],
+              [
+                -0.0034793121740221977,
+                0.008571567945182323,
+                -0.017143135890364647,
+                0.0069586243480443954,
+                -7.146840492458159e-17,
+                0.07868587225675583
+              ],
+              [
+                -1.734723475976807e-18,
+                1.3877787807814457e-17,
+                -0.017143135890364647,
+                0.0069586243480443954,
+                -7.146840492458159e-17,
+                0.07868587225675583
+              ],
+              [
+                0.0034793121740221977,
+                -0.008571567945182323,
+                -0.017143135890364647,
+                0.0069586243480443954,
+                -7.146840492458159e-17,
+                0.07868587225675583
+              ],
+              [
+                0.0069586243480443954,
+                -0.017143135890364647,
+                -0.017143135890364647,
+                0.0069586243480443954,
+                -7.146840492458159e-17,
+                0.07868587225675583
+              ],
+              [
+                0.010437936522066593,
+                -0.025714704766869545,
+                -0.017143135890364647,
+                0.0069586243480443954,
+                -7.146840492458159e-17,
+                0.07868587225675583
+              ],
+              [
+                0.013917248696088791,
+                -0.034286271780729294,
+                -0.017143135890364647,
+                0.0069586243480443954,
+                -7.146840492458159e-17,
+                0.07868587225675583
+              ]
+            ]
+          },
+          {
+            "id": 1000003,
+            "tot_id": 1000003,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                0.2172728031873703,
+                -0.023964568972587585,
+                0.012331660836935043,
+                -0.17586784064769745,
+                0.1558571606874466,
+                0.002306041307747364
+              ],
+              [
+                0.12933887541294098,
+                -0.017798736691474915,
+                0.012331660836935043,
+                -0.17586784064769745,
+                0.1558571606874466,
+                0.002306041307747364
+              ],
+              [
+                0.041404951363801956,
+                -0.011632907204329967,
+                0.012331660836935043,
+                -0.17586784064769745,
+                0.1558571606874466,
+                0.002306041307747364
+              ],
+              [
+                -0.04652897268533707,
+                -0.0054670763202011585,
+                0.012331660836935043,
+                -0.17586784064769745,
+                0.1558571606874466,
+                0.002306041307747364
+              ],
+              [
+                -0.1344628930091858,
+                0.0006987543893046677,
+                0.012331660836935043,
+                -0.17586784064769745,
+                0.1558571606874466,
+                0.002306041307747364
+              ],
+              [
+                -0.2223968207836151,
+                0.006864584982395172,
+                0.012331660836935043,
+                -0.17586784064769745,
+                0.1558571606874466,
+                0.002306041307747364
+              ],
+              [
+                -0.31033074855804443,
+                0.013030415400862694,
+                0.012331660836935043,
+                -0.17586784064769745,
+                0.1558571606874466,
+                0.002306041307747364
+              ],
+              [
+                -0.39826467633247375,
+                0.019196245819330215,
+                0.012331660836935043,
+                -0.17586784064769745,
+                0.1558571606874466,
+                0.002306041307747364
+              ],
+              [
+                -0.4861986041069031,
+                0.025362076237797737,
+                0.012331660836935043,
+                -0.17586784064769745,
+                0.1558571606874466,
+                0.002306041307747364
+              ]
+            ]
+          },
+          {
+            "id": 1000004,
+            "tot_id": 1000004,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                0.013917248696088791,
+                0.032258953899145126,
+                -0.016129476949572563,
+                -0.0069586243480443954,
+                7.146840492458159e-17,
+                -0.004012506455183029
+              ],
+              [
+                0.010437936522066593,
+                0.02419421635568142,
+                -0.016129476949572563,
+                -0.0069586243480443954,
+                7.146840492458159e-17,
+                -0.004012506455183029
+              ],
+              [
+                0.0069586243480443954,
+                0.016129476949572563,
+                -0.016129476949572563,
+                -0.0069586243480443954,
+                7.146840492458159e-17,
+                -0.004012506455183029
+              ],
+              [
+                0.0034793121740221977,
+                0.008064738474786282,
+                -0.016129476949572563,
+                -0.0069586243480443954,
+                7.146840492458159e-17,
+                -0.004012506455183029
+              ],
+              [
+                -1.734723475976807e-18,
+                2.7755575615628914e-17,
+                -0.016129476949572563,
+                -0.0069586243480443954,
+                7.146840492458159e-17,
+                -0.004012506455183029
+              ],
+              [
+                -0.0034793121740221977,
+                -0.008064738474786282,
+                -0.016129476949572563,
+                -0.0069586243480443954,
+                7.146840492458159e-17,
+                -0.004012506455183029
+              ],
+              [
+                -0.0069586243480443954,
+                -0.016129476949572563,
+                -0.016129476949572563,
+                -0.0069586243480443954,
+                7.146840492458159e-17,
+                -0.004012506455183029
+              ],
+              [
+                -0.010437936522066593,
+                -0.02419421635568142,
+                -0.016129476949572563,
+                -0.0069586243480443954,
+                7.146840492458159e-17,
+                -0.004012506455183029
+              ],
+              [
+                -0.013917248696088791,
+                -0.032258953899145126,
+                -0.016129476949572563,
+                -0.0069586243480443954,
+                7.146840492458159e-17,
+                -0.004012506455183029
+              ]
+            ]
+          }
+        ],
+        "braces": []
+      },
+      "reactions": [
+        {
+          "id": 1,
+          "fx": -0.030726862066477238,
+          "fy": -0.012331661268684815,
+          "fz": -0.03193880160862566,
+          "mx": 0.020771694301919556,
+          "my": -0.05033573880491038,
+          "mz": 0.00829438577727663
+        },
+        {
+          "id": 2,
+          "fx": -0.002545751564011671,
+          "fy": 0.012331661268684816,
+          "fz": 0.03193880160862566,
+          "mx": -0.02077169430191956,
+          "my": -0.02423475853549099,
+          "mz": 0.008924196408962217
+        },
+        {
+          "id": 3,
+          "fx": 0.17300029701855715,
+          "fy": 0.01233166126868482,
+          "fz": 0.16890922338579525,
+          "mx": -0.020771694301919563,
+          "my": 0.08388535397887835,
+          "mz": 0.008924196408962214
+        },
+        {
+          "id": 4,
+          "fx": -0.13972768338806815,
+          "fy": -0.012331661268684815,
+          "fz": -0.16890922338579528,
+          "mx": 0.020771694301919556,
+          "my": -0.2059227566607932,
+          "mz": 0.008294385777276635
+        },
+        {
+          "id": 1000001,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        },
+        {
+          "id": 1000002,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        },
+        {
+          "id": 1000003,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        },
+        {
+          "id": 1000004,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        }
+      ],
+      "displacements": [
+        {
+          "id": 1,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": 2,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": 3,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": 4,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": 1000001,
+          "ux": 2.979512316869659e-07,
+          "uy": 1.274990637512019e-07,
+          "uz": 8.871889001227373e-09,
+          "rx": -2.1057429577808762e-08,
+          "ry": 3.930968262011447e-08,
+          "rz": -1.1360927487658046e-07
+        },
+        {
+          "id": 1000002,
+          "ux": 3.033576660982362e-07,
+          "uy": -1.274990637512019e-07,
+          "uz": -8.871889001227373e-09,
+          "rx": 2.1057429577808762e-08,
+          "ry": 1.890382463898277e-07,
+          "rz": -1.2223587475546083e-07
+        },
+        {
+          "id": 1000003,
+          "ux": 1.0935406180578866e-06,
+          "uy": -1.274990637512019e-07,
+          "uz": -4.691922939059623e-08,
+          "rx": 2.1057429577808762e-08,
+          "ry": 1.6260656821032171e-06,
+          "rz": -1.2223587475546083e-07
+        },
+        {
+          "id": 1000004,
+          "ux": 1.035815785144223e-06,
+          "uy": 1.274990637512019e-07,
+          "uz": 4.691922939059623e-08,
+          "rx": -2.1057429577808762e-08,
+          "ry": -3.397007830585608e-08,
+          "rz": -1.1360927487658046e-07
+        }
+      ]
+    },
+    "lc_13": {
+      "forces": {
+        "columns": [
+          {
+            "id": 1000005,
+            "tot_id": 1000005,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -0.06542935222387314,
+                -0.06542935222387314,
+                0.051799435168504715,
+                -0.051799435168504715,
+                -3.5734202462290796e-17,
+                0.030807597562670708
+              ],
+              [
+                0.0899689570069313,
+                0.0899689570069313,
+                0.051799435168504715,
+                -0.051799435168504715,
+                -3.5734202462290796e-17,
+                0.030807597562670708
+              ]
+            ]
+          },
+          {
+            "id": 1000006,
+            "tot_id": 1000006,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                0.06542935222387314,
+                -0.06777157634496689,
+                0.05398203432559967,
+                0.051799435168504715,
+                6.402377941160434e-17,
+                -0.0075368271209299564
+              ],
+              [
+                -0.0899689570069313,
+                0.09417452663183212,
+                0.05398203432559967,
+                0.051799435168504715,
+                6.402377941160434e-17,
+                -0.0075368271209299564
+              ]
+            ]
+          },
+          {
+            "id": 1000007,
+            "tot_id": 1000007,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                0.06777157634496689,
+                0.06777157634496689,
+                -0.05398203432559967,
+                0.05398203432559967,
+                5.3601303693436193e-17,
+                0.1380142867565155
+              ],
+              [
+                -0.09417452663183212,
+                -0.09417452663183212,
+                -0.05398203432559967,
+                0.05398203432559967,
+                5.3601303693436193e-17,
+                0.1380142867565155
+              ]
+            ]
+          },
+          {
+            "id": 1000008,
+            "tot_id": 1000008,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -0.06777157634496689,
+                0.06542935222387314,
+                -0.051799435168504715,
+                -0.05398203432559967,
+                -7.146840492458159e-17,
+                -0.0075368271209299564
+              ],
+              [
+                0.09417452663183212,
+                -0.0899689570069313,
+                -0.051799435168504715,
+                -0.05398203432559967,
+                -7.146840492458159e-17,
+                -0.0075368271209299564
+              ]
+            ]
+          }
+        ],
+        "beams": [
+          {
+            "id": 1000001,
+            "tot_id": 1000001,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                0.05298777297139168,
+                -0.015403798781335354,
+                0.028972845524549484,
+                -0.02684326469898224,
+                0.0807722806930542,
+                -0.012441578321158886
+              ],
+              [
+                0.03956614062190056,
+                -0.0009173763683065772,
+                0.028972845524549484,
+                -0.02684326469898224,
+                0.0807722806930542,
+                -0.012441578321158886
+              ],
+              [
+                0.02614451013505459,
+                0.01356904674321413,
+                0.028972845524549484,
+                -0.02684326469898224,
+                0.0807722806930542,
+                -0.012441578321158886
+              ],
+              [
+                0.012722877785563469,
+                0.028055468574166298,
+                0.028972845524549484,
+                -0.02684326469898224,
+                0.0807722806930542,
+                -0.012441578321158886
+              ],
+              [
+                -0.0006987543893046677,
+                0.04254189133644104,
+                0.028972845524549484,
+                -0.02684326469898224,
+                0.0807722806930542,
+                -0.012441578321158886
+              ],
+              [
+                -0.01412038691341877,
+                0.05702831596136093,
+                0.028972845524549484,
+                -0.02684326469898224,
+                0.0807722806930542,
+                -0.012441578321158886
+              ],
+              [
+                -0.02754201926290989,
+                0.07151474058628082,
+                0.028972845524549484,
+                -0.02684326469898224,
+                0.0807722806930542,
+                -0.012441578321158886
+              ],
+              [
+                -0.04096364974975586,
+                0.08600115776062012,
+                0.028972845524549484,
+                -0.02684326469898224,
+                0.0807722806930542,
+                -0.012441578321158886
+              ],
+              [
+                -0.05438528209924698,
+                0.10048758238554001,
+                0.028972845524549484,
+                -0.02684326469898224,
+                0.0807722806930542,
+                -0.012441578321158886
+              ]
+            ]
+          },
+          {
+            "id": 1000002,
+            "tot_id": 1000002,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                0.05298777297139168,
+                0.10802441090345383,
+                -0.13475431501865387,
+                -0.02684326469898224,
+                0.0807722806930542,
+                -0.01338629424571991
+              ],
+              [
+                0.03956614062190056,
+                0.040647249668836594,
+                -0.13475431501865387,
+                -0.02684326469898224,
+                0.0807722806930542,
+                -0.01338629424571991
+              ],
+              [
+                0.02614451013505459,
+                -0.02672990784049034,
+                -0.13475431501865387,
+                -0.02684326469898224,
+                0.0807722806930542,
+                -0.01338629424571991
+              ],
+              [
+                0.012722877785563469,
+                -0.09410706907510757,
+                -0.13475431501865387,
+                -0.02684326469898224,
+                0.0807722806930542,
+                -0.01338629424571991
+              ],
+              [
+                -0.0006987543893046677,
+                -0.1614842265844345,
+                -0.13475431501865387,
+                -0.02684326469898224,
+                0.0807722806930542,
+                -0.01338629424571991
+              ],
+              [
+                -0.01412038691341877,
+                -0.22886137664318085,
+                -0.13475431501865387,
+                -0.02684326469898224,
+                0.0807722806930542,
+                -0.01338629424571991
+              ],
+              [
+                -0.02754201926290989,
+                -0.2962385416030884,
+                -0.13475431501865387,
+                -0.02684326469898224,
+                0.0807722806930542,
+                -0.01338629424571991
+              ],
+              [
+                -0.04096364974975586,
+                -0.3636156916618347,
+                -0.13475431501865387,
+                -0.02684326469898224,
+                0.0807722806930542,
+                -0.01338629424571991
+              ],
+              [
+                -0.05438528209924698,
+                -0.43099287152290344,
+                -0.13475431501865387,
+                -0.02684326469898224,
+                0.0807722806930542,
+                -0.01338629424571991
+              ]
+            ]
+          },
+          {
+            "id": 1000003,
+            "tot_id": 1000003,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -0.05298777297139168,
+                0.10802441090345383,
+                -0.13475431501865387,
+                0.02684326469898224,
+                -0.0807722806930542,
+                -0.01338629424571991
+              ],
+              [
+                -0.03956614062190056,
+                0.040647249668836594,
+                -0.13475431501865387,
+                0.02684326469898224,
+                -0.0807722806930542,
+                -0.01338629424571991
+              ],
+              [
+                -0.02614451013505459,
+                -0.02672990784049034,
+                -0.13475431501865387,
+                0.02684326469898224,
+                -0.0807722806930542,
+                -0.01338629424571991
+              ],
+              [
+                -0.012722877785563469,
+                -0.09410706907510757,
+                -0.13475431501865387,
+                0.02684326469898224,
+                -0.0807722806930542,
+                -0.01338629424571991
+              ],
+              [
+                0.0006987543893046677,
+                -0.1614842265844345,
+                -0.13475431501865387,
+                0.02684326469898224,
+                -0.0807722806930542,
+                -0.01338629424571991
+              ],
+              [
+                0.01412038691341877,
+                -0.22886137664318085,
+                -0.13475431501865387,
+                0.02684326469898224,
+                -0.0807722806930542,
+                -0.01338629424571991
+              ],
+              [
+                0.02754201926290989,
+                -0.2962385416030884,
+                -0.13475431501865387,
+                0.02684326469898224,
+                -0.0807722806930542,
+                -0.01338629424571991
+              ],
+              [
+                0.04096364974975586,
+                -0.3636156916618347,
+                -0.13475431501865387,
+                0.02684326469898224,
+                -0.0807722806930542,
+                -0.01338629424571991
+              ],
+              [
+                0.05438528209924698,
+                -0.43099287152290344,
+                -0.13475431501865387,
+                0.02684326469898224,
+                -0.0807722806930542,
+                -0.01338629424571991
+              ]
+            ]
+          },
+          {
+            "id": 1000004,
+            "tot_id": 1000004,
+            "floor": 1,
+            "option": 1,
+            "source": "dsnGetComStdNL",
+            "sections": [
+              [
+                -0.05298777297139168,
+                -0.015403798781335354,
+                0.028972845524549484,
+                0.02684326469898224,
+                -0.0807722806930542,
+                -0.012441578321158886
+              ],
+              [
+                -0.03956614062190056,
+                -0.0009173763683065772,
+                0.028972845524549484,
+                0.02684326469898224,
+                -0.0807722806930542,
+                -0.012441578321158886
+              ],
+              [
+                -0.02614451013505459,
+                0.01356904674321413,
+                0.028972845524549484,
+                0.02684326469898224,
+                -0.0807722806930542,
+                -0.012441578321158886
+              ],
+              [
+                -0.012722877785563469,
+                0.028055468574166298,
+                0.028972845524549484,
+                0.02684326469898224,
+                -0.0807722806930542,
+                -0.012441578321158886
+              ],
+              [
+                0.0006987543893046677,
+                0.04254189133644104,
+                0.028972845524549484,
+                0.02684326469898224,
+                -0.0807722806930542,
+                -0.012441578321158886
+              ],
+              [
+                0.01412038691341877,
+                0.05702831596136093,
+                0.028972845524549484,
+                0.02684326469898224,
+                -0.0807722806930542,
+                -0.012441578321158886
+              ],
+              [
+                0.02754201926290989,
+                0.07151474058628082,
+                0.028972845524549484,
+                0.02684326469898224,
+                -0.0807722806930542,
+                -0.012441578321158886
+              ],
+              [
+                0.04096364974975586,
+                0.08600115776062012,
+                0.028972845524549484,
+                0.02684326469898224,
+                -0.0807722806930542,
+                -0.012441578321158886
+              ],
+              [
+                0.05438528209924698,
+                0.10048758238554001,
+                0.028972845524549484,
+                0.02684326469898224,
+                -0.0807722806930542,
+                -0.012441578321158886
+              ]
+            ]
+          }
+        ],
+        "braces": []
+      },
+      "reactions": [
+        {
+          "id": 1,
+          "fx": -0.05179943647203405,
+          "fy": 0.051799436472034124,
+          "fz": 3.5734202462290796e-17,
+          "mx": -0.08996895615372663,
+          "my": -0.0899689561537265,
+          "mz": -0.03080759811790473
+        },
+        {
+          "id": 2,
+          "fx": -0.05398203465718508,
+          "fy": -0.051799436472034166,
+          "fz": -6.402377941160434e-17,
+          "mx": 0.08996895615372673,
+          "my": -0.09417452596353232,
+          "mz": 0.007536826915675117
+        },
+        {
+          "id": 3,
+          "fx": 0.053982034657185284,
+          "fy": -0.053982034657185214,
+          "fz": -5.3601303693436193e-17,
+          "mx": 0.09417452596353254,
+          "my": 0.0941745259635327,
+          "mz": -0.13801428667968954
+        },
+        {
+          "id": 4,
+          "fx": 0.051799436472034256,
+          "fy": 0.053982034657185145,
+          "fz": 7.146840492458159e-17,
+          "mx": -0.09417452596353244,
+          "my": 0.08996895615372685,
+          "mz": 0.007536826915675108
+        },
+        {
+          "id": 1000001,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        },
+        {
+          "id": 1000002,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        },
+        {
+          "id": 1000003,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        },
+        {
+          "id": 1000004,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        }
+      ],
+      "displacements": [
+        {
+          "id": 1,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": 2,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": 3,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": 4,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0
+        },
+        {
+          "id": 1000001,
+          "ux": 5.732983936468372e-07,
+          "uy": -5.732983936468372e-07,
+          "uz": -9.926167350636332e-24,
+          "rx": 1.1360927487658046e-07,
+          "ry": 1.1360927487658046e-07,
+          "rz": 4.219756419843179e-07
+        },
+        {
+          "id": 1000002,
+          "ux": 6.03214061811741e-07,
+          "uy": 5.732983936468372e-07,
+          "uz": 1.7784383169890095e-23,
+          "rx": -1.1360927487658046e-07,
+          "ry": 1.2223587475546083e-07,
+          "rz": -1.0323289245661726e-07
+        },
+        {
+          "id": 1000003,
+          "ux": -6.03214061811741e-07,
+          "uy": 6.03214061811741e-07,
+          "uz": 1.4889251025954498e-23,
+          "rx": -1.2223587475546083e-07,
+          "ry": -1.2223587475546083e-07,
+          "rz": 1.8903995169239352e-06
+        },
+        {
+          "id": 1000004,
+          "ux": -5.732983936468372e-07,
+          "uy": -6.03214061811741e-07,
+          "uz": -1.9852334701272664e-23,
+          "rx": 1.2223587475546083e-07,
+          "ry": -1.1360927487658046e-07,
+          "rz": -1.0323289245661726e-07
+        }
+      ]
+    }
+  },
+  "fea": "\t\t\t//***YJK Software***\\\\\n*VERSION\nVERSION=1.0\n\n*PROJINFO\nPROJECT=loadprobe\n\n*UNIT\nUNIT=0,0,0\n\n*STRUCTURE\nT=XYZ IMAS=0 GRAV=10.0 K=1.0E20 WDIR=0,0,-1 OE=1 M=10 MESHSIZE=1 MET=0 BMP=1 LT=0\n\n*ANALYSIS scheme=1 STRS=0 M0SPEC=0 ZEROERR=1e-06 BEAMSSTIFF=0 SOLVERVER=1 REACT=1\n\n*NONL_CTRL T=1 STEPS=10 ITER=30 ON=1,1,0 ERR=0.001,0.001,0.001 ST=3 GeoNL=0 CC=0\n\n*SECTION\n1 P=0.36,1.080000E-02,1.080000E-02,0.018252,0.3,0.3 CM=0,0,0\n2 P=0.36,1.080000E-02,1.080000E-02,0.018252,0.3,0.3 CM=0,0,0\n\n*MATERIAL\n1 P=3e+07,0.25,0,0,1e-05\n2 P=3.25e+07,0.25,0,0,1e-05\n\n*STORY\n1\tTWR=1 L=1 T=0 Elev=0 H=3 WX=0 WY=0 ECC=0,0 \n\n*NODE\n1\tC=0,0,0 NM=0 VM=0 FM=0 M=0,0,0,0,0,0 T=0 L=0 TWR=0\n2\tC=4,0,0 NM=0 VM=0 FM=0 M=0,0,0,0,0,0 T=0 L=0 TWR=0\n3\tC=4,4,0 NM=0 VM=0 FM=0 M=0,0,0,0,0,0 T=0 L=0 TWR=0\n4\tC=0,4,0 NM=0 VM=0 FM=0 M=0,0,0,0,0,0 T=0 L=0 TWR=0\n1000001\tC=0,0,3 NM=0 VM=1000006 FM=1000005 M=6.3,6.3,6.3,0,0,0 T=1 L=1 TWR=1\n1000002\tC=4,0,3 NM=0 VM=1000006 FM=1000005 M=6.3,6.3,6.3,0,0,0 T=1 L=1 TWR=1\n1000003\tC=4,4,3 NM=0 VM=1000006 FM=1000005 M=6.3,6.3,6.3,0,0,0 T=1 L=1 TWR=1\n1000004\tC=0,4,3 NM=0 VM=1000006 FM=1000005 M=6.3,6.3,6.3,0,0,0 T=1 L=1 TWR=1\n1000005\tC=2,2,3 NM=0 VM=0 FM=0 M=25.2,25.2,25.2,0,0,0 T=4 L=1 TWR=1\n1000006\tC=2,2,3 NM=0 VM=0 FM=0 M=25.2,25.2,25.2,0,0,0 T=2 L=1 TWR=1\n\n*CONSTRAINT\n1\tR=1,1,1,1,1,1 T=1 G=0\n2\tR=1,1,1,1,1,1 T=1 G=0\n3\tR=1,1,1,1,1,1 T=1 G=0\n4\tR=1,1,1,1,1,1 T=1 G=0\n\n*STATIC_LDCASE\n1   N=DEAD T=DEAD C=0,0,0 P=1\n2   N=LIVE T=LIVE C=0,0,0 P=1\n7   N=AIRD T=AIRD C=0,0,0 P=2\n101 N=WIND1  T=WIND1  C=0,0,0 P=1\n102 N=WIND2  T=WIND2  C=0,0,0 P=1\n103 N=WIND3  T=WIND3  C=0,0,0 P=1\n104 N=WIND4  T=WIND4  C=0,0,0 P=1\n10001 N=SC001_AX T=DEAD C=0,0,0 P=1\n10003 N=SC002_UDL T=DEAD C=0,0,0 P=1\n10005 N=SC003_FX T=DEAD C=0,0,0 P=1\n10007 N=SC004_FY T=DEAD C=0,0,0 P=1\n10009 N=SC005_MX T=DEAD C=0,0,0 P=1\n10011 N=SC006_MY T=DEAD C=0,0,0 P=1\n10013 N=SC007_MZ T=DEAD C=0,0,0 P=1\n\n*BEAM_LIVE_CTRL\nNR=1  NLC=1 LC=2 CM=sum(R*,B*)@m+,m-\n\n*FRAME\n1000001\tT=BEAM B=1000001 N=1000001,1000002 M=1 SEC=2 DIR=0,0,1 RZL=0,0 E=0,0,0,0,0,0 &\n\t\tCS=7 R=0,0,0,0,0,0 RF=1,1,1,1,1,1 G=C1 L=1 TWR=1\n1000002\tT=BEAM B=1000002 N=1000002,1000003 M=1 SEC=2 DIR=0,0,1 RZL=0,0 E=0,0,0,0,0,0 &\n\t\tCS=7 R=0,0,0,0,0,0 RF=1,1,1,1,1,1 G=C1 L=1 TWR=1\n1000003\tT=BEAM B=1000003 N=1000004,1000003 M=1 SEC=2 DIR=0,0,1 RZL=0,0 E=0,0,0,0,0,0 &\n\t\tCS=7 R=0,0,0,0,0,0 RF=1,1,1,1,1,1 G=C1 L=1 TWR=1\n1000004\tT=BEAM B=1000004 N=1000001,1000004 M=1 SEC=2 DIR=0,0,1 RZL=0,0 E=0,0,0,0,0,0 &\n\t\tCS=7 R=0,0,0,0,0,0 RF=1,1,1,1,1,1 G=C1 L=1 TWR=1\n1000005\tT=COLUMN B=1000005 N=1000001,1 M=1 SEC=1 DIR=-3.49148e-15,1,0 RZL=0,0 E=0,0,0,0,0,0 &\n\t\tRF=1,1,1,1,1,1 &\n\t\tCS=0 R=0,0,0,0,0,0 RFM=1 G=C1 L=1 TWR=1\n1000006\tT=COLUMN B=1000006 N=1000002,2 M=1 SEC=1 DIR=-3.49148e-15,1,0 RZL=0,0 E=0,0,0,0,0,0 &\n\t\tRF=1,1,1,1,1,1 &\n\t\tCS=0 R=0,0,0,0,0,0 RFM=1 G=C1 L=1 TWR=1\n1000007\tT=COLUMN B=1000007 N=1000003,3 M=1 SEC=1 DIR=-3.49148e-15,1,0 RZL=0,0 E=0,0,0,0,0,0 &\n\t\tRF=1,1,1,1,1,1 &\n\t\tCS=0 R=0,0,0,0,0,0 RFM=1 G=C1 L=1 TWR=1\n1000008\tT=COLUMN B=1000008 N=1000004,4 M=1 SEC=1 DIR=-3.49148e-15,1,0 RZL=0,0 E=0,0,0,0,0,0 &\n\t\tRF=1,1,1,1,1,1 &\n\t\tCS=0 R=0,0,0,0,0,0 RFM=1 G=C1 L=1 TWR=1\n\n*SOLID\n\n*SURFACE_REST\n\n*ELEMENT_REST\n\n*DEBUG\nP=EXPORT_VTK V=YES\n\n*MEMBER\n\n*USE-STLD LCID=1\n*FRAMELOAD\n1000001 T=UNILOAD DIR=GZ F=0,-9,-1,-9 G=0\n1000002 T=UNILOAD DIR=GZ F=0,-9,-1,-9 G=0\n1000003 T=UNILOAD DIR=GZ F=0,-9,-1,-9 G=0\n1000004 T=UNILOAD DIR=GZ F=0,-9,-1,-9 G=0\n*NODELOAD\n1000001 F=0,0,-27,0,0,0 G=0\n1000002 F=0,0,-27,0,0,0 G=0\n1000003 F=0,0,-27,0,0,0 G=0\n1000004 F=0,0,-27,0,0,0 G=0\n\n*USE-STLD LCID=101\n*NODELOAD\n1000001 F=0.680023,1.82638e-15,0,0,0,0 G=0\n1000002 F=0.680023,1.82638e-15,0,0,0,0 G=0\n1000003 F=0.680023,1.82638e-15,0,0,0,0 G=0\n1000004 F=0.680023,1.82638e-15,0,0,0,0 G=0\n\n*USE-STLD LCID=102\n*NODELOAD\n1000001 F=-0.680023,-6.57495e-15,0,0,0,0 G=0\n1000002 F=-0.680023,-6.57495e-15,0,0,0,0 G=0\n1000003 F=-0.680023,-6.57495e-15,0,0,0,0 G=0\n1000004 F=-0.680023,-6.57495e-15,0,0,0,0 G=0\n\n*USE-STLD LCID=103\n*NODELOAD\n1000001 F=-4.20066e-15,0.680023,0,0,0,0 G=0\n1000002 F=-4.20066e-15,0.680023,0,0,0,0 G=0\n1000003 F=-4.20066e-15,0.680023,0,0,0,0 G=0\n1000004 F=-4.20066e-15,0.680023,0,0,0,0 G=0\n\n*USE-STLD LCID=104\n*NODELOAD\n1000001 F=8.94924e-15,-0.680023,0,0,0,0 G=0\n1000002 F=8.94924e-15,-0.680023,0,0,0,0 G=0\n1000003 F=8.94924e-15,-0.680023,0,0,0,0 G=0\n1000004 F=8.94924e-15,-0.680023,0,0,0,0 G=0\n\n*USE-STLD LCID=10001\n*NODELOAD\n1000001 F=0,0,-1,0,0,0 G=0\n1000002 F=0,0,-1,0,0,0 G=0\n1000003 F=0,0,-1,0,0,0 G=0\n1000004 F=0,0,-1,0,0,0 G=0\n\n*USE-STLD LCID=10003\n*FRAMELOAD\n1000001 T=UNILOAD DIR=GZ F=0,-1,-1,-1 G=0\n1000002 T=UNILOAD DIR=GZ F=0,-1,-1,-1 G=0\n1000003 T=UNILOAD DIR=GZ F=0,-1,-1,-1 G=0\n1000004 T=UNILOAD DIR=GZ F=0,-1,-1,-1 G=0\n\n*USE-STLD LCID=10005\n*NODELOAD\n1000003 F=1,0,0,0,0,0 G=0\n\n*USE-STLD LCID=10007\n*NODELOAD\n1000003 F=0,1,0,0,0,0 G=0\n\n*USE-STLD LCID=10009\n*NODELOAD\n1000003 F=0,0,0,1,0,0 G=0\n\n*USE-STLD LCID=10011\n*NODELOAD\n1000003 F=0,0,0,0,1,0 G=0\n\n*USE-STLD LCID=10013\n*NODELOAD\n1000003 F=0,0,0,0,0,1 G=0\n\n*EIGEN_CTRL\nN=3 TYPE=2 ERROR=1e-05 MA=1 MAXI=0\n*SPEC_CTRL\nVNUM=3 TR=1 TRC=1 T=1 M=0 E=0,0 SFT=1 SF=1 AUF=0 DP=0 ADP=1 ADMAX=0.25 AH=6.28319 NLLITERTOL=0.01 NLLITER=0 NLLITEREIG=0 ADR=1 SW=0 IL=1,2,10001,10003,10005,10007,10009,10011,10013 ILFACTOR=1,0.5,0,0,0,0,0,0,0 &\nPERCOENUM=1 PERCOE=1 &\nD=0.05,0.05,0.05\n*SPEC_FUNC\n1 TYPE=1 I=6,1 ACC=0 M=1,1 A=0 T=0.25 ALPHA=0.04\n*BOTSHEAR_CTRL CODE=GB50011_2010 ATYPE=1 NEIG=0,0 R=3 Ie=1 SS=0.2 S1=0.05 TL=8 FA=1 FV=1 T1=0 Ta=0.125255 SDS=0 SD1=0\n*SPEC_LDCASE\n1 T=SX CURV=1 D=1,0,0 SP=1 OE=0 R=1.0\n2 T=SY CURV=1 D=-0,1,0 SP=1 OE=0 R=1.0\n\n*BASE_STIFF R=0,0,1,1,1,0 RUN=0 AE=S1\n"
+}

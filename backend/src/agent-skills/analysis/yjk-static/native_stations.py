@@ -90,6 +90,7 @@ def member_geometry(fe: dict, native_member: dict, element: dict,
     same_order = endpoint_ids == physical_ids
     start, end = points if same_order else points[::-1]
     return {"length": length, "sameOrder": same_order, "stationCount": station_count,
+            "transverseForceSign": -1 if frame["kind"] == "BEAM" else 1,
             "nativeAxes": [native_x, native_a, native_y],
             "axes": canonical_axes(start, end, float(element.get("rotation_angle") or 0)),
             "nativeEndpoints": endpoint_ids, "endpoints": list(physical_ids),
@@ -111,12 +112,21 @@ def map_stations(rows: list, geometry: dict) -> list[dict]:
         # Positive native endpoint action, expressed globally; the physical cut
         # reverses when the user's endpoint order reverses. Moments and forces
         # are transformed as vectors, not independently renamed or maximized.
-        force = [orientation * (-axial * s[k] + qx * a[k] + qy * b[k]) for k in range(3)]
+        # YJK beam Qx uses the opposite sign from the section X axis; columns
+        # use the positive axis. Independently verified by five unit-load cases
+        # against nodal six-component equilibrium with rigid floors disabled.
+        force = [orientation * (-axial * s[k] + geometry["transverseForceSign"] * qx * a[k] + qy * b[k]) for k in range(3)]
         moment = [orientation * (mx * a[k] + my * b[k] - torsion * s[k]) for k in range(3)]
         fraction = index / (len(rows) - 1)
         if not geometry["sameOrder"]:
             fraction = 1 - fraction
-        stations.append({"positionM": geometry["length"] * fraction, "side": "continuous",
+        position = geometry["length"] * fraction
+        # The vendor row does not identify left/right at an interior point
+        # load. Omit that ambiguous cut instead of labelling it continuous.
+        if any(abs(position - point) <= 1e-9 for point in geometry.get("discontinuities", [])):
+            continue
+        side = "right" if fraction == 0 else "left" if fraction == 1 else "continuous"
+        stations.append({"positionM": position, "side": side,
                          "referenceFrame": "element-local", "localAxes": geometry["axes"],
                          "components": {"N": -dot(force, x), "Vy": dot(force, y), "Vz": dot(force, z),
                                         "T": -dot(moment, x), "My": -dot(moment, y), "Mz": -dot(moment, z)},

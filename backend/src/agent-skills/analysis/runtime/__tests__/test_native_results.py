@@ -40,6 +40,15 @@ class NativeCombinationTest(unittest.TestCase):
             with self.assertRaises(AnalysisCapabilityError):
                 combine_linear_native_results({"D": other}, {"D": 1}, self.context)
 
+    def test_reaction_resultant_is_recomputed_from_signed_combined_forces(self):
+        first, second = copy.deepcopy(self.case), copy.deepcopy(self.case)
+        first["reactions"]["B"] = dict(fx=3, fy=0, fz=0, mx=1, my=2, mz=3, R=3)
+        second["reactions"]["B"] = dict(fx=0, fy=4, fz=0, mx=-1, my=2, mz=-3, R=4)
+        result = combine_linear_native_results({"D": first, "W": second}, {"D": 1, "W": 1}, self.context)
+        self.assertEqual(result["reactions"]["B"], dict(fx=3, fy=4, fz=0, mx=0, my=4, mz=0, R=5))
+        cancelled = combine_linear_native_results({"D": first, "W": first}, {"D": 1, "W": -1}, self.context)
+        self.assertEqual(cancelled["reactions"]["B"]["R"], 0)
+
     def test_station_coordinates_require_unambiguous_sides(self):
         for mutation in (
             lambda c: c["memberStations"]["M"][0].update(positionM=-1),
