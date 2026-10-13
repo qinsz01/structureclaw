@@ -177,44 +177,36 @@ describe('analysis YJK engine registry', () => {
     }
   });
 
-  test('reinvokes an existing YJK launcher to refresh authorization', () => {
+  test('executes commands only on the owned IPC channel and propagates failures', () => {
     const script = [
       'import json',
-      'from types import SimpleNamespace',
       'import yjk_driver as driver',
-      'spawned = []',
+      'class Channel:',
+      '    def __init__(self): self.calls=[]',
+      '    def command(self, *args):',
+      '        self.calls.append(args)',
+      '        if args[0] == "bad": raise RuntimeError("native refused")',
+      'channel = Channel()',
+      'driver._SDK_PIPE = channel',
       'steps = []',
-      'driver._find_yjk_launcher = lambda _root: r"C:\\YJKS\\YjkLauncher.exe"',
-      'driver._get_launcher_processes = lambda: [{"Id": 101}]',
-      'driver._popen_gui_detached = lambda args, cwd: spawned.append({"args": args, "cwd": cwd}) or SimpleNamespace(pid=202)',
-      'driver._env_path = lambda _name: None',
-      'driver._env_float = lambda _name, _default: 0.0',
-      'driver._record_step = lambda target, **entry: target.append(entry)',
-      'ok = driver._prewarm_yjk_launcher(r"C:\\YJKS", steps)',
-      'print(json.dumps({"ok": ok, "spawned": spawned, "steps": steps}))',
+      'ok = driver._run_cmd("yjk_save", phase="save", steps=steps)',
+      'failed = driver._run_cmd("bad", phase="save", steps=steps)',
+      'driver._SDK_PIPE = None',
+      'unowned = driver._run_cmd("yjk_save", phase="save", steps=steps)',
+      'print(json.dumps({"ok": ok, "failed": failed, "unowned": unowned, "calls": channel.calls, "steps": steps}))',
     ].join('\n');
-
-    const result = spawnSync(
-      pythonCommand.executable,
-      [...pythonCommand.args, '-c', script],
-      {
-        encoding: 'utf8',
-        env: {
-          ...process.env,
-          PYTHONPATH: [yjkStaticDir, process.env.PYTHONPATH]
-            .filter(Boolean)
-            .join(path.delimiter),
-        },
-        windowsHide: process.platform === 'win32',
-      },
-    );
-
+    const result = spawnSync(pythonCommand.executable, [...pythonCommand.args, '-c', script], {
+      encoding: 'utf8',
+      env: { ...process.env, PYTHONPATH: [yjkStaticDir, process.env.PYTHONPATH].filter(Boolean).join(path.delimiter) },
+      windowsHide: process.platform === 'win32',
+    });
     expect(result.status).toBe(0);
     const payload = JSON.parse(result.stdout.trim());
     expect(payload.ok).toBe(true);
-    expect(payload.spawned).toHaveLength(1);
-    expect(payload.spawned[0].args).toEqual(['C:\\YJKS\\YjkLauncher.exe']);
-    expect(payload.steps[0].pid).toBe(202);
+    expect(payload.failed).toBe(false);
+    expect(payload.unowned).toBe(false);
+    expect(payload.calls).toEqual([['yjk_save', ''], ['bad', '']]);
+    expect(payload.steps.map((step) => step.status)).toEqual(['success', 'error', 'error']);
   });
 
   test('accepts only exact story-derived nodal duplicates of YJK floor loads', () => {

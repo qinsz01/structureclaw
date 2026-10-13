@@ -15,6 +15,10 @@ function probePython(executable, args) {
 }
 
 function resolvePythonCommand() {
+  if (process.env.PYTHON_FOR_TEST) {
+    const found = probePython(process.env.PYTHON_FOR_TEST, []);
+    if (found) return found;
+  }
   const candidates = process.platform === 'win32'
     ? [
         ['py', ['-3']],
@@ -32,15 +36,15 @@ function resolvePythonCommand() {
   return null;
 }
 
-describe('YJK driver authorization detection', () => {
+describe('YJK driver owned host selection', () => {
   const python = resolvePythonCommand();
 
   if (!python) {
-    test.skip('detects authorization failure windows from reused YJK processes (no Python)', () => {});
+    test.skip('validates ownership and transport (no Python)', () => {});
     return;
   }
 
-  test('defaults to launcher prewarm before direct launch', () => {
+  test('accepts only the direct worker child at the configured executable', () => {
     const script = String.raw`
 import importlib.util
 import os
@@ -51,14 +55,10 @@ spec = importlib.util.spec_from_file_location("yjk_driver_under_test", driver_pa
 driver = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(driver)
 
-os.environ.pop("YJK_LAUNCHER_PREWARM", None)
-assert driver._launcher_prewarm_mode() == "always"
-
-os.environ["YJK_LAUNCHER_PREWARM"] = "auto"
-assert driver._launcher_prewarm_mode() == "auto"
-
-os.environ["YJK_LAUNCHER_PREWARM"] = "off"
-assert driver._launcher_prewarm_mode() == "off"
+exe = str(Path(r"${repoRoot}") / "private-yjk" / "yjks.exe")
+host = {"ProcessId": 55, "ParentProcessId": 44, "ExecutablePath": exe,
+        "CommandLine": exe + " -yjkscontrol"}
+assert driver._select_owned_host([host], 44, exe) == host
 print("ok")
 `;
 
@@ -71,7 +71,7 @@ print("ok")
     expect(result.stdout.trim()).toBe('ok');
   });
 
-  test('detects authorization failure windows from reused YJK processes', () => {
+  test('rejects unrelated, ambiguous and non-IPC hosts', () => {
     const script = String.raw`
 import importlib.util
 from pathlib import Path
@@ -81,14 +81,18 @@ spec = importlib.util.spec_from_file_location("yjk_driver_under_test", driver_pa
 driver = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(driver)
 
-driver._get_yjks_processes = lambda: [
-    {"Id": 10, "MainWindowTitle": "授权检测失败"},
-    {"Id": 11, "MainWindowTitle": "YJK main"},
-]
-
-state = driver._wait_for_direct_launch_state({10}, 1.0)
-assert state["state"] == "auth_failed", state
-assert state["pid"] == 10, state
+exe = str(Path(r"${repoRoot}") / "private-yjk" / "yjks.exe")
+host = {"ProcessId": 55, "ParentProcessId": 44, "ExecutablePath": exe,
+        "CommandLine": exe + " -yjkscontrol"}
+for found in ([], [host, host], [{**host, "ParentProcessId": 10}],
+              [{**host, "ExecutablePath": exe + ".other"}],
+              [{**host, "CommandLine": exe}]):
+    try:
+        driver._select_owned_host(found, 44, exe)
+    except RuntimeError:
+        pass
+    else:
+        raise AssertionError("Unowned YJK host was accepted")
 print("ok")
 `;
 
@@ -99,5 +103,14 @@ print("ok")
 
     expect(result.status).toBe(0);
     expect(result.stdout.trim()).toBe('ok');
+  });
+
+  test('verifies bounded IPC and process isolation with operating system primitives', () => {
+    const result = spawnSync(python.executable, [
+      ...python.args, path.join(repoRoot, 'backend', 'tests', 'analysis-yjk-transport.py'),
+    ], { encoding: 'utf8', windowsHide: true, timeout: 30_000 });
+    expect({ status: result.status, stderr: result.stderr }).toEqual({
+      status: 0, stderr: expect.stringContaining('OK'),
+    });
   });
 });
