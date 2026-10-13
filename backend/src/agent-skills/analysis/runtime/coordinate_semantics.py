@@ -336,8 +336,10 @@ def validate_coordinate_contract(model: Any) -> None:
                     raise ValueError("Load forces must contain six finite values")
 
             if dimension == "2d" and reference_frame == "element-local":
-                if any(abs(float(load.get(k, 0.0) or 0.0)) > COORDINATE_TOLERANCE for k in ("wy", "fy", "mx", "mz")):
-                    raise ValueError("Local wy/fy/mx/mz is out of plane for a canonical X-Z 2-D member load")
+                rotation = next(float(e.get('rotation_angle', 0) or 0) for e in elements if str(e.get('id')) == element_id)
+                inactive = ('wz','fz','mx','my') if round(rotation/90)%2 else ('wy','fy','mx','mz')
+                if any(abs(float(load.get(k, 0.0) or 0.0)) > COORDINATE_TOLERANCE for k in inactive):
+                    raise ValueError("Local member load has an out-of-plane component after section rotation")
                 continue
             if dimension == "2d":
                 inactive = {

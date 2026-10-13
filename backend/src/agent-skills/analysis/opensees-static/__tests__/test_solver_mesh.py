@@ -53,6 +53,28 @@ def test_principal_2d_section_rotation_matches_same_restrained_3d_model(angle):
         split = result['solverMesh']['physicalElements']['member'][0]['nodes'][1]
         inertia = .0002 if round(angle/90)%2 else .0001
         assert result['segmentResults']['displacements'][split]['uz'] == pytest.approx(-20*6**3/(48*200000000*inertia),rel=1e-10)
+    for end in ('n1','n2'):
+        for component in ('N','V2','V3','T','M2','M3'):
+            assert responses[0]['forces']['member'][end][component] == pytest.approx(
+                responses[1]['forces']['member'][end][component], rel=1e-10, abs=1e-10)
+
+
+@pytest.mark.parametrize('angle', [0,90,180,270,-90])
+def test_rotated_section_local_uniform_load_preserves_same_global_loading(angle):
+    from opensees_shared.model import OpenSeesModelBuilder
+    model = beam(cantilever=True)
+    model.elements[0].rotation_angle = angle
+    axes = OpenSeesModelBuilder(model)._element_axes(model.elements[0])
+    local = axes @ [0,0,-10]
+    model.load_cases[0].loads = [{'type':'distributed','element':'member','reference_frame':'element-local',
+        'wx':float(local[0]),'wy':float(local[1]),'wz':float(local[2])}]
+    local_result = solve(StructureModelV2.model_validate(model.model_dump()))
+    model.load_cases[0].loads = [{'type':'distributed','element':'member','wz':-10}]
+    global_result = solve(model)
+    assert local_result['displacements']['B']['uz'] == pytest.approx(global_result['displacements']['B']['uz'],rel=1e-10)
+    assert global_result['reactions']['A']['fz'] == pytest.approx(60)
+    inertia = .0002 if round(angle/90)%2 else .0001
+    assert global_result['displacements']['B']['uz'] == pytest.approx(-10*6**4/(8*200000000*inertia),rel=1e-10)
 
 
 @pytest.mark.parametrize('dimension', ['2d', '3d'])

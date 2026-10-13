@@ -274,17 +274,18 @@ function forceUnitFactors(analysis: Record<string, unknown>, data: Record<string
   return undefined;
 }
 
-function codeCheckForceState(raw: Record<string, unknown>, factors: { force: number; moment: number }, source: string, station: string | number): ForceState {
+function codeCheckForceState(raw: Record<string, unknown>, factors: { force: number; moment: number }, source: string, station: string | number, bendingAxis: 2 | 3 = 2): ForceState {
   const forces: Record<string, number> = {};
   for (const name of ['N', 'V2', 'V3', 'V']) if (finiteNumber(raw[name])) forces[name] = raw[name] * factors.force;
   for (const name of ['T', 'M2', 'M3', 'M', 'Mx', 'M_service']) if (finiteNumber(raw[name])) forces[name] = raw[name] * factors.moment;
   const canonical = finiteNumber(raw['M2']) || finiteNumber(raw['V3']);
   if (canonical) {
-    // The implemented uniaxial checks bend about local 2; never use 3-D vector magnitudes.
-    if (finiteNumber(forces['M2'])) forces['Mx'] = forces['M2'];
-    if (finiteNumber(forces['V3'])) forces['V'] = forces['V3'];
+    // Select the explicit section axis; never use 3-D vector magnitudes.
+    const moment = bendingAxis === 2 ? 'M2' : 'M3', shear = bendingAxis === 2 ? 'V3' : 'V2';
+    if (finiteNumber(forces[moment])) forces['Mx'] = forces[moment];
+    if (finiteNumber(forces[shear])) forces['V'] = forces[shear];
   } else if (finiteNumber(forces['M'])) forces['Mx'] = forces['M'];
-  const biaxial = canonical && ['M3', 'T', 'V2'].some(key => finiteNumber(raw[key]) && Math.abs(raw[key]) > 1e-12);
+  const biaxial = canonical && (bendingAxis === 2 ? ['M3', 'T', 'V2'] : ['M2', 'T', 'V3']).some(key => finiteNumber(raw[key]) && Math.abs(raw[key]) > 1e-12);
   return { source, station, forces, ...(biaxial ? { unsupportedReason: 'Biaxial bending, transverse shear or torsion requires a supported combined check / 双向弯曲、横向剪切或扭转尚缺相应组合验算。' } : {}) };
 }
 
@@ -391,20 +392,20 @@ function extractElementDataForCodeCheck(
     const recovered = recoveredById.get(elemId);
     if (recovered) {
       for (const sample of recovered.samples) {
-        forceStates.push({ ...codeCheckForceState(sample as unknown as Record<string, unknown>, { force: 1000, moment: 1e6 }, 'member_response', sample.x), positionM: sample.x, ...(sample.segmentId ? { segmentId: sample.segmentId } : {}), ...(sample.side ? { side: sample.side } : {}) });
+        forceStates.push({ ...codeCheckForceState(sample as unknown as Record<string, unknown>, { force: 1000, moment: 1e6 }, 'member_response', sample.x, swappedPrincipalAxes ? 3 : 2), positionM: sample.x, ...(sample.segmentId ? { segmentId: sample.segmentId } : {}), ...(sample.side ? { side: sample.side } : {}) });
       }
     } else if (factors && !nativeEnvelope && !incompatibleFrame) {
       for (const endpoint of ['n1', 'n2']) {
         const value = asRecord(elemForces[endpoint]);
         if (hasRecordKeys(value)) {
-          const state = codeCheckForceState(value, factors, 'native_endpoint', endpoint);
+          const state = codeCheckForceState(value, factors, 'native_endpoint', endpoint, swappedPrincipalAxes ? 3 : 2);
           if (String(data['analysisMode']).includes('3d_frame') && !finiteNumber(value['M2'])) {
             state.unsupportedReason = 'Legacy 3-D force component conventions are unverified / 旧三维内力分量约定尚未验证。';
           }
           forceStates.push(state);
         }
       }
-      if (!forceStates.length && hasRecordKeys(elemForces)) forceStates.push(codeCheckForceState(elemForces, factors, 'provided_station', 'provided'));
+      if (!forceStates.length && hasRecordKeys(elemForces)) forceStates.push(codeCheckForceState(elemForces, factors, 'provided_station', 'provided', swappedPrincipalAxes ? 3 : 2));
     }
     const forceInputIssue = nativeEnvelope
       ? 'Native component envelopes lack verified simultaneous station conventions / 原生分量包络尚缺同截面向量约定，不能用于组合验算。'

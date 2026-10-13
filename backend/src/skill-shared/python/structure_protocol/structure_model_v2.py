@@ -979,9 +979,11 @@ class StructureModelV2(BaseModel):
                             + ", ".join(nonzero)
                         )
                 if declared_dimension == "2d" and reference_frame == "element-local":
-                    if any(abs(float(load.get(k, 0.0) or 0.0)) > 1e-9 for k in ("wy", "fy", "mx", "mz")):
+                    rotation = next(e.rotation_angle or 0 for e in self.elements if e.id == element_ref)
+                    inactive = ('wz','fz','mx','my') if round(rotation/90)%2 else ('wy','fy','mx','mz')
+                    if any(abs(float(load.get(k, 0.0) or 0.0)) > 1e-9 for k in inactive):
                         raise ValueError(
-                            "Local wy is out of plane for a canonical X-Z 2-D member load"
+                            "Local member load has an out-of-plane component after section rotation"
                         )
 
         for combo in self.load_combinations:

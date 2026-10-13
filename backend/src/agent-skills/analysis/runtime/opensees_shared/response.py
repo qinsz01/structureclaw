@@ -2,7 +2,7 @@
 import math
 
 
-def canonical_frame_end_actions(values, dimension):
+def canonical_frame_end_actions(values, dimension, rotation_degrees=0.0):
     values = [float(v) for v in values]
     expected = 6 if dimension == '2d' else 12
     if len(values) != expected or not all(math.isfinite(v) for v in values):
@@ -10,7 +10,10 @@ def canonical_frame_end_actions(values, dimension):
     ends = []
     for v in (values[:expected//2], values[expected//2:]):
         if dimension == '2d':
-            ends.append(dict(N=v[0], V=v[1], M=-v[2], V2=0.0, V3=v[1], T=0.0, M2=-v[2], M3=0.0))
+            angle = math.radians(float(rotation_degrees or 0))
+            c, s = math.cos(angle), math.sin(angle)
+            ends.append(dict(N=v[0], V=v[1], M=-v[2], V2=s*v[1], V3=c*v[1],
+                             T=0.0, M2=-c*v[2], M3=s*v[2]))
         else:
             ends.append(dict(N=v[0], V=math.hypot(v[1],v[2]), M=math.hypot(v[4],v[5]),
                              V2=v[1], V3=v[2], T=v[3], M2=v[4], M3=v[5]))

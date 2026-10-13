@@ -304,8 +304,10 @@ export function assertCanonicalCoordinateModel(
       }
       if (dimension !== '2d') continue;
       if (referenceFrame === 'element-local') {
-        if (nonzero(load.wy)) throw new Error('Local wy is out of plane for a canonical X-Z 2-D member load');
-        if (load.type === 'point' && [load.fy, load.mx, load.mz].some(nonzero)) throw new Error('Local point load contains an out-of-plane component');
+        const element = asRecord(elements.find(value => asRecord(value)?.id === elementId));
+        const odd = Math.abs(Math.round(Number(element?.rotation_angle ?? 0) / 90) % 2) === 1;
+        const inactive = odd ? [load.wz, load.fz, load.mx, load.my] : [load.wy, load.fy, load.mx, load.mz];
+        if (inactive.some(nonzero)) throw new Error('Local member load has an out-of-plane component after section rotation');
         continue;
       }
       const inactive = [load.fy, load.mx, load.mz, load.wy];

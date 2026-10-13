@@ -86,7 +86,7 @@ class OpenSeesStaticExecutor:
                 axes = dict(zip(('x', 'y', 'z'), builder._element_axes(element).tolist()))
                 if element.type in FRAME_ELEMENT_TYPES:
                     values = [float(v) for v in ops.eleResponse(tag, 'localForce')]
-                    force = canonical_frame_end_actions(values, builder.dimension)
+                    force = canonical_frame_end_actions(values, builder.dimension, element.rotation_angle)
                     force.update(axial=force['n1']['N'], stress=force['n1']['N']/area)
                 else:
                     values = ops.eleResponse(tag, 'axialForce')

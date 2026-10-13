@@ -51,6 +51,13 @@ def test_section_moduli_cannot_disagree_with_geometry_or_grow_net_capacity():
             validate_section_physics(section)
 
 
+@pytest.mark.parametrize('kind, height', [('H',500), ('rectangular',float('inf'))])
+def test_shape_labels_and_finite_geometry_are_validated(kind, height):
+    section = SectionV2(id='s',name='s',type=kind,shape=SectionShape(kind='rectangular',B=200,H=height))
+    with pytest.raises(ValueError):
+        validate_section_physics(section)
+
+
 def test_floor_area_migration_and_mass_direction_contract():
     story = StoryDef(id='F1',height=3,extra={'tributary_area':18})
     assert story.load_area_m2 == 18 and story.extra == {}

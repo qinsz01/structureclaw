@@ -56,6 +56,15 @@ def validate_section_physics(section):
     if not section.shape:
         return
     shape = section.shape
+    for name, value in shape.model_dump(exclude_none=True).items():
+        if name != 'kind' and isinstance(value, (float, int)) and not math.isfinite(value):
+            raise ValueError(f"Section '{section.id}' shape.{name} must be finite")
+    kind_aliases = {'H':'I', 'built-up-I':'I', 'built-up-box':'box', 'hollow-circular':'pipe'}
+    known_kinds = {'rectangular','circular','pipe','I','box','T','channel','angle'}
+    declared_kind = kind_aliases.get(section.type, section.type)
+    geometric_kind = kind_aliases.get(shape.kind, shape.kind)
+    if declared_kind in known_kinds and declared_kind != geometric_kind:
+        raise ValueError(f"Section '{section.id}' type '{section.type}' conflicts with shape.kind '{shape.kind}'")
     for legacy, canonical in (('width', 'B'), ('height', 'H'), ('diameter', 'd'), ('thickness', 'T')):
         a, b = getattr(section, legacy), getattr(shape, canonical)
         if a is not None and b is not None and not math.isclose(a, b, rel_tol=1e-6, abs_tol=1e-9):

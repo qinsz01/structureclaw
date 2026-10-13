@@ -155,6 +155,14 @@ class MemberMesh:
     def _distributed(self, ops, load):
         member = load['element']
         axes = self.axes[member]
+        def components(vector):
+            global_vector = axes.T @ vector if load.get('reference_frame', 'global') == 'element-local' else vector
+            if self.builder.dimension == '2d':
+                # The planar OpenSees element retains its in-plane solver axes;
+                # canonical local loads and output use the rotated section axes.
+                x, y = axes[0], np.array([0.0, 1.0, 0.0])
+                return np.vstack([x, y, np.cross(x, y)]) @ global_vector
+            return axes @ global_vector
         for segment in self.mapping[member]:
             a, b = segment['start'], segment['end']
             if a < load['start']-1e-10 or b > load['end']+1e-10:
@@ -170,7 +178,7 @@ class MemberMesh:
                     p, q = pair
                     ratio = (x/length-p['position'])/(q['position']-p['position'])
                     vector = np.array([(1-ratio)*p.get(k, 0)+ratio*q.get(k, 0) for k in ('wx', 'wy', 'wz')])
-                    local = (axes @ vector if load.get('reference_frame', 'global') == 'global' else vector)*weight*(b-a)/2
+                    local = components(vector)*weight*(b-a)/2
                     if self.builder.dimension == '2d':
                         if abs(local[1]) > 1e-10:
                             raise OpenSeesInputError("Out-of-plane member load in 2-D model")
@@ -179,7 +187,7 @@ class MemberMesh:
                         ops.eleLoad('-ele', tag, '-type', '-beamPoint', float(local[1]), float(local[2]), (x-a)/(b-a), float(local[0]))
             else:
                 vector = np.array([float(load.get(k, 0)) for k in ('wx', 'wy', 'wz')])
-                local = axes @ vector if load.get('reference_frame', 'global') == 'global' else vector
+                local = components(vector)
                 if self.builder.dimension == '2d':
                     if abs(local[1]) > 1e-10:
                         raise OpenSeesInputError("Out-of-plane member load in 2-D model")
