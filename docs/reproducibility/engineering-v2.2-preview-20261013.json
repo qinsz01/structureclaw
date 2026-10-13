@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "structureclaw-engineering-acceptance/v2",
+  "status": "preview-not-full-capability-acceptance",
+  "frozenOn": "2026-10-13",
+  "freezeTag": "engineering-v2.2-preview-20261013",
+  "modelProtocol": "2.2.0",
+  "branch": "work/research-next",
+  "implementationCommit": "bded4a2a14693c1df47ef46f58b23d17f8bafd43",
+  "benchmarkCommit": "a832c1703b33520c328010c23f93865652b0cc17",
+  "previousPreview": "engineering-v2.1-preview-20261013",
+  "historicalBaselines": {
+    "system": {"tag": "paper-v2-openclaw-20260729", "commit": "3c36a37241fa9afc9d89329d0d0acd3278fc2e88", "tagObject": "a904269e8df5913f4b651dbddec20293f4749c96"},
+    "benchmark": {"tag": "paper-v2-openclaw-20260729", "commit": "4259fdd92a83f5d93976bc510ef82a0d2d7b9b57", "tagObject": "9aa0ffa7f51e9ccc7704ef4ab3ab7bc782c9a834"},
+    "manuscript": {"tag": "paper-v2-manuscript-20260801", "commit": "127aa9d3fae4a99f0ed7d7d622680e11ca6c15c2", "tagObject": "c38594d8b9539455f64ed36bc618ec1e51bfc823"},
+    "verification": "Local and remote original tag objects unchanged; no original benchmark scenario/fixture/result or manuscript changes."
+  },
+  "checks": {
+    "backend": {"status": "passed", "suites": 113, "tests": 1362, "skipped": 0, "build": "passed", "lint": "passed", "evidence": "G:/StructureClaw-All/sclaw_data/engineering-v22-backend-final.json"},
+    "frontend": {"status": "passed", "unitTests": 275, "unitFiles": 32, "unitSkippedFiles": 2, "unitTodoTests": 6, "integrationTests": 90, "integrationFiles": 12, "typeCheck": "passed", "productionBuild": "passed"},
+    "analysisRegression": {"status": "passed", "steps": 51, "conversionRoundtrips": 63, "evidence": "G:/StructureClaw-All/sclaw_data/engineering-v22-analysis-final.log"},
+    "pythonProtocolAndCodeCheck": {"status": "passed", "tests": 319, "evidence": "G:/StructureClaw-All/sclaw_data/engineering-v22-python-final.log"},
+    "sharedMassAndDynamics": {"status": "passed", "tests": 19, "commit": "0e16246", "checks": ["2D/3D analytical modal period and participation", "three mass sources", "monitor nodes and time index", "no repeated story mass", "no successful massless excitation"]},
+    "nativeChecks": {"status": "passed", "nativeRuns": 10, "reproduce": "node backend/tests/engineering-code-check-acceptance.mjs", "checks": ["steel beam pass/exceedance/missing", "steel column pass/exceedance/missing", "RC beam pass/exceedance/missing", "relative deflection excludes common settlement", "90-degree section rotation", "run-bound signed demands and units"], "tolerance": {"absolute": 1e-8, "relative": 1e-8}, "evidence": "G:/StructureClaw-All/sclaw_data/engineering-v22-code-check-native.log"},
+    "nativeEngineering": {"status": "passed", "runId": "cd88ef7e-0eae-4c27-92ee-127d52a823e7", "movedRunId": "a8a36229-c99b-4768-a64f-d56ec635598b", "reproduce": "node backend/tests/engineering-native-acceptance.mjs", "checks": ["500 N conversion", "full point and partial line loads", "D/L/U separation", "station/side recovery", "move and undo", "archived physical snapshot", "bilingual report values"], "tolerance": {"absolute": 1e-10, "relative": 1e-8}, "evidence": "G:/StructureClaw-All/sclaw_data/engineering-v22-native-final.json"},
+    "http": {"status": "passed", "case": "STD-008", "runId": "c7ed1afe-8ee8-4f62-9c76-8bf18032fee8", "quantities": 41, "reproduce": "node backend/tests/engineering-http-acceptance.mjs", "checks": ["real Fastify HTTP", "request binding preserved", "native OpenSees", "UUID archive reload", "independent signed station/side/unit queries"], "evidence": "G:/StructureClaw-All/sclaw_data/engineering-v22-http-final.json"},
+    "interfaces": {"status": "passed", "contracts": ["agent tools", "agent HTTP API", "chat stream", "chat message routing", "CLI startup guards"], "evidence": "G:/StructureClaw-All/sclaw_data/engineering-v22-interfaces.log"},
+    "benchmark": {"status": "bounded-tool-acceptance", "openSeesCases": 12, "modelStates": 19, "resultSelections": 37, "numericalValues": 3240, "visibleReportValues": 3240, "evaluationTests": 45, "openClawTests": 15, "independentReferenceTests": 3, "historicalCorpusValidation": 150, "publicEngineeringTools": 14, "evidence": "tests/llm-benchmark/acceptance/records/tool-mechanics-2026-10-13-bded4a2.json", "frozenManifestSha256": "245dc8b655caff319d5debc751e6c0da10304d3c3ac58e0ac61356e0d708c92a", "actualPayloads": "G:/StructureClaw-All/sclaw_data/work/bench18-tools-bded4a2-artifacts"},
+    "commercialContracts": {"status": "passed-not-native-physics", "pythonTests": 22, "pythonSubtests": 13, "jestTests": 24},
+    "commercialNative": {"status": "partial-numerical-acceptance-failed", "pkpm": "Topology, elevations, grades, sections and selected settings/loads saved and read back; frozen axial reference produced empty results and 120/360 second timeouts.", "yjk": "Installed 6.0/Python 3.8 does not match cached 8.0/Python 3.10 SDK; full matching configured installation absent.", "productionV2CapabilityGates": "closed", "evidence": "docs/commercial-native-acceptance.md"}
+  },
+  "plannedCorpus": {"STD": 100, "INT": 100, "MM": 100, "OpenSees": 267, "PKPM": 16, "YJK": 17, "allTasksAccepted": false},
+  "notCertified": [
+    "All 300 tasks or all 18 representative tasks",
+    "Six commercial representative cases: STD-086, STD-088, INT-079, INT-084, MM-081, MM-085",
+    "Commercial arbitrary material constants, effective settings, partial/point loads, inclined geometry and complete signed result extraction",
+    "Production commercial combinations, reaction recovery, plots and downstream checks before native calibration",
+    "Independent blind review of all eighteen input packs and native reference projects",
+    "Actual language/image-model modeling accuracy or paid end-to-end experiments",
+    "Independent final visual and narrative review for each representative",
+    "Exact continuous extrema, general wall/shell or general nonlinear analysis"
+  ],
+  "paidModelCalls": 0,
+  "description": "See docs/engineering-v2.2-convergence.md for implemented behavior, evidence boundaries and the remaining native acceptance sequence."
+}
