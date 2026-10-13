@@ -79,7 +79,7 @@ ambiguous_id_lookup = driver._build_result_node_lookup(
 assert ambiguous_id_lookup["101"] == "N1"
 
 extracted = {
-    "meta": {"n_floors": 1, "n_nodes": 2, "load_cases": [101]},
+    "meta": {"n_floors": 1, "n_nodes": 2, "load_cases": [101], "coordinateUnit": "mm"},
     "load_cases": [{"id": 101, "key": "lc_101", "name": "DL", "expName": "Dead", "kind": 1, "oldId": 1}],
     "nodes": [{"id": 101, "x": 0, "y": 0, "z": 0}, {"id": 102, "x": 6000, "y": 0, "z": 0}],
     "node_disp": {"lc_101": [

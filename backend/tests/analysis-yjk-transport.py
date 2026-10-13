@@ -11,7 +11,7 @@ import unittest
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from ctypes import wintypes as w
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import sys
 from pathlib import Path
@@ -216,6 +216,44 @@ class WindowsPipe(unittest.TestCase):
 
 @unittest.skipUnless(os.name == "nt", "Windows process containment")
 class WindowsContainment(unittest.TestCase):
+    def test_launcher_is_new_hidden_child_in_the_same_session(self):
+        import yjk_driver as driver
+        with tempfile.TemporaryDirectory(prefix="sclaw-yjk-launcher-") as temporary:
+            root = Path(temporary)
+            launcher = root / "YjkLauncher.exe"
+            launcher.touch()
+            child = Mock(pid=812, poll=Mock(return_value=None))
+            row = {"ProcessId": 812, "ParentProcessId": os.getpid(), "ExecutablePath": str(launcher)}
+            with patch.object(driver, "_CURRENT_WORK_DIR", str(root)), \
+                    patch("subprocess.Popen", return_value=child) as start, \
+                    patch.object(driver, "_owned_native_processes", return_value=[row]) as discover, \
+                    patch.object(driver, "_windows_session", return_value=2), \
+                    patch.object(driver.time, "sleep"):
+                evidence = driver._prepare_owned_launcher(str(root), [])
+            self.assertEqual(start.call_args.args, ([str(launcher)],))
+            self.assertEqual(start.call_args.kwargs["startupinfo"].wShowWindow, 0)
+            self.assertEqual(start.call_args.kwargs["creationflags"], subprocess.CREATE_NO_WINDOW)
+            discover.assert_called_once_with(os.getpid(), "YjkLauncher.exe")
+            self.assertEqual(evidence["native"]["ProcessId"], child.pid)
+
+    def test_launcher_redirect_or_wrong_session_never_falls_back_to_user_process(self):
+        import yjk_driver as driver
+        with tempfile.TemporaryDirectory(prefix="sclaw-yjk-launcher-") as temporary:
+            root = Path(temporary)
+            launcher = root / "YjkLauncher.exe"
+            launcher.touch()
+            for returned, session in ((0, 2), (None, 3)):
+                child = Mock(pid=812, poll=Mock(return_value=returned))
+                row = {"ProcessId": 812, "ParentProcessId": os.getpid(), "ExecutablePath": str(launcher)}
+                with self.subTest(exited=returned, session=session), \
+                        patch.object(driver, "_CURRENT_WORK_DIR", str(root)), \
+                        patch("subprocess.Popen", return_value=child) as start, \
+                        patch.object(driver, "_owned_native_processes", return_value=[row]), \
+                        patch.object(driver, "_windows_session", side_effect=lambda pid: session if pid == 812 else 2), \
+                        self.assertRaises(RuntimeError):
+                    driver._prepare_owned_launcher(str(root), [])
+                start.assert_called_once()
+
     def _run_tree(self, *, timed_out):
         with tempfile.TemporaryDirectory(prefix="sclaw-yjk-owned-") as temporary:
             root = Path(temporary)

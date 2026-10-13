@@ -8,7 +8,7 @@ break if unexpected args are present.
 Usage (called by runtime.py via subprocess):
     <YJK_PYTHON> yjk_driver.py <model.json> <work_dir>
 
-Reads the V2 model JSON, converts to .ydb, launches YJK GUI, runs a
+Reads the V2 model JSON, converts to .ydb, launches an isolated YJK host, runs a
 full static analysis, loads extract_results.py inside YJK, reads the
 current work_dir/results.json file, and outputs the final result JSON
 to stdout.
@@ -28,6 +28,9 @@ import traceback
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _CURRENT_WORK_DIR: str | None = None
+_SDK_PIPE = None
+_DLL_HANDLES: list = []
+_OWNED_LAUNCHER = None
 
 
 def _record_step(
@@ -190,6 +193,9 @@ def _setup_paths() -> str:
     else:
         root = yjks_root
 
+    # Keep DLL directory handles alive for the whole vendor worker lifetime.
+    if os.name == "nt" and root:
+        _DLL_HANDLES.append(os.add_dll_directory(root))
     # DLL search path
     os.environ["PATH"] = root + os.pathsep + _env_text("PATH")
 
@@ -214,10 +220,6 @@ def _env_flag(name: str) -> bool:
     return _env_text(name).lower() in {"1", "true", "yes", "on"}
 
 
-def _close_after_run_enabled() -> bool:
-    return _env_flag("YJK_CLOSE_AFTER_RUN") and not _env_flag("YJK_ATTACH_EXISTING")
-
-
 def _env_float(name: str, default: float) -> float:
     try:
         return float(_env_text(name) or default)
@@ -225,508 +227,142 @@ def _env_float(name: str, default: float) -> float:
         return default
 
 
-def _launcher_prewarm_mode() -> str:
-    # Local YJK authorization is initialized by the official launcher/main
-    # panel.  Treat the launcher prewarm as the normal path; keep "auto" as a
-    # retry-only compatibility mode for machines that do not need it.
-    value = _env_text("YJK_LAUNCHER_PREWARM", "always").lower()
-    if value in {"0", "false", "no", "off", "never", "disabled"}:
-        return "off"
-    if value in {"1", "true", "yes", "on", "always", "force"}:
-        return "always"
-    return "auto"
-
-
-def _find_yjk_launcher(root: str) -> str | None:
-    explicit = _env_path("YJK_LAUNCHER_EXE")
-    if explicit and os.path.isfile(explicit):
-        return explicit
-    for name in ("YjkLauncher.exe", "YJKLauncher.exe"):
-        p = os.path.join(root, name)
-        if os.path.isfile(p):
-            return p
-    return None
-
-
-def _should_launch_with_launcher(root: str) -> bool:
-    explicit = _env_text("YJK_USE_LAUNCHER")
-    if explicit:
-        return _env_flag("YJK_USE_LAUNCHER")
-    return False
-
-
-def _direct_launch_cwd(yjks_root: str) -> str:
-    configured = _env_path("YJK_CWD")
-    if configured and os.path.isdir(configured):
-        return configured
-    return yjks_root
-
-
-def _powershell_exe() -> str:
-    system_root = _env_text("SystemRoot", r"C:\Windows")
-    candidate = os.path.join(
-        system_root,
-        "System32",
-        "WindowsPowerShell",
-        "v1.0",
-        "powershell.exe",
-    )
-    return candidate if os.path.isfile(candidate) else "powershell"
-
-
-def _get_processes_by_name(process_name: str) -> list[dict]:
+def _owned_native_processes(parent_pid: int, process_name: str = "yjks.exe") -> list[dict]:
+    """Read only direct children; a globally new YJK process is not ownership."""
     import subprocess
-
-    escaped = process_name.replace("'", "''")
-    command = (
-        f"Get-Process | Where-Object {{ $_.ProcessName -ieq '{escaped}' }} | "
-        "Select-Object Id,Path,MainWindowTitle | ConvertTo-Json -Compress"
-    )
-    try:
-        proc = subprocess.run(
-            [_powershell_exe(), "-NoProfile", "-Command", command],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=10,
-        )
-    except Exception:
-        return []
-    text = (proc.stdout or "").strip()
-    if proc.returncode != 0 or not text:
-        return []
-    try:
-        payload = json.loads(text)
-    except json.JSONDecodeError:
-        return []
-    if isinstance(payload, dict):
-        payload = [payload]
-    if not isinstance(payload, list):
-        return []
-    return [item for item in payload if isinstance(item, dict)]
+    if process_name not in {"yjks.exe", "YjkLauncher.exe"}:
+        raise ValueError("Only known native child process names may be queried")
+    powershell = os.path.join(_env_text("SystemRoot", r"C:\Windows"),
+                              "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
+    query = (f'Get-CimInstance Win32_Process -Filter "ParentProcessId={int(parent_pid)} '
+             f"AND Name='{process_name}'\" | Select-Object ProcessId,ParentProcessId,"
+             'ExecutablePath,CommandLine,CreationDate | ConvertTo-Json -Compress')
+    result = subprocess.run([powershell, "-NoProfile", "-Command", query],
+                            capture_output=True, encoding="utf-8", errors="replace",
+                            timeout=20, check=True,
+                            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
+    found = json.loads(result.stdout or "[]")
+    return [found] if isinstance(found, dict) else found
 
 
-def _get_yjks_processes() -> list[dict]:
-    return _get_processes_by_name("yjks")
+def _select_owned_host(found: list[dict], parent_pid: int, executable: str) -> dict:
+    if len(found) != 1:
+        raise RuntimeError("Exactly one directly owned YJK host is required")
+    host = found[0]
+    if (int(host.get("ParentProcessId", -1)) != parent_pid
+            or int(host.get("ProcessId", -1)) <= 0
+            or os.path.normcase(os.path.realpath(str(host.get("ExecutablePath") or "")))
+                != os.path.normcase(os.path.realpath(executable))
+            or "-yjkscontrol" not in str(host.get("CommandLine") or "").lower()):
+        raise RuntimeError("Native YJK process does not match this worker and executable")
+    return host
 
 
-def _get_launcher_processes() -> list[dict]:
-    return _get_processes_by_name("YjkLauncher")
+def _windows_session(pid: int) -> int:
+    import ctypes
+    from ctypes import wintypes
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.ProcessIdToSessionId.argtypes = [wintypes.DWORD, ctypes.POINTER(wintypes.DWORD)]
+    kernel.ProcessIdToSessionId.restype = wintypes.BOOL
+    session = wintypes.DWORD()
+    if not kernel.ProcessIdToSessionId(pid, ctypes.byref(session)):
+        raise ctypes.WinError(ctypes.get_last_error())
+    return session.value
 
 
-def _process_id(proc: dict | None) -> int:
-    return int(_safe_float((proc or {}).get("Id"), 0.0))
+def _prepare_owned_launcher(yjks_root: str, steps: list[dict]) -> dict:
+    """Initialize authorization only through a new hidden private-root child.
 
-
-def _is_auth_failure_title(title: object) -> bool:
-    text = str(title or "").strip().lower()
-    return bool(text) and (
-        "授权检测失败" in text
-        or "authorization verification failed" in text
-        or "license verification failed" in text
-    )
-
-
-def _wait_for_direct_launch_state(before_pids: set[int], timeout_s: float) -> dict:
-    """Watch a freshly launched yjks.exe for the local auth failure dialog.
-
-    A valid direct launch may keep the title blank for a while, especially when
-    YJK is invisible.  Authorization failure windows can also come from a
-    previous/reused YJK process, so detect them before filtering old PIDs.
+    YJK requires a launcher in the worker's Windows session. The job already
+    contains this worker, so both launcher and host terminate with this run.
+    Existing launchers are never searched, reinvoked, attached, or closed.
     """
-    deadline = time.monotonic() + timeout_s
-    last_seen: dict | None = None
+    global _OWNED_LAUNCHER
+    import subprocess
+    executable = os.path.abspath(os.path.join(yjks_root, "YjkLauncher.exe"))
+    if not os.path.isfile(executable):
+        raise RuntimeError("Private YJK SDK installation is missing YjkLauncher.exe")
+    startup = subprocess.STARTUPINFO()
+    startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    startup.wShowWindow = 0
+    _OWNED_LAUNCHER = subprocess.Popen(
+        [executable], cwd=yjks_root, stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True,
+        startupinfo=startup, creationflags=subprocess.CREATE_NO_WINDOW,
+    )
+    deadline = time.monotonic() + _env_float("YJK_LAUNCHER_STARTUP_TIMEOUT_S", 20)
+    observed = None
     while time.monotonic() < deadline:
-        for proc in _get_yjks_processes():
-            pid = _process_id(proc)
-            if pid <= 0:
-                continue
-            title = str(proc.get("MainWindowTitle") or "")
-            if _is_auth_failure_title(title):
-                return {"state": "auth_failed", "pid": pid, "title": title}
-            if before_pids and pid in before_pids:
-                continue
-            last_seen = proc
-            if title.strip():
-                return {"state": "ready", "pid": pid, "title": title}
-        time.sleep(1.0)
-    if last_seen:
-        return {
-            "state": "unknown",
-            "pid": _process_id(last_seen),
-            "title": str(last_seen.get("MainWindowTitle") or ""),
-        }
-    return {"state": "not_found", "pid": None, "title": None}
+        if _OWNED_LAUNCHER.poll() is not None:
+            raise RuntimeError("Private YJK launcher exited before authorization readiness; "
+                               "existing launcher sessions will not be reinvoked")
+        found = _owned_native_processes(os.getpid(), "YjkLauncher.exe")
+        owned = [row for row in found if int(row.get("ProcessId", -1)) == _OWNED_LAUNCHER.pid]
+        if len(owned) == 1:
+            row = owned[0]
+            if (int(row.get("ParentProcessId", -1)) != os.getpid()
+                    or os.path.normcase(os.path.realpath(str(row.get("ExecutablePath") or "")))
+                       != os.path.normcase(os.path.realpath(executable))):
+                raise RuntimeError("Private launcher ownership/path verification failed")
+            if _windows_session(_OWNED_LAUNCHER.pid) != _windows_session(os.getpid()):
+                raise RuntimeError("Private launcher is not in this worker's Windows session")
+            observed = row
+            break
+        time.sleep(0.1)
+    if observed is None:
+        raise TimeoutError("Private YJK launcher did not become an owned process")
+    # The independently validated API waits 3 seconds after same-session discovery.
+    time.sleep(3)
+    if _OWNED_LAUNCHER.poll() is not None:
+        raise RuntimeError("Private YJK launcher exited during authorization startup")
+    evidence = {"worker_pid": os.getpid(), "native": observed,
+                "session": _windows_session(os.getpid()), "startup_settle_s": 3}
+    with open(os.path.join(_CURRENT_WORK_DIR, "owned-launcher.json"), "w", encoding="utf-8") as stream:
+        json.dump(evidence, stream, ensure_ascii=False, indent=2)
+    _record_step(steps, phase="launch", name="Prepare private YJK launcher", status="success",
+                 command="YjkLauncher.exe", pid=_OWNED_LAUNCHER.pid,
+                 message="New hidden same-session launcher contained in this run's process job")
+    return evidence
 
 
-def _stop_process(pid: int) -> bool:
-    if pid <= 0:
-        return False
-    import subprocess
-
-    try:
-        proc = subprocess.run(
-            [
-                _powershell_exe(),
-                "-NoProfile",
-                "-Command",
-                f"Stop-Process -Id {pid} -Force -ErrorAction Stop",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        return proc.returncode == 0
-    except Exception:
-        return False
-
-
-def _popen_gui_detached(args: list[str], cwd: str):
-    import subprocess
-
-    kwargs = {
-        "cwd": cwd,
-        "stdin": subprocess.DEVNULL,
-        "stdout": subprocess.DEVNULL,
-        "stderr": subprocess.DEVNULL,
-        "close_fds": True,
-    }
-    if os.name == "nt":
-        kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
-    return subprocess.Popen(args, **kwargs)
-
-
-def _prewarm_yjk_launcher(yjks_root: str, steps: list[dict]) -> bool:
-    launcher = _find_yjk_launcher(yjks_root)
-    if not launcher:
-        _record_step(
-            steps,
-            phase="launch",
-            name="Prewarm YJK launcher authorization",
-            command="YjkLauncher.exe",
-            status="error",
-            message=f"YjkLauncher.exe not found under {yjks_root}",
-        )
-        return False
-
-    existing = _get_launcher_processes()
-    existing_pid = _process_id(existing[0]) if existing else 0
+def _connect_owned_host(yjks_root: str, steps: list[dict]):
+    """Create and bind our own host, then use bounded, write-before-notify IPC."""
+    global _SDK_PIPE
+    from sdk_ipc import SdkPipe, verify_host
+    from YJKAPI import ControlConfig, YJKSControl
+    executable = _find_yjks_exe(yjks_root)
+    if not executable:
+        raise RuntimeError("YJK executable is absent from the configured SDK installation")
+    verify_host(executable)
+    # Most configured machines already have session authorization. Creating a
+    # launcher is an explicit diagnostic option, never an automatic retry or
+    # a prerequisite that could fail because of the vendor's singleton policy.
+    if _env_flag("YJK_PREPARE_OWNED_LAUNCHER"):
+        _prepare_owned_launcher(yjks_root, steps)
     started_at = time.monotonic()
-    cwd = _env_path("YJK_LAUNCHER_CWD") or yjks_root
-    try:
-        proc = _popen_gui_detached([launcher], cwd)
-        pid = proc.pid
-        if existing_pid <= 0:
-            message = "Started official YJK launcher and kept it alive for authorization."
-        else:
-            message = "Reinvoked official YJK launcher to refresh authorization."
-    except Exception as exc:
-        _record_step(
-            steps,
-            phase="launch",
-            name="Prewarm YJK launcher authorization",
-            command=launcher,
-            status="error",
-            message=str(exc),
-            started_at=started_at,
-        )
-        return False
-
-    wait_s = _env_float("YJK_LAUNCHER_PREWARM_S", 18.0)
-    if wait_s > 0:
-        time.sleep(wait_s)
-    _record_step(
-        steps,
-        phase="launch",
-        name="Prewarm YJK launcher authorization",
-        command=launcher,
-        status="success",
-        message=message,
-        started_at=started_at,
-        pid=pid,
-        wait_s=wait_s,
-        cwd=cwd,
-    )
-    return True
-
-
-def _run_yjk_direct(
-    *,
-    yjks_root: str,
-    yjks_exe: str,
-    yjks_control: object,
-    steps: list[dict],
-    attempt: str,
-) -> tuple[str | None, dict]:
-    print(
-        f"[yjk_driver] Phase 2: RunYJK({yjks_exe}) [{attempt}]",
-        file=sys.stderr,
-        flush=True,
-    )
-    before_pids = {
-        _process_id(proc)
-        for proc in _get_yjks_processes()
-        if _process_id(proc) > 0
-    }
-    started_at = time.monotonic()
-    launch_cwd = _direct_launch_cwd(yjks_root)
+    cfg = ControlConfig()
+    cfg.Version = _env_text("YJK_VERSION", "8.0.0")
+    cfg.Invisible = _env_text("YJK_INVISIBLE", "1") != "0"
+    YJKSControl.initConfig(cfg)
     previous_cwd = os.getcwd()
     try:
-        os.chdir(launch_cwd)
-        msg = yjks_control.RunYJK(yjks_exe)
-    except Exception as exc:
-        _record_step(
-            steps,
-            phase="launch",
-            name=f"RunYJK ({attempt})",
-            command="RunYJK",
-            status="error",
-            message=str(exc),
-            started_at=started_at,
-        )
-        return None, {"state": "exception", "error": str(exc), "pid": None, "title": None}
+        os.chdir(yjks_root)
+        YJKSControl.RunYJK(executable)
     finally:
-        try:
-            os.chdir(previous_cwd)
-        except OSError:
-            pass
-
-    state = _wait_for_direct_launch_state(
-        before_pids,
-        _env_float("YJK_DIRECT_READY_TIMEOUT_S", 12.0),
-    )
-    _record_step(
-        steps,
-        phase="launch",
-        name=f"RunYJK ({attempt})",
-        command="RunYJK",
-        status="success" if state.get("state") != "auth_failed" else "warning",
-        message=str(msg),
-        started_at=started_at,
-        cwd=launch_cwd,
-        pid=state.get("pid"),
-        window_title=state.get("title"),
-        launch_state=state.get("state"),
-    )
-    return str(msg), state
-
-
-def _wait_for_new_yjks_process(before_pids: set[int], timeout_s: float) -> dict | None:
-    deadline = time.monotonic() + timeout_s
-    last_seen: dict | None = None
-    while time.monotonic() < deadline:
-        for proc in _get_yjks_processes():
-            pid = int(_safe_float(proc.get("Id"), 0.0))
-            if pid <= 0:
-                continue
-            last_seen = proc
-            if pid not in before_pids:
-                return proc
-        if last_seen and not before_pids:
-            return last_seen
-        time.sleep(1.0)
-    return last_seen
-
-
-def _find_main_window_for_pid(pid: int) -> int | None:
-    import ctypes
-    from ctypes import wintypes
-
-    user32 = ctypes.windll.user32
-    hwnd_result: list[int] = []
-
-    enum_proc_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
-
-    def _callback(hwnd, _lparam):
-        if not user32.IsWindowVisible(hwnd):
-            return True
-        proc_id = wintypes.DWORD()
-        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(proc_id))
-        if int(proc_id.value) != pid:
-            return True
-        title_len = user32.GetWindowTextLengthW(hwnd)
-        if title_len <= 0:
-            return True
-        hwnd_result.append(int(hwnd))
-        return False
-
-    user32.EnumWindows(enum_proc_type(_callback), 0)
-    return hwnd_result[0] if hwnd_result else None
-
-
-def _send_virtual_key(vk: int) -> None:
-    import ctypes
-
-    user32 = ctypes.windll.user32
-    KEYEVENTF_KEYUP = 0x0002
-    user32.keybd_event(vk, 0, 0, 0)
-    time.sleep(0.03)
-    user32.keybd_event(vk, 0, KEYEVENTF_KEYUP, 0)
-
-
-def _send_unicode_text(text: str) -> None:
-    import ctypes
-    from ctypes import wintypes
-
-    user32 = ctypes.windll.user32
-    INPUT_KEYBOARD = 1
-    KEYEVENTF_KEYUP = 0x0002
-    KEYEVENTF_UNICODE = 0x0004
-
-    class KEYBDINPUT(ctypes.Structure):
-        _fields_ = [
-            ("wVk", wintypes.WORD),
-            ("wScan", wintypes.WORD),
-            ("dwFlags", wintypes.DWORD),
-            ("time", wintypes.DWORD),
-            ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong)),
-        ]
-
-    class INPUT_UNION(ctypes.Union):
-        _fields_ = [("ki", KEYBDINPUT)]
-
-    class INPUT(ctypes.Structure):
-        _fields_ = [("type", wintypes.DWORD), ("union", INPUT_UNION)]
-
-    def _send_char(ch: str, keyup: bool) -> None:
-        flags = KEYEVENTF_UNICODE | (KEYEVENTF_KEYUP if keyup else 0)
-        event = INPUT(
-            type=INPUT_KEYBOARD,
-            union=INPUT_UNION(ki=KEYBDINPUT(0, ord(ch), flags, 0, None)),
-        )
-        user32.SendInput(1, ctypes.byref(event), ctypes.sizeof(event))
-
-    for ch in text:
-        if ch in ("\r", "\n"):
-            _send_virtual_key(0x0D)
-            continue
-        _send_char(ch, False)
-        _send_char(ch, True)
-        time.sleep(0.01)
-
-
-def _activate_yjk_ipc(pid: int) -> bool:
-    hwnd = _find_main_window_for_pid(pid)
-    if not hwnd:
-        return False
-
-    import ctypes
-
-    user32 = ctypes.windll.user32
-    user32.ShowWindow(hwnd, 9)  # SW_RESTORE
-    user32.SetForegroundWindow(hwnd)
-    time.sleep(_env_float("YJK_AUTO_IPC_FOCUS_DELAY_S", 1.0))
-    _send_virtual_key(0x1B)  # ESC clears most modal command states.
-    time.sleep(0.2)
-    _send_unicode_text("yjksipccontrol\n")
-    return True
-
-
-def _launch_yjk_with_launcher_and_attach(
-    *,
-    yjks_root: str,
-    cfg: object,
-    yjks_control: object,
-    steps: list[dict],
-) -> str | None:
-    launcher = _find_yjk_launcher(yjks_root)
-    if not launcher:
-        _record_step(
-            steps,
-            phase="launch",
-            name="Find YJK launcher",
-            command="YjkLauncher.exe",
-            status="error",
-            message=f"YjkLauncher.exe not found under {yjks_root}",
-        )
-        return None
-
-    before_pids = {
-        int(_safe_float(proc.get("Id"), 0.0))
-        for proc in _get_yjks_processes()
-        if int(_safe_float(proc.get("Id"), 0.0)) > 0
-    }
-    started_at = time.monotonic()
-    cwd = _env_path("YJK_LAUNCHER_CWD") or yjks_root
-    try:
-        _popen_gui_detached([launcher], cwd)
-    except Exception as exc:
-        _record_step(
-            steps,
-            phase="launch",
-            name="Launch YJK via launcher",
-            command=launcher,
-            status="error",
-            message=str(exc),
-            started_at=started_at,
-        )
-        return None
-    _record_step(
-        steps,
-        phase="launch",
-        name="Launch YJK via launcher",
-        command=launcher,
-        status="success",
-        started_at=started_at,
-    )
-
-    wait_timeout = _env_float("YJK_LAUNCHER_WAIT_S", 90.0)
-    proc_info = _wait_for_new_yjks_process(before_pids, wait_timeout)
-    if not proc_info:
-        _record_step(
-            steps,
-            phase="launch",
-            name="Wait for yjks.exe",
-            command="Get-Process yjks",
-            status="error",
-            message=f"YjkLauncher.exe did not start yjks.exe within {wait_timeout}s",
-        )
-        return None
-
-    pid = int(_safe_float(proc_info.get("Id"), 0.0))
-    time.sleep(_env_float("YJK_AUTO_IPC_DELAY_S", 8.0))
-    ipc_enabled = True
-    if not _env_flag("YJK_SKIP_AUTO_IPC"):
-        ipc_enabled = _activate_yjk_ipc(pid)
-    _record_step(
-        steps,
-        phase="launch",
-        name="Enable YJK IPC command",
-        command="yjksipccontrol",
-        status="success" if ipc_enabled else "warning",
-        message=(
-            "Sent yjksipccontrol to the YJK window"
-            if ipc_enabled
-            else "Could not find an active YJK window; attempting attach anyway"
-        ),
-        pid=pid,
-    )
-
-    try:
-        setattr(cfg, "Pid", pid)
-        result = yjks_control.initConfig(cfg)
-    except Exception as exc:
-        _record_step(
-            steps,
-            phase="launch",
-            name="Attach launched YJK",
-            command="initConfig(Pid)",
-            status="error",
-            message=str(exc),
-            pid=pid,
-        )
-        return None
-    _record_step(
-        steps,
-        phase="launch",
-        name="Attach launched YJK",
-        command="initConfig(Pid)",
-        status="success",
-        message=str(result),
-        pid=pid,
-    )
-    return f"launcher-attached:{pid}"
+        os.chdir(previous_cwd)
+    owned = _select_owned_host(_owned_native_processes(os.getpid()), os.getpid(), executable)
+    cfg.Pid = int(owned["ProcessId"])
+    YJKSControl.initConfig(cfg)
+    evidence = {"worker_pid": os.getpid(), "native": owned, "configured_pid": cfg.Pid,
+                "protocol": "buffered-yjk8-pid-pipe-v1"}
+    with open(os.path.join(_CURRENT_WORK_DIR, "owned-native.json"), "w", encoding="utf-8") as stream:
+        json.dump(evidence, stream, ensure_ascii=False, indent=2)
+    _SDK_PIPE = SdkPipe(cfg.Pid, connect_timeout_s=_env_float("YJK_STARTUP_TIMEOUT_S", 90),
+                        command_timeout_s=_env_float("YJK_COMMAND_TIMEOUT_S", 600))
+    _record_step(steps, phase="launch", name="Connect owned YJK host", status="success",
+                 command="RunYJK/initConfig(Pid)", pid=cfg.Pid, protocol=evidence["protocol"],
+                 started_at=started_at)
+    return evidence
 
 
 def _run_cmd(
@@ -741,7 +377,6 @@ def _run_cmd(
 
     Returns True if the command succeeded, False if YJK is no longer running.
     """
-    from YJKAPI import YJKSControl
     display_command = cmd if callback is None else f"{cmd}:{callback}"
     print(
         f"[yjk_driver] RunCmd({cmd!r}, {arg!r}, {callback!r})",
@@ -750,24 +385,12 @@ def _run_cmd(
     )
     started_at = time.monotonic()
     try:
+        if _SDK_PIPE is None:
+            raise RuntimeError("YJK has no owned IPC connection")
         if callback is None:
-            YJKSControl.RunCmd(cmd, arg)
+            _SDK_PIPE.command(cmd, arg)
         else:
-            YJKSControl.RunCmd(cmd, arg, callback)
-        # Check if YJK is still running after the command
-        if not _is_yjk_running():
-            message = f"YJK process terminated after {cmd}"
-            print(f"[yjk_driver] WARNING: {message}", file=sys.stderr, flush=True)
-            _record_step(
-                steps,
-                phase=phase,
-                name=cmd,
-                command=display_command,
-                status="error",
-                message=message,
-                started_at=started_at,
-            )
-            return False
+            _SDK_PIPE.command(cmd, arg, callback)
         _record_step(
             steps,
             phase=phase,
@@ -789,49 +412,6 @@ def _run_cmd(
             started_at=started_at,
         )
         return False
-
-
-def _is_yjk_running() -> bool:
-    """Check if the YJK process is still running."""
-    try:
-        return bool(_get_yjks_processes())
-    except Exception:
-        return True  # Assume running if we can't check
-
-
-def _request_yjk_exit(steps: list[dict]) -> None:
-    if not _close_after_run_enabled():
-        return
-
-    started_at = time.monotonic()
-    try:
-        from YJKAPI import YJKSControl
-
-        YJKSControl.RunCmd("exit", "")
-    except Exception as exc:
-        _record_step(
-            steps,
-            phase="cleanup",
-            name="Request YJK exit",
-            command="exit",
-            status="warning",
-            message=str(exc),
-            started_at=started_at,
-        )
-        return
-    wait_s = _env_float("YJK_EXIT_WAIT_S", 3.0)
-    if wait_s > 0:
-        time.sleep(wait_s)
-    _record_step(
-        steps,
-        phase="cleanup",
-        name="Request YJK exit",
-        command="exit",
-        status="success",
-        message="Sent YJK exit command after synchronous result extraction.",
-        started_at=started_at,
-        wait_s=wait_s,
-    )
 
 
 def _collect_out_files(work_dir: str) -> str:
@@ -870,10 +450,6 @@ def _signed_max_abs(current: float, candidate: float) -> float:
     return candidate if abs(candidate) > abs(current) else current
 
 
-def _round_map(values: dict[str, float], digits: int = 4) -> dict[str, float]:
-    return {key: round(_safe_float(value), digits) for key, value in values.items()}
-
-
 def _load_json_file(path: str) -> dict:
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -896,25 +472,18 @@ def _id_candidates(value: object) -> list[str]:
     return list(dict.fromkeys(candidates))
 
 
-def _coord_key(x: object, y: object, z: object, *, scale: float = 1.0) -> tuple[int, int, int]:
+def _coord_key(x: object, y: object, z: object, *, scale: float = 1.0) -> tuple[float, float, float]:
+    # Keys are millimetres, quantized only for floating-point coordinate noise.
+    # Preserve submillimetre geometry instead of rounding it to whole mm.
     return (
-        int(round(_safe_float(x) * scale)),
-        int(round(_safe_float(y) * scale)),
-        int(round(_safe_float(z) * scale)),
+        round(_finite_result_float(x, "node coordinate x") * scale, 6),
+        round(_finite_result_float(y, "node coordinate y") * scale, 6),
+        round(_finite_result_float(z, "node coordinate z") * scale, 6),
     )
 
 
-def _coord_candidates(x: object, y: object, z: object) -> list[tuple[int, int, int]]:
-    """Return millimetre-like and raw coordinate keys for YJK result matching."""
-    candidates = [
-        _coord_key(x, y, z),
-        _coord_key(x, y, z, scale=1000.0),
-    ]
-    return list(dict.fromkeys(candidates))
-
-
-def _node_lookup_from_mapping(mapping: dict) -> dict[tuple[int, int, int], str]:
-    lookup: dict[tuple[int, int, int], str] = {}
+def _node_lookup_from_mapping(mapping: dict) -> dict[tuple[float, float, float], str]:
+    lookup: dict[tuple[float, float, float], str] = {}
     nodes = mapping.get("nodes", {})
     if not isinstance(nodes, dict):
         return lookup
@@ -922,12 +491,18 @@ def _node_lookup_from_mapping(mapping: dict) -> dict[tuple[int, int, int], str]:
     for v2_id, item in nodes.items():
         if not isinstance(item, dict):
             continue
-        key = (
-            int(round(_safe_float(item.get("x_mm")))),
-            int(round(_safe_float(item.get("y_mm")))),
-            int(round(_safe_float(item.get("z_mm")))),
-        )
-        lookup[key] = str(item.get("v2_id") or v2_id)
+        keys = []
+        for suffix, scale in (("mm", 1.0), ("m", 1000.0)):
+            fields = tuple(f"{axis}_{suffix}" for axis in ("x", "y", "z"))
+            if any(field in item for field in fields):
+                keys.append(_coord_key(*(item.get(field) for field in fields), scale=scale))
+        if not keys or any(key != keys[0] for key in keys):
+            raise RuntimeError(f"YJK converter node '{v2_id}' has missing or conflicting coordinates")
+        key = keys[0]
+        mapped_id = str(item.get("v2_id") or v2_id)
+        if key in lookup and lookup[key] != mapped_id:
+            raise RuntimeError("YJK coordinate mapping is ambiguous for coincident physical nodes")
+        lookup[key] = mapped_id
     return lookup
 
 
@@ -936,54 +511,25 @@ def _build_result_node_lookup(
     mapping: dict,
     diagnostics: dict | None = None,
 ) -> dict[str, str]:
-    id_to_v2: dict[str, str] = {}
-    coord_to_v2: dict[tuple[int, int, int], str] = {}
-    nodes = mapping.get("nodes", {})
-    if isinstance(nodes, dict):
-        for v2_id, item in nodes.items():
-            if not isinstance(item, dict):
-                continue
-            mapped_id = str(item.get("v2_id") or v2_id)
-            for field in (
-                "yjk_std_floor_node_id",
-                "yjk_node_id",
-                "yjk_model_id",
-                "node_id",
-                "id",
-            ):
-                for candidate in _id_candidates(item.get(field)):
-                    existing = id_to_v2.get(candidate)
-                    id_to_v2[candidate] = mapped_id if existing in (None, mapped_id) else ""
-            coord_keys: list[tuple[int, int, int]] = []
-            if any(item.get(field) is not None for field in ("x_mm", "y_mm", "z_mm")):
-                coord_keys.append(_coord_key(item.get("x_mm"), item.get("y_mm"), item.get("z_mm")))
-            if any(item.get(field) is not None for field in ("x_m", "y_m", "z_m")):
-                coord_keys.append(_coord_key(item.get("x_m"), item.get("y_m"), item.get("z_m"), scale=1000.0))
-            for key in coord_keys:
-                existing = coord_to_v2.get(key)
-                coord_to_v2[key] = mapped_id if existing in (None, mapped_id) else ""
-
+    coord_to_v2 = _node_lookup_from_mapping(mapping)
+    meta = extracted.get("meta", {})
+    # Historical extractor payloads documented XYZ in metres. New payloads
+    # state the unit; never try multiple scales based on what happens to match.
+    coordinate_unit = meta.get("coordinateUnit", "m") if isinstance(meta, dict) else "m"
+    if coordinate_unit not in {"m", "mm"}:
+        raise RuntimeError(f"Unsupported YJK result coordinate unit: {coordinate_unit!r}")
+    scale = 1000.0 if coordinate_unit == "m" else 1.0
     result_lookup: dict[str, str] = {}
-    result_lookup.update(id_to_v2)
-    id_matches = 0
     coord_matches = 0
     unmapped = 0
     for node in extracted.get("nodes", []) if isinstance(extracted.get("nodes"), list) else []:
         if not isinstance(node, dict):
             continue
         result_id = str(node.get("id"))
-        direct = id_to_v2.get(result_id)
-        if direct:
-            result_lookup[result_id] = direct
-            id_matches += 1
-            continue
-
-        matched = None
-        for key in _coord_candidates(node.get("x"), node.get("y"), node.get("z")):
-            candidate = coord_to_v2.get(key)
-            if candidate:
-                matched = candidate
-                break
+        key = _coord_key(node.get("x"), node.get("y"), node.get("z"), scale=scale)
+        matched = coord_to_v2.get(key)
+        if result_id in result_lookup:
+            raise RuntimeError(f"Duplicate YJK result node ID: {result_id}")
         if matched:
             result_lookup[result_id] = matched
             coord_matches += 1
@@ -991,10 +537,10 @@ def _build_result_node_lookup(
             result_lookup[result_id] = result_id
             unmapped += 1
     if diagnostics is not None:
-        diagnostics["node_id_matches"] = id_matches
+        diagnostics["node_id_matches"] = 0
         diagnostics["node_coord_matches"] = coord_matches
         diagnostics["node_unmapped"] = unmapped
-        diagnostics["node_id_index_size"] = len(id_to_v2)
+        diagnostics["node_id_index_size"] = len(result_lookup)
     return result_lookup
 
 
@@ -1203,7 +749,7 @@ def _accumulate_node_envelope(
     ) ** 0.5
     item = table.setdefault(str(node_id), {"maxAbsDisplacement": 0.0, "controlCase": ""})
     if mag > _safe_float(item.get("maxAbsDisplacement")):
-        item["maxAbsDisplacement"] = round(mag, 8)
+        item["maxAbsDisplacement"] = mag
         item["controlCase"] = case_name
 
 
@@ -1228,13 +774,13 @@ def _accumulate_element_envelope(
     shear = abs(_safe_float(force.get("V")))
     moment = abs(_safe_float(force.get("M")))
     if axial > _safe_float(item.get("maxAbsAxialForce")):
-        item["maxAbsAxialForce"] = round(axial, 2)
+        item["maxAbsAxialForce"] = axial
         item["controlCaseAxial"] = case_name
     if shear > _safe_float(item.get("maxAbsShearForce")):
-        item["maxAbsShearForce"] = round(shear, 2)
+        item["maxAbsShearForce"] = shear
         item["controlCaseShear"] = case_name
     if moment > _safe_float(item.get("maxAbsMoment")):
-        item["maxAbsMoment"] = round(moment, 2)
+        item["maxAbsMoment"] = moment
         item["controlCaseMoment"] = case_name
 
 
@@ -1260,8 +806,8 @@ def _accumulate_reaction_envelope(
     )
     resultant = abs(_safe_float(reaction.get("R")))
     if resultant > _safe_float(item.get("maxAbsReaction")):
-        item.update(_round_map(reaction, digits=3))
-        item["maxAbsReaction"] = round(resultant, 3)
+        item.update(reaction)
+        item["maxAbsReaction"] = resultant
         item["controlCase"] = case_name
 
 
@@ -1610,10 +1156,10 @@ def _build_analysis_result(
                 raw_node_id = str(raw_disp.get("id"))
                 node_id = result_node_lookup.get(raw_node_id, raw_node_id)
                 # YJK extracted translations are already expressed in metres.
-                disp = _round_map({
+                disp = {
                     axis: _finite_result_float(raw_disp.get(axis), f"node {raw_node_id} displacement {axis}")
                     for axis in ("ux", "uy", "uz", "rx", "ry", "rz")
-                }, digits=8)
+                }
                 case_disps[node_id] = disp
                 _accumulate_node_envelope(node_displacement_envelope, node_id, case_name, disp)
 
@@ -1668,7 +1214,7 @@ def _build_analysis_result(
                     raise RuntimeError(
                         f"YJK force result for {category} member '{raw_force.get('id')}' lacks an exact id or endpoint mapping"
                     )
-                force = _round_map(_force_from_sections(sections), digits=3)
+                force = _force_from_sections(sections)
                 rows = sections if any(isinstance(row, (list, tuple)) for row in sections) else [sections]
                 case_stations[elem_id] = [
                     {
@@ -1695,7 +1241,7 @@ def _build_analysis_result(
                 reaction_rows_seen += 1
                 raw_node_id = str(raw_reaction.get("id", raw_reaction.get("node_id")))
                 node_id = result_node_lookup.get(raw_node_id, raw_node_id)
-                reaction = _round_map(_reaction_from_raw(raw_reaction), digits=3)
+                reaction = _reaction_from_raw(raw_reaction)
                 case_reactions[node_id] = _merge_max_reaction(case_reactions.get(node_id, {}), reaction)
                 reactions[node_id] = _merge_max_reaction(reactions.get(node_id, {}), reaction)
                 _accumulate_reaction_envelope(node_reaction_envelope, node_id, case_name, reaction)
@@ -1763,19 +1309,19 @@ def _build_analysis_result(
             control_reaction = node_id
 
     envelope = {
-        "maxAbsDisplacement": round(max_disp, 8),
+        "maxAbsDisplacement": max_disp,
         "controlNodeDisplacement": max_disp_node,
-        "maxAbsAxialForce": round(max_axial, 2),
-        "maxAbsShearForce": round(max_shear, 2),
-        "maxAbsMoment": round(max_moment, 2),
-        "maxAbsReaction": round(max_reaction, 3),
+        "maxAbsAxialForce": max_axial,
+        "maxAbsShearForce": max_shear,
+        "maxAbsMoment": max_moment,
+        "maxAbsReaction": max_reaction,
         "controlElementAxialForce": control_axial or None,
         "controlElementShearForce": control_shear or None,
         "controlElementMoment": control_moment or None,
         "controlNodeReaction": control_reaction or None,
     }
     if max_disp_node:
-        envelope[f"node:{max_disp_node}:maxAbsDisplacement"] = round(max_disp, 8)
+        envelope[f"node:{max_disp_node}:maxAbsDisplacement"] = max_disp
 
     if force_rows_seen == 0 or displacement_rows_seen == 0 or reaction_rows_seen == 0:
         raise RuntimeError("YJK result extraction did not return complete force, displacement, and reaction rows")
@@ -1808,7 +1354,7 @@ def _build_analysis_result(
         warnings.append("YJK raw node_reactions were empty; reaction envelopes are empty.")
     if diagnostics.get("node_coord_matches", 0) > 0:
         warnings.append(
-            f"YJK node mapping used coordinate fallback for {diagnostics.get('node_coord_matches', 0)} result nodes."
+            f"YJK node mapping matched declared-unit coordinates for {diagnostics.get('node_coord_matches', 0)} result nodes."
         )
     if diagnostics.get("node_unmapped", 0) > 0:
         warnings.append(
@@ -1830,12 +1376,12 @@ def _build_analysis_result(
     return {
         "status": "success",
         "analysisMode": "yjk-static",
-        "displacements": {key: _round_map(value, digits=8) for key, value in displacements.items()},
+        "displacements": displacements,
         "forces": {
-            key: {**_round_map(value, digits=3), "referenceFrame": "element-local"}
+            key: {**value, "referenceFrame": "element-local"}
             for key, value in forces.items()
         },
-        "reactions": {key: _round_map(value, digits=3) for key, value in reactions.items()},
+        "reactions": reactions,
         "envelope": envelope,
         "summary": {
             "engine": "yjk-static",
@@ -1850,7 +1396,7 @@ def _build_analysis_result(
             "designElementCount": design_results["summary"]["elementCount"],
             "maxDesignUtilization": design_results["summary"]["maxUtilization"],
             "controllingDesignElement": design_results["summary"]["controllingElement"],
-            "maxDisplacement": round(max_disp, 8),
+            "maxDisplacement": max_disp,
             "maxDisplacementNode": max_disp_node,
             "floors_analyzed": meta.get("n_floors"),
             "n_floors": meta.get("n_floors"),
@@ -1898,8 +1444,19 @@ def main() -> int:
     work_dir = sys.argv[2]
     _CURRENT_WORK_DIR = os.path.abspath(work_dir)
 
-    # Strip our arguments so YJKAPI sees no stray sys.argv[1]
-    sys.argv = [sys.argv[0]]
+    # A start gate proves the parent contained this worker before any vendor import.
+    gate = _env_path("SC_YJK_START_GATE")
+    if not gate or os.path.abspath(gate) != os.path.join(_CURRENT_WORK_DIR, "start.gate"):
+        _error("YJK driver requires a contained parent start gate", phase="containment")
+        return 1
+    deadline = time.monotonic() + 30
+    while not os.path.isfile(gate):
+        if time.monotonic() >= deadline:
+            _error("Parent did not enable contained YJK worker", phase="containment")
+            return 1
+        time.sleep(0.05)
+    # NDepend prevents the vendor import from attaching its default control channel.
+    sys.argv = [sys.argv[0], "NDepend"]
 
     yjks_root = _setup_paths()
 
@@ -1927,9 +1484,8 @@ def _run(model_path: str, work_dir: str, yjks_root: str) -> int:
     # -- Import YJKAPI (requires sys.path set up by _setup_paths) ------
     # Redirect stdout during import so any YJKAPI banner/init messages
     # go to stderr and don't corrupt our JSON output channel.
-    import io
     _real_stdout = sys.stdout
-    sys.stdout = io.TextIOWrapper(sys.stderr.buffer, encoding=sys.stderr.encoding or "utf-8")
+    sys.stdout = sys.stderr
     started_at = time.monotonic()
     try:
         from YJKAPI import ControlConfig, YJKSControl
@@ -2003,196 +1559,14 @@ def _run(model_path: str, work_dir: str, yjks_root: str) -> int:
     )
     print(f"[yjk_driver] ydb_path = {ydb_path}", file=sys.stderr, flush=True)
 
-    # -- Phase 2: Launch or attach to YJK -------------------------------
-    yjks_exe_env = _env_path("YJKS_EXE")
-    yjks_exe = (
-        yjks_exe_env if yjks_exe_env and os.path.isfile(yjks_exe_env)
-        else _find_yjks_exe(yjks_root)
-    )
-    if not yjks_exe or not os.path.isfile(yjks_exe):
-        _error(
-            f"yjks.exe not found (YJKS_ROOT={yjks_root})",
-            phase="launch",
-            command="RunYJK",
-            steps=steps,
-            summary={"work_dir": work_dir},
-        )
+    # -- Phase 2: Launch a unique contained YJK host ---------------------
+    try:
+        _connect_owned_host(yjks_root, steps)
+    except Exception as exc:
+        _error(f"YJK owned host connection failed: {exc}", phase="launch",
+               command="RunYJK/initConfig(Pid)", steps=steps,
+               summary={"work_dir": work_dir})
         return 1
-
-    version = _env_text("YJK_VERSION", "8.0.0")
-    attach_existing = _env_flag("YJK_ATTACH_EXISTING")
-    use_launcher = (not attach_existing) and _should_launch_with_launcher(yjks_root)
-    prewarm_mode = _launcher_prewarm_mode()
-    print(
-        f"[yjk_driver] Launcher prewarm mode: {prewarm_mode}",
-        file=sys.stderr,
-        flush=True,
-    )
-
-    # Default: show the YJK GUI so the user can observe the full workflow.
-    # Set YJK_INVISIBLE=1 in .env to run fully headless (CI / unattended).
-    cfg = ControlConfig()
-    cfg.Version = version
-    cfg.Invisible = _env_text("YJK_INVISIBLE", "0") == "1"
-    if attach_existing:
-        try:
-            cfg.Pid = int(_env_text("YJK_ATTACH_PID", "-1") or "-1")
-        except ValueError:
-            cfg.Pid = -1
-
-    if not use_launcher:
-        try:
-            YJKSControl.initConfig(cfg)
-        except Exception as exc:
-            _error(
-                f"YJK control config failed: {exc}",
-                phase="launch",
-                command="initConfig",
-                steps=steps,
-                summary={"work_dir": work_dir},
-            )
-            return 1
-
-    if attach_existing:
-        _record_step(
-            steps,
-            phase="launch",
-            name="Attach existing YJK",
-            command="initConfig(Pid)",
-            status="success",
-            message=(
-                "Attached to an existing YJK session. Start YJK through YjkLauncher.exe "
-                "and run the yjksipccontrol command inside YJK before using this mode."
-            ),
-            pid=getattr(cfg, "Pid", None),
-        )
-        msg = "attached"
-    elif use_launcher:
-        msg = _launch_yjk_with_launcher_and_attach(
-            yjks_root=yjks_root,
-            cfg=cfg,
-            yjks_control=YJKSControl,
-            steps=steps,
-        )
-        if not msg:
-            _error(
-                "YJK launcher bootstrap failed",
-                phase="launch",
-                command="YjkLauncher.exe",
-                steps=steps,
-                summary={"work_dir": work_dir},
-                detailed={
-                    "hint": (
-                        "YJK_USE_LAUNCHER=1 is an explicit launcher attach mode. "
-                        "Unset it to use the default SDK RunYJK(yjks.exe) direct launch path."
-                    )
-                },
-            )
-            return 1
-    else:
-        if prewarm_mode == "always":
-            if not _prewarm_yjk_launcher(yjks_root, steps):
-                _error(
-                    "YJK launcher authorization prewarm failed",
-                    phase="launch",
-                    command="YjkLauncher.exe",
-                    steps=steps,
-                    summary={"work_dir": work_dir},
-                )
-                return 1
-
-        msg, launch_state = _run_yjk_direct(
-            yjks_root=yjks_root,
-            yjks_exe=yjks_exe,
-            yjks_control=YJKSControl,
-            steps=steps,
-            attempt="direct",
-        )
-
-        if msg is None:
-            _error(
-                f"YJK failed to launch: {launch_state.get('error')}",
-                phase="launch",
-                command="RunYJK",
-                steps=steps,
-                summary={"work_dir": work_dir},
-                detailed={
-                    "hint": (
-                        "RunYJK accepts only the yjks.exe file path. If this install "
-                        "requires online/BIT launcher authorization, set "
-                        "YJK_LAUNCHER_PREWARM=1 to let the official launcher initialize "
-                        "authorization before direct RunYJK."
-                    )
-                },
-            )
-            return 1
-
-        if launch_state.get("state") in {"auth_failed", "not_found"}:
-            pid = int(_safe_float(launch_state.get("pid"), 0.0))
-            if prewarm_mode == "off":
-                _error(
-                    "YJK direct launch did not produce an authorized YJK session",
-                    phase="launch",
-                    command="RunYJK",
-                    steps=steps,
-                    summary={"work_dir": work_dir},
-                    detailed={
-                        "windowTitle": launch_state.get("title"),
-                        "hint": "Set YJK_LAUNCHER_PREWARM=auto or 1 for official launcher authorization prewarm.",
-                    },
-                )
-                return 1
-
-            if pid > 0:
-                stopped = _stop_process(pid)
-                _record_step(
-                    steps,
-                    phase="launch",
-                    name="Close failed direct YJK session",
-                    command="Stop-Process yjks",
-                    status="success" if stopped else "warning",
-                    message=(
-                        "Closed the failed direct session before retry."
-                        if stopped
-                        else "Could not close the failed direct process before retry."
-                    ),
-                    pid=pid,
-                )
-            if not _prewarm_yjk_launcher(yjks_root, steps):
-                _error(
-                    "YJK direct launch authorization failed and launcher prewarm failed",
-                    phase="launch",
-                    command="YjkLauncher.exe",
-                    steps=steps,
-                    summary={"work_dir": work_dir},
-                    detailed={"windowTitle": launch_state.get("title")},
-                )
-                return 1
-
-            msg, retry_state = _run_yjk_direct(
-                yjks_root=yjks_root,
-                yjks_exe=yjks_exe,
-                yjks_control=YJKSControl,
-                steps=steps,
-                attempt="after-launcher-prewarm",
-            )
-            if msg is None or retry_state.get("state") == "auth_failed":
-                _error(
-                    "YJK direct launch still failed authorization after official launcher prewarm",
-                    phase="launch",
-                    command="RunYJK",
-                    steps=steps,
-                    summary={"work_dir": work_dir},
-                    detailed={
-                        "windowTitle": retry_state.get("title"),
-                        "hint": (
-                            "The official launcher was started, but this machine still did not "
-                            "expose a reusable authorization session to yjks.exe."
-                        ),
-                    },
-                )
-                return 1
-    print(f"[yjk_driver] YJK launch/attach result: {msg}", file=sys.stderr, flush=True)
 
     # -- Phase 3: Open/create project + import ydb ----------------------
     project_dir = os.path.dirname(os.path.abspath(ydb_path))
@@ -2300,70 +1674,6 @@ def _run(model_path: str, work_dir: str, yjks_root: str) -> int:
             steps=steps,
         )
         return 1
-
-    async_start_only = any(
-        _env_flag(name)
-        for name in ("YJK_START_ONLY", "YJK_ASYNC_CALC", "YJK_ASYNC_START_ONLY")
-    )
-    if async_start_only:
-        print(
-            "[yjk_driver] Phase 6: starting calculation asynchronously",
-            file=sys.stderr,
-            flush=True,
-        )
-
-        import threading
-
-        dispatch_ok = threading.Event()
-        background_steps: list[dict] = []
-
-        def _background_calc() -> None:
-            try:
-                dispatch_ok.set()
-                _run_cmd(
-                    "yjkdesign_dsncalculating_all",
-                    phase="analysis_async",
-                    steps=background_steps,
-                )
-                print("[yjk_driver] background calculation finished", file=sys.stderr, flush=True)
-            except Exception as exc:
-                print(f"[yjk_driver] background calculation error: {exc}", file=sys.stderr, flush=True)
-
-        calc_thread = threading.Thread(target=_background_calc, daemon=False)
-        calc_thread.start()
-        dispatch_ok.wait(timeout=10)
-        _record_step(
-            steps,
-            phase="analysis_async",
-            name="Start calculation without waiting",
-            command="yjkdesign_dsncalculating_all",
-            status="success",
-            message="YJK_START_ONLY/YJK_ASYNC_CALC enabled; result extraction skipped.",
-        )
-
-        output = {
-            "status": "success",
-            "summary": {
-                "engine": "yjk-static",
-                "mode": "async-start-only",
-                "ydb_path": ydb_path,
-                "yjk_project": yjk_project,
-                "work_dir": work_dir,
-            },
-            "data": {},
-            "detailed": {
-                "message": "Model imported into YJK and calculation was started without waiting.",
-                "yjk_project": yjk_project,
-            },
-            "warnings": [
-                "YJK calculation was started without waiting; results.json was not extracted."
-            ],
-            "steps": steps,
-        }
-        _write_driver_output_json(work_dir, output)
-        _emit_json(output)
-        print("[yjk_driver] done — calculation running in YJK", file=sys.stderr, flush=True)
-        _finish_after_json(work_dir=work_dir, steps=steps, exit_code=0, force_exit=True)
 
     # -- Phase 6: Synchronous design calculation ------------------------
     print("[yjk_driver] Phase 6: synchronous calculation", file=sys.stderr, flush=True)
@@ -2484,7 +1794,6 @@ def _run(model_path: str, work_dir: str, yjks_root: str) -> int:
         started_at=started_at,
         path=results_path,
     )
-    _request_yjk_exit(steps)
 
     mapping = _load_json_file(os.path.join(work_dir, "mapping.json"))
     output = _build_analysis_result(
