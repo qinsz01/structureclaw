@@ -1,6 +1,7 @@
 import { recoverAnalysisMembers, queryMemberResponse, memberResponseExtrema } from '../agent-skills/result-postprocess/member-response.js';
 import type { RecoveryModel, RecoveryResult } from '../skill-shared/member-response.js';
 import { isRecord, type ModelRecord } from './model-state.js';
+import { nativeForceRecovery } from './native-force-recovery.js';
 
 function recoveryModel(model: ModelRecord): model is ModelRecord & RecoveryModel {
   return model.unit_system === 'SI' && isRecord(model.coordinate_system)
@@ -74,11 +75,25 @@ function nativeStations(model: RecoveryModel, data: ModelRecord, elementId: stri
 }
 
 /** Native force samples carry no made-up cross-section displacement. */
-function nativeMemberData(model: RecoveryModel, data: ModelRecord) {
+function nativeMemberData(model: RecoveryModel, data: ModelRecord, factors?: Record<string, number>) {
   const extrema: Record<string, ModelRecord> = {};
   const memberResponses = model.elements.map(member => {
     try {
-      const { rows, length, start, end } = nativeStations(model, data, member.id);
+      const stations = nativeStations(model, data, member.id);
+      const { length, start, end } = stations;
+      let rows = stations.rows;
+      try {
+        const recovered = nativeForceRecovery(model, data, member.id, rows, length, factors);
+        const positions = [...new Set([...Array.from({length:81},(_,i)=>length*i/80),...recovered.breakpoints])].sort((a,b)=>a-b);
+        for(const positionM of positions) {
+          const sides: ('left'|'right')[] = positionM===0?['right']:positionM===length?['left']:
+            recovered.jumps.includes(positionM)?['left','right']:['right'];
+          for(const side of sides) if(!rows.some(row=>Math.abs(row.positionM-positionM)<=1e-9 && (row.side===side||row.side==='continuous'))) {
+            rows.push({positionM,side,components:recovered.at(positionM,side),source:recovered.source,provenance:'mechanics-recovery'});
+          }
+        }
+        rows=rows.sort((a,b)=>a.positionM-b.positionM||(a.side==='left'?-1:1));
+      } catch { /* Verified direct stations remain useful when equilibrium recovery is unavailable. */ }
       const samples = rows.map(row => {
         const components = Object.fromEntries(displayComponents.map((key, index) => [key, row.components[nativeComponents[index]]]));
         for (const [component, value] of Object.entries(components)) {
@@ -107,7 +122,7 @@ export function enrichResultData(model: ModelRecord, result: ModelRecord, select
   const data = isRecord(result.data) ? result.data : result;
   if (result.success === false || !recoveryModel(model)) return data;
   const source = { ...data, meta: { ...(isRecord(data.meta) ? data.meta : {}), ...(isRecord(result.meta) ? result.meta : {}) } };
-  if (commercial(result) || isRecord(data.memberStations)) return { ...source, ...nativeMemberData(model, source) };
+  if (commercial(result) || isRecord(data.memberStations)) return { ...source, ...nativeMemberData(model, source, resultFactors(model, selection)) };
   if (!isRecord(data.displacements)) return data;
   const memberResponses = recoverAnalysisMembers(model, source as RecoveryResult, resultEngine(result), resultFactors(model, selection));
   const extrema = memberResponseExtrema(memberResponses);
@@ -122,12 +137,20 @@ export function queryPhysicalResponse(model: ModelRecord, result: ModelRecord, e
   if (result.success === false) throw new Error('RESULT_UNAVAILABLE');
   const data = isRecord(result.data) ? result.data : result;
   if (commercial(result) || isRecord(data.memberStations)) {
-    const { rows, context } = nativeStations(model, data, elementId);
+    const { rows, context, length } = nativeStations(model, data, elementId);
     if (!Number.isFinite(positionM) || positionM < 0) throw new Error('MEMBER_RESPONSE_UNAVAILABLE_OR_POSITION_INVALID');
     const exact = rows.filter(row => Math.abs(row.positionM - positionM) <= 1e-9
       && (row.side === side || row.side === 'continuous'));
     if (exact.length !== 1 || !isRecord(exact[0]) || !isRecord(exact[0].components)) {
-      throw new Error('EXACT_NATIVE_STATION_UNAVAILABLE');
+      try {
+        const factors = isRecord(data.source) && data.source.kind === 'linear-combination' && isRecord(data.source.factors)
+          ? data.source.factors as Record<string, number> : resultFactors(model, isRecord(result.selection) ? result.selection : {});
+        const recovery = nativeForceRecovery(model, data, elementId, rows, length, factors);
+        const values = recovery.at(positionM,side);
+        return {elementId,positionM,side,method:'section-equilibrium' as const,state:'recovered' as const,
+          sample:{...values,V2:values.Vy,V3:values.Vz,M2:values.My,M3:values.Mz},
+          units:{position:'m',force:'kN',moment:'kN.m'},provenance:'mechanics-recovery',source:recovery.source,nativeContext:context};
+      } catch { throw new Error('EXACT_NATIVE_STATION_UNAVAILABLE'); }
     }
     const values = exact[0].components;
     if (!['N', 'Vy', 'Vz', 'T', 'My', 'Mz'].every((key) => typeof values[key] === 'number' && Number.isFinite(values[key]))) {

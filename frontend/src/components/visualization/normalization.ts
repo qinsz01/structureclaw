@@ -41,7 +41,7 @@ export function normalizeMemberResponses(
           || (sample.displacement !== undefined && Math.abs(sample.displacement[1]) > COORDINATE_TOLERANCE)))
         || (row.state === 'native-stations' && (!['N', 'V2', 'V3', 'T', 'M2', 'M3'].every(key => {
           const value = sample[key as 'N']; return typeof value === 'number' && Number.isFinite(value)
-        }) || !['solver-direct', 'linear-combination'].includes(sample.provenance || '') || !sample.source))) {
+        }) || !['solver-direct', 'linear-combination', 'mechanics-recovery'].includes(sample.provenance || '') || !sample.source))) {
         throw new Error(`Invalid member response sample for '${row.id}'`)
       }
       if (row.state === 'native-stations') {

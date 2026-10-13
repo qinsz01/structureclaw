@@ -97,8 +97,16 @@ def combine_linear_native_results(cases: dict[str, dict], factors: dict[str, flo
                 other = case["memberStations"][member_id][index]
                 if other.get("positionM") != position or other.get("side") != row.get("side") or other.get("referenceFrame") != "element-local":
                     raise ValueError(f"Physical station, side or axes differ for '{member_id}'")
+                if other.get("localAxes") != row.get("localAxes"):
+                    raise ValueError(f"Calibrated local axes differ for '{member_id}'")
             vector = vector_sum([(factor, case["memberStations"][member_id][index]["components"]) for _, factor, case in selected], set(COMPONENTS))
-            combined.append({"positionM": position, "side": row.get("side"), "referenceFrame": "element-local", "components": vector, "source": "linear-combination"})
+            station = {"positionM": position, "side": row.get("side"), "referenceFrame": "element-local", "components": vector,
+                       "source": {"kind": "linear-combination", "factors": dict(factors),
+                                  "cases": {key: copy.deepcopy(case["memberStations"][member_id][index].get("source"))
+                                            for key, _, case in selected}}}
+            if "localAxes" in row:
+                station["localAxes"] = copy.deepcopy(row["localAxes"])
+            combined.append(station)
         result["memberStations"][member_id] = combined
     missing = {item for _, _, case in selected for item in case.get("missingCapabilities", [])}
     if not result["displacements"] or any(not {"ux", "uy", "uz"}.issubset(row) for row in result["displacements"].values()):

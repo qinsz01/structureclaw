@@ -1,0 +1,110 @@
+import type { RecoveryModel, Vec } from '../skill-shared/member-response.js';
+import { isRecord, type ModelRecord } from './model-state.js';
+
+const keys = ['N', 'Vy', 'Vz', 'T', 'My', 'Mz'] as const;
+const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+type Cut = { positionM: number; side: unknown; components: ModelRecord; source: unknown; localAxes?: unknown };
+type Line = { a: number; b: number; q: Vec; slope: Vec };
+type Point = { x: number; force: Vec; moment: Vec };
+const fail = () => { throw new Error('NATIVE_FORCE_RECOVERY_UNVERIFIED'); };
+const vector = (row: ModelRecord, names: string[]): Vec => names.map(key => {
+  const value = row[key] ?? 0;
+  if (!finite(value)) return fail();
+  return value;
+}) as Vec;
+const dot = (a: Vec, b: Vec) => a.reduce((sum, value, index) => sum + value * b[index], 0);
+
+/** Signed cut equilibrium; no constitutive law, displacement or interpolation. */
+export function nativeForceRecovery(model: RecoveryModel, data: ModelRecord, memberId: string,
+  rows: Cut[], length: number, factors: Record<string, number> | undefined) {
+  const context = isRecord(data.nativeContext) ? data.nativeContext : {};
+  if (context.linearStatic !== true || context.effectiveSettingsVerified !== true || context.stationConventionsVerified !== true
+    || ['engine','engineVersion','physicalModelHash','stiffnessHash','settingsHash'].some(key=>typeof context[key]!=='string'||!context[key])
+    || !factors || !Object.keys(factors).length) return fail();
+  const rawModel = model as unknown as ModelRecord;
+  if (!isRecord(rawModel.analysis_control) || rawModel.analysis_control.self_weight !== false
+    || model.stories?.some(story => Array.isArray(story.floor_loads) && story.floor_loads.length)) return fail();
+  const start = rows.find(row => row.positionM === 0 && row.side === 'right');
+  const end = rows.find(row => Math.abs(row.positionM - length) <= 1e-9 && row.side === 'left');
+  if (!start || !end || !Array.isArray(start.localAxes) || start.localAxes.length !== 3) return fail();
+  const axes = start.localAxes as Vec[];
+  if (axes.some(axis => !Array.isArray(axis) || axis.length !== 3 || !axis.every(finite))
+    || axes.some((axis, i) => axes.some((other, j) => Math.abs(dot(axis, other) - (i === j ? 1 : 0)) > 1e-9))
+    || rows.some(row => JSON.stringify(row.localAxes) !== JSON.stringify(axes))) return fail();
+  const member = model.elements.find(row => row.id === memberId);
+  const first = member && model.nodes.find(node => node.id === member.nodes[0]);
+  const last = member && model.nodes.find(node => node.id === member.nodes[1]);
+  if (!first || !last || axes[0].some((v, i) => Math.abs(v - ([last.x-first.x,last.y-first.y,last.z-first.z][i]/length)) > 1e-9)) return fail();
+  const local = (value: Vec, load: ModelRecord, factor: number): Vec => {
+    if (load.reference_frame !== undefined && !['global', 'element-local'].includes(String(load.reference_frame))) return fail();
+    return (load.reference_frame === 'element-local' ? value : axes.map(axis => dot(value, axis))).map(v => v * factor) as Vec;
+  };
+  const lines: Line[] = [], points: Point[] = [];
+  for (const [caseId, factor] of Object.entries(factors)) {
+    const loadCase = model.load_cases.find(row => row.id === caseId);
+    if (!loadCase || !finite(factor)) return fail();
+    for (const load of loadCase.loads) {
+      if (load.element !== memberId) continue;
+      if (load.type === 'point') {
+        if (!finite(load.position) || load.position < 0 || load.position > length) return fail();
+        points.push({x:load.position,force:local(vector(load,['fx','fy','fz']),load,factor),
+          moment:local(vector(load,['mx','my','mz']),load,factor)});
+      } else if (load.type === 'distributed') {
+        const a = load.start ?? 0, b = load.end ?? length;
+        if (!finite(a) || !finite(b) || a < 0 || b > length || a >= b) return fail();
+        if (load.distribution === 'piecewise_linear') {
+          if (!Array.isArray(load.points) || load.points.length < 2) return fail();
+          const ordinates = load.points;
+          if (ordinates.some((p, i) => !isRecord(p) || !finite(p.position) || p.position < 0 || p.position > 1
+            || (i > 0 && p.position <= ordinates[i-1].position))) return fail();
+          if (ordinates[0].position * length > a || ordinates.at(-1).position * length < b) return fail();
+          for (let index = 0; index < ordinates.length - 1; index++) {
+            const left = ordinates[index], right = ordinates[index + 1];
+            const origin = left.position * length, finish = right.position * length;
+            const lo = Math.max(origin,a), hi = Math.min(finish,b);
+            if (hi <= lo) continue;
+            const q0=local(vector(left,['wx','wy','wz']),load,factor), q1=local(vector(right,['wx','wy','wz']),load,factor);
+            const slope=q0.map((v,i)=>(q1[i]-v)/(finish-origin)) as Vec;
+            lines.push({a:lo,b:hi,q:q0.map((v,i)=>v+slope[i]*(lo-origin)) as Vec,slope});
+          }
+        } else {
+          if (load.distribution !== undefined && load.distribution !== 'uniform') return fail();
+          lines.push({a,b,q:local(vector(load,['wx','wy','wz']),load,factor),slope:[0,0,0]});
+        }
+      } else return fail();
+    }
+  }
+  const at = (x: number, side: 'left' | 'right') => {
+    if (!finite(x) || x < 0 || x > length || (x === 0 && side !== 'right') || (x === length && side !== 'left')) return fail();
+    // Adding solver segment lengths may move the same physical cut by one
+    // floating-point ulp (e.g. 1.7 -> 1.7000000000000002). Preserve its side.
+    const coincident = points.find(point=>Math.abs(point.x-x)<=8*Number.EPSILON*Math.max(1,length));
+    if(coincident) x=coincident.x;
+    const force=[0,0,0], lever=[0,0,0], moment=[0,0,0];
+    for (const line of lines) {
+      const t=Math.max(0,Math.min(x,line.b)-line.a);
+      for(let i=0;i<3;i++) {
+        const integral=line.q[i]*t+line.slope[i]*t*t/2;
+        force[i]+=integral;
+        lever[i]+=(x-line.a)*integral-line.q[i]*t*t/2-line.slope[i]*t*t*t/3;
+      }
+    }
+    for(const point of points) if(point.x>0 && (point.x<x || (point.x===x && side==='right'))) {
+      for(let i=0;i<3;i++) { force[i]+=point.force[i]; lever[i]+=point.force[i]*(x-point.x); moment[i]+=point.moment[i]; }
+    }
+    const c=start.components as Record<typeof keys[number],number>;
+    return {N:c.N-force[0],Vy:c.Vy+force[1],Vz:c.Vz+force[2],T:c.T-moment[0],
+      My:c.My-c.Vz*x-lever[2]-moment[1],Mz:c.Mz+c.Vy*x+lever[1]-moment[2]};
+  };
+  // Existing frozen commercial force tolerances check closure; this does not
+  // alter solver acceptance tolerances, raw values or benchmark references.
+  for(const row of rows) {
+    if(row.side==='continuous' && points.some(p=>p.x===row.positionM)) return fail();
+    const expected=at(Math.min(length,row.positionM),row.side==='left'?'left':'right');
+    if(keys.some(key=>Math.abs(expected[key]-Number(row.components[key]))>Math.max(1e-5,1e-5*Math.abs(Number(row.components[key]))))) return fail();
+  }
+  return {at,breakpoints:[...new Set([0,length,...lines.flatMap(line=>[line.a,line.b]),...points.map(point=>point.x)])].sort((a,b)=>a-b),
+    jumps:[...new Set(points.map(point=>point.x).filter(x=>x>0&&x<length))],
+    source:{kind:'section-equilibrium',method:'exact-load-integration',factors:{...factors},anchor:start.source,
+      verification:'all-native-stations',units:{force:'kN',moment:'kN.m'},nativeContext:context}};
+}

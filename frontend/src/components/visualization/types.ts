@@ -126,7 +126,7 @@ export type VisualizationMemberResponse = {
     T?: number
     M2?: number
     M3?: number
-    provenance?: 'solver-direct' | 'linear-combination'
+    provenance?: 'solver-direct' | 'linear-combination' | 'mechanics-recovery'
     source?: unknown
     segmentId?: string
     side?: 'left' | 'right'

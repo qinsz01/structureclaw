@@ -31,4 +31,13 @@ describe('native station result panel',()=>{
     expect(screen.getByText('-5')).toBeInTheDocument()
     expect(screen.getByText('7')).toBeInTheDocument()
   })
+  it('distinguishes equilibrium recovery from direct native samples without promising displacement',()=>{
+    const recovered: VisualizationMemberResponse={...response,samples:[response.samples[0],
+      {...response.samples[1],provenance:'mechanics-recovery',source:{kind:'section-equilibrium'}}]}
+    render(<NativeStationPanel response={recovered} locale="en"/>)
+    expect(screen.getByText('Native')).toBeInTheDocument()
+    expect(screen.getByText('Equilibrium')).toBeInTheDocument()
+    expect(screen.getByText(/Small points use section equilibrium/)).toBeInTheDocument()
+    expect(screen.getByText(/Interior displacement is unavailable/)).toBeInTheDocument()
+  })
 })

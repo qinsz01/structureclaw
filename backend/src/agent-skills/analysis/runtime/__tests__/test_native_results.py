@@ -40,6 +40,19 @@ class NativeCombinationTest(unittest.TestCase):
             with self.assertRaises(AnalysisCapabilityError):
                 combine_linear_native_results({"D": other}, {"D": 1}, self.context)
 
+    def test_combination_preserves_calibrated_local_axes_and_each_native_source(self):
+        first = copy.deepcopy(self.case)
+        first["memberStations"]["M"][0].update(localAxes=[[1,0,0],[0,1,0],[0,0,1]],source={"kind":"native","case":"D"})
+        other = copy.deepcopy(first)
+        other["memberStations"]["M"][0]["source"]["case"] = "W"
+        result = combine_linear_native_results({"D": first, "W": other}, {"D": 1, "W": -1}, self.context)
+        row = result["memberStations"]["M"][0]
+        self.assertEqual(row["localAxes"], first["memberStations"]["M"][0]["localAxes"])
+        self.assertEqual(row["source"]["cases"]["W"]["case"], "W")
+        other["memberStations"]["M"][0]["localAxes"] = [[1,0,0],[0,-1,0],[0,0,-1]]
+        with self.assertRaisesRegex(ValueError, "local axes differ"):
+            combine_linear_native_results({"D": first, "W": other}, {"D": 1, "W": -1}, self.context)
+
     def test_reaction_resultant_is_recomputed_from_signed_combined_forces(self):
         first, second = copy.deepcopy(self.case), copy.deepcopy(self.case)
         first["reactions"]["B"] = dict(fx=3, fy=0, fz=0, mx=1, my=2, mz=3, R=3)
