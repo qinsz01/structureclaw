@@ -20,7 +20,7 @@ describe('buildModel - beam', () => {
 
     const model = buildModel(state);
 
-    expect(model.schema_version).toBe('2.1.0');
+    expect(model.schema_version).toBe('2.2.0');
     expect(model.unit_system).toBe('SI');
     expect(model.metadata.inferredType).toBe('beam');
     expect(model.metadata.source).toBe('markdown-skill-draft');
@@ -197,7 +197,7 @@ describe('buildModel - beam', () => {
     const model = buildModel(state);
 
     expect(model.materials).toEqual([
-      { id: '1', name: 'Q355', grade: 'Q355', category: 'steel', E: 206000, nu: 0.3, rho: 7850, fy: 355 },
+      { id: '1', name: 'Q355', grade: 'Q355', category: 'steel', E: 206000, G: 79000, nu: 0.3, rho: 7850, fy: 355 },
     ]);
     expect(model.sections[0]).toMatchObject({ id: '1', name: 'H300X200X8X12', type: 'H', properties: { A: 0.007008 } });
   });
@@ -218,7 +218,7 @@ describe('buildModel - truss', () => {
 
     const model = buildModel(state);
 
-    expect(model.schema_version).toBe('2.1.0');
+    expect(model.schema_version).toBe('2.2.0');
     expect(model.metadata.inferredType).toBe('truss');
 
     expect(model.nodes).toHaveLength(10);
@@ -283,7 +283,7 @@ describe('buildModel - column', () => {
       grade: 'C30',
       category: 'concrete',
       E: 30000,
-      fc: 14.3,
+      design: { fc: 14.3 },
     });
     expect(model.sections[0]).toMatchObject({
       name: '450X450',
@@ -296,47 +296,12 @@ describe('buildModel - column', () => {
     expect(model.sections[0].properties.J).toBeCloseTo(0.005775046875, 12);
   });
 
-  it('should resolve the benchmark steel column from the standard section catalog', () => {
-    const state = makeState({
-      inferredType: 'column',
-      heightM: 5,
-      loadKN: 700,
-      engineeringDraft: {
-        material: { family: 'steel', grade: 'Q345' },
-        sections: { column: 'HW300x300' },
-      },
-      skillState: {
-        materialFamily: 'steel',
-        sectionWidthM: 0.3,
-        sectionDepthM: 0.3,
-      },
-    });
-
-    const model = buildModel(state);
-
-    expect(model.elements[0].type).toBe('column');
-    expect(model.materials[0]).toMatchObject({
-      name: 'Q345',
-      grade: 'Q345',
-      category: 'steel',
-      E: 206000,
-      fy: 345,
-    });
-    expect(model.sections[0]).toMatchObject({
-      name: 'HW300X300',
-      type: 'H',
-      purpose: 'column',
-      standard_steel_name: 'HW300x300',
-      shape: { kind: 'H', H: 300, B: 300, tw: 10, tf: 15 },
-      properties: {
-        A: 0.01192,
-        Iy: 2.04e-4,
-        Iz: 6.75e-5,
-        J: 4.23e-6,
-        G: 206000 / 2.6,
-      },
-    });
+  it('rejects an uncalibrated catalog section instead of changing its geometry', () => {
+    const state = makeState({inferredType: 'column',heightM: 5,loadKN: 700,
+      engineeringDraft: {material: {family:'steel',grade:'Q345'},sections:{column:'HW300x300'}}});
+    expect(() => buildModel(state)).toThrow(/SECTION_CATALOG_UNVERIFIED/);
   });
+
 });
 
 // ---------------------------------------------------------------------------
@@ -353,7 +318,7 @@ describe('buildModel - portal-frame', () => {
 
     const model = buildModel(state);
 
-    expect(model.schema_version).toBe('2.1.0');
+    expect(model.schema_version).toBe('2.2.0');
     expect(model.metadata.inferredType).toBe('portal-frame');
 
     // 4 nodes: base-left, top-left, base-right, top-right
@@ -410,7 +375,6 @@ describe('buildModel - portal-frame', () => {
     });
     expect(model.sections[0].properties).toMatchObject({
       A: 0.01368,
-      G: 206000 / 2.6,
     });
     expect(model.sections[0].properties.Iy).toBeCloseTo(8.3499136e-4, 12);
     expect(model.sections[0].properties.Iz).toBeCloseTo(4.1714e-5, 12);
@@ -431,7 +395,7 @@ describe('buildModel - double-span-beam', () => {
 
     const model = buildModel(state);
 
-    expect(model.schema_version).toBe('2.1.0');
+    expect(model.schema_version).toBe('2.2.0');
     expect(model.metadata.inferredType).toBe('double-span-beam');
 
     expect(model.nodes).toHaveLength(3);
@@ -472,7 +436,7 @@ describe('buildModel - frame 2D', () => {
 
     const model = buildModel(state);
 
-    expect(model.schema_version).toBe('2.1.0');
+    expect(model.schema_version).toBe('2.2.0');
     expect(model.metadata.inferredType).toBe('frame');
     expect(model.metadata.storyCount).toBe(1);
     expect(model.metadata.bayCount).toBe(1);
@@ -633,7 +597,7 @@ describe('buildModel - frame 2D', () => {
     const model = buildModel(state);
 
     expect(model.materials).toEqual([
-      { id: '1', name: 'Q355', grade: 'Q355', category: 'steel', E: 206000, nu: 0.3, rho: 7850, fy: 355 },
+      { id: '1', name: 'Q355', grade: 'Q355', category: 'steel', E: 206000, G: 79000, nu: 0.3, rho: 7850, fy: 355 },
     ]);
     expect(model.sections).toHaveLength(2);
     expect(model.sections[0].name).toBe('H300X200X8X12');
@@ -683,7 +647,7 @@ describe('buildModel - frame 3D', () => {
 
     const model = buildModel(state);
 
-    expect(model.schema_version).toBe('2.1.0');
+    expect(model.schema_version).toBe('2.2.0');
     expect(model.metadata.inferredType).toBe('frame');
     expect(model.metadata.bayCountX).toBe(1);
     expect(model.metadata.bayCountY).toBe(1);
@@ -829,7 +793,7 @@ describe('buildModel - frame 3D', () => {
 
     const model = buildModel(state);
 
-    expect(model.materials[0]).toEqual({ id: '1', name: 'Q355', grade: 'Q355', category: 'steel', E: 206000, nu: 0.3, rho: 7850, fy: 355 });
+    expect(model.materials[0]).toEqual({ id: '1', name: 'Q355', grade: 'Q355', category: 'steel', E: 206000, G: 79000, nu: 0.3, rho: 7850, fy: 355 });
     expect(model.sections[0].name).toBe('H300X200X8X12');
     expect(model.sections[1].name).toBe('H300X200X8X12');
   });

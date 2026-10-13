@@ -226,8 +226,10 @@ export function recoverMemberResponses(
       ? [0, 0, -db.ry]
       : axes.map((v) => dot(v, [db.rx, db.ry, db.rz]));
     const E = Number(m.materials.find((v) => v.id === e.material)?.E) * 1000;
-    const p = m.sections.find((v) => v.id === e.section)?.properties as
+    const declaredProperties = m.sections.find((v) => v.id === e.section)?.properties as
       Record<string, number> | undefined;
+    const swapped = m.coordinate_system.dimension === '2d' && Math.abs(Math.round(Number(e.rotation_angle ?? 0) / 90) % 2) === 1;
+    const p = declaredProperties && swapped ? { ...declaredProperties, Iy: declaredProperties.Iz, Iz: declaredProperties.Iy } : declaredProperties;
     const n1 = force?.n1,
       n2 = force?.n2;
     const q: Vec = [0, 0, 0],

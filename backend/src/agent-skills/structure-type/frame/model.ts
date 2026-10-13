@@ -559,7 +559,7 @@ function buildExplicitFrameTopologyModel(
     : undefined;
 
   return {
-    schema_version: '2.1.0',
+    schema_version: '2.2.0',
     unit_system: 'SI',
     nodes,
     elements,
@@ -681,7 +681,7 @@ function buildFrame2dLocalModel(
   );
 
   return {
-    schema_version: '2.1.0',
+    schema_version: '2.2.0',
     unit_system: 'SI',
     nodes,
     elements,
@@ -807,7 +807,7 @@ function buildFrame3dLocalModel(
   );
 
   return {
-    schema_version: '2.1.0',
+    schema_version: '2.2.0',
     unit_system: 'SI',
     nodes,
     elements,

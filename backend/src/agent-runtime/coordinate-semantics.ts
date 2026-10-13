@@ -190,8 +190,8 @@ export function assertCanonicalCoordinateModel(
     elementDirections.set(id, direction);
     if (element.rotation_angle !== undefined) {
       const rotation = finiteNumber(element.rotation_angle, `Element '${id}' rotation_angle`);
-      if (dimension === '2d' && Math.abs(rotation) > COORDINATE_TOLERANCE) {
-        throw new Error(`Element '${id}' cannot rotate its section axes in a canonical 2-D model`);
+      if (dimension === '2d' && Math.abs(rotation / 90 - Math.round(rotation / 90)) > COORDINATE_TOLERANCE) {
+        throw new Error(`Element '${id}' 2-D section rotation must be a multiple of 90 degrees / 二维截面转角须为90度的整数倍，非主轴弯曲须使用三维模型`);
       }
     }
   }

@@ -17,7 +17,7 @@ describe('declared template properties', () => {
   test('uses explicitly supplied single-role records without requiring hand-authored geometry', () => {
     const state={...beam(),engineeringDraft:{materials:[material],sectionRecords:[section],inputEvidence:[{file:'annex.csv',row:2}]}};
     const model=buildModel(state);
-    expect(model.schema_version).toBe('2.1.0');
+    expect(model.schema_version).toBe('2.2.0');
     expect(model.materials).toEqual([material]); expect(model.sections).toEqual([section]);
     expect(model.elements.every(e=>e.material==='M'&&e.section==='S')).toBe(true);
     expect(model.metadata.inputEvidence).toEqual(state.engineeringDraft.inputEvidence);

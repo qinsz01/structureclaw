@@ -28,9 +28,12 @@ Density rho                   kg/m³
 from __future__ import annotations
 
 import math
+from copy import deepcopy
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
+from structure_protocol.design_properties import MaterialDesign, MemberDesign, migrate_design_fields
+from structure_protocol.section_properties import validate_section_physics
 
 
 def _resolve_entity_alias(
@@ -183,6 +186,8 @@ class StoryDef(BaseModel):
     is_basement: bool = Field(default=False, description="是否为地下室层")
     rigid_diaphragm: bool = Field(default=True, description="刚性楼板假定")
     floor_loads: List[FloorLoad] = Field(default_factory=list)
+    load_area_m2: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False,
+        description='Declared actual loaded floor area (m2), never a bounding rectangle / 实际受荷面积')
 
     # PKPM standard-floor grouping: stories sharing the same group id are
     # modelled as a single representative floor in PKPM's floor-based system.
@@ -200,6 +205,24 @@ class StoryDef(BaseModel):
         description="活荷载标准值 (kN/m²)，对应 PKPM SysInfoDetail.LiveLoad",
     )
     extra: Dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode='before')
+    @classmethod
+    def migrate_load_area(cls, value):
+        if not isinstance(value, dict):
+            return value
+        value = dict(value)
+        extra = dict(value.get('extra') or {})
+        for key in ('load_area_m2', 'tributary_area'):
+            if key not in extra:
+                continue
+            area = extra.pop(key)
+            if 'load_area_m2' in value and value['load_area_m2'] != area:
+                raise ValueError(f"Story '{value.get('id')}' load_area_m2 conflicts with extra.{key}")
+            value['load_area_m2'] = area
+        if 'extra' in value:
+            value['extra'] = extra
+        return value
 
 
 # ---------------------------------------------------------------------------
@@ -370,6 +393,12 @@ class ElementV2(BaseModel):
     )
 
     extra: Dict[str, Any] = Field(default_factory=dict)
+    design: Optional[MemberDesign] = None
+
+    @model_validator(mode='before')
+    @classmethod
+    def migrate_design(cls, value):
+        return migrate_design_fields(value, 'member')
 
 
 class MaterialV2(BaseModel):
@@ -378,6 +407,7 @@ class MaterialV2(BaseModel):
     id: str = Field(..., min_length=1)
     name: str = Field(..., min_length=1)
     E: float = Field(..., gt=0, description="弹性模量 (MPa)")
+    G: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False, description='Explicit shear modulus (MPa) / 显式剪切模量')
     nu: float = Field(..., ge=0, le=0.5, description="泊松比")
     rho: float = Field(..., gt=0, description="密度 (kg/m³)")
     fy: Optional[float] = Field(default=None, gt=0, description="屈服强度 (MPa)")
@@ -389,20 +419,20 @@ class MaterialV2(BaseModel):
         default=None, description="材料类别"
     )
     extra: Dict[str, Any] = Field(default_factory=dict)
+    design: Optional[MaterialDesign] = None
+
+    @model_validator(mode='before')
+    @classmethod
+    def migrate_design(cls, value):
+        return migrate_design_fields(value, 'material')
 
 
 class SectionV2(BaseModel):
     """截面 / Section — extended from V1 with parametric shapes.
 
-    Section source priority when converting to engine-specific format:
-      1. ``standard_steel_name`` (if set) → engine uses standard library lookup,
-         e.g. PKPM SetStandSteelSect(name, shape_code).
-      2. ``shape`` (if set) → engine uses parametric dimensions from SectionShape.
-      3. Legacy ``type`` / ``width`` / ``height`` / ``thickness`` / ``diameter``
-         fields remain for backward compatibility.
-
-    ``standard_steel_name`` and ``shape`` are mutually exclusive as section
-    *sources*; if both are provided, ``standard_steel_name`` takes precedence.
+    V2.2 uses one reviewed numerical source. Explicit geometry and section
+    properties must agree; catalog names cannot silently replace them. Historical
+    inputs remain readable, while new solves enforce the same physical validation.
     """
 
     id: str = Field(..., min_length=1)
@@ -423,7 +453,7 @@ class SectionV2(BaseModel):
         default=None,
         description=(
             "参数化截面几何。purpose='wall' 时只需 kind='rectangular' + T (厚度 mm)。"
-            "与 standard_steel_name 互斥，standard_steel_name 优先。"
+            "几何与显式属性必须一致；不能同时声明未校准型钢目录来源。"
         ),
     )
     standard_steel_name: Optional[str] = Field(
@@ -431,7 +461,7 @@ class SectionV2(BaseModel):
         description=(
             "国标型钢名称, e.g. 'HN400x200', 'HW200x200', 'L100x10'。"
             "对应 PKPM SetStandSteelSect(name, shape_code)。"
-            "与 shape 互斥，优先级高于 shape。"
+            "目录映射必须先校准；不得覆盖 shape 或 properties。"
         ),
     )
 
@@ -443,14 +473,6 @@ class SectionV2(BaseModel):
     thickness: Optional[float] = Field(default=None, gt=0, description="壁厚 t (mm)")
 
     extra: Dict[str, Any] = Field(default_factory=dict)
-
-    @model_validator(mode="after")
-    def validate_section_source(self) -> "SectionV2":
-        """Document that standard_steel_name takes precedence over shape."""
-        # No strict enforcement to preserve backward compatibility with
-        # existing payloads that use only the legacy type/width/height fields.
-        return self
-
 
 # ---------------------------------------------------------------------------
 # Wall and slab openings
@@ -538,8 +560,16 @@ class AnalysisControl(BaseModel):
     p_delta: bool = Field(default=False, description="考虑 P-Δ 效应")
     rigid_floor: bool = Field(default=True, description="刚性楼板假定")
     self_weight: Optional[bool] = Field(default=None, description="显式自重开关 / explicit self-weight setting")
-    mass_source: Optional[Literal['nodal', 'member-density']] = Field(default=None,
+    mass_source: Optional[Literal['nodal', 'member-density', 'floor-seismic']] = Field(default=None,
         description="动力质量来源；nodal 与杆件密度互斥 / mutually exclusive dynamic mass source")
+    mass_directions: Optional[List[Literal['x', 'y', 'z']]] = Field(default=None, min_length=1,
+        description='Global translational mass directions / 全局平动质量方向')
+
+    @model_validator(mode='after')
+    def validate_mass_directions(self):
+        if self.mass_directions and len(set(self.mass_directions)) != len(self.mass_directions):
+            raise ValueError('mass_directions cannot contain duplicates')
+        return self
     rigid_offsets: Optional[bool] = Field(default=None, description="自动刚域开关 / automatic rigid offsets")
     construction_stage: Optional[bool] = Field(default=None, description="施工阶段分析 / construction-stage analysis")
     period_reduction_factor: Optional[float] = Field(
@@ -627,7 +657,7 @@ class StructureModelV2(BaseModel):
     explicit typed coordinate contract before V2 validation.
     """
 
-    schema_version: Literal["2.0.0", "2.1.0"] = Field(default="2.1.0")
+    schema_version: Literal["2.0.0", "2.1.0", "2.2.0"] = Field(default="2.2.0")
     unit_system: str = Field(default="SI")
     coordinate_system: CoordinateSystemV2
 
@@ -657,10 +687,42 @@ class StructureModelV2(BaseModel):
         description="Engine-specific extension fields, e.g. {'pkpm': {...}}",
     )
 
+    @model_validator(mode='before')
+    @classmethod
+    def migrate_section_shear_modulus(cls, value):
+        if not isinstance(value, dict):
+            return value
+        value = deepcopy(value)
+        materials = {m.get('id'): m for m in value.get('materials', []) if isinstance(m, dict)}
+        sections = {s.get('id'): s for s in value.get('sections', []) if isinstance(s, dict)}
+        transferred = set()
+        for element in value.get('elements', []):
+            if not isinstance(element, dict):
+                continue
+            section, material = sections.get(element.get('section'), {}), materials.get(element.get('material'))
+            props = section.get('properties') or {}
+            if material is None or 'G' not in props:
+                continue
+            existing = material.get('G', (material.get('extra') or {}).get('G'))
+            if existing is not None and existing != props['G']:
+                raise ValueError(f"Material '{material.get('id')}' G conflicts with section '{section.get('id')}' properties.G")
+            material['G'] = props['G']
+            transferred.add(section.get('id'))
+        for section in sections.values():
+            if isinstance(section.get('properties'), dict) and 'G' in section['properties']:
+                legacy_g = section['properties'].pop('G')
+                if section.get('id') not in transferred:
+                    section['extra'] = {**(section.get('extra') or {}), 'unassigned_legacy_G': {
+                        'value': legacy_g, 'unit': 'MPa', 'source': 'properties.G'}}
+        return value
+
     @model_validator(mode="after")
     def validate_references(self) -> "StructureModelV2":
         """Cross-reference validation across all entity collections."""
         declared_dimension = self.coordinate_system.dimension
+        if self.schema_version == '2.2.0':
+            for section in self.sections:
+                validate_section_physics(section)
 
         metadata_semantics = self.metadata.get("coordinateSemantics")
         if metadata_semantics not in {None, "global-z-up"}:
@@ -715,9 +777,10 @@ class StructureModelV2(BaseModel):
         for elem in self.elements:
             if elem.type in {"beam", "column", "truss", "brace", "link"} and len(elem.nodes) != 2:
                 raise ValueError(f"Line element '{elem.id}' must reference exactly two nodes")
-            if declared_dimension == "2d" and abs(float(elem.rotation_angle or 0.0)) > 1e-9:
+            rotation = float(elem.rotation_angle or 0.0)/90
+            if declared_dimension == "2d" and abs(rotation-round(rotation)) > 1e-9:
                 raise ValueError(
-                    f"Element '{elem.id}' cannot rotate its section axes in a canonical 2-D model"
+                    f"Element '{elem.id}' 2-D section rotation must be a multiple of 90 degrees; use 3-D for coupled non-principal bending"
                 )
             for node_id in elem.nodes:
                 if node_id not in node_ids:

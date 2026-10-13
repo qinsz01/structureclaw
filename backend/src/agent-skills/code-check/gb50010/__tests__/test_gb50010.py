@@ -477,14 +477,18 @@ class TestComputedUtilizationOverrides:
         assert '钢筋净距' not in computed
 
     def test_rebar_spacing_fails_on_zero_or_negative_sn(self):
-        """sn=0 with bar_count>1 → utilization=99.0 (physically impossible layout)."""
+        """Zero spacing is an actual inequality failure, not a fabricated ratio."""
         elem_data = self._make_concrete_element_data(
             bar_count=3, sn=0, main_dia=20,
         )
         context = self._make_context(elem_data)
         computed = gb50010._compute_utilization_overrides('B1', context)
-        assert '钢筋净距' in computed
-        assert computed['钢筋净距'] == 99.0
+        assert '钢筋净距' not in computed
+        result = gb50010.check_element(MockCodeChecker(), 'B1', context)
+        item = next(item for group in result['checks'] for item in group['items'] if item['item'] == '钢筋净距')
+        assert item['status'] == 'fail'
+        assert item['utilization'] is None
+        assert item['inputs'] == {'basis':'engineering-inequality','actual':0,'minimum':30,'unit':'mm','operator':'>='}
 
 
 if __name__ == '__main__':

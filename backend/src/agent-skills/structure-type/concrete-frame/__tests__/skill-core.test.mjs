@@ -307,7 +307,7 @@ describe('concrete-frame canonicalize core contract', () => {
     });
 
     expect(model).toBeDefined();
-    expect(model.schema_version).toBe('2.1.0');
+    expect(model.schema_version).toBe('2.2.0');
     expect(model.unit_system).toBe('SI');
     expect(model.metadata).toMatchObject({
       inferredType: 'frame',

@@ -15,6 +15,7 @@ import numpy as np
 from coordinate_semantics import (build_element_local_axes, get_model_metadata,
     get_reference_vector, resolve_model_dimension, validate_coordinate_contract)
 from opensees_shared.tags import OpenSeesTagMapper
+from structure_protocol.section_properties import validate_section_physics
 
 FRAME_ELEMENT_TYPES = {"beam", "column"}
 TRUSS_ELEMENT_TYPES = {"truss", "brace"}
@@ -28,7 +29,12 @@ class OpenSeesModelBuilder(OpenSeesTagMapper):
             raise OpenSeesInputError('OpenSees requires canonical SI input (m, kN, MPa); convert source units before execution')
         self.dimension = resolve_model_dimension(model)
         self.nodes = {str(n.id): n for n in model.nodes}
-        self.sections = {str(s.id): s for s in model.sections}
+        self.sections = {str(s.id): s.model_copy(deep=True) for s in model.sections}
+        for section in self.sections.values():
+            try:
+                validate_section_physics(section)
+            except ValueError as error:
+                raise OpenSeesInputError(str(error)) from error
         self.materials = {str(m.id): m for m in model.materials}
         self.has_frame_elements = any(e.type in FRAME_ELEMENT_TYPES for e in model.elements)
         self.frame_node_ids = {str(n) for e in model.elements if e.type in FRAME_ELEMENT_TYPES for n in e.nodes}
@@ -50,7 +56,10 @@ class OpenSeesModelBuilder(OpenSeesTagMapper):
         e, nu, rho = float(material.E) * 1000.0, float(material.nu), float(material.rho)
         if not all(math.isfinite(v) for v in (e, nu, rho)) or e <= 0 or rho < 0 or not 0 <= nu <= .5:
             raise OpenSeesInputError(f"Material '{material.id}' requires E > 0, rho >= 0 and 0 <= nu <= 0.5")
-        return e, e / (2 * (1 + nu)), rho
+        g = float(material.G)*1000.0 if material.G is not None else e / (2 * (1 + nu))
+        if not math.isfinite(g) or g <= 0:
+            raise OpenSeesInputError(f"Material '{material.id}' requires G > 0")
+        return e, g, rho
 
     def _element_axes(self, element):
         start, end = [self.nodes[str(n)] for n in element.nodes]
@@ -78,6 +87,9 @@ class OpenSeesModelBuilder(OpenSeesTagMapper):
             evidence[name] = {"value": bool(value) if explicit else False,
                               "source": "explicit" if explicit else "legacy-engine-default"}
         evidence['storyDiaphragms'] = []
+        evidence['materials'] = {m.id: {'E': float(m.E), 'G': self._material_properties(m)[1]/1000,
+            'modulusUnit': 'MPa', 'shearModulusSource': 'explicit' if m.G is not None else 'isotropic-E-nu'}
+            for m in self.model.materials}
         if evidence['rigid_floor']['value'] and not self.model.stories:
             raise OpenSeesMissingInputError('rigid_floor=true requires explicit story membership or elevations')
         for story in self.model.stories:
@@ -87,7 +99,7 @@ class OpenSeesModelBuilder(OpenSeesTagMapper):
                 'source': 'explicit-story' if explicit else evidence['rigid_floor']['source']})
         return evidence
 
-    def build(self, ops, *, mass=False, validate_controls=True):
+    def build(self, ops, *, mass=False, mass_source=None, mass_directions=None, validate_controls=True):
         controls = self._control_evidence() if validate_controls else {}
         ops.wipe()
         ops.model("basic", "-ndm", 2 if self.dimension == "2d" else 3, "-ndf", self.ndf)
@@ -122,26 +134,19 @@ class OpenSeesModelBuilder(OpenSeesTagMapper):
                 ops.element("truss", tag, n1, n2, area, self._ops_material_tag(element.material))
             elif self.dimension == "2d":
                 ops.geomTransf("Linear", tag)
-                ops.element("elasticBeamColumn", tag, n1, n2, area, e, self._section_property(section, "Iy"), tag)
+                axis = 'Iz' if round(float(element.rotation_angle or 0)/90) % 2 else 'Iy'
+                ops.element("elasticBeamColumn", tag, n1, n2, area, e, self._section_property(section, axis), tag)
             else:
                 ops.geomTransf("Linear", tag, *self._element_axes(element)[2].tolist())
                 ops.element("elasticBeamColumn", tag, n1, n2, area, e, g,
                     self._section_property(section, "J"), self._section_property(section, "Iy"),
                     self._section_property(section, "Iz"), tag)
-            half_mass = rho * area * self._element_length(element) / 2000.0
-            for node_id in element.nodes:
-                self.node_masses[str(node_id)] += half_mass
-        declared_mass_source = getattr(self.model.analysis_control, 'mass_source', None)
-        has_nodal_mass = any(n.mass is not None for n in self.model.nodes)
-        if has_nodal_mass and declared_mass_source == 'member-density':
-            raise OpenSeesInputError('node.mass conflicts with mass_source=member-density; mass sources cannot be added implicitly')
-        self.mass_source = declared_mass_source or ('nodal' if has_nodal_mass else 'member-density')
-        if self.mass_source == 'nodal':
-            if not has_nodal_mass:
-                raise OpenSeesMissingInputError('mass_source=nodal requires explicit node.mass values in tonnes')
-            self.node_masses = {str(n.id): float(n.mass or 0.0) for n in self.model.nodes}
         if mass:
-            self.assign_masses(ops, self.node_masses)
+            from opensees_shared.mass import assemble_mass
+            self.mass_assembly = assemble_mass(self.model, source=mass_source, directions=mass_directions)
+            self.mass_source = self.mass_assembly['source']
+            self.assign_masses(ops, self.mass_assembly['nodeMasses'], directions=set(self.mass_assembly['directions']))
+            controls['mass'] = self.mass_assembly
         for setting in controls.get('storyDiaphragms', []):
             if not setting['value']:
                 continue

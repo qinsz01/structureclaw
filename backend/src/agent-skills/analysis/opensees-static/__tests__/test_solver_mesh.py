@@ -33,6 +33,28 @@ def solve(model, **parameters):
     return OpenSeesStaticExecutor(StaticAnalyzer(model)).run(parameters or {'loadCaseIds':['D']})
 
 
+def test_explicit_shear_modulus_controls_real_torsion():
+    model = beam(dimension='3d',cantilever=True,loads=[{'node':'B','mx':10}])
+    model.materials[0].G = 12345
+    result = solve(model)
+    assert result['displacements']['B']['rx'] == pytest.approx(10*6/(12345*1000*.00005),rel=1e-10)
+    evidence = result['execution']['effectiveSettings']['materials']['steel']
+    assert evidence['G'] == 12345 and evidence['shearModulusSource'] == 'explicit'
+
+
+@pytest.mark.parametrize('angle', [0,90,180,270,-90])
+def test_principal_2d_section_rotation_matches_same_restrained_3d_model(angle):
+    models = [beam(dimension=d,loads=[{'type':'point','element':'member','position':3,'fz':-20}]) for d in ('2d','3d')]
+    responses = []
+    for model in models:
+        model.elements[0].rotation_angle = angle
+        responses.append(solve(model))
+    for result in responses:
+        split = result['solverMesh']['physicalElements']['member'][0]['nodes'][1]
+        inertia = .0002 if round(angle/90)%2 else .0001
+        assert result['segmentResults']['displacements'][split]['uz'] == pytest.approx(-20*6**3/(48*200000000*inertia),rel=1e-10)
+
+
 @pytest.mark.parametrize('dimension', ['2d', '3d'])
 def test_interior_point_load_has_exact_deflection_and_physical_mapping(dimension):
     model = beam(dimension=dimension, loads=[{'type':'point','element':'member','position':3,'fz':-20}])

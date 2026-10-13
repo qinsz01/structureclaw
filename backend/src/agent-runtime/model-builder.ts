@@ -115,7 +115,7 @@ function buildFrame2dModel(state: DraftState, metadata: Record<string, unknown>)
     }
   }
   return {
-    schema_version: '2.1.0',
+    schema_version: '2.2.0',
     unit_system: 'SI',
     nodes,
     elements,
@@ -241,7 +241,7 @@ function buildFrame3dModel(state: DraftState, metadata: Record<string, unknown>)
   const elementReferenceVectors = buildElementReferenceVectors(elements, nodes);
 
   return {
-    schema_version: '2.1.0',
+    schema_version: '2.2.0',
     unit_system: 'SI',
     nodes,
     elements,
@@ -585,7 +585,7 @@ function buildTrussModel(state: DraftState, metadata: Record<string, unknown>): 
     : loadNodeIndexes.map((index) => ({ node: `${loadPrefix}${index}`, fz: -load }));
 
   return {
-    schema_version: '2.1.0',
+    schema_version: '2.2.0',
     unit_system: 'SI',
     nodes,
     elements,
@@ -1018,7 +1018,7 @@ function buildSemanticBeamModel(
   }
 
   return {
-    schema_version: '2.1.0',
+    schema_version: '2.2.0',
     unit_system: 'SI',
     nodes,
     elements,
@@ -1051,7 +1051,7 @@ function buildColumnModel(state: DraftState, metadata: Record<string, unknown>):
   const loads = modelLoads?.length ? modelLoads : [{ node: '2', fz: -axialLoad }];
 
   return {
-    schema_version: '2.1.0',
+    schema_version: '2.2.0',
     unit_system: 'SI',
     nodes: [
       { id: '1', x: 0, y: 0, z: 0, restraints: [true, true, true, true, true, true] },
@@ -1182,7 +1182,7 @@ function buildContinuousBeamModel(state: DraftState, metadata: Record<string, un
   }
 
   return {
-    schema_version: '2.1.0',
+    schema_version: '2.2.0',
     unit_system: 'SI',
     nodes,
     elements,
@@ -1313,7 +1313,7 @@ function buildPortalFrameModel(state: DraftState, metadata: Record<string, unkno
   loads.push(...buildPortalCraneLoads(state, xCoordinates));
 
   return {
-    schema_version: '2.1.0',
+    schema_version: '2.2.0',
     unit_system: 'SI',
     nodes,
     elements,
@@ -1375,7 +1375,7 @@ function buildBaseModel(state: DraftState): Record<string, unknown> {
     : buildBeamNodes(length, supportType, state.loadPositionM);
   const beamLoads = buildBeamLoads(load, state.loadType, state.loadPosition, beamNodes.pointNodeId, beamNodes.endNodeId);
   return {
-    schema_version: '2.1.0',
+    schema_version: '2.2.0',
     unit_system: 'SI',
     nodes: beamNodes.nodes,
     elements: beamNodes.elements,

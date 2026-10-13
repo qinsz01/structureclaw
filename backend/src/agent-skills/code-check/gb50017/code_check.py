@@ -5,7 +5,7 @@
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 import math
 
 
@@ -168,7 +168,7 @@ def _resolve_element_type(elem_id: str, context: Dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 
 def _compute_utilization_overrides(
-    elem_id: str, context: Dict[str, Any],
+    elem_id: str, context: Dict[str, Any], evidence: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, float]:
     """Compute utilization ratios from elementData.
 
@@ -214,9 +214,11 @@ def _compute_utilization_overrides(
     def positive(record, *keys):
         return next((number(record[key], positive=True) for key in keys if key in record), None)
 
-    def save(name, value):
+    def save(name, value, demand=None, capacity=None, unit=None):
         if not _has_override(name) and math.isfinite(value) and value >= 0:
             computed[name] = value
+            if evidence is not None and demand is not None and capacity is not None:
+                evidence[name] = {'demand': demand, 'capacity': capacity, 'unit': unit}
 
     A, f, fv = positive(section, 'A'), positive(material, 'f'), positive(material, 'fv')
     N, V, Mx = (number(forces.get(key)) for key in ('N', 'V', 'Mx'))
@@ -227,7 +229,7 @@ def _compute_utilization_overrides(
     if _resolve_element_type(elem_id, context) == 'brace' and Mx is None:
         sigma_bending = 0.0
     if sigma_axial is not None and sigma_bending is not None and f:
-        save('正应力', (sigma_axial + sigma_bending) / f)
+        save('正应力', (sigma_axial + sigma_bending) / f, sigma_axial + sigma_bending, f, 'MPa')
 
     tau = None
     if V is not None:
@@ -236,27 +238,27 @@ def _compute_utilization_overrides(
         elif positive(section, 'As'):
             tau = abs(V) / positive(section, 'As')
         if tau is not None and fv:
-            save('剪应力', tau / fv)
+            save('剪应力', tau / fv, tau, fv, 'MPa')
     beta1 = positive(elem, 'beta1')
     if sigma_axial is not None and sigma_bending is not None and tau is not None and beta1 and f:
         equivalent = math.sqrt(sigma_axial ** 2 + sigma_bending ** 2 - sigma_axial * sigma_bending + 3 * tau ** 2)
-        save('折算应力', equivalent / (beta1 * f))
+        save('折算应力', equivalent / (beta1 * f), equivalent, beta1*f, 'MPa')
 
     phi_b, phi_axial = positive(elem, 'phi_b', 'phi'), positive(elem, 'phi_axial', 'phi')
     if Mx is not None and phi_b and Wnx and f:
-        save('整体稳定', abs(Mx) / (phi_b * Wnx * f))
+        save('整体稳定', abs(Mx) / (phi_b * Wnx * f), abs(Mx), phi_b*Wnx*f, 'N.mm')
     if N is not None and phi_axial and A and f:
-        save('轴压稳定', abs(N) / (phi_axial * A * f))
+        save('轴压稳定', abs(N) / (phi_axial * A * f), abs(N), phi_axial*A*f, 'N')
     b, t, bt_limit = positive(section, 'flangeWidth', 'b'), positive(section, 'flangeThickness', 't'), positive(elem, 'btLimit')
     if b and t and bt_limit:
-        save('局部稳定', b / t / bt_limit)
+        save('局部稳定', b / t / bt_limit, b/t, bt_limit, '1')
     l0, i_min, lambda_limit = positive(elem, 'l0', 'length'), positive(section, 'imin', 'i'), positive(elem, 'lambdaLimit')
     if l0 and i_min and lambda_limit:
-        save('长细比', l0 / i_min / lambda_limit)
+        save('长细比', l0 / i_min / lambda_limit, l0/i_min, lambda_limit, '1')
     displacement = number(forces.get('deflection', elem.get('deflection')))
     L, n_limit = positive(elem, 'length'), positive(elem, 'deflectionLimitN')
     if displacement is not None and L and n_limit:
-        save('挠度', abs(displacement) / (L / n_limit))
+        save('挠度', abs(displacement) / (L / n_limit), abs(displacement), L/n_limit, 'mm')
 
     return computed
 
@@ -370,7 +372,8 @@ def check_element(checker: Any, elem_id: str, context: Dict[str, Any]) -> Dict[s
     element_type = _resolve_element_type(elem_id, context)
 
     # Compute utilization overrides immutably — merge into a copy of context
-    computed = _compute_utilization_overrides(elem_id, context)
+    evidence: Dict[str, Any] = {}
+    computed = _compute_utilization_overrides(elem_id, context, evidence)
     if computed:
         existing_ube = context.get('utilizationByElement')
         if not isinstance(existing_ube, dict):
@@ -381,6 +384,7 @@ def check_element(checker: Any, elem_id: str, context: Dict[str, Any]) -> Dict[s
         merged_ctx = {
             **context,
             'computedItemsByElement': {elem_id: list(computed)},
+            'computedEvidenceByElement': {elem_id: evidence},
             'utilizationByElement': {
                 **existing_ube,
                 elem_id: {
@@ -400,6 +404,13 @@ def check_element(checker: Any, elem_id: str, context: Dict[str, Any]) -> Dict[s
     builder = _BUILDERS[element_type]
     normalized_type = element_type
     checks = builder(checker, elem_id, merged_ctx)
+    section = context.get('elementData', {}).get(elem_id, {}).get('section', {})
+    if (section.get('shape') or {}).get('kind') in {'rectangular', 'circular'}:
+        for group in checks:
+            for item in group.get('items', []):
+                if item['item'] == '局部稳定':
+                    item.update(status='not_applicable', category='not_applicable', utilization=None, governingEligible=False,
+                        message='Plate local buckling is not applicable to a solid rectangle/circle / 实心矩形或圆形无薄板局部屈曲验算项。')
     result = checker._build_element_result(elem_id, normalized_type, checks, CODE_VERSION)
     result['chapters'] = checker._build_chapter_summaries(result['checks'])
     result['chapterCount'] = len(result['chapters'])

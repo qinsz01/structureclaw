@@ -222,7 +222,7 @@ describe('frame canonicalize core contract', () => {
       E: 30000,
       nu: 0.2,
       rho: 2500,
-      fc: 14.3,
+      design: { fc: 14.3 },
     });
     expect(model.materials[0].fy).toBeUndefined();
     expect(model.sections[0]).toMatchObject({
@@ -319,13 +319,11 @@ describe('frame canonicalize core contract', () => {
     expect(model.sections[0]).toMatchObject({
       name: 'H400X200X10X16',
       type: 'H',
-      standard_steel_name: 'H400X200X10X16',
       shape: { kind: 'H', H: 400, B: 200, tw: 10, tf: 16 },
     });
     expect(model.sections[1]).toMatchObject({
       name: 'H300X150X8X12',
       type: 'H',
-      standard_steel_name: 'H300X150X8X12',
       shape: { kind: 'H', H: 300, B: 150, tw: 8, tf: 12 },
     });
   });
@@ -632,8 +630,8 @@ describe('frame canonicalize core contract', () => {
       bayWidthsYM: [5],
       floorLoads: [{ story: 1, verticalKN: 300 }],
       frameMaterial: 'Q345',
-      frameColumnSection: 'HW300X300',
-      frameBeamSection: 'HN400X200',
+      frameColumnSection: 'H300X300X10X15',
+      frameBeamSection: 'H400X200X8X13',
       frameBaseSupportType: 'fixed',
       engineeringDraft: {
         structureType: 'steel-frame',
@@ -858,8 +856,8 @@ describe('frame canonicalize core contract', () => {
       storyHeightsM: [3.6, 3.6],
       bayWidthsM: [6],
       frameMaterial: 'Q345',
-      frameColumnSection: 'HW350X350',
-      frameBeamSection: 'HN500X200',
+      frameColumnSection: 'H350X350X12X19',
+      frameBeamSection: 'H500X200X10X16',
       engineeringDraft: {
         structureType: 'steel-frame',
         topology: {

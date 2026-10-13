@@ -64,7 +64,7 @@ export function withDirectModelCoordinateContract<T extends Record<string, unkno
   const metadata = asRecord(model.metadata);
   const canonical = {
     ...model,
-    schema_version: typeof model.schema_version === 'string' ? model.schema_version : '2.1.0',
+    schema_version: typeof model.schema_version === 'string' ? model.schema_version : '2.2.0',
     unit_system: typeof model.unit_system === 'string' ? model.unit_system : 'SI',
     coordinate_system: coordinateSystem,
     metadata: {
@@ -192,8 +192,8 @@ export function buildDirectAnalysisModelForCodeCheck(model: {
 }): Record<string, unknown> {
   return withDirectModelCoordinateContract({
     ...model,
-    schemaVersion: asRecord(model).schema_version ?? asRecord(model).schemaVersion ?? '2.1.0',
-    schema_version: asRecord(model).schema_version ?? asRecord(model).schemaVersion ?? '2.1.0',
+    schemaVersion: asRecord(model).schema_version ?? asRecord(model).schemaVersion ?? '2.2.0',
+    schema_version: asRecord(model).schema_version ?? asRecord(model).schemaVersion ?? '2.2.0',
     coordinate_system: model.coordinate_system ?? model.coordinateSystem,
     nodes: Array.isArray(model.nodes) ? model.nodes : [],
     elements: Array.isArray(model.elements) ? model.elements : [],

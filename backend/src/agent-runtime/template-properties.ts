@@ -29,23 +29,6 @@ const CONCRETE_GRADE_PROPERTIES: Record<string, FrameMaterialProps & { category:
 
 type HSectionShape = { kind: 'H'; H: number; B: number; tw: number; tf: number };
 type RectangularSectionShape = { kind: 'rectangular'; H: number; B: number };
-type HSectionEntry = { A: number; Iy: number; Iz: number; J: number; shape: HSectionShape; standardSteelName: string };
-
-const H_SECTION_PROPERTIES: Record<string, HSectionEntry> = {
-  'HW200X200': { A: 0.00640, Iy: 4.72e-5, Iz: 1.60e-5, J: 1.70e-6, shape: { kind: 'H', H: 200, B: 200, tw: 8, tf: 12 }, standardSteelName: 'HW200x200' },
-  'HW250X250': { A: 0.00920, Iy: 1.07e-4, Iz: 3.65e-5, J: 2.90e-6, shape: { kind: 'H', H: 250, B: 250, tw: 9, tf: 14 }, standardSteelName: 'HW250x250' },
-  'HW300X300': { A: 0.01192, Iy: 2.04e-4, Iz: 6.75e-5, J: 4.23e-6, shape: { kind: 'H', H: 300, B: 300, tw: 10, tf: 15 }, standardSteelName: 'HW300x300' },
-  'HW350X350': { A: 0.01739, Iy: 4.03e-4, Iz: 1.36e-4, J: 8.63e-6, shape: { kind: 'H', H: 350, B: 350, tw: 12, tf: 19 }, standardSteelName: 'HW350x350' },
-  'HW400X400': { A: 0.01972, Iy: 6.67e-4, Iz: 2.24e-4, J: 1.01e-5, shape: { kind: 'H', H: 400, B: 400, tw: 13, tf: 21 }, standardSteelName: 'HW400x400' },
-  'HW450X300': { A: 0.01870, Iy: 7.93e-4, Iz: 2.03e-4, J: 9.86e-6, shape: { kind: 'H', H: 450, B: 300, tw: 11, tf: 18 }, standardSteelName: 'HW450x300' },
-  'HN300X150': { A: 0.00487, Iy: 7.21e-5, Iz: 5.08e-6, J: 5.18e-7, shape: { kind: 'H', H: 300, B: 150, tw: 6.5, tf: 9 }, standardSteelName: 'HN300x150' },
-  'HN350X175': { A: 0.00629, Iy: 1.36e-4, Iz: 9.84e-6, J: 6.32e-7, shape: { kind: 'H', H: 350, B: 175, tw: 7, tf: 11 }, standardSteelName: 'HN350x175' },
-  'HN400X200': { A: 0.00842, Iy: 2.37e-4, Iz: 1.74e-5, J: 8.44e-7, shape: { kind: 'H', H: 400, B: 200, tw: 8, tf: 13 }, standardSteelName: 'HN400x200' },
-  'HN450X200': { A: 0.00961, Iy: 3.32e-4, Iz: 1.87e-5, J: 9.68e-7, shape: { kind: 'H', H: 450, B: 200, tw: 9, tf: 14 }, standardSteelName: 'HN450x200' },
-  'HN500X200': { A: 0.01143, Iy: 5.02e-4, Iz: 2.14e-5, J: 1.24e-6, shape: { kind: 'H', H: 500, B: 200, tw: 10, tf: 16 }, standardSteelName: 'HN500x200' },
-  'HN600X200': { A: 0.01341, Iy: 9.06e-4, Iz: 2.27e-5, J: 1.48e-6, shape: { kind: 'H', H: 600, B: 200, tw: 11, tf: 17 }, standardSteelName: 'HN600x200' },
-};
-
 type ResolvedFrameMaterialProps = FrameMaterialProps & { resolvedGrade: string };
 type SectionProps = {
   name: string;
@@ -56,22 +39,21 @@ type SectionProps = {
   J: number;
   G: number;
   shape: HSectionShape | RectangularSectionShape;
-  standardSteelName?: string;
   width?: number;
   height?: number;
   substituted?: string;
 };
 
 export function getDefaultColumnSection(storyCount: number): string {
-  if (storyCount > 10) return 'HW400X400';
-  if (storyCount > 5) return 'HW350X350';
-  return 'HW300X300';
+  if (storyCount > 10) return 'H400X400X13X21';
+  if (storyCount > 5) return 'H350X350X12X19';
+  return 'H300X300X10X15';
 }
 
 export function getDefaultBeamSection(storyCount: number): string {
-  if (storyCount > 10) return 'HN500X200';
-  if (storyCount > 5) return 'HN400X200';
-  return 'HN300X150';
+  if (storyCount > 10) return 'H500X200X10X16';
+  if (storyCount > 5) return 'H400X200X8X13';
+  return 'H300X150X6.5X9';
 }
 
 export function normalizeSteelGrade(raw: string): string {
@@ -151,10 +133,8 @@ export function resolveSectionProps(
 ): SectionProps {
   if (!section) throw new Error(`TEMPLATE_PROPERTY_REQUIRED: ${role} section / 请明确该类构件截面`);
   const normalized = normalizeSectionName(section);
-  const found = Boolean(H_SECTION_PROPERTIES[normalized]);
-  if (found) {
-    const entry = H_SECTION_PROPERTIES[normalized]!;
-    return { name: normalized, type: 'H', A: entry.A, Iy: entry.Iy, Iz: entry.Iz, J: entry.J, G: matG, shape: entry.shape, standardSteelName: entry.standardSteelName };
+  if (/^H[WN]/.test(normalized)) {
+    throw new Error('SECTION_CATALOG_UNVERIFIED: supply reviewed complete section properties or explicit H×B×tw×tf geometry / 型钢目录尚未审定，请提供核定截面属性或明确四项尺寸');
   }
   const custom = section ? parseCustomHSection(section) : null;
   if (custom) {
@@ -165,7 +145,6 @@ export function resolveSectionProps(
       type: 'H',
       ...props,
       shape: { kind: 'H', H: custom.H, B: custom.B, tw: custom.tw, tf: custom.tf },
-      standardSteelName: name,
     };
   }
   const rectangular = section ? parseRectangularSection(section) : null;
@@ -191,10 +170,11 @@ export function buildMaterialRecord(matProps: ResolvedFrameMaterialProps): Recor
     grade: matProps.resolvedGrade,
     category: matProps.category,
     E: matProps.E,
+    G: matProps.G,
     nu: matProps.nu,
     rho: matProps.rho,
     ...(matProps.fy !== undefined ? { fy: matProps.fy } : {}),
-    ...(matProps.fc !== undefined ? { fc: matProps.fc } : {}),
+    ...(matProps.fc !== undefined ? { design: { fc: matProps.fc } } : {}),
   };
 }
 
@@ -204,11 +184,10 @@ export function buildSectionRecord(id: string, purpose: 'column' | 'beam', props
     name: props.name,
     type: props.type,
     purpose,
-    ...(props.standardSteelName !== undefined ? { standard_steel_name: props.standardSteelName } : {}),
     shape: props.shape,
     ...(props.width !== undefined ? { width: props.width } : {}),
     ...(props.height !== undefined ? { height: props.height } : {}),
-    properties: { A: props.A, Iy: props.Iy, Iz: props.Iz, J: props.J, G: props.G },
+    properties: { A: props.A, Iy: props.Iy, Iz: props.Iz, J: props.J },
   };
 }
 
@@ -246,7 +225,7 @@ export function resolveTemplateProperties(state: DraftState, roles: TemplateRole
       const sectionName = declaredSection ?? (concreteColumn && width > 0 && depth > 0 ? `${width * 1000}X${depth * 1000}` : undefined);
       const E = Number(material!.E), nu = Number(material!.nu);
       if (!(E > 0) || !Number.isFinite(nu)) propertyError(`${role}.material elastic constants`);
-      const props = resolveSectionProps(sectionName, role === 'column' ? 'column' : 'beam', 0, E / (2 * (1 + nu)));
+      const props = resolveSectionProps(sectionName, role === 'column' ? 'column' : 'beam', 0, Number(material!.G ?? E / (2 * (1 + nu))));
       sectionId = roles.length === 1 || role === 'column' ? '1' : '2';
       sections.push(buildSectionRecord(sectionId, role === 'column' ? 'column' : 'beam', props));
     }

@@ -81,10 +81,13 @@ def convert_structure_model_payload(
         final_schema = migrate_structure_model_v1(
             model.model_dump(mode="json", exclude_unset=True), target_schema_version, original_schema_version
         )
+        if target_schema_version == '2.2.0':
+            converted_model = StructureModelV2.model_validate(final_schema)
+            final_schema = converted_model.model_dump(mode='json', exclude_unset=True)
         if target_format in ("structuremodel-v1", "structuremodel-v2"):
             normalized = final_schema
         else:
-            normalized = target_converter.from_v2(model)
+            normalized = target_converter.from_v2(converted_model if target_schema_version == '2.2.0' else model)
     except ValidationError as error:
         raise HTTPException(
             status_code=422,

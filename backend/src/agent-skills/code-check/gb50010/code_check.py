@@ -6,7 +6,7 @@
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import math
 
@@ -174,7 +174,7 @@ def _stability_coeff(l0b: float) -> float:
 
 
 def _compute_utilization_overrides(
-    elem_id: str, context: Dict[str, Any],
+    elem_id: str, context: Dict[str, Any], evidence: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, float]:
     """Compute utilization ratios from elementData for GB50010.
 
@@ -217,9 +217,11 @@ def _compute_utilization_overrides(
     per_elem = per_elem if isinstance(per_elem, dict) else {}
     computed: Dict[str, float] = {}
 
-    def save(name, value):
+    def save(name, value, demand=None, capacity=None, unit=None):
         if name not in per_elem and math.isfinite(value) and value >= 0:
             computed[name] = value
+            if evidence is not None and demand is not None and capacity is not None:
+                evidence[name] = {'demand': demand, 'capacity': capacity, 'unit': unit}
 
     b, h, A = positive(section, 'width', 'B'), positive(section, 'height', 'H'), positive(section, 'A')
     inertia = positive(section, 'I', 'Iy')
@@ -237,10 +239,10 @@ def _compute_utilization_overrides(
 
     axial_limit = positive(elem, 'axialRatioLimit')
     if N is not None and A and fc and axial_limit:
-        save('轴压比', abs(N) / (fc * A * axial_limit))
+        save('轴压比', abs(N) / (fc * A * axial_limit), abs(N), fc*A*axial_limit, 'N')
     lambda_limit = positive(elem, 'lambdaLimit')
     if l0 and A and inertia and lambda_limit:
-        save('长细比', l0 / math.sqrt(inertia / A) / lambda_limit)
+        save('长细比', l0 / math.sqrt(inertia / A) / lambda_limit, l0/math.sqrt(inertia/A), lambda_limit, '1')
 
     # Retain the existing simplified interaction only as a screening estimate.
     if N is not None and M is not None and A and b and h and h0 and As and fc and fy and l0:
@@ -251,7 +253,7 @@ def _compute_utilization_overrides(
 
     if V is not None and b and h0 and ft and fyv and Asv and spacing:
         capacity = 0.7 * ft * b * h0 + min(fyv, 360) * Asv * h0 / spacing
-        save('斜截面受剪', abs(V) / capacity)
+        save('斜截面受剪', abs(V) / capacity, abs(V), capacity, 'N')
 
     alpha1, beta1, Es, ecu = (positive(mat, key) for key in ('alpha1', 'beta1', 'Es', 'ecu'))
     if M is not None and b and h0 and As and fc and fy and alpha1 and beta1 and Es and ecu:
@@ -261,12 +263,12 @@ def _compute_utilization_overrides(
         if x <= xb:
             capacity = alpha1 * fc * b * x * (h0 - x / 2)
             if capacity > 0:
-                save('正截面受弯', abs(M) / capacity)
+                save('正截面受弯', abs(M) / capacity, abs(M), capacity, 'N.mm')
 
     displacement = number(forces.get('deflection', elem.get('deflection')))
     deflection_limit_n = positive(elem, 'deflectionLimitN')
     if displacement is not None and length and deflection_limit_n:
-        save('挠度', abs(displacement) / (length / deflection_limit_n))
+        save('挠度', abs(displacement) / (length / deflection_limit_n), abs(displacement), length/deflection_limit_n, 'mm')
 
     service_moment = number(forces.get('M_service'))
     crack_cover = number(elem.get('crack_cover'))
@@ -276,15 +278,13 @@ def _compute_utilization_overrides(
         sigma = abs(service_moment) / (0.87 * h0 * As)
         psi = max(0.2, min(1.1 - 0.65 * ftk / (rho * sigma), 1.0)) if sigma else 0.2
         width = alpha_cr * psi * sigma / Es * (1.9 * crack_cover + 0.08 * main_dia / rho)
-        save('裂缝宽度', width / crack_limit)
+        save('裂缝宽度', width / crack_limit, width, crack_limit, 'mm')
 
     count, clear_spacing = number(elem.get('bar_count')), number(elem.get('sn'))
     if count is not None and count > 1 and clear_spacing is not None and main_dia and main_dia > 0:
         spacing_limit = max(1.5 * main_dia, 50 if _resolve_element_type(elem_id, context) == 'column' else 30)
         if clear_spacing > 0:
-            save('钢筋净距', spacing_limit / clear_spacing)
-        else:
-            save('钢筋净距', 99.0)
+            save('钢筋净距', spacing_limit / clear_spacing, spacing_limit, clear_spacing, 'mm')
     return computed
 
 
@@ -364,7 +364,8 @@ def check_element(checker: Any, elem_id: str, context: Dict[str, Any]) -> Dict[s
     element_type = _resolve_element_type(elem_id, context)
 
     # Compute utilization overrides immutably — merge into a copy of context
-    computed = _compute_utilization_overrides(elem_id, context)
+    evidence: Dict[str, Any] = {}
+    computed = _compute_utilization_overrides(elem_id, context, evidence)
     if computed:
         existing_ube = context.get('utilizationByElement')
         if not isinstance(existing_ube, dict):
@@ -375,6 +376,7 @@ def check_element(checker: Any, elem_id: str, context: Dict[str, Any]) -> Dict[s
         merged_ctx = {
             **context,
             'computedItemsByElement': {elem_id: list(computed)},
+            'computedEvidenceByElement': {elem_id: evidence},
             'utilizationByElement': {
                 **existing_ube,
                 elem_id: {
@@ -395,6 +397,14 @@ def check_element(checker: Any, elem_id: str, context: Dict[str, Any]) -> Dict[s
     result = checker._build_element_result(elem_id, element_type, checks, 'GB50010-2010')
     for check in result['checks']:
         for item in check['items']:
+            if item['item'] == '钢筋净距':
+                data = context.get('elementData', {}).get(elem_id, {})
+                spacing, diameter = data.get('sn'), data.get('main_dia')
+                if isinstance(spacing, (int, float)) and spacing <= 0 and isinstance(diameter, (int, float)) and diameter > 0:
+                    required = max(1.5*diameter, 50 if element_type == 'column' else 30)
+                    item.update(status='fail', category='fail', utilization=None, governingEligible=False,
+                        inputs={'basis':'engineering-inequality', 'actual':spacing, 'minimum':required, 'unit':'mm', 'operator':'>='},
+                        message='Clear reinforcement spacing is below its required positive minimum / 钢筋净距小于正的构造下限。')
             if item['item'] == '偏心受压' and item['item'] in computed:
                 item.update(status='unsupported', category='unsupported', screeningUtilization=item['utilization'],
                             utilization=None, governingEligible=False,

@@ -341,11 +341,11 @@ class TestSlabOpening:
 # ---------------------------------------------------------------------------
 
 class TestExamplePayloads:
-    def test_new_models_declare_minor_2_1_and_old_models_keep_their_version(self):
-        assert StructureModelV2(coordinate_system=_coordinate_system()).schema_version == '2.1.0'
+    def test_new_models_declare_minor_2_2_and_old_models_keep_their_version(self):
+        assert StructureModelV2(coordinate_system=_coordinate_system()).schema_version == '2.2.0'
         old = _load_json('model_13_v2_rc_frame.json', v2=True)
         assert StructureModelV2.model_validate(old).schema_version == '2.0.0'
-        invalid = {**old, 'schema_version':'2.2.0'}
+        invalid = {**old, 'schema_version':'2.3.0'}
         with pytest.raises(ValueError, match='schema_version'):
             StructureModelV2.model_validate(invalid)
 
@@ -691,4 +691,4 @@ class TestCrossReferenceValidation:
             load_cases=[LoadCaseV2(id="D", type="dead")],
             load_combinations=[LoadCombinationV2(id="C1", factors={"D": 1.2})],
         )
-        assert model.schema_version == "2.1.0"
+        assert model.schema_version == "2.2.0"

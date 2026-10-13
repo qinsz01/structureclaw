@@ -222,8 +222,8 @@ export function buildFrameQuestions(
         paramKey: 'frameColumnSection',
         label: locale === 'zh' ? '柱截面' : 'Column section',
         question: locale === 'zh'
-          ? `请确认柱截面规格（如 HW350X350 或 400X400）。${suggested ? `当前层数建议 ${suggested}。` : ''}`
-          : `Please confirm the column section designation (e.g. HW350X350 or 400X400).${suggested ? ` Suggested: ${suggested}.` : ''}`,
+          ? `请确认柱截面尺寸（如 H350X350X12X19 或 400X400）。${suggested ? `当前层数建议 ${suggested}。` : ''}`
+          : `Please confirm the column dimensions (e.g. H350X350X12X19 or 400X400).${suggested ? ` Suggested: ${suggested}.` : ''}`,
         required: true,
         critical: criticalMissing.includes('frameColumnSection'),
         suggestedValue: suggested,
@@ -235,8 +235,8 @@ export function buildFrameQuestions(
         paramKey: 'frameBeamSection',
         label: locale === 'zh' ? '梁截面' : 'Beam section',
         question: locale === 'zh'
-          ? `请确认梁截面规格（如 HN400X200 或 250X600）。${suggested ? `当前层数建议 ${suggested}。` : ''}`
-          : `Please confirm the beam section designation (e.g. HN400X200 or 250X600).${suggested ? ` Suggested: ${suggested}.` : ''}`,
+          ? `请确认梁截面尺寸（如 H400X200X8X13 或 250X600）。${suggested ? `当前层数建议 ${suggested}。` : ''}`
+          : `Please confirm the beam dimensions (e.g. H400X200X8X13 or 250X600).${suggested ? ` Suggested: ${suggested}.` : ''}`,
         required: true,
         critical: criticalMissing.includes('frameBeamSection'),
         suggestedValue: suggested,

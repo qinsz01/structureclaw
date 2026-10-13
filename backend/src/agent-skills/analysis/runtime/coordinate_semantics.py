@@ -217,9 +217,9 @@ def validate_coordinate_contract(model: Any) -> None:
                 raise ValueError(f"Element '{element_id}' rotation_angle must be finite") from error
             if not math.isfinite(rotation):
                 raise ValueError(f"Element '{element_id}' rotation_angle must be finite")
-            if dimension == "2d" and abs(rotation) > COORDINATE_TOLERANCE:
+            if dimension == "2d" and abs(rotation/90-round(rotation/90)) > COORDINATE_TOLERANCE:
                 raise ValueError(
-                    f"Element '{element_id}' cannot rotate its section axes in a canonical 2-D model"
+                    f"Element '{element_id}' 2-D section rotation must be a multiple of 90 degrees; use 3-D for coupled non-principal bending"
                 )
 
     reference_vectors = metadata.get("elementReferenceVectors")

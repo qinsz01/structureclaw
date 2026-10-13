@@ -329,7 +329,7 @@ export function resolveSectionProps(rawSection: string, G: number): SectionProps
 }
 
 type ConcreteFrameModel = {
-  schema_version: '2.1.0';
+  schema_version: '2.2.0';
   unit_system: 'SI';
   coordinate_system?: Record<string, unknown>;
   project: Record<string, unknown>;
@@ -839,7 +839,7 @@ function buildCommonModelFields(options: {
   metadata: Record<string, unknown>;
 }): Pick<ConcreteFrameModel, 'schema_version' | 'unit_system' | 'project' | 'structure_system' | 'site_seismic' | 'wind' | 'analysis_control' | 'materials' | 'sections' | 'metadata' | 'extensions'> {
   return {
-    schema_version: '2.1.0',
+    schema_version: '2.2.0',
     unit_system: 'SI',
     project: {
       code_standard: 'GB50010-2010',
@@ -1184,7 +1184,7 @@ function buildConcreteFrame3dLocalModel(options: {
   const stories = options.storyHeightsM.map((height, index) => {
     const storyIdx = index + 1;
     const fl = floorLoads.find((load) => load.story === storyIdx);
-    const floorAreaM2 = Math.max(xCoords[xCoords.length - 1], 1) * Math.max(yCoords[yCoords.length - 1], 1);
+    const floorAreaM2 = xCoords[xCoords.length - 1] * yCoords[yCoords.length - 1];
     const deadLoad = fl?.verticalKN ? fl.verticalKN / floorAreaM2 : undefined;
     const liveLoad = fl?.liveLoadKN ? fl.liveLoadKN / floorAreaM2 : undefined;
     return {
@@ -1192,6 +1192,7 @@ function buildConcreteFrame3dLocalModel(options: {
       height,
       elevation: zCoords[index],
       standard_floor_group: 'SF1',
+      load_area_m2: floorAreaM2,
       ...buildStoryFloorLoadFields(deadLoad, liveLoad),
     };
   });

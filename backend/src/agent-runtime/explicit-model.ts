@@ -14,7 +14,7 @@ function entities(value: unknown, name: string, allowEmpty = false): RecordValue
 
 /** One physical V2 model boundary for explicit/generic paths; no template inference. */
 export function validateExplicitModel(model: RecordValue): RecordValue {
-  if (!['2.0.0', '2.1.0'].includes(String(model.schema_version))) fail('schema_version must be 2.0.0 or 2.1.0');
+  if (!['2.0.0', '2.1.0', '2.2.0'].includes(String(model.schema_version))) fail('schema_version must be 2.0.0, 2.1.0 or 2.2.0');
   const nodes = entities(model.nodes, 'nodes');
   const elements = entities(model.elements, 'elements');
   const materials = entities(model.materials, 'materials');
@@ -70,7 +70,7 @@ export function buildExplicitDraftModel(state: DraftState): RecordValue | undefi
   if (!state.frameDimension) fail('frameDimension required; a planar drawing alone does not establish a 2-D analysis');
   if (!draft.loadCases && draft.loads?.length) fail('loadCases required for explicit topology: preserve targets, signs, components and member positions');
   const model = withCanonicalCoordinateContract({
-    schema_version: '2.1.0',
+    schema_version: '2.2.0',
     nodes: structuredClone(draft.topology.nodes),
     elements: structuredClone(draft.topology.members),
     materials: structuredClone(draft.materials),

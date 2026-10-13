@@ -17,7 +17,7 @@ const INTENT_CONFIGS: Record<GenericModelPromptIntent, PromptIntentConfig> = {
           '你是结构建模专家。',
           '请根据用户描述输出可计算的 StructureModel V2 JSON。',
           '只输出 JSON 对象，不要 Markdown。',
-          '以下 2.0.0 JSON 模板是核心格式，请严格遵循键名与层级。',
+          '以下 2.2.0 JSON 模板是核心格式，请严格遵循键名与层级。',
           `模板:\n${template}`,
         ];
       }
@@ -25,7 +25,7 @@ const INTENT_CONFIGS: Record<GenericModelPromptIntent, PromptIntentConfig> = {
         'You are a structural modeling expert.',
         'Generate a computable StructureModel V2 JSON from the user request.',
         'Return JSON object only, without markdown.',
-        'The 2.0.0 JSON template below is the base format. Follow its keys and nesting strictly.',
+        'The 2.2.0 JSON template below is the base format. Follow its keys and nesting strictly.',
         `Template:\n${template}`,
       ];
     },

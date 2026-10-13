@@ -360,6 +360,7 @@ class CodeChecker:
             }
         demand = round(utilization * limit, 4)
         capacity = round(limit, 4)
+        calculation = context.get('computedEvidenceByElement', {}).get(elem_id, {}).get(item_name)
         return {
             'item': item_name,
             'status': 'pass' if utilization <= 1.0 else 'fail',
@@ -368,7 +369,7 @@ class CodeChecker:
             'formula': formula,
             'evidenceSource': 'elementData' if item_name in context.get('computedItemsByElement', {}).get(elem_id, []) else 'provided_utilization',
             'calculationInputs': {key: value for key, value in element.items() if key not in {'forceStates', 'extra', 'metadata'}} if item_name in context.get('computedItemsByElement', {}).get(elem_id, []) else None,
-            'inputs': {
+            'inputs': {'basis': 'engineering-demand-capacity', **calculation, 'limit': 1.0} if calculation else {
                 'basis': 'normalized_utilization',
                 'demand': demand,
                 'capacity': capacity,

@@ -56,7 +56,7 @@ function withConfirmedReinforcement(model: Record<string, unknown>): Record<stri
     if (member && (template || source['reinforcement'] !== undefined && !reinforcement)) {
       for (const key of REBAR_FIELDS) delete result[key];
     }
-    for (const key of ['metadata', 'extra', 'properties']) {
+    for (const key of ['metadata', 'extra', 'properties', 'design']) {
       if (source[key] && typeof source[key] === 'object') result[key] = clean(source[key], member && key !== 'properties');
     }
     return result;
@@ -176,7 +176,7 @@ function extractElementContextById(model: Record<string, unknown> | undefined): 
     }
     const metadata = asRecord(element['metadata']);
     const extra = asRecord(element['extra']);
-    const structuredMemberSources = [element, metadata, extra];
+    const structuredMemberSources = [asRecord(element['design']), element, metadata, extra];
     const materialId = typeof element['material'] === 'string' ? element['material'] : undefined;
     const sectionId = typeof element['section'] === 'string' ? element['section'] : undefined;
 
@@ -247,6 +247,22 @@ function extractModelSummary(model: Record<string, unknown> | undefined): Record
 const finiteNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 
 type ForceState = { source: string; station: string | number; positionM?: number; segmentId?: string; side?: string; forces: Record<string, number>; unsupportedReason?: string };
+
+/** A rigid translation/rotation of the member is not its serviceability deflection. */
+function memberDeflection(member: ReturnType<typeof recoverAnalysisMembers>[number] | undefined) {
+  if (!member || member.state !== 'recovered' || !member.axes || !member.samples.length || member.length <= 0) return undefined;
+  const first = member.samples[0]!, last = member.samples.at(-1)!;
+  let governing: { valueMm: number; positionM: number; componentsLocalMm: number[] } | undefined;
+  for (const sample of member.samples) {
+    const ratio = sample.x / member.length;
+    const relative = sample.displacement.map((value, i) => value - (1 - ratio) * first.displacement[i]! - ratio * last.displacement[i]!);
+    const transverse = [member.axes[1]!, member.axes[2]!].map(axis => axis.reduce((sum, value, i) => sum + value * relative[i]!, 0) * 1000);
+    const valueMm = Math.hypot(...transverse);
+    if (!governing || valueMm > governing.valueMm) governing = { valueMm, positionM: sample.x, componentsLocalMm: transverse };
+  }
+  return governing && { ...governing, source: 'mechanics-recovery',
+    definition: 'transverse-displacement-relative-to-endpoint-chord', numericalScope: 'sampled-member-response' };
+}
 
 function forceUnitFactors(analysis: Record<string, unknown>, data: Record<string, unknown>): { force: number; moment: number } | undefined {
   const meta = asRecord(analysis['meta']);
@@ -356,7 +372,10 @@ function extractElementDataForCodeCheck(
     // section properties
     const sectionId = String(elem['section'] ?? '');
     const sectionObj = sectionById[sectionId];
-    const sectionProps = asRecord(sectionObj?.['properties']);
+    const sourceSectionProps = asRecord(sectionObj?.['properties']);
+    const swappedPrincipalAxes = asRecord(model['coordinate_system'])['dimension'] === '2d'
+      && Math.abs(Math.round(Number(elem['rotation_angle'] ?? 0) / 90) % 2) === 1;
+    const sectionProps = swappedPrincipalAxes ? { ...sourceSectionProps, Iy: sourceSectionProps['Iz'], Iz: sourceSectionProps['Iy'] } : sourceSectionProps;
     const sectionExtra = asRecord(sectionObj?.['extra']);
     const sectionShapeRecord = asRecord(sectionObj?.['shape']);
     const sectionShape = hasRecordKeys(sectionShapeRecord) ? sectionShapeRecord : undefined;
@@ -409,10 +428,10 @@ function extractElementDataForCodeCheck(
     const Iy_m4 = Number(sectionProps['Iy'] ?? 0);
     const Iz_m4 = Number(sectionProps['Iz'] ?? 0);
     const J_m4 = Number(sectionProps['J'] ?? 0);
-    const Wx_m3 = Number(sectionProps['Wx'] ?? sectionProps['Wnx'] ?? 0);
-    const S_m3 = Number(sectionProps['S'] ?? 0);
-    const tw_m = Number(sectionProps['tw'] ?? 0);
-    const As_m2 = Number(sectionProps['As'] ?? 0);
+    const Wx_m3 = Number(swappedPrincipalAxes ? sectionProps['Wz'] ?? 0 : sectionProps['Wnx'] ?? sectionProps['Wx'] ?? 0);
+    const S_m3 = Number(swappedPrincipalAxes ? sectionProps['Sz'] ?? 0 : sectionProps['S'] ?? 0);
+    const tw_m = Number(swappedPrincipalAxes ? sectionProps['tz'] ?? 0 : sectionProps['tw'] ?? 0);
+    const As_m2 = Number(swappedPrincipalAxes ? sectionProps['Asz'] ?? 0 : sectionProps['As'] ?? 0);
 
     const A_mm2 = A_m2 * 1e6;
     const Iy_mm4 = Iy_m4 * 1e12;
@@ -431,7 +450,7 @@ function extractElementDataForCodeCheck(
     let derivedS_mm3 = S_mm3;
     let derivedTw_mm = tw_mm;
     let derivedAs_mm2 = As_mm2;
-    if (sectionShape && sectionShape['kind'] === 'H') {
+    if (sectionShape && ['H', 'I', 'built-up-I'].includes(String(sectionShape['kind']))) {
       const Hmm = Number(sectionShape['H'] ?? 0);
       const Bmm = Number(sectionShape['B'] ?? 0);
       const twmm = Number(sectionShape['tw'] ?? 0);
@@ -441,32 +460,43 @@ function extractElementDataForCodeCheck(
         if (derivedWnxMm3 <= 0) {
           // Iy = (tw*hw³)/12 + 2*B*tf*((hw+tf)/2)² — already have Iy_mm4 from props
           // Wx = Iy / (H/2)
-          derivedWnxMm3 = Iy_mm4 > 0 ? Iy_mm4 / (Hmm / 2) : 0;
+          derivedWnxMm3 = Iy_mm4 > 0 ? Iy_mm4 / ((swappedPrincipalAxes ? Bmm : Hmm) / 2) : 0;
         }
         if (derivedS_mm3 <= 0) {
           // S = B*tf*(hw+tf)/2 + tw*(hw/2)²/2
           const S_flange = Bmm * tfmm * (hw + tfmm) / 2;
           const S_web = twmm * (hw / 2) * (hw / 4);
-          derivedS_mm3 = S_flange + S_web;
+          derivedS_mm3 = swappedPrincipalAxes ? tfmm * Bmm ** 2 / 4 + hw * twmm ** 2 / 8 : S_flange + S_web;
         }
-        if (derivedTw_mm <= 0) {
+        if (derivedTw_mm <= 0 && !swappedPrincipalAxes) {
           derivedTw_mm = twmm;
         }
-        if (derivedAs_mm2 <= 0) {
+        if (derivedAs_mm2 <= 0 && !swappedPrincipalAxes) {
           derivedAs_mm2 = twmm * hw;
         }
       }
     }
+    const widthMm = Number(sectionObj?.['width'] ?? sectionShape?.['B']);
+    const heightMm = Number(sectionObj?.['height'] ?? sectionShape?.['H']);
+    const effectiveWidth = swappedPrincipalAxes ? heightMm : widthMm;
+    const effectiveHeight = swappedPrincipalAxes ? widthMm : heightMm;
+    if (sectionShape?.['kind'] === 'rectangular' && effectiveWidth > 0 && effectiveHeight > 0) {
+      if (derivedWnxMm3 <= 0) derivedWnxMm3 = Iy_mm4 / (effectiveHeight / 2);
+      if (derivedS_mm3 <= 0) derivedS_mm3 = effectiveWidth * effectiveHeight ** 2 / 8;
+      if (derivedTw_mm <= 0) derivedTw_mm = effectiveWidth;
+    }
 
     // Yield strength is not design strength; preserve only explicitly supplied design values.
-    const materialWithDesign = materialObj ? { ...materialObj } : {};
+    const materialWithDesign = materialObj ? { ...materialObj, ...asRecord(materialObj['design']) } : {};
 
     // design parameters from element metadata (phi, lambda limits, etc.)
     const elemMetadata = (typeof elem['metadata'] === 'object' && elem['metadata'] !== null
       ? elem['metadata'] as Record<string, unknown> : {}) as Record<string, unknown>;
     const elemExtra = asRecord(elem['extra']);
+    const memberDesign = asRecord(elem['design']);
+    const designSources = [memberDesign, elem, elemMetadata, elemExtra];
     const structuralSources = [
-      elem,
+      memberDesign, elem,
       elemMetadata,
       elemExtra,
       sectionObj ?? {},
@@ -496,7 +526,7 @@ function extractElementDataForCodeCheck(
       pickFirstDefined([sectionObj ?? {}, sectionExtra, sectionProps], ['reinforcement']), templateReinforcement,
     );
     const declaredReinforcement = pickFirstDefined(
-      [elem, elemMetadata, elemExtra, sectionObj ?? {}, sectionExtra, sectionProps],
+      [memberDesign, elem, elemMetadata, elemExtra, sectionObj ?? {}, sectionExtra, sectionProps],
       ['reinforcement'],
     );
     const reinforcement = acceptedReinforcement(declaredReinforcement, templateReinforcement);
@@ -547,6 +577,18 @@ function extractElementDataForCodeCheck(
     ]);
     const steelSlenderness = pickFirstDefined(structuralSources, ['slenderness']);
     const steelWidthThickness = pickFirstDefined(structuralSources, ['widthThickness']);
+    const resultKey = analysis['selectedResultKey'] ?? asRecord(analysis['selection'])['key'];
+    const serviceKeys = memberDesign['serviceability_result_keys'];
+    const serviceResult = Array.isArray(serviceKeys) && serviceKeys.includes(resultKey);
+    const deflectionResponse = serviceResult ? memberDeflection(recovered) : undefined;
+    if (serviceResult) for (const state of forceStates) {
+      if (finiteNumber(state.forces['Mx'])) state.forces['M_service'] = state.forces['Mx'];
+    }
+    const numericDesign = Object.fromEntries(['l0', 'h0', 'phi', 'phi_b', 'phi_axial', 'beta1', 'btLimit',
+      'lambdaLimit', 'deflectionLimitN', 'axialRatioLimit', 'crackWidthLimit', 'alpha_cr'].flatMap(key => {
+      const value = pickFirstDefined(designSources, [key]);
+      return finiteNumber(value) ? [[key, value]] : [];
+    }));
 
     elementData[elemId] = {
       type: elem['type'],
@@ -560,8 +602,9 @@ function extractElementDataForCodeCheck(
         ...(derivedS_mm3 > 0 ? { S: derivedS_mm3 } : {}),
         ...(derivedTw_mm > 0 ? { tw: derivedTw_mm } : {}),
         ...(derivedAs_mm2 > 0 ? { As: derivedAs_mm2 } : {}),
-        ...(sectionObj?.['width'] !== undefined ? { width: sectionObj?.['width'] } : {}),
-        ...(sectionObj?.['height'] !== undefined ? { height: sectionObj?.['height'] } : {}),
+        ...(effectiveWidth > 0 ? { width: effectiveWidth } : {}),
+        ...(effectiveHeight > 0 ? { height: effectiveHeight } : {}),
+        effectiveBendingAxis: swappedPrincipalAxes ? 'section-z' : 'section-y',
         ...(wallThickness !== undefined ? { wallThickness } : {}),
         ...(wallLength !== undefined ? { wallLength } : {}),
         ...(sectionObj?.['thickness'] !== undefined ? { thickness: sectionObj?.['thickness'] } : {}),
@@ -577,19 +620,9 @@ function extractElementDataForCodeCheck(
       forceCoverage: recovered ? 'sampled_member_response' : forceStates.length ? 'endpoints_only' : 'unavailable',
       ...(forceInputIssue ? { forceInputIssue } : {}),
       ...(lengthMm !== undefined ? { length: lengthMm } : {}),
-      ...Object.fromEntries(['l0', 'h0', 'axialRatioLimit', 'crackWidthLimit', 'alpha_cr'].flatMap(key => {
-        const value = elem[key] ?? elemMetadata[key];
-        return finiteNumber(value) ? [[key, value]] : [];
-      })),
-      // design parameters (optionally passed via element metadata or element itself)
-      ...(typeof elem['phi'] === 'number' ? { phi: elem['phi'] } : {}),
-      ...(typeof elem['phi_b'] === 'number' ? { phi_b: elem['phi_b'] } : {}),
-      ...(typeof elem['phi_axial'] === 'number' ? { phi_axial: elem['phi_axial'] } : {}),
-      ...(typeof elem['beta1'] === 'number' ? { beta1: elem['beta1'] } : {}),
-      ...(typeof elem['btLimit'] === 'number' ? { btLimit: elem['btLimit'] } : {}),
-      ...(typeof elem['lambdaLimit'] === 'number' ? { lambdaLimit: elem['lambdaLimit'] } : {}),
-      ...(typeof elem['deflectionLimitN'] === 'number' ? { deflectionLimitN: elem['deflectionLimitN'] } : {}),
-      ...(typeof elem['deflection'] === 'number' ? { deflection: elem['deflection'] } : {}),
+      ...numericDesign,
+      ...(deflectionResponse ? { deflection: deflectionResponse.valueMm, deflectionResponse } : {}),
+      serviceabilityResult: serviceResult,
       ...(elem['seismic_grade'] !== undefined ? { seismicGrade: elem['seismic_grade'] } : {}),
       ...(storyHeightMm !== undefined ? { storyHeightMm } : {}),
       ...(storyHeight !== undefined ? { storyHeight } : {}),
@@ -613,10 +646,6 @@ function extractElementDataForCodeCheck(
       ...(steelSlenderness !== undefined ? { slenderness: steelSlenderness } : {}),
       ...(steelWidthThickness !== undefined ? { widthThickness: steelWidthThickness } : {}),
       ...(hasRecordKeys(elemExtra) ? { extra: elemExtra } : {}),
-      // from metadata — steel design params
-    ...(typeof elemMetadata['phi'] === 'number' ? { phi: elemMetadata['phi'] } : {}),
-    ...(typeof elemMetadata['phi_b'] === 'number' ? { phi_b: elemMetadata['phi_b'] } : {}),
-    ...(typeof elemMetadata['phi_axial'] === 'number' ? { phi_axial: elemMetadata['phi_axial'] } : {}),
     // Reinforcement is declared input, never a geometry-template minimum or design suggestion.
     ...rebarValues,
   };
