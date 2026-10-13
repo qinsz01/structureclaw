@@ -39,5 +39,3 @@ def test_correct_total_with_wrong_case_direction_or_target_fails(tmp_path, chang
         cases['FX']['loads'][0]['node'] = 'N1_0'
     with pytest.raises(ValueError, match='loads differ'):
         audit_loads(model, data['mapping'], fe)
-
-
