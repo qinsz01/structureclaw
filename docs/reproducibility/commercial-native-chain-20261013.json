@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-13T10:59:14.812702+00:00",
+  "generatedAt": "2026-10-13T11:21:50.877331+00:00",
   "status": "commercial-native-chain-preview-in-progress",
-  "implementationSnapshotCommit": "2e67837ee300c396730cd7f347f17eceb8c474da",
+  "implementationSnapshotCommit": "f0b5afd8b9ab0ce18af2448427dc78f641715f33",
   "scope": "This round native physical-model chain and delivery evidence, not a new 300-case benchmark release or paid LLM evaluation.",
   "historicalRecordsOverwritten": false,
   "all300CasesAccepted": false,
@@ -17,7 +17,7 @@
       "STD-086",
       "MM-081"
     ],
-    "pkpmRemaining": [
+    "pkpmPinnedBase": [
       "INT-079"
     ],
     "qualification": "Case identities denote physical-model native acceptance coverage, not complete multimodal/interactive agent task grading. Per-run component coverage and failures below remain authoritative."
@@ -44,6 +44,26 @@
       "combinations": [
         "CX"
       ],
+      "resultProvenance": {
+        "selectedView": {
+          "reactionKind": null,
+          "boundaryDisplacementKinds": {}
+        },
+        "cases": {
+          "D": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          },
+          "Wx": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          },
+          "Wy": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          }
+        }
+      },
       "referenceHashMatchesReceipt": true,
       "frozenReferenceTolerance": {
         "relative": 1e-05,
@@ -147,6 +167,22 @@
         "D_eq"
       ],
       "combinations": [],
+      "resultProvenance": {
+        "selectedView": {
+          "reactionKind": null,
+          "boundaryDisplacementKinds": {}
+        },
+        "cases": {
+          "D": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          },
+          "D_eq": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          }
+        }
+      },
       "referenceHashMatchesReceipt": true,
       "frozenReferenceTolerance": {
         "relative": 1e-05,
@@ -252,6 +288,22 @@
       "combinations": [
         "TOTAL"
       ],
+      "resultProvenance": {
+        "selectedView": {
+          "reactionKind": null,
+          "boundaryDisplacementKinds": {}
+        },
+        "cases": {
+          "D": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          },
+          "D_eq": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          }
+        }
+      },
       "referenceHashMatchesReceipt": true,
       "frozenReferenceTolerance": {
         "relative": 1e-05,
@@ -359,6 +411,38 @@
         "MZ"
       ],
       "combinations": [],
+      "resultProvenance": {
+        "selectedView": {
+          "reactionKind": null,
+          "boundaryDisplacementKinds": {}
+        },
+        "cases": {
+          "FX": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          },
+          "FY": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          },
+          "FZ": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          },
+          "MX": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          },
+          "MY": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          },
+          "MZ": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          }
+        }
+      },
       "referenceHashMatchesReceipt": true,
       "frozenReferenceTolerance": {
         "relative": 1e-05,
@@ -461,6 +545,18 @@
         "D"
       ],
       "combinations": [],
+      "resultProvenance": {
+        "selectedView": {
+          "reactionKind": null,
+          "boundaryDisplacementKinds": {}
+        },
+        "cases": {
+          "D": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          }
+        }
+      },
       "referenceHashMatchesReceipt": true,
       "frozenReferenceTolerance": {
         "relative": 1e-05,
@@ -566,6 +662,22 @@
       "combinations": [
         "MIX"
       ],
+      "resultProvenance": {
+        "selectedView": {
+          "reactionKind": null,
+          "boundaryDisplacementKinds": {}
+        },
+        "cases": {
+          "PATCH": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          },
+          "POINT": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          }
+        }
+      },
       "referenceHashMatchesReceipt": true,
       "frozenReferenceTolerance": {
         "relative": 1e-05,
@@ -671,6 +783,22 @@
       "combinations": [
         "MIX"
       ],
+      "resultProvenance": {
+        "selectedView": {
+          "reactionKind": null,
+          "boundaryDisplacementKinds": {}
+        },
+        "cases": {
+          "PATCH": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          },
+          "POINT": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          }
+        }
+      },
       "referenceHashMatchesReceipt": true,
       "frozenReferenceTolerance": {
         "relative": 1e-05,
@@ -781,6 +909,42 @@
       "combinations": [
         "D_FX"
       ],
+      "resultProvenance": {
+        "selectedView": {
+          "reactionKind": null,
+          "boundaryDisplacementKinds": {}
+        },
+        "cases": {
+          "FX": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          },
+          "FY": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          },
+          "FZ": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          },
+          "MX": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          },
+          "MY": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          },
+          "MZ": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          },
+          "D": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          }
+        }
+      },
       "referenceHashMatchesReceipt": true,
       "frozenReferenceTolerance": {
         "relative": 1e-05,
@@ -891,6 +1055,42 @@
       "combinations": [
         "D_FX"
       ],
+      "resultProvenance": {
+        "selectedView": {
+          "reactionKind": null,
+          "boundaryDisplacementKinds": {}
+        },
+        "cases": {
+          "FX": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          },
+          "FY": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          },
+          "FZ": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          },
+          "MX": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          },
+          "MY": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          },
+          "MZ": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          },
+          "D": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          }
+        }
+      },
       "referenceHashMatchesReceipt": true,
       "frozenReferenceTolerance": {
         "relative": 1e-05,
@@ -996,6 +1196,22 @@
       "combinations": [
         "MIX"
       ],
+      "resultProvenance": {
+        "selectedView": {
+          "reactionKind": null,
+          "boundaryDisplacementKinds": {}
+        },
+        "cases": {
+          "PATCH": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          },
+          "POINT": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          }
+        }
+      },
       "referenceHashMatchesReceipt": true,
       "frozenReferenceTolerance": {
         "relative": 1e-05,
@@ -1082,6 +1298,127 @@
       ]
     },
     {
+      "run": "yjk-frame-acceptance-20261013-191731-2ed822",
+      "engine": "yjk",
+      "caseOrCalibration": "sloping-roof-physical-load-position-api",
+      "status": "passed",
+      "scope": "Formal API: P/Q/PQ; actual sloping member length, point and half-span uniform loads; split nodes retain natural floor",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-191731-2ed822",
+      "entry": "api",
+      "quantities": {
+        "checks": 1584,
+        "passed": 1584,
+        "failed": 0
+      },
+      "sourceCases": [
+        "P",
+        "Q"
+      ],
+      "combinations": [
+        "PQ"
+      ],
+      "resultProvenance": {
+        "selectedView": {
+          "reactionKind": null,
+          "boundaryDisplacementKinds": {}
+        },
+        "cases": {
+          "P": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          },
+          "Q": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          }
+        }
+      },
+      "referenceHashMatchesReceipt": true,
+      "frozenReferenceTolerance": {
+        "relative": 1e-05,
+        "absolute": {
+          "displacements": 1e-11,
+          "reactions": 1e-05,
+          "localEndActions": 1e-05
+        }
+      },
+      "legacyEulerScoringDiagnostic": null,
+      "artifacts": [
+        {
+          "role": "input",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-191731-2ed822\\input.json",
+          "sha256": "1cf11265b1a1c21011c1ef1f6649b3c2f4f221199b6216c1da5ee7bf5af849a2",
+          "size": 13634
+        },
+        {
+          "role": "reference",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-191731-2ed822\\reference.json",
+          "sha256": "a021c5bdc408aed8e943a151c1425dbb58c01c50e9b82e951f11438de88d0cf8",
+          "size": 61253
+        },
+        {
+          "role": "acceptance",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-191731-2ed822\\acceptance.json",
+          "sha256": "12576141a80b6aeffcdf36bda52bafb8dc3a42b309804f8cd8de54f0db5f06d6",
+          "size": 369933
+        },
+        {
+          "role": "result",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-191731-2ed822\\result.json",
+          "sha256": "dcbefca49d6b3570855217b8146f22747f53dfff8dfec2f5dd63ecd74e738a42",
+          "size": 21059128
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-191731-2ed822\\sc_work_f7eb1b4c366f\\fea.dat",
+          "sha256": "33ffd8d23a2080c1837c0f8a3d90599bf6c0a3f1a97b93df03e151eb6c79f68b",
+          "size": 12069
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-191731-2ed822\\sc_work_f7eb1b4c366f\\mapping.json",
+          "sha256": "44ea30cdecf2a2590166f6c7585239203c9cde43fb1085117a710cbd37632fa9",
+          "size": 48875
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-191731-2ed822\\sc_work_f7eb1b4c366f\\native-physics-audit.json",
+          "sha256": "e84f6b9ce38117f48f7e57e9d9e6efbf85245cfbcd256927291b45871d0c2cfc",
+          "size": 61162
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-191731-2ed822\\sc_work_f7eb1b4c366f\\native-physics-context.json",
+          "sha256": "a20cfdba95f3c8915600900eb6d487d7832c479c46481df9109e85e2f5507140",
+          "size": 724
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-191731-2ed822\\sc_work_f7eb1b4c366f\\native-effective-settings.json",
+          "sha256": "fefd733a3b59734712aa12609a4f27873c5e567c53eb72c277d0ed45f99bd981",
+          "size": 899
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-191731-2ed822\\sc_work_f7eb1b4c366f\\native-settings-readback.json",
+          "sha256": "fe1c9b52bda0b62e3cbcaefbd10ea189bd3006f5faf3a99b2f1e22c9f228e1de",
+          "size": 2726
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-191731-2ed822\\sc_work_f7eb1b4c366f\\native-material-audit.json",
+          "sha256": "68fe6c9c0c66a0035f3c3e9024f85021b436736db2977477ce819cfdc3f58161",
+          "size": 53911
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-191731-2ed822\\sc_work_f7eb1b4c366f\\yjk-cleanup.json",
+          "sha256": "c77d689cfb360caa22a0ccb1492da31ffd0a01dd9592c677a6035e384d5a08dd",
+          "size": 125
+        }
+      ]
+    },
+    {
       "run": "pkpm-STD-086-20261013-180845-230511dd",
       "engine": "pkpm",
       "caseOrCalibration": "STD-086/calibration",
@@ -1098,6 +1435,18 @@
         "D"
       ],
       "combinations": [],
+      "resultProvenance": {
+        "selectedView": {
+          "reactionKind": null,
+          "boundaryDisplacementKinds": {}
+        },
+        "cases": {
+          "D": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          }
+        }
+      },
       "referenceHashMatchesReceipt": true,
       "frozenReferenceTolerance": {
         "relative": 1e-05,
@@ -1214,6 +1563,20 @@
         "D"
       ],
       "combinations": [],
+      "resultProvenance": {
+        "selectedView": {
+          "reactionKind": null,
+          "boundaryDisplacementKinds": {}
+        },
+        "cases": {
+          "D": {
+            "reactionKind": "derived-node-equilibrium",
+            "boundaryDisplacementKinds": {
+              "prescribed-boundary": 8
+            }
+          }
+        }
+      },
       "referenceHashMatchesReceipt": true,
       "frozenReferenceTolerance": {
         "relative": 1e-05,
@@ -1314,6 +1677,140 @@
       ]
     },
     {
+      "run": "pkpm-STD-086-20261013-185413-e85f41f2",
+      "engine": "pkpm",
+      "caseOrCalibration": "STD-086/full-fixed-base",
+      "status": "passed-physical-output",
+      "scope": "144 nodal and 480 support/end-force components; complete physical output and explicit selected source case",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-STD-086-20261013-185413-e85f41f2",
+      "entry": "native-driver-or-production-runtime",
+      "quantities": {
+        "timoshenkoChecks": 144,
+        "timoshenkoPassed": true,
+        "timoshenkoForceChecks": 480,
+        "timoshenkoForcesPassed": true,
+        "completePhysicalOutputAccepted": true,
+        "timoshenkoChecksFailed": 0,
+        "timoshenkoForceChecksFailed": 0
+      },
+      "sourceCases": [
+        "D"
+      ],
+      "combinations": [],
+      "resultProvenance": {
+        "selectedView": {
+          "reactionKind": null,
+          "boundaryDisplacementKinds": {}
+        },
+        "cases": {
+          "D": {
+            "reactionKind": "derived-node-equilibrium",
+            "boundaryDisplacementKinds": {
+              "prescribed-boundary": 8
+            }
+          }
+        }
+      },
+      "referenceHashMatchesReceipt": true,
+      "frozenReferenceTolerance": {
+        "relative": 1e-05,
+        "translationM": 1e-11,
+        "rotationRad": 1e-11,
+        "forceKN": 1e-05,
+        "momentKNm": 1e-05
+      },
+      "legacyEulerScoringDiagnostic": {
+        "numericalCapabilityAccepted": false,
+        "notCommercialScoringTruth": true
+      },
+      "artifacts": [
+        {
+          "role": "input",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-STD-086-20261013-185413-e85f41f2\\frozen-source-model.json",
+          "sha256": "5bf6ef172f9c2d2d258ca7f5b039df8d6d99a854506d4aa0f50dd498af0eca70",
+          "size": 20025
+        },
+        {
+          "role": "reference",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-STD-086-20261013-185413-e85f41f2\\frozen-timoshenko-reference.json",
+          "sha256": "c9038883f1099be93b880006b5f1195f5b1c37f659c0b0cd00f187549c07d51c",
+          "size": 25524
+        },
+        {
+          "role": "acceptance",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-STD-086-20261013-185413-e85f41f2\\acceptance.json",
+          "sha256": "61c74070cb9c910f1907760ae3ea1982bcda52805de4fc845ba10addd4d55a8d",
+          "size": 166822
+        },
+        {
+          "role": "result",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-STD-086-20261013-185413-e85f41f2\\result.json",
+          "sha256": "a23aadc81531db8dc45df02de94df2b7984a85a7cf1371fd8c349f57a54ee55c",
+          "size": 1779618
+        },
+        {
+          "role": "reference-provenance",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-STD-086-20261013-185413-e85f41f2\\reference-provenance.json",
+          "sha256": "02571081da975c264b3848edafda104c8646cec4d1b703901b97a70dce5395de",
+          "size": 526
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-STD-086-20261013-185413-e85f41f2\\sc_fbaeba99\\MESH.SAT",
+          "sha256": "d0723c96f4596e322a70b7afedabaa3a28d13dcefc8dad55e20985c34879a624",
+          "size": 500
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-STD-086-20261013-185413-e85f41f2\\sc_fbaeba99\\NODEINDEX.SAT",
+          "sha256": "1e66a5dc3d1eb77074be52c811009cdc73d892a214531e48c78e656275c6d13e",
+          "size": 136
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-STD-086-20261013-185413-e85f41f2\\sc_fbaeba99\\DISP.SAT",
+          "sha256": "9ba571bab9c7169cbc298fcb04651aae0ab38dcb1047f3047f234b1b7283f0c5",
+          "size": 768
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-STD-086-20261013-185413-e85f41f2\\sc_fbaeba99\\DISP1.SAT",
+          "sha256": "2fb2dc7c4a3d804fbd91cc8ff9d6de1c7d7c31492ba60c5e4c16e8d33f7d8c72",
+          "size": 880
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-STD-086-20261013-185413-e85f41f2\\sc_fbaeba99\\ConstraintNodeNo.SAT",
+          "sha256": "6786ee0eb97f919137937a2e3f348a0d5f952b7a9be3c3c58b21708f64c1f22b",
+          "size": 112
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-STD-086-20261013-185413-e85f41f2\\sc_fbaeba99\\GOUJIAN.OUT",
+          "sha256": "9063cc53f1fafdab4d290a30418f8577579449196c2784edb24a7a21854b05c8",
+          "size": 7117
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-STD-086-20261013-185413-e85f41f2\\sc_fbaeba99\\WDISPGKNO.OUT",
+          "sha256": "655410d301be0c883c78413899c970436d499a822d582eb0f291188475912883",
+          "size": 32
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-STD-086-20261013-185413-e85f41f2\\sc_fbaeba99\\UserMaterial.SAT",
+          "sha256": "3a7283d8a5f3e29a5cd585d451fd774c5c867b8c58bf3407825525d2eb9adb64",
+          "size": 112
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-STD-086-20261013-185413-e85f41f2\\sc_fbaeba99\\WMASS.OUT",
+          "sha256": "e6fcdd3d6bb0dee503360780fdeca4e8e2ca4c25c50a26430d5e6c765e6f7335",
+          "size": 21051
+        }
+      ]
+    },
+    {
       "run": "pkpm-MM-081-20261013-183934-c14ab60f",
       "engine": "pkpm",
       "caseOrCalibration": "MM-081",
@@ -1334,6 +1831,20 @@
         "D"
       ],
       "combinations": [],
+      "resultProvenance": {
+        "selectedView": {
+          "reactionKind": null,
+          "boundaryDisplacementKinds": {}
+        },
+        "cases": {
+          "D": {
+            "reactionKind": "derived-node-equilibrium",
+            "boundaryDisplacementKinds": {
+              "prescribed-boundary": 6
+            }
+          }
+        }
+      },
       "referenceHashMatchesReceipt": true,
       "frozenReferenceTolerance": {
         "relative": 1e-05,
@@ -1456,6 +1967,32 @@
         "W"
       ],
       "combinations": [],
+      "resultProvenance": {
+        "selectedView": {
+          "reactionKind": null,
+          "boundaryDisplacementKinds": {}
+        },
+        "cases": {
+          "D": {
+            "reactionKind": "derived-node-equilibrium",
+            "boundaryDisplacementKinds": {
+              "prescribed-boundary": 8
+            }
+          },
+          "L": {
+            "reactionKind": "derived-node-equilibrium",
+            "boundaryDisplacementKinds": {
+              "prescribed-boundary": 8
+            }
+          },
+          "W": {
+            "reactionKind": "derived-node-equilibrium",
+            "boundaryDisplacementKinds": {
+              "prescribed-boundary": 8
+            }
+          }
+        }
+      },
       "referenceHashMatchesReceipt": true,
       "frozenReferenceTolerance": {
         "relative": 1e-05,
@@ -1588,6 +2125,18 @@
         "D"
       ],
       "combinations": [],
+      "resultProvenance": {
+        "selectedView": {
+          "reactionKind": null,
+          "boundaryDisplacementKinds": {}
+        },
+        "cases": {
+          "D": {
+            "reactionKind": null,
+            "boundaryDisplacementKinds": {}
+          }
+        }
+      },
       "referenceHashMatchesReceipt": true,
       "frozenReferenceTolerance": {
         "relative": 1e-05,
@@ -1669,6 +2218,12 @@
         },
         {
           "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-184625-4683d811\\sc_5b8819e0\\ConstraintNodeSK.SAT",
+          "sha256": "99563cb6e8f2cd2c0d87bf804ca442b763c9c51ccaf8d76ddacb3ef5002702a6",
+          "size": 208
+        },
+        {
+          "role": "native-evidence",
           "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-184625-4683d811\\sc_5b8819e0\\GOUJIAN.OUT",
           "sha256": "d10bbab960beae2c4e731e778fb9f1e17aeb564aa23efcab16af083108b23e4b",
           "size": 4469
@@ -1689,6 +2244,499 @@
           "role": "native-evidence",
           "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-184625-4683d811\\sc_5b8819e0\\WMASS.OUT",
           "sha256": "1f99085e9862e62ddad8e61629cd7d6c0ef4f738069a4ee9b4683180ec53a1c7",
+          "size": 21051
+        }
+      ]
+    },
+    {
+      "run": "pkpm-INT-079-20261013-190212-5b8eb971",
+      "engine": "pkpm",
+      "caseOrCalibration": "INT-079/staged-candidate",
+      "status": "passed-physical-output",
+      "scope": "72 nodal and 216 support/end-force components pass; staged native constraint compilation has true zero rotational stiffness; awaiting formal production-path rerun",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190212-5b8eb971",
+      "entry": "native-driver-or-production-runtime",
+      "quantities": {
+        "timoshenkoChecks": 72,
+        "timoshenkoPassed": true,
+        "timoshenkoForceChecks": 216,
+        "timoshenkoForcesPassed": true,
+        "completePhysicalOutputAccepted": true,
+        "timoshenkoChecksFailed": 0,
+        "timoshenkoForceChecksFailed": 0
+      },
+      "sourceCases": [
+        "D"
+      ],
+      "combinations": [],
+      "resultProvenance": {
+        "selectedView": {
+          "reactionKind": null,
+          "boundaryDisplacementKinds": {}
+        },
+        "cases": {
+          "D": {
+            "reactionKind": "derived-node-equilibrium",
+            "boundaryDisplacementKinds": {
+              "prescribed-boundary": 4
+            }
+          }
+        }
+      },
+      "referenceHashMatchesReceipt": true,
+      "frozenReferenceTolerance": {
+        "relative": 1e-05,
+        "translationM": 1e-11,
+        "rotationRad": 1e-11,
+        "forceKN": 1e-05,
+        "momentKNm": 1e-05
+      },
+      "legacyEulerScoringDiagnostic": {
+        "numericalCapabilityAccepted": false,
+        "notCommercialScoringTruth": true
+      },
+      "artifacts": [
+        {
+          "role": "input",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190212-5b8eb971\\frozen-source-model.json",
+          "sha256": "d7ffb8382c49799b19423ba170163a0938d61a1831cb098526676176ea111fc3",
+          "size": 9953
+        },
+        {
+          "role": "reference",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190212-5b8eb971\\frozen-timoshenko-reference.json",
+          "sha256": "8984752e115b83180fb106fde7af150013ef6b97bf1b331be617f9e63fa13496",
+          "size": 12083
+        },
+        {
+          "role": "acceptance",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190212-5b8eb971\\acceptance.json",
+          "sha256": "5a48c44b212501a13b13f263cd372351f43ad27978de235d07d8836f171fc6c9",
+          "size": 82345
+        },
+        {
+          "role": "result",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190212-5b8eb971\\result.json",
+          "sha256": "fd606c8f617cb9427ab98afb011bb0504358853a94e9e742d389efe168eb8b54",
+          "size": 818395
+        },
+        {
+          "role": "reference-provenance",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190212-5b8eb971\\reference-provenance.json",
+          "sha256": "e52e931e0a659b9697bb815f1244f13610f9a536b735f5c76118fdde9e79fb3c",
+          "size": 526
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190212-5b8eb971\\sc_66c9d010\\MESH.SAT",
+          "sha256": "38c69a359055e23073cc89936f14ba57c2e68eb06bbad309cc789e1b73ab8058",
+          "size": 260
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190212-5b8eb971\\sc_66c9d010\\NODEINDEX.SAT",
+          "sha256": "f1d1933bbc5fd7933e4a6fe2dd62cf73622db187107a95e1be729fd4b2ae7cb3",
+          "size": 72
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190212-5b8eb971\\sc_66c9d010\\DISP.SAT",
+          "sha256": "8e463c13efff810721de7f99f8cfec56542636c0eb777fef63ab8ca31593849a",
+          "size": 432
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190212-5b8eb971\\sc_66c9d010\\DISP1.SAT",
+          "sha256": "417c2a6a192611c1adf514df454b001b0fb27bce18d8fc36547f337b9fcae1a2",
+          "size": 592
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190212-5b8eb971\\sc_66c9d010\\ConstraintNodeNo.SAT",
+          "sha256": "c656d89329080f91e2f8d89a9af43ec32ac07ee18eb24135e2ad95507162f7b2",
+          "size": 64
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190212-5b8eb971\\sc_66c9d010\\ConstraintNode.SAT",
+          "sha256": "597affeea73f13e87b84dfefd3543a65d8f6457a42b6e6fcfd896b5269c38b78",
+          "size": 256
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190212-5b8eb971\\sc_66c9d010\\ConstraintNodeSK.SAT",
+          "sha256": "315ddd4b280e8750626676de4a65f0bf38d865e55a885bddfa488acfaeffd376",
+          "size": 208
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190212-5b8eb971\\sc_66c9d010\\ConstraintNode.SAT.precompile",
+          "sha256": "935447a1d2fd2520f637a2ffb7ca2a88c4447a3b9ec15394b49c5b3d3182b38f",
+          "size": 256
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190212-5b8eb971\\sc_66c9d010\\ConstraintNodeSK.SAT.precompile",
+          "sha256": "bef2a0a7d81c87b467c56b1aeaf811e5d63b49bb03baae4a1c452b93593ac68c",
+          "size": 208
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190212-5b8eb971\\sc_66c9d010\\native-stage-evidence.json",
+          "sha256": "0d9952db608a3eb7a63615fe6987acd78ba0cd897994ce69110df4da404f65ef",
+          "size": 2136
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190212-5b8eb971\\sc_66c9d010\\GOUJIAN.OUT",
+          "sha256": "d057877eed39712d60a95b7576f50e4a559d16f128a8e59cd7bc55fd63f6353c",
+          "size": 4469
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190212-5b8eb971\\sc_66c9d010\\WDISPGKNO.OUT",
+          "sha256": "655410d301be0c883c78413899c970436d499a822d582eb0f291188475912883",
+          "size": 32
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190212-5b8eb971\\sc_66c9d010\\UserMaterial.SAT",
+          "sha256": "3a7283d8a5f3e29a5cd585d451fd774c5c867b8c58bf3407825525d2eb9adb64",
+          "size": 112
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190212-5b8eb971\\sc_66c9d010\\WMASS.OUT",
+          "sha256": "d197559b4f44de5b54a96df03dc74b00f12ddbf55c7ac39efe8c5210f49b474c",
+          "size": 21051
+        }
+      ]
+    },
+    {
+      "run": "pkpm-INT-079-20261013-190555-d975cb51",
+      "engine": "pkpm",
+      "caseOrCalibration": "INT-079/formal-entry",
+      "status": "passed-physical-output",
+      "scope": "Default runtime without diagnostic override; 72 nodal and 216 support/end-force components pass. This saved output predates the finer per-node pin provenance labeling fix.",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190555-d975cb51",
+      "entry": "native-driver-or-production-runtime",
+      "quantities": {
+        "timoshenkoChecks": 72,
+        "timoshenkoPassed": true,
+        "timoshenkoForceChecks": 216,
+        "timoshenkoForcesPassed": true,
+        "completePhysicalOutputAccepted": true,
+        "timoshenkoChecksFailed": 0,
+        "timoshenkoForceChecksFailed": 0
+      },
+      "sourceCases": [
+        "D"
+      ],
+      "combinations": [],
+      "resultProvenance": {
+        "selectedView": {
+          "reactionKind": null,
+          "boundaryDisplacementKinds": {}
+        },
+        "cases": {
+          "D": {
+            "reactionKind": "derived-node-equilibrium",
+            "boundaryDisplacementKinds": {
+              "prescribed-boundary": 4
+            }
+          }
+        }
+      },
+      "referenceHashMatchesReceipt": true,
+      "frozenReferenceTolerance": {
+        "relative": 1e-05,
+        "translationM": 1e-11,
+        "rotationRad": 1e-11,
+        "forceKN": 1e-05,
+        "momentKNm": 1e-05
+      },
+      "legacyEulerScoringDiagnostic": {
+        "numericalCapabilityAccepted": false,
+        "notCommercialScoringTruth": true
+      },
+      "artifacts": [
+        {
+          "role": "input",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190555-d975cb51\\frozen-source-model.json",
+          "sha256": "d7ffb8382c49799b19423ba170163a0938d61a1831cb098526676176ea111fc3",
+          "size": 9953
+        },
+        {
+          "role": "reference",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190555-d975cb51\\frozen-timoshenko-reference.json",
+          "sha256": "8984752e115b83180fb106fde7af150013ef6b97bf1b331be617f9e63fa13496",
+          "size": 12083
+        },
+        {
+          "role": "acceptance",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190555-d975cb51\\acceptance.json",
+          "sha256": "727ef83771406b7cc4bf3e7ab99535a29ab69d06f7cf821bcbfeefe43d9189de",
+          "size": 81968
+        },
+        {
+          "role": "result",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190555-d975cb51\\result.json",
+          "sha256": "3c7b0d9e2e522154580c40f81bd4d11d90ed5b49bec1eae973a156d1cc7ecd9e",
+          "size": 818395
+        },
+        {
+          "role": "reference-provenance",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190555-d975cb51\\reference-provenance.json",
+          "sha256": "2c09fb035712dc60ff39801680b6460320c46eddaf492766d7669e5fbb3e77de",
+          "size": 526
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190555-d975cb51\\sc_45bab27c\\MESH.SAT",
+          "sha256": "38c69a359055e23073cc89936f14ba57c2e68eb06bbad309cc789e1b73ab8058",
+          "size": 260
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190555-d975cb51\\sc_45bab27c\\NODEINDEX.SAT",
+          "sha256": "f1d1933bbc5fd7933e4a6fe2dd62cf73622db187107a95e1be729fd4b2ae7cb3",
+          "size": 72
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190555-d975cb51\\sc_45bab27c\\DISP.SAT",
+          "sha256": "8e463c13efff810721de7f99f8cfec56542636c0eb777fef63ab8ca31593849a",
+          "size": 432
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190555-d975cb51\\sc_45bab27c\\DISP1.SAT",
+          "sha256": "417c2a6a192611c1adf514df454b001b0fb27bce18d8fc36547f337b9fcae1a2",
+          "size": 592
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190555-d975cb51\\sc_45bab27c\\ConstraintNodeNo.SAT",
+          "sha256": "c656d89329080f91e2f8d89a9af43ec32ac07ee18eb24135e2ad95507162f7b2",
+          "size": 64
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190555-d975cb51\\sc_45bab27c\\ConstraintNode.SAT",
+          "sha256": "2c6824c9b2b32669bae7452ac8aff7a3a7e0111a0585d383b83e188914339e2e",
+          "size": 256
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190555-d975cb51\\sc_45bab27c\\ConstraintNodeSK.SAT",
+          "sha256": "315ddd4b280e8750626676de4a65f0bf38d865e55a885bddfa488acfaeffd376",
+          "size": 208
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190555-d975cb51\\sc_45bab27c\\ConstraintNode.SAT.precompile",
+          "sha256": "eed8c111aa7c29d4424236c60f372ee057d1a18a206ad9e819d0cec4141063c4",
+          "size": 256
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190555-d975cb51\\sc_45bab27c\\ConstraintNodeSK.SAT.precompile",
+          "sha256": "bef2a0a7d81c87b467c56b1aeaf811e5d63b49bb03baae4a1c452b93593ac68c",
+          "size": 208
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190555-d975cb51\\sc_45bab27c\\native-stage-evidence.json",
+          "sha256": "1545aa46f7e75a4a29c5314ebf0fffe3b61bc55f676659a153924b7fe800c5ed",
+          "size": 2135
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190555-d975cb51\\sc_45bab27c\\GOUJIAN.OUT",
+          "sha256": "d057877eed39712d60a95b7576f50e4a559d16f128a8e59cd7bc55fd63f6353c",
+          "size": 4469
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190555-d975cb51\\sc_45bab27c\\WDISPGKNO.OUT",
+          "sha256": "655410d301be0c883c78413899c970436d499a822d582eb0f291188475912883",
+          "size": 32
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190555-d975cb51\\sc_45bab27c\\UserMaterial.SAT",
+          "sha256": "3a7283d8a5f3e29a5cd585d451fd774c5c867b8c58bf3407825525d2eb9adb64",
+          "size": 112
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-079-20261013-190555-d975cb51\\sc_45bab27c\\WMASS.OUT",
+          "sha256": "6a9467e895777702831bb971d0a3de57bea4382a18c15509af4164a3ac60fec5",
+          "size": 21051
+        }
+      ]
+    },
+    {
+      "run": "pkpm-MM-089-20261013-191404-ab7b7d11",
+      "engine": "pkpm",
+      "caseOrCalibration": "MM-089/mixed-fixed-pinned-calibration",
+      "status": "incomplete-or-failed-physical-output",
+      "scope": "Fresh default runtime verifies solver-direct six-DOF values and provenance for two pinned bases; 216 node checks pass, 2 of 768 force checks fail. Whole physical output not accepted.",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-MM-089-20261013-191404-ab7b7d11",
+      "entry": "native-driver-or-production-runtime",
+      "quantities": {
+        "timoshenkoChecks": 216,
+        "timoshenkoPassed": true,
+        "timoshenkoForceChecks": 768,
+        "timoshenkoForcesPassed": false,
+        "completePhysicalOutputAccepted": false,
+        "timoshenkoChecksFailed": 0,
+        "timoshenkoForceChecksFailed": 2
+      },
+      "sourceCases": [
+        "D"
+      ],
+      "combinations": [],
+      "resultProvenance": {
+        "selectedView": {
+          "reactionKind": null,
+          "boundaryDisplacementKinds": {}
+        },
+        "cases": {
+          "D": {
+            "reactionKind": "derived-node-equilibrium",
+            "boundaryDisplacementKinds": {
+              "solver-direct-constraint-dofs": 2,
+              "prescribed-boundary": 10
+            }
+          }
+        }
+      },
+      "referenceHashMatchesReceipt": true,
+      "frozenReferenceTolerance": {
+        "relative": 1e-05,
+        "translationM": 1e-11,
+        "rotationRad": 1e-11,
+        "forceKN": 1e-05,
+        "momentKNm": 1e-05
+      },
+      "legacyEulerScoringDiagnostic": {
+        "numericalCapabilityAccepted": null,
+        "notCommercialScoringTruth": true
+      },
+      "artifacts": [
+        {
+          "role": "input",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-MM-089-20261013-191404-ab7b7d11\\frozen-source-model.json",
+          "sha256": "6ca5b555b3367e2f41fc80fa015dc84335e695a78cfa18139d8bd8473d80cad8",
+          "size": 32865
+        },
+        {
+          "role": "reference",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-MM-089-20261013-191404-ab7b7d11\\frozen-timoshenko-reference.json",
+          "sha256": "67ba5d4659724e894e2e2d8ef29b703054e13a7649635a651a4401e45c50aa29",
+          "size": 39169
+        },
+        {
+          "role": "acceptance",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-MM-089-20261013-191404-ab7b7d11\\acceptance.json",
+          "sha256": "2307942c94edfd80825d6d00336fd1eaff1a1921079648e1103cd10587b6d774",
+          "size": 195684
+        },
+        {
+          "role": "result",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-MM-089-20261013-191404-ab7b7d11\\result.json",
+          "sha256": "2e0d2c0729ac6b764d0c2339c35b9fd10885afe6efd52861701de953b91bf757",
+          "size": 3220030
+        },
+        {
+          "role": "reference-provenance",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-MM-089-20261013-191404-ab7b7d11\\reference-provenance.json",
+          "sha256": "ae3945f45f53f663cd4197d12f2bb35b01a606b4fd53c4c18321c04514702b8f",
+          "size": 651
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-MM-089-20261013-191404-ab7b7d11\\sc_e1d324fb\\MESH.SAT",
+          "sha256": "dbe50e6e3c4bb1a0ccf98de6e4ebc5aaeb5bd9efda4cb2b34b3880e8551892da",
+          "size": 740
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-MM-089-20261013-191404-ab7b7d11\\sc_e1d324fb\\NODEINDEX.SAT",
+          "sha256": "59ea5acbe133f579a473fcbf3994a0f820be61b96aadc2f3618a3d59f1131109",
+          "size": 200
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-MM-089-20261013-191404-ab7b7d11\\sc_e1d324fb\\DISP.SAT",
+          "sha256": "013bc42b86c6dc901b67a197016eb13513f1d8d741f23cb560658e97d684fd51",
+          "size": 1248
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-MM-089-20261013-191404-ab7b7d11\\sc_e1d324fb\\DISP1.SAT",
+          "sha256": "32a2b91f83dc79e2425a8be5454bf80c3526242217b8c7df67a3bd6f96c1ef50",
+          "size": 1168
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-MM-089-20261013-191404-ab7b7d11\\sc_e1d324fb\\ConstraintNodeNo.SAT",
+          "sha256": "e00edba4d75784edd491e1ba789059a44ad7141f27443d96726aff6a27c37970",
+          "size": 160
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-MM-089-20261013-191404-ab7b7d11\\sc_e1d324fb\\ConstraintNode.SAT",
+          "sha256": "b5de021b050607a3169ef06efa3264b671900cb009ab82fb10fae064453e20aa",
+          "size": 256
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-MM-089-20261013-191404-ab7b7d11\\sc_e1d324fb\\ConstraintNodeSK.SAT",
+          "sha256": "315ddd4b280e8750626676de4a65f0bf38d865e55a885bddfa488acfaeffd376",
+          "size": 208
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-MM-089-20261013-191404-ab7b7d11\\sc_e1d324fb\\ConstraintNode.SAT.precompile",
+          "sha256": "2c1b5636c66d237d18e160af630f5ab95760071d58bf4ed7ca0c695cbb378635",
+          "size": 256
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-MM-089-20261013-191404-ab7b7d11\\sc_e1d324fb\\ConstraintNodeSK.SAT.precompile",
+          "sha256": "bef2a0a7d81c87b467c56b1aeaf811e5d63b49bb03baae4a1c452b93593ac68c",
+          "size": 208
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-MM-089-20261013-191404-ab7b7d11\\sc_e1d324fb\\native-stage-evidence.json",
+          "sha256": "8b936fee4e4111fe5a849615e50bfe973d9523d026c9bfce7eb8e3b50db1985f",
+          "size": 2134
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-MM-089-20261013-191404-ab7b7d11\\sc_e1d324fb\\GOUJIAN.OUT",
+          "sha256": "fcf796c8ebb3d1fb6ab95d28611d746b30f6310505f0089155889b269af59169",
+          "size": 10299
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-MM-089-20261013-191404-ab7b7d11\\sc_e1d324fb\\WDISPGKNO.OUT",
+          "sha256": "655410d301be0c883c78413899c970436d499a822d582eb0f291188475912883",
+          "size": 32
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-MM-089-20261013-191404-ab7b7d11\\sc_e1d324fb\\UserMaterial.SAT",
+          "sha256": "3a7283d8a5f3e29a5cd585d451fd774c5c867b8c58bf3407825525d2eb9adb64",
+          "size": 112
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-MM-089-20261013-191404-ab7b7d11\\sc_e1d324fb\\WMASS.OUT",
+          "sha256": "c59bdc96410da5638bc85d937de6b4efe05a7817d3da78e10dc39e340350b5df",
           "size": 21051
         }
       ]
@@ -1739,21 +2787,25 @@
     }
   ],
   "crossLayerRegression": {
-    "commit": "4deb1e9",
-    "backendTests": 23,
+    "coreCommit": "4deb1e9",
+    "pkpmFixtureCommit": "5b78236",
+    "pointCutPrecisionCommit": "f0b5afd",
+    "backendTests": 25,
     "pythonCombinationTests": 6,
     "frontendTests": 12,
     "backendBuild": "passed",
     "frontendTypecheck": "passed",
     "fixtures": [
       "backend/tests/fixtures/yjk-native-STD088-delivery.json",
-      "backend/tests/fixtures/yjk-native-local-loads-delivery.json"
+      "backend/tests/fixtures/yjk-native-local-loads-delivery.json",
+      "backend/tests/fixtures/pkpm-native-STD086-delivery.json"
     ],
     "scope": "Exact native cuts and mechanics-recovered signed forces, partial/point cuts and combinations across query/chart/report. No unverified interior displacement."
   },
   "remaining": [
-    "PKPM complete three-rotation pin and support result evidence",
+    "PKPM case-level pin provenance is verified in fresh MM-089 result; selected compatibility view omitted provenance in that saved output and needs its own corrected output",
     "PKPM custom W native end-force calibration: 2 of 1440 force checks fail in recorded run",
+    "PKPM MM-089 mixed fixed/pinned calibration: 2 of 768 force checks fail in recorded run",
     "Independently reviewed native commercial scoring truth for full benchmark",
     "All unlisted commercial cases and unlisted configurations remain unaccepted",
     "Native automatic design result tuple interpretation remains unverified; no utilization is inferred"
@@ -1761,5 +2813,36 @@
   "previousEvidence": [
     "docs/reproducibility/commercial-native-repair-20261013.json",
     "docs/reproducibility/pkpm-native-repair-20261013.json"
+  ],
+  "preservedPreSolveRejections": [
+    {
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-191600-fb5649",
+      "engine": "yjk",
+      "nativeSolveExecuted": false,
+      "status": "rejected-before-solver",
+      "errorCode": "ENGINE_INPUT_UNSUPPORTED",
+      "message": "load_cases.P.loads.0: load values exceed native 0.001 precision / 荷载值或位置超出原生三位小数精度",
+      "scope": "Physical sloping-length position was incorrectly checked as a native three-decimal load value; corrected before fresh API/native run 191731-2ed822.",
+      "artifacts": [
+        {
+          "role": "input",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-191600-fb5649\\input.json",
+          "sha256": "1cf11265b1a1c21011c1ef1f6649b3c2f4f221199b6216c1da5ee7bf5af849a2",
+          "size": 13634
+        },
+        {
+          "role": "reference",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-191600-fb5649\\reference.json",
+          "sha256": "ffb6f44728b6d7fdef113f14ff7e02fa4692497b0ec8eb63bc2bda2eed9620f9",
+          "size": 61252
+        },
+        {
+          "role": "api-response",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-191600-fb5649\\api-response.json",
+          "sha256": "de72432e1a5f8b18487ee1b01e39afdaf485af8da7d0014774a93f14c8581fad",
+          "size": 939
+        }
+      ]
+    }
   ]
 }
