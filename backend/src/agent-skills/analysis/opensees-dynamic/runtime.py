@@ -11,7 +11,7 @@ from structure_protocol.structure_model_v2 import StructureModelV2
 def run_analysis(model: StructureModelV2, parameters: Dict[str, Any]) -> Dict[str, Any]:
     analysis_type = parameters.get("analysisType", "modal")
     helper = OpenSeesTagMapper(model)
-    executor = OpenSeesDynamicExecutor(helper)
+    executor = OpenSeesDynamicExecutor(helper, parameters)
 
     try:
         import openseespy.opensees as ops
@@ -38,6 +38,7 @@ def run_analysis(model: StructureModelV2, parameters: Dict[str, Any]) -> Dict[st
                 ops,
                 parameters.get("direction", "x"),
                 acceleration_unit=parameters.get("groundMotionUnit", "m/s2"),
+                monitor_node_ids=parameters.get("monitorNodeIds"),
             )
         except OpenSeesInputError:
             raise
