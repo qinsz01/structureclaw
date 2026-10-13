@@ -1123,12 +1123,12 @@ function buildAvailableViews(cases: VisualizationCase[], source: VisualizationSo
   }
   const hasDisplacements = cases.some((item) =>
     Object.values(item.nodeResults).some((result) => vectorMagnitude([result.displacement?.ux, result.displacement?.uy, result.displacement?.uz]) > 0)
-    || Object.values(item.memberResponses || {}).some((row) => row.samples.some((sample) => vectorMagnitude(sample.displacement) > 0))
+    || Object.values(item.memberResponses || {}).some((row) => row.samples.some((sample) => sample.displacement && vectorMagnitude(sample.displacement) > 0))
   )
   const hasForces = cases.some((item) =>
     Object.values(item.elementResults).some((result) =>
       [result.axial, result.shear, result.moment, result.torsion].some((value) => typeof value === 'number')
-    )
+    ) || Object.values(item.memberResponses || {}).some(row => row.state === 'native-stations' && row.samples.length > 0)
   )
   const hasReactions = cases.some((item) =>
     Object.values(item.nodeResults).some((result) =>

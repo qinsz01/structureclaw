@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildVisualizationSnapshot } from '@/components/visualization/adapter'
 import { isCanonicalVisualizationSnapshot } from '@/components/visualization/normalization'
-import { getMemberDeformedPoints, getMemberDisplacementMagnitude } from '@/components/visualization/structural-scene-utils'
+import { getMemberDeformedPoints, getMemberDisplacementMagnitude, getElementMetric } from '@/components/visualization/structural-scene-utils'
 import type { VisualizationMemberResponse } from '@/components/visualization/types'
 
 function response(uy = 0): VisualizationMemberResponse {
@@ -28,6 +28,36 @@ function build(memberResponses: unknown, dimension: '2d' | '3d' = '2d', cases?: 
 }
 
 describe('precomputed member-response visualization', () => {
+  it('renders native force stations without inventing displacement samples', () => {
+    const row: VisualizationMemberResponse = { id:'E1',length:6,state:'native-stations',reason:'verified-native-stations',
+      samples:[0,3,6].map(x => ({x,position:[x,0,0],N:1,V2:2,V3:-3,T:.25,M2:-6+x,M3:1,
+        provenance:'solver-direct',source:{kind:'native-station-coordinate-mapping'}})) }
+    const snapshot=build([row])!
+    expect(isCanonicalVisualizationSnapshot(snapshot)).toBe(true)
+    expect(snapshot.availableViews).toContain('forces')
+    expect(snapshot.availableViews).not.toContain('deformed')
+    expect(getMemberDeformedPoints(snapshot.cases[0],'E1',20)).toBeUndefined()
+    expect(getMemberDisplacementMagnitude(snapshot.cases[0],'E1')).toBe(0)
+    expect(getElementMetric(snapshot.cases[0],'E1','moment')).toBe(-6)
+    expect(getElementMetric(snapshot.cases[0],'E1','shear')).toBe(-3)
+    expect(snapshot.cases[0].memberResponses!.E1.samples[1]).not.toHaveProperty('displacement')
+    row.samples[1].displacement=[0,0,0]
+    expect(build([row])).toBeNull()
+  })
+
+  it('keeps partial native station coverage explicit without nearest-location or full-curve claims', () => {
+    const row: VisualizationMemberResponse = {id:'E1',length:6,state:'native-stations',reason:'verified-native-stations',
+      samples:[{x:3,position:[3,0,0],N:0,V2:1,V3:2,T:3,M2:4,M3:5,provenance:'linear-combination',source:'linear-combination'}]}
+    const snapshot=build([row])!
+    expect(isCanonicalVisualizationSnapshot(snapshot)).toBe(true)
+    expect(snapshot.cases[0].memberResponses!.E1.samples).toHaveLength(1)
+    row.samples.push({...row.samples[0],side:'left'})
+    expect(build([row])).toBeNull()
+    row.samples.pop()
+    delete row.samples[0].M2
+    expect(build([row])).toBeNull()
+  })
+
   it('shows simply supported interior deflection even when both end translations are zero', () => {
     const snapshot = build([response()])!
     expect(snapshot.availableViews).toContain('deformed')

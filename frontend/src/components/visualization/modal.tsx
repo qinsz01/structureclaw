@@ -10,6 +10,7 @@ import { StructuralScene } from './structural-scene'
 import { getMemberDisplacementMagnitude, isLoadVisible } from './structural-scene-utils'
 import type { SceneExportHandle } from './structural-scene'
 import { VisualizationToolbar } from './toolbar'
+import { NativeStationPanel } from './native-station-panel'
 import type { VisualizationCase, VisualizationLoad, VisualizationPlane, VisualizationSnapshot, VisualizationViewMode } from './types'
 
 function getCaseLabel(caseId: string, fallbackLabel: string, t: (key: MessageKey) => string) {
@@ -333,7 +334,8 @@ export function StructuralVisualizationModal({
               <div className="mt-3 space-y-2 text-sm text-muted-foreground">
                 <div>{t('visualizationConnectedNodes')}: {selectedElementNodeIds.join(' - ')}</div>
                 {!modelOnly && selectedMemberResponse && (
-                  <div>{t(selectedMemberResponse.state === 'recovered' ? 'visualizationMemberRecovered'
+                  <div>{t(selectedMemberResponse.state === 'native-stations' ? 'visualizationMemberNativeStations'
+                    : selectedMemberResponse.state === 'recovered' ? 'visualizationMemberRecovered'
                     : selectedMemberResponse.state === 'truss' ? 'visualizationMemberTruss'
                     : selectedMemberResponse.state === 'interpolated' ? 'visualizationMemberInterpolated'
                     : 'visualizationMemberUnavailable')}</div>
@@ -343,6 +345,9 @@ export function StructuralVisualizationModal({
                 {!modelOnly && typeof selectedElementResults?.moment === 'number' && <div>{t('visualizationForceMoment')}: {withUnit(formatNumber(selectedElementResults.moment, locale), snapshot?.momentUnit)}</div>}
                 {!modelOnly && selectedElementResults?.controlCases?.[forceMetric] && (
                   <div>{t('visualizationControlCase')}: {selectedElementResults.controlCases[forceMetric]}</div>
+                )}
+                {!modelOnly && selectedMemberResponse?.state === 'native-stations' && (
+                  <NativeStationPanel response={selectedMemberResponse} locale={locale} />
                 )}
               </div>
             </div>

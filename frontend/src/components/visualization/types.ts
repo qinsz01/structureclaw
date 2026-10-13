@@ -113,12 +113,21 @@ export type VisualizationCase = {
 export type VisualizationMemberResponse = {
   id: string
   length: number
-  state: 'recovered' | 'interpolated' | 'truss' | 'unavailable'
+  state: 'recovered' | 'interpolated' | 'truss' | 'unavailable' | 'native-stations'
   reason: string
   samples: {
     x: number
     position: [number, number, number]
-    displacement: [number, number, number]
+    /** Absent for native force-only stations; never filled with a zero vector. */
+    displacement?: [number, number, number]
+    N?: number
+    V2?: number
+    V3?: number
+    T?: number
+    M2?: number
+    M3?: number
+    provenance?: 'solver-direct' | 'linear-combination'
+    source?: unknown
     segmentId?: string
     side?: 'left' | 'right'
   }[]
