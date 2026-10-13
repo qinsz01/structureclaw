@@ -4,6 +4,7 @@
 
 ## 从这里开始
 
+- [V2.1 工程内核](./engineering-refactor.md)：已落地的接口约定、真实验收依据及尚未完成的能力门槛
 - [使用手册](./handbook_CN.md)：安装、运行模式、配置、工作流、测试与排障
 - [参考文档](./reference_CN.md)：API 契约、分析接口、配置契约、SkillHub 契约与验证命令
 - [测试分类](./testing_CN.md)：测试分类、runner 归属、CI workflow 边界和重叠规则

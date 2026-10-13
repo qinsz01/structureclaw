@@ -1,3 +1,4 @@
+import { withDeclaredProperties } from '../../../../../tests/fixtures/declared-template-properties.mjs';
 import { describe, expect, test } from '@jest/globals';
 import { handler } from '../../../../../dist/agent-skills/structure-type/truss/handler.js';
 
@@ -96,7 +97,7 @@ describe('truss handler', () => {
       },
     });
     const state = handler.mergeState(initialState, loadPatch);
-    const model = handler.buildModel(state);
+    const model = handler.buildModel(withDeclaredProperties(state));
 
     expect(state.lengthM).toBe(15);
     expect(state.heightM).toBe(3);
@@ -163,7 +164,7 @@ describe('truss handler', () => {
     expect(state.loadPosition).toBe('top-nodes');
     expect(state.skillState?.invalidDraftFields).not.toContain('loadKN');
     expect(handler.computeMissing(state, 'execution').critical).toEqual([]);
-    expect(handler.buildModel(state)?.load_cases[0].loads).toHaveLength(4);
+    expect(handler.buildModel(withDeclaredProperties(state))?.load_cases[0].loads).toHaveLength(4);
   });
 
   test('builds a panelized planar truss model instead of a single bar', () => {
@@ -172,7 +173,7 @@ describe('truss handler', () => {
       llmDraftPatch: prattTrussPatch,
     });
     const state = handler.mergeState(undefined, patch);
-    const model = handler.buildModel(state);
+    const model = handler.buildModel(withDeclaredProperties(state));
 
     expect(model.nodes).toHaveLength(12);
     expect(model.elements).toHaveLength(21);
@@ -240,7 +241,7 @@ describe('truss handler', () => {
       },
     });
     const state = handler.mergeState(initialState, revisedPatch);
-    const model = handler.buildModel(state);
+    const model = handler.buildModel(withDeclaredProperties(state));
 
     expect(state.engineeringDraft.loads).toEqual([
       expect.objectContaining({ magnitude: 15, location: { nodeRole: 'top' } }),
@@ -286,7 +287,7 @@ describe('truss handler', () => {
       },
     });
     const state = handler.mergeState(undefined, patch);
-    const model = handler.buildModel(state);
+    const model = handler.buildModel(withDeclaredProperties(state));
 
     expect(model.nodes).toHaveLength(6);
     expect(model.elements.map((element) => [element.id, ...element.nodes])).toEqual(explicitMembers);
@@ -344,7 +345,7 @@ describe('truss handler', () => {
         },
       },
     });
-    const model = handler.buildModel(handler.mergeState(undefined, patch));
+    const model = handler.buildModel(withDeclaredProperties(handler.mergeState(undefined, patch)));
 
     expect(model.load_cases[0].loads).toEqual(
       ['T2', 'T3', 'T4', 'T5', 'T6'].map((node) => ({
@@ -406,7 +407,7 @@ describe('truss handler', () => {
         },
       },
     });
-    const model = handler.buildModel(handler.mergeState(undefined, patch));
+    const model = handler.buildModel(withDeclaredProperties(handler.mergeState(undefined, patch)));
 
     expect(model.load_cases[0].loads).toEqual([
       { node: 'B1', fz: -7, reference_frame: 'global' },
@@ -425,7 +426,7 @@ describe('truss handler', () => {
       },
     });
     const state = handler.mergeState(undefined, patch);
-    const model = handler.buildModel(state);
+    const model = handler.buildModel(withDeclaredProperties(state));
     const zValues = model.nodes.map((node) => node.z);
 
     expect(state.heightM).toBeUndefined();
@@ -445,7 +446,7 @@ describe('truss handler', () => {
     });
     const state = handler.mergeState(undefined, patch);
     const missing = handler.computeMissing(state, 'execution');
-    const model = handler.buildModel(state);
+    const model = handler.buildModel(withDeclaredProperties(state));
 
     expect(missing.critical).toEqual([]);
     expect(state.bayCount).toBeUndefined();
@@ -470,7 +471,7 @@ describe('truss handler', () => {
     const missing = handler.computeMissing(state, 'execution');
 
     expect(missing.critical).toContain('heightM');
-    expect(handler.buildModel(state)).toBeUndefined();
+    expect(handler.buildModel(withDeclaredProperties(state))).toBeUndefined();
   });
 
   test('correcting an invalid truss height clears the previous blocking field', () => {
@@ -492,7 +493,7 @@ describe('truss handler', () => {
     const correctedState = handler.mergeState(invalidState, correctedPatch);
 
     expect(handler.computeMissing(correctedState, 'execution').critical).toEqual([]);
-    expect(handler.buildModel(correctedState)?.metadata).toEqual(expect.objectContaining({ heightDefaulted: false }));
+    expect(handler.buildModel(withDeclaredProperties(correctedState))?.metadata).toEqual(expect.objectContaining({ heightDefaulted: false }));
   });
 
   test('asks for clarification when llm reports a truss topology conflict', () => {
@@ -511,7 +512,7 @@ describe('truss handler', () => {
     const missing = handler.computeMissing(state, 'execution');
 
     expect(missing.critical).toContain('trussTopology');
-    expect(handler.buildModel(state)).toBeUndefined();
+    expect(handler.buildModel(withDeclaredProperties(state))).toBeUndefined();
   });
 
   test('does not clear a topology conflict reported only through draftIssues', () => {
@@ -534,7 +535,7 @@ describe('truss handler', () => {
 
     expect(state.skillState?.invalidDraftFields).toContain('trussTopology');
     expect(handler.computeMissing(state, 'execution').critical).toContain('trussTopology');
-    expect(handler.buildModel(state)).toBeUndefined();
+    expect(handler.buildModel(withDeclaredProperties(state))).toBeUndefined();
   });
 
   test('preserves llm-reported truss guardrails', () => {
@@ -557,7 +558,7 @@ describe('truss handler', () => {
       invalidDraftFields: expect.arrayContaining(['trussTopology']),
     }));
     expect(handler.computeMissing(state, 'execution').critical).toContain('trussTopology');
-    expect(handler.buildModel(state)).toBeUndefined();
+    expect(handler.buildModel(withDeclaredProperties(state))).toBeUndefined();
   });
 
   test('honors llm-reported ambiguous load clarification', () => {
@@ -575,6 +576,6 @@ describe('truss handler', () => {
     const missing = handler.computeMissing(state, 'execution');
 
     expect(missing.critical).toContain('loadKN');
-    expect(handler.buildModel(state)).toBeUndefined();
+    expect(handler.buildModel(withDeclaredProperties(state))).toBeUndefined();
   });
 });

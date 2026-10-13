@@ -2,8 +2,8 @@
 id: yjk-static
 zhName: YJK 静力分析
 enName: YJK Static Analysis
-zhDescription: 调用本机 YJK 8.0 自动建模、计算并抽取静力分析结果，返回位移、反力、构件内力、工况、包络和楼层统计。
-enDescription: Runs local YJK 8.0 modeling, calculation, and static-result extraction, returning displacements, reactions, member forces, load cases, envelopes, and floor statistics.
+zhDescription: 保留 YJK 拓扑编译与授权、结果读取基础；材料牌号映射未原生验收，正式分析暂被能力门禁阻止。
+enDescription: Retains YJK topology compilation, authorization and result-reader infrastructure; formal analysis is gated pending native material-grade acceptance.
 software: yjk
 analysisType: static
 engineId: builtin-yjk
@@ -16,6 +16,9 @@ supportedModelFamilies: ["frame", "generic"]
 runtimeRelativePath: runtime.py
 ---
 # YJK Static Analysis
+
+- `zh`: 当前正式运行在环境探测与创建工作目录之前抛出 `YJK_NATIVE_MATERIAL_GRADE_UNVERIFIED`。仅材料类别被编译，逐构件牌号和常数尚未原生写入回读验收。以下是保留的后续执行基础，不代表当前正式计算已可用，也不得用环境探测通过绕过门禁。
+- `en`: Formal runs currently raise `YJK_NATIVE_MATERIAL_GRADE_UNVERIFIED` before environment resolution or work-directory creation. Only material categories are compiled; per-member grades/constants lack accepted native write/readback. The following describes retained downstream infrastructure, not current formal readiness; a successful environment probe cannot bypass the gate.
 
 - `zh`: 当用户明确要求使用 YJK（盈建科）进行结构静力分析、商业引擎复核或与 PKPM/OpenSees 结果对比时使用。该 skill 需要本机安装 YJK 8.0，并配置 `YJKS_ROOT` 或 `YJK_PATH` 指向安装根目录。
 - `en`: Use when the user explicitly asks for YJK-based structural static analysis, commercial-engine verification, or comparison against PKPM/OpenSees results. This skill requires a local YJK 8.0 installation and `YJKS_ROOT` or `YJK_PATH` pointing to the install root.

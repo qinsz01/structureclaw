@@ -50,6 +50,12 @@ def _resolve_element_type(elem_id: str, context: Dict[str, Any]) -> str:
             return 'column'
         if 'beam' in normalized:
             return 'beam'
+        return normalized
+
+    element_data = context.get('elementData', {})
+    element = element_data.get(elem_id, {}) if isinstance(element_data, dict) else {}
+    if isinstance(element, dict) and element.get('type'):
+        return str(element['type']).strip().lower()
 
     lower = elem_id.lower()
     if lower.startswith('c') or 'column' in lower or 'col' in lower:
@@ -127,18 +133,18 @@ def _resolve_material_props(
 
     return {
         # Concrete design values (from model or lookup)
-        'fc':     _get('fc', default=14.3),
-        'ft':     _get('ft', default=1.43),
-        'ftk':    _get('ftk', default=2.01),
-        'Ec':     _get('Ec', 'E', 30000),
-        'ecu':    _get('ecu', default=0.0033),
-        'alpha1': _get('alpha1', default=1.0),
-        'beta1':  _get('beta1', default=0.80),
+        'fc':     _get('fc'),
+        'ft':     _get('ft'),
+        'ftk':    _get('ftk'),
+        'Ec':     _get('Ec', 'E'),
+        'ecu':    _get('ecu'),
+        'alpha1': _get('alpha1'),
+        'beta1':  _get('beta1'),
         # Rebar design values (from model or lookup)
-        'fy':     _get_rebar('fy', 360),
-        'fyv':    _get_rebar('fyv', 360),
-        'fy_comp': _get_rebar('fy_compression', 360),
-        'Es':     _get_rebar('Es', _get_rebar('E', 200000)),
+        'fy':     _get_rebar('fy'),
+        'fyv':    _get_rebar('fyv'),
+        'fy_comp': _get_rebar('fy_compression'),
+        'Es':     _get_rebar('Es'),
     }
 
 
@@ -193,293 +199,93 @@ def _compute_utilization_overrides(
 
     # Resolve element context for grade info
     element_context = _resolve_element_context(elem_id, context)
-    concrete_grade = element_context.get('concreteGrade')
-    rebar_grade = element_context.get('rebarGrade')
+    concrete_grade = element_context.get('concreteGrade') or material.get('concreteGrade') or material.get('grade')
+    rebar_grade = element_context.get('rebarGrade') or material.get('rebarGrade')
     mat = _resolve_material_props(concrete_grade, rebar_grade, elem)
 
-    # Section geometry (mm)
-    b = section.get('width') or section.get('B')
-    h = section.get('height') or section.get('H')
-    A_mm2 = section.get('A')
-    I_min = section.get('I') or section.get('Iy')
+    def number(value, *, positive=False):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return None
+        value = float(value)
+        return value if math.isfinite(value) and (not positive or value > 0) else None
 
-    # Rebar design — from model element metadata, or computed minimums
-    As_design = elem.get('As')               # total rebar area (mm²) — model design value
-    Asv_design = elem.get('Asv')             # stirrup area (mm²)
-    stirrup_dia = elem.get('stirrup_dia')    # stirrup diameter (mm)
-    stirrup_spacing = elem.get('stirrup_spacing')  # stirrup spacing (mm)
-    main_dia = elem.get('main_dia')          # main bar diameter (mm)
-    cover = elem.get('cover')                # concrete cover (mm)
-    crack_cover = elem.get('crack_cover')    # cover for crack check (mm)
+    def positive(record, *keys):
+        return next((number(record[key], positive=True) for key in keys if key in record), None)
 
-    # Forces (N, N·mm)
-    N_newton = forces.get('N')  # axial force in N
-    V_newton = forces.get('V')  # shear force in N
-    Mx = forces.get('Mx')       # moment (N·mm from OpenSees envelope)
-
-    # Element length (mm)
-    length_mm = elem.get('length')
-
-    # Existing caller overrides take priority
-    existing = context.get('utilizationByElement', {})
-    if isinstance(existing, dict):
-        per_elem = existing.get(elem_id, {})
-        if not isinstance(per_elem, dict):
-            per_elem = {}
-    else:
-        per_elem = {}
-
-    def _has_override(key: str) -> bool:
-        val = per_elem.get(key)
-        return isinstance(val, (int, float))
-
+    overrides = context.get('utilizationByElement', {})
+    per_elem = overrides.get(elem_id, {}) if isinstance(overrides, dict) else {}
+    per_elem = per_elem if isinstance(per_elem, dict) else {}
     computed: Dict[str, float] = {}
 
-    # ---------- COLUMN CHECKS ----------
+    def save(name, value):
+        if name not in per_elem and math.isfinite(value) and value >= 0:
+            computed[name] = value
 
-    # 轴压比 (§6.2.15): N / (fc * A)
-    if not _has_override('轴压比') and N_newton is not None and A_mm2 is not None and mat['fc'] > 0:
-        try:
-            N_kn = abs(float(N_newton)) / 1000.0  # N → kN
-            fc_mpa = mat['fc']  # N/mm²
-            A = float(A_mm2)  # mm²
-            computed['轴压比'] = (N_kn * 1000) / (fc_mpa * A)
-        except (ZeroDivisionError, ValueError, TypeError):
-            pass
+    b, h, A = positive(section, 'width', 'B'), positive(section, 'height', 'H'), positive(section, 'A')
+    inertia = positive(section, 'I', 'Iy')
+    N, V, M = (number(forces.get(key)) for key in ('N', 'V', 'Mx'))
+    length, l0 = positive(elem, 'length'), positive(elem, 'l0')
+    fc, ft, fy, fyv = (positive(mat, key) for key in ('fc', 'ft', 'fy', 'fyv'))
+    As, Asv = positive(elem, 'As'), positive(elem, 'Asv')
+    spacing = positive(elem, 'stirrup_spacing')
+    h0 = positive(elem, 'h0')
+    cover, stirrup_dia, main_dia = (number(elem.get(key)) for key in ('cover', 'stirrup_dia', 'main_dia'))
+    if h0 is None and h and cover is not None and cover >= 0 and stirrup_dia is not None and stirrup_dia > 0 and main_dia is not None and main_dia > 0:
+        h0 = h - cover - stirrup_dia - main_dia / 2
+    if h0 is not None and (h0 <= 0 or h and h0 >= h):
+        h0 = None
 
-    # 长细比 (§6.2.20): l0/i / limit
-    if not _has_override('长细比') and length_mm is not None and A_mm2 is not None and I_min is not None:
-        try:
-            A = float(A_mm2)
-            I = float(I_min)
-            L = float(length_mm)
-            if A > 0 and I > 0:
-                i_min = math.sqrt(I / A)
-                slenderness = L / i_min
-                # General limit for concrete columns: 120 (GB50010-2010 §6.2.20)
-                limit = float(elem.get('lambdaLimit', 120))
-                if limit > 0:
-                    computed['长细比'] = slenderness / limit
-        except (ZeroDivisionError, ValueError, TypeError):
-            pass
+    axial_limit = positive(elem, 'axialRatioLimit')
+    if N is not None and A and fc and axial_limit:
+        save('轴压比', abs(N) / (fc * A * axial_limit))
+    lambda_limit = positive(elem, 'lambdaLimit')
+    if l0 and A and inertia and lambda_limit:
+        save('长细比', l0 / math.sqrt(inertia / A) / lambda_limit)
 
-    # 偏心受压 (§6.2.17): simplified N-M interaction using φ·fc·A + fy·As
-    if not _has_override('偏心受压') and N_newton is not None and Mx is not None and b is not None and h is not None and A_mm2 is not None:
-        try:
-            B = float(b)
-            H = float(h)
-            A = float(A_mm2)
-            N_kn = abs(float(N_newton)) / 1000.0  # N → kN
-            M_knm = abs(float(Mx)) / 1e6            # N·mm → kN·m
+    # Retain the existing simplified interaction only as a screening estimate.
+    if N is not None and M is not None and A and b and h and h0 and As and fc and fy and l0:
+        nu = 0.9 * fc * A
+        mu = 0.9 * fy * As * h0
+        phi = _stability_coeff(l0 / min(b, h)) if abs(N) > 0.3 * nu else 1.0
+        save('偏心受压', abs(N) / (phi * nu) + abs(M) / mu)
 
-            # Rebar: use model design value, fallback to min 0.6% (§9.3.1)
-            h0 = H - (float(cover) if isinstance(cover, (int, float)) else 40)
-            if isinstance(As_design, (int, float)) and float(As_design) > 0:
-                As_total = float(As_design)
-            else:
-                rho_min = max(0.006, 0.55 * mat['ft'] / mat['fy'])
-                As_total = rho_min * A
+    if V is not None and b and h0 and ft and fyv and Asv and spacing:
+        capacity = 0.7 * ft * b * h0 + min(fyv, 360) * Asv * h0 / spacing
+        save('斜截面受剪', abs(V) / capacity)
 
-            # Section capacity estimates
-            N_capacity = 0.9 * mat['fc'] * A / 1000.0  # N → kN
-            M_capacity = 0.9 * mat['fy'] * As_total * h0 / 1e6  # kN·m
+    alpha1, beta1, Es, ecu = (positive(mat, key) for key in ('alpha1', 'beta1', 'Es', 'ecu'))
+    if M is not None and b and h0 and As and fc and fy and alpha1 and beta1 and Es and ecu:
+        x = fy * As / (alpha1 * fc * b)
+        xb = beta1 / (1 + fy / (Es * ecu)) * h0
+        # Beyond the implemented singly-reinforced section branch, request a full check.
+        if x <= xb:
+            capacity = alpha1 * fc * b * x * (h0 - x / 2)
+            if capacity > 0:
+                save('正截面受弯', abs(M) / capacity)
 
-            # Simplified linear interaction: N/Nu + M/Mu
-            if N_capacity > 0:
-                n_ratio = N_kn / N_capacity
-            else:
-                n_ratio = 0.0
+    displacement = number(forces.get('deflection', elem.get('deflection')))
+    deflection_limit_n = positive(elem, 'deflectionLimitN')
+    if displacement is not None and length and deflection_limit_n:
+        save('挠度', abs(displacement) / (length / deflection_limit_n))
 
-            if M_knm > 0 and M_capacity > 0:
-                m_ratio = M_knm / M_capacity
-                # For high axial load, stability reduction
-                if N_kn > 0.3 * N_capacity and length_mm is not None:
-                    L = float(length_mm)
-                    l0b = L / min(B, H)
-                    phi = _stability_coeff(l0b)
-                    n_ratio = N_kn / (phi * N_capacity) if phi > 0 else n_ratio
-                computed['偏心受压'] = n_ratio + m_ratio if M_knm > 0 else n_ratio
-            else:
-                computed['偏心受压'] = n_ratio
+    service_moment = number(forces.get('M_service'))
+    crack_cover = number(elem.get('crack_cover'))
+    ftk, crack_limit, alpha_cr = positive(mat, 'ftk'), positive(elem, 'crackWidthLimit'), positive(elem, 'alpha_cr')
+    if service_moment is not None and b and h and h0 and As and main_dia and main_dia > 0 and crack_cover is not None and crack_cover >= 0 and ftk and Es and crack_limit and alpha_cr:
+        rho = max(As / (0.5 * b * h), 0.01)
+        sigma = abs(service_moment) / (0.87 * h0 * As)
+        psi = max(0.2, min(1.1 - 0.65 * ftk / (rho * sigma), 1.0)) if sigma else 0.2
+        width = alpha_cr * psi * sigma / Es * (1.9 * crack_cover + 0.08 * main_dia / rho)
+        save('裂缝宽度', width / crack_limit)
 
-        except (ZeroDivisionError, ValueError, TypeError):
-            pass
-
-    # 斜截面受剪 — column (§6.3.12): V / (Vc + Vs)
-    if not _has_override('斜截面受剪') and V_newton is not None and b is not None and h is not None:
-        try:
-            B = float(b)
-            H = float(h)
-            V_kn = abs(float(V_newton)) / 1000.0  # N → kN
-            h0 = H - 40
-
-            # Concrete shear contribution: Vc = 0.7 * ft * b * h0 / 1000
-            Vc = 0.7 * mat['ft'] * B * h0 / 1000.0  # kN
-
-            # Stirrup: use model design values, fallback to Φ8@200
-            fyv_capped = min(mat['fyv'], 360)  # §4.2.3 cap
-            s = float(stirrup_spacing) if isinstance(stirrup_spacing, (int, float)) else 200.0
-            if isinstance(Asv_design, (int, float)) and float(Asv_design) > 0:
-                Asv = float(Asv_design)
-            else:
-                Asv = 2 * math.pi * 8**2 / 4  # 2-leg Φ8 ≈ 100.5 mm²
-            Vs = fyv_capped * Asv * h0 / s / 1000.0  # kN
-
-            V_capacity = Vc + Vs
-            if V_capacity > 0:
-                computed['斜截面受剪'] = V_kn / V_capacity
-
-        except (ZeroDivisionError, ValueError, TypeError):
-            pass
-
-    # ---------- BEAM CHECKS ----------
-
-    # 正截面受弯 (§6.2.1 / §6.2.10): M / Mu
-    if not _has_override('正截面受弯') and Mx is not None and b is not None and h is not None:
-        try:
-            B = float(b)
-            H = float(h)
-            M_knm = abs(float(Mx)) / 1e6  # N·mm → kN·m
-            h0 = H - 40
-
-            # Rebar: use model design value, fallback to min 0.2% (§8.5)
-            if isinstance(As_design, (int, float)) and float(As_design) > 0:
-                As_min = float(As_design)
-            else:
-                rho_min = max(0.002, 0.45 * mat['ft'] / mat['fy'])
-                As_min = rho_min * B * h0
-
-            # Equivalent stress block (§6.2.6)
-            x = mat['fy'] * As_min / (mat['alpha1'] * mat['fc'] * B) if mat['fc'] > 0 and B > 0 else 0
-            xi_b = mat['beta1'] / (1 + mat['fy'] / (mat['Es'] * mat['ecu']))  # balanced xi
-            xb = xi_b * h0
-            x = min(x, xb)  # ensure under-reinforced
-            Mu = mat['alpha1'] * mat['fc'] * B * x * (h0 - x / 2) / 1e6  # kN·m
-            if Mu > 0:
-                computed['正截面受弯'] = M_knm / Mu
-
-        except (ZeroDivisionError, ValueError, TypeError):
-            pass
-
-    # 挠度 (§3.3.2): simplified — assume simply-supported, check mid-span
-    if not _has_override('挠度') and Mx is not None and b is not None and h is not None and length_mm is not None:
-        try:
-            B = float(b)
-            H = float(h)
-            L = float(length_mm)  # mm
-            M_knm = abs(float(Mx)) / 1e6  # N·mm → kN·m
-
-            # EI from section and Ec
-            I_cracked = B * H**3 / 12  # gross section I, mm⁴
-            # Reduced stiffness: Bs = 0.85 * Ec * I (short-term, §7.2.3 simplified)
-            Bs = 0.85 * mat['Ec'] * I_cracked  # N·mm²
-            if Bs > 0:
-                # Deflection for simply-supported uniform load: f = 5Ml²/(48EI)
-                # Use service moment ≈ 0.6 * ULS moment (approximate)
-                M_service = M_knm * 0.6 * 1e6  # N·mm
-                f_max = 5 * M_service * L**2 / (48 * Bs)  # mm
-                f_limit = L / 250  # common limit
-                if f_limit > 0:
-                    computed['挠度'] = f_max / f_limit
-
-        except (ZeroDivisionError, ValueError, TypeError):
-            pass
-
-    # 裂缝宽度 (§7.1.2): ω_max = α_cr·ψ·σ_sk/Es·(1.9·c_s+0.08·d_eq/ρ_te)
-    if not _has_override('裂缝宽度') and Mx is not None and b is not None and h is not None:
-        try:
-            B = float(b)
-            H = float(h)
-            M_knm = abs(float(Mx)) / 1e6
-            h0 = H - (float(cover) if isinstance(cover, (int, float)) else 40)
-
-            # Rebar: use model design values, fallback to minimum
-            if isinstance(As_design, (int, float)) and float(As_design) > 0:
-                As_crack = float(As_design)
-            else:
-                rho_min = max(0.002, 0.45 * mat['ft'] / mat['fy'])
-                As_crack = rho_min * B * h0
-
-            d_main = float(main_dia) if isinstance(main_dia, (int, float)) else (
-                25 if H >= 600 else (20 if H >= 400 else 16))
-            c_s = float(crack_cover) if isinstance(crack_cover, (int, float)) else 25
-
-            # Effective tension zone
-            A_te = 0.5 * B * H
-            rho_te = As_crack / A_te if A_te > 0 else 0.01
-            rho_te = max(rho_te, 0.01)  # minimum per §7.1.2
-
-            # Service load steel stress (§7.1.4)
-            M_service = M_knm * 0.6 * 1e6  # N·mm
-            sigma_sk = M_service / (0.87 * h0 * As_crack) if As_crack > 0 and h0 > 0 else 0
-
-            # Strain nonuniformity coefficient ψ
-            if mat['ftk'] > 0 and rho_te > 0 and sigma_sk > 0:
-                psi = 1.1 - 0.65 * mat['ftk'] / (rho_te * sigma_sk)
-                psi = max(0.2, min(psi, 1.0))  # bounds
-            else:
-                psi = 0.2
-
-            # Crack width (mm)
-            alpha_cr = 1.9  # bending member
-            d_eq = d_main
-            if mat['Es'] > 0:
-                omega = alpha_cr * psi * sigma_sk / mat['Es'] * (
-                    1.9 * c_s + 0.08 * d_eq / rho_te
-                )
-                # Limit: 0.3mm (indoor normal environment, §3.4.5)
-                w_lim = 0.3
-                if w_lim > 0:
-                    computed['裂缝宽度'] = omega / w_lim
-        except (ZeroDivisionError, ValueError, TypeError):
-            pass
-
-    # 钢筋净距 (§9.2.1 beam / §9.3.1 column): s_n >= limit
-    bar_count = elem.get('bar_count')
-    sn = elem.get('sn')
-    main_dia = elem.get('main_dia')
-    if isinstance(bar_count, (int, float)) and isinstance(sn, (int, float)) and isinstance(main_dia, (int, float)):
-        try:
-            elem_type = _resolve_element_type(elem_id, context)
-            if elem_type == 'column':
-                sn_limit = max(1.5 * float(main_dia), 50.0)  # §9.3.1
-            else:
-                sn_limit = max(1.5 * float(main_dia), 30.0)  # §9.2.1 (top bars, conservative)
-            if sn_limit > 0:
-                if float(sn) > 0:
-                    computed['钢筋净距'] = sn_limit / float(sn)
-                elif float(bar_count) > 1:
-                    computed['钢筋净距'] = 99.0  # physically impossible layout → fail
-        except (ZeroDivisionError, ValueError, TypeError):
-            pass
-
+    count, clear_spacing = number(elem.get('bar_count')), number(elem.get('sn'))
+    if count is not None and count > 1 and clear_spacing is not None and main_dia and main_dia > 0:
+        spacing_limit = max(1.5 * main_dia, 50 if _resolve_element_type(elem_id, context) == 'column' else 30)
+        if clear_spacing > 0:
+            save('钢筋净距', spacing_limit / clear_spacing)
+        else:
+            save('钢筋净距', 99.0)
     return computed
-
-
-def _build_chapter_summaries(checks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    chapters = []
-    for check in checks:
-        chapter_name = check.get('chapter') or check.get('name')
-        items = check.get('items', [])
-        max_utilization = 0.0
-        status = 'pass'
-        controlling_clause = None
-        for item in items:
-            util_val = item.get('utilization')
-            utilization = float(util_val) if util_val is not None else 0.0
-            if utilization >= max_utilization:
-                max_utilization = utilization
-                controlling_clause = item.get('clause')
-            if item.get('status') != 'pass':
-                status = 'fail'
-        chapters.append({
-            'chapter': chapter_name,
-            'status': status,
-            'itemCount': len(items),
-            'maxUtilization': round(max_utilization, 4),
-            'controllingClause': controlling_clause,
-        })
-    return chapters
 
 
 def _has_spacing_metadata(elem_id: str, context: Dict[str, Any]) -> bool:
@@ -552,7 +358,7 @@ def check_element(checker: Any, elem_id: str, context: Dict[str, Any]) -> Dict[s
 
     1. 从 elementData 计算真实利用率 (_compute_utilization_overrides)
     2. 合并到 utilizationByElement 并构建 enriched context
-    3. elementData 为空时优雅回退（保留原有确定性 fallback 行为）
+    3. 缺失资料不生成利用率，由统一入口标明待补输入
     """
     element_context = _resolve_element_context(elem_id, context)
     element_type = _resolve_element_type(elem_id, context)
@@ -568,6 +374,7 @@ def check_element(checker: Any, elem_id: str, context: Dict[str, Any]) -> Dict[s
             existing_elem = {}
         merged_ctx = {
             **context,
+            'computedItemsByElement': {elem_id: list(computed)},
             'utilizationByElement': {
                 **existing_ube,
                 elem_id: {
@@ -579,9 +386,21 @@ def check_element(checker: Any, elem_id: str, context: Dict[str, Any]) -> Dict[s
     else:
         merged_ctx = context
 
+    if element_type not in {'column', 'beam'}:
+        return checker._build_element_result(elem_id, element_type, [{'name': '适用范围 / Applicability', 'items': [{
+            'item': '构件类型 / Member type', 'status': 'unsupported', 'category': 'unsupported',
+            'message': 'Only concrete beam and column checks are implemented / 当前仅实现混凝土梁柱校核。',
+        }]}], 'GB50010-2010')
     checks = _check_column(checker, elem_id, merged_ctx) if element_type == 'column' else _check_beam(checker, elem_id, merged_ctx)
     result = checker._build_element_result(elem_id, element_type, checks, 'GB50010-2010')
-    result['chapters'] = _build_chapter_summaries(checks)
+    for check in result['checks']:
+        for item in check['items']:
+            if item['item'] == '偏心受压' and item['item'] in computed:
+                item.update(status='unsupported', category='unsupported', screeningUtilization=item['utilization'],
+                            utilization=None, governingEligible=False,
+                            message='Simplified interaction is screening only; full eccentric-compression capacity is not implemented / 简化线性交互仅作筛查，完整偏压承载力尚未实现。')
+    result = checker._build_element_result(elem_id, element_type, result['checks'], 'GB50010-2010')
+    result['chapters'] = checker._build_chapter_summaries(result['checks'])
     result['chapterCount'] = len(result['chapters'])
     result['elementContext'] = {
         'type': element_type,

@@ -1,3 +1,6 @@
+import { checkRunResults, formatCheckSummary } from '../engineering/code-checks.js';
+import { modelHash } from '../engineering/model-state.js';
+import { analysisSettingsHash } from '../engineering/analysis-runs.js';
 import { prisma } from '../utils/database.js';
 import { cache } from '../utils/cache.js';
 import { ensureConversationId } from '../utils/demo-conversation.js';
@@ -11,6 +14,8 @@ import { resolveCodeCheckRule } from '../agent-skills/code-check/registry.js';
 import { buildReportDomainArtifacts } from '../agent-skills/report-export/entry.js';
 import { buildDefaultReportNarrative } from '../agent-runtime/report-template.js';
 import type { AppLocale } from './locale.js';
+import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
+import { createLocalStructureProtocolClient } from './structure-protocol-execution.js';
 import {
   assertCanonicalCoordinateModel,
   buildStructuralCoordinateSystem,
@@ -19,12 +24,15 @@ import {
 } from '../agent-runtime/coordinate-semantics.js';
 
 export interface CreateModelParams {
+  [key: string]: unknown;
   name: string;
   coordinate_system: ReturnType<typeof buildStructuralCoordinateSystem>;
   nodes: any[];
   elements: any[];
   materials: any[];
   sections: any[];
+  load_cases?: unknown[];
+  load_combinations?: unknown[];
   conversationId?: string;
 }
 
@@ -56,7 +64,7 @@ export function withDirectModelCoordinateContract<T extends Record<string, unkno
   const metadata = asRecord(model.metadata);
   const canonical = {
     ...model,
-    schema_version: '2.0.0',
+    schema_version: typeof model.schema_version === 'string' ? model.schema_version : '2.1.0',
     unit_system: typeof model.unit_system === 'string' ? model.unit_system : 'SI',
     coordinate_system: coordinateSystem,
     metadata: {
@@ -89,25 +97,6 @@ function codeCheckSummary(codeCheck: unknown): Record<string, unknown> | undefin
   return nonEmptyRecord(codeCheckPayload(codeCheck).summary);
 }
 
-function formatDirectCodeCheckSummaryText(summary: Record<string, unknown> | undefined, locale: AppLocale): string {
-  if (!summary) {
-    return locale === 'zh' ? '未执行规范校核' : 'No code checks were executed';
-  }
-  const total = String(summary.total ?? 0);
-  const passed = String(summary.passed ?? 0);
-  const failed = String(summary.failed ?? 0);
-  const warnings = String(summary.warnings ?? 0);
-  const notApplicable = summary.notApplicable ?? summary.not_applicable;
-  const notApplicableText = notApplicable !== undefined && notApplicable !== null
-    ? (locale === 'zh'
-      ? `，不适用/资料不足 ${String(notApplicable)}`
-      : `, not applicable/unavailable ${String(notApplicable)}`)
-    : '';
-
-  return locale === 'zh'
-    ? `校核通过 ${passed} / ${total}，失败 ${failed}，警告 ${warnings}${notApplicableText}`
-    : `Code checks passed ${passed} / ${total}, failed ${failed}, warnings ${warnings}${notApplicableText}`;
-}
 
 function directReportLocale(parameters: Record<string, unknown>): AppLocale {
   return parameters.locale === 'en' ? 'en' : 'zh';
@@ -122,7 +111,7 @@ export function buildDirectSeismicReport(options: {
 }): { summary: string; json: Record<string, unknown>; markdown: string } {
   const locale = directReportLocale(options.parameters);
   const analysisSuccess = Boolean(options.analysisResults.success);
-  const codeCheckText = formatDirectCodeCheckSummaryText(codeCheckSummary(options.codeCheck), locale);
+  const codeCheckText = formatCheckSummary(codeCheckSummary(options.codeCheck), locale);
   const message = typeof options.parameters.message === 'string' && options.parameters.message.trim()
     ? options.parameters.message.trim()
     : typeof options.parameters.intent === 'string' && options.parameters.intent.trim()
@@ -202,17 +191,16 @@ export function buildDirectAnalysisModelForCodeCheck(model: {
   sections: unknown;
 }): Record<string, unknown> {
   return withDirectModelCoordinateContract({
-    schemaVersion: '2.0.0',
-    schema_version: '2.0.0',
+    ...model,
+    schemaVersion: asRecord(model).schema_version ?? asRecord(model).schemaVersion ?? '2.1.0',
+    schema_version: asRecord(model).schema_version ?? asRecord(model).schemaVersion ?? '2.1.0',
     coordinate_system: model.coordinate_system ?? model.coordinateSystem,
     nodes: Array.isArray(model.nodes) ? model.nodes : [],
     elements: Array.isArray(model.elements) ? model.elements : [],
     materials: Array.isArray(model.materials) ? model.materials : [],
     sections: Array.isArray(model.sections) ? model.sections : [],
-    loadCases: [],
-    loadCombinations: [],
-    load_cases: [],
-    load_combinations: [],
+    load_cases: asRecord(model).load_cases ?? [],
+    load_combinations: asRecord(model).load_combinations ?? [],
   });
 }
 
@@ -246,12 +234,12 @@ export class AnalysisService {
   // 创建结构模型
   async createModel(params: CreateModelParams) {
     const conversationId = await ensureConversationId(params.conversationId, params.name);
-    const canonicalInput = withDirectModelCoordinateContract({
-      coordinate_system: params.coordinate_system,
-      nodes: params.nodes,
-      elements: params.elements,
-      load_cases: [],
-    });
+    const { conversationId: _conversationId, ...inputModel } = params;
+    const canonicalInput = await normalizeEngineeringModel(withDirectModelCoordinateContract({
+      ...inputModel,
+      load_cases: params.load_cases ?? [],
+      load_combinations: params.load_combinations ?? [],
+    }), createLocalStructureProtocolClient());
 
     const model = await prisma.structuralModel.create({
       data: {
@@ -260,11 +248,12 @@ export class AnalysisService {
         elements: params.elements,
         materials: params.materials,
         sections: params.sections,
-        coordinateSystem: canonicalInput.coordinate_system,
+        coordinateSystem: canonicalInput.coordinate_system as any,
+        physicalModel: canonicalInput as any,
         conversationId,
       },
     });
-    const canonicalModel = withDirectModelCoordinateContract(model as unknown as Record<string, unknown>);
+    const canonicalModel = withDirectModelCoordinateContract({ ...model, ...canonicalInput, id: model.id });
 
     // 缓存模型数据
     await cache.setex(
@@ -297,7 +286,7 @@ export class AnalysisService {
 
     if (model) {
       const modelRecord = model as unknown as Record<string, unknown>;
-      const canonicalModel = withDirectModelCoordinateContract(modelRecord);
+      const canonicalModel = withDirectModelCoordinateContract({ ...modelRecord, ...asRecord(modelRecord.physicalModel), id: modelRecord.id });
       await cache.setex(`model:${id}`, 3600, JSON.stringify(canonicalModel));
       return canonicalModel;
     }
@@ -339,8 +328,9 @@ export class AnalysisService {
       const persistedModel = {
         ...analysis.model,
         coordinate_system: analysis.model.coordinateSystem,
+        ...asRecord(analysis.model.physicalModel),
       };
-      const canonicalAnalysisModel = withDirectModelCoordinateContract(persistedModel);
+      const canonicalAnalysisModel = buildDirectAnalysisModelForCodeCheck(persistedModel);
       const results = await this.executionService.analyze({
         type: analysis.type,
         engineId: (analysis.parameters as Record<string, unknown> | null)?.engineId,
@@ -405,30 +395,48 @@ export class AnalysisService {
 
   private async runDirectSeismicCodeCheck(options: {
     analysisId: string;
-    model: {
-      coordinate_system?: unknown;
-      coordinateSystem?: unknown;
-      nodes: unknown;
-      elements: unknown;
-      materials: unknown;
-      sections: unknown;
-    };
+    model: Record<string, unknown>;
     analysisResults: Record<string, unknown>;
     parameters: Record<string, unknown>;
   }): Promise<unknown> {
     const designCode = resolveDirectChinaSeismicDesignCode(options.parameters);
-    const model = buildDirectAnalysisModelForCodeCheck(options.model);
-    const input = buildCodeCheckInput({
-      traceId: options.analysisId,
-      designCode,
-      model,
-      analysis: options.analysisResults,
-      analysisParameters: options.parameters,
+    const model = options.model;
+    return this.checkAnalysisRun({ analysisId: options.analysisId, model, analysis: options.analysisResults,
+      parameters: options.parameters, analysisType: 'seismic', code: designCode });
+  }
+
+  private async checkAnalysisRun(options: {
+    analysisId: string; model: Record<string, unknown>; analysis: Record<string, unknown>;
+    parameters: Record<string, unknown>; analysisType: string; code: string; elements?: string[]; engineId?: string;
+  }): Promise<Record<string, unknown>> {
+    const runId = options.analysis.runId;
+    const fingerprint = modelHash(options.model);
+    if (typeof runId !== 'string' || !runId || options.analysis.success !== true) {
+      throw new Error('CURRENT_ANALYSIS_RUN_REQUIRED');
+    }
+    const meta = asRecord(options.analysis.meta);
+    if (meta.modelHash !== fingerprint || meta.runId !== runId) throw new Error('ANALYSIS_MODEL_MISMATCH');
+    const settingsHash = analysisSettingsHash(options.analysisType, options.parameters.engineId, options.parameters);
+    if (meta.settingsHash !== settingsHash) throw new Error('ANALYSIS_SETTINGS_MISMATCH');
+    const knownIds = new Set((Array.isArray(options.model.elements) ? options.model.elements : [])
+      .map(element => asRecord(element).id));
+    if (options.elements?.some(id => !knownIds.has(id))) throw new Error('CODE_CHECK_ELEMENT_NOT_FOUND');
+    const result = await checkRunResults(options.analysis, async caseResult => {
+      const caseMeta = asRecord(caseResult.meta);
+      if (caseResult.success !== true || caseMeta.runId !== runId || caseMeta.modelHash !== fingerprint || caseMeta.settingsHash !== settingsHash) {
+        throw new Error('ANALYSIS_RESULT_PROVENANCE_MISMATCH');
+      }
+      const input = buildCodeCheckInput({
+        traceId: typeof options.model.id === 'string' ? options.model.id : options.analysisId,
+        designCode: options.code, model: options.model, analysis: caseResult,
+        analysisParameters: options.parameters, codeCheckElements: options.elements,
+      });
+      input.context.source = { ...input.context.source, modelId: options.model.id, analysisId: options.analysisId };
+      const response = asRecord(await executeCodeCheckDomain(createLocalCodeCheckClient(this.codeCheckExecutionService), input, options.engineId));
+      const data = asRecord(response.data);
+      return Object.keys(data).length ? data : response;
     });
-    return executeCodeCheckDomain(
-      createLocalCodeCheckClient(this.codeCheckExecutionService),
-      input,
-    );
+    return { ...result, meta: { ...asRecord(result.meta), runId, modelHash: fingerprint, analysisId: options.analysisId } };
   }
 
   // 获取分析结果
@@ -453,17 +461,22 @@ export class AnalysisService {
   // 规范校核
   async codeCheck(params: {
     modelId: string;
+    analysisId?: string;
+    runId?: string;
     code: string;
     elements: string[];
     context?: Record<string, unknown>;
     engineId?: string;
   }) {
-    return this.codeCheckExecutionService.codeCheck({
-      model_id: params.modelId,
-      code: params.code,
-      elements: params.elements,
-      context: params.context || {},
-      engineId: params.engineId,
-    });
+    if (!params.analysisId || !params.runId) throw new Error('ANALYSIS_ID_AND_RUN_ID_REQUIRED');
+    if (Object.keys(asRecord(params.context)).length) throw new Error('CODE_CHECK_CONTEXT_OVERRIDE_UNSUPPORTED');
+    const analysis = await prisma.analysis.findUnique({ where: { id: params.analysisId }, include: { model: true } });
+    if (!analysis || analysis.modelId !== params.modelId) throw new Error('ANALYSIS_MODEL_NOT_FOUND');
+    const results = asRecord(analysis.results);
+    if (analysis.status !== 'completed' || results.runId !== params.runId) throw new Error('CURRENT_ANALYSIS_RUN_REQUIRED');
+    const model = buildDirectAnalysisModelForCodeCheck({ ...analysis.model,
+      coordinate_system: analysis.model.coordinateSystem, ...asRecord(analysis.model.physicalModel) });
+    return this.checkAnalysisRun({ analysisId: analysis.id, model, analysis: results,
+      parameters: asRecord(analysis.parameters), analysisType: analysis.type, code: params.code, elements: params.elements, engineId: params.engineId });
   }
 }

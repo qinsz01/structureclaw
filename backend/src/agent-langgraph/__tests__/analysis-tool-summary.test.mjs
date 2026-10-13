@@ -1,4 +1,13 @@
 import { describe, expect, test } from "@jest/globals";
+import { modelHash } from "../../../dist/engineering/model-state.js";
+
+// Report-specific fixtures include the model/version provenance required by the common gate.
+async function invokeCurrentReport(tool, input, config) {
+  const state = config.configurable.agentState;
+  state.model ??= { schema_version: "2.0.0", nodes: [], elements: [], materials: [], sections: [] };
+  state.analysisResult.meta = { ...state.analysisResult.meta, modelHash: modelHash(state.model) };
+  return tool.invoke(input, config);
+}
 
 describe("analysis tool summary", () => {
   test("uses structured analysis skill selection within the selected skill scope", async () => {
@@ -157,7 +166,7 @@ describe("analysis tool summary", () => {
     });
   });
 
-  test("automatically analyzes the only load combination declared by the current model", async () => {
+  test("delegates complete static selection to the common run service", async () => {
     const { createRunAnalysisTool } = await import("../../../dist/agent-langgraph/tools.js");
     let capturedOptions;
     const runAnalysis = createRunAnalysisTool({
@@ -202,18 +211,18 @@ describe("analysis tool summary", () => {
       },
     });
 
-    expect(capturedOptions.parameters.loadCombinationId).toBe("ULS");
+    expect(capturedOptions.parameters.loadCombinationId).toBeUndefined();
   });
 
-  test("requires an explicit selection when the current model has multiple load combinations", async () => {
+  test("accepts an explicit combination collection without collapsing it", async () => {
     const { createRunAnalysisTool } = await import("../../../dist/agent-langgraph/tools.js");
     const runAnalysis = createRunAnalysisTool({
       executeAnalysisSkill() {
-        throw new Error("executeAnalysisSkill should not be called");
+        return { skillId: "opensees-static", result: { success: true, data: {} } };
       },
     });
 
-    const command = await runAnalysis.invoke({ analysisType: "static" }, {
+    const command = await runAnalysis.invoke({ analysisType: "static", loadCombinationIds: ["ULS", "SLS"] }, {
       toolCall: { id: "call-test" },
       configurable: {
         skillScope: ["frame", "opensees-static"],
@@ -236,9 +245,7 @@ describe("analysis tool summary", () => {
     });
 
     expect(JSON.parse(command.update.messages[0].content)).toMatchObject({
-      success: false,
-      error_code: "LOAD_COMBINATION_REQUIRED",
-      availableLoadCombinationIds: ["ULS", "SLS"],
+      success: true,
     });
   });
 
@@ -1446,7 +1453,7 @@ describe("analysis tool summary", () => {
       },
     });
 
-    const command = await generateReport.invoke({
+    const command = await invokeCurrentReport(generateReport, {
       message: "生成中国抗震计算书",
       analysisType: "seismic",
       locale: "zh",
@@ -1486,7 +1493,7 @@ describe("analysis tool summary", () => {
       },
     });
 
-    const command = await generateReport.invoke({
+    const command = await invokeCurrentReport(generateReport, {
       message: "生成中国抗震计算书",
       analysisType: "static",
       locale: "zh",
@@ -1528,7 +1535,7 @@ describe("analysis tool summary", () => {
       },
     });
 
-    const command = await generateReport.invoke({
+    const command = await invokeCurrentReport(generateReport, {
       message: "生成中国抗震计算书",
       analysisType: "seismic",
       locale: "zh",
@@ -1575,7 +1582,7 @@ describe("analysis tool summary", () => {
       },
     });
 
-    const command = await generateReport.invoke({
+    const command = await invokeCurrentReport(generateReport, {
       message: "生成中国抗震计算书",
       analysisType: "seismic",
       locale: "zh",
@@ -1625,7 +1632,7 @@ describe("analysis tool summary", () => {
       },
     });
 
-    const command = await generateReport.invoke({
+    const command = await invokeCurrentReport(generateReport, {
       message: "生成中国抗震计算书",
       analysisType: "seismic",
       locale: "zh",
@@ -1672,7 +1679,7 @@ describe("analysis tool summary", () => {
       },
     });
 
-    const command = await generateReport.invoke({
+    const command = await invokeCurrentReport(generateReport, {
       message: "生成中国抗震计算书",
       analysisType: "seismic",
       locale: "zh",
@@ -1718,7 +1725,7 @@ describe("analysis tool summary", () => {
       },
     });
 
-    const command = await generateReport.invoke({
+    const command = await invokeCurrentReport(generateReport, {
       message: "生成中国抗震计算书",
       analysisType: "seismic",
       locale: "zh",
@@ -1770,7 +1777,7 @@ describe("analysis tool summary", () => {
       },
     });
 
-    const command = await generateReport.invoke({
+    const command = await invokeCurrentReport(generateReport, {
       message: "生成中国抗震计算书",
       analysisType: "seismic",
       locale: "zh",
@@ -1926,7 +1933,7 @@ describe("analysis tool summary", () => {
       analysisTraceId: state.analysisResult.meta.traceId,
     });
 
-    const reportCommand = await generateReport.invoke({
+    const reportCommand = await invokeCurrentReport(generateReport, {
       message: "执行中国抗震分析并生成报告",
       analysisType: "seismic",
       locale: "zh",
@@ -2494,6 +2501,7 @@ describe("build model tool summary", () => {
 
     expect(update).toEqual({
       model: null,
+      modelPending: true,
       analysisResult: null,
       codeCheckResult: null,
       report: null,

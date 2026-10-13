@@ -14,7 +14,7 @@ function entities(value: unknown, name: string, allowEmpty = false): RecordValue
 
 /** One physical V2 model boundary for explicit/generic paths; no template inference. */
 export function validateExplicitModel(model: RecordValue): RecordValue {
-  if (model.schema_version !== '2.0.0') fail('schema_version must be 2.0.0');
+  if (!['2.0.0', '2.1.0'].includes(String(model.schema_version))) fail('schema_version must be 2.0.0 or 2.1.0');
   const nodes = entities(model.nodes, 'nodes');
   const elements = entities(model.elements, 'elements');
   const materials = entities(model.materials, 'materials');
@@ -58,16 +58,19 @@ export function validateExplicitModel(model: RecordValue): RecordValue {
 export function buildExplicitDraftModel(state: DraftState): RecordValue | undefined {
   const draft = state.engineeringDraft;
   if (!draft) return undefined;
-  const explicit = draft.model || draft.materials || draft.sectionRecords || draft.loadCases
-    || draft.topology?.members?.some((member) => member.type || member.material || member.section);
+  const explicit = draft.model || draft.topology?.members?.some((member) => member.type || member.material || member.section);
   if (!explicit) return undefined;
-  if (draft.model) return validateExplicitModel(structuredClone(draft.model));
+  if (draft.model) {
+    const model = structuredClone(draft.model);
+    model.metadata = { ...(record(model.metadata) ? model.metadata : {}), inputEvidence: structuredClone(draft.inputEvidence ?? (record(model.metadata) ? model.metadata.inputEvidence : undefined) ?? []) };
+    return validateExplicitModel(model);
+  }
   if (!draft.topology?.nodes?.length || !draft.topology.members?.length) fail('topology.nodes and topology.members required');
   if (!draft.materials?.length || !draft.sectionRecords?.length) fail('materials and sectionRecords required; role defaults cannot replace explicit assignments');
   if (!state.frameDimension) fail('frameDimension required; a planar drawing alone does not establish a 2-D analysis');
   if (!draft.loadCases && draft.loads?.length) fail('loadCases required for explicit topology: preserve targets, signs, components and member positions');
   const model = withCanonicalCoordinateContract({
-    schema_version: '2.0.0',
+    schema_version: '2.1.0',
     nodes: structuredClone(draft.topology.nodes),
     elements: structuredClone(draft.topology.members),
     materials: structuredClone(draft.materials),

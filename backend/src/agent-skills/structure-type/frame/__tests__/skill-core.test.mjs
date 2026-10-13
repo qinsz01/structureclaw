@@ -1,3 +1,4 @@
+import { withDeclaredProperties } from '../../../../../tests/fixtures/declared-template-properties.mjs';
 import { describe, expect, test } from '@jest/globals';
 import { canonicalizeFramePatch } from '../../../../../dist/agent-skills/structure-type/frame/canonicalize.js';
 import { buildFrameModel } from '../../../../../dist/agent-skills/structure-type/frame/model.js';
@@ -195,7 +196,7 @@ describe('frame canonicalize core contract', () => {
   });
 
   test('builds rectangular concrete sections for YJK-compatible frame models', () => {
-    const model = buildFrameModel({
+    const model = buildFrameModel(withDeclaredProperties({
       inferredType: 'frame',
       updatedAt: 0,
       frameDimension: '2d',
@@ -211,7 +212,7 @@ describe('frame canonicalize core contract', () => {
       frameMaterial: 'C30',
       frameColumnSection: '400X400',
       frameBeamSection: '250X600',
-    });
+    }));
 
     expect(model).toBeDefined();
     expect(model.materials[0]).toMatchObject({
@@ -248,7 +249,7 @@ describe('frame canonicalize core contract', () => {
   });
 
   test('emits story tags and V2 floor_loads for OpenSees floor load expansion', () => {
-    const model = buildFrameModel({
+    const model = buildFrameModel(withDeclaredProperties({
       inferredType: 'frame',
       updatedAt: 0,
       frameDimension: '3d',
@@ -260,7 +261,7 @@ describe('frame canonicalize core contract', () => {
       bayWidthsYM: [6],
       floorLoads: [{ story: 1, verticalKN: 360, liveLoadKN: 72 }],
       frameBaseSupportType: 'fixed',
-    });
+    }));
 
     expect(model).toBeDefined();
     expect(model.nodes.find((node) => node.id === 'N1_0_0')).toMatchObject({ story: 'F1' });
@@ -278,7 +279,7 @@ describe('frame canonicalize core contract', () => {
   });
 
   test('normalizes duplicate floor loads while preserving upward signed gravity loads', () => {
-    const model = buildFrameModel({
+    const model = buildFrameModel(withDeclaredProperties({
       inferredType: 'frame',
       updatedAt: 0,
       frameDimension: '2d',
@@ -291,7 +292,7 @@ describe('frame canonicalize core contract', () => {
         { story: 1, verticalKN: -120, liveLoadKN: 30 },
       ],
       frameBaseSupportType: 'fixed',
-    });
+    }));
 
     expect(model).toBeDefined();
     expect(model.stories[0]).toMatchObject({ dead_load: -20, live_load: 5 });
@@ -300,7 +301,7 @@ describe('frame canonicalize core contract', () => {
   });
 
   test('builds custom H sections with star separators', () => {
-    const model = buildFrameModel({
+    const model = buildFrameModel(withDeclaredProperties({
       inferredType: 'frame',
       updatedAt: 0,
       frameDimension: '2d',
@@ -312,7 +313,7 @@ describe('frame canonicalize core contract', () => {
       frameMaterial: 'Q355',
       frameColumnSection: 'H400*200*10*16',
       frameBeamSection: 'H300*150*8*12',
-    });
+    }));
 
     expect(model).toBeDefined();
     expect(model.sections[0]).toMatchObject({
@@ -379,10 +380,10 @@ describe('frame canonicalize core contract', () => {
       { story: 2, verticalKN: 120, lateralXKN: 10.8 },
     ]);
 
-    const model = buildFrameModel({
+    const model = buildFrameModel(withDeclaredProperties({
       ...existingState,
       ...patch,
-    });
+    }));
 
     expect(model.load_cases.map((loadCase) => loadCase.id)).toEqual(['D', 'LAT']);
     expect(model.load_cases.find((loadCase) => loadCase.id === 'LAT').loads.reduce((sum, load) => sum + load.fx, 0)).toBeCloseTo(21.6);
@@ -431,12 +432,12 @@ describe('frame canonicalize core contract', () => {
     );
 
     expect(patch.floorLoads).toBeUndefined();
-    const model = buildFrameModel({
+    const model = buildFrameModel(withDeclaredProperties({
       inferredType: 'frame',
       updatedAt: 0,
       frameBaseSupportType: 'fixed',
       ...patch,
-    });
+    }));
 
     const lineCase = model.load_cases.find((loadCase) => loadCase.id === 'LINE');
     expect(lineCase).toBeDefined();
@@ -481,12 +482,12 @@ describe('frame canonicalize core contract', () => {
       },
       undefined,
     );
-    const model = buildFrameModel({
+    const model = buildFrameModel(withDeclaredProperties({
       inferredType: 'frame',
       updatedAt: 0,
       frameBaseSupportType: 'fixed',
       ...patch,
-    });
+    }));
 
     expect(model.load_cases.map((loadCase) => loadCase.id)).toEqual(['D', 'L']);
     expect(model.load_cases.find((loadCase) => loadCase.id === 'D')).toMatchObject({
@@ -513,7 +514,7 @@ describe('frame canonicalize core contract', () => {
   });
 
   test('targets Chinese top-story frame line loads to top story beams', () => {
-    const model = buildFrameModel({
+    const model = buildFrameModel(withDeclaredProperties({
       inferredType: 'frame',
       structuralTypeKey: 'steel-frame',
       frameDimension: '2d',
@@ -529,7 +530,7 @@ describe('frame canonicalize core contract', () => {
       },
       frameBaseSupportType: 'fixed',
       updatedAt: 0,
-    });
+    }));
 
     const lineCase = model.load_cases.find((loadCase) => loadCase.id === 'LINE');
     expect(lineCase).toBeDefined();
@@ -539,7 +540,7 @@ describe('frame canonicalize core contract', () => {
   });
 
   test('applies story-and-span line loads once to each requested 2d beam', () => {
-    const model = buildFrameModel({
+    const model = buildFrameModel(withDeclaredProperties({
       inferredType: 'frame',
       structuralTypeKey: 'steel-frame',
       frameDimension: '2d',
@@ -560,7 +561,7 @@ describe('frame canonicalize core contract', () => {
       },
       frameBaseSupportType: 'fixed',
       updatedAt: 0,
-    });
+    }));
 
     const lineCase = model.load_cases.find((loadCase) => loadCase.id === 'LINE');
     expect(lineCase.loads).toHaveLength(6);
@@ -570,7 +571,7 @@ describe('frame canonicalize core contract', () => {
   });
 
   test('prefers structured story locations over textual load targets and array order', () => {
-    const model = buildFrameModel({
+    const model = buildFrameModel(withDeclaredProperties({
       inferredType: 'frame',
       structuralTypeKey: 'steel-frame',
       frameDimension: '2d',
@@ -587,7 +588,7 @@ describe('frame canonicalize core contract', () => {
       },
       frameBaseSupportType: 'fixed',
       updatedAt: 0,
-    });
+    }));
 
     const lineCase = model.load_cases.find((loadCase) => loadCase.id === 'LINE');
     expect(lineCase.loads).toEqual([
@@ -619,7 +620,7 @@ describe('frame canonicalize core contract', () => {
         { id: 'BY2', nodes: ['N101', 'N111'] },
       ],
     };
-    const model = buildFrameModel({
+    const model = buildFrameModel(withDeclaredProperties({
       inferredType: 'frame',
       structuralTypeKey: 'steel-frame',
       frameDimension: '3d',
@@ -642,7 +643,7 @@ describe('frame canonicalize core contract', () => {
         ],
       },
       updatedAt: 0,
-    });
+    }));
 
     expect(model.nodes).toHaveLength(8);
     expect(model.elements).toHaveLength(8);
@@ -664,7 +665,7 @@ describe('frame canonicalize core contract', () => {
   });
 
   test('canonicalizes active-plane fixed restraints in explicit 2d frame topology', () => {
-    const model = buildFrameModel({
+    const model = buildFrameModel(withDeclaredProperties({
       inferredType: 'frame',
       structuralTypeKey: 'steel-frame',
       frameDimension: '2d',
@@ -693,7 +694,7 @@ describe('frame canonicalize core contract', () => {
         ],
       },
       updatedAt: 0,
-    });
+    }));
 
     expect(model.nodes.find((node) => node.id === 'B0').restraints).toEqual(
       [true, true, true, true, true, true],
@@ -707,7 +708,7 @@ describe('frame canonicalize core contract', () => {
   });
 
   test('applies explicitly located 2d frame nodal loads only to their requested joints', () => {
-    const model = buildFrameModel({
+    const model = buildFrameModel(withDeclaredProperties({
       inferredType: 'frame',
       structuralTypeKey: 'steel-frame',
       frameDimension: '2d',
@@ -725,7 +726,7 @@ describe('frame canonicalize core contract', () => {
       },
       frameBaseSupportType: 'fixed',
       updatedAt: 0,
-    });
+    }));
 
     const lateralCase = model.load_cases.find((loadCase) => loadCase.id === 'LAT');
     expect(lateralCase).toBeDefined();
@@ -737,7 +738,7 @@ describe('frame canonicalize core contract', () => {
   });
 
   test('maps explicitly located point loads to the top-right frame joint', () => {
-    const model = buildFrameModel({
+    const model = buildFrameModel(withDeclaredProperties({
       inferredType: 'frame',
       structuralTypeKey: 'steel-frame',
       frameDimension: '2d',
@@ -755,7 +756,7 @@ describe('frame canonicalize core contract', () => {
       },
       frameBaseSupportType: 'fixed',
       updatedAt: 0,
-    });
+    }));
 
     const nodalCase = model.load_cases.find((loadCase) => loadCase.id === 'LAT');
     expect(nodalCase).toBeDefined();
@@ -766,7 +767,7 @@ describe('frame canonicalize core contract', () => {
   });
 
   test('preserves named load cases for explicitly located frame nodal loads', () => {
-    const model = buildFrameModel({
+    const model = buildFrameModel(withDeclaredProperties({
       inferredType: 'frame',
       structuralTypeKey: 'steel-frame',
       frameDimension: '2d',
@@ -811,7 +812,7 @@ describe('frame canonicalize core contract', () => {
       },
       frameBaseSupportType: 'fixed',
       updatedAt: 0,
-    });
+    }));
 
     expect(model.load_cases.map((loadCase) => loadCase.id)).toEqual(['D']);
     expect(model.load_cases[0].loads).toEqual([
@@ -823,7 +824,7 @@ describe('frame canonicalize core contract', () => {
   });
 
   test('does not treat member-end top wording as a top-story frame line target', () => {
-    const model = buildFrameModel({
+    const model = buildFrameModel(withDeclaredProperties({
       inferredType: 'frame',
       structuralTypeKey: 'steel-frame',
       frameDimension: '2d',
@@ -839,7 +840,7 @@ describe('frame canonicalize core contract', () => {
       },
       frameBaseSupportType: 'fixed',
       updatedAt: 0,
-    });
+    }));
 
     const lineCase = model.load_cases.find((loadCase) => loadCase.id === 'LINE');
     expect(lineCase).toBeDefined();
@@ -848,7 +849,7 @@ describe('frame canonicalize core contract', () => {
   });
 
   test('targets explicit-topology line loads to their named beam elements', () => {
-    const model = buildFrameModel({
+    const model = buildFrameModel(withDeclaredProperties({
       inferredType: 'frame',
       structuralTypeKey: 'steel-frame',
       frameDimension: '2d',
@@ -889,7 +890,7 @@ describe('frame canonicalize core contract', () => {
       },
       frameBaseSupportType: 'fixed',
       updatedAt: 0,
-    });
+    }));
 
     expect(model.load_cases[0].loads).toEqual([
       { type: 'distributed', element: 'N3-N4', story: 'F1', wz: -60, source: 'engineering_draft_line_loads', reference_frame: 'global' },
@@ -898,7 +899,7 @@ describe('frame canonicalize core contract', () => {
   });
 
   test('targets Chinese x-axis frame line loads to x-direction beams in 3d', () => {
-    const model = buildFrameModel({
+    const model = buildFrameModel(withDeclaredProperties({
       inferredType: 'frame',
       structuralTypeKey: 'steel-frame',
       frameDimension: '3d',
@@ -916,7 +917,7 @@ describe('frame canonicalize core contract', () => {
       },
       frameBaseSupportType: 'fixed',
       updatedAt: 0,
-    });
+    }));
 
     const lineCase = model.load_cases.find((loadCase) => loadCase.id === 'LINE');
     expect(lineCase).toBeDefined();

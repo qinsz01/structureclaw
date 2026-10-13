@@ -1,6 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 
 const EXPECTED_TOOL_IDS = [
+  'query_model', 'edit_model', 'undo_model', 'query_results',
   'detect_structure_type',
   'extract_draft_params',
   'build_model',

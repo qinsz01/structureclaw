@@ -5,6 +5,8 @@ import type { CodeCheckDomainInput } from './types.js';
 import type { CodeCheckClient } from './rule.js';
 import type { ExecutionRequestOptions } from '../analysis/types.js';
 import { withGB50011CodeCheckMetadata } from './gb50011/metadata.js';
+import { recoverAnalysisMembers } from '../result-postprocess/member-response.js';
+import type { RecoveryModel, RecoveryResult } from '../../skill-shared/member-response.js';
 
 export type { CodeCheckDomainInput } from './types.js';
 export {
@@ -31,25 +33,39 @@ function asRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
-function extractUtilizationByElement(source: unknown): Record<string, unknown> {
-  const sourceObject = asRecord(source);
-  const dataObject = asRecord(sourceObject['data']);
-  const envelopeObject = asRecord(sourceObject['envelope']);
-  const dataEnvelopeObject = asRecord(dataObject['envelope']);
+/** Historical concrete-frame templates inserted unconfirmed minimum rebar as facts. */
+function acceptedReinforcement(value: unknown, requiresConfirmation: boolean): Record<string, unknown> | undefined {
+  const reinforcement = asRecord(value);
+  if (Object.keys(reinforcement).length === 0 || reinforcement['confirmed'] === false
+    || (requiresConfirmation && reinforcement['confirmed'] !== true)
+    || (reinforcement['status'] === 'unconfirmed' && reinforcement['confirmed'] !== true)) return undefined;
+  return reinforcement;
+}
 
-  const candidates = [
-    dataEnvelopeObject['elementUtilization'],
-    envelopeObject['elementUtilization'],
-    dataObject['utilizationByElement'],
-    sourceObject['utilizationByElement'],
-  ];
+const REBAR_FIELDS = ['As', 'Asv', 'stirrup_dia', 'stirrup_spacing', 'main_dia', 'bar_count', 'sn', 'cover', 'crack_cover'];
 
-  return candidates.reduce<Record<string, unknown>>((acc, raw) => {
-    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
-      return { ...acc, ...(raw as Record<string, unknown>) };
+/** Keep raw context/extra paths from bypassing the same reinforcement provenance gate. */
+function withConfirmedReinforcement(model: Record<string, unknown>): Record<string, unknown> {
+  const template = asRecord(model['metadata'])['source'] === 'concrete-frame-skill-draft';
+  function clean(value: unknown, member: boolean): Record<string, unknown> {
+    const source = asRecord(value);
+    const result = { ...source };
+    const reinforcement = acceptedReinforcement(source['reinforcement'], template);
+    if (reinforcement) result['reinforcement'] = reinforcement;
+    else if (source['reinforcement'] !== undefined) result['reinforcement'] = { confirmed: false };
+    if (member && (template || source['reinforcement'] !== undefined && !reinforcement)) {
+      for (const key of REBAR_FIELDS) delete result[key];
     }
-    return acc;
-  }, {});
+    for (const key of ['metadata', 'extra', 'properties']) {
+      if (source[key] && typeof source[key] === 'object') result[key] = clean(source[key], member && key !== 'properties');
+    }
+    return result;
+  }
+  return {
+    ...model,
+    ...(Array.isArray(model['elements']) ? { elements: model['elements'].map(element => clean(element, true)) } : {}),
+    ...(Array.isArray(model['sections']) ? { sections: model['sections'].map(section => clean(section, false)) } : {}),
+  };
 }
 
 function extractAnalysisSummary(analysis: unknown): Record<string, unknown> {
@@ -228,52 +244,32 @@ function extractModelSummary(model: Record<string, unknown> | undefined): Record
 /**
  * Take the larger absolute value of two numbers; returns undefined if both are falsy.
  */
-function envelopeAbs(a: unknown, b: unknown): number | undefined {
-  const va = typeof a === 'number' ? Math.abs(a) : 0;
-  const vb = typeof b === 'number' ? Math.abs(b) : 0;
-  if (va === 0 && vb === 0) return undefined;
-  return va >= vb ? va : vb;
-}
+const finiteNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 
-function isPkpmAnalysisResult(analysis: Record<string, unknown>, data: Record<string, unknown>): boolean {
+type ForceState = { source: string; station: string | number; positionM?: number; segmentId?: string; side?: string; forces: Record<string, number>; unsupportedReason?: string };
+
+function forceUnitFactors(analysis: Record<string, unknown>, data: Record<string, unknown>): { force: number; moment: number } | undefined {
   const meta = asRecord(analysis['meta']);
-  return data['analysisMode'] === 'pkpm-satwe'
-    || meta['analysisAdapterKey'] === 'builtin-pkpm'
-    || meta['engineId'] === 'builtin-pkpm';
+  const units = asRecord(meta['units'] ?? data['units']);
+  if (units['force'] === 'kN' && ['kN.m', 'kN·m'].includes(String(units['moment']))) return { force: 1000, moment: 1e6 };
+  if (units['force'] === 'N' && ['N.mm', 'N·mm'].includes(String(units['moment']))) return { force: 1, moment: 1 };
+  // Documented compatibility for old built-in responses, never infer units from value size.
+  if (!hasRecordKeys(units) && ['builtin-opensees', 'builtin-pkpm'].includes(String(meta['analysisAdapterKey'] ?? meta['engineId']))) return { force: 1000, moment: 1e6 };
+  return undefined;
 }
 
-function usesKilonewtonAnalysisForceUnits(analysis: Record<string, unknown>, data: Record<string, unknown>): boolean {
-  const meta = asRecord(analysis['meta']);
-  return isPkpmAnalysisResult(analysis, data)
-    || meta['analysisAdapterKey'] === 'builtin-opensees'
-    || meta['engineId'] === 'builtin-opensees';
-}
-
-function scaleFiniteNumber(value: unknown, factor: number): unknown {
-  return typeof value === 'number' && Number.isFinite(value) ? value * factor : value;
-}
-
-function convertKilonewtonForcesToCodeCheckUnits(forceRecord: Record<string, unknown>): Record<string, unknown> {
-  const next: Record<string, unknown> = { ...forceRecord };
-  for (const key of ['N', 'V', 'Vy', 'Vz']) {
-    if (key in next) next[key] = scaleFiniteNumber(next[key], 1000);
-  }
-  for (const key of ['M', 'Mx', 'My', 'Mz', 'T']) {
-    if (key in next) next[key] = scaleFiniteNumber(next[key], 1000000);
-  }
-  for (const key of ['n1', 'n2']) {
-    const nested = asRecord(next[key]);
-    if (Object.keys(nested).length > 0) {
-      next[key] = convertKilonewtonForcesToCodeCheckUnits(nested);
-    }
-  }
-  return next;
-}
-
-function sectionShapeDimensionToMm(value: unknown, sourceUnit: 'm' | 'mm'): number {
-  const numeric = Number(value ?? 0);
-  if (!Number.isFinite(numeric) || numeric <= 0) return 0;
-  return sourceUnit === 'mm' ? numeric : numeric * 1000;
+function codeCheckForceState(raw: Record<string, unknown>, factors: { force: number; moment: number }, source: string, station: string | number): ForceState {
+  const forces: Record<string, number> = {};
+  for (const name of ['N', 'V2', 'V3', 'V']) if (finiteNumber(raw[name])) forces[name] = raw[name] * factors.force;
+  for (const name of ['T', 'M2', 'M3', 'M', 'Mx', 'M_service']) if (finiteNumber(raw[name])) forces[name] = raw[name] * factors.moment;
+  const canonical = finiteNumber(raw['M2']) || finiteNumber(raw['V3']);
+  if (canonical) {
+    // The implemented uniaxial checks bend about local 2; never use 3-D vector magnitudes.
+    if (finiteNumber(forces['M2'])) forces['Mx'] = forces['M2'];
+    if (finiteNumber(forces['V3'])) forces['V'] = forces['V3'];
+  } else if (finiteNumber(forces['M'])) forces['Mx'] = forces['M'];
+  const biaxial = canonical && ['M3', 'T', 'V2'].some(key => finiteNumber(raw[key]) && Math.abs(raw[key]) > 1e-12);
+  return { source, station, forces, ...(biaxial ? { unsupportedReason: 'Biaxial bending, transverse shear or torsion requires a supported combined check / 双向弯曲、横向剪切或扭转尚缺相应组合验算。' } : {}) };
 }
 
 function hasRecordKeys(value: Record<string, unknown>): boolean {
@@ -316,17 +312,17 @@ function extractElementDataForCodeCheck(
   const analysis = asRecord(analysisResult);
   const dataObject = asRecord(analysis['data']);
   const data = Object.keys(dataObject).length > 0 ? dataObject : analysis;
-  const rawForces = data?.['forces'] as Record<string, unknown> | undefined;
-  const shouldConvertForceUnits = usesKilonewtonAnalysisForceUnits(analysis, data);
-  const forces: Record<string, Record<string, unknown>> = {};
-  if (rawForces) {
-    for (const [elemId, value] of Object.entries(rawForces)) {
-      if (value && typeof value === 'object') {
-        const forceRecord = value as Record<string, unknown>;
-        forces[elemId] = shouldConvertForceUnits
-          ? convertKilonewtonForcesToCodeCheckUnits(forceRecord)
-          : forceRecord;
-      }
+  const rawForces = asRecord(data['forces']);
+  const factors = forceUnitFactors(analysis, data);
+  const meta = asRecord(analysis['meta']);
+  const engine = String(meta['analysisAdapterKey'] ?? meta['engineId'] ?? '').replace('builtin-', '');
+  const nativeEnvelope = engine === 'pkpm' || engine === 'yjk' || /^(pkpm|yjk)/.test(String(data['analysisMode']));
+  const recoveredById = new Map<string, ReturnType<typeof recoverAnalysisMembers>[number]>();
+  if (engine === 'opensees' && factors?.force === 1000 && model['unit_system'] === 'SI'
+    && hasRecordKeys(asRecord(model['coordinate_system'])) && hasRecordKeys(asRecord(data['displacements']))) {
+    const recoveryResult = { ...data, units: asRecord(meta['units'] ?? data['units']) };
+    for (const member of recoverAnalysisMembers(model as unknown as RecoveryModel, recoveryResult as RecoveryResult, engine)) {
+      if (member.state === 'recovered' || member.state === 'truss') recoveredById.set(member.id, member);
     }
   }
 
@@ -369,15 +365,32 @@ function extractElementDataForCodeCheck(
     const materialId = String(elem['material'] ?? '');
     const materialObj = materialById[materialId];
 
-    // forces: n1/n2 envelope (take max absolute per component)
-    const elemForces = forces[elemId];
-    const n1Forces = (elemForces?.['n1'] as Record<string, unknown>) ?? elemForces ?? {};
-    const n2Forces = (elemForces?.['n2'] as Record<string, unknown>) ?? {};
-    const envelopeN = envelopeAbs(n1Forces['N'], n2Forces['N']);
-    const envelopeV = envelopeAbs(n1Forces['V'], n2Forces['V']);
-    const rawM1 = n1Forces['Mx'] !== undefined ? n1Forces['Mx'] : n1Forces['M'];
-    const rawM2 = n2Forces['Mx'] !== undefined ? n2Forces['Mx'] : n2Forces['M'];
-    const envelopeMx = envelopeAbs(rawM1, rawM2);
+    // Retain simultaneous signed vectors at each station; never splice component envelopes.
+    const elemForces = asRecord(rawForces[elemId]);
+    const incompatibleFrame = elemForces['referenceFrame'] !== undefined && elemForces['referenceFrame'] !== 'element-local';
+    const forceStates: ForceState[] = [];
+    const recovered = recoveredById.get(elemId);
+    if (recovered) {
+      for (const sample of recovered.samples) {
+        forceStates.push({ ...codeCheckForceState(sample as unknown as Record<string, unknown>, { force: 1000, moment: 1e6 }, 'member_response', sample.x), positionM: sample.x, ...(sample.segmentId ? { segmentId: sample.segmentId } : {}), ...(sample.side ? { side: sample.side } : {}) });
+      }
+    } else if (factors && !nativeEnvelope && !incompatibleFrame) {
+      for (const endpoint of ['n1', 'n2']) {
+        const value = asRecord(elemForces[endpoint]);
+        if (hasRecordKeys(value)) {
+          const state = codeCheckForceState(value, factors, 'native_endpoint', endpoint);
+          if (String(data['analysisMode']).includes('3d_frame') && !finiteNumber(value['M2'])) {
+            state.unsupportedReason = 'Legacy 3-D force component conventions are unverified / 旧三维内力分量约定尚未验证。';
+          }
+          forceStates.push(state);
+        }
+      }
+      if (!forceStates.length && hasRecordKeys(elemForces)) forceStates.push(codeCheckForceState(elemForces, factors, 'provided_station', 'provided'));
+    }
+    const forceInputIssue = nativeEnvelope
+      ? 'Native component envelopes lack verified simultaneous station conventions / 原生分量包络尚缺同截面向量约定，不能用于组合验算。'
+      : incompatibleFrame ? 'Member checks require verified element-local actions / 构件校核需要已验证的局部坐标内力。'
+        : !factors && hasRecordKeys(elemForces) ? 'Analysis force units are not declared / 分析内力单位未声明。' : undefined;
 
     // element length from node coordinates (m → mm)
     const elemNodes = Array.isArray(elem['nodes']) ? (elem['nodes'] as string[]) : [];
@@ -413,20 +426,17 @@ function extractElementDataForCodeCheck(
     // rotation radius i = sqrt(I / A) in mm
     const i_min = A_mm2 > 0 ? Math.sqrt(Math.min(Iy_mm4, Iz_mm4) / A_mm2) : undefined;
 
-    // H-section missing props derivation from shape (H/B/tw/tf)
+    // V2 SectionShape dimensions are millimetres, independently of their magnitude.
     let derivedWnxMm3 = Wx_mm3;
     let derivedS_mm3 = S_mm3;
     let derivedTw_mm = tw_mm;
     let derivedAs_mm2 = As_mm2;
     if (sectionShape && sectionShape['kind'] === 'H') {
-      const rawH = Number(sectionShape['H'] ?? 0);
-      const rawB = Number(sectionShape['B'] ?? 0);
-      const shapeUnit = rawH > 10 || rawB > 10 ? 'mm' : 'm';
-      const Hmm = sectionShapeDimensionToMm(sectionShape['H'], shapeUnit);
-      const Bmm = sectionShapeDimensionToMm(sectionShape['B'], shapeUnit);
-      const twmm = sectionShapeDimensionToMm(sectionShape['tw'], shapeUnit);
-      const tfmm = sectionShapeDimensionToMm(sectionShape['tf'], shapeUnit);
-      if (Hmm > 0 && Bmm > 0 && twmm > 0 && tfmm > 0) {
+      const Hmm = Number(sectionShape['H'] ?? 0);
+      const Bmm = Number(sectionShape['B'] ?? 0);
+      const twmm = Number(sectionShape['tw'] ?? 0);
+      const tfmm = Number(sectionShape['tf'] ?? 0);
+      if ([Hmm, Bmm, twmm, tfmm].every(Number.isFinite) && Hmm > 2 * tfmm && Bmm > twmm && twmm > 0 && tfmm > 0) {
         const hw = Hmm - 2 * tfmm;
         if (derivedWnxMm3 <= 0) {
           // Iy = (tw*hw³)/12 + 2*B*tf*((hw+tf)/2)² — already have Iy_mm4 from props
@@ -448,21 +458,8 @@ function extractElementDataForCodeCheck(
       }
     }
 
-    // material: fy→f/fv fallback for gb50017 (steel design strength)
-    const materialWithDesign: Record<string, unknown> = ((): Record<string, unknown> => {
-      if (!materialObj) return {};
-      const base = { ...materialObj };
-      const fy = typeof materialObj['fy'] === 'number' ? materialObj['fy'] : undefined;
-      const hasF = typeof materialObj['f'] === 'number';
-      const hasFv = typeof materialObj['fv'] === 'number';
-      if (!hasF && fy !== undefined) {
-        base['f'] = fy; // conservative: use fy as design strength (f ≤ fy)
-      }
-      if (!hasFv && fy !== undefined) {
-        base['fv'] = Math.round(fy / Math.sqrt(3) * 100) / 100; // fv ≈ 0.577·fy
-      }
-      return base;
-    })();
+    // Yield strength is not design strength; preserve only explicitly supplied design values.
+    const materialWithDesign = materialObj ? { ...materialObj } : {};
 
     // design parameters from element metadata (phi, lambda limits, etc.)
     const elemMetadata = (typeof elem['metadata'] === 'object' && elem['metadata'] !== null
@@ -494,11 +491,23 @@ function extractElementDataForCodeCheck(
       'length',
       'L',
     ]);
-    const sectionReinforcement = pickFirstDefined([sectionObj ?? {}, sectionExtra, sectionProps], ['reinforcement']);
-    const reinforcement = pickFirstDefined(
+    const templateReinforcement = asRecord(model['metadata'])['source'] === 'concrete-frame-skill-draft';
+    const sectionReinforcement = acceptedReinforcement(
+      pickFirstDefined([sectionObj ?? {}, sectionExtra, sectionProps], ['reinforcement']), templateReinforcement,
+    );
+    const declaredReinforcement = pickFirstDefined(
       [elem, elemMetadata, elemExtra, sectionObj ?? {}, sectionExtra, sectionProps],
       ['reinforcement'],
     );
+    const reinforcement = acceptedReinforcement(declaredReinforcement, templateReinforcement);
+    // Explicit records override legacy flat fields; rejected suggestions never fall back to them.
+    const rebarSources = reinforcement
+      ? [asRecord(reinforcement['values']), reinforcement]
+      : !templateReinforcement && declaredReinforcement === undefined ? [elem, elemMetadata] : [];
+    const rebarValues = Object.fromEntries(REBAR_FIELDS.flatMap(key => {
+      const value = pickFirstDefined(rebarSources, [key]);
+      return finiteNumber(value) ? [[key, value]] : [];
+    }));
     const shearWall = pickFirstDefined(structuralSources, ['shearWall']);
     const seismicWall = pickFirstDefined(structuralSources, ['seismicWall']);
     const wallData = pickFirstDefined(structuralSources, ['wallData']);
@@ -563,12 +572,15 @@ function extractElementDataForCodeCheck(
         ...(sectionShape ? { shape: sectionShape } : {}),
       },
       material: materialWithDesign,
-      forces: {
-        ...(envelopeN !== undefined ? { N: envelopeN } : {}),
-        ...(envelopeV !== undefined ? { V: envelopeV } : {}),
-        ...(envelopeMx !== undefined ? { Mx: envelopeMx } : {}),
-      },
+      forces: forceStates.length === 1 ? forceStates[0]!.forces : {},
+      forceStates,
+      forceCoverage: recovered ? 'sampled_member_response' : forceStates.length ? 'endpoints_only' : 'unavailable',
+      ...(forceInputIssue ? { forceInputIssue } : {}),
       ...(lengthMm !== undefined ? { length: lengthMm } : {}),
+      ...Object.fromEntries(['l0', 'h0', 'axialRatioLimit', 'crackWidthLimit', 'alpha_cr'].flatMap(key => {
+        const value = elem[key] ?? elemMetadata[key];
+        return finiteNumber(value) ? [[key, value]] : [];
+      })),
       // design parameters (optionally passed via element metadata or element itself)
       ...(typeof elem['phi'] === 'number' ? { phi: elem['phi'] } : {}),
       ...(typeof elem['phi_b'] === 'number' ? { phi_b: elem['phi_b'] } : {}),
@@ -605,16 +617,8 @@ function extractElementDataForCodeCheck(
     ...(typeof elemMetadata['phi'] === 'number' ? { phi: elemMetadata['phi'] } : {}),
     ...(typeof elemMetadata['phi_b'] === 'number' ? { phi_b: elemMetadata['phi_b'] } : {}),
     ...(typeof elemMetadata['phi_axial'] === 'number' ? { phi_axial: elemMetadata['phi_axial'] } : {}),
-    // from metadata — concrete rebar design (§9.2.1 / §9.3.1)
-    ...(typeof elemMetadata['As'] === 'number' ? { As: elemMetadata['As'] } : {}),
-    ...(typeof elemMetadata['Asv'] === 'number' ? { Asv: elemMetadata['Asv'] } : {}),
-    ...(typeof elemMetadata['stirrup_dia'] === 'number' ? { stirrup_dia: elemMetadata['stirrup_dia'] } : {}),
-    ...(typeof elemMetadata['stirrup_spacing'] === 'number' ? { stirrup_spacing: elemMetadata['stirrup_spacing'] } : {}),
-    ...(typeof elemMetadata['main_dia'] === 'number' ? { main_dia: elemMetadata['main_dia'] } : {}),
-    ...(typeof elemMetadata['bar_count'] === 'number' ? { bar_count: elemMetadata['bar_count'] } : {}),
-    ...(typeof elemMetadata['sn'] === 'number' ? { sn: elemMetadata['sn'] } : {}),
-    ...(typeof elemMetadata['cover'] === 'number' ? { cover: elemMetadata['cover'] } : {}),
-    ...(typeof elemMetadata['crack_cover'] === 'number' ? { crack_cover: elemMetadata['crack_cover'] } : {}),
+    // Reinforcement is declared input, never a geometry-template minimum or design suggestion.
+    ...rebarValues,
   };
   }
 
@@ -630,22 +634,24 @@ export function buildCodeCheckInput(options: {
   postprocessedResult?: Record<string, unknown>;
   codeCheckElements?: string[];
 }): CodeCheckDomainInput {
-  const analysisUtil = extractUtilizationByElement(options.analysis);
-  const postprocessedUtil = options.postprocessedResult
-    ? extractUtilizationByElement(options.postprocessedResult)
-    : {};
-  const parameterUtil = extractUtilizationByElement(options.analysisParameters);
-  const utilizationByElement = { ...analysisUtil, ...postprocessedUtil, ...parameterUtil };
-
+  const model = withConfirmedReinforcement(options.model);
   // elementData: 合并 OpenSees 内力 + 模型截面/材料, 供 Python code-check 层真算
-  const elementData = extractElementDataForCodeCheck(options.model, options.analysis);
+  const elementData = extractElementDataForCodeCheck(model, options.analysis);
 
   const elements = options.codeCheckElements?.length ? options.codeCheckElements : extractElementIds(options.model);
   const context: CodeCheckDomainInput['context'] = {
+    source: {
+      ...asRecord(asRecord(options.analysis)['meta']),
+      resultKey: asRecord(options.analysis)['selectedResultKey'] ?? asRecord(asRecord(options.analysis)['selection'])['key'],
+      designCode: options.designCode,
+      modelId: options.traceId,
+    },
     analysisSummary: extractAnalysisSummary(options.analysis),
-    utilizationByElement,
-    elementContextById: extractElementContextById(options.model),
-    modelSummary: extractModelSummary(options.model),
+    // Utilizations must be computed from the bound model and result vectors.
+    // Caller-supplied ratios cannot override missing forces or design properties.
+    utilizationByElement: {},
+    elementContextById: extractElementContextById(model),
+    modelSummary: extractModelSummary(model),
     elementData,
   };
 

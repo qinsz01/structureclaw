@@ -17,6 +17,7 @@ import path from 'path';
 import { createHash } from 'node:crypto';
 import { parse as parseCsvRecords } from 'csv-parse/sync';
 import { PythonWorkerRunner, resolveWorkerPath } from '../utils/python-worker-runner.js';
+import type { TextItem } from 'pdfjs-dist/types/src/display/api.js';
 import type { LangGraphRunnableConfig } from '@langchain/langgraph';
 import type { AgentConfigurable } from './configurable.js';
 import { runtimeBaseDir } from '../config/index.js';
@@ -132,7 +133,7 @@ async function parsePdf(filePath: string, bytes: Buffer, options: AnalyzeUploade
       const operations = await page.getOperatorList();
       const drawingOps = new Set([OPS.constructPath, OPS.paintImageXObject, OPS.paintInlineImageXObject, OPS.paintImageMaskXObject, OPS.shadingFill]);
       const hasGraphics = operations.fnArray.some((operation: number) => drawingOps.has(operation));
-      const items = textContent.items.filter((item): item is import('pdfjs-dist/types/src/display/api.js').TextItem => 'str' in item);
+      const items = textContent.items.filter((item): item is TextItem => 'str' in item);
       const scale = Math.min(2, 1800 / Math.max(viewport.width, viewport.height));
       const renderedViewport = page.getViewport({ scale });
       const canvas = createCanvas(Math.ceil(renderedViewport.width), Math.ceil(renderedViewport.height));
@@ -384,7 +385,11 @@ export function createAnalyzeFileTool() {
           });
         }
       }
-      return JSON.stringify(await analyzeUploadedFile(input.filePath, workspaceRoot, input.maxRows, { pageStart: input.pageStart, pageCount: input.pageCount }));
+      const analysis = await analyzeUploadedFile(input.filePath, workspaceRoot, input.maxRows, { includeImageData: true, pageStart: input.pageStart, pageCount: input.pageCount });
+      const summarize = (config.configurable as Partial<AgentConfigurable> | undefined)?.summarizeFileImages;
+      const parsed = summarize ? await summarize(analysis, input.filePath, config.signal) : analysis;
+      delete parsed.base64DataUri;
+      return JSON.stringify(parsed);
     },
     {
       name: 'analyze_file',

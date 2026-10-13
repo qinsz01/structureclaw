@@ -80,6 +80,8 @@
 - `GET /engines/:id`
 - `POST /engines/:id/check`
 
+持久模型的 HTTP 校核接口需要 `modelId`、`analysisId`、`runId`、`code` 和 `elements`。分析必须已完成，运行标识、模型指纹和分析设置必须与数据库中的模型、任务一致；每个已保存工况或组合分别校核。非空的客户端 `context` 会被拒绝，由服务端从真实模型和结果证据构建输入。缺少运行来源的历史结果需要重新分析。
+
 内置 engine id：
 
 | Engine id | Adapter | 说明 |

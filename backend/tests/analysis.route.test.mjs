@@ -81,4 +81,12 @@ describe('analysis routes', () => {
       },
     });
   });
+
+  test('both check routes require run identity and normalize the legacy model id spelling', async () => {
+    const { codeCheckSchema } = await import('../dist/api/analysis.js');
+    const input = { model_id: 'm1', analysisId: 'a1', runId: 'r1', code: 'GB50017', elements: ['E1'] };
+    expect(codeCheckSchema.parse(input)).toEqual({ modelId: 'm1', analysisId: 'a1', runId: 'r1', code: 'GB50017', elements: ['E1'] });
+    expect(codeCheckSchema.safeParse({ ...input, runId: undefined }).success).toBe(false);
+    expect(codeCheckSchema.safeParse({ ...input, modelId: 'different' }).success).toBe(false);
+  });
 });

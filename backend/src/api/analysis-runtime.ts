@@ -1,12 +1,13 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { AnalysisExecutionService } from '../services/analysis-execution.js';
-import { CodeCheckExecutionService } from '../services/code-check-execution.js';
+import { AnalysisService } from '../services/analysis.js';
+import { codeCheckSchema } from './analysis.js';
 import { StructureProtocolExecutionService } from '../services/structure-protocol-execution.js';
 
 const analysisService = new AnalysisExecutionService();
 const structureProtocolService = new StructureProtocolExecutionService();
-const codeCheckService = new CodeCheckExecutionService();
+const codeCheckService = new AnalysisService();
 
 const validateSchema = z.object({
   model: z.record(z.string(), z.any()),
@@ -15,7 +16,7 @@ const validateSchema = z.object({
 
 const convertSchema = z.object({
   model: z.record(z.string(), z.any()),
-  target_schema_version: z.string().default('2.0.0'),
+  target_schema_version: z.string().default('2.1.0'),
   source_format: z.string().default('structuremodel-v2'),
   target_format: z.string().default('structuremodel-v2'),
 });
@@ -24,14 +25,6 @@ const analyzeSchema = z.object({
   type: z.enum(['static', 'dynamic', 'seismic', 'nonlinear']),
   model: z.record(z.string(), z.any()),
   parameters: z.record(z.string(), z.any()).default({}),
-  engineId: z.string().optional(),
-});
-
-const codeCheckSchema = z.object({
-  model_id: z.string(),
-  code: z.string(),
-  elements: z.array(z.string()),
-  context: z.record(z.string(), z.any()).default({}),
   engineId: z.string().optional(),
 });
 

@@ -329,7 +329,7 @@ export function resolveSectionProps(rawSection: string, G: number): SectionProps
 }
 
 type ConcreteFrameModel = {
-  schema_version: '2.0.0';
+  schema_version: '2.1.0';
   unit_system: 'SI';
   coordinate_system?: Record<string, unknown>;
   project: Record<string, unknown>;
@@ -839,7 +839,7 @@ function buildCommonModelFields(options: {
   metadata: Record<string, unknown>;
 }): Pick<ConcreteFrameModel, 'schema_version' | 'unit_system' | 'project' | 'structure_system' | 'site_seismic' | 'wind' | 'analysis_control' | 'materials' | 'sections' | 'metadata' | 'extensions'> {
   return {
-    schema_version: '2.0.0',
+    schema_version: '2.1.0',
     unit_system: 'SI',
     project: {
       code_standard: 'GB50010-2010',
@@ -1022,6 +1022,7 @@ function buildConcreteFrame2dLocalModel(options: {
     ...options,
     metadata: {
       frameDimension: '2d',
+      inputEvidence: structuredClone(options.engineeringDraft?.inputEvidence ?? []),
       bayCount: options.bayCount,
       geometry: { storyHeightsM: options.storyHeightsM, bayWidthsM: options.bayWidthsM },
     },
@@ -1204,6 +1205,7 @@ function buildConcreteFrame3dLocalModel(options: {
     ...options,
     metadata: {
       frameDimension: '3d',
+      inputEvidence: structuredClone(options.engineeringDraft?.inputEvidence ?? []),
       elementReferenceVectors,
       bayCountX: options.bayCountX,
       bayCountY: options.bayCountY,
@@ -1286,21 +1288,25 @@ export function buildConcreteFrameModel(
   }
 
   const frameDimension = state.frameDimension || '2d';
+  if (frameDimension === '3d') {
+    if (!state.bayWidthsXM?.length || !state.bayWidthsYM?.length
+      || state.bayWidthsXM.length !== state.bayCountX || state.bayWidthsYM.length !== state.bayCountY) return undefined;
+  } else if (!state.bayWidthsM?.length || state.bayWidthsM.length !== state.bayCount) return undefined;
   const floorLoads = state.floorLoads ?? [];
 
   // M1: Separate concrete and rebar grade handling
   const rawFrameConcreteGrade = (state.frameConcreteGrade as string | undefined);
   const rawFrameRebarGrade = (state.frameRebarGrade as string | undefined);
 
-  const frameConcreteGrade = rawFrameConcreteGrade && isValidConcreteGrade(rawFrameConcreteGrade)
-    ? normalizeConcreteGrade(rawFrameConcreteGrade)
-    : 'C30';
-  const frameRebarGrade = rawFrameRebarGrade && isValidRebarGrade(rawFrameRebarGrade)
-    ? rawFrameRebarGrade.toUpperCase().replace(/\s+/g, '')
-    : 'HRB400';
-
-  const frameColumnSection = (state.frameColumnSection as string | undefined) || getDefaultColumnSection(storyCount);
-  const frameBeamSection = (state.frameBeamSection as string | undefined) || getDefaultBeamSection(storyCount);
+  if (!rawFrameConcreteGrade || !isValidConcreteGrade(rawFrameConcreteGrade)
+    || !rawFrameRebarGrade || !isValidRebarGrade(rawFrameRebarGrade)
+    || !state.frameColumnSection || !state.frameBeamSection) {
+    throw new Error('TEMPLATE_PROPERTY_REQUIRED: concrete/rebar grades and beam/column sections / 请明确混凝土、钢筋牌号及梁柱截面');
+  }
+  const frameConcreteGrade = normalizeConcreteGrade(rawFrameConcreteGrade);
+  const frameRebarGrade = rawFrameRebarGrade.toUpperCase().replace(/\s+/g, '');
+  const frameColumnSection = state.frameColumnSection as string;
+  const frameBeamSection = state.frameBeamSection as string;
   const frameBaseSupportType = (state.frameBaseSupportType as string | undefined) || 'fixed';
 
   const concreteProps = resolveConcreteMaterialProps(frameConcreteGrade);
@@ -1313,69 +1319,8 @@ export function buildConcreteFrameModel(
     ? buildAnalysisControlRecord(state.analysisControl as DraftAnalysisControl | undefined)
     : undefined;
 
-  // Compute rebar design metadata from code parameters (GB50010 minimums).
-  // These flow through element.metadata → entry.ts → elementData → Python code-check.
-  const beamH = beamProps.height ?? 500;
-  const beamB = beamProps.width ?? 300;
-  const beamH0 = beamH - 40;
-  const beamRhoMin = Math.max(0.002, 0.45 * concreteProps.ft / rebarProps.fy);
-  const beamAs = Math.max(beamB * beamH0 * beamRhoMin, Math.PI * 14 * 14 / 2);
-  const beamMainDia = beamH >= 600 ? 25 : (beamH >= 400 ? 20 : 16);
-  const beamBarArea = Math.PI * beamMainDia * beamMainDia / 4;
-  const beamBarCount = Math.max(2, Math.ceil(beamAs / beamBarArea));
-  // GB50010-2010 §9.2.1: 净距 sₙ — available width minus bar footprint
-  const beamAvailableWidth = beamB - 2 * (20 + 8); // cover + stirrup on both sides
-  const beamSn = beamBarCount > 1
-    ? Math.max(0, (beamAvailableWidth - beamBarCount * beamMainDia) / (beamBarCount - 1))
-    : 0;
-  const beamRebarMeta: Record<string, unknown> = {
-    As: Math.round(beamAs),
-    Asv: Math.round(Math.PI * 8 * 8 / 2),          // 2-leg Φ8
-    stirrup_dia: 8,
-    stirrup_spacing: 200,
-    main_dia: beamMainDia,
-    bar_count: beamBarCount,
-    sn: Math.round(beamSn),
-    cover: 20,
-    crack_cover: 25,
-  };
-
-  const colB = columnProps.width ?? 500;
-  const colH = columnProps.height ?? 500;
-  const colRhoMin = Math.max(0.006, 0.55 * concreteProps.ft / rebarProps.fy);
-  const colAs = Math.max(colB * colH * colRhoMin, Math.PI * 20 * 20);
-  const colMainDia = 20;
-  const colBarArea = Math.PI * colMainDia * colMainDia / 4;
-  const colBarCount = Math.max(4, Math.ceil(colAs / colBarArea));
-  // GB50010-2010 §9.3.1: 净距 sₙ per side face
-  // Corner bars are shared between adjacent sides.
-  // ceil(total/4) gives spaces per side; +1 for the corner bar at far end.
-  const colBarCountPerSide = Math.ceil(colBarCount / 4) + 1;
-  const colMinSide = Math.min(colB, colH);
-  const colAvailableWidth = colMinSide - 2 * (20 + 8); // cover + stirrup on both sides
-  const colSn = colBarCountPerSide > 1
-    ? Math.max(0, (colAvailableWidth - colBarCountPerSide * colMainDia) / (colBarCountPerSide - 1))
-    : 0;
-  const colRebarMeta: Record<string, unknown> = {
-    As: Math.round(colAs),
-    Asv: Math.round(Math.PI * 8 * 8 / 2),          // 2-leg Φ8
-    stirrup_dia: 8,
-    stirrup_spacing: 200,
-    main_dia: colMainDia,
-    bar_count: colBarCount,
-    sn: Math.round(colSn),
-    cover: 20,
-  };
-
-  /** Attach rebar design metadata to each element. */
-  function attachRebarMetadata(elements: Array<Record<string, unknown>>): void {
-    for (const elem of elements) {
-      const meta = elem['type'] === 'column' ? colRebarMeta : beamRebarMeta;
-      const existing = (typeof elem['metadata'] === 'object' && elem['metadata'] !== null)
-        ? elem['metadata'] as Record<string, unknown> : {};
-      elem['metadata'] = { ...existing, ...meta };
-    }
-  }
+  // Reinforcement must come from an explicit, confirmed design; geometry templates
+  // do not invent bar areas, diameters, spacing, or cover for code checking.
 
   if (frameDimension === '3d') {
     const bayWidthsXM = state.bayWidthsXM?.length ? state.bayWidthsXM : state.bayWidthsM;
@@ -1412,8 +1357,6 @@ export function buildConcreteFrameModel(
       analysisControl,
       engineeringDraft: state.engineeringDraft,
     });
-
-    attachRebarMetadata(model3d.elements);
 
     if (codeCheckResults) {
       model3d.metadata = {
@@ -1455,8 +1398,6 @@ export function buildConcreteFrameModel(
     analysisControl,
     engineeringDraft: state.engineeringDraft,
   });
-
-  attachRebarMetadata(model2d.elements);
 
   if (codeCheckResults) {
     model2d.metadata = {

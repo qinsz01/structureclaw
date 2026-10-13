@@ -643,6 +643,10 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     if not isinstance(requested_cases, list) or len(requested_cases) > 1:
         raise AnalysisCapabilityError(engine="pkpm", capability="single-selected-load-case", reason="Select one loadCaseIds entry per native run")
     validate_coordinate_contract(model)
+    from native_model_contract import validate_pkpm_material_properties, validate_pkpm_sections
+    model_dict = model.model_dump(mode="json", exclude_unset=True) if hasattr(model, "model_dump") else dict(model)
+    validate_pkpm_material_properties(model_dict)
+    validate_pkpm_sections(model_dict)
     cycle_path = _check_pkpm_available()
     _import_apipyinterface()
 

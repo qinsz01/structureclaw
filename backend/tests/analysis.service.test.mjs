@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { prisma } from '../dist/utils/database.js';
+import { contentHash, modelHash } from '../dist/engineering/model-state.js';
+import { executeAnalysisRun } from '../dist/engineering/analysis-runs.js';
 import {
   AnalysisService,
   buildDirectAnalysisModelForCodeCheck,
@@ -62,8 +64,8 @@ describe('AnalysisService direct China seismic workflow', () => {
     });
 
     expect(model).toMatchObject({
-      schemaVersion: '2.0.0',
-      schema_version: '2.0.0',
+      schemaVersion: '2.1.0',
+      schema_version: '2.1.0',
       coordinate_system: {
         semantics: 'global-z-up',
         version: 1,
@@ -78,8 +80,8 @@ describe('AnalysisService direct China seismic workflow', () => {
       elements: [{ id: 'E1', type: 'beam', nodes: ['N1', 'N2'] }],
       materials: [{ id: 'C30' }],
       sections: [{ id: 'S1' }],
-      loadCases: [],
-      loadCombinations: [],
+      load_cases: [],
+      load_combinations: [],
     });
   });
 
@@ -172,6 +174,12 @@ describe('AnalysisService direct China seismic workflow', () => {
     const parameters = {
       seismicWorkflow: { methodPreference: 'response_spectrum' },
     };
+    const fingerprint = modelHash(buildDirectAnalysisModelForCodeCheck(persistedModel));
+    analysisResult.runId = 'seismic-run';
+    analysisResult.meta = {
+      runId: 'seismic-run', modelHash: fingerprint,
+      settingsHash: contentHash({ type: 'seismic', parameters }),
+    };
 
     prisma.analysis.findUnique = jest.fn().mockResolvedValue({
       id: 'analysis-1',
@@ -202,6 +210,7 @@ describe('AnalysisService direct China seismic workflow', () => {
         },
         displayCode: 'GB 55002-2021 + GB/T 50011-2010 (2024 partial revision)',
         codeVersion: 'v2-global-seismic-gb55002-gbt50011-2024',
+        source: { runId: 'seismic-run', modelHash: fingerprint, analysisId: 'analysis-1' },
       },
     });
     expect(codeCheckPayload.elements).toEqual(expect.arrayContaining(['E1', '__global_seismic__']));
@@ -228,7 +237,7 @@ describe('AnalysisService direct China seismic workflow', () => {
         status: 'completed',
         results: expect.objectContaining({
           ...analysisResult,
-          codeCheck: codeCheckResult,
+          codeCheck: expect.objectContaining(codeCheckResult),
           report: expect.objectContaining({
             summary: '分析类型 seismic，分析成功，校核通过 2 / 2，失败 0，警告 0。',
             markdown: expect.stringContaining('## 抗震专项'),
@@ -290,5 +299,91 @@ describe('AnalysisService direct China seismic workflow', () => {
         error: expect.stringContaining('GB50011-compatible designCode'),
       }),
     });
+  });
+});
+
+describe('AnalysisService persisted-run code-check boundary', () => {
+  const request = { modelId: 'model-1', analysisId: 'analysis-1', runId: '', code: 'GB50017', elements: ['E1'] };
+  async function fixture() {
+    const physicalModel = buildDirectAnalysisModelForCodeCheck({
+      id: 'model-1',
+      coordinateSystem: { semantics: 'global-z-up', version: 1, dimension: '2d', plane: 'xz', dof_order: ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'] },
+      nodes: [{ id: 'N1', x: 0, y: 0, z: 0 }, { id: 'N2', x: 4, y: 0, z: 0 }],
+      elements: [{ id: 'E1', type: 'beam', nodes: ['N1', 'N2'], material: 'S', section: 'R' }],
+      materials: [{ id: 'S', E: 206000 }], sections: [{ id: 'R', type: 'rectangle', shape: { b: 100, h: 200 } }],
+      load_cases: [{ id: 'D', loads: [] }, { id: 'L', loads: [] }], load_combinations: [],
+    });
+    const parameters = {};
+    const results = await executeAnalysisRun({ type: 'static', model: physicalModel, parameters },
+      async input => ({ success: true, data: { analysisMode: input.parameters.loadCaseIds[0] }, meta: { engine: 'test' } }), async () => {});
+    const row = { id: 'analysis-1', modelId: 'model-1', type: 'static', status: 'completed', parameters, results,
+      model: { id: 'model-1', coordinateSystem: physicalModel.coordinate_system, physicalModel } };
+    prisma.analysis.findUnique = jest.fn().mockResolvedValue(row);
+    const service = new AnalysisService();
+    service.codeCheckExecutionService.codeCheck = jest.fn().mockImplementation(async payload => ({
+      code: 'GB50017', status: 'success', completionStatus: payload.context.analysisSummary.analysisMode === 'D' ? 'complete' : 'incomplete',
+      complianceStatus: payload.context.analysisSummary.analysisMode === 'D' ? 'pass' : 'incomplete',
+      summary: { total: 1, passed: payload.context.analysisSummary.analysisMode === 'D' ? 1 : 0,
+        inputRequired: payload.context.analysisSummary.analysisMode === 'D' ? 0 : 1 }, details: [],
+    }));
+    return { service, row, params: { ...request, runId: results.runId } };
+  }
+
+  test('requires explicit analysis and run identity before querying or executing', async () => {
+    const service = new AnalysisService();
+    prisma.analysis.findUnique = jest.fn();
+    await expect(service.codeCheck({ modelId: 'model-1', code: 'GB50017', elements: [] }))
+      .rejects.toThrow('ANALYSIS_ID_AND_RUN_ID_REQUIRED');
+    expect(prisma.analysis.findUnique).not.toHaveBeenCalled();
+  });
+
+  test('checks every real case independently and retains the model/run/case source', async () => {
+    const { service, row, params } = await fixture();
+    const result = await service.codeCheck(params);
+    expect(prisma.analysis.findUnique).toHaveBeenCalledWith({ where: { id: 'analysis-1' }, include: { model: true } });
+    expect(service.codeCheckExecutionService.codeCheck).toHaveBeenCalledTimes(2);
+    const payloads = service.codeCheckExecutionService.codeCheck.mock.calls.map(call => call[0]);
+    expect(payloads.map(payload => payload.context.analysisSummary.analysisMode)).toEqual(['D', 'L']);
+    expect(payloads.map(payload => payload.context.source.resultKey)).toEqual(['case:D', 'case:L']);
+    for (const payload of payloads) {
+      expect(payload.context.source).toMatchObject({ runId: params.runId, modelHash: row.results.meta.modelHash, modelId: 'model-1', analysisId: 'analysis-1' });
+      expect(payload.context.elementData.E1).toBeDefined();
+    }
+    expect(result).toMatchObject({ completionStatus: 'incomplete', complianceStatus: 'incomplete',
+      summary: { total: 2, passed: 1, inputRequired: 1 }, meta: { runId: params.runId, analysisId: 'analysis-1' } });
+    expect(Object.keys(result.checkResults)).toEqual(['case:D', 'case:L']);
+  });
+
+  test.each([
+    { loadCombinationId: 'U' }, { load_combination_id: 'U' }, { combinationId: 'U' },
+    { combinationIds: ['U'] }, { load_case_ids: ['D'], loadCases: [] },
+  ])('uses canonical settings provenance when persisted parameters use %j', async (parameters) => {
+    const { service, row, params } = await fixture();
+    row.parameters = parameters;
+    row.model.physicalModel.load_combinations = [{ id: 'U', factors: { D: 1.2, L: 1.4 } }];
+    row.results = await executeAnalysisRun({ type: 'static', model: row.model.physicalModel, parameters },
+      async input => ({ success: true, data: { analysisMode: input.parameters.loadCombinationId ?? input.parameters.loadCaseIds[0] } }), async () => {});
+    params.runId = row.results.runId;
+    const result = await service.codeCheck(params);
+    expect(result.meta.runId).toBe(row.results.runId);
+    expect(service.codeCheckExecutionService.codeCheck).toHaveBeenCalledTimes(1);
+    expect(Object.keys(result.checkResults)).toEqual([parameters.load_case_ids ? 'case:D' : 'combination:U']);
+  });
+
+  test.each([
+    ['injected context', (_row, params) => { params.context = { utilizationByElement: { E1: 0.01 } }; }, 'CODE_CHECK_CONTEXT_OVERRIDE_UNSUPPORTED'],
+    ['wrong model', (row) => { row.modelId = 'other'; }, 'ANALYSIS_MODEL_NOT_FOUND'],
+    ['wrong run', (_row, params) => { params.runId = 'old'; }, 'CURRENT_ANALYSIS_RUN_REQUIRED'],
+    ['unfinished analysis', (row) => { row.status = 'running'; }, 'CURRENT_ANALYSIS_RUN_REQUIRED'],
+    ['failed run', (row) => { row.results.success = false; }, 'CURRENT_ANALYSIS_RUN_REQUIRED'],
+    ['changed model', (row) => { row.model.physicalModel.nodes[1].x = 5; }, 'ANALYSIS_MODEL_MISMATCH'],
+    ['changed settings', (row) => { row.parameters = { loadCaseIds: ['D'] }; }, 'ANALYSIS_SETTINGS_MISMATCH'],
+    ['unknown member', (_row, params) => { params.elements = ['missing']; }, 'CODE_CHECK_ELEMENT_NOT_FOUND'],
+    ['foreign child run', (row) => { row.results.results['case:D'].meta.runId = 'foreign'; }, 'ANALYSIS_RESULT_PROVENANCE_MISMATCH'],
+  ])('rejects %s without executing a check', async (_name, change, error) => {
+    const { service, row, params } = await fixture();
+    change(row, params);
+    await expect(service.codeCheck(params)).rejects.toThrow(error);
+    expect(service.codeCheckExecutionService.codeCheck).not.toHaveBeenCalled();
   });
 });

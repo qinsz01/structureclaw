@@ -17,7 +17,7 @@ const model = { schema_version: '2.1.0', coordinate_system: coordinates,
 
 function child(id: string, magnitude: number, kind = 'case') {
   return { success: true, selection: { key: `${kind}:${id}`, kind, id }, meta: { runId: 'run', modelHash: 'physical' },
-    data: { meta: resultMeta, displacements: { '2': { ux: 0, uy: 0, uz: -magnitude } },
+    data: { meta: resultMeta, summary: { maxDisplacement: magnitude }, displacements: { '2': { ux: 0, uy: 0, uz: -magnitude } },
       forces: { E1: { n1: { N: 0, V: magnitude, M: magnitude * 2 }, n2: { N: 0, V: -magnitude, M: 0 } } },
       reactions: { '1': { fz: magnitude } },
       memberResponses: [{ id: 'E1', length: 6, state: 'recovered', reason: 'equilibrium', samples: [
@@ -42,6 +42,7 @@ describe('saved analysis run visualization', () => {
     const view = snapshot(input)!
     expect(isCanonicalVisualizationSnapshot(view)).toBe(true)
     expect(view.defaultCaseId).toBe('case:L')
+    expect(view.summary).toEqual({ maxDisplacement: 2 })
     expect(view.cases.map(item => item.id)).toEqual(['case:D', 'case:L', 'combination:U'])
     expect(view.cases.map(item => item.nodeResults['2'].displacement?.uz)).toEqual([-1, -2, -3])
     expect(view.cases.map(item => item.nodeResults['1'].reaction?.fz)).toEqual([1, 2, 3])
@@ -79,21 +80,25 @@ describe('saved analysis run visualization', () => {
     expect(getMemberDeformedPoints(view.cases[1], 'E1', 1)).toBeUndefined()
     expect(view.loads.some(load => isLoadVisible(view, view.cases[1], load))).toBe(false)
     expect(view.cases[0].resultStatus).toBe('available')
+    expect(view.summary).toBeUndefined()
   })
 
   it('never silently changes a missing explicit selection to the first valid case', () => {
     expect(snapshot({ ...run(), selectedResultKey: 'case:missing' })).toBeNull()
   })
 
-  it.each(['run', 'selection', 'geometry'])('does not render a child with conflicting %s provenance', (mismatch) => {
+  it.each(['run', 'selection', 'geometry', 'model-hash', 'settings-hash'])('does not render a child with conflicting %s provenance', (mismatch) => {
     const input = run()
     const selected = input.results['case:L']
     if (mismatch === 'run') selected.meta.runId = 'old-run'
     if (mismatch === 'selection') selected.selection.id = 'D'
     if (mismatch === 'geometry') selected.data.memberResponses[0].id = 'absent'
+    if (mismatch === 'model-hash') selected.meta.modelHash = 'old-model'
+    if (mismatch === 'settings-hash') Object.assign(selected.meta, { settingsHash: 'old-settings' })
     const view = snapshot(input)!
     expect(view.cases[1].resultStatus).toBe('unavailable')
     expect(view.cases[1].memberResponses).toBeUndefined()
+    expect(view.summary).toBeUndefined()
   })
 
   it('does not spread aggregate utilization or buckling hints into every case', () => {

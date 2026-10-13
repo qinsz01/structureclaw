@@ -1,7 +1,7 @@
 import type { AppLocale } from '../../../services/locale.js';
 
 const STRUCTURE_MODEL_V2_TEMPLATE = JSON.stringify({
-  schema_version: '2.0.0',
+  schema_version: '2.1.0',
   unit_system: 'SI',
   coordinate_system: {
     semantics: 'global-z-up',
@@ -35,7 +35,7 @@ const STRUCTURE_MODEL_V2_TEMPLATE = JSON.stringify({
 });
 
 const COMMON_CONSTRAINTS_EN = [
-  'Output StructureModel V2 with schema_version exactly "2.0.0" and unit_system exactly "SI".',
+  'Output StructureModel V2 with schema_version exactly "2.1.0" and unit_system exactly "SI".',
   'Always output the complete coordinate_system object. Use dimension="2d" and plane="xz" for a 2D model; use dimension="3d" and plane=null for a 3D model. Never infer or omit this declaration.',
   'Use global-z-up coordinates: x is the main horizontal span, z is vertical height, and y is the out-of-plane direction. Put 2D structures in the x-z plane with y=0.',
   'Node restraints must contain exactly six booleans in [ux,uy,uz,rx,ry,rz] order, where true means restrained and false means free. A simply-supported X-Z beam uses a pinned left support [true,true,true,false,false,false] and an X-direction roller at the right support [false,true,true,false,false,false].',
@@ -50,7 +50,7 @@ const COMMON_CONSTRAINTS_EN = [
 ];
 
 const COMMON_CONSTRAINTS_ZH = [
-  '输出 StructureModel V2，schema_version 必须是 "2.0.0"，unit_system 必须是 "SI"。',
+  '输出 StructureModel V2，schema_version 必须是 "2.1.0"，unit_system 必须是 "SI"。',
   '必须完整输出 coordinate_system。二维模型使用 dimension="2d"、plane="xz"；三维模型使用 dimension="3d"、plane=null。不得省略该声明或留给下游推断。',
   '使用 global-z-up 坐标：x 为主要水平跨度，z 为竖向高度，y 为平面外方向。二维结构应位于 x-z 平面，y=0。',
   '节点 restraints 必须严格包含 6 个布尔值，顺序为 [ux,uy,uz,rx,ry,rz]；true 表示约束，false 表示自由。X-Z 平面简支梁左端使用铰支座 [true,true,true,false,false,false]，右端使用沿 X 方向滚动的支座 [false,true,true,false,false,false]。',

@@ -11,7 +11,7 @@ import {
   resolveConcreteFrameStage,
 } from './interaction.js';
 import { mergeConcreteFrameState } from './merge.js';
-import { buildConcreteFrameModel, getConcreteMaterial, isValidConcreteGrade, normalizeConcreteGrade, normalizeSectionName } from './model.js';
+import { buildConcreteFrameModel, getConcreteMaterial, isValidConcreteGrade, isValidRebarGrade, normalizeConcreteGrade, normalizeSectionName } from './model.js';
 import { DEFAULT_FLOOR_LOAD_KN_PER_M2 } from './constants.js';
 import type {
   ConcreteBeam,
@@ -332,10 +332,12 @@ export const handler: SkillHandler = {
       return undefined;
     }
     try {
-      const concreteGrade = (typeof state.frameConcreteGrade === 'string' && isValidConcreteGrade(state.frameConcreteGrade))
-        ? state.frameConcreteGrade : 'C30';
-      const rebarGrade = (typeof state.frameRebarGrade === 'string' && isValidConcreteGrade(state.frameRebarGrade))
-        ? state.frameRebarGrade : 'HRB400';
+      if (typeof state.frameConcreteGrade !== 'string' || !isValidConcreteGrade(state.frameConcreteGrade)
+        || typeof state.frameRebarGrade !== 'string' || !isValidRebarGrade(state.frameRebarGrade)) {
+        throw new Error('TEMPLATE_PROPERTY_REQUIRED: concrete/rebar grades / 请明确有效的混凝土与钢筋牌号');
+      }
+      const concreteGrade = state.frameConcreteGrade;
+      const rebarGrade = state.frameRebarGrade;
 
       const memberInput: ConcreteFrameInput = {
         storyCount: state.storyCount as number,

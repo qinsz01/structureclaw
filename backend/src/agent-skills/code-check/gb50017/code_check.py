@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List
+import math
 
 
 RULE_VERSION = 'v2-member-checks'
@@ -144,6 +145,7 @@ def _resolve_element_type(elem_id: str, context: Dict[str, Any]) -> str:
             return 'column'
         if 'brace' in normalized:
             return 'brace'
+        return normalized
 
     # Fallback: elementData
     element_data = context.get('elementData', {})
@@ -203,122 +205,58 @@ def _compute_utilization_overrides(
         val = per_elem.get(key)
         return isinstance(val, (int, float))
 
-    A = section.get('A')
-    f = material.get('f')
-    fv = material.get('fv')
-    N = forces.get('N')
-    V = forces.get('V')
-    Mx = forces.get('Mx')
-    I = section.get('I') or section.get('Iy') or section.get('Ix')
-    S = section.get('S')  # area moment above neutral axis
-    tw = section.get('tw')  # web thickness
-    Wnx = section.get('Wnx') or section.get('Wx')
+    def number(value, *, positive=False):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return None
+        value = float(value)
+        return value if math.isfinite(value) and (not positive or value > 0) else None
 
-    # Normal stress: (|N|/A + |Mx|/Wnx) / f  (GB50017-2017 7.1.1)
-    if not _has_override('正应力') and A is not None and f is not None and N is not None:
-        try:
-            sigma_axial = abs(float(N)) / float(A)
-            sigma_bending = 0.0
-            if Mx is not None and Wnx is not None and float(Wnx) != 0:
-                sigma_bending = abs(float(Mx)) / float(Wnx)
-            computed['正应力'] = (sigma_axial + sigma_bending) / float(f)
-        except (ZeroDivisionError, ValueError, TypeError):
-            pass
+    def positive(record, *keys):
+        return next((number(record[key], positive=True) for key in keys if key in record), None)
 
-    # Shear stress: |V|*S/(I*tw) / fv  (GB50017-2017 7.1.2)
-    #   Falls back to |V|/As/fv when S/I/tw not available but As is
-    if not _has_override('剪应力') and fv is not None and V is not None:
-        try:
-            As = section.get('As')  # explicit shear area
-            if S is not None and I is not None and tw is not None:
-                tau = abs(float(V)) * float(S) / (float(I) * float(tw))
-                computed['剪应力'] = tau / float(fv)
-            elif As is not None and float(As) != 0:
-                computed['剪应力'] = abs(float(V)) / float(As) / float(fv)
-        except (ZeroDivisionError, ValueError, TypeError):
-            pass
+    def save(name, value):
+        if not _has_override(name) and math.isfinite(value) and value >= 0:
+            computed[name] = value
 
-    # Equivalent stress: sqrt(sigma_axial^2 + sigma_bending^2
-    #   - sigma_axial*sigma_bending + 3*tau^2) / f  (GB50017-2017 7.1.4)
-    if not _has_override('折算应力') and A is not None and f is not None and N is not None and V is not None:
-        try:
-            sigma_axial = abs(float(N)) / float(A)
-            sigma_bending = 0.0
-            if Mx is not None and Wnx is not None and float(Wnx) != 0:
-                sigma_bending = abs(float(Mx)) / float(Wnx)
-            # tau from shear formula or simplified
-            tau = 0.0
-            if S is not None and I is not None and tw is not None:
-                tau = abs(float(V)) * float(S) / (float(I) * float(tw))
-            else:
-                As = section.get('As', A)
-                if As is not None and float(As) != 0:
-                    tau = abs(float(V)) / float(As)
-            eq = (
-                sigma_axial ** 2
-                + sigma_bending ** 2
-                - sigma_axial * sigma_bending
-                + 3 * tau ** 2
-            ) ** 0.5
-            beta1 = elem.get('beta1', 1.0)
-            computed['折算应力'] = eq / (float(beta1) * float(f))
-        except (ZeroDivisionError, ValueError, TypeError):
-            pass
+    A, f, fv = positive(section, 'A'), positive(material, 'f'), positive(material, 'fv')
+    N, V, Mx = (number(forces.get(key)) for key in ('N', 'V', 'Mx'))
+    Wnx = positive(section, 'Wnx', 'Wx')
+    I, S, tw = positive(section, 'I', 'Iy', 'Ix'), positive(section, 'S'), positive(section, 'tw')
+    sigma_axial = abs(N) / A if N is not None and A else None
+    sigma_bending = 0.0 if Mx == 0 else abs(Mx) / Wnx if Mx is not None and Wnx else None
+    if _resolve_element_type(elem_id, context) == 'brace' and Mx is None:
+        sigma_bending = 0.0
+    if sigma_axial is not None and sigma_bending is not None and f:
+        save('正应力', (sigma_axial + sigma_bending) / f)
 
-    # Overall beam stability: |Mx| / (phi_b * Wnx * f)
-    if not _has_override('整体稳定'):
-        phi = elem.get('phi_b') or elem.get('phi')
-        if phi is not None and Wnx is not None and f is not None and Mx is not None:
-            try:
-                computed['整体稳定'] = abs(float(Mx)) / (
-                    float(phi) * float(Wnx) * float(f)
-                )
-            except (ZeroDivisionError, ValueError, TypeError):
-                pass
+    tau = None
+    if V is not None:
+        if I and S and tw:
+            tau = abs(V) * S / (I * tw)
+        elif positive(section, 'As'):
+            tau = abs(V) / positive(section, 'As')
+        if tau is not None and fv:
+            save('剪应力', tau / fv)
+    beta1 = positive(elem, 'beta1')
+    if sigma_axial is not None and sigma_bending is not None and tau is not None and beta1 and f:
+        equivalent = math.sqrt(sigma_axial ** 2 + sigma_bending ** 2 - sigma_axial * sigma_bending + 3 * tau ** 2)
+        save('折算应力', equivalent / (beta1 * f))
 
-    # Axial compression stability: |N| / (phi_axial * A * f)
-    if not _has_override('轴压稳定'):
-        phi = elem.get('phi_axial') or elem.get('phi')
-        if phi is not None and A is not None and f is not None and N is not None:
-            try:
-                computed['轴压稳定'] = abs(float(N)) / (float(phi) * float(A) * float(f))
-            except (ZeroDivisionError, ValueError, TypeError):
-                pass
-
-    # Local plate stability: (b/t) / bt_limit
-    if not _has_override('局部稳定'):
-        b = section.get('flangeWidth') or section.get('b')
-        t = section.get('flangeThickness') or section.get('t')
-        bt_limit = elem.get('btLimit')
-        if b is not None and t is not None and bt_limit is not None:
-            try:
-                computed['局部稳定'] = (float(b) / float(t)) / float(bt_limit)
-            except (ZeroDivisionError, ValueError, TypeError):
-                pass
-
-    # Slenderness ratio: (l0 / i) / lambda_limit
-    if not _has_override('长细比'):
-        l0 = elem.get('length') or elem.get('l0')
-        i_min = section.get('imin') or section.get('i')
-        lambda_limit = elem.get('lambdaLimit')
-        if l0 is not None and i_min is not None and lambda_limit is not None:
-            try:
-                computed['长细比'] = float(l0) / float(i_min) / float(lambda_limit)
-            except (ZeroDivisionError, ValueError, TypeError):
-                pass
-
-    # Deflection: f_max / (L / n)  — only when deflectionLimitN explicitly provided
-    if not _has_override('挠度'):
-        f_max = forces.get('deflection')
-        if f_max is None:
-            f_max = elem.get('deflection')
-        L = elem.get('length')
-        n_limit = elem.get('deflectionLimitN')
-        if f_max is not None and L is not None and n_limit is not None:
-            try:
-                computed['挠度'] = abs(float(f_max)) / (float(L) / float(n_limit))
-            except (ZeroDivisionError, ValueError, TypeError):
-                pass
+    phi_b, phi_axial = positive(elem, 'phi_b', 'phi'), positive(elem, 'phi_axial', 'phi')
+    if Mx is not None and phi_b and Wnx and f:
+        save('整体稳定', abs(Mx) / (phi_b * Wnx * f))
+    if N is not None and phi_axial and A and f:
+        save('轴压稳定', abs(N) / (phi_axial * A * f))
+    b, t, bt_limit = positive(section, 'flangeWidth', 'b'), positive(section, 'flangeThickness', 't'), positive(elem, 'btLimit')
+    if b and t and bt_limit:
+        save('局部稳定', b / t / bt_limit)
+    l0, i_min, lambda_limit = positive(elem, 'l0', 'length'), positive(section, 'imin', 'i'), positive(elem, 'lambdaLimit')
+    if l0 and i_min and lambda_limit:
+        save('长细比', l0 / i_min / lambda_limit)
+    displacement = number(forces.get('deflection', elem.get('deflection')))
+    L, n_limit = positive(elem, 'length'), positive(elem, 'deflectionLimitN')
+    if displacement is not None and L and n_limit:
+        save('挠度', abs(displacement) / (L / n_limit))
 
     return computed
 
@@ -415,31 +353,6 @@ def _check_brace(checker: Any, elem_id: str, context: Dict[str, Any]) -> List[Di
 # Chapter summaries (from upstream PR #134)
 # ---------------------------------------------------------------------------
 
-def _build_chapter_summaries(checks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    chapters = []
-    for check in checks:
-        chapter_name = check.get('chapter') or check.get('name')
-        items = check.get('items', [])
-        max_utilization = 0.0
-        status = 'pass'
-        controlling_clause = None
-        for item in items:
-            utilization = float(item.get('utilization', 0.0))
-            if utilization >= max_utilization:
-                max_utilization = utilization
-                controlling_clause = item.get('clause')
-            if item.get('status') != 'pass':
-                status = 'fail'
-        chapters.append({
-            'chapter': chapter_name,
-            'status': status,
-            'itemCount': len(items),
-            'maxUtilization': round(max_utilization, 4),
-            'controllingClause': controlling_clause,
-        })
-    return chapters
-
-
 # ---------------------------------------------------------------------------
 # Main dispatcher
 # ---------------------------------------------------------------------------
@@ -467,6 +380,7 @@ def check_element(checker: Any, elem_id: str, context: Dict[str, Any]) -> Dict[s
             existing_elem = {}
         merged_ctx = {
             **context,
+            'computedItemsByElement': {elem_id: list(computed)},
             'utilizationByElement': {
                 **existing_ube,
                 elem_id: {
@@ -478,11 +392,16 @@ def check_element(checker: Any, elem_id: str, context: Dict[str, Any]) -> Dict[s
     else:
         merged_ctx = context
 
-    builder = _BUILDERS.get(element_type, _check_beam)
-    normalized_type = element_type if element_type in _BUILDERS else 'beam'
+    if element_type not in _BUILDERS:
+        return checker._build_element_result(elem_id, element_type, [{'name': '适用范围 / Applicability', 'items': [{
+            'item': '构件类型 / Member type', 'status': 'unsupported', 'category': 'unsupported',
+            'message': 'Only beam, column and brace checks are implemented / 当前仅实现梁、柱和支撑校核。',
+        }]}], CODE_VERSION)
+    builder = _BUILDERS[element_type]
+    normalized_type = element_type
     checks = builder(checker, elem_id, merged_ctx)
     result = checker._build_element_result(elem_id, normalized_type, checks, CODE_VERSION)
-    result['chapters'] = _build_chapter_summaries(checks)
+    result['chapters'] = checker._build_chapter_summaries(result['checks'])
     result['chapterCount'] = len(result['chapters'])
     result['elementContext'] = {
         'type': normalized_type,

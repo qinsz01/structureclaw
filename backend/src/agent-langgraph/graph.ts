@@ -3,7 +3,7 @@
  *
  * Graph structure:
  *   START → agent (LLM reasoning) → [has tool_calls?]
- *     → Yes  → tools (execute tool) → agent (loop back)
+ *     → Yes  → tools (one call, checkpoint) → tools until complete → agent
  *     → No   → END (final response)
  *
  * Dependency injection: services are passed via config.configurable
@@ -18,7 +18,7 @@ import {
   END,
   type LangGraphRunnableConfig,
 } from '@langchain/langgraph';
-import { ToolNode } from '@langchain/langgraph/prebuilt';
+import { executeToolsSequentially, pendingToolCalls } from './sequential-tools.js';
 import { AIMessage, HumanMessage, SystemMessage, ToolMessage, type BaseMessage } from '@langchain/core/messages';
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import { createChatModel, getReasoningContentLength } from '../utils/llm.js';
@@ -511,8 +511,7 @@ export async function buildAgentGraph(deps: GraphDeps) {
       configurableAny,
     );
     nodeLog.debug({ node: 'tools', activeToolCount: activeTools.length }, 'tools node executing');
-    const toolNode = new ToolNode(activeTools);
-    return toolNode.invoke(state, config);
+    return executeToolsSequentially(activeTools, state, config);
   };
 
   const workflow = new StateGraph(AgentStateAnnotation)
@@ -520,7 +519,7 @@ export async function buildAgentGraph(deps: GraphDeps) {
     .addNode('tools', toolsNode)
     .addEdge(START, 'agent')
     .addConditionalEdges('agent', shouldContinue, ['tools', END])
-    .addEdge('tools', 'agent');
+    .addConditionalEdges('tools', state => pendingToolCalls(state).length ? 'tools' : 'agent', ['tools', 'agent']);
 
   return workflow.compile({ checkpointer });
 }

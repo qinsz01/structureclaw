@@ -1,3 +1,4 @@
+import { computeDraftMissing, buildDraftQuestions } from '../agent-runtime/draft-readiness.js';
 /**
  * LangGraph tool definitions for the StructureClaw ReAct agent.
  *
@@ -35,6 +36,9 @@ import type {
 } from '../agent-runtime/types.js';
 import { isFreshGenericStructuralRoute } from '../agent-runtime/plugin-helpers.js';
 import { runPkpmCalcbook } from '../agent-skills/report-export/calculation-book/pkpm-calcbook/runner.js';
+import { commitModel, currentAnalysisError, invalidateAnalysis, modelHash, publishAnalysis } from '../engineering/model-state.js';
+import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
+import { checkRunResults } from '../engineering/code-checks.js';
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -1461,13 +1465,7 @@ function buildClarificationQuestions(
   state: DraftState,
   locale: 'zh' | 'en',
 ): InteractionQuestion[] {
-  if (criticalMissing.length === 0) return [];
-  return plugin?.handler.buildQuestions?.(
-    [...criticalMissing, ...optionalMissing],
-    criticalMissing,
-    state,
-    locale,
-  ) ?? [];
+  return buildDraftQuestions(plugin, criticalMissing, optionalMissing, state, locale);
 }
 
 export function shouldRetryDraftExtraction(
@@ -1577,7 +1575,7 @@ export function buildPreservedDraftExtractionResult(args: {
     : args.existingState;
   const nextState = { ...mergedState, routingSource: 'current-state' as const, updatedAt: Date.now() };
   const missing = plugin
-    ? plugin.handler.computeMissing(nextState, 'execution')
+    ? computeDraftMissing(plugin, nextState, 'execution')
     : { critical: ['skillPlugin'], optional: [] };
   const progress = plugin
     ? buildDraftProgress(args.locale, missing.critical)
@@ -2302,6 +2300,8 @@ export function buildAnalysisToolSummary(args: {
   return {
     success: true,
     skillId: args.skillId,
+    ...(result.runId ? { runId: result.runId, resultKeys: isRecord(result.results) ? Object.keys(result.results) : [], selectedResultKey: result.selectedResultKey,
+      executionStatus: result.executionStatus, capabilityStatus: result.capabilityStatus } : {}),
     analysisMode: data?.analysisMode,
     ...(buildSuccessfulAnalysisDetails(data, result, args.model) ?? {}),
   };
@@ -2343,16 +2343,18 @@ export function buildModelToolSummary(
 export function buildModelToolStateUpdate(
   model: Record<string, unknown>,
   summary: Record<string, unknown>,
+  state?: AgentState,
 ): Partial<AgentState> {
   if (summary.success === false) {
     return {
-      model: null,
+      model: state?.model ?? null,
+      modelPending: true,
       analysisResult: null,
       codeCheckResult: null,
       report: null,
     };
   }
-  return { model };
+  return commitModel(state, model, 'build_model');
 }
 
 async function resolveExistingDraftPlugin(
@@ -2658,7 +2660,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
             plugin.handler.mergeState(resetToGeneric ? undefined : stableExistingState, resetToGeneric ? { inferredType: 'unknown' } : {}),
             match,
           );
-          const missing = plugin.handler.computeMissing(nextState, 'execution');
+          const missing = computeDraftMissing(plugin, nextState, 'execution');
           const responseJson = {
             nextState,
             criticalMissing: missing.critical,
@@ -2698,7 +2700,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
         });
         const { withStructuralTypeState } = await import('../agent-runtime/plugin-helpers.js');
         let nextState = withStructuralTypeState(plugin.handler.mergeState(existingState, patch), match);
-        let missing = plugin.handler.computeMissing(nextState, 'execution');
+        let missing = computeDraftMissing(plugin, nextState, 'execution');
         let extractionMode = draftPatch ? 'llm' : 'deterministic';
 
         if (shouldRetryDraftExtraction(draftPatch, missing, nextState)) {
@@ -2722,7 +2724,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
               structuralTypeMatch: match,
             });
             const retryState = withStructuralTypeState(plugin.handler.mergeState(nextState, retryPatch), match);
-            const retryMissing = plugin.handler.computeMissing(retryState, 'execution');
+            const retryMissing = computeDraftMissing(plugin, retryState, 'execution');
             if (retryMissing.critical.length < missing.critical.length) {
               draftPatch = retryDraftPatch;
               patch = retryPatch;
@@ -2751,7 +2753,13 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
         };
 
         const stateUpdate: Partial<AgentState> = {};
-        if (nextState) stateUpdate.draftState = nextState;
+        if (nextState) {
+          stateUpdate.draftState = nextState;
+          stateUpdate.modelPending = true;
+          stateUpdate.analysisResult = null;
+          stateUpdate.codeCheckResult = null;
+          stateUpdate.report = null;
+        }
         if (match.key) stateUpdate.structuralTypeKey = match.key;
 
         logToolCall(log, { tool: 'extract_draft_params', durationMs: Date.now() - start, extra: { skillId: plugin.id, extractionMode: responseJson.extractionMode, criticalMissing: missing.critical.length, routingSource: match.routingSource } });
@@ -2809,14 +2817,17 @@ export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
       }
       const skillIds = configurable.skillScope;
 
-      const model = await skillRuntime.buildModel(draftState, skillIds, {
+      const candidate = await skillRuntime.buildModel(draftState, skillIds, {
         message: state?.lastUserMessage || '',
         locale: state?.locale || 'zh',
+        currentModel: state?.model ?? undefined,
+        conversationHistory: state?.messages.map((message) => `${messageRole(message)}: ${messageText(message)}`).join('\n'),
       });
-      if (!model) {
+      if (!candidate) {
         logToolCall(log, { tool: 'build_model', durationMs: Date.now() - start, extra: { success: false } });
         throw new Error('Model build returned undefined — draft may be incomplete. Try running extract_draft_params again with more explicit parameters.');
       }
+      const model = await normalizeEngineeringModel(candidate, configurable.structureProtocolClient);
 
       // Store model in graph state via Command.
       // Keep ToolMessage content compact — full model lives in graph state.
@@ -2828,7 +2839,7 @@ export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
         toolCallId,
         'build_model',
         JSON.stringify(summary),
-        buildModelToolStateUpdate(model, summary),
+        buildModelToolStateUpdate(model, summary, state),
       );
     },
     {
@@ -2953,6 +2964,12 @@ export function createSetSessionConfigTool() {
 
       // Only return Command if there are actual updates
       if (updatedKeys.length > 0) {
+        if (input.analysisType && input.analysisType !== state?.policy?.analysisType || input.skillIdsJson) {
+          Object.assign(stateUpdate, invalidateAnalysis(state));
+        } else if (input.designCode && input.designCode !== state?.policy?.designCode) {
+          stateUpdate.codeCheckResult = null;
+          stateUpdate.report = null;
+        }
         return toolResult(toolCallId, 'set_session_config', JSON.stringify(responseJson), stateUpdate);
       }
       return JSON.stringify(responseJson);
@@ -3042,6 +3059,8 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
       analysisType: string;
       analysisSkillId?: string;
       loadCombinationId?: string;
+      loadCaseIds?: string[];
+      loadCombinationIds?: string[];
       floorLoadTransferMode?: 'auto_code_cn' | 'node_tributary' | 'one_way_slab' | 'two_way_slab';
       seismicWorkflowJson?: string;
     }, config: LangGraphRunnableConfig) => {
@@ -3056,6 +3075,7 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
       if (!model) {
         return toolResult(toolCallId, 'run_analysis', JSON.stringify({ error: 'No model available. Run build_model first.' }));
       }
+      if (state?.modelPending) return toolResult(toolCallId, 'run_analysis', JSON.stringify({ success: false, error_code: 'MODEL_REBUILD_REQUIRED', message: 'Build the pending model first.', messageZh: '请先构建待确认的模型。' }));
       const skillIds = configurable.skillScope;
       const analysisType = (input.analysisType || 'static') as 'static' | 'dynamic' | 'seismic' | 'nonlinear';
       const unselectedRequestedSkillId = resolveUnselectedRequestedAnalysisSkillId(
@@ -3161,20 +3181,7 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
           }),
         );
       }
-      if (!requestedLoadCombinationId && loadCombinationIds.length > 1) {
-        return toolResult(
-          toolCallId,
-          'run_analysis',
-          JSON.stringify({
-            success: false,
-            error_code: 'LOAD_COMBINATION_REQUIRED',
-            message: 'The current model declares multiple load combinations. Select one before analysis.',
-            availableLoadCombinationIds: loadCombinationIds,
-          }),
-        );
-      }
-      const loadCombinationId = requestedLoadCombinationId
-        || (loadCombinationIds.length === 1 ? loadCombinationIds[0] : undefined);
+      const loadCombinationId = requestedLoadCombinationId;
       const postToEngineWithRetry = async (
         p: string,
         payload: Record<string, unknown>,
@@ -3203,6 +3210,8 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
         parameters: {
           traceId,
           ...(loadCombinationId ? { loadCombinationId } : {}),
+          ...(input.loadCaseIds ? { loadCaseIds: input.loadCaseIds } : {}),
+          ...(input.loadCombinationIds ? { loadCombinationIds: input.loadCombinationIds } : {}),
           ...(input.floorLoadTransferMode ? { floorLoadTransferMode: input.floorLoadTransferMode } : {}),
           ...(analysisType === 'seismic' && seismicWorkflow ? { seismicWorkflow } : {}),
         },
@@ -3218,6 +3227,8 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
       analysisResult.meta = {
         ...analysisMeta,
         traceId,
+        modelHash: modelHash(model),
+        modelRevision: state?.modelRevision ?? 0,
       };
 
       // Store analysis result in graph state via Command.
@@ -3239,7 +3250,7 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
         toolCallId,
         'run_analysis',
         JSON.stringify(analysisSummary),
-        { analysisResult },
+        publishAnalysis(getConfigurable(config).agentState ?? {}, modelHash(model), analysisResult),
       );
     },
     {
@@ -3262,7 +3273,9 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
         loadCombinationId: z
           .string()
           .optional()
-          .describe('Optional load-combination ID from the current model. When the model declares exactly one combination, the tool selects it automatically.'),
+          .describe('Optional single load-combination ID. Without selectors, all declared static cases and combinations are run separately.'),
+        loadCaseIds: z.array(z.string()).optional().describe('Explicit load cases to solve independently.'),
+        loadCombinationIds: z.array(z.string()).optional().describe('Explicit combinations to solve independently.'),
         floorLoadTransferMode: z
           .enum(['auto_code_cn', 'node_tributary', 'one_way_slab', 'two_way_slab'])
           .optional()
@@ -3323,43 +3336,38 @@ export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
       if (!analysis) {
         return toolResult(toolCallId, 'run_code_check', JSON.stringify({ error: 'No analysis results available. Run run_analysis first.' }));
       }
+      const freshnessError = currentAnalysisError(state);
+      if (freshnessError) return toolResult(toolCallId, 'run_code_check', JSON.stringify({ success: false, error_code: freshnessError, message: 'Current model analysis is required.', messageZh: '需要当前模型的有效分析结果。' }));
       const traceId = `lg-cc-${Date.now()}`;
 
-      const result = await skillRuntime.executeCodeCheckSkill({
+      const codeCheckResult = await checkRunResults(analysis, async (caseResult) => {
+        const result = await skillRuntime.executeCodeCheckSkill({
         codeCheckClient: configurable.codeCheckClient,
         traceId,
         designCode: requestedDesignCode,
         model,
-        analysis,
+        analysis: caseResult,
         analysisParameters: {},
         engineId: input.engineId,
         codeCheckSkillId,
+        });
+        return isRecord(result.result) ? result.result : { result: result.result };
       });
 
-      const codeCheckPayload: Record<string, unknown> = isRecord(result.result)
-        ? { ...result.result }
-        : { result: result.result };
+      const codeCheckPayload: Record<string, unknown> = { ...codeCheckResult };
       const meta = isRecord(codeCheckPayload.meta) ? codeCheckPayload.meta : {};
       const analysisTraceId = analysisTraceIdFromResult(analysis);
-      if (result.skillId) {
-        codeCheckPayload.meta = {
-          ...meta,
-          codeCheckSkillId: result.skillId,
-          ...(analysisTraceId ? { analysisTraceId } : {}),
-        };
-      } else if (analysisTraceId) {
-        codeCheckPayload.meta = {
-          ...meta,
-          analysisTraceId,
-        };
-      }
+      codeCheckPayload.meta = {
+        ...meta, codeCheckSkillId, ...(analysisTraceId ? { analysisTraceId } : {}),
+        runId: analysis.runId, modelHash: modelHash(model), modelRevision: state?.modelRevision,
+      };
 
       // Store code check result in graph state via Command
-      logToolCall(log, { tool: 'run_code_check', durationMs: Date.now() - start, extra: { designCode: requestedDesignCode, skillId: result.skillId, success: true } });
+      logToolCall(log, { tool: 'run_code_check', durationMs: Date.now() - start, extra: { designCode: requestedDesignCode, skillId: codeCheckSkillId, success: true } });
       return toolResult(
         toolCallId,
         'run_code_check',
-        JSON.stringify({ success: true, skillId: result.skillId }),
+        JSON.stringify({ success: true, skillId: codeCheckSkillId, completionStatus: codeCheckPayload.completionStatus, complianceStatus: codeCheckPayload.complianceStatus, summary: codeCheckPayload.summary }),
         { codeCheckResult: codeCheckPayload },
       );
     },
@@ -3398,6 +3406,8 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
       if (!analysis) {
         return toolResult(toolCallId, 'generate_report', JSON.stringify({ error: 'No analysis results available. Run run_analysis first.' }));
       }
+      const freshnessError = currentAnalysisError(state);
+      if (freshnessError) return toolResult(toolCallId, 'generate_report', JSON.stringify({ success: false, error_code: freshnessError, message: 'Current model analysis is required.', messageZh: '需要当前模型的有效分析结果。' }));
       const codeCheck = state?.codeCheckResult || undefined;
       const draftState = state?.draftState || undefined;
       const skillIds = configurable.skillScope;

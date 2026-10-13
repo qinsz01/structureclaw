@@ -5,8 +5,8 @@ name:
   zh: YJK 静力分析
   en: YJK Static Analysis
 description:
-  zh: 调用本机 YJK 8.0 自动建模、计算并抽取静力分析与构件设计结果，返回位移、反力、构件内力、构件设计摘要、工况、包络和楼层统计。
-  en: Runs local YJK 8.0 modeling, calculation, and static/design-result extraction, returning displacements, reactions, member forces, member design summaries, load cases, envelopes, and floor statistics.
+  zh: 保留 YJK 逐层节点构件编译、启动授权及结果读取外壳；逐构件材料牌号与常数映射尚未原生验收，正式分析由能力门禁阻止，当前编译能力不代表可正式计算。
+  en: Retains YJK per-floor member compilation, authorization/launch, and result-reader infrastructure. Formal analysis is gated until per-member material grades and constants pass native acceptance; compilation does not establish executable physics parity.
 triggers:
   - YJK 静力分析
   - YJK 计算

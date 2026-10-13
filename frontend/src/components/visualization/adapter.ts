@@ -1313,7 +1313,8 @@ function buildRunSnapshot(params: VisualizationInput, run: Record<string, unknow
         ...(load.components ? { components: load.components.map(component => ({ ...component, value: component.value * factor })) } : {}) })
     }
   }
-  const selectedData = asRecord(asRecord(results![selectedKey])?.data)
+  const selectedData = cases.find(item => item.id === selectedKey)?.resultStatus === 'available'
+    ? asRecord(asRecord(results![selectedKey])?.data) : null
   return normalizeVisualizationSnapshot({ ...geometry, source: 'result', cases, loads,
     defaultCaseId: selectedKey, availableViews: [...availableViews],
     analysisType: asNonEmptyString(run.analysis_type) || undefined,

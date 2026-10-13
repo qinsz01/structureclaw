@@ -1,3 +1,5 @@
+export { recoverAnalysisMembers, queryMemberResponse, memberResponseExtrema, sampleMemberResponse } from './member-response.js';
+
 export function extractKeyMetrics(analysis: unknown, codeCheck: unknown): Record<string, unknown> {
   const analysisPayload = analysis && typeof analysis === 'object' ? analysis as Record<string, unknown> : {};
   const analysisData = analysisPayload['data'];
@@ -60,6 +62,9 @@ export function extractClauseTraceability(codeCheck: unknown): Array<Record<stri
         }
         const itemObject = item as Record<string, unknown>;
         traceRows.push({
+          resultKey: detailObject['resultKey'],
+          code: codeCheckPayload['code'],
+          source: codeCheckPayload['meta'],
           elementId: typeof elementId === 'string' ? elementId : 'unknown',
           check: typeof checkName === 'string' ? checkName : 'unknown',
           item: typeof itemObject['item'] === 'string' ? itemObject['item'] : 'unknown',
@@ -67,12 +72,15 @@ export function extractClauseTraceability(codeCheck: unknown): Array<Record<stri
           formula: typeof itemObject['formula'] === 'string' ? itemObject['formula'] : '',
           utilization: itemObject['utilization'] ?? null,
           status: typeof itemObject['status'] === 'string' ? itemObject['status'] : 'unknown',
+          inputs: itemObject['calculationInputs'] ?? itemObject['inputs'],
+          forceState: itemObject['forceState'],
+          evidenceSource: itemObject['evidenceSource'],
         });
       }
     }
   }
 
-  return traceRows.slice(0, 20);
+  return traceRows;
 }
 
 export function extractUtilizationByElementFromAnalysis(analysis: unknown): Record<string, unknown> {

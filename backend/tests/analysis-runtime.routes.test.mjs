@@ -8,7 +8,7 @@ describe('analysis runtime routes', () => {
 
     const { AnalysisExecutionService } = await import('../dist/services/analysis-execution.js');
     const { StructureProtocolExecutionService } = await import('../dist/services/structure-protocol-execution.js');
-    const { CodeCheckExecutionService } = await import('../dist/services/code-check-execution.js');
+    const { AnalysisService } = await import('../dist/services/analysis.js');
     StructureProtocolExecutionService.prototype.getStructureModelSchema = async function mockStructureSchema() {
       return { title: 'StructureModelV1' };
     };
@@ -33,8 +33,8 @@ describe('analysis runtime routes', () => {
     AnalysisExecutionService.prototype.analyze = async function mockAnalyze(body) {
       return { success: true, analysis_type: body.type };
     };
-    CodeCheckExecutionService.prototype.codeCheck = async function mockCodeCheck(body) {
-      return { code: body.code, status: 'success' };
+    AnalysisService.prototype.codeCheck = async function mockCodeCheck(body) {
+      return { code: body.code, status: 'success', source: body };
     };
 
     const { analysisRuntimeRoutes } = await import('../dist/api/analysis-runtime.js');
@@ -50,7 +50,12 @@ describe('analysis runtime routes', () => {
     expect((await app.inject({ method: 'POST', url: '/validate', payload: { model: {}, engineId: 'builtin-opensees' } })).json().valid).toBe(true);
     expect((await app.inject({ method: 'POST', url: '/convert', payload: { model: {} } })).json().model.schema_version).toBe('2.0.0');
     expect((await app.inject({ method: 'POST', url: '/analyze', payload: { type: 'static', model: {}, parameters: {} } })).json().success).toBe(true);
-    expect((await app.inject({ method: 'POST', url: '/code-check', payload: { model_id: 'm1', code: 'GB50017', elements: [] } })).json().code).toBe('GB50017');
+    const checked = await app.inject({ method: 'POST', url: '/code-check', payload: {
+      model_id: 'm1', analysisId: 'a1', runId: 'r1', code: 'GB50017', elements: [],
+    } });
+    expect(checked.statusCode).toBe(200);
+    expect(checked.json().source).toMatchObject({ modelId: 'm1', analysisId: 'a1', runId: 'r1' });
+    expect((await app.inject({ method: 'POST', url: '/code-check', payload: { model_id: 'm1', code: 'GB50017', elements: [] } })).statusCode).not.toBe(200);
 
     await app.close();
   });

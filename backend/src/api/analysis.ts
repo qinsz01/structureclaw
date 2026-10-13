@@ -23,7 +23,7 @@ export const createAnalysisSchema = z.object({
     seismicWorkflow: z.record(z.string(), z.unknown()).optional(),
     designCode: z.string().optional(),
     autoCodeCheck: z.boolean().optional(),
-  }),
+  }).passthrough(),
 });
 
 const createModelSchema = z.object({
@@ -56,14 +56,14 @@ const createModelSchema = z.object({
     y: z.number(),
     z: z.number(),
     restraints: z.array(z.boolean()).length(6).optional(),
-  })),
+  }).passthrough()),
   elements: z.array(z.object({
     id: z.string(),
     type: z.enum(['beam', 'column', 'truss', 'shell', 'solid', 'wall', 'slab', 'link', 'brace']),
     nodes: z.array(z.string()),
     material: z.string(),
     section: z.string(),
-  })),
+  }).passthrough()),
   materials: z.array(z.object({
     id: z.string(),
     name: z.string(),
@@ -71,9 +71,26 @@ const createModelSchema = z.object({
     nu: z.number(),
     rho: z.number(),
     fy: z.number().optional(),
-  })),
+  }).passthrough()),
   sections: z.array(z.any()),
-});
+  load_cases: z.array(z.record(z.string(), z.unknown())).optional(),
+  load_combinations: z.array(z.record(z.string(), z.unknown())).optional(),
+}).passthrough();
+
+export const codeCheckSchema = z.object({
+  modelId: z.string().min(1).optional(),
+  model_id: z.string().min(1).optional(),
+  analysisId: z.string().min(1),
+  runId: z.string().min(1),
+  code: z.string().min(1),
+  elements: z.array(z.string().min(1)),
+  context: z.record(z.string(), z.unknown()).optional(),
+  engineId: z.string().optional(),
+}).superRefine((value, context) => {
+  if (!(value.modelId ?? value.model_id) || (value.modelId && value.model_id && value.modelId !== value.model_id)) {
+    context.addIssue({ code: 'custom', message: 'MODEL_ID_REQUIRED_OR_CONFLICTING', path: ['modelId'] });
+  }
+}).transform(({ model_id, ...value }) => ({ ...value, modelId: (value.modelId ?? model_id)! }));
 
 export async function analysisRoutes(fastify: FastifyInstance) {
   // 内置地震波目录元数据，不返回完整波形数组。
@@ -162,10 +179,10 @@ export async function analysisRoutes(fastify: FastifyInstance) {
       summary: '规范校核',
     },
   }, async (
-    request: FastifyRequest<{ Body: { modelId: string; code: string; elements: string[]; context?: Record<string, unknown> } }>,
+    request: FastifyRequest<{ Body: z.input<typeof codeCheckSchema> }>,
     reply: FastifyReply
   ) => {
-    const body = request.body;
+    const body = codeCheckSchema.parse(request.body);
     const result = await analysisService.codeCheck(body);
     return reply.send(result);
   });

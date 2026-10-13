@@ -1,3 +1,4 @@
+import { withDeclaredProperties } from './fixtures/declared-template-properties.mjs';
 import { describe, expect, it, test } from '@jest/globals';
 import {
   normalizeLoadType,
@@ -885,7 +886,7 @@ describe('buildModel', () => {
       loadPosition: 'midspan',
       updatedAt: Date.now(),
     };
-    const model = buildModel(state);
+    const model = buildModel(withDeclaredProperties(state));
     expect(model).toBeDefined();
     expect(typeof model).toBe('object');
   });

@@ -5,7 +5,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildConcreteFrameModel } from '../dist/agent-skills/structure-type/concrete-frame/model.js';
-import { buildFrameModel } from '../dist/agent-skills/structure-type/frame/model.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..', '..');
@@ -394,7 +393,7 @@ function runPkpmRuntime(model, options = {}) {
             '    result = runtime.run_analysis(model, {"timeout": 12})',
             '    print(json.dumps({"result": result, "calls": APIPyInterface.calls, "patchCalls": patch_calls, "runCalls": run_calls}, ensure_ascii=False))',
             'except Exception as exc:',
-            '    print(json.dumps({"error": str(exc), "errorType": type(exc).__name__, "calls": APIPyInterface.calls, "patchCalls": patch_calls, "runCalls": run_calls}, ensure_ascii=False))',
+            '    print(json.dumps({"error": str(exc), "errorType": type(exc).__name__, "errorCode": getattr(exc, "error_code", None), "detail": getattr(exc, "detail", {}), "calls": APIPyInterface.calls, "patchCalls": patch_calls, "runCalls": run_calls}, ensure_ascii=False))',
           ]
           : [
             'result = runtime.run_analysis(model, {"timeout": 12})',
@@ -597,7 +596,7 @@ function findCalls(payload, method) {
   return payload.calls.filter((call) => call.method === method);
 }
 
-function buildRcUserScenarioModel() {
+function buildCanonicalRcModel() {
   return buildConcreteFrameModel({
     inferredType: 'frame',
     structuralTypeKey: 'concrete-frame',
@@ -620,6 +619,17 @@ function buildRcUserScenarioModel() {
     frameColumnSection: '600X600',
     frameBeamSection: '500X250',
   });
+}
+
+// Native grade-only fixtures exercise the retained compiler/reader infrastructure.
+// They are deliberately NOT canonical V2 analysis inputs: E/nu/rho and all other
+// numeric physical overrides are absent. Formal builder models must be rejected.
+function buildNativeGradeRcCompilerFixture() {
+  const model = structuredClone(buildCanonicalRcModel());
+  model.materials = [{ id: '1', name: 'C30', grade: 'C30', category: 'concrete' }];
+  model.sections = model.sections.map(({ id, name, type, purpose, shape }) => ({ id, name, type, purpose, shape }));
+  model.elements = model.elements.map(({ rebar_grade: _rebarGrade, ...element }) => element);
+  return model;
 }
 
 function buildGenericRcFrameModelWithLegacyRectSections() {
@@ -654,11 +664,11 @@ function buildGenericRcFrameModelWithLegacyRectSections() {
       { id: 'BY2', type: 'beam', nodes: ['N6', 'N8'], material: 'MAT1', section: 'SEC2' },
     ],
     materials: [
-      { id: 'MAT1', name: 'Concrete_C30', E: 30000, nu: 0.2, rho: 2500 },
+      { id: 'MAT1', name: 'Concrete_C30', grade: 'C30' },
     ],
     sections: [
-      { id: 'SEC1', name: 'Col_600x600', type: 'rectangular', properties: { width: 0.6, height: 0.6, A: 0.36 } },
-      { id: 'SEC2', name: 'Beam_500x250', type: 'rectangular', properties: { width: 0.5, height: 0.25, A: 0.125 } },
+      { id: 'SEC1', name: 'Col_600x600', type: 'rectangular', properties: { width: 0.6, height: 0.6 } },
+      { id: 'SEC2', name: 'Beam_500x250', type: 'rectangular', properties: { width: 0.5, height: 0.25 } },
     ],
     stories: [
       { id: 'S1', level: 1, elevation: 0, height: 3.6 },
@@ -740,7 +750,7 @@ function buildGenericYUpRcFrameModel() {
     nodes,
     elements,
     materials: [
-      { id: 'MAT1', name: 'Concrete_C30', E: 30000, nu: 0.2, rho: 2500 },
+      { id: 'MAT1', name: 'Concrete_C30', grade: 'C30' },
     ],
     sections: [
       { id: 'SEC1', name: 'Col_600x600', type: 'rectangular', properties: { width: 0.6, height: 0.6 } },
@@ -763,8 +773,16 @@ describe('PKPM frame analysis flow', () => {
     return;
   }
 
+  test('rejects unmodified canonical builder physics before native execution', () => {
+    const payload = runPkpmRuntime(buildCanonicalRcModel(), { expectFailure: true });
+    expect(payload.errorCode).toBe('PKPM_NATIVE_MATERIAL_PROPERTIES_UNVERIFIED');
+    expect(payload.detail.inputFields).toEqual(expect.arrayContaining(['materials.1.E', 'materials.1.nu', 'materials.1.rho']));
+    expect(payload.calls).toEqual([]);
+    expect(payload.runCalls).toEqual([]);
+  });
+
   test('runs concrete-frame model through PKPM as concrete rectangular sections', () => {
-    const model = buildRcUserScenarioModel();
+    const model = buildNativeGradeRcCompilerFixture();
     expect(model).toBeDefined();
 
     const payload = runPkpmRuntime(model);
@@ -818,7 +836,7 @@ describe('PKPM frame analysis flow', () => {
   });
 
   test('detects concrete by material category even when material name is not a C-grade token', () => {
-    const baseModel = buildRcUserScenarioModel();
+    const baseModel = buildNativeGradeRcCompilerFixture();
     const model = JSON.parse(JSON.stringify(baseModel));
     model.materials = model.materials.map((material) => (
       material.id === '1'
@@ -845,7 +863,7 @@ describe('PKPM frame analysis flow', () => {
   });
 
   test('passes V2 seismic and wind design conditions into PKPM design parameters', () => {
-    const model = buildRcUserScenarioModel();
+    const model = buildNativeGradeRcCompilerFixture();
     model.site_seismic = {
       intensity: 7,
       design_group: '第三组',
@@ -900,7 +918,7 @@ describe('PKPM frame analysis flow', () => {
   });
 
   test('rejects explicit physical settings until native write/readback is verified', () => {
-    const model = buildRcUserScenarioModel();
+    const model = buildNativeGradeRcCompilerFixture();
     model.analysis_control = { self_weight: false, rigid_floor: false };
     const payload = runPkpmRuntime(model, { expectFailure: true });
     expect(payload.errorType).toBe('AnalysisCapabilityError');
@@ -910,7 +928,7 @@ describe('PKPM frame analysis flow', () => {
   });
 
   test('maps distinct story dead/live loads to separate PKPM standard floors', () => {
-    const model = buildRcUserScenarioModel();
+    const model = buildNativeGradeRcCompilerFixture();
     model.stories[0] = {
       ...model.stories[0],
       dead_load: 10,
@@ -944,7 +962,7 @@ describe('PKPM frame analysis flow', () => {
   });
 
   test('defaults an omitted story live load to zero', () => {
-    const model = buildRcUserScenarioModel();
+    const model = buildNativeGradeRcCompilerFixture();
     model.stories = model.stories.map((story, index) => {
       const deadLoad = index === 0 ? 5 : 6;
       const { live_load: _liveLoad, ...withoutLiveLoad } = story;
@@ -967,7 +985,7 @@ describe('PKPM frame analysis flow', () => {
   });
 
   test('fails clearly when final PKPM model cannot be reopened for material parameter persistence', () => {
-    const payload = runPkpmRuntime(buildRcUserScenarioModel(), {
+    const payload = runPkpmRuntime(buildNativeGradeRcCompilerFixture(), {
       expectFailure: true,
       failOpenPmModel: true,
     });
@@ -980,7 +998,7 @@ describe('PKPM frame analysis flow', () => {
   });
 
   test('keeps PKPM result when PDB version warning is present but core results are readable', () => {
-    const payload = runPkpmRuntime(buildRcUserScenarioModel(), {
+    const payload = runPkpmRuntime(buildNativeGradeRcCompilerFixture(), {
       createPdbMismatchDuringExtract: true,
     });
 
@@ -992,7 +1010,7 @@ describe('PKPM frame analysis flow', () => {
   });
 
   test('fails when PKPM result extraction fails with a PDB version mismatch', () => {
-    const payload = runPkpmRuntime(buildRcUserScenarioModel(), {
+    const payload = runPkpmRuntime(buildNativeGradeRcCompilerFixture(), {
       createPdbMismatchDuringExtract: true,
       failExtract: true,
       expectFailure: true,
@@ -1071,7 +1089,7 @@ describe('PKPM frame analysis flow', () => {
   });
 
   test('ignores malformed PKPM design-condition containers', () => {
-    const model = buildRcUserScenarioModel();
+    const model = buildNativeGradeRcCompilerFixture();
     model.site_seismic = 'not-a-map';
     model.wind = ['not-a-map'];
     model.analysis_control = {
@@ -1124,7 +1142,7 @@ describe('PKPM frame analysis flow', () => {
   });
 
   test('allows empty floor_loads when convenience dead/live fields provide the loads', () => {
-    const model = buildRcUserScenarioModel();
+    const model = buildNativeGradeRcCompilerFixture();
     model.stories = model.stories.map((story, index) => ({
       ...story,
       floor_loads: [],
@@ -1144,7 +1162,7 @@ describe('PKPM frame analysis flow', () => {
   });
 
   test('fails closed when PKPM result rows do not cover the converted model', () => {
-    const payload = runPkpmRuntime(buildRcUserScenarioModel(), {
+    const payload = runPkpmRuntime(buildNativeGradeRcCompilerFixture(), {
       incompleteResults: true,
       expectFailure: true,
     });
@@ -1186,28 +1204,13 @@ describe('PKPM frame analysis flow', () => {
     expect(payload.stations.every((station) => station.endpointConvention === 'unverified')).toBe(true);
   });
 
-  test('keeps steel-frame PKPM flow on steel sections and steel SATWE material', () => {
-    const model = buildFrameModel({
-      inferredType: 'frame',
-      structuralTypeKey: 'frame',
-      skillId: 'frame',
-      updatedAt: 0,
-      frameDimension: '3d',
-      storyCount: 2,
-      bayCountX: 2,
-      bayCountY: 1,
-      storyHeightsM: [3.6, 3.6],
-      bayWidthsXM: [6, 6],
-      bayWidthsYM: [6],
-      floorLoads: [
-        { story: 1, verticalKN: 180 },
-        { story: 2, verticalKN: 180 },
-      ],
-      frameBaseSupportType: 'fixed',
-      frameMaterial: 'Q355',
-      frameColumnSection: 'HW300X300',
-      frameBeamSection: 'HN300X150',
-    });
+  test('keeps native grade-only steel compiler flow on steel sections and SATWE material', () => {
+    const model = buildNativeGradeRcCompilerFixture();
+    model.metadata.materialSystem = 'steel';
+    if (model.structure_system?.extra) model.structure_system.extra.materialSystem = 'steel';
+    model.materials = [{ id: '1', name: 'Q355', grade: 'Q355', category: 'steel' }];
+    model.elements = model.elements.map(({ concrete_grade: _grade, ...element }) => element);
+    model.sections = model.sections.map((section) => ({ ...section, type: 'H', shape: { kind: 'H', H: 300, B: 300, tw: 10, tf: 15 } }));
     expect(model).toBeDefined();
 
     const payload = runPkpmRuntime(model);

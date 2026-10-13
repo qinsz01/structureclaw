@@ -5,6 +5,7 @@ import {
   LOCAL_POST_ACTION_BY_PATH,
 } from '../agent-skills/analysis/entry.js';
 import type { ExecutionRequestOptions, LocalAnalysisEngineClient } from '../agent-skills/analysis/types.js';
+import { executeAnalysisRun } from '../engineering/analysis-runs.js';
 
 function buildError(message: string, statusCode = 500): Error & { statusCode?: number } {
   const error = new Error(message) as Error & { statusCode?: number };
@@ -13,7 +14,10 @@ function buildError(message: string, statusCode = 500): Error & { statusCode?: n
 }
 
 export class AnalysisExecutionService {
-  constructor(private readonly runner = new AnalysisRuntimeRunner()) {}
+  constructor(
+    private readonly runner = new AnalysisRuntimeRunner(),
+    private readonly persistRun?: (id: string, record: Record<string, unknown>) => Promise<void>,
+  ) {}
 
   async listEngines(): Promise<{ engines: AnalysisEngineManifest[]; defaultSelectionMode: 'auto' }> {
     return this.runner.invoke({ action: 'list_engines' });
@@ -40,7 +44,7 @@ export class AnalysisExecutionService {
   }
 
   async analyze(payload: Record<string, unknown>, requestOptions?: ExecutionRequestOptions): Promise<Record<string, unknown>> {
-    return this.runner.invoke({ action: 'analyze', input: payload }, requestOptions);
+    return executeAnalysisRun(payload, (input) => this.runner.invoke({ action: 'analyze', input }, requestOptions), this.persistRun);
   }
 }
 

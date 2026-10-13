@@ -3,6 +3,7 @@ export interface CodeCheckDomainInput extends Record<string, unknown> {
   code: string;
   elements: string[];
   context: {
+    source?: Record<string, unknown>;
     analysisSummary: Record<string, unknown>;
     utilizationByElement: Record<string, unknown>;
     elementContextById?: Record<string, unknown>;

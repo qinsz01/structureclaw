@@ -43,6 +43,7 @@ describe('elementData bridge', () => {
   const makeAnalysisResult = () => ({
     schema_version: '2.0.0',
     analysis_type: 'static',
+    meta: { units: { force: 'N', moment: 'N.mm' } },
     success: true,
     data: {
       status: 'success',
@@ -105,11 +106,11 @@ describe('elementData bridge', () => {
     });
 
     const ed = input.context['elementData'];
-    const c1Forces = ed['C1']['forces'];
+    const c1Forces = ed['C1']['forceStates'][0]['forces'];
     expect(c1Forces['N']).toBe(45200);
     expect(c1Forces['V']).toBe(2100);
 
-    const b2Forces = ed['B2']['forces'];
+    const b2Forces = ed['B2']['forceStates'][0]['forces'];
     expect(b2Forces['N']).toBe(1200);
   });
 
@@ -277,12 +278,13 @@ describe('elementData bridge', () => {
     expect(input.context['modelSummary']).toBeDefined();
   });
 
-  test('forces use n1/n2 envelope (take max absolute)', () => {
+  test('preserves signed complete endpoint vectors without mixing component maxima', () => {
     const input = buildCodeCheckInput({
       traceId: 'test-trace',
       designCode: 'GB50017',
       model: makeModel(),
       analysis: {
+        meta: { units: { force: 'N', moment: 'N.mm' } },
         data: {
           forces: {
             'C1': {
@@ -296,13 +298,14 @@ describe('elementData bridge', () => {
     });
 
     const ed = input.context['elementData'];
-    const f = ed['C1']['forces'];
-    expect(f['N']).toBe(45000);   // abs(n2) > abs(n1)
-    expect(f['V']).toBe(5000);    // abs(n1) > abs(n2)
-    expect(f['Mx']).toBe(3500000); // abs(n2) > abs(n1)
+    expect(ed['C1']['forces']).toEqual({});
+    expect(ed['C1']['forceStates'].map(s => s.forces)).toEqual([
+      { N: -30000, V: 5000, M: -2000000, Mx: -2000000 },
+      { N: 45000, V: -3000, M: 3500000, Mx: 3500000 },
+    ]);
   });
 
-  test('converts PKPM force units before GB50017 elementData consumption', () => {
+  test('rejects PKPM component envelopes as simultaneous section vectors', () => {
     const model = {
       elements: [
         { id: 'B1', type: 'beam', nodes: ['N1', 'N2'], material: '1', section: '1' },
@@ -343,10 +346,10 @@ describe('elementData bridge', () => {
       analysisParameters: {},
     });
 
-    const forces = input.context['elementData']['B1']['forces'];
-    expect(forces['N']).toBe(8000);
-    expect(forces['V']).toBe(36000);
-    expect(forces['Mx']).toBe(54000000);
+    const element = input.context['elementData']['B1'];
+    expect(element.forces).toEqual({});
+    expect(element.forceStates).toEqual([]);
+    expect(element.forceInputIssue).toContain('Native component envelopes');
   });
 
   test('converts OpenSees force units before GB50017 elementData consumption', () => {
@@ -397,7 +400,7 @@ describe('elementData bridge', () => {
     expect(forces['Mx']).toBe(54000000);
   });
 
-  test('derives Wnx/S/As/tw from H-section shape when props missing', () => {
+  test('does not guess shape units from the magnitude of dimensions', () => {
     const input = buildCodeCheckInput({
       traceId: 'test-trace',
       designCode: 'GB50017',
@@ -419,7 +422,7 @@ describe('elementData bridge', () => {
     const section = ed['E1']['section'];
     expect(section['Wx']).toBeGreaterThan(0);   // derived from Iy/(H/2)
     expect(section['S']).toBeGreaterThan(0);     // derived from H/B/tw/tf
-    expect(section['tw']).toBeCloseTo(6.5, 0);   // 0.0065m → 6.5mm
+    expect(section['tw']).toBeCloseTo(0.0065, 6); // V2 shape dimensions remain mm even when small
     expect(section['As']).toBeGreaterThan(0);    // tw × hw
   });
 
@@ -450,7 +453,7 @@ describe('elementData bridge', () => {
     expect(section['As']).toBeCloseTo(1833, -1);
   });
 
-  test('adds f and fv fallback when material has fy but no f/fv', () => {
+  test('does not substitute yield strength for design strengths', () => {
     const input = buildCodeCheckInput({
       traceId: 'test-trace',
       designCode: 'GB50017',
@@ -465,8 +468,35 @@ describe('elementData bridge', () => {
     });
 
     const mat = input.context['elementData']['E1']['material'];
-    expect(mat['f']).toBe(355);                     // fy used as f
-    expect(mat['fv']).toBeCloseTo(205, -1);         // fy/√3 ≈ 204.9
+    expect(mat['f']).toBeUndefined();
+    expect(mat['fv']).toBeUndefined();
     expect(mat['fy']).toBe(355);                    // original fy preserved
+  });
+
+  test('uses canonical signed components and preserves zero rather than 3-D magnitudes', () => {
+    const input = buildCodeCheckInput({
+      traceId: 'canonical-components', designCode: 'GB50017', model: makeModel(), analysisParameters: {},
+      analysis: {
+        meta: { units: { force: 'kN', moment: 'kN.m' } },
+        data: { analysisMode: 'opensees_3d_frame', forces: { C1: {
+          n1: { N: 0, V2: 3, V3: -2, T: 0, M2: -4, M3: 5, V: 999, M: 999 },
+        } } },
+      },
+    });
+    const state = input.context.elementData.C1.forceStates[0];
+    expect(state.forces.N).toBe(0);
+    expect(state.forces.V).toBe(-2000);
+    expect(state.forces.Mx).toBe(-4000000);
+    expect(state.forces.M3).toBe(5000000);
+    expect(state.unsupportedReason).toContain('Biaxial');
+  });
+
+  test('does not infer force units from an untagged response', () => {
+    const input = buildCodeCheckInput({
+      traceId: 'unknown-units', designCode: 'GB50017', model: makeModel(), analysisParameters: {},
+      analysis: { data: { forces: { C1: { n1: { N: 3, V: 0, M: 0 } } } } },
+    });
+    expect(input.context.elementData.C1.forceStates).toEqual([]);
+    expect(input.context.elementData.C1.forceInputIssue).toContain('units');
   });
 });

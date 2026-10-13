@@ -117,7 +117,9 @@ class CodeChecker:
                 'failed': 0,
                 'warnings': 0,
                 'notApplicable': 0,
-                'maxUtilization': 0.0,
+                'inputRequired': 0,
+                'unsupported': 0,
+                'maxUtilization': None,
                 'controllingElement': None,
                 'controllingCheck': None,
             },
@@ -143,11 +145,19 @@ class CodeChecker:
             if not isinstance(controlling, dict):
                 controlling = {}
             utilization = self._item_utilization(controlling)
-            if utilization >= results['summary']['maxUtilization']:
+            if utilization is not None and (results['summary']['maxUtilization'] is None or utilization >= results['summary']['maxUtilization']):
                 results['summary']['maxUtilization'] = utilization
                 results['summary']['controllingElement'] = elem_id
                 results['summary']['controllingCheck'] = controlling.get('item')
 
+        summary = results['summary']
+        incomplete = summary['inputRequired'] + summary['unsupported'] + summary['warnings']
+        incomplete += sum(item.get('unresolvedForceStateCount', 0) for detail in results['details'] for item in self._flatten_result_items(detail))
+        results['completionStatus'] = 'incomplete' if incomplete or not elements else 'complete'
+        results['complianceStatus'] = (
+            'fail' if summary['failed'] else 'incomplete' if incomplete or not elements
+            else 'pass' if summary['passed'] else 'not_applicable'
+        )
         return results
 
     @staticmethod
@@ -174,44 +184,130 @@ class CodeChecker:
     def _summary_bucket(item: Dict[str, Any]) -> str:
         status = str(item.get('status', '')).strip().lower()
         category = str(item.get('category', '')).strip().lower()
+        if status == 'input_required' or category == 'input_required':
+            return 'inputRequired'
+        if status in {'unsupported', 'not_implemented'} or category == 'unsupported':
+            return 'unsupported'
         if status in {'pass', 'passed'}:
             return 'passed'
         if status in {'not_applicable', 'not-applicable', 'n/a'}:
             return 'notApplicable'
-        if category in {'input_required', 'diagnostic', 'trace'}:
-            return 'notApplicable'
         if status in {'fail', 'failed'}:
             return 'failed'
+        if category in {'diagnostic', 'trace'}:
+            return 'notApplicable'
         return 'warnings'
 
     @staticmethod
-    def _item_utilization(item: Dict[str, Any]) -> float:
+    def _item_utilization(item: Dict[str, Any]) -> Optional[float]:
+        raw = item.get('utilization')
+        if raw is None or isinstance(raw, bool):
+            return None
         try:
-            value = float(item.get('utilization', 0.0) or 0.0)
+            value = float(raw)
         except (TypeError, ValueError):
-            return 0.0
-        return value if math.isfinite(value) else 0.0
+            return None
+        return value if math.isfinite(value) and value >= 0 else None
 
     @staticmethod
     def _is_governing_eligible(item: Dict[str, Any]) -> bool:
         if item.get('governingEligible') is False:
             return False
         status = str(item.get('status', '')).strip().lower()
-        if status in {'not_applicable', 'not-applicable', 'n/a'}:
+        if status not in {'pass', 'passed', 'fail', 'failed'}:
             return False
         category = str(item.get('category', '')).strip().lower()
-        return category not in {'input_required', 'diagnostic', 'trace'}
+        return category not in {'input_required', 'unsupported', 'diagnostic', 'trace'} and CodeChecker._item_utilization(item) is not None
 
     def _select_controlling_item(self, all_items: List[Dict[str, Any]]) -> Dict[str, Any]:
         eligible = [item for item in all_items if self._is_governing_eligible(item)]
-        candidates = eligible if eligible else all_items
-        return max(candidates, key=self._item_utilization, default={})
+        return max(eligible, key=self._item_utilization, default={})
+
+    @staticmethod
+    def _normalize_item(item: Dict[str, Any]) -> Dict[str, Any]:
+        """Separate unexecuted checks from measured engineering failures."""
+        item = dict(item)
+        category = item.get('category')
+        if category == 'input_required' or item.get('status') == 'input_required':
+            item.update(status='input_required', utilization=None, governingEligible=False, displayUtilization='N/A')
+        elif category == 'unsupported' or item.get('status') in {'not_implemented', 'unsupported'}:
+            item.update(status='unsupported', utilization=None, governingEligible=False, displayUtilization='N/A')
+        return item
+
+    @classmethod
+    def _aggregate_status(cls, items: List[Dict[str, Any]]) -> str:
+        buckets = [cls._summary_bucket(item) for item in items]
+        if 'failed' in buckets:
+            return 'fail'
+        if 'unsupported' in buckets:
+            return 'unsupported'
+        if 'inputRequired' in buckets:
+            return 'input_required'
+        if 'warnings' in buckets or not buckets:
+            return 'incomplete'
+        return 'pass' if 'passed' in buckets else 'not_applicable'
+
+    def _build_chapter_summaries(self, checks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        chapters = []
+        for check in checks:
+            items = check.get('items', [])
+            controlling = self._select_controlling_item(items)
+            chapters.append({
+                'chapter': check.get('chapter') or check.get('name'),
+                'status': self._aggregate_status(items),
+                'itemCount': len(items),
+                'maxUtilization': self._item_utilization(controlling),
+                'controllingClause': controlling.get('clause'),
+            })
+        return chapters
 
     def _check_element(self, elem_id: str, context: Dict[str, Any]) -> Dict[str, Any]:
         """校核单个构件"""
         check_func = getattr(self.skill_module, 'check_element', None)
         if callable(check_func):
-            return check_func(self, elem_id, context)
+            element_data = context.get('elementData', {})
+            element = element_data.get(elem_id, {}) if isinstance(element_data, dict) else {}
+            states = element.get('forceStates', []) if isinstance(element, dict) else []
+            if not isinstance(states, list) or not states:
+                return check_func(self, elem_id, context)
+            results = []
+            for state in states:
+                if not isinstance(state, dict) or not isinstance(state.get('forces'), dict):
+                    continue
+                state_element = {**element, 'forces': state['forces'], 'forceStates': []}
+                if state.get('unsupportedReason'):
+                    state_element['forceInputIssue'] = state['unsupportedReason']
+                state_context = {**context, 'elementData': {**element_data, elem_id: state_element}}
+                result = check_func(self, elem_id, state_context)
+                for item in self._flatten_result_items(result):
+                    item['forceState'] = {key: value for key, value in state.items() if key != 'forces'}
+                results.append(result)
+            if not results:
+                return check_func(self, elem_id, context)
+            groups: Dict[str, Dict[str, Any]] = {}
+            for result in results:
+                for group in result.get('checks', []):
+                    target = groups.setdefault(group['name'], {**group, 'items': {}})
+                    for item in group.get('items', []):
+                        target['items'].setdefault(item['item'], []).append(item)
+            checks = []
+            for group in groups.values():
+                items = []
+                for candidates in group['items'].values():
+                    status = self._aggregate_status(candidates)
+                    candidates_for_status = [item for item in candidates if item.get('status') == status]
+                    governing = self._select_controlling_item(candidates_for_status or candidates)
+                    selected = governing or (candidates_for_status or candidates)[0]
+                    unresolved = sum(self._summary_bucket(item) in {'inputRequired', 'unsupported', 'warnings'} for item in candidates)
+                    items.append({**selected, 'checkedForceStateCount': len(candidates), 'unresolvedForceStateCount': unresolved})
+                checks.append({**group, 'items': items})
+            first = results[0]
+            combined = {**first, **self._build_element_result(elem_id, first.get('elementType', ''), checks, first.get('code', self.code))}
+            if 'chapters' in combined:
+                combined['chapters'] = self._build_chapter_summaries(combined['checks'])
+            combined['forceStateCount'] = len(results)
+            combined['forceCoverage'] = element.get('forceCoverage')
+            return combined
 
         return {
             'elementId': elem_id,
@@ -220,18 +316,18 @@ class CodeChecker:
         }
 
     def _build_element_result(self, elem_id: str, element_type: str, checks: List[Dict[str, Any]], code_version: str) -> Dict[str, Any]:
+        checks = [{**check, 'items': [self._normalize_item(item) for item in check.get('items', [])]} for check in checks]
         all_items = [item for check in checks for item in check.get('items', [])]
-        all_passed = all(item.get('status') == 'pass' for item in all_items)
         controlling = self._select_controlling_item(all_items)
 
         return {
             'elementId': elem_id,
             'elementType': element_type,
-            'status': 'pass' if all_passed else 'fail',
+            'status': self._aggregate_status(all_items),
             'checks': checks,
             'controlling': {
                 'item': controlling.get('item'),
-                'utilization': controlling.get('utilization', 0.0),
+                'utilization': self._item_utilization(controlling),
                 'clause': controlling.get('clause'),
             },
             'code': code_version,
@@ -246,7 +342,22 @@ class CodeChecker:
         formula: str,
         limit: float,
     ) -> Dict[str, Any]:
+        element = context.get('elementData', {}).get(elem_id, {})
+        unsupported = element.get('forceInputIssue') if isinstance(element, dict) else None
+        force_items = {'正应力', '剪应力', '折算应力', '整体稳定', '偏心受压', '正截面受弯', '斜截面受剪'}
+        if unsupported and item_name in force_items:
+            return {'item': item_name, 'status': 'unsupported', 'category': 'unsupported',
+                    'utilization': None, 'governingEligible': False, 'clause': clause, 'formula': formula,
+                    'message': unsupported}
         utilization = self._resolve_utilization(elem_id, item_name, context)
+        if utilization is None:
+            return {
+                'item': item_name, 'status': 'input_required', 'category': 'input_required',
+                'utilization': None, 'governingEligible': False, 'displayUtilization': 'N/A',
+                'clause': clause, 'formula': formula,
+                'inputs': {'demand': None, 'capacity': None, 'limit': limit},
+                'message': 'Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。',
+            }
         demand = round(utilization * limit, 4)
         capacity = round(limit, 4)
         return {
@@ -255,26 +366,25 @@ class CodeChecker:
             'utilization': round(utilization, 4),
             'clause': clause,
             'formula': formula,
+            'evidenceSource': 'elementData' if item_name in context.get('computedItemsByElement', {}).get(elem_id, []) else 'provided_utilization',
+            'calculationInputs': {key: value for key, value in element.items() if key not in {'forceStates', 'extra', 'metadata'}} if item_name in context.get('computedItemsByElement', {}).get(elem_id, []) else None,
             'inputs': {
+                'basis': 'normalized_utilization',
                 'demand': demand,
                 'capacity': capacity,
                 'limit': limit,
             },
         }
 
-    def _resolve_utilization(self, elem_id: str, item_name: str, context: Dict[str, Any]) -> float:
+    def _resolve_utilization(self, elem_id: str, item_name: str, context: Dict[str, Any]) -> Optional[float]:
         overrides = context.get('utilizationByElement', {})
         if isinstance(overrides, dict):
             per_elem = overrides.get(elem_id, {})
             if isinstance(per_elem, dict):
                 raw = per_elem.get(item_name)
-                if isinstance(raw, (int, float)):
-                    return max(0.0, float(raw))
-
-        # Stable deterministic fallback based on element + check name.
-        seed = sum(ord(ch) for ch in f'{elem_id}:{item_name}')
-        # map to [0.55, 0.95]
-        return 0.55 + (seed % 40) / 100.0
+                if isinstance(raw, (int, float)) and not isinstance(raw, bool) and math.isfinite(raw) and raw >= 0:
+                    return float(raw)
+        return None
 
     def _load_rules(self, code: str) -> Dict[str, Any]:
         """加载规范规则"""

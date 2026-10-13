@@ -1,15 +1,14 @@
 """
 V2 StructureModelV2 JSON → PKPM JWS (via APIPyInterface)
 
-支持的结构类型: frame, braced-frame, reinforced-concrete frame
+保留的编译基础: 逐层水平梁与竖直柱；正式 V2 求解等待材料/截面属性原生校准。
 支持的截面:
   - H/I 型: kind="H" → IDSec_I  (PKPM字段: B=tw, H, U=bf, T=tf, D=bf, F=tf)
   - 箱型:   kind="Box"  → IDSec_Box
   - 管型:   kind="Tube" → IDSec_Tube
   - 矩形:   kind="Rectangle" / "rectangular" → IDSec_Rectangle
-  标准型钢名称(standard_steel_name)优先于参数化 shape。
-支持的钢材牌号: Q235, Q345, Q355, Q390, Q420, Q460 及 GJ 系列
-支持的混凝土等级: C15, C20, C25, C30, C35, C40...
+  标准型钢名称(standard_steel_name)与参数化 shape 不可同时提供。
+牌号枚举解析不是自定义材料常数校准；显式 E/nu/rho/G 和截面 A/I/J 等求解前拒绝。
 多层处理: 每个自然层独立编译节点、构件、截面和荷载，不复制模板楼层。
 
 单位约定:
@@ -32,6 +31,7 @@ from typing import Any
 import APIPyInterface
 from coordinate_semantics import resolve_model_dimension, validate_coordinate_contract
 from contracts import AnalysisCapabilityError
+from native_model_contract import pkpm_section_shape, validate_pkpm_material_properties, validate_pkpm_sections
 
 
 def validate_execution_settings(data: dict) -> None:
@@ -207,8 +207,8 @@ def _make_section_shape(
     sh = APIPyInterface.SectionShape()
 
     kind = shape.get("kind", "Rectangle")
-    sec_kind_attr = _KIND_MAP.get(kind, "IDSec_I")
-    sec_kind = getattr(sk, sec_kind_attr, sk.IDSec_Rectangle)
+    sec_kind_attr = _KIND_MAP[kind]
+    sec_kind = getattr(sk, sec_kind_attr)
 
     H  = shape.get("H") or shape.get("h")
     B  = shape.get("B") or shape.get("b")   # V2: flange width
@@ -242,56 +242,6 @@ def _make_section_shape(
     sh.Set_M(5 if material_family == "steel" else 6)
 
     return sec_kind, sh
-
-
-def _dimension_to_mm(value: Any) -> float | None:
-    """Normalize section dimensions from metres or millimetres to millimetres."""
-    if value is None:
-        return None
-    try:
-        numeric = float(value)
-    except (TypeError, ValueError):
-        return None
-    if numeric <= 0:
-        return None
-    return numeric * 1000.0 if numeric <= 20.0 else numeric
-
-
-def _shape_from_legacy_properties(sec: dict) -> dict | None:
-    """Infer PKPM shape from generic StructureModel sections.
-
-    The generic model builder emits rectangular sections as:
-      { type: "rectangular", properties: { width: 0.6, height: 0.6 } }
-    while the PKPM converter expects an explicit `shape` object with
-    millimetre dimensions.  Keep this conversion local to PKPM so generic
-    models remain schema-compatible with other engines.
-    """
-    raw_type = str(sec.get("type") or sec.get("kind") or "").strip().lower()
-    if raw_type not in {"rectangular", "rectangle", "rect"}:
-        return None
-
-    props = sec.get("properties") if isinstance(sec.get("properties"), dict) else {}
-    width = (
-        props.get("width")
-        or props.get("b")
-        or props.get("B")
-        or sec.get("width")
-        or sec.get("b")
-        or sec.get("B")
-    )
-    height = (
-        props.get("height")
-        or props.get("h")
-        or props.get("H")
-        or sec.get("height")
-        or sec.get("h")
-        or sec.get("H")
-    )
-    b_mm = _dimension_to_mm(width)
-    h_mm = _dimension_to_mm(height)
-    if b_mm is None or h_mm is None:
-        return None
-    return {"kind": "Rectangle", "B": b_mm, "H": h_mm}
 
 
 def _infer_section_roles(data: dict) -> dict[str, str]:
@@ -589,13 +539,11 @@ def _register_section(
     Register one V2 section entry.
     Returns (role, pm_section_idx) where role is "col" or "beam".
 
-    Parametric shapes are preferred when present because they carry explicit
-    H/B/tw/tf geometry into SATWE.  Standard steel names are used only when no
-    shape is available; some APIPyInterface builds accept the standard-name
-    call but leave SATWE section dimensions empty.
+    Geometry and standard-section names are mutually exclusive.
+    Explicit mechanical-property overrides are rejected before native calls.
     """
     std_name: str | None = sec.get("standard_steel_name")
-    shape_dict: dict | None = sec.get("shape") or _shape_from_legacy_properties(sec)
+    shape_dict: dict | None = pkpm_section_shape(sec)
     use_standard_steel = bool(std_name) and material_family == "steel" and not shape_dict
 
     def _set_standard_steel(api_section: Any) -> Exception | None:
@@ -1099,6 +1047,8 @@ def convert_v2_to_jws(
             capability="canonical-3d-building-model",
             reason="PKPM floor-model conversion requires a genuine canonical 3-D model",
         )
+    validate_pkpm_material_properties(data)
+    validate_pkpm_sections(data)
     work_dir = work_dir.resolve()
     work_dir.mkdir(parents=True, exist_ok=True)
     jws_path = work_dir / f"{project_name}.JWS"

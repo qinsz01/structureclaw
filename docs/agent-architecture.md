@@ -213,6 +213,8 @@ Analysis selection uses the requested analysis type, engine ID, selected skill I
 
 Graph checkpoint data is stored through [backend/src/agent-langgraph/file-checkpointer.ts](../backend/src/agent-langgraph/file-checkpointer.ts), with paths resolved from agent configuration helpers in [backend/src/agent-langgraph/config.ts](../backend/src/agent-langgraph/config.ts).
 
+Each tools-node invocation executes one call, then checkpoints its state update and tool response before executing the next pending call. A later clarification interrupt therefore resumes at that call without replaying previously completed model edits. Custom tools must still avoid side effects before an interrupt inside the same call.
+
 ## 11. Extension Boundaries
 
 There are two extension surfaces:

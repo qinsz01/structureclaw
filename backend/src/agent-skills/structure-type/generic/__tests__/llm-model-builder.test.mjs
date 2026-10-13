@@ -11,7 +11,7 @@ describe('generic LLM model builder', () => {
     );
 
     expect(prompt).toContain('StructureModel V2');
-    expect(prompt).toContain('"schema_version":"2.0.0"');
+    expect(prompt).toContain('"schema_version":"2.1.0"');
     expect(prompt).toContain('point forces are kN');
     expect(prompt).toContain('distributed member loads are kN/m');
     expect(prompt).toContain('global-z-up coordinates');
@@ -73,7 +73,7 @@ describe('generic LLM model builder', () => {
       'en',
     );
 
-    expect(model.schema_version).toBe('2.0.0');
+    expect(model.schema_version).toBe('2.1.0');
     expect(model.unit_system).toBe('SI');
     expect(model.load_cases[0].loads[0]).toMatchObject({
       type: 'nodal',

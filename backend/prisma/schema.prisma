@@ -21,6 +21,8 @@ model StructuralModel {
   materials   Json
   sections    Json
   coordinateSystem Json?
+  // Authoritative V2 model; legacy columns are read-only compatibility projections.
+  physicalModel Json?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

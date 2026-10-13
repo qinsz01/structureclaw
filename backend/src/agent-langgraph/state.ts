@@ -13,6 +13,7 @@ import type {
   ProviderBindingState,
 } from '../agent-runtime/types.js';
 import type { AppLocale } from '../services/locale.js';
+import type { ModelTransaction } from '../engineering/model-state.js';
 
 export interface AgentToolAccessPolicy {
   enabledToolIds: string[] | null;
@@ -109,7 +110,7 @@ export const AgentStateAnnotation = Annotation.Root({
     default: () => '',
   }),
   policy: Annotation<AgentExecutionPolicy>({
-    reducer: (_prev, next) => next,
+    reducer: (prev, next) => ({ ...prev, ...Object.fromEntries(Object.entries(next).filter(([, value]) => value !== undefined)) }),
     default: () => ({}),
   }),
   contextSeismicWorkflow: Annotation<Record<string, unknown> | null>({
@@ -132,6 +133,12 @@ export const AgentStateAnnotation = Annotation.Root({
   model: Annotation<Record<string, unknown> | null>({
     reducer: (_prev, next) => next,
     default: () => null,
+  }),
+  modelRevision: Annotation<number>({ reducer: (_prev, next) => next, default: () => 0 }),
+  modelPending: Annotation<boolean>({ reducer: (_prev, next) => next, default: () => false }),
+  modelHistory: Annotation<ModelTransaction[]>({ reducer: (_prev, next) => next, default: () => [] }),
+  analysisRuns: Annotation<Record<string, Record<string, unknown>>>({
+    reducer: (prev, next) => ({ ...prev, ...next }), default: () => ({}),
   }),
   /** Analysis results (written by run_analysis tool via Command). */
   analysisResult: Annotation<Record<string, unknown> | null>({

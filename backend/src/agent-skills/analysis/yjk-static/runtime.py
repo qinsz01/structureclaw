@@ -596,6 +596,8 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
         _validate_yjk_grid_conversion_scope(model_dict)
     except ValueError as error:
         raise AnalysisCapabilityError(engine="yjk", capability="native-model-contract", reason=str(error)) from error
+    from native_model_contract import require_yjk_material_acceptance
+    require_yjk_material_acceptance(model_dict)
     yjk_python = _resolve_yjk_python()
     work_dir = _resolve_work_dir(parameters)
     timeout = _env_int("YJK_TIMEOUT_S", 600)

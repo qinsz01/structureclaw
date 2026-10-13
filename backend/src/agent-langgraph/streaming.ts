@@ -268,6 +268,7 @@ export function langGraphEventToChunks(
  */
 function extractToolMessages(nodeState: any): any[] {
   if (!nodeState) return [];
+  if (isCommand(nodeState)) return extractToolMessages(nodeState.update);
 
   const isToolMessage = (m: any) =>
     m && typeof m === 'object' && typeof m._getType === 'function' && m._getType() === 'tool';
@@ -352,10 +353,12 @@ function emitArtifactSync(toolOutput: string, nodeState?: any): AgentStreamChunk
   const chunks: AgentStreamChunk[] = [];
   try {
     const parsed = JSON.parse(toolOutput);
-    if (parsed && typeof parsed === 'object' && parsed.success) {
+    if (parsed && typeof parsed === 'object') {
       const model = resolveStateValue(nodeState, 'model');
       const analysisResult = resolveStateValue(nodeState, 'analysisResult');
       const report = resolveStateValue(nodeState, 'report');
+      if (analysisResult === null) chunks.push({ type: 'artifact_payload_sync', artifact: 'analysis', invalidated: true });
+      if (report === null) chunks.push({ type: 'artifact_payload_sync', artifact: 'report', invalidated: true });
 
       if (model) {
         chunks.push({
@@ -509,6 +512,8 @@ export async function* streamGraphToChunks(
 
     // Track artifact data for result event enrichment
     if (chunk.type === 'artifact_payload_sync') {
+      if (chunk.invalidated && chunk.artifact === 'analysis') accumulatedAnalysis = undefined;
+      if (chunk.invalidated && chunk.artifact === 'report') accumulatedReport = undefined;
       const sync = chunk as { artifact?: string; model?: Record<string, unknown>; latestResult?: Record<string, unknown> };
       if (sync.artifact === 'model' && sync.model) {
         accumulatedModel = sync.model;

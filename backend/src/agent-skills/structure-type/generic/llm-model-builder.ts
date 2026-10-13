@@ -100,7 +100,7 @@ export async function tryBuildGenericModelWithLlm(
 }
 
 function canonicalizeGenericModel(model: Record<string, unknown>): void {
-  model.schema_version = '2.0.0';
+  model.schema_version = '2.1.0';
   model.unit_system = 'SI';
   if (!Array.isArray(model.load_cases)) {
     return;

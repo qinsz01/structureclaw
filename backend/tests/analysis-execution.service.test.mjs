@@ -30,7 +30,7 @@ describe('AnalysisExecutionService and local client', () => {
       },
     };
 
-    const service = new AnalysisExecutionService(fakeRunner);
+    const service = new AnalysisExecutionService(fakeRunner, async () => {});
     await service.listEngines();
     await service.getEngine('builtin-opensees');
     await service.checkEngine('builtin-opensees');
@@ -59,10 +59,10 @@ describe('AnalysisExecutionService and local client', () => {
       },
     };
 
-    const client = createLocalAnalysisEngineClient(new AnalysisExecutionService(fakeRunner));
+    const client = createLocalAnalysisEngineClient(new AnalysisExecutionService(fakeRunner, async () => {}));
     expect((await client.get('/engines/builtin-opensees')).data.id).toBe('builtin-opensees');
     expect((await client.post('/engines/builtin-opensees/check')).data.checked).toBe('builtin-opensees');
-    expect((await client.post('/analyze', { type: 'static' })).data.action).toBe('analyze');
+    expect((await client.post('/analyze', { type: 'static', model: {} })).data.action).toBe('analyze');
     expect(calls.map((item) => item.payload.action)).toEqual(['get_engine', 'check_engine', 'analyze']);
   });
 
@@ -76,8 +76,8 @@ describe('AnalysisExecutionService and local client', () => {
       },
     };
 
-    const analysisClient = createLocalAnalysisEngineClient(new AnalysisExecutionService(fakeRunner));
-    await analysisClient.post('/analyze', { type: 'static' }, { signal: controller.signal });
+    const analysisClient = createLocalAnalysisEngineClient(new AnalysisExecutionService(fakeRunner, async () => {}));
+    await analysisClient.post('/analyze', { type: 'static', model: {} }, { signal: controller.signal });
 
     const structureService = new StructureProtocolExecutionService();
     structureService.runner = fakeRunner;

@@ -2,6 +2,17 @@ import { describe, expect, test } from '@jest/globals';
 import { ToolMessage } from '@langchain/core/messages';
 
 describe('LangGraph streaming adapter', () => {
+  test('invalidates the displayed result when the model changes', async () => {
+    const { langGraphEventToChunks } = await import('../../../dist/agent-langgraph/streaming.js');
+    const chunks = langGraphEventToChunks({ tools: {
+      analysisResult: null, report: null,
+      messages: [new ToolMessage({ name: 'edit_model', tool_call_id: 'move', content: '{"success":true}' })],
+    } }, 'updates');
+    expect(chunks).toEqual(expect.arrayContaining([
+      { type: 'artifact_payload_sync', artifact: 'analysis', invalidated: true },
+      { type: 'artifact_payload_sync', artifact: 'report', invalidated: true },
+    ]));
+  });
   test('emits a summary when extract_draft_params cannot proceed', async () => {
     const { langGraphEventToChunks } = await import('../../../dist/agent-langgraph/streaming.js');
     const chunks = langGraphEventToChunks({

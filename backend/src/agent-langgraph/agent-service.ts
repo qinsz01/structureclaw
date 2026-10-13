@@ -29,7 +29,10 @@ import { createAgentLogger } from '../utils/agent-logger.js';
 import type { AgentConfigurable } from './configurable.js';
 import { listAgentToolDefinitions } from './tool-registry.js';
 import { analyzeUploadedFile } from './file-tools.js';
-import { createVisionChatModel } from '../utils/llm.js';
+import { summarizeImageAttachment, summarizeFileImages } from './attachment-vision.js';
+import { SessionLock } from '../engineering/session-lock.js';
+import { commitModel, invalidateAnalysis } from '../engineering/model-state.js';
+import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -53,6 +56,8 @@ export interface LangGraphRunInput {
     enabledToolIds?: string[];
     disabledToolIds?: string[];
     model?: Record<string, unknown>;
+    modelFormat?: string;
+    modelRevision?: number;
     analysisType?: 'static' | 'dynamic' | 'seismic' | 'nonlinear';
     engineId?: string;
     designCode?: string;
@@ -457,67 +462,6 @@ function attachmentVisionUnavailableText(
   return `${header}\n${body}`;
 }
 
-function messageContentText(content: unknown): string {
-  if (typeof content === 'string') return content;
-  if (Array.isArray(content)) {
-    return content
-      .map((item) => {
-        if (typeof item === 'string') return item;
-        if (item && typeof item === 'object' && 'text' in item) {
-          return String((item as { text?: unknown }).text ?? '');
-        }
-        return '';
-      })
-      .filter(Boolean)
-      .join('\n');
-  }
-  return content == null ? '' : String(content);
-}
-
-async function summarizeImageAttachment(
-  attachment: AttachmentInfo,
-  dataUri: string,
-  userMessage: string,
-  locale: AppLocale,
-  signal?: AbortSignal,
-): Promise<string | null> {
-  const model = createVisionChatModel(0, { disableStreaming: true });
-  if (!model) return null;
-
-  const prompt = locale === 'zh'
-    ? [
-      '你是结构工程图像理解助手。只根据图片中可见的文字、标注和几何关系提取信息，不要臆测不可见内容。',
-      '请用简洁中文输出：结构类型、可见几何尺寸、可见荷载、支座/边界、材料/截面文字、仍不确定的信息。',
-      `附件名：${attachment.originalName}`,
-      `用户任务：${userMessage}`,
-    ].join('\n')
-    : [
-      'You are a structural engineering image understanding assistant. Extract only information visible in the image text, labels, and geometry; do not invent hidden details.',
-      'Return a concise summary covering: structural type, visible dimensions, visible loads, supports/boundaries, material/section labels, and remaining uncertainties.',
-      `Attachment name: ${attachment.originalName}`,
-      `User task: ${userMessage}`,
-    ].join('\n');
-
-  try {
-    const result = await model.invoke([
-      new HumanMessage({
-        content: [
-          { type: 'text', text: prompt },
-          { type: 'image_url', image_url: { url: dataUri } },
-        ],
-      }),
-    ], signal ? { signal } : undefined);
-    const text = messageContentText(result.content).trim();
-    return text || null;
-  } catch (error) {
-    logger.warn({
-      attachment: attachment.originalName,
-      error: error instanceof Error ? error.message : String(error),
-    }, 'attachment vision summary failed');
-    return null;
-  }
-}
-
 function toInitialHumanMessage(content: string | HumanMessageContentBlock[]): HumanMessage {
   return Array.isArray(content)
     ? new HumanMessage({ content })
@@ -574,6 +518,20 @@ export async function buildInitialHumanMessagePayload(
     const analysisText = attachmentAnalysisText(attachment, analysis, locale);
     canonicalParts.push(analysisText);
     contentParts.push(analysisText);
+    if (analysis.type === 'pdf' && Array.isArray(analysis.pages) && options.summarizeImages) {
+      for (const page of analysis.pages) {
+        if (!isRecord(page) || !page.requiresVision || typeof page.renderedImagePath !== 'string') continue;
+        const pageAttachment = { ...attachment, originalName: `${attachment.originalName} · ${String(page.pageNumber)}`, relPath: page.renderedImagePath };
+        const pageImage = await analyzeUploadedFile(page.renderedImagePath, workspaceRoot, undefined, { includeImageData: true });
+        const summary = typeof pageImage.base64DataUri === 'string'
+          ? await summarizeImageAttachment(pageAttachment, pageImage.base64DataUri, message, locale, options.signal) : null;
+        const text = summary ? attachmentVisionSummaryText(pageAttachment, summary, locale) : attachmentVisionUnavailableText(pageAttachment, locale);
+        canonicalParts.push(text);
+        contentParts.push(text);
+        page.visionSummary = summary;
+        page.visionStatus = summary ? 'completed' : 'unavailable';
+      }
+    }
     if (analysis.type === 'image') {
       if (options.summarizeImages) {
         const summary = typeof analysis.base64DataUri === 'string'
@@ -635,6 +593,7 @@ export function getAgentService(): LangGraphAgentService {
 // ---------------------------------------------------------------------------
 
 export class LangGraphAgentService {
+  private readonly sessionLock = new SessionLock();
   readonly skillRuntime: AgentSkillRuntime;
   private readonly checkpointer: FileCheckpointer;
   private readonly workspaceRoot: string;
@@ -679,6 +638,7 @@ export class LangGraphAgentService {
       disabledToolIds: input?.context?.disabledToolIds,
       allowShell: getAllowShellTools(),
       maxToolCallsPerTurn: config.agentMaxToolCallsPerTurn,
+      summarizeFileImages: (analysis, filePath, signal) => summarizeFileImages(analysis, filePath, input?.context?.locale ?? 'zh', input?.message ?? '', signal),
       _logger: childLogger,
     };
   }
@@ -737,11 +697,38 @@ export class LangGraphAgentService {
     this.graphPromise = undefined;
   }
 
+  private async contextModelUpdate(input: LangGraphRunInput, conversationId: string): Promise<Partial<AgentState>> {
+    if (!input.context) return {};
+    const graph = await this.getGraph();
+    const snapshot = await graph.getState({ configurable: { thread_id: conversationId } });
+    const state = snapshot.values as AgentState;
+    if (input.context.modelRevision !== undefined && input.context.modelRevision !== (state.modelRevision ?? 0)) {
+      throw new Error(`MODEL_VERSION_CONFLICT: expected ${state.modelRevision ?? 0}`);
+    }
+    const update: Partial<AgentState> = {};
+    if (input.context.model) {
+      const model = await normalizeEngineeringModel(input.context.model, this.structureProtocolClient, input.context.modelFormat);
+      Object.assign(update, commitModel(state, model, 'import_model'));
+    }
+    if (input.context.analysisType && input.context.analysisType !== state.policy?.analysisType
+      || input.context.skillIds && JSON.stringify([...input.context.skillIds].sort()) !== JSON.stringify([...(state.selectedSkillIds ?? [])].sort())) {
+      Object.assign(update, invalidateAnalysis(state));
+    } else if (input.context.designCode && input.context.designCode !== state.policy?.designCode) {
+      Object.assign(update, { codeCheckResult: null, report: null });
+    }
+    return update;
+  }
+
   // ---------------------------------------------------------------------------
   // Streaming entry point
   // ---------------------------------------------------------------------------
 
   async *runStream(input: LangGraphRunInput): AsyncGenerator<AgentStreamChunk> {
+    const release = await this.sessionLock.acquire(input.conversationId ?? randomUUID());
+    try { yield* this.runStreamUnlocked(input); } finally { release(); }
+  }
+
+  private async *runStreamUnlocked(input: LangGraphRunInput): AsyncGenerator<AgentStreamChunk> {
     const locale = input.context?.locale || 'zh';
     const conversationId = await this.ensureConversationRecord(
       input.conversationId, input.message,
@@ -768,10 +755,11 @@ export class LangGraphAgentService {
     const contextSeismicWorkflow = extractContextSeismicWorkflow(input.context, initialPayload.attachmentAnalyses);
     const stream = await graph.stream(
       {
+        ...await this.contextModelUpdate(input, conversationId),
         messages: [toInitialHumanMessage(initialPayload.content)],
         locale,
         workspaceRoot: this.workspaceRoot,
-        selectedSkillIds: skillIds,
+        ...(input.context?.skillIds !== undefined ? { selectedSkillIds: skillIds } : {}),
         toolAccessPolicy: buildToolAccessPolicy(input.context),
         lastUserMessage: initialPayload.canonicalMessage,
         contextSeismicWorkflow,
@@ -799,13 +787,19 @@ export class LangGraphAgentService {
     conversationId: string,
     resumeValue: string,
   ): AsyncGenerator<AgentStreamChunk> {
+    const release = await this.sessionLock.acquire(conversationId);
+    try { yield* this.resumeStreamUnlocked(conversationId, resumeValue); } finally { release(); }
+  }
+
+  private async *resumeStreamUnlocked(conversationId: string, resumeValue: string): AsyncGenerator<AgentStreamChunk> {
     const traceId = randomUUID();
     const startedAt = new Date().toISOString();
     const reqStart = Date.now();
 
     const graph = await this.getGraph();
 
-    const config = this.buildGraphRuntimeConfig(undefined, traceId, conversationId);
+    const resumedState = (await graph.getState({ configurable: { thread_id: conversationId } })).values as AgentState;
+    const config = this.buildGraphRuntimeConfig({ conversationId, message: resumedState.lastUserMessage ?? '', context: { locale: resumedState.locale ?? 'zh' } }, traceId, conversationId);
 
     const reqLogger = createAgentLogger(traceId, conversationId);
     reqLogger.info('LangGraph agent resume started');
@@ -828,6 +822,11 @@ export class LangGraphAgentService {
   // ---------------------------------------------------------------------------
 
   async run(input: LangGraphRunInput): Promise<LangGraphRunResult> {
+    const release = await this.sessionLock.acquire(input.conversationId ?? randomUUID());
+    try { return await this.runUnlocked(input); } finally { release(); }
+  }
+
+  private async runUnlocked(input: LangGraphRunInput): Promise<LangGraphRunResult> {
     const locale = input.context?.locale || 'zh';
     const conversationId = await this.ensureConversationRecord(
       input.conversationId, input.message,
@@ -854,10 +853,11 @@ export class LangGraphAgentService {
     const contextSeismicWorkflow = extractContextSeismicWorkflow(input.context, initialPayload.attachmentAnalyses);
     const result = await graph.invoke(
       {
+        ...await this.contextModelUpdate(input, conversationId),
         messages: [toInitialHumanMessage(initialPayload.content)],
         locale,
         workspaceRoot: this.workspaceRoot,
-        selectedSkillIds: skillIds,
+        ...(input.context?.skillIds !== undefined ? { selectedSkillIds: skillIds } : {}),
         toolAccessPolicy: buildToolAccessPolicy(input.context),
         lastUserMessage: initialPayload.canonicalMessage,
         contextSeismicWorkflow,
@@ -879,6 +879,11 @@ export class LangGraphAgentService {
    * Used by benchmark tooling that needs access to model, analysisResult, report etc.
    */
   async runFull(input: LangGraphRunInput): Promise<AgentState> {
+    const release = await this.sessionLock.acquire(input.conversationId ?? randomUUID());
+    try { return await this.runFullUnlocked(input); } finally { release(); }
+  }
+
+  private async runFullUnlocked(input: LangGraphRunInput): Promise<AgentState> {
     const locale = input.context?.locale || 'zh';
     const conversationId = input.conversationId || `bench-${randomUUID()}`;
     const traceId = input.traceId || randomUUID();
@@ -899,10 +904,11 @@ export class LangGraphAgentService {
     const contextSeismicWorkflow = extractContextSeismicWorkflow(input.context, initialPayload.attachmentAnalyses);
     const result = await graph.invoke(
       {
+        ...await this.contextModelUpdate(input, conversationId),
         messages: [toInitialHumanMessage(initialPayload.content)],
         locale,
         workspaceRoot: this.workspaceRoot,
-        selectedSkillIds: input.context?.skillIds || [],
+        ...(input.context?.skillIds !== undefined ? { selectedSkillIds: input.context.skillIds } : {}),
         toolAccessPolicy: buildToolAccessPolicy(input.context),
         lastUserMessage: initialPayload.canonicalMessage,
         contextSeismicWorkflow,
@@ -940,7 +946,9 @@ export class LangGraphAgentService {
             stage: 'model',
             turnId: conversationId,
           },
-          model: undefined,
+          model: state.model ?? undefined,
+          modelRevision: state.modelRevision ?? 0,
+          modelPending: state.modelPending ?? false,
           updatedAt: new Date().toISOString(),
         },
         state,
@@ -952,7 +960,8 @@ export class LangGraphAgentService {
   }
 
   async clearConversationSession(conversationId: string): Promise<void> {
-    await this.checkpointer.deleteThread(conversationId);
+    const release = await this.sessionLock.acquire(conversationId);
+    try { await this.checkpointer.deleteThread(conversationId); } finally { release(); }
   }
 
   async listSkills(): Promise<{ skills: SkillManifest[] }> {

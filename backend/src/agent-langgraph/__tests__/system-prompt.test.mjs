@@ -59,7 +59,7 @@ describe("agent system prompt", () => {
     expect(content).toContain("do not let the LLM decide clause pass/fail status");
     expect(content).toContain("call run_code_check");
     expect(content).toContain("SEISMIC_CODE_CHECK_REQUIRED");
-    expect(content).toContain("Call detect_structure_type first");
+    expect(content).toContain("call detect_structure_type first");
     expect(content).toContain("After it returns");
     expect(content).not.toContain("detect_structure_type AND extract_draft_params together");
   });

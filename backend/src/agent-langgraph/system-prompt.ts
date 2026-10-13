@@ -13,6 +13,7 @@ import { SystemMessage, type BaseMessageLike } from '@langchain/core/messages';
 import type { AgentState } from './state.js';
 import type { SkillManifest } from '../agent-runtime/types.js';
 import { DEFAULT_MAX_TOOL_CALLS_PER_TURN } from './graph.js';
+import { currentAnalysisError } from '../engineering/model-state.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -44,15 +45,12 @@ function summarizeDraft(state: AgentState): string {
 }
 
 function summarizeArtifacts(state: AgentState): string {
-  const arts = state.artifacts;
-  const present = Object.keys(arts).filter((k) => arts[k as keyof typeof arts] != null);
-  if (present.length === 0) return state.locale === 'zh' ? '（无产物）' : '(no artifacts)';
-  return present
-    .map((k) => {
-      const env = arts[k as keyof typeof arts] as { status?: string; revision?: number } | undefined;
-      return `- ${k}: status=${env?.status ?? '?'}, rev=${env?.revision ?? '?'}`;
-    })
-    .join('\n');
+  return [
+    `- model: ${state.model ? `revision=${state.modelRevision ?? 0}` : 'none'}; pending=${Boolean(state.modelPending)}`,
+    `- analysis: ${currentAnalysisError(state) ?? 'current'}; run=${state.analysisResult?.runId ?? 'none'}`,
+    `- code check: ${state.codeCheckResult ? 'available' : 'none'}`,
+    `- report: ${state.report ? 'available' : 'none'}`,
+  ].join('\n');
 }
 
 // ---------------------------------------------------------------------------
@@ -146,6 +144,9 @@ ${summarizeArtifacts(state)}
 7. 调用 generate_report 生成报告
 
 **关键规则**:
+- 已有模型的修改：先 query_model 读取版本和稳定对象 ID，再 edit_model 原子修改或 undo_model 撤销；移动荷载修改同一 ID，不从最后一句话重建整个模型。当前版本 ${state.modelRevision ?? 0}，待构建 ${Boolean(state.modelPending)}。
+- run_analysis 默认分别计算静力工况与组合；query_results 按明确 resultKey 查询，禁止混用工况、历史模型或显示插值作为计算依据。
+- 图纸与表格中关键字段的来源写入 engineeringDraft.inputEvidence（field、source 文件/页/实体/行、value、unit）。冲突、未读取必要区域或未知单位标 status=conflict/unread/ambiguous，不默默覆盖；复核后追加 status=resolved 和 resolution={value或selectedSource,reason}，保留原始证据。普通文件分页并不表示所有内容都是必需输入。
 - 步骤 1-5 和 7 是必选的，不要跳过。步骤 6（规范校核）通常可选；中国抗震分析除非用户明确只要分析结果，否则是必选的。
 - 如果用户明确要求"生成报告"、"生成计算书"、"出报告"等，generate_report 是**必须**调用的，不是可选的。
 - 分析完成后必须继续调用 generate_report，不要在分析步骤就停止。
@@ -217,7 +218,10 @@ ${summarizeArtifacts(state)}
 ## Tool Usage Strategy
 
 When the user makes a structural design or analysis request, follow this workflow:
-1. Call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel
+For edits to an existing model, use query_model then edit_model or undo_model with the current revision and stable object IDs; moving a load updates the same ID. Do not recreate the whole model from the last sentence. Current revision: ${state.modelRevision ?? 0}; pending build: ${Boolean(state.modelPending)}. Use query_results with explicit case/combination keys; historical results and display interpolation cannot justify current calculations.
+Record required drawing/table fields in engineeringDraft.inputEvidence with field, source file/page/entity/row, value and unit. Mark conflicts, unread required regions and ambiguous units with status=conflict/unread/ambiguous. Preserve observations and append status=resolved with resolution={value or selectedSource,reason} after review. Ordinary pagination alone does not mean every page is required.
+
+1. For a new model, call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel
 2. If extract_draft_params returns criticalMissing fields, use ask_user_clarification to ask for them
 3. Once parameters are complete, call build_model to construct the model
 4. Call validate_model to validate the model

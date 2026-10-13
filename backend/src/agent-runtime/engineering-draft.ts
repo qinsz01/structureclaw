@@ -1,3 +1,4 @@
+import { mergeInputEvidence } from '../engineering/input-evidence.js';
 import type {
   DraftExtraction,
   DraftFloorLoad,
@@ -54,11 +55,6 @@ function firstPositiveNumber(candidates: readonly unknown[]): number | undefined
 function positiveInteger(value: unknown): number | undefined {
   const parsed = positiveNumber(value);
   return parsed === undefined ? undefined : Math.max(1, Math.round(parsed));
-}
-
-function nonNegativeNumber(value: unknown): number | undefined {
-  const parsed = finiteNumber(value);
-  return parsed !== undefined && parsed >= 0 ? parsed : undefined;
 }
 
 function positiveNumberArray(value: unknown): number[] | undefined {
@@ -408,6 +404,7 @@ export function normalizeEngineeringDraft(value: unknown): EngineeringDraft | un
     topology: normalizeEngineeringTopology(raw.topology),
     materials: normalizeRecordArray(raw.materials, 'materials'),
     sectionRecords: normalizeRecordArray(raw.sectionRecords ?? (Array.isArray(raw.sections) ? raw.sections : undefined), 'sections'),
+    templateAssignments: normalizeTemplateAssignments(raw.templateAssignments),
     loadCases: normalizeRecordArray(raw.loadCases ?? raw.load_cases, 'loadCases'),
     model: asRecord(raw.model) ? structuredClone(asRecord(raw.model)!) : undefined,
     inputEvidence: normalizeRecordArray(raw.inputEvidence, 'inputEvidence'),
@@ -420,6 +417,19 @@ export function normalizeEngineeringDraft(value: unknown): EngineeringDraft | un
   };
 
   return Object.values(draft).some((item) => item !== undefined) ? omitUndefined(draft) : undefined;
+}
+
+function normalizeTemplateAssignments(value: unknown): EngineeringDraft['templateAssignments'] {
+  if (value === undefined) return undefined;
+  const mappings = asRecord(value);
+  if (!mappings) throw new Error('INVALID_TEMPLATE_ASSIGNMENTS: object required / 请提供构件角色属性映射');
+  for (const [role, raw] of Object.entries(mappings)) {
+    const entry = asRecord(raw);
+    if (!['beam', 'column', 'member'].includes(role) || !entry || !normalizeString(entry.materialId) || !normalizeString(entry.sectionId)) {
+      throw new Error('INVALID_TEMPLATE_ASSIGNMENTS: beam/column/member needs materialId and sectionId / 每个角色须明确材料与截面ID');
+    }
+  }
+  return structuredClone(mappings) as EngineeringDraft['templateAssignments'];
 }
 
 function normalizeRecordArray(value: unknown, label: string): Array<Record<string, unknown>> | undefined {
@@ -471,9 +481,10 @@ export function mergeEngineeringDraft(
     topology: { ...(existing.topology ?? {}), ...(patch.topology ?? {}) },
     materials: patch.materials ?? existing.materials,
     sectionRecords: patch.sectionRecords ?? existing.sectionRecords,
+    templateAssignments: { ...(existing.templateAssignments ?? {}), ...(patch.templateAssignments ?? {}) },
     loadCases: patch.loadCases ?? existing.loadCases,
     model: patch.model ?? existing.model,
-    inputEvidence: patch.inputEvidence ?? existing.inputEvidence,
+    inputEvidence: mergeInputEvidence(existing.inputEvidence, patch.inputEvidence),
     material: { ...(existing.material ?? {}), ...(patch.material ?? {}) },
     sections: { ...(existing.sections ?? {}), ...(patch.sections ?? {}) },
     boundary: { ...(existing.boundary ?? {}), ...(patch.boundary ?? {}) },

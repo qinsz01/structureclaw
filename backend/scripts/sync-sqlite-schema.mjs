@@ -13,7 +13,8 @@ const repoRoot = path.resolve(backendDir, '..');
 const prismaDir = path.join(backendDir, 'prisma');
 const schemaPath = path.join(prismaDir, 'schema.prisma');
 // Canonical data dir: SCLAW_DATA_DIR || ~/.structureclaw (see backend/src/config/index.ts)
-const defaultDatabasePath = path.join(os.homedir(), '.structureclaw', 'data', 'structureclaw.db');
+const userDataDir = process.env.SCLAW_DATA_DIR || path.join(os.homedir(), '.structureclaw');
+const defaultDatabasePath = path.join(userDataDir, 'data', 'structureclaw.db');
 const prismaCliPath = path.join(backendDir, 'node_modules', 'prisma', 'build', 'index.js');
 
 function normalizeDatabaseUrl(databaseUrl) {
@@ -64,7 +65,12 @@ function runPrisma(args, databaseUrl) {
   return result.stdout ?? '';
 }
 
-const configuredUrl = process.env.DATABASE_URL || `file:${defaultDatabasePath}`;
+let settingsDatabaseUrl;
+try {
+  const settings = JSON.parse(fs.readFileSync(path.join(userDataDir, 'settings.json'), 'utf8'));
+  if (typeof settings?.database?.url === 'string') settingsDatabaseUrl = settings.database.url.trim();
+} catch { /* An unconfigured installation uses the canonical default path. */ }
+const configuredUrl = process.env.DATABASE_URL || settingsDatabaseUrl || `file:${defaultDatabasePath}`;
 const databaseUrl = normalizeDatabaseUrl(configuredUrl);
 
 if (!databaseUrl.startsWith('file:')) {

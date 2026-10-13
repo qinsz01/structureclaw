@@ -1,3 +1,7 @@
+import { computeDraftMissing } from './draft-readiness.js';
+import { formatCheckSummary } from '../engineering/code-checks.js';
+import { reportResultRows, resultTableMarkdown } from '../engineering/result-data.js';
+import { assertResolvedInput } from '../engineering/input-evidence.js';
 import type { AppLocale } from '../services/locale.js';
 import type { LlmTokenUsage, StructureClawChatModel } from '../utils/llm.js';
 import { buildReportDomainArtifacts } from '../agent-skills/report-export/entry.js';
@@ -38,25 +42,6 @@ function requireStructuralRouterLlm(llm: StructureClawChatModel | null, locale: 
     : 'LLM is not configured, so structural type routing cannot run. Please check LLM_API_KEY settings.');
 }
 
-function formatCodeCheckSummaryText(summary: Record<string, unknown> | undefined, locale: AppLocale): string {
-  if (!summary) {
-    return locale === 'zh' ? '未执行规范校核' : 'No code checks were executed';
-  }
-  const total = String(summary.total ?? 0);
-  const passed = String(summary.passed ?? 0);
-  const failed = String(summary.failed ?? 0);
-  const warnings = String(summary.warnings ?? 0);
-  const notApplicable = summary.notApplicable ?? summary.not_applicable;
-  const notApplicableText = notApplicable !== undefined && notApplicable !== null
-    ? (locale === 'zh'
-      ? `，不适用/资料不足 ${String(notApplicable)}`
-      : `, not applicable/unavailable ${String(notApplicable)}`)
-    : '';
-
-  return locale === 'zh'
-    ? `校核通过 ${passed} / ${total}，失败 ${failed}，警告 ${warnings}${notApplicableText}`
-    : `Code checks passed ${passed} / ${total}, failed ${failed}, warnings ${warnings}${notApplicableText}`;
-}
 
 export type {
   AgentSkillBundle,
@@ -401,7 +386,7 @@ export class AgentSkillRuntime {
   }> {
     const analysisSuccess = Boolean((options.analysis as { success?: unknown } | undefined)?.success);
     const codeCheckSummary = (options.codeCheck as { summary?: Record<string, unknown> } | undefined)?.summary;
-    const codeCheckText = formatCodeCheckSummaryText(codeCheckSummary, options.locale);
+    const codeCheckText = formatCheckSummary(codeCheckSummary, options.locale);
     const summary = options.locale === 'zh'
       ? `分析类型 ${options.analysisType}，分析${analysisSuccess ? '成功' : '失败'}，${codeCheckText}。`
       : `Analysis type ${options.analysisType}; analysis ${analysisSuccess ? 'succeeded' : 'failed'}; ${codeCheckText}.`;
@@ -418,6 +403,7 @@ export class AgentSkillRuntime {
     });
     const jsonReport: Record<string, unknown> = {
       reportSchemaVersion: '1.0.0',
+      resultSets: reportResultRows(options.analysis),
       intent: options.message,
       analysisType: options.analysisType,
       summary,
@@ -431,6 +417,11 @@ export class AgentSkillRuntime {
       generatedAt: new Date().toISOString(),
       meta: {
         reportSkillId: 'report-export-builtin',
+        ...((options.analysis && typeof options.analysis === 'object') ? {
+          runId: (options.analysis as Record<string, unknown>).runId,
+          source: (options.analysis as Record<string, unknown>).meta,
+          resultKeys: Object.keys(((options.analysis as Record<string, unknown>).results ?? {}) as object),
+        } : {}),
       },
     };
 
@@ -444,7 +435,7 @@ export class AgentSkillRuntime {
       };
     }
 
-    const markdown = await this.buildReportNarrative({
+    let markdown = await this.buildReportNarrative({
       message: options.message,
       analysisType: options.analysisType,
       analysisSuccess,
@@ -458,6 +449,20 @@ export class AgentSkillRuntime {
       codeCheck: options.codeCheck,
       locale: options.locale,
     }, options.draft, options.skillIds);
+    const analysisRecord = options.analysis as Record<string, unknown> | undefined;
+    markdown += resultTableMarkdown(options.analysis, options.locale);
+    if (reportResultRows(options.analysis).some((row) => row.capabilityStatus === 'partial')) markdown += options.locale === 'zh'
+      ? '\n本次运行包含部分能力或估算结果；不能视为原结构完整分析或全面规范合格。\n'
+      : '\nThis run includes partial capabilities or estimates; it does not establish complete analysis or overall code compliance of the original structure.\n';
+    if (analysisRecord?.runId) {
+      markdown += options.locale === 'zh'
+        ? `\n\n计算来源：运行 ${String(analysisRecord.runId)}；结果 ${String(analysisRecord.selectedResultKey ?? 'default')}。\n`
+        : `\n\nCalculation source: run ${String(analysisRecord.runId)}; result ${String(analysisRecord.selectedResultKey ?? 'default')}.\n`;
+    }
+    const completeness = (options.codeCheck as Record<string, unknown> | undefined)?.completionStatus;
+    if (completeness === 'incomplete') markdown += options.locale === 'zh'
+      ? '\n规范校核尚未完成；资料不足或尚不支持的项目不构成通过结论。\n'
+      : '\nCode checking is incomplete; missing inputs or unsupported checks do not establish compliance.\n';
 
     return {
       report: {
@@ -570,7 +575,7 @@ export class AgentSkillRuntime {
         plugin.handler.mergeState(resetToGeneric ? undefined : existingState, resetToGeneric ? { inferredType: 'unknown' } : {}),
         structuralTypeMatch,
       );
-      const missing = plugin.handler.computeMissing(nextState, 'execution');
+      const missing = computeDraftMissing(plugin, nextState, 'execution');
       return { nextState, missing, structuralTypeMatch, plugin, extractionMode: 'deterministic' };
     }
 
@@ -590,7 +595,7 @@ export class AgentSkillRuntime {
       structuralTypeMatch,
     });
     const nextState = withStructuralTypeState(plugin.handler.mergeState(existingState, patch), structuralTypeMatch);
-    const missing = plugin.handler.computeMissing(nextState, 'execution');
+    const missing = computeDraftMissing(plugin, nextState, 'execution');
     return {
       nextState,
       missing,
@@ -604,14 +609,18 @@ export class AgentSkillRuntime {
   async buildModel(
     state: DraftState,
     skillIds?: string[],
-    context?: { message?: string; locale?: AppLocale },
+    context?: { message?: string; locale?: AppLocale; currentModel?: Record<string, unknown>; conversationHistory?: string },
   ): Promise<Record<string, unknown> | undefined> {
+    assertResolvedInput(state.engineeringDraft?.inputEvidence);
+    const { buildExplicitDraftModel } = await import('./explicit-model.js');
+    const explicit = buildExplicitDraftModel(state);
+    if (explicit) return explicit;
     const plugin = await this.registry.resolvePluginForState(state, skillIds);
     if (!plugin) {
       return undefined;
     }
 
-    const missing = plugin.handler.computeMissing(state, 'execution');
+    const missing = computeDraftMissing(plugin, state, 'execution');
     if (missing.critical.length > 0) {
       return undefined;
     }
@@ -635,7 +644,7 @@ export class AgentSkillRuntime {
         );
       }
       return tryBuildGenericModelWithLlm(
-        llm, context.message || '', state, context.locale || 'zh',
+        llm, context.message || '', state, context.locale || 'zh', context.conversationHistory, undefined, context.currentModel,
       );
     }
 

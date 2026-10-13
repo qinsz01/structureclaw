@@ -3,7 +3,7 @@ import { buildCodeCheckInput } from '../../../../dist/agent-skills/code-check/en
 import { executeGB50011CodeCheckDomain } from '../../../../dist/agent-skills/code-check/gb50011/entry.js';
 
 describe('buildCodeCheckInput', () => {
-  test('prefers postprocessed artifact context over raw analysis summary', () => {
+  test('unverified postprocessed utilization cannot replace model-based checking', () => {
     const input = buildCodeCheckInput({
       traceId: 'trace-1',
       designCode: 'GB50017',
@@ -16,10 +16,10 @@ describe('buildCodeCheckInput', () => {
       },
     });
 
-    expect(input.context.utilizationByElement).toEqual({ E1: 0.92 });
+    expect(input.context.utilizationByElement).toEqual({});
   });
 
-  test('extracts utilization from analysis result data', () => {
+  test('unqualified utilization in raw results is not treated as a verified design check', () => {
     const input = buildCodeCheckInput({
       traceId: 'trace-analysis-util',
       designCode: 'GB50010',
@@ -33,10 +33,10 @@ describe('buildCodeCheckInput', () => {
       analysisParameters: {},
     });
 
-    expect(input.context.utilizationByElement).toEqual({ C1: { '轴压比': 0.88 } });
+    expect(input.context.utilizationByElement).toEqual({});
   });
 
-  test('lets explicit analysis parameters override analysis result utilization', () => {
+  test('caller parameters cannot override demand with a preferred utilization', () => {
     const input = buildCodeCheckInput({
       traceId: 'trace-parameter-util',
       designCode: 'GB50010',
@@ -52,7 +52,7 @@ describe('buildCodeCheckInput', () => {
       },
     });
 
-    expect(input.context.utilizationByElement).toEqual({ C1: { '轴压比': 0.76 } });
+    expect(input.context.utilizationByElement).toEqual({});
   });
 
   test('adds a global seismic check element for GB50011 seismic analysis results', () => {

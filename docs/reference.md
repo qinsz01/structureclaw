@@ -80,6 +80,8 @@ Main endpoints:
 - `GET /engines/:id`
 - `POST /engines/:id/check`
 
+The persisted-model HTTP code-check route requires `modelId`, `analysisId`, `runId`, `code`, and `elements`. The analysis must be completed and its run, model hash, and analysis settings must match the stored model and task. Each saved case or combination is checked independently. A supplied nonempty `context` is rejected; the server builds check inputs from the stored model and result evidence. Legacy results without run provenance require a new analysis.
+
 Built-in engine ids:
 
 | Engine id | Adapter | Notes |

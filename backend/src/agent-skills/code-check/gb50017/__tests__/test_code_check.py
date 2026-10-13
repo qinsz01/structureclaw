@@ -11,85 +11,26 @@ from typing import Any, Dict, List
 
 import pytest
 
-# Ensure the skill module is importable
-_SKILL_DIR = str(Path(__file__).resolve().parent.parent)
-if _SKILL_DIR not in sys.path:
-    sys.path.insert(0, _SKILL_DIR)
+import importlib.util
+_spec = importlib.util.spec_from_file_location('gb50017_checks', Path(__file__).resolve().parent.parent / 'code_check.py')
+gb50017 = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(gb50017)
 
-import code_check as gb50017  # noqa: E402
+_generic_spec = importlib.util.spec_from_file_location('actual_code_checker', Path(__file__).resolve().parent.parent.parent / 'code_check.py')
+_generic_module = importlib.util.module_from_spec(_generic_spec)
+_generic_spec.loader.exec_module(_generic_module)
 
 
-# ---------------------------------------------------------------------------
-# Helpers — mock CodeChecker providing _calc_item / _build_element_result
-# ---------------------------------------------------------------------------
-
-class MockCodeChecker:
-    """Minimal mock that replicates the CodeChecker interface used by check_element."""
-
-    def __init__(self, overrides: Dict[str, Dict[str, float]] | None = None):
+class MockCodeChecker(_generic_module.CodeChecker):
+    """Exercise the production aggregation; only explicit test overrides are injected."""
+    def __init__(self, overrides=None):
         self._overrides = overrides or {}
 
-    def _resolve_utilization(self, elem_id: str, item_name: str, context: Dict[str, Any]) -> float:
-        per_elem = self._overrides.get(elem_id, {})
-        raw = per_elem.get(item_name)
-        if isinstance(raw, (int, float)):
-            return max(0.0, float(raw))
-        ctx_overrides = context.get('utilizationByElement', {})
-        if isinstance(ctx_overrides, dict):
-            ctx_elem = ctx_overrides.get(elem_id, {})
-            if isinstance(ctx_elem, dict):
-                val = ctx_elem.get(item_name)
-                if isinstance(val, (int, float)):
-                    return max(0.0, float(val))
-        # Deterministic fallback matching parent CodeChecker
-        seed = sum(ord(ch) for ch in f'{elem_id}:{item_name}')
-        return 0.55 + (seed % 40) / 100.0
-
-    def _calc_item(
-        self,
-        elem_id: str,
-        item_name: str,
-        context: Dict[str, Any],
-        clause: str,
-        formula: str,
-        limit: float,
-    ) -> Dict[str, Any]:
-        utilization = self._resolve_utilization(elem_id, item_name, context)
-        return {
-            'item': item_name,
-            'status': 'pass' if utilization <= 1.0 else 'fail',
-            'utilization': round(utilization, 4),
-            'clause': clause,
-            'formula': formula,
-            'inputs': {
-                'demand': round(utilization * limit, 4),
-                'capacity': round(limit, 4),
-                'limit': limit,
-            },
-        }
-
-    def _build_element_result(
-        self,
-        elem_id: str,
-        element_type: str,
-        checks: List[Dict[str, Any]],
-        code_version: str,
-    ) -> Dict[str, Any]:
-        all_items = [item for check in checks for item in check.get('items', [])]
-        controlling = max(all_items, key=lambda i: float(i.get('utilization', 0.0)), default={})
-        all_passed = all(i.get('status') == 'pass' for i in all_items)
-        return {
-            'elementId': elem_id,
-            'elementType': element_type,
-            'status': 'pass' if all_passed else 'fail',
-            'checks': checks,
-            'controlling': {
-                'item': controlling.get('item'),
-                'utilization': controlling.get('utilization', 0.0),
-                'clause': controlling.get('clause'),
-            },
-            'code': code_version,
-        }
+    def _resolve_utilization(self, elem_id, item_name, context):
+        supplied = self._overrides.get(elem_id, {})
+        if item_name in supplied:
+            return super()._resolve_utilization(elem_id, item_name, {'utilizationByElement': self._overrides})
+        return super()._resolve_utilization(elem_id, item_name, context)
 
 
 def _make_beam_element_data(**overrides) -> Dict[str, Any]:
@@ -102,7 +43,7 @@ def _make_beam_element_data(**overrides) -> Dict[str, Any]:
             'material': {'f': 215.0, 'fv': 125.0, 'fy': 235.0},
             'forces': {'N': 50000.0, 'V': 30000.0, 'Mx': 30000000.0},
             'length': 6000.0,
-            'phi': 0.85,
+            'phi': 0.85, 'beta1': 1.0,
         },
         **overrides,
     }
@@ -225,7 +166,7 @@ class TestComputeUtilizationOverrides:
             'elementData': {'E1': {
                 'section': {'A': 5000.0},
                 'material': {'f': 215.0},
-                'forces': {'N': 50000.0},
+                'forces': {'N': 50000.0, 'Mx': 0.0},
             }},
         }
         result = gb50017._compute_utilization_overrides('E1', ctx)
@@ -307,7 +248,7 @@ class TestComputeUtilizationOverrides:
             'elementData': {'E1': {
                 'section': {'A': 5000.0},
                 'material': {'f': 215.0},
-                'forces': {'N': 50000.0},
+                'forces': {'N': 50000.0, 'Mx': 0.0},
             }},
         }
         result = gb50017._compute_utilization_overrides('E1', ctx)
@@ -495,18 +436,19 @@ class TestBackwardCompatibility:
         assert item['inputs']['demand'] >= 0
         assert item['utilization'] >= 0
 
-    def test_fallback_when_no_element_data(self):
-        """Without elementData, deterministic seed fallback still works."""
+    def test_missing_element_data_requests_inputs(self):
+        """Without elementData no engineering result is manufactured."""
         checker = MockCodeChecker()
         ctx = {'utilizationByElement': {}}
         result = gb50017.check_element(checker, 'E1', ctx)
 
         assert result['elementId'] == 'E1'
-        assert result['status'] in ('pass', 'fail')
+        assert result['status'] == 'input_required'
         all_items = [i for c in result['checks'] for i in c.get('items', [])]
         assert len(all_items) > 0
         for item in all_items:
-            assert item['utilization'] >= 0
+            assert item['utilization'] is None
+            assert item['status'] == 'input_required'
 
     def test_caller_override_priority(self):
         """When both elementData and utilizationByElement provide values, caller wins."""

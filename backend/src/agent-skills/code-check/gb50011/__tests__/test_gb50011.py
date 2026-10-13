@@ -21,49 +21,21 @@ generic_code_check = importlib.util.module_from_spec(_generic_spec)
 _generic_spec.loader.exec_module(generic_code_check)
 
 
-class MockCodeChecker:
+_generic_spec = importlib.util.spec_from_file_location('actual_code_checker', Path(__file__).resolve().parent.parent.parent / 'code_check.py')
+_generic_module = importlib.util.module_from_spec(_generic_spec)
+_generic_spec.loader.exec_module(_generic_module)
 
-    def __init__(self, overrides: Dict[str, Dict[str, float]] | None = None):
+
+class MockCodeChecker(_generic_module.CodeChecker):
+    """Exercise the production aggregation; only explicit test overrides are injected."""
+    def __init__(self, overrides=None):
         self._overrides = overrides or {}
 
     def _resolve_utilization(self, elem_id, item_name, context):
-        per_elem = self._overrides.get(elem_id, {})
-        raw = per_elem.get(item_name)
-        if isinstance(raw, (int, float)):
-            return max(0.0, float(raw))
-        return 0.55
-
-    def _calc_item(self, elem_id, item_name, context, clause, formula, limit):
-        utilization = self._resolve_utilization(elem_id, item_name, context)
-        return {
-            'item': item_name,
-            'status': 'pass' if utilization <= 1.0 else 'fail',
-            'utilization': round(utilization, 4),
-            'clause': clause,
-            'formula': formula,
-            'inputs': {
-                'demand': round(utilization * limit, 4),
-                'capacity': round(limit, 4),
-                'limit': limit,
-            },
-        }
-
-    def _build_element_result(self, elem_id, element_type, checks, code_version):
-        all_items = [item for check in checks for item in check.get('items', [])]
-        controlling = max(all_items, key=lambda i: float(i.get('utilization', 0.0)), default={})
-        all_passed = all(i.get('status') == 'pass' for i in all_items)
-        return {
-            'elementId': elem_id,
-            'elementType': element_type,
-            'status': 'pass' if all_passed else 'fail',
-            'checks': checks,
-            'controlling': {
-                'item': controlling.get('item'),
-                'utilization': controlling.get('utilization', 0.0),
-                'clause': controlling.get('clause'),
-            },
-            'code': code_version,
-        }
+        supplied = self._overrides.get(elem_id, {})
+        if item_name in supplied:
+            return super()._resolve_utilization(elem_id, item_name, {'utilizationByElement': self._overrides})
+        return super()._resolve_utilization(elem_id, item_name, context)
 
 
 class TestGetRules:
@@ -179,10 +151,10 @@ class TestCheckElementResult:
         result = gb50011.check_element(checker, 'C1', {})
         assert result['code'] == 'GB/T 50011-2010(2024)'
 
-    def test_all_pass_default(self):
+    def test_missing_input_does_not_pass(self):
         checker = MockCodeChecker()
         result = gb50011.check_element(checker, 'C1', {})
-        assert result['status'] == 'pass'
+        assert result['status'] == 'input_required'
 
     def test_fail_with_high_utilization(self):
         checker = MockCodeChecker(overrides={'C1': {'轴压比': 1.5}})
@@ -227,7 +199,7 @@ class TestCheckElementResult:
 
         item = next(item for item in result['checks'][0]['items'] if item['item'] == '抗震组合构件承载力')
         subcheck_statuses = {subcheck['name']: subcheck['status'] for subcheck in item['inputs']['subchecks']}
-        assert result['status'] == 'pass'
+        assert result['status'] == 'input_required'
         assert item['status'] == 'pass'
         assert subcheck_statuses['member_axial_capacity'] == 'pass'
         assert subcheck_statuses['member_shear_capacity'] == 'pass'
@@ -308,7 +280,7 @@ class TestCheckElementResult:
 
         item = next(item for item in result['checks'][0]['items'] if item['item'] == '抗震组合构件承载力')
         controlling = item['inputs']['controlling']
-        assert result['status'] == 'pass'
+        assert result['status'] == 'input_required'
         assert item['status'] == 'pass'
         assert controlling['name'] == 'member_shear_capacity'
         assert controlling['utilization'] == 0.85
@@ -345,7 +317,7 @@ class TestCheckElementResult:
 
         item = next(item for item in result['checks'][0]['items'] if item['item'] == '钢构件抗震构造限值')
         subcheck_statuses = {subcheck['name']: subcheck['status'] for subcheck in item['inputs']['subchecks']}
-        assert result['status'] == 'pass'
+        assert result['status'] == 'input_required'
         assert item['status'] == 'pass'
         assert subcheck_statuses['member_slenderness_ratio'] == 'pass'
         assert subcheck_statuses['flange_width_thickness_ratio'] == 'pass'
@@ -406,8 +378,8 @@ class TestCheckElementResult:
         result = gb50011.check_element(checker, 'S1', context)
 
         item = next(item for item in result['checks'][0]['items'] if item['item'] == '钢构件抗震构造限值')
-        assert result['status'] == 'fail'
-        assert item['status'] == 'not_applicable'
+        assert result['status'] == 'input_required'
+        assert item['status'] == 'input_required'
         assert item['inputs']['controlling']['name'] == 'member_slenderness_ratio'
         assert item['inputs']['controlling']['limit'] is None
 
@@ -445,7 +417,7 @@ class TestCheckElementResult:
         result = gb50011.check_element(checker, 'B1', context)
 
         item = next(item for item in result['checks'][0]['items'] if item['item'] == '框架构件强剪弱弯受剪承载力')
-        assert result['status'] == 'pass'
+        assert result['status'] == 'input_required'
         assert item['status'] == 'pass'
         assert item['inputs']['elementType'] == 'beam'
         assert item['inputs']['controlling']['name'] == 'left-end'
@@ -505,8 +477,8 @@ class TestCheckElementResult:
         result = gb50011.check_element(checker, 'B1', context)
 
         item = next(item for item in result['checks'][0]['items'] if item['item'] == '框架构件强剪弱弯受剪承载力')
-        assert result['status'] == 'fail'
-        assert item['status'] == 'not_applicable'
+        assert result['status'] == 'input_required'
+        assert item['status'] == 'input_required'
         assert item['message'] == 'Structured strong-shear weak-bending data is present but does not include comparable shear demand/capacity or utilization.'
 
     def test_frame_member_strong_shear_weak_bending_ignores_generic_shear_data(self):
@@ -566,7 +538,7 @@ class TestCheckElementResult:
         result = gb50011.check_element(checker, 'B1', context)
 
         item = next(item for item in result['checks'][0]['items'] if item['item'] == '混凝土构件剪压比限值')
-        assert result['status'] == 'pass'
+        assert result['status'] == 'input_required'
         assert item['status'] == 'pass'
         assert item['inputs']['coefficient'] == 0.20
         assert item['inputs']['capacityKN'] == 462.647059
@@ -635,8 +607,8 @@ class TestCheckElementResult:
         result = gb50011.check_element(checker, 'B1', context)
 
         item = next(item for item in result['checks'][0]['items'] if item['item'] == '混凝土构件剪压比限值')
-        assert result['status'] == 'fail'
-        assert item['status'] == 'not_applicable'
+        assert result['status'] == 'input_required'
+        assert item['status'] == 'input_required'
         assert item['inputs']['hasConcreteStrength'] is True
         assert item['inputs']['hasWidth'] is False
         assert item['inputs']['hasEffectiveDepth'] is False
@@ -677,7 +649,7 @@ class TestCheckElementResult:
 
         section_group = result['checks'][0]
         item = next(item for item in section_group['items'] if item['item'] == '框架柱轴压比限值')
-        assert result['status'] == 'pass'
+        assert result['status'] == 'input_required'
         assert item['status'] == 'pass'
         assert item['inputs']['seismicGrade'] == 2
         assert item['inputs']['limit'] == 0.75
@@ -831,7 +803,7 @@ class TestCheckElementResult:
         result = gb50011.check_element(checker, 'C1', context)
 
         item = next(item for item in result['checks'][0]['items'] if item['item'] == '框架柱纵筋构造')
-        assert result['status'] == 'pass'
+        assert result['status'] == 'input_required'
         assert item['status'] == 'pass'
         assert item['inputs']['baseLimitPercent'] == 0.8
         assert item['inputs']['rebarStrengthAdjustmentPercent'] == 0.05
@@ -903,7 +875,7 @@ class TestCheckElementResult:
         result = gb50011.check_element(checker, 'C1', context)
 
         item = next(item for item in result['checks'][0]['items'] if item['item'] == '框架柱纵筋补充构造')
-        assert result['status'] == 'pass'
+        assert result['status'] == 'input_required'
         assert item['status'] == 'pass'
         assert item['inputs']['totalLongitudinalRatioPercent'] == 4.0
         assert item['inputs']['sideMinLongitudinalRatioPercent'] == 1.0
@@ -974,7 +946,7 @@ class TestCheckElementResult:
         result = gb50011.check_element(checker, 'C1', context)
 
         item = next(item for item in result['checks'][0]['items'] if item['item'] == '框架柱箍筋加密区构造')
-        assert result['status'] == 'pass'
+        assert result['status'] == 'input_required'
         assert item['status'] == 'pass'
         assert item['inputs']['spacingLimitMm'] == 100.0
         assert item['inputs']['diameterLimitMm'] == 8.0
@@ -1033,7 +1005,7 @@ class TestCheckElementResult:
         result = gb50011.check_element(checker, 'C1', context)
 
         item = next(item for item in result['checks'][0]['items'] if item['item'] == '框架柱箍筋加密区范围')
-        assert result['status'] == 'pass'
+        assert result['status'] == 'input_required'
         assert item['status'] == 'pass'
         assert item['inputs']['confinedLengthMm'] == 600.0
         assert item['inputs']['clearHeightMm'] == 3000.0
@@ -1099,7 +1071,7 @@ class TestCheckElementResult:
         result = gb50011.check_element(checker, 'C1', context)
 
         item = next(item for item in result['checks'][0]['items'] if item['item'] == '框架柱箍筋体积配箍率')
-        assert result['status'] == 'pass'
+        assert result['status'] == 'input_required'
         assert item['status'] == 'pass'
         assert item['inputs']['lambdaV'] == 0.13
         assert item['inputs']['fcForFormulaMPa'] == 16.7
@@ -1175,7 +1147,7 @@ class TestCheckElementResult:
 
         capacity_item = next(item for item in result['checks'][0]['items'] if item['item'] == '框架节点核芯区截面抗震验算')
         item = next(item for item in result['checks'][0]['items'] if item['item'] == '框架节点核芯区箍筋构造')
-        assert result['status'] == 'pass'
+        assert result['status'] == 'input_required'
         assert capacity_item['status'] == 'pass'
         assert capacity_item['inputs']['shearDemandKN'] == 500.0
         assert capacity_item['inputs']['shearCapacityKN'] == 700.0
@@ -1206,8 +1178,8 @@ class TestCheckElementResult:
         result = gb50011.check_element(checker, 'J1', context)
 
         item = next(item for item in result['checks'][0]['items'] if item['item'] == '框架节点核芯区截面抗震验算')
-        assert result['status'] == 'fail'
-        assert item['status'] == 'not_applicable'
+        assert result['status'] == 'input_required'
+        assert item['status'] == 'input_required'
         assert item['inputs']['required'] is True
         assert item['message'] == 'Structured joint-core shear demand/capacity or utilization is unavailable.'
 
@@ -1278,7 +1250,7 @@ class TestCheckElementResult:
         result = gb50011.check_element(checker, 'J1', context)
 
         item = next(item for item in result['checks'][0]['items'] if item['item'] == '框架节点强柱弱梁弯矩关系')
-        assert result['status'] == 'pass'
+        assert result['status'] == 'input_required'
         assert item['status'] == 'pass'
         assert item['inputs']['seismicGrade'] == 2
         assert item['inputs']['controlling']['name'] == 'counterClockwise'
@@ -1348,8 +1320,8 @@ class TestCheckElementResult:
         result = gb50011.check_element(checker, 'J1', context)
 
         item = next(item for item in result['checks'][0]['items'] if item['item'] == '框架节点强柱弱梁弯矩关系')
-        assert result['status'] == 'fail'
-        assert item['status'] == 'not_applicable'
+        assert result['status'] == 'input_required'
+        assert item['status'] == 'input_required'
         assert item['message'] == 'Structured strong-column weak-beam data is present but does not include a comparable utilization, required ratio, or column/beam moment-capacity pair.'
 
     def test_frame_joint_core_stirrup_detailing_fails_for_grade_two_short_column(self):
@@ -1412,7 +1384,7 @@ class TestCheckElementResult:
         result = gb50011.check_element(checker, 'C1', context)
 
         item = next(item for item in result['checks'][0]['items'] if item['item'] == '框架梁柱混凝土强度等级')
-        assert result['status'] == 'pass'
+        assert result['status'] == 'input_required'
         assert item['status'] == 'pass'
         assert item['inputs']['requiredGrade'] == 'C30'
         assert item['inputs']['actual'] == 'C30'
@@ -1464,7 +1436,7 @@ class TestCheckElementResult:
 
         item_names = [item['item'] for group in result['checks'] for item in group['items']]
         assert '框架梁柱混凝土强度等级' not in item_names
-        assert result['status'] == 'pass'
+        assert result['status'] == 'input_required'
 
     def test_frame_beam_section_geometry_passes_for_valid_dimensions(self):
         checker = MockCodeChecker()
@@ -1482,7 +1454,7 @@ class TestCheckElementResult:
         result = gb50011.check_element(checker, 'B1', context)
 
         item = next(item for item in result['checks'][0]['items'] if item['item'] == '框架梁截面尺寸')
-        assert result['status'] == 'pass'
+        assert result['status'] == 'input_required'
         assert item['status'] == 'pass'
         assert item['inputs']['widthMm'] == 250.0
         assert item['inputs']['heightMm'] == 600.0
@@ -1542,7 +1514,7 @@ class TestCheckElementResult:
         result = gb50011.check_element(checker, 'B1', context)
 
         item = next(item for item in result['checks'][0]['items'] if item['item'] == '框架扁梁构造')
-        assert result['status'] == 'pass'
+        assert result['status'] == 'input_required'
         assert item['status'] == 'pass'
         assert item['inputs']['columnWidthMm'] == 400.0
         assert item['inputs']['columnLongitudinalDiameterMm'] == 20.0
@@ -1615,7 +1587,7 @@ class TestCheckElementResult:
         result = gb50011.check_element(checker, 'B1', context)
 
         item = next(item for item in result['checks'][0]['items'] if item['item'] == '框架梁贯通纵筋构造')
-        assert result['status'] == 'pass'
+        assert result['status'] == 'input_required'
         assert item['status'] == 'pass'
         assert item['inputs']['seismicGrade'] == 2
         assert item['inputs']['requiredDiameterMm'] == 14.0
@@ -1681,7 +1653,7 @@ class TestCheckElementResult:
         result = gb50011.check_element(checker, 'B1', context)
 
         item = next(item for item in result['checks'][0]['items'] if item['item'] == '框架梁端纵筋延性构造')
-        assert result['status'] == 'pass'
+        assert result['status'] == 'input_required'
         assert item['status'] == 'pass'
         assert item['inputs']['seismicGrade'] == 2
         assert item['inputs']['compressionZoneRatioLimit'] == 0.35
@@ -1748,7 +1720,7 @@ class TestCheckElementResult:
         result = gb50011.check_element(checker, 'B1', context)
 
         item = next(item for item in result['checks'][0]['items'] if item['item'] == '框架梁贯通中柱纵筋直径')
-        assert result['status'] == 'pass'
+        assert result['status'] == 'input_required'
         assert item['status'] == 'pass'
         assert item['inputs']['diameterLimitMm'] == 20.0
 
@@ -1816,7 +1788,7 @@ class TestCheckElementResult:
         result = gb50011.check_element(checker, 'B1', context)
 
         item = next(item for item in result['checks'][0]['items'] if item['item'] == '框架梁箍筋加密区构造')
-        assert result['status'] == 'pass'
+        assert result['status'] == 'input_required'
         assert item['status'] == 'pass'
         assert item['inputs']['spacingLimitMm'] == 100.0
         assert item['inputs']['longitudinalDiameterMm'] == 16.0
@@ -1888,7 +1860,7 @@ class TestCheckElementResult:
         result = gb50011.check_element(checker, 'C1', context)
 
         item = next(item for item in result['checks'][0]['items'] if item['item'] == '框架柱截面尺寸')
-        assert result['status'] == 'pass'
+        assert result['status'] == 'input_required'
         assert item['status'] == 'pass'
         assert item['inputs']['shortSideMm'] == 450.0
         assert item['inputs']['seismicGrade'] == 2
@@ -1943,7 +1915,7 @@ class TestCheckElementResult:
 
         item = next(item for item in result['checks'][0]['items'] if item['item'] == '框架柱截面尺寸')
         min_side = next(subcheck for subcheck in item['inputs']['subchecks'] if subcheck['name'] == 'column_min_side')
-        assert result['status'] == 'pass'
+        assert result['status'] == 'input_required'
         assert min_side['limit'] == 300.0
 
     def test_frame_column_section_geometry_fails_for_long_short_side_ratio(self):
@@ -2025,7 +1997,7 @@ class TestShearWallDetailing:
         thickness_item = next(item for item in section_items if item['item'] == '抗震墙墙厚')
         reinforcement_item = next(item for item in section_items if item['item'] == '抗震墙分布钢筋构造')
         boundary_item = next(item for item in section_items if item['item'] == '抗震墙边缘构件构造')
-        assert result['status'] == 'pass'
+        assert result['status'] == 'input_required'
         assert thickness_item['status'] == 'pass'
         assert reinforcement_item['status'] == 'pass'
         assert boundary_item['status'] == 'pass'
@@ -2071,7 +2043,7 @@ class TestShearWallDetailing:
         result = gb50011.check_element(checker, 'W1', context)
 
         item = next(item for item in result['checks'][0]['items'] if item['item'] == '抗震墙轴压比限值')
-        assert result['status'] == 'pass'
+        assert result['status'] == 'input_required'
         assert item['status'] == 'pass'
         assert item['inputs']['ratioSource'] == 'memberDesignActionCombinations/section/material'
         assert abs(item['inputs']['axialCompressionRatio'] - (3000.0 / (14.3 * 200.0 * 3000.0 / 1000.0))) < 1.0e-6
@@ -2099,8 +2071,8 @@ class TestShearWallDetailing:
         result = gb50011.check_element(checker, 'W1', context)
 
         item = next(item for item in result['checks'][0]['items'] if item['item'] == '抗震墙轴压比限值')
-        assert result['status'] == 'fail'
-        assert item['status'] == 'not_applicable'
+        assert result['status'] == 'input_required'
+        assert item['status'] == 'input_required'
         assert item['inputs']['axialCompressionRatio'] == 0.40
         assert item['inputs']['limit'] is None
 
@@ -2207,8 +2179,8 @@ class TestShearWallDetailing:
         result = gb50011.check_element(checker, 'W1', context)
 
         boundary_item = next(item for item in result['checks'][0]['items'] if item['item'] == '抗震墙边缘构件构造')
-        assert result['status'] == 'fail'
-        assert boundary_item['status'] == 'not_applicable'
+        assert result['status'] == 'input_required'
+        assert boundary_item['status'] == 'input_required'
         assert boundary_item['inputs']['required'] is True
         assert boundary_item['inputs']['boundaryElementCount'] == 0
 
@@ -3014,11 +2986,11 @@ class TestGlobalSeismicChecks:
 
         result = gb50011.check_element(checker, gb50011.GLOBAL_SEISMIC_ELEMENT_ID, context)
 
-        assert result['status'] == 'fail'
+        assert result['status'] == 'input_required'
         regularity_group = next(group for group in result['checks'] if group['name'] == '规则性与方法选择校核')
         item = regularity_group['items'][0]
-        assert item['status'] == 'fail'
-        assert item['utilization'] == 0.0
+        assert item['status'] == 'input_required'
+        assert item['utilization'] is None
         assert item['category'] == 'input_required'
         assert item['governingEligible'] is False
         assert item['inputs']['selectedMethods'] == ['response_spectrum']
@@ -3142,10 +3114,10 @@ class TestGlobalSeismicChecks:
 
         result = gb50011.check_element(checker, gb50011.GLOBAL_SEISMIC_ELEMENT_ID, context)
 
-        assert result['status'] == 'fail'
+        assert result['status'] == 'input_required'
         time_history_group = next(group for group in result['checks'] if group['name'] == '时程分析输入与结果校核')
         count_item = next(item for item in time_history_group['items'] if item['item'] == '地震波组数规则')
-        assert count_item['status'] == 'fail'
+        assert count_item['status'] == 'input_required'
         assert count_item['inputs']['recordCount'] == 5
 
     def test_global_seismic_checks_missing_actual_records_do_not_emit_sentinel_utilization(self):
@@ -3196,11 +3168,11 @@ class TestGlobalSeismicChecks:
 
         result = gb50011.check_element(checker, gb50011.GLOBAL_SEISMIC_ELEMENT_ID, context)
 
-        assert result['status'] == 'fail'
+        assert result['status'] == 'input_required'
         time_history_group = next(group for group in result['checks'] if group['name'] == '时程分析输入与结果校核')
         actual_item = next(item for item in time_history_group['items'] if item['item'] == '实际强震记录比例')
-        assert actual_item['status'] == 'fail'
-        assert actual_item['utilization'] == 0.0
+        assert actual_item['status'] == 'input_required'
+        assert actual_item['utilization'] is None
         assert actual_item['displayUtilization'] == 'N/A'
         assert actual_item['category'] == 'input_required'
         assert actual_item['governingEligible'] is False
@@ -3304,10 +3276,10 @@ class TestGlobalSeismicChecks:
 
         result = gb50011.check_element(checker, gb50011.GLOBAL_SEISMIC_ELEMENT_ID, context)
 
-        assert result['status'] == 'fail'
+        assert result['status'] == 'input_required'
         time_history_group = next(group for group in result['checks'] if group['name'] == '时程分析输入与结果校核')
         required_item = next(item for item in time_history_group['items'] if item['item'] == '补充时程分析完整性')
-        assert required_item['status'] == 'fail'
+        assert required_item['status'] == 'input_required'
         assert required_item['inputs']['capacity'] == 6
         assert required_item['inputs']['missingCount'] == 3
 
@@ -3334,11 +3306,11 @@ class TestGlobalSeismicChecks:
 
         result = gb50011.check_element(checker, gb50011.GLOBAL_SEISMIC_ELEMENT_ID, context)
 
-        assert result['status'] == 'fail'
+        assert result['status'] == 'input_required'
         time_history_group = next(group for group in result['checks'] if group['name'] == '时程分析输入与结果校核')
         item = time_history_group['items'][0]
         assert item['item'] == '补充时程分析完整性'
-        assert item['status'] == 'fail'
+        assert item['status'] == 'input_required'
 
     def test_global_seismic_checks_pass_vertical_seismic_action_when_calculated(self):
         checker = MockCodeChecker()
@@ -3781,12 +3753,12 @@ class TestGlobalSeismicChecks:
 
         result = gb50011.check_element(checker, gb50011.GLOBAL_SEISMIC_ELEMENT_ID, context)
 
-        assert result['status'] == 'fail'
+        assert result['status'] == 'input_required'
         basis_group = next(group for group in result['checks'] if group['name'] == '抗震设计依据完整性校核')
         item = basis_group['items'][0]
         assert item['item'] == '抗震设计依据完整性'
-        assert item['status'] == 'fail'
-        assert item['utilization'] == 0.0
+        assert item['status'] == 'input_required'
+        assert item['utilization'] is None
         assert item['category'] == 'input_required'
         assert item['governingEligible'] is False
 
@@ -3868,11 +3840,11 @@ class TestGlobalSeismicChecks:
 
         result = gb50011.check_element(checker, gb50011.GLOBAL_SEISMIC_ELEMENT_ID, context)
 
-        assert result['status'] == 'fail'
+        assert result['status'] == 'unsupported'
         capability_group = next(group for group in result['checks'] if group['name'] == '抗震能力边界校核')
         item = capability_group['items'][0]
         assert item['item'] == '抗震能力边界'
-        assert item['status'] == 'fail'
+        assert item['status'] == 'unsupported'
         assert item['displayUtilization'] == 'N/A'
         assert item['governingEligible'] is False
         assert item['inputs']['finalComplianceSupported'] is False
@@ -3919,7 +3891,8 @@ class TestGlobalSeismicChecks:
             },
         })
 
-        assert result['summary']['failed'] == 1
+        assert result['summary']['failed'] == 0
+        assert result['summary']['unsupported'] == 1
         assert result['summary']['maxUtilization'] < 9999.0
         assert result['summary']['controllingCheck'] != '抗震能力边界'
 
@@ -4011,11 +3984,11 @@ class TestGlobalSeismicChecks:
 
         result = gb50011.check_element(checker, gb50011.GLOBAL_SEISMIC_ELEMENT_ID, context)
 
-        assert result['status'] == 'fail'
+        assert result['status'] == 'unsupported'
         special_group = next(group for group in result['checks'] if group['name'] == '隔震与消能减震专门体系校核')
         item = special_group['items'][0]
         assert item['item'] == '隔震与消能减震专门体系审计'
-        assert item['status'] == 'fail'
+        assert item['status'] == 'unsupported'
         assert item['inputs']['systems'] == ['isolation', 'energy_dissipation']
         assert item['inputs']['deviceCounts']['isolation'] == 2
         assert item['inputs']['checks'][0]['item'] == '隔震层位移验收'
@@ -4060,8 +4033,10 @@ class TestCodeCheckSummary:
 
         assert result['summary']['total'] == 4
         assert result['summary']['failed'] == 0
-        assert result['summary']['notApplicable'] == 1
-        assert result['details'][0]['status'] == 'fail'
+        assert result['summary']['inputRequired'] >= 1
+        assert result['completionStatus'] == 'incomplete'
+        assert result['complianceStatus'] == 'incomplete'
+        assert result['details'][0]['status'] == 'input_required'
         assert result['summary']['controllingCheck'] != '抗震墙边缘构件构造'
 
     def test_summary_treats_missing_time_history_inputs_as_unavailable_not_failed(self):
@@ -4115,9 +4090,11 @@ class TestCodeCheckSummary:
             },
         )
 
-        assert result['details'][0]['status'] == 'fail'
+        assert result['details'][0]['status'] == 'input_required'
         assert result['summary']['failed'] == 0
-        assert result['summary']['notApplicable'] == 1
+        assert result['summary']['inputRequired'] >= 1
+        assert result['completionStatus'] == 'incomplete'
+        assert result['complianceStatus'] == 'incomplete'
         assert result['summary']['controllingCheck'] != '补充时程分析完整性'
 
 

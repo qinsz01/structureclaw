@@ -13,58 +13,21 @@ gb50010 = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(gb50010)
 
 
-class MockCodeChecker:
+_generic_spec = importlib.util.spec_from_file_location('actual_code_checker', Path(__file__).resolve().parent.parent.parent / 'code_check.py')
+_generic_module = importlib.util.module_from_spec(_generic_spec)
+_generic_spec.loader.exec_module(_generic_module)
 
-    def __init__(self, overrides: Dict[str, Dict[str, float]] | None = None):
+
+class MockCodeChecker(_generic_module.CodeChecker):
+    """Exercise the production aggregation; only explicit test overrides are injected."""
+    def __init__(self, overrides=None):
         self._overrides = overrides or {}
 
     def _resolve_utilization(self, elem_id, item_name, context):
-        per_elem = self._overrides.get(elem_id, {})
-        raw = per_elem.get(item_name)
-        if isinstance(raw, (int, float)):
-            return max(0.0, float(raw))
-        # Fallback: read computed overrides from context (set by
-        # _compute_utilization_overrides + check_element merge)
-        ube = context.get('utilizationByElement', {})
-        if isinstance(ube, dict):
-            per_elem_ctx = ube.get(elem_id, {})
-            if isinstance(per_elem_ctx, dict):
-                raw = per_elem_ctx.get(item_name)
-                if isinstance(raw, (int, float)):
-                    return max(0.0, float(raw))
-        return 0.55
-
-    def _calc_item(self, elem_id, item_name, context, clause, formula, limit):
-        utilization = self._resolve_utilization(elem_id, item_name, context)
-        return {
-            'item': item_name,
-            'status': 'pass' if utilization <= 1.0 else 'fail',
-            'utilization': round(utilization, 4),
-            'clause': clause,
-            'formula': formula,
-            'inputs': {
-                'demand': round(utilization * limit, 4),
-                'capacity': round(limit, 4),
-                'limit': limit,
-            },
-        }
-
-    def _build_element_result(self, elem_id, element_type, checks, code_version):
-        all_items = [item for check in checks for item in check.get('items', [])]
-        controlling = max(all_items, key=lambda i: float(i.get('utilization', 0.0)), default={})
-        all_passed = all(i.get('status') == 'pass' for i in all_items)
-        return {
-            'elementId': elem_id,
-            'elementType': element_type,
-            'status': 'pass' if all_passed else 'fail',
-            'checks': checks,
-            'controlling': {
-                'item': controlling.get('item'),
-                'utilization': controlling.get('utilization', 0.0),
-                'clause': controlling.get('clause'),
-            },
-            'code': code_version,
-        }
+        supplied = self._overrides.get(elem_id, {})
+        if item_name in supplied:
+            return super()._resolve_utilization(elem_id, item_name, {'utilizationByElement': self._overrides})
+        return super()._resolve_utilization(elem_id, item_name, context)
 
 
 class TestGetRules:
@@ -222,8 +185,8 @@ class TestCheckElementResult:
         assert result['chapters'][0]['status'] == 'fail'
         assert result['chapters'][0]['controllingClause'] == 'GB50010-2010 6.2.15'
 
-    def test_chapter_summaries_treat_none_utilization_as_zero(self):
-        summaries = gb50010._build_chapter_summaries([
+    def test_chapter_summaries_do_not_invent_utilization(self):
+        summaries = MockCodeChecker()._build_chapter_summaries([
             {
                 'chapter': 'test',
                 'items': [
@@ -241,10 +204,10 @@ class TestCheckElementResult:
         result = gb50010.check_element(checker, 'B1', {})
         assert result['code'] == 'GB50010-2010'
 
-    def test_all_pass_default(self):
+    def test_missing_inputs_never_pass(self):
         checker = MockCodeChecker()
         result = gb50010.check_element(checker, 'B1', {})
-        assert result['status'] == 'pass'
+        assert result['status'] == 'input_required'
 
     def test_fail_with_high_utilization(self):
         checker = MockCodeChecker(overrides={'B1': {'正截面受弯': 1.5}})
@@ -280,6 +243,8 @@ class TestComputedUtilizationOverrides:
             'main_dia': 20,
             'cover': 20,
             'crack_cover': 25,
+            'l0': 6000, 'lambdaLimit': 120, 'axialRatioLimit': 0.9,
+            'deflectionLimitN': 250, 'crackWidthLimit': 0.3, 'alpha_cr': 1.9,
         }
         base.update(overrides)
         return base
@@ -360,7 +325,7 @@ class TestComputedUtilizationOverrides:
     def test_material_fallback_from_element_data_when_no_context_grades(self):
         """When elementContextById has no grades, fall back to elementData.material."""
         elem_data = self._make_concrete_element_data(
-            material={'fc': 14.3, 'fy': 360, 'E': 30000},
+            material={'grade': 'C30', 'rebarGrade': 'HRB400', 'fc': 14.3, 'fy': 360, 'E': 30000},
         )
         context = {
             'elementData': {'B1': elem_data},
@@ -372,7 +337,7 @@ class TestComputedUtilizationOverrides:
     def test_beam_deflection_uses_element_data(self):
         """挠度: Mx + length + section → simplified deflection ratio."""
         elem_data = self._make_concrete_element_data(
-            forces={'N': 0, 'V': 50000, 'Mx': 30e6},
+            forces={'N': 0, 'V': 50000, 'Mx': 30e6, 'deflection': 4.0},
             length=6000,
         )
         context = self._make_context(elem_data)
@@ -423,7 +388,7 @@ class TestComputedUtilizationOverrides:
                      'shape': {'kind': 'rectangular', 'B': 0.3, 'H': 0.5}},
             material={'fc': 14.3, 'ft': 1.43, 'ftk': 2.01, 'Ec': 30000, 'E': 30000,
                       'Es': 200000, 'ecu': 0.0033, 'alpha1': 1.0, 'beta1': 0.80},
-            forces={'N': 0, 'V': 50000, 'Mx': 40e6},
+            forces={'N': 0, 'V': 50000, 'Mx': 40e6, 'M_service': 24e6},
             length=6000,
         )
         context = self._make_context(elem_data)

@@ -1513,5 +1513,3 @@ class StaticLoadContext:
             'nodeCount': len(displacements),
             'elementCount': len(forces)
         }
-
-

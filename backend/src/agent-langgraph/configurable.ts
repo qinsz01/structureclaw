@@ -36,4 +36,5 @@ export interface AgentConfigurable {
    * instead of independently extracting skillIds from state.
    */
   skillScope?: string[];
+  summarizeFileImages?: (analysis: Record<string, unknown>, filePath: string, signal?: AbortSignal) => Promise<Record<string, unknown>>;
 }

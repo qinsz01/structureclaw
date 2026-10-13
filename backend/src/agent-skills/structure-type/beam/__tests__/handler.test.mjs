@@ -1,3 +1,4 @@
+import { withDeclaredProperties } from '../../../../../tests/fixtures/declared-template-properties.mjs';
 import { describe, expect, test } from '@jest/globals';
 import { handler } from '../../../../../dist/agent-skills/structure-type/beam/handler.js';
 
@@ -28,7 +29,7 @@ describe('beam handler', () => {
       },
     });
     const state = handler.mergeState(undefined, patch);
-    const model = handler.buildModel(state);
+    const model = handler.buildModel(withDeclaredProperties(state));
 
     expect(handler.computeMissing(state, 'execution').critical).toEqual([]);
     expect(state.lengthM).toBe(12);
@@ -93,7 +94,7 @@ describe('beam handler', () => {
 
     expect(state.skillState?.invalidDraftFields).toContain('loadType');
     expect(handler.computeMissing(state, 'execution').critical).toContain('loadType');
-    expect(handler.buildModel(state)).toBeUndefined();
+    expect(handler.buildModel(withDeclaredProperties(state))).toBeUndefined();
   });
 
   test('adds a midspan result node for semantic distributed beam loads', () => {
@@ -111,7 +112,7 @@ describe('beam handler', () => {
       },
     });
     const state = handler.mergeState(undefined, patch);
-    const model = handler.buildModel(state);
+    const model = handler.buildModel(withDeclaredProperties(state));
 
     expect(model.nodes.map((node) => node.x)).toEqual([0, 3, 6]);
     expect(model.elements).toHaveLength(2);
@@ -164,7 +165,7 @@ describe('beam handler', () => {
         },
       },
     });
-    const model = handler.buildModel(handler.mergeState(undefined, patch));
+    const model = handler.buildModel(withDeclaredProperties(handler.mergeState(undefined, patch)));
 
     expect(model.load_cases[0].loads).toEqual([
       { type: 'distributed', element: '1', wz: -20, wy: 0, reference_frame: 'global' },
@@ -187,7 +188,7 @@ describe('beam handler', () => {
       },
     });
     const state = handler.mergeState(undefined, patch);
-    const model = handler.buildModel(state);
+    const model = handler.buildModel(withDeclaredProperties(state));
 
     expect(state.lengthM).toBe(6.5);
     expect(model.nodes.map((node) => node.x)).toEqual([0, 3.25, 5, 6.5]);
@@ -220,7 +221,7 @@ describe('beam handler', () => {
       },
     });
     const state = handler.mergeState(undefined, patch);
-    const model = handler.buildModel(state);
+    const model = handler.buildModel(withDeclaredProperties(state));
 
     expect(model.nodes.map((node) => node.x)).toEqual([0, 3.25, 5, 6.5]);
     expect(model.nodes[0].restraints).toEqual([true, true, true, false, false, false]);
@@ -244,7 +245,7 @@ describe('beam handler', () => {
       },
     });
     const state = handler.mergeState(undefined, patch);
-    const model = handler.buildModel(state);
+    const model = handler.buildModel(withDeclaredProperties(state));
 
     expect(state.engineeringDraft.loads.map((load) => load.location.spanIndex)).toEqual([1, 2]);
     expect(model.load_cases[0].loads).toEqual([
@@ -279,7 +280,7 @@ describe('beam handler', () => {
         },
       },
     });
-    const model = handler.buildModel(handler.mergeState(undefined, patch));
+    const model = handler.buildModel(withDeclaredProperties(handler.mergeState(undefined, patch)));
 
     expect(model.load_cases[0].loads).toEqual([
       { type: 'distributed', element: '1', wz: -15, wy: 0, reference_frame: 'global' },
@@ -301,7 +302,7 @@ describe('beam handler', () => {
         },
       },
     });
-    const model = handler.buildModel(handler.mergeState(undefined, patch));
+    const model = handler.buildModel(withDeclaredProperties(handler.mergeState(undefined, patch)));
 
     expect(model.load_cases[0].loads).toEqual([
       { type: 'distributed', element: '2', wz: -12, wy: 0, reference_frame: 'global' },
@@ -324,7 +325,7 @@ describe('beam handler', () => {
         },
       },
     });
-    const model = handler.buildModel(handler.mergeState(undefined, patch));
+    const model = handler.buildModel(withDeclaredProperties(handler.mergeState(undefined, patch)));
 
     expect(model.nodes.map((node) => node.x)).toEqual([0, 3, 6]);
     expect(model.load_cases[0].loads).toEqual([
@@ -376,7 +377,7 @@ describe('beam handler', () => {
         },
       },
     });
-    const model = handler.buildModel(handler.mergeState(undefined, patch));
+    const model = handler.buildModel(withDeclaredProperties(handler.mergeState(undefined, patch)));
 
     expect(model.nodes.map((node) => node.x)).toEqual([0, 4, 6, 12]);
     expect(model.load_cases[0].loads).toEqual([
@@ -414,7 +415,7 @@ describe('beam handler', () => {
       },
     });
     const updatedState = handler.mergeState(initialState, updatePatch);
-    const model = handler.buildModel(updatedState);
+    const model = handler.buildModel(withDeclaredProperties(updatedState));
 
     expect(updatedState.engineeringDraft.loads).toHaveLength(2);
     expect(model.load_cases[0].loads).toEqual([
@@ -445,7 +446,7 @@ describe('beam handler', () => {
         },
       },
     });
-    const model = handler.buildModel(handler.mergeState(undefined, patch));
+    const model = handler.buildModel(withDeclaredProperties(handler.mergeState(undefined, patch)));
 
     expect(model.load_cases[0].loads).toEqual([
       { node: '2', fz: -30, reference_frame: 'global' },
@@ -480,7 +481,7 @@ describe('beam handler', () => {
       expect.objectContaining({ field: 'loadPosition', severity: 'conflict' }),
     ]));
     expect(handler.computeMissing(state, 'execution').critical).toContain('loadPosition');
-    expect(handler.buildModel(state)).toBeUndefined();
+    expect(handler.buildModel(withDeclaredProperties(state))).toBeUndefined();
   });
 
   test('replaces a contradictory semantic point load when the next turn confirms its target', () => {
@@ -517,7 +518,7 @@ describe('beam handler', () => {
       },
     });
     const correctedState = handler.mergeState(conflictedState, correctionPatch);
-    const model = handler.buildModel(correctedState);
+    const model = handler.buildModel(withDeclaredProperties(correctedState));
 
     expect(correctedState.engineeringDraft.loads).toHaveLength(1);
     expect(correctedState.engineeringDraft.loads[0].location).toBeUndefined();
@@ -554,7 +555,7 @@ describe('beam handler', () => {
     });
     const conflictedState = handler.mergeState(undefined, initialPatch);
     const correctedState = handler.mergeState(conflictedState, { loadPositionM: 4 });
-    const model = handler.buildModel(correctedState);
+    const model = handler.buildModel(withDeclaredProperties(correctedState));
 
     expect(correctedState.engineeringDraft.loads).toEqual([
       expect.objectContaining({ target: 'N2', location: { xM: 4 } }),

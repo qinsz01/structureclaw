@@ -31,6 +31,7 @@ const agentRunSchema = z.object({
     engineId: z.string().optional(),
     model: z.record(z.string(), z.any()).optional(),
     modelFormat: z.string().optional(),
+    modelRevision: z.number().int().nonnegative().optional(),
     analysisType: z.enum(['static', 'dynamic', 'seismic', 'nonlinear']).optional(),
     parameters: z.record(z.string(), z.any()).optional(),
     autoAnalyze: z.boolean().optional(),

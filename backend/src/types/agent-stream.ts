@@ -27,6 +27,7 @@ type PublicPresentationChunk =
       model?: Record<string, unknown>;
       latestResult?: Record<string, unknown>;
       snapshot?: Record<string, unknown>;
+      invalidated?: boolean;
     }
   | { type: 'summary_replace'; summaryText: string }
   | { type: 'presentation_complete'; completedAt: string }

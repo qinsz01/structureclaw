@@ -1,3 +1,4 @@
+import { withDeclaredProperties } from '../../../../../tests/fixtures/declared-template-properties.mjs';
 import { describe, expect, test } from '@jest/globals';
 import { handler } from '../../../../../dist/agent-skills/structure-type/portal-frame/handler.js';
 
@@ -40,7 +41,7 @@ describe('portal-frame handler', () => {
       },
     });
     const state = handler.mergeState(undefined, patch);
-    const model = handler.buildModel(state);
+    const model = handler.buildModel(withDeclaredProperties(state));
 
     expect(handler.computeMissing(state, 'execution').critical).toEqual([]);
     expect(state.skillState).toEqual(expect.objectContaining({
@@ -77,7 +78,7 @@ describe('portal-frame handler', () => {
       },
     });
     const state = handler.mergeState(undefined, patch);
-    const model = handler.buildModel(state);
+    const model = handler.buildModel(withDeclaredProperties(state));
 
     expect(handler.computeMissing(state, 'execution').critical).toEqual([]);
     expect(model.nodes).toHaveLength(6);
@@ -104,7 +105,7 @@ describe('portal-frame handler', () => {
       },
     });
     const state = handler.mergeState(undefined, patch);
-    const model = handler.buildModel(state);
+    const model = handler.buildModel(withDeclaredProperties(state));
 
     expect(handler.computeMissing(state, 'execution').critical).toEqual([]);
     expect(state.loadKN).toBe(6);
@@ -137,7 +138,7 @@ describe('portal-frame handler', () => {
       },
     });
     const state = handler.mergeState(undefined, patch);
-    const model = handler.buildModel(state);
+    const model = handler.buildModel(withDeclaredProperties(state));
 
     expect(state.skillState?.mezzanineLoadKN).toBeUndefined();
     expect(model.load_cases[0].loads).toEqual(expect.arrayContaining([
@@ -163,7 +164,7 @@ describe('portal-frame handler', () => {
       },
     });
     const state = handler.mergeState(undefined, patch);
-    const model = handler.buildModel(state);
+    const model = handler.buildModel(withDeclaredProperties(state));
 
     expect(state.loadKN).toBe(6);
     expect(state.skillState?.roofLoadKNM).toBe(6);
@@ -191,7 +192,7 @@ describe('portal-frame handler', () => {
       },
     });
     const state = handler.mergeState(undefined, patch);
-    const model = handler.buildModel(state);
+    const model = handler.buildModel(withDeclaredProperties(state));
 
     expect(model.nodes.filter((node) => String(node.id).startsWith('B')).map((node) => node.restraints)).toEqual([
       [true, true, true, false, false, false],

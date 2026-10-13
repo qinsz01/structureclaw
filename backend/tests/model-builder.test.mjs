@@ -1,9 +1,10 @@
+import { withDeclaredProperties } from './fixtures/declared-template-properties.mjs';
 import { describe, it, expect } from '@jest/globals';
 import { buildModel } from '../dist/agent-runtime/model-builder.js';
 
 /** Minimal DraftState with required `updatedAt` and the fields under test. */
 function makeState(overrides) {
-  return { updatedAt: Date.now(), ...overrides };
+  return withDeclaredProperties({ updatedAt: Date.now(), ...overrides });
 }
 
 // ---------------------------------------------------------------------------
@@ -19,7 +20,7 @@ describe('buildModel - beam', () => {
 
     const model = buildModel(state);
 
-    expect(model.schema_version).toBe('2.0.0');
+    expect(model.schema_version).toBe('2.1.0');
     expect(model.unit_system).toBe('SI');
     expect(model.metadata.inferredType).toBe('beam');
     expect(model.metadata.source).toBe('markdown-skill-draft');
@@ -196,11 +197,9 @@ describe('buildModel - beam', () => {
     const model = buildModel(state);
 
     expect(model.materials).toEqual([
-      { id: '1', name: 'steel', E: 205000, nu: 0.3, rho: 7850 },
+      { id: '1', name: 'Q355', grade: 'Q355', category: 'steel', E: 206000, nu: 0.3, rho: 7850, fy: 355 },
     ]);
-    expect(model.sections).toEqual([
-      { id: '1', name: 'B1', type: 'beam', properties: { A: 0.01, Iy: 0.0001, Iz: 0.0001, J: 0.0001, G: 79000 } },
-    ]);
+    expect(model.sections[0]).toMatchObject({ id: '1', name: 'H300X200X8X12', type: 'H', properties: { A: 0.007008 } });
   });
 });
 
@@ -219,7 +218,7 @@ describe('buildModel - truss', () => {
 
     const model = buildModel(state);
 
-    expect(model.schema_version).toBe('2.0.0');
+    expect(model.schema_version).toBe('2.1.0');
     expect(model.metadata.inferredType).toBe('truss');
 
     expect(model.nodes).toHaveLength(10);
@@ -242,8 +241,8 @@ describe('buildModel - truss', () => {
     expect(model.elements.find((element) => element.id === 'WD2').nodes).toEqual(['B3', 'T2']);
     expect(model.elements.find((element) => element.id === 'WD3').nodes).toEqual(['B4', 'T3']);
 
-    expect(model.materials[0].name).toBe('steel');
-    expect(model.sections[0].type).toBe('rod');
+    expect(model.materials[0].name).toBe('Q355');
+    expect(model.sections[0].type).toBe('H');
 
     expect(model.load_cases[0].loads).toEqual([
       { node: 'T1', fz: -10, reference_frame: 'global' },
@@ -287,8 +286,8 @@ describe('buildModel - column', () => {
       fc: 14.3,
     });
     expect(model.sections[0]).toMatchObject({
-      name: 'C30 450x450',
-      type: 'rect',
+      name: '450X450',
+      type: 'rectangular',
       purpose: 'column',
       width: 450,
       height: 450,
@@ -324,7 +323,7 @@ describe('buildModel - column', () => {
       fy: 345,
     });
     expect(model.sections[0]).toMatchObject({
-      name: 'HW300x300',
+      name: 'HW300X300',
       type: 'H',
       purpose: 'column',
       standard_steel_name: 'HW300x300',
@@ -334,7 +333,7 @@ describe('buildModel - column', () => {
         Iy: 2.04e-4,
         Iz: 6.75e-5,
         J: 4.23e-6,
-        G: 79000,
+        G: 206000 / 2.6,
       },
     });
   });
@@ -354,7 +353,7 @@ describe('buildModel - portal-frame', () => {
 
     const model = buildModel(state);
 
-    expect(model.schema_version).toBe('2.0.0');
+    expect(model.schema_version).toBe('2.1.0');
     expect(model.metadata.inferredType).toBe('portal-frame');
 
     // 4 nodes: base-left, top-left, base-right, top-right
@@ -368,7 +367,7 @@ describe('buildModel - portal-frame', () => {
     expect(model.elements).toHaveLength(3);
     expect(model.elements[0]).toEqual({ id: 'C0', type: 'column', nodes: ['B0', 'T0'], material: '1', section: '1' });
     expect(model.elements[1]).toEqual({ id: 'C1', type: 'column', nodes: ['B1', 'T1'], material: '1', section: '1' });
-    expect(model.elements[2]).toEqual({ id: 'R0', type: 'beam', nodes: ['T0', 'T1'], material: '1', section: '1' });
+    expect(model.elements[2]).toEqual({ id: 'R0', type: 'beam', nodes: ['T0', 'T1'], material: '1', section: '2' });
 
     // Load split equally between top nodes
     expect(model.load_cases[0].loads).toEqual([
@@ -376,7 +375,7 @@ describe('buildModel - portal-frame', () => {
       { type: 'nodal', node: 'T1', forces: [0, 0, -10, 0, 0, 0], reference_frame: 'global' },
     ]);
 
-    expect(model.sections[0].name).toBe('PF1');
+    expect(model.sections[0].name).toBe('H300X200X8X12');
   });
 
   it('should preserve explicit portal-frame material and H-section properties', () => {
@@ -411,7 +410,7 @@ describe('buildModel - portal-frame', () => {
     });
     expect(model.sections[0].properties).toMatchObject({
       A: 0.01368,
-      G: 79000,
+      G: 206000 / 2.6,
     });
     expect(model.sections[0].properties.Iy).toBeCloseTo(8.3499136e-4, 12);
     expect(model.sections[0].properties.Iz).toBeCloseTo(4.1714e-5, 12);
@@ -432,7 +431,7 @@ describe('buildModel - double-span-beam', () => {
 
     const model = buildModel(state);
 
-    expect(model.schema_version).toBe('2.0.0');
+    expect(model.schema_version).toBe('2.1.0');
     expect(model.metadata.inferredType).toBe('double-span-beam');
 
     expect(model.nodes).toHaveLength(3);
@@ -454,7 +453,7 @@ describe('buildModel - double-span-beam', () => {
     expect(model.elements[1]).toEqual({ id: '2', type: 'beam', nodes: ['2', '3'], material: '1', section: '1' });
 
     expect(model.load_cases[0].loads).toEqual([{ node: '2', fz: -30, reference_frame: 'global' }]);
-    expect(model.sections[0].name).toBe('CONTINUOUS_BEAM');
+    expect(model.sections[0].name).toBe('H300X200X8X12');
   });
 });
 
@@ -473,7 +472,7 @@ describe('buildModel - frame 2D', () => {
 
     const model = buildModel(state);
 
-    expect(model.schema_version).toBe('2.0.0');
+    expect(model.schema_version).toBe('2.1.0');
     expect(model.metadata.inferredType).toBe('frame');
     expect(model.metadata.storyCount).toBe(1);
     expect(model.metadata.bayCount).toBe(1);
@@ -489,8 +488,8 @@ describe('buildModel - frame 2D', () => {
     // 2 columns + 1 beam = 3 elements
     expect(model.elements).toHaveLength(3);
 
-    // Columns
-    expect(model.elements[0].type).toBe('beam');
+    // Columns retain their physical role.
+    expect(model.elements[0].type).toBe('column');
     expect(model.elements[0].section).toBe('1'); // COLUMN section
     // Beams
     expect(model.elements[2].section).toBe('2'); // BEAM section
@@ -634,11 +633,11 @@ describe('buildModel - frame 2D', () => {
     const model = buildModel(state);
 
     expect(model.materials).toEqual([
-      { id: '1', name: 'steel', E: 205000, nu: 0.3, rho: 7850, fy: 345 },
+      { id: '1', name: 'Q355', grade: 'Q355', category: 'steel', E: 206000, nu: 0.3, rho: 7850, fy: 355 },
     ]);
     expect(model.sections).toHaveLength(2);
-    expect(model.sections[0].name).toBe('COLUMN');
-    expect(model.sections[1].name).toBe('BEAM');
+    expect(model.sections[0].name).toBe('H300X200X8X12');
+    expect(model.sections[1].name).toBe('H300X200X8X12');
   });
 
   it('should generate correct node IDs in 2D frame', () => {
@@ -684,7 +683,7 @@ describe('buildModel - frame 3D', () => {
 
     const model = buildModel(state);
 
-    expect(model.schema_version).toBe('2.0.0');
+    expect(model.schema_version).toBe('2.1.0');
     expect(model.metadata.inferredType).toBe('frame');
     expect(model.metadata.bayCountX).toBe(1);
     expect(model.metadata.bayCountY).toBe(1);
@@ -830,9 +829,9 @@ describe('buildModel - frame 3D', () => {
 
     const model = buildModel(state);
 
-    expect(model.materials[0]).toEqual({ id: '1', name: 'steel', E: 205000, nu: 0.3, rho: 7850, fy: 345 });
-    expect(model.sections[0].name).toBe('COLUMN');
-    expect(model.sections[1].name).toBe('BEAM');
+    expect(model.materials[0]).toEqual({ id: '1', name: 'Q355', grade: 'Q355', category: 'steel', E: 206000, nu: 0.3, rho: 7850, fy: 355 });
+    expect(model.sections[0].name).toBe('H300X200X8X12');
+    expect(model.sections[1].name).toBe('H300X200X8X12');
   });
 });
 

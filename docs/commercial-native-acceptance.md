@@ -9,6 +9,40 @@ they do not fill a Cartesian grid or replicate a first-floor template.
 
 ## Evidence levels / 证据分级
 
+**Formal V2 commercial analysis is currently blocked.** PKPM only writes native
+material grades; its accepted topology run did not read back or independently
+calibrate E, nu, rho, G or section mechanical properties. Formal V2 materials
+require E/nu/rho, so the preflight rejects these inputs with
+`PKPM_NATIVE_MATERIAL_PROPERTIES_UNVERIFIED` before native launch. A matching
+nominal grade table is not proof of native numerical equivalence. YJK currently
+writes material categories, without verified per-member grades; all formal runs
+fail with `YJK_NATIVE_MATERIAL_GRADE_UNVERIFIED` before environment resolution or
+work-directory creation. The launch, authorization, topology compilers and result
+readers remain as implementation infrastructure, not a claim of formal readiness.
+
+**当前正式 V2 商业分析暂不可用。** PKPM 只写入原生材料牌号，已通过的拓扑算例没有回读或独立
+校准 E、nu、rho、G 和截面力学属性；正式 V2 材料必填 E/nu/rho，因此求解前明确拒绝，不能用名义
+牌号表代替原生数值等价证据。YJK 目前只写材料类别，逐构件牌号未验收，正式运行一律在启动前
+拒绝。启动、授权、编译和读取代码仍保留，但不表示正式求解已就绪。错误详情列出缺失能力和输入字段。
+
+The low-level PKPM grade + geometry compiler rejects explicit material constants,
+strength/reinforcement overrides, section A/I/J and other unmapped properties.
+It accepts only supported shape fields in positive integer mm (no rounding), or
+an unambiguous native standard-section name without geometry overrides. Legacy
+V2.0 rectangular `properties.width/height` have an explicit metre convention;
+new V2.1 models must use `shape` in mm. Mixed definitions, asymmetric/unknown
+shape fields, fractional mm and conflicting top-level dimensions fail explicitly.
+Native standard-section library property parity is still unverified; this path
+supports compilation only. Existing original acceptance inputs contain explicit
+E and now intentionally fail this stronger preflight; historical evidence is
+retained without rerunning or rewriting it.
+
+PKPM 底层牌号与几何编译同样拒绝显式材料常数、强度/钢筋覆盖及 A/I/J 等未映射属性；
+尺寸采用明确正整数毫米，不四舍五入、不按大小猜单位。仅旧 V2.0 矩形 properties 尺寸按明确的
+米约定兼容；新 V2.1 使用毫米 shape。重复定义、不对称或未知形状字段、非整数毫米及矛盾尺寸均拒绝。
+原生标准截面库的力学属性等价性仍未验证，该路径仅保留编译能力。旧原生验收输入含 E，现会被更严格
+门禁拒绝；历史证据保留，本轮不重跑也不改写历史输入。解锁需逐项完成原生写入回读及独立力学校核。
+
 | Capability / 能力 | Evidence / 证据 |
 |---|---|
 | PKPM two-floor L-plan/setback, distinct beam sections / 两层 L 形退台、异梁截面 | Native JWS save/reopen preserved 6/4 nodes and 12/8 members; hidden SATWE execution returned 10 beams, 10 columns and signed station vectors / 原生回读及计算通过 |

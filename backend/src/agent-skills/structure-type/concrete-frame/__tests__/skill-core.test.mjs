@@ -307,7 +307,7 @@ describe('concrete-frame canonicalize core contract', () => {
     });
 
     expect(model).toBeDefined();
-    expect(model.schema_version).toBe('2.0.0');
+    expect(model.schema_version).toBe('2.1.0');
     expect(model.unit_system).toBe('SI');
     expect(model.metadata).toMatchObject({
       inferredType: 'frame',
@@ -631,6 +631,7 @@ describe('concrete-frame canonicalize core contract', () => {
     ]);
 
     const model = buildConcreteFrameModel({
+      frameConcreteGrade: 'C30', frameRebarGrade: 'HRB400', frameColumnSection: '500X500', frameBeamSection: '300X600',
       inferredType: 'frame',
       structuralTypeKey: 'concrete-frame',
       skillId: 'concrete-frame',
@@ -916,8 +917,8 @@ describe('detectConcreteFrameStructuralType branches', () => {
 // CRITICAL: model.ts error paths and fallback behavior (H2/H3/H4 fix verification)
 // Model returns mesh model with metadata; code-check fields in metadata
 describe('buildConcreteFrameModel error paths', () => {
-  test('falls back to C30 for invalid concrete grade', () => {
-    const model = buildConcreteFrameModel({
+  test('rejects invalid concrete grade without substitution', () => {
+    expect(() => buildConcreteFrameModel({
       inferredType: 'frame',
       updatedAt: 0,
       frameDimension: '2d',
@@ -929,13 +930,11 @@ describe('buildConcreteFrameModel error paths', () => {
       frameRebarGrade: 'HRB400',
       frameColumnSection: '400X400',
       frameBeamSection: '250X600',
-    });
-    expect(model?.metadata.concreteGrade).toBe('C30');
-    expect(model?.metadata.rebarGrade).toBe('HRB400');
+    })).toThrow(/TEMPLATE_PROPERTY_REQUIRED/);
   });
 
-  test('falls back to HRB400 for invalid rebar grade', () => {
-    const model = buildConcreteFrameModel({
+  test('rejects invalid rebar grade without substitution', () => {
+    expect(() => buildConcreteFrameModel({
       inferredType: 'frame',
       updatedAt: 0,
       frameDimension: '2d',
@@ -947,13 +946,11 @@ describe('buildConcreteFrameModel error paths', () => {
       frameRebarGrade: 'INVALID_GRADE',
       frameColumnSection: '400X400',
       frameBeamSection: '250X600',
-    });
-    expect(model?.metadata.concreteGrade).toBe('C30');
-    expect(model?.metadata.rebarGrade).toBe('HRB400');
+    })).toThrow(/TEMPLATE_PROPERTY_REQUIRED/);
   });
 
-  test('uses default column section when not provided', () => {
-    const model = buildConcreteFrameModel({
+  test('requires a declared column section', () => {
+    expect(() => buildConcreteFrameModel({
       inferredType: 'frame',
       updatedAt: 0,
       frameDimension: '2d',
@@ -965,12 +962,11 @@ describe('buildConcreteFrameModel error paths', () => {
       frameRebarGrade: 'HRB400',
       frameColumnSection: undefined,
       frameBeamSection: '250X600',
-    });
-    expect(model?.metadata.columnSection).toBe('500X500');
+    })).toThrow(/TEMPLATE_PROPERTY_REQUIRED/);
   });
 
-  test('uses default beam section when not provided', () => {
-    const model = buildConcreteFrameModel({
+  test('requires a declared beam section', () => {
+    expect(() => buildConcreteFrameModel({
       inferredType: 'frame',
       updatedAt: 0,
       frameDimension: '2d',
@@ -982,8 +978,7 @@ describe('buildConcreteFrameModel error paths', () => {
       frameRebarGrade: 'HRB400',
       frameColumnSection: '400X400',
       frameBeamSection: undefined,
-    });
-    expect(model?.metadata.beamSection).toBe('300X600');
+    })).toThrow(/TEMPLATE_PROPERTY_REQUIRED/);
   });
 });
 

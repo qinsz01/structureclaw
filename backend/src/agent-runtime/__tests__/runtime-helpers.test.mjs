@@ -1,3 +1,4 @@
+import { withDeclaredProperties } from '../../../tests/fixtures/declared-template-properties.mjs';
 import { describe, expect, test } from '@jest/globals';
 import {
   computeDependencyFingerprint,
@@ -66,7 +67,9 @@ describe('agent runtime helper utilities', () => {
     ];
 
     for (const fixture of cases) {
-      const model = await runtime.buildModel(fixture.state, [fixture.skillId]);
+      const model = await runtime.buildModel(fixture.skillId === 'concrete-frame'
+        ? { ...fixture.state, frameConcreteGrade: 'C30', frameRebarGrade: 'HRB400', frameColumnSection: '500X500', frameBeamSection: '300X600' }
+        : withDeclaredProperties(fixture.state), [fixture.skillId]);
       expect(model?.coordinate_system).toEqual({
         semantics: 'global-z-up',
         version: 1,
@@ -125,8 +128,8 @@ describe('agent runtime helper utilities', () => {
       locale: 'en',
     });
 
-    expect(zh.report.summary).toContain('校核通过 1 / 4，失败 1，警告 1，不适用/资料不足 1');
-    expect(en.report.summary).toContain('Code checks passed 1 / 4, failed 1, warnings 1, not applicable/unavailable 1');
+    expect(zh.report.summary).toContain('校核通过 1 / 4，失败 1，警告 1，不适用 1');
+    expect(en.report.summary).toContain('Code checks passed 1 / 4, failed 1, warnings 1, not applicable 1');
   });
 
   test('keeps owning plugin enabled when scope uses a structural type key', async () => {

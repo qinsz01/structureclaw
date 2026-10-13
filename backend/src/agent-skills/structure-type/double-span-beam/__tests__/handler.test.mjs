@@ -1,3 +1,4 @@
+import { withDeclaredProperties } from '../../../../../tests/fixtures/declared-template-properties.mjs';
 import { describe, expect, test } from '@jest/globals';
 import { handler } from '../../../../../dist/agent-skills/structure-type/double-span-beam/handler.js';
 
@@ -37,7 +38,7 @@ describe('double-span-beam handler', () => {
       },
     });
     const state = handler.mergeState(undefined, patch);
-    const model = handler.buildModel(state);
+    const model = handler.buildModel(withDeclaredProperties(state));
 
     expect(state.skillState).toEqual(expect.objectContaining({
       spanLengthsM: [4, 7],
@@ -71,7 +72,7 @@ describe('double-span-beam handler', () => {
       },
     });
     const state = handler.mergeState(undefined, patch);
-    const model = handler.buildModel(state);
+    const model = handler.buildModel(withDeclaredProperties(state));
 
     expect(handler.computeMissing(state, 'execution').critical).toEqual([]);
     expect(model.metadata.spanCount).toBe(3);
@@ -110,7 +111,7 @@ describe('double-span-beam handler', () => {
         },
       },
     });
-    const model = handler.buildModel(handler.mergeState(undefined, patch));
+    const model = handler.buildModel(withDeclaredProperties(handler.mergeState(undefined, patch)));
 
     expect(model.nodes.map((node) => node.x)).toEqual([0, 3, 6]);
     expect(model.nodes[0].restraints).toEqual([true, true, true, false, false, false]);
@@ -150,7 +151,7 @@ describe('double-span-beam handler', () => {
         },
       },
     });
-    const model = handler.buildModel(handler.mergeState(undefined, patch));
+    const model = handler.buildModel(withDeclaredProperties(handler.mergeState(undefined, patch)));
 
     expect(model.nodes.map((node) => node.x)).toEqual([0, 4, 6, 9, 12]);
     expect(model.nodes.every((node) => Number.isFinite(node.x))).toBe(true);

@@ -188,6 +188,19 @@ describe('createAnalyzeFileTool', () => {
     expect(full.truncated).toBe(false);
   });
 
+  test('later PDF pages enter the same vision hook and retain page evidence', async () => {
+    const { createAnalyzeFileTool } = await import('../../../dist/agent-langgraph/file-tools.js');
+    const pdfPath = path.join(uploadsDir, 'later-page.pdf');
+    await fs.writeFile(pdfPath, pdfFixture());
+    const summarizeFileImages = jest.fn(async (parsed) => ({ ...parsed, pages: parsed.pages.map(page => ({ ...page, visionSummary: 'Visible diagonal', visionStatus: 'completed' })) }));
+    const result = JSON.parse(await createAnalyzeFileTool().invoke({ filePath: pdfPath, pageStart: 2, pageCount: 1 },
+      { configurable: { workspaceRoot: tmpDir, summarizeFileImages } }));
+    expect(summarizeFileImages).toHaveBeenCalledTimes(1);
+    expect(result.pages[0].pageNumber).toBe(2);
+    expect(result.pages[0].visionSummary).toBe('Visible diagonal');
+    expect(result.pages[0].renderedImagePath).toBeTruthy();
+  });
+
   test('analyzes a plain text file', async () => {
     const { createAnalyzeFileTool } = await import('../../../dist/agent-langgraph/file-tools.js');
     const txtPath = path.join(uploadsDir, 'notes.txt');

@@ -5,8 +5,8 @@ name:
   zh: PKPM 静力分析
   en: PKPM Static Analysis
 description:
-  zh: 调用本机 PKPM SATWE 执行静力分析，适合商业引擎复核、设计验算和结果对比（需安装 PKPM 并配置 JWSCYCLE.exe）。
-  en: Runs local PKPM SATWE static analysis for commercial-engine verification, design checks, and result comparison (requires PKPM and JWSCYCLE.exe).
+  zh: 保留 PKPM 逐层拓扑编译、原生启动及结果读取；显式材料常数与截面属性尚未完成原生校准，正式 V2 分析由能力门禁阻止，不能据拓扑验收宣称物理等价。
+  en: Retains PKPM per-floor topology compilation, native launch, and result readers. Formal V2 analysis is gated pending native material/section-property calibration; topology acceptance does not establish physical equivalence.
 triggers:
   - PKPM 静力分析
   - PKPM 计算

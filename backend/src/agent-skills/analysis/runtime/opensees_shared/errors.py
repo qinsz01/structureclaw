@@ -11,4 +11,3 @@ class OpenSeesMissingInputError(OpenSeesInputError):
 
 class OpenSeesCapabilityError(OpenSeesInputError):
     error_code = "ENGINE_INPUT_UNSUPPORTED"
-

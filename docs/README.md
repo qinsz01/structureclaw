@@ -4,6 +4,7 @@ This directory is the documentation hub for StructureClaw 1.0. Start with the ha
 
 ## Start Here
 
+- [Engineering core V2.1](./engineering-refactor.md): implemented contracts, validation evidence, and remaining capability gates
 - [Handbook](./handbook.md): setup, runtime modes, configuration, workflows, testing, and troubleshooting
 - [Reference](./reference.md): API contracts, analysis endpoints, settings contract, SkillHub contract, and validation commands
 - [Testing taxonomy](./testing.md): test categories, runner ownership, CI workflow boundaries, and overlap rules

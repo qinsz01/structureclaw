@@ -213,6 +213,8 @@ flowchart LR
 
 Graph checkpoint 数据通过 [backend/src/agent-langgraph/file-checkpointer.ts](../backend/src/agent-langgraph/file-checkpointer.ts) 存储，路径由 [backend/src/agent-langgraph/config.ts](../backend/src/agent-langgraph/config.ts) 中的 agent 配置辅助函数解析。
 
+每次工具节点只执行一个调用，保存状态更新与工具响应后，再执行下一个待处理调用。后续澄清问题触发暂停时，恢复会从该调用继续，不重放之前已完成的模型修改。自定义工具仍需避免在同一个调用的暂停点之前产生副作用。
+
 ## 11. 扩展边界
 
 当前有两个扩展面：

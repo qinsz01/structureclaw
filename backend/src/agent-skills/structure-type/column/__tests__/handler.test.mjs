@@ -1,3 +1,4 @@
+import { withDeclaredProperties } from '../../../../../tests/fixtures/declared-template-properties.mjs';
 import { describe, expect, test } from '@jest/globals';
 import { handler } from '../../../../../dist/agent-skills/structure-type/column/handler.js';
 
@@ -64,7 +65,7 @@ describe('column handler', () => {
       },
     });
     const state = handler.mergeState(undefined, patch);
-    const model = handler.buildModel(state);
+    const model = handler.buildModel(withDeclaredProperties(state));
 
     expect(handler.computeMissing(state, 'execution').critical).toEqual([]);
     expect(state.inferredType).toBe('column');

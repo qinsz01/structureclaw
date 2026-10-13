@@ -252,6 +252,7 @@ describe("draft extraction preservation", () => {
       skillId: "beam",
       structuralTypeKey: "beam",
       lengthM: 10,
+      engineeringDraft: { material: { grade: 'Q355' }, sections: { member: 'H300X200X8X12' } },
       updatedAt: 0,
     };
     const plugin = {

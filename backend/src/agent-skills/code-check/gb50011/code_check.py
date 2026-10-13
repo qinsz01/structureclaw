@@ -348,6 +348,18 @@ def _number(value: Any) -> Optional[float]:
     return None
 
 
+def _aggregate_check_status(items: List[Dict[str, Any]]) -> str:
+    statuses = [
+        item.get('category') if item.get('category') in {'input_required', 'unsupported'}
+        else item.get('status', 'input_required')
+        for item in items
+    ]
+    for status in ('fail', 'unsupported', 'input_required'):
+        if status in statuses:
+            return status
+    return 'pass' if statuses and 'pass' in statuses else 'not_applicable'
+
+
 def _check_item(
     item_name: str,
     *,
@@ -358,11 +370,11 @@ def _check_item(
     limit: Optional[float] = None,
     unavailable_message: Optional[str] = None,
 ) -> Dict[str, Any]:
-    if demand is None or capacity is None or capacity <= 0.0:
+    if demand is None or capacity is None or not math.isfinite(demand) or not math.isfinite(capacity) or capacity <= 0.0:
         return {
             'item': item_name,
-            'status': 'not_applicable',
-            'utilization': 0.0,
+            'status': 'input_required',
+            'utilization': None,
             'displayUtilization': 'N/A',
             'category': 'input_required',
             'failureType': 'input_unavailable',
@@ -729,13 +741,7 @@ def _time_history_direction_trace_item(analysis_summary: Dict[str, Any]) -> Opti
             _ground_motion_scale_factor_item(_record(time_history.get('spectrumMatch'))),
             _ground_motion_spectrum_compatibility_item(_record(time_history.get('spectrumMatch'))),
         ]
-        statuses = [str(item.get('status') or 'not_applicable') for item in subchecks]
-        if any(status == 'fail' for status in statuses):
-            direction_status = 'fail'
-        elif any(status == 'pass' for status in statuses):
-            direction_status = 'pass'
-        else:
-            direction_status = 'not_applicable'
+        direction_status = _aggregate_check_status(subchecks)
         direction_checks.append({
             'direction': direction,
             'status': direction_status,
@@ -751,12 +757,7 @@ def _time_history_direction_trace_item(analysis_summary: Dict[str, Any]) -> Opti
     if not direction_checks and not missing_directions:
         return None
 
-    if any(item.get('status') == 'fail' for item in direction_checks):
-        status = 'fail'
-    elif any(item.get('status') == 'pass' for item in direction_checks):
-        status = 'pass'
-    else:
-        status = 'not_applicable'
+    status = 'input_required' if missing_directions else _aggregate_check_status(direction_checks)
     utilization = max((float(item.get('utilization', 0.0) or 0.0) for item in direction_checks), default=0.0)
     return {
         'item': '时程方向级校核追踪',
@@ -2264,11 +2265,11 @@ def _frame_column_longitudinal_reinforcement_item(
             'formula': 'longitudinal reinforcement ratio on each side >= 0.2%',
         })
 
-    controlling = max(subchecks, key=lambda item: float(item.get('utilization', 0.0)))
-    utilization = float(controlling.get('utilization', 0.0))
+    controlling = max(subchecks, key=lambda item: float(item.get('utilization') or 0.0))
+    utilization = float(controlling.get('utilization') or 0.0)
     return {
         'item': '框架柱纵筋构造',
-        'status': 'pass' if all(item.get('status') == 'pass' for item in subchecks) else 'fail',
+        'status': _aggregate_check_status(subchecks),
         'utilization': round(utilization, 4),
         'clause': 'GB/T 50011-2010(2024) 6.3.7',
         'formula': 'column longitudinal reinforcement ratio >= table minimum; each side >= 0.2%',
@@ -2458,11 +2459,11 @@ def _frame_column_longitudinal_detailing_item(
     if not subchecks:
         return None
 
-    controlling = max(subchecks, key=lambda item: float(item.get('utilization', 0.0)))
-    utilization = float(controlling.get('utilization', 0.0))
+    controlling = max(subchecks, key=lambda item: float(item.get('utilization') or 0.0))
+    utilization = float(controlling.get('utilization') or 0.0)
     return {
         'item': '框架柱纵筋补充构造',
-        'status': 'pass' if all(item.get('status') == 'pass' for item in subchecks) else 'fail',
+        'status': _aggregate_check_status(subchecks),
         'utilization': round(utilization, 4),
         'clause': 'GB/T 50011-2010(2024) 6.3.8',
         'formula': 'column longitudinal symmetry, spacing, maximum reinforcement ratio, short-column side-ratio, and small-eccentric-tension increase detailing',
@@ -2577,11 +2578,11 @@ def _frame_column_stirrup_detailing_item(
     if not subchecks:
         return None
 
-    controlling = max(subchecks, key=lambda item: float(item.get('utilization', 0.0)))
-    utilization = float(controlling.get('utilization', 0.0))
+    controlling = max(subchecks, key=lambda item: float(item.get('utilization') or 0.0))
+    utilization = float(controlling.get('utilization') or 0.0)
     return {
         'item': '框架柱箍筋加密区构造',
-        'status': 'pass' if all(item.get('status') == 'pass' for item in subchecks) else 'fail',
+        'status': _aggregate_check_status(subchecks),
         'utilization': round(utilization, 4),
         'clause': 'GB/T 50011-2010(2024) 6.3.7',
         'formula': 'confined-zone stirrup spacing <= min(6d/8d, 100/150mm); diameter >= grade limit',
@@ -2731,11 +2732,11 @@ def _frame_column_stirrup_confined_zone_range_item(
     if not subchecks:
         return None
 
-    controlling = max(subchecks, key=lambda item: float(item.get('utilization', 0.0)))
-    utilization = float(controlling.get('utilization', 0.0))
+    controlling = max(subchecks, key=lambda item: float(item.get('utilization') or 0.0))
+    utilization = float(controlling.get('utilization') or 0.0)
     return {
         'item': '框架柱箍筋加密区范围',
-        'status': 'pass' if all(item.get('status') == 'pass' for item in subchecks) else 'fail',
+        'status': _aggregate_check_status(subchecks),
         'utilization': round(utilization, 4),
         'clause': 'GB/T 50011-2010(2024) 6.3.9',
         'formula': 'column-end confined-zone length >= max(hc, Hn/6, 500mm); special columns require full-height confinement; bottom-story lower end >= Hn/3',
@@ -2885,11 +2886,11 @@ def _frame_column_stirrup_volume_ratio_item(
     if not subchecks:
         return None
 
-    controlling = max(subchecks, key=lambda item: float(item.get('utilization', 0.0)))
-    utilization = float(controlling.get('utilization', 0.0))
+    controlling = max(subchecks, key=lambda item: float(item.get('utilization') or 0.0))
+    utilization = float(controlling.get('utilization') or 0.0)
     return {
         'item': '框架柱箍筋体积配箍率',
-        'status': 'pass' if all(item.get('status') == 'pass' for item in subchecks) else 'fail',
+        'status': _aggregate_check_status(subchecks),
         'utilization': round(utilization, 4),
         'clause': 'GB/T 50011-2010(2024) 6.3.9',
         'formula': 'rho_v >= lambda_v * fc / fyv and grade absolute minimums; special short/frame-supported column and non-confined-zone requirements',
@@ -3045,11 +3046,11 @@ def _frame_joint_core_stirrup_detailing_item(
     if not subchecks:
         return None
 
-    controlling = max(subchecks, key=lambda item: float(item.get('utilization', 0.0)))
-    utilization = float(controlling.get('utilization', 0.0))
+    controlling = max(subchecks, key=lambda item: float(item.get('utilization') or 0.0))
+    utilization = float(controlling.get('utilization') or 0.0)
     return {
         'item': '框架节点核芯区箍筋构造',
-        'status': 'pass' if all(item.get('status') == 'pass' for item in subchecks) else 'fail',
+        'status': _aggregate_check_status(subchecks),
         'utilization': round(utilization, 4),
         'clause': 'GB/T 50011-2010(2024) 6.3.10',
         'formula': 'joint-core stirrup spacing/diameter follow 6.3.7; lambda_v and rho_v satisfy grade minimums; short-column joint core rho_v >= adjacent column-end rho_v',
@@ -3104,8 +3105,9 @@ def _frame_joint_core_shear_capacity_item(
     if not has_capacity_check:
         return {
             'item': '框架节点核芯区截面抗震验算',
-            'status': 'not_applicable',
-            'utilization': 2.0,
+            'status': 'input_required',
+            'category': 'input_required',
+            'utilization': None,
             'clause': 'GB/T 50011-2010(2024) 6.2.15 + Appendix D',
             'formula': 'Grade 1/2 frame joint cores require seismic shear-capacity verification by Appendix D',
             'inputs': {
@@ -3349,8 +3351,9 @@ def _frame_joint_strong_column_weak_beam_item(
     if not subchecks:
         return {
             'item': '框架节点强柱弱梁弯矩关系',
-            'status': 'not_applicable',
-            'utilization': 2.0,
+            'status': 'input_required',
+            'category': 'input_required',
+            'utilization': None,
             'clause': 'GB/T 50011-2010(2024) 6.2.2',
             'formula': 'ΣMc >= ηc * ΣMb using structured joint moment-capacity data',
             'inputs': {
@@ -3360,11 +3363,11 @@ def _frame_joint_strong_column_weak_beam_item(
             },
             'message': 'Structured strong-column weak-beam data is present but does not include a comparable utilization, required ratio, or column/beam moment-capacity pair.',
         }
-    controlling = max(subchecks, key=lambda item: float(item.get('utilization', 0.0)))
-    utilization = float(controlling.get('utilization', 0.0))
+    controlling = max(subchecks, key=lambda item: float(item.get('utilization') or 0.0))
+    utilization = float(controlling.get('utilization') or 0.0)
     return {
         'item': '框架节点强柱弱梁弯矩关系',
-        'status': 'pass' if all(item.get('status') == 'pass' for item in subchecks) else 'fail',
+        'status': _aggregate_check_status(subchecks),
         'utilization': round(utilization, 4),
         'clause': 'GB/T 50011-2010(2024) 6.2.2',
         'formula': 'ΣMc >= ηc * ΣMb using structured joint moment-capacity data',
@@ -3396,8 +3399,9 @@ def _concrete_frame_member_strength_grade_item(
     if material_grade is None:
         return {
             'item': '框架梁柱混凝土强度等级',
-            'status': 'not_applicable',
-            'utilization': 0.0,
+            'status': 'input_required',
+            'category': 'input_required',
+            'utilization': None,
             'clause': 'GB 55002-2021 5.1.2',
             'formula': 'transfer beam/column and seismic grade <= 2 frame beam/column: concrete strength grade >= C30',
             'inputs': {
@@ -3497,11 +3501,11 @@ def _frame_beam_section_geometry_item(
             'spanSource': span_info.get('source'),
         })
 
-    controlling = max(subchecks, key=lambda item: float(item.get('utilization', 0.0)))
-    utilization = float(controlling.get('utilization', 0.0))
+    controlling = max(subchecks, key=lambda item: float(item.get('utilization') or 0.0))
+    utilization = float(controlling.get('utilization') or 0.0)
     return {
         'item': '框架梁截面尺寸',
-        'status': 'pass' if all(item.get('status') == 'pass' for item in subchecks) else 'fail',
+        'status': _aggregate_check_status(subchecks),
         'utilization': round(utilization, 4),
         'clause': 'GB/T 50011-2010(2024) 6.3.1',
         'formula': 'b >= 200mm; h/b <= 4; ln/h >= 4 when span is available',
@@ -3644,11 +3648,11 @@ def _frame_beam_flat_beam_detailing_item(
     if not subchecks:
         return None
 
-    controlling = max(subchecks, key=lambda item: float(item.get('utilization', 0.0)))
-    utilization = float(controlling.get('utilization', 0.0))
+    controlling = max(subchecks, key=lambda item: float(item.get('utilization') or 0.0))
+    utilization = float(controlling.get('utilization') or 0.0)
     return {
         'item': '框架扁梁构造',
-        'status': 'pass' if all(item.get('status') == 'pass' for item in subchecks) else 'fail',
+        'status': _aggregate_check_status(subchecks),
         'utilization': round(utilization, 4),
         'clause': 'GB/T 50011-2010(2024) 6.3.2',
         'formula': 'bb <= 2bc; bb <= bc + hb; hb >= 16d; flat beams should not be used in Grade 1 frames',
@@ -3741,11 +3745,11 @@ def _frame_beam_longitudinal_reinforcement_item(
     if not subchecks:
         return None
 
-    controlling = max(subchecks, key=lambda item: float(item.get('utilization', 0.0)))
-    utilization = float(controlling.get('utilization', 0.0))
+    controlling = max(subchecks, key=lambda item: float(item.get('utilization') or 0.0))
+    utilization = float(controlling.get('utilization') or 0.0)
     return {
         'item': '框架梁贯通纵筋构造',
-        'status': 'pass' if all(item.get('status') == 'pass' for item in subchecks) else 'fail',
+        'status': _aggregate_check_status(subchecks),
         'utilization': round(utilization, 4),
         'clause': 'GB/T 50011-2010(2024) 6.3.4',
         'formula': 'top and bottom continuous longitudinal bars: Grade 1/2 >= 2φ14 and >= 1/4 max end area; Grade 3/4 >= 2φ12',
@@ -3830,11 +3834,11 @@ def _frame_beam_end_longitudinal_ductility_item(
     if not subchecks:
         return None
 
-    controlling = max(subchecks, key=lambda item: float(item.get('utilization', 0.0)))
-    utilization = float(controlling.get('utilization', 0.0))
+    controlling = max(subchecks, key=lambda item: float(item.get('utilization') or 0.0))
+    utilization = float(controlling.get('utilization') or 0.0)
     return {
         'item': '框架梁端纵筋延性构造',
-        'status': 'pass' if all(item.get('status') == 'pass' for item in subchecks) else 'fail',
+        'status': _aggregate_check_status(subchecks),
         'utilization': round(utilization, 4),
         'clause': 'GB/T 50011-2010(2024) 6.3.3 + 6.3.4',
         'formula': 'beam-end compression-zone ratio, bottom/top area ratio, and end tension reinforcement ratio limits',
@@ -4026,11 +4030,11 @@ def _frame_beam_stirrup_detailing_item(
     if not subchecks:
         return None
 
-    controlling = max(subchecks, key=lambda item: float(item.get('utilization', 0.0)))
-    utilization = float(controlling.get('utilization', 0.0))
+    controlling = max(subchecks, key=lambda item: float(item.get('utilization') or 0.0))
+    utilization = float(controlling.get('utilization') or 0.0)
     return {
         'item': '框架梁箍筋加密区构造',
-        'status': 'pass' if all(item.get('status') == 'pass' for item in subchecks) else 'fail',
+        'status': _aggregate_check_status(subchecks),
         'utilization': round(utilization, 4),
         'clause': 'GB/T 50011-2010(2024) 6.3.3 + 6.3.4',
         'formula': 'beam-end stirrup confined-zone length, spacing, diameter, leg spacing, first stirrup, and hook detailing',
@@ -4090,11 +4094,11 @@ def _frame_column_section_geometry_item(
         'formula': 'long side / short side <= 3',
     })
 
-    controlling = max(subchecks, key=lambda item: float(item.get('utilization', 0.0)))
-    utilization = float(controlling.get('utilization', 0.0))
+    controlling = max(subchecks, key=lambda item: float(item.get('utilization') or 0.0))
+    utilization = float(controlling.get('utilization') or 0.0)
     return {
         'item': '框架柱截面尺寸',
-        'status': 'pass' if all(item.get('status') == 'pass' for item in subchecks) else 'fail',
+        'status': _aggregate_check_status(subchecks),
         'utilization': round(utilization, 4),
         'clause': 'GB/T 50011-2010(2024) 6.3.5',
         'formula': 'min(b,h) >= 300/400mm by seismic grade and story count; long side / short side <= 3',
@@ -4302,11 +4306,11 @@ def _shear_wall_thickness_item(
 
     if not subchecks:
         return None
-    controlling = max(subchecks, key=lambda item: float(item.get('utilization', 0.0)))
-    utilization = float(controlling.get('utilization', 0.0))
+    controlling = max(subchecks, key=lambda item: float(item.get('utilization') or 0.0))
+    utilization = float(controlling.get('utilization') or 0.0)
     return {
         'item': '抗震墙墙厚',
-        'status': 'pass' if all(item.get('status') == 'pass' for item in subchecks) else 'fail',
+        'status': _aggregate_check_status(subchecks),
         'utilization': round(utilization, 4),
         'clause': 'GB/T 50011-2010(2024) 6.4.1',
         'formula': 'wall thickness satisfies seismic-grade absolute and story-height limits',
@@ -4427,8 +4431,9 @@ def _shear_wall_axial_compression_ratio_item(
     if axial_ratio is None or limit_info is None:
         return {
             'item': '抗震墙轴压比限值',
-            'status': 'not_applicable',
-            'utilization': 2.0,
+            'status': 'input_required',
+            'category': 'input_required',
+            'utilization': None,
             'clause': 'GB/T 50011-2010(2024) 6.4',
             'formula': 'wall axial compression ratio should be checked against a structured project/code-derived limit',
             'inputs': {
@@ -4649,11 +4654,11 @@ def _shear_wall_distributed_reinforcement_item(
 
     if not subchecks:
         return None
-    controlling = max(subchecks, key=lambda item: float(item.get('utilization', 0.0)))
-    utilization = float(controlling.get('utilization', 0.0))
+    controlling = max(subchecks, key=lambda item: float(item.get('utilization') or 0.0))
+    utilization = float(controlling.get('utilization') or 0.0)
     return {
         'item': '抗震墙分布钢筋构造',
-        'status': 'pass' if all(item.get('status') == 'pass' for item in subchecks) else 'fail',
+        'status': _aggregate_check_status(subchecks),
         'utilization': round(utilization, 4),
         'clause': 'GB/T 50011-2010(2024) 6.4.2 + 6.4.3',
         'formula': 'wall distributed reinforcement layer, tie, ratio, spacing, and diameter satisfy seismic detailing limits',
@@ -4889,8 +4894,9 @@ def _shear_wall_boundary_element_item(
         if required:
             return {
                 'item': '抗震墙边缘构件构造',
-                'status': 'not_applicable',
-                'utilization': 2.0,
+                'status': 'input_required',
+                'category': 'input_required',
+                'utilization': None,
                 'clause': 'GB/T 50011-2010(2024) 6.4',
                 'formula': 'required seismic-wall boundary-element detailing should provide structured longitudinal and transverse checks',
                 'inputs': {
@@ -5066,8 +5072,9 @@ def _shear_wall_boundary_element_item(
         if required:
             return {
                 'item': '抗震墙边缘构件构造',
-                'status': 'not_applicable',
-                'utilization': 2.0,
+                'status': 'input_required',
+                'category': 'input_required',
+                'utilization': None,
                 'clause': 'GB/T 50011-2010(2024) 6.4',
                 'formula': 'required seismic-wall boundary-element detailing should provide comparable structured limits',
                 'inputs': {
@@ -5079,11 +5086,11 @@ def _shear_wall_boundary_element_item(
             }
         return None
 
-    controlling = max(subchecks, key=lambda item: float(item.get('utilization', 0.0)))
-    utilization = float(controlling.get('utilization', 0.0))
+    controlling = max(subchecks, key=lambda item: float(item.get('utilization') or 0.0))
+    utilization = float(controlling.get('utilization') or 0.0)
     return {
         'item': '抗震墙边缘构件构造',
-        'status': 'pass' if all(item.get('status') == 'pass' for item in subchecks) else 'fail',
+        'status': _aggregate_check_status(subchecks),
         'utilization': round(utilization, 4),
         'clause': 'GB/T 50011-2010(2024) 6.4',
         'formula': 'boundary-element longitudinal and transverse reinforcement satisfy structured code-derived limits',
@@ -5331,11 +5338,11 @@ def _structured_seismic_combination_member_capacity_item(
 
     if not subchecks:
         return None
-    controlling = max(subchecks, key=lambda item: float(item.get('utilization', 0.0)))
-    utilization = float(controlling.get('utilization', 0.0))
+    controlling = max(subchecks, key=lambda item: float(item.get('utilization') or 0.0))
+    utilization = float(controlling.get('utilization') or 0.0)
     return {
         'item': '抗震组合构件承载力',
-        'status': 'pass' if all(item.get('status') == 'pass' for item in subchecks) else 'fail',
+        'status': _aggregate_check_status(subchecks),
         'utilization': round(utilization, 4),
         'clause': 'GB 55002-2021 + GB/T 50011-2010(2024) 5.4.1 + 5.4.2 + 6.2',
         'formula': 'structured seismic combination member force effect satisfies S <= R/gammaRE when gammaRE is provided',
@@ -5449,8 +5456,9 @@ def _steel_detailing_subcheck_from_pair(
     if actual is None or limit is None or limit <= 0.0:
         return {
             'name': name,
-            'status': 'not_applicable',
-            'utilization': 9999.0,
+            'status': 'input_required',
+            'category': 'input_required',
+            'utilization': None,
             'actual': round(actual, 6) if actual is not None else None,
             'limit': round(limit, 6) if limit is not None else None,
             'actualSource': actual_info.get('source') if actual_info is not None else None,
@@ -5564,8 +5572,9 @@ def _steel_member_seismic_detailing_item(
     if not subchecks:
         return {
             'item': '钢构件抗震构造限值',
-            'status': 'not_applicable',
-            'utilization': 0.0,
+            'status': 'input_required',
+            'category': 'input_required',
+            'utilization': None,
             'clause': 'GB/T 50011-2010(2024) 8.3 + 8.4',
             'formula': 'structured steel seismic detailing actual values are checked against project/code-derived limits',
             'inputs': {
@@ -5579,17 +5588,12 @@ def _steel_member_seismic_detailing_item(
             'message': 'Structured steel seismic detailing data is present but does not include comparable actual values and code-derived limits.',
         }
 
-    controlling = max(subchecks, key=lambda item: float(item.get('utilization', 0.0)))
-    if any(item.get('status') == 'fail' for item in subchecks):
-        status = 'fail'
-    elif any(item.get('status') == 'not_applicable' for item in subchecks):
-        status = 'not_applicable'
-    else:
-        status = 'pass'
+    controlling = max(subchecks, key=lambda item: float(item.get('utilization') or 0.0))
+    status = _aggregate_check_status(subchecks)
     return {
         'item': '钢构件抗震构造限值',
         'status': status,
-        'utilization': float(controlling.get('utilization', 0.0)),
+        'utilization': float(controlling.get('utilization') or 0.0),
         'clause': 'GB/T 50011-2010(2024) 8.3 + 8.4',
         'formula': 'structured steel seismic detailing actual values are checked against project/code-derived limits',
         'inputs': {
@@ -5792,8 +5796,9 @@ def _frame_member_strong_shear_weak_bending_item(
     if not subchecks:
         return {
             'item': '框架构件强剪弱弯受剪承载力',
-            'status': 'not_applicable',
-            'utilization': 2.0,
+            'status': 'input_required',
+            'category': 'input_required',
+            'utilization': None,
             'clause': 'GB/T 50011-2010(2024) 6.2.4 + 6.2.5',
             'formula': 'Vu >= V_capacity_design from member flexural capacity using structured data',
             'inputs': {
@@ -5804,11 +5809,11 @@ def _frame_member_strong_shear_weak_bending_item(
             },
             'message': 'Structured strong-shear weak-bending data is present but does not include comparable shear demand/capacity or utilization.',
         }
-    controlling = max(subchecks, key=lambda item: float(item.get('utilization', 0.0)))
-    utilization = float(controlling.get('utilization', 0.0))
+    controlling = max(subchecks, key=lambda item: float(item.get('utilization') or 0.0))
+    utilization = float(controlling.get('utilization') or 0.0)
     return {
         'item': '框架构件强剪弱弯受剪承载力',
-        'status': 'pass' if all(item.get('status') == 'pass' for item in subchecks) else 'fail',
+        'status': _aggregate_check_status(subchecks),
         'utilization': round(utilization, 4),
         'clause': 'GB/T 50011-2010(2024) 6.2.4 + 6.2.5',
         'formula': 'Vu >= V_capacity_design from member flexural capacity using structured data',
@@ -6059,8 +6064,9 @@ def _concrete_member_shear_compression_limit_item(
             return None
         return {
             'item': '混凝土构件剪压比限值',
-            'status': 'not_applicable',
-            'utilization': 2.0,
+            'status': 'input_required',
+            'category': 'input_required',
+            'utilization': None,
             'clause': 'GB/T 50011-2010(2024) 6.2.9',
             'formula': 'V <= coefficient * fc * b * h0 / gammaRE',
             'inputs': {
@@ -6722,8 +6728,9 @@ def _capability_boundary_item(analysis_summary: Dict[str, Any]) -> Optional[Dict
         return None
     return {
         'item': '抗震能力边界',
-        'status': 'fail',
-        'utilization': 0.0,
+        'status': 'unsupported',
+        'category': 'unsupported',
+        'utilization': None,
         'displayUtilization': 'N/A',
         'governingEligible': False,
         'clause': 'GB 55002-2021 + GB/T 50011-2010(2024)',
@@ -6787,11 +6794,13 @@ def _special_system_review_item(analysis_summary: Dict[str, Any]) -> Optional[Di
         _record(item).get('item') for item in checks
         if _record(item).get('status') == 'fail'
     ]
-    failed = bool(capability_boundaries or missing_inputs or failed_checks)
+    status = 'fail' if failed_checks else 'unsupported' if capability_boundaries else 'input_required' if missing_inputs else 'pass'
     return {
         'item': '隔震与消能减震专门体系审计',
-        'status': 'fail' if failed else 'pass',
-        'utilization': 9999.0 if failed else 0.0,
+        'status': status,
+        'category': status if status in {'unsupported', 'input_required'} else 'diagnostic',
+        'utilization': None,
+        'governingEligible': False,
         'clause': 'GB 55002-2021 + GB/T 50011-2010(2024)',
         'formula': 'specialized isolation/energy-dissipation systems require structured device audit and specialized analysis before final compliance',
         'inputs': {
@@ -6863,7 +6872,7 @@ def _special_system_review_item(analysis_summary: Dict[str, Any]) -> Optional[Di
                 if energy_dissipation_time_history_estimate.get(key) is not None
             } if energy_dissipation_time_history_estimate else None,
         },
-        **({} if not failed else {
+        **({} if status == 'pass' else {
             'message': 'Structured workflow includes isolation or energy-dissipation systems; final China seismic compliance requires specialized system analysis and complete device acceptance data.',
         }),
     }
@@ -7540,11 +7549,11 @@ def _story_minimum_seismic_shear_coefficient_item(
             'storyShearKN': round(float(entry['storyShearKN']), 6) if entry.get('storyShearKN') is not None else None,
             'cumulativeWeightKN': round(float(entry['cumulativeWeightKN']), 6) if entry.get('cumulativeWeightKN') is not None else None,
         })
-    controlling = max(story_results, key=lambda item: float(item.get('utilization', 0.0)))
-    utilization = float(controlling.get('utilization', 0.0))
+    controlling = max(story_results, key=lambda item: float(item.get('utilization') or 0.0))
+    utilization = float(controlling.get('utilization') or 0.0)
     return {
         'item': '楼层最小地震剪力系数',
-        'status': 'pass' if all(item.get('status') == 'pass' for item in story_results) else 'fail',
+        'status': _aggregate_check_status(story_results),
         'utilization': round(utilization, 4),
         'clause': 'GB/T 50011-2010(2024) 5.2.5',
         'formula': 'V_Eki / G_i >= λ; weak story λ is multiplied by 1.15; 3.5s<T1<5.0s uses linear interpolation',
@@ -7600,8 +7609,9 @@ def _regularity_time_history_trigger_item(
     else:
         return {
             'item': '规则性评估与补充时程触发',
-            'status': 'not_applicable',
-            'utilization': 0.0,
+            'status': 'input_required',
+            'category': 'input_required',
+            'utilization': None,
             'clause': 'GB/T 50011-2010(2024) 5.1.2',
             'formula': 'particularly_irregular => supplementary frequent-earthquake time-history analysis',
             'inputs': {

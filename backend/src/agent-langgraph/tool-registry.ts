@@ -25,6 +25,7 @@ import {
 import { createAnalyzeFileTool } from './file-tools.js';
 import { createShellTool } from './shell-tool.js';
 import { createCalculateTool } from './calc-tool.js';
+import { createEditModelTool, createUndoModelTool, createQueryModelTool, createQueryResultsTool } from './model-tools.js';
 
 export type AgentToolRisk = 'low' | 'workspace-read' | 'workspace-write' | 'destructive' | 'shell';
 export type AgentToolCategory = 'engineering' | 'interaction' | 'session' | 'workspace' | 'memory' | 'shell';
@@ -46,6 +47,14 @@ export interface AgentToolDefinition {
 }
 
 export const AGENT_TOOL_DEFINITIONS: readonly AgentToolDefinition[] = [
+  { id: 'query_model', category: 'engineering', risk: 'low', defaultEnabled: true,
+    displayName: { zh: '查询模型', en: 'Query Model' }, description: { zh: '查询对象和版本。', en: 'Read objects and revisions.' }, create: () => createQueryModelTool() },
+  { id: 'edit_model', category: 'engineering', risk: 'low', defaultEnabled: true,
+    displayName: { zh: '修改模型', en: 'Edit Model' }, description: { zh: '按对象原子修改模型。', en: 'Edit named objects atomically.' }, create: () => createEditModelTool() },
+  { id: 'undo_model', category: 'engineering', risk: 'low', defaultEnabled: true,
+    displayName: { zh: '撤销修改', en: 'Undo Edit' }, description: { zh: '恢复历史模型并生成新版本。', en: 'Restore a model as a new revision.' }, create: () => createUndoModelTool() },
+  { id: 'query_results', category: 'engineering', risk: 'low', defaultEnabled: true,
+    displayName: { zh: '查询结果', en: 'Query Results' }, description: { zh: '查询工况、组合和历史运行。', en: 'Query cases, combinations and historical runs.' }, create: () => createQueryResultsTool() },
   {
     id: 'detect_structure_type',
     category: 'engineering',

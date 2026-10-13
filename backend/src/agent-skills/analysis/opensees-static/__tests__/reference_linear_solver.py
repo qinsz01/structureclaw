@@ -1149,5 +1149,3 @@ class ReferenceStaticAnalyzer(StaticLoadContext):
         if length == 0:
             raise ValueError(f"Beam element '{elem.id}' has zero length")
         return self._build_3d_rotation_matrix(axis / length, elem_id=elem.id)
-
-
