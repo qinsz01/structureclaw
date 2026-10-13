@@ -12,6 +12,7 @@ import zlib
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "runtime"))
 from native_numeric_sections import compile_numeric_sections, verify_numeric_sections, has_numeric_sections, _members
 from native_model_contract import pkpm_numeric_section_properties
 
