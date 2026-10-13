@@ -46,8 +46,8 @@ from typing import Any
 
 from YJKAPI import BzcPara, DataFunc, Hi_AddToAndReadYjk
 from model_contract import validate_building_model
+from native_story_geometry import compile_story_geometry, exact_mm
 
-M_TO_MM = 1000.0
 CANONICAL_DOF_ORDER = ["ux", "uy", "uz", "rx", "ry", "rz"]
 
 
@@ -66,15 +66,7 @@ def _require_canonical_3d_coordinate_contract(data: dict[str, Any]) -> dict[str,
     return coordinate_system
 
 
-def _metres_to_exact_mm(value: Any, label: str) -> int:
-    try:
-        millimetres = float(value) * M_TO_MM
-    except (TypeError, ValueError) as error:
-        raise ValueError(f"{label} must be a finite value in metres") from error
-    rounded = round(millimetres)
-    if not math.isfinite(millimetres) or abs(millimetres - rounded) > 1e-6:
-        raise ValueError(f"{label} is not exactly representable in integer millimetres")
-    return int(rounded)
+_metres_to_exact_mm = exact_mm
 
 # material category -> YJK mat type
 _CATEGORY_TO_MAT: dict[str, int] = {
@@ -427,38 +419,6 @@ def _plan_key(x_mm: int, y_mm: int) -> str:
 
 
 
-def _build_story_infos(stories: list[dict]) -> list[dict[str, Any]]:
-    """Normalize story ids/elevations for mapping output."""
-    infos: list[dict[str, Any]] = []
-    cumulative_elevation = 0.0
-    for index, story in enumerate(stories, start=1):
-        raw_elevation = story.get("elevation")
-        elevation = float(raw_elevation) if raw_elevation is not None else cumulative_elevation
-        height = float(story.get("height", 0))
-        top_elevation = elevation + height
-        story_id = str(story.get("id") or f"F{index}")
-        infos.append({
-            "id": story_id,
-            "index": index,
-            "height_m": height,
-            "elevation_m": elevation,
-            "top_elevation_m": top_elevation,
-            "height_mm": _metres_to_exact_mm(height, f"Story '{story_id}' height"),
-            "elevation_mm": _metres_to_exact_mm(elevation, f"Story '{story_id}' elevation"),
-            "top_elevation_mm": _metres_to_exact_mm(top_elevation, f"Story '{story_id}' top elevation"),
-        })
-        cumulative_elevation = top_elevation
-    return infos
-
-
-
-
-
-
-
-
-
-
 def _classify_element_geometry(elem: dict, nodes_by_id: dict[str, dict]) -> str:
     node_ids = elem.get("nodes", [])
     if len(node_ids) < 2:
@@ -537,7 +497,8 @@ def convert_v2_to_ydb(
     validate_building_model(data)
     os.makedirs(work_dir, exist_ok=True)
     stories = sorted(data["stories"], key=lambda story: float(story["elevation"]))
-    story_infos = _build_story_infos(stories)
+    layout = compile_story_geometry(data)
+    story_infos = layout["stories"]
     data_func = DataFunc()
     section_roles = _infer_section_roles(data)
     native_sections: dict[str, Any] = {}
@@ -579,15 +540,16 @@ def convert_v2_to_ydb(
     all_native_members: dict[str, Any] = {}
     floor_mappings: list[dict[str, Any]] = []
     for node_id, node in nodes.items():
-        level = float(node["z"])
-        floor_index = next((info["index"] for info in story_infos if abs(info["top_elevation_m"] - level) < 1e-6), 0)
+        location = layout["nodes"][node_id]
+        floor_index = location["floor_index"]
         node_mappings[node_id] = {
             "v2_id": node_id,
             **{f"{axis}_m": float(node[axis]) for axis in ("x", "y", "z")},
             **{f"{axis}_mm": _metres_to_exact_mm(node[axis], f"Node '{node_id}' {axis}") for axis in ("x", "y", "z")},
             "floor": stories[floor_index - 1]["id"] if floor_index else None,
             "floor_index": floor_index,
-            "floor_source": "exact-global-elevation",
+            "floor_source": "declared-natural-storey-with-physical-height",
+            "height_offset_mm": location["height_offset_mm"],
             "plan_key": _plan_key(_metres_to_exact_mm(node["x"], "X"), _metres_to_exact_mm(node["y"], "Y")),
             "yjk_std_floor_node_id": None,
             "yjk_std_floor_node_id_source": None,
@@ -614,7 +576,8 @@ def convert_v2_to_ydb(
         for node_id, entry in node_mappings.items():
             if entry["floor_index"] != info["index"]:
                 continue
-            native_node = data_func.Joint_Generate(floor_id, entry["x_mm"], entry["y_mm"])
+            native_node = (data_func.Joint_Generate(floor_id, entry["x_mm"], entry["y_mm"], HDiff=entry["height_offset_mm"])
+                           if entry["height_offset_mm"] else data_func.Joint_Generate(floor_id, entry["x_mm"], entry["y_mm"]))
             native_nodes[node_id] = native_node
             plan_nodes[(entry["x_mm"], entry["y_mm"])] = native_node
             all_native_nodes[node_id] = native_node
@@ -622,8 +585,8 @@ def convert_v2_to_ydb(
             entry["yjk_std_floor_node_id_source"] = "Joint_Generate"
         for element in data["elements"]:
             node_ids = [str(value) for value in element["nodes"]]
-            top = max(float(nodes[node_id]["z"]) for node_id in node_ids)
-            if abs(top - info["top_elevation_m"]) > 1e-6:
+            placement = layout["members"][str(element["id"])]
+            if placement["floor_index"] != info["index"]:
                 continue
             element_id = str(element["id"])
             section_id = str(element["section"])
@@ -640,9 +603,13 @@ def convert_v2_to_ydb(
                 if lower_key not in plan_nodes:
                     plan_nodes[lower_key] = data_func.Joint_Generate(floor_id, *lower_key)
                 native_member = data_func.brace_arrange(plan_nodes[lower_key], native_nodes[node_ids[1]],
-                    inclined_sections[section_id], HDiff1=0, HDiff2=info["height_mm"], Rotation=rotation)
+                    inclined_sections[section_id], HDiff1=placement["start_height_mm"],
+                    HDiff2=placement["end_height_mm"], Rotation=rotation)
             elif element["type"] == "column":
-                native_member = data_func.column_arrange(native_nodes[node_ids[1]], native_sections[section_id], Rotation=rotation)
+                column_parameters = {"Rotation": rotation}
+                if placement["start_height_mm"]:
+                    column_parameters["HDiffB"] = placement["start_height_mm"]
+                native_member = data_func.column_arrange(native_nodes[node_ids[1]], native_sections[section_id], **column_parameters)
             else:
                 start = _extract_yjk_id(native_nodes[node_ids[0]])
                 end = _extract_yjk_id(native_nodes[node_ids[1]])
@@ -672,7 +639,7 @@ def convert_v2_to_ydb(
             element_mappings[element_id] = {
                 "v2_id": element_id, "type": element["type"], "nodes": node_ids,
                 "floor": story["id"], "floor_index": info["index"],
-                "floor_source": "exact-global-elevation",
+                "floor_source": "declared-natural-storey-with-physical-height",
                 "geometry_role": _classify_element_geometry(element, nodes),
                 "section_id": section_id, "material_id": str(element["material"]),
                 "section": _section_summary(sections[section_id]),

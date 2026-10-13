@@ -1,7 +1,7 @@
 """SDK-independent validation for the native YJK floor compiler."""
 from __future__ import annotations
 import math
-from typing import Any
+from native_story_geometry import compile_story_geometry, exact_mm
 
 def validate_execution_settings(data: dict) -> None:
     from native_settings import compile_settings
@@ -24,25 +24,12 @@ def validate_building_model(model_dict: dict) -> None:
 
     _validate_story_derived_loads(model_dict)
 
-    def coordinate_mm(value: Any, label: str) -> int:
-        try:
-            meters = float(value)
-        except (TypeError, ValueError) as error:
-            raise ValueError(f"{label} must be a finite coordinate in metres") from error
-        millimetres = meters * 1000.0
-        rounded = round(millimetres)
-        if not math.isfinite(millimetres) or abs(millimetres - rounded) > 1e-6:
-            raise ValueError(
-                f"{label}={meters} m is not exactly representable by YJK's integer-millimetre grid"
-            )
-        return int(rounded)
-
     def coordinate(node: dict) -> tuple[int, int, int]:
         node_id = str(node.get("id"))
         return (
-            coordinate_mm(node.get("x"), f"Node '{node_id}' global X"),
-            coordinate_mm(node.get("y"), f"Node '{node_id}' global Y"),
-            coordinate_mm(node.get("z"), f"Node '{node_id}' global Z"),
+            exact_mm(node.get("x"), f"Node '{node_id}' global X"),
+            exact_mm(node.get("y"), f"Node '{node_id}' global Y"),
+            exact_mm(node.get("z"), f"Node '{node_id}' global Z"),
         )
 
     positions = {str(node.get("id")): coordinate(node) for node in nodes}
@@ -58,19 +45,10 @@ def validate_building_model(model_dict: dict) -> None:
     if zs[0] != 0:
         raise ValueError("YJK building conversion requires the base at global Z=0")
 
-    stories = [story for story in model_dict.get("stories", []) if isinstance(story, dict)]
-    if len(stories) != len(zs) - 1:
-        raise ValueError("YJK conversion requires exactly one explicit story for every adjacent global Z interval")
-    stories.sort(key=lambda story: coordinate_mm(story.get("elevation", 0.0), f"Story '{story.get('id')}' elevation"))
-    for index, story in enumerate(stories):
+    compile_story_geometry(model_dict)
+    stories = sorted(model_dict["stories"], key=lambda story: exact_mm(story["elevation"], "Story elevation"))
+    for story in stories:
         story_id = str(story.get("id"))
-        elevation = coordinate_mm(story.get("elevation", 0.0), f"Story '{story_id}' elevation")
-        height = coordinate_mm(story.get("height"), f"Story '{story_id}' height")
-        if elevation != zs[index] or elevation + height != zs[index + 1]:
-            raise ValueError(
-                f"Story '{story_id}' elevation/height does not exactly match global Z levels "
-                f"{zs[index]}-{zs[index + 1]} mm"
-            )
         floor_loads = story.get("floor_loads", [])
         if not isinstance(floor_loads, list):
             raise ValueError(f"Story '{story_id}' floor_loads must be an array")
@@ -106,17 +84,9 @@ def validate_building_model(model_dict: dict) -> None:
             raise ValueError(
                 f"YJK floor support mapping cannot preserve restraints for node '{node.get('id')}'"
             )
-        explicit_story = node.get("story")
-        if explicit_story is not None:
-            expected_story = None if position[2] == base_z else str(stories[zs.index(position[2]) - 1].get("id"))
-            if str(explicit_story) != expected_story:
-                raise ValueError(
-                    f"Node '{node.get('id')}' story '{explicit_story}' conflicts with global Z={position[2]} mm"
-                )
 
     actual_edges: set[tuple[tuple[float, float, float], tuple[float, float, float]]] = set()
     role_sections: dict[str, set[str]] = {"beam": set(), "column": set()}
-    role_materials: dict[str, set[str]] = {"beam": set(), "column": set()}
     section_ids = {str(section.get("id")) for section in model_dict.get("sections", []) if isinstance(section, dict)}
     materials = {
         str(material.get("id")): material
@@ -141,24 +111,14 @@ def validate_building_model(model_dict: dict) -> None:
             raise ValueError(
                 f"Column '{element.get('id')}' must be ordered from lower global Z to upper global Z"
             )
-        if element_type == "beam" and (start[2] != end[2] or start[:2] == end[:2]):
-            raise ValueError(f"YJK sloping beam '{element.get('id')}' requires native elevation acceptance")
-        if element_type == "column" and zs.index(end[2]) != zs.index(start[2]) + 1:
-            raise ValueError(f"YJK column '{element.get('id')}' must connect adjacent declared floors")
+        if element_type == "beam" and start[:2] == end[:2]:
+            raise ValueError(f"YJK beam '{element.get('id')}' must have a nonzero horizontal span")
         if element_type == "column":
             inclination = math.degrees(math.atan2(math.hypot(end[0]-start[0], end[1]-start[1]), end[2]-start[2]))
             if inclination >= 20:
                 raise ValueError(f"YJK ordinary column '{element.get('id')}' exceeds the calibrated native column inclination (<20 degrees)")
         if element_type == "beam" and start[2] == 0:
             raise ValueError(f"YJK beam '{element.get('id')}' cannot be assigned below the first floor")
-        explicit_story = element.get("story")
-        if explicit_story is not None:
-            story_level = end[2] if element_type == "column" else start[2]
-            expected_story = str(stories[zs.index(story_level) - 1].get("id"))
-            if str(explicit_story) != expected_story:
-                raise ValueError(
-                    f"Element '{element.get('id')}' story '{explicit_story}' conflicts with its global Z interval"
-                )
         rotation = float(element.get("rotation_angle", 0.0) or 0.0)
         if not math.isfinite(rotation):
             raise ValueError(f"YJK member '{element.get('id')}' rotation_angle must be finite")
@@ -180,7 +140,6 @@ def validate_building_model(model_dict: dict) -> None:
                 f"Material '{material_id}' must explicitly declare category='steel' or 'concrete' for YJK"
             )
         role_sections[element_type].add(section_id)
-        role_materials[element_type].add(material_id)
 
     if len(actual_edges) != len(elements):
         raise ValueError("YJK cannot preserve duplicate members at the same endpoints")

@@ -1,0 +1,2577 @@
+{
+  "schema": "sclaw-yjk-sloping-roof-calibration/v1",
+  "provenance": {
+    "nativeWorkDir": "sc_yjk-int092-roof-input_26b87057ecd3",
+    "nativeRunParent": "yjk-frame-acceptance-20261013-183507-f389aa",
+    "sourceFeaSha256": "75b58864c5f9427698e8630e0b5c79b34dd14c7f9b3071e3d6148af7fece69de",
+    "referenceSha256": "c623195c82e8289bf46fef14b7a6bcdf0b559bbfb69e53c3d7d63114fea51d55",
+    "referenceFrozenAt": 1791887707.710614,
+    "referenceScriptSha256": "a914762bcbead96bd8ca74f87b7da7a7c705bec2053f0213c7d7403194a78dcd",
+    "relativeTolerance": 1e-05,
+    "absoluteEndActionTolerance": 1e-05,
+    "note": "Native solve and independent reference preceded sloping station calibration; original rejected audit retained."
+  },
+  "fea": "\t\t\t//***YJK Software***\\\\\n*VERSION\nVERSION=1.0\n\n*PROJINFO\nPROJECT=sc_model\n\n*UNIT\nUNIT=0,0,0\n\n*STRUCTURE\nT=XYZ IMAS=0 GRAV=10.0 K=1.0E20 WDIR=0,0,-1 OE=1 M=10 MESHSIZE=1 MET=0 BMP=1 LT=0\n\n*ANALYSIS scheme=1 STRS=0 M0SPEC=0 ZEROERR=1e-06 BEAMSSTIFF=0 SOLVERVER=1 REACT=1\n\n*NONL_CTRL T=1 STEPS=10 ITER=30 ON=1,1,0 ERR=0.001,0.001,0.001 ST=3 GeoNL=0 CC=0\n\n*SECTION\n1 P=0.175,3.645833E-03,1.786458E-03,0.00405757,0.145833,0.145833 CM=0,0,0\n2 P=0.18,5.400000E-03,1.350000E-03,0.00370786,0.15,0.15 CM=0,0,0\n\n*MATERIAL\n1 P=2.06e+08,0.3,0,0,1.2e-05\n2 P=3.25e+07,0.25,0,0,1e-05\n\n*STORY\n1\tTWR=1 L=1 T=0 Elev=0 H=8 WX=0 WY=0 ECC=0,0 \n\n*NODE\n1\tC=0,0,0 NM=0 VM=0 FM=0 M=0,0,0,0,0,0 T=0 L=0 TWR=0\n2\tC=0,5,0 NM=0 VM=0 FM=0 M=0,0,0,0,0,0 T=0 L=0 TWR=0\n3\tC=6,5,0 NM=0 VM=0 FM=0 M=0,0,0,0,0,0 T=0 L=0 TWR=0\n4\tC=12,0,0 NM=0 VM=0 FM=0 M=0,0,0,0,0,0 T=0 L=0 TWR=0\n5\tC=12,5,0 NM=0 VM=0 FM=0 M=0,0,0,0,0,0 T=0 L=0 TWR=0\n1000001\tC=0,0,6 NM=0 VM=0 FM=1000007 M=16.1824,16.1824,16.1824,0,0,0 T=1 L=1 TWR=1\n1000002\tC=0,5,8 NM=0 VM=1000008 FM=1000007 M=18.9124,18.9124,18.9124,0,0,0 T=1 L=1 TWR=1\n1000003\tC=6,0,6 NM=0 VM=0 FM=1000007 M=12.2044,12.2044,12.2044,0,0,0 T=1 L=1 TWR=1\n1000004\tC=6,5,8 NM=0 VM=1000008 FM=1000007 M=23.1244,23.1244,23.1244,0,0,0 T=1 L=1 TWR=1\n1000005\tC=12,0,6 NM=0 VM=0 FM=1000007 M=16.1824,16.1824,16.1824,0,0,0 T=1 L=1 TWR=1\n1000006\tC=12,5,8 NM=0 VM=1000008 FM=1000007 M=18.9124,18.9124,18.9124,0,0,0 T=1 L=1 TWR=1\n1000007\tC=6,2.88808,7.15523 NM=0 VM=0 FM=0 M=105.518,105.518,105.518,0,0,0 T=4 L=1 TWR=1\n1000008\tC=6,5,8 NM=0 VM=0 FM=0 M=60.9492,60.9492,60.9492,0,0,0 T=2 L=1 TWR=1\n\n*CONSTRAINT\n1\tR=1,1,1,1,1,1 T=1 G=0\n2\tR=1,1,1,1,1,1 T=1 G=0\n3\tR=1,1,1,1,1,1 T=1 G=0\n4\tR=1,1,1,1,1,1 T=1 G=0\n5\tR=1,1,1,1,1,1 T=1 G=0\n\n*STATIC_LDCASE\n1   N=DEAD T=DEAD C=0,0,0 P=1\n2   N=LIVE T=LIVE C=0,0,0 P=1\n7   N=AIRD T=AIRD C=0,0,0 P=2\n101 N=WIND1  T=WIND1  C=0,0,0 P=1\n102 N=WIND2  T=WIND2  C=0,0,0 P=1\n103 N=WIND3  T=WIND3  C=0,0,0 P=1\n104 N=WIND4  T=WIND4  C=0,0,0 P=1\n10001 N=SC001_FX T=DEAD C=0,0,0 P=1\n10003 N=SC002_FY T=DEAD C=0,0,0 P=1\n10005 N=SC003_FZ T=DEAD C=0,0,0 P=1\n10007 N=SC004_MX T=DEAD C=0,0,0 P=1\n10009 N=SC005_MY T=DEAD C=0,0,0 P=1\n10011 N=SC006_MZ T=DEAD C=0,0,0 P=1\n\n*BEAM_LIVE_CTRL\nNR=1  NLC=1 LC=2 CM=sum(R*,B*)@m+,m-\n\n*FRAME\n1000001\tT=BEAM B=1000001 N=1000001,1000003 M=1 SEC=2 DIR=0,0,1 RZL=0,0 E=0,0,0,0,0,0 &\n\t\tCS=7 R=0,0,0,0,0,0 RF=1,1,1,1,1,1 G=C1 L=1 TWR=1\n1000002\tT=BEAM B=1000002 N=1000003,1000005 M=1 SEC=2 DIR=0,0,1 RZL=0,0 E=0,0,0,0,0,0 &\n\t\tCS=7 R=0,0,0,0,0,0 RF=1,1,1,1,1,1 G=C1 L=1 TWR=1\n1000003\tT=BEAM B=1000003 N=1000002,1000004 M=1 SEC=2 DIR=0,0,1 RZL=0,0 E=0,0,0,0,0,0 &\n\t\tCS=7 R=0,0,0,0,0,0 RF=1,1,1,1,1,1 G=C1 L=1 TWR=1\n1000004\tT=BEAM B=1000004 N=1000004,1000006 M=1 SEC=2 DIR=0,0,1 RZL=0,0 E=0,0,0,0,0,0 &\n\t\tCS=7 R=0,0,0,0,0,0 RF=1,1,1,1,1,1 G=C1 L=1 TWR=1\n1000005\tT=BEAM B=1000005 N=1000001,1000002 M=1 SEC=2 DIR=0,-0.371391,0.928477 RZL=0,0 E=0,0,0,0,0,0 &\n\t\tCS=7 R=0,0,0,0,0,0 RF=1,1,1,1,1,1 G=C1 L=1 TWR=1\n1000006\tT=BEAM B=1000006 N=1000003,1000004 M=1 SEC=2 DIR=0,-0.371391,0.928477 RZL=0,0 E=0,0,0,0,0,0 &\n\t\tCS=7 R=0,0,0,0,0,0 RF=1,1,1,1,1,1 G=C1 L=1 TWR=1\n1000007\tT=BEAM B=1000007 N=1000005,1000006 M=1 SEC=2 DIR=0,-0.371391,0.928477 RZL=0,0 E=0,0,0,0,0,0 &\n\t\tCS=7 R=0,0,0,0,0,0 RF=1,1,1,1,1,1 G=C1 L=1 TWR=1\n1000008\tT=COLUMN B=1000008 N=1000001,1 M=1 SEC=1 DIR=-1,-4.37114e-08,0 RZL=0,0 E=0,0,0,0,0,0 &\n\t\tRF=1,1,1,1,1,1 &\n\t\tCS=0 R=0,0,0,0,0,0 RFM=1 G=C1 L=1 TWR=1\n1000009\tT=COLUMN B=1000009 N=1000002,2 M=1 SEC=1 DIR=-1,-4.37114e-08,0 RZL=0,0 E=0,0,0,0,0,0 &\n\t\tRF=1,1,1,1,1,1 &\n\t\tCS=0 R=0,0,0,0,0,0 RFM=1 G=C1 L=1 TWR=1\n1000010\tT=COLUMN B=1000010 N=1000004,3 M=1 SEC=1 DIR=-1,-4.37114e-08,0 RZL=0,0 E=0,0,0,0,0,0 &\n\t\tRF=1,1,1,1,1,1 &\n\t\tCS=0 R=0,0,0,0,0,0 RFM=1 G=C1 L=1 TWR=1\n1000011\tT=COLUMN B=1000011 N=1000005,4 M=1 SEC=1 DIR=-1,-4.37114e-08,0 RZL=0,0 E=0,0,0,0,0,0 &\n\t\tRF=1,1,1,1,1,1 &\n\t\tCS=0 R=0,0,0,0,0,0 RFM=1 G=C1 L=1 TWR=1\n1000012\tT=COLUMN B=1000012 N=1000006,5 M=1 SEC=1 DIR=-1,-4.37114e-08,0 RZL=0,0 E=0,0,0,0,0,0 &\n\t\tRF=1,1,1,1,1,1 &\n\t\tCS=0 R=0,0,0,0,0,0 RFM=1 G=C1 L=1 TWR=1\n\n*SOLID\n\n*SURFACE_REST\n\n*ELEMENT_REST\n\n*DEBUG\nP=EXPORT_VTK V=YES\n\n*MEMBER\n\n*USE-STLD LCID=1\n*FRAMELOAD\n1000001 T=UNILOAD DIR=GZ F=0,-14.04,-1,-14.04 G=0\n1000002 T=UNILOAD DIR=GZ F=0,-14.04,-1,-14.04 G=0\n1000003 T=UNILOAD DIR=GZ F=0,-14.04,-1,-14.04 G=0\n1000004 T=UNILOAD DIR=GZ F=0,-14.04,-1,-14.04 G=0\n1000005 T=UNILOAD DIR=GZ F=0,-14.04,-1,-14.04 G=0\n1000006 T=UNILOAD DIR=GZ F=0,-14.04,-1,-14.04 G=0\n1000007 T=UNILOAD DIR=GZ F=0,-14.04,-1,-14.04 G=0\n*NODELOAD\n1000001 F=0,0,-81.9,0,0,0 G=0\n1000002 F=0,0,-109.2,0,0,0 G=0\n1000004 F=0,0,-109.2,0,0,0 G=0\n1000005 F=0,0,-81.9,0,0,0 G=0\n1000006 F=0,0,-109.2,0,0,0 G=0\n\n*USE-STLD LCID=101\n*NODELOAD\n1000001 F=1.70319,4.57435e-15,0,0,0,0 G=0\n1000002 F=1.70319,4.57435e-15,0,0,0,0 G=0\n1000003 F=1.70319,4.57435e-15,0,0,0,0 G=0\n1000004 F=1.70319,4.57435e-15,0,0,0,0 G=0\n1000005 F=1.70319,4.57435e-15,0,0,0,0 G=0\n1000006 F=1.70319,4.57435e-15,0,0,0,0 G=0\n\n*USE-STLD LCID=102\n*NODELOAD\n1000001 F=-1.70319,-1.64677e-14,0,0,0,0 G=0\n1000002 F=-1.70319,-1.64677e-14,0,0,0,0 G=0\n1000003 F=-1.70319,-1.64677e-14,0,0,0,0 G=0\n1000004 F=-1.70319,-1.64677e-14,0,0,0,0 G=0\n1000005 F=-1.70319,-1.64677e-14,0,0,0,0 G=0\n1000006 F=-1.70319,-1.64677e-14,0,0,0,0 G=0\n\n*USE-STLD LCID=103\n*NODELOAD\n1000001 F=-2.50349e-14,4.05276,0,0,0,0 G=0\n1000002 F=-2.50349e-14,4.05276,0,0,0,0 G=0\n1000003 F=-2.50349e-14,4.05276,0,0,0,0 G=0\n1000004 F=-2.50349e-14,4.05276,0,0,0,0 G=0\n1000005 F=-2.50349e-14,4.05276,0,0,0,0 G=0\n1000006 F=-2.50349e-14,4.05276,0,0,0,0 G=0\n\n*USE-STLD LCID=104\n*NODELOAD\n1000001 F=5.33351e-14,-4.05276,0,0,0,0 G=0\n1000002 F=5.33351e-14,-4.05276,0,0,0,0 G=0\n1000003 F=5.33351e-14,-4.05276,0,0,0,0 G=0\n1000004 F=5.33351e-14,-4.05276,0,0,0,0 G=0\n1000005 F=5.33351e-14,-4.05276,0,0,0,0 G=0\n1000006 F=5.33351e-14,-4.05276,0,0,0,0 G=0\n\n*USE-STLD LCID=10001\n*NODELOAD\n1000004 F=10,0,0,0,0,0 G=0\n\n*USE-STLD LCID=10003\n*NODELOAD\n1000004 F=0,10,0,0,0,0 G=0\n\n*USE-STLD LCID=10005\n*NODELOAD\n1000004 F=0,0,-10,0,0,0 G=0\n\n*USE-STLD LCID=10007\n*NODELOAD\n1000004 F=0,0,0,10,0,0 G=0\n\n*USE-STLD LCID=10009\n*NODELOAD\n1000004 F=0,0,0,0,10,0 G=0\n\n*USE-STLD LCID=10011\n*NODELOAD\n1000004 F=0,0,0,0,0,10 G=0\n\n*EIGEN_CTRL\nN=3 TYPE=2 ERROR=1e-05 MA=1 MAXI=0\n*SPEC_CTRL\nVNUM=3 TR=1 TRC=1 T=1 M=0 E=0,0 SFT=1 SF=1 AUF=0 DP=0 ADP=1 ADMAX=0.25 AH=6.28319 NLLITERTOL=0.01 NLLITER=0 NLLITEREIG=0 ADR=1 SW=0 IL=1,2,10001,10003,10005,10007,10009,10011 ILFACTOR=1,0.5,0,0,0,0,0,0 &\nPERCOENUM=1 PERCOE=1 &\nD=0.05,0.05,0.05\n*SPEC_FUNC\n1 TYPE=1 I=6,1 ACC=0 M=1,1 A=0 T=0.25 ALPHA=0.04\n*BOTSHEAR_CTRL CODE=GB50011_2010 ATYPE=1 NEIG=0,0 R=3 Ie=1 SS=0.2 S1=0.05 TL=8 FA=1 FV=1 T1=0 Ta=0.302808 SDS=0 SD1=0\n*SPEC_LDCASE\n1 T=SX CURV=1 D=1,0,0 SP=1 OE=0 R=1.0\n2 T=SY CURV=1 D=-0,1,0 SP=1 OE=0 R=1.0\n\n*BASE_STIFF R=0,0,1,1,1,0 RUN=0 AE=S1\n",
+  "model": {
+    "schema_version": "2.2.0",
+    "unit_system": "SI",
+    "coordinate_system": {
+      "dimension": "3d",
+      "plane": null,
+      "semantics": "global-z-up",
+      "version": 1,
+      "dof_order": [
+        "ux",
+        "uy",
+        "uz",
+        "rx",
+        "ry",
+        "rz"
+      ]
+    },
+    "materials": [
+      {
+        "id": "M1",
+        "name": "Q355",
+        "E": 206000,
+        "G": 79230.76923076923,
+        "nu": 0.3,
+        "rho": 7850,
+        "category": "steel",
+        "grade": "Q355"
+      }
+    ],
+    "analysis_control": {
+      "self_weight": false,
+      "rigid_floor": false,
+      "p_delta": false,
+      "rigid_offsets": false,
+      "construction_stage": false
+    },
+    "sections": [
+      {
+        "id": "B1",
+        "name": "B1",
+        "type": "rectangular",
+        "shape": {
+          "kind": "rectangular",
+          "B": 300.0,
+          "H": 600.0
+        },
+        "properties": {
+          "A": 0.18,
+          "Iy": 0.0053999999999999986,
+          "Iz": 0.0013499999999999996,
+          "J": 0.0037078593749999985
+        }
+      },
+      {
+        "id": "C2",
+        "name": "C2",
+        "type": "rectangular",
+        "shape": {
+          "kind": "rectangular",
+          "B": 350.0,
+          "H": 500.0
+        },
+        "properties": {
+          "A": 0.175,
+          "Iy": 0.003645833333333333,
+          "Iz": 0.0017864583333333328,
+          "J": 0.0040575733442708315
+        }
+      }
+    ],
+    "stories": [
+      {
+        "id": "roof",
+        "elevation": 0,
+        "height": 8,
+        "rigid_diaphragm": false
+      }
+    ],
+    "nodes": [
+      {
+        "id": "t00",
+        "x": 0,
+        "y": 0,
+        "z": 6,
+        "story": "roof",
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "b00",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "t01",
+        "x": 0,
+        "y": 5,
+        "z": 8,
+        "story": "roof",
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "b01",
+        "x": 0,
+        "y": 5,
+        "z": 0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "t10",
+        "x": 6,
+        "y": 0,
+        "z": 6,
+        "story": "roof",
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "t11",
+        "x": 6,
+        "y": 5,
+        "z": 8,
+        "story": "roof",
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "b11",
+        "x": 6,
+        "y": 5,
+        "z": 0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "t20",
+        "x": 12,
+        "y": 0,
+        "z": 6,
+        "story": "roof",
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "b20",
+        "x": 12,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "t21",
+        "x": 12,
+        "y": 5,
+        "z": 8,
+        "story": "roof",
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "b21",
+        "x": 12,
+        "y": 5,
+        "z": 0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      }
+    ],
+    "elements": [
+      {
+        "id": "c00",
+        "type": "column",
+        "nodes": [
+          "b00",
+          "t00"
+        ],
+        "material": "M1",
+        "section": "C2",
+        "story": "roof"
+      },
+      {
+        "id": "c01",
+        "type": "column",
+        "nodes": [
+          "b01",
+          "t01"
+        ],
+        "material": "M1",
+        "section": "C2",
+        "story": "roof"
+      },
+      {
+        "id": "c11",
+        "type": "column",
+        "nodes": [
+          "b11",
+          "t11"
+        ],
+        "material": "M1",
+        "section": "C2",
+        "story": "roof"
+      },
+      {
+        "id": "c20",
+        "type": "column",
+        "nodes": [
+          "b20",
+          "t20"
+        ],
+        "material": "M1",
+        "section": "C2",
+        "story": "roof"
+      },
+      {
+        "id": "c21",
+        "type": "column",
+        "nodes": [
+          "b21",
+          "t21"
+        ],
+        "material": "M1",
+        "section": "C2",
+        "story": "roof"
+      },
+      {
+        "id": "x00",
+        "type": "beam",
+        "nodes": [
+          "t00",
+          "t10"
+        ],
+        "material": "M1",
+        "section": "B1",
+        "story": "roof"
+      },
+      {
+        "id": "x10",
+        "type": "beam",
+        "nodes": [
+          "t10",
+          "t20"
+        ],
+        "material": "M1",
+        "section": "B1",
+        "story": "roof"
+      },
+      {
+        "id": "x01",
+        "type": "beam",
+        "nodes": [
+          "t01",
+          "t11"
+        ],
+        "material": "M1",
+        "section": "B1",
+        "story": "roof"
+      },
+      {
+        "id": "x11",
+        "type": "beam",
+        "nodes": [
+          "t11",
+          "t21"
+        ],
+        "material": "M1",
+        "section": "B1",
+        "story": "roof"
+      },
+      {
+        "id": "y0",
+        "type": "beam",
+        "nodes": [
+          "t00",
+          "t01"
+        ],
+        "material": "M1",
+        "section": "B1",
+        "story": "roof"
+      },
+      {
+        "id": "y1",
+        "type": "beam",
+        "nodes": [
+          "t10",
+          "t11"
+        ],
+        "material": "M1",
+        "section": "B1",
+        "story": "roof"
+      },
+      {
+        "id": "y2",
+        "type": "beam",
+        "nodes": [
+          "t20",
+          "t21"
+        ],
+        "material": "M1",
+        "section": "B1",
+        "story": "roof"
+      }
+    ],
+    "metadata": {
+      "elementReferenceVectors": {
+        "c00": [
+          1,
+          0,
+          0
+        ],
+        "c01": [
+          1,
+          0,
+          0
+        ],
+        "c11": [
+          1,
+          0,
+          0
+        ],
+        "c20": [
+          1,
+          0,
+          0
+        ],
+        "c21": [
+          1,
+          0,
+          0
+        ],
+        "x00": [
+          0,
+          0,
+          1
+        ],
+        "x10": [
+          0,
+          0,
+          1
+        ],
+        "x01": [
+          0,
+          0,
+          1
+        ],
+        "x11": [
+          0,
+          0,
+          1
+        ],
+        "y0": [
+          0,
+          0,
+          1
+        ],
+        "y1": [
+          0,
+          0,
+          1
+        ],
+        "y2": [
+          0,
+          0,
+          1
+        ]
+      }
+    },
+    "load_cases": [
+      {
+        "id": "FX",
+        "type": "other",
+        "loads": [
+          {
+            "id": "fx",
+            "type": "nodal",
+            "node": "t11",
+            "fx": 10
+          }
+        ]
+      },
+      {
+        "id": "FY",
+        "type": "other",
+        "loads": [
+          {
+            "id": "fy",
+            "type": "nodal",
+            "node": "t11",
+            "fy": 10
+          }
+        ]
+      },
+      {
+        "id": "FZ",
+        "type": "other",
+        "loads": [
+          {
+            "id": "fz",
+            "type": "nodal",
+            "node": "t11",
+            "fz": -10
+          }
+        ]
+      },
+      {
+        "id": "MX",
+        "type": "other",
+        "loads": [
+          {
+            "id": "mx",
+            "type": "nodal",
+            "node": "t11",
+            "mx": 10
+          }
+        ]
+      },
+      {
+        "id": "MY",
+        "type": "other",
+        "loads": [
+          {
+            "id": "my",
+            "type": "nodal",
+            "node": "t11",
+            "my": 10
+          }
+        ]
+      },
+      {
+        "id": "MZ",
+        "type": "other",
+        "loads": [
+          {
+            "id": "mz",
+            "type": "nodal",
+            "node": "t11",
+            "mz": 10
+          }
+        ]
+      }
+    ]
+  },
+  "mapping": {
+    "nodes": {
+      "b00": {
+        "floor": null,
+        "floor_index": 0,
+        "floor_source": "declared-natural-storey-with-physical-height",
+        "height_offset_mm": 0,
+        "plan_key": "0,0",
+        "v2_id": "b00",
+        "x_m": 0.0,
+        "x_mm": 0,
+        "y_m": 0.0,
+        "y_mm": 0,
+        "yjk_std_floor_node_id": null,
+        "yjk_std_floor_node_id_source": null,
+        "z_m": 0.0,
+        "z_mm": 0
+      },
+      "b01": {
+        "floor": null,
+        "floor_index": 0,
+        "floor_source": "declared-natural-storey-with-physical-height",
+        "height_offset_mm": 0,
+        "plan_key": "0,5000",
+        "v2_id": "b01",
+        "x_m": 0.0,
+        "x_mm": 0,
+        "y_m": 5.0,
+        "y_mm": 5000,
+        "yjk_std_floor_node_id": null,
+        "yjk_std_floor_node_id_source": null,
+        "z_m": 0.0,
+        "z_mm": 0
+      },
+      "b11": {
+        "floor": null,
+        "floor_index": 0,
+        "floor_source": "declared-natural-storey-with-physical-height",
+        "height_offset_mm": 0,
+        "plan_key": "6000,5000",
+        "v2_id": "b11",
+        "x_m": 6.0,
+        "x_mm": 6000,
+        "y_m": 5.0,
+        "y_mm": 5000,
+        "yjk_std_floor_node_id": null,
+        "yjk_std_floor_node_id_source": null,
+        "z_m": 0.0,
+        "z_mm": 0
+      },
+      "b20": {
+        "floor": null,
+        "floor_index": 0,
+        "floor_source": "declared-natural-storey-with-physical-height",
+        "height_offset_mm": 0,
+        "plan_key": "12000,0",
+        "v2_id": "b20",
+        "x_m": 12.0,
+        "x_mm": 12000,
+        "y_m": 0.0,
+        "y_mm": 0,
+        "yjk_std_floor_node_id": null,
+        "yjk_std_floor_node_id_source": null,
+        "z_m": 0.0,
+        "z_mm": 0
+      },
+      "b21": {
+        "floor": null,
+        "floor_index": 0,
+        "floor_source": "declared-natural-storey-with-physical-height",
+        "height_offset_mm": 0,
+        "plan_key": "12000,5000",
+        "v2_id": "b21",
+        "x_m": 12.0,
+        "x_mm": 12000,
+        "y_m": 5.0,
+        "y_mm": 5000,
+        "yjk_std_floor_node_id": null,
+        "yjk_std_floor_node_id_source": null,
+        "z_m": 0.0,
+        "z_mm": 0
+      },
+      "t00": {
+        "floor": "roof",
+        "floor_index": 1,
+        "floor_source": "declared-natural-storey-with-physical-height",
+        "height_offset_mm": -2000,
+        "plan_key": "0,0",
+        "v2_id": "t00",
+        "x_m": 0.0,
+        "x_mm": 0,
+        "y_m": 0.0,
+        "y_mm": 0,
+        "yjk_std_floor_node_id": 1004,
+        "yjk_std_floor_node_id_source": "Joint_Generate",
+        "z_m": 6.0,
+        "z_mm": 6000
+      },
+      "t01": {
+        "floor": "roof",
+        "floor_index": 1,
+        "floor_source": "declared-natural-storey-with-physical-height",
+        "height_offset_mm": 0,
+        "plan_key": "0,5000",
+        "v2_id": "t01",
+        "x_m": 0.0,
+        "x_mm": 0,
+        "y_m": 5.0,
+        "y_mm": 5000,
+        "yjk_std_floor_node_id": 1005,
+        "yjk_std_floor_node_id_source": "Joint_Generate",
+        "z_m": 8.0,
+        "z_mm": 8000
+      },
+      "t10": {
+        "floor": "roof",
+        "floor_index": 1,
+        "floor_source": "declared-natural-storey-with-physical-height",
+        "height_offset_mm": -2000,
+        "plan_key": "6000,0",
+        "v2_id": "t10",
+        "x_m": 6.0,
+        "x_mm": 6000,
+        "y_m": 0.0,
+        "y_mm": 0,
+        "yjk_std_floor_node_id": 1006,
+        "yjk_std_floor_node_id_source": "Joint_Generate",
+        "z_m": 6.0,
+        "z_mm": 6000
+      },
+      "t11": {
+        "floor": "roof",
+        "floor_index": 1,
+        "floor_source": "declared-natural-storey-with-physical-height",
+        "height_offset_mm": 0,
+        "plan_key": "6000,5000",
+        "v2_id": "t11",
+        "x_m": 6.0,
+        "x_mm": 6000,
+        "y_m": 5.0,
+        "y_mm": 5000,
+        "yjk_std_floor_node_id": 1007,
+        "yjk_std_floor_node_id_source": "Joint_Generate",
+        "z_m": 8.0,
+        "z_mm": 8000
+      },
+      "t20": {
+        "floor": "roof",
+        "floor_index": 1,
+        "floor_source": "declared-natural-storey-with-physical-height",
+        "height_offset_mm": -2000,
+        "plan_key": "12000,0",
+        "v2_id": "t20",
+        "x_m": 12.0,
+        "x_mm": 12000,
+        "y_m": 0.0,
+        "y_mm": 0,
+        "yjk_std_floor_node_id": 1008,
+        "yjk_std_floor_node_id_source": "Joint_Generate",
+        "z_m": 6.0,
+        "z_mm": 6000
+      },
+      "t21": {
+        "floor": "roof",
+        "floor_index": 1,
+        "floor_source": "declared-natural-storey-with-physical-height",
+        "height_offset_mm": 0,
+        "plan_key": "12000,5000",
+        "v2_id": "t21",
+        "x_m": 12.0,
+        "x_mm": 12000,
+        "y_m": 5.0,
+        "y_mm": 5000,
+        "yjk_std_floor_node_id": 1009,
+        "yjk_std_floor_node_id_source": "Joint_Generate",
+        "z_m": 8.0,
+        "z_mm": 8000
+      }
+    },
+    "elements": {
+      "y0": {
+        "floor": "roof",
+        "floor_index": 1,
+        "floor_source": "declared-natural-storey-with-physical-height",
+        "geometry_role": "diagonal_3d",
+        "material": {
+          "category": "steel",
+          "fy": null,
+          "grade": "Q355",
+          "id": "M1",
+          "name": "Q355"
+        },
+        "material_id": "M1",
+        "native_concrete_grade": null,
+        "native_endpoint_order": [
+          "t00",
+          "t01"
+        ],
+        "native_geometry_route": "beam",
+        "nodes": [
+          "t00",
+          "t01"
+        ],
+        "required_native_classification": null,
+        "section": {
+          "id": "B1",
+          "name": "B1",
+          "properties": {
+            "A": 0.18,
+            "Iy": 0.0053999999999999986,
+            "Iz": 0.0013499999999999996,
+            "J": 0.0037078593749999985
+          },
+          "purpose": null,
+          "shape": {
+            "B": 300.0,
+            "H": 600.0,
+            "kind": "rectangular"
+          },
+          "standard_steel_name": null,
+          "type": "rectangular"
+        },
+        "section_id": "B1",
+        "type": "beam",
+        "v2_id": "y0",
+        "yjk_model_id": 1029,
+        "yjk_model_id_source": "individual-native-member",
+        "yjk_section_id": 1001
+      },
+      "y1": {
+        "floor": "roof",
+        "floor_index": 1,
+        "floor_source": "declared-natural-storey-with-physical-height",
+        "geometry_role": "diagonal_3d",
+        "material": {
+          "category": "steel",
+          "fy": null,
+          "grade": "Q355",
+          "id": "M1",
+          "name": "Q355"
+        },
+        "material_id": "M1",
+        "native_concrete_grade": null,
+        "native_endpoint_order": [
+          "t10",
+          "t11"
+        ],
+        "native_geometry_route": "beam",
+        "nodes": [
+          "t10",
+          "t11"
+        ],
+        "required_native_classification": null,
+        "section": {
+          "id": "B1",
+          "name": "B1",
+          "properties": {
+            "A": 0.18,
+            "Iy": 0.0053999999999999986,
+            "Iz": 0.0013499999999999996,
+            "J": 0.0037078593749999985
+          },
+          "purpose": null,
+          "shape": {
+            "B": 300.0,
+            "H": 600.0,
+            "kind": "rectangular"
+          },
+          "standard_steel_name": null,
+          "type": "rectangular"
+        },
+        "section_id": "B1",
+        "type": "beam",
+        "v2_id": "y1",
+        "yjk_model_id": 1032,
+        "yjk_model_id_source": "individual-native-member",
+        "yjk_section_id": 1001
+      },
+      "y2": {
+        "floor": "roof",
+        "floor_index": 1,
+        "floor_source": "declared-natural-storey-with-physical-height",
+        "geometry_role": "diagonal_3d",
+        "material": {
+          "category": "steel",
+          "fy": null,
+          "grade": "Q355",
+          "id": "M1",
+          "name": "Q355"
+        },
+        "material_id": "M1",
+        "native_concrete_grade": null,
+        "native_endpoint_order": [
+          "t20",
+          "t21"
+        ],
+        "native_geometry_route": "beam",
+        "nodes": [
+          "t20",
+          "t21"
+        ],
+        "required_native_classification": null,
+        "section": {
+          "id": "B1",
+          "name": "B1",
+          "properties": {
+            "A": 0.18,
+            "Iy": 0.0053999999999999986,
+            "Iz": 0.0013499999999999996,
+            "J": 0.0037078593749999985
+          },
+          "purpose": null,
+          "shape": {
+            "B": 300.0,
+            "H": 600.0,
+            "kind": "rectangular"
+          },
+          "standard_steel_name": null,
+          "type": "rectangular"
+        },
+        "section_id": "B1",
+        "type": "beam",
+        "v2_id": "y2",
+        "yjk_model_id": 1035,
+        "yjk_model_id_source": "individual-native-member",
+        "yjk_section_id": 1001
+      }
+    }
+  },
+  "members": {
+    "y0": {
+      "id": 1000005,
+      "tot_id": 1000005,
+      "floor": 1,
+      "node_i": 1000001,
+      "node_j": 1000002,
+      "original_no": 5,
+      "original_floor": 1,
+      "sequence": 5,
+      "native_geometry": {
+        "section_info": [
+          1,
+          300.0,
+          600.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          5,
+          0.0
+        ],
+        "rigid": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "y1": {
+      "id": 1000006,
+      "tot_id": 1000006,
+      "floor": 1,
+      "node_i": 1000003,
+      "node_j": 1000004,
+      "original_no": 6,
+      "original_floor": 1,
+      "sequence": 6,
+      "native_geometry": {
+        "section_info": [
+          1,
+          300.0,
+          600.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          5,
+          0.0
+        ],
+        "rigid": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "y2": {
+      "id": 1000007,
+      "tot_id": 1000007,
+      "floor": 1,
+      "node_i": 1000005,
+      "node_j": 1000006,
+      "original_no": 7,
+      "original_floor": 1,
+      "sequence": 7,
+      "native_geometry": {
+        "section_info": [
+          1,
+          300.0,
+          600.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          5,
+          0.0
+        ],
+        "rigid": [
+          0.0,
+          0.0
+        ]
+      }
+    }
+  },
+  "cases": {
+    "FX": {
+      "y0": {
+        "nativeRows": [
+          [
+            1.7356420755386353,
+            2.249898672103882,
+            -0.7979401350021362,
+            -0.5399463772773743,
+            0.39085516333580017,
+            0.14827755093574524
+          ],
+          [
+            1.3721795082092285,
+            1.7127686738967896,
+            -0.7979401350021362,
+            -0.5399463772773743,
+            0.39085516333580017,
+            0.14827755093574524
+          ],
+          [
+            1.0087169408798218,
+            1.1756387948989868,
+            -0.7979401350021362,
+            -0.5399463772773743,
+            0.39085516333580017,
+            0.14827755093574524
+          ],
+          [
+            0.6452544331550598,
+            0.6385088562965393,
+            -0.7979401350021362,
+            -0.5399463772773743,
+            0.39085516333580017,
+            0.14827755093574524
+          ],
+          [
+            0.2817918658256531,
+            0.10137897729873657,
+            -0.7979401350021362,
+            -0.5399463772773743,
+            0.39085516333580017,
+            0.14827755093574524
+          ],
+          [
+            -0.08167066425085068,
+            -0.43575093150138855,
+            -0.7979401350021362,
+            -0.5399463772773743,
+            0.39085516333580017,
+            0.14827755093574524
+          ],
+          [
+            -0.4451332092285156,
+            -0.9728808403015137,
+            -0.7979401350021362,
+            -0.5399463772773743,
+            0.39085516333580017,
+            0.14827755093574524
+          ],
+          [
+            -0.8085957169532776,
+            -1.5100107192993164,
+            -0.7979401350021362,
+            -0.5399463772773743,
+            0.39085516333580017,
+            0.14827755093574524
+          ],
+          [
+            -1.1720582246780396,
+            -2.047140598297119,
+            -0.7979401350021362,
+            -0.5399463772773743,
+            0.39085516333580017,
+            0.14827755093574524
+          ]
+        ],
+        "referenceLocalEndActions": [
+          -0.39085512249286913,
+          0.7979402053648954,
+          -0.5399463360580918,
+          -0.14827751509542736,
+          1.735641897942969,
+          2.2498987454210795,
+          0.39085512249286913,
+          -0.7979402053648954,
+          0.5399463360580918,
+          0.14827751509542736,
+          1.1720581087382866,
+          2.0471407667076322
+        ]
+      },
+      "y1": {
+        "nativeRows": [
+          [
+            -6.433042987197268e-09,
+            3.3099234104156494,
+            -1.211956262588501,
+            -1.4360889366571428e-08,
+            -6.398580776334484e-09,
+            0.29864636063575745
+          ],
+          [
+            -1.610001199026101e-08,
+            2.494100332260132,
+            -1.211956262588501,
+            -1.4360889366571428e-08,
+            -6.398580776334484e-09,
+            0.29864636063575745
+          ],
+          [
+            -2.576698143741396e-08,
+            1.6782772541046143,
+            -1.211956262588501,
+            -1.4360889366571428e-08,
+            -6.398580776334484e-09,
+            0.29864636063575745
+          ],
+          [
+            -3.543395266092375e-08,
+            0.8624542355537415,
+            -1.211956262588501,
+            -1.4360889366571428e-08,
+            -6.398580776334484e-09,
+            0.29864636063575745
+          ],
+          [
+            -4.51009221080767e-08,
+            0.04663115739822388,
+            -1.211956262588501,
+            -1.4360889366571428e-08,
+            -6.398580776334484e-09,
+            0.29864636063575745
+          ],
+          [
+            -5.476789155522965e-08,
+            -0.7691919207572937,
+            -1.211956262588501,
+            -1.4360889366571428e-08,
+            -6.398580776334484e-09,
+            0.29864636063575745
+          ],
+          [
+            -6.443485744966893e-08,
+            -1.5850149393081665,
+            -1.211956262588501,
+            -1.4360889366571428e-08,
+            -6.398580776334484e-09,
+            0.29864636063575745
+          ],
+          [
+            -7.410182689682188e-08,
+            -2.4008381366729736,
+            -1.211956262588501,
+            -1.4360889366571428e-08,
+            -6.398580776334484e-09,
+            0.29864636063575745
+          ],
+          [
+            -8.376879634397483e-08,
+            -3.216660976409912,
+            -1.211956262588501,
+            -1.4360889366571428e-08,
+            -6.398580776334484e-09,
+            0.29864636063575745
+          ]
+        ],
+        "referenceLocalEndActions": [
+          1.520295553683477e-15,
+          1.2119562570732474,
+          -4.0519516000976e-15,
+          -0.29864633121990203,
+          4.066753450488896e-15,
+          3.309923215531663,
+          -1.520295553683477e-15,
+          -1.2119562570732474,
+          4.0519516000976e-15,
+          0.29864633121990203,
+          1.7753673706569013e-14,
+          3.216660967845642
+        ]
+      },
+      "y2": {
+        "nativeRows": [
+          [
+            -1.7356421947479248,
+            2.249898672103882,
+            -0.797940194606781,
+            0.539946436882019,
+            -0.39085522294044495,
+            0.14827755093574524
+          ],
+          [
+            -1.372179627418518,
+            1.7127686738967896,
+            -0.797940194606781,
+            0.539946436882019,
+            -0.39085522294044495,
+            0.14827755093574524
+          ],
+          [
+            -1.0087170600891113,
+            1.1756387948989868,
+            -0.797940194606781,
+            0.539946436882019,
+            -0.39085522294044495,
+            0.14827755093574524
+          ],
+          [
+            -0.6452545523643494,
+            0.6385089159011841,
+            -0.797940194606781,
+            0.539946436882019,
+            -0.39085522294044495,
+            0.14827755093574524
+          ],
+          [
+            -0.2817919850349426,
+            0.10137897729873657,
+            -0.797940194606781,
+            0.539946436882019,
+            -0.39085522294044495,
+            0.14827755093574524
+          ],
+          [
+            0.08167055249214172,
+            -0.43575093150138855,
+            -0.797940194606781,
+            0.539946436882019,
+            -0.39085522294044495,
+            0.14827755093574524
+          ],
+          [
+            0.4451330900192261,
+            -0.9728808403015137,
+            -0.797940194606781,
+            0.539946436882019,
+            -0.39085522294044495,
+            0.14827755093574524
+          ],
+          [
+            0.8085956573486328,
+            -1.5100107192993164,
+            -0.797940194606781,
+            0.539946436882019,
+            -0.39085522294044495,
+            0.14827755093574524
+          ],
+          [
+            1.1720582246780396,
+            -2.047140598297119,
+            -0.797940194606781,
+            0.539946436882019,
+            -0.39085522294044495,
+            0.14827755093574524
+          ]
+        ],
+        "referenceLocalEndActions": [
+          0.39085512249284093,
+          0.7979402053648981,
+          0.5399463360580664,
+          -0.14827751509542694,
+          -1.7356418979428885,
+          2.249898745421087,
+          -0.39085512249284093,
+          -0.7979402053648981,
+          -0.5399463360580664,
+          0.14827751509542694,
+          -1.17205810873823,
+          2.0471407667076393
+        ]
+      }
+    },
+    "FY": {
+      "y0": {
+        "nativeRows": [
+          [
+            7.237971305847168,
+            4.621071815490723,
+            -1.727933406829834,
+            -2.351240873336792,
+            1.7708046436309814,
+            0.3017326891422272
+          ],
+          [
+            5.655243873596191,
+            3.457921028137207,
+            -1.727933406829834,
+            -2.351240873336792,
+            1.7708046436309814,
+            0.3017326891422272
+          ],
+          [
+            4.072516441345215,
+            2.2947702407836914,
+            -1.727933406829834,
+            -2.351240873336792,
+            1.7708046436309814,
+            0.3017326891422272
+          ],
+          [
+            2.4897890090942383,
+            1.1316195726394653,
+            -1.727933406829834,
+            -2.351240873336792,
+            1.7708046436309814,
+            0.3017326891422272
+          ],
+          [
+            0.9070615172386169,
+            -0.03153124451637268,
+            -1.727933406829834,
+            -2.351240873336792,
+            1.7708046436309814,
+            0.3017326891422272
+          ],
+          [
+            -0.6756658554077148,
+            -1.194682002067566,
+            -1.727933406829834,
+            -2.351240873336792,
+            1.7708046436309814,
+            0.3017326891422272
+          ],
+          [
+            -2.2583932876586914,
+            -2.357832670211792,
+            -1.727933406829834,
+            -2.351240873336792,
+            1.7708046436309814,
+            0.3017326891422272
+          ],
+          [
+            -3.841120719909668,
+            -3.5209834575653076,
+            -1.727933406829834,
+            -2.351240873336792,
+            1.7708046436309814,
+            0.3017326891422272
+          ],
+          [
+            -5.4238481521606445,
+            -4.684134483337402,
+            -1.727933406829834,
+            -2.351240873336792,
+            1.7708046436309814,
+            0.3017326891422272
+          ]
+        ],
+        "referenceLocalEndActions": [
+          -1.7708045490049322,
+          1.727933207625529,
+          -2.35124074218129,
+          -0.3017326343283624,
+          7.237970963078059,
+          4.621071290081414,
+          1.7708045490049322,
+          -1.727933207625529,
+          2.35124074218129,
+          0.3017326343283624,
+          5.423847934817435,
+          4.684133808702622
+        ]
+      },
+      "y1": {
+        "nativeRows": [
+          [
+            0.48379871249198914,
+            -1.5398358144125268e-08,
+            6.268816132859456e-09,
+            -1.350517749786377,
+            4.592940330505371,
+            2.4017570154910572e-09
+          ],
+          [
+            -0.4252963364124298,
+            -1.1178531877931164e-08,
+            6.268816132859456e-09,
+            -1.350517749786377,
+            4.592940330505371,
+            2.4017570154910572e-09
+          ],
+          [
+            -1.3343913555145264,
+            -6.958706055826269e-09,
+            6.268816132859456e-09,
+            -1.350517749786377,
+            4.592940330505371,
+            2.4017570154910572e-09
+          ],
+          [
+            -2.2434864044189453,
+            -2.7388800116767698e-09,
+            6.268816132859456e-09,
+            -1.350517749786377,
+            4.592940330505371,
+            2.4017570154910572e-09
+          ],
+          [
+            -3.1525814533233643,
+            1.4809459214504272e-09,
+            6.268816132859456e-09,
+            -1.350517749786377,
+            4.592940330505371,
+            2.4017570154910572e-09
+          ],
+          [
+            -4.061676502227783,
+            5.700771854577624e-09,
+            6.268816132859456e-09,
+            -1.350517749786377,
+            4.592940330505371,
+            2.4017570154910572e-09
+          ],
+          [
+            -4.970771789550781,
+            9.920597676682519e-09,
+            6.268816132859456e-09,
+            -1.350517749786377,
+            4.592940330505371,
+            2.4017570154910572e-09
+          ],
+          [
+            -5.879866600036621,
+            1.4140423942876623e-08,
+            6.268816132859456e-09,
+            -1.350517749786377,
+            4.592940330505371,
+            2.4017570154910572e-09
+          ],
+          [
+            -6.788961887359619,
+            1.8360250209070728e-08,
+            6.268816132859456e-09,
+            -1.350517749786377,
+            4.592940330505371,
+            2.4017570154910572e-09
+          ]
+        ],
+        "referenceLocalEndActions": [
+          -4.592940427883548,
+          -1.9211651728034542e-14,
+          -1.3505177541379085,
+          -1.4091998629081343e-16,
+          0.4837986337033531,
+          -5.459659046545926e-14,
+          4.592940427883548,
+          1.9211651728034542e-14,
+          1.3505177541379085,
+          1.4091998629081343e-16,
+          6.788962047290449,
+          -4.8861320307277146e-14
+        ]
+      },
+      "y2": {
+        "nativeRows": [
+          [
+            7.237971305847168,
+            -4.621071815490723,
+            1.727933406829834,
+            -2.351240873336792,
+            1.7708046436309814,
+            -0.3017326891422272
+          ],
+          [
+            5.655243873596191,
+            -3.457921028137207,
+            1.727933406829834,
+            -2.351240873336792,
+            1.7708046436309814,
+            -0.3017326891422272
+          ],
+          [
+            4.072516441345215,
+            -2.2947702407836914,
+            1.727933406829834,
+            -2.351240873336792,
+            1.7708046436309814,
+            -0.3017326891422272
+          ],
+          [
+            2.4897890090942383,
+            -1.1316195726394653,
+            1.727933406829834,
+            -2.351240873336792,
+            1.7708046436309814,
+            -0.3017326891422272
+          ],
+          [
+            0.9070615172386169,
+            0.03153124451637268,
+            1.727933406829834,
+            -2.351240873336792,
+            1.7708046436309814,
+            -0.3017326891422272
+          ],
+          [
+            -0.6756659150123596,
+            1.194682002067566,
+            1.727933406829834,
+            -2.351240873336792,
+            1.7708046436309814,
+            -0.3017326891422272
+          ],
+          [
+            -2.2583932876586914,
+            2.357832908630371,
+            1.727933406829834,
+            -2.351240873336792,
+            1.7708046436309814,
+            -0.3017326891422272
+          ],
+          [
+            -3.841120719909668,
+            3.5209834575653076,
+            1.727933406829834,
+            -2.351240873336792,
+            1.7708046436309814,
+            -0.3017326891422272
+          ],
+          [
+            -5.4238481521606445,
+            4.684134483337402,
+            1.727933406829834,
+            -2.351240873336792,
+            1.7708046436309814,
+            -0.3017326891422272
+          ]
+        ],
+        "referenceLocalEndActions": [
+          -1.770804549004783,
+          -1.7279332076255454,
+          -2.3512407421811994,
+          0.30173263432835307,
+          7.237970963077769,
+          -4.621071290081451,
+          1.770804549004783,
+          1.7279332076255454,
+          2.3512407421811994,
+          -0.30173263432835307,
+          5.4238479348172355,
+          -4.684133808702674
+        ]
+      }
+    },
+    "FZ": {
+      "y0": {
+        "nativeRows": [
+          [
+            0.018775291740894318,
+            -0.0029549449682235718,
+            0.0012855558888986707,
+            -0.006430333014577627,
+            0.006363946944475174,
+            0.016027748584747314
+          ],
+          [
+            0.014446740970015526,
+            -0.0020895786583423615,
+            0.0012855558888986707,
+            -0.006430333014577627,
+            0.006363946944475174,
+            0.016027748584747314
+          ],
+          [
+            0.010118190199136734,
+            -0.0012242123484611511,
+            0.0012855558888986707,
+            -0.006430333014577627,
+            0.006363946944475174,
+            0.016027748584747314
+          ],
+          [
+            0.005789640359580517,
+            -0.00035884606768377125,
+            0.0012855558888986707,
+            -0.006430333014577627,
+            0.006363946944475174,
+            0.016027748584747314
+          ],
+          [
+            0.0014610900543630123,
+            0.0005065202713012695,
+            0.0012855558888986707,
+            -0.006430333014577627,
+            0.006363946944475174,
+            0.016027748584747314
+          ],
+          [
+            -0.002867460250854492,
+            0.0013718865811824799,
+            0.0012855558888986707,
+            -0.006430333014577627,
+            0.006363946944475174,
+            0.016027748584747314
+          ],
+          [
+            -0.007196010556071997,
+            0.00223725289106369,
+            0.0012855558888986707,
+            -0.006430333014577627,
+            0.006363946944475174,
+            0.016027748584747314
+          ],
+          [
+            -0.011524560861289501,
+            0.0031026192009449005,
+            0.0012855558888986707,
+            -0.006430333014577627,
+            0.006363946944475174,
+            0.016027748584747314
+          ],
+          [
+            -0.01585311070084572,
+            0.003967985510826111,
+            0.0012855558888986707,
+            -0.006430333014577627,
+            0.006363946944475174,
+            0.016027748584747314
+          ]
+        ],
+        "referenceLocalEndActions": [
+          -0.006363946871288294,
+          -0.0012855562789559662,
+          -0.0064303325081589155,
+          -0.016027745000654764,
+          0.018775289479296645,
+          -0.0029549459173184092,
+          0.006363946871288294,
+          0.0012855562789559662,
+          0.0064303325081589155,
+          0.016027745000654764,
+          0.015853110841813692,
+          -0.003967986513706053
+        ]
+      },
+      "y1": {
+        "nativeRows": [
+          [
+            -0.032818228006362915,
+            -2.7134541835671655e-10,
+            8.9098561861789e-11,
+            0.016606567427515984,
+            -0.011581218801438808,
+            -3.53742174441507e-11
+          ],
+          [
+            -0.021639589220285416,
+            -2.1136911665387004e-10,
+            8.9098561861789e-11,
+            0.016606567427515984,
+            -0.011581218801438808,
+            -3.53742174441507e-11
+          ],
+          [
+            -0.010460950434207916,
+            -1.5139281495102352e-10,
+            8.9098561861789e-11,
+            0.016606567427515984,
+            -0.011581218801438808,
+            -3.53742174441507e-11
+          ],
+          [
+            0.000717688468284905,
+            -9.141650630928311e-11,
+            8.9098561861789e-11,
+            0.016606567427515984,
+            -0.011581218801438808,
+            -3.53742174441507e-11
+          ],
+          [
+            0.011896327137947083,
+            -3.1440204606436595e-11,
+            8.9098561861789e-11,
+            0.016606567427515984,
+            -0.011581218801438808,
+            -3.53742174441507e-11
+          ],
+          [
+            0.023074965924024582,
+            2.8536098831133394e-11,
+            8.9098561861789e-11,
+            0.016606567427515984,
+            -0.011581218801438808,
+            -3.53742174441507e-11
+          ],
+          [
+            0.03425360471010208,
+            8.851240573815033e-11,
+            8.9098561861789e-11,
+            0.016606567427515984,
+            -0.011581218801438808,
+            -3.53742174441507e-11
+          ],
+          [
+            0.04543224349617958,
+            1.4848870744099685e-10,
+            8.9098561861789e-11,
+            0.016606567427515984,
+            -0.011581218801438808,
+            -3.53742174441507e-11
+          ],
+          [
+            0.05661088228225708,
+            2.0846500914384336e-10,
+            8.9098561861789e-11,
+            0.016606567427515984,
+            -0.011581218801438808,
+            -3.53742174441507e-11
+          ]
+        ],
+        "referenceLocalEndActions": [
+          0.011581218787182657,
+          -1.2938150249042335e-17,
+          0.016606567922389542,
+          8.899809951232422e-19,
+          -0.0328182228883826,
+          -3.7620367373568514e-17,
+          -0.011581218787182657,
+          1.2938150249042335e-17,
+          -0.016606567922389542,
+          -8.899809951232422e-19,
+          -0.056610882254558015,
+          -3.205370401699278e-17
+        ]
+      },
+      "y2": {
+        "nativeRows": [
+          [
+            0.01877528987824917,
+            0.0029549449682235718,
+            -0.0012855558888986707,
+            -0.0064303334802389145,
+            0.006363946944475174,
+            -0.016027748584747314
+          ],
+          [
+            0.014446740038692951,
+            0.0020895786583423615,
+            -0.0012855558888986707,
+            -0.0064303334802389145,
+            0.006363946944475174,
+            -0.016027748584747314
+          ],
+          [
+            0.01011818926781416,
+            0.0012242123484611511,
+            -0.0012855558888986707,
+            -0.0064303334802389145,
+            0.006363946944475174,
+            -0.016027748584747314
+          ],
+          [
+            0.005789638962596655,
+            0.00035884606768377125,
+            -0.0012855558888986707,
+            -0.0064303334802389145,
+            0.006363946944475174,
+            -0.016027748584747314
+          ],
+          [
+            0.0014610884245485067,
+            -0.0005065202130936086,
+            -0.0012855558888986707,
+            -0.0064303334802389145,
+            0.006363946944475174,
+            -0.016027748584747314
+          ],
+          [
+            -0.0028674621134996414,
+            -0.001371886464767158,
+            -0.0012855558888986707,
+            -0.0064303334802389145,
+            0.006363946944475174,
+            -0.016027748584747314
+          ],
+          [
+            -0.007196012884378433,
+            -0.0022372526582330465,
+            -0.0012855558888986707,
+            -0.0064303334802389145,
+            0.006363946944475174,
+            -0.016027748584747314
+          ],
+          [
+            -0.011524563655257225,
+            -0.003102618968114257,
+            -0.0012855558888986707,
+            -0.0064303334802389145,
+            0.006363946944475174,
+            -0.016027748584747314
+          ],
+          [
+            -0.015853114426136017,
+            -0.0039679850451648235,
+            -0.0012855558888986707,
+            -0.0064303334802389145,
+            0.006363946944475174,
+            -0.016027748584747314
+          ]
+        ],
+        "referenceLocalEndActions": [
+          -0.006363946871288037,
+          0.0012855562789559644,
+          -0.0064303325081588305,
+          0.016027745000654754,
+          0.018775289479296374,
+          0.0029549459173184092,
+          0.006363946871288037,
+          -0.0012855562789559644,
+          0.0064303325081588305,
+          -0.016027745000654754,
+          0.015853110841813504,
+          0.003967986513706046
+        ]
+      }
+    },
+    "MX": {
+      "y0": {
+        "nativeRows": [
+          [
+            -0.3742743134498596,
+            -0.2506321966648102,
+            0.0934152752161026,
+            0.20839960873126984,
+            -0.18341107666492462,
+            -0.15864956378936768
+          ],
+          [
+            -0.23399102687835693,
+            -0.18775010108947754,
+            0.0934152752161026,
+            0.20839960873126984,
+            -0.18341107666492462,
+            -0.15864956378936768
+          ],
+          [
+            -0.09370774030685425,
+            -0.12486802041530609,
+            0.0934152752161026,
+            0.20839960873126984,
+            -0.18341107666492462,
+            -0.15864956378936768
+          ],
+          [
+            0.04657553881406784,
+            -0.06198594346642494,
+            0.0934152752161026,
+            0.20839960873126984,
+            -0.18341107666492462,
+            -0.15864956378936768
+          ],
+          [
+            0.18685881793498993,
+            0.000896138371899724,
+            0.0934152752161026,
+            0.20839960873126984,
+            -0.18341107666492462,
+            -0.15864956378936768
+          ],
+          [
+            0.3271420896053314,
+            0.06377822160720825,
+            0.0934152752161026,
+            0.20839960873126984,
+            -0.18341107666492462,
+            -0.15864956378936768
+          ],
+          [
+            0.4674253761768341,
+            0.1266603022813797,
+            0.0934152752161026,
+            0.20839960873126984,
+            -0.18341107666492462,
+            -0.15864956378936768
+          ],
+          [
+            0.6077086329460144,
+            0.18954238295555115,
+            0.0934152752161026,
+            0.20839960873126984,
+            -0.18341107666492462,
+            -0.15864956378936768
+          ],
+          [
+            0.7479919195175171,
+            0.2524244487285614,
+            0.0934152752161026,
+            0.20839960873126984,
+            -0.18341107666492462,
+            -0.15864956378936768
+          ]
+        ],
+        "referenceLocalEndActions": [
+          0.1834110718235087,
+          -0.09341527907765317,
+          0.20839959968106075,
+          0.1586495226511927,
+          -0.37427432856052995,
+          -0.25063219886268734,
+          -0.1834110718235087,
+          0.09341527907765317,
+          -0.20839959968106075,
+          -0.1586495226511927,
+          -0.7479918614628369,
+          -0.2524244744749387
+        ]
+      },
+      "y1": {
+        "nativeRows": [
+          [
+            -0.10597018897533417,
+            -9.37212352170036e-09,
+            3.814622839826143e-09,
+            1.2434016466140747,
+            -0.6068568825721741,
+            2.3728494724650773e-09
+          ],
+          [
+            0.7310201525688171,
+            -6.804326879716882e-09,
+            3.814622839826143e-09,
+            1.2434016466140747,
+            -0.6068568825721741,
+            2.3728494724650773e-09
+          ],
+          [
+            1.5680104494094849,
+            -4.236530237733405e-09,
+            3.814622839826143e-09,
+            1.2434016466140747,
+            -0.6068568825721741,
+            2.3728494724650773e-09
+          ],
+          [
+            2.405000686645508,
+            -1.6687339288168346e-09,
+            3.814622839826143e-09,
+            1.2434016466140747,
+            -0.6068568825721741,
+            2.3728494724650773e-09
+          ],
+          [
+            3.2419910430908203,
+            8.99062491122038e-10,
+            3.814622839826143e-09,
+            1.2434016466140747,
+            -0.6068568825721741,
+            2.3728494724650773e-09
+          ],
+          [
+            4.078981399536133,
+            3.466859022083213e-09,
+            3.814622839826143e-09,
+            1.2434016466140747,
+            -0.6068568825721741,
+            2.3728494724650773e-09
+          ],
+          [
+            4.915971755981445,
+            6.0346554420220855e-09,
+            3.814622839826143e-09,
+            1.2434016466140747,
+            -0.6068568825721741,
+            2.3728494724650773e-09
+          ],
+          [
+            5.752962112426758,
+            8.602452084005563e-09,
+            3.814622839826143e-09,
+            1.2434016466140747,
+            -0.6068568825721741,
+            2.3728494724650773e-09
+          ],
+          [
+            6.58995246887207,
+            1.117024872598904e-08,
+            3.814622839826143e-09,
+            1.2434016466140747,
+            -0.6068568825721741,
+            2.3728494724650773e-09
+          ]
+        ],
+        "referenceLocalEndActions": [
+          0.6068568974797159,
+          9.15148024050915e-16,
+          1.243401599454528,
+          2.035998858971801e-18,
+          -0.10597019320095669,
+          2.613126917396829e-15,
+          -0.6068568974797159,
+          -9.15148024050915e-16,
+          -1.243401599454528,
+          -2.035998858971801e-18,
+          -6.5899523413163195,
+          2.31509601504084e-15
+        ]
+      },
+      "y2": {
+        "nativeRows": [
+          [
+            -0.37427428364753723,
+            0.2506321668624878,
+            -0.093415267765522,
+            0.20839960873126984,
+            -0.18341106176376343,
+            0.15864956378936768
+          ],
+          [
+            -0.23399099707603455,
+            0.18775010108947754,
+            -0.093415267765522,
+            0.20839960873126984,
+            -0.18341106176376343,
+            0.15864956378936768
+          ],
+          [
+            -0.09370771795511246,
+            0.12486802041530609,
+            -0.093415267765522,
+            0.20839960873126984,
+            -0.18341106176376343,
+            0.15864956378936768
+          ],
+          [
+            0.04657555744051933,
+            0.061985939741134644,
+            -0.093415267765522,
+            0.20839960873126984,
+            -0.18341106176376343,
+            0.15864956378936768
+          ],
+          [
+            0.18685883283615112,
+            -0.0008961387793533504,
+            -0.093415267765522,
+            0.20839960873126984,
+            -0.18341106176376343,
+            0.15864956378936768
+          ],
+          [
+            0.3271421194076538,
+            -0.06377821415662766,
+            -0.093415267765522,
+            0.20839960873126984,
+            -0.18341106176376343,
+            0.15864956378936768
+          ],
+          [
+            0.4674253761768341,
+            -0.1266603022813797,
+            -0.093415267765522,
+            0.20839960873126984,
+            -0.18341106176376343,
+            0.15864956378936768
+          ],
+          [
+            0.6077086925506592,
+            -0.18954236805438995,
+            -0.093415267765522,
+            0.20839960873126984,
+            -0.18341106176376343,
+            0.15864956378936768
+          ],
+          [
+            0.7479919195175171,
+            -0.2524244487285614,
+            -0.093415267765522,
+            0.20839960873126984,
+            -0.18341106176376343,
+            0.15864956378936768
+          ]
+        ],
+        "referenceLocalEndActions": [
+          0.18341107182351324,
+          0.09341527907765389,
+          0.20839959968105642,
+          -0.1586495226511922,
+          -0.37427432856051635,
+          0.2506321988626889,
+          -0.18341107182351324,
+          -0.09341527907765389,
+          -0.20839959968105642,
+          0.1586495226511922,
+          -0.7479918614628277,
+          0.252424474474941
+        ]
+      }
+    },
+    "MY": {
+      "y0": {
+        "nativeRows": [
+          [
+            0.018890544772148132,
+            0.06238999590277672,
+            -0.034346990287303925,
+            -0.005870733875781298,
+            0.005666521843522787,
+            -0.0782272219657898
+          ],
+          [
+            0.014938685111701488,
+            0.03926946967840195,
+            -0.034346990287303925,
+            -0.005870733875781298,
+            0.005666521843522787,
+            -0.0782272219657898
+          ],
+          [
+            0.01098682638257742,
+            0.016148945316672325,
+            -0.034346990287303925,
+            -0.005870733875781298,
+            0.005666521843522787,
+            -0.0782272219657898
+          ],
+          [
+            0.007034968119114637,
+            -0.006971580442041159,
+            -0.034346990287303925,
+            -0.005870733875781298,
+            0.005666521843522787,
+            -0.0782272219657898
+          ],
+          [
+            0.003083109389990568,
+            -0.030092105269432068,
+            -0.034346990287303925,
+            -0.005870733875781298,
+            0.005666521843522787,
+            -0.0782272219657898
+          ],
+          [
+            -0.000868749339133501,
+            -0.05321263149380684,
+            -0.034346990287303925,
+            -0.005870733875781298,
+            0.005666521843522787,
+            -0.0782272219657898
+          ],
+          [
+            -0.00482060806825757,
+            -0.07633315771818161,
+            -0.034346990287303925,
+            -0.005870733875781298,
+            0.005666521843522787,
+            -0.0782272219657898
+          ],
+          [
+            -0.008772466331720352,
+            -0.09945368021726608,
+            -0.034346990287303925,
+            -0.005870733875781298,
+            0.005666521843522787,
+            -0.0782272219657898
+          ],
+          [
+            -0.012724325060844421,
+            -0.12257420271635056,
+            -0.034346990287303925,
+            -0.005870733875781298,
+            0.005666521843522787,
+            -0.0782272219657898
+          ]
+        ],
+        "referenceLocalEndActions": [
+          -0.005666521730219309,
+          0.03434699235124835,
+          -0.005870730656641091,
+          0.07822720671031734,
+          0.018890539470116416,
+          0.06239000597110536,
+          0.005666521730219309,
+          -0.03434699235124835,
+          0.005870730656641091,
+          -0.07822720671031734,
+          0.012724312654192813,
+          0.12257420846975522
+        ]
+      },
+      "y1": {
+        "nativeRows": [
+          [
+            -1.0747870371474733e-09,
+            0.033474523574113846,
+            0.03005053661763668,
+            4.987543267276351e-09,
+            1.3366525664082474e-09,
+            0.29495975375175476
+          ],
+          [
+            2.282555700006128e-09,
+            0.053702909499406815,
+            0.03005053661763668,
+            4.987543267276351e-09,
+            1.3366525664082474e-09,
+            0.29495975375175476
+          ],
+          [
+            5.639898326137427e-09,
+            0.07393129914999008,
+            0.03005053661763668,
+            4.987543267276351e-09,
+            1.3366525664082474e-09,
+            0.29495975375175476
+          ],
+          [
+            8.99724117431333e-09,
+            0.09415968507528305,
+            0.03005053661763668,
+            4.987543267276351e-09,
+            1.3366525664082474e-09,
+            0.29495975375175476
+          ],
+          [
+            1.2354584022489234e-08,
+            0.11438807100057602,
+            0.03005053661763668,
+            4.987543267276351e-09,
+            1.3366525664082474e-09,
+            0.29495975375175476
+          ],
+          [
+            1.571192598248672e-08,
+            0.1346164494752884,
+            0.03005053661763668,
+            4.987543267276351e-09,
+            1.3366525664082474e-09,
+            0.29495975375175476
+          ],
+          [
+            1.9069268830662622e-08,
+            0.15484485030174255,
+            0.03005053661763668,
+            4.987543267276351e-09,
+            1.3366525664082474e-09,
+            0.29495975375175476
+          ],
+          [
+            2.2426611678838526e-08,
+            0.17507323622703552,
+            0.03005053661763668,
+            4.987543267276351e-09,
+            1.3366525664082474e-09,
+            0.29495975375175476
+          ],
+          [
+            2.578395452701443e-08,
+            0.1953016221523285,
+            0.03005053661763668,
+            4.987543267276351e-09,
+            1.3366525664082474e-09,
+            0.29495975375175476
+          ]
+        ],
+        "referenceLocalEndActions": [
+          8.148745242199204e-18,
+          -0.0300505374258023,
+          -7.947029366985651e-18,
+          -0.2949596884650054,
+          6.78406253702031e-18,
+          0.03347451652988212,
+          -8.148745242199204e-18,
+          0.0300505374258023,
+          7.947029366985651e-18,
+          0.2949596884650054,
+          3.60120003313352e-17,
+          -0.195301613110791
+        ]
+      },
+      "y2": {
+        "nativeRows": [
+          [
+            -0.018890541046857834,
+            0.06238998845219612,
+            -0.034346986562013626,
+            0.005870729684829712,
+            -0.005666523706167936,
+            -0.0782272219657898
+          ],
+          [
+            -0.014938686043024063,
+            0.03926946595311165,
+            -0.034346986562013626,
+            0.005870729684829712,
+            -0.005666523706167936,
+            -0.0782272219657898
+          ],
+          [
+            -0.010986830107867718,
+            0.016148941591382027,
+            -0.034346986562013626,
+            0.005870729684829712,
+            -0.005666523706167936,
+            -0.0782272219657898
+          ],
+          [
+            -0.007034974172711372,
+            -0.006971582304686308,
+            -0.034346986562013626,
+            0.005870729684829712,
+            -0.005666523706167936,
+            -0.0782272219657898
+          ],
+          [
+            -0.0030831184703856707,
+            -0.030092105269432068,
+            -0.034346986562013626,
+            0.005870729684829712,
+            -0.005666523706167936,
+            -0.0782272219657898
+          ],
+          [
+            0.000868737231940031,
+            -0.05321262776851654,
+            -0.034346986562013626,
+            0.005870729684829712,
+            -0.005666523706167936,
+            -0.0782272219657898
+          ],
+          [
+            0.004820593167096376,
+            -0.07633315026760101,
+            -0.034346986562013626,
+            0.005870729684829712,
+            -0.005666523706167936,
+            -0.0782272219657898
+          ],
+          [
+            0.008772448636591434,
+            -0.09945367276668549,
+            -0.034346986562013626,
+            0.005870729684829712,
+            -0.005666523706167936,
+            -0.0782272219657898
+          ],
+          [
+            0.01272430457174778,
+            -0.12257420271635056,
+            -0.034346986562013626,
+            0.005870729684829712,
+            -0.005666523706167936,
+            -0.0782272219657898
+          ]
+        ],
+        "referenceLocalEndActions": [
+          0.005666521730219198,
+          0.034346992351248384,
+          0.005870730656641025,
+          0.07822720671031741,
+          -0.018890539470116215,
+          0.06239000597110542,
+          -0.005666521730219198,
+          -0.034346992351248384,
+          -0.005870730656641025,
+          -0.07822720671031741,
+          -0.012724312654192663,
+          0.12257420846975534
+        ]
+      }
+    },
+    "MZ": {
+      "y0": {
+        "nativeRows": [
+          [
+            -0.9717312455177307,
+            -0.23024588823318481,
+            0.18007370829582214,
+            0.3025338053703308,
+            -0.613284170627594,
+            -0.17882703244686127
+          ],
+          [
+            -0.7680819034576416,
+            -0.10903006047010422,
+            0.18007370829582214,
+            0.3025338053703308,
+            -0.613284170627594,
+            -0.17882703244686127
+          ],
+          [
+            -0.5644326210021973,
+            0.012185762636363506,
+            0.18007370829582214,
+            0.3025338053703308,
+            -0.613284170627594,
+            -0.17882703244686127
+          ],
+          [
+            -0.36078330874443054,
+            0.13340158760547638,
+            0.18007370829582214,
+            0.3025338053703308,
+            -0.613284170627594,
+            -0.17882703244686127
+          ],
+          [
+            -0.157134011387825,
+            0.2546174228191376,
+            0.18007370829582214,
+            0.3025338053703308,
+            -0.613284170627594,
+            -0.17882703244686127
+          ],
+          [
+            0.046515289694070816,
+            0.3758332431316376,
+            0.18007370829582214,
+            0.3025338053703308,
+            -0.613284170627594,
+            -0.17882703244686127
+          ],
+          [
+            0.25016459822654724,
+            0.4970490634441376,
+            0.18007370829582214,
+            0.3025338053703308,
+            -0.613284170627594,
+            -0.17882703244686127
+          ],
+          [
+            0.45381391048431396,
+            0.6182648539543152,
+            0.18007370829582214,
+            0.3025338053703308,
+            -0.613284170627594,
+            -0.17882703244686127
+          ],
+          [
+            0.6574631929397583,
+            0.7394806742668152,
+            0.18007370829582214,
+            0.3025338053703308,
+            -0.613284170627594,
+            -0.17882703244686127
+          ]
+        ],
+        "referenceLocalEndActions": [
+          0.6132841231348249,
+          -0.1800737088354452,
+          0.3025337901730186,
+          0.17882697688249446,
+          -0.9717311669260759,
+          -0.23024594055457492,
+          -0.6132841231348249,
+          0.1800737088354452,
+          -0.3025337901730186,
+          -0.17882697688249446,
+          -0.6574631528826785,
+          -0.7394806589562505
+        ]
+      },
+      "y1": {
+        "nativeRows": [
+          [
+            -1.6725230089775778e-09,
+            1.1680759191513062,
+            -0.8176403641700745,
+            3.6274268033764656e-09,
+            1.1341927397268137e-10,
+            0.4361424744129181
+          ],
+          [
+            7.692634862443981e-10,
+            0.6176849603652954,
+            -0.8176403641700745,
+            3.6274268033764656e-09,
+            1.1341927397268137e-10,
+            0.4361424744129181
+          ],
+          [
+            3.2110498704440715e-09,
+            0.06729394942522049,
+            -0.8176403641700745,
+            3.6274268033764656e-09,
+            1.1341927397268137e-10,
+            0.4361424744129181
+          ],
+          [
+            5.652836421177199e-09,
+            -0.48309704661369324,
+            -0.8176403641700745,
+            3.6274268033764656e-09,
+            1.1341927397268137e-10,
+            0.4361424744129181
+          ],
+          [
+            8.094622749865721e-09,
+            -1.0334880352020264,
+            -0.8176403641700745,
+            3.6274268033764656e-09,
+            1.1341927397268137e-10,
+            0.4361424744129181
+          ],
+          [
+            1.0536409078554243e-08,
+            -1.583878993988037,
+            -0.8176403641700745,
+            3.6274268033764656e-09,
+            1.1341927397268137e-10,
+            0.4361424744129181
+          ],
+          [
+            1.2978195407242765e-08,
+            -2.134269952774048,
+            -0.8176403641700745,
+            3.6274268033764656e-09,
+            1.1341927397268137e-10,
+            0.4361424744129181
+          ],
+          [
+            1.5419981735931287e-08,
+            -2.6846611499786377,
+            -0.8176403641700745,
+            3.6274268033764656e-09,
+            1.1341927397268137e-10,
+            0.4361424744129181
+          ],
+          [
+            1.786176895279823e-08,
+            -3.2350521087646484,
+            -0.8176403641700745,
+            3.6274268033764656e-09,
+            1.1341927397268137e-10,
+            0.4361424744129181
+          ]
+        ],
+        "referenceLocalEndActions": [
+          -7.413447679169791e-16,
+          0.8176402788597216,
+          2.2931261663909954e-15,
+          -0.4361423659017622,
+          -2.282632867972879e-15,
+          1.1680758616730962,
+          7.413447679169791e-16,
+          -0.8176402788597216,
+          -2.2931261663909954e-15,
+          0.4361423659017622,
+          -1.0066229461595173e-14,
+          3.2350517929379183
+        ]
+      },
+      "y2": {
+        "nativeRows": [
+          [
+            0.9717312455177307,
+            -0.23024588823318481,
+            0.18007370829582214,
+            -0.3025338053703308,
+            0.613284170627594,
+            -0.17882703244686127
+          ],
+          [
+            0.7680819630622864,
+            -0.10903006792068481,
+            0.18007370829582214,
+            -0.3025338053703308,
+            0.613284170627594,
+            -0.17882703244686127
+          ],
+          [
+            0.5644326210021973,
+            0.012185757979750633,
+            0.18007370829582214,
+            -0.3025338053703308,
+            0.613284170627594,
+            -0.17882703244686127
+          ],
+          [
+            0.36078333854675293,
+            0.13340158760547638,
+            0.18007370829582214,
+            -0.3025338053703308,
+            0.613284170627594,
+            -0.17882703244686127
+          ],
+          [
+            0.1571340262889862,
+            0.2546174228191376,
+            0.18007370829582214,
+            -0.3025338053703308,
+            0.613284170627594,
+            -0.17882703244686127
+          ],
+          [
+            -0.04651527479290962,
+            0.3758332431316376,
+            0.18007370829582214,
+            -0.3025338053703308,
+            0.613284170627594,
+            -0.17882703244686127
+          ],
+          [
+            -0.25016456842422485,
+            0.4970490634441376,
+            0.18007370829582214,
+            -0.3025338053703308,
+            0.613284170627594,
+            -0.17882703244686127
+          ],
+          [
+            -0.4538138806819916,
+            0.6182648539543152,
+            0.18007370829582214,
+            -0.3025338053703308,
+            0.613284170627594,
+            -0.17882703244686127
+          ],
+          [
+            -0.6574631929397583,
+            0.73948073387146,
+            0.18007370829582214,
+            -0.3025338053703308,
+            0.613284170627594,
+            -0.17882703244686127
+          ]
+        ],
+        "referenceLocalEndActions": [
+          -0.6132841231347559,
+          -0.18007370883544657,
+          -0.302533790173004,
+          0.17882697688249405,
+          0.9717311669260299,
+          -0.23024594055457825,
+          0.6132841231347559,
+          0.18007370883544657,
+          0.302533790173004,
+          -0.17882697688249405,
+          0.6574631528826461,
+          -0.739480658956254
+        ]
+      }
+    }
+  }
+}

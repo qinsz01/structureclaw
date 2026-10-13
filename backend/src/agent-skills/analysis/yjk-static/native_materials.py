@@ -105,12 +105,13 @@ def compile_orientation(model: dict, element: dict, nodes: dict) -> dict:
         get_reference_vector(model.get("metadata") or {}, str(element["id"])))
     if abs(abs(axes[0][2]) - 1) <= 1e-9:
         angle = math.degrees(math.atan2(axes[1][1], axes[1][0]))
-    elif abs(axes[0][2]) <= 1e-9:
+    elif element.get("type") == "beam" or abs(axes[0][2]) <= 1e-9:
         native_x = list(axes[0])
         if native_x[0] < -1e-9 or (abs(native_x[0]) <= 1e-9 and native_x[1] < 0):
             native_x = [-value for value in native_x]
         up = [0., 0., 1.]
-        angle = math.degrees(math.atan2(dot(native_x, cross(up, axes[2])), dot(up, axes[2])))
+        projected = [up[i]-dot(up, native_x)*native_x[i] for i in range(3)]
+        angle = math.degrees(math.atan2(dot(native_x, cross(projected, axes[2])), dot(projected, axes[2])))
     else:
         if element.get("type") != "column":
             raise ValueError(f"YJK inclined section orientation requires native calibration: {element['id']}")

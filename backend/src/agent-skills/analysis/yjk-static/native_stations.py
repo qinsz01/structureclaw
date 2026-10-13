@@ -1,8 +1,8 @@
 """Physical YJK stations: exact endpoint order, executed geometry and local axes.
 
 Native report wwnl documents nine equally spaced beam sections and column
-top/bottom sections. Other station layouts, inclined columns and rigid offsets
-are deliberately not inferred from a row count.
+top/bottom sections. Executed geometry also covers calibrated sloping beams and
+ordinary inclined columns. Other layouts and rigid offsets are not inferred.
 """
 from __future__ import annotations
 
@@ -69,8 +69,9 @@ def executed_section_axes(frame: dict, points: list, native_member=None) -> list
         raise StationConventionUnavailable("Native section direction is not perpendicular to member")
     native_y = unit([value-residual*axis for value, axis in zip(direction, native_x)])
     if frame.get("kind") == "BEAM":
-        if abs(native_x[2]) > 1e-9:
-            raise StationConventionUnavailable("Inclined beam station axes await native calibration")
+        # The native BEAM record retains its true sloping endpoints and DIR
+        # section height axis. Six independent global actions on the asymmetric
+        # roof frame calibrate the same signed station convention in space.
         native_a = unit(cross(native_y, native_x))
     elif frame.get("kind") == "COLUMN":
         if abs(native_x[2] + 1) > 1e-9:
