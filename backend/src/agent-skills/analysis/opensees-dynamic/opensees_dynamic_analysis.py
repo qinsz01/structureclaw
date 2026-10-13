@@ -93,6 +93,12 @@ class OpenSeesDynamicExecutor(OpenSeesModelBuilder):
             raise OpenSeesMissingInputError("groundMotion is required; no synthetic earthquake is substituted")
         self._build_model(ops)
 
+        if selected_direction not in self.mass_assembly['directions'] or not any(
+            self.node_masses.get(str(node.id), 0) > 0
+            and not (node.restraints or [False]*6)[global_index] for node in self.model.nodes
+        ):
+            raise OpenSeesInputError(f'Direction {selected_direction} has no active free translational mass for ground excitation')
+
         eigen_values = [value for value in self._eigen_values(ops, 2) if value > 0.0]
         if not eigen_values:
             raise ValueError("Cannot derive Rayleigh damping without a positive eigenvalue")

@@ -64,3 +64,38 @@ def test_conflicting_request_mass_source_cannot_replace_model_mass():
     executor = OpenSeesDynamicExecutor(OpenSeesTagMapper(cantilever('2d','nodal')), {'massSource':'member-density'})
     with pytest.raises(ValueError, match='conflicts'):
         executor.modal_analysis(1,ops)
+
+
+def test_one_story_mass_is_not_repeated_at_different_roof_elevations():
+    from opensees_shared.mass import assemble_mass
+    model = cantilever('2d','floor-seismic')
+    model.nodes.append(model.nodes[1].model_copy(update={'id':'roof2','x':4,'z':3.5}))
+    with pytest.raises(ValueError, match='multiple elevated nodal levels'):
+        assemble_mass(model)
+
+
+def test_roundoff_in_same_floor_elevation_preserves_one_declared_mass():
+    from opensees_shared.mass import assemble_mass, floor_mass_records
+    model = cantilever('2d','floor-seismic')
+    model.nodes.append(model.nodes[1].model_copy(update={'id':'roof2','x':4,'z':3.0000000000000004}))
+    result = assemble_mass(model)
+    assert result['totalMass'] == 10
+    assert len(result['floorMasses']) == 1
+    assert result['nodeMasses'] == {'base':0,'top':5,'roof2':5}
+    assert sum(row['mass'] for row in floor_mass_records(model, result['nodeMasses'])) == 10
+
+
+@pytest.mark.parametrize('mass_directions', [['x'], ['x','z']])
+def test_time_history_rejects_excitation_without_free_mass_in_its_direction(mass_directions):
+    import openseespy.opensees as ops
+    model = cantilever('2d','nodal')
+    model.analysis_control.mass_directions = mass_directions
+    if mass_directions == ['x']:
+        # Geometrically free Z still has no mass in the selected mass basis.
+        model.nodes[1].restraints[2] = False
+    executor = OpenSeesDynamicExecutor(OpenSeesTagMapper(model))
+    try:
+        with pytest.raises(ValueError, match='no active free translational mass'):
+            executor.time_history_analysis(.02,.1,.05,[0,1,-1,1,0],ops,direction='z')
+    finally:
+        ops.wipe()

@@ -21,6 +21,14 @@ Known historical top-level/extra design fields migrate once, with contradictions
 rejected. Legacy section G migrates to its assigned material. Unassigned section
 G remains recorded as historical evidence, and is not silently discarded.
 
+The `floor-seismic` mass basis requires one elevated nodal level per declared
+story. Sloping roofs or stepped floors sharing one story identifier must use
+explicit nodal masses until their distribution is reviewed; a story mass is never
+repeated for each height. Coordinate roundoff within the existing 1e-8 m level
+tolerance does not create another floor. Time-history excitation requires actual
+free translational mass in the requested direction; a massless direction is
+rejected instead of returning a successful zero response.
+
 ## One section source
 
 Section geometry is mm; A is m², I/J are m⁴ and elastic moduli Wx/Wz are m³.

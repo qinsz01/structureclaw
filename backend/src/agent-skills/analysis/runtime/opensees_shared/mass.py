@@ -17,6 +17,17 @@ def positive(value, description):
     return float(value)
 
 
+def nodal_level_groups(nodes):
+    """One group per geometric level; serialization roundoff is not a new floor."""
+    groups = []
+    for node in sorted(nodes, key=lambda n: float(field(n, 'z'))):
+        value = float(field(node, 'z'))
+        if not groups or value-groups[-1][0] > 1e-8:
+            groups.append((value, []))
+        groups[-1][1].append(node)
+    return groups
+
+
 def density_masses(model):
     nodes = {str(field(n, 'id')): n for n in field(model, 'nodes', [])}
     materials = {str(field(m, 'id')): m for m in field(model, 'materials', [])}
@@ -38,10 +49,8 @@ def density_masses(model):
 def floor_mass_records(model, masses):
     """Group actual nodal masses for reporting; retain nodal distribution for modal energy."""
     nodes = list(field(model, 'nodes', []))
-    levels = sorted({float(field(n, 'z')) for n in nodes})
     result = []
-    for level in levels:
-        selected = [n for n in nodes if abs(float(field(n, 'z'))-level) <= 1e-8]
+    for level, selected in nodal_level_groups(nodes):
         node_masses = {str(field(n, 'id')): masses.get(str(field(n, 'id')), 0.0) for n in selected}
         total = sum(node_masses.values())
         if total <= 0:
@@ -57,9 +66,9 @@ def seismic_floor_masses(model):
     masses = {str(field(n, 'id')): 0.0 for n in nodes}
     floors = []
     base = min((float(field(n, 'z')) for n in nodes), default=0.0)
-    levels = sorted({float(field(n, 'z')) for n in nodes if float(field(n, 'z')) > base+1e-8})
-    for level in levels:
-        selected = [n for n in nodes if abs(float(field(n, 'z'))-level) <= 1e-8]
+    levels = [(level, selected) for level, selected in nodal_level_groups(nodes) if level > base+1e-8]
+    assigned_stories = set()
+    for level, selected in levels:
         story_ids = {str(field(n, 'story')) for n in selected if field(n, 'story')}
         candidates = [s for s in stories if str(field(s, 'id')) in story_ids]
         if not candidates:
@@ -68,6 +77,11 @@ def seismic_floor_masses(model):
         if len(candidates) != 1:
             raise OpenSeesMissingInputError(f'Seismic mass at elevation {level} requires exactly one explicit story association')
         story = candidates[0]
+        story_id = str(field(story, 'id'))
+        if story_id in assigned_stories:
+            raise OpenSeesInputError(f"Story {story_id} has multiple elevated nodal levels; floor-seismic mass "
+                'requires one level per story. Declare explicit nodal masses for stepped floors or sloping roofs.')
+        assigned_stories.add(story_id)
         extra = field(story, 'extra', {}) or {}
         mass, weight = extra.get('seismic_mass'), extra.get('seismic_weight')
         if mass is not None and weight is not None and not math.isclose(positive(mass, 'seismic_mass')*G_ACCEL,
