@@ -1,0 +1,643 @@
+{
+  "schemaVersion": 1,
+  "status": "scenario-compatible-frozen",
+  "date": "2026-10-13",
+  "title": "300 规划场景工具能力冻结（Bench 尚未编制）",
+  "scope": "已逐项核对原始任务和模型规划，验证所需表达、求解、查询及交互能力；不是 300 道正式题、标答、附件或语言模型实验的通过证明。",
+  "plannedTag": "bench300-capability-freeze-20261013",
+  "implementationCommit": "ce79cee11e9571f5a83af5eccc2ec911a8a20c41",
+  "branch": "work/research-next",
+  "runtimeTreeSha256": "f26c18c8c2c37adc58a82ad37b9b8b4f9110cdac4d9945d7bff5e34839e8ada9",
+  "nodeVersion": "v24.14.1",
+  "compiledArtifacts": {
+    "sha256": "d139a51d04099ec160a312d062ce94da9684d1d2f8f07f873d3bbad4ac3f15d5",
+    "fileCount": 2878
+  },
+  "dependencyTrees": [
+    {
+      "path": "node_modules",
+      "sha256": "7fc4945c664c6eb113f3d75503afdd3abc82a814dd722e502bfa3033fde9ea99",
+      "fileCount": 21304
+    },
+    {
+      "path": "backend/node_modules",
+      "sha256": "4430ea8eb83124edf820b52a6758dcddb3a98f93ef50132a4ad5070ad3ff9f30",
+      "fileCount": 32790
+    },
+    {
+      "path": "G:/StructureClaw-All/sclaw_data/.venv/Lib/site-packages",
+      "sha256": "3d3cba10bdf2c1608414775debde02f2e29897af7e559a0a08692103bddd2b08",
+      "fileCount": 3387
+    },
+    {
+      "path": "C:\\Users\\jinxl\\AppData\\Roaming\\uv\\python\\cpython-3.12.13-windows-x86_64-none",
+      "sha256": "b93c23f76ae066816032db0a86d30d557fae997800cc5318035157dcfeb6d74d",
+      "fileCount": 2773
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-python",
+      "sha256": "f6a68816bc94b8ea229d8c06e0a78d45a18264fbbc9a7e963dfacfd7d0c02262",
+      "fileCount": 2614
+    }
+  ],
+  "executionBinding": {
+    "schemaVersion": 1,
+    "workingDirectory": "G:\\StructureClaw-All\\structureclaw\\backend",
+    "dataDirectory": "G:\\StructureClaw-All\\sclaw_data",
+    "settingsPath": "G:\\StructureClaw-All\\sclaw_data\\settings.json",
+    "configured": {
+      "analysisPythonBin": "G:\\StructureClaw-All\\sclaw_data\\.venv\\Scripts\\python.exe",
+      "analysisEngineManifestPath": "G:\\StructureClaw-All\\sclaw_data\\analysis-engines.json",
+      "pkpmCyclePath": "G:\\PKPM2025R2.5\\PkpmCycle\\JWSCYCLE.exe",
+      "yjkInstallRoot": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk",
+      "yjkExePath": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\yjks.exe",
+      "yjkPythonBin": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-python\\python.exe"
+    },
+    "workerPath": "G:\\StructureClaw-All\\structureclaw\\backend\\src\\agent-skills\\analysis\\runtime\\worker.py",
+    "pythonCommand": {
+      "executable": "G:\\StructureClaw-All\\sclaw_data\\.venv\\Scripts\\python.exe",
+      "args": []
+    },
+    "environment": {
+      "PYTHONPATH": null,
+      "PYTHONHOME": null,
+      "PYTHONNOUSERSITE": null,
+      "PYTHONUSERBASE": null,
+      "PYTHONSAFEPATH": null,
+      "PYTHONUTF8": null,
+      "PKPM_CYCLE_PATH": "G:\\PKPM2025R2.5\\PkpmCycle\\JWSCYCLE.exe",
+      "PKPM_WORK_DIR": "G:\\StructureClaw-All\\sclaw_data\\analysis\\pkpm",
+      "YJK_PATH": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk",
+      "YJKS_ROOT": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk",
+      "YJKS_EXE": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\yjks.exe",
+      "YJK_PYTHON_BIN": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-python\\python.exe",
+      "YJK_WORK_DIR": "G:\\StructureClaw-All\\sclaw_data\\analysis\\yjk",
+      "YJK_VERSION": "8.0.0",
+      "YJK_TIMEOUT_S": "600",
+      "YJK_INVISIBLE": "1",
+      "YJK_LAUNCHER_PREWARM": "always",
+      "YJK_LAUNCHER_PREWARM_S": "18",
+      "YJK_DIRECT_READY_TIMEOUT_S": "12",
+      "ANALYSIS_ENGINE_MANIFEST_PATH": null
+    },
+    "analysis": {
+      "executable": {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\.venv\\Scripts\\python.exe",
+        "sha256": "98367b55e3b75999f6cfeeb0920b02e0e66bbe781972c4fdad905a85e2f383cd"
+      },
+      "version": "3.12.13 (main, Apr  7 2026, 20:53:22) [MSC v.1944 64 bit (AMD64)]",
+      "prefix": "G:\\StructureClaw-All\\sclaw_data\\.venv",
+      "basePrefix": "C:\\Users\\jinxl\\AppData\\Roaming\\uv\\python\\cpython-3.12-windows-x86_64-none",
+      "searchPaths": [
+        "G:\\StructureClaw-All\\structureclaw\\backend\\src\\agent-skills\\material",
+        "G:\\StructureClaw-All\\structureclaw\\backend\\src\\agent-skills\\code-check",
+        "G:\\StructureClaw-All\\structureclaw\\backend\\src\\agent-skills\\data-input",
+        "G:\\StructureClaw-All\\structureclaw\\backend\\src\\skill-shared\\python",
+        "G:\\StructureClaw-All\\structureclaw\\backend\\src\\agent-skills\\analysis",
+        "G:\\StructureClaw-All\\structureclaw\\backend\\src\\agent-skills\\analysis\\runtime",
+        "C:\\Users\\jinxl\\AppData\\Roaming\\uv\\python\\cpython-3.12.13-windows-x86_64-none\\python312.zip",
+        "C:\\Users\\jinxl\\AppData\\Roaming\\uv\\python\\cpython-3.12.13-windows-x86_64-none\\DLLs",
+        "C:\\Users\\jinxl\\AppData\\Roaming\\uv\\python\\cpython-3.12.13-windows-x86_64-none\\Lib",
+        "G:\\StructureClaw-All\\sclaw_data\\.venv\\Scripts",
+        "G:\\StructureClaw-All\\sclaw_data\\.venv",
+        "G:\\StructureClaw-All\\sclaw_data\\.venv\\Lib\\site-packages"
+      ],
+      "modules": {
+        "numpy": {
+          "origin": {
+            "path": "G:\\StructureClaw-All\\sclaw_data\\.venv\\Lib\\site-packages\\numpy\\__init__.py",
+            "sha256": "150b19558caf78c0e3cc6994ec652399e972595ca649cea1a69c801ef23e4b1c"
+          },
+          "packagePaths": [
+            "G:\\StructureClaw-All\\sclaw_data\\.venv\\Lib\\site-packages\\numpy"
+          ]
+        },
+        "scipy": null,
+        "openseespy": {
+          "origin": {
+            "path": "G:\\StructureClaw-All\\sclaw_data\\.venv\\Lib\\site-packages\\openseespy\\__init__.py",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "packagePaths": [
+            "G:\\StructureClaw-All\\sclaw_data\\.venv\\Lib\\site-packages\\openseespy"
+          ]
+        },
+        "openseespy.opensees": {
+          "origin": {
+            "path": "G:\\StructureClaw-All\\sclaw_data\\.venv\\Lib\\site-packages\\openseespy\\opensees\\__init__.py",
+            "sha256": "b4c234a20c235bb4a8ed9f780a9ac2d5b2534c42ad499054882ba8c8e94bed1d"
+          },
+          "packagePaths": [
+            "G:\\StructureClaw-All\\sclaw_data\\.venv\\Lib\\site-packages\\openseespy\\opensees"
+          ]
+        },
+        "openseespywin": {
+          "origin": {
+            "path": "G:\\StructureClaw-All\\sclaw_data\\.venv\\Lib\\site-packages\\openseespywin\\__init__.py",
+            "sha256": "64f50098a4033d483308fdb4207363f1a96eb197cddae18a22b6b9adbe4b7a16"
+          },
+          "packagePaths": [
+            "G:\\StructureClaw-All\\sclaw_data\\.venv\\Lib\\site-packages\\openseespywin"
+          ]
+        },
+        "pydantic": {
+          "origin": {
+            "path": "G:\\StructureClaw-All\\sclaw_data\\.venv\\Lib\\site-packages\\pydantic\\__init__.py",
+            "sha256": "0f7ffed1a44fa00179107e13e093d53982cd11cf8379a09c0ede94cc88cffc3d"
+          },
+          "packagePaths": [
+            "G:\\StructureClaw-All\\sclaw_data\\.venv\\Lib\\site-packages\\pydantic"
+          ]
+        },
+        "fastapi": {
+          "origin": {
+            "path": "G:\\StructureClaw-All\\sclaw_data\\.venv\\Lib\\site-packages\\fastapi\\__init__.py",
+            "sha256": "b20bbeb2d879b91602fbe98e5d2b5af883d88e70ca52ba514b3e8bbaf2877fda"
+          },
+          "packagePaths": [
+            "G:\\StructureClaw-All\\sclaw_data\\.venv\\Lib\\site-packages\\fastapi"
+          ]
+        },
+        "httpx": {
+          "origin": {
+            "path": "G:\\StructureClaw-All\\sclaw_data\\.venv\\Lib\\site-packages\\httpx\\__init__.py",
+            "sha256": "0ac6997bac998f4ac783adf6d8058a587193315afdb718047c3e4fdff46bcfad"
+          },
+          "packagePaths": [
+            "G:\\StructureClaw-All\\sclaw_data\\.venv\\Lib\\site-packages\\httpx"
+          ]
+        },
+        "yaml": {
+          "origin": {
+            "path": "G:\\StructureClaw-All\\sclaw_data\\.venv\\Lib\\site-packages\\yaml\\__init__.py",
+            "sha256": "b19dfcc333d6a75dfd73073901164507252f271b41d3b5f7d85510033a0547a7"
+          },
+          "packagePaths": [
+            "G:\\StructureClaw-All\\sclaw_data\\.venv\\Lib\\site-packages\\yaml"
+          ]
+        },
+        "ezdxf": {
+          "origin": {
+            "path": "G:\\StructureClaw-All\\sclaw_data\\.venv\\Lib\\site-packages\\ezdxf\\__init__.py",
+            "sha256": "6302d75eb77faace772b7c4ab1baffbde922fc4f7fd36b46f66598264a53e76f"
+          },
+          "packagePaths": [
+            "G:\\StructureClaw-All\\sclaw_data\\.venv\\Lib\\site-packages\\ezdxf"
+          ]
+        },
+        "APIPyInterface": {
+          "origin": {
+            "path": "G:\\StructureClaw-All\\sclaw_data\\.venv\\Lib\\site-packages\\APIPyInterface\\__init__.py",
+            "sha256": "060958a1e62174c62497fae64ca9027a095d70db15fb8d3acb42787a474364e3"
+          },
+          "packagePaths": [
+            "G:\\StructureClaw-All\\sclaw_data\\.venv\\Lib\\site-packages\\APIPyInterface"
+          ]
+        },
+        "sitecustomize": null,
+        "usercustomize": null
+      },
+      "engineManifest": {
+        "path": "C:\\Users\\jinxl\\.structureclaw\\analysis-engines.json",
+        "sha256": null
+      },
+      "yjkPython": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-python\\python.exe"
+    },
+    "yjk": {
+      "executable": {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-python\\python.exe",
+        "sha256": "3cce33d75d6fdae4e004d0bdf149320b3147482a9caf370079dcb9c191a1b260"
+      },
+      "version": "3.10.11 (tags/v3.10.11:7d4cc5a, Apr  5 2023, 00:38:17) [MSC v.1929 64 bit (AMD64)]",
+      "prefix": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-python",
+      "basePrefix": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-python",
+      "searchPaths": [
+        "G:\\StructureClaw-All\\structureclaw\\backend\\src\\agent-skills\\analysis\\yjk-static",
+        "G:\\StructureClaw-All\\structureclaw\\backend\\src\\agent-skills\\analysis\\runtime",
+        "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk",
+        "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-python\\python310.zip",
+        "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-python",
+        "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-python\\Lib",
+        "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-python\\site-packages",
+        "C:\\Users\\jinxl\\AppData\\Roaming\\Python\\Python310\\site-packages",
+        "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-python\\Lib\\site-packages"
+      ],
+      "modules": {
+        "YJKAPI": {
+          "origin": {
+            "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-python\\site-packages\\YJKAPI\\__init__.py",
+            "sha256": "c5732384c58008fa33b7dfd6967271901530e31d4cb4f5127fd661e7fefabaf2"
+          },
+          "packagePaths": [
+            "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-python\\site-packages\\YJKAPI"
+          ]
+        },
+        "clr": {
+          "origin": {
+            "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-python\\site-packages\\clr.py",
+            "sha256": "f4b244f2f7a1810aa40814c35da07855405b7507836d2b39ce6676f377472d15"
+          },
+          "packagePaths": []
+        },
+        "pythonnet": {
+          "origin": {
+            "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-python\\site-packages\\pythonnet\\__init__.py",
+            "sha256": "5f99d99e29d638e9e8ea5f9d8b62de996d70c91c1c2b0c214a8633905907fca5"
+          },
+          "packagePaths": [
+            "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-python\\site-packages\\pythonnet"
+          ]
+        },
+        "sitecustomize": null,
+        "usercustomize": null
+      },
+      "installRoot": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk",
+      "nativeExecutable": {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\yjks.exe",
+        "sha256": "63077b4678c454231189b2686d97d263f4320f29b93b25a78f9db18c5fd335bf"
+      }
+    },
+    "node": {
+      "path": "C:\\nvm4w\\nodejs\\node.exe",
+      "sha256": "58e74bf02fc5bbacc41dcb8bef089961cd5bddd37830b87784e4fc624d145d1f",
+      "version": "v24.14.1"
+    },
+    "pkpmExecutable": {
+      "path": "G:\\PKPM2025R2.5\\PkpmCycle\\JWSCYCLE.exe",
+      "sha256": "e7b8b240da4aa4ae9a884cf56be8eb7d214e6fdd570c002b5e76e1ba52d43204"
+    }
+  },
+  "nativeFiles": [
+    {
+      "path": "G:\\PKPM2025R2.5\\PkpmCycle\\JWSCYCLE.exe",
+      "sha256": "e7b8b240da4aa4ae9a884cf56be8eb7d214e6fdd570c002b5e76e1ba52d43204"
+    },
+    {
+      "path": "G:\\PKPM2025R2.5\\Ribbon\\PKPMMain.exe",
+      "sha256": "7997ec7369532c13138a793e69040c3d5ee28e48c8961ec9c01450fadb70ede2"
+    },
+    {
+      "path": "G:\\PKPM2025R2.5\\Ribbon\\SAT\\SAT64\\WINSAT-A_x64.exe",
+      "sha256": "28adde523fe58491f96727da7250c21e6304e56aef3d0ba0330da9c57e3adaf3"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\.venv\\Lib\\site-packages\\APIPyInterface\\APIPyInterface.pyd",
+      "sha256": "17631e28e3070bb93c010b7927217a49109027f943cd8f2a7615fe3c6790f04b"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\.venv\\Lib\\site-packages\\APIPyInterface\\PMDATAAPI_x64.dll",
+      "sha256": "90da41283bb65ba602935244b0db5f5772494b2a16ddf25f409d6978a65b499d"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\.venv\\Lib\\site-packages\\APIPyInterface\\PmsrwData_x64.dll",
+      "sha256": "ca7a47b9006eb4b4f5f88c37014b0da5c090029de518a1d6ab69dbea0d2f6560"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-python\\python.exe",
+      "sha256": "3cce33d75d6fdae4e004d0bdf149320b3147482a9caf370079dcb9c191a1b260"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-python\\python310.dll",
+      "sha256": "14b06796f288bc6599e458fb23a944ab0c843e9868058f02a91d4606533505ed"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\yjks.exe",
+      "sha256": "63077b4678c454231189b2686d97d263f4320f29b93b25a78f9db18c5fd335bf"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\ClrYJKAPI.dll",
+      "sha256": "1ed9c0b4dfbaed1109f698b775836f1a668df3cf71d409ae70adb9c9beccbdc1"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\pyYJKSPlugin.dll",
+      "sha256": "87b5d8092315181db48de4419368246a13a21bbf1e052d82c335c8a3d3766178"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\yjkfea64.dll",
+      "sha256": "d9734c2f8b73e319d8ccfeabfa5916516ba23f37ed4c640f9759011e5e1076c7"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\yjkfea64-Cxx17.dll",
+      "sha256": "8044281ee6dc462aea9f871f7b89d2bb3fa462667449e229c1f5f775aaa4adba"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\yjkSPre.dll",
+      "sha256": "a41486d685e13f1f0b60a5409ef19578cc8949e80500e4ee1ff3c094e2b5efee"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\YjkDatabase.dll",
+      "sha256": "023b8a35c0df26a05147078c986945a29989db1716e22107436ec7d2bb6de30f"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\python310\\python310.dll",
+      "sha256": "14b06796f288bc6599e458fb23a944ab0c843e9868058f02a91d4606533505ed"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\YjkLauncher.exe",
+      "sha256": "23051a1a0c0158e1c6e936ba9bf61d3fea37de185e932c5624e3387ca208b4a3"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\python310\\site-packages\\YJKAPI\\__init__.py",
+      "sha256": "c5732384c58008fa33b7dfd6967271901530e31d4cb4f5127fd661e7fefabaf2"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\python310\\site-packages\\YJKAPI\\initializer.py",
+      "sha256": "525bd478ae49e60859f6d3cfbe1b6f131eee1343d6e3a64776323e27d8800940"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\python310\\site-packages\\YJKAPI\\DLLs\\NDepend\\YJKAPI.dll",
+      "sha256": "d161a0ba9cfad094b2147017d2138cfb3dc4f14c3f1d81d7df0f06e371ba412f"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\python310\\site-packages\\YJKAPI\\DLLs\\NDepend\\ClrYJKAPI.dll",
+      "sha256": "ee6eb32049821721e1a0c3859b629eab4ed1be29ad700c3b23ffe56b4c6ac921"
+    },
+    {
+      "path": "G:/StructureClaw-All/sclaw_data/.venv/Lib/site-packages/openseespywin/opensees.pyd",
+      "sha256": "25ba42e1672526137d765d9c3631d1403e091f54f5afcdb9242f9243c63c3a96"
+    }
+  ],
+  "evidenceFiles": [
+    {
+      "path": "docs/reproducibility/scenario-plan-300-20261013.json",
+      "hashMode": "canonical-json",
+      "sha256": "5c607cb418c11f666fa0422ba8eeb41d0d233b66b92021662d7cff82acd8f267"
+    },
+    {
+      "path": "docs/reproducibility/opensees-scenario-compatibility-20261013.json",
+      "hashMode": "canonical-json",
+      "sha256": "919230d5ef8c0389b72a5efba522b292fa8791c58d6532633ad443a6a92d7550"
+    },
+    {
+      "path": "docs/reproducibility/pkpm-scenario-compatibility-20261013.json",
+      "hashMode": "canonical-json",
+      "sha256": "dc6f77f82294ac31af4f607a2db82cc8c09bcbf5795c80459cc0efd2ea6143ff"
+    },
+    {
+      "path": "docs/reproducibility/yjk-scenario-compatibility-20261013.json",
+      "hashMode": "canonical-json",
+      "sha256": "a7a724ae426ee2584566f51feff5d9f6914265b2c122c7109f348c3549ed2e0d"
+    },
+    {
+      "path": "docs/reproducibility/commercial-native-chain-20261013.json",
+      "hashMode": "canonical-json",
+      "sha256": "3f8744156a225d9d5d2a6de517fb5f1d847d4e714091fa42709337db7fd77039"
+    }
+  ],
+  "coverage": {
+    "scenarioCount": 300,
+    "engineCounts": {
+      "OpenSees": 267,
+      "PKPM": 16,
+      "YJK": 17
+    },
+    "scenarioCompatibleCount": 300,
+    "unresolvedToolGaps": [],
+    "benchImplemented": false,
+    "allTasksIndividuallyExecuted": false,
+    "paidModelCalls": 0,
+    "sourceMeaning": "原始计划的旧 adapterGap/status 原样保存供溯源；当前兼容结论见三引擎逐项审计。"
+  },
+  "physicalContract": {
+    "analysis": "按原规划：完整、稳定、一阶线弹性杆系；逐对象属性、真实边界和题定工况/组合。",
+    "requiredInputs": "后续编题补齐真实数值附录与附件；保持原始场景、引擎、输出与连接含义，不用默认值填补缺项。",
+    "opensees": "通用 2D/3D 梁柱及轴力杆、局部与跨内荷载、真实弹性短臂、分段映射和带荷载项内部响应。",
+    "commercial": "以已原生验收的裸杆系能力为界；关闭未要求的自重、刚性楼板、刚域、施工阶段与几何非线性。",
+    "pkpmNumericSections": "A/Iy/Iz/J 独立；Asy=Asz=5A/6；0/90 度正交朝向。原生载体仅用于分析装配，不提供源物理尺寸或规范设计几何。",
+    "yjkNumericSections": "完整 A/Iy/Iz/J/Asy/Asz 与 E/G 通过六刚度和轴向读回校准；保留源材料/截面身份。",
+    "precision": "原生微小轴力及个别极小转角差异按原容差留存为数值精度限制，不替换结果，不伪称所有数值验收无误。"
+  },
+  "changes": [
+    "选择性撤销先前修改，同时保留后续无关修改和当前来源注释。",
+    "同次运行的节点差、指定工况/组合控制值及报告绑定。",
+    "PKPM 非方柱正交轴、独立数值截面原生编译和求解后核对。",
+    "YJK 数值截面及材料保真、非对称剪切面积映射。",
+    "拒绝不存在的历史结果选择；冻结源码、编译产物、实际解释器/模块/求解器及运行依赖。"
+  ],
+  "validation": {
+    "backend": {
+      "passedSuites": 114,
+      "passedTests": 1389,
+      "skippedTests": 0,
+      "artifact": {
+        "path": "G:/StructureClaw-All/sclaw_data/scenario-freeze-backend-python-enabled-20261013.json",
+        "sha256": "58969e2ea7e6b1680e108ac2ab63e87f1cdf2d8fdce35c29647f47eb4d917cb4"
+      },
+      "note": "PYTHON_FOR_TEST 显式指定已安装解释器；PKPM 最终生产补丁另经 20 项 Jest 流程与最终 Python 回归验证。"
+    },
+    "python": {
+      "junitChecks": 442,
+      "failed": 0,
+      "skipped": 0,
+      "runs": [
+        {
+          "engine": "opensees-dynamic",
+          "exitCode": 0,
+          "junit": "G:\\StructureClaw-All\\sclaw_data\\scenario-freeze-analysis-opensees-dynamic-20261013.xml",
+          "counts": {
+            "tests": 19,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          "command": [
+            "G:\\StructureClaw-All\\sclaw_data\\.venv\\Scripts\\python.exe",
+            "-m",
+            "pytest",
+            "backend\\src\\agent-skills\\analysis\\opensees-dynamic\\__tests__",
+            "-q",
+            "--junitxml=G:\\StructureClaw-All\\sclaw_data\\scenario-freeze-analysis-opensees-dynamic-20261013.xml"
+          ],
+          "artifact": {
+            "path": "G:\\StructureClaw-All\\sclaw_data\\scenario-freeze-analysis-opensees-dynamic-20261013.xml",
+            "sha256": "b39f1d3e658e8d782c939bfe63c710e1ac02867e49599fa9e15a05f552d7982c"
+          }
+        },
+        {
+          "engine": "opensees-seismic",
+          "exitCode": 0,
+          "junit": "G:\\StructureClaw-All\\sclaw_data\\scenario-freeze-analysis-opensees-seismic-20261013.xml",
+          "counts": {
+            "tests": 87,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          "command": [
+            "G:\\StructureClaw-All\\sclaw_data\\.venv\\Scripts\\python.exe",
+            "-m",
+            "pytest",
+            "backend\\src\\agent-skills\\analysis\\opensees-seismic\\__tests__",
+            "-q",
+            "--junitxml=G:\\StructureClaw-All\\sclaw_data\\scenario-freeze-analysis-opensees-seismic-20261013.xml"
+          ],
+          "artifact": {
+            "path": "G:\\StructureClaw-All\\sclaw_data\\scenario-freeze-analysis-opensees-seismic-20261013.xml",
+            "sha256": "0ecb968cd8db050dab425d572f0f44eb38d95c16717f8ceda4ed8e070a4884bb"
+          }
+        },
+        {
+          "engine": "opensees-static",
+          "exitCode": 0,
+          "junit": "G:\\StructureClaw-All\\sclaw_data\\scenario-freeze-analysis-opensees-static-20261013.xml",
+          "counts": {
+            "tests": 62,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          "command": [
+            "G:\\StructureClaw-All\\sclaw_data\\.venv\\Scripts\\python.exe",
+            "-m",
+            "pytest",
+            "backend\\src\\agent-skills\\analysis\\opensees-static\\__tests__",
+            "-q",
+            "--junitxml=G:\\StructureClaw-All\\sclaw_data\\scenario-freeze-analysis-opensees-static-20261013.xml"
+          ],
+          "artifact": {
+            "path": "G:\\StructureClaw-All\\sclaw_data\\scenario-freeze-analysis-opensees-static-20261013.xml",
+            "sha256": "8523a3c2aee1826e0ec8b4328a22aeb952ceb1e0bf0efa59448734d04a805776"
+          }
+        },
+        {
+          "engine": "runtime",
+          "exitCode": 0,
+          "junit": "G:\\StructureClaw-All\\sclaw_data\\scenario-freeze-analysis-runtime-20261013.xml",
+          "counts": {
+            "tests": 49,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          "command": [
+            "G:\\StructureClaw-All\\sclaw_data\\.venv\\Scripts\\python.exe",
+            "-m",
+            "pytest",
+            "backend\\src\\agent-skills\\analysis\\runtime\\__tests__",
+            "-q",
+            "--junitxml=G:\\StructureClaw-All\\sclaw_data\\scenario-freeze-analysis-runtime-20261013.xml"
+          ],
+          "artifact": {
+            "path": "G:\\StructureClaw-All\\sclaw_data\\scenario-freeze-analysis-runtime-20261013.xml",
+            "sha256": "68583e04c5e58cd9ccaadb69fd79877a65202e6f3aefc14ee625dbc72acdde0c"
+          }
+        },
+        {
+          "engine": "yjk-static",
+          "exitCode": 0,
+          "junit": "G:\\StructureClaw-All\\sclaw_data\\scenario-freeze-analysis-yjk-static-20261013.xml",
+          "counts": {
+            "tests": 123,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          "command": [
+            "G:\\StructureClaw-All\\sclaw_data\\.venv\\Scripts\\python.exe",
+            "-m",
+            "pytest",
+            "backend\\src\\agent-skills\\analysis\\yjk-static\\__tests__",
+            "-q",
+            "--junitxml=G:\\StructureClaw-All\\sclaw_data\\scenario-freeze-analysis-yjk-static-20261013.xml"
+          ],
+          "artifact": {
+            "path": "G:\\StructureClaw-All\\sclaw_data\\scenario-freeze-analysis-yjk-static-20261013.xml",
+            "sha256": "1a6b73eecb7cd83eb70f45f3e2ae233842a2fc7718fd0486d0041bba5d338d1a"
+          }
+        },
+        {
+          "engine": "native-reference",
+          "exitCode": 0,
+          "junit": "G:\\StructureClaw-All\\sclaw_data\\scenario-freeze-analysis-native-reference-20261013.xml",
+          "counts": {
+            "tests": 16,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          "command": [
+            "G:\\StructureClaw-All\\sclaw_data\\.venv\\Scripts\\python.exe",
+            "-m",
+            "pytest",
+            "backend/tests/test_native_frame_reference.py",
+            "backend/tests/test_yjk_planned_frame_proxies.py",
+            "-q",
+            "--junitxml=G:\\StructureClaw-All\\sclaw_data\\scenario-freeze-analysis-native-reference-20261013.xml"
+          ],
+          "artifact": {
+            "path": "G:\\StructureClaw-All\\sclaw_data\\scenario-freeze-analysis-native-reference-20261013.xml",
+            "sha256": "4f0e18f230f01a797a97a6c0d591b36b6c46608e6a4db4cfc897ffb1a527f8d8"
+          }
+        },
+        {
+          "engine": "pkpm-static",
+          "exitCode": 0,
+          "counts": {
+            "tests": 86,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          "command": [
+            "G:/StructureClaw-All/sclaw_data/.venv/Scripts/python.exe",
+            "-m",
+            "pytest",
+            "backend/src/agent-skills/analysis/pkpm-static/__tests__",
+            "-q"
+          ],
+          "artifact": {
+            "path": "G:/StructureClaw-All/sclaw_data/scenario-freeze-analysis-pkpm-final-20261013.xml",
+            "sha256": "ea92fdfa140b1897f6e4bbe68f52f5bce322e208a06168aac3dcc487a9050d4f"
+          }
+        }
+      ],
+      "note": "各引擎在独立进程执行，与生产隔离一致。早期一次性收集时的同名模块冲突记录保留；PKPM 独立测试引导已修复，最终86项通过。"
+    },
+    "freezeGate": {
+      "passed": 24,
+      "failed": 0,
+      "skipped": 0,
+      "artifact": {
+        "path": "G:/StructureClaw-All/sclaw_data/scenario-freeze-gate-tests-python-enabled-20261013.tap",
+        "sha256": "474a221a49da8d507ae07e1308ebe00dc58931241dcdf1247d3fe8c86afa0e9a"
+      }
+    },
+    "build": {
+      "backend": "passed",
+      "frontendStaticExport": "passed"
+    },
+    "sharedNativeProbe": {
+      "script": "backend/tests/engineering-scenario-acceptance.mjs",
+      "runIds": [
+        "ba34fb54-0575-4146-9b2f-1cf92b946431",
+        "bf50f757-5267-481f-9a0b-23430f4734c9"
+      ],
+      "status": "passed",
+      "paidModelCalls": 0
+    },
+    "commercialEvidence": "三引擎审计内保留真实原生执行、冻结参考、原容差、文件哈希及独立复查记录；不以 mock 代替原生求解。",
+    "finalPreflight": {
+      "status": "passed",
+      "scenarioCount": 300,
+      "artifact": {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\scenario-freeze-preflight-20261013.json",
+        "sha256": "51680bd5bafa6a40da769113e2758b9dc2ecd369cf23dfbf8e7e2160d22970a9"
+      }
+    }
+  },
+  "preserved": {
+    "benchmarkCommit": "5102acb3fdf4618c31f385e51fd0e5b9280438a1",
+    "benchmarkWorkingTreeUnchanged": true,
+    "paperSystemCommit": "3c36a37241fa9afc9d89329d0d0acd3278fc2e88",
+    "paperBenchCommit": "4259fdd92a83f5d93976bc510ef82a0d2d7b9b57",
+    "independentYjkApi": "已登记6个源文件/配置哈希未变，未修改或重启其服务。"
+  },
+  "experimentPolicy": {
+    "preflight": "node scripts/verify-scenario-freeze.mjs",
+    "scope": "本机已验收运行环境与已编译产物。其他机器/安装不得冒用当前环境指纹。",
+    "settings": "LLM 密钥、提供商、模型与答题采样参数不写入本冻结；正式实验另行登记这些实验变量。",
+    "noReversePatching": "后续 Bench 编制和实验不得按题目或结果修正本冻结系统、工具定义、技能提示、求解映射或依赖。门禁失败停止实验，不能自动重建或重新生成指纹通过。",
+    "dependencyScope": "冻结实际生产 Node 依赖、Python 包与解释器、原生核心文件。静态前端以实际 out/.next 产物和锁文件冻结；未把纯构建期 node_modules 当成运行内容。",
+    "futureErrors": "记录语言模型错误、数值偏差和失败归因；不通过删需求、换引擎或放宽容差掩盖。"
+  }
+}
