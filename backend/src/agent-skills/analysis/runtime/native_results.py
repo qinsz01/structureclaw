@@ -58,6 +58,20 @@ def combine_linear_native_results(cases: dict[str, dict], factors: dict[str, flo
     result = {"status": "success", "forceSemantics": "simultaneous-signed-stations",
               "units": copy.deepcopy(prototype["units"]), "nativeContext": copy.deepcopy(context),
               "source": {"kind": "linear-combination", "factors": dict(factors), "method": "signed-vector-superposition"}}
+    # Combining a native or equilibrium-derived value does not make it a
+    # direct solver value. Retain each source's evidence, including explicit
+    # missing evidence in older inputs, without mutating the archived cases.
+    def combined_source(values):
+        return {"kind": "linear-combination", "factors": dict(factors), "cases": copy.deepcopy(values)}
+
+    if any("reactionSource" in case for _, _, case in selected):
+        result["reactionSource"] = combined_source({key: case.get("reactionSource") for key, _, case in selected})
+    for field in ("reactionObjectSources", "boundaryDisplacementSource"):
+        object_ids = set().union(*(case.get(field, {}) for _, _, case in selected))
+        if object_ids:
+            result[field] = {object_id: combined_source({key: case.get(field, {}).get(object_id)
+                                                        for key, _, case in selected})
+                             for object_id in sorted(object_ids)}
     for field in ("displacements", "reactions"):
         block = prototype.get(field, {})
         if any(set(case.get(field, {})) != set(block) for _, _, case in selected):

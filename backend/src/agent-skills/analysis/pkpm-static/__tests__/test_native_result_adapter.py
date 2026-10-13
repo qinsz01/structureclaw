@@ -60,8 +60,9 @@ def test_real_frame_cuts_produce_complete_reactions_and_cancel_in_combination(mo
     assert combined["selectedResult"] == {"kind": "combination", "id": "cancel"}
     assert combined["summary"]["maxDisplacement"] == 0
     assert combined["source"] == combined["combinationResults"]["cancel"]["source"]
-    assert "boundaryDisplacementSource" not in combined
-    assert "reactionObjectSources" not in combined
-    assert "reactionSource" not in combined
+    for field in ("boundaryDisplacementSource", "reactionObjectSources", "reactionSource"):
+        assert combined[field] == combined["combinationResults"]["cancel"][field]
+        sources = [combined[field]] if field == "reactionSource" else list(combined[field].values())
+        assert all(source["kind"] == "linear-combination" for source in sources)
     assert all(value == 0 for row in combined["reactions"].values() for value in row.values())
     assert all(value == 0 for rows in combined["memberStations"].values() for row in rows for value in row["components"].values())
