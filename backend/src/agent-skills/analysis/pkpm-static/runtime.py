@@ -15,12 +15,15 @@ PKPM_WORK_DIR : str, optional
 from __future__ import annotations
 
 import logging
+import csv
 import math
 import os
 import re
 import subprocess
 import tempfile
 import uuid
+import time
+from contextlib import contextmanager
 from pathlib import Path
 from threading import Lock
 from typing import Any, Dict
@@ -40,8 +43,7 @@ _UNAVAILABLE_OUTPUTS = [
     "verified-local-axis-and-endpoint-conventions",
 ]
 
-# Thread lock to serialize DirectorySet.conf write + execution within this process.
-# For multi-process deployments, use an external lock mechanism (e.g., file lock).
+# The native launcher has one shared directory selector per installation.
 _jws_cycle_lock = Lock()
 
 
@@ -167,6 +169,71 @@ def _reapply_project_material_params(jws_path: Path, material_family: str) -> di
     }
 
 
+@contextmanager
+def _cycle_file_lock(path: Path, timeout: float):
+    """Serialize independent runtime processes before changing native state."""
+    with path.open("a+b") as handle:
+        if handle.tell() == 0:
+            handle.write(b"\0")
+            handle.flush()
+        deadline = time.monotonic() + timeout
+        while True:
+            try:
+                handle.seek(0)
+                if os.name == "nt":
+                    import msvcrt
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    import fcntl
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError as error:
+                if time.monotonic() >= deadline:
+                    raise RuntimeError("PKPM installation is already running another analysis / PKPM 安装目录已有计算占用") from error
+                time.sleep(0.1)
+        try:
+            yield
+        finally:
+            handle.seek(0)
+            if os.name == "nt":
+                import msvcrt
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
+def _terminate_cycle_tree(proc: subprocess.Popen) -> None:
+    # Kill descendants before their launcher; killing only JWSCYCLE leaves
+    # PKPMMain/WINSAT using the shared configuration after it is restored.
+    if proc.poll() is not None:
+        return
+    if os.name == "nt":
+        completed = subprocess.run(
+            ["taskkill.exe", "/PID", str(proc.pid), "/T", "/F"],
+            capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW,
+        )
+        if completed.returncode and proc.poll() is None:
+            raise RuntimeError(f"Failed to terminate owned PKPM process tree {proc.pid}")
+    else:
+        import signal
+        os.killpg(proc.pid, signal.SIGKILL)
+    proc.wait(timeout=10)
+
+
+def _assert_no_external_cycle(cycle_path: Path) -> None:
+    if os.name != "nt":
+        return
+    snapshot = subprocess.run(
+        ["tasklist.exe", "/FI", f"IMAGENAME eq {cycle_path.name}", "/FO", "CSV", "/NH"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        creationflags=subprocess.CREATE_NO_WINDOW, check=True,
+    )
+    if any(row and row[0].casefold() == cycle_path.name.casefold()
+           for row in csv.reader(snapshot.stdout.splitlines())):
+        raise RuntimeError("Another native PKPM batch is active; its configuration was not changed / 已有 PKPM 原生批处理运行，未修改其目录配置")
+
+
 def _run_jws_cycle(cycle_path: Path, work_dir: Path, timeout: int = 600) -> None:
     """Launch JWSCYCLE.exe using the official DirectorySet.conf mechanism.
 
@@ -175,24 +242,22 @@ def _run_jws_cycle(cycle_path: Path, work_dir: Path, timeout: int = 600) -> None
     2. Set cwd to the PkpmCycle directory.
     3. Launch JWSCYCLE.exe (no CLI arguments needed).
 
-    Uses an in-process thread lock to prevent concurrent analyses in this
-    process from overwriting the shared DirectorySet.conf file.
-    Multi-process deployments require an external lock mechanism.
+    Serializes processes, preserves configuration bytes, retains the launcher
+    transcript, and terminates only this launcher's process tree on timeout.
     """
     cycle_dir = cycle_path.parent
     conf_path = cycle_dir / "DirectorySet.conf"
 
-    with _jws_cycle_lock:
+    with _jws_cycle_lock, _cycle_file_lock(cycle_dir / ".structureclaw-cycle.lock", timeout):
+        _assert_no_external_cycle(cycle_path)
         had_previous_conf = conf_path.exists()
-        previous_conf_text = (
-            conf_path.read_text(encoding="utf-8") if had_previous_conf else None
-        )
-
-        conf_path.write_text(str(work_dir), encoding="utf-8")
-
+        previous_conf = conf_path.read_bytes() if had_previous_conf else None
+        selected_conf = str(work_dir).encode("utf-8")
+        conf_path.write_bytes(selected_conf)
+        proc = None
         try:
             try:
-                proc = subprocess.run(
+                proc = subprocess.Popen(
                     [str(cycle_path)],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
@@ -200,23 +265,38 @@ def _run_jws_cycle(cycle_path: Path, work_dir: Path, timeout: int = 600) -> None
                     encoding="utf-8",
                     errors="replace",
                     cwd=str(cycle_dir),
-                    timeout=timeout,
                     creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+                    start_new_session=os.name != "nt",
                 )
-            except subprocess.TimeoutExpired:
-                raise RuntimeError(f"PKPM analysis timed out after {timeout}s")
+                try:
+                    stdout, stderr = proc.communicate(timeout=timeout)
+                except subprocess.TimeoutExpired:
+                    _terminate_cycle_tree(proc)
+                    stdout, stderr = proc.communicate()
+                    (work_dir / "cycle-stdout.log").write_text(stdout or "", encoding="utf-8")
+                    (work_dir / "cycle-stderr.log").write_text(stderr or "", encoding="utf-8")
+                    raise RuntimeError(f"PKPM analysis timed out after {timeout}s; its process tree was stopped / PKPM 计算超时，已终止本次进程树")
+                (work_dir / "cycle-stdout.log").write_text(stdout or "", encoding="utf-8")
+                (work_dir / "cycle-stderr.log").write_text(stderr or "", encoding="utf-8")
             except (FileNotFoundError, OSError) as exc:
                 raise RuntimeError(
                     f"Failed to launch JWSCYCLE.exe at '{cycle_path}': {exc}"
                 ) from exc
+        except BaseException:
+            if proc is not None and proc.poll() is None:
+                _terminate_cycle_tree(proc)
+            raise
         finally:
-            if had_previous_conf:
-                conf_path.write_text(previous_conf_text, encoding="utf-8")
-            elif conf_path.exists():
-                conf_path.unlink()
+            # An external native client may have selected another directory.
+            # Do not overwrite that newer choice while releasing our lock.
+            if conf_path.exists() and conf_path.read_bytes() == selected_conf:
+                if had_previous_conf:
+                    conf_path.write_bytes(previous_conf)
+                else:
+                    conf_path.unlink()
 
     if proc.returncode != 0:
-        stderr_snippet = (proc.stderr or "")[:500]
+        stderr_snippet = (stderr or "")[:500]
         raise RuntimeError(
             f"JWSCYCLE.exe exited with code {proc.returncode}. "
             f"stderr: {stderr_snippet}"
