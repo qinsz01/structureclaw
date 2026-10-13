@@ -589,7 +589,8 @@ def _build_element_lookups(mapping: dict) -> dict[str, dict]:
         if not isinstance(item, dict):
             continue
         elem_id = str(item.get("v2_id") or v2_id)
-        category = _element_category(item.get("type"))
+        category = ('braces' if item.get('native_geometry_route') == 'ordinary-inclined-column'
+                    else _element_category(item.get("type")))
         floor_index = int(round(_safe_float(item.get("floor_index"), 0.0)))
         for field in (
             "yjk_model_id",
@@ -945,50 +946,6 @@ def _merge_member_definition(category_lookup: dict[tuple[int, str], dict], raw_f
     return raw_force
 
 
-def _metric_max(metrics: object, key: str) -> float | None:
-    if not isinstance(metrics, dict):
-        return None
-    item = metrics.get(key)
-    if not isinstance(item, dict):
-        return None
-    value = _safe_float(item.get("max_abs_numeric"), None)
-    return value if value is not None and value > 0 else None
-
-
-def _normalize_utilization(value: float | None, *, percent_encoded: bool = False) -> float | None:
-    try:
-        val_float = 0.0 if value is None else float(value)
-    except (TypeError, ValueError):
-        return None
-    if val_float <= 0:
-        return None
-    if percent_encoded:
-        if val_float > 1.0:
-            return round(val_float / 100.0, 4) if val_float <= 1000.0 else None
-        return round(val_float, 4)
-    # Some YJK APIs report ratios as percentages.  Values above 100 are
-    # usually reinforcement areas or capacities rather than utilization ratios.
-    if val_float > 10.0:
-        return round(val_float / 100.0, 4) if val_float <= 100.0 else None
-    return round(val_float, 4)
-
-
-def _design_usage_by_check(category: str, metrics: object) -> dict[str, float]:
-    usage: dict[str, float] = {}
-    if category in ("columns", "braces"):
-        axial = _normalize_utilization(_metric_max(metrics, "axial_compression_ratio"))
-        if axial is not None:
-            usage["轴压比"] = axial
-        combined_axial = _normalize_utilization(_metric_max(metrics, "combined_axial_compression_ratio"))
-        if combined_axial is not None:
-            usage["偏心受压"] = combined_axial
-    if category == "beams":
-        bending = _normalize_utilization(_metric_max(metrics, "design_ratio"), percent_encoded=True)
-        if bending is not None:
-            usage["正截面受弯"] = bending
-    return usage
-
-
 def _category_element_type(category: str) -> str:
     if category == "columns":
         return "column"
@@ -1004,16 +961,19 @@ def _build_yjk_design_results(
     element_lookups: dict[str, dict],
     result_node_lookup: dict[str, str],
     diagnostics: dict,
-) -> tuple[dict, dict[str, dict[str, float]]]:
+) -> dict:
+    """Preserve mapped native design records without inventing check meanings.
+
+    SDK tuples can include return codes, limits, areas and placeholders (e.g.
+    [0, 99, 0, 0]). Their largest number is not a utilization ratio. Neither
+    dimensions nor percent encoding can be inferred from numeric magnitude.
+    Design schemas and software-generated combinations remain uncalibrated.
+    """
     raw_design = extracted.get("member_design", {})
     if not isinstance(raw_design, dict):
         raw_design = {}
 
     elements: dict[str, dict] = {}
-    utilization_by_element: dict[str, dict[str, float]] = {}
-    max_utilization = 0.0
-    controlling_element = None
-    controlling_check = None
     raw_count = 0
     mapped_count = 0
 
@@ -1041,19 +1001,8 @@ def _build_yjk_design_results(
                 )
             mapped_count += 1
 
-            metrics = raw_item.get("metrics", {})
-            usage = _design_usage_by_check(category, metrics)
-            if usage:
-                utilization_by_element[elem_id] = usage
-                local_check, local_util = max(usage.items(), key=lambda item: item[1])
-            else:
-                local_check, local_util = None, None
-
-            if local_util is not None and local_util >= max_utilization:
-                max_utilization = local_util
-                controlling_element = elem_id
-                controlling_check = local_check
-
+            if elem_id in elements:
+                raise RuntimeError(f"YJK design result repeats mapped physical member '{elem_id}'")
             elements[elem_id] = {
                 "elementId": elem_id,
                 "elementType": _category_element_type(category),
@@ -1066,9 +1015,7 @@ def _build_yjk_design_results(
                     "originalFloor": raw_item.get("original_floor"),
                     "matchMethod": match_method,
                 },
-                "metrics": metrics if isinstance(metrics, dict) else {},
-                "utilization": local_util,
-                "controllingCheck": local_check,
+                "interpretation": "unverified-native-design-schema",
                 "raw": raw_item.get("raw", {}),
             }
 
@@ -1078,16 +1025,15 @@ def _build_yjk_design_results(
 
     return {
         "source": "YJKSDsnDataPy",
+        "scope": "software-automatic-design",
+        "verificationStatus": "unverified",
         "summary": {
             "elementCount": len(elements),
             "rawMemberCount": raw_count,
             "mappedMemberCount": mapped_count,
-            "maxUtilization": round(max_utilization, 4),
-            "controllingElement": controlling_element,
-            "controllingCheck": controlling_check,
         },
         "elements": elements,
-    }, utilization_by_element
+    }
 
 
 def _build_analysis_result(
@@ -1135,7 +1081,7 @@ def _build_analysis_result(
     result_node_lookup = _build_result_node_lookup(extracted, mapping, diagnostics)
     element_lookups = _build_element_lookups(mapping)
     member_definition_lookup = _raw_member_definition_lookup(extracted)
-    design_results, utilization_by_element = _build_yjk_design_results(
+    design_results = _build_yjk_design_results(
         extracted=extracted,
         member_definition_lookup=member_definition_lookup,
         element_lookups=element_lookups,
@@ -1539,8 +1485,6 @@ def _build_analysis_result(
             "elementCount": len(forces),
             "reactionNodeCount": len(reactions),
             "designElementCount": design_results["summary"]["elementCount"],
-            "maxDesignUtilization": design_results["summary"]["maxUtilization"],
-            "controllingDesignElement": design_results["summary"]["controllingElement"],
             "maxDisplacement": max_disp,
             "maxDisplacementNode": max_disp_node,
             "floors_analyzed": meta.get("n_floors"),
@@ -1566,7 +1510,6 @@ def _build_analysis_result(
         },
         "caseResults": case_results,
         "designResults": design_results,
-        "utilizationByElement": utilization_by_element,
         "envelopeTables": {
             "nodeDisplacement": node_displacement_envelope,
             "elementForce": element_force_envelope,

@@ -67,8 +67,10 @@ def test_build_analysis_result_maps_yjk_member_design_results(monkeypatch):
                     "node_i": 1,
                     "node_j": 2,
                     "sequence": 1,
-                    "raw": {"axial_compression_ratio": [0.62]},
-                    "metrics": {"axial_compression_ratio": {"max_abs_numeric": 0.62, "numeric_count": 1}},
+                    # Actual SDK tuples contain status/sentinel fields; 99
+                    # must never become a demand or be guessed as a percent.
+                    "raw": {"axial_compression_ratio": [0, 99, 0, 0]},
+                    "metrics": {"axial_compression_ratio": {"max_abs_numeric": 99, "numeric_count": 4}},
                 },
             ],
             "beams": [
@@ -119,30 +121,22 @@ def test_build_analysis_result_maps_yjk_member_design_results(monkeypatch):
     assert result["caseResults"]["D"]["nativeResultKey"] == "lc_1"
     assert result["caseResults"]["D"]["memberStations"]["B1"][0]["nativeComponents"] == [0, 5, 0, 3, 0, 0]
     assert result["summary"]["designElementCount"] == 2
-    assert result["summary"]["maxDesignUtilization"] == 0.92
-    assert result["summary"]["controllingDesignElement"] == "B1"
-    assert result["utilizationByElement"]["C1"]["轴压比"] == 0.62
-    assert result["utilizationByElement"]["B1"]["正截面受弯"] == 0.92
+    assert "maxDesignUtilization" not in result["summary"]
+    assert "controllingDesignElement" not in result["summary"]
+    assert "utilizationByElement" not in result
     assert result["designResults"]["summary"] == {
         "elementCount": 2,
         "rawMemberCount": 2,
         "mappedMemberCount": 2,
-        "maxUtilization": 0.92,
-        "controllingElement": "B1",
-        "controllingCheck": "正截面受弯",
     }
     assert result["designResults"]["elements"]["C1"]["yjk"]["matchMethod"] == "direct"
     assert result["designResults"]["elements"]["B1"]["yjk"]["matchMethod"] == "endpoint"
-    assert driver._design_usage_by_check(
-        "beams",
-        {"design_ratio": {"max_abs_numeric": 9.0, "numeric_count": 1}},
-    ) == {"正截面受弯": 0.09}
-    assert driver._design_usage_by_check(
-        "beams",
-        {"design_ratio": {"max_abs_numeric": 150.0, "numeric_count": 1}},
-    ) == {"正截面受弯": 1.5}
-    assert driver._design_usage_by_check(
-        "beams",
-        {"design_ratio": {"max_abs_numeric": 1001.0, "numeric_count": 1}},
-    ) == {}
-    assert driver._normalize_utilization(None, percent_encoded=True) is None
+    assert result["designResults"]["scope"] == "software-automatic-design"
+    assert result["designResults"]["verificationStatus"] == "unverified"
+    assert result["designResults"]["elements"]["C1"]["raw"] == {"axial_compression_ratio": [0, 99, 0, 0]}
+    assert result["designResults"]["elements"]["B1"]["raw"] == {"design_ratio": [92.]}
+    for element in result["designResults"]["elements"].values():
+        assert element["interpretation"] == "unverified-native-design-schema"
+        assert "utilization" not in element
+        assert "metrics" not in element
+        assert "controllingCheck" not in element
