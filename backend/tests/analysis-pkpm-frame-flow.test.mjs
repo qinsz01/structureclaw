@@ -774,7 +774,7 @@ describe('PKPM frame analysis flow', () => {
   test('rejects unmodified canonical builder physics before native execution', () => {
     const payload = runPkpmRuntime(buildCanonicalRcModel(), { expectFailure: true });
     expect(payload.errorCode).toBe('PKPM_NATIVE_MATERIAL_PROPERTIES_UNVERIFIED');
-    expect(payload.detail.inputFields).toEqual(expect.arrayContaining(['materials.1.E', 'materials.1.nu', 'materials.1.rho']));
+    expect(payload.detail.inputFields).toEqual(expect.arrayContaining(['materials.1.fc', 'elements.C1.rebar_grade']));
     expect(payload.calls).toEqual([]);
     expect(payload.runCalls).toEqual([]);
   });

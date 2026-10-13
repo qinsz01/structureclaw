@@ -37,7 +37,24 @@ def test_all_six_native_components_match_frozen_independent_cantilevers(native):
     assert "LL2" not in result["caseDisplacements"]
     assert len(result["missingNodeRotations"]) == 4
     assert all(floor == 0 for _, floor in result["missingNodeRotations"])
-    assert result["source"]["translationCrossCheck"] == "float32-exact-public-api"
+    assert result["source"]["translationCrossCheck"] == "exact-float32-metres-to-mm-to-metres-public-api"
+
+
+def test_two_floor_native_counts_and_top_down_file_order(tmp_path):
+    data = json.loads((Path(__file__).parent / "fixtures/native-two-floor-l-frame.json").read_text())
+    for name, encoded in data["files"].items():
+        (tmp_path / name).write_bytes(base64.b64decode(encoded))
+    cases = {case: {tuple(row["node"]): {key: row[key] for key in ("ux", "uy", "uz")} for row in rows}
+             for case, rows in data["apiCases"].items()}
+    result = read_native_displacements(tmp_path, data["nativeNodes"], cases)
+    assert len(result["caseDisplacements"]["DL"]) == 16
+    assert {floor for _, floor in result["caseDisplacements"]["DL"]} == {1, 2}
+    assert len(result["missingNodeRotations"]) == 8
+    path = tmp_path / "NODEINDEX.SAT"
+    raw = bytearray(path.read_bytes()); struct.pack_into("<f", raw, 0, 7.)
+    path.write_bytes(raw)
+    with pytest.raises(NativeDisplacementUnavailable, match="node count"):
+        read_native_displacements(tmp_path, data["nativeNodes"], cases)
 
 
 def test_sdk_values_are_cross_checked_at_every_native_node(native):

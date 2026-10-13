@@ -452,6 +452,7 @@ def _register_section(
     sec: dict,
     inferred_role: str,
     material_family: str = "steel",
+    native_material_id: int | None = None,
 ) -> tuple[str, int]:
     """
     Register one V2 section entry.
@@ -463,6 +464,9 @@ def _register_section(
     std_name: str | None = sec.get("standard_steel_name")
     shape_dict: dict | None = pkpm_section_shape(sec)
     use_standard_steel = bool(std_name) and material_family == "steel" and not shape_dict
+    if native_material_id is not None and not shape_dict:
+        raise AnalysisCapabilityError(engine="pkpm", capability="native-custom-material-section",
+            reason="Custom material requires an explicit native section shape / 自定义材料须绑定显式截面形状")
 
     def _set_standard_steel(api_section: Any) -> Exception | None:
         if not std_name:
@@ -483,6 +487,7 @@ def _register_section(
         csec = APIPyInterface.ColumnSection()
         if shape_dict:
             _sec_kind, sh = _make_section_shape(shape_dict, material_family)
+            if native_material_id is not None: sh.Set_M(native_material_id)
             csec.SetUserSect(_sec_kind, sh)
         elif use_standard_steel:
             standard_error = _set_standard_steel(csec)
@@ -496,6 +501,7 @@ def _register_section(
         bsec = APIPyInterface.BeamSection()
         if shape_dict:
             _sec_kind, sh = _make_section_shape(shape_dict, material_family)
+            if native_material_id is not None: sh.Set_M(native_material_id)
             bsec.SetUserSect(_sec_kind, sh)
         elif use_standard_steel:
             standard_error = _set_standard_steel(bsec)
@@ -997,6 +1003,8 @@ def convert_v2_to_jws(
     data, normalization = _normalize_generic_frame_for_pkpm(data)
     validate_execution_settings(data)
     _validate_story_derived_loads(data)
+    from native_loads import plan_native_loads, write_native_loads
+    load_plan = plan_native_loads(data)
 
     # ---- Setup ----
     model = APIPyInterface.Model()
@@ -1023,7 +1031,26 @@ def convert_v2_to_jws(
         damping_ratio = 0.0
 
     # ---- Sections ----
-    sec_registry = _build_section_registry(model, data.get("sections", []), data, material_family)
+    native_materials = {}
+    for material in data.get("materials", []):
+        if material.get("E") is not None:
+            from native_materials import add_user_material
+            native_materials[str(material["id"])] = add_user_material(APIPyInterface,
+                name=f"SCLAW_{len(native_materials) + 1}", E=float(material["E"]), nu=float(material["nu"]),
+                unit_weight=0. if analysis_control.get("self_weight") is False else float(material["rho"]) * 9.80665 / 1000)
+            native_materials[str(material["id"])]["sourceDensityKgM3"] = float(material["rho"])
+            native_materials[str(material["id"])]["selfWeightEnabled"] = analysis_control.get("self_weight") is not False
+    if native_materials:
+        sections = {str(section["id"]): section for section in data.get("sections", [])}
+        sec_registry = {}
+        for element in data["elements"]:
+            role = "col" if element["type"] == "column" else "beam"
+            key = (str(element["section"]), str(element["material"]), role)
+            if key not in sec_registry:
+                sec_registry[key] = _register_section(model, sections[key[0]], role, material_family,
+                    native_materials.get(key[1], {}).get("nativeMaterialId"))
+    else:
+        sec_registry = _build_section_registry(model, data.get("sections", []), data, material_family)
 
     # Compile each natural floor independently.  The native floor stores the
     # joints at its top and columns down to the preceding elevation.
@@ -1037,6 +1064,8 @@ def convert_v2_to_jws(
     }
     elem_map: dict[str, dict[str, Any]] = {}
     floor_load_mapping: list[dict[str, Any]] = []
+    native_load_mapping = {"cases": {}, "loads": []}
+    compiled_load_ids = set()
     for story_index, story in enumerate(stories, 1):
         if story_index == 1:
             standard_floor_index = 1
@@ -1051,6 +1080,7 @@ def convert_v2_to_jws(
         top = float(story["elevation"]) + float(story["height"])
         floor_nodes = [node for node in nodes if abs(float(node["z"]) - top) <= 1e-6]
         floor_node_ids, _ = _build_plan_nodes(floor, floor_nodes)
+        targets = {("node", str(node["id"])): floor.GetNode(floor_node_ids[str(node["id"])]) for node in floor_nodes} if load_plan else {}
         v2_to_pm.update(floor_node_ids)
         floor_elements = [
             element for element in data["elements"]
@@ -1059,7 +1089,7 @@ def convert_v2_to_jws(
         for element in floor_elements:
             element_id = str(element["id"])
             node_ids = [str(nid) for nid in element["nodes"]]
-            section_id = element["section"]
+            section_id = (str(element["section"]), str(element["material"]), "col" if element["type"] == "column" else "beam") if native_materials else element["section"]
             if section_id not in sec_registry:
                 raise ValueError(f"PKPM element '{element_id}' references an unregistered section '{section_id}'")
             role, pm_section = sec_registry[section_id]
@@ -1071,7 +1101,9 @@ def convert_v2_to_jws(
                     v2_to_pm[node_ids[0]] = floor_node_ids[node_ids[1]]
                     restraints = tuple(node_by_id[node_ids[0]].get("restraints") or [])
                     if restraints == (True, True, True, False, False, False):
-                        member.SetSpecial(APIPyInterface.SpecialColumn.IDSp_Constrain_Support, 1.0)
+                        # API manual fData[4]: 1 both fixed, 2 top hinge,
+                        # 3 bottom hinge, 4 both hinged.
+                        member.SetSpecial(APIPyInterface.SpecialColumn.IDSp_Constrain_Support, 3.0)
             else:
                 if role != "beam":
                     raise ValueError(f"PKPM beam '{element_id}' requires a beam section")
@@ -1090,6 +1122,12 @@ def convert_v2_to_jws(
                 "standard_floor": standard_floor_index,
                 "native_endpoint_order": node_ids,
             }
+            if element["type"] == "beam": targets[("beam", element_id)] = member
+        floor_loads = [row for row in load_plan if (row["targetType"], row["targetId"]) in targets]
+        if floor_loads:
+            written = write_native_loads(APIPyInterface, model, floor_loads, targets, native_load_mapping["cases"])
+            native_load_mapping["loads"].extend(written["loads"])
+            compiled_load_ids.update((row["caseId"], row["id"]) for row in floor_loads)
         dead_load, live_load = _story_dead_live_pair(story)
         floor.SetDeadLive(dead_load, live_load)
         floor_load_mapping.append({
@@ -1101,6 +1139,9 @@ def convert_v2_to_jws(
         real_floor.SetBottomElevation(float(story["elevation"]))
         real_floor.SetStandFloorIndex(standard_floor_index)
         model.AddNaturalFloor(real_floor)
+
+    if len(compiled_load_ids) != len(load_plan):
+        raise ValueError("Some explicit loads have no native floor target / 部分显式荷载没有原生楼层目标")
 
     # ---- Configure SATWE design parameters ----
     _configure_satwe_params(model, material_family, site_seismic, wind, analysis_control)
@@ -1138,6 +1179,8 @@ def convert_v2_to_jws(
         "normalization": normalization,
         "material_family": material_family,
         "floor_load_mapping": floor_load_mapping,
+        "native_materials": native_materials,
+        "native_load_mapping": native_load_mapping,
         "design_conditions": {
             "site_seismic": site_seismic,
             "wind": wind,

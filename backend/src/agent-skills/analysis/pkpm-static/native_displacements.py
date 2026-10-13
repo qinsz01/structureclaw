@@ -54,13 +54,15 @@ def read_native_displacements(work_dir: str | Path, native_nodes: list[dict],
     if not case_names or len(set(case_names)) != len(case_names):
         raise NativeDisplacementUnavailable("Missing or duplicate native displacement case identities")
     indices = _floats(files["NODEINDEX.SAT"])
-    if not indices or indices[0] != int(indices[0]) or indices[0] <= 0:
+    floors = sorted({int(node["floor"]) for node in native_nodes if int(node["floor"]) > 0})
+    floor_counts = [sum(int(node["floor"]) == floor for node in native_nodes) for floor in floors]
+    if floors != list(range(1, len(floors) + 1)) or list(indices[:len(floors)]) != floor_counts:
         raise NativeDisplacementUnavailable("Invalid native displacement node count")
-    count = int(indices[0])
-    if len(indices) != 1 + count * 2:
+    count = sum(floor_counts)
+    if not count or len(indices) != len(floors) + count * 2:
         raise NativeDisplacementUnavailable("Unknown native displacement node index layout")
     node_tags = []
-    for tag, secondary in zip(indices[1::2], indices[2::2]):
+    for tag, secondary in zip(indices[len(floors)::2], indices[len(floors) + 1::2]):
         if tag != int(tag) or tag <= 0 or secondary != 0:
             raise NativeDisplacementUnavailable("Uncalibrated native node index or constraint mapping")
         node_tags.append(int(tag))
@@ -89,6 +91,14 @@ def read_native_displacements(work_dir: str | Path, native_nodes: list[dict],
         if coordinates not in node_by_coordinates:
             raise NativeDisplacementUnavailable("Native mesh node is not bound to the public result API")
         identities.append(node_by_coordinates[coordinates])
+    # NODEINDEX lists floors bottom-up; DISP stores each case top-down.
+    # Native API identities provide the floor partition, never response values.
+    by_floor = {floor: [identity for identity in identities if identity[1] == floor] for floor in floors}
+    if [len(by_floor[floor]) for floor in floors] != floor_counts:
+        raise NativeDisplacementUnavailable("Native mesh floor partition differs from node index")
+    if identities != [identity for floor in floors for identity in by_floor[floor]]:
+        raise NativeDisplacementUnavailable("Unknown native node index floor order")
+    identities = [identity for floor in reversed(floors) for identity in by_floor[floor]]
     values = _floats(files["DISP.SAT"])
     if len(values) != 6 * count * len(case_names):
         raise NativeDisplacementUnavailable("Native displacement case/node coverage differs from index files")
@@ -103,8 +113,12 @@ def read_native_displacements(work_dir: str | Path, native_nodes: list[dict],
             row = dict(zip(("ux", "uy", "rz", "rx", "ry", "uz"), values[offset:offset + 6]))
             for component in ("ux", "uy", "uz"):
                 actual = api_case[identity].get(component)
+                # ResultData reads displacement display files in float32 mm,
+                # then returns float32 metres. Compare that exact transport.
+                mm = struct.unpack("<f", struct.pack("<f", row[component] * 1000))[0]
+                sdk_value = struct.unpack("<f", struct.pack("<f", mm / 1000))[0]
                 if (type(actual) not in (int, float) or not math.isfinite(actual)
-                        or struct.pack("<f", actual) != struct.pack("<f", row[component])):
+                        or struct.pack("<f", actual) != struct.pack("<f", sdk_value)):
                     raise NativeDisplacementUnavailable(f"Case '{case}' SDK/file {component} disagrees at {identity}")
             rows[identity] = row
         output[case] = rows
@@ -113,5 +127,6 @@ def read_native_displacements(work_dir: str | Path, native_nodes: list[dict],
             "source": {"kind": "solver-direct-file", "schema": "pkpm-2025r2.5-six-dof/v1",
                        "units": {"displacement": "m", "rotation": "rad"},
                        "nativeComponentOrder": ["ux", "uy", "rz", "rx", "ry", "uz"],
-                       "translationCrossCheck": "float32-exact-public-api",
+                       "translationCrossCheck": "exact-float32-metres-to-mm-to-metres-public-api",
+                       "floorOrder": "top-down-DISP; bottom-up-NODEINDEX",
                        "artifacts": [{"path": name, "sha256": hashlib.sha256(data).hexdigest()} for name, data in files.items()]}}

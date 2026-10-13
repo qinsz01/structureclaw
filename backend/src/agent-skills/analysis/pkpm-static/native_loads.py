@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import copy
 import math
+import struct
 from typing import Any
 
 
@@ -18,6 +19,13 @@ def _finite(value: Any, field: str) -> float:
     if not math.isfinite(value):
         raise ValueError(f"{field} must be finite")
     return value
+
+
+def _native_values_equal(actual: list[float], requested: list[float]) -> bool:
+    """SDK load slots serialize IEEE float32; compare that exact representation."""
+    return len(actual) == len(requested) and all(
+        math.isfinite(float(value)) and float(value) == struct.unpack("<f", struct.pack("<f", target))[0]
+        for value, target in zip(actual, requested))
 
 
 def plan_native_loads(data: dict) -> list[dict]:
@@ -91,10 +99,10 @@ def read_native_load_assignments(member: Any, target_type: str) -> tuple[list[in
     return cases[:count], definitions[:count]
 
 
-def write_native_loads(api: Any, native_model: Any, records: list[dict], targets: dict[tuple[str, str], Any]) -> dict:
+def write_native_loads(api: Any, native_model: Any, records: list[dict], targets: dict[tuple[str, str], Any], cases: dict | None = None) -> dict:
     """Write/read SDK cases and definitions; never mark physical acceptance."""
-    cases, written = {}, []
-    used_standard: set[int] = set()
+    cases, written = ({} if cases is None else cases), []
+    used_standard: set[int] = {row["nativeId"] for row in cases.values() if row["nativeId"] in (1, 2)}
     grouped: dict[tuple[str, str], list[tuple[int, int]]] = {}
     for row in records:
         case_id = row["caseId"]
@@ -118,10 +126,11 @@ def write_native_loads(api: Any, native_model: Any, records: list[dict], targets
         definition = api.LoadDefineData(); definition.Set(row["elementKind"], row["nativeValues"])
         native_id = native_model.AddLoadDefine(definition)
         kind, values = native_model.GetLoadDefine(native_id).Get()
-        if kind != row["elementKind"] or list(values) != row["nativeValues"]:
+        if kind != row["elementKind"] or not _native_values_equal(list(values), row["nativeValues"]):
             raise RuntimeError(f"Native load definition readback differs for '{row['id']}'")
         grouped.setdefault(key, []).append((cases[case_id]["nativeId"], native_id))
-        written.append({**row, "nativeLoadId": native_id, "nativeCaseId": cases[case_id]["nativeId"]})
+        written.append({**row, "nativeLoadId": native_id, "nativeCaseId": cases[case_id]["nativeId"],
+                        "nativeReadbackValues": list(values), "nativeScalarFormat": "IEEE-float32"})
     for key, assignments in grouped.items():
         member = targets[key]
         existing = read_native_load_assignments(member, key[0])

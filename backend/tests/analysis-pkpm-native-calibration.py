@@ -36,6 +36,7 @@ def main() -> int:
     parser.add_argument("--load-kn", type=float, default=1.0, help="Signed downward nodal kN or beam kN/m; reference is frozen before execution")
     parser.add_argument("--material", choices=("C30", "Q355"), default="C30")
     parser.add_argument("--bare-frame", action="store_true", help="Native diagnostic: no self-weight, slab or automatic wind/seismic action")
+    parser.add_argument("--custom-material", action="store_true", help="Isolated native user-material calibration; does not enable a production gate")
     args = parser.parse_args()
     if not args.build_only and args.cycle is None:
         parser.error("--cycle is required unless --build-only is selected")
@@ -86,10 +87,16 @@ def main() -> int:
         model.CreatNewModel(str(root), "calibration")
         jws = root / "calibration.JWS"
         model.OpenPMModel(str(jws))
+        custom_material = None
+        if args.custom_material:
+            from native_materials import add_user_material
+            custom_material = add_user_material(api, name="SCLAW_EXACT", E=modulus,
+                nu=.3 if args.material == "Q355" else .2, unit_weight=0)
+            save(root / "custom-material.json", custom_material)
         sections = []
         for cls, b, h in ((api.ColumnSection, 600, 600), (api.BeamSection, 300, 500)):
             shape = api.SectionShape()
-            shape.Set_B(b); shape.Set_H(h); shape.Set_M(5 if args.material == "Q355" else 6)
+            shape.Set_B(b); shape.Set_H(h); shape.Set_M(custom_material["nativeMaterialId"] if custom_material else (5 if args.material == "Q355" else 6))
             section = cls(); section.SetUserSect(api.SectionKind.IDSec_Rectangle, shape)
             sections.append(model.AddColumnSection(section) if cls == api.ColumnSection else model.AddBeamSection(section))
         floor = model.GetCurrentStandFloor()

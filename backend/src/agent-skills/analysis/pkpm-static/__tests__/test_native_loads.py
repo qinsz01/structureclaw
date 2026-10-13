@@ -5,10 +5,16 @@ import sys
 import unittest
 from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from native_loads import plan_native_loads, read_native_load_assignments
+from native_loads import plan_native_loads, read_native_load_assignments, _native_values_equal
 
 
 class NativeLoadPlanTest(unittest.TestCase):
+    def test_readback_uses_exact_native_float32_not_a_widened_force_tolerance(self):
+        self.assertTrue(_native_values_equal([0.20000000298023224, -0.30000001192092896], [.2, -.3]))
+        self.assertFalse(_native_values_equal([0.20000001788139343, -.30000001192092896], [.2, -.3]))
+        self.assertFalse(_native_values_equal([-.30000001192092896, .20000000298023224], [.2, -.3]))
+        self.assertFalse(_native_values_equal([float("nan")], [.2]))
+
     def setUp(self):
         self.model = {"nodes": [{"id": "A", "x": 0, "y": 0, "z": 3}, {"id": "B", "x": 4, "y": 0, "z": 3}],
                       "elements": [{"id": "AB", "type": "beam", "nodes": ["A", "B"]}],

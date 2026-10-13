@@ -112,3 +112,59 @@ material parameters without rewriting the solved input. 以上报告均显示实
 
 These checks still do not certify full G/nu, transverse load signs, arbitrary
 frame results or all requested outputs. 这些证据仍不等同于全量材料、方向和结果验收。
+
+## Exact elastic materials and complete displacement vectors / 弹性材料与六自由度位移
+
+The installed SATWE manual, printed page 236, supports user-material analysis.
+The Python wrapper omits the native exported material interface. A read-only,
+DLL-hash-bound bridge now uses `AddOneUserMaterial/GetUserMaterialByID` and
+checks the generated `UserMaterial.SAT` consumed by the solver. No installed
+DLL, SDK or independent API project is modified. Native custom-material code
+design is not claimed; the original V2 retains its material grade/design data.
+本机手册明确支持自定义材料分析；桥接缺少 Python 包装的原生接口，并校验求解输入材料文件，
+没有修改软件安装或独立 API 项目，也不宣称原生自定义材料规范设计已经支持。
+
+The bridge's audited x64 record is 208 bytes with twenty double slots, not
+forty single-precision slots. The incorrect initial probe is preserved at
+`pkpm-axial-20261013-174811-820a6263`; it timed out and was never accepted.
+The actual DLL SHA256 is
+`ca7a47b9006eb4b4f5f88c37014b0da5c090029de518a1d6ab69dbea0d2f6560`.
+版本与布局经过校验；错误的初始探针及失败记录保留，不作为成功证据。
+
+Fresh native acceptance runs under `G:/StructureClaw-All/sclaw_data/work`:
+
+| Run | Independent check |
+| --- | --- |
+| `pkpm-axial-20261013-175043-fdf0cb4d` | Q355 E=206000 MPa, nu=.3, rectangular Timoshenko shear flexibility |
+| `pkpm-axial-20261013-175235-7029eb3b` | C30 E=30000 MPa, nu=.2, same frozen transverse check |
+| `pkpm-dof-20261013-174130-30199500` | Asymmetric four-cantilever nodal loads: all translations and rotations, including signed torsion |
+| `pkpm-STD-086-20261013-180845-230511dd` | Production V2 L-shaped two-story input; all 96 free-node displacement/rotation components pass the separately frozen Timoshenko reference |
+| `pkpm-MM-081-20261013-182128-6b4bbbf7` | Production V2 three-story setback input; all returned free-node displacement/rotation components pass its separately frozen Timoshenko reference |
+
+The last two references are frozen before those candidate runs using the
+independent test-only matrix implementation. Relative tolerance remains
+1e-5 and displacement/rotation absolute tolerance 1e-11. Existing Euler
+references remain unchanged and are retained separately; neither reference
+is an independently reviewed native commercial scoring truth.
+新参考在候选运行前冻结，未放宽容差；历史 Euler 参考保持原样，商业同引擎标答仍需独立审定。
+
+The native user-material unit weight is independent of the built-in steel and
+concrete weight parameters. `self_weight=false` therefore compiles a zero
+user-material unit weight and records the unchanged source density. Merely
+setting parameters 801/803 to zero leaves custom-material weight enabled;
+the failed first STD-086 comparison exposed this and is retained.
+关闭自重必须同时将本次分析的自定义材料容重设零，原始密度仍保留；仅改内置钢/砼容重不足以关闭自定义材料自重。
+
+Native displacement records use `[ux,uy,rz,rx,ry,uz]`. NODEINDEX is partitioned
+bottom-up by floor; DISP stores each case top-down. Every mapped translation
+is checked against the public API's exact float32 m→mm→m transport. The
+one-floor independent fixture and two-floor real fixture guard ordering,
+unit and case mismatches. Missing support rotations remain explicit.
+原生六分量顺序、逐层索引和工况经过交叉校验；缺少的支座转角不补零。
+
+At this checkpoint, the fixed-base frame displacement chain is accepted;
+support reactions, verified station semantics, combinations and the complete
+three-rotation pin remain separate in-progress work. The ordinary native
+column support enum is corrected from 1 (both fixed) to 3 (bottom hinged),
+but this does not by itself prove that all three rotational DOFs are released.
+此记录不等于商业整链完成；反力、站点语义、组合与完整三转动铰脚继续独立验收。

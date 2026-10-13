@@ -418,6 +418,7 @@ def _extract_results(jws_path: Path, material_family: str = "steel") -> Dict[str
         case_beam_forces: Dict[str, Dict[tuple[int, int], Dict[str, float]]] = {}
         case_col_forces: Dict[str, Dict[tuple[int, int], Dict[str, float]]] = {}
         case_member_stations: dict[str, dict[tuple[int, int], list[dict[str, Any]]]] = {}
+        native_result_members = []
 
         floor_idx = 1
         max_floors = 500
@@ -503,6 +504,9 @@ def _extract_results(jws_path: Path, material_family: str = "steel") -> Dict[str
 
             for c in columns:
                 pmid = c.GetPmid()
+                if hasattr(c, "GetElementid"):
+                    native_result_members.append({"kind": "column", "pmid": pmid, "floor": floor_idx,
+                        "nativeElementId": c.GetElementid(), "nativeJoints": [c.GetJoint_1(), c.GetJoint_2()]})
 
                 # Primary: use GetForce() for per-load-case forces
                 # GetForce() returns dict[case, dict[pos, [N, Vy, Vz, T, My, Mz]]]
@@ -566,12 +570,17 @@ def _extract_results(jws_path: Path, material_family: str = "steel") -> Dict[str
         node_displacements: list[dict[str, Any]] = []
         # {case_name: {(pmid,floor): {ux, uy, uz, rx, ry, rz}}}
         case_node_disps: Dict[str, Dict[tuple[int, int], Dict[str, float]]] = {}
+        native_nodes = []
+        has_native_dofs = (jws_path.parent / "DISP.SAT").is_file()
         try:
             for node in result.GetPyNodeInResult():
                 pmid = int(node.GetPmID())
                 if pmid <= 0:
                     continue
                 floor_no = int(node.GetFloorNo())
+                if has_native_dofs:
+                    native_nodes.append({"pmid": pmid, "floor": floor_no, "coordinates": [
+                        node.GetCoordinateX(), node.GetCoordinateY(), node.GetCoordinateZ()]})
                 disp_dict = node.GetNodeDisp()
                 best_mag = 0.0
                 best_dx = best_dy = best_dz = 0.0
@@ -609,6 +618,15 @@ def _extract_results(jws_path: Path, material_family: str = "steel") -> Dict[str
                     })
         except Exception as error:
             raise RuntimeError(f"Failed to extract PKPM nodal translations: {error}") from error
+
+        displacement_source = None
+        if has_native_dofs:
+            from native_displacements import read_native_displacements
+            native_dofs = read_native_displacements(jws_path.parent, native_nodes, case_node_disps)
+            for case, values in native_dofs["caseDisplacements"].items():
+                case_node_disps[case].update(values)
+            displacement_source = {"source": native_dofs["source"],
+                                   "missingNodeRotations": native_dofs["missingNodeRotations"]}
 
         max_displacement = max(all_node_disp_magnitudes, default=0.0)
 
@@ -674,6 +692,8 @@ def _extract_results(jws_path: Path, material_family: str = "steel") -> Dict[str
             "storey_stiffness": storey_stiffness,
             "bearing_shear": bearing_shear,
             "case_node_disps": case_node_disps,
+            "native_displacement_source": displacement_source,
+            "native_result_members": native_result_members,
             "case_beam_forces": case_beam_forces,
             "case_col_forces": case_col_forces,
             "case_member_stations": case_member_stations,
@@ -754,6 +774,8 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     project_parameter_verification = _verify_project_material_params(jws_path, material_family)
     native_controls = converter_mappings.get("design_conditions", {}).get("analysis_control", {})
     effective_settings = verify_effective_settings(work_dir, native_controls)
+    from native_materials import verify_solver_materials
+    material_verification = verify_solver_materials(work_dir, converter_mappings.get("native_materials", {}))
 
     # ---- Phase 3: Extract results via APIPyInterface ----
     # material_family was already detected in Phase 1 and passed to converter
@@ -1016,6 +1038,9 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
                 "uy": _finite_result_float(disp.get("uy"), f"{key} uy"),
                 "uz": _finite_result_float(disp.get("uz"), f"{key} uz"),
             }
+            for rotation in ("rx", "ry", "rz"):
+                if rotation in disp:
+                    normalized_disp[rotation] = _finite_result_float(disp[rotation], f"{key} {rotation}")
             case_disps[v2_id] = normalized_disp
             previous = displacements.get(v2_id)
             previous_magnitude = (
@@ -1062,7 +1087,9 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
         case_results[case_name] = {
             "status": "success",
             "capabilityStatus": "partial",
-            "missingCapabilities": list(_UNAVAILABLE_OUTPUTS),
+            "missingCapabilities": [name for name in _UNAVAILABLE_OUTPUTS if name != "nodal-rotations" or
+                not case_disps or any(any(key not in row for key in ("rx", "ry", "rz")) for row in case_disps.values())],
+            "displacementSource": extracted.get("native_displacement_source"),
             "displacements": case_disps,
             "forces": case_forces_out,
             "reactions": {},
@@ -1182,6 +1209,9 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
             "floorLoadMapping": floor_load_mapping,
             "projectParameterVerification": project_parameter_verification,
             "effectiveNativeSettings": effective_settings,
+            "nativeMaterialVerification": material_verification,
+            "nativeLoadMapping": converter_mappings.get("native_load_mapping", {}),
+            "nativeResultMembers": extracted.get("native_result_members", []),
             **pkpm_summary,
         },
         "pkpm_detailed": {

@@ -1,9 +1,4 @@
-"""Commercial input gates. Compilation is not evidence of native physics parity.
-
-No numeric material/section-property calibration has been accepted yet. Keep
-the grade + geometry compiler usable, but never silently discard an explicit
-stiffness, density, strength or section-property request.
-"""
+"""Commercial input contracts; native adapters verify effective physics per run."""
 from __future__ import annotations
 
 import math
@@ -96,26 +91,22 @@ def reject_native_input(engine: str, code: str, capability: str, fields: list[st
     raise error
 
 
-def require_yjk_material_acceptance(data: dict[str, Any]) -> None:
-    fields = [f"materials.{item.get('id')}.grade" for item in data.get("materials", [])]
-    reject_native_input(
-        "yjk", "YJK_NATIVE_MATERIAL_GRADE_UNVERIFIED", "native-material-grade", fields,
-        "Native RC member grade write/readback has been repaired, but explicit material constants, "
-        "effective analysis settings and result conventions have not all passed physical calibration. "
-        "Formal analysis remains disabled; SDK execution is not physics equivalence. / "
-        "混凝土逐构件牌号写入回读已修复，但显式材料常数、有效分析设置与结果约定尚未全部完成物理校准；"
-        "正式分析仍受限，SDK 算通不等于模型物理等价。",
-    )
-
-
 def validate_pkpm_material_properties(data: dict[str, Any]) -> None:
     used = {str(item.get("material")) for item in data.get("elements", [])}
-    identity = {"id", "name", "grade", "category", "family", "code", "description", "extra"}
+    identity = {"id", "name", "type", "grade", "category", "family", "code", "description", "extra", "E", "G", "nu", "rho"}
     fields = []
     for material in data.get("materials", []):
         if str(material.get("id")) not in used:
             continue
         prefix = f"materials.{material.get('id')}"
+        if material.get("E") is not None:
+            E, nu, rho = material.get("E"), material.get("nu"), material.get("rho")
+            if any(type(value) not in (int, float) or not math.isfinite(value) for value in (E, nu, rho)) or E <= 0 or not (-1 < nu < .5) or rho <= 0:
+                fields.append(prefix + ".isotropicConstants")
+            elif material.get("G") is not None and not math.isclose(float(material["G"]), E / (2 * (1 + nu)), rel_tol=1e-10, abs_tol=0):
+                fields.append(prefix + ".G")
+        elif any(material.get(key) is not None for key in ("G", "nu", "rho")):
+            fields.append(prefix + ".E")
         fields.extend(f"{prefix}.{key}" for key, value in material.items()
                       if key not in identity and value is not None)
         # Extra fields have no native setter. Do not interpret them as harmless
@@ -127,11 +118,9 @@ def validate_pkpm_material_properties(data: dict[str, Any]) -> None:
     if fields:
         reject_native_input(
             "pkpm", "PKPM_NATIVE_MATERIAL_PROPERTIES_UNVERIFIED", "native-material-properties", fields,
-            "PKPM currently writes native member grades only. Explicit material constants, strengths "
-            "and reinforcement grades have no accepted native mapping/calibration: " + ", ".join(fields) +
-            ". Formal V2 inputs require E/nu/rho, so formal V2 analysis is blocked pending acceptance. / "
-            "PKPM 当前只写入原生构件材料牌号，显式材料常数、强度及钢筋牌号尚无已验收映射或校准；"
-            "正式 V2 输入要求 E/nu/rho，因此正式分析需待原生验收后开放。",
+            "PKPM custom materials preserve isotropic E/nu/rho. These inconsistent or design fields "
+            "have no accepted native mapping: " + ", ".join(fields) +
+            " / 原生自定义材料保持各向同性 E/nu/rho；所列矛盾或设计字段尚无已验收映射。",
         )
 
 
