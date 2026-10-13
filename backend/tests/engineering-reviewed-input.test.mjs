@@ -11,6 +11,14 @@ const review = (field,value,unit,extra={}) => mergeInputEvidence([], [{id:`revie
   resolution:{value,unit,reason:'Explicit engineering review',...extra}}]);
 
 describe('reviewed engineering values must be applied to the physical model', () => {
+  test('an unreviewed canonical observation already binds its visible value; noncanonical text remains a candidate', () => {
+    const evidence=[{id:'drawing',field:'nodes.A.x',value:5000,unit:'mm',status:'observed',required:true}];
+    expect(() => assertInputEvidenceMatchesModel(model(),evidence)).toThrow('VALUE_MISMATCH');
+    const current=model(); current.nodes[0].x=5;
+    expect(() => assertInputEvidenceMatchesModel(current,evidence)).not.toThrow();
+    expect(() => assertInputEvidenceMatchesModel(model(),[{...evidence[0],field:'drawing.unmapped-span'}])).not.toThrow();
+  });
+
   test('a selected source binds the actual coordinate, not merely the evidence status', () => {
     const observations = [{id:'old',field:'nodes.A.x',value:4,unit:'m',status:'observed',required:true},
       {id:'drawing',field:'nodes.A.x',value:5000,unit:'mm',status:'observed',required:true}];

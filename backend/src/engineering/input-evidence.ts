@@ -142,7 +142,9 @@ function hasNumericValue(value: unknown): boolean {
     : isRecord(value) ? Object.values(value).some(hasNumericValue) : false);
 }
 
-/** A review resolves evidence only when the reviewed engineering value is in the model. */
+/** Canonical observations and reviewed modelField mappings must match the model.
+ * Noncanonical observations remain candidates until an explicit field mapping.
+ */
 export function assertInputEvidenceMatchesModel(model: ModelRecord, evidence: unknown = isRecord(model.metadata) ? model.metadata.inputEvidence : undefined): void {
   assertResolvedInput(evidence);
   if (!Array.isArray(evidence)) return;
@@ -153,13 +155,14 @@ export function assertInputEvidenceMatchesModel(model: ModelRecord, evidence: un
     byField.set(field, [...(byField.get(field) ?? []), record]);
   }
   for (const [field, records] of byField) {
+    const canonical = modelCollections.has(field.split('.')[0]!) || modelSingletons.has(field.split('.')[0]!);
     const latest = records.reduce((last, item, index) => isResolution(item) ? index : last, -1);
-    if (latest < 0) continue;
-    const resolution = records[latest]!.resolution as ModelRecord;
+    const directObservation = latest < 0 ? records.filter(item => item.status === 'observed').at(-1) : undefined;
+    if (latest < 0 && (!canonical || !directObservation)) continue;
+    const resolution = latest < 0 ? {} : records[latest]!.resolution as ModelRecord;
     // File-read and category coverage reviews are workflow acknowledgments,
     // not a numerical model assignment. Concrete engineering fields still bind.
     if (resolution.modelField === undefined && (/^file:/.test(field) || /^coverage\.(geometry|connectivity|supports|loads|materials|sections)$/.test(field))) continue;
-    const canonical = modelCollections.has(field.split('.')[0]!) || modelSingletons.has(field.split('.')[0]!);
     if (canonical && resolution.modelField !== undefined && resolution.modelField !== field) throw new Error(`INPUT_EVIDENCE_MODEL_FIELD_CONFLICT: ${field}`);
     const modelField = resolution.modelField ?? (canonical ? field : undefined);
     if (typeof modelField !== 'string' || !modelField.trim()) throw new Error(`INPUT_EVIDENCE_MODEL_FIELD_REQUIRED: ${field} / 复核的工程值还需指定模型字段`);
@@ -169,7 +172,8 @@ export function assertInputEvidenceMatchesModel(model: ModelRecord, evidence: un
     const selected = resolution.selectedSource === undefined ? undefined : preceding.find(item => covered.has(contentHash(item))
       && (item.id === resolution.selectedSource || item.source !== undefined && contentHash(item.source) === contentHash(resolution.selectedSource)));
     if (selected && selected.status !== undefined && selected.status !== 'observed') throw new Error(`INPUT_EVIDENCE_OBSERVED_SOURCE_REQUIRED: ${field}`);
-    let expected: ModelRecord = resolution.value !== undefined ? { value: resolution.value, unit: resolution.unit } : selected ? observation(selected) : {};
+    let expected: ModelRecord = directObservation ? observation(directObservation)
+      : resolution.value !== undefined ? { value: resolution.value, unit: resolution.unit } : selected ? observation(selected) : {};
     if (resolution.value !== undefined && resolution.unit === undefined) {
       const units = new Set(preceding.filter(item => covered.has(contentHash(item))
         && contentHash(observation(item).value) === contentHash(resolution.value)).map(item => observation(item).unit));
