@@ -96,4 +96,31 @@ describe('native force equilibrium recovery',()=>{
       expect(right.sample.Vz-left.sample.Vz).toBeCloseTo(-5*(factors.POINT||0),5);
     }
   });
+  test('real PKPM adapter vectors feed exact queries, equilibrium, chart and report with original evidence',()=>{
+    const f=JSON.parse(readFileSync(new URL('./fixtures/pkpm-native-STD086-delivery.json',import.meta.url),'utf8'));
+    const result={success:true,selection:f.selection,meta:{engineId:'builtin-pkpm',runId:f.nativeRun},data:f.case};
+    const data=enrichResultData(f.model,result,f.selection);
+    for(const member of f.excerptMembers) {
+      for(const cut of f.case.memberStations[member]) {
+        const actual=queryPhysicalResponse(f.model,result,member,cut.positionM,cut.side==='left'?'left':'right');
+        expect(actual.provenance).toBe('solver-direct');
+        for(const [key,value]of Object.entries(cut.components))expect(actual.sample[key]).toBe(value);
+      }
+      const x=1.235,ref=f.reference[member],q=member.startsWith('c')?0:-8;
+      const expected={N:-ref[0],Vy:ref[1],Vz:ref[2]+q*x,T:-ref[3],My:-ref[4]-ref[2]*x-q*x*x/2,Mz:-ref[5]+ref[1]*x};
+      const actual=queryPhysicalResponse(f.model,result,member,x,'right');
+      expect(actual.provenance).toBe('mechanics-recovery');
+      for(const [key,value]of Object.entries(expected))expect(Math.abs(actual.sample[key]-value))
+        .toBeLessThanOrEqual(Math.max(f.tolerance.forceKN,f.tolerance.relative*Math.abs(value)));
+      const chart=data.memberResponses.find(row=>row.id===member);
+      expect(chart.samples.some(row=>row.provenance==='mechanics-recovery')).toBe(true);
+      expect(chart.samples.every(row=>row.displacement===undefined)).toBe(true);
+    }
+    expect(data.reactionSource.kind).toBe('derived-node-equilibrium');
+    expect(Object.values(data.boundaryDisplacementSource).every(source=>source.kind==='prescribed-boundary')).toBe(true);
+    const report=resultTableMarkdown({runId:f.nativeRun,results:{'case:D':{...result,data}}},'en');
+    expect(report).toContain('| case:D | M2 |');
+    expect(report).toContain('kN.m');
+    expect(report).not.toContain('undefined');
+  });
 });
