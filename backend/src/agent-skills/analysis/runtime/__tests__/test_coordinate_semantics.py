@@ -106,7 +106,7 @@ def test_canonical_2d_contract_rejects_local_out_of_plane_loads():
         "reference_frame": "element-local",
         "wy": 5.0,
     }])
-    with pytest.raises(ValueError, match="Local wy is out of plane"):
+    with pytest.raises(ValueError, match="Local member load has an out-of-plane component after section rotation"):
         validate_coordinate_contract(model)
 
 
