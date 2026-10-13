@@ -1,12 +1,15 @@
 """Explicit YJK scalar settings, applied inside the owned native host.
 
-IDs are from the installed YJK 8 preprocessing SDK. Option identifiers in the
-manual (e.g. 60102) are not the integer enum values consumed by SetSParInt.
+IDs are from the installed YJK 8 preprocessing SDK. Unlike PKPM's zero-based
+enums, this release uses documented option identifiers such as 60102. Native
+getter evidence shows the original construction default is 60103; writing 1
+produces "all generated", so a scalar readback alone cannot verify semantics.
 This module is copied into a private callback directory and must stay standalone.
 """
 from __future__ import annotations
 
 import json
+import hashlib
 import math
 import os
 from pathlib import Path
@@ -14,6 +17,7 @@ import shutil
 import struct
 import time
 import uuid
+import re
 
 
 def compile_settings(model: dict) -> dict:
@@ -28,7 +32,7 @@ def compile_settings(model: dict) -> dict:
         raise ValueError("YJK mixed/conflicting diaphragm settings require per-floor constraints / 楼板约束冲突或需逐层指定")
     if rigid is None and story_values:
         rigid = story_values.pop()
-    ints = {"608": 0, "697": 0, "679": 0, "654": 0, "601": 1,
+    ints = {"608": 0, "697": 0, "679": 67901, "654": 0, "601": 60102,
             "630": 0, "696": 0, "2308": 0, "624": 1}
     floats = {str(key): 1.0 for key in (610, 611, 631, 658, 663, 694, 2305, 2306, 2307)}
     if rigid is not None:
@@ -41,6 +45,65 @@ def compile_settings(model: dict) -> dict:
                             "automaticSlabGeneration": False,
                             "selfWeight": "selected-native-load-cases"},
             "verification": "pending-native-readback-and-fe-audit"}
+
+
+def audit_effective_settings(model: dict, fe: dict, receipt: dict, report_text: str,
+                             load_audit: dict | None = None) -> dict:
+    """Require solver-effective evidence, not merely a successful scalar write.
+
+    The load compiler owns selected-case selfweight accounting. It must bind its
+    independent audit to this exact FE file before the result can be combined.
+    """
+    plan = compile_settings(model)
+    failures = []
+    if receipt.get("passed") is not True or receipt.get("audit", {}).get("written") != plan["parameters"]:
+        failures.append("native-scalar-write-not-bound")
+    else:
+        try:
+            verify_readback(plan["parameters"], receipt["audit"]["readback"])
+        except (KeyError, ValueError):
+            failures.append("native-scalar-readback-mismatch")
+    # Report labels vary across YJK8 builds; the value itself must be exact.
+    construction = re.findall(r"(?:恒活荷载计算信息|恒荷载计算信息|恒载计算信息)\s*[:：]\s*([^\r\n]+)", report_text)
+    if len(construction) != 1 or construction[0].strip() != "一次性加载":
+        failures.append("construction-report-is-not-once-loaded")
+    controls = plan["controls"]
+    for name in ("rigid_floor", "rigid_offsets"):
+        if controls.get(name) is True:
+            failures.append("native-enabled-control-not-calibrated:" + name)
+    if controls.get("rigid_offsets") is False:
+        for label in ("考虑梁端刚域", "考虑柱端刚域"):
+            if re.search(re.escape(label) + r"\s*[:：]\s*否(?:\s|$)", report_text) is None:
+                failures.append("rigid-offset-report-mismatch:" + label)
+        for tag, frame in fe.get("frames", {}).items():
+            if frame.get("E") != [0.] * 6 or frame.get("RZL") != [0.] * 2:
+                failures.append("nonzero-or-missing-native-offset:" + tag)
+    if controls.get("rigid_floor") is False:
+        for line in fe.get("sectionsRaw", {}).get("NODE", []):
+            master = re.search(r"(?:^|\s)NM=([^\s]+)", line)
+            if master is None or master[1] != "0":
+                failures.append("native-node-diaphragm-or-missing-NM:" + line.split()[0])
+        if fe.get("sectionsRaw", {}).get("PLANAR") or fe.get("sectionsRaw", {}).get("PART"):
+            failures.append("unexpected-native-floor-elements")
+    nonlinear = fe.get("sectionsRaw", {}).get("NONL_CTRL", [])
+    if not nonlinear or any(re.search(r"(?:^|\s)GeoNL=0(?:\s|$)", row) is None for row in nonlinear):
+        failures.append("native-geometric-nonlinearity-not-explicitly-disabled")
+    analysis = fe.get("sectionsRaw", {}).get("ANALYSIS", [])
+    if not analysis or any(re.search(r"(?:^|\s)scheme=1(?:\s|$)", row) is None for row in analysis):
+        failures.append("native-linear-scheme-not-verified")
+    if not fe.get("frames"):
+        failures.append("no-native-frames")
+    load_audit = load_audit or {}
+    weight_verified = (load_audit.get("selfWeight") is controls.get("self_weight")
+                       if "selfWeight" in load_audit else controls.get("self_weight") is False
+                       and load_audit.get("selfWeightExcludedFromSourceCases") is True)
+    if (load_audit.get("passed") is not True or load_audit.get("feaSha256") != fe.get("sha256")
+            or not weight_verified):
+        failures.append("selected-load-case-selfweight-not-verified")
+    return {"schema": "sclaw-yjk-effective-settings/v1", "passed": not failures,
+            "linearStatic": not failures, "feaSha256": fe["sha256"], "failures": failures,
+            "controls": controls, "reportSha256": hashlib.sha256(report_text.encode("utf-8")).hexdigest(),
+            "loadAudit": load_audit}
 
 
 def _normal(parameters: dict) -> dict:

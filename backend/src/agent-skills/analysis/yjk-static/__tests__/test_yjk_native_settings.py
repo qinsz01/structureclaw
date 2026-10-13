@@ -38,7 +38,7 @@ class NativeSettingsTests(unittest.TestCase):
         ints = plan["parameters"]["int"]
         self.assertEqual({key: ints[key] for key in ("606", "609", "650", "608", "697")},
                          {key: 0 for key in ("606", "609", "650", "608", "697")})
-        self.assertEqual(ints["601"], 1)
+        self.assertEqual(ints["601"], 60102)
         self.assertNotIn("801", plan["parameters"]["float"])
         self.assertEqual(plan["verification"], "pending-native-readback-and-fe-audit")
 
@@ -88,6 +88,29 @@ class NativeSettingsTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 settings.apply_and_readback(params, api)
             self.assertEqual(api.values, {})
+
+    def test_scalar_readback_does_not_validate_wrong_construction_semantics_or_hidden_slab(self):
+        model = {"analysis_control": {"rigid_floor": False, "self_weight": False, "rigid_offsets": False}}
+        plan = settings.compile_settings(model)
+        receipt = {"passed": True, "audit": {"written": plan["parameters"], "readback": plan["parameters"]}}
+        fe = {"sha256": "exact-fe", "frames": {"b": {"E": [0.] * 6, "RZL": [0.] * 2}},
+              "sectionsRaw": {"NODE": ["1 C=0,0,0 NM=0"], "NONL_CTRL": ["T=1 GeoNL=0"], "ANALYSIS": ["scheme=1"]}}
+        report = "恒载计算信息: 一次性加载\n考虑梁端刚域: 否\n考虑柱端刚域: 否\n"
+        load = {"passed": True, "feaSha256": "exact-fe", "selfWeight": False}
+        self.assertTrue(settings.audit_effective_settings(model, fe, receipt, report, load)["passed"])
+        bad = settings.audit_effective_settings(model, fe, receipt, report.replace("一次性加载", "全都生成"), load)
+        self.assertIn("construction-report-is-not-once-loaded", bad["failures"])
+        fe["sectionsRaw"]["NODE"] = ["1 C=0,0,0 NM=100009"]
+        self.assertFalse(settings.audit_effective_settings(model, fe, receipt, report, load)["passed"])
+
+    def test_selected_case_selfweight_audit_cannot_be_reused_for_another_FE_file(self):
+        model = {"analysis_control": {"self_weight": False}}
+        plan = settings.compile_settings(model)
+        receipt = {"passed": True, "audit": {"written": plan["parameters"], "readback": plan["parameters"]}}
+        fe = {"sha256": "exact-fe", "frames": {"b": {}}, "sectionsRaw": {"NONL_CTRL": ["GeoNL=0"]}}
+        audit = settings.audit_effective_settings(model, fe, receipt, "恒载计算信息: 一次性加载\n",
+            {"passed": True, "feaSha256": "old-fe", "selfWeight": False})
+        self.assertIn("selected-load-case-selfweight-not-verified", audit["failures"])
 
 
 if __name__ == "__main__":

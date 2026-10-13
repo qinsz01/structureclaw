@@ -91,6 +91,30 @@ def test_collinear_axes_match_canonical_z_up_convention():
     assert canonical_axes([0, 0, 0], [0, 0, 3]) == [[0, 0, 1], [0, -1, 0], [1, 0, 0]]
 
 
+def test_explicit_reference_is_shared_with_opensees_and_retained_in_station_mapping(tmp_path):
+    fe = model(tmp_path)
+    g = member_geometry(fe, {"id": 9, "node_i": 1, "node_j": 2},
+        {"v2_id": "beam", "nodes": ["a", "b"]}, {"1": "a", "2": "b"},
+        {"a": {"x_m": 0, "y_m": 0, "z_m": 3}, "b": {"x_m": 4, "y_m": 0, "z_m": 3}},
+        metadata={"elementReferenceVectors": {"beam": [0, 1, 0]}})
+    assert g["axes"] == [[1, 0, 0], [0, 0, -1], [0, 1, 0]]
+    station = map_stations([[2, 3, 4, 5, 6, 7]] * 9, g)[0]
+    assert station["components"]["Vy"] == -5
+    assert station["components"]["Vz"] == -4
+
+
+def test_executed_column_rotation_controls_force_axes(tmp_path):
+    fe = model(tmp_path)
+    fe["nodes"] = {"1": [0, 0, 3], "2": [0, 0, 0]}
+    fe["frames"]["9"].update(kind="COLUMN", DIR=[-1, 0, 0])
+    g = member_geometry(fe, {"id": 9, "node_i": 1, "node_j": 2},
+        {"nodes": ["b", "a"]}, {"1": "a", "2": "b"},
+        {"a": {"x_m": 0, "y_m": 0, "z_m": 3}, "b": {"x_m": 0, "y_m": 0, "z_m": 0}})
+    assert g["nativeAxes"] == [[0, 0, -1], [0, 1, 0], [-1, 0, 0]]
+    assert g["axes"] == [[0, 0, 1], [0, -1, 0], [1, 0, 0]]
+    assert g["stationCount"] == 2
+
+
 def test_native_nonfinite_station_component_is_rejected(tmp_path):
     rows = [[0] * 6 for _ in range(9)]
     rows[2][3] = float("nan")
@@ -166,11 +190,12 @@ def test_point_load_cut_has_no_invented_continuous_side(tmp_path):
 
 
 @pytest.mark.parametrize("selection", [None, {"id": "UDL", "labels": ["UDL", "SC002_UDL"]}])
-def test_native_normalizer_binds_source_cases_and_exact_stations(tmp_path, monkeypatch, selection):
+@pytest.mark.parametrize("explicit_snapshot", [False, True])
+def test_native_normalizer_binds_source_cases_and_exact_stations(tmp_path, monkeypatch, selection, explicit_snapshot):
     import yjk_driver
     fixture = json.loads((Path(__file__).parent / "fixtures/native-frame-six-components.json").read_text())
     (tmp_path / "fea.dat").write_text(fixture["fea"], encoding="gb18030", newline="")
-    (tmp_path / "input.json").write_text(json.dumps(fixture["model"]), encoding="utf-8")
+    (tmp_path / ("model.json" if explicit_snapshot else "input.json")).write_text(json.dumps(fixture["model"]), encoding="utf-8")
     if selection:
         monkeypatch.setenv("SC_YJK_SELECTED_CASE", json.dumps(selection))
     else:
@@ -184,7 +209,8 @@ def test_native_normalizer_binds_source_cases_and_exact_stations(tmp_path, monke
                  "node_disp": {key: value["displacements"] for key, value in cases.items()},
                  "node_reactions": {key: value["reactions"] for key, value in cases.items()}}
     result = yjk_driver._build_analysis_result(extracted=extracted, mapping=fixture["mapping"],
-        ydb_path="loadprobe.ydb", yjk_project="loadprobe", work_dir=str(tmp_path), results_path="results.json", steps=[])
+        ydb_path="loadprobe.ydb", yjk_project="loadprobe", work_dir=str(tmp_path), results_path="results.json", steps=[],
+        source_model=fixture["model"] if explicit_snapshot else None)
     expected = {"UDL"} if selection else {case["id"] for case in fixture["model"]["load_cases"]}
     assert set(result["caseResults"]) == expected
     case = result["caseResults"]["UDL"]

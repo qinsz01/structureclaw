@@ -7,6 +7,13 @@ are deliberately not inferred from a row count.
 from __future__ import annotations
 
 import math
+from pathlib import Path
+import sys
+
+_runtime = str(Path(__file__).resolve().parents[1] / "runtime")
+if _runtime not in sys.path:
+    sys.path.insert(0, _runtime)
+from coordinate_semantics import build_element_local_axes, get_reference_vector
 
 
 class StationConventionUnavailable(ValueError):
@@ -28,18 +35,39 @@ def unit(vector):
     return [value / length for value in vector]
 
 
-def canonical_axes(start, end, rotation_angle=0.0):
-    x = unit([b - a for a, b in zip(start, end)])
-    reference = [1., 0., 0.] if abs(x[2]) > 0.9 else [0., 0., 1.]
-    y = unit(cross(reference, x))
-    z = cross(x, y)
-    angle = math.radians(rotation_angle)
-    return [x, [math.cos(angle) * a + math.sin(angle) * b for a, b in zip(y, z)],
-            [-math.sin(angle) * a + math.cos(angle) * b for a, b in zip(y, z)]]
+def canonical_axes(start, end, rotation_angle=0.0, reference_vector=None):
+    return build_element_local_axes(start, end, reference_vector, rotation_angle).tolist()
+
+
+def executed_section_axes(frame: dict, points: list) -> list:
+    """Read the section axes from executed geometry, including its rotation.
+
+    P[1] is bending about the section width axis; P[2] about its height
+    axis. Their signs do not affect the stiffness tensor. Native beam/column
+    force signs are retained separately by ``map_stations``.
+    """
+    native_x = unit([b - a for a, b in zip(*points)])
+    direction = frame.get("DIR")
+    if not isinstance(direction, list) or len(direction) != 3:
+        raise StationConventionUnavailable("Missing executed native section direction")
+    native_y = unit(direction)
+    if abs(dot(native_x, native_y)) > 1e-8:
+        raise StationConventionUnavailable("Native section direction is not perpendicular to member")
+    if frame.get("kind") == "BEAM":
+        if abs(native_x[2]) > 1e-9:
+            raise StationConventionUnavailable("Inclined beam station axes await native calibration")
+        native_a = unit(cross(native_y, native_x))
+    elif frame.get("kind") == "COLUMN":
+        if abs(native_x[2] + 1) > 1e-9:
+            raise StationConventionUnavailable("Inclined column station axes await native calibration")
+        native_a = unit(cross(native_x, native_y))
+    else:
+        raise StationConventionUnavailable("Native member kind has no calibrated station layout")
+    return [native_x, native_a, native_y]
 
 
 def member_geometry(fe: dict, native_member: dict, element: dict,
-                    node_lookup: dict[str, str], nodes: dict[str, dict]) -> dict:
+                    node_lookup: dict[str, str], nodes: dict[str, dict], *, metadata=None) -> dict:
     tag = str(native_member.get("tot_id", native_member.get("id")))
     frame = fe.get("frames", {}).get(tag)
     if fe.get("unit") != [0., 0., 0.] or not frame:
@@ -65,34 +93,16 @@ def member_geometry(fe: dict, native_member: dict, element: dict,
         if point is None or any(abs(a - b) > 1e-7 for a, b in zip(point, wanted)):
             raise StationConventionUnavailable("Executed FE node coordinates differ from the physical member")
         points.append(point)
-    native_x = unit([b - a for a, b in zip(*points)])
     length = math.dist(*points)
-    direction = frame.get("DIR")
-    if not isinstance(direction, list) or len(direction) != 3:
-        raise StationConventionUnavailable("Missing executed native section direction")
-    if frame["kind"] == "BEAM":
-        if abs(native_x[2]) > 1e-9 or any(abs(a - b) > 1e-9 for a, b in zip(direction, (0., 0., 1.))):
-            raise StationConventionUnavailable("Inclined/rotated beam station axes await native calibration")
-        native_y = direction
-        native_a = unit(cross(native_y, native_x))
-        station_count = 9
-    elif frame["kind"] == "COLUMN":
-        if abs(native_x[2] + 1) > 1e-9 or abs(direction[2]) > 1e-9:
-            raise StationConventionUnavailable("Inclined column station axes await native calibration")
-        angle = native_member.get("native_geometry", {}).get("angle_info")
-        if angle is None or abs(float(angle)) > 1e-9:
-            raise StationConventionUnavailable("Rotated column native axes await native calibration")
-        native_y = unit(direction)
-        native_a = unit(cross(native_x, native_y))
-        station_count = 2
-    else:
-        raise StationConventionUnavailable("Native member kind has no calibrated station layout")
+    native_axes = executed_section_axes(frame, points)
+    station_count = 9 if frame["kind"] == "BEAM" else 2
     same_order = endpoint_ids == physical_ids
     start, end = points if same_order else points[::-1]
     return {"length": length, "sameOrder": same_order, "stationCount": station_count,
             "transverseForceSign": -1 if frame["kind"] == "BEAM" else 1,
-            "nativeAxes": [native_x, native_a, native_y],
-            "axes": canonical_axes(start, end, float(element.get("rotation_angle") or 0)),
+            "nativeAxes": native_axes,
+            "axes": canonical_axes(start, end, float(element.get("rotation_angle") or 0),
+                get_reference_vector(metadata or {}, str(element.get("id", element.get("v2_id"))))),
             "nativeEndpoints": endpoint_ids, "endpoints": list(physical_ids),
             "source": {"kind": "native-station-coordinate-mapping", "artifact": "fea.dat",
                        "sha256": fe["sha256"], "convention": "yjk8-frame-stations-v1"}}
