@@ -11,7 +11,7 @@ sys.path[:0] = [str(Path(__file__).resolve().parents[1]),
 from model_contract import validate_building_model
 from native_materials import audit_inclined_column_identity, compile_orientation
 from native_fe import parse_fe
-from native_stations import member_geometry, map_stations, StationConventionUnavailable
+from native_stations import member_geometry, map_stations, executed_section_axes, dot, StationConventionUnavailable
 
 
 def model():
@@ -64,6 +64,18 @@ def test_inclined_section_uses_shared_reference_vector_without_changing_connecti
     result = compile_orientation(data, data["elements"][0], nodes)
     assert result["nativeRotationDegrees"] == pytest.approx(0.)
     assert result["canonicalAxes"][0] == pytest.approx([.3/(9.09**.5), 0, 3/(9.09**.5)])
+
+
+def test_fe_direction_serialization_does_not_create_a_physical_skew_axis():
+    frame = {"kind": "BRACE", "DIR": [-.668458, -.668458, .326077],
+             "raw": {"DIR": "-0.668458,-0.668458,0.326077"}}
+    member = {"native_geometry": {"brace_kind": 2, "is_truss": 0}}
+    axes = executed_section_axes(frame, [[1, 1, 7.5], [0, 0, 3.4]], member)
+    assert dot(axes[0], axes[2]) == pytest.approx(0, abs=1e-14)
+    frame["DIR"][2] = .336077
+    frame["raw"]["DIR"] = "-0.668458,-0.668458,0.336077"
+    with pytest.raises(StationConventionUnavailable, match="not perpendicular"):
+        executed_section_axes(frame, [[1, 1, 7.5], [0, 0, 3.4]], member)
 
 
 def test_frozen_native_inclined_column_matches_independent_six_load_end_actions(tmp_path):

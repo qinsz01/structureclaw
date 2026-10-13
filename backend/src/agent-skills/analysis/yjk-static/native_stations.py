@@ -7,6 +7,7 @@ are deliberately not inferred from a row count.
 from __future__ import annotations
 
 import math
+from decimal import Decimal
 from pathlib import Path
 import sys
 
@@ -56,9 +57,17 @@ def executed_section_axes(frame: dict, points: list, native_member=None) -> list
     direction = frame.get("DIR")
     if not isinstance(direction, list) or len(direction) != 3:
         raise StationConventionUnavailable("Missing executed native section direction")
-    native_y = unit(direction)
-    if abs(dot(native_x, native_y)) > 1e-8:
+    # FE DIR is serialized at six significant digits. Recover an orthogonal
+    # direction only inside the recorded decimal rounding/truncation interval;
+    # never relax response tolerances or accept an actually skew section axis.
+    tokens = frame.get("raw", {}).get("DIR", "").split(",")
+    bounds = ([min(float(Decimal(10) ** Decimal(token).as_tuple().exponent),
+                   max(abs(value) * 1e-5, 1e-12)) for token, value in zip(tokens, direction)]
+              if len(tokens) == 3 else [1e-12] * 3)
+    residual = dot(native_x, direction)
+    if abs(residual) > sum(abs(value)*bound for value, bound in zip(native_x, bounds)) + 1e-12:
         raise StationConventionUnavailable("Native section direction is not perpendicular to member")
+    native_y = unit([value-residual*axis for value, axis in zip(direction, native_x)])
     if frame.get("kind") == "BEAM":
         if abs(native_x[2]) > 1e-9:
             raise StationConventionUnavailable("Inclined beam station axes await native calibration")
