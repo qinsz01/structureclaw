@@ -90,6 +90,7 @@ describe("LangGraph tool policy", () => {
       "query_results",
       "read_file",
       "replace_in_file",
+      "review_input",
       "run_analysis",
       "run_code_check",
       "set_session_config",

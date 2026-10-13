@@ -64,8 +64,8 @@ describe('AnalysisService direct China seismic workflow', () => {
     });
 
     expect(model).toMatchObject({
-      schemaVersion: '2.1.0',
-      schema_version: '2.1.0',
+      schemaVersion: '2.2.0',
+      schema_version: '2.2.0',
       coordinate_system: {
         semantics: 'global-z-up',
         version: 1,
