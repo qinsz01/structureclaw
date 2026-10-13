@@ -315,9 +315,10 @@ try {
   const coverage = validateScenarioCoverage(plan, auditPaths.map(read), {
     planBytes: fs.readFileSync(path.resolve(root, planPath)),
   });
-  // Native binaries are machine-local and intentionally not committed. If pinned,
-  // missing or changed files must stop the experiment instead of silently updating.
-  for (const item of manifest.nativeFiles ?? []) {
+  // Native binaries are machine-local and intentionally not committed. Missing
+  // pins or changed bytes stop the experiment instead of silently updating.
+  if (!Array.isArray(manifest.nativeFiles) || !manifest.nativeFiles.length) throw Error('NATIVE_RUNTIME_FREEZE_REQUIRED');
+  for (const item of manifest.nativeFiles) {
     if (sha(fs.readFileSync(item.path)) !== item.sha256) throw Error(`NATIVE_RUNTIME_CHANGED: ${item.path}`);
   }
   console.log(JSON.stringify({ status: 'passed', implementationCommit: manifest.implementationCommit,
