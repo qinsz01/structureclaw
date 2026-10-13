@@ -54,10 +54,10 @@ def _round_components(values: Any) -> List[float]:
     return rounded
 
 
-def _member_force_summary(raw: List[float], dimension: str) -> Dict[str, Any]:
+def _member_force_summary(raw: List[float], dimension: str, rotation_degrees: float = 0.0) -> Dict[str, Any]:
     if dimension == "2d" and len(raw) >= 6:
         return {
-            **canonical_frame_end_actions(raw, dimension),
+            **canonical_frame_end_actions(raw, dimension, rotation_degrees),
             "rawComponents": raw,
             "endI": {"axialKN": raw[0], "shearKN": raw[1], "momentKNm": -raw[2]},
             "endJ": {"axialKN": raw[3], "shearKN": raw[4], "momentKNm": -raw[5]},
@@ -95,8 +95,11 @@ def _member_force_summary(raw: List[float], dimension: str) -> Dict[str, Any]:
     }
 
 
-def _extract_member_forces(ops: Any, element_tags: Dict[int, str], dimension: str) -> Dict[str, Dict[str, Any]]:
+def _extract_member_forces(ops: Any, element_tags: Dict[int, str], dimension: str,
+                           elements: List[Any] | None = None) -> Dict[str, Dict[str, Any]]:
     member_forces: Dict[str, Dict[str, Any]] = {}
+    rotations = {str(_field(element, "id")): float(_field(element, "rotation_angle", 0.0) or 0.0)
+                 for element in elements or []}
     for tag, element_id in element_tags.items():
         try:
             raw = _round_components(ops.eleResponse(tag, 'localForce'))
@@ -107,7 +110,7 @@ def _extract_member_forces(ops: Any, element_tags: Dict[int, str], dimension: st
         member_forces[element_id] = {
             "elementTag": tag,
             "source": "opensees_equivalent_lateral_static",
-            **_member_force_summary(raw, dimension),
+            **_member_force_summary(raw, dimension, rotations.get(element_id, 0.0)),
         }
     return member_forces
 
@@ -208,7 +211,7 @@ def run_equivalent_lateral_design_actions(
                 max_lateral_displacement = max(max_lateral_displacement, abs(float(ops.nodeDisp(tag, dof))))
             except Exception:
                 pass
-        member_forces = _extract_member_forces(ops, element_tags, dimension)
+        member_forces = _extract_member_forces(ops, element_tags, dimension, payload.get("elements", []))
         minimum_shear_adjustment = (
             response_spectrum.get("minimumStoryShearAdjustment")
             if isinstance(response_spectrum.get("minimumStoryShearAdjustment"), dict)
@@ -325,7 +328,7 @@ def run_gravity_design_actions(
         ]
         ops.reactions()
         base_reaction = abs(sum(float(ops.nodeReaction(tag, vertical_dof)) for tag in base_tags))
-        member_forces = _extract_member_forces(ops, element_tags, dimension)
+        member_forces = _extract_member_forces(ops, element_tags, dimension, payload.get("elements", []))
         return {
             "status": "computed",
             "method": "equivalent_gravity_static_from_floor_seismic_weight",

@@ -304,11 +304,15 @@ export function sampleMemberResponse(
   if (
     !member ||
     member.state === "unavailable" ||
-    !finite(positionM) ||
-    positionM < 0 ||
-    positionM > member.length
+    !finite(positionM)
   )
     return undefined;
+  // Python math.dist and JS Math.hypot can differ by one ulp at a sloping
+  // member endpoint. Admit only roundoff, never an engineering-length offset.
+  const endpointRoundoff = 8 * Number.EPSILON * Math.max(1, member.length);
+  if (positionM < -endpointRoundoff || positionM > member.length + endpointRoundoff)
+    return undefined;
+  positionM = Math.max(0, Math.min(member.length, positionM));
   const exact = member.samples.filter(
     (sample) => Math.abs(sample.x - positionM) <= 1e-9,
   );

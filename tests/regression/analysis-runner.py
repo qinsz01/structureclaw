@@ -420,7 +420,12 @@ def _seismic_wall_line_payload():
             {"id": "U1", "x": 0.0, "y": 0.0, "z": 7.2, "story": "F2"},
             {"id": "U2", "x": 6.0, "y": 0.0, "z": 7.2, "story": "F2"},
         ],
-        "materials": [{"id": "1", "name": "C40", "E": 32500.0, "nu": 0.2, "rho": 2500.0, "category": "concrete"}],
+        # Preserve the legacy fixture's two explicit shear stiffnesses as distinct
+        # material records, rather than contradictory section-level overrides.
+        "materials": [
+            {"id": "1", "name": "C40", "E": 32500.0, "G": 13500.0, "nu": 0.2, "rho": 2500.0, "category": "concrete"},
+            {"id": "frame-material", "name": "C40", "E": 32500.0, "G": 12500.0, "nu": 0.2, "rho": 2500.0, "category": "concrete"},
+        ],
         "sections": [
             {
                 "id": "W1",
@@ -440,10 +445,10 @@ def _seismic_wall_line_payload():
         "elements": [
             {"id": "W1", "type": "wall", "nodes": ["B1", "T1"], "material": "1", "section": "W1"},
             {"id": "W2", "type": "wall", "nodes": ["T1", "U1"], "material": "1", "section": "W1"},
-            {"id": "C2", "type": "column", "nodes": ["B2", "T2"], "material": "1", "section": "F1"},
-            {"id": "C4", "type": "column", "nodes": ["T2", "U2"], "material": "1", "section": "F1"},
-            {"id": "B1", "type": "beam", "nodes": ["T1", "T2"], "material": "1", "section": "F1"},
-            {"id": "B2", "type": "beam", "nodes": ["U1", "U2"], "material": "1", "section": "F1"},
+            {"id": "C2", "type": "column", "nodes": ["B2", "T2"], "material": "frame-material", "section": "F1"},
+            {"id": "C4", "type": "column", "nodes": ["T2", "U2"], "material": "frame-material", "section": "F1"},
+            {"id": "B1", "type": "beam", "nodes": ["T1", "T2"], "material": "frame-material", "section": "F1"},
+            {"id": "B2", "type": "beam", "nodes": ["U1", "U2"], "material": "frame-material", "section": "F1"},
         ],
         "metadata": {"structuralTypeKey": "concrete-frame-shear-wall", "storyCount": 2, "seismicMassArea": 6.0},
     }

@@ -4,6 +4,7 @@ import { recoverMemberResponses } from "../../../../dist/skill-shared/member-res
 import {
   recoverAnalysisMembers,
   queryMemberResponse,
+  sampleMemberResponse,
   memberResponseExtrema,
 } from "../../../../dist/agent-skills/result-postprocess/member-response.js";
 
@@ -44,6 +45,12 @@ function model(loads = []) {
 }
 
 describe("shared member response recovery", () => {
+  test("an endpoint differing by machine roundoff is accepted, an outside station is not", () => {
+    const length = Math.hypot(1, 3.3);
+    const responses = [{ id: "slope", length, state: "recovered", samples: [{ x: length, N: 5 }] }];
+    expect(sampleMemberResponse(responses, "slope", length + Number.EPSILON * length).sample.N).toBe(5);
+    expect(sampleMemberResponse(responses, "slope", length + 1e-10)).toBeUndefined();
+  });
   test("all frozen references retain coverage and immutability without depending on viewer types", () => {
     const base = new URL(
       "../../../../../tests/llm-benchmark/fixtures/",
