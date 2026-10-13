@@ -1,0 +1,351 @@
+{
+  "nativeRun": "pkpm-dof-20261013-174130-30199500",
+  "reference": {
+    "E_kN_m2": 206000000.0,
+    "G_kN_m2": 79000000.0,
+    "A_m2": 0.36,
+    "I_m4": 0.010799999999999999,
+    "J_m4": 0.018252,
+    "length_m": 3.0,
+    "loadVectors": [
+      [
+        1,
+        0,
+        -0.5,
+        0,
+        0.125,
+        0.2
+      ],
+      [
+        2,
+        0,
+        -0.75,
+        0.25,
+        0,
+        0.3
+      ],
+      [
+        0,
+        3,
+        -1,
+        0,
+        0,
+        -0.1
+      ],
+      [
+        0,
+        -1,
+        -1.25,
+        0,
+        0,
+        0
+      ]
+    ],
+    "references": [
+      {
+        "nodeId": "N0",
+        "ux": 4.4247214370570645e-06,
+        "uy": 0.0,
+        "uz": -2.0226537216828478e-08,
+        "rx": 0.0,
+        "ry": 2.191208198489752e-06,
+        "rz": 4.1611531387578134e-07
+      },
+      {
+        "nodeId": "N1",
+        "ux": 8.343779443693417e-06,
+        "uy": -5.05663430420712e-07,
+        "uz": -3.033980582524272e-08,
+        "rx": 3.3710895361380803e-07,
+        "ry": 4.045307443365696e-06,
+        "rz": 6.241729708136718e-07
+      },
+      {
+        "nodeId": "N2",
+        "ux": 0.0,
+        "uy": 1.2515669165540126e-05,
+        "uz": -4.0453074433656956e-08,
+        "rx": -6.067961165048545e-06,
+        "ry": 0.0,
+        "rz": -2.0805765693789067e-07
+      },
+      {
+        "nodeId": "N3",
+        "ux": 0.0,
+        "uy": -4.171889721846709e-06,
+        "uz": -5.05663430420712e-08,
+        "rx": 2.022653721682848e-06,
+        "ry": 0.0,
+        "rz": 0.0
+      }
+    ],
+    "relativeTolerance": 1e-05,
+    "absoluteTranslationTolerance_m": 1e-11,
+    "absoluteRotationTolerance_rad": 1e-11,
+    "scope": "Native standard-material diagnostic, not explicit V2 G=79230.769 equivalence"
+  },
+  "nodeMapping": {
+    "N0": {
+      "pmid": 1007,
+      "xy_mm": [
+        0.0,
+        0.0
+      ]
+    },
+    "N1": {
+      "pmid": 1009,
+      "xy_mm": [
+        4000.0,
+        0.0
+      ]
+    },
+    "N2": {
+      "pmid": 1011,
+      "xy_mm": [
+        4000.0,
+        4000.0
+      ]
+    },
+    "N3": {
+      "pmid": 1013,
+      "xy_mm": [
+        0.0,
+        4000.0
+      ]
+    }
+  },
+  "nativeNodes": [
+    {
+      "pmid": 1007,
+      "floor": 0,
+      "coordinates": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "pmid": 1013,
+      "floor": 0,
+      "coordinates": [
+        0.0,
+        4000.0,
+        0.0
+      ]
+    },
+    {
+      "pmid": 1009,
+      "floor": 0,
+      "coordinates": [
+        4000.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "pmid": 1011,
+      "floor": 0,
+      "coordinates": [
+        4000.0,
+        4000.0,
+        0.0
+      ]
+    },
+    {
+      "pmid": 1007,
+      "floor": 1,
+      "coordinates": [
+        0.0,
+        0.0,
+        3000.0
+      ]
+    },
+    {
+      "pmid": 1013,
+      "floor": 1,
+      "coordinates": [
+        0.0,
+        4000.0,
+        3000.0
+      ]
+    },
+    {
+      "pmid": 1009,
+      "floor": 1,
+      "coordinates": [
+        4000.0,
+        0.0,
+        3000.0
+      ]
+    },
+    {
+      "pmid": 1011,
+      "floor": 1,
+      "coordinates": [
+        4000.0,
+        4000.0,
+        3000.0
+      ]
+    }
+  ],
+  "apiCases": {
+    "DL": [
+      {
+        "node": [
+          1007,
+          1
+        ],
+        "ux": 0.0,
+        "uy": 0.0,
+        "uz": 0.0
+      },
+      {
+        "node": [
+          1013,
+          1
+        ],
+        "ux": 0.0,
+        "uy": 0.0,
+        "uz": 0.0
+      },
+      {
+        "node": [
+          1009,
+          1
+        ],
+        "ux": 0.0,
+        "uy": 0.0,
+        "uz": 0.0
+      },
+      {
+        "node": [
+          1011,
+          1
+        ],
+        "ux": 0.0,
+        "uy": 0.0,
+        "uz": 0.0
+      }
+    ],
+    "LL": [
+      {
+        "node": [
+          1007,
+          1
+        ],
+        "ux": 4.424718554218998e-06,
+        "uy": 0.0,
+        "uz": -2.0226536889822455e-08
+      },
+      {
+        "node": [
+          1013,
+          1
+        ],
+        "ux": 0.0,
+        "uy": -4.17188721257844e-06,
+        "uz": -5.056634222455614e-08
+      },
+      {
+        "node": [
+          1009,
+          1
+        ],
+        "ux": 8.34377442515688e-06,
+        "uy": -5.056632517153048e-07,
+        "uz": -3.033980533473368e-08
+      },
+      {
+        "node": [
+          1011,
+          1
+        ],
+        "ux": 0.0,
+        "uy": 1.251566118298797e-05,
+        "uz": -4.045307377964491e-08
+      }
+    ],
+    "LL2": [
+      {
+        "node": [
+          1007,
+          1
+        ],
+        "ux": 0.0,
+        "uy": 0.0,
+        "uz": 0.0
+      },
+      {
+        "node": [
+          1013,
+          1
+        ],
+        "ux": 0.0,
+        "uy": 0.0,
+        "uz": 0.0
+      },
+      {
+        "node": [
+          1009,
+          1
+        ],
+        "ux": 0.0,
+        "uy": 0.0,
+        "uz": 0.0
+      },
+      {
+        "node": [
+          1011,
+          1
+        ],
+        "ux": 0.0,
+        "uy": 0.0,
+        "uz": 0.0
+      }
+    ],
+    "LL3": [
+      {
+        "node": [
+          1007,
+          1
+        ],
+        "ux": 0.0,
+        "uy": 0.0,
+        "uz": 0.0
+      },
+      {
+        "node": [
+          1013,
+          1
+        ],
+        "ux": 0.0,
+        "uy": 0.0,
+        "uz": 0.0
+      },
+      {
+        "node": [
+          1009,
+          1
+        ],
+        "ux": 0.0,
+        "uy": 0.0,
+        "uz": 0.0
+      },
+      {
+        "node": [
+          1011,
+          1
+        ],
+        "ux": 0.0,
+        "uy": 0.0,
+        "uz": 0.0
+      }
+    ]
+  },
+  "files": {
+    "DISP.SAT": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC3iUNgAAAAC3Zd80AAAAAKgMEzagvq2yAAAAAD38i7YAAAAA6rwHNgAAAABILlmzPfwLN+q8B7VJjCc14/u0NOq8hzb4TgKzAAAAAFv6UTe3ZV+0X5vLtgAAAACgvi2z",
+    "NODEINDEX.SAT": "AACAQAAAoEAAAAAAAADAQAAAAAAAAOBAAAAAAAAAAEEAAAAA",
+    "MESH.SAT": "AAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/////AAAAAAAAAAAAAIBAAAAAAP////8AAAAAAACAQAAAAAAAAAAA/////wAAAAAAAIBAAACAQAAAAAD/////AAAAAAAAAAAAAAAAAABAQGQAAAAAAAAAAAAAAAAAgEAAAEBAZAAAAAAAAAAAAIBAAAAAAAAAQEBkAAAAAAAAAAAAgEAAAIBAAABAQGQAAAAAAAAA",
+    "WDISPGKNO.OUT": "RElTUDEuU0FUICBETCANCkRJU1AxLlNBVCAgTEwgDQo="
+  }
+}
