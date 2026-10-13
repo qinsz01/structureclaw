@@ -9,9 +9,9 @@ import pytest
 sys.path[:0] = [str(Path(__file__).resolve().parents[1]),
                str(Path(__file__).resolve().parents[2] / "runtime")]
 from model_contract import validate_building_model
-from native_materials import audit_inclined_column_identity, compile_orientation
+from yjk_native_materials import audit_inclined_column_identity, compile_orientation
 from native_fe import parse_fe
-from native_stations import member_geometry, map_stations, executed_section_axes, dot, StationConventionUnavailable
+from yjk_native_stations import member_geometry, map_stations, executed_section_axes, dot, StationConventionUnavailable
 
 
 def model():

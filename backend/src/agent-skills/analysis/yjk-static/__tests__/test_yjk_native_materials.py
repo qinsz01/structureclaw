@@ -7,7 +7,7 @@ import sqlite3
 import tempfile
 from contextlib import closing
 
-SPEC = importlib.util.spec_from_file_location("native_materials", Path(__file__).parents[1] / "native_materials.py")
+SPEC = importlib.util.spec_from_file_location("yjk_native_materials", Path(__file__).parents[1] / "yjk_native_materials.py")
 materials = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(materials)
 

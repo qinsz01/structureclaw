@@ -21,7 +21,7 @@ from contextlib import closing
 _skill_dir = str(Path(__file__).resolve().parent)
 if _skill_dir not in sys.path:
     sys.path.insert(0, _skill_dir)
-from native_stations import (canonical_axes, cross, dot, executed_section_axes,
+from yjk_native_stations import (canonical_axes, cross, dot, executed_section_axes,
                              get_reference_vector, is_native_ordinary_column, StationConventionUnavailable)
 
 
@@ -410,7 +410,7 @@ def verify_native_physics(work_dir, model: dict, *, engine_version: str) -> dict
     """
     from native_fe import parse_fe
     from native_load_audit import audit_loads
-    from native_settings import audit_effective_settings
+    from yjk_native_settings import audit_effective_settings
     root = Path(work_dir)
     output = {"schema": "sclaw-yjk-native-physics/v1", "passed": False, "failures": []}
     fe, material_audit, receipt, effective = None, {}, {}, {}

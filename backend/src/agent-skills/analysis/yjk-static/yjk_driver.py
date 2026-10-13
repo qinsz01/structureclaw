@@ -1058,7 +1058,7 @@ def _build_analysis_result(
     input_path = os.path.join(work_dir, "input.json")
     if os.path.isfile(fe_path) and (source_model is not None or os.path.isfile(input_path)):
         from native_fe import parse_fe
-        from native_stations import member_geometry, map_stations, station_envelope, StationConventionUnavailable
+        from yjk_native_stations import member_geometry, map_stations, station_envelope, StationConventionUnavailable
         import hashlib
         native_fe_model = parse_fe(fe_path)
         if source_model is None:
@@ -1693,13 +1693,13 @@ def _run(model_path: str, work_dir: str, yjks_root: str) -> int:
     # this owned host only after import, and require exact SDK readback.
     if model_data.get("analysis_control"):
         try:
-            from native_settings import apply_in_host, compile_settings
+            from yjk_native_settings import apply_in_host, compile_settings
             ownership = _load_json_file(os.path.join(work_dir, "owned-native.json"))
             apply_in_host(lambda *args: _run_cmd(*args, phase="settings", steps=steps),
                           work_dir, int(ownership["configured_pid"]), compile_settings(model_data))
         except Exception as exc:
             _error(f"YJK native settings failed / 原生设置写入或读回失败: {exc}",
-                   phase="settings", command="native_settings", steps=steps)
+                   phase="settings", command="yjk_native_settings", steps=steps)
             return 1
 
     # -- Phase 4: Model preparation (exact three_story_steel_frame.py) --
@@ -1900,7 +1900,7 @@ def _run(model_path: str, work_dir: str, yjks_root: str) -> int:
     )
 
     if os.path.isfile(os.path.join(work_dir, "native-stiffness-plan.json")):
-        from native_materials import verify_native_physics
+        from yjk_native_materials import verify_native_physics
         physics = verify_native_physics(work_dir, model_data, engine_version="YJK8.0.0")
         if physics.get("passed") is not True:
             _error("YJK executed model failed physical input verification / 原生计算模型未通过物理输入核对",

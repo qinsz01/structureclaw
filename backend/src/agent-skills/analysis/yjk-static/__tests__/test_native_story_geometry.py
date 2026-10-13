@@ -9,10 +9,10 @@ import pytest
 sys.path[:0] = [str(Path(__file__).resolve().parents[1]),
                str(Path(__file__).resolve().parents[2] / "runtime")]
 from native_story_geometry import compile_story_geometry, exact_mm
-from native_materials import compile_orientation
+from yjk_native_materials import compile_orientation
 from model_contract import validate_building_model
 from native_fe import parse_fe
-from native_stations import member_geometry, map_stations
+from yjk_native_stations import member_geometry, map_stations
 
 
 def roof(high=8):

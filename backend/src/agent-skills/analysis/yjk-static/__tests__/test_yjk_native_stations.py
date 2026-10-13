@@ -9,7 +9,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from native_fe import parse_fe
-from native_stations import canonical_axes, member_geometry, map_stations, StationConventionUnavailable
+from yjk_native_stations import canonical_axes, member_geometry, map_stations, StationConventionUnavailable
 
 
 def model(tmp_path):

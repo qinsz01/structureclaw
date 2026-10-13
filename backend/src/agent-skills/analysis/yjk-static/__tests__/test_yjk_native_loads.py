@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from native_loads import compile_load_definitions, repair_exchange_load_precision
+from yjk_native_loads import compile_load_definitions, repair_exchange_load_precision
 
 
 class NativeLoadCompilerTest(unittest.TestCase):

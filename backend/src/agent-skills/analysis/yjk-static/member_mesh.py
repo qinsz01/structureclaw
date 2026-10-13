@@ -101,7 +101,7 @@ def compile_member_mesh(model: dict) -> tuple[dict, dict | None]:
 def restore_physical_results(output: dict, receipt: dict | None) -> dict:
     if receipt is None:
         return output
-    from native_stations import station_envelope
+    from yjk_native_stations import station_envelope
     result = copy.deepcopy(output)
     physical_nodes = set(receipt['physicalNodeIds'])
     for case in result['caseResults'].values():
@@ -113,7 +113,11 @@ def restore_physical_results(output: dict, receipt: dict | None) -> dict:
             for segment in segments:
                 for station in case['memberStations'][segment['id']]:
                     row = copy.deepcopy(station)
-                    row['positionM'] += segment['start']
+                    position, length = row['positionM'], segment['end']-segment['start']
+                    roundoff = 8*math.ulp(max(1., length, segment['end']))
+                    row['positionM'] = (segment['start'] if abs(position) <= roundoff else
+                                        segment['end'] if abs(position-length) <= roundoff else
+                                        position+segment['start'])
                     row['nativeSegmentId'] = segment['id']
                     # Keep both one-sided native endpoint vectors at each join.
                     # Their equality is not assumed, especially at point forces.

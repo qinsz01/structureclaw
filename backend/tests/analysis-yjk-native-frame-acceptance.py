@@ -1,6 +1,7 @@
 """Freeze an independent frame solution before invoking the actual YJK adapter."""
 from __future__ import annotations
 import argparse
+import asyncio
 import hashlib
 import importlib.util
 import json
@@ -19,6 +20,7 @@ def main():
     cli.add_argument('--model', required=True)
     cli.add_argument('--output', required=True)
     cli.add_argument('--combination')
+    cli.add_argument('--entry', choices=('adapter', 'api'), default='adapter')
     args = cli.parse_args()
     repo = Path(__file__).resolve().parents[2]
     adapter = repo/'backend/src/agent-skills/analysis/yjk-static'
@@ -51,8 +53,18 @@ def main():
     (work/'input.json').write_text(json.dumps(model, indent=2, ensure_ascii=False), encoding='utf8')
     os.environ['YJK_WORK_DIR'] = str(work)
     print(work, flush=True)
-    result = runtime.run_analysis(model, {'traceId': Path(args.model).parent.name,
-                                         **({'loadCombinationId': args.combination} if args.combination else {})})
+    parameters = {'traceId': Path(args.model).parent.name,
+                  **({'loadCombinationId': args.combination} if args.combination else {})}
+    if args.entry == 'api':
+        from api import AnalysisRequest, analyze
+        response = asyncio.run(analyze(AnalysisRequest.model_validate({
+            'type': 'static', 'engineId': 'builtin-yjk', 'model': model, 'parameters': parameters})))
+        (work/'api-response.json').write_text(response.model_dump_json(indent=2), encoding='utf8')
+        if not response.success:
+            raise RuntimeError(response.message)
+        result = response.data
+    else:
+        result = runtime.run_analysis(model, parameters)
     (work/'result.json').write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding='utf8')
     checks = []
     for case, data, actual in [*( (key, value, result['caseResults'][key]) for key, value in reference.items()),
@@ -76,7 +88,8 @@ def main():
         raise RuntimeError('Frozen reference changed during native run')
     failed = [row for row in checks if not row['passed']]
     receipt = {'passed': not failed, 'checks': checks, 'referenceSha256': ref_hash,
-               'nativeWorkDir': result['meta']['workDir'], 'scope': 'all-source-case-nodes-and-member-end-actions'}
+               'nativeWorkDir': result['meta']['workDir'], 'entry': args.entry,
+               'scope': 'all-source-case-nodes-and-member-end-actions'}
     (work/'acceptance.json').write_text(json.dumps(receipt, indent=2), encoding='utf8')
     print(json.dumps({'passed': not failed, 'checkCount': len(checks), 'failureCount': len(failed), 'firstFailures': failed[:8]}), flush=True)
     return 1 if failed else 0

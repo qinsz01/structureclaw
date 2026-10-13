@@ -4,13 +4,13 @@ import math
 from native_story_geometry import compile_story_geometry, exact_mm
 
 def validate_execution_settings(data: dict) -> None:
-    from native_settings import compile_settings
+    from yjk_native_settings import compile_settings
     compile_settings(data)
 
 def _validate_story_derived_loads(data: dict) -> None:
     from native_model_contract import validate_story_load_totals
     validate_story_load_totals(data, "YJK")
-    from native_loads import compile_load_definitions
+    from yjk_native_loads import compile_load_definitions
     compile_load_definitions(data)
 
 

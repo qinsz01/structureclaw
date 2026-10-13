@@ -382,7 +382,7 @@ def _result_selection(model: dict, parameters: dict) -> tuple[list[str], dict | 
 def _select_verified_results(output: dict, selected_ids: list[str], combination: dict | None) -> dict:
     """Publish an explicit source selection; retain every solved native case."""
     from native_results import combine_linear_native_results, require_verified_linear_context
-    from native_stations import station_envelope
+    from yjk_native_stations import station_envelope
     cases = output.get('caseResults', {})
     if not selected_ids or any(key not in cases for key in selected_ids):
         raise ValueError('YJK requested source results are missing / 缺少指定源工况结果')
@@ -460,7 +460,7 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
             ),
         )
     try:
-        from native_materials import normalize_material, compile_stiffness_plan
+        from yjk_native_materials import normalize_material, compile_stiffness_plan
         model_dict = {**copy.deepcopy(model_dict), 'materials': [normalize_material(row) for row in model_dict['materials']]}
         requested_cases, combination = _result_selection(model_dict, parameters)
         compile_stiffness_plan(model_dict)
@@ -704,8 +704,8 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     output = restore_physical_results(output, mesh_receipt)
     output = _select_verified_results(output, requested_cases, combination)
 
-    if stderr:
-        warnings.append(f"YJK stderr: {stderr[:300]}")
+    # The vendor writes informational startup/debug output to stderr. Preserve
+    # it in the run log; successful-result warnings describe engineering issues.
     existing_warnings = output.get("warnings", [])
     if isinstance(existing_warnings, list):
         warnings.extend(existing_warnings)

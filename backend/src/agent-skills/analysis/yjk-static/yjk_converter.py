@@ -490,7 +490,7 @@ def convert_v2_to_ydb(
     """Compile the supplied topology, one independent native floor at a time."""
     stiffness_plan = None
     if any(material.get("E") is not None for material in data.get("materials", [])):
-        from native_materials import compile_stiffness_plan, normalize_material
+        from yjk_native_materials import compile_stiffness_plan, normalize_material
         stiffness_plan = compile_stiffness_plan(data)
         data = {**copy.deepcopy(data), "materials": [normalize_material(m) for m in data["materials"]]}
     _require_canonical_3d_coordinate_contract(data)
@@ -634,7 +634,7 @@ def convert_v2_to_ydb(
                 # HNTDJ is a scalar grade property (type 5), not elastic E.
                 data_func.property_arrange(member_id, "HNTDJ", 5, str(grade))
             if stiffness_plan is not None:
-                from native_materials import assign_member_stiffness
+                from yjk_native_materials import assign_member_stiffness
                 assign_member_stiffness(data_func, member_id, stiffness_plan["members"][element_id])
             element_mappings[element_id] = {
                 "v2_id": element_id, "type": element["type"], "nodes": node_ids,
@@ -656,7 +656,7 @@ def convert_v2_to_ydb(
         floor_mappings.append({"story": story["id"], "floor_index": info["index"], "native_floor_id": floor_id})
     if len(element_mappings) != len(data["elements"]):
         raise RuntimeError("YJK native compilation did not map every input member")
-    from native_loads import arrange_native_loads
+    from yjk_native_loads import arrange_native_loads
     load_case_mapping = (arrange_native_loads(data_func, data, all_native_nodes, all_native_members)
                          if data.get("load_cases") else [])
     data_func.DbModel_Assign()
@@ -664,10 +664,10 @@ def convert_v2_to_ydb(
     if not reader.CreateYDB(work_dir, ydb_filename):
         raise RuntimeError("YJK SDK CreateYDB failed / YJK 原生模型文件生成失败")
     ydb_path = os.path.join(work_dir, ydb_filename)
-    from native_loads import repair_exchange_load_precision
+    from yjk_native_loads import repair_exchange_load_precision
     repair_exchange_load_precision(ydb_path, work_dir, load_case_mapping)
     if stiffness_plan is not None:
-        from native_materials import repair_exchange_precision
+        from yjk_native_materials import repair_exchange_precision
         repair_exchange_precision(ydb_path, work_dir, element_mappings, stiffness_plan)
     mapping = {
         "schema_version": "2.0.0", "engine": "yjk-static", "ydb_path": ydb_path,

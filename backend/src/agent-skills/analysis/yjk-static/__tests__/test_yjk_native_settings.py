@@ -3,7 +3,7 @@ from pathlib import Path
 import struct
 import unittest
 
-SPEC = importlib.util.spec_from_file_location("native_settings", Path(__file__).parents[1] / "native_settings.py")
+SPEC = importlib.util.spec_from_file_location("yjk_native_settings", Path(__file__).parents[1] / "yjk_native_settings.py")
 settings = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(settings)
 
