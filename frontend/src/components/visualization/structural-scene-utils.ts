@@ -1,5 +1,27 @@
 import * as THREE from 'three'
-import type { VisualizationCase, VisualizationPlane, VisualizationSnapshot } from './types'
+import type { VisualizationCase, VisualizationLoad, VisualizationPlane, VisualizationSnapshot } from './types'
+
+export function isLoadVisible(snapshot: VisualizationSnapshot, activeCase: VisualizationCase, load: VisualizationLoad) {
+  return snapshot.source === 'model' || load.caseId === activeCase.id
+}
+
+/** Pure display geometry: positions are distances from the original physical i end. */
+export function getMemberLoadInterval(load: VisualizationLoad, start: THREE.Vector3, end: THREE.Vector3, physicalLength = start.distanceTo(end)) {
+  const at = (position: number) => start.clone().lerp(end, position / physicalLength)
+  return load.kind === 'distributed'
+    ? { start: at(load.start ?? 0), end: at(load.end ?? physicalLength) }
+    : { start: at(load.position ?? 0), end: at(load.position ?? 0) }
+}
+
+/** Interpolate the specified load drawing only; this performs no structural response calculation. */
+export function getDistributedLoadArrows(start: THREE.Vector3, end: THREE.Vector3, vector: THREE.Vector3, endVector = vector, count = 8) {
+  return Array.from({ length: Math.max(2, count) }, (_, index) => {
+    const ratio = index / (Math.max(2, count) - 1)
+    const arrowVector = vector.clone().lerp(endVector, ratio)
+    const tip = start.clone().lerp(end, ratio)
+    return { origin: tip.clone().sub(arrowVector), vector: arrowVector, tip }
+  })
+}
 
 export type ForceMetric = 'axial' | 'shear' | 'moment'
 export type SupportKind = 'none' | 'fixed' | 'pinned' | 'roller-x' | 'roller-y' | 'roller-z' | 'partial'
@@ -57,6 +79,19 @@ export function getCaseNodeDisplacement(activeCase: VisualizationCase, nodeId: s
     y: displacement?.uy ?? 0,
     z: displacement?.uz ?? 0,
   }
+}
+
+/** Rendering only: translate precomputed global samples by the selected display scale. */
+export function getMemberDeformedPoints(activeCase: VisualizationCase, elementId: string, scale: number) {
+  const row = activeCase.memberResponses?.[elementId]
+  if (!row || row.state === 'unavailable' || row.samples.length < 2) return undefined
+  return row.samples.map((sample) => new THREE.Vector3(...sample.position)
+    .addScaledVector(new THREE.Vector3(...sample.displacement), scale))
+}
+
+export function getMemberDisplacementMagnitude(activeCase: VisualizationCase, elementId: string) {
+  return (activeCase.memberResponses?.[elementId]?.samples || [])
+    .reduce((maximum, sample) => Math.max(maximum, Math.hypot(...sample.displacement)), 0)
 }
 
 export function getElementMetric(activeCase: VisualizationCase, elementId: string, forceMetric: ForceMetric) {

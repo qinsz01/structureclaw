@@ -13,6 +13,11 @@ import {
   classifySupport,
   getProjectedRollerAxis,
   getCaseNodeDisplacement,
+  isLoadVisible,
+  getMemberLoadInterval,
+  getDistributedLoadArrows,
+  getMemberDeformedPoints,
+  getMemberDisplacementMagnitude,
   getElementMetric,
   getNodeReactionMagnitude,
   getNodeReactionMomentMagnitude,
@@ -320,42 +325,30 @@ function DistributedLoadMarker({
   start,
   end,
   vector,
+  endVector = vector,
   arrowCount = 8,
 }: {
   color: string
   start: THREE.Vector3
   end: THREE.Vector3
   vector: THREE.Vector3
+  endVector?: THREE.Vector3
   arrowCount?: number
 }) {
-  const length = Math.max(vector.length(), 0.01)
-  const direction = useMemo(() => vector.clone().normalize(), [vector])
-  const topStart = useMemo(() => start.clone().sub(direction.clone().multiplyScalar(length)), [start, direction, length])
-  const topEnd = useMemo(() => end.clone().sub(direction.clone().multiplyScalar(length)), [end, direction, length])
-  const capLength = Math.max(length * 0.16, 0.08)
-  const boundaryVector = useMemo(() => direction.clone().multiplyScalar(capLength), [direction, capLength])
-  const ratios = useMemo(() => {
-    const count = Math.max(2, arrowCount)
-    return Array.from({ length: count }, (_, index) => index / (count - 1))
-  }, [arrowCount])
+  const arrows = useMemo(() => getDistributedLoadArrows(start, end, vector, endVector, arrowCount), [start, end, vector, endVector, arrowCount])
 
   return (
     <>
-      <Line color={color} lineWidth={1.5} points={[topStart.toArray(), topEnd.toArray()]} />
-      <Line color={color} lineWidth={1.2} points={[topStart.toArray(), topStart.clone().add(boundaryVector).toArray()]} />
-      <Line color={color} lineWidth={1.2} points={[topEnd.toArray(), topEnd.clone().add(boundaryVector).toArray()]} />
-      {ratios.map((ratio, index) => {
-        const arrowOrigin = topStart.clone().lerp(topEnd, ratio)
-        return (
+      <Line color={color} lineWidth={1.5} points={arrows.map(arrow => arrow.origin.toArray())} />
+      {arrows.map((arrow, index) => arrow.vector.lengthSq() > 1e-20 ? (
           <VectorArrow
             color={color}
             key={`distributed-arrow-${index}`}
-            origin={arrowOrigin}
+            origin={arrow.origin}
             selected={color === '#f59e0b'}
-            vector={vector}
+            vector={arrow.vector}
           />
-        )
-      })}
+        ) : null)}
     </>
   )
 }
@@ -581,10 +574,10 @@ function SceneContent({
 
   // Buckling mode shape for the active mode index
   const activeBucklingMode: BucklingMode | null = useMemo(() => {
-    const bucklingModes = getBucklingModes(snapshot)
+    const bucklingModes = getBucklingModes(snapshot, activeCase)
     if (view !== 'buckling' || !bucklingModes.length) return null
     return bucklingModes[bucklingModeIndex ?? 0] ?? bucklingModes[0]
-  }, [view, snapshot, bucklingModeIndex])
+  }, [view, snapshot, activeCase, bucklingModeIndex])
 
   // Compute buckling scale: normalize mode shape so max displacement = 10% of model span
   const bucklingScale = useMemo(() => {
@@ -623,6 +616,8 @@ function SceneContent({
     if (selectedElementId) {
       const element = snapshot.elements.find((entry) => entry.id === selectedElementId)
       if (element) {
+        const curve = view === 'deformed' ? getMemberDeformedPoints(activeCase, element.id, deformationScale) : undefined
+        if (curve?.length) return projectPosition(curve[Math.floor(curve.length / 2)], plane, snapshot.dimension)
         const startData = nodeMap.get(element.nodeIds[0])
         const endData = nodeMap.get(element.nodeIds[1])
         if (startData && endData) {
@@ -653,7 +648,8 @@ function SceneContent({
           const startData = nodeMap.get(element.nodeIds[0])
           const endData = nodeMap.get(element.nodeIds[1])
           if (startData && endData) {
-            return projectPosition(startData.position.clone().add(endData.position).multiplyScalar(0.5), plane, snapshot.dimension)
+            const interval = getMemberLoadInterval(selectedLoad, startData.position, endData.position)
+            return projectPosition(interval.start.add(interval.end).multiplyScalar(0.5), plane, snapshot.dimension)
           }
         }
       }
@@ -666,7 +662,7 @@ function SceneContent({
     }
 
     return null
-  }, [selectedElementId, selectedNodeId, selectedLoadIndex, snapshot.loads, snapshot.elements, snapshot.dimension, nodeMap, plane, view])
+  }, [selectedElementId, selectedNodeId, selectedLoadIndex, snapshot.loads, snapshot.elements, snapshot.dimension, nodeMap, plane, view, activeCase, deformationScale])
 
   return (
     <>
@@ -705,7 +701,7 @@ function SceneContent({
           onClearSelection()
         }}>
           {showLoads && view === 'model' && snapshot.loads.map((load, index) => {
-            if (load.kind !== 'area' || !load.polygon?.length) {
+            if (load.kind !== 'area' || !load.polygon?.length || !isLoadVisible(snapshot, activeCase, load)) {
               return null
             }
             return (
@@ -739,6 +735,8 @@ function SceneContent({
             // In buckling view, positions are animated via BucklingMember component.
             const start = view === 'deformed' ? startData.displacedPosition : startData.position
             const end = view === 'deformed' ? endData.displacedPosition : endData.position
+            const curve = view === 'deformed' ? getMemberDeformedPoints(activeCase, element.id, deformationScale)
+              ?.map((point) => projectPosition(point, plane, snapshot.dimension)) : undefined
             const forceColor = rawMaxElementMetric > 0
               ? createColorScale(getElementMetric(activeCase, element.id, forceMetric), maxElementMetric)
               : '#38bdf8'
@@ -751,7 +749,7 @@ function SceneContent({
               if (hoveredElementId === element.id) return '#67e8f9'
               const mag0 = getNodeDisplacementMagnitude(activeCase, element.nodeIds[0])
               const mag1 = getNodeDisplacementMagnitude(activeCase, element.nodeIds[1])
-              return createColorScale((mag0 + mag1) / 2, maxDisplacement)
+              return createColorScale(Math.max(mag0, mag1, getMemberDisplacementMagnitude(activeCase, element.id)), maxDisplacement)
             })()
             const color = view === 'forces'
               ? forceColor
@@ -774,25 +772,11 @@ function SceneContent({
             const modeEnd = activeBucklingMode?.modeShape[element.nodeIds[1]] ?? [0, 0, 0]
             const projectedModeStart = projectPosition(new THREE.Vector3(...modeStart), plane, snapshot.dimension).toArray() as [number, number, number]
             const projectedModeEnd = projectPosition(new THREE.Vector3(...modeEnd), plane, snapshot.dimension).toArray() as [number, number, number]
-            const distributedLoadVectors = showLoads
-              ? snapshot.loads.reduce<THREE.Vector3[]>((vectors, load) => {
-                  if (load.kind !== 'distributed' || load.elementId !== element.id) {
-                    return vectors
-                  }
-
-                  if (view !== 'model' && load.caseId && load.caseId !== activeCase.id) {
-                    return vectors
-                  }
-
-                  const raw = new THREE.Vector3(load.vector.x, load.vector.y, load.vector.z)
-                  if (!isRenderableLoadVector(raw)) {
-                    return vectors
-                  }
-
-                  vectors.push(projectPosition(raw.normalize().multiplyScalar(loadArrowLength), plane, snapshot.dimension))
-                  return vectors
-                }, [])
-              : []
+            const memberLoads = showLoads ? snapshot.loads.map((load, index) => ({ load, index }))
+              .filter(({ load }) => load.elementId === element.id && isLoadVisible(snapshot, activeCase, load)) : []
+            const distributedMax = Math.max(1e-12, ...memberLoads.filter(({ load }) => load.kind === 'distributed')
+              .flatMap(({ load }) => [Math.hypot(load.vector.x, load.vector.y, load.vector.z),
+                Math.hypot((load.endVector || load.vector).x, (load.endVector || load.vector).y, (load.endVector || load.vector).z)]))
             return (
               <group key={element.id}>
                 {(view === 'deformed' && showUndeformed) && (
@@ -815,6 +799,20 @@ function SceneContent({
                     }}
                     onHover={(hovered) => setHoveredElementId(hovered ? element.id : null)}
                   />
+                ) : curve ? (
+                  <Line
+                    color={color}
+                    lineWidth={selectedElementId === element.id ? 5 : 3}
+                    points={curve}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      onSelectElement(element.id)
+                      onSelectNode(null)
+                      onSelectLoad(null)
+                    }}
+                    onPointerOver={(event) => { event.stopPropagation(); setHoveredElementId(element.id) }}
+                    onPointerOut={() => setHoveredElementId(null)}
+                  />
                 ) : (
                   <ElementTube
                     color={color}
@@ -831,21 +829,30 @@ function SceneContent({
                   />
                 )}
                 {showElementLabels && (
-                  <Html center position={currentStart.clone().add(currentEnd).multiplyScalar(0.5).toArray()}>
+                  <Html center position={(curve?.[Math.floor(curve.length / 2)] || currentStart.clone().add(currentEnd).multiplyScalar(0.5)).toArray()}>
                     <div className="rounded-full border border-border/70 bg-background/90 px-2 py-1 text-[10px] font-medium text-foreground shadow-lg dark:border-white/10 dark:bg-slate-950/85">
                       {element.id}
                     </div>
                   </Html>
                 )}
-                {showLoads && distributedLoadVectors.map((vector, vectorIndex) => (
-                  <DistributedLoadMarker
-                    color={typeof selectedLoadIndex === 'number' && snapshot.loads[selectedLoadIndex]?.elementId === element.id ? '#f59e0b' : '#22c55e'}
-                    key={`${element.id}-distributed-${vectorIndex}`}
-                    start={currentStart}
-                    end={currentEnd}
-                    vector={vector}
-                  />
-                ))}
+                {memberLoads.map(({ load, index }) => {
+                  const interval = getMemberLoadInterval(load, currentStart, currentEnd, startData.position.distanceTo(endData.position))
+                  const raw = new THREE.Vector3(load.vector.x, load.vector.y, load.vector.z)
+                  const projected = projectPosition(raw, plane, snapshot.dimension)
+                  const selected = selectedLoadIndex === index
+                  const loadColor = selected ? '#f59e0b' : '#22c55e'
+                  const select = () => { onSelectLoad(index); onSelectNode(null); onSelectElement(null) }
+                  const last = load.endVector || load.vector
+                  return <group key={`${element.id}-load-${index}`} onClick={event => { event.stopPropagation(); select() }}>
+                    {load.kind === 'distributed' ? <DistributedLoadMarker color={loadColor}
+                      start={interval.start} end={interval.end} vector={projected.multiplyScalar(loadArrowLength / distributedMax)}
+                      endVector={projectPosition(new THREE.Vector3(last.x, last.y, last.z), plane, snapshot.dimension).multiplyScalar(loadArrowLength / distributedMax)} />
+                      : load.kind === 'moment' ? <MomentLoadMarker color={loadColor} origin={interval.start}
+                        radius={loadArrowLength * 0.32} selected={selected} vector={projected} onClick={select} />
+                      : isRenderableLoadVector(raw) ? <VectorArrow color={loadColor} origin={interval.start}
+                        selected={selected} vector={projected.normalize().multiplyScalar(loadArrowLength)} /> : null}
+                  </group>
+                })}
               </group>
             )
           })}
@@ -893,7 +900,7 @@ function SceneContent({
                     return vectors
                   }
 
-                  if (view !== 'model' && load.caseId && load.caseId !== activeCase.id) {
+                  if (!isLoadVisible(snapshot, activeCase, load)) {
                     return vectors
                   }
 
@@ -911,7 +918,7 @@ function SceneContent({
                   if (load.nodeId !== entry.id || load.kind !== 'moment') {
                     return vectors
                   }
-                  if (view !== 'model' && load.caseId && load.caseId !== activeCase.id) {
+                  if (!isLoadVisible(snapshot, activeCase, load)) {
                     return vectors
                   }
                   const raw = new THREE.Vector3(load.vector.x, load.vector.y, load.vector.z)
@@ -1019,7 +1026,7 @@ function SceneContent({
             )
           })}
         </group>
-        <PlaneBoundsController plane={plane} resetToken={resetToken} snapshot={snapshot} />
+        <PlaneBoundsController plane={plane} resetToken={resetToken} snapshot={snapshot} fitKey={`${view}:${activeCase.id}:${deformationScale}`} />
       </Bounds>
     </>
   )
@@ -1029,10 +1036,12 @@ function PlaneBoundsController({
   plane,
   resetToken,
   snapshot,
+  fitKey,
 }: {
   plane: VisualizationPlane
   resetToken: number
   snapshot: VisualizationSnapshot
+  fitKey: string
 }) {
   const bounds = useBounds()
   const camera = useThree((state) => state.camera)
@@ -1055,7 +1064,7 @@ function PlaneBoundsController({
       bounds.fit()
     }
     bounds.clip()
-  }, [bounds, camera, height, plane, resetToken, snapshot, width])
+  }, [bounds, camera, height, plane, resetToken, snapshot, width, fitKey])
 
   return null
 }
@@ -1193,8 +1202,9 @@ export function StructuralScene(props: StructuralSceneProps) {
     [activeCase, snapshot.nodes]
   )
   const maxDisplacement = useMemo(
-    () => Math.max(1e-12, ...snapshot.nodes.map((node) => getNodeDisplacementMagnitude(activeCase, node.id))),
-    [activeCase, snapshot.nodes]
+    () => Math.max(1e-12, ...snapshot.nodes.map((node) => getNodeDisplacementMagnitude(activeCase, node.id)),
+      ...snapshot.elements.map((element) => getMemberDisplacementMagnitude(activeCase, element.id))),
+    [activeCase, snapshot.nodes, snapshot.elements]
   )
   const maxUtilization = useMemo(
     () => Math.max(1, ...snapshot.elements.map((element) => activeCase.elementResults[element.id]?.utilization ?? 0)),
@@ -1249,7 +1259,7 @@ export function StructuralScene(props: StructuralSceneProps) {
       }) || null
     }
     if (view === 'buckling') {
-      const modes = getBucklingModes(snapshot)
+      const modes = getBucklingModes(snapshot, activeCase)
       if (modes?.length) {
         const mode = modes[bucklingModeIndex ?? 0] ?? modes[0]
         return {

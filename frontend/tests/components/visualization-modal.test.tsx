@@ -36,6 +36,42 @@ const modelSnapshot: VisualizationSnapshot = {
 }
 
 describe('StructuralVisualizationModal', () => {
+  it.each(['en', 'zh'] as const)('switches case scope without borrowing views or loads in %s', locale => {
+    const localized = (key: keyof typeof messages.en) => messages[locale][key]
+    const snapshot: VisualizationSnapshot = { ...modelSnapshot, source: 'result', defaultCaseId: 'case:D',
+      availableViews: ['model', 'deformed'], loads: [{ kind: 'point', elementId: 'E1', position: 2, caseId: 'case:D', vector: { x: 0, y: 0, z: -3 } }],
+      cases: [
+        { id: 'case:D', label: 'D', kind: 'case', resultStatus: 'available', availableViews: ['model', 'deformed'], nodeResults: { '2': { displacement: { uz: -0.01 } } }, elementResults: {} },
+        { id: 'case:L', label: 'L', kind: 'case', resultStatus: 'unavailable', availableViews: ['model'], nodeResults: {}, elementResults: {} },
+      ] }
+    render(<StructuralVisualizationModal locale={locale} onClose={() => undefined} open snapshot={snapshot} t={localized} />)
+    fireEvent.click(screen.getByRole('button', { name: 'E1 · P' }))
+    expect(screen.getByText(`${localized('visualizationMemberLoadPosition')}: 2`)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: localized('visualizationViewDeformed') }))
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'case:L' } })
+    expect(screen.queryByRole('button', { name: localized('visualizationViewDeformed') })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'E1 · P' })).not.toBeInTheDocument()
+    expect(screen.getByText(localized('visualizationUnavailable'))).toBeInTheDocument()
+  })
+  it.each(['en', 'zh'] as const)('labels member interpolation in %s and scales from interior displacement', (locale) => {
+    const localized = (key: keyof typeof messages.en) => messages[locale][key]
+    const snapshot: VisualizationSnapshot = { ...modelSnapshot, source: 'result', availableViews: ['model', 'deformed'],
+      cases: [{ ...modelSnapshot.cases[0], nodeResults: {}, memberResponses: { E1: {
+        id: 'E1', state: 'interpolated', reason: 'stiffness', length: 6,
+        samples: [
+          { x: 0, position: [0, 0, 0], displacement: [0, 0, 0] },
+          { x: 3, position: [3, 0, 0], displacement: [0, 0, -0.01] },
+          { x: 6, position: [6, 0, 0], displacement: [0, 0, 0] },
+        ],
+      } } }],
+    }
+    render(<StructuralVisualizationModal locale={locale} onClose={() => undefined} open snapshot={snapshot} t={localized} />)
+    fireEvent.click(screen.getByRole('button', { name: 'E1' }))
+    expect(screen.getByText(localized('visualizationMemberInterpolated'))).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: localized('visualizationViewDeformed') }))
+    expect(Number((screen.getByRole('slider') as HTMLInputElement).value)).toBeGreaterThan(12)
+  })
+
   it('renders model-only preview state with list-based selection', () => {
     render(
       <StructuralVisualizationModal

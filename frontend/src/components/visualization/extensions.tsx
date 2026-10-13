@@ -54,7 +54,9 @@ function getExtensionEntry<TData>(
   return entry?.available ? (entry as VisualizationExtensionEntry<TData>) : null
 }
 
-export function getBucklingModes(snapshot: VisualizationSnapshot | null): BucklingMode[] {
+export function getBucklingModes(snapshot: VisualizationSnapshot | null, activeCase?: VisualizationCase | null): BucklingMode[] {
+  const scopedCase = activeCase || snapshot?.cases.find(item => item.id === snapshot.defaultCaseId)
+  if (scopedCase?.bucklingModes !== undefined) return scopedCase.bucklingModes
   const entry = getExtensionEntry<BucklingExtensionData>(snapshot, 'builtin.buckling')
   if (entry?.data?.bucklingModes?.length) {
     return entry.data.bucklingModes
@@ -149,8 +151,8 @@ const visualizationExtensionRegistry: VisualizationExtensionDefinition[] = [
     view: 'buckling',
     viewLabelKey: 'visualizationViewBuckling',
     isAvailable: (snapshot) => getBucklingModes(snapshot).length > 0,
-    renderAside: ({ snapshot, bucklingModeIndex, t }) => {
-      const modes = getBucklingModes(snapshot)
+    renderAside: ({ snapshot, activeCase, bucklingModeIndex, t }) => {
+      const modes = getBucklingModes(snapshot, activeCase)
       if (!modes.length) {
         return null
       }
@@ -162,8 +164,8 @@ const visualizationExtensionRegistry: VisualizationExtensionDefinition[] = [
         />
       )
     },
-    getLegend: ({ snapshot, bucklingModeIndex }) => {
-      const modes = getBucklingModes(snapshot)
+    getLegend: ({ snapshot, activeCase, bucklingModeIndex }) => {
+      const modes = getBucklingModes(snapshot, activeCase)
       if (!modes.length) {
         return null
       }

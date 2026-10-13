@@ -146,7 +146,7 @@ type StreamPayload =
   | { type: 'phase_upsert'; phase?: TimelinePhaseGroup }
   | { type: 'step_upsert'; phaseId?: string; step?: TimelineStepItem }
   | { type: 'artifact_upsert'; artifact?: PresentationArtifactState }
-  | { type: 'artifact_payload_sync'; artifact?: 'model' | 'analysis' | 'report'; model?: Record<string, unknown>; latestResult?: AgentResult; snapshot?: VisualizationSnapshot }
+  | { type: 'artifact_payload_sync'; artifact?: 'model' | 'analysis' | 'report'; model?: Record<string, unknown>; latestResult?: AgentResult; snapshot?: VisualizationSnapshot; invalidated?: boolean }
   | { type: 'summary_replace'; summaryText?: string }
   | { type: 'presentation_complete'; completedAt?: string }
   | { type: 'presentation_error'; phase?: string; message?: string }
@@ -4534,6 +4534,13 @@ export function AIConsole() {
           }
 
           if (payload.type === 'artifact_payload_sync') {
+            if (payload.invalidated && activeConversationId === conversationIdRef.current) {
+              setLatestResult((current) => current ? {
+                ...current,
+                ...(payload.artifact === 'analysis' ? { analysis: undefined, codeCheck: undefined, report: undefined } : { report: undefined }),
+              } : null)
+              if (payload.artifact === 'analysis') setLatestResultVisualizationSnapshot(null)
+            }
             if (payload.artifact === 'model' && payload.model) {
               if (activeConversationId === conversationIdRef.current) {
                 applySynchronizedModel(payload.model, 'tool')

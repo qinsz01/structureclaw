@@ -77,7 +77,14 @@ export type VisualizationLoad = {
   vector: VisualizationVector3
   caseId?: string
   elementId?: string
-  kind?: 'nodal' | 'moment' | 'distributed' | 'area'
+  kind?: 'nodal' | 'point' | 'moment' | 'distributed' | 'area'
+  /** Physical distance from the member i end; metres for canonical SI models. */
+  position?: number
+  start?: number
+  end?: number
+  /** Linear distribution at the end of this load interval; vector is its start. */
+  endVector?: VisualizationVector3
+  sourceEndVector?: VisualizationVector3
   storyId?: string
   label?: string
   intensity?: number
@@ -95,6 +102,26 @@ export type VisualizationCase = {
   kind: 'result' | 'case' | 'envelope'
   nodeResults: Record<string, VisualizationNodeResults>
   elementResults: Record<string, VisualizationElementResults>
+  /** Precomputed physical-member samples in model length units; never recovered in the UI. */
+  memberResponses?: Record<string, VisualizationMemberResponse>
+  /** Present for independently saved run results; an unavailable case has no fallback data. */
+  resultStatus?: 'available' | 'unavailable'
+  availableViews?: VisualizationViewMode[]
+  bucklingModes?: BucklingMode[]
+}
+
+export type VisualizationMemberResponse = {
+  id: string
+  length: number
+  state: 'recovered' | 'interpolated' | 'truss' | 'unavailable'
+  reason: string
+  samples: {
+    x: number
+    position: [number, number, number]
+    displacement: [number, number, number]
+    segmentId?: string
+    side?: 'left' | 'right'
+  }[]
 }
 
 export type VisualizationSnapshot = {

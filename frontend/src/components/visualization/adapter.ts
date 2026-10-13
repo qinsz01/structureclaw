@@ -6,6 +6,7 @@ import type {
   VisualizationExtensionMap,
   VisualizationLoad,
   VisualizationLocalAxes,
+  VisualizationMemberResponse,
   VisualizationNode,
   VisualizationNodeResults,
   VisualizationPlane,
@@ -14,7 +15,7 @@ import type {
   VisualizationVector3,
   VisualizationViewMode,
 } from './types'
-import { normalizeVisualizationSnapshot } from './normalization'
+import { normalizeMemberResponses, normalizeVisualizationSnapshot } from './normalization'
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null
@@ -340,7 +341,8 @@ function buildCase(
   displacementsInput: Record<string, unknown> | null,
   reactionsInput: Record<string, unknown> | null,
   forcesInput: Record<string, unknown> | null,
-  envelopeInput?: Record<string, unknown> | null
+  envelopeInput?: Record<string, unknown> | null,
+  memberResponses?: Record<string, VisualizationMemberResponse>,
 ): VisualizationCase {
   const nodeResults: Record<string, VisualizationNodeResults> = {}
   const elementResults: Record<string, VisualizationElementResults> = {}
@@ -381,7 +383,7 @@ function buildCase(
     })
   }
 
-  return { id, label, kind, nodeResults, elementResults }
+  return { id, label, kind, nodeResults, elementResults, ...(memberResponses ? { memberResponses } : {}) }
 }
 
 function applyEnvelopeTables(target: VisualizationCase, envelopeTables: Record<string, unknown> | null) {
@@ -732,15 +734,17 @@ function getLoads(
   nodes: VisualizationNode[],
   elements: VisualizationElement[],
   dimension: 2 | 3,
+  includeFloorAreas = true,
 ): VisualizationLoad[] {
   const loadCases = Array.isArray(model?.load_cases) ? model?.load_cases : []
-  const loads: VisualizationLoad[] = getFloorAreaLoads(model, nodes)
+  const loads: VisualizationLoad[] = includeFloorAreas ? getFloorAreaLoads(model, nodes) : []
   const representedFloorLoads = new Set(
     loads.flatMap((load) => (load.kind === 'area' && load.storyId
       ? (load.components || []).map((component) => `${load.storyId}:${component.type}`)
       : [])),
   )
   const elementById = new Map(elements.map((element) => [element.id, element]))
+  const nodeById = new Map(nodes.map(node => [node.id, node.position]))
   const nodeIds = new Set(nodes.map((node) => node.id))
 
   loadCases.forEach((loadCase) => {
@@ -814,26 +818,68 @@ function getLoads(
         if (!element) {
           throw new Error(`Distributed load references unknown element '${elementId}'`)
         }
+        const first = nodeById.get(element.nodeIds[0])!
+        const last = nodeById.get(element.nodeIds[1])!
+        const length = Math.hypot(last.x - first.x, last.y - first.y, last.z - first.z)
+        const position = (value: unknown, fallback?: number) => {
+          const number = value === undefined ? fallback : asNumber(value)
+          if (typeof number !== 'number' || !Number.isFinite(number) || number < 0 || number > length) {
+            throw new Error(`Member load on '${elementId}' must lie within [0, ${length}] from its i end`)
+          }
+          return number
+        }
+        const globalVector = (vector: VisualizationVector3) => referenceFrame === 'element-local'
+          ? transformLocalVectorToGlobal(vector, element.localAxes!) : { ...vector }
+        if (referenceFrame === 'element-local' && !element.localAxes) throw new Error('Member load local axes are unavailable')
+        if (load.type === 'point') {
+          if (['wx', 'wy', 'wz', 'forces', 'direction', 'magnitude'].some(key => load[key] !== undefined)) {
+            throw new Error('Member point loads must use explicit fx/fy/fz/mx/my/mz')
+          }
+          const point = position(load.position)
+          const { force, moment } = resolveNodalLoadVectors(load)
+          if (dimension === 2 && (Math.abs(force.y) > COORDINATE_TOLERANCE
+            || Math.abs(moment.x) > COORDINATE_TOLERANCE || Math.abs(moment.z) > COORDINATE_TOLERANCE)) {
+            throw new Error('Member point load has inactive 2-D components')
+          }
+          for (const [kind, vector] of [['point', force], ['moment', moment]] as const) {
+            if (vectorMagnitude([vector.x, vector.y, vector.z]) <= COORDINATE_TOLERANCE) continue
+            loads.push({ elementId, caseId, kind, position: point, vector: globalVector(vector), referenceFrame, sourceVector: vector })
+          }
+          return
+        }
         if (['fx', 'fy', 'fz', 'mx', 'my', 'mz', 'forces'].some((key) => load[key] !== undefined)) {
           throw new Error(`Distributed load on '${elementId}' must use only wx/wy/wz components`)
         }
-        const sourceVector = resolveDistributedLoadVector(load)
-        if (dimension === 2 && Math.abs(sourceVector.y) > COORDINATE_TOLERANCE) {
+        const start = position(load.start, 0)
+        const end = position(load.end, length)
+        if (end <= start) throw new Error('Distributed load end must exceed start')
+        const distribution = load.distribution ?? 'uniform'
+        let points: Array<{ position: number; vector: VisualizationVector3 }>
+        if (distribution === 'piecewise_linear') {
+          if (!Array.isArray(load.points) || load.points.length < 2) throw new Error('Piecewise load needs at least two points')
+          points = load.points.map(value => {
+            const point = asRecord(value)
+            const fraction = asNumber(point?.position)
+            if (!point || fraction === null || fraction < 0 || fraction > 1) throw new Error('Piecewise positions must be member-length fractions')
+            return { position: fraction * length, vector: resolveDistributedLoadVector(point) }
+          })
+          if (Math.abs(points[0].position - start) > COORDINATE_TOLERANCE || Math.abs(points.at(-1)!.position - end) > COORDINATE_TOLERANCE
+            || points.some((point, index) => index > 0 && point.position <= points[index - 1].position)) {
+            throw new Error('Piecewise points must increase and cover the declared load interval')
+          }
+        } else if (distribution === 'uniform' && load.points === undefined) {
+          const vector = resolveDistributedLoadVector(load)
+          points = [{ position: start, vector }, { position: end, vector }]
+        } else throw new Error(`Unsupported member load distribution '${String(distribution)}'`)
+        if (dimension === 2 && points.some(point => Math.abs(point.vector.y) > COORDINATE_TOLERANCE)) {
           throw new Error(`Distributed load on '${elementId}' has an out-of-plane Y component in a 2-D model`)
         }
-        if (referenceFrame === 'element-local' && !element.localAxes) {
-          throw new Error(`Distributed load on '${elementId}' cannot be transformed because local axes are unavailable`)
+        for (let index = 1; index < points.length; index++) {
+          const p = points[index - 1], q = points[index]
+          loads.push({ elementId, caseId, kind: 'distributed', start: p.position, end: q.position,
+            vector: globalVector(p.vector), endVector: globalVector(q.vector), referenceFrame,
+            sourceVector: p.vector, sourceEndVector: q.vector })
         }
-        loads.push({
-          elementId,
-          caseId,
-          kind: 'distributed',
-          vector: referenceFrame === 'element-local'
-            ? transformLocalVectorToGlobal(sourceVector, element.localAxes as VisualizationLocalAxes)
-            : sourceVector,
-          referenceFrame,
-          sourceVector,
-        })
         return
       }
       throw new Error('Every visualization load must target exactly one node or element')
@@ -1030,6 +1076,7 @@ function validateAnalysisResultReferences(
     }
   }
   const validateResultSet = (result: Record<string, unknown>) => {
+    normalizeMemberResponses(result.memberResponses, elements, dimension)
     validateResultEntityMap(result.displacements, nodeIds, 'Displacements', ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'])
     validateResultEntityMap(result.reactions, nodeIds, 'Reactions', ['fx', 'fy', 'fz', 'mx', 'my', 'mz'])
     validateElementForceMap(result.forces, elements, 'Element forces')
@@ -1076,6 +1123,7 @@ function buildAvailableViews(cases: VisualizationCase[], source: VisualizationSo
   }
   const hasDisplacements = cases.some((item) =>
     Object.values(item.nodeResults).some((result) => vectorMagnitude([result.displacement?.ux, result.displacement?.uy, result.displacement?.uz]) > 0)
+    || Object.values(item.memberResponses || {}).some((row) => row.samples.some((sample) => vectorMagnitude(sample.displacement) > 0))
   )
   const hasForces = cases.some((item) =>
     Object.values(item.elementResults).some((result) =>
@@ -1192,7 +1240,7 @@ function deriveBucklingModes(
   return normalized.length > 0 ? normalized : null
 }
 
-export function buildVisualizationSnapshot(params: {
+type VisualizationInput = {
   title: string
   model: Record<string, unknown> | null
   analysis?: Record<string, unknown> | null
@@ -1202,10 +1250,83 @@ export function buildVisualizationSnapshot(params: {
   memberUtilizationMap?: Record<string, number> | null
   /** bucklingModes from backend VisualizationHints, sorted by λ ascending */
   bucklingModes?: BucklingMode[] | null
-}): VisualizationSnapshot | null {
+}
+
+/** Result collections are authoritative; never substitute the selected top-level copy for a missing child. */
+function buildRunSnapshot(params: VisualizationInput, run: Record<string, unknown>): VisualizationSnapshot | null {
+  const results = asRecord(run.results)
+  const keys = Object.keys(results || {})
+  const selectedKey = asNonEmptyString(run.selectedResultKey) || keys[0]
+  if (!keys.length || !selectedKey || !Object.hasOwn(results!, selectedKey)) return null
+  const model = params.model!
+  // Each saved result supplies its own curves, forces and extensions. External aggregate hints
+  // cannot be attributed safely to every case and are deliberately not copied into the children.
+  const geometry = buildVisualizationSnapshot({ title: params.title, model, mode: 'model-only' })
+  if (!geometry) return null
+  const cases: VisualizationCase[] = []
+  const loads: VisualizationLoad[] = []
+  const availableViews = new Set<VisualizationViewMode>(['model'])
+  for (const key of keys) {
+    const result = asRecord(results![key])
+    const selection = asRecord(result?.selection)
+    const id = asNonEmptyString(selection?.id)
+    const kind = selection?.kind
+    const selectionMatches = selection?.key === key
+      && ((kind === 'case' || kind === 'combination') ? key === `${kind}:${id}` : kind === 'analysis')
+    const sameRun = run.runId === undefined || (asRecord(result?.meta)?.runId === run.runId
+      && asNonEmptyString(asRecord(run.meta)?.modelHash)
+      && asRecord(result?.meta)?.modelHash === asRecord(run.meta)?.modelHash
+      && asRecord(result?.meta)?.settingsHash === asRecord(run.meta)?.settingsHash)
+    const effectiveLoads = asRecord(result?.data)?.effectiveLoads
+    const renderModel = Array.isArray(effectiveLoads) ? { ...model, load_cases: [{ id: key, loads: effectiveLoads }] } : model
+    const snapshot = result?.success === true && selectionMatches && sameRun
+      ? buildVisualizationSnapshot({ title: params.title, model: renderModel, analysis: result, mode: 'analysis-result' }) : null
+    const ownCase = snapshot?.cases.find(item => item.id === snapshot.defaultCaseId)
+    const current: VisualizationCase = ownCase
+      ? { ...ownCase, id: key, label: id || key, kind: 'case', resultStatus: 'available',
+        availableViews: snapshot!.availableViews, bucklingModes: snapshot!.bucklingModes || [] }
+      : { id: key, label: id || key, kind: 'case', resultStatus: 'unavailable', nodeResults: {}, elementResults: {},
+        availableViews: ['model'], bucklingModes: [] }
+    cases.push(current)
+    current.availableViews!.forEach(view => availableViews.add(view))
+    if (!snapshot) continue
+    if (Array.isArray(effectiveLoads)) {
+      loads.push(...snapshot.loads.map(load => ({ ...load, caseId: key })))
+      continue // Solver evidence already contains the selected combination factors and self weight.
+    }
+    let factors: Record<string, unknown> = {}
+    if (kind === 'case' && id) factors = { [id]: 1 }
+    if (kind === 'combination') {
+      const combination = (Array.isArray(model.load_combinations) ? model.load_combinations : [])
+        .map(asRecord).find(item => item?.id === id)
+      factors = asRecord(combination?.factors) || {}
+    }
+    for (const load of snapshot.loads) {
+      const factor = load.caseId ? asNumber(factors[load.caseId]) : null
+      if (factor === null || factor === 0) continue
+      const scale = (vector: VisualizationVector3) => ({ x: vector.x * factor, y: vector.y * factor, z: vector.z * factor })
+      loads.push({ ...load, caseId: key, vector: scale(load.vector),
+        ...(load.sourceVector ? { sourceVector: scale(load.sourceVector) } : {}),
+        ...(load.endVector ? { endVector: scale(load.endVector) } : {}),
+        ...(load.sourceEndVector ? { sourceEndVector: scale(load.sourceEndVector) } : {}),
+        ...(load.intensity !== undefined ? { intensity: load.intensity * factor } : {}),
+        ...(load.components ? { components: load.components.map(component => ({ ...component, value: component.value * factor })) } : {}) })
+    }
+  }
+  const selectedData = asRecord(asRecord(results![selectedKey])?.data)
+  return normalizeVisualizationSnapshot({ ...geometry, source: 'result', cases, loads,
+    defaultCaseId: selectedKey, availableViews: [...availableViews],
+    analysisType: asNonEmptyString(run.analysis_type) || undefined,
+    summary: asRecord(selectedData?.summary) || undefined, statusMessage: params.statusMessage })
+}
+
+export function buildVisualizationSnapshot(params: VisualizationInput): VisualizationSnapshot | null {
   const model = params.model
   if (!model) {
     return null
+  }
+  if (params.mode !== 'model-only' && asRecord(params.analysis?.results)) {
+    return buildRunSnapshot(params, params.analysis!)
   }
 
   const source: VisualizationSource = params.mode === 'model-only' || !params.analysis ? 'model' : 'result'
@@ -1394,7 +1515,7 @@ export function buildVisualizationSnapshot(params: {
   const baseDisplacements = asRecord(data?.displacements)
   let loads: VisualizationLoad[]
   try {
-    loads = getLoads(model, nodes, elements, dimension)
+    loads = getLoads(model, nodes, elements, dimension, source === 'model')
   } catch (error) {
     if (debugEnabled) {
       console.warn('[Visualization] Snapshot skipped because a load reference frame cannot be rendered safely.', error)
@@ -1406,7 +1527,9 @@ export function buildVisualizationSnapshot(params: {
         const baseReactions = asRecord(data?.reactions)
         const baseForces = asRecord(data?.forces)
         const baseEnvelope = asRecord(data?.envelope)
-        const baseCase = buildCase('result', 'Result', 'result', baseDisplacements, baseReactions, baseForces, baseEnvelope)
+        const responseElements = new Map(elements.map((element) => [element.id, element]))
+        const baseCase = buildCase('result', 'Result', 'result', baseDisplacements, baseReactions, baseForces, baseEnvelope,
+          normalizeMemberResponses(data?.memberResponses, responseElements, dimension))
         const nextCases: VisualizationCase[] = [baseCase]
 
         const caseResults = asRecord(data?.caseResults)
@@ -1423,7 +1546,8 @@ export function buildVisualizationSnapshot(params: {
               asRecord(entry.displacements),
               asRecord(entry.reactions),
               asRecord(entry.forces),
-              asRecord(entry.envelope)
+              asRecord(entry.envelope),
+              normalizeMemberResponses(entry.memberResponses, responseElements, dimension)
             )
           )
         })

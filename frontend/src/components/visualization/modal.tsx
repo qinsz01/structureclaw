@@ -7,6 +7,7 @@ import { formatNumber } from '@/lib/utils'
 import { getBucklingModes, BucklingModePanel } from './extensions'
 import { VisualizationModalShell } from './modal-shell'
 import { StructuralScene } from './structural-scene'
+import { getMemberDisplacementMagnitude, isLoadVisible } from './structural-scene-utils'
 import type { SceneExportHandle } from './structural-scene'
 import { VisualizationToolbar } from './toolbar'
 import type { VisualizationCase, VisualizationLoad, VisualizationPlane, VisualizationSnapshot, VisualizationViewMode } from './types'
@@ -38,7 +39,7 @@ function getLoadTargetLabel(load: VisualizationLoad, t: (key: MessageKey) => str
   if (load.kind === 'area') {
     return `${load.label || load.storyId || '-'} · ${t('visualizationOriginalFloorAreaLoad')}`
   }
-  if (load.kind === 'distributed') {
+  if (load.elementId) {
     return `${load.elementId || '-'} · ${t('visualizationElementsList')}`
   }
   return `${load.nodeId || '-'} · ${t('visualizationNodesList')}`
@@ -52,9 +53,9 @@ function getLoadListLabel(load: VisualizationLoad) {
     return `${load.elementId || '-'} · q`
   }
   if (load.kind === 'moment') {
-    return `${load.nodeId || '-'} · M`
+    return `${load.nodeId || load.elementId || '-'} · M`
   }
-  return `${load.nodeId || '-'} · P`
+  return `${load.nodeId || load.elementId || '-'} · P`
 }
 
 function getFloorLoadComponentLabel(type: string, t: (key: MessageKey) => string) {
@@ -74,7 +75,7 @@ function getCaseMaxDisplacementMagnitude(activeCase: VisualizationCase | null) {
       ? Number(result.envelope?.maxAbsDisplacement || 0)
       : Math.sqrt((result.displacement?.ux || 0) ** 2 + (result.displacement?.uy || 0) ** 2 + (result.displacement?.uz || 0) ** 2)
     return Math.max(max, magnitude)
-  }, 0)
+  }, Math.max(0, ...Object.keys(activeCase.memberResponses || {}).map((id) => getMemberDisplacementMagnitude(activeCase, id))))
 }
 
 function getModelSpan(snapshot: VisualizationSnapshot | null) {
@@ -160,11 +161,18 @@ export function StructuralVisualizationModal({
     () => snapshot?.title || t('visualizationTitle'),
     [snapshot, t]
   )
-  const bucklingModes = useMemo(() => getBucklingModes(snapshot), [snapshot])
   const activeCase = useMemo<VisualizationCase | null>(
-    () => snapshot?.cases.find((item) => item.id === activeCaseId) || snapshot?.cases[0] || null,
+    () => snapshot?.cases.find((item) => item.id === (activeCaseId || snapshot.defaultCaseId)) || null,
     [activeCaseId, snapshot]
   )
+  const bucklingModes = useMemo(() => getBucklingModes(snapshot, activeCase), [snapshot, activeCase])
+  const caseSnapshot = useMemo(() => snapshot && activeCase?.availableViews
+    ? { ...snapshot, availableViews: activeCase.availableViews } : snapshot, [snapshot, activeCase])
+  useEffect(() => {
+    setSelectedLoadIndex(null)
+    setBucklingModeIndex(0)
+    setView(current => activeCase?.availableViews && !activeCase.availableViews.includes(current) ? 'model' : current)
+  }, [activeCase])
   const selectedNode = useMemo(
     () => snapshot?.nodes.find((item) => item.id === selectedNodeId) || null,
     [selectedNodeId, snapshot]
@@ -175,6 +183,7 @@ export function StructuralVisualizationModal({
   )
   const selectedNodeResults = activeCase && selectedNode ? activeCase.nodeResults[selectedNode.id] || null : null
   const selectedElementResults = activeCase && selectedElement ? activeCase.elementResults[selectedElement.id] || null : null
+  const selectedMemberResponse = activeCase && selectedElement ? activeCase.memberResponses?.[selectedElement.id] : undefined
   const selectedLoad = selectedLoadIndex !== null && snapshot?.loads ? snapshot.loads[selectedLoadIndex] || null : null
   const selectedElementNodeIds = selectedElement?.nodeIds || []
   const modelOnly = snapshot?.source === 'model'
@@ -214,7 +223,7 @@ export function StructuralVisualizationModal({
       open={open}
       selectedPlane={plane}
       selectedView={view}
-      snapshot={snapshot}
+      snapshot={caseSnapshot}
       t={t}
       title={placeholderTitle}
       aside={
@@ -224,6 +233,7 @@ export function StructuralVisualizationModal({
             <div className="mt-2 text-base font-semibold text-foreground">
               {activeCase ? getCaseLabel(activeCase.id, activeCase.label, t) : t('visualizationUnavailable')}
             </div>
+            {activeCase?.resultStatus === 'unavailable' ? <div className="mt-2 text-sm text-muted-foreground">{t('visualizationUnavailable')}</div> : null}
           </div>
           {snapshot?.statusMessage ? (
             <div className="rounded-2xl border border-amber-300/30 bg-amber-300/10 p-4 text-sm leading-6 text-amber-900 dark:text-amber-100">
@@ -322,6 +332,12 @@ export function StructuralVisualizationModal({
               <div className="mt-1 text-sm text-muted-foreground">{selectedElement.type}</div>
               <div className="mt-3 space-y-2 text-sm text-muted-foreground">
                 <div>{t('visualizationConnectedNodes')}: {selectedElementNodeIds.join(' - ')}</div>
+                {!modelOnly && selectedMemberResponse && (
+                  <div>{t(selectedMemberResponse.state === 'recovered' ? 'visualizationMemberRecovered'
+                    : selectedMemberResponse.state === 'truss' ? 'visualizationMemberTruss'
+                    : selectedMemberResponse.state === 'interpolated' ? 'visualizationMemberInterpolated'
+                    : 'visualizationMemberUnavailable')}</div>
+                )}
                 {!modelOnly && typeof selectedElementResults?.axial === 'number' && <div>{t('visualizationForceAxial')}: {withUnit(formatNumber(selectedElementResults.axial, locale), snapshot?.resultUnit)}</div>}
                 {!modelOnly && typeof selectedElementResults?.shear === 'number' && <div>{t('visualizationForceShear')}: {withUnit(formatNumber(selectedElementResults.shear, locale), snapshot?.resultUnit)}</div>}
                 {!modelOnly && typeof selectedElementResults?.moment === 'number' && <div>{t('visualizationForceMoment')}: {withUnit(formatNumber(selectedElementResults.moment, locale), snapshot?.momentUnit)}</div>}
@@ -352,6 +368,8 @@ export function StructuralVisualizationModal({
                   </>
                 ) : (
                   <>
+                    {selectedLoad.position !== undefined ? <div>{t('visualizationMemberLoadPosition')}: {withUnit(formatNumber(selectedLoad.position, locale), snapshot?.lengthUnit)}</div> : null}
+                    {selectedLoad.start !== undefined && selectedLoad.end !== undefined ? <div>{t('visualizationMemberLoadInterval')}: {formatNumber(selectedLoad.start, locale)} – {withUnit(formatNumber(selectedLoad.end, locale), snapshot?.lengthUnit)}</div> : null}
                     <div>
                       {t('visualizationReferenceFrame')}: {t(
                         selectedLoad.referenceFrame === 'element-local'
@@ -367,6 +385,7 @@ export function StructuralVisualizationModal({
                     <div>X: {withUnit(formatNumber(selectedLoad.vector.x, locale), getLoadUnit(selectedLoad, snapshot))}</div>
                     <div>Y: {withUnit(formatNumber(selectedLoad.vector.y, locale), getLoadUnit(selectedLoad, snapshot))}</div>
                     <div>Z: {withUnit(formatNumber(selectedLoad.vector.z, locale), getLoadUnit(selectedLoad, snapshot))}</div>
+                    {selectedLoad.endVector ? <div>{t('visualizationEndComponents')}: {formatNumber(selectedLoad.endVector.x, locale)} / {formatNumber(selectedLoad.endVector.y, locale)} / {withUnit(formatNumber(selectedLoad.endVector.z, locale), getLoadUnit(selectedLoad, snapshot))}</div> : null}
                   </>
                 )}
               </div>
@@ -431,7 +450,7 @@ export function StructuralVisualizationModal({
                   <div>
                     <div className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{t('visualizationLoadsList')}</div>
                     <div className="flex max-h-28 flex-wrap gap-2 overflow-auto">
-                      {snapshot.loads.map((load, index) => (
+                      {snapshot.loads.map((load, index) => activeCase && isLoadVisible(snapshot, activeCase, load) ? (
                         <button
                           key={`${load.caseId || 'default'}-${load.nodeId || load.elementId || load.storyId || index}-${index}`}
                           className={`rounded-full border px-3 py-1.5 text-xs transition ${selectedLoadIndex === index ? 'border-cyan-300/50 bg-cyan-300/14 text-foreground' : 'border-border/70 bg-background/70 text-muted-foreground hover:text-foreground dark:border-white/10 dark:bg-white/5'}`}
@@ -444,7 +463,7 @@ export function StructuralVisualizationModal({
                         >
                           {getLoadListLabel(load)}
                         </button>
-                      ))}
+                      ) : null)}
                     </div>
                   </div>
                 ) : null}
@@ -484,7 +503,7 @@ export function StructuralVisualizationModal({
             showLoads={showLoads}
             showNodeLabels={showNodeLabels}
             showUndeformed={showUndeformed}
-            snapshot={snapshot}
+            snapshot={caseSnapshot || snapshot}
             t={t}
           />
           <div className="flex items-center justify-end gap-2 border-b border-border/70 px-4 py-2 dark:border-white/10">

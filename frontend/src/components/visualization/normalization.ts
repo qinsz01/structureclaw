@@ -1,12 +1,54 @@
 import type {
   VisualizationElement,
   VisualizationLocalAxes,
+  VisualizationMemberResponse,
   VisualizationSnapshot,
   VisualizationVector3,
 } from './types'
 
 const COORDINATE_TOLERANCE = 1e-8
 const LINE_ELEMENT_TYPES = new Set(['beam', 'truss', 'column', 'brace', 'link'])
+
+/** Validates transport samples without introducing a second mechanics implementation. */
+export function normalizeMemberResponses(
+  value: unknown,
+  elements: Map<string, VisualizationElement>,
+  dimension: 2 | 3,
+): Record<string, VisualizationMemberResponse> | undefined {
+  if (value === undefined) return undefined
+  if (!Array.isArray(value)) throw new Error('memberResponses must be an array')
+  const responses: Record<string, VisualizationMemberResponse> = {}
+  const finiteTuple = (entry: unknown): entry is [number, number, number] => Array.isArray(entry)
+    && entry.length === 3 && entry.every((number) => typeof number === 'number' && Number.isFinite(number))
+  for (const raw of value) {
+    const row = raw as VisualizationMemberResponse
+    if (!row || typeof row.id !== 'string' || !elements.has(row.id) || Object.hasOwn(responses, row.id)
+      || !['recovered', 'interpolated', 'truss', 'unavailable'].includes(row.state)
+      || typeof row.length !== 'number' || !Number.isFinite(row.length) || row.length < 0
+      || typeof row.reason !== 'string' || !Array.isArray(row.samples)) {
+      throw new Error('Invalid member response identity or status')
+    }
+    let previous = -Infinity
+    for (const sample of row.samples) {
+      if (!sample || typeof sample.x !== 'number' || !Number.isFinite(sample.x)
+        || sample.x < -COORDINATE_TOLERANCE || sample.x > row.length + COORDINATE_TOLERANCE || sample.x < previous
+        || !finiteTuple(sample.position) || !finiteTuple(sample.displacement)
+        || (sample.side !== undefined && !['left', 'right'].includes(sample.side))
+        || (sample.segmentId !== undefined && typeof sample.segmentId !== 'string')
+        || (dimension === 2 && (Math.abs(sample.position[1]) > COORDINATE_TOLERANCE || Math.abs(sample.displacement[1]) > COORDINATE_TOLERANCE))) {
+        throw new Error(`Invalid member response sample for '${row.id}'`)
+      }
+      previous = sample.x
+    }
+    if (row.state === 'unavailable' ? row.samples.length !== 0 : (row.length <= 0 || row.samples.length < 2
+      || Math.abs(row.samples[0].x) > COORDINATE_TOLERANCE
+      || Math.abs(row.samples.at(-1)!.x - row.length) > COORDINATE_TOLERANCE)) {
+      throw new Error(`Incomplete member response samples for '${row.id}'`)
+    }
+    responses[row.id] = row
+  }
+  return responses
+}
 
 function isFiniteVector(value: unknown): value is VisualizationVector3 {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
@@ -121,12 +163,20 @@ export function isCanonicalVisualizationSnapshot(snapshot: VisualizationSnapshot
     const referenceFrame = load.referenceFrame ?? 'global'
     if (referenceFrame !== 'global' && referenceFrame !== 'element-local') return false
     if (load.sourceVector !== undefined && !isFiniteVector(load.sourceVector)) return false
+    if (load.endVector !== undefined && !isFiniteVector(load.endVector)) return false
+    if (load.sourceEndVector !== undefined && !isFiniteVector(load.sourceEndVector)) return false
     if (load.kind === 'area') {
       if (!Array.isArray(load.polygon) || load.polygon.length < 3 || !load.polygon.every(isFiniteVector)) return false
-    } else if (load.kind === 'nodal' || load.kind === 'moment') {
+    } else if (load.kind === 'nodal' || (load.kind === 'moment' && load.nodeId)) {
       if (!load.nodeId || load.elementId || !nodePositions.has(load.nodeId) || referenceFrame !== 'global') return false
-    } else if (load.kind === 'distributed') {
+    } else if (load.kind === 'distributed' || load.kind === 'point' || load.kind === 'moment') {
       if (!load.elementId || load.nodeId || !elements.has(load.elementId)) return false
+      const element = elements.get(load.elementId)!
+      const length = vectorLength(subtract(nodePositions.get(element.nodeIds[1])!, nodePositions.get(element.nodeIds[0])!))
+      const validPosition = (value: unknown) => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= length
+      if (load.kind === 'distributed') {
+        if (!validPosition(load.start ?? 0) || !validPosition(load.end ?? length) || (load.start ?? 0) >= (load.end ?? length)) return false
+      } else if (!validPosition(load.position)) return false
     } else {
       return false
     }
@@ -134,7 +184,7 @@ export function isCanonicalVisualizationSnapshot(snapshot: VisualizationSnapshot
       const vector = load.sourceVector ?? load.vector
       if (load.kind === 'moment') {
         if (Math.abs(vector.x) > COORDINATE_TOLERANCE || Math.abs(vector.z) > COORDINATE_TOLERANCE) return false
-      } else if (Math.abs(vector.y) > COORDINATE_TOLERANCE) {
+      } else if (Math.abs(vector.y) > COORDINATE_TOLERANCE || Math.abs((load.sourceEndVector ?? load.endVector)?.y || 0) > COORDINATE_TOLERANCE) {
         return false
       }
     }
@@ -153,12 +203,33 @@ export function isCanonicalVisualizationSnapshot(snapshot: VisualizationSnapshot
     } else if (referenceFrame === 'element-local') {
       return false
     }
+    if (load.endVector) {
+      if (!load.sourceEndVector) return false
+      if (referenceFrame === 'global' && !vectorsMatch(load.sourceEndVector, load.endVector)) return false
+      if (referenceFrame === 'element-local') {
+        const axes = elements.get(load.elementId!)?.localAxes
+        if (!axes) return false
+        const vector = load.sourceEndVector
+        if (!vectorsMatch(load.endVector, {
+          x: axes.x.x * vector.x + axes.y.x * vector.y + axes.z.x * vector.z,
+          y: axes.x.y * vector.x + axes.y.y * vector.y + axes.z.y * vector.z,
+          z: axes.x.z * vector.x + axes.y.z * vector.y + axes.z.z * vector.z,
+        })) return false
+      }
+    }
   }
 
   const caseIds = new Set<string>()
   for (const resultCase of snapshot.cases) {
     if (!resultCase || typeof resultCase.id !== 'string' || !resultCase.id || caseIds.has(resultCase.id)) return false
     caseIds.add(resultCase.id)
+    if (resultCase.memberResponses !== undefined) {
+      if (!resultCase.memberResponses || typeof resultCase.memberResponses !== 'object' || Array.isArray(resultCase.memberResponses)
+        || Object.entries(resultCase.memberResponses).some(([id, row]) => id !== row?.id)) return false
+      try {
+        normalizeMemberResponses(Object.values(resultCase.memberResponses), elements, snapshot.dimension)
+      } catch { return false }
+    }
     for (const [nodeId, result] of Object.entries(resultCase.nodeResults || {})) {
       if (!nodePositions.has(nodeId) || !result) return false
       if (!finiteResultComponents(result.displacement) || !finiteResultComponents(result.reaction)) return false
@@ -178,7 +249,7 @@ export function isCanonicalVisualizationSnapshot(snapshot: VisualizationSnapshot
   }
   if (snapshot.cases.length > 0 && !caseIds.has(snapshot.defaultCaseId)) return false
 
-  return !snapshot.bucklingModes || snapshot.bucklingModes.every((mode) => (
+  return [...(snapshot.bucklingModes || []), ...snapshot.cases.flatMap(item => item.bucklingModes || [])].every((mode) => (
     Number.isFinite(mode.lambda)
     && Object.entries(mode.modeShape).every(([nodeId, vector]) => (
       nodePositions.has(nodeId)
