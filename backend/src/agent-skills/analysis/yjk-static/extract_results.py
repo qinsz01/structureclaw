@@ -582,6 +582,24 @@ def _member_metadata(pre, debug, member_id, floor, sequence, config):
     }
 
 
+def _member_result_geometry(pre, dsn, debug, member, config):
+    """Preserve native section/axis metadata for physical station calibration."""
+    floor, tag, kind = member["floor"], member["tot_id"], config["post_kind"]
+    geometry = {}
+    for key, method in (("section_info", "dsnGetComSectInfo"), ("angle_info", "dsnGetComAng")):
+        value = _safe_method(debug, "YJKSDsnDataPy", dsn, method, floor, kind, tag, default=None)
+        if value is not None:
+            geometry[key] = _json_safe(value)
+    prefix = {1: "Beam", 3: "Column", 5: "Brace"}[kind]
+    # BeamEcc's installed wrapper raises NullReference on valid beams. Read
+    # executed beam eccentricities from fea.dat instead of substituting zero.
+    for suffix in (("Rigid",) if kind == 1 else ("Rigid", "Ecc")):
+        value = _safe_method(debug, "YJKSPrePy", pre, prefix + suffix, tag, default=None)
+        if value is not None:
+            geometry[suffix.lower()] = _json_safe(value)
+    return geometry
+
+
 def _numeric_row(row):
     if isinstance(row, dict):
         values = [row.get(key) for key in ("Mx", "My", "Qx", "Qy", "N", "T")]
@@ -808,9 +826,9 @@ def extract():
     pre = YJKSPrePy()
     YJKSDsnDataPy.dsnInitData()
 
-    post_column = getattr(PostGjKind, "COM_COLUMN", 3) if PostGjKind is not None else 3
-    post_beam = getattr(PostGjKind, "COM_BEAM", 1) if PostGjKind is not None else 1
-    post_brace = getattr(PostGjKind, "COM_BRACE", 5) if PostGjKind is not None else 5
+    # These methods take integer nComKind, not the CLR PostGjKind enum. Values
+    # are defined in SDK 8.0 _APIData.PostGjKind; enum arguments fail binding.
+    post_column, post_beam, post_brace = 3, 1, 5
     gj_column = getattr(GjKind, "IDK_COLM", 11) if GjKind is not None else 11
     gj_beam = getattr(GjKind, "IDK_BEAM", 12) if GjKind is not None else 12
     gj_brace = getattr(GjKind, "IDK_QULI", 15) if GjKind is not None else 15
@@ -944,6 +962,7 @@ def extract():
                 member_key = (floor, member_id)
                 if member_key not in seen_members[category]:
                     entry = _member_metadata(pre, debug, member_id, floor, sequence, config)
+                    entry["native_geometry"] = _member_result_geometry(pre, YJKSDsnDataPy, debug, entry, config)
                     seen_members[category].add(member_key)
                     members_by_category[category].append(entry)
                     result["members"][category].append(entry)
