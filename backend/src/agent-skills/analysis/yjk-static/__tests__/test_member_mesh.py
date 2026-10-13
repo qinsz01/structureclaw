@@ -10,6 +10,7 @@ ROOT = ADAPTER.parents[4]
 sys.path[:0] = [str(ADAPTER), str(ADAPTER.parent/'runtime'), str(ROOT/'backend/tests')]
 from member_mesh import compile_member_mesh, restore_physical_results
 from native_frame_reference import solve
+from native_story_geometry import compile_story_geometry
 
 
 def model():
@@ -53,3 +54,20 @@ def test_restore_keeps_left_and_right_and_requires_matching_compiled_model():
     output['caseResults']['PATCH']['nativeContext']['physicalModelHash'] = 'different'
     with pytest.raises(ValueError, match='mesh'):
         restore_physical_results(output, receipt)
+
+
+def test_roof_breakpoints_keep_validated_natural_floor_with_mixed_explicit_assignments():
+    source = {'stories': [{'id': 'S1', 'elevation': 0, 'height': 3}, {'id': 'S2', 'elevation': 3, 'height': 3}],
+              'nodes': [{'id': 'a', 'x': 0, 'y': 0, 'z': 5}, {'id': 'b', 'x': 6, 'y': 0, 'z': 7, 'story': 'S2'}],
+              'elements': [{'id': 'roof', 'type': 'beam', 'nodes': ['a', 'b'], 'story': 'S2'}],
+              'load_cases': [{'id': 'D', 'loads': [{'type': 'point', 'element': 'roof', 'position': 40**.5*.75, 'fz': -5}]}]}
+    before = copy.deepcopy(source)
+    expected = compile_story_geometry(source)
+    compiled, receipt = compile_member_mesh(source)
+    geometry = compile_story_geometry(compiled)
+    assert source == before
+    for segment in receipt['members']['roof']:
+        assert geometry['members'][segment['id']]['floor'] == expected['members']['roof']['floor'] == 'S2'
+    generated = [node for node in compiled['nodes'] if node['id'] not in {'a', 'b'}]
+    assert generated[0]['z'] == 6.5
+    assert generated[0]['story'] == 'S2'

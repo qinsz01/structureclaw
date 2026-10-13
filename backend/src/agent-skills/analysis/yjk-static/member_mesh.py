@@ -24,6 +24,7 @@ def compile_member_mesh(model: dict) -> tuple[dict, dict | None]:
     mesh = copy.deepcopy(model)
     mesh['elements'] = []
     mappings, chains = {}, {}
+    story_geometry = None
     for member in model['elements']:
         first, last = [nodes[key] for key in member['nodes']]
         length = math.dist([first[k] for k in ('x', 'y', 'z')], [last[k] for k in ('x', 'y', 'z')])
@@ -45,14 +46,18 @@ def compile_member_mesh(model: dict) -> tuple[dict, dict | None]:
             continue
         if member['type'] != 'beam' or member.get('offsets') or member.get('releases'):
             raise ValueError('YJK load refinement requires an unreleased beam / 荷载分段需要无端释放的梁')
+        if story_geometry is None:
+            from native_story_geometry import compile_story_geometry
+            story_geometry = compile_story_geometry(model)
         chain = [first['id']]
         for i, position in enumerate(cuts[1:-1], 1):
             key = f'__yjk__{member["id"]}__n{i}'
             if key in nodes:
                 raise ValueError('Reserved mesh node ID collision / 分段节点 ID 冲突')
             node = {'id': key, **{k: first[k]+position/length*(last[k]-first[k]) for k in ('x', 'y', 'z')}}
-            if first.get('story') == last.get('story') and first.get('story') is not None:
-                node['story'] = first['story']
+            # A roof can cross the nominal storey top. Preserve the validated
+            # member's natural floor instead of inferring a new floor from Z.
+            node['story'] = story_geometry['members'][member['id']]['floor']
             mesh['nodes'].append(node)
             chain.append(key)
         chain.append(last['id'])
