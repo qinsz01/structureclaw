@@ -1,5 +1,9 @@
 # Native commercial adapters / 商业分析原生验收
 
+> The section below records the original preview acceptance boundary. Subsequent
+> native fixes and evidence are documented in [2026-10-13 repair](commercial-native-repair-20261013.md).
+> 下文保留原预览版验收边界；后续修复及新增原生证据见上述记录。
+
 The converters compile each natural floor independently. They preserve the input
 plan nodes, member connectivity, per-member section selection and native IDs;
 they do not fill a Cartesian grid or replicate a first-floor template.

@@ -1,0 +1,203 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-13",
+  "implementationCommit": "710a27f83be053f78546d51777bd98a7e77d44c8",
+  "status": "native-subset-verified-preview",
+  "formalV2AnalysisAccepted": false,
+  "yjk": {
+    "finalRun": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-20261013-164541-66e2fe",
+    "status": "passed",
+    "selectedCases": [
+      "D"
+    ],
+    "nodeCount": 16,
+    "memberCount": 20,
+    "exchangeAndSavedModelRoundtrip": "passed",
+    "deadLoadBalance": {
+      "expectedKn": 549.0,
+      "actualKn": 549.0,
+      "absoluteToleranceKn": 1e-05,
+      "status": "passed"
+    },
+    "artifacts": [
+      {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-20261013-164541-66e2fe\\input.json",
+        "sha256": "e1bd139aadd91855ca16a19741b4cf3381d10e6d3f11d8efc2c5ec7fdba72d98",
+        "size": 8676
+      },
+      {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-20261013-164541-66e2fe\\reference.json",
+        "sha256": "b229f15f32d417e42a2c0681f37206602475e3388142f9e0a7f82597a3689648",
+        "size": 6538
+      },
+      {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-20261013-164541-66e2fe\\acceptance.json",
+        "sha256": "4e38cea82f24b261ad9001f4b1027409dc53acd6db8d9f4bfbfdee6407bbe308",
+        "size": 14755
+      },
+      {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-20261013-164541-66e2fe\\frame.ydb",
+        "sha256": "25b6a167ffd348c92c09d85aeea77f98c998dec6b847a924b83c9e5ee2556444",
+        "size": 991232
+      },
+      {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-20261013-164541-66e2fe\\frame.ymd",
+        "sha256": "971de60b80d26e11a2e58c0aa0b3ac8c0a2d76c63ef8c2efac57956370bb3075",
+        "size": 1028096
+      },
+      {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-20261013-164541-66e2fe\\mapping.json",
+        "sha256": "f0f1a0e61caee99e7008f4f03e733186f2df5a6ae4241a1aa3a880fff9138899",
+        "size": 28233
+      },
+      {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-20261013-164541-66e2fe\\results.json",
+        "sha256": "cd1e246f7f554fe284a8b91a2b77773def5293c7c76c624ebb9a125dfb548e28",
+        "size": 4543061
+      },
+      {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-20261013-164541-66e2fe\\driver-output.json",
+        "sha256": "0007fa77b5bfa8cade8b9a52ed71174042a5ac8d52d0e9f745a7396cb5b604e5",
+        "size": 24591840
+      },
+      {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-20261013-164541-66e2fe\\extract_results.py",
+        "sha256": "95a60bb601c75119f1734d6e0027781e956c64c8852b0d5cbcd970af239ebf3d",
+        "size": 37192
+      },
+      {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-20261013-164541-66e2fe\\owned-native.json",
+        "sha256": "03dca19dc807f5822c46f644fba9b4355c5aa179f1743eb86c3f87c4d9dec00e",
+        "size": 432
+      },
+      {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-20261013-164541-66e2fe\\yjk-cleanup.json",
+        "sha256": "2993be9f1626c5425b0f5ccc4b21f50fc3e153f093cdd89e7917e819025af572",
+        "size": 125
+      },
+      {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-20261013-164541-66e2fe\\fea.dat",
+        "sha256": "ec5fa771a7d987bb9d74b2f543d65fc9ce94d43c5b635fbf32ac03793dbc9580",
+        "size": 9091
+      },
+      {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-20261013-164541-66e2fe\\stdout.log",
+        "sha256": "6fa691574e5583793c54d8fcfef45cfe0e1a4a3d8271e791704158ca83590d72",
+        "size": 5285135
+      },
+      {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-20261013-164541-66e2fe\\stderr.log",
+        "sha256": "6950239c48ae0545acac2749bce5378329b0c011e6226323d811fc6a066490b5",
+        "size": 2251
+      }
+    ],
+    "earlierRuns": [
+      "yjk-native-20261013-162721-3867",
+      "yjk-native-20261013-163001-b8c5",
+      "yjk-frame-20261013-163541-51e802"
+    ],
+    "capabilityBoundary": "Private SDK execution, RC grade/geometry roundtrip, native-default dead equilibrium only. E/G/nu/rho, settings and station-axis equivalence are not generally certified."
+  },
+  "pkpm": {
+    "record": "pkpm-native-repair-20261013.json",
+    "nativeNumericalPassed": 6,
+    "oneTimeLoading60102": "blocked-native-foundation-interface-timeout"
+  },
+  "apiPreservation": [
+    {
+      "path": "G:\\qsz\\yjk-flow-api-integration-a4-20260923-01\\p50inline-1012\\code\\src\\yjk_flow\\sdk_ipc.py",
+      "sha256Before": "A463CACF3C0B38007F2E76237F975DF67206F7CEDF31B1E3460E3B4B320CF404",
+      "sha256After": "A463CACF3C0B38007F2E76237F975DF67206F7CEDF31B1E3460E3B4B320CF404",
+      "unchanged": true
+    },
+    {
+      "path": "G:\\qsz\\yjk-flow-api-integration-a4-20260923-01\\p50inline-1012\\code\\src\\yjk_flow\\native_worker.py",
+      "sha256Before": "56AFC0AD6B36F36D572BDC79565DA7D43003AC25B9128D36872A8F6D73BA7500",
+      "sha256After": "56AFC0AD6B36F36D572BDC79565DA7D43003AC25B9128D36872A8F6D73BA7500",
+      "unchanged": true
+    },
+    {
+      "path": "G:\\qsz\\yjk-flow-api-integration-a4-20260923-01\\p50inline-1012\\code\\src\\yjk_flow\\windows_job.py",
+      "sha256Before": "9CFB889669578A2D4C8846BC0EADEE85EBEC3B672E76D1956A9FD399A03848D0",
+      "sha256After": "9CFB889669578A2D4C8846BC0EADEE85EBEC3B672E76D1956A9FD399A03848D0",
+      "unchanged": true
+    },
+    {
+      "path": "G:\\qsz\\yjk-flow-api-integration-a4-20260923-01\\p50inline-1012\\code\\src\\yjk_flow\\resident_worker.py",
+      "sha256Before": "AED8249DEDBAB75E8FC7A1F9A42834018C5052766701FD199189CCCFFE65D1C9",
+      "sha256After": "AED8249DEDBAB75E8FC7A1F9A42834018C5052766701FD199189CCCFFE65D1C9",
+      "unchanged": true
+    },
+    {
+      "path": "G:\\qsz\\yjk-flow-api-integration-a4-20260923-01\\p50inline-1012-controller\\production-config.json",
+      "sha256Before": "CF7E5BEE93ED9655C5B164A760075BD17340558DDCE2B1F86BB75C82D5BA1750",
+      "sha256After": "CF7E5BEE93ED9655C5B164A760075BD17340558DDCE2B1F86BB75C82D5BA1750",
+      "unchanged": true
+    },
+    {
+      "path": "G:\\qsz\\yjk-flow-api-integration-a4-20260923-01\\p50inline-1012-controller\\controller.py",
+      "sha256Before": "2AFE041E1684130B6A94025E979459F75714B7DDA6DDDD5E2D9ADC78706B8A9E",
+      "sha256After": "2AFE041E1684130B6A94025E979459F75714B7DDA6DDDD5E2D9ADC78706B8A9E",
+      "unchanged": true
+    }
+  ],
+  "regression": {
+    "jestSuites": 6,
+    "jestPassed": 54,
+    "pythonYjkAndContractPassed": 38,
+    "pythonSubtestsPassed": 13,
+    "windowsNativeTransportPassed": 13,
+    "pkpmPythonPassed": 11
+  },
+  "sourceFiles": [
+    {
+      "path": "G:\\StructureClaw-All\\structureclaw\\backend\\src\\agent-skills\\analysis\\yjk-static\\yjk_converter.py",
+      "sha256": "dd8ad03f5732e67b83fb24c7b49f840b84016a56c358bf3d9d3db1e9a1d08cd8",
+      "size": 28822
+    },
+    {
+      "path": "G:\\StructureClaw-All\\structureclaw\\backend\\src\\agent-skills\\analysis\\yjk-static\\yjk_driver.py",
+      "sha256": "cc1edca372e5eea1f8decde3393947170fc64236fb5235de774f91c2891bcd5a",
+      "size": 75267
+    },
+    {
+      "path": "G:\\StructureClaw-All\\structureclaw\\backend\\src\\agent-skills\\analysis\\yjk-static\\extract_results.py",
+      "sha256": "95a60bb601c75119f1734d6e0027781e956c64c8852b0d5cbcd970af239ebf3d",
+      "size": 37192
+    },
+    {
+      "path": "G:\\StructureClaw-All\\structureclaw\\backend\\src\\agent-skills\\analysis\\yjk-static\\runtime.py",
+      "sha256": "af9b203461fc1613046658693fa124c3ceac86f33676793616e1a7fb42acc4b9",
+      "size": 24527
+    },
+    {
+      "path": "G:\\StructureClaw-All\\structureclaw\\backend\\src\\agent-skills\\analysis\\yjk-static\\sdk_ipc.py",
+      "sha256": "0ea15c09c0f972ed71074038dc289b2a2d602e87534bfad33d60619380e2f051",
+      "size": 9544
+    },
+    {
+      "path": "G:\\StructureClaw-All\\structureclaw\\backend\\src\\agent-skills\\analysis\\yjk-static\\windows_job.py",
+      "sha256": "f4e68437603e93f13ec97eedcef49f7c501ed91967abf5f7093c1ff3f63a719d",
+      "size": 6153
+    },
+    {
+      "path": "G:\\StructureClaw-All\\structureclaw\\backend\\tests\\analysis-yjk-native-calibration.py",
+      "sha256": "882e6af56feb989f82c989b428439d8fcf81a926ec770074983111ee16826b3b",
+      "size": 8283
+    }
+  ],
+  "runtimeBinaries": [
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\yjks.exe",
+      "sha256": "63077b4678c454231189b2686d97d263f4320f29b93b25a78f9db18c5fd335bf",
+      "size": 2853888
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-python\\python.exe",
+      "sha256": "3cce33d75d6fdae4e004d0bdf149320b3147482a9caf370079dcb9c191a1b260",
+      "size": 103192
+    }
+  ],
+  "settingsScope": "Only StructureClaw yjk paths and invisible flag updated; API configuration unchanged. Original local settings backed up outside git.",
+  "historicalTagsChanged": false
+}
