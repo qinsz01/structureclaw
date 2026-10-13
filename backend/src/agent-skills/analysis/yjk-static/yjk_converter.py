@@ -664,6 +664,8 @@ def convert_v2_to_ydb(
     if not reader.CreateYDB(work_dir, ydb_filename):
         raise RuntimeError("YJK SDK CreateYDB failed / YJK 原生模型文件生成失败")
     ydb_path = os.path.join(work_dir, ydb_filename)
+    from native_loads import repair_exchange_load_precision
+    repair_exchange_load_precision(ydb_path, work_dir, load_case_mapping)
     if stiffness_plan is not None:
         from native_materials import repair_exchange_precision
         repair_exchange_precision(ydb_path, work_dir, element_mappings, stiffness_plan)

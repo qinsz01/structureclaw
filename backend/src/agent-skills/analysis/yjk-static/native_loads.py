@@ -100,9 +100,22 @@ def compile_load_definitions(model: dict) -> list[dict]:
                     parameters = ([1, value, 0, 0, 0, 0, 0] if a == 0 and b == length
                                   else [11, value, value, a, b-a, 0, 0])
                 _native_precision(parameters, label)
+                projection_factor = 1.
+                if load['type'] == 'distributed' and float(start['z']) != float(end['z']):
+                    # Native type 1 is global-vertical per plan length. Type 81
+                    # is local-normal and changes the force direction. Compile
+                    # the requested actual-length intensity into type 1 instead.
+                    projected = math.dist([start[k] for k in ('x', 'y')], [end[k] for k in ('x', 'y')])
+                    if projected == 0:
+                        raise ValueError('Vertical beam load has no plan projection / 竖直梁没有平面投影')
+                    projection_factor = length/projected
+                    parameters[1] *= projection_factor
+                    if parameters[0] == 11:
+                        parameters[2] *= projection_factor
                 entry = {"targetKind": "member", "targetId": member_id, "elementKind": 12,
                          "shapeVal": ",".join(map(_text, parameters)), "components": [value],
-                         "startPositionM": a, "endPositionM": b}
+                         "startPositionM": a, "endPositionM": b,
+                         "actualToPlanLengthFactor": projection_factor}
             else:
                 raise ValueError(f"{label}: unsupported load type {load.get('type')} / 不支持的荷载类型")
             entry["sourceLoadId"] = str(load.get("id", f"{case_id}:{index}"))
@@ -139,3 +152,45 @@ def arrange_native_loads(data_func, model: dict, native_nodes: dict, native_memb
             load.strParas1 = "0,0,0,0,0,"
         load.strParasX = load.strParasY = load.strParasZ = ""
     return mapping
+
+
+def repair_exchange_load_precision(ydb_path, work_dir, mapping: list[dict]) -> None:
+    """Preserve derived actual/plan-length conversion before native import."""
+    from contextlib import closing
+    import hashlib
+    import json
+    from pathlib import Path
+    import sqlite3
+    definitions = {}
+    for case in mapping:
+        for load in case['loads']:
+            if load.get('actualToPlanLengthFactor', 1.) == 1.:
+                continue
+            key = load['nativeLoadDefinitionId']
+            if key in definitions and definitions[key] != load['shapeVal']:
+                raise ValueError('Native load definition aliases different intensities / 原生荷载定义发生精度合并冲突')
+            definitions[key] = load['shapeVal']
+    if not definitions:
+        return
+    root, path = Path(work_dir).resolve(), Path(ydb_path).resolve()
+    if path.parent != root or path.suffix.lower() != '.ydb' or not path.is_file() or any(root.glob('*.ymd')):
+        raise ValueError('Load precision repair requires this run\'s pre-import exchange / 仅能修复本次导入前交换文件')
+    before = hashlib.sha256(path.read_bytes()).hexdigest()
+    with closing(sqlite3.connect(path.as_uri()+'?mode=rw', uri=True)) as db:
+        with db:
+            for key, value in definitions.items():
+                rows = db.execute('SELECT ElementKind, ShapeVal FROM tblLoadSect WHERE ID=?', (key,)).fetchall()
+                if len(rows) != 1 or rows[0][0] != 12:
+                    raise ValueError('Missing native beam load definition / 缺少原生梁荷载定义')
+                actual = [float(x) for x in rows[0][1].split(',') if x.strip()]
+                expected = [float(x) for x in value.split(',')]
+                if len(actual) != len(expected) or any(abs(a-b) > .00050001 for a, b in zip(actual, expected)):
+                    raise ValueError('Native load differs beyond serialization precision / 原生荷载差异超出序列化精度')
+            for key, value in definitions.items():
+                db.execute('UPDATE tblLoadSect SET ShapeVal=? WHERE ID=?', (value, key))
+                if db.execute('SELECT ShapeVal FROM tblLoadSect WHERE ID=?', (key,)).fetchone() != (value,):
+                    raise ValueError('Native load precision readback failed / 原生荷载精度回读失败')
+    receipt = {'scope': 'generated-exchange-input; only tblLoadSect.ShapeVal', 'passed': True,
+               'definitions': definitions, 'beforeSha256': before, 'afterSha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+               'method': 'global-vertical-actual-length-to-plan-length-intensity'}
+    (root/'native-load-precision.json').write_text(json.dumps(receipt, indent=2), encoding='utf8')
