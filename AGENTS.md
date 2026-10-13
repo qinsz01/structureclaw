@@ -278,6 +278,14 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - Push benchmark commits to its personal fork before committing and pushing the parent repository's submodule pointer. The development `.gitmodules` URL points to the personal benchmark fork so recursive clones can retrieve those commits.
 - 后续 sclaw 和 Bench 均先在个人 fork 的开发分支推进；保留官方 upstream 用于同步。新开发不移动论文冻结标签，不覆盖历史实验结果。
 
+## Planned 300-scenario freeze / 新实验场景能力冻结
+
+- On 2026-10-13 the user required tool compatibility with the existing 300-scenario plan **before** Bench authoring. The Bench is not yet implemented. Capability acceptance is not a claim that 300 task answers or agent trials have passed.
+- Preserve the original scenario requirements in `docs/reproducibility/scenario-plan-300-20261013.json`. Do not narrow a requirement, change its assigned engine, or remove a requested output to fit an adapter.
+- After the scenario-compatible baseline is accepted and frozen, do not modify its production code, tool schemas, skill prompts, solver mapping, or dependencies in response to Bench cases/results. Run `node scripts/verify-scenario-freeze.mjs` before experiments. A failed preflight stops the run; it must not repair or regenerate the baseline automatically.
+- Benchmark authoring may supply the still-missing complete numerical appendices and attachments within the reviewed physical contract. It must not introduce unreviewed solver capabilities and then tune StructureClaw against the resulting tasks. Record model mistakes and failed experiments honestly; do not patch the evaluated baseline against them.
+- 先验证规划场景的工具链可表达、可执行、可查询，再冻结系统。后续编题、制作标答与实验不反向修改该冻结系统；语言模型答错与工具缺能力分别记录，不能混淆。
+
 ## Frozen Paper v2 Baseline / 论文 v2 冻结基线
 
 - On 2026-10-12 the user explicitly selected the version **after OpenClaw was added**, excluding the October Bench viewer changes, as the preserved paper v2 baseline.
