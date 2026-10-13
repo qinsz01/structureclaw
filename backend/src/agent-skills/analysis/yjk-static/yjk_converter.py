@@ -478,6 +478,9 @@ def _concrete_grade(material: dict) -> int | None:
     """Native grade identity only; stiffness equivalence needs solver evidence."""
     if material.get("category") != "concrete":
         return None
+    if material.get("E") is not None:
+        from yjk_native_materials import native_baseline
+        return int(native_baseline(material)["grade"][1:])
     match = re.fullmatch(r"C(\d+)", str(material.get("grade") or "").strip().upper())
     if match is None or int(match[1]) not in range(15, 85, 5):
         raise ValueError(f"YJK concrete material '{material.get('id')}' requires an explicit C15–C80 grade")
@@ -517,9 +520,17 @@ def convert_v2_to_ydb(
             continue
         material_type = _resolve_mat_type(section, data)
         section_type = section.get("type", "rectangular")
-        if section_type not in _TYPE_TO_KIND:
-            raise ValueError(f"Unsupported YJK section type '{section_type}'")
-        kind, shape, name = _build_shape_val(section, _TYPE_TO_KIND[section_type])
+        representation = None
+        if stiffness_plan is not None:
+            from yjk_native_materials import section_representation
+            representation = section_representation(section)
+        if representation and representation["method"] == "native-reference-carrier":
+            kind, shape, _ = _build_shape_val(representation["carrier"], 1)
+            name = "SC_REFERENCE_ONLY_" + section_id
+        else:
+            if section_type not in _TYPE_TO_KIND:
+                raise ValueError(f"Unsupported YJK section type '{section_type}'")
+            kind, shape, name = _build_shape_val(section, _TYPE_TO_KIND[section_type])
         define = data_func.ColSect_Def if role == "column" else data_func.BeamSect_Def
         native_section = define(material_type, kind, shape, name)
         native_sections[section_id] = native_section
@@ -529,6 +540,7 @@ def convert_v2_to_ydb(
             "id": section_id, "role": role, "type": section.get("type"),
             "yjk_mat_type": material_type, "yjk_kind": kind, "shape_val": shape, "name": name,
             "yjk_section_id": _extract_yjk_id(native_section),
+            "analysisRepresentation": representation,
         }
     nodes = {str(node["id"]): node for node in data["nodes"]}
     sections = {str(section["id"]): section for section in data["sections"]}

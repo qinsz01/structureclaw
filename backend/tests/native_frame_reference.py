@@ -96,14 +96,19 @@ def _solve_full_span(model: dict, case_id: str) -> dict:
         axes = np.array([x, y, z])
         transform = np.kron(np.eye(4), axes)
         material, section = materials[member['material']], sections[member['section']]
-        shape = section['shape']
-        if shape['kind'] != 'rectangular' or member.get('releases') or member.get('offsets'):
-            raise ValueError('Independent reference only covers unoffset unreleased rectangular frames')
-        width, height = shape['B']/1000, shape['H']/1000
-        A, Iy, Iz = width*height, width*height**3/12, height*width**3/12
-        wide, narrow = max(width, height), min(width, height)
-        J = wide*narrow**3*(1/3-.21*narrow/wide*(1-narrow**4/(12*wide**4)))
-        prop = {'A': A, 'Iy': Iy, 'Iz': Iz, 'J': J, 'Asy': 5*A/6, 'Asz': 5*A/6, **section.get('properties', {})}
+        shape = section.get('shape') or {}
+        if member.get('releases') or member.get('offsets'):
+            raise ValueError('Independent reference only covers unoffset unreleased frames')
+        prop = dict(section.get('properties', {}))
+        if shape.get('kind') == 'rectangular':
+            width, height = shape['B']/1000, shape['H']/1000
+            A, Iy, Iz = width*height, width*height**3/12, height*width**3/12
+            wide, narrow = max(width, height), min(width, height)
+            J = wide*narrow**3*(1/3-.21*narrow/wide*(1-narrow**4/(12*wide**4)))
+            prop = {'A': A, 'Iy': Iy, 'Iz': Iz, 'J': J, 'Asy': 5*A/6, 'Asz': 5*A/6, **prop}
+        if any(type(prop.get(key)) not in (int, float) or not math.isfinite(prop[key]) or prop[key] <= 0
+               for key in ('A', 'Iy', 'Iz', 'J', 'Asy', 'Asz')):
+            raise ValueError('Independent reference requires six complete positive elastic section properties')
         E = material['E']*1000
         G = material.get('G', material['E']/(2*(1+material['nu'])))*1000
         stiffness = np.zeros((12, 12))

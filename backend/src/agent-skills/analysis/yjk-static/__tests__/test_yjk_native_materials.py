@@ -30,6 +30,44 @@ def fixture():
 
 
 class NativeMaterialTests(unittest.TestCase):
+    def test_numeric_section_carrier_preserves_source_and_six_independent_rigidities(self):
+        model, fe = fixture()
+        model["analysis_control"] = dict.fromkeys(("self_weight", "rigid_floor", "rigid_offsets", "construction_stage", "p_delta"), False)
+        model["materials"][0].update(name="M1", E=203000, G=76321, nu=.31)
+        section = model["sections"][0]
+        section.update(type="custom", properties={"A": .134, "Iy": .00241, "Iz": .00117,
+                       "J": .000837, "Asy": .067, "Asz": .039})
+        original = copy.deepcopy(model)
+        plan = materials.compile_stiffness_plan(model)
+        self.assertEqual(model, original)
+        entry = plan["members"]["beam"]
+        self.assertEqual(entry["sectionRepresentation"]["method"], "native-reference-carrier")
+        self.assertFalse(entry["sectionRepresentation"]["physicalGeometryVerified"])
+        self.assertEqual(entry["authoredSection"], section["properties"])
+        self.assertEqual(entry["materialBaseline"]["sourceGrade"], None)
+        self.assertEqual(entry["targetRigidities"], {"EA": 203000*.134, "EIy": 203000*.00241,
+            "EIz": 203000*.00117, "GJ": 76321*.000837, "GAsy": 76321*.067, "GAsz": 76321*.039})
+        base = entry["sectionBaseline"]
+        self.assertAlmostEqual(entry["expectedRF"][4], 76321*.039 / ((206000/2.6)*base["Asz"]))
+        self.assertAlmostEqual(entry["expectedRF"][5], 76321*.067 / ((206000/2.6)*base["Asy"]))
+        raw = ",".join(format(entry["sectionBaseline"][key], ".7g") for key in ("A", "Iy", "Iz", "J", "Asy", "Asz"))
+        fe["sections"]["5"] = {"P": list(map(float, raw.split(","))), "raw": {"P": raw}}
+        raw_rf = ",".join(format(struct.unpack("f", struct.pack("f", value))[0], ".6g") for value in entry["expectedRF"])
+        fe["frames"]["987"].update(RF=list(map(float, raw_rf.split(","))), raw={"RF": raw_rf})
+        audit = materials.audit_frames(model, fe, plan)
+        self.assertTrue(audit["passed"], audit["failures"])
+        self.assertEqual(audit["members"]["beam"]["sectionRepresentation"], entry["sectionRepresentation"])
+        # Native reference dimensions cannot certify the physical source shape.
+        self.assertNotEqual(audit["members"]["beam"]["nativeSection"]["A"], section["properties"]["A"])
+        for key in ("A", "Iy", "Iz", "J", "Asy", "Asz"):
+            broken = copy.deepcopy(model)
+            del broken["sections"][0]["properties"][key]
+            with self.assertRaisesRegex(ValueError, "explicit positive"):
+                materials.compile_stiffness_plan(broken)
+        model["analysis_control"]["self_weight"] = True
+        with self.assertRaisesRegex(ValueError, "selfweight OFF"):
+            materials.compile_stiffness_plan(model)
+
     def test_identity_migration_preserves_authored_material_values_and_input(self):
         model, _ = fixture()
         original = copy.deepcopy(model["materials"][0])

@@ -66,13 +66,17 @@ def native_baseline(material: dict) -> dict:
     material = normalize_material(material)
     grade = material.get("grade")
     concrete = {"C30": 30000., "C35": 31500., "C40": 32500.}
-    if material["category"] == "concrete" and grade in concrete:
-        E, nu = concrete[grade], .25
-    elif material["category"] == "steel" and grade in ("Q235", "Q345", "Q355", "Q390", "Q420", "Q460"):
+    if material["category"] == "concrete":
+        native_grade = grade if grade in concrete else "C30"
+        E, nu = concrete[native_grade], .25
+    elif material["category"] == "steel":
+        native_grade = grade if grade in ("Q235", "Q345", "Q355", "Q390", "Q420", "Q460") else "Q355"
         E, nu = 206000., .3
     else:
         raise ValueError(f"YJK elastic baseline for material {material['id']} ({grade}) is unverified / 材料原生刚度基准尚未验证")
-    return {"grade": grade, "E": E, "nu": nu, "G": E / (2 * (1 + nu)),
+    return {"grade": native_grade, "sourceGrade": grade,
+            "representation": "elastic-reference-material" if native_grade != grade else "native-grade-with-rigidity-transfer",
+            "E": E, "nu": nu, "G": E / (2 * (1 + nu)),
             "verification": "requires-executed-FE-readback"}
 
 
@@ -91,6 +95,42 @@ def _rectangle_baseline(section: dict) -> dict:
     return {"A": b * h, "Iy": b * h**3 / 12, "Iz": h * b**3 / 12,
             "J": wide * narrow**3 * (1/3 - .21*narrow/wide*(1 - narrow**4/(12*wide**4))),
             "Asy": 5*b*h/6, "Asz": 5*b*h/6}
+
+
+def section_representation(section: dict) -> dict:
+    """An analysis-only carrier never becomes the authored physical section.
+
+    The six principal elastic properties completely define this first-order
+    shear-flexible rod model. A carrier supplies native DOFs; member RF values
+    restore the source rigidities. Its dimensions must not enter design checks,
+    selfweight, or a physical section table.
+    """
+    kind = (section.get("shape") or {}).get("kind") or section.get("type")
+    if kind == "rectangular":
+        return {"method": "native-physical-rectangle", "baseline": _rectangle_baseline(section)}
+    properties = section.get("properties") or {}
+    keys = ("A", "Iy", "Iz", "J", "Asy", "Asz")
+    for key in keys:
+        value = properties.get(key)
+        if type(value) not in (int, float) or not math.isfinite(value) or value <= 0:
+            raise ValueError(f"YJK section {section['id']} requires explicit positive {key} for elastic reference carrier / 数值截面须完整提供六项正值属性")
+    carrier = {"id": "analysis-reference-only", "type": "rectangular",
+               "shape": {"kind": "rectangular", "B": 400., "H": 600.}}
+    return {"method": "native-reference-carrier", "sourceType": section.get("type"),
+            "sourceProperties": {key: properties[key] for key in keys},
+            "carrier": carrier, "baseline": _rectangle_baseline(carrier),
+            "scope": "first-order-elastic-centroidal-principal-axis-rod",
+            "physicalGeometryVerified": False,
+            "excludedUses": ["physical-section-table", "design-check", "native-selfweight", "nonlinear-analysis"]}
+
+
+def _require_reference_scope(model: dict):
+    control = model.get("analysis_control") or {}
+    keys = ("self_weight", "rigid_floor", "rigid_offsets", "construction_stage", "p_delta")
+    if any(control.get(key) is not False for key in keys):
+        raise ValueError("YJK reference carriers require explicit first-order bare-frame controls and selfweight OFF / 参考载体仅用于显式关闭自重及附加刚度的一阶杆系")
+    if any(story.get("rigid_diaphragm") is True for story in model.get("stories", [])):
+        raise ValueError("YJK reference carriers do not support rigid diaphragms / 参考载体不支持刚性楼板")
 
 
 def compile_orientation(model: dict, element: dict, nodes: dict) -> dict:
@@ -135,7 +175,10 @@ def compile_stiffness_plan(model: dict) -> dict:
     """Preserve six authored elastic rigidities via native member coefficients.
 
     YJK8 SpBarRig order is N,V2,V3,T,M2,M3. The executed RF order is
-    N,M3,M2,T,V2,V3 (native probe 20261013-172324-492103). No beam/column
+    N,M3,M2,T,V2,V3 (native probe 20261013-172324-492103). The two shear
+    indices follow the bending plane: V2 scales canonical GAsz and V3 GAsy,
+    independently distinguished by the unequal-area six-effect calibration.
+    No beam/column
     substitution or artificial node is involved. Density stays separate from
     the six stiffness multipliers and is used by explicit selfweight loads.
     """
@@ -147,7 +190,10 @@ def compile_stiffness_plan(model: dict) -> dict:
         material = mats[str(element["material"])]
         baseline = native_baseline(material)
         section = sections[str(element["section"])]
-        native_section = _rectangle_baseline(section)
+        representation = section_representation(section)
+        if representation["method"] == "native-reference-carrier" or baseline["representation"] == "elastic-reference-material":
+            _require_reference_scope(model)
+        native_section = representation["baseline"]
         authored_section = {**native_section, **(section.get("properties") or {})}
         if "As" in (section.get("properties") or {}) and "Asy" not in section["properties"]:
             authored_section["Asy"] = section["properties"]["As"]
@@ -158,11 +204,12 @@ def compile_stiffness_plan(model: dict) -> dict:
         base = {"EA": baseline["E"]*native_section["A"], "EIy": baseline["E"]*native_section["Iy"],
                 "EIz": baseline["E"]*native_section["Iz"], "GJ": baseline["G"]*native_section["J"],
                 "GAsy": baseline["G"]*native_section["Asy"], "GAsz": baseline["G"]*native_section["Asz"]}
-        coefficients = [target[key]/base[key] for key in ("EA", "GAsy", "GAsz", "GJ", "EIz", "EIy")]
+        coefficients = [target[key]/base[key] for key in ("EA", "GAsz", "GAsy", "GJ", "EIz", "EIy")]
         if any(not math.isfinite(value) or value <= 0 for value in coefficients):
             raise ValueError(f"Invalid native stiffness coefficient for {element['id']}")
         entries[str(element["id"])] = {**compile_orientation(model, element, nodes),
             "materialBaseline": baseline, "sectionBaseline": native_section,
+            "sectionRepresentation": representation,
             "authoredSection": authored_section, "targetRigidities": target,
             "property": "SpBarRig", "type": 27, "coefficients": coefficients,
             "shapeVal": ",".join(format(value, ".17g") for value in coefficients) + ",",
@@ -311,11 +358,12 @@ def audit_frames(model: dict, fe: dict, stiffness_plan: dict | None = None,
         for key, value in baseline_expected.items():
             if not math.isclose(native[key], value, rel_tol=1e-10, abs_tol=1e-12):
                 failures.append({"member": identifier, "field": key, "expected": value, "actual": native[key]})
-        # P = A,I2,I3,J,As2,As3. Assignment of I2/I3 to canonical local axes
+        # P = A,I2,I3,J,As2,As3; the shear plane indices map to Asz,Asy.
+        # Assignment of I2/I3 to canonical local axes
         # is separately calibrated; comparing an unordered pair cannot certify it.
         raw_tokens = sp.get("raw", {}).get("P", "").split(",")
         props = entry["sectionBaseline"] if entry else section.get("properties") or {}
-        section_actual = dict(zip(("A", "Iy", "Iz", "J", "Asy", "Asz"), sp["P"]))
+        section_actual = dict(zip(("A", "Iy", "Iz", "J", "Asz", "Asy"), sp["P"]))
         for index, key in enumerate(("A", "Iy", "Iz", "J")):
             if key not in props:
                 failures.append({"member": identifier, "field": key, "reason": "missing-authored-property"})
@@ -347,7 +395,7 @@ def audit_frames(model: dict, fe: dict, stiffness_plan: dict | None = None,
                 actual_rigidities = {
                     "EA": native["E"]*sp["P"][0]*rf[0], "EIy": native["E"]*sp["P"][1]*rf[1],
                     "EIz": native["E"]*sp["P"][2]*rf[2], "GJ": native["G"]*sp["P"][3]*rf[3],
-                    "GAsy": native["G"]*sp["P"][4]*rf[4], "GAsz": native["G"]*sp["P"][5]*rf[5]}
+                    "GAsy": native["G"]*sp["P"][5]*rf[5], "GAsz": native["G"]*sp["P"][4]*rf[4]}
                 # These checks propagate native text precision, not a numerical
                 # response tolerance. Individual material, section and RF checks
                 # above independently forbid a wrong field compensating another.
@@ -359,6 +407,8 @@ def audit_frames(model: dict, fe: dict, stiffness_plan: dict | None = None,
         members[identifier] = {"nativeFrameId": tag, "materialId": str(element["material"]),
                                "sectionId": str(element["section"]), "authored": expected,
                                "nativeMaterial": native, "nativeSection": section_actual,
+                               "materialRepresentation": entry.get("materialBaseline") if entry else None,
+                               "sectionRepresentation": entry.get("sectionRepresentation") if entry else None,
                                "RF": frame.get("RF"), "sourceDensityKgM3": material["rho"],
                                "transferMethod": "native-six-component-rigidity" if entry else "direct-native-properties",
                                "densityUse": "load-audit-required; not inferred from zero FE material density",
@@ -396,6 +446,10 @@ def physics_context(model: dict, fe: dict, material_audit: dict, settings_audit:
             "linearStatic": settings_ok and effective.get("linearStatic") is True,
             "effectiveSettingsVerified": settings_ok and materials_ok,
             "materialsVerified": materials_ok, "stationConventionsVerified": False,
+            "elasticRepresentations": {key: {
+                "section": value.get("sectionRepresentation"),
+                "material": value.get("materialRepresentation")}
+                for key, value in material_audit.get("members", {}).items()},
             "sourceFeaSha256": fe["sha256"],
             "artifacts": [{"path": "fea.dat", "sha256": fe["sha256"]}],
             "verification": "verified" if settings_ok and materials_ok else "incomplete"}

@@ -6,6 +6,36 @@ import pytest
 from native_frame_reference import solve
 
 
+@pytest.mark.parametrize('component', ['fx', 'fy', 'fz', 'mx', 'my', 'mz'])
+def test_numeric_custom_cantilever_matches_six_closed_form_effects(component):
+    length, force, E, G = 3., 7., 203000000., 76321000.
+    p = {'A': .134, 'Iy': .00241, 'Iz': .00117, 'J': .000837, 'Asy': .067, 'Asz': .039}
+    model = {'nodes': [{'id': 'A', 'x': 0., 'y': 0., 'z': 0., 'restraints': [True]*6},
+                       {'id': 'B', 'x': length, 'y': 0., 'z': 0.}],
+        'materials': [{'id': 'M', 'E': E/1000, 'G': G/1000, 'nu': .31}],
+        'sections': [{'id': 'S', 'type': 'custom', 'properties': p}],
+        'elements': [{'id': 'B', 'nodes': ['A', 'B'], 'material': 'M', 'section': 'S'}],
+        'load_cases': [{'id': 'L', 'loads': [{'type': 'nodal', 'node': 'B', component: force}]}]}
+    expected = dict.fromkeys(('ux', 'uy', 'uz', 'rx', 'ry', 'rz'), 0.)
+    if component == 'fx': expected['ux'] = force*length/(E*p['A'])
+    if component == 'mx': expected['rx'] = force*length/(G*p['J'])
+    if component == 'fy':
+        expected['uy'] = force*length**3/(3*E*p['Iz'])+force*length/(G*p['Asy'])
+        expected['rz'] = force*length**2/(2*E*p['Iz'])
+    if component == 'fz':
+        expected['uz'] = force*length**3/(3*E*p['Iy'])+force*length/(G*p['Asz'])
+        expected['ry'] = -force*length**2/(2*E*p['Iy'])
+    if component == 'my':
+        expected['uz'] = -force*length**2/(2*E*p['Iy'])
+        expected['ry'] = force*length/(E*p['Iy'])
+    if component == 'mz':
+        expected['uy'] = force*length**2/(2*E*p['Iz'])
+        expected['rz'] = force*length/(E*p['Iz'])
+    actual = solve(model, 'L')['displacements']['B']
+    for key, value in expected.items():
+        assert math.isclose(actual[key], value, rel_tol=1e-12, abs_tol=1e-15)
+
+
 @pytest.mark.parametrize('a,b,point', [(0., 4., False), (1., 3., False),
                                       (1.3, 1.3, True), (4., 4., True)])
 def test_cantilever_free_end_with_load_breaks(a, b, point):
