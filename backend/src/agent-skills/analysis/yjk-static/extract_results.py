@@ -404,15 +404,20 @@ def _node_vector_entry(node_id, vector, labels):
 def _node_coordinate_entry(pre, debug, node_id):
     xyz = _safe_method(debug, "YJKSPrePy", pre, "XYZ", node_id, default=None)
     if xyz is None:
-        x = _safe_method(debug, "YJKSPrePy", pre, "X", node_id, default=0.0)
-        y = _safe_method(debug, "YJKSPrePy", pre, "Y", node_id, default=0.0)
-        z = _safe_method(debug, "YJKSPrePy", pre, "Z", node_id, default=0.0)
+        x = _safe_method(debug, "YJKSPrePy", pre, "X", node_id, default=None)
+        y = _safe_method(debug, "YJKSPrePy", pre, "Y", node_id, default=None)
+        z = _safe_method(debug, "YJKSPrePy", pre, "Z", node_id, default=None)
     else:
         xyz_values = _as_list(xyz)
-        x = xyz_values[0] if len(xyz_values) > 0 else 0.0
-        y = xyz_values[1] if len(xyz_values) > 1 else 0.0
-        z = xyz_values[2] if len(xyz_values) > 2 else 0.0
-    return {"id": int(node_id), "x": _to_float(x), "y": _to_float(y), "z": _to_float(z)}
+        if len(xyz_values) < 3:
+            raise RuntimeError("YJK node %s coordinates are incomplete" % node_id)
+        x, y, z = xyz_values[:3]
+    return {
+        "id": int(node_id),
+        "x": _finite_result_float(x, "node %s coordinate x" % node_id),
+        "y": _finite_result_float(y, "node %s coordinate y" % node_id),
+        "z": _finite_result_float(z, "node %s coordinate z" % node_id),
+    }
 
 
 def _append_node_results(result, debug, YJKSDsnDataPy, node_id, load_cases):
@@ -580,7 +585,14 @@ def _normalize_sections(raw):
 
     n_sect = None
     force = raw
-    if isinstance(raw, (list, tuple)) and len(raw) >= 2 and _to_int(raw[0], None) is not None:
+    # The SDK returns (section_count, force_rows). A bare six-component
+    # vector is also a supported row; its first moment is not a count.
+    if (
+        isinstance(raw, (list, tuple))
+        and len(raw) == 2
+        and _to_int(raw[0], None) is not None
+        and not isinstance(raw[1], (int, float, str))
+    ):
         n_sect = _to_int(raw[0], None)
         force = raw[1]
 
@@ -871,6 +883,7 @@ def extract():
             "n_floors": n_floors,
             "n_nodes": n_nodes,
             "load_cases": load_case_ids,
+            "coordinateUnit": "m",
         },
         "load_cases": load_cases,
         "nodes": [],
