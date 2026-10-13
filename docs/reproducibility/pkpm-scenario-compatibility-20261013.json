@@ -1,0 +1,919 @@
+{
+  "schemaVersion": "pkpm-scenario-compatibility/v1",
+  "date": "2026-10-13",
+  "scope": "Tool compatibility with original 16 planned PKPM scenarios; not 300 answers, paid LLM experiments or benchmark acceptance.",
+  "sourcePlan": [
+    {
+      "file": "all-tasks-engines-v2.json",
+      "localPath": "G:\\StructureClaw-All\\outputs\\01a0ecd8-81fb-7363-8f28-2a873d6d74b8\\bench-plan-20261013\\all-tasks-engines-v2.json",
+      "sha256": "0ad39e467a2a86f0cbdafbaa688b29863d0de657b186d9757b6f403cb3e36dc5"
+    },
+    {
+      "file": "all-models-engines-v2.json",
+      "localPath": "G:\\StructureClaw-All\\outputs\\01a0ecd8-81fb-7363-8f28-2a873d6d74b8\\bench-plan-20261013\\all-models-engines-v2.json",
+      "sha256": "ca7b1683b31ed62c3b5de1940c7d6590708fe25421e410c3a3d7b9a0d309f700"
+    }
+  ],
+  "reviewedCodeCommit": "f61c767cfd8b32bc2fc7d3b4443e9ba8714a9760",
+  "method": "Each task and linked model original text reviewed together. Coverage judgments are explicit per task; no keyword-generated capabilities.",
+  "commonProductionEvidence": [
+    "backend/src/agent-skills/analysis/pkpm-static/pkpm_converter.py",
+    "backend/src/agent-skills/analysis/pkpm-static/native_loads.py",
+    "backend/src/agent-skills/analysis/pkpm-static/native_materials.py",
+    "backend/src/agent-skills/analysis/pkpm-static/native_geometry.py",
+    "backend/src/agent-skills/analysis/pkpm-static/native_result_adapter.py",
+    "backend/src/engineering/model-state.ts",
+    "backend/src/engineering/result-data.ts",
+    "backend/src/agent-langgraph/tools.ts"
+  ],
+  "precisionObservation": {
+    "classification": "native-result-precision-limitation, not execution-incompatibility",
+    "scope": "Small axial forces under lateral loads; original numerical tolerances and failed receipts retained.",
+    "document": "docs/commercial-native-chain-20261013.md",
+    "doesNotAuthorizeResultReplacement": true
+  },
+  "confirmedToolGaps": {},
+  "remainingSharedValidation": [
+    "Future multimodal attachments and model interpretation are evaluated when authored; their current absence is not a tool failure.",
+    "Capability acceptance is separate from an LLM correctly clarifying or editing a task. Shared services implement exact ID edits, run-version binding, nodal differences and controlling-result comparisons."
+  ],
+  "rows": [
+    {
+      "id": "STD-080",
+      "baseGroup": "M-STD-080",
+      "review": {
+        "interpretation": "2×1跨两层；每根X梁20 kN/m，Y梁不施加楼面荷载；固定柱脚。",
+        "requirements": [
+          "按实际节点和边逐层写入",
+          "分角色截面及显式材料",
+          "指定节点三平移、逐柱列上下节点差、全支座反力与代表梁柱端力"
+        ],
+        "productionRoute": "V2 -> run_analysis -> pkpm converter/native settings/load compiler -> SATWE -> caseResults/native stations/reactions -> common query/visualization/report",
+        "executionCompatibility": "expressible-in-current-production-contract",
+        "confirmedToolGaps": [],
+        "requiredArbitraryInteriorPosition": false,
+        "requiredPartialSpanLoad": false,
+        "scopeReason": "原文只要求节点/构件端/柱脚；STD091的分区指四根完整边梁，不能误记为跨内局部荷载。",
+        "exactTaskEndToEndAccepted": false,
+        "nativeEvidenceDirectories": [],
+        "inputEvidenceStatus": "future-task/property-table definition remains outside this tool-compatibility audit"
+      },
+      "plannedEngine": "PKPM",
+      "scenarioCompatible": true,
+      "requiredCapabilities": [
+        "按实际节点和边逐层写入",
+        "分角色截面及显式材料",
+        "指定节点三平移、逐柱列上下节点差、全支座反力与代表梁柱端力"
+      ],
+      "unresolvedToolGaps": [],
+      "evidence": [
+        "docs/reproducibility/commercial-native-chain-20261013.json",
+        "backend/tests/analysis-pkpm-frame-flow.test.mjs",
+        "backend/src/agent-skills/analysis/pkpm-static/__tests__",
+        "backend/tests/engineering-state.test.mjs"
+      ],
+      "evidenceMeaning": "Code path and targeted capability evidence; native proxies do not certify a future exact task or missing attachment."
+    },
+    {
+      "id": "STD-082",
+      "baseGroup": "M-STD-082",
+      "review": {
+        "interpretation": "2×2跨两层；X梁按Y轴线及楼层施加25/50/25和20/40/20 kN/m。",
+        "requirements": [
+          "逐构件荷载定位，不能全梁统一赋值",
+          "保留梁柱局部轴",
+          "九节点位移、逐柱列差、角边中柱反力及梁端力"
+        ],
+        "productionRoute": "V2 -> run_analysis -> pkpm converter/native settings/load compiler -> SATWE -> caseResults/native stations/reactions -> common query/visualization/report",
+        "executionCompatibility": "expressible-in-current-production-contract",
+        "confirmedToolGaps": [],
+        "requiredArbitraryInteriorPosition": false,
+        "requiredPartialSpanLoad": false,
+        "scopeReason": "原文只要求节点/构件端/柱脚；STD091的分区指四根完整边梁，不能误记为跨内局部荷载。",
+        "exactTaskEndToEndAccepted": false,
+        "nativeEvidenceDirectories": [],
+        "inputEvidenceStatus": "future-task/property-table definition remains outside this tool-compatibility audit"
+      },
+      "plannedEngine": "PKPM",
+      "scenarioCompatible": true,
+      "requiredCapabilities": [
+        "逐构件荷载定位，不能全梁统一赋值",
+        "保留梁柱局部轴",
+        "九节点位移、逐柱列差、角边中柱反力及梁端力"
+      ],
+      "unresolvedToolGaps": [],
+      "evidence": [
+        "docs/reproducibility/commercial-native-chain-20261013.json",
+        "backend/tests/analysis-pkpm-frame-flow.test.mjs",
+        "backend/src/agent-skills/analysis/pkpm-static/__tests__",
+        "backend/tests/engineering-state.test.mjs"
+      ],
+      "evidenceMeaning": "Code path and targeted capability evidence; native proxies do not certify a future exact task or missing attachment."
+    },
+    {
+      "id": "STD-083",
+      "baseGroup": "M-STD-083",
+      "review": {
+        "interpretation": "首层柱C40，其余柱和全部梁C30；各X梁30 kN/m，Y梁无重复加载。",
+        "requirements": [
+          "逐构件material ID；原生截面按(section,material,role)登记",
+          "分别保持E/nu/G及无自重",
+          "各层六节点位移、逐柱列差、分层柱端力与柱脚反力"
+        ],
+        "productionRoute": "V2 -> run_analysis -> pkpm converter/native settings/load compiler -> SATWE -> caseResults/native stations/reactions -> common query/visualization/report",
+        "executionCompatibility": "expressible-in-current-production-contract",
+        "confirmedToolGaps": [],
+        "requiredArbitraryInteriorPosition": false,
+        "requiredPartialSpanLoad": false,
+        "scopeReason": "原文只要求节点/构件端/柱脚；STD091的分区指四根完整边梁，不能误记为跨内局部荷载。",
+        "exactTaskEndToEndAccepted": false,
+        "nativeEvidenceDirectories": [],
+        "inputEvidenceStatus": "future-task/property-table definition remains outside this tool-compatibility audit"
+      },
+      "plannedEngine": "PKPM",
+      "scenarioCompatible": true,
+      "requiredCapabilities": [
+        "逐构件material ID；原生截面按(section,material,role)登记",
+        "分别保持E/nu/G及无自重",
+        "各层六节点位移、逐柱列差、分层柱端力与柱脚反力"
+      ],
+      "unresolvedToolGaps": [],
+      "evidence": [
+        "docs/reproducibility/commercial-native-chain-20261013.json",
+        "backend/tests/analysis-pkpm-frame-flow.test.mjs",
+        "backend/src/agent-skills/analysis/pkpm-static/__tests__",
+        "backend/tests/engineering-state.test.mjs"
+      ],
+      "evidenceMeaning": "Code path and targeted capability evidence; native proxies do not certify a future exact task or missing attachment."
+    },
+    {
+      "id": "STD-086",
+      "baseGroup": "M-STD-086",
+      "review": {
+        "interpretation": "仅存留L形实际梁柱，所有实际梁8 kN/m，不补缺角。",
+        "requirements": [
+          "无规则网格补全",
+          "外角/内凹角节点位移、实际柱列差、反力"
+        ],
+        "productionRoute": "V2 -> run_analysis -> pkpm converter/native settings/load compiler -> SATWE -> caseResults/native stations/reactions -> common query/visualization/report",
+        "executionCompatibility": "expressible-in-current-production-contract",
+        "confirmedToolGaps": [],
+        "requiredArbitraryInteriorPosition": false,
+        "requiredPartialSpanLoad": false,
+        "scopeReason": "原文只要求节点/构件端/柱脚；STD091的分区指四根完整边梁，不能误记为跨内局部荷载。",
+        "exactTaskEndToEndAccepted": false,
+        "nativeEvidenceDirectories": [
+          "pkpm-STD-086-20261013-185413-e85f41f2"
+        ],
+        "inputEvidenceStatus": "future-task/property-table definition remains outside this tool-compatibility audit"
+      },
+      "plannedEngine": "PKPM",
+      "scenarioCompatible": true,
+      "requiredCapabilities": [
+        "无规则网格补全",
+        "外角/内凹角节点位移、实际柱列差、反力"
+      ],
+      "unresolvedToolGaps": [],
+      "evidence": [
+        "docs/reproducibility/commercial-native-chain-20261013.json",
+        "backend/tests/analysis-pkpm-frame-flow.test.mjs",
+        "backend/src/agent-skills/analysis/pkpm-static/__tests__",
+        "backend/tests/engineering-state.test.mjs",
+        "pkpm-STD-086-20261013-185413-e85f41f2"
+      ],
+      "evidenceMeaning": "Code path and targeted capability evidence; native proxies do not certify a future exact task or missing attachment."
+    },
+    {
+      "id": "STD-089",
+      "baseGroup": "M-STD-089",
+      "review": {
+        "interpretation": "角/边/中柱三组、X/Y梁两组；全梁8 kN/m及屋顶远角Fx20/Fy15。",
+        "requirements": [
+          "五组截面独立引用",
+          "节点六分量荷载与构件线载共存",
+          "代表组端力、九节点位移及所有支座反力"
+        ],
+        "productionRoute": "V2 -> run_analysis -> pkpm converter/native settings/load compiler -> SATWE -> caseResults/native stations/reactions -> common query/visualization/report",
+        "executionCompatibility": "expressible-in-current-production-contract",
+        "confirmedToolGaps": [],
+        "requiredArbitraryInteriorPosition": false,
+        "requiredPartialSpanLoad": false,
+        "scopeReason": "原文只要求节点/构件端/柱脚；STD091的分区指四根完整边梁，不能误记为跨内局部荷载。",
+        "exactTaskEndToEndAccepted": false,
+        "nativeEvidenceDirectories": [],
+        "inputEvidenceStatus": "future-task/property-table definition remains outside this tool-compatibility audit"
+      },
+      "plannedEngine": "PKPM",
+      "scenarioCompatible": true,
+      "requiredCapabilities": [
+        "五组截面独立引用",
+        "节点六分量荷载与构件线载共存",
+        "代表组端力、九节点位移及所有支座反力"
+      ],
+      "unresolvedToolGaps": [],
+      "evidence": [
+        "docs/reproducibility/commercial-native-chain-20261013.json",
+        "backend/tests/analysis-pkpm-frame-flow.test.mjs",
+        "backend/src/agent-skills/analysis/pkpm-static/__tests__",
+        "backend/tests/engineering-state.test.mjs"
+      ],
+      "evidenceMeaning": "Code path and targeted capability evidence; native proxies do not certify a future exact task or missing attachment."
+    },
+    {
+      "id": "STD-091",
+      "baseGroup": "M-STD-091",
+      "review": {
+        "interpretation": "D全梁8 kN/m；L仅顶层左前格四边梁6 kN/m，要求D及D+L。",
+        "requirements": [
+          "独立D/L、仅选定四根完整梁施载，不是梁跨内局部载",
+          "线性组合及结果索引保留",
+          "指定角点位移、四梁端力、反力和组合ID"
+        ],
+        "productionRoute": "V2 -> run_analysis -> pkpm converter/native settings/load compiler -> SATWE -> caseResults/native stations/reactions -> common query/visualization/report",
+        "executionCompatibility": "expressible-in-current-production-contract",
+        "confirmedToolGaps": [],
+        "requiredArbitraryInteriorPosition": false,
+        "requiredPartialSpanLoad": false,
+        "scopeReason": "原文只要求节点/构件端/柱脚；STD091的分区指四根完整边梁，不能误记为跨内局部荷载。",
+        "exactTaskEndToEndAccepted": false,
+        "nativeEvidenceDirectories": [],
+        "inputEvidenceStatus": "future-task/property-table definition remains outside this tool-compatibility audit"
+      },
+      "plannedEngine": "PKPM",
+      "scenarioCompatible": true,
+      "requiredCapabilities": [
+        "独立D/L、仅选定四根完整梁施载，不是梁跨内局部载",
+        "线性组合及结果索引保留",
+        "指定角点位移、四梁端力、反力和组合ID"
+      ],
+      "unresolvedToolGaps": [],
+      "evidence": [
+        "docs/reproducibility/commercial-native-chain-20261013.json",
+        "backend/tests/analysis-pkpm-frame-flow.test.mjs",
+        "backend/src/agent-skills/analysis/pkpm-static/__tests__",
+        "backend/tests/engineering-state.test.mjs"
+      ],
+      "evidenceMeaning": "Code path and targeted capability evidence; native proxies do not certify a future exact task or missing attachment."
+    },
+    {
+      "id": "INT-079",
+      "baseGroup": "M-INT-079",
+      "review": {
+        "interpretation": "一个角柱脚三转动释放，其余固定；T1缺Y跨长，T2确认5m。",
+        "requirements": [
+          "缺尺寸时草稿，不调用求解",
+          "补值后重建同一模型并保留边界",
+          "目标节点Ux/Uy/Uz及指定柱脚My/Rz，附当前轮次/工况/单位"
+        ],
+        "productionRoute": "V2 -> run_analysis -> pkpm converter/native settings/load compiler -> SATWE -> caseResults/native stations/reactions -> common query/visualization/report",
+        "executionCompatibility": "expressible-in-current-production-contract",
+        "confirmedToolGaps": [],
+        "requiredArbitraryInteriorPosition": false,
+        "requiredPartialSpanLoad": false,
+        "scopeReason": "原文只要求节点/构件端/柱脚；STD091的分区指四根完整边梁，不能误记为跨内局部荷载。",
+        "exactTaskEndToEndAccepted": false,
+        "nativeEvidenceDirectories": [
+          "pkpm-INT-079-20261013-190555-d975cb51"
+        ],
+        "inputEvidenceStatus": "future-task/property-table definition remains outside this tool-compatibility audit"
+      },
+      "plannedEngine": "PKPM",
+      "scenarioCompatible": true,
+      "requiredCapabilities": [
+        "缺尺寸时草稿，不调用求解",
+        "补值后重建同一模型并保留边界",
+        "目标节点Ux/Uy/Uz及指定柱脚My/Rz，附当前轮次/工况/单位"
+      ],
+      "unresolvedToolGaps": [],
+      "evidence": [
+        "docs/reproducibility/commercial-native-chain-20261013.json",
+        "backend/tests/analysis-pkpm-frame-flow.test.mjs",
+        "backend/src/agent-skills/analysis/pkpm-static/__tests__",
+        "backend/tests/engineering-state.test.mjs",
+        "pkpm-INT-079-20261013-190555-d975cb51"
+      ],
+      "evidenceMeaning": "Code path and targeted capability evidence; native proxies do not certify a future exact task or missing attachment."
+    },
+    {
+      "id": "INT-080",
+      "baseGroup": "M-INT-080",
+      "review": {
+        "interpretation": "X梁BX、Y梁BY；BY的Iy和Iz为BX的0.6倍且A相同；补二层面载。",
+        "requirements": [
+          "有效工程截面可用V2 custom纯数值源，不得伪造矩形或改A",
+          "补载只更新二层X梁，原BX/BY引用保留",
+          "指定节点三位移与柱脚My/Rz"
+        ],
+        "productionRoute": "V2 -> run_analysis -> pkpm converter/native settings/load compiler -> SATWE -> caseResults/native stations/reactions -> common query/visualization/report",
+        "executionCompatibility": "expressible-in-current-production-contract",
+        "confirmedToolGaps": [],
+        "requiredArbitraryInteriorPosition": false,
+        "requiredPartialSpanLoad": false,
+        "scopeReason": "原文只要求节点/构件端/柱脚；STD091的分区指四根完整边梁，不能误记为跨内局部荷载。",
+        "exactTaskEndToEndAccepted": false,
+        "nativeEvidenceDirectories": [
+          "pkpm-numeric-sections-20261013-210334-a5dff5db",
+          "pkpm-numeric-six-dof-20261013-210847-4a395cba",
+          "pkpm-numeric-pin-combination-20261013-211029-72af72cd"
+        ],
+        "inputEvidenceStatus": "future-task/property-table definition remains outside this tool-compatibility audit",
+        "numericSectionContract": "Independent A/Iy/Iz/J; Asy=Asz=5A/6. No source geometric rectangle is invented. Native reference carrier excluded from physical geometry/design checks."
+      },
+      "plannedEngine": "PKPM",
+      "scenarioCompatible": true,
+      "requiredCapabilities": [
+        "有效工程截面可用V2 custom纯数值源，不得伪造矩形或改A",
+        "补载只更新二层X梁，原BX/BY引用保留",
+        "指定节点三位移与柱脚My/Rz"
+      ],
+      "unresolvedToolGaps": [],
+      "evidence": [
+        "docs/reproducibility/commercial-native-chain-20261013.json",
+        "backend/tests/analysis-pkpm-frame-flow.test.mjs",
+        "backend/src/agent-skills/analysis/pkpm-static/__tests__",
+        "backend/tests/engineering-state.test.mjs",
+        "backend/src/agent-skills/analysis/pkpm-static/native_numeric_sections.py",
+        "backend/src/agent-skills/analysis/pkpm-static/__tests__/test_native_numeric_sections.py",
+        "pkpm-numeric-sections-20261013-210334-a5dff5db",
+        "pkpm-numeric-six-dof-20261013-210847-4a395cba",
+        "pkpm-numeric-pin-combination-20261013-211029-72af72cd"
+      ],
+      "evidenceMeaning": "Code path and targeted capability evidence; native proxies do not certify a future exact task or missing attachment."
+    },
+    {
+      "id": "INT-082",
+      "baseGroup": "M-INT-082",
+      "review": {
+        "interpretation": "首层y=0两角柱E210000 MPa，其余E200000 MPa；T2二层面载8改9。",
+        "requirements": [
+          "逐构件材料ID不能用标准牌号常数覆盖",
+          "仅更新二层X梁荷载对象",
+          "位置/方向/单位/工况与当前修改版本一致"
+        ],
+        "productionRoute": "V2 -> run_analysis -> pkpm converter/native settings/load compiler -> SATWE -> caseResults/native stations/reactions -> common query/visualization/report",
+        "executionCompatibility": "expressible-in-current-production-contract",
+        "confirmedToolGaps": [],
+        "requiredArbitraryInteriorPosition": false,
+        "requiredPartialSpanLoad": false,
+        "scopeReason": "原文只要求节点/构件端/柱脚；STD091的分区指四根完整边梁，不能误记为跨内局部荷载。",
+        "exactTaskEndToEndAccepted": false,
+        "nativeEvidenceDirectories": [],
+        "inputEvidenceStatus": "future-task/property-table definition remains outside this tool-compatibility audit"
+      },
+      "plannedEngine": "PKPM",
+      "scenarioCompatible": true,
+      "requiredCapabilities": [
+        "逐构件材料ID不能用标准牌号常数覆盖",
+        "仅更新二层X梁荷载对象",
+        "位置/方向/单位/工况与当前修改版本一致"
+      ],
+      "unresolvedToolGaps": [],
+      "evidence": [
+        "docs/reproducibility/commercial-native-chain-20261013.json",
+        "backend/tests/analysis-pkpm-frame-flow.test.mjs",
+        "backend/src/agent-skills/analysis/pkpm-static/__tests__",
+        "backend/tests/engineering-state.test.mjs"
+      ],
+      "evidenceMeaning": "Code path and targeted capability evidence; native proxies do not certify a future exact task or missing attachment."
+    },
+    {
+      "id": "INT-083",
+      "baseGroup": "M-INT-083",
+      "review": {
+        "interpretation": "角柱400×700mm且强轴显式，其余柱500²；先2D/3D冲突再明确3D。",
+        "requirements": [
+          "冲突澄清前保持草稿",
+          "非方形截面必须按源局部轴参与刚度，不能只变换结果轴",
+          "指定节点三位移及柱脚My/Rz"
+        ],
+        "productionRoute": "V2 -> run_analysis -> pkpm converter/native settings/load compiler -> SATWE -> caseResults/native stations/reactions -> common query/visualization/report",
+        "executionCompatibility": "expressible-in-current-production-contract",
+        "confirmedToolGaps": [],
+        "requiredArbitraryInteriorPosition": false,
+        "requiredPartialSpanLoad": false,
+        "scopeReason": "原文只要求节点/构件端/柱脚；STD091的分区指四根完整边梁，不能误记为跨内局部荷载。",
+        "exactTaskEndToEndAccepted": false,
+        "nativeEvidenceDirectories": [
+          "pkpm-column-axis-20261013-201527-8d12aee6",
+          "pkpm-column-axis-fixed-20261013-202851-dcf91ac3",
+          "pkpm-column-axis90-fixed-20261013-203332-87d30a6f"
+        ],
+        "inputEvidenceStatus": "future-task/property-table definition remains outside this tool-compatibility audit"
+      },
+      "plannedEngine": "PKPM",
+      "scenarioCompatible": true,
+      "requiredCapabilities": [
+        "冲突澄清前保持草稿",
+        "非方形截面必须按源局部轴参与刚度，不能只变换结果轴",
+        "指定节点三位移及柱脚My/Rz"
+      ],
+      "unresolvedToolGaps": [],
+      "evidence": [
+        "docs/reproducibility/commercial-native-chain-20261013.json",
+        "backend/tests/analysis-pkpm-frame-flow.test.mjs",
+        "backend/src/agent-skills/analysis/pkpm-static/__tests__",
+        "backend/tests/engineering-state.test.mjs",
+        "docs/reproducibility/pkpm-column-axes-20261013.json",
+        "pkpm-column-axis-20261013-201527-8d12aee6",
+        "pkpm-column-axis-fixed-20261013-202851-dcf91ac3",
+        "pkpm-column-axis90-fixed-20261013-203332-87d30a6f"
+      ],
+      "evidenceMeaning": "Code path and targeted capability evidence; native proxies do not certify a future exact task or missing attachment."
+    },
+    {
+      "id": "INT-087",
+      "baseGroup": "M-INT-087",
+      "review": {
+        "interpretation": "下层2×2、上层1×2退台；首层外边柱Iy/Iz是上层同角色1.5倍、A相同；T2附件B改上层边界/连接和荷载。",
+        "requirements": [
+          "有效工程截面custom数值源",
+          "原子删/增节点梁柱及对应荷载，版本失效后重算",
+          "只保留实际拓扑；目标节点位移/柱脚结果"
+        ],
+        "productionRoute": "V2 -> run_analysis -> pkpm converter/native settings/load compiler -> SATWE -> caseResults/native stations/reactions -> common query/visualization/report",
+        "executionCompatibility": "expressible-in-current-production-contract",
+        "confirmedToolGaps": [],
+        "requiredArbitraryInteriorPosition": false,
+        "requiredPartialSpanLoad": false,
+        "scopeReason": "原文只要求节点/构件端/柱脚；STD091的分区指四根完整边梁，不能误记为跨内局部荷载。",
+        "exactTaskEndToEndAccepted": false,
+        "nativeEvidenceDirectories": [
+          "pkpm-numeric-sections-20261013-210334-a5dff5db",
+          "pkpm-numeric-six-dof-20261013-210847-4a395cba",
+          "pkpm-numeric-pin-combination-20261013-211029-72af72cd"
+        ],
+        "inputEvidenceStatus": "future-attachments-and-tables-not-yet-authored; not a parser-failure claim",
+        "numericSectionContract": "Independent A/Iy/Iz/J; Asy=Asz=5A/6. No source geometric rectangle is invented. Native reference carrier excluded from physical geometry/design checks."
+      },
+      "plannedEngine": "PKPM",
+      "scenarioCompatible": true,
+      "requiredCapabilities": [
+        "有效工程截面custom数值源",
+        "原子删/增节点梁柱及对应荷载，版本失效后重算",
+        "只保留实际拓扑；目标节点位移/柱脚结果"
+      ],
+      "unresolvedToolGaps": [],
+      "evidence": [
+        "docs/reproducibility/commercial-native-chain-20261013.json",
+        "backend/tests/analysis-pkpm-frame-flow.test.mjs",
+        "backend/src/agent-skills/analysis/pkpm-static/__tests__",
+        "backend/tests/engineering-state.test.mjs",
+        "backend/src/agent-skills/analysis/pkpm-static/native_numeric_sections.py",
+        "backend/src/agent-skills/analysis/pkpm-static/__tests__/test_native_numeric_sections.py",
+        "pkpm-numeric-sections-20261013-210334-a5dff5db",
+        "pkpm-numeric-six-dof-20261013-210847-4a395cba",
+        "pkpm-numeric-pin-combination-20261013-211029-72af72cd"
+      ],
+      "evidenceMeaning": "Code path and targeted capability evidence; native proxies do not certify a future exact task or missing attachment."
+    },
+    {
+      "id": "INT-089",
+      "baseGroup": "M-INT-089",
+      "review": {
+        "interpretation": "两个对角柱脚铰；角边中柱分组；T3仅非角边柱改C4。",
+        "requirements": [
+          "双铰原生约束与自由转角",
+          "按稳定构件ID只改边柱section引用",
+          "原工况/边界不变，旧结果不得冒充当前"
+        ],
+        "productionRoute": "V2 -> run_analysis -> pkpm converter/native settings/load compiler -> SATWE -> caseResults/native stations/reactions -> common query/visualization/report",
+        "executionCompatibility": "expressible-in-current-production-contract",
+        "confirmedToolGaps": [],
+        "requiredArbitraryInteriorPosition": false,
+        "requiredPartialSpanLoad": false,
+        "scopeReason": "原文只要求节点/构件端/柱脚；STD091的分区指四根完整边梁，不能误记为跨内局部荷载。",
+        "exactTaskEndToEndAccepted": false,
+        "nativeEvidenceDirectories": [
+          "pkpm-INT-089-20261013-192010-a5e22d78",
+          "pkpm-INT-089-20261013-192241-d3c67367"
+        ],
+        "inputEvidenceStatus": "future-task/property-table definition remains outside this tool-compatibility audit"
+      },
+      "plannedEngine": "PKPM",
+      "scenarioCompatible": true,
+      "requiredCapabilities": [
+        "双铰原生约束与自由转角",
+        "按稳定构件ID只改边柱section引用",
+        "原工况/边界不变，旧结果不得冒充当前"
+      ],
+      "unresolvedToolGaps": [],
+      "evidence": [
+        "docs/reproducibility/commercial-native-chain-20261013.json",
+        "backend/tests/analysis-pkpm-frame-flow.test.mjs",
+        "backend/src/agent-skills/analysis/pkpm-static/__tests__",
+        "backend/tests/engineering-state.test.mjs",
+        "pkpm-INT-089-20261013-192010-a5e22d78",
+        "pkpm-INT-089-20261013-192241-d3c67367"
+      ],
+      "evidenceMeaning": "Code path and targeted capability evidence; native proxies do not certify a future exact task or missing attachment."
+    },
+    {
+      "id": "MM-081",
+      "baseGroup": "M-MM-081",
+      "review": {
+        "interpretation": "DXF三层框架顶层沿Y退台，只保留1×1跨；逐层实际面载转X梁。",
+        "requirements": [
+          "DXF实体到节点/构件映射由共享解析入口提供",
+          "原生逐层拓扑不复制缺失顶层柱梁",
+          "指定两个不同楼层节点Uz及一致图"
+        ],
+        "productionRoute": "V2 -> run_analysis -> pkpm converter/native settings/load compiler -> SATWE -> caseResults/native stations/reactions -> common query/visualization/report",
+        "executionCompatibility": "expressible-in-current-production-contract",
+        "confirmedToolGaps": [],
+        "requiredArbitraryInteriorPosition": false,
+        "requiredPartialSpanLoad": false,
+        "scopeReason": "原文只要求节点/构件端/柱脚；STD091的分区指四根完整边梁，不能误记为跨内局部荷载。",
+        "exactTaskEndToEndAccepted": false,
+        "nativeEvidenceDirectories": [
+          "pkpm-MM-081-20261013-183934-c14ab60f"
+        ],
+        "inputEvidenceStatus": "future-task/property-table definition remains outside this tool-compatibility audit"
+      },
+      "plannedEngine": "PKPM",
+      "scenarioCompatible": true,
+      "requiredCapabilities": [
+        "DXF实体到节点/构件映射由共享解析入口提供",
+        "原生逐层拓扑不复制缺失顶层柱梁",
+        "指定两个不同楼层节点Uz及一致图"
+      ],
+      "unresolvedToolGaps": [],
+      "evidence": [
+        "docs/reproducibility/commercial-native-chain-20261013.json",
+        "backend/tests/analysis-pkpm-frame-flow.test.mjs",
+        "backend/src/agent-skills/analysis/pkpm-static/__tests__",
+        "backend/tests/engineering-state.test.mjs",
+        "pkpm-MM-081-20261013-183934-c14ab60f"
+      ],
+      "evidenceMeaning": "Code path and targeted capability evidence; native proxies do not certify a future exact task or missing attachment."
+    },
+    {
+      "id": "MM-083",
+      "baseGroup": "M-MM-083",
+      "review": {
+        "interpretation": "混凝土三层、顶层右侧退台；C30柱500²梁300×600，首两层面载12顶层6。",
+        "requirements": [
+          "多视图/材料表关联由共享输入入口提供",
+          "实际三层拓扑与分层X梁线载",
+          "顶层节点Uz、右侧底柱N及一致图"
+        ],
+        "productionRoute": "V2 -> run_analysis -> pkpm converter/native settings/load compiler -> SATWE -> caseResults/native stations/reactions -> common query/visualization/report",
+        "executionCompatibility": "expressible-in-current-production-contract",
+        "confirmedToolGaps": [],
+        "requiredArbitraryInteriorPosition": false,
+        "requiredPartialSpanLoad": false,
+        "scopeReason": "原文只要求节点/构件端/柱脚；STD091的分区指四根完整边梁，不能误记为跨内局部荷载。",
+        "exactTaskEndToEndAccepted": false,
+        "nativeEvidenceDirectories": [],
+        "inputEvidenceStatus": "future-task/property-table definition remains outside this tool-compatibility audit"
+      },
+      "plannedEngine": "PKPM",
+      "scenarioCompatible": true,
+      "requiredCapabilities": [
+        "多视图/材料表关联由共享输入入口提供",
+        "实际三层拓扑与分层X梁线载",
+        "顶层节点Uz、右侧底柱N及一致图"
+      ],
+      "unresolvedToolGaps": [],
+      "evidence": [
+        "docs/reproducibility/commercial-native-chain-20261013.json",
+        "backend/tests/analysis-pkpm-frame-flow.test.mjs",
+        "backend/src/agent-skills/analysis/pkpm-static/__tests__",
+        "backend/tests/engineering-state.test.mjs"
+      ],
+      "evidenceMeaning": "Code path and targeted capability evidence; native proxies do not certify a future exact task or missing attachment."
+    },
+    {
+      "id": "MM-086",
+      "baseGroup": "M-MM-086",
+      "review": {
+        "interpretation": "U形去后排中格；构件只沿保留格边，不重复边；全梁8及二层左翼另加4。",
+        "requirements": [
+          "共享DXF解释结构线与建筑背景线",
+          "逐边拓扑、同梁多荷载叠加且不重复模型边",
+          "凹口两端Uz及左翼外柱反力和图"
+        ],
+        "productionRoute": "V2 -> run_analysis -> pkpm converter/native settings/load compiler -> SATWE -> caseResults/native stations/reactions -> common query/visualization/report",
+        "executionCompatibility": "expressible-in-current-production-contract",
+        "confirmedToolGaps": [],
+        "requiredArbitraryInteriorPosition": false,
+        "requiredPartialSpanLoad": false,
+        "scopeReason": "原文只要求节点/构件端/柱脚；STD091的分区指四根完整边梁，不能误记为跨内局部荷载。",
+        "exactTaskEndToEndAccepted": false,
+        "nativeEvidenceDirectories": [],
+        "inputEvidenceStatus": "future-task/property-table definition remains outside this tool-compatibility audit"
+      },
+      "plannedEngine": "PKPM",
+      "scenarioCompatible": true,
+      "requiredCapabilities": [
+        "共享DXF解释结构线与建筑背景线",
+        "逐边拓扑、同梁多荷载叠加且不重复模型边",
+        "凹口两端Uz及左翼外柱反力和图"
+      ],
+      "unresolvedToolGaps": [],
+      "evidence": [
+        "docs/reproducibility/commercial-native-chain-20261013.json",
+        "backend/tests/analysis-pkpm-frame-flow.test.mjs",
+        "backend/src/agent-skills/analysis/pkpm-static/__tests__",
+        "backend/tests/engineering-state.test.mjs"
+      ],
+      "evidenceMeaning": "Code path and targeted capability evidence; native proxies do not certify a future exact task or missing attachment."
+    },
+    {
+      "id": "MM-089",
+      "baseGroup": "M-MM-089",
+      "review": {
+        "interpretation": "完整3×2跨，两内柱脚铰，六截面组；全梁8及顶远角Fx20/Fy10。",
+        "requirements": [
+          "图表到位置/组/边界映射由共享输入入口提供",
+          "双内柱原生真零转动约束与六组截面",
+          "顶节点Ux/Uy、两内柱底N和一致图"
+        ],
+        "productionRoute": "V2 -> run_analysis -> pkpm converter/native settings/load compiler -> SATWE -> caseResults/native stations/reactions -> common query/visualization/report",
+        "executionCompatibility": "expressible-in-current-production-contract",
+        "confirmedToolGaps": [],
+        "requiredArbitraryInteriorPosition": false,
+        "requiredPartialSpanLoad": false,
+        "scopeReason": "原文只要求节点/构件端/柱脚；STD091的分区指四根完整边梁，不能误记为跨内局部荷载。",
+        "exactTaskEndToEndAccepted": false,
+        "nativeEvidenceDirectories": [
+          "pkpm-MM-089-20261013-191404-ab7b7d11"
+        ],
+        "inputEvidenceStatus": "future-task/property-table definition remains outside this tool-compatibility audit"
+      },
+      "plannedEngine": "PKPM",
+      "scenarioCompatible": true,
+      "requiredCapabilities": [
+        "图表到位置/组/边界映射由共享输入入口提供",
+        "双内柱原生真零转动约束与六组截面",
+        "顶节点Ux/Uy、两内柱底N和一致图"
+      ],
+      "unresolvedToolGaps": [],
+      "evidence": [
+        "docs/reproducibility/commercial-native-chain-20261013.json",
+        "backend/tests/analysis-pkpm-frame-flow.test.mjs",
+        "backend/src/agent-skills/analysis/pkpm-static/__tests__",
+        "backend/tests/engineering-state.test.mjs",
+        "pkpm-MM-089-20261013-191404-ab7b7d11"
+      ],
+      "evidenceMeaning": "Code path and targeted capability evidence; native proxies do not certify a future exact task or missing attachment."
+    }
+  ],
+  "sourceSnapshot": {
+    "path": "docs/reproducibility/scenario-plan-300-20261013.json",
+    "sha256": "2f7933976cfc433867f63d8fc262fd4399922f8e804049f7ffbfd47121b330d4"
+  },
+  "resolvedToolGaps": {
+    "column-section-axes": {
+      "tasks": [
+        "INT-083"
+      ],
+      "evidence": "docs/reproducibility/pkpm-column-axes-20261013.json",
+      "status": "Both orthogonal directions passed fresh native six-DOF/end-force/reaction/equilibrium checks with original frozen tolerances."
+    },
+    "custom-section-properties": {
+      "tasks": [
+        "INT-080",
+        "INT-087"
+      ],
+      "status": "Native numeric A/Iy/Iz/J with Asy=Asz=5A/6 compiled into actual member records and read back after solving; both I multipliers .6 and 1.5 validated, plus six isolated effects, pins and D/L/combination.",
+      "nativeReferenceCarrierIsNotPhysicalGeometry": true
+    }
+  },
+  "status": "scenario-compatible",
+  "scenarioCount": 16,
+  "scenarioCompatibleCount": 16,
+  "allTasksIndividuallyAccepted": false,
+  "authoringContract": "Future complete numerical tables and input attachments must remain within the original reviewed physical contract. These capability probes do not constitute 300 authored benchmark answers or LLM evaluations.",
+  "nativeRuns": [
+    {
+      "role": "orthogonal-column-X",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-column-axis-fixed-20261013-202851-dcf91ac3",
+      "nativeWorkDir": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-column-axis-fixed-20261013-202851-dcf91ac3\\sc_9f967b3b",
+      "status": "passed",
+      "actualEntry": "production run_analysis",
+      "checks": {
+        "timoshenkoChecks": {
+          "count": 162,
+          "passed": 162
+        },
+        "timoshenkoForceChecks": {
+          "count": 558,
+          "passed": 558
+        },
+        "equilibriumChecks": {
+          "count": 6,
+          "passed": 6
+        }
+      },
+      "files": {
+        "frozen-source-model.json": "df1f31f787218b8e71322eeac1234e7959ff2784295cc02dd27fa58aaad6dd47",
+        "frozen-timoshenko-reference.json": "1b0a5713755674ade2e792413c4283692aae63fc06204413b9a977b762377d7f",
+        "acceptance.json": "851557d349ffa3fb64a70d4a07e923a9ffa1cda24e0274a12e11767ee25aac73",
+        "result.json": "0f052991904d1c45b147ce763fc8bc2c149842b043eaffe82a4057937bb949ed",
+        "sc_9f967b3b\\UserMaterial.SAT": "3a7283d8a5f3e29a5cd585d451fd774c5c867b8c58bf3407825525d2eb9adb64",
+        "sc_9f967b3b\\SDATA.SAT": "8d1a10e1789ffa3841a7ca4ddc3a531f646d27f281a16663ac1adaee285283dc",
+        "sc_9f967b3b\\DATA.SAT": "89c1fb0eda7eac5ba73f1ac111a1a14a2bf558729eec7f27c7244371182e37bd",
+        "sc_9f967b3b\\GOUJIAN.OUT": "904e50295fc6eaad27a3b2c5f90a14a8cb3d58d7c84b0edc11db1f6667647130",
+        "sc_9f967b3b\\WMASS.OUT": "86b5731ede69bfd5a322c5dc4a136bb89db371b8b6e411c4ebb261d614a7872f"
+      },
+      "notBenchmarkAnswer": true
+    },
+    {
+      "role": "orthogonal-column-Y",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-column-axis90-fixed-20261013-203332-87d30a6f",
+      "nativeWorkDir": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-column-axis90-fixed-20261013-203332-87d30a6f\\sc_43f77e6d",
+      "status": "passed",
+      "actualEntry": "production run_analysis",
+      "checks": {
+        "timoshenkoChecks": {
+          "count": 162,
+          "passed": 162
+        },
+        "timoshenkoForceChecks": {
+          "count": 558,
+          "passed": 558
+        },
+        "equilibriumChecks": {
+          "count": 6,
+          "passed": 6
+        }
+      },
+      "files": {
+        "frozen-source-model.json": "aca187d6760f37936f27007f21c745b35b4207cfa45b74de6d11bcc1f651e04c",
+        "frozen-timoshenko-reference.json": "2f05e37136000f5a70c7010abb0a1e6eb911480b18a51b3054a5451ce02b187b",
+        "acceptance.json": "0191975f12d96f9e5b27f2e0438d09ff43105a2d78b78b1030e85a6de1264874",
+        "result.json": "1a3deb576fdcd1d6824388f994f1b4a23e603bb8e53a35eadf1eb270c7cd3520",
+        "sc_43f77e6d\\UserMaterial.SAT": "3a7283d8a5f3e29a5cd585d451fd774c5c867b8c58bf3407825525d2eb9adb64",
+        "sc_43f77e6d\\SDATA.SAT": "b12984f8bef4cfd9ab954d57d91a75c05defaf37a00e8eea1d4ea9774be4a209",
+        "sc_43f77e6d\\DATA.SAT": "908fba568333ea271837cecd5ed32def574fed1583f95ea3d07d0d585056f4da",
+        "sc_43f77e6d\\GOUJIAN.OUT": "2d6fcba7922fb244b2339c248aac59abcfa67ad6f8fbc2316bd0c4f363bbdafb",
+        "sc_43f77e6d\\WMASS.OUT": "ec49e6005b491a2a6b5286f38d244a118ab1c16bf33c0bcb613747be94ff121e"
+      },
+      "notBenchmarkAnswer": true
+    },
+    {
+      "role": "numeric-frame-I0p6",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-numeric-sections-20261013-210334-a5dff5db",
+      "nativeWorkDir": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-numeric-sections-20261013-210334-a5dff5db\\sc_afa04ce4",
+      "status": "passed",
+      "actualEntry": "production run_analysis",
+      "checks": {
+        "timoshenkoChecks": {
+          "count": 162,
+          "passed": 162
+        },
+        "timoshenkoForceChecks": {
+          "count": 558,
+          "passed": 558
+        },
+        "equilibriumChecks": {
+          "count": 6,
+          "passed": 6
+        }
+      },
+      "files": {
+        "frozen-source-model.json": "cd59f04a4c65b8409cb534fde715bef7c8eb3236294b4f349eac05afea32de85",
+        "frozen-timoshenko-reference.json": "e22e8dfce9ecb540a7d2f3fe2e8eddf3087f82f1e42086e84928f91486589511",
+        "acceptance.json": "eff1cbab9eb2dfa81ad90337dfde415d6b5551f97c466e414a210278af4fb73c",
+        "result.json": "9dfa0f43c095a4c1718e89e6d884c4f27edc8cdbf7ae3fba557005a2c3efa5e6",
+        "sc_afa04ce4\\UserMaterial.SAT": "3a7283d8a5f3e29a5cd585d451fd774c5c867b8c58bf3407825525d2eb9adb64",
+        "sc_afa04ce4\\SDATA.SAT": "ea2b90df11634e1127558750cd6db4fd14748f80a1529606638bd845a9b29ffe",
+        "sc_afa04ce4\\DATA.SAT": "76fd2830a55a4134ab61e1c5676269fb3939c90e1dc0a8c32ae1e7547b848869",
+        "sc_afa04ce4\\GOUJIAN.OUT": "35b75a5062cd3098d73b5a6d1be638131212050f9859a30c368f33e804b019ac",
+        "sc_afa04ce4\\WMASS.OUT": "435964fda387be6dbb341d07bdd9ccd2ca5082fe61fcd313078c121877871542",
+        "sc_afa04ce4\\native-stage-evidence.json": "efe258ef68f9dd48b88be7481da62d36d4c6e14839cb500eabd51968fcf35b2c",
+        "sc_afa04ce4\\SDATA.SAT.precompile": "a74d29dab771ebff0cfa6c1fbd605b5ed4d0ab427377008114876b5f2df82d10",
+        "sc_afa04ce4\\SDATA.SAT.compiled": "5c0371245fc875e39965e66da39740b17a69855546451bf2902c3eca3659b7f0",
+        "sc_afa04ce4\\native-section-compilation.json": "1f4e6befdfb6f530007bca6a0d12178072b55e5f2730e5a206b2918d910d2e48"
+      },
+      "notBenchmarkAnswer": true
+    },
+    {
+      "role": "numeric-six-independent-effects",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-numeric-six-dof-20261013-210847-4a395cba",
+      "nativeWorkDir": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-numeric-six-dof-20261013-210847-4a395cba\\sc_06d17940",
+      "status": "passed",
+      "actualEntry": "production run_analysis",
+      "checks": {
+        "timoshenkoChecks": {
+          "count": 72,
+          "passed": 72
+        },
+        "timoshenkoForceChecks": {
+          "count": 108,
+          "passed": 108
+        },
+        "equilibriumChecks": {
+          "count": 6,
+          "passed": 6
+        }
+      },
+      "files": {
+        "frozen-source-model.json": "6928720f66830b579ab5611ea8f7c26a34ce1704445c86da4147563830c12249",
+        "frozen-timoshenko-reference.json": "20972e562f358b3be4801bca312cd7ae66db2e07b084470d95cada0a00d40e31",
+        "acceptance.json": "28f7563fbe80079daf35e065c3a4820e3e880de23f286cc0ad00e5d2bb7c7577",
+        "result.json": "a0adc6ae839d3f8801f455551ba93dd22a3bde6da007c743499f329594dc9312",
+        "sc_06d17940\\UserMaterial.SAT": "3a7283d8a5f3e29a5cd585d451fd774c5c867b8c58bf3407825525d2eb9adb64",
+        "sc_06d17940\\SDATA.SAT": "8cb0c7baff086f1d3a30cecb9a78c4e45be9938356b33968582bfbd70fc2d61a",
+        "sc_06d17940\\DATA.SAT": "7b5c54bf9bc8e6e2d880489781649a892d47fd79d1d11b543e26f8d7a8ab41a6",
+        "sc_06d17940\\GOUJIAN.OUT": "0ce9c0afd2b7445238ebc7af71b99bd08f6bc7726cb67703d4d0c421c75f6fcf",
+        "sc_06d17940\\WMASS.OUT": "78d466ee2db4c20aec6fc0e23c37340bf2645d86065a66f54c43e2cecdb4af56",
+        "sc_06d17940\\native-stage-evidence.json": "855803fcf3ddb5558908f89d4fd11875eef5a45e9805d94daabc112dce85ea89",
+        "sc_06d17940\\SDATA.SAT.precompile": "0c21ea3929037f0e5ffd80fd179a9ac2a4aa9778b505c2beeb6921bc2f4438b2",
+        "sc_06d17940\\SDATA.SAT.compiled": "76debe23361cd7d0f8ecdb77b315fef09bd2bf524d0a4bdeebfeaa73e84e974e",
+        "sc_06d17940\\native-section-compilation.json": "d12e1880e5be0613b4200e23701c026e2899939800a6aaa54e539521ee2e37a8"
+      },
+      "notBenchmarkAnswer": true
+    },
+    {
+      "role": "numeric-I1p5-pins-D-L-combination",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-numeric-pin-combination-20261013-211029-72af72cd",
+      "nativeWorkDir": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-numeric-pin-combination-20261013-211029-72af72cd\\sc_a22213c1",
+      "status": "passed",
+      "actualEntry": "production run_analysis",
+      "checks": {
+        "timoshenkoChecks": {
+          "count": 486,
+          "passed": 486
+        },
+        "timoshenkoForceChecks": {
+          "count": 1674,
+          "passed": 1674
+        },
+        "equilibriumChecks": {
+          "count": 18,
+          "passed": 18
+        }
+      },
+      "files": {
+        "frozen-source-model.json": "ba1aa3c0e0186fb235ff45c59dd8e465f60e785556e5212eb250990fd700976b",
+        "frozen-timoshenko-reference.json": "136f87e15facbbd4e4da472fd80ffaf376ab9f5ed68ea3311cdb3adff7c3865b",
+        "acceptance.json": "a7e8d973efa4189a5bb06a657b0fbfde3cffac63a145adb82b1ff74851af790f",
+        "result.json": "84eb3bda3b40ad01213e079c8be2b09c6c05bf1fdfd55a968fc9f4c9ae8acfb6",
+        "sc_a22213c1\\UserMaterial.SAT": "42a049f9948c6b3e88ab332fe37fa712492a2428424b64058ee9d14cc69f4a99",
+        "sc_a22213c1\\SDATA.SAT": "6d3d89c1fe16b0e2d4b53248c344c0875f8dc4ec4c588678e8e58b82ba2146dd",
+        "sc_a22213c1\\DATA.SAT": "67e62e685d0aed14504e6411be9e41142ad4946fd83f05de5be5258f00444a70",
+        "sc_a22213c1\\GOUJIAN.OUT": "c7f9e09f8d0de139f296003451a67817b297042161d8a6e3b47342f40b13703a",
+        "sc_a22213c1\\WMASS.OUT": "f63c48a8eb6ec29d30cb8c5437d7b698024b35a608c534004853068917e80fa0",
+        "sc_a22213c1\\native-stage-evidence.json": "556d3e0a58ba7ac5bcb0fa2fe8a5e993b4d02124a816e783dd846fbf86b9b778",
+        "sc_a22213c1\\SDATA.SAT.precompile": "462a4f9fba94a58a340d8c663014c8a4a0da8eb9320e40f88757c440da059fe2",
+        "sc_a22213c1\\SDATA.SAT.compiled": "beb9afdc50a9dd74e4b57243bbac43f2bed6940546d3f544ddadabb52197ea80",
+        "sc_a22213c1\\native-section-compilation.json": "e363eea768959d909cec5539f11fc76874c4ed063ddcd88df4dec1ac25be1596"
+      },
+      "notBenchmarkAnswer": true
+    }
+  ],
+  "nativeFiles": [
+    {
+      "path": "G:\\PKPM2025R2.5\\PkpmCycle\\JWSCYCLE.exe",
+      "sha256": "e7b8b240da4aa4ae9a884cf56be8eb7d214e6fdd570c002b5e76e1ba52d43204"
+    },
+    {
+      "path": "G:\\PKPM2025R2.5\\Ribbon\\PKPMMain.exe",
+      "sha256": "7997ec7369532c13138a793e69040c3d5ee28e48c8961ec9c01450fadb70ede2"
+    },
+    {
+      "path": "G:\\PKPM2025R2.5\\Ribbon\\SAT\\SAT64\\WINSAT-A_x64.exe",
+      "sha256": "28adde523fe58491f96727da7250c21e6304e56aef3d0ba0330da9c57e3adaf3"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\.venv\\Lib\\site-packages\\APIPyInterface\\APIPyInterface.pyd",
+      "sha256": "17631e28e3070bb93c010b7927217a49109027f943cd8f2a7615fe3c6790f04b"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\.venv\\Lib\\site-packages\\APIPyInterface\\PMDATAAPI_x64.dll",
+      "sha256": "90da41283bb65ba602935244b0db5f5772494b2a16ddf25f409d6978a65b499d"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\.venv\\Lib\\site-packages\\APIPyInterface\\PmsrwData_x64.dll",
+      "sha256": "ca7a47b9006eb4b4f5f88c37014b0da5c090029de518a1d6ab69dbea0d2f6560"
+    }
+  ],
+  "tests": {
+    "pythonCommand": "python -m pytest backend/src/agent-skills/analysis/pkpm-static/__tests__ backend/src/agent-skills/analysis/runtime/__tests__/test_native_model_contract.py -q",
+    "pythonPassed": 96,
+    "pythonSubtestsPassed": 8,
+    "standalonePkpmPassed": 86,
+    "standalonePkpmRequiresPythonPath": false,
+    "standalonePkpmJunit": "G:/StructureClaw-All/sclaw_data/scenario-freeze-analysis-pkpm-final-20261013.xml",
+    "jestSuite": "backend/tests/analysis-pkpm-frame-flow.test.mjs",
+    "jestPassed": 20
+  },
+  "reproduction": {
+    "entry": "backend/tests/analysis-pkpm-representative-native.py",
+    "inputs": [
+      "backend/tests/fixtures/pkpm-numeric-capabilities/frame.json",
+      "backend/tests/fixtures/pkpm-numeric-capabilities/six-dof.json",
+      "backend/tests/fixtures/pkpm-numeric-capabilities/pin-combination.json"
+    ],
+    "arguments": "--case <fresh capability name> --model-file <input> --work-root <isolated work root> --cycle <installation>/PkpmCycle/JWSCYCLE.exe; add --combination only for pin-combination.json",
+    "referencePolicy": "Every invocation writes its independent reference and original unchanged tolerance before native execution. Prior failure files remain unchanged."
+  },
+  "numericAcceptanceTolerance": {
+    "relative": 1e-05,
+    "displacementM": 1e-11,
+    "rotationRad": 1e-11,
+    "forceKN": 1e-05,
+    "momentKNm": 1e-05
+  }
+}
