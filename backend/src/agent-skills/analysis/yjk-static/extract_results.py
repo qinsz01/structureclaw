@@ -597,6 +597,18 @@ def _member_result_geometry(pre, dsn, debug, member, config):
         value = _safe_method(debug, "YJKSPrePy", pre, prefix + suffix, tag, default=None)
         if value is not None:
             geometry[suffix.lower()] = _json_safe(value)
+    if kind == 5:
+        for key, method in (("brace_column_kind", "dsnGetBraceColKind"),
+                            ("brace_kind", "dsnGetBraceKind")):
+            value = _safe_method(debug, "YJKSDsnDataPy", dsn, method, floor, tag, default=None)
+            if value is not None:
+                geometry[key] = _json_safe(value)
+        for key, method in (("is_truss", "IsBraceTruss"),
+                            ("performance_type", "BracePerformType"),
+                            ("rigidity_coefficients", "BraceRigCoef")):
+            value = _safe_method(debug, "YJKSPrePy", pre, method, tag, default=None)
+            if value is not None:
+                geometry[key] = _json_safe(value)
     return geometry
 
 

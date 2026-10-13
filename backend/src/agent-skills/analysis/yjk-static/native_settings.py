@@ -48,7 +48,7 @@ def compile_settings(model: dict) -> dict:
 
 
 def audit_effective_settings(model: dict, fe: dict, receipt: dict, report_text: str,
-                             load_audit: dict | None = None) -> dict:
+                             load_audit: dict | None = None, *, member_audit: dict | None = None) -> dict:
     """Require solver-effective evidence, not merely a successful scalar write.
 
     The load compiler owns selected-case selfweight accounting. It must bind its
@@ -75,8 +75,11 @@ def audit_effective_settings(model: dict, fe: dict, receipt: dict, report_text: 
         for label in ("考虑梁端刚域", "考虑柱端刚域"):
             if re.search(re.escape(label) + r"\s*[:：]\s*否(?:\s|$)", report_text) is None:
                 failures.append("rigid-offset-report-mismatch:" + label)
+        verified_inclined = {row["nativeFrameId"] for row in (member_audit or {}).get("members", {}).values()
+                            if (row.get("nativeColumnIdentity") or {}).get("passed") is True}
         for tag, frame in fe.get("frames", {}).items():
-            if frame.get("E") != [0.] * 6 or frame.get("RZL") != [0.] * 2:
+            omitted_rzl = frame.get("kind") == "BRACE" and frame.get("RZL") is None and tag in verified_inclined
+            if frame.get("E") != [0.] * 6 or (frame.get("RZL") != [0.] * 2 and not omitted_rzl):
                 failures.append("nonzero-or-missing-native-offset:" + tag)
     if controls.get("rigid_floor") is False:
         for line in fe.get("sectionsRaw", {}).get("NODE", []):

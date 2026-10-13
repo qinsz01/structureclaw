@@ -42,6 +42,25 @@ def test_nonfinite_native_force_rejected(extractor):
         extractor._normalize_sections([0, 0, 0, 0, float("nan"), 0])
 
 
+def test_inclined_column_classification_is_native_readback_not_an_inferred_name(extractor):
+    class Native:
+        dsnGetBraceColKind = staticmethod(lambda floor, tag: 2)
+        dsnGetBraceKind = staticmethod(lambda floor, tag: 3)
+        IsBraceTruss = staticmethod(lambda tag: 0)
+        BracePerformType = staticmethod(lambda tag: 2)
+        BraceRigCoef = staticmethod(lambda tag: [1, [1.] * 6])
+    result = extractor._member_result_geometry(Native(), Native, extractor._new_debug(),
+        {"floor": 1, "tot_id": 8}, {"post_kind": 5})
+    assert result["brace_column_kind"] == 2
+    assert result["brace_kind"] == 3
+    assert result["is_truss"] == 0
+    assert result["rigidity_coefficients"] == [1, [1.] * 6]
+    missing = extractor._member_result_geometry(object(), object(), extractor._new_debug(),
+        {"floor": 1, "tot_id": 8}, {"post_kind": 5})
+    assert "brace_column_kind" not in missing
+    assert "is_truss" not in missing
+
+
 def test_incomplete_xyz_does_not_manufacture_z_zero(extractor):
     class IncompletePre:
         @staticmethod

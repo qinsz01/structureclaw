@@ -1,0 +1,1493 @@
+{
+  "provenance": {
+    "nativeRun": "yjk-frame-acceptance-20261013-181051-576fe2/sc_work_83e0cf4f690e",
+    "referenceFrozenAt": 1791886251.3979406,
+    "referenceSha256": "0c84d6a2747c284db065bff736e8076c9938853933e22900bcbe953e38e8a89e",
+    "referenceMethod": "Independent 3-D Timoshenko frame stiffness, frozen before native execution",
+    "relativeTolerance": 1e-05,
+    "absoluteTolerance": 1e-05,
+    "sourceFeaSha256": "0769614bd8a39922b1aabcb85e6d45a800ad689868544ece28445fc8e27662d7"
+  },
+  "fea": "\t\t\t//***YJK Software***\\\\\n*VERSION\nVERSION=1.0\n\n*PROJINFO\nPROJECT=six_effect_calibration\n\n*UNIT\nUNIT=0,0,0\n\n*STRUCTURE\nT=XYZ IMAS=0 GRAV=10.0 K=1.0E20 WDIR=0,0,-1 OE=1 M=10 MESHSIZE=1 MET=0 BMP=1 LT=0\n\n*ANALYSIS scheme=1 STRS=0 M0SPEC=0 ZEROERR=1e-06 BEAMSSTIFF=0 SOLVERVER=1 REACT=1\n\n*NONL_CTRL T=1 STEPS=10 ITER=30 ON=1,1,0 ERR=0.001,0.001,0.001 ST=3 GeoNL=0 CC=0\n\n*SECTION\n1 P=0.18,5.400000E-03,1.350000E-03,0.00370786,0.15,0.15 CM=0,0,0\n2 P=0.18,5.400000E-03,1.350000E-03,0.00370786,0.15,0.15 CM=0,0,0\n\n*MATERIAL\n1 P=2.06e+08,0.3,0,0,1.2e-05\n2 P=3.25e+07,0.25,0,0,1e-05\n\n*STORY\n1\tTWR=1 L=1 T=0 Elev=0 H=3 WX=0 WY=0 ECC=0,0 \n\n*NODE\n1\tC=4,0,0 NM=0 VM=0 FM=0 M=0,0,0,0,0,0 T=0 L=0 TWR=0\n2\tC=4,4,0 NM=0 VM=0 FM=0 M=0,0,0,0,0,0 T=0 L=0 TWR=0\n3\tC=0,4,0 NM=0 VM=0 FM=0 M=0,0,0,0,0,0 T=0 L=0 TWR=0\n4\tC=0,0,0 NM=0 VM=0 FM=0 M=0,0,0,0,0,0 T=0 L=0 TWR=0\n1000001\tC=0.3,0,3 NM=0 VM=1000006 FM=1000005 M=4.23301,4.23301,4.23301,0,0,0 T=1 L=1 TWR=1\n1000002\tC=4,0,3 NM=0 VM=1000006 FM=1000005 M=4.212,4.212,4.212,0,0,0 T=1 L=1 TWR=1\n1000003\tC=4,4,3 NM=0 VM=1000006 FM=1000005 M=4.212,4.212,4.212,0,0,0 T=1 L=1 TWR=1\n1000004\tC=0,4,3 NM=0 VM=1000006 FM=1000005 M=4.212,4.212,4.212,0,0,0 T=1 L=1 TWR=1\n1000005\tC=2.07279,1.99751,3 NM=0 VM=0 FM=0 M=16.869,16.869,16.869,0,0,0 T=4 L=1 TWR=1\n1000006\tC=2.07279,1.99751,3 NM=0 VM=0 FM=0 M=16.869,16.869,16.869,0,0,0 T=2 L=1 TWR=1\n\n*CONSTRAINT\n1\tR=1,1,1,1,1,1 T=1 G=0\n2\tR=1,1,1,1,1,1 T=1 G=0\n3\tR=1,1,1,1,1,1 T=1 G=0\n4\tR=1,1,1,1,1,1 T=1 G=0\n\n*STATIC_LDCASE\n1   N=DEAD T=DEAD C=0,0,0 P=1\n2   N=LIVE T=LIVE C=0,0,0 P=1\n7   N=AIRD T=AIRD C=0,0,0 P=2\n101 N=WIND1  T=WIND1  C=0,0,0 P=1\n102 N=WIND2  T=WIND2  C=0,0,0 P=1\n103 N=WIND3  T=WIND3  C=0,0,0 P=1\n104 N=WIND4  T=WIND4  C=0,0,0 P=1\n10001 N=SC001_FX T=DEAD C=0,0,0 P=1\n10003 N=SC002_FY T=DEAD C=0,0,0 P=1\n10005 N=SC003_FZ T=DEAD C=0,0,0 P=1\n10007 N=SC004_MX T=DEAD C=0,0,0 P=1\n10009 N=SC005_MY T=DEAD C=0,0,0 P=1\n10011 N=SC006_MZ T=DEAD C=0,0,0 P=1\n\n*BEAM_LIVE_CTRL\nNR=1  NLC=1 LC=2 CM=sum(R*,B*)@m+,m-\n\n*FRAME\n1000001\tT=COLUMN B=1000001 N=1000002,1 M=1 SEC=1 DIR=-1,-4.37114e-08,0 RZL=0,0 E=0,0,0,0,0,0 &\n\t\tRF=1,1,1,1,1,1 &\n\t\tCS=0 R=0,0,0,0,0,0 RFM=1 G=C1 L=1 TWR=1\n1000002\tT=COLUMN B=1000002 N=1000003,2 M=1 SEC=1 DIR=-1,-4.37114e-08,0 RZL=0,0 E=0,0,0,0,0,0 &\n\t\tRF=1,1,1,1,1,1 &\n\t\tCS=0 R=0,0,0,0,0,0 RFM=1 G=C1 L=1 TWR=1\n1000003\tT=COLUMN B=1000003 N=1000004,3 M=1 SEC=1 DIR=-1,-4.37114e-08,0 RZL=0,0 E=0,0,0,0,0,0 &\n\t\tRF=1,1,1,1,1,1 &\n\t\tCS=0 R=0,0,0,0,0,0 RFM=1 G=C1 L=1 TWR=1\n1000004\tT=BRACE B=1000004 N=1000001,4 M=1 SEC=2 DIR=-0.995037,0,0.0995037 E=0,0,0,0,0,0 &\n\t\tRF=1,1,1,1,1,1 &\n\t\tCS=0 R=0,0,0,0,0,0 G=C1 L=1 TWR=1\n\n*SOLID\n\n*SURFACE_REST\n\n*ELEMENT_REST\n\n*DEBUG\nP=EXPORT_VTK V=YES\n\n*MEMBER\n\n*USE-STLD LCID=1\n*FRAMELOAD\n1000004 T=UNILOAD DIR=GZ F=0,-14.04,-1,-14.04 G=0\n*NODELOAD\n1000002 F=0,0,-42.12,0,0,0 G=0\n1000003 F=0,0,-42.12,0,0,0 G=0\n1000004 F=0,0,-42.12,0,0,0 G=0\n\n*USE-STLD LCID=101\n*NODELOAD\n1000001 F=0.680023,1.82638e-15,0,0,0,0 G=0\n1000002 F=0.680023,1.82638e-15,0,0,0,0 G=0\n1000003 F=0.680023,1.82638e-15,0,0,0,0 G=0\n1000004 F=0.680023,1.82638e-15,0,0,0,0 G=0\n\n*USE-STLD LCID=102\n*NODELOAD\n1000001 F=-0.680023,-6.57495e-15,0,0,0,0 G=0\n1000002 F=-0.680023,-6.57495e-15,0,0,0,0 G=0\n1000003 F=-0.680023,-6.57495e-15,0,0,0,0 G=0\n1000004 F=-0.680023,-6.57495e-15,0,0,0,0 G=0\n\n*USE-STLD LCID=103\n*NODELOAD\n1000001 F=-4.20066e-15,0.680023,0,0,0,0 G=0\n1000002 F=-4.20066e-15,0.680023,0,0,0,0 G=0\n1000003 F=-4.20066e-15,0.680023,0,0,0,0 G=0\n1000004 F=-4.20066e-15,0.680023,0,0,0,0 G=0\n\n*USE-STLD LCID=104\n*NODELOAD\n1000001 F=8.94924e-15,-0.680023,0,0,0,0 G=0\n1000002 F=8.94924e-15,-0.680023,0,0,0,0 G=0\n1000003 F=8.94924e-15,-0.680023,0,0,0,0 G=0\n1000004 F=8.94924e-15,-0.680023,0,0,0,0 G=0\n\n*USE-STLD LCID=10001\n*NODELOAD\n1000001 F=1,0,0,0,0,0 G=0\n1000002 F=1,0,0,0,0,0 G=0\n1000003 F=1,0,0,0,0,0 G=0\n1000004 F=1,0,0,0,0,0 G=0\n\n*USE-STLD LCID=10003\n*NODELOAD\n1000001 F=0,1,0,0,0,0 G=0\n1000002 F=0,1,0,0,0,0 G=0\n1000003 F=0,1,0,0,0,0 G=0\n1000004 F=0,1,0,0,0,0 G=0\n\n*USE-STLD LCID=10005\n*NODELOAD\n1000001 F=0,0,-1,0,0,0 G=0\n1000002 F=0,0,-1,0,0,0 G=0\n1000003 F=0,0,-1,0,0,0 G=0\n1000004 F=0,0,-1,0,0,0 G=0\n\n*USE-STLD LCID=10007\n*NODELOAD\n1000001 F=0,0,0,1,0,0 G=0\n1000002 F=0,0,0,1,0,0 G=0\n1000003 F=0,0,0,1,0,0 G=0\n1000004 F=0,0,0,1,0,0 G=0\n\n*USE-STLD LCID=10009\n*NODELOAD\n1000001 F=0,0,0,0,1,0 G=0\n1000002 F=0,0,0,0,1,0 G=0\n1000003 F=0,0,0,0,1,0 G=0\n1000004 F=0,0,0,0,1,0 G=0\n\n*USE-STLD LCID=10011\n*NODELOAD\n1000001 F=0,0,0,0,0,1 G=0\n1000002 F=0,0,0,0,0,1 G=0\n1000003 F=0,0,0,0,0,1 G=0\n1000004 F=0,0,0,0,0,1 G=0\n\n*EIGEN_CTRL\nN=3 TYPE=2 ERROR=1e-05 MA=1 MAXI=0\n*SPEC_CTRL\nVNUM=3 TR=1 TRC=1 T=1 M=0 E=0,0 SFT=1 SF=1 AUF=0 DP=0 ADP=1 ADMAX=0.25 AH=6.28319 NLLITERTOL=0.01 NLLITER=0 NLLITEREIG=0 ADR=1 SW=0 IL=1,2,10001,10003,10005,10007,10009,10011 ILFACTOR=1,0.5,0,0,0,0,0,0 &\nPERCOENUM=1 PERCOE=1 &\nD=0.05,0.05,0.05\n*SPEC_FUNC\n1 TYPE=1 I=6,1 ACC=0 M=1,1 A=0 T=0.25 ALPHA=0.04\n*BOTSHEAR_CTRL CODE=GB50011_2010 ATYPE=1 NEIG=0,0 R=3 Ie=1 SS=0.2 S1=0.05 TL=8 FA=1 FV=1 T1=0 Ta=0.125255 SDS=0 SD1=0\n*SPEC_LDCASE\n1 T=SX CURV=1 D=1,0,0 SP=1 OE=0 R=1.0\n2 T=SY CURV=1 D=-0,1,0 SP=1 OE=0 R=1.0\n\n*BASE_STIFF R=0,0,1,1,1,0 RUN=0 AE=S1\n",
+  "model": {
+    "schema_version": "2.2.0",
+    "unit_system": "SI",
+    "coordinate_system": {
+      "dimension": "3d",
+      "plane": null,
+      "semantics": "global-z-up",
+      "version": 1,
+      "dof_order": [
+        "ux",
+        "uy",
+        "uz",
+        "rx",
+        "ry",
+        "rz"
+      ]
+    },
+    "project": {
+      "name": "six_effect_calibration"
+    },
+    "materials": [
+      {
+        "id": "M",
+        "name": "Q355",
+        "category": "steel",
+        "grade": "Q355",
+        "E": 206000.0,
+        "G": 79230.76923076923,
+        "nu": 0.3,
+        "rho": 7850.0
+      }
+    ],
+    "sections": [
+      {
+        "id": "C",
+        "type": "rectangular",
+        "shape": {
+          "kind": "rectangular",
+          "B": 300,
+          "H": 600
+        },
+        "properties": {
+          "A": 0.18,
+          "Iy": 0.0053999999999999986,
+          "Iz": 0.0013499999999999996,
+          "J": 0.0037078593749999985
+        }
+      }
+    ],
+    "nodes": [
+      {
+        "id": "N0_0",
+        "x": 0,
+        "y": 0,
+        "z": 0.0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "N0_1",
+        "x": 4,
+        "y": 0,
+        "z": 0.0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "N0_2",
+        "x": 4,
+        "y": 4,
+        "z": 0.0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "N0_3",
+        "x": 0,
+        "y": 4,
+        "z": 0.0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "N1_0",
+        "x": 0.3,
+        "y": 0,
+        "z": 3.0,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "N1_1",
+        "x": 4,
+        "y": 0,
+        "z": 3.0,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "N1_2",
+        "x": 4,
+        "y": 4,
+        "z": 3.0,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "N1_3",
+        "x": 0,
+        "y": 4,
+        "z": 3.0,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      }
+    ],
+    "elements": [
+      {
+        "id": "C0",
+        "type": "column",
+        "nodes": [
+          "N0_0",
+          "N1_0"
+        ],
+        "section": "C",
+        "material": "M"
+      },
+      {
+        "id": "C1",
+        "type": "column",
+        "nodes": [
+          "N0_1",
+          "N1_1"
+        ],
+        "section": "C",
+        "material": "M"
+      },
+      {
+        "id": "C2",
+        "type": "column",
+        "nodes": [
+          "N0_2",
+          "N1_2"
+        ],
+        "section": "C",
+        "material": "M"
+      },
+      {
+        "id": "C3",
+        "type": "column",
+        "nodes": [
+          "N0_3",
+          "N1_3"
+        ],
+        "section": "C",
+        "material": "M"
+      }
+    ],
+    "stories": [
+      {
+        "id": "S1",
+        "elevation": 0,
+        "height": 3.0,
+        "rigid_diaphragm": false
+      }
+    ],
+    "analysis_control": {
+      "self_weight": false,
+      "rigid_floor": false,
+      "rigid_offsets": false,
+      "construction_stage": false,
+      "p_delta": false
+    },
+    "load_cases": [
+      {
+        "id": "FX",
+        "type": "other",
+        "loads": [
+          {
+            "type": "nodal",
+            "node": "N1_0",
+            "fx": 1
+          },
+          {
+            "type": "nodal",
+            "node": "N1_1",
+            "fx": 1
+          },
+          {
+            "type": "nodal",
+            "node": "N1_2",
+            "fx": 1
+          },
+          {
+            "type": "nodal",
+            "node": "N1_3",
+            "fx": 1
+          }
+        ]
+      },
+      {
+        "id": "FY",
+        "type": "other",
+        "loads": [
+          {
+            "type": "nodal",
+            "node": "N1_0",
+            "fy": 1
+          },
+          {
+            "type": "nodal",
+            "node": "N1_1",
+            "fy": 1
+          },
+          {
+            "type": "nodal",
+            "node": "N1_2",
+            "fy": 1
+          },
+          {
+            "type": "nodal",
+            "node": "N1_3",
+            "fy": 1
+          }
+        ]
+      },
+      {
+        "id": "FZ",
+        "type": "other",
+        "loads": [
+          {
+            "type": "nodal",
+            "node": "N1_0",
+            "fz": -1
+          },
+          {
+            "type": "nodal",
+            "node": "N1_1",
+            "fz": -1
+          },
+          {
+            "type": "nodal",
+            "node": "N1_2",
+            "fz": -1
+          },
+          {
+            "type": "nodal",
+            "node": "N1_3",
+            "fz": -1
+          }
+        ]
+      },
+      {
+        "id": "MX",
+        "type": "other",
+        "loads": [
+          {
+            "type": "nodal",
+            "node": "N1_0",
+            "mx": 1
+          },
+          {
+            "type": "nodal",
+            "node": "N1_1",
+            "mx": 1
+          },
+          {
+            "type": "nodal",
+            "node": "N1_2",
+            "mx": 1
+          },
+          {
+            "type": "nodal",
+            "node": "N1_3",
+            "mx": 1
+          }
+        ]
+      },
+      {
+        "id": "MY",
+        "type": "other",
+        "loads": [
+          {
+            "type": "nodal",
+            "node": "N1_0",
+            "my": 1
+          },
+          {
+            "type": "nodal",
+            "node": "N1_1",
+            "my": 1
+          },
+          {
+            "type": "nodal",
+            "node": "N1_2",
+            "my": 1
+          },
+          {
+            "type": "nodal",
+            "node": "N1_3",
+            "my": 1
+          }
+        ]
+      },
+      {
+        "id": "MZ",
+        "type": "other",
+        "loads": [
+          {
+            "type": "nodal",
+            "node": "N1_0",
+            "mz": 1
+          },
+          {
+            "type": "nodal",
+            "node": "N1_1",
+            "mz": 1
+          },
+          {
+            "type": "nodal",
+            "node": "N1_2",
+            "mz": 1
+          },
+          {
+            "type": "nodal",
+            "node": "N1_3",
+            "mz": 1
+          }
+        ]
+      }
+    ],
+    "load_combinations": [
+      {
+        "id": "CX",
+        "factors": {
+          "FX": 1,
+          "FY": -2,
+          "MZ": 0.5
+        }
+      }
+    ]
+  },
+  "mapping": {
+    "compiler": "individual-members-per-floor",
+    "coordinate_contract": {
+      "coordinate_transform": "identity",
+      "dimension": "3d",
+      "dof_order": [
+        "ux",
+        "uy",
+        "uz",
+        "rx",
+        "ry",
+        "rz"
+      ],
+      "plane": null,
+      "semantics": "global-z-up",
+      "source_length_unit": "m",
+      "target_length_unit": "mm",
+      "version": 1
+    },
+    "elements": {
+      "C0": {
+        "floor": "S1",
+        "floor_index": 1,
+        "floor_source": "exact-global-elevation",
+        "geometry_role": "diagonal_3d",
+        "material": {
+          "category": "steel",
+          "fy": null,
+          "grade": "Q355",
+          "id": "M",
+          "name": "Q355"
+        },
+        "material_id": "M",
+        "native_concrete_grade": null,
+        "native_endpoint_order": [
+          "N0_0",
+          "N1_0"
+        ],
+        "native_geometry_route": "ordinary-inclined-column",
+        "nodes": [
+          "N0_0",
+          "N1_0"
+        ],
+        "required_native_classification": {
+          "brace_kind": 2,
+          "is_truss": 0,
+          "releases": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "section": {
+          "id": "C",
+          "name": null,
+          "properties": {
+            "A": 0.18,
+            "Iy": 0.0053999999999999986,
+            "Iz": 0.0013499999999999996,
+            "J": 0.0037078593749999985
+          },
+          "purpose": null,
+          "shape": {
+            "B": 300,
+            "H": 600,
+            "kind": "rectangular"
+          },
+          "standard_steel_name": null,
+          "type": "rectangular"
+        },
+        "section_id": "C",
+        "type": "column",
+        "v2_id": "C0",
+        "yjk_model_id": 1009,
+        "yjk_model_id_source": "individual-native-member",
+        "yjk_section_id": 1001
+      },
+      "C1": {
+        "floor": "S1",
+        "floor_index": 1,
+        "floor_source": "exact-global-elevation",
+        "geometry_role": "vertical",
+        "material": {
+          "category": "steel",
+          "fy": null,
+          "grade": "Q355",
+          "id": "M",
+          "name": "Q355"
+        },
+        "material_id": "M",
+        "native_concrete_grade": null,
+        "native_endpoint_order": [
+          "N0_1",
+          "N1_1"
+        ],
+        "native_geometry_route": "column",
+        "nodes": [
+          "N0_1",
+          "N1_1"
+        ],
+        "required_native_classification": null,
+        "section": {
+          "id": "C",
+          "name": null,
+          "properties": {
+            "A": 0.18,
+            "Iy": 0.0053999999999999986,
+            "Iz": 0.0013499999999999996,
+            "J": 0.0037078593749999985
+          },
+          "purpose": null,
+          "shape": {
+            "B": 300,
+            "H": 600,
+            "kind": "rectangular"
+          },
+          "standard_steel_name": null,
+          "type": "rectangular"
+        },
+        "section_id": "C",
+        "type": "column",
+        "v2_id": "C1",
+        "yjk_model_id": 1010,
+        "yjk_model_id_source": "individual-native-member",
+        "yjk_section_id": 1001
+      },
+      "C2": {
+        "floor": "S1",
+        "floor_index": 1,
+        "floor_source": "exact-global-elevation",
+        "geometry_role": "vertical",
+        "material": {
+          "category": "steel",
+          "fy": null,
+          "grade": "Q355",
+          "id": "M",
+          "name": "Q355"
+        },
+        "material_id": "M",
+        "native_concrete_grade": null,
+        "native_endpoint_order": [
+          "N0_2",
+          "N1_2"
+        ],
+        "native_geometry_route": "column",
+        "nodes": [
+          "N0_2",
+          "N1_2"
+        ],
+        "required_native_classification": null,
+        "section": {
+          "id": "C",
+          "name": null,
+          "properties": {
+            "A": 0.18,
+            "Iy": 0.0053999999999999986,
+            "Iz": 0.0013499999999999996,
+            "J": 0.0037078593749999985
+          },
+          "purpose": null,
+          "shape": {
+            "B": 300,
+            "H": 600,
+            "kind": "rectangular"
+          },
+          "standard_steel_name": null,
+          "type": "rectangular"
+        },
+        "section_id": "C",
+        "type": "column",
+        "v2_id": "C2",
+        "yjk_model_id": 1011,
+        "yjk_model_id_source": "individual-native-member",
+        "yjk_section_id": 1001
+      },
+      "C3": {
+        "floor": "S1",
+        "floor_index": 1,
+        "floor_source": "exact-global-elevation",
+        "geometry_role": "vertical",
+        "material": {
+          "category": "steel",
+          "fy": null,
+          "grade": "Q355",
+          "id": "M",
+          "name": "Q355"
+        },
+        "material_id": "M",
+        "native_concrete_grade": null,
+        "native_endpoint_order": [
+          "N0_3",
+          "N1_3"
+        ],
+        "native_geometry_route": "column",
+        "nodes": [
+          "N0_3",
+          "N1_3"
+        ],
+        "required_native_classification": null,
+        "section": {
+          "id": "C",
+          "name": null,
+          "properties": {
+            "A": 0.18,
+            "Iy": 0.0053999999999999986,
+            "Iz": 0.0013499999999999996,
+            "J": 0.0037078593749999985
+          },
+          "purpose": null,
+          "shape": {
+            "B": 300,
+            "H": 600,
+            "kind": "rectangular"
+          },
+          "standard_steel_name": null,
+          "type": "rectangular"
+        },
+        "section_id": "C",
+        "type": "column",
+        "v2_id": "C3",
+        "yjk_model_id": 1012,
+        "yjk_model_id_source": "individual-native-member",
+        "yjk_section_id": 1001
+      }
+    },
+    "engine": "yjk-static",
+    "load_cases": [
+      {
+        "loads": [
+          {
+            "components": [
+              -0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1015,
+            "nativeTargetId": 1004,
+            "shapeVal": "-0,0,0,1,0,0,0",
+            "sourceLoadId": "FX:0",
+            "targetId": "N1_0",
+            "targetKind": "node"
+          },
+          {
+            "components": [
+              -0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1017,
+            "nativeTargetId": 1005,
+            "shapeVal": "-0,0,0,1,0,0,0",
+            "sourceLoadId": "FX:1",
+            "targetId": "N1_1",
+            "targetKind": "node"
+          },
+          {
+            "components": [
+              -0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1019,
+            "nativeTargetId": 1006,
+            "shapeVal": "-0,0,0,1,0,0,0",
+            "sourceLoadId": "FX:2",
+            "targetId": "N1_2",
+            "targetKind": "node"
+          },
+          {
+            "components": [
+              -0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1021,
+            "nativeTargetId": 1007,
+            "shapeVal": "-0,0,0,1,0,0,0",
+            "sourceLoadId": "FX:3",
+            "targetId": "N1_3",
+            "targetKind": "node"
+          }
+        ],
+        "nativeCategory": 0,
+        "nativeDefinitionId": 1014,
+        "nativeKind": 10001,
+        "nativeName": "SC001_FX",
+        "sourceCaseId": "FX"
+      },
+      {
+        "loads": [
+          {
+            "components": [
+              -0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1024,
+            "nativeTargetId": 1004,
+            "shapeVal": "-0,0,0,0,1,0,0",
+            "sourceLoadId": "FY:0",
+            "targetId": "N1_0",
+            "targetKind": "node"
+          },
+          {
+            "components": [
+              -0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1026,
+            "nativeTargetId": 1005,
+            "shapeVal": "-0,0,0,0,1,0,0",
+            "sourceLoadId": "FY:1",
+            "targetId": "N1_1",
+            "targetKind": "node"
+          },
+          {
+            "components": [
+              -0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1028,
+            "nativeTargetId": 1006,
+            "shapeVal": "-0,0,0,0,1,0,0",
+            "sourceLoadId": "FY:2",
+            "targetId": "N1_2",
+            "targetKind": "node"
+          },
+          {
+            "components": [
+              -0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1030,
+            "nativeTargetId": 1007,
+            "shapeVal": "-0,0,0,0,1,0,0",
+            "sourceLoadId": "FY:3",
+            "targetId": "N1_3",
+            "targetKind": "node"
+          }
+        ],
+        "nativeCategory": 0,
+        "nativeDefinitionId": 1023,
+        "nativeKind": 10003,
+        "nativeName": "SC002_FY",
+        "sourceCaseId": "FY"
+      },
+      {
+        "loads": [
+          {
+            "components": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1033,
+            "nativeTargetId": 1004,
+            "shapeVal": "1,0,0,0,0,0,0",
+            "sourceLoadId": "FZ:0",
+            "targetId": "N1_0",
+            "targetKind": "node"
+          },
+          {
+            "components": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1035,
+            "nativeTargetId": 1005,
+            "shapeVal": "1,0,0,0,0,0,0",
+            "sourceLoadId": "FZ:1",
+            "targetId": "N1_1",
+            "targetKind": "node"
+          },
+          {
+            "components": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1037,
+            "nativeTargetId": 1006,
+            "shapeVal": "1,0,0,0,0,0,0",
+            "sourceLoadId": "FZ:2",
+            "targetId": "N1_2",
+            "targetKind": "node"
+          },
+          {
+            "components": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1039,
+            "nativeTargetId": 1007,
+            "shapeVal": "1,0,0,0,0,0,0",
+            "sourceLoadId": "FZ:3",
+            "targetId": "N1_3",
+            "targetKind": "node"
+          }
+        ],
+        "nativeCategory": 0,
+        "nativeDefinitionId": 1032,
+        "nativeKind": 10005,
+        "nativeName": "SC003_FZ",
+        "sourceCaseId": "FZ"
+      },
+      {
+        "loads": [
+          {
+            "components": [
+              -0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1042,
+            "nativeTargetId": 1004,
+            "shapeVal": "-0,1,0,0,0,0,0",
+            "sourceLoadId": "MX:0",
+            "targetId": "N1_0",
+            "targetKind": "node"
+          },
+          {
+            "components": [
+              -0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1044,
+            "nativeTargetId": 1005,
+            "shapeVal": "-0,1,0,0,0,0,0",
+            "sourceLoadId": "MX:1",
+            "targetId": "N1_1",
+            "targetKind": "node"
+          },
+          {
+            "components": [
+              -0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1046,
+            "nativeTargetId": 1006,
+            "shapeVal": "-0,1,0,0,0,0,0",
+            "sourceLoadId": "MX:2",
+            "targetId": "N1_2",
+            "targetKind": "node"
+          },
+          {
+            "components": [
+              -0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1048,
+            "nativeTargetId": 1007,
+            "shapeVal": "-0,1,0,0,0,0,0",
+            "sourceLoadId": "MX:3",
+            "targetId": "N1_3",
+            "targetKind": "node"
+          }
+        ],
+        "nativeCategory": 0,
+        "nativeDefinitionId": 1041,
+        "nativeKind": 10007,
+        "nativeName": "SC004_MX",
+        "sourceCaseId": "MX"
+      },
+      {
+        "loads": [
+          {
+            "components": [
+              -0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1051,
+            "nativeTargetId": 1004,
+            "shapeVal": "-0,0,1,0,0,0,0",
+            "sourceLoadId": "MY:0",
+            "targetId": "N1_0",
+            "targetKind": "node"
+          },
+          {
+            "components": [
+              -0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1053,
+            "nativeTargetId": 1005,
+            "shapeVal": "-0,0,1,0,0,0,0",
+            "sourceLoadId": "MY:1",
+            "targetId": "N1_1",
+            "targetKind": "node"
+          },
+          {
+            "components": [
+              -0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1055,
+            "nativeTargetId": 1006,
+            "shapeVal": "-0,0,1,0,0,0,0",
+            "sourceLoadId": "MY:2",
+            "targetId": "N1_2",
+            "targetKind": "node"
+          },
+          {
+            "components": [
+              -0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1057,
+            "nativeTargetId": 1007,
+            "shapeVal": "-0,0,1,0,0,0,0",
+            "sourceLoadId": "MY:3",
+            "targetId": "N1_3",
+            "targetKind": "node"
+          }
+        ],
+        "nativeCategory": 0,
+        "nativeDefinitionId": 1050,
+        "nativeKind": 10009,
+        "nativeName": "SC005_MY",
+        "sourceCaseId": "MY"
+      },
+      {
+        "loads": [
+          {
+            "components": [
+              -0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1060,
+            "nativeTargetId": 1004,
+            "shapeVal": "-0,0,0,0,0,1,0",
+            "sourceLoadId": "MZ:0",
+            "targetId": "N1_0",
+            "targetKind": "node"
+          },
+          {
+            "components": [
+              -0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1062,
+            "nativeTargetId": 1005,
+            "shapeVal": "-0,0,0,0,0,1,0",
+            "sourceLoadId": "MZ:1",
+            "targetId": "N1_1",
+            "targetKind": "node"
+          },
+          {
+            "components": [
+              -0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1064,
+            "nativeTargetId": 1006,
+            "shapeVal": "-0,0,0,0,0,1,0",
+            "sourceLoadId": "MZ:2",
+            "targetId": "N1_2",
+            "targetKind": "node"
+          },
+          {
+            "components": [
+              -0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ],
+            "elementKind": -1,
+            "nativeLoadDefinitionId": 1066,
+            "nativeTargetId": 1007,
+            "shapeVal": "-0,0,0,0,0,1,0",
+            "sourceLoadId": "MZ:3",
+            "targetId": "N1_3",
+            "targetKind": "node"
+          }
+        ],
+        "nativeCategory": 0,
+        "nativeDefinitionId": 1059,
+        "nativeKind": 10011,
+        "nativeName": "SC006_MZ",
+        "sourceCaseId": "MZ"
+      }
+    ],
+    "nodes": {
+      "N0_0": {
+        "floor": null,
+        "floor_index": 0,
+        "floor_source": "exact-global-elevation",
+        "plan_key": "0,0",
+        "v2_id": "N0_0",
+        "x_m": 0.0,
+        "x_mm": 0,
+        "y_m": 0.0,
+        "y_mm": 0,
+        "yjk_std_floor_node_id": null,
+        "yjk_std_floor_node_id_source": null,
+        "z_m": 0.0,
+        "z_mm": 0
+      },
+      "N0_1": {
+        "floor": null,
+        "floor_index": 0,
+        "floor_source": "exact-global-elevation",
+        "plan_key": "4000,0",
+        "v2_id": "N0_1",
+        "x_m": 4.0,
+        "x_mm": 4000,
+        "y_m": 0.0,
+        "y_mm": 0,
+        "yjk_std_floor_node_id": null,
+        "yjk_std_floor_node_id_source": null,
+        "z_m": 0.0,
+        "z_mm": 0
+      },
+      "N0_2": {
+        "floor": null,
+        "floor_index": 0,
+        "floor_source": "exact-global-elevation",
+        "plan_key": "4000,4000",
+        "v2_id": "N0_2",
+        "x_m": 4.0,
+        "x_mm": 4000,
+        "y_m": 4.0,
+        "y_mm": 4000,
+        "yjk_std_floor_node_id": null,
+        "yjk_std_floor_node_id_source": null,
+        "z_m": 0.0,
+        "z_mm": 0
+      },
+      "N0_3": {
+        "floor": null,
+        "floor_index": 0,
+        "floor_source": "exact-global-elevation",
+        "plan_key": "0,4000",
+        "v2_id": "N0_3",
+        "x_m": 0.0,
+        "x_mm": 0,
+        "y_m": 4.0,
+        "y_mm": 4000,
+        "yjk_std_floor_node_id": null,
+        "yjk_std_floor_node_id_source": null,
+        "z_m": 0.0,
+        "z_mm": 0
+      },
+      "N1_0": {
+        "floor": "S1",
+        "floor_index": 1,
+        "floor_source": "exact-global-elevation",
+        "plan_key": "300,0",
+        "v2_id": "N1_0",
+        "x_m": 0.3,
+        "x_mm": 300,
+        "y_m": 0.0,
+        "y_mm": 0,
+        "yjk_std_floor_node_id": 1004,
+        "yjk_std_floor_node_id_source": "Joint_Generate",
+        "z_m": 3.0,
+        "z_mm": 3000
+      },
+      "N1_1": {
+        "floor": "S1",
+        "floor_index": 1,
+        "floor_source": "exact-global-elevation",
+        "plan_key": "4000,0",
+        "v2_id": "N1_1",
+        "x_m": 4.0,
+        "x_mm": 4000,
+        "y_m": 0.0,
+        "y_mm": 0,
+        "yjk_std_floor_node_id": 1005,
+        "yjk_std_floor_node_id_source": "Joint_Generate",
+        "z_m": 3.0,
+        "z_mm": 3000
+      },
+      "N1_2": {
+        "floor": "S1",
+        "floor_index": 1,
+        "floor_source": "exact-global-elevation",
+        "plan_key": "4000,4000",
+        "v2_id": "N1_2",
+        "x_m": 4.0,
+        "x_mm": 4000,
+        "y_m": 4.0,
+        "y_mm": 4000,
+        "yjk_std_floor_node_id": 1006,
+        "yjk_std_floor_node_id_source": "Joint_Generate",
+        "z_m": 3.0,
+        "z_mm": 3000
+      },
+      "N1_3": {
+        "floor": "S1",
+        "floor_index": 1,
+        "floor_source": "exact-global-elevation",
+        "plan_key": "0,4000",
+        "v2_id": "N1_3",
+        "x_m": 0.0,
+        "x_mm": 0,
+        "y_m": 4.0,
+        "y_mm": 4000,
+        "yjk_std_floor_node_id": 1007,
+        "yjk_std_floor_node_id_source": "Joint_Generate",
+        "z_m": 3.0,
+        "z_mm": 3000
+      }
+    },
+    "schema_version": "2.0.0",
+    "sections": {
+      "C": {
+        "id": "C",
+        "name": "",
+        "role": "column",
+        "shape_val": "300,600",
+        "type": "rectangular",
+        "yjk_kind": 1,
+        "yjk_mat_type": 5,
+        "yjk_section_id": 1001
+      }
+    },
+    "source": {
+      "element_count": 4,
+      "node_count": 8,
+      "schema_version": "2.2.0",
+      "story_count": 1
+    },
+    "standard_floors": [
+      {
+        "floor_index": 1,
+        "native_floor_id": 1003,
+        "story": "S1"
+      }
+    ],
+    "stories": [
+      {
+        "elevation_m": 0.0,
+        "elevation_mm": 0,
+        "height_m": 3.0,
+        "height_mm": 3000,
+        "id": "S1",
+        "index": 1,
+        "top_elevation_m": 3.0,
+        "top_elevation_mm": 3000
+      }
+    ],
+    "warnings": [],
+    "ydb_path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-181051-576fe2\\sc_work_83e0cf4f690e\\six_effect_calibration.ydb"
+  },
+  "memberId": "C0",
+  "nativeMember": {
+    "id": 1000004,
+    "tot_id": 1000004,
+    "floor": 1,
+    "node_i": 1000001,
+    "node_j": 4,
+    "original_no": 1,
+    "original_floor": 1,
+    "sequence": 1,
+    "native_geometry": {
+      "section_info": [
+        1,
+        300.0,
+        600.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        5,
+        0.0
+      ],
+      "angle_info": 0.0,
+      "brace_column_kind": 4,
+      "brace_kind": 2,
+      "is_truss": 0,
+      "performance_type": 2
+    }
+  },
+  "cases": {
+    "FX": {
+      "nativeRows": [
+        [
+          -8.881784197001252e-16,
+          0.0,
+          0.0,
+          -0.9950371980667114,
+          0.09950371831655502,
+          0.0
+        ],
+        [
+          3.0,
+          0.0,
+          0.0,
+          -0.9950371980667114,
+          0.09950371831655502,
+          0.0
+        ]
+      ],
+      "referenceLocalEndActions": [
+        -0.09950371902099597,
+        0.0,
+        -0.995037190209989,
+        0.0,
+        3.0000000000000013,
+        0.0,
+        0.09950371902099597,
+        0.0,
+        0.995037190209989,
+        0.0,
+        -5.689893001203927e-16,
+        0.0
+      ]
+    },
+    "FY": {
+      "nativeRows": [
+        [
+          -0.0,
+          -8.881784197001252e-16,
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          -0.0,
+          3.014962673187256,
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      "referenceLocalEndActions": [
+        0.0,
+        1.0,
+        0.0,
+        2.498001805406602e-16,
+        0.0,
+        3.0149626863362706,
+        0.0,
+        -1.0,
+        0.0,
+        -2.498001805406602e-16,
+        0.0,
+        8.881784197001252e-16
+      ]
+    },
+    "FZ": {
+      "nativeRows": [
+        [
+          -1.1102230246251565e-16,
+          0.0,
+          0.0,
+          -0.09950371831655502,
+          -0.9950371980667114,
+          0.0
+        ],
+        [
+          0.30000001192092896,
+          0.0,
+          0.0,
+          -0.09950371831655502,
+          -0.9950371980667114,
+          0.0
+        ]
+      ],
+      "referenceLocalEndActions": [
+        0.995037190209989,
+        0.0,
+        -0.09950371902099897,
+        0.0,
+        0.30000000000000027,
+        0.0,
+        -0.995037190209989,
+        0.0,
+        0.09950371902099897,
+        0.0,
+        -3.122502256758253e-17,
+        0.0
+      ]
+    },
+    "MX": {
+      "nativeRows": [
+        [
+          -0.0,
+          -0.9950371980667114,
+          0.0,
+          0.0,
+          0.0,
+          0.09950371831655502
+        ],
+        [
+          -0.0,
+          -0.9950371980667114,
+          0.0,
+          0.0,
+          0.0,
+          0.09950371831655502
+        ]
+      ],
+      "referenceLocalEndActions": [
+        0.0,
+        -2.220446049250313e-16,
+        0.0,
+        -0.09950371902099905,
+        0.0,
+        -0.995037190209991,
+        0.0,
+        2.220446049250313e-16,
+        0.0,
+        0.09950371902099905,
+        0.0,
+        0.9950371902099886
+      ]
+    },
+    "MY": {
+      "nativeRows": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          -5.891803950610079e-16,
+          -1.3021712783848217e-15,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0,
+          -5.891803950610079e-16,
+          -1.3021712783848217e-15,
+          0.0
+        ]
+      ],
+      "referenceLocalEndActions": [
+        1.7763568394002505e-15,
+        0.0,
+        9.020562075079397e-17,
+        0.0,
+        1.0000000000000007,
+        0.0,
+        -1.7763568394002505e-15,
+        0.0,
+        -9.020562075079397e-17,
+        0.0,
+        -1.0000000000000002,
+        0.0
+      ]
+    },
+    "MZ": {
+      "nativeRows": [
+        [
+          -0.0,
+          0.09950371831655502,
+          0.0,
+          0.0,
+          0.0,
+          0.9950371980667114
+        ],
+        [
+          -0.0,
+          0.09950371831655502,
+          0.0,
+          0.0,
+          0.0,
+          0.9950371980667114
+        ]
+      ],
+      "referenceLocalEndActions": [
+        0.0,
+        1.5612511283791264e-17,
+        0.0,
+        -0.9950371902099893,
+        0.0,
+        0.09950371902099905,
+        0.0,
+        -1.5612511283791264e-17,
+        0.0,
+        0.9950371902099893,
+        0.0,
+        -0.09950371902099897
+      ]
+    }
+  }
+}

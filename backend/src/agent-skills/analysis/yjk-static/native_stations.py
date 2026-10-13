@@ -39,7 +39,13 @@ def canonical_axes(start, end, rotation_angle=0.0, reference_vector=None):
     return build_element_local_axes(start, end, reference_vector, rotation_angle).tolist()
 
 
-def executed_section_axes(frame: dict, points: list) -> list:
+def is_native_ordinary_column(native_member: dict | None) -> bool:
+    evidence = (native_member or {}).get("native_geometry") or {}
+    return (type(evidence.get("brace_kind")) is int and evidence["brace_kind"] == 2
+            and type(evidence.get("is_truss")) is int and evidence["is_truss"] == 0)
+
+
+def executed_section_axes(frame: dict, points: list, native_member=None) -> list:
     """Read the section axes from executed geometry, including its rotation.
 
     P[1] is bending about the section width axis; P[2] about its height
@@ -60,6 +66,10 @@ def executed_section_axes(frame: dict, points: list) -> list:
     elif frame.get("kind") == "COLUMN":
         if abs(native_x[2] + 1) > 1e-9:
             raise StationConventionUnavailable("Inclined column station axes await native calibration")
+        native_a = unit(cross(native_x, native_y))
+    elif frame.get("kind") == "BRACE" and is_native_ordinary_column(native_member):
+        if native_x[2] >= 0 or math.degrees(math.acos(-native_x[2])) >= 20:
+            raise StationConventionUnavailable("Native inclined column is outside calibrated orientation")
         native_a = unit(cross(native_x, native_y))
     else:
         raise StationConventionUnavailable("Native member kind has no calibrated station layout")
@@ -82,6 +92,10 @@ def member_geometry(fe: dict, native_member: dict, element: dict,
         raise StationConventionUnavailable("Native endpoints do not match the physical member")
     for field, size in (("E", 6), ("RZL", 2), ("R", 6)):
         values = frame.get(field)
+        # YJK's executed inclined-column record omits rigid-zone lengths.
+        # This is a calibrated record variant, not a fabricated zero result.
+        if field == "RZL" and values is None and frame.get("kind") == "BRACE" and is_native_ordinary_column(native_member):
+            continue
         if not isinstance(values, list) or len(values) != size or any(value != 0 for value in values):
             raise StationConventionUnavailable("Native offsets/releases require separate station calibration")
     points = []
@@ -94,7 +108,7 @@ def member_geometry(fe: dict, native_member: dict, element: dict,
             raise StationConventionUnavailable("Executed FE node coordinates differ from the physical member")
         points.append(point)
     length = math.dist(*points)
-    native_axes = executed_section_axes(frame, points)
+    native_axes = executed_section_axes(frame, points, native_member)
     station_count = 9 if frame["kind"] == "BEAM" else 2
     same_order = endpoint_ids == physical_ids
     start, end = points if same_order else points[::-1]

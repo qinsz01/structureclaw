@@ -38,6 +38,7 @@ Unit conventions:
 from __future__ import annotations
 
 import os
+import copy
 import json
 import math
 import re
@@ -527,6 +528,11 @@ def convert_v2_to_ydb(
     data: dict[str, Any], work_dir: str, ydb_filename: str = "model.ydb",
 ) -> str:
     """Compile the supplied topology, one independent native floor at a time."""
+    stiffness_plan = None
+    if any(material.get("E") is not None for material in data.get("materials", [])):
+        from native_materials import compile_stiffness_plan, normalize_material
+        stiffness_plan = compile_stiffness_plan(data)
+        data = {**copy.deepcopy(data), "materials": [normalize_material(m) for m in data["materials"]]}
     _require_canonical_3d_coordinate_contract(data)
     validate_building_model(data)
     os.makedirs(work_dir, exist_ok=True)
@@ -535,6 +541,13 @@ def convert_v2_to_ydb(
     data_func = DataFunc()
     section_roles = _infer_section_roles(data)
     native_sections: dict[str, Any] = {}
+    inclined_sections: dict[str, Any] = {}
+    node_map = {str(node["id"]): node for node in data["nodes"]}
+    inclined_ids = {str(element["id"]) for element in data["elements"]
+        if element["type"] == "column" and any(node_map[str(element["nodes"][0])][key] !=
+            node_map[str(element["nodes"][1])][key] for key in ("x", "y"))}
+    inclined_section_ids = {str(element["section"]) for element in data["elements"]
+                            if str(element["id"]) in inclined_ids}
     section_defs: dict[str, dict[str, Any]] = {}
     for section in data["sections"]:
         section_id = str(section["id"])
@@ -549,6 +562,8 @@ def convert_v2_to_ydb(
         define = data_func.ColSect_Def if role == "column" else data_func.BeamSect_Def
         native_section = define(material_type, kind, shape, name)
         native_sections[section_id] = native_section
+        if section_id in inclined_section_ids:
+            inclined_sections[section_id] = data_func.BraceSect_Def(material_type, kind, shape, name)
         section_defs[section_id] = {
             "id": section_id, "role": role, "type": section.get("type"),
             "yjk_mat_type": material_type, "yjk_kind": kind, "shape_val": shape, "name": name,
@@ -560,6 +575,8 @@ def convert_v2_to_ydb(
     grades = {key: _concrete_grade(material) for key, material in materials.items()}
     node_mappings: dict[str, dict[str, Any]] = {}
     element_mappings: dict[str, dict[str, Any]] = {}
+    all_native_nodes: dict[str, Any] = {}
+    all_native_members: dict[str, Any] = {}
     floor_mappings: list[dict[str, Any]] = []
     for node_id, node in nodes.items():
         level = float(node["z"])
@@ -577,20 +594,30 @@ def convert_v2_to_ydb(
         }
     for story, info in zip(stories, story_infos):
         dead, live = _get_floor_loads(story)
+        # Story-derived nodal forces are already the declared load distribution.
+        # Do not add the same area load again through the native floor defaults.
+        if any(load.get("source") == "story_floor_loads" and str(load.get("story")) == str(story["id"])
+               for case in data.get("load_cases", []) for load in case.get("loads", [])):
+            dead = live = 0.0
         native_floor = data_func.StdFlr_Generate(info["height_mm"], dead, live)
         # Initialize the SDK's complete floor defaults, then write every RC
         # member's grade explicitly below. Zero-filled Para is not a C30 floor.
         floor_parameters = BzcPara()
+        if (data.get("analysis_control") or {}).get("rigid_floor") is False:
+            floor_parameters.setVal(1, 0)  # No authored floor plate in the rod model.
         native_floor.Para = floor_parameters.GetValString()
         floor_id = _extract_yjk_id(native_floor)
         if floor_id is None:
             raise RuntimeError("YJK StdFlr_Generate did not return an identifiable floor")
         native_nodes: dict[str, Any] = {}
+        plan_nodes: dict[tuple[int, int], Any] = {}
         for node_id, entry in node_mappings.items():
             if entry["floor_index"] != info["index"]:
                 continue
             native_node = data_func.Joint_Generate(floor_id, entry["x_mm"], entry["y_mm"])
             native_nodes[node_id] = native_node
+            plan_nodes[(entry["x_mm"], entry["y_mm"])] = native_node
+            all_native_nodes[node_id] = native_node
             entry["yjk_std_floor_node_id"] = _extract_yjk_id(native_node)
             entry["yjk_std_floor_node_id_source"] = "Joint_Generate"
         for element in data["elements"]:
@@ -602,22 +629,46 @@ def convert_v2_to_ydb(
             section_id = str(element["section"])
             if section_id not in native_sections:
                 raise ValueError(f"YJK element '{element_id}' has no registered section")
-            if element["type"] == "column":
-                native_member = data_func.column_arrange(native_nodes[node_ids[1]], native_sections[section_id])
+            rotation = (float(stiffness_plan["members"][element_id]["nativeRotationDegrees"])
+                        if stiffness_plan is not None else 0.0)
+            if element_id in inclined_ids:
+                # YJK's documented ordinary inclined-column route uses a
+                # two-endpoint rod. Keep the physical type column; acceptance
+                # requires native COL classification and six rigid DOFs.
+                lower = node_mappings[node_ids[0]]
+                lower_key = (lower["x_mm"], lower["y_mm"])
+                if lower_key not in plan_nodes:
+                    plan_nodes[lower_key] = data_func.Joint_Generate(floor_id, *lower_key)
+                native_member = data_func.brace_arrange(plan_nodes[lower_key], native_nodes[node_ids[1]],
+                    inclined_sections[section_id], HDiff1=0, HDiff2=info["height_mm"], Rotation=rotation)
+            elif element["type"] == "column":
+                native_member = data_func.column_arrange(native_nodes[node_ids[1]], native_sections[section_id], Rotation=rotation)
             else:
                 start = _extract_yjk_id(native_nodes[node_ids[0]])
                 end = _extract_yjk_id(native_nodes[node_ids[1]])
                 axis = data_func.Axis_Generate(floor_id, start, end)
                 grid = data_func.Grid_Generate(floor_id, start, end, _extract_yjk_id(axis))
-                native_member = data_func.beam_arrange(grid, native_sections[section_id])
+                native_member = data_func.beam_arrange(grid, native_sections[section_id], Rotation=rotation)
+                if (data.get("analysis_control") or {}).get("rigid_floor") is False:
+                    native_member.NoSlab = 1
             member_id = _extract_yjk_id(native_member)
             if member_id is None:
                 raise RuntimeError(f"YJK member '{element_id}' did not return an identifiable native object")
+            all_native_members[element_id] = native_member
+            if element_id in inclined_ids:
+                from YJKAPI import Property
+                fixed_ends = Property("SpBrac")
+                fixed_ends.setVal(0, 0)
+                fixed_ends.setVal(1, 0)
+                data_func.property_arrange(member_id, "SpBrac", 27, fixed_ends.GetValString())
             grade = grades[str(element["material"])]
             if grade is not None:
                 # Public SDK encoding, also used by the audited YJK Flow API:
                 # HNTDJ is a scalar grade property (type 5), not elastic E.
                 data_func.property_arrange(member_id, "HNTDJ", 5, str(grade))
+            if stiffness_plan is not None:
+                from native_materials import assign_member_stiffness
+                assign_member_stiffness(data_func, member_id, stiffness_plan["members"][element_id])
             element_mappings[element_id] = {
                 "v2_id": element_id, "type": element["type"], "nodes": node_ids,
                 "floor": story["id"], "floor_index": info["index"],
@@ -629,25 +680,38 @@ def convert_v2_to_ydb(
                 "yjk_section_id": section_defs[section_id]["yjk_section_id"],
                 "yjk_model_id": member_id, "yjk_model_id_source": "individual-native-member",
                 "native_endpoint_order": node_ids,
+                "native_geometry_route": "ordinary-inclined-column" if element_id in inclined_ids else element["type"],
+                "required_native_classification": {"brace_kind": 2, "is_truss": 0, "releases": [0] * 6}
+                    if element_id in inclined_ids else None,
                 "native_concrete_grade": grade,
             }
         data_func.Floors_Assemb(info["elevation_mm"], native_floor, 1, info["height_mm"])
         floor_mappings.append({"story": story["id"], "floor_index": info["index"], "native_floor_id": floor_id})
     if len(element_mappings) != len(data["elements"]):
         raise RuntimeError("YJK native compilation did not map every input member")
+    from native_loads import arrange_native_loads
+    load_case_mapping = (arrange_native_loads(data_func, data, all_native_nodes, all_native_members)
+                         if data.get("load_cases") else [])
     data_func.DbModel_Assign()
     reader = Hi_AddToAndReadYjk(data_func.GetDbModelData())
     if not reader.CreateYDB(work_dir, ydb_filename):
         raise RuntimeError("YJK SDK CreateYDB failed / YJK 原生模型文件生成失败")
     ydb_path = os.path.join(work_dir, ydb_filename)
+    if stiffness_plan is not None:
+        from native_materials import repair_exchange_precision
+        repair_exchange_precision(ydb_path, work_dir, element_mappings, stiffness_plan)
     mapping = {
         "schema_version": "2.0.0", "engine": "yjk-static", "ydb_path": ydb_path,
         "coordinate_contract": {**data["coordinate_system"], "coordinate_transform": "identity", "source_length_unit": "m", "target_length_unit": "mm"},
         "source": {"schema_version": data.get("schema_version"), "node_count": len(nodes), "element_count": len(element_mappings), "story_count": len(stories)},
         "stories": story_infos, "standard_floors": floor_mappings,
         "nodes": node_mappings, "elements": element_mappings, "sections": section_defs,
+        "load_cases": load_case_mapping,
         "compiler": "individual-members-per-floor", "warnings": [],
     }
     with open(os.path.join(work_dir, "mapping.json"), "w", encoding="utf-8") as stream:
         json.dump(mapping, stream, ensure_ascii=False, indent=2, sort_keys=True)
+    if stiffness_plan is not None:
+        with open(os.path.join(work_dir, "native-stiffness-plan.json"), "w", encoding="utf-8") as stream:
+            json.dump(stiffness_plan, stream, ensure_ascii=False, indent=2, sort_keys=True)
     return ydb_path

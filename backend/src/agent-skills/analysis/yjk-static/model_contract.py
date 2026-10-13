@@ -4,17 +4,14 @@ import math
 from typing import Any
 
 def validate_execution_settings(data: dict) -> None:
-    controls = data.get("analysis_control") or {}
-    unverified = [name for name in ("self_weight", "rigid_floor", "rigid_offsets", "construction_stage", "p_delta")
-                  if controls.get(name) is not None]
-    unverified.extend(f"stories.{story.get('id')}.rigid_diaphragm" for story in data.get("stories", [])
-                      if story.get("rigid_diaphragm") is not None)
-    if unverified:
-        raise ValueError("YJK native mapping/readback is not yet verified for: " + ", ".join(unverified))
+    from native_settings import compile_settings
+    compile_settings(data)
 
 def _validate_story_derived_loads(data: dict) -> None:
     from native_model_contract import validate_story_load_totals
     validate_story_load_totals(data, "YJK")
+    from native_loads import compile_load_definitions
+    compile_load_definitions(data)
 
 
 def validate_building_model(model_dict: dict) -> None:
@@ -138,9 +135,8 @@ def validate_building_model(model_dict: dict) -> None:
             end = positions[str(node_ids[1])]
         except KeyError as error:
             raise ValueError(f"Element '{element.get('id')}' references an unknown node") from error
-        is_vertical = start[0] == end[0] and start[1] == end[1] and start[2] != end[2]
-        if (element_type == "column") != is_vertical:
-            raise ValueError(f"Element '{element.get('id')}' type conflicts with its global geometry")
+        if element_type == "column" and start[2] == end[2]:
+            raise ValueError(f"Element '{element.get('id')}' column has no height")
         if element_type == "column" and start[2] >= end[2]:
             raise ValueError(
                 f"Column '{element.get('id')}' must be ordered from lower global Z to upper global Z"
@@ -149,6 +145,10 @@ def validate_building_model(model_dict: dict) -> None:
             raise ValueError(f"YJK sloping beam '{element.get('id')}' requires native elevation acceptance")
         if element_type == "column" and zs.index(end[2]) != zs.index(start[2]) + 1:
             raise ValueError(f"YJK column '{element.get('id')}' must connect adjacent declared floors")
+        if element_type == "column":
+            inclination = math.degrees(math.atan2(math.hypot(end[0]-start[0], end[1]-start[1]), end[2]-start[2]))
+            if inclination >= 20:
+                raise ValueError(f"YJK ordinary column '{element.get('id')}' exceeds the calibrated native column inclination (<20 degrees)")
         if element_type == "beam" and start[2] == 0:
             raise ValueError(f"YJK beam '{element.get('id')}' cannot be assigned below the first floor")
         explicit_story = element.get("story")
@@ -159,8 +159,11 @@ def validate_building_model(model_dict: dict) -> None:
                 raise ValueError(
                     f"Element '{element.get('id')}' story '{explicit_story}' conflicts with its global Z interval"
                 )
-        if abs(float(element.get("rotation_angle", 0.0) or 0.0)) > 1e-12:
-            raise ValueError(f"YJK floor conversion cannot preserve rotation_angle on '{element.get('id')}'")
+        rotation = float(element.get("rotation_angle", 0.0) or 0.0)
+        if not math.isfinite(rotation):
+            raise ValueError(f"YJK member '{element.get('id')}' rotation_angle must be finite")
+        if abs(rotation) > 1e-12 and not materials.get(str(element.get("material")), {}).get("E"):
+            raise ValueError(f"YJK explicit rotation on '{element.get('id')}' requires an audited elastic model")
         if element.get("offsets"):
             raise ValueError(f"YJK floor conversion cannot preserve end offsets on '{element.get('id')}'")
         if element.get("releases"):

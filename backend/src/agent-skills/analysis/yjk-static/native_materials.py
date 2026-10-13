@@ -22,7 +22,7 @@ _skill_dir = str(Path(__file__).resolve().parent)
 if _skill_dir not in sys.path:
     sys.path.insert(0, _skill_dir)
 from native_stations import (canonical_axes, cross, dot, executed_section_axes,
-                             get_reference_vector, StationConventionUnavailable)
+                             get_reference_vector, is_native_ordinary_column, StationConventionUnavailable)
 
 
 def normalize_material(material: dict) -> dict:
@@ -112,7 +112,15 @@ def compile_orientation(model: dict, element: dict, nodes: dict) -> dict:
         up = [0., 0., 1.]
         angle = math.degrees(math.atan2(dot(native_x, cross(up, axes[2])), dot(up, axes[2])))
     else:
-        raise ValueError(f"YJK inclined section orientation requires native calibration: {element['id']}")
+        if element.get("type") != "column":
+            raise ValueError(f"YJK inclined section orientation requires native calibration: {element['id']}")
+        # Native inclined-column (two-node rod) axis points from its first to
+        # second endpoint. Its unrotated section height is projected global Z.
+        up = [0., 0., 1.]
+        projected = [up[i] - dot(up, axes[0]) * axes[0][i] for i in range(3)]
+        length = math.sqrt(dot(projected, projected))
+        projected = [value / length for value in projected]
+        angle = math.degrees(math.atan2(dot(axes[0], cross(projected, axes[2])), dot(projected, axes[2])))
     # Solid rectangular principal axes are unoriented lines; adding 180 degrees
     # changes no geometry, inertia or load direction. Forces still use FE DIR.
     angle %= 180
@@ -237,7 +245,20 @@ def _rounding_match(expected: float, token: str) -> bool:
     return abs(authored - actual) <= tolerance
 
 
-def audit_frames(model: dict, fe: dict, stiffness_plan: dict | None = None) -> dict:
+def audit_inclined_column_identity(frame: dict, native_member: dict | None) -> dict:
+    """Native storage as a rod is acceptable only for a classified rigid column."""
+    evidence = (native_member or {}).get("native_geometry") or {}
+    kind, truss = evidence.get("brace_kind"), evidence.get("is_truss")
+    passed = (frame.get("kind") == "BRACE" and is_native_ordinary_column(native_member)
+              and frame.get("R") == [0.] * 6 and frame.get("E") == [0.] * 6)
+    return {"passed": passed, "requiredPhysicalRole": "column", "nativeStorage": frame.get("kind"),
+            "nativeColumnKind": evidence.get("brace_column_kind"), "nativeKind": kind,
+            "isTruss": truss, "endReleases": frame.get("R"),
+            "source": "YJKSDsnDataPy.dsnGetBraceKind + YJKSPrePy.IsBraceTruss + executed FE R"}
+
+
+def audit_frames(model: dict, fe: dict, stiffness_plan: dict | None = None,
+                 native_members: dict | None = None) -> dict:
     """Compare native used properties with authored fields; return all failures."""
     if fe.get("unit") != [0, 0, 0]:
         raise ValueError("YJK FE units must be the verified kN/m convention")
@@ -268,6 +289,11 @@ def audit_frames(model: dict, fe: dict, stiffness_plan: dict | None = None) -> d
         tag = matches[0]
         used.add(tag)
         frame = frames[tag]
+        column_identity = None
+        if frame.get("kind") == "BRACE":
+            column_identity = audit_inclined_column_identity(frame, (native_members or {}).get(tag))
+            if element.get("type") != "column" or not column_identity["passed"]:
+                failures.append({"member": identifier, "field": "nativeColumnIdentity", **column_identity})
         material, section = materials[str(element["material"])], sections[str(element["section"])]
         mp = fe.get("materials", {}).get(frame.get("materialId"), {}).get("P", [])
         sp = fe.get("sections", {}).get(frame.get("sectionId"), {})
@@ -298,7 +324,8 @@ def audit_frames(model: dict, fe: dict, stiffness_plan: dict | None = None) -> d
         axes_audit = None
         if entry:
             try:
-                native_axes = executed_section_axes(frame, [fe["nodes"][key] for key in frame["nodes"]])
+                native_axes = executed_section_axes(frame, [fe["nodes"][key] for key in frame["nodes"]],
+                                                     (native_members or {}).get(tag))
                 desired_axes = entry["canonicalAxes"]
                 axes_audit = {"authored": desired_axes, "native": native_axes,
                               "verified": all(abs(abs(dot(a, b)) - 1) <= 1e-9
@@ -336,6 +363,7 @@ def audit_frames(model: dict, fe: dict, stiffness_plan: dict | None = None) -> d
                                "densityUse": "load-audit-required; not inferred from zero FE material density",
                                "effectiveRigidities": actual_rigidities,
                                "sectionAxes": axes_audit,
+                               "nativeColumnIdentity": column_identity,
                                "rigidityUnits": {"EA": "MPa.m2", "EIy": "MPa.m4", "EIz": "MPa.m4",
                                                  "GJ": "MPa.m4", "GAsy": "MPa.m2", "GAsz": "MPa.m2"}}
     if set(frames) != used:
@@ -390,7 +418,10 @@ def verify_native_physics(work_dir, model: dict, *, engine_version: str) -> dict
         plan = json.loads((root / "native-stiffness-plan.json").read_text(encoding="utf-8"))
         mapping = json.loads((root / "mapping.json").read_text(encoding="utf-8"))
         receipt = json.loads((root / "native-settings-readback.json").read_text(encoding="utf-8"))
-        material_audit = audit_frames(model, fe, plan)
+        results = json.loads((root / "results.json").read_text(encoding="utf-8"))
+        native_members = {str(row.get("tot_id", row.get("id"))): row
+                          for rows in results.get("members", {}).values() for row in rows}
+        material_audit = audit_frames(model, fe, plan, native_members)
         output["materials"] = material_audit
         try:
             loads = audit_loads(model, mapping, fe)
@@ -399,7 +430,7 @@ def verify_native_physics(work_dir, model: dict, *, engine_version: str) -> dict
         output["loads"] = loads
         report_path = root / "设计结果" / "mainjss.out"
         report = report_path.read_text(encoding="gb18030")
-        effective = audit_effective_settings(model, fe, receipt, report, loads)
+        effective = audit_effective_settings(model, fe, receipt, report, loads, member_audit=material_audit)
         output["settings"] = effective
         output["passed"] = material_audit["passed"] is True and effective["passed"] is True and loads["passed"] is True
         if not output["passed"]:
