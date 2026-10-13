@@ -1,11 +1,13 @@
 import { describe, expect, test } from "@jest/globals";
-import { modelHash } from "../../../dist/engineering/model-state.js";
+import { beginAnalysisRequest } from "../../../dist/engineering/model-state.js";
 
 // Report-specific fixtures include the model/version provenance required by the common gate.
 async function invokeCurrentReport(tool, input, config) {
   const state = config.configurable.agentState;
   state.model ??= { schema_version: "2.0.0", nodes: [], elements: [], materials: [], sections: [] };
-  state.analysisResult.meta = { ...state.analysisResult.meta, modelHash: modelHash(state.model) };
+  const request = state.analysisRequest ?? beginAnalysisRequest(state, 'report-fixture-settings').analysisRequest;
+  state.analysisRequest = request;
+  state.analysisResult.meta = { ...state.analysisResult.meta, ...request };
   return tool.invoke(input, config);
 }
 

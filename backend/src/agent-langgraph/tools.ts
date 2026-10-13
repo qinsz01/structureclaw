@@ -36,7 +36,8 @@ import type {
 } from '../agent-runtime/types.js';
 import { isFreshGenericStructuralRoute } from '../agent-runtime/plugin-helpers.js';
 import { runPkpmCalcbook } from '../agent-skills/report-export/calculation-book/pkpm-calcbook/runner.js';
-import { commitModel, currentAnalysisError, invalidateAnalysis, modelHash, publishAnalysis } from '../engineering/model-state.js';
+import { beginAnalysisRequest, commitModel, currentAnalysisError, invalidateAnalysis, modelHash, publishAnalysis } from '../engineering/model-state.js';
+import { analysisSettingsHash } from '../engineering/analysis-runs.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 import { checkRunResults } from '../engineering/code-checks.js';
 // ---------------------------------------------------------------------------
@@ -3063,6 +3064,16 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
       loadCombinationIds?: string[];
       floorLoadTransferMode?: 'auto_code_cn' | 'node_tributary' | 'one_way_slab' | 'two_way_slab';
       seismicWorkflowJson?: string;
+      method?: 'modal' | 'time_history';
+      massSource?: 'nodal' | 'member-density' | 'floor-seismic';
+      numModes?: number;
+      direction?: 'x' | 'y' | 'z';
+      timeStep?: number;
+      duration?: number;
+      dampingRatio?: number;
+      groundMotion?: number[];
+      groundMotionUnit?: 'm/s2' | 'g';
+      monitorNodeIds?: string[];
     }, config: LangGraphRunnableConfig) => {
       const log = getLogger(config.configurable as Partial<AgentConfigurable> | undefined);
       const start = Date.now();
@@ -3182,11 +3193,33 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
         );
       }
       const loadCombinationId = requestedLoadCombinationId;
+      const parameters: Record<string, unknown> = {
+        ...(loadCombinationId ? { loadCombinationId } : {}),
+        ...(input.loadCaseIds ? { loadCaseIds: input.loadCaseIds } : {}),
+        ...(input.loadCombinationIds ? { loadCombinationIds: input.loadCombinationIds } : {}),
+        ...(input.floorLoadTransferMode ? { floorLoadTransferMode: input.floorLoadTransferMode } : {}),
+        ...(analysisType === 'seismic' && seismicWorkflow ? { seismicWorkflow } : {}),
+      };
+      if (input.method !== undefined) parameters.analysisType = input.method;
+      for (const key of ['massSource', 'numModes', 'direction', 'timeStep', 'duration', 'dampingRatio',
+        'groundMotion', 'groundMotionUnit', 'monitorNodeIds'] as const) {
+        if (input[key] !== undefined) parameters[key] = input[key];
+      }
+      let reservation = beginAnalysisRequest(state ?? {}, analysisSettingsHash(analysisType, requestedAnalysisSkillId, parameters));
+      const reserve = () => {
+        configurable.agentState = { ...configurable.agentState, ...reservation } as AgentState;
+        configurable.onAnalysisRequest?.(reservation);
+      };
+      reserve();
       const postToEngineWithRetry = async (
         p: string,
         payload: Record<string, unknown>,
         opts: { retries: number; traceId: string; tool: 'run_analysis'; signal?: AbortSignal },
       ) => {
+        reservation = { ...reservation, analysisRequest: { ...reservation.analysisRequest,
+          settingsHash: analysisSettingsHash(payload.type, payload.engineId, parameters) } };
+        reserve();
+        payload = { ...payload, requestBinding: reservation.analysisRequest };
         let lastError: unknown;
         for (let attempt = 0; attempt <= opts.retries; attempt++) {
           if (opts.signal?.aborted) {
@@ -3207,14 +3240,7 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
         traceId,
         analysisType,
         model,
-        parameters: {
-          traceId,
-          ...(loadCombinationId ? { loadCombinationId } : {}),
-          ...(input.loadCaseIds ? { loadCaseIds: input.loadCaseIds } : {}),
-          ...(input.loadCombinationIds ? { loadCombinationIds: input.loadCombinationIds } : {}),
-          ...(input.floorLoadTransferMode ? { floorLoadTransferMode: input.floorLoadTransferMode } : {}),
-          ...(analysisType === 'seismic' && seismicWorkflow ? { seismicWorkflow } : {}),
-        },
+        parameters,
         analysisSkillId: requestedAnalysisSkillId,
         skillIds,
         postToEngineWithRetry,
@@ -3227,8 +3253,7 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
       analysisResult.meta = {
         ...analysisMeta,
         traceId,
-        modelHash: modelHash(model),
-        modelRevision: state?.modelRevision ?? 0,
+        ...reservation.analysisRequest,
       };
 
       // Store analysis result in graph state via Command.
@@ -3250,7 +3275,7 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
         toolCallId,
         'run_analysis',
         JSON.stringify(analysisSummary),
-        publishAnalysis(getConfigurable(config).agentState ?? {}, modelHash(model), analysisResult),
+        publishAnalysis(getConfigurable(config).agentState ?? {}, reservation.analysisRequest, analysisResult),
       );
     },
     {
@@ -3276,6 +3301,16 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
           .describe('Optional single load-combination ID. Without selectors, all declared static cases and combinations are run separately.'),
         loadCaseIds: z.array(z.string()).optional().describe('Explicit load cases to solve independently.'),
         loadCombinationIds: z.array(z.string()).optional().describe('Explicit combinations to solve independently.'),
+        method: z.enum(['modal', 'time_history']).optional().describe('Dynamic analysis method / 动力方法。'),
+        massSource: z.enum(['nodal', 'member-density', 'floor-seismic']).optional().describe('Explicit mass basis; sources are never silently added / 明确质量来源，不隐式叠加。'),
+        numModes: z.number().int().positive().optional(),
+        direction: z.enum(['x', 'y', 'z']).optional(),
+        timeStep: z.number().positive().optional(),
+        duration: z.number().positive().optional(),
+        dampingRatio: z.number().min(0).lt(1).optional(),
+        groundMotion: z.array(z.number().finite()).min(2).optional().describe('Actual acceleration samples / 实际加速度序列。'),
+        groundMotionUnit: z.enum(['m/s2', 'g']).optional(),
+        monitorNodeIds: z.array(z.string().min(1)).min(1).optional().describe('Nodes recorded at every time step / 每步记录的观测节点。'),
         floorLoadTransferMode: z
           .enum(['auto_code_cn', 'node_tributary', 'one_way_slab', 'two_way_slab'])
           .optional()
@@ -3402,7 +3437,8 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
       const toolCallId = getToolCallId(config);
 
       // Read analysis, codeCheck, draftState from graph state channels
-      const analysis = state?.analysisResult;
+      const analysis: Record<string, unknown> | null = state?.analysisResult ? { ...state.analysisResult,
+        requestedQuantities: Object.values(state.resultQuantities ?? {}).filter(q => q.runId === state.analysisResult?.runId) } : null;
       if (!analysis) {
         return toolResult(toolCallId, 'generate_report', JSON.stringify({ error: 'No analysis results available. Run run_analysis first.' }));
       }

@@ -73,5 +73,35 @@ export function resultTableMarkdown(analysis: unknown, locale: 'zh' | 'en'): str
     markdown += '| --- | --- | --- | --- | --- | --- |\n';
     markdown += samples.map(({ key, component, point }) => `| ${cell(key)} | ${cell(component)} | ${cell(point.value)} | ${component.startsWith('u') ? 'm' : component.startsWith('M') || component === 'T' ? 'kN.m' : 'kN'} | ${cell(point.elementId)} | ${cell(point.position)} |`).join('\n') + '\n';
   }
+  const quantities = isRecord(analysis) && Array.isArray(analysis.requestedQuantities)
+    ? analysis.requestedQuantities.filter(isRecord).filter(item => item.runId === analysis.runId) : [];
+  if (quantities.length) {
+    markdown += locale === 'zh' ? '\n指定位置查询结果（位置沿物理构件起点量取）：\n\n'
+      : '\nRequested quantities (member positions measured from the physical start):\n\n';
+    markdown += '| ID | Selection | Location | Component | Value | Unit |\n| --- | --- | --- | --- | --- | --- |\n';
+    markdown += quantities.map(q => {
+      const location = isRecord(q.location) ? q.location : {};
+      const position = location.kind === 'member' ? `${location.id}@${location.positionM}:${location.side}` : location.id;
+      return `| ${cell(q.id)} | ${cell(q.selection)} | ${cell(position)} | ${cell(q.component)} | ${cell(q.value)} | ${cell(q.unit)} |`;
+    }).join('\n') + '\n';
+  }
   return markdown;
+}
+
+/** Unit conversion is explicit; interpolation never becomes a recovered member force. */
+export function scalarResultQuantity(values: unknown, component: string, unit: string, member: boolean) {
+  if (!isRecord(values)) throw new Error('RESULT_COMPONENT_UNAVAILABLE');
+  if (member && (values.method === 'nearest-sample' || values.state === 'interpolated')) throw new Error('EXACT_MEMBER_RESPONSE_UNAVAILABLE');
+  const source = member && isRecord(values.sample) ? values.sample : values;
+  const displacementIndex = ['ux', 'uy', 'uz'].indexOf(component);
+  const raw = member && displacementIndex >= 0 && Array.isArray(source.displacement)
+    ? source.displacement[displacementIndex] : source[component];
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) throw new Error('RESULT_COMPONENT_UNAVAILABLE');
+  const dimension = /^u[xyz]$/.test(component) ? 'length' : /^r[xyz]$/.test(component) ? 'rotation'
+    : ['T', 'M2', 'M3', 'mx', 'my', 'mz'].includes(component) ? 'moment' : 'force';
+  const units: Record<string, [string, number]> = { m: ['length', 1], mm: ['length', 1000],
+    rad: ['rotation', 1], kN: ['force', 1], N: ['force', 1000], 'kN.m': ['moment', 1], 'N.m': ['moment', 1000] };
+  const target = units[unit];
+  if (!target || target[0] !== dimension) throw new Error('RESULT_UNIT_MISMATCH');
+  return raw*target[1];
 }

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { runtimeBaseDir } from '../config/index.js';
 import { contentHash, isRecord, modelHash, type ModelRecord } from './model-state.js';
@@ -103,6 +103,10 @@ export async function executeAnalysisRun(
   const startedAt = new Date().toISOString();
   const fingerprint = modelHash(model);
   const settingsHash = analysisSettingsHash(payload.type, payload.engineId, parameters);
+  const binding = isRecord(payload.requestBinding) ? payload.requestBinding : {};
+  if (Object.keys(binding).length && (binding.modelHash !== fingerprint || binding.settingsHash !== settingsHash)) {
+    throw new Error('ANALYSIS_REQUEST_BINDING_MISMATCH');
+  }
   const results: ModelRecord = {};
   for (const selection of selections) {
     const effective = { ...parameters };
@@ -115,7 +119,7 @@ export async function executeAnalysisRun(
     } catch (error) {
       result = { success: false, error_code: isRecord(error) && typeof error.errorCode === 'string' ? error.errorCode : 'ANALYSIS_EXECUTION_FAILED', message: error instanceof Error ? error.message : String(error), data: {} };
     }
-    result.meta = { ...(isRecord(result.meta) ? result.meta : {}), runId, modelHash: fingerprint, settingsHash, effectiveParameters: effective };
+    result.meta = { ...(isRecord(result.meta) ? result.meta : {}), ...binding, runId, modelHash: fingerprint, settingsHash, effectiveParameters: effective };
     const data = enrichResultData(model, result, selection as unknown as ModelRecord);
     results[selection.key] = {
       ...result, data, selection, executionStatus: executionStatus(result),
@@ -147,4 +151,33 @@ async function saveAnalysisRun(id: string, record: ModelRecord): Promise<void> {
   const directory = path.join(runtimeBaseDir, 'runs', id);
   await mkdir(directory, { recursive: true });
   await writeFile(path.join(directory, 'run.json'), JSON.stringify(record, null, 2), { encoding: 'utf8', flag: 'wx' });
+}
+
+/** UUID lookup only; the archived request and result fingerprints must still agree. */
+export async function loadAnalysisRun(id: string, directory = path.join(runtimeBaseDir, 'runs')): Promise<ModelRecord> {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new Error('RUN_ID_INVALID');
+  let record: ModelRecord;
+  try {
+    record = JSON.parse(await readFile(path.join(directory, id, 'run.json'), 'utf8')) as ModelRecord;
+  } catch (error) {
+    if (isRecord(error) && error.code === 'ENOENT') throw new Error('RUN_NOT_FOUND');
+    throw error;
+  }
+  const request = isRecord(record.request) ? record.request : {};
+  const parameters = isRecord(request.parameters) ? request.parameters : {};
+  const model = request.model;
+  if (record.runId !== id || !isRecord(model) || record.modelHash !== modelHash(model)
+    || record.settingsHash !== analysisSettingsHash(request.type, request.engineId, parameters)
+    || !isRecord(record.results) || typeof record.selectedResultKey !== 'string') throw new Error('RUN_ARCHIVE_INVALID');
+  for (const result of Object.values(record.results)) {
+    if (!isRecord(result) || !isRecord(result.meta) || result.meta.runId !== id
+      || result.meta.modelHash !== record.modelHash || result.meta.settingsHash !== record.settingsHash) throw new Error('RUN_ARCHIVE_INVALID');
+  }
+  const selected = record.results[record.selectedResultKey];
+  if (!isRecord(selected)) throw new Error('RUN_ARCHIVE_INVALID');
+  return { ...selected, runId: id, modelSnapshot: model, results: record.results,
+    selectedResultKey: record.selectedResultKey, success: record.success,
+    executionStatus: record.executionStatus, capabilityStatus: record.capabilityStatus,
+    meta: { ...(isRecord(selected.meta) ? selected.meta : {}), startedAt: record.startedAt,
+      completedAt: record.completedAt, resultCount: Object.keys(record.results).length } };
 }

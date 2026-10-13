@@ -26,6 +26,15 @@ export interface ModelState {
   analysisResult?: ModelRecord | null;
   codeCheckResult?: ModelRecord | null;
   report?: unknown;
+  analysisRequestSequence?: number;
+  analysisRequest?: AnalysisRequestBinding | null;
+}
+
+export interface AnalysisRequestBinding {
+  modelRevision: number;
+  modelHash: string;
+  settingsHash: string;
+  requestSequence: number;
 }
 
 export function isRecord(value: unknown): value is ModelRecord {
@@ -196,8 +205,23 @@ export function invalidateAnalysis(state: ModelState | undefined) {
   const id = previous ? String(previous.runId ?? `legacy-${randomUUID()}`) : undefined;
   return {
     ...(id && previous ? { analysisRuns: { [id]: previous } } : {}),
-    analysisResult: null, codeCheckResult: null, report: null,
+    analysisResult: null, codeCheckResult: null, report: null, analysisRequest: null,
   };
+}
+
+/** Reserve before awaiting the solver; a completion may publish only this request. */
+export function beginAnalysisRequest(state: ModelState, settingsHash: string) {
+  if (!state.model || state.modelPending) throw new Error('MODEL_REBUILD_REQUIRED');
+  const requestSequence = (state.analysisRequestSequence ?? 0) + 1;
+  const analysisRequest: AnalysisRequestBinding = {
+    modelRevision: state.modelRevision ?? 0, modelHash: modelHash(state.model), settingsHash, requestSequence,
+  };
+  return { ...invalidateAnalysis(state), analysisRequestSequence: requestSequence, analysisRequest };
+}
+
+function matchesRequest(a: AnalysisRequestBinding, b: ModelRecord): boolean {
+  return a.modelRevision === b.modelRevision && a.modelHash === b.modelHash
+    && a.settingsHash === b.settingsHash && a.requestSequence === b.requestSequence;
 }
 
 export function undoModel(state: ModelState, transactionId?: string) {
@@ -213,16 +237,22 @@ export function currentAnalysisError(state: ModelState | undefined): string | un
   if (state.modelPending) return 'MODEL_REBUILD_REQUIRED';
   const meta = isRecord(state.analysisResult.meta) ? state.analysisResult.meta : {};
   if (meta.modelHash !== modelHash(state.model)) return 'ANALYSIS_STALE_OR_LEGACY';
+  if (!state.analysisRequest || !matchesRequest(state.analysisRequest, meta)
+    || state.analysisRequest.modelRevision !== (state.modelRevision ?? 0)) return 'ANALYSIS_STALE_OR_LEGACY';
   if (state.analysisResult.success === false) return 'ANALYSIS_FAILED';
   return undefined;
 }
 
-export function publishAnalysis(state: ModelState, requestedModelHash: string, result: ModelRecord) {
+export function publishAnalysis(state: ModelState, request: AnalysisRequestBinding, result: ModelRecord) {
   const runId = String(result.runId ?? (isRecord(result.meta) ? result.meta.traceId : undefined));
   if (!runId || runId === 'undefined') throw new Error('RUN_ID_REQUIRED');
-  const current = Boolean(state.model && !state.modelPending && modelHash(state.model) === requestedModelHash);
+  const meta = isRecord(result.meta) ? result.meta : {};
+  const current = Boolean(state.model && !state.modelPending && modelHash(state.model) === request.modelHash
+    && (state.modelRevision ?? 0) === request.modelRevision && state.analysisRequest
+    && matchesRequest(request, { ...state.analysisRequest }) && matchesRequest(request, meta));
   return {
     analysisRuns: { [runId]: result },
-    ...(current ? { analysisResult: result, codeCheckResult: null, report: null } : {}),
+    ...(current ? { analysisResult: result, analysisRequest: request,
+      analysisRequestSequence: request.requestSequence, codeCheckResult: null, report: null } : {}),
   };
 }

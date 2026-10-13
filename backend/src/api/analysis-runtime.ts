@@ -16,7 +16,7 @@ const validateSchema = z.object({
 
 const convertSchema = z.object({
   model: z.record(z.string(), z.any()),
-  target_schema_version: z.string().default('2.1.0'),
+  target_schema_version: z.string().default('2.2.0'),
   source_format: z.string().default('structuremodel-v2'),
   target_format: z.string().default('structuremodel-v2'),
 });
@@ -67,6 +67,10 @@ export async function analysisRuntimeRoutes(fastify: FastifyInstance) {
 
   fastify.post('/analyze', async (request: FastifyRequest<{ Body: z.infer<typeof analyzeSchema> }>, reply: FastifyReply) => {
     return reply.send(await analysisService.analyze(analyzeSchema.parse(request.body)));
+  });
+
+  fastify.get('/runs/:id', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+    return reply.send(await analysisService.getRun(z.uuid().parse(request.params.id)));
   });
 
   fastify.post('/code-check', async (request: FastifyRequest<{ Body: z.infer<typeof codeCheckSchema> }>, reply: FastifyReply) => {

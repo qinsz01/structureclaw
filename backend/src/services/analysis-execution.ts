@@ -5,7 +5,7 @@ import {
   LOCAL_POST_ACTION_BY_PATH,
 } from '../agent-skills/analysis/entry.js';
 import type { ExecutionRequestOptions, LocalAnalysisEngineClient } from '../agent-skills/analysis/types.js';
-import { executeAnalysisRun } from '../engineering/analysis-runs.js';
+import { executeAnalysisRun, loadAnalysisRun } from '../engineering/analysis-runs.js';
 
 function buildError(message: string, statusCode = 500): Error & { statusCode?: number } {
   const error = new Error(message) as Error & { statusCode?: number };
@@ -46,6 +46,10 @@ export class AnalysisExecutionService {
   async analyze(payload: Record<string, unknown>, requestOptions?: ExecutionRequestOptions): Promise<Record<string, unknown>> {
     return executeAnalysisRun(payload, (input) => this.runner.invoke({ action: 'analyze', input }, requestOptions), this.persistRun);
   }
+
+  async getRun(id: string): Promise<Record<string, unknown>> {
+    return loadAnalysisRun(id);
+  }
 }
 
 export function createLocalAnalysisEngineClient(
@@ -53,6 +57,7 @@ export function createLocalAnalysisEngineClient(
 ): LocalAnalysisEngineClient {
   return {
     async get<T = unknown>(path: string): Promise<{ data: T }> {
+      if (path.startsWith('/runs/')) return { data: await service.getRun(decodeURIComponent(path.slice('/runs/'.length))) as T };
       if (path.startsWith('/engines/')) {
         const engineId = decodeURIComponent(path.slice('/engines/'.length));
         return { data: await service.getEngine(engineId) as T };

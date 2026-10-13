@@ -3,7 +3,7 @@ import { AIMessage } from '@langchain/core/messages';
 import { tool } from '@langchain/core/tools';
 import { Command } from '@langchain/langgraph';
 import { z } from 'zod';
-import { applyModelEdits, commitModel, modelHash, undoModel, currentAnalysisError, publishAnalysis } from '../dist/engineering/model-state.js';
+import { applyModelEdits, beginAnalysisRequest, commitModel, modelHash, undoModel, currentAnalysisError, publishAnalysis } from '../dist/engineering/model-state.js';
 import { analysisSelections, executeAnalysisRun, executionStatus } from '../dist/engineering/analysis-runs.js';
 import { SessionLock } from '../dist/engineering/session-lock.js';
 import { checkRunResults, formatCheckSummary } from '../dist/engineering/code-checks.js';
@@ -52,15 +52,39 @@ describe('physical model revisions', () => {
   });
   test('old and failed analyses cannot justify current checks', () => {
     const m = model();
+    const state = { model: m, ...beginAnalysisRequest({ model: m }, 'settings') };
     expect(currentAnalysisError({ model: m, analysisResult: { success: true } })).toBe('ANALYSIS_STALE_OR_LEGACY');
-    expect(currentAnalysisError({ model: m, analysisResult: { success: false, meta: { modelHash: modelHash(m) } } })).toBe('ANALYSIS_FAILED');
-    expect(currentAnalysisError({ model: m, analysisResult: { success: true, meta: { modelHash: modelHash(m) } } })).toBeUndefined();
+    expect(currentAnalysisError({ ...state, analysisResult: { success: false, meta: state.analysisRequest } })).toBe('ANALYSIS_FAILED');
+    expect(currentAnalysisError({ ...state, analysisResult: { success: true, meta: state.analysisRequest } })).toBeUndefined();
   });
   test('late completion is retained historically but cannot replace the current result', () => {
     const original = model(); const changed = model(); changed.nodes[1].x = 7;
     const result = { runId: 'old-run', success: true };
-    const update = publishAnalysis({ model: changed }, modelHash(original), result);
+    const update = publishAnalysis({ model: changed }, beginAnalysisRequest({ model: original }, 'settings').analysisRequest, result);
     expect(update.analysisResult).toBeUndefined(); expect(update.analysisRuns['old-run']).toBe(result);
+  });
+  test('same model with new settings cannot be overwritten by an earlier completion', () => {
+    const base = commitModel(undefined, model(), 'create');
+    const old = { ...base, ...beginAnalysisRequest(base, 'old-settings') };
+    const newer = { ...old, ...beginAnalysisRequest(old, 'new-settings') };
+    const result = { runId: 'old-run', success: true, meta: old.analysisRequest };
+    const update = publishAnalysis(newer, old.analysisRequest, result);
+    expect(update.analysisResult).toBeUndefined();
+    expect(update.analysisRuns['old-run']).toBe(result);
+    expect(currentAnalysisError({ ...newer, analysisResult: result })).toBe('ANALYSIS_STALE_OR_LEGACY');
+  });
+  test('editing back to the same geometry or retrying identical settings still rejects old requests', () => {
+    const base = commitModel(undefined, model(), 'create');
+    const first = { ...base, ...beginAnalysisRequest(base, 'settings') };
+    const edited = commitModel(first, applyModelEdits(first.model, [{ operation: 'update', collection: 'nodes', id: 'b', values: { x: 5 } }]), 'move');
+    const restored = { ...first, ...undoModel(edited) };
+    expect(modelHash(restored.model)).toBe(modelHash(first.model));
+    const result = { runId: 'old-run', success: true, meta: first.analysisRequest };
+    expect(publishAnalysis(restored, first.analysisRequest, result).analysisResult).toBeUndefined();
+    const retried = { ...first, ...beginAnalysisRequest(first, 'settings') };
+    expect(publishAnalysis(retried, first.analysisRequest, result).analysisResult).toBeUndefined();
+    const fresh = { runId: 'new-run', success: true, meta: retried.analysisRequest };
+    expect(publishAnalysis(retried, retried.analysisRequest, fresh).analysisResult).toBe(fresh);
   });
 });
 

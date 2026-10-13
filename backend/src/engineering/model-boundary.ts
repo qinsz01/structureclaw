@@ -6,7 +6,7 @@ import { assertResolvedInput } from './input-evidence.js';
 export async function normalizeEngineeringModel(model: ModelRecord, client: LocalStructureProtocolClient, sourceFormat = 'structuremodel-v2'): Promise<ModelRecord> {
   assertResolvedInput(isRecord(model.metadata) ? model.metadata.inputEvidence : undefined);
   const response = await client.post('/convert', {
-    model, source_format: sourceFormat, target_format: 'structuremodel-v2', target_schema_version: '2.1.0',
+    model, source_format: sourceFormat, target_format: 'structuremodel-v2', target_schema_version: '2.2.0',
   });
   if (!isRecord(response.data) || !isRecord(response.data.model)) throw new Error('MODEL_CONVERSION_FAILED');
   const normalized = structuredClone(response.data.model);

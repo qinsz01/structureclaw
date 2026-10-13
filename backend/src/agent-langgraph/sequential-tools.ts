@@ -31,7 +31,13 @@ export async function executeToolsSequentially(tools: StructuredToolInterface[],
     config.writer?.({ type: 'artifact_payload_sync', artifact: 'analysis', invalidated: true });
     config.writer?.({ type: 'artifact_payload_sync', artifact: 'report', invalidated: true });
   }
-  const invocationConfig = { ...config, configurable: { ...config.configurable, agentState: current } };
+  const invocationConfig = { ...config, configurable: { ...config.configurable, agentState: current,
+    onAnalysisRequest: (reservation: Partial<AgentState>) => {
+      current = { ...current, ...reservation, analysisRuns: { ...current.analysisRuns, ...reservation.analysisRuns } };
+      Object.assign(update, reservation, { analysisRuns: current.analysisRuns });
+      invocationConfig.configurable.agentState = current;
+    },
+  } };
   const node = new ToolNode(tools);
   const output = await node.invoke({ ...current, messages: [new AIMessage({ content: '', tool_calls: [call] })] }, invocationConfig);
   for (const item of Array.isArray(output) ? output : [output]) {

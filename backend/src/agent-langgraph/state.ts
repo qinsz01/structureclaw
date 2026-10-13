@@ -13,7 +13,7 @@ import type {
   ProviderBindingState,
 } from '../agent-runtime/types.js';
 import type { AppLocale } from '../services/locale.js';
-import type { ModelTransaction } from '../engineering/model-state.js';
+import type { AnalysisRequestBinding, ModelTransaction } from '../engineering/model-state.js';
 
 export interface AgentToolAccessPolicy {
   enabledToolIds: string[] | null;
@@ -137,6 +137,11 @@ export const AgentStateAnnotation = Annotation.Root({
   modelRevision: Annotation<number>({ reducer: (_prev, next) => next, default: () => 0 }),
   modelPending: Annotation<boolean>({ reducer: (_prev, next) => next, default: () => false }),
   modelHistory: Annotation<ModelTransaction[]>({ reducer: (_prev, next) => next, default: () => [] }),
+  analysisRequestSequence: Annotation<number>({ reducer: (_prev, next) => next, default: () => 0 }),
+  analysisRequest: Annotation<AnalysisRequestBinding | null>({ reducer: (_prev, next) => next, default: () => null }),
+  resultQuantities: Annotation<Record<string, Record<string, unknown>>>({
+    reducer: (prev, next) => ({ ...prev, ...next }), default: () => ({}),
+  }),
   analysisRuns: Annotation<Record<string, Record<string, unknown>>>({
     reducer: (prev, next) => ({ ...prev, ...next }), default: () => ({}),
   }),
