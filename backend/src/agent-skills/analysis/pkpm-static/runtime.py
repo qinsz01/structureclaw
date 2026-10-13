@@ -620,6 +620,7 @@ def _extract_results(jws_path: Path, material_family: str = "steel") -> Dict[str
             raise RuntimeError(f"Failed to extract PKPM nodal translations: {error}") from error
 
         displacement_source = None
+        constraint_displacements = {}
         if has_native_dofs:
             from native_displacements import read_native_displacements
             native_dofs = read_native_displacements(jws_path.parent, native_nodes, case_node_disps)
@@ -627,6 +628,7 @@ def _extract_results(jws_path: Path, material_family: str = "steel") -> Dict[str
                 case_node_disps[case].update(values)
             displacement_source = {"source": native_dofs["source"],
                                    "missingNodeRotations": native_dofs["missingNodeRotations"]}
+            constraint_displacements = native_dofs["constraintDisplacements"]
 
         max_displacement = max(all_node_disp_magnitudes, default=0.0)
 
@@ -693,9 +695,11 @@ def _extract_results(jws_path: Path, material_family: str = "steel") -> Dict[str
             "bearing_shear": bearing_shear,
             "case_node_disps": case_node_disps,
             "native_displacement_source": displacement_source,
+            "native_constraint_displacements": constraint_displacements,
             "native_result_members": native_result_members,
             "case_beam_forces": case_beam_forces,
             "case_col_forces": case_col_forces,
+            "native_case_names": result.GetAllChineseLoadCaseName() if has_native_dofs else {},
             "case_member_stations": case_member_stations,
             "satwe_params": satwe_params,
         }
@@ -726,15 +730,21 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
         When JWS generation or SATWE analysis fails.
     """
     parameters = parameters or {}
-    if parameters.get("loadCombinationId"):
-        from native_results import require_verified_linear_context
-        require_verified_linear_context({"engine": "pkpm", "effectiveSettingsVerified": False, "stationConventionsVerified": False})
     requested_cases = parameters.get("loadCaseIds") or []
-    if not isinstance(requested_cases, list) or len(requested_cases) > 1:
-        raise AnalysisCapabilityError(engine="pkpm", capability="single-selected-load-case", reason="Select one loadCaseIds entry per native run")
+    if not isinstance(requested_cases, list) or len(set(map(str, requested_cases))) != len(requested_cases):
+        raise AnalysisCapabilityError(engine="pkpm", capability="selected-load-cases", reason="loadCaseIds must contain unique case IDs / 工况编号必须唯一")
     validate_coordinate_contract(model)
     from native_model_contract import validate_pkpm_material_properties, validate_pkpm_sections
     model_dict = model.model_dump(mode="json", exclude_unset=True) if hasattr(model, "model_dump") else dict(model)
+    combination_id = parameters.get("loadCombinationId")
+    if combination_id:
+        definitions = [row for row in model_dict.get("load_combinations", []) if row.get("id") == combination_id]
+        if requested_cases or len(definitions) != 1 or not definitions[0].get("factors"):
+            raise ValueError("Select existing source cases or one explicit combination / 请指定源工况或唯一显式组合")
+        requested_cases = list(definitions[0]["factors"])
+    available_cases = {str(case["id"]) for case in model_dict.get("load_cases", [])}
+    if set(requested_cases) - available_cases:
+        raise ValueError("Requested source case does not exist / 请求的源工况不存在")
     validate_pkpm_material_properties(model_dict)
     validate_pkpm_sections(model_dict)
     cycle_path = _check_pkpm_available()
@@ -796,16 +806,28 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
             raise RuntimeError(format_pdb_version_mismatch_error(work_dir, cycle_path, pdb_mismatch))
         warnings.append(format_pdb_version_mismatch_warning(work_dir, cycle_path, pdb_mismatch))
 
+    if not requested_cases and extracted.get("native_displacement_source"):
+        requested_cases = [str(case["id"]) for case in model_dict.get("load_cases", [])]
     if requested_cases:
-        requested_id = str(requested_cases[0])
-        source_case = next((case for case in model_dict.get("load_cases", []) if str(case.get("id")) == requested_id), {})
-        native_name = {"dead": "DL", "live": "LL"}.get(source_case.get("type"), requested_id)
-        for field in ("case_node_disps", "case_beam_forces", "case_col_forces"):
-            if native_name not in extracted.get(field, {}):
-                raise AnalysisCapabilityError(engine="pkpm", capability="selected-load-case", reason=f"Native {field} has no verified mapping for requested case '{requested_id}'")
-        for field in ("case_node_disps", "case_beam_forces", "case_col_forces", "case_member_stations"):
+        names = {}
+        for requested_id in map(str, requested_cases):
+            source_case = next((case for case in model_dict.get("load_cases", []) if str(case.get("id")) == requested_id), {})
+            if not source_case:
+                raise AnalysisCapabilityError(engine="pkpm", capability="selected-load-case", reason=f"Unknown requested case '{requested_id}' / 请求工况不存在")
+            native_name = converter_mappings.get("native_load_mapping", {}).get("cases", {}).get(requested_id, {}).get("nativeLabel")
+            native_name = native_name or {"dead": "DL", "live": "LL"}.get(source_case.get("type"), requested_id)
+            if native_name not in extracted.get("case_node_disps", {}):
+                labels = [key for key, name in extracted.get("native_case_names", {}).items() if name == native_name]
+                if len(labels) != 1:
+                    raise ValueError(f"Native source case label '{native_name}' is ambiguous or missing / 原生源工况标签缺失或不唯一")
+                native_name = labels[0]
+            for field in ("case_node_disps", "case_beam_forces", "case_col_forces"):
+                if native_name not in extracted.get(field, {}):
+                    raise AnalysisCapabilityError(engine="pkpm", capability="selected-load-case", reason=f"Native {field} has no verified mapping for requested case '{requested_id}'")
+            names[requested_id] = native_name
+        for field in ("case_node_disps", "case_beam_forces", "case_col_forces", "case_member_stations", "native_constraint_displacements"):
             block = extracted.get(field, {})
-            extracted[field] = {requested_id: block[native_name]} if native_name in block else {}
+            extracted[field] = {requested_id: block[native_name] for requested_id, native_name in names.items() if native_name in block}
 
     # ---- Phase 4: Map to frontend-compatible analysis result format ----
     pkpm_summary = extracted.get("summary", {})
@@ -887,7 +909,7 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     pm_floor_to_v2: Dict[tuple[int, int], str] = {}
     for v2_id, pm_id in v2_to_pm.items():
         floor = v2_node_floor.get(v2_id, -1)
-        if floor > 0:
+        if floor > 0 or (pm_id, floor) in extracted_node_keys:
             key = (pm_id, floor)
             if key in pm_floor_to_v2:
                 raise RuntimeError(
@@ -1243,4 +1265,14 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
         },
     }
 
+    fixed_base = all(node.get("restraints") == [True] * 6 for node in model_dict.get("nodes", []) if float(node.get("z", 0)) == 0)
+    native_six_dof = bool(extracted.get("native_displacement_source")) and all(
+        all(component in row for component in ("rx", "ry", "rz"))
+        for case in case_results.values() for row in case["displacements"].values())
+    if fixed_base and native_six_dof:
+        from native_result_adapter import complete_frame_results
+        result_dict = complete_frame_results(model_dict, result_dict, jws_path)
+    if requested_cases:
+        from native_result_adapter import select_result
+        result_dict = select_result(model_dict, result_dict, requested_cases, combination_id)
     return result_dict

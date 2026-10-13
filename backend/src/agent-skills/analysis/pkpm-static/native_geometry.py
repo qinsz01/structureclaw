@@ -234,8 +234,16 @@ def bind_native_geometry(model, snapshot, artifacts):
         expected = [node_id in expected_fixed] * 6
         if physical_nodes[node_id].get("restraints", [False] * 6) != expected:
             raise NativeGeometryUnavailable("Native fixed-base scope does not preserve requested restraints")
-    records = _fortran_records(artifacts["DISP1.SAT"])
-    case_names = [line.split()[1] for line in artifacts["WDISPGKNO.OUT"].decode("gb18030").splitlines() if line.strip()]
+    case_rows = [line.split() for line in artifacts["WDISPGKNO.OUT"].decode("gb18030").splitlines() if line.strip()]
+    if any(len(row) != 2 or row[0] not in ("DISP1.SAT", "DISP1_ZDY.SAT") for row in case_rows):
+        raise NativeGeometryUnavailable("Native full-node displacement index is uncalibrated")
+    case_names = [row[1] for row in case_rows]
+    records = []
+    for name in dict.fromkeys(row[0] for row in case_rows):
+        group = _fortran_records(artifacts[name])
+        if len(group) != sum(row[0] == name for row in case_rows) * (len(floors) + 1):
+            raise NativeGeometryUnavailable("Native displacement file group coverage differs")
+        records.extend(group)
     if not case_names or len(set(case_names)) != len(case_names) or len(records) != len(case_names) * (len(floors) + 1):
         raise NativeGeometryUnavailable("Native full-node displacement cases are incomplete")
     fixed_tags = [tag for tag, row in mesh_nodes.items() if by_point[_key(row[:3])] in expected_fixed]
@@ -260,5 +268,8 @@ def read_native_geometry(jws_path, model, api=None):
     names = ["MESH.SAT", "GOUJIAN.OUT", "NODEINDEX.SAT", "ConstraintNodeNo.SAT", "DISP1.SAT", "WDISPGKNO.OUT"]
     names.extend(f"WNL{floor['floor']}.OUT" for floor in snapshot["floors"])
     artifacts = {name: (jws_path.parent / name).read_bytes() for name in names}
+    for row in artifacts["WDISPGKNO.OUT"].decode("gb18030").splitlines():
+        if row.split() and row.split()[0] == "DISP1_ZDY.SAT":
+            artifacts["DISP1_ZDY.SAT"] = (jws_path.parent / "DISP1_ZDY.SAT").read_bytes()
     artifacts[jws_path.name] = jws_path.read_bytes()
     return bind_native_geometry(model, snapshot, artifacts)

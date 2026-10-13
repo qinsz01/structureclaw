@@ -44,6 +44,7 @@ def read_native_displacements(work_dir: str | Path, native_nodes: list[dict],
     except OSError as exc:
         raise NativeDisplacementUnavailable("Native six-DOF displacement files are unavailable") from exc
     case_names = []
+    case_files = {}
     for line in files["WDISPGKNO.OUT"].decode("gb18030").splitlines():
         if not line.strip():
             continue
@@ -51,6 +52,9 @@ def read_native_displacements(work_dir: str | Path, native_nodes: list[dict],
         if len(fields) != 2 or not fields[0].upper().startswith("DISP") or not fields[0].upper().endswith(".SAT"):
             raise NativeDisplacementUnavailable("Unknown native displacement case index format")
         case_names.append(fields[1])
+        if fields[0].upper() not in ("DISP1.SAT", "DISP1_ZDY.SAT"):
+            raise NativeDisplacementUnavailable("Uncalibrated native displacement file group")
+        case_files.setdefault(fields[0].upper(), []).append(fields[1])
     if not case_names or len(set(case_names)) != len(case_names):
         raise NativeDisplacementUnavailable("Missing or duplicate native displacement case identities")
     indices = _floats(files["NODEINDEX.SAT"])
@@ -99,17 +103,63 @@ def read_native_displacements(work_dir: str | Path, native_nodes: list[dict],
     if identities != [identity for floor in floors for identity in by_floor[floor]]:
         raise NativeDisplacementUnavailable("Unknown native node index floor order")
     identities = [identity for floor in reversed(floors) for identity in by_floor[floor]]
-    values = _floats(files["DISP.SAT"])
+    native_cases = {}
+    for name, group in case_files.items():
+        vector_name = name.replace("DISP1", "DISP")
+        if vector_name not in files:
+            files[vector_name] = (root / vector_name).read_bytes()
+        blob = files[vector_name]
+        if vector_name == "DISP_ZDY.SAT":
+            records = []
+            while blob:
+                if len(blob) < 8:
+                    raise NativeDisplacementUnavailable("Truncated custom displacement record")
+                size = struct.unpack_from("<i", blob)[0]
+                if size <= 0 or len(blob) < size + 8 or struct.unpack_from("<i", blob, size + 4)[0] != size:
+                    raise NativeDisplacementUnavailable("Invalid custom displacement record length")
+                records.append(blob[4:size + 4]); blob = blob[size + 8:]
+            if len(records) != len(group):
+                raise NativeDisplacementUnavailable("Custom displacement case coverage differs")
+        else:
+            if len(blob) % len(group):
+                raise NativeDisplacementUnavailable("Native displacement case coverage differs")
+            size = len(blob) // len(group)
+            records = [blob[index * size:(index + 1) * size] for index in range(len(group))]
+        native_cases.update(zip(group, records))
+    values = _floats(b"".join(native_cases[case] for case in case_names))
+    constraint_identities = []
     if len(values) != 6 * count * len(case_names):
+        try:
+            constraint_bytes = (root / "ConstraintNodeNo.SAT").read_bytes()
+        except OSError as exc:
+            raise NativeDisplacementUnavailable("Native displacement case/node coverage differs from index files") from exc
+        if len(constraint_bytes) < 16:
+            raise NativeDisplacementUnavailable("Truncated native constraint node map")
+        header = struct.unpack_from("<4i", constraint_bytes)
+        if header[:2] != (3, 20200113) or header[2] != len(mesh_nodes) or header[3] != 4 or len(constraint_bytes) != 16 + 4 * len(mesh_nodes):
+            raise NativeDisplacementUnavailable("Uncalibrated native constraint node map")
+        constraints = struct.unpack_from("<" + "i" * len(mesh_nodes), constraint_bytes, 16)
+        if any(value not in (0, 1) for value in constraints):
+            raise NativeDisplacementUnavailable("Multiple constraints at one native node are not calibrated")
+        for tag, value in enumerate(constraints, 1):
+            if value:
+                identity = node_by_coordinates.get(_float_key(mesh_nodes[tag]))
+                if identity is None:
+                    raise NativeDisplacementUnavailable("Constraint node has no physical API identity")
+                constraint_identities.append(identity)
+        files["ConstraintNodeNo.SAT"] = constraint_bytes
+    stride = count + len(constraint_identities)
+    if len(values) != 6 * stride * len(case_names):
         raise NativeDisplacementUnavailable("Native displacement case/node coverage differs from index files")
     output = {}
+    constraint_output = {}
     for case_index, case in enumerate(case_names):
         api_case = api_translations.get(case)
-        if api_case is None or set(api_case) != set(identities):
+        if api_case is None or set(api_case) != set(identities) | set(constraint_identities):
             raise NativeDisplacementUnavailable(f"Case '{case}' SDK/file node coverage differs")
         rows = {}
         for index, identity in enumerate(identities):
-            offset = 6 * (case_index * count + index)
+            offset = 6 * (case_index * stride + index)
             row = dict(zip(("ux", "uy", "rz", "rx", "ry", "uz"), values[offset:offset + 6]))
             for component in ("ux", "uy", "uz"):
                 actual = api_case[identity].get(component)
@@ -122,7 +172,11 @@ def read_native_displacements(work_dir: str | Path, native_nodes: list[dict],
                     raise NativeDisplacementUnavailable(f"Case '{case}' SDK/file {component} disagrees at {identity}")
             rows[identity] = row
         output[case] = rows
+        constraint_output[case] = {identity: dict(zip(("ux", "uy", "rz", "rx", "ry", "uz"),
+            values[6 * (case_index * stride + count + index):6 * (case_index * stride + count + index + 1)]))
+            for index, identity in enumerate(constraint_identities)}
     return {"caseDisplacements": output,
+            "constraintDisplacements": constraint_output,
             "missingNodeRotations": sorted(all_node_keys - set(identities)),
             "source": {"kind": "solver-direct-file", "schema": "pkpm-2025r2.5-six-dof/v1",
                        "units": {"displacement": "m", "rotation": "rad"},
