@@ -96,6 +96,23 @@ describe('native force equilibrium recovery',()=>{
       expect(right.sample.Vz-left.sample.Vz).toBeCloseTo(-5*(factors.POINT||0),5);
     }
   });
+  test('a nearby cut is not snapped across the real point-load jump or outside the member',()=>{
+    const f=JSON.parse(readFileSync(new URL('./fixtures/yjk-native-local-loads-delivery.json',import.meta.url),'utf8'));
+    const result={success:true,selection:{kind:'case',id:'POINT'},data:f.cases.POINT};
+    const left=queryPhysicalResponse(f.model,result,f.member,1.7,'left');
+    const right=queryPhysicalResponse(f.model,result,f.member,1.7,'right');
+    const before=queryPhysicalResponse(f.model,result,f.member,1.7-5e-10,'right');
+    const after=queryPhysicalResponse(f.model,result,f.member,1.7+5e-10,'left');
+    expect(before.provenance).toBe('mechanics-recovery');
+    expect(after.provenance).toBe('mechanics-recovery');
+    expect(before.sample.Vz).toBeCloseTo(left.sample.Vz,5);
+    expect(after.sample.Vz).toBeCloseTo(right.sample.Vz,5);
+    expect(after.sample.Vz-before.sample.Vz).toBeCloseTo(-5,5);
+    const {model,result:beam}=cantilever();
+    for(const [position,side]of [[4+5e-10,'left'],[0,'left'],[4,'right']]) {
+      expect(()=>queryPhysicalResponse(model,beam,'beam',position,side)).toThrow('MEMBER_RESPONSE_UNAVAILABLE_OR_POSITION_INVALID');
+    }
+  });
   test('real PKPM adapter vectors feed exact queries, equilibrium, chart and report with original evidence',()=>{
     const f=JSON.parse(readFileSync(new URL('./fixtures/pkpm-native-STD086-delivery.json',import.meta.url),'utf8'));
     const result={success:true,selection:f.selection,meta:{engineId:'builtin-pkpm',runId:f.nativeRun},data:f.case};

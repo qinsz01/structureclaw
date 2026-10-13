@@ -29,6 +29,10 @@ const nativeComponents = ['N', 'Vy', 'Vz', 'T', 'My', 'Mz'] as const;
 const displayComponents = ['N', 'V2', 'V3', 'T', 'M2', 'M3'] as const;
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 const commercial = (result: ModelRecord) => ['yjk', 'pkpm'].includes(resultEngine(result));
+// Segment length accumulation may differ by a few ulps. A fixed metric
+// tolerance would also merge genuinely different cuts across a point load.
+const sameNativePosition = (left: number, right: number, length: number) =>
+  Math.abs(left - right) <= 8 * Number.EPSILON * Math.max(1, length);
 
 function nativeStations(model: RecoveryModel, data: ModelRecord, elementId: string) {
   const context = isRecord(data.nativeContext) ? data.nativeContext : {};
@@ -49,7 +53,8 @@ function nativeStations(model: RecoveryModel, data: ModelRecord, elementId: stri
   const seen = new Set<string>();
   const cuts = new Map<number, Set<string>>();
   const rows = sourceRows.map(raw => {
-    if (!isRecord(raw) || !finite(raw.positionM) || raw.positionM < 0 || raw.positionM > length + 1e-9
+    if (!isRecord(raw) || !finite(raw.positionM) || raw.positionM < 0
+      || (raw.positionM > length && !sameNativePosition(raw.positionM, length, length))
       || !['left', 'right', 'continuous'].includes(String(raw.side)) || raw.referenceFrame !== 'element-local') {
       throw new Error('NATIVE_STATION_POSITION_UNVERIFIED');
     }
@@ -88,7 +93,7 @@ function nativeMemberData(model: RecoveryModel, data: ModelRecord, factors?: Rec
         for(const positionM of positions) {
           const sides: ('left'|'right')[] = positionM===0?['right']:positionM===length?['left']:
             recovered.jumps.includes(positionM)?['left','right']:['right'];
-          for(const side of sides) if(!rows.some(row=>Math.abs(row.positionM-positionM)<=1e-9 && (row.side===side||row.side==='continuous'))) {
+          for(const side of sides) if(!rows.some(row=>sameNativePosition(row.positionM,positionM,length) && (row.side===side||row.side==='continuous'))) {
             rows.push({positionM,side,components:recovered.at(positionM,side),source:recovered.source,provenance:'mechanics-recovery'});
           }
         }
@@ -138,8 +143,11 @@ export function queryPhysicalResponse(model: ModelRecord, result: ModelRecord, e
   const data = isRecord(result.data) ? result.data : result;
   if (commercial(result) || isRecord(data.memberStations)) {
     const { rows, context, length } = nativeStations(model, data, elementId);
-    if (!Number.isFinite(positionM) || positionM < 0) throw new Error('MEMBER_RESPONSE_UNAVAILABLE_OR_POSITION_INVALID');
-    const exact = rows.filter(row => Math.abs(row.positionM - positionM) <= 1e-9
+    if (!Number.isFinite(positionM) || positionM < 0 || positionM > length
+      || (positionM === 0 && side !== 'right') || (positionM === length && side !== 'left')) {
+      throw new Error('MEMBER_RESPONSE_UNAVAILABLE_OR_POSITION_INVALID');
+    }
+    const exact = rows.filter(row => sameNativePosition(row.positionM, positionM, length)
       && (row.side === side || row.side === 'continuous'));
     if (exact.length !== 1 || !isRecord(exact[0]) || !isRecord(exact[0].components)) {
       try {
