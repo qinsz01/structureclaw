@@ -18,7 +18,7 @@ describe('generic LLM model builder', () => {
     expect(prompt).toContain('true means restrained and false means free');
     expect(prompt).toContain('pinned left support [true,true,true,false,false,false]');
     expect(prompt).toContain('X-direction roller at the right support [false,true,true,false,false,false]');
-    expect(prompt).toContain('Create explicit nodes at supports');
+    expect(prompt).toContain('Create explicit nodes at physical supports');
     expect(prompt).toContain('check the total applied load');
     expect(prompt).toContain('seismicMemberEvidence');
     expect(prompt).toContain('steelSeismicDetailing');
@@ -45,6 +45,8 @@ describe('generic LLM model builder', () => {
               { id: 'N1', x: 0, y: 0, z: 0 },
               { id: 'N2', x: 12, y: 0, z: 0 },
             ],
+            materials: [{id:'M1',type:'steel',E:206000,nu:0.3,rho:7850}],
+            sections: [{id:'S1',type:'beam',properties:{A:0.01,Iy:0.0001,Iz:0.0001,J:0.0001}}],
             elements: [
               { id: 'E1', type: 'beam', nodes: ['N1', 'N2'], material: 'M1', section: 'S1' },
             ],
@@ -82,7 +84,7 @@ describe('generic LLM model builder', () => {
     expect(model.load_cases[0].loads[1]).toMatchObject({
       type: 'nodal',
       node: 'N2',
-      fz: -230,
+      fz: -0.23,
       unit: 'kN',
     });
     expect(model.load_cases[0].loads[2]).toMatchObject({
@@ -116,6 +118,8 @@ describe('generic LLM model builder', () => {
               { id: 'N3', x: 0, y: 4 },
               { id: 'N4', x: 6, y: 4, z: 0 },
             ],
+            materials: [{id:'M1',type:'steel',E:206000,nu:0.3,rho:7850}],
+            sections: [{id:'S1',type:'beam',properties:{A:0.01,Iy:0.0001,Iz:0.0001,J:0.0001}}],
             elements: [
               { id: 'E1', type: 'beam', nodes: ['N1', 'N3'], material: 'M1', section: 'S1' },
               { id: 'E2', type: 'beam', nodes: ['N2', 'N4'], material: 'M1', section: 'S1' },

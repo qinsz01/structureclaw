@@ -5,6 +5,7 @@ import {
 } from '../../../agent-runtime/coordinate-semantics.js';
 import { isLocalizedFramePointLoad } from '../../../agent-runtime/engineering-draft.js';
 import { buildElementReferenceVectors } from '../../../agent-runtime/reference-vectors.js';
+import { buildExplicitDraftModel } from '../../../agent-runtime/explicit-model.js';
 import type {
   DraftFloorLoad,
   DraftState,
@@ -286,13 +287,13 @@ function isLineEngineeringLoad(load: EngineeringDraftLoad): boolean {
 
 function isGravityLineLoad(load: EngineeringDraftLoad): boolean {
   return isLineEngineeringLoad(load)
-    && load.magnitude > 0
+    && Number.isFinite(load.magnitude)
     && (load.direction === undefined || load.direction === 'gravity' || load.direction === 'globalZ');
 }
 
 function isExplicit2dNodalLoad(load: EngineeringDraftLoad): boolean {
   return (load.kind === 'nodal' || load.kind === 'point')
-    && load.magnitude > 0
+    && Number.isFinite(load.magnitude)
     && Number.isFinite(load.magnitude)
     && isLocalizedFramePointLoad(load)
     && (load.direction === undefined || load.direction === 'globalX' || load.direction === 'gravity' || load.direction === 'globalZ');
@@ -304,7 +305,7 @@ export function hasFrameAnalysisLoadInput(state: Pick<DraftState, 'floorLoads' |
     return true;
   }
   return Boolean(state.engineeringDraft?.loads?.some((load) => (
-    load.magnitude > 0
+    Number.isFinite(load.magnitude)
     && Number.isFinite(load.magnitude)
     && (isGravityLineLoad(load) || (state.frameDimension !== '3d' && isExplicit2dNodalLoad(load)))
   )));
@@ -532,7 +533,7 @@ function build2dBeamLineLoads(
         record: {
           type: 'distributed',
           element: element.id,
-          wz: -Math.abs(item.load.magnitude),
+          wz: (item.load.direction === 'globalZ' ? item.load.magnitude : -item.load.magnitude),
           story: storyId,
           source: 'engineering_draft_line_loads',
         },
@@ -574,7 +575,7 @@ function build3dBeamLineLoads(
         record: {
           type: 'distributed',
           element: element.id,
-          wz: -Math.abs(item.load.magnitude),
+          wz: (item.load.direction === 'globalZ' ? item.load.magnitude : -item.load.magnitude),
           story: storyId,
           source: 'engineering_draft_line_loads',
         },
@@ -618,7 +619,7 @@ function build2dEngineeringNodalLoads(
     if (load.direction === 'globalX') {
       nodeLoad.fx = load.magnitude;
     } else {
-      nodeLoad.fz = -Math.abs(load.magnitude);
+      nodeLoad.fz = (load.direction === 'globalZ' ? load.magnitude : -load.magnitude);
     }
     loads.push({
       record: nodeLoad,
@@ -662,11 +663,11 @@ function buildExplicitFrameTopologyModel(
   const nodeById = new Map(topology.nodes.map((node) => [node.id, node]));
   if (nodeById.size !== topology.nodes.length
     || topology.members.some((member) => !nodeById.has(member.nodes[0]) || !nodeById.has(member.nodes[1]))) {
-    return null;
+    throw new Error('INVALID_EXPLICIT_TOPOLOGY: duplicate nodes or missing member endpoint / 节点重复或构件端点不存在');
   }
 
   const zCoords = uniqueSortedCoordinates(topology.nodes.map((node) => node.z));
-  if (zCoords.length < 2) return null;
+  if (zCoords.length < 2) throw new Error('INVALID_EXPLICIT_TOPOLOGY: frame template requires distinct elevations; use the complete V2 model for other topology / 框架模板需要不同标高，其他拓扑请使用完整V2模型');
   const xCoords = uniqueSortedCoordinates(topology.nodes.map((node) => node.x));
   const yCoords = uniqueSortedCoordinates(topology.nodes.map((node) => node.y));
   const minZ = zCoords[0]!;
@@ -712,7 +713,7 @@ function buildExplicitFrameTopologyModel(
   const areaLoads = (state.engineeringDraft?.loads ?? []).filter((load) => (
     load.kind === 'area'
     && load.unit === 'kN/m2'
-    && load.magnitude > 0
+    && Number.isFinite(load.magnitude)
     && Number.isFinite(load.magnitude)
   ));
   const floorAreaM2 = state.frameDimension === '3d'
@@ -728,9 +729,9 @@ function buildExplicitFrameTopologyModel(
     const deadAreaLoad = explicitAreaLoads.find((load) => load.caseType !== 'live' && load.caseId !== 'L');
     const liveAreaLoad = explicitAreaLoads.find((load) => load.caseType === 'live' || load.caseId === 'L');
     const deadLoad = deadAreaLoad?.magnitude
-      ?? (floorLoad?.verticalKN ? Math.abs(floorLoad.verticalKN) / floorAreaM2 : undefined);
+      ?? (floorLoad?.verticalKN ? floorLoad.verticalKN / floorAreaM2 : undefined);
     const liveLoad = liveAreaLoad?.magnitude
-      ?? (floorLoad?.liveLoadKN ? Math.abs(floorLoad.liveLoadKN) / floorAreaM2 : undefined);
+      ?? (floorLoad?.liveLoadKN ? floorLoad.liveLoadKN / floorAreaM2 : undefined);
     return {
       id: `F${story}`,
       height,
@@ -886,8 +887,8 @@ function buildFrame2dLocalModel(
     const storyIdx = i + 1;
     const fl = floorLoads.find((l) => l.story === storyIdx);
     const floorAreaM2 = Math.max(xCoords[xCoords.length - 1], 1);
-    const deadLoad = fl?.verticalKN ? Math.abs(fl.verticalKN) / floorAreaM2 : undefined;
-    const liveLoad = fl?.liveLoadKN ? Math.abs(fl.liveLoadKN) / floorAreaM2 : undefined;
+    const deadLoad = fl?.verticalKN ? fl.verticalKN / floorAreaM2 : undefined;
+    const liveLoad = fl?.liveLoadKN ? fl.liveLoadKN / floorAreaM2 : undefined;
     return {
       id: `F${storyIdx}`,
       height: h,
@@ -1024,8 +1025,8 @@ function buildFrame3dLocalModel(
     const storyIdx = i + 1;
     const fl = floorLoads.find((l) => l.story === storyIdx);
     const floorAreaM2 = Math.max(xCoords[xCoords.length - 1], 1) * Math.max(yCoords[yCoords.length - 1], 1);
-    const deadLoad = fl?.verticalKN ? Math.abs(fl.verticalKN) / floorAreaM2 : undefined;
-    const liveLoad = fl?.liveLoadKN ? Math.abs(fl.liveLoadKN) / floorAreaM2 : undefined;
+    const deadLoad = fl?.verticalKN ? fl.verticalKN / floorAreaM2 : undefined;
+    const liveLoad = fl?.liveLoadKN ? fl.liveLoadKN / floorAreaM2 : undefined;
     return {
       id: `F${storyIdx}`,
       height: h,
@@ -1092,6 +1093,8 @@ function buildFrameLocalModel(state: DraftState): Record<string, unknown> {
 }
 
 export function buildFrameModel(state: DraftState): Record<string, unknown> | undefined {
+  const explicit = buildExplicitDraftModel(state);
+  if (explicit) return explicit;
   const critical = computeMissingCriticalKeys(state).filter((key) => (
     (REQUIRED_KEYS as readonly string[]).includes(key)
     && !(key === 'floorLoads' && hasFrameAnalysisLoadInput(state))

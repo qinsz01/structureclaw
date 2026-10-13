@@ -106,7 +106,8 @@ function collectValidPatchFields(patch: DraftExtraction): Set<string> {
       valid.add(field);
     }
   };
-  for (const field of ['lengthM', 'spanLengthM', 'heightM', 'loadKN'] as const) {
+  if (typeof patch.loadKN === 'number' && Number.isFinite(patch.loadKN)) valid.add('loadKN');
+  for (const field of ['lengthM', 'spanLengthM', 'heightM'] as const) {
     checkPositive(field, patch[field]);
   }
   for (const field of ['storyCount', 'bayCount', 'bayCountX', 'bayCountY'] as const) {
@@ -162,7 +163,7 @@ function collectValidPatchFields(patch: DraftExtraction): Set<string> {
     checkNonNegativeArray('boundary.supportPositionsM', boundary.supportPositionsM);
   }
   for (const [index, load] of (patch.engineeringDraft?.loads ?? []).entries()) {
-    checkPositive(`loads[${index}].magnitude`, load.magnitude);
+    if (Number.isFinite(load.magnitude)) valid.add(`loads[${index}].magnitude`);
   }
   return valid;
 }

@@ -1,3 +1,4 @@
+import { buildExplicitDraftModel } from '../../../agent-runtime/explicit-model.js';
 import {
   STRUCTURAL_COORDINATE_SEMANTICS,
   withCanonicalCoordinateContract,
@@ -513,7 +514,7 @@ function buildStoryGravityNodalLoads(
   if (typeof totalLoadKN !== 'number' || !Number.isFinite(totalLoadKN) || totalLoadKN === 0 || nodeIds.length === 0) {
     return [];
   }
-  const fzPerNode = -Math.abs(totalLoadKN) / nodeIds.length;
+  const fzPerNode = -totalLoadKN / nodeIds.length;
   return nodeIds.map((node) => ({
     type: 'nodal',
     node,
@@ -555,7 +556,7 @@ function isLineEngineeringLoad(load: EngineeringDraftLoad): boolean {
 
 function isGravityLineLoad(load: EngineeringDraftLoad): boolean {
   return isLineEngineeringLoad(load)
-    && load.magnitude > 0
+    && Number.isFinite(load.magnitude)
     && (load.direction === undefined || load.direction === 'gravity' || load.direction === 'globalZ');
 }
 
@@ -565,7 +566,7 @@ export function hasConcreteFrameAnalysisLoadInput(state: Pick<DraftState, 'floor
     return true;
   }
   return Boolean(state.engineeringDraft?.loads?.some((load) => (
-    load.magnitude > 0
+    Number.isFinite(load.magnitude)
     && Number.isFinite(load.magnitude)
     && isGravityLineLoad(load)
   )));
@@ -680,7 +681,7 @@ function build2dConcreteBeamLineLoads(
       loads.push({
         type: 'distributed',
         element: element.id,
-        wz: -Math.abs(item.load.magnitude),
+        wz: (item.load.direction === 'globalZ' ? item.load.magnitude : -item.load.magnitude),
         story: storyId,
         source: 'engineering_draft_line_loads',
       });
@@ -717,7 +718,7 @@ function build3dConcreteBeamLineLoads(
       loads.push({
         type: 'distributed',
         element: element.id,
-        wz: -Math.abs(item.load.magnitude),
+        wz: (item.load.direction === 'globalZ' ? item.load.magnitude : -item.load.magnitude),
         story: storyId,
         source: 'engineering_draft_line_loads',
       });
@@ -1001,8 +1002,8 @@ function buildConcreteFrame2dLocalModel(options: {
     const storyIdx = index + 1;
     const fl = floorLoads.find((load) => load.story === storyIdx);
     const floorAreaM2 = Math.max(xCoords[xCoords.length - 1], 1);
-    const deadLoad = fl?.verticalKN ? Math.abs(fl.verticalKN) / floorAreaM2 : undefined;
-    const liveLoad = fl?.liveLoadKN ? Math.abs(fl.liveLoadKN) / floorAreaM2 : undefined;
+    const deadLoad = fl?.verticalKN ? fl.verticalKN / floorAreaM2 : undefined;
+    const liveLoad = fl?.liveLoadKN ? fl.liveLoadKN / floorAreaM2 : undefined;
     return {
       id: `F${storyIdx}`,
       height,
@@ -1183,8 +1184,8 @@ function buildConcreteFrame3dLocalModel(options: {
     const storyIdx = index + 1;
     const fl = floorLoads.find((load) => load.story === storyIdx);
     const floorAreaM2 = Math.max(xCoords[xCoords.length - 1], 1) * Math.max(yCoords[yCoords.length - 1], 1);
-    const deadLoad = fl?.verticalKN ? Math.abs(fl.verticalKN) / floorAreaM2 : undefined;
-    const liveLoad = fl?.liveLoadKN ? Math.abs(fl.liveLoadKN) / floorAreaM2 : undefined;
+    const deadLoad = fl?.verticalKN ? fl.verticalKN / floorAreaM2 : undefined;
+    const liveLoad = fl?.liveLoadKN ? fl.liveLoadKN / floorAreaM2 : undefined;
     return {
       id: `F${storyIdx}`,
       height,
@@ -1272,6 +1273,8 @@ export function buildConcreteFrameModel(
   state: DraftState,
   codeCheckResults?: ConcreteFrameOutput,
 ): ConcreteFrameModel | undefined {
+  const explicit = buildExplicitDraftModel(state);
+  if (explicit) return explicit as ConcreteFrameModel;
   const storyCount = state.storyCount;
   const storyHeightsM = state.storyHeightsM;
 

@@ -72,7 +72,7 @@ describe('canonical coordinate semantics', () => {
     expect(() => withCanonicalCoordinateContract({
       ...base,
       load_cases: [{ id: 'L1', loads: [{ element: 'E1', fz: -5 }] }],
-    }, '2d')).toThrow('Member loads must use');
+    }, '2d')).toThrow('Distributed member loads must use');
   });
 
   test('requires exactly one unambiguous load target', () => {

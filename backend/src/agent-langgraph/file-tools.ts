@@ -5,7 +5,7 @@
  * meaningful content depending on the file type:
  *   - CSV / text / AT2: returns parsed rows / raw content
  *   - Excel (.xlsx/.xls): returns headers + first N rows per sheet
- *   - PDF: extracts text via pdf-parse (if installed)
+ *   - PDF: page text, coordinates and rendered pages via PDF.js
  *   - Image (png/jpg/...): returns metadata/base64 for the configured vision parser
  *   - DXF: extracts LINE, TEXT, DIMENSION entities as structural hints
  *   - Other binary: returns metadata + extension hint
@@ -14,6 +14,9 @@ import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 import fsp from 'fs/promises';
 import path from 'path';
+import { createHash } from 'node:crypto';
+import { parse as parseCsvRecords } from 'csv-parse/sync';
+import { PythonWorkerRunner, resolveWorkerPath } from '../utils/python-worker-runner.js';
 import type { LangGraphRunnableConfig } from '@langchain/langgraph';
 import type { AgentConfigurable } from './configurable.js';
 import { runtimeBaseDir } from '../config/index.js';
@@ -42,6 +45,8 @@ type AnalyzeFileResult = Record<string, unknown>;
 interface AnalyzeUploadedFileOptions {
   includeImageData?: boolean;
   mode?: 'preview' | 'full';
+  pageStart?: number;
+  pageCount?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -88,141 +93,67 @@ export function resolveUploadPath(
   throw new Error('Access denied: path traversal blocked');
 }
 
-/** Parse CSV text into rows (header + data). */
-export function parseCsv(text: string, maxRows: number): { headers: string[]; rows: string[][] } {
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-  if (lines.length === 0) return { headers: [], rows: [] };
-
-  const splitLine = (line: string): string[] => {
-    const result: string[] = [];
-    let current = '';
-    let inQuote = false;
-    for (let i = 0; i < line.length; i += 1) {
-      const ch = line[i];
-      if (ch === '"') {
-        inQuote = !inQuote;
-      } else if ((ch === ',' || ch === '\t') && !inQuote) {
-        result.push(current.trim());
-        current = '';
-      } else {
-        current += ch;
-      }
-    }
-    result.push(current.trim());
-    return result;
+/** RFC 4180 parsing with physical line provenance, including quoted multiline cells. */
+export function parseCsv(text: string, maxRows: number, delimiter?: string) {
+  const separator = delimiter ?? (text.split(/\r?\n/, 1)[0]?.includes('\t') ? '\t' : ',');
+  const records = parseCsvRecords(text, { bom: true, delimiter: separator, skip_empty_lines: true, info: true }) as unknown as Array<{ record: string[]; info: { lines: number } }>;
+  const data = records.slice(1);
+  const selected = data.slice(0, Math.max(0, maxRows));
+  return {
+    headers: records[0]?.record ?? [], rows: selected.map((item) => item.record), totalRows: data.length,
+    rowSources: selected.map((item, index) => ({ recordNumber: index + 2, lineStart: (records[index]?.info.lines ?? 0) + 1, lineEnd: item.info.lines })),
+    truncated: selected.length < data.length,
   };
-
-  const headers = splitLine(lines[0]);
-  const rows = lines.slice(1, maxRows + 1).map(splitLine);
-  return { headers, rows };
 }
 
-/** Extract DXF entities as structural hints. */
-const DXF_LINE_PREVIEW_LIMIT = 500;
-const DXF_TEXT_PREVIEW_LIMIT = 200;
-
-export function parseDxf(text: string): {
-  lines: Array<{ x1: number; y1: number; z1: number; x2: number; y2: number; z2: number; layer: string }>;
-  texts: string[];
-  entityCount: number;
-  lineEntityCount: number;
-  textEntityCount: number;
-  invalidLineCount: number;
-  insertionUnits: { code: number; name: string; metersPerUnit: number | null } | null;
-} {
-  const insertionUnitDefinitions: Record<number, { name: string; metersPerUnit: number | null }> = {
-    0: { name: 'unitless', metersPerUnit: null },
-    1: { name: 'inches', metersPerUnit: 0.0254 },
-    2: { name: 'feet', metersPerUnit: 0.3048 },
-    4: { name: 'millimeters', metersPerUnit: 0.001 },
-    5: { name: 'centimeters', metersPerUnit: 0.01 },
-    6: { name: 'meters', metersPerUnit: 1 },
-    7: { name: 'kilometers', metersPerUnit: 1000 },
-    10: { name: 'yards', metersPerUnit: 0.9144 },
-    14: { name: 'decimeters', metersPerUnit: 0.1 },
-    15: { name: 'decameters', metersPerUnit: 10 },
-    16: { name: 'hectometers', metersPerUnit: 100 },
-    21: { name: 'us-survey-feet', metersPerUnit: 1200 / 3937 },
-  };
-  const result = {
-    lines: [] as Array<{ x1: number; y1: number; z1: number; x2: number; y2: number; z2: number; layer: string }>,
-    texts: [] as string[],
-    entityCount: 0,
-    lineEntityCount: 0,
-    textEntityCount: 0,
-    invalidLineCount: 0,
-    insertionUnits: null as { code: number; name: string; metersPerUnit: number | null } | null,
-  };
-
-  const dxfLines = text.split(/\r?\n/).map((l) => l.trim());
-  for (let pairIndex = 0; pairIndex + 3 < dxfLines.length; pairIndex += 2) {
-    if (dxfLines[pairIndex] !== '9' || dxfLines[pairIndex + 1] !== '$INSUNITS') continue;
-    if (dxfLines[pairIndex + 2] !== '70') continue;
-    const code = Number.parseInt(dxfLines[pairIndex + 3], 10);
-    if (!Number.isFinite(code)) continue;
-    const definition = insertionUnitDefinitions[code] || { name: `code-${code}`, metersPerUnit: null };
-    result.insertionUnits = { code, ...definition };
-    break;
-  }
-  let i = 0;
-  while (i < dxfLines.length) {
-    if (dxfLines[i] === '0' && dxfLines[i + 1] === 'LINE') {
-      result.entityCount += 1;
-      result.lineEntityCount += 1;
-      // Read next group codes until next entity
-      const entity: Record<string, string> = {};
-      i += 2;
-      while (i < dxfLines.length && !(dxfLines[i] === '0')) {
-        const code = dxfLines[i];
-        const value = dxfLines[i + 1] || '';
-        entity[code] = value;
-        i += 2;
-      }
-      const requiredCoordinates = ['10', '20', '11', '21'].map((code) => {
-        const raw = entity[code];
-        return raw !== undefined && raw.trim() !== '' ? Number(raw) : Number.NaN;
-      });
-      const optionalZCoordinates = ['30', '31'].map((code) => (
-        entity[code] === undefined
-          ? 0
-          : entity[code].trim() !== '' ? Number(entity[code]) : Number.NaN
-      ));
-      const coordinates = [...requiredCoordinates, ...optionalZCoordinates];
-      if (requiredCoordinates.some((value) => !Number.isFinite(value))
-        || optionalZCoordinates.some((value) => !Number.isFinite(value))) {
-        result.invalidLineCount += 1;
-      } else if (result.lines.length < DXF_LINE_PREVIEW_LIMIT) {
-        const [x1, y1, x2, y2, z1, z2] = coordinates;
-        result.lines.push({ x1, y1, z1, x2, y2, z2, layer: entity['8'] || '0' });
-      }
-      continue;
-    }
-    if (dxfLines[i] === '0' && (dxfLines[i + 1] === 'TEXT' || dxfLines[i + 1] === 'MTEXT')) {
-      result.entityCount += 1;
-      result.textEntityCount += 1;
-      i += 2;
-      while (i < dxfLines.length && !(dxfLines[i] === '0')) {
-        const code = dxfLines[i];
-        const value = dxfLines[i + 1] || '';
-        // Group code 1 = text string
-        if ((code === '1' || code === '3') && value.trim() && result.texts.length < DXF_TEXT_PREVIEW_LIMIT) {
-          result.texts.push(value.trim());
-        }
-        i += 2;
-      }
-      continue;
-    }
-    if (dxfLines[i] === '0') {
-      result.entityCount += 1;
-    }
-    i += 1;
-  }
-  return result;
+/** DXF semantics are delegated to ezdxf rather than a partial group-code parser. */
+export async function parseDxf(text: string, maxLines = 500, maxTexts = 200, resolvedFilePath?: string): Promise<Record<string, any>> {
+  const runner = new PythonWorkerRunner<{ text: string; maxLines: number; maxTexts: number; filePath?: string }>(resolveWorkerPath('agent-skills/data-input/cad/dxf_worker.py'));
+  return runner.invoke({ text, maxLines, maxTexts, filePath: resolvedFilePath });
 }
 
+async function parsePdf(filePath: string, bytes: Buffer, options: AnalyzeUploadedFileOptions) {
+  const { getDocument, OPS } = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const { createCanvas } = await import('@napi-rs/canvas');
+  const loadingTask = getDocument({ data: new Uint8Array(bytes), useSystemFonts: true });
+  const document = await loadingTask.promise;
+  try {
+    const first = Math.max(1, options.pageStart ?? 1);
+    const last = Math.min(document.numPages, first + Math.min(options.pageCount ?? 4, 12) - 1);
+    if (first > document.numPages) throw new Error('PDF_PAGE_OUT_OF_RANGE / PDF页码超出范围');
+    const digest = createHash('sha256').update(bytes).digest('hex');
+    const outputDir = path.join(path.dirname(filePath), '.parsed', digest.slice(0, 16));
+    await fsp.mkdir(outputDir, { recursive: true });
+    const pages = [];
+    for (let number = first; number <= last; number += 1) {
+      const page = await document.getPage(number);
+      const viewport = page.getViewport({ scale: 1 });
+      const textContent = await page.getTextContent();
+      const operations = await page.getOperatorList();
+      const drawingOps = new Set([OPS.constructPath, OPS.paintImageXObject, OPS.paintInlineImageXObject, OPS.paintImageMaskXObject, OPS.shadingFill]);
+      const hasGraphics = operations.fnArray.some((operation: number) => drawingOps.has(operation));
+      const items = textContent.items.filter((item): item is import('pdfjs-dist/types/src/display/api.js').TextItem => 'str' in item);
+      const scale = Math.min(2, 1800 / Math.max(viewport.width, viewport.height));
+      const renderedViewport = page.getViewport({ scale });
+      const canvas = createCanvas(Math.ceil(renderedViewport.width), Math.ceil(renderedViewport.height));
+      await page.render({ canvasContext: canvas.getContext('2d') as never, canvas: canvas as never, viewport: renderedViewport }).promise;
+      const renderedImagePath = path.join(outputDir, `page-${number}.png`);
+      await fsp.writeFile(renderedImagePath, await canvas.encode('png'));
+      const text = items.map((item) => item.str + (item.hasEOL ? '\n' : ' ')).join('');
+      pages.push({ pageNumber: number, width: viewport.width, height: viewport.height,
+        text: text.slice(0, 16000), textTruncated: text.length > 16000,
+        items: items.slice(0, 2000).map((item, index) => ({ text: item.str, transform: item.transform, width: item.width, height: item.height, source: { pageNumber: number, itemIndex: index } })),
+        itemsTruncated: items.length > 2000, renderedImagePath, hasGraphics, requiresVision: !text.trim() || hasGraphics,
+        note: 'Text extraction does not reconstruct drawing geometry; inspect rendered page / 提取文字不等于识别图形，须结合页面图像' });
+      page.cleanup();
+    }
+    return { pageCount: document.numPages, pages, text: pages.map((page) => `[Page ${page.pageNumber}]\n${page.text}`).join('\n'),
+      truncated: first > 1 || last < document.numPages || pages.some((page) => page.textTruncated || page.itemsTruncated),
+      nextPage: last < document.numPages ? last + 1 : null, parser: 'pdfjs-dist',
+      source: { filePath, sha256: digest }, coordinateFrame: 'pdf-page',
+    };
+  } finally { await loadingTask.destroy(); }
+}
 export async function analyzeUploadedFile(
   filePath: string,
   workspaceRoot: string | undefined,
@@ -247,6 +178,7 @@ export async function analyzeUploadedFile(
     return { success: false, error: 'NOT_A_FILE', filePath };
   }
 
+  try {
   const ext = path.extname(resolvedPath).toLowerCase();
   const size = stat.size;
 
@@ -270,6 +202,7 @@ export async function analyzeUploadedFile(
       ext,
       size,
       mimeType: mime,
+      source: { filePath: resolvedPath, sha256: createHash('sha256').update(buf).digest('hex'), parser: 'image' },
       note: 'Image binary is available for the configured vision parser. The main agent should use the resulting text summary, not pass base64DataUri to the standard model.',
     };
     if (options.includeImageData) {
@@ -290,29 +223,16 @@ export async function analyzeUploadedFile(
   // ── PDF ──────────────────────────────────────────────────────────────
   if (ext === '.pdf') {
     try {
-      // Dynamic import so the server still starts if pdf-parse is not installed
-      // Handle both ES module default export and CommonJS module format
-      const mod = await import('pdf-parse');
-      const pdfParse = 'default' in mod ? mod.default : mod;
-      const buf = await fsp.readFile(resolvedPath);
-      const data = await (pdfParse as (buf: Buffer) => Promise<{ numpages: number; text: string }>)(buf);
-      return {
-        success: true,
-        type: 'pdf',
-        ext,
-        size,
-        pageCount: data.numpages,
-        text: data.text.slice(0, 8000),
-        truncated: data.text.length > 8000,
-      };
+      const bytes = await fsp.readFile(resolvedPath);
+      return { success: true, type: 'pdf', ext, size, ...await parsePdf(resolvedPath, bytes, options) };
     } catch (err) {
       const msg = String(err);
       if (msg.includes('Cannot find module')) {
         return {
           success: false,
           type: 'pdf',
-          error: 'PDF_PARSE_NOT_INSTALLED',
-          note: 'Install pdf-parse: npm install pdf-parse',
+          error: 'PDF_DEPENDENCY_MISSING',
+          note: 'Install pdfjs-dist and @napi-rs/canvas / 请安装PDF解析及渲染依赖',
         };
       }
       return { success: false, type: 'pdf', error: msg };
@@ -325,7 +245,7 @@ export async function analyzeUploadedFile(
       const XLSX = await import('xlsx').then((m) => m.default ?? m);
       const buf = await fsp.readFile(resolvedPath);
       const workbook = XLSX.read(buf, { type: 'buffer' });
-      const sheets: Record<string, { headers: string[]; rows: unknown[][] }> = {};
+      const sheets: Record<string, unknown> = {};
       for (const sheetName of workbook.SheetNames) {
         const ws = workbook.Sheets[sheetName];
         const jsonData: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }) as unknown[][];
@@ -336,9 +256,13 @@ export async function analyzeUploadedFile(
         const rows = jsonData.slice(1, rowLimit + 1).map((row) =>
           (row as unknown[]).map((cell) => (cell === null || cell === undefined ? '' : cell)),
         );
-        sheets[sheetName] = { headers, rows };
+        const range = XLSX.utils.decode_range(ws['!ref'] ?? 'A1');
+        sheets[sheetName] = { headers, rows, totalRows: Math.max(0, jsonData.length - 1),
+          rowSources: rows.map((_, index) => ({ sheet: sheetName, row: range.s.r + index + 2 })),
+          truncated: rows.length < jsonData.length - 1 };
       }
-      return { success: true, type: 'excel', ext, size, sheets };
+      return { success: true, type: 'excel', ext, size, sheets,
+        source: { filePath: resolvedPath, sha256: createHash('sha256').update(buf).digest('hex'), parser: 'xlsx' } };
     } catch (err) {
       const msg = String(err);
       if (msg.includes('Cannot find module')) {
@@ -363,16 +287,15 @@ export async function analyzeUploadedFile(
       const rowLimit = options.mode === 'full'
         ? Math.max(allLines.filter((line) => line.trim()).length - 1, 0)
         : Math.min(maxRows ?? CSV_MAX_ROWS, 500);
-      const parsed = parseCsv(text, rowLimit);
+      const parsed = parseCsv(text, rowLimit, ext === '.tsv' ? '\t' : ',');
       return {
         success: true,
         type: 'csv',
         ext,
         size,
         totalLines: allLines.length,
-        headers: parsed.headers,
-        rows: parsed.rows,
-        truncated: allLines.length - 1 > rowLimit,
+        ...parsed,
+        source: { filePath: resolvedPath, sha256: createHash('sha256').update(buf).digest('hex'), parser: 'csv-parse' },
       };
     }
 
@@ -384,6 +307,7 @@ export async function analyzeUploadedFile(
       ext,
       size,
       content,
+      source: { filePath: resolvedPath, sha256: createHash('sha256').update(buf).digest('hex'), parser: 'utf8', characterStart: 0, characterEnd: content.length },
       truncated: options.mode === 'full' ? false : text.length > 8000,
     };
   }
@@ -392,12 +316,14 @@ export async function analyzeUploadedFile(
   if (ext === '.dxf') {
     const buf = await fsp.readFile(resolvedPath);
     const text = buf.toString('utf-8');
-    const dxfData = parseDxf(text);
+    const dxfData = await parseDxf(text, 500, 200, resolvedPath);
     return {
       success: true,
       type: 'dxf',
       ext,
       size,
+      ...dxfData,
+      source: { filePath: resolvedPath, sha256: createHash('sha256').update(buf).digest('hex'), parser: 'ezdxf' },
       entityCount: dxfData.entityCount,
       lineCount: dxfData.lineEntityCount,
       textCount: dxfData.textEntityCount,
@@ -420,6 +346,9 @@ export async function analyzeUploadedFile(
     size,
     note: `Binary file of type ${ext}. No parser available. Check if the correct file was uploaded.`,
   };
+  } catch (error) {
+    return { success: false, filePath, error: 'FILE_PARSE_FAILED', detail: error instanceof Error ? error.message : String(error) };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -429,7 +358,7 @@ export async function analyzeUploadedFile(
 export function createAnalyzeFileTool() {
   return tool(
     async (
-      input: { filePath: string; maxRows?: number },
+      input: { filePath: string; maxRows?: number; pageStart?: number; pageCount?: number },
       config: LangGraphRunnableConfig,
     ) => {
       const configurable = config.configurable as Partial<AgentConfigurable>;
@@ -455,7 +384,7 @@ export function createAnalyzeFileTool() {
           });
         }
       }
-      return JSON.stringify(await analyzeUploadedFile(input.filePath, workspaceRoot, input.maxRows));
+      return JSON.stringify(await analyzeUploadedFile(input.filePath, workspaceRoot, input.maxRows, { pageStart: input.pageStart, pageCount: input.pageCount }));
     },
     {
       name: 'analyze_file',
@@ -467,6 +396,8 @@ export function createAnalyzeFileTool() {
         'filePath may be a relative path under .uploads/<conversationId>/ or an absolute path inside the upload directory.',
       schema: z.object({
         filePath: z.string().describe('Path to the uploaded file (relPath from upload response, or absolute path)'),
+        pageStart: z.number().int().min(1).optional().describe('PDF first page, one-based / PDF起始页'),
+        pageCount: z.number().int().min(1).max(12).optional().describe('PDF pages to extract and render, default 4 / 提取与渲染页数'),
         maxRows: z.number().int().min(1).max(500).optional().describe('Max rows to return for CSV/Excel (default 50-100)'),
       }),
     },

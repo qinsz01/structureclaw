@@ -97,11 +97,11 @@ export function toFramePatch(patch: DraftExtraction): DraftExtraction {
   return next;
 }
 
-function extractLlmScalar(raw: Record<string, unknown> | null | undefined, keys: string[]): number | undefined {
+function extractLlmScalar(raw: Record<string, unknown> | null | undefined, keys: string[], allowSigned = false): number | undefined {
   if (!raw) return undefined;
   for (const key of keys) {
     const value = normalizeNumber(raw[key]);
-    if (value !== undefined && value > 0) return value;
+    if (value !== undefined && (allowSigned || value > 0)) return value;
   }
   return undefined;
 }
@@ -173,10 +173,10 @@ export function buildFramePatchFromLlm(
   const bayWidthScalar = extractLlmScalar(rawPatch, ['bayWidthScalar', 'bayWidthM', 'spacingM']);
   const bayWidthXScalar = extractLlmScalar(rawPatch, ['bayWidthXScalar', 'bayWidthXM', 'spacingXM']);
   const bayWidthYScalar = extractLlmScalar(rawPatch, ['bayWidthYScalar', 'bayWidthYM', 'spacingYM']);
-  const verticalLoadKN = extractLlmScalar(rawPatch, ['verticalLoadKN', 'uniformVerticalLoadKN']);
-  const liveLoadKN = extractLlmScalar(rawPatch, ['liveLoadKN', 'uniformLiveLoadKN']);
-  const lateralXKN = extractLlmScalar(rawPatch, ['lateralXKN', 'horizontalLoadKN', 'uniformLateralXKN']);
-  const lateralYKN = extractLlmScalar(rawPatch, ['lateralYKN', 'uniformLateralYKN']);
+  const verticalLoadKN = extractLlmScalar(rawPatch, ['verticalLoadKN', 'uniformVerticalLoadKN'], true);
+  const liveLoadKN = extractLlmScalar(rawPatch, ['liveLoadKN', 'uniformLiveLoadKN'], true);
+  const lateralXKN = extractLlmScalar(rawPatch, ['lateralXKN', 'horizontalLoadKN', 'uniformLateralXKN'], true);
+  const lateralYKN = extractLlmScalar(rawPatch, ['lateralYKN', 'uniformLateralYKN'], true);
   const frameDimension = normalized.frameDimension
     ?? (normalized.bayCountY !== undefined || normalized.bayWidthsYM !== undefined || lateralYKN !== undefined ? '3d' : undefined);
 

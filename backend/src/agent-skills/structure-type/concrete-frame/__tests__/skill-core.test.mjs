@@ -399,7 +399,7 @@ describe('concrete-frame canonicalize core contract', () => {
     });
   });
 
-  test('normalizes duplicate concrete same-story floor loads without dropping signed gravity loads', () => {
+  test('normalizes duplicate concrete floor loads while preserving upward signed gravity loads', () => {
     const model = buildConcreteFrameModel({
       inferredType: 'concrete-frame',
       updatedAt: 0,
@@ -423,9 +423,9 @@ describe('concrete-frame canonicalize core contract', () => {
     expect(model.floorLoads).toEqual([
       { story: 1, verticalKN: -120, liveLoadKN: 30 },
     ]);
-    expect(model.stories[0]).toMatchObject({ dead_load: 20, live_load: 5 });
+    expect(model.stories[0]).toMatchObject({ dead_load: -20, live_load: 5 });
     expect(model.load_cases.find((loadCase) => loadCase.id === 'D').loads).toHaveLength(2);
-    expect(model.load_cases.find((loadCase) => loadCase.id === 'D').loads.reduce((sum, load) => sum + load.fz, 0)).toBeCloseTo(-120);
+    expect(model.load_cases.find((loadCase) => loadCase.id === 'D').loads.reduce((sum, load) => sum + load.fz, 0)).toBeCloseTo(120);
     expect(model.load_cases.find((loadCase) => loadCase.id === 'L').loads).toHaveLength(2);
     expect(model.load_cases.find((loadCase) => loadCase.id === 'L').loads.reduce((sum, load) => sum + load.fz, 0)).toBeCloseTo(-30);
   });

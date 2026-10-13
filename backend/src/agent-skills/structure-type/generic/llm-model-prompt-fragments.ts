@@ -42,9 +42,10 @@ const COMMON_CONSTRAINTS_EN = [
   'All lengths are meters, point forces are kN, and distributed member loads are kN/m. Never output N or N/m values and never multiply kN values by 1000.',
   'Output only the fields shown in the template. load_case.type must be dead, live, wind, seismic, or other.',
   'Prohibited alternate field names: material_id->material, section_id->section, coordinates->x/y/z, boundary_conditions->restraints, elastic_modulus->E, poisson_ratio->nu, density->rho, yield_strength->fy.',
-  'Create explicit nodes at supports, concentrated loads, span boundaries, member intersections, and geometry break points so analysis result locations are computable.',
+  'Create explicit nodes at physical supports, joints, member intersections and geometry break points. Internal load and output positions do not require changing physical member IDs.',
   'Before output, check the total applied load against the user request. Do not apply the same physical load twice as both nodal and distributed loads.',
-  'For partial-span distributed loads, split the member into separate elements. Only use nodal and distributed as load types; do not use nodal_force, line_load, element_uniform_load, or uniform_load.',
+  'Keep physical members intact. Use type=point, element, position in metres from the i end, and fx/fy/fz/mx/my/mz for an internal concentrated load. Distributed loads use wx/wy/wz and optional start/end distances in metres. The analysis compiler creates its own mesh. Reference frames are global or element-local. Preserve signed components; gravity-positive draft values map to negative global Z.',
+  'Do not invent missing geometry, restraints, materials or member sections. Return {"missing_fields":[...]} if essential data is missing or contradictory. Preserve each member type, property assignment, release, offset and local-axis definition. Keep attachment page/entity/row references in metadata.inputEvidence; the drawing is evidence, not a numeric answer.',
   'If confirmed parameters contain seismicMemberEvidence or seismicWorkflow.memberEvidence, attach the provided structured member evidence to the matching element as element fields, metadata, or extra using keys such as seismicCapacity, capacityDesign, strongShearWeakBending, shearCompression, jointCore, wallData, boundaryElement, or steelSeismicDetailing; do not summarize it as prose and do not decide code-check pass/fail.',
 ];
 
@@ -56,9 +57,10 @@ const COMMON_CONSTRAINTS_ZH = [
   '所有长度使用 m，集中力使用 kN，构件均布荷载使用 kN/m。不要输出 N 或 N/m，也不要把 kN 数值乘以 1000。',
   '严格输出模板中的字段和层级。load_case.type 只能是 dead/live/wind/seismic/other。',
   '禁止替代字段名：material_id->material, section_id->section, coordinates->x/y/z, boundary_conditions->restraints, elastic_modulus->E, poisson_ratio->nu, density->rho, yield_strength->fy。',
-  '在支座、集中荷载、跨界、构件交点和几何转折处建立显式节点，保证分析结果位置可计算。',
+  '在物理支座、连接、构件交点和几何转折处建立显式节点；跨内荷载与结果采样点无需改变物理构件ID。',
   '输出前核对总施加荷载与用户描述是否一致。不要把同一个物理荷载同时作为节点荷载和构件均布荷载重复施加。',
-  '局部均布荷载不要在单元内设起止位置，应拆分单元后对目标单元施加 distributed 荷载。只使用 nodal 和 distributed，不要使用 nodal_force/line_load/element_uniform_load/uniform_load 等类型名。',
+  '保持物理构件完整。跨内集中荷载用 type=point、element、从i端起的position米及fx/fy/fz/mx/my/mz；分布荷载用wx/wy/wz及可选start/end米。分析编译器负责细分网格。reference_frame只能是global或element-local。保留带符号分量，草稿gravity正值对应全局负Z。',
+  '不得猜测缺失的几何、约束、材料或逐构件截面；关键数据缺失或冲突时返回{"missing_fields":[...]}。保留构件类型、属性分组、释放、偏心及局部轴。附件页码/实体/表格行来源保存在metadata.inputEvidence；图纸是建模依据而不是数值答案。',
   '如果已确认参数包含 seismicMemberEvidence 或 seismicWorkflow.memberEvidence，必须把已提供的构件抗震证据挂到匹配 element 的字段、metadata 或 extra 中，并保留 seismicCapacity、capacityDesign、strongShearWeakBending、shearCompression、jointCore、wallData、boundaryElement、steelSeismicDetailing 等结构化键；不要写成自然语言备注，也不要由 LLM 判断条文通过或失败。',
 ];
 

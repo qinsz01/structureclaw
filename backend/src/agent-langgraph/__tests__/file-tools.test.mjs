@@ -1,8 +1,29 @@
-import { describe, expect, test, beforeEach, afterEach } from '@jest/globals';
+import { describe, expect, test, beforeEach, afterEach, jest } from '@jest/globals';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+jest.setTimeout(30000);
 
+function validDxf(entities = [], units = 6) {
+  return ['0', 'SECTION', '2', 'HEADER', '9', '$ACADVER', '1', 'AC1009', '9', '$INSUNITS', '70', String(units), '0', 'ENDSEC',
+    '0', 'SECTION', '2', 'ENTITIES', ...entities, '0', 'ENDSEC', '0', 'EOF', ''].join('\n');
+}
+
+function pdfFixture() {
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Resources << /Font << /F1 5 0 R >> >> /Contents 6 0 R >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Resources << >> /Contents 7 0 R >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    ...['BT /F1 12 Tf 20 120 Td (Beam B1) Tj ET 10 10 m 200 150 l S', '10 10 m 200 150 l S'].map(text=>`<< /Length ${Buffer.byteLength(text)} >>\nstream\n${text}\nendstream`),
+  ];
+  let value='%PDF-1.4\n'; const offsets=[0];
+  for(let index=0;index<objects.length;index++){offsets.push(Buffer.byteLength(value));value+=`${index+1} 0 obj\n${objects[index]}\nendobj\n`;}
+  const xref=Buffer.byteLength(value);
+  value+=`xref\n0 ${objects.length+1}\n0000000000 65535 f \n${offsets.slice(1).map(offset=>String(offset).padStart(10,'0')+' 00000 n ').join('\n')}\ntrailer\n<< /Size ${objects.length+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  return Buffer.from(value);
+}
 describe('file-tools helpers', () => {
   describe('isPathWithinRoot', () => {
     test('exact root match returns true', async () => {
@@ -32,6 +53,14 @@ describe('file-tools helpers', () => {
   });
 
   describe('parseCsv', () => {
+    test('keeps escaped quotes, multiline cells and physical line provenance', async () => {
+      const { parseCsv } = await import('../../../dist/agent-langgraph/file-tools.js');
+      const result = parseCsv('\ufeffname,note\nA,"line1\nline2 with ""quotes"""\nB,next', 1);
+      expect(result.rows).toEqual([['A','line1\nline2 with "quotes"']]);
+      expect(result.rowSources).toEqual([{recordNumber:2,lineStart:2,lineEnd:3}]);
+      expect(result.totalRows).toBe(2);
+      expect(result.truncated).toBe(true);
+    });
     test('empty input returns empty headers and rows', async () => {
       const { parseCsv } = await import('../../../dist/agent-langgraph/file-tools.js');
       const result = parseCsv('', 100);
@@ -70,83 +99,35 @@ describe('file-tools helpers', () => {
   });
 
   describe('parseDxf', () => {
-    test('extracts LINE entities with coordinates', async () => {
+    test('extracts real DXF LINE geometry, units and entity provenance', async () => {
       const { parseDxf } = await import('../../../dist/agent-langgraph/file-tools.js');
-      const dxf = [
-        '9', '$INSUNITS', '70', '4',
-        '0', 'LINE',
-        '8', 'STRUCTURE',
-        '10', '1.0', '20', '2.0', '30', '5.0',
-        '11', '3.0', '21', '4.0', '31', '6.0',
-        '0', 'EOF',
-      ].join('\n');
-      const result = parseDxf(dxf);
-      expect(result.lines).toHaveLength(1);
-      expect(result.lines[0]).toEqual({ x1: 1, y1: 2, z1: 5, x2: 3, y2: 4, z2: 6, layer: 'STRUCTURE' });
+      const result = await parseDxf(validDxf(['0','LINE','8','STRUCTURE','10','1','20','2','30','5','11','3','21','4','31','6'], 4));
+      expect(result.lines[0]).toMatchObject({ x1: 1, y1: 2, z1: 5, x2: 3, y2: 4, z2: 6, layer: 'STRUCTURE', source: { entityIndex: 0 } });
       expect(result.lineEntityCount).toBe(1);
-      expect(result.textEntityCount).toBe(0);
-      expect(result.insertionUnits).toEqual({ code: 4, name: 'millimeters', metersPerUnit: 0.001 });
+      expect(result.insertionUnits).toMatchObject({ code: 4, metersPerUnit: 0.001 });
     });
-
-    test('continues scanning after malformed INSUNITS blocks', async () => {
+    test('keeps text insertion positions and flags unsupported curves', async () => {
       const { parseDxf } = await import('../../../dist/agent-langgraph/file-tools.js');
-      const dxf = [
-        '9', '$INSUNITS', '1', 'unexpected-group',
-        '9', '$INSUNITS', '70', 'not-a-number',
-        '9', '$INSUNITS', '70', '6',
-        '0', 'EOF',
-      ].join('\n');
-
-      const result = parseDxf(dxf);
-
-      expect(result.insertionUnits).toEqual({ code: 6, name: 'meters', metersPerUnit: 1 });
+      const result = await parseDxf(validDxf(['0','TEXT','10','3','20','4','40','1','1','Beam Label','0','CIRCLE','10','0','20','0','40','2']));
+      expect(result.texts).toEqual(['Beam Label']);
+      expect(result.annotations[0]).toMatchObject({ position: [3,4,0], source: { entityIndex: 0 } });
+      expect(result.unsupportedEntities.CIRCLE).toBe(1);
+      expect(result.complete).toBe(false);
     });
-
-    test('extracts TEXT and MTEXT content', async () => {
+    test('rejects malformed DXF rather than returning an apparently empty drawing', async () => {
       const { parseDxf } = await import('../../../dist/agent-langgraph/file-tools.js');
-      const dxf = [
-        '0', 'TEXT',
-        '1', 'Hello World',
-        '0', 'MTEXT',
-        '1', 'Beam Label',
-        '0', 'EOF',
-      ].join('\n');
-      const result = parseDxf(dxf);
-      expect(result.entityCount).toBeGreaterThanOrEqual(2);
-      expect(result.texts).toEqual(['Hello World', 'Beam Label']);
-      expect(result.textEntityCount).toBe(2);
+      await expect(parseDxf('')).rejects.toThrow();
+      await expect(parseDxf(validDxf(['0','LINE','10','not-a-number','20','2','11','3','21','4']))).rejects.toThrow();
     });
-
-    test('rejects malformed LINE coordinates instead of emitting non-finite or invented points', async () => {
+    test('valid empty unitless DXF does not invent drawing units', async () => {
       const { parseDxf } = await import('../../../dist/agent-langgraph/file-tools.js');
-      const dxf = [
-        '0', 'LINE',
-        '10', 'not-a-number', '20', '2',
-        '11', '3', '21', '4',
-        '0', 'LINE',
-        '10', '1', '20', '2',
-        '11', '3',
-        '0', 'EOF',
-      ].join('\n');
-      const result = parseDxf(dxf);
-      expect(result.lines).toEqual([]);
-      expect(result.invalidLineCount).toBe(2);
-    });
-
-    test('empty DXF returns zero entities', async () => {
-      const { parseDxf } = await import('../../../dist/agent-langgraph/file-tools.js');
-      const result = parseDxf('');
+      const result = await parseDxf(validDxf([], 0));
       expect(result.entityCount).toBe(0);
       expect(result.lines).toEqual([]);
-      expect(result.texts).toEqual([]);
-      expect(result.lineEntityCount).toBe(0);
-      expect(result.textEntityCount).toBe(0);
-      expect(result.invalidLineCount).toBe(0);
-      expect(result.insertionUnits).toBeNull();
+      expect(result.insertionUnits.metersPerUnit).toBeNull();
     });
   });
 });
-
 describe('createAnalyzeFileTool', () => {
   let tmpDir;
   let uploadsDir;
@@ -175,6 +156,21 @@ describe('createAnalyzeFileTool', () => {
     expect(result.type).toBe('csv');
     expect(result.headers).toEqual(['name', 'value']);
     expect(result.rows).toEqual([['A', '1'], ['B', '2']]);
+  });
+
+  test('PDF returns page text locations, rendered diagram and explicit pagination', async () => {
+    const { analyzeUploadedFile } = await import('../../../dist/agent-langgraph/file-tools.js');
+    const pdfPath=path.join(uploadsDir,'drawing.pdf'); await fs.writeFile(pdfPath,pdfFixture());
+    const first=await analyzeUploadedFile(pdfPath,tmpDir,undefined,{pageCount:1});
+    expect(first.success).toBe(true);
+    expect(first.pageCount).toBe(2); expect(first.nextPage).toBe(2); expect(first.truncated).toBe(true);
+    expect(first.pages[0].text).toContain('Beam B1'); expect(first.pages[0].items[0].source.pageNumber).toBe(1);
+    expect(first.pages[0].requiresVision).toBe(true);
+    const next=await analyzeUploadedFile(pdfPath,tmpDir,undefined,{pageStart:2,pageCount:1});
+    expect(next.pages[0].requiresVision).toBe(true);
+    const image=await fs.readFile(next.pages[0].renderedImagePath);
+    expect(image.subarray(1,4).toString()).toBe('PNG');
+    expect(JSON.stringify(next)).not.toContain('base64');
   });
 
   test('can preserve all CSV rows for runtime attachment use', async () => {
@@ -252,14 +248,13 @@ describe('createAnalyzeFileTool', () => {
   test('keeps DXF analysis note neutral for structure routing', async () => {
     const { createAnalyzeFileTool } = await import('../../../dist/agent-langgraph/file-tools.js');
     const dxfPath = path.join(uploadsDir, 'drawing.dxf');
-    await fs.writeFile(dxfPath, [
+    await fs.writeFile(dxfPath, validDxf([
       '0', 'LINE',
       '10', '0', '20', '0',
       '11', '6', '21', '0',
       '0', 'TEXT',
-      '1', 'Total: 6m',
-      '0', 'EOF',
-    ].join('\n'), 'utf8');
+      '10', '0', '20', '0', '40', '1', '1', 'Total: 6m',
+    ]), 'utf8');
     const tool = createAnalyzeFileTool();
     const raw = await tool.invoke(
       { filePath: dxfPath },
@@ -280,7 +275,7 @@ describe('createAnalyzeFileTool', () => {
       '10', String(index), '20', '0',
       '11', String(index + 1), '21', '0',
     ]).flat();
-    await fs.writeFile(dxfPath, [...entities, '0', 'EOF'].join('\n'), 'utf8');
+    await fs.writeFile(dxfPath, validDxf(entities), 'utf8');
     const tool = createAnalyzeFileTool();
     const raw = await tool.invoke(
       { filePath: dxfPath },
@@ -310,7 +305,7 @@ describe('createAnalyzeFileTool', () => {
     const { createAnalyzeFileTool } = await import('../../../dist/agent-langgraph/file-tools.js');
     const allowedPath = path.join(uploadsDir, 'drawing.dxf');
     const workspaceSecret = path.join(tmpDir, 'ground-truth.json');
-    await fs.writeFile(allowedPath, ['0', 'EOF'].join('\n'), 'utf8');
+    await fs.writeFile(allowedPath, validDxf(), 'utf8');
     await fs.writeFile(workspaceSecret, '{"answer":42}', 'utf8');
     const tool = createAnalyzeFileTool();
     const config = {

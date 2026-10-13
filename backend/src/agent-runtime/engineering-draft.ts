@@ -94,7 +94,10 @@ function normalizeTopologyNode(value: unknown): EngineeringDraftTopologyNode | u
     && raw.restraints.every((item) => typeof item === 'boolean')
     ? [...raw.restraints] as boolean[]
     : undefined;
-  return { id, x, y, z, restraints };
+  if (raw.restraints !== undefined && !restraints) {
+    throw new Error(`INVALID_EXPLICIT_TOPOLOGY: node '${id}' needs six boolean restraints / 节点约束必须为六个布尔值`);
+  }
+  return { ...structuredClone(raw), id, x, y, z, restraints };
 }
 
 function normalizeTopologyMember(value: unknown): EngineeringDraftTopologyMember | undefined {
@@ -104,8 +107,15 @@ function normalizeTopologyMember(value: unknown): EngineeringDraftTopologyMember
   const end = normalizeString(raw.nodes[1]);
   if (!start || !end || start === end) return undefined;
   return {
+    ...structuredClone(raw),
     id: normalizeString(raw.id),
     nodes: [start, end],
+    ...(raw.type !== undefined && { type: raw.type as EngineeringDraftTopologyMember['type'] }),
+    ...(raw.material !== undefined && { material: normalizeString(raw.material) }),
+    ...(raw.section !== undefined && { section: normalizeString(raw.section) }),
+    ...(raw.rotation_angle !== undefined && { rotation_angle: finiteNumber(raw.rotation_angle) }),
+    ...(asRecord(raw.releases) && { releases: structuredClone(asRecord(raw.releases)!) }),
+    ...(asRecord(raw.offsets) && { offsets: structuredClone(asRecord(raw.offsets)!) as Record<string, number> }),
   };
 }
 
@@ -118,6 +128,10 @@ function normalizeEngineeringTopology(value: unknown): EngineeringDraftTopology 
   const members = Array.isArray(raw.members)
     ? raw.members.map(normalizeTopologyMember).filter((member): member is EngineeringDraftTopologyMember => member !== undefined)
     : undefined;
+  if ((Array.isArray(raw.nodes) && nodes?.length !== raw.nodes.length)
+    || (Array.isArray(raw.members) && members?.length !== raw.members.length)) {
+    throw new Error('INVALID_EXPLICIT_TOPOLOGY: invalid nodes or member endpoints / 显式节点或构件端点无效，不能丢弃后继续建模');
+  }
   return nodes?.length || members?.length ? { nodes, members } : undefined;
 }
 
@@ -197,7 +211,7 @@ function normalizeLoadKind(value: unknown): EngineeringDraftLoadKind | undefined
   return undefined;
 }
 
-function normalizeLoadUnit(value: unknown, kind: EngineeringDraftLoadKind): EngineeringDraftLoadUnit {
+function normalizeLoadUnit(value: unknown, _kind: EngineeringDraftLoadKind): EngineeringDraftLoadUnit {
   const raw = normalizeString(value)?.toLowerCase().replace(/\s+/g, '');
   if (raw === 'kn/m2' || raw === 'kn/m^2' || raw === 'kn/㎡' || raw === 'kn/m²') {
     return 'kN/m2';
@@ -208,9 +222,10 @@ function normalizeLoadUnit(value: unknown, kind: EngineeringDraftLoadKind): Engi
   if (raw === 'kn') {
     return 'kN';
   }
-  if (kind === 'line' || kind === 'distributed') return 'kN/m';
-  if (kind === 'area') return 'kN/m2';
-  return 'kN';
+  if (raw === 'n') return 'kN';
+  if (raw === 'n/m') return 'kN/m';
+  if (raw === 'n/m2' || raw === 'n/m^2' || raw === 'n/m²' || raw === 'kpa') return 'kN/m2';
+  throw new Error('LOAD_UNIT_REQUIRED: load units must be explicit and supported / 荷载单位必须明确且受支持');
 }
 
 function normalizeLoadDirection(value: unknown): EngineeringDraftLoadDirection | undefined {
@@ -220,7 +235,7 @@ function normalizeLoadDirection(value: unknown): EngineeringDraftLoadDirection |
   if (raw === 'globalx' || raw === 'x' || raw === 'fx') return 'globalX';
   if (raw === 'globaly' || raw === 'y' || raw === 'fy') return 'globalY';
   if (raw === 'globalz' || raw === 'z' || raw === 'fz') return 'globalZ';
-  return undefined;
+  throw new Error('LOAD_DIRECTION_INVALID: declare gravity or globalX/globalY/globalZ / 荷载方向不明确');
 }
 
 function normalizeLoadCaseType(value: unknown): EngineeringDraftLoadCaseType | undefined {
@@ -236,7 +251,7 @@ function normalizeLoadLocation(value: unknown): EngineeringDraftLoad['location']
   const raw = asRecord(value);
   if (!raw) return undefined;
   const location = {
-    xM: nonNegativeNumber(raw.xM ?? raw.x ?? raw.positionM),
+    xM: finiteNumber(raw.xM ?? raw.x ?? raw.positionM),
     spanIndex: positiveInteger(raw.spanIndex ?? raw.span),
     story: positiveInteger(raw.story ?? raw.storyIndex ?? raw.level),
     nodeRole: normalizeString(raw.nodeRole ?? raw.node),
@@ -253,11 +268,14 @@ function normalizeEngineeringLoad(value: unknown): EngineeringDraftLoad | undefi
   const raw = asRecord(value);
   if (!raw) return undefined;
   const kind = normalizeLoadKind(raw.kind ?? raw.type ?? raw.loadType);
-  const magnitude = positiveNumber(raw.magnitude ?? raw.value ?? raw.loadKN ?? raw.forceKN ?? raw.intensity);
+  const magnitude = finiteNumber(raw.magnitude ?? raw.value ?? raw.loadKN ?? raw.forceKN ?? raw.intensity);
   if (!kind || magnitude === undefined) return undefined;
+  const sourceUnit = normalizeString(raw.unit)?.toLowerCase().replace(/\s+/g, '');
+  const forceScale = sourceUnit && /^n(?:\/m(?:2|\^2|²)?)?$/.test(sourceUnit) ? 0.001 : 1;
   return {
+    ...(normalizeString(raw.id) && { id: normalizeString(raw.id) }),
     kind,
-    magnitude,
+    magnitude: magnitude * forceScale,
     unit: normalizeLoadUnit(raw.unit, kind),
     direction: normalizeLoadDirection(raw.direction ?? raw.axis),
     target: normalizeString(raw.target),
@@ -367,6 +385,9 @@ export function normalizeEngineeringDraft(value: unknown): EngineeringDraft | un
   const loads = Array.isArray(raw.loads)
     ? raw.loads.map(normalizeEngineeringLoad).filter((load): load is EngineeringDraftLoad => load !== undefined)
     : undefined;
+  if (raw.loads !== undefined && (!Array.isArray(raw.loads) || raw.loads.length !== loads?.length)) {
+    throw new Error('INVALID_ENGINEERING_LOAD: every load needs supported type, finite signed magnitude and explicit unit / 每条荷载需有效类型、带符号有限数值及单位');
+  }
 
   const rawAnalysis = asRecord(raw.analysis);
   const analysis = rawAnalysis ? {
@@ -385,6 +406,11 @@ export function normalizeEngineeringDraft(value: unknown): EngineeringDraft | un
     structureType: normalizeString(raw.structureType) as EngineeringDraft['structureType'],
     geometry,
     topology: normalizeEngineeringTopology(raw.topology),
+    materials: normalizeRecordArray(raw.materials, 'materials'),
+    sectionRecords: normalizeRecordArray(raw.sectionRecords ?? (Array.isArray(raw.sections) ? raw.sections : undefined), 'sections'),
+    loadCases: normalizeRecordArray(raw.loadCases ?? raw.load_cases, 'loadCases'),
+    model: asRecord(raw.model) ? structuredClone(asRecord(raw.model)!) : undefined,
+    inputEvidence: normalizeRecordArray(raw.inputEvidence, 'inputEvidence'),
     material,
     sections,
     boundary,
@@ -393,7 +419,23 @@ export function normalizeEngineeringDraft(value: unknown): EngineeringDraft | un
     analysis,
   };
 
-  return Object.values(draft).some((item) => item !== undefined) ? draft : undefined;
+  return Object.values(draft).some((item) => item !== undefined) ? omitUndefined(draft) : undefined;
+}
+
+function normalizeRecordArray(value: unknown, label: string): Array<Record<string, unknown>> | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.some((item) => !asRecord(item))) {
+    throw new Error(`INVALID_EXPLICIT_MODEL: ${label} must contain complete records / 必须提供完整对象记录`);
+  }
+  return structuredClone(value) as Array<Record<string, unknown>>;
+}
+
+/** A partial update must not overwrite confirmed nested fields with undefined. */
+function omitUndefined<T>(value: T): T {
+  if (Array.isArray(value)) return value.map(omitUndefined) as T;
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined)
+    .map(([key, item]) => [key, omitUndefined(item)])) as T;
 }
 
 export function mergeEngineeringDraft(
@@ -427,6 +469,11 @@ export function mergeEngineeringDraft(
     structureType,
     geometry,
     topology: { ...(existing.topology ?? {}), ...(patch.topology ?? {}) },
+    materials: patch.materials ?? existing.materials,
+    sectionRecords: patch.sectionRecords ?? existing.sectionRecords,
+    loadCases: patch.loadCases ?? existing.loadCases,
+    model: patch.model ?? existing.model,
+    inputEvidence: patch.inputEvidence ?? existing.inputEvidence,
     material: { ...(existing.material ?? {}), ...(patch.material ?? {}) },
     sections: { ...(existing.sections ?? {}), ...(patch.sections ?? {}) },
     boundary: { ...(existing.boundary ?? {}), ...(patch.boundary ?? {}) },
@@ -473,6 +520,7 @@ function engineeringLoadMergeKey(
   load: EngineeringDraftLoad,
   draft: Pick<EngineeringDraft, 'structureType' | 'geometry' | 'analysis'>,
 ): string {
+  if (load.id) return `id:${load.id}`;
   const location = loadLocationMergeValue(load, draft);
   const hasStructuredPointLocation = isPointLikeLoad(load)
     && Boolean(
@@ -573,7 +621,7 @@ function modelLoadDirection(load: EngineeringDraftLoad): 'fx' | 'fy' | 'fz' {
 
 function signedNodalComponent(load: EngineeringDraftLoad): Record<string, number> {
   const component = modelLoadDirection(load);
-  const sign = component === 'fz' ? -1 : 1;
+  const sign = component === 'fz' && load.direction !== 'globalZ' ? -1 : 1;
   return { [`${component}KN`]: sign * load.magnitude };
 }
 
@@ -782,7 +830,6 @@ function projectFrameFloorLoads(loads: EngineeringDraftLoad[], patch: DraftExtra
     .filter((item): item is ConvertibleFrameLoad => (
       item.totalKN !== undefined
       && Number.isFinite(item.totalKN)
-      && item.totalKN > 0
       && !isLocalizedFramePointLoad(item.load)
       && !hasIncompleteFramePointLoadLocation(item.load)
     ));
@@ -815,7 +862,7 @@ function projectFrameFloorLoads(loads: EngineeringDraftLoad[], patch: DraftExtra
     }
 
     for (const story of stories) {
-      assignFloorLoadValue(floorLoadsByStory, story, field, Number(totalKN.toFixed(6)));
+      assignFloorLoadValue(floorLoadsByStory, story, field, Number((load.direction === 'globalZ' ? -totalKN : totalKN).toFixed(6)));
     }
   }
 
@@ -988,14 +1035,14 @@ export function projectEngineeringDraftToLegacyPatch(
     }
     const lineLoad = loads.find(isLineLoad);
     if (lineLoad) {
-      skillState.distributedLoadKNM = lineLoad.magnitude;
+      skillState.distributedLoadKNM = (lineLoad.direction === 'globalZ' ? -lineLoad.magnitude : lineLoad.magnitude);
       next.loadKN = next.loadKN ?? lineLoad.magnitude;
       next.loadType = next.loadType ?? 'distributed';
       next.loadPosition = next.loadPosition ?? 'full-span';
     }
     const pointLoad = loads.find((load) => isPointLikeLoad(load) && !isLineLoad(load));
     if (pointLoad) {
-      skillState.pointLoadKN = pointLoad.magnitude;
+      skillState.pointLoadKN = (pointLoad.direction === 'globalZ' ? -pointLoad.magnitude : pointLoad.magnitude);
       if (pointLoad.location?.spanIndex !== undefined) skillState.pointLoadSpanIndex = pointLoad.location.spanIndex;
       if (pointLoad.location?.xM !== undefined) skillState.pointLoadXM = pointLoad.location.xM;
     }
@@ -1018,7 +1065,7 @@ export function projectEngineeringDraftToLegacyPatch(
       && isClearPortalTarget(load, PORTAL_MEZZANINE_TARGETS, PORTAL_ROOF_TARGETS)
     ));
     if (mezzanineLoad) {
-      skillState.mezzanineLoadKN = mezzanineLoad.magnitude;
+      skillState.mezzanineLoadKN = (mezzanineLoad.direction === 'globalZ' ? -mezzanineLoad.magnitude : mezzanineLoad.magnitude);
     }
     const roofLoad = loads.find((load) => (
       isLineLoad(load)
@@ -1030,8 +1077,8 @@ export function projectEngineeringDraftToLegacyPatch(
         && !targetMatches(load, PORTAL_CRANE_TARGETS)
       ));
     if (roofLoad) {
-      skillState.roofLoadKNM = roofLoad.magnitude;
-      next.loadKN = roofLoad.magnitude;
+      skillState.roofLoadKNM = (roofLoad.direction === 'globalZ' ? -roofLoad.magnitude : roofLoad.magnitude);
+      next.loadKN = (roofLoad.direction === 'globalZ' ? -roofLoad.magnitude : roofLoad.magnitude);
       next.loadType = 'distributed';
       next.loadPosition = 'full-span';
     } else {
@@ -1047,7 +1094,7 @@ export function projectEngineeringDraftToLegacyPatch(
     }
     const craneLoad = loads.find((load) => targetMatches(load, PORTAL_CRANE_TARGETS));
     if (craneLoad) {
-      skillState.craneLoadKN = craneLoad.magnitude;
+      skillState.craneLoadKN = (craneLoad.direction === 'globalZ' ? -craneLoad.magnitude : craneLoad.magnitude);
     }
   }
 

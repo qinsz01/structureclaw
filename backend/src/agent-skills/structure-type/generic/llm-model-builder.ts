@@ -9,6 +9,7 @@ import {
 import { logger } from '../../../utils/logger.js';
 import type { StructureClawChatModel } from '../../../utils/llm.js';
 import { buildGenericModelPrompt, buildRetrySuffix } from './llm-model-prompt.js';
+import { validateExplicitModel } from '../../../agent-runtime/explicit-model.js';
 
 export async function tryBuildGenericModelWithLlm(
   llm: StructureClawChatModel | null,
@@ -17,12 +18,13 @@ export async function tryBuildGenericModelWithLlm(
   locale: AppLocale,
   conversationHistory?: string,
   signal?: AbortSignal,
+  currentModel?: Record<string, unknown>,
 ): Promise<Record<string, unknown> | undefined> {
   if (!llm) {
     return undefined;
   }
 
-  const basePrompt = buildGenericModelPrompt(message, state, locale, conversationHistory);
+  const basePrompt = buildGenericModelPrompt(message, state, locale, conversationHistory, currentModel);
   const retrySuffix = buildRetrySuffix(locale);
   const stateHint = JSON.stringify(state);
 
@@ -67,6 +69,7 @@ export async function tryBuildGenericModelWithLlm(
       canonicalizeGenericModel(parsed);
       const dimension = stampCanonicalMetadata(parsed, state);
       assertCanonicalCoordinateModel(parsed, dimension);
+      validateExplicitModel(parsed);
 
       logger.info({
         attempt: attempt + 1,
@@ -134,13 +137,12 @@ function normalizeLoadRecord(load: unknown): unknown {
     const numericFields = isDistributedLoad(record)
       ? ['wx', 'wy', 'wz', 'qx', 'qy', 'qz', 'w', 'q', 'value', 'magnitude']
       : ['fx', 'fy', 'fz', 'px', 'py', 'pz', 'mx', 'my', 'mz', 'value', 'magnitude'];
-    if (shouldScaleNewtonValues(record, numericFields)) {
-      for (const field of numericFields) {
-        record[field] = scaleNumber(record[field], scale);
-      }
-      if (Array.isArray(record.forces)) {
-        record.forces = record.forces.map((value) => scaleNumber(value, scale));
-      }
+    for (const field of numericFields) {
+      if (record[field] === undefined) continue;
+      record[field] = scaleNumber(record[field], scale);
+    }
+    if (Array.isArray(record.forces)) {
+      record.forces = record.forces.map((value) => scaleNumber(value, scale));
     }
     record.unit = canonicalNewtonUnit(unit);
   }
@@ -174,22 +176,8 @@ function canonicalNewtonUnit(unit: string): 'kN' | 'kN/m' {
 }
 
 function isDistributedLoad(load: Record<string, unknown>): boolean {
+  if (load.type === 'point') return false;
   return load.type === 'distributed' || load.element !== undefined || load.elementId !== undefined || load.element_id !== undefined;
-}
-
-function shouldScaleNewtonValues(record: Record<string, unknown>, fields: string[]): boolean {
-  const values = fields
-    .map((field) => toFiniteNumber(record[field]))
-    .filter((value): value is number => value !== null);
-  if (Array.isArray(record.forces)) {
-    for (const value of record.forces) {
-      const numeric = toFiniteNumber(value);
-      if (numeric !== null) {
-        values.push(numeric);
-      }
-    }
-  }
-  return values.some((value) => Math.abs(value) >= 1000);
 }
 
 function scaleNumber(value: unknown, scale: number): unknown {
@@ -291,19 +279,3 @@ function stampCanonicalMetadata(model: Record<string, unknown>, state: DraftStat
   return dimension;
 }
 
-function toFiniteNumber(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    if (trimmed === '') {
-      return null;
-    }
-    const parsed = Number(trimmed);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-  return null;
-}

@@ -26,6 +26,7 @@ export interface EngineeringDraftGeometry {
 }
 
 export interface EngineeringDraftTopologyNode {
+  [key: string]: unknown;
   id: string;
   x: number;
   y: number;
@@ -34,8 +35,15 @@ export interface EngineeringDraftTopologyNode {
 }
 
 export interface EngineeringDraftTopologyMember {
+  [key: string]: unknown;
   id?: string;
   nodes: [string, string];
+  type?: 'beam' | 'column' | 'truss' | 'brace' | 'link';
+  material?: string;
+  section?: string;
+  rotation_angle?: number;
+  releases?: Record<string, unknown>;
+  offsets?: Record<string, number>;
 }
 
 export interface EngineeringDraftTopology {
@@ -69,6 +77,7 @@ export interface EngineeringDraftLoadLocation {
 }
 
 export interface EngineeringDraftLoad {
+  id?: string;
   kind: EngineeringDraftLoadKind;
   magnitude: number;
   unit: EngineeringDraftLoadUnit;
@@ -94,6 +103,12 @@ export interface EngineeringDraft {
   structureType?: StructuralTypeKey;
   geometry?: EngineeringDraftGeometry;
   topology?: EngineeringDraftTopology;
+  /** Full V2 records for explicit models; never reduced to one role-wide property. */
+  materials?: Array<Record<string, unknown>>;
+  sectionRecords?: Array<Record<string, unknown>>;
+  loadCases?: Array<Record<string, unknown>>;
+  model?: Record<string, unknown>;
+  inputEvidence?: Array<Record<string, unknown>>;
   material?: EngineeringDraftMaterial;
   sections?: EngineeringDraftSections;
   boundary?: EngineeringDraftBoundary;
@@ -114,6 +129,7 @@ export interface DraftIssue {
 
 export interface DraftFloorLoad {
   story: number;
+  /** Signed gravity-positive totals; negative values represent uplift. */
   verticalKN?: number;
   liveLoadKN?: number;
   lateralXKN?: number;

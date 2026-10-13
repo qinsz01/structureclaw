@@ -110,7 +110,7 @@ function applyTrussSanity(patch: DraftExtraction): DraftExtraction {
     next.bayCount = undefined;
     appendInvalidField(next, 'bayCount');
   }
-  if (next.loadKN !== undefined && next.loadKN <= 0) {
+  if (next.loadKN !== undefined && !Number.isFinite(next.loadKN)) {
     next.loadKN = undefined;
     appendInvalidField(next, 'loadKN');
   }

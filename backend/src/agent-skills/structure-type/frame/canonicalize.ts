@@ -5,7 +5,7 @@ import type { FramePatchSources } from './types.js';
 
 function isSemanticGravityLineLoad(load: EngineeringDraftLoad): boolean {
   return (load.kind === 'line' || load.kind === 'distributed' || load.unit === 'kN/m')
-    && load.magnitude > 0
+    && Number.isFinite(load.magnitude)
     && (load.direction === undefined || load.direction === 'gravity' || load.direction === 'globalZ');
 }
 

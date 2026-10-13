@@ -121,7 +121,7 @@ function collectEngineeringDraftInvalidFields(engineeringDraft: unknown, invalid
       }
       const record = item as Record<string, unknown>;
       const parsed = normalizeNumber(record.magnitude ?? record.value ?? record.loadKN ?? record.forceKN ?? record.intensity);
-      return parsed !== undefined && parsed <= 0;
+      return parsed === undefined;
     });
     if (hasInvalidLoad) {
       pushUnique(invalid, 'loadKN');
@@ -131,7 +131,7 @@ function collectEngineeringDraftInvalidFields(engineeringDraft: unknown, invalid
 
 function collectInvalidDraftFields(patch: Record<string, unknown>): string[] | undefined {
   const invalid: string[] = [];
-  for (const key of ['lengthM', 'spanLengthM', 'heightM', 'loadKN'] as const) {
+  for (const key of ['lengthM', 'spanLengthM', 'heightM'] as const) {
     invalidIfNonPositive(patch, key, invalid);
   }
   for (const key of ['storyCount', 'bayCount', 'bayCountX', 'bayCountY'] as const) {
@@ -164,6 +164,17 @@ function withInvalidDraftFields(
   };
 }
 
+function normalizeDraftWithReportedLoadIssue(value: unknown, issues: DraftIssue[] | undefined) {
+  try { return normalizeSemanticEngineeringDraft(value); }
+  catch (error) {
+    // A reported ambiguity is a clarification state, never a partially executable load.
+    const reported = issues?.some((issue) => issue.field === 'loadType' || issue.field === 'loadKN');
+    if (!reported || !/INVALID_ENGINEERING_LOAD|LOAD_UNIT_REQUIRED|LOAD_DIRECTION_INVALID/.test(String(error))
+      || !value || typeof value !== 'object' || Array.isArray(value)) throw error;
+    return normalizeSemanticEngineeringDraft({ ...value, loads: undefined });
+  }
+}
+
 export function normalizeLegacyDraftPatch(patch: Record<string, unknown> | null | undefined): DraftExtraction {
   if (!patch) {
     return {};
@@ -183,7 +194,7 @@ export function normalizeLegacyDraftPatch(patch: Record<string, unknown> | null 
   return {
     inferredType: normalizeInferredType(patch.inferredType),
     skillId: typeof patch.skillId === 'string' ? patch.skillId : undefined,
-    engineeringDraft: normalizeSemanticEngineeringDraft(patch.engineeringDraft),
+    engineeringDraft: normalizeDraftWithReportedLoadIssue(patch.engineeringDraft, draftIssues),
     draftIssues,
     skillState,
     lengthM: normalizeNumber(patch.lengthM),

@@ -277,7 +277,7 @@ describe('frame canonicalize core contract', () => {
     expect(model.load_combinations[0]).toMatchObject({ id: 'ULS', factors: { D: 1, L: 1 } });
   });
 
-  test('normalizes duplicate same-story floor loads without dropping signed gravity loads', () => {
+  test('normalizes duplicate floor loads while preserving upward signed gravity loads', () => {
     const model = buildFrameModel({
       inferredType: 'frame',
       updatedAt: 0,
@@ -294,7 +294,7 @@ describe('frame canonicalize core contract', () => {
     });
 
     expect(model).toBeDefined();
-    expect(model.stories[0]).toMatchObject({ dead_load: 20, live_load: 5 });
+    expect(model.stories[0]).toMatchObject({ dead_load: -20, live_load: 5 });
     expect(model.load_cases.find((loadCase) => loadCase.id === 'D').loads).toEqual([]);
     expect(model.load_cases.find((loadCase) => loadCase.id === 'L').loads).toEqual([]);
   });

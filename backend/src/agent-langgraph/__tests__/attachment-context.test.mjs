@@ -43,6 +43,11 @@ describe('attachment context', () => {
       LLM_VISION_BASE_URL: process.env.LLM_VISION_BASE_URL,
     };
     process.env.SCLAW_DATA_DIR = tmpDir;
+    const runtimePython = path.join(previousEnv.SCLAW_DATA_DIR ?? path.join(os.homedir(), '.structureclaw'), '.venv', ...(process.platform === 'win32' ? ['Scripts', 'python.exe'] : ['bin', 'python']));
+    try {
+      await fs.access(runtimePython);
+      await fs.writeFile(path.join(tmpDir, 'settings.json'), JSON.stringify({ analysis: { pythonBin: runtimePython } }));
+    } catch { /* A development environment can use backend/.venv instead. */ }
     delete process.env.LLM_API_KEY;
     delete process.env.LLM_MODEL;
     delete process.env.LLM_BASE_URL;
@@ -118,12 +123,15 @@ describe('attachment context', () => {
     const { buildInitialHumanMessageContent } = await import('../../../dist/agent-langgraph/agent-service.js');
     const dxfPath = path.join(tmpDir, 'beam.dxf');
     const dxf = [
+      '0', 'SECTION', '2', 'HEADER', '9', '$ACADVER', '1', 'AC1009', '9', '$INSUNITS', '70', '4', '0', 'ENDSEC',
+      '0', 'SECTION', '2', 'ENTITIES',
       '0', 'LINE',
       '10', '0', '20', '0',
       '11', '6000', '21', '0',
       '0', 'TEXT',
+      '10', '0', '20', '0', '40', '100',
       '1', 'SPAN 6m',
-      '0', 'EOF',
+      '0', 'ENDSEC', '0', 'EOF', '',
     ].join('\n');
     await fs.writeFile(dxfPath, dxf, 'utf8');
 

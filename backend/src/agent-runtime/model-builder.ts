@@ -6,6 +6,7 @@ import {
   withCanonicalCoordinateContract,
 } from './coordinate-semantics.js';
 import { buildElementReferenceVectors } from './reference-vectors.js';
+import { buildExplicitDraftModel } from './explicit-model.js';
 import type {
   DraftLoadPosition,
   DraftLoadType,
@@ -496,7 +497,7 @@ function buildExplicitTrussLoads(
     const targets = target && nodeIds.has(target) ? [target] : semanticTargetIds(load);
     if (targets.length === 0) return [];
     const component = load.direction === 'globalX' ? 'fx' : load.direction === 'globalY' ? 'fy' : 'fz';
-    const sign = component === 'fz' ? -1 : 1;
+    const sign = component === 'fz' && load.direction !== 'globalZ' ? -1 : 1;
     return targets.map((node) => ({ node, [component]: sign * load.magnitude }));
   });
 }
@@ -618,6 +619,11 @@ function buildTrussModel(state: DraftState, metadata: Record<string, unknown>): 
       },
     },
   };
+}
+
+function readSignedNumber(value: unknown): number | undefined {
+  const parsed = typeof value === 'number' ? value : typeof value === 'string' && value.trim() ? Number(value) : NaN;
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 function readPositiveNumber(value: unknown): number | undefined {
@@ -996,11 +1002,12 @@ function buildSemanticBeamModel(
   }));
   const loads: Array<Record<string, unknown>> = [];
   for (const load of semanticLoads) {
-    const magnitude = readPositiveNumber(load.magnitude);
+    const magnitude = typeof load.magnitude === 'number' && Number.isFinite(load.magnitude) ? load.magnitude : undefined;
     if (magnitude === undefined) continue;
     if (isSemanticDistributedLoad(load)) {
       for (const element of semanticDistributedLoadElements(load, elements, coordinates, spanLengths, state)) {
-        loads.push({ type: 'distributed', element: element.id, wz: -magnitude, wy: 0 });
+        const axis = load.direction === 'globalX' ? 'wx' : load.direction === 'globalY' ? 'wy' : 'wz';
+        loads.push({ type: 'distributed', element: element.id, ...(axis === 'wz' ? { wy: 0 } : {}), [axis]: axis === 'wz' && load.direction !== 'globalZ' ? -magnitude : magnitude });
       }
       continue;
     }
@@ -1014,7 +1021,7 @@ function buildSemanticBeamModel(
       } else if (direction === 'globalY') {
         loads.push({ node: targetNode, fy: magnitude });
       } else {
-        loads.push({ node: targetNode, fz: -magnitude });
+        loads.push({ node: targetNode, fz: direction === 'globalZ' ? magnitude : -magnitude });
       }
     }
   }
@@ -1229,7 +1236,7 @@ function buildContinuousBeamModel(state: DraftState, metadata: Record<string, un
         ? topologySupports
         : accumulateCoordinates(spans),
   )).sort((left, right) => left - right);
-  const explicitPointLoad = readPositiveNumber(state.skillState?.pointLoadKN);
+  const explicitPointLoad = readSignedNumber(state.skillState?.pointLoadKN);
   const pointLoad = explicitPointLoad
     ?? (state.loadType === 'point' || state.loadType === undefined ? state.loadKN : undefined);
   const pointSpanIndex = Math.min(
@@ -1292,7 +1299,7 @@ function buildContinuousBeamModel(state: DraftState, metadata: Record<string, un
     material: '1',
     section: '1',
   }));
-  const distributedLoad = readPositiveNumber(state.skillState?.distributedLoadKNM)
+  const distributedLoad = readSignedNumber(state.skillState?.distributedLoadKNM)
     ?? ((state.loadType === 'distributed' || state.loadPosition === 'full-span') ? state.loadKN : undefined);
   const loads: Array<Record<string, unknown>> = [];
   if (distributedLoad !== undefined) {
@@ -1432,12 +1439,12 @@ function buildPortalCraneLoads(state: DraftState, xCoordinates: number[]): Array
     } else if (load.direction === 'globalY') {
       loads.push({ node: target, fy: load.magnitude });
     } else {
-      loads.push({ node: target, fz: -Math.abs(load.magnitude) });
+      loads.push({ node: target, fz: (load.direction === 'globalZ' ? load.magnitude : -load.magnitude) });
     }
   }
   if (loads.length > 0) return loads;
 
-  const legacyCraneLoad = readPositiveNumber(state.skillState?.craneLoadKN);
+  const legacyCraneLoad = readSignedNumber(state.skillState?.craneLoadKN);
   if (legacyCraneLoad === undefined) return [];
   const target = xCoordinates.length > 2 ? 'T1' : 'T0';
   return [{ node: target, fz: -legacyCraneLoad }];
@@ -1447,12 +1454,12 @@ function buildPortalFrameModel(state: DraftState, metadata: Record<string, unkno
   const spans = getPortalFrameSpanLengths(state);
   const xCoordinates = accumulateCoordinates(spans);
   const height = state.heightM!;
-  const roofLoad = readPositiveNumber(state.skillState?.roofLoadKNM)
+  const roofLoad = readSignedNumber(state.skillState?.roofLoadKNM)
     ?? ((state.loadType === 'distributed' || state.loadPosition === 'full-span') ? state.loadKN : undefined);
   const nodalLoad = roofLoad === undefined ? state.loadKN! : undefined;
   const mezzanineHeight = readPositiveNumber(state.skillState?.mezzanineHeightM);
   const mezzanineLength = readPositiveNumber(state.skillState?.mezzanineLengthM);
-  const mezzanineLoad = readPositiveNumber(state.skillState?.mezzanineLoadKN);
+  const mezzanineLoad = readSignedNumber(state.skillState?.mezzanineLoadKN);
   const hasMezzanine = mezzanineHeight !== undefined
     && mezzanineHeight < height
     && mezzanineLength !== undefined
@@ -1586,6 +1593,8 @@ function buildBaseModel(state: DraftState): Record<string, unknown> {
 }
 
 export function buildModel(state: DraftState): Record<string, unknown> {
+  const explicit = buildExplicitDraftModel(state);
+  if (explicit) return explicit;
   const dimension = state.inferredType === 'frame' && state.frameDimension === '3d' ? '3d' : '2d';
   return withCanonicalCoordinateContract(
     attachSeismicMemberEvidence(buildBaseModel(state), state),

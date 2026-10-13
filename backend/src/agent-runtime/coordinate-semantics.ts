@@ -265,10 +265,22 @@ export function assertCanonicalCoordinateModel(
         throw new Error('Nodal loads must use fx/fy/fz and mx/my/mz, not member-load w components');
       }
       if (
-        elementId
+        elementId && load.type !== 'point'
         && ['fx', 'fy', 'fz', 'mx', 'my', 'mz', 'forces'].some((key) => load[key] !== undefined)
       ) {
-        throw new Error('Member loads must use wx/wy/wz, not nodal force or moment components');
+        throw new Error('Distributed member loads must use wx/wy/wz; concentrated member loads require type=point');
+      }
+      if (elementId && load.type === 'point') {
+        const position = finiteNumber(load.position, 'Member point load position');
+        const length = Math.hypot(...elementDirections.get(elementId)!);
+        if (position < 0 || position > length + COORDINATE_TOLERANCE) throw new Error('Member point load position is outside the physical member');
+        if (['wx', 'wy', 'wz'].some((key) => load[key] !== undefined)) throw new Error('Member point loads must use force/moment components');
+      }
+      if (elementId && load.type !== 'point') {
+        const length = Math.hypot(...elementDirections.get(elementId)!);
+        const start = load.start === undefined ? 0 : finiteNumber(load.start, 'Distributed load start');
+        const end = load.end === undefined ? length : finiteNumber(load.end, 'Distributed load end');
+        if (start < 0 || end > length + COORDINATE_TOLERANCE || end <= start) throw new Error('Distributed load interval must lie inside the physical member');
       }
 
       const componentKeys = ['fx', 'fy', 'fz', 'mx', 'my', 'mz', 'wx', 'wy', 'wz'] as const;
@@ -293,6 +305,7 @@ export function assertCanonicalCoordinateModel(
       if (dimension !== '2d') continue;
       if (referenceFrame === 'element-local') {
         if (nonzero(load.wy)) throw new Error('Local wy is out of plane for a canonical X-Z 2-D member load');
+        if (load.type === 'point' && [load.fy, load.mx, load.mz].some(nonzero)) throw new Error('Local point load contains an out-of-plane component');
         continue;
       }
       const inactive = [load.fy, load.mx, load.mz, load.wy];

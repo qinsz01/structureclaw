@@ -20,10 +20,10 @@ describe('tryBuildGenericModelWithLlm', () => {
             { id: 'N2', x: 10, y: 0, z: 0 },
           ],
           elements: [
-            { id: 'E1', type: 'beam', nodes: ['N1', 'N2'] },
+            { id: 'E1', type: 'beam', nodes: ['N1', 'N2'], material: 'M1', section: 'S1' },
           ],
-          materials: [],
-          sections: [],
+          materials: [{ id: 'M1', E: 206000, nu: 0.3, rho: 7850 }],
+          sections: [{ id: 'S1', properties: { A: 0.01, Iy: 0.0001, Iz: 0.0001, J: 0.0001 } }],
           load_cases: [{ id: 'LC1', loads: [] }],
           load_combinations: [{ id: 'ULS', factors: { LC1: 1.0 } }],
         }),
