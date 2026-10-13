@@ -81,6 +81,17 @@ def test_submillimetre_coordinate_is_not_rounded_to_another_node(driver):
     assert driver._build_result_node_lookup(extracted, model_mapping) == {"2": "N2"}
 
 
+def test_float32_storey_elevation_matches_exact_sdk_encoding_only(driver):
+    import struct
+    model_mapping = mapping()
+    model_mapping['nodes']['N2']['z_mm'] = 7200
+    sdk_z = struct.unpack('f', struct.pack('f', 7.2))[0]
+    extracted = {'meta': {'coordinateUnit': 'm'}, 'nodes': [{'id': 2000001, 'x': 3, 'y': 0, 'z': sdk_z}]}
+    assert driver._build_result_node_lookup(extracted, model_mapping) == {'2000001': 'N2'}
+    extracted['nodes'][0]['z'] = 7.200001
+    assert driver._build_result_node_lookup(extracted, model_mapping) == {'2000001': '2000001'}
+
+
 def test_machine_values_and_envelopes_keep_native_precision(driver):
     uz = -2.777777777777778e-7
     rotation = 2.123456789e-10

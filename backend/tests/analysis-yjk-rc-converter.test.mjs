@@ -69,6 +69,7 @@ describe('YJK RC frame converter', () => {
         path.join(stubsDir, 'YJKAPI.py'),
         [
           'import os',
+          'import sqlite3',
           'from types import SimpleNamespace',
           'calls = []',
           'class BzcPara:',
@@ -99,12 +100,12 @@ describe('YJK RC frame converter', () => {
           '        calls.append({"method": "Grid_Generate", "floor_id": floor_id, "start": start, "end": end})',
           '        return {"ID": len(calls)}',
           '',
-          '    def column_arrange(self, node, section):',
-          '        calls.append({"method": "column_arrange", "node": node, "section": section})',
+          '    def column_arrange(self, node, section, Rotation=0):',
+          '        calls.append({"method": "column_arrange", "node": node, "section": section, "rotation": Rotation})',
           '        return {"ID": len(calls)}',
           '',
-          '    def beam_arrange(self, grid, section):',
-          '        calls.append({"method": "beam_arrange", "grid": grid, "section": section})',
+          '    def beam_arrange(self, grid, section, Rotation=0):',
+          '        calls.append({"method": "beam_arrange", "grid": grid, "section": section, "rotation": Rotation})',
           '        return {"ID": len(calls)}',
           '',
           '    def Floors_Assemb(self, start_mm, std_flr, count, height_mm):',
@@ -126,8 +127,12 @@ describe('YJK RC frame converter', () => {
           '',
           '    def CreateYDB(self, work_dir, filename):',
           '        calls.append({"method": "CreateYDB", "filename": filename})',
-          '        with open(os.path.join(work_dir, filename), "w", encoding="utf-8") as f:',
-          '            f.write("stub ydb")',
+          '        with sqlite3.connect(os.path.join(work_dir, filename)) as db:',
+          '            db.execute("CREATE TABLE tblProperty(ID INTEGER, Name TEXT, Type INTEGER, ShapeVal TEXT)")',
+          '            for c in calls:',
+          '                if c["method"] == "property_arrange":',
+          '                    value = ",".join(format(float(v), ".2f") for v in c["value"].split(",") if v) + "," if c["type"] == 27 else c["value"]',
+          '                    db.execute("INSERT INTO tblProperty VALUES(?,?,?,?)", (c["id"], c["name"], c["type"], value))',
           '        return True',
           '',
         ].join('\n'),
@@ -145,8 +150,8 @@ describe('YJK RC frame converter', () => {
         },
         project: { name: 'rc_frame_test', extra: { designCode: 'GB50010' } },
         materials: [
-          { id: '1', name: 'C30', grade: 'C30', category: 'concrete', E: 30000, fc: 14.3 },
-          { id: '2', name: 'HRB400', grade: 'HRB400', category: 'rebar', fy: 360 },
+          { id: '1', name: 'C30', grade: 'C30', category: 'concrete', E: 30000, nu: 0.2, rho: 2500, fc: 14.3 },
+          { id: '2', name: 'HRB400', grade: 'HRB400', category: 'rebar', E: 200000, nu: 0.3, rho: 7850, fy: 360 },
         ],
         sections: [
           {
@@ -293,10 +298,12 @@ describe('YJK RC frame converter', () => {
       ]));
       expect(payload.calls.filter((call) => call.method === 'Joint_Generate')).toHaveLength(7);
       expect(Object.keys(payload.mapping.elements)).toHaveLength(13);
-      expect(payload.calls.filter((call) => call.method === 'property_arrange')).toHaveLength(13);
-      expect(payload.calls.filter((call) => call.method === 'property_arrange').every(
+      expect(payload.calls.filter((call) => call.method === 'property_arrange' && call.name === 'HNTDJ')).toHaveLength(13);
+      expect(payload.calls.filter((call) => call.method === 'property_arrange' && call.name === 'HNTDJ').every(
         (call) => call.name === 'HNTDJ' && call.type === 5 && call.value === '30',
       )).toBe(true);
+      expect(payload.calls.filter((call) => call.method === 'property_arrange' && call.name === 'SpBarRig')).toHaveLength(13);
+      expect(payload.calls.filter((call) => call.method === 'column_arrange').every((call) => call.rotation === 90)).toBe(true);
       expect(payload.mapping.nodes.N2_3).toBeUndefined();
       expect(payload.mapping.elements.BX3.section_id).toBe('3');
       expect(payload.mapping.elements.BX3.yjk_model_id).toBeTruthy();

@@ -9,6 +9,7 @@ Native execution is synchronous; every exit closes only this run's Windows job.
 from __future__ import annotations
 
 import json
+import copy
 import math
 import os
 import re
@@ -358,6 +359,72 @@ def _ensure_v2_model(model_dict: dict) -> dict:
 from model_contract import validate_building_model as _validate_yjk_grid_conversion_scope
 
 
+def _result_selection(model: dict, parameters: dict) -> tuple[list[str], dict | None]:
+    available = {str(case['id']) for case in model.get('load_cases', [])}
+    requested = parameters.get('loadCaseIds')
+    if requested is not None and (not isinstance(requested, list) or not requested
+            or any(not isinstance(key, str) or key not in available for key in requested)
+            or len(set(requested)) != len(requested)):
+        raise ValueError('YJK requires unique existing source case IDs / 必须选择存在且不重复的源工况')
+    combination_id = parameters.get('loadCombinationId')
+    combination = None
+    if combination_id is not None:
+        if requested:
+            raise ValueError('Select load cases or one combination / 工况与组合不得混选')
+        matches = [row for row in model.get('load_combinations', []) if row.get('id') == combination_id]
+        if len(matches) != 1 or not matches[0].get('factors') or set(matches[0]['factors']) - available:
+            raise ValueError('YJK combination requires existing source cases / 组合必须引用存在的源工况')
+        combination = matches[0]
+        requested = list(combination['factors'])
+    return requested or [str(case['id']) for case in model.get('load_cases', [])], combination
+
+
+def _select_verified_results(output: dict, selected_ids: list[str], combination: dict | None) -> dict:
+    """Publish an explicit source selection; retain every solved native case."""
+    from native_results import combine_linear_native_results, require_verified_linear_context
+    from native_stations import station_envelope
+    cases = output.get('caseResults', {})
+    if not selected_ids or any(key not in cases for key in selected_ids):
+        raise ValueError('YJK requested source results are missing / 缺少指定源工况结果')
+    for key in selected_ids:
+        row = cases[key]
+        require_verified_linear_context(row.get('nativeContext', {}))
+        if row.get('status') != 'success' or row.get('forceSemantics') != 'simultaneous-signed-stations':
+            raise ValueError(f'YJK source case {key} is incomplete / 源工况结果不完整')
+    result = copy.deepcopy(output)
+    if combination:
+        selected = combine_linear_native_results(cases, combination['factors'], cases[selected_ids[0]]['nativeContext'])
+        selected['forces'] = {key: {**station_envelope(rows), 'referenceFrame': 'element-local'}
+                              for key, rows in selected['memberStations'].items()}
+        result['combinationResults'] = {str(combination['id']): selected}
+        selection = {'kind': 'combination', 'id': combination['id']}
+    else:
+        selected = cases[selected_ids[0]]
+        selection = {'kind': 'case', 'id': selected_ids[0]}
+    for field in ('displacements', 'forces', 'reactions', 'memberStations', 'nativeContext',
+                  'units', 'forceSemantics', 'missingCapabilities', 'capabilityStatus'):
+        if field in selected:
+            result[field] = copy.deepcopy(selected[field])
+    # Compatibility summary is the selected vector, never the across-case envelope.
+    magnitudes = {key: math.hypot(*(row[axis] for axis in ('ux', 'uy', 'uz')))
+                  for key, row in selected['displacements'].items()}
+    node = max(magnitudes, key=magnitudes.get)
+    result['summary'] = {**result.get('summary', {}), 'maxDisplacement': magnitudes[node],
+                         'maxDisplacementNode': node, 'selection': selection}
+    result['selectedResult'] = selection
+    result['requestedCaseIds'] = selected_ids
+    result['envelope'] = {}  # Across-case envelopes remain explicitly in envelopeTables.
+    native_design = result.pop('designResults', None)
+    result.pop('utilizationByElement', None)
+    if native_design is not None:
+        result['nativeDesignResults'] = {'scope': 'software-automatic-design-combinations',
+            'boundToSelectedResult': False, 'verification': 'native-design-metrics-not-calibrated',
+            'data': native_design}
+    for field in ('maxDesignUtilization', 'controllingDesignElement', 'designElementCount'):
+        result['summary'].pop(field, None)
+    return result
+
+
 def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str, Any]:
     """Entry point called by the analysis registry.
 
@@ -380,12 +447,6 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
         raise AnalysisCapabilityError(engine="yjk", capability="owned-synchronous-native-run",
                                       reason="Existing-session attachment and detached runs are not supported: "
                                              + ", ".join(forbidden))
-    if parameters.get("loadCombinationId"):
-        from native_results import require_verified_linear_context
-        require_verified_linear_context({"engine": "yjk", "effectiveSettingsVerified": False, "stationConventionsVerified": False})
-    requested_cases = parameters.get("loadCaseIds") or []
-    if not isinstance(requested_cases, list) or len(requested_cases) > 1:
-        raise AnalysisCapabilityError(engine="yjk", capability="single-selected-load-case", reason="Select one loadCaseIds entry per native run")
     model_dict = model.model_dump(mode="json", exclude_unset=True) if hasattr(model, "model_dump") else model
     model_dict = _ensure_v2_model(model_dict)
     validate_coordinate_contract(model_dict)
@@ -399,11 +460,13 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
             ),
         )
     try:
+        from native_materials import normalize_material, compile_stiffness_plan
+        model_dict = {**copy.deepcopy(model_dict), 'materials': [normalize_material(row) for row in model_dict['materials']]}
+        requested_cases, combination = _result_selection(model_dict, parameters)
+        compile_stiffness_plan(model_dict)
         _validate_yjk_grid_conversion_scope(model_dict)
     except ValueError as error:
         raise AnalysisCapabilityError(engine="yjk", capability="native-model-contract", reason=str(error)) from error
-    from native_model_contract import require_yjk_material_acceptance
-    require_yjk_material_acceptance(model_dict)
     yjk_python = _resolve_yjk_python()
     work_dir = _resolve_work_dir(parameters)
     timeout = _env_int("YJK_TIMEOUT_S", 600)
@@ -432,11 +495,6 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     # Ensure both YJKS_ROOT and YJK_PATH are set for SDK scripts / driver.
     env = os.environ.copy()
     env.pop("SC_YJK_SELECTED_CASE", None)
-    if requested_cases:
-        requested_id = str(requested_cases[0])
-        source_case = next((case for case in model_dict.get("load_cases", []) if str(case.get("id")) == requested_id), {})
-        labels = {"dead": ["DL", "恒载", "恒荷载"], "live": ["LL", "活载", "活荷载"]}.get(source_case.get("type"), [requested_id])
-        env["SC_YJK_SELECTED_CASE"] = json.dumps({"id": requested_id, "labels": labels}, ensure_ascii=False)
     root = _yjk_install_root()
     if root:
         env["YJKS_ROOT"] = root
@@ -629,6 +687,13 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
             output=output,
             detail=detail,
         )
+
+    physics = _read_json(work_dir / 'native-physics-audit.json')
+    if not physics or physics.get('passed') is not True:
+        _raise_yjk_runtime_error('YJK physical input verification is missing or failed / 原生物理输入核对失败',
+                                work_dir=work_dir, output=output,
+                                detail={'physicsAudit': physics})
+    output = _select_verified_results(output, requested_cases, combination)
 
     if stderr:
         warnings.append(f"YJK stderr: {stderr[:300]}")

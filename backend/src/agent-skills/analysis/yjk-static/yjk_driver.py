@@ -520,6 +520,17 @@ def _build_result_node_lookup(
     if coordinate_unit not in {"m", "mm"}:
         raise RuntimeError(f"Unsupported YJK result coordinate unit: {coordinate_unit!r}")
     scale = 1000.0 if coordinate_unit == "m" else 1.0
+    # The result SDK exports float32 XYZ. Compare against that exact encoding
+    # of the authored coordinate, not a model-dependent distance tolerance.
+    # Example: 3.6 m reads back as 3.5999999046325684 m.
+    import struct
+    float32_coordinates = {}
+    for coordinates, physical_id in coord_to_v2.items():
+        encoded = _coord_key(*(struct.unpack('f', struct.pack('f', value / scale))[0]
+                               for value in coordinates), scale=scale)
+        if encoded in float32_coordinates and float32_coordinates[encoded] != physical_id:
+            raise RuntimeError('YJK float32 coordinates cannot distinguish physical nodes')
+        float32_coordinates[encoded] = physical_id
     result_lookup: dict[str, str] = {}
     coord_matches = 0
     unmapped = 0
@@ -528,7 +539,7 @@ def _build_result_node_lookup(
             continue
         result_id = str(node.get("id"))
         key = _coord_key(node.get("x"), node.get("y"), node.get("z"), scale=scale)
-        matched = coord_to_v2.get(key)
+        matched = coord_to_v2.get(key) or float32_coordinates.get(key)
         if result_id in result_lookup:
             raise RuntimeError(f"Duplicate YJK result node ID: {result_id}")
         if matched:
@@ -1088,6 +1099,7 @@ def _build_analysis_result(
     work_dir: str,
     results_path: str,
     steps: list[dict],
+    source_model: dict | None = None,
 ) -> dict:
     """Normalize raw YJK result JSON into the app's analysis result shape."""
     meta = extracted.get("meta", {}) if isinstance(extracted.get("meta"), dict) else {}
@@ -1098,13 +1110,14 @@ def _build_analysis_result(
     station_errors = {}
     fe_path = os.path.join(work_dir, "fea.dat")
     input_path = os.path.join(work_dir, "input.json")
-    if os.path.isfile(fe_path) and os.path.isfile(input_path):
+    if os.path.isfile(fe_path) and (source_model is not None or os.path.isfile(input_path)):
         from native_fe import parse_fe
         from native_stations import member_geometry, map_stations, station_envelope, StationConventionUnavailable
         import hashlib
         native_fe_model = parse_fe(fe_path)
-        with open(input_path, encoding="utf-8-sig") as stream:
-            source_model = json.load(stream)
+        if source_model is None:
+            with open(input_path, encoding="utf-8-sig") as stream:
+                source_model = json.load(stream)
         source_elements = {str(row["id"]): row for row in source_model.get("elements", [])}
         source_load_cases = {str(row["id"]): row for row in source_model.get("load_cases", [])}
         native_context = {"engine": "yjk", "stationConventionsVerified": False,
@@ -1294,7 +1307,8 @@ def _build_analysis_result(
                         source_element = {**mapping["elements"][elem_id],
                                           "rotation_angle": source_elements[elem_id].get("rotation_angle", 0)}
                         geometry = member_geometry(native_fe_model, raw_force, source_element,
-                                                   result_node_lookup, mapping["nodes"])
+                                                   result_node_lookup, mapping["nodes"],
+                                                   metadata=source_model.get("metadata") or {})
                         authored_case = source_load_cases.get(str(descriptor.get("sourceCaseId", case_name)), {})
                         geometry["discontinuities"] = [float(load["position"]) for load in authored_case.get("loads", [])
                                                        if load.get("element") == elem_id and load.get("position") is not None]
@@ -1942,8 +1956,17 @@ def _run(model_path: str, work_dir: str, yjks_root: str) -> int:
         path=results_path,
     )
 
+    if os.path.isfile(os.path.join(work_dir, "native-stiffness-plan.json")):
+        from native_materials import verify_native_physics
+        physics = verify_native_physics(work_dir, model_data, engine_version="YJK8.0.0")
+        if physics.get("passed") is not True:
+            _error("YJK executed model failed physical input verification / 原生计算模型未通过物理输入核对",
+                   phase="physics_verification", command="verify_native_physics", steps=steps,
+                   detailed={"physicsAudit": physics, "artifact": os.path.join(work_dir, "native-physics-audit.json")})
+            return 1
     mapping = _load_json_file(os.path.join(work_dir, "mapping.json"))
     output = _build_analysis_result(
+        source_model=model_data,
         extracted=extracted,
         mapping=mapping,
         ydb_path=ydb_path,

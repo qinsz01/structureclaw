@@ -209,7 +209,7 @@ describe('analysis YJK engine registry', () => {
     expect(payload.steps.map((step) => step.status)).toEqual(['success', 'error', 'error']);
   });
 
-  test('accepts only exact story-derived nodal duplicates of YJK floor loads', () => {
+  test('checks story-derived loads separately from explicit native loads', () => {
     const script = [
       'import copy, json',
       'import runtime',
@@ -264,6 +264,6 @@ describe('analysis YJK engine registry', () => {
     expect(result.status).toBe(0);
     const payload = JSON.parse(result.stdout.trim());
     expect(payload.wrongTotal).toContain('conflicts with dead_load');
-    expect(payload.explicit).toContain('other nodal/member loads are unsupported');
+    expect(payload.explicit).toContain('conflicts with dead_load');
   });
 });
