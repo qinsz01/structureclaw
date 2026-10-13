@@ -1,4 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { z } from 'zod';
+import { assertInputEvidenceMatchesModel, assertResolvedInput, mergeInputEvidence, unresolvedInputEvidence } from './input-evidence.js';
 
 export type ModelRecord = Record<string, unknown>;
 export type ModelCollection = 'nodes' | 'elements' | 'materials' | 'sections' | 'stories' | 'load_cases' | 'load_combinations' | 'loads' | 'model_settings';
@@ -28,14 +30,15 @@ export interface ModelState {
   report?: unknown;
   analysisRequestSequence?: number;
   analysisRequest?: AnalysisRequestBinding | null;
+  inputEvidence?: ModelRecord[];
 }
 
-export interface AnalysisRequestBinding {
-  modelRevision: number;
-  modelHash: string;
-  settingsHash: string;
-  requestSequence: number;
-}
+export const analysisRequestBindingSchema = z.object({
+  modelRevision: z.number().int().nonnegative(),
+  modelHash: z.string().min(1), settingsHash: z.string().min(1),
+  requestSequence: z.number().int().positive(),
+});
+export type AnalysisRequestBinding = z.infer<typeof analysisRequestBindingSchema>;
 
 export function isRecord(value: unknown): value is ModelRecord {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
@@ -212,6 +215,9 @@ export function invalidateAnalysis(state: ModelState | undefined) {
 /** Reserve before awaiting the solver; a completion may publish only this request. */
 export function beginAnalysisRequest(state: ModelState, settingsHash: string) {
   if (!state.model || state.modelPending) throw new Error('MODEL_REBUILD_REQUIRED');
+  assertResolvedInput(state.inputEvidence);
+  assertInputEvidenceMatchesModel(state.model, state.inputEvidence);
+  assertInputEvidenceMatchesModel(state.model);
   const requestSequence = (state.analysisRequestSequence ?? 0) + 1;
   const analysisRequest: AnalysisRequestBinding = {
     modelRevision: state.modelRevision ?? 0, modelHash: modelHash(state.model), settingsHash, requestSequence,
@@ -234,13 +240,28 @@ export function undoModel(state: ModelState, transactionId?: string) {
 
 export function currentAnalysisError(state: ModelState | undefined): string | undefined {
   if (!state?.model || !state.analysisResult) return 'ANALYSIS_REQUIRED';
+  if (unresolvedInputEvidence(state.inputEvidence).length
+    || unresolvedInputEvidence(isRecord(state.model.metadata) ? state.model.metadata.inputEvidence : undefined).length)
+    return 'INPUT_EVIDENCE_UNRESOLVED';
   if (state.modelPending) return 'MODEL_REBUILD_REQUIRED';
+  try {
+    assertInputEvidenceMatchesModel(state.model, state.inputEvidence);
+    assertInputEvidenceMatchesModel(state.model);
+  } catch { return 'INPUT_EVIDENCE_NOT_APPLIED'; }
   const meta = isRecord(state.analysisResult.meta) ? state.analysisResult.meta : {};
   if (meta.modelHash !== modelHash(state.model)) return 'ANALYSIS_STALE_OR_LEGACY';
   if (!state.analysisRequest || !matchesRequest(state.analysisRequest, meta)
     || state.analysisRequest.modelRevision !== (state.modelRevision ?? 0)) return 'ANALYSIS_STALE_OR_LEGACY';
   if (state.analysisResult.success === false) return 'ANALYSIS_FAILED';
   return undefined;
+}
+
+/** Newly read engineering evidence must be applied before old artifacts become usable. */
+export function applyInputEvidence(state: ModelState, patch: ModelRecord[]) {
+  const inputEvidence = mergeInputEvidence(state.inputEvidence, patch) ?? [];
+  const previous = new Set((state.inputEvidence ?? []).map(contentHash));
+  const changed = inputEvidence.some(item => item.required !== false && !previous.has(contentHash(item)));
+  return { inputEvidence, ...(changed ? { ...invalidateAnalysis(state), modelPending: Boolean(state.model) } : {}) };
 }
 
 export function publishAnalysis(state: ModelState, request: AnalysisRequestBinding, result: ModelRecord) {

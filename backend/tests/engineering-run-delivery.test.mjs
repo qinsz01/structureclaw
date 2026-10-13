@@ -8,6 +8,16 @@ import { createQueryResultsTool } from '../dist/agent-langgraph/model-tools.js';
 import { resultTableMarkdown, scalarResultQuantity } from '../dist/engineering/result-data.js';
 
 describe('archived and requested results', () => {
+  test('adapter provenance conflicts become failed archived results instead of being overwritten', async () => {
+    const model = { nodes:[], elements:[], materials:[], sections:[], load_cases:[{id:'D',loads:[]}] };
+    let archive;
+    const run = await executeAnalysisRun({ model, type:'static', parameters:{} },
+      async () => ({ success:true, meta:{ modelHash:'wrong-model' }, data:{ displacements:{a:{uz:99}} } }),
+      async (_id, record) => { archive = record; });
+    expect(run.success).toBe(false);
+    expect(archive.results['case:D'].error_code).toBe('ANALYSIS_RESULT_BINDING_MISMATCH');
+    expect(archive.results['case:D'].data.displacements).toBeUndefined();
+  });
   test('run reload retains the physical snapshot and rejects traversal or inconsistent provenance', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'structureclaw-run-'));
     try {

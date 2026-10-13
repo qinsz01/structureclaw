@@ -8,7 +8,8 @@ import { createLocalStructureProtocolClient } from '../dist/services/structure-p
 import { AnalysisExecutionService } from '../dist/services/analysis-execution.js';
 import { AgentSkillRuntime } from '../dist/agent-runtime/index.js';
 import { normalizeEngineeringDraft } from '../dist/agent-runtime/engineering-draft.js';
-import { commitModel, applyModelEdits, publishAnalysis, undoModel } from '../dist/engineering/model-state.js';
+import { beginAnalysisRequest, commitModel, applyModelEdits, publishAnalysis, undoModel } from '../dist/engineering/model-state.js';
+import { analysisSettingsHash } from '../dist/engineering/analysis-runs.js';
 
 const L = 4, E = 200000e3, I = 8e-6, P = .5, q = 2, a = 2;
 const expectedD = -P * L ** 3 / (48 * E * I);
@@ -28,7 +29,9 @@ const model = await normalizeEngineeringModel({
     { id: 'L', type: 'live', loads: [{ id: 'q', type: 'distributed', element: 'beam', start: 1, end: 3, wz: -2 }] }],
   load_combinations: [{ id: 'U', factors: { D: 1.2, L: 1.4 } }], analysis_control: { self_weight: false },
 }, createLocalStructureProtocolClient());
-const run = await new AnalysisExecutionService().analyze({ model, type: 'static', engineId: 'builtin-opensees', parameters: {} });
+const initial = commitModel(undefined, model, 'initial');
+const pending = { ...initial, ...beginAnalysisRequest(initial, analysisSettingsHash('static', 'builtin-opensees', {})) };
+const run = await new AnalysisExecutionService().analyze({ model, type: 'static', engineId: 'builtin-opensees', parameters: {}, requestBinding: pending.analysisRequest });
 assert.equal(run.success, true, JSON.stringify(run));
 assert.deepEqual(Object.keys(run.results), ['case:D','case:L','combination:U']);
 for (const [key, displacement, reaction] of [['case:D',expectedD,.25],['case:L',expectedL,2],['combination:U',1.2*expectedD+1.4*expectedL,3.1]]) {
@@ -45,8 +48,8 @@ const point = run.results['case:D'];
 const left = queryPhysicalResponse(model, point, 'beam', 2, 'left');
 const right = queryPhysicalResponse(model, point, 'beam', 2, 'right');
 close(Math.abs(left.sample.V3 - right.sample.V3), P);
-const initial = commitModel(undefined, model, 'initial');
-const current = { ...initial, ...publishAnalysis(initial, run.meta.modelHash, run) };
+const current = { ...pending, ...publishAnalysis(pending, pending.analysisRequest, run) };
+assert.equal(current.analysisResult.runId, run.runId);
 const movedModel = await normalizeEngineeringModel(applyModelEdits(model, [{ operation: 'update', collection: 'loads', caseId: 'D', id: 'p', values: { position: 3 } }]), createLocalStructureProtocolClient());
 const moved = commitModel(current, movedModel, 'move load');
 assert.equal(moved.analysisResult, null);

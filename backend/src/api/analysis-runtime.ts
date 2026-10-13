@@ -4,6 +4,7 @@ import { AnalysisExecutionService } from '../services/analysis-execution.js';
 import { AnalysisService } from '../services/analysis.js';
 import { codeCheckSchema } from './analysis.js';
 import { StructureProtocolExecutionService } from '../services/structure-protocol-execution.js';
+import { analysisRequestBindingSchema } from '../engineering/model-state.js';
 
 const analysisService = new AnalysisExecutionService();
 const structureProtocolService = new StructureProtocolExecutionService();
@@ -26,6 +27,7 @@ const analyzeSchema = z.object({
   model: z.record(z.string(), z.any()),
   parameters: z.record(z.string(), z.any()).default({}),
   engineId: z.string().optional(),
+  requestBinding: analysisRequestBindingSchema.optional(),
 });
 
 export async function analysisRuntimeRoutes(fastify: FastifyInstance) {

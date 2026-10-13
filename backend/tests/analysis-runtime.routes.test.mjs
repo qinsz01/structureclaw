@@ -31,7 +31,7 @@ describe('analysis runtime routes', () => {
       return { model: { schema_version: '2.0.0' } };
     };
     AnalysisExecutionService.prototype.analyze = async function mockAnalyze(body) {
-      return { success: true, analysis_type: body.type };
+      return { success: true, analysis_type: body.type, requestBinding: body.requestBinding };
     };
     AnalysisService.prototype.codeCheck = async function mockCodeCheck(body) {
       return { code: body.code, status: 'success', source: body };
@@ -50,6 +50,9 @@ describe('analysis runtime routes', () => {
     expect((await app.inject({ method: 'POST', url: '/validate', payload: { model: {}, engineId: 'builtin-opensees' } })).json().valid).toBe(true);
     expect((await app.inject({ method: 'POST', url: '/convert', payload: { model: {} } })).json().model.schema_version).toBe('2.0.0');
     expect((await app.inject({ method: 'POST', url: '/analyze', payload: { type: 'static', model: {}, parameters: {} } })).json().success).toBe(true);
+    const requestBinding = { modelRevision: 3, modelHash: 'model', settingsHash: 'settings', requestSequence: 5 };
+    expect((await app.inject({ method: 'POST', url: '/analyze', payload: { type: 'static', model: {}, requestBinding } })).json().requestBinding).toEqual(requestBinding);
+    expect((await app.inject({ method: 'POST', url: '/analyze', payload: { type: 'static', model: {}, requestBinding: { ...requestBinding, requestSequence: -1 } } })).statusCode).not.toBe(200);
     const checked = await app.inject({ method: 'POST', url: '/code-check', payload: {
       model_id: 'm1', analysisId: 'a1', runId: 'r1', code: 'GB50017', elements: [],
     } });

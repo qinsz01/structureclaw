@@ -2,9 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { runtimeBaseDir } from '../config/index.js';
-import { contentHash, isRecord, modelHash, type ModelRecord } from './model-state.js';
+import { analysisRequestBindingSchema, contentHash, isRecord, modelHash, type ModelRecord } from './model-state.js';
 import { enrichResultData } from './result-data.js';
-import { assertResolvedInput } from './input-evidence.js';
+import { assertInputEvidenceMatchesModel, assertResolvedInput } from './input-evidence.js';
 
 export interface ResultSelection { key: string; kind: 'case' | 'combination' | 'analysis'; id: string }
 const SELECTION_FIELDS = ['loadCaseIds', 'load_case_ids', 'loadCombinationIds', 'combinationIds',
@@ -97,13 +97,14 @@ export async function executeAnalysisRun(
   if (!isRecord(payload.model)) throw new Error('MODEL_REQUIRED');
   const model = structuredClone(payload.model);
   assertResolvedInput(isRecord(model.metadata) ? model.metadata.inputEvidence : undefined);
+  assertInputEvidenceMatchesModel(model);
   const parameters = normalizeAnalysisParameters(isRecord(payload.parameters) ? structuredClone(payload.parameters) : {});
   const selections = analysisSelections(model, parameters, payload.type);
   const runId = randomUUID();
   const startedAt = new Date().toISOString();
   const fingerprint = modelHash(model);
   const settingsHash = analysisSettingsHash(payload.type, payload.engineId, parameters);
-  const binding = isRecord(payload.requestBinding) ? payload.requestBinding : {};
+  const binding: ModelRecord = payload.requestBinding === undefined ? {} : analysisRequestBindingSchema.parse(payload.requestBinding);
   if (Object.keys(binding).length && (binding.modelHash !== fingerprint || binding.settingsHash !== settingsHash)) {
     throw new Error('ANALYSIS_REQUEST_BINDING_MISMATCH');
   }
@@ -116,6 +117,13 @@ export async function executeAnalysisRun(
     let result: ModelRecord;
     try {
       result = await invoke({ ...payload, model, parameters: effective });
+      const suppliedMeta = isRecord(result.meta) ? result.meta : {};
+      const expected: ModelRecord = { ...binding, modelHash: fingerprint, settingsHash };
+      for (const key of ['modelHash', 'settingsHash', 'modelRevision', 'requestSequence']) {
+        if (suppliedMeta[key] !== undefined && expected[key] !== undefined && suppliedMeta[key] !== expected[key]) {
+          throw Object.assign(new Error(`ANALYSIS_RESULT_BINDING_MISMATCH: ${key}`), { errorCode: 'ANALYSIS_RESULT_BINDING_MISMATCH' });
+        }
+      }
     } catch (error) {
       result = { success: false, error_code: isRecord(error) && typeof error.errorCode === 'string' ? error.errorCode : 'ANALYSIS_EXECUTION_FAILED', message: error instanceof Error ? error.message : String(error), data: {} };
     }

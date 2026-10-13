@@ -2,9 +2,10 @@ import { describe, expect, test } from '@jest/globals';
 import { parseVisionEvidence, collectVisionEvidence, imageRegionSchema } from '../dist/engineering/vision-evidence.js';
 import { mergeInputEvidence, unresolvedInputEvidence, assertResolvedInput } from '../dist/engineering/input-evidence.js';
 import { createReviewInputTool } from '../dist/agent-langgraph/model-tools.js';
+import { applyInputEvidence, beginAnalysisRequest, currentAnalysisError } from '../dist/engineering/model-state.js';
 
 const observation = (value, field='nodes.A.restraints') => ({ summary: 'Visible support / 可见支座',
-  coverage: { geometry:'observed', connectivity:'observed', supports:'observed', loads:'missing', materials:'missing', sections:'missing' },
+  coverage: { geometry:'observed', connectivity:'observed', supports:'observed', loads:'not_applicable', materials:'not_applicable', sections:'not_applicable' },
   fields: [{ field, category:'supports', value, status:'observed', required:true, region:[.1,.2,.3,.4], evidenceText:'Support symbol A' }] });
 
 describe('field-level image evidence without paid recognition', () => {
@@ -55,5 +56,26 @@ describe('field-level image evidence without paid recognition', () => {
     await expect(createReviewInputTool().invoke({ resolutions:[{ field:'supports.left', selectedSource:record.id,
       value:'fixed', reason:'ambiguous override' }] }, { toolCall:{ id:'review' }, configurable:{ agentState:{ inputEvidence:[record] } } }))
       .rejects.toThrow('INPUT_RESOLUTION_SOURCE_OR_VALUE_ONLY');
+  });
+
+  test('missing category coverage cannot disappear when recognition omits its field list', () => {
+    const image = observation(undefined); image.fields = []; image.coverage.supports = 'missing';
+    const parsed = parseVisionEvidence(JSON.stringify(image), { file:'missing-support.png' });
+    expect(parsed.interpretationStatus).toBe('needs_review');
+    expect(() => assertResolvedInput(parsed.inputEvidence)).toThrow('coverage.supports');
+  });
+
+  test('reading new engineering evidence archives and invalidates prior results, duplicate reading does not', () => {
+    const model = { nodes:[], elements:[], materials:[], sections:[] };
+    const state = { model, ...beginAnalysisRequest({ model }, 'settings'), inputEvidence:[] };
+    state.analysisResult = { success:true, runId:'old', meta:state.analysisRequest };
+    expect(currentAnalysisError(state)).toBeUndefined();
+    const evidence = [{ id:'new-drawing', field:'supports.left', status:'ambiguous', required:true }];
+    expect(currentAnalysisError({ ...state, inputEvidence:evidence })).toBe('INPUT_EVIDENCE_UNRESOLVED');
+    const update = applyInputEvidence(state, evidence);
+    expect(update.analysisResult).toBeNull();
+    expect(update.analysisRuns.old).toEqual(state.analysisResult);
+    expect(update.modelPending).toBe(true);
+    expect(applyInputEvidence({ ...state, inputEvidence:evidence }, evidence).analysisResult).toBeUndefined();
   });
 });

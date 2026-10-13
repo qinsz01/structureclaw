@@ -144,7 +144,7 @@ ${summarizeArtifacts(state)}
 7. 调用 generate_report 生成报告
 
 **关键规则**:
-- 图纸字段复核：query_model 查看 inputEvidence/inputIssues；analyze_file 可传 region 和 requiredFields 定点复核；只有获得可定位证据或用户明确补充后才 review_input，再将复核值写入模型。不得用猜测消除缺项。
+- 图纸字段复核：query_model 查看 inputEvidence/inputIssues；analyze_file 可传 region 和 requiredFields 定点复核；只有获得可定位证据或用户明确补充后才 review_input，再将复核值写入模型。语义字段需用 modelField 指定实际模型字段（如 nodes.A.x），明确单位；无关编辑不会解除未应用的复核值。不得用猜测消除缺项。
 - 已有模型的修改：先 query_model 读取版本和稳定对象 ID，再 edit_model 原子修改或 undo_model 撤销；移动荷载修改同一 ID，不从最后一句话重建整个模型。当前版本 ${state.modelRevision ?? 0}，待构建 ${Boolean(state.modelPending)}。
 - run_analysis 默认分别计算静力工况与组合；query_results 按明确 resultKey 查询，禁止混用工况、历史模型或显示插值作为计算依据。
 - 图纸与表格中关键字段的来源写入 engineeringDraft.inputEvidence（field、source 文件/页/实体/行、value、unit）。冲突、未读取必要区域或未知单位标 status=conflict/unread/ambiguous，不默默覆盖；复核后追加 status=resolved 和 resolution={value或selectedSource,reason}，保留原始证据。普通文件分页并不表示所有内容都是必需输入。
@@ -219,7 +219,7 @@ ${summarizeArtifacts(state)}
 ## Tool Usage Strategy
 
 When the user makes a structural design or analysis request, follow this workflow:
-For drawing review, query_model exposes inputEvidence/inputIssues. Use analyze_file region and requiredFields for focused review, then review_input only with observed evidence or explicit user corrections. Apply reviewed values to the model; never guess to clear missing inputs.
+For drawing review, query_model exposes inputEvidence/inputIssues. Use analyze_file region and requiredFields for focused review, then review_input only with observed evidence or explicit user corrections. Map semantic fields with modelField (e.g. nodes.A.x), declare units and apply reviewed values to the model; an unrelated edit cannot clear an unapplied value. Never guess to clear missing inputs.
 For edits to an existing model, use query_model then edit_model or undo_model with the current revision and stable object IDs; moving a load updates the same ID. Do not recreate the whole model from the last sentence. Current revision: ${state.modelRevision ?? 0}; pending build: ${Boolean(state.modelPending)}. Use query_results with explicit case/combination keys; historical results and display interpolation cannot justify current calculations.
 Record required drawing/table fields in engineeringDraft.inputEvidence with field, source file/page/entity/row, value and unit. Mark conflicts, unread required regions and ambiguous units with status=conflict/unread/ambiguous. Preserve observations and append status=resolved with resolution={value or selectedSource,reason} after review. Ordinary pagination alone does not mean every page is required.
 

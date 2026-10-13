@@ -32,7 +32,7 @@ import { analyzeUploadedFile } from './file-tools.js';
 import { summarizeFileImages } from './attachment-vision.js';
 import { collectVisionEvidence } from '../engineering/vision-evidence.js';
 import { SessionLock } from '../engineering/session-lock.js';
-import { commitModel, invalidateAnalysis } from '../engineering/model-state.js';
+import { applyInputEvidence, commitModel, invalidateAnalysis } from '../engineering/model-state.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 
 // ---------------------------------------------------------------------------
@@ -663,25 +663,26 @@ export class LangGraphAgentService {
     this.graphPromise = undefined;
   }
 
-  private async contextModelUpdate(input: LangGraphRunInput, conversationId: string): Promise<Partial<AgentState>> {
-    if (!input.context) return {};
+  private async contextModelUpdate(input: LangGraphRunInput, conversationId: string, evidence: Record<string, unknown>[] = []): Promise<Partial<AgentState>> {
+    if (!input.context && !evidence.length) return {};
     const graph = await this.getGraph();
     const snapshot = await graph.getState({ configurable: { thread_id: conversationId } });
     const state = snapshot.values as AgentState;
-    if (input.context.modelRevision !== undefined && input.context.modelRevision !== (state.modelRevision ?? 0)) {
+    if (input.context?.modelRevision !== undefined && input.context.modelRevision !== (state.modelRevision ?? 0)) {
       throw new Error(`MODEL_VERSION_CONFLICT: expected ${state.modelRevision ?? 0}`);
     }
     const update: Partial<AgentState> = {};
-    if (input.context.model) {
+    if (input.context?.model) {
       const model = await normalizeEngineeringModel(input.context.model, this.structureProtocolClient, input.context.modelFormat);
       Object.assign(update, commitModel(state, model, 'import_model'));
     }
-    if (input.context.analysisType && input.context.analysisType !== state.policy?.analysisType
-      || input.context.skillIds && JSON.stringify([...input.context.skillIds].sort()) !== JSON.stringify([...(state.selectedSkillIds ?? [])].sort())) {
+    if (input.context?.analysisType && input.context.analysisType !== state.policy?.analysisType
+      || input.context?.skillIds && JSON.stringify([...input.context.skillIds].sort()) !== JSON.stringify([...(state.selectedSkillIds ?? [])].sort())) {
       Object.assign(update, invalidateAnalysis(state));
-    } else if (input.context.designCode && input.context.designCode !== state.policy?.designCode) {
+    } else if (input.context?.designCode && input.context.designCode !== state.policy?.designCode) {
       Object.assign(update, { codeCheckResult: null, report: null });
     }
+    if (evidence.length) Object.assign(update, applyInputEvidence({ ...state, ...update }, evidence));
     return update;
   }
 
@@ -719,10 +720,13 @@ export class LangGraphAgentService {
       { summarizeImages: true, signal: input.signal },
     );
     const contextSeismicWorkflow = extractContextSeismicWorkflow(input.context, initialPayload.attachmentAnalyses);
+    const initialUpdate = await this.contextModelUpdate(input, conversationId,
+      initialPayload.attachmentAnalyses.flatMap(({ analysis }) => collectVisionEvidence(analysis)));
+    if (initialUpdate.analysisResult === null) yield { type: 'artifact_payload_sync', artifact: 'analysis', invalidated: true };
+    if (initialUpdate.report === null) yield { type: 'artifact_payload_sync', artifact: 'report', invalidated: true };
     const stream = await graph.stream(
       {
-        ...await this.contextModelUpdate(input, conversationId),
-        inputEvidence: initialPayload.attachmentAnalyses.flatMap(({ analysis }) => collectVisionEvidence(analysis)),
+        ...initialUpdate,
         messages: [toInitialHumanMessage(initialPayload.content)],
         locale,
         workspaceRoot: this.workspaceRoot,
@@ -820,8 +824,7 @@ export class LangGraphAgentService {
     const contextSeismicWorkflow = extractContextSeismicWorkflow(input.context, initialPayload.attachmentAnalyses);
     const result = await graph.invoke(
       {
-        ...await this.contextModelUpdate(input, conversationId),
-        inputEvidence: initialPayload.attachmentAnalyses.flatMap(({ analysis }) => collectVisionEvidence(analysis)),
+        ...await this.contextModelUpdate(input, conversationId, initialPayload.attachmentAnalyses.flatMap(({ analysis }) => collectVisionEvidence(analysis))),
         messages: [toInitialHumanMessage(initialPayload.content)],
         locale,
         workspaceRoot: this.workspaceRoot,
@@ -872,8 +875,7 @@ export class LangGraphAgentService {
     const contextSeismicWorkflow = extractContextSeismicWorkflow(input.context, initialPayload.attachmentAnalyses);
     const result = await graph.invoke(
       {
-        ...await this.contextModelUpdate(input, conversationId),
-        inputEvidence: initialPayload.attachmentAnalyses.flatMap(({ analysis }) => collectVisionEvidence(analysis)),
+        ...await this.contextModelUpdate(input, conversationId, initialPayload.attachmentAnalyses.flatMap(({ analysis }) => collectVisionEvidence(analysis))),
         messages: [toInitialHumanMessage(initialPayload.content)],
         locale,
         workspaceRoot: this.workspaceRoot,

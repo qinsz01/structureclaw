@@ -79,7 +79,7 @@ export function createReviewInputTool() {
         && record.field === item.field && record.status === 'observed')) throw new Error('OBSERVED_INPUT_SOURCE_REQUIRED');
       if (item.selectedSource === undefined && item.value === undefined) throw new Error('INPUT_RESOLUTION_VALUE_REQUIRED');
       return { id: `review:${randomUUID()}`, field: item.field, status: 'resolved', required: true,
-        resolution: { selectedSource: item.selectedSource, value: item.value, unit: item.unit, reason: item.reason },
+        resolution: { selectedSource: item.selectedSource, value: item.value, unit: item.unit, reason: item.reason, modelField: item.modelField },
         source: { userMessage: state.lastUserMessage } };
     });
     const inputEvidence = mergeInputEvidence(existing, patch) ?? [];
@@ -88,7 +88,8 @@ export function createReviewInputTool() {
     { ...invalidateAnalysis(state), modelPending: Boolean(state.model), inputEvidence });
   }, { name: 'review_input', description: 'Resolve ambiguous/missing input after focused file review or an explicit user correction. Preserve original evidence; do not invent values. / 定点复核或用户明确补充后解决输入冲突，保留原始证据。',
     schema: z.object({ resolutions: z.array(z.object({ field: z.string().min(1), selectedSource: z.string().optional(),
-      value: z.unknown().optional(), unit: z.string().optional(), reason: z.string().min(1) })).min(1) }) });
+      value: z.unknown().optional(), unit: z.string().optional(), reason: z.string().min(1),
+      modelField: z.string().optional().describe('Canonical model field for a semantic observation, e.g. nodes.A.x / 语义识别值对应的规范模型字段') })).min(1) }) });
 }
 
 export function createQueryResultsTool() {

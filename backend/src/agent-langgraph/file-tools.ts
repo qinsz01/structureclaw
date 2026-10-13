@@ -24,6 +24,7 @@ import { runtimeBaseDir } from '../config/index.js';
 import { collectVisionEvidence, imageRegionSchema, type ImageRegion } from '../engineering/vision-evidence.js';
 import { Command } from '@langchain/langgraph';
 import { ToolMessage } from '@langchain/core/messages';
+import { applyInputEvidence, type ModelState } from '../engineering/model-state.js';
 
 const UPLOAD_DIR = path.join(runtimeBaseDir, '.uploads');
 const MAX_READ_BYTES = 10 * 1024 * 1024; // 10 MB cap for analysis
@@ -365,7 +366,7 @@ export function createAnalyzeFileTool() {
       input: { filePath: string; maxRows?: number; pageStart?: number; pageCount?: number; region?: ImageRegion; requiredFields?: string[] },
       config: LangGraphRunnableConfig,
     ) => {
-      const configurable = config.configurable as Partial<AgentConfigurable>;
+      const configurable = config.configurable as Partial<AgentConfigurable> & { agentState?: ModelState };
       const workspaceRoot = configurable?.workspaceRoot;
       if (Array.isArray(configurable?.fileAccessAllowlist)) {
         let requestedPath: string;
@@ -395,7 +396,7 @@ export function createAnalyzeFileTool() {
       delete parsed.base64DataUri;
       const evidence = collectVisionEvidence(parsed);
       const toolCallId = (config as LangGraphRunnableConfig & { toolCall?: { id: string } }).toolCall?.id;
-      if (evidence.length && toolCallId) return new Command({ update: { inputEvidence: evidence,
+      if (evidence.length && toolCallId) return new Command({ update: { ...applyInputEvidence(configurable.agentState ?? {}, evidence),
         messages: [new ToolMessage({ name: 'analyze_file', tool_call_id: toolCallId, content: JSON.stringify(parsed) })] } });
       return JSON.stringify(parsed);
     },
