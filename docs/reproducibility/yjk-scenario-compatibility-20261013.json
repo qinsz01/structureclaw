@@ -332,6 +332,26 @@
     {
       "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\python310\\python310.dll",
       "sha256": "14b06796f288bc6599e458fb23a944ab0c843e9868058f02a91d4606533505ed"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\YjkLauncher.exe",
+      "sha256": "23051a1a0c0158e1c6e936ba9bf61d3fea37de185e932c5624e3387ca208b4a3"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\python310\\site-packages\\YJKAPI\\__init__.py",
+      "sha256": "c5732384c58008fa33b7dfd6967271901530e31d4cb4f5127fd661e7fefabaf2"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\python310\\site-packages\\YJKAPI\\initializer.py",
+      "sha256": "525bd478ae49e60859f6d3cfbe1b6f131eee1343d6e3a64776323e27d8800940"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\python310\\site-packages\\YJKAPI\\DLLs\\NDepend\\YJKAPI.dll",
+      "sha256": "d161a0ba9cfad094b2147017d2138cfb3dc4f14c3f1d81d7df0f06e371ba412f"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\python310\\site-packages\\YJKAPI\\DLLs\\NDepend\\ClrYJKAPI.dll",
+      "sha256": "ee6eb32049821721e1a0c3859b629eab4ed1be29ad700c3b23ffe56b4c6ac921"
     }
   ],
   "apiPreservation": [
