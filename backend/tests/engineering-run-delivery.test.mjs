@@ -8,6 +8,17 @@ import { createQueryResultsTool } from '../dist/agent-langgraph/model-tools.js';
 import { resultTableMarkdown, scalarResultQuantity, queryPhysicalResponse, enrichResultData } from '../dist/engineering/result-data.js';
 
 describe('archived and requested results', () => {
+  test('an unknown selection cannot relabel a legacy single-result run', async () => {
+    const legacy = { runId: 'legacy', success: true, data: { displacements: { a: { ux: .001 } } } };
+    const invoke = args => createQueryResultsTool().invoke({ runId: 'legacy', field: 'displacements', nodeId: 'a',
+      component: 'ux', quantityId: 'x', unit: 'm', ...args },
+    { toolCall: { id: 'query' }, configurable: { agentState: { analysisRuns: { legacy } } } });
+    await expect(invoke({ resultKey: 'combination:absent' })).rejects.toThrow('RESULT_NOT_FOUND');
+    expect((await invoke({})).update.resultQuantities['legacy:x'].value).toBe(.001);
+    legacy.selectedResultKey = 'case:D';
+    expect((await invoke({ resultKey: 'case:D' })).update.resultQuantities['legacy:x'].selection).toBe('case:D');
+    await expect(invoke({ resultKey: 'case:L' })).rejects.toThrow('RESULT_NOT_FOUND');
+  });
   test('adapter provenance conflicts become failed archived results instead of being overwritten', async () => {
     const model = { nodes:[], elements:[], materials:[], sections:[], load_cases:[{id:'D',loads:[]}] };
     let archive;

@@ -106,6 +106,9 @@ export function createQueryResultsTool() {
     }
     if (input.comparison && !input.compareResultKeys) throw new Error('RESULT_COMPARISON_KEYS_REQUIRED');
     const querySelection = (resultKey: unknown) => {
+      if (typeof resultKey === 'string' && !isRecord(run.results) && resultKey !== run.selectedResultKey) {
+        throw new Error('RESULT_NOT_FOUND');
+      }
       const selected = typeof resultKey === 'string' && isRecord(run.results) ? run.results[resultKey] : run;
       if (!isRecord(selected)) throw new Error('RESULT_NOT_FOUND');
       if (selected.success === false || selected.executionStatus === 'failed') throw new Error('RESULT_UNAVAILABLE');

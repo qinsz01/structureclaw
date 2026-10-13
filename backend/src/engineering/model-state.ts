@@ -62,6 +62,10 @@ export function contentHash(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(ordered(value)) ?? 'null').digest('hex');
 }
 
+const nonPhysicalMetadataKeys = [
+  'title', 'name', 'description', 'source', 'inputEvidence', 'createdAt', 'updatedAt', 'physicalModel', 'inferredType',
+];
+
 /** Display and source annotations do not change structural physics. */
 export function modelHash(model: ModelRecord): string {
   const physical: ModelRecord = {};
@@ -76,9 +80,7 @@ export function modelHash(model: ModelRecord): string {
   physical.load_cases ??= model.loadCases;
   physical.load_combinations ??= model.loadCombinations;
   if (isRecord(model.metadata)) {
-    const metadata = Object.fromEntries(Object.entries(model.metadata).filter(([key]) => ![
-      'title', 'name', 'description', 'source', 'inputEvidence', 'createdAt', 'updatedAt', 'physicalModel', 'inferredType',
-    ].includes(key)));
+    const metadata = Object.fromEntries(Object.entries(model.metadata).filter(([key]) => !nonPhysicalMetadataKeys.includes(key)));
     if (Object.keys(metadata).length) physical.metadata = metadata;
   }
   return contentHash(physical);
@@ -241,6 +243,17 @@ export function undoModel(state: ModelState, transactionId?: string) {
   const after = history[index + 1]?.beforeModel ?? state.model;
   if (modelHash(after) !== transaction.afterHash) throw new Error('MODEL_UNDO_CONFLICT: history');
   const restored = reverseTransaction(transaction.beforeModel, after, state.model, 'model') as ModelRecord;
+  // Annotation/evidence-only updates do not create physical transactions. Never
+  // mistake those newer records for part of the physics being undone.
+  if (isRecord(restored.metadata) || isRecord(state.model.metadata)) {
+    const metadata = isRecord(restored.metadata) ? restored.metadata : {};
+    const current = isRecord(state.model.metadata) ? state.model.metadata : {};
+    for (const key of nonPhysicalMetadataKeys) {
+      if (Object.hasOwn(current, key)) metadata[key] = structuredClone(current[key]);
+      else delete metadata[key];
+    }
+    restored.metadata = metadata;
+  }
   try { validateModelReferences(restored); }
   catch (error) { throw new Error(`MODEL_UNDO_CONFLICT: ${error instanceof Error ? error.message : String(error)}`, { cause: error }); }
   return commitModel(state, restored, `Undo: ${transaction.label}`, transaction.id);

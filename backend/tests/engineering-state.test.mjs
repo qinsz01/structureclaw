@@ -50,6 +50,20 @@ describe('physical model revisions', () => {
     const third = commitModel(second, applyModelEdits(second.model, [{ operation: 'update', collection: 'nodes', id: 'b', values: { x: 6 } }]), 'edit2');
     expect(() => undoModel(third, second.modelHistory.at(-1).id)).toThrow('MODEL_UNDO_CONFLICT');
   });
+  test('undo preserves newer display and evidence annotations which did not create a physical revision', () => {
+    const original = model(); original.metadata = { title: 'Initial', inputEvidence: [] };
+    const first = commitModel(undefined, original, 'create');
+    const second = commitModel(first, applyModelEdits(first.model,
+      [{ operation: 'update', collection: 'loads', caseId: 'D', id: 'p', values: { fz: -10 } }]), 'load');
+    const annotated = structuredClone(second.model);
+    annotated.metadata.title = 'Later independent title';
+    annotated.metadata.inputEvidence = [{ id: 'later', field: 'file:notes', status: 'observed', value: 'read' }];
+    const current = commitModel(second, annotated, 'annotation only');
+    expect(current.modelRevision).toBe(second.modelRevision);
+    const restored = undoModel(current, second.modelHistory.at(-1).id);
+    expect(restored.model.metadata).toEqual(annotated.metadata);
+    expect(restored.model.load_cases[0].loads[0].fz).toBe(-.5);
+  });
   test('selective undo restores an earlier load edit while retaining a later section change and reordered objects', () => {
     const first = commitModel(undefined, model(), 'create');
     const second = commitModel(first, applyModelEdits(first.model,
