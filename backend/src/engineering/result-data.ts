@@ -220,7 +220,8 @@ export function resultTableMarkdown(analysis: unknown, locale: 'zh' | 'en'): str
     markdown += '| ID | Selection | Location | Component | Value | Unit |\n| --- | --- | --- | --- | --- | --- |\n';
     markdown += quantities.map(q => {
       const location = isRecord(q.location) ? q.location : {};
-      const position = location.kind === 'member' ? `${location.id}@${location.positionM}:${location.side}` : location.id;
+      const position = location.kind === 'member' ? `${location.id}@${location.positionM}:${location.side}`
+        : location.kind === 'node-pair' ? `${location.id} − ${location.referenceId}` : location.id;
       return `| ${cell(q.id)} | ${cell(q.selection)} | ${cell(position)} | ${cell(q.component)} | ${cell(q.value)} | ${cell(q.unit)} |`;
     }).join('\n') + '\n';
   }

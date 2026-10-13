@@ -63,6 +63,41 @@ describe('archived and requested results', () => {
     expect(() => scalarResultQuantity({ state: 'recovered', method: 'nearest-sample', sample: { V3: 2 } }, 'V3', 'kN', true)).toThrow('EXACT_MEMBER_RESPONSE_UNAVAILABLE');
   });
 
+  test('relative node displacement and controlling combinations preserve operands, signs and report provenance', async () => {
+    const makeResult = (ux, bottom = .002) => ({ success: true, meta: { runId: 'r' },
+      data: { displacements: { top: { ux }, bottom: { ux: bottom } } } });
+    const run = { runId: 'r', selectedResultKey: 'case:D', results: {
+      'case:D': makeResult(.01), 'combination:D': makeResult(-.018), 'combination:U': makeResult(.022),
+    } };
+    const invoke = args => createQueryResultsTool().invoke({ field: 'displacements', nodeId: 'top', referenceNodeId: 'bottom',
+      quantityId: 'story', component: 'ux', unit: 'mm', ...args },
+    { toolCall: { id: 'query' }, configurable: { agentState: { analysisResult: run } } });
+    const one = (await invoke({})).update.resultQuantities['r:story'];
+    expect(one).toMatchObject({ value: 8, selection: 'case:D', location: { kind: 'node-pair', id: 'top', referenceId: 'bottom' },
+      derivation: { minuend: { nodeId: 'top', value: 10 }, subtrahend: { nodeId: 'bottom', value: 2 }, unit: 'mm' } });
+    const keys = ['case:D', 'combination:D', 'combination:U'];
+    const controlling = (await invoke({ compareResultKeys: keys })).update.resultQuantities['r:story'];
+    expect(controlling).toMatchObject({ value: -20, selection: 'combination:D', comparison: {
+      method: 'absolute-max', controllingResultKeys: ['combination:D', 'combination:U'],
+    } });
+    expect(controlling.comparison.candidates.map(q => [q.selection, q.value])).toEqual([
+      ['case:D', 8], ['combination:D', -20], ['combination:U', 20],
+    ]);
+    expect((await invoke({ compareResultKeys: keys, comparison: 'max' })).update.resultQuantities['r:story'].selection).toBe('combination:U');
+    expect((await invoke({ compareResultKeys: keys, comparison: 'min' })).update.resultQuantities['r:story'].selection).toBe('combination:D');
+    for (const locale of ['zh', 'en']) {
+      expect(resultTableMarkdown({ ...run, requestedQuantities: [controlling] }, locale))
+        .toContain('| story | combination:D | top − bottom | ux | -20 | mm |');
+    }
+    await expect(invoke({ referenceNodeId: 'missing' })).rejects.toThrow('RESULT_COMPONENT_UNAVAILABLE');
+    await expect(invoke({ compareResultKeys: ['case:D', 'combination:missing'] })).rejects.toThrow('RESULT_NOT_FOUND');
+    await expect(invoke({ compareResultKeys: ['case:D', 'case:D'] })).rejects.toThrow('RESULT_COMPARISON_REQUIRES');
+    await expect(invoke({ referenceNodeId: 'bottom', field: 'reactions' })).rejects.toThrow('NODE_DIFFERENCE_REQUIRES');
+    await expect(invoke({ unit: 'kN' })).rejects.toThrow('RESULT_UNIT_MISMATCH');
+    run.results['combination:D'].success = false;
+    await expect(invoke({ compareResultKeys: keys })).rejects.toThrow('RESULT_UNAVAILABLE');
+  });
+
   test('commercial queries use the exact signed physical station and never fabricate displacement', () => {
     const model = nativeModel();
     const result = { data:{ units:{force:'kN',moment:'kN.m'}, forceSemantics:'simultaneous-signed-stations', nativeContext:{stationConventionsVerified:true},

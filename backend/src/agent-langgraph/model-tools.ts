@@ -97,49 +97,94 @@ export function createQueryResultsTool() {
     const { state, id } = context(config);
     const run = input.runId ? state.analysisRuns?.[input.runId] ?? await loadAnalysisRun(input.runId) : state.analysisResult;
     if (!run) throw new Error('RUN_NOT_FOUND');
-    const resultKey = input.resultKey ?? run.selectedResultKey;
-    const selected = typeof resultKey === 'string' && isRecord(run.results) ? run.results[resultKey] : run;
-    if (!isRecord(selected)) throw new Error('RESULT_NOT_FOUND');
-    const data = isRecord(selected.data) ? selected.data : selected;
-    let values: unknown = input.field ? data[input.field] : data;
-    if (input.modeNumber !== undefined) {
-      const modes = Array.isArray(data.modes) ? data.modes : isRecord(data.modal) ? data.modal.modes : undefined;
-      values = Array.isArray(modes) ? modes.find(item => isRecord(item) && item.modeNumber === input.modeNumber) : undefined;
-      if (values === undefined) throw new Error('MODE_NOT_FOUND');
+    if (input.compareResultKeys && (input.resultKey || !isRecord(run.results) || !input.component || input.modeNumber !== undefined || input.timeIndex !== undefined
+      || new Set(input.compareResultKeys).size !== input.compareResultKeys.length)) {
+      throw new Error('RESULT_COMPARISON_REQUIRES_DISTINCT_STATIC_KEYS_AND_COMPONENT / 比较需指定互异静力结果及同一分量');
     }
-    if (input.timeIndex !== undefined) {
-      const history = Array.isArray(data.timeHistory) ? data.timeHistory : [];
-      values = history[input.timeIndex];
-      if (values === undefined) throw new Error('TIME_INDEX_NOT_FOUND');
+    if (input.comparison && !input.compareResultKeys) throw new Error('RESULT_COMPARISON_KEYS_REQUIRED');
+    const querySelection = (resultKey: unknown) => {
+      const selected = typeof resultKey === 'string' && isRecord(run.results) ? run.results[resultKey] : run;
+      if (!isRecord(selected)) throw new Error('RESULT_NOT_FOUND');
+      if (selected.success === false || selected.executionStatus === 'failed') throw new Error('RESULT_UNAVAILABLE');
+      const data = isRecord(selected.data) ? selected.data : selected;
+      if (input.referenceNodeId !== undefined && (!input.nodeId || input.elementId || input.field !== 'displacements'
+        || !input.component || !['ux', 'uy', 'uz', 'rx', 'ry', 'rz'].includes(input.component)
+        || input.modeNumber !== undefined || input.timeIndex !== undefined)) {
+        throw new Error('NODE_DIFFERENCE_REQUIRES_STATIC_DISPLACEMENT_COMPONENT / 节点差值需指定静力位移或转角分量');
+      }
+      let values: unknown = input.field ? data[input.field] : data;
+      if (input.modeNumber !== undefined) {
+        const modes = Array.isArray(data.modes) ? data.modes : isRecord(data.modal) ? data.modal.modes : undefined;
+        values = Array.isArray(modes) ? modes.find(item => isRecord(item) && item.modeNumber === input.modeNumber) : undefined;
+        if (values === undefined) throw new Error('MODE_NOT_FOUND');
+      }
+      if (input.timeIndex !== undefined) {
+        const history = Array.isArray(data.timeHistory) ? data.timeHistory : [];
+        values = history[input.timeIndex];
+        if (values === undefined) throw new Error('TIME_INDEX_NOT_FOUND');
+      }
+      if (input.nodeId !== undefined) {
+        const source = isRecord(values) && isRecord(values.nodes) ? values.nodes
+          : isRecord(values) && isRecord(values.modeShape) ? values.modeShape : values;
+        if (!isRecord(source) || source[input.nodeId] === undefined) throw new Error('RESULT_NODE_NOT_FOUND');
+        values = source[input.nodeId];
+      }
+      if (input.elementId !== undefined) {
+        if (input.positionM === undefined) throw new Error('MEMBER_POSITION_REQUIRED');
+        const model = isRecord(run.modelSnapshot) ? run.modelSnapshot : !input.runId && !currentAnalysisError(state) ? state.model : undefined;
+        if (!model) throw new Error('RESULT_MODEL_SNAPSHOT_REQUIRED');
+        values = queryPhysicalResponse(model, selected, input.elementId, input.positionM, input.side ?? 'right');
+      }
+      let quantity: Record<string, unknown> | undefined;
+      if (input.component !== undefined) {
+        if (!input.quantityId || !input.unit || !(input.elementId || input.nodeId)) throw new Error('QUANTITY_LOCATION_ID_AND_UNIT_REQUIRED');
+        const value = scalarResultQuantity(values, input.component, input.unit, input.elementId !== undefined);
+        let difference: Record<string, unknown> | undefined;
+        if (input.referenceNodeId !== undefined) {
+          const nodes = isRecord(data.displacements) ? data.displacements : {};
+          const referenceValue = scalarResultQuantity(nodes[input.referenceNodeId], input.component, input.unit, false);
+          if (!Number.isFinite(value - referenceValue)) throw new Error('RESULT_DIFFERENCE_NONFINITE');
+          difference = { kind: 'node-difference', operation: 'minuend-minus-subtrahend',
+            minuend: { nodeId: input.nodeId, value }, subtrahend: { nodeId: input.referenceNodeId, value: referenceValue },
+            value: value - referenceValue, unit: input.unit, runId: run.runId, selection: resultKey };
+        }
+        quantity = { id: input.quantityId, runId: run.runId, selection: resultKey, component: input.component, unit: input.unit,
+          value: difference ? difference.value : value,
+          location: input.elementId ? { kind: 'member', id: input.elementId, positionM: input.positionM, side: input.side ?? 'right' }
+            : input.referenceNodeId ? { kind: 'node-pair', id: input.nodeId, referenceId: input.referenceNodeId }
+              : { kind: 'node', id: input.nodeId }, source: selected.meta,
+          ...(difference ? { derivation: difference } : {}),
+          ...(input.timeIndex !== undefined ? { timeIndex: input.timeIndex } : {}),
+          ...(input.modeNumber !== undefined ? { modeNumber: input.modeNumber } : {}) };
+      }
+      return { resultKey, meta: selected.meta, values, quantity };
+    };
+    const candidates = (input.compareResultKeys ?? [input.resultKey ?? run.selectedResultKey]).map(querySelection);
+    let chosen = candidates[0]!;
+    if (input.compareResultKeys) {
+      const comparison = input.comparison ?? 'absolute-max';
+      const score = (candidate: typeof chosen) => {
+        const value = candidate.quantity?.value;
+        if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error('RESULT_COMPARISON_FINITE_QUANTITY_REQUIRED');
+        return comparison === 'absolute-max' ? Math.abs(value) : comparison === 'min' ? -value : value;
+      };
+      for (const candidate of candidates.slice(1)) if (score(candidate) > score(chosen)) chosen = candidate;
+      chosen = { ...chosen, quantity: { ...chosen.quantity, comparison: {
+        method: comparison, candidates: candidates.map(candidate => candidate.quantity),
+        controllingResultKeys: candidates.filter(candidate => score(candidate) === score(chosen)).map(candidate => candidate.resultKey),
+        tiePolicy: 'exact-score-equality-first-requested-key',
+      } } };
     }
-    if (input.nodeId !== undefined) {
-      const source = isRecord(values) && isRecord(values.nodes) ? values.nodes
-        : isRecord(values) && isRecord(values.modeShape) ? values.modeShape : values;
-      if (!isRecord(source) || source[input.nodeId] === undefined) throw new Error('RESULT_NODE_NOT_FOUND');
-      values = source[input.nodeId];
-    }
-    if (input.elementId !== undefined) {
-      if (input.positionM === undefined) throw new Error('MEMBER_POSITION_REQUIRED');
-      const model = isRecord(run.modelSnapshot) ? run.modelSnapshot : !input.runId && !currentAnalysisError(state) ? state.model : undefined;
-      if (!model) throw new Error('RESULT_MODEL_SNAPSHOT_REQUIRED');
-      values = queryPhysicalResponse(model, selected, input.elementId, input.positionM, input.side ?? 'right');
-    }
-    let quantity: Record<string, unknown> | undefined;
-    if (input.component !== undefined) {
-      if (!input.quantityId || !input.unit || !(input.elementId || input.nodeId)) throw new Error('QUANTITY_LOCATION_ID_AND_UNIT_REQUIRED');
-      quantity = { id: input.quantityId, runId: run.runId, selection: resultKey, component: input.component, unit: input.unit,
-        value: scalarResultQuantity(values, input.component, input.unit, input.elementId !== undefined),
-        location: input.elementId ? { kind: 'member', id: input.elementId, positionM: input.positionM, side: input.side ?? 'right' }
-          : { kind: 'node', id: input.nodeId }, source: selected.meta,
-        ...(input.timeIndex !== undefined ? { timeIndex: input.timeIndex } : {}),
-        ...(input.modeNumber !== undefined ? { modeNumber: input.modeNumber } : {}) };
-    }
+    const { resultKey, meta, values, quantity } = chosen;
     const response = { runId: run.runId, historical: Boolean(input.runId), current: !input.runId && !currentAnalysisError(state),
-      resultKey, meta: selected.meta, resultKeys: isRecord(run.results) ? Object.keys(run.results) : [], values, ...(quantity ? { quantity } : {}) };
+      resultKey, meta, resultKeys: isRecord(run.results) ? Object.keys(run.results) : [], values, ...(quantity ? { quantity } : {}) };
     return quantity ? result(id, 'query_results', response, { resultQuantities: { [`${String(run.runId)}:${input.quantityId}`]: quantity } }) : JSON.stringify(response);
   }, { name: 'query_results', description: 'Read authoritative signed results for a case/combination or historical run. / 查询指定工况、组合或历史运行的有符号结果。',
     schema: z.object({ runId: z.string().optional(), resultKey: z.string().optional(),
+      compareResultKeys: z.array(z.string().min(1)).min(2).max(256).optional().describe('Compare the same requested quantity over these explicit result keys in ONE run, preserving signed values and controlling IDs. Exclusive with resultKey. / 在同一次运行中比较指定工况/组合的同一数值，保留符号和控制ID，与resultKey互斥。'),
+      comparison: z.enum(['absolute-max', 'max', 'min']).optional().describe('Comparison criterion; defaults to absolute-max, returned value retains its sign. / 默认按绝对值控制，返回值保留原符号。'),
       nodeId: z.string().optional(), modeNumber: z.number().int().positive().optional(), timeIndex: z.number().int().nonnegative().optional(),
+      referenceNodeId: z.string().min(1).optional().describe('Subtract this node from nodeId in the SAME static result; field=displacements and component/unit/quantityId required. For signed story displacement differences. / 同一静力结果内计算 nodeId 减此节点的位移差，需指定分量、单位和数值ID。'),
       quantityId: z.string().min(1).optional().describe('Stable ID for a requested report quantity / 指定报告数值的稳定ID。'),
       component: z.enum(['ux','uy','uz','rx','ry','rz','fx','fy','fz','mx','my','mz','N','V2','V3','T','M2','M3']).optional(),
       unit: z.enum(['m','mm','rad','kN','N','kN.m','N.m']).optional(),
