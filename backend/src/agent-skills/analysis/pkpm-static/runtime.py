@@ -78,25 +78,6 @@ def _import_apipyinterface() -> None:
         ) from exc
 
 
-def _patch_material_label(work_dir: Path) -> None:
-    """Replace 钢砼结构 with 钢结构 in JWSCYCLE output files.
-
-    JWSCYCLE writes this label before we restore project material parameters
-    below, so this only keeps generated text reports aligned with the final
-    JWS project metadata.  It does not replace the project-parameter fix.
-    """
-    _OLD = "钢砼结构".encode("gbk")
-    _NEW = "钢结构".encode("gbk")
-
-    for fname in ("WMASS.OUT", "WHBJSS.OUT"):
-        fpath = work_dir / fname
-        if not fpath.exists():
-            continue
-        data = fpath.read_bytes()
-        if _OLD in data:
-            fpath.write_bytes(data.replace(_OLD, _NEW))
-
-
 def _read_project_para_int(para: Any, key: int) -> int | None:
     try:
         value = para.GetPara_Int(key)
@@ -122,38 +103,25 @@ def _get_project_para(model: Any, jws_path: Path) -> Any:
     return para
 
 
-def _reapply_project_material_params(jws_path: Path, material_family: str) -> dict[str, Any]:
-    """Restore PKPM project parameters that JWSCYCLE clears after analysis."""
+def _verify_project_material_params(jws_path: Path, material_family: str) -> dict[str, Any]:
+    """Read the solved model; never rewrite inputs or native report labels."""
     import APIPyInterface
 
-    target_material = 10303 if material_family == "steel" else 10301
+    target_material = 2 if material_family == "steel" else 0
     target_values = {
-        101: 10101,  # 结构体系：框架结构
+        101: 0,  # Native compact enum: frame
         103: target_material,  # 结构材料信息
     }
 
     model = APIPyInterface.Model()
     open_result = _open_pm_model(model, jws_path)
     para = _get_project_para(model, jws_path)
-    before = {str(key): _read_project_para_int(para, key) for key in target_values}
-
-    for key, value in target_values.items():
-        para.SetParaInt(key, value)
-    model.SaveProjectPara()
-    model.SavePMModel()
-
-    del para
-    del model
-
-    verify_model = APIPyInterface.Model()
-    verify_open_result = _open_pm_model(verify_model, jws_path)
-    verify_para = _get_project_para(verify_model, jws_path)
-    after = {str(key): _read_project_para_int(verify_para, key) for key in target_values}
+    actual = {str(key): _read_project_para_int(para, key) for key in target_values}
 
     mismatches = {
-        str(key): {"expected": value, "actual": after.get(str(key))}
+        str(key): {"expected": value, "actual": actual.get(str(key))}
         for key, value in target_values.items()
-        if after.get(str(key)) != value
+        if actual.get(str(key)) != value
     }
     if mismatches:
         raise RuntimeError(f"PKPM project material parameters were not persisted: {mismatches}")
@@ -161,11 +129,9 @@ def _reapply_project_material_params(jws_path: Path, material_family: str) -> di
     return {
         "material_family": material_family,
         "open_result": open_result,
-        "verify_open_result": verify_open_result,
         "target": {str(key): value for key, value in target_values.items()},
-        "before": before,
-        "after": after,
-        "changed": before != after,
+        "actual": actual,
+        "verified": True,
     }
 
 
@@ -766,12 +732,8 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     timeout = int(parameters.get("timeout", 600))
     _run_jws_cycle(cycle_path, work_dir, timeout=timeout)
 
-    # ---- Phase 2.5: Restore project metadata that JWSCYCLE rewrites ----
-    project_parameter_reapply = _reapply_project_material_params(jws_path, material_family)
-
-    # ---- Phase 2.6: Post-process output files ----
-    if material_family == "steel":
-        _patch_material_label(work_dir)
+    # Verify the settings used; changing the solved project cannot fix a run.
+    project_parameter_verification = _verify_project_material_params(jws_path, material_family)
 
     # ---- Phase 3: Extract results via APIPyInterface ----
     # material_family was already detected in Phase 1 and passed to converter
@@ -1198,7 +1160,7 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
             "column_count": extracted.get("column_count", 0),
             "designConditions": design_conditions,
             "floorLoadMapping": floor_load_mapping,
-            "projectParameterReapply": project_parameter_reapply,
+            "projectParameterVerification": project_parameter_verification,
             **pkpm_summary,
         },
         "pkpm_detailed": {
@@ -1212,7 +1174,7 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
             "satwe_params": extracted.get("satwe_params", {}),
             "input_design_conditions": design_conditions,
             "input_floor_load_mapping": floor_load_mapping,
-            "project_parameter_reapply": project_parameter_reapply,
+            "project_parameter_verification": project_parameter_verification,
         },
         "caseResults": case_results,
         "envelopeTables": {

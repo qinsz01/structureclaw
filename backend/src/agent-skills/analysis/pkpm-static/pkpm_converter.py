@@ -610,12 +610,12 @@ def _configure_satwe_params(
 
     # Field 103: 结构材料信息
     if material_family == "steel":
-        para.SetParaInt(103, 10303)   # 钢结构
+        para.SetParaInt(103, 2)   # Native enum: steel (documentation option ID 10303 is not a value)
     else:
-        para.SetParaInt(103, 10301)   # 钢筋混凝土
+        para.SetParaInt(103, 0)   # Native enum: reinforced concrete
 
     # Field 101: 结构体系 — default 框架结构
-    para.SetParaInt(101, 10101)
+    para.SetParaInt(101, 0)
 
     model.SaveProjectPara()
 
@@ -1098,6 +1098,7 @@ def convert_v2_to_jws(
         model.SetCurrentStandFloor(standard_floor_index)
         model.GetCurrentStandFloor().SetDeadLive(dead_load, live_load)
     model.SetCurrentStandFloor(1)
+    _configure_satwe_params(model, material_family, site_seismic, wind, analysis_control)
     model.SavePMModel()
     return jws_path, {
         "v2_to_pm": v2_to_pm,

@@ -34,6 +34,8 @@ def main() -> int:
     parser.add_argument("--omit-setting", type=int, action="append", default=[], help="Diagnostic: omit one explicit native parameter to isolate solver failures")
     parser.add_argument("--load-pattern", choices=("nodal", "beam-uniform"), default="nodal")
     parser.add_argument("--load-kn", type=float, default=1.0, help="Signed downward nodal kN or beam kN/m; reference is frozen before execution")
+    parser.add_argument("--material", choices=("C30", "Q355"), default="C30")
+    parser.add_argument("--bare-frame", action="store_true", help="Native diagnostic: no self-weight, slab or automatic wind/seismic action")
     args = parser.parse_args()
     if not args.build_only and args.cycle is None:
         parser.error("--cycle is required unless --build-only is selected")
@@ -42,10 +44,11 @@ def main() -> int:
     if not math.isfinite(args.load_kn) or args.load_kn == 0:
         parser.error("--load-kn must be finite and nonzero")
     column_load = args.load_kn * (4 if args.load_pattern == "beam-uniform" else 1)
+    modulus = 206000 if args.material == "Q355" else 30000
     reference = {
         "method": "four equal prismatic columns under equal live nodal compression; u=-PL/EA",
-        "E_MPa": 30000, "length_m": 3, "section_m": [0.6, 0.6], "P_kN": column_load,
-        "displacement_m": -column_load * 3 / (30000 * 1000 * 0.6 * 0.6),
+        "E_MPa": modulus, "length_m": 3, "section_m": [0.6, 0.6], "P_kN": column_load,
+        "displacement_m": -column_load * 3 / (modulus * 1000 * 0.6 * 0.6),
         "axial_magnitude_kN": abs(column_load), "relative_tolerance": 1e-5, "absolute_tolerance_m": 1e-11,
         "absolute_tolerance_kN": 1e-7, "lateral_displacement_m": 0,
         "scope": "axial elastic modulus, positive vertical load convention and LL membership only; not G, nu, density or arbitrary frame equivalence",
@@ -58,7 +61,7 @@ def main() -> int:
         reference["axial_by_floor_kN"] = {"1": 2 * column_load, "2": column_load}
     save(root / "reference.json", reference)
     evidence = {"status": "failed", "directory": str(root), "referenceSha256": hashlib.sha256((root / "reference.json").read_bytes()).hexdigest(), "numericalCapabilityAccepted": False, "steps": [],
-                "variant": {"stories": args.stories, "nativeDefaults": args.native_defaults, "omittedSettings": args.omit_setting, "loadPattern": args.load_pattern, "loadKn": args.load_kn},
+                "variant": {"stories": args.stories, "nativeDefaults": args.native_defaults, "omittedSettings": args.omit_setting, "loadPattern": args.load_pattern, "loadKn": args.load_kn, "material": args.material, "bareFrame": args.bare_frame},
                 "explicitControlsAccepted": False}
     repo = Path(__file__).resolve().parents[2]
     analysis = repo / "backend/src/agent-skills/analysis"
@@ -76,20 +79,25 @@ def main() -> int:
         sections = []
         for cls, b, h in ((api.ColumnSection, 600, 600), (api.BeamSection, 300, 500)):
             shape = api.SectionShape()
-            shape.Set_B(b); shape.Set_H(h); shape.Set_M(6)
+            shape.Set_B(b); shape.Set_H(h); shape.Set_M(5 if args.material == "Q355" else 6)
             section = cls(); section.SetUserSect(api.SectionKind.IDSec_Rectangle, shape)
             sections.append(model.AddColumnSection(section) if cls == api.ColumnSection else model.AddBeamSection(section))
         floor = model.GetCurrentStandFloor()
+        if args.bare_frame: floor.SetInfoValue(0, 0)
         nodes = [floor.AddNode(x, y) for x, y in ((0, 0), (4000, 0), (4000, 4000), (0, 4000))]
         node_ids = [node.GetID() for node in nodes]
         for node in nodes:
-            column = floor.AddColumn(sections[0], node.GetID()); column.SetConcreteGrade(30)
+            column = floor.AddColumn(sections[0], node.GetID())
+            if args.material == "Q355": column.SetSteelGrade(api.SteelGrade.Q355)
+            else: column.SetConcreteGrade(30)
         source_nodes = [{"id": f"N{i}", "x": x, "y": y, "z": 3} for i, (x, y) in enumerate(((0, 0), (4, 0), (4, 4), (0, 4)))]
         targets = {("node", f"N{i}"): node for i, node in enumerate(nodes)}
         source_elements = []
         for index, (start, end) in enumerate(((0, 1), (1, 2), (2, 3), (3, 0))):
             net = floor.AddLineNet(nodes[start].GetID(), nodes[end].GetID())
-            beam = floor.AddBeamEx(sections[1], net.GetID(), 0, 0, 0, 0.0); beam.SetConcreteGrade(30)
+            beam = floor.AddBeamEx(sections[1], net.GetID(), 0, 0, 0, 0.0)
+            if args.material == "Q355": beam.SetSteelGrade(api.SteelGrade.Q355)
+            else: beam.SetConcreteGrade(30)
             targets[("beam", f"B{index}")] = beam
             source_elements.append({"id": f"B{index}", "type": "beam", "nodes": [f"N{start}", f"N{end}"]})
         source_loads = ([{"id": f"P{i}", "type": "nodal", "node": f"N{i}", "fz": -args.load_kn} for i in range(4)]
@@ -103,24 +111,35 @@ def main() -> int:
             real = api.RealFloor(); real.SetFloorHeight(3000); real.SetBottomElevation(index * 3); real.SetStandFloorIndex(1)
             model.AddNaturalFloor(real)
         para = model.GetProjectPara()
-        settings = {103: 10301, 101: 10101, 601: 60102, 606: 0, 608: 0, 609: 0, 624: 1, 626: 0, 630: 0, 641: 0}
+        # The schema documentation's 60102/10301 are option identifiers, not
+        # the compact values stored by the installed native parameter map.
+        settings = {103: 2 if args.material == "Q355" else 0, 101: 0, 601: 1, 606: 0, 608: 0, 609: 0, 624: 1, 626: 0, 630: 0, 641: 0}
+        if args.bare_frame: settings.update({603: 0, 604: 0})
         if args.native_defaults:
-            settings = {103: 10301, 101: 10101}
+            settings = {103: 2 if args.material == "Q355" else 0, 101: 0}
         settings = {key: value for key, value in settings.items() if key not in args.omit_setting}
         for key, value in settings.items(): para.SetParaInt(key, value)
+        if args.bare_frame:
+            para.SetParaDouble(801, 0); para.SetParaDouble(803, 0)
         if not args.native_defaults: para.SetParaDouble(611, 1.0)
         model.SaveProjectPara(); model.SavePMModel()
         # Model materialization can reset fields: reopen, set, save, then read.
         model.OpenPMModel(str(jws)); floor = model.GetCurrentStandFloor(); floor.SetDeadLive(0.0, 0.0)
+        if args.bare_frame:
+            floor.SetInfoValue(0, 0)
+            for slab in floor.GetSlabs(): floor.DeleteSlab(slab.GetID())
         para = model.GetProjectPara()
         for key, value in settings.items(): para.SetParaInt(key, value)
+        if args.bare_frame:
+            para.SetParaDouble(801, 0); para.SetParaDouble(803, 0)
         if not args.native_defaults: para.SetParaDouble(611, 1.0)
         model.SaveProjectPara(); model.SavePMModel()
         model.OpenPMModel(str(jws)); floor = model.GetCurrentStandFloor(); para = model.GetProjectPara()
-        readback = {"settings": {str(key): para.GetPara_Int(key) for key in settings}, "nodes": [{"id": n.GetID(), "xy_mm": n.Get(), "load": read_native_load_assignments(n, "node")} for n in floor.GetNodes()], "beams": [{"id": b.GetID(), "load": read_native_load_assignments(b, "beam")} for b in floor.GetBeams()], "loads": [model.GetLoadDefine(row["nativeLoadId"]).Get() for row in load_mapping["loads"]], "grades": [c.GetConcreteGrade() for c in floor.GetColumns()], "floorHeightMm": model.GetFloorAssemTable(1).GetFloorHeight()}
+        readback = {"settings": {str(key): para.GetPara_Int(key) for key in settings}, "nodes": [{"id": n.GetID(), "xy_mm": n.Get(), "load": read_native_load_assignments(n, "node")} for n in floor.GetNodes()], "beams": [{"id": b.GetID(), "load": read_native_load_assignments(b, "beam")} for b in floor.GetBeams()], "loads": [model.GetLoadDefine(row["nativeLoadId"]).Get() for row in load_mapping["loads"]], "grades": [int(c.GetSteelGrade()) if args.material == "Q355" else c.GetConcreteGrade() for c in floor.GetColumns()], "floorHeightMm": model.GetFloorAssemTable(1).GetFloorHeight()}
         save(root / "readback-before.json", readback)
         if any(readback["settings"][str(key)] != value for key, value in settings.items()): raise RuntimeError("Native effective settings did not survive save/reopen")
-        if readback["grades"] != [30] * 4 or readback["floorHeightMm"] != 3000:
+        expected_grade = int(api.SteelGrade.Q355) if args.material == "Q355" else 30
+        if readback["grades"] != [expected_grade] * 4 or readback["floorHeightMm"] != 3000:
             raise RuntimeError("Native grades or column height did not survive save/reopen")
         native_nodes = {node["id"]: node for node in readback["nodes"]}
         if set(native_nodes) != set(node_ids):
@@ -143,14 +162,28 @@ def main() -> int:
             print(json.dumps(evidence, ensure_ascii=False))
             return 0
         runtime._run_jws_cycle(args.cycle.resolve(), root, timeout=args.timeout)
-        results = runtime._extract_results(jws, "concrete")
+        results = runtime._extract_results(jws, "steel" if args.material == "Q355" else "concrete")
         native_control_labels = ("竖向荷载计算信息", "刚性楼板假定", "P-DELTA", "简化", "刚度放大系数")
         native_controls = [line.strip() for line in (root / "WMASS.OUT").read_text(encoding="gb18030").splitlines()
                            if any(label in line for label in native_control_labels)]
         save(root / "effective-native-controls.json", {"source": "WMASS.OUT", "lines": native_controls,
              "sha256": hashlib.sha256((root / "WMASS.OUT").read_bytes()).hexdigest()})
+        if not args.native_defaults and 601 not in args.omit_setting:
+            if not any("按一次加荷方式计算" in line for line in native_controls):
+                raise RuntimeError("SATWE did not execute the requested one-time loading method")
+            evidence["steps"].append({"name": "native-one-time-loading-effective-report", "status": "passed"})
         observed = {"LL": [{"node": list(key), **value} for key, value in results["case_node_disps"].get("LL", {}).items()], "stations": [{"case": case, "member": list(key), "stations": rows} for case, members in results["case_member_stations"].items() for key, rows in members.items()]}
         save(root / "observed.json", observed)
+        if args.bare_frame:
+            dead_stations = [row for row in observed["stations"] if row["case"] == "DL"]
+            if not dead_stations or any(abs(value) > reference["absolute_tolerance_kN"]
+                    for member in dead_stations for row in member["stations"] for value in row["nativeComponents"]):
+                raise RuntimeError("No-self-weight model generated nonzero dead-load forces")
+            native_geometry = (root / "GOUJIAN.OUT").read_text(encoding="gb18030")
+            import re
+            if not re.search(r"板总数\s*=\s*0", native_geometry):
+                raise RuntimeError("Native solver materialized a slab in the bare frame")
+            evidence["steps"].append({"name": "no-native-slab-and-zero-self-weight-force", "status": "passed"})
         if len(observed["LL"]) != 4 * args.stories: raise RuntimeError("LL must contain four native node translations per story")
         for row in observed["LL"]:
             expected = reference.get("displacement_by_floor_m", {}).get(str(row["node"][1]), reference["displacement_m"])

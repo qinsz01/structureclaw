@@ -331,9 +331,6 @@ function runPkpmRuntime(model, options = {}) {
       'runtime._patch_material_label = lambda work_dir: patch_calls.append(str(work_dir))',
       'def fake_jws_cycle(cycle_path, work_dir, timeout=600):',
       '    run_calls.append({"cycle_path": str(cycle_path), "work_dir": str(work_dir), "timeout": timeout})',
-      '    for params in APIPyInterface.project_params.values():',
-      '        params[101] = 0',
-      '        params[103] = 0',
       'runtime._run_jws_cycle = fake_jws_cycle',
       ...(
         options.failOpenPmModel
@@ -804,7 +801,7 @@ describe('PKPM frame analysis flow', () => {
     expect(payload.calls).toContainEqual(expect.objectContaining({
       method: 'ProjectPara.SetParaInt',
       key: 103,
-      value: 10301,
+      value: 0,
     }));
     expect(findCalls(payload, 'ColumnSection.SetUserSect')).toEqual(expect.arrayContaining([
       expect.objectContaining({
@@ -856,7 +853,7 @@ describe('PKPM frame analysis flow', () => {
     expect(payload.calls).toContainEqual(expect.objectContaining({
       method: 'ProjectPara.SetParaInt',
       key: 103,
-      value: 10301,
+      value: 0,
     }));
     expect(findCalls(payload, 'Column.SetConcreteGrade').map((call) => call.grade)).toEqual(expect.arrayContaining(['C35']));
     expect(findCalls(payload, 'Beam.SetConcreteGrade').map((call) => call.grade)).toEqual(expect.arrayContaining(['C35']));
@@ -1223,18 +1220,17 @@ describe('PKPM frame analysis flow', () => {
     const payload = runPkpmRuntime(model);
 
     expect(payload.result.summary.materialFamily).toBe('steel');
-    expect(payload.patchCalls).toHaveLength(1);
-    expect(payload.result.summary.projectParameterReapply).toMatchObject({
+    expect(payload.patchCalls).toHaveLength(0);
+    expect(payload.result.summary.projectParameterVerification).toMatchObject({
       material_family: 'steel',
-      target: { 101: 10101, 103: 10303 },
-      before: { 101: 0, 103: 0 },
-      after: { 101: 10101, 103: 10303 },
-      changed: true,
+      target: { 101: 0, 103: 2 },
+      actual: { 101: 0, 103: 2 },
+      verified: true,
     });
     expect(payload.calls).toContainEqual(expect.objectContaining({
       method: 'ProjectPara.SetParaInt',
       key: 103,
-      value: 10303,
+      value: 2,
     }));
     expect(findCalls(payload, 'ColumnSection.SetUserSect')).toEqual(expect.arrayContaining([
       expect.objectContaining({

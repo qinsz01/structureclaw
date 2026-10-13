@@ -89,3 +89,26 @@ the original explicit one-time-loading attempt and its failure evidence.
 
 省略设置的选项只用于诊断，不是生产后门；`explicitControlsAccepted` 继续为 false。
 不传该选项则仍尝试原显式一次性加载条件，并保留失败证据。
+# Follow-up: native enum correction / 后续：原生枚举修正
+
+The earlier 60102 timeout diagnosis below is superseded by native evidence.
+The installed SDK stores compact enums: frame `101=0`, RC `103=0`, steel
+`103=2`, one-time loading `601=1`. The manual's 60102/10303 are option
+identifiers, not stored values. The failure was in our adapter, not a proven
+native inability. 先前 60102 超时结论已被新原生证据修正：适配器误把文档选项编号
+写入原生枚举；不能据此认定软件不支持一次加载。
+
+- `pkpm-axial-20261013-165556-52aba94a`: C30, no omitted settings, frozen
+  axial displacement, signed column forces and zero lateral displacement pass.
+- `pkpm-axial-20261013-170436-81467565`: Q355 E=206000 MPa, same gates pass.
+- `pkpm-axial-20261013-171213-db68a175`: Q355 with zero native unit weights,
+  zero slab thickness and slab deletion; the solved GOUJIAN.OUT reports zero
+  slabs and every DL member force is zero. The independent LL axial gates pass.
+
+All three WMASS.OUT reports identify actual one-time loading. Native generated
+reports are no longer relabelled after solving; the runtime checks stored
+material parameters without rewriting the solved input. 以上报告均显示实际一次加载；
+运行后不再改写材料名称或模型参数，以读取和核对代替事后修饰。
+
+These checks still do not certify full G/nu, transverse load signs, arbitrary
+frame results or all requested outputs. 这些证据仍不等同于全量材料、方向和结果验收。
