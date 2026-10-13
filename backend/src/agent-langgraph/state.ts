@@ -14,6 +14,7 @@ import type {
 } from '../agent-runtime/types.js';
 import type { AppLocale } from '../services/locale.js';
 import type { AnalysisRequestBinding, ModelTransaction } from '../engineering/model-state.js';
+import { mergeInputEvidence } from '../engineering/input-evidence.js';
 
 export interface AgentToolAccessPolicy {
   enabledToolIds: string[] | null;
@@ -141,6 +142,9 @@ export const AgentStateAnnotation = Annotation.Root({
   analysisRequest: Annotation<AnalysisRequestBinding | null>({ reducer: (_prev, next) => next, default: () => null }),
   resultQuantities: Annotation<Record<string, Record<string, unknown>>>({
     reducer: (prev, next) => ({ ...prev, ...next }), default: () => ({}),
+  }),
+  inputEvidence: Annotation<Record<string, unknown>[]>({
+    reducer: (prev, next) => mergeInputEvidence(prev, next) ?? [], default: () => [],
   }),
   analysisRuns: Annotation<Record<string, Record<string, unknown>>>({
     reducer: (prev, next) => ({ ...prev, ...next }), default: () => ({}),

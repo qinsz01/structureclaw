@@ -38,7 +38,9 @@ def representative_model() -> dict:
         "schema_version": "2.0.0", "unit_system": "SI",
         "coordinate_system": {"semantics": "global-z-up", "version": 1, "dimension": "3d", "plane": None, "dof_order": ["ux", "uy", "uz", "rx", "ry", "rz"]},
         "project": {"name": "native_acceptance_setback"},
-        "materials": [{"id": "M", "name": "C30", "grade": "C30", "category": "concrete", "E": 30000}],
+        # This is a grade/geometry SDK fixture, deliberately not a formal V2
+        # material. Numeric material acceptance is a separate analytic suite.
+        "materials": [{"id": "M", "name": "C30", "grade": "C30", "category": "concrete"}],
         "sections": [{"id": name, "name": name, "type": "rectangular", "shape": {"kind": "rectangular", "B": width, "H": height}, "width": width, "height": height}
                      for name, width, height in [("C", 600, 600), ("B1", 300, 500), ("B2", 250, 450)]],
         "nodes": nodes, "elements": elements,
@@ -71,7 +73,9 @@ def main() -> int:
     run_dir.mkdir(parents=True, exist_ok=False)
     model = representative_model()
     (run_dir / "input.json").write_text(json.dumps(model, ensure_ascii=False, indent=2), encoding="utf-8")
-    evidence = {"engine": args.engine, "runDirectory": str(run_dir), "steps": [], "status": "failed"}
+    evidence = {"engine": args.engine, "runDirectory": str(run_dir), "steps": [], "status": "failed",
+                "scope": "native-grade-geometry-compilation-and-result-coverage-only",
+                "formalV2AnalysisAccepted": False}
     try:
         if args.engine == "pkpm":
             import APIPyInterface
@@ -82,14 +86,35 @@ def main() -> int:
             if native.OpenPMModel(str(jws)) == 0:
                 raise RuntimeError("Native model reopen failed")
             counts = []
+            readback = {"floors": [], "members": []}
             for floor in (1, 2):
+                natural = native.GetFloorAssemTable(floor)
+                actual_floor = {"floor": floor, "bottomElevationM": natural.GetBottomElevation(),
+                                "heightMm": natural.GetFloorHeight(), "standardFloor": natural.GetStandFloorIndex()}
+                if actual_floor != {"floor": floor, "bottomElevationM": (floor-1)*3,
+                                     "heightMm": 3000, "standardFloor": floor}:
+                    raise RuntimeError(f"Native floor elevations/assembly mismatch: {actual_floor}")
+                readback["floors"].append(actual_floor)
                 native.SetCurrentStandFloor(floor)
                 standard = native.GetCurrentStandFloor()
                 counts.append({"floor": floor, "nodes": len(standard.GetNodes()), "columns": len(standard.GetColumns()), "beams": len(standard.GetBeams())})
+                for role, members in (("column", standard.GetColumns()), ("beam", standard.GetBeams())):
+                    for member in members:
+                        section = native.GetColumnSection(member.GetSect()) if role == "column" else native.GetBeamSection(member.GetSect())
+                        kind, shape = section.GetUserSect()
+                        expected_shape = (600, 600) if role == "column" else (300, 500) if floor == 1 else (250, 450)
+                        actual_shape = (shape.Get_B(), shape.Get_H())
+                        if actual_shape != expected_shape or member.GetConcreteGrade() != 30:
+                            raise RuntimeError(f"Native member {member.GetID()} grade/section mismatch")
+                        readback["members"].append({"id": member.GetID(), "floor": floor, "role": role,
+                                                   "grade": member.GetConcreteGrade(), "shapeMm": actual_shape,
+                                                   "nativeSegment": member.GetSeg()})
             expected = [{"floor": 1, "nodes": 6, "columns": 6, "beams": 6}, {"floor": 2, "nodes": 4, "columns": 4, "beams": 4}]
             if counts != expected:
                 raise RuntimeError(f"Native topology mismatch: {counts}; expected {expected}")
             evidence["steps"].append({"name": "native-model-readback", "status": "passed", "counts": counts, "mappedElements": len(refreshed["elem_map"])})
+            (run_dir / "native-model-readback.json").write_text(json.dumps(readback, ensure_ascii=False, indent=2), encoding="utf-8")
+            evidence["steps"].append({"name": "native-floor-elevation-member-grade-and-section-geometry", "status": "passed"})
             del native, standard
             if args.run:
                 if args.cycle is None or not args.cycle.is_file():

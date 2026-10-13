@@ -4,10 +4,12 @@ import { Command, type LangGraphRunnableConfig } from '@langchain/langgraph';
 import { z } from 'zod';
 import type { AgentState } from './state.js';
 import type { AgentConfigurable } from './configurable.js';
-import { applyModelEdits, commitModel, currentAnalysisError, isRecord, undoModel, type ModelEdit } from '../engineering/model-state.js';
+import { applyModelEdits, commitModel, currentAnalysisError, invalidateAnalysis, isRecord, undoModel, type ModelEdit } from '../engineering/model-state.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 import { queryPhysicalResponse, scalarResultQuantity } from '../engineering/result-data.js';
 import { loadAnalysisRun } from '../engineering/analysis-runs.js';
+import { randomUUID } from 'node:crypto';
+import { mergeInputEvidence, unresolvedInputEvidence } from '../engineering/input-evidence.js';
 
 function context(config: LangGraphRunnableConfig) {
   const dependencies = config.configurable as AgentConfigurable & { agentState: AgentState };
@@ -25,6 +27,9 @@ export function createEditModelTool() {
     if (!state.model) throw new Error('MODEL_REQUIRED');
     if (input.baseRevision !== state.modelRevision) throw new Error(`MODEL_VERSION_CONFLICT: expected ${state.modelRevision}`);
     const edited = applyModelEdits(state.model, input.edits as ModelEdit[]);
+    const metadata = isRecord(edited.metadata) ? edited.metadata : {};
+    edited.metadata = { ...metadata, inputEvidence: mergeInputEvidence(state.inputEvidence,
+      Array.isArray(metadata.inputEvidence) ? metadata.inputEvidence.filter(isRecord) : []) };
     const model = await normalizeEngineeringModel(edited, structureProtocolClient);
     const update = commitModel(state, model, input.label ?? 'edit_model');
     return result(id, 'edit_model', { success: true, revision: update.modelRevision, transaction: update.modelHistory.at(-1)?.id }, update);
@@ -58,9 +63,32 @@ export function createQueryModelTool() {
     const collection = input.collection && model ? model[input.collection] : model;
     const objects = input.ids && Array.isArray(collection) ? collection.filter((item) => isRecord(item) && input.ids!.includes(String(item.id))) : collection;
     return JSON.stringify({ revision: state.modelRevision, pending: state.modelPending, model: objects,
+      inputEvidence: state.inputEvidence ?? [], inputIssues: unresolvedInputEvidence(state.inputEvidence),
       history: state.modelHistory?.map(({ beforeModel: _before, ...summary }) => summary) });
   }, { name: 'query_model', description: 'Read the current physical model, stable IDs, revision and modification history before editing. / 查询模型、对象ID、版本和修改历史。',
     schema: z.object({ collection: z.string().optional(), ids: z.array(z.string()).optional() }) });
+}
+
+export function createReviewInputTool() {
+  return tool(async (input, config) => {
+    const { state, id } = context(config);
+    const existing = state.inputEvidence ?? [];
+    const patch = input.resolutions.map(item => {
+      if (item.selectedSource !== undefined && item.value !== undefined) throw new Error('INPUT_RESOLUTION_SOURCE_OR_VALUE_ONLY');
+      if (item.selectedSource !== undefined && !existing.some(record => record.id === item.selectedSource
+        && record.field === item.field && record.status === 'observed')) throw new Error('OBSERVED_INPUT_SOURCE_REQUIRED');
+      if (item.selectedSource === undefined && item.value === undefined) throw new Error('INPUT_RESOLUTION_VALUE_REQUIRED');
+      return { id: `review:${randomUUID()}`, field: item.field, status: 'resolved', required: true,
+        resolution: { selectedSource: item.selectedSource, value: item.value, unit: item.unit, reason: item.reason },
+        source: { userMessage: state.lastUserMessage } };
+    });
+    const inputEvidence = mergeInputEvidence(existing, patch) ?? [];
+    return result(id, 'review_input', { inputEvidence, unresolved: unresolvedInputEvidence(inputEvidence),
+      nextAction: 'Apply reviewed values to the draft/current model, then validate / 将复核值用于草稿或当前模型并校验' },
+    { ...invalidateAnalysis(state), modelPending: Boolean(state.model), inputEvidence });
+  }, { name: 'review_input', description: 'Resolve ambiguous/missing input after focused file review or an explicit user correction. Preserve original evidence; do not invent values. / 定点复核或用户明确补充后解决输入冲突，保留原始证据。',
+    schema: z.object({ resolutions: z.array(z.object({ field: z.string().min(1), selectedSource: z.string().optional(),
+      value: z.unknown().optional(), unit: z.string().optional(), reason: z.string().min(1) })).min(1) }) });
 }
 
 export function createQueryResultsTool() {

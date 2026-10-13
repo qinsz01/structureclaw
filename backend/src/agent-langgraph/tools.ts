@@ -40,6 +40,7 @@ import { beginAnalysisRequest, commitModel, currentAnalysisError, invalidateAnal
 import { analysisSettingsHash } from '../engineering/analysis-runs.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 import { checkRunResults } from '../engineering/code-checks.js';
+import { assertResolvedInput, mergeInputEvidence } from '../engineering/input-evidence.js';
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -2828,7 +2829,9 @@ export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
         logToolCall(log, { tool: 'build_model', durationMs: Date.now() - start, extra: { success: false } });
         throw new Error('Model build returned undefined — draft may be incomplete. Try running extract_draft_params again with more explicit parameters.');
       }
-      const model = await normalizeEngineeringModel(candidate, configurable.structureProtocolClient);
+      const metadata = isRecord(candidate.metadata) ? candidate.metadata : {};
+      const model = await normalizeEngineeringModel({ ...candidate, metadata: { ...metadata,
+        inputEvidence: mergeInputEvidence(state?.inputEvidence, Array.isArray(metadata.inputEvidence) ? metadata.inputEvidence.filter(isRecord) : []) } }, configurable.structureProtocolClient);
 
       // Store model in graph state via Command.
       // Keep ToolMessage content compact — full model lives in graph state.
@@ -3087,6 +3090,7 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
         return toolResult(toolCallId, 'run_analysis', JSON.stringify({ error: 'No model available. Run build_model first.' }));
       }
       if (state?.modelPending) return toolResult(toolCallId, 'run_analysis', JSON.stringify({ success: false, error_code: 'MODEL_REBUILD_REQUIRED', message: 'Build the pending model first.', messageZh: '请先构建待确认的模型。' }));
+      assertResolvedInput(state?.inputEvidence);
       const skillIds = configurable.skillScope;
       const analysisType = (input.analysisType || 'static') as 'static' | 'dynamic' | 'seismic' | 'nonlinear';
       const unselectedRequestedSkillId = resolveUnselectedRequestedAnalysisSkillId(
@@ -3250,6 +3254,11 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
         ? { ...result.result }
         : { result: result.result };
       const analysisMeta = isRecord(analysisResult.meta) ? analysisResult.meta : {};
+      for (const key of ['modelRevision', 'modelHash', 'settingsHash', 'requestSequence'] as const) {
+        if (analysisMeta[key] !== undefined && analysisMeta[key] !== reservation.analysisRequest[key]) {
+          throw new Error(`ANALYSIS_RESULT_BINDING_MISMATCH: ${key}`);
+        }
+      }
       analysisResult.meta = {
         ...analysisMeta,
         traceId,

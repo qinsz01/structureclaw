@@ -29,7 +29,8 @@ import { createAgentLogger } from '../utils/agent-logger.js';
 import type { AgentConfigurable } from './configurable.js';
 import { listAgentToolDefinitions } from './tool-registry.js';
 import { analyzeUploadedFile } from './file-tools.js';
-import { summarizeImageAttachment, summarizeFileImages } from './attachment-vision.js';
+import { summarizeFileImages } from './attachment-vision.js';
+import { collectVisionEvidence } from '../engineering/vision-evidence.js';
 import { SessionLock } from '../engineering/session-lock.js';
 import { commitModel, invalidateAnalysis } from '../engineering/model-state.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
@@ -500,60 +501,25 @@ export async function buildInitialHumanMessagePayload(
   const attachmentAnalyses: AttachmentAnalysis[] = [];
 
   for (const attachment of attachments) {
-    const analysis = await analyzeUploadedFile(
-      attachment.relPath,
-      workspaceRoot,
-      undefined,
-      { includeImageData: true },
-    );
+    const rawAnalysis = await analyzeUploadedFile(attachment.relPath, workspaceRoot, undefined, { includeImageData: true });
+    const analysis = options.summarizeImages && ['image', 'pdf'].includes(String(rawAnalysis.type))
+      ? await summarizeFileImages(rawAnalysis, attachment.relPath, locale, message, options.signal) : rawAnalysis;
     const runtimeAnalysis = shouldKeepFullAttachmentAnalysis(attachment, analysis)
-      ? await analyzeUploadedFile(
-        attachment.relPath,
-        workspaceRoot,
-        undefined,
-        { mode: 'full' },
-      )
-      : analysis;
+      ? await analyzeUploadedFile(attachment.relPath, workspaceRoot, undefined, { mode: 'full' }) : analysis;
     attachmentAnalyses.push({ attachment, analysis: runtimeAnalysis });
     const analysisText = attachmentAnalysisText(attachment, analysis, locale);
     canonicalParts.push(analysisText);
     contentParts.push(analysisText);
-    if (analysis.type === 'pdf' && Array.isArray(analysis.pages) && options.summarizeImages) {
-      for (const page of analysis.pages) {
-        if (!isRecord(page) || !page.requiresVision || typeof page.renderedImagePath !== 'string') continue;
-        const pageAttachment = { ...attachment, originalName: `${attachment.originalName} · ${String(page.pageNumber)}`, relPath: page.renderedImagePath };
-        const pageImage = await analyzeUploadedFile(page.renderedImagePath, workspaceRoot, undefined, { includeImageData: true });
-        const summary = typeof pageImage.base64DataUri === 'string'
-          ? await summarizeImageAttachment(pageAttachment, pageImage.base64DataUri, message, locale, options.signal) : null;
-        const text = summary ? attachmentVisionSummaryText(pageAttachment, summary, locale) : attachmentVisionUnavailableText(pageAttachment, locale);
-        canonicalParts.push(text);
-        contentParts.push(text);
-        page.visionSummary = summary;
-        page.visionStatus = summary ? 'completed' : 'unavailable';
-      }
-    }
-    if (analysis.type === 'image') {
-      if (options.summarizeImages) {
-        const summary = typeof analysis.base64DataUri === 'string'
-          ? await summarizeImageAttachment(
-            attachment,
-            analysis.base64DataUri,
-            message,
-            locale,
-            options.signal,
-          )
-          : null;
-        if (summary) {
-          const summaryText = attachmentVisionSummaryText(attachment, summary, locale);
-          canonicalParts.push(summaryText);
-          contentParts.push(summaryText);
-        } else {
-          const unavailableText = attachmentVisionUnavailableText(attachment, locale);
-          canonicalParts.push(unavailableText);
-          contentParts.push(unavailableText);
-        }
-      }
-      continue;
+    const images = analysis.type === 'image' ? [analysis] : analysis.type === 'pdf' && Array.isArray(analysis.pages)
+      ? analysis.pages.filter(isRecord).filter(page => page.requiresVision) : [];
+    if (options.summarizeImages) for (const image of images) {
+      const imageAttachment = { ...attachment, originalName: image.pageNumber
+        ? `${attachment.originalName} · ${String(image.pageNumber)}` : attachment.originalName };
+      const text = typeof image.visionSummary === 'string'
+        ? attachmentVisionSummaryText(imageAttachment, image.visionSummary, locale)
+        : attachmentVisionUnavailableText(imageAttachment, locale);
+      canonicalParts.push(text);
+      contentParts.push(text);
     }
   }
 
@@ -756,6 +722,7 @@ export class LangGraphAgentService {
     const stream = await graph.stream(
       {
         ...await this.contextModelUpdate(input, conversationId),
+        inputEvidence: initialPayload.attachmentAnalyses.flatMap(({ analysis }) => collectVisionEvidence(analysis)),
         messages: [toInitialHumanMessage(initialPayload.content)],
         locale,
         workspaceRoot: this.workspaceRoot,
@@ -854,6 +821,7 @@ export class LangGraphAgentService {
     const result = await graph.invoke(
       {
         ...await this.contextModelUpdate(input, conversationId),
+        inputEvidence: initialPayload.attachmentAnalyses.flatMap(({ analysis }) => collectVisionEvidence(analysis)),
         messages: [toInitialHumanMessage(initialPayload.content)],
         locale,
         workspaceRoot: this.workspaceRoot,
@@ -905,6 +873,7 @@ export class LangGraphAgentService {
     const result = await graph.invoke(
       {
         ...await this.contextModelUpdate(input, conversationId),
+        inputEvidence: initialPayload.attachmentAnalyses.flatMap(({ analysis }) => collectVisionEvidence(analysis)),
         messages: [toInitialHumanMessage(initialPayload.content)],
         locale,
         workspaceRoot: this.workspaceRoot,

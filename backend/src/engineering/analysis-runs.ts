@@ -160,7 +160,7 @@ export async function loadAnalysisRun(id: string, directory = path.join(runtimeB
   try {
     record = JSON.parse(await readFile(path.join(directory, id, 'run.json'), 'utf8')) as ModelRecord;
   } catch (error) {
-    if (isRecord(error) && error.code === 'ENOENT') throw new Error('RUN_NOT_FOUND');
+    if (isRecord(error) && error.code === 'ENOENT') throw new Error('RUN_NOT_FOUND', { cause: error });
     throw error;
   }
   const request = isRecord(record.request) ? record.request : {};

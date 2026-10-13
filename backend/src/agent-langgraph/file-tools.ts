@@ -21,6 +21,9 @@ import type { TextItem } from 'pdfjs-dist/types/src/display/api.js';
 import type { LangGraphRunnableConfig } from '@langchain/langgraph';
 import type { AgentConfigurable } from './configurable.js';
 import { runtimeBaseDir } from '../config/index.js';
+import { collectVisionEvidence, imageRegionSchema, type ImageRegion } from '../engineering/vision-evidence.js';
+import { Command } from '@langchain/langgraph';
+import { ToolMessage } from '@langchain/core/messages';
 
 const UPLOAD_DIR = path.join(runtimeBaseDir, '.uploads');
 const MAX_READ_BYTES = 10 * 1024 * 1024; // 10 MB cap for analysis
@@ -359,7 +362,7 @@ export async function analyzeUploadedFile(
 export function createAnalyzeFileTool() {
   return tool(
     async (
-      input: { filePath: string; maxRows?: number; pageStart?: number; pageCount?: number },
+      input: { filePath: string; maxRows?: number; pageStart?: number; pageCount?: number; region?: ImageRegion; requiredFields?: string[] },
       config: LangGraphRunnableConfig,
     ) => {
       const configurable = config.configurable as Partial<AgentConfigurable>;
@@ -386,9 +389,14 @@ export function createAnalyzeFileTool() {
         }
       }
       const analysis = await analyzeUploadedFile(input.filePath, workspaceRoot, input.maxRows, { includeImageData: true, pageStart: input.pageStart, pageCount: input.pageCount });
+      analysis.visionRequest = { region: input.region, requiredFields: input.requiredFields };
       const summarize = (config.configurable as Partial<AgentConfigurable> | undefined)?.summarizeFileImages;
       const parsed = summarize ? await summarize(analysis, input.filePath, config.signal) : analysis;
       delete parsed.base64DataUri;
+      const evidence = collectVisionEvidence(parsed);
+      const toolCallId = (config as LangGraphRunnableConfig & { toolCall?: { id: string } }).toolCall?.id;
+      if (evidence.length && toolCallId) return new Command({ update: { inputEvidence: evidence,
+        messages: [new ToolMessage({ name: 'analyze_file', tool_call_id: toolCallId, content: JSON.stringify(parsed) })] } });
       return JSON.stringify(parsed);
     },
     {
@@ -403,6 +411,8 @@ export function createAnalyzeFileTool() {
         filePath: z.string().describe('Path to the uploaded file (relPath from upload response, or absolute path)'),
         pageStart: z.number().int().min(1).optional().describe('PDF first page, one-based / PDF起始页'),
         pageCount: z.number().int().min(1).max(12).optional().describe('PDF pages to extract and render, default 4 / 提取与渲染页数'),
+        region: imageRegionSchema.optional().describe('Focused review crop, normalized x/y/width/height / 定点复核裁切区域'),
+        requiredFields: z.array(z.string().min(1)).optional().describe('Fields that must be visibly checked; missing observations remain unresolved / 必须可见并复核的字段'),
         maxRows: z.number().int().min(1).max(500).optional().describe('Max rows to return for CSV/Excel (default 50-100)'),
       }),
     },

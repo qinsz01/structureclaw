@@ -25,7 +25,7 @@ import {
 import { createAnalyzeFileTool } from './file-tools.js';
 import { createShellTool } from './shell-tool.js';
 import { createCalculateTool } from './calc-tool.js';
-import { createEditModelTool, createUndoModelTool, createQueryModelTool, createQueryResultsTool } from './model-tools.js';
+import { createEditModelTool, createUndoModelTool, createQueryModelTool, createQueryResultsTool, createReviewInputTool } from './model-tools.js';
 
 export type AgentToolRisk = 'low' | 'workspace-read' | 'workspace-write' | 'destructive' | 'shell';
 export type AgentToolCategory = 'engineering' | 'interaction' | 'session' | 'workspace' | 'memory' | 'shell';
@@ -47,6 +47,8 @@ export interface AgentToolDefinition {
 }
 
 export const AGENT_TOOL_DEFINITIONS: readonly AgentToolDefinition[] = [
+  { id: 'review_input', category: 'engineering', risk: 'low', defaultEnabled: true,
+    displayName: { zh: '复核输入', en: 'Review Input' }, description: { zh: '根据定点复核或用户补充解决输入冲突。', en: 'Resolve input issues using reviewed evidence or user corrections.' }, create: () => createReviewInputTool() },
   { id: 'query_model', category: 'engineering', risk: 'low', defaultEnabled: true,
     displayName: { zh: '查询模型', en: 'Query Model' }, description: { zh: '查询对象和版本。', en: 'Read objects and revisions.' }, create: () => createQueryModelTool() },
   { id: 'edit_model', category: 'engineering', risk: 'low', defaultEnabled: true,
