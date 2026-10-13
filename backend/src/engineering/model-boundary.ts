@@ -1,6 +1,6 @@
 import type { LocalStructureProtocolClient } from '../services/structure-protocol-execution.js';
 import { isRecord, validateModelReferences, type ModelRecord } from './model-state.js';
-import { assertResolvedInput } from './input-evidence.js';
+import { assertResolvedInput, assertInputEvidenceMatchesModel } from './input-evidence.js';
 
 /** All template, imported and edited models enter the same V2 validator. */
 export async function normalizeEngineeringModel(model: ModelRecord, client: LocalStructureProtocolClient, sourceFormat = 'structuremodel-v2'): Promise<ModelRecord> {
@@ -22,5 +22,6 @@ export async function normalizeEngineeringModel(model: ModelRecord, client: Loca
     }
   }
   validateModelReferences(normalized);
+  assertInputEvidenceMatchesModel(normalized, isRecord(model.metadata) ? model.metadata.inputEvidence : undefined);
   return normalized;
 }

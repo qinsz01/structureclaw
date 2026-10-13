@@ -70,6 +70,130 @@ export function assertResolvedInput(value: unknown): void {
   if (issues.length) throw new Error(`INPUT_EVIDENCE_UNRESOLVED: ${issues.map((item) => `${item.field}: ${item.reason}`).join('; ')} / 必需输入仍有冲突或未读取内容，请保留证据并明确解决。`);
 }
 
+const modelCollections = new Set(['nodes', 'elements', 'materials', 'sections', 'stories', 'load_cases', 'load_combinations']);
+const modelSingletons = new Set(['analysis_control', 'site_seismic', 'structure_system', 'wind', 'coordinate_system']);
+const unsafeKeys = new Set(['__proto__', 'prototype', 'constructor']);
+
+/** Arrays are addressed by stable IDs, never their current array index. */
+function readModelField(model: ModelRecord, field: string): { value: unknown; route: string[] } {
+  const root = field.slice(0, field.indexOf('.'));
+  if (!modelCollections.has(root) && !modelSingletons.has(root)) throw new Error(`INPUT_EVIDENCE_MODEL_FIELD_REQUIRED: ${field}`);
+  function read(value: unknown, remaining: string, route: string[]): Array<{ value: unknown; route: string[] }> {
+    if (!remaining) return [{ value, route }];
+    if (Array.isArray(value)) {
+      return value.filter(isRecord).flatMap(item => typeof item.id === 'string' && remaining.startsWith(`${item.id}.`)
+        ? read(item, remaining.slice(item.id.length + 1), route) : []);
+    }
+    if (!isRecord(value)) return [];
+    const [key, ...rest] = remaining.split('.');
+    if (!key || unsafeKeys.has(key) || !Object.hasOwn(value, key)) return [];
+    return read(value[key], rest.join('.'), [...route, key]);
+  }
+  const matches = read(model[root], field.slice(root.length + 1), [root]);
+  if (matches.length !== 1 || matches[0]!.value === undefined) throw new Error(`INPUT_EVIDENCE_MODEL_FIELD_NOT_FOUND_OR_AMBIGUOUS: ${field}`);
+  return matches[0]!;
+}
+
+/** V2 unit declarations; unknown numeric fields require an explicit implementation. */
+function modelFieldUnit(route: string[]): string | undefined {
+  const path = route.join('.');
+  if (/^nodes\.[xyz]$|^elements\.offsets\.[ij]_[xyz]$|^stories\.(height|elevation)$|^load_cases\.loads\.(position|start|end)$/.test(path)) return 'm';
+  if (/^nodes\.mass$/.test(path)) return 'tonne';
+  if (/^materials\.(E|G|fy)$|^materials\.design\.(f|fv|fc|ft|ftk|Ec|Es|fy|fyv|fy_compression)$/.test(path)) return 'MPa';
+  if (path === 'materials.rho') return 'kg/m3';
+  if (/^materials\.(nu|design\.(ecu|alpha1|beta1))$/.test(path)) return '1';
+  if (/^sections\.shape\.(H|B|T|d|a|a2|t|tw|tf|tf2|B2|r|r1|r2|b|h)$/.test(path)) return 'mm';
+  if (/^sections\.properties\.(A|Asy|Asz)$/.test(path) || path === 'stories.load_area_m2') return 'm2';
+  if (/^sections\.properties\.(I|Iy|Iz|Iyy|Izz|J)$/.test(path)) return 'm4';
+  if (/^sections\.properties\.(W|Wy|Wz|Wyy|Wzz)$/.test(path)) return 'm3';
+  if (/^elements\.design\.(l0|h0|crackWidthLimit)$/.test(path)) return 'mm';
+  if (/^elements\.design\.(phi|phi_b|phi_axial|beta1|btLimit|lambdaLimit|deflectionLimitN|axialRatioLimit)$/.test(path)) return '1';
+  if (path === 'elements.rotation_angle') return 'deg';
+  if (/^load_cases\.loads\.f[xyz]$/.test(path)) return 'kN';
+  if (/^load_cases\.loads\.m[xyz]$/.test(path)) return 'kN.m';
+  if (/^load_cases\.loads\.w[xyz]$/.test(path)) return 'kN/m';
+  if (/^stories\.(dead_load|live_load)$/.test(path) || path === 'wind.basic_pressure') return 'kN/m2';
+  if (path === 'site_seismic.characteristic_period') return 's';
+  if (/^site_seismic\.(intensity|max_influence_coefficient|damping_ratio)$|^wind\.(shape_factor|height_variation_factor)$/.test(path)) return '1';
+  return undefined;
+}
+
+const inputUnits: Record<string, [dimension: string, scale: number]> = {
+  '1': ['ratio', 1], '%': ['ratio', .01],
+  m: ['length', 1], cm: ['length', .01], mm: ['length', .001],
+  m2: ['area', 1], cm2: ['area', 1e-4], mm2: ['area', 1e-6],
+  m3: ['volume', 1], cm3: ['volume', 1e-6], mm3: ['volume', 1e-9],
+  m4: ['inertia', 1], cm4: ['inertia', 1e-8], mm4: ['inertia', 1e-12],
+  n: ['force', 1], kn: ['force', 1e3],
+  'n.m': ['moment', 1], 'kn.m': ['moment', 1e3], 'n.mm': ['moment', .001], 'kn.mm': ['moment', 1],
+  'n/m': ['line-force', 1], 'kn/m': ['line-force', 1e3], 'n/mm': ['line-force', 1e3],
+  pa: ['pressure', 1], kpa: ['pressure', 1e3], mpa: ['pressure', 1e6], gpa: ['pressure', 1e9],
+  'n/m2': ['pressure', 1], 'kn/m2': ['pressure', 1e3], 'n/mm2': ['pressure', 1e6],
+  'kg/m3': ['density', 1], 't/m3': ['density', 1e3], 'tonne/m3': ['density', 1e3], 'g/cm3': ['density', 1e3],
+  kg: ['mass', 1], t: ['mass', 1e3], tonne: ['mass', 1e3],
+  rad: ['angle', 1], deg: ['angle', Math.PI/180], '°': ['angle', Math.PI/180],
+  s: ['time', 1], ms: ['time', .001],
+};
+function unitKey(unit: string): string {
+  return unit.trim().toLowerCase().replace(/\s+/g, '').replace(/[·*]/g, '.').replace(/\^/g, '').replace(/²/g, '2').replace(/³/g, '3').replace(/⁴/g, '4');
+}
+function hasNumericValue(value: unknown): boolean {
+  return typeof value === 'number' || (Array.isArray(value) ? value.some(hasNumericValue)
+    : isRecord(value) ? Object.values(value).some(hasNumericValue) : false);
+}
+
+/** A review resolves evidence only when the reviewed engineering value is in the model. */
+export function assertInputEvidenceMatchesModel(model: ModelRecord, evidence: unknown = isRecord(model.metadata) ? model.metadata.inputEvidence : undefined): void {
+  assertResolvedInput(evidence);
+  if (!Array.isArray(evidence)) return;
+  const byField = new Map<string, ModelRecord[]>();
+  for (const record of evidence.filter(isRecord)) {
+    if (record.required === false) continue;
+    const field = evidenceField(record);
+    byField.set(field, [...(byField.get(field) ?? []), record]);
+  }
+  for (const [field, records] of byField) {
+    const latest = records.reduce((last, item, index) => isResolution(item) ? index : last, -1);
+    if (latest < 0) continue;
+    const resolution = records[latest]!.resolution as ModelRecord;
+    // File-read and category coverage reviews are workflow acknowledgments,
+    // not a numerical model assignment. Concrete engineering fields still bind.
+    if (resolution.modelField === undefined && (/^file:/.test(field) || /^coverage\.(geometry|connectivity|supports|loads|materials|sections)$/.test(field))) continue;
+    const canonical = modelCollections.has(field.split('.')[0]!) || modelSingletons.has(field.split('.')[0]!);
+    if (canonical && resolution.modelField !== undefined && resolution.modelField !== field) throw new Error(`INPUT_EVIDENCE_MODEL_FIELD_CONFLICT: ${field}`);
+    const modelField = resolution.modelField ?? (canonical ? field : undefined);
+    if (typeof modelField !== 'string' || !modelField.trim()) throw new Error(`INPUT_EVIDENCE_MODEL_FIELD_REQUIRED: ${field} / 复核的工程值还需指定模型字段`);
+    const actual = readModelField(model, modelField);
+    const preceding = records.slice(0, latest).filter(item => item.status !== 'resolved');
+    const covered = new Set((resolution.evidenceHashes ?? preceding.map(contentHash)) as string[]);
+    const selected = resolution.selectedSource === undefined ? undefined : preceding.find(item => covered.has(contentHash(item))
+      && (item.id === resolution.selectedSource || item.source !== undefined && contentHash(item.source) === contentHash(resolution.selectedSource)));
+    if (selected && selected.status !== undefined && selected.status !== 'observed') throw new Error(`INPUT_EVIDENCE_OBSERVED_SOURCE_REQUIRED: ${field}`);
+    let expected: ModelRecord = resolution.value !== undefined ? { value: resolution.value, unit: resolution.unit } : selected ? observation(selected) : {};
+    if (resolution.value !== undefined && resolution.unit === undefined) {
+      const units = new Set(preceding.filter(item => covered.has(contentHash(item))
+        && contentHash(observation(item).value) === contentHash(resolution.value)).map(item => observation(item).unit));
+      if (units.size === 1) expected = { ...expected, unit: [...units][0] };
+    }
+    if (typeof expected.value === 'number') {
+      const targetUnit = modelFieldUnit(actual.route);
+      if (!targetUnit) throw new Error(`INPUT_EVIDENCE_MODEL_UNIT_UNSUPPORTED: ${modelField}`);
+      const sourceUnit = expected.unit ?? (targetUnit === '1' ? '1' : undefined);
+      if (typeof sourceUnit !== 'string' || !sourceUnit.trim()) throw new Error(`INPUT_EVIDENCE_UNIT_REQUIRED: ${field}`);
+      const from = inputUnits[unitKey(sourceUnit)], to = inputUnits[unitKey(targetUnit)];
+      if (!from || !to || from[0] !== to[0]) throw new Error(`INPUT_EVIDENCE_UNIT_UNSUPPORTED: ${sourceUnit} -> ${targetUnit}`);
+      const converted = expected.value * from[1] / to[1];
+      if (typeof actual.value !== 'number' || !Number.isFinite(expected.value) || !Number.isFinite(actual.value) || !Number.isFinite(converted)
+        || Math.abs(actual.value - converted) > 32*Number.EPSILON*Math.max(Math.abs(actual.value), Math.abs(converted), Number.MIN_VALUE)) {
+        throw new Error(`INPUT_EVIDENCE_MODEL_VALUE_MISMATCH: ${field} -> ${modelField} / 复核值尚未应用到模型`);
+      }
+    } else {
+      if (expected.value === undefined || expected.value === null || hasNumericValue(expected.value)) throw new Error(`INPUT_EVIDENCE_SCALAR_MAPPING_REQUIRED: ${field}`);
+      if (contentHash(actual.value) !== contentHash(expected.value)) throw new Error(`INPUT_EVIDENCE_MODEL_VALUE_MISMATCH: ${field} -> ${modelField} / 复核值尚未应用到模型`);
+    }
+  }
+}
+
 export function mergeInputEvidence(existing: ModelRecord[] | undefined, patch: ModelRecord[] | undefined) {
   if (!patch) return existing;
   const records = new Map<string, ModelRecord>();
