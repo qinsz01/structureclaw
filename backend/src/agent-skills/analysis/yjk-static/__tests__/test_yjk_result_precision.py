@@ -117,3 +117,65 @@ def test_machine_values_and_envelopes_keep_native_precision(driver):
     assert result["envelopeTables"]["nodeDisplacement"]["N2"]["maxAbsDisplacement"] == abs(uz)
     assert result["envelopeTables"]["nodeReaction"]["N1"]["fx"] == reaction
     assert result["summary"]["maxDisplacement"] == abs(uz)
+
+
+def _case_fixture(code, active=True):
+    return {
+        "meta": {"coordinateUnit": "m"},
+        "load_cases": [{"id": 1, "key": "lc_1", "name": "\ufffd\ufffd", "expName": f" {code} -- native description"}],
+        "nodes": [{"id": 1, "x": 0, "y": 0, "z": 0}, {"id": 2, "x": 3, "y": 0, "z": 0}],
+        "node_disp": {"lc_1": [
+            {"id": node, "ux": 0.001 if active else 0, "uy": 0, "uz": 0, "rx": 0, "ry": 0, "rz": 0}
+            for node in (1, 2)
+        ]},
+        "node_reactions": {"lc_1": [
+            {"id": node, "fx": 0, "fy": 0, "fz": 0, "mx": 0, "my": 0, "mz": 0}
+            for node in (1, 2)
+        ]},
+        "members": {"beams": [{"id": 5, "floor": 1, "node_i": 2, "node_j": 1}]},
+        "member_forces": {"beams": {"lc_1": [{"id": 5, "floor": 1, "sections": [[0, 0, 0, 0, -1 if active else 0, 0]]}]}},
+    }
+
+
+def _normalize(driver, extracted):
+    return driver._build_analysis_result(
+        extracted=extracted, mapping=mapping(), ydb_path="model.ydb", yjk_project="model.yjk",
+        work_dir="work", results_path="results.json", steps=[],
+    )
+
+
+def test_native_ascii_case_code_survives_broken_display_name(driver, monkeypatch):
+    monkeypatch.setenv("SC_YJK_SELECTED_CASE", '{"id":"D","labels":["DL"]}')
+    case = _normalize(driver, _case_fixture("DL"))["caseResults"]["D"]
+    assert case["nativeCode"] == "DL"
+    assert case["nativeResultKey"] == "lc_1"
+    assert case["memberStations"]["B1"][0]["nativeEndpoints"] == ["N2", "N1"]
+
+
+@pytest.mark.parametrize("code", ["EXA", "EYA"])
+def test_prescribed_force_zero_reactions_are_not_verified_zeros(driver, code):
+    native = _case_fixture(code)
+    result = _normalize(driver, native)
+    case = result["caseResults"]["lc_1"]
+    assert case["status"] == "partial"
+    assert case["flags"] == ["YJK_PRESCRIBED_FORCE_REACTIONS_UNVERIFIED"]
+    assert case["completeness"]["nodeReactions"] == "unverified"
+    assert case["reactions"] == result["reactions"] == {}
+    assert "maxAbsReaction" not in result["envelope"]
+    assert result["resultCompleteness"]["caseFlags"]["lc_1"] == case["flags"]
+    assert result["data"]["node_reactions"] == native["node_reactions"]
+
+
+def test_unloaded_live_case_has_valid_zero_readback(driver):
+    case = _normalize(driver, _case_fixture("LL", active=False))["caseResults"]["lc_1"]
+    assert case["status"] == "success"
+    assert case["flags"] == []
+    assert case["completeness"]["nodeReactions"] == "available"
+    assert len(case["reactions"]) == 2
+
+
+def test_each_case_requires_all_member_force_rows(driver):
+    native = _case_fixture("DL")
+    native["member_forces"]["beams"]["lc_1"] = []
+    with pytest.raises(RuntimeError, match="force elements do not exactly cover"):
+        _normalize(driver, native)

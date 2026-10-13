@@ -451,6 +451,32 @@ def _append_node_results(result, debug, YJKSDsnDataPy, node_id, load_cases):
             result["node_reactions"].setdefault(key, []).append(reaction_entry)
 
 
+def _extract_member_nodes(result, debug, pre, dsn, load_cases):
+    # NJD is a count, not the largest node tag. Native floor tags are sparse
+    # (for example 1, 1000001, 2000001); query the actual member endpoints.
+    node_ids = set()
+    for members in result["members"].values():
+        for member in members:
+            for field in ("node_i", "node_j"):
+                node_id = _to_int(member.get(field), None)
+                if node_id is None or node_id <= 0:
+                    raise RuntimeError("YJK member %s has no valid %s" % (member.get("id"), field))
+                node_ids.add(node_id)
+    if not node_ids:
+        raise RuntimeError("YJK returned no physical member endpoints")
+    for node_id in sorted(node_ids):
+        result["nodes"].append(_node_coordinate_entry(pre, debug, node_id))
+        _append_node_results(result, debug, dsn, node_id, load_cases)
+    result["meta"]["n_nodes"] = len(node_ids)
+    result["meta"]["nodeScope"] = "physical-member-endpoints"
+    for case in load_cases:
+        key = case["key"]
+        debug["node_counts_by_case"][key] = {
+            "displacements": len(result["node_disp"].get(key, [])),
+            "reactions": len(result["node_reactions"].get(key, [])),
+        }
+
+
 def _normalize_ids(raw_ids):
     ids = []
     for raw_id in _normalize_top_level_items(raw_ids):
@@ -881,7 +907,8 @@ def extract():
     result = {
         "meta": {
             "n_floors": n_floors,
-            "n_nodes": n_nodes,
+            "n_nodes": 0,
+            "n_nodes_reported": n_nodes,
             "load_cases": load_case_ids,
             "coordinateUnit": "m",
         },
@@ -896,28 +923,11 @@ def extract():
         "extraction_debug": debug,
     }
 
-    node_ids_seen = set()
-
-    # 1. Node coordinates (YJK returns model-length coordinates, normally metres)
-    for jd in range(1, n_nodes + 1):
-        result["nodes"].append(_node_coordinate_entry(pre, debug, jd))
-        node_ids_seen.add(jd)
-
-    # 2. Node displacements and reactions per load case (m / rad, force / moment)
     for case in load_cases:
         key = case["key"]
         result["node_disp"][key] = []
         result["node_reactions"][key] = []
-    for jd in sorted(node_ids_seen):
-        _append_node_results(result, debug, YJKSDsnDataPy, jd, load_cases)
-    for case in load_cases:
-        key = case["key"]
-        debug["node_counts_by_case"][key] = {
-            "displacements": len(result["node_disp"].get(key, [])),
-            "reactions": len(result["node_reactions"].get(key, [])),
-        }
-
-    # 3. Member topology and internal forces
+    # 1. Member topology and internal forces establish the actual node tags.
     seen_members = {"columns": set(), "beams": set(), "braces": set()}
     members_by_category = {"columns": [], "beams": [], "braces": []}
     for case in load_cases:
@@ -956,53 +966,10 @@ def extract():
     for category in ("columns", "beams", "braces"):
         debug["member_counts"][category] = len(members_by_category[category])
 
-    extra_node_ids = set()
-    for raw_members in members_by_category.values():
-        for member in raw_members:
-            for field in ("node_i", "node_j"):
-                node_id = _to_int(member.get(field), None)
-                if node_id is not None and node_id > 0 and node_id not in node_ids_seen:
-                    extra_node_ids.add(node_id)
+    # 2. Physical node coordinates and six-component responses.
+    _extract_member_nodes(result, debug, pre, YJKSDsnDataPy, load_cases)
 
-    for node_id in sorted(extra_node_ids):
-        result["nodes"].append(_node_coordinate_entry(pre, debug, node_id))
-        node_ids_seen.add(node_id)
-        _append_node_results(result, debug, YJKSDsnDataPy, node_id, load_cases)
-
-    referenced_node_ids = {
-        node_id
-        for raw_members in members_by_category.values()
-        for member in raw_members
-        for field in ("node_i", "node_j")
-        for node_id in [_to_int(member.get(field), None)]
-        if node_id is not None and node_id > 0
-    }
-    if referenced_node_ids:
-        result["meta"]["n_nodes_reported"] = n_nodes
-        result["nodes"] = [
-            node for node in result["nodes"]
-            if _to_int(node.get("id"), None) in referenced_node_ids
-        ]
-        for case in load_cases:
-            key = case["key"]
-            result["node_disp"][key] = [
-                row for row in result["node_disp"].get(key, [])
-                if _to_int(row.get("id"), None) in referenced_node_ids
-            ]
-            result["node_reactions"][key] = [
-                row for row in result["node_reactions"].get(key, [])
-                if _to_int(row.get("id"), None) in referenced_node_ids
-            ]
-        result["meta"]["n_nodes"] = len(referenced_node_ids)
-
-    for case in load_cases:
-        key = case["key"]
-        debug["node_counts_by_case"][key] = {
-            "displacements": len(result["node_disp"].get(key, [])),
-            "reactions": len(result["node_reactions"].get(key, [])),
-        }
-
-    # 4. Floor statistics: stiffness and shear capacity
+    # 3. Floor statistics: stiffness and shear capacity
     for floor in range(1, n_floors + 1):
         stiff = _safe_method(
             debug,
@@ -1034,7 +1001,7 @@ def extract():
             "shear_cap_y": _to_float(shear_values[1] if len(shear_values) > 1 else 0.0),
         })
 
-    # 5. Write JSON outputs
+    # 4. Write JSON outputs
     out_path = _results_path()
     os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:

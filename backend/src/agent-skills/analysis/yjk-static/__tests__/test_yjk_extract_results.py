@@ -74,3 +74,35 @@ def test_separate_coordinate_api_preserves_explicit_values(extractor):
     assert extractor._node_coordinate_entry(SeparatePre(), extractor._new_debug(), 7) == {
         "id": 7, "x": 3, "y": 4, "z": 5,
     }
+
+
+def test_sparse_native_node_tags_are_read_from_member_endpoints(extractor):
+    calls = []
+
+    class Native:
+        @staticmethod
+        def XYZ(node_id):
+            calls.append(node_id)
+            assert node_id in (1, 1000001, 2000001)
+            return [0, 0, node_id // 1000000 * 3]
+
+        @staticmethod
+        def dsnGetNodeDis(node_id, case_id):
+            return [0] * 6
+
+        @staticmethod
+        def dsnGetNodeReaction(node_id, case_id):
+            return [0] * 6
+
+    result = {
+        "meta": {"n_nodes_reported": 38}, "nodes": [], "node_disp": {}, "node_reactions": {},
+        "members": {"columns": [
+            {"id": 1000007, "node_i": 1000001, "node_j": 1},
+            {"id": 2000005, "node_i": 2000001, "node_j": 1000001},
+        ]},
+    }
+    debug = extractor._new_debug()
+    extractor._extract_member_nodes(result, debug, Native(), Native, [{"id": 1, "key": "lc_1"}])
+    assert calls == [1, 1000001, 2000001]
+    assert result["meta"] == {"n_nodes_reported": 38, "n_nodes": 3, "nodeScope": "physical-member-endpoints"}
+    assert debug["node_counts_by_case"]["lc_1"] == {"displacements": 3, "reactions": 3}

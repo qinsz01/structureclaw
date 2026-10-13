@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 import shutil
 import sys
 import time
@@ -843,6 +844,7 @@ def _case_descriptors(extracted: dict, raw_case_keys: set[str]) -> list[dict]:
                     "kind": item.get("kind"),
                     "id": case_id,
                     "oldId": old_id,
+                    "nativeCode": _native_case_code(item),
                 }
             else:
                 key = f"lc_{item}"
@@ -877,6 +879,13 @@ def _case_descriptors(extracted: dict, raw_case_keys: set[str]) -> list[dict]:
             "expName": None,
         })
     return descriptors
+
+
+def _native_case_code(case: dict) -> str | None:
+    # dsnGetLDCaseExpName preserves the ASCII code even when its legacy
+    # Chinese text is decoded incorrectly by the native SDK.
+    match = re.match(r"^\s*([+-]?[A-Z][A-Z0-9]*)\s+--", str(case.get("expName") or ""))
+    return match.group(1) if match else None
 
 
 def _case_block(block: dict, descriptor: dict) -> object:
@@ -1135,7 +1144,7 @@ def _build_analysis_result(
     if selection_text:
         selection = json.loads(selection_text)
         labels = set(selection["labels"])
-        selected = [case for case in case_descriptors if labels & {str(case.get(field)) for field in ("result_key", "name", "expName", "label")}]
+        selected = [case for case in case_descriptors if labels & {str(case.get(field)) for field in ("result_key", "name", "expName", "label", "nativeCode")}]
         if len(selected) != 1:
             raise RuntimeError(f"YJK requested case '{selection['id']}' does not map uniquely to a native case by label")
         case_descriptors = [{**selected[0], "native_result_key": selected[0]["result_key"], "result_key": str(selection["id"])}]
@@ -1224,6 +1233,10 @@ def _build_analysis_result(
                         "referenceFrame": "element-local",
                         "source": "YJKSDsnDataPy",
                         "endpointConvention": "unverified",
+                        "nativeEndpoints": [
+                            result_node_lookup.get(str(raw_force.get(field)), str(raw_force.get(field)))
+                            for field in ("node_i", "node_j")
+                        ],
                     }
                     for index, row in enumerate(rows)
                     if isinstance(row, (list, tuple))
@@ -1243,20 +1256,42 @@ def _build_analysis_result(
                 node_id = result_node_lookup.get(raw_node_id, raw_node_id)
                 reaction = _reaction_from_raw(raw_reaction)
                 case_reactions[node_id] = _merge_max_reaction(case_reactions.get(node_id, {}), reaction)
-                reactions[node_id] = _merge_max_reaction(reactions.get(node_id, {}), reaction)
-                _accumulate_reaction_envelope(node_reaction_envelope, node_id, case_name, reaction)
 
         for label, actual, expected in (
             ("displacement nodes", set(case_disps), expected_nodes),
             ("reaction nodes", set(case_reactions), expected_nodes),
+            ("force elements", set(case_forces), expected_elements),
         ):
             if actual != expected:
                 raise RuntimeError(
                     f"YJK case '{case_name}' {label} do not exactly cover the converted model"
                 )
 
+        case_flags = []
+        # Native EXA/EYA readback can return six zero reaction values despite
+        # nonzero prescribed-force member response. Retain those rows only in
+        # raw_results; they are not verified zero support reactions.
+        if (
+            descriptor.get("nativeCode") in {"EXA", "EYA"}
+            and any(value != 0 for force in case_forces.values() for value in force.values())
+            and not any(value != 0 for reaction in case_reactions.values() for value in reaction.values())
+        ):
+            case_flags.append("YJK_PRESCRIBED_FORCE_REACTIONS_UNVERIFIED")
+            case_reactions = {}
+        for node_id, reaction in case_reactions.items():
+            reactions[node_id] = _merge_max_reaction(reactions.get(node_id, {}), reaction)
+            _accumulate_reaction_envelope(node_reaction_envelope, node_id, case_name, reaction)
+
         case_results[case_name] = {
-            "status": "success",
+            "status": "partial" if case_flags else "success",
+            "flags": case_flags,
+            "completeness": {
+                "nodeDisplacements": "available",
+                "nodeReactions": "unverified" if case_flags else "available",
+                "memberStationValues": "available",
+                "memberStationCoordinates": "unverified",
+                "memberLocalAxes": "unverified",
+            },
             "key": case_name,
             "label": descriptor.get("label"),
             "name": descriptor.get("name"),
@@ -1265,6 +1300,7 @@ def _build_analysis_result(
             "id": descriptor.get("id"),
             "oldId": descriptor.get("oldId"),
             "nativeResultKey": descriptor.get("native_result_key", case_name),
+            "nativeCode": descriptor.get("nativeCode"),
             "displacements": case_disps,
             "forces": {
                 element_id: {**force, "referenceFrame": "element-local"}
@@ -1322,6 +1358,10 @@ def _build_analysis_result(
     }
     if max_disp_node:
         envelope[f"node:{max_disp_node}:maxAbsDisplacement"] = max_disp
+    if not reactions:
+        # No validated reaction rows is different from a computed zero maximum.
+        envelope.pop("maxAbsReaction", None)
+        envelope.pop("controlNodeReaction", None)
 
     if force_rows_seen == 0 or displacement_rows_seen == 0 or reaction_rows_seen == 0:
         raise RuntimeError("YJK result extraction did not return complete force, displacement, and reaction rows")
@@ -1329,7 +1369,7 @@ def _build_analysis_result(
         raise RuntimeError("YJK result extraction contains node or member rows that cannot be mapped exactly")
     for label, actual, expected in (
         ("displacement nodes", set(displacements), expected_nodes),
-        ("reaction nodes", set(reactions), expected_nodes),
+        ("reaction nodes", set(reactions), expected_nodes if any(case["reactions"] for case in case_results.values()) else set()),
         ("force elements", set(forces), expected_elements),
     ):
         if actual != expected:
@@ -1341,6 +1381,12 @@ def _build_analysis_result(
             )
 
     warnings: list[str] = []
+    for case_name, case in case_results.items():
+        if case["flags"]:
+            warnings.append(
+                f"YJK case '{case_name}' prescribed-force reactions are unverified; "
+                "zero native rows were preserved only in raw results."
+            )
     members = extracted.get("members", {})
     if not isinstance(members, dict) or all(not members.get(category) for category in ("columns", "beams", "braces")):
         warnings.append("YJK raw members were empty; element result mapping used force rows and fallbacks.")
@@ -1376,6 +1422,12 @@ def _build_analysis_result(
     return {
         "status": "success",
         "analysisMode": "yjk-static",
+        "resultCompleteness": {
+            "nodeScope": "physical-member-endpoints",
+            "caseFlags": {key: case["flags"] for key, case in case_results.items() if case["flags"]},
+            "memberStationCoordinates": "unverified",
+            "memberLocalAxes": "unverified",
+        },
         "displacements": displacements,
         "forces": {
             key: {**value, "referenceFrame": "element-local"}
