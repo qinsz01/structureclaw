@@ -17,8 +17,8 @@ runtimeRelativePath: runtime.py
 ---
 # YJK Static Analysis
 
-- `zh`: 当前正式运行在环境探测与创建工作目录之前抛出 `YJK_NATIVE_MATERIAL_GRADE_UNVERIFIED`。仅材料类别被编译，逐构件牌号和常数尚未原生写入回读验收。以下是保留的后续执行基础，不代表当前正式计算已可用，也不得用环境探测通过绕过门禁。
-- `en`: Formal runs currently raise `YJK_NATIVE_MATERIAL_GRADE_UNVERIFIED` before environment resolution or work-directory creation. Only material categories are compiled; per-member grades/constants lack accepted native write/readback. The following describes retained downstream infrastructure, not current formal readiness; a successful environment probe cannot bypass the gate.
+- `zh`: 当前正式运行在环境探测与创建工作目录之前保留兼容错误码 `YJK_NATIVE_MATERIAL_GRADE_UNVERIFIED`。混凝土逐构件牌号写入回读已修复；显式材料常数、有效设置与结果约定尚未全部完成物理校准。以下是已接通的原生执行基础，不代表任意正式 V2 计算已验收，也不得用环境探测通过绕过门禁。
+- `en`: Formal runs retain the compatibility error code `YJK_NATIVE_MATERIAL_GRADE_UNVERIFIED` before environment resolution or work-directory creation. Per-member RC grade write/readback is repaired; explicit material constants, effective settings and result conventions still require full physical calibration. The native execution path does not certify arbitrary formal V2 inputs; environment availability cannot bypass the gate.
 
 - `zh`: 当用户明确要求使用 YJK（盈建科）进行结构静力分析、商业引擎复核或与 PKPM/OpenSees 结果对比时使用。该 skill 需要本机安装 YJK 8.0，并配置 `YJKS_ROOT` 或 `YJK_PATH` 指向安装根目录。
 - `en`: Use when the user explicitly asks for YJK-based structural static analysis, commercial-engine verification, or comparison against PKPM/OpenSees results. This skill requires a local YJK 8.0 installation and `YJKS_ROOT` or `YJK_PATH` pointing to the install root.
@@ -26,10 +26,8 @@ runtimeRelativePath: runtime.py
 - `en`: The execution path is V2/compatible model normalization -> YDB generation -> YJK launch through SDK `RunYJK(yjks.exe)` -> model repair, slab/support setup, preprocessing, full calculation -> `extract_results.py` loaded inside the YJK process -> current-run `results.json` normalized into a StructureClaw analysis result.
 - `zh`: 同步模式会返回 `displacements`、`reactions`、`forces`、`caseResults`、`envelope`、`envelopeTables`、`yjk_detailed.floor_stats` 和 `warnings`。每次运行的模型、日志、driver 输出和抽取结果写入 YJK 工作目录下的 `sc_<traceId>` 子目录；优先使用 `settings.json` / `YJK_WORK_DIR` 配置，Node 侧通常会从配置注入 `YJK_WORK_DIR`（默认 `<runtimeBaseDir>/analysis/yjk`），若仍未设置则 Python 运行时回退到 `~/.structureclaw/analysis/yjk`。
 - `en`: Synchronous runs return `displacements`, `reactions`, `forces`, `caseResults`, `envelope`, `envelopeTables`, `yjk_detailed.floor_stats`, and `warnings`. Per-run models, logs, driver output, and extracted results are written under `sc_<traceId>` inside the YJK work directory; the runtime prefers `settings.json` / `YJK_WORK_DIR`, the Node runner normally injects `YJK_WORK_DIR` from config (default `<runtimeBaseDir>/analysis/yjk`), and if it is still unset the Python runtime falls back to `~/.structureclaw/analysis/yjk`.
-- `zh`: 默认会先启动或复用 `YjkLauncher.exe` 主面板，让本机授权完成初始化，再通过 SDK `RunYJK(yjks.exe)` 启动计算进程。`YJK_LAUNCHER_PREWARM=auto` 可退回到“先直接启动、授权失败后再预热”的兼容路径；`YJK_LAUNCHER_PREWARM=0` 仅用于调试时关闭该预热。
-- `en`: The default path starts or reuses the official `YjkLauncher.exe` main panel first so local authorization is initialized, then launches the calculation process through SDK `RunYJK(yjks.exe)`. `YJK_LAUNCHER_PREWARM=auto` restores the compatibility path that tries direct launch first and prewarms only after authorization failure; `YJK_LAUNCHER_PREWARM=0` is only for debugging.
-- `zh`: 默认真实用户运行完成后会保留 YJK 窗口。测评或无人值守运行可设置 `YJK_CLOSE_AFTER_RUN=1`，同步抽取结果后会请求 YJK 退出，并只强制关闭本次运行新启动的 `yjks.exe` 进程；附加到已有 YJK 会话时不会自动关闭。
-- `en`: By default the YJK window remains open after normal user runs. Benchmarks or unattended runs can set `YJK_CLOSE_AFTER_RUN=1`; after synchronous result extraction the driver requests YJK exit and force-closes only `yjks.exe` processes started by the current run. Existing attached YJK sessions are not closed automatically.
-- `zh`: 仅在确实只想启动计算、不等待结果抽取时设置 `YJK_START_ONLY=1` 或 `YJK_ASYNC_CALC=1`。这类运行会跳过 `results.json` 抽取，不能作为闭环分析结果传给下游校核和报告。
-- `en`: Set `YJK_START_ONLY=1` or `YJK_ASYNC_CALC=1` only when starting calculation without waiting for result extraction is intentional. These runs skip `results.json` extraction and cannot serve as closed-loop analysis results for downstream checking or reporting.
+- `zh`: 默认直接启动独立、隐藏的 SDK 宿主；显式绑定自己创建的 PID，并使用有时限的缓冲管道。安装互斥锁避免与 YJK Flow API 共用同一安装运行。需要授权预热时，可显式设置 `YJK_PREPARE_OWNED_LAUNCHER=1`，仅启动本次任务自己的隐藏启动器。
+- `en`: The default starts an independent hidden SDK host, binds its owned PID and uses bounded buffered IPC. An installation lease prevents sharing an active YJK Flow API runtime. Explicit `YJK_PREPARE_OWNED_LAUNCHER=1` starts only this task's hidden launcher when authorization preparation is needed.
+- `zh`: 驱动与子进程在启动前纳入 Windows Job；完成或超时均关闭本次进程树，保留原生文件。旧的附加用户窗口、键盘注入、全局进程差集清理及仅启动异步路径已删除。
+- `en`: A Windows Job contains the driver before it launches vendor children. Completion and timeout close only that process tree and retain native artifacts. GUI attachment, keyboard injection, global PID-difference cleanup and start-only asynchronous execution have been removed.
 - Runtime: `analysis/yjk-static/runtime.py`

@@ -99,9 +99,11 @@ def require_yjk_material_acceptance(data: dict[str, Any]) -> None:
     fields = [f"materials.{item.get('id')}.grade" for item in data.get("materials", [])]
     reject_native_input(
         "yjk", "YJK_NATIVE_MATERIAL_GRADE_UNVERIFIED", "native-material-grade", fields,
-        "YJK compilation writes the material category only; per-member grade and numeric material "
-        "properties have not passed native write/readback acceptance. Formal analysis is disabled. / "
-        "YJK 编译目前仅写入材料类别，逐构件牌号与材料常数未完成原生写入回读验收，正式分析暂不可用。",
+        "Native RC member grade write/readback has been repaired, but explicit material constants, "
+        "effective analysis settings and result conventions have not all passed physical calibration. "
+        "Formal analysis remains disabled; SDK execution is not physics equivalence. / "
+        "混凝土逐构件牌号写入回读已修复，但显式材料常数、有效分析设置与结果约定尚未全部完成物理校准；"
+        "正式分析仍受限，SDK 算通不等于模型物理等价。",
     )
 
 

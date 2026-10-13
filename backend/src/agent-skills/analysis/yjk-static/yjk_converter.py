@@ -40,9 +40,10 @@ from __future__ import annotations
 import os
 import json
 import math
+import re
 from typing import Any
 
-from YJKAPI import DataFunc, Hi_AddToAndReadYjk
+from YJKAPI import BzcPara, DataFunc, Hi_AddToAndReadYjk
 from model_contract import validate_building_model
 
 M_TO_MM = 1000.0
@@ -512,6 +513,16 @@ def _material_summary(material: dict | None) -> dict[str, Any] | None:
     }
 
 
+def _concrete_grade(material: dict) -> int | None:
+    """Native grade identity only; stiffness equivalence needs solver evidence."""
+    if material.get("category") != "concrete":
+        return None
+    match = re.fullmatch(r"C(\d+)", str(material.get("grade") or "").strip().upper())
+    if match is None or int(match[1]) not in range(15, 85, 5):
+        raise ValueError(f"YJK concrete material '{material.get('id')}' requires an explicit C15–C80 grade")
+    return int(match[1])
+
+
 def convert_v2_to_ydb(
     data: dict[str, Any], work_dir: str, ydb_filename: str = "model.ydb",
 ) -> str:
@@ -546,6 +557,7 @@ def convert_v2_to_ydb(
     nodes = {str(node["id"]): node for node in data["nodes"]}
     sections = {str(section["id"]): section for section in data["sections"]}
     materials = {str(material["id"]): material for material in data["materials"]}
+    grades = {key: _concrete_grade(material) for key, material in materials.items()}
     node_mappings: dict[str, dict[str, Any]] = {}
     element_mappings: dict[str, dict[str, Any]] = {}
     floor_mappings: list[dict[str, Any]] = []
@@ -566,6 +578,10 @@ def convert_v2_to_ydb(
     for story, info in zip(stories, story_infos):
         dead, live = _get_floor_loads(story)
         native_floor = data_func.StdFlr_Generate(info["height_mm"], dead, live)
+        # Initialize the SDK's complete floor defaults, then write every RC
+        # member's grade explicitly below. Zero-filled Para is not a C30 floor.
+        floor_parameters = BzcPara()
+        native_floor.Para = floor_parameters.GetValString()
         floor_id = _extract_yjk_id(native_floor)
         if floor_id is None:
             raise RuntimeError("YJK StdFlr_Generate did not return an identifiable floor")
@@ -597,6 +613,11 @@ def convert_v2_to_ydb(
             member_id = _extract_yjk_id(native_member)
             if member_id is None:
                 raise RuntimeError(f"YJK member '{element_id}' did not return an identifiable native object")
+            grade = grades[str(element["material"])]
+            if grade is not None:
+                # Public SDK encoding, also used by the audited YJK Flow API:
+                # HNTDJ is a scalar grade property (type 5), not elastic E.
+                data_func.property_arrange(member_id, "HNTDJ", 5, str(grade))
             element_mappings[element_id] = {
                 "v2_id": element_id, "type": element["type"], "nodes": node_ids,
                 "floor": story["id"], "floor_index": info["index"],
@@ -608,6 +629,7 @@ def convert_v2_to_ydb(
                 "yjk_section_id": section_defs[section_id]["yjk_section_id"],
                 "yjk_model_id": member_id, "yjk_model_id_source": "individual-native-member",
                 "native_endpoint_order": node_ids,
+                "native_concrete_grade": grade,
             }
         data_func.Floors_Assemb(info["elevation_mm"], native_floor, 1, info["height_mm"])
         floor_mappings.append({"story": story["id"], "floor_index": info["index"], "native_floor_id": floor_id})
@@ -615,7 +637,8 @@ def convert_v2_to_ydb(
         raise RuntimeError("YJK native compilation did not map every input member")
     data_func.DbModel_Assign()
     reader = Hi_AddToAndReadYjk(data_func.GetDbModelData())
-    reader.CreateYDB(work_dir, ydb_filename)
+    if not reader.CreateYDB(work_dir, ydb_filename):
+        raise RuntimeError("YJK SDK CreateYDB failed / YJK 原生模型文件生成失败")
     ydb_path = os.path.join(work_dir, ydb_filename)
     mapping = {
         "schema_version": "2.0.0", "engine": "yjk-static", "ydb_path": ydb_path,

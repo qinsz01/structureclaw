@@ -69,12 +69,15 @@ describe('YJK RC frame converter', () => {
         path.join(stubsDir, 'YJKAPI.py'),
         [
           'import os',
+          'from types import SimpleNamespace',
           'calls = []',
+          'class BzcPara:',
+          '    def GetValString(self): return "floor defaults"',
           '',
           'class DataFunc:',
           '    def StdFlr_Generate(self, height_mm, dead, live):',
           '        calls.append({"method": "StdFlr_Generate", "height_mm": height_mm, "dead": dead, "live": live})',
-          '        return {"ID": len(calls)}',
+          '        return SimpleNamespace(ID=len(calls), Para="")',
           '',
           '    def ColSect_Def(self, mat, kind, shape_val, name):',
           '        calls.append({"method": "ColSect_Def", "mat": mat, "kind": kind, "shape_val": shape_val, "name": name})',
@@ -113,6 +116,8 @@ describe('YJK RC frame converter', () => {
           '    def GetDbModelData(self):',
           '        calls.append({"method": "GetDbModelData"})',
           '        return {"model": "stub"}',
+          '    def property_arrange(self, member_id, name, kind, value):',
+          '        calls.append({"method": "property_arrange", "id": member_id, "name": name, "type": kind, "value": value})',
           '',
           'class Hi_AddToAndReadYjk:',
           '    def __init__(self, model):',
@@ -123,6 +128,7 @@ describe('YJK RC frame converter', () => {
           '        calls.append({"method": "CreateYDB", "filename": filename})',
           '        with open(os.path.join(work_dir, filename), "w", encoding="utf-8") as f:',
           '            f.write("stub ydb")',
+          '        return True',
           '',
         ].join('\n'),
       );
@@ -287,6 +293,10 @@ describe('YJK RC frame converter', () => {
       ]));
       expect(payload.calls.filter((call) => call.method === 'Joint_Generate')).toHaveLength(7);
       expect(Object.keys(payload.mapping.elements)).toHaveLength(13);
+      expect(payload.calls.filter((call) => call.method === 'property_arrange')).toHaveLength(13);
+      expect(payload.calls.filter((call) => call.method === 'property_arrange').every(
+        (call) => call.name === 'HNTDJ' && call.type === 5 && call.value === '30',
+      )).toBe(true);
       expect(payload.mapping.nodes.N2_3).toBeUndefined();
       expect(payload.mapping.elements.BX3.section_id).toBe('3');
       expect(payload.mapping.elements.BX3.yjk_model_id).toBeTruthy();

@@ -904,6 +904,10 @@ if root:
     os.environ["PATH"] = root + os.pathsep + os.environ.get("PATH", "")
     if root not in sys.path:
         sys.path.insert(0, root)
+    # Python 3.8+ native DLL resolution does not use PATH alone. Keep the
+    # installation handle alive for the entire SDK import probe.
+    dll_directory = os.add_dll_directory(root) if os.name == "nt" else None
+sys.argv = [sys.argv[0], "NDepend"]
 
 try:
     from YJKAPI import DataFunc, YJKSControl  # noqa: F401
