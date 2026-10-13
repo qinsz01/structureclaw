@@ -9,8 +9,12 @@ import subprocess
 import time
 
 
-def run_native_stages(cycle_path, work_dir, constraints, terminate_tree, timeout=120):
+def run_native_stages(cycle_path, work_dir, constraints, terminate_tree, timeout=120, section_model=None):
     executable = cycle_path.parent.parent / "Ribbon" / "PKPMMain.exe"
+    if section_model is not None:
+        solver = executable.parent / "SAT" / "SAT64" / "WINSAT-A_x64.exe"
+        if hashlib.sha256(solver.read_bytes()).hexdigest() != "28adde523fe58491f96727da7250c21e6304e56aef3d0ba0330da9c57e3adaf3":
+            raise RuntimeError("Native numeric-section compiler version is not verified / 原生数值截面编译版本尚未验收")
     phases = [
         ["-PMCAD", "-PMCAD", "-AUTORIB", "BACKGROUNDONLY"],
         ["-ANA", "-auto_data", "BACKGROUNDONLY"],
@@ -47,7 +51,10 @@ def run_native_stages(cycle_path, work_dir, constraints, terminate_tree, timeout
                 # The source definition explicitly requests all 3 rotations
                 # free; PM3DSAT's minimum-one numerical floor is not a V2
                 # spring and must not become a physical boundary condition.
-                evidence["boundaryCompilation"] = compile_free_rotations(work_dir, constraints)
+                evidence["boundaryCompilation"] = compile_free_rotations(work_dir, constraints) if constraints else []
+                if section_model is not None:
+                    from native_numeric_sections import compile_numeric_sections
+                    evidence["sectionCompilation"] = compile_numeric_sections(work_dir, section_model)
         for artifact in evidence["boundaryCompilation"]:
             if hashlib.sha256((work_dir / artifact["path"]).read_bytes()).hexdigest() != artifact["afterSha256"]:
                 raise RuntimeError("Native solver changed compiled boundary inputs / 原生求解器改变了已编译边界输入")

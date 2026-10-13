@@ -199,7 +199,8 @@ def bind_native_geometry(model, snapshot, artifacts):
                     if dimensions != {"kind": 1, **section_axis_evidence["nativeDimensionsMm"]}:
                         raise NativeGeometryUnavailable("Native column section dimensions do not preserve physical axes / 原生柱截面尺寸与物理轴映射不符")
                     section_axis_evidence = {**section_axis_evidence, "nativeReadback": dimensions}
-                elif section_axis_evidence["sourceDimensionsMm"]["B"] != section_axis_evidence["sourceDimensionsMm"]["H"]:
+                elif (section_axis_evidence["sourceDimensionsMm"] is None or
+                      section_axis_evidence["sourceDimensionsMm"]["B"] != section_axis_evidence["sourceDimensionsMm"]["H"]):
                     raise NativeGeometryUnavailable("Non-square column requires native section-axis readback / 非方形柱须有原生截面轴读回")
             result = {"kind": kind, "angleDegrees": 0., "offsetsM": [0.] * 6,
                       "releases": [False] * 12, "nativePmid": native["pmid"], "nativeFloor": number,

@@ -8,6 +8,7 @@ import math
 from native_frame_stations import map_frame_stations
 from native_geometry import read_native_geometry
 from native_reactions import recover_support_reactions
+from native_numeric_sections import has_numeric_sections
 
 
 def _hash(value):
@@ -33,6 +34,9 @@ def complete_frame_results(model, result, jws_path):
             or set(materials.get("materials", {})) != {str(row["id"]) for row in model["materials"]}):
         raise ValueError("Native elastic material verification is incomplete / 原生弹性材料核对证据不完整")
     geometry = read_native_geometry(jws_path, model)
+    section_verification = result["summary"].get("nativeSectionVerification")
+    if has_numeric_sections(model) and (not section_verification or section_verification.get("verified") is not True):
+        raise ValueError("Numeric native section verification is incomplete / 原生数值截面核对证据不完整")
     cases = {str(row["id"]): row for row in model["load_cases"]}
     native_labels = {"DL": "dead", "LL": "live"}
     context = {"engine": "pkpm", "engineVersion": "2025R2.5",
@@ -40,6 +44,8 @@ def complete_frame_results(model, result, jws_path):
                "stiffnessHash": _hash({key: model.get(key) for key in ("nodes", "elements", "materials", "sections")}),
                "settingsHash": _hash(result["summary"]["effectiveNativeSettings"]),
                "linearStatic": True, "effectiveSettingsVerified": True, "stationConventionsVerified": True}
+    if section_verification:
+        context["sectionCompilation"] = section_verification
     for case_id, case in result["caseResults"].items():
         source = cases.get(case_id)
         if source is None:

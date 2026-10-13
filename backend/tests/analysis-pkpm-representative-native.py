@@ -6,6 +6,9 @@ From the repository root, using the installed PKPM Python environment:
 Add --three-cases --combination for independently frozen D/L/W/ULS checks.
 Use --case INT-089 --state 1|2 --planned-proxy or --case MM-089
 --planned-proxy for explicitly defined capability proxies, not benchmark truths.
+For numeric-section acceptance use --model-file with the saved inputs under
+backend/tests/fixtures/pkpm-numeric-capabilities; add --combination for its
+pin-combination.json input. These are capability probes, not authored Bench tasks.
 
 Every invocation freezes model, independent reference and tolerances before the
 candidate runs, retains all native files, and exits nonzero on any missing or
@@ -114,7 +117,8 @@ def main():
         "referenceSha256": hashlib.sha256((fixture / "independent-reference.json").read_bytes()).hexdigest(),
         "timoshenkoReferenceSha256": hashlib.sha256((root / "frozen-timoshenko-reference.json").read_bytes()).hexdigest(),
         "referenceKind": reference["referenceKind"], "notCommercialScoringTruth": True}
-    (root / "reference-provenance.json").write_text(json.dumps(evidence, indent=2), encoding="utf-8")
+    (root / "reference-provenance.json").write_text(json.dumps({**evidence, "status": "reference-frozen",
+        "primaryReferenceKind": "independent-3d-timoshenko-matrix", "primaryReferenceFile": "frozen-timoshenko-reference.json"}, indent=2), encoding="utf-8")
     analysis = repo / "backend/src/agent-skills/analysis"
     sys.path[:0] = [str(analysis / "runtime"), str(analysis / "pkpm-static"), str(repo / "backend/src/skill-shared/python")]
     os.environ["PKPM_CYCLE_PATH"] = args.cycle

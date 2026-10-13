@@ -31,7 +31,7 @@ from typing import Any
 import APIPyInterface
 from coordinate_semantics import resolve_model_dimension, validate_coordinate_contract
 from contracts import AnalysisCapabilityError
-from native_model_contract import pkpm_section_shape, validate_pkpm_material_properties, validate_pkpm_sections
+from native_model_contract import pkpm_section_shape, pkpm_numeric_section_properties, validate_pkpm_material_properties, validate_pkpm_sections
 from native_settings import clear_floor_slab, control_parameters, validate_settings
 from native_column_axes import column_axis_plan
 
@@ -465,6 +465,11 @@ def _register_section(
     """
     std_name: str | None = sec.get("standard_steel_name")
     shape_dict: dict | None = pkpm_section_shape(sec)
+    numeric = pkpm_numeric_section_properties(sec)
+    if numeric:
+        # Native preprocessing needs a geometric section. It is an internal
+        # reference carrier only; SDATA compilation writes all source A/I/J.
+        shape_dict = {"kind": "Rectangle", "B": 500., "H": 500.}
     if swap_column_axes:
         if inferred_role != "col" or not shape_dict or shape_dict["kind"] != "Rectangle":
             raise ValueError("Column axis permutation requires a rectangular native section")
@@ -501,7 +506,8 @@ def _register_section(
                 raise ValueError(f"Section '{sec['id']}' standard steel section failed: {standard_error}")
         else:
             raise ValueError(f"Section '{sec['id']}' has no usable PKPM section shape.")
-        _verify_section_properties(sec, csec, "column", swap_bending_axes=swap_column_axes)
+        if not numeric:
+            _verify_section_properties(sec, csec, "column", swap_bending_axes=swap_column_axes)
         pm_idx = model.AddColumnSection(csec)
     else:
         bsec = APIPyInterface.BeamSection()
@@ -515,7 +521,8 @@ def _register_section(
                 raise ValueError(f"Section '{sec['id']}' standard steel section failed: {standard_error}")
         else:
             raise ValueError(f"Section '{sec['id']}' has no usable PKPM section shape.")
-        _verify_section_properties(sec, bsec, "beam")
+        if not numeric:
+            _verify_section_properties(sec, bsec, "beam")
         pm_idx = model.AddBeamSection(bsec)
 
     return inferred_role, pm_idx

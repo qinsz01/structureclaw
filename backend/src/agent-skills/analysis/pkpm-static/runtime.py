@@ -201,7 +201,7 @@ def _assert_no_external_cycle(cycle_path: Path) -> None:
         raise RuntimeError("Another native PKPM batch is active; its configuration was not changed / 已有 PKPM 原生批处理运行，未修改其目录配置")
 
 
-def _run_jws_cycle(cycle_path: Path, work_dir: Path, timeout: int = 600, constraints=None) -> None:
+def _run_jws_cycle(cycle_path: Path, work_dir: Path, timeout: int = 600, constraints=None, section_model=None) -> None:
     """Launch JWSCYCLE.exe using the official DirectorySet.conf mechanism.
 
     Per PKPM official API documentation (gitee.com/pkpmgh/pkpm-official---api-release):
@@ -213,11 +213,11 @@ def _run_jws_cycle(cycle_path: Path, work_dir: Path, timeout: int = 600, constra
     transcript, and terminates only this launcher's process tree on timeout.
     """
     cycle_dir = cycle_path.parent
-    if constraints:
+    if constraints or section_model is not None:
         from native_stages import run_native_stages
         with _jws_cycle_lock, _cycle_file_lock(cycle_dir / ".structureclaw-cycle.lock", timeout):
             _assert_no_external_cycle(cycle_path)
-            run_native_stages(cycle_path, work_dir, constraints, _terminate_cycle_tree, timeout)
+            run_native_stages(cycle_path, work_dir, constraints, _terminate_cycle_tree, timeout, section_model=section_model)
         return
     conf_path = cycle_dir / "DirectorySet.conf"
     started_at = time.time()
@@ -785,7 +785,12 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
 
     # ---- Phase 2: Run SATWE via JWSCYCLE.exe ----
     timeout = int(parameters.get("timeout", 600))
-    if converter_mappings.get("native_end_constraints"):
+    from native_numeric_sections import has_numeric_sections, verify_numeric_sections
+    numeric_sections = has_numeric_sections(model_dict)
+    if numeric_sections:
+        _run_jws_cycle(cycle_path, work_dir, timeout=timeout,
+                       constraints=converter_mappings.get("native_end_constraints"), section_model=model_dict)
+    elif converter_mappings.get("native_end_constraints"):
         _run_jws_cycle(cycle_path, work_dir, timeout=timeout, constraints=converter_mappings["native_end_constraints"])
     else:
         _run_jws_cycle(cycle_path, work_dir, timeout=timeout)
@@ -796,6 +801,7 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     effective_settings = verify_effective_settings(work_dir, native_controls)
     from native_materials import verify_solver_materials
     material_verification = verify_solver_materials(work_dir, converter_mappings.get("native_materials", {}))
+    section_verification = verify_numeric_sections(work_dir, model_dict) if numeric_sections else None
 
     # ---- Phase 3: Extract results via APIPyInterface ----
     # material_family was already detected in Phase 1 and passed to converter
@@ -831,7 +837,11 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
                 if len(labels) != 1:
                     raise ValueError(f"Native source case label '{native_name}' is ambiguous or missing / 原生源工况标签缺失或不唯一")
                 native_name = labels[0]
-            for field in ("case_node_disps", "case_beam_forces", "case_col_forces"):
+            required_fields = ["case_node_disps"]
+            for role, field in (("beam", "case_beam_forces"), ("column", "case_col_forces")):
+                if any(element.get("type") == role for element in model_dict.get("elements", [])):
+                    required_fields.append(field)
+            for field in required_fields:
                 if native_name not in extracted.get(field, {}):
                     raise AnalysisCapabilityError(engine="pkpm", capability="selected-load-case", reason=f"Native {field} has no verified mapping for requested case '{requested_id}'")
             names[requested_id] = native_name
@@ -1243,6 +1253,7 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
             "projectParameterVerification": project_parameter_verification,
             "effectiveNativeSettings": effective_settings,
             "nativeMaterialVerification": material_verification,
+            "nativeSectionVerification": section_verification,
             "nativeLoadMapping": converter_mappings.get("native_load_mapping", {}),
             "nativeResultMembers": extracted.get("native_result_members", []),
             **pkpm_summary,

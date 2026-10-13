@@ -124,12 +124,46 @@ def validate_pkpm_material_properties(data: dict[str, Any]) -> None:
         )
 
 
+def pkpm_numeric_section_properties(section: dict[str, Any]) -> dict[str, float] | None:
+    """Pure mechanical source section; never infer a physical carrier shape."""
+    if str(section.get("type", "")).lower() != "custom" or section.get("shape"):
+        return None
+    prefix = f"sections.{section.get('id')}"
+    props = section.get("properties") or {}
+    allowed = {"A", "Iy", "Iz", "J", "Asy", "Asz"}
+    if (section.get("standard_steel_name") or section.get("extra")
+            or any(section.get(key) is not None for key in ("width", "height", "thickness", "diameter"))
+            or any(section.get(key) is not None for key in ("I", "Iyy", "Izz"))
+            or set(props) - allowed):
+        reject_native_input("pkpm", "PKPM_NUMERIC_SECTION_CONFLICT", "numeric-section",
+                            [prefix], "Numeric sections cannot declare geometric overrides / 数值截面不能混入几何覆盖")
+    values = {}
+    for key in ("A", "Iy", "Iz", "J"):
+        value = props.get(key)
+        if (type(value) not in (int, float) or not math.isfinite(value) or value <= 0
+                or (section.get(key) is not None and section[key] != value)):
+            reject_native_input("pkpm", "PKPM_NUMERIC_SECTION_INVALID", "numeric-section",
+                                [f"{prefix}.{key}"], "A/Iy/Iz/J must be explicit, positive and consistent / A/Iy/Iz/J须明确、为正且无冲突")
+        values[key] = float(value)
+    for key in ("Asy", "Asz"):
+        expected = 5 * values["A"] / 6
+        value = props.get(key, expected)
+        if (type(value) not in (int, float) or not math.isclose(value, expected, rel_tol=1e-12, abs_tol=0)
+                or (section.get(key) is not None and section[key] != value)):
+            reject_native_input("pkpm", "PKPM_NUMERIC_SHEAR_AREA_UNSUPPORTED", "numeric-section-shear-area",
+                                [f"{prefix}.{key}"], "Calibrated numeric sections require Asy=Asz=5A/6 / 已校准数值截面要求Asy=Asz=5A/6")
+        values[key] = float(value)
+    return values
+
+
 def pkpm_section_shape(section: dict[str, Any], schema_version: str = "2.0.0") -> dict[str, Any] | None:
     """Validate the geometry actually written; shape/top-level dimensions are mm.
 
     The only retained legacy geometry contract is V2.0 rectangular properties
     width/height in metres. No magnitude-based unit guessing is permitted.
     """
+    if pkpm_numeric_section_properties(section) is not None:
+        return None
     prefix = f"sections.{section.get('id')}"
 
     def reject(fields: list[str], reason: str, code: str = "PKPM_NATIVE_SECTION_INPUT_UNSUPPORTED") -> None:

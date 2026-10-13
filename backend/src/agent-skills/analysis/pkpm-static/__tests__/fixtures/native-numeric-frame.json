@@ -1,0 +1,1388 @@
+{
+  "provenance": {
+    "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-numeric-sections-20261013-210334-a5dff5db\\sc_afa04ce4",
+    "acceptanceSha256": "eff1cbab9eb2dfa81ad90337dfde415d6b5551f97c466e414a210278af4fb73c",
+    "scope": "Independent frozen 162 DOF/558 force values passed before fixture capture; fixture exercises native input record binding, not a new numerical truth."
+  },
+  "model": {
+    "schema_version": "2.2.0",
+    "unit_system": "SI",
+    "coordinate_system": {
+      "dimension": "3d",
+      "plane": null,
+      "semantics": "global-z-up",
+      "version": 1,
+      "dof_order": [
+        "ux",
+        "uy",
+        "uz",
+        "rx",
+        "ry",
+        "rz"
+      ]
+    },
+    "nodes": [
+      {
+        "id": "n0-0-0",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "n0-1-0",
+        "x": 0.0,
+        "y": 5.0,
+        "z": 0.0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "n0-2-0",
+        "x": 0.0,
+        "y": 10.0,
+        "z": 0.0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "n1-0-0",
+        "x": 6.0,
+        "y": 0.0,
+        "z": 0.0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "n1-1-0",
+        "x": 6.0,
+        "y": 5.0,
+        "z": 0.0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "n1-2-0",
+        "x": 6.0,
+        "y": 10.0,
+        "z": 0.0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "n2-0-0",
+        "x": 12.0,
+        "y": 0.0,
+        "z": 0.0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "n2-1-0",
+        "x": 12.0,
+        "y": 5.0,
+        "z": 0.0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "n2-2-0",
+        "x": 12.0,
+        "y": 10.0,
+        "z": 0.0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "n0-0-1",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 3.6,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "n0-1-1",
+        "x": 0.0,
+        "y": 5.0,
+        "z": 3.6,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "n0-2-1",
+        "x": 0.0,
+        "y": 10.0,
+        "z": 3.6,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "n1-0-1",
+        "x": 6.0,
+        "y": 0.0,
+        "z": 3.6,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "n1-1-1",
+        "x": 6.0,
+        "y": 5.0,
+        "z": 3.6,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "n1-2-1",
+        "x": 6.0,
+        "y": 10.0,
+        "z": 3.6,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "n2-0-1",
+        "x": 12.0,
+        "y": 0.0,
+        "z": 3.6,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "n2-1-1",
+        "x": 12.0,
+        "y": 5.0,
+        "z": 3.6,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "n2-2-1",
+        "x": 12.0,
+        "y": 10.0,
+        "z": 3.6,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "n0-0-2",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 7.2,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "n0-1-2",
+        "x": 0.0,
+        "y": 5.0,
+        "z": 7.2,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "n0-2-2",
+        "x": 0.0,
+        "y": 10.0,
+        "z": 7.2,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "n1-0-2",
+        "x": 6.0,
+        "y": 0.0,
+        "z": 7.2,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "n1-1-2",
+        "x": 6.0,
+        "y": 5.0,
+        "z": 7.2,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "n1-2-2",
+        "x": 6.0,
+        "y": 10.0,
+        "z": 7.2,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "n2-0-2",
+        "x": 12.0,
+        "y": 0.0,
+        "z": 7.2,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "n2-1-2",
+        "x": 12.0,
+        "y": 5.0,
+        "z": 7.2,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "n2-2-2",
+        "x": 12.0,
+        "y": 10.0,
+        "z": 7.2,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      }
+    ],
+    "elements": [
+      {
+        "id": "c0-0-1",
+        "type": "column",
+        "material": "M1",
+        "section": "C1",
+        "nodes": [
+          "n0-0-0",
+          "n0-0-1"
+        ]
+      },
+      {
+        "id": "x0-0-1",
+        "type": "beam",
+        "material": "M1",
+        "section": "B1",
+        "nodes": [
+          "n0-0-1",
+          "n1-0-1"
+        ]
+      },
+      {
+        "id": "y0-0-1",
+        "type": "beam",
+        "material": "M1",
+        "section": "B2",
+        "nodes": [
+          "n0-0-1",
+          "n0-1-1"
+        ]
+      },
+      {
+        "id": "c0-1-1",
+        "type": "column",
+        "material": "M1",
+        "section": "C2",
+        "nodes": [
+          "n0-1-0",
+          "n0-1-1"
+        ]
+      },
+      {
+        "id": "x0-1-1",
+        "type": "beam",
+        "material": "M1",
+        "section": "B1",
+        "nodes": [
+          "n0-1-1",
+          "n1-1-1"
+        ]
+      },
+      {
+        "id": "y0-1-1",
+        "type": "beam",
+        "material": "M1",
+        "section": "B2",
+        "nodes": [
+          "n0-1-1",
+          "n0-2-1"
+        ]
+      },
+      {
+        "id": "c0-2-1",
+        "type": "column",
+        "material": "M1",
+        "section": "C1",
+        "nodes": [
+          "n0-2-0",
+          "n0-2-1"
+        ]
+      },
+      {
+        "id": "x0-2-1",
+        "type": "beam",
+        "material": "M1",
+        "section": "B1",
+        "nodes": [
+          "n0-2-1",
+          "n1-2-1"
+        ]
+      },
+      {
+        "id": "c1-0-1",
+        "type": "column",
+        "material": "M1",
+        "section": "C2",
+        "nodes": [
+          "n1-0-0",
+          "n1-0-1"
+        ]
+      },
+      {
+        "id": "x1-0-1",
+        "type": "beam",
+        "material": "M1",
+        "section": "B1",
+        "nodes": [
+          "n1-0-1",
+          "n2-0-1"
+        ]
+      },
+      {
+        "id": "y1-0-1",
+        "type": "beam",
+        "material": "M1",
+        "section": "B2",
+        "nodes": [
+          "n1-0-1",
+          "n1-1-1"
+        ]
+      },
+      {
+        "id": "c1-1-1",
+        "type": "column",
+        "material": "M1",
+        "section": "C3",
+        "nodes": [
+          "n1-1-0",
+          "n1-1-1"
+        ]
+      },
+      {
+        "id": "x1-1-1",
+        "type": "beam",
+        "material": "M1",
+        "section": "B1",
+        "nodes": [
+          "n1-1-1",
+          "n2-1-1"
+        ]
+      },
+      {
+        "id": "y1-1-1",
+        "type": "beam",
+        "material": "M1",
+        "section": "B2",
+        "nodes": [
+          "n1-1-1",
+          "n1-2-1"
+        ]
+      },
+      {
+        "id": "c1-2-1",
+        "type": "column",
+        "material": "M1",
+        "section": "C2",
+        "nodes": [
+          "n1-2-0",
+          "n1-2-1"
+        ]
+      },
+      {
+        "id": "x1-2-1",
+        "type": "beam",
+        "material": "M1",
+        "section": "B1",
+        "nodes": [
+          "n1-2-1",
+          "n2-2-1"
+        ]
+      },
+      {
+        "id": "c2-0-1",
+        "type": "column",
+        "material": "M1",
+        "section": "C1",
+        "nodes": [
+          "n2-0-0",
+          "n2-0-1"
+        ]
+      },
+      {
+        "id": "y2-0-1",
+        "type": "beam",
+        "material": "M1",
+        "section": "B2",
+        "nodes": [
+          "n2-0-1",
+          "n2-1-1"
+        ]
+      },
+      {
+        "id": "c2-1-1",
+        "type": "column",
+        "material": "M1",
+        "section": "C2",
+        "nodes": [
+          "n2-1-0",
+          "n2-1-1"
+        ]
+      },
+      {
+        "id": "y2-1-1",
+        "type": "beam",
+        "material": "M1",
+        "section": "B2",
+        "nodes": [
+          "n2-1-1",
+          "n2-2-1"
+        ]
+      },
+      {
+        "id": "c2-2-1",
+        "type": "column",
+        "material": "M1",
+        "section": "C1",
+        "nodes": [
+          "n2-2-0",
+          "n2-2-1"
+        ]
+      },
+      {
+        "id": "c0-0-2",
+        "type": "column",
+        "material": "M1",
+        "section": "C1",
+        "nodes": [
+          "n0-0-1",
+          "n0-0-2"
+        ]
+      },
+      {
+        "id": "x0-0-2",
+        "type": "beam",
+        "material": "M1",
+        "section": "B1",
+        "nodes": [
+          "n0-0-2",
+          "n1-0-2"
+        ]
+      },
+      {
+        "id": "y0-0-2",
+        "type": "beam",
+        "material": "M1",
+        "section": "B2",
+        "nodes": [
+          "n0-0-2",
+          "n0-1-2"
+        ]
+      },
+      {
+        "id": "c0-1-2",
+        "type": "column",
+        "material": "M1",
+        "section": "C2",
+        "nodes": [
+          "n0-1-1",
+          "n0-1-2"
+        ]
+      },
+      {
+        "id": "x0-1-2",
+        "type": "beam",
+        "material": "M1",
+        "section": "B1",
+        "nodes": [
+          "n0-1-2",
+          "n1-1-2"
+        ]
+      },
+      {
+        "id": "y0-1-2",
+        "type": "beam",
+        "material": "M1",
+        "section": "B2",
+        "nodes": [
+          "n0-1-2",
+          "n0-2-2"
+        ]
+      },
+      {
+        "id": "c0-2-2",
+        "type": "column",
+        "material": "M1",
+        "section": "C1",
+        "nodes": [
+          "n0-2-1",
+          "n0-2-2"
+        ]
+      },
+      {
+        "id": "x0-2-2",
+        "type": "beam",
+        "material": "M1",
+        "section": "B1",
+        "nodes": [
+          "n0-2-2",
+          "n1-2-2"
+        ]
+      },
+      {
+        "id": "c1-0-2",
+        "type": "column",
+        "material": "M1",
+        "section": "C2",
+        "nodes": [
+          "n1-0-1",
+          "n1-0-2"
+        ]
+      },
+      {
+        "id": "x1-0-2",
+        "type": "beam",
+        "material": "M1",
+        "section": "B1",
+        "nodes": [
+          "n1-0-2",
+          "n2-0-2"
+        ]
+      },
+      {
+        "id": "y1-0-2",
+        "type": "beam",
+        "material": "M1",
+        "section": "B2",
+        "nodes": [
+          "n1-0-2",
+          "n1-1-2"
+        ]
+      },
+      {
+        "id": "c1-1-2",
+        "type": "column",
+        "material": "M1",
+        "section": "C3",
+        "nodes": [
+          "n1-1-1",
+          "n1-1-2"
+        ]
+      },
+      {
+        "id": "x1-1-2",
+        "type": "beam",
+        "material": "M1",
+        "section": "B1",
+        "nodes": [
+          "n1-1-2",
+          "n2-1-2"
+        ]
+      },
+      {
+        "id": "y1-1-2",
+        "type": "beam",
+        "material": "M1",
+        "section": "B2",
+        "nodes": [
+          "n1-1-2",
+          "n1-2-2"
+        ]
+      },
+      {
+        "id": "c1-2-2",
+        "type": "column",
+        "material": "M1",
+        "section": "C2",
+        "nodes": [
+          "n1-2-1",
+          "n1-2-2"
+        ]
+      },
+      {
+        "id": "x1-2-2",
+        "type": "beam",
+        "material": "M1",
+        "section": "B1",
+        "nodes": [
+          "n1-2-2",
+          "n2-2-2"
+        ]
+      },
+      {
+        "id": "c2-0-2",
+        "type": "column",
+        "material": "M1",
+        "section": "C1",
+        "nodes": [
+          "n2-0-1",
+          "n2-0-2"
+        ]
+      },
+      {
+        "id": "y2-0-2",
+        "type": "beam",
+        "material": "M1",
+        "section": "B2",
+        "nodes": [
+          "n2-0-2",
+          "n2-1-2"
+        ]
+      },
+      {
+        "id": "c2-1-2",
+        "type": "column",
+        "material": "M1",
+        "section": "C2",
+        "nodes": [
+          "n2-1-1",
+          "n2-1-2"
+        ]
+      },
+      {
+        "id": "y2-1-2",
+        "type": "beam",
+        "material": "M1",
+        "section": "B2",
+        "nodes": [
+          "n2-1-2",
+          "n2-2-2"
+        ]
+      },
+      {
+        "id": "c2-2-2",
+        "type": "column",
+        "material": "M1",
+        "section": "C1",
+        "nodes": [
+          "n2-2-1",
+          "n2-2-2"
+        ]
+      }
+    ],
+    "materials": [
+      {
+        "id": "M1",
+        "name": "Q355",
+        "type": "steel",
+        "category": "steel",
+        "grade": "Q355",
+        "E": 206000.0,
+        "G": 79230.76923076923,
+        "nu": 0.3,
+        "rho": 7850.0
+      }
+    ],
+    "sections": [
+      {
+        "id": "C1",
+        "name": "C1",
+        "type": "custom",
+        "properties": {
+          "A": 0.27999999999999997,
+          "Iy": 0.006859999999999998,
+          "Iz": 0.0022400000000000002,
+          "J": 0.00960510009718173,
+          "Asy": 0.2333333333333333,
+          "Asz": 0.2333333333333333
+        }
+      },
+      {
+        "id": "C2",
+        "name": "C2",
+        "type": "custom",
+        "properties": {
+          "A": 0.36,
+          "Iy": 0.006479999999999998,
+          "Iz": 0.006479999999999998,
+          "J": 0.01825199999999999,
+          "Asy": 0.3,
+          "Asz": 0.3
+        }
+      },
+      {
+        "id": "C3",
+        "name": "C3",
+        "type": "custom",
+        "properties": {
+          "A": 0.48999999999999994,
+          "Iy": 0.012004999999999995,
+          "Iz": 0.012004999999999995,
+          "J": 0.03381408333333332,
+          "Asy": 0.40833333333333327,
+          "Asz": 0.40833333333333327
+        }
+      },
+      {
+        "id": "B1",
+        "name": "B1",
+        "type": "custom",
+        "properties": {
+          "A": 0.18,
+          "Iy": 0.003239999999999999,
+          "Iz": 0.0008099999999999997,
+          "J": 0.0037078593749999985,
+          "Asy": 0.15,
+          "Asz": 0.15
+        }
+      },
+      {
+        "id": "B2",
+        "name": "B2",
+        "type": "custom",
+        "properties": {
+          "A": 0.21,
+          "Iy": 0.0051449999999999985,
+          "Iz": 0.0009449999999999999,
+          "J": 0.004603782069970844,
+          "Asy": 0.17500000000000002,
+          "Asz": 0.17500000000000002
+        }
+      },
+      {
+        "id": "B3",
+        "name": "B3",
+        "type": "custom",
+        "properties": {
+          "A": 0.21780000000000002,
+          "Iy": 0.004743684000000001,
+          "Iz": 0.0011859210000000002,
+          "J": 0.005428676910937501,
+          "Asy": 0.18150000000000002,
+          "Asz": 0.18150000000000002
+        }
+      },
+      {
+        "id": "C4",
+        "name": "C4",
+        "type": "custom",
+        "properties": {
+          "A": 0.42250000000000004,
+          "Iy": 0.008925312500000001,
+          "Iz": 0.008925312500000001,
+          "J": 0.02513963020833333,
+          "Asy": 0.35208333333333336,
+          "Asz": 0.35208333333333336
+        }
+      }
+    ],
+    "stories": [
+      {
+        "id": "s1",
+        "elevation": 0.0,
+        "height": 3.6,
+        "rigid_diaphragm": false
+      },
+      {
+        "id": "s2",
+        "elevation": 3.6,
+        "height": 3.6,
+        "rigid_diaphragm": false
+      }
+    ],
+    "load_cases": [
+      {
+        "id": "D",
+        "type": "dead",
+        "loads": [
+          {
+            "id": "D:x0-0-1",
+            "type": "distributed",
+            "element": "x0-0-1",
+            "reference": "global",
+            "distribution": "uniform",
+            "wz": -8.0
+          },
+          {
+            "id": "D:y0-0-1",
+            "type": "distributed",
+            "element": "y0-0-1",
+            "reference": "global",
+            "distribution": "uniform",
+            "wz": -8.0
+          },
+          {
+            "id": "D:x0-1-1",
+            "type": "distributed",
+            "element": "x0-1-1",
+            "reference": "global",
+            "distribution": "uniform",
+            "wz": -8.0
+          },
+          {
+            "id": "D:y0-1-1",
+            "type": "distributed",
+            "element": "y0-1-1",
+            "reference": "global",
+            "distribution": "uniform",
+            "wz": -8.0
+          },
+          {
+            "id": "D:x0-2-1",
+            "type": "distributed",
+            "element": "x0-2-1",
+            "reference": "global",
+            "distribution": "uniform",
+            "wz": -8.0
+          },
+          {
+            "id": "D:x1-0-1",
+            "type": "distributed",
+            "element": "x1-0-1",
+            "reference": "global",
+            "distribution": "uniform",
+            "wz": -8.0
+          },
+          {
+            "id": "D:y1-0-1",
+            "type": "distributed",
+            "element": "y1-0-1",
+            "reference": "global",
+            "distribution": "uniform",
+            "wz": -8.0
+          },
+          {
+            "id": "D:x1-1-1",
+            "type": "distributed",
+            "element": "x1-1-1",
+            "reference": "global",
+            "distribution": "uniform",
+            "wz": -8.0
+          },
+          {
+            "id": "D:y1-1-1",
+            "type": "distributed",
+            "element": "y1-1-1",
+            "reference": "global",
+            "distribution": "uniform",
+            "wz": -8.0
+          },
+          {
+            "id": "D:x1-2-1",
+            "type": "distributed",
+            "element": "x1-2-1",
+            "reference": "global",
+            "distribution": "uniform",
+            "wz": -8.0
+          },
+          {
+            "id": "D:y2-0-1",
+            "type": "distributed",
+            "element": "y2-0-1",
+            "reference": "global",
+            "distribution": "uniform",
+            "wz": -8.0
+          },
+          {
+            "id": "D:y2-1-1",
+            "type": "distributed",
+            "element": "y2-1-1",
+            "reference": "global",
+            "distribution": "uniform",
+            "wz": -8.0
+          },
+          {
+            "id": "D:x0-0-2",
+            "type": "distributed",
+            "element": "x0-0-2",
+            "reference": "global",
+            "distribution": "uniform",
+            "wz": -8.0
+          },
+          {
+            "id": "D:y0-0-2",
+            "type": "distributed",
+            "element": "y0-0-2",
+            "reference": "global",
+            "distribution": "uniform",
+            "wz": -8.0
+          },
+          {
+            "id": "D:x0-1-2",
+            "type": "distributed",
+            "element": "x0-1-2",
+            "reference": "global",
+            "distribution": "uniform",
+            "wz": -8.0
+          },
+          {
+            "id": "D:y0-1-2",
+            "type": "distributed",
+            "element": "y0-1-2",
+            "reference": "global",
+            "distribution": "uniform",
+            "wz": -8.0
+          },
+          {
+            "id": "D:x0-2-2",
+            "type": "distributed",
+            "element": "x0-2-2",
+            "reference": "global",
+            "distribution": "uniform",
+            "wz": -8.0
+          },
+          {
+            "id": "D:x1-0-2",
+            "type": "distributed",
+            "element": "x1-0-2",
+            "reference": "global",
+            "distribution": "uniform",
+            "wz": -8.0
+          },
+          {
+            "id": "D:y1-0-2",
+            "type": "distributed",
+            "element": "y1-0-2",
+            "reference": "global",
+            "distribution": "uniform",
+            "wz": -8.0
+          },
+          {
+            "id": "D:x1-1-2",
+            "type": "distributed",
+            "element": "x1-1-2",
+            "reference": "global",
+            "distribution": "uniform",
+            "wz": -8.0
+          },
+          {
+            "id": "D:y1-1-2",
+            "type": "distributed",
+            "element": "y1-1-2",
+            "reference": "global",
+            "distribution": "uniform",
+            "wz": -8.0
+          },
+          {
+            "id": "D:x1-2-2",
+            "type": "distributed",
+            "element": "x1-2-2",
+            "reference": "global",
+            "distribution": "uniform",
+            "wz": -8.0
+          },
+          {
+            "id": "D:y2-0-2",
+            "type": "distributed",
+            "element": "y2-0-2",
+            "reference": "global",
+            "distribution": "uniform",
+            "wz": -8.0
+          },
+          {
+            "id": "D:y2-1-2",
+            "type": "distributed",
+            "element": "y2-1-2",
+            "reference": "global",
+            "distribution": "uniform",
+            "wz": -8.0
+          }
+        ]
+      }
+    ],
+    "load_combinations": [],
+    "analysis_control": {
+      "self_weight": false,
+      "rigid_floor": false,
+      "p_delta": false,
+      "rigid_offsets": false,
+      "construction_stage": false
+    },
+    "metadata": {
+      "elementReferenceVectors": {
+        "c0-0-1": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "x0-0-1": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "y0-0-1": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "c0-1-1": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "x0-1-1": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "y0-1-1": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "c0-2-1": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "x0-2-1": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "c1-0-1": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "x1-0-1": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "y1-0-1": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "c1-1-1": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "x1-1-1": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "y1-1-1": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "c1-2-1": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "x1-2-1": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "c2-0-1": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "y2-0-1": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "c2-1-1": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "y2-1-1": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "c2-2-1": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "c0-0-2": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "x0-0-2": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "y0-0-2": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "c0-1-2": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "x0-1-2": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "y0-1-2": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "c0-2-2": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "x0-2-2": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "c1-0-2": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "x1-0-2": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "y1-0-2": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "c1-1-2": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "x1-1-2": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "y1-1-2": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "c1-2-2": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "x1-2-2": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "c2-0-2": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "y2-0-2": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "c2-1-2": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "y2-1-2": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "c2-2-2": [
+          1.0,
+          0.0,
+          0.0
+        ]
+      },
+      "capabilityProxy": {
+        "plannedCase": "INT-089",
+        "state": 1,
+        "kind": "non-square-column-axes-audit",
+        "notBenchmarkScoringTruth": true,
+        "notMultimodalInputEvidence": true,
+        "taskTurn": 1,
+        "sectionDimensionsUnit": "mm"
+      }
+    }
+  },
+  "files": {
+    "SDATA.SAT.precompile": "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",
+    "SDATA.SAT": "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",
+    "DATA.SAT": "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"
+  },
+  "sha256": {
+    "SDATA.SAT.precompile": "a74d29dab771ebff0cfa6c1fbd605b5ed4d0ab427377008114876b5f2df82d10",
+    "SDATA.SAT": "ea2b90df11634e1127558750cd6db4fd14748f80a1529606638bd845a9b29ffe",
+    "DATA.SAT": "76fd2830a55a4134ab61e1c5676269fb3939c90e1dc0a8c32ae1e7547b848869"
+  }
+}
