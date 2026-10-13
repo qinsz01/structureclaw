@@ -201,7 +201,7 @@ def _assert_no_external_cycle(cycle_path: Path) -> None:
         raise RuntimeError("Another native PKPM batch is active; its configuration was not changed / 已有 PKPM 原生批处理运行，未修改其目录配置")
 
 
-def _run_jws_cycle(cycle_path: Path, work_dir: Path, timeout: int = 600) -> None:
+def _run_jws_cycle(cycle_path: Path, work_dir: Path, timeout: int = 600, constraints=None) -> None:
     """Launch JWSCYCLE.exe using the official DirectorySet.conf mechanism.
 
     Per PKPM official API documentation (gitee.com/pkpmgh/pkpm-official---api-release):
@@ -213,6 +213,12 @@ def _run_jws_cycle(cycle_path: Path, work_dir: Path, timeout: int = 600) -> None
     transcript, and terminates only this launcher's process tree on timeout.
     """
     cycle_dir = cycle_path.parent
+    if constraints:
+        from native_stages import run_native_stages
+        with _jws_cycle_lock, _cycle_file_lock(cycle_dir / ".structureclaw-cycle.lock", timeout):
+            _assert_no_external_cycle(cycle_path)
+            run_native_stages(cycle_path, work_dir, constraints, _terminate_cycle_tree, timeout)
+        return
     conf_path = cycle_dir / "DirectorySet.conf"
     started_at = time.time()
 
@@ -778,7 +784,10 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
 
     # ---- Phase 2: Run SATWE via JWSCYCLE.exe ----
     timeout = int(parameters.get("timeout", 600))
-    _run_jws_cycle(cycle_path, work_dir, timeout=timeout)
+    if converter_mappings.get("native_end_constraints"):
+        _run_jws_cycle(cycle_path, work_dir, timeout=timeout, constraints=converter_mappings["native_end_constraints"])
+    else:
+        _run_jws_cycle(cycle_path, work_dir, timeout=timeout)
 
     # Verify the settings used; changing the solved project cannot fix a run.
     project_parameter_verification = _verify_project_material_params(jws_path, material_family)
@@ -1115,6 +1124,7 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
             "displacements": case_disps,
             "forces": case_forces_out,
             "reactions": {},
+            "nativeConstraintDisplacements": {pm_floor_to_v2[key]: values for key, values in extracted.get("native_constraint_displacements", {}).get(case_name, {}).items()},
             "envelope": {},
             "memberStations": {
                 pm_floor_elem_to_v2[key]: stations
@@ -1265,11 +1275,7 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
         },
     }
 
-    fixed_base = all(node.get("restraints") == [True] * 6 for node in model_dict.get("nodes", []) if float(node.get("z", 0)) == 0)
-    native_six_dof = bool(extracted.get("native_displacement_source")) and all(
-        all(component in row for component in ("rx", "ry", "rz"))
-        for case in case_results.values() for row in case["displacements"].values())
-    if fixed_base and native_six_dof:
+    if extracted.get("native_displacement_source"):
         from native_result_adapter import complete_frame_results
         result_dict = complete_frame_results(model_dict, result_dict, jws_path)
     if requested_cases:

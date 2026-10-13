@@ -14,11 +14,24 @@ def _hash(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
+def _publish_selected(result, selected):
+    for field in ("displacements", "forces", "reactions", "memberStations", "nativeContext", "forceSemantics", "units",
+                  "missingCapabilities", "capabilityStatus", "reactionSource", "reactionObjectSources", "boundaryDisplacementSource", "source"):
+        if field in selected:
+            result[field] = selected[field]
+        else:
+            result.pop(field, None)
+
+
 def complete_frame_results(model, result, jws_path):
     settings = result["summary"]["effectiveNativeSettings"]
     if settings.get("verified") is not True or any(settings.get("requested", {}).get(key) is not False
             for key in ("self_weight", "rigid_floor", "rigid_offsets", "construction_stage", "p_delta")):
         raise ValueError("Complete native frame results require verified linear bare-frame settings / 完整杆系结果需要原生线性无楼板设置核对")
+    materials = result["summary"].get("nativeMaterialVerification", {})
+    if (materials.get("source") != "UserMaterial.SAT" or len(materials.get("sha256", "")) != 64
+            or set(materials.get("materials", {})) != {str(row["id"]) for row in model["materials"]}):
+        raise ValueError("Native elastic material verification is incomplete / 原生弹性材料核对证据不完整")
     geometry = read_native_geometry(jws_path, model)
     cases = {str(row["id"]): row for row in model["load_cases"]}
     native_labels = {"DL": "dead", "LL": "live"}
@@ -53,7 +66,15 @@ def complete_frame_results(model, result, jws_path):
                              for node, row in reaction["reactions"].items()}
         for node_id, support in geometry["supports"].items():
             case["displacements"][node_id] = dict.fromkeys(("ux", "uy", "uz", "rx", "ry", "rz"), 0.)
-        case["boundaryDisplacementSource"] = {node: {"kind": "prescribed-boundary", "evidence": support["source"]}
+            if support["restraints"][3:] == [False] * 3:
+                auxiliary = case.get("nativeConstraintDisplacements", {}).get(node_id, {})
+                if any(type(auxiliary.get(key)) not in (float, int) or not math.isfinite(auxiliary[key])
+                       for key in ("ux", "uy", "uz", "rx", "ry", "rz")):
+                    raise ValueError("Native pin six-DOF results are incomplete / 原生铰脚六自由度结果不完整")
+                if any(abs(auxiliary[key]) > support["source"]["translationToleranceM"] for key in ("ux", "uy", "uz")):
+                    raise ValueError("Native fixed-translation penalty residual exceeds frozen tolerance / 原生固定平移残差超过冻结容差")
+                case["displacements"][node_id] = dict(auxiliary)
+        case["boundaryDisplacementSource"] = {node: {"kind": "solver-direct-constraint-dofs" if support["restraints"][3:] == [False] * 3 else "prescribed-boundary", "evidence": support["source"]}
                                                for node, support in geometry["supports"].items()}
         if set(case["displacements"]) != set(geometry["nodes"]) or any(
             set(row) != {"ux", "uy", "uz", "rx", "ry", "rz"} for row in case["displacements"].values()):
@@ -75,8 +96,7 @@ def complete_frame_results(model, result, jws_path):
                              nativeGeometryVerification=geometry["source"], nodeCount=len(geometry["nodes"]))
     result["warnings"] = [warning for warning in result["warnings"] if "reactions are unavailable" not in warning]
     selected = next(iter(result["caseResults"].values()))
-    for field in ("displacements", "forces", "reactions", "memberStations", "nativeContext", "forceSemantics", "units"):
-        result[field] = selected[field]
+    _publish_selected(result, selected)
     return result
 
 
@@ -101,9 +121,7 @@ def select_result(model, result, selected_ids, combination_id=None):
     else:
         selected = cases[selected_ids[0]]
         selection = {"kind": "case", "id": selected_ids[0]}
-    for field in ("displacements", "forces", "reactions", "memberStations", "nativeContext", "forceSemantics", "units", "missingCapabilities", "capabilityStatus"):
-        if field in selected:
-            result[field] = selected[field]
+    _publish_selected(result, selected)
     magnitudes = {key: math.hypot(*(row[axis] for axis in ("ux", "uy", "uz"))) for key, row in selected["displacements"].items()}
     node = max(magnitudes, key=magnitudes.get)
     result["summary"].update(maxDisplacement=magnitudes[node], maxDisplacementNode=node, selection=selection)

@@ -105,10 +105,12 @@ def recover_support_reactions(*, nodes, members, native_members, supports, stati
     for node_id, support in supports.items():
         if node_id not in nodes or not incidence[node_id]:
             raise NativeReactionUnavailable(f"{node_id}: support has no verified incident member")
-        for key in ("restraints", "nativeRestraints"):
-            values = support.get(key)
-            if not isinstance(values, (list, tuple)) or len(values) != 6 or any(value is not True for value in values):
-                raise NativeReactionUnavailable(f"{node_id}: six fixed native and physical restraints must agree")
+        values = support.get("restraints")
+        if values not in ([True] * 6, [True] * 3 + [False] * 3) or support.get("nativeRestraints") != values:
+            raise NativeReactionUnavailable(f"{node_id}: calibrated native and physical restraints must agree")
+        if values[3:] == [False] * 3 and (support.get("source", {}).get("kind") != "calibrated-native-free-base-rotations"
+                or support["source"].get("rotationStiffnessKNmPerRad") != [0., 0., 0.]):
+            raise NativeReactionUnavailable(f"{node_id}: free native rotations lack exact constraint evidence")
         _evidence(support.get("source"), f"{node_id} restraints")
         external = _vector(nodal_loads.get(node_id), 6, f"{node_id} explicit support nodal load")
         components = [-value for value in external]
@@ -120,6 +122,8 @@ def recover_support_reactions(*, nodes, members, native_members, supports, stati
             for index, value in enumerate(actions[member_id][node_id]):
                 components[index] += value
         result[node_id] = dict(zip(("fx", "fy", "fz", "mx", "my", "mz"), components))
+        if values[3:] == [False] * 3 and any(abs(value) > 1e-5 for value in components[3:]):
+            raise NativeReactionUnavailable(f"{node_id}: native released moment exceeds frozen tolerance / 释放方向残余弯矩超过冻结容差")
         result[node_id]["R"] = math.hypot(*components[:3])
         result[node_id]["source"] = {
             "kind": "derived-node-equilibrium", "caseId": source_case,

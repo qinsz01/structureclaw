@@ -224,14 +224,23 @@ def bind_native_geometry(model, snapshot, artifacts):
     if len(constraint_bytes) != 16 + len(nodes) * 4:
         raise NativeGeometryUnavailable("Uncalibrated native MPC map layout")
     constraint = struct.unpack("<" + "i" * (len(constraint_bytes) // 4), constraint_bytes)
-    if constraint[:4] != (3, 20200113, len(nodes), 4) or any(constraint[4:]):
+    if constraint[:4] != (3, 20200113, len(nodes), 4) or any(value not in (0, 1) for value in constraint[4:]):
         raise NativeGeometryUnavailable("Native MPC mapping is not an unconstrained bare frame")
+    pinned_nodes = {by_point[_key(mesh_nodes[tag][:3])] for tag, value in enumerate(constraint[4:], 1) if value}
+    if pinned_nodes:
+        definition = artifacts.get("ConstraintNode.SAT", b"")
+        stiffness = artifacts.get("ConstraintNodeSK.SAT", b"")
+        if (len(definition) != 256 or struct.unpack_from("<4i", definition) != (3, 20200113, 2, 120)
+                or struct.unpack_from("<6d", definition, 88) != (1e14, 1e14, 1e14, 0., 0., 0.)
+                or len(stiffness) != 208 or struct.unpack_from("<4i", stiffness) != (3, 20200113, 2, 96)
+                or struct.unpack_from("<12d", stiffness, 16) != (1e14, 0., 1e14, 0., 0., 1e14, 0., 0., 0., 0., 0., 0.)):
+            raise NativeGeometryUnavailable("Native base rotations are not exactly free / 原生柱脚转动并未完全释放")
     expected_fixed = {node_id for node_id, point in nodes.items() if point[2] == 0}
     if set(nodes) - free != expected_fixed:
         raise NativeGeometryUnavailable("Native constrained nodes differ from physical base nodes")
     physical_nodes = {str(row["id"]): row for row in model["nodes"]}
     for node_id in nodes:
-        expected = [node_id in expected_fixed] * 6
+        expected = [True] * 3 + [False] * 3 if node_id in pinned_nodes else [node_id in expected_fixed] * 6
         if physical_nodes[node_id].get("restraints", [False] * 6) != expected:
             raise NativeGeometryUnavailable("Native fixed-base scope does not preserve requested restraints")
     case_rows = [line.split() for line in artifacts["WDISPGKNO.OUT"].decode("gb18030").splitlines() if line.strip()]
@@ -252,12 +261,22 @@ def bind_native_geometry(model, snapshot, artifacts):
         if any(len(header) != 64 for header in group[:-1]) or len(group[-1]) != len(nodes) * 12:
             raise NativeGeometryUnavailable("Native full-node displacement coverage differs")
         for tag in fixed_tags:
-            if any(struct.unpack_from("<3f", group[-1], (tag - 1) * 12)):
+            displacements_mm = struct.unpack_from("<3f", group[-1], (tag - 1) * 12)
+            node_id = by_point[_key(mesh_nodes[tag][:3])]
+            if (node_id in pinned_nodes and any(abs(value / 1000) > 1e-11 for value in displacements_mm)
+                    or node_id not in pinned_nodes and any(displacements_mm)):
                 raise NativeGeometryUnavailable("Native fixed base has nonzero translation")
     support_source = {**evidence, "kind": "calibrated-native-fixed-base", "nativeCases": case_names,
                       "schema": "pkpm-2025r2.5-fixed-base-dofs/v1", "rotationSource": "prescribed-boundary"}
     supports = {node_id: {"restraints": [True] * 6, "nativeRestraints": [True] * 6, "source": support_source}
                 for node_id in expected_fixed}
+    if pinned_nodes - expected_fixed:
+        raise NativeGeometryUnavailable("Native pin is not at a physical base node")
+    for node_id in pinned_nodes:
+        supports[node_id] = {"restraints": [True] * 3 + [False] * 3, "nativeRestraints": [True] * 3 + [False] * 3,
+            "source": {**support_source, "kind": "calibrated-native-free-base-rotations",
+                       "rotationSource": "solver-direct-constraint-dofs", "translationPenaltyKNPerM": 1e14,
+                       "rotationStiffnessKNmPerRad": [0., 0., 0.], "translationToleranceM": 1e-11}}
     return {"nodes": nodes, "members": members, "native_members": native_members, "supports": supports,
             "native_result_keys": native_result_keys, "source": evidence}
 
@@ -268,6 +287,10 @@ def read_native_geometry(jws_path, model, api=None):
     names = ["MESH.SAT", "GOUJIAN.OUT", "NODEINDEX.SAT", "ConstraintNodeNo.SAT", "DISP1.SAT", "WDISPGKNO.OUT"]
     names.extend(f"WNL{floor['floor']}.OUT" for floor in snapshot["floors"])
     artifacts = {name: (jws_path.parent / name).read_bytes() for name in names}
+    for name in ("ConstraintNode.SAT", "ConstraintNodeSK.SAT"):
+        path = jws_path.parent / name
+        if path.exists():
+            artifacts[name] = path.read_bytes()
     for row in artifacts["WDISPGKNO.OUT"].decode("gb18030").splitlines():
         if row.split() and row.split()[0] == "DISP1_ZDY.SAT":
             artifacts["DISP1_ZDY.SAT"] = (jws_path.parent / "DISP1_ZDY.SAT").read_bytes()

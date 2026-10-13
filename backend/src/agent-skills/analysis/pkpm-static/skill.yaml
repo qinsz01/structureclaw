@@ -5,8 +5,8 @@ name:
   zh: PKPM 静力分析
   en: PKPM Static Analysis
 description:
-  zh: 保留 PKPM 逐层拓扑编译、原生启动及结果读取；显式材料常数与截面属性尚未完成原生校准，正式 V2 分析由能力门禁阻止，不能据拓扑验收宣称物理等价。
-  en: Retains PKPM per-floor topology compilation, native launch, and result readers. Formal V2 analysis is gated pending native material/section-property calibration; topology acceptance does not establish physical equivalence.
+  zh: PKPM 线弹性杆系静力分析，逐层保持实际拓扑、显式材料与截面属性；已接通节点六自由度荷载、全跨竖向均布荷载、多工况与线性组合，以及有符号截面内力和节点六分量结果。执行前核对原生能力，验收范围以冻结算例记录为准。
+  en: PKPM linear elastic frame statics preserving per-floor topology and explicit material/section properties. Supports six-component nodal loads, full-span vertical uniform loads, multiple cases and linear combinations, signed section forces and six-component nodal results. Native capabilities are checked before execution; certification follows frozen case records.
 triggers:
   - PKPM 静力分析
   - PKPM 计算

@@ -1065,6 +1065,7 @@ def convert_v2_to_jws(
     elem_map: dict[str, dict[str, Any]] = {}
     floor_load_mapping: list[dict[str, Any]] = []
     native_load_mapping = {"cases": {}, "loads": []}
+    native_end_constraints = []
     compiled_load_ids = set()
     for story_index, story in enumerate(stories, 1):
         if story_index == 1:
@@ -1101,9 +1102,12 @@ def convert_v2_to_jws(
                     v2_to_pm[node_ids[0]] = floor_node_ids[node_ids[1]]
                     restraints = tuple(node_by_id[node_ids[0]].get("restraints") or [])
                     if restraints == (True, True, True, False, False, False):
-                        # API manual fData[4]: 1 both fixed, 2 top hinge,
-                        # 3 bottom hinge, 4 both hinged.
-                        member.SetSpecial(APIPyInterface.SpecialColumn.IDSp_Constrain_Support, 3.0)
+                        # Ordinary native hinge 3 releases bending only. The
+                        # exact six-DOF connection is compiled after PM3DSAT.
+                        from native_end_constraints import add_bottom_pin
+                        member.SetSpecial(APIPyInterface.SpecialColumn.IDSp_Constrain_Support, 1.0)
+                        constraint = add_bottom_pin(APIPyInterface, member.GetID())
+                        native_end_constraints.append({**constraint, "sourceNodeId": node_ids[0], "sourceElementId": element_id})
             else:
                 if role != "beam":
                     raise ValueError(f"PKPM beam '{element_id}' requires a beam section")
@@ -1181,6 +1185,7 @@ def convert_v2_to_jws(
         "floor_load_mapping": floor_load_mapping,
         "native_materials": native_materials,
         "native_load_mapping": native_load_mapping,
+        "native_end_constraints": native_end_constraints,
         "design_conditions": {
             "site_seismic": site_seismic,
             "wind": wind,
