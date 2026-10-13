@@ -1,0 +1,1394 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-13T12:40:11.576195+00:00",
+  "scope": "Compatibility of 17 planned YJK scenarios with the current toolchain; not authored Bench release, per-question certification, paid LLM accuracy, or permission to change paper references.",
+  "status": "scenario-compatible",
+  "sourcePlan": {
+    "path": "docs\\reproducibility\\scenario-plan-300-20261013.json",
+    "sha256": "2f7933976cfc433867f63d8fc262fd4399922f8e804049f7ffbfd47121b330d4"
+  },
+  "reviewMethod": "Read all original task and model fields; map each exact topology/load/property/output/edit requirement to production interfaces and native capability evidence. Do not substitute an assumed rectangular future section table.",
+  "scenarioCount": 17,
+  "scenarioCompatibleCount": 17,
+  "allTasksIndividuallyAccepted": false,
+  "authoringContract": "The final task property tables and image/DXF attachments are not yet authored. Correct full inputs using the reviewed capabilities require no further tool implementation; native precision limits remain reported separately.",
+  "repairsThisAudit": [
+    "Numeric custom sections compile via fixed native reference carrier without altering source properties; verified six elastic rigidities and axes, explicitly excluded from physical section tables/design checks.",
+    "Source materials with explicit steel/concrete category and complete numeric properties can use an audited elastic reference material; native grade never overwrites the source grade.",
+    "Unequal Asy/Asz six-effect calibration found native shear-plane index swap; corrected V2->GAsz and V3->GAsy, preserving all previous symmetric-section behavior.",
+    "Shared query tools support signed same-result node differences and explicit cross-result controlling comparisons (root-owned implementation)."
+  ],
+  "tests": {
+    "command": "python -m pytest backend/src/agent-skills/analysis/yjk-static/__tests__ backend/tests/test_native_frame_reference.py backend/tests/test_yjk_planned_frame_proxies.py -q",
+    "passed": 125,
+    "subtestsPassed": 14,
+    "converterJestPassed": 1
+  },
+  "nativeRuns": [
+    {
+      "role": "INT081",
+      "run": "yjk-frame-acceptance-20261013-201945-cc3bf4",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-201945-cc3bf4",
+      "entry": "adapter",
+      "status": "passed",
+      "passedChecks": 804,
+      "checkCount": 804,
+      "failures": [],
+      "independentReferenceFrozenBeforeNative": true,
+      "artifacts": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-201945-cc3bf4\\input.json",
+          "sha256": "6373ba6dc2752a876a671e5fec469b20627a90034eb58e19f0c70160118f3661"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-201945-cc3bf4\\reference.json",
+          "sha256": "0112765bd314cd3fb97150cb837d2ba7e46b1a96707166f00ac45a85c22976af"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-201945-cc3bf4\\acceptance.json",
+          "sha256": "76f539f10550a968f98756087891be4fc5aef377dc716b7e9104091f66f3812c"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-201945-cc3bf4\\result.json",
+          "sha256": "99cd64563be077f1941f91e7596fd278c8a2e18ad7dcf27ab44ac82cf3c7e682"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-201945-cc3bf4\\sc_INT-081_6e725fc5a18d\\native-physics-audit.json",
+          "sha256": "f712ba23d3f8d0de23323163f76d6577a20a301c25d32902b93988f8f560d2bc"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-201945-cc3bf4\\sc_INT-081_6e725fc5a18d\\native-physics-context.json",
+          "sha256": "98e7bf12cef98132d2fdbd3fbc5f646f1f56f62109519af7bd5971331e5b3160"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-201945-cc3bf4\\sc_INT-081_6e725fc5a18d\\fea.dat",
+          "sha256": "bb5051bb8bb1fbb8e83ccb79d5917e0e4d3fd7a61dc8a22e0865188c9e3ac28c"
+        }
+      ]
+    },
+    {
+      "role": "MM084",
+      "run": "yjk-frame-acceptance-20261013-201826-d3079f",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-201826-d3079f",
+      "entry": "adapter",
+      "status": "numerical_precision_limit",
+      "passedChecks": 514,
+      "checkCount": 516,
+      "failures": [
+        {
+          "case": "D",
+          "field": "displacements",
+          "object": "n0-1-1",
+          "component": "rz",
+          "expected": 7.774092308165636e-07,
+          "actual": 7.773983270453755e-07,
+          "passed": false
+        },
+        {
+          "case": "D",
+          "field": "displacements",
+          "object": "n2-1-1",
+          "component": "rz",
+          "expected": -7.774092308161461e-07,
+          "actual": -7.773983270453755e-07,
+          "passed": false
+        }
+      ],
+      "independentReferenceFrozenBeforeNative": true,
+      "artifacts": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-201826-d3079f\\input.json",
+          "sha256": "bb4ed94c20b6b9b11b1a909cd0f22c36b064fe97ce708b15484de92ccbdaca2a"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-201826-d3079f\\reference.json",
+          "sha256": "743662cb67035b2cfebff5ca3ea5f7951e234bdaaf65ea5b4bf094789ad26a2e"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-201826-d3079f\\acceptance.json",
+          "sha256": "14dadb6ec3c571d5662fd4574277b559c6c5cc54267e5a9335ab459e8398a0c9"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-201826-d3079f\\result.json",
+          "sha256": "f3d6daaec9a5c4f5188857d4a18e7e8bd63ac5ca702a21c92a844133bc18597e"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-201826-d3079f\\sc_MM-084_6208c566b158\\native-physics-audit.json",
+          "sha256": "e1156df95ed1be6a5ec1f9ee4dfacd3a9da6440080bc341f81cc2aa9e07fdb23"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-201826-d3079f\\sc_MM-084_6208c566b158\\native-physics-context.json",
+          "sha256": "5ae9b9803d75e07080c85c03985d5f71f286608785951a30e0cdb670cca0843f"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-201826-d3079f\\sc_MM-084_6208c566b158\\fea.dat",
+          "sha256": "6a72fb0400f66194c25aea91adf86af658562af26163db0c46c558324a612f0e"
+        }
+      ]
+    },
+    {
+      "role": "MM087",
+      "run": "yjk-frame-acceptance-20261013-203519-ef3b1b",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-203519-ef3b1b",
+      "entry": "api",
+      "status": "passed",
+      "passedChecks": 5856,
+      "checkCount": 5856,
+      "failures": [],
+      "independentReferenceFrozenBeforeNative": true,
+      "artifacts": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-203519-ef3b1b\\input.json",
+          "sha256": "8388c14f88384d6fb36cbfca8fa34c330cb9f03deb0a8cb55c13caa30c2c3dbe"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-203519-ef3b1b\\reference.json",
+          "sha256": "ae8e7a18acd00cfad34f48121369bc825e7acf5f3adc03def62cfc99cb7c7ab7"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-203519-ef3b1b\\acceptance.json",
+          "sha256": "608bb6585870f7757e89bdac1df614dbbc12b29e6c25836d2938c8caaae93ad1"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-203519-ef3b1b\\result.json",
+          "sha256": "840eb902d875bfb4b8e9eb81aa6ba4336d361a66f79a7d984d3639b18ff58857"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-203519-ef3b1b\\sc_MM-087-custom_e1bbb45c95bd\\native-physics-audit.json",
+          "sha256": "1ef21b3eb8ad82e96b0810b6a98a8c3e66ff49cd1f75397a26e46b4ffa4d7d20"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-203519-ef3b1b\\sc_MM-087-custom_e1bbb45c95bd\\native-physics-context.json",
+          "sha256": "f2c16ab425de5eb060dd00136a5a54988983aaf8b24a919e8537f395d3271dd3"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-203519-ef3b1b\\sc_MM-087-custom_e1bbb45c95bd\\fea.dat",
+          "sha256": "984808ebbf0c4c84bf8358e236c3cf4f8bd8d979c2f7897fa7e05c83827d838c"
+        }
+      ]
+    },
+    {
+      "role": "CUSTOM",
+      "run": "yjk-frame-acceptance-20261013-203103-84aa87",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-203103-84aa87",
+      "entry": "adapter",
+      "status": "passed",
+      "passedChecks": 864,
+      "checkCount": 864,
+      "failures": [],
+      "independentReferenceFrozenBeforeNative": true,
+      "artifacts": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-203103-84aa87\\input.json",
+          "sha256": "ac5d5e48798282061ba3890e2421e94817a9ff1768faeaafc44d59672d6fec78"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-203103-84aa87\\reference.json",
+          "sha256": "3bd26c42d44df03fc64b8b71e6275b7e8c432654fb522b4d8221133f2d1c7b9d"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-203103-84aa87\\acceptance.json",
+          "sha256": "0be3f8057eb004f67f15d1dab3a5a573c98275f199f5bf8d2fb31656c1d97de7"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-203103-84aa87\\result.json",
+          "sha256": "82cf91342a9c4e62a405e21639e69efd3473cae2b0f9a07f150d6e686a2a942b"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-203103-84aa87\\sc_numeric-custom_23cb7d87676a\\native-physics-audit.json",
+          "sha256": "08c21cb03abb6f95d54312ddaa37e32a5104f2d23b4ba4d10046a682d162c949"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-203103-84aa87\\sc_numeric-custom_23cb7d87676a\\native-physics-context.json",
+          "sha256": "8091e460d48fee3904ecccbcaacc8f91319ed390a8100632c65834e806685105"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-203103-84aa87\\sc_numeric-custom_23cb7d87676a\\fea.dat",
+          "sha256": "0e14813b9fb97a357656e824a9a3455c927a560b39f43fca6bf9260aa177d747"
+        }
+      ]
+    },
+    {
+      "role": "STD088",
+      "run": "yjk-frame-acceptance-20261013-180551-e4ea3a",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-180551-e4ea3a",
+      "entry": null,
+      "status": "passed",
+      "passedChecks": 1584,
+      "checkCount": 1584,
+      "failures": [],
+      "independentReferenceFrozenBeforeNative": true,
+      "artifacts": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-180551-e4ea3a\\input.json",
+          "sha256": "a8683d2bd18ba89677d15e8df2bdab2da5a16b7d9952eb041c8b1362d0d4d3f5"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-180551-e4ea3a\\reference.json",
+          "sha256": "12e3b7051ab21a11478f3193f5d690444edbe5bf205b979fdd9d73712966119a"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-180551-e4ea3a\\acceptance.json",
+          "sha256": "22c3c535a4055a019f876d1abaedd516b8312464a9001cf6ae7e0073935d9e06"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-180551-e4ea3a\\result.json",
+          "sha256": "83842903ccb98c524d279d69f5b291d31c4278fa98b85894932c33bade7fd006"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-180551-e4ea3a\\sc_STD-088_8cd6ce6a6899\\native-physics-audit.json",
+          "sha256": "556ed84bd431f83396d646d96327d591fa10ef35019d03dbb672c706299216c4"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-180551-e4ea3a\\sc_STD-088_8cd6ce6a6899\\native-physics-context.json",
+          "sha256": "c62be11ed40689c195d01a748ead8477b699df123121cf67a6eeedc2f4ac5761"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-180551-e4ea3a\\sc_STD-088_8cd6ce6a6899\\fea.dat",
+          "sha256": "39c04072616f03649020a55a0d984adcb42acca9b9e85bc66d6e1e6ce2499161"
+        }
+      ]
+    },
+    {
+      "role": "MM085",
+      "run": "yjk-frame-acceptance-20261013-182525-8feca1",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-182525-8feca1",
+      "entry": null,
+      "status": "passed",
+      "passedChecks": 828,
+      "checkCount": 828,
+      "failures": [],
+      "independentReferenceFrozenBeforeNative": true,
+      "artifacts": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-182525-8feca1\\input.json",
+          "sha256": "9121522ffb0607c854933fa1ac783aa5f2b5c000b198e81f28b5d6e424d5e849"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-182525-8feca1\\reference.json",
+          "sha256": "516e157f0bbcb6fc9351f7f63e4f463115ed49753a06e0629d5607bfc6be85d5"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-182525-8feca1\\acceptance.json",
+          "sha256": "e6a7dbb0ffc1bd7fc4ee853c81cb7394d8afa3c1fc22a744ebc3fc62cac83a66"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-182525-8feca1\\result.json",
+          "sha256": "f342c46369ed1892a815f611b0d041958d20794f820c9386c648e3c9a4708e6a"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-182525-8feca1\\sc_MM-085_93b2bbde4a61\\native-physics-audit.json",
+          "sha256": "0fd2d63fb682d3a60f57a384e41a302332e7f83c3946729ecd17be947a2b0385"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-182525-8feca1\\sc_MM-085_93b2bbde4a61\\native-physics-context.json",
+          "sha256": "6ab6503c0f607679ef003e67cd69d4fa4967b0b414d1fff6a131b67d51055744"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-frame-acceptance-20261013-182525-8feca1\\sc_MM-085_93b2bbde4a61\\fea.dat",
+          "sha256": "c0490bc6cbe2d46fbbad849e704f91237abef7acae1ef98ad1ca5f6256dbf39f"
+        }
+      ]
+    }
+  ],
+  "priorNativeEvidence": "docs/reproducibility/commercial-native-chain-20261013.json",
+  "nativeFiles": [
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-python\\python.exe",
+      "sha256": "3cce33d75d6fdae4e004d0bdf149320b3147482a9caf370079dcb9c191a1b260"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-python\\python310.dll",
+      "sha256": "14b06796f288bc6599e458fb23a944ab0c843e9868058f02a91d4606533505ed"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\yjks.exe",
+      "sha256": "63077b4678c454231189b2686d97d263f4320f29b93b25a78f9db18c5fd335bf"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\ClrYJKAPI.dll",
+      "sha256": "1ed9c0b4dfbaed1109f698b775836f1a668df3cf71d409ae70adb9c9beccbdc1"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\pyYJKSPlugin.dll",
+      "sha256": "87b5d8092315181db48de4419368246a13a21bbf1e052d82c335c8a3d3766178"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\yjkfea64.dll",
+      "sha256": "d9734c2f8b73e319d8ccfeabfa5916516ba23f37ed4c640f9759011e5e1076c7"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\yjkfea64-Cxx17.dll",
+      "sha256": "8044281ee6dc462aea9f871f7b89d2bb3fa462667449e229c1f5f775aaa4adba"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\yjkSPre.dll",
+      "sha256": "a41486d685e13f1f0b60a5409ef19578cc8949e80500e4ee1ff3c094e2b5efee"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\YjkDatabase.dll",
+      "sha256": "023b8a35c0df26a05147078c986945a29989db1716e22107436ec7d2bb6de30f"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\engines\\yjk8-sdk\\python310\\python310.dll",
+      "sha256": "14b06796f288bc6599e458fb23a944ab0c843e9868058f02a91d4606533505ed"
+    }
+  ],
+  "apiPreservation": [
+    {
+      "path": "G:\\qsz\\yjk-flow-api-integration-a4-20260923-01\\p50inline-1012\\code\\src\\yjk_flow\\sdk_ipc.py",
+      "sha256Before": "a463cacf3c0b38007f2e76237f975df67206f7cedf31b1e3460e3b4b320cf404",
+      "sha256After": "a463cacf3c0b38007f2e76237f975df67206f7cedf31b1e3460e3b4b320cf404",
+      "unchanged": true
+    },
+    {
+      "path": "G:\\qsz\\yjk-flow-api-integration-a4-20260923-01\\p50inline-1012\\code\\src\\yjk_flow\\native_worker.py",
+      "sha256Before": "56afc0ad6b36f36d572bdc79565da7d43003ac25b9128d36872a8f6d73ba7500",
+      "sha256After": "56afc0ad6b36f36d572bdc79565da7d43003ac25b9128d36872a8f6d73ba7500",
+      "unchanged": true
+    },
+    {
+      "path": "G:\\qsz\\yjk-flow-api-integration-a4-20260923-01\\p50inline-1012\\code\\src\\yjk_flow\\windows_job.py",
+      "sha256Before": "9cfb889669578a2d4c8846bc0eadee85ebec3b672e76d1956a9fd399a03848d0",
+      "sha256After": "9cfb889669578a2d4c8846bc0eadee85ebec3b672e76d1956a9fd399a03848d0",
+      "unchanged": true
+    },
+    {
+      "path": "G:\\qsz\\yjk-flow-api-integration-a4-20260923-01\\p50inline-1012\\code\\src\\yjk_flow\\resident_worker.py",
+      "sha256Before": "aed8249dedbab75e8fc7a1f9a42834018c5052766701fd199189cccffe65d1c9",
+      "sha256After": "aed8249dedbab75e8fc7a1f9a42834018c5052766701fd199189cccffe65d1c9",
+      "unchanged": true
+    },
+    {
+      "path": "G:\\qsz\\yjk-flow-api-integration-a4-20260923-01\\p50inline-1012-controller\\production-config.json",
+      "sha256Before": "cf7e5bee93ed9655c5b164a760075bd17340558ddce2b1f86bb75c82d5ba1750",
+      "sha256After": "cf7e5bee93ed9655c5b164a760075bd17340558ddce2b1f86bb75c82d5ba1750",
+      "unchanged": true
+    },
+    {
+      "path": "G:\\qsz\\yjk-flow-api-integration-a4-20260923-01\\p50inline-1012-controller\\controller.py",
+      "sha256Before": "2afe041e1684130b6a94025e979459f75714b7dda6dddd5e2d9adc78706b8a9e",
+      "sha256After": "2afe041e1684130b6a94025e979459f75714b7dda6dddd5e2d9adc78706b8a9e",
+      "unchanged": true
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "STD-081",
+      "plannedEngine": "YJK",
+      "scenarioCompatible": true,
+      "language": "中文",
+      "sourcePlan": {
+        "file": "docs/reproducibility/scenario-plan-300-20261013.json",
+        "taskId": "STD-081",
+        "modelId": "M-STD-081",
+        "reviewedFields": "Every original task field and every original model field (including spec/propertyKey/loadKey/boundaryKey/distinctness), not a keyword projection"
+      },
+      "requiredCapabilities": [
+        "3 floors; X 0/6, Y 0/5/10; floor elevations 3.3/6.6/9.9; all six base nodes fixed",
+        "X-beam global downward 25/50/25 kN/m by Y line; Y beams unloaded",
+        "All floor-node ux/uy/uz; matching-column signed X/Y story displacement differences; base-column end actions and reactions",
+        "No editing"
+      ],
+      "expressible": {
+        "status": "supported",
+        "basis": "Explicit V2 nodes/beam-column objects/properties/cases/combination identities; one writable source model"
+      },
+      "executable": {
+        "status": "supported",
+        "basis": "Production native YJK assembly, native settings/load/six-rigidity readback and signed station mapping; capability-combination evidence, not finished task certification"
+      },
+      "deliverable": {
+        "status": "supported",
+        "basis": "Run-bound node/reaction/memberStations queries, signed same-result node differences and explicit controlling-result comparisons; graphics consume the same result"
+      },
+      "editing": {
+        "status": "not-required",
+        "basis": "No editing"
+      },
+      "evidence": [
+        "backend/src/agent-skills/analysis/yjk-static/model_contract.py:17",
+        "backend/src/agent-skills/analysis/yjk-static/native_story_geometry.py:23",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_converter.py:490",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:174",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:305",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_settings.py:50",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_loads.py:35",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_stations.py:89",
+        "backend/src/agent-langgraph/model-tools.ts:98",
+        "backend/tests/test_native_frame_reference.py",
+        "backend/src/agent-skills/analysis/yjk-static/__tests__",
+        "native:yjk-frame-acceptance-20261013-203103-84aa87",
+        "native:yjk-frame-acceptance-20261013-201945-cc3bf4"
+      ],
+      "unresolvedToolGaps": [],
+      "authoringContract": {
+        "status": "Bench task inputs/attachments and independent scoring truth remain to be authored",
+        "completeProperties": "Provide category and E/G/nu/rho plus one validated section source: geometric/standard properties, or custom A/Iy/Iz/J/Asy/Asz in stated principal axes. Do not invent a rectangular section for the planning table.",
+        "executionControls": "Explicit fixed bases; selfweight/rigid_floor/rigid_offsets/construction_stage/p_delta false; linear static rod model.",
+        "observationIdentity": "Publish explicit node/member/position/component/unit/case or combination IDs. Connected physical beam segments share the actual middle joint; centroidal member axes must be supplied.",
+        "multimodal": null
+      },
+      "numericalPrecisionNotes": []
+    },
+    {
+      "id": "STD-084",
+      "plannedEngine": "YJK",
+      "scenarioCompatible": true,
+      "language": "英文",
+      "sourcePlan": {
+        "file": "docs/reproducibility/scenario-plan-300-20261013.json",
+        "taskId": "STD-084",
+        "modelId": "M-STD-084",
+        "reviewedFields": "Every original task field and every original model field (including spec/propertyKey/loadKey/boundaryKey/distinctness), not a keyword projection"
+      },
+      "requiredCapabilities": [
+        "Concrete 2x1-bay frame; X 0/6/12, Y 0/5; 2 floors at 3.6/7.2; six fixed bases",
+        "12/10 kN/m2 floor loads explicitly distributed only to X beams as 30/25 kN/m; no Y beam load",
+        "All six nodes per floor ux/uy/uz, column-line drift differences, six base reactions and column end actions",
+        "No editing"
+      ],
+      "expressible": {
+        "status": "supported",
+        "basis": "Explicit V2 nodes/beam-column objects/properties/cases/combination identities; one writable source model"
+      },
+      "executable": {
+        "status": "supported",
+        "basis": "Production native YJK assembly, native settings/load/six-rigidity readback and signed station mapping; capability-combination evidence, not finished task certification"
+      },
+      "deliverable": {
+        "status": "supported",
+        "basis": "Run-bound node/reaction/memberStations queries, signed same-result node differences and explicit controlling-result comparisons; graphics consume the same result"
+      },
+      "editing": {
+        "status": "not-required",
+        "basis": "No editing"
+      },
+      "evidence": [
+        "backend/src/agent-skills/analysis/yjk-static/model_contract.py:17",
+        "backend/src/agent-skills/analysis/yjk-static/native_story_geometry.py:23",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_converter.py:490",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:174",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:305",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_settings.py:50",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_loads.py:35",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_stations.py:89",
+        "backend/src/agent-langgraph/model-tools.ts:98",
+        "backend/tests/test_native_frame_reference.py",
+        "backend/src/agent-skills/analysis/yjk-static/__tests__",
+        "native:yjk-frame-acceptance-20261013-203103-84aa87",
+        "native:yjk-frame-acceptance-20261013-180721-b37ae1",
+        "native:yjk-frame-acceptance-20261013-180851-e2c24f"
+      ],
+      "unresolvedToolGaps": [],
+      "authoringContract": {
+        "status": "Bench task inputs/attachments and independent scoring truth remain to be authored",
+        "completeProperties": "Provide category and E/G/nu/rho plus one validated section source: geometric/standard properties, or custom A/Iy/Iz/J/Asy/Asz in stated principal axes. Do not invent a rectangular section for the planning table.",
+        "executionControls": "Explicit fixed bases; selfweight/rigid_floor/rigid_offsets/construction_stage/p_delta false; linear static rod model.",
+        "observationIdentity": "Publish explicit node/member/position/component/unit/case or combination IDs. Connected physical beam segments share the actual middle joint; centroidal member axes must be supplied.",
+        "multimodal": null
+      },
+      "numericalPrecisionNotes": []
+    },
+    {
+      "id": "STD-085",
+      "plannedEngine": "YJK",
+      "scenarioCompatible": true,
+      "language": "中文",
+      "sourcePlan": {
+        "file": "docs/reproducibility/scenario-plan-300-20261013.json",
+        "taskId": "STD-085",
+        "modelId": "M-STD-085",
+        "reviewedFields": "Every original task field and every original model field (including spec/propertyKey/loadKey/boundaryKey/distinctness), not a keyword projection"
+      },
+      "requiredCapabilities": [
+        "Two floors 3.4/4.1 m; X 0/4/11, Y 0/3/9; nine fixed bases; explicit connections",
+        "X beams 10 kN/m, Y beams 6 kN/m downward",
+        "All nine nodes per floor 3 displacements, corresponding-column drift differences, reactions, long/short beam end actions",
+        "No editing"
+      ],
+      "expressible": {
+        "status": "supported",
+        "basis": "Explicit V2 nodes/beam-column objects/properties/cases/combination identities; one writable source model"
+      },
+      "executable": {
+        "status": "supported",
+        "basis": "Production native YJK assembly, native settings/load/six-rigidity readback and signed station mapping; capability-combination evidence, not finished task certification"
+      },
+      "deliverable": {
+        "status": "supported",
+        "basis": "Run-bound node/reaction/memberStations queries, signed same-result node differences and explicit controlling-result comparisons; graphics consume the same result"
+      },
+      "editing": {
+        "status": "not-required",
+        "basis": "No editing"
+      },
+      "evidence": [
+        "backend/src/agent-skills/analysis/yjk-static/model_contract.py:17",
+        "backend/src/agent-skills/analysis/yjk-static/native_story_geometry.py:23",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_converter.py:490",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:174",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:305",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_settings.py:50",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_loads.py:35",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_stations.py:89",
+        "backend/src/agent-langgraph/model-tools.ts:98",
+        "backend/tests/test_native_frame_reference.py",
+        "backend/src/agent-skills/analysis/yjk-static/__tests__",
+        "native:yjk-frame-acceptance-20261013-203103-84aa87",
+        "native:yjk-frame-acceptance-20261013-182525-8feca1"
+      ],
+      "unresolvedToolGaps": [],
+      "authoringContract": {
+        "status": "Bench task inputs/attachments and independent scoring truth remain to be authored",
+        "completeProperties": "Provide category and E/G/nu/rho plus one validated section source: geometric/standard properties, or custom A/Iy/Iz/J/Asy/Asz in stated principal axes. Do not invent a rectangular section for the planning table.",
+        "executionControls": "Explicit fixed bases; selfweight/rigid_floor/rigid_offsets/construction_stage/p_delta false; linear static rod model.",
+        "observationIdentity": "Publish explicit node/member/position/component/unit/case or combination IDs. Connected physical beam segments share the actual middle joint; centroidal member axes must be supplied.",
+        "multimodal": null
+      },
+      "numericalPrecisionNotes": []
+    },
+    {
+      "id": "STD-087",
+      "plannedEngine": "YJK",
+      "scenarioCompatible": true,
+      "language": "中文",
+      "sourcePlan": {
+        "file": "docs/reproducibility/scenario-plan-300-20261013.json",
+        "taskId": "STD-087",
+        "modelId": "M-STD-087",
+        "reviewedFields": "Every original task field and every original model field (including spec/propertyKey/loadKey/boundaryKey/distinctness), not a keyword projection"
+      },
+      "requiredCapabilities": [
+        "Lower 2x2 cells; upper left 1x2 cells only; X6/Y5; floors3.6; actual fixed bases only",
+        "Every actual beam 10 kN/m downward; no loads or members in absent cells",
+        "Terrace/corner displacements, column drift differences, base reactions and transfer-joint actions",
+        "No editing"
+      ],
+      "expressible": {
+        "status": "supported",
+        "basis": "Explicit V2 nodes/beam-column objects/properties/cases/combination identities; one writable source model"
+      },
+      "executable": {
+        "status": "supported",
+        "basis": "Production native YJK assembly, native settings/load/six-rigidity readback and signed station mapping; capability-combination evidence, not finished task certification"
+      },
+      "deliverable": {
+        "status": "supported",
+        "basis": "Run-bound node/reaction/memberStations queries, signed same-result node differences and explicit controlling-result comparisons; graphics consume the same result"
+      },
+      "editing": {
+        "status": "not-required",
+        "basis": "No editing"
+      },
+      "evidence": [
+        "backend/src/agent-skills/analysis/yjk-static/model_contract.py:17",
+        "backend/src/agent-skills/analysis/yjk-static/native_story_geometry.py:23",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_converter.py:490",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:174",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:305",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_settings.py:50",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_loads.py:35",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_stations.py:89",
+        "backend/src/agent-langgraph/model-tools.ts:98",
+        "backend/tests/test_native_frame_reference.py",
+        "backend/src/agent-skills/analysis/yjk-static/__tests__",
+        "native:yjk-frame-acceptance-20261013-203103-84aa87",
+        "native:yjk-frame-acceptance-20261013-203519-ef3b1b"
+      ],
+      "unresolvedToolGaps": [],
+      "authoringContract": {
+        "status": "Bench task inputs/attachments and independent scoring truth remain to be authored",
+        "completeProperties": "Provide category and E/G/nu/rho plus one validated section source: geometric/standard properties, or custom A/Iy/Iz/J/Asy/Asz in stated principal axes. Do not invent a rectangular section for the planning table.",
+        "executionControls": "Explicit fixed bases; selfweight/rigid_floor/rigid_offsets/construction_stage/p_delta false; linear static rod model.",
+        "observationIdentity": "Publish explicit node/member/position/component/unit/case or combination IDs. Connected physical beam segments share the actual middle joint; centroidal member axes must be supplied.",
+        "multimodal": null
+      },
+      "numericalPrecisionNotes": []
+    },
+    {
+      "id": "STD-088",
+      "plannedEngine": "YJK",
+      "scenarioCompatible": true,
+      "language": "英文",
+      "sourcePlan": {
+        "file": "docs/reproducibility/scenario-plan-300-20261013.json",
+        "taskId": "STD-088",
+        "modelId": "M-STD-088",
+        "reviewedFields": "Every original task field and every original model field (including spec/propertyKey/loadKey/boundaryKey/distinctness), not a keyword projection"
+      },
+      "requiredCapabilities": [
+        "Steel 2x1 bays X0/6/12,Y0/5; 2 floors3.6; six fixed bases",
+        "D actual beams8; rear-right Wx10/20, Wy8/16; D,D+Wx,D+Wy separately",
+        "Corner ux/uy, signed X/Y column drift differences, six-component base reactions and controlling combination ID",
+        "Compare explicit result keys without dropping candidates or ties"
+      ],
+      "expressible": {
+        "status": "supported",
+        "basis": "Explicit V2 nodes/beam-column objects/properties/cases/combination identities; one writable source model"
+      },
+      "executable": {
+        "status": "supported",
+        "basis": "Production native YJK assembly, native settings/load/six-rigidity readback and signed station mapping; capability-combination evidence, not finished task certification"
+      },
+      "deliverable": {
+        "status": "supported",
+        "basis": "Run-bound node/reaction/memberStations queries, signed same-result node differences and explicit controlling-result comparisons; graphics consume the same result"
+      },
+      "editing": {
+        "status": "not-required",
+        "basis": "Compare explicit result keys without dropping candidates or ties"
+      },
+      "evidence": [
+        "backend/src/agent-skills/analysis/yjk-static/model_contract.py:17",
+        "backend/src/agent-skills/analysis/yjk-static/native_story_geometry.py:23",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_converter.py:490",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:174",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:305",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_settings.py:50",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_loads.py:35",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_stations.py:89",
+        "backend/src/agent-langgraph/model-tools.ts:98",
+        "backend/tests/test_native_frame_reference.py",
+        "backend/src/agent-skills/analysis/yjk-static/__tests__",
+        "native:yjk-frame-acceptance-20261013-203103-84aa87",
+        "native:yjk-frame-acceptance-20261013-180551-e4ea3a"
+      ],
+      "unresolvedToolGaps": [],
+      "authoringContract": {
+        "status": "Bench task inputs/attachments and independent scoring truth remain to be authored",
+        "completeProperties": "Provide category and E/G/nu/rho plus one validated section source: geometric/standard properties, or custom A/Iy/Iz/J/Asy/Asz in stated principal axes. Do not invent a rectangular section for the planning table.",
+        "executionControls": "Explicit fixed bases; selfweight/rigid_floor/rigid_offsets/construction_stage/p_delta false; linear static rod model.",
+        "observationIdentity": "Publish explicit node/member/position/component/unit/case or combination IDs. Connected physical beam segments share the actual middle joint; centroidal member axes must be supplied.",
+        "multimodal": null
+      },
+      "numericalPrecisionNotes": []
+    },
+    {
+      "id": "INT-081",
+      "plannedEngine": "YJK",
+      "scenarioCompatible": true,
+      "language": "中文",
+      "sourcePlan": {
+        "file": "docs/reproducibility/scenario-plan-300-20261013.json",
+        "taskId": "INT-081",
+        "modelId": "M-INT-081",
+        "reviewedFields": "Every original task field and every original model field (including spec/propertyKey/loadKey/boundaryKey/distinctness), not a keyword projection"
+      },
+      "requiredCapabilities": [
+        "Coordinate table 1 X bay/2 Y bays prevails after clarification; three floors; two actual1.2m roof cantilevers from rightmost beam-column nodes",
+        "25/50/25 X beam loads and two -5kN free-end loads; cantilevers are elastic members",
+        "Highest-rightmost beam-column node ux/uy/uz; first-left base column My and vertical reaction",
+        "T1 ambiguous text remains draft; T2 coordinates resolve; preserve directions and connectivity"
+      ],
+      "expressible": {
+        "status": "supported",
+        "basis": "Explicit V2 nodes/beam-column objects/properties/cases/combination identities; one writable source model"
+      },
+      "executable": {
+        "status": "supported",
+        "basis": "Production native YJK assembly, native settings/load/six-rigidity readback and signed station mapping; capability-combination evidence, not finished task certification"
+      },
+      "deliverable": {
+        "status": "supported",
+        "basis": "Run-bound node/reaction/memberStations queries, signed same-result node differences and explicit controlling-result comparisons; graphics consume the same result"
+      },
+      "editing": {
+        "status": "supported",
+        "basis": "T1 ambiguous text remains draft; T2 coordinates resolve; preserve directions and connectivity"
+      },
+      "evidence": [
+        "backend/src/agent-skills/analysis/yjk-static/model_contract.py:17",
+        "backend/src/agent-skills/analysis/yjk-static/native_story_geometry.py:23",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_converter.py:490",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:174",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:305",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_settings.py:50",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_loads.py:35",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_stations.py:89",
+        "backend/src/agent-langgraph/model-tools.ts:98",
+        "backend/tests/test_native_frame_reference.py",
+        "backend/src/agent-skills/analysis/yjk-static/__tests__",
+        "native:yjk-frame-acceptance-20261013-203103-84aa87",
+        "native:yjk-frame-acceptance-20261013-201945-cc3bf4"
+      ],
+      "unresolvedToolGaps": [],
+      "authoringContract": {
+        "status": "Bench task inputs/attachments and independent scoring truth remain to be authored",
+        "completeProperties": "Provide category and E/G/nu/rho plus one validated section source: geometric/standard properties, or custom A/Iy/Iz/J/Asy/Asz in stated principal axes. Do not invent a rectangular section for the planning table.",
+        "executionControls": "Explicit fixed bases; selfweight/rigid_floor/rigid_offsets/construction_stage/p_delta false; linear static rod model.",
+        "observationIdentity": "Publish explicit node/member/position/component/unit/case or combination IDs. Connected physical beam segments share the actual middle joint; centroidal member axes must be supplied.",
+        "multimodal": null
+      },
+      "numericalPrecisionNotes": []
+    },
+    {
+      "id": "INT-084",
+      "plannedEngine": "YJK",
+      "scenarioCompatible": true,
+      "language": "英文",
+      "sourcePlan": {
+        "file": "docs/reproducibility/scenario-plan-300-20261013.json",
+        "taskId": "INT-084",
+        "modelId": "M-INT-084",
+        "reviewedFields": "Every original task field and every original model field (including spec/propertyKey/loadKey/boundaryKey/distinctness), not a keyword projection"
+      },
+      "requiredCapabilities": [
+        "Concrete 2x1 bays, two3.6m floors; C30 initial full material record then C35 full record",
+        "30/25 X beam loads; roof(6,5,7.2) -30kN in separate D_eq case; preserve all cases",
+        "Highest-rightmost beam-column ux/uy/uz; first-left base My and vertical reaction, bound to each current model revision",
+        "Update material only; retain sections, loads, directions and cases"
+      ],
+      "expressible": {
+        "status": "supported",
+        "basis": "Explicit V2 nodes/beam-column objects/properties/cases/combination identities; one writable source model"
+      },
+      "executable": {
+        "status": "supported",
+        "basis": "Production native YJK assembly, native settings/load/six-rigidity readback and signed station mapping; capability-combination evidence, not finished task certification"
+      },
+      "deliverable": {
+        "status": "supported",
+        "basis": "Run-bound node/reaction/memberStations queries, signed same-result node differences and explicit controlling-result comparisons; graphics consume the same result"
+      },
+      "editing": {
+        "status": "supported",
+        "basis": "Update material only; retain sections, loads, directions and cases"
+      },
+      "evidence": [
+        "backend/src/agent-skills/analysis/yjk-static/model_contract.py:17",
+        "backend/src/agent-skills/analysis/yjk-static/native_story_geometry.py:23",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_converter.py:490",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:174",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:305",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_settings.py:50",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_loads.py:35",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_stations.py:89",
+        "backend/src/agent-langgraph/model-tools.ts:98",
+        "backend/tests/test_native_frame_reference.py",
+        "backend/src/agent-skills/analysis/yjk-static/__tests__",
+        "native:yjk-frame-acceptance-20261013-203103-84aa87",
+        "native:yjk-frame-acceptance-20261013-180721-b37ae1",
+        "native:yjk-frame-acceptance-20261013-180851-e2c24f"
+      ],
+      "unresolvedToolGaps": [],
+      "authoringContract": {
+        "status": "Bench task inputs/attachments and independent scoring truth remain to be authored",
+        "completeProperties": "Provide category and E/G/nu/rho plus one validated section source: geometric/standard properties, or custom A/Iy/Iz/J/Asy/Asz in stated principal axes. Do not invent a rectangular section for the planning table.",
+        "executionControls": "Explicit fixed bases; selfweight/rigid_floor/rigid_offsets/construction_stage/p_delta false; linear static rod model.",
+        "observationIdentity": "Publish explicit node/member/position/component/unit/case or combination IDs. Connected physical beam segments share the actual middle joint; centroidal member axes must be supplied.",
+        "multimodal": null
+      },
+      "numericalPrecisionNotes": []
+    },
+    {
+      "id": "INT-086",
+      "plannedEngine": "YJK",
+      "scenarioCompatible": true,
+      "language": "英文",
+      "sourcePlan": {
+        "file": "docs/reproducibility/scenario-plan-300-20261013.json",
+        "taskId": "INT-086",
+        "modelId": "M-INT-086",
+        "reviewedFields": "Every original task field and every original model field (including spec/propertyKey/loadKey/boundaryKey/distinctness), not a keyword projection"
+      },
+      "requiredCapabilities": [
+        "L-shape X0/6/12,Y0/5/10; missing NE cell and(12,10) corner; two3.6m floors; exact union of remaining3cells",
+        "All actual beams6 downward; roof(12,0,7.2) Fy+12",
+        "Highest-rightmost actual beam-column ux/uy/uz; first-left base My/Rz",
+        "Coordinate clarification must not fill missing cell or phantom joints"
+      ],
+      "expressible": {
+        "status": "supported",
+        "basis": "Explicit V2 nodes/beam-column objects/properties/cases/combination identities; one writable source model"
+      },
+      "executable": {
+        "status": "supported",
+        "basis": "Production native YJK assembly, native settings/load/six-rigidity readback and signed station mapping; capability-combination evidence, not finished task certification"
+      },
+      "deliverable": {
+        "status": "supported",
+        "basis": "Run-bound node/reaction/memberStations queries, signed same-result node differences and explicit controlling-result comparisons; graphics consume the same result"
+      },
+      "editing": {
+        "status": "supported",
+        "basis": "Coordinate clarification must not fill missing cell or phantom joints"
+      },
+      "evidence": [
+        "backend/src/agent-skills/analysis/yjk-static/model_contract.py:17",
+        "backend/src/agent-skills/analysis/yjk-static/native_story_geometry.py:23",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_converter.py:490",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:174",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:305",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_settings.py:50",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_loads.py:35",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_stations.py:89",
+        "backend/src/agent-langgraph/model-tools.ts:98",
+        "backend/tests/test_native_frame_reference.py",
+        "backend/src/agent-skills/analysis/yjk-static/__tests__",
+        "native:yjk-frame-acceptance-20261013-203103-84aa87",
+        "native:yjk-frame-acceptance-20261013-203519-ef3b1b"
+      ],
+      "unresolvedToolGaps": [],
+      "authoringContract": {
+        "status": "Bench task inputs/attachments and independent scoring truth remain to be authored",
+        "completeProperties": "Provide category and E/G/nu/rho plus one validated section source: geometric/standard properties, or custom A/Iy/Iz/J/Asy/Asz in stated principal axes. Do not invent a rectangular section for the planning table.",
+        "executionControls": "Explicit fixed bases; selfweight/rigid_floor/rigid_offsets/construction_stage/p_delta false; linear static rod model.",
+        "observationIdentity": "Publish explicit node/member/position/component/unit/case or combination IDs. Connected physical beam segments share the actual middle joint; centroidal member axes must be supplied.",
+        "multimodal": null
+      },
+      "numericalPrecisionNotes": []
+    },
+    {
+      "id": "INT-091",
+      "plannedEngine": "YJK",
+      "scenarioCompatible": true,
+      "language": "中文",
+      "sourcePlan": {
+        "file": "docs/reproducibility/scenario-plan-300-20261013.json",
+        "taskId": "INT-091",
+        "modelId": "M-INT-091",
+        "reviewedFields": "Every original task field and every original model field (including spec/propertyKey/loadKey/boundaryKey/distinctness), not a keyword projection"
+      },
+      "requiredCapabilities": [
+        "Full2x2 cells, two3.6m floors, exact actual members",
+        "D all beams6; L upper SW cell4edge members4; move to SE edges with shared edge once and obsolete edges removed; W(12,0,7.2) Fy-9 unchanged; D+L+W",
+        "Highest-rightmost beam-column ux/uy/uz; first-left base My/Rz; D+L+W selection",
+        "Atomic load-object edits preserve D/W and combination factors, old results become historical"
+      ],
+      "expressible": {
+        "status": "supported",
+        "basis": "Explicit V2 nodes/beam-column objects/properties/cases/combination identities; one writable source model"
+      },
+      "executable": {
+        "status": "supported",
+        "basis": "Production native YJK assembly, native settings/load/six-rigidity readback and signed station mapping; capability-combination evidence, not finished task certification"
+      },
+      "deliverable": {
+        "status": "supported",
+        "basis": "Run-bound node/reaction/memberStations queries, signed same-result node differences and explicit controlling-result comparisons; graphics consume the same result"
+      },
+      "editing": {
+        "status": "supported",
+        "basis": "Atomic load-object edits preserve D/W and combination factors, old results become historical"
+      },
+      "evidence": [
+        "backend/src/agent-skills/analysis/yjk-static/model_contract.py:17",
+        "backend/src/agent-skills/analysis/yjk-static/native_story_geometry.py:23",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_converter.py:490",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:174",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:305",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_settings.py:50",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_loads.py:35",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_stations.py:89",
+        "backend/src/agent-langgraph/model-tools.ts:98",
+        "backend/tests/test_native_frame_reference.py",
+        "backend/src/agent-skills/analysis/yjk-static/__tests__",
+        "native:yjk-frame-acceptance-20261013-203103-84aa87",
+        "native:yjk-frame-acceptance-20261013-203519-ef3b1b"
+      ],
+      "unresolvedToolGaps": [],
+      "authoringContract": {
+        "status": "Bench task inputs/attachments and independent scoring truth remain to be authored",
+        "completeProperties": "Provide category and E/G/nu/rho plus one validated section source: geometric/standard properties, or custom A/Iy/Iz/J/Asy/Asz in stated principal axes. Do not invent a rectangular section for the planning table.",
+        "executionControls": "Explicit fixed bases; selfweight/rigid_floor/rigid_offsets/construction_stage/p_delta false; linear static rod model.",
+        "observationIdentity": "Publish explicit node/member/position/component/unit/case or combination IDs. Connected physical beam segments share the actual middle joint; centroidal member axes must be supplied.",
+        "multimodal": null
+      },
+      "numericalPrecisionNotes": []
+    },
+    {
+      "id": "INT-092",
+      "plannedEngine": "YJK",
+      "scenarioCompatible": true,
+      "language": "英文",
+      "sourcePlan": {
+        "file": "docs/reproducibility/scenario-plan-300-20261013.json",
+        "taskId": "INT-092",
+        "modelId": "M-INT-092",
+        "reviewedFields": "Every original task field and every original model field (including spec/propertyKey/loadKey/boundaryKey/distinctness), not a keyword projection"
+      },
+      "requiredCapabilities": [
+        "One natural sloping roof: X0/6/12,Y0/5; front z6, rear z8 then9; NO front middle column; center roof joint retained with2front spans and Y beam",
+        "All actual roof beams global Z -5kN/m per actual sloping length, not projected plan length",
+        "Highest-rightmost beam-column ux/uy/uz; first-left base My/Rz",
+        "Move rear roof nodes8to9 and connected endpoints; preserve material, loads and absent column; no fictitious additional storey"
+      ],
+      "expressible": {
+        "status": "supported",
+        "basis": "Explicit V2 nodes/beam-column objects/properties/cases/combination identities; one writable source model"
+      },
+      "executable": {
+        "status": "supported",
+        "basis": "Production native YJK assembly, native settings/load/six-rigidity readback and signed station mapping; capability-combination evidence, not finished task certification"
+      },
+      "deliverable": {
+        "status": "supported",
+        "basis": "Run-bound node/reaction/memberStations queries, signed same-result node differences and explicit controlling-result comparisons; graphics consume the same result"
+      },
+      "editing": {
+        "status": "supported",
+        "basis": "Move rear roof nodes8to9 and connected endpoints; preserve material, loads and absent column; no fictitious additional storey"
+      },
+      "evidence": [
+        "backend/src/agent-skills/analysis/yjk-static/model_contract.py:17",
+        "backend/src/agent-skills/analysis/yjk-static/native_story_geometry.py:23",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_converter.py:490",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:174",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:305",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_settings.py:50",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_loads.py:35",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_stations.py:89",
+        "backend/src/agent-langgraph/model-tools.ts:98",
+        "backend/tests/test_native_frame_reference.py",
+        "backend/src/agent-skills/analysis/yjk-static/__tests__",
+        "native:yjk-frame-acceptance-20261013-203103-84aa87",
+        "native:yjk-frame-acceptance-20261013-184443-9798a3",
+        "native:yjk-frame-acceptance-20261013-184611-a23823",
+        "native:yjk-frame-acceptance-20261013-191731-2ed822"
+      ],
+      "unresolvedToolGaps": [],
+      "authoringContract": {
+        "status": "Bench task inputs/attachments and independent scoring truth remain to be authored",
+        "completeProperties": "Provide category and E/G/nu/rho plus one validated section source: geometric/standard properties, or custom A/Iy/Iz/J/Asy/Asz in stated principal axes. Do not invent a rectangular section for the planning table.",
+        "executionControls": "Explicit fixed bases; selfweight/rigid_floor/rigid_offsets/construction_stage/p_delta false; linear static rod model.",
+        "observationIdentity": "Publish explicit node/member/position/component/unit/case or combination IDs. Connected physical beam segments share the actual middle joint; centroidal member axes must be supplied.",
+        "multimodal": null
+      },
+      "numericalPrecisionNotes": []
+    },
+    {
+      "id": "MM-079",
+      "plannedEngine": "YJK",
+      "scenarioCompatible": true,
+      "language": "中文",
+      "sourcePlan": {
+        "file": "docs/reproducibility/scenario-plan-300-20261013.json",
+        "taskId": "MM-079",
+        "modelId": "M-MM-079",
+        "reviewedFields": "Every original task field and every original model field (including spec/propertyKey/loadKey/boundaryKey/distinctness), not a keyword projection"
+      },
+      "requiredCapabilities": [
+        "PNG floor/elevation views: base/first floor X0/6,Y0/5,z3.6; upper floor shifted+1mX at z7.2; ordinary inclined upper columns15.5deg",
+        "Both floors10kN/m2 explicitly distributed X-only; C1,B1X,B2Y attributes",
+        "Top(7,5,7.2) ux/uz; front-right base My; model/result graphics",
+        "Field-level view/region evidence; joint identity across views; no inclined-column to truss substitution"
+      ],
+      "expressible": {
+        "status": "supported",
+        "basis": "Explicit V2 nodes/beam-column objects/properties/cases/combination identities; one writable source model"
+      },
+      "executable": {
+        "status": "supported",
+        "basis": "Production native YJK assembly, native settings/load/six-rigidity readback and signed station mapping; capability-combination evidence, not finished task certification"
+      },
+      "deliverable": {
+        "status": "supported",
+        "basis": "Run-bound node/reaction/memberStations queries, signed same-result node differences and explicit controlling-result comparisons; graphics consume the same result"
+      },
+      "editing": {
+        "status": "not-required",
+        "basis": "Field-level view/region evidence; joint identity across views; no inclined-column to truss substitution"
+      },
+      "evidence": [
+        "backend/src/agent-skills/analysis/yjk-static/model_contract.py:17",
+        "backend/src/agent-skills/analysis/yjk-static/native_story_geometry.py:23",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_converter.py:490",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:174",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:305",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_settings.py:50",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_loads.py:35",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_stations.py:89",
+        "backend/src/agent-langgraph/model-tools.ts:98",
+        "backend/tests/test_native_frame_reference.py",
+        "backend/src/agent-skills/analysis/yjk-static/__tests__",
+        "native:yjk-frame-acceptance-20261013-203103-84aa87",
+        "native:yjk-frame-acceptance-20261013-182525-8feca1",
+        "backend/src/agent-langgraph/model-tools.ts:75",
+        "backend/src/agent-langgraph/system-prompt.ts:147"
+      ],
+      "unresolvedToolGaps": [],
+      "authoringContract": {
+        "status": "Bench task inputs/attachments and independent scoring truth remain to be authored",
+        "completeProperties": "Provide category and E/G/nu/rho plus one validated section source: geometric/standard properties, or custom A/Iy/Iz/J/Asy/Asz in stated principal axes. Do not invent a rectangular section for the planning table.",
+        "executionControls": "Explicit fixed bases; selfweight/rigid_floor/rigid_offsets/construction_stage/p_delta false; linear static rod model.",
+        "observationIdentity": "Publish explicit node/member/position/component/unit/case or combination IDs. Connected physical beam segments share the actual middle joint; centroidal member axes must be supplied.",
+        "multimodal": "Preserve view/page/entity/region/layer field evidence; errors remain clarification/recognition failures, not promised LLM accuracy."
+      },
+      "numericalPrecisionNotes": []
+    },
+    {
+      "id": "MM-080",
+      "plannedEngine": "YJK",
+      "scenarioCompatible": true,
+      "language": "英文",
+      "sourcePlan": {
+        "file": "docs/reproducibility/scenario-plan-300-20261013.json",
+        "taskId": "MM-080",
+        "modelId": "M-MM-080",
+        "reviewedFields": "Every original task field and every original model field (including spec/propertyKey/loadKey/boundaryKey/distinctness), not a keyword projection"
+      },
+      "requiredCapabilities": [
+        "PNG multiview 2x1bay two3.6m floors; only upper-middle Y beam absent",
+        "8kN/m2 X-only ->20kN/m; top(12,5,7.2) Fy20",
+        "Loaded tip uy and signed relative uy of absent-beam endpoint nodes; model/result graphics",
+        "Multiview evidence must preserve missing member, query existing endpoint nodes"
+      ],
+      "expressible": {
+        "status": "supported",
+        "basis": "Explicit V2 nodes/beam-column objects/properties/cases/combination identities; one writable source model"
+      },
+      "executable": {
+        "status": "supported",
+        "basis": "Production native YJK assembly, native settings/load/six-rigidity readback and signed station mapping; capability-combination evidence, not finished task certification"
+      },
+      "deliverable": {
+        "status": "supported",
+        "basis": "Run-bound node/reaction/memberStations queries, signed same-result node differences and explicit controlling-result comparisons; graphics consume the same result"
+      },
+      "editing": {
+        "status": "not-required",
+        "basis": "Multiview evidence must preserve missing member, query existing endpoint nodes"
+      },
+      "evidence": [
+        "backend/src/agent-skills/analysis/yjk-static/model_contract.py:17",
+        "backend/src/agent-skills/analysis/yjk-static/native_story_geometry.py:23",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_converter.py:490",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:174",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:305",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_settings.py:50",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_loads.py:35",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_stations.py:89",
+        "backend/src/agent-langgraph/model-tools.ts:98",
+        "backend/tests/test_native_frame_reference.py",
+        "backend/src/agent-skills/analysis/yjk-static/__tests__",
+        "native:yjk-frame-acceptance-20261013-203103-84aa87",
+        "native:yjk-frame-acceptance-20261013-203519-ef3b1b",
+        "backend/src/agent-langgraph/model-tools.ts:75",
+        "backend/src/agent-langgraph/system-prompt.ts:147"
+      ],
+      "unresolvedToolGaps": [],
+      "authoringContract": {
+        "status": "Bench task inputs/attachments and independent scoring truth remain to be authored",
+        "completeProperties": "Provide category and E/G/nu/rho plus one validated section source: geometric/standard properties, or custom A/Iy/Iz/J/Asy/Asz in stated principal axes. Do not invent a rectangular section for the planning table.",
+        "executionControls": "Explicit fixed bases; selfweight/rigid_floor/rigid_offsets/construction_stage/p_delta false; linear static rod model.",
+        "observationIdentity": "Publish explicit node/member/position/component/unit/case or combination IDs. Connected physical beam segments share the actual middle joint; centroidal member axes must be supplied.",
+        "multimodal": "Preserve view/page/entity/region/layer field evidence; errors remain clarification/recognition failures, not promised LLM accuracy."
+      },
+      "numericalPrecisionNotes": []
+    },
+    {
+      "id": "MM-082",
+      "plannedEngine": "YJK",
+      "scenarioCompatible": true,
+      "language": "英文",
+      "sourcePlan": {
+        "file": "docs/reproducibility/scenario-plan-300-20261013.json",
+        "taskId": "MM-082",
+        "modelId": "M-MM-082",
+        "reviewedFields": "Every original task field and every original model field (including spec/propertyKey/loadKey/boundaryKey/distinctness), not a keyword projection"
+      },
+      "requiredCapabilities": [
+        "DXF structural layers versus annotations; full2x2 floors except both segments of upper-middle Y beam line absent",
+        "First/upper10/8kN/m2 X-only with widths2.5/5/2.5; top corner Fx15,Fy10",
+        "Loadedcorner ux/uy, roofcenter uy; model/result graphics",
+        "DXF transformed entities/layer identity retain absent line; ignore explicit distraction layers"
+      ],
+      "expressible": {
+        "status": "supported",
+        "basis": "Explicit V2 nodes/beam-column objects/properties/cases/combination identities; one writable source model"
+      },
+      "executable": {
+        "status": "supported",
+        "basis": "Production native YJK assembly, native settings/load/six-rigidity readback and signed station mapping; capability-combination evidence, not finished task certification"
+      },
+      "deliverable": {
+        "status": "supported",
+        "basis": "Run-bound node/reaction/memberStations queries, signed same-result node differences and explicit controlling-result comparisons; graphics consume the same result"
+      },
+      "editing": {
+        "status": "not-required",
+        "basis": "DXF transformed entities/layer identity retain absent line; ignore explicit distraction layers"
+      },
+      "evidence": [
+        "backend/src/agent-skills/analysis/yjk-static/model_contract.py:17",
+        "backend/src/agent-skills/analysis/yjk-static/native_story_geometry.py:23",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_converter.py:490",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:174",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:305",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_settings.py:50",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_loads.py:35",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_stations.py:89",
+        "backend/src/agent-langgraph/model-tools.ts:98",
+        "backend/tests/test_native_frame_reference.py",
+        "backend/src/agent-skills/analysis/yjk-static/__tests__",
+        "native:yjk-frame-acceptance-20261013-203103-84aa87",
+        "native:yjk-frame-acceptance-20261013-203519-ef3b1b",
+        "backend/src/agent-langgraph/model-tools.ts:75",
+        "backend/src/agent-langgraph/system-prompt.ts:147",
+        "backend/src/agent-skills/data-input/cad/dxf_worker.py:13"
+      ],
+      "unresolvedToolGaps": [],
+      "authoringContract": {
+        "status": "Bench task inputs/attachments and independent scoring truth remain to be authored",
+        "completeProperties": "Provide category and E/G/nu/rho plus one validated section source: geometric/standard properties, or custom A/Iy/Iz/J/Asy/Asz in stated principal axes. Do not invent a rectangular section for the planning table.",
+        "executionControls": "Explicit fixed bases; selfweight/rigid_floor/rigid_offsets/construction_stage/p_delta false; linear static rod model.",
+        "observationIdentity": "Publish explicit node/member/position/component/unit/case or combination IDs. Connected physical beam segments share the actual middle joint; centroidal member axes must be supplied.",
+        "multimodal": "Preserve view/page/entity/region/layer field evidence; errors remain clarification/recognition failures, not promised LLM accuracy."
+      },
+      "numericalPrecisionNotes": []
+    },
+    {
+      "id": "MM-084",
+      "plannedEngine": "YJK",
+      "scenarioCompatible": true,
+      "language": "英文",
+      "sourcePlan": {
+        "file": "docs/reproducibility/scenario-plan-300-20261013.json",
+        "taskId": "MM-084",
+        "modelId": "M-MM-084",
+        "reviewedFields": "Every original task field and every original model field (including spec/propertyKey/loadKey/boundaryKey/distinctness), not a keyword projection"
+      },
+      "requiredCapabilities": [
+        "DXF X0/6/12,Y0/5,two3.6m floors; upper front middle column absent; 12m continuous transfer beam represented by two rigidly connected6m members sharing middle Y-beam node",
+        "Concrete C30; columns500square, ordinary300x600 beams, transfer400x800; floor12/10X-only ->30/25kN/m",
+        "Top middle uz and transfer midpoint My at actual shared joint; model/result graphics",
+        "Preserve middle observation/load-transfer node and absence of column; no artificial hinge"
+      ],
+      "expressible": {
+        "status": "supported",
+        "basis": "Explicit V2 nodes/beam-column objects/properties/cases/combination identities; one writable source model"
+      },
+      "executable": {
+        "status": "supported",
+        "basis": "Production native YJK assembly, native settings/load/six-rigidity readback and signed station mapping; capability-combination evidence, not finished task certification"
+      },
+      "deliverable": {
+        "status": "supported",
+        "basis": "Run-bound node/reaction/memberStations queries, signed same-result node differences and explicit controlling-result comparisons; graphics consume the same result"
+      },
+      "editing": {
+        "status": "not-required",
+        "basis": "Preserve middle observation/load-transfer node and absence of column; no artificial hinge"
+      },
+      "evidence": [
+        "backend/src/agent-skills/analysis/yjk-static/model_contract.py:17",
+        "backend/src/agent-skills/analysis/yjk-static/native_story_geometry.py:23",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_converter.py:490",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:174",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:305",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_settings.py:50",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_loads.py:35",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_stations.py:89",
+        "backend/src/agent-langgraph/model-tools.ts:98",
+        "backend/tests/test_native_frame_reference.py",
+        "backend/src/agent-skills/analysis/yjk-static/__tests__",
+        "native:yjk-frame-acceptance-20261013-203103-84aa87",
+        "native:yjk-frame-acceptance-20261013-201826-d3079f",
+        "backend/src/agent-langgraph/model-tools.ts:75",
+        "backend/src/agent-langgraph/system-prompt.ts:147",
+        "backend/src/agent-skills/data-input/cad/dxf_worker.py:13"
+      ],
+      "unresolvedToolGaps": [],
+      "authoringContract": {
+        "status": "Bench task inputs/attachments and independent scoring truth remain to be authored",
+        "completeProperties": "Provide category and E/G/nu/rho plus one validated section source: geometric/standard properties, or custom A/Iy/Iz/J/Asy/Asz in stated principal axes. Do not invent a rectangular section for the planning table.",
+        "executionControls": "Explicit fixed bases; selfweight/rigid_floor/rigid_offsets/construction_stage/p_delta false; linear static rod model.",
+        "observationIdentity": "Publish explicit node/member/position/component/unit/case or combination IDs. Connected physical beam segments share the actual middle joint; centroidal member axes must be supplied.",
+        "multimodal": "Preserve view/page/entity/region/layer field evidence; errors remain clarification/recognition failures, not promised LLM accuracy."
+      },
+      "numericalPrecisionNotes": [
+        "Two MM084 rz values differed by 1.09038e-11 rad against frozen abs1e-11/rel1e-5; complete native physics gate passed. Record native precision limit; original tolerance not changed and no output removed."
+      ]
+    },
+    {
+      "id": "MM-085",
+      "plannedEngine": "YJK",
+      "scenarioCompatible": true,
+      "language": "中文",
+      "sourcePlan": {
+        "file": "docs/reproducibility/scenario-plan-300-20261013.json",
+        "taskId": "MM-085",
+        "modelId": "M-MM-085",
+        "reviewedFields": "Every original task field and every original model field (including spec/propertyKey/loadKey/boundaryKey/distinctness), not a keyword projection"
+      },
+      "requiredCapabilities": [
+        "PNG nonuniform X0/4/11,Y0/3/9; floors3.4/7.5; upper(0,0) moves to(1,1); ordinary19.03deg column and nonorthogonal neighboring beams",
+        "All actual beams8kN/m downward; moved corner Fx10",
+        "Movedcorner ux/uz and corresponding base My; model/result graphics",
+        "Multiview identity; actual inclined-column fixed6DOF frame classification and oblique beam axes"
+      ],
+      "expressible": {
+        "status": "supported",
+        "basis": "Explicit V2 nodes/beam-column objects/properties/cases/combination identities; one writable source model"
+      },
+      "executable": {
+        "status": "supported",
+        "basis": "Production native YJK assembly, native settings/load/six-rigidity readback and signed station mapping; capability-combination evidence, not finished task certification"
+      },
+      "deliverable": {
+        "status": "supported",
+        "basis": "Run-bound node/reaction/memberStations queries, signed same-result node differences and explicit controlling-result comparisons; graphics consume the same result"
+      },
+      "editing": {
+        "status": "not-required",
+        "basis": "Multiview identity; actual inclined-column fixed6DOF frame classification and oblique beam axes"
+      },
+      "evidence": [
+        "backend/src/agent-skills/analysis/yjk-static/model_contract.py:17",
+        "backend/src/agent-skills/analysis/yjk-static/native_story_geometry.py:23",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_converter.py:490",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:174",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:305",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_settings.py:50",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_loads.py:35",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_stations.py:89",
+        "backend/src/agent-langgraph/model-tools.ts:98",
+        "backend/tests/test_native_frame_reference.py",
+        "backend/src/agent-skills/analysis/yjk-static/__tests__",
+        "native:yjk-frame-acceptance-20261013-203103-84aa87",
+        "native:yjk-frame-acceptance-20261013-182525-8feca1",
+        "backend/src/agent-langgraph/model-tools.ts:75",
+        "backend/src/agent-langgraph/system-prompt.ts:147"
+      ],
+      "unresolvedToolGaps": [],
+      "authoringContract": {
+        "status": "Bench task inputs/attachments and independent scoring truth remain to be authored",
+        "completeProperties": "Provide category and E/G/nu/rho plus one validated section source: geometric/standard properties, or custom A/Iy/Iz/J/Asy/Asz in stated principal axes. Do not invent a rectangular section for the planning table.",
+        "executionControls": "Explicit fixed bases; selfweight/rigid_floor/rigid_offsets/construction_stage/p_delta false; linear static rod model.",
+        "observationIdentity": "Publish explicit node/member/position/component/unit/case or combination IDs. Connected physical beam segments share the actual middle joint; centroidal member axes must be supplied.",
+        "multimodal": "Preserve view/page/entity/region/layer field evidence; errors remain clarification/recognition failures, not promised LLM accuracy."
+      },
+      "numericalPrecisionNotes": []
+    },
+    {
+      "id": "MM-087",
+      "plannedEngine": "YJK",
+      "scenarioCompatible": true,
+      "language": "中文",
+      "sourcePlan": {
+        "file": "docs/reproducibility/scenario-plan-300-20261013.json",
+        "taskId": "MM-087",
+        "modelId": "M-MM-087",
+        "reviewedFields": "Every original task field and every original model field (including spec/propertyKey/loadKey/boundaryKey/distinctness), not a keyword projection"
+      },
+      "requiredCapabilities": [
+        "PNG lower full2x2; upper only SW and NE cells at z7.2; one shared center node/column; actual wing edges only",
+        "First-floor actual beams10; upper SW8 and NE6; common edge/node never duplicated",
+        "Outer-wing uz and shared center ux; model/result graphics",
+        "Preserve one center node, no rigid diaphragm, no bridge across missing cells"
+      ],
+      "expressible": {
+        "status": "supported",
+        "basis": "Explicit V2 nodes/beam-column objects/properties/cases/combination identities; one writable source model"
+      },
+      "executable": {
+        "status": "supported",
+        "basis": "Production native YJK assembly, native settings/load/six-rigidity readback and signed station mapping; capability-combination evidence, not finished task certification"
+      },
+      "deliverable": {
+        "status": "supported",
+        "basis": "Run-bound node/reaction/memberStations queries, signed same-result node differences and explicit controlling-result comparisons; graphics consume the same result"
+      },
+      "editing": {
+        "status": "not-required",
+        "basis": "Preserve one center node, no rigid diaphragm, no bridge across missing cells"
+      },
+      "evidence": [
+        "backend/src/agent-skills/analysis/yjk-static/model_contract.py:17",
+        "backend/src/agent-skills/analysis/yjk-static/native_story_geometry.py:23",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_converter.py:490",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:174",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:305",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_settings.py:50",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_loads.py:35",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_stations.py:89",
+        "backend/src/agent-langgraph/model-tools.ts:98",
+        "backend/tests/test_native_frame_reference.py",
+        "backend/src/agent-skills/analysis/yjk-static/__tests__",
+        "native:yjk-frame-acceptance-20261013-203103-84aa87",
+        "native:yjk-frame-acceptance-20261013-203519-ef3b1b",
+        "backend/src/agent-langgraph/model-tools.ts:75",
+        "backend/src/agent-langgraph/system-prompt.ts:147"
+      ],
+      "unresolvedToolGaps": [],
+      "authoringContract": {
+        "status": "Bench task inputs/attachments and independent scoring truth remain to be authored",
+        "completeProperties": "Provide category and E/G/nu/rho plus one validated section source: geometric/standard properties, or custom A/Iy/Iz/J/Asy/Asz in stated principal axes. Do not invent a rectangular section for the planning table.",
+        "executionControls": "Explicit fixed bases; selfweight/rigid_floor/rigid_offsets/construction_stage/p_delta false; linear static rod model.",
+        "observationIdentity": "Publish explicit node/member/position/component/unit/case or combination IDs. Connected physical beam segments share the actual middle joint; centroidal member axes must be supplied.",
+        "multimodal": "Preserve view/page/entity/region/layer field evidence; errors remain clarification/recognition failures, not promised LLM accuracy."
+      },
+      "numericalPrecisionNotes": []
+    },
+    {
+      "id": "MM-091",
+      "plannedEngine": "YJK",
+      "scenarioCompatible": true,
+      "language": "中文",
+      "sourcePlan": {
+        "file": "docs/reproducibility/scenario-plan-300-20261013.json",
+        "taskId": "MM-091",
+        "modelId": "M-MM-091",
+        "reviewedFields": "Every original task field and every original model field (including spec/propertyKey/loadKey/boundaryKey/distinctness), not a keyword projection"
+      },
+      "requiredCapabilities": [
+        "DXF full2x2 two3.6m floors; upper-middle Y segment y0to5 absent",
+        "D every actual beam8; L upper NE4edges6 once; separate D and D+L",
+        "Upper(12,10) and(6,5) uz per result selection; model/result graphics",
+        "Keep structural/distraction layers separate; actual topology controls tributary members"
+      ],
+      "expressible": {
+        "status": "supported",
+        "basis": "Explicit V2 nodes/beam-column objects/properties/cases/combination identities; one writable source model"
+      },
+      "executable": {
+        "status": "supported",
+        "basis": "Production native YJK assembly, native settings/load/six-rigidity readback and signed station mapping; capability-combination evidence, not finished task certification"
+      },
+      "deliverable": {
+        "status": "supported",
+        "basis": "Run-bound node/reaction/memberStations queries, signed same-result node differences and explicit controlling-result comparisons; graphics consume the same result"
+      },
+      "editing": {
+        "status": "not-required",
+        "basis": "Keep structural/distraction layers separate; actual topology controls tributary members"
+      },
+      "evidence": [
+        "backend/src/agent-skills/analysis/yjk-static/model_contract.py:17",
+        "backend/src/agent-skills/analysis/yjk-static/native_story_geometry.py:23",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_converter.py:490",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:174",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_materials.py:305",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_settings.py:50",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_loads.py:35",
+        "backend/src/agent-skills/analysis/yjk-static/yjk_native_stations.py:89",
+        "backend/src/agent-langgraph/model-tools.ts:98",
+        "backend/tests/test_native_frame_reference.py",
+        "backend/src/agent-skills/analysis/yjk-static/__tests__",
+        "native:yjk-frame-acceptance-20261013-203103-84aa87",
+        "native:yjk-frame-acceptance-20261013-203519-ef3b1b",
+        "backend/src/agent-langgraph/model-tools.ts:75",
+        "backend/src/agent-langgraph/system-prompt.ts:147",
+        "backend/src/agent-skills/data-input/cad/dxf_worker.py:13"
+      ],
+      "unresolvedToolGaps": [],
+      "authoringContract": {
+        "status": "Bench task inputs/attachments and independent scoring truth remain to be authored",
+        "completeProperties": "Provide category and E/G/nu/rho plus one validated section source: geometric/standard properties, or custom A/Iy/Iz/J/Asy/Asz in stated principal axes. Do not invent a rectangular section for the planning table.",
+        "executionControls": "Explicit fixed bases; selfweight/rigid_floor/rigid_offsets/construction_stage/p_delta false; linear static rod model.",
+        "observationIdentity": "Publish explicit node/member/position/component/unit/case or combination IDs. Connected physical beam segments share the actual middle joint; centroidal member axes must be supplied.",
+        "multimodal": "Preserve view/page/entity/region/layer field evidence; errors remain clarification/recognition failures, not promised LLM accuracy."
+      },
+      "numericalPrecisionNotes": []
+    }
+  ],
+  "nativeCalibrationPolicy": {
+    "unchangedTolerances": true,
+    "failedUnequalShearRunRetained": "G:/StructureClaw-All/sclaw_data/work/yjk-frame-acceptance-20261013-202927-5c8016",
+    "failureCause": "Native shear-plane indices V2/V3 had been interpreted as same-index transverse directions. Unequal Asy/Asz exposed exactly eight wrong translations; native axes, bending, torsion, axial force and remaining values agreed. Fixed actual native rigidity mapping and reran the same frozen input/reference tolerances.",
+    "beamColumnFullFrameAndCombinationRun": "yjk-frame-acceptance-20261013-203519-ef3b1b",
+    "fullFrameEntry": "api.analyze",
+    "fullFrameChecks": 5856
+  }
+}
