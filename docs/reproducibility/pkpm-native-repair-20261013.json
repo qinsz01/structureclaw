@@ -1,0 +1,1016 @@
+{
+  "date": "2026-10-13",
+  "scope": "PKPM native load encoding and owned-process lifecycle repair; formal V2 gates remain closed",
+  "productionCapabilityAccepted": false,
+  "originalDisplacementTolerance": {
+    "relative": 1e-05,
+    "absoluteM": 1e-11
+  },
+  "tests": {
+    "pkpmPython": 11,
+    "pkpmFrameFlowJest": 20
+  },
+  "remaining": [
+    "one-time-loading native foundation-interface hang (60102)",
+    "G/nu/density/self-weight material calibration",
+    "full nodal component signs and D/L/W custom cases",
+    "native rotations/reactions/station coordinates/local axes",
+    "production V2 integration after complete required acceptance"
+  ],
+  "runs": [
+    {
+      "run": "acceptance-commercial-pkpm-20261013-161519-239251ba",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\acceptance-commercial-pkpm-20261013-161519-239251ba",
+      "fileSha256": {
+        "acceptance.json": "9bd02f5a0a68ee5ff467c5b8534b9bdeb4806c2993214e2f9a361ab80e2846b2",
+        "WMASS.OUT": "9d677d0a07fe23bdd50af9cc01f7d9da0930e7fdf579a46f43c0f6b7a04d3fde"
+      },
+      "acceptance": {
+        "engine": "pkpm",
+        "runDirectory": "G:\\StructureClaw-All\\sclaw_data\\work\\acceptance-commercial-pkpm-20261013-161519-239251ba",
+        "steps": [
+          {
+            "name": "native-model-readback",
+            "status": "passed",
+            "counts": [
+              {
+                "floor": 1,
+                "nodes": 6,
+                "columns": 6,
+                "beams": 6
+              },
+              {
+                "floor": 2,
+                "nodes": 4,
+                "columns": 4,
+                "beams": 4
+              }
+            ],
+            "mappedElements": 20
+          },
+          {
+            "name": "native-floor-elevation-member-grade-and-section-geometry",
+            "status": "passed"
+          },
+          {
+            "name": "native-solver-results",
+            "status": "passed",
+            "floors": 2,
+            "beams": 10,
+            "columns": 10,
+            "cases": [
+              "DL",
+              "EX",
+              "EXM",
+              "EXP",
+              "EY",
+              "EYM",
+              "EYP",
+              "LL",
+              "LL2",
+              "LL3",
+              "LX",
+              "LY",
+              "MX",
+              "MY",
+              "PX",
+              "PY",
+              "WX",
+              "WY"
+            ]
+          }
+        ],
+        "status": "passed",
+        "scope": "native-grade-geometry-compilation-and-result-coverage-only",
+        "formalV2AnalysisAccepted": false
+      },
+      "effectiveLoadingEvidence": [
+        "竖向荷载计算信息:                     按模拟施工1加荷计算"
+      ]
+    },
+    {
+      "run": "pkpm-axial-20261013-161617-2a3615a1",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-axial-20261013-161617-2a3615a1",
+      "fileSha256": {
+        "acceptance.json": "cab730970f3e80d9c8cb325adc80e604fd90c09ae33467760bb0a835c6d0e9d4",
+        "reference.json": "32aca26a3481c5e8f3a54f10ca14e3fb1c08bedc960b3b565e99a36ae6ee5863",
+        "readback-before.json": "15e8113332e591f25cde75c86ce12f4713792f92030386a285e96e00e7324030",
+        "WMASS.OUT": "5f9283327aa178efbec0581c3484c58ad2ea3e894f119294dd564f424d84f483"
+      },
+      "acceptance": {
+        "status": "failed",
+        "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-axial-20261013-161617-2a3615a1",
+        "referenceSha256": "32aca26a3481c5e8f3a54f10ca14e3fb1c08bedc960b3b565e99a36ae6ee5863",
+        "numericalCapabilityAccepted": false,
+        "steps": [
+          {
+            "name": "native-settings-load-readback",
+            "status": "passed"
+          }
+        ],
+        "error": "RuntimeError: PKPM analysis timed out after 100s"
+      },
+      "reference": {
+        "method": "four equal prismatic columns under equal live nodal compression; u=-PL/EA",
+        "E_MPa": 30000,
+        "length_m": 3,
+        "section_m": [
+          0.6,
+          0.6
+        ],
+        "P_kN": 1,
+        "displacement_m": -2.7777777777777776e-07,
+        "axial_magnitude_kN": 1,
+        "relative_tolerance": 1e-05,
+        "absolute_tolerance_m": 1e-11,
+        "scope": "axial elastic modulus, positive vertical load convention and LL membership only; not G, nu, density or arbitrary frame equivalence"
+      },
+      "effectiveLoadingEvidence": [
+        "竖向荷载计算信息:                     否"
+      ]
+    },
+    {
+      "run": "pkpm-axial-20261013-162132-8a7155ff",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-axial-20261013-162132-8a7155ff",
+      "fileSha256": {
+        "acceptance.json": "629753a1b62672af3e965d932f3f09e450ca9624075b2b5189cb95d917097164",
+        "reference.json": "8392db3c0aa5fea461e2626d9f6106388880a5dc17f5fc4c9cb0ae135b78d7dc",
+        "readback-before.json": "15e8113332e591f25cde75c86ce12f4713792f92030386a285e96e00e7324030",
+        "WMASS.OUT": "ecf35820f6a00f6e217a7d259b4d39e1bca9b15eeedef00e6bfa21aa32074220",
+        "cycle-stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "cycle-stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "acceptance": {
+        "status": "failed",
+        "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-axial-20261013-162132-8a7155ff",
+        "referenceSha256": "8392db3c0aa5fea461e2626d9f6106388880a5dc17f5fc4c9cb0ae135b78d7dc",
+        "numericalCapabilityAccepted": false,
+        "steps": [
+          {
+            "name": "native-settings-load-readback",
+            "status": "passed"
+          }
+        ],
+        "error": "RuntimeError: PKPM analysis timed out after 60s; its process tree was stopped / PKPM 计算超时，已终止本次进程树"
+      },
+      "reference": {
+        "method": "two stories of four identical columns; equal P on every floor; u1=-2PL/EA and u2=-3PL/EA",
+        "E_MPa": 30000,
+        "length_m": 3,
+        "section_m": [
+          0.6,
+          0.6
+        ],
+        "P_kN": 1,
+        "displacement_m": -2.7777777777777776e-07,
+        "axial_magnitude_kN": 1,
+        "relative_tolerance": 1e-05,
+        "absolute_tolerance_m": 1e-11,
+        "scope": "axial elastic modulus, positive vertical load convention and LL membership only; not G, nu, density or arbitrary frame equivalence",
+        "displacement_by_floor_m": {
+          "1": -5.555555555555555e-07,
+          "2": -8.333333333333333e-07
+        },
+        "axial_by_floor_kN": {
+          "1": 2,
+          "2": 1
+        }
+      },
+      "effectiveLoadingEvidence": [
+        "竖向荷载计算信息:                     否"
+      ]
+    },
+    {
+      "run": "pkpm-axial-20261013-162311-0f6700a5",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-axial-20261013-162311-0f6700a5",
+      "fileSha256": {
+        "acceptance.json": "0b8cdcecbc8d497ec2d7d7f6102658ae66bc09926019f9a2d97a49daa1dc3396",
+        "reference.json": "32aca26a3481c5e8f3a54f10ca14e3fb1c08bedc960b3b565e99a36ae6ee5863",
+        "readback-before.json": "e3bd0a95bfb4315cab825a7a1c99ac047d29f07acbf5a32e72377b7491c8200f",
+        "observed.json": "e58dd81f2af33ecc79b584f221432e48cb1679f677a8b16fe2049ab6465614a8",
+        "WMASS.OUT": "850fe2d29385f135de44c6da06062d8b734cc5d54e4aa50f6fb2fec30e98de57",
+        "cycle-stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "cycle-stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "acceptance": {
+        "status": "failed",
+        "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-axial-20261013-162311-0f6700a5",
+        "referenceSha256": "32aca26a3481c5e8f3a54f10ca14e3fb1c08bedc960b3b565e99a36ae6ee5863",
+        "numericalCapabilityAccepted": false,
+        "steps": [
+          {
+            "name": "native-settings-load-readback",
+            "status": "passed"
+          }
+        ],
+        "error": "RuntimeError: Native axial displacement 8.695528919133722e-08 differs from frozen -2.7777777777777776e-07"
+      },
+      "reference": {
+        "method": "four equal prismatic columns under equal live nodal compression; u=-PL/EA",
+        "E_MPa": 30000,
+        "length_m": 3,
+        "section_m": [
+          0.6,
+          0.6
+        ],
+        "P_kN": 1,
+        "displacement_m": -2.7777777777777776e-07,
+        "axial_magnitude_kN": 1,
+        "relative_tolerance": 1e-05,
+        "absolute_tolerance_m": 1e-11,
+        "scope": "axial elastic modulus, positive vertical load convention and LL membership only; not G, nu, density or arbitrary frame equivalence"
+      },
+      "LLTranslations": [
+        {
+          "node": [
+            1008,
+            1
+          ],
+          "ux": 5.193360721023055e-06,
+          "uy": -6.439431810729496e-23,
+          "uz": 8.695528919133722e-08
+        },
+        {
+          "node": [
+            1011,
+            1
+          ],
+          "ux": 5.193360721023055e-06,
+          "uy": -6.439431810729496e-23,
+          "uz": 8.695528919133722e-08
+        },
+        {
+          "node": [
+            1009,
+            1
+          ],
+          "ux": 5.193360721023055e-06,
+          "uy": 6.420752846671311e-23,
+          "uz": -8.695528919133722e-08
+        },
+        {
+          "node": [
+            1010,
+            1
+          ],
+          "ux": 5.193360721023055e-06,
+          "uy": 6.420752846671311e-23,
+          "uz": -8.695528919133722e-08
+        }
+      ],
+      "nativeStationRecordCount": 792,
+      "effectiveLoadingEvidence": [
+        "竖向荷载计算信息:                     按模拟施工1加荷计算"
+      ]
+    },
+    {
+      "run": "pkpm-axial-20261013-162451-9957bb0f",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-axial-20261013-162451-9957bb0f",
+      "fileSha256": {
+        "acceptance.json": "7f5330f446617636a0b9683d971f3c472e6ce41356ffb5768755502341f826b9",
+        "reference.json": "32aca26a3481c5e8f3a54f10ca14e3fb1c08bedc960b3b565e99a36ae6ee5863",
+        "readback-before.json": "66f4361485e9f5a98ece67fb773b1344850489af85c833d2f639899ba0f2fb92",
+        "observed.json": "415e425e129c2fef72153f840e63d955ebff793539f88128df25204e0844eb2d",
+        "WMASS.OUT": "c938b85d99d699c0fcd6e57a0c39b30f11d77708820b2a29b05a55fc2b4ddee5",
+        "cycle-stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "cycle-stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "acceptance": {
+        "status": "passed",
+        "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-axial-20261013-162451-9957bb0f",
+        "referenceSha256": "32aca26a3481c5e8f3a54f10ca14e3fb1c08bedc960b3b565e99a36ae6ee5863",
+        "numericalCapabilityAccepted": true,
+        "steps": [
+          {
+            "name": "native-settings-load-readback",
+            "status": "passed"
+          },
+          {
+            "name": "independent-axial-displacement",
+            "status": "passed",
+            "count": 4
+          }
+        ]
+      },
+      "reference": {
+        "method": "four equal prismatic columns under equal live nodal compression; u=-PL/EA",
+        "E_MPa": 30000,
+        "length_m": 3,
+        "section_m": [
+          0.6,
+          0.6
+        ],
+        "P_kN": 1,
+        "displacement_m": -2.7777777777777776e-07,
+        "axial_magnitude_kN": 1,
+        "relative_tolerance": 1e-05,
+        "absolute_tolerance_m": 1e-11,
+        "scope": "axial elastic modulus, positive vertical load convention and LL membership only; not G, nu, density or arbitrary frame equivalence"
+      },
+      "LLTranslations": [
+        {
+          "node": [
+            1008,
+            1
+          ],
+          "ux": -3.955851872035684e-24,
+          "uy": -1.241225776027492e-23,
+          "uz": -2.7777778655035945e-07
+        },
+        {
+          "node": [
+            1011,
+            1
+          ],
+          "ux": -2.3105877908886376e-24,
+          "uy": -1.241225776027492e-23,
+          "uz": -2.7777778655035945e-07
+        },
+        {
+          "node": [
+            1009,
+            1
+          ],
+          "ux": -3.955851872035684e-24,
+          "uy": -1.4057521841421966e-23,
+          "uz": -2.7777778655035945e-07
+        },
+        {
+          "node": [
+            1010,
+            1
+          ],
+          "ux": -2.3105877908886376e-24,
+          "uy": -1.4057521841421966e-23,
+          "uz": -2.7777778655035945e-07
+        }
+      ],
+      "nativeStationRecordCount": 792,
+      "effectiveLoadingEvidence": [
+        "竖向荷载计算信息:                     按模拟施工1加荷计算"
+      ]
+    },
+    {
+      "run": "pkpm-axial-20261013-162622-1661cc52",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-axial-20261013-162622-1661cc52",
+      "fileSha256": {
+        "acceptance.json": "cbfb57fb77a6e57b7131c27f7af0a95e3dd0c255de4fb083191c6f87c43e553d",
+        "reference.json": "32aca26a3481c5e8f3a54f10ca14e3fb1c08bedc960b3b565e99a36ae6ee5863",
+        "readback-before.json": "bcd215d442b0596ed23070b39083378bfca9ad85cd55cb3433e3cc932b462313",
+        "WMASS.OUT": "9c069671b1c408258233968d14d53ebe7f54d7c365524908d00f2cb4b1dd53f7",
+        "cycle-stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "cycle-stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "acceptance": {
+        "status": "failed",
+        "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-axial-20261013-162622-1661cc52",
+        "referenceSha256": "32aca26a3481c5e8f3a54f10ca14e3fb1c08bedc960b3b565e99a36ae6ee5863",
+        "numericalCapabilityAccepted": false,
+        "steps": [
+          {
+            "name": "native-settings-load-readback",
+            "status": "passed"
+          }
+        ],
+        "error": "RuntimeError: PKPM analysis timed out after 60s; its process tree was stopped / PKPM 计算超时，已终止本次进程树"
+      },
+      "reference": {
+        "method": "four equal prismatic columns under equal live nodal compression; u=-PL/EA",
+        "E_MPa": 30000,
+        "length_m": 3,
+        "section_m": [
+          0.6,
+          0.6
+        ],
+        "P_kN": 1,
+        "displacement_m": -2.7777777777777776e-07,
+        "axial_magnitude_kN": 1,
+        "relative_tolerance": 1e-05,
+        "absolute_tolerance_m": 1e-11,
+        "scope": "axial elastic modulus, positive vertical load convention and LL membership only; not G, nu, density or arbitrary frame equivalence"
+      },
+      "effectiveLoadingEvidence": [
+        "竖向荷载计算信息:                     否"
+      ]
+    },
+    {
+      "run": "pkpm-axial-20261013-162734-29b84251",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-axial-20261013-162734-29b84251",
+      "fileSha256": {
+        "acceptance.json": "26fc4acde809bde7053143661b64fd7c63f3ce8190c9c9dcf13afbca5352a85b",
+        "reference.json": "32aca26a3481c5e8f3a54f10ca14e3fb1c08bedc960b3b565e99a36ae6ee5863",
+        "readback-before.json": "b1c45da8758444d6f8e16eab749a8315ab16d427da1d88a0ceaf52e31c9a3fcf",
+        "observed.json": "14d5f1ba1201d94e06fae8d72d12ce8e03ad1125f5845c5634dd0620d1d1f9a5",
+        "WMASS.OUT": "65ece1f30771fabea655e5b119854437b1c8f531011ee9d3ce7a2746c981dcb2",
+        "cycle-stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "cycle-stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "acceptance": {
+        "status": "passed",
+        "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-axial-20261013-162734-29b84251",
+        "referenceSha256": "32aca26a3481c5e8f3a54f10ca14e3fb1c08bedc960b3b565e99a36ae6ee5863",
+        "numericalCapabilityAccepted": true,
+        "steps": [
+          {
+            "name": "native-settings-load-readback",
+            "status": "passed"
+          },
+          {
+            "name": "independent-axial-displacement",
+            "status": "passed",
+            "count": 4
+          }
+        ],
+        "variant": {
+          "stories": 1,
+          "nativeDefaults": false,
+          "omittedSettings": [
+            601
+          ]
+        },
+        "explicitControlsAccepted": false
+      },
+      "reference": {
+        "method": "four equal prismatic columns under equal live nodal compression; u=-PL/EA",
+        "E_MPa": 30000,
+        "length_m": 3,
+        "section_m": [
+          0.6,
+          0.6
+        ],
+        "P_kN": 1,
+        "displacement_m": -2.7777777777777776e-07,
+        "axial_magnitude_kN": 1,
+        "relative_tolerance": 1e-05,
+        "absolute_tolerance_m": 1e-11,
+        "scope": "axial elastic modulus, positive vertical load convention and LL membership only; not G, nu, density or arbitrary frame equivalence"
+      },
+      "LLTranslations": [
+        {
+          "node": [
+            1008,
+            1
+          ],
+          "ux": -4.200149990298117e-26,
+          "uy": 1.3226825275814368e-23,
+          "uz": -2.7777778655035945e-07
+        },
+        {
+          "node": [
+            1011,
+            1
+          ],
+          "ux": -5.813052531922669e-26,
+          "uy": 1.3226825275814368e-23,
+          "uz": -2.7777778655035945e-07
+        },
+        {
+          "node": [
+            1009,
+            1
+          ],
+          "ux": -4.200149990298117e-26,
+          "uy": 1.3242953537021612e-23,
+          "uz": -2.7777778655035945e-07
+        },
+        {
+          "node": [
+            1010,
+            1
+          ],
+          "ux": -5.813052531922669e-26,
+          "uy": 1.3242953537021612e-23,
+          "uz": -2.7777778655035945e-07
+        }
+      ],
+      "nativeStationRecordCount": 792,
+      "effectiveLoadingEvidence": [
+        "竖向荷载计算信息:                     按模拟施工1加荷计算"
+      ]
+    },
+    {
+      "run": "pkpm-axial-20261013-163047-1bd4820b",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-axial-20261013-163047-1bd4820b",
+      "fileSha256": {
+        "acceptance.json": "007e88fea77c4ab99d0e80e06344b1d0fec67308aab1ba3ec3218d0f4b322785",
+        "reference.json": "977aa60eb4eab8fab610ca2e066bf3a268d091d55b9bf666f6cb54f8795aeab0",
+        "readback-before.json": "29a87c854be3864006e552a62a68994c2cc0a445964f83b1d7d5844cb22f3039",
+        "observed.json": "f9838e1b3cae58c0e036ad9d4224acf8cf2ee0f132f8307c987009a64d3f15d2",
+        "WMASS.OUT": "d1606e73ebdfb9fe1aaf3e8ea3567447e16262c7803032abc4c65d289f259f90",
+        "cycle-stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "cycle-stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "acceptance": {
+        "status": "passed",
+        "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-axial-20261013-163047-1bd4820b",
+        "referenceSha256": "977aa60eb4eab8fab610ca2e066bf3a268d091d55b9bf666f6cb54f8795aeab0",
+        "numericalCapabilityAccepted": true,
+        "steps": [
+          {
+            "name": "native-settings-load-readback",
+            "status": "passed"
+          },
+          {
+            "name": "independent-axial-displacement",
+            "status": "passed",
+            "count": 4
+          }
+        ],
+        "variant": {
+          "stories": 1,
+          "nativeDefaults": false,
+          "omittedSettings": [
+            601
+          ],
+          "loadPattern": "nodal",
+          "loadKn": -0.5
+        },
+        "explicitControlsAccepted": false
+      },
+      "reference": {
+        "method": "four equal prismatic columns under equal live nodal compression; u=-PL/EA",
+        "E_MPa": 30000,
+        "length_m": 3,
+        "section_m": [
+          0.6,
+          0.6
+        ],
+        "P_kN": -0.5,
+        "displacement_m": 1.3888888888888888e-07,
+        "axial_magnitude_kN": 0.5,
+        "relative_tolerance": 1e-05,
+        "absolute_tolerance_m": 1e-11,
+        "scope": "axial elastic modulus, positive vertical load convention and LL membership only; not G, nu, density or arbitrary frame equivalence"
+      },
+      "LLTranslations": [
+        {
+          "node": [
+            1008,
+            1
+          ],
+          "ux": 2.1000749951490585e-26,
+          "uy": -6.613412637907184e-24,
+          "uz": 1.3888889327517973e-07
+        },
+        {
+          "node": [
+            1011,
+            1
+          ],
+          "ux": 2.9065262659613345e-26,
+          "uy": -6.613412637907184e-24,
+          "uz": 1.3888889327517973e-07
+        },
+        {
+          "node": [
+            1009,
+            1
+          ],
+          "ux": 2.1000749951490585e-26,
+          "uy": -6.621476768510806e-24,
+          "uz": 1.3888889327517973e-07
+        },
+        {
+          "node": [
+            1010,
+            1
+          ],
+          "ux": 2.9065262659613345e-26,
+          "uy": -6.621476768510806e-24,
+          "uz": 1.3888889327517973e-07
+        }
+      ],
+      "nativeStationRecordCount": 792,
+      "effectiveLoadingEvidence": [
+        "竖向荷载计算信息:                     按模拟施工1加荷计算"
+      ]
+    },
+    {
+      "run": "pkpm-axial-20261013-163153-a12fb9c0",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-axial-20261013-163153-a12fb9c0",
+      "fileSha256": {
+        "acceptance.json": "9d93c7fac9ba33cb5e80a9d537d877c494e78f902b12d5d83efd4391e24832d3",
+        "reference.json": "127032ba4ccf32046994a1290887c9980808d0dec5aefb2e3208c966e6b21c5d"
+      },
+      "acceptance": {
+        "status": "failed",
+        "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-axial-20261013-163153-a12fb9c0",
+        "referenceSha256": "127032ba4ccf32046994a1290887c9980808d0dec5aefb2e3208c966e6b21c5d",
+        "numericalCapabilityAccepted": false,
+        "steps": [],
+        "variant": {
+          "stories": 1,
+          "nativeDefaults": false,
+          "omittedSettings": [
+            601
+          ],
+          "loadPattern": "beam-uniform",
+          "loadKn": 1.0
+        },
+        "explicitControlsAccepted": false,
+        "error": "ValueError: Native target 'B0' already has loads; acceptance must use a fresh isolated model"
+      },
+      "reference": {
+        "method": "square frame with four 4m beams under equal vertical UDL q; symmetry gives column P=4q and u=-PL/EA",
+        "E_MPa": 30000,
+        "length_m": 3,
+        "section_m": [
+          0.6,
+          0.6
+        ],
+        "P_kN": 4.0,
+        "displacement_m": -1.111111111111111e-06,
+        "axial_magnitude_kN": 4.0,
+        "relative_tolerance": 1e-05,
+        "absolute_tolerance_m": 1e-11,
+        "scope": "axial elastic modulus, positive vertical load convention and LL membership only; not G, nu, density or arbitrary frame equivalence"
+      }
+    },
+    {
+      "run": "pkpm-axial-20261013-163323-a49a98ed",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-axial-20261013-163323-a49a98ed",
+      "fileSha256": {
+        "acceptance.json": "4c97df8a538c9e3888b2e38e629b9e6458c2d974e1e536a9780a802ac567b4af",
+        "reference.json": "127032ba4ccf32046994a1290887c9980808d0dec5aefb2e3208c966e6b21c5d",
+        "readback-before.json": "bdabea3f6c078c62d649e2ff663983c7aa823915f27c70a66bd52aedd2c13630",
+        "observed.json": "96b469555c383b129ad99499d0b08bc9d25c856ec4a5252613a0f090f0996256",
+        "WMASS.OUT": "728a09fb86fdf89ddda52e5272427bf11b1619b2f8fa58b9051409d4dee5f6a3",
+        "cycle-stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "cycle-stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "acceptance": {
+        "status": "passed",
+        "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-axial-20261013-163323-a49a98ed",
+        "referenceSha256": "127032ba4ccf32046994a1290887c9980808d0dec5aefb2e3208c966e6b21c5d",
+        "numericalCapabilityAccepted": true,
+        "steps": [
+          {
+            "name": "native-settings-load-readback",
+            "status": "passed"
+          },
+          {
+            "name": "independent-axial-displacement",
+            "status": "passed",
+            "count": 4
+          }
+        ],
+        "variant": {
+          "stories": 1,
+          "nativeDefaults": false,
+          "omittedSettings": [
+            601
+          ],
+          "loadPattern": "beam-uniform",
+          "loadKn": 1.0
+        },
+        "explicitControlsAccepted": false
+      },
+      "reference": {
+        "method": "square frame with four 4m beams under equal vertical UDL q; symmetry gives column P=4q and u=-PL/EA",
+        "E_MPa": 30000,
+        "length_m": 3,
+        "section_m": [
+          0.6,
+          0.6
+        ],
+        "P_kN": 4.0,
+        "displacement_m": -1.111111111111111e-06,
+        "axial_magnitude_kN": 4.0,
+        "relative_tolerance": 1e-05,
+        "absolute_tolerance_m": 1e-11,
+        "scope": "axial elastic modulus, positive vertical load convention and LL membership only; not G, nu, density or arbitrary frame equivalence"
+      },
+      "LLTranslations": [
+        {
+          "node": [
+            1008,
+            1
+          ],
+          "ux": -7.077917020971403e-22,
+          "uy": 2.850201656000084e-22,
+          "uz": -1.1111111462014378e-06
+        },
+        {
+          "node": [
+            1011,
+            1
+          ],
+          "ux": -7.144635720891375e-22,
+          "uy": 2.850201656000084e-22,
+          "uz": -1.1111111462014378e-06
+        },
+        {
+          "node": [
+            1009,
+            1
+          ],
+          "ux": -7.077917020971403e-22,
+          "uy": 2.9169203559200564e-22,
+          "uz": -1.1111111462014378e-06
+        },
+        {
+          "node": [
+            1010,
+            1
+          ],
+          "ux": -7.144635720891375e-22,
+          "uy": 2.9169203559200564e-22,
+          "uz": -1.1111111462014378e-06
+        }
+      ],
+      "nativeStationRecordCount": 792,
+      "effectiveLoadingEvidence": [
+        "竖向荷载计算信息:                     按模拟施工1加荷计算"
+      ]
+    },
+    {
+      "run": "pkpm-axial-20261013-163501-4a406499",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-axial-20261013-163501-4a406499",
+      "fileSha256": {
+        "acceptance.json": "396352a844d452d5798127fde7350b562fe323aa414d661b5add7982a356f391",
+        "reference.json": "a1dc74f7af88079830884963517d4119422681a86cbd1830559c80c07548d8a1",
+        "readback-before.json": "c7715899e5bfe15a4e5e69ffae00dc50bd303e22331143855df4c8d4a4d67a6d",
+        "observed.json": "1495c686cad346e688562a5d5dc0d856e71acb339e3155b44378c480f3cf568f",
+        "WMASS.OUT": "cf6b2a2c6375300ad08f2bd7c86a16261ac7b99d0f2eb58f448e7885bb7457e8",
+        "cycle-stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "cycle-stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "acceptance": {
+        "status": "passed",
+        "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-axial-20261013-163501-4a406499",
+        "referenceSha256": "a1dc74f7af88079830884963517d4119422681a86cbd1830559c80c07548d8a1",
+        "numericalCapabilityAccepted": true,
+        "steps": [
+          {
+            "name": "native-settings-load-readback",
+            "status": "passed"
+          },
+          {
+            "name": "independent-axial-displacement",
+            "status": "passed",
+            "count": 8
+          }
+        ],
+        "variant": {
+          "stories": 2,
+          "nativeDefaults": false,
+          "omittedSettings": [
+            601
+          ],
+          "loadPattern": "nodal",
+          "loadKn": 1.0
+        },
+        "explicitControlsAccepted": false
+      },
+      "reference": {
+        "method": "two stories of four identical columns; equal P on every floor; u1=-2PL/EA and u2=-3PL/EA",
+        "E_MPa": 30000,
+        "length_m": 3,
+        "section_m": [
+          0.6,
+          0.6
+        ],
+        "P_kN": 1.0,
+        "displacement_m": -2.7777777777777776e-07,
+        "axial_magnitude_kN": 1.0,
+        "relative_tolerance": 1e-05,
+        "absolute_tolerance_m": 1e-11,
+        "scope": "axial elastic modulus, positive vertical load convention and LL membership only; not G, nu, density or arbitrary frame equivalence",
+        "displacement_by_floor_m": {
+          "1": -5.555555555555555e-07,
+          "2": -8.333333333333333e-07
+        },
+        "axial_by_floor_kN": {
+          "1": 2.0,
+          "2": 1.0
+        }
+      },
+      "LLTranslations": [
+        {
+          "node": [
+            1008,
+            1
+          ],
+          "ux": 5.794961481245242e-23,
+          "uy": -9.805802322628986e-23,
+          "uz": -5.555555731007189e-07
+        },
+        {
+          "node": [
+            1011,
+            1
+          ],
+          "ux": 3.179286152883447e-23,
+          "uy": -9.805802322628986e-23,
+          "uz": -5.555555731007189e-07
+        },
+        {
+          "node": [
+            1009,
+            1
+          ],
+          "ux": 5.794961481245242e-23,
+          "uy": -7.190127625355915e-23,
+          "uz": -5.555555731007189e-07
+        },
+        {
+          "node": [
+            1010,
+            1
+          ],
+          "ux": 3.179286152883447e-23,
+          "uy": -7.190127625355915e-23,
+          "uz": -5.555555731007189e-07
+        },
+        {
+          "node": [
+            1008,
+            2
+          ],
+          "ux": 1.5907368794184668e-22,
+          "uy": -2.3555767807488815e-22,
+          "uz": -8.333333312293689e-07
+        },
+        {
+          "node": [
+            1011,
+            2
+          ],
+          "ux": 1.0562411438600942e-22,
+          "uy": -2.3555767807488815e-22,
+          "uz": -8.333333312293689e-07
+        },
+        {
+          "node": [
+            1009,
+            2
+          ],
+          "ux": 1.5907368794184668e-22,
+          "uy": -1.8210809820816365e-22,
+          "uz": -8.333333312293689e-07
+        },
+        {
+          "node": [
+            1010,
+            2
+          ],
+          "ux": 1.0562411438600942e-22,
+          "uy": -1.8210809820816365e-22,
+          "uz": -8.333333312293689e-07
+        }
+      ],
+      "nativeStationRecordCount": 1584,
+      "effectiveLoadingEvidence": [
+        "竖向荷载计算信息:                     按模拟施工1加荷计算"
+      ]
+    },
+    {
+      "run": "pkpm-axial-20261013-163854-08ca578d",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-axial-20261013-163854-08ca578d",
+      "fileSha256": {
+        "acceptance.json": "fc99925712c1e5c2e7af0b8a29e8fe88ed22c8f6650d4e6c06a9159376041227",
+        "reference.json": "5d456e12cd5049eea0593c88330614dc6cfcbe06d862de2c5a4ba8514918c73e",
+        "readback-before.json": "bdabea3f6c078c62d649e2ff663983c7aa823915f27c70a66bd52aedd2c13630",
+        "observed.json": "84112cc12a89b890a5f2ede97b94cda7dae0f93dd9b556d81222d3b781339c30",
+        "WMASS.OUT": "4ff08eed4f1dfeea7b33f5ab38e8c3dfcb386ce2d12fc1479389cbc8cd7b0235",
+        "cycle-stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "cycle-stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "effective-native-controls.json": "843baa0bb05f423129b0a1d8102522f969538fd442bc69dedf01dd0dec780301"
+      },
+      "acceptance": {
+        "status": "passed",
+        "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-axial-20261013-163854-08ca578d",
+        "referenceSha256": "5d456e12cd5049eea0593c88330614dc6cfcbe06d862de2c5a4ba8514918c73e",
+        "numericalCapabilityAccepted": true,
+        "steps": [
+          {
+            "name": "native-settings-load-readback",
+            "status": "passed"
+          },
+          {
+            "name": "independent-axial-displacement",
+            "status": "passed",
+            "count": 8
+          },
+          {
+            "name": "signed-column-force-equilibrium-and-zero-lateral-displacement",
+            "status": "passed"
+          }
+        ],
+        "variant": {
+          "stories": 2,
+          "nativeDefaults": false,
+          "omittedSettings": [
+            601
+          ],
+          "loadPattern": "beam-uniform",
+          "loadKn": 1.0
+        },
+        "explicitControlsAccepted": false
+      },
+      "reference": {
+        "method": "two stories of four identical columns; equal P on every floor; u1=-2PL/EA and u2=-3PL/EA",
+        "E_MPa": 30000,
+        "length_m": 3,
+        "section_m": [
+          0.6,
+          0.6
+        ],
+        "P_kN": 4.0,
+        "displacement_m": -1.111111111111111e-06,
+        "axial_magnitude_kN": 4.0,
+        "relative_tolerance": 1e-05,
+        "absolute_tolerance_m": 1e-11,
+        "absolute_tolerance_kN": 1e-07,
+        "lateral_displacement_m": 0,
+        "scope": "axial elastic modulus, positive vertical load convention and LL membership only; not G, nu, density or arbitrary frame equivalence",
+        "displacement_by_floor_m": {
+          "1": -2.222222222222222e-06,
+          "2": -3.3333333333333333e-06
+        },
+        "axial_by_floor_kN": {
+          "1": 8.0,
+          "2": 4.0
+        }
+      },
+      "LLTranslations": [
+        {
+          "node": [
+            1008,
+            1
+          ],
+          "ux": 5.485550922902601e-22,
+          "uy": 1.0925524113274174e-22,
+          "uz": -2.2222222924028756e-06
+        },
+        {
+          "node": [
+            1011,
+            1
+          ],
+          "ux": 1.4134509301517381e-22,
+          "uy": 1.0925524113274174e-22,
+          "uz": -2.2222222924028756e-06
+        },
+        {
+          "node": [
+            1009,
+            1
+          ],
+          "ux": 5.485550922902601e-22,
+          "uy": 5.16465240407828e-22,
+          "uz": -2.2222222924028756e-06
+        },
+        {
+          "node": [
+            1010,
+            1
+          ],
+          "ux": 1.4134509301517381e-22,
+          "uy": 5.16465240407828e-22,
+          "uz": -2.2222222924028756e-06
+        },
+        {
+          "node": [
+            1008,
+            2
+          ],
+          "ux": 1.8311355381223194e-21,
+          "uy": 1.0471344704613504e-22,
+          "uz": -3.3333333249174757e-06
+        },
+        {
+          "node": [
+            1011,
+            2
+          ],
+          "ux": 1.5134981829019568e-21,
+          "uy": 1.0471344704613504e-22,
+          "uz": -3.3333333249174757e-06
+        },
+        {
+          "node": [
+            1009,
+            2
+          ],
+          "ux": 1.8311355381223194e-21,
+          "uy": 4.2235080226649767e-22,
+          "uz": -3.3333333249174757e-06
+        },
+        {
+          "node": [
+            1010,
+            2
+          ],
+          "ux": 1.5134981829019568e-21,
+          "uy": 4.2235080226649767e-22,
+          "uz": -3.3333333249174757e-06
+        }
+      ],
+      "nativeStationRecordCount": 1584,
+      "effectiveLoadingEvidence": [
+        "竖向荷载计算信息:                     按模拟施工1加荷计算"
+      ]
+    }
+  ]
+}

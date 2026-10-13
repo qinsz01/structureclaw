@@ -47,10 +47,11 @@ def plan_native_loads(data: dict) -> list[dict]:
                 node_id = str(load.get("node"))
                 if node_id not in nodes:
                     raise ValueError(f"Load references unknown node '{node_id}'")
-                components = [_finite(load.get(k, 0), k) for k in ("fx", "fy", "fz", "mx", "my", "mz")]
-                # PKPM load UI uses positive vertical gravity. Other component
-                # signs remain candidate conventions until six-direction runs.
-                components[2] *= -1
+                # Native node load slots are gravity, Mx, My, Fx, Fy, Mz;
+                # they are not the canonical six-DOF vector order. Positive
+                # gravity points down. Other signs remain acceptance candidates.
+                components = [_finite(load.get(k, 0), k) for k in ("fz", "mx", "my", "fx", "fy", "mz")]
+                components[0] *= -1
                 row.update(targetType="node", targetId=node_id, elementKind=-1, nativeValues=components)
             elif load.get("type") in {"distributed", "uniform"}:
                 element_id = str(load.get("element"))
@@ -76,6 +77,18 @@ def plan_native_loads(data: dict) -> list[dict]:
                 raise ValueError(f"Native load type '{load.get('type')}' has no verified wire encoding")
             records.append(row)
     return records
+
+
+def read_native_load_assignments(member: Any, target_type: str) -> tuple[list[int], list[int]]:
+    """The beam SDK returns capacity-sized arrays; only nload entries are valid."""
+    raw = member.GetLoad()
+    cases, definitions = list(raw[-2]), list(raw[-1])
+    count = len(cases) if target_type == "node" else int(raw[0])
+    if count < 0 or count > len(cases) or count > len(definitions):
+        raise RuntimeError("Native load count exceeds returned assignment arrays")
+    if target_type == "node" and len(cases) != len(definitions):
+        raise RuntimeError("Native node load assignment arrays differ in length")
+    return cases[:count], definitions[:count]
 
 
 def write_native_loads(api: Any, native_model: Any, records: list[dict], targets: dict[tuple[str, str], Any]) -> dict:
@@ -111,13 +124,13 @@ def write_native_loads(api: Any, native_model: Any, records: list[dict], targets
         written.append({**row, "nativeLoadId": native_id, "nativeCaseId": cases[case_id]["nativeId"]})
     for key, assignments in grouped.items():
         member = targets[key]
-        existing = member.GetLoad()
-        if list(existing[-2]) or list(existing[-1]):
+        existing = read_native_load_assignments(member, key[0])
+        if existing[0] or existing[1]:
             raise ValueError(f"Native target '{key[1]}' already has loads; acceptance must use a fresh isolated model")
         case_ids, load_ids = map(list, zip(*assignments))
         if key[0] == "node": member.SetLoad(case_ids, load_ids)
         else: member.SetLoad(len(assignments), case_ids, load_ids)
-        readback = member.GetLoad()
-        if list(readback[-2]) != case_ids or list(readback[-1]) != load_ids:
+        readback = read_native_load_assignments(member, key[0])
+        if readback[0] != case_ids or readback[1] != load_ids:
             raise RuntimeError(f"Native load assignment readback differs for '{key[1]}'")
     return {"cases": cases, "loads": written, "acceptance": "sdk-write-readback-only", "formalAnalysisAccepted": False}

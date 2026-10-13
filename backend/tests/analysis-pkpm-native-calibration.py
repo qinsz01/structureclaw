@@ -28,26 +28,44 @@ def main() -> int:
     parser.add_argument("--cycle", type=Path)
     parser.add_argument("--timeout", type=int, default=120)
     parser.add_argument("--build-only", action="store_true", help="Verify SDK write/readback without launching SATWE; never accepts numerical capability")
+    parser.add_argument("--stories", type=int, choices=(1, 2), default=1,
+                        help="One-story frozen reference or independent two-story diagnostic; neither substitutes for the other")
+    parser.add_argument("--native-defaults", action="store_true", help="Diagnostic: retain native settings and record them; does not certify explicit controls")
+    parser.add_argument("--omit-setting", type=int, action="append", default=[], help="Diagnostic: omit one explicit native parameter to isolate solver failures")
+    parser.add_argument("--load-pattern", choices=("nodal", "beam-uniform"), default="nodal")
+    parser.add_argument("--load-kn", type=float, default=1.0, help="Signed downward nodal kN or beam kN/m; reference is frozen before execution")
     args = parser.parse_args()
     if not args.build_only and args.cycle is None:
         parser.error("--cycle is required unless --build-only is selected")
     root = args.work_root.resolve() / f"pkpm-axial-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}"
     root.mkdir(parents=True, exist_ok=False)
+    if not math.isfinite(args.load_kn) or args.load_kn == 0:
+        parser.error("--load-kn must be finite and nonzero")
+    column_load = args.load_kn * (4 if args.load_pattern == "beam-uniform" else 1)
     reference = {
         "method": "four equal prismatic columns under equal live nodal compression; u=-PL/EA",
-        "E_MPa": 30000, "length_m": 3, "section_m": [0.6, 0.6], "P_kN": 1,
-        "displacement_m": -1 * 3 / (30000 * 1000 * 0.6 * 0.6),
-        "axial_magnitude_kN": 1, "relative_tolerance": 1e-5, "absolute_tolerance_m": 1e-11,
+        "E_MPa": 30000, "length_m": 3, "section_m": [0.6, 0.6], "P_kN": column_load,
+        "displacement_m": -column_load * 3 / (30000 * 1000 * 0.6 * 0.6),
+        "axial_magnitude_kN": abs(column_load), "relative_tolerance": 1e-5, "absolute_tolerance_m": 1e-11,
+        "absolute_tolerance_kN": 1e-7, "lateral_displacement_m": 0,
         "scope": "axial elastic modulus, positive vertical load convention and LL membership only; not G, nu, density or arbitrary frame equivalence",
     }
+    if args.load_pattern == "beam-uniform":
+        reference["method"] = "square frame with four 4m beams under equal vertical UDL q; symmetry gives column P=4q and u=-PL/EA"
+    if args.stories == 2:
+        reference["method"] = "two stories of four identical columns; equal P on every floor; u1=-2PL/EA and u2=-3PL/EA"
+        reference["displacement_by_floor_m"] = {"1": 2 * reference["displacement_m"], "2": 3 * reference["displacement_m"]}
+        reference["axial_by_floor_kN"] = {"1": 2 * column_load, "2": column_load}
     save(root / "reference.json", reference)
-    evidence = {"status": "failed", "directory": str(root), "referenceSha256": hashlib.sha256((root / "reference.json").read_bytes()).hexdigest(), "numericalCapabilityAccepted": False, "steps": []}
+    evidence = {"status": "failed", "directory": str(root), "referenceSha256": hashlib.sha256((root / "reference.json").read_bytes()).hexdigest(), "numericalCapabilityAccepted": False, "steps": [],
+                "variant": {"stories": args.stories, "nativeDefaults": args.native_defaults, "omittedSettings": args.omit_setting, "loadPattern": args.load_pattern, "loadKn": args.load_kn},
+                "explicitControlsAccepted": False}
     repo = Path(__file__).resolve().parents[2]
     analysis = repo / "backend/src/agent-skills/analysis"
     sys.path[:0] = [str(analysis / "runtime"), str(analysis / "pkpm-static"), str(repo / "backend/src/skill-shared/python")]
     try:
         import APIPyInterface as api
-        from native_loads import plan_native_loads, write_native_loads
+        from native_loads import plan_native_loads, read_native_load_assignments, write_native_loads
         spec = importlib.util.spec_from_file_location("pkpm_calibration_runtime", analysis / "pkpm-static/runtime.py")
         runtime = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(runtime)
@@ -66,29 +84,40 @@ def main() -> int:
         node_ids = [node.GetID() for node in nodes]
         for node in nodes:
             column = floor.AddColumn(sections[0], node.GetID()); column.SetConcreteGrade(30)
-        source_load_model = {"nodes": [{"id": f"N{i}"} for i in range(4)], "load_cases": [{"id": "L", "type": "live",
-                             "loads": [{"id": f"P{i}", "type": "nodal", "node": f"N{i}", "fz": -1} for i in range(4)]}]}
-        load_mapping = write_native_loads(api, model, plan_native_loads(source_load_model), {("node", f"N{i}"): node for i, node in enumerate(nodes)})
-        save(root / "load-mapping.json", load_mapping)
-        for start, end in ((0, 1), (1, 2), (2, 3), (3, 0)):
+        source_nodes = [{"id": f"N{i}", "x": x, "y": y, "z": 3} for i, (x, y) in enumerate(((0, 0), (4, 0), (4, 4), (0, 4)))]
+        targets = {("node", f"N{i}"): node for i, node in enumerate(nodes)}
+        source_elements = []
+        for index, (start, end) in enumerate(((0, 1), (1, 2), (2, 3), (3, 0))):
             net = floor.AddLineNet(nodes[start].GetID(), nodes[end].GetID())
             beam = floor.AddBeamEx(sections[1], net.GetID(), 0, 0, 0, 0.0); beam.SetConcreteGrade(30)
+            targets[("beam", f"B{index}")] = beam
+            source_elements.append({"id": f"B{index}", "type": "beam", "nodes": [f"N{start}", f"N{end}"]})
+        source_loads = ([{"id": f"P{i}", "type": "nodal", "node": f"N{i}", "fz": -args.load_kn} for i in range(4)]
+                       if args.load_pattern == "nodal" else
+                       [{"id": f"q{i}", "type": "uniform", "element": f"B{i}", "wz": -args.load_kn} for i in range(4)])
+        source_load_model = {"nodes": source_nodes, "elements": source_elements, "load_cases": [{"id": "L", "type": "live", "loads": source_loads}]}
+        load_mapping = write_native_loads(api, model, plan_native_loads(source_load_model), targets)
+        save(root / "load-mapping.json", load_mapping)
         floor.SetDeadLive(0.0, 0.0)
-        real = api.RealFloor(); real.SetFloorHeight(3000); real.SetBottomElevation(0); real.SetStandFloorIndex(1)
-        model.AddNaturalFloor(real)
+        for index in range(args.stories):
+            real = api.RealFloor(); real.SetFloorHeight(3000); real.SetBottomElevation(index * 3); real.SetStandFloorIndex(1)
+            model.AddNaturalFloor(real)
         para = model.GetProjectPara()
         settings = {103: 10301, 101: 10101, 601: 60102, 606: 0, 608: 0, 609: 0, 624: 1, 626: 0, 630: 0, 641: 0}
+        if args.native_defaults:
+            settings = {103: 10301, 101: 10101}
+        settings = {key: value for key, value in settings.items() if key not in args.omit_setting}
         for key, value in settings.items(): para.SetParaInt(key, value)
-        para.SetParaDouble(611, 1.0)
+        if not args.native_defaults: para.SetParaDouble(611, 1.0)
         model.SaveProjectPara(); model.SavePMModel()
         # Model materialization can reset fields: reopen, set, save, then read.
         model.OpenPMModel(str(jws)); floor = model.GetCurrentStandFloor(); floor.SetDeadLive(0.0, 0.0)
         para = model.GetProjectPara()
         for key, value in settings.items(): para.SetParaInt(key, value)
-        para.SetParaDouble(611, 1.0)
+        if not args.native_defaults: para.SetParaDouble(611, 1.0)
         model.SaveProjectPara(); model.SavePMModel()
         model.OpenPMModel(str(jws)); floor = model.GetCurrentStandFloor(); para = model.GetProjectPara()
-        readback = {"settings": {str(key): para.GetPara_Int(key) for key in settings}, "nodes": [{"id": n.GetID(), "xy_mm": n.Get(), "load": n.GetLoad()} for n in floor.GetNodes()], "loads": [model.GetLoadDefine(row["nativeLoadId"]).Get() for row in load_mapping["loads"]], "grades": [c.GetConcreteGrade() for c in floor.GetColumns()], "floorHeightMm": model.GetFloorAssemTable(1).GetFloorHeight()}
+        readback = {"settings": {str(key): para.GetPara_Int(key) for key in settings}, "nodes": [{"id": n.GetID(), "xy_mm": n.Get(), "load": read_native_load_assignments(n, "node")} for n in floor.GetNodes()], "beams": [{"id": b.GetID(), "load": read_native_load_assignments(b, "beam")} for b in floor.GetBeams()], "loads": [model.GetLoadDefine(row["nativeLoadId"]).Get() for row in load_mapping["loads"]], "grades": [c.GetConcreteGrade() for c in floor.GetColumns()], "floorHeightMm": model.GetFloorAssemTable(1).GetFloorHeight()}
         save(root / "readback-before.json", readback)
         if any(readback["settings"][str(key)] != value for key, value in settings.items()): raise RuntimeError("Native effective settings did not survive save/reopen")
         if readback["grades"] != [30] * 4 or readback["floorHeightMm"] != 3000:
@@ -97,8 +126,10 @@ def main() -> int:
         if set(native_nodes) != set(node_ids):
             raise RuntimeError("Native node IDs did not survive save/reopen")
         for index, row in enumerate(load_mapping["loads"]):
-            actual = native_nodes[node_ids[index]]["load"]
-            if list(actual[0]) != [row["nativeCaseId"]] or list(actual[1]) != [row["nativeLoadId"]]:
+            target_id = targets[(row["targetType"], row["targetId"])].GetID()
+            candidates = readback["nodes"] if row["targetType"] == "node" else readback["beams"]
+            actual = next(item["load"] for item in candidates if item["id"] == target_id)
+            if list(actual[-2]) != [row["nativeCaseId"]] or list(actual[-1]) != [row["nativeLoadId"]]:
                 raise RuntimeError("Native live nodal load assignment did not survive save/reopen")
             kind, values = readback["loads"][index]
             if kind != row["elementKind"] or list(values) != row["nativeValues"]:
@@ -113,13 +144,33 @@ def main() -> int:
             return 0
         runtime._run_jws_cycle(args.cycle.resolve(), root, timeout=args.timeout)
         results = runtime._extract_results(jws, "concrete")
+        native_control_labels = ("竖向荷载计算信息", "刚性楼板假定", "P-DELTA", "简化", "刚度放大系数")
+        native_controls = [line.strip() for line in (root / "WMASS.OUT").read_text(encoding="gb18030").splitlines()
+                           if any(label in line for label in native_control_labels)]
+        save(root / "effective-native-controls.json", {"source": "WMASS.OUT", "lines": native_controls,
+             "sha256": hashlib.sha256((root / "WMASS.OUT").read_bytes()).hexdigest()})
         observed = {"LL": [{"node": list(key), **value} for key, value in results["case_node_disps"].get("LL", {}).items()], "stations": [{"case": case, "member": list(key), "stations": rows} for case, members in results["case_member_stations"].items() for key, rows in members.items()]}
         save(root / "observed.json", observed)
-        if len(observed["LL"]) != 4: raise RuntimeError("LL must contain four native node translations")
+        if len(observed["LL"]) != 4 * args.stories: raise RuntimeError("LL must contain four native node translations per story")
         for row in observed["LL"]:
-            if not math.isclose(row["uz"], reference["displacement_m"], rel_tol=reference["relative_tolerance"], abs_tol=reference["absolute_tolerance_m"]):
-                raise RuntimeError(f"Native axial displacement {row['uz']} differs from frozen {reference['displacement_m']}")
-        evidence["steps"].append({"name": "independent-axial-displacement", "status": "passed", "count": 4})
+            expected = reference.get("displacement_by_floor_m", {}).get(str(row["node"][1]), reference["displacement_m"])
+            if not math.isclose(row["uz"], expected, rel_tol=reference["relative_tolerance"], abs_tol=reference["absolute_tolerance_m"]):
+                raise RuntimeError(f"Native axial displacement {row['uz']} differs from frozen {expected}")
+            if any(abs(row[axis]) > reference["absolute_tolerance_m"] for axis in ("ux", "uy")):
+                raise RuntimeError("Symmetric vertical calibration must not introduce lateral translation")
+        calibrated_columns = 0
+        for case, members in results["case_member_stations"].items():
+            if case != "LL": continue
+            for (_, floor_index), rows in members.items():
+                if not rows or rows[0]["source"] != "APIPyInterface.ColumnDesignData.GetForce": continue
+                calibrated_columns += 1
+                expected = -reference.get("axial_by_floor_kN", {}).get(str(floor_index), column_load)
+                if any(not math.isclose(row["nativeComponents"][0], expected, rel_tol=reference["relative_tolerance"], abs_tol=reference["absolute_tolerance_kN"]) for row in rows):
+                    raise RuntimeError(f"Native column axial force differs from frozen equilibrium value {expected}")
+        if calibrated_columns != 4 * args.stories:
+            raise RuntimeError("LL must contain signed axial forces for every native column")
+        evidence["steps"].append({"name": "independent-axial-displacement", "status": "passed", "count": 4 * args.stories})
+        evidence["steps"].append({"name": "signed-column-force-equilibrium-and-zero-lateral-displacement", "status": "passed"})
         evidence["status"] = "passed"
         evidence["numericalCapabilityAccepted"] = True
     except Exception as error:

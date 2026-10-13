@@ -1,0 +1,91 @@
+# PKPM native repair evidence / PKPM 原生修复记录
+
+This follow-up fixes two SDK load bugs and the batch-process lifecycle. It does
+not open the formal V2 material/settings/result gates. All native runs used new
+directories; existing models, paper fixtures and tags were not modified.
+
+本轮修复了两个 SDK 荷载问题和批处理进程管理问题。正式 V2 的材料、设置及完整结果门禁
+继续保留。所有原生试验使用新目录，没有改动已有模型、论文标答或标签。
+
+## Fixed behavior / 已修复行为
+
+- The native nodal gravity component occupies slot **0**, with downward positive.
+  The former canonical `[Fx,Fy,Fz,Mx,My,Mz]` write put gravity in slot 2, producing
+  a moment and lateral drift. Native displacement checks confirm downward and
+  upward vertical loads. Other nodal component signs still require calibration.
+  / 原生节点重力在第 0 槽，向下为正；旧写法把竖向力写到第 2 槽，实际产生弯矩和水平位移。
+  已以真实计算验证正负竖向力，其他节点分量方向仍待校准。
+- `Beam.GetLoad()` returns `nload` plus capacity-sized arrays. Entries after
+  `nload` are not assignments. The previous writer interpreted those unused
+  entries as existing loads and rejected fresh beams. Reading now respects the
+  count and verifies the written assignments. Full-span vertical beam UDL passes
+  independent axial-equilibrium checks.
+  / 梁荷载接口返回有效数量及固定容量数组；有效数量之后不是荷载。读取现在只取有效范围，
+  避免将未初始化内容误认为已有荷载；全跨均布荷载已通过独立平衡与位移比较。
+- The launcher locks the installation across StructureClaw processes, detects
+  another native batch before changing its directory selector, preserves
+  `DirectorySet.conf` bytes, retains stdout/stderr, and stops only its own process
+  tree on timeout or cancellation. Existing external directory changes are not
+  overwritten. Native timeout runs verified that PKPMMain/WINSAT no longer remain
+  running after their launcher exits.
+  / 启动器增加跨进程锁、已有原生批处理检测、配置原字节恢复、日志保存及本次进程树清理。
+  外部程序的新目录选择不会被覆盖；超时原生运行已验证不会遗留本次 PKPMMain/WINSAT。
+
+## Native evidence / 原生证据
+
+Raw input, reference, SDK readback, results and acceptance files remain under
+`G:/StructureClaw-All/sclaw_data/work/<run>/`. The tracked compact manifest is
+[`reproducibility/pkpm-native-repair-20261013.json`](reproducibility/pkpm-native-repair-20261013.json).
+
+原始输入、参考、接口回读、计算结果和验收记录保存在上述独立运行目录；紧凑索引另行跟踪。
+
+| Run | Evidence / 证据 |
+|---|---|
+| `acceptance-commercial-pkpm-20261013-161519-239251ba` | Existing two-story setback control fully solves and returns results. The installed SDK can read this installation's output; a version-warning string alone does not explain empty results. / 两层退台控制模型完整求解且结果可读，不能把空结果仅归因于版本警告。 |
+| `pkpm-axial-20261013-162311-0f6700a5` | Old nodal wire fails the frozen vertical reference and produces lateral drift. / 旧节点编码未通过冻结竖向参考，并产生水平漂移。 |
+| `pkpm-axial-20261013-162451-9957bb0f` | Corrected 1 kN gravity, four nodes, native-default controls: `uz=-2.7777778655035945e-7 m`. / 修正后四节点 1 kN 竖向位移通过。 |
+| `pkpm-axial-20261013-162734-29b84251` | Same result with all candidate explicit settings except parameter 601. / 仅保留 601 原生默认值，其余候选设置显式写入，结果通过。 |
+| `pkpm-axial-20261013-163047-1bd4820b` | Upward 500 N: `uz=+1.3888889327517973e-7 m` at all four nodes. / 向上 500 N 符号及大小通过。 |
+| `pkpm-axial-20261013-163323-a49a98ed` | Four 4 m beams under 1 kN/m: each column carries 4 kN; `uz=-1.1111111462014378e-6 m`. / 全跨均布荷载的总量与位移通过。 |
+| `pkpm-axial-20261013-163501-4a406499` | Two stories, eight nodes: floor displacements match `-2PL/EA` and `-3PL/EA`. / 两层八节点位移符合独立轴压解析解。 |
+| `pkpm-axial-20261013-163854-08ca578d` | Two-story beam UDL: eight node translations, zero lateral drift, and signed column axial forces agree with independently frozen displacement/equilibrium references. / 两层梁均布荷载的八节点位移、零水平漂移及有符号柱轴力均通过独立参考。 |
+
+The original `P=1 kN`, `L=3 m`, `A=0.36 m²`, `E=30000 MPa` reference and its
+`1e-5` relative / `1e-11 m` absolute displacement tolerances remain unchanged.
+New signed-load and multi-story references are saved before model creation.
+These axial checks establish the stated C30/rectangular axial stiffness and
+load subset only. They do not validate shear/torsion, density/self-weight,
+arbitrary materials, floor assumptions or general member-result conventions.
+
+原始轴压参考和位移容差未放宽。新增正负荷载与多层参考在创建模型前保存。
+上述验收仅证明这组 C30 矩形截面的轴向刚度与已列荷载，不代表剪切、扭转、密度自重、
+任意材料、楼板假定或通用构件结果约定通过。
+
+## Remaining native obstruction / 尚存原生阻碍
+
+`ProjectPara 601=60102` requests one-time loading. On this installed
+SATWE2025R2.5 batch path, the controlled fixture repeatedly stops at foundation
+interface generation. The corrected-load run
+`pkpm-axial-20261013-162622-1661cc52` timed out; omitting only this parameter made
+the same fixture finish with native construction simulation 1. The successful
+diagnostic is **not** acceptance of one-time loading, and production does not
+silently substitute construction simulation. The original failed runs remain.
+
+本机批处理在显式一次性加载 `60102` 下可重复卡在基础接口输出；仅省略此参数则采用原生
+“模拟施工 1”并成功。这是受控诊断差异，不是一次性加载验收，也没有在生产中静默替换设置。
+原失败记录均保留。下一步应修复或更换经匹配验证的原生批处理计算路径，再认证显式设置。
+
+## Reproduce / 复现
+
+```powershell
+& '<engineering-python>' backend/tests/analysis-pkpm-native-calibration.py --work-root '<new-work-root>' --cycle '<PKPM>/PkpmCycle/JWSCYCLE.exe' --timeout 60 --omit-setting 601
+& '<engineering-python>' backend/tests/analysis-pkpm-native-calibration.py --work-root '<new-work-root>' --cycle '<PKPM>/PkpmCycle/JWSCYCLE.exe' --timeout 60 --omit-setting 601 --load-kn -0.5
+& '<engineering-python>' backend/tests/analysis-pkpm-native-calibration.py --work-root '<new-work-root>' --cycle '<PKPM>/PkpmCycle/JWSCYCLE.exe' --timeout 60 --omit-setting 601 --stories 2 --load-pattern beam-uniform
+```
+
+The omitted-setting switch is diagnostic-only, not a production bypass.
+`explicitControlsAccepted` remains false. Running without that switch retains
+the original explicit one-time-loading attempt and its failure evidence.
+
+省略设置的选项只用于诊断，不是生产后门；`explicitControlsAccepted` 继续为 false。
+不传该选项则仍尝试原显式一次性加载条件，并保留失败证据。
