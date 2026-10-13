@@ -703,6 +703,7 @@ def _extract_results(jws_path: Path, material_family: str = "steel") -> Dict[str
             "native_displacement_source": displacement_source,
             "native_constraint_displacements": constraint_displacements,
             "native_result_members": native_result_members,
+            "native_result_nodes": native_nodes,
             "case_beam_forces": case_beam_forces,
             "case_col_forces": case_col_forces,
             "native_case_names": result.GetAllChineseLoadCaseName() if has_native_dofs else {},

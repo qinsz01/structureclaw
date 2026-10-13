@@ -1,0 +1,64 @@
+{
+  "schemaVersion": "pkpm-column-axes-acceptance/v1",
+  "scope": "Native orthogonal rectangular column stiffness and full result mapping; independent reference frozen before each native solve. Not benchmark answers.",
+  "reference": "backend/tests/native_frame_reference.py",
+  "tolerance": {
+    "relative": 1e-05,
+    "displacementM": 1e-11,
+    "rotationRad": 1e-11,
+    "forceKN": 1e-05,
+    "momentKNm": 1e-05
+  },
+  "mapping": "Native angle zero has B along global X and H along global Y; compile source local-z depth direction to exact B/H permutation, verify saved native geometry, retain canonical source axes for six result components.",
+  "preservedSource": true,
+  "runs": [
+    {
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-column-axis-20261013-201527-8d12aee6",
+      "status": "native-completed",
+      "completePhysicalOutputAccepted": false,
+      "files": {
+        "frozen-source-model.json": "df1f31f787218b8e71322eeac1234e7959ff2784295cc02dd27fa58aaad6dd47",
+        "frozen-timoshenko-reference.json": "1b0a5713755674ade2e792413c4283692aae63fc06204413b9a977b762377d7f",
+        "acceptance.json": "c7d8f544bcc480374eee89f1b44687840b773b3c4e567d41c99921ce16156893",
+        "result.json": "7f6676829e9b3940592333ffd5e01b2fcf4876bfda339c51c0d0120eb8d14263"
+      },
+      "counts": {
+        "nodeDofs": 162,
+        "memberEndAndSupportForces": 558
+      },
+      "nativeWorkDir": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-column-axis-20261013-201527-8d12aee6\\sc_bc3c7731"
+    },
+    {
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-column-axis-fixed-20261013-202851-dcf91ac3",
+      "status": "native-completed",
+      "completePhysicalOutputAccepted": true,
+      "files": {
+        "frozen-source-model.json": "df1f31f787218b8e71322eeac1234e7959ff2784295cc02dd27fa58aaad6dd47",
+        "frozen-timoshenko-reference.json": "1b0a5713755674ade2e792413c4283692aae63fc06204413b9a977b762377d7f",
+        "acceptance.json": "851557d349ffa3fb64a70d4a07e923a9ffa1cda24e0274a12e11767ee25aac73",
+        "result.json": "0f052991904d1c45b147ce763fc8bc2c149842b043eaffe82a4057937bb949ed"
+      },
+      "counts": {
+        "nodeDofs": 162,
+        "memberEndAndSupportForces": 558
+      },
+      "nativeWorkDir": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-column-axis-fixed-20261013-202851-dcf91ac3\\sc_9f967b3b"
+    },
+    {
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-column-axis90-fixed-20261013-203332-87d30a6f",
+      "status": "native-completed",
+      "completePhysicalOutputAccepted": true,
+      "files": {
+        "frozen-source-model.json": "aca187d6760f37936f27007f21c745b35b4207cfa45b74de6d11bcc1f651e04c",
+        "frozen-timoshenko-reference.json": "2f05e37136000f5a70c7010abb0a1e6eb911480b18a51b3054a5451ce02b187b",
+        "acceptance.json": "0191975f12d96f9e5b27f2e0438d09ff43105a2d78b78b1030e85a6de1264874",
+        "result.json": "1a3deb576fdcd1d6824388f994f1b4a23e603bb8e53a35eadf1eb270c7cd3520"
+      },
+      "counts": {
+        "nodeDofs": 162,
+        "memberEndAndSupportForces": 558
+      },
+      "nativeWorkDir": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-column-axis90-fixed-20261013-203332-87d30a6f\\sc_43f77e6d"
+    }
+  ]
+}

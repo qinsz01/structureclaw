@@ -25,19 +25,25 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--work-root", type=Path, required=True)
     parser.add_argument("--cycle", type=Path, required=True)
+    parser.add_argument("--width-mm", type=int, default=600)
+    parser.add_argument("--depth-mm", type=int, default=600)
+    parser.add_argument("--native-angle", type=float, default=0)
     args = parser.parse_args()
     folder = args.work_root / f"pkpm-dof-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}"
     folder.mkdir(parents=True, exist_ok=False)
-    E, G, A, I, L = 206000000.0, 79000000.0, .36, .6**4/12, 3.0
-    J = .6**4*(1/3-.21*(1-1/12))
+    b, h = args.width_mm/1000, args.depth_mm/1000
+    E, G, A, Iy, Iz, L = 206000000.0, 79000000.0, b*h, b*h**3/12, h*b**3/12, 3.0
+    wide, narrow = max(b, h), min(b, h)
+    J = wide*narrow**3*(1/3-.21*narrow/wide*(1-narrow**4/(12*wide**4)))
     load_vectors = [[1, 0, -.5, 0, .125, .2], [2, 0, -.75, .25, 0, .3],
                     [0, 3, -1, 0, 0, -.1], [0, -1, -1.25, 0, 0, 0]]
     references = []
     for node, (fx, fy, fz, mx, my, mz) in enumerate(load_vectors):
-        references.append({"nodeId": f"N{node}", "ux": fx*(L**3/(3*E*I)+L/((5/6)*G*A))+my*L**2/(2*E*I),
-            "uy": fy*(L**3/(3*E*I)+L/((5/6)*G*A))-mx*L**2/(2*E*I), "uz": fz*L/(E*A),
-            "rx": mx*L/(E*I)-fy*L**2/(2*E*I), "ry": my*L/(E*I)+fx*L**2/(2*E*I), "rz": mz*L/(G*J)})
-    reference = {"E_kN_m2": E, "G_kN_m2": G, "A_m2": A, "I_m4": I, "J_m4": J,
+        references.append({"nodeId": f"N{node}", "ux": fx*(L**3/(3*E*Iy)+L/((5/6)*G*A))+my*L**2/(2*E*Iy),
+            "uy": fy*(L**3/(3*E*Iz)+L/((5/6)*G*A))-mx*L**2/(2*E*Iz), "uz": fz*L/(E*A),
+            "rx": mx*L/(E*Iz)-fy*L**2/(2*E*Iz), "ry": my*L/(E*Iy)+fx*L**2/(2*E*Iy), "rz": mz*L/(G*J)})
+    reference = {"E_kN_m2": E, "G_kN_m2": G, "A_m2": A, "Iy_m4": Iy, "Iz_m4": Iz, "J_m4": J,
+        "sourceReferenceVector": [1, 0, 0], "sourceRotationDegrees": 0, "nativeAngleDegrees": args.native_angle,
         "length_m": L, "loadVectors": load_vectors, "references": references,
         "relativeTolerance": 1e-5, "absoluteTranslationTolerance_m": 1e-11,
         "absoluteRotationTolerance_rad": 1e-11,
@@ -53,13 +59,13 @@ def main():
         runtime = importlib.util.module_from_spec(spec); spec.loader.exec_module(runtime)
         model = api.Model(); model.CreatNewModel(str(folder), "dofcal")
         jws = folder / "dofcal.JWS"; model.OpenPMModel(str(jws))
-        shape = api.SectionShape(); shape.Set_B(600); shape.Set_H(600); shape.Set_M(5)
+        shape = api.SectionShape(); shape.Set_B(args.width_mm); shape.Set_H(args.depth_mm); shape.Set_M(5)
         section = api.ColumnSection(); section.SetUserSect(api.SectionKind.IDSec_Rectangle, shape)
         secid = model.AddColumnSection(section)
         floor = model.GetCurrentStandFloor(); clear_floor_slab(floor); floor.SetDeadLive(0, 0)
         targets, source_nodes = {}, []
         for index, (x, y) in enumerate(((0, 0), (4000, 0), (4000, 4000), (0, 4000))):
-            node = floor.AddNode(x, y); column = floor.AddColumn(secid, node.GetID())
+            node = floor.AddNode(x, y); column = floor.AddColumnEx(secid, node.GetID(), 0, 0, 0, args.native_angle)
             column.SetSteelGrade(api.SteelGrade.Q355)
             targets[("node", f"N{index}")] = node
             source_nodes.append({"id": f"N{index}", "x": x/1000, "y": y/1000, "z": 3})
@@ -79,11 +85,8 @@ def main():
         save(folder / "node-mapping-before.json", {f"N{i}": {"pmid": targets[("node", f"N{i}")].GetID(), "xy_mm": targets[("node", f"N{i}")].Get()} for i in range(4)})
         del para, floor, targets, model
         runtime._run_jws_cycle(args.cycle, folder, timeout=90)
-        result = api.ResultData(); result.InitialResult(str(jws))
-        save(folder / "native-node-coordinates.json", [{"pmid": n.GetPmID(), "floor": n.GetFloorNo(),
-            "coordinates": [n.GetCoordinateX(), n.GetCoordinateY(), n.GetCoordinateZ()]} for n in result.GetPyNodeInResult()])
-        result.ClearResult()
         native = runtime._extract_results(jws, "steel")
+        save(folder / "native-node-coordinates.json", native["native_result_nodes"])
         save(folder / "observed.json", {"cases": {name: [{"node": list(key), **value} for key,value in rows.items()] for name,rows in native["case_node_disps"].items()},
             "stations": [{"case": case, "member": list(key), "stations": rows} for case,members in native["case_member_stations"].items() for key,rows in members.items()]})
         evidence["settings"] = verify_effective_settings(folder, dict.fromkeys(("construction_stage", "p_delta", "rigid_offsets", "rigid_floor", "self_weight"), False))

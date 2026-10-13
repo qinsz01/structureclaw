@@ -1,14 +1,14 @@
 """
 V2 StructureModelV2 JSON → PKPM JWS (via APIPyInterface)
 
-保留的编译基础: 逐层水平梁与竖直柱；正式 V2 求解等待材料/截面属性原生校准。
+逐层水平梁与竖直柱；显式弹性材料、截面属性及正交矩形柱轴均核对原生输入。
 支持的截面:
   - H/I 型: kind="H" → IDSec_I  (PKPM字段: B=tw, H, U=bf, T=tf, D=bf, F=tf)
   - 箱型:   kind="Box"  → IDSec_Box
   - 管型:   kind="Tube" → IDSec_Tube
   - 矩形:   kind="Rectangle" / "rectangular" → IDSec_Rectangle
   标准型钢名称(standard_steel_name)与参数化 shape 不可同时提供。
-牌号枚举解析不是自定义材料常数校准；显式 E/nu/rho/G 和截面 A/I/J 等求解前拒绝。
+正式计算使用已校准的自定义弹性材料与截面读回；牌号枚举只用于原生设计属性。
 多层处理: 每个自然层独立编译节点、构件、截面和荷载，不复制模板楼层。
 
 单位约定:
@@ -33,6 +33,7 @@ from coordinate_semantics import resolve_model_dimension, validate_coordinate_co
 from contracts import AnalysisCapabilityError
 from native_model_contract import pkpm_section_shape, validate_pkpm_material_properties, validate_pkpm_sections
 from native_settings import clear_floor_slab, control_parameters, validate_settings
+from native_column_axes import column_axis_plan
 
 
 def validate_execution_settings(data: dict) -> None:
@@ -306,7 +307,7 @@ def _normalize_generic_frame_for_pkpm(data: dict) -> tuple[dict, dict[str, Any]]
             )
         if element_type == "beam" and (same_plan or abs(z2 - z1) > tol):
             raise ValueError(f"PKPM beam '{element_id}' must be horizontal in the global X-Y floor plane")
-        if abs(float(normalized.get("rotation_angle", 0.0) or 0.0)) > tol:
+        if element_type != "column" and abs(float(normalized.get("rotation_angle", 0.0) or 0.0)) > tol:
             raise ValueError(f"PKPM adapter cannot yet preserve rotation_angle on element '{element_id}'")
         if normalized.get("offsets"):
             raise ValueError(f"PKPM adapter cannot yet preserve end offsets on element '{element_id}'")
@@ -453,6 +454,7 @@ def _register_section(
     inferred_role: str,
     material_family: str = "steel",
     native_material_id: int | None = None,
+    swap_column_axes: bool = False,
 ) -> tuple[str, int]:
     """
     Register one V2 section entry.
@@ -463,6 +465,10 @@ def _register_section(
     """
     std_name: str | None = sec.get("standard_steel_name")
     shape_dict: dict | None = pkpm_section_shape(sec)
+    if swap_column_axes:
+        if inferred_role != "col" or not shape_dict or shape_dict["kind"] != "Rectangle":
+            raise ValueError("Column axis permutation requires a rectangular native section")
+        shape_dict = {**shape_dict, "B": shape_dict["H"], "H": shape_dict["B"]}
     use_standard_steel = bool(std_name) and material_family == "steel" and not shape_dict
     if native_material_id is not None and not shape_dict:
         raise AnalysisCapabilityError(engine="pkpm", capability="native-custom-material-section",
@@ -495,7 +501,7 @@ def _register_section(
                 raise ValueError(f"Section '{sec['id']}' standard steel section failed: {standard_error}")
         else:
             raise ValueError(f"Section '{sec['id']}' has no usable PKPM section shape.")
-        _verify_section_properties(sec, csec, "column")
+        _verify_section_properties(sec, csec, "column", swap_bending_axes=swap_column_axes)
         pm_idx = model.AddColumnSection(csec)
     else:
         bsec = APIPyInterface.BeamSection()
@@ -515,7 +521,7 @@ def _register_section(
     return inferred_role, pm_idx
 
 
-def _verify_section_properties(source: dict, section: Any, role: str) -> dict:
+def _verify_section_properties(source: dict, section: Any, role: str, *, swap_bending_axes: bool = False) -> dict:
     """Compare actual native stiffness geometry, including torsion J."""
     requested = {}
     for key in ("A", "Iy", "Iz", "J"):
@@ -530,6 +536,8 @@ def _verify_section_properties(source: dict, section: Any, role: str) -> dict:
     native = getattr(APIPyInterface.Bardata(), f"GetSectProperty_{role}")(section, APIPyInterface.MaterialData())
     actual = {key: float(getattr(native, getter)()) for key, getter in
               (("A", "GetArea"), ("Iy", "GetRjx"), ("Iz", "GetRjy"), ("J", "GetRjz"))}
+    if swap_bending_axes:
+        actual["Iy"], actual["Iz"] = actual["Iz"], actual["Iy"]
     for key, value in requested.items():
         # Native SDK properties are single precision. This is serialization
         # precision, not a relaxed structural result acceptance tolerance.
@@ -1040,15 +1048,18 @@ def convert_v2_to_jws(
                 unit_weight=0. if analysis_control.get("self_weight") is False else float(material["rho"]) * 9.80665 / 1000)
             native_materials[str(material["id"])]["sourceDensityKgM3"] = float(material["rho"])
             native_materials[str(material["id"])]["selfWeightEnabled"] = analysis_control.get("self_weight") is not False
+    column_axes = {str(element["id"]): column_axis_plan(data, element) for element in data["elements"]} if native_materials else {}
+    if not native_materials and any(abs(float(element.get("rotation_angle") or 0)) > 1e-10 for element in data["elements"]):
+        raise ValueError("Column axis compilation requires explicit elastic materials / 柱截面轴编译需要明确弹性材料")
     if native_materials:
         sections = {str(section["id"]): section for section in data.get("sections", [])}
         sec_registry = {}
         for element in data["elements"]:
             role = "col" if element["type"] == "column" else "beam"
-            key = (str(element["section"]), str(element["material"]), role)
+            key = (str(element["section"]), str(element["material"]), role, bool((column_axes[str(element["id"])] or {}).get("swapBH")))
             if key not in sec_registry:
                 sec_registry[key] = _register_section(model, sections[key[0]], role, material_family,
-                    native_materials.get(key[1], {}).get("nativeMaterialId"))
+                    native_materials.get(key[1], {}).get("nativeMaterialId"), swap_column_axes=key[3])
     else:
         sec_registry = _build_section_registry(model, data.get("sections", []), data, material_family)
 
@@ -1090,7 +1101,7 @@ def convert_v2_to_jws(
         for element in floor_elements:
             element_id = str(element["id"])
             node_ids = [str(nid) for nid in element["nodes"]]
-            section_id = (str(element["section"]), str(element["material"]), "col" if element["type"] == "column" else "beam") if native_materials else element["section"]
+            section_id = (str(element["section"]), str(element["material"]), "col" if element["type"] == "column" else "beam", bool((column_axes[element_id] or {}).get("swapBH"))) if native_materials else element["section"]
             if section_id not in sec_registry:
                 raise ValueError(f"PKPM element '{element_id}' references an unregistered section '{section_id}'")
             role, pm_section = sec_registry[section_id]
@@ -1125,6 +1136,7 @@ def convert_v2_to_jws(
                 "natural_floor": story_index,
                 "standard_floor": standard_floor_index,
                 "native_endpoint_order": node_ids,
+                "native_section_axes": column_axes.get(element_id),
             }
             if element["type"] == "beam": targets[("beam", element_id)] = member
         floor_loads = [row for row in load_plan if (row["targetType"], row["targetId"]) in targets]

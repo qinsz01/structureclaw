@@ -65,12 +65,13 @@ def main():
     parser.add_argument("--native-switch", choices=("SOV_DOUBLE.OUT", "READDISPDIRECT.OUT", "OPTIMIZELOOPREAD4_TO_REAL8.OUT", "OPTIMIZELOOPREAD4_TO_REAL8_2.OUT"), action="append", default=[], help="Diagnostic native numerical switch in the isolated project only")
     parser.add_argument("--combination", action="store_true", help="Request ULS after native source cases are solved")
     parser.add_argument("--planned-proxy", action="store_true", help="Use explicit INT089/MM089 capability proxy, not formal benchmark input")
+    parser.add_argument("--model-file", type=Path, help="Explicit independent capability model; not benchmark scoring truth")
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[2]
-    fixture = repo / "tests/llm-benchmark/acceptance/representative-18" / ("STD-086" if args.planned_proxy else args.case)
+    fixture = repo / "tests/llm-benchmark/acceptance/representative-18" / ("STD-086" if args.planned_proxy or args.model_file else args.case)
     root = args.work_root.resolve() / f"pkpm-{args.case}-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}"
     root.mkdir(parents=True, exist_ok=False)
-    source = fixture / f"model-state-{1 if args.planned_proxy else args.state}.json"
+    source = args.model_file.resolve() if args.model_file else fixture / f"model-state-{1 if args.planned_proxy else args.state}.json"
     model = json.loads(source.read_text(encoding="utf-8"))
     if args.planned_proxy:
         from pkpm_planned_frame_proxies import model as planned_model
@@ -109,6 +110,7 @@ def main():
         "sourceSha256": hashlib.sha256(source.read_bytes()).hexdigest(),
         "frozenModelSha256": hashlib.sha256((root / "frozen-source-model.json").read_bytes()).hexdigest(),
         "plannedCapabilityProxy": args.planned_proxy,
+        "explicitCapabilityModel": bool(args.model_file),
         "referenceSha256": hashlib.sha256((fixture / "independent-reference.json").read_bytes()).hexdigest(),
         "timoshenkoReferenceSha256": hashlib.sha256((root / "frozen-timoshenko-reference.json").read_bytes()).hexdigest(),
         "referenceKind": reference["referenceKind"], "notCommercialScoringTruth": True}
@@ -143,7 +145,7 @@ def main():
         result = module.run_analysis(model, {"timeout": 120, **selection})
         (root / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
         comparisons, missing, failures = [], [], []
-        state = {"quantities": []} if args.planned_proxy else next(row for row in reference["states"] if row["state"] == args.state)
+        state = {"quantities": []} if args.planned_proxy or args.model_file else next(row for row in reference["states"] if row["state"] == args.state)
         for quantity in state["quantities"]:
             if quantity["location"]["kind"] != "node":
                 continue
@@ -159,7 +161,7 @@ def main():
             if not passed: failures.append(item)
         evidence.update(status="native-completed", nativeWorkDir=result["summary"]["work_dir"],
             comparisons=comparisons, missingNodeQuantities=missing, discrepancies=failures,
-            numericalCapabilityAccepted=None if args.planned_proxy else not missing and not failures)
+            numericalCapabilityAccepted=None if args.planned_proxy or args.model_file else not missing and not failures)
         timo_checks = []
         all_results = {**result["caseResults"], **result.get("combinationResults", {})}
         for case_id, actual_case in all_results.items():

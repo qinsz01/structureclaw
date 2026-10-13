@@ -55,6 +55,9 @@ def _snapshot_native_geometry(jws_path, api=None):
                 endpoints = [int(segment[0])] if kind == "column" else list(floor.GetNet(int(segment[0])).GetLine())
                 members.append({"pmid": int(obj.GetID()), "kind": kind, "segment": segment,
                                 "planNodeIds": endpoints, "supportCode": float(obj.GetSpecial(support_enum))})
+                if kind == "column":
+                    section_kind, shape = native.GetColumnSection(int(segment[1])).GetUserSect()
+                    members[-1]["sectionDimensionsMm"] = {"kind": int(section_kind), "B": shape.Get_B(), "H": shape.Get_H()}
         if floor.GetBraces() or floor.GetWalls():
             raise NativeGeometryUnavailable("Native frame contains uncalibrated brace/wall geometry")
         floors.append({"floor": floor_index, "standardFloor": standard,
@@ -186,11 +189,25 @@ def bind_native_geometry(model, snapshot, artifacts):
                 raise NativeGeometryUnavailable("Solver introduced member hinges/rigid ends/rotation")
             if member_id in native_members:
                 raise NativeGeometryUnavailable("Repeated native mapping for physical member")
+            section_axis_evidence = None
+            if kind == "column":
+                from native_column_axes import column_axis_plan
+                source_element = next(row for row in model["elements"] if str(row["id"]) == member_id)
+                section_axis_evidence = column_axis_plan(model, source_element)
+                dimensions = native.get("sectionDimensionsMm")
+                if dimensions is not None:
+                    if dimensions != {"kind": 1, **section_axis_evidence["nativeDimensionsMm"]}:
+                        raise NativeGeometryUnavailable("Native column section dimensions do not preserve physical axes / 原生柱截面尺寸与物理轴映射不符")
+                    section_axis_evidence = {**section_axis_evidence, "nativeReadback": dimensions}
+                elif section_axis_evidence["sourceDimensionsMm"]["B"] != section_axis_evidence["sourceDimensionsMm"]["H"]:
+                    raise NativeGeometryUnavailable("Non-square column requires native section-axis readback / 非方形柱须有原生截面轴读回")
             result = {"kind": kind, "angleDegrees": 0., "offsetsM": [0.] * 6,
                       "releases": [False] * 12, "nativePmid": native["pmid"], "nativeFloor": number,
                       "nativeReportId": report_id, "nativeReportNodeIds": report_ids,
                       "geometrySource": {**evidence, "nativeFloor": number, "nativePmid": native["pmid"],
                                          "segment": segment, "supportCode": native["supportCode"], "solverControls": control}}
+            if section_axis_evidence:
+                result["geometrySource"]["sectionAxes"] = section_axis_evidence
             if kind == "column":
                 if report_ids != list(reversed(ids)):
                     raise NativeGeometryUnavailable("Uncalibrated native column report endpoint order")
