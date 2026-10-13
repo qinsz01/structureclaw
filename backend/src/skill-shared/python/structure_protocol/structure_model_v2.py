@@ -424,7 +424,14 @@ class MaterialV2(BaseModel):
     @model_validator(mode='before')
     @classmethod
     def migrate_design(cls, value):
-        return migrate_design_fields(value, 'material')
+        value = migrate_design_fields(value, 'material')
+        if isinstance(value, dict) and value.get('type') in {'steel', 'concrete', 'rebar', 'other'}:
+            # Historical imports used type for the material category. Preserve
+            # that explicit identity before Pydantic discards unknown fields.
+            if value.get('category') not in (None, value['type']):
+                raise ValueError('Material category/type conflict / 材料类别冲突')
+            value['category'] = value.pop('type')
+        return value
 
 
 class SectionV2(BaseModel):

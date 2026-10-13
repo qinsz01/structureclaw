@@ -19,6 +19,15 @@ def test_design_values_and_shear_modulus_migrate_once_without_loss():
     assert ElementV2.model_validate(member.model_dump(exclude_unset=True)) == member
 
 
+def test_explicit_legacy_material_type_survives_v2_serialization():
+    source = {'id':'m','name':'project steel','type':'steel','E':206000,'G':79000,'nu':.3,'rho':7850}
+    normalized = MaterialV2.model_validate(source).model_dump(exclude_unset=True)
+    assert normalized['category'] == 'steel' and 'type' not in normalized
+    assert normalized['G'] == 79000 and source['type'] == 'steel'
+    with pytest.raises(ValueError, match='category/type conflict'):
+        MaterialV2.model_validate({**source, 'category':'concrete'})
+
+
 @pytest.mark.parametrize('patch', [{'f':200,'design':{'f':300}}, {'G':10000,'extra':{'G':20000}}, {'design':{'f':float('inf')}}])
 def test_conflicting_or_nonfinite_material_parameters_are_rejected(patch):
     with pytest.raises(ValueError):
