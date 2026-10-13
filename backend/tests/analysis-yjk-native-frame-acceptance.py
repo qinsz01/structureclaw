@@ -29,10 +29,22 @@ def main():
     work = Path(args.output).resolve()/('yjk-frame-acceptance-'+time.strftime('%Y%m%d-%H%M%S')+'-'+uuid.uuid4().hex[:6])
     work.mkdir(parents=True, exist_ok=False)
     reference = {case['id']: solve(model, case['id']) for case in model['load_cases']}
+    combinations = {}
+    if args.combination:
+        factors = next(row['factors'] for row in model['load_combinations'] if row['id'] == args.combination)
+        first = reference[next(iter(factors))]
+        combined = {}
+        for field in ('displacements', 'reactions'):
+            combined[field] = {key: {component: math.fsum(factor*reference[case][field][key][component]
+                for case, factor in factors.items()) for component in values} for key, values in first[field].items()}
+        combined['localEndActions'] = {key: [math.fsum(factor*reference[case]['localEndActions'][key][index]
+            for case, factor in factors.items()) for index in range(12)] for key in first['localEndActions']}
+        combinations[args.combination] = combined
     payload = {'modelSha256': hashlib.sha256(Path(args.model).read_bytes()).hexdigest(),
                'frozenAt': time.time(), 'relativeTolerance': 1e-5,
                'absoluteTolerance': {'displacements': 1e-11, 'reactions': 1e-5, 'localEndActions': 1e-5},
-               'cases': reference, 'referenceScriptSha256': hashlib.sha256((Path(__file__).parent/'native_frame_reference.py').read_bytes()).hexdigest()}
+               'cases': reference, 'combinations': combinations,
+               'referenceScriptSha256': hashlib.sha256((Path(__file__).parent/'native_frame_reference.py').read_bytes()).hexdigest()}
     ref_path = work/'reference.json'
     ref_path.write_text(json.dumps(payload, indent=2), encoding='utf8')
     ref_hash = hashlib.sha256(ref_path.read_bytes()).hexdigest()
@@ -43,8 +55,8 @@ def main():
                                          **({'loadCombinationId': args.combination} if args.combination else {})})
     (work/'result.json').write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding='utf8')
     checks = []
-    for case, data in reference.items():
-        actual = result['caseResults'][case]
+    for case, data, actual in [*( (key, value, result['caseResults'][key]) for key, value in reference.items()),
+                              *( (key, value, result['combinationResults'][key]) for key, value in combinations.items())]:
         for field in ('displacements', 'reactions'):
             for node, values in data[field].items():
                 for component, wanted in values.items():

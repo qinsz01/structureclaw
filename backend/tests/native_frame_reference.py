@@ -1,15 +1,79 @@
 """Independent first-order 3-D Timoshenko frame reference for native acceptance.
 
 Test-only direct stiffness assembly. No production converter, postprocessor or
-solver imports. Rectangular elastic members, nodal loads and full-span uniform
-global line loads only; all other inputs fail explicitly.
+solver imports. Rectangular elastic members, nodal/point loads and uniform
+global line loads; partial loading uses independent connected segments.
 """
 from __future__ import annotations
+import copy
 import math
 import numpy as np
 
 
 def solve(model: dict, case_id: str) -> dict:
+    """Resolve load breakpoints using independent, connected elastic segments."""
+    case = next(row for row in model['load_cases'] if row['id'] == case_id)
+    if not any(load['type'] == 'point' or (load['type'] == 'distributed' and
+               ('start' in load or 'end' in load)) for load in case['loads']):
+        return _solve_full_span(model, case_id)
+    mesh = copy.deepcopy(model)
+    coordinates = {node['id']: np.array([node[k] for k in ('x', 'y', 'z')]) for node in model['nodes']}
+    mesh['elements'] = []
+    loads, member_segments = [], {}
+    for member in model['elements']:
+        a, b = (coordinates[key] for key in member['nodes'])
+        length = float(np.linalg.norm(b-a))
+        member_loads = [load for load in case['loads'] if load.get('element') == member['id']]
+        breaks = {0., length}
+        for load in member_loads:
+            if load['type'] == 'point':
+                positions = [float(load['position'])]
+            elif load['type'] == 'distributed' and load.get('distribution', 'uniform') == 'uniform':
+                positions = [float(load.get('start', 0)), float(load.get('end', length))]
+            else:
+                raise ValueError('Independent segmented reference requires point or uniform line loads')
+            if any(not 0 <= position <= length for position in positions):
+                raise ValueError('Independent reference load outside physical member')
+            breaks.update(positions)
+        breaks = sorted(breaks)
+        node_ids = [member['nodes'][0]]
+        for i, distance in enumerate(breaks[1:-1], 1):
+            key = f'__reference_{member["id"]}_node_{i}'
+            if key in coordinates:
+                raise ValueError('Independent reference node ID collision')
+            xyz = a+(b-a)*distance/length
+            mesh['nodes'].append({'id': key, **dict(zip(('x', 'y', 'z'), xyz.tolist()))})
+            node_ids.append(key)
+        node_ids.append(member['nodes'][1])
+        segments = []
+        for i, (start, end) in enumerate(zip(breaks, breaks[1:])):
+            key = f'__reference_{member["id"]}_segment_{i}'
+            segment = {**copy.deepcopy(member), 'id': key, 'nodes': node_ids[i:i+2]}
+            mesh['elements'].append(segment)
+            reference = model.get('metadata', {}).get('elementReferenceVectors', {}).get(member['id'])
+            if reference is not None:
+                mesh.setdefault('metadata', {}).setdefault('elementReferenceVectors', {})[key] = reference
+            segments.append(key)
+            for load in member_loads:
+                if load['type'] == 'distributed' and float(load.get('start', 0)) <= start and end <= float(load.get('end', length)):
+                    loads.append({k: v for k, v in {**load, 'element': key}.items() if k not in {'start', 'end'}})
+        for load in member_loads:
+            if load['type'] == 'point':
+                loads.append({**{k: v for k, v in load.items() if k not in {'element', 'position'}},
+                              'type': 'nodal', 'node': node_ids[breaks.index(float(load['position']))]})
+        member_segments[member['id']] = segments
+    loads.extend(load for load in case['loads'] if load['type'] == 'nodal')
+    mesh['load_cases'] = [{**case, 'loads': loads}]
+    result = _solve_full_span(mesh, case_id)
+    for field in ('displacements', 'reactions'):
+        result[field] = {node['id']: result[field][node['id']] for node in model['nodes']}
+    result['localEndActions'] = {key: result['localEndActions'][segments[0]][:6] +
+                                result['localEndActions'][segments[-1]][6:] for key, segments in member_segments.items()}
+    result['method'] += '-independent-load-breakpoint-segmentation'
+    return result
+
+
+def _solve_full_span(model: dict, case_id: str) -> dict:
     nodes = model['nodes']
     index = {row['id']: i for i, row in enumerate(nodes)}
     positions = {row['id']: np.array([row[key] for key in ('x', 'y', 'z')], dtype=float) for row in nodes}

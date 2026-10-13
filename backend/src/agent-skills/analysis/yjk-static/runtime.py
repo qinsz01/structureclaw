@@ -465,6 +465,10 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
         requested_cases, combination = _result_selection(model_dict, parameters)
         compile_stiffness_plan(model_dict)
         _validate_yjk_grid_conversion_scope(model_dict)
+        from member_mesh import compile_member_mesh
+        source_model = model_dict
+        model_dict, mesh_receipt = compile_member_mesh(source_model)
+        _validate_yjk_grid_conversion_scope(model_dict)
     except ValueError as error:
         raise AnalysisCapabilityError(engine="yjk", capability="native-model-contract", reason=str(error)) from error
     yjk_python = _resolve_yjk_python()
@@ -474,6 +478,9 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     # Write the canonical V2 model JSON to the YJK work directory.
     model_path = work_dir / "model.json"
     model_path.write_text(json.dumps(model_dict, ensure_ascii=False), encoding="utf-8")
+    if mesh_receipt is not None:
+        _write_json(work_dir / 'physical-model.json', source_model)
+        _write_json(work_dir / 'physical-mesh.json', mesh_receipt)
 
     # Locate the driver script (sibling of this file)
     driver_path = Path(__file__).resolve().parent / "yjk_driver.py"
@@ -693,6 +700,8 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
         _raise_yjk_runtime_error('YJK physical input verification is missing or failed / 原生物理输入核对失败',
                                 work_dir=work_dir, output=output,
                                 detail={'physicsAudit': physics})
+    from member_mesh import restore_physical_results
+    output = restore_physical_results(output, mesh_receipt)
     output = _select_verified_results(output, requested_cases, combination)
 
     if stderr:
