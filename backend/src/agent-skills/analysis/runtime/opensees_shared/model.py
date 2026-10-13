@@ -68,9 +68,8 @@ class OpenSeesModelBuilder(OpenSeesTagMapper):
             x /= np.linalg.norm(x)
             y = np.array([0.0, 1.0, 0.0])
             z = np.cross(x, y)
-            angle = math.radians(float(element.rotation_angle or 0))
-            return np.vstack([x, math.cos(angle)*y+math.sin(angle)*z,
-                              -math.sin(angle)*y+math.cos(angle)*z])
+            c, s = ((1,0),(0,1),(-1,0),(0,-1))[round(float(element.rotation_angle or 0)/90)%4]
+            return np.vstack([x, c*y+s*z, -s*y+c*z])
         return build_element_local_axes([start.x, start.y, start.z], [end.x, end.y, end.z],
             get_reference_vector(get_model_metadata(self.model), str(element.id)), element.rotation_angle)
 

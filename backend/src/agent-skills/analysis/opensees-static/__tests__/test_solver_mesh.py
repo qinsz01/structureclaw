@@ -54,6 +54,8 @@ def test_principal_2d_section_rotation_matches_same_restrained_3d_model(angle):
         inertia = .0002 if round(angle/90)%2 else .0001
         assert result['segmentResults']['displacements'][split]['uz'] == pytest.approx(-20*6**3/(48*200000000*inertia),rel=1e-10)
     for end in ('n1','n2'):
+        inactive = ('V3','M2') if round(angle/90)%2 else ('V2','M3')
+        assert all(responses[0]['forces']['member'][end][key] == 0 for key in inactive)
         for component in ('N','V2','V3','T','M2','M3'):
             assert responses[0]['forces']['member'][end][component] == pytest.approx(
                 responses[1]['forces']['member'][end][component], rel=1e-10, abs=1e-10)

@@ -10,8 +10,7 @@ def canonical_frame_end_actions(values, dimension, rotation_degrees=0.0):
     ends = []
     for v in (values[:expected//2], values[expected//2:]):
         if dimension == '2d':
-            angle = math.radians(float(rotation_degrees or 0))
-            c, s = math.cos(angle), math.sin(angle)
+            c, s = ((1,0),(0,1),(-1,0),(0,-1))[round(float(rotation_degrees or 0)/90)%4]
             ends.append(dict(N=v[0], V=v[1], M=-v[2], V2=s*v[1], V3=c*v[1],
                              T=0.0, M2=-c*v[2], M3=s*v[2]))
         else:
