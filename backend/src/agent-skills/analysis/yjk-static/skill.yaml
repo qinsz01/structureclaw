@@ -5,8 +5,8 @@ name:
   zh: YJK 静力分析
   en: YJK Static Analysis
 description:
-  zh: 保留 YJK 逐层节点构件编译、启动授权及结果读取外壳；逐构件材料牌号与常数映射尚未原生验收，正式分析由能力门禁阻止，当前编译能力不代表可正式计算。
-  en: Retains YJK per-floor member compilation, authorization/launch, and result-reader infrastructure. Formal analysis is gated until per-member material grades and constants pass native acceptance; compilation does not establish executable physics parity.
+  zh: YJK 三维弹性杆系静力分析：已原生验收矩形截面框架、局部与集中荷载、普通斜柱、坡梁和源工况组合的明确子集。每次执行核对材料刚度、有效设置、荷载与有符号结果；未验收输入拒绝计算，原生自动设计不推断利用率。
+  en: YJK 3-D elastic frame statics with a natively accepted subset of rectangular frames, partial/point loads, ordinary inclined columns, sloping beams and source-case combinations. Each run audits executed rigidities, settings, loads and signed results. Unverified inputs are rejected; automatic native design is not interpreted as utilization.
 triggers:
   - YJK 静力分析
   - YJK 计算
