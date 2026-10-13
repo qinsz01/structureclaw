@@ -48,11 +48,14 @@ export function createEditModelTool() {
 
 export function createUndoModelTool() {
   return tool(async (input, config) => {
-    const { id, state } = context(config);
+    const { id, state, structureProtocolClient } = context(config);
     if (input.baseRevision !== state.modelRevision) throw new Error(`MODEL_VERSION_CONFLICT: expected ${state.modelRevision}`);
-    const update = undoModel(state, input.transactionId);
+    const candidate = undoModel(state, input.transactionId);
+    const transaction = candidate.modelHistory.at(-1)!;
+    const normalized = await normalizeEngineeringModel(candidate.model, structureProtocolClient);
+    const update = commitModel(state, normalized, transaction.label, transaction.undoOf);
     return result(id, 'undo_model', { success: true, revision: update.modelRevision }, update);
-  }, { name: 'undo_model', description: 'Restore a transaction before-state as a new revision; reject conflicting subsequent edits. / 撤销修改并生成新版本，冲突时拒绝。',
+  }, { name: 'undo_model', description: 'Undo the selected transaction as a new revision, preserving unrelated later edits. Reject conflicts with the changed fields or references. / 选择性撤销指定事务，保留后续无关修改；字段或引用冲突时拒绝。',
     schema: z.object({ baseRevision: z.number().int().nonnegative(), transactionId: z.string().optional() }) });
 }
 

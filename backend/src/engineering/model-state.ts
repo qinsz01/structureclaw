@@ -232,10 +232,50 @@ function matchesRequest(a: AnalysisRequestBinding, b: ModelRecord): boolean {
 
 export function undoModel(state: ModelState, transactionId?: string) {
   const history = state.modelHistory ?? [];
-  const transaction = transactionId ? history.find((item) => item.id === transactionId) : history.at(-1);
+  const index = transactionId ? history.findIndex((item) => item.id === transactionId) : history.length - 1;
+  const transaction = history[index];
   if (!transaction?.beforeModel) throw new Error('MODEL_UNDO_UNAVAILABLE');
-  if (!state.model || modelHash(state.model) !== transaction.afterHash) throw new Error('MODEL_UNDO_CONFLICT');
-  return commitModel(state, structuredClone(transaction.beforeModel), `Undo: ${transaction.label}`, transaction.id);
+  if (!state.model) throw new Error('MODEL_UNDO_CONFLICT');
+  // The next immutable before-state is the selected transaction's after-state.
+  // This also works for historical sessions without a stored forward patch.
+  const after = history[index + 1]?.beforeModel ?? state.model;
+  if (modelHash(after) !== transaction.afterHash) throw new Error('MODEL_UNDO_CONFLICT: history');
+  const restored = reverseTransaction(transaction.beforeModel, after, state.model, 'model') as ModelRecord;
+  try { validateModelReferences(restored); }
+  catch (error) { throw new Error(`MODEL_UNDO_CONFLICT: ${error instanceof Error ? error.message : String(error)}`, { cause: error }); }
+  return commitModel(state, restored, `Undo: ${transaction.label}`, transaction.id);
+}
+
+/** Invert only changed fields; unrelated later edits survive. Arrays of objects
+ * are joined by stable IDs, so reordering never redirects an undo to another item.
+ * A later edit to the same value, or a referenced object being removed, conflicts.
+ */
+function reverseTransaction(before: unknown, after: unknown, current: unknown, field: string): unknown {
+  const same = (a: unknown, b: unknown) => a === undefined || b === undefined
+    ? a === b : contentHash(a) === contentHash(b);
+  if (same(before, after)) return structuredClone(current);
+  if (same(after, current)) return structuredClone(before);
+  if (isRecord(before) && isRecord(after) && isRecord(current)) {
+    const restored = structuredClone(current);
+    for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
+      const value = reverseTransaction(before[key], after[key], current[key], `${field}.${key}`);
+      if (value === undefined) delete restored[key]; else restored[key] = value;
+    }
+    return restored;
+  }
+  const identified = (value: unknown): value is ModelRecord[] => Array.isArray(value)
+    && value.every(item => isRecord(item) && typeof item.id === 'string')
+    && new Set(value.map(item => item.id)).size === value.length;
+  if (identified(before) && identified(after) && identified(current)) {
+    const index = (items: ModelRecord[]) => new Map(items.map(item => [String(item.id), item]));
+    const previous = index(before), applied = index(after), active = index(current);
+    for (const id of new Set([...previous.keys(), ...applied.keys()])) {
+      const value = reverseTransaction(previous.get(id), applied.get(id), active.get(id), `${field}[${id}]`);
+      if (value === undefined) active.delete(id); else active.set(id, value as ModelRecord);
+    }
+    return [...active.values()].map(item => structuredClone(item));
+  }
+  throw new Error(`MODEL_UNDO_CONFLICT: ${field}`);
 }
 
 export function currentAnalysisError(state: ModelState | undefined): string | undefined {

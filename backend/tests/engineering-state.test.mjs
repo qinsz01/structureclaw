@@ -50,6 +50,36 @@ describe('physical model revisions', () => {
     const third = commitModel(second, applyModelEdits(second.model, [{ operation: 'update', collection: 'nodes', id: 'b', values: { x: 6 } }]), 'edit2');
     expect(() => undoModel(third, second.modelHistory.at(-1).id)).toThrow('MODEL_UNDO_CONFLICT');
   });
+  test('selective undo restores an earlier load edit while retaining a later section change and reordered objects', () => {
+    const first = commitModel(undefined, model(), 'create');
+    const second = commitModel(first, applyModelEdits(first.model,
+      [{ operation: 'update', collection: 'loads', caseId: 'D', id: 'p', values: { fz: -12 } }]), 'load change');
+    const later = applyModelEdits(second.model,
+      [{ operation: 'update', collection: 'sections', id: first.model.sections[0].id, values: { properties: { A: .08 } } }]);
+    later.nodes.reverse(); later.load_cases.reverse();
+    const third = commitModel(second, later, 'section change');
+    third.analysisResult = { runId: 'old', success: true };
+    const snapshot = structuredClone(third);
+    const restored = undoModel(third, second.modelHistory.at(-1).id);
+    expect(restored.model.load_cases.find(c => c.id === 'D').loads[0].fz).toBe(-.5);
+    expect(restored.model.sections[0].properties.A).toBe(.08);
+    expect(restored.model.nodes.map(n => n.id)).toEqual(third.model.nodes.map(n => n.id));
+    expect(restored.modelRevision).toBe(4);
+    expect(restored.analysisResult).toBeNull();
+    expect(restored.analysisRuns.old.success).toBe(true);
+    expect(restored.modelHistory.at(-1).undoOf).toBe(second.modelHistory.at(-1).id);
+    expect(third).toEqual(snapshot);
+  });
+  test('undoing an added section conflicts when a later member references it, and leaves history untouched', () => {
+    const first = commitModel(undefined, model(), 'create');
+    const second = commitModel(first, applyModelEdits(first.model,
+      [{ operation: 'add', collection: 'sections', id: 'new', values: { properties: { A: .01 } } }]), 'add section');
+    const third = commitModel(second, applyModelEdits(second.model,
+      [{ operation: 'update', collection: 'elements', id: 'beam', values: { section: 'new' } }]), 'use section');
+    const snapshot = structuredClone(third);
+    expect(() => undoModel(third, second.modelHistory.at(-1).id)).toThrow('MODEL_UNDO_CONFLICT');
+    expect(third).toEqual(snapshot);
+  });
   test('old and failed analyses cannot justify current checks', () => {
     const m = model();
     const state = { model: m, ...beginAnalysisRequest({ model: m }, 'settings') };
