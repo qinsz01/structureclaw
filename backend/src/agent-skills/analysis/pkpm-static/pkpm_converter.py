@@ -10,7 +10,7 @@ V2 StructureModelV2 JSON → PKPM JWS (via APIPyInterface)
   标准型钢名称(standard_steel_name)优先于参数化 shape。
 支持的钢材牌号: Q235, Q345, Q355, Q390, Q420, Q460 及 GJ 系列
 支持的混凝土等级: C15, C20, C25, C30, C35, C40...
-多层处理: 相同荷载层复用标准层；不同恒/活荷载组合复制标准层
+多层处理: 每个自然层独立编译节点、构件、截面和荷载，不复制模板楼层。
 
 单位约定:
   - V2 JSON: 坐标(m), 截面尺寸(mm), 力(kN), 应力(MPa)
@@ -32,6 +32,20 @@ from typing import Any
 import APIPyInterface
 from coordinate_semantics import resolve_model_dimension, validate_coordinate_contract
 from contracts import AnalysisCapabilityError
+
+
+def validate_execution_settings(data: dict) -> None:
+    """Do not silently inherit native defaults for explicit physical controls."""
+    controls = _as_dict(data.get("analysis_control"))
+    unverified = [name for name in ("self_weight", "rigid_floor", "rigid_offsets", "construction_stage", "p_delta")
+                  if controls.get(name) is not None]
+    unverified.extend(f"stories.{story.get('id')}.rigid_diaphragm" for story in data.get("stories", [])
+                      if story.get("rigid_diaphragm") is not None)
+    if unverified:
+        raise AnalysisCapabilityError(
+            engine="pkpm", capability="explicit-native-analysis-settings",
+            reason="PKPM native mapping/readback is not yet verified for: " + ", ".join(unverified),
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -434,10 +448,6 @@ def _normalize_generic_frame_for_pkpm(data: dict) -> tuple[dict, dict[str, Any]]
         elif any(restraints):
             raise ValueError(f"PKPM standard-floor replication cannot preserve restraints on node '{node.get('id')}'")
 
-    reference_plan = plan_by_level[z_levels[0]]
-    if any(plans != reference_plan for plans in plan_by_level.values()):
-        raise ValueError("PKPM standard-floor replication requires identical plan nodes on every level")
-
     topology_by_floor: dict[int, dict[str, dict[tuple[tuple[float, float], tuple[float, float]], tuple[str, str, Any, Any]]]] = {
         index: {"beam": {}, "column": {}}
         for index in range(1, len(z_levels))
@@ -463,6 +473,8 @@ def _normalize_generic_frame_for_pkpm(data: dict) -> tuple[dict, dict[str, Any]]
             raise ValueError(f"Element '{element_id}' story conflicts with its global Z level")
         if element.get("releases"):
             raise ValueError(f"PKPM adapter cannot yet preserve end releases on element '{element_id}'")
+        if element_type == "column" and abs(start_z - z_levels[floor_index - 1]) > tol:
+            raise ValueError(f"PKPM column '{element_id}' must connect adjacent declared floors")
         start_plan = (_safe_coord(start, "x"), _safe_coord(start, "y"))
         end_plan = (_safe_coord(end, "x"), _safe_coord(end, "y"))
         topology_key = (start_plan, end_plan) if element_type == "beam" else (start_plan, start_plan)
@@ -476,13 +488,6 @@ def _normalize_generic_frame_for_pkpm(data: dict) -> tuple[dict, dict[str, Any]]
         if topology_key in floor_topology:
             raise ValueError(f"PKPM conversion cannot preserve duplicate {element_type} '{element_id}'")
         floor_topology[topology_key] = signature
-
-    template = topology_by_floor[1]
-    for floor_index, topology in topology_by_floor.items():
-        if topology != template:
-            raise ValueError(
-                f"PKPM standard-floor replication cannot preserve topology/section/material changes on floor {floor_index}"
-            )
 
     normalized_data = dict(data)
     normalized_data["nodes"] = nodes
@@ -944,63 +949,6 @@ def _story_dead_live_pair(story: dict[str, Any]) -> tuple[float, float]:
     )
 
 
-def _copy_standard_floor(model: APIPyInterface.Model, source_floor_index: int) -> int:
-    """Copy an existing standard floor and return the new standard floor index."""
-    try:
-        new_index = model.AddStandFloor(source_floor_index)
-    except TypeError:
-        new_index = model.AddStandFloor()
-
-    if isinstance(new_index, int) and new_index > 0:
-        return new_index
-
-    try:
-        fallback_index = model.GetStandFloorCount()
-    except Exception as exc:
-        raise RuntimeError("PKPM AddStandFloor did not return a valid floor index.") from exc
-    if isinstance(fallback_index, int) and fallback_index > 0:
-        return fallback_index
-    raise RuntimeError("PKPM AddStandFloor did not return a valid floor index.")
-
-
-def _configure_story_standard_floor_loads(
-    model: APIPyInterface.Model,
-    stories: list[dict],
-) -> tuple[list[int], list[dict[str, Any]]]:
-    """Assign floor dead/live loads through per-load standard-floor copies.
-
-    PKPM stores floor dead/live loads on StandFloor, while RealFloor only points
-    to a standard-floor index.  Distinct story load pairs therefore need
-    distinct standard-floor copies that share the same plan geometry.
-    """
-    story_floor_indices: list[int] = []
-    load_to_standard_floor: dict[tuple[float, float], int] = {}
-    load_mapping: list[dict[str, Any]] = []
-
-    for story in stories:
-        load_pair = _story_dead_live_pair(story)
-        standard_floor_index = load_to_standard_floor.get(load_pair)
-        if standard_floor_index is None:
-            standard_floor_index = 1 if not load_to_standard_floor else _copy_standard_floor(model, 1)
-            model.SetCurrentStandFloor(standard_floor_index)
-            standard_floor = model.GetCurrentStandFloor()
-            dead_load, live_load = load_pair
-            if standard_floor_index > 1 or dead_load > 0 or live_load > 0:
-                standard_floor.SetDeadLive(dead_load, live_load)
-            load_to_standard_floor[load_pair] = standard_floor_index
-
-        story_floor_indices.append(standard_floor_index)
-        load_mapping.append({
-            "story": story.get("id"),
-            "stand_floor_index": standard_floor_index,
-            "dead_load": load_pair[0],
-            "live_load": load_pair[1],
-        })
-
-    model.SetCurrentStandFloor(1)
-    return story_floor_indices, load_mapping
-
-
 def _coordinate_key(x: Any, y: Any) -> tuple[float, float]:
     """Return a stable millimetre plan-coordinate key for PKPM entities."""
     return (round(float(x), 6), round(float(y), 6))
@@ -1010,12 +958,7 @@ def refresh_result_mappings(
     jws_path: Path,
     mappings: dict[str, Any],
 ) -> dict[str, Any]:
-    """Refresh result IDs after SATWE renumbers copied standard floors.
-
-    ``AddStandFloor`` initially copies the template IDs, but JWSCYCLE assigns
-    distinct node/member IDs to copied standard floors.  Reopen the completed
-    model and match those IDs back by exact plan coordinates and connectivity.
-    """
+    """Reopen the completed native model and match IDs by floor and geometry."""
     model = APIPyInterface.Model()
     if model.OpenPMModel(str(jws_path)) == 0:
         raise RuntimeError(f"Failed to reopen completed PKPM model '{jws_path}' for result mapping")
@@ -1160,6 +1103,7 @@ def convert_v2_to_jws(
     work_dir.mkdir(parents=True, exist_ok=True)
     jws_path = work_dir / f"{project_name}.JWS"
     data, normalization = _normalize_generic_frame_for_pkpm(data)
+    validate_execution_settings(data)
     _validate_story_derived_loads(data)
 
     # ---- Setup ----
@@ -1187,134 +1131,80 @@ def convert_v2_to_jws(
     # ---- Sections ----
     sec_registry = _build_section_registry(model, data.get("sections", []), data, material_family)
 
-    # ---- Standard floor 1 (plan template) ----
-    # The model already has floor 1 available by default after CreatNewModel.
-    # Extra standard floors are copied from this fully populated template only
-    # when story dead/live loads differ.
-    model.SetCurrentStandFloor(1)
-    floor = model.GetCurrentStandFloor()
-
+    # Compile each natural floor independently.  The native floor stores the
+    # joints at its top and columns down to the preceding elevation.
     nodes = data.get("nodes", [])
-    v2_to_pm, v2_to_xy = _build_plan_nodes(floor, nodes)
-
-    elements = data.get("elements", [])
-
-    # Track which plan nodes already have a column so we don't double-add
-    plan_nodes_with_col: set[int] = set()
-    # Cache PKPM-assigned pmid per plan node (avoids stale col_obj reference)
-    _col_pmid_cache: dict[int, int] = {}
-    # Track beam nets to avoid duplicates
-    added_nets: dict[tuple[int, int], int] = {}  # (pm_a, pm_b) → net_id
-    # Standard-floor members are defined once and replicated by natural floor.
-    _beam_pmid_cache: dict[tuple[int, int], int] = {}
-    # Track V2 element → PKPM mapping for result remapping
+    node_by_id = {str(node["id"]): node for node in nodes}
+    stories = data["stories"]
+    v2_to_pm: dict[str, int] = {}
+    v2_to_xy = {
+        str(node["id"]): (float(node["x"]) * 1000, float(node["y"]) * 1000)
+        for node in nodes
+    }
     elem_map: dict[str, dict[str, Any]] = {}
-
-    # Build base restraint lookup: {pm_node_id: is_pinned}
-    # V2 restraints: [ux, uy, uz, rx, ry, rz] — pinned = [T,T,T,F,F,F], fixed = [T,T,T,T,T,T]
-    base_restraint: dict[int, bool] = {}  # pm_node_id → True if pinned (not fully fixed)
-    for n in nodes:
-        r = n.get("restraints")
-        if r and len(r) == 6 and any(r):
-            pm_id = v2_to_pm.get(n["id"])
-            if pm_id is not None:
-                restraint_tuple = tuple(bool(value) for value in r)
-                if restraint_tuple == (True, True, True, False, False, False):
-                    base_restraint[pm_id] = True
-                elif restraint_tuple != (True, True, True, True, True, True):
-                    raise ValueError(
-                        f"PKPM base support mapping cannot preserve partial restraints for node '{n['id']}'"
-                    )
-
-    for elem in elements:
-        etype = elem.get("type", "")
-        sec_id = elem.get("section", "")
-        if sec_id not in sec_registry:
-            raise ValueError(f"PKPM element '{elem.get('id')}' references an unregistered section '{sec_id}'")
-        role, pm_sec_idx = sec_registry[sec_id]
-        node_ids = elem.get("nodes", [])
-        steel_grade = _elem_grade(elem, mat_id_to_grade) if material_family == "steel" else None
-        concrete_grade = _elem_concrete_grade(elem, mat_id_to_grade) if material_family != "steel" else None
-
-        if etype == "column":
-            if role != "col" or pm_sec_idx < 0:
-                raise ValueError(f"PKPM column '{elem.get('id')}' does not have a valid column section")
-            # Columns: use base (lower) plan node
-            pm_node_id = v2_to_pm.get(node_ids[0], -1) if node_ids else -1
-            if pm_node_id < 0:
-                raise ValueError(f"PKPM column '{elem.get('id')}' could not preserve its plan node")
-            if pm_node_id not in plan_nodes_with_col:
-                col_obj = floor.AddColumn(pm_sec_idx, pm_node_id)
-                if material_family == "steel":
-                    col_obj.SetSteelGrade(steel_grade)
-                else:
-                    col_obj.SetConcreteGrade(concrete_grade)
-                # Apply base restraint if the base node has non-fixed restraints
-                if pm_node_id in base_restraint:
-                    try:
-                        col_obj.SetSpecial(
-                            APIPyInterface.SpecialColumn.IDSp_Constrain_Support, 1.0
-                        )
-                    except Exception as error:
-                        raise ValueError(
-                            f"PKPM failed to preserve pinned support at plan node {pm_node_id}"
-                        ) from error
-                plan_nodes_with_col.add(pm_node_id)
-                _col_pmid_cache[pm_node_id] = _require_member_id(
-                    col_obj,
-                    element_id=str(elem.get("id", "")),
-                    member_type="column",
-                )
-            elem_map[elem.get("id", "")] = {
-                "pmid": _col_pmid_cache[pm_node_id],
-                "type": "col",
+    floor_load_mapping: list[dict[str, Any]] = []
+    for story_index, story in enumerate(stories, 1):
+        if story_index == 1:
+            standard_floor_index = 1
+        else:
+            standard_floor_index = model.AddStandFloor()
+            if not isinstance(standard_floor_index, int) or standard_floor_index <= 1:
+                raise RuntimeError("PKPM AddStandFloor did not create an independent standard floor")
+        model.SetCurrentStandFloor(standard_floor_index)
+        floor = model.GetCurrentStandFloor()
+        top = float(story["elevation"]) + float(story["height"])
+        floor_nodes = [node for node in nodes if abs(float(node["z"]) - top) <= 1e-6]
+        floor_node_ids, _ = _build_plan_nodes(floor, floor_nodes)
+        v2_to_pm.update(floor_node_ids)
+        floor_elements = [
+            element for element in data["elements"]
+            if abs(max(float(node_by_id[str(nid)]["z"]) for nid in element["nodes"]) - top) <= 1e-6
+        ]
+        for element in floor_elements:
+            element_id = str(element["id"])
+            node_ids = [str(nid) for nid in element["nodes"]]
+            section_id = element["section"]
+            if section_id not in sec_registry:
+                raise ValueError(f"PKPM element '{element_id}' references an unregistered section '{section_id}'")
+            role, pm_section = sec_registry[section_id]
+            if element["type"] == "column":
+                if role != "col":
+                    raise ValueError(f"PKPM column '{element_id}' requires a column section")
+                member = floor.AddColumn(pm_section, floor_node_ids[node_ids[1]])
+                if story_index == 1:
+                    v2_to_pm[node_ids[0]] = floor_node_ids[node_ids[1]]
+                    restraints = tuple(node_by_id[node_ids[0]].get("restraints") or [])
+                    if restraints == (True, True, True, False, False, False):
+                        member.SetSpecial(APIPyInterface.SpecialColumn.IDSp_Constrain_Support, 1.0)
+            else:
+                if role != "beam":
+                    raise ValueError(f"PKPM beam '{element_id}' requires a beam section")
+                # Preserve endpoint order, including reversed/non-orthogonal beams.
+                net = floor.AddLineNet(floor_node_ids[node_ids[0]], floor_node_ids[node_ids[1]])
+                member = floor.AddBeamEx(pm_section, net.GetID(), 0, 0, 0, 0.0)
+            if material_family == "steel":
+                member.SetSteelGrade(_elem_grade(element, mat_id_to_grade))
+            else:
+                member.SetConcreteGrade(_elem_concrete_grade(element, mat_id_to_grade))
+            elem_map[element_id] = {
+                "pmid": _require_member_id(member, element_id=element_id, member_type=element["type"]),
+                "type": role,
                 "floor_nodes": node_ids,
+                "natural_floor": story_index,
+                "standard_floor": standard_floor_index,
+                "native_endpoint_order": node_ids,
             }
-
-        elif etype == "beam":
-            if role != "beam" or pm_sec_idx < 0:
-                raise ValueError(f"PKPM beam '{elem.get('id')}' does not have a valid beam section")
-            na, nb = node_ids[0], node_ids[1]
-            pm_a = v2_to_pm.get(na, -1)
-            pm_b = v2_to_pm.get(nb, -1)
-            if pm_a < 0 or pm_b < 0 or pm_a == pm_b:
-                raise ValueError(f"PKPM beam '{elem.get('id')}' could not preserve its plan endpoints")
-
-            net_key = (min(pm_a, pm_b), max(pm_a, pm_b))
-            if net_key not in added_nets:
-                net_obj = floor.AddLineNet(pm_a, pm_b)
-                added_nets[net_key] = net_obj.GetID()
-            if net_key not in _beam_pmid_cache:
-                net_id = added_nets[net_key]
-                beam_obj = floor.AddBeamEx(pm_sec_idx, net_id, 0, 0, 0, 0.0)
-                if material_family == "steel":
-                    beam_obj.SetSteelGrade(steel_grade)
-                else:
-                    beam_obj.SetConcreteGrade(concrete_grade)
-                _beam_pmid_cache[net_key] = _require_member_id(
-                    beam_obj,
-                    element_id=str(elem.get("id", "")),
-                    member_type="beam",
-                )
-            elem_map[elem.get("id", "")] = {
-                "pmid": _beam_pmid_cache[net_key],
-                "type": "beam",
-                "floor_nodes": node_ids,
-            }
-
-    # ---- Natural floors (stories → real floors) ----
-    stories = sorted(
-        data.get("stories", []),
-        key=lambda s: float(s.get("elevation", 0)),
-    )
-    story_standard_floor_indices, floor_load_mapping = _configure_story_standard_floor_loads(model, stories)
-    m_to_mm = 1000.0
-    for story_index, st in enumerate(stories):
-        rf = APIPyInterface.RealFloor()
-        rf.SetFloorHeight(float(st["height"]) * m_to_mm)
-        rf.SetBottomElevation(float(st.get("elevation", 0)))
-        rf.SetStandFloorIndex(story_standard_floor_indices[story_index])
-        model.AddNaturalFloor(rf)
+        dead_load, live_load = _story_dead_live_pair(story)
+        floor.SetDeadLive(dead_load, live_load)
+        floor_load_mapping.append({
+            "story": story["id"], "stand_floor_index": standard_floor_index,
+            "dead_load": dead_load, "live_load": live_load,
+        })
+        real_floor = APIPyInterface.RealFloor()
+        real_floor.SetFloorHeight(float(story["height"]) * 1000.0)
+        real_floor.SetBottomElevation(float(story["elevation"]))
+        real_floor.SetStandFloorIndex(standard_floor_index)
+        model.AddNaturalFloor(real_floor)
 
     # ---- Configure SATWE design parameters ----
     _configure_satwe_params(model, material_family, site_seismic, wind, analysis_control)
@@ -1323,9 +1213,8 @@ def convert_v2_to_jws(
 
     model.SavePMModel()
 
-    # AddStandFloor copies are materialized by the first save, which resets
-    # their dead/live values in the installed PKPM API.  Reapply the declared
-    # loads to the now-persistent standard floors and save once more.
+    # Reapply loads after initial materialization: installed API versions can
+    # reset standard-floor load fields on the first save.
     standard_floor_loads: dict[int, tuple[float, float]] = {}
     for item in floor_load_mapping:
         standard_floor_index = int(item["stand_floor_index"])

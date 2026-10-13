@@ -74,7 +74,7 @@ describe('YJK RC frame converter', () => {
           'class DataFunc:',
           '    def StdFlr_Generate(self, height_mm, dead, live):',
           '        calls.append({"method": "StdFlr_Generate", "height_mm": height_mm, "dead": dead, "live": live})',
-          '        return {"std_floor": len(calls)}',
+          '        return {"ID": len(calls)}',
           '',
           '    def ColSect_Def(self, mat, kind, shape_val, name):',
           '        calls.append({"method": "ColSect_Def", "mat": mat, "kind": kind, "shape_val": shape_val, "name": name})',
@@ -84,21 +84,25 @@ describe('YJK RC frame converter', () => {
           '        calls.append({"method": "BeamSect_Def", "mat": mat, "kind": kind, "shape_val": shape_val, "name": name})',
           '        return {"id": "beam-section"}',
           '',
-          '    def node_generate(self, xspans, yspans, std_flr):',
-          '        calls.append({"method": "node_generate", "xspans": xspans, "yspans": yspans})',
-          '        return [[f"N{row}_{col}" for col in range(len(xspans))] for row in range(len(yspans))]',
+          '    def Joint_Generate(self, floor_id, x, y):',
+          '        calls.append({"method": "Joint_Generate", "floor_id": floor_id, "x": x, "y": y})',
+          '        return {"ID": len(calls)}',
           '',
-          '    def column_arrange(self, nodelist, section):',
-          '        calls.append({"method": "column_arrange", "section": section})',
-          '        return [[1, 2], [3, 4]]',
+          '    def Axis_Generate(self, floor_id, start, end):',
+          '        calls.append({"method": "Axis_Generate", "floor_id": floor_id, "start": start, "end": end})',
+          '        return {"ID": len(calls)}',
           '',
-          '    def grid_generate(self, nodelist, dx, dy):',
-          '        calls.append({"method": "grid_generate", "dx": dx, "dy": dy})',
-          '        return {"direction": "x" if dx == 0 and dy == 1 else "y"}',
+          '    def Grid_Generate(self, floor_id, start, end, axis):',
+          '        calls.append({"method": "Grid_Generate", "floor_id": floor_id, "start": start, "end": end})',
+          '        return {"ID": len(calls)}',
+          '',
+          '    def column_arrange(self, node, section):',
+          '        calls.append({"method": "column_arrange", "node": node, "section": section})',
+          '        return {"ID": len(calls)}',
           '',
           '    def beam_arrange(self, grid, section):',
           '        calls.append({"method": "beam_arrange", "grid": grid, "section": section})',
-          '        return [[101], [102]] if grid.get("direction") == "x" else [[201], [202]]',
+          '        return {"ID": len(calls)}',
           '',
           '    def Floors_Assemb(self, start_mm, std_flr, count, height_mm):',
           '        calls.append({"method": "Floors_Assemb", "start_mm": start_mm, "count": count, "height_mm": height_mm})',
@@ -210,6 +214,13 @@ describe('YJK RC frame converter', () => {
         ],
       };
 
+      // A setback must retain three roof nodes and no synthesized fourth bay.
+      model.nodes = model.nodes.filter((node) => node.id !== 'N2_3')
+        .map((node) => ({ ...node, restraints: Array(6).fill(node.z === 0) }));
+      model.elements = model.elements.filter((element) => !element.nodes.includes('N2_3'));
+      model.sections.push({ ...model.sections[1], id: '3', name: '300X500', shape: { kind: 'rectangular', B: 300, H: 500 }, width: 300, height: 500 });
+      model.elements.find((element) => element.id === 'BX3').section = '3';
+
       const script = [
         'import json, os, sys',
         `sys.path.insert(0, ${JSON.stringify(stubsDir)})`,
@@ -268,23 +279,24 @@ describe('YJK RC frame converter', () => {
         name: '250X600',
       });
       expect(payload.calls.map((call) => call.method)).toEqual(expect.arrayContaining([
-        'node_generate',
+        'Joint_Generate',
         'column_arrange',
         'beam_arrange',
         'Floors_Assemb',
         'CreateYDB',
       ]));
-      expect(payload.calls.find((call) => call.method === 'node_generate')).toMatchObject({
-        xspans: [0, 6000],
-        yspans: [0, 4000],
-      });
+      expect(payload.calls.filter((call) => call.method === 'Joint_Generate')).toHaveLength(7);
+      expect(Object.keys(payload.mapping.elements)).toHaveLength(13);
+      expect(payload.mapping.nodes.N2_3).toBeUndefined();
+      expect(payload.mapping.elements.BX3.section_id).toBe('3');
+      expect(payload.mapping.elements.BX3.yjk_model_id).toBeTruthy();
+      expect(new Set(Object.values(payload.mapping.elements).map((entry) => entry.yjk_model_id)).size).toBe(13);
       expect(payload.calls.filter((call) => call.method === 'StdFlr_Generate')).toEqual([
         expect.objectContaining({ height_mm: 3000, dead: 4.5, live: 2 }),
         expect.objectContaining({ height_mm: 4000, dead: 5, live: 3 }),
       ]);
-      expect(payload.calls.filter((call) => call.method === 'node_generate')).toHaveLength(2);
-      expect(payload.calls.filter((call) => call.method === 'column_arrange')).toHaveLength(2);
-      expect(payload.calls.filter((call) => call.method === 'beam_arrange')).toHaveLength(4);
+      expect(payload.calls.filter((call) => call.method === 'column_arrange')).toHaveLength(7);
+      expect(payload.calls.filter((call) => call.method === 'beam_arrange')).toHaveLength(6);
       expect(payload.mapping.coordinate_contract).toMatchObject({
         semantics: 'global-z-up',
         dimension: '3d',

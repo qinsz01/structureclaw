@@ -43,6 +43,7 @@ import math
 from typing import Any
 
 from YJKAPI import DataFunc, Hi_AddToAndReadYjk
+from model_contract import validate_building_model
 
 M_TO_MM = 1000.0
 CANONICAL_DOF_ORDER = ["ux", "uy", "uz", "rx", "ry", "rz"]
@@ -156,11 +157,8 @@ def _infer_section_roles(data: dict) -> dict[str, str]:
 
 def _resolve_mat_type(sec: dict, data: dict) -> int:
     """Determine YJK material type integer for a section."""
-    props = sec.get("properties", {})
-    if "mat" in props:
-        return int(props["mat"])
-
     mat_map: dict[str, dict] = {m["id"]: m for m in data.get("materials", [])}
+    native_types: set[int] = set()
     for elem in data.get("elements", []):
         if elem.get("section") == sec["id"]:
             mat = mat_map.get(elem.get("material", ""))
@@ -170,9 +168,16 @@ def _resolve_mat_type(sec: dict, data: dict) -> int:
                     raise ValueError(
                         f"Material '{mat.get('id')}' must declare a supported category for YJK conversion"
                     )
-                return _CATEGORY_TO_MAT[cat]
-            break
-    raise ValueError(f"Section '{sec.get('id')}' is not referenced by a material-backed element")
+                native_types.add(_CATEGORY_TO_MAT[cat])
+    if not native_types:
+        raise ValueError(f"Section '{sec.get('id')}' is not referenced by a material-backed element")
+    if len(native_types) != 1:
+        raise ValueError(f"Section '{sec.get('id')}' requires separate native definitions for different material categories")
+    native_type = native_types.pop()
+    declared = sec.get("properties", {}).get("mat")
+    if declared is not None and int(declared) != native_type:
+        raise ValueError(f"Section '{sec.get('id')}' native material type conflicts with its element materials")
+    return native_type
 
 
 def _positive_dimension(value: Any, label: str) -> float:
@@ -351,40 +356,8 @@ def _build_shape_val(sec: dict, kind: int) -> tuple[int, str, str]:
     return 1, f"{_dimension_text(w, 'Rectangle B')},{_dimension_text(h, 'Rectangle H')}", sec.get("name", "")
 
 
-def _extract_grid_spans(nodes: list[dict]) -> tuple[list[int], list[int]]:
-    """Derive axis-grid span arrays from V2 node coordinates (meters -> mm)."""
-    sorted_x, sorted_y = _extract_grid_axes(nodes)
-
-    xspans = [int(sorted_x[0])]
-    for i in range(1, len(sorted_x)):
-        xspans.append(int(round(sorted_x[i] - sorted_x[i - 1])))
-
-    yspans = [int(sorted_y[0])]
-    for i in range(1, len(sorted_y)):
-        yspans.append(int(round(sorted_y[i] - sorted_y[i - 1])))
-
-    return xspans, yspans
 
 
-def _extract_grid_axes(nodes: list[dict]) -> tuple[list[int], list[int]]:
-    """Derive sorted YJK grid axes in mm from V2 node coordinates."""
-    xs: set[int] = set()
-    ys: set[int] = set()
-    for n in nodes:
-        node_id = str(n.get("id"))
-        xs.add(_metres_to_exact_mm(n["x"], f"Node '{node_id}' global X"))
-        ys.add(_metres_to_exact_mm(n["y"], f"Node '{node_id}' global Y"))
-
-    sorted_x = sorted(xs)
-    sorted_y = sorted(ys)
-
-    if len(sorted_x) < 2 or len(sorted_y) < 2:
-        raise ValueError(
-            "YJK conversion requires a genuine 3-D plan grid with at least two X and two Y coordinates; "
-            f"got {len(sorted_x)} X and {len(sorted_y)} Y"
-        )
-
-    return sorted_x, sorted_y
 
 
 def _json_safe(value: Any) -> Any:
@@ -438,134 +411,18 @@ def _extract_yjk_id(value: Any) -> Any | None:
     return None
 
 
-def _flatten_yjk_ids(value: Any) -> list[Any]:
-    """Flatten a YJKAPI scalar or nested sequence into extracted ids."""
-    if isinstance(value, dict):
-        ids: list[Any] = []
-        for key, item in value.items():
-            if key in ("id", "Id", "ID", "node_id", "NodeID", "model_id", "ModelID"):
-                continue
-            if isinstance(item, (dict, list, tuple)):
-                ids.extend(_flatten_yjk_ids(item))
-        if ids:
-            return ids
-        extracted = _extract_yjk_id(value)
-        if extracted is not None:
-            return [extracted]
-        return ids
-    extracted = _extract_yjk_id(value)
-    if extracted is not None:
-        return [extracted]
-    if isinstance(value, (list, tuple)):
-        ids = []
-        for item in value:
-            ids.extend(_flatten_yjk_ids(item))
-        return ids
-    return []
 
 
 def _plan_key(x_mm: int, y_mm: int) -> str:
     return f"{x_mm},{y_mm}"
 
 
-def _segment_key(direction: str, a_mm: int, b_mm: int, fixed_mm: int) -> str:
-    lo = min(a_mm, b_mm)
-    hi = max(a_mm, b_mm)
-    return f"{direction}:{lo}-{hi}@{fixed_mm}"
 
 
-def _map_ids_to_grid_points(value: Any, x_axis: list[int], y_axis: list[int]) -> tuple[dict[str, Any], str | None]:
-    """Map a nested/flat YJK id result to plan grid points when dimensions match."""
-    nx = len(x_axis)
-    ny = len(y_axis)
-    if isinstance(value, (list, tuple)):
-        rows = [row for row in value if isinstance(row, (list, tuple))]
-        if len(rows) == ny and all(len(_flatten_yjk_ids(row)) == nx for row in rows):
-            mapping: dict[str, Any] = {}
-            for y_idx, row in enumerate(rows):
-                for x_idx, yjk_id in enumerate(_flatten_yjk_ids(row)):
-                    mapping[_plan_key(x_axis[x_idx], y_axis[y_idx])] = yjk_id
-            return mapping, "nested_yx"
-        if len(rows) == nx and all(len(_flatten_yjk_ids(row)) == ny for row in rows):
-            mapping = {}
-            for x_idx, row in enumerate(rows):
-                for y_idx, yjk_id in enumerate(_flatten_yjk_ids(row)):
-                    mapping[_plan_key(x_axis[x_idx], y_axis[y_idx])] = yjk_id
-            return mapping, "nested_xy"
-
-    flat_ids = _flatten_yjk_ids(value)
-    if len(flat_ids) == nx * ny:
-        mapping = {}
-        i = 0
-        for y_mm in y_axis:
-            for x_mm in x_axis:
-                mapping[_plan_key(x_mm, y_mm)] = flat_ids[i]
-                i += 1
-        return mapping, "flat_yx"
-
-    return {}, None
 
 
-def _map_ids_to_x_segments(value: Any, x_axis: list[int], y_axis: list[int]) -> tuple[dict[str, Any], str | None]:
-    """Map YJK beam ids to X-direction grid segments when dimensions match."""
-    expected = max(len(x_axis) - 1, 0) * len(y_axis)
-    if expected <= 0:
-        return {}, None
-
-    if isinstance(value, (list, tuple)):
-        rows = [row for row in value if isinstance(row, (list, tuple))]
-        if len(rows) == len(y_axis) and all(len(_flatten_yjk_ids(row)) == len(x_axis) - 1 for row in rows):
-            mapping: dict[str, Any] = {}
-            for y_idx, row in enumerate(rows):
-                ids = _flatten_yjk_ids(row)
-                for x_idx, yjk_id in enumerate(ids):
-                    key = _segment_key("x", x_axis[x_idx], x_axis[x_idx + 1], y_axis[y_idx])
-                    mapping[key] = yjk_id
-            return mapping, "nested_yx_segments"
-
-    flat_ids = _flatten_yjk_ids(value)
-    if len(flat_ids) == expected:
-        mapping = {}
-        i = 0
-        for y_mm in y_axis:
-            for x_idx in range(len(x_axis) - 1):
-                key = _segment_key("x", x_axis[x_idx], x_axis[x_idx + 1], y_mm)
-                mapping[key] = flat_ids[i]
-                i += 1
-        return mapping, "flat_yx_segments"
-
-    return {}, None
 
 
-def _map_ids_to_y_segments(value: Any, x_axis: list[int], y_axis: list[int]) -> tuple[dict[str, Any], str | None]:
-    """Map YJK beam ids to Y-direction grid segments when dimensions match."""
-    expected = len(x_axis) * max(len(y_axis) - 1, 0)
-    if expected <= 0:
-        return {}, None
-
-    if isinstance(value, (list, tuple)):
-        rows = [row for row in value if isinstance(row, (list, tuple))]
-        if len(rows) == len(x_axis) and all(len(_flatten_yjk_ids(row)) == len(y_axis) - 1 for row in rows):
-            mapping: dict[str, Any] = {}
-            for x_idx, row in enumerate(rows):
-                ids = _flatten_yjk_ids(row)
-                for y_idx, yjk_id in enumerate(ids):
-                    key = _segment_key("y", y_axis[y_idx], y_axis[y_idx + 1], x_axis[x_idx])
-                    mapping[key] = yjk_id
-            return mapping, "nested_xy_segments"
-
-    flat_ids = _flatten_yjk_ids(value)
-    if len(flat_ids) == expected:
-        mapping = {}
-        i = 0
-        for x_mm in x_axis:
-            for y_idx in range(len(y_axis) - 1):
-                key = _segment_key("y", y_axis[y_idx], y_axis[y_idx + 1], x_mm)
-                mapping[key] = flat_ids[i]
-                i += 1
-        return mapping, "flat_xy_segments"
-
-    return {}, None
 
 
 def _build_story_infos(stories: list[dict]) -> list[dict[str, Any]]:
@@ -592,63 +449,12 @@ def _build_story_infos(stories: list[dict]) -> list[dict[str, Any]]:
     return infos
 
 
-def _story_info_by_id(story_infos: list[dict[str, Any]], story_id: Any) -> dict[str, Any] | None:
-    if story_id is None:
-        return None
-    story_id_str = str(story_id)
-    for info in story_infos:
-        if info["id"] == story_id_str:
-            return info
-    return None
 
 
-def _story_info_for_level(story_infos: list[dict[str, Any]], z_m: float) -> tuple[dict[str, Any], str]:
-    """Infer the floor for a node level, preferring exact story elevations."""
-    eps = 1e-6
-    for info in story_infos:
-        if abs(float(info["elevation_m"]) - z_m) <= eps:
-            return info, "z_matches_story_elevation"
-
-    for info in story_infos:
-        if float(info["elevation_m"]) <= z_m < float(info["top_elevation_m"]):
-            return info, "z_within_story"
-
-    for info in reversed(story_infos):
-        if abs(float(info["top_elevation_m"]) - z_m) <= eps:
-            return info, "z_matches_story_top"
-
-    nearest = min(story_infos, key=lambda info: abs(float(info["elevation_m"]) - z_m))
-    return nearest, "nearest_story_elevation"
 
 
-def _story_info_for_interval_base(story_infos: list[dict[str, Any]], z_m: float) -> tuple[dict[str, Any], str]:
-    """Infer the floor for vertical/diagonal members from their lower endpoint."""
-    eps = 1e-6
-    for info in story_infos:
-        if float(info["elevation_m"]) - eps <= z_m < float(info["top_elevation_m"]) - eps:
-            return info, "lower_node_within_story"
-
-    return _story_info_for_level(story_infos, z_m)
 
 
-def _infer_node_floor(node: dict, story_infos: list[dict[str, Any]]) -> dict[str, Any]:
-    explicit_story = node.get("story")
-    explicit_info = _story_info_by_id(story_infos, explicit_story)
-    z_m = float(node.get("z", 0))
-    if explicit_info:
-        info = explicit_info
-        source = "node.story"
-    else:
-        info, source = _story_info_for_level(story_infos, z_m)
-        if explicit_story:
-            source = f"{source}; node.story_unmatched={explicit_story}"
-
-    return {
-        "floor": info["id"],
-        "floor_index": info["index"],
-        "floor_elevation_m": info["elevation_m"],
-        "floor_source": source,
-    }
 
 
 def _classify_element_geometry(elem: dict, nodes_by_id: dict[str, dict]) -> str:
@@ -678,57 +484,6 @@ def _classify_element_geometry(elem: dict, nodes_by_id: dict[str, dict]) -> str:
     return "plan_diagonal"
 
 
-def _infer_element_floor(
-    elem: dict,
-    nodes_by_id: dict[str, dict],
-    node_mappings: dict[str, dict[str, Any]],
-    story_infos: list[dict[str, Any]],
-    geometry_role: str,
-) -> dict[str, Any]:
-    explicit_story = elem.get("story")
-    explicit_info = _story_info_by_id(story_infos, explicit_story)
-    if explicit_info:
-        return {
-            "floor": explicit_info["id"],
-            "floor_index": explicit_info["index"],
-            "floor_source": "element.story",
-        }
-
-    node_ids = [str(node_id) for node_id in elem.get("nodes", [])]
-    node_entries = [node_mappings[node_id] for node_id in node_ids if node_id in node_mappings]
-    same_node_floor = node_entries and len({entry.get("floor") for entry in node_entries}) == 1
-    if geometry_role in ("horizontal_x", "horizontal_y", "plan_diagonal") and same_node_floor:
-        entry = node_entries[0]
-        source = "member_nodes_same_floor"
-        if explicit_story:
-            source = f"{source}; element.story_unmatched={explicit_story}"
-        return {
-            "floor": entry.get("floor"),
-            "floor_index": entry.get("floor_index"),
-            "floor_source": source,
-        }
-
-    z_values = [
-        float(nodes_by_id[node_id].get("z", 0))
-        for node_id in node_ids
-        if node_id in nodes_by_id
-    ]
-    if z_values:
-        info, source = _story_info_for_interval_base(story_infos, min(z_values))
-        if explicit_story:
-            source = f"{source}; element.story_unmatched={explicit_story}"
-        return {
-            "floor": info["id"],
-            "floor_index": info["index"],
-            "floor_source": source,
-        }
-
-    first_story = story_infos[0]
-    return {
-        "floor": first_story["id"],
-        "floor_index": first_story["index"],
-        "floor_source": "default_first_story",
-    }
 
 
 def _section_summary(section: dict | None) -> dict[str, Any] | None:
@@ -757,403 +512,119 @@ def _material_summary(material: dict | None) -> dict[str, Any] | None:
     }
 
 
-def _build_mapping(
-    data: dict[str, Any],
-    stories: list[dict],
-    story_infos: list[dict[str, Any]],
-    x_axis_mm: list[int],
-    y_axis_mm: list[int],
-    xspans: list[int],
-    yspans: list[int],
-    std_flr: Any,
-    nodelist: Any,
-    col_result: Any,
-    beam_x_result: Any,
-    beam_y_result: Any,
-    section_defs: dict[str, dict[str, Any]],
-    ydb_path: str,
-    warnings: list[str],
-) -> dict[str, Any]:
-    """Build StructureClaw V2 -> YJK best-effort mapping metadata."""
-    nodes = data.get("nodes", [])
-    elements = data.get("elements", [])
-    nodes_by_id = {str(node.get("id")): node for node in nodes}
-    sections_by_id = {str(section.get("id")): section for section in data.get("sections", [])}
-    materials_by_id = {str(material.get("id")): material for material in data.get("materials", [])}
-
-    std_node_ids, std_node_id_source = _map_ids_to_grid_points(nodelist, x_axis_mm, y_axis_mm)
-    column_ids, column_id_source = _map_ids_to_grid_points(col_result, x_axis_mm, y_axis_mm)
-    beam_x_ids, beam_x_id_source = _map_ids_to_x_segments(beam_x_result, x_axis_mm, y_axis_mm)
-    beam_y_ids, beam_y_id_source = _map_ids_to_y_segments(beam_y_result, x_axis_mm, y_axis_mm)
-
-    x_axis_index = {coord_mm: index for index, coord_mm in enumerate(x_axis_mm)}
-    y_axis_index = {coord_mm: index for index, coord_mm in enumerate(y_axis_mm)}
-
-    node_mappings: dict[str, dict[str, Any]] = {}
-    for node in nodes:
-        node_id = str(node.get("id"))
-        x_mm = _metres_to_exact_mm(node.get("x"), f"Node '{node_id}' global X")
-        y_mm = _metres_to_exact_mm(node.get("y"), f"Node '{node_id}' global Y")
-        z_mm = _metres_to_exact_mm(node.get("z"), f"Node '{node_id}' global Z")
-        floor_info = _infer_node_floor(node, story_infos)
-        plan_key = _plan_key(x_mm, y_mm)
-        node_mappings[node_id] = {
-            "v2_id": node_id,
-            "x_m": float(node.get("x", 0)),
-            "y_m": float(node.get("y", 0)),
-            "z_m": float(node.get("z", 0)),
-            "x_mm": x_mm,
-            "y_mm": y_mm,
-            "z_mm": z_mm,
-            "plan_key": plan_key,
-            "grid_index": {
-                "x": x_axis_index.get(x_mm),
-                "y": y_axis_index.get(y_mm),
-            },
-            "floor": floor_info["floor"],
-            "floor_index": floor_info["floor_index"],
-            "floor_elevation_m": floor_info["floor_elevation_m"],
-            "floor_source": floor_info["floor_source"],
-            "yjk_std_floor_node_id": std_node_ids.get(plan_key),
-            "yjk_std_floor_node_id_source": std_node_id_source,
-        }
-
-    element_mappings: dict[str, dict[str, Any]] = {}
-    sequence_by_floor_type: dict[tuple[str, str], int] = {}
-    for elem in elements:
-        elem_id = str(elem.get("id"))
-        elem_type = str(elem.get("type", "beam"))
-        geometry_role = _classify_element_geometry(elem, nodes_by_id)
-        floor_info = _infer_element_floor(elem, nodes_by_id, node_mappings, story_infos, geometry_role)
-        floor = str(floor_info["floor"])
-        sequence_key = (floor, elem_type)
-        sequence_by_floor_type[sequence_key] = sequence_by_floor_type.get(sequence_key, 0) + 1
-        sequence = sequence_by_floor_type[sequence_key]
-
-        node_ids = [str(node_id) for node_id in elem.get("nodes", [])]
-        section_id = str(elem.get("section", ""))
-        material_id = str(elem.get("material", ""))
-        section_def = section_defs.get(section_id, {})
-
-        yjk_model_id = None
-        yjk_model_id_source = None
-        segment_match_key = None
-
-        if len(node_ids) >= 2 and node_ids[0] in node_mappings and node_ids[1] in node_mappings:
-            n1 = node_mappings[node_ids[0]]
-            n2 = node_mappings[node_ids[1]]
-            if elem_type == "column" or geometry_role == "vertical":
-                yjk_model_id = column_ids.get(n1["plan_key"])
-                yjk_model_id_source = column_id_source
-            elif elem_type == "beam" and geometry_role == "horizontal_x":
-                segment_match_key = _segment_key("x", n1["x_mm"], n2["x_mm"], n1["y_mm"])
-                yjk_model_id = beam_x_ids.get(segment_match_key)
-                yjk_model_id_source = beam_x_id_source
-            elif elem_type == "beam" and geometry_role == "horizontal_y":
-                segment_match_key = _segment_key("y", n1["y_mm"], n2["y_mm"], n1["x_mm"])
-                yjk_model_id = beam_y_ids.get(segment_match_key)
-                yjk_model_id_source = beam_y_id_source
-
-        element_mappings[elem_id] = {
-            "v2_id": elem_id,
-            "type": elem_type,
-            "geometry_role": geometry_role,
-            "floor": floor,
-            "floor_index": floor_info["floor_index"],
-            "floor_source": floor_info["floor_source"],
-            "nodes": node_ids,
-            "section": _section_summary(sections_by_id.get(section_id)),
-            "material": _material_summary(materials_by_id.get(material_id)),
-            "section_id": section_id,
-            "material_id": material_id,
-            "yjk_section_id": section_def.get("yjk_section_id"),
-            "yjk_section_ref": section_def.get("yjk_section_ref"),
-            "yjk_model_id": yjk_model_id,
-            "yjk_model_id_source": yjk_model_id_source if yjk_model_id is not None else None,
-            "fallback_match": {
-                "floor": floor,
-                "floor_index": floor_info["floor_index"],
-                "type": elem_type,
-                "geometry_role": geometry_role,
-                "sequence_in_floor_type": sequence,
-                "node_plan_keys": [
-                    node_mappings[node_id]["plan_key"]
-                    for node_id in node_ids
-                    if node_id in node_mappings
-                ],
-                "node_pair": node_ids[:2],
-                "segment_key": segment_match_key,
-                "section_id": section_id,
-                "material_id": material_id,
-            },
-        }
-
-    return {
-        "schema_version": "1.0.0",
-        "engine": "yjk-static",
-        "ydb_path": ydb_path,
-        "coordinate_contract": {
-            **data["coordinate_system"],
-            "coordinate_transform": "identity",
-            "source_length_unit": "m",
-            "target_length_unit": "mm",
-        },
-        "source": {
-            "schema_version": data.get("schema_version"),
-            "node_count": len(nodes),
-            "element_count": len(elements),
-            "story_count": len(stories),
-        },
-        "grid": {
-            "x_axis_mm": x_axis_mm,
-            "y_axis_mm": y_axis_mm,
-            "xspans_mm": xspans,
-            "yspans_mm": yspans,
-        },
-        "stories": story_infos,
-        "standard_floor": {
-            "yjk_std_floor_ref": _json_safe(std_flr),
-            "node_id_source": std_node_id_source,
-        },
-        "nodes": node_mappings,
-        "elements": element_mappings,
-        "sections": section_defs,
-        "arrange_results": {
-            "column_arrange": {
-                "raw": _json_safe(col_result),
-                "id_source": column_id_source,
-                "mapped_ids": column_ids,
-            },
-            "beam_arrange_x": {
-                "raw": _json_safe(beam_x_result),
-                "id_source": beam_x_id_source,
-                "mapped_ids": beam_x_ids,
-            },
-            "beam_arrange_y": {
-                "raw": _json_safe(beam_y_result),
-                "id_source": beam_y_id_source,
-                "mapped_ids": beam_y_ids,
-            },
-        },
-        "warnings": warnings,
-    }
-
-
 def convert_v2_to_ydb(
-    data: dict[str, Any],
-    work_dir: str,
-    ydb_filename: str = "model.ydb",
+    data: dict[str, Any], work_dir: str, ydb_filename: str = "model.ydb",
 ) -> str:
-    """Convert a V2 StructureModelV2 JSON dict to a YJK .ydb file.
-
-    Returns the absolute path to the generated .ydb.
-    """
-    import sys
-    def _log(msg: str) -> None:
-        print(f"[yjk_converter] {msg}", file=sys.stderr, flush=True)
-
-    os.makedirs(work_dir, exist_ok=True)
-    warnings: list[str] = []
+    """Compile the supplied topology, one independent native floor at a time."""
     _require_canonical_3d_coordinate_contract(data)
-
-    stories = sorted(
-        data.get("stories", []),
-        key=lambda s: float(s.get("elevation") if s.get("elevation") is not None else 0),
-    )
-    if not stories:
-        raise ValueError("V2 model has no stories defined")
+    validate_building_model(data)
+    os.makedirs(work_dir, exist_ok=True)
+    stories = sorted(data["stories"], key=lambda story: float(story["elevation"]))
     story_infos = _build_story_infos(stories)
-
-    first_story = stories[0]
-    height_mm = _metres_to_exact_mm(first_story["height"], f"Story '{first_story.get('id')}' height")
-    dead, live = _get_floor_loads(first_story)
-    _log(f"Story height: {height_mm}mm, dead={dead}, live={live}")
-
     data_func = DataFunc()
-    std_flr = data_func.StdFlr_Generate(height_mm, dead, live)
-    _log(f"StdFlr_Generate returned: {std_flr}")
-
     section_roles = _infer_section_roles(data)
-    _log(f"Section roles: {section_roles}")
-
-    col_defs: dict[str, Any] = {}
-    beam_defs: dict[str, Any] = {}
+    native_sections: dict[str, Any] = {}
     section_defs: dict[str, dict[str, Any]] = {}
-
-    for sec in data.get("sections", []):
-        sec_id = sec["id"]
-        role = section_roles.get(sec_id)
+    for section in data["sections"]:
+        section_id = str(section["id"])
+        role = section_roles.get(section_id)
         if role is None:
             continue
-
-        sec_type_str = sec.get("type", "rectangular")
-        kind = _TYPE_TO_KIND.get(sec_type_str, 1)
-        mat = _resolve_mat_type(sec, data)
-
-        kind, shape_val, name = _build_shape_val(sec, kind)
-        _log(f"Section '{sec_id}' ({role}): mat={mat}, kind={kind}, shape_val='{shape_val}', name='{name}'")
-        section_defs[sec_id] = {
-            "id": sec_id,
-            "role": role,
-            "type": sec_type_str,
-            "yjk_mat_type": mat,
-            "yjk_kind": kind,
-            "shape_val": shape_val,
-            "name": name,
-            "yjk_section_id": None,
-            "yjk_section_ref": None,
+        material_type = _resolve_mat_type(section, data)
+        section_type = section.get("type", "rectangular")
+        if section_type not in _TYPE_TO_KIND:
+            raise ValueError(f"Unsupported YJK section type '{section_type}'")
+        kind, shape, name = _build_shape_val(section, _TYPE_TO_KIND[section_type])
+        define = data_func.ColSect_Def if role == "column" else data_func.BeamSect_Def
+        native_section = define(material_type, kind, shape, name)
+        native_sections[section_id] = native_section
+        section_defs[section_id] = {
+            "id": section_id, "role": role, "type": section.get("type"),
+            "yjk_mat_type": material_type, "yjk_kind": kind, "shape_val": shape, "name": name,
+            "yjk_section_id": _extract_yjk_id(native_section),
         }
-
-        try:
-            if role == "column":
-                result = data_func.ColSect_Def(mat, kind, shape_val, name)
-                col_defs[sec_id] = result
-                _log(f"  ColSect_Def returned: {result}")
+    nodes = {str(node["id"]): node for node in data["nodes"]}
+    sections = {str(section["id"]): section for section in data["sections"]}
+    materials = {str(material["id"]): material for material in data["materials"]}
+    node_mappings: dict[str, dict[str, Any]] = {}
+    element_mappings: dict[str, dict[str, Any]] = {}
+    floor_mappings: list[dict[str, Any]] = []
+    for node_id, node in nodes.items():
+        level = float(node["z"])
+        floor_index = next((info["index"] for info in story_infos if abs(info["top_elevation_m"] - level) < 1e-6), 0)
+        node_mappings[node_id] = {
+            "v2_id": node_id,
+            **{f"{axis}_m": float(node[axis]) for axis in ("x", "y", "z")},
+            **{f"{axis}_mm": _metres_to_exact_mm(node[axis], f"Node '{node_id}' {axis}") for axis in ("x", "y", "z")},
+            "floor": stories[floor_index - 1]["id"] if floor_index else None,
+            "floor_index": floor_index,
+            "floor_source": "exact-global-elevation",
+            "plan_key": _plan_key(_metres_to_exact_mm(node["x"], "X"), _metres_to_exact_mm(node["y"], "Y")),
+            "yjk_std_floor_node_id": None,
+            "yjk_std_floor_node_id_source": None,
+        }
+    for story, info in zip(stories, story_infos):
+        dead, live = _get_floor_loads(story)
+        native_floor = data_func.StdFlr_Generate(info["height_mm"], dead, live)
+        floor_id = _extract_yjk_id(native_floor)
+        if floor_id is None:
+            raise RuntimeError("YJK StdFlr_Generate did not return an identifiable floor")
+        native_nodes: dict[str, Any] = {}
+        for node_id, entry in node_mappings.items():
+            if entry["floor_index"] != info["index"]:
+                continue
+            native_node = data_func.Joint_Generate(floor_id, entry["x_mm"], entry["y_mm"])
+            native_nodes[node_id] = native_node
+            entry["yjk_std_floor_node_id"] = _extract_yjk_id(native_node)
+            entry["yjk_std_floor_node_id_source"] = "Joint_Generate"
+        for element in data["elements"]:
+            node_ids = [str(value) for value in element["nodes"]]
+            top = max(float(nodes[node_id]["z"]) for node_id in node_ids)
+            if abs(top - info["top_elevation_m"]) > 1e-6:
+                continue
+            element_id = str(element["id"])
+            section_id = str(element["section"])
+            if section_id not in native_sections:
+                raise ValueError(f"YJK element '{element_id}' has no registered section")
+            if element["type"] == "column":
+                native_member = data_func.column_arrange(native_nodes[node_ids[1]], native_sections[section_id])
             else:
-                result = data_func.BeamSect_Def(mat, kind, shape_val, name)
-                beam_defs[sec_id] = result
-                _log(f"  BeamSect_Def returned: {result}")
-            section_defs[sec_id]["yjk_section_id"] = _extract_yjk_id(result)
-            section_defs[sec_id]["yjk_section_ref"] = _json_safe(result)
-        except Exception as exc:
-            _log(f"  ERROR: Section '{sec_id}' definition failed: {exc}")
-            warnings.append(f"Section '{sec_id}' definition failed: {exc}")
-            section_defs[sec_id]["error"] = str(exc)
-
-    if not col_defs:
-        raise ValueError("YJK conversion could not define the model's column section; no fallback section is permitted")
-    if not beam_defs:
-        raise ValueError("YJK conversion could not define the model's beam section; no fallback section is permitted")
-
-    nodes = data.get("nodes", [])
-    if not nodes:
-        raise ValueError("V2 model has no nodes")
-
-    x_axis_mm, y_axis_mm = _extract_grid_axes(nodes)
-    xspans, yspans = _extract_grid_spans(nodes)
-    _log(f"Grid spans: xspans={xspans}, yspans={yspans}")
-
-    first_col = next(iter(col_defs.values()))
-    first_beam = next(iter(beam_defs.values()))
-    # NOTE: YJK DataFunc.column_arrange / beam_arrange applies one section to all
-    # members in the grid at once.  Per-element section assignment is not supported
-    # by this API level; the first defined section is used as the representative
-    # section for the whole building.  Models with multiple distinct sections will
-    # have their primary section applied uniformly here.
-    def _populate_standard_floor(s_flr: Any) -> tuple[Any, Any, Any, Any]:
-        nodelist = data_func.node_generate(xspans, yspans, s_flr)
-        _log(f"node_generate returned: {nodelist} (type: {type(nodelist)})")
-        _log(f"Arranging columns with section: {first_col}")
-        col_result = data_func.column_arrange(nodelist, first_col)
-        _log(f"column_arrange returned: {col_result}")
-        _log(f"Arranging beams with section: {first_beam}")
-        grid_x = data_func.grid_generate(nodelist, 0, 1)
-        _log(f"grid_generate(0,1) returned: {grid_x}")
-        grid_y = data_func.grid_generate(nodelist, 1, 0)
-        _log(f"grid_generate(1,0) returned: {grid_y}")
-        beam_x_result = data_func.beam_arrange(grid_x, first_beam)
-        _log(f"beam_arrange(grid_x) returned: {beam_x_result}")
-        beam_y_result = data_func.beam_arrange(grid_y, first_beam)
-        _log(f"beam_arrange(grid_y) returned: {beam_y_result}")
-        return nodelist, col_result, beam_x_result, beam_y_result
-
-    nodelist, col_result, beam_x_result, beam_y_result = _populate_standard_floor(std_flr)
-    standard_floors: dict[tuple[int, float, float], Any] = {
-        (height_mm, dead, live): std_flr,
-    }
-
-    # Assemble floors story by story.
-    #
-    # Floors_Assemb signature: (H_start_mm, std_flr, num_floors, floor_height_mm)
-    #   H_start_mm  — cumulative elevation (mm) where this batch of floors begins
-    #   std_flr     — standard floor definition from StdFlr_Generate
-    #   num_floors  — how many consecutive floors to create with this definition
-    #   floor_height_mm — storey height for these floors (mm)
-    #
-    # Group consecutive stories that share the same height and loads so we can
-    # batch them into a single Floors_Assemb call (matching the SDK pattern).
-    # For varying heights we issue multiple calls with the correct H_start.
-    cumulative_h = 0
-    group_start = 0
-    while group_start < len(stories):
-        ref = stories[group_start]
-        ref_h = _metres_to_exact_mm(ref.get("height", first_story["height"]), f"Story '{ref.get('id')}' height")
-        if ref_h <= 0:
-            ref_h = height_mm
-        ref_dead, ref_live = _get_floor_loads(ref)
-
-        # Count how many consecutive stories share the same height & loads
-        group_count = 1
-        for j in range(group_start + 1, len(stories)):
-            s = stories[j]
-            s_h = _metres_to_exact_mm(s.get("height", first_story["height"]), f"Story '{s.get('id')}' height")
-            if s_h <= 0:
-                s_h = height_mm
-            s_dead, s_live = _get_floor_loads(s)
-            if s_h == ref_h and s_dead == ref_dead and s_live == ref_live:
-                group_count += 1
-            else:
-                break
-
-        floor_key = (ref_h, ref_dead, ref_live)
-        s_flr = standard_floors.get(floor_key)
-        if s_flr is None:
-            s_flr = data_func.StdFlr_Generate(ref_h, ref_dead, ref_live)
-            _populate_standard_floor(s_flr)
-            standard_floors[floor_key] = s_flr
-
-        _log(f"Floors_Assemb(H_start={cumulative_h}, flr, count={group_count}, h={ref_h}) "
-             f"[stories {group_start + 1}-{group_start + group_count}]")
-        try:
-            data_func.Floors_Assemb(cumulative_h, s_flr, group_count, ref_h)
-        except Exception as exc:
-            _log(f"ERROR: Floors_Assemb failed for stories {group_start + 1}-{group_start + group_count}: {exc}")
-            raise
-
-        cumulative_h += ref_h * group_count
-        group_start += group_count
-
-    _log("Floors_Assemb completed")
-
-    _log("Assigning model to database...")
-    try:
-        data_func.DbModel_Assign()
-        _log("DbModel_Assign completed")
-    except Exception as exc:
-        _log(f"ERROR: DbModel_Assign failed: {exc}")
-        raise
-
-    _log("Getting model data...")
-    model = data_func.GetDbModelData()
-    _log(f"GetDbModelData returned: {model}")
-
-    _log(f"Creating YDB file: {ydb_filename}")
-    reader = Hi_AddToAndReadYjk(model)
+                start = _extract_yjk_id(native_nodes[node_ids[0]])
+                end = _extract_yjk_id(native_nodes[node_ids[1]])
+                axis = data_func.Axis_Generate(floor_id, start, end)
+                grid = data_func.Grid_Generate(floor_id, start, end, _extract_yjk_id(axis))
+                native_member = data_func.beam_arrange(grid, native_sections[section_id])
+            member_id = _extract_yjk_id(native_member)
+            if member_id is None:
+                raise RuntimeError(f"YJK member '{element_id}' did not return an identifiable native object")
+            element_mappings[element_id] = {
+                "v2_id": element_id, "type": element["type"], "nodes": node_ids,
+                "floor": story["id"], "floor_index": info["index"],
+                "floor_source": "exact-global-elevation",
+                "geometry_role": _classify_element_geometry(element, nodes),
+                "section_id": section_id, "material_id": str(element["material"]),
+                "section": _section_summary(sections[section_id]),
+                "material": _material_summary(materials[str(element["material"])]),
+                "yjk_section_id": section_defs[section_id]["yjk_section_id"],
+                "yjk_model_id": member_id, "yjk_model_id_source": "individual-native-member",
+                "native_endpoint_order": node_ids,
+            }
+        data_func.Floors_Assemb(info["elevation_mm"], native_floor, 1, info["height_mm"])
+        floor_mappings.append({"story": story["id"], "floor_index": info["index"], "native_floor_id": floor_id})
+    if len(element_mappings) != len(data["elements"]):
+        raise RuntimeError("YJK native compilation did not map every input member")
+    data_func.DbModel_Assign()
+    reader = Hi_AddToAndReadYjk(data_func.GetDbModelData())
     reader.CreateYDB(work_dir, ydb_filename)
-
     ydb_path = os.path.join(work_dir, ydb_filename)
-    _log(f"YDB file created: {ydb_path}")
-
-    mapping = _build_mapping(
-        data=data,
-        stories=stories,
-        story_infos=story_infos,
-        x_axis_mm=x_axis_mm,
-        y_axis_mm=y_axis_mm,
-        xspans=xspans,
-        yspans=yspans,
-        std_flr=std_flr,
-        nodelist=nodelist,
-        col_result=col_result,
-        beam_x_result=beam_x_result,
-        beam_y_result=beam_y_result,
-        section_defs=section_defs,
-        ydb_path=ydb_path,
-        warnings=warnings,
-    )
-    mapping_path = os.path.join(work_dir, "mapping.json")
-    with open(mapping_path, "w", encoding="utf-8") as f:
-        json.dump(mapping, f, ensure_ascii=False, indent=2, sort_keys=True)
-    _log(f"Mapping file created: {mapping_path}")
-
+    mapping = {
+        "schema_version": "2.0.0", "engine": "yjk-static", "ydb_path": ydb_path,
+        "coordinate_contract": {**data["coordinate_system"], "coordinate_transform": "identity", "source_length_unit": "m", "target_length_unit": "mm"},
+        "source": {"schema_version": data.get("schema_version"), "node_count": len(nodes), "element_count": len(element_mappings), "story_count": len(stories)},
+        "stories": story_infos, "standard_floors": floor_mappings,
+        "nodes": node_mappings, "elements": element_mappings, "sections": section_defs,
+        "compiler": "individual-members-per-floor", "warnings": [],
+    }
+    with open(os.path.join(work_dir, "mapping.json"), "w", encoding="utf-8") as stream:
+        json.dump(mapping, stream, ensure_ascii=False, indent=2, sort_keys=True)
     return ydb_path

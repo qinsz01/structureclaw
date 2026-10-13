@@ -1585,6 +1585,14 @@ def _build_analysis_result(
             raw_case_keys.update(block.keys())
 
     case_descriptors = _case_descriptors(extracted, raw_case_keys)
+    selection_text = os.environ.get("SC_YJK_SELECTED_CASE")
+    if selection_text:
+        selection = json.loads(selection_text)
+        labels = set(selection["labels"])
+        selected = [case for case in case_descriptors if labels & {str(case.get(field)) for field in ("result_key", "name", "expName", "label")}]
+        if len(selected) != 1:
+            raise RuntimeError(f"YJK requested case '{selection['id']}' does not map uniquely to a native case by label")
+        case_descriptors = [{**selected[0], "native_result_key": selected[0]["result_key"], "result_key": str(selection["id"])}]
     displacement_rows_seen = 0
     nonzero_displacement_rows = 0
     force_rows_seen = 0
@@ -1626,6 +1634,7 @@ def _build_analysis_result(
                     displacements[node_id] = disp
 
         case_forces: dict[str, dict[str, float]] = {}
+        case_stations: dict[str, list[dict]] = {}
         for category in ("columns", "beams", "braces"):
             block = member_force_blocks.get(category, {})
             raw_forces = _case_block(block, descriptor) if isinstance(block, dict) else []
@@ -1660,6 +1669,19 @@ def _build_analysis_result(
                         f"YJK force result for {category} member '{raw_force.get('id')}' lacks an exact id or endpoint mapping"
                     )
                 force = _round_map(_force_from_sections(sections), digits=3)
+                rows = sections if any(isinstance(row, (list, tuple)) for row in sections) else [sections]
+                case_stations[elem_id] = [
+                    {
+                        "nativeStationIndex": index,
+                        "nativeComponents": [_finite_result_float(value, "native section force") for value in row],
+                        "nativeComponentOrder": ["Mx", "My", "Qx", "Qy", "N", "T"],
+                        "referenceFrame": "element-local",
+                        "source": "YJKSDsnDataPy",
+                        "endpointConvention": "unverified",
+                    }
+                    for index, row in enumerate(rows)
+                    if isinstance(row, (list, tuple))
+                ]
                 case_forces[elem_id] = _merge_max_force(case_forces.get(elem_id, {}), force)
                 forces[elem_id] = _merge_max_force(forces.get(elem_id, {}), force)
                 _accumulate_element_envelope(element_force_envelope, elem_id, case_name, force)
@@ -1696,6 +1718,7 @@ def _build_analysis_result(
             "kind": descriptor.get("kind"),
             "id": descriptor.get("id"),
             "oldId": descriptor.get("oldId"),
+            "nativeResultKey": descriptor.get("native_result_key", case_name),
             "displacements": case_disps,
             "forces": {
                 element_id: {**force, "referenceFrame": "element-local"}
@@ -1703,6 +1726,8 @@ def _build_analysis_result(
             },
             "reactions": case_reactions,
             "envelope": {},
+            "memberStations": case_stations,
+            "forceSemantics": "signed-component-envelope; memberStations retain native station vectors",
         }
 
     max_disp = 0.0

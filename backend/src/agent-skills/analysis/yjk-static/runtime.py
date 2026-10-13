@@ -555,300 +555,8 @@ def _ensure_v2_model(model_dict: dict) -> dict:
     return ensure_v2_dict(model_dict)
 
 
-def _validate_story_derived_loads(model_dict: dict) -> None:
-    """Allow exact nodal duplicates of declared YJK story floor loads only."""
-    explicit_loads = [
-        load
-        for load_case in model_dict.get("load_cases", [])
-        if isinstance(load_case, dict)
-        for load in load_case.get("loads", [])
-        if isinstance(load, dict)
-    ]
-    if not explicit_loads:
-        return
-
-    def finite_number(value: Any, label: str) -> float:
-        try:
-            number = float(value)
-        except (TypeError, ValueError) as error:
-            raise ValueError(f"{label} must be a finite number") from error
-        if not math.isfinite(number):
-            raise ValueError(f"{label} must be a finite number")
-        return number
-
-    nodes = {
-        str(node.get("id")): node
-        for node in model_dict.get("nodes", [])
-        if isinstance(node, dict)
-    }
-    stories = {
-        str(story.get("id")): story
-        for story in model_dict.get("stories", [])
-        if isinstance(story, dict)
-    }
-    x_values = [finite_number(node.get("x"), f"Node '{node_id}' global X") for node_id, node in nodes.items()]
-    y_values = [finite_number(node.get("y"), f"Node '{node_id}' global Y") for node_id, node in nodes.items()]
-    plan_area = (max(x_values) - min(x_values)) * (max(y_values) - min(y_values))
-    if not math.isfinite(plan_area) or plan_area <= 0:
-        raise ValueError("YJK story floor loads require a positive global X-Y plan area")
-
-    totals: dict[tuple[str, str], float] = {}
-    for load in explicit_loads:
-        story_id = str(load.get("story", ""))
-        load_kind = str(load.get("load_kind", ""))
-        node_id = str(load.get("node", ""))
-        story = stories.get(story_id)
-        node = nodes.get(node_id)
-        if (
-            load.get("source") != "story_floor_loads"
-            or load.get("type") != "nodal"
-            or load.get("reference_frame", "global") != "global"
-            or load_kind not in {"dead", "live"}
-            or story is None
-            or node is None
-        ):
-            raise ValueError(
-                "The YJK adapter maps story floor loads only; other nodal/member loads are unsupported"
-            )
-        inactive_components = ("fx", "fy", "mx", "my", "mz", "wx", "wy", "wz")
-        if any(
-            abs(finite_number(load.get(key, 0.0), f"Load '{node_id}' {key}")) > 1e-9
-            for key in inactive_components
-        ):
-            raise ValueError("YJK story-derived loads must act only in negative global Z")
-        fz = finite_number(load.get("fz"), f"Load '{node_id}' fz")
-        if fz > 1e-9:
-            raise ValueError("YJK story-derived gravity loads must act in negative global Z")
-        story_top = finite_number(story.get("elevation", 0.0), f"Story '{story_id}' elevation") + finite_number(
-            story.get("height"), f"Story '{story_id}' height"
-        )
-        node_z = finite_number(node.get("z"), f"Node '{node_id}' global Z")
-        if abs(node_z - story_top) > 1e-9:
-            raise ValueError(f"Story-derived load on node '{node_id}' targets the wrong global Z level")
-        key = (story_id, load_kind)
-        totals[key] = totals.get(key, 0.0) - fz
-
-    for story_id, story in stories.items():
-        declared = {"dead": 0.0, "live": 0.0}
-        for floor_load in story.get("floor_loads", []):
-            if not isinstance(floor_load, dict):
-                continue
-            load_type = str(floor_load.get("type", ""))
-            if load_type in declared:
-                declared[load_type] = finite_number(
-                    floor_load.get("value", 0.0),
-                    f"Story '{story_id}' {load_type} floor load",
-                )
-        for load_kind, field in (("dead", "dead_load"), ("live", "live_load")):
-            if story.get(field) is not None:
-                declared[load_kind] = finite_number(story[field], f"Story '{story_id}' {field}")
-            expected_total = declared[load_kind] * plan_area
-            actual_total = totals.get((story_id, load_kind), 0.0)
-            tolerance = max(1e-6, abs(expected_total) * 1e-9)
-            if abs(actual_total - expected_total) > tolerance:
-                raise ValueError(
-                    f"Story '{story_id}' {load_kind} nodal-load total conflicts with {field}"
-                )
-
-
-def _validate_yjk_grid_conversion_scope(model_dict: dict) -> None:
-    """Reject models the current grid API would silently change."""
-    nodes = [node for node in model_dict.get("nodes", []) if isinstance(node, dict)]
-    elements = [element for element in model_dict.get("elements", []) if isinstance(element, dict)]
-    if not nodes or not elements:
-        raise ValueError("YJK conversion requires non-empty nodes and elements")
-
-    _validate_story_derived_loads(model_dict)
-
-    def coordinate_mm(value: Any, label: str) -> int:
-        try:
-            meters = float(value)
-        except (TypeError, ValueError) as error:
-            raise ValueError(f"{label} must be a finite coordinate in metres") from error
-        millimetres = meters * 1000.0
-        rounded = round(millimetres)
-        if not math.isfinite(millimetres) or abs(millimetres - rounded) > 1e-6:
-            raise ValueError(
-                f"{label}={meters} m is not exactly representable by YJK's integer-millimetre grid"
-            )
-        return int(rounded)
-
-    def coordinate(node: dict) -> tuple[int, int, int]:
-        node_id = str(node.get("id"))
-        return (
-            coordinate_mm(node.get("x"), f"Node '{node_id}' global X"),
-            coordinate_mm(node.get("y"), f"Node '{node_id}' global Y"),
-            coordinate_mm(node.get("z"), f"Node '{node_id}' global Z"),
-        )
-
-    positions = {str(node.get("id")): coordinate(node) for node in nodes}
-    if len(positions) != len(nodes):
-        raise ValueError("YJK conversion requires unique node ids")
-    if len(set(positions.values())) != len(nodes):
-        raise ValueError("YJK conversion cannot preserve multiple nodes at the same millimetre coordinate")
-    xs = sorted({position[0] for position in positions.values()})
-    ys = sorted({position[1] for position in positions.values()})
-    zs = sorted({position[2] for position in positions.values()})
-    if len(xs) < 2 or len(ys) < 2 or len(zs) < 2:
-        raise ValueError("YJK conversion requires a genuine 3-D building grid")
-    if xs[0] != 0 or ys[0] != 0 or zs[0] != 0:
-        raise ValueError(
-            "The current YJK grid API requires the source building grid to start at global (0, 0, 0)"
-        )
-    expected_positions = {(x, y, z) for x in xs for y in ys for z in zs}
-    if set(positions.values()) != expected_positions:
-        raise ValueError(
-            "The current YJK grid API would add missing grid nodes; only complete Cartesian building grids are supported"
-        )
-
-    stories = [story for story in model_dict.get("stories", []) if isinstance(story, dict)]
-    if len(stories) != len(zs) - 1:
-        raise ValueError("YJK conversion requires exactly one explicit story for every adjacent global Z interval")
-    stories.sort(key=lambda story: coordinate_mm(story.get("elevation", 0.0), f"Story '{story.get('id')}' elevation"))
-    for index, story in enumerate(stories):
-        story_id = str(story.get("id"))
-        elevation = coordinate_mm(story.get("elevation", 0.0), f"Story '{story_id}' elevation")
-        height = coordinate_mm(story.get("height"), f"Story '{story_id}' height")
-        if elevation != zs[index] or elevation + height != zs[index + 1]:
-            raise ValueError(
-                f"Story '{story_id}' elevation/height does not exactly match global Z levels "
-                f"{zs[index]}-{zs[index + 1]} mm"
-            )
-        floor_loads = story.get("floor_loads", [])
-        if not isinstance(floor_loads, list):
-            raise ValueError(f"Story '{story_id}' floor_loads must be an array")
-        seen_load_types: set[str] = set()
-        for floor_load in floor_loads:
-            if not isinstance(floor_load, dict):
-                raise ValueError(f"Story '{story_id}' contains an invalid floor load")
-            load_type = str(floor_load.get("type", ""))
-            value = float(floor_load.get("value", 0.0))
-            if not math.isfinite(value):
-                raise ValueError(f"Story '{story_id}' contains a non-finite floor load")
-            if load_type not in {"dead", "live"} and abs(value) > 1e-12:
-                raise ValueError(
-                    f"YJK grid conversion cannot preserve story load type '{load_type}' on '{story_id}'"
-                )
-            if load_type in seen_load_types:
-                raise ValueError(f"Story '{story_id}' contains duplicate '{load_type}' floor loads")
-            seen_load_types.add(load_type)
-        for field in ("dead_load", "live_load"):
-            if story.get(field) is None:
-                continue
-            value = float(story[field])
-            if not math.isfinite(value):
-                raise ValueError(f"Story '{story_id}' contains a non-finite {field}")
-
-    base_z = zs[0]
-    for node in nodes:
-        restraints = node.get("restraints")
-        position = positions[str(node.get("id"))]
-        values = tuple(bool(value) for value in restraints) if isinstance(restraints, list) else (False,) * 6
-        expected = (True,) * 6 if position[2] == base_z else (False,) * 6
-        if values != expected:
-            raise ValueError(
-                f"YJK grid support generation cannot preserve restraints for node '{node.get('id')}'"
-            )
-        explicit_story = node.get("story")
-        if explicit_story is not None:
-            expected_story = None if position[2] == base_z else str(stories[zs.index(position[2]) - 1].get("id"))
-            if str(explicit_story) != expected_story:
-                raise ValueError(
-                    f"Node '{node.get('id')}' story '{explicit_story}' conflicts with global Z={position[2]} mm"
-                )
-
-    expected_edges: set[tuple[tuple[float, float, float], tuple[float, float, float]]] = set()
-    for x in xs:
-        for y in ys:
-            for lower, upper in zip(zs, zs[1:]):
-                expected_edges.add(tuple(sorted(((x, y, lower), (x, y, upper)))))
-    for z in zs[1:]:
-        for y in ys:
-            for left, right in zip(xs, xs[1:]):
-                expected_edges.add(tuple(sorted(((left, y, z), (right, y, z)))))
-        for x in xs:
-            for front, back in zip(ys, ys[1:]):
-                expected_edges.add(tuple(sorted(((x, front, z), (x, back, z)))))
-
-    actual_edges: set[tuple[tuple[float, float, float], tuple[float, float, float]]] = set()
-    role_sections: dict[str, set[str]] = {"beam": set(), "column": set()}
-    role_materials: dict[str, set[str]] = {"beam": set(), "column": set()}
-    section_ids = {str(section.get("id")) for section in model_dict.get("sections", []) if isinstance(section, dict)}
-    materials = {
-        str(material.get("id")): material
-        for material in model_dict.get("materials", [])
-        if isinstance(material, dict)
-    }
-    for element in elements:
-        element_type = str(element.get("type", "")).lower()
-        if element_type not in {"beam", "column"}:
-            raise ValueError(f"YJK grid conversion does not preserve element type '{element_type}'")
-        node_ids = element.get("nodes", [])
-        if not isinstance(node_ids, list) or len(node_ids) != 2:
-            raise ValueError(f"YJK grid conversion requires two-node members; element '{element.get('id')}' is invalid")
-        try:
-            start = positions[str(node_ids[0])]
-            end = positions[str(node_ids[1])]
-        except KeyError as error:
-            raise ValueError(f"Element '{element.get('id')}' references an unknown node") from error
-        is_vertical = start[0] == end[0] and start[1] == end[1] and start[2] != end[2]
-        if (element_type == "column") != is_vertical:
-            raise ValueError(f"Element '{element.get('id')}' type conflicts with its global geometry")
-        if element_type == "column" and start[2] >= end[2]:
-            raise ValueError(
-                f"Column '{element.get('id')}' must be ordered from lower global Z to upper global Z"
-            )
-        if element_type == "beam":
-            is_x_beam = start[1] == end[1] and start[2] == end[2] and start[0] < end[0]
-            is_y_beam = start[0] == end[0] and start[2] == end[2] and start[1] < end[1]
-            if not is_x_beam and not is_y_beam:
-                raise ValueError(
-                    f"Beam '{element.get('id')}' must follow increasing global X or Y grid order"
-                )
-        explicit_story = element.get("story")
-        if explicit_story is not None:
-            story_level = end[2] if element_type == "column" else start[2]
-            expected_story = str(stories[zs.index(story_level) - 1].get("id"))
-            if str(explicit_story) != expected_story:
-                raise ValueError(
-                    f"Element '{element.get('id')}' story '{explicit_story}' conflicts with its global Z interval"
-                )
-        if abs(float(element.get("rotation_angle", 0.0) or 0.0)) > 1e-12:
-            raise ValueError(f"YJK grid conversion cannot preserve rotation_angle on '{element.get('id')}'")
-        if element.get("offsets"):
-            raise ValueError(f"YJK grid conversion cannot preserve end offsets on '{element.get('id')}'")
-        if element.get("releases"):
-            raise ValueError(f"YJK grid conversion cannot preserve end releases on '{element.get('id')}'")
-        actual_edges.add(tuple(sorted((start, end))))
-        section_id = str(element.get("section", ""))
-        material_id = str(element.get("material", ""))
-        if section_id not in section_ids:
-            raise ValueError(f"Element '{element.get('id')}' references an unavailable section")
-        if material_id not in materials:
-            raise ValueError(f"Element '{element.get('id')}' references an unavailable material")
-        if materials[material_id].get("category") not in {"steel", "concrete"}:
-            raise ValueError(
-                f"Material '{material_id}' must explicitly declare category='steel' or 'concrete' for YJK"
-            )
-        role_sections[element_type].add(section_id)
-        role_materials[element_type].add(material_id)
-
-    if actual_edges != expected_edges or len(actual_edges) != len(elements):
-        raise ValueError(
-            "The current YJK grid API would change member topology; only complete adjacent-grid beam/column layouts are supported"
-        )
-    for role, sections in role_sections.items():
-        if len(sections) != 1:
-            raise ValueError(
-                f"The current YJK grid API requires exactly one {role} section: {sorted(sections)}"
-            )
-        materials_for_role = role_materials[role]
-        if len(materials_for_role) != 1:
-            raise ValueError(
-                f"The current YJK grid API requires exactly one {role} material: {sorted(materials_for_role)}"
-            )
-    if role_sections["beam"] & role_sections["column"]:
-        raise ValueError("YJK requires distinct section ids for beams and columns at this API level")
+# Kept as a compatibility name for callers; validation is shared with conversion.
+from model_contract import validate_building_model as _validate_yjk_grid_conversion_scope
 
 
 def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str, Any]:
@@ -867,7 +575,12 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
         AnalysisResult-shaped dict with status / summary / detailed / warnings.
     """
     parameters = parameters or {}
-    model_dict = model.model_dump(mode="json") if hasattr(model, "model_dump") else model
+    if parameters.get("loadCombinationId"):
+        raise AnalysisCapabilityError(engine="yjk", capability="user-load-combination", reason="YJK user combination mapping has not passed native acceptance")
+    requested_cases = parameters.get("loadCaseIds") or []
+    if not isinstance(requested_cases, list) or len(requested_cases) > 1:
+        raise AnalysisCapabilityError(engine="yjk", capability="single-selected-load-case", reason="Select one loadCaseIds entry per native run")
+    model_dict = model.model_dump(mode="json", exclude_unset=True) if hasattr(model, "model_dump") else model
     model_dict = _ensure_v2_model(model_dict)
     validate_coordinate_contract(model_dict)
     if resolve_model_dimension(model_dict) != "3d":
@@ -879,7 +592,10 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
                 "it will not synthesize a fictitious plan axis for a 2-D X-Z model"
             ),
         )
-    _validate_yjk_grid_conversion_scope(model_dict)
+    try:
+        _validate_yjk_grid_conversion_scope(model_dict)
+    except ValueError as error:
+        raise AnalysisCapabilityError(engine="yjk", capability="native-model-contract", reason=str(error)) from error
     yjk_python = _resolve_yjk_python()
     work_dir = _resolve_work_dir(parameters)
     timeout = _env_int("YJK_TIMEOUT_S", 600)
@@ -907,6 +623,12 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     # Build environment for the subprocess.
     # Ensure both YJKS_ROOT and YJK_PATH are set for SDK scripts / driver.
     env = os.environ.copy()
+    env.pop("SC_YJK_SELECTED_CASE", None)
+    if requested_cases:
+        requested_id = str(requested_cases[0])
+        source_case = next((case for case in model_dict.get("load_cases", []) if str(case.get("id")) == requested_id), {})
+        labels = {"dead": ["DL", "恒载", "恒荷载"], "live": ["LL", "活载", "活荷载"]}.get(source_case.get("type"), [requested_id])
+        env["SC_YJK_SELECTED_CASE"] = json.dumps({"id": requested_id, "labels": labels}, ensure_ascii=False)
     root = _yjk_install_root()
     if root:
         if not str(env.get("YJKS_ROOT") or "").strip():
@@ -985,6 +707,7 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
                 env=env,
                 cwd=str(work_dir),
                 close_fds=True,
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
             )
             try:
                 returncode = proc.wait(timeout=timeout)

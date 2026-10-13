@@ -196,6 +196,7 @@ def _run_jws_cycle(cycle_path: Path, work_dir: Path, timeout: int = 600) -> None
                     errors="replace",
                     cwd=str(cycle_dir),
                     timeout=timeout,
+                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
                 )
             except subprocess.TimeoutExpired:
                 raise RuntimeError(f"PKPM analysis timed out after {timeout}s")
@@ -347,6 +348,7 @@ def _extract_results(jws_path: Path, material_family: str = "steel") -> Dict[str
         # Per-load-case force accumulation: {case_name: {(pmid,floor): {N,Vy,Vz,T,My,Mz}}}
         case_beam_forces: Dict[str, Dict[tuple[int, int], Dict[str, float]]] = {}
         case_col_forces: Dict[str, Dict[tuple[int, int], Dict[str, float]]] = {}
+        case_member_stations: dict[str, dict[tuple[int, int], list[dict[str, Any]]]] = {}
 
         floor_idx = 1
         max_floors = 500
@@ -375,6 +377,13 @@ def _extract_results(jws_path: Path, material_family: str = "steel") -> Dict[str
                                 _finite_result_float(value, f"beam {pmid} force[{index}]")
                                 for index, value in enumerate(vals[:6])
                             ]
+                            case_member_stations.setdefault(case_name, {}).setdefault((pmid, floor_idx), []).append({
+                                "nativeStation": int(_pos),
+                                "nativeComponents": components,
+                                "referenceFrame": "element-local",
+                                "source": "APIPyInterface.BeamDesignData.GetForce",
+                                "endpointConvention": "unverified",
+                            })
                             station_v = math.hypot(components[1], components[2])
                             station_m = math.hypot(components[4], components[5])
                             beam_max_v = max(beam_max_v, station_v)
@@ -443,6 +452,13 @@ def _extract_results(jws_path: Path, material_family: str = "steel") -> Dict[str
                                 _finite_result_float(value, f"column {pmid} force[{index}]")
                                 for index, value in enumerate(vals[:6])
                             ]
+                            case_member_stations.setdefault(case_name, {}).setdefault((pmid, floor_idx), []).append({
+                                "nativeStation": int(_pos),
+                                "nativeComponents": components,
+                                "referenceFrame": "element-local",
+                                "source": "APIPyInterface.ColumnDesignData.GetForce",
+                                "endpointConvention": "unverified",
+                            })
                             col_max_n = max(col_max_n, abs(components[0]))  # N
                             col_max_v = max(
                                 col_max_v, (components[1] ** 2 + components[2] ** 2) ** 0.5
@@ -591,6 +607,7 @@ def _extract_results(jws_path: Path, material_family: str = "steel") -> Dict[str
             "case_node_disps": case_node_disps,
             "case_beam_forces": case_beam_forces,
             "case_col_forces": case_col_forces,
+            "case_member_stations": case_member_stations,
             "satwe_params": satwe_params,
         }
     finally:
@@ -619,6 +636,12 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     RuntimeError
         When JWS generation or SATWE analysis fails.
     """
+    parameters = parameters or {}
+    if parameters.get("loadCombinationId"):
+        raise AnalysisCapabilityError(engine="pkpm", capability="user-load-combination", reason="PKPM user combination mapping has not passed native acceptance")
+    requested_cases = parameters.get("loadCaseIds") or []
+    if not isinstance(requested_cases, list) or len(requested_cases) > 1:
+        raise AnalysisCapabilityError(engine="pkpm", capability="single-selected-load-case", reason="Select one loadCaseIds entry per native run")
     validate_coordinate_contract(model)
     cycle_path = _check_pkpm_available()
     _import_apipyinterface()
@@ -637,7 +660,7 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
 
     # ---- Phase 1: Generate JWS ----
     try:
-        model_dict = model.model_dump(mode="json") if hasattr(model, "model_dump") else dict(model)
+        model_dict = model.model_dump(mode="json", exclude_unset=True) if hasattr(model, "model_dump") else dict(model)
         # Detect material family before converter (converter needs it for grade setting)
         from pkpm_converter import _detect_material_family as _conv_detect_mat
         material_family = _conv_detect_mat(model_dict)
@@ -678,6 +701,17 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
         if not _has_core_pkpm_results(extracted):
             raise RuntimeError(format_pdb_version_mismatch_error(work_dir, cycle_path, pdb_mismatch))
         warnings.append(format_pdb_version_mismatch_warning(work_dir, cycle_path, pdb_mismatch))
+
+    if requested_cases:
+        requested_id = str(requested_cases[0])
+        source_case = next((case for case in model_dict.get("load_cases", []) if str(case.get("id")) == requested_id), {})
+        native_name = {"dead": "DL", "live": "LL"}.get(source_case.get("type"), requested_id)
+        for field in ("case_node_disps", "case_beam_forces", "case_col_forces"):
+            if native_name not in extracted.get(field, {}):
+                raise AnalysisCapabilityError(engine="pkpm", capability="selected-load-case", reason=f"Native {field} has no verified mapping for requested case '{requested_id}'")
+        for field in ("case_node_disps", "case_beam_forces", "case_col_forces", "case_member_stations"):
+            block = extracted.get(field, {})
+            extracted[field] = {requested_id: block[native_name]} if native_name in block else {}
 
     # ---- Phase 4: Map to frontend-compatible analysis result format ----
     pkpm_summary = extracted.get("summary", {})
@@ -959,6 +993,11 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
             "forces": case_forces_out,
             "reactions": {},
             "envelope": {},
+            "memberStations": {
+                pm_floor_elem_to_v2[key]: stations
+                for key, stations in extracted.get("case_member_stations", {}).get(case_name, {}).items()
+            },
+            "forceSemantics": "signed-component-envelope; memberStations retain native station vectors",
         }
 
         # Accumulate envelope tables
@@ -1054,6 +1093,8 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
             "elementCount": len(forces),
             "reactionResultAvailable": False,
             "engine": "pkpm-static",
+            "requestedLoadCaseIds": requested_cases,
+            "nativeDefaultsUsed": not bool(model_dict.get("analysis_control")),
             "materialFamily": material_family,
             "jws_path": str(jws_path),
             "work_dir": str(work_dir),

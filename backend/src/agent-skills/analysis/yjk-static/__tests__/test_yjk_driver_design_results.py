@@ -24,7 +24,8 @@ def test_driver_does_not_switch_to_design_results_ui_after_calculation():
     assert '"IDDSN_DSP"' not in source
 
 
-def test_build_analysis_result_maps_yjk_member_design_results():
+def test_build_analysis_result_maps_yjk_member_design_results(monkeypatch):
+    monkeypatch.setenv("SC_YJK_SELECTED_CASE", '{"id":"D", "labels":["DL"]}')
     driver = _load_driver_module()
 
     extracted = {
@@ -114,6 +115,9 @@ def test_build_analysis_result_maps_yjk_member_design_results():
         steps=[],
     )
 
+    assert set(result["caseResults"]) == {"D"}
+    assert result["caseResults"]["D"]["nativeResultKey"] == "lc_1"
+    assert result["caseResults"]["D"]["memberStations"]["B1"][0]["nativeComponents"] == [0, 5, 0, 3, 0, 0]
     assert result["summary"]["designElementCount"] == 2
     assert result["summary"]["maxDesignUtilization"] == 0.92
     assert result["summary"]["controllingDesignElement"] == "B1"

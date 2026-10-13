@@ -495,6 +495,7 @@ function runPkpmResultExtraction() {
       '    "case_keys": [list(key) for key in case_items],',
       '    "case_ux": case_items[(1, 1)]["ux"],',
       '    "beam_force": beam_force,',
+      '    "stations": result["case_member_stations"]["DL"][(2000, 1)],',
       '}',
       'print(json.dumps(payload))',
     ].join('\n');
@@ -804,8 +805,8 @@ describe('PKPM frame analysis flow', () => {
     expect(findCalls(payload, 'Beam.SetSteelGrade')).toHaveLength(0);
     expect(findCalls(payload, 'RealFloor.SetFloorHeight').map((call) => call.height)).toEqual([3600, 3600]);
     expect(findCalls(payload, 'RealFloor.SetBottomElevation').map((call) => call.elevation)).toEqual([0, 3.6]);
-    expect(findCalls(payload, 'StandFloor.AddColumn')).toHaveLength(6);
-    expect(findCalls(payload, 'StandFloor.AddBeamEx')).toHaveLength(7);
+    expect(findCalls(payload, 'StandFloor.AddColumn')).toHaveLength(12);
+    expect(findCalls(payload, 'StandFloor.AddBeamEx')).toHaveLength(14);
     expect(nodeCoords).toEqual(expect.arrayContaining([
       { x: 0, y: 0 },
       { x: 6000, y: 0 },
@@ -859,8 +860,6 @@ describe('PKPM frame analysis flow', () => {
       shape_factor: 1.3,
     };
     model.analysis_control = {
-      p_delta: false,
-      rigid_floor: true,
       consideration_torsion: true,
     };
 
@@ -900,6 +899,16 @@ describe('PKPM frame analysis flow', () => {
     });
   });
 
+  test('rejects explicit physical settings until native write/readback is verified', () => {
+    const model = buildRcUserScenarioModel();
+    model.analysis_control = { self_weight: false, rigid_floor: false };
+    const payload = runPkpmRuntime(model, { expectFailure: true });
+    expect(payload.errorType).toBe('AnalysisCapabilityError');
+    expect(payload.error).toContain('self_weight');
+    expect(payload.error).toContain('rigid_floor');
+    expect(payload.runCalls).toEqual([]);
+  });
+
   test('maps distinct story dead/live loads to separate PKPM standard floors', () => {
     const model = buildRcUserScenarioModel();
     model.stories[0] = {
@@ -925,7 +934,7 @@ describe('PKPM frame analysis flow', () => {
       expect.objectContaining({ floor: 2, dead: 0, live: 0 }),
     ]);
     expect(findCalls(payload, 'Model.AddStandFloor')).toEqual([
-      expect.objectContaining({ source: 1, index: 2 }),
+      expect.objectContaining({ source: null, index: 2 }),
     ]);
     expect(findCalls(payload, 'RealFloor.SetStandFloorIndex').map((call) => call.index)).toEqual([1, 2]);
     expect(payload.result.summary.floorLoadMapping).toEqual([
@@ -1171,6 +1180,10 @@ describe('PKPM frame analysis flow', () => {
     expect(payload.case_keys).toEqual([[1, 1]]);
     expect(payload.case_ux).toBe(0.00125);
     expect(payload.beam_force).toMatchObject({ Vy: 3, Vz: 4, My: -6, Mz: 10, V: 5, M: 10 });
+    expect(payload.stations.map((station) => [station.nativeStation, station.nativeComponents])).toEqual([
+      [0, [0, 3, 4, 0, 0, 10]], [1, [0, 0, 0, 0, -6, 0]],
+    ]);
+    expect(payload.stations.every((station) => station.endpointConvention === 'unverified')).toBe(true);
   });
 
   test('keeps steel-frame PKPM flow on steel sections and steel SATWE material', () => {
