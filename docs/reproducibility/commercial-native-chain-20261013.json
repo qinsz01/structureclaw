@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-13T11:21:50.877331+00:00",
+  "generatedAt": "2026-10-13T11:30:16.417827+00:00",
   "status": "commercial-native-chain-preview-in-progress",
-  "implementationSnapshotCommit": "f0b5afd8b9ab0ce18af2448427dc78f641715f33",
+  "implementationSnapshotCommit": "550c22c788cc95c855ba6a83221277df0189aff5",
   "scope": "This round native physical-model chain and delivery evidence, not a new 300-case benchmark release or paid LLM evaluation.",
   "historicalRecordsOverwritten": false,
   "all300CasesAccepted": false,
@@ -2740,6 +2740,339 @@
           "size": 21051
         }
       ]
+    },
+    {
+      "run": "pkpm-INT-089-20261013-192010-a5e22d78",
+      "engine": "pkpm",
+      "caseOrCalibration": "INT-089/capability-proxy-state-1",
+      "status": "passed-physical-output",
+      "scope": "Capability proxy, not a frozen new benchmark task; 162 nodal and 558 support/end-force components pass. Saved output predates the selected-view source propagation fix.",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192010-a5e22d78",
+      "entry": "native-driver-or-production-runtime",
+      "quantities": {
+        "timoshenkoChecks": 162,
+        "timoshenkoPassed": true,
+        "timoshenkoForceChecks": 558,
+        "timoshenkoForcesPassed": true,
+        "completePhysicalOutputAccepted": true,
+        "timoshenkoChecksFailed": 0,
+        "timoshenkoForceChecksFailed": 0
+      },
+      "sourceCases": [
+        "D"
+      ],
+      "combinations": [],
+      "resultProvenance": {
+        "selectedView": {
+          "reactionKind": null,
+          "boundaryDisplacementKinds": {}
+        },
+        "cases": {
+          "D": {
+            "reactionKind": "derived-node-equilibrium",
+            "boundaryDisplacementKinds": {
+              "prescribed-boundary": 7,
+              "solver-direct-constraint-dofs": 2
+            }
+          }
+        }
+      },
+      "referenceHashMatchesReceipt": true,
+      "frozenReferenceTolerance": {
+        "relative": 1e-05,
+        "translationM": 1e-11,
+        "rotationRad": 1e-11,
+        "forceKN": 1e-05,
+        "momentKNm": 1e-05
+      },
+      "legacyEulerScoringDiagnostic": {
+        "numericalCapabilityAccepted": null,
+        "notCommercialScoringTruth": true
+      },
+      "artifacts": [
+        {
+          "role": "input",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192010-a5e22d78\\frozen-source-model.json",
+          "sha256": "584356884f3e9bcc9c08a07e9bc51cc5f34d81278b93b7f0a35cb4d0602102e8",
+          "size": 25100
+        },
+        {
+          "role": "reference",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192010-a5e22d78\\frozen-timoshenko-reference.json",
+          "sha256": "e0f9604a8f1f749ed7ec6e2a800392190b44c19eece98a11f70906d6328e8a26",
+          "size": 29108
+        },
+        {
+          "role": "acceptance",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192010-a5e22d78\\acceptance.json",
+          "sha256": "d0dac67c554422729802d17be2c5d5d94a3818e100d11ca71a3178715fa51ccb",
+          "size": 143790
+        },
+        {
+          "role": "result",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192010-a5e22d78\\result.json",
+          "sha256": "4afcfe82b16755f00e122c6d0cc4c3ec59088e90ed26fe38a9f1e54875394618",
+          "size": 2303939
+        },
+        {
+          "role": "reference-provenance",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192010-a5e22d78\\reference-provenance.json",
+          "sha256": "3f8475e129f22af59b62ec656c30d2e99da6209146da2e1d165bf9d4ea6ce86b",
+          "size": 653
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192010-a5e22d78\\sc_38d1f999\\MESH.SAT",
+          "sha256": "483ae89e997b341d3d0a2184281d4336a148a16647b72d7e9cf44fba305df09b",
+          "size": 560
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192010-a5e22d78\\sc_38d1f999\\NODEINDEX.SAT",
+          "sha256": "ebfecfacd67c9631e16171ef2f0f3ca854c80312ea3cb54a60c05103638e7744",
+          "size": 152
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192010-a5e22d78\\sc_38d1f999\\DISP.SAT",
+          "sha256": "b79d4f96df98985ee09f030856d4cbc072f29da1edc063da5fb0e65b93eff275",
+          "size": 960
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192010-a5e22d78\\sc_38d1f999\\DISP1.SAT",
+          "sha256": "484a513f49db3bdcd24788274b0e158727544ed1975b0525210a79db2c164038",
+          "size": 952
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192010-a5e22d78\\sc_38d1f999\\ConstraintNodeNo.SAT",
+          "sha256": "b0f4c4000918fb6ecceec2b54d04e11a193e2ef3b4827733d12ec31b8a3b5f16",
+          "size": 124
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192010-a5e22d78\\sc_38d1f999\\ConstraintNode.SAT",
+          "sha256": "e41f5fd9d0654f22556ebde8022bdb014436da9ad74e13c66828d4edc2aadc22",
+          "size": 256
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192010-a5e22d78\\sc_38d1f999\\ConstraintNodeSK.SAT",
+          "sha256": "315ddd4b280e8750626676de4a65f0bf38d865e55a885bddfa488acfaeffd376",
+          "size": 208
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192010-a5e22d78\\sc_38d1f999\\ConstraintNode.SAT.precompile",
+          "sha256": "60d3bcebb90b568552822a7e3ff638f5ead7f8f21e1f667ac6bf27660bbf2f8a",
+          "size": 256
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192010-a5e22d78\\sc_38d1f999\\ConstraintNodeSK.SAT.precompile",
+          "sha256": "bef2a0a7d81c87b467c56b1aeaf811e5d63b49bb03baae4a1c452b93593ac68c",
+          "size": 208
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192010-a5e22d78\\sc_38d1f999\\native-stage-evidence.json",
+          "sha256": "db9f58f6a6a65546872495d6f3289824483297cb5927c4d0e5d8b04fea70f65f",
+          "size": 2138
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192010-a5e22d78\\sc_38d1f999\\GOUJIAN.OUT",
+          "sha256": "c5b9274bee2073bb3165832e14eef8a75a2bf91777c6aa3eeab65986975685f7",
+          "size": 8093
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192010-a5e22d78\\sc_38d1f999\\WDISPGKNO.OUT",
+          "sha256": "655410d301be0c883c78413899c970436d499a822d582eb0f291188475912883",
+          "size": 32
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192010-a5e22d78\\sc_38d1f999\\UserMaterial.SAT",
+          "sha256": "3a7283d8a5f3e29a5cd585d451fd774c5c867b8c58bf3407825525d2eb9adb64",
+          "size": 112
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192010-a5e22d78\\sc_38d1f999\\WMASS.OUT",
+          "sha256": "2850ce6d591954ebada0befd535f26c06eec000d521de2142dfbf27f45774059",
+          "size": 21051
+        }
+      ]
+    },
+    {
+      "run": "pkpm-INT-089-20261013-192241-d3c67367",
+      "engine": "pkpm",
+      "caseOrCalibration": "INT-089/capability-proxy-state-2",
+      "status": "passed-physical-output",
+      "scope": "Updated capability proxy; 162 nodal and 558 support/end-force components pass. Fresh selected view preserves reaction, per-support and boundary displacement sources.",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192241-d3c67367",
+      "entry": "native-driver-or-production-runtime",
+      "quantities": {
+        "timoshenkoChecks": 162,
+        "timoshenkoPassed": true,
+        "timoshenkoForceChecks": 558,
+        "timoshenkoForcesPassed": true,
+        "completePhysicalOutputAccepted": true,
+        "timoshenkoChecksFailed": 0,
+        "timoshenkoForceChecksFailed": 0
+      },
+      "sourceCases": [
+        "D"
+      ],
+      "combinations": [],
+      "resultProvenance": {
+        "selectedView": {
+          "reactionKind": "derived-node-equilibrium",
+          "boundaryDisplacementKinds": {
+            "prescribed-boundary": 7,
+            "solver-direct-constraint-dofs": 2
+          }
+        },
+        "cases": {
+          "D": {
+            "reactionKind": "derived-node-equilibrium",
+            "boundaryDisplacementKinds": {
+              "prescribed-boundary": 7,
+              "solver-direct-constraint-dofs": 2
+            }
+          }
+        }
+      },
+      "referenceHashMatchesReceipt": true,
+      "frozenReferenceTolerance": {
+        "relative": 1e-05,
+        "translationM": 1e-11,
+        "rotationRad": 1e-11,
+        "forceKN": 1e-05,
+        "momentKNm": 1e-05
+      },
+      "legacyEulerScoringDiagnostic": {
+        "numericalCapabilityAccepted": null,
+        "notCommercialScoringTruth": true
+      },
+      "artifacts": [
+        {
+          "role": "input",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192241-d3c67367\\frozen-source-model.json",
+          "sha256": "f5e06c18867dea7a8f41465abeddb7f4eac1aa533b3b302f6f0b0685ae3a4e7c",
+          "size": 25100
+        },
+        {
+          "role": "reference",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192241-d3c67367\\frozen-timoshenko-reference.json",
+          "sha256": "698972ac85883425d24441ff855ff040a68cef37db8a9a3a07273fbbd6043807",
+          "size": 29055
+        },
+        {
+          "role": "acceptance",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192241-d3c67367\\acceptance.json",
+          "sha256": "a9fb7fd4e2e072384ff0e3d22b75ebeaa36ff03022d1f4b420b83b314a58c355",
+          "size": 143670
+        },
+        {
+          "role": "result",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192241-d3c67367\\result.json",
+          "sha256": "87b5f67a7846d5210256b44e053a5b5a955d549414829608bddc7f026211de34",
+          "size": 2346258
+        },
+        {
+          "role": "reference-provenance",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192241-d3c67367\\reference-provenance.json",
+          "sha256": "34dfb219b82a7a7e5e8a79d696082ac7eb81b008eabeae5f2813187880d154de",
+          "size": 653
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192241-d3c67367\\sc_97564e57\\MESH.SAT",
+          "sha256": "483ae89e997b341d3d0a2184281d4336a148a16647b72d7e9cf44fba305df09b",
+          "size": 560
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192241-d3c67367\\sc_97564e57\\NODEINDEX.SAT",
+          "sha256": "ebfecfacd67c9631e16171ef2f0f3ca854c80312ea3cb54a60c05103638e7744",
+          "size": 152
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192241-d3c67367\\sc_97564e57\\DISP.SAT",
+          "sha256": "1ad02334e8b0038cc41a3f7ca8dfdce55bab3860e1715353080585ccf256dacb",
+          "size": 960
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192241-d3c67367\\sc_97564e57\\DISP1.SAT",
+          "sha256": "6ba18efd47037ad1068bca9f042ed3e569022c3ca2e2cf8978fec62ff6e3a9d8",
+          "size": 952
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192241-d3c67367\\sc_97564e57\\ConstraintNodeNo.SAT",
+          "sha256": "b0f4c4000918fb6ecceec2b54d04e11a193e2ef3b4827733d12ec31b8a3b5f16",
+          "size": 124
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192241-d3c67367\\sc_97564e57\\ConstraintNode.SAT",
+          "sha256": "e41f5fd9d0654f22556ebde8022bdb014436da9ad74e13c66828d4edc2aadc22",
+          "size": 256
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192241-d3c67367\\sc_97564e57\\ConstraintNodeSK.SAT",
+          "sha256": "315ddd4b280e8750626676de4a65f0bf38d865e55a885bddfa488acfaeffd376",
+          "size": 208
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192241-d3c67367\\sc_97564e57\\ConstraintNode.SAT.precompile",
+          "sha256": "60d3bcebb90b568552822a7e3ff638f5ead7f8f21e1f667ac6bf27660bbf2f8a",
+          "size": 256
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192241-d3c67367\\sc_97564e57\\ConstraintNodeSK.SAT.precompile",
+          "sha256": "bef2a0a7d81c87b467c56b1aeaf811e5d63b49bb03baae4a1c452b93593ac68c",
+          "size": 208
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192241-d3c67367\\sc_97564e57\\native-stage-evidence.json",
+          "sha256": "48cd39aaf37b0b596b7ed1b2ccb1677d673be40f5a9d6585d64e7e9c9c7fffe0",
+          "size": 2139
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192241-d3c67367\\sc_97564e57\\GOUJIAN.OUT",
+          "sha256": "ab10f5e1acc8d35f510f8df58fba638ec9e11dddfababf264e38b7fe94d44ff3",
+          "size": 8093
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192241-d3c67367\\sc_97564e57\\WDISPGKNO.OUT",
+          "sha256": "655410d301be0c883c78413899c970436d499a822d582eb0f291188475912883",
+          "size": 32
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192241-d3c67367\\sc_97564e57\\UserMaterial.SAT",
+          "sha256": "3a7283d8a5f3e29a5cd585d451fd774c5c867b8c58bf3407825525d2eb9adb64",
+          "size": 112
+        },
+        {
+          "role": "native-evidence",
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-INT-089-20261013-192241-d3c67367\\sc_97564e57\\WMASS.OUT",
+          "sha256": "6da846487d777c05a8682565459d4a057bdf0231d47472d160fcab88121e1d94",
+          "size": 21051
+        }
+      ]
     }
   ],
   "apiPreservation": [
@@ -2790,8 +3123,10 @@
     "coreCommit": "4deb1e9",
     "pkpmFixtureCommit": "5b78236",
     "pointCutPrecisionCommit": "f0b5afd",
+    "combinationSourceCommit": "8ebd352",
     "backendTests": 25,
-    "pythonCombinationTests": 6,
+    "pythonCombinationTests": 7,
+    "pythonPkpmAdapterTests": 2,
     "frontendTests": 12,
     "backendBuild": "passed",
     "frontendTypecheck": "passed",
@@ -2803,7 +3138,6 @@
     "scope": "Exact native cuts and mechanics-recovered signed forces, partial/point cuts and combinations across query/chart/report. No unverified interior displacement."
   },
   "remaining": [
-    "PKPM case-level pin provenance is verified in fresh MM-089 result; selected compatibility view omitted provenance in that saved output and needs its own corrected output",
     "PKPM custom W native end-force calibration: 2 of 1440 force checks fail in recorded run",
     "PKPM MM-089 mixed fixed/pinned calibration: 2 of 768 force checks fail in recorded run",
     "Independently reviewed native commercial scoring truth for full benchmark",
@@ -2844,5 +3178,48 @@
         }
       ]
     }
-  ]
+  ],
+  "evaluationIntegration": {
+    "benchmarkCommit": "5102acb3fdf4618c31f385e51fd0e5b9280438a1",
+    "mainPointerCommit": "80f8a3e",
+    "benchmarkRemote": "git@github.com:qinsz01/structureclaw-benchmark.git",
+    "remoteTrackingCommit": "5102acb3fdf4618c31f385e51fd0e5b9280438a1",
+    "passed": 55,
+    "skipped": 0,
+    "nativeOpenSeesExecutionRequired": true,
+    "environmentVariable": "SCLAW_TEST_PYTHON",
+    "scope": [
+      "verified signed native cuts and reactions",
+      "case and combination identity",
+      "ULP position and reversed-endpoint side mapping",
+      "renumbered physical cases bound to real execution evidence"
+    ],
+    "testEvidence": "Coordinating agent completed npm run test:evaluation with SCLAW_TEST_PYTHON set; checkout and pushed tracking commit independently read back.",
+    "historicalFixturesChanged": false,
+    "source300PlanChanged": false
+  },
+  "integrationValidation": {
+    "testedCommit": "6c5962c946e6b0f3885c26ae4ad1f636a8d25b65",
+    "python": {
+      "passed": 194,
+      "subtests": 22,
+      "singleProcess": true,
+      "scope": "PKPM, YJK, shared model contracts, native combinations and independent oracle"
+    },
+    "backend": {
+      "passed": 42,
+      "suites": 6,
+      "pythonEnvironment": "PYTHON_FOR_TEST",
+      "skipped": 0,
+      "build": "passed"
+    },
+    "frontendTypecheck": "passed",
+    "changedTypeScriptEslint": "passed",
+    "testEvidence": "Coordinating agent completed the combined validation; later source-retention commit 8ebd352 separately passed 7 native-combination and 2 PKPM adapter tests."
+  },
+  "paperTagsPreserved": {
+    "tag": "paper-v2-openclaw-20260729",
+    "structureclawCommit": "3c36a37241fa9afc9d89329d0d0acd3278fc2e88",
+    "benchmarkCommit": "4259fdd92a83f5d93976bc510ef82a0d2d7b9b57"
+  }
 }
