@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict
+from opensees_shared.errors import OpenSeesInputError, OpenSeesCapabilityError
 
 from opensees_dynamic_analysis import OpenSeesDynamicExecutor
 from opensees_shared.tags import OpenSeesTagMapper
@@ -22,6 +23,8 @@ def run_analysis(model: StructureModelV2, parameters: Dict[str, Any]) -> Dict[st
         num_modes = parameters.get("numModes", 10)
         try:
             return executor.modal_analysis(num_modes, ops, parameters.get("direction", "x"))
+        except OpenSeesInputError:
+            raise
         except Exception as error:
             raise RuntimeError(f"Modal analysis failed: {error}") from error
 
@@ -34,8 +37,11 @@ def run_analysis(model: StructureModelV2, parameters: Dict[str, Any]) -> Dict[st
                 parameters.get("groundMotion", []),
                 ops,
                 parameters.get("direction", "x"),
+                acceleration_unit=parameters.get("groundMotionUnit", "m/s2"),
             )
+        except OpenSeesInputError:
+            raise
         except Exception as error:
             raise RuntimeError(f"Time history analysis failed: {error}") from error
 
-    raise RuntimeError(f"Unknown analysis type: {analysis_type}")
+    raise OpenSeesCapabilityError(f"Unknown analysis type: {analysis_type}")

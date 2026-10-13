@@ -292,7 +292,7 @@ def validate_coordinate_contract(model: Any) -> None:
                 raise ValueError(
                     "Nodal loads must use fx/fy/fz and mx/my/mz, not member-load w components"
                 )
-            if element_id is not None and any(
+            if element_id is not None and load.get("type") != "point" and any(
                 key in load for key in ("fx", "fy", "fz", "mx", "my", "mz", "forces")
             ):
                 raise ValueError(
@@ -336,8 +336,8 @@ def validate_coordinate_contract(model: Any) -> None:
                     raise ValueError("Load forces must contain six finite values")
 
             if dimension == "2d" and reference_frame == "element-local":
-                if abs(float(load.get("wy", 0.0) or 0.0)) > COORDINATE_TOLERANCE:
-                    raise ValueError("Local wy is out of plane for a canonical X-Z 2-D member load")
+                if any(abs(float(load.get(k, 0.0) or 0.0)) > COORDINATE_TOLERANCE for k in ("wy", "fy", "mx", "mz")):
+                    raise ValueError("Local wy/fy/mx/mz is out of plane for a canonical X-Z 2-D member load")
                 continue
             if dimension == "2d":
                 inactive = {

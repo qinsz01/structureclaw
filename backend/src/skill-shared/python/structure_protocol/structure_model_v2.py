@@ -1,5 +1,5 @@
 """
-StructureModelV2 — Unified structural analysis JSON schema, version 2.0.0.
+StructureModelV2 — Unified structural analysis JSON schema, versions 2.0 / 2.1.
 
 Extends V1 with project info, structure system, seismic/wind parameters,
 story definitions, parametric section shapes, per-element material grades,
@@ -30,7 +30,7 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field, StrictBool, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
 
 
 def _resolve_entity_alias(
@@ -302,6 +302,7 @@ class SectionShape(BaseModel):
 
 class NodeV2(BaseModel):
     """节点 / Node — same as V1."""
+    model_config = ConfigDict(extra='forbid')
 
     id: str = Field(..., min_length=1)
     x: float = Field(..., allow_inf_nan=False)
@@ -314,10 +315,13 @@ class NodeV2(BaseModel):
         description="[ux, uy, uz, rx, ry, rz]; true=restrained, false=free",
     )
     story: Optional[str] = Field(default=None, description="所属楼层 id")
+    mass: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False,
+        description="节点集中平动质量 (tonne)，显式节点质量模式不叠加杆件密度质量 / lumped translational mass in tonnes")
 
 
 class ElementV2(BaseModel):
     """单元 / Element — extended from V1 with per-element grades and geometry."""
+    model_config = ConfigDict(extra='forbid')
 
     id: str = Field(..., min_length=1)
     type: Literal[
@@ -533,6 +537,11 @@ class AnalysisControl(BaseModel):
 
     p_delta: bool = Field(default=False, description="考虑 P-Δ 效应")
     rigid_floor: bool = Field(default=True, description="刚性楼板假定")
+    self_weight: Optional[bool] = Field(default=None, description="显式自重开关 / explicit self-weight setting")
+    mass_source: Optional[Literal['nodal', 'member-density']] = Field(default=None,
+        description="动力质量来源；nodal 与杆件密度互斥 / mutually exclusive dynamic mass source")
+    rigid_offsets: Optional[bool] = Field(default=None, description="自动刚域开关 / automatic rigid offsets")
+    construction_stage: Optional[bool] = Field(default=None, description="施工阶段分析 / construction-stage analysis")
     period_reduction_factor: Optional[float] = Field(
         default=None, ge=0, le=1.0,
         description="周期折减系数",
@@ -618,7 +627,7 @@ class StructureModelV2(BaseModel):
     explicit typed coordinate contract before V2 validation.
     """
 
-    schema_version: str = Field(default="2.0.0")
+    schema_version: Literal["2.0.0", "2.1.0"] = Field(default="2.1.0")
     unit_system: str = Field(default="SI")
     coordinate_system: CoordinateSystemV2
 
@@ -801,8 +810,10 @@ class StructureModelV2(BaseModel):
                 )
 
         load_case_ids = {lc.id for lc in self.load_cases}
+        from structure_protocol.load_contract import validate_load_contract
         for load_case in self.load_cases:
             for load in load_case.loads:
+                validate_load_contract(load)
                 reference_frame = load.get("reference_frame", "global")
                 if reference_frame not in {"global", "element-local"}:
                     raise ValueError(
@@ -837,7 +848,7 @@ class StructureModelV2(BaseModel):
                     raise ValueError(
                         "Nodal loads must use fx/fy/fz and mx/my/mz, not member-load w components"
                     )
-                if element_ref is not None and any(
+                if element_ref is not None and load.get("type") != "point" and any(
                     key in load for key in ("fx", "fy", "fz", "mx", "my", "mz", "forces")
                 ):
                     raise ValueError(
@@ -846,6 +857,7 @@ class StructureModelV2(BaseModel):
                 for key in (
                     "fx", "fy", "fz", "mx", "my", "mz",
                     "wx", "wy", "wz",
+                    "position", "start", "end", "ux", "uy", "uz", "rx", "ry", "rz",
                 ):
                     if key not in load or load.get(key) is None:
                         continue
@@ -904,7 +916,7 @@ class StructureModelV2(BaseModel):
                             + ", ".join(nonzero)
                         )
                 if declared_dimension == "2d" and reference_frame == "element-local":
-                    if abs(float(load.get("wy", 0.0) or 0.0)) > 1e-9:
+                    if any(abs(float(load.get(k, 0.0) or 0.0)) > 1e-9 for k in ("wy", "fy", "mx", "mz")):
                         raise ValueError(
                             "Local wy is out of plane for a canonical X-Z 2-D member load"
                         )

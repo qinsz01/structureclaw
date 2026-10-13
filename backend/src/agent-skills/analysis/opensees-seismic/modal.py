@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from opensees_shared.errors import OpenSeesInputError, OpenSeesMissingInputError, OpenSeesCapabilityError
+
 import math
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
@@ -41,6 +43,7 @@ class ModalAnalysis:
     engine_mode: str
     warnings: List[str] = field(default_factory=list)
     coordinate_contract: Dict[str, Any] = field(default_factory=dict)
+    execution: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -52,6 +55,7 @@ class ModalAnalysis:
             "engineMode": self.engine_mode,
             "warnings": self.warnings,
             "coordinateContract": self.coordinate_contract,
+            "execution": self.execution,
         }
 
 
@@ -119,30 +123,15 @@ def _section_property_optional(section: Any, *names: str) -> Optional[float]:
     return None
 
 
-def _dimension_to_m(value: Optional[float]) -> Optional[float]:
-    if value is None or value <= 0.0:
-        return None
-    # Schema legacy dimensions and section shapes are usually millimetres;
-    # OpenSees section properties are SI. Values above 10 are treated as mm.
-    return value / 1000.0 if value > 10.0 else value
-
-
 def _wall_dimensions_m(section: Any) -> Tuple[Optional[float], Optional[float]]:
-    thickness = _dimension_to_m(_section_property_optional(
-        section,
-        "thickness",
-        "wallThickness",
-        "t",
-        "T",
-    ))
-    wall_length = _dimension_to_m(_section_property_optional(
-        section,
-        "wallLength",
-        "wallLengthM",
-        "wall_length",
-        "length",
-        "L",
-    ))
+    # V2 shape and legacy convenience fields are explicitly mm; suffixed M is m.
+    shape = _field(section, 'shape', {}) or {}
+    thickness_mm = optional_number(_field(shape, 'T')) or optional_number(_field(section, 'thickness'))
+    thickness = thickness_mm/1000 if thickness_mm is not None else _section_property_optional(section, 'thickness_m', 'wallThicknessM')
+    wall_length = _section_property_optional(section, 'wallLengthM', 'wall_length_m')
+    if wall_length is None:
+        length_mm = _section_property_optional(section, 'wallLengthMm')
+        wall_length = length_mm/1000 if length_mm is not None else None
     area = _section_property_optional(section, "A", "area")
     if wall_length is None and thickness is not None and area is not None and area > 0.0:
         wall_length = area / thickness
@@ -176,7 +165,7 @@ def _effective_section_properties(element_type: str, section: Any) -> Tuple[floa
 def _material_e(material: Any, section: Any) -> float:
     value = optional_number(_field(material, "E"))
     if value is None or not math.isfinite(float(value)) or float(value) <= 0.0:
-        raise ValueError("Seismic OpenSees analysis requires a finite material E > 0")
+        raise OpenSeesInputError("Seismic OpenSees analysis requires a finite material E > 0")
     # StructureClaw material records store MPa for concrete/steel. Convert MPa to kN/m2.
     return float(value) * 1000.0
 
@@ -190,7 +179,7 @@ def _material_g(material: Any, section: Any) -> float:
         or float(poisson_ratio) < 0.0
         or float(poisson_ratio) > 0.5
     ):
-        raise ValueError("Seismic OpenSees analysis requires finite material 0 <= nu <= 0.5")
+        raise OpenSeesInputError("Seismic OpenSees analysis requires finite material 0 <= nu <= 0.5")
     return elastic_modulus / (2.0 * (1.0 + float(poisson_ratio)))
 
 
@@ -202,77 +191,78 @@ def _floor_levels(nodes: List[Any]) -> List[float]:
     return [level for level in levels if level > base + 1e-9]
 
 
-def _plan_area(nodes: List[Any], dimension: str) -> float:
-    x_values = [float(_field(node, "x", 0.0) or 0.0) for node in nodes]
-    y_values = [float(_field(node, "y", 0.0) or 0.0) for node in nodes]
-    x_span = max(x_values) - min(x_values) if x_values else 0.0
-    y_span = max(y_values) - min(y_values) if y_values else 0.0
-    if dimension == "2d":
-        return max(x_span, 1.0) * 1.0
-    return max(x_span, 1.0) * max(y_span, 1.0)
-
-
-def _story_floor_loads(payload: Dict[str, Any], default_load: float, level_count: int) -> List[float]:
-    stories = payload.get("stories")
-    loads: List[float] = []
-    if isinstance(stories, list):
-        for story in stories:
-            story_load = 0.0
-            floor_loads = story.get("floor_loads") if isinstance(story, dict) else None
-            if isinstance(floor_loads, list):
-                for item in floor_loads:
-                    if not isinstance(item, dict):
-                        continue
-                    value = optional_number(item.get("value"))
-                    if value is None:
-                        continue
-                    load_type = str(item.get("type", "")).lower()
-                    factor = 0.5 if load_type == "live" else 1.0
-                    story_load += factor * value
-            if story_load > 0:
-                loads.append(story_load)
-    if not loads:
-        loads = [default_load] * max(level_count, 1)
-    if len(loads) < level_count:
-        loads.extend([loads[-1]] * (level_count - len(loads)))
-    return loads[:level_count]
-
-
 def compute_floor_masses(payload: Dict[str, Any], model: Any, dimension: str) -> Tuple[List[Dict[str, float]], List[str]]:
+    """Require an explicit seismic mass or an explicit area and representative floor load.
+
+    No guessed 8 kN/m2, 1 m strip, bounding rectangle or copied last-story mass.
+    Story elevations describe their bottom; mass is attached to their ceiling nodes.
+    """
     nodes = _records(payload, model, "nodes")
     levels = _floor_levels(nodes)
-    area = _plan_area(nodes, dimension)
-    warnings: List[str] = []
-    if area <= 1.0:
-        warnings.append("Plan area could not be fully inferred; used a 1 m tributary width for preliminary seismic mass.")
-    loads = _story_floor_loads(payload, 8.0, len(levels))
-    if not payload.get("stories"):
-        warnings.append("No story floor-load records were found; assumed 8.0 kN/m2 seismic weight for preliminary modal mass.")
-    masses: List[Dict[str, float]] = []
-    for index, level in enumerate(levels):
-        weight = loads[index] * area
-        masses.append({
-            "story": f"F{index + 1}",
-            "elevation": float(level),
-            "weightKN": round(weight, 6),
-            "mass": round(weight / G_ACCEL, 6),
-        })
-    return masses, warnings
-
-
-def _assign_masses(ops: Any, nodes: List[Any], floor_masses: List[Dict[str, float]], dimension: str, node_tags: Dict[str, int]) -> None:
-    for floor in floor_masses:
-        elevation = floor["elevation"]
-        level_nodes = [node for node in nodes if abs(float(_field(node, "z", 0.0) or 0.0) - elevation) <= 1e-6]
-        if not level_nodes:
-            continue
-        node_mass = float(floor["mass"]) / len(level_nodes)
-        for node in level_nodes:
-            tag = node_tags[_node_key(node)]
-            if dimension == "2d":
-                ops.mass(tag, node_mass, 0.0, 0.0)
-            else:
-                ops.mass(tag, node_mass, node_mass, 0.0, 0.0, 0.0, 0.0)
+    stories = _records(payload, model, "stories")
+    metadata = payload.get('metadata', {})
+    masses = []
+    if any(_field(n, 'mass') is not None for n in nodes):
+        if _field(_field(model, 'analysis_control'), 'mass_source') == 'member-density':
+            raise OpenSeesInputError('Explicit node.mass conflicts with member-density mass source')
+        for index, level in enumerate(levels):
+            at_level = [n for n in nodes if abs(float(_field(n, 'z', 0))-level) <= 1e-6]
+            node_masses = {str(_field(n, 'id')): float(_field(n, 'mass') or 0) for n in at_level}
+            mass = sum(node_masses.values())
+            masses.append({'story': next((str(_field(n, 'story')) for n in at_level if _field(n, 'story')), f'F{index+1}'),
+                'elevation': float(level), 'weightKN': mass*G_ACCEL, 'mass': mass,
+                'source': 'explicit-node-mass', 'nodeMasses': node_masses})
+        if sum(f['mass'] for f in masses) <= 0:
+            raise OpenSeesMissingInputError('Seismic analysis requires positive explicit elevated node mass')
+        return masses, []
+    for level in levels:
+        level_nodes = [n for n in nodes if abs(float(_field(n, 'z', 0))-level) <= 1e-6]
+        story_ids = {str(_field(n, 'story')) for n in level_nodes if _field(n, 'story') is not None}
+        candidates = [s for s in stories if str(_field(s, 'id')) in story_ids]
+        if not candidates:
+            candidates = [s for s in stories if _field(s, 'elevation') is not None and
+                          abs(float(_field(s, 'elevation'))+float(_field(s, 'height'))-level) <= 1e-6]
+        if len(candidates) != 1:
+            raise OpenSeesMissingInputError(f'Seismic mass at elevation {level} requires exactly one explicit story association')
+        story = candidates[0]
+        extra = _field(story, 'extra', {}) or {}
+        mass = optional_number(extra.get('seismic_mass'))
+        weight = optional_number(extra.get('seismic_weight'))
+        if mass is not None and weight is not None and not math.isclose(mass*G_ACCEL, weight, rel_tol=1e-8):
+            raise OpenSeesInputError('Conflicting seismic_mass and seismic_weight')
+        source = 'explicit-story-seismic-mass' if mass is not None else 'explicit-story-seismic-weight'
+        if mass is None and weight is None:
+            area = optional_number(extra.get('tributary_area', metadata.get('seismicMassArea')))
+            if area is None or area <= 0:
+                raise OpenSeesMissingInputError(f"Story '{_field(story, 'id')}' seismic mass requires explicit tributary_area (m2), seismic_mass (tonne) or seismic_weight (kN)")
+            intensity = 0.0
+            floor_loads = _field(story, 'floor_loads', []) or []
+            if not floor_loads:
+                floor_loads = [{'type': kind, 'value': _field(story, key)} for kind, key in
+                               (('dead', 'dead_load'), ('live', 'live_load')) if _field(story, key) is not None]
+            if not floor_loads:
+                raise OpenSeesMissingInputError(f"Story '{_field(story, 'id')}' requires explicit gravity representative loads")
+            live_factor = optional_number(extra.get('live_load_mass_factor'))
+            if live_factor is None:
+                live_factor = 0.5  # Existing GB representative live-load coefficient, recorded below.
+            if not 0 <= live_factor <= 1:
+                raise OpenSeesInputError('live_load_mass_factor must be between 0 and 1')
+            for load in floor_loads:
+                kind = str(_field(load, 'type', ''))
+                value = optional_number(_field(load, 'value'))
+                if value is None or value < 0 or kind not in {'dead', 'live'}:
+                    raise OpenSeesInputError('Seismic mass from floor loads requires nonnegative explicit dead/live loads')
+                intensity += value * (live_factor if kind == 'live' else 1.0)
+            weight = intensity*area
+            source = 'explicit-area-and-gravity-loads'
+        mass = mass if mass is not None else weight/G_ACCEL
+        if not math.isfinite(mass) or mass <= 0:
+            raise OpenSeesInputError('Seismic floor mass must be finite and positive')
+        masses.append({'story': str(_field(story, 'id')), 'elevation': float(level),
+                       'weightKN': mass*G_ACCEL, 'mass': mass, 'source': source})
+    if not masses:
+        raise OpenSeesMissingInputError('Seismic analysis requires at least one elevated floor with explicit mass')
+    return masses, []
 
 
 def _restraints_for_node(node: Any, dimension: str) -> List[int]:
@@ -286,145 +276,41 @@ def _restraints_for_node(node: Any, dimension: str) -> List[int]:
     return (values + [0, 0, 0, 0, 0, 0])[:6]
 
 
-def _reference_vector(model: Any, element: Any, start: Any, end: Any) -> List[float]:
-    element_id = str(_field(element, "id"))
-    reference = get_reference_vector(get_model_metadata(model), element_id)
-    axes = build_element_local_axes(
-        [float(_field(start, "x", 0.0) or 0.0), float(_field(start, "y", 0.0) or 0.0), float(_field(start, "z", 0.0) or 0.0)],
-        [float(_field(end, "x", 0.0) or 0.0), float(_field(end, "y", 0.0) or 0.0), float(_field(end, "z", 0.0) or 0.0)],
-        reference,
-        optional_number(_field(element, "rotation_angle")),
-    )
-    return axes[2].tolist()
-
-
 def _build_opensees_model(ops: Any, payload: Dict[str, Any], model: Any, basis: SeismicDesignBasis, direction: str) -> Tuple[str, Dict[str, int], List[Dict[str, float]]]:
-    nodes = _records(payload, model, "nodes")
-    elements = _records(payload, model, "elements")
-    sections = _section_map(_records(payload, model, "sections"))
-    materials = _material_map(_records(payload, model, "materials"))
-    node_lookup = {_node_key(node): node for node in nodes}
-    validate_coordinate_contract(model)
-    dimension = resolve_model_dimension(model)
-    floor_masses, _ = compute_floor_masses(payload, model, dimension)
-    node_tags = {_node_key(node): index + 1 for index, node in enumerate(nodes)}
+    from opensees_shared.model import OpenSeesModelBuilder
+    from structure_protocol.structure_model_v2 import StructureModelV2
 
-    ops.wipe()
-    if dimension == "2d":
-        ops.model("basic", "-ndm", 2, "-ndf", 3)
-        for node in nodes:
-            tag = node_tags[_node_key(node)]
-            ops.node(tag, float(_field(node, "x", 0.0) or 0.0), float(_field(node, "z", 0.0) or 0.0))
-            restraints = _restraints_for_node(node, dimension)
-            if any(restraints):
-                ops.fix(tag, *restraints)
-    else:
-        ops.model("basic", "-ndm", 3, "-ndf", 6)
-        for node in nodes:
-            tag = node_tags[_node_key(node)]
-            ops.node(
-                tag,
-                float(_field(node, "x", 0.0) or 0.0),
-                float(_field(node, "y", 0.0) or 0.0),
-                float(_field(node, "z", 0.0) or 0.0),
-            )
-            restraints = _restraints_for_node(node, dimension)
-            if any(restraints):
-                ops.fix(tag, *restraints)
-
-    _assign_masses(ops, nodes, floor_masses, dimension, node_tags)
-
-    for index, element in enumerate(elements, start=1):
-        element_type = _element_type(element)
-        if not _is_opensees_line_element_type(element_type):
-            raise ValueError(f"Seismic OpenSees analysis does not support element type '{element_type}'")
-        element_nodes = _element_nodes(element)
-        if len(element_nodes) != 2 or element_nodes[0] not in node_lookup or element_nodes[1] not in node_lookup:
-            raise ValueError(f"Seismic line element '{_field(element, 'id')}' must reference exactly two known nodes")
-        section = sections.get(str(_field(element, "section", "")))
-        if section is None:
-            raise ValueError(f"Element '{_field(element, 'id')}' references an unavailable section")
-        material = materials.get(str(_field(element, "material", "")))
-        if material is None:
-            raise ValueError(f"Element '{_field(element, 'id')}' references an unavailable material")
-        area, iy, iz, torsion = _effective_section_properties(element_type, section)
-        e_modulus = _material_e(material, section)
-        tag = index
-        if dimension == "2d":
-            if not all(math.isfinite(value) and value > 0.0 for value in (area, iy)):
-                raise ValueError(f"Element '{_field(element, 'id')}' requires section A/Iy > 0")
-            ops.geomTransf("Linear", tag)
-            ops.element("elasticBeamColumn", tag, node_tags[element_nodes[0]], node_tags[element_nodes[1]], area, e_modulus, iy, tag)
+    original = model if isinstance(model, StructureModelV2) else StructureModelV2.model_validate(payload)
+    elements = []
+    sections = list(original.sections)
+    section_map = {s.id: s for s in sections}
+    for element in original.elements:
+        if _is_wall_line_element_type(element.type):
+            # Preserve the established equivalent LINE wall method, never imply a shell model.
+            if len(element.nodes) != 2:
+                raise OpenSeesCapabilityError('Seismic equivalent line-wall analysis requires two-node wall members')
+            source = section_map[element.section]
+            values = _effective_section_properties(element.type, source)
+            section_id = f'__seismic_wall__{element.id}'
+            if section_id in section_map:
+                raise OpenSeesInputError('Reserved equivalent wall section ID collision')
+            section = source.model_copy(update={'id': section_id, 'properties': {
+                **source.properties, **dict(zip(('A', 'Iy', 'Iz', 'J'), values))}})
+            sections.append(section)
+            elements.append(element.model_copy(update={'type': 'column', 'section': section_id}))
         else:
-            if not all(math.isfinite(value) and value > 0.0 for value in (area, iy, iz, torsion)):
-                raise ValueError(f"Element '{_field(element, 'id')}' requires section A/Iy/Iz/J > 0")
-            start = node_lookup[element_nodes[0]]
-            end = node_lookup[element_nodes[1]]
-            ops.geomTransf("Linear", tag, *_reference_vector(model, element, start, end))
-            ops.element(
-                "elasticBeamColumn",
-                tag,
-                node_tags[element_nodes[0]],
-                node_tags[element_nodes[1]],
-                area,
-                e_modulus,
-                _material_g(material, section),
-                torsion,
-                max(iy, 1e-8),
-                max(iz, 1e-8),
-                tag,
-            )
-
-    return dimension, node_tags, floor_masses
-
-
-def _fallback_modes(payload: Dict[str, Any], model: Any, basis: SeismicDesignBasis, direction: str, modal_count: int) -> ModalAnalysis:
-    nodes = _records(payload, model, "nodes")
-    dimension = resolve_model_dimension(model)
-    floor_masses, warnings = compute_floor_masses(payload, model, dimension)
-    total_mass = sum(floor["mass"] for floor in floor_masses)
-    height = max(basis.height_m, 3.0)
-    t1 = max(0.08, 0.075 * (height ** 0.75))
-    modes: List[Dict[str, Any]] = []
-    participating_mass = 0.0
-    target_ratios = [0.72, 0.15, 0.07, 0.03, 0.015, 0.01]
-    elevations = [floor["elevation"] for floor in floor_masses]
-    max_elevation = max(elevations) if elevations else 1.0
-    for index in range(max(1, modal_count)):
-        ratio = target_ratios[index] if index < len(target_ratios) else 0.0
-        participating_mass += ratio * total_mass
-        mode_number = index + 1
-        period = t1 / (2 * index + 1)
-        shape = [
-            {
-                "story": floor["story"],
-                "elevation": floor["elevation"],
-                "phi": round((floor["elevation"] / max_elevation) ** mode_number, 6),
-            }
-            for floor in floor_masses
-        ]
-        modes.append({
-            "modeNumber": mode_number,
-            "period": round(period, 6),
-            "frequency": round(1.0 / period, 6),
-            "omega": round(2.0 * math.pi / period, 6),
-            "participationFactor": 1.0,
-            "effectiveMass": round(ratio * total_mass, 6),
-            "massParticipationRatio": round(ratio, 6),
-            "cumulativeMassParticipationRatio": round(participating_mass / total_mass if total_mass > 0 else 0.0, 6),
-            "storyShape": shape,
-        })
-    warnings.append("OpenSees eigen extraction failed; used a code-style equivalent shear-building modal approximation.")
-    return ModalAnalysis(
-        modes=modes,
-        total_mass=round(total_mass, 6),
-        floor_masses=floor_masses,
-        model_dimension=dimension,
-        direction=direction,
-        engine_mode="equivalent_shear_building_fallback",
-        warnings=warnings,
-        coordinate_contract=coordinate_contract_metadata(model),
-    )
+            elements.append(element)
+    adapted = original.model_copy(update={'elements': elements, 'sections': sections})
+    builder = OpenSeesModelBuilder(adapted)
+    builder.build(ops)
+    floor_masses, _ = compute_floor_masses(payload, model, builder.dimension)
+    masses = {node.id: 0.0 for node in adapted.nodes}
+    for floor in floor_masses:
+        nodes = [n for n in adapted.nodes if abs(n.z-floor['elevation']) <= 1e-6]
+        for node in nodes:
+            masses[node.id] += floor.get('nodeMasses', {}).get(node.id, float(floor['mass'])/len(nodes))
+    builder.assign_masses(ops, masses, directions={'x', 'y'})
+    return builder.dimension, builder._ops_node_tags, floor_masses
 
 
 def run_modal_analysis(model: Any, basis: SeismicDesignBasis, modal_count: int, direction: str = "x") -> ModalAnalysis:
@@ -503,10 +389,14 @@ def run_modal_analysis(model: Any, basis: SeismicDesignBasis, modal_count: int, 
                     if not math.isfinite(phi):
                         raise RuntimeError("OpenSees returned a non-finite modal vector")
                     phis.append(phi)
-                phi_avg = sum(phis) / len(phis) if phis else 0.0
                 mass = float(floor["mass"])
-                numerator += mass * phi_avg
-                denominator += mass * phi_avg * phi_avg
+                node_masses = [floor.get('nodeMasses', {}).get(_node_key(n), mass/len(level_nodes)) for n in level_nodes]
+                weighted_phi = sum(m*phi for m, phi in zip(node_masses, phis))
+                phi_avg = weighted_phi/mass if mass else (sum(phis)/len(phis) if phis else 0.0)
+                numerator += weighted_phi
+                # Modal mass uses every nodal squared amplitude. Squaring the floor
+                # average falsely cancels torsional/non-rigid-floor mode energy.
+                denominator += sum(m*phi*phi for m, phi in zip(node_masses, phis))
                 story_shape.append({
                     "story": floor["story"],
                     "elevation": elevation,
@@ -539,12 +429,17 @@ def run_modal_analysis(model: Any, basis: SeismicDesignBasis, modal_count: int, 
             model_dimension=dimension,
             direction=direction,
             engine_mode="opensees_eigen",
-            warnings=[],
+            warnings=compute_floor_masses(payload, model, dimension)[1],
             coordinate_contract=coordinate_contract_metadata(model),
+            execution={"solver": "OpenSees", "solverVersion": ops.version(), "executed": True,
+                       "massSource": "explicit-node-mass" if any(_field(n, 'mass') is not None for n in nodes) else "story-gravity-representative-weight", "massUnit": "tonne",
+                       "massAssumptions": compute_floor_masses(payload, model, dimension)[1],
+                       "wallModel": "equivalent-line-wall" if any(_is_wall_line_element_type(_element_type(e))
+                                      for e in _records(payload, model, 'elements')) else None},
         )
-    except Exception:
-        try:
-            ops.wipe()
-        except Exception:
-            pass
-        return _fallback_modes(payload, model, basis, direction, modal_count)
+    except OpenSeesInputError:
+        ops.wipe()
+        raise
+    except Exception as error:
+        ops.wipe()
+        raise RuntimeError(f"OpenSees seismic modal execution failed; no approximate modes substituted: {error}") from error

@@ -98,3 +98,53 @@ def test_real_time_history_reports_global_x_displacement_vector():
         assert sample["referenceFrame"] == "global"
         assert sample["displacement"] == pytest.approx(sample["displacementVector"][0])
         assert sample["displacementVector"][1] == 0.0
+
+
+def test_time_history_requires_an_actual_ground_motion():
+    import openseespy.opensees as ops
+    executor = OpenSeesDynamicExecutor(OpenSeesTagMapper(_cantilever_model()))
+    with pytest.raises(ValueError, match='groundMotion is required') as rejected:
+        executor.time_history_analysis(.02, .1, .05, [], ops)
+    assert rejected.value.error_code == 'ANALYSIS_INPUT_REQUIRED'
+
+
+def test_dynamic_runtime_preserves_typed_missing_input_failure():
+    import importlib.util
+    entry = Path(__file__).resolve().parents[1] / 'runtime.py'
+    spec = importlib.util.spec_from_file_location('dynamic_entry_under_test', entry)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    with pytest.raises(ValueError, match='groundMotion is required') as rejected:
+        module.run_analysis(_cantilever_model(), {'analysisType':'time_history'})
+    assert rejected.value.error_code == 'ANALYSIS_INPUT_REQUIRED'
+
+
+def test_explicit_ground_motion_units_produce_identical_physical_response():
+    import openseespy.opensees as ops
+    executor = OpenSeesDynamicExecutor(OpenSeesTagMapper(_cantilever_model()))
+    g_motion = [0, .01, -.01, .005, 0]
+    a = executor.time_history_analysis(.02, .1, .05, g_motion, ops, acceleration_unit='g')
+    b = executor.time_history_analysis(.02, .1, .05, [v*9.80665 for v in g_motion], ops)
+    assert a['maxDisplacement'] == pytest.approx(b['maxDisplacement'], rel=1e-12)
+    assert a['groundMotion']['sha256'] == b['groundMotion']['sha256']
+    assert a['execution']['massSource'] == 'member-density-lumped-half-to-endpoints'
+
+
+def test_explicit_nodal_mass_survives_conversion_and_replaces_density_mass():
+    import openseespy.opensees as ops
+    from structure_protocol.runtime import convert_structure_model_payload
+    class IdentityConverter:
+        def to_v2(self, value): return value
+    source = _cantilever_model().model_dump(exclude_unset=True)
+    source['nodes'][1]['mass'] = 10.0
+    source['nodes'][1]['restraints'] = [False, True, True, True, False, True]
+    converted = convert_structure_model_payload(source,'2.0.0','structuremodel-v2','structuremodel-v2',
+        ['structuremodel-v2'],lambda _:IdentityConverter())
+    model = StructureModelV2.model_validate(converted['model'])
+    executor = OpenSeesDynamicExecutor(OpenSeesTagMapper(model))
+    result = executor.modal_analysis(1,ops)
+    expected_omega = (3*205000000*.0001/(3**3*10))**.5
+    assert result['modes'][0]['omega'] == pytest.approx(expected_omega,rel=1e-10)
+    assert result['totalMass'] == 10.0
+    assert result['execution']['massSource'] == 'explicit-node-mass'
+    assert result['execution']['nodeMasses'] == {'N1':0.0,'N2':10.0}

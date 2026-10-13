@@ -73,7 +73,7 @@ def main() -> int:
             request = dict(payload.get("input") or {})
             _ok(convert_structure_model_payload(
                 request.get("model") or {},
-                str(request.get("target_schema_version", "2.0.0")),
+                str(request.get("target_schema_version", "2.1.0")),
                 str(request.get("source_format", "structuremodel-v2")),
                 str(request.get("target_format", "structuremodel-v2")),
                 supported_formats(),

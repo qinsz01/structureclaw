@@ -381,7 +381,8 @@ def _seismic_frame_payload():
             {"id": "B1", "type": "beam", "nodes": ["T1", "T2"], "material": "1", "section": "1"},
             {"id": "B2", "type": "beam", "nodes": ["U1", "U2"], "material": "1", "section": "1"},
         ],
-        "metadata": {"structuralTypeKey": "concrete-frame", "storyCount": 2},
+        # This regression fixture explicitly represents a 6 m by 1 m tributary strip.
+        "metadata": {"structuralTypeKey": "concrete-frame", "storyCount": 2, "seismicMassArea": 6.0},
     }
 
 
@@ -427,7 +428,7 @@ def _seismic_wall_line_payload():
                 "type": "rectangular",
                 "purpose": "wall",
                 "thickness": 200.0,
-                "properties": {"wallLength": 3.0, "G": 13500.0},
+                "properties": {"wallLengthM": 3.0, "G": 13500.0},
             },
             {
                 "id": "F1",
@@ -444,7 +445,7 @@ def _seismic_wall_line_payload():
             {"id": "B1", "type": "beam", "nodes": ["T1", "T2"], "material": "1", "section": "F1"},
             {"id": "B2", "type": "beam", "nodes": ["U1", "U2"], "material": "1", "section": "F1"},
         ],
-        "metadata": {"structuralTypeKey": "concrete-frame-shear-wall", "storyCount": 2},
+        "metadata": {"structuralTypeKey": "concrete-frame-shear-wall", "storyCount": 2, "seismicMassArea": 6.0},
     }
 
 
@@ -498,7 +499,8 @@ def _seismic_space_frame_payload():
             {"id": "1", "name": "500X500", "type": "rectangular", "properties": {"A": 0.25, "Iy": 0.005, "Iz": 0.005, "J": 0.01, "G": 12500.0}}
         ],
         "elements": elements,
-        "metadata": {"structuralTypeKey": "concrete-frame", "storyCount": 2},
+        # Explicit 6 m by 5 m floor, independent of any bounding-box inference.
+        "metadata": {"structuralTypeKey": "concrete-frame", "storyCount": 2, "seismicMassArea": 30.0},
     }
 
 
@@ -2962,14 +2964,14 @@ def validate_gb50011_seismic_code_check_contract():
         },
     )
     assert_true(invalid_count_result["summary"]["failed"] == 0, f"Invalid wave count should be classified as input-required, not a demand/capacity failure: {invalid_count_result['summary']}")
-    assert_true(invalid_count_result["summary"]["notApplicable"] >= 1, f"Expected invalid wave count to require input attention: {invalid_count_result['summary']}")
+    assert_true(invalid_count_result["summary"]["inputRequired"] >= 1, f"Expected invalid wave count to require input attention: {invalid_count_result['summary']}")
     invalid_count_item = next(
         item
         for group in invalid_count_result["details"][0]["checks"]
         for item in group["items"]
         if item["item"] == "地震波组数规则"
     )
-    assert_true(invalid_count_item["status"] == "fail", f"Expected invalid wave count check to fail: {invalid_count_item}")
+    assert_true(invalid_count_item["status"] == "input_required", f"Expected invalid wave count to require input: {invalid_count_item}")
 
     directional_missing_result = run_code_check(
         "seismic-code-check-directional-missing-demo",
@@ -3026,14 +3028,14 @@ def validate_gb50011_seismic_code_check_contract():
         },
     )
     assert_true(directional_missing_result["summary"]["failed"] == 0, f"Directional missing waves should be classified as input-required, not a demand/capacity failure: {directional_missing_result['summary']}")
-    assert_true(directional_missing_result["summary"]["notApplicable"] >= 1, f"Expected directional missing waves to require input attention: {directional_missing_result['summary']}")
+    assert_true(directional_missing_result["summary"]["inputRequired"] >= 1, f"Expected directional missing waves to require input attention: {directional_missing_result['summary']}")
     directional_missing_item = next(
         item
         for group in directional_missing_result["details"][0]["checks"]
         for item in group["items"]
         if item["item"] == "补充时程分析完整性"
     )
-    assert_true(directional_missing_item["status"] == "fail", f"Expected directional time-history completeness failure: {directional_missing_item}")
+    assert_true(directional_missing_item["status"] == "input_required", f"Expected missing directional time-history input: {directional_missing_item}")
     assert_true(directional_missing_item["inputs"].get("capacity") == 6, f"Missing total required count trace: {directional_missing_item}")
 
     unsupported_result = run_code_check(
@@ -3063,7 +3065,8 @@ def validate_gb50011_seismic_code_check_contract():
         },
     )
     assert_true(unsupported_result["status"] == "success", f"Unexpected capability-boundary result status: {unsupported_result['status']}")
-    assert_true(unsupported_result["summary"]["failed"] >= 1, f"Expected unsupported seismic check to fail: {unsupported_result['summary']}")
+    assert_true(unsupported_result["summary"]["unsupported"] >= 1, f"Expected unsupported seismic check to be distinct from structural failure: {unsupported_result['summary']}")
+    assert_true(unsupported_result["complianceStatus"] == "incomplete", "Unsupported capability cannot pass compliance")
     unsupported_detail = unsupported_result["details"][0]
     capability_item = next(
         item
@@ -3071,7 +3074,7 @@ def validate_gb50011_seismic_code_check_contract():
         for item in group["items"]
         if item["item"] == "抗震能力边界"
     )
-    assert_true(capability_item["status"] == "fail", f"Expected capability-boundary failure: {capability_item}")
+    assert_true(capability_item["status"] == "unsupported", f"Expected explicit capability boundary: {capability_item}")
     assert_true(
         "gb50011.elasticDriftLimitForStructuralFamily" in capability_item["inputs"].get("missingCapabilities", []),
         f"Missing capability trace input: {capability_item}",

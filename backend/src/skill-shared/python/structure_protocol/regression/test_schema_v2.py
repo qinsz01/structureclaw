@@ -341,6 +341,35 @@ class TestSlabOpening:
 # ---------------------------------------------------------------------------
 
 class TestExamplePayloads:
+    def test_new_models_declare_minor_2_1_and_old_models_keep_their_version(self):
+        assert StructureModelV2(coordinate_system=_coordinate_system()).schema_version == '2.1.0'
+        old = _load_json('model_13_v2_rc_frame.json', v2=True)
+        assert StructureModelV2.model_validate(old).schema_version == '2.0.0'
+        invalid = {**old, 'schema_version':'2.2.0'}
+        with pytest.raises(ValueError, match='schema_version'):
+            StructureModelV2.model_validate(invalid)
+
+    def test_explicit_2_1_conversion_preserves_mass_loads_and_declared_settings(self):
+        from structure_protocol.runtime import convert_structure_model_payload
+        class IdentityConverter:
+            def to_v2(self, value): return value
+        source = _load_json('model_13_v2_rc_frame.json', v2=True)
+        source['nodes'][0]['mass'] = 2.5
+        source['analysis_control'] = {'self_weight':False, 'mass_source':'nodal'}
+        source['load_cases'][0]['loads'] = [{
+            'type':'point', 'element':source['elements'][0]['id'], 'position':1.0,
+            'fz':-20, 'reference_frame':'global'}]
+        before = json.dumps(source,sort_keys=True)
+        converted = convert_structure_model_payload(source,'2.1.0','structuremodel-v2','structuremodel-v2',
+            ['structuremodel-v2'],lambda _:IdentityConverter())
+        assert json.dumps(source,sort_keys=True) == before
+        assert converted['sourceSchemaVersion'] == '2.0.0'
+        assert converted['model']['schema_version'] == '2.1.0'
+        assert converted['model']['nodes'][0]['mass'] == 2.5
+        assert converted['model']['analysis_control'] == source['analysis_control']
+        assert converted['model']['load_cases'][0]['loads'] == source['load_cases'][0]['loads']
+        StructureModelV2.model_validate(converted['model'])
+
     def test_v2_rc_frame_example(self):
         data = _load_json("model_13_v2_rc_frame.json", v2=True)
         model = StructureModelV2(**data)
@@ -549,6 +578,22 @@ class TestMigration:
 # ---------------------------------------------------------------------------
 
 class TestCrossReferenceValidation:
+    @pytest.mark.parametrize('load', [
+        {'node':'2','fz':500,'unit':'N'},
+        {'node':'2','fz':.5,'units':{'force':'N'}},
+        {'type':'point','element':'e1','position':.5,'fz':1,'position_unit':'mm'},
+        {'type':'distributed','element':'e1','wz':1,'unit':'N/m'},
+        {'type':'temperature','node':'2','fz':500},
+    ])
+    def test_conflicting_explicit_units_and_unknown_load_physics_are_rejected(self, load):
+        with pytest.raises(ValueError, match='unit|Unsupported structural load type'):
+            _minimal_model(load_cases=[LoadCaseV2(id='D',type='dead',loads=[load])])
+
+    def test_canonical_explicit_load_unit_is_preserved(self):
+        model = _minimal_model(load_cases=[LoadCaseV2(id='D',type='dead',loads=[{'node':'2','fz':-.5,'unit':'kN'}])])
+        assert model.load_cases[0].loads[0]['fz'] == -.5
+        assert model.load_cases[0].loads[0]['unit'] == 'kN'
+
     @pytest.mark.parametrize(
         ("load", "message"),
         [
@@ -646,4 +691,4 @@ class TestCrossReferenceValidation:
             load_cases=[LoadCaseV2(id="D", type="dead")],
             load_combinations=[LoadCombinationV2(id="C1", factors={"D": 1.2})],
         )
-        assert model.schema_version == "2.0.0"
+        assert model.schema_version == "2.1.0"

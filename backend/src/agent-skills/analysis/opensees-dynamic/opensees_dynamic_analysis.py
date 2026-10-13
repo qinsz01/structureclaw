@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+from opensees_shared.errors import OpenSeesInputError, OpenSeesMissingInputError, OpenSeesCapabilityError
+from opensees_shared.evidence import attach_execution_artifacts
+
 import math
+import hashlib
+import json
 from typing import Any, Dict, List, Tuple
 
 import numpy as np
@@ -19,86 +24,16 @@ FRAME_ELEMENT_TYPES = {"beam", "column"}
 TRUSS_ELEMENT_TYPES = {"truss", "brace"}
 
 
-class OpenSeesDynamicExecutor:
+from opensees_shared.model import OpenSeesModelBuilder
+
+
+class OpenSeesDynamicExecutor(OpenSeesModelBuilder):
     """OpenSees modal and linear time-history execution in canonical axes."""
 
     def __init__(self, analyzer):
-        self.analyzer = analyzer
-        self.model = analyzer.model
-        validate_coordinate_contract(self.model)
-        self.dimension = resolve_model_dimension(self.model)
-        self.nodes = {str(node.id): node for node in self.model.nodes}
-        self.materials = {str(material.id): material for material in self.model.materials}
-        self.sections = {str(section.id): section for section in self.model.sections}
-        self.has_frame_elements = any(
-            str(element.type).lower() in FRAME_ELEMENT_TYPES for element in self.model.elements
-        )
-        self.frame_node_ids = {
-            str(node_id)
-            for element in self.model.elements
-            if str(element.type).lower() in FRAME_ELEMENT_TYPES
-            for node_id in element.nodes
-        }
-        self.node_masses: Dict[str, float] = {}
-
-    @staticmethod
-    def _field(record: Any, key: str, default: Any = None) -> Any:
-        if isinstance(record, dict):
-            return record.get(key, default)
-        return getattr(record, key, default)
-
-    def _section_property(self, section: Any, key: str) -> float:
-        properties = self._field(section, "properties", {}) or {}
-        value = properties.get(key) if isinstance(properties, dict) else None
-        try:
-            number = float(value)
-        except (TypeError, ValueError):
-            number = 0.0
-        if not math.isfinite(number) or number <= 0.0:
-            raise ValueError(f"Section '{self._field(section, 'id', '?')}' requires {key} > 0")
-        return number
-
-    def _material_properties(self, material: Any) -> Tuple[float, float, float]:
-        elastic_modulus = float(self._field(material, "E", 0.0)) * 1000.0
-        poisson_ratio = float(self._field(material, "nu", 0.0))
-        density = float(self._field(material, "rho", 0.0))
-        if (
-            not math.isfinite(elastic_modulus)
-            or not math.isfinite(poisson_ratio)
-            or not math.isfinite(density)
-            or elastic_modulus <= 0.0
-            or density <= 0.0
-            or poisson_ratio < 0.0
-            or poisson_ratio > 0.5
-        ):
-            raise ValueError(
-                f"Material '{self._field(material, 'id', '?')}' requires finite E/rho > 0 and 0 <= nu <= 0.5"
-            )
-        shear_modulus = elastic_modulus / (2.0 * (1.0 + poisson_ratio))
-        return elastic_modulus, shear_modulus, density
-
-    def _element_axes(self, element: Any) -> np.ndarray:
-        start = self.nodes[str(element.nodes[0])]
-        end = self.nodes[str(element.nodes[1])]
-        reference = get_reference_vector(get_model_metadata(self.model), str(element.id))
-        return build_element_local_axes(
-            [start.x, start.y, start.z],
-            [end.x, end.y, end.z],
-            reference,
-            self._field(element, "rotation_angle"),
-        )
-
-    def _element_length(self, element: Any) -> float:
-        start = self.nodes[str(element.nodes[0])]
-        end = self.nodes[str(element.nodes[1])]
-        length = math.sqrt(
-            (float(end.x) - float(start.x)) ** 2
-            + (float(end.y) - float(start.y)) ** 2
-            + (float(end.z) - float(start.z)) ** 2
-        )
-        if length <= 0.0:
-            raise ValueError(f"Element '{element.id}' has zero length")
-        return length
+        super().__init__(analyzer.model)
+        self.analyzer = self
+        self.effective_settings = {}
 
     def _direction_dof(self, direction: str) -> Tuple[str, int, int]:
         normalized = str(direction or "x").strip().lower()
@@ -108,118 +43,22 @@ class OpenSeesDynamicExecutor:
             mapping = {"x": (1, 0), "y": (2, 1), "z": (3, 2)}
         if normalized not in mapping:
             allowed = ", ".join(mapping)
-            raise ValueError(f"Direction '{direction}' is inactive for a {self.dimension} model; expected {allowed}")
+            raise OpenSeesInputError(f"Direction '{direction}' is inactive for a {self.dimension} model; expected {allowed}")
         opensees_dof, global_index = mapping[normalized]
         return normalized, opensees_dof, global_index
 
     def _build_model(self, ops) -> float:
-        ops.wipe()
-        if self.dimension == "2d":
-            ops.model("basic", "-ndm", 2, "-ndf", 3 if self.has_frame_elements else 2)
-        else:
-            ops.model("basic", "-ndm", 3, "-ndf", 6 if self.has_frame_elements else 3)
+        self.effective_settings = self.build(ops, mass=True)
+        total = sum(self.node_masses.values())
+        if total <= 0:
+            raise OpenSeesMissingInputError("Dynamic analysis requires positive structural mass")
+        return total
 
-        for node in self.model.nodes:
-            tag = self.analyzer._ops_node_tag(node.id)
-            if self.dimension == "2d":
-                ops.node(tag, float(node.x), float(node.z))
-                restraints = list(node.restraints or [False] * 6)
-                projected = [int(restraints[0]), int(restraints[2])]
-                if self.has_frame_elements:
-                    projected.append(int(restraints[4]) if str(node.id) in self.frame_node_ids else 1)
-                ops.fix(tag, *projected)
-            else:
-                ops.node(tag, float(node.x), float(node.y), float(node.z))
-                restraints = list(node.restraints or [False] * 6)
-                projected = list(restraints) if self.has_frame_elements else list(restraints[:3])
-                if self.has_frame_elements and str(node.id) not in self.frame_node_ids:
-                    projected[3:6] = [True, True, True]
-                ops.fix(tag, *[int(value) for value in projected])
-
-        for material in self.model.materials:
-            elastic_modulus, _, _ = self._material_properties(material)
-            ops.uniaxialMaterial("Elastic", self.analyzer._ops_material_tag(material.id), elastic_modulus)
-
-        node_masses = {str(node.id): 0.0 for node in self.model.nodes}
-        for element in self.model.elements:
-            element_type = str(element.type).lower()
-            if element_type not in FRAME_ELEMENT_TYPES | TRUSS_ELEMENT_TYPES:
-                raise ValueError(f"Dynamic analysis does not support element type '{element.type}'")
-            material = self.materials[str(element.material)]
-            section = self.sections[str(element.section)]
-            area = self._section_property(section, "A")
-            elastic_modulus, shear_modulus, density = self._material_properties(material)
-            length = self._element_length(element)
-            # kN-s²/m uses tonne as its mass unit; rho is stored in kg/m³.
-            half_mass = density * area * length / 2000.0
-            node_masses[str(element.nodes[0])] += half_mass
-            node_masses[str(element.nodes[1])] += half_mass
-
-            element_tag = self.analyzer._ops_element_tag(element.id)
-            start_tag = self.analyzer._ops_node_tag(element.nodes[0])
-            end_tag = self.analyzer._ops_node_tag(element.nodes[1])
-            if element_type in TRUSS_ELEMENT_TYPES:
-                ops.element(
-                    "truss",
-                    element_tag,
-                    start_tag,
-                    end_tag,
-                    area,
-                    self.analyzer._ops_material_tag(material.id),
-                )
-                continue
-
-            if self.dimension == "2d":
-                inertia_y = self._section_property(section, "Iy")
-                ops.geomTransf("Linear", element_tag)
-                ops.element(
-                    "elasticBeamColumn",
-                    element_tag,
-                    start_tag,
-                    end_tag,
-                    area,
-                    elastic_modulus,
-                    inertia_y,
-                    element_tag,
-                )
-            else:
-                inertia_y = self._section_property(section, "Iy")
-                inertia_z = self._section_property(section, "Iz")
-                torsion = self._section_property(section, "J")
-                local_z = self._element_axes(element)[2]
-                ops.geomTransf("Linear", element_tag, *local_z.tolist())
-                ops.element(
-                    "elasticBeamColumn",
-                    element_tag,
-                    start_tag,
-                    end_tag,
-                    area,
-                    elastic_modulus,
-                    shear_modulus,
-                    torsion,
-                    inertia_y,
-                    inertia_z,
-                    element_tag,
-                )
-
-        total_mass = sum(node_masses.values())
-        if total_mass <= 0.0:
-            raise ValueError("Dynamic analysis requires positive structural mass")
-        self.node_masses = dict(node_masses)
-        for node in self.model.nodes:
-            mass = node_masses[str(node.id)]
-            tag = self.analyzer._ops_node_tag(node.id)
-            if self.dimension == "2d":
-                if self.has_frame_elements:
-                    ops.mass(tag, mass, mass, 0.0)
-                else:
-                    ops.mass(tag, mass, mass)
-            else:
-                if self.has_frame_elements:
-                    ops.mass(tag, mass, mass, mass, 0.0, 0.0, 0.0)
-                else:
-                    ops.mass(tag, mass, mass, mass)
-        return total_mass
+    def _execution_evidence(self, ops):
+        return {"solver": "OpenSees", "solverVersion": ops.version(), "executed": True,
+                "constitutiveModel": "linear-elastic", "effectiveSettings": self.effective_settings,
+                "massSource": "explicit-node-mass" if self.mass_source == 'nodal' else "member-density-lumped-half-to-endpoints", "massUnit": "tonne",
+                "nodeMasses": self.node_masses}
 
     def _global_mode_vector(self, vector: Any) -> List[float]:
         values = [float(value) for value in list(vector)]
@@ -243,7 +82,7 @@ class OpenSeesDynamicExecutor:
     def _eigen_values(self, ops: Any, requested_modes: int) -> List[float]:
         available_modes = self._available_mass_dofs()
         if available_modes <= 0:
-            raise ValueError("Dynamic analysis requires at least one free translational mass DOF")
+            raise OpenSeesInputError("Dynamic analysis requires at least one free translational mass DOF")
         count = min(max(1, int(requested_modes)), available_modes)
         last_error: Exception | None = None
         for arguments in ((count,), ("-fullGenLapack", count)):
@@ -254,7 +93,7 @@ class OpenSeesDynamicExecutor:
                 if not normalized:
                     raise ValueError("OpenSees returned no eigenvalues")
                 if not all(math.isfinite(value) and value > 0.0 for value in normalized):
-                    raise ValueError(
+                    raise OpenSeesInputError(
                         "Dynamic model has non-positive or non-finite eigenvalues; check stability and restraints"
                     )
                 return normalized
@@ -263,6 +102,8 @@ class OpenSeesDynamicExecutor:
         raise ValueError(f"OpenSees eigen extraction failed for {count} requested modes: {last_error}")
 
     def modal_analysis(self, num_modes: int, ops, direction: str = "x") -> Dict[str, Any]:
+        if isinstance(num_modes, bool) or int(num_modes) != num_modes or num_modes <= 0:
+            raise OpenSeesInputError('numModes must be a positive integer')
         selected_direction, _, _ = self._direction_dof(direction)
         total_mass = self._build_model(ops)
         ops.system("BandSPD")
@@ -293,10 +134,11 @@ class OpenSeesDynamicExecutor:
             "totalMass": total_mass,
             "modes": modes,
             "direction": selected_direction,
-            "meta": coordinate_contract_metadata(self.model),
+            "meta": {**coordinate_contract_metadata(self.model), "responseCoordinateConvention": "global-xyz"},
+            "execution": self._execution_evidence(ops),
         }
         ops.wipe()
-        return result
+        return attach_execution_artifacts(result, self.model, {'analysisType':'modal', 'numModes':num_modes, 'direction':selected_direction})
 
     def time_history_analysis(
         self,
@@ -306,12 +148,17 @@ class OpenSeesDynamicExecutor:
         ground_motion: List[float],
         ops,
         direction: str = "x",
+        acceleration_unit: str = "m/s2",
     ) -> Dict[str, Any]:
         selected_direction, excitation_dof, global_index = self._direction_dof(direction)
         if not math.isfinite(time_step) or not math.isfinite(duration) or time_step <= 0.0 or duration <= 0.0:
-            raise ValueError("timeStep and duration must be positive")
+            raise OpenSeesInputError("timeStep and duration must be positive")
         if not math.isfinite(damping_ratio) or damping_ratio < 0.0 or damping_ratio >= 1.0:
-            raise ValueError("dampingRatio must be in [0, 1)")
+            raise OpenSeesInputError("dampingRatio must be in [0, 1)")
+        if acceleration_unit not in {'m/s2', 'g'}:
+            raise OpenSeesInputError("groundMotionUnit must be 'm/s2' or 'g'")
+        if not ground_motion:
+            raise OpenSeesMissingInputError("groundMotion is required; no synthetic earthquake is substituted")
         self._build_model(ops)
 
         eigen_values = [value for value in self._eigen_values(ops, 2) if value > 0.0]
@@ -328,12 +175,11 @@ class OpenSeesDynamicExecutor:
         ops.rayleigh(alpha_mass, beta_stiffness, 0.0, 0.0)
 
         if ground_motion:
-            acceleration = [float(value) for value in ground_motion]
+            acceleration = [float(value)*(9.80665 if acceleration_unit == 'g' else 1.0) for value in ground_motion]
         else:
-            times = np.arange(0.0, duration, time_step)
-            acceleration = (0.1 * np.sin(2.0 * np.pi * times)).tolist()
+            raise OpenSeesMissingInputError("groundMotion is required; no synthetic earthquake is substituted")
         if not acceleration or not all(math.isfinite(value) for value in acceleration):
-            raise ValueError("groundMotion must contain finite acceleration values")
+            raise OpenSeesInputError("groundMotion must contain finite acceleration values")
         ops.timeSeries("Path", 1, "-dt", time_step, "-values", *acceleration)
         ops.pattern("UniformExcitation", 1, excitation_dof, "-accel", 1)
         ops.system("BandSPD")
@@ -353,13 +199,13 @@ class OpenSeesDynamicExecutor:
             default=None,
         )
         if monitor_node is None:
-            raise ValueError(f"No node is free in the selected global {selected_direction.upper()} direction")
+            raise OpenSeesInputError(f"No node is free in the selected global {selected_direction.upper()} direction")
 
         results = []
         current_time = 0.0
         num_steps = int(math.floor(duration / time_step))
         if num_steps < 1:
-            raise ValueError("duration must include at least one complete time step")
+            raise OpenSeesInputError("duration must include at least one complete time step")
         for _step in range(num_steps):
             analysis_code = int(ops.analyze(1, time_step))
             if analysis_code != 0:
@@ -393,7 +239,17 @@ class OpenSeesDynamicExecutor:
             "signedDisplacementAtPeak": peak["displacement"] if peak else 0.0,
             "timeOfMaxDisp": peak["time"] if peak else 0.0,
             "timeHistory": results,
-            "meta": coordinate_contract_metadata(self.model),
+            "groundMotion": {"accelerationUnit": "m/s2", "sampleCount": len(acceleration),
+                             "inputAccelerationUnit": acceleration_unit,
+                             "sha256": hashlib.sha256(json.dumps(acceleration, separators=(',', ':'), allow_nan=False).encode()).hexdigest(),
+                             "timeStep": time_step, "duration": duration,
+                             "postRecordExcitation": "zero"},
+            "damping": {"ratio": damping_ratio, "method": "Rayleigh", "alphaMass": alpha_mass,
+                        "betaCurrentStiffness": beta_stiffness},
+            "meta": {**coordinate_contract_metadata(self.model), "responseCoordinateConvention": "global-xyz"},
+            "execution": self._execution_evidence(ops),
         }
         ops.wipe()
-        return result
+        return attach_execution_artifacts(result, self.model, {'analysisType':'time_history', 'timeStep':time_step,
+            'duration':duration, 'dampingRatio':damping_ratio, 'direction':selected_direction,
+            'groundMotionUnit':acceleration_unit, 'groundMotionSha256':result['groundMotion']['sha256']})

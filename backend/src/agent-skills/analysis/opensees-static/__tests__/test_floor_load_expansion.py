@@ -12,7 +12,8 @@ BACKEND_SRC_DIR = OPENSEES_STATIC_DIR.parents[2]
 sys.path.insert(0, str(OPENSEES_STATIC_DIR))
 sys.path.insert(0, str(BACKEND_SRC_DIR / "skill-shared" / "python"))
 
-from opensees_static_simplified_static_analysis import StaticAnalyzer  # noqa: E402
+from opensees_static_loads import StaticLoadContext as StaticAnalyzer
+from reference_linear_solver import ReferenceStaticAnalyzer  # noqa: E402
 from structure_protocol.structure_model_v2 import StructureModelV2  # noqa: E402
 
 
@@ -219,7 +220,7 @@ def piecewise_resultant(load: dict, element_length: float, component: str = "wz"
 
 class FloorLoadExpansionTest(unittest.TestCase):
     def test_selects_planar_frame_for_column_and_beam_elements(self) -> None:
-        analyzer = StaticAnalyzer(build_planar_column_beam_frame_model())
+        analyzer = ReferenceStaticAnalyzer(build_planar_column_beam_frame_model())
 
         self.assertTrue(analyzer._can_run_2d_frame_solver())
         self.assertEqual(analyzer._select_planar_frame_mode({}), "xz")
@@ -282,7 +283,7 @@ class FloorLoadExpansionTest(unittest.TestCase):
         self.assertAlmostEqual(total_load, 6.0 * 4.0 * 6.0)
 
     def test_piecewise_linear_triangle_produces_exact_consistent_end_actions(self) -> None:
-        analyzer = StaticAnalyzer(build_model(include_floor_beams=True))
+        analyzer = ReferenceStaticAnalyzer(build_model(include_floor_beams=True))
         element = analyzer.elements["X0"]
         load = {
             "type": "distributed",

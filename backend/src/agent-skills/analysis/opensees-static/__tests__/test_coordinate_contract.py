@@ -13,7 +13,7 @@ for path in (SKILL_DIR, ANALYSIS_RUNTIME_DIR, SHARED_PYTHON_DIR):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-from opensees_static_simplified_static_analysis import StaticAnalyzer  # noqa: E402
+from reference_linear_solver import ReferenceStaticAnalyzer as StaticAnalyzer  # noqa: E402
 from runtime import run_analysis as run_opensees_analysis  # noqa: E402
 from structure_protocol.structure_model_v2 import StructureModelV2  # noqa: E402
 

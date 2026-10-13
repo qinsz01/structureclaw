@@ -112,6 +112,7 @@ def run_analysis(model: Any, parameters: Dict[str, Any]) -> Dict[str, Any]:
     missing_inputs = list(audit["missingInputs"])
     return {
         "status": "partial",
+        "execution": {"executed": False, "reason": "full-member nonlinear solver is not implemented"},
         "summary": {
             "analysisType": "nonlinear",
             "engine": "builtin-opensees",
@@ -134,8 +135,8 @@ def run_analysis(model: Any, parameters: Dict[str, Any]) -> Dict[str, Any]:
                 "nonlinearModelStructuredInputAudit",
             ],
             "nextAction": (
-                "Provide complete nonlinear material constitutive models, calibrated member plastic hinges, "
-                "and convergence controls before running a full OpenSees nonlinear solver."
+                "Full-member nonlinear execution requires an implemented and verified solver adapter as well as "
+                "complete constitutive models, calibrated hinges and convergence controls. Input completeness alone does not enable execution."
             ),
         },
         "warnings": [

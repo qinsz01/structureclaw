@@ -20,6 +20,7 @@ from ground_motion import _story_drift_snapshot, parse_ground_motions, run_modal
 from ground_motion_catalog import list_recorded_reference_catalog, resolve_builtin_catalog_records, resolve_catalog_records  # noqa: E402
 from method_decision import decide_seismic_method  # noqa: E402
 from modal import ModalAnalysis  # noqa: E402
+from modal import compute_floor_masses, run_modal_analysis  # noqa: E402
 from regularity import assess_regularity  # noqa: E402
 from result_adapter import build_pushover_seismic_result, build_seismic_result  # noqa: E402
 from response_spectrum import apply_minimum_story_shear_adjustment, run_response_spectrum  # noqa: E402
@@ -91,7 +92,7 @@ def build_frame_model() -> StructureModelV2:
             {"id": "B1", "type": "beam", "nodes": ["T1", "T2"], "material": "1", "section": "1"},
             {"id": "B2", "type": "beam", "nodes": ["U1", "U2"], "material": "1", "section": "1"},
         ],
-        "metadata": {"structuralTypeKey": "concrete-frame", "storyCount": 2},
+        "metadata": {"structuralTypeKey": "concrete-frame", "storyCount": 2, "seismicMassArea": 6.0},
     })
 
 
@@ -143,7 +144,7 @@ def build_space_frame_model() -> StructureModelV2:
             {"id": "1", "name": "500X500", "type": "rectangular", "properties": {"A": 0.25, "Iy": 0.005, "Iz": 0.005, "J": 0.01, "G": 12500.0}}
         ],
         "elements": elements,
-        "metadata": {"structuralTypeKey": "concrete-frame", "storyCount": 2},
+        "metadata": {"structuralTypeKey": "concrete-frame", "storyCount": 2, "seismicMassArea": 30.0},
     })
 
 
@@ -2293,3 +2294,23 @@ class ChinaSeismicWorkflowTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_formal_seismic_missing_mass_area_is_rejected_without_assumption():
+    import pytest
+    model = build_frame_model()
+    model.metadata.pop('seismicMassArea')
+    with pytest.raises(ValueError, match='explicit tributary_area') as rejected:
+        compute_floor_masses(model.model_dump(), model, '2d')
+    assert rejected.value.error_code == 'ANALYSIS_INPUT_REQUIRED'
+
+
+def test_failed_opensees_eigen_is_not_replaced_with_estimated_modes(monkeypatch):
+    import pytest
+    import openseespy.opensees as ops
+    model = build_frame_model()
+    def fail(*args):
+        raise RuntimeError('intentional solver failure')
+    monkeypatch.setattr(ops, 'eigen', fail)
+    with pytest.raises(RuntimeError, match='no approximate modes substituted'):
+        run_modal_analysis(model, build_design_basis(model, {}, {}), 2)

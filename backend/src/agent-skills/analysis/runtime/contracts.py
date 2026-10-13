@@ -44,6 +44,8 @@ class EngineNotAvailableError(RuntimeError):
     succeeds, the error propagates to the API layer as a normal failure.
     """
 
+    error_code = "ENGINE_UNAVAILABLE"
+
     def __init__(self, engine: str, reason: str) -> None:
         self.engine = engine
         self.reason = reason

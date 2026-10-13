@@ -436,7 +436,7 @@ class AnalysisEngineRegistry:
                     "message": f"Unknown analysis type: {analysis_type}",
                 },
             )
-        selection = self._select_engine_for("analyze", analysis_type, model.model_dump(mode="json"), engine_id)
+        selection = self._select_engine_for("analyze", analysis_type, model.model_dump(mode="json", exclude_unset=True), engine_id)
         result = self._execute_analysis_selection(selection, analysis_type, model, parameters, engine_id)
 
         meta = self._build_engine_meta(selection)
@@ -460,7 +460,7 @@ class AnalysisEngineRegistry:
         if manifest["kind"] == "http":
             payload: Dict[str, Any] = {
                 "type": analysis_type,
-                "model": model.model_dump(mode="json"),
+                "model": model.model_dump(mode="json", exclude_unset=True),
                 "parameters": parameters,
             }
             if engine_id:

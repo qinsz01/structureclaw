@@ -4,6 +4,7 @@ from typing import Any, Dict, List
 
 from design_basis import SeismicDesignBasis, model_payload
 from modal import _build_opensees_model, _is_opensees_line_element_type, _is_wall_line_element_type
+from opensees_shared.response import canonical_frame_end_actions
 
 
 def _field(record: Any, key: str, default: Any = None) -> Any:
@@ -56,15 +57,17 @@ def _round_components(values: Any) -> List[float]:
 def _member_force_summary(raw: List[float], dimension: str) -> Dict[str, Any]:
     if dimension == "2d" and len(raw) >= 6:
         return {
+            **canonical_frame_end_actions(raw, dimension),
             "rawComponents": raw,
-            "endI": {"axialKN": raw[0], "shearKN": raw[1], "momentKNm": raw[2]},
-            "endJ": {"axialKN": raw[3], "shearKN": raw[4], "momentKNm": raw[5]},
+            "endI": {"axialKN": raw[0], "shearKN": raw[1], "momentKNm": -raw[2]},
+            "endJ": {"axialKN": raw[3], "shearKN": raw[4], "momentKNm": -raw[5]},
             "maxAbsAxialKN": round(max(abs(raw[0]), abs(raw[3])), 6),
             "maxAbsShearKN": round(max(abs(raw[1]), abs(raw[4])), 6),
             "maxAbsMomentKNm": round(max(abs(raw[2]), abs(raw[5])), 6),
         }
     if dimension == "3d" and len(raw) >= 12:
         return {
+            **canonical_frame_end_actions(raw, dimension),
             "rawComponents": raw,
             "endI": {
                 "axialKN": raw[0],
@@ -96,7 +99,7 @@ def _extract_member_forces(ops: Any, element_tags: Dict[int, str], dimension: st
     member_forces: Dict[str, Dict[str, Any]] = {}
     for tag, element_id in element_tags.items():
         try:
-            raw = _round_components(ops.eleForce(tag))
+            raw = _round_components(ops.eleResponse(tag, 'localForce'))
         except Exception:
             continue
         if not raw:
