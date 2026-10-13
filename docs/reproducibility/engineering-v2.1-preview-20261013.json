@@ -1,0 +1,176 @@
+{
+  "schemaVersion": "structureclaw-engineering-acceptance/v1",
+  "status": "preview-not-full-capability-acceptance",
+  "frozenOn": "2026-10-13",
+  "freezeTag": "engineering-v2.1-preview-20261013",
+  "modelProtocol": "2.1.0",
+  "branch": "work/research-next",
+  "benchmarkCommit": "451d7a23ae6ae8fb9224483e4ae6c8f6707196dc",
+  "historicalBaselines": {
+    "system": {
+      "tag": "paper-v2-openclaw-20260729",
+      "commit": "3c36a37241fa9afc9d89329d0d0acd3278fc2e88",
+      "tagObject": "a904269e8df5913f4b651dbddec20293f4749c96"
+    },
+    "benchmark": {
+      "tag": "paper-v2-openclaw-20260729",
+      "commit": "4259fdd92a83f5d93976bc510ef82a0d2d7b9b57",
+      "tagObject": "9aa0ffa7f51e9ccc7704ef4ab3ab7bc782c9a834"
+    },
+    "manuscript": {
+      "tag": "paper-v2-manuscript-20260801",
+      "commit": "127aa9d3fae4a99f0ed7d7d622680e11ca6c15c2",
+      "tagObject": "c38594d8b9539455f64ed36bc618ec1e51bfc823"
+    },
+    "verification": "Existing tag objects unchanged; no frozen scenario, fixture, experimental-result or manuscript changes in this implementation."
+  },
+  "checks": {
+    "backend": {
+      "status": "passed",
+      "passedTests": 1339,
+      "skippedTests": 0,
+      "passedSuites": 110,
+      "build": "passed",
+      "lint": "passed",
+      "evidence": "G:/StructureClaw-All/outputs/01a0ecd8-81fb-7363-8f28-2a873d6d74b8/refactor-acceptance-20261013/backend-final.json",
+      "pythonPath": "G:/StructureClaw-All/sclaw_data/.venv/Scripts"
+    },
+    "frontend": {
+      "status": "passed",
+      "passedTests": 273,
+      "todoTests": 6,
+      "passedFiles": 32,
+      "skippedFiles": 2,
+      "build": "passed",
+      "lint": "passed",
+      "finalSummaryGuard": {
+        "tests": 11,
+        "status": "passed",
+        "typeCheck": "passed"
+      }
+    },
+    "analysisRegression": {
+      "status": "passed",
+      "steps": 51,
+      "conversionRoundtrips": 63
+    },
+    "python": {
+      "static": 39,
+      "dynamic": 7,
+      "seismic": 78,
+      "seismicSubtests": 9,
+      "protocol": 72,
+      "codeCheck": 235,
+      "commercialContract": {
+        "tests": 13,
+        "subtests": 13
+      }
+    },
+    "evaluation": {
+      "status": "passed",
+      "tests": 38,
+      "skipped": 0,
+      "realSolverEvidence": true,
+      "frozenModelAndTruthSelfConsistency": 59
+    },
+    "benchViewer": {
+      "status": "passed",
+      "tests": 10,
+      "independentBuild": true
+    },
+    "http": {
+      "status": "passed",
+      "runId": "a666c0c5-4b12-4cdd-8ad3-a64c0d8b5691",
+      "evidence": "G:/StructureClaw-All/sclaw_data/work/acceptance-http-20261013/acceptance.json",
+      "checks": [
+        "real Fastify",
+        "static frontend HTTP 200",
+        "native OpenSees",
+        "D/L/U result sets",
+        "analytic signed reactions"
+      ]
+    },
+    "nativeEngineering": {
+      "status": "passed",
+      "runId": "fe66b50f-6cc4-496a-a9bd-d65e601eeec2",
+      "movedRunId": "b334825e-7ee9-49f5-8387-ff4589b00a2f",
+      "reproduce": "node backend/tests/engineering-native-acceptance.mjs",
+      "tolerance": {
+        "absolute": 1e-10,
+        "relative": 1e-8
+      },
+      "checks": [
+        "conversion",
+        "500 N point load",
+        "partial uniform load",
+        "independent analytic deflection and reactions",
+        "physical member stations",
+        "point-load shear jump",
+        "D/L/U separation",
+        "move and undo",
+        "historical snapshot",
+        "bilingual report provenance and numeric consistency"
+      ]
+    },
+    "storage": {
+      "status": "passed",
+      "migration": "Additive nullable coordinateSystem and physicalModel columns, backup and copy validation before live transaction",
+      "evidence": "G:/StructureClaw-All/sclaw_data/work/acceptance-storage-20261013/acceptance.json"
+    },
+    "commercialJest": {
+      "status": "passed",
+      "suites": 5,
+      "tests": 28,
+      "skipped": 0
+    }
+  },
+  "commercial": {
+    "pkpm": {
+      "status": "partial-native-evidence",
+      "evidence": "G:/StructureClaw-All/sclaw_data/work/acceptance-commercial-pkpm-20261013-115755-ea18fbcc/acceptance.json",
+      "scope": "L-shaped lower floor, setback upper floor, per-member section/topology readback and signed result stations. Not a material-constant or full-load/settings acceptance.",
+      "formalV2Execution": "blocked: required explicit material constants cannot yet be certified against native material properties; topology acceptance alone is insufficient."
+    },
+    "yjk": {
+      "status": "blocked",
+      "reason": "Incomplete local SDK/full-installation dependencies; native material grade write/readback remains unaccepted. Formal execution is gated."
+    }
+  },
+  "plannedCorpus": {
+    "tasks": 300,
+    "categories": {
+      "STD": 100,
+      "INT": 100,
+      "MM": 100
+    },
+    "engines": {
+      "OpenSees": 267,
+      "PKPM": 16,
+      "YJK": 17
+    },
+    "acceptedTasks": 0,
+    "requirementReferences": 12566,
+    "unknownRequirementReferences": 5989,
+    "coverageFile": "tests/llm-benchmark/planning/capability-coverage-300.json",
+    "note": "Original requirements preserved; category/candidate matching is not capability or task acceptance."
+  },
+  "remaining": [
+    "YJK native model/material/settings/solve/result readback acceptance.",
+    "PKPM inclined columns, specified material constants, custom loads/combinations, explicit self-weight/diaphragm/rigid-zone/construction controls and full reaction calibration.",
+    "OpenSees end releases, nonzero offsets, second-order and full-member nonlinear capabilities remain rejected or explicitly bounded.",
+    "Rigid-floor assembly needs dedicated independent mechanics acceptance.",
+    "Full multimodal recognition accuracy and every multi-view ambiguity need task-specific acceptance; evidence transport alone is not recognition accuracy.",
+    "The 300-task assets, independent answers and formal paid experiments are outside this implementation batch.",
+    "Formal HTTP checks require persisted model/task/run IDs; stateless /analyze alone is not a database analysis task."
+  ],
+  "executionNotes": [
+    "No paid language-model experiments were run.",
+    "Native raw artifacts live under the local runtime data directory; source regression tests reproduce the non-commercial checks.",
+    "New runtime metadata does not retroactively certify historical experiments."
+  ],
+  "mainImplementationCommit": "81394e88a373392bfeede16e01bbe49e254631de",
+  "repositories": {
+    "system": "https://github.com/qinsz01/structureclaw",
+    "benchmark": "https://github.com/qinsz01/structureclaw-benchmark"
+  }
+}

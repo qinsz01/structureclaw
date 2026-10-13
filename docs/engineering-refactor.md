@@ -7,6 +7,16 @@ tags, experiments and reference data remain unchanged.
 本记录说明已落地的内核及验收边界，**不代表新300题或所有商业软件能力已经完成**。
 历史论文标签、实验与标答保持不变；候选冻结不能掩盖剩余缺口。
 
+Frozen implementation and machine-readable test evidence:
+[engineering-v2.1-preview-20261013](./reproducibility/engineering-v2.1-preview-20261013.json).
+Final verification: backend **1339/1339**, frontend **273 passed / 6 existing todo**,
+evaluator **38/38**, and **51/51** engineering regression steps. Backend and frontend
+build/lint passed. The final stale-summary guard also passed its 11 focused tests
+and frontend type check. These counts do not certify unaccepted native capabilities.
+
+冻结版本与机器可读验收记录见上方清单。后端最终测试零跳过；商业原生能力、完整300题和模型答题
+成功率均不能由这些软件回归计数代替。
+
 ## Architecture / 统一链路
 
 ```mermaid
