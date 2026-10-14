@@ -60,7 +60,7 @@ post-run cooldown. Standard workflow scenarios run in `auto` and
 | `.github/workflows/backend-regression.yml` | Backend regression on Linux and Windows | Runs the backend regression bundle through `tests/runner.mjs`. |
 | `.github/workflows/frontend-regression.yml` | Frontend static and unit regression on Linux and Windows | Runs frontend type-check, lint, and unit Vitest coverage. |
 | `.github/workflows/analysis-regression.yml` | Deterministic analysis regression on Linux and Windows | Builds the backend, sets up analysis Python, and runs analysis fixtures. |
-| `.github/workflows/e2e.yml` | Playwright browser workflows | Triggered on `master`, manually, or by `/test-e2e` comments from allowed users. |
+| `.github/workflows/e2e.yml` | Isolated Playwright browser workflows without provider secrets | Triggered for relevant frontend and engineering changes on `master` and `work/research-next`, manually, or by `/test-e2e` comments from allowed users. |
 | `.github/workflows/install-smoke.yml` | Native install/build compatibility smoke | Calls `node tests/runner.mjs smoke-native`; frontend and backend static checks live in their own regression workflows. |
 | `.github/workflows/llm-integration.yml` | Real LLM integration checks | Triggered on `master`, manually, or by `/test-llm` comments from allowed users. |
 | `.github/workflows/llm-benchmark.yml` | Trusted real-LLM benchmark checks | Uses the public benchmark runner and corpus. |
@@ -73,6 +73,20 @@ The frontend has two Vitest configs with mutually exclusive ownership:
 - `frontend/vitest.config.ts` owns fast unit/configuration coverage and explicitly excludes `tests/integration/**`, `tests/components/console/**`, `tests/accessibility/**`, and `tests/e2e/**`.
 - `frontend/vitest.integration.config.ts` owns app-route/provider/console integration coverage and includes `tests/integration/**/*.test.tsx`, `tests/components/console/**/*.test.tsx`, and `tests/accessibility/semantic.test.tsx`.
 - New console shell tests, provider-backed page tests, or tests that need the integration backend fixture should go into the integration runner even if they render React components.
+
+## Isolated Browser E2E
+
+Build with `node sclaw build`, install the matching browser with `npm exec --prefix frontend -- playwright install chromium`, then run `npm run test:e2e --prefix frontend`. Playwright starts the real backend and an immutable copy of the exported frontend on `127.0.0.1:31515`, with a fresh SQLite database and settings under `.tmp/playwright-*`. It never reuses the normal application ports or imports personal LLM credentials. Test artifacts remain under `frontend/test-results` and `frontend/playwright-report`.
+
+The startup helper requires a Python runtime that can import FastAPI and OpenSeesPy. Set `SCLAW_E2E_PYTHON` explicitly when the configured installation is elsewhere. `SCLAW_E2E_PORT` selects another isolated port; ports 31415 and 31416 are rejected. `SCLAW_E2E_ATTACH=1` attaches only to an instance created by `frontend/tests/e2e/start-server.mjs`, verified using its runtime identity and database path. Do not run separate test commands concurrently against one instance: settings tests and local LLM fixtures share that instance's configuration.
+
+Startup strictly checks the frontend build fingerprint. The backend currently has only a source timestamp check, which cannot detect deletions or edits with preserved timestamps; it does not replace the full build step above.
+
+Default browser tests use local scripted LLM responses for orchestration checks, while the application, model transactions, OpenSees, result queries and report services execute normally. These scripts prove product behavior, not model quality. Paid live smoke tests require `SCLAW_E2E_LIVE=1` and a separately started isolated instance whose LLM settings were explicitly configured through its own settings page or API. A provider key in the shell alone does not enable live tests. Live smoke checks delivery and visible failures; it is not benchmark scoring.
+
+For live smoke, set `SCLAW_E2E_ATTACH=1` and the matching port, then run `npm run test:e2e --prefix frontend -- structural-analysis.spec.ts`. Live mode selects only this file, and scripted LLM fixtures refuse to modify settings in this mode. Real calls consume the configured provider's allowance; failed live tests are not automatically retried.
+
+The deterministic engineering workflow covers real OpenSees execution, agreement between selected-position queries/reports/figures, JSON export, reload, edit invalidation, history and undo/recalculation. Bilingual browser controls verify actual guidance, context, memory permission, correction, clarification/resume and tool-budget behavior. Browser assertions cover builder/fixed-routing control transmission; the corresponding runtime regressions own execution-branch coverage. These are not model-answer quality tests.
 
 ## Choosing A Test
 
@@ -96,7 +110,7 @@ Use the smallest category that proves the behavior:
 
 ## Current Gaps Made Explicit
 
-- E2E currently covers browser-level workflows such as navigation, i18n/theme, capabilities, database admin, and console chat smoke. It is not a full agent quality suite.
+- E2E covers navigation, i18n/theme, capabilities, database admin, run controls and browser delivery using real engineering services. Live model calls run separately on demand; this is not a full agent quality suite.
 - Frontend integration tests have a dedicated local command, but are not wired into CI until the integration runner is stable.
 - `install-smoke.yml` now owns native install/build compatibility only.
 - `llm-integration` and `llm-benchmark` both touch real LLM behavior today. New agent-quality scenarios should prefer the benchmark path.

@@ -1,0 +1,252 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-14T11:27:13.510Z",
+  "scope": "StructureClaw product E2E and engineering delivery; no Bench, scoring or independent YJK API changes.",
+  "testCommit": "1d4d0882e014dd5716bb6f575d0de80aa593ce1f",
+  "productionFixCommit": "126b4f1246546176d2e7aefd4c5a6a7dfed9d1b4",
+  "defect": {
+    "cause": "Static frontend files and API requests consumed the same 1000-per-minute IP quota.",
+    "observedBeforeFix": [
+      "Full browser suite: 40 passed, 1 failed, 2 opt-in live tests skipped; persisted waiting session could not be read because session/snapshot requests returned 429. Trace verified the correct conversation ID.",
+      "Repeated control tests: JavaScript chunks returned 429 and the Send button never became usable."
+    ],
+    "fix": "Use the official static sendFile implementation with explicit GET/HEAD file routes excluded from the API budget. Keep API quota unchanged.",
+    "regression": "Real Fastify injection with max=2: 24 static GET/HEAD requests leave API quota intact; two API requests consume it and the third returns 429; static files remain available."
+  },
+  "validation": {
+    "fullChromium": {
+      "command": "SCLAW_E2E_PORT=31516 SCLAW_E2E_LIVE=0 npm run test:e2e --prefix frontend",
+      "stats": {
+        "startTime": "2026-10-14T11:24:42.390Z",
+        "duration": 135797.807,
+        "expected": 41,
+        "skipped": 2,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "externalLlm": "Local scripted transport only; backend, graph, tools, OpenSees, SQLite, reports and WebGL are real.",
+      "liveSkippedByDefault": 2
+    },
+    "repeatedControls": {
+      "command": "SCLAW_E2E_PORT=31517 SCLAW_E2E_LIVE=0 npm run test:e2e --prefix frontend -- run-controls.spec.ts --repeat-each=2",
+      "stats": {
+        "startTime": "2026-10-14T11:24:42.310Z",
+        "duration": 85057.801,
+        "expected": 16,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      }
+    },
+    "staticRouting": {
+      "command": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --runTestsByPath tests/frontend-static.test.mjs",
+      "cwd": "backend",
+      "passed": 2
+    },
+    "builderAndRouting": {
+      "command": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --runTestsByPath src/agent-runtime/__tests__/run-policy-builder.test.mjs",
+      "cwd": "backend",
+      "passed": 5
+    },
+    "otherPassed": [
+      "backend build",
+      "canonical frontend export build",
+      "frontend type-check",
+      "ESLint for changed backend module",
+      "workflow YAML parsing",
+      "git diff --check"
+    ],
+    "mainService": {
+      "port": 31415,
+      "headPageStatus": 200,
+      "healthStatus": 200,
+      "pageApiRateLimitHeader": null,
+      "apiRateLimit": 1000
+    }
+  },
+  "coverage": [
+    "page navigation, language/theme/skill persistence and refresh",
+    "actual knowledge/history/memory tool permissions",
+    "correction disabled, resume/end-turn and durable counts",
+    "hard tool quota against two tool calls in one model response",
+    "real two-node single-member OpenSees beam, physical midpoint recovery and independent analytic reference",
+    "same run/location/value/unit in query, report JSON download and WebGL figure",
+    "model edit invalidation, archived results, undo and a new valid analysis"
+  ],
+  "controlCoverageLimit": "Browser verifies builder/fixed-routing configuration transmission. Runtime tests verify execution branches; not a live test of every skill or commercial-engine routing.",
+  "liveProviderSmoke": {
+    "capturedAt": "2026-10-14T11:16:52.411Z",
+    "productionCommit": "5724d3d760554d01ba55a7fe6fe0dc9058b1ecc7",
+    "providerModel": "glm-5-turbo",
+    "simplySupported": {
+      "conversationId": "cmv7zufhq0000uwwmgphs0kaq",
+      "input": {
+        "lengthM": 6,
+        "elasticModulusMpa": 200000,
+        "sectionMm": [
+          200,
+          300
+        ],
+        "selfWeight": false
+      },
+      "workflow": [
+        "missing material/section clarification",
+        "reload and reopen pending clarification",
+        "supply parameters and compute",
+        "double existing loads and recompute",
+        "read previous run",
+        "undo transaction and recompute"
+      ],
+      "finalSession": {
+        "modelRevision": 3,
+        "analysis": {
+          "runId": "a111429c-0f2b-44ce-b87a-bf620af6c15b",
+          "resultKey": "case:LC1",
+          "current": true,
+          "reason": null
+        },
+        "report": {
+          "current": true,
+          "runId": "a111429c-0f2b-44ce-b87a-bf620af6c15b"
+        },
+        "busy": false,
+        "waitingForReply": false,
+        "usage": {
+          "runId": "cf8c769f-48fb-432d-a63a-146436be2d15",
+          "policyHash": "618813aefd26facf1a86ef2e6ed2127379179f993ffc05a34c248703ca54324c",
+          "toolCalls": 12,
+          "llmCalls": 8,
+          "recoveries": 0
+        }
+      },
+      "runs": [
+        {
+          "runId": "961fdc2b-1087-43b6-88af-0027a8569ffb",
+          "uniformLoadKnPerM": 2,
+          "selection": "case:LC1",
+          "expected": {
+            "reactionLeftKn": 6,
+            "reactionRightKn": 6,
+            "midpointUzMm": -0.37500000000000006
+          },
+          "actual": {
+            "reactionLeftKn": 6.000000000000004,
+            "reactionRightKn": 6.000000000000002,
+            "midpointUzMm": -0.3750000000000001
+          }
+        },
+        {
+          "runId": "03f784c5-1790-4b0e-b155-47cc3e9dfb04",
+          "uniformLoadKnPerM": 4,
+          "selection": "case:LC1",
+          "expected": {
+            "reactionLeftKn": 12,
+            "reactionRightKn": 12,
+            "midpointUzMm": -0.7500000000000001
+          },
+          "actual": {
+            "reactionLeftKn": 12.000000000000009,
+            "reactionRightKn": 12.000000000000004,
+            "midpointUzMm": -0.7500000000000002
+          }
+        },
+        {
+          "runId": "a111429c-0f2b-44ce-b87a-bf620af6c15b",
+          "uniformLoadKnPerM": 2,
+          "selection": "case:LC1",
+          "expected": {
+            "reactionLeftKn": 6,
+            "reactionRightKn": 6,
+            "midpointUzMm": -0.37500000000000006
+          },
+          "actual": {
+            "reactionLeftKn": 6.000000000000004,
+            "reactionRightKn": 6.000000000000002,
+            "midpointUzMm": -0.3750000000000001
+          }
+        }
+      ],
+      "observedModelError": {
+        "turn": "double load",
+        "error": "MODEL_LOAD_CASE_NOT_FOUND: undefined",
+        "effect": "rejected before mutation",
+        "recoveries": 1,
+        "outcome": "model supplied caseId and succeeded"
+      }
+    },
+    "cantilever": {
+      "conversationId": "cmv805xkr0000t8wmlus70ess",
+      "input": {
+        "lengthM": 3,
+        "endLoadKn": -2,
+        "elasticModulusMpa": 200000,
+        "sectionMm": [
+          200,
+          300
+        ],
+        "selfWeight": false
+      },
+      "finalSession": {
+        "modelRevision": 1,
+        "analysis": {
+          "runId": "fc6c7a1b-e68f-4457-875e-798a5749f684",
+          "resultKey": "case:LC1",
+          "current": true,
+          "reason": null
+        },
+        "report": {
+          "current": true,
+          "runId": "fc6c7a1b-e68f-4457-875e-798a5749f684"
+        },
+        "busy": false,
+        "waitingForReply": false,
+        "usage": {
+          "runId": "83b40240-1f13-4f9e-931a-355873e82b60",
+          "policyHash": "e6d3ea7143fd19810fac95a2b14bdae7f87e7e66b3518b62f0bde33a7c423d2e",
+          "toolCalls": 12,
+          "llmCalls": 12,
+          "recoveries": 0
+        }
+      },
+      "expected": {
+        "reactionKn": 2,
+        "reactionMomentMagnitudeKnm": 6,
+        "tipUzMm": -0.2
+      },
+      "actual": {
+        "reactionKn": 1.9999999999999996,
+        "reactionMomentKnm": -5.999999999999999,
+        "tipUzMm": -0.20000000000000004
+      },
+      "playwright": "passed; complete stream, current report, reload/reopen, saved-result query and real viewer; no page errors or failed Next.js assets"
+    },
+    "failedAttempt": {
+      "conversationId": "cmv8001e60000fowmvgk6awq6",
+      "cause": "Isolated helper initially selected an old home Python without FastAPI",
+      "outcome": "live assertion failed because no current analysis/report existed; not counted as success",
+      "fix": "verify FastAPI/OpenSeesPy imports and prefer the project runtime; rerun in a new isolated database"
+    },
+    "scope": "Product smoke and interface regression only; not a benchmark or a claim of universal model accuracy. No PKPM/YJK native rerun in this round."
+  },
+  "isolation": {
+    "database": "fresh SQLite per helper instance",
+    "runtime": ".tmp/playwright-*",
+    "defaultExternalCalls": false,
+    "liveMode": "explicit opt-in, live spec only, no automatic retries",
+    "identity": "receipt plus health instanceId and database path",
+    "frontendBuild": "canonical content fingerprint",
+    "backendBuild": "fresh tsc build; helper timestamp check alone cannot detect deletions"
+  },
+  "preserved": {
+    "benchGitlink": "5102acb3fdf4618c31f385e51fd0e5b9280438a1",
+    "paperTags": true,
+    "independentYjkApi": true
+  },
+  "limitations": [
+    "Windows Chromium was exercised locally; CI Linux execution is not certified by this record.",
+    "No new PKPM/YJK native analysis or multimodal/dynamic scenario sweep was run.",
+    "These product smoke cases do not prove 300 scenarios or universal model accuracy.",
+    "The globally installed npm package was not reinstalled; the active repository service includes the fix."
+  ],
+  "localEvidence": "G:/StructureClaw-All/sclaw_data/verification/browser-e2e-20261014"
+}

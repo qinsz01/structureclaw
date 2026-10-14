@@ -59,7 +59,7 @@ OpenSees、PKPM、YJK 仍分别使用容量为 1 的
 | `.github/workflows/backend-regression.yml` | Linux 和 Windows 上的 backend regression | 通过 `tests/runner.mjs` 运行 backend regression bundle。 |
 | `.github/workflows/frontend-regression.yml` | Linux 和 Windows 上的 frontend 静态与 unit regression | 运行 frontend type-check、lint 和 unit Vitest 覆盖。 |
 | `.github/workflows/analysis-regression.yml` | Linux 和 Windows 上的确定性 analysis regression | 构建 backend，准备 analysis Python，然后运行分析 fixture。 |
-| `.github/workflows/e2e.yml` | Playwright 浏览器流程 | 在 `master`、手动触发，或允许用户评论 `/test-e2e` 时运行。 |
+| `.github/workflows/e2e.yml` | 不使用供应商密钥的隔离 Playwright 浏览器流程 | 在 `master` 和 `work/research-next` 的相关前端及工程代码变更、手动触发，或允许用户评论 `/test-e2e` 时运行。 |
 | `.github/workflows/install-smoke.yml` | Native install/build 兼容性 smoke | 调用 `node tests/runner.mjs smoke-native`；frontend 和 backend 静态检查由各自 regression workflow 负责。 |
 | `.github/workflows/llm-integration.yml` | 真实 LLM integration 检查 | 在 `master`、手动触发，或允许用户评论 `/test-llm` 时运行。 |
 | `.github/workflows/llm-benchmark.yml` | 可信触发的真实 LLM benchmark | 使用公共 benchmark 运行器与评测集。 |
@@ -72,6 +72,20 @@ Frontend 现在有两个 Vitest 配置，归属互斥：
 - `frontend/vitest.config.ts` 负责快速 unit / 配置覆盖，并显式排除 `tests/integration/**`、`tests/components/console/**`、`tests/accessibility/**` 和 `tests/e2e/**`。
 - `frontend/vitest.integration.config.ts` 负责 app route、provider、console integration 覆盖，并包含 `tests/integration/**/*.test.tsx`、`tests/components/console/**/*.test.tsx` 和 `tests/accessibility/semantic.test.tsx`。
 - 新增 console shell 测试、依赖 provider 的页面测试、route 测试，或需要 integration backend fixture 的测试，即使渲染的是 React component，也应放入 integration runner。
+
+## 隔离的浏览器 E2E
+
+先执行 `node sclaw build`，再用 `npm exec --prefix frontend -- playwright install chromium` 安装匹配的浏览器，最后执行 `npm run test:e2e --prefix frontend`。Playwright 在 `127.0.0.1:31515` 启动真实后端及导出前端的独立副本，SQLite 数据库和设置均新建于 `.tmp/playwright-*`，不复用日常应用端口，不导入个人 LLM 密钥。测试产物保留于 `frontend/test-results` 和 `frontend/playwright-report`。
+
+启动脚本要求 Python 能导入 FastAPI 和 OpenSeesPy；运行环境在其他位置时，用 `SCLAW_E2E_PYTHON` 显式指定。`SCLAW_E2E_PORT` 可选择其他独立端口，31415 和 31416 禁用。`SCLAW_E2E_ATTACH=1` 只允许连接由 `frontend/tests/e2e/start-server.mjs` 建立、且运行身份及数据库路径核验一致的实例。不要对同一实例并行执行多条测试命令：设置测试和本地 LLM 夹具共享该实例的配置。
+
+启动前严格核对前端构建指纹。后端目前只有源码时间戳检查，无法识别删除文件或保留时间戳的修改，因此不能替代上面的完整构建步骤。
+
+默认浏览器测试使用本地脚本化 LLM 响应验证编排；应用、模型事务、OpenSees、结果查询和报告服务仍真实执行。这些脚本证明产品行为，不评价模型质量。付费 live 冒烟必须显式设置 `SCLAW_E2E_LIVE=1`，并另外启动独立实例，通过该实例自己的设置页面或 API 配置 LLM。仅在 shell 中存在密钥不会启用 live 测试。Live 冒烟检查交付和可见失败，不进行 benchmark 评分。
+
+Live 运行时设置 `SCLAW_E2E_ATTACH=1` 和对应端口，执行 `npm run test:e2e --prefix frontend -- structural-analysis.spec.ts`。Live 模式只加载该文件，脚本化 LLM 夹具拒绝在此模式下修改设置。真实调用会消耗已配置服务的额度；不自动重试失败用例。
+
+确定性工程流程覆盖真实 OpenSees 求解、指定位置的查询/报告/图形一致性、JSON 导出、刷新、修改失效、历史读取和撤销重算。运行控制通过中英文网页检查指导文本、上下文、记忆权限、纠错、暂停续答及工具预算的实际行为。建模方式与固定路由的控件传递由浏览器验证，具体执行分支仍由对应 runtime 回归负责；这些不是模型答题能力测试。
 
 ## 如何选择测试
 
@@ -95,7 +109,7 @@ Frontend 现在有两个 Vitest 配置，归属互斥：
 
 ## 当前明确出来的差距
 
-- E2E 目前覆盖浏览器层流程，例如导航、i18n/theme、capabilities、database admin 和 console chat smoke。它不是完整的 agent 质量套件。
+- E2E 覆盖导航、i18n/theme、capabilities、database admin、运行控制及真实工程服务的浏览器交付流程。真实模型调用单独按需运行；它不是完整的 agent 质量套件。
 - Frontend integration 测试已有本地命令，但 integration runner 稳定前暂不接入 CI。
 - `install-smoke.yml` 现在只负责 native install/build 兼容性。
 - `llm-integration` 和 `llm-benchmark` 现在都会触及真实 LLM 行为。新增 agent 质量场景应优先走 benchmark 路径。
