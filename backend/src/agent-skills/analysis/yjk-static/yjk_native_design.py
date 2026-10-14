@@ -82,8 +82,8 @@ def _compile_design_request(request: dict | None, source: dict) -> dict | None:
         raise NativeDesignError("Native design has unmapped explicit mixed material code scopes / 混合材料须分别映射设计规范范围")
     if expected_family == "steel" and request["mode"] == "required-reinforcement":
         raise NativeDesignError("Steel design cannot request concrete reinforcement / 钢构件不能请求混凝土配筋")
-    if (source.get("analysis_control") or {}).get("self_weight") is not False:
-        raise NativeDesignError("Native design selfweight requires explicit reconciliation; current profile requires self_weight=false / 当前设计配置须明确关闭自重，含自重设计映射待接通")
+    from yjk_self_weight import compile_self_weight
+    weight = compile_self_weight(source)
     from commercial_context import project_commercial_model
     overrides = [path for path, value in project_commercial_model(source, "yjk")["designInputs"]["fields"].items()
                  if value is not None and value != {} and path not in {
@@ -116,7 +116,7 @@ def _compile_design_request(request: dict | None, source: dict) -> dict | None:
         parameters[kind][identifier] = value
     return {"schema": "sclaw-yjk-design-request/v1", "request": request,
             "parameters": parameters, "loadScope": "explicit-source-cases-only",
-            "mainRebar": rebar, "defaultPolicy": "adopt-and-read-back"}
+            "mainRebar": rebar, "selfWeight": weight, "defaultPolicy": "adopt-and-read-back"}
 
 
 def compile_design_request(request, source):

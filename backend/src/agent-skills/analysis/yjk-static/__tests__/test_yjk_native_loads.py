@@ -49,6 +49,7 @@ class NativeLoadCompilerTest(unittest.TestCase):
     def test_derived_projection_precision_is_restored_only_in_new_exchange(self):
         model = self.model(); model['nodes'][1]['z'] = 5
         mapping = compile_load_definitions(model)
+        mapping[0]['loads'][0]['nativeLoadDefinitionId'] = 41
         load = mapping[0]['loads'][1]; load['nativeLoadDefinitionId'] = 42
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder); path = root/'model.ydb'
@@ -62,6 +63,16 @@ class NativeLoadCompilerTest(unittest.TestCase):
             (root/'saved.ymd').write_text('native project')
             with self.assertRaisesRegex(ValueError, 'pre-import'):
                 repair_exchange_load_precision(path, root, mapping)
+
+    def test_precision_repair_cannot_modify_an_aliased_authored_load(self):
+        model = self.model(); model['nodes'][1]['z'] = 5
+        mapping = compile_load_definitions(model)
+        mapping[0]['loads'][0]['nativeLoadDefinitionId'] = 41
+        row = mapping[0]['loads'][1]; row['nativeLoadDefinitionId'] = 42
+        alias = {**row, 'shapeVal': '1,8.433,0,0,0,0,0', 'actualToPlanLengthFactor': 1.}
+        mapping[0]['loads'].append(alias)
+        with self.assertRaisesRegex(ValueError, 'aliases another authored load'):
+            repair_exchange_load_precision('not-opened.ydb', '.', mapping)
 
     def test_partial_range_and_point_loads_preserve_metres_from_source_start(self):
         model = self.model()

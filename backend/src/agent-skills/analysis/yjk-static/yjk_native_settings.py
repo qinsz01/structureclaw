@@ -35,6 +35,9 @@ def compile_settings(model: dict) -> dict:
     ints = {"608": 0, "697": 0, "679": 67901, "654": 0, "601": 60102,
             "630": 0, "696": 0, "2308": 0, "624": 1}
     floats = {str(key): 1.0 for key in (610, 611, 631, 658, 663, 694, 2305, 2306, 2307)}
+    # Weight comes from the authored section/density and an explicit case, not
+    # native defaults or the dimensions of an analysis-only reference carrier.
+    floats.update({"801": 0., "803": 0.})
     if rigid is not None:
         ints["606"] = int(rigid)
     if control.get("rigid_offsets") is not None:
@@ -43,7 +46,7 @@ def compile_settings(model: dict) -> dict:
             "controls": {**control, "rigid_floor": rigid},
             "assumptions": {"construction": "once-loaded", "sectionStiffness": "gross-input",
                             "automaticSlabGeneration": False,
-                            "selfWeight": "selected-native-load-cases"},
+                            "selfWeight": "authored-member-density-area-native-line-loads"},
             "verification": "pending-native-readback-and-fe-audit"}
 
 

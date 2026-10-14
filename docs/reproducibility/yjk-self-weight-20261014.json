@@ -1,0 +1,128 @@
+{
+  "schema": "sclaw-yjk-selfweight-acceptance/v1",
+  "date": "2026-10-14",
+  "scope": "StructureClaw SDK adapter acceptance; no benchmark or solver recertification",
+  "contract": {
+    "compiler": "yjk_self_weight.compile_self_weight",
+    "resolution": "structure_protocol.self_weight.resolve_self_weight",
+    "defaultGravityMps2": 9.80665,
+    "directions": [
+      "z",
+      "-z"
+    ],
+    "source": "authored rho and A; full physical member length; explicit or unique-dead load case",
+    "native": "Load_Def type 1 for ElementKind 11/12; native automatic material weight 801/803 remains zero",
+    "numericalSection": "reference carrier dimensions never used for weight",
+    "resultProvenance": "nativeContext.effectiveLoads: verified + sourceFeaSha256 + selfWeight compilation"
+  },
+  "runs": [
+    {
+      "runId": "yjk-selfweight-20261014-115115-5f64808e",
+      "status": "passed",
+      "customUpward": false,
+      "caseId": "D",
+      "balances": [
+        {
+          "caseId": "D",
+          "sourceForceKn": -461.21576,
+          "reactionKn": 461.21568
+        },
+        {
+          "caseId": "L",
+          "sourceForceKn": -200.0,
+          "reactionKn": 199.99999999999997
+        }
+      ],
+      "nativeDesignStatus": "completed",
+      "evidence": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-selfweight-20261014-115115-5f64808e\\source.json",
+          "sha256": "519980d0981875e545f43b0c62ac2ec124ed439b00e9be92c8b410c5d0b0a450"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-selfweight-20261014-115115-5f64808e\\request.json",
+          "sha256": "8401ea772d3a00a339f1f92e0fa3684a621077e236454e6e521bbe7b9f9057f3"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-selfweight-20261014-115115-5f64808e\\acceptance.json",
+          "sha256": "207180d190cd551d85a5fbcdfc388f22fd4f3c077e1bc9bb22d7877ef225ea19"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-selfweight-20261014-115115-5f64808e\\sc_selfweight-adapter_972af0348f25\\fea.dat",
+          "sha256": "82bda99c3fadb9e1c75877c56f916a746174257bf174693ab78f1c68b0b87c1a"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-selfweight-20261014-115115-5f64808e\\sc_selfweight-adapter_972af0348f25\\native-settings-readback.json",
+          "sha256": "4558d1895736a3b819e362f04985c2a3d7fc1a5b77feffe69244a4746830d700"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-selfweight-20261014-115115-5f64808e\\sc_selfweight-adapter_972af0348f25\\native-physics-audit.json",
+          "sha256": "bac74c0b5f6c1926cf2da94183385bc7208442f52ba5a31ef6a02453eae70f58"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-selfweight-20261014-115115-5f64808e\\result.json",
+          "sha256": "8a61b694e99608e5bae5fde5108739828de2d9e1bbdb2d2c82782a8663dde014"
+        }
+      ]
+    },
+    {
+      "runId": "yjk-selfweight-20261014-115246-34f309ae",
+      "status": "passed",
+      "customUpward": true,
+      "caseId": "L",
+      "balances": [
+        {
+          "caseId": "D",
+          "sourceForceKn": -320.0,
+          "reactionKn": 320.0
+        },
+        {
+          "caseId": "L",
+          "sourceForceKn": -169.39731264,
+          "reactionKn": 169.39731199999997
+        }
+      ],
+      "nativeDesignStatus": null,
+      "evidence": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-selfweight-20261014-115246-34f309ae\\source.json",
+          "sha256": "4525a9f6147bba84d2672937fdecc1f2cd2edc933b7f12f102d2098ac1e042ba"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-selfweight-20261014-115246-34f309ae\\request.json",
+          "sha256": "2b3cb88624c02700b4ac32f32622117b8c72aee0ee03b4fb98e1b9c62e5c0802"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-selfweight-20261014-115246-34f309ae\\acceptance.json",
+          "sha256": "78ee88384a3ed39c18c804578ddbae73e0c52c7e4a2d193e7f448220e7aff0b8"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-selfweight-20261014-115246-34f309ae\\sc_selfweight-adapter_4f5c5b1223e9\\fea.dat",
+          "sha256": "ac2e78c21ca6e6c663e9f0c7bc83f59ff83b26cbfce92a0292979eb61a885259"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-selfweight-20261014-115246-34f309ae\\sc_selfweight-adapter_4f5c5b1223e9\\native-settings-readback.json",
+          "sha256": "2732d9884c5055c3e64d46793d89b49864deba1d7ac7030d03250421ceba101f"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-selfweight-20261014-115246-34f309ae\\sc_selfweight-adapter_4f5c5b1223e9\\native-physics-audit.json",
+          "sha256": "162f0c8333d53d69386d03b63939749e8dc7085c684cd89efbe65bb3078cb4c7"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-selfweight-20261014-115246-34f309ae\\result.json",
+          "sha256": "ddc32ae79fa05af52ccf1b95d1f53a05d64374e43088b689e201afc8e46a63e1"
+        }
+      ]
+    }
+  ],
+  "tests": {
+    "command": "python -m pytest backend/src/agent-skills/analysis/yjk-static/__tests__ -q",
+    "passed": 137,
+    "subtests": 14
+  },
+  "remainingNativeMappings": [
+    "inclined-column selfweight: ordinary inclined native rods discard external loads; dedicated native automatic weight mapping remains",
+    "horizontal gravity: requires explicit global-direction native load mapping"
+  ],
+  "note": "FE decimal serialization bounds are input-readback bounds only; response values and response tolerances are not rounded or relaxed. Global vector metadata was added without changing SDK inputs after these runs and is covered by pure tests."
+}

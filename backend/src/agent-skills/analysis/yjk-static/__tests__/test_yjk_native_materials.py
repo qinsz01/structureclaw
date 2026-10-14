@@ -65,8 +65,8 @@ class NativeMaterialTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "explicit positive"):
                 materials.compile_stiffness_plan(broken)
         model["analysis_control"]["self_weight"] = True
-        with self.assertRaisesRegex(ValueError, "selfweight OFF"):
-            materials.compile_stiffness_plan(model)
+        self.assertEqual(materials.compile_stiffness_plan(model)["members"]["beam"]["targetRigidities"],
+                         plan["members"]["beam"]["targetRigidities"])
 
     def test_identity_migration_preserves_authored_material_values_and_input(self):
         model, _ = fixture()

@@ -488,6 +488,8 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     except NativeDesignError:
         raise
     except ValueError as error:
+        if getattr(error, "error_code", None):
+            raise
         raise AnalysisCapabilityError(engine="yjk", capability="native-model-contract", reason=str(error)) from error
     yjk_python = _resolve_yjk_python()
     work_dir = _resolve_work_dir(parameters)

@@ -7,9 +7,12 @@ import json
 import math
 from pathlib import Path
 import re
+import struct
 
 
 def audit_loads(model: dict, mapping: dict, fe: dict) -> dict:
+    from yjk_self_weight import compile_self_weight
+    weight = compile_self_weight(model)
     nodes = {str(n["id"]): tuple(float(n[k]) for k in ("x", "y", "z")) for n in model["nodes"]}
     coords = lambda p: tuple(round(float(x), 9) for x in p)
     source_at = {coords(p): k for k, p in nodes.items()}
@@ -96,16 +99,34 @@ def audit_loads(model: dict, mapping: dict, fe: dict) -> dict:
                     target[(key, load["element"], a, b)] += float(load.get("wz", 0))
             else:
                 raise ValueError("Unsupported source load audit / 不支持的源荷载核对")
+    weight_keys = set()
+    if weight["enabled"]:
+        for member in weight["members"]:
+            for label in ("line-start", "line-end"):
+                key = (label, member["elementId"], 0., round(member["lengthM"], 9))
+                expected[weight["loadCaseId"]][key] += member["intensityKnM"]
+                weight_keys.add((weight["loadCaseId"], key))
     differences = []
     for case, rows in expected.items():
         for key in rows.keys() | actual[case].keys():
             # Native decimal representation only; this is not a solve tolerance.
-            if not math.isclose(rows[key], actual[case][key], rel_tol=0, abs_tol=1e-8):
+            tolerance = 1e-8
+            if (case, key) in weight_keys and rows[key] != 0:
+                # fea.dat serializes native float32 load values with six
+                # significant digits. Derived rho*A*g is deliberately not
+                # rounded to a user-load increment. Bound that exact encoding,
+                # without changing any structural response tolerance.
+                value = abs(rows[key])
+                decimal_half_step = .5*10**(math.floor(math.log10(value))-5)
+                stored = struct.unpack('f', struct.pack('f', rows[key]))[0]
+                tolerance += decimal_half_step + abs(stored-rows[key])
+            if not math.isclose(rows[key], actual[case][key], rel_tol=0, abs_tol=tolerance):
                 differences.append({"case": case, "target": key, "expected": rows[key], "actual": actual[case][key]})
     if differences:
         raise ValueError("YJK executed loads differ from input / 原生实际荷载与输入不符: " + json.dumps(differences[:12]))
     payload = {"passed": True, "sourceCases": sorted(expected), "nativeCases": by_native,
                "feaSha256": fe["sha256"], "method": "signed-case-target-position-component-readback",
                "selfWeightExcludedFromSourceCases": (model.get("analysis_control") or {}).get("self_weight") is False}
+    payload.update(selfWeight=weight["enabled"], selfWeightCompilation=weight)
     payload["loadHash"] = hashlib.sha256(json.dumps(model.get("load_cases", []), sort_keys=True).encode()).hexdigest()
     return payload

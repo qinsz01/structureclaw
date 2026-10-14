@@ -36,6 +36,8 @@ def compile_load_definitions(model: dict, *, native_precision: bool = True) -> l
     """Pure compilation, before touching the SDK; never drop a load component."""
     nodes = {str(node["id"]): node for node in model.get("nodes", [])}
     members = {str(member["id"]): member for member in model.get("elements", [])}
+    from yjk_self_weight import compile_self_weight
+    weight = compile_self_weight(model)
     cases = []
     seen: set[str] = set()
     for case_index, case in enumerate(model.get("load_cases", []), 1):
@@ -122,6 +124,16 @@ def compile_load_definitions(model: dict, *, native_precision: bool = True) -> l
                 raise ValueError(f"{label}: unsupported load type {load.get('type')} / 不支持的荷载类型")
             entry["sourceLoadId"] = str(load.get("id", f"{case_id}:{index}"))
             compiled["loads"].append(entry)
+        if weight["enabled"] and case_id == weight["loadCaseId"]:
+            for member in weight["members"]:
+                native_value = -member["intensityKnM"]*member["actualToPlanLengthFactor"]
+                compiled["loads"].append({"targetKind": "member", "targetId": member["elementId"],
+                    "elementKind": member["elementKind"], "sourceLoadId": "self-weight:"+member["elementId"],
+                    "shapeVal": ",".join(map(_text, [1, native_value, 0, 0, 0, 0, 0])),
+                    "components": [-member["intensityKnM"]], "startPositionM": 0., "endPositionM": member["lengthM"],
+                    "actualToPlanLengthFactor": member["actualToPlanLengthFactor"],
+                    "derivedSelfWeight": member})
+            compiled["selfWeight"] = weight
         cases.append(compiled)
     return cases
 
@@ -166,29 +178,36 @@ def repair_exchange_load_precision(ydb_path, work_dir, mapping: list[dict]) -> N
     definitions = {}
     for case in mapping:
         for load in case['loads']:
-            if load.get('actualToPlanLengthFactor', 1.) == 1.:
+            if load.get('actualToPlanLengthFactor', 1.) == 1. and not load.get('derivedSelfWeight'):
                 continue
             key = load['nativeLoadDefinitionId']
-            if key in definitions and definitions[key] != load['shapeVal']:
+            if key in definitions and definitions[key] != {"shapeVal": load['shapeVal'], "elementKind": load['elementKind']}:
                 raise ValueError('Native load definition aliases different intensities / 原生荷载定义发生精度合并冲突')
-            definitions[key] = load['shapeVal']
+            definitions[key] = {"shapeVal": load['shapeVal'], "elementKind": load['elementKind']}
     if not definitions:
         return
+    for case in mapping:
+        for load in case['loads']:
+            target = definitions.get(load['nativeLoadDefinitionId'])
+            if target is not None and target != {"shapeVal": load['shapeVal'], "elementKind": load['elementKind']}:
+                raise ValueError('Native load definition aliases another authored load / 原生荷载定义与其它源荷载发生精度合并冲突')
     root, path = Path(work_dir).resolve(), Path(ydb_path).resolve()
     if path.parent != root or path.suffix.lower() != '.ydb' or not path.is_file() or any(root.glob('*.ymd')):
         raise ValueError('Load precision repair requires this run\'s pre-import exchange / 仅能修复本次导入前交换文件')
     before = hashlib.sha256(path.read_bytes()).hexdigest()
     with closing(sqlite3.connect(path.as_uri()+'?mode=rw', uri=True)) as db:
         with db:
-            for key, value in definitions.items():
+            for key, definition in definitions.items():
+                value = definition["shapeVal"]
                 rows = db.execute('SELECT ElementKind, ShapeVal FROM tblLoadSect WHERE ID=?', (key,)).fetchall()
-                if len(rows) != 1 or rows[0][0] != 12:
-                    raise ValueError('Missing native beam load definition / 缺少原生梁荷载定义')
+                if len(rows) != 1 or rows[0][0] != definition["elementKind"]:
+                    raise ValueError('Missing native member load definition / 缺少原生构件荷载定义')
                 actual = [float(x) for x in rows[0][1].split(',') if x.strip()]
                 expected = [float(x) for x in value.split(',')]
                 if len(actual) != len(expected) or any(abs(a-b) > .00050001 for a, b in zip(actual, expected)):
                     raise ValueError('Native load differs beyond serialization precision / 原生荷载差异超出序列化精度')
-            for key, value in definitions.items():
+            for key, definition in definitions.items():
+                value = definition["shapeVal"]
                 db.execute('UPDATE tblLoadSect SET ShapeVal=? WHERE ID=?', (value, key))
                 if db.execute('SELECT ShapeVal FROM tblLoadSect WHERE ID=?', (key,)).fetchone() != (value,):
                     raise ValueError('Native load precision readback failed / 原生荷载精度回读失败')

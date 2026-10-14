@@ -151,9 +151,9 @@ def section_representation(section: dict) -> dict:
 
 def _require_reference_scope(model: dict):
     control = model.get("analysis_control") or {}
-    keys = ("self_weight", "rigid_floor", "rigid_offsets", "construction_stage", "p_delta")
+    keys = ("rigid_floor", "rigid_offsets", "construction_stage", "p_delta")
     if any(control.get(key) is not False for key in keys):
-        raise ValueError("YJK reference carriers require explicit first-order bare-frame controls and selfweight OFF / 参考载体仅用于显式关闭自重及附加刚度的一阶杆系")
+        raise ValueError("YJK reference carriers require explicit first-order bare-frame controls / 参考载体仅用于显式关闭附加刚度的一阶杆系")
     if any(story.get("rigid_diaphragm") is True for story in model.get("stories", [])):
         raise ValueError("YJK reference carriers do not support rigid diaphragms / 参考载体不支持刚性楼板")
 
@@ -471,6 +471,9 @@ def physics_context(model: dict, fe: dict, material_audit: dict, settings_audit:
             "linearStatic": settings_ok and effective.get("linearStatic") is True,
             "effectiveSettingsVerified": settings_ok and materials_ok,
             "materialsVerified": materials_ok, "stationConventionsVerified": False,
+            "effectiveLoads": {"verified": settings_ok and effective.get("loadAudit", {}).get("passed") is True,
+                               "sourceFeaSha256": fe["sha256"],
+                               "selfWeight": effective.get("loadAudit", {}).get("selfWeightCompilation")},
             "elasticRepresentations": {key: {
                 "section": value.get("sectionRepresentation"),
                 "material": value.get("materialRepresentation")}

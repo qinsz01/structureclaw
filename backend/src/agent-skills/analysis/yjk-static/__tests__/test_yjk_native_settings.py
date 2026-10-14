@@ -39,7 +39,8 @@ class NativeSettingsTests(unittest.TestCase):
         self.assertEqual({key: ints[key] for key in ("606", "609", "650", "608", "697")},
                          {key: 0 for key in ("606", "609", "650", "608", "697")})
         self.assertEqual(ints["601"], 60102)
-        self.assertNotIn("801", plan["parameters"]["float"])
+        self.assertEqual(plan["parameters"]["float"]["801"], 0.)
+        self.assertEqual(plan["parameters"]["float"]["803"], 0.)
         self.assertEqual(plan["verification"], "pending-native-readback-and-fe-audit")
 
     def test_story_and_global_constraints_cannot_disagree(self):

@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import math
 import os
+from pathlib import Path
 import re
 import shutil
 import sys
@@ -202,7 +203,8 @@ def _setup_paths() -> str:
 
     # Python import paths: YJKS_ROOT itself (for native wrappers) and
     # the driver's own directory (for yjk_converter).
-    for p in (root, os.path.join(os.path.dirname(SCRIPT_DIR), "runtime"), SCRIPT_DIR):
+    protocol_path = str(Path(SCRIPT_DIR).parents[2] / "skill-shared" / "python")
+    for p in (root, os.path.join(os.path.dirname(SCRIPT_DIR), "runtime"), protocol_path, SCRIPT_DIR):
         if p and p not in sys.path:
             sys.path.insert(0, p)
 

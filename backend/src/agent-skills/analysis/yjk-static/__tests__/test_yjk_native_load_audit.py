@@ -39,3 +39,26 @@ def test_correct_total_with_wrong_case_direction_or_target_fails(tmp_path, chang
         cases['FX']['loads'][0]['node'] = 'N1_0'
     with pytest.raises(ValueError, match='loads differ'):
         audit_loads(model, data['mapping'], fe)
+
+
+@pytest.mark.parametrize('change', [None, 'density', 'case', 'sign', 'disabled'])
+def test_native_selfweight_is_bound_to_source_density_case_and_direction(tmp_path, change):
+    data = json.loads((Path(__file__).parent/'fixtures/native-frame-self-weight.json').read_text('utf8'))
+    path = tmp_path/'fea.dat'; path.write_text(data['fea'], encoding='gb18030')
+    data['mapping']['ydb_path'] = str(tmp_path/'model.ydb')
+    model = data['model']
+    if change == 'density':
+        model['materials'][0]['rho'] *= 1.01
+    elif change == 'case':
+        model['analysis_control']['self_weight_case_id'] = 'L'
+    elif change == 'sign':
+        model['analysis_control']['gravity_direction'] = 'z'
+    elif change == 'disabled':
+        model['analysis_control']['self_weight'] = False
+    if change is None:
+        report = audit_loads(model, data['mapping'], parse_fe(path))
+        assert report['passed'] and report['selfWeight'] is True
+        assert report['selfWeightCompilation']['loadCaseId'] == 'D'
+    else:
+        with pytest.raises(ValueError, match='loads differ'):
+            audit_loads(model, data['mapping'], parse_fe(path))
