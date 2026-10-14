@@ -1,0 +1,124 @@
+{
+  "schema": "sclaw-pkpm-parameter-acceptance/v1",
+  "reviewedCodeCommit": "e1f48b824ff2b7153bd5c60bc2e62dcc606c41d3",
+  "status": "passed",
+  "scope": "HRB400/HRB500 main-bar transport and actual native design parameter readback; not independent solver certification",
+  "officialReference": {
+    "title": "PKPM API 5.0 Reference",
+    "section": "Settings codes: HRB500=13; StandFloor.SetInfoValue/SaveOneStandFloor",
+    "path": "G:\\StructureClaw-All\\sclaw_data\\work\\commercial-capability-probes-20261015\\PKPMAPI5.0参考手册.pdf"
+  },
+  "nativeRun": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-114742-0b3da89e",
+  "modelMembers": {
+    "columns": 6,
+    "beams": 1
+  },
+  "effectiveParameters": {
+    "beamCoverMm": {
+      "value": 40.0,
+      "unit": "mm",
+      "requested": 40,
+      "origin": "explicit",
+      "source": "WMASS.OUT:BCB"
+    },
+    "columnCoverMm": {
+      "value": 45.0,
+      "unit": "mm",
+      "requested": 45,
+      "origin": "explicit",
+      "source": "WMASS.OUT:ACA"
+    },
+    "beamStirrupSpacingMm": {
+      "value": 100.0,
+      "unit": "mm",
+      "requested": null,
+      "origin": "adopted-native-default",
+      "source": "WMASS.OUT:SB"
+    },
+    "columnStirrupSpacingMm": {
+      "value": 100.0,
+      "unit": "mm",
+      "requested": null,
+      "origin": "adopted-native-default",
+      "source": "WMASS.OUT:SC"
+    },
+    "beamMainRebarGrade": {
+      "value": 435.0,
+      "unit": "MPa",
+      "requested": "HRB500",
+      "origin": "explicit",
+      "source": "WMASS.OUT:IB"
+    },
+    "columnMainRebarGrade": {
+      "value": 435.0,
+      "unit": "MPa",
+      "requested": "HRB500",
+      "origin": "explicit",
+      "source": "WMASS.OUT:IC"
+    },
+    "beamStirrupGrade": {
+      "value": 270.0,
+      "unit": "MPa",
+      "requested": "HPB300",
+      "origin": "explicit",
+      "source": "WMASS.OUT:JB"
+    },
+    "columnStirrupGrade": {
+      "value": 360.0,
+      "unit": "MPa",
+      "requested": "HRB400",
+      "origin": "explicit",
+      "source": "WMASS.OUT:JC"
+    }
+  },
+  "records": 30,
+  "checks": 13,
+  "parameterWriteStage": "after-PMCAD-AUTORIB-before-SATWE-auto_data",
+  "reason": "PMCAD AUTORIB resets standard-floor main-bar grades; official model setters are reapplied and saved/reopened before SATWE preprocessing. No output rewrite.",
+  "tests": {
+    "command": "python -m pytest backend/src/agent-skills/analysis/pkpm-static/__tests__ -q",
+    "passed": 109
+  },
+  "files": [
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-114742-0b3da89e\\source-model.json",
+      "sha256": "740ed199850c1f3590adf568dd6c3b5911b9e1b723150e70fe2b8bed44641942"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-114742-0b3da89e\\request.json",
+      "sha256": "d22bc3e7018e280f0877aca1c68429c04e328c7189a8a6d0c1594bc0f7098bd4"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-114742-0b3da89e\\result.json",
+      "sha256": "763be1723564602525303eae16db5986257609d35f85c146e1e5a09ec10dc5ae"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-114742-0b3da89e\\acceptance.json",
+      "sha256": "f689697ac45525d4c66d18176a70093525ee73551077600ef4299a942ff339aa"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-114742-0b3da89e\\sc_1829b763\\native-design-parameter-readback.json",
+      "sha256": "cf3efa859397db34c4a0657992c8d4b2f6fc9c7080e054422f04b6dc314f584e"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-114742-0b3da89e\\sc_1829b763\\native-stage-evidence.json",
+      "sha256": "43f451d82f9c906ffbbc56ea287e3a2ad4cfb107881caa424307af0986ee1dcd"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-114742-0b3da89e\\sc_1829b763\\native-design-request.json",
+      "sha256": "844c9863177afeb57caa76fe375a8f791115897282e62ed311c0d2913a97a59a"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-114742-0b3da89e\\sc_1829b763\\WMASS.OUT",
+      "sha256": "bfcf3e0ffa8d4b409be5bd8162fa5814f8156a1a8a97b69448beda16d1ba8edd"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-114742-0b3da89e\\sc_1829b763\\WPJ1.OUT",
+      "sha256": "7af0ac0918b2d5277b9b5ef47b9f59c659619d5cd5ba71f463f56d408f8ff941"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-114742-0b3da89e\\sc_1829b763\\native-design-sdk.json",
+      "sha256": "c5e12f58107a6bb39ede23161111aeefbbdf4a54c9f7beefacb48258df74bfab"
+    }
+  ]
+}
