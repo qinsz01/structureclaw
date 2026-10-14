@@ -194,7 +194,7 @@ These runs use configured private SDK installations, then verify analysis, nativ
 design, exact queries, both report languages, session resume and missing-input refusal.
 Inputs and receipts belong to the product runtime. They make no provider/LLM calls.
 The accepted native profiles and remaining adapter gaps are documented in
-[native-design-profiles.md](native-design-profiles.md).
+[native-design-profiles-20261014.md](native-design-profiles-20261014.md).
 
 该入口使用已配置的独立SDK，验证分析、原生设计、查询、双语报告、会话恢复及缺项拒绝，
 不调用付费语言模型。可用原生配置及剩余适配缺口见上述文档。
