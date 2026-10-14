@@ -228,6 +228,21 @@ force tolerance. It does not alter the source model, original station results or
 取得真实读回后，公共恢复积分实际执行值，标记loadBasis为audited-native-input，同时核对源值量化关系和
 全部原生内力站点。源模型、原始站点和已有响应容差均保持不变。
 
+PKPM rigid-span recovery also consumes the saved SDK float, the official text
+token and the actual binary load record, bound to the same case/member/input hash.
+Only the elastic-span intensity uses that audited executed value; the physical
+rigid-arm load integrals keep the authored value. This input audit alone does not
+certify arbitrary-position results: every native force station must still close
+under the existing tolerance. A failed closure keeps the direct stations and a
+structured `memberResponses[].recovery` reason; queries retain the underlying
+cause. The current PKPM integration limitation is recorded in
+[load-readback verification](reproducibility/engineering-pkpm-load-readback-20261014.json).
+
+PKPM刚域恢复同时核对保存的SDK浮点值、官方文本及实际二进制荷载，绑定同一工况、构件与输入哈希。
+净跨使用已审计的执行值，物理刚段荷载仍保留源值积分。这项输入核对不等于任意位置结果已通过；
+全部原生站点仍须满足既有容差。闭合失败时保留原生站点，并在构件响应的recovery字段记录具体原因；
+查询保留底层错误依据。上述记录明确区分已通过的输入校验与尚未通过的原生交付。
+
 Rigid-end force queries keep the physical member's full length and the native
 elastic span separate. Every native station retains its actual position. Extending
 forces to a physical endpoint or another cut requires verified rigid lengths and

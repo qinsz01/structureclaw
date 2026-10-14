@@ -140,7 +140,16 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
   const files = [sourceName,'reference.json','result.json','acceptance.json'];
   if (fs.existsSync(path.join(directory, 'reference-model.json'))) files.push('reference-model.json');
   const evidence = files.map(name => ({path:path.join(directory,name),sha256:createHash('sha256').update(fs.readFileSync(path.join(directory,name))).digest('hex')}));
-  const receipt = { status:'passed', counts:verifyNativeRigidDelivery(fixture), directory, evidence };
+  let receipt;
+  try {
+    receipt = { status:'passed', counts:verifyNativeRigidDelivery(fixture), directory, evidence };
+  } catch (error) {
+    const failures=[];
+    for(let cause=error;cause instanceof Error;cause=cause.cause) failures.push({name:cause.name,message:cause.message,
+      ...(cause.cause && !(cause.cause instanceof Error) ? {details:cause.cause} : {})});
+    receipt = {status:'failed',directory,evidence,failures};
+    process.exitCode=1;
+  }
   if (process.argv[3]) fs.writeFileSync(path.resolve(process.argv[3]), JSON.stringify(receipt,null,2)+'\n', {flag:'wx'});
   console.log(JSON.stringify(receipt,null,2));
 }

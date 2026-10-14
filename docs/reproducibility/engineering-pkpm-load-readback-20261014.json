@@ -1,0 +1,117 @@
+{
+  "schema": "sclaw-product-native-input-delivery/v1",
+  "date": "2026-10-14",
+  "status": "input-readback-integrated; native-rigid-force-delivery-incomplete",
+  "wholePlanComplete": false,
+  "sourceFiles": [
+    {
+      "path": "backend/src/engineering/native-load-readback.ts",
+      "sha256": "9806be59d38ae87a0e0a0c86d54dbc47ac45a60b4dc2dffc93fadff7bcb032b4"
+    },
+    {
+      "path": "backend/src/engineering/native-force-recovery.ts",
+      "sha256": "a74162e4ec5420eee50c8e236417e806e0353fabd88796913532e5f1401a10b5"
+    },
+    {
+      "path": "backend/src/engineering/result-data.ts",
+      "sha256": "43e11a78c1ab71509763ab4d9f0b4d985c19045465802d18b5a5e3ac0ba32a54"
+    },
+    {
+      "path": "backend/tests/native-load-readback.test.mjs",
+      "sha256": "3a131fc952a423bd09906a8c90d425619fb27d87d74ca5a786a8f3596a863b39"
+    },
+    {
+      "path": "backend/tests/engineering-native-rigid-query.mjs",
+      "sha256": "4b97651af66aabe663c37bb6075f3303960a0587530247f6315aa7dfa9c5546b"
+    }
+  ],
+  "checks": {
+    "backendBuild": "passed",
+    "targetedLint": "passed",
+    "testSuites": [
+      "native-load-readback",
+      "native-force-recovery",
+      "engineering-run-delivery"
+    ],
+    "testsPassed": 94
+  },
+  "inputAudit": {
+    "scope": "Explicit global-Z full-span PKPM beam loads with native rigid lengths",
+    "chain": [
+      "authored physical load",
+      "saved SDK float32",
+      "official six-significant-digit text",
+      "native binary float32",
+      "executed elastic-span intensity"
+    ],
+    "rigidArmBasis": "authored physical load",
+    "sourceAndRawResultsUnchanged": true
+  },
+  "independentTests": [
+    "free-end cut equilibrium across both rigid arms and elastic span",
+    "signed combination factors and explicit unit conversion",
+    "wrong case/index/member/range/source/SDK/text/binary/hash rejected",
+    "selfweight null index not confused with an authored load",
+    "upward global load sign retained",
+    "unchanged native station closure tolerance"
+  ],
+  "nativeDelivery": {
+    "status": "failed",
+    "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-134243-0d89ec77",
+    "evidence": [
+      {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-134243-0d89ec77\\source-model.json",
+        "sha256": "a3c69e0aa7461a92b2a0eedc1e799d4cc1d1164a3779599d0157396123b9fc97"
+      },
+      {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-134243-0d89ec77\\reference.json",
+        "sha256": "ad9428a663ce654af8232363b84878adbf9dd83206b35b741a5f56709e90c6b5"
+      },
+      {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-134243-0d89ec77\\result.json",
+        "sha256": "8480c48cfa61eebba8800a146a4cf295d21f8aae3cab4633d091bb22a1e9dd82"
+      },
+      {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-134243-0d89ec77\\acceptance.json",
+        "sha256": "c14762881a842fdcb2109c4ae9d6a8d0b5d47ca43053bffe606899ff39470cdc"
+      }
+    ],
+    "failures": [
+      {
+        "name": "Error",
+        "message": "Physical query D/beam@0:right failed"
+      },
+      {
+        "name": "Error",
+        "message": "EXACT_NATIVE_STATION_UNAVAILABLE"
+      },
+      {
+        "name": "Error",
+        "message": "NATIVE_FORCE_RECOVERY_UNVERIFIED",
+        "details": {
+          "code": "NATIVE_STATION_EQUILIBRIUM_MISMATCH",
+          "memberId": "beam",
+          "positionM": 0.8249999172985554,
+          "side": "continuous",
+          "component": "My",
+          "nativeValue": -0.8518600463867188,
+          "recoveredValue": -0.8518816744344244,
+          "absoluteDifference": 0.000021628047705668507,
+          "tolerance": 0.00001,
+          "unit": "kN.m"
+        }
+      }
+    ],
+    "receipt": {
+      "path": "G:/StructureClaw-All/sclaw_data/work/pkpm-rigid-offsets-20261014-134243-0d89ec77/public-delivery-20261014-02.json",
+      "sha256": "278d4c9fa235ae61a7edbee06fbaf3b80b3b49e73dfaffb925feeda7bb353393"
+    },
+    "interpretation": "The fresh adapter endpoint acceptance passed; public arbitrary-position recovery still fails native interior My closure. Official station arithmetic/position precision remains under investigation. No coordinate, force, tolerance or frozen reference was changed."
+  },
+  "boundaries": {
+    "benchmarkModified": false,
+    "standaloneYjkApiModified": false,
+    "newNativeJobsSubmittedByThisVerification": false,
+    "commercialInteriorDisplacementClaimed": false
+  }
+}

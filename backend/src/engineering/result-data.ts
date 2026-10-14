@@ -95,6 +95,7 @@ function nativeMemberData(model: RecoveryModel, data: ModelRecord, factors?: Rec
       const stations = nativeStations(model, data, member.id);
       const { length, start, end } = stations;
       let rows = stations.rows;
+      let recovery: ModelRecord = { status: 'verified', method: 'section-equilibrium' };
       try {
         const recovered = nativeForceRecovery(model, data, member.id, rows, length, factors);
         // All chart samples belong to this result. Keep the audited context once
@@ -114,7 +115,11 @@ function nativeMemberData(model: RecoveryModel, data: ModelRecord, factors?: Rec
           }
         }
         rows=rows.sort((a,b)=>a.positionM-b.positionM||(a.side==='left'?-1:1));
-      } catch { /* Verified direct stations remain useful when equilibrium recovery is unavailable. */ }
+      } catch (error) {
+        // Preserve direct stations and explain why a continuous force curve is unavailable.
+        recovery = { status: 'unavailable', reason: error instanceof Error ? error.message : 'NATIVE_FORCE_RECOVERY_UNVERIFIED',
+          ...(error instanceof Error && isRecord(error.cause) ? { details: error.cause } : {}) };
+      }
       const samples = rows.map(row => {
         const components = Object.fromEntries(displayComponents.map((key, index) => [key, row.components[nativeComponents[index]]]));
         for (const [component, value] of Object.entries(components)) {
@@ -129,7 +134,7 @@ function nativeMemberData(model: RecoveryModel, data: ModelRecord, factors?: Rec
           ...(row.side === 'continuous' ? {} : { side: row.side }),
           ...components, provenance: row.provenance, source: row.source };
       });
-      return { id: member.id, length, state: 'native-stations', reason: 'verified-native-stations', samples };
+      return { id: member.id, length, state: 'native-stations', reason: 'verified-native-stations', recovery, samples };
     } catch (error) {
       return { id: member.id, length: 0, state: 'unavailable',
         reason: error instanceof Error ? error.message : 'NATIVE_STATION_UNAVAILABLE', samples: [] };
@@ -174,7 +179,7 @@ export function queryPhysicalResponse(model: ModelRecord, result: ModelRecord, e
         return {elementId,positionM,side,method:'section-equilibrium' as const,state:'recovered' as const,
           sample:{...values,V2:values.Vy,V3:values.Vz,M2:values.My,M3:values.Mz},
           units:{position:'m',force:'kN',moment:'kN.m'},provenance:'mechanics-recovery',source:recovery.source,nativeContext:context};
-      } catch { throw new Error('EXACT_NATIVE_STATION_UNAVAILABLE'); }
+      } catch (cause) { throw new Error('EXACT_NATIVE_STATION_UNAVAILABLE', { cause }); }
     }
     const values = exact[0].components;
     if (!['N', 'Vy', 'Vz', 'T', 'My', 'Mz'].every((key) => typeof values[key] === 'number' && Number.isFinite(values[key]))) {

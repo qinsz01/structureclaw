@@ -1,13 +1,14 @@
 import type { RecoveryModel, Vec } from '../skill-shared/member-response.js';
 import { isRecord, type ModelRecord } from './model-state.js';
 import { nativeRigidMember } from './native-rigid-offsets.js';
+import { pkpmExecutedUniformLoad } from './native-load-readback.js';
 
 const keys = ['N', 'Vy', 'Vz', 'T', 'My', 'Mz'] as const;
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 type Cut = { positionM: number; side: unknown; components: ModelRecord; source: unknown; localAxes?: unknown };
 type Line = { a: number; b: number; q: Vec; slope: Vec };
 type Point = { x: number; force: Vec; moment: Vec };
-const fail = () => { throw new Error('NATIVE_FORCE_RECOVERY_UNVERIFIED'); };
+const fail = (details?: ModelRecord): never => { throw new Error('NATIVE_FORCE_RECOVERY_UNVERIFIED', { cause: details }); };
 const vector = (row: ModelRecord, names: string[]): Vec => names.map(key => {
   const value = row[key] ?? 0;
   if (!finite(value)) return fail();
@@ -111,7 +112,7 @@ export function nativeForceRecovery(model: RecoveryModel, data: ModelRecord, mem
   for (const [caseId, factor] of Object.entries(factors)) {
     const loadCase = model.load_cases.find(row => row.id === caseId);
     if (!loadCase || !finite(factor)) return fail();
-    for (const load of loadCase.loads) {
+    for (const [sourceIndex, load] of loadCase.loads.entries()) {
       if (load.element !== memberId) continue;
       if (load.type === 'point') {
         if (!finite(load.position) || load.position < 0 || load.position > length) return fail();
@@ -137,7 +138,17 @@ export function nativeForceRecovery(model: RecoveryModel, data: ModelRecord, mem
           }
         } else {
           if (load.distribution !== undefined && load.distribution !== 'uniform') return fail();
-          lines.push({a,b,q:local(vector(load,['wx','wy','wz']),load,factor),slope:[0,0,0]});
+          const authored = vector(load,['wx','wy','wz']);
+          const executed = rigid ? pkpmExecutedUniformLoad(context,caseId,sourceIndex,memberId,length,[rigid.start,rigid.end],authored) : undefined;
+          if (executed && rigid) {
+            if (a !== 0 || b !== length || load.reference_frame !== undefined && load.reference_frame !== 'global') return fail();
+            // The native text bridge changes only the elastic-span intensity.
+            // Loads physically on each rigid arm keep their authored integrals.
+            for (const [lo,hi,q] of [[0,rigid.start,authored],[rigid.start,rigid.end,executed],[rigid.end,length,authored]] as [number,number,Vec][]) {
+              if (hi>lo) lines.push({a:lo,b:hi,q:local(q,load,factor),slope:[0,0,0]});
+            }
+            loadBasis = 'audited-native-input';
+          } else lines.push({a,b,q:local(authored,load,factor),slope:[0,0,0]});
         }
       } else return fail();
     }
@@ -177,7 +188,13 @@ export function nativeForceRecovery(model: RecoveryModel, data: ModelRecord, mem
   for(const row of rows) {
     if(row.side==='continuous' && points.some(p=>p.x===row.positionM)) return fail();
     const expected=at(Math.min(length,row.positionM),row.side==='left'?'left':'right');
-    if(keys.some(key=>Math.abs(expected[key]-Number(row.components[key]))>Math.max(1e-5,1e-5*Math.abs(Number(row.components[key]))))) return fail();
+    for (const key of keys) {
+      const actual = Number(row.components[key]), tolerance = Math.max(1e-5, 1e-5*Math.abs(actual));
+      if (Math.abs(expected[key]-actual) > tolerance) return fail({ code: 'NATIVE_STATION_EQUILIBRIUM_MISMATCH',
+        memberId, positionM: row.positionM, side: row.side, component: key, nativeValue: actual,
+        recoveredValue: expected[key], absoluteDifference: Math.abs(expected[key]-actual), tolerance,
+        unit: ['T','My','Mz'].includes(key) ? 'kN.m' : 'kN' });
+    }
   }
   return {at,breakpoints:[...new Set([0,length,...(rigid ? [rigid.start, rigid.end] : []),...lines.flatMap(line=>[line.a,line.b]),...points.map(point=>point.x)])].sort((a,b)=>a-b),
     jumps:[...new Set(points.map(point=>point.x).filter(x=>x>0&&x<length))],
