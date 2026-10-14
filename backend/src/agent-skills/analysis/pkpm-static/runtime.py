@@ -201,7 +201,7 @@ def _assert_no_external_cycle(cycle_path: Path) -> None:
         raise RuntimeError("Another native PKPM batch is active; its configuration was not changed / 已有 PKPM 原生批处理运行，未修改其目录配置")
 
 
-def _run_jws_cycle(cycle_path: Path, work_dir: Path, timeout: int = 600, constraints=None, section_model=None, include_design=False, design_plan=None, release_model=None, settings_model=None) -> None:
+def _run_jws_cycle(cycle_path: Path, work_dir: Path, timeout: int = 600, constraints=None, section_model=None, include_design=False, design_plan=None, release_model=None, settings_model=None, rigid_model=None, load_mapping=None) -> None:
     """Run explicit native phases in the owned project; never select a shared directory.
 
     Even forcibly terminating the Python worker leaves the installation's
@@ -221,6 +221,8 @@ def _run_jws_cycle(cycle_path: Path, work_dir: Path, timeout: int = 600, constra
             design_options["release_model"] = release_model
         if settings_model is not None:
             design_options["settings_model"] = settings_model
+        if rigid_model is not None:
+            design_options.update(rigid_model=rigid_model, load_mapping=load_mapping)
         run_native_stages(cycle_path, work_dir, constraints, _terminate_cycle_tree, timeout,
                           section_model=section_model, include_design=include_design, **design_options)
     _verify_native_completion(work_dir, started_at)
@@ -696,6 +698,8 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     design_plan = compile_design_request(parameters.get("design"), source_model)
     projection = project_commercial_model(source_model, "pkpm")
     model_dict = projection["analysisModel"]
+    from native_rigid_offsets import material_plan as rigid_material_plan
+    material_plan = rigid_material_plan(model_dict)
     combination_id = parameters.get("loadCombinationId")
     if combination_id:
         definitions = [row for row in model_dict.get("load_combinations", []) if row.get("id") == combination_id]
@@ -727,9 +731,9 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
         # Detect material family before converter (converter needs it for grade setting)
         from pkpm_converter import _detect_material_family as _conv_detect_mat
         material_family = _conv_detect_mat(model_dict)
+        material_options = {"material_plan": material_plan} if material_plan is not None else {}
         jws_path, converter_mappings = convert_v2_to_jws(
-            model_dict, work_dir, project_name, material_family=material_family, design_plan=design_plan
-        )
+            model_dict, work_dir, project_name, material_family=material_family, design_plan=design_plan, **material_options)
         import json
         (work_dir / "source-model.json").write_text(json.dumps(source_model, ensure_ascii=False), encoding="utf-8")
         (work_dir / "model-projection.json").write_text(json.dumps(
@@ -750,7 +754,9 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     if any(beam_release_plan(row)["nativeCode"] != 1 for row in model_dict["elements"]):
         design_options["release_model"] = model_dict
     from native_settings import resolved_rigid_floor
-    if resolved_rigid_floor(model_dict) is True:
+    if material_plan is not None:
+        design_options.update(rigid_model=model_dict, load_mapping=converter_mappings["native_load_mapping"])
+    if resolved_rigid_floor(model_dict) is True or material_plan is not None:
         design_options["settings_model"] = model_dict
     if numeric_sections:
         _run_jws_cycle(cycle_path, work_dir, timeout=timeout,
@@ -765,9 +771,9 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     native_controls = converter_mappings.get("design_conditions", {}).get("analysis_control", {})
     effective_settings = verify_effective_settings(work_dir, native_controls)
     from native_materials import verify_solver_materials
-    if design_plan:
+    if design_plan or material_plan:
         from pkpm_native_design import verify_standard_materials
-        material_verification = verify_standard_materials(work_dir, model_dict, design_plan, cycle_path)
+        material_verification = verify_standard_materials(work_dir, model_dict, design_plan or material_plan, cycle_path)
     else:
         material_verification = verify_solver_materials(work_dir, converter_mappings.get("native_materials", {}))
     section_verification = verify_numeric_sections(work_dir, model_dict) if numeric_sections else None

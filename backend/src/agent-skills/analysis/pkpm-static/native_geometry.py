@@ -116,7 +116,7 @@ def _fortran_records(data):
     return records
 
 
-def bind_native_geometry(model, snapshot, artifacts):
+def bind_native_geometry(model, snapshot, artifacts, *, rigid_offsets=None):
     """Pure binding of API geometry plus complete solver evidence to V2 IDs."""
     floors = snapshot.get("floors", [])
     if not floors or [row["floor"] for row in floors] != list(range(1, len(floors) + 1)):
@@ -199,8 +199,14 @@ def bind_native_geometry(model, snapshot, artifacts):
             accepted_codes = (-1., 1.) if release["nativeCode"] == 1 else (release["nativeCode"],)
             if native["supportCode"] not in accepted_codes or control["hinges"] != release["hinges"]:
                 raise NativeGeometryUnavailable("Native member releases differ from the physical model")
-            if any(control["rigidEnds"]) or control["angle"] != 0:
+            if control["angle"] != 0 or (any(control["rigidEnds"]) and rigid_offsets is None):
                 raise NativeGeometryUnavailable("Solver introduced member rigid ends/rotation")
+            if rigid_offsets is not None and kind == "column":
+                offset = rigid_offsets["members"][member_id]
+                source_ids = offset["sourceNodeIds"]
+                top_bottom = [offset["endLengthM"], offset["startLengthM"]] if source_ids == ids else [offset["startLengthM"], offset["endLengthM"]]
+                if control["rigidEnds"] != [float(f"{value:.2f}") for value in top_bottom]:
+                    raise NativeGeometryUnavailable("Rigid-end solver report differs from exact native record / 刚域报告与原生精确记录不符")
             if member_id in native_members:
                 raise NativeGeometryUnavailable("Repeated native mapping for physical member")
             section_axis_evidence = None
@@ -310,6 +316,7 @@ def bind_native_geometry(model, snapshot, artifacts):
             "sourceStoryId": stories[0]["id"] if len(stories) == 1 else None,
             "constrainedComponents": ["ux", "uy", "rz"], "independentComponents": ["uz", "rx", "ry"]})
     return {"nodes": nodes, "members": members, "native_members": native_members, "supports": supports,
+            **({"rigidOffsets": rigid_offsets} if rigid_offsets is not None else {}),
             "native_result_keys": native_result_keys, "source": evidence,
             "diaphragms": {"passed": True, "method": "native-NODEINDEX-in-plane-MPC", "physicalSlabs": False,
                            "groups": diaphragm_groups}}
@@ -330,4 +337,8 @@ def read_native_geometry(jws_path, model, api=None):
         if row.split() and row.split()[0] == "DISP1_ZDY.SAT":
             artifacts["DISP1_ZDY.SAT"] = (jws_path.parent / "DISP1_ZDY.SAT").read_bytes()
     artifacts[jws_path.name] = jws_path.read_bytes()
-    return bind_native_geometry(model, snapshot, artifacts)
+    rigid = None
+    if (model.get("analysis_control") or {}).get("rigid_offsets") is True:
+        from native_rigid_offsets import verify_rigid_offsets
+        rigid = verify_rigid_offsets(jws_path.parent, model)
+    return bind_native_geometry(model, snapshot, artifacts, rigid_offsets=rigid)

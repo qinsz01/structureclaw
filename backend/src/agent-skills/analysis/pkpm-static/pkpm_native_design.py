@@ -83,8 +83,13 @@ def compile_design_request(request, source):
     if any(value is not None and value != {} for path, value in fields.items() if path not in consumed):
         reject("Unmapped explicit member/material design values / 构件或材料设计值尚未映射", "ENGINE_INPUT_UNSUPPORTED")
     if any((source.get("analysis_control") or {}).get(key) is not False for key in
-           ("rigid_offsets", "construction_stage", "p_delta")):
+           ("construction_stage", "p_delta")):
         reject("Native profile requires explicit linear bare-frame controls / 原生配置须明确线性裸杆设置", "ENGINE_INPUT_UNSUPPORTED")
+    if type((source.get("analysis_control") or {}).get("rigid_offsets")) is not bool:
+        reject("Native design requires explicit rigid-end setting / 原生设计须明确刚域设置", "ENGINE_INPUT_UNSUPPORTED")
+    if source["analysis_control"]["rigid_offsets"]:
+        from native_rigid_offsets import material_plan
+        material_plan(source)
     from native_settings import resolved_rigid_floor
     if type(resolved_rigid_floor(source)) is not bool:
         reject("Native design requires explicit diaphragm setting / 原生设计须明确楼板约束", "ENGINE_INPUT_UNSUPPORTED")
@@ -94,21 +99,12 @@ def compile_design_request(request, source):
     for section in source.get("sections", []):
         if pkpm_section_shape(section) is None:
             reject("Native design requires explicit physical section geometry / 原生设计须提供真实截面几何", "ENGINE_INPUT_UNSUPPORTED")
-    materials = {}
-    for material in source.get("materials", []):
-        grade = str(material.get("grade") or material.get("name") or "").upper()
-        profile = PROFILES.get(grade)
-        if profile is None:
-            reject("Native design material profile is not calibrated: " + grade + " / 材料原生配置尚未校准", "ENGINE_INPUT_UNSUPPORTED")
-        effective_g = material.get("G") or float(material.get("E", 0)) / (2 * (1 + float(material.get("nu", 0))))
-        if not math.isclose(float(material.get("E", 0)), profile["E"], rel_tol=1e-10) or not math.isclose(effective_g, profile["G"], rel_tol=1e-10):
-            reject(f"Native {grade} requires E={profile['E']} MPa, G={profile['G']} MPa; source model is unchanged / 原生材料刚度与源模型冲突，须显式修改模型", "ENGINE_INPUT_UNSUPPORTED")
+    materials = standard_material_plan(source)
+    for profile in materials.values():
         if request["code"] == "GB50017-2017" and profile["family"] != "steel":
             reject("Steel code cannot govern concrete / 钢规范不适用于混凝土")
         if mode == "required-reinforcement" and profile["family"] != "concrete":
             reject("Steel cannot request concrete reinforcement / 钢构件不能请求混凝土配筋")
-        materials[str(material["id"])] = {**profile, "grade": grade, "nativeMaterialId": None,
-            "sourceDensityKgM3": material.get("rho"), "selfWeightEnabled": False}
     if supplied and any(row["family"] != "concrete" for row in materials.values()):
         reject("Concrete reinforcement settings require concrete members / 钢筋参数只适用于混凝土")
     parameters = {}
@@ -131,6 +127,24 @@ def compile_design_request(request, source):
     return {"schema": "sclaw-pkpm-native-design-request/v1", "request": {**request, "mode": mode},
             "materials": materials, "parameters": parameters, "defaultPolicy": "adopt-and-read-back",
             "combinationScope": "software-automatic-design-combinations"}
+
+
+def standard_material_plan(source):
+    """One calibrated elastic grade map, independent of requesting design."""
+    def reject(message, code="ENGINE_INPUT_UNSUPPORTED"):
+        raise NativeDesignError(message, code)
+    materials = {}
+    for material in source.get("materials", []):
+        grade = str(material.get("grade") or material.get("name") or "").upper()
+        profile = PROFILES.get(grade)
+        if profile is None:
+            reject("Native design material profile is not calibrated: " + grade + " / 材料原生配置尚未校准", "ENGINE_INPUT_UNSUPPORTED")
+        effective_g = material.get("G") or float(material.get("E", 0)) / (2 * (1 + float(material.get("nu", 0))))
+        if not math.isclose(float(material.get("E", 0)), profile["E"], rel_tol=1e-10) or not math.isclose(effective_g, profile["G"], rel_tol=1e-10):
+            reject(f"Native {grade} requires E={profile['E']} MPa, G={profile['G']} MPa; source model is unchanged / 原生材料刚度与源模型冲突，须显式修改模型", "ENGINE_INPUT_UNSUPPORTED")
+        materials[str(material["id"])] = {**profile, "grade": grade, "nativeMaterialId": None,
+            "sourceDensityKgM3": material.get("rho"), "selfWeightEnabled": False}
+    return materials
 
 
 def write_design_parameters(model, plan):
@@ -292,7 +306,11 @@ def finish_native_design(result, source, plan, jws, member_map):
                     raise NativeDesignError("Native reinforcement was not calculated: " + identity + " / 原生配筋未实际计算")
                 if row["role"] == "beam" and len(values) != 9:
                     raise NativeDesignError("Native beam reinforcement stations differ / 原生梁配筋截面数不符")
+                positions = {station["nativeStationIndex"]: station["positionM"] for station in result.get("memberStations", {}).get(identity, [])}
+                if row["role"] == "beam" and (source.get("analysis_control") or {}).get("rigid_offsets") is True and set(positions) != set(range(9)):
+                    raise NativeDesignError("Native design stations lack physical positions / 原生设计截面缺少物理位置映射")
                 records.extend({"elementId": identity, "nativeStationIndex": index, "component": component,
+                    **({"positionM": positions[index]} if row["role"] == "beam" and index in positions else {}),
                     "requiredArea": value, "unit": "mm2", "scope": "required-reinforcement-not-installed-bars",
                     "nativeCombination": {"scope": "software-automatic-design-envelope"},
                     "source": {**origin, "method": method}} for index, value in enumerate(values))

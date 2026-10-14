@@ -988,6 +988,7 @@ def convert_v2_to_jws(
     project_name: str,
     material_family: str = "steel",
     design_plan: dict | None = None,
+    material_plan: dict | None = None,
 ) -> tuple[Path, dict[str, Any]]:
     """
     Convert V2 StructureModelV2 JSON dict to a PKPM JWS file.
@@ -1059,8 +1060,9 @@ def convert_v2_to_jws(
     # ---- Sections ----
     native_materials = {}
     for material in data.get("materials", []):
-        if design_plan is not None:
-            native_materials[str(material["id"])] = dict(design_plan["materials"][str(material["id"])])
+        profile = design_plan or material_plan
+        if profile is not None:
+            native_materials[str(material["id"])] = dict(profile["materials"][str(material["id"])])
         elif material.get("E") is not None:
             from native_materials import add_user_material
             native_materials[str(material["id"])] = add_user_material(APIPyInterface,

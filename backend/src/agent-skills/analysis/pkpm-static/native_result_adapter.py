@@ -28,7 +28,7 @@ def _publish_selected(result, selected):
 def complete_frame_results(model, result, jws_path):
     settings = result["summary"]["effectiveNativeSettings"]
     if settings.get("verified") is not True or any(settings.get("requested", {}).get(key) is not False
-            for key in ("rigid_offsets", "construction_stage", "p_delta")):
+            for key in ("construction_stage", "p_delta")):
         raise ValueError("Complete native frame results require verified linear bare-frame settings / 完整杆系结果需要原生线性无楼板设置核对")
     materials = result["summary"].get("nativeMaterialVerification", {})
     standard_profile = (materials.get("source") == "DATA.SAT; calibrated-standard-grade-profile"
@@ -49,6 +49,8 @@ def complete_frame_results(model, result, jws_path):
                "linearStatic": True, "effectiveSettingsVerified": True, "stationConventionsVerified": True}
     if section_verification:
         context["sectionCompilation"] = section_verification
+    if geometry.get("rigidOffsets"):
+        context["effectiveRigidOffsets"] = geometry["rigidOffsets"]
     if geometry.get("diaphragms", {}).get("groups"):
         context["effectiveConstraints"] = {"verified": True,
             "sourceFeaSha256": hashlib.sha256(Path(jws_path).with_name("DATA.SAT").read_bytes()).hexdigest(),
@@ -93,6 +95,9 @@ def complete_frame_results(model, result, jws_path):
             set(row) != {"ux", "uy", "uz", "rx", "ry", "rz"} for row in case["displacements"].values()):
             raise ValueError("Native physical six-DOF coverage is incomplete / 原生物理节点六自由度结果不完整")
         case["memberStations"] = map_frame_stations(model, geometry, case["memberStations"], active_loads=source.get("loads", []))
+        if geometry.get("rigidOffsets"):
+            from native_rigid_offsets import verify_case_equilibrium
+            geometry["rigidOffsets"].setdefault("loadVerification", {})[case_id] = verify_case_equilibrium(model, case, case_id)
         case["forces"] = {}
         for member_id, rows in case["memberStations"].items():
             components = {key: max((row["components"][key] for row in rows), key=abs)

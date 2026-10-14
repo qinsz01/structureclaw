@@ -76,7 +76,9 @@ def verify_weight_results(model, plan, cases, directory):
     for case_id, case in cases.items():
         for identity, weight in members.items():
             rows = case["memberStations"][identity]
-            if len(rows) < 2 or rows[0]["positionM"] != 0 or not math.isclose(rows[-1]["positionM"], weight["lengthM"], abs_tol=1e-8):
+            offset = case.get("nativeContext", {}).get("effectiveRigidOffsets", {}).get("members", {}).get(identity)
+            domain = [offset["elasticStartM"], offset["elasticEndM"]] if offset and offset["nativeStationDomain"] == "elastic-span" else [0., weight["lengthM"]]
+            if len(rows) < 2 or rows[0]["positionM"] != domain[0] or not math.isclose(rows[-1]["positionM"], domain[1], abs_tol=1e-8):
                 raise ValueError("Native selfweight cuts do not cover the physical member / 原生自重截面未覆盖完整构件")
             expected = list(weight["totalForceVectorKn"] if case_id == plan["loadCaseId"] else [0.] * 3)
             for load in source_cases[case_id].get("loads", []):

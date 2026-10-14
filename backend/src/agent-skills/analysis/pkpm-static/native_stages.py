@@ -9,9 +9,9 @@ import subprocess
 import time
 
 
-def run_native_stages(cycle_path, work_dir, constraints, terminate_tree, timeout=120, section_model=None, include_design=False, design_plan=None, release_model=None, settings_model=None):
+def run_native_stages(cycle_path, work_dir, constraints, terminate_tree, timeout=120, section_model=None, include_design=False, design_plan=None, release_model=None, settings_model=None, rigid_model=None, load_mapping=None):
     executable = cycle_path.parent.parent / "Ribbon" / "PKPMMain.exe"
-    if section_model is not None:
+    if section_model is not None or rigid_model is not None:
         solver = executable.parent / "SAT" / "SAT64" / "WINSAT-A_x64.exe"
         if hashlib.sha256(solver.read_bytes()).hexdigest() != "28adde523fe58491f96727da7250c21e6304e56aef3d0ba0330da9c57e3adaf3":
             raise RuntimeError("Native numeric-section compiler version is not verified / 原生数值截面编译版本尚未验收")
@@ -27,6 +27,8 @@ def run_native_stages(cycle_path, work_dir, constraints, terminate_tree, timeout
     evidence = {"executable": str(executable), "cwd": str(work_dir), "includeDesign": include_design,
                 "nativeFinalizationGeneratesDesignData": True,
                 "phases": [], "status": "failed", "sharedDirectoryConfigurationModified": False}
+    evidence["boundaryCompilation"] = []
+    rigidity = None
     started = time.time()
     try:
         for index, arguments in enumerate(phases):
@@ -64,12 +66,26 @@ def run_native_stages(cycle_path, work_dir, constraints, terminate_tree, timeout
                     raise RuntimeError("Native releases require one project / 原生端释放须绑定唯一工程")
                 evidence["memberReleaseReadback"] = reapply_member_releases(projects[0], release_model)
             if index == 0 and settings_model is not None:
-                from native_settings import reapply_diaphragm_settings
+                from native_settings import reapply_frame_settings
                 projects = list(work_dir.glob("*.JWS"))
                 if len(projects) != 1:
                     raise RuntimeError("Native diaphragm requires one project / 原生楼板约束须绑定唯一工程")
-                evidence["diaphragmReadback"] = reapply_diaphragm_settings(projects[0], settings_model)
-            if index == 1:
+                evidence["frameSettingsReadback"] = reapply_frame_settings(projects[0], settings_model)
+            if "-auto_data" in arguments and rigid_model is not None:
+                from native_rigid_offsets import read_rigid_offsets, recompile_loads
+                current = read_rigid_offsets(work_dir, rigid_model, input_file="SDATA.SAT")
+                if rigidity is None:
+                    rigidity = current
+                    projects = list(work_dir.glob("*.JWS"))
+                    if len(projects) != 1 or not load_mapping:
+                        raise ValueError("Rigid ends require one source load mapping / 刚域须绑定唯一源荷载映射")
+                    evidence["rigidLoadCompilation"] = recompile_loads(projects[0], rigid_model, load_mapping, rigidity)
+                    evidence["rigidOffsetInput"] = rigidity
+                    phases.insert(index + 1, ["-ANA", "-auto_data", "BACKGROUNDONLY"])
+                    continue
+                if current["members"] != rigidity["members"]:
+                    raise ValueError("Native rigid lengths changed after load compilation / 荷载编译后原生刚域长度改变")
+            if "-auto_data" in arguments:
                 # Compile only formal input before the solver is launched.
                 # The source definition explicitly requests all 3 rotations
                 # free; PM3DSAT's minimum-one numerical floor is not a V2

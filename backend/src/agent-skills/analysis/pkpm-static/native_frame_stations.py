@@ -86,12 +86,16 @@ def map_frame_stations(model, geometry, station_rows, *, active_loads=None):
             fraction = row["nativeStation"] / (count - 1)
             if not same_order:
                 fraction = 1 - fraction
+            rigid = geometry.get("rigidOffsets", {}).get("members", {}).get(member_id)
+            position = fraction * length
+            if rigid is not None and rigid["nativeStationDomain"] == "elastic-span":
+                position = rigid["elasticStartM"] + fraction * (rigid["elasticEndM"] - rigid["elasticStartM"])
             # SDK rows do not label which face of a point-load cut they use.
             # Keep the exact endpoints/other cuts, omit ambiguous interior rows.
-            if fraction not in (0, 1) and any(abs(fraction * length - position) <= 1e-9 for position in jumps):
+            if position not in (0, length) and any(abs(position - jump) <= 1e-9 for jump in jumps):
                 continue
-            out.append({"positionM": fraction * length,
-                        "side": "right" if fraction == 0 else "left" if fraction == 1 else "continuous",
+            out.append({"positionM": position,
+                        "side": "right" if position == 0 else "left" if position == length else "continuous",
                         "referenceFrame": "element-local", "localAxes": axes,
                         "components": {"N": local_force[0], "Vy": -local_force[1], "Vz": -local_force[2],
                                        "T": local_moment[0], "My": local_moment[1], "Mz": local_moment[2]},
@@ -100,5 +104,7 @@ def map_frame_stations(model, geometry, station_rows, *, active_loads=None):
                         "nativeEndpoints": native_ids,
                         "source": {"kind": "native-station-coordinate-mapping", "convention": "pkpm-2025r2.5-frame-stations/v1",
                                    "geometry": native["geometrySource"], "method": row.get("source")}})
+            if rigid is not None:
+                out[-1]["source"]["nativeStationDomain"] = rigid["nativeStationDomain"]
         mapped[member_id] = sorted(out, key=lambda row: row["positionM"])
     return mapped

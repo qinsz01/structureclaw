@@ -24,7 +24,10 @@ def resolved_rigid_floor(data):
 
 def validate_settings(data: dict) -> None:
     controls = data.get("analysis_control") or {}
-    unsupported = [key for key in CONTROLS if key not in ("self_weight", "rigid_floor") and controls.get(key) is not None and controls.get(key) is not False]
+    unsupported = [key for key in CONTROLS if key not in ("self_weight", "rigid_floor", "rigid_offsets") and controls.get(key) is not None and controls.get(key) is not False]
+    if controls.get("rigid_offsets") is True:
+        from native_rigid_offsets import material_plan
+        material_plan(data)
     from native_self_weight import compile_self_weight
     compile_self_weight(data)
     rigid = resolved_rigid_floor(data)
@@ -46,7 +49,8 @@ def control_parameters(controls: dict) -> tuple[dict[int, int], dict[int, float]
         integers[606] = int(controls["rigid_floor"])
         if controls["rigid_floor"]: integers[607] = 0  # No physical plate/out-of-plane slab stiffness.
     if controls.get("p_delta") is False: integers[608] = 0
-    if controls.get("rigid_offsets") is False: integers.update({609: 0, 641: 0})
+    if type(controls.get("rigid_offsets")) is bool:
+        integers.update({609: int(controls["rigid_offsets"]), 641: int(controls["rigid_offsets"])})
     if type(controls.get("self_weight")) is bool: doubles.update({801: 0.0, 803: 0.0})
     return integers, doubles
 
@@ -58,20 +62,23 @@ def clear_floor_slab(floor) -> None:
         floor.DeleteSlab(slab.GetID())
 
 
-def reapply_diaphragm_settings(jws, data):
-    """Keep a kinematic diaphragm without PMCAD-generated physical slabs."""
+def reapply_frame_settings(jws, data):
+    """Reapply requested kinematic/rigid-end controls after PMCAD automatic edits."""
     import APIPyInterface as api
     import json
     import os
     previous = Path.cwd()
-    if resolved_rigid_floor(data) is not True:
-        raise ValueError("Explicit rigid diaphragm request required / 须明确请求刚性楼板约束")
+    rigid_floor = resolved_rigid_floor(data) is True
+    rigid_ends = (data.get("analysis_control") or {}).get("rigid_offsets") is True
+    if not rigid_floor and not rigid_ends:
+        raise ValueError("Explicit diaphragm/rigid-end request required / 须明确请求楼板约束或刚域")
     try:
         model = api.Model()
         if not model.OpenPMModel(str(jws)):
             raise RuntimeError("Cannot open native diaphragm input / 无法打开原生楼板约束输入")
         para = model.GetProjectPara()
-        for key, value in ((606, 1), (607, 0)):
+        requested = ({606: 1, 607: 0} if rigid_floor else {}) | ({609: 1, 641: 1} if rigid_ends else {})
+        for key, value in requested.items():
             para.SetParaInt(key, value)
         model.SaveProjectPara()
         for index in range(1, model.GetNatualFloorCount() + 1):
@@ -82,8 +89,8 @@ def reapply_diaphragm_settings(jws, data):
         model.SavePMModel()
         if not model.OpenPMModel(str(jws)):
             raise RuntimeError("Cannot reopen native diaphragm input / 无法重开楼板约束输入")
-        readback = {str(key): model.GetProjectPara().GetPara_Int(key) for key in (606, 607)}
-        if readback != {"606": 1, "607": 0}:
+        readback = {str(key): model.GetProjectPara().GetPara_Int(key) for key in requested}
+        if readback != {str(key): value for key, value in requested.items()}:
             raise RuntimeError("Native diaphragm parameter readback differs / 原生楼板约束参数回读不符")
         floors = []
         for index in range(1, model.GetNatualFloorCount() + 1):
@@ -101,7 +108,7 @@ def reapply_diaphragm_settings(jws, data):
             floors.append({"floor": index, "thicknessMm": thickness, "physicalSlabCount": 0,
                            "zeroThicknessRegions": regions})
         result = {"verified": True, "readback": readback, "floors": floors, "source": "official-PMProjectPara-and-StandFloor-after-PMCAD"}
-        Path(jws).with_name("native-diaphragm-readback.json").write_text(json.dumps(result, indent=2), encoding="utf8")
+        Path(jws).with_name("native-frame-settings-readback.json").write_text(json.dumps(result, indent=2), encoding="utf8")
         return result
     finally:
         os.chdir(previous)
@@ -122,8 +129,10 @@ def verify_effective_settings(directory: Path, controls: dict) -> dict:
     }
     if controls.get("rigid_floor") is True:
         patterns["rigid_floor"] = [r"是否对全楼强制采用刚性楼板假定:\s*是"]
+    if controls.get("rigid_offsets") is True:
+        patterns["rigid_offsets"] = [r"梁端在梁柱重叠部分简化:\s*作为刚域", r"柱端在梁柱重叠部分简化:\s*作为刚域"]
     for name, value in requested.items():
-        if (name not in ("self_weight", "rigid_floor") and value is not False) or any(not re.search(pattern, text) for pattern in patterns[name]):
+        if (name not in ("self_weight", "rigid_floor", "rigid_offsets") and value is not False) or any(not re.search(pattern, text) for pattern in patterns[name]):
             raise RuntimeError(f"PKPM effective setting '{name}' differs from request / 原生有效设置与请求不符")
     if type(controls.get("rigid_floor")) is bool:
         geometry = (directory / "GOUJIAN.OUT").read_text(encoding="gb18030")
