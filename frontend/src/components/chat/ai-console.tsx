@@ -3498,6 +3498,10 @@ export function AIConsole() {
     }
   }, [conversationId, modelPreviewBaseTitle, parsedComposerModel, t])
 
+  const hasBoundAnalysisRun = Boolean(
+    (typeof latestResult?.analysis?.runId === 'string' && latestResult.analysis.runId)
+    || sessionRuntime.view?.analysis.runId
+  )
   const activeVisualizationSnapshot = useMemo(() => {
     if (visualizationSource === 'model') {
       if (!latestModelVisualizationSnapshot) {
@@ -3509,7 +3513,12 @@ export function AIConsole() {
       }
     }
     if (latestResultVisualizationSnapshot) {
-      return latestResultVisualizationSnapshot
+      if (hasBoundAnalysisRun) return latestResultVisualizationSnapshot
+      return { ...latestResultVisualizationSnapshot, statusMessage: [latestResultVisualizationSnapshot.statusMessage,
+        locale === 'zh'
+          ? '只读历史展示快照：未绑定当前分析运行，不能作为新校核或报告的计算依据。'
+          : 'Read-only historical display snapshot: not bound to a current analysis run; it cannot supply new checks or reports.',
+      ].filter(Boolean).join(' ') }
     }
     if (!latestModelVisualizationSnapshot) {
       return null
@@ -3518,7 +3527,7 @@ export function AIConsole() {
       ...latestModelVisualizationSnapshot,
       statusMessage: t('visualizationFallbackToModel'),
     }
-  }, [latestModelVisualizationSnapshot, latestResultVisualizationSnapshot, parsedComposerModelError, t, visualizationSource])
+  }, [hasBoundAnalysisRun, latestModelVisualizationSnapshot, latestResultVisualizationSnapshot, locale, parsedComposerModelError, t, visualizationSource])
 
   // Track which conversation IDs have been deleted locally to prevent auto-persist from restoring them
   const deletedConversationIdsRef = useRef<Set<string>>(new Set())
@@ -4066,7 +4075,7 @@ export function AIConsole() {
   }
 
   function openVisualization(preferredSource: 'model' | 'result') {
-    if (preferredSource === 'result' && conversationId) { setResultDialogOpen(false); setResultReviewOpen(true); return }
+    if (preferredSource === 'result' && conversationId && hasBoundAnalysisRun) { setResultDialogOpen(false); setResultReviewOpen(true); return }
     const snapshotTitle =
       mergedConversations.find((conversation) => conversation.id === conversationId)?.title
       || modelPreviewBaseTitle

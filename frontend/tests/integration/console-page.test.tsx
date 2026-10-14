@@ -934,6 +934,13 @@ describe('ConsolePage Integration (CONS-13)', () => {
         } as unknown as Response
       }
 
+      if (url.includes('/api/v1/chat/conversation/conv-resume/session') && !init?.method) {
+        return Response.json({ conversationId: 'conv-resume', busy: false, waitingForReply: false, question: null, options: [],
+          policy: null, usage: null, modelRevision: 0, modelPending: false,
+          analysis: { current: false, runId: null, resultKey: null, reason: 'ANALYSIS_REQUIRED' },
+          report: { current: false, runId: null }, jobs: [] })
+      }
+
       if (url.includes('/api/v1/chat/conversation/conv-resume') && !init?.method) {
         return {
           ok: true,
@@ -1519,6 +1526,17 @@ describe('ConsolePage Integration (CONS-13)', () => {
             { id: 'conv-top-round', title: 'Top round conversation', updatedAt: '2026-03-12T10:00:00.000Z' },
             { id: 'conv-active-round', title: 'Round conversation', updatedAt: '2026-03-12T09:00:00.000Z' },
           ]),
+        } as unknown as Response
+      }
+      if (url.includes('/api/v1/chat/conversation/conv-active-round/session') && !init?.method) {
+        return {
+          ok: true,
+          json: vi.fn().mockResolvedValue({
+            conversationId: 'conv-active-round', busy: false, waitingForReply: false,
+            question: null, options: [], policy: null, usage: null, modelRevision: 0, modelPending: false,
+            analysis: { current: false, runId: null, resultKey: null, reason: 'ANALYSIS_REQUIRED' },
+            report: { current: false, runId: null }, jobs: [],
+          }),
         } as unknown as Response
       }
       if (url.includes('/api/v1/chat/conversation/conv-active-round') && !init?.method) {
@@ -2973,7 +2991,8 @@ describe('ConsolePage Integration (CONS-13)', () => {
     expect(screen.getByText(/The current result is missing a model snapshot.|当前结果缺少模型快照。/)).toBeInTheDocument()
   })
 
-  it('restores a persisted visualization snapshot from conversation archive', async () => {
+  it.each(['en', 'zh'] as const)('restores a persisted visualization snapshot from conversation archive (%s)', async (locale) => {
+    window.localStorage.setItem(LOCALE_STORAGE_KEY, locale)
     window.localStorage.setItem(
       'structureclaw.console.conversations',
       JSON.stringify({
@@ -3043,6 +3062,46 @@ describe('ConsolePage Integration (CONS-13)', () => {
       expect(screen.getByText('Archived Beam')).toBeInTheDocument()
     })
     expect(screen.getByText('Archived Beam')).toBeInTheDocument()
+    expect(screen.getAllByText(/Read-only historical display snapshot|只读历史展示快照/).length).toBeGreaterThan(0)
+  })
+
+  it.each(['en', 'zh'] as const)('keeps bound analysis visualization in the authoritative result workspace (%s)', async (locale) => {
+    window.localStorage.setItem(LOCALE_STORAGE_KEY, locale)
+    const id = 'conv-bound-visual'
+    const bound = { ...sampleAnalysisResult, analysis: { ...sampleAnalysisResult.analysis, runId: 'bound-run', selectedResultKey: 'case:D' } }
+    const runtime = { conversationId: id, busy: false, waitingForReply: false, question: null, options: [], policy: null, usage: null,
+      modelRevision: 1, modelPending: false, analysis: { current: true, runId: 'bound-run', resultKey: 'case:D', reason: null },
+      report: { current: false, runId: null }, jobs: [] }
+    let queries = 0
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = new URL(String(input), API_BASE)
+      if (url.pathname === `/api/v1/agent/result-review/${id}`) {
+        queries++
+        return Response.json({ conversationId: id, revisionToken: 'bound-revision', currentRunId: 'bound-run', allowedTools: ['query_results'], runs: [{
+          runId: 'bound-run', current: true, selectedResultKey: 'case:D', analysisType: 'static', nodes: ['1', '2'], members: ['E1'],
+          results: [{ key: 'case:D', available: true, modes: [], times: [] }],
+        }] })
+      }
+      if (url.pathname === '/api/v1/agent/skills') return Response.json(mockSkills)
+      if (url.pathname === '/api/v1/analysis-engines') return Response.json({ engines: [] })
+      if (url.pathname === '/api/v1/chat/conversations') return Response.json([{ id, title: 'Bound Visual' }])
+      if (url.pathname === `/api/v1/chat/conversation/${id}/session`) return Response.json(runtime)
+      if (url.pathname === `/api/v1/chat/conversation/${id}/snapshot`) return Response.json({ success: true })
+      if (url.pathname === `/api/v1/chat/conversation/${id}`) return Response.json({ id, title: 'Bound Visual', session: { runtime },
+        messages: [{ id: 'bound-user', role: 'user', content: 'Read saved results' }, { id: 'bound-assistant', role: 'assistant', content: 'Ready' }],
+        snapshots: { latestResult: bound, resultSnapshot: archivedVisualizationSnapshot },
+      })
+      return mockConsoleSupportRequest(String(input)) ?? Response.json({})
+    })
+    await renderConsolePage()
+    fireEvent.click(await screen.findByRole('button', { name: /Bound Visual/ }))
+    await openResultsPanelTab(/Analysis|分析结果/)
+    fireEvent.click(await screen.findByRole('button', { name: /Open Visualization|打开可视化/ }))
+    const dialog = await screen.findByRole('dialog', { name: /Result workspace|结果工作区/ })
+    await waitFor(() => expect(within(dialog).getByRole('combobox', { name: /^Run$|^运行$/ })).toHaveValue('bound-run'))
+    expect(queries).toBe(1)
+    expect(screen.queryByText('Archived Beam')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Read-only historical display snapshot|只读历史展示快照/)).not.toBeInTheDocument()
   })
 
   it('clears stale archived structural snapshots instead of restoring them', async () => {
