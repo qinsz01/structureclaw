@@ -49,20 +49,6 @@ function writePkpmApiStub(stubsDir) {
     ].join('\n'),
   );
 
-  writeFile(path.join(stubsDir, 'structure_protocol', '__init__.py'), '');
-  writeFile(
-    path.join(stubsDir, 'structure_protocol', 'migrations.py'),
-    'def migrate_v1_to_v2(model): return model\n',
-  );
-  writeFile(
-    path.join(stubsDir, 'structure_protocol', 'structure_model_v2.py'),
-    [
-      'class StructureModelV2:',
-      '    def __init__(self, **data): self.data = data',
-      '    def model_dump(self, **kwargs): return dict(self.data)',
-    ].join('\n'),
-  );
-
   writeFile(
     path.join(stubsDir, 'contracts.py'),
     [
@@ -288,6 +274,7 @@ function runPkpmRuntime(model, options = {}) {
       `sys.path.insert(0, ${JSON.stringify(stubsDir)})`,
       `sys.path.insert(1, ${JSON.stringify(runtimeSupportDir)})`,
       `sys.path.insert(2, ${JSON.stringify(pkpmDir)})`,
+      `sys.path.insert(3, ${JSON.stringify(skillSharedPythonRoot)})`,
       'import runtime',
       'import APIPyInterface',
       'patch_calls = []',
@@ -386,7 +373,7 @@ function runPkpmRuntime(model, options = {}) {
           ...process.env,
           PYTHONIOENCODING: 'utf-8',
           PKPM_WORK_DIR: workDir,
-          PYTHONPATH: [stubsDir, runtimeSupportDir, pkpmDir, process.env.PYTHONPATH]
+          PYTHONPATH: [stubsDir, runtimeSupportDir, pkpmDir, skillSharedPythonRoot, process.env.PYTHONPATH]
             .filter(Boolean)
             .join(path.delimiter),
         },
@@ -427,6 +414,7 @@ function runPkpmResultExtraction() {
       `sys.path.insert(0, ${JSON.stringify(stubsDir)})`,
       `sys.path.insert(1, ${JSON.stringify(runtimeSupportDir)})`,
       `sys.path.insert(2, ${JSON.stringify(pkpmDir)})`,
+      `sys.path.insert(3, ${JSON.stringify(skillSharedPythonRoot)})`,
       'import runtime',
       'import APIPyInterface',
       'class Disp:',
