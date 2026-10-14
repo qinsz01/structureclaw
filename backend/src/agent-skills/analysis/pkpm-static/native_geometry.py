@@ -171,8 +171,6 @@ def bind_native_geometry(model, snapshot, artifacts):
                 raise NativeGeometryUnavailable("Unknown GetSeg layout")
             if any(segment[2:]):
                 raise NativeGeometryUnavailable("Native member offset/elevation/rotation is not calibrated")
-            if native["supportCode"] not in (-1., 1.):
-                raise NativeGeometryUnavailable("Native member release is not calibrated")
             plan = [floor["nodes"][str(tag)] for tag in native["planNodeIds"]]
             points = ([[plan[0][0] / 1000, plan[0][1] / 1000, bottom],
                        [plan[0][0] / 1000, plan[0][1] / 1000, bottom + height]] if kind == "column" else
@@ -185,8 +183,14 @@ def bind_native_geometry(model, snapshot, artifacts):
                 control = controls[(number, kind, report_id)]
             except KeyError as exc:
                 raise NativeGeometryUnavailable("API/report member has no exact physical endpoint binding") from exc
-            if any(control["hinges"] + control["rigidEnds"]) or control["angle"] != 0:
-                raise NativeGeometryUnavailable("Solver introduced member hinges/rigid ends/rotation")
+            from native_member_releases import beam_release_plan
+            source_element = next(row for row in model["elements"] if str(row["id"]) == member_id)
+            release = beam_release_plan(source_element, ids)
+            accepted_codes = (-1., 1.) if release["nativeCode"] == 1 else (release["nativeCode"],)
+            if native["supportCode"] not in accepted_codes or control["hinges"] != release["hinges"]:
+                raise NativeGeometryUnavailable("Native member releases differ from the physical model")
+            if any(control["rigidEnds"]) or control["angle"] != 0:
+                raise NativeGeometryUnavailable("Solver introduced member rigid ends/rotation")
             if member_id in native_members:
                 raise NativeGeometryUnavailable("Repeated native mapping for physical member")
             section_axis_evidence = None
@@ -203,7 +207,7 @@ def bind_native_geometry(model, snapshot, artifacts):
                       section_axis_evidence["sourceDimensionsMm"]["B"] != section_axis_evidence["sourceDimensionsMm"]["H"]):
                     raise NativeGeometryUnavailable("Non-square column requires native section-axis readback / 非方形柱须有原生截面轴读回")
             result = {"kind": kind, "angleDegrees": 0., "offsetsM": [0.] * 6,
-                      "releases": [False] * 12, "nativePmid": native["pmid"], "nativeFloor": number,
+                      "releases": release["releases"], "nativePmid": native["pmid"], "nativeFloor": number,
                       "nativeReportId": report_id, "nativeReportNodeIds": report_ids,
                       "geometrySource": {**evidence, "nativeFloor": number, "nativePmid": native["pmid"],
                                          "segment": segment, "supportCode": native["supportCode"], "solverControls": control}}

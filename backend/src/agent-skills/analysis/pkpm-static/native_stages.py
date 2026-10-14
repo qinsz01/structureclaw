@@ -9,7 +9,7 @@ import subprocess
 import time
 
 
-def run_native_stages(cycle_path, work_dir, constraints, terminate_tree, timeout=120, section_model=None, include_design=False, design_plan=None):
+def run_native_stages(cycle_path, work_dir, constraints, terminate_tree, timeout=120, section_model=None, include_design=False, design_plan=None, release_model=None):
     executable = cycle_path.parent.parent / "Ribbon" / "PKPMMain.exe"
     if section_model is not None:
         solver = executable.parent / "SAT" / "SAT64" / "WINSAT-A_x64.exe"
@@ -57,6 +57,12 @@ def run_native_stages(cycle_path, work_dir, constraints, terminate_tree, timeout
                 if not include_design or len(projects) != 1:
                     raise RuntimeError("Native design parameters require one explicit project / 原生设计参数须绑定唯一明确工程")
                 evidence["designParameterReadback"] = reapply_design_parameters(projects[0], design_plan)
+            if index == 0 and release_model is not None:
+                from native_member_releases import reapply_member_releases
+                projects = list(work_dir.glob("*.JWS"))
+                if len(projects) != 1:
+                    raise RuntimeError("Native releases require one project / 原生端释放须绑定唯一工程")
+                evidence["memberReleaseReadback"] = reapply_member_releases(projects[0], release_model)
             if index == 1:
                 # Compile only formal input before the solver is launched.
                 # The source definition explicitly requests all 3 rotations

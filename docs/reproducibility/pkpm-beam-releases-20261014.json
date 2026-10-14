@@ -1,0 +1,96 @@
+{
+  "scope": "official-beam-release-transport-and-effective-readback",
+  "notIndependentSolverCertification": true,
+  "status": "passed",
+  "sourceRun": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-115909-01cd5f64",
+  "supported": [
+    "beam i paired ry/rz",
+    "beam j paired ry/rz",
+    "beam both paired ry/rz",
+    "physical endpoint reversal"
+  ],
+  "notCovered": [
+    "column member releases",
+    "single bending rotation",
+    "torsion release",
+    "translation release"
+  ],
+  "releaseReadback": {
+    "verified": true,
+    "source": "official-SpecialBeam-after-PMCAD",
+    "members": {
+      "beam0": {
+        "nativeEndpointIds": [
+          "t0",
+          "t1"
+        ],
+        "supportCode": 4.0,
+        "hinges": [
+          1,
+          1
+        ]
+      },
+      "beam1": {
+        "nativeEndpointIds": [
+          "t2",
+          "t5"
+        ],
+        "supportCode": 2.0,
+        "hinges": [
+          1,
+          0
+        ]
+      },
+      "beam2": {
+        "nativeEndpointIds": [
+          "t3",
+          "t4"
+        ],
+        "supportCode": 2.0,
+        "hinges": [
+          1,
+          0
+        ]
+      }
+    }
+  },
+  "files": [
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-115909-01cd5f64\\source-model.json",
+      "sha256": "d86ecd6282548851c3bbe1b48d8368516d6e6c63b6f9a59e15654fd582c91f82"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-115909-01cd5f64\\request.json",
+      "sha256": "d22bc3e7018e280f0877aca1c68429c04e328c7189a8a6d0c1594bc0f7098bd4"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-115909-01cd5f64\\result.json",
+      "sha256": "8d6e078276b05b38c0bb69eb43bc425d324bdf2a0818e7dbb8bbe080d9ee3b32"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-115909-01cd5f64\\acceptance.json",
+      "sha256": "2c522ed1de2eab68d9b205cad1f3374bb73ba9d6aa11dc1813addeae51894e62"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-115909-01cd5f64\\sc_c4e6d3fc\\native-member-release-readback.json",
+      "sha256": "09eec54187b025bf06b46ab47ade13a69fb80cf16058ed1b75ccc59a8171c18b"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-115909-01cd5f64\\sc_c4e6d3fc\\native-stage-evidence.json",
+      "sha256": "85cb9db4624fe42a3d529cd9fb54bc04b0d4f85fee5445774bcb0780669cf00e"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-115909-01cd5f64\\sc_c4e6d3fc\\GOUJIAN.OUT",
+      "sha256": "20de4b52e7d4d2d6d5bddb79bdfa9dd686c95357db48972ccefcfd3f314e06f5"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-115909-01cd5f64\\sc_c4e6d3fc\\WNL1.OUT",
+      "sha256": "ccd520b62083e776c17a111bc44bb2798b9f06e6800e02aa949b149747a30618"
+    }
+  ],
+  "earlierDiagnostic": {
+    "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-115242-77c7fac9",
+    "status": "failed-physical-endpoint-reversal",
+    "preservedUnchanged": true
+  }
+}

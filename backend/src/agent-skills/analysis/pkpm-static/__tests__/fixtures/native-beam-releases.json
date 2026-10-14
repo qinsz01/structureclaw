@@ -1,0 +1,1213 @@
+{
+  "sourceRun": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-115909-01cd5f64",
+  "scope": "official-beam-release-transport-and-effective-readback",
+  "model": {
+    "schema_version": "2.2.0",
+    "unit_system": "SI",
+    "coordinate_system": {
+      "dimension": "3d",
+      "plane": null,
+      "semantics": "global-z-up",
+      "version": 1,
+      "dof_order": [
+        "ux",
+        "uy",
+        "uz",
+        "rx",
+        "ry",
+        "rz"
+      ]
+    },
+    "nodes": [
+      {
+        "id": "b0",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "t0",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 3.0,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "b1",
+        "x": 3.0,
+        "y": 0.0,
+        "z": 0.0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "t1",
+        "x": 3.0,
+        "y": 0.0,
+        "z": 3.0,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "b2",
+        "x": 6.0,
+        "y": 0.0,
+        "z": 0.0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "t2",
+        "x": 6.0,
+        "y": 0.0,
+        "z": 3.0,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "b3",
+        "x": 0.0,
+        "y": 3.0,
+        "z": 0.0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "t3",
+        "x": 0.0,
+        "y": 3.0,
+        "z": 3.0,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "b4",
+        "x": 3.0,
+        "y": 3.0,
+        "z": 0.0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "t4",
+        "x": 3.0,
+        "y": 3.0,
+        "z": 3.0,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "b5",
+        "x": 6.0,
+        "y": 3.0,
+        "z": 0.0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "t5",
+        "x": 6.0,
+        "y": 3.0,
+        "z": 3.0,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      }
+    ],
+    "elements": [
+      {
+        "id": "c0",
+        "type": "column",
+        "nodes": [
+          "b0",
+          "t0"
+        ],
+        "material": "M1",
+        "section": "S",
+        "rotation_angle": 0.0
+      },
+      {
+        "id": "c1",
+        "type": "column",
+        "nodes": [
+          "b1",
+          "t1"
+        ],
+        "material": "M1",
+        "section": "S",
+        "rotation_angle": 0.0
+      },
+      {
+        "id": "c2",
+        "type": "column",
+        "nodes": [
+          "b2",
+          "t2"
+        ],
+        "material": "M1",
+        "section": "S",
+        "rotation_angle": 0.0
+      },
+      {
+        "id": "c3",
+        "type": "column",
+        "nodes": [
+          "b3",
+          "t3"
+        ],
+        "material": "M1",
+        "section": "S",
+        "rotation_angle": 0.0
+      },
+      {
+        "id": "c4",
+        "type": "column",
+        "nodes": [
+          "b4",
+          "t4"
+        ],
+        "material": "M1",
+        "section": "S",
+        "rotation_angle": 0.0
+      },
+      {
+        "id": "c5",
+        "type": "column",
+        "nodes": [
+          "b5",
+          "t5"
+        ],
+        "material": "M1",
+        "section": "S",
+        "rotation_angle": 0.0
+      },
+      {
+        "id": "beam0",
+        "type": "beam",
+        "nodes": [
+          "t0",
+          "t1"
+        ],
+        "material": "M1",
+        "section": "S",
+        "releases": {
+          "i": {
+            "ry": true,
+            "rz": true
+          },
+          "j": {
+            "ry": true,
+            "rz": true
+          }
+        }
+      },
+      {
+        "id": "beam1",
+        "type": "beam",
+        "nodes": [
+          "t2",
+          "t5"
+        ],
+        "material": "M1",
+        "section": "S",
+        "releases": {
+          "i": {
+            "ry": true,
+            "rz": true
+          }
+        }
+      },
+      {
+        "id": "beam2",
+        "type": "beam",
+        "nodes": [
+          "t4",
+          "t3"
+        ],
+        "material": "M1",
+        "section": "S",
+        "releases": {
+          "j": {
+            "ry": true,
+            "rz": true
+          }
+        }
+      }
+    ],
+    "materials": [
+      {
+        "id": "M1",
+        "name": "C35",
+        "type": "concrete",
+        "category": "concrete",
+        "grade": "C35",
+        "E": 31500.0,
+        "G": 12600.0,
+        "nu": 0.25,
+        "rho": 2500.0
+      }
+    ],
+    "sections": [
+      {
+        "id": "S",
+        "type": "rectangular",
+        "shape": {
+          "kind": "rectangular",
+          "B": 400,
+          "H": 400
+        }
+      }
+    ],
+    "stories": [
+      {
+        "id": "s1",
+        "elevation": 0.0,
+        "height": 3.0,
+        "rigid_diaphragm": false
+      }
+    ],
+    "load_cases": [
+      {
+        "id": "D",
+        "type": "dead",
+        "loads": [
+          {
+            "id": "p0",
+            "type": "nodal",
+            "node": "t0",
+            "fx": 10.0,
+            "reference_frame": "global"
+          },
+          {
+            "id": "p1",
+            "type": "nodal",
+            "node": "t1",
+            "fy": 10.0,
+            "reference_frame": "global"
+          },
+          {
+            "id": "p2",
+            "type": "nodal",
+            "node": "t2",
+            "fz": -10.0,
+            "reference_frame": "global"
+          },
+          {
+            "id": "p3",
+            "type": "nodal",
+            "node": "t3",
+            "mx": 10.0,
+            "reference_frame": "global"
+          },
+          {
+            "id": "p4",
+            "type": "nodal",
+            "node": "t4",
+            "my": 10.0,
+            "reference_frame": "global"
+          },
+          {
+            "id": "p5",
+            "type": "nodal",
+            "node": "t5",
+            "mz": 10.0,
+            "reference_frame": "global"
+          },
+          {
+            "id": "q-beam0",
+            "type": "distributed",
+            "element": "beam0",
+            "wz": -8.0,
+            "reference_frame": "global"
+          },
+          {
+            "id": "q-beam1",
+            "type": "distributed",
+            "element": "beam1",
+            "wz": -8.0,
+            "reference_frame": "global"
+          },
+          {
+            "id": "q-beam2",
+            "type": "distributed",
+            "element": "beam2",
+            "wz": -8.0,
+            "reference_frame": "global"
+          }
+        ]
+      }
+    ],
+    "load_combinations": [],
+    "analysis_control": {
+      "self_weight": false,
+      "rigid_floor": false,
+      "p_delta": false,
+      "rigid_offsets": false,
+      "construction_stage": false
+    },
+    "metadata": {
+      "capabilityProxy": {
+        "kind": "native-C30-design-and-elastic-profile",
+        "notBenchmarkScoringTruth": true
+      },
+      "elementReferenceVectors": {
+        "c0": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "c1": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "c2": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "c3": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "c4": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "c5": [
+          1.0,
+          0.0,
+          0.0
+        ]
+      }
+    }
+  },
+  "snapshot": {
+    "schema": "pkpm-api-frame-geometry/v1",
+    "floors": [
+      {
+        "floor": 1,
+        "standardFloor": 1,
+        "bottomM": 0.0,
+        "heightMm": 3000.0,
+        "nodes": {
+          "1008": [
+            0.0,
+            0.0
+          ],
+          "1009": [
+            3000.0,
+            0.0
+          ],
+          "1010": [
+            6000.0,
+            0.0
+          ],
+          "1011": [
+            0.0,
+            3000.0
+          ],
+          "1012": [
+            3000.0,
+            3000.0
+          ],
+          "1013": [
+            6000.0,
+            3000.0
+          ]
+        },
+        "members": [
+          {
+            "pmid": 1014,
+            "kind": "column",
+            "segment": [
+              1008,
+              1,
+              0,
+              0,
+              0,
+              0.0
+            ],
+            "planNodeIds": [
+              1008
+            ],
+            "supportCode": -1.0,
+            "sectionDimensionsMm": {
+              "kind": 1,
+              "B": 400,
+              "H": 400
+            }
+          },
+          {
+            "pmid": 1015,
+            "kind": "column",
+            "segment": [
+              1009,
+              1,
+              0,
+              0,
+              0,
+              0.0
+            ],
+            "planNodeIds": [
+              1009
+            ],
+            "supportCode": -1.0,
+            "sectionDimensionsMm": {
+              "kind": 1,
+              "B": 400,
+              "H": 400
+            }
+          },
+          {
+            "pmid": 1016,
+            "kind": "column",
+            "segment": [
+              1010,
+              1,
+              0,
+              0,
+              0,
+              0.0
+            ],
+            "planNodeIds": [
+              1010
+            ],
+            "supportCode": -1.0,
+            "sectionDimensionsMm": {
+              "kind": 1,
+              "B": 400,
+              "H": 400
+            }
+          },
+          {
+            "pmid": 1017,
+            "kind": "column",
+            "segment": [
+              1011,
+              1,
+              0,
+              0,
+              0,
+              0.0
+            ],
+            "planNodeIds": [
+              1011
+            ],
+            "supportCode": -1.0,
+            "sectionDimensionsMm": {
+              "kind": 1,
+              "B": 400,
+              "H": 400
+            }
+          },
+          {
+            "pmid": 1018,
+            "kind": "column",
+            "segment": [
+              1012,
+              1,
+              0,
+              0,
+              0,
+              0.0
+            ],
+            "planNodeIds": [
+              1012
+            ],
+            "supportCode": -1.0,
+            "sectionDimensionsMm": {
+              "kind": 1,
+              "B": 400,
+              "H": 400
+            }
+          },
+          {
+            "pmid": 1019,
+            "kind": "column",
+            "segment": [
+              1013,
+              1,
+              0,
+              0,
+              0,
+              0.0
+            ],
+            "planNodeIds": [
+              1013
+            ],
+            "supportCode": -1.0,
+            "sectionDimensionsMm": {
+              "kind": 1,
+              "B": 400,
+              "H": 400
+            }
+          },
+          {
+            "pmid": 1022,
+            "kind": "beam",
+            "segment": [
+              1020,
+              1,
+              0,
+              0,
+              0,
+              0.0
+            ],
+            "planNodeIds": [
+              1008,
+              1009
+            ],
+            "supportCode": 4.0
+          },
+          {
+            "pmid": 1025,
+            "kind": "beam",
+            "segment": [
+              1023,
+              1,
+              0,
+              0,
+              0,
+              0.0
+            ],
+            "planNodeIds": [
+              1010,
+              1013
+            ],
+            "supportCode": 2.0
+          },
+          {
+            "pmid": 1028,
+            "kind": "beam",
+            "segment": [
+              1026,
+              1,
+              0,
+              0,
+              0,
+              0.0
+            ],
+            "planNodeIds": [
+              1011,
+              1012
+            ],
+            "supportCode": 2.0
+          }
+        ]
+      }
+    ]
+  },
+  "files": {
+    "MESH.SAT": "AAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/////AAAAAAAAAAAAAEBAAAAAAP////8AAAAAAABAQAAAAAAAAAAA/////wAAAAAAAEBAAABAQAAAAAD/////AAAAAAAAwEAAAAAAAAAAAP////8AAAAAAADAQAAAQEAAAAAA/////wAAAAAAAAAAAAAAAAAAQEBkAAAAAAAAAAAAAAAAAEBAAABAQGQAAAAAAAAAAABAQAAAAAAAAEBAZAAAAAAAAAAAAEBAAABAQAAAQEBkAAAAAAAAAAAAwEAAAAAAAABAQGQAAAAAAAAAAADAQAAAQEAAAEBAZAAAAAAAAAA=",
+    "GOUJIAN.OUT": "Ly8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vDQovICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIC8NCi8gICAgICAgICAgICAgICAgICAgICAgIFNQQVNfU0FUV0W92MPm0+u5ubz+0KO21M7EvP4gICAgICAgICAgICAgICAgICAgICAgLw0KLyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAvDQovLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8NCg0KKioqKioqKioqKioqKioqKioqKioqKiq92MPm0MXPoioqKioqKioqKioqKioqKioqKioqKg0KILHgusUgICAgIL3Yw+bA4NDNICAgICAgQiAgICAgICAgICBIICAgICAgICAgIFUgICAgICAgICAgVCAgICAgICAgICBEICAgICAgICAgIEYgICAgIFNURUVMX0dSQURFDQogICAxICAgICAgICAgIDEgICAgICAgIDQwMCAgICAgICAgNDAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMA0KICAgMiAgICAgICAgICAxICAgICAgICA0MDAgICAgICAgIDQwMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDANCg0KKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKg0KKiAgICAgICAgICAgICAgICAgtdogIDGy47m5vP7Qxc+iICAgICAgICAgICAgICAgICAgICAgKg0KKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKg0KDQogwbrX3Mr9PSAgICAzICAg1vnX3Mr9PSAgICA2ICAg1qezxdfcyv09ICAgIDAgICDHvdfcyv09ICAgIDAgICCw5dfcyv09ICAgIDANCiDBurHgusUgICAgy/66xSAgICC92MPmusUgICAgINeqvccgICAgssTBzyAgICDHv7bItci8tiAgICDG8LXjvcLQxc+iICAgINbVteO9wtDFz6IgICAgtfe3+SAgICDBrMG6ICAgINequ7vBuiAgIMPFyr241sG6ICAgusTE3MG6DQogICAgIDEgICAgICAxICAgICAgICAgMiAgICAgICAwLjAwMCAgICAxICAgICAgICAgMzUgICAgICAgICAgIDEgICAgICAgICAgICAgMSAgICAgICAgICAxICAgICAgICAwICAgICAgICAwICAgICAgICAwICAgICAgICAwDQogICAgIDIgICAgICAxICAgICAgICAgMiAgICAgICAwLjAwMCAgICAxICAgICAgICAgMzUgICAgICAgICAgIDEgICAgICAgICAgICAgMCAgICAgICAgICAxICAgICAgICAwICAgICAgICAwICAgICAgICAwICAgICAgICAwDQogICAgIDMgICAgICAxICAgICAgICAgMiAgICAgICAwLjAwMCAgICAxICAgICAgICAgMzUgICAgICAgICAgIDEgICAgICAgICAgICAgMCAgICAgICAgICAxICAgICAgICAwICAgICAgICAwICAgICAgICAwICAgICAgICAwDQoNCiDW+bHgusUgICAgy/66xSAgICC92MPmusUgICAgINeqvccgICAgssTBzyAgICDHv7bItci8tiAgICDG8LXjvcLQxc+iICAgINbVteO9wtDFz6IgICAgvcfW+SAgICC/8tan1vkgIMPFyr241tb5ICDX6brPvdjD5iAgICDJz7bLuNXT8iAgz8K2y7jV0/INCiAgICAgMSAgICAgIDEgICAgICAgICAxICAgICAgIDAuMDAwICAgIDEgICAgICAgICAzNSAgICAgICAgICAgMCAgICAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgIDAgICAgICAgIDAgICAgICAgIDAgICAgICAgICAgIDAuMDAgICAgICAwLjAwDQogICAgIDIgICAgICAxICAgICAgICAgMSAgICAgICAwLjAwMCAgICAxICAgICAgICAgMzUgICAgICAgICAgIDAgICAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAwICAgICAgICAwICAgICAgICAwICAgICAgICAgICAwLjAwICAgICAgMC4wMA0KICAgICAzICAgICAgMSAgICAgICAgIDEgICAgICAgMC4wMDAgICAgMSAgICAgICAgIDM1ICAgICAgICAgICAwICAgICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgMCAgICAgICAgMCAgICAgICAgMCAgICAgICAgICAgMC4wMCAgICAgIDAuMDANCiAgICAgNCAgICAgIDEgICAgICAgICAxICAgICAgIDAuMDAwICAgIDEgICAgICAgICAzNSAgICAgICAgICAgMCAgICAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgIDAgICAgICAgIDAgICAgICAgIDAgICAgICAgICAgIDAuMDAgICAgICAwLjAwDQogICAgIDUgICAgICAxICAgICAgICAgMSAgICAgICAwLjAwMCAgICAxICAgICAgICAgMzUgICAgICAgICAgIDAgICAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAwICAgICAgICAwICAgICAgICAwICAgICAgICAgICAwLjAwICAgICAgMC4wMA0KICAgICA2ICAgICAgMSAgICAgICAgIDEgICAgICAgMC4wMDAgICAgMSAgICAgICAgIDM1ICAgICAgICAgICAwICAgICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgMCAgICAgICAgMCAgICAgICAgMCAgICAgICAgICAgMC4wMCAgICAgIDAuMDANCg0KINans8Wx4LrFICDL/rrFICAgIL3Yw+a6xSAgICDXqr3HICAgILLEwc8gICAgx7+2yLXIvLYgICAgxvC1473C0MXPoiAgICDW1bXjvcLQxc+iDQoNCiDHvbHgusUgICAgy/66xSAgICAgILrxtsggICAgssTBzyAgx7+2yLXIvLYgICAgIEIxICAgICAgICAgICBIMSAgICAgICAgICAgIEIyICAgICAgICAgSDINCg0KILDlseC6xSAgICDL/rrFICAgICAguvG2yCAgICDEo8q9ICDHv7bItci8tg0K",
+    "NODEINDEX.SAT": "AADAQAAA4EAAAAAAAAAAQQAAAAAAABBBAAAAAAAAIEEAAAAAAAAwQQAAAAAAAEBBAAAAAA==",
+    "ConstraintNodeNo.SAT": "AwAAALE6NAEMAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+    "DISP1.SAT": "QAAAAAEAAAAAAAAABgAAAAYAAAAIAAAAB4CruwsAAAAtO0y8CwAAAC07TDwl7g28Je4NPACAO0UAAAAACAAAAAeAqztAAAAAkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC0YLj9A0JM+oA7qu94CTzx0fOe+B4Cru45VLT/Owog/oA7qu0zrTzwAvl6+nE4UvEqKMj6NPNm9LTtMvEqKMr54MNq9FLP+u5AAAABAAAAAAQAAAAAAAAAGAAAABgAAAAcAAAAAAAAABwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIA7RQAAAAAHAAAAAAAAAEAAAACQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkAAAAA==",
+    "WDISPGKNO.OUT": "RElTUDEuU0FUICBETCANCkRJU1AxLlNBVCAgTEwgDQo=",
+    "WNL1.OUT": "DQogIC8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLw0KICB8ILmry77D+7PGOiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwNCiAgfCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8DQogIHwgICAgICAgICAgICAgICAgICAgICAgICAgICBTQVRXRSDE2sGmyuSz9s7EvP4gICAgICAgICAgICAgICAgICAgICAgICAgICAgfA0KICB8ICAgICAgICAgICAgICAgICAgICAgICAgICBTQVRXRTIwMjVSMi41ICAgINbQzsSw5iAgICAgICAgICAgICAgICAgICAgICAgIHwNCiAgfCAgICAgICAgICAgICAgICAgICAgICAgICAoMjAyNcTqNNTCMjnI1TXKsTQyt9YpICAgICAgICAgICAgICAgICAgICAgICAgICB8DQogIHwgICAgICAgICAgICAgICAgICAgICAgICAgICAgzsS8/sP7OiBXTkwxLk9VVCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfA0KICB8ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwNCiAgfLmks8zD+7PGIDogICAgICAgICAgICAgICAgICAgICDJ6LzGyMsgOiAgICAgICAgICAgICAgvMbL48jVxto6MjAyNi8xMC8xNCB8DQogIHy5pLPMtPq6xSA6ICAgICAgICAgICAgICAgICAgICAg0KO6y8jLIDogICAgICAgICAgICAgILzGy+PKsbzkOjExOjU5OjM0ICAgfA0KICAvLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8NCiANCiAg16LS4qO6yPS05tTazt3D5rvuoaLO3cPm0amhos7dw+a70qGiz/u3wLO1usnU2Lmkv/ajrNXi0Km5pL/2tcSx6te8xNrBpr3hufvH67W9V05MKl9aRFkuT1VUzsS8/tbQsum/tA0KDQogICCy47rFOiAgIDENCg0KICAguaS/9rrFOiAgMSAtLSC649TY1/fTw8/CtcSx6te8xNrBpg0KICAguaS/9rrFOiAgMiAtLSC77tTY1/fTw8/CtcSx6te8xNrBpg0KICAguaS/9rrFOiAgMyAtLSC/vMLHu+7U2Mvmu/rX99PDyrHBuri6zeS+2LD8wue1xLHq17zE2sGmDQogICC5pL/2usU6ICA0IC0tIL+8wse77tTYy+a7+tf308PKscG61f3N5L7YsPzC57XEserXvMTawaYNCg0KDQoNCiAgILWlzrs6ICBtLCBrTiwgS24ubSC6zSBSYWSjqLuhtsijqQ0KDQoNCiDW+cTawabK5LP2o7oNCiBpQ2FzZSAgICAgICAgICAgOiC5pL/2usUNCiBTaGVhci1Yo6xTaGVhci1ZOiBYo6xZILe9z/K1xLXXsr+89MGmDQogQXhpYWwgICAgICAgICAgIDog1uHBpg0KIE14LUJ0baOsTXktQnRtICA6IFijrFkgt73P8rXEtdeyv83kvtgNCiBNeC1Ub3CjrE15LVRvcCAgOiBYo6xZILe9z/K1xLalsr/N5L7YDQogTi1DICAgICAgICAgICAgIDog1vm1pdSqusUNCiBOb2RlLWmjrE5vZGUtaiAgOiDJz6Osz8K92rXjusUNCiBETKOsQW5nbGUgICAgICAgOiDW+bOktsijrLK81sO9x7bIDQoNCiAoaUNhc2UpICBTaGVhci1YICAgU2hlYXItWSAgICAgQXhpYWwgICAgTXgtQnRtICAgIE15LUJ0bSAgICBNeC1Ub3AgICAgTXktVG9wDQogLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tDQogTi1DID0gICAxICBOb2RlLWk9ICAgICA3LCAgTm9kZS1qPSAgICAgMSwgIERMPSAzLjAwMChtKSwgICBBbmdsZT0gICAwLjAwMA0KICggMSkgICAgICAtNS4wICAgICAgLTAuMCAgICAgLTEyLjAgICAgICAgNC4zICAgICAtMTUuMCAgICAgIC00LjMgICAgICAgMC4wDQogKCAyKSAgICAgICAwLjAgICAgICAgMC4wICAgICAgIDAuMCAgICAgICAwLjAgICAgICAgMC4wICAgICAgIDAuMCAgICAgICAwLjANCiAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCiBOLUMgPSAgIDIgIE5vZGUtaT0gICAgIDksICBOb2RlLWo9ICAgICAzLCAgREw9IDMuMDAwKG0pLCAgIEFuZ2xlPSAgIDAuMDAwDQogKCAxKSAgICAgIC01LjAgICAgIC0xMC4wICAgICAtMTIuMCAgICAgIDI1LjcgICAgIC0xNS4wICAgICAgIDQuMyAgICAgIC0wLjANCiAoIDIpICAgICAgIDAuMCAgICAgICAwLjAgICAgICAgMC4wICAgICAgIDAuMCAgICAgICAwLjAgICAgICAgMC4wICAgICAgIDAuMA0KIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0KIE4tQyA9ICAgMyAgTm9kZS1pPSAgICAxMSwgIE5vZGUtaj0gICAgIDUsICBETD0gMy4wMDAobSksICAgQW5nbGU9ICAgMC4wMDANCiAoIDEpICAgICAgLTIuMiAgICAgICAwLjggICAgIC0yMC45ICAgICAgLTIuMyAgICAgIC00LjggICAgICAgMC4wICAgICAgIDEuOQ0KICggMikgICAgICAgMC4wICAgICAgIDAuMCAgICAgICAwLjAgICAgICAgMC4wICAgICAgIDAuMCAgICAgICAwLjAgICAgICAgMC4wDQogLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tDQogTi1DID0gICA0ICBOb2RlLWk9ICAgICA4LCAgTm9kZS1qPSAgICAgMiwgIERMPSAzLjAwMChtKSwgICBBbmdsZT0gICAwLjAwMA0KICggMSkgICAgICAtMC4xICAgICAgLTAuMyAgICAgIC04LjggICAgICAtNi40ICAgICAgLTAuMyAgICAgICA3LjQgICAgICAgMC4wDQogKCAyKSAgICAgICAwLjAgICAgICAgMC4wICAgICAgIDAuMCAgICAgICAwLjAgICAgICAgMC4wICAgICAgIDAuMCAgICAgICAwLjANCiAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCiBOLUMgPSAgIDUgIE5vZGUtaT0gICAgMTAsICBOb2RlLWo9ICAgICA0LCAgREw9IDMuMDAwKG0pLCAgIEFuZ2xlPSAgIDAuMDAwDQogKCAxKSAgICAgICAwLjEgICAgICAgMC4zICAgICAtMTUuMiAgICAgIC0zLjYgICAgICAtMC4xICAgICAgIDIuNiAgICAgIC0wLjQNCiAoIDIpICAgICAgIDAuMCAgICAgICAwLjAgICAgICAgMC4wICAgICAgIDAuMCAgICAgICAwLjAgICAgICAgMC4wICAgICAgIDAuMA0KIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0KIE4tQyA9ICAgNiAgTm9kZS1pPSAgICAxMiwgIE5vZGUtaj0gICAgIDYsICBETD0gMy4wMDAobSksICAgQW5nbGU9ICAgMC4wMDANCiAoIDEpICAgICAgIDIuMiAgICAgIC0wLjggICAgIC0xMy4xICAgICAgLTAuOCAgICAgICA0LjggICAgICAgMy4yICAgICAgLTEuOQ0KICggMikgICAgICAgMC4wICAgICAgIDAuMCAgICAgICAwLjAgICAgICAgMC4wICAgICAgIDAuMCAgICAgICAwLjAgICAgICAgMC4wDQogLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tDQoNCiDBusTawabK5LP2o7oNCiBpQ2FzZSAgIDoguaS/9rrFDQogVm1heCAgICA6IMG61vfGvcPmxNq4973Yw+bJz7XEvPTBptfutPPWtQ0KIE5tYXggICAgOiDButb3xr3D5sTauPe92MPmyc+1xNbhwabX7rTz1rUNCiBUbWF4ICAgIDogwbrW98a9w+bE2rj3vdjD5snPtcTFpL7Y1+6089a1DQogTXlpo6xNeWo6IMG61vfGvcPmzeIgSaOsSiDBvbbLtcTN5L7YDQogVnltYXggICA6IMG61vfGvcPmzeK1xNfutPO89MGmDQogTi1CICAgICA6IMG6taXUqrrFDQogREwgICAgICA6IMG6s6S2yA0KIE5vZGUtaaOsTm9kZS1qOiDButfz09K92rXjusUNCiBNLWkoaT1Jo6wxo6wyo6wuLi6jrDejrEopOiDBurTT1/O1vdPSIDggtci31r3Yw+bJz7XEw+bE2s3kvtgNCiBWLWkoaT1Jo6wxo6wyo6wuLi6jrDejrEopOiDBurTT1/O1vdPSIDggtci31r3Yw+bJz7XEw+bE2rz0waYNCiBNLWkoaT1Jo6wxo6wyo6wuLi6jrDejrEopOiDBurTT1/O1vdPSIDggtci31r3Yw+bJz7XEw+bN4s3kvtgNCiBWLWkoaT1Jo6wxo6wyo6wuLi6jrDejrEopOiDBurTT1/O1vdPSIDggtci31r3Yw+bJz7XEw+bN4rz0waYNCg0KICDLrsa9waa5pL/2ICi12NXwwaa6zbfnusnU2CkNCiAoaUNhc2UpIE0tSSAgICAgIE0tSiAgICAgIFZtYXggICAgIE5tYXggICAgIFRtYXggICAgIE15aSAgICAgIE15aiAgICAgVnltYXgNCg0KICDK+s/ywaYNCiAoaUNhc2UpIE0tSSAgICAgIE0tMSAgICAgIE0tMiAgICAgIE0tMyAgICAgIE0tNCAgICAgIE0tNSAgICAgIE0tNiAgICAgIE0tNyAgICAgIE0tSiAgICAgIE5tYXgNCiAgICAgICAgIFYtaSAgICAgIFYtMSAgICAgIFYtMiAgICAgIFYtMyAgICAgIFYtNCAgICAgIFYtNSAgICAgIFYtNiAgICAgIFYtNyAgICAgIFYtaiAgICAgIFRtYXgNCiAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCiBOLUIgPSAgIDEgIChOb2RlLWk9ICAgICA3LCAgTm9kZS1qPSAgICAgOSkgICBETD0gICAzLjAwMChtKQ0KKCAxKSAgICAgIDAuMCAgICAgIDMuOSAgICAgIDYuOCAgICAgIDguNCAgICAgIDkuMCAgICAgIDguNCAgICAgIDYuOCAgICAgIDMuOSAgICAgIDAuMCAgICAgLTUuMA0KICAgICAgICAgMTIuMCAgICAgIDkuMCAgICAgIDYuMCAgICAgIDMuMCAgICAgIDAuMCAgICAgLTMuMCAgICAgLTYuMCAgICAgLTkuMCAgICAtMTIuMCAgICAgLTQuMw0KICAgICAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMA0KICAgICAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMA0KKCAyKSAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMA0KICAgICAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMA0KICAgICAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMA0KICAgICAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMA0KKCAzKSAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMA0KICAgICAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMA0KKCA0KSAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMA0KICAgICAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMCAgICAgIDAuMA0KIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0KIE4tQiA9ICAgMiAgKE5vZGUtaT0gICAgMTEsICBOb2RlLWo9ICAgIDEyKSAgIERMPSAgIDMuMDAwKG0pDQooIDEpICAgICAgMC4wICAgICAgMy41ICAgICAgNi4wICAgICAgNy4yICAgICAgNy40ICAgICAgNi41ICAgICAgNC40ICAgICAgMS4yICAgICAtMy4yICAgICAtMC44DQogICAgICAgICAxMC45ICAgICAgNy45ICAgICAgNC45ICAgICAgMS45ICAgICAtMS4xICAgICAtNC4xICAgICAtNy4xICAgIC0xMC4xICAgIC0xMy4xICAgICAtMS45DQogICAgICAgICAgMC4wICAgICAtMC44ICAgICAtMS43ICAgICAtMi41ICAgICAtMy40ICAgICAtNC4yICAgICAtNS4wICAgICAtNS45ICAgICAtNi43DQogICAgICAgICAgMi4yICAgICAgMi4yICAgICAgMi4yICAgICAgMi4yICAgICAgMi4yICAgICAgMi4yICAgICAgMi4yICAgICAgMi4yICAgICAgMi4yDQooIDIpICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wDQogICAgICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wDQogICAgICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wDQogICAgICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wDQooIDMpICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wDQogICAgICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wDQooIDQpICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wDQogICAgICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wICAgICAgMC4wDQogLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tDQogTi1CID0gICAzICAoTm9kZS1pPSAgICAgOCwgIE5vZGUtaj0gICAgMTApICAgREw9ICAgMy4wMDAobSkNCiggMSkgICAgICAwLjAgICAgICAyLjcgICAgICA0LjMgICAgICA0LjggICAgICA0LjIgICAgICAyLjQgICAgIC0wLjUgICAgIC00LjUgICAgIC05LjYgICAgICAwLjENCiAgICAgICAgICA4LjggICAgICA1LjggICAgICAyLjggICAgIC0wLjIgICAgIC0zLjIgICAgIC02LjIgICAgIC05LjIgICAgLTEyLjIgICAgLTE1LjIgICAgIC0yLjYNCiAgICAgICAgICAwLjAgICAgICAwLjEgICAgICAwLjIgICAgICAwLjQgICAgICAwLjUgICAgICAwLjYgICAgICAwLjcgICAgICAwLjggICAgICAxLjANCiAgICAgICAgIC0wLjMgICAgIC0wLjMgICAgIC0wLjMgICAgIC0wLjMgICAgIC0wLjMgICAgIC0wLjMgICAgIC0wLjMgICAgIC0wLjMgICAgIC0wLjMNCiggMikgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjANCiAgICAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjANCiAgICAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjANCiAgICAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjANCiggMykgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjANCiAgICAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjANCiggNCkgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjANCiAgICAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjAgICAgICAwLjANCiAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCiAgINb5oaLHvaGi1qezxdTayvrP8sGm1/fTw8/CtcTW4cGm1q66zSAoa04pOiAgICAgICAgICAtODIuMA0KICAg1vmhose9oaLWp7PF1Nq647rJ1NjX99PDz8K1xNbhwabWrrrNIChrTik6ICAgICAgICAgIC04Mi4wDQogICDW+aGix72hotans8XU2rvuusnU2Nf308PPwrXE1uHBptauus0gKGtOKTogICAgICAgICAgICAwLjANCg=="
+  },
+  "memberStations": {
+    "c0": [
+      {
+        "nativeStation": 0,
+        "nativeComponents": [
+          -12.0,
+          5.0109405517578125,
+          9.5367431640625e-07,
+          0.0,
+          -4.311227321624756,
+          15.032827377319336
+        ],
+        "source": "APIPyInterface.ColumnDesignData.GetForce"
+      },
+      {
+        "nativeStation": 1,
+        "nativeComponents": [
+          -12.0,
+          5.0109405517578125,
+          9.5367431640625e-07,
+          -0.0,
+          -4.311225891113281,
+          -0.0
+        ],
+        "source": "APIPyInterface.ColumnDesignData.GetForce"
+      }
+    ],
+    "c1": [
+      {
+        "nativeStation": 0,
+        "nativeComponents": [
+          -12.0,
+          4.989057540893555,
+          10.0,
+          0.0,
+          -25.688777923583984,
+          14.967180252075195
+        ],
+        "source": "APIPyInterface.ColumnDesignData.GetForce"
+      },
+      {
+        "nativeStation": 1,
+        "nativeComponents": [
+          -12.0,
+          4.989057540893555,
+          10.0,
+          -0.0,
+          4.311222076416016,
+          1.9073486328125e-06
+        ],
+        "source": "APIPyInterface.ColumnDesignData.GetForce"
+      }
+    ],
+    "c2": [
+      {
+        "nativeStation": 0,
+        "nativeComponents": [
+          -20.941673278808594,
+          2.2360548973083496,
+          -0.7815868854522705,
+          0.0,
+          2.3447611331939697,
+          4.78013801574707
+        ],
+        "source": "APIPyInterface.ColumnDesignData.GetForce"
+      },
+      {
+        "nativeStation": 1,
+        "nativeComponents": [
+          -20.941673278808594,
+          2.2360548973083496,
+          -0.7815868854522705,
+          -0.0,
+          0.0,
+          -1.928027629852295
+        ],
+        "source": "APIPyInterface.ColumnDesignData.GetForce"
+      }
+    ],
+    "c3": [
+      {
+        "nativeStation": 0,
+        "nativeComponents": [
+          -8.792730331420898,
+          0.0930996835231781,
+          0.3213367462158203,
+          0.0,
+          6.438912391662598,
+          0.27929916977882385
+        ],
+        "source": "APIPyInterface.ColumnDesignData.GetForce"
+      },
+      {
+        "nativeStation": 1,
+        "nativeComponents": [
+          -8.792730331420898,
+          0.0930996835231781,
+          0.3213367462158203,
+          -0.0,
+          7.402921676635742,
+          -0.0
+        ],
+        "source": "APIPyInterface.ColumnDesignData.GetForce"
+      }
+    ],
+    "c4": [
+      {
+        "nativeStation": 0,
+        "nativeComponents": [
+          -15.207268714904785,
+          -0.0930996835231781,
+          -0.3213376998901367,
+          0.9640136361122131,
+          3.561093330383301,
+          0.09889265894889832
+        ],
+        "source": "APIPyInterface.ColumnDesignData.GetForce"
+      },
+      {
+        "nativeStation": 1,
+        "nativeComponents": [
+          -15.207268714904785,
+          -0.0930996835231781,
+          -0.3213376998901367,
+          0.9640136361122131,
+          2.597078323364258,
+          0.37819159030914307
+        ],
+        "source": "APIPyInterface.ColumnDesignData.GetForce"
+      }
+    ],
+    "c5": [
+      {
+        "nativeStation": 0,
+        "nativeComponents": [
+          -13.058326721191406,
+          -2.2360548973083496,
+          0.7815868854522705,
+          3.2918362617492676,
+          0.8302199840545654,
+          -4.78013801574707
+        ],
+        "source": "APIPyInterface.ColumnDesignData.GetForce"
+      },
+      {
+        "nativeStation": 1,
+        "nativeComponents": [
+          -13.058326721191406,
+          -2.2360548973083496,
+          0.7815868854522705,
+          3.2918362617492676,
+          3.1749792098999023,
+          1.928027629852295
+        ],
+        "source": "APIPyInterface.ColumnDesignData.GetForce"
+      }
+    ],
+    "beam0": [
+      {
+        "nativeStation": 0,
+        "nativeComponents": [
+          -4.9891357421875,
+          -0.0,
+          -12.0,
+          -4.311225414276123,
+          -0.0,
+          -0.0
+        ],
+        "source": "APIPyInterface.BeamDesignData.GetForce"
+      },
+      {
+        "nativeStation": 1,
+        "nativeComponents": [
+          -4.9891357421875,
+          -0.0,
+          -9.0,
+          -4.311225414276123,
+          -3.9375,
+          -0.0
+        ],
+        "source": "APIPyInterface.BeamDesignData.GetForce"
+      },
+      {
+        "nativeStation": 2,
+        "nativeComponents": [
+          -4.9891357421875,
+          -0.0,
+          -6.0,
+          -4.311224937438965,
+          -6.75,
+          -0.0
+        ],
+        "source": "APIPyInterface.BeamDesignData.GetForce"
+      },
+      {
+        "nativeStation": 3,
+        "nativeComponents": [
+          -4.9891357421875,
+          -0.0,
+          -3.0,
+          -4.311225414276123,
+          -8.4375,
+          -0.0
+        ],
+        "source": "APIPyInterface.BeamDesignData.GetForce"
+      },
+      {
+        "nativeStation": 4,
+        "nativeComponents": [
+          -4.9891357421875,
+          -0.0,
+          -0.0,
+          -4.311224937438965,
+          -9.0,
+          -0.0
+        ],
+        "source": "APIPyInterface.BeamDesignData.GetForce"
+      },
+      {
+        "nativeStation": 5,
+        "nativeComponents": [
+          -4.9891357421875,
+          -0.0,
+          3.0,
+          -4.311225414276123,
+          -8.4375,
+          -0.0
+        ],
+        "source": "APIPyInterface.BeamDesignData.GetForce"
+      },
+      {
+        "nativeStation": 6,
+        "nativeComponents": [
+          -4.9891357421875,
+          -0.0,
+          6.0,
+          -4.311225414276123,
+          -6.75,
+          -0.0
+        ],
+        "source": "APIPyInterface.BeamDesignData.GetForce"
+      },
+      {
+        "nativeStation": 7,
+        "nativeComponents": [
+          -4.9891357421875,
+          -0.0,
+          9.0,
+          -4.311225414276123,
+          -3.9375,
+          -0.0
+        ],
+        "source": "APIPyInterface.BeamDesignData.GetForce"
+      },
+      {
+        "nativeStation": 8,
+        "nativeComponents": [
+          -4.9891357421875,
+          -0.0,
+          12.0,
+          -4.311225414276123,
+          -0.0,
+          -0.0
+        ],
+        "source": "APIPyInterface.BeamDesignData.GetForce"
+      }
+    ],
+    "beam1": [
+      {
+        "nativeStation": 0,
+        "nativeComponents": [
+          -0.781585693359375,
+          -2.2360546588897705,
+          -10.941673278808594,
+          -1.9280272722244263,
+          -0.0,
+          -0.0
+        ],
+        "source": "APIPyInterface.BeamDesignData.GetForce"
+      },
+      {
+        "nativeStation": 1,
+        "nativeComponents": [
+          -0.781585693359375,
+          -2.2360546588897705,
+          -7.941673278808594,
+          -1.9280272722244263,
+          -3.5406274795532227,
+          0.8385202884674072
+        ],
+        "source": "APIPyInterface.BeamDesignData.GetForce"
+      },
+      {
+        "nativeStation": 2,
+        "nativeComponents": [
+          -0.781585693359375,
+          -2.2360546588897705,
+          -4.941673278808594,
+          -1.9280272722244263,
+          -5.956254959106445,
+          1.6770405769348145
+        ],
+        "source": "APIPyInterface.BeamDesignData.GetForce"
+      },
+      {
+        "nativeStation": 3,
+        "nativeComponents": [
+          -0.781585693359375,
+          -2.2360546588897705,
+          -1.9416732788085938,
+          -1.9280272722244263,
+          -7.246882438659668,
+          2.5155608654022217
+        ],
+        "source": "APIPyInterface.BeamDesignData.GetForce"
+      },
+      {
+        "nativeStation": 4,
+        "nativeComponents": [
+          -0.781585693359375,
+          -2.2360546588897705,
+          1.0583267211914062,
+          -1.9280271530151367,
+          -7.412510395050049,
+          3.354081153869629
+        ],
+        "source": "APIPyInterface.BeamDesignData.GetForce"
+      },
+      {
+        "nativeStation": 5,
+        "nativeComponents": [
+          -0.781585693359375,
+          -2.2360546588897705,
+          4.058326721191406,
+          -1.9280273914337158,
+          -6.453137397766113,
+          4.192601680755615
+        ],
+        "source": "APIPyInterface.BeamDesignData.GetForce"
+      },
+      {
+        "nativeStation": 6,
+        "nativeComponents": [
+          -0.781585693359375,
+          -2.2360546588897705,
+          7.058326721191406,
+          -1.9280272722244263,
+          -4.368765354156494,
+          5.031122207641602
+        ],
+        "source": "APIPyInterface.BeamDesignData.GetForce"
+      },
+      {
+        "nativeStation": 7,
+        "nativeComponents": [
+          -0.781585693359375,
+          -2.2360546588897705,
+          10.058326721191406,
+          -1.9280272722244263,
+          -1.1593928337097168,
+          5.86964225769043
+        ],
+        "source": "APIPyInterface.BeamDesignData.GetForce"
+      },
+      {
+        "nativeStation": 8,
+        "nativeComponents": [
+          -0.781585693359375,
+          -2.2360546588897705,
+          13.058326721191406,
+          -1.9280272722244263,
+          3.1749796867370605,
+          6.708162784576416
+        ],
+        "source": "APIPyInterface.BeamDesignData.GetForce"
+      }
+    ],
+    "beam2": [
+      {
+        "nativeStation": 8,
+        "nativeComponents": [
+          0.09309959411621094,
+          0.3213379383087158,
+          15.207269668579102,
+          -2.5970780849456787,
+          9.621808052062988,
+          -0.9640130996704102
+        ],
+        "source": "APIPyInterface.BeamDesignData.GetForce"
+      },
+      {
+        "nativeStation": 7,
+        "nativeComponents": [
+          0.09309959411621094,
+          0.3213379383087158,
+          12.207269668579102,
+          -2.5970778465270996,
+          4.481581687927246,
+          -0.8435114622116089
+        ],
+        "source": "APIPyInterface.BeamDesignData.GetForce"
+      },
+      {
+        "nativeStation": 6,
+        "nativeComponents": [
+          0.09309959411621094,
+          0.3213379383087158,
+          9.207269668579102,
+          -2.5970780849456787,
+          0.4663562774658203,
+          -0.7230098247528076
+        ],
+        "source": "APIPyInterface.BeamDesignData.GetForce"
+      },
+      {
+        "nativeStation": 5,
+        "nativeComponents": [
+          0.09309959411621094,
+          0.3213379383087158,
+          6.207269668579102,
+          -2.5970780849456787,
+          -2.423870086669922,
+          -0.6025081872940063
+        ],
+        "source": "APIPyInterface.BeamDesignData.GetForce"
+      },
+      {
+        "nativeStation": 4,
+        "nativeComponents": [
+          0.09309959411621094,
+          0.3213379383087158,
+          3.2072696685791016,
+          -2.5970778465270996,
+          -4.189096450805664,
+          -0.4820065200328827
+        ],
+        "source": "APIPyInterface.BeamDesignData.GetForce"
+      },
+      {
+        "nativeStation": 3,
+        "nativeComponents": [
+          0.09309959411621094,
+          0.3213379383087158,
+          0.20726966857910156,
+          -2.5970780849456787,
+          -4.829322338104248,
+          -0.3615048825740814
+        ],
+        "source": "APIPyInterface.BeamDesignData.GetForce"
+      },
+      {
+        "nativeStation": 2,
+        "nativeComponents": [
+          0.09309959411621094,
+          0.3213379383087158,
+          -2.7927303314208984,
+          -2.5970778465270996,
+          -4.344548225402832,
+          -0.24100326001644135
+        ],
+        "source": "APIPyInterface.BeamDesignData.GetForce"
+      },
+      {
+        "nativeStation": 1,
+        "nativeComponents": [
+          0.09309959411621094,
+          0.3213379383087158,
+          -5.792730331420898,
+          -2.5970780849456787,
+          -2.734774112701416,
+          -0.12050163000822067
+        ],
+        "source": "APIPyInterface.BeamDesignData.GetForce"
+      },
+      {
+        "nativeStation": 0,
+        "nativeComponents": [
+          0.09309959411621094,
+          0.3213379383087158,
+          -8.792730331420898,
+          -2.5970780849456787,
+          -0.0,
+          -0.0
+        ],
+        "source": "APIPyInterface.BeamDesignData.GetForce"
+      }
+    ]
+  },
+  "releaseReadback": {
+    "verified": true,
+    "source": "official-SpecialBeam-after-PMCAD",
+    "members": {
+      "beam0": {
+        "nativeEndpointIds": [
+          "t0",
+          "t1"
+        ],
+        "supportCode": 4.0,
+        "hinges": [
+          1,
+          1
+        ]
+      },
+      "beam1": {
+        "nativeEndpointIds": [
+          "t2",
+          "t5"
+        ],
+        "supportCode": 2.0,
+        "hinges": [
+          1,
+          0
+        ]
+      },
+      "beam2": {
+        "nativeEndpointIds": [
+          "t3",
+          "t4"
+        ],
+        "supportCode": 2.0,
+        "hinges": [
+          1,
+          0
+        ]
+      }
+    }
+  }
+}

@@ -38,7 +38,11 @@ def map_frame_stations(model, geometry, station_rows, *, active_loads=None):
         native = geometry["native_members"][member_id]
         rows = station_rows[member_id]
         column = native["kind"] == "column"
-        if native["kind"] not in ("column", "beam") or native["angleDegrees"] != 0 or any(native["offsetsM"]) or any(native["releases"]):
+        from native_member_releases import beam_release_plan
+        native_ids = [native["bottomNodeId"], native["topNodeId"]] if column else [native["startNodeId"], native["endNodeId"]]
+        release = beam_release_plan(element, native_ids)
+        if (native["kind"] not in ("column", "beam") or native["angleDegrees"] != 0 or any(native["offsetsM"])
+                or native["releases"] != release["releases"]):
             raise NativeStationUnavailable("Native geometry is outside calibrated frame axes")
         if not native.get("geometrySource", {}).get("kind"):
             raise NativeStationUnavailable("Native geometry has no readback evidence")

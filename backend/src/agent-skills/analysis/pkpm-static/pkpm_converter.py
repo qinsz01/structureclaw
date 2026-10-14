@@ -417,8 +417,8 @@ def _normalize_generic_frame_for_pkpm(data: dict) -> tuple[dict, dict[str, Any]]
         expected_story = story_ids[floor_index - 1]
         if element.get("story") is not None and str(element.get("story")) != expected_story:
             raise ValueError(f"Element '{element_id}' story conflicts with its global Z level")
-        if element.get("releases"):
-            raise ValueError(f"PKPM adapter cannot yet preserve end releases on element '{element_id}'")
+        from native_member_releases import beam_release_plan
+        beam_release_plan(element)
         if element_type == "column" and abs(start_z - z_levels[floor_index - 1]) > tol:
             raise ValueError(f"PKPM column '{element_id}' must connect adjacent declared floors")
         start_plan = (_safe_coord(start, "x"), _safe_coord(start, "y"))
@@ -1139,6 +1139,8 @@ def convert_v2_to_jws(
                 # Preserve endpoint order, including reversed/non-orthogonal beams.
                 net = floor.AddLineNet(floor_node_ids[node_ids[0]], floor_node_ids[node_ids[1]])
                 member = floor.AddBeamEx(pm_section, net.GetID(), 0, 0, 0, 0.0)
+                from native_member_releases import write_beam_release
+                write_beam_release(APIPyInterface, member, element)
             if material_family == "steel":
                 member.SetSteelGrade(_elem_grade(element, mat_id_to_grade))
             else:
