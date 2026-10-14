@@ -1,5 +1,7 @@
 """Validate explicit V2 load kind and units before any adapter can ignore them."""
 
+import math
+
 
 def validate_load_contract(load):
     kind = str(load.get('type', '')).lower()
@@ -8,7 +10,26 @@ def validate_load_contract(load):
     if 'load_type' in load:
         raise ValueError("Use the explicit V2 load.type field; load_type cannot be ignored")
     member = any(load.get(k) is not None for k in ('element', 'elementId', 'element_id'))
+    node = any(load.get(k) is not None for k in ('node', 'nodeId', 'node_id'))
     kind = kind or ('distributed' if member else 'nodal')
+    if node == member:
+        raise ValueError('Every structural load must target exactly one node or element / 每个荷载必须明确作用于一个节点或构件')
+    if kind in {'nodal', 'displacement', 'settlement'} and not node:
+        raise ValueError(f"Load type '{kind}' must target a node / '{kind}' 荷载必须作用于节点")
+    if kind in {'point', 'distributed'} and not member:
+        raise ValueError(f"Load type '{kind}' must target an element / '{kind}' 荷载必须作用于构件")
+    if kind == 'point':
+        try:
+            position = float(load.get('position'))
+        except (TypeError, ValueError) as error:
+            raise ValueError('Member point load requires a finite nonnegative position in m / 构件集中荷载必须指定有限非负的作用位置（m）') from error
+        if not math.isfinite(position) or position < 0:
+            raise ValueError('Member point load requires a finite nonnegative position in m / 构件集中荷载必须指定有限非负的作用位置（m）')
+    _validate_load_units(load, kind)
+
+
+def _validate_load_units(load, kind):
+    """Profile points inherit their member target; validate only their units here."""
     canonical = {'force':'kN', 'moment':'kN.m', 'distributed':'kN/m',
                  'length':'m', 'position':'m', 'displacement':'m', 'rotation':'rad'}
 
@@ -47,4 +68,4 @@ def validate_load_contract(load):
         for point in load['points']:
             if not isinstance(point, dict):
                 raise ValueError('Piecewise load points must be objects')
-            validate_load_contract({**point, 'type':'distributed'})
+            _validate_load_units(point, 'distributed')

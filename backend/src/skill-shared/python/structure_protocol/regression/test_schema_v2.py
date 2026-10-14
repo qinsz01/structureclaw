@@ -602,6 +602,50 @@ class TestMigration:
 
 class TestCrossReferenceValidation:
     @pytest.mark.parametrize('load', [
+        {'type': 'point', 'node': '2', 'fz': -1},
+        {'type': 'point', 'nodeId': '2', 'position': 0.5, 'fz': -1},
+        {'type': 'nodal', 'element': 'e1'},
+        {'type': 'distributed', 'node_id': '2'},
+        {'type': 'settlement', 'elementId': 'e1', 'uz': -0.001},
+        {'type': 'displacement', 'element_id': 'e1', 'uz': -0.001},
+    ])
+    def test_load_kind_must_match_target(self, load):
+        with pytest.raises(ValueError, match='must target'):
+            _minimal_model(load_cases=[LoadCaseV2(id='D', type='dead', loads=[load])])
+
+    @pytest.mark.parametrize('position', [None, 'not-a-position', float('inf'), float('nan'), -0.1])
+    def test_member_point_load_requires_valid_position(self, position):
+        load = {'type': 'point', 'element': 'e1', 'fz': -1}
+        if position is not None:
+            load['position'] = position
+        with pytest.raises(ValueError, match='finite nonnegative position'):
+            _minimal_model(load_cases=[LoadCaseV2(id='D', type='dead', loads=[load])])
+
+    @pytest.mark.parametrize('load', [
+        {'type': 'nodal', 'node': '2', 'fz': -1},
+        {'type': 'nodal', 'nodeId': '2', 'fz': -1},
+        {'node_id': '2', 'fz': -1},
+        {'type': '', 'node': '2', 'fz': -1},
+        {'type': 'point', 'element': 'e1', 'position': 0, 'fz': -1},
+        {'type': 'point', 'elementId': 'e1', 'position': 1, 'fz': -1},
+        {'type': 'point', 'element_id': 'e1', 'position': '0.5', 'fz': -1},
+        {'type': 'distributed', 'element': 'e1', 'start': 0.1, 'end': 0.8, 'wz': -1},
+        {'element_id': 'e1', 'wz': -1},
+        {'type': 'distributed', 'element': 'e1', 'points': [
+            {'position': 0, 'wz': 0, 'unit': 'kN/m'},
+            {'position': 1, 'wz': -1, 'units': {'position': 'm', 'distributed': 'kN/m'}},
+        ]},
+        {'type': 'displacement', 'node': '2', 'uz': -0.001},
+        {'type': 'settlement', 'nodeId': '2', 'uz': -0.001},
+    ])
+    def test_valid_load_targets_and_legacy_aliases_remain_unchanged(self, load):
+        expected = dict(load)
+        model = _minimal_model(load_cases=[LoadCaseV2(id='D', type='dead', loads=[load])])
+        actual = model.load_cases[0].loads[0]
+        for key, value in expected.items():
+            assert actual[key] == value
+
+    @pytest.mark.parametrize('load', [
         {'node':'2','fz':500,'unit':'N'},
         {'node':'2','fz':.5,'units':{'force':'N'}},
         {'type':'point','element':'e1','position':.5,'fz':1,'position_unit':'mm'},
