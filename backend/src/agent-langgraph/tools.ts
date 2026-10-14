@@ -43,7 +43,7 @@ import { analysisSettingsHash } from '../engineering/analysis-runs.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 import { checkRunResults } from '../engineering/code-checks.js';
 import { assertAnalysisInputEvidenceMatchesRequest, assertInputEvidenceMatchesModel, mergeInputEvidence } from '../engineering/input-evidence.js';
-import { currentRunPolicy, requestRecovery, canRecover } from '../runtime/run-context.js';
+import { currentRunPolicy, requestRecovery, canRecover, recordRunEvent } from '../runtime/run-context.js';
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -3257,6 +3257,7 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
         reserve();
         payload = { ...payload, requestId: randomUUID(), requestBinding: reservation.analysisRequest };
         if (opts.signal?.aborted) throw opts.signal.reason ?? new Error('Analysis request aborted');
+        recordRunEvent({ kind: 'analysis_request', requestId: payload.requestId, operation: 'analysis', engineId: payload.engineId });
         try {
           return await engineClient.post(p, payload, { signal: opts.signal });
         } catch (error) {
@@ -3415,6 +3416,7 @@ export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
         Object.assign(state!, pending);
         configurable.onAnalysisRequest?.(pending);
         const requestId = randomUUID();
+        recordRunEvent({ kind: 'analysis_request', requestId, operation: 'native-design', engineId });
         const response = await configurable.engineClient.post<Record<string, unknown>>('/analyze', {
           type: 'static', engineId, model, parameters, requestId, requestBinding: pending.analysisRequest }, { signal: config.signal })
           .catch((error: unknown) => {

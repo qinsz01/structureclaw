@@ -14,6 +14,17 @@ const storage = new AsyncLocalStorage<RunContext>();
 export function currentRunContext(): RunContext | undefined { return storage.getStore(); }
 export function currentRunPolicy(): EffectiveRunPolicy | undefined { return storage.getStore()?.policy; }
 export function snapshotRunUsage(context: RunContext): RunUsage { return structuredClone(context.usage); }
+/** Reading status must not create a run, reset counters or rewrite the ledger. */
+export function readRunUsage(policy: EffectiveRunPolicy, saved: RunUsage, journalDir: string): RunUsage {
+  if (!/^[a-zA-Z0-9_-]+$/.test(saved.runId)) throw new Error('INVALID_RUN_ID');
+  const journalPath = path.join(journalDir, `${saved.runId}.json`);
+  if (!fs.existsSync(journalPath)) return structuredClone(saved);
+  const journal = JSON.parse(fs.readFileSync(journalPath, 'utf8'));
+  if (journal.policy?.policyHash !== policy.policyHash || journal.usage?.runId !== saved.runId
+    || journal.usage?.policyHash !== policy.policyHash || journal.usage.toolCalls < saved.toolCalls
+    || journal.usage.llmCalls < saved.llmCalls || journal.usage.recoveries < saved.recoveries) throw new Error('RUN_POLICY_RESUME_CONFLICT');
+  return structuredClone(journal.usage);
+}
 function freezePolicy<T>(value: T): T {
   if (value && typeof value === 'object') {
     for (const child of Object.values(value)) freezePolicy(child);

@@ -21,10 +21,11 @@ import { getAllowShellTools, getCheckpointerDataDir, getWorkspaceRoot, getWorksp
 import { config, runtimeBaseDir } from '../config/index.js';
 import type { RunPolicyInput, EffectiveRunPolicy } from '../runtime/run-policy.js';
 import { resolveApplicationRunPolicy } from '../runtime/policy-settings.js';
-import { createRunContext, withRunContext, snapshotRunUsage, recordRunEvent, type RunContext, type RunUsage } from '../runtime/run-context.js';
+import { createRunContext, withRunContext, snapshotRunUsage, readRunUsage, recordRunEvent, type RunContext, type RunUsage } from '../runtime/run-context.js';
+import type { ConversationRuntimeSnapshot } from '../types/conversation-runtime.js';
 import type { AgentStreamChunk } from '../types/agent-stream.js';
 import type { AppLocale } from '../services/locale.js';
-import { createLocalAnalysisEngineClient } from '../services/analysis-execution.js';
+import { AnalysisExecutionService, createLocalAnalysisEngineClient } from '../services/analysis-execution.js';
 import { createLocalCodeCheckClient } from '../services/code-check-execution.js';
 import { createLocalStructureProtocolClient } from '../services/structure-protocol-execution.js';
 import { prisma } from '../utils/database.js';
@@ -40,7 +41,7 @@ import { summarizeFileImages } from './attachment-vision.js';
 import { collectVisionEvidence } from '../engineering/vision-evidence.js';
 import { activeInputEvidence, assertInputEvidenceMatchesModel, mergeInputEvidence, unresolvedInputEvidence } from '../engineering/input-evidence.js';
 import { SessionLock } from '../engineering/session-lock.js';
-import { applyInputEvidence, commitModel, contentHash, invalidateAnalysis } from '../engineering/model-state.js';
+import { applyInputEvidence, commitModel, contentHash, currentAnalysisError, invalidateAnalysis } from '../engineering/model-state.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 
 // ---------------------------------------------------------------------------
@@ -114,6 +115,14 @@ export interface LangGraphRunResult {
 
 export const INPUT_REVIEW_TOOLS = ['analyze_file', 'review_input', 'query_model', 'edit_model', 'validate_model'] as const;
 export type InputReviewTool = typeof INPUT_REVIEW_TOOLS[number];
+
+function clarificationState(state: AgentState, tasks: ReadonlyArray<{ interrupts?: readonly unknown[] }> = []) {
+  const call = state.messages?.length ? pendingToolCalls(state)[0] : undefined;
+  const waitingForReply = tasks.some(task => task.interrupts?.length) || call?.name === 'ask_user_clarification';
+  const args = call?.name === 'ask_user_clarification' ? call.args : undefined;
+  return { waitingForReply, question: typeof args?.question === 'string' ? args.question : null,
+    options: Array.isArray(args?.options) ? args.options.filter((item): item is string => typeof item === 'string') : [] };
+}
 
 /** A revision covers evidence and excitation settings as well as the physical model. */
 export function inputReviewRevision(state: Partial<AgentState>): string {
@@ -745,9 +754,17 @@ export class LangGraphAgentService {
   // Streaming entry point
   // ---------------------------------------------------------------------------
 
+  private async assertTurnState(conversationId: string | undefined, resume: boolean): Promise<void> {
+    if (!conversationId) return;
+    const snapshot = await (await this.getGraph()).getState({ configurable: { thread_id: conversationId } });
+    const waiting = clarificationState(snapshot.values as AgentState, snapshot.tasks).waitingForReply;
+    if (resume && !waiting) throw new Error('CONVERSATION_NOT_WAITING_FOR_REPLY');
+    if (!resume && waiting) throw new Error('CONVERSATION_WAITING_FOR_REPLY: resume the saved turn / 请继续已保存的回合');
+  }
+
   async *runStream(input: LangGraphRunInput): AsyncGenerator<AgentStreamChunk> {
     const release = await this.sessionLock.acquire(input.conversationId ?? randomUUID());
-    try { yield* this.runStreamUnlocked(input); } finally { release(); }
+    try { await this.assertTurnState(input.conversationId, false); yield* this.runStreamUnlocked(input); } finally { release(); }
   }
 
   private async *runStreamUnlocked(input: LangGraphRunInput): AsyncGenerator<AgentStreamChunk> {
@@ -819,6 +836,7 @@ export class LangGraphAgentService {
     const release = await this.sessionLock.acquire(conversationId);
     try {
       signal?.throwIfAborted();
+      await this.assertTurnState(conversationId, true);
       yield* this.resumeStreamUnlocked(conversationId, resumeValue, signal);
     } finally { release(); }
   }
@@ -858,7 +876,7 @@ export class LangGraphAgentService {
 
   async run(input: LangGraphRunInput): Promise<LangGraphRunResult> {
     const release = await this.sessionLock.acquire(input.conversationId ?? randomUUID());
-    try { return await this.runUnlocked(input); } finally { release(); }
+    try { await this.assertTurnState(input.conversationId, false); return await this.runUnlocked(input); } finally { release(); }
   }
 
   private async runUnlocked(input: LangGraphRunInput): Promise<LangGraphRunResult> {
@@ -918,7 +936,7 @@ export class LangGraphAgentService {
    */
   async runFull(input: LangGraphRunInput): Promise<AgentState> {
     const release = await this.sessionLock.acquire(input.conversationId ?? randomUUID());
-    try { return await this.runFullUnlocked(input); } finally { release(); }
+    try { await this.assertTurnState(input.conversationId, false); return await this.runFullUnlocked(input); } finally { release(); }
   }
 
   private async runFullUnlocked(input: LangGraphRunInput): Promise<AgentState> {
@@ -977,15 +995,39 @@ export class LangGraphAgentService {
       const config = { configurable: { thread_id: conversationId } };
       const stateSnapshot = await graph.getState(config);
       const state = stateSnapshot.values as AgentState;
+      const clarification = clarificationState(state, stateSnapshot.tasks);
+      const policy = state.runPolicy ?? null;
+      const usage = policy && state.runUsage ? readRunUsage(policy, state.runUsage, path.join(runtimeBaseDir, 'run-records')) : null;
+      const execution = new AnalysisExecutionService();
+      const requests = new Map((usage?.events ?? []).filter(event => event.kind === 'analysis_request' && typeof event.requestId === 'string')
+        .map(event => [event.requestId as string, event]));
+      const jobs: ConversationRuntimeSnapshot['jobs'] = await Promise.all([...requests].map(async ([requestId, event]) => {
+        let receipt: Record<string, unknown>;
+        try { receipt = await execution.getRequest(requestId); }
+        catch { receipt = { status: 'outcome_unknown' }; }
+        return { requestId, kind: String(event.operation), status: String(receipt.status),
+          runId: typeof receipt.runId === 'string' ? receipt.runId : null, cancellationAvailable: receipt.cancellationAvailable === true };
+      }));
+      const reason = currentAnalysisError(state);
+      const runId = typeof state.analysisResult?.runId === 'string' ? state.analysisResult.runId : null;
+      const reportMeta = isRecord(state.report?.meta) ? state.report.meta : {};
+      const reportCurrent = Boolean(state.report && !reason && runId && reportMeta.runId === runId);
+      const runtime: ConversationRuntimeSnapshot = { conversationId, busy: this.sessionLock.isBusy(conversationId), ...clarification,
+        modelRevision: state.modelRevision ?? 0, modelPending: state.modelPending ?? false, policy,
+        usage: usage ? { runId: usage.runId, policyHash: usage.policyHash, toolCalls: usage.toolCalls,
+          llmCalls: usage.llmCalls, recoveries: usage.recoveries } : null,
+        analysis: { runId, resultKey: typeof state.analysisResult?.selectedResultKey === 'string' ? state.analysisResult.selectedResultKey : null,
+          current: !reason, reason: reason ?? null }, report: { current: reportCurrent, runId: reportCurrent ? runId : null }, jobs };
 
       return {
         snapshot: {
           draft: state.draftState || null,
           interaction: {
-            state: 'ready',
+            state: clarification.waitingForReply ? 'waiting' : 'ready',
             stage: 'model',
             turnId: conversationId,
           },
+          runtime,
           model: state.model ?? undefined,
           modelRevision: state.modelRevision ?? 0,
           modelPending: state.modelPending ?? false,

@@ -8,7 +8,7 @@ function serviceWithGraph(stream) {
   const runtime = { policy: { budgets: { maxToolCallsPerTurn: 200 }, activeToolIds: ['run_analysis'], activeSkillIds: ['beam'] },
     runId: 'preserved-run', usage: { toolCalls: 7, recoveries: 1 } };
   service.prepareRunContext = jest.fn(async () => runtime);
-  service.getGraph = async () => ({ getState: async () => ({ values: { locale: 'en', lastUserMessage: 'continue calculation' } }), stream });
+  service.getGraph = async () => ({ getState: async () => ({ values: { locale: 'en', lastUserMessage: 'continue calculation' }, tasks: [{ interrupts: [{ value: 'Confirm?' }] }] }), stream });
   return { service, release, runtime };
 }
 

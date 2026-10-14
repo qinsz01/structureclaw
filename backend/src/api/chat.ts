@@ -548,6 +548,15 @@ export async function chatRoutes(fastify: FastifyInstance) {
     return reply.send(conversation);
   });
 
+  // The projection reads the checkpoint and existing ledgers; it never starts/resumes an agent.
+  fastify.get('/conversation/:id/session', async (request: FastifyRequest<{ Params: { id: string } }>, reply) => {
+    const conversation = await conversationService.getConversation(request.params.id);
+    if (!conversation) return reply.code(404).send({ error: 'CONVERSATION_NOT_FOUND' });
+    const session = await agentService.getConversationSessionSnapshot(request.params.id, 'en');
+    if (!session) return reply.code(503).send({ error: 'CONVERSATION_STATE_UNAVAILABLE' });
+    return reply.send(session.snapshot.runtime);
+  });
+
   // 获取会话历史
   fastify.get('/conversation/:id', {
     schema: {
@@ -567,7 +576,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
     const snapshots = await conversationService.getConversationSnapshot(id);
     return reply.send({
       ...conversation,
-      session,
+      session: session?.snapshot ?? null,
       snapshots,
     });
   });

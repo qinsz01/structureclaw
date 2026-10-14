@@ -12,7 +12,7 @@ const { FileCheckpointer } = await import('../../../dist/agent-langgraph/file-ch
 const { createAskUserClarificationTool } = await import('../../../dist/agent-langgraph/tools.js');
 const { executeToolsSequentially } = await import('../../../dist/agent-langgraph/sequential-tools.js');
 const { resolveApplicationRunPolicy } = await import('../../../dist/runtime/policy-settings.js');
-const { createRunContext, snapshotRunUsage, withRunContext } = await import('../../../dist/runtime/run-context.js');
+const { createRunContext, snapshotRunUsage, withRunContext, recordRunEvent, reserveToolCall } = await import('../../../dist/runtime/run-context.js');
 afterAll(() => fs.rmSync(temporary, { recursive: true, force: true }));
 const source = { id: 's1', field: 'file:appendix.csv:fields', required: true, status: 'unread', requirement: 'field-mapping',
   source: { file: 'appendix.csv', parser: 'csv-parse', complete: true, sha256: 'source-hash' } };
@@ -31,6 +31,40 @@ function setup(enabled = ['review_input', 'query_model', 'ask_user_clarification
   return { service, graph, initial, runtime };
 }
 describe('same-conversation input review', () => {
+  test('runtime projection reads the saved policy, current ledger and real request receipt without rewriting them', async () => {
+    const { service, graph, initial, runtime } = setup(['query_model']);
+    const id = 'runtime-projection';
+    await graph.updateState({ configurable: { thread_id: id } }, { ...initial, modelRevision: 7 }, 'tools');
+    const requestId = '399a8274-ac80-4cb4-9a1e-2661399eb6cf';
+    fs.mkdirSync(path.join(temporary, 'analysis-requests'), { recursive: true });
+    fs.writeFileSync(path.join(temporary, 'analysis-requests', `${requestId}.json`), JSON.stringify({ status: 'completed', runId: 'native-design-run' }));
+    withRunContext(runtime, () => { reserveToolCall('query_model', 'new-query'); recordRunEvent({ kind: 'analysis_request', requestId, operation: 'native-design' }); });
+    const before = fs.readFileSync(runtime.journalPath, 'utf8');
+    const snapshot = (await service.getConversationSessionSnapshot(id, 'en')).snapshot.runtime;
+    expect(snapshot).toMatchObject({ conversationId: id, modelRevision: 7, waitingForReply: false, busy: false,
+      usage: { toolCalls: 1, recoveries: 0 }, policy: { policyHash: runtime.policy.policyHash },
+      jobs: [{ requestId, kind: 'native-design', status: 'completed', runId: 'native-design-run', cancellationAvailable: false }] });
+    expect(snapshot.analysis.current).toBe(false);
+    expect(fs.readFileSync(runtime.journalPath, 'utf8')).toBe(before);
+    expect((await graph.getState({ configurable: { thread_id: id } })).values.runUsage.toolCalls).toBe(0);
+    expect((await service.getConversationSessionSnapshot('brand-new', 'en')).snapshot.runtime).toMatchObject({ policy: null, usage: null, waitingForReply: false, jobs: [] });
+    await graph.updateState({ configurable: { thread_id: id } }, { runUsage: { ...initial.runUsage, toolCalls: 2 } }, 'tools');
+    expect(await service.getConversationSessionSnapshot(id, 'en')).toBeUndefined(); // Do not display a rolled-back budget as usable.
+    expect(fs.readFileSync(runtime.journalPath, 'utf8')).toBe(before);
+  });
+
+  test('a paused checkpoint cannot start a new turn and another conversation cannot resume it', async () => {
+    const { service, graph, initial, runtime } = setup();
+    await graph.invoke(initial, { configurable: { thread_id: 'awaiting', runContext: runtime } });
+    const view = (await service.getConversationSessionSnapshot('awaiting', 'en')).snapshot.runtime;
+    expect(view).toMatchObject({ waitingForReply: true, question: 'Support?', busy: false });
+    await expect(service.runStream({ conversationId: 'awaiting', message: 'new turn' }).next()).rejects.toThrow('CONVERSATION_WAITING_FOR_REPLY');
+    await expect(service.resumeStream('another', 'wrong reply').next()).rejects.toThrow('CONVERSATION_NOT_WAITING_FOR_REPLY');
+    expect((await service.getConversationSessionSnapshot('awaiting', 'en')).snapshot.runtime.policy.policyHash).toBe(runtime.policy.policyHash);
+    const release = await service.sessionLock.acquire('awaiting');
+    expect((await service.getConversationSessionSnapshot('awaiting', 'en')).snapshot.runtime.busy).toBe(true);
+    release();
+  });
   test('proposes converted canonical values without silently editing the model', async () => {
     const { service, graph, initial } = setup(['review_input']);
     const id = 'review-units';

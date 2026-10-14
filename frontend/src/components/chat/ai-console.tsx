@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic'
 import { createPortal } from 'react-dom'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { RunSettings, type RunPolicyInput } from './run-settings'
+import { useConversationRuntime, type ConversationRuntimeSnapshot } from './use-conversation-runtime'
 import { InputReviewPanel } from './input-review-panel'
 import { useStore } from '@/lib/stores/context'
 import { MarkdownBody } from './markdown-body'
@@ -178,6 +179,7 @@ type ConversationSummary = {
 }
 
 type AgentSessionSnapshot = {
+  runtime?: ConversationRuntimeSnapshot
   draft?: Record<string, unknown>
   resolved?: {
     analysisType?: AnalysisType
@@ -2904,9 +2906,14 @@ export function AIConsole() {
   const conversationIdRef = useRef(conversationId)
   const submittingRef = useRef(false)
   const [isStreaming, setIsStreaming] = useState(false)
+  const sessionRuntime = useConversationRuntime(conversationId, isStreaming)
+  const conversationSelectionRef = useRef(0)
+  const restoredScopeRef = useRef<{ conversationId: string; skills: string[]; tools: string[] } | null>(null)
   useEffect(() => { conversationIdRef.current = conversationId }, [conversationId])
   const [errorMessage, setErrorMessage] = useState('')
   const [modelText, setModelText] = useState('')
+  const modelEditedRef = useRef(false)
+  const displayedModelRevisionRef = useRef<number | null>(0)
   const [modelSyncMessage, setModelSyncMessage] = useState('')
   const [availableSkills, setAvailableSkills] = useState<AgentSkillSummary[]>([])
   const [capabilityMatrix, setCapabilityMatrix] = useState<CapabilityMatrixPayload | null>(null)
@@ -2940,10 +2947,14 @@ export function AIConsole() {
   // 追踪最后有效的结果用于持久化（不会被引擎切换清除）
   const lastValidResultRef = useRef<AgentResult | null>(null)
   const lastValidResultVisualizationRef = useRef<VisualizationSnapshot | null>(null)
-  // Track whether the LangGraph agent is paused waiting for user input (interrupt)
-  const resumeRequiredRef = useRef(false)
   // Interaction option chips from ask_user_clarification
   const [pendingOptions, setPendingOptions] = useState<string[]>([])
+  useEffect(() => { setPendingOptions(sessionRuntime.view?.waitingForReply ? sessionRuntime.view.options : []) }, [sessionRuntime.view, conversationId])
+  useEffect(() => {
+    if (sessionRuntime.view && !sessionRuntime.view.busy && !modelEditedRef.current && displayedModelRevisionRef.current === null) {
+      displayedModelRevisionRef.current = sessionRuntime.view.modelRevision
+    }
+  }, [sessionRuntime.view])
 
 
   const messageRenderGroups = useMemo(() => groupMessagesForRendering(messages), [messages])
@@ -3075,6 +3086,14 @@ export function AIConsole() {
 
   const hasExplicitSkillSelection = storeExplicit
   const hasExplicitToolSelection = storeExplicit
+
+  useEffect(() => {
+    const saved = sessionRuntime.view
+    if (!saved?.policy || restoredScopeRef.current?.conversationId === saved.conversationId) return
+    const { activeSkillIds: skills, activeToolIds: tools } = saved.policy
+    setCapabilityPreferences(skills, tools, true)
+    restoredScopeRef.current = { conversationId: saved.conversationId, skills, tools }
+  }, [sessionRuntime.view, setCapabilityPreferences])
 
   const loadedModules = useMemo(() => {
     return availableSkills
@@ -3733,6 +3752,7 @@ export function AIConsole() {
       return
     }
 
+    const selection = ++conversationSelectionRef.current
     setErrorMessage('')
     setVisualizationOpen(false)
     const archived = conversationArchive[nextConversationId]
@@ -3744,6 +3764,7 @@ export function AIConsole() {
       }
 
       const payload = await response.json() as ConversationDetail | null
+      if (selection !== conversationSelectionRef.current) return
       const backendMessages = Array.isArray(payload?.messages)
         ? (() => {
             // Build a toolCallId → args index from assistant messages so
@@ -3871,18 +3892,36 @@ export function AIConsole() {
         isStaleVisualizationSnapshot(nextModelSnapshot)
         || isStaleVisualizationSnapshot(nextFinalResultSnapshot)
         || isStaleStructuralResult(nextLatestResult)
-      const safeLatestResult = hasStaleStructuralData ? null : nextLatestResult
+      const authoritativeRuntime = session?.runtime
+      const currentAnalysis = authoritativeRuntime ? authoritativeRuntime.analysis.current : true
+      const currentReport = authoritativeRuntime ? authoritativeRuntime.report.current : true
+      const safeLatestResult = hasStaleStructuralData ? null : nextLatestResult && {
+        ...nextLatestResult, ...(!currentAnalysis ? { analysis: undefined, codeCheck: undefined, report: undefined } : {}),
+        ...(!currentReport ? { report: undefined } : {}),
+      }
       const safeModelSnapshot = hasStaleStructuralData ? null : nextModelSnapshot
-      const safeResultSnapshot = hasStaleStructuralData ? null : nextFinalResultSnapshot
+      const safeResultSnapshot = hasStaleStructuralData || !currentAnalysis ? null : nextFinalResultSnapshot
       const safeModelText = hasStaleStructuralData ? '' : restoredModelText
       const safeModelSyncMessage = hasStaleStructuralData ? '' : nextModelSyncMessage
       const safeActivePanel = hasStaleStructuralData ? 'analysis' : nextActivePanel
 
       setConversationId(nextConversationId)
+      conversationIdRef.current = nextConversationId
+      setPendingOptions([])
+      setAttachedFiles([])
+      if (authoritativeRuntime?.policy) {
+        const { activeSkillIds: skills, activeToolIds: tools } = authoritativeRuntime.policy
+        setCapabilityPreferences(skills, tools, true)
+        restoredScopeRef.current = { conversationId: nextConversationId, skills, tools }
+      } else restoredScopeRef.current = null
       setMessages(nextMessages)
       setModelText(safeModelText)
+      modelEditedRef.current = false
+      displayedModelRevisionRef.current = authoritativeRuntime?.modelRevision ?? null
       setModelSyncMessage(safeModelSyncMessage)
       setLatestResult(safeLatestResult)
+      lastValidResultRef.current = safeLatestResult
+      lastValidResultVisualizationRef.current = safeResultSnapshot
       setLatestModelVisualizationSnapshot(safeModelSnapshot)
       setLatestResultVisualizationSnapshot(safeResultSnapshot)
       setActivePanel(safeActivePanel)
@@ -3911,32 +3950,26 @@ export function AIConsole() {
         toast.error(`${t('staleStructuralSessionTitle')}: ${t('staleStructuralSessionBody')}`)
       }
     } catch (error) {
+      if (selection !== conversationSelectionRef.current) return
       if (archived) {
         const restoredArchive = sanitizePersistedConversation(archived)
         setConversationId(nextConversationId)
+        conversationIdRef.current = nextConversationId
+        setPendingOptions([])
+        setAttachedFiles([])
         setMessages(restoredArchive.messages.length ? restoredArchive.messages : [initialAssistantMessage])
-        setModelText(
-          restoredArchive.modelText
-          || toModelText(restoredArchive.latestResult?.model)
-          || toModelTextFromSnapshot(restoredArchive.modelVisualizationSnapshot)
-          || toModelTextFromSnapshot(restoredArchive.resultVisualizationSnapshot || restoredArchive.visualizationSnapshot)
-          || ''
-        )
-        setModelSyncMessage(restoredArchive.modelSyncMessage || '')
+        setModelText('')
+        modelEditedRef.current = false
+        displayedModelRevisionRef.current = null
+        setModelSyncMessage('')
         const archivedLatestResult = normalizeAgentResultPayload(restoredArchive.latestResult || null)
-        setLatestResult(archivedLatestResult)
+        const historicalOnly = archivedLatestResult ? { ...archivedLatestResult, analysis: undefined, codeCheck: undefined, report: undefined } : null
+        setLatestResult(historicalOnly)
+        lastValidResultRef.current = historicalOnly
+        lastValidResultVisualizationRef.current = null
         setLatestModelVisualizationSnapshot(restoredArchive.modelVisualizationSnapshot || null)
-        const archivedSynthesizedResultSnapshot = buildResultSnapshotFromResult(
-          archivedLatestResult,
-          restoredArchive.title || t('untitledConversation'),
-          toModelFromVisualizationSnapshot(restoredArchive.modelVisualizationSnapshot || restoredArchive.resultVisualizationSnapshot || restoredArchive.visualizationSnapshot)
-        )
-        const archivedResultSnapshot = pickPreferredResultSnapshot(
-          pickPreferredResultSnapshot(restoredArchive.resultVisualizationSnapshot, restoredArchive.visualizationSnapshot),
-          archivedSynthesizedResultSnapshot
-        )
-        setLatestResultVisualizationSnapshot(archivedResultSnapshot)
-        setActivePanel(restoredArchive.activePanel || (archivedLatestResult?.report?.markdown ? 'report' : 'analysis'))
+        setLatestResultVisualizationSnapshot(null)
+        setActivePanel('analysis')
 
         if (restoredArchive.staleStructuralData) {
           toast.error(`${t('staleStructuralSessionTitle')}: ${t('staleStructuralSessionBody')}`)
@@ -3950,11 +3983,22 @@ export function AIConsole() {
   }
 
   function resetConsoleState() {
+    ++conversationSelectionRef.current
+    conversationIdRef.current = ''
     setConversationId('')
+    setRunPolicy({})
+    setPendingOptions([])
+    setAttachedFiles([])
+    setInput('')
+    restoredScopeRef.current = null
     setMessages([initialAssistantMessage])
     setModelText('')
+    modelEditedRef.current = false
+    displayedModelRevisionRef.current = 0
     setModelSyncMessage('')
     setLatestResult(null)
+    lastValidResultRef.current = null
+    lastValidResultVisualizationRef.current = null
     setLatestModelVisualizationSnapshot(null)
     setLatestResultVisualizationSnapshot(null)
     setVisualizationOpen(false)
@@ -4055,6 +4099,8 @@ export function AIConsole() {
   }
 
   function applySynchronizedModel(nextModel: Record<string, unknown>, source: 'conversation' | 'tool') {
+    modelEditedRef.current = false
+    displayedModelRevisionRef.current = null
     const nextText = JSON.stringify(nextModel, null, 2)
     if (nextText !== modelText) {
       setModelText(nextText)
@@ -4081,6 +4127,8 @@ export function AIConsole() {
       setResultDialogOpen(true)
     }
     const contextModel = parsedModel.error ? undefined : parsedModel.model
+    const requestedContextModel = modelEditedRef.current ? contextModel : undefined
+    const requestedModelRevision = displayedModelRevisionRef.current
     const resumeFromMessage = resolveResumeFromMessage(messagesRef.current, trimmedInput)
 
     const userMessage: Message = {
@@ -4224,6 +4272,15 @@ export function AIConsole() {
     try {
       const nextConversationId = await ensureConversation(trimmedInput)
       activeConversationId = nextConversationId
+      // Existing conversations are checked against the checkpoint before choosing resume/new turn.
+      const turnRuntime = conversationId ? await sessionRuntime.refresh(nextConversationId) : null
+      if (turnRuntime?.busy) throw new Error(locale === 'zh' ? '此会话仍在运行，请等待或停止当前作业。' : 'This conversation is still running. Wait or stop its current operation.')
+      if (turnRuntime?.jobs.some(job => job.status === 'outcome_unknown')) {
+        throw new Error(locale === 'zh' ? '作业结果尚未确认，请先核查原作业；不会自动重复求解。' : 'A job outcome is unknown. Inspect the original operation before continuing; it will not be reissued automatically.')
+      }
+      if (requestedContextModel && turnRuntime && requestedModelRevision !== turnRuntime.modelRevision) {
+        throw new Error(locale === 'zh' ? '模型版本已变更或尚未确认，请重新打开此会话后再编辑。' : 'The model revision changed or is unconfirmed. Reload this conversation before editing.')
+      }
 
       // Set conversationId immediately so the Stop button appears
       // without waiting for the SSE start event.
@@ -4256,13 +4313,18 @@ export function AIConsole() {
         : hasExplicitToolSelection
           ? []
           : undefined
+      const restoredScope = restoredScopeRef.current
+      const sameIds = (left: string[], right: string[]) => [...left].sort().join('\0') === [...right].sort().join('\0')
+      const keepSavedScope = Boolean(turnRuntime?.policy && (!restoredScope || restoredScope.conversationId !== nextConversationId
+        || (sameIds(restoredScope.skills, storeSkillIds) && sameIds(restoredScope.tools, storeToolIds))))
       const contextPayload = {
         runPolicy: Object.keys(runPolicy).length ? runPolicy : undefined,
         locale,
-        skillIds: effectiveSkillIds,
-        enabledToolIds: baseEnabledToolIds,
-        model: contextModel,
-        modelFormat: contextModel ? 'structuremodel-v2' : undefined,
+        skillIds: keepSavedScope ? undefined : effectiveSkillIds,
+        enabledToolIds: keepSavedScope ? undefined : baseEnabledToolIds,
+        model: requestedContextModel,
+        modelRevision: requestedContextModel ? requestedModelRevision ?? undefined : undefined,
+        modelFormat: requestedContextModel ? 'structuremodel-v2' : undefined,
         engineId: undefined,
         autoCodeCheck: hasSelectedCodeCheckSkill || undefined,
         resumeFromMessage,
@@ -4280,8 +4342,7 @@ export function AIConsole() {
 
       // If the LangGraph agent is paused with interrupt(), resume it
       // by calling /stream/resume instead of starting a new /stream
-      const isResume = resumeRequiredRef.current
-      resumeRequiredRef.current = false
+      const isResume = turnRuntime?.waitingForReply === true
       setPendingOptions([])
 
       const response = isResume
@@ -4379,11 +4440,8 @@ export function AIConsole() {
                 status: 'streaming',
               }))
             }
-            if ((payload.content as Record<string, unknown>)?.resumeRequired) {
-              resumeRequiredRef.current = true
-            }
             const interactionOpts = (payload.content as AgentInteraction)?.options || []
-            if (interactionOpts.length > 0) setPendingOptions(interactionOpts)
+            if (interactionOpts.length > 0 && activeConversationId === conversationIdRef.current) setPendingOptions(interactionOpts)
           }
 
           // 处理 'start' 类型消息（包含 conversationId）
@@ -4706,6 +4764,7 @@ export function AIConsole() {
       }
       const finalStatus = abortController.signal.aborted ? 'aborted' : 'completed'
       updateStreamSessionStatus(activeConversationId, finalStatus)
+      if (activeConversationId) void sessionRuntime.refresh(activeConversationId).catch(() => {})
       setTimeout(() => removeStreamSession(activeConversationId), 2000)
     }
   }
@@ -4778,7 +4837,10 @@ export function AIConsole() {
           ))}
         </div>
       )}
-      <RunSettings value={runPolicy} onChange={setRunPolicy} locale={locale} disabled={isStreaming} />
+      <RunSettings value={runPolicy} onChange={setRunPolicy} locale={locale}
+        disabled={isStreaming || Boolean(sessionRuntime.view?.busy || sessionRuntime.view?.waitingForReply)}
+        runtime={sessionRuntime.view} statusError={sessionRuntime.error}
+        onRefresh={conversationId ? () => { void sessionRuntime.refresh().catch(() => {}) } : undefined} />
       <Textarea
         ref={composerTextareaRef}
         className="min-h-[96px] resize-none border-0 bg-transparent px-3 py-2.5 text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
@@ -5634,7 +5696,7 @@ export function AIConsole() {
             t={t}
             visualizationSnapshot={latestResultVisualizationSnapshot}
             modelText={modelText}
-            onModelTextChange={(val) => { setModelText(val); setModelSyncMessage('') }}
+            onModelTextChange={(val) => { modelEditedRef.current = true; setModelText(val); setModelSyncMessage('') }}
             modelSyncMessage={modelSyncMessage}
             parsedComposerModelError={parsedComposerModelError}
           />
@@ -5646,6 +5708,7 @@ export function AIConsole() {
           attachments: [...messages.flatMap(message => message.attachments ?? []), ...attachedFiles], restrictFileAccessToAttachments: true }}
         onUpdate={review => {
           if (review.conversationId !== conversationIdRef.current) return
+          void sessionRuntime.refresh().catch(() => {})
           if (review.model) applySynchronizedModel(review.model, 'tool')
           if (!review.analysisCurrent) {
             const cleared = latestResult ? { ...latestResult, analysis: undefined, codeCheck: undefined, report: undefined } : null

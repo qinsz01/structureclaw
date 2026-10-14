@@ -2,6 +2,8 @@
 export class SessionLock {
   private readonly tails = new Map<string, Promise<void>>();
 
+  isBusy(id: string): boolean { return this.tails.has(id); }
+
   async acquire(id: string): Promise<() => void> {
     const previous = this.tails.get(id) ?? Promise.resolve();
     let release!: () => void;
