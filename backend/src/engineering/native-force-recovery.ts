@@ -2,6 +2,7 @@ import type { RecoveryModel, Vec } from '../skill-shared/member-response.js';
 import { isRecord, type ModelRecord } from './model-state.js';
 import { nativeRigidMember } from './native-rigid-offsets.js';
 import { pkpmExecutedUniformLoad } from './native-load-readback.js';
+import { yjkConsistentAxialGravity } from './native-axial-gravity.js';
 
 const keys = ['N', 'Vy', 'Vz', 'T', 'My', 'Mz'] as const;
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
@@ -78,6 +79,9 @@ export function nativeForceRecovery(model: RecoveryModel, data: ModelRecord, mem
       || gravity.inputQuantization.significantDigits !== 6)) return fail();
     const executedSegments = Array.isArray(executed)
       ? executed.filter(row => isRecord(row) && row.physicalElementId === memberId) : undefined;
+    if (!executedSegments && isRecord(gravity.consistentLoadCompilation)
+      && Array.isArray(gravity.consistentLoadCompilation.members)
+      && gravity.consistentLoadCompilation.members.some(row => isRecord(row) && row.physicalElementId === memberId)) return fail();
     if (executedSegments && executedSegments.length !== segments.length) return fail();
     for (const segment of segments) {
       const { startM, endM, sourceSegmentId, intensityVectorKnM } = segment;
@@ -97,6 +101,18 @@ export function nativeForceRecovery(model: RecoveryModel, data: ModelRecord, mem
         const matches = executedSegments.filter(row => row.sourceSegmentId === sourceSegmentId);
         if (matches.length !== 1) return fail();
         const actual = matches[0];
+        if (actual.executionMethod === 'consistent-axial-load-vector') {
+          if (actual.startM !== startM || actual.endM !== endM || !Array.isArray(actual.intensityVectorKnM)
+            || actual.intensityVectorKnM.length !== 3 || actual.intensityVectorKnM.some((value: unknown,i: number) => value !== intensityVectorKnM[i])) return fail();
+          const portions = yjkConsistentAxialGravity(model,context,gravity,segment,rigid);
+          for (const portion of portions) lines.push({a:portion.a,b:portion.b,q:local(portion.q,{reference_frame:'global'},factor),slope:[0,0,0]});
+          loadBasis = 'audited-native-input';
+          cursor = endM;
+          continue;
+        }
+        if (actual.executionMethod !== undefined || isRecord(gravity.consistentLoadCompilation)
+          && Array.isArray(gravity.consistentLoadCompilation.members)
+          && gravity.consistentLoadCompilation.members.some(row => isRecord(row) && row.sourceSegmentId === sourceSegmentId)) return fail();
         if (actual.startM !== startM || actual.endM !== endM || !Array.isArray(actual.intensityVectorKnM)
           || actual.intensityVectorKnM.length !== 3 || actual.intensityVectorKnM.some((value: unknown, index: number) =>
             !finite(value) || Math.abs(value - Number(intensityVectorKnM[index].toPrecision(6)))

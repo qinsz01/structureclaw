@@ -1,0 +1,3398 @@
+{
+  "source": {
+    "directory": "G:/StructureClaw-All/sclaw_data/work/yjk-rigid-offsets-20261014-142158-0aa81298/",
+    "numericalAcceptance": "1595/1596; one original displacement threshold exceeded; not full acceptance",
+    "modelSha256": "ca9c50da1ed691466c861bf89b8d0ed9bff50c12060331f48f08237710944d50",
+    "selectedDataSha256": "eb61c96f825a7d086bc66f1a4fe929af2b91ef0a77d8984706e60450f235921e"
+  },
+  "model": {
+    "schema_version": "2.1.0",
+    "units": {
+      "length": "m",
+      "force": "kN"
+    },
+    "coordinate_system": {
+      "dimension": "3d",
+      "vertical_axis": "Z",
+      "semantics": "global-z-up",
+      "version": 1,
+      "dof_order": [
+        "ux",
+        "uy",
+        "uz",
+        "rx",
+        "ry",
+        "rz"
+      ],
+      "plane": null
+    },
+    "stories": [
+      {
+        "id": "F1",
+        "elevation": 0,
+        "height": 3
+      }
+    ],
+    "nodes": [
+      {
+        "id": "N000",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "N001",
+        "x": 6,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "N010",
+        "x": 0,
+        "y": 4,
+        "z": 0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "N011",
+        "x": 6,
+        "y": 4,
+        "z": 0,
+        "restraints": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "id": "N100",
+        "x": 0,
+        "y": 0,
+        "z": 3,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "N101",
+        "x": 6,
+        "y": 0,
+        "z": 3,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "N110",
+        "x": 0,
+        "y": 4,
+        "z": 3,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "N111",
+        "x": 6,
+        "y": 4,
+        "z": 3,
+        "restraints": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ]
+      }
+    ],
+    "elements": [
+      {
+        "id": "C00",
+        "type": "column",
+        "nodes": [
+          "N000",
+          "N100"
+        ],
+        "material": "M",
+        "section": "SC"
+      },
+      {
+        "id": "C01",
+        "type": "column",
+        "nodes": [
+          "N001",
+          "N101"
+        ],
+        "material": "M",
+        "section": "SC"
+      },
+      {
+        "id": "C10",
+        "type": "column",
+        "nodes": [
+          "N010",
+          "N110"
+        ],
+        "material": "M",
+        "section": "SC"
+      },
+      {
+        "id": "C11",
+        "type": "column",
+        "nodes": [
+          "N011",
+          "N111"
+        ],
+        "material": "M",
+        "section": "SC"
+      },
+      {
+        "id": "BX0",
+        "type": "beam",
+        "nodes": [
+          "N101",
+          "N100"
+        ],
+        "material": "M",
+        "section": "SB"
+      },
+      {
+        "id": "BX1",
+        "type": "beam",
+        "nodes": [
+          "N110",
+          "N111"
+        ],
+        "material": "M",
+        "section": "SB"
+      },
+      {
+        "id": "BY0",
+        "type": "beam",
+        "nodes": [
+          "N100",
+          "N110"
+        ],
+        "material": "M",
+        "section": "SB"
+      },
+      {
+        "id": "BY1",
+        "type": "beam",
+        "nodes": [
+          "N101",
+          "N111"
+        ],
+        "material": "M",
+        "section": "SB"
+      }
+    ],
+    "materials": [
+      {
+        "id": "M",
+        "category": "concrete",
+        "grade": "C30",
+        "E": 30000,
+        "nu": 0.2,
+        "G": 12500,
+        "rho": 2500,
+        "name": "C30"
+      }
+    ],
+    "sections": [
+      {
+        "id": "SC",
+        "type": "rectangular",
+        "shape": {
+          "kind": "rectangular",
+          "B": 300,
+          "H": 600
+        },
+        "properties": {
+          "A": 0.18,
+          "Iy": 0.0054,
+          "Iz": 0.00135,
+          "J": 0.00370828125,
+          "Asy": 0.15,
+          "Asz": 0.15
+        },
+        "name": "SC"
+      },
+      {
+        "id": "SB",
+        "type": "rectangular",
+        "shape": {
+          "kind": "rectangular",
+          "B": 300,
+          "H": 600
+        },
+        "properties": {
+          "A": 0.18,
+          "Iy": 0.0054,
+          "Iz": 0.00135,
+          "J": 0.00370828125,
+          "Asy": 0.15,
+          "Asz": 0.15
+        },
+        "name": "SB"
+      }
+    ],
+    "analysis_control": {
+      "self_weight": true,
+      "rigid_floor": false,
+      "rigid_offsets": true,
+      "construction_stage": false,
+      "p_delta": false,
+      "self_weight_case_id": "D"
+    },
+    "load_cases": [
+      {
+        "id": "FX",
+        "name": "FX",
+        "type": "other",
+        "loads": [
+          {
+            "id": "FX",
+            "type": "nodal",
+            "node": "N100",
+            "fx": 10
+          }
+        ]
+      },
+      {
+        "id": "FY",
+        "name": "FY",
+        "type": "other",
+        "loads": [
+          {
+            "id": "FY",
+            "type": "nodal",
+            "node": "N100",
+            "fy": 10
+          }
+        ]
+      },
+      {
+        "id": "FZ",
+        "name": "FZ",
+        "type": "other",
+        "loads": [
+          {
+            "id": "FZ",
+            "type": "nodal",
+            "node": "N100",
+            "fz": 10
+          }
+        ]
+      },
+      {
+        "id": "MX",
+        "name": "MX",
+        "type": "other",
+        "loads": [
+          {
+            "id": "MX",
+            "type": "nodal",
+            "node": "N100",
+            "mx": 10
+          }
+        ]
+      },
+      {
+        "id": "MY",
+        "name": "MY",
+        "type": "other",
+        "loads": [
+          {
+            "id": "MY",
+            "type": "nodal",
+            "node": "N100",
+            "my": 10
+          }
+        ]
+      },
+      {
+        "id": "MZ",
+        "name": "MZ",
+        "type": "other",
+        "loads": [
+          {
+            "id": "MZ",
+            "type": "nodal",
+            "node": "N100",
+            "mz": 10
+          }
+        ]
+      },
+      {
+        "id": "D",
+        "name": "D",
+        "type": "dead",
+        "loads": [
+          {
+            "id": "q-BX0",
+            "type": "distributed",
+            "element": "BX0",
+            "wz": -7,
+            "start": 1,
+            "end": 3.5
+          },
+          {
+            "id": "q-BX1",
+            "type": "distributed",
+            "element": "BX1",
+            "wz": -7
+          },
+          {
+            "id": "q-BY0",
+            "type": "distributed",
+            "element": "BY0",
+            "wz": -7
+          },
+          {
+            "id": "q-BY1",
+            "type": "distributed",
+            "element": "BY1",
+            "wz": -7
+          },
+          {
+            "id": "interior-point",
+            "type": "point",
+            "element": "BX0",
+            "position": 1.7,
+            "fz": -5
+          }
+        ]
+      }
+    ],
+    "load_combinations": [],
+    "project": {
+      "name": "native-design-concrete"
+    }
+  },
+  "data": {
+    "nativeContext": {
+      "engine": "yjk",
+      "engineVersion": "YJK8.0.0",
+      "physicalModelHash": "db0f2008b0da303bf2939261fabc923cded5651001291aff938880dc7f753700",
+      "stiffnessHash": "ca2d2ca20eb79d99c7f58614cb7c3f121a5c7647b38d619adae8f4e7a68595ab",
+      "settingsHash": "18e93e13daf654d801bab511f2355943d016f1767eb71ccaa6059a7ebf188b0d",
+      "linearStatic": true,
+      "effectiveSettingsVerified": true,
+      "materialsVerified": true,
+      "stationConventionsVerified": true,
+      "effectiveConstraints": {
+        "verified": true,
+        "sourceFeaSha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d",
+        "diaphragms": null,
+        "supports": {
+          "passed": true,
+          "sourceFeaSha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d",
+          "method": "source-node-to-native-CONSTRAINT-R",
+          "dofOrder": [
+            "ux",
+            "uy",
+            "uz",
+            "rx",
+            "ry",
+            "rz"
+          ],
+          "nodes": {
+            "N000": {
+              "nativeNodeId": "1",
+              "positionM": [
+                0,
+                0,
+                0
+              ],
+              "authored": [
+                true,
+                true,
+                true,
+                true,
+                true,
+                true
+              ],
+              "executed": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1
+              ],
+              "referenceFrame": "global"
+            },
+            "N001": {
+              "nativeNodeId": "2",
+              "positionM": [
+                6,
+                0,
+                0
+              ],
+              "authored": [
+                true,
+                true,
+                true,
+                true,
+                true,
+                true
+              ],
+              "executed": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1
+              ],
+              "referenceFrame": "global"
+            },
+            "N010": {
+              "nativeNodeId": "3",
+              "positionM": [
+                0,
+                4,
+                0
+              ],
+              "authored": [
+                true,
+                true,
+                true,
+                true,
+                true,
+                true
+              ],
+              "executed": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1
+              ],
+              "referenceFrame": "global"
+            },
+            "N011": {
+              "nativeNodeId": "4",
+              "positionM": [
+                6,
+                4,
+                0
+              ],
+              "authored": [
+                true,
+                true,
+                true,
+                true,
+                true,
+                true
+              ],
+              "executed": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1
+              ],
+              "referenceFrame": "global"
+            },
+            "N100": {
+              "nativeNodeId": "1000001",
+              "positionM": [
+                0,
+                0,
+                3
+              ],
+              "authored": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+              ],
+              "executed": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "referenceFrame": "global"
+            },
+            "N101": {
+              "nativeNodeId": "1000002",
+              "positionM": [
+                6,
+                0,
+                3
+              ],
+              "authored": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+              ],
+              "executed": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "referenceFrame": "global"
+            },
+            "N110": {
+              "nativeNodeId": "1000003",
+              "positionM": [
+                0,
+                4,
+                3
+              ],
+              "authored": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+              ],
+              "executed": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "referenceFrame": "global"
+            },
+            "N111": {
+              "nativeNodeId": "1000004",
+              "positionM": [
+                6,
+                4,
+                3
+              ],
+              "authored": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+              ],
+              "executed": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "referenceFrame": "global"
+            },
+            "__yjk__BX0__n1": {
+              "nativeNodeId": "1000005",
+              "positionM": [
+                5,
+                0,
+                3
+              ],
+              "authored": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+              ],
+              "executed": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "referenceFrame": "global"
+            },
+            "__yjk__BX0__n2": {
+              "nativeNodeId": "1000006",
+              "positionM": [
+                4.3,
+                0,
+                3
+              ],
+              "authored": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+              ],
+              "executed": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "referenceFrame": "global"
+            },
+            "__yjk__BX0__n3": {
+              "nativeNodeId": "1000007",
+              "positionM": [
+                2.5,
+                0,
+                3
+              ],
+              "authored": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+              ],
+              "executed": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "referenceFrame": "global"
+            }
+          },
+          "failures": []
+        }
+      },
+      "effectiveRigidOffsets": {
+        "verified": true,
+        "sourceFeaSha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d",
+        "method": "native-rigid-end-readback",
+        "members": {
+          "C00": {
+            "physicalLengthM": 3,
+            "elasticStartM": 0,
+            "elasticEndM": 2.775,
+            "startLengthM": 0,
+            "endLengthM": 0.225,
+            "sourceNodeIds": [
+              "N000",
+              "N100"
+            ],
+            "nativeStationDomain": "elastic-span",
+            "source": {
+              "method": "physical-member-native-segment-mapping",
+              "artifacts": [
+                {
+                  "path": "fea.dat",
+                  "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d"
+                }
+              ],
+              "readbackFields": {
+                "segments": [
+                  {
+                    "sourceSegmentId": "C00",
+                    "startM": 0,
+                    "endM": 3,
+                    "physicalLengthM": 3,
+                    "elasticStartM": 0,
+                    "elasticEndM": 2.775,
+                    "startLengthM": 0,
+                    "endLengthM": 0.225,
+                    "sourceNodeIds": [
+                      "N000",
+                      "N100"
+                    ],
+                    "nativeStationDomain": "elastic-span",
+                    "source": {
+                      "nativeFrameId": "1000008",
+                      "artifacts": [
+                        {
+                          "path": "fea.dat",
+                          "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d"
+                        }
+                      ],
+                      "readbackFields": {
+                        "FE.RZL": [
+                          0.225,
+                          0
+                        ],
+                        "SDK.method": "ColumnRigid",
+                        "SDK.rigid": [
+                          225,
+                          0
+                        ],
+                        "SDK.lengthUnit": "mm"
+                      },
+                      "method": "official-rigid-lengths-and-executed-FE-readback"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "C01": {
+            "physicalLengthM": 3,
+            "elasticStartM": 0,
+            "elasticEndM": 2.775,
+            "startLengthM": 0,
+            "endLengthM": 0.225,
+            "sourceNodeIds": [
+              "N001",
+              "N101"
+            ],
+            "nativeStationDomain": "elastic-span",
+            "source": {
+              "method": "physical-member-native-segment-mapping",
+              "artifacts": [
+                {
+                  "path": "fea.dat",
+                  "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d"
+                }
+              ],
+              "readbackFields": {
+                "segments": [
+                  {
+                    "sourceSegmentId": "C01",
+                    "startM": 0,
+                    "endM": 3,
+                    "physicalLengthM": 3,
+                    "elasticStartM": 0,
+                    "elasticEndM": 2.775,
+                    "startLengthM": 0,
+                    "endLengthM": 0.225,
+                    "sourceNodeIds": [
+                      "N001",
+                      "N101"
+                    ],
+                    "nativeStationDomain": "elastic-span",
+                    "source": {
+                      "nativeFrameId": "1000009",
+                      "artifacts": [
+                        {
+                          "path": "fea.dat",
+                          "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d"
+                        }
+                      ],
+                      "readbackFields": {
+                        "FE.RZL": [
+                          0.225,
+                          0
+                        ],
+                        "SDK.method": "ColumnRigid",
+                        "SDK.rigid": [
+                          225,
+                          0
+                        ],
+                        "SDK.lengthUnit": "mm"
+                      },
+                      "method": "official-rigid-lengths-and-executed-FE-readback"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "C10": {
+            "physicalLengthM": 3,
+            "elasticStartM": 0,
+            "elasticEndM": 2.775,
+            "startLengthM": 0,
+            "endLengthM": 0.225,
+            "sourceNodeIds": [
+              "N010",
+              "N110"
+            ],
+            "nativeStationDomain": "elastic-span",
+            "source": {
+              "method": "physical-member-native-segment-mapping",
+              "artifacts": [
+                {
+                  "path": "fea.dat",
+                  "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d"
+                }
+              ],
+              "readbackFields": {
+                "segments": [
+                  {
+                    "sourceSegmentId": "C10",
+                    "startM": 0,
+                    "endM": 3,
+                    "physicalLengthM": 3,
+                    "elasticStartM": 0,
+                    "elasticEndM": 2.775,
+                    "startLengthM": 0,
+                    "endLengthM": 0.225,
+                    "sourceNodeIds": [
+                      "N010",
+                      "N110"
+                    ],
+                    "nativeStationDomain": "elastic-span",
+                    "source": {
+                      "nativeFrameId": "1000010",
+                      "artifacts": [
+                        {
+                          "path": "fea.dat",
+                          "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d"
+                        }
+                      ],
+                      "readbackFields": {
+                        "FE.RZL": [
+                          0.225,
+                          0
+                        ],
+                        "SDK.method": "ColumnRigid",
+                        "SDK.rigid": [
+                          225,
+                          0
+                        ],
+                        "SDK.lengthUnit": "mm"
+                      },
+                      "method": "official-rigid-lengths-and-executed-FE-readback"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "C11": {
+            "physicalLengthM": 3,
+            "elasticStartM": 0,
+            "elasticEndM": 2.775,
+            "startLengthM": 0,
+            "endLengthM": 0.225,
+            "sourceNodeIds": [
+              "N011",
+              "N111"
+            ],
+            "nativeStationDomain": "elastic-span",
+            "source": {
+              "method": "physical-member-native-segment-mapping",
+              "artifacts": [
+                {
+                  "path": "fea.dat",
+                  "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d"
+                }
+              ],
+              "readbackFields": {
+                "segments": [
+                  {
+                    "sourceSegmentId": "C11",
+                    "startM": 0,
+                    "endM": 3,
+                    "physicalLengthM": 3,
+                    "elasticStartM": 0,
+                    "elasticEndM": 2.775,
+                    "startLengthM": 0,
+                    "endLengthM": 0.225,
+                    "sourceNodeIds": [
+                      "N011",
+                      "N111"
+                    ],
+                    "nativeStationDomain": "elastic-span",
+                    "source": {
+                      "nativeFrameId": "1000011",
+                      "artifacts": [
+                        {
+                          "path": "fea.dat",
+                          "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d"
+                        }
+                      ],
+                      "readbackFields": {
+                        "FE.RZL": [
+                          0.225,
+                          0
+                        ],
+                        "SDK.method": "ColumnRigid",
+                        "SDK.rigid": [
+                          225,
+                          0
+                        ],
+                        "SDK.lengthUnit": "mm"
+                      },
+                      "method": "official-rigid-lengths-and-executed-FE-readback"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "BX0": {
+            "physicalLengthM": 6,
+            "elasticStartM": 0.15,
+            "elasticEndM": 5.85,
+            "startLengthM": 0.15,
+            "endLengthM": 0.15,
+            "sourceNodeIds": [
+              "N101",
+              "N100"
+            ],
+            "nativeStationDomain": "elastic-span",
+            "source": {
+              "method": "physical-member-native-segment-mapping",
+              "artifacts": [
+                {
+                  "path": "fea.dat",
+                  "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d"
+                }
+              ],
+              "readbackFields": {
+                "segments": [
+                  {
+                    "sourceSegmentId": "__yjk__BX0__s1",
+                    "startM": 0,
+                    "endM": 1,
+                    "physicalLengthM": 1,
+                    "elasticStartM": 0.15,
+                    "elasticEndM": 1,
+                    "startLengthM": 0.15,
+                    "endLengthM": 0,
+                    "sourceNodeIds": [
+                      "N101",
+                      "__yjk__BX0__n1"
+                    ],
+                    "nativeStationDomain": "elastic-span",
+                    "source": {
+                      "nativeFrameId": "1000001",
+                      "artifacts": [
+                        {
+                          "path": "fea.dat",
+                          "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d"
+                        }
+                      ],
+                      "readbackFields": {
+                        "FE.RZL": [
+                          0,
+                          0.15
+                        ],
+                        "SDK.method": "BeamRigid",
+                        "SDK.rigid": [
+                          0,
+                          0.15000000596046448
+                        ],
+                        "SDK.lengthUnit": "m"
+                      },
+                      "method": "official-rigid-lengths-and-executed-FE-readback"
+                    }
+                  },
+                  {
+                    "sourceSegmentId": "__yjk__BX0__s2",
+                    "startM": 1,
+                    "endM": 1.7,
+                    "physicalLengthM": 0.7000000000000002,
+                    "elasticStartM": 0,
+                    "elasticEndM": 0.7000000000000002,
+                    "startLengthM": 0,
+                    "endLengthM": 0,
+                    "sourceNodeIds": [
+                      "__yjk__BX0__n1",
+                      "__yjk__BX0__n2"
+                    ],
+                    "nativeStationDomain": "elastic-span",
+                    "source": {
+                      "nativeFrameId": "1000002",
+                      "artifacts": [
+                        {
+                          "path": "fea.dat",
+                          "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d"
+                        }
+                      ],
+                      "readbackFields": {
+                        "FE.RZL": [
+                          0,
+                          0
+                        ],
+                        "SDK.method": "BeamRigid",
+                        "SDK.rigid": [
+                          0,
+                          0
+                        ],
+                        "SDK.lengthUnit": "m"
+                      },
+                      "method": "official-rigid-lengths-and-executed-FE-readback"
+                    }
+                  },
+                  {
+                    "sourceSegmentId": "__yjk__BX0__s3",
+                    "startM": 1.7,
+                    "endM": 3.5,
+                    "physicalLengthM": 1.7999999999999998,
+                    "elasticStartM": 0,
+                    "elasticEndM": 1.7999999999999998,
+                    "startLengthM": 0,
+                    "endLengthM": 0,
+                    "sourceNodeIds": [
+                      "__yjk__BX0__n2",
+                      "__yjk__BX0__n3"
+                    ],
+                    "nativeStationDomain": "elastic-span",
+                    "source": {
+                      "nativeFrameId": "1000003",
+                      "artifacts": [
+                        {
+                          "path": "fea.dat",
+                          "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d"
+                        }
+                      ],
+                      "readbackFields": {
+                        "FE.RZL": [
+                          0,
+                          0
+                        ],
+                        "SDK.method": "BeamRigid",
+                        "SDK.rigid": [
+                          0,
+                          0
+                        ],
+                        "SDK.lengthUnit": "m"
+                      },
+                      "method": "official-rigid-lengths-and-executed-FE-readback"
+                    }
+                  },
+                  {
+                    "sourceSegmentId": "__yjk__BX0__s4",
+                    "startM": 3.5,
+                    "endM": 6,
+                    "physicalLengthM": 2.5,
+                    "elasticStartM": 0,
+                    "elasticEndM": 2.35,
+                    "startLengthM": 0,
+                    "endLengthM": 0.15,
+                    "sourceNodeIds": [
+                      "__yjk__BX0__n3",
+                      "N100"
+                    ],
+                    "nativeStationDomain": "elastic-span",
+                    "source": {
+                      "nativeFrameId": "1000004",
+                      "artifacts": [
+                        {
+                          "path": "fea.dat",
+                          "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d"
+                        }
+                      ],
+                      "readbackFields": {
+                        "FE.RZL": [
+                          0.15,
+                          0
+                        ],
+                        "SDK.method": "BeamRigid",
+                        "SDK.rigid": [
+                          0.15000000596046448,
+                          0
+                        ],
+                        "SDK.lengthUnit": "m"
+                      },
+                      "method": "official-rigid-lengths-and-executed-FE-readback"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "BX1": {
+            "physicalLengthM": 6,
+            "elasticStartM": 0.15,
+            "elasticEndM": 5.85,
+            "startLengthM": 0.15,
+            "endLengthM": 0.15,
+            "sourceNodeIds": [
+              "N110",
+              "N111"
+            ],
+            "nativeStationDomain": "elastic-span",
+            "source": {
+              "method": "physical-member-native-segment-mapping",
+              "artifacts": [
+                {
+                  "path": "fea.dat",
+                  "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d"
+                }
+              ],
+              "readbackFields": {
+                "segments": [
+                  {
+                    "sourceSegmentId": "BX1",
+                    "startM": 0,
+                    "endM": 6,
+                    "physicalLengthM": 6,
+                    "elasticStartM": 0.15,
+                    "elasticEndM": 5.85,
+                    "startLengthM": 0.15,
+                    "endLengthM": 0.15,
+                    "sourceNodeIds": [
+                      "N110",
+                      "N111"
+                    ],
+                    "nativeStationDomain": "elastic-span",
+                    "source": {
+                      "nativeFrameId": "1000005",
+                      "artifacts": [
+                        {
+                          "path": "fea.dat",
+                          "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d"
+                        }
+                      ],
+                      "readbackFields": {
+                        "FE.RZL": [
+                          0.15,
+                          0.15
+                        ],
+                        "SDK.method": "BeamRigid",
+                        "SDK.rigid": [
+                          0.15000000596046448,
+                          0.15000000596046448
+                        ],
+                        "SDK.lengthUnit": "m"
+                      },
+                      "method": "official-rigid-lengths-and-executed-FE-readback"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "BY0": {
+            "physicalLengthM": 4,
+            "elasticStartM": 0,
+            "elasticEndM": 4,
+            "startLengthM": 0,
+            "endLengthM": 0,
+            "sourceNodeIds": [
+              "N100",
+              "N110"
+            ],
+            "nativeStationDomain": "elastic-span",
+            "source": {
+              "method": "physical-member-native-segment-mapping",
+              "artifacts": [
+                {
+                  "path": "fea.dat",
+                  "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d"
+                }
+              ],
+              "readbackFields": {
+                "segments": [
+                  {
+                    "sourceSegmentId": "BY0",
+                    "startM": 0,
+                    "endM": 4,
+                    "physicalLengthM": 4,
+                    "elasticStartM": 0,
+                    "elasticEndM": 4,
+                    "startLengthM": 0,
+                    "endLengthM": 0,
+                    "sourceNodeIds": [
+                      "N100",
+                      "N110"
+                    ],
+                    "nativeStationDomain": "elastic-span",
+                    "source": {
+                      "nativeFrameId": "1000006",
+                      "artifacts": [
+                        {
+                          "path": "fea.dat",
+                          "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d"
+                        }
+                      ],
+                      "readbackFields": {
+                        "FE.RZL": [
+                          0,
+                          0
+                        ],
+                        "SDK.method": "BeamRigid",
+                        "SDK.rigid": [
+                          0,
+                          0
+                        ],
+                        "SDK.lengthUnit": "m"
+                      },
+                      "method": "official-rigid-lengths-and-executed-FE-readback"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "BY1": {
+            "physicalLengthM": 4,
+            "elasticStartM": 0,
+            "elasticEndM": 4,
+            "startLengthM": 0,
+            "endLengthM": 0,
+            "sourceNodeIds": [
+              "N101",
+              "N111"
+            ],
+            "nativeStationDomain": "elastic-span",
+            "source": {
+              "method": "physical-member-native-segment-mapping",
+              "artifacts": [
+                {
+                  "path": "fea.dat",
+                  "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d"
+                }
+              ],
+              "readbackFields": {
+                "segments": [
+                  {
+                    "sourceSegmentId": "BY1",
+                    "startM": 0,
+                    "endM": 4,
+                    "physicalLengthM": 4,
+                    "elasticStartM": 0,
+                    "elasticEndM": 4,
+                    "startLengthM": 0,
+                    "endLengthM": 0,
+                    "sourceNodeIds": [
+                      "N101",
+                      "N111"
+                    ],
+                    "nativeStationDomain": "elastic-span",
+                    "source": {
+                      "nativeFrameId": "1000007",
+                      "artifacts": [
+                        {
+                          "path": "fea.dat",
+                          "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d"
+                        }
+                      ],
+                      "readbackFields": {
+                        "FE.RZL": [
+                          0,
+                          0
+                        ],
+                        "SDK.method": "BeamRigid",
+                        "SDK.rigid": [
+                          0,
+                          0
+                        ],
+                        "SDK.lengthUnit": "m"
+                      },
+                      "method": "official-rigid-lengths-and-executed-FE-readback"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "failures": [],
+        "sourceLoadSemanticsPreserved": true,
+        "loadCompilation": {
+          "method": "native-direct-and-consistent-axial-gravity",
+          "sourceFeaSha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d",
+          "loadHash": "d887ec807c912526f4097eea3c9c5bce44a7413662b97592db22273c6aca276e",
+          "verified": true
+        }
+      },
+      "effectiveLoads": {
+        "verified": true,
+        "sourceFeaSha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d",
+        "selfWeight": {
+          "enabled": true,
+          "gravityMps2": 9.80665,
+          "direction": "-z",
+          "vectorMps2": [
+            0,
+            0,
+            -9.80665
+          ],
+          "source": "explicit",
+          "gravitySource": "standard-gravity",
+          "directionSource": "global-negative-z",
+          "loadCaseId": "D",
+          "caseSource": "explicit-case-id",
+          "method": "authored-member-density-area-native-line-loads",
+          "members": [
+            {
+              "elementId": "C00",
+              "materialId": "M",
+              "sectionId": "SC",
+              "densityKgM3": 2500,
+              "areaM2": 0.18,
+              "lengthM": 3,
+              "intensityKnM": -4.4129925,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.4129925
+              ],
+              "totalForceKn": -13.238977499999999,
+              "totalForceVectorKn": [
+                0,
+                0,
+                -13.238977499999999
+              ],
+              "elementKind": 11,
+              "actualToPlanLengthFactor": 1
+            },
+            {
+              "elementId": "C01",
+              "materialId": "M",
+              "sectionId": "SC",
+              "densityKgM3": 2500,
+              "areaM2": 0.18,
+              "lengthM": 3,
+              "intensityKnM": -4.4129925,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.4129925
+              ],
+              "totalForceKn": -13.238977499999999,
+              "totalForceVectorKn": [
+                0,
+                0,
+                -13.238977499999999
+              ],
+              "elementKind": 11,
+              "actualToPlanLengthFactor": 1
+            },
+            {
+              "elementId": "C10",
+              "materialId": "M",
+              "sectionId": "SC",
+              "densityKgM3": 2500,
+              "areaM2": 0.18,
+              "lengthM": 3,
+              "intensityKnM": -4.4129925,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.4129925
+              ],
+              "totalForceKn": -13.238977499999999,
+              "totalForceVectorKn": [
+                0,
+                0,
+                -13.238977499999999
+              ],
+              "elementKind": 11,
+              "actualToPlanLengthFactor": 1
+            },
+            {
+              "elementId": "C11",
+              "materialId": "M",
+              "sectionId": "SC",
+              "densityKgM3": 2500,
+              "areaM2": 0.18,
+              "lengthM": 3,
+              "intensityKnM": -4.4129925,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.4129925
+              ],
+              "totalForceKn": -13.238977499999999,
+              "totalForceVectorKn": [
+                0,
+                0,
+                -13.238977499999999
+              ],
+              "elementKind": 11,
+              "actualToPlanLengthFactor": 1
+            },
+            {
+              "elementId": "__yjk__BX0__s1",
+              "materialId": "M",
+              "sectionId": "SB",
+              "densityKgM3": 2500,
+              "areaM2": 0.18,
+              "lengthM": 1,
+              "intensityKnM": -4.4129925,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.4129925
+              ],
+              "totalForceKn": -4.4129925,
+              "totalForceVectorKn": [
+                0,
+                0,
+                -4.4129925
+              ],
+              "elementKind": 12,
+              "actualToPlanLengthFactor": 1
+            },
+            {
+              "elementId": "__yjk__BX0__s2",
+              "materialId": "M",
+              "sectionId": "SB",
+              "densityKgM3": 2500,
+              "areaM2": 0.18,
+              "lengthM": 0.7000000000000002,
+              "intensityKnM": -4.4129925,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.4129925
+              ],
+              "totalForceKn": -3.0890947500000006,
+              "totalForceVectorKn": [
+                0,
+                0,
+                -3.0890947500000006
+              ],
+              "elementKind": 12,
+              "actualToPlanLengthFactor": 1
+            },
+            {
+              "elementId": "__yjk__BX0__s3",
+              "materialId": "M",
+              "sectionId": "SB",
+              "densityKgM3": 2500,
+              "areaM2": 0.18,
+              "lengthM": 1.7999999999999998,
+              "intensityKnM": -4.4129925,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.4129925
+              ],
+              "totalForceKn": -7.943386499999999,
+              "totalForceVectorKn": [
+                0,
+                0,
+                -7.943386499999999
+              ],
+              "elementKind": 12,
+              "actualToPlanLengthFactor": 1
+            },
+            {
+              "elementId": "__yjk__BX0__s4",
+              "materialId": "M",
+              "sectionId": "SB",
+              "densityKgM3": 2500,
+              "areaM2": 0.18,
+              "lengthM": 2.5,
+              "intensityKnM": -4.4129925,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.4129925
+              ],
+              "totalForceKn": -11.03248125,
+              "totalForceVectorKn": [
+                0,
+                0,
+                -11.03248125
+              ],
+              "elementKind": 12,
+              "actualToPlanLengthFactor": 1
+            },
+            {
+              "elementId": "BX1",
+              "materialId": "M",
+              "sectionId": "SB",
+              "densityKgM3": 2500,
+              "areaM2": 0.18,
+              "lengthM": 6,
+              "intensityKnM": -4.4129925,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.4129925
+              ],
+              "totalForceKn": -26.477954999999998,
+              "totalForceVectorKn": [
+                0,
+                0,
+                -26.477954999999998
+              ],
+              "elementKind": 12,
+              "actualToPlanLengthFactor": 1
+            },
+            {
+              "elementId": "BY0",
+              "materialId": "M",
+              "sectionId": "SB",
+              "densityKgM3": 2500,
+              "areaM2": 0.18,
+              "lengthM": 4,
+              "intensityKnM": -4.4129925,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.4129925
+              ],
+              "totalForceKn": -17.65197,
+              "totalForceVectorKn": [
+                0,
+                0,
+                -17.65197
+              ],
+              "elementKind": 12,
+              "actualToPlanLengthFactor": 1
+            },
+            {
+              "elementId": "BY1",
+              "materialId": "M",
+              "sectionId": "SB",
+              "densityKgM3": 2500,
+              "areaM2": 0.18,
+              "lengthM": 4,
+              "intensityKnM": -4.4129925,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.4129925
+              ],
+              "totalForceKn": -17.65197,
+              "totalForceVectorKn": [
+                0,
+                0,
+                -17.65197
+              ],
+              "elementKind": 12,
+              "actualToPlanLengthFactor": 1
+            }
+          ],
+          "physicalCompilation": [
+            {
+              "physicalElementId": "C00",
+              "startM": 0,
+              "endM": 3,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.4129925
+              ],
+              "sourceSegmentId": "C00"
+            },
+            {
+              "physicalElementId": "C01",
+              "startM": 0,
+              "endM": 3,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.4129925
+              ],
+              "sourceSegmentId": "C01"
+            },
+            {
+              "physicalElementId": "C10",
+              "startM": 0,
+              "endM": 3,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.4129925
+              ],
+              "sourceSegmentId": "C10"
+            },
+            {
+              "physicalElementId": "C11",
+              "startM": 0,
+              "endM": 3,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.4129925
+              ],
+              "sourceSegmentId": "C11"
+            },
+            {
+              "physicalElementId": "BX0",
+              "startM": 0,
+              "endM": 1,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.4129925
+              ],
+              "sourceSegmentId": "__yjk__BX0__s1"
+            },
+            {
+              "physicalElementId": "BX0",
+              "startM": 1,
+              "endM": 1.7,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.4129925
+              ],
+              "sourceSegmentId": "__yjk__BX0__s2"
+            },
+            {
+              "physicalElementId": "BX0",
+              "startM": 1.7,
+              "endM": 3.5,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.4129925
+              ],
+              "sourceSegmentId": "__yjk__BX0__s3"
+            },
+            {
+              "physicalElementId": "BX0",
+              "startM": 3.5,
+              "endM": 6,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.4129925
+              ],
+              "sourceSegmentId": "__yjk__BX0__s4"
+            },
+            {
+              "physicalElementId": "BX1",
+              "startM": 0,
+              "endM": 6,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.4129925
+              ],
+              "sourceSegmentId": "BX1"
+            },
+            {
+              "physicalElementId": "BY0",
+              "startM": 0,
+              "endM": 4,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.4129925
+              ],
+              "sourceSegmentId": "BY0"
+            },
+            {
+              "physicalElementId": "BY1",
+              "startM": 0,
+              "endM": 4,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.4129925
+              ],
+              "sourceSegmentId": "BY1"
+            }
+          ],
+          "executedCompilation": [
+            {
+              "physicalElementId": "C00",
+              "startM": 0,
+              "endM": 3,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.4129925
+              ],
+              "sourceSegmentId": "C00",
+              "executionMethod": "consistent-axial-load-vector"
+            },
+            {
+              "physicalElementId": "C01",
+              "startM": 0,
+              "endM": 3,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.4129925
+              ],
+              "sourceSegmentId": "C01",
+              "executionMethod": "consistent-axial-load-vector"
+            },
+            {
+              "physicalElementId": "C10",
+              "startM": 0,
+              "endM": 3,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.4129925
+              ],
+              "sourceSegmentId": "C10",
+              "executionMethod": "consistent-axial-load-vector"
+            },
+            {
+              "physicalElementId": "C11",
+              "startM": 0,
+              "endM": 3,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.4129925
+              ],
+              "sourceSegmentId": "C11",
+              "executionMethod": "consistent-axial-load-vector"
+            },
+            {
+              "physicalElementId": "BX0",
+              "startM": 0,
+              "endM": 1,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.41299
+              ],
+              "sourceSegmentId": "__yjk__BX0__s1"
+            },
+            {
+              "physicalElementId": "BX0",
+              "startM": 1,
+              "endM": 1.7,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.41299
+              ],
+              "sourceSegmentId": "__yjk__BX0__s2"
+            },
+            {
+              "physicalElementId": "BX0",
+              "startM": 1.7,
+              "endM": 3.5,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.41299
+              ],
+              "sourceSegmentId": "__yjk__BX0__s3"
+            },
+            {
+              "physicalElementId": "BX0",
+              "startM": 3.5,
+              "endM": 6,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.41299
+              ],
+              "sourceSegmentId": "__yjk__BX0__s4"
+            },
+            {
+              "physicalElementId": "BX1",
+              "startM": 0,
+              "endM": 6,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.41299
+              ],
+              "sourceSegmentId": "BX1"
+            },
+            {
+              "physicalElementId": "BY0",
+              "startM": 0,
+              "endM": 4,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.41299
+              ],
+              "sourceSegmentId": "BY0"
+            },
+            {
+              "physicalElementId": "BY1",
+              "startM": 0,
+              "endM": 4,
+              "intensityVectorKnM": [
+                0,
+                0,
+                -4.41299
+              ],
+              "sourceSegmentId": "BY1"
+            }
+          ],
+          "inputQuantization": {
+            "source": "fea.dat",
+            "significantDigits": 6
+          },
+          "consistentLoadCompilation": {
+            "schema": "sclaw-yjk-consistent-axial-gravity/v1",
+            "method": "axial-uniform-load-exact-virtual-work",
+            "physicalModelHash": "c54d59b02d664542202641d3807f30d8566095eba0800e7b8d09446c7c87b66c",
+            "sourceFeaSha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d",
+            "plannedLoadViewSha256": "edd9f1db3970c1682c9f3eaab890dbee965a6d54b18f95b9f79c504105ed5287",
+            "members": [
+              {
+                "sourceSegmentId": "C00",
+                "physicalElementId": "C00",
+                "sourceNodeIds": [
+                  "N000",
+                  "N100"
+                ],
+                "nativeNodeIds": [
+                  "1000001",
+                  "1"
+                ],
+                "nativeFrameId": "1000008",
+                "loadCaseId": "D",
+                "nativeCaseId": "10013",
+                "startM": 0,
+                "endM": 3,
+                "nativeRigidLengthsM": [
+                  0.225,
+                  0
+                ],
+                "elasticLengthM": 2.775,
+                "sourceIntensityVectorKnM": [
+                  0,
+                  0,
+                  -4.4129925
+                ],
+                "point": {
+                  "nativePositionM": 1.5,
+                  "forceVectorKn": [
+                    0,
+                    0,
+                    -12.246054187499999
+                  ]
+                },
+                "rigidSegmentNodeLoads": [
+                  {
+                    "nativeNodeId": "1000001",
+                    "sourceNodeId": "N100",
+                    "lengthM": 0.225,
+                    "forceVectorKn": [
+                      0,
+                      0,
+                      -0.9929233125
+                    ]
+                  }
+                ],
+                "consistentEndForceVectorKn": [
+                  [
+                    0,
+                    0,
+                    -7.11595040625
+                  ],
+                  [
+                    0,
+                    0,
+                    -6.123027093749999
+                  ]
+                ],
+                "nativeInteriorFieldSemantics": "computational-load-vector; not-physical-uniform-load",
+                "executedPoint": {
+                  "nativePositionM": 1.5,
+                  "forceVectorKn": [
+                    0,
+                    0,
+                    -12.2461
+                  ],
+                  "nativeDirection": "LX",
+                  "nativeValues": [
+                    1.5,
+                    12.2461
+                  ]
+                },
+                "nativeNodeAggregates": [
+                  {
+                    "sourceNodeId": "N100",
+                    "nativeNodeId": "1000001",
+                    "sourceTotalForceVectorKn": [
+                      0,
+                      0,
+                      -0.9929233125
+                    ],
+                    "executedTotalForceVectorKn": [
+                      0,
+                      0,
+                      -0.992923
+                    ]
+                  }
+                ]
+              },
+              {
+                "sourceSegmentId": "C01",
+                "physicalElementId": "C01",
+                "sourceNodeIds": [
+                  "N001",
+                  "N101"
+                ],
+                "nativeNodeIds": [
+                  "1000002",
+                  "2"
+                ],
+                "nativeFrameId": "1000009",
+                "loadCaseId": "D",
+                "nativeCaseId": "10013",
+                "startM": 0,
+                "endM": 3,
+                "nativeRigidLengthsM": [
+                  0.225,
+                  0
+                ],
+                "elasticLengthM": 2.775,
+                "sourceIntensityVectorKnM": [
+                  0,
+                  0,
+                  -4.4129925
+                ],
+                "point": {
+                  "nativePositionM": 1.5,
+                  "forceVectorKn": [
+                    0,
+                    0,
+                    -12.246054187499999
+                  ]
+                },
+                "rigidSegmentNodeLoads": [
+                  {
+                    "nativeNodeId": "1000002",
+                    "sourceNodeId": "N101",
+                    "lengthM": 0.225,
+                    "forceVectorKn": [
+                      0,
+                      0,
+                      -0.9929233125
+                    ]
+                  }
+                ],
+                "consistentEndForceVectorKn": [
+                  [
+                    0,
+                    0,
+                    -7.11595040625
+                  ],
+                  [
+                    0,
+                    0,
+                    -6.123027093749999
+                  ]
+                ],
+                "nativeInteriorFieldSemantics": "computational-load-vector; not-physical-uniform-load",
+                "executedPoint": {
+                  "nativePositionM": 1.5,
+                  "forceVectorKn": [
+                    0,
+                    0,
+                    -12.2461
+                  ],
+                  "nativeDirection": "LX",
+                  "nativeValues": [
+                    1.5,
+                    12.2461
+                  ]
+                },
+                "nativeNodeAggregates": [
+                  {
+                    "sourceNodeId": "N101",
+                    "nativeNodeId": "1000002",
+                    "sourceTotalForceVectorKn": [
+                      0,
+                      0,
+                      -0.9929233125
+                    ],
+                    "executedTotalForceVectorKn": [
+                      0,
+                      0,
+                      -0.992923
+                    ]
+                  }
+                ]
+              },
+              {
+                "sourceSegmentId": "C10",
+                "physicalElementId": "C10",
+                "sourceNodeIds": [
+                  "N010",
+                  "N110"
+                ],
+                "nativeNodeIds": [
+                  "1000003",
+                  "3"
+                ],
+                "nativeFrameId": "1000010",
+                "loadCaseId": "D",
+                "nativeCaseId": "10013",
+                "startM": 0,
+                "endM": 3,
+                "nativeRigidLengthsM": [
+                  0.225,
+                  0
+                ],
+                "elasticLengthM": 2.775,
+                "sourceIntensityVectorKnM": [
+                  0,
+                  0,
+                  -4.4129925
+                ],
+                "point": {
+                  "nativePositionM": 1.5,
+                  "forceVectorKn": [
+                    0,
+                    0,
+                    -12.246054187499999
+                  ]
+                },
+                "rigidSegmentNodeLoads": [
+                  {
+                    "nativeNodeId": "1000003",
+                    "sourceNodeId": "N110",
+                    "lengthM": 0.225,
+                    "forceVectorKn": [
+                      0,
+                      0,
+                      -0.9929233125
+                    ]
+                  }
+                ],
+                "consistentEndForceVectorKn": [
+                  [
+                    0,
+                    0,
+                    -7.11595040625
+                  ],
+                  [
+                    0,
+                    0,
+                    -6.123027093749999
+                  ]
+                ],
+                "nativeInteriorFieldSemantics": "computational-load-vector; not-physical-uniform-load",
+                "executedPoint": {
+                  "nativePositionM": 1.5,
+                  "forceVectorKn": [
+                    0,
+                    0,
+                    -12.2461
+                  ],
+                  "nativeDirection": "LX",
+                  "nativeValues": [
+                    1.5,
+                    12.2461
+                  ]
+                },
+                "nativeNodeAggregates": [
+                  {
+                    "sourceNodeId": "N110",
+                    "nativeNodeId": "1000003",
+                    "sourceTotalForceVectorKn": [
+                      0,
+                      0,
+                      -0.9929233125
+                    ],
+                    "executedTotalForceVectorKn": [
+                      0,
+                      0,
+                      -0.992923
+                    ]
+                  }
+                ]
+              },
+              {
+                "sourceSegmentId": "C11",
+                "physicalElementId": "C11",
+                "sourceNodeIds": [
+                  "N011",
+                  "N111"
+                ],
+                "nativeNodeIds": [
+                  "1000004",
+                  "4"
+                ],
+                "nativeFrameId": "1000011",
+                "loadCaseId": "D",
+                "nativeCaseId": "10013",
+                "startM": 0,
+                "endM": 3,
+                "nativeRigidLengthsM": [
+                  0.225,
+                  0
+                ],
+                "elasticLengthM": 2.775,
+                "sourceIntensityVectorKnM": [
+                  0,
+                  0,
+                  -4.4129925
+                ],
+                "point": {
+                  "nativePositionM": 1.5,
+                  "forceVectorKn": [
+                    0,
+                    0,
+                    -12.246054187499999
+                  ]
+                },
+                "rigidSegmentNodeLoads": [
+                  {
+                    "nativeNodeId": "1000004",
+                    "sourceNodeId": "N111",
+                    "lengthM": 0.225,
+                    "forceVectorKn": [
+                      0,
+                      0,
+                      -0.9929233125
+                    ]
+                  }
+                ],
+                "consistentEndForceVectorKn": [
+                  [
+                    0,
+                    0,
+                    -7.11595040625
+                  ],
+                  [
+                    0,
+                    0,
+                    -6.123027093749999
+                  ]
+                ],
+                "nativeInteriorFieldSemantics": "computational-load-vector; not-physical-uniform-load",
+                "executedPoint": {
+                  "nativePositionM": 1.5,
+                  "forceVectorKn": [
+                    0,
+                    0,
+                    -12.2461
+                  ],
+                  "nativeDirection": "LX",
+                  "nativeValues": [
+                    1.5,
+                    12.2461
+                  ]
+                },
+                "nativeNodeAggregates": [
+                  {
+                    "sourceNodeId": "N111",
+                    "nativeNodeId": "1000004",
+                    "sourceTotalForceVectorKn": [
+                      0,
+                      0,
+                      -0.9929233125
+                    ],
+                    "executedTotalForceVectorKn": [
+                      0,
+                      0,
+                      -0.992923
+                    ]
+                  }
+                ]
+              }
+            ],
+            "replacements": [
+              {
+                "sourceLine": "1000008 T=UNILOAD DIR=GZ F=0,-4.41299,-1,-4.41299 G=0\r\n",
+                "compiledLines": "1000008 T=CONLOAD DIR=GZ F=1.5,-12.246054187499999 G=0\n*NODELOAD\n1000001 F=0,0,-0.99292331249999999,0,0,0 G=0\n*FRAMELOAD\n",
+                "nativeFrameId": "1000008"
+              },
+              {
+                "sourceLine": "1000009 T=UNILOAD DIR=GZ F=0,-4.41299,-1,-4.41299 G=0\r\n",
+                "compiledLines": "1000009 T=CONLOAD DIR=GZ F=1.5,-12.246054187499999 G=0\n*NODELOAD\n1000002 F=0,0,-0.99292331249999999,0,0,0 G=0\n*FRAMELOAD\n",
+                "nativeFrameId": "1000009"
+              },
+              {
+                "sourceLine": "1000010 T=UNILOAD DIR=GZ F=0,-4.41299,-1,-4.41299 G=0\r\n",
+                "compiledLines": "1000010 T=CONLOAD DIR=GZ F=1.5,-12.246054187499999 G=0\n*NODELOAD\n1000003 F=0,0,-0.99292331249999999,0,0,0 G=0\n*FRAMELOAD\n",
+                "nativeFrameId": "1000010"
+              },
+              {
+                "sourceLine": "1000011 T=UNILOAD DIR=GZ F=0,-4.41299,-1,-4.41299 G=0\r\n",
+                "compiledLines": "1000011 T=CONLOAD DIR=GZ F=1.5,-12.246054187499999 G=0\n*NODELOAD\n1000004 F=0,0,-0.99292331249999999,0,0,0 G=0\n*FRAMELOAD\n",
+                "nativeFrameId": "1000011"
+              }
+            ],
+            "scope": "verified-column-gravity-only; geometry-and-stiffness-unchanged",
+            "verified": true,
+            "geometryFeaSha256": "e05b48f9ad2e2dd9c7014f6f6336c068895a5b16ac69873b7967e9ea96f4fed1",
+            "sourceModelHash": "c54d59b02d664542202641d3807f30d8566095eba0800e7b8d09446c7c87b66c"
+          }
+        }
+      },
+      "elasticRepresentations": {
+        "C00": {
+          "section": {
+            "baseline": {
+              "A": 0.18,
+              "Asy": 0.15,
+              "Asz": 0.15,
+              "Iy": 0.0053999999999999986,
+              "Iz": 0.0013499999999999996,
+              "J": 0.0037078593749999985
+            },
+            "method": "native-physical-rectangle"
+          },
+          "material": {
+            "E": 30000,
+            "G": 12000,
+            "grade": "C30",
+            "nu": 0.25,
+            "representation": "native-grade-with-rigidity-transfer",
+            "sourceGrade": "C30",
+            "verification": "requires-executed-FE-readback"
+          }
+        },
+        "C01": {
+          "section": {
+            "baseline": {
+              "A": 0.18,
+              "Asy": 0.15,
+              "Asz": 0.15,
+              "Iy": 0.0053999999999999986,
+              "Iz": 0.0013499999999999996,
+              "J": 0.0037078593749999985
+            },
+            "method": "native-physical-rectangle"
+          },
+          "material": {
+            "E": 30000,
+            "G": 12000,
+            "grade": "C30",
+            "nu": 0.25,
+            "representation": "native-grade-with-rigidity-transfer",
+            "sourceGrade": "C30",
+            "verification": "requires-executed-FE-readback"
+          }
+        },
+        "C10": {
+          "section": {
+            "baseline": {
+              "A": 0.18,
+              "Asy": 0.15,
+              "Asz": 0.15,
+              "Iy": 0.0053999999999999986,
+              "Iz": 0.0013499999999999996,
+              "J": 0.0037078593749999985
+            },
+            "method": "native-physical-rectangle"
+          },
+          "material": {
+            "E": 30000,
+            "G": 12000,
+            "grade": "C30",
+            "nu": 0.25,
+            "representation": "native-grade-with-rigidity-transfer",
+            "sourceGrade": "C30",
+            "verification": "requires-executed-FE-readback"
+          }
+        },
+        "C11": {
+          "section": {
+            "baseline": {
+              "A": 0.18,
+              "Asy": 0.15,
+              "Asz": 0.15,
+              "Iy": 0.0053999999999999986,
+              "Iz": 0.0013499999999999996,
+              "J": 0.0037078593749999985
+            },
+            "method": "native-physical-rectangle"
+          },
+          "material": {
+            "E": 30000,
+            "G": 12000,
+            "grade": "C30",
+            "nu": 0.25,
+            "representation": "native-grade-with-rigidity-transfer",
+            "sourceGrade": "C30",
+            "verification": "requires-executed-FE-readback"
+          }
+        },
+        "__yjk__BX0__s1": {
+          "section": {
+            "baseline": {
+              "A": 0.18,
+              "Asy": 0.15,
+              "Asz": 0.15,
+              "Iy": 0.0053999999999999986,
+              "Iz": 0.0013499999999999996,
+              "J": 0.0037078593749999985
+            },
+            "method": "native-physical-rectangle"
+          },
+          "material": {
+            "E": 30000,
+            "G": 12000,
+            "grade": "C30",
+            "nu": 0.25,
+            "representation": "native-grade-with-rigidity-transfer",
+            "sourceGrade": "C30",
+            "verification": "requires-executed-FE-readback"
+          }
+        },
+        "__yjk__BX0__s2": {
+          "section": {
+            "baseline": {
+              "A": 0.18,
+              "Asy": 0.15,
+              "Asz": 0.15,
+              "Iy": 0.0053999999999999986,
+              "Iz": 0.0013499999999999996,
+              "J": 0.0037078593749999985
+            },
+            "method": "native-physical-rectangle"
+          },
+          "material": {
+            "E": 30000,
+            "G": 12000,
+            "grade": "C30",
+            "nu": 0.25,
+            "representation": "native-grade-with-rigidity-transfer",
+            "sourceGrade": "C30",
+            "verification": "requires-executed-FE-readback"
+          }
+        },
+        "__yjk__BX0__s3": {
+          "section": {
+            "baseline": {
+              "A": 0.18,
+              "Asy": 0.15,
+              "Asz": 0.15,
+              "Iy": 0.0053999999999999986,
+              "Iz": 0.0013499999999999996,
+              "J": 0.0037078593749999985
+            },
+            "method": "native-physical-rectangle"
+          },
+          "material": {
+            "E": 30000,
+            "G": 12000,
+            "grade": "C30",
+            "nu": 0.25,
+            "representation": "native-grade-with-rigidity-transfer",
+            "sourceGrade": "C30",
+            "verification": "requires-executed-FE-readback"
+          }
+        },
+        "__yjk__BX0__s4": {
+          "section": {
+            "baseline": {
+              "A": 0.18,
+              "Asy": 0.15,
+              "Asz": 0.15,
+              "Iy": 0.0053999999999999986,
+              "Iz": 0.0013499999999999996,
+              "J": 0.0037078593749999985
+            },
+            "method": "native-physical-rectangle"
+          },
+          "material": {
+            "E": 30000,
+            "G": 12000,
+            "grade": "C30",
+            "nu": 0.25,
+            "representation": "native-grade-with-rigidity-transfer",
+            "sourceGrade": "C30",
+            "verification": "requires-executed-FE-readback"
+          }
+        },
+        "BX1": {
+          "section": {
+            "baseline": {
+              "A": 0.18,
+              "Asy": 0.15,
+              "Asz": 0.15,
+              "Iy": 0.0053999999999999986,
+              "Iz": 0.0013499999999999996,
+              "J": 0.0037078593749999985
+            },
+            "method": "native-physical-rectangle"
+          },
+          "material": {
+            "E": 30000,
+            "G": 12000,
+            "grade": "C30",
+            "nu": 0.25,
+            "representation": "native-grade-with-rigidity-transfer",
+            "sourceGrade": "C30",
+            "verification": "requires-executed-FE-readback"
+          }
+        },
+        "BY0": {
+          "section": {
+            "baseline": {
+              "A": 0.18,
+              "Asy": 0.15,
+              "Asz": 0.15,
+              "Iy": 0.0053999999999999986,
+              "Iz": 0.0013499999999999996,
+              "J": 0.0037078593749999985
+            },
+            "method": "native-physical-rectangle"
+          },
+          "material": {
+            "E": 30000,
+            "G": 12000,
+            "grade": "C30",
+            "nu": 0.25,
+            "representation": "native-grade-with-rigidity-transfer",
+            "sourceGrade": "C30",
+            "verification": "requires-executed-FE-readback"
+          }
+        },
+        "BY1": {
+          "section": {
+            "baseline": {
+              "A": 0.18,
+              "Asy": 0.15,
+              "Asz": 0.15,
+              "Iy": 0.0053999999999999986,
+              "Iz": 0.0013499999999999996,
+              "J": 0.0037078593749999985
+            },
+            "method": "native-physical-rectangle"
+          },
+          "material": {
+            "E": 30000,
+            "G": 12000,
+            "grade": "C30",
+            "nu": 0.25,
+            "representation": "native-grade-with-rigidity-transfer",
+            "sourceGrade": "C30",
+            "verification": "requires-executed-FE-readback"
+          }
+        }
+      },
+      "sourceFeaSha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d",
+      "artifacts": [
+        {
+          "path": "fea.dat",
+          "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d"
+        }
+      ],
+      "verification": "verified",
+      "compiledModelHash": "c54d59b02d664542202641d3807f30d8566095eba0800e7b8d09446c7c87b66c",
+      "meshMappingHash": "3f6b8a460bc3bea69ddb54ab80ef150d7f7a69873ceb1d3d253730c701173eb7"
+    },
+    "forceSemantics": "simultaneous-signed-stations",
+    "units": {
+      "displacement": "m",
+      "rotation": "rad",
+      "force": "kN",
+      "moment": "kN.m"
+    },
+    "memberStations": {
+      "C00": [
+        {
+          "positionM": 0,
+          "side": "right",
+          "referenceFrame": "element-local",
+          "localAxes": [
+            [
+              0,
+              0,
+              1
+            ],
+            [
+              0,
+              -1,
+              0
+            ],
+            [
+              1,
+              0,
+              0
+            ]
+          ],
+          "components": {
+            "N": -56.862918853759766,
+            "Vy": -3.481713082585729,
+            "Vz": 11.5040596393744,
+            "T": -0.053723689168691635,
+            "My": 11.452376219378516,
+            "Mz": 3.3465667008557487
+          },
+          "nativeStationIndex": 1,
+          "nativeComponents": [
+            -11.452376365661621,
+            -3.3465662002563477,
+            -3.481712579727173,
+            11.504059791564941,
+            -56.862918853759766,
+            -0.053723689168691635
+          ],
+          "nativeComponentOrder": [
+            "Mx",
+            "My",
+            "Qx",
+            "Qy",
+            "N",
+            "T"
+          ],
+          "nativeEndpoints": [
+            "N100",
+            "N000"
+          ],
+          "source": {
+            "kind": "native-station-coordinate-mapping",
+            "artifact": "fea.dat",
+            "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d",
+            "convention": "yjk8-frame-stations-v1",
+            "nativeEndReleases": {
+              "hinges": [
+                0,
+                0
+              ],
+              "nativeR": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "source": "YJKAPI Property(SpBeam).setVal(0/1); native FE R readback"
+            },
+            "effectiveRigidOffsets": {
+              "physicalLengthM": 3,
+              "elasticStartM": 0,
+              "elasticEndM": 2.775,
+              "startLengthM": 0,
+              "endLengthM": 0.225,
+              "sourceNodeIds": [
+                "N000",
+                "N100"
+              ],
+              "nativeStationDomain": "elastic-span",
+              "source": {
+                "nativeFrameId": "1000008",
+                "artifacts": [
+                  {
+                    "path": "fea.dat",
+                    "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d"
+                  }
+                ],
+                "readbackFields": {
+                  "FE.RZL": [
+                    0.225,
+                    0
+                  ],
+                  "SDK.method": "ColumnRigid",
+                  "SDK.rigid": [
+                    225,
+                    0
+                  ],
+                  "SDK.lengthUnit": "mm"
+                },
+                "method": "official-rigid-lengths-and-executed-FE-readback"
+              }
+            },
+            "loadFieldCompilation": "axial-uniform-load-exact-virtual-work",
+            "nativeInteriorFieldSemantics": "computational-load-vector; not-physical-uniform-load"
+          },
+          "nativeSegmentId": "C00"
+        },
+        {
+          "positionM": 2.775,
+          "side": "left",
+          "referenceFrame": "element-local",
+          "localAxes": [
+            [
+              0,
+              0,
+              1
+            ],
+            [
+              0,
+              -1,
+              0
+            ],
+            [
+              1,
+              0,
+              0
+            ]
+          ],
+          "components": {
+            "N": -44.616817474365234,
+            "Vy": -3.481713082585729,
+            "Vz": 11.5040596393744,
+            "T": -0.053723689168691635,
+            "My": -20.471389494462173,
+            "Mz": -6.31518691854526
+          },
+          "nativeStationIndex": 0,
+          "nativeComponents": [
+            20.471389770507812,
+            6.315186023712158,
+            -3.481712579727173,
+            11.504059791564941,
+            -44.616817474365234,
+            -0.053723689168691635
+          ],
+          "nativeComponentOrder": [
+            "Mx",
+            "My",
+            "Qx",
+            "Qy",
+            "N",
+            "T"
+          ],
+          "nativeEndpoints": [
+            "N100",
+            "N000"
+          ],
+          "source": {
+            "kind": "native-station-coordinate-mapping",
+            "artifact": "fea.dat",
+            "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d",
+            "convention": "yjk8-frame-stations-v1",
+            "nativeEndReleases": {
+              "hinges": [
+                0,
+                0
+              ],
+              "nativeR": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "source": "YJKAPI Property(SpBeam).setVal(0/1); native FE R readback"
+            },
+            "effectiveRigidOffsets": {
+              "physicalLengthM": 3,
+              "elasticStartM": 0,
+              "elasticEndM": 2.775,
+              "startLengthM": 0,
+              "endLengthM": 0.225,
+              "sourceNodeIds": [
+                "N000",
+                "N100"
+              ],
+              "nativeStationDomain": "elastic-span",
+              "source": {
+                "nativeFrameId": "1000008",
+                "artifacts": [
+                  {
+                    "path": "fea.dat",
+                    "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d"
+                  }
+                ],
+                "readbackFields": {
+                  "FE.RZL": [
+                    0.225,
+                    0
+                  ],
+                  "SDK.method": "ColumnRigid",
+                  "SDK.rigid": [
+                    225,
+                    0
+                  ],
+                  "SDK.lengthUnit": "mm"
+                },
+                "method": "official-rigid-lengths-and-executed-FE-readback"
+              }
+            },
+            "loadFieldCompilation": "axial-uniform-load-exact-virtual-work",
+            "nativeInteriorFieldSemantics": "computational-load-vector; not-physical-uniform-load"
+          },
+          "nativeSegmentId": "C00"
+        }
+      ],
+      "C01": [
+        {
+          "positionM": 0,
+          "side": "right",
+          "referenceFrame": "element-local",
+          "localAxes": [
+            [
+              0,
+              0,
+              1
+            ],
+            [
+              0,
+              -1,
+              0
+            ],
+            [
+              1,
+              0,
+              0
+            ]
+          ],
+          "components": {
+            "N": -64.26217651367188,
+            "Vy": -3.5489108236269975,
+            "Vz": -11.655017054236758,
+            "T": -0.04659746587276459,
+            "My": -9.780808599964388,
+            "Mz": 3.458431293200809
+          },
+          "nativeStationIndex": 1,
+          "nativeComponents": [
+            9.780808448791504,
+            -3.4584317207336426,
+            -3.5489113330841064,
+            -11.655016899108887,
+            -64.26217651367188,
+            -0.04659746587276459
+          ],
+          "nativeComponentOrder": [
+            "Mx",
+            "My",
+            "Qx",
+            "Qy",
+            "N",
+            "T"
+          ],
+          "nativeEndpoints": [
+            "N101",
+            "N001"
+          ],
+          "source": {
+            "kind": "native-station-coordinate-mapping",
+            "artifact": "fea.dat",
+            "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d",
+            "convention": "yjk8-frame-stations-v1",
+            "nativeEndReleases": {
+              "hinges": [
+                0,
+                0
+              ],
+              "nativeR": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "source": "YJKAPI Property(SpBeam).setVal(0/1); native FE R readback"
+            },
+            "effectiveRigidOffsets": {
+              "physicalLengthM": 3,
+              "elasticStartM": 0,
+              "elasticEndM": 2.775,
+              "startLengthM": 0,
+              "endLengthM": 0.225,
+              "sourceNodeIds": [
+                "N001",
+                "N101"
+              ],
+              "nativeStationDomain": "elastic-span",
+              "source": {
+                "nativeFrameId": "1000009",
+                "artifacts": [
+                  {
+                    "path": "fea.dat",
+                    "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d"
+                  }
+                ],
+                "readbackFields": {
+                  "FE.RZL": [
+                    0.225,
+                    0
+                  ],
+                  "SDK.method": "ColumnRigid",
+                  "SDK.rigid": [
+                    225,
+                    0
+                  ],
+                  "SDK.lengthUnit": "mm"
+                },
+                "method": "official-rigid-lengths-and-executed-FE-readback"
+              }
+            },
+            "loadFieldCompilation": "axial-uniform-load-exact-virtual-work",
+            "nativeInteriorFieldSemantics": "computational-load-vector; not-physical-uniform-load"
+          },
+          "nativeSegmentId": "C01"
+        },
+        {
+          "positionM": 2.775,
+          "side": "left",
+          "referenceFrame": "element-local",
+          "localAxes": [
+            [
+              0,
+              0,
+              1
+            ],
+            [
+              0,
+              -1,
+              0
+            ],
+            [
+              1,
+              0,
+              0
+            ]
+          ],
+          "components": {
+            "N": -52.01607894897461,
+            "Vy": -3.5489108236269975,
+            "Vz": -11.655017054236758,
+            "T": -0.04659746587276459,
+            "My": 22.56186322486362,
+            "Mz": -6.389796701319896
+          },
+          "nativeStationIndex": 0,
+          "nativeComponents": [
+            -22.56186294555664,
+            6.389797687530518,
+            -3.5489113330841064,
+            -11.655016899108887,
+            -52.01607894897461,
+            -0.04659746587276459
+          ],
+          "nativeComponentOrder": [
+            "Mx",
+            "My",
+            "Qx",
+            "Qy",
+            "N",
+            "T"
+          ],
+          "nativeEndpoints": [
+            "N101",
+            "N001"
+          ],
+          "source": {
+            "kind": "native-station-coordinate-mapping",
+            "artifact": "fea.dat",
+            "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d",
+            "convention": "yjk8-frame-stations-v1",
+            "nativeEndReleases": {
+              "hinges": [
+                0,
+                0
+              ],
+              "nativeR": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "source": "YJKAPI Property(SpBeam).setVal(0/1); native FE R readback"
+            },
+            "effectiveRigidOffsets": {
+              "physicalLengthM": 3,
+              "elasticStartM": 0,
+              "elasticEndM": 2.775,
+              "startLengthM": 0,
+              "endLengthM": 0.225,
+              "sourceNodeIds": [
+                "N001",
+                "N101"
+              ],
+              "nativeStationDomain": "elastic-span",
+              "source": {
+                "nativeFrameId": "1000009",
+                "artifacts": [
+                  {
+                    "path": "fea.dat",
+                    "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d"
+                  }
+                ],
+                "readbackFields": {
+                  "FE.RZL": [
+                    0.225,
+                    0
+                  ],
+                  "SDK.method": "ColumnRigid",
+                  "SDK.rigid": [
+                    225,
+                    0
+                  ],
+                  "SDK.lengthUnit": "mm"
+                },
+                "method": "official-rigid-lengths-and-executed-FE-readback"
+              }
+            },
+            "loadFieldCompilation": "axial-uniform-load-exact-virtual-work",
+            "nativeInteriorFieldSemantics": "computational-load-vector; not-physical-uniform-load"
+          },
+          "nativeSegmentId": "C01"
+        }
+      ],
+      "C10": [
+        {
+          "positionM": 0,
+          "side": "right",
+          "referenceFrame": "element-local",
+          "localAxes": [
+            [
+              0,
+              0,
+              1
+            ],
+            [
+              0,
+              -1,
+              0
+            ],
+            [
+              1,
+              0,
+              0
+            ]
+          ],
+          "components": {
+            "N": -70.38675689697266,
+            "Vy": 3.548910954547963,
+            "Vz": 14.114275133765576,
+            "T": -0.053723689168691635,
+            "My": 13.048010978783212,
+            "Mz": -3.492735530803689
+          },
+          "nativeStationIndex": 1,
+          "nativeComponents": [
+            -13.04801082611084,
+            3.4927361011505127,
+            3.5489115715026855,
+            14.114274978637695,
+            -70.38675689697266,
+            -0.053723689168691635
+          ],
+          "nativeComponentOrder": [
+            "Mx",
+            "My",
+            "Qx",
+            "Qy",
+            "N",
+            "T"
+          ],
+          "nativeEndpoints": [
+            "N110",
+            "N010"
+          ],
+          "source": {
+            "kind": "native-station-coordinate-mapping",
+            "artifact": "fea.dat",
+            "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d",
+            "convention": "yjk8-frame-stations-v1",
+            "nativeEndReleases": {
+              "hinges": [
+                0,
+                0
+              ],
+              "nativeR": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "source": "YJKAPI Property(SpBeam).setVal(0/1); native FE R readback"
+            },
+            "effectiveRigidOffsets": {
+              "physicalLengthM": 3,
+              "elasticStartM": 0,
+              "elasticEndM": 2.775,
+              "startLengthM": 0,
+              "endLengthM": 0.225,
+              "sourceNodeIds": [
+                "N010",
+                "N110"
+              ],
+              "nativeStationDomain": "elastic-span",
+              "source": {
+                "nativeFrameId": "1000010",
+                "artifacts": [
+                  {
+                    "path": "fea.dat",
+                    "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d"
+                  }
+                ],
+                "readbackFields": {
+                  "FE.RZL": [
+                    0.225,
+                    0
+                  ],
+                  "SDK.method": "ColumnRigid",
+                  "SDK.rigid": [
+                    225,
+                    0
+                  ],
+                  "SDK.lengthUnit": "mm"
+                },
+                "method": "official-rigid-lengths-and-executed-FE-readback"
+              }
+            },
+            "loadFieldCompilation": "axial-uniform-load-exact-virtual-work",
+            "nativeInteriorFieldSemantics": "computational-load-vector; not-physical-uniform-load"
+          },
+          "nativeSegmentId": "C10"
+        },
+        {
+          "positionM": 2.775,
+          "side": "left",
+          "referenceFrame": "element-local",
+          "localAxes": [
+            [
+              0,
+              0,
+              1
+            ],
+            [
+              0,
+              -1,
+              0
+            ],
+            [
+              1,
+              0,
+              0
+            ]
+          ],
+          "components": {
+            "N": -58.140655517578125,
+            "Vy": 3.548910954547963,
+            "Vz": 14.114275133765576,
+            "T": -0.053723689168691635,
+            "My": -26.11910275583482,
+            "Mz": 6.355491926992527
+          },
+          "nativeStationIndex": 0,
+          "nativeComponents": [
+            26.119102478027344,
+            -6.355493068695068,
+            3.5489115715026855,
+            14.114274978637695,
+            -58.140655517578125,
+            -0.053723689168691635
+          ],
+          "nativeComponentOrder": [
+            "Mx",
+            "My",
+            "Qx",
+            "Qy",
+            "N",
+            "T"
+          ],
+          "nativeEndpoints": [
+            "N110",
+            "N010"
+          ],
+          "source": {
+            "kind": "native-station-coordinate-mapping",
+            "artifact": "fea.dat",
+            "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d",
+            "convention": "yjk8-frame-stations-v1",
+            "nativeEndReleases": {
+              "hinges": [
+                0,
+                0
+              ],
+              "nativeR": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "source": "YJKAPI Property(SpBeam).setVal(0/1); native FE R readback"
+            },
+            "effectiveRigidOffsets": {
+              "physicalLengthM": 3,
+              "elasticStartM": 0,
+              "elasticEndM": 2.775,
+              "startLengthM": 0,
+              "endLengthM": 0.225,
+              "sourceNodeIds": [
+                "N010",
+                "N110"
+              ],
+              "nativeStationDomain": "elastic-span",
+              "source": {
+                "nativeFrameId": "1000010",
+                "artifacts": [
+                  {
+                    "path": "fea.dat",
+                    "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d"
+                  }
+                ],
+                "readbackFields": {
+                  "FE.RZL": [
+                    0.225,
+                    0
+                  ],
+                  "SDK.method": "ColumnRigid",
+                  "SDK.rigid": [
+                    225,
+                    0
+                  ],
+                  "SDK.lengthUnit": "mm"
+                },
+                "method": "official-rigid-lengths-and-executed-FE-readback"
+              }
+            },
+            "loadFieldCompilation": "axial-uniform-load-exact-virtual-work",
+            "nativeInteriorFieldSemantics": "computational-load-vector; not-physical-uniform-load"
+          },
+          "nativeSegmentId": "C10"
+        }
+      ],
+      "C11": [
+        {
+          "positionM": 0,
+          "side": "right",
+          "referenceFrame": "element-local",
+          "localAxes": [
+            [
+              0,
+              0,
+              1
+            ],
+            [
+              0,
+              -1,
+              0
+            ],
+            [
+              1,
+              0,
+              0
+            ]
+          ],
+          "components": {
+            "N": -70.20404052734375,
+            "Vy": 3.4817129516647634,
+            "Vz": -13.963317718903216,
+            "T": -0.04659746587276459,
+            "My": -12.694949955977169,
+            "Mz": -3.3808711355872565
+          },
+          "nativeStationIndex": 1,
+          "nativeComponents": [
+            12.694950103759766,
+            3.3808705806732178,
+            3.4817123413085938,
+            -13.96331787109375,
+            -70.20404052734375,
+            -0.04659746587276459
+          ],
+          "nativeComponentOrder": [
+            "Mx",
+            "My",
+            "Qx",
+            "Qy",
+            "N",
+            "T"
+          ],
+          "nativeEndpoints": [
+            "N111",
+            "N011"
+          ],
+          "source": {
+            "kind": "native-station-coordinate-mapping",
+            "artifact": "fea.dat",
+            "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d",
+            "convention": "yjk8-frame-stations-v1",
+            "nativeEndReleases": {
+              "hinges": [
+                0,
+                0
+              ],
+              "nativeR": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "source": "YJKAPI Property(SpBeam).setVal(0/1); native FE R readback"
+            },
+            "effectiveRigidOffsets": {
+              "physicalLengthM": 3,
+              "elasticStartM": 0,
+              "elasticEndM": 2.775,
+              "startLengthM": 0,
+              "endLengthM": 0.225,
+              "sourceNodeIds": [
+                "N011",
+                "N111"
+              ],
+              "nativeStationDomain": "elastic-span",
+              "source": {
+                "nativeFrameId": "1000011",
+                "artifacts": [
+                  {
+                    "path": "fea.dat",
+                    "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d"
+                  }
+                ],
+                "readbackFields": {
+                  "FE.RZL": [
+                    0.225,
+                    0
+                  ],
+                  "SDK.method": "ColumnRigid",
+                  "SDK.rigid": [
+                    225,
+                    0
+                  ],
+                  "SDK.lengthUnit": "mm"
+                },
+                "method": "official-rigid-lengths-and-executed-FE-readback"
+              }
+            },
+            "loadFieldCompilation": "axial-uniform-load-exact-virtual-work",
+            "nativeInteriorFieldSemantics": "computational-load-vector; not-physical-uniform-load"
+          },
+          "nativeSegmentId": "C11"
+        },
+        {
+          "positionM": 2.775,
+          "side": "left",
+          "referenceFrame": "element-local",
+          "localAxes": [
+            [
+              0,
+              0,
+              1
+            ],
+            [
+              0,
+              -1,
+              0
+            ],
+            [
+              1,
+              0,
+              0
+            ]
+          ],
+          "components": {
+            "N": -57.95793914794922,
+            "Vy": 3.4817129516647634,
+            "Vz": -13.963317718903216,
+            "T": -0.04659746587276459,
+            "My": 26.053258621327878,
+            "Mz": 6.280882543701124
+          },
+          "nativeStationIndex": 0,
+          "nativeComponents": [
+            -26.053258895874023,
+            -6.280881404876709,
+            3.4817123413085938,
+            -13.96331787109375,
+            -57.95793914794922,
+            -0.04659746587276459
+          ],
+          "nativeComponentOrder": [
+            "Mx",
+            "My",
+            "Qx",
+            "Qy",
+            "N",
+            "T"
+          ],
+          "nativeEndpoints": [
+            "N111",
+            "N011"
+          ],
+          "source": {
+            "kind": "native-station-coordinate-mapping",
+            "artifact": "fea.dat",
+            "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d",
+            "convention": "yjk8-frame-stations-v1",
+            "nativeEndReleases": {
+              "hinges": [
+                0,
+                0
+              ],
+              "nativeR": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "source": "YJKAPI Property(SpBeam).setVal(0/1); native FE R readback"
+            },
+            "effectiveRigidOffsets": {
+              "physicalLengthM": 3,
+              "elasticStartM": 0,
+              "elasticEndM": 2.775,
+              "startLengthM": 0,
+              "endLengthM": 0.225,
+              "sourceNodeIds": [
+                "N011",
+                "N111"
+              ],
+              "nativeStationDomain": "elastic-span",
+              "source": {
+                "nativeFrameId": "1000011",
+                "artifacts": [
+                  {
+                    "path": "fea.dat",
+                    "sha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d"
+                  }
+                ],
+                "readbackFields": {
+                  "FE.RZL": [
+                    0.225,
+                    0
+                  ],
+                  "SDK.method": "ColumnRigid",
+                  "SDK.rigid": [
+                    225,
+                    0
+                  ],
+                  "SDK.lengthUnit": "mm"
+                },
+                "method": "official-rigid-lengths-and-executed-FE-readback"
+              }
+            },
+            "loadFieldCompilation": "axial-uniform-load-exact-virtual-work",
+            "nativeInteriorFieldSemantics": "computational-load-vector; not-physical-uniform-load"
+          },
+          "nativeSegmentId": "C11"
+        }
+      ]
+    }
+  }
+}

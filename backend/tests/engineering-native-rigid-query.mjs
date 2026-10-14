@@ -1,6 +1,8 @@
 // Product acceptance of already completed native jobs. No SDK job is submitted.
 // References come from the independently frozen stiffness model, not native forces.
 import assert from 'node:assert/strict';
+import process from 'node:process';
+import console from 'node:console';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
@@ -17,7 +19,7 @@ const dot = (a, b) => a.reduce((sum, value, i) => sum + value*b[i], 0);
 const cross = (a, b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
 const unit = a => a.map(value => value/Math.hypot(...a));
 
-function referenceMember(model, member) {
+export function referenceMember(model, member) {
   const [a, b] = member.nodes.map(id => model.nodes.find(row => row.id === id));
   const delta = ['x', 'y', 'z'].map(key => b[key]-a[key]);
   const x = unit(delta), length = Math.hypot(...delta);
@@ -36,7 +38,7 @@ export function verifyNativeRigidDelivery(fixture) {
     assert.ok(Number.isFinite(actual) && Number.isFinite(expected), location);
     assert.ok(Math.abs(actual-expected) <= Math.max(1e-5, 1e-5*Math.abs(expected)), `${location}: ${actual} != ${expected}`);
   };
-  const expectedAt = (caseId, memberId, position, side) => {
+  const expectedAt = fixture.referenceAt ?? ((caseId, memberId, position, side) => {
     const options = segments.filter(s => s.physicalId === memberId);
     const end = Math.max(...options.map(s => s.start+s.length));
     // Reference coordinates can accumulate one ulp at a shared point-load node.
@@ -61,22 +63,26 @@ export function verifyNativeRigidDelivery(fixture) {
     }
     return { N:-force[0]-q[0]*x, Vy:force[1]+q[1]*x, Vz:force[2]+q[2]*x,
       T:-force[3], My:-force[4]-force[2]*x-q[2]*x*x/2, Mz:-force[5]+force[1]*x+q[1]*x*x/2 };
-  };
+  });
   for (const [id, data] of Object.entries(cases)) {
     assert.ok(referenceCases[id], `Missing frozen reference ${id}`);
-    const before = contentHash(data), key = `case:${id}`;
-    const result = { success:true, selection:{kind:'case',id}, meta:{runId}, data };
+    const selection = fixture.selections?.[id] ?? {kind:'case',id};
+    const before = contentHash(data), key = `${selection.kind}:${id}`;
+    const result = { success:true, selection, meta:{runId}, data };
     const enriched = enrichResultData(model, result, result.selection);
     const quantities = [];
-    for (const member of model.elements) {
+    for (const member of model.elements.filter(row => !fixture.memberIds || fixture.memberIds.includes(row.id))) {
       const raw = data.memberStations[member.id];
       for (const station of raw) {
         const response = queryPhysicalResponse(model, result, member.id, station.positionM, station.side === 'left' ? 'left' : 'right');
         assert.equal(response.provenance, 'solver-direct');
         components.forEach(component => { assert.equal(response.sample[component], station.components[component]); counts.direct++; });
       }
-      const offset = data.nativeContext.effectiveRigidOffsets.members[member.id], L = offset.physicalLengthM;
-      const positions = [...new Set([0, L, .071*L, .283*L, .731*L, .977*L, offset.elasticStartM, offset.elasticEndM,
+      const offset = data.nativeContext.effectiveRigidOffsets?.members[member.id];
+      const L = referenceMember(model,member).length;
+      const positions = [...new Set([0, L, .071*L, .283*L, .731*L, .977*L,
+        ...(offset ? [offset.elasticStartM, offset.elasticEndM] : []),
+        ...(fixture.positions?.[member.id] ?? []),
         ...segments.filter(s => s.physicalId === member.id).flatMap(s => [s.start, s.start+s.length])])];
       for (const position of positions) for (const side of position === 0 ? ['right'] : position === L ? ['left'] : ['left','right']) {
         let response;

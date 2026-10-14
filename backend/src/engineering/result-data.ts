@@ -51,6 +51,11 @@ export function nativeStations(model: RecoveryModel, data: ModelRecord, elementI
   const length = Math.hypot(end.x - start.x, end.y - start.y, end.z - start.z);
   if (length <= 0) throw new Error('RESULT_MODEL_SNAPSHOT_REQUIRED');
   const rigid = nativeRigidMember(model as unknown as ModelRecord, context, member, length);
+  const loads = isRecord(context.effectiveLoads) ? context.effectiveLoads : {};
+  const gravity = isRecord(loads.selfWeight) ? loads.selfWeight : {};
+  const axial = isRecord(gravity.consistentLoadCompilation) ? gravity.consistentLoadCompilation : {};
+  const compiledAxial = Array.isArray(axial.members)
+    && axial.members.some(row => isRecord(row) && row.physicalElementId === elementId);
   const sourceRows = isRecord(data.memberStations) ? data.memberStations[elementId] : undefined;
   if (!Array.isArray(sourceRows) || !sourceRows.length) throw new Error('EXACT_NATIVE_STATION_UNAVAILABLE');
   const seen = new Set<string>();
@@ -67,6 +72,10 @@ export function nativeStations(model: RecoveryModel, data: ModelRecord, elementI
     if (rigid?.domain === 'elastic-span' && (raw.positionM < rigid.start && !sameNativePosition(raw.positionM, rigid.start, length)
       || raw.positionM > rigid.end && !sameNativePosition(raw.positionM, rigid.end, length))) {
       throw new Error('NATIVE_STATION_POSITION_UNVERIFIED');
+    }
+    if (compiledAxial && (!rigid || !sameNativePosition(raw.positionM,rigid.start,length)
+      && !sameNativePosition(raw.positionM,rigid.end,length))) {
+      throw new Error('NATIVE_COMPUTATIONAL_STATION_NOT_PHYSICAL');
     }
     const identity = `${raw.positionM}:${raw.side}`;
     const sides = cuts.get(raw.positionM) ?? new Set<string>();
