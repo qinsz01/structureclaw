@@ -9,7 +9,7 @@ const { pathToFileURL } = require("node:url");
 
 const { COMMAND_NAMES } = require("../../scripts/cli/command-manifest");
 const runtime = require("../../scripts/cli/runtime");
-const { runBackendBuildOnce } = require("./shared");
+const { runBackendBuildOnce, ensureRegressionSqliteDatabaseUrl } = require("./shared");
 
 function assert(condition, message) {
   if (!condition) {
@@ -962,6 +962,7 @@ async function validateChatStreamContract(context) {
   let capturedTraceId;
   let persistedAssistantMetadata;
   const originalRunStream = LangGraphAgentService.prototype.runStream;
+  const originalConversationCreate = prisma.conversation.create;
   const originalConversationFindFirst = prisma.conversation.findFirst;
   const originalConversationUpdate = prisma.conversation.update;
   const originalMessageFindMany = prisma.message.findMany;
@@ -1079,6 +1080,11 @@ async function validateChatStreamContract(context) {
     yield { type: "done" };
   };
   LangGraphAgentService.prototype.runStream = mockRunStream;
+  let createdConversations = 0;
+  prisma.conversation.create = async ({ data }) => {
+    createdConversations++;
+    return { id: "conv-stream-001", ...data };
+  };
   prisma.conversation.findFirst = async () => ({ id: "conv-stream-001" });
   prisma.conversation.update = async () => ({ id: "conv-stream-001" });
   prisma.message.findMany = async () => [];
@@ -1162,10 +1168,12 @@ async function validateChatStreamContract(context) {
       },
     });
     assert(disallowedResponse.headers["access-control-allow-origin"] === undefined, "chat/stream should omit access-control-allow-origin for disallowed origin");
+    assert(createdConversations === 2, "both stream requests must create conversations through the isolated fixture");
 
     console.log("[ok] chat stream contract regression");
   } finally {
     LangGraphAgentService.prototype.runStream = originalRunStream;
+    prisma.conversation.create = originalConversationCreate;
     prisma.conversation.findFirst = originalConversationFindFirst;
     prisma.conversation.update = originalConversationUpdate;
     prisma.message.findMany = originalMessageFindMany;
@@ -1180,6 +1188,15 @@ async function validateChatMessageRouting(context) {
   await runBackendBuildOnce(context);
   const Fastify = backendRequire(context.rootDir)("fastify");
   const LangGraphAgentService = await importBackendAgentService(context.rootDir);
+  const { prisma } = await import(pathToFileURL(path.join(context.rootDir, "backend", "dist", "utils", "database.js")).href);
+  const originals = { create: prisma.conversation.create, findFirst: prisma.conversation.findFirst,
+    update: prisma.conversation.update, findMany: prisma.message.findMany, createMany: prisma.message.createMany };
+  let createdConversations = 0;
+  prisma.conversation.create = async ({ data }) => { createdConversations++; return { id: "conv-route-001", ...data }; };
+  prisma.conversation.findFirst = async () => ({ id: "conv-route-001" });
+  prisma.conversation.update = async () => ({ id: "conv-route-001" });
+  prisma.message.findMany = async () => [];
+  prisma.message.createMany = async ({ data }) => ({ count: data.length });
 
   let agentRunCount = 0;
   const capturedRunTraceIds = [];
@@ -1261,6 +1278,7 @@ async function validateChatMessageRouting(context) {
   });
   assert(autoIntentExecResp.statusCode === 200, "auto intent tool response should be 200");
   assert(agentRunCount === 4, "agent run should be called for auto /chat/message requests");
+  assert(createdConversations === 4, "message routing must create conversations only through the isolated fixture");
   assert(capturedRunTraceIds.includes("trace-route-auto-1"), "agent-first message route should pass traceId for non-execution message");
   assert(capturedRunTraceIds.includes("trace-route-auto-tool-1"), "auto tool invocation should pass traceId");
   assert(capturedRunTraceIds.includes("trace-route-auto-intent-1"), "auto intent invocation should pass traceId");
@@ -1279,6 +1297,11 @@ async function validateChatMessageRouting(context) {
     console.log("[ok] chat message routing contract");
   } finally {
     LangGraphAgentService.prototype.run = originalRun;
+    prisma.conversation.create = originals.create;
+    prisma.conversation.findFirst = originals.findFirst;
+    prisma.conversation.update = originals.update;
+    prisma.message.findMany = originals.findMany;
+    prisma.message.createMany = originals.createMany;
     if (app) {
       await app.close();
     }
@@ -1525,6 +1548,8 @@ async function runBackendValidation(name, context) {
   if (!task) {
     throw new Error(`Unknown backend validation: ${name}`);
   }
+  // Also isolate standalone validations, which bypass the full regression runner.
+  ensureRegressionSqliteDatabaseUrl(context);
   await task(context);
 }
 

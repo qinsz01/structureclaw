@@ -24,20 +24,12 @@ function resolveRegressionContext(rootDir) {
 }
 
 function ensureRegressionSqliteDatabaseUrl(context) {
-  const fallbackDatabaseUrl = `file:${path
-    .join(context.rootDir, ".structureclaw", "data", "structureclaw-regression.db")
-    .replace(/\\/gu, "/")}`;
-  runtime.ensureDirectory(context.paths.dataDir);
-
-  if (!context.env.DATABASE_URL) {
-    context.env.DATABASE_URL = fallbackDatabaseUrl;
-    process.stdout.write("[info] DATABASE_URL is not set; using SQLite regression fallback.\n");
-  } else if (!String(context.env.DATABASE_URL).startsWith("file:")) {
-    process.stdout.write(
-      `[info] DATABASE_URL='${context.env.DATABASE_URL}' is not a SQLite file URL; using SQLite regression fallback.\n`,
-    );
-    context.env.DATABASE_URL = fallbackDatabaseUrl;
-  }
+  const databasePath = path.join(context.rootDir, ".structureclaw", "data", "structureclaw-regression.db");
+  runtime.ensureDirectory(path.dirname(databasePath));
+  // A caller's SQLite URL can be the live application database. Regression
+  // checks must never inherit it, even when it is a syntactically valid URL.
+  context.env ??= {};
+  context.env.DATABASE_URL = `file:${databasePath.replace(/\\/gu, "/")}`;
 
   // Propagate to process.env so that compiled modules (e.g. database.ts) pick up
   // the regression URL when imported at validation time.
