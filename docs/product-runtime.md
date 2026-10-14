@@ -27,6 +27,14 @@ does not mean that all 300 questions have been run and passed.
 微小数值残差与规划外复杂原生设计不作为场景兼容门槛。既有预览标签与历史证据保持不变，
 代码与需求的对应关系不代表300题已经逐题运行通过。
 
+The [current entry acceptance](reproducibility/product-entry-closeout-20261014.json)
+binds the final source, full backend and frontend integration regressions, and a real
+production-only tarball installation. It includes installed OpenSees queries and the
+OpenClaw bridge. This record does not create a new experiment freeze.
+
+[本轮入口验收](reproducibility/product-entry-closeout-20261014.json)绑定最终代码、后端全量与网页集成回归，
+以及仅安装生产依赖的真实安装包检查，涵盖安装后的OpenSees查询和OpenClaw桥。本记录不新建实验冻结版本。
+
 ```mermaid
 flowchart TD
   Web[Web / HTTP / CLI] --> Policy[EffectiveRunPolicy + durable counters]

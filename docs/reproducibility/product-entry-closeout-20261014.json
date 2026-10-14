@@ -1,0 +1,171 @@
+{
+  "schema": "structureclaw-product-entry-closeout/v1",
+  "createdAt": "2026-10-14T08:00:24.764Z",
+  "status": "accepted-for-documented-product-entry-scope",
+  "implementationCommit": "376920f01f8aac7996bc4fc7f2f036da9ba5bd53",
+  "branch": "work/research-next",
+  "scope": "Finish product entry, state and installation reliability. Commercial solvers are trusted; validate faithful inputs, SDK execution and required readback. No new Bench or evaluation work.",
+  "productionTrees": {
+    "backend/src": "6673cbce002602d676dca9a55c53293023e4f7e2",
+    "backend/prisma": "9585a71d0fc2981e2bc66e3f05f3c030f88df97b",
+    "backend/package-lock.json": "d8634d91bcf9a8f91edea14281204f7bff0306ad",
+    "frontend/src": "766493e33e45261aa3000b3d2d94294ecd012be0",
+    "frontend/package-lock.json": "6f3c357f80388a4c77c2360b917e034bda955131",
+    "scripts/cli": "4e85ba655e21b5f76b0f52983882315c6f859458",
+    "integrations/openclaw": "316957f4462a54e6e0c53bdcb8704e3551c0a15f",
+    "package.json": "a3ce1fc158998618533da77e8e6789b94f0fe9cf"
+  },
+  "changes": [
+    "HTTP and CLI resume saved clarification without restarting a turn or changing its policy; attachments and locale survive the JSON entry.",
+    "Independent OpenClaw bridge ships with the product and consumes the public tool/session contract, attachment grants and persisted budgets.",
+    "Completed host call IDs cannot replay an edit or solve; only trusted operators admit subsequent external user turns.",
+    "Historical visualization snapshots remain read-only; current run-bound results retain the authoritative result review path.",
+    "Failed/incomplete native design preserves valid analysis, clears prior design/report, records the attempt and permits a controlled retry.",
+    "Complete design binds its actual new analysis; changed models, evidence or later requests prevent late publication.",
+    "Commercial converter test doubles now use the real shared protocol and current SDK field shape; production precision and references unchanged."
+  ],
+  "checks": {
+    "backend": {
+      "passed": 1630,
+      "failed": 0,
+      "suites": 140,
+      "evidence": {
+        "path": "G:/StructureClaw-All/sclaw_data/work/product-entry-closeout-20261014-01/backend-jest-release.json",
+        "sha256": "9e30f4aafdc9b3542107fe250fcd331cafbb661ff9df1b148f15bce1e1e2cdb9"
+      }
+    },
+    "frontendIntegration": {
+      "passed": 93,
+      "failed": 0,
+      "skipped": 0,
+      "files": 12,
+      "evidence": {
+        "path": "G:/StructureClaw-All/sclaw_data/work/frontend-integration-verified-20261014.json",
+        "sha256": "1c4bcc7e4ff7985cdfe7da30d136892340e177af3d2e449efd45f6f21194484a"
+      }
+    },
+    "nativeDesignState": {
+      "passed": 87,
+      "suites": 8,
+      "evidence": {
+        "path": "G:/StructureClaw-All/sclaw_data/work/product-entry-closeout-20261014-01/native-design-state-jest.json",
+        "sha256": "5367cc19026c69c2fb97b22af0d1a79580532d551635ab8a8709986d2f2529d1"
+      }
+    },
+    "productionBuild": {
+      "backend": "passed",
+      "frontend": "passed",
+      "frontendTypeCheck": "passed",
+      "evidence": {
+        "path": "G:/StructureClaw-All/sclaw_data/work/product-entry-closeout-20261014-01/package/pack.log",
+        "sha256": "48b7a717d5054418a9f7e8ce0e205bb1fea17a9d1a77b00fa37bf4367274cec1"
+      }
+    },
+    "package": {
+      "status": "passed",
+      "tarball": {
+        "path": "G:/StructureClaw-All/sclaw_data/work/product-entry-closeout-20261014-01/package/structureclaw-structureclaw-1.0.0.tgz",
+        "sha256": "fa4538a9e507a94802e25c12a45e5b87af92ee8710de950bf63557e6fe04e183"
+      },
+      "entries": 733,
+      "pluginFiles": 8,
+      "benchmarkFiles": 0,
+      "nodeVersion": "v24.14.1",
+      "productionDependenciesOnly": true,
+      "steps": [
+        {
+          "name": "install",
+          "exitCode": 0,
+          "durationMs": 181097
+        },
+        {
+          "name": "doctor",
+          "exitCode": 0,
+          "durationMs": 19199
+        },
+        {
+          "name": "start",
+          "exitCode": 0,
+          "durationMs": 56815
+        },
+        {
+          "name": "health",
+          "exitCode": 0,
+          "durationMs": 318
+        },
+        {
+          "name": "runtime-probe",
+          "exitCode": 0,
+          "durationMs": 39697
+        },
+        {
+          "name": "stop",
+          "exitCode": 0,
+          "durationMs": 2667
+        }
+      ],
+      "evidence": {
+        "path": "G:/StructureClaw-All/sclaw_data/work/product-entry-closeout-20261014-01/package/installed-proof/acceptance.json",
+        "sha256": "0d337de3bfe3c4c181290a112f13ff4bccd1d69db22fbfd16b99a98fec3f255e"
+      },
+      "runtimeProbe": {
+        "path": "G:/StructureClaw-All/sclaw_data/work/product-entry-closeout-20261014-01/package/installed-proof/runtime-probe.log",
+        "sha256": "b641feeabad26644b01af683ddedcfa5810db45cf6cd848dfc1360d66ee46dcc"
+      },
+      "parserChecks": [
+        "CSV",
+        "Excel",
+        "PDF text and rendering"
+      ],
+      "realOpenSeesQueries": 21,
+      "openclaw": {
+        "installedBridgePassed": true,
+        "budgetSurvivedReload": true,
+        "completedCallRedeliveryRejected": true,
+        "gatewayStarted": false
+      }
+    },
+    "existingOpenSeesAcceptance": "docs/reproducibility/opensees-product-regression-20261014.json",
+    "actualOpenClawLoader": "docs/reproducibility/openclaw-product-bridge-20261014.json"
+  },
+  "scopeBoundaries": {
+    "benchmarkModified": false,
+    "benchmarkPointer": "5102acb3fdf4618c31f385e51fd0e5b9280438a1",
+    "standaloneYjkApiModified": false,
+    "standaloneYjkApiServicesOrJobsManaged": false,
+    "newCommercialSolverRunsInThisCloseout": 0,
+    "paidModelCalls": 0,
+    "claims300TaskExecution": false,
+    "plannedEngineCounts": {
+      "OpenSees": 267,
+      "PKPM": 16,
+      "YJK": 17
+    },
+    "scenarioRequirementSource": "docs/reproducibility/scenario-plan-300-20261013.json",
+    "originalScenarioRequirementsNarrowed": false,
+    "originalReferencesOrTolerancesChanged": false,
+    "historicalTagsMoved": false,
+    "createsNewExperimentFreeze": false,
+    "limits": [
+      "Scenario capability mapping is not execution of 300 authored questions, attachments or model trials.",
+      "Commercial features outside the reviewed scenario scope retain their existing explicit support boundaries; this is not universal native-design support.",
+      "OpenClaw host loading and installed bridge tools were verified separately; a complete Gateway/LLM conversation was not run.",
+      "External host history and model loops remain host-owned; subsequent plugin turns require trusted operator admission.",
+      "Frontend build and component/integration checks passed; no pixel-level browser QA is claimed."
+    ]
+  },
+  "preservedFailureEvidence": [
+    {
+      "path": "G:/StructureClaw-All/sclaw_data/work/product-entry-closeout-20261014-01/backend-jest.json",
+      "sha256": "0e461056f2b0b45bb0650c780266736244f086731f235eeca00c9957b388a975"
+    },
+    {
+      "path": "G:/StructureClaw-All/sclaw_data/work/frontend-integration-final-20261014.json",
+      "sha256": "259a903f76cb845ad2e291e0f3c2bb6296a6ea8006d3b9e825ed31064c1268ec"
+    },
+    {
+      "path": "G:/StructureClaw-All/sclaw_data/work/frontend-integration-complete-20261014.json",
+      "sha256": "468866cb6ff719f58bc53fe67a5e99dcbda518ec89af4b7a56204a3e59c3c90a"
+    }
+  ]
+}
