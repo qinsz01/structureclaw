@@ -1,0 +1,18 @@
+{
+  "id": "structureclaw",
+  "name": "StructureClaw",
+  "description": "Shared application engineering tools / 本体共享工程工具",
+  "categories": ["developer-tools"],
+  "activation": { "onStartup": true },
+  "contracts": { "tools": ["sclaw_session", "sclaw_review_input", "sclaw_query_model", "sclaw_edit_model", "sclaw_undo_model", "sclaw_query_results", "sclaw_detect_structure_type", "sclaw_extract_draft_params", "sclaw_build_model", "sclaw_validate_model", "sclaw_run_analysis", "sclaw_run_code_check", "sclaw_generate_report", "sclaw_calculate", "sclaw_ask_user_clarification", "sclaw_set_session_config", "sclaw_memory", "sclaw_analyze_file", "sclaw_glob_files", "sclaw_grep_files", "sclaw_read_file", "sclaw_write_file", "sclaw_replace_in_file", "sclaw_move_path", "sclaw_delete_path", "sclaw_shell"] },
+  "configSchema": {
+    "type": "object", "additionalProperties": false,
+    "properties": {
+      "structureclawRoot": { "type": "string", "description": "Installed package or built source root / 本体安装或已构建源码目录" },
+      "dataDir": { "type": "string", "description": "Absolute application data directory / 本体数据绝对路径" },
+      "workspaceRoot": { "type": "string", "description": "Absolute engineering workspace / 工程工作区绝对路径" },
+      "locale": { "type": "string", "enum": ["zh", "en"] },
+      "runPolicy": { "type": "object", "description": "Shared RunPolicy input, validated by StructureClaw / 本体统一运行配置" }
+    }
+  }
+}

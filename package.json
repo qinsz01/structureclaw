@@ -35,6 +35,8 @@
     "scripts/cli/",
     "scripts/postinstall.js",
     "scripts/prepare-package.js",
+    "integrations/openclaw/",
+    "!integrations/openclaw/__tests__/**",
     "backend/package.json",
     "backend/prisma.config.ts",
     "backend/prisma/",

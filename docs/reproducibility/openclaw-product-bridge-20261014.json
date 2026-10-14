@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "date": "2026-10-14",
+  "scope": "StructureClaw standalone local OpenClaw integration; no Bench changes",
+  "implementation": {
+    "plugin": "integrations/openclaw",
+    "applicationContract": "backend/src/agent-langgraph/public-tool-contracts.ts",
+    "schemas": "live registered application tool input schemas, filtered by application RunPolicy",
+    "stateOwner": "StructureClaw durable public tool session",
+    "hostSessionIdentity": "SHA256 of trusted host agentId/sessionKey/sessionId and configured installation/workspace",
+    "turnAdmission": "first begin via tool; subsequent turns only via operator manage-session.mjs",
+    "redelivery": "completed host call IDs and argument digests persist across reloads and turns; duplicates reject without replay",
+    "attachments": "existing /api/v1/files/upload; per-conversation attachmentPaths grant; shared vision callback"
+  },
+  "checks": [
+    {
+      "command": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand src/agent-langgraph/__tests__/public-tool-session.test.mjs src/agent-langgraph/__tests__/public-tool-session-process.test.mjs src/agent-langgraph/__tests__/public-tool-attachments.test.mjs",
+      "cwd": "backend",
+      "passed": 15,
+      "failed": 0,
+      "covers": ["persistent policy and budgets", "completion recovery without replay", "completed host-call redelivery and changed-argument rejection", "attachment denial", "shared localized vision callback", "resume cannot expand attachment permissions"]
+    },
+    {
+      "command": "node --test integrations/openclaw/__tests__/bridge.test.mjs",
+      "passed": 4,
+      "failed": 0,
+      "covers": ["live application schemas", "server policy ceiling", "trusted host identity and reset isolation", "real application subprocesses", "plugin reload", "agent cannot reset budget", "repeated host call cannot repeat operation", "operator new turn", "real multipart upload", "cross-conversation attachment denial", "pre-admission cancellation"]
+    }
+  ],
+  "nativeHostLoader": {
+    "hostVersion": "2026.6.33",
+    "nodeVersion": "24.14.1",
+    "hostPackageJsonSha256": "3f959e5b4463e603dbe238b4ee47b33ee2c58b71030a17bdeb69e480086f0774",
+    "command": "plugins inspect structureclaw --runtime --json",
+    "isolatedStateAndConfiguration": true,
+    "status": "loaded",
+    "registeredTools": ["sclaw_session", "sclaw_query_model", "sclaw_calculate", "sclaw_analyze_file"],
+    "diagnostics": [],
+    "evidence": "G:/StructureClaw-All/sclaw_data/work/sclaw-openclaw-loader-GNyZou/stdout.txt",
+    "evidenceSha256": "a8afc12c496581e1228d2755c52191bf79d0050c392cc4d59ed242f0a9e7336b",
+    "firstAttempt": "G:/StructureClaw-All/sclaw_data/work/sclaw-openclaw-loader-7w3sQ1/receipt.json",
+    "firstAttemptStatus": "60-second initialization timeout; retained unchanged",
+    "successfulAttemptEnvironment": { "NODE_DISABLE_COMPILE_CACHE": "1" },
+    "gatewayStarted": false,
+    "modelCalls": 0,
+    "solverCalls": 0
+  },
+  "packaging": {
+    "pluginFilesIncluded": 8,
+    "pluginTestsExcluded": true,
+    "benchFilesIncluded": 0,
+    "method": "npm pack --dry-run --ignore-scripts",
+    "limitation": "This scope check does not substitute for prepack/build or an installed-package acceptance run."
+  },
+  "boundaries": [
+    "OpenClaw owns conversation history and its model loop; StructureClaw budgets apply to StructureClaw operations.",
+    "The agent cannot initiate subsequent application turns. Trusted operator admission is required until a proven host user-message event is integrated.",
+    "Sandboxed host calls are rejected because the local bridge cannot enforce that sandbox.",
+    "An admitted operation is awaited; cancellation or a lost response never triggers automatic replay.",
+    "A complete Gateway/LLM conversation was not run; actual host plugin loading and real application tool execution were checked separately."
+  ]
+}

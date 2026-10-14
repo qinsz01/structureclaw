@@ -1,0 +1,11 @@
+{
+  "name": "@structureclaw/openclaw",
+  "version": "1.0.0",
+  "description": "Local OpenClaw bridge to the installed StructureClaw application",
+  "type": "module",
+  "license": "MIT",
+  "files": ["index.mjs", "bridge.mjs", "worker.mjs", "manage-session.mjs", "openclaw.plugin.json", "README.md", "README_CN.md"],
+  "engines": { "node": ">=20.19.0" },
+  "openclaw": { "extensions": ["./index.mjs"] },
+  "scripts": { "test": "node --test __tests__/*.test.mjs" }
+}
