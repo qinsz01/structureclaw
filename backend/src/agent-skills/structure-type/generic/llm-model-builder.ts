@@ -10,6 +10,7 @@ import { logger } from '../../../utils/logger.js';
 import type { StructureClawChatModel } from '../../../utils/llm.js';
 import { buildGenericModelPrompt, buildRetrySuffix } from './llm-model-prompt.js';
 import { validateExplicitModel } from '../../../agent-runtime/explicit-model.js';
+import { requestRecovery } from '../../../runtime/run-context.js';
 
 export async function tryBuildGenericModelWithLlm(
   llm: StructureClawChatModel | null,
@@ -29,6 +30,7 @@ export async function tryBuildGenericModelWithLlm(
   const stateHint = JSON.stringify(state);
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
+    if (attempt > 0) requestRecovery('generic model: invalid candidate');
     const prompt = attempt === 0 ? basePrompt : `${basePrompt}${retrySuffix}`;
     const startedAt = Date.now();
     logger.info({
@@ -39,8 +41,9 @@ export async function tryBuildGenericModelWithLlm(
       messagePreview: message.slice(0, 160),
     }, 'generic llm model attempt started');
 
+    // Provider/transport failures propagate; only invalid candidates below may be corrected.
+    const aiMessage = await llm.invoke(prompt, { signal });
     try {
-      const aiMessage = await llm.invoke(prompt, { signal });
       const content = typeof aiMessage.content === 'string'
         ? aiMessage.content
         : JSON.stringify(aiMessage.content);
@@ -86,6 +89,7 @@ export async function tryBuildGenericModelWithLlm(
         durationMs: Date.now() - startedAt,
         error: error instanceof Error ? error.message : String(error),
       }, 'generic llm model attempt failed with upstream error');
+      if (error instanceof Error && /BUDGET_EXHAUSTED/.test(error.message)) throw error;
       continue;
     }
   }

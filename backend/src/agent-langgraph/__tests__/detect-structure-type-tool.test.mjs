@@ -58,101 +58,89 @@ describe('detect_structure_type tool guidance', () => {
     });
   });
 
-  test('passes the abort signal and records nested routing usage in benchmark mode', async () => {
-    const previous = process.env.SCLAW_BENCHMARK_LLM_ONLY;
-    process.env.SCLAW_BENCHMARK_LLM_ONLY = '1';
-    const controller = new AbortController();
+  test('passes the abort signal and records nested routing usage for ordinary calls', async () => {
+    const controller = new globalThis.AbortController();
     let receivedSignal;
-    try {
-      const { createDetectStructureTypeTool } = await import('../../../dist/agent-langgraph/tools.js');
-      const detectStructureType = createDetectStructureTypeTool({
-        async detectStructuralTypeWithLlm(
-          _llm,
-          _message,
-          _locale,
-          _currentState,
-          _skillIds,
-          signal,
-          onUsage,
-        ) {
-          receivedSignal = signal;
-          onUsage?.({ inputTokens: 40, outputTokens: 10, totalTokens: 50 });
-          return {
-            key: 'beam',
-            mappedType: 'beam',
-            skillId: 'beam',
-            supportLevel: 'supported',
-            routingSource: 'llm-suggested',
-          };
-        },
-      });
+    const { createDetectStructureTypeTool } = await import('../../../dist/agent-langgraph/tools.js');
+    const detectStructureType = createDetectStructureTypeTool({
+      async detectStructuralTypeWithLlm(
+        _llm,
+        _message,
+        _locale,
+        _currentState,
+        _skillIds,
+        signal,
+        onUsage,
+      ) {
+        receivedSignal = signal;
+        onUsage?.({ inputTokens: 40, outputTokens: 10, totalTokens: 50 });
+        return {
+          key: 'beam',
+          mappedType: 'beam',
+          skillId: 'beam',
+          supportLevel: 'supported',
+          routingSource: 'llm-suggested',
+        };
+      },
+    });
 
-      const command = await detectStructureType.invoke(
-        { message: 'Analyze a 6 m beam.', locale: 'en' },
-        {
-          signal: controller.signal,
-          toolCall: { id: 'call-usage' },
-          configurable: { agentState: {} },
-        },
-      );
-      const responseMetadata = command.update.messages[0].response_metadata;
+    const command = await detectStructureType.invoke(
+      { message: 'Analyze a 6 m beam.', locale: 'en' },
+      {
+        signal: controller.signal,
+        toolCall: { id: 'call-usage' },
+        configurable: { agentState: {} },
+      },
+    );
+    const responseMetadata = command.update.messages[0].response_metadata;
 
-      expect(receivedSignal).toBe(controller.signal);
-      expect(responseMetadata).toMatchObject({
-        tokenUsage: {
-          promptTokens: 40,
-          completionTokens: 10,
-          totalTokens: 50,
-        },
-        tokenUsageSource: 'nested-benchmark-call',
-      });
-    } finally {
-      if (previous === undefined) delete process.env.SCLAW_BENCHMARK_LLM_ONLY;
-      else process.env.SCLAW_BENCHMARK_LLM_ONLY = previous;
-    }
+    expect(receivedSignal).toBe(controller.signal);
+    expect(responseMetadata).toMatchObject({
+      tokenUsage: {
+        promptTokens: 40,
+        completionTokens: 10,
+        totalTokens: 50,
+      },
+      tokenUsageSource: 'nested-model-call',
+    });
+
   });
 
   test('keeps invalid router output as a measured model failure with its token usage', async () => {
-    const previous = process.env.SCLAW_BENCHMARK_LLM_ONLY;
-    process.env.SCLAW_BENCHMARK_LLM_ONLY = '1';
-    try {
-      const { createDetectStructureTypeTool } = await import('../../../dist/agent-langgraph/tools.js');
-      const detectStructureType = createDetectStructureTypeTool({
-        async detectStructuralTypeWithLlm(
-          _llm,
-          _message,
-          _locale,
-          _currentState,
-          _skillIds,
-          _signal,
-          onUsage,
-        ) {
-          onUsage?.({ inputTokens: 25, outputTokens: 5, totalTokens: 30 });
-          throw new Error(
-            'LLM_STRUCTURAL_ROUTER_INVALID_OUTPUT: response did not contain a usable routing decision',
-          );
-        },
-      });
+    const { createDetectStructureTypeTool } = await import('../../../dist/agent-langgraph/tools.js');
+    const detectStructureType = createDetectStructureTypeTool({
+      async detectStructuralTypeWithLlm(
+        _llm,
+        _message,
+        _locale,
+        _currentState,
+        _skillIds,
+        _signal,
+        onUsage,
+      ) {
+        onUsage?.({ inputTokens: 25, outputTokens: 5, totalTokens: 30 });
+        throw new Error(
+          'LLM_STRUCTURAL_ROUTER_INVALID_OUTPUT: response did not contain a usable routing decision',
+        );
+      },
+    });
 
-      const command = await detectStructureType.invoke(
-        { message: 'Analyze this structure.', locale: 'en' },
-        { toolCall: { id: 'call-invalid' }, configurable: { agentState: {} } },
-      );
-      const toolMessage = command.update.messages[0];
+    const command = await detectStructureType.invoke(
+      { message: 'Analyze this structure.', locale: 'en' },
+      { toolCall: { id: 'call-invalid' }, configurable: { agentState: {} } },
+    );
+    const toolMessage = command.update.messages[0];
 
-      expect(JSON.parse(toolMessage.content)).toMatchObject({
-        success: false,
-        errorCode: 'LLM_STRUCTURAL_ROUTER_INVALID_OUTPUT',
-        nextAction: 'retry_detection',
-      });
-      expect(toolMessage.response_metadata.tokenUsage).toEqual({
-        promptTokens: 25,
-        completionTokens: 5,
-        totalTokens: 30,
-      });
-    } finally {
-      if (previous === undefined) delete process.env.SCLAW_BENCHMARK_LLM_ONLY;
-      else process.env.SCLAW_BENCHMARK_LLM_ONLY = previous;
-    }
+    expect(JSON.parse(toolMessage.content)).toMatchObject({
+      success: false,
+      errorCode: 'LLM_STRUCTURAL_ROUTER_INVALID_OUTPUT',
+      nextAction: 'retry_detection',
+    });
+    expect(toolMessage.response_metadata.tokenUsage).toEqual({
+      promptTokens: 25,
+      completionTokens: 5,
+      totalTokens: 30,
+    });
+
   });
 });

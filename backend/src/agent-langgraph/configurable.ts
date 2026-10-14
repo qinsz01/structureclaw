@@ -9,8 +9,10 @@ import type { LocalAnalysisEngineClient } from '../agent-skills/analysis/types.j
 import type { CodeCheckClient } from '../agent-skills/code-check/rule.js';
 import type { LocalStructureProtocolClient } from '../services/structure-protocol-execution.js';
 import type { beginAnalysisRequest } from '../engineering/model-state.js';
+import type { RunContext } from '../runtime/run-context.js';
 
 export interface AgentConfigurable {
+  runContext?: RunContext;
   /** Skill runtime for structural engineering operations. */
   skillRuntime: AgentSkillRuntime;
   /** Analysis engine client (OpenSees, etc.). */

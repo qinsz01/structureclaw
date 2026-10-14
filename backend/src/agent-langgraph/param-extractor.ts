@@ -15,6 +15,7 @@ import {
 import { logger as rootLogger } from '../utils/agent-logger.js';
 import type { Logger } from 'pino';
 import type { AgentSkillPlugin, DraftState } from '../agent-runtime/types.js';
+import { currentRunPolicy, requestRecovery } from '../runtime/run-context.js';
 
 // ---------------------------------------------------------------------------
 // Skill context
@@ -24,7 +25,7 @@ function buildSkillInfo(plugin: AgentSkillPlugin): Record<string, unknown> {
   return {
     skillId: plugin.id,
     name: plugin.name,
-    description: plugin.description,
+    ...(currentRunPolicy()?.knowledge !== 'disabled' ? { description: plugin.description } : {}),
     stages: plugin.stages,
     structureType: plugin.structureType,
     draftStageGuidance: getDraftStageGuidance(plugin),
@@ -32,6 +33,7 @@ function buildSkillInfo(plugin: AgentSkillPlugin): Record<string, unknown> {
 }
 
 function getDraftStageGuidance(plugin: AgentSkillPlugin): string {
+  if (currentRunPolicy()?.knowledge === 'disabled') return '';
   return plugin.markdownByStage.draft
     || plugin.markdownByStage.intent
     || '(no draft-stage guidance)';
@@ -436,11 +438,11 @@ export interface ParamExtractorInput {
   focusFields?: string[];
   /** Per-request logger with traceId/conversationId. Falls back to root logger. */
   traceLogger?: Logger;
-  /** Benchmark-only: do not replace LLM failures or unusable output with handler extraction. */
+  /** Require structured LLM output rather than handler-only extraction. */
   requireLlmResult?: boolean;
   /** Cancels an in-flight extraction when the enclosing agent run is aborted. */
   signal?: AbortSignal;
-  /** Records provider usage for benchmark efficiency metrics. */
+  /** Records provider usage for nested-call reporting. */
   onUsage?: (usage: LlmTokenUsage) => void;
   /** Test injection; production callers use the configured chat model. */
   llm?: {
@@ -494,19 +496,14 @@ export async function invokeParamExtractor(
         durationMs: Date.now() - start,
         error: error instanceof Error ? error.message : String(error),
       },
-      input.requireLlmResult
-        ? 'param extractor LLM failed in benchmark LLM-only mode'
-        : 'param extractor LLM failed; falling back to handler extraction',
+      'param extractor LLM call failed',
     );
-    if (input.requireLlmResult) {
-      throw new Error(
+    throw new Error(
         `LLM_PARAM_EXTRACTOR_INFRASTRUCTURE_ERROR: network error: ${
           error instanceof Error ? error.message : String(error)
         }`,
         { cause: error },
       );
-    }
-    return null;
   }
 
   const usage = extractLlmTokenUsage(result);
@@ -537,5 +534,6 @@ export async function invokeParamExtractor(
       + `reasoningContentLength=${reasoningContentLength}`,
     );
   }
+  if (!patch) requestRecovery('parameter extraction: unusable LLM output, applying explicit handler extraction');
   return patch;
 }

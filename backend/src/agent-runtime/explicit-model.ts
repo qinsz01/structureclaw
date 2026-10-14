@@ -37,7 +37,7 @@ export function validateExplicitModel(model: RecordValue): RecordValue {
     if (Number(material.E) <= 0 || Number(material.rho) < 0 || Number(material.nu) <= -1 || Number(material.nu) >= 0.5) fail(`material ${material.id}: invalid elastic constants/density`);
   }
   for (const section of sections) {
-    if (!record(section.properties) && !record(section.dimensions)) fail(`section ${section.id}: properties or dimensions required`);
+    if (!record(section.properties) && !record(section.dimensions) && !record(section.shape)) fail(`section ${section.id}: properties, dimensions or shape required`);
   }
   const caseIds = new Set(cases.map((item) => item.id));
   if (model.load_combinations !== undefined) {

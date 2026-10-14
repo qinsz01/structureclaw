@@ -8,6 +8,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { runPolicyInputSchema, type RunPolicyInput } from '../runtime/run-policy.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -56,6 +57,7 @@ export type SettingsFileCors = {
 };
 
 export type SettingsFileAgent = {
+  runPolicy?: RunPolicyInput;
   workspaceRoot?: string;
   checkpointDir?: string;
   allowShell?: boolean;
@@ -244,14 +246,22 @@ function normalizeCorsSection(raw: unknown): SettingsFileCors | undefined {
 function normalizeAgentSection(raw: unknown): SettingsFileAgent | undefined {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
   const record = raw as Record<string, unknown>;
+  const parsedPolicy = record.runPolicy === undefined ? undefined : runPolicyInputSchema.safeParse(record.runPolicy);
+  if (parsedPolicy && !parsedPolicy.success) {
+    const error = new Error(`INVALID_RUN_POLICY_SETTINGS: ${parsedPolicy.error.message}`);
+    error.name = 'RunPolicySettingsError';
+    throw error;
+  }
+  const runPolicy = parsedPolicy?.success ? parsedPolicy.data : undefined;
   const workspaceRoot = normalizeOptionalString(record.workspaceRoot);
   const checkpointDir = normalizeOptionalString(record.checkpointDir);
   const allowShell = normalizeOptionalBoolean(record.allowShell);
   const allowedShellCommands = normalizeOptionalString(record.allowedShellCommands);
   const shellTimeoutMs = normalizeOptionalNumber(record.shellTimeoutMs);
   const maxToolCallsPerTurn = normalizeOptionalNumber(record.maxToolCallsPerTurn);
-  if (workspaceRoot === undefined && checkpointDir === undefined && allowShell === undefined && allowedShellCommands === undefined && shellTimeoutMs === undefined && maxToolCallsPerTurn === undefined) return undefined;
+  if (runPolicy === undefined && workspaceRoot === undefined && checkpointDir === undefined && allowShell === undefined && allowedShellCommands === undefined && shellTimeoutMs === undefined && maxToolCallsPerTurn === undefined) return undefined;
   const result: SettingsFileAgent = {};
+  if (runPolicy !== undefined) result.runPolicy = runPolicy;
   if (workspaceRoot !== undefined) result.workspaceRoot = workspaceRoot;
   if (checkpointDir !== undefined) result.checkpointDir = checkpointDir;
   if (allowShell !== undefined) result.allowShell = allowShell;
@@ -406,7 +416,8 @@ function setCache(
 function readSettingsFromDisk(filePath: string): SettingsFile | null {
   try {
     return parseSettingsFileContent(fs.readFileSync(filePath, 'utf8'));
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.name === 'RunPolicySettingsError') throw error;
     return null;
   }
 }

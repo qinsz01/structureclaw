@@ -9,6 +9,7 @@
  */
 import { HumanMessage } from '@langchain/core/messages';
 import { randomUUID } from 'crypto';
+import path from 'node:path';
 import { AgentSkillRuntime } from '../agent-runtime/index.js';
 import type { SkillManifest } from '../agent-runtime/types.js';
 import { buildAgentGraph } from './graph.js';
@@ -16,7 +17,10 @@ import { FileCheckpointer } from './file-checkpointer.js';
 import { streamGraphToChunks, type StreamContext } from './streaming.js';
 import type { AgentState, AgentToolAccessPolicy } from './state.js';
 import { getAllowShellTools, getCheckpointerDataDir, getWorkspaceRoot, getWorkspaceSkillRoot } from './config.js';
-import { config } from '../config/index.js';
+import { config, runtimeBaseDir } from '../config/index.js';
+import type { RunPolicyInput, EffectiveRunPolicy } from '../runtime/run-policy.js';
+import { resolveApplicationRunPolicy } from '../runtime/policy-settings.js';
+import { createRunContext, withRunContext, snapshotRunUsage, type RunContext, type RunUsage } from '../runtime/run-context.js';
 import type { AgentStreamChunk } from '../types/agent-stream.js';
 import type { AppLocale } from '../services/locale.js';
 import { createLocalAnalysisEngineClient } from '../services/analysis-execution.js';
@@ -52,6 +56,7 @@ export interface LangGraphRunInput {
   traceId?: string;
   signal?: AbortSignal;
   context?: {
+    runPolicy?: RunPolicyInput;
     locale?: AppLocale;
     skillIds?: string[];
     enabledToolIds?: string[];
@@ -86,6 +91,8 @@ export function buildToolAccessPolicy(
 }
 
 export interface LangGraphRunResult {
+  runPolicy?: EffectiveRunPolicy;
+  runUsage?: RunUsage;
   conversationId: string;
   traceId: string;
   startedAt: string;
@@ -609,15 +616,36 @@ export class LangGraphAgentService {
     };
   }
 
-  private buildGraphRuntimeConfig(input?: LangGraphRunInput, traceId?: string, conversationId?: string) {
+  private buildGraphRuntimeConfig(input?: LangGraphRunInput, traceId?: string, conversationId?: string, runContext?: RunContext) {
     return {
-      recursionLimit: getLangGraphRecursionLimit(config.agentMaxToolCallsPerTurn),
+      recursionLimit: getLangGraphRecursionLimit(runContext?.policy.budgets.maxToolCallsPerTurn ?? config.agentMaxToolCallsPerTurn),
       signal: input?.signal,
       configurable: {
         thread_id: conversationId,
         ...this.buildConfigurable(input, traceId, conversationId),
+        ...(runContext ? { runContext, maxToolCallsPerTurn: runContext.policy.budgets.maxToolCallsPerTurn,
+          enabledToolIds: runContext.policy.activeToolIds, disabledToolIds: [], skillScope: runContext.policy.activeSkillIds } : {}),
       },
     };
+  }
+
+  private async prepareRunContext(input: LangGraphRunInput, conversationId: string, resume = false): Promise<RunContext> {
+    const graph = await this.getGraph();
+    const saved = (await graph.getState({ configurable: { thread_id: conversationId } })).values as AgentState;
+    const journalDir = path.join(runtimeBaseDir, 'run-records');
+    if (resume && saved.runPolicy && saved.runUsage) {
+      return createRunContext(saved.runPolicy, { runId: saved.runUsage.runId, usage: saved.runUsage, journalDir, resume: true });
+    }
+    const policy = resolveApplicationRunPolicy({ previous: saved.runPolicy ?? undefined, requested: input.context?.runPolicy,
+      legacy: { skillIds: input.context?.skillIds ?? (!saved.runPolicy && saved.selectedSkillIds?.length ? saved.selectedSkillIds : undefined),
+        enabledToolIds: input.context?.enabledToolIds, disabledToolIds: input.context?.disabledToolIds },
+      availableSkillIds: (await this.skillRuntime.listSkillManifests()).map(item => item.id),
+    });
+    if (policy.routing.mode === 'fixed' && !await this.skillRuntime.resolvePluginForType(policy.routing.skillId, policy.activeSkillIds)) throw new Error('FIXED_SKILL_NOT_A_MODELING_PROVIDER');
+    const runtime = createRunContext(policy, { journalDir });
+    // Persist policy and ledger before attachment processing can call a model or interrupt.
+    await graph.updateState({ configurable: { thread_id: conversationId } }, { runPolicy: policy, runUsage: snapshotRunUsage(runtime) });
+    return runtime;
   }
 
   // ---------------------------------------------------------------------------
@@ -700,25 +728,25 @@ export class LangGraphAgentService {
     const conversationId = await this.ensureConversationRecord(
       input.conversationId, input.message,
     );
-    const skillIds = input.context?.skillIds || [];
     const traceId = input.traceId || randomUUID();
     const startedAt = new Date().toISOString();
     const reqStart = Date.now();
 
     const graph = await this.getGraph();
 
-    const config = this.buildGraphRuntimeConfig(input, traceId, conversationId);
+    const runtime = await this.prepareRunContext(input, conversationId);
+    const config = this.buildGraphRuntimeConfig(input, traceId, conversationId, runtime);
 
     const reqLogger = createAgentLogger(traceId, conversationId);
     reqLogger.info({ message: input.message.slice(0, 100) }, 'LangGraph agent stream started');
 
-    const initialPayload = await buildInitialHumanMessagePayload(
+    const initialPayload = await withRunContext(runtime, () => buildInitialHumanMessagePayload(
       input.message,
       input.context?.attachments,
       locale,
       this.workspaceRoot,
       { summarizeImages: true, signal: input.signal },
-    );
+    ));
     const contextSeismicWorkflow = extractContextSeismicWorkflow(input.context, initialPayload.attachmentAnalyses);
     const initialUpdate = await this.contextModelUpdate(input, conversationId,
       initialPayload.attachmentAnalyses.flatMap(({ analysis }) => collectVisionEvidence(analysis)));
@@ -727,10 +755,11 @@ export class LangGraphAgentService {
     const stream = await graph.stream(
       {
         ...initialUpdate,
+        runPolicy: runtime.policy, runUsage: snapshotRunUsage(runtime),
         messages: [toInitialHumanMessage(initialPayload.content)],
         locale,
         workspaceRoot: this.workspaceRoot,
-        ...(input.context?.skillIds !== undefined ? { selectedSkillIds: skillIds } : {}),
+        selectedSkillIds: runtime.policy.activeSkillIds,
         toolAccessPolicy: buildToolAccessPolicy(input.context),
         lastUserMessage: initialPayload.canonicalMessage,
         contextSeismicWorkflow,
@@ -770,7 +799,9 @@ export class LangGraphAgentService {
     const graph = await this.getGraph();
 
     const resumedState = (await graph.getState({ configurable: { thread_id: conversationId } })).values as AgentState;
-    const config = this.buildGraphRuntimeConfig({ conversationId, message: resumedState.lastUserMessage ?? '', context: { locale: resumedState.locale ?? 'zh' } }, traceId, conversationId);
+    const resumeInput = { conversationId, message: resumedState.lastUserMessage ?? '', context: { locale: resumedState.locale ?? 'zh' } };
+    const runtime = await this.prepareRunContext(resumeInput, conversationId, true);
+    const config = this.buildGraphRuntimeConfig(resumeInput, traceId, conversationId, runtime);
 
     const reqLogger = createAgentLogger(traceId, conversationId);
     reqLogger.info('LangGraph agent resume started');
@@ -802,33 +833,34 @@ export class LangGraphAgentService {
     const conversationId = await this.ensureConversationRecord(
       input.conversationId, input.message,
     );
-    const skillIds = input.context?.skillIds || [];
     const traceId = input.traceId || randomUUID();
     const startedAt = new Date().toISOString();
     const reqStart = Date.now();
 
     const graph = await this.getGraph();
 
-    const config = this.buildGraphRuntimeConfig(input, traceId, conversationId);
+    const runtime = await this.prepareRunContext(input, conversationId);
+    const config = this.buildGraphRuntimeConfig(input, traceId, conversationId, runtime);
 
     const reqLogger = createAgentLogger(traceId, conversationId);
     reqLogger.info({ message: input.message.slice(0, 100) }, 'LangGraph agent run started');
 
-    const initialPayload = await buildInitialHumanMessagePayload(
+    const initialPayload = await withRunContext(runtime, () => buildInitialHumanMessagePayload(
       input.message,
       input.context?.attachments,
       locale,
       this.workspaceRoot,
       { summarizeImages: true, signal: input.signal },
-    );
+    ));
     const contextSeismicWorkflow = extractContextSeismicWorkflow(input.context, initialPayload.attachmentAnalyses);
     const result = await graph.invoke(
       {
         ...await this.contextModelUpdate(input, conversationId, initialPayload.attachmentAnalyses.flatMap(({ analysis }) => collectVisionEvidence(analysis))),
+        runPolicy: runtime.policy, runUsage: snapshotRunUsage(runtime),
         messages: [toInitialHumanMessage(initialPayload.content)],
         locale,
         workspaceRoot: this.workspaceRoot,
-        ...(input.context?.skillIds !== undefined ? { selectedSkillIds: skillIds } : {}),
+        selectedSkillIds: runtime.policy.activeSkillIds,
         toolAccessPolicy: buildToolAccessPolicy(input.context),
         lastUserMessage: initialPayload.canonicalMessage,
         contextSeismicWorkflow,
@@ -841,13 +873,15 @@ export class LangGraphAgentService {
     );
 
     const runResult = this.extractResult(result, conversationId, traceId, startedAt);
+    runResult.runPolicy = runtime.policy;
+    runResult.runUsage = snapshotRunUsage(runtime);
     reqLogger.info({ durationMs: Date.now() - reqStart, mode: runResult.mode, toolCallCount: runResult.toolCalls.length, success: runResult.success }, 'LangGraph agent run completed');
     return runResult;
   }
 
   /**
    * Run the agent and return the full final AgentState (not just the summary).
-   * Used by benchmark tooling that needs access to model, analysisResult, report etc.
+   * Used by integrations that need the full model, analysis and delivery state.
    */
   async runFull(input: LangGraphRunInput): Promise<AgentState> {
     const release = await this.sessionLock.acquire(input.conversationId ?? randomUUID());
@@ -856,30 +890,32 @@ export class LangGraphAgentService {
 
   private async runFullUnlocked(input: LangGraphRunInput): Promise<AgentState> {
     const locale = input.context?.locale || 'zh';
-    const conversationId = input.conversationId || `bench-${randomUUID()}`;
+    const conversationId = input.conversationId || `run-${randomUUID()}`;
     const traceId = input.traceId || randomUUID();
     const reqStart = Date.now();
     const graph = await this.getGraph();
-    const config = this.buildGraphRuntimeConfig(input, traceId, conversationId);
+    const runtime = await this.prepareRunContext(input, conversationId);
+    const config = this.buildGraphRuntimeConfig(input, traceId, conversationId, runtime);
 
     const reqLogger = createAgentLogger(traceId, conversationId);
     reqLogger.info({ message: input.message.slice(0, 100) }, 'LangGraph agent runFull started');
 
-    const initialPayload = await buildInitialHumanMessagePayload(
+    const initialPayload = await withRunContext(runtime, () => buildInitialHumanMessagePayload(
       input.message,
       input.context?.attachments,
       locale,
       this.workspaceRoot,
       { summarizeImages: true, signal: input.signal },
-    );
+    ));
     const contextSeismicWorkflow = extractContextSeismicWorkflow(input.context, initialPayload.attachmentAnalyses);
     const result = await graph.invoke(
       {
         ...await this.contextModelUpdate(input, conversationId, initialPayload.attachmentAnalyses.flatMap(({ analysis }) => collectVisionEvidence(analysis))),
+        runPolicy: runtime.policy, runUsage: snapshotRunUsage(runtime),
         messages: [toInitialHumanMessage(initialPayload.content)],
         locale,
         workspaceRoot: this.workspaceRoot,
-        ...(input.context?.skillIds !== undefined ? { selectedSkillIds: input.context.skillIds } : {}),
+        selectedSkillIds: runtime.policy.activeSkillIds,
         toolAccessPolicy: buildToolAccessPolicy(input.context),
         lastUserMessage: initialPayload.canonicalMessage,
         contextSeismicWorkflow,

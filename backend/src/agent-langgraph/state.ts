@@ -15,6 +15,8 @@ import type {
 import type { AppLocale } from '../services/locale.js';
 import type { AnalysisRequestBinding, ModelTransaction } from '../engineering/model-state.js';
 import { mergeInputEvidence } from '../engineering/input-evidence.js';
+import type { EffectiveRunPolicy } from '../runtime/run-policy.js';
+import type { RunUsage } from '../runtime/run-context.js';
 
 export interface AgentToolAccessPolicy {
   enabledToolIds: string[] | null;
@@ -24,6 +26,8 @@ export interface AgentToolAccessPolicy {
 
 /** Per-session agent state persisted via the LangGraph checkpointer. */
 export interface AgentSessionState {
+  runPolicy: EffectiveRunPolicy | null;
+  runUsage: RunUsage | null;
   /** Accumulated structural draft parameters. */
   draftState: DraftState | null;
   /** Pipeline artifact envelopes keyed by kind. */
@@ -51,6 +55,8 @@ export interface AgentSessionState {
 /** Helper to produce a blank initial session state. */
 export function emptySessionState(overrides?: Partial<AgentSessionState>): AgentSessionState {
   return {
+    runPolicy: null,
+    runUsage: null,
     draftState: null,
     artifacts: {},
     selectedSkillIds: [],
@@ -78,6 +84,8 @@ export function emptySessionState(overrides?: Partial<AgentSessionState>): Agent
  * All domain fields use a last-writer-wins (replace) reducer.
  */
 export const AgentStateAnnotation = Annotation.Root({
+  runPolicy: Annotation<EffectiveRunPolicy | null>({ reducer: (_prev, next) => next, default: () => null }),
+  runUsage: Annotation<RunUsage | null>({ reducer: (_prev, next) => next, default: () => null }),
   messages: Annotation<BaseMessage[]>({
     reducer: messagesStateReducer,
     default: () => [],

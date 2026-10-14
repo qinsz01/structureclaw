@@ -4,6 +4,7 @@ import { ToolNode } from '@langchain/langgraph/prebuilt';
 import type { StructuredToolInterface } from '@langchain/core/tools';
 import type { AgentState } from './state.js';
 import { invalidateAnalysis } from '../engineering/model-state.js';
+import { reserveToolCall, recordToolOutcome, currentRunContext, snapshotRunUsage } from '../runtime/run-context.js';
 
 /** Only messages after the current assistant request acknowledge its calls. */
 export function pendingToolCalls(state: AgentState) {
@@ -21,6 +22,17 @@ export async function executeToolsSequentially(tools: StructuredToolInterface[],
   const call = pendingToolCalls(state)[0];
   if (!call) return new Command({ update: {} });
   if (!call.id) throw new Error('TOOL_CALL_ID_REQUIRED');
+  let assistantIndex = state.messages.length - 1;
+  while (assistantIndex >= 0 && state.messages[assistantIndex]!.getType() !== 'ai') assistantIndex--;
+  const invocationId = `${assistantIndex}:${call.id}`;
+  try {
+    reserveToolCall(call.name, invocationId);
+  } catch (error) {
+    const runtime = currentRunContext();
+    return new Command({ update: { messages: [new ToolMessage({ name: call.name, tool_call_id: call.id, status: 'error',
+      content: JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }) })],
+      ...(runtime ? { runUsage: snapshotRunUsage(runtime) } : {}) } });
+  }
   const update: Record<string, unknown> = { messages: [] };
   let current = state;
   if (['run_analysis', 'build_model', 'extract_draft_params'].includes(call.name)) {
@@ -53,5 +65,21 @@ export async function executeToolsSequentially(tools: StructuredToolInterface[],
   if (!messages.some(item => item.getType() === 'tool' && (item as ToolMessage).tool_call_id === call.id)) {
     messages.push(new ToolMessage({ content: JSON.stringify({ status: 'completed' }), name: call.name, tool_call_id: call.id }));
   }
+  let failure: string | undefined;
+  for (const item of messages) {
+    if (item.getType() !== 'tool') continue;
+    const message = item as ToolMessage;
+    const content = typeof message.content === 'string' ? message.content : JSON.stringify(message.content);
+    if (message.status === 'error') failure = content;
+    try {
+      const payload = JSON.parse(content);
+      if (payload.success === false || payload.valid === false || payload.error || payload.status === 'failed') {
+        failure = [payload.errorCode, payload.error_code, payload.error, payload.message].filter(Boolean).map(String).join(': ') || 'operation failed';
+      }
+    } catch { /* Plain successful tool text is valid. */ }
+  }
+  recordToolOutcome(call.name, invocationId, failure ? String(failure) : undefined);
+  const runtime = currentRunContext();
+  if (runtime) update.runUsage = snapshotRunUsage(runtime);
   return new Command({ update });
 }

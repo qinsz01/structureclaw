@@ -1,9 +1,12 @@
 import type { StructureClawChatModel } from '../utils/llm.js';
 import { skillExecutionSchema, type SkillExecutionPayload } from './schema.js';
 import type { AgentSkillExecutorInput } from './types.js';
+import { currentRunPolicy } from '../runtime/run-context.js';
+import { requestRecovery } from '../runtime/run-context.js';
 
 function buildSkillPrompt(input: AgentSkillExecutorInput): string {
   const skill = input.selectedSkill;
+  if (currentRunPolicy()?.knowledge === 'disabled') return `Skill: ${skill.id}; structureType: ${skill.structureType}`;
   const sections = [
     `# Skill: ${skill.id}`,
     `Name(zh): ${skill.name.zh}`,
@@ -85,60 +88,59 @@ export class AgentSkillExecutor {
       buildSkillPrompt(input),
     ].join('\n\n');
 
-    try {
-      const aiMessage = await this.llm.invoke(prompt, { signal: input.signal });
-      const content = typeof aiMessage.content === 'string' ? aiMessage.content : JSON.stringify(aiMessage.content);
-      const parsedJson = this.parseJsonObject(content);
-      if (!parsedJson) {
-        return { parsed: null, draftPatch: null };
-      }
-
-      const rawEngineeringDraft = parsedJson.engineeringDraft && typeof parsedJson.engineeringDraft === 'object' && !Array.isArray(parsedJson.engineeringDraft)
-        ? { engineeringDraft: parsedJson.engineeringDraft }
-        : this.looksLikeTopLevelEngineeringDraft(parsedJson)
-          ? { engineeringDraft: parsedJson }
-          : {};
-      const rawIssuePatch = {
-        ...(Array.isArray(parsedJson.draftIssues) ? { draftIssues: parsedJson.draftIssues } : {}),
-        ...(parsedJson.skillState && typeof parsedJson.skillState === 'object' && !Array.isArray(parsedJson.skillState)
-          ? { skillState: parsedJson.skillState }
-          : {}),
-      };
-      const rawDraftPatch = (parsedJson.draftPatch && typeof parsedJson.draftPatch === 'object' && !Array.isArray(parsedJson.draftPatch))
-        ? {
-          ...(parsedJson.draftPatch as Record<string, unknown>),
-          ...rawEngineeringDraft,
-          ...rawIssuePatch,
-        }
-        : (Object.keys({ ...rawEngineeringDraft, ...rawIssuePatch }).length ? { ...rawEngineeringDraft, ...rawIssuePatch } : null);
-      const rawInferredType = typeof parsedJson.inferredType === 'string'
-        ? parsedJson.inferredType
-        : undefined;
-
-      try {
-        const parsed = skillExecutionSchema.parse(parsedJson);
-        return {
-          parsed,
-          draftPatch: parsed.draftPatch
-            ? {
-              ...parsed.draftPatch,
-              ...(parsed.engineeringDraft ? { engineeringDraft: parsed.engineeringDraft } : {}),
-              ...(parsed.skillState ? { skillState: parsed.skillState } : {}),
-              ...(parsed.draftIssues ? { draftIssues: parsed.draftIssues } : {}),
-            }
-            : rawDraftPatch,
-        };
-      } catch {
-        return {
-          parsed: rawInferredType
-            ? { inferredType: rawInferredType, draftPatch: rawDraftPatch ?? undefined } as SkillExecutionPayload
-            : null,
-          draftPatch: rawDraftPatch,
-        };
-      }
-    } catch {
+    const aiMessage = await this.llm.invoke(prompt, { signal: input.signal });
+    const content = typeof aiMessage.content === 'string' ? aiMessage.content : JSON.stringify(aiMessage.content);
+    const parsedJson = this.parseJsonObject(content);
+    if (!parsedJson) {
+      requestRecovery('skill extraction: invalid JSON, applying handler extraction');
       return { parsed: null, draftPatch: null };
     }
+
+    const rawEngineeringDraft = parsedJson.engineeringDraft && typeof parsedJson.engineeringDraft === 'object' && !Array.isArray(parsedJson.engineeringDraft)
+      ? { engineeringDraft: parsedJson.engineeringDraft }
+      : this.looksLikeTopLevelEngineeringDraft(parsedJson)
+        ? { engineeringDraft: parsedJson }
+        : {};
+    const rawIssuePatch = {
+      ...(Array.isArray(parsedJson.draftIssues) ? { draftIssues: parsedJson.draftIssues } : {}),
+      ...(parsedJson.skillState && typeof parsedJson.skillState === 'object' && !Array.isArray(parsedJson.skillState)
+        ? { skillState: parsedJson.skillState }
+        : {}),
+    };
+    const rawDraftPatch = (parsedJson.draftPatch && typeof parsedJson.draftPatch === 'object' && !Array.isArray(parsedJson.draftPatch))
+      ? {
+        ...(parsedJson.draftPatch as Record<string, unknown>),
+        ...rawEngineeringDraft,
+        ...rawIssuePatch,
+      }
+      : (Object.keys({ ...rawEngineeringDraft, ...rawIssuePatch }).length ? { ...rawEngineeringDraft, ...rawIssuePatch } : null);
+    const rawInferredType = typeof parsedJson.inferredType === 'string'
+      ? parsedJson.inferredType
+      : undefined;
+
+    try {
+      const parsed = skillExecutionSchema.parse(parsedJson);
+      return {
+        parsed,
+        draftPatch: parsed.draftPatch
+          ? {
+            ...parsed.draftPatch,
+            ...(parsed.engineeringDraft ? { engineeringDraft: parsed.engineeringDraft } : {}),
+            ...(parsed.skillState ? { skillState: parsed.skillState } : {}),
+            ...(parsed.draftIssues ? { draftIssues: parsed.draftIssues } : {}),
+          }
+          : rawDraftPatch,
+      };
+    } catch {
+      requestRecovery('skill extraction: invalid schema, applying explicit field projection');
+      return {
+        parsed: rawInferredType
+          ? { inferredType: rawInferredType, draftPatch: rawDraftPatch ?? undefined } as SkillExecutionPayload
+          : null,
+        draftPatch: rawDraftPatch,
+      };
+    }
+
   }
 
   private parseJsonObject(content: string): Record<string, unknown> | null {

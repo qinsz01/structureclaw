@@ -1,10 +1,9 @@
+import { prepareEngineeringReport, finishEngineeringReport } from '../services/engineering-report.js';
 import { computeDraftMissing } from './draft-readiness.js';
-import { formatCheckSummary } from '../engineering/code-checks.js';
-import { reportResultRows, resultTableMarkdown } from '../engineering/result-data.js';
 import { assertResolvedInput } from '../engineering/input-evidence.js';
+import { currentRunPolicy, requestRecovery, recordRunEvent } from '../runtime/run-context.js';
 import type { AppLocale } from '../services/locale.js';
 import type { LlmTokenUsage, StructureClawChatModel } from '../utils/llm.js';
-import { buildReportDomainArtifacts } from '../agent-skills/report-export/entry.js';
 import {
   buildCodeCheckInput,
   executeCodeCheckDomain,
@@ -249,12 +248,9 @@ export class AgentSkillRuntime {
       model: options.model,
       parameters: options.parameters,
     };
-    const retries = selectedSkill?.id === 'yjk-static'
-      || selectedSkill?.engineId === 'builtin-yjk'
-      || selectedSkill?.adapterKey === 'builtin-yjk'
-      || input.engineId === 'builtin-yjk'
-      ? 0
-      : 2;
+    // A lost solver response is not evidence that its job did not start.
+    // The job record must be inspected rather than launching another solve.
+    const retries = 0;
     const analyzed = await options.postToEngineWithRetry('/analyze', input, {
       retries,
       traceId: options.traceId,
@@ -384,94 +380,12 @@ export class AgentSkillRuntime {
     report: { summary: string; json: Record<string, unknown>; markdown?: string };
     skillId: 'report-export-builtin';
   }> {
-    const analysisSuccess = Boolean((options.analysis as { success?: unknown } | undefined)?.success);
-    const codeCheckSummary = (options.codeCheck as { summary?: Record<string, unknown> } | undefined)?.summary;
-    const codeCheckText = formatCheckSummary(codeCheckSummary, options.locale);
-    const summary = options.locale === 'zh'
-      ? `分析类型 ${options.analysisType}，分析${analysisSuccess ? '成功' : '失败'}，${codeCheckText}。`
-      : `Analysis type ${options.analysisType}; analysis ${analysisSuccess ? 'succeeded' : 'failed'}; ${codeCheckText}.`;
-    const {
-      keyMetrics,
-      clauseTraceability,
-      controllingCases,
-      visualizationHints,
-    } = buildReportDomainArtifacts({
-      designBasis: undefined,
-      normalizedModel: options.normalizedModel,
-      postprocessedResult: options.analysis,
-      codeCheckResult: options.codeCheck,
-    });
-    const jsonReport: Record<string, unknown> = {
-      reportSchemaVersion: '1.0.0',
-      resultSets: reportResultRows(options.analysis),
-      intent: options.message,
-      analysisType: options.analysisType,
-      summary,
-      keyMetrics,
-      clauseTraceability,
-      controllingCases,
-      visualizationHints,
-      normalizedModel: options.normalizedModel,
-      analysis: options.analysis,
-      codeCheck: options.codeCheck,
-      generatedAt: new Date().toISOString(),
-      meta: {
-        reportSkillId: 'report-export-builtin',
-        ...((options.analysis && typeof options.analysis === 'object') ? {
-          runId: (options.analysis as Record<string, unknown>).runId,
-          source: (options.analysis as Record<string, unknown>).meta,
-          resultKeys: Object.keys(((options.analysis as Record<string, unknown>).results ?? {}) as object),
-        } : {}),
-      },
-    };
-
-    if (options.format === 'json') {
-      return {
-        report: {
-          summary,
-          json: jsonReport,
-        },
-        skillId: 'report-export-builtin',
-      };
-    }
-
-    let markdown = await this.buildReportNarrative({
-      message: options.message,
-      analysisType: options.analysisType,
-      analysisSuccess,
-      codeCheckText,
-      summary,
-      keyMetrics,
-      clauseTraceability,
-      controllingCases,
-      visualizationHints,
-      analysis: options.analysis,
-      codeCheck: options.codeCheck,
-      locale: options.locale,
-    }, options.draft, options.skillIds);
-    const analysisRecord = options.analysis as Record<string, unknown> | undefined;
-    markdown += resultTableMarkdown(options.analysis, options.locale);
-    if (reportResultRows(options.analysis).some((row) => row.capabilityStatus === 'partial')) markdown += options.locale === 'zh'
-      ? '\n本次运行包含部分能力或估算结果；不能视为原结构完整分析或全面规范合格。\n'
-      : '\nThis run includes partial capabilities or estimates; it does not establish complete analysis or overall code compliance of the original structure.\n';
-    if (analysisRecord?.runId) {
-      markdown += options.locale === 'zh'
-        ? `\n\n计算来源：运行 ${String(analysisRecord.runId)}；结果 ${String(analysisRecord.selectedResultKey ?? 'default')}。\n`
-        : `\n\nCalculation source: run ${String(analysisRecord.runId)}; result ${String(analysisRecord.selectedResultKey ?? 'default')}.\n`;
-    }
-    const completeness = (options.codeCheck as Record<string, unknown> | undefined)?.completionStatus;
-    if (completeness === 'incomplete') markdown += options.locale === 'zh'
-      ? '\n规范校核尚未完成；资料不足或尚不支持的项目不构成通过结论。\n'
-      : '\nCode checking is incomplete; missing inputs or unsupported checks do not establish compliance.\n';
-
-    return {
-      report: {
-        summary,
-        json: jsonReport,
-        markdown: options.format === 'both' || options.format === 'markdown' ? markdown : undefined,
-      },
-      skillId: 'report-export-builtin',
-    };
+    const prepared = prepareEngineeringReport(options);
+    const narrative = options.format === 'json' ? undefined : await this.buildReportNarrative(
+      prepared.narrativeInput, options.draft, options.skillIds);
+    const report = finishEngineeringReport(prepared, narrative);
+    return { report: { ...report, markdown: options.format === 'json' ? undefined : report.markdown },
+      skillId: 'report-export-builtin' };
   }
 
   /** Rule-only router used for guardrail hints and fallback; user-facing flows should prefer detectStructuralTypeWithLlm. */
@@ -488,12 +402,16 @@ export class AgentSkillRuntime {
     signal?: AbortSignal,
     onUsage?: (usage: LlmTokenUsage) => void,
   ): Promise<StructuralTypeMatch> {
+    const policy = currentRunPolicy();
+    if (policy) skillIds = policy.activeSkillIds.filter(id => skillIds === undefined || skillIds.includes(id));
+    if (policy?.routing.mode === 'fixed') {
+      const plugin = await this.registry.resolvePluginForIdentifier(policy.routing.skillId, skillIds);
+      if (!plugin) throw new Error('FIXED_SKILL_NOT_A_MODELING_PROVIDER');
+      return { key: plugin.manifest.structuralTypeKeys[0] ?? 'unknown', mappedType: plugin.structureType ?? 'unknown', skillId: plugin.id,
+        supportLevel: 'supported', routingSource: 'policy-fixed' };
+    }
     const routerLlm = requireStructuralRouterLlm(llm, locale);
-
-    const benchmarkLlmOnly = process.env.SCLAW_BENCHMARK_LLM_ONLY === '1';
-    const ruleMatch = benchmarkLlmOnly
-      ? undefined
-      : await this.registry.detectStructuralType(message, locale, undefined, skillIds);
+    const ruleMatch = await this.registry.detectStructuralType(message, locale, undefined, skillIds);
     if (
       ruleMatch?.supportLevel === 'unsupported'
       && ruleMatch.key !== 'unknown'
@@ -520,6 +438,7 @@ export class AgentSkillRuntime {
 
     // Fallback is allowed only after an available LLM failed to produce a usable routing decision.
     if (ruleMatch) {
+      requestRecovery('structural routing: unusable LLM decision, applying explicit rule result');
       return ruleMatch;
     }
     throw new Error('LLM_STRUCTURAL_ROUTER_INVALID_OUTPUT: response did not contain a usable routing decision');
@@ -611,6 +530,8 @@ export class AgentSkillRuntime {
     skillIds?: string[],
     context?: { message?: string; locale?: AppLocale; currentModel?: Record<string, unknown>; conversationHistory?: string },
   ): Promise<Record<string, unknown> | undefined> {
+    const policy = currentRunPolicy();
+    if (policy) skillIds = policy.activeSkillIds.filter(id => skillIds === undefined || skillIds.includes(id));
     assertResolvedInput(state.engineeringDraft?.inputEvidence);
     const { buildExplicitDraftModel } = await import('./explicit-model.js');
     const explicit = buildExplicitDraftModel(state);
@@ -626,13 +547,15 @@ export class AgentSkillRuntime {
     }
 
     // Deterministic model building (beam, truss, frame, etc.)
-    const model = plugin.handler.buildModel(state);
+    const model = policy?.builder === 'llm' ? undefined : plugin.handler.buildModel(state);
     if (model) {
+      recordRunEvent({ kind: 'model_builder', builder: 'template', skillId: plugin.id });
       return model;
     }
 
     // Generic skill: fall back to LLM model builder
-    if (plugin.id === 'generic' && context) {
+    if ((plugin.id === 'generic' || policy?.builder === 'llm') && context) {
+      recordRunEvent({ kind: 'model_builder', builder: 'llm', skillId: plugin.id });
       const { tryBuildGenericModelWithLlm } = await import('../agent-skills/structure-type/generic/llm-model-builder.js');
       const { createChatModel } = await import('../utils/llm.js');
       const llm = createChatModel(0);
@@ -644,7 +567,7 @@ export class AgentSkillRuntime {
         );
       }
       return tryBuildGenericModelWithLlm(
-        llm, context.message || '', state, context.locale || 'zh', context.conversationHistory, undefined, context.currentModel,
+        llm, context.message || '', state, context.locale || 'zh', policy?.context.history === 'current-turn' ? undefined : context.conversationHistory, undefined, context.currentModel,
       );
     }
 

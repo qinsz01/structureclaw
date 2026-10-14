@@ -1,4 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
+import process from 'node:process';
 import { AIMessage, HumanMessage, ToolMessage } from '@langchain/core/messages';
 
 const baseConfig = {
@@ -95,19 +96,19 @@ describe('LLM model options', () => {
     expect(options.maxTokens).toBe(16384);
   });
 
-  test('uses a fixed output limit only for benchmark model calls', async () => {
+  test('legacy environment flags do not change ordinary model output settings', async () => {
     const previousBenchmarkMode = process.env.SCLAW_BENCHMARK_LLM_ONLY;
     const previousMaxTokens = process.env.SCLAW_BENCHMARK_MAX_TOKENS;
     try {
-      const { resolveBenchmarkMaxTokens } = await import('../../../dist/utils/llm.js');
+      const { buildChatModelOptions } = await import('../../../dist/utils/llm.js');
 
       process.env.SCLAW_BENCHMARK_LLM_ONLY = '1';
       delete process.env.SCLAW_BENCHMARK_MAX_TOKENS;
-      expect(resolveBenchmarkMaxTokens()).toBe(16384);
+      expect(buildChatModelOptions(baseConfig, 0).maxTokens).toBeUndefined();
       process.env.SCLAW_BENCHMARK_MAX_TOKENS = '8192';
-      expect(resolveBenchmarkMaxTokens()).toBe(8192);
+      expect(buildChatModelOptions(baseConfig, 0).maxTokens).toBeUndefined();
       delete process.env.SCLAW_BENCHMARK_LLM_ONLY;
-      expect(resolveBenchmarkMaxTokens()).toBeUndefined();
+      expect(buildChatModelOptions(baseConfig, 0, { maxTokens: 512 }).maxTokens).toBe(512);
     } finally {
       if (previousBenchmarkMode === undefined) {
         delete process.env.SCLAW_BENCHMARK_LLM_ONLY;

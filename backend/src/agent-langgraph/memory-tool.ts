@@ -2,6 +2,7 @@ import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 import type { LangGraphRunnableConfig } from '@langchain/langgraph';
 import { AgentMemoryService, type AgentMemoryScope, type AgentMemoryScopeType } from '../services/agent-memory.js';
+import { currentRunPolicy } from '../runtime/run-context.js';
 
 const DRAFT_MEMORY_KEY_PARTS = new Set([
   'baycount',
@@ -75,6 +76,8 @@ export function createMemoryTool(workspaceRoot?: string) {
       config: LangGraphRunnableConfig,
     ) => {
       const effectiveScope = input.scope ?? 'conversation';
+      const policy = currentRunPolicy() ?? (config.configurable as { runContext?: { policy?: ReturnType<typeof currentRunPolicy> } } | undefined)?.runContext?.policy;
+      if (policy && !policy.context.memoryScopes.includes(effectiveScope)) throw new Error(`MEMORY_SCOPE_NOT_ALLOWED: ${effectiveScope}`);
       const scope = resolveScope(effectiveScope, config);
 
       if (input.action === 'store') {

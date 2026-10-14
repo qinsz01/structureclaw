@@ -1,5 +1,6 @@
 import { withDeclaredProperties } from '../../../tests/fixtures/declared-template-properties.mjs';
 import { describe, expect, test } from '@jest/globals';
+import process from 'node:process';
 import {
   computeDependencyFingerprint,
   computeDraftStateContentHash,
@@ -346,7 +347,7 @@ describe('agent runtime helper utilities', () => {
     });
   });
 
-  test('benchmark LLM-only mode rejects unusable router output instead of using rule hints', async () => {
+  test('legacy environment flags cannot change runtime router fallback', async () => {
     const previous = process.env.SCLAW_BENCHMARK_LLM_ONLY;
     process.env.SCLAW_BENCHMARK_LLM_ONLY = '1';
     try {
@@ -362,16 +363,14 @@ describe('agent runtime helper utilities', () => {
         },
         'A two-story steel frame',
         'en',
-      )).rejects.toThrow(
-        'finishReason=length; contentLength=8; reasoningContentLength=14',
-      );
+      )).resolves.toMatchObject({ routingSource: 'explicit-keyword' });
     } finally {
       if (previous === undefined) delete process.env.SCLAW_BENCHMARK_LLM_ONLY;
       else process.env.SCLAW_BENCHMARK_LLM_ONLY = previous;
     }
   });
 
-  test('benchmark LLM-only mode routes unsupported structures through the LLM instead of keyword shortcuts', async () => {
+  test('legacy environment flags cannot bypass unsupported capability guards', async () => {
     const previous = process.env.SCLAW_BENCHMARK_LLM_ONLY;
     process.env.SCLAW_BENCHMARK_LLM_ONLY = '1';
     let invocations = 0;
@@ -400,14 +399,13 @@ describe('agent runtime helper utilities', () => {
         'en',
       );
 
-      expect(invocations).toBe(1);
-      expect(routerPrompt).toContain('Rule hint:\nnull');
-      expect(routerPrompt).not.toContain('"routingSource": "explicit-keyword"');
+      expect(invocations).toBe(0);
+      expect(routerPrompt).toBe('');
       expect(match).toMatchObject({
         key: 'bridge',
         mappedType: 'unknown',
         supportLevel: 'unsupported',
-        routingSource: 'llm-suggested',
+        routingSource: 'explicit-keyword',
       });
       expect(match.skillId).toBeUndefined();
     } finally {

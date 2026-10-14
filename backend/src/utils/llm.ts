@@ -5,6 +5,7 @@ import type { config } from '../config/index.js';
 import { getEffectiveLlmSettings, getEffectiveVisionLlmSettings } from '../config/llm-runtime.js';
 import { llmCallLogger } from './llm-logger.js';
 import { logger, logLlmCall } from './agent-logger.js';
+import { reserveLlmCall, recordRunEvent } from '../runtime/run-context.js';
 
 export type StructureClawChatModel = BaseChatModel & {
   bindTools: NonNullable<BaseChatModel['bindTools']>;
@@ -29,19 +30,6 @@ export interface LlmTokenUsage {
 }
 
 const OPENAI_DEFAULT_BASE_URL = 'https://api.openai.com/v1';
-const DEFAULT_BENCHMARK_MAX_TOKENS = 16384;
-
-export function resolveBenchmarkMaxTokens(): number | undefined {
-  if (process.env.SCLAW_BENCHMARK_LLM_ONLY !== '1') return undefined;
-  const rawValue = process.env.SCLAW_BENCHMARK_MAX_TOKENS;
-  if (rawValue === undefined || rawValue.trim() === '') {
-    return DEFAULT_BENCHMARK_MAX_TOKENS;
-  }
-  const parsed = Number(rawValue);
-  return Number.isSafeInteger(parsed) && parsed > 0
-    ? parsed
-    : DEFAULT_BENCHMARK_MAX_TOKENS;
-}
 
 function usageRecord(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -376,7 +364,7 @@ export function createChatModel(
 
   const effectiveRuntimeOptions = {
     ...runtimeOptions,
-    maxTokens: runtimeOptions.maxTokens ?? resolveBenchmarkMaxTokens(),
+    maxTokens: runtimeOptions.maxTokens,
   };
   const model = resolveLlmProvider(effectiveSettings) === 'anthropic'
     ? new ChatAnthropic(buildAnthropicChatModelOptions(effectiveSettings, temperature, effectiveRuntimeOptions))
@@ -384,7 +372,7 @@ export function createChatModel(
       buildChatModelOptions(effectiveSettings, temperature, effectiveRuntimeOptions),
     ));
 
-  return wrapWithLlmLogging(model, () => getEffectiveLlmSettings().llmModel);
+  return wrapWithLlmLogging(model, () => effectiveSettings.llmModel);
 }
 
 export function createVisionChatModel(
@@ -398,7 +386,7 @@ export function createVisionChatModel(
 
   const effectiveRuntimeOptions = {
     ...runtimeOptions,
-    maxTokens: runtimeOptions.maxTokens ?? resolveBenchmarkMaxTokens(),
+    maxTokens: runtimeOptions.maxTokens,
   };
   const model = resolveLlmProvider(
     effectiveSettings,
@@ -409,7 +397,7 @@ export function createVisionChatModel(
       buildChatModelOptions(effectiveSettings, temperature, effectiveRuntimeOptions),
     ));
 
-  return wrapWithLlmLogging(model, () => getEffectiveVisionLlmSettings()?.llmModel ?? effectiveSettings.llmModel);
+  return wrapWithLlmLogging(model, () => effectiveSettings.llmModel);
 }
 
 function sanitizeBase64ForLogging(text: string): string {
@@ -419,13 +407,23 @@ function sanitizeBase64ForLogging(text: string): string {
   );
 }
 
-function wrapWithLlmLogging<TModel extends StructureClawChatModel>(model: TModel, modelName: () => string): TModel {
+export function wrapWithLlmLogging<TModel extends StructureClawChatModel>(model: TModel, modelName: () => string): TModel {
   const originalInvoke = model.invoke.bind(model);
+  // ChatOpenAI.withConfig (used by bindTools) creates a fresh model instance.
+  // RunnableBinding in other providers keeps the same wrapped invoke instead.
+  const originalWithConfig = model.withConfig?.bind(model);
+  if (originalWithConfig) (model as any).withConfig = (options: any) => {
+    const configured = originalWithConfig(options);
+    return configured instanceof ChatOpenAI && configured !== (model as unknown)
+      ? wrapWithLlmLogging(configured, modelName)
+      : configured;
+  };
 
   (model as any).invoke = async function (input: any, options?: any) {
     const promptStr = sanitizeBase64ForLogging(typeof input === 'string' ? input : JSON.stringify(input));
     const start = Date.now();
     const loggedModel = modelName();
+    const callId = reserveLlmCall(loggedModel);
     try {
       const result = await originalInvoke(input, options);
       const content = sanitizeBase64ForLogging(
@@ -434,6 +432,7 @@ function wrapWithLlmLogging<TModel extends StructureClawChatModel>(model: TModel
           : JSON.stringify(result.content),
       );
       const durationMs = Date.now() - start;
+      recordRunEvent({ kind: 'llm_finished', callId, model: loggedModel, success: true, durationMs, usage: extractLlmTokenUsage(result) ?? null });
       llmCallLogger.log({
         model: loggedModel,
         prompt: promptStr,
@@ -445,6 +444,7 @@ function wrapWithLlmLogging<TModel extends StructureClawChatModel>(model: TModel
       return result;
     } catch (error) {
       const durationMs = Date.now() - start;
+      recordRunEvent({ kind: 'llm_finished', callId, model: loggedModel, success: false, durationMs });
       llmCallLogger.log({
         model: loggedModel,
         prompt: promptStr,

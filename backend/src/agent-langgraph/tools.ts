@@ -1,3 +1,6 @@
+import { randomUUID } from 'node:crypto';
+import { nativeDesignRecord, resolveCheckProvider, type CodeCheckProvider } from '../engineering/native-design.js';
+import { resultEngine } from '../engineering/result-data.js';
 import { computeDraftMissing, buildDraftQuestions } from '../agent-runtime/draft-readiness.js';
 /**
  * LangGraph tool definitions for the StructureClaw ReAct agent.
@@ -18,7 +21,6 @@ import type { AgentSkillRuntime } from '../agent-runtime/index.js';
 import type { LangGraphRunnableConfig } from '@langchain/langgraph';
 import { Command, interrupt } from '@langchain/langgraph';
 import { ToolMessage } from '@langchain/core/messages';
-import { logger } from '../utils/logger.js';
 import { getLogger, logToolCall } from '../utils/agent-logger.js';
 import {
   createChatModel,
@@ -35,12 +37,13 @@ import type {
   StructuralTypeMatch,
 } from '../agent-runtime/types.js';
 import { isFreshGenericStructuralRoute } from '../agent-runtime/plugin-helpers.js';
-import { runPkpmCalcbook } from '../agent-skills/report-export/calculation-book/pkpm-calcbook/runner.js';
+import { attachNativeReport } from '../services/engineering-report.js';
 import { beginAnalysisRequest, commitModel, currentAnalysisError, invalidateAnalysis, modelHash, publishAnalysis } from '../engineering/model-state.js';
 import { analysisSettingsHash } from '../engineering/analysis-runs.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 import { checkRunResults } from '../engineering/code-checks.js';
 import { assertResolvedInput, mergeInputEvidence } from '../engineering/input-evidence.js';
+import { currentRunPolicy, requestRecovery, canRecover } from '../runtime/run-context.js';
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -359,7 +362,7 @@ function toolResult(
                   completionTokens: llmUsage.outputTokens,
                   totalTokens: llmUsage.totalTokens,
                 },
-                tokenUsageSource: 'nested-benchmark-call',
+                tokenUsageSource: 'nested-model-call',
               },
             }
           : {}),
@@ -368,13 +371,10 @@ function toolResult(
   });
 }
 
-function benchmarkLlmUsageCollector(): {
+function nestedLlmUsageCollector(): {
   onUsage: ((usage: LlmTokenUsage) => void) | undefined;
   total: () => LlmTokenUsage | undefined;
 } {
-  if (process.env.SCLAW_BENCHMARK_LLM_ONLY !== '1') {
-    return { onUsage: undefined, total: () => undefined };
-  }
   const usages: LlmTokenUsage[] = [];
   return {
     onUsage: (usage) => usages.push(usage),
@@ -2436,7 +2436,7 @@ export function createDetectStructureTypeTool(skillRuntime: AgentSkillRuntime) {
       const locale = (input.locale === 'en' ? 'en' : (state?.locale || 'zh')) as 'zh' | 'en';
       const message = resolveToolInputMessage(input.message, state?.lastUserMessage, state?.messages);
       const detectionMessage = resolveRetryTaskMessage(message);
-      const nestedUsage = benchmarkLlmUsageCollector();
+      const nestedUsage = nestedLlmUsageCollector();
       try {
         const match = await detectStructuralTypeWithConfiguredLlm(skillRuntime, {
           message: detectionMessage,
@@ -2477,8 +2477,7 @@ export function createDetectStructureTypeTool(skillRuntime: AgentSkillRuntime) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         logToolCall(log, { tool: 'detect_structure_type', durationMs: Date.now() - start, success: false, extra: { error: errorMessage } });
         if (
-          process.env.SCLAW_BENCHMARK_LLM_ONLY === '1'
-          && errorMessage.startsWith('LLM_STRUCTURAL_ROUTER_INVALID_OUTPUT:')
+          errorMessage.startsWith('LLM_STRUCTURAL_ROUTER_INVALID_OUTPUT:')
         ) {
           return toolResult(
             toolCallId,
@@ -2526,7 +2525,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
       const locale = (input.locale === 'en' ? 'en' : (state?.locale || 'zh')) as 'zh' | 'en';
       const message = resolveToolInputMessage(input.message, state?.lastUserMessage, state?.messages);
       const extractionMessage = resolveRetryTaskMessage(message);
-      const nestedUsage = benchmarkLlmUsageCollector();
+      const nestedUsage = nestedLlmUsageCollector();
       const extractionToolResult = (
         content: string,
         stateUpdate?: Partial<AgentState>,
@@ -2547,7 +2546,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
           resolvedMessagePreview: message.slice(0, 120),
           extractionMessagePreview: extractionMessage.slice(0, 120),
         }, 'extract_draft_params resolved message');
-        const detectedMatch = await resolveDetectedStructuralTypeMatch(
+        const detectedMatch = currentRunPolicy()?.routing.mode === 'fixed' ? null : await resolveDetectedStructuralTypeMatch(
           skillRuntime,
           state?.structuralTypeKey,
           skillIds,
@@ -2654,7 +2653,6 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
         if (
           plugin.id === 'generic'
           && stableExistingState
-          && process.env.SCLAW_BENCHMARK_LLM_ONLY !== '1'
         ) {
           const { withStructuralTypeState } = await import('../agent-runtime/plugin-helpers.js');
           const resetToGeneric = isFreshGenericStructuralRoute(match);
@@ -2687,7 +2685,6 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
           locale,
           plugin,
           traceLogger: log,
-          requireLlmResult: process.env.SCLAW_BENCHMARK_LLM_ONLY === '1',
           signal: config.signal,
           onUsage: nestedUsage.onUsage,
         });
@@ -2705,7 +2702,8 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
         let missing = computeDraftMissing(plugin, nextState, 'execution');
         let extractionMode = draftPatch ? 'llm' : 'deterministic';
 
-        if (shouldRetryDraftExtraction(draftPatch, missing, nextState)) {
+        if (shouldRetryDraftExtraction(draftPatch, missing, nextState) && canRecover()) {
+          requestRecovery('parameter extraction: missing required fields');
           const retryDraftPatch = await invokeParamExtractor({
             message: extractionMessage,
             existingState: nextState,
@@ -2713,7 +2711,6 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
             plugin,
             focusFields: missing.critical,
             traceLogger: log,
-            requireLlmResult: process.env.SCLAW_BENCHMARK_LLM_ONLY === '1',
             signal: config.signal,
             onUsage: nestedUsage.onUsage,
           });
@@ -2770,8 +2767,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         logToolCall(log, { tool: 'extract_draft_params', durationMs: Date.now() - start, success: false, extra: { error: errorMessage } });
         if (
-          process.env.SCLAW_BENCHMARK_LLM_ONLY === '1'
-          && (
+          (
             errorMessage.startsWith('LLM_PARAM_EXTRACTOR_INVALID_OUTPUT:')
             || errorMessage.startsWith('LLM_STRUCTURAL_ROUTER_INVALID_OUTPUT:')
           )
@@ -2863,6 +2859,11 @@ export function createAskUserClarificationTool() {
       const options = input.optionsJson
         ? JSON.parse(input.optionsJson) as string[]
         : undefined;
+
+      if (currentRunPolicy()?.executionOwner === 'external') {
+        return JSON.stringify({ type: 'clarification_needed', question: input.question, options,
+          nextAction: 'await_user_input', resume: 'Begin a new user turn with the actual user answer; the external host owns dialogue.' });
+      }
 
       const userResponse = interrupt({
         type: 'clarification_needed',
@@ -2958,6 +2959,17 @@ export function createSetSessionConfigTool() {
       })) {
         stateUpdate.selectedSkillIds = completeChinaSeismicSkillIds(skillIdsForDecision);
         updatedKeys.push('selectedSkillIds');
+      }
+
+      const runPolicy = currentRunPolicy() ?? state?.runPolicy;
+      if (runPolicy && stateUpdate.selectedSkillIds) {
+        const outside = stateUpdate.selectedSkillIds.filter(id => !runPolicy.activeSkillIds.includes(id));
+        const fixed = runPolicy.routing.mode === 'fixed' ? runPolicy.routing.skillId : undefined;
+        if (outside.length || fixed && !stateUpdate.selectedSkillIds.includes(fixed)) {
+          return toolResult(toolCallId, 'set_session_config', JSON.stringify({ success: false,
+            error_code: 'SKILL_SCOPE_IMMUTABLE', deniedSkillIds: outside,
+            message: 'Session selection cannot widen the run scope or remove its fixed modeling provider.' }));
+        }
       }
 
       const responseJson = {
@@ -3077,6 +3089,9 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
       groundMotion?: number[];
       groundMotionUnit?: 'm/s2' | 'g';
       monitorNodeIds?: string[];
+      monitorElementIds?: string[];
+      monitorSupportNodeIds?: string[];
+      massDirections?: ('x' | 'y' | 'z')[];
     }, config: LangGraphRunnableConfig) => {
       const log = getLogger(config.configurable as Partial<AgentConfigurable> | undefined);
       const start = Date.now();
@@ -3206,7 +3221,7 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
       };
       if (input.method !== undefined) parameters.analysisType = input.method;
       for (const key of ['massSource', 'numModes', 'direction', 'timeStep', 'duration', 'dampingRatio',
-        'groundMotion', 'groundMotionUnit', 'monitorNodeIds'] as const) {
+        'groundMotion', 'groundMotionUnit', 'monitorNodeIds', 'monitorElementIds', 'monitorSupportNodeIds', 'massDirections'] as const) {
         if (input[key] !== undefined) parameters[key] = input[key];
       }
       let reservation = beginAnalysisRequest(state ?? {}, analysisSettingsHash(analysisType, requestedAnalysisSkillId, parameters));
@@ -3223,20 +3238,14 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
         reservation = { ...reservation, analysisRequest: { ...reservation.analysisRequest,
           settingsHash: analysisSettingsHash(payload.type, payload.engineId, parameters) } };
         reserve();
-        payload = { ...payload, requestBinding: reservation.analysisRequest };
-        let lastError: unknown;
-        for (let attempt = 0; attempt <= opts.retries; attempt++) {
-          if (opts.signal?.aborted) {
-            throw opts.signal.reason ?? new Error('Analysis request aborted');
-          }
-          try {
-            return await engineClient.post(p, payload, { signal: opts.signal });
-          } catch (error) {
-            lastError = error;
-            if (opts.signal?.aborted || attempt === opts.retries) throw error;
-          }
+        payload = { ...payload, requestId: randomUUID(), requestBinding: reservation.analysisRequest };
+        if (opts.signal?.aborted) throw opts.signal.reason ?? new Error('Analysis request aborted');
+        try {
+          return await engineClient.post(p, payload, { signal: opts.signal });
+        } catch (error) {
+          if (opts.signal?.aborted) throw error;
+          throw new Error(`SOLVER_OUTCOME_UNKNOWN: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
         }
-        throw lastError;
       };
 
       // engineId is resolved by the selected analysis skill, not from LLM input
@@ -3319,6 +3328,9 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
         dampingRatio: z.number().min(0).lt(1).optional(),
         groundMotion: z.array(z.number().finite()).min(2).optional().describe('Actual acceleration samples / 实际加速度序列。'),
         groundMotionUnit: z.enum(['m/s2', 'g']).optional(),
+        massDirections: z.array(z.enum(['x', 'y', 'z'])).min(1).optional().describe('Explicit mass directions / 明确质量方向。'),
+        monitorElementIds: z.array(z.string().min(1)).optional().describe('Member end forces recorded at each step / 每步记录的构件端力。'),
+        monitorSupportNodeIds: z.array(z.string().min(1)).optional().describe('Support reactions recorded at each step / 每步记录的支座反力。'),
         monitorNodeIds: z.array(z.string().min(1)).min(1).optional().describe('Nodes recorded at every time step / 每步记录的观测节点。'),
         floorLoadTransferMode: z
           .enum(['auto_code_cn', 'node_tributary', 'one_way_slab', 'two_way_slab'])
@@ -3338,6 +3350,8 @@ export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
     async (input: {
       designCode: string;
       engineId?: string;
+      provider?: CodeCheckProvider;
+      design?: Record<string, unknown>;
     }, config: LangGraphRunnableConfig) => {
       const log = getLogger(config.configurable as Partial<AgentConfigurable> | undefined);
       const start = Date.now();
@@ -3347,20 +3361,11 @@ export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
       const skillIds = configurable.skillScope;
       const selectedDesignCode = skillRuntime.resolveCodeCheckDesignCodeFromSkillIds(skillIds);
       const explicitDesignCode = input.designCode || state?.policy?.designCode;
-      const selectedCodeCheckSkillId = selectedDesignCode
-        ? skillRuntime.resolveCodeCheckSkillId(selectedDesignCode)
-        : undefined;
-      const explicitCodeCheckSkillId = explicitDesignCode
-        ? skillRuntime.resolveCodeCheckSkillId(explicitDesignCode)
-        : undefined;
-      const requestedDesignCode = explicitDesignCode
-        && (!selectedCodeCheckSkillId || explicitCodeCheckSkillId === selectedCodeCheckSkillId)
-        ? explicitDesignCode
-        : (selectedDesignCode || explicitDesignCode);
+      const requestedDesignCode = explicitDesignCode || selectedDesignCode;
       const codeCheckSkillId = requestedDesignCode
         ? skillRuntime.resolveCodeCheckSkillId(requestedDesignCode)
         : undefined;
-      if (!requestedDesignCode || !codeCheckSkillId) {
+      if (!requestedDesignCode || (!codeCheckSkillId && input.provider === 'builtin')) {
         const skipped = {
           skipped: true,
           reason: requestedDesignCode
@@ -3382,6 +3387,35 @@ export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
       }
       const freshnessError = currentAnalysisError(state);
       if (freshnessError) return toolResult(toolCallId, 'run_code_check', JSON.stringify({ success: false, error_code: freshnessError, message: 'Current model analysis is required.', messageZh: '需要当前模型的有效分析结果。' }));
+      if (resolveCheckProvider(input.provider, analysis) === 'native') {
+        const meta = isRecord(analysis.meta) ? analysis.meta : {};
+        const engineId = `builtin-${resultEngine(analysis)}`;
+        if (input.engineId && input.engineId !== engineId) throw new Error('DESIGN_ENGINE_MISMATCH');
+        const parameters = { ...(isRecord(meta.requestParameters) ? meta.requestParameters
+          : isRecord(meta.effectiveParameters) ? meta.effectiveParameters : {}),
+          design: { ...input.design, requested: true, code: requestedDesignCode } };
+        const pending = beginAnalysisRequest(state!, analysisSettingsHash('static', engineId, parameters));
+        Object.assign(state!, pending);
+        configurable.onAnalysisRequest?.(pending);
+        const requestId = randomUUID();
+        const response = await configurable.engineClient.post<Record<string, unknown>>('/analyze', {
+          type: 'static', engineId, model, parameters, requestId, requestBinding: pending.analysisRequest }, { signal: config.signal })
+          .catch((error: unknown) => {
+            if (config.signal?.aborted) throw error;
+            throw new Error(`SOLVER_OUTCOME_UNKNOWN: requestId=${requestId}; ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+          });
+        const next = response.data;
+        const published = publishAnalysis(state!, pending.analysisRequest, next);
+        const designRecord = nativeDesignRecord(model, next, requestedDesignCode);
+        return toolResult(toolCallId, 'run_code_check', JSON.stringify({ success: next.success === true,
+          provider: 'native', runId: next.runId, completionStatus: designRecord.completionStatus,
+          complianceStatus: designRecord.complianceStatus, summary: designRecord.summary,
+          missingInputs: designRecord.missingInputs, designStatus: designRecord.designStatus }),
+          { ...published, ...(published.analysisResult ? { codeCheckResult: designRecord } : {}) });
+      }
+      if (!codeCheckSkillId) throw new Error('BUILTIN_CODE_UNSUPPORTED / 公共规范未实现');
+      if (skillIds && !skillIds.includes(codeCheckSkillId)) throw new Error('CODE_CHECK_OUTSIDE_SCOPE / 当前技能范围不允许此规范');
+      if (input.design) throw new Error('BUILTIN_DESIGN_REQUEST_UNSUPPORTED / 公共校核不执行商业设计条件');
       const traceId = `lg-cc-${Date.now()}`;
 
       const codeCheckResult = await checkRunResults(analysis, async (caseResult) => {
@@ -3426,6 +3460,8 @@ export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
         designCode: z
           .string()
           .describe('Design code to check against (GB50010, GB50011, GB/T 50011-2010-2024, GB50017, JGJ3)'),
+        provider: z.enum(['auto', 'native', 'builtin']).optional().describe('Commercial engines prefer native design; OpenSees uses builtin checks / 商业引擎优先原生设计，OpenSees采用公共校核。'),
+        design: z.record(z.string(), z.unknown()).optional().describe('Explicit native design conditions / 明确的原生设计条件。'),
         engineId: z.string().optional().describe('Optional engine ID'),
       }),
     },
@@ -3492,32 +3528,9 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
         skillIds,
       });
 
-      // For PKPM analysis, also generate the dedicated calculation book
-      const analysisData = (analysis as Record<string, unknown>)?.data as Record<string, unknown> | undefined;
-      const analysisMode = analysisData?.analysisMode as string | undefined;
-      const isPkpm = analysisMode === 'pkpm-satwe'
-        || (analysis as Record<string, unknown>)?.meta != null
-          && typeof (analysis as Record<string, unknown>).meta === 'object'
-          && ((analysis as Record<string, unknown>).meta as Record<string, unknown>)?.analysisAdapterKey === 'builtin-pkpm';
-      if (isPkpm && analysisData?.summary) {
-        const jwsPath = (analysisData.summary as Record<string, unknown>)?.jws_path as string | undefined;
-        if (jwsPath) {
-          try {
-            const calcbook = await runPkpmCalcbook(jwsPath);
-            if (calcbook) {
-              if (calcbook.markdown && result.report.json) {
-                const jsonReport = result.report.json as Record<string, unknown>;
-                jsonReport.calcbookMarkdown = calcbook.markdown;
-              }
-              if (calcbook.summary?.pdf_path) {
-                (result.report as Record<string, unknown>).pdfUrl = `/api/v1/files/serve?path=${encodeURIComponent(calcbook.summary.pdf_path)}`;
-              }
-            }
-          } catch (err) {
-            logger.warn({ err }, 'PKPM calcbook generation failed, skipping');
-          }
-        }
-      }
+      await attachNativeReport({ ...result.report, markdown: result.report.markdown ?? '' }, {
+        message: input.message, analysisType, normalizedModel: state?.model, analysis, codeCheck, locale,
+      });
 
       // Store report in graph state via Command
       logToolCall(log, { tool: 'generate_report', durationMs: Date.now() - start, extra: { analysisType, locale, success: true } });

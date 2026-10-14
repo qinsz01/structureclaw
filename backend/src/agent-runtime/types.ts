@@ -189,7 +189,7 @@ export type StructuralTypeKey =
   | 'bridge'
   | 'unknown';
 export type StructuralTypeSupportLevel = 'supported' | 'fallback' | 'unsupported';
-export type RoutingSource = 'explicit-keyword' | 'current-state' | 'llm-suggested' | 'generic-fallback';
+export type RoutingSource = 'explicit-keyword' | 'current-state' | 'llm-suggested' | 'generic-fallback' | 'policy-fixed';
 export type SkillStage = 'intent' | 'draft' | 'analysis' | 'design';
 
 export interface StructuralTypeMatch {

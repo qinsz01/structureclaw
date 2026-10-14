@@ -1,7 +1,7 @@
 import type { AppLocale } from '../services/locale.js';
+import { currentRunPolicy } from '../runtime/run-context.js';
 import {
   extractLlmTokenUsage,
-  getReasoningContentLength,
   type LlmTokenUsage,
   type StructureClawChatModel,
 } from '../utils/llm.js';
@@ -273,8 +273,7 @@ function buildPluginSummary(plugin: AgentSkillPlugin): Record<string, unknown> {
     structureType: plugin.structureType,
     structuralTypeKeys: plugin.manifest.structuralTypeKeys,
     name: plugin.name,
-    description: plugin.description,
-    triggers: plugin.triggers,
+    ...(currentRunPolicy()?.knowledge !== 'disabled' ? { description: plugin.description, triggers: plugin.triggers } : {}),
   };
 }
 
@@ -347,33 +346,19 @@ export async function invokeStructuralTypeRouter(input: StructuralRouterInput): 
   try {
     result = await input.llm.invoke(buildRouterPrompt(input), { signal: input.signal });
   } catch (error) {
-    if (process.env.SCLAW_BENCHMARK_LLM_ONLY === '1') {
-      throw new Error(
+    throw new Error(
         `LLM_STRUCTURAL_ROUTER_INFRASTRUCTURE_ERROR: network error: ${
           error instanceof Error ? error.message : String(error)
         }`,
         { cause: error },
       );
-    }
-    return null;
   }
   const usage = extractLlmTokenUsage(result);
   if (usage) input.onUsage?.(usage);
   const content = typeof result.content === 'string'
     ? result.content
     : JSON.stringify(result.content);
-  const responseMetadata = result.response_metadata as Record<string, unknown> | undefined;
-  const rawFinishReason = responseMetadata?.finish_reason ?? responseMetadata?.stop_reason;
-  const finishReason = typeof rawFinishReason === 'string' ? rawFinishReason : undefined;
-  const reasoningContentLength = getReasoningContentLength(result);
   const parsed = parseJsonObject(content);
   const match = parsed ? resolveRouterMatch(normalizeDecision(parsed), input) : null;
-  if (!match && process.env.SCLAW_BENCHMARK_LLM_ONLY === '1') {
-    throw new Error(
-      'LLM_STRUCTURAL_ROUTER_INVALID_OUTPUT: response did not contain a usable routing decision; '
-      + `finishReason=${finishReason ?? 'unknown'}; contentLength=${content.length}; `
-      + `reasoningContentLength=${reasoningContentLength}`,
-    );
-  }
   return match;
 }
