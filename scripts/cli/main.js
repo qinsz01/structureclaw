@@ -842,12 +842,9 @@ async function invokeLocalUp(rootDir, env, options = {}) {
 
   const backendPort = env.PORT || runtime.DEFAULT_BACKEND_PORT;
   const url = `http://localhost:${backendPort}`;
-  const deadline = Date.now() + 30000;
-  let ready = false;
-  while (Date.now() < deadline && runtime.readTrackedPid(paths, "backend")) {
-    if (await runtime.requestHealth(`${url}/health`, instanceId)) { ready = true; break; }
-    await runtime.sleep(250);
-  }
+  const ready = await runtime.waitForHealth(`${url}/health`, instanceId,
+    () => Boolean(runtime.readTrackedPid(paths, "backend")),
+    seconds => log(`Waiting for backend readiness / 等待后端就绪 (${seconds}s)...`));
   if (!ready) {
     const backendLog = runtime.logFilePath(paths, "backend");
     throw new Error(`Backend startup failed / 后端启动失败: ${backendLog}\n${runtime.tailLines(backendLog, 10).join('\n')}`);

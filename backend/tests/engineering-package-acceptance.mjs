@@ -26,9 +26,12 @@ const env = { ...process.env, SCLAW_DATA_DIR: data };
 for (const key of ['SCLAW_PROJECT_ROOT', 'DATABASE_URL', 'NODE_OPTIONS', 'SCLAW_FRONTEND_DIR', 'LLM_API_KEY']) delete env[key];
 const receipt = { status: 'running', root, tarball, sha256: createHash('sha256').update(fs.readFileSync(tarball)).digest('hex'), steps: [] };
 function run(name, args, cwd = workspace) {
+  const started = Date.now();
   const result = spawnSync(process.execPath, args, { cwd, env, encoding: 'utf8', timeout: 600000, windowsHide: true, maxBuffer: 20 * 1024 * 1024 });
   fs.writeFileSync(path.join(root, `${name}.log`), `${result.stdout || ''}\n${result.stderr || ''}`);
-  receipt.steps.push({ name, exitCode: result.status });
+  receipt.steps.push({ name, exitCode: result.status, durationMs: Date.now() - started });
+  if (result.status !== 0) receipt.status = 'failed';
+  fs.writeFileSync(path.join(root, 'acceptance.json'), JSON.stringify(receipt, null, 2));
   console.log(`${name}: ${result.status} (${root})`);
   assert.equal(result.status, 0, `${name}: ${result.error?.message || result.stderr}\n${result.stdout?.slice(-3000)}`);
   return result.stdout;

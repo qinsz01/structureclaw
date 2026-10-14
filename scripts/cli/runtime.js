@@ -991,6 +991,20 @@ async function requestHealth(url, instanceId) {
   } catch { return false; }
 }
 
+// First launch of an installed dependency tree can be much slower than a warm
+// launch. Readiness remains an instance-bound database check, never elapsed time.
+async function waitForHealth(url, instanceId, isAlive, onWait = () => {}, timeoutMs = 120000) {
+  const started = Date.now();
+  let announced = 0;
+  while (Date.now() - started < timeoutMs && isAlive()) {
+    if (await requestHealth(url, instanceId)) return true;
+    const seconds = Math.floor((Date.now() - started) / 1000);
+    if (seconds >= announced + 10) { announced = seconds; onWait(seconds); }
+    await sleep(250);
+  }
+  return false;
+}
+
 function buildAnalysisPaths(rootDir) {
   const paths = resolvePaths(rootDir);
   return [
@@ -1051,6 +1065,7 @@ function quoteShellArgument(rawValue) {
 
 module.exports = {
   requestHealth,
+  waitForHealth,
   CN_DEFAULT_APT_MIRROR,
   CN_DEFAULT_NPM_REGISTRY,
   CN_DEFAULT_PIP_INDEX_URL,

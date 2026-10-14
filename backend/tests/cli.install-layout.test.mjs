@@ -1,4 +1,4 @@
-import { test, expect } from '@jest/globals';
+import { test, expect, jest } from '@jest/globals';
 import { createRequire } from 'node:module';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, copyFileSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
@@ -72,4 +72,24 @@ test('readiness requires this instance and a working database, not just HTTP 200
     body = { status: 'ok' };
     expect(await runtime.requestHealth(url)).toBe(false);
   } finally { await new Promise(resolve => server.close(resolve)); }
+});
+
+test('cold startup can take over 30 seconds without a duplicate launch or a false success', async () => {
+  jest.useFakeTimers();
+  const started = Date.now();
+  const fetch = jest.spyOn(globalThis, 'fetch').mockImplementation(async () => ({
+    ok: true, json: async () => ({ status: 'ok', instanceId: 'mine', services: { database: Date.now() - started >= 45000 } }),
+  }));
+  const progress = jest.fn();
+  try {
+    const ready = runtime.waitForHealth('http://localhost/health', 'mine', () => true, progress);
+    await jest.advanceTimersByTimeAsync(46000);
+    expect(await ready).toBe(true);
+    expect(progress.mock.calls.map(([seconds]) => seconds)).toEqual([10, 20, 30, 40]);
+    expect(await runtime.waitForHealth('http://localhost/health', 'mine', () => false)).toBe(false);
+    fetch.mockImplementation(async () => ({ ok: false }));
+    const failed = runtime.waitForHealth('http://localhost/health', 'mine', () => true, () => {}, 1000);
+    await jest.advanceTimersByTimeAsync(1250);
+    expect(await failed).toBe(false);
+  } finally { fetch.mockRestore(); jest.useRealTimers(); }
 });
