@@ -83,8 +83,11 @@ def compile_design_request(request, source):
     if any(value is not None and value != {} for path, value in fields.items() if path not in consumed):
         reject("Unmapped explicit member/material design values / 构件或材料设计值尚未映射", "ENGINE_INPUT_UNSUPPORTED")
     if any((source.get("analysis_control") or {}).get(key) is not False for key in
-           ("rigid_floor", "rigid_offsets", "construction_stage", "p_delta")):
+           ("rigid_offsets", "construction_stage", "p_delta")):
         reject("Native profile requires explicit linear bare-frame controls / 原生配置须明确线性裸杆设置", "ENGINE_INPUT_UNSUPPORTED")
+    from native_settings import resolved_rigid_floor
+    if type(resolved_rigid_floor(source)) is not bool:
+        reject("Native design requires explicit diaphragm setting / 原生设计须明确楼板约束", "ENGINE_INPUT_UNSUPPORTED")
     from native_self_weight import compile_self_weight
     compile_self_weight(source)
     from native_model_contract import pkpm_section_shape

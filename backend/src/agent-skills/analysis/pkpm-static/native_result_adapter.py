@@ -28,7 +28,7 @@ def _publish_selected(result, selected):
 def complete_frame_results(model, result, jws_path):
     settings = result["summary"]["effectiveNativeSettings"]
     if settings.get("verified") is not True or any(settings.get("requested", {}).get(key) is not False
-            for key in ("rigid_floor", "rigid_offsets", "construction_stage", "p_delta")):
+            for key in ("rigid_offsets", "construction_stage", "p_delta")):
         raise ValueError("Complete native frame results require verified linear bare-frame settings / 完整杆系结果需要原生线性无楼板设置核对")
     materials = result["summary"].get("nativeMaterialVerification", {})
     standard_profile = (materials.get("source") == "DATA.SAT; calibrated-standard-grade-profile"
@@ -49,6 +49,10 @@ def complete_frame_results(model, result, jws_path):
                "linearStatic": True, "effectiveSettingsVerified": True, "stationConventionsVerified": True}
     if section_verification:
         context["sectionCompilation"] = section_verification
+    if geometry.get("diaphragms", {}).get("groups"):
+        context["effectiveConstraints"] = {"verified": True,
+            "sourceFeaSha256": hashlib.sha256(Path(jws_path).with_name("DATA.SAT").read_bytes()).hexdigest(),
+            "diaphragms": geometry["diaphragms"]}
     for case_id, case in result["caseResults"].items():
         source = cases.get(case_id)
         if source is None:

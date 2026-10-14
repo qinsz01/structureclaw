@@ -136,13 +136,23 @@ def bind_native_geometry(model, snapshot, artifacts):
             raise NativeGeometryUnavailable("Ambiguous duplicate physical member topology")
         by_edge[key] = str(row["id"])
         members[str(row["id"])] = {"type": row["type"], "nodeStart": str(ids[0]), "nodeEnd": str(ids[1])}
-    mesh = artifacts["MESH.SAT"]
-    if len(mesh) < 40 or (len(mesh) - 20) % 20:
-        raise NativeGeometryUnavailable("Uncalibrated native mesh layout")
-    mesh_nodes = {index + 1: struct.unpack_from("<3f2i", mesh, 20 + index * 20)
-                  for index in range((len(mesh) - 20) // 20)}
-    if len(mesh_nodes) != len(nodes) or {_key(row[:3]) for row in mesh_nodes.values()} != set(by_point):
-        raise NativeGeometryUnavailable("Native mesh does not exactly cover the physical nodes")
+    from native_node_layout import read_node_layout
+    from native_settings import resolved_rigid_floor
+    floor_elevations = {_key([0., 0., row["bottomM"] + row["heightMm"] / 1000]): row["floor"] for row in floors}
+    physical = []
+    for identity, point in nodes.items():
+        floor_number = 0 if point[2] == 0 else floor_elevations.get(_key([0., 0., point[2]]))
+        if floor_number is None:
+            raise NativeGeometryUnavailable("Physical node has no exact native floor")
+        physical.append({"identity": identity, "floor": floor_number, "coordinatesM": point})
+    try:
+        layout = read_node_layout(artifacts["NODEINDEX.SAT"], artifacts["MESH.SAT"], physical)
+    except ValueError as exc:
+        raise NativeGeometryUnavailable(str(exc)) from exc
+    rigid = resolved_rigid_floor(model)
+    if (rigid is True and len(layout["groups"]) != len(floors)) or (rigid is not True and layout["groups"]):
+        raise NativeGeometryUnavailable("Native diaphragm groups differ from source / 原生楼板约束与源模型不符")
+    mesh_nodes = layout["mesh"]
     controls = _parse_member_controls(artifacts["GOUJIAN.OUT"].decode("gb18030"))
     evidence = {"kind": "native-api-and-solver-readback", "schema": "pkpm-2025r2.5-frame-geometry/v1",
                 "artifacts": [{"path": name, "sha256": hashlib.sha256(value).hexdigest()} for name, value in artifacts.items()],
@@ -230,25 +240,17 @@ def bind_native_geometry(model, snapshot, artifacts):
 
     # No support vectors are inferred until the solved, unconstrained six-DOF
     # layout excludes exactly the requested fully fixed base nodes.
-    index_bytes = artifacts["NODEINDEX.SAT"]
-    if len(index_bytes) % 4:
-        raise NativeGeometryUnavailable("Truncated native free-DOF index")
-    indices = struct.unpack("<" + "f" * (len(index_bytes) // 4), index_bytes)
-    counts = indices[:len(floors)]
-    if any(value <= 0 or value != int(value) for value in counts) or len(indices) != len(floors) + 2 * sum(map(int, counts)):
-        raise NativeGeometryUnavailable("Native floor/free-node counts do not agree")
-    tags = indices[len(floors)::2]
-    secondary = indices[len(floors) + 1::2]
-    if any(tag != int(tag) or int(tag) not in mesh_nodes for tag in tags) or len(set(tags)) != len(tags) or any(secondary):
-        raise NativeGeometryUnavailable("Uncalibrated native free-node constraint mapping")
-    free = {by_point[_key(mesh_nodes[int(tag)][:3])] for tag in tags}
+    free = {row["identity"] for row in layout["rows"] if row["kind"] == "physical"}
     constraint_bytes = artifacts["ConstraintNodeNo.SAT"]
-    if len(constraint_bytes) != 16 + len(nodes) * 4:
+    if len(constraint_bytes) != 16 + len(mesh_nodes) * 4:
         raise NativeGeometryUnavailable("Uncalibrated native MPC map layout")
     constraint = struct.unpack("<" + "i" * (len(constraint_bytes) // 4), constraint_bytes)
-    if constraint[:4] != (3, 20200113, len(nodes), 4) or any(value not in (0, 1) for value in constraint[4:]):
+    if constraint[:4] != (3, 20200113, len(mesh_nodes), 4) or any(value not in (0, 1) for value in constraint[4:]):
         raise NativeGeometryUnavailable("Native MPC mapping is not an unconstrained bare frame")
-    pinned_nodes = {by_point[_key(mesh_nodes[tag][:3])] for tag, value in enumerate(constraint[4:], 1) if value}
+    constrained_tags = {tag for tag, value in enumerate(constraint[4:], 1) if value}
+    if constrained_tags - set(layout["physicalMesh"]):
+        raise NativeGeometryUnavailable("Unexpected support at a diaphragm master")
+    pinned_nodes = {by_point[_key(mesh_nodes[tag][:3])] for tag in constrained_tags}
     if pinned_nodes:
         definition = artifacts.get("ConstraintNode.SAT", b"")
         stiffness = artifacts.get("ConstraintNodeSK.SAT", b"")
@@ -277,10 +279,10 @@ def bind_native_geometry(model, snapshot, artifacts):
         records.extend(group)
     if not case_names or len(set(case_names)) != len(case_names) or len(records) != len(case_names) * (len(floors) + 1):
         raise NativeGeometryUnavailable("Native full-node displacement cases are incomplete")
-    fixed_tags = [tag for tag, row in mesh_nodes.items() if by_point[_key(row[:3])] in expected_fixed]
+    fixed_tags = [tag for tag, row in layout["physicalMesh"].items() if by_point[_key(row[:3])] in expected_fixed]
     for case_index in range(len(case_names)):
         group = records[case_index * (len(floors) + 1):(case_index + 1) * (len(floors) + 1)]
-        if any(len(header) != 64 for header in group[:-1]) or len(group[-1]) != len(nodes) * 12:
+        if any(len(header) != 64 for header in group[:-1]) or len(group[-1]) != len(mesh_nodes) * 12:
             raise NativeGeometryUnavailable("Native full-node displacement coverage differs")
         for tag in fixed_tags:
             displacements_mm = struct.unpack_from("<3f", group[-1], (tag - 1) * 12)
@@ -299,8 +301,19 @@ def bind_native_geometry(model, snapshot, artifacts):
             "source": {**support_source, "kind": "calibrated-native-free-base-rotations",
                        "rotationSource": "solver-direct-constraint-dofs", "translationPenaltyKNPerM": 1e14,
                        "rotationStiffnessKNmPerRad": [0., 0., 0.], "translationToleranceM": 1e-11}}
+    diaphragm_groups = []
+    for group in layout["groups"]:
+        member_nodes = [row["identity"] for row in layout["rows"] if row["tag"] in group["physicalNodeTags"]]
+        elevation = nodes[member_nodes[0]][2]
+        stories = [row for row in model.get("stories", []) if _key([0., 0., float(row["elevation"]) + float(row["height"])]) == _key([0., 0., elevation])]
+        diaphragm_groups.append({**group, "sourceNodeIds": member_nodes, "elevationM": elevation,
+            "sourceStoryId": stories[0]["id"] if len(stories) == 1 else None,
+            "constrainedComponents": ["ux", "uy", "rz"], "independentComponents": ["uz", "rx", "ry"]})
     return {"nodes": nodes, "members": members, "native_members": native_members, "supports": supports,
-            "native_result_keys": native_result_keys, "source": evidence}
+            "native_result_keys": native_result_keys, "source": evidence,
+            "diaphragms": {"passed": True, "method": "native-NODEINDEX-in-plane-MPC", "physicalSlabs": False,
+                           "groups": diaphragm_groups}}
+
 
 
 def read_native_geometry(jws_path, model, api=None):

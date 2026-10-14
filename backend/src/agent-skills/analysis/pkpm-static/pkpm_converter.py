@@ -32,7 +32,7 @@ import APIPyInterface
 from coordinate_semantics import resolve_model_dimension, validate_coordinate_contract
 from contracts import AnalysisCapabilityError
 from native_model_contract import pkpm_section_shape, pkpm_numeric_section_properties, validate_pkpm_material_properties, validate_pkpm_sections
-from native_settings import clear_floor_slab, control_parameters, validate_settings
+from native_settings import clear_floor_slab, control_parameters, validate_settings, resolved_rigid_floor
 from native_column_axes import column_axis_plan
 
 
@@ -1047,8 +1047,9 @@ def convert_v2_to_jws(
     site_seismic = _as_dict(data.get("site_seismic"))
     structure_system = _as_dict(data.get("structure_system"))
     analysis_control = _as_dict(data.get("analysis_control"))
-    if any(story.get("rigid_diaphragm") is False for story in data.get("stories", [])):
-        analysis_control = {**analysis_control, "rigid_floor": False}
+    rigid = resolved_rigid_floor(data)
+    if rigid is not None:
+        analysis_control = {**analysis_control, "rigid_floor": rigid}
     wind = _as_dict(data.get("wind"))
     try:
         damping_ratio = float(site_seismic.get("damping_ratio", 0.0))
@@ -1106,7 +1107,7 @@ def convert_v2_to_jws(
                 raise RuntimeError("PKPM AddStandFloor did not create an independent standard floor")
         model.SetCurrentStandFloor(standard_floor_index)
         floor = model.GetCurrentStandFloor()
-        if analysis_control.get("rigid_floor") is False:
+        if type(analysis_control.get("rigid_floor")) is bool:
             clear_floor_slab(floor)
         top = float(story["elevation"]) + float(story["height"])
         floor_nodes = [node for node in nodes if abs(float(node["z"]) - top) <= 1e-6]
@@ -1202,7 +1203,7 @@ def convert_v2_to_jws(
     for standard_floor_index, (dead_load, live_load) in sorted(standard_floor_loads.items()):
         model.SetCurrentStandFloor(standard_floor_index)
         model.GetCurrentStandFloor().SetDeadLive(dead_load, live_load)
-        if analysis_control.get("rigid_floor") is False:
+        if type(analysis_control.get("rigid_floor")) is bool:
             clear_floor_slab(model.GetCurrentStandFloor())
     model.SetCurrentStandFloor(1)
     _configure_satwe_params(model, material_family, site_seismic, wind, analysis_control)

@@ -3,7 +3,8 @@
 The SDK's 500 mm square is only a topology carrier. It never replaces the
 source section or supplies design geometry. Compilation occurs between native
 preprocessing and solving; saved source, before/after input and solver readback
-remain available. Self-weight, rigid zones and geometric nonlinearity are off.
+remain available. Authored selfweight uses separate native loads; rigid zones
+and geometric nonlinearity are off. Kinematic diaphragms add no physical slabs.
 """
 from __future__ import annotations
 
@@ -86,8 +87,11 @@ def _expected(model, member, properties):
 
 def compile_numeric_sections(work_dir, model):
     controls = model.get("analysis_control", {})
-    if any(controls.get(key) is not False for key in ("rigid_floor", "rigid_offsets", "p_delta", "construction_stage")):
+    if any(controls.get(key) is not False for key in ("rigid_offsets", "p_delta", "construction_stage")):
         raise ValueError("Numeric native sections require explicit bare-frame settings / 数值截面需要明确的线弹性裸杆设置")
+    from native_settings import resolved_rigid_floor
+    if type(resolved_rigid_floor(model)) is not bool:
+        raise ValueError("Numeric native sections require explicit diaphragm setting / 数值截面须明确楼板约束")
     from native_self_weight import compile_self_weight
     compile_self_weight(model)  # Weight uses source A in official loads, never carrier A.
     path = Path(work_dir) / "SDATA.SAT"

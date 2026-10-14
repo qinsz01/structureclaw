@@ -57,52 +57,20 @@ def read_native_displacements(work_dir: str | Path, native_nodes: list[dict],
         case_files.setdefault(fields[0].upper(), []).append(fields[1])
     if not case_names or len(set(case_names)) != len(case_names):
         raise NativeDisplacementUnavailable("Missing or duplicate native displacement case identities")
-    indices = _floats(files["NODEINDEX.SAT"])
-    floors = sorted({int(node["floor"]) for node in native_nodes if int(node["floor"]) > 0})
-    floor_counts = [sum(int(node["floor"]) == floor for node in native_nodes) for floor in floors]
-    if floors != list(range(1, len(floors) + 1)) or list(indices[:len(floors)]) != floor_counts:
-        raise NativeDisplacementUnavailable("Invalid native displacement node count")
-    count = sum(floor_counts)
-    if not count or len(indices) != len(floors) + count * 2:
-        raise NativeDisplacementUnavailable("Unknown native displacement node index layout")
-    node_tags = []
-    for tag, secondary in zip(indices[len(floors)::2], indices[len(floors) + 1::2]):
-        if tag != int(tag) or tag <= 0 or secondary != 0:
-            raise NativeDisplacementUnavailable("Uncalibrated native node index or constraint mapping")
-        node_tags.append(int(tag))
-    if len(set(node_tags)) != count:
-        raise NativeDisplacementUnavailable("Duplicate native displacement node tag")
-    mesh = files["MESH.SAT"]
-    if len(mesh) < 40 or (len(mesh) - 20) % 20:
-        raise NativeDisplacementUnavailable("Unknown native mesh-node record layout")
-    mesh_nodes = {}
-    for index in range((len(mesh) - 20) // 20):
-        mesh_nodes[index + 1] = list(struct.unpack_from("<3f", mesh, 20 + index * 20))
-    node_by_coordinates = {}
-    all_node_keys = set()
-    for node in native_nodes:
-        node_key = (int(node["pmid"]), int(node["floor"]))
-        coordinates = _float_key([float(v) / 1000 for v in node["coordinates"]])
-        if coordinates in node_by_coordinates or node_key in all_node_keys:
-            raise NativeDisplacementUnavailable("Ambiguous native node identity/coordinates")
-        node_by_coordinates[coordinates] = node_key
-        all_node_keys.add(node_key)
-    identities = []
-    for tag in node_tags:
-        if tag not in mesh_nodes:
-            raise NativeDisplacementUnavailable("Displacement node tag is outside native mesh")
-        coordinates = _float_key(mesh_nodes[tag])
-        if coordinates not in node_by_coordinates:
-            raise NativeDisplacementUnavailable("Native mesh node is not bound to the public result API")
-        identities.append(node_by_coordinates[coordinates])
-    # NODEINDEX lists floors bottom-up; DISP stores each case top-down.
-    # Native API identities provide the floor partition, never response values.
-    by_floor = {floor: [identity for identity in identities if identity[1] == floor] for floor in floors}
-    if [len(by_floor[floor]) for floor in floors] != floor_counts:
-        raise NativeDisplacementUnavailable("Native mesh floor partition differs from node index")
-    if identities != [identity for floor in floors for identity in by_floor[floor]]:
-        raise NativeDisplacementUnavailable("Unknown native node index floor order")
-    identities = [identity for floor in reversed(floors) for identity in by_floor[floor]]
+    from native_node_layout import read_node_layout
+    physical = [{"identity": (int(row["pmid"]), int(row["floor"])), "floor": int(row["floor"]),
+                 "coordinatesM": [float(v) / 1000 for v in row["coordinates"]]} for row in native_nodes]
+    try:
+        layout = read_node_layout(files["NODEINDEX.SAT"], files["MESH.SAT"], physical)
+    except ValueError as exc:
+        raise NativeDisplacementUnavailable(str(exc)) from exc
+    mesh_nodes = layout["mesh"]
+    floors = layout["floors"]
+    all_node_keys = {row["identity"] for row in physical}
+    node_by_coordinates = {_float_key(row["coordinatesM"]): row["identity"] for row in physical}
+    ordered = [row for floor in reversed(floors) for row in layout["rows"] if row["floor"] == floor]
+    identities = [row["identity"] for row in ordered if row["kind"] == "physical"]
+    width = sum(row["width"] for row in ordered)
     native_cases = {}
     for name, group in case_files.items():
         vector_name = name.replace("DISP1", "DISP")
@@ -128,7 +96,7 @@ def read_native_displacements(work_dir: str | Path, native_nodes: list[dict],
         native_cases.update(zip(group, records))
     values = _floats(b"".join(native_cases[case] for case in case_names))
     constraint_identities = []
-    if len(values) != 6 * count * len(case_names):
+    if len(values) != width * len(case_names):
         try:
             constraint_bytes = (root / "ConstraintNodeNo.SAT").read_bytes()
         except OSError as exc:
@@ -143,13 +111,13 @@ def read_native_displacements(work_dir: str | Path, native_nodes: list[dict],
             raise NativeDisplacementUnavailable("Multiple constraints at one native node are not calibrated")
         for tag, value in enumerate(constraints, 1):
             if value:
-                identity = node_by_coordinates.get(_float_key(mesh_nodes[tag]))
+                identity = node_by_coordinates.get(_float_key(mesh_nodes[tag][:3]))
                 if identity is None:
                     raise NativeDisplacementUnavailable("Constraint node has no physical API identity")
                 constraint_identities.append(identity)
         files["ConstraintNodeNo.SAT"] = constraint_bytes
-    stride = count + len(constraint_identities)
-    if len(values) != 6 * stride * len(case_names):
+    stride = width + 6 * len(constraint_identities)
+    if len(values) != stride * len(case_names):
         raise NativeDisplacementUnavailable("Native displacement case/node coverage differs from index files")
     output = {}
     constraint_output = {}
@@ -157,30 +125,60 @@ def read_native_displacements(work_dir: str | Path, native_nodes: list[dict],
         api_case = api_translations.get(case)
         if api_case is None or set(api_case) != set(identities) | set(constraint_identities):
             raise NativeDisplacementUnavailable(f"Case '{case}' SDK/file node coverage differs")
-        rows = {}
-        for index, identity in enumerate(identities):
-            offset = 6 * (case_index * stride + index)
-            row = dict(zip(("ux", "uy", "rz", "rx", "ry", "uz"), values[offset:offset + 6]))
+        rows, native_rows = {}, {}
+        cursor = case_index * stride
+        for node in ordered:
+            raw = values[cursor:cursor + node["width"]]
+            cursor += node["width"]
+            names = (("ux", "uy", "rz") if node["kind"] == "diaphragm-master" else
+                     ("rx", "ry", "uz") if node["master"] else ("ux", "uy", "rz", "rx", "ry", "uz"))
+            native_rows[node["tag"]] = dict(zip(names, raw))
+        for node in ordered:
+            if node["kind"] != "physical":
+                continue
+            identity = node["identity"]
+            row = native_rows[node["tag"]]
+            if node["master"]:
+                row.update(ux=api_case[identity].get("ux"), uy=api_case[identity].get("uy"),
+                           rz=native_rows[node["master"]]["rz"])
             for component in ("ux", "uy", "uz"):
                 actual = api_case[identity].get(component)
-                # ResultData reads displacement display files in float32 mm,
-                # then returns float32 metres. Compare that exact transport.
+                if type(actual) not in (int, float) or not math.isfinite(actual):
+                    raise NativeDisplacementUnavailable("Invalid SDK displacement component")
+                # The condensed in-plane translations are official SDK values;
+                # independent node differences below check the native MPC map.
+                if node["master"] and component in ("ux", "uy"):
+                    continue
                 mm = struct.unpack("<f", struct.pack("<f", row[component] * 1000))[0]
                 sdk_value = struct.unpack("<f", struct.pack("<f", mm / 1000))[0]
-                if (type(actual) not in (int, float) or not math.isfinite(actual)
-                        or struct.pack("<f", actual) != struct.pack("<f", sdk_value)):
+                if struct.pack("<f", actual) != struct.pack("<f", sdk_value):
                     raise NativeDisplacementUnavailable(f"Case '{case}' SDK/file {component} disagrees at {identity}")
             rows[identity] = row
+        for group in layout["groups"]:
+            members = [node for node in ordered if node["tag"] in group["physicalNodeTags"]]
+            first = members[0]
+            reference = rows[first["identity"]]
+            for node in members[1:]:
+                actual = rows[node["identity"]]
+                dx, dy = [node["coordinatesM"][i] - first["coordinatesM"][i] for i in (0, 1)]
+                for component, expected in (("ux", -reference["rz"] * dy), ("uy", reference["rz"] * dx)):
+                    delta = actual[component] - reference[component]
+                    bound = 8 * 2**-23 * max(abs(actual[component]), abs(reference[component]), abs(expected), 1e-20)
+                    if abs(delta - expected) > bound:
+                        raise NativeDisplacementUnavailable("SDK translations contradict native diaphragm kinematics / 原生主从节点运动不符")
         output[case] = rows
         constraint_output[case] = {identity: dict(zip(("ux", "uy", "rz", "rx", "ry", "uz"),
-            values[6 * (case_index * stride + count + index):6 * (case_index * stride + count + index + 1)]))
+            values[case_index * stride + width + 6*index:case_index * stride + width + 6*(index+1)]))
             for index, identity in enumerate(constraint_identities)}
     return {"caseDisplacements": output,
             "constraintDisplacements": constraint_output,
             "missingNodeRotations": sorted(all_node_keys - set(identities)),
-            "source": {"kind": "solver-direct-file", "schema": "pkpm-2025r2.5-six-dof/v1",
+            "source": {"kind": "solver-native-file-and-api" if layout["groups"] else "solver-direct-file",
+                       "diaphragmGroups": layout["groups"],
+                       "condensedComponentOrder": {"slave": ["rx", "ry", "uz"], "master": ["ux", "uy", "rz"]} if layout["groups"] else None, "schema": "pkpm-2025r2.5-six-dof/v1",
                        "units": {"displacement": "m", "rotation": "rad"},
                        "nativeComponentOrder": ["ux", "uy", "rz", "rx", "ry", "uz"],
-                       "translationCrossCheck": "exact-float32-metres-to-mm-to-metres-public-api",
+                       "translationCrossCheck": ("uz-exact-public-api; ux-uy-official-api-and-native-MPC-kinematics" if layout["groups"] else
+                                                 "exact-float32-metres-to-mm-to-metres-public-api"),
                        "floorOrder": "top-down-DISP; bottom-up-NODEINDEX",
                        "artifacts": [{"path": name, "sha256": hashlib.sha256(data).hexdigest()} for name, data in files.items()]}}
