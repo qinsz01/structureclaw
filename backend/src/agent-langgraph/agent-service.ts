@@ -43,6 +43,7 @@ import { activeInputEvidence, assertInputEvidenceMatchesModel, mergeInputEvidenc
 import { SessionLock } from '../engineering/session-lock.js';
 import { applyInputEvidence, commitModel, contentHash, currentAnalysisError, invalidateAnalysis } from '../engineering/model-state.js';
 import { resultCatalogEntry } from '../engineering/result-selection.js';
+import { nativeDesignReview } from '../engineering/native-design-options.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 
 // ---------------------------------------------------------------------------
@@ -116,7 +117,7 @@ export interface LangGraphRunResult {
 
 export const INPUT_REVIEW_TOOLS = ['analyze_file', 'review_input', 'query_model', 'edit_model', 'validate_model'] as const;
 export type InputReviewTool = typeof INPUT_REVIEW_TOOLS[number];
-export const RESULT_REVIEW_TOOLS = ['query_results', 'generate_report'] as const;
+export const RESULT_REVIEW_TOOLS = ['query_results', 'generate_report', 'run_code_check'] as const;
 export type ResultReviewTool = typeof RESULT_REVIEW_TOOLS[number];
 
 function clarificationState(state: AgentState, tasks: ReadonlyArray<{ interrupts?: readonly unknown[] }> = []) {
@@ -1189,6 +1190,7 @@ export class LangGraphAgentService {
     return { conversationId, revisionToken: inputReviewRevision(state), busy: this.sessionLock.isBusy(conversationId),
       currentRunId: !currentAnalysisError(state) ? state.analysisResult?.runId ?? null : null,
       allowedTools: policy ? RESULT_REVIEW_TOOLS.filter(id => allowed.includes(id)) : [],
+      nativeDesign: nativeDesignReview(state, policy ? allowed : []),
       runs: Object.values(runs).map(run => resultCatalogEntry(run,
         run.runId === state.analysisResult?.runId && !currentAnalysisError(state))) };
   }
@@ -1223,9 +1225,18 @@ export class LangGraphAgentService {
       const initialized = Boolean(state.runPolicy && state.runUsage);
       if (purpose === 'result') {
         if (!initialized) throw new Error('CONVERSATION_POLICY_REQUIRED');
-        const selection = input.tool === 'generate_report' && isRecord(input.args.selection) ? input.args.selection : input.args;
-        const runId = selection.runId;
-        if (typeof runId !== 'string' || (!state.analysisRuns?.[runId] && state.analysisResult?.runId !== runId)) throw new Error('RUN_OUTSIDE_CONVERSATION');
+        if (input.tool === 'run_code_check') {
+          // The result selector may be historical. Design always operates on the current
+          // model/run and cannot switch engines, inject a model, or select a historical run.
+          if (Object.keys(input.args).some(key => !['designCode', 'provider', 'design'].includes(key))
+            || input.args.provider !== 'native') throw new Error('NATIVE_DESIGN_ARGUMENTS_REQUIRED');
+          const review = nativeDesignReview(state, ['run_code_check']);
+          if (!review.available) throw new Error(String(review.reason));
+        } else {
+          const selection = input.tool === 'generate_report' && isRecord(input.args.selection) ? input.args.selection : input.args;
+          const runId = selection.runId;
+          if (typeof runId !== 'string' || (!state.analysisRuns?.[runId] && state.analysisResult?.runId !== runId)) throw new Error('RUN_OUTSIDE_CONVERSATION');
+        }
       }
       const request: LangGraphRunInput = { conversationId, message: `${purpose === 'input' ? 'Input review / 输入复核' : 'Result review / 结果查看'}: ${input.tool}`, signal: input.signal,
         context: initialized ? { locale: state.locale } : input.initialContext };

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { nativeDesignRecord, resolveCheckProvider, type CodeCheckProvider } from '../engineering/native-design.js';
+import { savedNativeDesignRecord } from '../engineering/native-design-options.js';
 import { resultEngine } from '../engineering/result-data.js';
 import { computeDraftMissing, buildDraftQuestions } from '../agent-runtime/draft-readiness.js';
 /**
@@ -3515,7 +3516,8 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
       const normalizedModel = isRecord(run.modelSnapshot) ? run.modelSnapshot : !freshnessError && run.runId === state?.analysisResult?.runId ? state?.model : undefined;
       if (!normalizedModel) throw new Error('RESULT_MODEL_SNAPSHOT_REQUIRED');
       const currentCheck = state?.codeCheckResult;
-      const codeCheck = !selection || (isRecord(currentCheck?.meta) && currentCheck.meta.runId === run.runId) ? currentCheck : undefined;
+      const codeCheck = !selection || (isRecord(currentCheck?.meta) && currentCheck.meta.runId === run.runId)
+        ? currentCheck : savedNativeDesignRecord(run) ?? undefined;
       const draftState = selection?.runId ? undefined : state?.draftState || undefined;
       const skillIds = configurable.skillScope;
       const locale = (input.locale ?? state?.locale ?? 'zh') as 'zh' | 'en';

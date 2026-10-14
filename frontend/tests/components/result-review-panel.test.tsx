@@ -65,3 +65,29 @@ it('mode and time figures use archived geometry and never invent unobserved node
   expect(partial.availableViews).not.toContain('deformed');expect(partial.cases[0].nodeResults.a).toBeUndefined()
   expect(partial.cases[0].nodeResults.b.displacement?.ux).toBeUndefined()
 })
+
+it('runs native design through the same conversation and reports the returned design run, not the historical selector', async () => {
+  const posts: { tool: string; revisionToken: string; args: Record<string, unknown> }[] = []
+  const native = { modelRevision: 3, modelHash: 'hash', runId: 'now', available: true, reason: null,
+    options: { engine: 'yjk', codes: ['GB50017-2017'], modes: ['code-check'], parameters: [] }, latestAttempt: null, acceptedRecords: [] }
+  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+    expect(url).toContain('/result-review/A')
+    if (!init?.method) return { ok: true, json: async () => ({ ...catalog, allowedTools: ['query_results', 'run_code_check', 'generate_report'], nativeDesign: native }) }
+    const body = JSON.parse(String(init.body)); posts.push(body)
+    const value = body.tool === 'run_code_check' ? { success: true, runId: 'designed' }
+      : { report: { markdown: 'bound design report', json: { meta: { runId: 'designed' }, requestedSelection: body.args.selection } } }
+    return { ok: true, json: async () => ({ success: true, result: value, review: { ...catalog, revisionToken: 'v2', allowedTools: ['query_results', 'run_code_check', 'generate_report'],
+      nativeDesign: { ...native, acceptedRecords: [{ designRecordId: 'design', designCode: 'GB50017-2017', completionStatus: 'complete', complianceStatus: 'fail',
+        meta: { runId: 'designed', modelRevision: 3 }, current: true }] } } }) }
+  }))
+  render(<ResultReviewPanel open conversationId="A" locale="en" disabled={false} onClose={() => {}} onUsageChanged={() => {}} />)
+  const code = await screen.findByLabelText('Design code / profile')
+  fireEvent.change(screen.getByLabelText('Run'), { target: { value: 'old' } })
+  fireEvent.change(code, { target: { value: 'GB50017-2017' } })
+  fireEvent.click(screen.getByRole('checkbox')); fireEvent.click(screen.getByRole('button', { name: 'Run native design' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Report this design' }))
+  await screen.findByText('bound design report')
+  expect(posts[0]).toEqual({ revisionToken: 'v1', tool: 'run_code_check', args: { designCode: 'GB50017-2017', provider: 'native', design: { mode: 'code-check', adoptedNativeDefaults: true, parameters: {} } } })
+  expect(posts[1]).toMatchObject({ revisionToken: 'v2', tool: 'generate_report', args: { selection: { runId: 'designed' }, narrative: 'structured' } })
+  expect(screen.getByLabelText('Run')).toHaveValue('old')
+})
