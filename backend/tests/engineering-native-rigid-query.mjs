@@ -79,7 +79,9 @@ export function verifyNativeRigidDelivery(fixture) {
       const positions = [...new Set([0, L, .071*L, .283*L, .731*L, .977*L, offset.elasticStartM, offset.elasticEndM,
         ...segments.filter(s => s.physicalId === member.id).flatMap(s => [s.start, s.start+s.length])])];
       for (const position of positions) for (const side of position === 0 ? ['right'] : position === L ? ['left'] : ['left','right']) {
-        const response = queryPhysicalResponse(model, result, member.id, position, side);
+        let response;
+        try { response = queryPhysicalResponse(model, result, member.id, position, side); }
+        catch (cause) { throw new Error(`Physical query ${id}/${member.id}@${position}:${side} failed`, {cause}); }
         const expected = expectedAt(id, member.id, position, side);
         for (const component of components) {
           close(response.sample[component], expected[component], `${id}/${member.id}/${position}/${side}/${component}`);
