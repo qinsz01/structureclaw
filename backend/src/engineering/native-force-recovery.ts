@@ -22,7 +22,7 @@ export function nativeForceRecovery(model: RecoveryModel, data: ModelRecord, mem
     || ['engine','engineVersion','physicalModelHash','stiffnessHash','settingsHash'].some(key=>typeof context[key]!=='string'||!context[key])
     || !factors || !Object.keys(factors).length) return fail();
   const rawModel = model as unknown as ModelRecord;
-  if (!isRecord(rawModel.analysis_control) || rawModel.analysis_control.self_weight !== false
+  if (!isRecord(rawModel.analysis_control) || typeof rawModel.analysis_control.self_weight !== 'boolean'
     || model.stories?.some(story => Array.isArray(story.floor_loads) && story.floor_loads.length)) return fail();
   const start = rows.find(row => row.positionM === 0 && row.side === 'right');
   const end = rows.find(row => Math.abs(row.positionM - length) <= 1e-9 && row.side === 'left');
@@ -40,6 +40,39 @@ export function nativeForceRecovery(model: RecoveryModel, data: ModelRecord, mem
     return (load.reference_frame === 'element-local' ? value : axes.map(axis => dot(value, axis))).map(v => v * factor) as Vec;
   };
   const lines: Line[] = [], points: Point[] = [];
+  const effectiveLoads = isRecord(context.effectiveLoads) ? context.effectiveLoads : {};
+  const gravity = isRecord(effectiveLoads.selfWeight) ? effectiveLoads.selfWeight : {};
+  if (rawModel.analysis_control.self_weight) {
+    if (effectiveLoads.verified !== true || !/^[a-f0-9]{64}$/i.test(String(effectiveLoads.sourceFeaSha256))
+      || gravity.enabled !== true || typeof gravity.loadCaseId !== 'string'
+      || !model.load_cases.some(row => row.id === gravity.loadCaseId)
+      || !Array.isArray(gravity.members) || !Array.isArray(gravity.physicalCompilation)) return fail();
+    const segments = gravity.physicalCompilation.filter(row => isRecord(row) && row.physicalElementId === memberId)
+      .sort((a, b) => Number(a.startM) - Number(b.startM));
+    if (!segments.length) return fail();
+    const factor = factors[gravity.loadCaseId] ?? 0;
+    if (!finite(factor)) return fail();
+    let cursor = 0;
+    const used = new Set<string>();
+    const close = (a: number, b: number) => Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a), Math.abs(b));
+    for (const segment of segments) {
+      const { startM, endM, sourceSegmentId, intensityVectorKnM } = segment;
+      if (!finite(startM) || !finite(endM) || startM < 0 || endM > length || startM >= endM || !close(startM, cursor)
+        || typeof sourceSegmentId !== 'string' || used.has(sourceSegmentId)
+        || !Array.isArray(intensityVectorKnM) || intensityVectorKnM.length !== 3 || !intensityVectorKnM.every(finite)) return fail();
+      const native = gravity.members.filter(row => isRecord(row) && row.elementId === sourceSegmentId);
+      if (native.length !== 1 || !finite(native[0].lengthM) || !close(native[0].lengthM, endM - startM)
+        || !Array.isArray(native[0].intensityVectorKnM) || native[0].intensityVectorKnM.length !== 3
+        || !Array.isArray(native[0].totalForceVectorKn) || native[0].totalForceVectorKn.length !== 3
+        || intensityVectorKnM.some((value, i) => !finite(native[0].intensityVectorKnM[i])
+          || !finite(native[0].totalForceVectorKn[i]) || !close(value, native[0].intensityVectorKnM[i])
+          || !close(value * (endM - startM), native[0].totalForceVectorKn[i]))) return fail();
+      used.add(sourceSegmentId);
+      lines.push({ a: startM, b: endM, q: local(intensityVectorKnM as Vec, { reference_frame: 'global' }, factor), slope: [0, 0, 0] });
+      cursor = endM;
+    }
+    if (!close(cursor, length)) return fail();
+  } else if (gravity.enabled === true) return fail();
   for (const [caseId, factor] of Object.entries(factors)) {
     const loadCase = model.load_cases.find(row => row.id === caseId);
     if (!loadCase || !finite(factor)) return fail();

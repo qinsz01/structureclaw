@@ -8,6 +8,7 @@ from opensees_shared.mesh import MemberMesh
 from opensees_shared.model import OpenSeesModelBuilder, FRAME_ELEMENT_TYPES
 from opensees_shared.response import member_end_actions
 from opensees_shared.evidence import attach_execution_artifacts
+from structure_protocol.self_weight import resolve_self_weight
 
 
 class OpenSeesStaticExecutor:
@@ -36,26 +37,27 @@ class OpenSeesStaticExecutor:
         loads = self.analyzer._collect_nodal_loads(parameters)
         physical = OpenSeesModelBuilder(model)
         controls = physical._control_evidence()
-        if controls['self_weight']['value']:
-            dead_ids = [lc.id for lc in model.load_cases if lc.type == 'dead']
-            if len(dead_ids) != 1:
-                raise OpenSeesMissingInputError('self_weight=true requires exactly one dead load case to define its case/combination factor')
-            dead_id = dead_ids[0]
+        gravity = resolve_self_weight(model.model_dump(exclude_unset=True))
+        controls['self_weight'].update(gravity)
+        if gravity['enabled']:
+            case_id = gravity['loadCaseId']
             if combination:
                 combo = next(c for c in model.load_combinations if c.id == combination)
-                weight_factor = float(combo.factors.get(dead_id, 0.0))
+                weight_factor = float(combo.factors.get(case_id, 0.0))
             else:
-                weight_factor = 1.0 if dead_id in (selected or [lc.id for lc in model.load_cases]) else 0.0
-            controls['self_weight'].update(loadCaseId=dead_id, factor=weight_factor)
+                weight_factor = 1.0 if case_id in (selected or [lc.id for lc in model.load_cases]) else 0.0
+            controls['self_weight'].update(factor=weight_factor)
             for e in model.elements:
-                weight = weight_factor * physical._material_properties(physical.materials[e.material])[2] * physical._section_property(physical.sections[e.section], 'A') * 9.80665/1000
+                mass_per_m = physical._material_properties(physical.materials[e.material])[2] * physical._section_property(physical.sections[e.section], 'A') / 1000
+                vector = [weight_factor * mass_per_m * acceleration for acceleration in gravity['vectorMps2']]
                 if e.type in FRAME_ELEMENT_TYPES:
                     loads.append({'type': 'distributed', 'element': e.id, 'reference_frame': 'global',
-                                  'wz': -weight, 'source': 'explicit-self-weight'})
+                                  **dict(zip(('wx', 'wy', 'wz'), vector)), 'source': 'explicit-self-weight'})
                 else:
                     for node in e.nodes:
                         loads.append({'type': 'nodal', 'node': node, 'reference_frame': 'global',
-                                      'fz': -weight*physical._element_length(e)/2, 'source': 'explicit-self-weight'})
+                                      **dict(zip(('fx', 'fy', 'fz'), [v * physical._element_length(e)/2 for v in vector])),
+                                      'source': 'explicit-self-weight', 'distribution': 'consistent-truss-nodal-gravity'})
         mesh = MemberMesh(model, loads)
         builder = mesh.builder
         try:

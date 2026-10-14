@@ -188,6 +188,47 @@ def test_self_weight_follows_dead_case_combination_factor():
     assert result['execution']['effectiveSettings']['self_weight']['factor'] == 1.3
 
 
+def test_self_weight_explicit_case_and_upward_gravity_do_not_leak_into_other_cases():
+    from structure_protocol.structure_model_v2 import LoadCaseV2, LoadCombinationV2
+    model = beam()
+    model.load_cases.extend([LoadCaseV2(id='D2', type='dead', loads=[]), LoadCaseV2(id='L', type='live', loads=[])])
+    model.analysis_control.self_weight = True
+    model.analysis_control.self_weight_case_id = 'L'
+    model.analysis_control.gravity_m_s2 = 9.7
+    model.analysis_control.gravity_direction = 'z'
+    model.load_combinations.append(LoadCombinationV2(id='G', factors={'D': 4, 'L': 1.6}))
+    original = model.model_dump()
+    result = solve(model, loadCombinationId='G')
+    assert sum(row['fz'] for row in result['reactions'].values()) == pytest.approx(-1.6*7850*.02*6*9.7/1000)
+    # kg -> tonne conversion is explicit in the force result.
+    assert model.model_dump() == original
+    assert result['meta']['selfWeight']['loadCaseId'] == 'L'
+    assert result['meta']['selfWeight']['caseSource'] == 'explicit-case-id'
+    assert max(abs(row['fz']) for row in solve(model, loadCaseIds=['D'])['reactions'].values()) == 0
+
+
+def test_3d_self_weight_uses_the_requested_global_direction_and_source_area():
+    model = beam(dimension='3d', cantilever=True)
+    model.analysis_control.self_weight = True
+    model.analysis_control.gravity_direction = '-y'
+    model.analysis_control.gravity_m_s2 = 9.7
+    model.sections[0].properties['A'] = .0137
+    q = 7850 * .0137 * 9.7 / 1000
+    result = solve(model)
+    assert result['reactions']['A']['fy'] == pytest.approx(q*6)
+    assert result['displacements']['B']['uy'] == pytest.approx(-q*6**4/(8*200000000*.0002), rel=1e-9)
+    assert result['displacements']['B']['uz'] == pytest.approx(0, abs=1e-14)
+
+
+def test_ambiguous_self_weight_case_requires_input_before_opensees():
+    from structure_protocol.structure_model_v2 import LoadCaseV2
+    model = beam()
+    model.analysis_control.self_weight = True
+    model.load_cases.append(LoadCaseV2(id='D2', type='dead', loads=[]))
+    with pytest.raises(ValueError, match='self_weight_case_id'):
+        solve(model)
+
+
 def test_explicit_unsupported_features_fail_before_a_success_response():
     model = beam()
     model.elements[0].releases = {'i':{'rx':True}}

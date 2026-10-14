@@ -17,6 +17,45 @@ function cantilever() {
 }
 
 describe('native force equilibrium recovery',()=>{
+  function weightedBeam(factor = 1) {
+    const { model, result } = cantilever();
+    model.analysis_control.self_weight = true;
+    model.load_cases = [{ id: 'D', loads: [] }, { id: 'L', loads: [] }];
+    model.load_combinations = [{ id: 'C', factors: { D: factor, L: 2 } }];
+    result.selection = { kind: 'combination', id: 'C' };
+    result.data.memberStations.beam[0].components = { N: 0, Vy: 0, Vz: 8*factor, T: 0, My: 16*factor, Mz: 0 };
+    const segments = [{ physicalElementId: 'beam', startM: 0, endM: 1.5, sourceSegmentId: 'native-1', intensityVectorKnM: [0,0,-2] },
+      { physicalElementId: 'beam', startM: 1.5, endM: 4, sourceSegmentId: 'native-2', intensityVectorKnM: [0,0,-2] }];
+    result.data.nativeContext.effectiveLoads = { verified: true, sourceFeaSha256: 'a'.repeat(64), selfWeight: { enabled: true,
+      loadCaseId: 'D', members: segments.map(s => ({ elementId: s.sourceSegmentId, lengthM: s.endM-s.startM,
+        intensityVectorKnM: s.intensityVectorKnM, totalForceVectorKn: [0,0,-2*(s.endM-s.startM)] })), physicalCompilation: segments } };
+    return { model, result };
+  }
+
+  test.each([1, 1.5, -1, 0])('audited segment selfweight preserves physical cuts and the source case factor %s', factor => {
+    const { model, result } = weightedBeam(factor);
+    for (const x of [0.731, 1.5, 2.431, 3.711]) {
+      const queried = queryPhysicalResponse(model, result, 'beam', x, 'right');
+      expect(queried.provenance).toBe('mechanics-recovery');
+      expect(queried.sample.My).toBeCloseTo(factor*(4-x)**2, 10);
+      expect(queried.sample.Vz).toBeCloseTo(factor*2*(4-x), 10);
+    }
+  });
+
+  test.each(['unverified', 'missing-hash', 'wrong-total', 'gap', 'overlap', 'wrong-segment', 'wrong-case', 'wrong-length'])('selfweight %s cannot authorize a recovered result', defect => {
+    const { model, result } = weightedBeam();
+    const effective = result.data.nativeContext.effectiveLoads, weight = effective.selfWeight;
+    if (defect === 'unverified') effective.verified = false;
+    if (defect === 'missing-hash') delete effective.sourceFeaSha256;
+    if (defect === 'wrong-total') weight.members[0].totalForceVectorKn[2] = -10;
+    if (defect === 'gap') weight.physicalCompilation[1].startM = 2;
+    if (defect === 'overlap') weight.physicalCompilation[1].startM = 1;
+    if (defect === 'wrong-segment') weight.physicalCompilation[0].sourceSegmentId = 'absent';
+    if (defect === 'wrong-case') weight.loadCaseId = 'absent';
+    if (defect === 'wrong-length') weight.members[0].lengthM = 4;
+    expect(() => queryPhysicalResponse(model, result, 'beam', 1.2, 'right')).toThrow('EXACT_NATIVE_STATION_UNAVAILABLE');
+  });
+
   test('partial line load and internal point force/moment retain real left/right cuts',()=>{
     const {model,result}=cantilever();
     expect(queryPhysicalResponse(model,result,'beam',1.5,'right').sample).toMatchObject({N:1,Vy:-2,Vz:7,T:2,My:7.25,Mz:2});
