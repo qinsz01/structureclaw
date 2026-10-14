@@ -48,3 +48,27 @@ def test_zero_rigid_end_option_preserves_original_reference():
     before, after = solve(data, "D"), solve(data, "D", rigid_end_lengths={})
     for field in ("displacements", "reactions", "localEndActions"):
         assert before[field] == after[field]
+
+
+def test_executed_net_load_reference_preserves_source_rigid_arm_integrals():
+    import copy
+    import importlib.util
+    path = Path(__file__).resolve().parents[5]/'tests/analysis-pkpm-rigid-offset-native.py'
+    spec = importlib.util.spec_from_file_location('rigid_input_reference', path)
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    ri, rj, qs, qe = .4, .2, -2., -1.8
+    data = model({'type': 'distributed', 'element': 'e', 'wz': qs})
+    before = copy.deepcopy(data)
+    packet = {'loadCompilation': {'elementLoads': [{'loadCaseId': 'D', 'sourceLoadIndex': 0,
+        'elementId': 'e', 'sourceIntensityVectorKnM': [0., 0., qs],
+        'effectiveElasticIntensityVectorKnM': [0., 0., qe]}]}}
+    changed = module.executed_reference_model(data, {'e': [ri, rj]}, packet)
+    original = solve(data, 'D', rigid_end_lengths={'e': [ri, rj]})
+    result = solve(changed, 'D', rigid_end_lengths={'e': [ri, rj]})
+    assert data == before
+    elastic = 6-ri-rj
+    EI, GA = 30000e3*.3*.5**3/12, 12000e3*.3*.5*5/6
+    delta = (qe-qs)*((elastic**4/8+rj*elastic**3/6)/EI+elastic**2/(2*GA))
+    assert result['displacements']['b']['uz']-original['displacements']['b']['uz'] == pytest.approx(delta, rel=1e-12)
+    assert result['reactions']['a']['fz'] == pytest.approx(-qs*(ri+rj)-qe*elastic)
+    assert result['reactions']['a']['my'] == pytest.approx(qs*(ri**2+6**2-(6-rj)**2)/2+qe*((6-rj)**2-ri**2)/2)

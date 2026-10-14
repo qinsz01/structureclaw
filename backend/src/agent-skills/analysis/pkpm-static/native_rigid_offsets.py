@@ -190,11 +190,50 @@ def verify_rigid_offsets(directory, model):
     _, expected = compile_load_records(model, {"loads": records}, result)
     if expected != receipt["loads"]:
         raise ValueError("Rigid-end physical load semantics differ / 刚域物理荷载语义不符")
+    from native_load_readback import read_beam_load_inputs, _f32
+    executed = read_beam_load_inputs(directory, model)
+    source_indices = {(str(case['id']), str(load.get('id', f"{case['id']}:{index}"))): index
+                      for case in model['load_cases'] for index, load in enumerate(case.get('loads', []))}
+    element_loads = []
+    for ledger in receipt['loads']:
+        written = [row for row in receipt['nativeReadback'] if row['targetType'] == 'beam'
+                   and row['targetId'] == ledger['elementId'] and row['caseId'] == ledger['loadCaseId']
+                   and row['id'] == ledger['sourceLoadId']]
+        if len(written) != 1:
+            raise ValueError('Rigid-end SDK load binding differs / 刚域 SDK 荷载绑定不符')
+        written = written[0]
+        candidates = [row for row in executed['members'][ledger['elementId']]
+                      if row['nativeCaseId'] == written['nativeCaseId']]
+        # The text bridge is checked against this saved SDK scalar on every
+        # run; it is not inferred from an observed shear-force slope.
+        sdk = written['nativeReadbackValues']
+        token = format(sdk[1], '.6g')
+        candidates = [row for row in candidates if float(row['intensityToken']) == float(token)
+                      and row['globalZIntensityKnM'] == _f32(-float(token))]
+        if len(candidates) != 1:
+            raise ValueError('Native rigid-end load quantization is not verified / 原生刚域荷载量化未核对')
+        actual = candidates[0]
+        executed['members'][ledger['elementId']].remove(actual)
+        interval = ledger['elasticIntervalM']; length = ledger['sourceIntervalM'][1]
+        element_loads.append({
+            'loadCaseId': ledger['loadCaseId'], 'sourceLoadId': ledger['sourceLoadId'],
+            'sourceLoadIndex': source_indices.get((ledger['loadCaseId'], ledger['sourceLoadId'])),
+            'elementId': ledger['elementId'], 'sourceIntervalM': ledger['sourceIntervalM'],
+            'sourceIntensityVectorKnM': ledger['sourceIntensityVectorKnM'],
+            'elasticIntervalM': interval,
+            'nativeWireReadback': {**actual, 'sdkValues': sdk,
+                'sdkValueSemantics': 'type,downward-global-z-kN/m,unused,unused,unused,unused',
+                'inputValueSemantics': 'member,type,case-marker,global-z-q-i,global-z-q-j,start,end,direction,member[,custom-case]',
+                'quantization': 'SDK-float32 -> native-text-six-significant-digits -> solver-float32',
+                'files': executed['files']},
+            'effectiveElasticIntensityVectorKnM': [0., 0., actual['globalZIntensityKnM'] * length / (interval[1]-interval[0])],
+            'rigidSegmentNodeLoads': ledger['rigidSegmentNodeLoads']})
     return {**result, "sourceLoadSemanticsPreserved": True,
         "loadCompilation": {"method": receipt["method"], "sourceFeaSha256": result["sourceFeaSha256"],
             "sourceModelHash": receipt["physicalModelHash"], "source": "native-rigid-load-compilation.json",
             "sha256": hashlib.sha256((directory / "native-rigid-load-compilation.json").read_bytes()).hexdigest(),
-            "loads": receipt["loads"]}}
+            "loads": receipt["loads"], "elementLoads": element_loads,
+            "executionReadbackMethod": executed['method']}}
 
 
 def verify_case_equilibrium(model, case, case_id):

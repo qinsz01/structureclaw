@@ -16,7 +16,8 @@ FIXTURE = json.loads((Path(__file__).parent/"fixtures/native-rigid-offsets.json"
 
 def native_files(tmp_path, variant="passed"):
     data = deepcopy(FIXTURE[variant])
-    (tmp_path/"DATA.SAT").write_bytes(base64.b64decode(data["DATA.SAT"]))
+    for name in ("DATA.SAT", "LoadZDY.SAT", "spas_sat.txt"):
+        (tmp_path/name).write_bytes(base64.b64decode(data[name]))
     (tmp_path/"native-rigid-load-compilation.json").write_text(json.dumps(data["receipt"]), encoding="utf8")
     return data
 
@@ -31,6 +32,26 @@ def test_real_native_lengths_and_source_load_receipt(tmp_path):
     assert result["members"]["c0"]["nativeStationDomain"] == "physical-endpoints"
     assert result["sourceLoadSemanticsPreserved"]
     assert result["loadCompilation"]["sourceFeaSha256"] == result["sourceFeaSha256"]
+    row = result['loadCompilation']['elementLoads'][0]
+    assert row['sourceLoadIndex'] == 1
+    assert row['nativeWireReadback']['intensityToken'] == '1.81667'
+    assert row['sourceIntensityVectorKnM'] == [0., 0., -2.]
+    assert row['effectiveElasticIntensityVectorKnM'][2] != -2.
+
+
+def test_solver_wire_and_sdk_quantization_are_read_not_fitted_to_response(tmp_path):
+    data = native_files(tmp_path, 'deepReversed')
+    row = verify_rigid_offsets(tmp_path, data['analysisModel'])['loadCompilation']['elementLoads'][0]
+    assert row['nativeWireReadback']['sdkValues'][1] == 19.33333396911621
+    assert row['nativeWireReadback']['globalZIntensityKnM'] == -19.33329963684082
+    assert row['effectiveElasticIntensityVectorKnM'][2] == -19.999964792153545
+    # Computed force/displacement files are deliberately absent from tmp_path.
+    assert sorted(path.name for path in tmp_path.iterdir()) == ['DATA.SAT', 'LoadZDY.SAT', 'native-rigid-load-compilation.json', 'spas_sat.txt']
+    receipt = data['receipt']
+    next(item for item in receipt['nativeReadback'] if item['targetType'] == 'beam')['nativeReadbackValues'][1] *= 2
+    (tmp_path/'native-rigid-load-compilation.json').write_text(json.dumps(receipt), encoding='utf8')
+    with pytest.raises(ValueError, match='quantization'):
+        verify_rigid_offsets(tmp_path, data['analysisModel'])
 
 
 def test_same_topology_changed_load_cannot_reuse_receipt(tmp_path):
