@@ -173,11 +173,12 @@ function getConfigValue(dotEnv, name, defaultValue) {
 
 /**
  * Detect whether the project root is an installed npm package (vs source checkout).
- * Installed packages ship dist/backend/ and dist/frontend/ but no backend/package.json.
+ * Installed packages retain backend/package.json for Python assets and ESM scripts,
+ * but do not ship the frontend development package.
  */
 function isInstalledPackageLayout(resolvedRoot) {
   return (
-    !pathExists(path.join(resolvedRoot, "backend", "package.json")) &&
+    !pathExists(path.join(resolvedRoot, "frontend", "package.json")) &&
     pathExists(path.join(resolvedRoot, "dist", "backend", "index.js")) &&
     pathExists(path.join(resolvedRoot, "dist", "frontend")) &&
     pathExists(path.join(resolvedRoot, "backend", "prisma", "schema.prisma"))
@@ -444,20 +445,17 @@ function buildScopedSqliteDatabaseUrl(rootDir, profileName = "start") {
   return `file:${sqlitePath.replace(/\\/gu, "/")}`;
 }
 
-function ensureLocalSqliteConfig(rootDir, env, logger = () => {}, options = {}) {
-  const profileName = options.profileName || "start";
-  const targetDatabaseUrl = buildScopedSqliteDatabaseUrl(rootDir, profileName);
-  const currentDatabaseUrl =
-    env.DATABASE_URL || buildScopedSqliteDatabaseUrl(rootDir, "start");
+function ensureLocalSqliteConfig(rootDir, env, logger = () => {}) {
+  const canonicalPath = path.join(resolveRuntimeDataDir(rootDir), "data", "structureclaw.db");
+  const legacyUrl = buildScopedSqliteDatabaseUrl(rootDir, "start");
+  // Keep an existing pre-migration source installation readable. Never silently
+  // replace an explicitly configured database or select a separate doctor DB.
+  const targetDatabaseUrl = !pathExists(canonicalPath) && pathExists(legacyUrl.slice(5))
+    ? legacyUrl : `file:${canonicalPath}`;
+  const currentDatabaseUrl = env.DATABASE_URL || targetDatabaseUrl;
 
   if (currentDatabaseUrl.startsWith("file:")) {
-    const normalizedCurrent = normalizeSqliteFileUrl(rootDir, currentDatabaseUrl);
-    env.DATABASE_URL = targetDatabaseUrl;
-    if (normalizedCurrent !== targetDatabaseUrl) {
-      logger(
-        `Using isolated SQLite DATABASE_URL for ${profileName}: ${env.DATABASE_URL}`,
-      );
-    }
+    env.DATABASE_URL = normalizeSqliteFileUrl(rootDir, currentDatabaseUrl);
     return env.DATABASE_URL;
   }
 
@@ -983,6 +981,16 @@ function requestUrl(url, method = "GET") {
   });
 }
 
+async function requestHealth(url, instanceId) {
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(1000) });
+    if (!response.ok) return false;
+    const health = await response.json();
+    return health.status === "ok" && health.services?.database === true
+      && (!instanceId || health.instanceId === instanceId);
+  } catch { return false; }
+}
+
 function buildAnalysisPaths(rootDir) {
   const paths = resolvePaths(rootDir);
   return [
@@ -1042,6 +1050,7 @@ function quoteShellArgument(rawValue) {
 }
 
 module.exports = {
+  requestHealth,
   CN_DEFAULT_APT_MIRROR,
   CN_DEFAULT_NPM_REGISTRY,
   CN_DEFAULT_PIP_INDEX_URL,

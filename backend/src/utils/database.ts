@@ -1,13 +1,11 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { PrismaClient } from '../generated/prisma/client.js';
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
+import { config } from '../config/index.js';
+import { resolveBackendAsset } from './bundled-paths.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const prismaSchemaDir = path.resolve(__dirname, '../../prisma');
+const prismaSchemaDir = resolveBackendAsset('prisma');
 
 function normalizeSqliteDatabaseUrl(databaseUrl: string) {
   if (!databaseUrl.startsWith('file:')) {
@@ -48,7 +46,7 @@ function ensureSqliteDatabaseDirectory(databaseUrl: string) {
 }
 
 const normalizedDatabaseUrl = normalizeSqliteDatabaseUrl(
-  process.env.DATABASE_URL || `file:${path.join(os.homedir(), '.structureclaw', 'data', 'structureclaw.db')}`,
+  config.databaseUrl,
 );
 ensureSqliteDatabaseDirectory(normalizedDatabaseUrl);
 

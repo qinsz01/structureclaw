@@ -4,6 +4,7 @@ import path from 'path';
 import { parse as parseYaml } from 'yaml';
 import { formatManifestIssues, skillManifestFileSchema } from './manifest-schema.js';
 import { loadSkillManifestsFromDirectorySync, toRuntimeSkillManifest } from './skill-manifest-loader.js';
+import { resolveBackendAsset } from '../utils/bundled-paths.js';
 import type { AgentSkillBundle, AgentSkillFile, AgentSkillMetadata, AgentSkillPlugin, SkillDomain, SkillManifest, SkillStage } from './types.js';
 
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -51,41 +52,11 @@ function resolveSkillRoot(candidates: string[], requiredExtensions?: string[]): 
   return matched;
 }
 
-const COMPILED_MODULE_SKILL_ROOT_CANDIDATES = [
-  // Prefer handlers adjacent to the loader that is actually executing. This
-  // prevents a stale packaged dist/backend tree from shadowing backend/dist
-  // during repository-local builds and benchmark runs.
-  path.resolve(MODULE_DIR, '../agent-skills'),
-  // Installed-package layout: dist/backend/ holds compiled JS next to dist/frontend/
-  path.resolve(process.cwd(), 'dist/backend/agent-skills'),
-  path.resolve(process.cwd(), 'backend/dist/agent-skills'),
-  path.resolve(process.cwd(), 'dist/agent-skills'),
-  // MODULE_DIR-relative: works regardless of cwd
-  path.resolve(MODULE_DIR, '../../agent-skills'),
-  path.resolve(MODULE_DIR, '../../src/agent-skills'),
-] as const;
-
-const SOURCE_MODULE_SKILL_ROOT_CANDIDATES = [
-  // Source layouts (dev mode)
-  path.resolve(process.cwd(), 'backend/src/agent-skills'),
-  path.resolve(process.cwd(), 'src/agent-skills'),
-  // MODULE_DIR-relative: works regardless of cwd
-  path.resolve(MODULE_DIR, '../../src/agent-skills'),
-] as const;
-
+const sourceSkillRoot = resolveBackendAsset('src/agent-skills');
 const MODULE_SKILL_ROOT = resolveSkillRoot([
-  ...(isTypeScriptRuntime() ? SOURCE_MODULE_SKILL_ROOT_CANDIDATES : COMPILED_MODULE_SKILL_ROOT_CANDIDATES),
-  ...(isTypeScriptRuntime() ? COMPILED_MODULE_SKILL_ROOT_CANDIDATES : SOURCE_MODULE_SKILL_ROOT_CANDIDATES),
-], ['handler.js', 'handler.ts']);
-
-const MARKDOWN_SKILL_ROOT = resolveSkillRoot([
-  // Source layouts: skill.yaml + stage .md live in src/ (not compiled)
-  path.resolve(process.cwd(), 'backend/src/agent-skills'),
-  path.resolve(process.cwd(), 'src/agent-skills'),
-  // MODULE_DIR-relative
-  path.resolve(MODULE_DIR, '../../src/agent-skills'),
-  path.resolve(MODULE_DIR, '../../agent-skills'),
-], ['skill.yaml']);
+  isTypeScriptRuntime() ? sourceSkillRoot : path.resolve(MODULE_DIR, '../agent-skills'),
+], isTypeScriptRuntime() ? ['handler.ts'] : ['handler.js']);
+const MARKDOWN_SKILL_ROOT = resolveSkillRoot([sourceSkillRoot], ['skill.yaml']);
 
 function stripLegacyMarkdownHeader(markdown: string): string {
   const normalizedMarkdown = markdown.replace(/\r\n/g, '\n');

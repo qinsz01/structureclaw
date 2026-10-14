@@ -54,14 +54,15 @@ describe('sclaw runtime analysis python paths', () => {
     expect(doctorUrl).not.toBe(startUrl);
   });
 
-  test('should override configured sqlite database with the scoped startup database', () => {
+  test('should preserve a configured sqlite database across lifecycle commands', () => {
     const env = {
       DATABASE_URL: 'file:../../.structureclaw/data/structureclaw.db',
     };
 
     const resolved = runtime.ensureLocalSqliteConfig(repoRoot, env, () => {}, { profileName: 'doctor' });
 
-    expect(resolved).toContain('structureclaw.doctor.db');
+    expect(resolved).toBe(`file:${path.resolve(repoRoot, 'backend/prisma', '../../.structureclaw/data/structureclaw.db').replaceAll('\\', '/')}`);
     expect(env.DATABASE_URL).toBe(resolved);
+    expect(runtime.ensureLocalSqliteConfig(repoRoot, env, () => {}, { profileName: 'start' })).toBe(resolved);
   });
 });

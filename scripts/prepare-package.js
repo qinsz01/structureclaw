@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
  * StructureClaw packaging script.
- * Runs during `prepublishOnly` to assemble dist/ from built artifacts.
+ * Runs during `prepack` for both npm pack and npm publish.
  */
 "use strict";
 
 const { execSync } = require("node:child_process");
-const { existsSync, mkdirSync, cpSync, rmSync, writeFileSync } = require("node:fs");
+const { existsSync, lstatSync, realpathSync, mkdirSync, cpSync, rmSync, writeFileSync } = require("node:fs");
 const path = require("node:path");
 
 const rootDir = path.resolve(__dirname, "..");
@@ -23,32 +23,39 @@ function run(cmd, label) {
   }
 }
 
-// Step 1: Build backend if needed
-const backendDist = path.join(rootDir, "backend", "dist", "index.js");
-if (!existsSync(backendDist)) {
-  run("npm run build --prefix backend", "Building backend");
+function clearBuildDirectory(relative) {
+  const directory = path.resolve(rootDir, relative);
+  if (path.relative(rootDir, directory).startsWith('..') || directory === rootDir) throw new Error('Invalid build directory / 构建目录无效');
+  if (existsSync(directory)) {
+    if (lstatSync(directory).isSymbolicLink() || path.relative(realpathSync(rootDir), realpathSync(directory)).startsWith('..')) {
+      throw new Error(`Refusing linked build output / 不清理链接到外部的构建目录: ${directory}`);
+    }
+    rmSync(directory, { recursive: true });
+  }
 }
+
+// Rebuild this source revision. File existence does not establish freshness.
+run("npm run db:generate --prefix backend", "Generating database client / 生成数据库客户端");
+clearBuildDirectory('backend/dist');
+run("npm run build --prefix backend", "Building backend / 编译后端");
+const backendDist = path.join(rootDir, "backend", "dist", "index.js");
 if (!existsSync(backendDist)) {
   console.error("[sclaw] backend/dist/index.js not found after build.");
   process.exit(1);
 }
 
-// Step 2: Build frontend if needed
+// Static UI uses the installed server's origin, never a developer API address.
+process.env.NEXT_PUBLIC_API_URL = '';
+clearBuildDirectory('frontend/out');
+run("npm run build --prefix frontend", "Building frontend / 编译网页");
 const frontendOut = path.join(rootDir, "frontend", "out", "index.html");
-if (!existsSync(frontendOut)) {
-  // Ensure NEXT_PUBLIC_API_URL is empty so api-base.ts uses same-origin ('') in production
-  delete process.env.NEXT_PUBLIC_API_URL;
-  run("npm run build --prefix frontend", "Building frontend");
-}
 if (!existsSync(frontendOut)) {
   console.error("[sclaw] frontend/out/index.html not found after build.");
   process.exit(1);
 }
 
 // Step 3: Clean and recreate dist/
-if (existsSync(distDir)) {
-  rmSync(distDir, { recursive: true });
-}
+clearBuildDirectory('dist');
 mkdirSync(distDir, { recursive: true });
 
 // Step 4: Copy built artifacts into dist/
@@ -70,6 +77,7 @@ cpSync(path.join(rootDir, "frontend", "out"), distFrontend, { recursive: true })
 // Step 5: Validate
 const checks = [
   path.join(distBackend, "index.js"),
+  path.join(distBackend, "generated", "prisma", "client.js"),
   path.join(distFrontend, "index.html"),
   path.join(rootDir, "backend", "prisma", "schema.prisma"),
   path.join(rootDir, "sclaw"),

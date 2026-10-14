@@ -1,4 +1,5 @@
 const { spawn } = require("node:child_process");
+const { randomUUID } = require("node:crypto");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -486,88 +487,16 @@ async function invokeDbInit(rootDir, env) {
   runtime.ensureDirectory(paths.dataDir);
   runtime.ensureLocalSqliteConfig(rootDir, env, log);
   runtime.assertSqliteDatabaseUrl(env);
-  log(`Running db:init with DATABASE_URL=${env.DATABASE_URL}`);
-  await runtime.runCommand(
-    runtime.getNpmCommand(),
-    ["run", "db:init", "--prefix", path.join(rootDir, "backend")],
-    {
-      env,
-    },
-  );
-}
-
-async function invokeScopedDbInit(rootDir, env, profileName) {
-  const scopedEnv = {
-    ...env,
-  };
-  runtime.ensureLocalSqliteConfig(rootDir, scopedEnv, log, { profileName });
-  await invokeDbInit(rootDir, scopedEnv);
-}
-
-/**
- * Remap DATABASE_URL from package-install dir to user-writable runtime dir.
- * `ensureLocalSqliteConfig` derives URLs from rootDir (the package install
- * directory), which is read-only for global npm installs. This function
- * redirects the SQLite path to paths.dataDir.
- */
-function remapInstalledSqliteDatabaseUrl(env, paths) {
-  if (typeof env.DATABASE_URL !== "string" || !env.DATABASE_URL.startsWith("file:")) {
-    return;
+  if (!paths.installedMode) {
+    await runtime.runCommand(runtime.getNpmCommand(), ["run", "db:generate", "--prefix", path.join(rootDir, "backend")], { env });
   }
-  // Always use the user-writable data directory
-  env.DATABASE_URL = `file:${path.join(paths.dataDir, "structureclaw.db").replace(/\\/gu, "/")}`;
-}
-
-function resolveBundledPrismaEntry(rootDir) {
-  return require.resolve("prisma/build/index.js", {
-    paths: [rootDir, path.join(rootDir, "backend")],
-  });
-}
-
-async function runBundledPrisma(rootDir, args, env) {
-  const prismaEntry = resolveBundledPrismaEntry(rootDir);
-  await runtime.runCommand(process.execPath, [prismaEntry, ...args], {
+  // Installed clients are compiled into the package. Both layouts use the same
+  // transactional migration; startup never seeds or overwrites demo histories.
+  log("Synchronizing database without data loss / 同步数据库并保留已有数据...");
+  await runtime.runCommand(process.execPath, [path.join(rootDir, "backend", "scripts", "sync-sqlite-schema.mjs")], {
     cwd: path.join(rootDir, "backend"),
     env,
   });
-}
-
-/**
- * In installed mode, run prisma db push + seed directly since there is no
- * backend package.json with npm scripts.
- */
-async function invokeInstalledDbInit(rootDir, env, paths) {
-  runtime.ensureDirectory(paths.dataDir);
-  const prismaSchema = path.join(rootDir, "backend", "prisma", "schema.prisma");
-  if (!runtime.pathExists(prismaSchema)) {
-    log("Skipping database init — Prisma schema not found.");
-    return;
-  }
-
-  // Step 1: Ensure Prisma client is generated
-  log("Generating Prisma client...");
-  try {
-    await runBundledPrisma(rootDir, [
-      "generate",
-      `--schema=${prismaSchema}`,
-    ], env);
-    log("[ok] Prisma client generated.");
-  } catch (err) {
-    log(`[warn] Prisma generate failed: ${err.message}`);
-  }
-
-  // Step 2: Push schema to SQLite
-  log("Initializing database (installed mode)...");
-  try {
-    await runBundledPrisma(rootDir, [
-      "db", "push",
-      `--schema=${prismaSchema}`,
-      "--accept-data-loss",
-    ], env);
-    log("[ok] Database schema synced.");
-  } catch (err) {
-    log(`[warn] Database init failed: ${err.message}`);
-  }
 }
 
 function getServiceCommand(name, frontendPort, paths) {
@@ -617,22 +546,25 @@ function startTrackedService(paths, env, name, frontendPort) {
   const existingPid = runtime.readTrackedPid(paths, name);
   if (existingPid) {
     log(`${name} is already running (pid ${existingPid}).`);
-    return;
+    return {};
   }
 
   const { command, args, envPatch } = getServiceCommand(name, frontendPort, paths);
   const logFile = runtime.logFilePath(paths, name);
   runtime.appendSessionHeader(logFile, name);
+  const instanceId = randomUUID();
   const pid = runtime.spawnDetached(command, args, {
     cwd: paths.rootDir,
     env: {
       ...env,
       ...envPatch,
+      SCLAW_INSTANCE_ID: instanceId,
     },
     logFile,
   });
   runtime.writeTrackedPid(paths, name, pid);
   log(`Started ${name} (pid ${pid}).`);
+  return { instanceId };
 }
 
 async function stopTrackedService(paths, name) {
@@ -659,8 +591,11 @@ async function showHealth(env) {
   // The recommended stack serves the exported UI from Fastify's own port.
   const frontendUrl = `http://localhost:${env.PORT || runtime.DEFAULT_BACKEND_PORT}/`;
   log("Health checks:");
-  log((await runtime.requestUrl(backendUrl)) ? "backend: healthy" : "backend: unavailable");
-  log((await runtime.requestUrl(frontendUrl, "HEAD")) ? "frontend: healthy" : "frontend: unavailable");
+  const backendOk = await runtime.requestHealth(backendUrl);
+  const frontendOk = await runtime.requestUrl(frontendUrl, "HEAD");
+  log(backendOk ? "backend: healthy" : "backend: unavailable");
+  log(frontendOk ? "frontend: healthy" : "frontend: unavailable");
+  if (!backendOk || !frontendOk) throw new Error("Health check failed / 健康检查失败");
 }
 
 function showServiceStatus(paths, name) {
@@ -872,10 +807,6 @@ async function invokeLocalUp(rootDir, env, options = {}) {
   }
 
   runtime.ensureLocalSqliteConfig(rootDir, env, log, { profileName: "start" });
-  if (isInstalled) {
-    // Remap SQLite URL from package dir to user-writable runtime dir
-    remapInstalledSqliteDatabaseUrl(env, paths);
-  }
   runtime.assertSqliteDatabaseUrl(env);
 
   if (!isInstalled) {
@@ -900,18 +831,27 @@ async function invokeLocalUp(rootDir, env, options = {}) {
   }
 
   if (!options.skipDbInit) {
-    if (isInstalled) {
-      await invokeInstalledDbInit(rootDir, env, paths);
-    } else {
-      await invokeScopedDbInit(rootDir, env, "start");
-    }
+    await invokeDbInit(rootDir, env);
   }
 
   // Kill stale processes
   const ports = [env.PORT || runtime.DEFAULT_BACKEND_PORT];
   runtime.killPortPids(ports, log, getPortCleanupOptions(paths, env));
 
-  startTrackedService(paths, env, "backend", env.FRONTEND_PORT || runtime.DEFAULT_FRONTEND_PORT);
+  const { instanceId } = startTrackedService(paths, env, "backend", env.FRONTEND_PORT || runtime.DEFAULT_FRONTEND_PORT);
+
+  const backendPort = env.PORT || runtime.DEFAULT_BACKEND_PORT;
+  const url = `http://localhost:${backendPort}`;
+  const deadline = Date.now() + 30000;
+  let ready = false;
+  while (Date.now() < deadline && runtime.readTrackedPid(paths, "backend")) {
+    if (await runtime.requestHealth(`${url}/health`, instanceId)) { ready = true; break; }
+    await runtime.sleep(250);
+  }
+  if (!ready) {
+    const backendLog = runtime.logFilePath(paths, "backend");
+    throw new Error(`Backend startup failed / 后端启动失败: ${backendLog}\n${runtime.tailLines(backendLog, 10).join('\n')}`);
+  }
 
   log("");
   if (isInstalled) {
@@ -919,28 +859,9 @@ async function invokeLocalUp(rootDir, env, options = {}) {
   } else {
     log("Local stack started.");
   }
-  const backendPort = env.PORT || runtime.DEFAULT_BACKEND_PORT;
-  const url = `http://localhost:${backendPort}`;
   log(`UI + API: ${url}`);
   log(`Data: ${paths.dataDir}`);
   log(`Logs: ${paths.logDir}`);
-
-  // Wait briefly and check if backend is actually listening
-  await runtime.sleep(2000);
-  const backendLog = runtime.logFilePath(paths, "backend");
-  const lastLines = runtime.tailLines(backendLog, 5);
-  const hasStartupError = lastLines.some((line) =>
-    /error|Error|ERR|crashed|ENOENT|Cannot find/i.test(line)
-  );
-  if (hasStartupError) {
-    log("");
-    log("Backend failed to start. Recent log:");
-    for (const line of lastLines) {
-      log(`  ${line}`);
-    }
-    log(`Check full log: ${backendLog}`);
-    return;
-  }
 
   // Auto-open browser
   if (options.openBrowser !== false) setTimeout(() => openBrowser(url), 1500);
@@ -1197,9 +1118,6 @@ async function invokeDoctor(rootDir, env) {
   }
 
   runtime.ensureLocalSqliteConfig(rootDir, env, log, { profileName: "doctor" });
-  if (isInstalled) {
-    remapInstalledSqliteDatabaseUrl(env, paths);
-  }
   runtime.assertSqliteDatabaseUrl(env);
 
   if (!isInstalled) {
@@ -1214,11 +1132,7 @@ async function invokeDoctor(rootDir, env) {
     log("Warning: OpenSees runtime probe failed — analysis features may be limited in this environment.");
   }
 
-  if (isInstalled) {
-    await invokeInstalledDbInit(rootDir, env, paths);
-  } else {
-    await invokeScopedDbInit(rootDir, env, "doctor");
-  }
+  await invokeDbInit(rootDir, env);
 
   // Test LLM connectivity — read from settings.json
   const settingsPath = path.join(path.dirname(paths.envFile), "settings.json");

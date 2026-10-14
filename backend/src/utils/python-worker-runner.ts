@@ -5,6 +5,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { config, runtimeBaseDir } from '../config/index.js';
+import { resolveBackendAsset } from './bundled-paths.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,12 +42,7 @@ function terminateWorkerProcess(child: ReturnType<typeof spawn>): void {
 }
 
 export function resolveWorkerPath(relativePath: string): string {
-  const candidates = [
-    path.resolve(process.cwd(), `backend/src/${relativePath}`),
-    path.resolve(process.cwd(), `src/${relativePath}`),
-    path.resolve(__dirname, `../${relativePath}`),
-  ];
-  return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0];
+  return resolveBackendAsset(`src/${relativePath}`);
 }
 
 export class PythonWorkerRunner<TInput extends object> {

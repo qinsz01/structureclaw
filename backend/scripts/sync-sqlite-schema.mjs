@@ -5,17 +5,18 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+import { applyPreservingMigration } from './sqlite-migration.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const backendDir = path.resolve(__dirname, '..');
-const repoRoot = path.resolve(backendDir, '..');
 const prismaDir = path.join(backendDir, 'prisma');
 const schemaPath = path.join(prismaDir, 'schema.prisma');
 // Canonical data dir: SCLAW_DATA_DIR || ~/.structureclaw (see backend/src/config/index.ts)
 const userDataDir = process.env.SCLAW_DATA_DIR || path.join(os.homedir(), '.structureclaw');
 const defaultDatabasePath = path.join(userDataDir, 'data', 'structureclaw.db');
-const prismaCliPath = path.join(backendDir, 'node_modules', 'prisma', 'build', 'index.js');
+const prismaCliPath = createRequire(import.meta.url).resolve('prisma/build/index.js');
 
 function normalizeDatabaseUrl(databaseUrl) {
   if (!databaseUrl || !databaseUrl.startsWith('file:')) {
@@ -94,13 +95,7 @@ if (!trimmedSql || trimmedSql === '-- This is an empty migration.') {
   process.exit(0);
 }
 
-const tempSqlPath = path.join(os.tmpdir(), `structureclaw-sqlite-sync-${process.pid}.sql`);
-fs.writeFileSync(tempSqlPath, migrationSql, 'utf8');
-
-try {
-  runPrisma(['prisma', 'db', 'execute', '--file', tempSqlPath], databaseUrl);
-} finally {
-  fs.rmSync(tempSqlPath, { force: true });
-}
+const { backupPath } = applyPreservingMigration(databasePath, migrationSql);
+if (backupPath) console.log(`[ok] Preserved database backup / 已保留数据库备份: ${backupPath}`);
 
 console.log(`[ok] SQLite schema synced at ${databasePath}`);

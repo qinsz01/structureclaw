@@ -225,6 +225,33 @@ UI and API. A linked `node_modules` cannot be automatically cleared by dependenc
 无界面启动使用 `sclaw start --no-open`。CLI与服务使用同一Python配置；网页与API使用同一端口。
 依赖安装不会自动清空指向其他目录的 `node_modules` 链接。
 
+Installation migration: lifecycle commands now preserve an explicit SQLite URL;
+`doctor` and `start` use the same database. Without explicit configuration, the
+canonical runtime database is used; an existing legacy `structureclaw.start.db`
+is retained when the canonical file does not yet exist. No history is copied or
+overwritten implicitly. Startup does not insert or reset demonstration models.
+
+安装迁移：生命周期命令保留显式SQLite配置，doctor和start使用同一数据库。未配置时使用运行目录中的
+标准数据库；若仅有旧版structureclaw.start.db，则继续使用旧文件。不会隐式复制或覆盖历史，也不在启动时
+插入或重置演示模型。
+
+Schema changes run in one SQLite transaction, with a readable backup of existing
+WAL data. Existing tables, columns and rows must survive; destructive or failing
+migrations roll back and fail startup. Package installation uses its compiled
+Prisma client. It does not generate TypeScript into the installed package.
+
+数据库变更在单个事务中执行，已有WAL数据先生成可读备份。旧表、字段和记录必须保留，数据损失或迁移失败
+会回滚并使启动失败。安装包使用已编译的Prisma客户端，不向安装目录生成TypeScript。
+
+`npm pack` and `npm publish` rebuild both products through `prepack`. An opt-in
+tarball check installs into a separate host with production dependencies only,
+then checks doctor/start/health/UI, file parsers, skill loading, real OpenSees
+queries and stop from an unrelated working directory:
+
+`node backend/tests/engineering-package-acceptance.mjs <package.tgz> <analysis-python>`
+
+此命令验证真实安装包，使用独立配置和临时目录，不调用语言模型；不会发布到npm或修改历史标签。
+
 The task lifecycle script creates its own SQLite database and verifies a real atomic
 claim, duplicate refusal, late publication after an edit, archive retention and explicit
 rerun. Native SDK acceptance additionally compares a small set of reviewed native

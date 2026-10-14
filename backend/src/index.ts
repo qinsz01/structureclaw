@@ -125,6 +125,7 @@ async function start() {
     // 健康检查
     fastify.get('/health', async () => ({
       status: 'ok',
+      instanceId: process.env.SCLAW_INSTANCE_ID ?? null,
       timestamp: new Date().toISOString(),
       services: {
         database: await checkDatabase(),

@@ -1,52 +1,19 @@
 #!/usr/bin/env node
-/**
- * StructureClaw postinstall script.
- * Generates Prisma client for the bundled schema.
- * Non-fatal on failure — user can run `sclaw doctor` to complete setup.
- *
- * Key: npm runs postinstall with cwd = the installing project root
- * (e.g., G:\test-publish\), NOT the package dir.  @prisma/client lives
- * in that project's node_modules, so running `prisma generate` from there
- * writes the generated client into the right node_modules/.prisma/client.
- */
 "use strict";
 
-const { execFileSync } = require("node:child_process");
 const { existsSync } = require("node:fs");
 const path = require("node:path");
 
 function main() {
   const rootDir = path.resolve(__dirname, "..");
-  const prismaSchema = path.join(rootDir, "backend", "prisma", "schema.prisma");
-
-  // Skip if schema not found (source checkout or partial install)
-  if (!existsSync(prismaSchema)) {
-    return;
+  // Developers generate before compiling; installs use the compiled client.
+  if (existsSync(path.join(rootDir, "frontend", "package.json"))) return;
+  for (const asset of ["dist/backend/index.js", "dist/backend/generated/prisma/client.js", "dist/frontend/index.html", "backend/prisma/schema.prisma"]) {
+    if (!existsSync(path.join(rootDir, asset))) {
+      throw new Error(`Incomplete StructureClaw package / StructureClaw 安装包不完整: ${asset}`);
+    }
   }
-
-  try {
-    // npm runs postinstall scripts from the installing project root,
-    // which is where node_modules/@prisma/client lives.
-    // init.cwd is set by npm to the project root during install.
-    const projectRoot = process.env.INIT_CWD || process.cwd();
-
-    // Resolve prisma CLI entry point to avoid shell:true (DEP0190 on Node 24).
-    // prisma is a dependency of this package, so its JS entry is always available.
-    const prismaEntry = require.resolve("prisma/build/index.js", { paths: [projectRoot] });
-
-    execFileSync(process.execPath, [
-      prismaEntry, "generate",
-      `--schema=${prismaSchema}`,
-    ], {
-      stdio: "pipe",
-      cwd: projectRoot,
-      timeout: 120000,
-    });
-    console.log("[sclaw] Prisma client generated.");
-  } catch (err) {
-    // Non-fatal: user runs `sclaw doctor` to fully set up
-    console.warn("[sclaw] Prisma generate failed (non-fatal). Run `sclaw doctor` to complete setup.");
-  }
+  console.log("[sclaw] Runtime assets verified. Run sclaw doctor / 运行资源已检查，请执行 sclaw doctor。");
 }
 
 main();
