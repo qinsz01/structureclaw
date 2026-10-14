@@ -1,6 +1,6 @@
 import { recoverAnalysisMembers, queryMemberResponse, memberResponseExtrema } from '../agent-skills/result-postprocess/member-response.js';
 import type { RecoveryModel, RecoveryResult } from '../skill-shared/member-response.js';
-import { isRecord, type ModelRecord } from './model-state.js';
+import { contentHash, isRecord, type ModelRecord } from './model-state.js';
 import { nativeForceRecovery } from './native-force-recovery.js';
 
 function recoveryModel(model: ModelRecord): model is ModelRecord & RecoveryModel {
@@ -83,6 +83,7 @@ export function nativeStations(model: RecoveryModel, data: ModelRecord, elementI
 /** Native force samples carry no made-up cross-section displacement. */
 function nativeMemberData(model: RecoveryModel, data: ModelRecord, factors?: Record<string, number>) {
   const extrema: Record<string, ModelRecord> = {};
+  const nativeContextRef = { path: '#/nativeContext', sha256: contentHash(data.nativeContext) };
   const memberResponses = model.elements.map(member => {
     try {
       const stations = nativeStations(model, data, member.id);
@@ -90,12 +91,20 @@ function nativeMemberData(model: RecoveryModel, data: ModelRecord, factors?: Rec
       let rows = stations.rows;
       try {
         const recovered = nativeForceRecovery(model, data, member.id, rows, length, factors);
+        // All chart samples belong to this result. Keep the audited context once
+        // at result level; direct queries still return the full provenance.
+        const { nativeContext: _context, anchor, ...provenance } = recovered.source;
+        const rawRows = (data.memberStations as Record<string, ModelRecord[]>)[member.id];
+        const anchorIndex = rawRows.findIndex(row => row.positionM === 0 && row.side === 'right');
+        const memberPath = member.id.replace(/~/g, '~0').replace(/\//g, '~1');
+        const anchorRef = { path: `#/memberStations/${memberPath}/${anchorIndex}/source`, sha256: contentHash(anchor) };
+        const sampleSource = { ...provenance, nativeContextRef, anchorRef };
         const positions = [...new Set([...Array.from({length:81},(_,i)=>length*i/80),...recovered.breakpoints])].sort((a,b)=>a-b);
         for(const positionM of positions) {
           const sides: ('left'|'right')[] = positionM===0?['right']:positionM===length?['left']:
             recovered.jumps.includes(positionM)?['left','right']:['right'];
           for(const side of sides) if(!rows.some(row=>sameNativePosition(row.positionM,positionM,length) && (row.side===side||row.side==='continuous'))) {
-            rows.push({positionM,side,components:recovered.at(positionM,side),source:recovered.source,provenance:'mechanics-recovery'});
+            rows.push({positionM,side,components:recovered.at(positionM,side),source:sampleSource,provenance:'mechanics-recovery'});
           }
         }
         rows=rows.sort((a,b)=>a.positionM-b.positionM||(a.side==='left'?-1:1));

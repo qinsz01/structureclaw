@@ -1,6 +1,7 @@
 import {describe,test,expect} from '@jest/globals';
 import {readFileSync} from 'node:fs';
 import {enrichResultData,queryPhysicalResponse,scalarResultQuantity,resultTableMarkdown} from '../dist/engineering/result-data.js';
+import {contentHash} from '../dist/engineering/model-state.js';
 
 function cantilever() {
   const model={unit_system:'SI',coordinate_system:{dimension:'3d'},analysis_control:{self_weight:false},stories:[],
@@ -74,6 +75,40 @@ describe('native force equilibrium recovery',()=>{
       expect(report).toContain(`| ${selection.kind}:${id} | M2 |`);
       expect(report).toContain('kN.m');
     }
+  });
+  test('saved YJK chart samples reference one audited context while direct queries remain self-contained',()=>{
+    const fixture=JSON.parse(readFileSync(new URL('./fixtures/yjk-native-STD088-delivery.json',import.meta.url),'utf8'));
+    const selection={kind:'combination',id:'CX'};
+    const result={success:true,selection,meta:{engineId:'builtin-yjk'},data:fixture.combination};
+    const before=structuredClone(result);
+    const data=enrichResultData(fixture.model,result,selection);
+    expect(result).toEqual(before);
+    const roundtrip=JSON.parse(JSON.stringify(data));
+    let recoveryCount=0;
+    for(const member of roundtrip.memberResponses) for(const sample of member.samples) {
+      if(sample.provenance!=='mechanics-recovery')continue;
+      recoveryCount++;
+      const {nativeContextRef,anchorRef,...source}=sample.source;
+      expect(nativeContextRef).toEqual({path:'#/nativeContext',sha256:contentHash(roundtrip.nativeContext)});
+      expect(source.nativeContext).toBeUndefined();
+      const resolve=pointer=>pointer.slice(2).split('/').map(token=>token.replace(/~1/g,'/').replace(/~0/g,'~'))
+        .reduce((value,key)=>value[key],roundtrip);
+      const anchor=resolve(anchorRef.path);
+      expect(contentHash(anchor)).toBe(anchorRef.sha256);
+      const response=queryPhysicalResponse(fixture.model,{...result,data:roundtrip},member.id,sample.x,sample.side||'right');
+      expect(response.source).toEqual({...source,anchor,nativeContext:roundtrip.nativeContext});
+      expect(response.nativeContext).toEqual(roundtrip.nativeContext);
+      for(const component of ['N','V2','V3','T','M2','M3'])expect(response.sample[component]).toBe(sample[component]);
+    }
+    expect(recoveryCount).toBeGreaterThan(100);
+    const expanded=structuredClone(roundtrip.memberResponses);
+    for(const member of expanded)for(const sample of member.samples)if(sample.source.nativeContextRef){
+      delete sample.source.nativeContextRef;
+      sample.source.nativeContext=roundtrip.nativeContext;
+      sample.source.anchor=roundtrip.memberStations[member.id].find(row=>row.positionM===0&&row.side==='right').source;
+      delete sample.source.anchorRef;
+    }
+    expect(JSON.stringify(roundtrip.memberResponses).length).toBeLessThan(JSON.stringify(expanded).length/2);
   });
   test('saved native partial/point loads and reversed endpoints retain independent values at arbitrary cuts',()=>{
     const f=JSON.parse(readFileSync(new URL('./fixtures/yjk-native-local-loads-delivery.json',import.meta.url),'utf8'));
