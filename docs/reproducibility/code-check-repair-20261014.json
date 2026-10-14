@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-14T12:56:29.930Z",
+  "sourceCommit": "6f8876ec4d9f1a0f181c57b6f95883b067b2d967",
+  "scope": "StructureClaw product repair following an actual user code-check failure; Bench and independent YJK API are unchanged.",
+  "observedFailure": {
+    "timeLocal": "2026-10-14 20:08 Asia/Shanghai",
+    "engine": "OpenSees",
+    "check": "GB50017",
+    "summary": {
+      "total": 28,
+      "passed": 0,
+      "inputRequired": 28
+    },
+    "sequence": [
+      "builtin checker returned incomplete but agent received only counts",
+      "agent requested native design with OpenSees",
+      "native request rejected",
+      "builtin retry blocked after earlier routing/extraction used both recoveries",
+      "assistant nevertheless claimed design completion/compliance"
+    ],
+    "automaticRecoveryLimit": 2,
+    "earlierRecoveryReasons": [
+      "structural routing: unusable LLM decision, applying explicit rule result",
+      "parameter extraction: missing required fields"
+    ]
+  },
+  "fixes": [
+    "GB50017 missing operands are returned with field, unit, source, member and case/check identity; duplicate field requests are grouped.",
+    "OpenSees/native mismatch states that native design requires a PKPM/YJK analysis, explains auto/builtin and does not claim a paid StructureClaw edition is required.",
+    "Mandatory tool protocol requires clarification for incomplete checks. Final incomplete/failed check delivery is generated from saved status; unguarded model tokens are withheld.",
+    "Report narratives cannot replace incomplete/failed checks with model-authored pass claims.",
+    "Recovery exhaustion explains used/allowed counts and internal corrections; default aggregate limit remains two.",
+    "Web submission waits for permission loading; accepted imported models are acknowledged at the confirmed revision without discarding newer composer edits."
+  ],
+  "validation": {
+    "backend": {
+      "command": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
+      "cwd": "backend",
+      "suitesPassed": 149,
+      "testsPassed": 1697
+    },
+    "codeCheckPython": {
+      "command": "python -m pytest backend/src/agent-skills/code-check -q",
+      "testsPassed": 237
+    },
+    "frontend": {
+      "command": "npm run test:run --prefix frontend -- tests/components/ai-console-session.test.tsx tests/components/ai-console-end-turn.test.tsx tests/components/conversation-runtime.test.tsx",
+      "filesPassed": 3,
+      "testsPassed": 12
+    },
+    "chromium": {
+      "command": "SCLAW_E2E_PORT=31519 SCLAW_E2E_LIVE=0 npm run test:e2e --prefix frontend",
+      "stats": {
+        "startTime": "2026-10-14T12:50:00.515Z",
+        "duration": 172985.825,
+        "expected": 43,
+        "skipped": 2,
+        "unexpected": 0,
+        "flaky": 0
+      }
+    },
+    "bilingualCodeCheckWorkflow": {
+      "languages": [
+        "en",
+        "zh"
+      ],
+      "passed": 2,
+      "flow": [
+        "real UI selects engineering/checking permissions and imports beam model",
+        "real OpenSees analysis and builtin code-check identify concrete missing inputs",
+        "deliberately false model compliance text is excluded from UI and persistence",
+        "explicit material/member design conditions are committed and actually reanalyzed",
+        "completed checks/report are bound to the new run",
+        "existing load increases to 1000 kN; real checks fail and false pass prose is excluded"
+      ],
+      "llm": "Only external LLM responses are scripted; engineering services, solver, checker, reports, persistence and UI execute for real.",
+      "feedback": []
+    },
+    "staticChecks": [
+      "backend TypeScript build",
+      "canonical frontend production export",
+      "frontend type-check",
+      "ESLint on changed backend modules: zero errors, one existing warning",
+      "git diff --check"
+    ]
+  },
+  "limitations": [
+    "This record verifies the implemented check scope under explicitly supplied fixture conditions, not complete certification of GB50017 or all commercial design capabilities.",
+    "No live provider calls or paid experiments were started in this repair round.",
+    "Earlier test failures were preserved: missing test permissions, premature empty permission transmission, and an unacknowledged imported-model revision."
+  ],
+  "preserved": {
+    "paperTags": true,
+    "benchGitlink": "5102acb3fdf4618c31f385e51fd0e5b9280438a1",
+    "historicalResults": true
+  },
+  "localEvidence": "G:/StructureClaw-All/sclaw_data/verification/code-check-repair-20261014"
+}
