@@ -89,8 +89,10 @@ YJK薄腹板H柱的宽厚比超限也没有被删除。
 ## Output semantics / 输出口径
 
 - Required reinforcement is an area requirement, not installed reinforcement.
-  `required-reinforcement` therefore reports `complianceStatus=not_evaluated`.
-  PKPM does not invent YJK's separate `calculatedArea` field. / 所需配筋不等于已配钢筋验算。
+  `required-reinforcement` reports `complianceStatus=fail` when official checks fail;
+  otherwise completed area design reports `not_evaluated`, never installed-bar compliance.
+  PKPM does not invent YJK's separate `calculatedArea` field.
+  / 所需配筋不等于已配钢筋验算；真实官方超限优先标为失败，其余完成情况不发布配筋通过结论。
 - Native automatic combinations retain their native identities and scope.
   They are not relabeled as the selected elastic case or user combination.
   / 官方设计组合与用户分析工况分别保存。

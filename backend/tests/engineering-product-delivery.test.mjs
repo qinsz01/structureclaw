@@ -14,8 +14,8 @@ describe('product report and native design provenance', () => {
     expect(() => resolveCheckProvider('native', {meta:{engineId:'builtin-opensees'}})).toThrow('NATIVE_DESIGN_ENGINE_REQUIRED');
   });
   test('raw SDK arrays and empty checks cannot become compliance', () => {
-    const r = run(); r.data.nativeDesignContext = { request: { requested:true, code:'GB50017' }, eligibleForConclusion:true };
-    r.data.nativeDesignResults = { beamAs: [[1,0,0]], checks:[] };
+    const r = run(); r.data.nativeDesignContext = { request: { requested:true, code:'GB50017' }, eligibleForConclusion:true, status:'completed', missingInputs:[] };
+    r.data.nativeDesignResults = { status:'completed', beamAs: [[1,0,0]], checks:[] };
     expect(nativeDesignRecord(model,r,'GB50017')).toMatchObject({completionStatus:'incomplete',complianceStatus:'incomplete'});
     r.data.nativeDesignResults.checks = [{status:'pass',source:{method:'SDK'}}];
     expect(nativeDesignRecord(model,r,'GB50017').complianceStatus).toBe('incomplete');
@@ -27,10 +27,28 @@ describe('product report and native design provenance', () => {
     r.data.nativeDesignResults.checks.push(null);
     expect(nativeDesignRecord(model,r,'GB50017').complianceStatus).toBe('incomplete');
   });
+  test('residual eligibility cannot publish unfinished native design', () => {
+    const r = run();
+    r.data.nativeDesignContext = {request:{requested:true,code:'GB50017'},eligibleForConclusion:true,status:'completed',missingInputs:[]};
+    r.data.nativeDesignResults = {status:'completed',checks:[{status:'pass',source:{method:'SDK'},nativeCombination:12}]};
+    expect(nativeDesignRecord(model,r,'GB50017').complianceStatus).toBe('pass');
+    for (const status of [undefined,'running','needs-input','failed']) {
+      r.data.nativeDesignContext.status = status;
+      expect(nativeDesignRecord(model,r,'GB50017').completionStatus).toBe('incomplete');
+      r.data.nativeDesignContext.status = 'completed';
+      r.data.nativeDesignResults.status = status;
+      expect(nativeDesignRecord(model,r,'GB50017').completionStatus).toBe('incomplete');
+      r.data.nativeDesignResults.status = 'completed';
+    }
+    for (const missingInputs of [[{field:'cover'}],{field:'cover'}]) {
+      r.data.nativeDesignContext.missingInputs = missingInputs;
+      expect(nativeDesignRecord(model,r,'GB50017').complianceStatus).toBe('incomplete');
+    }
+  });
   test('required reinforcement completes without certifying installed reinforcement', () => {
     const r = run();
-    r.data.nativeDesignContext = {request:{requested:true,code:'GB/T50010-2010(2024)',mode:'required-reinforcement'},eligibleForConclusion:true};
-    r.data.nativeDesignResults = {records:[{elementId:'B',component:'top',requiredArea:550,calculatedArea:565,unit:'mm2',source:{method:'SDK.BeamAs'},nativeCombination:{id:2}}]};
+    r.data.nativeDesignContext = {request:{requested:true,code:'GB/T50010-2010(2024)',mode:'required-reinforcement'},eligibleForConclusion:true,status:'completed',missingInputs:[]};
+    r.data.nativeDesignResults = {status:'completed',records:[{elementId:'B',component:'top',requiredArea:550,calculatedArea:565,unit:'mm2',source:{method:'SDK.BeamAs'},nativeCombination:{id:2}}]};
     const check = nativeDesignRecord(model,r,'GB/T50010-2010(2024)');
     expect(check).toMatchObject({completionStatus:'complete',complianceStatus:'not_evaluated',reinforcementScope:'required-not-installed'});
     const report = createEngineeringReport({message:'Report',analysisType:'static',analysis:r,codeCheck:check,locale:'en'});
@@ -43,6 +61,27 @@ describe('product report and native design provenance', () => {
     expect(nativeDesignRecord(model,r,'GB/T50010-2010(2024)').completionStatus).toBe('complete');
     r.data.nativeDesignResults.records.push({elementId:'bad',requiredArea:0});
     expect(nativeDesignRecord(model,r,'GB/T50010-2010(2024)').completionStatus).toBe('incomplete');
+  });
+  test.each(['required-reinforcement','steel-check'])('native %s failures and per-row provenance survive bilingual delivery', (mode) => {
+    const r = run();
+    r.data.nativeDesignContext = {request:{requested:true,code:'native-profile',mode},eligibleForConclusion:true,status:'completed',missingInputs:[]};
+    r.data.nativeDesignResults = {status:'completed',
+      checks:[{elementId:'C1',nativeStationIndex:3,check:'axial-compression-ratio',demand:.91,capacity:.75,unit:'ratio',status:'fail',
+        source:{method:'dsnGetColumnAxialCompRatio'},nativeCombination:{id:27}}],
+      records:[{elementId:'B',component:'top',requiredArea:550,unit:'mm2',source:{method:'SDK.BeamAs'},nativeCombination:{id:2}}]};
+    const check = nativeDesignRecord(model,r,'native-profile');
+    expect(check).toMatchObject({completionStatus:'complete',complianceStatus:'fail',summary:{failed:1}});
+    if (mode === 'required-reinforcement') expect(check.reinforcementScope).toBe('required-not-installed');
+    for (const locale of ['en','zh']) {
+      const report = createEngineeringReport({message:'Report',analysisType:'static',analysis:r,codeCheck:check,locale});
+      expect(report.markdown).toContain('| C1 | 3 | axial-compression-ratio | 0.91 | 0.75 | ratio | fail | {"id":27} |');
+      expect(report.markdown).toContain('dsnGetColumnAxialCompRatio');
+      if (mode === 'required-reinforcement') {
+        expect(report.summary).toContain(locale === 'zh' ? '1 项原生检查未通过' : '1 native checks failed');
+        expect(report.summary).toContain(locale === 'zh' ? '未验算已有配筋' : 'installed reinforcement was not checked');
+        expect(report.json.keyMetrics.codeCheckPassRate).toBeNull();
+      }
+    }
   });
   test.each([['DESIGN_INPUT_REQUIRED','insufficient_data'],['NATIVE_RESULT_UNAVAILABLE','failed'],['SDK_UNAVAILABLE','environment_unavailable'],['DESIGN_MODE_UNSUPPORTED','unsupported']])('native failure %s retains its cause', (error_code,executionStatus) => {
     const r={...run(),success:false,error_code:'RESULT_SET_INCOMPLETE',selectedResultKey:'case:D',results:{'case:D':{success:false,error_code,message:'specific native cause'}}};

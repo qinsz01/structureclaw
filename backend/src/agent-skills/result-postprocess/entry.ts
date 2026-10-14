@@ -24,7 +24,8 @@ export function extractKeyMetrics(analysis: unknown, codeCheck: unknown): Record
     maxBaseShear: envelopeObject['maxBaseShear'] ?? null,
     maxStoryDriftRatio: envelopeObject['maxStoryDriftRatio'] ?? null,
     modalMassParticipationRatio: envelopeObject['modalMassParticipationRatio'] ?? null,
-    codeCheckPassRate: total > 0 && codeCheckPayload['complianceStatus'] !== 'not_evaluated' ? Number((passed / total).toFixed(4)) : null,
+    codeCheckPassRate: total > 0 && codeCheckPayload['complianceStatus'] !== 'not_evaluated'
+      && codeCheckPayload['designMode'] !== 'required-reinforcement' ? Number((passed / total).toFixed(4)) : null,
   };
 }
 

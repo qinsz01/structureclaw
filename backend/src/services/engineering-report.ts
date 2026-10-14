@@ -34,8 +34,11 @@ export function prepareEngineeringReport(input: EngineeringReportInput) {
     throw new Error('REPORT_DESIGN_RUN_MISMATCH / 校核结果不属于本次运行');
   }
   const analysisSuccess = analysis.success === true;
+  const failedNativeChecks = isRecord(check.summary) && typeof check.summary.failed === 'number' ? check.summary.failed : 0;
   const codeCheckText = check.designMode === 'required-reinforcement' && check.completionStatus === 'complete'
-    ? input.locale === 'zh' ? '所需配筋计算已完成，未验算已有配筋' : 'Required reinforcement calculated; installed reinforcement was not checked'
+    ? input.locale === 'zh'
+      ? `所需配筋计算已完成${failedNativeChecks > 0 ? `，${failedNativeChecks} 项原生检查未通过` : ''}，未验算已有配筋`
+      : `Required reinforcement calculated${failedNativeChecks > 0 ? `; ${failedNativeChecks} native checks failed` : ''}; installed reinforcement was not checked`
     : formatCheckSummary(isRecord(check.summary) ? check.summary : undefined, input.locale);
   const summary = input.locale === 'zh'
     ? `分析类型 ${input.analysisType}，分析${analysisSuccess ? '成功' : '失败'}，${codeCheckText}。`
@@ -73,10 +76,19 @@ export function finishEngineeringReport(prepared: ReturnType<typeof prepareEngin
     if (input.codeCheck.designMode === 'required-reinforcement') markdown += input.locale === 'zh'
       ? '\n所需配筋结果不构成已有配筋的验算结论。\n'
       : '\nRequired reinforcement results do not establish compliance of installed reinforcement.\n';
+    const cell = (value: unknown) => (value === undefined || value === null ? '—'
+      : typeof value === 'object' ? JSON.stringify(value) : String(value)).replace(/\|/g, '\\|').replace(/[\r\n]+/g, ' ');
+    const checks = Array.isArray(input.codeCheck.details) ? input.codeCheck.details.filter(isRecord) : [];
+    if (checks.length) {
+      markdown += input.locale === 'zh'
+        ? '\n原生检查明细（站点为软件序号）：\n\n| 构件 | 原生站点 | 检查项 | 需求 | 限值 | 单位 | 状态 | 原生组合 | 官方来源 |\n'
+        : '\nNative checks (stations are software indices):\n\n| Member | Native station | Check | Demand | Limit | Unit | Status | Native combination | Official source |\n';
+      markdown += '| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n';
+      markdown += checks.map(row => `| ${[row.elementId, row.nativeStationIndex, row.check,
+        row.demand, row.capacity, row.unit, row.status, row.nativeCombination, row.source].map(cell).join(' | ')} |`).join('\n') + '\n';
+    }
     const records = Array.isArray(input.codeCheck.records) ? input.codeCheck.records.filter(isRecord) : [];
     if (records.length) {
-      const cell = (value: unknown) => (value === undefined || value === null ? '—'
-        : typeof value === 'object' ? JSON.stringify(value) : String(value)).replace(/\|/g, '\\|').replace(/[\r\n]+/g, ' ');
       markdown += input.locale === 'zh'
         ? '\n原生配筋输出（站点为软件序号，面积不表示已有配筋）：\n\n| 构件 | 原生站点 | 分量 | 所需面积 | SDK计算面积 | 单位 | 原生组合 | 官方来源 |\n'
         : '\nNative reinforcement output (stations are software indices; areas are not installed reinforcement):\n\n| Member | Native station | Component | Required area | SDK calculated area | Unit | Native combination | Official source |\n';

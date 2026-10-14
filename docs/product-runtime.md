@@ -113,6 +113,14 @@ inspected before retry. `{sessionId,newTurn:true}` declares an actual new user t
 宿主自己的 LLM 循环和对话文本由宿主管理，返回的 enforcement 会明确这一点。
 外部会话不接受假装能强制删除宿主上下文的配置。旧低层工具接口不自动获得新会话控制保证。
 
+Persistent sessions claim an atomic file lock across host processes. Competing hosts
+are rejected; calls in one host remain queued. An abandoned `.claim` is not taken over
+because of elapsed time or a missing PID: inspect the recorded pending operation and
+its native job before explicitly recovering it. Only the owning claim can be released.
+
+持久会话使用跨进程原子占用，同进程调用继续排队。异常退出留下的 `.claim` 不按超时或PID消失自动夺取；
+必须先核查记录中的未决操作及原生作业，再明确恢复。释放操作只清理自己持有的占用。
+
 ## Engineering identity and jobs / 模型身份与作业
 
 The canonical model is the only writable physical source. Analysis projections remove
@@ -159,7 +167,10 @@ and builtin for OpenSees. Native requests specify a supported **actual code edit
 design mode, required inputs and explicitly adopted native defaults. Changing assumptions
 creates a new analysis run before binding design outputs.
 
-所需配筋模式可以完成设计计算，但 `complianceStatus=not_evaluated`：它没有验算已有配筋。
+所需配筋模式没有验算已有配筋；读回的官方检查存在超限时 `complianceStatus=fail`，
+其余完成情况为 `not_evaluated`，不发布已有配筋通过结论。
+Required reinforcement does not certify installed bars. Read-back native failures
+take precedence (`fail`); otherwise completed required-area design is `not_evaluated`.
 官方空数组、哨兵值、未知字段均不能变成零或通过。数值刚度载体不构成真实设计截面。
 原生验算结论仅涵盖已经读回的官方检查范围。
 

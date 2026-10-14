@@ -29,6 +29,8 @@ export function nativeDesignRecord(model: ModelRecord, run: ModelRecord, code: s
     && isRecord(row.source) && Object.keys(row.source).length > 0 && row.nativeCombination !== undefined);
   const requiredReinforcement = request.mode === 'required-reinforcement';
   const eligible = run.success === true && context.eligibleForConclusion === true && request.requested === true
+    && context.status === 'completed' && native.status === 'completed'
+    && (context.missingInputs === undefined || Array.isArray(context.missingInputs) && context.missingInputs.length === 0)
     && request.code === code && rows.length === interpreted.length
     && (requiredReinforcement ? reinforcement.length > 0 && reinforcement.length === rawRecords.length : rows.length > 0);
   const checks = eligible ? rows : [];
@@ -42,8 +44,8 @@ export function nativeDesignRecord(model: ModelRecord, run: ModelRecord, code: s
     notApplicable: checks.filter(row => row.status === 'not_applicable').length,
     inputRequired: missingInputs.length, unsupported: status === 'unsupported' || (!eligible && !missingInputs.length && status === 'completed') ? 1 : 0, warnings: 0 };
   const record = { provider: 'native', designCode: code, completionStatus: eligible ? 'complete' : 'incomplete',
-    complianceStatus: eligible && requiredReinforcement ? 'not_evaluated'
-      : summary.failed ? 'fail' : eligible ? summary.passed ? 'pass' : 'not_applicable' : 'incomplete',
+    complianceStatus: summary.failed ? 'fail' : eligible && requiredReinforcement ? 'not_evaluated'
+      : eligible ? summary.passed ? 'pass' : 'not_applicable' : 'incomplete',
     summary, details: checks, missingInputs, nativeDesignContext: context, nativeDesignResults: native,
     records: eligible ? reinforcement : [], designMode: request.mode,
     complianceScope: native.complianceScope ?? 'reported-native-checks-only',
