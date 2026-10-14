@@ -2,6 +2,7 @@ import React from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ResultReviewPanel, selectedResultSnapshot } from '@/components/chat/result-review-panel'
+import { buildVisualizationSnapshot } from '@/components/visualization/adapter'
 
 vi.mock('next/dynamic', () => ({ default: () => () => null }))
 vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
@@ -64,6 +65,51 @@ it('mode and time figures use archived geometry and never invent unobserved node
   const partial=selectedResultSnapshot({...result,visualizationData:{displacements:{b:{uz:-.002}},time:.03}}, {...selection,modeNumber:undefined,timeIndex:1,unit:'mm'},false)!
   expect(partial.availableViews).not.toContain('deformed');expect(partial.cases[0].nodeResults.a).toBeUndefined()
   expect(partial.cases[0].nodeResults.b.displacement?.ux).toBeUndefined()
+})
+
+it('static figures retain full solver fields when effective nodal loads include equivalent component and vector readback', () => {
+  const meta = { runId: 'now', modelHash: 'model', settingsHash: 'settings', coordinateSemantics: 'global-z-up',
+    coordinateContractVersion: 1, dimension: '3d', plane: null, dofOrder: ['ux','uy','uz','rx','ry','rz'],
+    activeDofs: ['ux','uy','uz','rx','ry','rz'], nodalResultFrame: 'global', elementForceFrame: 'element-local' }
+  const effectiveLoad = { type: 'nodal', node: 'b', reference_frame: 'global',
+    fx: 0, fy: 0, fz: -1, mx: 2, my: 3, mz: 4, forces: [0, 0, -1, 2, 3, 4] }
+  const data = { meta, effectiveLoads: [effectiveLoad],
+    displacements: { a: { ux: 0, uy: 0, uz: 0 }, b: { ux: 0, uy: 0, uz: -.002 } },
+    reactions: { a: { fx: 0, fy: 0, fz: 1 } },
+    forces: { e: { axial: 0, n1: { N: 0, V: 1, M: 4, V3: 1, M2: 4 }, n2: { N: 0, V: -1, M: 0, V3: -1, M2: 0 } } },
+    memberResponses: [{ id: 'e', state: 'recovered', reason: 'checked', length: 4, samples: [
+      { x: 0, position: [0,0,0], displacement: [0,0,0] },
+      { x: 2, position: [2,0,0], displacement: [0,0,-.0006] },
+      { x: 4, position: [4,0,0], displacement: [0,0,-.002] },
+    ] }] }
+  const selection = { runId: 'now', resultKey: 'case:D', nodeId: 'b', field: 'displacements', component: 'uz', unit: 'mm' }
+  const output = { runId: 'now', meta, resultSelection: { key: 'case:D', kind: 'case', id: 'D' },
+    modelSnapshot: model, visualizationData: data, quantity: { value: 12345, unit: 'mm' } }
+  const snapshot = selectedResultSnapshot(output, selection, false)!
+  expect(snapshot.cases[0].resultStatus).toBe('available')
+  expect(snapshot.availableViews).toEqual(expect.arrayContaining(['deformed', 'forces', 'reactions']))
+  expect(snapshot.cases[0].nodeResults.b.displacement?.uz).toBe(-.002)
+  expect(snapshot.cases[0].memberResponses?.e.samples[1].displacement?.[2]).toBe(-.0006)
+  expect(snapshot.loads).toEqual(expect.arrayContaining([
+    expect.objectContaining({ nodeId: 'b', caseId: 'case:D', kind: 'nodal', referenceFrame: 'global', vector: { x: 0, y: 0, z: -1 } }),
+    expect.objectContaining({ nodeId: 'b', caseId: 'case:D', kind: 'moment', referenceFrame: 'global', vector: { x: 2, y: 3, z: 4 } }),
+  ]))
+  expect(data.effectiveLoads[0].forces).toEqual([0, 0, -1, 2, 3, 4])
+  const conflict = selectedResultSnapshot({ ...output, visualizationData: {
+    ...data, effectiveLoads: [{ ...effectiveLoad, forces: [0, 0, -2, 2, 3, 4] }],
+  } }, selection, false)!
+  expect(conflict.cases[0].resultStatus).toBe('unavailable')
+  expect(conflict.availableViews).toEqual(['model'])
+  const wrongFrame = selectedResultSnapshot({ ...output, visualizationData: {
+    ...data, effectiveLoads: [{ ...effectiveLoad, reference_frame: 'element-local' }],
+  } }, selection, false)!
+  expect(wrongFrame.cases[0].resultStatus).toBe('unavailable')
+  expect(buildVisualizationSnapshot({ title: 'Invalid source load', mode: 'model-only',
+    model: { ...model, load_cases: [{ id: 'D', loads: [effectiveLoad] }] },
+  })).toBeNull()
+  const scalarOnly = selectedResultSnapshot({ ...output, visualizationData: { meta } }, selection, false)!
+  expect(scalarOnly.availableViews).toEqual(['model'])
+  expect(scalarOnly.cases[0].nodeResults).toEqual({})
 })
 
 it('runs native design through the same conversation and reports the returned design run, not the historical selector', async () => {

@@ -1252,6 +1252,22 @@ type VisualizationInput = {
   bucklingModes?: BucklingMode[] | null
 }
 
+/** Solver readback may repeat one nodal vector as six named components. Keep
+ * source-model validation strict; remove only proven-equivalent redundancy in
+ * this display projection, leaving conflicting or partial declarations intact. */
+function projectEffectiveLoad(value: unknown): unknown {
+  const load = asRecord(value)
+  if (!load || !(load.node ?? load.nodeId ?? load.node_id) || !Array.isArray(load.forces) || load.forces.length !== 6) return value
+  const forces = load.forces
+  const components = ['fx', 'fy', 'fz', 'mx', 'my', 'mz']
+  if (!components.every((key, index) => {
+    const component = asNumber(load[key]); const vector = asNumber(forces[index])
+    return component !== null && vector !== null && component === vector
+  })) return value
+  const { forces: _redundant, ...projected } = load
+  return projected
+}
+
 /** Result collections are authoritative; never substitute the selected top-level copy for a missing child. */
 function buildRunSnapshot(params: VisualizationInput, run: Record<string, unknown>): VisualizationSnapshot | null {
   const results = asRecord(run.results)
@@ -1278,7 +1294,7 @@ function buildRunSnapshot(params: VisualizationInput, run: Record<string, unknow
       && asRecord(result?.meta)?.modelHash === asRecord(run.meta)?.modelHash
       && asRecord(result?.meta)?.settingsHash === asRecord(run.meta)?.settingsHash)
     const effectiveLoads = asRecord(result?.data)?.effectiveLoads
-    const renderModel = Array.isArray(effectiveLoads) ? { ...model, load_cases: [{ id: key, loads: effectiveLoads }] } : model
+    const renderModel = Array.isArray(effectiveLoads) ? { ...model, load_cases: [{ id: key, loads: effectiveLoads.map(projectEffectiveLoad) }] } : model
     const snapshot = result?.success === true && selectionMatches && sameRun
       ? buildVisualizationSnapshot({ title: params.title, model: renderModel, analysis: result, mode: 'analysis-result' }) : null
     const ownCase = snapshot?.cases.find(item => item.id === snapshot.defaultCaseId)
