@@ -407,6 +407,7 @@ function loadProjectEnvironment(rootDir, logger = () => {}, options = {}) {
   if (settings.server?.frontendPort) env.FRONTEND_PORT = String(settings.server.frontendPort);
   if (settings.server?.host) env.HOST = settings.server.host;
   if (settings.database?.url) env.DATABASE_URL = settings.database.url;
+  if (settings.analysis?.pythonBin) env.ANALYSIS_PYTHON_BIN = settings.analysis.pythonBin;
   applyCnProfileDefaults(env);
   env.APT_MIRROR = normalizeAptMirror(env.APT_MIRROR);
   env.FRONTEND_PORT = env.FRONTEND_PORT || DEFAULT_FRONTEND_PORT;
@@ -998,7 +999,8 @@ function buildAnalysisPaths(rootDir) {
 }
 
 function resolveAnalysisPython(rootDir, env) {
-  if (env.ANALYSIS_PYTHON_BIN && pathExists(env.ANALYSIS_PYTHON_BIN)) {
+  if (env.ANALYSIS_PYTHON_BIN) {
+    if (!pathExists(env.ANALYSIS_PYTHON_BIN)) throw new Error(`Configured analysis Python does not exist / 配置的分析 Python 不存在: ${env.ANALYSIS_PYTHON_BIN}`);
     return env.ANALYSIS_PYTHON_BIN;
   }
 

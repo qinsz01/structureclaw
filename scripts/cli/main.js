@@ -250,6 +250,12 @@ async function ensureNpmDependencies(projectDir, projectName, packageNames = [])
     return;
   }
 
+  // npm ci can traverse a Windows junction while clearing node_modules.
+  // Shared dependencies must be maintained by their owner, never by this checkout.
+  if (fs.existsSync(nodeModulesDir) && fs.lstatSync(nodeModulesDir).isSymbolicLink()) {
+    throw new Error(`SHARED_DEPENDENCIES_REQUIRE_OWNER_INSTALL / 请在依赖原目录安装，当前目录使用链接: ${nodeModulesDir}`);
+  }
+
   log(`Installing ${projectName} dependencies...`);
   await runtime.runCommand(runtime.getNpmCommand(), ["ci", "--prefix", projectDir]);
   if (runtime.pathExists(lockFile)) {
