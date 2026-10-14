@@ -96,6 +96,7 @@ def main():
     parser.add_argument("--native-switch", choices=("SOV_DOUBLE.OUT", "READDISPDIRECT.OUT", "OPTIMIZELOOPREAD4_TO_REAL8.OUT", "OPTIMIZELOOPREAD4_TO_REAL8_2.OUT"), action="append", default=[], help="Diagnostic native numerical switch in the isolated project only")
     parser.add_argument("--combination", action="store_true", help="Request ULS after native source cases are solved")
     parser.add_argument("--native-design", choices=("PKPM-2025R2.5-native", "GB50017-2017"), help="Explicit native-grade design with recorded software defaults")
+    parser.add_argument("--design-parameters", type=Path, help="Explicit design parameter JSON, frozen with the request before execution")
     inputs = parser.add_mutually_exclusive_group(required=True)
     inputs.add_argument("--planned-proxy", action="store_true", help="Use explicit INT089/MM089 capability proxy, not formal benchmark input")
     inputs.add_argument("--model-file", type=Path, help="Explicit independent capability model; not benchmark scoring truth")
@@ -180,6 +181,8 @@ def main():
         parameters = {"timeout": 120, **selection}
         if args.native_design:
             parameters["design"] = {"requested": True, "code": args.native_design, "mode": "code-check", "adoptedNativeDefaults": True}
+            if args.design_parameters:
+                parameters["design"]["parameters"] = json.loads(args.design_parameters.read_text(encoding="utf-8"))
         (root / "frozen-request.json").write_text(json.dumps(parameters, indent=2), encoding="utf-8")
         result = module.run_analysis(model, parameters)
         (root / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")

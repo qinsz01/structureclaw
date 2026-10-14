@@ -1199,6 +1199,9 @@ def convert_v2_to_jws(
             clear_floor_slab(model.GetCurrentStandFloor())
     model.SetCurrentStandFloor(1)
     _configure_satwe_params(model, material_family, site_seismic, wind, analysis_control)
+    if design_plan:
+        from pkpm_native_design import write_design_parameters
+        write_design_parameters(model, design_plan)
     model.SavePMModel()
     return jws_path, {
         "v2_to_pm": v2_to_pm,

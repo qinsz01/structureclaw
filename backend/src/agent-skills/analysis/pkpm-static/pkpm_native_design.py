@@ -10,12 +10,22 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 from pathlib import Path
 
 
 SOLVER_SHA256 = "28adde523fe58491f96727da7250c21e6304e56aef3d0ba0330da9c57e3adaf3"
 PROFILES = {"C30": {"family": "concrete", "E": 30000., "G": 12000., "nativeGrade": 30., "resultGrade": 30.},
+            "C35": {"family": "concrete", "E": 31500., "G": 12600., "nativeGrade": 35., "resultGrade": 35.},
             "Q355": {"family": "steel", "E": 206000., "G": 79000., "nativeGrade": -355., "resultGrade": 29.}}
+PARAMETERS = {"beamCoverMm": (709, "BCB", 10, 100), "columnCoverMm": (710, "ACA", 10, 100),
+              "beamStirrupSpacingMm": (816, "SB", 25, 300), "columnStirrupSpacingMm": (817, "SC", 25, 300),
+              "beamMainRebarGrade": (808, "IB", None, None), "columnMainRebarGrade": (809, "IC", None, None),
+              "beamStirrupGrade": (811, "JB", None, None), "columnStirrupGrade": (812, "JC", None, None)}
+# Actual SATREINFORCE_PARA_BY_LAYER.PM declares these native IDs. They are
+# different from the older Python ReinforcingbarGrade enum after HRB400.
+REBAR = {"HPB235": (1, 210.), "HRB335": (2, 300.), "HRB400": (3, 360.), "HPB300": (12, 270.), "HRB500": (13, 435.)}
+MODEL_REBAR = {"HPB235": 1, "HRB335": 2, "HRB400": 3, "HPB300": 5, "HRB500": 6}
 
 
 class NativeDesignError(ValueError):
@@ -37,11 +47,38 @@ def compile_design_request(request, source):
         reject("Adopt read-back native defaults and choose a supported design mode / 须明确采用回读的原生默认参数与设计模式")
     if request.get("code") not in {"PKPM-2025R2.5-native", "GB50017-2017"}:
         reject("Specify PKPM-2025R2.5-native or GB50017-2017 / 须明确已验收原生规范配置")
-    if request.get("parameters") or source.get("site_seismic") or source.get("wind") or (source.get("analysis_control") or {}).get("design_params"):
+    if source.get("site_seismic") or source.get("wind") or (source.get("analysis_control") or {}).get("design_params"):
         reject("Unmapped explicit native design parameters / 显式设计参数尚未逐项映射", "ENGINE_INPUT_UNSUPPORTED")
     from commercial_context import project_commercial_model
     fields = project_commercial_model(source, "pkpm")["designInputs"]["fields"]
-    if any(value is not None and value != {} for value in fields.values()):
+    supplied = request.get("parameters") or {}
+    if not isinstance(supplied, dict) or set(supplied) - set(PARAMETERS):
+        reject("Unknown native design parameters / 未知原生设计参数")
+    supplied = dict(supplied)
+    consumed = set()
+    for role, parameter in (("beam", "beamMainRebarGrade"), ("column", "columnMainRebarGrade")):
+        members = [row for row in source.get("elements", []) if row.get("type") == role]
+        grades = []
+        for member in members:
+            prefix = "elements." + str(member["id"])
+            values = []
+            for path in (prefix, prefix + ".extra"):
+                if fields.get(path + ".rebar_grade") is not None:
+                    values.append(fields[path + ".rebar_grade"]); consumed.add(path + ".rebar_grade")
+                data = fields.get(path + ".design")
+                if isinstance(data, dict) and set(data) == {"rebar_grade"}:
+                    values.append(data["rebar_grade"]); consumed.add(path + ".design")
+            if values:
+                if len(set(values)) != 1:
+                    reject("Conflicting member reinforcement grade / 构件钢筋牌号冲突")
+                grades.append(values[0])
+        if grades:
+            if len(grades) != len(members) or len(set(grades)) != 1:
+                reject("Native per-role rebar profile requires one explicit grade on every affected member / 当前原生钢筋配置须同类构件全部指定同一牌号", "ENGINE_INPUT_UNSUPPORTED")
+            if parameter in supplied and supplied[parameter] != grades[0]:
+                reject("Requested rebar profile conflicts with the canonical model / 设计请求钢筋牌号与模型冲突")
+            supplied[parameter] = grades[0]
+    if any(value is not None and value != {} for path, value in fields.items() if path not in consumed):
         reject("Unmapped explicit member/material design values / 构件或材料设计值尚未映射", "ENGINE_INPUT_UNSUPPORTED")
     if any((source.get("analysis_control") or {}).get(key) is not False for key in
            ("self_weight", "rigid_floor", "rigid_offsets", "construction_stage", "p_delta")):
@@ -65,9 +102,51 @@ def compile_design_request(request, source):
             reject("Steel cannot request concrete reinforcement / 钢构件不能请求混凝土配筋")
         materials[str(material["id"])] = {**profile, "grade": grade, "nativeMaterialId": None,
             "sourceDensityKgM3": material.get("rho"), "selfWeightEnabled": False}
+    if supplied and any(row["family"] != "concrete" for row in materials.values()):
+        reject("Concrete reinforcement settings require concrete members / 钢筋参数只适用于混凝土")
+    parameters = {}
+    for key, value in supplied.items():
+        identifier, report_symbol, lower, upper = PARAMETERS[key]
+        if lower is None:
+            if value not in REBAR:
+                reject("Unmapped rebar grade: " + key + " / 钢筋牌号未映射")
+            if "MainRebar" in key and value != "HRB400":
+                reject("Installed native main-bar grade override has not passed effective readback; current profile requires HRB400 / 本机原生主筋牌号覆盖尚未通过有效读回，当前配置要求HRB400", "ENGINE_INPUT_UNSUPPORTED")
+            native, effective = REBAR[value]
+        else:
+            if type(value) is not int or not lower <= value <= upper:
+                reject("Invalid native design dimension: " + key + " / 设计尺寸无效")
+            if "StirrupSpacing" in key and value != 100:
+                reject("SATWE fixes beam/column design stirrup spacing at 100 mm; other detailing spacings require separately labelled area conversion / SATWE原生箍筋设计间距固定为100mm，其他实配间距须单独标明面积折算", "ENGINE_INPUT_UNSUPPORTED")
+            native = effective = value
+        parameters[key] = {"id": identifier, "nativeValue": native, "reportSymbol": report_symbol,
+                           "expectedEffectiveValue": effective, "requested": value}
     return {"schema": "sclaw-pkpm-native-design-request/v1", "request": {**request, "mode": mode},
-            "materials": materials, "defaultPolicy": "adopt-and-read-back",
+            "materials": materials, "parameters": parameters, "defaultPolicy": "adopt-and-read-back",
             "combinationScope": "software-automatic-design-combinations"}
+
+
+def write_design_parameters(model, plan):
+    """Official PMProjectPara fields; verify persisted inputs and solved report."""
+    para = model.GetProjectPara()
+    for row in plan["parameters"].values():
+        para.SetParaDouble(row["id"], row["nativeValue"])
+    for floor_index in range(1, model.GetStandFloorCount() + 1):
+        model.SetCurrentStandFloor(floor_index)
+        floor = model.GetCurrentStandFloor()
+        for key, index in (("beamMainRebarGrade", 6), ("columnMainRebarGrade", 7)):
+            row = plan["parameters"].get(key)
+            if row:
+                model_grade = MODEL_REBAR[row["requested"]]
+                floor.SetInfoValue(index, model_grade)
+                if floor.GetInfoValue(index) != model_grade:
+                    raise NativeDesignError("Native floor rebar grade did not persist / 标准层钢筋牌号未保存")
+        model.SaveOneStandFloor(floor_index)
+    model.SetCurrentStandFloor(1)
+    model.SaveProjectPara()
+    for row in plan["parameters"].values():
+        if para.GetPara_Double(row["id"]) != row["nativeValue"]:
+            raise NativeDesignError("Native design input did not persist / 原生设计参数未保存")
 
 
 def verify_standard_materials(directory, model, plan, cycle_path):
@@ -133,11 +212,23 @@ def finish_native_design(result, source, plan, jws, member_map):
     report = directory / "WMASS.OUT"
     text = report.read_text(encoding="gb18030")
     lines = [line.strip() for line in text.splitlines() if any(word in line for word in
-        ("执行全国规范版本", "钢结构设计执行规范", "保护层", "钢筋强度", "钢筋间距", "箍筋间距", "组合系数", "分项系数"))]
+        ("执行全国规范版本", "钢结构设计执行规范", "保护层", "主筋强度", "箍筋强度", "箍筋最大间距", "组合系数", "分项系数"))]
     if not any("通用规范2021版" in line for line in lines):
         raise NativeDesignError("Native general code profile is not identified / 原生通用规范配置无法识别")
     if plan["request"]["code"] == "GB50017-2017" and not any("GB50017-2017" in line for line in lines):
         raise NativeDesignError("Native steel code readback differs / 原生钢规范回读不符")
+    effective_parameters = {}
+    for key, (_, symbol, _, _) in PARAMETERS.items():
+        matches = re.findall(r"\b" + symbol + r"\s*=\s*([0-9.]+)", text)
+        if len(matches) != 1:
+            raise NativeDesignError("Missing effective native design parameter: " + key + " / 缺少原生有效设计参数")
+        actual = float(matches[0])
+        requested = plan.get("parameters", {}).get(key)
+        if requested and actual != requested["expectedEffectiveValue"]:
+            raise NativeDesignError("Native design setting differs: " + key + " / 原生设计参数未生效")
+        effective_parameters[key] = {"value": actual, "unit": "MPa" if "Grade" in key else "mm",
+            "requested": requested["requested"] if requested else None, "origin": "explicit" if requested else "adopted-native-default",
+            "source": "WMASS.OUT:" + symbol}
     records, checks = [], []
     for identity, row in raw.items():
         origin = {"engine": "pkpm", "valueOrigin": "native-sdk", "elementId": identity,
@@ -166,6 +257,19 @@ def finish_native_design(result, source, plan, jws, member_map):
         else:
             if not any(row[method] and any(value != 0 for value in row[method]) for method in ("GetCalcMax1", "GetCalcMax2", "GetCalcMax3")):
                 raise NativeDesignError("Native steel member has no actual design checks: " + identity + " / 原生钢构件未实际验算")
+            if row["role"] == "column":
+                # Independently bound against all F1/F2/F3 / F printed for
+                # six native Q355 box columns at normal and excess loads.
+                # The remaining tuple positions are retained raw, not guessed.
+                for method, check in (("GetCalcMax1", "strength"), ("GetCalcMax2", "x-stability"), ("GetCalcMax3", "y-stability")):
+                    values = row[method]
+                    if len(values) != 7 or values[0] < 0:
+                        raise NativeDesignError("Native steel check ratio is unavailable / 原生钢验算比值缺失")
+                    checks.append({"id": identity + ":" + check, "elementId": identity, "check": check,
+                        "demand": values[0], "capacity": 1., "unit": "ratio", "utilization": values[0],
+                        "status": "pass" if values[0] <= 1 else "fail",
+                        "nativeCombination": {"scope": "software-automatic-design-envelope"},
+                        "source": {**origin, "method": method + "; ratio calibrated against WPJ*.OUT"}})
         checks.append({"id": identity + ":native-limit-report", "elementId": identity,
             "check": "native-design-limit-report", "status": "fail" if row["limits"] else "pass",
             "nativeLimitCodes": row["limits"], "nativeCombination": {"scope": "all-native-design-combinations"},
@@ -173,6 +277,7 @@ def finish_native_design(result, source, plan, jws, member_map):
     context = result["nativeDesignContext"]
     context.update(status="completed", eligibleForConclusion=True, missingInputs=[],
         defaultPolicy=plan["defaultPolicy"], effectiveCodeProfile={"code": plan["request"]["code"], "nativeReportLines": lines},
+        effectiveParameters=effective_parameters,
         materialProfiles=plan["materials"], conclusionScope="reported-native-checks-only; not-installed-reinforcement-certification",
         evidence=[{"path": str(path), "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
                   for path in (raw_path, report, directory / "DATA.SAT", directory / "WPJ1.OUT")])

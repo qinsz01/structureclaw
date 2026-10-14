@@ -729,6 +729,8 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
         (work_dir / "source-model.json").write_text(json.dumps(source_model, ensure_ascii=False), encoding="utf-8")
         (work_dir / "model-projection.json").write_text(json.dumps(
             {key: value for key, value in projection.items() if key != "analysisModel"}, ensure_ascii=False), encoding="utf-8")
+        if design_plan:
+            (work_dir / "native-design-request.json").write_text(json.dumps(design_plan, ensure_ascii=False, indent=2), encoding="utf-8")
     except AnalysisCapabilityError:
         raise
     except Exception as exc:
