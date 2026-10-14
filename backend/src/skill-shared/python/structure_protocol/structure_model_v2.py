@@ -567,6 +567,12 @@ class AnalysisControl(BaseModel):
     p_delta: bool = Field(default=False, description="考虑 P-Δ 效应")
     rigid_floor: bool = Field(default=True, description="刚性楼板假定")
     self_weight: Optional[bool] = Field(default=None, description="显式自重开关 / explicit self-weight setting")
+    self_weight_case_id: Optional[str] = Field(default=None, min_length=1,
+        description="接收自重的源工况；省略时仅允许唯一恒载工况 / source case receiving self weight; otherwise exactly one dead case is required")
+    gravity_m_s2: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False,
+        description="重力加速度，m/s²；默认9.80665 / gravitational acceleration, default 9.80665 m/s²")
+    gravity_direction: Optional[Literal['x', '-x', 'y', '-y', 'z', '-z']] = Field(default=None,
+        description="全局重力方向；默认-z / global gravity direction, default -z")
     mass_source: Optional[Literal['nodal', 'member-density', 'floor-seismic']] = Field(default=None,
         description="动力质量来源；nodal 与杆件密度互斥 / mutually exclusive dynamic mass source")
     mass_directions: Optional[List[Literal['x', 'y', 'z']]] = Field(default=None, min_length=1,
