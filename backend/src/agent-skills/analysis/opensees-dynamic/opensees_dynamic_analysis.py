@@ -181,7 +181,7 @@ class OpenSeesDynamicExecutor(OpenSeesModelBuilder):
             for node in monitors:
                 tag = self._ops_node_tag(node.id)
                 for target, reader in ((vectors, ops.nodeDisp), (velocities, ops.nodeVel), (accelerations, ops.nodeAccel)):
-                    target[str(node.id)] = dict(zip(('ux', 'uy', 'uz', 'rx', 'ry', 'rz'), self.global_vector(reader(tag))))
+                    target[str(node.id)] = self.nodal_response(node.id, reader(tag))
             from opensees_shared.response import member_end_actions
             forces = {key: member_end_actions(self, ops, elements[key]) for key in element_ids}
             reactions = {}
@@ -204,6 +204,7 @@ class OpenSeesDynamicExecutor(OpenSeesModelBuilder):
             "monitorNodeIds": [str(n.id) for n in monitors],
             "monitorElementIds": element_ids,
             "monitorSupportNodeIds": support_ids,
+            "nodalResponseAvailability": self.nodal_response_availability,
             "responseDefinition": {"displacement": "relative-to-uniformly-moving-ground",
                 "velocity": "relative-to-uniformly-moving-ground", "acceleration": "relative-to-uniformly-moving-ground",
                 "nodeComponents": ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'],

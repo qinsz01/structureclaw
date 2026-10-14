@@ -81,6 +81,25 @@ function hermite(
   );
 }
 
+function bendingReleases(value: unknown): { i: Set<string>; j: Set<string> } | undefined {
+  const record = value == null ? {} : value as Record<string, unknown>;
+  if (typeof record !== 'object' || Array.isArray(record) ||
+      Object.keys(record).some(k => !['i', 'j', 'releaseI', 'releaseJ', 'reference_frame'].includes(k)) ||
+      (record.reference_frame !== undefined && record.reference_frame !== 'element-local')) return;
+  const result = { i: new Set<string>(), j: new Set<string>() };
+  for (const [end, alias] of [['i', 'releaseI'], ['j', 'releaseJ']] as const) {
+    const raw = record[end] ?? record[alias] ?? {};
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return;
+    if (record[end] && record[alias] && JSON.stringify(record[end]) !== JSON.stringify(record[alias])) return;
+    for (const [key, enabled] of Object.entries(raw)) {
+      if (!['ux','uy','uz','rx','ry','rz'].includes(key) || typeof enabled !== 'boolean') return;
+      if (enabled && !['ry','rz'].includes(key)) return;
+      if (enabled) result[end].add(key);
+    }
+  }
+  return result;
+}
+
 // Pure postprocessing. Never runs a solver or changes model, results, or evaluation tolerances.
 export function recoverMemberResponses(
   model: RecoveryModel,
@@ -215,16 +234,23 @@ export function recoverMemberResponses(
       axes[0][0] * axes[1][1] - axes[0][1] * axes[1][0],
     ];
     if (dot(cross, axes[2]) < 1 - 1e-6) return fail("axes");
-    if (!finite([da.rx, da.ry, da.rz, db.rx, db.ry, db.rz]))
-      return fail("rotations");
+    const releases = bendingReleases(e.releases);
+    if (!releases) return fail('releases');
+    const hasReleases = releases.i.size > 0 || releases.j.size > 0;
+    if (hasReleases && planar) return fail('releases');
     const va = axes.map((v) => dot(v, ua)),
       vb = axes.map((v) => dot(v, ub));
+    const rotation = (axis: Vec, d: Record<string, number>) => axis.reduce((value, coefficient, index) =>
+      value + (Math.abs(coefficient) > 1e-10 ? coefficient*d[['rx','ry','rz'][index]] : 0), 0);
     const ra = planar
       ? [0, 0, -da.ry]
-      : axes.map((v) => dot(v, [da.rx, da.ry, da.rz]));
+      : axes.map((v) => rotation(v, da));
     const rb = planar
       ? [0, 0, -db.ry]
-      : axes.map((v) => dot(v, [db.rx, db.ry, db.rz]));
+      : axes.map((v) => rotation(v, db));
+    if ((!releases.i.has('rz') && !finite([ra[2]])) || (!releases.j.has('rz') && !finite([rb[2]])) ||
+        (!planar && ((!releases.i.has('ry') && !finite([ra[1]])) || (!releases.j.has('ry') && !finite([rb[1]])))))
+      return fail('rotations');
     const E = Number(m.materials.find((v) => v.id === e.material)?.E) * 1000;
     const declaredProperties = m.sections.find((v) => v.id === e.section)?.properties as
       Record<string, number> | undefined;
@@ -291,7 +317,7 @@ export function recoverMemberResponses(
       force?.referenceFrame === "element-local" &&
       units?.force === "kN" &&
       units?.moment === "kN.m" &&
-      !Object.keys(e).some((k) => /release|offset/i.test(k));
+      !Object.keys(e).some((k) => /offset/i.test(k) && e[k] != null);
     const V = n1?.[planar ? "V" : "V2"] || 0,
       M = n1?.[planar ? "M" : "M3"] || 0;
     const moment = (x: number) =>
@@ -336,16 +362,16 @@ export function recoverMemberResponses(
           (E * p!.A * (vb[0] - va[0])) / L,
           -n1!.N - (q[0] * L) / 2 - (dq[0] * L * L) / 6,
         ],
-        [sy, ra[2]],
-        [slopeY, rb[2]],
+        releases.i.has('rz') ? [n1![planar ? 'M' : 'M3'], 0] : [sy, ra[2]],
+        releases.j.has('rz') ? [n2![planar ? 'M' : 'M3'], 0] : [slopeY, rb[2]],
       ];
       if (!planar)
         pairs.push(
           [-n1!.T, n2!.T],
           [moment2(L), n2!.M2],
           [(n1!.V3 || 0) + q[2] * L + (dq[2] * L * L) / 2, -n2!.V3],
-          [sz, -ra[1]],
-          [slopeZ, -rb[1]],
+          releases.i.has('ry') ? [n1!.M2, 0] : [sz, -ra[1]],
+          releases.j.has('ry') ? [n2!.M2, 0] : [slopeZ, -rb[1]],
         );
       error = Math.max(
         ...pairs.map(
@@ -356,6 +382,9 @@ export function recoverMemberResponses(
       );
       eligible = error <= 1;
     }
+    // Released member-end slopes need not equal joint rotations. When mechanics
+    // cannot be checked, a Hermite curve through those joint rotations is false.
+    if (hasReleases && !eligible) return fail('release-consistency');
     const reason = eligible
       ? "checked"
       : hiddenLoads

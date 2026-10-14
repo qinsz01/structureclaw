@@ -76,7 +76,7 @@ class OpenSeesStaticExecutor:
             all_displacements, all_reactions = {}, {}
             for node in mesh.model.nodes:
                 tag = builder._ops_node_tag(node.id)
-                all_displacements[node.id] = dict(zip(('ux', 'uy', 'uz', 'rx', 'ry', 'rz'), builder.global_vector(ops.nodeDisp(tag))))
+                all_displacements[node.id] = builder.nodal_response(node.id, ops.nodeDisp(tag))
                 all_reactions[node.id] = dict(zip(('fx', 'fy', 'fz', 'mx', 'my', 'mz'), builder.global_vector(ops.nodeReaction(tag))))
             segments = {}
             for element in mesh.model.elements:
@@ -93,6 +93,7 @@ class OpenSeesStaticExecutor:
                 'plane': 'xz' if builder.dimension == '2d' else None,
                 'responseCoordinateConvention': 'global-xyz',
                 'displacements': displacements, 'forces': forces, 'reactions': reactions,
+                'nodalResponseAvailability': builder.nodal_response_availability,
                 'envelope': self.analyzer._build_envelope(displacements, forces, reactions),
                 'summary': self.analyzer._generate_summary(displacements, forces),
                 'solverMesh': mesh.evidence(), 'effectiveLoads': mesh.loads,

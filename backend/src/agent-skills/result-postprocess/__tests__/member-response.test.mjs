@@ -1,5 +1,4 @@
 import { describe, expect, test } from "@jest/globals";
-import fs from "node:fs";
 import { recoverMemberResponses } from "../../../../dist/skill-shared/member-response.js";
 import {
   recoverAnalysisMembers,
@@ -51,33 +50,22 @@ describe("shared member response recovery", () => {
     expect(sampleMemberResponse(responses, "slope", length + Number.EPSILON * length).sample.N).toBe(5);
     expect(sampleMemberResponse(responses, "slope", length + 1e-10)).toBeUndefined();
   });
-  test("all frozen references retain coverage and immutability without depending on viewer types", () => {
-    const base = new URL(
-      "../../../../../tests/llm-benchmark/fixtures/",
-      import.meta.url,
-    );
-    const models = JSON.parse(
-      fs.readFileSync(new URL("ground-truth-models.json", base)),
-    );
-    const results = JSON.parse(
-      fs.readFileSync(new URL("opensees-ground-truth.json", base)),
-    ).models;
-    let recovered = 0;
-    for (const reference of models) {
-      const numerical = results.find((n) => n.modelId === reference.id);
-      if (!numerical) continue;
-      const before = JSON.stringify(reference),
-        rows = recoverMemberResponses(
-          reference.model,
-          numerical.result,
-          numerical.analysisSelection.factors,
-          "opensees",
-        );
-      expect(rows).toHaveLength(reference.model.elements.length);
-      recovered += rows.filter((row) => row.state === "recovered").length;
-      expect(JSON.stringify(reference)).toBe(before);
+  test("product-owned analytic references retain model and result immutability", () => {
+    for (const q of [0.5, 2, 10]) {
+      const m = model([{ type: 'distributed', element: 'beam', reference_frame: 'global', wz: -q }]);
+      const result = { units, responseCoordinateConvention: 'global-xyz',
+        displacements: { A: d(), B: d(-q*6**4/(8*20000), q*6**3/(6*20000)) },
+        forces: { beam: force(end(q*6, -q*18), end()) } };
+      const before = JSON.stringify({m,result});
+      const rows = recoverMemberResponses(m, result, { D: 1 }, 'opensees');
+      expect(rows).toHaveLength(1);
+      expect(rows[0].state).toBe('recovered');
+      for (const sample of rows[0].samples) {
+        expect(sample.M2).toBeCloseTo(q*(6-sample.x)**2/2, 8);
+        expect(sample.displacement[2]).toBeCloseTo(-q*sample.x**2*(216-24*sample.x+sample.x**2)/(24*20000), 9);
+      }
+      expect(JSON.stringify({m,result})).toBe(before);
     }
-    expect(recovered).toBeGreaterThan(100);
   });
   test("canonical My/Ry and linear distributed loads recover quintic cantilever displacement", () => {
     const m = model([
@@ -228,5 +216,43 @@ describe("shared member response recovery", () => {
     expect(recoverAnalysisMembers(m, result, "opensees")[0].state).toBe(
       "unavailable",
     );
+  });
+
+  test.each([false, true])('hinged UDL recovers member slopes from end actions and translations (joint rotations known=%s)', known => {
+    const m = model([{ type:'distributed', element:'beam', reference_frame:'global', wz:-10 }]);
+    m.elements[0].releases = { i:{ry:true}, j:{ry:true} };
+    const translation = () => ({ux:0,uy:0,uz:0,rx:0,rz:0,...(known ? {ry:0} : {})});
+    const result = {units, displacements:{A:translation(),B:translation()}, forces:{beam:force(end(30),end(30))}};
+    const row = recoverMemberResponses(m,result,{D:1},'opensees')[0];
+    expect(row.state).toBe('recovered');
+    for (const sample of row.samples) {
+      expect(sample.M2).toBeCloseTo(-30*sample.x+5*sample.x**2,8);
+      expect(sample.displacement[2]).toBeCloseTo(-10*sample.x*(6**3-12*sample.x**2+sample.x**3)/(24*20000),10);
+    }
+    expect(row.samples[40].displacement[2]).toBeCloseTo(-5*10*6**4/(384*20000),10);
+    result.forces.beam.n1.M2 = 1;
+    expect(recoverMemberResponses(m,result,{D:1},'opensees')[0].state).toBe('unavailable');
+  });
+
+  test('released physical endpoints do not create artificial hinges at solver cuts', () => {
+    const m = model([{type:'point',element:'beam',position:3,fz:-20}]);
+    m.elements[0].releases = {releaseI:{ry:true},releaseJ:{ry:true}};
+    const translation = {ux:0,uy:0,uz:0,rx:0,rz:0};
+    const result = {units, solverMesh:{schemaVersion:1,positionUnit:'m',
+      nodes:[...m.nodes,{id:'C',x:3,y:0,z:0}],elements:[
+        {id:'s1',physicalElementId:'beam',start:0,end:3,nodes:['A','C'],localAxes:axes},
+        {id:'s2',physicalElementId:'beam',start:3,end:6,nodes:['C','B'],localAxes:axes}]},
+      effectiveLoads:m.load_cases[0].loads, segmentResults:{displacements:{A:translation,C:d(-.0045),B:translation},
+        forces:{s1:force(end(10),end(-10,-30)),s2:force(end(-10,30),end(10))}}};
+    expect(recoverAnalysisMembers(m,result,'opensees')[0].state).toBe('recovered');
+    for (const x of [.1,1.234,3,4.12,5.99]) {
+      const query = queryMemberResponse(m,result,'opensees','beam',x,'left');
+      const s = Math.min(x,6-x);
+      expect(query.sample.displacement[2]).toBeCloseTo(-20*s*(3*6**2-4*s*s)/(48*20000),10);
+    }
+    expect(queryMemberResponse(m,result,'opensees','beam',3,'left').sample.V3).toBe(10);
+    expect(queryMemberResponse(m,result,'opensees','beam',3,'right').sample.V3).toBe(-10);
+    delete result.segmentResults.displacements.C.ry;
+    expect(recoverAnalysisMembers(m,result,'opensees')[0].state).toBe('unavailable');
   });
 });

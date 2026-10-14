@@ -190,7 +190,7 @@ def test_self_weight_follows_dead_case_combination_factor():
 
 def test_explicit_unsupported_features_fail_before_a_success_response():
     model = beam()
-    model.elements[0].releases = {'i':{'ry':True}}
+    model.elements[0].releases = {'i':{'rx':True}}
     with pytest.raises(ValueError,match='release') as rejected:
         solve(model)
     assert rejected.value.error_code == 'ENGINE_INPUT_UNSUPPORTED'

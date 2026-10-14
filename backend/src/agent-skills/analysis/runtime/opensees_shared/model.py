@@ -15,6 +15,7 @@ import numpy as np
 from coordinate_semantics import (build_element_local_axes, get_model_metadata,
     get_reference_vector, resolve_model_dimension, validate_coordinate_contract)
 from opensees_shared.tags import OpenSeesTagMapper
+from opensees_shared.releases import joint_rotation_gauges, native_release_arguments
 from structure_protocol.section_properties import validate_section_physics
 
 FRAME_ELEMENT_TYPES = {"beam", "column"}
@@ -41,6 +42,7 @@ class OpenSeesModelBuilder(OpenSeesTagMapper):
         self.ndf = (3 if self.has_frame_elements else 2) if self.dimension == "2d" else (6 if self.has_frame_elements else 3)
         self.node_masses = {}
         self.mass_source = None
+        self.rotation_gauges, self.nodal_response_availability, self.rotation_nullspaces = joint_rotation_gauges(self)
 
     @staticmethod
     def _field(record, key, default=None):
@@ -103,6 +105,9 @@ class OpenSeesModelBuilder(OpenSeesTagMapper):
 
     def build(self, ops, *, mass=False, mass_source=None, mass_directions=None, validate_controls=True):
         controls = self._control_evidence() if validate_controls else {}
+        controls['rotationGauges'] = {'kind': 'stiffness-null-coordinate-elimination',
+            'nodes': {key: [['rx', 'ry', 'rz'][i] for i in indices]
+                for key, indices in self.rotation_gauges.items() if indices}}
         ops.wipe()
         ops.model("basic", "-ndm", 2 if self.dimension == "2d" else 3, "-ndf", self.ndf)
         for node in self.model.nodes:
@@ -112,9 +117,9 @@ class OpenSeesModelBuilder(OpenSeesTagMapper):
             r = list(node.restraints or [False] * 6)
             active = [r[0], r[2]] if self.dimension == "2d" else r[:3]
             if self.has_frame_elements:
+                for index in self.rotation_gauges[str(node.id)]:
+                    r[index+3] = True
                 active += [r[4]] if self.dimension == "2d" else r[3:6]
-                if str(node.id) not in self.frame_node_ids:
-                    active[len(coords):] = [True] * (self.ndf-len(coords))
             ops.fix(tag, *[int(v) for v in active])
         for material in self.model.materials:
             e, _, _ = self._material_properties(material)
@@ -123,8 +128,6 @@ class OpenSeesModelBuilder(OpenSeesTagMapper):
         for element in self.model.elements:
             if len(element.nodes) != 2 or element.type not in FRAME_ELEMENT_TYPES | TRUSS_ELEMENT_TYPES:
                 raise OpenSeesCapabilityError(f"OpenSees elastic line analysis does not support element '{element.id}' type '{element.type}'")
-            if element.releases:
-                raise OpenSeesCapabilityError(f"End releases on '{element.id}' require a verified release mapping; they cannot be ignored")
             if element.offsets and any(abs(float(v)) > 1e-12 for v in element.offsets.values()):
                 raise OpenSeesCapabilityError(f"End offsets on '{element.id}' require a verified physical-length mapping; they cannot be ignored")
             material, section = self.materials[element.material], self.sections[element.section]
@@ -137,12 +140,13 @@ class OpenSeesModelBuilder(OpenSeesTagMapper):
             elif self.dimension == "2d":
                 ops.geomTransf("Linear", tag)
                 axis = 'Iz' if round(float(element.rotation_angle or 0)/90) % 2 else 'Iy'
-                ops.element("elasticBeamColumn", tag, n1, n2, area, e, self._section_property(section, axis), tag)
+                ops.element("elasticBeamColumn", tag, n1, n2, area, e, self._section_property(section, axis), tag,
+                    *native_release_arguments(element, self.dimension))
             else:
                 ops.geomTransf("Linear", tag, *self._element_axes(element)[2].tolist())
                 ops.element("elasticBeamColumn", tag, n1, n2, area, e, g,
                     self._section_property(section, "J"), self._section_property(section, "Iy"),
-                    self._section_property(section, "Iz"), tag)
+                    self._section_property(section, "Iz"), tag, *native_release_arguments(element, self.dimension))
         if mass:
             from opensees_shared.mass import assemble_mass
             self.mass_assembly = assemble_mass(self.model, source=mass_source, directions=mass_directions)
@@ -161,6 +165,8 @@ class OpenSeesModelBuilder(OpenSeesTagMapper):
             if max(n.z for n in floor_nodes)-min(n.z for n in floor_nodes) > 1e-8:
                 raise OpenSeesInputError(f"Rigid diaphragm story '{story.id}' must be horizontal")
             if len(floor_nodes) > 1:
+                if self.dimension == '3d' and any(not self.nodal_response_availability[str(n.id)]['rz'] for n in floor_nodes):
+                    raise OpenSeesCapabilityError('Rigid diaphragm coupling of stiffness-null joint Rz requires a verified constraint mapping')
                 master, *slaves = [self._ops_node_tag(n.id) for n in floor_nodes]
                 if self.dimension == '2d':
                     for slave in slaves:
@@ -191,6 +197,15 @@ class OpenSeesModelBuilder(OpenSeesTagMapper):
         if self.dimension == "2d":
             return [values[0], 0.0, values[1], 0.0, -values[2] if self.has_frame_elements else 0.0, 0.0]
         return values + [0.0]*(6-len(values))
+
+    def nodal_response(self, node_id, values):
+        available = self.nodal_response_availability[str(node_id)]
+        return {key: value for key, value in zip(('ux', 'uy', 'uz', 'rx', 'ry', 'rz'), self.global_vector(values))
+                if available.get(key, True)}
+
+    def validate_nodal_moment(self, node_id, moment):
+        if np.linalg.norm(self.rotation_nullspaces[str(node_id)].T @ np.asarray(moment)) > 1e-10:
+            raise OpenSeesInputError(f"Moment at node '{node_id}' acts on an unrestrained rotation with no member stiffness")
 
     def load_vector(self, values):
         values = list(values)

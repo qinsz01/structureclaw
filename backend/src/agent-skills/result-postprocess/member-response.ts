@@ -200,11 +200,18 @@ export function recoverAnalysisMembers(
       ...model,
       stories: [],
       nodes: mesh.nodes as RecoveryModel["nodes"],
-      elements: segments.map((s) => ({
-        ...physical.get(s.physicalElementId)!,
-        id: s.id,
-        nodes: s.nodes,
-      })),
+      elements: segments.map((s) => {
+        const member = physical.get(s.physicalElementId)!;
+        const releases = asRecord(member.releases);
+        return { ...member, id: s.id, nodes: s.nodes,
+          ...(Object.keys(releases).length ? { releases: { ...releases,
+            i: s.start === 0 ? releases.i ?? releases.releaseI ?? {} : {},
+            j: s.end === lengths.get(s.physicalElementId) ? releases.j ?? releases.releaseJ ?? {} : {},
+            releaseI: s.start === 0 ? releases.i ?? releases.releaseI ?? {} : {},
+            releaseJ: s.end === lengths.get(s.physicalElementId) ? releases.j ?? releases.releaseJ ?? {} : {},
+          }} : {}),
+        };
+      }),
       load_cases: [{ id: "effective", loads }],
     };
     const segmentPositions = Object.fromEntries(

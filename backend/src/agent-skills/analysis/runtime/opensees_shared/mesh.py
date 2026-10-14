@@ -9,6 +9,7 @@ import math
 import numpy as np
 
 from opensees_shared.model import OpenSeesModelBuilder, FRAME_ELEMENT_TYPES
+from opensees_shared.releases import bending_releases
 
 
 class MemberMesh:
@@ -16,6 +17,10 @@ class MemberMesh:
         self.physical = model
         self.loads = copy.deepcopy(loads)
         physical_builder = OpenSeesModelBuilder(model)
+        active_dofs = (0, 2, 4) if physical_builder.dimension == '2d' else tuple(range(6))
+        no_free_joint_dof = all(all((node.restraints or [False]*6)[dof] or
+            (dof >= 3 and dof-3 in physical_builder.rotation_gauges[str(node.id)]) for dof in active_dofs)
+            for node in model.nodes)
         self.axes = {e.id: physical_builder._element_axes(e) for e in model.elements}
         self.lengths = {e.id: physical_builder._element_length(e) for e in model.elements}
         self.mapping = {}
@@ -28,6 +33,12 @@ class MemberMesh:
         for element in model.elements:
             length = self.lengths[element.id]
             cuts = {0.0, length}
+            # A fully constrained (or fully released) joint system has zero
+            # equations. Add a real interior beam node so native element loads
+            # and reactions execute without a zero-size LAPACK system. This is
+            # exact elastic refinement, not an artificial support or stiffness.
+            if no_free_joint_dof and element.type in FRAME_ELEMENT_TYPES:
+                cuts.add(length/2)
             for load in self.loads:
                 if load.get('element') != element.id:
                     continue
@@ -81,11 +92,15 @@ class MemberMesh:
                 self.node_positions[(element.id, position)] = node_id
             chain.append(end_node.id)
             records = []
+            releases = bending_releases(element, physical_builder.dimension)
             for index, (start, end) in enumerate(zip(cuts, cuts[1:])):
                 segment_id = element.id if len(cuts) == 2 else f'__ops__{element.id}__s{index+1}'
                 if segment_id != element.id and segment_id in element_ids:
                     raise OpenSeesInputError(f"Reserved generated solver element ID collision: '{segment_id}'")
-                elements.append(element.model_copy(update={'id': segment_id, 'nodes': chain[index:index+2]}))
+                segment_releases = {'i': releases['i'] if index == 0 else {},
+                                    'j': releases['j'] if index == len(cuts)-2 else {}}
+                elements.append(element.model_copy(update={'id': segment_id, 'nodes': chain[index:index+2],
+                    'releases': segment_releases if any(segment_releases.values()) else None}))
                 if element.id in references:
                     references[segment_id] = references[element.id]
                 records.append({'id': segment_id, 'physicalElementId': element.id, 'start': start, 'end': end,
@@ -131,6 +146,8 @@ class MemberMesh:
                 for index, key in enumerate(('ux', 'uy', 'uz', 'rx', 'ry', 'rz')):
                     if key not in load:
                         continue
+                    if not self.builder.nodal_response_availability[str(load['node'])].get(key, True):
+                        raise OpenSeesInputError(f"Prescribed {key} at '{load['node']}' has no identifiable joint rotation")
                     active = {0: (1, 1), 2: (2, 1), 4: (3, -1)} if self.builder.dimension == '2d' else {i: (i+1, 1) for i in range(6)}
                     if index not in active or active[index][0] > self.builder.ndf:
                         raise OpenSeesInputError(f"Prescribed {key} is inactive in this model")
@@ -140,6 +157,7 @@ class MemberMesh:
             elif kind in {'nodal', 'point'}:
                 node_id = load['node'] if kind == 'nodal' else self.node_positions[(load['element'], self._position(load['position'], self.lengths[load['element']]))]
                 vector = self.global_point(load)
+                self.builder.validate_nodal_moment(node_id, vector[3:])
                 if str(node_id) not in self.builder.frame_node_ids and any(abs(v) > 1e-12 for v in vector[3:]):
                     raise OpenSeesInputError("A node incident only to axial members cannot carry a moment")
                 ops.load(self.builder._ops_node_tag(node_id), *self.builder.load_vector(vector))
