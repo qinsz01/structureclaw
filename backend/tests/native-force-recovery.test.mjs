@@ -56,6 +56,47 @@ describe('native force equilibrium recovery',()=>{
     expect(() => queryPhysicalResponse(model, result, 'beam', 1.2, 'right')).toThrow('EXACT_NATIVE_STATION_UNAVAILABLE');
   });
 
+  function quantizedWeight() {
+    const { model, result } = weightedBeam();
+    const weight = result.data.nativeContext.effectiveLoads.selfWeight;
+    const authored = -4.4129925, executed = -4.41299;
+    for (const member of weight.members) {
+      member.intensityVectorKnM = [0, 0, authored];
+      member.totalForceVectorKn = [0, 0, authored * member.lengthM];
+    }
+    for (const segment of weight.physicalCompilation) segment.intensityVectorKnM = [0, 0, authored];
+    weight.executedCompilation = weight.physicalCompilation.map(segment => ({ ...segment, intensityVectorKnM: [0, 0, executed] }));
+    weight.inputQuantization = { source: 'fea.dat', significantDigits: 6 };
+    result.data.memberStations.beam[0].components = { N: 0, Vy: 0, Vz: -4*executed, T: 0, My: -8*executed, Mz: 0 };
+    return { model, result, authored, executed };
+  }
+
+  test('audited native input quantization is explicit and never changes the source or force tolerance', () => {
+    const { model, result, authored, executed } = quantizedWeight();
+    const before = structuredClone(result);
+    const response = queryPhysicalResponse(model, result, 'beam', 3.71, 'right');
+    expect(response.sample.My).toBeCloseTo(-executed*(4-3.71)**2/2, 12);
+    expect(response.source.loadBasis).toBe('audited-native-input');
+    expect(result).toEqual(before);
+    expect(result.data.nativeContext.effectiveLoads.selfWeight.members[0].intensityVectorKnM[2]).toBe(authored);
+    delete result.data.nativeContext.effectiveLoads.selfWeight.executedCompilation;
+    // Integrating the authored load does not close on this native zero end moment.
+    expect(() => queryPhysicalResponse(model, result, 'beam', 3.71, 'right')).toThrow('EXACT_NATIVE_STATION_UNAVAILABLE');
+  });
+
+  test.each(['wrong-value', 'wrong-source', 'wrong-precision', 'wrong-engine', 'missing-segment', 'duplicate-segment', 'wrong-interval'])('unverified native quantization %s is rejected', defect => {
+    const { model, result } = quantizedWeight();
+    const weight = result.data.nativeContext.effectiveLoads.selfWeight;
+    if (defect === 'wrong-value') weight.executedCompilation[0].intensityVectorKnM[2] = -4.4129;
+    if (defect === 'wrong-source') weight.inputQuantization.source = 'unread';
+    if (defect === 'wrong-precision') weight.inputQuantization.significantDigits = 5;
+    if (defect === 'wrong-engine') result.data.nativeContext.engine = 'pkpm';
+    if (defect === 'missing-segment') weight.executedCompilation.pop();
+    if (defect === 'duplicate-segment') weight.executedCompilation[1] = weight.executedCompilation[0];
+    if (defect === 'wrong-interval') weight.executedCompilation[0].endM = 2;
+    expect(() => queryPhysicalResponse(model, result, 'beam', 1.2, 'right')).toThrow('EXACT_NATIVE_STATION_UNAVAILABLE');
+  });
+
   test('partial line load and internal point force/moment retain real left/right cuts',()=>{
     const {model,result}=cantilever();
     expect(queryPhysicalResponse(model,result,'beam',1.5,'right').sample).toMatchObject({N:1,Vy:-2,Vz:7,T:2,My:7.25,Mz:2});

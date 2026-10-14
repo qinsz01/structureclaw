@@ -169,6 +169,17 @@ does not recreate vendor combination mechanics or mix component-wise envelopes.
 
 商业多工况/组合来自同一次原生作业。原生自动设计组合单独保存，不冒充用户选中的分析组合。
 
+Self-weight recovery keeps the authored density/area/gravity and the audited native
+load separately. YJK's FE file serializes the accepted uniform load with six
+significant digits. When that readback is present, equilibrium recovery integrates
+the executed value and declares `loadBasis: audited-native-input`; it validates the
+source-to-native quantization and every original force station with the existing
+force tolerance. It does not alter the source model, original station results or tolerance.
+
+自重恢复分别保存源密度/面积/重力计算值及已审计的原生有效荷载。YJK的FE文件将该均布荷载写为六位有效数字；
+取得真实读回后，公共恢复积分实际执行值，标记loadBasis为audited-native-input，同时核对源值量化关系和
+全部原生内力站点。源模型、原始站点和已有响应容差均保持不变。
+
 ## Results, native design and reports / 结果、原生设计与报告
 
 `query_results` identifies run, case/combination, object, component, position or end,

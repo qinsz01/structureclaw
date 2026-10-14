@@ -42,6 +42,7 @@ export function nativeForceRecovery(model: RecoveryModel, data: ModelRecord, mem
   const lines: Line[] = [], points: Point[] = [];
   const effectiveLoads = isRecord(context.effectiveLoads) ? context.effectiveLoads : {};
   const gravity = isRecord(effectiveLoads.selfWeight) ? effectiveLoads.selfWeight : {};
+  let loadBasis = 'authored-loads';
   if (rawModel.analysis_control.self_weight) {
     if (effectiveLoads.verified !== true || !/^[a-f0-9]{64}$/i.test(String(effectiveLoads.sourceFeaSha256))
       || gravity.enabled !== true || typeof gravity.loadCaseId !== 'string'
@@ -55,6 +56,13 @@ export function nativeForceRecovery(model: RecoveryModel, data: ModelRecord, mem
     let cursor = 0;
     const used = new Set<string>();
     const close = (a: number, b: number) => Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a), Math.abs(b));
+    const executed = gravity.executedCompilation;
+    if (executed !== undefined && (!Array.isArray(executed) || context.engine !== 'yjk'
+      || !isRecord(gravity.inputQuantization) || gravity.inputQuantization.source !== 'fea.dat'
+      || gravity.inputQuantization.significantDigits !== 6)) return fail();
+    const executedSegments = Array.isArray(executed)
+      ? executed.filter(row => isRecord(row) && row.physicalElementId === memberId) : undefined;
+    if (executedSegments && executedSegments.length !== segments.length) return fail();
     for (const segment of segments) {
       const { startM, endM, sourceSegmentId, intensityVectorKnM } = segment;
       if (!finite(startM) || !finite(endM) || startM < 0 || endM > length || startM >= endM || !close(startM, cursor)
@@ -68,7 +76,19 @@ export function nativeForceRecovery(model: RecoveryModel, data: ModelRecord, mem
           || !finite(native[0].totalForceVectorKn[i]) || !close(value, native[0].intensityVectorKnM[i])
           || !close(value * (endM - startM), native[0].totalForceVectorKn[i]))) return fail();
       used.add(sourceSegmentId);
-      lines.push({ a: startM, b: endM, q: local(intensityVectorKnM as Vec, { reference_frame: 'global' }, factor), slope: [0, 0, 0] });
+      let effectiveVector = intensityVectorKnM as Vec;
+      if (executedSegments) {
+        const matches = executedSegments.filter(row => row.sourceSegmentId === sourceSegmentId);
+        if (matches.length !== 1) return fail();
+        const actual = matches[0];
+        if (actual.startM !== startM || actual.endM !== endM || !Array.isArray(actual.intensityVectorKnM)
+          || actual.intensityVectorKnM.length !== 3 || actual.intensityVectorKnM.some((value: unknown, index: number) =>
+            !finite(value) || Math.abs(value - Number(intensityVectorKnM[index].toPrecision(6)))
+              > 8 * Number.EPSILON * Math.max(1, Math.abs(value)))) return fail();
+        effectiveVector = actual.intensityVectorKnM as Vec;
+        loadBasis = 'audited-native-input';
+      }
+      lines.push({ a: startM, b: endM, q: local(effectiveVector, { reference_frame: 'global' }, factor), slope: [0, 0, 0] });
       cursor = endM;
     }
     if (!close(cursor, length)) return fail();
@@ -138,6 +158,6 @@ export function nativeForceRecovery(model: RecoveryModel, data: ModelRecord, mem
   }
   return {at,breakpoints:[...new Set([0,length,...lines.flatMap(line=>[line.a,line.b]),...points.map(point=>point.x)])].sort((a,b)=>a-b),
     jumps:[...new Set(points.map(point=>point.x).filter(x=>x>0&&x<length))],
-    source:{kind:'section-equilibrium',method:'exact-load-integration',factors:{...factors},anchor:start.source,
+    source:{kind:'section-equilibrium',method:'exact-load-integration',loadBasis,factors:{...factors},anchor:start.source,
       verification:'all-native-stations',units:{force:'kN',moment:'kN.m'},nativeContext:context}};
 }
