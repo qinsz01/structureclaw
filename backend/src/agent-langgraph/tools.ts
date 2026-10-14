@@ -45,7 +45,7 @@ import { createEngineeringReport, attachNativeReport } from '../services/enginee
 import { beginAnalysisRequest, beginNativeDesignRequest, commitModel, currentAnalysisError, invalidateAnalysis, modelHash, publishAnalysis, publishNativeDesign } from '../engineering/model-state.js';
 import { analysisSettingsHash } from '../engineering/analysis-runs.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
-import { checkRunResults } from '../engineering/code-checks.js';
+import { checkRunResults, codeCheckFeedback } from '../engineering/code-checks.js';
 import { assertAnalysisInputEvidenceMatchesRequest, assertInputEvidenceMatchesModel, mergeInputEvidence } from '../engineering/input-evidence.js';
 import { currentRunPolicy, requestRecovery, canRecover, recordRunEvent } from '../runtime/run-context.js';
 // ---------------------------------------------------------------------------
@@ -3399,6 +3399,13 @@ export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
       }
       const freshnessError = currentAnalysisError(state);
       if (freshnessError) return toolResult(toolCallId, 'run_code_check', JSON.stringify({ success: false, error_code: freshnessError, message: 'Current model analysis is required.', messageZh: '需要当前模型的有效分析结果。' }));
+      if (input.provider === 'native' && !['pkpm', 'yjk'].includes(resultEngine(analysis))) {
+        return toolResult(toolCallId, 'run_code_check', JSON.stringify({ success: false,
+          errorCode: 'NATIVE_DESIGN_ENGINE_REQUIRED', engine: resultEngine(analysis), allowedProviders: ['auto', 'builtin'],
+          message: 'Native design requires a PKPM/YJK analysis. Use builtin checks for OpenSees; this is an engine mismatch, not a paid StructureClaw edition.',
+          messageZh: '原生设计需要 PKPM/YJK 分析；当前 OpenSees 应使用内置校核。这是引擎不匹配，不是 StructureClaw 需要付费版本。',
+          nextAction: 'Use provider auto/builtin without native design arguments; ask the user for missing model design inputs.' }));
+      }
       if (resolveCheckProvider(input.provider, analysis) === 'native') {
         const meta = isRecord(analysis.meta) ? analysis.meta : {};
         const engineId = `builtin-${resultEngine(analysis)}`;
@@ -3458,7 +3465,7 @@ export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
       return toolResult(
         toolCallId,
         'run_code_check',
-        JSON.stringify({ success: true, skillId: codeCheckSkillId, completionStatus: codeCheckPayload.completionStatus, complianceStatus: codeCheckPayload.complianceStatus, summary: codeCheckPayload.summary }),
+        JSON.stringify({ success: true, provider: 'builtin', engine: resultEngine(analysis), skillId: codeCheckSkillId, ...codeCheckFeedback(codeCheckPayload) }),
         { codeCheckResult: codeCheckPayload },
       );
     },
@@ -3468,7 +3475,9 @@ export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
         'Run code compliance check against a design code (e.g. GB50017, GB50010, GB50011, GB/T 50011-2010-2024). ' +
         'Reads model and analysis results from conversation state automatically — do NOT pass them as parameters. ' +
         'For China seismic analysis, call this after run_analysis and before generate_report with designCode GB/T 50011-2010-2024. ' +
-        'Returns pass/fail status for each check.',
+        'Returns completion and compliance separately, with specific missing inputs. Incomplete is NOT pass. ' +
+        'For OpenSees use auto/builtin, never native; native design belongs to PKPM/YJK. ' +
+        'When inputs are missing ask the user, update declared material/member design fields via edit_model, reanalyze the updated model, then check again. Never invent design conditions.',
       schema: z.object({
         designCode: z
           .string()

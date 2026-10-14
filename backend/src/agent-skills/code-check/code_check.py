@@ -351,11 +351,14 @@ class CodeChecker:
                     'message': unsupported}
         utilization = self._resolve_utilization(elem_id, item_name, context)
         if utilization is None:
+            missing_loader = getattr(getattr(self, 'skill_module', None), 'missing_inputs', None)
+            missing = missing_loader(elem_id, item_name, context) if callable(missing_loader) else []
             return {
                 'item': item_name, 'status': 'input_required', 'category': 'input_required',
                 'utilization': None, 'governingEligible': False, 'displayUtilization': 'N/A',
                 'clause': clause, 'formula': formula,
                 'inputs': {'demand': None, 'capacity': None, 'limit': limit},
+                'missingInputs': missing,
                 'message': 'Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。',
             }
         demand = round(utilization * limit, 4)

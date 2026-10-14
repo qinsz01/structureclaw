@@ -58,7 +58,9 @@ export function prepareEngineeringReport(input: EngineeringReportInput) {
 export function finishEngineeringReport(prepared: ReturnType<typeof prepareEngineeringReport>, narrative?: string) {
   const { input, summary, json } = prepared;
   const analysis = isRecord(input.analysis) ? input.analysis : {};
-  let markdown = narrative ?? buildDefaultReportNarrative(prepared.narrativeInput);
+  const check = isRecord(input.codeCheck) ? input.codeCheck : undefined;
+  const unverified = check && (check.completionStatus !== 'complete' || check.complianceStatus === 'fail');
+  let markdown = !unverified && narrative ? narrative : buildDefaultReportNarrative(prepared.narrativeInput);
   markdown += resultTableMarkdown(input.analysis, input.locale);
   if (reportResultRows(input.analysis).some(row => row.capabilityStatus === 'partial')) markdown += input.locale === 'zh'
     ? '\n本次运行包含部分能力或估算结果；不能视为原结构完整分析或全面规范合格。\n'

@@ -64,7 +64,9 @@ export function recordRunEvent(event: Record<string, unknown>): void {
 export function requestRecovery(reason: string): void {
   const context = storage.getStore();
   if (!context) return;
-  if (!context.policy.repair.enabled || context.usage.recoveries >= context.policy.repair.maxRecoveriesPerTurn) throw new Error('RECOVERY_BUDGET_EXHAUSTED');
+  if (!context.policy.repair.enabled || context.usage.recoveries >= context.policy.repair.maxRecoveriesPerTurn) {
+    throw new Error(`RECOVERY_BUDGET_EXHAUSTED: ${context.usage.recoveries}/${context.policy.repair.maxRecoveriesPerTurn} automatic corrections used; internal routing/extraction corrections share this limit. Existing results are retained. Ask the user for missing inputs and stop automatic retrying. / 本轮自动纠错已使用 ${context.usage.recoveries}/${context.policy.repair.maxRecoveriesPerTurn} 次，包含内部路由及参数纠偏；已有结果保留，请说明缺项并等待用户补充，不再自动重试。`);
+  }
   context.usage.recoveries++;
   recordRunEvent({ kind: 'recovery', reason, recovery: context.usage.recoveries });
 }

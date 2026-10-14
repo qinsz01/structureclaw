@@ -498,6 +498,7 @@ export async function* streamGraphToChunks(
   let tokenBuffer = '';
   let clarificationContext = '';
   let totalChunks = 0;
+  let incompleteCodeCheck = false;
   const streamStart = Date.now();
   const streamLog = createAgentLogger(ctx.traceId, ctx.conversationId);
   streamLog.debug({ streamModes }, 'stream processing started');
@@ -553,7 +554,17 @@ export async function* streamGraphToChunks(
       let chunks: AgentStreamChunk[];
       const [mode, data] = Array.isArray(event) && event.length === 2 ? event
         : [streamModes.length === 1 ? streamModes[0] : 'updates', event];
-      chunks = langGraphEventToChunks(data, String(mode));
+      if (mode === 'updates' && data?.tools) {
+        for (const item of Array.isArray(data.tools) ? data.tools : [data.tools]) {
+          const update = isCommand(item) ? item.update : item;
+          if (update && Object.prototype.hasOwnProperty.call(update, 'codeCheckResult')) {
+            incompleteCodeCheck = !!update.codeCheckResult && (update.codeCheckResult.completionStatus !== 'complete' || update.codeCheckResult.complianceStatus === 'fail');
+          }
+        }
+      }
+      // The graph replaces unverified final conclusions with the saved check
+      // status. Do not leak the unguarded model prose before that state update.
+      chunks = mode === 'messages' && incompleteCodeCheck ? [] : langGraphEventToChunks(data, String(mode));
       if (mode === 'updates' && data?.agent?.messages) {
         const messages = Array.isArray(data.agent.messages) ? data.agent.messages : [data.agent.messages];
         const last = messages.at(-1);

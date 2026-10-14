@@ -2916,6 +2916,7 @@ export function AIConsole() {
   const [errorMessage, setErrorMessage] = useState('')
   const [modelText, setModelText] = useState('')
   const modelEditedRef = useRef(false)
+  const modelEditSequenceRef = useRef(0)
   const displayedModelRevisionRef = useRef<number | null>(0)
   const [modelSyncMessage, setModelSyncMessage] = useState('')
   const [availableSkills, setAvailableSkills] = useState<AgentSkillSummary[]>([])
@@ -4153,7 +4154,7 @@ export function AIConsole() {
 
   async function handleSubmit(overrideInput?: string) {
     const trimmedInput = (overrideInput ?? input).trim()
-    if (!trimmedInput || submittingRef.current) {
+    if (!skillsLoaded || !capabilityMatrixLoaded || !trimmedInput || submittingRef.current) {
       return
     }
     submittingRef.current = true
@@ -4167,6 +4168,7 @@ export function AIConsole() {
     const contextModel = parsedModel.error ? undefined : parsedModel.model
     const requestedContextModel = modelEditedRef.current ? contextModel : undefined
     const requestedModelRevision = displayedModelRevisionRef.current
+    const submittedModelEditSequence = modelEditSequenceRef.current
     const resumeFromMessage = resolveResumeFromMessage(messagesRef.current, trimmedInput)
 
     const userMessage: Message = {
@@ -4795,6 +4797,16 @@ export function AIConsole() {
         }
       }
     } finally {
+      const confirmedRuntime = activeConversationId
+        ? await sessionRuntime.refresh(activeConversationId).catch(() => null) : null
+      // A successfully accepted import is no longer an unsaved composer edit.
+      // Keep a newer user edit intact, and bind future edits to the confirmed revision.
+      if (requestedContextModel && receivedResult && !abortController.signal.aborted
+        && activeConversationId === conversationIdRef.current
+        && submittedModelEditSequence === modelEditSequenceRef.current && confirmedRuntime) {
+        modelEditedRef.current = false
+        displayedModelRevisionRef.current = confirmedRuntime.modelRevision
+      }
       submittingRef.current = false
       setIsStreaming(false)
       if (shouldBumpConversationActivity || abortController.signal.aborted) {
@@ -4802,7 +4814,6 @@ export function AIConsole() {
       }
       const finalStatus = abortController.signal.aborted ? 'aborted' : 'completed'
       updateStreamSessionStatus(activeConversationId, finalStatus)
-      if (activeConversationId) void sessionRuntime.refresh(activeConversationId).catch(() => {})
       setTimeout(() => removeStreamSession(activeConversationId), 2000)
     }
   }
@@ -4987,7 +4998,7 @@ export function AIConsole() {
                 type="button"
                 className="rounded-full bg-cyan-300 px-5 text-slate-950 hover:bg-cyan-200"
                 onClick={() => handleSubmit()}
-                disabled={!input.trim() || submittingRef.current || Boolean(endingTurnConversationId)}
+                disabled={!skillsLoaded || !capabilityMatrixLoaded || !input.trim() || submittingRef.current || Boolean(endingTurnConversationId)}
               >
                 <ArrowUp className="h-4 w-4" />
                 {t('sendMessage')}
@@ -5752,7 +5763,7 @@ export function AIConsole() {
             t={t}
             visualizationSnapshot={latestResultVisualizationSnapshot}
             modelText={modelText}
-            onModelTextChange={(val) => { modelEditedRef.current = true; setModelText(val); setModelSyncMessage('') }}
+            onModelTextChange={(val) => { modelEditSequenceRef.current++; modelEditedRef.current = true; setModelText(val); setModelSyncMessage('') }}
             modelSyncMessage={modelSyncMessage}
             parsedComposerModelError={parsedComposerModelError}
           />

@@ -10,6 +10,28 @@ _spec.loader.exec_module(_module)
 CodeChecker = _module.CodeChecker
 
 
+def test_steel_missing_inputs_name_design_strength_without_requesting_available_forces():
+    element = {'type': 'beam', 'section': {'A': 5000, 'Wnx': 200000},
+               'material': {'fy': 235}, 'forces': {'N': 0, 'Mx': 2500000, 'V': 500}}
+    result = CodeChecker('GB50017').check('m', ['beam'], {'elementData': {'beam': element}})
+    item = result['details'][0]['checks'][0]['items'][0]
+    assert item['status'] == 'input_required'
+    assert [row['field'] for row in item['missingInputs']] == ['material.design.f']
+    assert item['missingInputs'][0]['unit'] == 'MPa'
+
+
+def test_steel_deflection_missing_inputs_distinguish_service_selection_and_computed_response():
+    element = {'type': 'beam', 'section': {}, 'material': {}, 'forces': {},
+               'length': 10000, 'serviceabilityResult': False}
+    result = CodeChecker('GB50017').check('m', ['beam'], {'elementData': {'beam': element}})
+    item = next(item for group in result['details'][0]['checks'] for item in group['items'] if item['item'] == '挠度')
+    fields = {row['field']: row for row in item['missingInputs']}
+    assert fields['response.deflection']['source'] == 'result'
+    assert fields['member.design.serviceability_result_keys']['source'] == 'design'
+    assert 'member.design.deflectionLimitN' in fields
+    assert 'member.length' not in fields
+
+
 @pytest.mark.parametrize('code', ['GB50017', 'GB50010', 'GB50011'])
 def test_absent_inputs_never_pass_or_have_controlling_utilization(code):
     result = CodeChecker(code).check('m', ['E1', 'renamed-element'], {})

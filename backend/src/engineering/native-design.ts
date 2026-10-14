@@ -5,7 +5,7 @@ import { executionStatus } from './analysis-runs.js';
 export type CodeCheckProvider = 'auto' | 'native' | 'builtin';
 export function resolveCheckProvider(provider: CodeCheckProvider | undefined, analysis: ModelRecord): 'native' | 'builtin' {
   const commercial = ['pkpm', 'yjk'].includes(resultEngine(analysis));
-  if (provider === 'native' && !commercial) throw new Error('NATIVE_DESIGN_ENGINE_REQUIRED / 原生设计需要商业引擎');
+  if (provider === 'native' && !commercial) throw new Error('NATIVE_DESIGN_ENGINE_REQUIRED: native design requires a PKPM/YJK analysis; OpenSees uses builtin checks. / 原生设计需要 PKPM/YJK 的分析结果；OpenSees 使用内置校核，并非需要 StructureClaw 付费版本。');
   return provider === 'builtin' ? 'builtin' : commercial ? 'native' : 'builtin';
 }
 

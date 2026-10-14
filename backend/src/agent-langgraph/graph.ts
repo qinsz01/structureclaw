@@ -39,6 +39,7 @@ import { getLogger } from '../utils/agent-logger.js';
 import { compactMessagesForContext, estimateMessagesCharLength } from './context-window.js';
 import { repairToolMessageProtocol } from './message-protocol.js';
 import { withRunContext, snapshotRunUsage } from '../runtime/run-context.js';
+import { codeCheckDeliveryNotice } from '../engineering/code-checks.js';
 
 function getAgentLogger(config: LangGraphRunnableConfig) {
   return getLogger(config.configurable as Partial<AgentConfigurable> | undefined);
@@ -438,6 +439,14 @@ function createCallModelNode(
       return { messages: [new AIMessage(buildEmptyFinalResponseFallback(state.locale, toolNames))] };
     }
 
+    const check = state.codeCheckResult;
+    const checkedThisTurn = currentTurnMessages.some(message => getMessageType(message) === 'tool'
+      && (getToolName(message) === 'run_code_check' || getToolName(message) === 'generate_report' && !!check));
+    if (!hasToolCalls && checkedThisTurn && (!check || check.completionStatus !== 'complete' || check.complianceStatus === 'fail')) {
+      return { messages: [new AIMessage({ content: codeCheckDeliveryNotice(check ?? {}, state.locale),
+        id: response.id, response_metadata: response.response_metadata,
+        usage_metadata: response.usage_metadata })] };
+    }
     return { messages: [response] };
   };
 }

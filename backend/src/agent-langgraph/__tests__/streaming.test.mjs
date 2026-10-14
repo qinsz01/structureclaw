@@ -2,6 +2,19 @@ import { describe, expect, test } from '@jest/globals';
 import { AIMessage, AIMessageChunk, ToolMessage } from '@langchain/core/messages';
 
 describe('LangGraph streaming adapter', () => {
+  test('incomplete check hides unverified model tokens until the guarded final response', async () => {
+    const { streamGraphToChunks } = await import('../../../dist/agent-langgraph/streaming.js');
+    async function* events() {
+      yield ['updates', { tools: { codeCheckResult: { completionStatus: 'incomplete' } } }];
+      yield ['messages', [new AIMessageChunk('FALSE PASS'), { langgraph_node: 'agent' }]];
+      yield ['updates', { agent: { messages: [new AIMessage('Code checking is incomplete.')] } }];
+    }
+    const chunks = [];
+    for await (const chunk of streamGraphToChunks(events(), ['messages', 'updates'],
+      { conversationId: 'fixture', traceId: 'check-truth', startedAt: new Date(0).toISOString() })) chunks.push(chunk);
+    expect(JSON.stringify(chunks)).not.toContain('FALSE PASS');
+    expect(chunks.find(chunk => chunk.type === 'result').content.response).toBe('Code checking is incomplete.');
+  });
   test.each([
     { status: 'error', content: 'MEMBER_POSITION_REQUIRED' },
     { content: '{"success":false,"errorCode":"RECOVERY_BUDGET_EXHAUSTED"}' },

@@ -24,6 +24,7 @@ _generic_spec.loader.exec_module(_generic_module)
 class MockCodeChecker(_generic_module.CodeChecker):
     """Exercise the production aggregation; only explicit test overrides are injected."""
     def __init__(self, overrides=None):
+        super().__init__('GB50017')
         self._overrides = overrides or {}
 
     def _resolve_utilization(self, elem_id, item_name, context):

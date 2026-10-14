@@ -96,7 +96,10 @@ export function buildSystemMessages(ctx: SystemPromptContext): BaseMessageLike[]
   const policyText = runtimePolicy ? (isZh
     ? `\n\n运行约束：知识文本=${runtimePolicy.knowledge}；建模器=${runtimePolicy.builder}；自动纠错=${runtimePolicy.repair.enabled}，全轮最多 ${runtimePolicy.repair.maxRecoveriesPerTurn} 次，内部重试同样计数。纠错关闭或预算耗尽后，如实说明错误并请求用户补充，禁止换工具绕过。持久记忆范围=${runtimePolicy.context.memoryScopes.join(',') || '禁用'}。上述限制优先于一般工作流程建议。`
     : `\n\nRun constraints: guidance=${runtimePolicy.knowledge}; builder=${runtimePolicy.builder}; recovery=${runtimePolicy.repair.enabled}, maximum ${runtimePolicy.repair.maxRecoveriesPerTurn} extra recoveries per turn including internal retries. When recovery is disabled or exhausted, report the error and ask for user input; do not bypass the limit using another tool. Persistent memory scopes=${runtimePolicy.context.memoryScopes.join(',') || 'disabled'}. These constraints override general workflow suggestions.`) : '';
-  return [new SystemMessage(systemContent + policyText)];
+  const checkProtocol = isZh
+    ? '\n\n校核协议（始终执行）：OpenSees 使用 run_code_check provider=auto/builtin；native 只用于 PKPM/YJK 分析，不代表 StructureClaw 付费版本。completionStatus=incomplete 或 inputRequired>0 时必须列出工具返回的具体缺项并询问用户，不能凭材料牌号或手算补成合格结论，也不能换原生设计绕过缺项。模型输入补齐后重新计算再校核。分析成功、报告生成不等于规范通过；最终结论必须服从已保存校核状态。'
+    : '\n\nChecking protocol (always enforced): OpenSees uses run_code_check provider=auto/builtin. Native design requires a PKPM/YJK analysis, not a paid StructureClaw edition. When completionStatus=incomplete or inputRequired>0, explain the actual missing inputs returned by the tool and ask the user. Do not infer design strengths from grades, replace incomplete checks with hand-calculated compliance, or switch to native design to bypass missing inputs. After model inputs change, reanalyze before checking. Successful analysis/report generation does not establish code compliance; final conclusions must follow saved check status.';
+  return [new SystemMessage(systemContent + policyText + checkProtocol)];
 }
 
 // ---------------------------------------------------------------------------

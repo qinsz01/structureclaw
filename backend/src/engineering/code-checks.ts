@@ -42,3 +42,44 @@ export function formatCheckSummary(summary: ModelRecord | undefined, locale: 'zh
     : `Code checks passed ${value('passed')} / ${value('total')}, failed ${value('failed')}, warnings ${value('warnings')}`;
   return base + suffix + (unavailable || summary.inputRequired !== undefined || summary.unsupported !== undefined ? scope : '');
 }
+
+/** Keep missing-input evidence when reducing a check to the agent's tool response. */
+export function codeCheckFeedback(check: ModelRecord): ModelRecord {
+  const missingInputs: ModelRecord[] = [];
+  for (const detail of Array.isArray(check.details) ? check.details.filter(isRecord) : []) {
+    for (const group of Array.isArray(detail.checks) ? detail.checks.filter(isRecord) : []) {
+      for (const item of Array.isArray(group.items) ? group.items.filter(isRecord) : []) {
+        if (item.status !== 'input_required') continue;
+        missingInputs.push({ elementId: detail.elementId, resultKey: detail.resultKey, check: item.item, clause: item.clause,
+          fields: Array.isArray(item.missingInputs) ? item.missingInputs : [], message: item.message });
+      }
+    }
+  }
+  const fields = new Map<string, ModelRecord>();
+  for (const row of missingInputs) for (const field of (row.fields as unknown[]).filter(isRecord)) {
+    const key = JSON.stringify([row.elementId, field.field]);
+    const saved = fields.get(key);
+    if (saved) {
+      saved.checks = [...new Set([...(saved.checks as unknown[]), row.check])];
+      saved.resultKeys = [...new Set([...(saved.resultKeys as unknown[]), row.resultKey])];
+    } else fields.set(key, { ...field, elementId: row.elementId, checks: [row.check], resultKeys: [row.resultKey] });
+  }
+  return { completionStatus: check.completionStatus, complianceStatus: check.complianceStatus, summary: check.summary,
+    missingInputs: [...fields.values()], inputRequiredChecks: missingInputs.map(({ fields: _fields, ...row }) => row),
+    nextAction: check.completionStatus !== 'complete' ? 'ask_user_clarification' : 'generate_report',
+    conclusionEligible: check.completionStatus === 'complete' && check.complianceStatus === 'pass' };
+}
+
+/** An incomplete engineering check must not be promoted to compliance by final prose. */
+export function codeCheckDeliveryNotice(check: ModelRecord, locale: 'zh' | 'en'): string {
+  if (check.complianceStatus === 'fail') return locale === 'zh'
+    ? `规范校核存在未通过项，不能给出设计合格结论。\n\n${formatCheckSummary(isRecord(check.summary) ? check.summary : undefined, locale)}。请查看已保存校核明细中的控制构件及需求、承载力，再决定修改方案。`
+    : `Code checking found failed items; design compliance has not been established.\n\n${formatCheckSummary(isRecord(check.summary) ? check.summary : undefined, locale)}. Inspect the saved governing member, demand and capacity before deciding how to revise the model.`;
+  const feedback = codeCheckFeedback(check);
+  const fields = (feedback.missingInputs as ModelRecord[]);
+  const list = fields.slice(0, 12).map(field => `- ${String(field.elementId)}: ${String(field.label)} (${String(field.unit)})`).join('\n');
+  const tail = fields.length > 12 ? locale === 'zh' ? '\n完整缺项见校核结果。' : '\nSee the check result for all missing inputs.' : '';
+  return locale === 'zh'
+    ? `规范校核尚未完成，不能给出设计合格结论。\n\n${formatCheckSummary(isRecord(check.summary) ? check.summary : undefined, locale)}。\n\n${list ? `需要补充或核实：\n${list}${tail}\n\n` : ''}请补充上述资料；计算结果缺失项需检查分析工况，不能用手填数值替代。确认后在当前模型上继续校核。`
+    : `Code checking is incomplete; design compliance has not been established.\n\n${formatCheckSummary(isRecord(check.summary) ? check.summary : undefined, locale)}.\n\n${list ? `Provide or verify:\n${list}${tail}\n\n` : ''}Supply the missing inputs. Missing computed results require inspection of the analysis case, not manually invented values. Then continue checking the current model.`;
+}

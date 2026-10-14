@@ -267,6 +267,70 @@ def _compute_utilization_overrides(
 # Element-type-specific check builders
 # ---------------------------------------------------------------------------
 
+def missing_inputs(elem_id: str, item: str, context: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Explain the actual unavailable operands; never ask users to invent solver results."""
+    element = context.get('elementData', {}).get(elem_id, {})
+    section, material, forces = (element.get(key, {}) for key in ('section', 'material', 'forces'))
+    missing: List[Dict[str, Any]] = []
+
+    def require(record, keys, field, label, unit, source='design', positive=True):
+        valid = any(isinstance(record.get(key), (int, float)) and not isinstance(record.get(key), bool)
+                    and math.isfinite(record[key]) and (not positive or record[key] > 0) for key in keys)
+        if not valid:
+            missing.append({'field': field, 'label': label, 'unit': unit, 'source': source})
+
+    def axial():
+        require(forces, ['N'], 'forces.N', '轴力 / Axial force', 'N', 'result', False)
+        require(section, ['A'], 'section.A', '截面面积 / Section area', 'mm2', 'section')
+
+    def bending():
+        require(forces, ['Mx'], 'forces.Mx', '弯矩 / Bending moment', 'N.mm', 'result', False)
+        if forces.get('Mx') != 0:
+            require(section, ['Wnx', 'Wx'], 'section.Wnx', '净截面模量 / Net section modulus', 'mm3', 'section')
+
+    def shear():
+        require(forces, ['V'], 'forces.V', '剪力 / Shear force', 'N', 'result', False)
+        if not any(isinstance(section.get(key), (int, float)) and section[key] > 0 for key in ['As']):
+            for keys, field, label, unit in [(['I', 'Iy', 'Ix'], 'I', '截面惯性矩 / Section inertia', 'mm4'),
+                                            (['S'], 'S', '截面静矩 / First moment of area', 'mm3'),
+                                            (['tw'], 'tw', '腹板厚度 / Web thickness', 'mm')]:
+                require(section, keys, f'section.{field}', label, unit, 'section')
+
+    if item in {'正应力', '折算应力'}:
+        axial()
+        if not (_resolve_element_type(elem_id, context) == 'brace' and forces.get('Mx') is None):
+            bending()
+        require(material, ['f'], 'material.design.f', '抗拉抗压抗弯设计强度 / Design normal strength', 'MPa')
+    if item in {'剪应力', '折算应力'}:
+        shear()
+        if item == '剪应力':
+            require(material, ['fv'], 'material.design.fv', '抗剪设计强度 / Design shear strength', 'MPa')
+    if item == '折算应力':
+        require(element, ['beta1'], 'member.design.beta1', '折算应力系数 / Equivalent-stress factor', '1')
+    if item == '整体稳定':
+        bending()
+        require(material, ['f'], 'material.design.f', '设计强度 / Design strength', 'MPa')
+        require(element, ['phi_b', 'phi'], 'member.design.phi_b', '整体稳定系数及支承依据 / Lateral stability factor and support basis', '1')
+    if item == '轴压稳定':
+        axial()
+        require(material, ['f'], 'material.design.f', '设计强度 / Design strength', 'MPa')
+        require(element, ['phi_axial', 'phi'], 'member.design.phi_axial', '轴压稳定系数 / Axial stability factor', '1')
+    if item == '局部稳定':
+        require(section, ['flangeWidth', 'b'], 'section.b', '板件计算宽度 / Plate width', 'mm', 'section')
+        require(section, ['flangeThickness', 't'], 'section.t', '板件厚度 / Plate thickness', 'mm', 'section')
+        require(element, ['btLimit'], 'member.design.btLimit', '宽厚比限值及依据 / Width-thickness limit and basis', '1')
+    if item == '长细比':
+        require(element, ['l0', 'length'], 'member.design.l0', '计算长度 / Effective length', 'mm')
+        require(section, ['imin', 'i'], 'section.imin', '最小回转半径 / Minimum radius of gyration', 'mm', 'section')
+        require(element, ['lambdaLimit'], 'member.design.lambdaLimit', '长细比限值 / Slenderness limit', '1')
+    if item == '挠度':
+        require(forces if 'deflection' in forces else element, ['deflection'], 'response.deflection', '使用工况相对挠度 / Service relative deflection', 'mm', 'result', False)
+        require(element, ['length'], 'member.length', '构件长度 / Member length', 'mm', 'geometry')
+        require(element, ['deflectionLimitN'], 'member.design.deflectionLimitN', '挠度限值 L/n 的 n 及依据 / Denominator n of L/n and basis', '1')
+        if not element.get('serviceabilityResult') and 'serviceabilityResult' in element:
+            missing.append({'field': 'member.design.serviceability_result_keys', 'label': '使用工况或组合 / Service case or combination', 'unit': 'result key', 'source': 'design'})
+    return missing
+
 def _check_beam(checker: Any, elem_id: str, context: Dict[str, Any]) -> List[Dict[str, Any]]:
     return [
         {
