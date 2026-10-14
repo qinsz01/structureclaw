@@ -656,7 +656,8 @@ function latestSessionHeaderOrStopped(paths, name) {
 
 async function showHealth(env) {
   const backendUrl = `http://localhost:${env.PORT || runtime.DEFAULT_BACKEND_PORT}/health`;
-  const frontendUrl = `http://localhost:${env.FRONTEND_PORT || runtime.DEFAULT_FRONTEND_PORT}`;
+  // The recommended stack serves the exported UI from Fastify's own port.
+  const frontendUrl = `http://localhost:${env.PORT || runtime.DEFAULT_BACKEND_PORT}/`;
   log("Health checks:");
   log((await runtime.requestUrl(backendUrl)) ? "backend: healthy" : "backend: unavailable");
   log((await runtime.requestUrl(frontendUrl, "HEAD")) ? "frontend: healthy" : "frontend: unavailable");
@@ -1358,7 +1359,8 @@ async function dispatch(commandName, rawArgs, rootDir) {
     }
     case "status":
       showServiceStatus(paths, "backend");
-      showServiceStatus(paths, "frontend");
+      if (runtime.readTrackedPid(paths, 'frontend') || !runtime.readTrackedPid(paths, 'backend')) showServiceStatus(paths, "frontend");
+      else log('frontend: served by backend / 网页由后端同端口提供');
       log("");
       await showHealth(env);
       return;
