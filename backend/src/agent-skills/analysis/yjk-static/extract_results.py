@@ -976,7 +976,7 @@ def extract():
         settings_api = YJKSPrePy_JSCS()
         result["native_design_parameters"] = {
             "int": {str(key): _json_safe(_safe_method(debug, "YJKSPrePy_JSCS", settings_api, "GetSParaInt", key,
-                default=None)) for key in (102, 603, 604, 701, 702, 709, 710, 752, 816, 817)},
+                default=None)) for key in (102, 603, 604, 701, 702, 706, 734, 709, 710, 752, 816, 817)},
             "float": {str(key): _json_safe(_safe_method(debug, "YJKSPrePy_JSCS", settings_api, "GetSParaFlt", key,
                 default=None)) for key in (801, 803)},
             "source": "YJKSPrePy_JSCS post-calculation readback",

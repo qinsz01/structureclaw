@@ -1619,10 +1619,12 @@ def _run(model_path: str, work_dir: str, yjks_root: str) -> int:
     # -- Phase 1: Convert V2 -> .ydb ------------------------------------
     print("[yjk_driver] Phase 1: V2 -> YDB conversion", file=sys.stderr, flush=True)
     from yjk_converter import convert_v2_to_ydb
+    design_request = _load_json_file(os.path.join(work_dir, "native-design-request.json")) if os.path.isfile(
+        os.path.join(work_dir, "native-design-request.json")) else None
 
     started_at = time.monotonic()
     try:
-        ydb_path = convert_v2_to_ydb(model_data, work_dir, ydb_filename)
+        ydb_path = convert_v2_to_ydb(model_data, work_dir, ydb_filename, design_plan=design_request)
     except Exception as exc:
         _record_step(
             steps,
@@ -1704,8 +1706,6 @@ def _run(model_path: str, work_dir: str, yjks_root: str) -> int:
             return 1
 
     # -- Phase 4: Model preparation (exact three_story_steel_frame.py) --
-    design_request = _load_json_file(os.path.join(work_dir, "native-design-request.json")) if os.path.isfile(
-        os.path.join(work_dir, "native-design-request.json")) else None
     if design_request:
         try:
             from yjk_native_settings import apply_in_host

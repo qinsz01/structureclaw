@@ -39,6 +39,48 @@ class NativeDesignContractTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 compile_design_request({**self.request(), "parameters": parameters}, self.model())
 
+    def test_steel_length_method_flags_are_not_arbitrary_l0_values(self):
+        request = {"requested": True, "code": "GB50017-2017", "adoptedNativeDefaults": True,
+                   "parameters": {"steelColumnSwayX": True, "steelColumnSwayY": False}}
+        compiled = compile_design_request(request, self.model())
+        self.assertEqual(compiled["parameters"]["int"]["706"], 1)
+        self.assertEqual(compiled["parameters"]["int"]["734"], 0)
+        request["parameters"]["steelColumnSwayX"] = 3.0
+        with self.assertRaises(ValueError): compile_design_request(request, self.model())
+
+    def test_authored_main_rebar_maps_without_changing_other_fields(self):
+        model = json.loads((ROOT / "__tests__/fixtures/native-design-concrete-model.json").read_text("utf-8"))
+        for row in model["elements"]:
+            row["rebar_grade"] = "HRB500"
+        original = copy.deepcopy(model)
+        plan = compile_design_request(self.request(), model)
+        self.assertEqual(plan["mainRebar"]["floors"], {"F1": {"column": "HRB500", "beam": "HRB500"}})
+        self.assertEqual(set(plan["mainRebar"]["members"]), {row["id"] for row in model["elements"]})
+        self.assertEqual(model, original)
+
+    def test_member_only_and_conflicting_main_rebar_never_change_neighbours(self):
+        model = json.loads((ROOT / "__tests__/fixtures/native-design-concrete-model.json").read_text("utf-8"))
+        model["elements"][0]["rebar_grade"] = "HRB500"
+        with self.assertRaises(ValueError) as raised:
+            compile_design_request(self.request(), model)
+        self.assertEqual(raised.exception.error_code, "ENGINE_INPUT_UNSUPPORTED")
+        request = {**self.request(), "parameters": {"columnMainRebarGrade": "HRB400"}}
+        with self.assertRaises(ValueError): compile_design_request(request, model)
+
+    def test_explicit_role_main_bar_grade_is_distinct_from_hoop_grade(self):
+        model = json.loads((ROOT / "__tests__/fixtures/native-design-concrete-model.json").read_text("utf-8"))
+        request = {**self.request(), "parameters": {"columnMainRebarGrade": "HRB500", "beamMainRebarGrade": "HRB400"}}
+        plan = compile_design_request(request, model)
+        self.assertEqual(plan["mainRebar"]["floors"], {"F1": {"column": "HRB500", "beam": "HRB400"}})
+        self.assertNotIn("hoop", str(plan["mainRebar"]))
+
+    def test_invalid_main_bar_value_is_a_typed_input_failure(self):
+        model = json.loads((ROOT / "__tests__/fixtures/native-design-concrete-model.json").read_text("utf-8"))
+        for value in (["HRB500"], None, 500):
+            with self.assertRaises(ValueError) as raised:
+                compile_design_request({**self.request(), "parameters": {"beamMainRebarGrade": value}}, model)
+            self.assertEqual(raised.exception.error_code, "ENGINE_INPUT_UNSUPPORTED")
+
     def test_required_rebar_consumes_only_active_buffer_and_keeps_native_combo(self):
         raw = {"reinforcement_with_calculation": [1,
             [[540., 321., .003, 4., 520., 302., .003, 0., 30., 20., .001, 7.], [0.]*12], [[1.]*18, [0.]*18]]}
@@ -90,6 +132,14 @@ class NativeDesignContractTests(unittest.TestCase):
             self.assertEqual(row["method"], method)
             for key, value in (("A", area), ("Asy", asy), ("Asz", asz)):
                 self.assertAlmostEqual(row["baseline"][key], value, places=14)
+
+    def test_standard_concrete_identity_is_not_replaced_with_C30(self):
+        from yjk_native_materials import native_baseline
+        for grade in range(15, 85, 5):
+            result = native_baseline({"id": "M", "category": "concrete", "grade": "C"+str(grade),
+                                      "E": 30000., "nu": .2, "G": 12500., "rho": 2500.})
+            self.assertEqual(result["grade"], "C"+str(grade))
+            self.assertEqual(result["representation"], "native-grade-with-rigidity-transfer")
 
     def test_design_needs_actual_native_geometry_not_only_equal_stiffness(self):
         section = {"id": "S", "shape": {"kind": "H", "B": 200., "H": 400., "tw": 8., "tf": 13.}}

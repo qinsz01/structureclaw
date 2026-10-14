@@ -5,8 +5,8 @@ name:
   zh: YJK 静力分析
   en: YJK Static Analysis
 description:
-  zh: YJK 三维弹性杆系静力分析：已原生验收矩形截面框架、局部与集中荷载、普通斜柱、坡梁和源工况组合的明确子集。每次执行核对材料刚度、有效设置、荷载与有符号结果；未验收输入拒绝计算，原生自动设计不推断利用率。
-  en: YJK 3-D elastic frame statics with a natively accepted subset of rectangular frames, partial/point loads, ordinary inclined columns, sloping beams and source-case combinations. Each run audits executed rigidities, settings, loads and signed results. Unverified inputs are rejected; automatic native design is not interpreted as utilization.
+  zh: YJK 三维杆系静力分析及原生框架设计。分析保留物理构件、荷载位置与源工况；显式设计请求读取混凝土矩形梁柱配筋及钢 H/箱形梁柱应力验算，核对真实几何、材料牌号、规范和原生组合。缺项不填零，参考截面不用于设计。
+  en: YJK 3-D frame statics and native frame design. Analysis preserves physical members, load positions and source cases. Explicit design requests read concrete rectangular-member reinforcement or steel I/box stress checks with physical geometry, grade, code and native combinations verified. Missing values never become zero and reference sections cannot be designed.
 triggers:
   - YJK 静力分析
   - YJK 计算

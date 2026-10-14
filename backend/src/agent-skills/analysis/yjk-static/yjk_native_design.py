@@ -23,6 +23,43 @@ PARAMETERS = {"beamCoverMm": ("int", "709", 10, 100),
               "columnCoverMm": ("int", "710", 10, 100),
               "beamStirrupSpacingMm": ("int", "816", 25, 500),
               "columnStirrupSpacingMm": ("int", "817", 25, 500)}
+# Vendor preprocessing interface: YP_GZCY / YP_GZCYY. These select the
+# native column effective-length method; they are not authored lengths l0.
+STEEL_LENGTH_METHODS = {"steelColumnSwayX": "706", "steelColumnSwayY": "734"}
+MAIN_REBAR_PARAMETERS = {"beamMainRebarGrade": "beam", "columnMainRebarGrade": "column"}
+MAIN_REBAR_CODES = {"HRB400": {"model": 3, "result": 81104}, "HRB500": {"model": 4, "result": 81105}}
+
+
+def compile_main_rebar(source: dict, supplied: dict) -> dict:
+    """Use documented floor main-bar settings without changing other members."""
+    explicit = {str(row["id"]): row["rebar_grade"] for row in source.get("elements", []) if row.get("rebar_grade") is not None}
+    by_role = {role: supplied[key] for key, role in MAIN_REBAR_PARAMETERS.items() if key in supplied}
+    if not explicit and not by_role:
+        return {"floors": {}, "members": {}}
+    if any(not isinstance(value, str) or value not in MAIN_REBAR_CODES for value in [*explicit.values(), *by_role.values()]):
+        raise NativeDesignError("Main reinforcement grade must be HRB400 or HRB500 / 纵筋牌号须为 HRB400 或 HRB500", "ENGINE_INPUT_UNSUPPORTED")
+    from native_story_geometry import compile_story_geometry
+    layout = compile_story_geometry(source)
+    groups = {}
+    for row in source["elements"]:
+        key = (layout["members"][str(row["id"])]["floor"], row["type"])
+        groups.setdefault(key, []).append(row)
+    floors, members = {}, {}
+    for (floor, role), group in groups.items():
+        requested = {explicit[str(row["id"])] for row in group if str(row["id"]) in explicit}
+        global_grade = by_role.get(role)
+        if global_grade is not None:
+            requested.add(global_grade)
+        if not requested:
+            continue
+        if len(requested) != 1:
+            raise NativeDesignError("Native floor main-bar grades conflict / 同层同类构件纵筋牌号冲突", "ENGINE_INPUT_UNSUPPORTED")
+        if global_grade is None and any(str(row["id"]) not in explicit for row in group):
+            raise NativeDesignError("Native member-only main-bar override needs a mapped individual setter; other members must not change / 单构件纵筋覆盖尚缺专用映射，不能改同层其它构件", "ENGINE_INPUT_UNSUPPORTED")
+        grade = requested.pop()
+        floors.setdefault(floor, {})[role] = grade
+        members.update({str(row["id"]): grade for row in group})
+    return {"floors": floors, "members": members}
 
 
 def _compile_design_request(request: dict | None, source: dict) -> dict | None:
@@ -49,12 +86,16 @@ def _compile_design_request(request: dict | None, source: dict) -> dict | None:
         raise NativeDesignError("Native design selfweight requires explicit reconciliation; current profile requires self_weight=false / 当前设计配置须明确关闭自重，含自重设计映射待接通")
     from commercial_context import project_commercial_model
     overrides = [path for path, value in project_commercial_model(source, "yjk")["designInputs"]["fields"].items()
-                 if value is not None and value != {}]
+                 if value is not None and value != {} and path not in {
+                     "elements." + str(row["id"]) + ".rebar_grade" for row in source.get("elements", [])}]
     if overrides:
         raise NativeDesignError("Native design has unmapped explicit input fields / 原生设计存在尚未映射的显式参数: " + ", ".join(overrides))
     supplied = request.get("parameters", {})
-    if not isinstance(supplied, dict) or set(supplied) - set(PARAMETERS):
+    if not isinstance(supplied, dict) or set(supplied) - (set(PARAMETERS) | set(STEEL_LENGTH_METHODS) | set(MAIN_REBAR_PARAMETERS)):
         raise NativeDesignError("Unknown native design parameters / 未知原生设计参数")
+    rebar = compile_main_rebar(source, supplied)
+    if rebar["members"] and expected_family != "concrete":
+        raise NativeDesignError("Main reinforcement settings require concrete members / 纵筋设置须用于混凝土构件", "ENGINE_INPUT_UNSUPPORTED")
     parameters = {"int": {"603": 60301, "604": 60401}, "float": {}}
     # Source cases already include exactly the requested gravity, if any.
     # Disable automatic DEAD selfweight for the native design combination set.
@@ -62,19 +103,28 @@ def _compile_design_request(request: dict | None, source: dict) -> dict | None:
     if request["code"] == "GB50017-2017":
         parameters["int"]["752"] = 1
     for key, value in supplied.items():
+        if key in MAIN_REBAR_PARAMETERS:
+            continue
+        if key in STEEL_LENGTH_METHODS:
+            if expected_family != "steel" or type(value) is not bool:
+                raise NativeDesignError("Steel length-method parameters require steel members and booleans / 钢柱计算长度方法须用于钢构件并提供布尔值")
+            parameters["int"][STEEL_LENGTH_METHODS[key]] = int(value)
+            continue
         kind, identifier, lower, upper = PARAMETERS[key]
         if type(value) is not int or not lower <= value <= upper:
             raise NativeDesignError(f"Invalid {key} / 原生设计参数取值无效")
         parameters[kind][identifier] = value
     return {"schema": "sclaw-yjk-design-request/v1", "request": request,
             "parameters": parameters, "loadScope": "explicit-source-cases-only",
-            "defaultPolicy": "adopt-and-read-back"}
+            "mainRebar": rebar, "defaultPolicy": "adopt-and-read-back"}
 
 
 def compile_design_request(request, source):
     try:
         return _compile_design_request(request, source)
     except ValueError as exc:
+        if getattr(exc, "error_code", "NATIVE_RESULT_UNAVAILABLE") != "NATIVE_RESULT_UNAVAILABLE":
+            raise
         message = str(exc)
         unsupported = "unmapped explicit" in message or "current profile" in message
         raise NativeDesignError(message, "ENGINE_INPUT_UNSUPPORTED" if unsupported else "ANALYSIS_INPUT_REQUIRED") from exc
@@ -291,6 +341,11 @@ def complete_native_design(result: dict, source: dict, plan: dict, directory: Pa
         effective_input = raw.get("effective_inputs")
         if not effective_input or any(value is None for value in effective_input.values()):
             raise NativeDesignError("Native member design inputs were not fully read back: " + key)
+        requested_rebar = plan.get("mainRebar", {}).get("members", {}).get(key)
+        if requested_rebar:
+            prefix = "Beam" if member["type"] == "beam" else "Column"
+            if effective_input.get(prefix + "MainStl") != MAIN_REBAR_CODES[requested_rebar]["result"]:
+                raise NativeDesignError("Native main reinforcement grade differs from the request / 原生纵筋牌号与请求不一致: " + key)
         geometry = verify_physical_design_section(sections[member["section"]], rows[key].get("nativeGeometry"))
         parsed = parse_member_design(key, raw, family, member["type"])
         for item in parsed["records"] + parsed["checks"]:

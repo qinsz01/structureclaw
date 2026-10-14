@@ -489,6 +489,7 @@ def _concrete_grade(material: dict) -> int | None:
 
 def convert_v2_to_ydb(
     data: dict[str, Any], work_dir: str, ydb_filename: str = "model.ydb",
+    design_plan: dict | None = None,
 ) -> str:
     """Compile the supplied topology, one independent native floor at a time."""
     stiffness_plan = None
@@ -577,6 +578,10 @@ def convert_v2_to_ydb(
         # Initialize the SDK's complete floor defaults, then write every RC
         # member's grade explicitly below. Zero-filled Para is not a C30 floor.
         floor_parameters = BzcPara()
+        if design_plan:
+            from yjk_native_design import MAIN_REBAR_CODES
+            for role, grade in design_plan.get("mainRebar", {}).get("floors", {}).get(str(story["id"]), {}).items():
+                floor_parameters.setVal(7 if role == "beam" else 8, MAIN_REBAR_CODES[grade]["model"])
         # These public floor parameters use modeling grade codes, not
         # postprocessor option IDs (802xx). Elastic E/G alone does not preserve
         # the strength identity used by native design. Mixed same-role grades

@@ -4,7 +4,7 @@
   "purpose": "SDK adapter and delivery acceptance; not re-validation of the commercial solver or installed reinforcement certification",
   "independentYjkApi": "Not modified, restarted or used for these jobs; private owned SDK installation only.",
   "scope": {
-    "concrete": "Physical rectangular C30/C35/C40 family; requested reinforcement and reported native checks; GB/T50010-2010(2024) actual native profile.",
+    "concrete": "Physical rectangular C15 through C80 standard grades; requested reinforcement and reported native checks; GB/T50010-2010(2024) actual native profile.",
     "steel": "Physical symmetric I/H and equal-thickness box; grade identity checked from native material label and member parameters; GB50017-2017.",
     "analysis": "Explicit first-order bare-frame controls and self_weight=false; no automatic extra loading accepted.",
     "defaults": "Only after adoptedNativeDefaults=true; actual project/member inputs and native case combination coefficients recorded.",
@@ -20,13 +20,28 @@
     "Q355ModelingFloorCode": 356,
     "Q355PostprocessorCode": 80215,
     "legacyModeling355": "Q345GJ, not Q355",
-    "verification": "BzcPara write + BeamMat/ColumnMat + dsnGetComMatStr + native material/section FE readback"
+    "verification": "BzcPara write + BeamMat/ColumnMat + dsnGetComMatStr + native material/section FE readback",
+    "mainReinforcement": {
+      "HRB400": {
+        "modelingFloorCode": 3,
+        "postprocessorCode": 81104
+      },
+      "HRB500": {
+        "modelingFloorCode": 4,
+        "postprocessorCode": 81105
+      },
+      "mapping": "BzcPara 7/8; only longitudinal bars, hoops unchanged"
+    }
   },
   "requestParameters": [
     "beamCoverMm",
     "columnCoverMm",
     "beamStirrupSpacingMm",
-    "columnStirrupSpacingMm"
+    "columnStirrupSpacingMm",
+    "beamMainRebarGrade",
+    "columnMainRebarGrade",
+    "steelColumnSwayX",
+    "steelColumnSwayY"
   ],
   "runs": [
     {
@@ -251,12 +266,234 @@
           "sha256": "2137104474667c22bc8aec1f5cc6645befc6eb7bcd36b9fbfdb5296cd94e9ae8"
         }
       ]
+    },
+    {
+      "profile": "concrete-standard-grade-identity",
+      "workDirectory": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-grades-20261014-092619-403b83",
+      "nativeProject": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-grades-20261014-092619-403b83\\sc_native-standard-grades_a69c5addb23a\\native-standard-concrete-grades.yjk",
+      "request": {
+        "requested": true,
+        "mode": "required-reinforcement",
+        "code": "GB/T50010-2010(2024)",
+        "adoptedNativeDefaults": true,
+        "parameters": {
+          "beamCoverMm": 30,
+          "columnCoverMm": 35
+        }
+      },
+      "effectiveCodeProfile": {
+        "code": "GB/T50010-2010(2024)",
+        "adoptedGeneralCode": true,
+        "report": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-grades-20261014-092619-403b83\\sc_native-standard-grades_a69c5addb23a\\设计结果\\mainjss.out"
+      },
+      "checkCounts": {
+        "pass": 24,
+        "fail": 0,
+        "not_applicable": 0
+      },
+      "reinforcementRecords": 280,
+      "eligibleForConclusion": true,
+      "oneNativeJob": true,
+      "resultSetKeys": [],
+      "artifacts": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-grades-20261014-092619-403b83\\result.json",
+          "sha256": "e47bfff4e08068bf942892ad197d8b7bd31811f737fbf05612fd5476e1ee256a"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-grades-20261014-092619-403b83\\source.json",
+          "sha256": "b36807dcf903f7f7a826f0ea00091dd57539bef8f1245ec82a8ae9d64dab22cf"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-grades-20261014-092619-403b83\\request.json",
+          "sha256": "8a64d6162d631adb984b6dbcab296d4446dcf3cd06b4b30b3bf9d7c0ca3b07df"
+        }
+      ],
+      "verifiedGrades": [
+        "C15",
+        "C20",
+        "C25",
+        "C30",
+        "C35",
+        "C40",
+        "C45",
+        "C50",
+        "C55",
+        "C60",
+        "C65",
+        "C70",
+        "C75",
+        "C80"
+      ]
+    },
+    {
+      "profile": "concrete-HRB500-main-bars",
+      "workDirectory": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-rebar-20261014-093033-e40ca6",
+      "nativeProject": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-rebar-20261014-093033-e40ca6\\sc_native-main-rebar_1f789ad0916d\\native-design-concrete.yjk",
+      "request": {
+        "requested": true,
+        "mode": "required-reinforcement",
+        "code": "GB/T50010-2010(2024)",
+        "adoptedNativeDefaults": true,
+        "parameters": {
+          "beamCoverMm": 30,
+          "columnCoverMm": 35
+        }
+      },
+      "effectiveCodeProfile": {
+        "code": "GB/T50010-2010(2024)",
+        "adoptedGeneralCode": true,
+        "report": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-rebar-20261014-093033-e40ca6\\sc_native-main-rebar_1f789ad0916d\\设计结果\\mainjss.out"
+      },
+      "checkCounts": {
+        "pass": 12,
+        "fail": 0,
+        "not_applicable": 0
+      },
+      "reinforcementRecords": 140,
+      "eligibleForConclusion": true,
+      "oneNativeJob": true,
+      "resultSetKeys": [],
+      "artifacts": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-rebar-20261014-093033-e40ca6\\result.json",
+          "sha256": "df536629141260766a36dcd80b96cb420f391baa31ba1bd390fb44383dac4940"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-rebar-20261014-093033-e40ca6\\source.json",
+          "sha256": "3fe4aae17cc787a678e02c983bc6c053b8506d918c2cc59d9d71eedfbece4845"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-rebar-20261014-093033-e40ca6\\request.json",
+          "sha256": "d1751550eb6cf06696fb8b58a06816e0de6db84014d493c13b0e0460494fc98e"
+        }
+      ],
+      "memberReadback": {
+        "C00": {
+          "main": 81105,
+          "hoop": 81104
+        },
+        "C01": {
+          "main": 81105,
+          "hoop": 81104
+        },
+        "C10": {
+          "main": 81105,
+          "hoop": 81104
+        },
+        "C11": {
+          "main": 81105,
+          "hoop": 81104
+        },
+        "BX0": {
+          "main": 81105,
+          "hoop": 81104
+        },
+        "BX1": {
+          "main": 81105,
+          "hoop": 81104
+        },
+        "BY0": {
+          "main": 81105,
+          "hoop": 81104
+        },
+        "BY1": {
+          "main": 81105,
+          "hoop": 81104
+        }
+      }
+    },
+    {
+      "profile": "steel-non-sway-length-method",
+      "workDirectory": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-length-method-20261014-093457-e61a96",
+      "nativeProject": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-length-method-20261014-093457-e61a96\\sc_native-length-method_d05cbdf92b09\\native-design-box.yjk",
+      "request": {
+        "requested": true,
+        "mode": "code-check",
+        "code": "GB50017-2017",
+        "adoptedNativeDefaults": true,
+        "parameters": {
+          "steelColumnSwayX": false,
+          "steelColumnSwayY": false
+        }
+      },
+      "effectiveCodeProfile": {
+        "code": "GB50017-2017",
+        "adoptedGeneralCode": true,
+        "report": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-length-method-20261014-093457-e61a96\\sc_native-length-method_d05cbdf92b09\\设计结果\\mainjss.out"
+      },
+      "checkCounts": {
+        "pass": 140,
+        "fail": 0,
+        "not_applicable": 72
+      },
+      "reinforcementRecords": 0,
+      "eligibleForConclusion": true,
+      "oneNativeJob": true,
+      "resultSetKeys": [],
+      "artifacts": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-length-method-20261014-093457-e61a96\\result.json",
+          "sha256": "170dd280fc6e7ef73f3e3d5d34b6a0404d33a970f49d88d3d99e1d726b34f1f6"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-length-method-20261014-093457-e61a96\\source.json",
+          "sha256": "d7130364b4d7a2a2b236791555267a50018268dd1e1ba299bf5bbbad09bf1658"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-length-method-20261014-093457-e61a96\\request.json",
+          "sha256": "9a24285c0b44d3e3781264d9a1dbbaaee83af79a4829aaa1608aba33ed8e76a3"
+        }
+      ],
+      "effectiveMethods": {
+        "706": 0,
+        "734": 0
+      },
+      "columnLengthReadback": {
+        "C00": [
+          1.2825140953063965,
+          1.1415401697158813,
+          0.6822544932365417,
+          0.64023756980896,
+          3.0,
+          3.0
+        ],
+        "C01": [
+          1.2825140953063965,
+          1.1415401697158813,
+          0.6822544932365417,
+          0.64023756980896,
+          3.0,
+          3.0
+        ],
+        "C10": [
+          1.2825140953063965,
+          1.1415401697158813,
+          0.6822544932365417,
+          0.64023756980896,
+          3.0,
+          3.0
+        ],
+        "C11": [
+          1.2825140953063965,
+          1.1415401697158813,
+          0.6822544932365417,
+          0.64023756980896,
+          3.0,
+          3.0
+        ]
+      }
     }
   ],
   "tests": {
-    "pytest": "128 passed, 14 subtests passed (YJK directory plus commercial_context)",
+    "pytest": "134 passed, 14 subtests passed (YJK directory plus commercial_context)",
     "jest": "3 suites / 6 tests passed: rc-converter, driver-auth, result-normalization",
     "nativeRunner": "backend/tests/analysis-yjk-native-design.py",
-    "missingInput": "Missing actual geometry rejected before native launch with ANALYSIS_INPUT_REQUIRED; missing or invalid SDK values never become zero/pass."
+    "missingInput": "Missing actual geometry rejected before native launch with ANALYSIS_INPUT_REQUIRED; missing or invalid SDK values never become zero/pass.",
+    "mainRebarConflicts": "Unknown/malformed grades, partial same-floor member overrides and conflicting explicit role/source grades fail before native launch with a typed input/unsupported error."
+  },
+  "parameterLimits": {
+    "mainRebar": "Explicit beam/column role request or every same-floor/role source member has one consistent grade; no individual override silently changes neighbours. HRB400/HRB500 only.",
+    "steelLengthMethods": "Boolean native 706/734 sway method selection; not arbitrary physical l0."
   }
 }

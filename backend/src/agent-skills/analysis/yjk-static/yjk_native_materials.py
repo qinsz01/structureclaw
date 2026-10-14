@@ -65,7 +65,12 @@ def native_baseline(material: dict) -> dict:
     """Reference material, always checked again in the executed FE model."""
     material = normalize_material(material)
     grade = material.get("grade")
-    concrete = {"C30": 30000., "C35": 31500., "C40": 32500.}
+    # Standard native grade identities, MPa. Each member's executed E and G
+    # are checked in audit_frames; these never replace authored rigidities.
+    concrete = {"C15": 22000., "C20": 25500., "C25": 28000., "C30": 30000.,
+                "C35": 31500., "C40": 32500., "C45": 33500., "C50": 34500.,
+                "C55": 35500., "C60": 36000., "C65": 36500., "C70": 37000.,
+                "C75": 37500., "C80": 38000.}
     if material["category"] == "concrete":
         native_grade = grade if grade in concrete else "C30"
         E, nu = concrete[native_grade], .25
