@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { spawnSync } from 'node:child_process';
+import { resolvePythonCommand } from './fixtures/python-command.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -16,36 +17,6 @@ const converterDir = path.join(
   'yjk-static',
 );
 
-function probePython(executable, args) {
-  const result = spawnSync(executable, [...args, '-c', 'import sys; sys.exit(0)'], {
-    encoding: 'utf8',
-    windowsHide: process.platform === 'win32',
-  });
-  return result.status === 0 ? { executable, args } : null;
-}
-
-function resolvePythonCommand() {
-  if (process.env.PYTHON_FOR_TEST) {
-    const found = probePython(process.env.PYTHON_FOR_TEST, []);
-    if (found) return found;
-  }
-
-  const candidates = process.platform === 'win32'
-    ? [
-        ['py', ['-3']],
-        ['python', []],
-        ['python3', []],
-      ]
-    : [
-        ['python3', []],
-        ['python', []],
-      ];
-  for (const [executable, args] of candidates) {
-    const found = probePython(executable, args);
-    if (found) return found;
-  }
-  return null;
-}
 
 function writeFile(filePath, content) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -56,7 +27,7 @@ const pythonCommand = resolvePythonCommand();
 
 describe('YJK RC frame converter', () => {
   if (!pythonCommand) {
-    test.skip('converts reinforced-concrete frame sections with YJK DataFunc (no Python on PATH)', () => {});
+    test.skip('converts reinforced-concrete frame sections with YJK DataFunc (no usable configured or local Python)', () => {});
     return;
   }
 

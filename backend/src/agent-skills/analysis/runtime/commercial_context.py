@@ -13,7 +13,7 @@ from pathlib import Path
 
 
 MATERIAL_DESIGN_FIELDS = frozenset({
-    "f", "fv", "fc", "ft", "ftk", "Ec", "Es", "fy", "fyv",
+    "f", "fv", "fc", "fck", "ft", "ftk", "Ec", "Es", "fy", "fyv",
     "fy_compression", "ecu", "alpha1", "beta1",
 })
 MEMBER_DESIGN_FIELDS = frozenset({

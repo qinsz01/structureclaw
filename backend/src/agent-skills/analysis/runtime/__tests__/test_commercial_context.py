@@ -65,6 +65,27 @@ def test_unknown_physics_disguised_as_design_is_not_silently_removed():
         project_commercial_model(model, "pkpm")
 
 
+@pytest.mark.parametrize("engine", ["pkpm", "yjk"])
+def test_characteristic_compressive_strength_is_retained_without_changing_elastic_properties(engine):
+    model = source()
+    model["materials"][0]["fck"] = 30.
+    before = copy.deepcopy(model)
+    projected = project_commercial_model(model, engine)
+    assert model == before
+    assert projected["designInputs"]["fields"]["materials.C.fck"] == 30.
+    elastic = projected["analysisModel"]["materials"][0]
+    assert "fck" not in elastic
+    assert {key: elastic[key] for key in ("E", "G", "nu", "rho")} == {
+        "E": 30000, "G": 12500, "nu": .2, "rho": 2500,
+    }
+    changed = copy.deepcopy(model)
+    changed["materials"][0]["fck"] = 35.
+    next_projection = project_commercial_model(changed, engine)
+    assert projected["analysisModelHash"] == next_projection["analysisModelHash"]
+    assert projected["designInputsHash"] != next_projection["designInputsHash"]
+    assert projected["sourceModelHash"] != next_projection["sourceModelHash"]
+
+
 def test_numeric_carrier_and_missing_rebar_cannot_be_used_for_native_design(tmp_path):
     model = source()
     projection = project_commercial_model(model, "yjk")

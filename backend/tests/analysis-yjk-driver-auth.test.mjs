@@ -1,40 +1,12 @@
 import { describe, expect, test } from '@jest/globals';
 import { spawnSync } from 'node:child_process';
+import { resolvePythonCommand } from './fixtures/python-command.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..', '..');
 
-function probePython(executable, args) {
-  const result = spawnSync(executable, [...args, '-c', 'import sys; sys.exit(0)'], {
-    encoding: 'utf8',
-    windowsHide: process.platform === 'win32',
-  });
-  return result.status === 0 ? { executable, args } : null;
-}
-
-function resolvePythonCommand() {
-  if (process.env.PYTHON_FOR_TEST) {
-    const found = probePython(process.env.PYTHON_FOR_TEST, []);
-    if (found) return found;
-  }
-  const candidates = process.platform === 'win32'
-    ? [
-        ['py', ['-3']],
-        ['python', []],
-        ['python3', []],
-      ]
-    : [
-        ['python3', []],
-        ['python', []],
-      ];
-  for (const [executable, args] of candidates) {
-    const found = probePython(executable, args);
-    if (found) return found;
-  }
-  return null;
-}
 
 describe('YJK driver owned host selection', () => {
   const python = resolvePythonCommand();

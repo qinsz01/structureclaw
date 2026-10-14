@@ -1,42 +1,15 @@
 import { describe, expect, test } from '@jest/globals';
 import { spawnSync } from 'node:child_process';
-import fs from 'node:fs';
+import { resolvePythonCommand } from './fixtures/python-command.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..', '..');
 
-function resolvePython() {
-  const candidates =
-    process.platform === 'win32'
-      ? [
-          path.join(repoRoot, 'backend', '.venv', 'Scripts', 'python.exe'),
-          'python',
-          'py',
-        ]
-      : [
-          path.join(repoRoot, 'backend', '.venv', 'bin', 'python'),
-          'python3',
-          'python',
-        ];
-
-  for (const candidate of candidates) {
-    const args = candidate === 'py' ? ['-3', '-c', 'import sys; print(sys.executable)'] : ['-c', 'import sys; print(sys.executable)'];
-    const result = spawnSync(candidate, args, {
-      encoding: 'utf8',
-      windowsHide: process.platform === 'win32',
-    });
-    const executable = (result.stdout || '').trim();
-    if (result.status === 0 && executable && fs.existsSync(executable)) {
-      return candidate === 'py' ? { executable: candidate, args: ['-3'] } : { executable: candidate, args: [] };
-    }
-  }
-  return null;
-}
 
 describe('YJK result normalization', () => {
-  const python = resolvePython();
+  const python = resolvePythonCommand();
 
   if (!python) {
     test.skip('normalizes YJK extracted load cases, reactions, and member forces (no Python)', () => {});

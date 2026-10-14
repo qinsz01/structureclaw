@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { spawnSync } from 'node:child_process';
+import { resolvePythonCommand } from './fixtures/python-command.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -12,36 +13,6 @@ const pkpmDir = path.join(repoRoot, 'backend', 'src', 'agent-skills', 'analysis'
 const runtimeSupportDir = path.join(repoRoot, 'backend', 'src', 'agent-skills', 'analysis', 'runtime');
 const skillSharedPythonRoot = path.join(repoRoot, 'backend', 'src', 'skill-shared', 'python');
 
-function probePython(executable, args) {
-  const result = spawnSync(executable, [...args, '-c', 'import sys; sys.exit(0)'], {
-    encoding: 'utf8',
-    windowsHide: process.platform === 'win32',
-  });
-  return result.status === 0 ? { executable, args } : null;
-}
-
-function resolvePythonCommand() {
-  if (process.env.PYTHON_FOR_TEST) {
-    const found = probePython(process.env.PYTHON_FOR_TEST, []);
-    if (found) return found;
-  }
-
-  const candidates = process.platform === 'win32'
-    ? [
-        ['py', ['-3']],
-        ['python', []],
-        ['python3', []],
-      ]
-    : [
-        ['python3', []],
-        ['python', []],
-      ];
-  for (const [executable, args] of candidates) {
-    const found = probePython(executable, args);
-    if (found) return found;
-  }
-  return null;
-}
 
 function writeFile(filePath, content) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -329,8 +300,8 @@ function runPkpmRuntime(model, options = {}) {
       'runtime._check_pkpm_available = lambda: Path("JWSCYCLE.exe")',
       'runtime._import_apipyinterface = lambda: None',
       'runtime._patch_material_label = lambda work_dir: patch_calls.append(str(work_dir))',
-      'def fake_jws_cycle(cycle_path, work_dir, timeout=600):',
-      '    run_calls.append({"cycle_path": str(cycle_path), "work_dir": str(work_dir), "timeout": timeout})',
+      'def fake_jws_cycle(cycle_path, work_dir, timeout=600, include_design=False):',
+      '    run_calls.append({"cycle_path": str(cycle_path), "work_dir": str(work_dir), "timeout": timeout, "include_design": include_design})',
       'runtime._run_jws_cycle = fake_jws_cycle',
       ...(
         options.failOpenPmModel
@@ -620,7 +591,7 @@ function buildCanonicalRcModel() {
 
 // Native grade-only fixtures exercise the retained compiler/reader infrastructure.
 // They are deliberately NOT canonical V2 analysis inputs: E/nu/rho and all other
-// numeric physical overrides are absent. Formal builder models must be rejected.
+// numeric physical overrides are absent. Unmapped physical fields must still be rejected.
 function buildNativeGradeRcCompilerFixture() {
   const model = structuredClone(buildCanonicalRcModel());
   model.materials = [{ id: '1', name: 'C30', grade: 'C30', category: 'concrete' }];
@@ -767,14 +738,14 @@ function buildGenericYUpRcFrameModel() {
 
 describe('PKPM frame analysis flow', () => {
   if (!pythonCommand) {
-    test.skip('runs PKPM frame flow with stubbed APIPyInterface (no Python on PATH)', () => {});
+    test.skip('runs PKPM frame flow with stubbed APIPyInterface (no usable configured or local Python)', () => {});
     return;
   }
 
-  test('rejects unmodified canonical builder physics before native execution', () => {
+  test('rejects an unmapped section-level stiffness before native execution', () => {
     const payload = runPkpmRuntime(buildCanonicalRcModel(), { expectFailure: true });
-    expect(payload.errorCode).toBe('PKPM_NATIVE_MATERIAL_PROPERTIES_UNVERIFIED');
-    expect(payload.detail.inputFields).toEqual(expect.arrayContaining(['materials.1.fc', 'elements.C1.rebar_grade']));
+    expect(payload.errorCode).toBe('PKPM_NATIVE_SECTION_PROPERTIES_UNVERIFIED');
+    expect(payload.detail.inputFields).toEqual(['sections.1.properties.G']);
     expect(payload.calls).toEqual([]);
     expect(payload.runCalls).toEqual([]);
   });
@@ -797,7 +768,7 @@ describe('PKPM frame analysis flow', () => {
     });
     expect(payload.result.pkpm_detailed.satwe_params).toMatchObject({ material_family: 'concrete' });
     expect(payload.patchCalls).toEqual([]);
-    expect(payload.runCalls[0]).toMatchObject({ timeout: 12 });
+    expect(payload.runCalls[0]).toMatchObject({ timeout: 12, include_design: false });
     expect(payload.calls).toContainEqual(expect.objectContaining({
       method: 'ProjectPara.SetParaInt',
       key: 103,
