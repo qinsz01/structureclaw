@@ -24,6 +24,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--native', action='store_true', required=True)
     parser.add_argument('--custom-upward', action='store_true')
+    parser.add_argument('--mesh', action='store_true', help='Include partial and point loads on a physical beam')
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     if not os.environ.get('YJKS_ROOT') or not os.environ.get('YJK_PYTHON_BIN'):
@@ -39,9 +40,13 @@ def main():
             section.pop('shape'); section['type'] = 'custom'; section['properties']['A'] = .0137
         model['materials'][0]['rho'] = 7123
         model['analysis_control'].update(self_weight_case_id='L', gravity_direction='z', gravity_m_s2=9.8)
-    else:
+    elif not args.mesh:
         request['design'] = {'requested': True, 'mode': 'required-reinforcement',
                             'code': 'GB/T50010-2010(2024)', 'adoptedNativeDefaults': True}
+    if args.mesh:
+        model['load_cases'][0]['loads'].extend([
+            {'id': 'patch', 'type': 'distributed', 'element': 'BX0', 'start': 1., 'end': 3.5, 'wz': -7.},
+            {'id': 'point', 'type': 'point', 'element': 'BX0', 'position': 1.7, 'fz': -5.}])
     for name, value in (('source.json', model), ('request.json', request)):
         (work/name).write_text(json.dumps(value, indent=2), 'utf8')
     os.environ['YJK_WORK_DIR'] = str(work)
@@ -50,13 +55,22 @@ def main():
     runtime = importlib.util.module_from_spec(spec); spec.loader.exec_module(runtime)
     result = runtime.run_analysis(model, request)
     (work/'result.json').write_text(json.dumps(result, indent=2), 'utf8')
+    verify(work, args.custom_upward, args.mesh)
+
+def verify(work: Path, custom_upward: bool = False, mesh: bool = False):
+    model = json.loads((work/'source.json').read_text('utf8'))
+    result = json.loads((work/'result.json').read_text('utf8'))
     jobs = list(work.glob('sc_*')); assert len(jobs) == 1
     audit = json.loads((jobs[0]/'native-physics-audit.json').read_text('utf8'))
     assert audit['passed'] and audit['loads']['selfWeight'] is True
     settings = json.loads((jobs[0]/'native-settings-readback.json').read_text('utf8'))
     assert all(settings['audit']['readback']['float'][key] == 0 for key in ('801', '803'))
     plan = audit['loads']['selfWeightCompilation']
-    assert len(plan['members']) == len(model['elements'])
+    expected_count = len(model['elements'])
+    if mesh:
+        receipt = json.loads((jobs[0]/'physical-mesh.json').read_text('utf8'))
+        expected_count = sum(len(rows) for rows in receipt['members'].values())
+    assert len(plan['members']) == expected_count
     members = {row['id']: row for row in model['elements']}
     nodes = {row['id']: row for row in model['nodes']}
     balances = []
@@ -67,7 +81,10 @@ def main():
         for row in case['loads']:
             if row['type'] == 'distributed':
                 ends = [nodes[key] for key in members[row['element']]['nodes']]
-                force += row.get('wz', 0)*math.dist(*[[n[k] for k in ('x','y','z')] for n in ends])
+                length = math.dist(*[[n[k] for k in ('x','y','z')] for n in ends])
+                force += row.get('wz', 0)*(row.get('end', length)-row.get('start', 0))
+            elif row['type'] == 'point':
+                force += row.get('fz', 0)
         if case['id'] == plan['loadCaseId']:
             force += sum(row['totalForceKn'] for row in plan['members'])
         reaction = sum(row['fz'] for row in data['reactions'].values())
@@ -75,11 +92,17 @@ def main():
         # keep the usual 1e-5 relative adapter tolerance, never round results.
         assert math.isclose(reaction, -force, rel_tol=1e-5, abs_tol=1e-5), (case['id'], reaction, force)
         balances.append({'caseId': case['id'], 'sourceForceKn': force, 'reactionKn': reaction})
-    if not args.custom_upward:
+        physical = data['nativeContext']['effectiveLoads']['selfWeight']['physicalCompilation']
+        assert set(row['physicalElementId'] for row in physical) == set(members)
+        if mesh:
+            beam = [row for row in physical if row['physicalElementId'] == 'BX0']
+            assert [(row['startM'], row['endM']) for row in beam] == [(0., 1.), (1., 1.7), (1.7, 3.5), (3.5, 6.)]
+            assert all(row['sourceSegmentId'] != 'BX0' for row in beam)
+    if not custom_upward and not mesh:
         assert result['nativeDesignResults']['status'] == 'completed'
         assert result['nativeDesignResults']['records']
         assert result['nativeDesignContext']['eligibleForConclusion'] is True
-    summary = {'status': 'passed', 'customUpward': args.custom_upward, 'loadCaseId': plan['loadCaseId'],
+    summary = {'status': 'passed', 'customUpward': custom_upward, 'mesh': mesh, 'loadCaseId': plan['loadCaseId'],
                'selfWeight': plan, 'balances': balances, 'job': str(jobs[0]),
                'nativeDesignStatus': result.get('nativeDesignResults', {}).get('status')}
     (work/'acceptance.json').write_text(json.dumps(summary, indent=2), 'utf8')

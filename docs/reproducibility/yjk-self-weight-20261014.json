@@ -13,7 +13,8 @@
     "source": "authored rho and A; full physical member length; explicit or unique-dead load case",
     "native": "Load_Def type 1 for ElementKind 11/12; native automatic material weight 801/803 remains zero",
     "numericalSection": "reference carrier dimensions never used for weight",
-    "resultProvenance": "nativeContext.effectiveLoads: verified + sourceFeaSha256 + selfWeight compilation"
+    "resultProvenance": "nativeContext.effectiveLoads: verified + sourceFeaSha256 + selfWeight compilation",
+    "physicalCompilation": "effectiveLoads.selfWeight.physicalCompilation rows: physicalElementId/startM/endM/intensityVectorKnM/sourceSegmentId; native members retained separately; source model hash and mesh receipt bind mapping"
   },
   "runs": [
     {
@@ -113,16 +114,70 @@
           "sha256": "ddc32ae79fa05af52ccf1b95d1f53a05d64374e43088b689e201afc8e46a63e1"
         }
       ]
+    },
+    {
+      "runId": "yjk-selfweight-20261014-115815-aff7278d",
+      "status": "passed",
+      "mesh": true,
+      "caseId": "D",
+      "balances": [
+        {
+          "caseId": "D",
+          "sourceForceKn": -483.71576,
+          "reactionKn": 483.71568
+        },
+        {
+          "caseId": "L",
+          "sourceForceKn": -200.0,
+          "reactionKn": 200.00000000000006
+        }
+      ],
+      "nativeDesignStatus": null,
+      "evidence": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-selfweight-20261014-115815-aff7278d\\source.json",
+          "sha256": "d37102bb36278620bf2f05f7393d18d2fcb4b01199e939dfb73e939e7940af92"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-selfweight-20261014-115815-aff7278d\\request.json",
+          "sha256": "2b3cb88624c02700b4ac32f32622117b8c72aee0ee03b4fb98e1b9c62e5c0802"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-selfweight-20261014-115815-aff7278d\\acceptance.json",
+          "sha256": "4b41ff8afae048a2867333e129d87a00684984faf0c9e7d9b0fca4ad33cd7e7c"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-selfweight-20261014-115815-aff7278d\\sc_selfweight-adapter_4d1fab020f18\\fea.dat",
+          "sha256": "7c1fe6e197021e8d5c49960d1f560175e969dfe85a3f742bdfbdbc2897e400e8"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-selfweight-20261014-115815-aff7278d\\sc_selfweight-adapter_4d1fab020f18\\native-settings-readback.json",
+          "sha256": "7aabe91a7894f1a3310ce14784ac46a0b21e90536c1b495ff86e8a29bcf09ed1"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-selfweight-20261014-115815-aff7278d\\sc_selfweight-adapter_4d1fab020f18\\native-physics-audit.json",
+          "sha256": "a272b64fe4d91313131f76475fa634736816766247142f8a8b8ce3a575a21a63"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-selfweight-20261014-115815-aff7278d\\sc_selfweight-adapter_4d1fab020f18\\physical-mesh.json",
+          "sha256": "0a931d8677413b96c7f92a399dd4fc709c4ae5fac5ded4f802978ea9fbf321cf"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-selfweight-20261014-115815-aff7278d\\result.json",
+          "sha256": "29325159c5432fb545da1126f0a5bc6caaba4fae1ecb4307de13437d4c6a0183"
+        }
+      ],
+      "verificationNote": "Initial harness incorrectly compared native segment count with physical member count. Corrected mapping-aware verifier passed against these same preserved native results; no solver/input/result artifact was altered."
     }
   ],
   "tests": {
     "command": "python -m pytest backend/src/agent-skills/analysis/yjk-static/__tests__ -q",
-    "passed": 137,
+    "passed": 142,
     "subtests": 14
   },
   "remainingNativeMappings": [
     "inclined-column selfweight: ordinary inclined native rods discard external loads; dedicated native automatic weight mapping remains",
     "horizontal gravity: requires explicit global-direction native load mapping"
   ],
-  "note": "FE decimal serialization bounds are input-readback bounds only; response values and response tolerances are not rounded or relaxed. Global vector metadata was added without changing SDK inputs after these runs and is covered by pure tests."
+  "note": "FE decimal serialization bounds are input-readback bounds only; response values and response tolerances are not rounded or relaxed. Global vector and physical-interval metadata are tested and included in the third, load-refined native run."
 }

@@ -7,7 +7,7 @@ import pytest
 
 ADAPTER = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ADAPTER), str(ADAPTER.parent/'runtime'), str(ADAPTER.parents[2]/'skill-shared/python')]
-from yjk_self_weight import compile_self_weight
+from yjk_self_weight import compile_self_weight, restore_physical_compilation
 from yjk_native_loads import compile_load_definitions
 from yjk_native_design import compile_design_request
 
@@ -32,6 +32,9 @@ def test_weight_uses_source_area_density_and_one_resolved_case_without_mutation(
     assert all('derivedSelfWeight' not in row for row in cases[1]['loads'])
     assert sum('derivedSelfWeight' in row for row in cases[0]['loads']) == len(source['elements'])
     assert source == original
+    assert len(plan['physicalCompilation']) == len(plan['members'])
+    assert all(row['sourceSegmentId'] == row['physicalElementId'] and row['startM'] == 0
+               for row in plan['physicalCompilation'])
 
 
 def test_custom_area_and_density_never_use_reference_carrier_geometry():
@@ -69,3 +72,34 @@ def test_design_adopts_same_weight_compilation_and_keeps_native_weight_disabled(
                                   'adoptedNativeDefaults': True}, source)
     assert plan['selfWeight'] == compile_self_weight(source)
     assert plan['parameters']['float'] == {'801': 0., '803': 0.}
+
+
+def test_mesh_weight_mapping_preserves_original_members_and_exact_load_intervals():
+    from member_mesh import compile_member_mesh
+    source = model()
+    source['load_cases'][0]['loads'].append({'type': 'point', 'element': 'BX0', 'position': 1.7, 'fz': -5})
+    mesh, receipt = compile_member_mesh(source)
+    compiled = compile_self_weight(mesh); original = deepcopy(compiled)
+    result = restore_physical_compilation(compiled, receipt)
+    assert compiled == original and result['members'] == compiled['members']
+    rows = [row for row in result['physicalCompilation'] if row['physicalElementId'] == 'BX0']
+    assert [(row['startM'], row['endM']) for row in rows] == [(0., 1.7), (1.7, 6.)]
+    assert all(row['sourceSegmentId'].startswith('__yjk__BX0__s') for row in rows)
+    assert sum(row['endM']-row['startM'] for row in rows) == 6
+    assert all(row['intensityVectorKnM'] == [0, 0, -4.4129925] for row in rows)
+
+
+@pytest.mark.parametrize('bad', ['gap', 'overlap', 'duplicate', 'missing'])
+def test_mesh_weight_mapping_rejects_gaps_duplicates_and_missing_native_segments(bad):
+    from member_mesh import compile_member_mesh
+    source = model()
+    source['load_cases'][0]['loads'].append({'type': 'point', 'element': 'BX0', 'position': 1.7, 'fz': -5})
+    mesh, receipt = compile_member_mesh(source); compiled = compile_self_weight(mesh)
+    if bad in ('gap', 'overlap'):
+        receipt['members']['BX0'][1]['start'] += .01 if bad == 'gap' else -.01
+    elif bad == 'duplicate':
+        receipt['members']['BX0'][1]['id'] = receipt['members']['BX0'][0]['id']
+    else:
+        receipt['members']['BX0'].pop()
+    with pytest.raises(ValueError):
+        restore_physical_compilation(compiled, receipt)

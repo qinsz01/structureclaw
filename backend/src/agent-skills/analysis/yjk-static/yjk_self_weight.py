@@ -8,6 +8,7 @@ audited before any result is published.
 from __future__ import annotations
 
 import math
+import copy
 from structure_protocol.self_weight import resolve_self_weight
 
 
@@ -17,7 +18,8 @@ class SelfWeightCapabilityError(ValueError):
 
 def compile_self_weight(model: dict) -> dict:
     resolved = resolve_self_weight(model)
-    result = {**resolved, "method": "authored-member-density-area-native-line-loads", "members": []}
+    result = {**resolved, "method": "authored-member-density-area-native-line-loads", "members": [],
+              "physicalCompilation": []}
     if not resolved["enabled"]:
         return result
     if resolved["direction"] not in {"z", "-z"}:
@@ -50,4 +52,39 @@ def compile_self_weight(model: dict) -> dict:
             "totalForceKn": intensity*length, "totalForceVectorKn": [0., 0., intensity*length],
             "elementKind": 12 if kind == "beam" else 11,
             "actualToPlanLengthFactor": factor})
+    result["physicalCompilation"] = [{"physicalElementId": row["elementId"], "startM": 0.,
+        "endM": row["lengthM"], "intensityVectorKnM": row["intensityVectorKnM"],
+        "sourceSegmentId": row["elementId"]} for row in result["members"]]
     return result
+
+
+def restore_physical_compilation(weight: dict, receipt: dict) -> dict:
+    """Index audited native segment weights in source-member coordinates."""
+    restored = copy.deepcopy(weight)
+    if not weight.get("enabled"):
+        restored["physicalCompilation"] = []
+        return restored
+    native = {row["elementId"]: row for row in weight["members"]}
+    if len(native) != len(weight["members"]):
+        raise ValueError("Duplicate native selfweight segment / 原生自重计算段重复")
+    used, physical = set(), []
+    for member, segments in receipt["members"].items():
+        previous = 0.
+        for segment in segments:
+            identifier = segment['id']
+            start, end = segment['start'], segment['end']
+            if identifier not in native or identifier in used or not all(
+                    type(x) in (int, float) and math.isfinite(x) for x in (start, end)):
+                raise ValueError("Missing or duplicate physical selfweight mapping / 自重物理构件映射缺失或重复")
+            row = native[identifier]
+            tolerance = 8*math.ulp(max(1., end, row['lengthM']))
+            if end <= start or abs(start-previous) > tolerance or abs((end-start)-row['lengthM']) > tolerance:
+                raise ValueError("Selfweight segments must cover the physical member without gaps or overlap / 自重计算段须连续覆盖物理构件且无重叠")
+            physical.append({"physicalElementId": member, "startM": start, "endM": end,
+                             "intensityVectorKnM": list(row['intensityVectorKnM']), "sourceSegmentId": identifier})
+            previous = end
+            used.add(identifier)
+    if used != set(native):
+        raise ValueError("Unmapped native selfweight segment / 原生自重计算段未映射")
+    restored["physicalCompilation"] = physical
+    return restored
