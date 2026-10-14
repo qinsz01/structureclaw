@@ -2,6 +2,7 @@ import { recoverAnalysisMembers, queryMemberResponse, memberResponseExtrema } fr
 import type { RecoveryModel, RecoveryResult } from '../skill-shared/member-response.js';
 import { contentHash, isRecord, type ModelRecord } from './model-state.js';
 import { nativeForceRecovery } from './native-force-recovery.js';
+import { nativeRigidMember } from './native-rigid-offsets.js';
 
 function recoveryModel(model: ModelRecord): model is ModelRecord & RecoveryModel {
   return model.unit_system === 'SI' && isRecord(model.coordinate_system)
@@ -49,6 +50,7 @@ export function nativeStations(model: RecoveryModel, data: ModelRecord, elementI
     || ![start.x, start.y, start.z, end.x, end.y, end.z].every(finite)) throw new Error('RESULT_MODEL_SNAPSHOT_REQUIRED');
   const length = Math.hypot(end.x - start.x, end.y - start.y, end.z - start.z);
   if (length <= 0) throw new Error('RESULT_MODEL_SNAPSHOT_REQUIRED');
+  const rigid = nativeRigidMember(model as unknown as ModelRecord, context, member, length);
   const sourceRows = isRecord(data.memberStations) ? data.memberStations[elementId] : undefined;
   if (!Array.isArray(sourceRows) || !sourceRows.length) throw new Error('EXACT_NATIVE_STATION_UNAVAILABLE');
   const seen = new Set<string>();
@@ -61,6 +63,10 @@ export function nativeStations(model: RecoveryModel, data: ModelRecord, elementI
     }
     if (!isRecord(raw.components) || !nativeComponents.every(key => finite((raw.components as ModelRecord)[key]))) {
       throw new Error('NATIVE_STATION_COMPONENTS_INCOMPLETE');
+    }
+    if (rigid?.domain === 'elastic-span' && (raw.positionM < rigid.start && !sameNativePosition(raw.positionM, rigid.start, length)
+      || raw.positionM > rigid.end && !sameNativePosition(raw.positionM, rigid.end, length))) {
+      throw new Error('NATIVE_STATION_POSITION_UNVERIFIED');
     }
     const identity = `${raw.positionM}:${raw.side}`;
     const sides = cuts.get(raw.positionM) ?? new Set<string>();
@@ -95,7 +101,7 @@ function nativeMemberData(model: RecoveryModel, data: ModelRecord, factors?: Rec
         // at result level; direct queries still return the full provenance.
         const { nativeContext: _context, anchor, ...provenance } = recovered.source;
         const rawRows = (data.memberStations as Record<string, ModelRecord[]>)[member.id];
-        const anchorIndex = rawRows.findIndex(row => row.positionM === 0 && row.side === 'right');
+        const anchorIndex = rawRows.findIndex(row => row.positionM === recovered.source.anchorPositionM && row.side === recovered.source.anchorSide);
         const memberPath = member.id.replace(/~/g, '~0').replace(/\//g, '~1');
         const anchorRef = { path: `#/memberStations/${memberPath}/${anchorIndex}/source`, sha256: contentHash(anchor) };
         const sampleSource = { ...provenance, nativeContextRef, anchorRef };

@@ -17,6 +17,88 @@ function cantilever() {
 }
 
 describe('native force equilibrium recovery',()=>{
+  function rigidCantilever(domain = 'elastic-span') {
+    const { model, result } = cantilever();
+    model.analysis_control.rigid_offsets = true;
+    model.load_cases[0].loads = [{ type: 'distributed', element: 'beam', wz: -2 }];
+    result.data.nativeContext.effectiveRigidOffsets = { verified: true, sourceFeaSha256: 'b'.repeat(64), sourceLoadSemanticsPreserved: true,
+      loadCompilation: { method: 'independently-preserved-physical-loads', sourceFeaSha256: 'b'.repeat(64) },
+      method: 'native-rigid-end-readback', members: { beam: { physicalLengthM: 4, elasticStartM: 0.5, elasticEndM: 3.5,
+        startLengthM: 0.5, endLengthM: 0.5, sourceNodeIds: ['a', 'b'], nativeStationDomain: domain,
+        source: { readbackFields: ['independent rigid-arm fixture'] } } } };
+    // Statically determinate free-end equilibrium, including load on both rigid arms:
+    // Vz(x)=q*(L-x), My(x)=q*(L-x)^2/2. Rigid arms affect displacement, not this cut balance.
+    const positions = domain === 'elastic-span' ? [0.5, 2, 3.5] : [0, 2, 4];
+    result.data.memberStations.beam = positions.map((positionM, index) => ({
+      positionM, side: index === 0 ? 'right' : index === 2 ? 'left' : 'continuous',
+      components: { N: 0, Vy: 0, Vz: 2*(4-positionM), T: 0, My: (4-positionM)**2, Mz: 0 },
+      referenceFrame: 'element-local', localAxes: [[1,0,0],[0,1,0],[0,0,1]], source: { kind: 'independent-cut-balance', positionM },
+    }));
+    return { model, result };
+  }
+
+  test.each(['elastic-span', 'physical-endpoints'])('audited rigid members retain %s stations and recover physical cuts with explicit provenance', domain => {
+    const { model, result } = rigidCantilever(domain);
+    const before = structuredClone(result);
+    for (const x of [0, 0.1, 0.5, 1.731, 3.5, 3.9, 4]) {
+      const value = queryPhysicalResponse(model, result, 'beam', x, x === 4 ? 'left' : 'right');
+      expect(value.sample.Vz).toBeCloseTo(2*(4-x), 12);
+      expect(value.sample.My).toBeCloseTo((4-x)**2, 12);
+      if (domain === 'elastic-span' && (x === 0 || x === 4)) {
+        expect(value.provenance).toBe('mechanics-recovery');
+        expect(value.source.anchorPositionM).toBe(0.5);
+      }
+    }
+    const data = enrichResultData(model, result, result.selection);
+    const sample = data.memberResponses[0].samples.find(row => row.x === 0.1);
+    const derived = data.memberResponses[0].samples.find(row => row.provenance === 'mechanics-recovery');
+    expect(derived.source.anchorRef.path).toBe('#/memberStations/beam/0/source');
+    expect(data.memberResponses[0].samples.some(row => 'displacement' in row)).toBe(false);
+    expect(result).toEqual(before);
+    if (sample) expect(sample.M2).toBeCloseTo(3.9**2, 12);
+  });
+
+  test('an interior native anchor preserves point-load left/right cuts on the full physical member', () => {
+    const { model, result } = cantilever();
+    const rigid = rigidCantilever().result.data.nativeContext.effectiveRigidOffsets;
+    model.analysis_control.rigid_offsets = true;
+    result.data.nativeContext.effectiveRigidOffsets = rigid;
+    result.data.memberStations.beam[0].positionM = 0.5;
+    result.data.memberStations.beam[0].components.My = 15;
+    result.data.memberStations.beam[0].components.Mz = 4;
+    result.data.memberStations.beam[1].positionM = 3.5;
+    expect(queryPhysicalResponse(model, result, 'beam', 0, 'right').sample).toMatchObject({ N: 1, Vy: -2, Vz: 8, T: 2, My: 19, Mz: 5 });
+    const left = queryPhysicalResponse(model, result, 'beam', 2, 'left');
+    const right = queryPhysicalResponse(model, result, 'beam', 2, 'right');
+    expect(left.sample).toMatchObject({ N: 1, Vy: -2, Vz: 6, T: 2, My: 4, Mz: 1 });
+    expect(right.sample).toMatchObject({ N: 0, Vy: 0, Vz: 2, T: 0, My: 1, Mz: 0 });
+  });
+
+  test.each(['unverified', 'hash', 'length', 'node-order', 'negative', 'inconsistent-end', 'domain', 'absent-member', 'missing-setting'])('rigid offset %s evidence cannot authorize a force query', defect => {
+    const { model, result } = rigidCantilever();
+    const offsets = result.data.nativeContext.effectiveRigidOffsets, member = offsets.members.beam;
+    if (defect === 'unverified') offsets.verified = false;
+    if (defect === 'hash') offsets.sourceFeaSha256 = '';
+    if (defect === 'length') member.physicalLengthM = 3;
+    if (defect === 'node-order') member.sourceNodeIds.reverse();
+    if (defect === 'negative') member.elasticStartM = -0.1;
+    if (defect === 'inconsistent-end') member.endLengthM = 0.4;
+    if (defect === 'domain') member.nativeStationDomain = 'unknown';
+    if (defect === 'absent-member') delete offsets.members.beam;
+    if (defect === 'missing-setting') delete model.analysis_control.rigid_offsets;
+    expect(() => queryPhysicalResponse(model, result, 'beam', 0.1, 'right')).toThrow('NATIVE_RIGID_OFFSETS_UNVERIFIED');
+  });
+
+  test.each(['missing-boundary', 'unexplained-redistribution', 'relabeled-gross-station', 'unverified-loads', 'wrong-load-hash'])('rigid member %s cannot produce an invented physical result', defect => {
+    const { model, result } = rigidCantilever();
+    if (defect === 'missing-boundary') result.data.memberStations.beam.pop();
+    if (defect === 'unexplained-redistribution') result.data.memberStations.beam[1].components.Vz += 0.5;
+    if (defect === 'relabeled-gross-station') result.data.memberStations.beam[0].positionM = 0;
+    if (defect === 'unverified-loads') result.data.nativeContext.effectiveRigidOffsets.sourceLoadSemanticsPreserved = false;
+    if (defect === 'wrong-load-hash') result.data.nativeContext.effectiveRigidOffsets.loadCompilation.sourceFeaSha256 = 'c'.repeat(64);
+    expect(() => queryPhysicalResponse(model, result, 'beam', 0.1, 'right')).toThrow();
+  });
+
   function weightedBeam(factor = 1) {
     const { model, result } = cantilever();
     model.analysis_control.self_weight = true;

@@ -217,6 +217,20 @@ force tolerance. It does not alter the source model, original station results or
 取得真实读回后，公共恢复积分实际执行值，标记loadBasis为audited-native-input，同时核对源值量化关系和
 全部原生内力站点。源模型、原始站点和已有响应容差均保持不变。
 
+Rigid-end force queries keep the physical member's full length and the native
+elastic span separate. Every native station retains its actual position. Extending
+forces to a physical endpoint or another cut requires verified rigid lengths and
+source-load execution evidence bound to the same native FE input. Recovery checks
+all native stations before producing a value; missing evidence leaves only the
+verified native stations available. Chart provenance references the actual anchor,
+which may be inside the member. This does not provide interior displacement.
+
+刚域内力查询分别保存物理全长与原生净跨。原生站点保持真实位置；恢复到物理端点或任意截面前，
+必须核对刚域长度及绑定同一原生输入的荷载执行证据，并通过全部原生站点的平衡检查。
+图表来源指向实际使用的净跨站点，不将恢复的物理端点标成原生结果；此能力不提供跨内挠度。
+已验证的真实运行及双语交付证据见
+[rigid-member delivery](reproducibility/engineering-native-rigid-delivery-20261014.json)。
+
 ## Results, native design and reports / 结果、原生设计与报告
 
 `query_results` identifies run, case/combination, object, component, position or end,
@@ -260,6 +274,15 @@ node backend/tests/engineering-http-acceptance.mjs
 node backend/tests/engineering-opensees-tool-acceptance.mjs
 node backend/tests/engineering-task-lifecycle.mjs
 ```
+
+Completed native rigid-member jobs can be checked without resubmission:
+`node backend/tests/engineering-native-rigid-query.mjs <native-acceptance-directory> <new-receipt.json>`.
+The directory must contain its source model, independently frozen reference and
+successful native acceptance. The command verifies physical-cut values, preserved
+native stations, chart provenance and requested quantities in both report languages.
+It neither rewrites native artifacts nor substitutes displayed deflection for a result.
+
+已完成的原生刚域算例可用上述命令验证查询、图表和双语报告，不重新提交作业，不改写原始文件。
 
 Opt-in public native tool checks / 按需执行真实商业公开工具验收：
 

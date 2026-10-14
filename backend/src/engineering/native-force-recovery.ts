@@ -1,5 +1,6 @@
 import type { RecoveryModel, Vec } from '../skill-shared/member-response.js';
 import { isRecord, type ModelRecord } from './model-state.js';
+import { nativeRigidMember } from './native-rigid-offsets.js';
 
 const keys = ['N', 'Vy', 'Vz', 'T', 'My', 'Mz'] as const;
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
@@ -24,14 +25,28 @@ export function nativeForceRecovery(model: RecoveryModel, data: ModelRecord, mem
   const rawModel = model as unknown as ModelRecord;
   if (!isRecord(rawModel.analysis_control) || typeof rawModel.analysis_control.self_weight !== 'boolean'
     || model.stories?.some(story => Array.isArray(story.floor_loads) && story.floor_loads.length)) return fail();
-  const start = rows.find(row => row.positionM === 0 && row.side === 'right');
-  const end = rows.find(row => Math.abs(row.positionM - length) <= 1e-9 && row.side === 'left');
+  const member = model.elements.find(row => row.id === memberId);
+  if (!member) return fail();
+  const rigid = nativeRigidMember(rawModel, context, member, length);
+  if (rigid) {
+    const offsets = context.effectiveRigidOffsets as ModelRecord;
+    if (offsets.sourceLoadSemanticsPreserved !== true || !isRecord(offsets.loadCompilation)
+      || typeof offsets.loadCompilation.method !== 'string' || !offsets.loadCompilation.method
+      || offsets.loadCompilation.sourceFeaSha256 !== offsets.sourceFeaSha256) return fail();
+  }
+  const elastic = rigid?.domain === 'elastic-span';
+  const origin = elastic ? rigid.start : 0, finish = elastic ? rigid.end : length;
+  const closePosition = (a: number, b: number) => Math.abs(a - b) <= 8 * Number.EPSILON * Math.max(1, length);
+  const start = rows.find(row => closePosition(row.positionM, origin) && (row.side === 'right' || elastic && row.side === 'continuous'));
+  const end = rows.find(row => closePosition(row.positionM, finish) && (row.side === 'left' || elastic && row.side === 'continuous'));
   if (!start || !end || !Array.isArray(start.localAxes) || start.localAxes.length !== 3) return fail();
+  if (rows.some(row => row.positionM < origin && !closePosition(row.positionM, origin)
+    || row.positionM > finish && !closePosition(row.positionM, finish)
+    || keys.some(key => !finite(row.components[key])))) return fail();
   const axes = start.localAxes as Vec[];
   if (axes.some(axis => !Array.isArray(axis) || axis.length !== 3 || !axis.every(finite))
     || axes.some((axis, i) => axes.some((other, j) => Math.abs(dot(axis, other) - (i === j ? 1 : 0)) > 1e-9))
     || rows.some(row => JSON.stringify(row.localAxes) !== JSON.stringify(axes))) return fail();
-  const member = model.elements.find(row => row.id === memberId);
   const first = member && model.nodes.find(node => node.id === member.nodes[0]);
   const last = member && model.nodes.find(node => node.id === member.nodes[1]);
   if (!first || !last || axes[0].some((v, i) => Math.abs(v - ([last.x-first.x,last.y-first.y,last.z-first.z][i]/length)) > 1e-9)) return fail();
@@ -127,8 +142,7 @@ export function nativeForceRecovery(model: RecoveryModel, data: ModelRecord, mem
       } else return fail();
     }
   }
-  const at = (x: number, side: 'left' | 'right') => {
-    if (!finite(x) || x < 0 || x > length || (x === 0 && side !== 'right') || (x === length && side !== 'left')) return fail();
+  const integrals = (x: number, side: 'left' | 'right') => {
     // Adding solver segment lengths may move the same physical cut by one
     // floating-point ulp (e.g. 1.7 -> 1.7000000000000002). Preserve its side.
     const coincident = points.find(point=>Math.abs(point.x-x)<=8*Number.EPSILON*Math.max(1,length));
@@ -145,9 +159,18 @@ export function nativeForceRecovery(model: RecoveryModel, data: ModelRecord, mem
     for(const point of points) if(point.x>0 && (point.x<x || (point.x===x && side==='right'))) {
       for(let i=0;i<3;i++) { force[i]+=point.force[i]; lever[i]+=point.force[i]*(x-point.x); moment[i]+=point.moment[i]; }
     }
-    const c=start.components as Record<typeof keys[number],number>;
+    return { x, force, lever, moment };
+  };
+  const anchor = integrals(start.positionM, start.side === 'left' ? 'left' : 'right');
+  const at = (x: number, side: 'left' | 'right') => {
+    if (!finite(x) || x < 0 || x > length || (x === 0 && side !== 'right') || (x === length && side !== 'left')) return fail();
+    const target = integrals(x, side), dx = target.x - anchor.x;
+    const force = target.force.map((value, i) => value - anchor.force[i]);
+    const lever = target.lever.map((value, i) => value - anchor.lever[i] - anchor.force[i] * dx);
+    const moment = target.moment.map((value, i) => value - anchor.moment[i]);
+    const c = start.components as Record<typeof keys[number], number>;
     return {N:c.N-force[0],Vy:c.Vy+force[1],Vz:c.Vz+force[2],T:c.T-moment[0],
-      My:c.My-c.Vz*x-lever[2]-moment[1],Mz:c.Mz+c.Vy*x+lever[1]-moment[2]};
+      My:c.My-c.Vz*dx-lever[2]-moment[1],Mz:c.Mz+c.Vy*dx+lever[1]-moment[2]};
   };
   // Existing frozen commercial force tolerances check closure; this does not
   // alter solver acceptance tolerances, raw values or benchmark references.
@@ -156,8 +179,9 @@ export function nativeForceRecovery(model: RecoveryModel, data: ModelRecord, mem
     const expected=at(Math.min(length,row.positionM),row.side==='left'?'left':'right');
     if(keys.some(key=>Math.abs(expected[key]-Number(row.components[key]))>Math.max(1e-5,1e-5*Math.abs(Number(row.components[key]))))) return fail();
   }
-  return {at,breakpoints:[...new Set([0,length,...lines.flatMap(line=>[line.a,line.b]),...points.map(point=>point.x)])].sort((a,b)=>a-b),
+  return {at,breakpoints:[...new Set([0,length,...(rigid ? [rigid.start, rigid.end] : []),...lines.flatMap(line=>[line.a,line.b]),...points.map(point=>point.x)])].sort((a,b)=>a-b),
     jumps:[...new Set(points.map(point=>point.x).filter(x=>x>0&&x<length))],
     source:{kind:'section-equilibrium',method:'exact-load-integration',loadBasis,factors:{...factors},anchor:start.source,
+      anchorPositionM:start.positionM,anchorSide:start.side,
       verification:'all-native-stations',units:{force:'kN',moment:'kN.m'},nativeContext:context}};
 }

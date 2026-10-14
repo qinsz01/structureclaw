@@ -1,0 +1,79 @@
+{
+  "schema": "sclaw-product-native-delivery/v1",
+  "date": "2026-10-14",
+  "scope": "Native rigid member force query/chart/report delivery; no benchmark or model-provider calls",
+  "status": "passed-for-listed-run",
+  "nativeAdapterCommit": "a5f8e30",
+  "sourceFiles": [
+    {
+      "path": "backend/src/engineering/native-rigid-offsets.ts",
+      "sha256": "cd3d468c006dda8a7573dfaa87a3c0df12c50c0ac4cdcfc8ade6b93c026442eb"
+    },
+    {
+      "path": "backend/src/engineering/native-force-recovery.ts",
+      "sha256": "0095939c1dbbddc4950543f111210c941267b75498ce75dc8c6be556ad2a9380"
+    },
+    {
+      "path": "backend/src/engineering/result-data.ts",
+      "sha256": "bd0819949f705901cc5925579e96cdb80379d58cbbdc3ef1393f29216cb60d51"
+    },
+    {
+      "path": "backend/tests/native-force-recovery.test.mjs",
+      "sha256": "11c1a983efea5b430ac5709e9c1a95f99495d7f76a8f7c7a1ad20600e6f83d03"
+    },
+    {
+      "path": "backend/tests/engineering-native-rigid-query.mjs",
+      "sha256": "d6425694edb02b5dbb9cf8f38dc16354db58e8193958b4b9ca6d4375e1319ee9"
+    }
+  ],
+  "checks": {
+    "backendBuild": "passed",
+    "targetedLint": "passed",
+    "testSuites": [
+      "native-force-recovery",
+      "engineering-run-delivery"
+    ],
+    "testsPassed": 67
+  },
+  "nativeRuns": [
+    {
+      "status": "passed",
+      "counts": {
+        "direct": 2982,
+        "recovered": 3360,
+        "chart": 29022,
+        "report": 1456,
+        "reports": 14
+      },
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-rigid-offsets-20261014-131700-dcec6d51",
+      "evidence": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-rigid-offsets-20261014-131700-dcec6d51\\source.json",
+          "sha256": "8cc3df6d9db6d413647c12525869242b4b5b78d9c84e68024efc8c204d7679b4"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-rigid-offsets-20261014-131700-dcec6d51\\reference.json",
+          "sha256": "ceeedc911440f5607778b4d1ee1a315eadcdf8f36b06d51f78e4fa21e2850825"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-rigid-offsets-20261014-131700-dcec6d51\\result.json",
+          "sha256": "6b666bc64a89e45a6d5d81e2f382d82fc1f7e598ff8fc49ea24a24a817fabfb9"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-rigid-offsets-20261014-131700-dcec6d51\\acceptance.json",
+          "sha256": "5ee9f7981cb9826144d53995e16ae070cf7f07d0d82f3725c075ade7da0bd35f"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-rigid-offsets-20261014-131700-dcec6d51\\reference-model.json",
+          "sha256": "f1c3b38ece403b6a1542de7f1caeaa39bd02ce4e089a85b7d86f017461191b63"
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    "Force recovery only; no commercial interior displacement is asserted.",
+    "Source selfweight combined with YJK rigid regions remains an adapter gap; the listed passing job has selfweight disabled.",
+    "PKPM rigid-member public delivery remains pending a valid V2 source input and a fresh accepted job.",
+    "Frozen source, reference, native result and tolerances remain unchanged."
+  ]
+}
