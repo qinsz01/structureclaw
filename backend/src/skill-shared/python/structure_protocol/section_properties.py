@@ -44,7 +44,38 @@ def geometry_properties(shape):
     return None
 
 
+def validate_derived_section_metadata(section):
+    """Accept geometry provenance only when its claim can be recomputed now."""
+    extra = section.get('extra') or {}
+    if 'derived_properties' not in extra:
+        return
+    record = extra['derived_properties']
+    error = f"Section '{section.get('id')}' extra.derived_properties conflicts with geometry/properties / 截面派生来源与当前几何或属性不符"
+    if not isinstance(record, dict) or set(record) != {'method', 'fields', 'shape'} or record.get('method') != 'section-geometry-v1':
+        raise ValueError(error)
+    from .structure_model_v2 import SectionShape
+    shape = SectionShape.model_validate(section.get('shape'))
+    if record.get('shape') != shape.model_dump(exclude_none=True):
+        raise ValueError(error)
+    expected = geometry_properties(shape)
+    fields = record.get('fields')
+    if not expected or not isinstance(fields, list) or not fields or any(not isinstance(key, str) for key in fields):
+        raise ValueError(error)
+    if len(set(fields)) != len(fields) or set(fields) - set(expected):
+        raise ValueError(error)
+    properties = section.get('properties') or {}
+    checked = set(fields) | ({'A', 'Iy', 'Iz'} & set(properties))
+    if shape.kind in {'circular', 'pipe', 'hollow-circular'} and 'J' in properties:
+        checked.add('J')
+    for key in checked:
+        value = properties.get(key)
+        if (type(value) not in (int, float) or not math.isfinite(value)
+                or not math.isclose(value, expected[key], rel_tol=1e-6, abs_tol=1e-14)):
+            raise ValueError(error + f' ({key})')
+
+
 def validate_section_physics(section):
+    validate_derived_section_metadata(section.model_dump(exclude_none=True))
     props = section.properties
     for key in ('A', 'Iy', 'Iz', 'J', 'Wx', 'Wz', 'Wnx', 'S', 'Sz', 'As', 'Asz', 'tw', 'tz'):
         if key in props and (isinstance(props[key], bool) or not isinstance(props[key], (float, int))

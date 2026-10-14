@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "skill-shared" / "python"))
 from commercial_context import project_commercial_model, build_native_design_context
 from commercial_context import attach_native_result_set
 
@@ -109,3 +110,50 @@ def test_plain_analysis_does_not_request_native_design(tmp_path):
         native_project=str(tmp_path / "model.JWS"), parameters={})
     assert context["status"] == "not-requested"
     assert context["nativeProjectSha256"] is None
+
+
+def _normalized_section():
+    from structure_protocol.structure_model_v2 import SectionV2
+    from structure_protocol.section_properties import validate_section_physics
+    section = SectionV2(id='s', name='rectangle', type='rectangular',
+                        shape={'kind':'rectangular','B':300,'H':600})
+    validate_section_physics(section)
+    return section.model_dump(exclude_unset=True)
+
+
+@pytest.mark.parametrize("engine", ["pkpm", "yjk"])
+def test_normalized_geometry_provenance_is_verified_and_retained(engine):
+    from native_model_contract import validate_pkpm_sections
+    model = {'sections': [_normalized_section()]}
+    before = copy.deepcopy(model)
+    projected = project_commercial_model(model, engine)
+    assert model == before and projected['analysisModel'] == before
+    if engine == 'pkpm':
+        validate_pkpm_sections(projected['analysisModel'])
+
+
+@pytest.mark.parametrize("defect", ['method','shape','value','missing','duplicate','unknown-field','hidden-conflict'])
+@pytest.mark.parametrize("engine", ["pkpm", "yjk"])
+def test_stale_or_forged_geometry_provenance_cannot_mask_physical_conflicts(engine, defect):
+    model = {'sections': [_normalized_section()]}
+    section = model['sections'][0]
+    claim = section['extra']['derived_properties']
+    if defect == 'method': claim['method'] = 'trust-me'
+    if defect == 'shape': claim['shape']['H'] = 700
+    if defect == 'value': section['properties']['J'] *= 2
+    if defect == 'missing': section['properties'].pop('A')
+    if defect == 'duplicate': claim['fields'].append('A')
+    if defect == 'unknown-field': claim['fields'].append('G')
+    if defect == 'hidden-conflict':
+        claim['fields'] = ['A']
+        section['properties']['Iy'] *= 2
+    with pytest.raises(ValueError, match='derived_properties'):
+        project_commercial_model(model, engine)
+
+
+def test_accepted_provenance_does_not_open_other_section_extensions():
+    from native_model_contract import validate_pkpm_sections
+    model = {'sections': [_normalized_section()]}
+    model['sections'][0]['extra']['stiffness_override'] = .5
+    with pytest.raises(Exception, match='no accepted native calibration'):
+        validate_pkpm_sections(model)

@@ -164,6 +164,9 @@ def pkpm_section_shape(section: dict[str, Any], schema_version: str = "2.0.0") -
     """
     if pkpm_numeric_section_properties(section) is not None:
         return None
+    if "derived_properties" in (section.get("extra") or {}):
+        from structure_protocol.section_properties import validate_derived_section_metadata
+        validate_derived_section_metadata(section)
     prefix = f"sections.{section.get('id')}"
 
     def reject(fields: list[str], reason: str, code: str = "PKPM_NATIVE_SECTION_INPUT_UNSUPPORTED") -> None:
@@ -178,7 +181,7 @@ def pkpm_section_shape(section: dict[str, Any], schema_version: str = "2.0.0") -
     unsupported += [f"{prefix}.{key}" for key in ("A", "I", "Iy", "Iz", "Iyy", "Izz", "J", "Asy", "Asz")
                     if section.get(key) is not None and key not in native_checked]
     unsupported += [f"{prefix}.extra.{key}" for key, value in (section.get("extra") or {}).items()
-                    if value is not None]
+                    if value is not None and key != "derived_properties"]
     if unsupported:
         reject(unsupported, "Explicit section properties have no accepted native calibration",
                "PKPM_NATIVE_SECTION_PROPERTIES_UNVERIFIED")

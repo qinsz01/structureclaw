@@ -32,6 +32,10 @@ def project_commercial_model(source: dict, engine: str) -> dict:
     """Produce an elastic projection plus a lossless, path-addressed design record."""
     if engine not in {"pkpm", "yjk"}:
         raise ValueError("Unknown commercial engine / 未知商业引擎")
+    for section in source.get("sections", []):
+        if "derived_properties" in (section.get("extra") or {}):
+            from structure_protocol.section_properties import validate_derived_section_metadata
+            validate_derived_section_metadata(section)
     analysis = copy.deepcopy(source)
     separated = {}
     for collection, fields in (("materials", MATERIAL_DESIGN_FIELDS), ("elements", MEMBER_DESIGN_FIELDS)):
