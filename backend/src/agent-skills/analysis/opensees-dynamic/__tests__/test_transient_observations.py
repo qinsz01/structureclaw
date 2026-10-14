@@ -1,8 +1,24 @@
 """Independent SDOF equilibrium validates the actual OpenSees observation chain."""
 import math
+import json
+from pathlib import Path
+import subprocess
+import sys
 import pytest
 
 from test_shared_mass_modal import cantilever, OpenSeesDynamicExecutor, OpenSeesTagMapper
+
+
+def run_worker(model, analysis_type, parameters):
+    worker = Path(__file__).resolve().parents[2] / 'runtime' / 'worker.py'
+    completed = subprocess.run([sys.executable, str(worker)],
+        input=json.dumps({'action': 'analyze', 'input': {'type': analysis_type,
+            'engineId': 'builtin-opensees', 'model': model, 'parameters': parameters}}),
+        capture_output=True, text=True, encoding='utf-8', timeout=60)
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    response = json.loads(completed.stdout)
+    assert response['ok'] and response['data']['success'], response
+    return response['data']['data']
 
 
 def newmark(mass, stiffness, damping, dt, accelerations):
@@ -95,15 +111,31 @@ def test_released_tip_rotation_is_omitted_and_physical_transient_is_unchanged(di
 
 @pytest.mark.parametrize('dimension', ['2d', '3d'])
 def test_mixed_axial_frame_transient_includes_brace_stiffness_damping(dimension):
-    import openseespy.opensees as ops
     from structure_protocol.structure_model_v2 import NodeV2, ElementV2
+    # Production starts one Python worker per request. OpenSees Truss keeps
+    # process-static M6/V6 buffers shared by 3-D/3-DOF and 2-D/3-DOF elements;
+    # ops.wipe() alone does not isolate those layouts in a direct library call.
+    # Exercise the real worker boundary with a preceding pure spatial truss,
+    # then retain all independent transient physics assertions below.
+    prior = cantilever('3d', 'nodal').model_dump(mode='json')
+    prior['nodes'][1]['restraints'] = [False, True, True, True, True, True]
+    prior['nodes'].append({'id': 'anchor', 'x': -3, 'y': 0, 'z': 3, 'restraints': [True]*6})
+    prior['elements'] = [{'id': 'brace', 'type': 'truss', 'nodes': ['anchor', 'top'],
+                          'material': 'S', 'section': 'A'}]
+    prior['load_cases'] = [{'id': 'D', 'type': 'dead', 'loads': [
+        {'type': 'nodal', 'node': 'top', 'fx': 100}]}]
+    static = run_worker(prior, 'static', {'loadCaseIds': ['D']})
+    assert static['displacements']['top']['ux'] == pytest.approx(100/(200000000*.02/3), rel=1e-10)
+    assert static['forces']['brace']['axial'] == pytest.approx(100, rel=1e-10)
     model = cantilever(dimension, 'nodal')
     model.nodes.append(NodeV2(id='anchor', x=-3, y=0, z=3, restraints=[True]*6))
     model.elements.append(ElementV2(id='brace', type='brace', nodes=['anchor','top'], material='S', section='A'))
     dt, steps = .002, 100
     motion = [.3*math.sin(i*dt*9) for i in range(steps+2)]
-    result = OpenSeesDynamicExecutor(OpenSeesTagMapper(model)).time_history_analysis(
-        dt, steps*dt, .05, motion, ops, monitor_element_ids=['C','brace'], monitor_support_node_ids=['base','anchor'])
+    result = run_worker(model.model_dump(mode='json'), 'dynamic', {
+        'analysisType': 'time_history', 'timeStep': dt, 'duration': steps*dt,
+        'dampingRatio': .05, 'groundMotion': motion, 'monitorElementIds': ['C', 'brace'],
+        'monitorSupportNodeIds': ['base', 'anchor']})
     k_frame, k_brace = 3*200000000*.0001/3**3, 200000000*.02/3
     k = k_frame+k_brace
     alpha, beta = result['damping']['alphaMass'], result['damping']['betaCurrentStiffness']
