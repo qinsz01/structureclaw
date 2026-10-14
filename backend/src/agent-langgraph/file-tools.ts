@@ -24,7 +24,7 @@ import { runtimeBaseDir } from '../config/index.js';
 import { collectVisionEvidence, imageRegionSchema, type ImageRegion } from '../engineering/vision-evidence.js';
 import { Command } from '@langchain/langgraph';
 import { ToolMessage } from '@langchain/core/messages';
-import { applyInputEvidence, type ModelState } from '../engineering/model-state.js';
+import { applyInputEvidence, invalidateAnalysis, isRecord, type ModelState } from '../engineering/model-state.js';
 import { fileInputEvidence } from '../engineering/file-evidence.js';
 import { mergeInputEvidence } from '../engineering/input-evidence.js';
 
@@ -187,6 +187,12 @@ export async function analyzeUploadedFile(
   }
   result.inputEvidence = mergeInputEvidence(collectVisionEvidence(result), fileInputEvidence(result, filePath));
   return result;
+}
+
+export async function inspectGroundMotionFile(analysis: AnalyzeFileResult, selection: Record<string, unknown>) {
+  if (!analysis.fileReference) throw new Error('GROUND_MOTION_COMPLETE_FILE_REQUIRED / 须先完整读取地震波文件');
+  const runner = new PythonWorkerRunner<Record<string, unknown>>(resolveWorkerPath('agent-skills/analysis/opensees-seismic/ground_motion_worker.py'));
+  return runner.invoke({ ...selection, fileReference: analysis.fileReference });
 }
 
 async function readUploadedFile(
@@ -393,10 +399,11 @@ async function readUploadedFile(
 export function createAnalyzeFileTool() {
   return tool(
     async (
-      input: { filePath: string; maxRows?: number; mode?: 'preview' | 'full'; pageStart?: number; pageCount?: number; region?: ImageRegion; requiredFields?: string[] },
+      input: { filePath: string; maxRows?: number; mode?: 'preview' | 'full'; pageStart?: number; pageCount?: number;
+        region?: ImageRegion; requiredFields?: string[]; groundMotion?: Record<string, unknown> },
       config: LangGraphRunnableConfig,
     ) => {
-      const configurable = config.configurable as Partial<AgentConfigurable> & { agentState?: ModelState };
+      const configurable = config.configurable as Partial<AgentConfigurable> & { agentState?: ModelState & { contextSeismicWorkflow?: Record<string, unknown> | null } };
       const workspaceRoot = configurable?.workspaceRoot;
       if (Array.isArray(configurable?.fileAccessAllowlist)) {
         let requestedPath: string;
@@ -419,14 +426,32 @@ export function createAnalyzeFileTool() {
           });
         }
       }
-      const analysis = await analyzeUploadedFile(input.filePath, workspaceRoot, input.maxRows, { includeImageData: true, mode: input.mode, pageStart: input.pageStart, pageCount: input.pageCount });
+      const analysis = await analyzeUploadedFile(input.filePath, workspaceRoot, input.maxRows, { includeImageData: true,
+        mode: input.groundMotion ? 'full' : input.mode, pageStart: input.pageStart, pageCount: input.pageCount });
+      let workflowUpdate: Record<string, unknown> = {};
+      if (input.groundMotion) {
+        analysis.groundMotionPreview = await inspectGroundMotionFile(analysis, input.groundMotion);
+        const workflow = structuredClone(configurable.agentState?.contextSeismicWorkflow ?? {});
+        const set = isRecord(workflow.groundMotionSet) ? workflow.groundMotionSet : {};
+        const records = Array.isArray(set.records) ? set.records.filter(isRecord) : [];
+        const reference = analysis.fileReference as Record<string, unknown>;
+        const existing = records.find(record => isRecord(record.fileReference) && record.fileReference.path === reference.path
+          && record.sheetName === input.groundMotion!.sheetName);
+        const record = { id: existing?.id ?? `ground-motion:${reference.sha256}:${String(input.groundMotion.sheetName ?? '')}`,
+          name: path.basename(input.filePath), recordType: 'actual', ...input.groundMotion, fileReference: reference };
+        workflow.groundMotionSet = { ...set, source: 'uploaded', records: [...records.filter(item => item.id !== record.id), record] };
+        analysis.groundMotionRecord = record;
+        workflowUpdate = { ...invalidateAnalysis(configurable.agentState ?? {}), contextSeismicWorkflow: workflow };
+        // Full samples are retained in the immutable parsed file; the response is a bounded preview.
+        for (const key of ['rows', 'content', 'sheets', 'text']) delete analysis[key];
+      }
       analysis.visionRequest = { region: input.region, requiredFields: input.requiredFields };
       const summarize = (config.configurable as Partial<AgentConfigurable> | undefined)?.summarizeFileImages;
       const parsed = summarize ? await summarize(analysis, input.filePath, config.signal) : analysis;
       delete parsed.base64DataUri;
       const evidence = collectVisionEvidence(parsed);
       const toolCallId = (config as LangGraphRunnableConfig & { toolCall?: { id: string } }).toolCall?.id;
-      if (evidence.length && toolCallId) return new Command({ update: { ...applyInputEvidence(configurable.agentState ?? {}, evidence),
+      if (evidence.length && toolCallId) return new Command({ update: { ...workflowUpdate, ...applyInputEvidence(configurable.agentState ?? {}, evidence),
         messages: [new ToolMessage({ name: 'analyze_file', tool_call_id: toolCallId, content: JSON.stringify(parsed) })] } });
       return JSON.stringify(parsed);
     },
@@ -441,6 +466,11 @@ export function createAnalyzeFileTool() {
       schema: z.object({
         filePath: z.string().describe('Path to the uploaded file (relPath from upload response, or absolute path)'),
         mode: z.enum(['preview', 'full']).optional().describe('Full reads preserve all table rows and text; PDF uses explicit pagination / 完整读取全部表格行和文本，PDF仍逐页读取'),
+        groundMotion: z.object({ sheetName: z.string().min(1).optional(), unit: z.string().min(1).optional(),
+          direction: z.enum(['x','y']), dt: z.number().positive().optional(), timeUnit: z.enum(['s','ms']).optional(),
+          timeColumn: z.union([z.number().int().nonnegative(),z.string().min(1)]).optional(),
+          accelerationColumn: z.union([z.number().int().nonnegative(),z.string().min(1)]).optional(),
+        }).optional().describe('Inspect complete excitation samples without solving; time/dt are in seconds unless explicitly annotated / 不求解，只校验完整激励样本；时间默认为接口声明的秒，可显式指定列单位'),
         pageStart: z.number().int().min(1).optional().describe('PDF first page, one-based / PDF起始页'),
         pageCount: z.number().int().min(1).max(12).optional().describe('PDF pages to extract and render, default 4 / 提取与渲染页数'),
         region: imageRegionSchema.optional().describe('Focused review crop, normalized x/y/width/height / 定点复核裁切区域'),

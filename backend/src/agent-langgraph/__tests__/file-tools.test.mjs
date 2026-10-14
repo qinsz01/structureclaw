@@ -188,6 +188,24 @@ describe('createAnalyzeFileTool', () => {
     expect(full.truncated).toBe(false);
   });
 
+  test('motion inspection uses complete samples, returns bounded preview and preserves a source-bound context record', async () => {
+    const { createAnalyzeFileTool } = await import('../../../dist/agent-langgraph/file-tools.js');
+    const file=path.join(uploadsDir,'inspection.csv');
+    await fs.writeFile(file,['time,accel_g',...Array.from({length:1001},(_,i)=>`${i*.02},${i===1000?.3:0}`)].join('\n'));
+    const output=await createAnalyzeFileTool().invoke({filePath:file,groundMotion:{direction:'y'}},
+      {toolCall:{id:'inspect'},configurable:{workspaceRoot:tmpDir,agentState:{analysisResult:{runId:'old'},model:{nodes:[]}}}});
+    const response=JSON.parse(output.update.messages[0].content);
+    expect(response.rows).toBeUndefined();
+    expect(response.groundMotionPreview).toMatchObject({pointCount:1001,dt:.02,unit:'m/s2',originalUnit:'g',direction:'y'});
+    expect(response.groundMotionPreview.preview.points.length).toBeLessThanOrEqual(601);
+    expect(response.groundMotionPreview.preview.points.at(-1).acceleration).toBeCloseTo(.3*9.80665);
+    expect(output.update.analysisResult).toBeNull();
+    expect(output.update.contextSeismicWorkflow.groundMotionSet.records[0]).toMatchObject({direction:'y',fileReference:{sha256:response.source.sha256}});
+    await fs.writeFile(file,'time,accel_g\n0,0\n.02,bad\n.04,.1');
+    await expect(createAnalyzeFileTool().invoke({filePath:file,groundMotion:{direction:'y'}},
+      {configurable:{workspaceRoot:tmpDir}})).rejects.toThrow('GROUND_MOTION_BAD_CELL');
+  });
+
   test('full mode reads retained DXF entities and complete selected PDF page content', async () => {
     const { analyzeUploadedFile } = await import('../../../dist/agent-langgraph/file-tools.js');
     const dxfPath=path.join(uploadsDir,'large.dxf');

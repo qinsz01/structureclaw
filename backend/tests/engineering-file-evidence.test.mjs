@@ -14,6 +14,7 @@ describe('parsed input must reach the engineering model or an explicit analysis 
     const parsed = fileInputEvidence({success:true,type:'csv',source:{...source,parser:'csv-parse'}}, 'table.csv');
     expect(unresolvedInputEvidence(parsed)).toHaveLength(1);
     const evidence = await review(parsed, [{field:parsed[0].field,value:true,reason:'Read the file'}]);
+    expect(unresolvedInputEvidence(evidence)[0].reason).toContain('INPUT_SOURCE_FIELD_MAPPING_REQUIRED');
     expect(() => assertInputEvidenceMatchesModel(model,evidence)).toThrow('INPUT_SOURCE_FIELD_MAPPING_REQUIRED');
     const mapped = await review(parsed, [
       {field:'nodes.A.x',value:5000,unit:'mm',reason:'Cell A2',sourceEvidenceId:parsed[0].id,sourceLocation:{row:2,column:'A'}},
@@ -70,8 +71,10 @@ describe('parsed input must reach the engineering model or an explicit analysis 
     const tool = createRunAnalysisTool({async executeAnalysisSkill(){called=true;throw new Error('Unexpected execution');}});
     const record={id:'wave',unit:'g',direction:'x',dt:.02,fileReference:{format:'sclaw-parsed-input-v1',
       path:'wave.csv',sha256:'original',parsedPath:'parsed.json',parsedSha256:'parsed'}};
-    const evidence=[{id:'review',field:'file:wave',status:'resolved',required:true,resolution:{value:true,
-      reason:'Confirmed wave',evidenceHashes:[],analysisInput:analysisInputBinding(record)}}];
+    const parsed=fileInputEvidence({success:true,type:'csv',source:{filePath:'wave.csv',sha256:'original',
+      complete:true,fileReference:record.fileReference}},'wave');
+    const evidence=mergeInputEvidence(parsed,[{id:'review',field:parsed[0].field,status:'resolved',required:true,resolution:{value:true,
+      reason:'Confirmed wave',sourceEvidenceId:parsed[0].id,analysisInput:analysisInputBinding(record)}}]);
     await expect(tool.invoke({analysisType:'seismic',seismicWorkflowJson:JSON.stringify({methodPreference:'time_history',
       groundMotionSet:{source:'uploaded',records:[{...record,unit:'m/s2'}]}})},
       {toolCall:{id:'analysis'},configurable:{skillScope:['opensees-seismic'],agentState:{model,inputEvidence:evidence,

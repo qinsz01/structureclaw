@@ -43,6 +43,52 @@ export function activeInputEvidence(value: unknown): ModelRecord[] {
   return records.filter(item => item.status !== 'excluded' && !excluded.has(contentHash(item)));
 }
 
+function assertSourceResolution(field: string, records: ModelRecord[], active: ModelRecord[], resolution: ModelRecord): void {
+  if (resolution.modelField !== undefined || !field.startsWith('file:')) return;
+  if (isRecord(resolution.analysisInput)) {
+    const binding = resolution.analysisInput;
+    const reference = isRecord(binding.parameters) && isRecord(binding.parameters.fileReference) ? binding.parameters.fileReference : {};
+    const completed = active.find(item => item.id === resolution.sourceEvidenceId);
+    const source = completed && isRecord(completed.source) ? completed.source : {};
+    if (binding.kind !== 'ground-motion' || source.complete !== true || source.sha256 !== reference.sha256
+      || evidenceSourceFile(completed ?? {}) !== evidenceSourceFile(records[0]!)
+      || !isRecord(source.fileReference) || source.fileReference.parsedSha256 !== reference.parsedSha256) {
+      throw new Error('ANALYSIS_INPUT_COMPLETE_SOURCE_REQUIRED');
+    }
+    if (source.sheet !== undefined && (!isRecord(binding.parameters) || binding.parameters.sheetName !== source.sheet)) {
+      throw new Error('ANALYSIS_INPUT_SOURCE_SHEET_MISMATCH');
+    }
+    return;
+  }
+  const sourceRecord = records.find(item => item.requirement === 'field-mapping');
+  if (sourceRecord) {
+    const mapped = resolution.mappedFields;
+    const source = isRecord(sourceRecord.source) ? sourceRecord.source : {};
+    if (!Array.isArray(mapped) || !mapped.length || mapped.some(name => typeof name !== 'string'
+      || !active.some(item => item.field === name && item.required !== false
+        && evidenceSourceFile(item) === evidenceSourceFile(sourceRecord)
+        && (!['csv-parse', 'xlsx'].includes(String(source.parser))
+          || isRecord(item.source) && typeof item.source.row === 'number' && item.source.column !== undefined)
+        && (modelCollections.has(name.split('.')[0]!) || modelSingletons.has(name.split('.')[0]!)
+          || isResolution(item) && typeof (item.resolution as ModelRecord).modelField === 'string')
+        && (item.status === 'observed' || isResolution(item))))) {
+      throw new Error(`INPUT_SOURCE_FIELD_MAPPING_REQUIRED: ${field} / 附件须绑定已复核的工程字段或明确排除`);
+    }
+  }
+  if (records.some(item => item.requirement === 'complete-read')) {
+    const completed = active.find(item => item.id === resolution.sourceEvidenceId);
+    if (!completed || !isRecord(completed.source) || completed.source.complete !== true
+      || evidenceSourceFile(completed) !== evidenceSourceFile(records[0]!)
+      || records.some(item => {
+        const source = isRecord(item.source) ? item.source : {};
+        return ['page', 'sheet', 'sha256'].some(key => source[key] !== undefined
+          && source[key] !== (completed.source as ModelRecord)[key]);
+      })) {
+      throw new Error(`INPUT_SOURCE_COMPLETE_READ_REQUIRED: ${field} / 相关截断须完整读取或明确排除`);
+    }
+  }
+}
+
 /** Evidence is retained, including superseded/conflicting observations. Resolution is explicit. */
 export function unresolvedInputEvidence(value: unknown): Array<{ field: string; reason: string }> {
   if (!Array.isArray(value)) return [];
@@ -81,6 +127,11 @@ export function unresolvedInputEvidence(value: unknown): Array<{ field: string; 
       invalidResolution = false;
     }
     if (invalidResolution) { issues.push({ field, reason: 'resolution must identify reviewed evidence and a valid source or value' }); continue; }
+    const resolution = [...items].reverse().find(isResolution)?.resolution;
+    if (isRecord(resolution)) {
+      try { assertSourceResolution(field, items, records, resolution); }
+      catch (error) { issues.push({ field, reason: error instanceof Error ? error.message : String(error) }); continue; }
+    }
     const active = preceding.filter((item) => !reviewed.has(contentHash(item)));
     const pending = active.find((item) => ['conflict', 'ambiguous', 'missing', 'unread', 'failed', 'truncated'].includes(String(item.status)));
     if (pending) { issues.push({ field, reason: String(pending.reason ?? pending.status) }); continue; }
@@ -220,53 +271,7 @@ export function assertInputEvidenceMatchesModel(model: ModelRecord, evidence: un
       throw new Error(`INPUT_EVIDENCE_MODEL_FIELD_REQUIRED: ${field} / 必需识别值尚未绑定到稳定模型字段`);
     }
     const resolution = latest < 0 ? {} : records[latest]!.resolution as ModelRecord;
-    // File-read and category coverage reviews are workflow acknowledgments,
-    // not a numerical model assignment. Concrete engineering fields still bind.
-    if (resolution.modelField === undefined && /^file:/.test(field)) {
-      if (isRecord(resolution.analysisInput)) {
-        const binding = resolution.analysisInput;
-        const reference = isRecord(binding.parameters) && isRecord(binding.parameters.fileReference) ? binding.parameters.fileReference : {};
-        const completed = active.find(item => item.id === resolution.sourceEvidenceId);
-        const source = completed && isRecord(completed.source) ? completed.source : {};
-        if (binding.kind !== 'ground-motion' || source.complete !== true || source.sha256 !== reference.sha256
-          || evidenceSourceFile(completed ?? {}) !== evidenceSourceFile(records[0]!)
-          || !isRecord(source.fileReference) || source.fileReference.parsedSha256 !== reference.parsedSha256) {
-          throw new Error('ANALYSIS_INPUT_COMPLETE_SOURCE_REQUIRED');
-        }
-        if (source.sheet !== undefined && (!isRecord(binding.parameters) || binding.parameters.sheetName !== source.sheet)) {
-          throw new Error('ANALYSIS_INPUT_SOURCE_SHEET_MISMATCH');
-        }
-        continue;
-      }
-      const sourceRecord = records.find(item => item.requirement === 'field-mapping');
-      if (sourceRecord) {
-        const mapped = resolution.mappedFields;
-        const source = isRecord(sourceRecord.source) ? sourceRecord.source : {};
-        if (!Array.isArray(mapped) || !mapped.length || mapped.some(name => typeof name !== 'string'
-          || !active.some(item => item.field === name && item.required !== false
-            && evidenceSourceFile(item) === evidenceSourceFile(sourceRecord)
-            && (!['csv-parse', 'xlsx'].includes(String(source.parser))
-              || isRecord(item.source) && typeof item.source.row === 'number' && item.source.column !== undefined)
-            && (modelCollections.has(name.split('.')[0]!) || modelSingletons.has(name.split('.')[0]!)
-              || isResolution(item) && typeof (item.resolution as ModelRecord).modelField === 'string')
-            && (item.status === 'observed' || isResolution(item))))) {
-          throw new Error(`INPUT_SOURCE_FIELD_MAPPING_REQUIRED: ${field} / 附件须绑定已复核的工程字段或明确排除`);
-        }
-      }
-      if (records.some(item => item.requirement === 'complete-read')) {
-        const completed = active.find(item => item.id === resolution.sourceEvidenceId);
-        if (!completed || !isRecord(completed.source) || completed.source.complete !== true
-          || evidenceSourceFile(completed) !== evidenceSourceFile(records[0]!)
-          || records.some(item => {
-            const source = isRecord(item.source) ? item.source : {};
-            return ['page', 'sheet', 'sha256'].some(key => source[key] !== undefined
-              && source[key] !== (completed.source as ModelRecord)[key]);
-          })) {
-          throw new Error(`INPUT_SOURCE_COMPLETE_READ_REQUIRED: ${field} / 相关截断须完整读取或明确排除`);
-        }
-      }
-      continue;
-    }
+    if (resolution.modelField === undefined && field.startsWith('file:')) continue;
     if (resolution.modelField === undefined && /^coverage\.(geometry|connectivity|supports|loads|materials|sections)$/.test(field)) continue;
     if (canonical && resolution.modelField !== undefined && resolution.modelField !== field) throw new Error(`INPUT_EVIDENCE_MODEL_FIELD_CONFLICT: ${field}`);
     const modelField = resolution.modelField ?? (canonical ? field : undefined);
