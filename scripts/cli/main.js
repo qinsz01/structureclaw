@@ -936,7 +936,7 @@ async function invokeLocalUp(rootDir, env, options = {}) {
   }
 
   // Auto-open browser
-  setTimeout(() => openBrowser(url), 1500);
+  if (options.openBrowser !== false) setTimeout(() => openBrowser(url), 1500);
 }
 
 async function promptForFirstRunConfig(envFile, existingEnv) {
@@ -1324,7 +1324,7 @@ async function dispatch(commandName, rawArgs, rootDir) {
       await invokeDoctor(rootDir, env);
       return;
     case "start":
-      await invokeLocalUp(rootDir, env, { skipInfra: true });
+      await invokeLocalUp(rootDir, env, { skipInfra: true, openBrowser: !rawArgs.includes('--no-open') });
       return;
     case "restart": {
       const trackedPids = readTrackedServicePids(paths);
