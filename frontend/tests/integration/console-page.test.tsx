@@ -428,6 +428,41 @@ describe('ConsolePage Integration (CONS-13)', () => {
     return view
   }
 
+  async function renderSavedConsolePage() {
+    // Layout checks must not leave a real chat submission running into a later
+    // test's fetch mock. The saved conversation opens the same result panels.
+    const realFetch = globalThis.fetch
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = new URL(String(input), API_BASE)
+      if (url.pathname === '/api/v1/chat/conversations') {
+        return Response.json([{ id: 'conv-layout', title: 'Saved layout' }])
+      }
+      if (url.pathname === '/api/v1/chat/conversation/conv-layout') {
+        return Response.json({
+          id: 'conv-layout', title: 'Saved layout', session: null,
+          messages: [
+            { id: 'layout-user', role: 'user', content: 'Inspect saved layout' },
+            { id: 'layout-reply', role: 'assistant', content: 'Saved layout reply' },
+          ],
+        })
+      }
+      if (url.pathname === '/api/v1/chat/conversation/conv-layout/session') {
+        return Response.json({
+          conversationId: 'conv-layout', busy: false, waitingForReply: false,
+          question: null, options: [], policy: null, usage: null, modelRevision: 0, modelPending: false,
+          analysis: { current: false, runId: null, resultKey: null, reason: 'ANALYSIS_REQUIRED' },
+          report: { current: false, runId: null }, jobs: [],
+        })
+      }
+      if (url.pathname === '/api/v1/chat/conversation/conv-layout/snapshot') return Response.json({ success: true })
+      return realFetch(input, init)
+    })
+    const view = await renderConsolePage()
+    fireEvent.click(await screen.findByRole('button', { name: /Saved layout/ }))
+    await screen.findByText('Saved layout reply')
+    return view
+  }
+
   function setCapabilityPreferences(skillIds: string[], toolIds: string[] = ['build_model', 'extract_draft_params', 'validate_model', 'run_analysis', 'run_code_check', 'generate_report']) {
     window.localStorage.setItem(
       CAPABILITY_PREFERENCE_STORAGE_KEY,
@@ -472,12 +507,7 @@ describe('ConsolePage Integration (CONS-13)', () => {
   })
 
   it('opens the analysis result panel in a dialog from an active conversation', async () => {
-    await renderConsolePage()
-
-    fireEvent.change(screen.getByPlaceholderText(/Describe your structural goal|描述你的结构目标/), {
-      target: { value: 'Open result panel smoke test' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: /Send|发送/ }))
+    await renderSavedConsolePage()
 
     fireEvent.click(await screen.findByRole('button', { name: /Show Results|显示结果/ }))
 
@@ -689,12 +719,7 @@ describe('ConsolePage Integration (CONS-13)', () => {
   })
 
   it('keeps only the model section inside the engineering context panel', async () => {
-    await renderConsolePage()
-
-    fireEvent.change(screen.getByPlaceholderText(/Describe your structural goal|描述你的结构目标/), {
-      target: { value: 'Open context panel' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: /Send|发送/ }))
+    await renderSavedConsolePage()
     fireEvent.click(await screen.findByRole('button', { name: /Show Results|显示结果/ }))
     fireEvent.click(await screen.findByRole('tab', { name: /Context|工程上下文/ }))
 
@@ -1760,12 +1785,8 @@ describe('ConsolePage Integration (CONS-13)', () => {
   })
 
   it('keeps separate scroll containers for history, chat, and output', async () => {
-    const { container } = await renderConsolePage()
+    const { container } = await renderSavedConsolePage()
 
-    fireEvent.change(screen.getByPlaceholderText(/Describe your structural goal|描述你的结构目标/), {
-      target: { value: 'Open scroll containers' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: /Send|发送/ }))
     fireEvent.click(await screen.findByRole('button', { name: /Show Results|显示结果/ }))
 
     expect(await screen.findByTestId('console-layout-grid')).toBeInTheDocument()
@@ -1900,6 +1921,7 @@ describe('ConsolePage Integration (CONS-13)', () => {
 
     const executeContext = ((executePayload as Record<string, unknown> | null)?.['context']
       ?? null) as Record<string, unknown> | null
+    expect(executePayload?.['message']).toBe('请分析这个模型')
     expect(executeContext?.locale).toBe('zh')
     expect(executeContext?.engineId).toBeUndefined()
   })
