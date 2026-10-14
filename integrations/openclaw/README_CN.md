@@ -68,3 +68,5 @@ curl -F "file=@drawing.pdf" "http://127.0.0.1:31415/api/v1/files/upload?conversa
 OpenClaw 管理自己的聊天上下文、模型预算和智能体循环；本体只控制自身工具及模型调用。外部宿主不支持 `context.history:"current-turn"`，会明确拒绝，不能假称已裁剪宿主记忆。本地桥不能执行宿主沙箱约束，沙箱调用也会拒绝。取消发生在接纳前则不启动；已接纳操作等待收尾并记录取消请求，不因超时重启或自动重放。
 
 构建后运行 `node --test integrations/openclaw/__tests__/bridge.test.mjs`。测试使用真实本体子进程和原 multipart 上传路由，验证 schema 一致、权限、持久预算、重复调用拒绝、会话隔离、附件越权拒绝及接纳前取消。此外已用 **OpenClaw 2026.6.33 / Node 24.14.1** 在隔离宿主配置中实际加载：四个授权工具注册成功，无诊断错误。可用 `node integrations/openclaw/__tests__/host-loader.mjs /路径/openclaw/openclaw.mjs` 复现。完整 Gateway/模型对话仍属于另外的部署验收。无需付费模型或商业求解器。
+
+本体的 `backend/tests/engineering-package-acceptance.mjs` 也会从仅安装生产依赖的 tarball 中加载此桥：读取工具定义、建立隔离会话、执行 `calculate` 和 `query_model`，并检查重载后预算不重置、已完成调用不重放。最终 runtime-probe 记录会单独报告安装包中的桥接结果。

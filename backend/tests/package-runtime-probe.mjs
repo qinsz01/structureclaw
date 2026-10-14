@@ -19,6 +19,42 @@ const { resolveWorkerPath } = await load('utils/python-worker-runner.js');
 assert.ok(resolveWorkerPath('agent-skills/analysis/runtime/worker.py').startsWith(installed));
 const { analyzeUploadedFile } = await load('agent-langgraph/file-tools.js');
 const workspace = process.cwd();
+// Load only the installed plugin. Its worker must find dist/backend and retain
+// application state across fresh subprocesses without a checkout or Gateway.
+const bridgeUrl = pathToFileURL(path.join(installed, 'integrations/openclaw/bridge.mjs')).href;
+const bridge = await import(bridgeUrl);
+assert.equal(bridge.backendDirectory(installed), path.join(installed, 'dist/backend'));
+const bridgeData = fs.mkdtempSync(path.join(workspace, 'openclaw-runtime-'));
+const bridgeOptions = bridge.resolveOptions({ structureclawRoot: installed, dataDir: bridgeData, workspaceRoot: workspace,
+  runPolicy: { skillIds: [], tools: { enabledIds: ['calculate', 'query_model'] }, budgets: { maxToolCallsPerTurn: 2 } } });
+const bridgeDefinitions = bridge.getDefinitions(bridgeOptions);
+assert.deepEqual(bridgeDefinitions.map(item => item.name).sort(), ['calculate', 'query_model']);
+const bridgeSessionId = bridge.sessionIdentity({ agentId: 'package-probe', sessionKey: 'package:independent',
+  sessionId: 'package-host-incarnation' }, bridgeOptions);
+const begun = await bridge.invokeWorker(bridgeOptions, { action: 'begin', sessionId: bridgeSessionId,
+  args: { message: 'Verify the installed engineering tool bridge', locale: 'en' } });
+assert.equal(begun.policy.enforcement.hostLoop, 'external');
+assert.equal(begun.usage.toolCalls, 0);
+const calculated = await bridge.invokeWorker(bridgeOptions, { action: 'invoke', sessionId: bridgeSessionId,
+  name: 'calculate', hostCallId: 'package-calculate', args: { expression: '6 * 7' } });
+assert.equal(calculated.usage.toolCalls, 1);
+assert.match(JSON.stringify(calculated.messages), /42/);
+const queriedModel = await bridge.invokeWorker(bridgeOptions, { action: 'invoke', sessionId: bridgeSessionId,
+  name: 'query_model', hostCallId: 'package-query', args: {} });
+assert.equal(queriedModel.usage.toolCalls, 2);
+const emptyModel = JSON.parse(queriedModel.messages.find(message => message.name === 'query_model').content);
+assert.equal(emptyModel.model, null, 'A fresh engineering conversation must not invent a model');
+assert.deepEqual(emptyModel.inputIssues, []);
+const reloadedBridge = await import(`${bridgeUrl}?package-reload=1`);
+const exhausted = await reloadedBridge.invokeWorker(bridgeOptions, { action: 'invoke', sessionId: bridgeSessionId,
+  name: 'calculate', hostCallId: 'package-budget', args: { expression: '1 + 1' } });
+assert.match(JSON.stringify(exhausted.messages), /TOOL_CALL_BUDGET_EXHAUSTED/);
+assert.equal(exhausted.usage.toolCalls, 2);
+await assert.rejects(() => reloadedBridge.invokeWorker(bridgeOptions, { action: 'invoke', sessionId: bridgeSessionId,
+  name: 'calculate', hostCallId: 'package-calculate', args: { expression: '6 * 7' } }), /PUBLIC_TOOL_CALL_ALREADY_COMPLETED/);
+const bridgeStatus = await reloadedBridge.invokeWorker(bridgeOptions, { action: 'inspect', sessionId: bridgeSessionId });
+assert.equal(bridgeStatus.status, 'idle');
+assert.equal(bridgeStatus.usage.toolCalls, 2);
 fs.writeFileSync(path.join(workspace, 'loads.csv'), 'id,value\n"load,one",500\n');
 const csv = await analyzeUploadedFile('loads.csv', workspace);
 assert.equal(csv.error, undefined, JSON.stringify(csv));
@@ -62,4 +98,7 @@ for (const q of reference.quantities) {
   assert.ok(Number.isFinite(actual) && Math.abs(actual - q.value) <= q.tolerance.absolute + q.tolerance.relative * Math.abs(q.value), `${q.id}: ${actual}`);
 }
 console.log(JSON.stringify({ status: 'passed', installed, plugins: plugins.length, parsers: ['CSV', 'Excel', 'PDF text and rendering'],
-  runId: run.runId, independentQuantities: reference.quantities.length, cwd: workspace }));
+  runId: run.runId, independentQuantities: reference.quantities.length, cwd: workspace,
+  openclaw: { status: 'passed', dataDir: bridgeData, sessionId: bridgeSessionId,
+    tools: bridgeDefinitions.map(item => item.name), persistedToolCalls: bridgeStatus.usage.toolCalls,
+    budgetSurvivedReload: true, completedCallRedeliveryRejected: true, gatewayStarted: false } }));
