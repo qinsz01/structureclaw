@@ -87,4 +87,17 @@ def restore_physical_compilation(weight: dict, receipt: dict) -> dict:
     if used != set(native):
         raise ValueError("Unmapped native selfweight segment / 原生自重计算段未映射")
     restored["physicalCompilation"] = physical
+    if "executedCompilation" in weight:
+        executed = {row['sourceSegmentId']: row for row in weight['executedCompilation']}
+        if len(executed) != len(weight['executedCompilation']) or set(executed) != set(native):
+            raise ValueError("Executed selfweight segments do not match source segments / 实际执行自重段与源计算段不一致")
+        restored['executedCompilation'] = []
+        for row in physical:
+            actual = executed[row['sourceSegmentId']]
+            source = native[row['sourceSegmentId']]
+            if (actual['physicalElementId'] != row['sourceSegmentId'] or actual['startM'] != 0
+                    or abs(actual['endM']-source['lengthM']) > 8*math.ulp(max(1., source['lengthM']))):
+                raise ValueError("Executed selfweight interval differs from native segment / 实际自重区间与原生段不一致")
+            restored['executedCompilation'].append({**row,
+                'intensityVectorKnM': list(actual['intensityVectorKnM'])})
     return restored

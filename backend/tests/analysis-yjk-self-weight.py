@@ -93,6 +93,14 @@ def verify(work: Path, custom_upward: bool = False, mesh: bool = False):
         assert math.isclose(reaction, -force, rel_tol=1e-5, abs_tol=1e-5), (case['id'], reaction, force)
         balances.append({'caseId': case['id'], 'sourceForceKn': force, 'reactionKn': reaction})
         physical = data['nativeContext']['effectiveLoads']['selfWeight']['physicalCompilation']
+        actual_weight = data['nativeContext']['effectiveLoads']['selfWeight']
+        assert actual_weight['inputQuantization'] == {'source': 'fea.dat', 'significantDigits': 6}
+        executed = actual_weight['executedCompilation']
+        assert len(executed) == len(physical)
+        for source_row, executed_row in zip(physical,executed):
+            for key in ('physicalElementId','startM','endM','sourceSegmentId'):
+                assert source_row[key] == executed_row[key]
+            assert executed_row['intensityVectorKnM'] == [float(format(q,'.6g')) for q in source_row['intensityVectorKnM']]
         assert set(row['physicalElementId'] for row in physical) == set(members)
         if mesh:
             beam = [row for row in physical if row['physicalElementId'] == 'BX0']

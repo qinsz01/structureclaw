@@ -14,7 +14,8 @@
     "native": "Load_Def type 1 for ElementKind 11/12; native automatic material weight 801/803 remains zero",
     "numericalSection": "reference carrier dimensions never used for weight",
     "resultProvenance": "nativeContext.effectiveLoads: verified + sourceFeaSha256 + selfWeight compilation",
-    "physicalCompilation": "effectiveLoads.selfWeight.physicalCompilation rows: physicalElementId/startM/endM/intensityVectorKnM/sourceSegmentId; native members retained separately; source model hash and mesh receipt bind mapping"
+    "physicalCompilation": "effectiveLoads.selfWeight.physicalCompilation rows: physicalElementId/startM/endM/intensityVectorKnM/sourceSegmentId; native members retained separately; source model hash and mesh receipt bind mapping",
+    "executedCompilation": "Additional physical intervals read from actual FE loads. Authored members/physicalCompilation stay unchanged. Each executed value must equal six-significant-digit source quantization within floating representation only."
   },
   "runs": [
     {
@@ -168,6 +169,55 @@
         }
       ],
       "verificationNote": "Initial harness incorrectly compared native segment count with physical member count. Corrected mapping-aware verifier passed against these same preserved native results; no solver/input/result artifact was altered."
+    },
+    {
+      "runId": "yjk-selfweight-20261014-122520-d1e8366b",
+      "status": "passed",
+      "purpose": "separate authored and executed selfweight through load-refined physical members",
+      "mesh": true,
+      "caseId": "D",
+      "balances": [
+        {
+          "caseId": "D",
+          "sourceForceKn": -483.71576,
+          "reactionKn": 483.71568
+        },
+        {
+          "caseId": "L",
+          "sourceForceKn": -200.0,
+          "reactionKn": 200.00000000000006
+        }
+      ],
+      "inputQuantization": {
+        "source": "fea.dat",
+        "significantDigits": 6
+      },
+      "evidence": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-selfweight-20261014-122520-d1e8366b\\source.json",
+          "sha256": "d37102bb36278620bf2f05f7393d18d2fcb4b01199e939dfb73e939e7940af92"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-selfweight-20261014-122520-d1e8366b\\request.json",
+          "sha256": "2b3cb88624c02700b4ac32f32622117b8c72aee0ee03b4fb98e1b9c62e5c0802"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-selfweight-20261014-122520-d1e8366b\\acceptance.json",
+          "sha256": "86cd19930185dbe69120c38c606324ffeb9db4df35ba6306bac7c820858fc67a"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-selfweight-20261014-122520-d1e8366b\\result.json",
+          "sha256": "d70f712b7d68fdbb7e68d3c5c35032e70098bf4f69e95ec0da76442004fefd91"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-selfweight-20261014-122520-d1e8366b\\sc_selfweight-adapter_c779c8678ced\\fea.dat",
+          "sha256": "7c1fe6e197021e8d5c49960d1f560175e969dfe85a3f742bdfbdbc2897e400e8"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-selfweight-20261014-122520-d1e8366b\\sc_selfweight-adapter_c779c8678ced\\native-physics-audit.json",
+          "sha256": "7f870e339134a05ab87a13ad2c8d14fb870f21815b7b550cfbaf4d6cf8edeeac"
+        }
+      ]
     }
   ],
   "tests": {
@@ -179,5 +229,6 @@
     "inclined-column selfweight: ordinary inclined native rods discard external loads; dedicated native automatic weight mapping remains",
     "horizontal gravity: requires explicit global-direction native load mapping"
   ],
-  "note": "FE decimal serialization bounds are input-readback bounds only; response values and response tolerances are not rounded or relaxed. Global vector and physical-interval metadata are tested and included in the third, load-refined native run."
+  "note": "FE decimal serialization bounds are input-readback bounds only; response values and response tolerances are not rounded or relaxed. Global vector and physical-interval metadata are tested and included in the third, load-refined native run.",
+  "executedInputRegression": "146 passed, 14 subtests passed; changed FE rounding, missing records and mismatched mesh mappings are rejected; no structural response tolerance changed."
 }

@@ -79,7 +79,11 @@ def test_mesh_weight_mapping_preserves_original_members_and_exact_load_intervals
     source = model()
     source['load_cases'][0]['loads'].append({'type': 'point', 'element': 'BX0', 'position': 1.7, 'fz': -5})
     mesh, receipt = compile_member_mesh(source)
-    compiled = compile_self_weight(mesh); original = deepcopy(compiled)
+    compiled = compile_self_weight(mesh)
+    compiled['executedCompilation'] = [{**row, 'intensityVectorKnM': [0,0,-4.41299]}
+                                       for row in compiled['physicalCompilation']]
+    compiled['inputQuantization'] = {'source': 'fea.dat', 'significantDigits': 6}
+    original = deepcopy(compiled)
     result = restore_physical_compilation(compiled, receipt)
     assert compiled == original and result['members'] == compiled['members']
     rows = [row for row in result['physicalCompilation'] if row['physicalElementId'] == 'BX0']
@@ -87,6 +91,9 @@ def test_mesh_weight_mapping_preserves_original_members_and_exact_load_intervals
     assert all(row['sourceSegmentId'].startswith('__yjk__BX0__s') for row in rows)
     assert sum(row['endM']-row['startM'] for row in rows) == 6
     assert all(row['intensityVectorKnM'] == [0, 0, -4.4129925] for row in rows)
+    executed = [row for row in result['executedCompilation'] if row['physicalElementId'] == 'BX0']
+    assert [(row['startM'],row['endM']) for row in executed] == [(0.,1.7),(1.7,6.)]
+    assert all(row['intensityVectorKnM'] == [0,0,-4.41299] for row in executed)
 
 
 @pytest.mark.parametrize('bad', ['gap', 'overlap', 'duplicate', 'missing'])

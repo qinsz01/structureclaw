@@ -59,6 +59,19 @@ def test_native_selfweight_is_bound_to_source_density_case_and_direction(tmp_pat
         report = audit_loads(model, data['mapping'], parse_fe(path))
         assert report['passed'] and report['selfWeight'] is True
         assert report['selfWeightCompilation']['loadCaseId'] == 'D'
+        weight = report['selfWeightCompilation']
+        assert weight['inputQuantization'] == {'source': 'fea.dat', 'significantDigits': 6}
+        assert all(row['intensityVectorKnM'] == [0., 0., -4.41299] for row in weight['executedCompilation'])
+        assert all(row['intensityVectorKnM'] == [0., 0., -4.4129925] for row in weight['physicalCompilation'])
     else:
         with pytest.raises(ValueError, match='loads differ'):
             audit_loads(model, data['mapping'], parse_fe(path))
+
+
+def test_executed_weight_cannot_be_invented_from_source_when_FE_rounding_is_different(tmp_path):
+    data = json.loads((Path(__file__).parent/'fixtures/native-frame-self-weight.json').read_text('utf8'))
+    path = tmp_path/'fea.dat'
+    path.write_text(data['fea'].replace('-4.41299', '-4.412990003'), encoding='gb18030')
+    data['mapping']['ydb_path'] = str(tmp_path/'model.ydb')
+    with pytest.raises(ValueError, match='six-significant-digit'):
+        audit_loads(data['model'], data['mapping'], parse_fe(path))

@@ -42,6 +42,7 @@ def audit_loads(model: dict, mapping: dict, fe: dict) -> dict:
     path = Path(mapping["ydb_path"]).parent / "fea.dat"
     text = path.read_bytes().decode("gb18030")
     actual = {key: defaultdict(float) for key in by_native.values()}
+    executed_lines = []
     active, section = None, ""
     for raw in text.splitlines():
         line = raw.strip()
@@ -75,6 +76,8 @@ def audit_loads(model: dict, mapping: dict, fe: dict) -> dict:
                     qa, qb = values[1], values[3]
                     if reversed_order:
                         a, b, qa, qb = length-b, length-a, qb, qa
+                    executed_lines.append({"case": active, "member": member, "start": a, "end": b,
+                                           "qa": qa, "qb": qb, "nativeFrameId": tag})
                     actual[active][("line-start", member, round(a, 9), round(b, 9))] += qa
                     actual[active][("line-end", member, round(a, 9), round(b, 9))] += qb
                 else:
@@ -124,6 +127,25 @@ def audit_loads(model: dict, mapping: dict, fe: dict) -> dict:
                 differences.append({"case": case, "target": key, "expected": rows[key], "actual": actual[case][key]})
     if differences:
         raise ValueError("YJK executed loads differ from input / 原生实际荷载与输入不符: " + json.dumps(differences[:12]))
+    if weight["enabled"]:
+        executed = []
+        for row in weight["physicalCompilation"]:
+            authored = row["intensityVectorKnM"][2]
+            quantized = float(format(authored, ".6g"))
+            bound = 8*math.ulp(max(abs(quantized), 1e-300))
+            matches = [line for line in executed_lines if line["case"] == weight["loadCaseId"]
+                       and line["member"] == row["sourceSegmentId"]
+                       and abs(line["start"]-row["startM"]) <= 8*math.ulp(max(1., row["endM"]))
+                       and abs(line["end"]-row["endM"]) <= 8*math.ulp(max(1., row["endM"]))
+                       and abs(line["qa"]-quantized) <= bound and abs(line["qb"]-quantized) <= bound]
+            if not matches:
+                raise ValueError("Executed selfweight has no bound six-significant-digit FE record / 自重缺少绑定的六位有效数字原生荷载读回")
+            # Select an actual matching FE record. Never manufacture the
+            # executed vector from rounding the source after the fact.
+            value = matches[0]["qa"]
+            executed.append({**row, "intensityVectorKnM": [0., 0., value]})
+        weight["executedCompilation"] = executed
+        weight["inputQuantization"] = {"source": "fea.dat", "significantDigits": 6}
     payload = {"passed": True, "sourceCases": sorted(expected), "nativeCases": by_native,
                "feaSha256": fe["sha256"], "method": "signed-case-target-position-component-readback",
                "selfWeightExcludedFromSourceCases": (model.get("analysis_control") or {}).get("self_weight") is False}
