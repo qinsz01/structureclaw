@@ -7,6 +7,14 @@ capability acceptance is about SDK adaptation, not re-certifying a commercial so
 本文说明当前本体接口。历史预览版与论文标签按原清单保留。商业验收检查传参、原生执行和结果读回；
 不会把测试数量换算成题库覆盖率，也不重新认证成熟商业求解器。
 
+The current snapshot is `engineering-product-preview-20261014`. Its
+[acceptance record](reproducibility/engineering-product-preview-20261014.json)
+binds the tested code and evidence. This remains a preview: mandatory native adapter
+items listed in [the profile audit](native-design-profiles-20261014.md) are still open.
+
+当前快照是本体预览版；验收记录绑定已测试代码及证据。商业适配尚有上述清单中的未完成项，
+本快照不是整体方案完成声明，也不是后续实验的300题能力冻结。
+
 ```mermaid
 flowchart TD
   Web[Web / HTTP / CLI] --> Policy[EffectiveRunPolicy + durable counters]

@@ -1,0 +1,302 @@
+{
+  "schema": "structureclaw-product-acceptance/v1",
+  "status": "preview-with-open-native-adapter-items",
+  "wholePlanComplete": false,
+  "createdAt": "2026-10-14T02:07:15.713222+00:00",
+  "freezeTag": "engineering-product-preview-20261014",
+  "implementationCommit": "ee9fd42c9ed08d6e4ee069fe2fb58a3148e2840c",
+  "backendTestedCommit": "a1d122d74e62a1d747f5463b4e13fa60ec053f6c",
+  "differenceSinceBackendTestedCommit": [
+    "tests/regression/backend-validations.js"
+  ],
+  "branch": "work/research-next",
+  "modelProtocol": "2.2.0",
+  "productionTrees": {
+    "backend/src": "cc72473321501b39d9fd747989db33f192daf986",
+    "backend/prisma": "9585a71d0fc2981e2bc66e3f05f3c030f88df97b",
+    "backend/package-lock.json": "d8634d91bcf9a8f91edea14281204f7bff0306ad",
+    "frontend/src": "68c9e7a80f6fa8509507c6524f45cdd9ca3edd75",
+    "frontend/package-lock.json": "6f3c357f80388a4c77c2360b917e034bda955131",
+    "scripts/cli": "17e1402d90d1a866089dba6e366aa9c253b497bf"
+  },
+  "boundaries": {
+    "benchmarkModified": false,
+    "benchmarkFilesPresentInIndependentCheckout": 0,
+    "benchmarkPointer": "5102acb3fdf4618c31f385e51fd0e5b9280438a1",
+    "standaloneYjkApiModified": false,
+    "standaloneYjkApiServicesOrJobsManaged": false,
+    "paidLlmExperiments": false,
+    "claims300TaskAcceptance": false,
+    "paperCodeTag": {
+      "name": "paper-v2-openclaw-20260729",
+      "commit": "3c36a37241fa9afc9d89329d0d0acd3278fc2e88"
+    },
+    "priorPreviewTag": {
+      "name": "engineering-v2.2-preview-20261013",
+      "commit": "e279c7e12c87c159491016de17a0a0ee0a16db88"
+    }
+  },
+  "delivered": [
+    "General run policy and effective configuration shared by web, HTTP, CLI and owned external sessions; nested counters and immutable resume.",
+    "No production behavior controlled by benchmark-only variables; own system fixtures and independent source build.",
+    "Canonical V2 model, atomic editing/undo, immutable evidence, readonly analysis/design projections and full run identity.",
+    "Owned idempotent analysis jobs and cross-process external-session claims; unknown outcomes never automatically resubmit.",
+    "Shared OpenSees assembly, releases, mixed systems, local/member loads, mass and time/modal response queries.",
+    "Documented real PKPM/YJK analysis and native design profiles, original signed results, mappings and separate native design combinations.",
+    "One structured report path with exact selected quantities, bilingual native sources and truthful failed/incomplete/not-evaluated states."
+  ],
+  "checks": {
+    "backend": {
+      "status": "passed",
+      "suites": 124,
+      "tests": 1451,
+      "skipped": 0,
+      "evidence": {
+        "path": "G:/StructureClaw-All/sclaw_data/work/product-isolated-20261014-01/isolated-backend-release.json",
+        "sha256": "c89f74f7823cca9a7dadb5378baab8805d66f60ab8bb22bb4bc23b3c54a994aa"
+      }
+    },
+    "backendLint": {
+      "status": "passed",
+      "evidence": {
+        "path": "G:/StructureClaw-All/sclaw_data/work/product-backend-lint-20261014.log",
+        "sha256": "f0f52d009e7f2aea396dcad83842364ba24068580d1ce6739b72cfc570b185c4"
+      }
+    },
+    "frontendUnit": {
+      "status": "passed",
+      "files": 35,
+      "tests": 293,
+      "existingSkippedFiles": 2,
+      "existingTodoTests": 6,
+      "evidence": {
+        "path": "G:/StructureClaw-All/sclaw_data/work/product-isolated-20261014-01/isolated-all-frontend-final.log",
+        "sha256": "40b1650ca8cffcc5a47bd011a136ca3e8ac17f9e6bfc7c070703ff5835d777a8"
+      }
+    },
+    "frontendIntegration": {
+      "status": "passed",
+      "files": 12,
+      "tests": 90,
+      "evidence": {
+        "path": "G:/StructureClaw-All/sclaw_data/work/product-frontend-integration-20261014.log",
+        "sha256": "6f926bf96e62a5f5ba510370c46c97580e644464c8b245583fbe2edf3fc1f0c6"
+      }
+    },
+    "frontendProductionBuild": {
+      "status": "passed",
+      "includesTypeCheck": true,
+      "evidence": {
+        "path": "G:/StructureClaw-All/sclaw_data/work/product-isolated-20261014-01/isolated-ui-build-final.log",
+        "sha256": "e40d37e19f9a9ca0cb6bdbde56c2f599b84397ab451a370b082ca1bfccbca2b2"
+      }
+    },
+    "contracts": {
+      "status": "passed",
+      "names": [
+        "agent-orchestration",
+        "agent-api-contract",
+        "agent-capability-modes",
+        "chat-stream-contract",
+        "agent-tools-contract",
+        "report-narrative-contract",
+        "structure-json-skill"
+      ],
+      "evidence": {
+        "path": "G:/StructureClaw-All/sclaw_data/work/product-isolated-20261014-01/isolated-contracts-release.log",
+        "sha256": "e12d9a8d7e8f33a546b6546a3e0e77e596dee70f0fb39c8d12aad189f7df220b"
+      }
+    },
+    "httpOpenSees": {
+      "status": "passed",
+      "independentNumericalQueries": 21,
+      "runId": "f65e28b0-e374-4126-8953-b556c2f63085",
+      "evidence": {
+        "path": "G:/StructureClaw-All/sclaw_data/work/product-isolated-20261014-01/isolated-http-release.log",
+        "sha256": "e45042dec5e989f5c1f7c6db241c0031d48d152cb68492f2de94df71cfbc1819"
+      }
+    },
+    "taskLifecycle": {
+      "status": "passed",
+      "scope": [
+        "SQLite atomic claim",
+        "duplicate rejection",
+        "late publication rejection",
+        "history preserved",
+        "explicit rerun"
+      ],
+      "evidence": {
+        "path": "G:/StructureClaw-All/sclaw_data/work/product-isolated-20261014-01/isolated-task-release.log",
+        "sha256": "2c3c99ff4e3c8facd50b2a659bcc16d1a4f76fe891619967ac7857be94cdb324"
+      }
+    },
+    "openSeesPublicTools": {
+      "status": "passed",
+      "cases": 4,
+      "numericalQueries": 76,
+      "referenceHash": "036fdf1899626a614a68223189d3d6bc464fe4fa0f37b76190a024d4cc00a2f9",
+      "evidence": {
+        "path": "G:/StructureClaw-All/sclaw_data/work/opensees-tools-okPibp/acceptance.json",
+        "sha256": "232eac22c42697723633a5dda5c3fd6a98ed56310cad3d3f3bd16d5374b99643"
+      }
+    },
+    "nativePublicTools": {
+      "pkpm": {
+        "status": "passed",
+        "sessionId": "cc440521-0670-47e4-bf33-3785ab622211",
+        "analysisRunId": "65306502-02e7-4f74-8f0b-1e774bc04508",
+        "designRunId": "603a7e1d-a864-401b-af5d-d4ff63f4a2f2",
+        "checks": [
+          "run_analysis",
+          "run_code_check",
+          "query_results",
+          "generate_report",
+          "generate_report",
+          "run_code_check"
+        ],
+        "evidence": {
+          "path": "G:/StructureClaw-All/sclaw_data/work/pkpm-public-tools-vLPk2N/acceptance.json",
+          "sha256": "5055389b059f858337ed0ef729d4e152a0cc7dfde51102ba2f0c496e15e362d7"
+        }
+      },
+      "yjk": {
+        "status": "passed",
+        "sessionId": "eb783811-9528-4350-ad97-d77010872ea6",
+        "analysisRunId": "1f8656ce-6149-4c5f-903f-da9694fe33ab",
+        "designRunId": "9bdd3a35-7869-4e3a-9f53-c5c23e01b8a0",
+        "checks": [
+          "resume verified analysis and design",
+          "query_results",
+          "query_results",
+          "generate_report",
+          "generate_report",
+          "run_code_check"
+        ],
+        "evidence": {
+          "path": "G:/StructureClaw-All/sclaw_data/work/yjk-public-tools-znoGJm/acceptance.json",
+          "sha256": "4d36919e4993564ec063454a2c6cbf545670ab632ad44225d2f8b216407e7621"
+        }
+      }
+    },
+    "nativeSdkProfiles": {
+      "status": "passed-with-profile-limits",
+      "recordedRuns": 14,
+      "scope": "SDK field input, execution and official readback; no solver recertification",
+      "evidence": {
+        "path": "G:/StructureClaw-All/structureclaw/docs/reproducibility/native-design-independent-review-20261014.json",
+        "sha256": "e9b299d76a5e3a2833f03c4b34421af45c88a7fbb0badcf04fd57830bbc1ee3b"
+      }
+    },
+    "multimodalAndEvidence": {
+      "status": "passed",
+      "tests": 42,
+      "paidVisualModelCalls": 0,
+      "evidence": {
+        "path": "G:/StructureClaw-All/sclaw_data/work/multimodal-evidence-20261014.json",
+        "sha256": "d0e51c399e2effab2d00b9fe5f880882a5b61546b1eb2e9f95072065ff50f8ec"
+      }
+    },
+    "externalProcesses": {
+      "status": "passed",
+      "scope": [
+        "competing host refused",
+        "crashed owner evidence retained",
+        "own claim only",
+        "same-host queue and counters"
+      ],
+      "evidence": {
+        "path": "G:/StructureClaw-All/sclaw_data/work/public-session-process-20261014.json",
+        "sha256": "f78dfa4f93b4b7ef034994200749ec47fcde804ca9293bb062d3887cd56cae5a"
+      }
+    },
+    "independentStartup": {
+      "status": "passed",
+      "source": "G:\\StructureClaw-All\\sclaw_data\\work\\product-isolated-20261014-01\\source",
+      "pythonEnvironment": "configured shared dependency environment; no Bench sources",
+      "frontendDependencies": "physically copied existing lock-matched installation, then independent production build",
+      "commands": [
+        "node sclaw start --no-open",
+        "node sclaw health",
+        "node sclaw status",
+        "GET /",
+        "node sclaw stop"
+      ],
+      "uiHttpStatus": 200,
+      "temporaryServiceStopped": true,
+      "evidence": [
+        {
+          "path": "G:/StructureClaw-All/sclaw_data/work/product-isolated-20261014-01/isolated-start-release.log",
+          "sha256": "24d12d6112005c8fe14f7821fdb72efa126e3ab79d1c298b41e83d0afe26c1af"
+        },
+        {
+          "path": "G:/StructureClaw-All/sclaw_data/work/product-isolated-20261014-01/isolated-health-release.log",
+          "sha256": "f004dbfbe40f891c3e1f4ab498be24d532035cbc66a5968a54d8c80b3f23fa22"
+        },
+        {
+          "path": "G:/StructureClaw-All/sclaw_data/work/product-isolated-20261014-01/isolated-status-release.log",
+          "sha256": "8e1b782baa4a413fef437ed52c1872d0e55975519074e51d129885a8ce262bc4"
+        },
+        {
+          "path": "G:/StructureClaw-All/sclaw_data/work/product-isolated-20261014-01/isolated-ui-release.json",
+          "sha256": "36dd28b9a4f3d0937c699996e1bc87388760ab4f4f42ed0264ca3646bc77390b"
+        },
+        {
+          "path": "G:/StructureClaw-All/sclaw_data/work/product-isolated-20261014-01/isolated-stop-release.log",
+          "sha256": "7c2cdcc1769313a31b8eaba66b1e54b5bdfc89152336ba05b3c7fedfa0e2f1d7"
+        }
+      ]
+    }
+  },
+  "openAdapterItems": [
+    {
+      "area": "commercial-analysis-settings",
+      "items": [
+        "automatic self-weight",
+        "rigid diaphragm/zone settings",
+        "construction stages",
+        "second-order settings"
+      ],
+      "status": "not-established-by-accepted-bare-frame-profile"
+    },
+    {
+      "area": "yjk-model-boundary",
+      "items": [
+        "supports other than calibrated fixed base",
+        "arbitrary end releases/eccentricities",
+        "inclination outside accepted ordinary-column profile"
+      ],
+      "status": "native-mapping-and-readback-incomplete"
+    },
+    {
+      "area": "commercial-displacement",
+      "items": [
+        "continuous within-member deflection as a native output"
+      ],
+      "status": "not-connected; must not relabel interpolation as native"
+    },
+    {
+      "area": "native-design",
+      "items": [
+        "checking installed reinforcement",
+        "arbitrary prescribed effective length",
+        "unmapped per-member overrides",
+        "design mapping of split physical members",
+        "automatic self-weight design"
+      ],
+      "status": "not-implemented-or-not-native-verified"
+    },
+    {
+      "area": "pkpm-reinforcement",
+      "items": [
+        "HRB500 main-bar writeback",
+        "derived non-100mm stirrup spacing"
+      ],
+      "status": "main-bar attempt did not change effective native value; derived spacing conversion unimplemented"
+    }
+  ],
+  "interpretation": "A preview of StructureClaw product convergence, not full-plan completion or benchmark freeze. Solver execution, native check failure, missing inputs and unavailable adapter features remain separate. Test totals are not task coverage.",
+  "docs": [
+    "docs/product-runtime.md",
+    "docs/native-design-profiles-20261014.md"
+  ]
+}

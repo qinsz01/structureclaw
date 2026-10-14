@@ -121,3 +121,25 @@ fallbacks cannot become successful design evidence.
 这些证据只覆盖上述静力裸杆物理截面及材料。数值截面载体不提供设计几何；分段计算构件的设计归并、
 未映射显式设计覆盖、已有配筋校核不能由本表推出。动力、抗震专用方法及内置规范公式属于另外的验收链。
 后续参数/牌号验收应追加新证据，不能回填旧运行或把代码里列出的选项当成已经通过。
+
+## Remaining adapter work / 剩余适配工作
+
+These are StructureClaw integration limits, not claims that the commercial products
+lack these functions. A successful SDK installation does not by itself establish that
+every source-model field and requested output has been connected.
+
+以下是StructureClaw的适配缺口，不代表商业软件没有这些功能。SDK可用不能替代每项输入和输出的接通。
+
+| Area / 范围 | Remaining work / 尚未接通或未验收 |
+|---|---|
+| Analysis assumptions / 分析假定 | Automatic self-weight, rigid diaphragms/zones, construction stages and second-order settings are not established by the accepted bare-frame runs. / 裸框架验收不能推出自动自重、刚性楼板、刚域、施工阶段和二阶设置已接通。 |
+| YJK boundaries / YJK边界 | Current adapter requires fully fixed base supports and ordinary inclined columns below 20 degrees. Other supports, arbitrary member releases and eccentricities still need native mapping. / 其他支座、任意端释放及偏心仍须适配；不能通过修改用户模型绕过。 |
+| Member displacement / 构件位移 | Native force stations and identified equilibrium recovery are available. Continuous within-member deflection is not established as a native commercial output. / 原生截面内力和有来源的平衡恢复可用，连续跨内挠度尚未作为商业原生输出接通。 |
+| Design parameters / 设计参数 | Arbitrary prescribed effective lengths and unmapped per-member overrides need native write/readback. PKPM HRB500 main bars did not take effect in the recorded attempt; YJK only verified the documented floor/role grouping. / 不把未生效参数当作默认执行。 |
+| Physical-member design / 物理构件设计 | Design of members split for local/point loads needs a verified mapping back to the unsplit physical design member and its lengths. / 分段分析成功不能直接推出原生设计归并正确。 |
+| Reinforcement / 配筋 | Native required-area design is available within the documented profiles. Checking installed bars, and derived PKPM stirrup-spacing conversion, remain unimplemented. / 已有配筋验算与PKPM非100毫米间距的派生折算尚未实现。 |
+
+Do not mark the overall product convergence plan complete while required adapter items
+remain open. Native failures, missing inputs and unimplemented mappings stay distinct.
+
+必需适配项仍未完成时，整体版本继续标为预览；真实超限、资料不足与尚未接通分别报告。
