@@ -173,7 +173,29 @@ completion cannot overwrite a changed task; its run remains archived.
 `POST /analyze` accepts a UUID `requestId`. Repeating a completed identical request reads
 its archive; reusing an ID with different input fails. `GET /analysis-requests/:requestId`
 reads status; `POST /analysis-requests/:requestId/cancel` only cancels a process owned by
-this service. Unowned running records after a restart are `outcome_unknown`.
+this service. A foreign live owner remains running but is not cancellable here;
+records whose owner has stopped are `outcome_unknown`.
+
+Each request now reserves its immutable `runId` before solver submission. If its
+owner stopped after writing the run archive but before publishing request completion,
+`POST /analysis-requests/:requestId/recover` accepts the inspected `expectedStateHash`.
+It verifies the archive's request ID/hash, model/settings and result bindings, then
+settles that request without invoking a solver or publishing a current model result.
+Missing/corrupt archives, live or unverified owners, and changed requests are refused.
+Historical requests without a reserved run identity remain readable but cannot use
+this recovery path.
+
+分析提交前保存唯一运行编号。原进程在归档后退出时，可用检查所得状态指纹显式恢复原作业；
+归档必须与请求、模型、设置及结果身份一致。恢复不重跑、不将历史结果自动设为当前结果。
+缺归档、归档损坏、所属进程仍活跃或身份未知、请求已变化均拒绝；没有预留运行身份的历史请求保持可读。
+
+CLI uses the same endpoints / CLI使用同一接口：
+
+```text
+sclaw job status <request-id>
+sclaw job recover <request-id> --state-hash <hash-returned-by-status>
+sclaw job cancel <request-id>
+```
 
 重复请求先查已有作业，不重新启动。取消只能作用于本服务持有的作业。PKPM/YJK 使用私有工作目录和进程归属，
 独立 YJK API 的源码、配置与用户任务不属于此流程。

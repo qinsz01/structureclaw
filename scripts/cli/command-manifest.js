@@ -1,5 +1,11 @@
 const COMMANDS = [
   {
+    name: "job",
+    usage: "sclaw job <status|cancel|recover> <request-id> [--state-hash <inspected-hash>] [--url <server-url>]",
+    description: "Inspect, cancel or recover an existing analysis job / 查询、取消或恢复已有分析作业",
+    group: "core",
+  },
+  {
     name: "run",
     usage: "sclaw run --request <request.json> [--url <server-url>]",
     description: "Run an agent request using the shared HTTP policy / 使用统一 HTTP 策略执行请求",

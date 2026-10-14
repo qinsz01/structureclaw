@@ -19,6 +19,7 @@ import { SessionLock } from '../engineering/session-lock.js';
 import { acquirePersistentSessionLock, readPersistentSession, withAbandonedSessionRecovery } from '../engineering/persistent-session-lock.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 import { commitModel, contentHash } from '../engineering/model-state.js';
+import { writeAtomicJson as atomicRecord } from '../engineering/atomic-json.js';
 
 /** Apply the application reducers to external tool updates, without duplicating state rules. */
 export function applyPublicToolStateUpdate(
@@ -76,15 +77,6 @@ interface CompletedPublicCall {
 function sessionPath(sessionId: string): string {
   if (!/^[a-zA-Z0-9_-]+$/.test(sessionId)) throw new Error('INVALID_PUBLIC_SESSION_ID');
   return path.join(runtimeBaseDir, 'public-tool-sessions', `${sessionId}.json`);
-}
-
-function atomicRecord(file: string, value: unknown): void {
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  const temporary = `${file}.${randomUUID()}.tmp`;
-  const handle = fs.openSync(temporary, 'wx', 0o600);
-  try { fs.writeFileSync(handle, JSON.stringify(value)); fs.fsyncSync(handle); }
-  finally { fs.closeSync(handle); }
-  fs.renameSync(temporary, file);
 }
 
 function readSessionUsage(saved: PublicSessionRecord): RunUsage {

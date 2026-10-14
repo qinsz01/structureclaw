@@ -29,6 +29,12 @@ function readOptional(file: string): string | undefined {
   catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined; throw error; }
 }
 
+/** Permission failures conservatively mean alive; only ESRCH establishes death. */
+export function processIsAlive(pid: number): boolean {
+  try { process.kill(pid, 0); return true; }
+  catch (error) { return (error as NodeJS.ErrnoException).code !== 'ESRCH'; }
+}
+
 export function inspectPersistentSessionLock(sessionFile: string) {
   const raw = readOptional(sessionFile + '.claim');
   if (raw === undefined) return null;
@@ -36,10 +42,7 @@ export function inspectPersistentSessionLock(sessionFile: string) {
   if (typeof claim.token !== 'string' || !claim.token || !Number.isInteger(claim.pid) || claim.pid <= 0) {
     throw new Error('PUBLIC_SESSION_CLAIM_INVALID / 会话占用记录无效');
   }
-  let alive = true;
-  try { process.kill(claim.pid, 0); }
-  catch (error) { if ((error as NodeJS.ErrnoException).code === 'ESRCH') alive = false; }
-  return { ...claim, alive };
+  return { ...claim, alive: processIsAlive(claim.pid) };
 }
 
 /** Prevent a new host claim while taking a read-only session snapshot. */

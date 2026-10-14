@@ -55,6 +55,11 @@ export function analysisSettingsHash(type: unknown, engineId: unknown, parameter
   return contentHash({ type, engineId, parameters: normalizeAnalysisParameters(parameters) });
 }
 
+export function analysisRequestHash(payload: ModelRecord): string {
+  return contentHash({ ...payload, requestId: undefined,
+    parameters: normalizeAnalysisParameters(isRecord(payload.parameters) ? payload.parameters : {}) });
+}
+
 export function analysisSelections(model: ModelRecord, rawParameters: ModelRecord, type: unknown): ResultSelection[] {
   const parameters = normalizeAnalysisParameters(rawParameters);
   const cases = (model.load_cases ?? model.loadCases ?? []) as ModelRecord[];
@@ -93,7 +98,9 @@ export async function executeAnalysisRun(
   payload: ModelRecord,
   invoke: (request: ModelRecord) => Promise<ModelRecord>,
   persist: (id: string, record: ModelRecord) => Promise<void> = saveAnalysisRun,
+  runId: string = randomUUID(),
 ): Promise<ModelRecord> {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(runId)) throw new Error('RUN_ID_INVALID');
   if (!isRecord(payload.model)) throw new Error('MODEL_REQUIRED');
   const model = structuredClone(payload.model);
   assertResolvedInput(isRecord(model.metadata) ? model.metadata.inputEvidence : undefined);
@@ -101,7 +108,6 @@ export async function executeAnalysisRun(
   const parameters = normalizeAnalysisParameters(isRecord(payload.parameters) ? structuredClone(payload.parameters) : {});
   if ('_internalResultSelections' in parameters) throw new Error('RESERVED_ANALYSIS_PARAMETER');
   const selections = analysisSelections(model, parameters, payload.type);
-  const runId = randomUUID();
   const startedAt = new Date().toISOString();
   const fingerprint = modelHash(model);
   const settingsHash = analysisSettingsHash(payload.type, payload.engineId, parameters);
@@ -176,13 +182,15 @@ export async function executeAnalysisRun(
   const success = Object.values(results).every((item) => isRecord(item) && item.success !== false);
   const capabilityStatus = Object.values(results).every((item) => isRecord(item) && item.capabilityStatus === 'complete') ? 'complete' : 'partial';
   const record = {
-    runId, startedAt, completedAt: new Date().toISOString(), modelHash: fingerprint, settingsHash,
+    runId, requestId: payload.requestId, requestHash: analysisRequestHash(payload),
+    startedAt, completedAt: new Date().toISOString(), modelHash: fingerprint, settingsHash,
     request: { ...payload, model, parameters }, selections, results, selectedResultKey,
     executionStatus: success ? 'completed' : 'incomplete', capabilityStatus, success,
   };
   await persist(runId, record);
   return {
-    ...selected, success, runId, modelSnapshot: model, results, selectedResultKey, executionStatus: record.executionStatus, capabilityStatus,
+    ...selected, success, runId, requestId: record.requestId, requestHash: record.requestHash,
+    modelSnapshot: model, results, selectedResultKey, executionStatus: record.executionStatus, capabilityStatus,
     ...(!success ? { error_code: 'RESULT_SET_INCOMPLETE', message: 'One or more requested results failed; inspect results by key.' } : {}),
     meta: { ...(isRecord(selected.meta) ? selected.meta : {}), startedAt, completedAt: record.completedAt, resultCount: selections.length },
   };
@@ -207,16 +215,21 @@ export async function loadAnalysisRun(id: string, directory = path.join(runtimeB
   const request = isRecord(record.request) ? record.request : {};
   const parameters = isRecord(request.parameters) ? request.parameters : {};
   const model = request.model;
+  const requestHash = analysisRequestHash(request);
+  const binding = request.requestBinding === undefined ? {} : analysisRequestBindingSchema.parse(request.requestBinding);
   if (record.runId !== id || !isRecord(model) || record.modelHash !== modelHash(model)
     || record.settingsHash !== analysisSettingsHash(request.type, request.engineId, parameters)
-    || !isRecord(record.results) || typeof record.selectedResultKey !== 'string') throw new Error('RUN_ARCHIVE_INVALID');
+    || !isRecord(record.results) || typeof record.selectedResultKey !== 'string'
+    || (record.requestHash !== undefined && record.requestHash !== requestHash)
+    || (record.requestId !== undefined && record.requestId !== request.requestId)) throw new Error('RUN_ARCHIVE_INVALID');
   for (const result of Object.values(record.results)) {
-    if (!isRecord(result) || !isRecord(result.meta) || result.meta.runId !== id
-      || result.meta.modelHash !== record.modelHash || result.meta.settingsHash !== record.settingsHash) throw new Error('RUN_ARCHIVE_INVALID');
+    const meta = isRecord(result) && isRecord(result.meta) ? result.meta : {};
+    if (meta.runId !== id || meta.modelHash !== record.modelHash || meta.settingsHash !== record.settingsHash
+      || Object.entries(binding).some(([key, value]) => meta[key] !== value)) throw new Error('RUN_ARCHIVE_INVALID');
   }
   const selected = record.results[record.selectedResultKey];
   if (!isRecord(selected)) throw new Error('RUN_ARCHIVE_INVALID');
-  return { ...selected, runId: id, modelSnapshot: model, results: record.results,
+  return { ...selected, runId: id, requestId: request.requestId, requestHash, modelSnapshot: model, results: record.results,
     selectedResultKey: record.selectedResultKey, success: record.success,
     executionStatus: record.executionStatus, capabilityStatus: record.capabilityStatus,
     meta: { ...(isRecord(selected.meta) ? selected.meta : {}), startedAt: record.startedAt,

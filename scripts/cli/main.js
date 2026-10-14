@@ -1163,6 +1163,9 @@ async function dispatch(commandName, rawArgs, rootDir) {
   const programName = env.SCLAW_PROGRAM_NAME || "sclaw";
 
   switch (commandName) {
+    case "job":
+      log(JSON.stringify(await require('./analysis-job').analysisJob(rawArgs, env), null, 2));
+      return;
     case "run":
       log(JSON.stringify(await require('./run-agent').runAgent(rawArgs, env), null, 2));
       return;

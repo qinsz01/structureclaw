@@ -40,6 +40,11 @@ export async function analysisRuntimeRoutes(fastify: FastifyInstance) {
     const { id } = z.object({ id: z.uuid() }).parse(request.params);
     return reply.send(await analysisService.cancelRequest(id));
   });
+  fastify.post('/analysis-requests/:id/recover', async (request, reply) => {
+    const { id } = z.object({ id: z.uuid() }).parse(request.params);
+    const { expectedStateHash } = z.object({ expectedStateHash: z.string().regex(/^[a-f0-9]{64}$/) }).strict().parse(request.body);
+    return reply.send(await analysisService.recoverRequest(id, expectedStateHash));
+  });
   fastify.get('/schema/structure-model-v1', async (_request: FastifyRequest, reply: FastifyReply) => {
     return reply.send(await structureProtocolService.getStructureModelSchema());
   });

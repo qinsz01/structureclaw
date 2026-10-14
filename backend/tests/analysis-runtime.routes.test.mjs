@@ -33,6 +33,9 @@ describe('analysis runtime routes', () => {
     AnalysisExecutionService.prototype.analyze = async function mockAnalyze(body) {
       return { success: true, analysis_type: body.type, requestBinding: body.requestBinding };
     };
+    AnalysisExecutionService.prototype.recoverRequest = async function mockRecover(id, expectedStateHash) {
+      return { requestId: id, expectedStateHash, status: 'completed' };
+    };
     AnalysisService.prototype.codeCheck = async function mockCodeCheck(body) {
       return { code: body.code, status: 'success', source: body };
     };
@@ -50,6 +53,10 @@ describe('analysis runtime routes', () => {
     expect((await app.inject({ method: 'POST', url: '/validate', payload: { model: {}, engineId: 'builtin-opensees' } })).json().valid).toBe(true);
     expect((await app.inject({ method: 'POST', url: '/convert', payload: { model: {} } })).json().model.schema_version).toBe('2.0.0');
     expect((await app.inject({ method: 'POST', url: '/analyze', payload: { type: 'static', model: {}, parameters: {} } })).json().success).toBe(true);
+    const recoveryUrl = '/analysis-requests/05a02a2c-5ab2-4564-a773-36d84e87c3fa/recover';
+    expect((await app.inject({ method: 'POST', url: recoveryUrl, payload: { expectedStateHash: 'a'.repeat(64) } })).json())
+      .toMatchObject({ status: 'completed', expectedStateHash: 'a'.repeat(64) });
+    expect((await app.inject({ method: 'POST', url: recoveryUrl, payload: {} })).statusCode).not.toBe(200);
     const requestBinding = { modelRevision: 3, modelHash: 'model', settingsHash: 'settings', requestSequence: 5 };
     expect((await app.inject({ method: 'POST', url: '/analyze', payload: { type: 'static', model: {}, requestBinding } })).json().requestBinding).toEqual(requestBinding);
     expect((await app.inject({ method: 'POST', url: '/analyze', payload: { type: 'static', model: {}, requestBinding: { ...requestBinding, requestSequence: -1 } } })).statusCode).not.toBe(200);
