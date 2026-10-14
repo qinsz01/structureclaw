@@ -94,6 +94,17 @@ const inputReviewBodySchema = z.object({
 });
 
 export async function agentRoutes(fastify: FastifyInstance) {
+  fastify.post('/jobs/:conversationId/:requestId/:action', async (request: FastifyRequest<{ Params: { conversationId: string; requestId: string; action: string } }>, reply) => {
+    const { conversationId, requestId } = request.params;
+    if (!await new ConversationService().getConversation(conversationId)) return reply.code(404).send({ error: 'CONVERSATION_NOT_FOUND' });
+    const action = z.enum(['cancel', 'recover']).parse(request.params.action);
+    const { expectedStateHash } = z.object({ expectedStateHash: z.string().regex(/^[a-f0-9]{64}$/) }).strict().parse(request.body);
+    try { return reply.send(await agentService.manageConversationJob(conversationId, { requestId, action, expectedStateHash })); }
+    catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return reply.code(/OUTSIDE_CONVERSATION|PERMISSION_DENIED/.test(message) ? 403 : 409).send({ error: message });
+    }
+  });
   fastify.get('/input-review/:conversationId', async (request: FastifyRequest<{ Params: { conversationId: string } }>, reply) => {
     const id = request.params.conversationId;
     if (!await new ConversationService().getConversation(id)) return reply.code(404).send({ error: 'CONVERSATION_NOT_FOUND' });

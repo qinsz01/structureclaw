@@ -2,6 +2,7 @@
 
 import type { RunPolicyInput } from '../../../../backend/src/runtime/run-policy'
 import type { ConversationRuntimeSnapshot } from './use-conversation-runtime'
+import { ConversationJobs } from './conversation-jobs'
 
 export type { RunPolicyInput }
 
@@ -20,8 +21,6 @@ export function RunSettings({ value, onChange, locale, disabled, runtime, status
     return keySource ? labels[keySource] : '—'
   }
   const usage = runtime?.usage
-  const jobStatus = (status: string) => ({ running: zh ? '运行中' : 'Running', completed: zh ? '已完成' : 'Completed',
-    failed: zh ? '失败' : 'Failed', cancelled: zh ? '已取消' : 'Cancelled', outcome_unknown: zh ? '结果待核查' : 'Outcome unknown' }[status] ?? status)
   return <details className="mx-2 mb-2 rounded-xl border border-border/60 p-3 text-xs text-muted-foreground">
     <summary className="cursor-pointer font-medium text-foreground">{zh ? '运行设置' : 'Run settings'}</summary>
     {statusError && <p role="alert" className="mt-3 text-amber-700 dark:text-amber-300">{zh ? '无法读取服务端会话状态；发送前必须重新确认。' : 'Server session state is unavailable; it must be checked before sending.'}</p>}
@@ -31,7 +30,7 @@ export function RunSettings({ value, onChange, locale, disabled, runtime, status
       {runtime.waitingForReply && <p>{runtime.question}<br />{zh ? '继续此回合会保留原策略与已用预算。' : 'Resuming keeps the original policy and consumed budget.'}</p>}
       {runtime.analysis.runId && <p className="break-all">{zh ? '分析运行' : 'Analysis run'}: {runtime.analysis.runId} · {runtime.analysis.resultKey ?? '—'} · {runtime.analysis.current ? (zh ? '当前有效' : 'Current') : (zh ? '历史／不可用于当前模型' : 'Historical / unavailable for current model')}</p>}
       <p>{zh ? '当前报告' : 'Current report'}: {runtime.report.current ? (zh ? '有效' : 'Available') : (zh ? '尚无有效报告' : 'Unavailable')}</p>
-      {runtime.jobs.map(job => <p key={job.requestId} className="break-all">{zh ? '作业' : 'Job'}: {job.requestId} · {jobStatus(job.status)}{job.runId ? ` → ${job.runId}` : ''}</p>)}
+      <ConversationJobs runtime={runtime} locale={locale} onRefresh={onRefresh} />
       {policy ? <>
         <p className="font-medium text-foreground">{zh ? '实际生效（服务端）' : 'Effective policy (server)'}</p>
         <dl className="grid gap-x-4 gap-y-1 sm:grid-cols-2">

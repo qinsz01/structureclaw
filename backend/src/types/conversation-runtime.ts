@@ -13,5 +13,6 @@ export interface ConversationRuntimeSnapshot {
   usage: { runId: string; policyHash: string; toolCalls: number; llmCalls: number; recoveries: number } | null;
   analysis: { runId: string | null; resultKey: string | null; current: boolean; reason: string | null };
   report: { current: boolean; runId: string | null };
-  jobs: Array<{ requestId: string; kind: string; status: string; runId: string | null; cancellationAvailable: boolean }>;
+  jobs: Array<{ requestId: string; kind: string; status: string; runId: string | null; cancellationAvailable: boolean;
+    stateHash?: string; ownerAlive?: boolean | null; recoveryAvailable?: boolean; inHistory?: boolean }>;
 }

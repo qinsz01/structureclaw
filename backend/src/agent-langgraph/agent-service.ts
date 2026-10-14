@@ -135,6 +135,25 @@ export function inputReviewRevision(state: Partial<AgentState>): string {
     runs: Object.keys(state.analysisRuns ?? {}), quantities: state.resultQuantities, messages: state.messages?.map(message => message.id) });
 }
 
+/** Ownership comes only from this checkpoint and its existing ledger, never a global job scan. */
+function conversationJobReferences(state: AgentState, usage: RunUsage | null) {
+  const references = new Map<string, { operation: string; runId?: string; inHistory: boolean }>();
+  const runs = { ...(state.analysisRuns ?? {}) };
+  if (typeof state.analysisResult?.runId === 'string') runs[state.analysisResult.runId] = state.analysisResult;
+  for (const run of Object.values(runs)) {
+    if (typeof run.requestId !== 'string' || typeof run.runId !== 'string') continue;
+    const parameters = isRecord(run.meta) && isRecord(run.meta.requestParameters) ? run.meta.requestParameters : {};
+    references.set(run.requestId, { operation: isRecord(parameters.design) && parameters.design.requested === true ? 'native-design' : 'analysis',
+      runId: run.runId, inHistory: true });
+  }
+  for (const event of usage?.events ?? []) {
+    if (event.kind !== 'analysis_request' || typeof event.requestId !== 'string') continue;
+    references.set(event.requestId, { ...references.get(event.requestId), operation: String(event.operation),
+      inHistory: references.get(event.requestId)?.inHistory ?? false });
+  }
+  return references;
+}
+
 type HumanMessageContentBlock =
   | { type: 'text'; text: string };
 
@@ -683,6 +702,19 @@ export class LangGraphAgentService {
     });
     if (policy.routing.mode === 'fixed' && !await this.skillRuntime.resolvePluginForType(policy.routing.skillId, policy.activeSkillIds)) throw new Error('FIXED_SKILL_NOT_A_MODELING_PROVIDER');
     const runtime = createRunContext(policy, { journalDir });
+    // An unfinished job outlives a chat turn. Keep its original request reference in
+    // the existing ledger until it has entered analysis history; never allocate a new job.
+    const previousUsage = saved.runPolicy && saved.runUsage ? readRunUsage(saved.runPolicy, saved.runUsage, journalDir) : null;
+    const priorJobs = conversationJobReferences(saved, previousUsage);
+    withRunContext(runtime, () => {
+      for (const [requestId, reference] of priorJobs) {
+        if (reference.inHistory) continue;
+        const original = previousUsage?.events.find(event => event.kind === 'analysis_request' && event.requestId === requestId);
+        recordRunEvent({ ...original, kind: 'analysis_request', requestId, operation: reference.operation,
+          originRunId: original?.originRunId ?? previousUsage?.runId,
+          originPolicyHash: original?.originPolicyHash ?? previousUsage?.policyHash });
+      }
+    });
     // Persist policy and ledger before attachment processing can call a model or interrupt.
     await graph.updateState({ configurable: { thread_id: conversationId } }, { runPolicy: policy, runUsage: snapshotRunUsage(runtime) });
     return runtime;
@@ -990,6 +1022,77 @@ export class LangGraphAgentService {
   // Session management
   // ---------------------------------------------------------------------------
 
+  private async currentJobTools(state: AgentState): Promise<string[]> {
+    if (!state.runPolicy) return [];
+    // Recheck current server limits without changing the saved policy or its usage ledger.
+    const policy = resolveApplicationRunPolicy({ previous: state.runPolicy,
+      availableSkillIds: (await this.skillRuntime.listSkillManifests()).map(item => item.id) });
+    const configurable = { ...this.buildConfigurable(), enabledToolIds: policy.activeToolIds,
+      disabledToolIds: [], runContext: { policy, usage: state.runUsage } } as AgentConfigurable & Record<string, unknown>;
+    applyToolsNodeSessionContext(configurable, state);
+    return resolveActiveToolIds({ requestedEnabledToolIds: configurable.enabledToolIds,
+      requestedDisabledToolIds: configurable.disabledToolIds, allowShell: false }).activeToolIds
+      .filter(id => state.runPolicy!.activeToolIds.includes(id));
+  }
+
+  private async conversationJobs(state: AgentState, usage: RunUsage | null): Promise<ConversationRuntimeSnapshot['jobs']> {
+    const execution = new AnalysisExecutionService();
+    let allowed: string[] = [];
+    try { allowed = await this.currentJobTools(state); } catch { /* Revoked/removed scope cannot authorize a job action. */ }
+    return Promise.all([...conversationJobReferences(state, usage)].map(async ([requestId, reference]) => {
+      let receipt: Record<string, unknown>;
+      try { receipt = await execution.getRequest(requestId); } catch { receipt = { status: 'outcome_unknown' }; }
+      const tool = reference.operation === 'analysis' ? 'run_analysis' : reference.operation === 'native-design' ? 'run_code_check' : null;
+      const permitted = Boolean(tool && allowed.includes(tool));
+      const matched = !reference.runId || reference.runId === receipt.runId;
+      return { requestId, kind: reference.operation, status: String(receipt.status),
+        runId: typeof receipt.runId === 'string' ? receipt.runId : null,
+        stateHash: typeof receipt.stateHash === 'string' ? receipt.stateHash : undefined,
+        ownerAlive: typeof receipt.ownerAlive === 'boolean' ? receipt.ownerAlive : null, inHistory: reference.inHistory,
+        cancellationAvailable: matched && permitted && receipt.status === 'running' && receipt.cancellationAvailable === true,
+        recoveryAvailable: matched && permitted && allowed.includes('query_results') && !reference.inHistory
+          && typeof receipt.runId === 'string' && typeof receipt.stateHash === 'string'
+          && (receipt.status === 'completed' || receipt.status === 'outcome_unknown' && receipt.ownerAlive === false) };
+    }));
+  }
+
+  /** Cancellation deliberately bypasses the long-running chat lock; the service owns the controller. */
+  async manageConversationJob(conversationId: string, input: {
+    requestId: string; expectedStateHash: string; action: 'cancel' | 'recover';
+  }) {
+    if (!/^[a-f0-9]{64}$/.test(input.expectedStateHash)) throw new Error('ANALYSIS_REQUEST_STATE_HASH_INVALID');
+    const release = input.action === 'recover' ? await this.sessionLock.acquire(conversationId) : undefined;
+    try {
+      const graph = await this.getGraph();
+      const graphConfig = { configurable: { thread_id: conversationId } };
+      const state = (await graph.getState(graphConfig)).values as AgentState;
+      const usage = state.runPolicy && state.runUsage
+        ? readRunUsage(state.runPolicy, state.runUsage, path.join(runtimeBaseDir, 'run-records')) : null;
+      const reference = conversationJobReferences(state, usage).get(input.requestId);
+      if (!reference) throw new Error('ANALYSIS_REQUEST_OUTSIDE_CONVERSATION');
+      const allowed = await this.currentJobTools(state);
+      const tool = reference.operation === 'analysis' ? 'run_analysis' : reference.operation === 'native-design' ? 'run_code_check' : null;
+      if (!tool || !allowed.includes(tool) || input.action === 'recover' && !allowed.includes('query_results')) throw new Error('ANALYSIS_REQUEST_PERMISSION_DENIED');
+      const execution = new AnalysisExecutionService();
+      let receipt = await execution.getRequest(input.requestId);
+      if (receipt.stateHash !== input.expectedStateHash) throw new Error('ANALYSIS_REQUEST_STATE_CHANGED');
+      if (reference.runId && reference.runId !== receipt.runId) throw new Error('ANALYSIS_REQUEST_ARCHIVE_MISMATCH');
+      if (input.action === 'cancel') {
+        if (receipt.status !== 'running' || receipt.cancellationAvailable !== true) throw new Error('ANALYSIS_REQUEST_NOT_OWNED');
+        return execution.cancelRequest(input.requestId);
+      }
+      // A crash after receipt recovery but before checkpoint publication is recoverable without a second solve.
+      if (receipt.status !== 'completed') receipt = await execution.recoverRequest(input.requestId, input.expectedStateHash);
+      if (typeof receipt.runId !== 'string') throw new Error('ANALYSIS_REQUEST_ARCHIVE_UNAVAILABLE');
+      const run = await execution.getRun(receipt.runId);
+      if (run.runId !== receipt.runId || run.requestId !== input.requestId || run.requestHash !== receipt.requestHash
+        || !['completed', 'incomplete'].includes(String(run.executionStatus))) throw new Error('ANALYSIS_REQUEST_ARCHIVE_MISMATCH');
+      // Historical addition only. Pending questions, budgets and current model/results remain unchanged.
+      if (!reference.inHistory) await graph.updateState(graphConfig, { analysisRuns: { [receipt.runId]: run } });
+      return { requestId: input.requestId, status: 'history_restored', runId: receipt.runId };
+    } finally { release?.(); }
+  }
+
   async getConversationSessionSnapshot(
     conversationId: string,
     _locale: AppLocale,
@@ -1002,16 +1105,7 @@ export class LangGraphAgentService {
       const clarification = clarificationState(state, stateSnapshot.tasks);
       const policy = state.runPolicy ?? null;
       const usage = policy && state.runUsage ? readRunUsage(policy, state.runUsage, path.join(runtimeBaseDir, 'run-records')) : null;
-      const execution = new AnalysisExecutionService();
-      const requests = new Map((usage?.events ?? []).filter(event => event.kind === 'analysis_request' && typeof event.requestId === 'string')
-        .map(event => [event.requestId as string, event]));
-      const jobs: ConversationRuntimeSnapshot['jobs'] = await Promise.all([...requests].map(async ([requestId, event]) => {
-        let receipt: Record<string, unknown>;
-        try { receipt = await execution.getRequest(requestId); }
-        catch { receipt = { status: 'outcome_unknown' }; }
-        return { requestId, kind: String(event.operation), status: String(receipt.status),
-          runId: typeof receipt.runId === 'string' ? receipt.runId : null, cancellationAvailable: receipt.cancellationAvailable === true };
-      }));
+      const jobs = await this.conversationJobs(state, usage);
       const reason = currentAnalysisError(state);
       const runId = typeof state.analysisResult?.runId === 'string' ? state.analysisResult.runId : null;
       const reportMeta = isRecord(state.report?.meta) ? state.report.meta : isRecord(state.report?.json) && isRecord(state.report.json.meta) ? state.report.json.meta : {};
