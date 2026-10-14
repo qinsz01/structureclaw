@@ -231,15 +231,13 @@ function computeSolidRectangularTorsionConstant(B: number, H: number): number {
  * Compute rectangular section properties.
  * @param B Width (mm)
  * @param H Height (mm)
- * @param G Shear modulus (N/mm²)
- * @returns Object with A (m²), Iy, Iz, J (m⁴) and G
+ * @returns Object with A (m²), Iy, Iz, J (m⁴)
  */
-function computeRectangularSectionProps(B: number, H: number, G: number): {
+function computeRectangularSectionProps(B: number, H: number): {
   A: number;
   Iy: number;
   Iz: number;
   J: number;
-  G: number;
 } {
   const A = B * H;                               // mm²
   const Iy = (B * H ** 3) / 12;                  // mm⁴
@@ -250,7 +248,6 @@ function computeRectangularSectionProps(B: number, H: number, G: number): {
     Iy: Iy / 1e12, // m⁴
     Iz: Iz / 1e12, // m⁴
     J: J / 1e12,   // m⁴
-    G,
   };
 }
 
@@ -298,7 +295,6 @@ type SectionProps = {
   Iy: number;
   Iz: number;
   J: number;
-  G: number;
   shape: RectangularSectionShape;
   width?: number;
   height?: number;
@@ -308,16 +304,15 @@ type SectionProps = {
 /**
  * Resolve rectangular section properties.
  * @param rawSection Section string (e.g., "500X500")
- * @param G Shear modulus (N/mm²)
  * @returns SectionProps object
  */
-export function resolveSectionProps(rawSection: string, G: number): SectionProps {
+export function resolveSectionProps(rawSection: string): SectionProps {
   const parsed = parseRectangularSection(rawSection);
   if (!parsed) {
     throw new Error(`Invalid rectangular section: ${rawSection}. Expected format like "500X500" or "B500H500".`);
   }
   const { B, H } = parsed;
-  const props = computeRectangularSectionProps(B, H, G);
+  const props = computeRectangularSectionProps(B, H);
   return {
     name: rawSection,
     type: 'rectangular',
@@ -388,7 +383,6 @@ type ConcreteFrameModel = {
       Iy: number;
       Iz: number;
       J: number;
-      G: number;
     };
   }>;
 };
@@ -818,7 +812,7 @@ function buildConcreteSectionRecord(id: string, purpose: 'column' | 'beam', prop
     width: props.width ?? 0,
     height: props.height ?? 0,
     shape: props.shape,
-    properties: { A: props.A, Iy: props.Iy, Iz: props.Iz, J: props.J, G: props.G },
+    properties: { A: props.A, Iy: props.Iy, Iz: props.Iz, J: props.J },
   };
 }
 
@@ -1312,8 +1306,8 @@ export function buildConcreteFrameModel(
 
   const concreteProps = resolveConcreteMaterialProps(frameConcreteGrade);
   const rebarProps = resolveRebarMaterialProps(frameRebarGrade);
-  const columnProps = resolveSectionProps(frameColumnSection, concreteProps.G);
-  const beamProps = resolveSectionProps(frameBeamSection, concreteProps.G);
+  const columnProps = resolveSectionProps(frameColumnSection);
+  const beamProps = resolveSectionProps(frameBeamSection);
   const siteSeismic = buildSiteSeismicRecord(state.siteSeismic as DraftSiteSeismicParams | undefined);
   const wind = buildWindRecord(state.wind as DraftWindParams | undefined);
   const analysisControl = siteSeismic || wind || state.analysisControl

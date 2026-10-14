@@ -28,6 +28,17 @@ def test_explicit_legacy_material_type_survives_v2_serialization():
         MaterialV2.model_validate({**source, 'category':'concrete'})
 
 
+def test_characteristic_concrete_and_rebar_strengths_are_not_discarded():
+    source = {'id':'m','name':'material','E':30000,'nu':.2,'rho':2500,
+              'fck':20.1,'extra':{'fyk':400,'fstk':540}}
+    normalized = MaterialV2.model_validate(source).model_dump(exclude_unset=True)
+    assert normalized['design'] == {'fck':20.1,'fyk':400.,'fstk':540.}
+    assert source['fck'] == 20.1 and source['extra'] == {'fyk':400,'fstk':540}
+    assert MaterialV2.model_validate(normalized).model_dump(exclude_unset=True) == normalized
+    with pytest.raises(ValueError, match='design.fck conflicts'):
+        MaterialV2.model_validate({**source,'design':{'fck':30}})
+
+
 @pytest.mark.parametrize('patch', [{'f':200,'design':{'f':300}}, {'G':10000,'extra':{'G':20000}}, {'design':{'f':float('inf')}}])
 def test_conflicting_or_nonfinite_material_parameters_are_rejected(patch):
     with pytest.raises(ValueError):

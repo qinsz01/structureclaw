@@ -20,11 +20,14 @@ class MaterialDesign(BaseModel):
     f: Optional[PositiveFinite] = None
     fv: Optional[PositiveFinite] = None
     fc: Optional[PositiveFinite] = None
+    fck: Optional[PositiveFinite] = None
     ft: Optional[PositiveFinite] = None
     ftk: Optional[PositiveFinite] = None
     Ec: Optional[PositiveFinite] = None
     Es: Optional[PositiveFinite] = None
     fy: Optional[PositiveFinite] = None
+    fyk: Optional[PositiveFinite] = None
+    fstk: Optional[PositiveFinite] = None
     fyv: Optional[PositiveFinite] = None
     fy_compression: Optional[PositiveFinite] = None
     ecu: Optional[PositiveFinite] = None

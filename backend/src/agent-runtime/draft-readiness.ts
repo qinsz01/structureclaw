@@ -22,7 +22,7 @@ export function computeDraftMissing(plugin: ReadinessPlugin, state: DraftState, 
     for (const field of ['frameBeamSection', 'frameColumnSection'] as const) {
       try {
         if (typeof state[field] !== 'string' || !state[field]) throw new Error('missing');
-        resolveSectionProps(state[field] as string, 1);
+        resolveSectionProps(state[field] as string);
       } catch { critical.push(field); }
     }
   } else if (['beam', 'frame', 'truss', 'column', 'double-span-beam', 'portal-frame'].includes(plugin.id) && templatePropertyIssues(state).length) {

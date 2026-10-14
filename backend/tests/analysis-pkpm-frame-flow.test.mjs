@@ -6,6 +6,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildConcreteFrameModel } from '../dist/agent-skills/structure-type/concrete-frame/model.js';
+import { normalizeEngineeringModel } from '../dist/engineering/model-boundary.js';
+import { createLocalStructureProtocolClient } from '../dist/services/structure-protocol-execution.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..', '..');
@@ -298,6 +300,10 @@ function runPkpmRuntime(model, options = {}) {
       'def write_pdb_mismatch(work_dir):',
       '    Path(work_dir, "SATWE_stub_MODEL0_HOLO_ERR.TXT").write_text(pdb_mismatch_text, encoding="utf-8")',
       'runtime._check_pkpm_available = lambda: Path("JWSCYCLE.exe")',
+      ...(options.stopBeforeNative ? [
+        'def reached_native_entry(): raise RuntimeError("NATIVE_RUNTIME_ENTRY_REACHED")',
+        'runtime._check_pkpm_available = reached_native_entry',
+      ] : []),
       'runtime._import_apipyinterface = lambda: None',
       'runtime._patch_material_label = lambda work_dir: patch_calls.append(str(work_dir))',
       'def fake_jws_cycle(cycle_path, work_dir, timeout=600, include_design=False):',
@@ -742,10 +748,38 @@ describe('PKPM frame analysis flow', () => {
     return;
   }
 
-  test('rejects an unmapped section-level stiffness before native execution', () => {
-    const payload = runPkpmRuntime(buildCanonicalRcModel(), { expectFailure: true });
+  test('canonical builder and legacy section G reach the native entry without losing material or design data', async () => {
+    const current = buildCanonicalRcModel();
+    const material = current.materials.find(row => row.id === '1');
+    expect(material.G).toBe(12500);
+    expect(current.sections.every(row => row.properties.G === undefined)).toBe(true);
+    const legacy = structuredClone(current);
+    delete legacy.materials[0].G;
+    for (const section of legacy.sections) section.properties.G = material.G;
+    const protocol = createLocalStructureProtocolClient();
+    for (const source of [current, legacy]) {
+      const before = structuredClone(source);
+      const normalized = await normalizeEngineeringModel(source, protocol);
+      expect(source).toEqual(before);
+      expect(normalized.materials[0]).toMatchObject({ E: 30000, G: 12500, design: { fck: 20.1, fc: 14.3 } });
+      expect(normalized.sections.every(row => row.properties.G === undefined)).toBe(true);
+      const payload = runPkpmRuntime(normalized, { expectFailure: true, stopBeforeNative: true });
+      expect(payload.error).toBe('NATIVE_RUNTIME_ENTRY_REACHED');
+      expect(payload.calls).toEqual([]);
+      expect(payload.runCalls).toEqual([]);
+    }
+    legacy.materials[0].G = 12000;
+    const conflict = await normalizeEngineeringModel(legacy, protocol).catch(error => error);
+    expect(conflict).toBeInstanceOf(Error);
+    expect(JSON.stringify(conflict.detail)).toContain('G conflicts');
+  });
+
+  test('unknown physical section properties still fail before native execution', () => {
+    const source = buildCanonicalRcModel();
+    source.sections[0].properties.E = 123;
+    const payload = runPkpmRuntime(source, { expectFailure: true });
     expect(payload.errorCode).toBe('PKPM_NATIVE_SECTION_PROPERTIES_UNVERIFIED');
-    expect(payload.detail.inputFields).toEqual(['sections.1.properties.G']);
+    expect(payload.detail.inputFields).toEqual(['sections.1.properties.E']);
     expect(payload.calls).toEqual([]);
     expect(payload.runCalls).toEqual([]);
   });
