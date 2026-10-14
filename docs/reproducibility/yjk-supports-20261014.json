@@ -1,0 +1,30 @@
+{
+  "scope": "YJK SDK base-support writing and result binding, not commercial solver certification",
+  "status": "native_verified",
+  "officialInterface": "YJKAPI.Property('SpNode').setVal(9..14); property_arrange(planJointId, 'SpNode', 27, value)",
+  "mapping": "A first-floor vertical column's upper SDK plan joint carries the property for its physical base; FE node tags and coordinates are read independently",
+  "dofOrder": ["ux", "uy", "uz", "rx", "ry", "rz"],
+  "coordinateSystem": "global",
+  "audit": "Every authored node is matched to an executed physical FE node. CONSTRAINT R must equal all six source booleans. Extra constraints, changed DOFs, springs and local constraint systems fail. Verified result context requires this audit to match the executed FE hash.",
+  "regression": {
+    "fixture": "backend/src/agent-skills/analysis/yjk-static/__tests__/fixtures/native-pinned-support-mismatch.json",
+    "originalDiagnostic": "G:/StructureClaw-All/sclaw_data/work/yjk-support-probe-20261014-123904-d0a6af",
+    "failure": "Source N000 was fixed while native node 1 was pinned; previously omitted support verification allowed publication. The new regression rejects this exact native record. Original evidence remains unchanged."
+  },
+  "acceptanceScript": "backend/tests/analysis-yjk-supports.py",
+  "nativeRuns": [
+    {
+      "directory": "G:/StructureClaw-All/sclaw_data/work/yjk-supports-20261014-125126-32eedd44",
+      "patterns": ["fixed", "pinned xyz", "roller yz", "roller xz"],
+      "checks": ["six native force/moment cases", "signed linear combination", "exact SDK base translations and rotations", "every free DOF has a nonzero native response in at least one case", "zero fixed-DOF response", "zero free-DOF reaction", "six-component global equilibrium"]
+    },
+    {
+      "directory": "G:/StructureClaw-All/sclaw_data/work/yjk-supports-20261014-125351-d10ce096",
+      "patterns": ["all bases fixed"],
+      "checks": ["six native force/moment cases", "signed linear combination", "all original fixed restraints preserved", "six-component global equilibrium"]
+    }
+  ],
+  "unchangedTolerances": {"fixedDisplacementOrRotationAbsolute": 1e-12, "freeReactionAbsolute": 1e-5, "equilibriumRelative": 1e-5, "equilibriumAbsolute": 1e-5},
+  "remainingMappings": ["partial inclined-column supports", "elevated ground supports", "fully free building bases", "elastic supports"],
+  "isolation": "Both runs used the StructureClaw private SDK, installation lease and owned Windows job. Independent API files, jobs and unrelated processes were untouched."
+}

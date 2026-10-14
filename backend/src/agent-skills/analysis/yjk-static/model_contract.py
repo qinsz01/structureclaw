@@ -74,16 +74,8 @@ def validate_building_model(model_dict: dict, *, native_load_precision: bool = T
             if not math.isfinite(value):
                 raise ValueError(f"Story '{story_id}' contains a non-finite {field}")
 
-    base_z = zs[0]
-    for node in nodes:
-        restraints = node.get("restraints")
-        position = positions[str(node.get("id"))]
-        values = tuple(bool(value) for value in restraints) if isinstance(restraints, list) else (False,) * 6
-        expected = (True,) * 6 if position[2] == base_z else (False,) * 6
-        if values != expected:
-            raise ValueError(
-                f"YJK floor support mapping cannot preserve restraints for node '{node.get('id')}'"
-            )
+    from yjk_native_boundaries import compile_supports
+    compile_supports(model_dict)
 
     actual_edges: set[tuple[tuple[float, float, float], tuple[float, float, float]]] = set()
     role_sections: dict[str, set[str]] = {"beam": set(), "column": set()}

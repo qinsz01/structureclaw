@@ -691,6 +691,8 @@ def convert_v2_to_ydb(
     if len(element_mappings) != len(data["elements"]):
         raise RuntimeError("YJK native compilation did not map every input member")
     from yjk_native_loads import arrange_native_loads
+    from yjk_native_boundaries import write_supports
+    write_supports(data_func, data, all_native_nodes)
     load_case_mapping = (arrange_native_loads(data_func, data, all_native_nodes, all_native_members)
                          if data.get("load_cases") else [])
     data_func.DbModel_Assign()

@@ -131,9 +131,21 @@ class NativeMaterialTests(unittest.TestCase):
         audit = materials.audit_frames(model, fe)
         for fe_hash, expected in (("stale", False), (fe["sha256"], True)):
             context = materials.physics_context(model, fe, audit, {"passed": True}, engine_version="8.0-test",
-                effective_settings_audit={"passed": True, "linearStatic": True, "feaSha256": fe_hash})
+                effective_settings_audit={"passed": True, "linearStatic": True, "feaSha256": fe_hash,
+                    "supports": {"passed": True, "sourceFeaSha256": fe_hash}})
             self.assertEqual(context["effectiveSettingsVerified"], expected)
             self.assertFalse(context["stationConventionsVerified"])
+
+    def test_support_audit_is_required_before_publishing_verified_context(self):
+        model, fe = fixture()
+        audit = materials.audit_frames(model, fe)
+        for supports in ({}, {"passed": False, "sourceFeaSha256": fe["sha256"]},
+                         {"passed": True, "sourceFeaSha256": "other-execution"}):
+            context = materials.physics_context(model, fe, audit, {"passed": True}, engine_version="8.0-test",
+                effective_settings_audit={"passed": True, "linearStatic": True,
+                    "feaSha256": fe["sha256"], "supports": supports})
+            self.assertFalse(context["effectiveSettingsVerified"])
+            self.assertFalse(context["effectiveConstraints"]["verified"])
 
     def test_explicit_shear_and_torsion_transfer_preserves_all_six_rigidities(self):
         model, fe = fixture()

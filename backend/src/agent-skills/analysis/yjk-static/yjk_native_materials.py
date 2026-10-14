@@ -467,8 +467,10 @@ def physics_context(model: dict, fe: dict, material_audit: dict, settings_audit:
     Station conventions are owned by the result adapter, not this module.
     """
     effective = effective_settings_audit or {}
+    supports = effective.get("supports") or {}
     settings_ok = (settings_audit.get("passed") is True and effective.get("passed") is True
-                   and effective.get("feaSha256") == fe.get("sha256"))
+                   and effective.get("feaSha256") == fe.get("sha256")
+                   and supports.get("passed") is True and supports.get("sourceFeaSha256") == fe.get("sha256"))
     materials_ok = (material_audit.get("passed") is True and
                     material_audit.get("artifact", {}).get("sha256") == fe.get("sha256"))
     return {"engine": "yjk", "engineVersion": engine_version, "physicalModelHash": _hash(model),
@@ -483,7 +485,7 @@ def physics_context(model: dict, fe: dict, material_audit: dict, settings_audit:
             "materialsVerified": materials_ok, "stationConventionsVerified": False,
             "effectiveConstraints": {"verified": settings_ok,
                                      "sourceFeaSha256": fe["sha256"],
-                                     "diaphragms": effective.get("diaphragms")},
+                                     "diaphragms": effective.get("diaphragms"), "supports": supports},
             "effectiveLoads": {"verified": settings_ok and effective.get("loadAudit", {}).get("passed") is True,
                                "sourceFeaSha256": fe["sha256"],
                                "selfWeight": effective.get("loadAudit", {}).get("selfWeightCompilation")},
@@ -506,6 +508,7 @@ def verify_native_physics(work_dir, model: dict, *, engine_version: str) -> dict
     from native_fe import parse_fe
     from native_load_audit import audit_loads
     from yjk_native_settings import audit_effective_settings
+    from yjk_native_boundaries import audit_node_restraints
     root = Path(work_dir)
     output = {"schema": "sclaw-yjk-native-physics/v1", "passed": False, "failures": []}
     fe, material_audit, receipt, effective = None, {}, {}, {}
@@ -527,6 +530,10 @@ def verify_native_physics(work_dir, model: dict, *, engine_version: str) -> dict
         report_path = root / "设计结果" / "mainjss.out"
         report = report_path.read_text(encoding="gb18030")
         effective = audit_effective_settings(model, fe, receipt, report, loads, member_audit=material_audit)
+        supports = audit_node_restraints(model, fe)
+        effective["supports"] = supports
+        effective["failures"].extend(supports["failures"])
+        effective["passed"] = effective["passed"] is True and supports["passed"] is True
         output["settings"] = effective
         output["passed"] = material_audit["passed"] is True and effective["passed"] is True and loads["passed"] is True
         if not output["passed"]:
