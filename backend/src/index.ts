@@ -1,7 +1,6 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
-import fastifyStatic from '@fastify/static';
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import swaggerUI from '@fastify/swagger-ui';
@@ -12,6 +11,7 @@ import { config } from './config/index.js';
 import { registerRoutes } from './api/routes.js';
 import { prisma } from './utils/database.js';
 import { getFastifyLoggerConfig } from './utils/logger.js';
+import { registerFrontendStatic } from './utils/frontend-static.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -98,26 +98,7 @@ async function start() {
     // Serve static frontend (installed-package mode only)
     const frontendDir = resolveFrontendStaticDir();
     if (frontendDir) {
-      await fastify.register(fastifyStatic, {
-        root: frontendDir,
-        prefix: '/',
-        wildcard: false,
-      });
-
-      // SPA fallback: try {path}.html first (Next.js static export), then index.html
-      fastify.setNotFoundHandler((request, reply) => {
-        if (!request.url.startsWith('/api/') && !request.url.startsWith('/docs')) {
-          const routePath = request.url.split('?')[0].replace(/^\//, '');
-          const htmlFile = `${routePath}.html`;
-          if (routePath && existsSync(path.join(frontendDir, htmlFile))) {
-            reply.sendFile(htmlFile);
-          } else {
-            reply.sendFile('index.html');
-          }
-        } else {
-          reply.code(404).send({ error: 'Not found' });
-        }
-      });
+      await registerFrontendStatic(fastify, frontendDir);
 
       console.log(`🌐 Frontend UI served from ${frontendDir}`);
     }

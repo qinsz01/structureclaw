@@ -7,7 +7,7 @@ const readline = require("node:readline/promises");
 
 const { ALIAS_TO_COMMAND, COMMANDS, COMMAND_NAMES } = require("./command-manifest");
 const convertBatch = require("./convert-batch");
-const { runFrontendBuild } = require("./frontend-build");
+const { isFrontendBuildCurrent, runFrontendBuild } = require("./frontend-build");
 const runtime = require("./runtime");
 
 const MIN_NODE_MAJOR = 20;
@@ -819,9 +819,8 @@ async function invokeLocalUp(rootDir, env, options = {}) {
 
   // In dev mode, ensure frontend is built for static serving
   if (!isInstalled) {
-    const frontendOutIndex = path.join(paths.frontendDir, "out", "index.html");
-    if (!runtime.pathExists(frontendOutIndex)) {
-      log("Building frontend for static serving...");
+    if (!isFrontendBuildCurrent(paths)) {
+      log("Building updated frontend / 正在构建最新网页...");
       await runFrontendBuild(paths, env);
     }
   }

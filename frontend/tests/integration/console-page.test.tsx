@@ -459,7 +459,7 @@ describe('ConsolePage Integration (CONS-13)', () => {
     })
     const view = await renderConsolePage()
     fireEvent.click(await screen.findByRole('button', { name: /Saved layout/ }))
-    await screen.findByText('Saved layout reply')
+    await within(screen.getByTestId('console-chat-panel')).findByText('Saved layout reply')
     return view
   }
 

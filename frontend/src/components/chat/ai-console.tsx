@@ -7,6 +7,7 @@ import { RunSettings, type RunPolicyInput } from './run-settings'
 import { useConversationRuntime, type ConversationRuntimeSnapshot } from './use-conversation-runtime'
 import { ResultReviewPanel } from './result-review-panel'
 import { InputReviewPanel } from './input-review-panel'
+import { normalizeClarificationOptions } from './clarification-options'
 import { useStore } from '@/lib/stores/context'
 import { MarkdownBody } from './markdown-body'
 import { SeismicVisualReport } from './seismic-visual-report'
@@ -2951,7 +2952,7 @@ export function AIConsole() {
   const lastValidResultVisualizationRef = useRef<VisualizationSnapshot | null>(null)
   // Interaction option chips from ask_user_clarification
   const [pendingOptions, setPendingOptions] = useState<string[]>([])
-  useEffect(() => { setPendingOptions(sessionRuntime.view?.waitingForReply ? sessionRuntime.view.options : []) }, [sessionRuntime.view, conversationId])
+  useEffect(() => { setPendingOptions(sessionRuntime.view?.waitingForReply ? normalizeClarificationOptions(sessionRuntime.view.options) : []) }, [sessionRuntime.view, conversationId])
   useEffect(() => {
     if (sessionRuntime.view && !sessionRuntime.view.busy && !modelEditedRef.current && displayedModelRevisionRef.current === null) {
       displayedModelRevisionRef.current = sessionRuntime.view.modelRevision
@@ -3918,7 +3919,7 @@ export function AIConsole() {
 
       setConversationId(nextConversationId)
       conversationIdRef.current = nextConversationId
-      setPendingOptions([])
+      setPendingOptions(authoritativeRuntime?.waitingForReply ? normalizeClarificationOptions(authoritativeRuntime.options) : [])
       setAttachedFiles([])
       if (authoritativeRuntime?.policy) {
         const { activeSkillIds: skills, activeToolIds: tools } = authoritativeRuntime.policy
@@ -4452,7 +4453,7 @@ export function AIConsole() {
                 status: 'streaming',
               }))
             }
-            const interactionOpts = (payload.content as AgentInteraction)?.options || []
+            const interactionOpts = normalizeClarificationOptions((payload.content as AgentInteraction)?.options)
             if (interactionOpts.length > 0 && activeConversationId === conversationIdRef.current) setPendingOptions(interactionOpts)
           }
 
@@ -5648,6 +5649,12 @@ export function AIConsole() {
                 </div>
                 )
               })}
+              {!isStreaming && sessionRuntime.view?.waitingForReply && sessionRuntime.view.question && (
+                <div data-testid="pending-clarification" role="status" className="rounded-2xl border border-cyan-300/30 bg-cyan-300/10 px-5 py-4">
+                  <p className="mb-2 text-sm font-medium text-cyan-800 dark:text-cyan-200">{t('clarificationTitle')}</p>
+                  <MarkdownBody compact content={sessionRuntime.view.question} />
+                </div>
+              )}
               <div ref={messagesEndRef} />
             </div>
           </div>
