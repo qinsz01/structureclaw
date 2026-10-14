@@ -4,6 +4,24 @@ The engineering model and the append-only `inputEvidence` list remain the only s
 
 工程模型与只追加的 `inputEvidence` 是唯一状态来源。`query_model` 返回证据和 `inputIssues`；能力面板同时报告尚未应用到模型的值。解析成功不等于可计算，正式计算仍执行模型校验、分析输入绑定和求解器预检。
 
+## Conversation sidebar / 同会话侧栏
+
+The web console's **Inputs and evidence** panel reads `GET /api/v1/agent/input-review/:conversationId`. Actions use `POST /api/v1/agent/input-review/:conversationId/tools` with `{revisionToken, tool, args}`. The allowed actions are `analyze_file`, `review_input`, `query_model`, `edit_model`, and `validate_model`, intersected with the existing conversation policy. These are registered tools, not a second engineering state or an external tool session. The same session lock and persistent usage ledger apply; stale requests return HTTP 409 without replay. No chat LLM is invoked. Image/region interpretation can use the configured vision model and is counted normally.
+
+网页“输入与证据”直接读取当前会话，按钮复用注册工具、会话锁与已有权限/预算，不建立平行工程状态。旧页面提交返回 409，不自动重放。复核不启动对话模型；图像解释按实际视觉调用记录用量。中断等待答复期间，复核保留原待答问题和已执行工具，随后继续原会话。
+
+The `initialContext` is used only when the conversation has no saved policy. Later calls cannot expand tools/skills or reset counters. An explicitly supplied new upload may join the attachment list only after its real path is verified inside this conversation's upload directory. This permits supplementary drawings without granting access to another conversation's files.
+
+`initialContext` 只用于尚未保存策略的会话；后续请求不能扩展技能/工具或重置计数。补图必须显式提供，服务端核实真实路径属于当前会话上传目录后才加入附件列表，不能借此读取其他会话文件。
+
+`review_input` returns `modelValues` converted by the same unit rules used for evidence/model comparison, plus `modelValueErrors` for unmapped/unsupported values. The sidebar shows the canonical value before a separate `edit_model` action. Confirmation alone does not change the model. Application and validation remain explicit; previous results are invalidated in both the persisted state and web view.
+
+复核返回经公共单位规则换算的 `modelValues`，并明确报告不能转换的字段。网页先展示将应用的规范值，再由独立“应用”操作修改模型，避免把图中的 5000 mm 直接写成模型的 5000 m。确认、应用、校验分别保留，不伪造已应用状态。
+
+Input review does not set or clear the independent draft-rebuild flag. New evidence invalidates old results; every `run_analysis` entry checks that the current evidence is resolved and its values match the current model. A confirmed excitation or unrelated-source exclusion therefore does not force a geometry rebuild, while unapplied dimensions still block calculation and an existing pending draft stays pending.
+
+输入复核不设置或清除独立的“草稿待重建”状态。新证据使旧结果失效，所有 `run_analysis` 分支统一检查证据完整性及与模型数值的一致性。仅确认激励或排除无关来源无需重建几何，未应用的尺寸仍阻断计算，原有待重建草稿不会被复核清除。
+
 ## Display / 展示
 
 - Each record has an immutable `id`, `field`, `status`, `required`, `source`, and possibly `requirement`. Sources preserve file/SHA, PDF page and image region, table row/column/sheet, or CAD entity. Coordinates of image regions are normalized `[x,y,width,height]` on the original page.

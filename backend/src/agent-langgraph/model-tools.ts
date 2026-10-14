@@ -10,7 +10,7 @@ import { queryPhysicalResponse, scalarResultQuantity } from '../engineering/resu
 import { loadAnalysisRun } from '../engineering/analysis-runs.js';
 import { randomUUID } from 'node:crypto';
 import { imageRegionSchema } from '../engineering/vision-evidence.js';
-import { activeInputEvidence, analysisInputBinding, evidenceSourceFile, mergeInputEvidence, unresolvedInputEvidence } from '../engineering/input-evidence.js';
+import { activeInputEvidence, analysisInputBinding, canonicalInputValue, evidenceSourceFile, mergeInputEvidence, unresolvedInputEvidence } from '../engineering/input-evidence.js';
 
 function context(config: LangGraphRunnableConfig) {
   const dependencies = config.configurable as AgentConfigurable & { agentState: AgentState };
@@ -113,9 +113,20 @@ export function createReviewInputTool() {
         source: { userMessage: state.lastUserMessage } };
     });
     const inputEvidence = mergeInputEvidence(existing, [...patch, ...exclusions]) ?? [];
-    return result(id, 'review_input', { inputEvidence, unresolved: unresolvedInputEvidence(inputEvidence),
+    const modelValues: Record<string, unknown>[] = [];
+    const modelValueErrors: Record<string, unknown>[] = [];
+    for (const item of patch) {
+      if (!state.model || item.field.startsWith('file:') || item.field.startsWith('coverage.')) continue;
+      const field = item.resolution.modelField ?? item.field;
+      const selected = existing.find(record => record.id === item.resolution.selectedSource);
+      const value = item.resolution.value ?? selected?.normalizedValue ?? selected?.value;
+      const unit = item.resolution.selectedSource !== undefined ? selected?.normalizedUnit ?? selected?.unit : item.resolution.unit;
+      try { modelValues.push({ field, ...canonicalInputValue(state.model, field, value, unit) }); }
+      catch (error) { modelValueErrors.push({ field, reason: error instanceof Error ? error.message : String(error) }); }
+    }
+    return result(id, 'review_input', { inputEvidence, unresolved: unresolvedInputEvidence(inputEvidence), modelValues, modelValueErrors,
       nextAction: 'Apply reviewed values to the draft/current model, then validate / 将复核值用于草稿或当前模型并校验' },
-    { ...invalidateAnalysis(state), modelPending: Boolean(state.model), inputEvidence,
+    { ...invalidateAnalysis(state), inputEvidence,
       ...(input.resolutions?.some(item => item.analysisParameters) ? { contextSeismicWorkflow } : {}) });
   }, { name: 'review_input', description: 'Review candidate fields with their source IDs; map files to model fields or a complete analysis-input record. Exclude irrelevant sources with reasons. Preserve evidence and never invent values. / 复核来源字段并绑定模型或完整分析输入；无关来源须说明排除理由，保留证据。',
     schema: z.object({ resolutions: z.array(z.object({ field: z.string().min(1), selectedSource: z.string().optional(),

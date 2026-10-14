@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic'
 import { createPortal } from 'react-dom'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { RunSettings, type RunPolicyInput } from './run-settings'
+import { InputReviewPanel } from './input-review-panel'
 import { useStore } from '@/lib/stores/context'
 import { MarkdownBody } from './markdown-body'
 import { SeismicVisualReport } from './seismic-visual-report'
@@ -2928,6 +2929,7 @@ export function AIConsole() {
   const [uiPreferences, setUiPreferences] = useState<ConsoleUiPreferences>(DEFAULT_CONSOLE_UI_PREFERENCES)
   const [uiPreferencesHydrated, setUiPreferencesHydrated] = useState(false)
   const [resultDialogOpen, setResultDialogOpen] = useState(false)
+  const [inputReviewOpen, setInputReviewOpen] = useState(false)
   const [isSidebarLayout, setIsSidebarLayout] = useState(getIsSidebarLayout)
   const chatScrollRef = useRef<HTMLDivElement | null>(null)
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
@@ -4839,6 +4841,8 @@ export function AIConsole() {
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" variant="outline" className="rounded-full text-xs" disabled={!conversationId || isStreaming}
+            onClick={() => setInputReviewOpen(true)}>{locale === 'zh' ? '输入与证据' : 'Inputs and evidence'}</Button>
           <Button
             type="button"
             variant="outline"
@@ -5636,6 +5640,23 @@ export function AIConsole() {
           />
         </div>
       </DialogShell>
+      <InputReviewPanel open={inputReviewOpen} onClose={() => setInputReviewOpen(false)} conversationId={conversationId}
+        locale={locale} disabled={isStreaming} attachments={[...messages.flatMap(message => message.attachments ?? []), ...attachedFiles]}
+        initialContext={{ locale, runPolicy, skillIds: selectedSkillIds, enabledToolIds: selectedToolIds,
+          attachments: [...messages.flatMap(message => message.attachments ?? []), ...attachedFiles], restrictFileAccessToAttachments: true }}
+        onUpdate={review => {
+          if (review.conversationId !== conversationIdRef.current) return
+          if (review.model) applySynchronizedModel(review.model, 'tool')
+          if (!review.analysisCurrent) {
+            const cleared = latestResult ? { ...latestResult, analysis: undefined, codeCheck: undefined, report: undefined } : null
+            setLatestResult(cleared); lastValidResultRef.current = cleared
+            setLatestResultVisualizationSnapshot(null); lastValidResultVisualizationRef.current = null
+            setConversationArchive(current => current[conversationId] ? { ...current, [conversationId]: {
+              ...current[conversationId], latestResult: cleared, resultVisualizationSnapshot: null, visualizationSnapshot: null, staleStructuralData: true,
+            } } : current)
+          }
+          setModelSyncMessage(locale === 'zh' ? '已保存当前会话的输入复核，请按提示校验与重算。' : 'Input review saved to this conversation. Validate and recalculate as indicated.')
+        }} />
       {probePopupOpen && Object.keys(probeResults).length > 0 && probeButtonRef.current && typeof window !== 'undefined' && createPortal(
         <>
           <div

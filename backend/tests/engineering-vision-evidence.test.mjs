@@ -39,7 +39,7 @@ describe('field-level image evidence without paid recognition', () => {
       selectedSource:next.inputEvidence[0].id, reason:'Reviewed the supplementary support symbol' }] },
       { toolCall:{ id:'review' }, configurable:{ agentState:state } });
     expect(unresolvedInputEvidence(reviewed.update.inputEvidence)).toEqual([]);
-    expect(reviewed.update.modelPending).toBe(true);
+    expect(reviewed.update.modelPending).toBeUndefined();
     expect(reviewed.update.analysisResult).toBeNull();
     expect(reviewed.update.inputEvidence).toHaveLength(4);
   });
@@ -80,7 +80,7 @@ describe('field-level image evidence without paid recognition', () => {
     const update = applyInputEvidence(state, evidence);
     expect(update.analysisResult).toBeNull();
     expect(update.analysisRuns.old).toEqual(state.analysisResult);
-    expect(update.modelPending).toBe(true);
+    expect(update.modelPending).toBeUndefined();
     expect(applyInputEvidence({ ...state, inputEvidence:evidence }, evidence).analysisResult).toBeUndefined();
   });
 });

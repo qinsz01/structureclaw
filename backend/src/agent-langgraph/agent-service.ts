@@ -7,12 +7,13 @@
  * Dependency injection uses config.configurable (no globalThis).
  * The graph is built once and cached for the process lifetime.
  */
-import { HumanMessage } from '@langchain/core/messages';
+import { AIMessage, HumanMessage, type ToolMessage } from '@langchain/core/messages';
 import { randomUUID } from 'crypto';
 import path from 'node:path';
+import fs from 'node:fs/promises';
 import { AgentSkillRuntime } from '../agent-runtime/index.js';
 import type { SkillManifest } from '../agent-runtime/types.js';
-import { buildAgentGraph } from './graph.js';
+import { applyToolsNodeSessionContext, buildAgentGraph } from './graph.js';
 import { FileCheckpointer } from './file-checkpointer.js';
 import { streamGraphToChunks, type StreamContext } from './streaming.js';
 import type { AgentState, AgentToolAccessPolicy } from './state.js';
@@ -20,7 +21,7 @@ import { getAllowShellTools, getCheckpointerDataDir, getWorkspaceRoot, getWorksp
 import { config, runtimeBaseDir } from '../config/index.js';
 import type { RunPolicyInput, EffectiveRunPolicy } from '../runtime/run-policy.js';
 import { resolveApplicationRunPolicy } from '../runtime/policy-settings.js';
-import { createRunContext, withRunContext, snapshotRunUsage, type RunContext, type RunUsage } from '../runtime/run-context.js';
+import { createRunContext, withRunContext, snapshotRunUsage, recordRunEvent, type RunContext, type RunUsage } from '../runtime/run-context.js';
 import type { AgentStreamChunk } from '../types/agent-stream.js';
 import type { AppLocale } from '../services/locale.js';
 import { createLocalAnalysisEngineClient } from '../services/analysis-execution.js';
@@ -31,13 +32,15 @@ import { Command } from '@langchain/langgraph';
 import { logger } from '../utils/logger.js';
 import { createAgentLogger } from '../utils/agent-logger.js';
 import type { AgentConfigurable } from './configurable.js';
-import { listAgentToolDefinitions } from './tool-registry.js';
-import { analyzeUploadedFile } from './file-tools.js';
+import { createRegisteredTools, listAgentToolDefinitions } from './tool-registry.js';
+import { executeToolsSequentially, pendingToolCalls } from './sequential-tools.js';
+import { resolveActiveToolIds } from './tool-policy.js';
+import { analyzeUploadedFile, isPathWithinRoot, resolveUploadPath } from './file-tools.js';
 import { summarizeFileImages } from './attachment-vision.js';
 import { collectVisionEvidence } from '../engineering/vision-evidence.js';
-import { mergeInputEvidence } from '../engineering/input-evidence.js';
+import { activeInputEvidence, assertInputEvidenceMatchesModel, mergeInputEvidence, unresolvedInputEvidence } from '../engineering/input-evidence.js';
 import { SessionLock } from '../engineering/session-lock.js';
-import { applyInputEvidence, commitModel, invalidateAnalysis } from '../engineering/model-state.js';
+import { applyInputEvidence, commitModel, contentHash, invalidateAnalysis } from '../engineering/model-state.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 
 // ---------------------------------------------------------------------------
@@ -107,6 +110,16 @@ export interface LangGraphRunResult {
   report?: Record<string, unknown>;
   draftState?: Record<string, unknown>;
   presentation?: Record<string, unknown>;
+}
+
+export const INPUT_REVIEW_TOOLS = ['analyze_file', 'review_input', 'query_model', 'edit_model', 'validate_model'] as const;
+export type InputReviewTool = typeof INPUT_REVIEW_TOOLS[number];
+
+/** A revision covers evidence and excitation settings as well as the physical model. */
+export function inputReviewRevision(state: Partial<AgentState>): string {
+  return contentHash({ model: state.model, revision: state.modelRevision, pending: state.modelPending,
+    evidence: state.inputEvidence, workflow: state.contextSeismicWorkflow, policy: state.runPolicy,
+    usage: state.runUsage, messages: state.messages?.map(message => message.id) });
 }
 
 type HumanMessageContentBlock =
@@ -989,6 +1002,104 @@ export class LangGraphAgentService {
   async clearConversationSession(conversationId: string): Promise<void> {
     const release = await this.sessionLock.acquire(conversationId);
     try { await this.checkpointer.deleteThread(conversationId); } finally { release(); }
+  }
+
+  /** Read the same state used by chat; this projection neither starts a turn nor spends a tool call. */
+  async getInputReview(conversationId: string) {
+    const graph = await this.getGraph();
+    const snapshot = await graph.getState({ configurable: { thread_id: conversationId } });
+    const state = snapshot.values as AgentState;
+    const policy = state.runPolicy ?? resolveApplicationRunPolicy({
+      availableSkillIds: (await this.skillRuntime.listSkillManifests()).map(item => item.id),
+    });
+    const configurable = { ...this.buildConfigurable(), runContext: { policy, usage: state.runUsage } } as AgentConfigurable & Record<string, unknown>;
+    applyToolsNodeSessionContext(configurable, { ...state, selectedSkillIds: state.selectedSkillIds ?? [] });
+    const allowed = resolveActiveToolIds({ requestedEnabledToolIds: configurable.enabledToolIds,
+      requestedDisabledToolIds: configurable.disabledToolIds, allowShell: false }).activeToolIds;
+    const inputIssues = unresolvedInputEvidence(state.inputEvidence);
+    if (state.model && !inputIssues.length) {
+      try { assertInputEvidenceMatchesModel(state.model, state.inputEvidence); }
+      catch (error) { inputIssues.push({ field: 'model', reason: error instanceof Error ? error.message : String(error) }); }
+    }
+    return { conversationId, revisionToken: inputReviewRevision(state), model: state.model ?? null,
+      modelRevision: state.modelRevision ?? 0, modelPending: state.modelPending ?? false,
+      inputEvidence: state.inputEvidence ?? [], activeEvidenceIds: activeInputEvidence(state.inputEvidence).map(item => item.id),
+      inputIssues,
+      groundMotionRecords: isRecord(state.contextSeismicWorkflow?.groundMotionSet)
+        ? state.contextSeismicWorkflow.groundMotionSet.records ?? [] : [],
+      allowedTools: INPUT_REVIEW_TOOLS.filter(id => allowed.includes(id)),
+      runUsage: state.runUsage ?? null, waitingForReply: snapshot.tasks.some(task => task.interrupts?.length)
+        || Boolean(state.messages?.length && pendingToolCalls(state)[0]?.name === 'ask_user_clarification'),
+      analysisCurrent: Boolean(state.analysisResult && !state.modelPending), reportCurrent: Boolean(state.report),
+    };
+  }
+
+  /** Deterministic user actions share the chat lock, registered tools and persisted policy ledger. */
+  async invokeInputReviewTool(conversationId: string, input: {
+    revisionToken: string; tool: InputReviewTool; args: Record<string, unknown>;
+    initialContext?: LangGraphRunInput['context']; signal?: AbortSignal;
+  }) {
+    if (!INPUT_REVIEW_TOOLS.includes(input.tool)) throw new Error('INPUT_REVIEW_TOOL_NOT_ALLOWED');
+    const release = await this.sessionLock.acquire(conversationId);
+    try {
+      input.signal?.throwIfAborted();
+      const graph = await this.getGraph();
+      const graphConfig = { configurable: { thread_id: conversationId } };
+      let state = (await graph.getState(graphConfig)).values as AgentState;
+      if (input.revisionToken !== inputReviewRevision(state)) throw new Error('INPUT_REVIEW_REVISION_CONFLICT');
+      const initialized = Boolean(state.runPolicy && state.runUsage);
+      const request: LangGraphRunInput = { conversationId, message: `Input review / 输入复核: ${input.tool}`, signal: input.signal,
+        context: initialized ? { locale: state.locale } : input.initialContext };
+      const runtime = await this.prepareRunContext(request, conversationId, initialized);
+      state = (await graph.getState(graphConfig)).values as AgentState;
+      if (!initialized) {
+        const update = { selectedSkillIds: runtime.policy.activeSkillIds, toolAccessPolicy: buildToolAccessPolicy(input.initialContext),
+          locale: input.initialContext?.locale ?? 'zh' as AppLocale, workspaceRoot: this.workspaceRoot };
+        await graph.updateState(graphConfig, update);
+        state = { ...state, ...update };
+      }
+      const executionConfig = this.buildGraphRuntimeConfig(request, randomUUID(), conversationId, runtime);
+      applyToolsNodeSessionContext(executionConfig.configurable, state);
+      const allowed = resolveActiveToolIds({ requestedEnabledToolIds: executionConfig.configurable.enabledToolIds,
+        requestedDisabledToolIds: executionConfig.configurable.disabledToolIds, allowShell: false }).activeToolIds;
+      if (!allowed.includes(input.tool)) throw new Error(`TOOL_NOT_ALLOWED: ${input.tool}`);
+      // A user may add a drawing while the chat is waiting. Only an explicitly supplied,
+      // existing upload in this conversation can extend its attachment list; tool scope stays fixed.
+      if (initialized && input.tool === 'analyze_file' && typeof input.args.filePath === 'string'
+        && Array.isArray(state.toolAccessPolicy?.fileAccessAllowlist)) {
+        const requestedPath = resolveUploadPath(input.args.filePath, this.workspaceRoot);
+        const alreadyAllowed = state.toolAccessPolicy.fileAccessAllowlist.some(file => resolveUploadPath(file, this.workspaceRoot) === requestedPath);
+        if (!alreadyAllowed) {
+          const attachment = input.initialContext?.attachments?.find(item => resolveUploadPath(item.relPath, this.workspaceRoot) === requestedPath);
+          if (!attachment) throw new Error('INPUT_ATTACHMENT_NOT_SUPPLIED');
+          const [actual, uploadDirectory] = await Promise.all([fs.realpath(requestedPath), fs.realpath(path.join(runtimeBaseDir, '.uploads', conversationId))]);
+          if (!isPathWithinRoot(actual, uploadDirectory) || !(await fs.stat(actual)).isFile()) throw new Error('INPUT_ATTACHMENT_OUTSIDE_CONVERSATION');
+          const toolAccessPolicy = { ...state.toolAccessPolicy, fileAccessAllowlist: [...state.toolAccessPolicy.fileAccessAllowlist, attachment.relPath] };
+          await graph.updateState(graphConfig, { toolAccessPolicy });
+          state = { ...state, toolAccessPolicy };
+          applyToolsNodeSessionContext(executionConfig.configurable, state);
+        }
+      }
+      const tools = createRegisteredTools({ skillRuntime: this.skillRuntime, workspaceRoot: this.workspaceRoot })
+        .filter(tool => tool.name === input.tool);
+      const callId = `input-review-${randomUUID()}`;
+      const actionState = { ...state, lastUserMessage: `${request.message}\n${JSON.stringify(input.args)}`,
+        messages: [...(state.messages ?? []), new AIMessage({ content: '', tool_calls: [{ id: callId, name: input.tool, args: input.args }] })] };
+      return await withRunContext(runtime, async () => {
+        recordRunEvent({ kind: 'user_input_review', tool: input.tool, callId, args: input.args });
+        const command = await executeToolsSequentially(tools, actionState, executionConfig);
+        const { messages, ...update } = command.update as Partial<AgentState>;
+        // Synthetic calls are not appended to chat: the pending clarification call must stay current.
+        // State updates follow LangGraph's normal human-in-the-loop update semantics.
+        await graph.updateState(graphConfig, { ...update, runUsage: snapshotRunUsage(runtime) });
+        const output = messages?.find(message => message.getType() === 'tool') as ToolMessage | undefined;
+        let result: unknown = output?.content;
+        if (typeof result === 'string') { try { result = JSON.parse(result); } catch { /* plain tool output */ } }
+        const failed = (value: unknown) => isRecord(value) && (value.success === false || value.valid === false || Boolean(value.error) || value.status === 'failed');
+        return { result, success: output?.status !== 'error' && !failed(result) && !failed(isRecord(result) ? result.result : undefined),
+          review: await this.getInputReview(conversationId) };
+      });
+    } finally { release(); }
   }
 
   async listSkills(): Promise<{ skills: SkillManifest[] }> {

@@ -81,7 +81,35 @@ const skillHubMutationSchema = z.object({
   skillId: z.string().min(1),
 });
 
+const inputReviewBodySchema = z.object({
+  revisionToken: z.string().min(1),
+  tool: z.enum(['analyze_file', 'review_input', 'query_model', 'edit_model', 'validate_model']),
+  args: z.record(z.string(), z.unknown()),
+  initialContext: z.object({
+    locale: z.enum(['en', 'zh']).optional(), runPolicy: runPolicyInputSchema.optional(),
+    skillIds: z.array(z.string()).optional(), enabledToolIds: z.array(z.string()).optional(), disabledToolIds: z.array(z.string()).optional(),
+    restrictFileAccessToAttachments: z.boolean().optional(),
+    attachments: z.array(z.object({ fileId: z.string(), originalName: z.string(), relPath: z.string(), mimeType: z.string().optional() })).optional(),
+  }).optional(),
+});
+
 export async function agentRoutes(fastify: FastifyInstance) {
+  fastify.get('/input-review/:conversationId', async (request: FastifyRequest<{ Params: { conversationId: string } }>, reply) => {
+    const id = request.params.conversationId;
+    if (!await new ConversationService().getConversation(id)) return reply.code(404).send({ error: 'CONVERSATION_NOT_FOUND' });
+    return reply.send(await agentService.getInputReview(id));
+  });
+  fastify.post('/input-review/:conversationId/tools', async (request: FastifyRequest<{ Params: { conversationId: string } }>, reply) => {
+    const id = request.params.conversationId;
+    if (!await new ConversationService().getConversation(id)) return reply.code(404).send({ error: 'CONVERSATION_NOT_FOUND' });
+    const body = inputReviewBodySchema.parse(request.body);
+    try { return reply.send(await agentService.invokeInputReviewTool(id, body)); }
+    catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return reply.code(message.startsWith('INPUT_REVIEW_REVISION_CONFLICT') ? 409 : message.startsWith('TOOL_NOT_ALLOWED') ? 403 : 400)
+        .send({ error: message });
+    }
+  });
   fastify.get('/tools', {
     schema: {
       tags: ['Agent'],

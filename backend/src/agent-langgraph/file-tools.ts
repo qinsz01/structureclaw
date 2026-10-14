@@ -430,15 +430,18 @@ export function createAnalyzeFileTool() {
         mode: input.groundMotion ? 'full' : input.mode, pageStart: input.pageStart, pageCount: input.pageCount });
       let workflowUpdate: Record<string, unknown> = {};
       if (input.groundMotion) {
-        analysis.groundMotionPreview = await inspectGroundMotionFile(analysis, input.groundMotion);
+        const sheets = isRecord(analysis.sheets) ? Object.keys(analysis.sheets) : [];
+        const selection = { ...input.groundMotion,
+          ...(!input.groundMotion.sheetName && sheets.length === 1 ? { sheetName: sheets[0] } : {}) };
+        analysis.groundMotionPreview = await inspectGroundMotionFile(analysis, selection);
         const workflow = structuredClone(configurable.agentState?.contextSeismicWorkflow ?? {});
         const set = isRecord(workflow.groundMotionSet) ? workflow.groundMotionSet : {};
         const records = Array.isArray(set.records) ? set.records.filter(isRecord) : [];
         const reference = analysis.fileReference as Record<string, unknown>;
         const existing = records.find(record => isRecord(record.fileReference) && record.fileReference.path === reference.path
-          && record.sheetName === input.groundMotion!.sheetName);
-        const record = { id: existing?.id ?? `ground-motion:${reference.sha256}:${String(input.groundMotion.sheetName ?? '')}`,
-          name: path.basename(input.filePath), recordType: 'actual', ...input.groundMotion, fileReference: reference };
+          && record.sheetName === selection.sheetName);
+        const record = { id: existing?.id ?? `ground-motion:${reference.sha256}:${String(selection.sheetName ?? '')}`,
+          name: path.basename(input.filePath), recordType: 'actual', ...selection, fileReference: reference };
         workflow.groundMotionSet = { ...set, source: 'uploaded', records: [...records.filter(item => item.id !== record.id), record] };
         analysis.groundMotionRecord = record;
         workflowUpdate = { ...invalidateAnalysis(configurable.agentState ?? {}), contextSeismicWorkflow: workflow };

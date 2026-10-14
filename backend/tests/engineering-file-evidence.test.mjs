@@ -80,5 +80,40 @@ describe('parsed input must reach the engineering model or an explicit analysis 
       {toolCall:{id:'analysis'},configurable:{skillScope:['opensees-seismic'],agentState:{model,inputEvidence:evidence,
         contextSeismicWorkflow:{groundMotionSet:{source:'uploaded',records:[record]}}}}})).rejects.toThrow('ANALYSIS_INPUT_BINDING_CHANGED');
     expect(called).toBe(false);
+    await expect(tool.invoke({analysisType:'seismic',seismicWorkflowJson:JSON.stringify({methodPreference:'time_history',
+      groundMotionSet:{source:'uploaded',records:[record]}})},
+      {toolCall:{id:'confirmed-analysis'},configurable:{skillScope:['opensees-seismic'],agentState:{model,modelPending:false,inputEvidence:evidence,
+        contextSeismicWorkflow:{groundMotionSet:{source:'uploaded',records:[record]}}}}})).rejects.toThrow('Unexpected execution');
+    expect(called).toBe(true);
+  });
+
+  test('review-only confirmation/exclusion leaves a current model usable, while unapplied values and a pending draft block execution', async () => {
+    const { createRunAnalysisTool } = await import('../dist/agent-langgraph/tools.js');
+    const { applyInputEvidence } = await import('../dist/engineering/model-state.js');
+    let called = 0;
+    const tool = createRunAnalysisTool({ async executeAnalysisSkill() { called++; throw new Error('ENGINE_REACHED'); } });
+    const execute = (state) => tool.invoke({ analysisType:'static' }, { toolCall:{id:'check-input'},
+      configurable:{skillScope:['opensees-static'],agentState:state} });
+    const source = fileInputEvidence({success:true,type:'csv',source:{filePath:'notes.csv',sha256:'notes'}},'notes.csv');
+    const initial = { model, modelPending:false, inputEvidence:[], analysisRuns:{} };
+    const read = { ...initial, ...applyInputEvidence(initial, source) };
+    const exclusion = await createReviewInputTool().invoke({ excludeSources:[{sourceFile:'notes.csv',reason:'Bibliography, unrelated to the model'}] },
+      {toolCall:{id:'exclude'},configurable:{agentState:read}});
+    const excluded = { ...read, ...exclusion.update };
+    expect(excluded.modelPending).toBe(false);
+    await expect(execute(excluded)).rejects.toThrow('ENGINE_REACHED');
+    expect(called).toBe(1);
+    const confirmed = await createReviewInputTool().invoke({resolutions:[{field:'nodes.A.x',value:6000,unit:'mm',reason:'Changed drawing'}]},
+      {toolCall:{id:'changed'},configurable:{agentState:excluded}});
+    await expect(execute({...excluded,...confirmed.update})).rejects.toThrow('VALUE_MISMATCH');
+    expect(called).toBe(1);
+    const pending = { ...read, modelPending:true };
+    const reviewedDraft = await createReviewInputTool().invoke({excludeSources:[{sourceFile:'notes.csv',reason:'Not part of pending geometry'}]},
+      {toolCall:{id:'keep-pending'},configurable:{agentState:pending}});
+    const pendingState={...pending,...reviewedDraft.update};
+    expect(pendingState.modelPending).toBe(true);
+    const blocked=await execute(pendingState);
+    expect(blocked.update.messages[0].content).toContain('MODEL_REBUILD_REQUIRED');
+    expect(called).toBe(1);
   });
 });

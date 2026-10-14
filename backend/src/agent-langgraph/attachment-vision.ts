@@ -15,7 +15,8 @@ export async function summarizeFileImages(analysis: Record<string, unknown>, fil
   const request = visionRequestSchema.parse(result.visionRequest ?? {});
   const summarize = async (image: Record<string, unknown>, originalName: string, dataUri?: string) => {
     const summary = dataUri ? await summarizeImageAttachment({ fileId: filePath, originalName, relPath: filePath }, dataUri, message, locale, signal,
-      { ...request, source: { ...(typeof result.source === 'object' && result.source ? result.source : {}), file: filePath, page: image.pageNumber } }) : null;
+      { ...request, source: { ...(typeof result.source === 'object' && result.source ? result.source : {}), file: filePath, page: image.pageNumber,
+        ...(typeof image.renderedImagePath === 'string' ? { renderedImagePath: image.renderedImagePath } : {}) } }) : null;
     image.visionSummary = summary;
     image.visionStatus = summary ? 'completed' : 'unavailable';
     if (!summary) {

@@ -314,7 +314,7 @@ export function applyInputEvidence(state: ModelState, patch: ModelRecord[]) {
   const inputEvidence = mergeInputEvidence(state.inputEvidence, patch) ?? [];
   const previous = new Set((state.inputEvidence ?? []).map(contentHash));
   const changed = inputEvidence.some(item => item.required !== false && !previous.has(contentHash(item)));
-  return { inputEvidence, ...(changed ? { ...invalidateAnalysis(state), modelPending: Boolean(state.model) } : {}) };
+  return { inputEvidence, ...(changed ? invalidateAnalysis(state) : {}) };
 }
 
 export function publishAnalysis(state: ModelState, request: AnalysisRequestBinding, result: ModelRecord) {

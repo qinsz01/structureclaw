@@ -19,7 +19,7 @@ export function fileInputEvidence(analysis: ModelRecord, file: string): ModelRec
       add(`page:${page}`, complete ? 'unread' : item ? 'truncated' : 'unread',
         complete ? 'Parsed page requires engineering field review / 已解析页面须复核工程字段'
           : 'Page content has not been completely read; review relevance / 页面内容尚未完整读取，请复核相关性', complete,
-        { page }, complete ? 'field-mapping' : 'complete-read');
+        { page, ...(typeof item?.renderedImagePath === 'string' ? { renderedImagePath: item.renderedImagePath } : {}) }, complete ? 'field-mapping' : 'complete-read');
     }
   } else if (analysis.type === 'excel' && isRecord(analysis.sheets)) {
     for (const [sheet, raw] of Object.entries(analysis.sheets)) {

@@ -42,7 +42,7 @@ import { beginAnalysisRequest, commitModel, currentAnalysisError, invalidateAnal
 import { analysisSettingsHash } from '../engineering/analysis-runs.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 import { checkRunResults } from '../engineering/code-checks.js';
-import { assertAnalysisInputEvidenceMatchesRequest, assertResolvedInput, mergeInputEvidence } from '../engineering/input-evidence.js';
+import { assertAnalysisInputEvidenceMatchesRequest, assertInputEvidenceMatchesModel, mergeInputEvidence } from '../engineering/input-evidence.js';
 import { currentRunPolicy, requestRecovery, canRecover } from '../runtime/run-context.js';
 // ---------------------------------------------------------------------------
 // Helpers
@@ -3044,6 +3044,7 @@ export function createValidateModelTool(skillRuntime: AgentSkillRuntime) {
       if (!model) {
         return JSON.stringify({ error: 'No model available. Run build_model first.' });
       }
+      assertInputEvidenceMatchesModel(model, state?.inputEvidence);
       const skillIds = configurable.skillScope;
       const analysisType = normalizeAnalysisType(state?.policy?.analysisType);
       const unselectedRequestedSkillId = resolveUnselectedRequestedAnalysisSkillId(
@@ -3120,7 +3121,7 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
         return toolResult(toolCallId, 'run_analysis', JSON.stringify({ error: 'No model available. Run build_model first.' }));
       }
       if (state?.modelPending) return toolResult(toolCallId, 'run_analysis', JSON.stringify({ success: false, error_code: 'MODEL_REBUILD_REQUIRED', message: 'Build the pending model first.', messageZh: '请先构建待确认的模型。' }));
-      assertResolvedInput(state?.inputEvidence);
+      assertInputEvidenceMatchesModel(model, state?.inputEvidence);
       const skillIds = configurable.skillScope;
       const analysisType = (input.analysisType || 'static') as 'static' | 'dynamic' | 'seismic' | 'nonlinear';
       const unselectedRequestedSkillId = resolveUnselectedRequestedAnalysisSkillId(

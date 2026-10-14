@@ -248,6 +248,24 @@ function hasNumericValue(value: unknown): boolean {
     : isRecord(value) ? Object.values(value).some(hasNumericValue) : false);
 }
 
+/** Shared conversion for both evidence comparison and explicit user application. */
+export function canonicalInputValue(model: ModelRecord, field: string, value: unknown, unit: unknown): ModelRecord {
+  const actual = readModelField(model, field);
+  if (typeof value !== 'number') {
+    if (value === undefined || value === null || hasNumericValue(value)) throw new Error(`INPUT_EVIDENCE_SCALAR_MAPPING_REQUIRED: ${field}`);
+    return { value };
+  }
+  const targetUnit = modelFieldUnit(actual.route);
+  if (!targetUnit) throw new Error(`INPUT_EVIDENCE_MODEL_UNIT_UNSUPPORTED: ${field}`);
+  const sourceUnit = unit ?? (targetUnit === '1' ? '1' : undefined);
+  if (typeof sourceUnit !== 'string' || !sourceUnit.trim()) throw new Error(`INPUT_EVIDENCE_UNIT_REQUIRED: ${field}`);
+  const from = inputUnits[unitKey(sourceUnit)], to = inputUnits[unitKey(targetUnit)];
+  if (!from || !to || from[0] !== to[0]) throw new Error(`INPUT_EVIDENCE_UNIT_UNSUPPORTED: ${sourceUnit} -> ${targetUnit}`);
+  const converted = value * from[1] / to[1];
+  if (!Number.isFinite(value) || !Number.isFinite(converted)) throw new Error(`INPUT_EVIDENCE_FINITE_VALUE_REQUIRED: ${field}`);
+  return { value: converted, unit: targetUnit };
+}
+
 /** Canonical observations and reviewed modelField mappings must match the model.
  * Noncanonical observations remain candidates until an explicit field mapping.
  */
@@ -290,13 +308,7 @@ export function assertInputEvidenceMatchesModel(model: ModelRecord, evidence: un
       if (units.size === 1) expected = { ...expected, unit: [...units][0] };
     }
     if (typeof expected.value === 'number') {
-      const targetUnit = modelFieldUnit(actual.route);
-      if (!targetUnit) throw new Error(`INPUT_EVIDENCE_MODEL_UNIT_UNSUPPORTED: ${modelField}`);
-      const sourceUnit = expected.unit ?? (targetUnit === '1' ? '1' : undefined);
-      if (typeof sourceUnit !== 'string' || !sourceUnit.trim()) throw new Error(`INPUT_EVIDENCE_UNIT_REQUIRED: ${field}`);
-      const from = inputUnits[unitKey(sourceUnit)], to = inputUnits[unitKey(targetUnit)];
-      if (!from || !to || from[0] !== to[0]) throw new Error(`INPUT_EVIDENCE_UNIT_UNSUPPORTED: ${sourceUnit} -> ${targetUnit}`);
-      const converted = expected.value * from[1] / to[1];
+      const converted = canonicalInputValue(model, modelField, expected.value, expected.unit).value as number;
       if (typeof actual.value !== 'number' || !Number.isFinite(expected.value) || !Number.isFinite(actual.value) || !Number.isFinite(converted)
         || Math.abs(actual.value - converted) > 32*Number.EPSILON*Math.max(Math.abs(actual.value), Math.abs(converted), Number.MIN_VALUE)) {
         throw new Error(`INPUT_EVIDENCE_MODEL_VALUE_MISMATCH: ${field} -> ${modelField} / 复核值尚未应用到模型`);

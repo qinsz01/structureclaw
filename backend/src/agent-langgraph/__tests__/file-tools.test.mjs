@@ -206,6 +206,26 @@ describe('createAnalyzeFileTool', () => {
       {configurable:{workspaceRoot:tmpDir}})).rejects.toThrow('GROUND_MOTION_BAD_CELL');
   });
 
+  test('a single Excel sheet is explicitly retained in the motion record and can be source-confirmed', async () => {
+    const XLSX = await import('xlsx');
+    const { createAnalyzeFileTool } = await import('../../../dist/agent-langgraph/file-tools.js');
+    const { createReviewInputTool } = await import('../../../dist/agent-langgraph/model-tools.js');
+    const file = path.join(uploadsDir, 'one-sheet.xlsx');
+    const book = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([['time', 'accel_g'], ...Array.from({ length: 250 }, (_, i) => [i * .01, i === 249 ? .2 : 0])]), 'Motion');
+    await fs.writeFile(file, XLSX.write(book, { type: 'buffer', bookType: 'xlsx' }));
+    const output = await createAnalyzeFileTool().invoke({ filePath: file, groundMotion: { direction: 'x' } },
+      { toolCall: { id: 'inspect-sheet' }, configurable: { workspaceRoot: tmpDir, agentState: {} } });
+    const parsed = JSON.parse(output.update.messages[0].content);
+    expect(parsed.groundMotionPreview.pointCount).toBe(250);
+    expect(parsed.groundMotionRecord.sheetName).toBe('Motion');
+    const source = output.update.inputEvidence.find(item => item.source?.sheet === 'Motion' && item.source.complete);
+    const reviewed = await createReviewInputTool().invoke({ resolutions: [{ field: source.field, value: true, reason: 'Reviewed complete excitation',
+      sourceEvidenceId: source.id, analysisRecordId: parsed.groundMotionRecord.id }] },
+    { toolCall: { id: 'confirm-sheet' }, configurable: { agentState: output.update } });
+    expect(JSON.parse(reviewed.update.messages[0].content).unresolved).toEqual([]);
+  });
+
   test('full mode reads retained DXF entities and complete selected PDF page content', async () => {
     const { analyzeUploadedFile } = await import('../../../dist/agent-langgraph/file-tools.js');
     const dxfPath=path.join(uploadsDir,'large.dxf');
