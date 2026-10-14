@@ -20,9 +20,29 @@ import uuid
 import re
 
 
+class SettingsCapabilityError(ValueError):
+    error_code = "ENGINE_INPUT_UNSUPPORTED"
+
+
 def compile_settings(model: dict) -> dict:
     """Compile the elastic frame settings; native evidence still gates support."""
     control = model.get("analysis_control") or {}
+    if control.get("rigid_offsets") is True and control.get("self_weight") is True:
+        # A retained native run demonstrates different axial consistent-load
+        # semantics on a column with a rigid end. Geometry/load readback alone
+        # is insufficient to certify this combination; do not publish it.
+        raise SettingsCapabilityError(
+            "YJK self-weight with rigid ends requires an axial-load mapping / "
+            "YJK 刚域与柱自重的轴向荷载映射尚未完成")
+    if control.get("rigid_offsets") is True:
+        nodes = {str(row['id']): row for row in model.get('nodes', [])}
+        for member in model.get('elements', []):
+            start, end = [nodes[str(key)] for key in member['nodes']]
+            if ((member.get('type') == 'beam' and start['z'] != end['z'])
+                    or (member.get('type') == 'column' and any(start[key] != end[key] for key in ('x','y')))):
+                raise SettingsCapabilityError(
+                    "YJK inclined-member rigid ends require an axial-load mapping / "
+                    "YJK 斜构件刚域尚需轴向荷载及几何映射")
     if control.get("p_delta") is True or control.get("construction_stage") is True:
         raise ValueError("YJK staged/P-Delta analysis is not calibrated / YJK 施工分阶段及二阶分析尚未校准")
     rigid = control.get("rigid_floor")
@@ -109,7 +129,8 @@ def audit_rigid_diaphragms(model: dict, fe: dict) -> dict:
 
 
 def audit_effective_settings(model: dict, fe: dict, receipt: dict, report_text: str,
-                             load_audit: dict | None = None, *, member_audit: dict | None = None) -> dict:
+                             load_audit: dict | None = None, *, member_audit: dict | None = None,
+                             native_members: dict | None = None) -> dict:
     """Require solver-effective evidence, not merely a successful scalar write.
 
     The load compiler owns selected-case selfweight accounting. It must bind its
@@ -129,9 +150,20 @@ def audit_effective_settings(model: dict, fe: dict, receipt: dict, report_text: 
     if len(construction) != 1 or construction[0].strip() != "一次性加载":
         failures.append("construction-report-is-not-once-loaded")
     controls = plan["controls"]
-    for name in ("rigid_offsets",):
-        if controls.get(name) is True:
-            failures.append("native-enabled-control-not-calibrated:" + name)
+    rigid_offsets = None
+    if controls.get('rigid_offsets') is True:
+        from yjk_native_offsets import audit_rigid_offsets
+        rigid_offsets = audit_rigid_offsets(model, fe, member_audit or {}, native_members or {})
+        preserved = ((load_audit or {}).get('passed') is True
+                     and (load_audit or {}).get('feaSha256') == fe['sha256'])
+        rigid_offsets['sourceLoadSemanticsPreserved'] = preserved
+        rigid_offsets['loadCompilation'] = {'method':'native-preserved-physical-loads',
+            'sourceFeaSha256':fe['sha256'], 'loadHash':(load_audit or {}).get('loadHash'),
+            'verified':preserved}
+        failures.extend(rigid_offsets['failures'])
+        for label in ("考虑梁端刚域", "考虑柱端刚域"):
+            if re.search(re.escape(label) + r"\s*[:：]\s*是(?:\s|$)", report_text) is None:
+                failures.append('rigid-offset-report-mismatch:' + label)
     diaphragm = None
     if controls.get("rigid_floor") is True:
         if re.search(r"刚性楼板假定\s*[:：]\s*对所有楼层强制采用刚性楼板假定(?:\s|$)", report_text) is None:
@@ -177,7 +209,7 @@ def audit_effective_settings(model: dict, fe: dict, receipt: dict, report_text: 
     return {"schema": "sclaw-yjk-effective-settings/v1", "passed": not failures,
             "linearStatic": not failures, "feaSha256": fe["sha256"], "failures": failures,
             "controls": controls, "reportSha256": hashlib.sha256(report_text.encode("utf-8")).hexdigest(),
-            "loadAudit": load_audit, "diaphragms": diaphragm}
+            "loadAudit": load_audit, "diaphragms": diaphragm, "rigidOffsets": rigid_offsets}
 
 
 def _normal(parameters: dict) -> dict:

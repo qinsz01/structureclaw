@@ -1258,7 +1258,8 @@ def _build_analysis_result(
                                           "rotation_angle": source_elements[elem_id].get("rotation_angle", 0)}
                         geometry = member_geometry(native_fe_model, raw_force, source_element,
                                                    result_node_lookup, mapping["nodes"],
-                                                   metadata=source_model.get("metadata") or {})
+                                                   metadata=source_model.get("metadata") or {},
+                                                   rigid_offsets=native_context.get('effectiveRigidOffsets'))
                         authored_case = source_load_cases.get(str(descriptor.get("sourceCaseId", case_name)), {})
                         geometry["discontinuities"] = [float(load["position"]) for load in authored_case.get("loads", [])
                                                        if load.get("element") == elem_id and load.get("position") is not None]

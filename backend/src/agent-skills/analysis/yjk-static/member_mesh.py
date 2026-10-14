@@ -147,6 +147,9 @@ def restore_physical_results(output: dict, receipt: dict | None) -> dict:
         context['compiledModelHash'] = context['physicalModelHash']
         context['physicalModelHash'] = receipt['physicalModelHash']
         context['meshMappingHash'] = _hash(receipt)
+        if context.get('effectiveRigidOffsets'):
+            from yjk_native_offsets import restore_physical_offsets
+            context['effectiveRigidOffsets'] = restore_physical_offsets(context['effectiveRigidOffsets'], receipt)
         effective_loads = context.get('effectiveLoads') or {}
         if effective_loads.get('selfWeight') is not None:
             from yjk_self_weight import restore_physical_compilation

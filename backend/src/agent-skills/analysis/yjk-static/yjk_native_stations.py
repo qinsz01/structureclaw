@@ -87,7 +87,7 @@ def executed_section_axes(frame: dict, points: list, native_member=None) -> list
 
 
 def member_geometry(fe: dict, native_member: dict, element: dict,
-                    node_lookup: dict[str, str], nodes: dict[str, dict], *, metadata=None) -> dict:
+                    node_lookup: dict[str, str], nodes: dict[str, dict], *, metadata=None, rigid_offsets=None) -> dict:
     tag = str(native_member.get("tot_id", native_member.get("id")))
     frame = fe.get("frames", {}).get(tag)
     if fe.get("unit") != [0., 0., 0.] or not frame:
@@ -113,6 +113,18 @@ def member_geometry(fe: dict, native_member: dict, element: dict,
         # This is a calibrated record variant, not a fabricated zero result.
         if field == "RZL" and values is None and frame.get("kind") == "BRACE" and is_native_ordinary_column(native_member):
             continue
+        if field == 'RZL' and rigid_offsets is not None:
+            if (rigid_offsets.get('verified') is not True or rigid_offsets.get('sourceFeaSha256') != fe['sha256']):
+                raise StationConventionUnavailable('Rigid offsets are not bound to the executed FE / 刚域记录未绑定实际有限元文件')
+            value = rigid_offsets.get('members', {}).get(str(element.get('id', element.get('v2_id'))))
+            if not value or value.get('sourceNodeIds') != physical_ids or value.get('nativeStationDomain') != 'elastic-span':
+                raise StationConventionUnavailable('Rigid offsets do not bind this physical member / 刚域记录未绑定此物理构件')
+            expected = [value['startLengthM'], value['endLengthM']]
+            if endpoint_ids != physical_ids:
+                expected.reverse()
+            if values != expected:
+                raise StationConventionUnavailable('Native rigid-end lengths differ from the verified readback / 原生刚域长度与已验证读回不一致')
+            continue
         if not isinstance(values, list) or len(values) != size or any(value != 0 for value in values):
             raise StationConventionUnavailable("Native offsets/releases require separate station calibration")
     points = []
@@ -125,11 +137,18 @@ def member_geometry(fe: dict, native_member: dict, element: dict,
             raise StationConventionUnavailable("Executed FE node coordinates differ from the physical member")
         points.append(point)
     length = math.dist(*points)
+    span_start, span_end = 0., length
+    if rigid_offsets is not None:
+        value = rigid_offsets['members'][str(element.get('id', element.get('v2_id')))]
+        if abs(value['physicalLengthM'] - length) > 1e-9:
+            raise StationConventionUnavailable('Rigid-end physical length differs from executed geometry / 刚域物理长度与实际几何不一致')
+        span_start, span_end = value['elasticStartM'], value['elasticEndM']
     native_axes = executed_section_axes(frame, points, native_member)
     station_count = 9 if frame["kind"] == "BEAM" else 2
     same_order = endpoint_ids == physical_ids
     start, end = points if same_order else points[::-1]
-    return {"length": length, "sameOrder": same_order, "stationCount": station_count,
+    return {"length": length, "stationStartM": span_start, "stationEndM": span_end,
+            "sameOrder": same_order, "stationCount": station_count,
             "transverseForceSign": -1 if frame["kind"] == "BEAM" else 1,
             "nativeAxes": native_axes,
             "axes": canonical_axes(start, end, float(element.get("rotation_angle") or 0),
@@ -137,7 +156,8 @@ def member_geometry(fe: dict, native_member: dict, element: dict,
             "nativeEndpoints": endpoint_ids, "endpoints": list(physical_ids),
             "source": {"kind": "native-station-coordinate-mapping", "artifact": "fea.dat",
                        "sha256": fe["sha256"], "convention": "yjk8-frame-stations-v1",
-                       "nativeEndReleases": release_plan}}
+                       "nativeEndReleases": release_plan,
+                       **({'effectiveRigidOffsets': value} if rigid_offsets is not None else {})}}
 
 
 def map_stations(rows: list, geometry: dict) -> list[dict]:
@@ -162,7 +182,8 @@ def map_stations(rows: list, geometry: dict) -> list[dict]:
         fraction = index / (len(rows) - 1)
         if not geometry["sameOrder"]:
             fraction = 1 - fraction
-        position = geometry["length"] * fraction
+        span_start, span_end = geometry.get('stationStartM', 0.), geometry.get('stationEndM', geometry['length'])
+        position = span_start + (span_end-span_start) * fraction
         # The vendor row does not identify left/right at an interior point
         # load. Omit that ambiguous cut instead of labelling it continuous.
         if any(abs(position - point) <= 1e-9 for point in geometry.get("discontinuities", [])):

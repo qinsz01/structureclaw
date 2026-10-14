@@ -1,0 +1,61 @@
+{
+  "schema": "sclaw-native-adapter-acceptance/v1",
+  "engine": "YJK",
+  "date": "2026-10-14",
+  "scope": "SDK automatic rigid-end geometry and native station mapping for real-section horizontal beams and vertical columns, without self-weight",
+  "scopeZh": "真实截面水平梁、竖柱的 SDK 自动刚域及原生站点映射；本次不含自重组合",
+  "officialInterfaces": {
+    "parameters": {"609": "beam rigid zones", "650": "column rigid zones"},
+    "BeamRigid": "metres",
+    "ColumnRigid": "millimetres",
+    "executedGeometry": "fea.dat FRAME.RZL and FRAME.E",
+    "stationDomain": "elastic-span for both beam and column actions"
+  },
+  "evidence": [
+    {
+      "path": "G:/StructureClaw-All/sclaw_data/work/yjk-rigid-offset-probe-20261014-125634-bddcd2",
+      "purpose": "Official getter units, reversed column endpoints, executed rigid lengths and native station-domain investigation"
+    },
+    {
+      "path": "G:/StructureClaw-All/sclaw_data/work/yjk-rigid-offsets-20261014-130442-2f25ddd4",
+      "status": "passed",
+      "features": ["six nodal force/moment cases", "full physical transverse line loads", "reversed beam endpoints"],
+      "checks": {"displacement": 336, "reaction": 336, "elasticEndAction": 672}
+    },
+    {
+      "path": "G:/StructureClaw-All/sclaw_data/work/yjk-rigid-offsets-20261014-130735-73982403",
+      "status": "passed",
+      "features": ["partial line load", "internal point force", "physical-member load mesh", "reversed beam endpoints"],
+      "checks": {"displacement": 336, "reaction": 336, "elasticEndAction": 924}
+    },
+    {
+      "path": "G:/StructureClaw-All/sclaw_data/work/yjk-rigid-offsets-20261014-131700-dcec6d51",
+      "status": "passed",
+      "features": ["repeat of partial/point/reversed physical-member case", "sourceLoadSemanticsPreserved and loadCompilation bound to the same executed FE hash"],
+      "checks": {"displacement": 336, "reaction": 336, "elasticEndAction": 924}
+    }
+  ],
+  "reference": {
+    "method": "Independent Timoshenko element assembly with rigid-body end kinematics and physical-domain load integration",
+    "implementation": "backend/tests/native_frame_reference.py",
+    "inputsFrozenBeforeNativeRun": true,
+    "tolerance": {"relative": 0.00001, "displacementAbsolute": 0.00000000001, "forceAbsolute": 0.00001},
+    "testCommand": "python backend/tests/analysis-yjk-rigid-offsets.py --native --reverse --mesh --output <private-work>"
+  },
+  "retainedFailure": {
+    "path": "G:/StructureClaw-All/sclaw_data/work/yjk-rigid-offsets-20261014-130947-b5ac4b17",
+    "status": "failed-independent-response-check",
+    "combination": "rigid ends plus axial column self-weight",
+    "firstMismatch": {"case": "D", "node": "N100", "component": "uz", "native": -0.000025819515940384008, "reference": -0.000026074649529245007},
+    "diagnosis": "Difference is consistent with axial load distribution over asymmetric rigid and elastic lengths; it is not explained by the six-significant-digit FE load record alone.",
+    "productionProtection": "ENGINE_INPUT_UNSUPPORTED before a new native run until the axial-load mapping is completed",
+    "historicalFilesUnchanged": true
+  },
+  "remaining": [
+    "Axial self-weight with rigid ends",
+    "Inclined or eccentric rigid-end geometry and loads",
+    "Automatic rigid ends derived from numerical reference carriers are not physical and remain excluded"
+  ],
+  "tests": {"command": "python -m pytest backend/src/agent-skills/analysis/yjk-static/__tests__ -q", "passed": 185, "subtestsPassed": 14},
+  "independentYjkApiModified": false
+}

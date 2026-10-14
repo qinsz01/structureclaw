@@ -86,6 +86,23 @@ class NativeSettingsTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "not calibrated"):
                 settings.compile_settings({"analysis_control": {key: True}})
 
+    def test_known_rigid_column_weight_mismatch_is_rejected_before_native_run(self):
+        with self.assertRaisesRegex(settings.SettingsCapabilityError, "axial-load mapping") as error:
+            settings.compile_settings({"analysis_control": {"rigid_offsets": True, "self_weight": True}})
+        self.assertEqual(error.exception.error_code, "ENGINE_INPUT_UNSUPPORTED")
+        for rigid, weight in ((False, True), (True, False)):
+            plan = settings.compile_settings({"analysis_control": {"rigid_offsets": rigid, "self_weight": weight}})
+            self.assertEqual(plan["controls"]["self_weight"], weight)
+
+    def test_inclined_rigid_ends_require_their_own_mapping(self):
+        model = {"analysis_control": {"rigid_offsets": True},
+                 "nodes": [{"id": "i", "x": 0, "y": 0, "z": 0}, {"id": "j", "x": 1, "y": 0, "z": 3}],
+                 "elements": [{"id": "member", "type": "column", "nodes": ["i", "j"]}]}
+        for kind in ("column", "beam"):
+            model["elements"][0]["type"] = kind
+            with self.assertRaisesRegex(settings.SettingsCapabilityError, "inclined-member"):
+                settings.compile_settings(model)
+
     def test_string_getters_and_unset_before_are_supported_with_strict_final_readback(self):
         api = NativeAPI()
         result = settings.apply_and_readback({"int": {"601": 1}, "float": {"611": 1.2}}, api)

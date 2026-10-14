@@ -486,6 +486,7 @@ def physics_context(model: dict, fe: dict, material_audit: dict, settings_audit:
             "effectiveConstraints": {"verified": settings_ok,
                                      "sourceFeaSha256": fe["sha256"],
                                      "diaphragms": effective.get("diaphragms"), "supports": supports},
+            **({"effectiveRigidOffsets": effective["rigidOffsets"]} if effective.get("rigidOffsets") else {}),
             "effectiveLoads": {"verified": settings_ok and effective.get("loadAudit", {}).get("passed") is True,
                                "sourceFeaSha256": fe["sha256"],
                                "selfWeight": effective.get("loadAudit", {}).get("selfWeightCompilation")},
@@ -529,7 +530,8 @@ def verify_native_physics(work_dir, model: dict, *, engine_version: str) -> dict
         output["loads"] = loads
         report_path = root / "设计结果" / "mainjss.out"
         report = report_path.read_text(encoding="gb18030")
-        effective = audit_effective_settings(model, fe, receipt, report, loads, member_audit=material_audit)
+        effective = audit_effective_settings(model, fe, receipt, report, loads, member_audit=material_audit,
+                                            native_members=native_members)
         supports = audit_node_restraints(model, fe)
         effective["supports"] = supports
         effective["failures"].extend(supports["failures"])
