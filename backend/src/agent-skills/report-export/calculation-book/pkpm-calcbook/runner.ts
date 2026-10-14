@@ -5,6 +5,8 @@ interface PkpmCalcbookInput {
   parameters: {
     jws_path: string;
     output_dir?: string;
+    includeDesign?: boolean;
+    designContext?: Record<string, unknown>;
   };
 }
 
@@ -22,11 +24,13 @@ interface PkpmCalcbookResult {
   warnings?: string[];
 }
 
-export async function runPkpmCalcbook(jwsPath: string, outputDir?: string): Promise<PkpmCalcbookResult> {
+export async function runPkpmCalcbook(jwsPath: string, outputDir?: string,
+  options: { includeDesign?: boolean; designContext?: Record<string, unknown> } = {}): Promise<PkpmCalcbookResult> {
   const workerPath = resolveWorkerPath('agent-skills/report-export/calculation-book/pkpm-calcbook/runtime.py');
   const runner = new PythonWorkerRunner<PkpmCalcbookInput>(workerPath);
   return runner.invoke<PkpmCalcbookResult>({
     model: { _pkpm_jws_path: jwsPath },
-    parameters: { jws_path: jwsPath, ...(outputDir ? { output_dir: outputDir } : {}) },
+    parameters: { jws_path: jwsPath, ...(outputDir ? { output_dir: outputDir } : {}),
+      includeDesign: options.includeDesign === true, ...(options.designContext ? { designContext: options.designContext } : {}) },
   });
 }

@@ -40,6 +40,7 @@ from out_parsers import (
     _read_out_file,
 )
 from api_extractors import (
+    _extraction_issues,
     _extract_base_shear,
     _extract_beam_design,
     _extract_column_design,
@@ -93,6 +94,15 @@ def _dump_worker_response(payload: Dict[str, Any]) -> str:
 
 def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str, Any]:
     jws_path = _resolve_jws_path(model, parameters)
+    include_design = parameters.get("includeDesign") is True
+    design_context = parameters.get("designContext")
+    if include_design:
+        import hashlib
+        if (not isinstance(design_context, dict) or design_context.get("eligibleForConclusion") is not True
+                or not design_context.get("sourceModelHash")
+                or Path(design_context.get("nativeProject", "")).resolve() != jws_path.resolve()
+                or design_context.get("nativeProjectSha256") != hashlib.sha256(jws_path.read_bytes()).hexdigest()):
+            raise ValueError("Design report requires a verified, matching native project context / 设计报告须绑定已核验且一致的原生工程")
     warnings: List[str] = []
     project_dir = jws_path.parent
 
@@ -100,8 +110,8 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     wmass_text = _read_out_file(project_dir, "WMASS.OUT")
     wzq_text = _read_out_file(project_dir, "WZQ.OUT")
     wdisp_text = _read_out_file(project_dir, "WDISP.OUT")
-    wgcpj_text = _read_out_file(project_dir, "WGCPJ.OUT")
-    wpj_data = _read_all_wpj(project_dir)
+    wgcpj_text = _read_out_file(project_dir, "WGCPJ.OUT") if include_design else ""
+    wpj_data = _read_all_wpj(project_dir) if include_design else []
 
     out_file_data: Dict[str, Any] = {}
 
@@ -116,9 +126,10 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
         out_file_data["stiffness_info"] = _parse_stiffness_info(wmass_text)
         out_file_data["overturning"] = _parse_overturning(wmass_text)
         out_file_data["stability"] = _parse_stability(wmass_text)
-        out_file_data["stability_conclusion"] = _parse_stability_conclusion(wmass_text)
-        out_file_data["shear_capacity"] = _parse_shear_capacity(wmass_text)
-        out_file_data["comfort"] = _parse_comfort(wmass_text)
+        if include_design:
+            out_file_data["stability_conclusion"] = _parse_stability_conclusion(wmass_text)
+            out_file_data["shear_capacity"] = _parse_shear_capacity(wmass_text)
+            out_file_data["comfort"] = _parse_comfort(wmass_text)
 
     if wzq_text:
         out_file_data["wzq_periods"] = _parse_wzq_periods(wzq_text)
@@ -150,12 +161,14 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     # ── Try APIPyInterface (supplementary) ───────────────────────────
     api_data: Dict[str, Any] = {}
     result = None
+    extraction_issues = []
+    issue_token = _extraction_issues.set(extraction_issues)
     try:
         import APIPyInterface
         result = APIPyInterface.ResultData()
         ret = result.InitialResult(str(jws_path))
         if ret != 0:
-            warnings.append(f"InitialResult returned non-zero: {ret}")
+            raise ValueError(f"InitialResult returned non-zero: {ret}")
 
         api_data["modal_analysis"] = _extract_modal(result)
         api_data["story_stiffness"] = _extract_story_stiffness(result)
@@ -163,15 +176,20 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
         api_data["base_shear"] = _extract_base_shear(result)
         api_data["story_mass"] = _extract_story_mass(result)
         api_data["stiff_weight_ratio"] = _extract_stiff_weight_ratio(result)
-        api_data["beam_design"] = _extract_beam_design(result)
-        api_data["column_design"] = _extract_column_design(result)
+        if include_design:
+            api_data["beam_design"] = _extract_beam_design(result)
+            api_data["column_design"] = _extract_column_design(result)
     except ImportError:
         warnings.append("APIPyInterface not available, using .OUT file data only")
     except Exception as exc:
         warnings.append(f"APIPyInterface error: {exc}")
     finally:
+        _extraction_issues.reset(issue_token)
         if result is not None:
-            result.ClearResult()
+            try:
+                result.ClearResult()
+            except Exception as exc:
+                warnings.append(f"Native result close failed / 原生结果关闭失败: {exc}")
 
     # Set defaults for missing keys
     for key in ["modal_analysis", "story_stiffness", "story_mass"]:
@@ -195,12 +213,16 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
         "code_exceedance": [],
         "out_file_data": out_file_data,
         "images": [str(p) for p in project_images],
+        "extractionIssues": extraction_issues,
     }
 
     report: Dict[str, Any] = {
         "status": "success",
         "summary": {
             "engine": "pkpm-calcbook",
+            "reportKind": "structureclaw-summary-of-native-results",
+            "includeDesign": include_design,
+            "designContext": design_context if include_design else None,
             "jws_path": str(jws_path),
             "mode_count": len(api_data.get("modal_analysis", [])),
             "beam_total": api_data.get("beam_design", {}).get("total_beams", 0),

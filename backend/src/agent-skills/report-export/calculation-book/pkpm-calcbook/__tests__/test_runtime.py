@@ -217,6 +217,66 @@ class TestExtractColumnDesign:
         assert out["total_columns"] == 1
         assert out["max_axial_compression_ratio"] == 0.55
 
+    def test_empty_or_invalid_native_array_never_becomes_zero(self):
+        result = MagicMock()
+        column = _make_column(axial=[])
+        column.GetReinForceQuantity.side_effect = RuntimeError("native field unavailable")
+        column.GetSlenderRatio.return_value = [-99999.0]
+        result.GetDesignColumns.side_effect = lambda index: [column] if index == 1 else []
+        out = _extract_column_design(result)
+        assert out["max_axial_compression_ratio"] is None
+        assert out["total_reinforce_quantity"] is None
+        assert out["floors"][1][0]["slender_ratio"] is None
+
+    def test_partial_data_does_not_become_complete_design_envelope(self):
+        result = MagicMock()
+        columns = [_make_column(axial=[.4]), _make_column(axial=[float("nan")])]
+        result.GetDesignColumns.side_effect = lambda index: columns if index == 1 else []
+        out = _extract_column_design(result)
+        assert out["max_axial_compression_ratio"] is None
+        assert out["floors"][1][0]["max_axial_compression"] == .4
+
+
+def test_design_report_requires_matching_verified_context(tmp_path):
+    project = tmp_path / "model.JWS"
+    project.write_bytes(b"native project")
+    with pytest.raises(ValueError, match="matching native project"):
+        run_analysis({}, {"jws_path": str(project), "includeDesign": True})
+
+
+def test_analysis_report_skips_design_and_preserves_real_zero(tmp_path):
+    project = tmp_path / "model.JWS"
+    project.write_bytes(b"native project")
+    result = MagicMock()
+    result.InitialResult.return_value = 0
+    result.GetModePeriods.return_value = [_make_mode_period(angle=0)]
+    result.GetStoreyStifs.return_value = []
+    result.GetStoryDrift_Earthquake.return_value = {}
+    result.GetStoryDrift_Wind.return_value = {}
+    result.GetBearingShear.return_value = []
+    result.GetStoreyUnitMass.return_value = []
+    result.GetStiffWeightRatioFrame.return_value = []
+    with patch.object(_api, "ResultData", return_value=result, create=True), \
+            patch("runtime._generate_docx"), patch("runtime._generate_pdf"):
+        report = run_analysis({}, {"jws_path": str(project)})
+    result.GetDesignBeams.assert_not_called()
+    result.GetDesignColumns.assert_not_called()
+    assert report["summary"]["includeDesign"] is False
+    assert report["summary"]["reportKind"] == "structureclaw-summary-of-native-results"
+    assert report["detailed"]["modal_analysis"][0]["angle"] == 0
+
+
+def test_failed_native_result_initialization_does_not_read_stale_values(tmp_path):
+    project = tmp_path / "model.JWS"
+    project.write_bytes(b"native project")
+    result = MagicMock()
+    result.InitialResult.return_value = -1
+    with patch.object(_api, "ResultData", return_value=result, create=True), \
+            patch("runtime._generate_docx"), patch("runtime._generate_pdf"):
+        report = run_analysis({}, {"jws_path": str(project)})
+    result.GetModePeriods.assert_not_called()
+    assert any("InitialResult" in warning for warning in report["warnings"])
+
 
 class TestGenerateMarkdown:
     def test_basic_report(self):

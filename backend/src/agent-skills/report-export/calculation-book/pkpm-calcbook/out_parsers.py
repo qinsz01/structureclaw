@@ -80,7 +80,7 @@ def _parse_mass_table(text: str) -> List[Dict[str, Any]]:
                     "dead_mass": float(parts[5]),
                     "live_mass": float(parts[6]),
                     "add_mass": float(parts[7]),
-                    "mass_ratio": float(parts[8]) if len(parts) > 8 else 0.0,
+                    "mass_ratio": float(parts[8]) if len(parts) > 8 else None,
                 })
             except (ValueError, IndexError):
                 break
@@ -188,7 +188,7 @@ def _parse_floor_dimensions(text: str) -> List[Dict[str, Any]]:
                     "equiv_width": float(parts[5]),
                     "equiv_height": float(parts[6]),
                     "max_width": float(parts[7]),
-                    "min_width": float(parts[8]) if len(parts) > 8 else 0.0,
+                    "min_width": float(parts[8]) if len(parts) > 8 else None,
                 })
             except (ValueError, IndexError):
                 continue
@@ -273,7 +273,7 @@ def _parse_overturning(text: str) -> List[Dict[str, Any]]:
                     "Mr": float(parts[2]),
                     "Mov": float(parts[3]),
                     "ratio": float(parts[4]),
-                    "zero_stress": float(parts[5]) if len(parts) > 5 else 0.0,
+                    "zero_stress": float(parts[5]) if len(parts) > 5 else None,
                 })
             except (ValueError, IndexError):
                 continue
