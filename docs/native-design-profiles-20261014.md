@@ -1,0 +1,99 @@
+# Native design profiles / 原生设计验收范围
+
+This review covers StructureClaw's input, execution and result adaptation. It is
+not a new certification of PKPM/YJK, and it does not mean 300 benchmark tasks have
+been authored or executed. The [product runtime](product-runtime.md) describes the
+public interfaces; the [read-only review manifest](reproducibility/native-design-independent-review-20261014.json)
+binds the completed result files and native evidence by SHA-256.
+
+本记录独立复查本体的传参、原生执行、结果读回及交付口径，不重新认证商业求解器，也不把代表算例通过
+写成300题全部完成。历史失败结果、参考数值和容差均未改写。
+
+## Material and code identity / 材料与规范身份
+
+| Profile / 配置 | Verified meaning / 已核含义 |
+|---|---|
+| PKPM C30 native design | E=30000 MPa, G=12000 MPa. Source G=12500 MPa is a conflict, not permission to change it. / 源模型刚度不符须明确修改，不能静默切换。 |
+| PKPM Q355 native design | E=206000 MPa, G=79000 MPa. SDK grade enum 29, native DATA grade −355, and WPJ report Rsc=355 are distinct representations of this identity. / 三种牌号编码分别核对。 |
+| PKPM concrete code profile | `PKPM-2025R2.5-native` is a version-bound profile. WMASS identifies the 2021 general specification; it does not establish an arbitrary GB50010 edition. / 不能把软件版本配置冒充任意混凝土规范年份。 |
+| Steel code | `GB50017-2017`, verified from native code settings/report. / 必须核对实际生效规范。 |
+| YJK concrete code | `GB/T50010-2010(2024)`, verified in native settings and output. / 原生设置与结果共同核对。 |
+
+Elastic analysis with exact user materials remains separate from native-grade
+design. An accepted elastic calculation alone is insufficient evidence for native
+reinforcement or code compliance. Known design values, including fck/fyk/fstk,
+remain on the canonical model and its design context; an unmapped design override
+must still be rejected when native design is requested.
+
+精确弹性分析与原生牌号设计分别绑定。计算成功不等于配筋已算，更不等于已有配筋合格。设计请求必须
+明确采用已读回的默认值；额外参数只有经过实际写入、读回后才可宣称生效。
+
+PKPM's installed SATWE user guide, section 1.2.10 item 26, fixes beam/column
+stirrup design spacing at **100 mm**. Writing 816/817 to another value does not
+establish a changed native design basis. The guide permits converting reinforcement
+output for other spacing; such a conversion must be labeled as derived and retain
+the original 100 mm basis. This review does not claim that conversion is implemented.
+
+本机官方手册明确梁柱箍筋以100 mm为计算基准。不能把设置文件中的80或120当作已生效；非100 mm折算
+应另行标明派生依据，本记录不把该折算宣称为已实现能力。
+
+## Completed native runs / 已完成的原生证据
+
+Counts below refer to the normalized native records/checks, not independent
+clauses or benchmark tasks. Full paths and hashes are in the review manifest.
+执行完成与验算结论分别统计；NA表示该原生检查不适用，不计作通过。
+
+| Run suffix / 运行尾号 | Case / 算例 | Reinforcement records / 配筋记录 | Pass / 通过 | Fail / 超限 | NA |
+|---|---|---:|---:|---:|---:|
+| PKPM `090434-6b7bb6d5` | C30 normal / 正常 | 30 | 13 | 0 | 0 |
+| PKPM `090550-86b77176` | C30 overload / 超载 | 30 | 4 | 9 | 0 |
+| PKPM `091116-643e218a` | Q355 3 m box columns / 箱柱 | 0 | 0 | 6 | 0 |
+| PKPM `091209-735605bb` | Q355 overload / 超载 | 0 | 0 | 6 | 0 |
+| PKPM `091839-52070c27` | Q355 2 m box columns / 箱柱 | 0 | 6 | 0 | 0 |
+| YJK `090449-c6fc800b` | C30 normal / 正常 | 140 | 12 | 0 | 0 |
+| YJK `090906-56aba572` | C30 load ×50 / 荷载50倍 | 140 | 0 | 12 | 0 |
+| YJK `091110-f8640252` | Q355 box normal / 正常箱形框架 | 0 | 140 | 0 | 72 |
+| YJK `090659-803f122a` | Q355 box load ×100 / 荷载100倍 | 0 | 52 | 88 | 72 |
+| YJK `085916-e8dd01` | Q355 H section / H形框架 | 0 | 172 | 4 | 36 |
+
+The PKPM 3 m box-column run is **not** an all-pass case: its official slenderness
+limit report fails even at the smaller load. The later 2 m case is a different,
+explicit source model. Neither its geometry nor its passing result rewrites the
+3 m record. YJK's thin-web H-column limit failures likewise remain visible.
+
+PKPM三米柱较低荷载仍有官方长细比超限；二米柱是另行冻结输入的独立正常算例，不能替换前者。
+YJK薄腹板H柱的宽厚比超限也没有被删除。
+
+## Output semantics / 输出口径
+
+- Required reinforcement is an area requirement, not installed reinforcement.
+  `required-reinforcement` therefore reports `complianceStatus=not_evaluated`.
+  PKPM does not invent YJK's separate `calculatedArea` field. / 所需配筋不等于已配钢筋验算。
+- Native automatic combinations retain their native identities and scope.
+  They are not relabeled as the selected elastic case or user combination.
+  / 官方设计组合与用户分析工况分别保存。
+- PKPM checks include documented axial-ratio tuples and the official
+  `GetExceedLimitInfo` report. Raw `GetCalcMax1/2/3` arrays are preserved.
+  Eighteen first-component ratios were independently consistent with printed
+  WPJ F1/F2/F3 divided by capacity, within **report rounding**; this does not
+  establish every tuple index or certify solver numerical tolerance.
+  / 不从未知数组取最大值生成利用率，也不把打印舍入当求解容差。
+- The box-section mapping uses B/H outer dimensions and U/T/D/F wall thicknesses,
+  matching the installed vendor library
+  `Ribbon/AID/OptSect/PKPM截面库/柱/箱形柱/箱形柱-Q355-四级.xlsx` (Sheet2).
+  Native WPJ independently records 300×300×12×12×12×12 for the reviewed box columns.
+  / 不能只写T而遗漏其余三片壁厚。
+
+## Scope limits / 使用边界
+
+The reviewed profiles cover linear static physical frame members, explicit
+self-weight disabled, and the actual material/section families shown above.
+Numerical reference carriers, design of subdivided physical members, unmapped
+source design overrides, and checking already-installed reinforcement are not
+established by these receipts. Requested unsupported inputs must return their
+actual missing/unsupported status. Empty arrays, sentinel values and zero-filled
+fallbacks cannot become successful design evidence.
+
+这些证据只覆盖上述静力裸杆物理截面及材料。数值截面载体不提供设计几何；分段计算构件的设计归并、
+未映射显式设计覆盖、已有配筋校核不能由本表推出。动力、抗震专用方法及内置规范公式属于另外的验收链。
+后续参数/牌号验收应追加新证据，不能回填旧运行或把代码里列出的选项当成已经通过。

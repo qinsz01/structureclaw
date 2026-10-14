@@ -1,0 +1,580 @@
+{
+  "schema": "sclaw-native-design-independent-review/v1",
+  "reviewDate": "2026-10-14",
+  "purpose": "Native input/readback/report field integration, not commercial solver recertification or 300-task execution",
+  "checks": [
+    {
+      "id": "pkpm-c30-native-design-20261014-090434-6b7bb6d5",
+      "engine": "pkpm",
+      "analysisExecutionStatus": "success",
+      "nativeDesignStatus": "completed",
+      "request": {
+        "requested": true,
+        "code": "PKPM-2025R2.5-native",
+        "mode": "code-check",
+        "adoptedNativeDefaults": true
+      },
+      "recordCount": 30,
+      "checkCounts": {
+        "pass": 13,
+        "fail": 0,
+        "not_applicable": 0
+      },
+      "conclusionScope": "reported-native-checks-only",
+      "resultFiles": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-c30-native-design-20261014-090434-6b7bb6d5\\result.json",
+          "sha256": "4b2d6de298a2b59c7828a0b5211be84c8528597d5a34e6f754759ace0a4016eb"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-c30-native-design-20261014-090434-6b7bb6d5\\acceptance.json",
+          "sha256": "624e04bb1a7580136d077919b133989efda1ade4a457c42c117fb3e49a3ba917"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-c30-native-design-20261014-090434-6b7bb6d5\\frozen-source-model.json",
+          "sha256": "3ec6814f4576ea65e6ad0424c14a1d0467bdb317182a12b7f3eb8c7a7ee5427e"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-c30-native-design-20261014-090434-6b7bb6d5\\frozen-request.json",
+          "sha256": "a0088f03aec62c4eea36cefac438958f8ed51d0b5c80c1d7be7e33952058d4e3"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-c30-native-design-20261014-090434-6b7bb6d5\\frozen-timoshenko-reference.json",
+          "sha256": "8bade8ccf7a862cb64bb769d6efc6c93a089a63c45e05790ff9e58c55ed6b304"
+        }
+      ],
+      "nativeEvidence": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-c30-native-design-20261014-090434-6b7bb6d5\\sc_5bfc94a5\\native-design-sdk.json",
+          "sha256": "0b2ea52998bdcf2bf8d305195bc2bd526902865ed6af34078853585992bfc8fc"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-c30-native-design-20261014-090434-6b7bb6d5\\sc_5bfc94a5\\WMASS.OUT",
+          "sha256": "6d93eb36842fd30a659e819303cf92c63705e984bf796dff7103585cb8b73bbf"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-c30-native-design-20261014-090434-6b7bb6d5\\sc_5bfc94a5\\DATA.SAT",
+          "sha256": "24d05e351ee5f688038321e00f51ff2870c2873b2e14ee92faee2183e6a6d267"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-c30-native-design-20261014-090434-6b7bb6d5\\sc_5bfc94a5\\WPJ1.OUT",
+          "sha256": "4eafb0a780825fb75510404f4f2456656422c119ee88b9b59a19c9fae5c4a463"
+        }
+      ]
+    },
+    {
+      "id": "pkpm-c30-native-overlimit-20261014-090550-86b77176",
+      "engine": "pkpm",
+      "analysisExecutionStatus": "success",
+      "nativeDesignStatus": "completed",
+      "request": {
+        "requested": true,
+        "code": "PKPM-2025R2.5-native",
+        "mode": "code-check",
+        "adoptedNativeDefaults": true
+      },
+      "recordCount": 30,
+      "checkCounts": {
+        "pass": 4,
+        "fail": 9,
+        "not_applicable": 0
+      },
+      "conclusionScope": "reported-native-checks-only",
+      "resultFiles": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-c30-native-overlimit-20261014-090550-86b77176\\result.json",
+          "sha256": "a7e3d3216e8069dbcbd8d55a6930890097f5eb95d892a3e9ca3c8cc7346e4cda"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-c30-native-overlimit-20261014-090550-86b77176\\acceptance.json",
+          "sha256": "dfc2b57625cc9766a42fdd785de49755745ccd3b56edf3275545d2ecb82fa644"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-c30-native-overlimit-20261014-090550-86b77176\\frozen-source-model.json",
+          "sha256": "6a6e306d5efa0cb11fba06913337de14311aa0bf2a0fa8186758fd35c3a528b9"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-c30-native-overlimit-20261014-090550-86b77176\\frozen-request.json",
+          "sha256": "a0088f03aec62c4eea36cefac438958f8ed51d0b5c80c1d7be7e33952058d4e3"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-c30-native-overlimit-20261014-090550-86b77176\\frozen-timoshenko-reference.json",
+          "sha256": "85a94f39e66293ca0b71709bf67012d9f0744f72cd25faffa5c76e98d6e2fa1e"
+        }
+      ],
+      "nativeEvidence": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-c30-native-overlimit-20261014-090550-86b77176\\sc_22d86a78\\native-design-sdk.json",
+          "sha256": "f760b6a1457b9df238d0b99a5189f6c4808ba3aa188d07610d015b06d69a529d"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-c30-native-overlimit-20261014-090550-86b77176\\sc_22d86a78\\WMASS.OUT",
+          "sha256": "6cf33eac57b435188c74074d9333f80cd92a465a5664820eae2f96e146faf11b"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-c30-native-overlimit-20261014-090550-86b77176\\sc_22d86a78\\DATA.SAT",
+          "sha256": "5ad3be7a79405db2ca76ab3486a83d85e5b595b2e2ccb917452f217f687ba81c"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-c30-native-overlimit-20261014-090550-86b77176\\sc_22d86a78\\WPJ1.OUT",
+          "sha256": "0554b6716bfa1be27d0d36b4f31daab9fcfb94dff28ef8560c1741d9d292b83d"
+        }
+      ]
+    },
+    {
+      "id": "pkpm-q355-native-design-20261014-091116-643e218a",
+      "engine": "pkpm",
+      "analysisExecutionStatus": "success",
+      "nativeDesignStatus": "completed",
+      "request": {
+        "requested": true,
+        "code": "GB50017-2017",
+        "mode": "code-check",
+        "adoptedNativeDefaults": true
+      },
+      "recordCount": 0,
+      "checkCounts": {
+        "pass": 0,
+        "fail": 6,
+        "not_applicable": 0
+      },
+      "conclusionScope": "reported-native-checks-only",
+      "resultFiles": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-q355-native-design-20261014-091116-643e218a\\result.json",
+          "sha256": "b44c4a1aca0d61ea7f8540ccbde04b5eb4f14226b5de38668f4bfbd27ec54c68"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-q355-native-design-20261014-091116-643e218a\\acceptance.json",
+          "sha256": "3b40ddfd67e77ba8cabcff178ac07afcd1ec6748332d889e3adc938c883ee641"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-q355-native-design-20261014-091116-643e218a\\frozen-source-model.json",
+          "sha256": "4524e476be4a966f9be1fce3d39039cfe75f6b04743b6f0413bc1fb023a53a97"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-q355-native-design-20261014-091116-643e218a\\frozen-request.json",
+          "sha256": "ba406c66cac0f05d0e2a7fd63de046a591466cca8ce46f9ad62989345201b811"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-q355-native-design-20261014-091116-643e218a\\frozen-timoshenko-reference.json",
+          "sha256": "9c48e1532194004690fb4e873c4a71eaf3a7919e831fddec9733e4e52da8c7a6"
+        }
+      ],
+      "nativeEvidence": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-q355-native-design-20261014-091116-643e218a\\sc_2441a8e9\\native-design-sdk.json",
+          "sha256": "a6ee9cc01ff103128bc719278807a3e2504f45d45cf35c4d4a8f447c34f997ab"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-q355-native-design-20261014-091116-643e218a\\sc_2441a8e9\\WMASS.OUT",
+          "sha256": "83c33eba3f09ab4ee23e488605a5851b6ff1f7ff8ce108b96c4313f72692469e"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-q355-native-design-20261014-091116-643e218a\\sc_2441a8e9\\DATA.SAT",
+          "sha256": "376750cb242eb5d976b7639a0c8c6a993240e52d5e4ae8b95fa1b5eaf740a4fe"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-q355-native-design-20261014-091116-643e218a\\sc_2441a8e9\\WPJ1.OUT",
+          "sha256": "2bf34826a94ef10ceea96ba3c52e765d45646a6b5d299b31c9eee5b11678aa68"
+        }
+      ]
+    },
+    {
+      "id": "pkpm-q355-native-overlimit-20261014-091209-735605bb",
+      "engine": "pkpm",
+      "analysisExecutionStatus": "success",
+      "nativeDesignStatus": "completed",
+      "request": {
+        "requested": true,
+        "code": "GB50017-2017",
+        "mode": "code-check",
+        "adoptedNativeDefaults": true
+      },
+      "recordCount": 0,
+      "checkCounts": {
+        "pass": 0,
+        "fail": 6,
+        "not_applicable": 0
+      },
+      "conclusionScope": "reported-native-checks-only",
+      "resultFiles": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-q355-native-overlimit-20261014-091209-735605bb\\result.json",
+          "sha256": "9c790b243863a2513743e71a9933bb76dbe8ece8d96eaffd4fc76f243aa949f6"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-q355-native-overlimit-20261014-091209-735605bb\\acceptance.json",
+          "sha256": "c2c78ea10d9a45244ec5bcdca069938ab00adc2ad9fb69d0e60162c2f98d2bf2"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-q355-native-overlimit-20261014-091209-735605bb\\frozen-source-model.json",
+          "sha256": "770c208eb98cd74813f4b2aa9a1dbadfa567e92cb77a7b6e66b7ab2a0f84fbd0"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-q355-native-overlimit-20261014-091209-735605bb\\frozen-request.json",
+          "sha256": "ba406c66cac0f05d0e2a7fd63de046a591466cca8ce46f9ad62989345201b811"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-q355-native-overlimit-20261014-091209-735605bb\\frozen-timoshenko-reference.json",
+          "sha256": "c0c4c227bcc94858728f20b7ab0c7f305bf6090aff5c4be278365fdaf0832c3f"
+        }
+      ],
+      "nativeEvidence": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-q355-native-overlimit-20261014-091209-735605bb\\sc_6f9fa34d\\native-design-sdk.json",
+          "sha256": "3a0938e2d316ab380b480db1abff343a4ca7c4d17528dd72d72172221ab5db26"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-q355-native-overlimit-20261014-091209-735605bb\\sc_6f9fa34d\\WMASS.OUT",
+          "sha256": "bcd83922812a09397dbbeaa9e8a94cffc62952d9cfe27b4c2c06a1ea28a8d740"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-q355-native-overlimit-20261014-091209-735605bb\\sc_6f9fa34d\\DATA.SAT",
+          "sha256": "c3edf58a65ac932ec91dd67f59e1502deba6c26a7cf34205b408bca0de2e5446"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-q355-native-overlimit-20261014-091209-735605bb\\sc_6f9fa34d\\WPJ1.OUT",
+          "sha256": "5e3ef0310b6e1af65d6bc4fd8bdb53268cd1dce054223b7b70c2290566877b48"
+        }
+      ]
+    },
+    {
+      "id": "pkpm-q355-short-native-design-20261014-091839-52070c27",
+      "engine": "pkpm",
+      "analysisExecutionStatus": "success",
+      "nativeDesignStatus": "completed",
+      "request": {
+        "requested": true,
+        "code": "GB50017-2017",
+        "mode": "code-check",
+        "adoptedNativeDefaults": true
+      },
+      "recordCount": 0,
+      "checkCounts": {
+        "pass": 6,
+        "fail": 0,
+        "not_applicable": 0
+      },
+      "conclusionScope": "reported-native-checks-only",
+      "resultFiles": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-q355-short-native-design-20261014-091839-52070c27\\result.json",
+          "sha256": "bbcb3d41ab2cccd9ede351345994b246a36a80b63f13bf324ba375d3ca592b6a"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-q355-short-native-design-20261014-091839-52070c27\\acceptance.json",
+          "sha256": "4d47d8ce188bf4c1f3176eeec41e59e6950e42e10be1bdfc25b552f5a695941b"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-q355-short-native-design-20261014-091839-52070c27\\frozen-source-model.json",
+          "sha256": "68a5030b3446f947c45885318bfbc83c09aa0a00acbd3322023376b233281a79"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-q355-short-native-design-20261014-091839-52070c27\\frozen-request.json",
+          "sha256": "ba406c66cac0f05d0e2a7fd63de046a591466cca8ce46f9ad62989345201b811"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-q355-short-native-design-20261014-091839-52070c27\\frozen-timoshenko-reference.json",
+          "sha256": "72f78e8eb940a3c06e26fff2bd73c41a8ea9be5bd8d98141a6763f436505d730"
+        }
+      ],
+      "nativeEvidence": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-q355-short-native-design-20261014-091839-52070c27\\sc_8e4da65e\\native-design-sdk.json",
+          "sha256": "0d305362827c6998418f285cc13cdb94db85c187461087ffec57798a9137771d"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-q355-short-native-design-20261014-091839-52070c27\\sc_8e4da65e\\WMASS.OUT",
+          "sha256": "30d86db6130f872a7f089a2dad27ed4d442d5e88d30357e4d8721c2a44fa3fa7"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-q355-short-native-design-20261014-091839-52070c27\\sc_8e4da65e\\DATA.SAT",
+          "sha256": "e6d3195b660184a8fefa3b0e650c25cfa5e1699f2d213b79d17492e15f5b4ad4"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-q355-short-native-design-20261014-091839-52070c27\\sc_8e4da65e\\WPJ1.OUT",
+          "sha256": "3829b08ba1f6932249a017cc3b5467576b39f3251bff0634876b2c9784dddb43"
+        }
+      ]
+    },
+    {
+      "id": "yjk-design-20261014-090449-c6fc800b",
+      "engine": "yjk",
+      "analysisExecutionStatus": "success",
+      "nativeDesignStatus": "completed",
+      "request": {
+        "requested": true,
+        "mode": "required-reinforcement",
+        "code": "GB/T50010-2010(2024)",
+        "adoptedNativeDefaults": true,
+        "parameters": {
+          "beamCoverMm": 30,
+          "columnCoverMm": 35
+        }
+      },
+      "recordCount": 140,
+      "checkCounts": {
+        "pass": 12,
+        "fail": 0,
+        "not_applicable": 0
+      },
+      "conclusionScope": "reported-native-checks-only",
+      "resultFiles": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090449-c6fc800b\\result.json",
+          "sha256": "6c6c4d123bb6df4bc7ebf8580dc886e467661f51253cbada1820f1a57df9211a"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090449-c6fc800b\\acceptance.json",
+          "sha256": "cb5bec77358e98fd45c60c44a110e71f675e6f3dd446db4bb25324f7679ecceb"
+        }
+      ],
+      "nativeEvidence": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090449-c6fc800b\\sc_native-design-integration_299a46725049\\results.json",
+          "sha256": "d9f1f2a4e5e71c7cc04c6d8893a53c8be05b56a83838e1cf1eaa0fc4dd14ccb9"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090449-c6fc800b\\sc_native-design-integration_299a46725049\\native-design-settings-readback.json",
+          "sha256": "697b3cf1117face56335a67bf6d1584423928aad4daed1d22909c440fc5edd8a"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090449-c6fc800b\\sc_native-design-integration_299a46725049\\设计结果\\mainjss.out",
+          "sha256": "f4bbccf7022073240af2168eb2da06e8f24d32b499291ccbf0aeca9e6f1d7a6a"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090449-c6fc800b\\sc_native-design-integration_299a46725049\\fea.dat",
+          "sha256": "43709aaada932ecdcc30392330dad7258ce73d58b9ee68d510961d4e463bc374"
+        }
+      ]
+    },
+    {
+      "id": "yjk-design-20261014-090906-56aba572",
+      "engine": "yjk",
+      "analysisExecutionStatus": "success",
+      "nativeDesignStatus": "completed",
+      "request": {
+        "requested": true,
+        "mode": "required-reinforcement",
+        "code": "GB/T50010-2010(2024)",
+        "adoptedNativeDefaults": true,
+        "parameters": {
+          "beamCoverMm": 30,
+          "columnCoverMm": 35
+        }
+      },
+      "recordCount": 140,
+      "checkCounts": {
+        "pass": 0,
+        "fail": 12,
+        "not_applicable": 0
+      },
+      "conclusionScope": "reported-native-checks-only",
+      "resultFiles": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090906-56aba572\\result.json",
+          "sha256": "e050edc422e728ba1417dc173e34ecb054ca937ad1340a20aeaae928f4c625a1"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090906-56aba572\\acceptance.json",
+          "sha256": "cee765ea1cb8342bf4c8eb71e3b2331f57e61d908f71eb1d839d90ade08adcbc"
+        }
+      ],
+      "nativeEvidence": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090906-56aba572\\sc_native-design-integration_d78c32a76341\\results.json",
+          "sha256": "f1eb956bb40c95f25c3d7e3cc092228e457518c0762fb6a754529f003f2b11f6"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090906-56aba572\\sc_native-design-integration_d78c32a76341\\native-design-settings-readback.json",
+          "sha256": "6128e3cd0abbd7e0450695ddce38fd281ca272ad5d5cba97ef6884276ef091a6"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090906-56aba572\\sc_native-design-integration_d78c32a76341\\设计结果\\mainjss.out",
+          "sha256": "f15f40271fb576f7354fdf28c76a023b146f9dc70ff1726b42c5e404471c7e05"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090906-56aba572\\sc_native-design-integration_d78c32a76341\\fea.dat",
+          "sha256": "5c30521ebffbc0004ae7f83ea2e3c5e6982bad9c6d2442c9a48541ad00fb75f7"
+        }
+      ]
+    },
+    {
+      "id": "yjk-design-20261014-091110-f8640252",
+      "engine": "yjk",
+      "analysisExecutionStatus": "success",
+      "nativeDesignStatus": "completed",
+      "request": {
+        "requested": true,
+        "mode": "code-check",
+        "code": "GB50017-2017",
+        "adoptedNativeDefaults": true,
+        "parameters": {
+          "beamCoverMm": 30,
+          "columnCoverMm": 35
+        }
+      },
+      "recordCount": 0,
+      "checkCounts": {
+        "pass": 140,
+        "fail": 0,
+        "not_applicable": 72
+      },
+      "conclusionScope": "reported-native-checks-only",
+      "resultFiles": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-091110-f8640252\\result.json",
+          "sha256": "07b83b40d5fcca87cfd3bd238cccb5739c366941b216fded9ae538dd81ae902f"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-091110-f8640252\\acceptance.json",
+          "sha256": "d0dee8e21728999ae1e32cfeb7df7eaf0f6d0c80ad0fb528b6d787bd6ce659dc"
+        }
+      ],
+      "nativeEvidence": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-091110-f8640252\\sc_native-design-integration_7709cc39d971\\results.json",
+          "sha256": "852c513de6dd5e68ddee0b710a700fabdf677502fd37de823649b93e64c61dfe"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-091110-f8640252\\sc_native-design-integration_7709cc39d971\\native-design-settings-readback.json",
+          "sha256": "3e7c2db431547e81f8e0193309327144e310bc211217c0a560e36e848c73a649"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-091110-f8640252\\sc_native-design-integration_7709cc39d971\\设计结果\\mainjss.out",
+          "sha256": "2caae840e7113ce3f45b9eb21475cb324e3e740a6bebbc6b6d012548adf35e2d"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-091110-f8640252\\sc_native-design-integration_7709cc39d971\\fea.dat",
+          "sha256": "8522d62ea4b022bfbcad401b08e49f506126d819523c294b22a5f85349263dd5"
+        }
+      ]
+    },
+    {
+      "id": "yjk-design-20261014-090659-803f122a",
+      "engine": "yjk",
+      "analysisExecutionStatus": "success",
+      "nativeDesignStatus": "completed",
+      "request": {
+        "requested": true,
+        "mode": "code-check",
+        "code": "GB50017-2017",
+        "adoptedNativeDefaults": true,
+        "parameters": {
+          "beamCoverMm": 30,
+          "columnCoverMm": 35
+        }
+      },
+      "recordCount": 0,
+      "checkCounts": {
+        "pass": 52,
+        "fail": 88,
+        "not_applicable": 72
+      },
+      "conclusionScope": "reported-native-checks-only",
+      "resultFiles": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090659-803f122a\\result.json",
+          "sha256": "9e02dfeb39a64ea5c2dcdf97ca0d313cec40538e6db4f13382a72105a6a95ceb"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090659-803f122a\\acceptance.json",
+          "sha256": "de98bd5ce4ee47548f0888b65db5e43626d2619ca9da52164b0d4363020d215a"
+        }
+      ],
+      "nativeEvidence": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090659-803f122a\\sc_native-design-integration_df77364d451c\\results.json",
+          "sha256": "f17834c6a9e1ab7a1a66195f224dc2dede2b00abc9b265bc4854f3e241449197"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090659-803f122a\\sc_native-design-integration_df77364d451c\\native-design-settings-readback.json",
+          "sha256": "2544eea6278603f6fb194cc8d13450b229a9f9393dc144785463aa835d644561"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090659-803f122a\\sc_native-design-integration_df77364d451c\\设计结果\\mainjss.out",
+          "sha256": "498bf7eac0e3eec3955c0584886bc7ae8be08733bb1e2b7c5a89f61167a314c5"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090659-803f122a\\sc_native-design-integration_df77364d451c\\fea.dat",
+          "sha256": "896e2eff985689a414c7eabaf16c894ad2b1adcf0349795fb9744dbf2bb72ba1"
+        }
+      ]
+    },
+    {
+      "id": "yjk-native-design-20261014-085916-e8dd01",
+      "engine": "yjk",
+      "analysisExecutionStatus": "success",
+      "nativeDesignStatus": "completed",
+      "request": {
+        "requested": true,
+        "mode": "code-check",
+        "code": "GB50017-2017",
+        "adoptedNativeDefaults": true,
+        "parameters": {
+          "beamCoverMm": 30,
+          "columnCoverMm": 35
+        }
+      },
+      "recordCount": 0,
+      "checkCounts": {
+        "pass": 172,
+        "fail": 4,
+        "not_applicable": 36
+      },
+      "conclusionScope": "reported-native-checks-only",
+      "resultFiles": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-native-design-20261014-085916-e8dd01\\result.json",
+          "sha256": "334f83674362b777c71950d966351ba53bf30a4e633f79eef43ff3f80fd22a41"
+        }
+      ],
+      "nativeEvidence": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-native-design-20261014-085916-e8dd01\\sc_native-design-adapter_56ebed602919\\results.json",
+          "sha256": "995ccd9d84b5809769b8e7648c3bca585dd367a313cffa45cb3aa0524640be75"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-native-design-20261014-085916-e8dd01\\sc_native-design-adapter_56ebed602919\\native-design-settings-readback.json",
+          "sha256": "9d8c9272cd14534dcf425ea736ae0401952469d15e8b90589d08a67db7ddbae0"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-native-design-20261014-085916-e8dd01\\sc_native-design-adapter_56ebed602919\\设计结果\\mainjss.out",
+          "sha256": "6b745daee091006e530b89a014e13a15b31f921b40331f89ac186542bf4168b4"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-native-design-20261014-085916-e8dd01\\sc_native-design-adapter_56ebed602919\\fea.dat",
+          "sha256": "0be5a1d1251bf752699ce2329a12d4e6b41190aa0b03ffd86511886d32c11640"
+        }
+      ]
+    }
+  ],
+  "boundedScope": [
+    "linear static physical frame members",
+    "explicit no selfweight for reviewed profiles",
+    "native automatic design combinations kept distinct from selected analysis cases",
+    "required reinforcement is not verification of installed reinforcement",
+    "numeric reference carriers are analysis-only, not physical design geometry"
+  ],
+  "furtherParameterAcceptance": "See per-engine manifests for subsequent profile and parameter receipts; this review lists completed files only.",
+  "independentSupportingSources": [
+    {
+      "path": "G:\\PKPM2025R2.5\\Ribbon\\Help\\UserGuider\\PKPM 软件说明书-多层及高层建筑结构分析与设计软件 SATWE使用指南.pdf",
+      "sha256": "efb62e61e2f845609102ff373d1eb8da6831a9847b8f7d8d4c4daf9df97cf962"
+    },
+    {
+      "path": "G:\\PKPM2025R2.5\\Ribbon\\AID\\OptSect\\PKPM截面库\\柱\\箱形柱\\箱形柱-Q355-四级.xlsx",
+      "sha256": "17480e01d8af75622a616847de37206b23f7cb531468f66cb27d1685f1b221aa"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-steel-ratio-readonly-20261014.json",
+      "sha256": "329584afb6a43eaf087cc2b8984afba793d82534067e07b18c080b0fa7a6f757"
+    }
+  ],
+  "pkpmStirrupSpacing": {
+    "source": "SATWE user guide section 1.2.10, item 26",
+    "nativeDesignBasisMm": 100,
+    "non100": "Vendor guide calls for conversion of reinforcement output; do not claim the native design spacing changed."
+  }
+}
