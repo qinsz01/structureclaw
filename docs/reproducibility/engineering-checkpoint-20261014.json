@@ -1,0 +1,35 @@
+{
+  "schema": "sclaw-product-acceptance/v1",
+  "date": "2026-10-14",
+  "status": "passed",
+  "scope": "Lossless typed checkpoint compression, legacy history compatibility, latest-state selection and fresh-process readback of an already accepted native result",
+  "implementation": "backend/src/agent-langgraph/file-checkpointer.ts",
+  "validation": {
+    "backendBuild": "passed",
+    "targetedJest": {
+      "suites": 3,
+      "tests": 15,
+      "files": [
+        "backend/tests/file-checkpointer.test.mjs",
+        "backend/src/agent-langgraph/__tests__/sequential-tools-checkpoint.test.mjs",
+        "backend/src/agent-langgraph/__tests__/conversation-jobs.test.mjs"
+      ]
+    },
+    "sourceArchive": "G:/StructureClaw-All/sclaw_data/work/product-native-archive-20261014-01",
+    "runId": "75f9459e-790c-4451-9761-b5f3fb0f1b79",
+    "receipt": "G:/StructureClaw-All/sclaw_data/work/product-checkpoint-20261014-01/acceptance.json",
+    "rawCheckpointBytes": 74509485,
+    "storedCheckpointBytes": 6405854,
+    "reductionPercent": 91.40263283258501,
+    "restoredRunSha256": "2e64dfd12d8a0ee517ad282345362abda4a49e99afdac1b96f06a5f3f7ee8c83",
+    "solverExecutions": 0,
+    "llmCalls": 0
+  },
+  "reproduce": "node backend/tests/engineering-checkpoint-acceptance.mjs <existing-archive-directory> <run-id> <new-output-directory>",
+  "limits": [
+    "Storage and restart verification does not certify additional solver capabilities.",
+    "Legacy records remain readable but are not rewritten in place.",
+    "Latest selection still reads historical checkpoint files; it avoids materializing all historical engineering states.",
+    "Overall product remains a preview until the remaining required adaptations and acceptance are complete."
+  ]
+}

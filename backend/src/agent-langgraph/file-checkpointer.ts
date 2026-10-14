@@ -3,7 +3,8 @@ import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
-import { isDeepStrictEqual } from 'node:util';
+import { isDeepStrictEqual, promisify } from 'node:util';
+import { gzip, gunzip } from 'node:zlib';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import {
   BaseCheckpointSaver, WRITES_IDX_MAP, TASKS, maxChannelVersion,
@@ -16,12 +17,14 @@ function validateId(id: string, label: string): void {
   if (typeof id !== 'string' || !SAFE_ID_RE.test(id)) throw new Error('Invalid ' + label + ': contains unsafe characters');
 }
 function missing(error: unknown): boolean { return (error as NodeJS.ErrnoException).code === 'ENOENT'; }
-type Serialized = { type: string; data: string };
+const compress = promisify(gzip), decompress = promisify(gunzip);
+type Serialized = { type: string; data: string; encoding?: 'gzip-base64' };
 interface StoredCheckpoint {
   checkpoint: Serialized | string;
   metadata: Serialized | string;
   namespace?: string;
   parentCheckpointId?: string;
+  identity?: { id: string; ts: string; sha256: string };
 }
 type StoredWrites = { version: 2; entries: Record<string, { channel: string; value: Serialized | string }> };
 
@@ -40,12 +43,30 @@ export class FileCheckpointer extends BaseCheckpointSaver {
 
   private async serialize(value: unknown): Promise<Serialized> {
     const [type, bytes] = await this.serde.dumpsTyped(value);
+    if (bytes.length >= 32768) {
+      const compressed = await compress(bytes);
+      if (compressed.length < bytes.length) return { type, data: compressed.toString('base64'), encoding: 'gzip-base64' };
+    }
     return { type, data: Buffer.from(bytes).toString('base64') };
   }
 
-  private deserialize(value: Serialized | string): Promise<unknown> {
-    return typeof value === 'string' ? this.serde.loadsTyped('json', value)
-      : this.serde.loadsTyped(value.type, Buffer.from(value.data, 'base64'));
+  private async deserialize(value: Serialized | string): Promise<unknown> {
+    if (typeof value === 'string') return this.serde.loadsTyped('json', value);
+    if (value.encoding !== undefined && value.encoding !== 'gzip-base64') throw new Error('CHECKPOINT_ENCODING_INVALID');
+    const bytes = Buffer.from(value.data, 'base64');
+    return this.serde.loadsTyped(value.type, value.encoding === 'gzip-base64' ? await decompress(bytes) : bytes);
+  }
+
+  private identityHash(stored: StoredCheckpoint, id: string, ts: string): string {
+    return createHash('sha256').update(JSON.stringify([id, ts, stored.namespace ?? '', stored.checkpoint])).digest('hex');
+  }
+
+  private async identity(stored: StoredCheckpoint): Promise<{ id: string; ts: string }> {
+    if (stored.identity === undefined) return this.deserialize(stored.checkpoint) as Promise<Checkpoint>;
+    const { id, ts, sha256 } = stored.identity;
+    if (typeof id !== 'string' || typeof ts !== 'string' || !Number.isFinite(Date.parse(ts))
+      || sha256 !== this.identityHash(stored, id, ts)) throw new Error('CHECKPOINT_IDENTITY_INVALID');
+    return { id, ts };
   }
 
   private async readJson<T>(file: string): Promise<T | undefined> {
@@ -102,8 +123,10 @@ export class FileCheckpointer extends BaseCheckpointSaver {
     const stored = await this.readJson<StoredCheckpoint>(path.join(this.directory('checkpoints', thread, namespace), id + '.json'));
     if (!stored) return undefined;
     if ((stored.namespace ?? '') !== namespace) throw new Error('CHECKPOINT_NAMESPACE_MISMATCH');
+    if (stored.identity !== undefined) await this.identity(stored);
     const checkpoint = await this.deserialize(stored.checkpoint) as Checkpoint;
     if (checkpoint.id !== id || !Number.isFinite(Date.parse(checkpoint.ts))) throw new Error('CHECKPOINT_ID_OR_TIME_INVALID');
+    if (stored.identity && (checkpoint.id !== stored.identity.id || checkpoint.ts !== stored.identity.ts)) throw new Error('CHECKPOINT_IDENTITY_INVALID');
     const metadata = await this.deserialize(stored.metadata) as CheckpointMetadata;
     const config = { configurable: { thread_id: thread, checkpoint_ns: namespace, checkpoint_id: id } };
     let parentConfig: RunnableConfig | undefined;
@@ -122,14 +145,18 @@ export class FileCheckpointer extends BaseCheckpointSaver {
 
   private async orderedIds(thread: string, namespace: string): Promise<string[]> {
     const directory = this.directory('checkpoints', thread, namespace);
-    const entries = await Promise.all((await this.files(directory)).map(async file => {
+    const entries: Array<{ id: string; ts: string }> = [];
+    // Read historical legacy payloads sequentially; large result sets must not all
+    // be inflated at once. New checkpoints sort by their payload-bound identity.
+    for (const file of await this.files(directory)) {
       const stored = await this.readJson<StoredCheckpoint>(path.join(directory, file));
-      if (!stored) return undefined;
-      const checkpoint = await this.deserialize(stored.checkpoint) as Checkpoint;
+      if (!stored) continue;
+      if ((stored.namespace ?? '') !== namespace) throw new Error('CHECKPOINT_NAMESPACE_MISMATCH');
+      const checkpoint = await this.identity(stored);
       if (checkpoint.id !== file.slice(0, -5) || !Number.isFinite(Date.parse(checkpoint.ts))) throw new Error('CHECKPOINT_ID_OR_TIME_INVALID');
-      return { id: checkpoint.id, ts: checkpoint.ts };
-    }));
-    return entries.filter((entry): entry is { id: string; ts: string } => Boolean(entry))
+      entries.push({ id: checkpoint.id, ts: checkpoint.ts });
+    }
+    return entries
       .sort((a, b) => b.ts.localeCompare(a.ts) || b.id.localeCompare(a.id)).map(entry => entry.id);
   }
 
@@ -172,6 +199,7 @@ export class FileCheckpointer extends BaseCheckpointSaver {
     if (parentCheckpointId) validateId(parentCheckpointId, 'parent_checkpoint_id');
     const file = path.join(this.directory('checkpoints', thread, namespace), checkpoint.id + '.json');
     const stored: StoredCheckpoint = { checkpoint: await this.serialize(checkpoint), metadata: await this.serialize(metadata), namespace, parentCheckpointId };
+    stored.identity = { id: checkpoint.id, ts: checkpoint.ts, sha256: this.identityHash(stored, checkpoint.id, checkpoint.ts) };
     await this.atomicWrite(file, stored);
     return { configurable: { thread_id: thread, checkpoint_ns: namespace, checkpoint_id: checkpoint.id } };
   }

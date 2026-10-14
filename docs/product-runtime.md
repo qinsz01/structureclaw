@@ -73,6 +73,20 @@ operation whose completion was never persisted still requires job inspection.
 损坏记录明确报错，不能静默开始新会话。旧JSON检查点保持可读；后续澄清重启恢复时不会重放已持久保存的工具。
 外部操作若尚未持久保存完成状态，仍须先核查原生作业，不能据此保证任意外部副作用恰好执行一次。
 
+Large checkpoint and pending-write payloads now use lossless gzip inside the existing
+typed serializer. A payload-bound identity in each checkpoint lets history selection
+avoid deserializing every previous engineering result. Historical typed base64 and JSON
+remain readable; invalid identity or compressed data fails explicitly. A fresh-process
+readback of the same seven-case native run retained identical content hashes and reduced
+three checkpoint files from 74,509,485 raw serialized bytes to 6,405,854 stored bytes.
+This is a storage/restart check, not a new native solver acceptance.
+
+较大的检查点与任务写入采用无损压缩，仍使用原有类型序列化。每份检查点的身份绑定其内容，
+选择最新记录时无需反序列化全部历史结果。旧记录仍可读取，身份不符或压缩损坏明确失败。
+七工况原生结果经过独立进程重读后内容哈希完全一致；三份检查点由约74.5 MB原始序列化内容
+压缩为6.4 MB磁盘文件。此项验证存储与恢复，不重复认证求解器。
+见[checkpoint acceptance](reproducibility/engineering-checkpoint-20261014.json)。
+
 | Setting / 设置 | Default / 默认 | Meaning / 含义 |
 |---|---|---|
 | `knowledge` | `enabled` | Optional skill guidance; units/tool protocol/validation remain mandatory / 可选专业说明，不影响单位与硬校验 |

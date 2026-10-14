@@ -1,9 +1,11 @@
-import { test, expect, afterEach } from '@jest/globals';
+import { test, expect, afterEach, jest } from '@jest/globals';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, URL } from 'node:url';
+import { Buffer } from 'node:buffer';
+import process from 'node:process';
 import { AIMessage } from '@langchain/core/messages';
 import { Annotation, Command, END, START, StateGraph, interrupt } from '@langchain/langgraph';
 import { emptyCheckpoint, INTERRUPT, RESUME } from '@langchain/langgraph-checkpoint';
@@ -108,4 +110,57 @@ test('corruption and unsafe explicit identities fail instead of silently losing 
   await expect(saver.getTuple(config)).rejects.toThrow('CHECKPOINT_READ_FAILED');
   await fs.writeFile(path.join(root, 'checkpoints/conversation', `${id}.json`), '{partial');
   await expect(saver.getTuple(config)).rejects.toThrow('CHECKPOINT_READ_FAILED');
+});
+
+test('large engineering state and pending messages survive lossless compression and only the selected state is deserialized', async () => {
+  const { root, saver } = await fixture();
+  const responses=Array.from({length:2000},(_,i)=>({elementId:`beam-${i}`,x:i/357,force:-i/91,
+    displacement:[i/7331,-i/3111,i/8191],source:{kind:'native',caseId:'D'}}));
+  // Compare to the existing JSON serializer semantics (including -0 -> 0).
+  const expectedResponses=JSON.parse(JSON.stringify(responses));
+  let saved;
+  for(let i=0;i<4;i++) {
+    const checkpoint={...emptyCheckpoint(),id:`step-${i}`,ts:`2026-10-14T01:00:0${i}.000Z`,
+      channel_values:{analysisRuns:{run:{responses}},message:new AIMessage(`step ${i}`)}};
+    saved=await saver.put(saved??config,checkpoint,{...metadata,step:i},{});
+  }
+  await saver.putWrites(saved,[['analysisResult',{responses}]],'pending-result');
+  const file=path.join(root,'checkpoints/conversation',`${saved.configurable.checkpoint_id}.json`);
+  const stored=JSON.parse(await fs.readFile(file,'utf8'));
+  expect(stored.checkpoint.encoding).toBe('gzip-base64');
+  expect((await fs.stat(file)).size).toBeLessThan(JSON.stringify(responses).length*.6);
+  const fresh=new FileCheckpointer(root);
+  const loads=jest.spyOn(fresh.serde,'loadsTyped');
+  try {
+    const tuple=await fresh.getTuple(config);
+    expect(tuple.checkpoint.channel_values.analysisRuns.run.responses).toEqual(expectedResponses);
+    expect(tuple.checkpoint.channel_values.message.getType()).toBe('ai');
+    expect(tuple.checkpoint.channel_values.message.content).toBe('step 3');
+    expect(tuple.pendingWrites[0][2]).toEqual({responses:expectedResponses});
+    // Checkpoint, metadata and one pending write only; no previous engineering states.
+    expect(loads).toHaveBeenCalledTimes(3);
+  } finally { loads.mockRestore(); }
+});
+
+test('typed historical base64 remains readable alongside compressed indexed checkpoints', async () => {
+  const { root, saver }=await fixture();
+  const checkpoint={...emptyCheckpoint(),id:'old-typed',ts:'2026-10-13T01:00:00.000Z',channel_values:{message:new AIMessage('old typed')}};
+  const encode=async value=>{const [type,bytes]=await saver.serde.dumpsTyped(value);return {type,data:Buffer.from(bytes).toString('base64')};};
+  const directory=path.join(root,'checkpoints/conversation');await fs.mkdir(directory,{recursive:true});
+  await fs.writeFile(path.join(directory,'old-typed.json'),JSON.stringify({checkpoint:await encode(checkpoint),metadata:await encode(metadata)}));
+  await saver.put(config,{...emptyCheckpoint(),id:'new-indexed',ts:'2026-10-14T01:00:00.000Z'},metadata,{});
+  expect((await saver.getTuple(config)).checkpoint.id).toBe('new-indexed');
+  expect((await saver.getTuple({configurable:{...config.configurable,checkpoint_id:'old-typed'}})).checkpoint.channel_values.message.content).toBe('old typed');
+});
+
+test.each(['timestamp','payload'])('a corrupted %s cannot make an indexed checkpoint silently select older history', async defect=>{
+  const {root,saver}=await fixture();
+  await saver.put(config,{...emptyCheckpoint(),id:'older',ts:'2026-10-13T01:00:00.000Z'},metadata,{});
+  const saved=await saver.put(config,{...emptyCheckpoint(),id:'current',ts:'2026-10-14T01:00:00.000Z',channel_values:{text:'large'.repeat(20000)}},metadata,{});
+  const file=path.join(root,'checkpoints/conversation/current.json');const stored=JSON.parse(await fs.readFile(file,'utf8'));
+  if(defect==='timestamp')stored.identity.ts='2026-10-12T01:00:00.000Z';
+  else stored.checkpoint.data=stored.checkpoint.data.slice(0,-8);
+  await fs.writeFile(file,JSON.stringify(stored));
+  await expect(saver.getTuple(config)).rejects.toThrow('CHECKPOINT_IDENTITY_INVALID');
+  await expect(saver.getTuple(saved)).rejects.toThrow('CHECKPOINT_IDENTITY_INVALID');
 });
