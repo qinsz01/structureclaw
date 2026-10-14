@@ -19,6 +19,8 @@ import {
   type AssistantPresentation,
 } from '../services/chat-presentation.js';
 import { createAgentLogger } from '../utils/agent-logger.js';
+import { normalizeClarificationOptions } from '../utils/clarification-options.js';
+import { toolMessageFailure } from '../utils/tool-outcome.js';
 
 // Re-export the stream chunk type for convenience
 export type { AgentStreamChunk } from '../types/agent-stream.js';
@@ -107,6 +109,10 @@ export function langGraphEventToChunks(
   if (eventMode === 'messages') {
     // LangGraph messages mode yields [message, metadata] or just the message
     const msg = Array.isArray(event) ? event[0] : event;
+    const metadata = Array.isArray(event) ? event[1] : undefined;
+    // Nested router/extractor/builder models run inside the tools node. Their
+    // JSON is tool data, never the assistant's user-facing response.
+    if (metadata?.langgraph_node && metadata.langgraph_node !== 'agent') return chunks;
     if (isAIMessageChunk(msg) && !hasToolCalls(msg as any)) {
       const content = extractTextContent(msg.content);
       if (content.length > 0) {
@@ -136,6 +142,9 @@ export function langGraphEventToChunks(
         : [update.__interrupt__];
       for (const interrupt of interrupts) {
         const value = interrupt.value || interrupt;
+        if (typeof value?.question === 'string' && value.question.trim()) {
+          chunks.push({ type: 'summary_replace', summaryText: value.question });
+        }
         chunks.push({
           type: 'interaction_update',
           content: {
@@ -148,7 +157,7 @@ export function langGraphEventToChunks(
             conversationStage: 'awaiting_user_input',
             pending: { criticalMissing: [] },
             resumeRequired: true,
-            options: value?.options || [],
+            options: normalizeClarificationOptions(value?.options),
           },
         });
       }
@@ -168,6 +177,8 @@ export function langGraphEventToChunks(
           const isAI = msg != null && typeof msg === 'object' && typeof (msg as any)._getType === 'function' && (msg as any)._getType() === 'ai';
           if (isAI) {
             if (hasToolCalls(msg)) {
+              const text = extractTextContent(msg.content);
+              if (text.trim()) chunks.push({ type: 'summary_replace', summaryText: text });
               for (const tc of (msg as any).tool_calls) {
                 if (!tc || typeof tc.name !== 'string') continue;
                 const toolName = tc.name;
@@ -217,6 +228,7 @@ export function langGraphEventToChunks(
           const toolCallId = (msg as any).tool_call_id || (msg as any).id;
           const phase = mapToolToPhase(toolName);
           const content = typeof msg.content === 'string' ? msg.content : '';
+          const failure = toolMessageFailure(msg as import('@langchain/core/messages').ToolMessage);
 
           chunks.push({
             type: 'step_upsert',
@@ -224,12 +236,13 @@ export function langGraphEventToChunks(
             step: {
               id: toolCallId ? `step-${toolCallId}` : `step-tool-${randomUUID()}`,
               phase,
-              status: 'done',
+              status: failure ? 'error' : 'done',
               tool: toolName,
               title: toolName,
               skillId: extractSkillIdFromContent(content),
               completedAt: new Date().toISOString(),
               output: truncate(content, 500),
+              ...(failure ? { errorMessage: sanitizeToolBlockerReason(failure) } : {}),
             },
           });
 
@@ -408,6 +421,12 @@ function extractToolBlockerReason(toolName: string, toolOutput: string): string 
   try {
     const parsed = JSON.parse(toolOutput) as Record<string, unknown>;
     if (toolName === 'extract_draft_params' && parsed.canProceed === false && typeof parsed.reason === 'string') {
+      const questions = Array.isArray(parsed.clarificationQuestions)
+        ? parsed.clarificationQuestions.flatMap((item) => (
+          item && typeof item === 'object' && typeof item.question === 'string' ? [item.question] : []
+        ))
+        : [];
+      if (questions.length > 0) return sanitizeToolBlockerReason(questions.join(' '));
       return sanitizeToolBlockerReason(parsed.reason);
     }
     if (
@@ -477,6 +496,7 @@ export async function* streamGraphToChunks(
 
   let interrupted = false;
   let tokenBuffer = '';
+  let clarificationContext = '';
   let totalChunks = 0;
   const streamStart = Date.now();
   const streamLog = createAgentLogger(ctx.traceId, ctx.conversationId);
@@ -531,12 +551,25 @@ export async function* streamGraphToChunks(
     for await (const event of graphStream) {
       // LangGraph stream with multiple modes yields [mode, data] tuples
       let chunks: AgentStreamChunk[];
-      if (Array.isArray(event) && event.length === 2) {
-        const [mode, data] = event;
-        chunks = langGraphEventToChunks(data, String(mode));
-      } else {
-        const mode = streamModes.length === 1 ? streamModes[0] : 'updates';
-        chunks = langGraphEventToChunks(event, mode);
+      const [mode, data] = Array.isArray(event) && event.length === 2 ? event
+        : [streamModes.length === 1 ? streamModes[0] : 'updates', event];
+      chunks = langGraphEventToChunks(data, String(mode));
+      if (mode === 'updates' && data?.agent?.messages) {
+        const messages = Array.isArray(data.agent.messages) ? data.agent.messages : [data.agent.messages];
+        const last = messages.at(-1);
+        clarificationContext = last?.tool_calls?.some((call: { name?: string }) => call.name === 'ask_user_clarification')
+          ? extractTextContent(last.content).trim() : '';
+      }
+      if (mode === 'updates' && data?.__interrupt__ && clarificationContext) {
+        chunks = chunks.map((chunk) => {
+          if (chunk.type === 'summary_replace') return { ...chunk, summaryText: clarificationContext };
+          if (chunk.type !== 'interaction_update' || !chunk.content || typeof chunk.content !== 'object') return chunk;
+          const content = chunk.content as { questions?: Array<{ question?: string }> };
+          const question = content.questions?.[0]?.question;
+          const guidanceText = question && !clarificationContext.includes(question)
+            ? `${clarificationContext}\n\n${question}` : clarificationContext;
+          return { ...chunk, content: { ...content, guidanceText } };
+        });
       }
 
       for (const chunk of chunks) {

@@ -2908,6 +2908,7 @@ export function AIConsole() {
   const conversationIdRef = useRef(conversationId)
   const submittingRef = useRef(false)
   const [isStreaming, setIsStreaming] = useState(false)
+  const [endingTurnConversationId, setEndingTurnConversationId] = useState('')
   const sessionRuntime = useConversationRuntime(conversationId, isStreaming)
   const conversationSelectionRef = useRef(0)
   const restoredScopeRef = useRef<{ conversationId: string; skills: string[]; tools: string[] } | null>(null)
@@ -4024,6 +4025,30 @@ export function AIConsole() {
     resetConsoleState()
   }
 
+  async function handleEndTurn() {
+    const targetId = conversationId
+    const expectedRunId = sessionRuntime.view?.usage?.runId
+    if (!targetId || isStreaming || submittingRef.current || endingTurnConversationId
+      || !expectedRunId || sessionRuntime.view?.busy || !sessionRuntime.view?.waitingForReply) return
+    submittingRef.current = true
+    setEndingTurnConversationId(targetId)
+    setErrorMessage('')
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/chat/conversation/${encodeURIComponent(targetId)}/turn/end`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ expectedRunId }),
+      })
+      if (!response.ok) throw new Error(response.status === 409 ? t('endTurnConflict') : `HTTP ${response.status}`)
+      await sessionRuntime.refresh(targetId)
+    } catch (error) {
+      const nextError = `${t('endTurnFailed')} ${error instanceof Error ? error.message : ''}`.trim()
+      if (conversationIdRef.current === targetId) setErrorMessage(nextError)
+      toast.error(nextError)
+    } finally {
+      submittingRef.current = false
+      setEndingTurnConversationId('')
+    }
+  }
+
   async function handleDeleteConversation(targetConversationId: string) {
     if (streamingSessions.get(targetConversationId)?.status === 'streaming' || deletingConversationId || !targetConversationId) {
       return
@@ -4962,7 +4987,7 @@ export function AIConsole() {
                 type="button"
                 className="rounded-full bg-cyan-300 px-5 text-slate-950 hover:bg-cyan-200"
                 onClick={() => handleSubmit()}
-                disabled={!input.trim() || submittingRef.current}
+                disabled={!input.trim() || submittingRef.current || Boolean(endingTurnConversationId)}
               >
                 <ArrowUp className="h-4 w-4" />
                 {t('sendMessage')}
@@ -5649,10 +5674,18 @@ export function AIConsole() {
                 </div>
                 )
               })}
-              {!isStreaming && sessionRuntime.view?.waitingForReply && sessionRuntime.view.question && (
+              {!isStreaming && sessionRuntime.view?.waitingForReply && (
                 <div data-testid="pending-clarification" role="status" className="rounded-2xl border border-cyan-300/30 bg-cyan-300/10 px-5 py-4">
-                  <p className="mb-2 text-sm font-medium text-cyan-800 dark:text-cyan-200">{t('clarificationTitle')}</p>
-                  <MarkdownBody compact content={sessionRuntime.view.question} />
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium text-cyan-800 dark:text-cyan-200">{t('clarificationTitle')}</p>
+                    <Button type="button" variant="outline" size="sm" className="rounded-full"
+                      disabled={Boolean(endingTurnConversationId || sessionRuntime.view.busy || !sessionRuntime.view.usage?.runId)}
+                      title={!sessionRuntime.view.usage?.runId ? t('endTurnConflict') : undefined} onClick={() => void handleEndTurn()}>
+                      {endingTurnConversationId === conversationId && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      {t('endTurn')}
+                    </Button>
+                  </div>
+                  {sessionRuntime.view.question && <MarkdownBody compact content={sessionRuntime.view.question} />}
                 </div>
               )}
               <div ref={messagesEndRef} />
@@ -5665,6 +5698,7 @@ export function AIConsole() {
                 <button
                   key={option}
                   type="button"
+                  disabled={Boolean(endingTurnConversationId)}
                   onClick={() => {
                     handleSubmit(option)
                   }}

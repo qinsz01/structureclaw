@@ -46,6 +46,29 @@ afterEach(() => {
 })
 
 describe('web conversation resume routing', () => {
+  it.each(['en', 'zh'] as const)('sends each changed run control, including empty memory, from the real console (%s)', async locale => {
+    const user = userEvent.setup()
+    const { sent } = fixture(true)
+    render(<AppStoreProvider initialState={{ locale }}><AIConsole /></AppStoreProvider>)
+    await user.click(await screen.findByRole('button', { name: 'Ready B' }))
+    await waitFor(() => expect(screen.getByText(/restricted/)).toBeInTheDocument())
+    await user.click(screen.getByText(locale === 'en' ? 'Run settings' : '运行设置'))
+    await user.selectOptions(screen.getByLabelText(locale === 'en' ? 'Professional guidance' : '专业指导'), 'enabled')
+    await user.selectOptions(screen.getByLabelText(locale === 'en' ? 'Model builder' : '建模方式'), 'auto')
+    await user.selectOptions(screen.getByLabelText(locale === 'en' ? 'Automatic correction after failure' : '失败后自动纠正'), '0')
+    await user.selectOptions(screen.getByLabelText(locale === 'en' ? 'Conversation context' : '对话上下文'), 'current-turn')
+    await user.click(screen.getByText(locale === 'en' ? 'Advanced settings' : '高级设置'))
+    await user.selectOptions(screen.getByLabelText(locale === 'en' ? 'Memory read and write scope' : '记忆读取与写入范围'), '')
+    await user.type(screen.getByRole('textbox'), 'Use these explicit settings')
+    await user.click(screen.getByRole('button', { name: locale === 'en' ? 'Send' : '发送' }))
+    await waitFor(() => expect(sent).toHaveLength(1))
+    expect(sent[0].body.context).toMatchObject({ runPolicy: {
+      knowledge: 'enabled', builder: 'auto', repair: { enabled: false, maxRecoveriesPerTurn: 0 },
+      context: { history: 'current-turn', memoryScopes: [] },
+    } })
+    expect(sent[0].body.context).not.toHaveProperty('skillIds')
+    expect(sent[0].body.context).not.toHaveProperty('enabledToolIds')
+  })
   it('keeps saved permissions when opening a conversation instead of sending browser defaults', async () => {
     const user = userEvent.setup()
     const { sent } = fixture(true)

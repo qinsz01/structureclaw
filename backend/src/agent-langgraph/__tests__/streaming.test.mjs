@@ -1,7 +1,70 @@
 import { describe, expect, test } from '@jest/globals';
-import { ToolMessage } from '@langchain/core/messages';
+import { AIMessage, AIMessageChunk, ToolMessage } from '@langchain/core/messages';
 
 describe('LangGraph streaming adapter', () => {
+  test.each([
+    { status: 'error', content: 'MEMBER_POSITION_REQUIRED' },
+    { content: '{"success":false,"errorCode":"RECOVERY_BUDGET_EXHAUSTED"}' },
+    { content: '{"valid":false,"message":"Missing units"}' },
+  ])('shows tool failures consistently with the run ledger: %j', async (payload) => {
+    const { langGraphEventToChunks } = await import('../../../dist/agent-langgraph/streaming.js');
+    const { toolMessageFailure } = await import('../../../dist/utils/tool-outcome.js');
+    const message = new ToolMessage({ name: 'query_results', tool_call_id: 'query', ...payload });
+    const chunks = langGraphEventToChunks({ tools: { messages: [message] } }, 'updates');
+    const step = chunks.find(chunk => chunk.type === 'step_upsert').step;
+    expect(step.status).toBe('error');
+    expect(step.errorMessage).toBe(toolMessageFailure(message));
+  });
+
+  test('keeps main-agent tables accompanying clarification tool calls and excludes nested JSON', async () => {
+    const { streamGraphToChunks } = await import('../../../dist/agent-langgraph/streaming.js');
+    const table = '| Result | Value |\n| --- | --- |\n| Midspan deflection | -1.51699029 mm |';
+    const question = 'Continue creating the report?';
+    async function* events() {
+      yield ['messages', [new AIMessageChunk('{"action":"switch_skill"}'), { langgraph_node: 'tools' }]];
+      yield ['updates', { agent: { messages: [new AIMessage({ content: table, tool_calls: [
+        { id: 'ask', name: 'ask_user_clarification', args: { question }, type: 'tool_call' },
+      ] })] } }];
+      yield ['updates', { __interrupt__: [{ value: { question, options: ['Continue', 'Skip'] } }] }];
+    }
+    const chunks = [];
+    for await (const chunk of streamGraphToChunks(events(), ['messages', 'updates'],
+      { conversationId: 'fixture', traceId: 'table-fixture', startedAt: new Date(0).toISOString() })) chunks.push(chunk);
+    expect(chunks.filter(chunk => chunk.type === 'summary_replace').map(chunk => chunk.summaryText)).toEqual([table, table]);
+    expect(chunks.find(chunk => chunk.type === 'interaction_update').content).toEqual(expect.objectContaining({
+      guidanceText: `${table}\n\n${question}`, resumeRequired: true,
+    }));
+    expect(JSON.stringify(chunks)).not.toContain('switch_skill');
+    expect(chunks.some(chunk => chunk.type === 'done')).toBe(false);
+  });
+
+  test('streams only main-agent text and hides nested router and extraction JSON', async () => {
+    const { langGraphEventToChunks } = await import('../../../dist/agent-langgraph/streaming.js');
+    const internal = new AIMessageChunk('{"action":"switch_skill","skillId":"beam"}');
+    expect(langGraphEventToChunks([internal, { langgraph_node: 'tools' }], 'messages')).toEqual([]);
+    const response = new AIMessageChunk('The beam is ready for analysis.');
+    expect(langGraphEventToChunks([response, { langgraph_node: 'agent' }], 'messages')).toEqual([
+      { type: 'token', content: 'The beam is ready for analysis.' },
+    ]);
+  });
+
+  test('a clarification replaces an earlier internal blocker in the streamed presentation', async () => {
+    const { streamGraphToChunks } = await import('../../../dist/agent-langgraph/streaming.js');
+    const question = '请补充梁的材料牌号和截面尺寸。';
+    async function* events() {
+      yield ['updates', { tools: { messages: [new ToolMessage({ name: 'extract_draft_params', tool_call_id: 'extract',
+        content: JSON.stringify({ canProceed: false, reason: 'templateProperties; do not build_model',
+          clarificationQuestions: [{ question }] }) })] } }];
+      yield ['updates', { __interrupt__: [{ value: { question, options: ['Q235，100×200 mm矩形截面'] } }] }];
+    }
+    const chunks = [];
+    for await (const chunk of streamGraphToChunks(events(), ['messages', 'updates', 'custom'],
+      { conversationId: 'fixture', traceId: 'clarification-fixture', startedAt: new Date(0).toISOString() })) chunks.push(chunk);
+    expect(chunks.filter(chunk => chunk.type === 'summary_replace').map(chunk => chunk.summaryText)).toEqual([question, question]);
+    expect(chunks.find(chunk => chunk.type === 'interaction_update').content.questions[0].question).toBe(question);
+    expect(chunks.some(chunk => chunk.type === 'done')).toBe(false);
+  });
+
   test('invalidates the displayed result when the model changes', async () => {
     const { langGraphEventToChunks } = await import('../../../dist/agent-langgraph/streaming.js');
     const chunks = langGraphEventToChunks({ tools: {

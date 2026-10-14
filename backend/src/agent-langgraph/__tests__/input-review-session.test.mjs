@@ -31,6 +31,18 @@ function setup(enabled = ['review_input', 'query_model', 'ask_user_clarification
   return { service, graph, initial, runtime };
 }
 describe('same-conversation input review', () => {
+  test('historical pending clarification optionsJson is readable without modifying its checkpoint', async () => {
+    const { service, graph, initial } = setup();
+    const id = 'historical-choice-objects';
+    const optionsJson = JSON.stringify([{ label: 'Q235, 100×200 mm', value: 'different text' }, { label: 'C30, 250×500 mm' }]);
+    await graph.updateState({ configurable: { thread_id: id } }, { ...initial, messages: [new AIMessage({ content: '',
+      tool_calls: [{ id: 'old-ask', name: 'ask_user_clarification', args: { question: 'Material?', optionsJson } }] })] }, 'agent');
+    const view = (await service.getConversationSessionSnapshot(id, 'en')).snapshot.runtime;
+    expect(view).toMatchObject({ waitingForReply: true, question: 'Material?', options: ['Q235, 100×200 mm', 'C30, 250×500 mm'] });
+    const saved = (await graph.getState({ configurable: { thread_id: id } })).values;
+    expect(saved.messages.at(-1).tool_calls[0].args.optionsJson).toBe(optionsJson);
+  });
+
   test('result actions share the persisted ledger, keep the pending question and reject another conversation run', async () => {
     const {service,graph,initial,runtime}=setup(['query_results','ask_user_clarification']);
     const saved={runId:'owned',success:true,selectedResultKey:'case:D',data:{displacements:{A:{uz:-.001}}},

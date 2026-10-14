@@ -557,6 +557,34 @@ export async function chatRoutes(fastify: FastifyInstance) {
     return reply.send(session.snapshot.runtime);
   });
 
+  fastify.post('/conversation/:id/turn/end', async (request: FastifyRequest<{
+    Params: { id: string }; Body: { expectedRunId: string };
+  }>, reply) => {
+    const parsed = z.object({ expectedRunId: z.string().min(1) }).safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'EXPECTED_RUN_ID_REQUIRED' });
+    const body = parsed.data;
+    const conversation = await prisma.conversation.findFirst({ where: { id: request.params.id }, select: { id: true } });
+    if (!conversation) return reply.code(404).send({ error: 'CONVERSATION_NOT_FOUND' });
+    try {
+      const ended = await agentService.endWaitingTurn(request.params.id, body.expectedRunId);
+      let presentation = createEmptyAssistantPresentation({ traceId: ended.traceId, mode: 'conversation' });
+      presentation = reducePresentationEvent(presentation, { type: 'summary_replace', summaryText: ended.response });
+      presentation = reducePresentationEvent(presentation, { type: 'presentation_complete', completedAt: ended.completedAt });
+      await persistConversationWithState({ conversationId: request.params.id, userMessage: ended.userMessage,
+        assistantContent: ended.response, assistantPresentation: presentation, state: ended.state, traceId: ended.traceId,
+        assistantMetadata: { turnEnded: true, runId: body.expectedRunId },
+      });
+      return reply.send({ success: true, runtime: ended.runtime });
+    } catch (error) {
+      const code = error instanceof Error ? error.message : 'CONVERSATION_TURN_END_FAILED';
+      if (['CONVERSATION_BUSY', 'CONVERSATION_TURN_CONFLICT', 'CONVERSATION_NOT_WAITING_FOR_REPLY', 'CONVERSATION_WAITING_STATE_INVALID'].includes(code)) {
+        return reply.code(409).send({ error: code });
+      }
+      request.log.error({ err: error }, 'Failed to end the waiting conversation turn');
+      return reply.code(500).send({ error: code });
+    }
+  });
+
   // 获取会话历史
   fastify.get('/conversation/:id', {
     schema: {
@@ -985,19 +1013,43 @@ export async function chatRoutes(fastify: FastifyInstance) {
       );
 
       let resumeAssistantContent = '';
-      let resumePresentation: AssistantPresentation | undefined;
+      let resumePresentation = createEmptyAssistantPresentation({ mode: 'execution' });
       let resumeLatestResult: Record<string, unknown> | undefined;
+      let resumeTraceId: string | undefined;
 
       for await (const chunk of stream) {
         if (abortController.signal.aborted) break;
+        if (chunk.type === 'start' && chunk.content && typeof chunk.content === 'object') {
+          const traceId = (chunk.content as { traceId?: unknown }).traceId;
+          if (typeof traceId === 'string') resumeTraceId = traceId;
+        }
         if (chunk.type === 'token' && 'content' in chunk) {
           resumeAssistantContent += (chunk as any).content || '';
         }
         if (chunk.type === 'presentation_init' && 'presentation' in chunk) {
           resumePresentation = (chunk as any).presentation;
         }
+        if (chunk.type === 'phase_upsert' || chunk.type === 'step_upsert' || chunk.type === 'artifact_upsert'
+          || chunk.type === 'summary_replace' || chunk.type === 'presentation_complete' || chunk.type === 'presentation_error') {
+          resumePresentation = reducePresentationEvent(resumePresentation, chunk);
+          if (chunk.type === 'summary_replace') resumeAssistantContent = chunk.summaryText;
+          if (chunk.type === 'presentation_error') resumeAssistantContent = chunk.message;
+        }
         if (chunk.type === 'result' && 'content' in chunk) {
           resumeLatestResult = (chunk as any).content;
+          if (typeof resumeLatestResult?.response === 'string') {
+            resumeAssistantContent = resumeLatestResult.response;
+            resumePresentation = reducePresentationEvent(resumePresentation, { type: 'summary_replace', summaryText: resumeAssistantContent });
+          }
+        }
+        if (chunk.type === 'interaction_update' && chunk.content && typeof chunk.content === 'object') {
+          const interaction = chunk.content as { guidanceText?: string; questions?: Array<{ question?: string }> };
+          const question = interaction.questions?.[0]?.question;
+          if (typeof interaction.guidanceText === 'string') resumeAssistantContent = interaction.guidanceText;
+          else if (question && !resumeAssistantContent.includes(question)) {
+            resumeAssistantContent = [resumeAssistantContent, question].filter(Boolean).join('\n\n');
+          }
+          resumePresentation = reducePresentationEvent(resumePresentation, { type: 'summary_replace', summaryText: resumeAssistantContent });
         }
         reply.raw.write(`data: ${JSON.stringify(normalizePublicStreamChunk(chunk))}\n\n`);
       }
@@ -1016,7 +1068,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
         conversationId: body.conversationId,
         userMessage: body.resumeValue,
         assistantContent: resumeAssistantContent,
-        traceId: undefined,
+        traceId: resumeTraceId,
         assistantPresentation: resumePresentation,
         state: resumeSnapshotState,
       }).catch(() => {});

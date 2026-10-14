@@ -5,6 +5,7 @@ import type { StructuredToolInterface } from '@langchain/core/tools';
 import type { AgentState } from './state.js';
 import { invalidateAnalysis } from '../engineering/model-state.js';
 import { reserveToolCall, recordToolOutcome, currentRunContext, snapshotRunUsage } from '../runtime/run-context.js';
+import { toolMessageFailure } from '../utils/tool-outcome.js';
 
 /** Only messages after the current assistant request acknowledge its calls. */
 export function pendingToolCalls(state: AgentState) {
@@ -68,15 +69,7 @@ export async function executeToolsSequentially(tools: StructuredToolInterface[],
   let failure: string | undefined;
   for (const item of messages) {
     if (item.getType() !== 'tool') continue;
-    const message = item as ToolMessage;
-    const content = typeof message.content === 'string' ? message.content : JSON.stringify(message.content);
-    if (message.status === 'error') failure = content;
-    try {
-      const payload = JSON.parse(content);
-      if (payload.success === false || payload.valid === false || payload.error || payload.status === 'failed') {
-        failure = [payload.errorCode, payload.error_code, payload.error, payload.message].filter(Boolean).map(String).join(': ') || 'operation failed';
-      }
-    } catch { /* Plain successful tool text is valid. */ }
+    failure = toolMessageFailure(item as ToolMessage) ?? failure;
   }
   recordToolOutcome(call.name, invocationId, failure ? String(failure) : undefined);
   const runtime = currentRunContext();

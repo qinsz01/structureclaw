@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { normalizeClarificationOptions } from '../utils/clarification-options.js';
 import { nativeDesignRecord, resolveCheckProvider, type CodeCheckProvider } from '../engineering/native-design.js';
 import { savedNativeDesignRecord } from '../engineering/native-design-options.js';
 import { resultEngine } from '../engineering/result-data.js';
@@ -2717,7 +2718,8 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
             existingState: nextState,
             locale,
             plugin,
-            focusFields: missing.critical,
+            focusFields: missing.critical.flatMap((field) => field === 'templateProperties'
+              ? ['material', 'materials', 'sections', 'sectionRecords', 'templateAssignments'] : [field]),
             traceLogger: log,
             signal: config.signal,
             onUsage: nestedUsage.onUsage,
@@ -2864,9 +2866,8 @@ export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
 export function createAskUserClarificationTool() {
   return tool(
     async (input: { question: string; optionsJson?: string }) => {
-      const options = input.optionsJson
-        ? JSON.parse(input.optionsJson) as string[]
-        : undefined;
+      const rawOptions: unknown = input.optionsJson ? JSON.parse(input.optionsJson) : undefined;
+      const options = rawOptions === undefined ? undefined : normalizeClarificationOptions(rawOptions);
 
       if (currentRunPolicy()?.executionOwner === 'external') {
         return JSON.stringify({ type: 'clarification_needed', question: input.question, options,
@@ -2898,7 +2899,7 @@ export function createAskUserClarificationTool() {
         optionsJson: z
           .string()
           .optional()
-          .describe('JSON array of suggested answer options'),
+          .describe('JSON array of suggested answer strings; each string must contain the complete answer to send when selected'),
       }),
     },
   );
@@ -3508,7 +3509,7 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
       const quantities = Object.values(state?.resultQuantities ?? {}).filter(q => selection
         ? quantityMatchesSelection(q, selection, run.runId, resultKey) : q.runId === run.runId);
       if (selection && (selection.component || selection.timeIndex !== undefined || selection.modeNumber !== undefined) && !quantities.length) {
-        throw new Error('REPORT_SELECTION_QUERY_REQUIRED / 请先查询同一位置、分量和索引的数值');
+        throw new Error(`REPORT_SELECTION_QUERY_REQUIRED: call query_results first with the same run, result, location, component, unit and index, then retry this report. A full-field query does not save a scalar. quantityId is automatic; do not ask the user for it. / 请先用query_results查询同一运行、结果、位置、分量、单位和索引，再生成报告。整个字段的查询不会登记标量；quantityId自动生成，不需要询问用户。 query_results: ${JSON.stringify({ ...selection, runId: run.runId, resultKey })}`);
       }
       const analysis = { ...run, ...(selection ? selected : {}), runId: run.runId, selectedResultKey: resultKey,
         results: selection && resultKey ? { [resultKey]: selected } : run.results,
@@ -3577,7 +3578,7 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
         'Generate an engineering report with summary, key metrics, and compliance narrative. ' +
         'Reads analysis results, code check results, and draft state from conversation state automatically — ' +
         'do NOT pass them as parameters. ' +
-        'Requires run_analysis to have been called first. ' +
+        'Requires run_analysis to have been called first. For a scalar selection, first call query_results with the identical run/result, location, component, unit and index; reading a full field alone does not register the scalar. The query assigns quantityId automatically. / 指定标量selection前须先用query_results查询同一运行/结果、位置、分量、单位与索引；整个字段查询不会登记标量，数值ID自动生成。 ' +
         'For China seismic reports, run_code_check with GB/T 50011-2010-2024 must be called first.',
       schema: z.object({
         message: z.string().describe('Original user message / intent'),
@@ -3585,7 +3586,7 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
           .enum(['static', 'dynamic', 'seismic', 'nonlinear'])
           .describe('Analysis type that was performed'),
         locale: z.enum(['zh', 'en']).optional().describe('Report language'),
-        selection: resultSelectionSchema.optional().describe('Saved run/result and optional queried scalar location/index. Does not replace the current report. / 保存的运行、结果及已查询的位置或索引，不覆盖当前报告。'),
+        selection: resultSelectionSchema.optional().describe('Saved run/result and optional scalar already registered by query_results using exactly the same component, unit, location and index. Omit to report the current run. Does not replace the current report. / 保存的运行/结果及已由query_results登记的同分量、单位、位置、索引标量。省略则报告当前运行；指定selection不覆盖当前报告。'),
         narrative: z.enum(['structured', 'assisted']).optional().describe('structured produces a deterministic report without an extra language-model call. / structured直接生成结构化报告，不额外调用语言模型。'),
       }),
     },

@@ -222,10 +222,11 @@ describe('streaming: interrupt events from "updates" mode', () => {
     };
     const chunks = langGraphEventToChunks(event, 'updates');
 
-    expect(chunks).toHaveLength(1);
-    expect(chunks[0].type).toBe('interaction_update');
-    expect(chunks[0].content.resumeRequired).toBe(true);
-    expect(chunks[0].content.questions[0].question).toBe('What is the beam span?');
+    expect(chunks).toHaveLength(2);
+    expect(chunks[0]).toEqual({ type: 'summary_replace', summaryText: 'What is the beam span?' });
+    expect(chunks[1].type).toBe('interaction_update');
+    expect(chunks[1].content.resumeRequired).toBe(true);
+    expect(chunks[1].content.questions[0].question).toBe('What is the beam span?');
   });
 
   test('emits interaction_update for single (non-array) __interrupt__', async () => {
@@ -236,9 +237,11 @@ describe('streaming: interrupt events from "updates" mode', () => {
     };
     const chunks = langGraphEventToChunks(event, 'updates');
 
-    expect(chunks).toHaveLength(1);
-    expect(chunks[0].type).toBe('interaction_update');
-    expect(chunks[0].content.questions[0].question).toBe('请输入截面尺寸？');
+    expect(chunks).toHaveLength(2);
+    expect(chunks[0]).toEqual({ type: 'summary_replace', summaryText: '请输入截面尺寸？' });
+    expect(chunks[1].type).toBe('interaction_update');
+    expect(chunks[1].content.questions[0].question).toBe('请输入截面尺寸？');
+    expect(chunks[1].content.resumeRequired).toBe(true);
   });
 });
 

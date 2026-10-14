@@ -6,6 +6,8 @@ describe('chat routes message persistence', () => {
   let prisma;
   let agentRunSpy;
   let agentRunStreamSpy;
+  let agentResumeStreamSpy;
+  let endWaitingTurnSpy;
   let getSnapshotSpy;
 
   beforeAll(async () => {
@@ -60,6 +62,8 @@ describe('chat routes message persistence', () => {
         },
       };
     });
+    agentResumeStreamSpy = jest.spyOn(LangGraphAgentService.prototype, 'resumeStream');
+    endWaitingTurnSpy = jest.spyOn(LangGraphAgentService.prototype, 'endWaitingTurn');
     getSnapshotSpy = jest
       .spyOn(LangGraphAgentService.prototype, 'getConversationSessionSnapshot')
       .mockResolvedValue(undefined);
@@ -79,6 +83,8 @@ describe('chat routes message persistence', () => {
     prisma.message.createMany.mockClear();
     agentRunSpy.mockClear();
     agentRunStreamSpy.mockClear();
+    agentResumeStreamSpy.mockReset();
+    endWaitingTurnSpy.mockReset();
     getSnapshotSpy.mockClear();
   });
 
@@ -289,6 +295,103 @@ describe('chat routes message persistence', () => {
         }),
       ],
     });
+  });
+
+  test('explicit end-turn endpoint persists its cancellation and completion with the original run identity', async () => {
+    const { AIMessage, ToolMessage } = await import('@langchain/core/messages');
+    const responseText = 'You ended this turn.';
+    endWaitingTurnSpy.mockResolvedValueOnce({ traceId: 'end-trace', completedAt: '2026-10-14T00:00:00Z',
+      userMessage: 'End this turn', response: responseText, runtime: { waitingForReply: false, busy: false, usage: { runId: 'old-run', toolCalls: 3 } },
+      state: { messages: [new ToolMessage({ content: '{"status":"cancelled","errorCode":"TURN_ENDED_BY_USER"}',
+        tool_call_id: 'old-question', name: 'ask_user_clarification', status: 'error' }), new AIMessage(responseText)] },
+    });
+    const response = await app.inject({ method: 'POST', url: '/conversation/conv-paused/turn/end', payload: { expectedRunId: 'old-run' } });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ success: true, runtime: { waitingForReply: false, busy: false, usage: { runId: 'old-run', toolCalls: 3 } } });
+    expect(endWaitingTurnSpy).toHaveBeenCalledWith('conv-paused', 'old-run');
+    const records = prisma.message.createMany.mock.calls[0][0].data;
+    expect(records).toHaveLength(3);
+    expect(records[0]).toMatchObject({ role: 'user', content: 'End this turn' });
+    expect(records[1]).toMatchObject({ role: 'tool', toolCallId: 'old-question', content: expect.stringContaining('cancelled') });
+    expect(records[2]).toMatchObject({ role: 'assistant', content: responseText,
+      metadata: { turnEnded: true, runId: 'old-run', presentation: { status: 'done' } } });
+  });
+
+  test.each([{}, { expectedRunId: '' }, { expectedRunId: 42 }])('end-turn rejects an invalid run identity before changing state: %j', async payload => {
+    const response = await app.inject({ method: 'POST', url: '/conversation/conv-paused/turn/end', payload });
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({ error: 'EXPECTED_RUN_ID_REQUIRED' });
+    expect(endWaitingTurnSpy).not.toHaveBeenCalled();
+    expect(prisma.message.createMany).not.toHaveBeenCalled();
+  });
+
+  test.each(['CONVERSATION_BUSY', 'CONVERSATION_TURN_CONFLICT', 'CONVERSATION_NOT_WAITING_FOR_REPLY'])('end-turn rejects %s without persisting a false completion', async error => {
+    endWaitingTurnSpy.mockRejectedValueOnce(new Error(error));
+    const response = await app.inject({ method: 'POST', url: '/conversation/conv-paused/turn/end', payload: { expectedRunId: 'old-run' } });
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({ error });
+    expect(prisma.message.createMany).not.toHaveBeenCalled();
+  });
+
+  test('persists a resumed table, clarification, failed tool and trace without token events', async () => {
+    const { AIMessage, ToolMessage } = await import('@langchain/core/messages');
+    const { streamGraphToChunks } = await import('../dist/agent-langgraph/streaming.js');
+    const table = '| Result | Value |\n| --- | --- |\n| Midspan deflection | -1.51699029 mm |';
+    const question = 'Continue creating the report?';
+    const query = new AIMessage({ content: '', tool_calls: [
+      { id: 'query-resume', name: 'query_results', args: {}, type: 'tool_call' },
+    ] });
+    const failed = new ToolMessage({ name: 'query_results', tool_call_id: 'query-resume',
+      content: '{"success":false,"errorCode":"MEMBER_POSITION_REQUIRED"}' });
+    const ask = new AIMessage({ content: table, tool_calls: [
+      { id: 'ask-resume', name: 'ask_user_clarification', args: { question }, type: 'tool_call' },
+    ] });
+    getSnapshotSpy.mockResolvedValueOnce({ snapshot: {}, state: { messages: [query, failed, ask] } });
+    agentResumeStreamSpy.mockImplementationOnce(async function* () {
+      async function* events() {
+        yield ['updates', { agent: { messages: [query] } }];
+        yield ['updates', { tools: { messages: [failed] } }];
+        yield ['updates', { agent: { messages: [ask] } }];
+        yield ['updates', { __interrupt__: [{ value: { question, options: ['Continue', 'Skip'] } }] }];
+      }
+      yield* streamGraphToChunks(events(), ['messages', 'updates'], {
+        conversationId: 'conv-paused', traceId: 'resume-table-trace', startedAt: '2026-10-14T00:00:00Z',
+      });
+    });
+    const response = await app.inject({ method: 'POST', url: '/stream/resume',
+      payload: { conversationId: 'conv-paused', resumeValue: 'Density is 7850 kg/m3' } });
+    expect(response.statusCode).toBe(200);
+    expect(response.body).not.toContain('"type":"token"');
+    expect(prisma.message.createMany).toHaveBeenCalledTimes(1);
+    const records = prisma.message.createMany.mock.calls[0][0].data;
+    expect(records).toHaveLength(5);
+    expect(records[0]).toMatchObject({ role: 'user', content: 'Density is 7850 kg/m3', metadata: { traceId: 'resume-table-trace' } });
+    expect(records[2]).toMatchObject({ role: 'tool', toolCallId: 'query-resume' });
+    const final = records.at(-1);
+    expect(final.content).toBe(`${table}\n\n${question}`);
+    expect(final.metadata).toMatchObject({ traceId: 'resume-table-trace', presentation: {
+      summaryText: `${table}\n\n${question}`, traceId: 'resume-table-trace', status: 'streaming',
+    } });
+    expect(final.metadata.presentation.phases.flatMap(phase => phase.steps)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'step-query-resume', status: 'error', errorMessage: 'MEMBER_POSITION_REQUIRED' }),
+      expect.objectContaining({ id: 'step-ask-resume', status: 'running' }),
+    ]));
+  });
+
+  test('persists a completed resumed result without token events', async () => {
+    agentResumeStreamSpy.mockImplementationOnce(async function* () {
+      yield { type: 'start', content: { conversationId: 'conv-paused', traceId: 'resume-completed-trace' } };
+      yield { type: 'result', content: { response: 'The beam analysis is complete.', success: true } };
+      yield { type: 'presentation_complete', completedAt: '2026-10-14T00:00:01Z' };
+    });
+    const response = await app.inject({ method: 'POST', url: '/stream/resume',
+      payload: { conversationId: 'conv-paused', resumeValue: 'Continue' } });
+    expect(response.statusCode).toBe(200);
+    const records = prisma.message.createMany.mock.calls[0][0].data;
+    expect(records).toHaveLength(2);
+    expect(records[1]).toMatchObject({ role: 'assistant', content: 'The beam analysis is complete.', metadata: {
+      traceId: 'resume-completed-trace', presentation: { status: 'done', summaryText: 'The beam analysis is complete.' },
+    } });
   });
 
   test('persists user, intermediate tool_calls, tool outputs, and final assistant in a single write', async () => {

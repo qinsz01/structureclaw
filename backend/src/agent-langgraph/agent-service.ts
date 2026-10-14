@@ -7,7 +7,7 @@
  * Dependency injection uses config.configurable (no globalThis).
  * The graph is built once and cached for the process lifetime.
  */
-import { AIMessage, HumanMessage, type ToolMessage } from '@langchain/core/messages';
+import { AIMessage, HumanMessage, ToolMessage } from '@langchain/core/messages';
 import { randomUUID } from 'crypto';
 import path from 'node:path';
 import fs from 'node:fs/promises';
@@ -32,6 +32,7 @@ import { prisma } from '../utils/database.js';
 import { Command } from '@langchain/langgraph';
 import { logger } from '../utils/logger.js';
 import { createAgentLogger } from '../utils/agent-logger.js';
+import { normalizeClarificationOptions } from '../utils/clarification-options.js';
 import type { AgentConfigurable } from './configurable.js';
 import { createRegisteredTools, listAgentToolDefinitions } from './tool-registry.js';
 import { executeToolsSequentially, pendingToolCalls } from './sequential-tools.js';
@@ -128,7 +129,7 @@ function clarificationState(state: AgentState, tasks: ReadonlyArray<{ interrupts
   const waitingForReply = tasks.some(task => task.interrupts?.length) || call?.name === 'ask_user_clarification';
   const args = call?.name === 'ask_user_clarification' ? call.args : undefined;
   return { waitingForReply, question: typeof args?.question === 'string' ? args.question : null,
-    options: Array.isArray(args?.options) ? args.options.filter((item): item is string => typeof item === 'string') : [] };
+    options: normalizeClarificationOptions(args?.options ?? args?.optionsJson) };
 }
 
 /** A revision covers evidence and excitation settings as well as the physical model. */
@@ -1049,6 +1050,46 @@ export class LangGraphAgentService {
   // ---------------------------------------------------------------------------
   // Session management
   // ---------------------------------------------------------------------------
+
+  /** Explicit user action: close an idle clarification without running its pending tools. */
+  async endWaitingTurn(conversationId: string, expectedRunId: string) {
+    // acquire reserves synchronously; no await may separate this check from acquisition.
+    if (this.sessionLock.isBusy(conversationId)) throw new Error('CONVERSATION_BUSY');
+    const release = await this.sessionLock.acquire(conversationId);
+    try {
+      const graph = await this.getGraph();
+      const graphConfig = { configurable: { thread_id: conversationId } };
+      const snapshot = await graph.getState(graphConfig);
+      const state = snapshot.values as AgentState;
+      if (state.runUsage?.runId !== expectedRunId) throw new Error('CONVERSATION_TURN_CONFLICT');
+      if (!clarificationState(state, snapshot.tasks).waitingForReply) throw new Error('CONVERSATION_NOT_WAITING_FOR_REPLY');
+      const calls = pendingToolCalls(state);
+      if (calls[0]?.name !== 'ask_user_clarification' || calls.some(call => !call.id)) throw new Error('CONVERSATION_WAITING_STATE_INVALID');
+      // Verify the durable usage before changing the checkpoint, without rewriting the ledger.
+      if (state.runPolicy && state.runUsage) readRunUsage(state.runPolicy, state.runUsage, path.join(runtimeBaseDir, 'run-records'));
+      const traceId = randomUUID();
+      const completedAt = new Date().toISOString();
+      const response = state.locale === 'zh'
+        ? '本轮已由你结束。待回复的问题及本批尚未执行的工具已取消；模型、历史结果和本轮用量记录均保留。你可以发送新消息开始下一轮。'
+        : 'You ended this turn. The pending question and remaining tools in this batch were cancelled. The model, historical results and usage record are preserved. Send a new message to begin the next turn.';
+      const cancelled = calls.map(call => new ToolMessage({ name: call.name, tool_call_id: call.id!, status: 'error',
+        content: JSON.stringify({ success: false, status: 'cancelled', errorCode: 'TURN_ENDED_BY_USER',
+          message: 'Cancelled by the user without execution / 用户结束本轮，未执行此工具' }) }));
+      const ended = new AIMessage({ id: traceId, content: response, additional_kwargs: {
+        turnEnd: { runId: expectedRunId, cancelledCallIds: calls.map(call => call.id), completedAt },
+      } });
+      await graph.updateState(graphConfig, { messages: [...cancelled, ended] }, 'agent');
+      const updated = await graph.getState(graphConfig);
+      if (updated.next.length || updated.tasks.some(task => task.interrupts?.length)) throw new Error('CONVERSATION_TURN_END_INCOMPLETE');
+      const session = await this.getConversationSessionSnapshot(conversationId, state.locale);
+      if (!session) throw new Error('CONVERSATION_STATE_UNAVAILABLE');
+      return { traceId, completedAt, response,
+        userMessage: state.locale === 'zh' ? '结束本轮' : 'End this turn',
+        state: updated.values as AgentState,
+        runtime: { ...session.snapshot.runtime as ConversationRuntimeSnapshot, busy: false },
+      };
+    } finally { release(); }
+  }
 
   private async currentJobTools(state: AgentState): Promise<string[]> {
     if (!state.runPolicy) return [];
