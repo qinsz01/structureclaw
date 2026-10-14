@@ -23,7 +23,13 @@ export function assessCurrentEngineeringInput(state?: ModelState, conversationId
   const run = state.analysisResult;
   const check = state.codeCheckResult;
   const checkCurrent = !analysisError && check && isRecord(check.meta) && check.meta.runId === run?.runId;
+  if (checkCurrent && Array.isArray(check.missingInputs)) for (const item of check.missingInputs.filter(isRecord)) {
+    issues.push({ kind: 'code-check', field: String(item.field ?? 'native-design'), reason: String(item.reason ?? 'input_required') });
+  }
   if (checkCurrent && Array.isArray(check.details)) for (const detail of check.details.filter(isRecord)) {
+    if (['input_required', 'unsupported'].includes(String(detail.status))) {
+      issues.push({ kind: 'code-check', field: String(detail.id ?? detail.elementId ?? detail.check ?? 'native-design'), reason: String(detail.status) });
+    }
     if (!Array.isArray(detail.checks)) continue;
     for (const group of detail.checks.filter(isRecord)) {
       if (!Array.isArray(group.items)) continue;
@@ -32,6 +38,9 @@ export function assessCurrentEngineeringInput(state?: ModelState, conversationId
           reason: String(item.status) });
       }
     }
+  }
+  if (checkCurrent && check.completionStatus === 'incomplete' && !issues.some(item => item.kind === 'code-check')) {
+    issues.push({ kind: 'code-check', field: 'code-check', reason: 'incomplete' });
   }
   if (!analysisError && run?.capabilityStatus && run.capabilityStatus !== 'complete') {
     issues.push({ kind: 'result', field: 'results', reason: String(run.capabilityStatus) });

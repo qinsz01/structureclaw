@@ -52,4 +52,14 @@ describe('read-only capability assessment separates task state from implementati
     state.inputEvidence=[{field:'supports.left',status:'missing',required:true}];
     expect(assessCurrentEngineeringInput(state,'c').issues).toContainEqual({kind:'input',field:'supports.left',reason:'missing'});
   });
+  test('native design flat records and missing inputs use the same current-task layer',()=>{
+    const state=currentState();
+    state.codeCheckResult={meta:{runId:'run'},provider:'native',completionStatus:'incomplete',
+      missingInputs:[{field:'sections.s',reason:'physical-design-geometry-required'}],
+      details:[{id:'b:steel-strength',status:'unsupported'}]};
+    expect(assessCurrentEngineeringInput(state,'c').issues).toEqual([
+      {kind:'code-check',field:'sections.s',reason:'physical-design-geometry-required'},
+      {kind:'code-check',field:'b:steel-strength',reason:'unsupported'},
+    ]);
+  });
 });
