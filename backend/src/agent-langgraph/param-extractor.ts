@@ -227,6 +227,7 @@ export function buildParamExtractorPrompt(
       '- 如果用户明确区分荷载工况，必须在每个荷载中保留 caseId 和 caseType；如果明确给出荷载组合，必须原样输出 engineeringDraft.analysis.loadCombinations，不得把不同工况预先合并',
       '- 源面荷载及其按受荷宽度折算得到的线荷载不是两个独立荷载；若用户要求采用折算结果，只输出折算后的线荷载，除非用户明确要求两者叠加',
       '- 如果用户或附件摘要明确给出节点坐标和构件连接关系，必须原样输出 engineeringDraft.topology，不要用规则化拓扑替换',
+      '- 用户只给简单梁模板描述而未给节点坐标/连接表时，保留 geometry/boundary/loads，不自行生成 topology。requestScope.responses 必须包含整句所求全部响应（例如同时求弯矩和挠度为 forces、displacements）；design/report 分别按请求，outputs 先留空数组，等待模型对象ID后再查询，不能填输出名称字符串',
       '- 不输出元数据字段（updatedAt, skillId, structuralTypeKey, supportLevel, coordinateSemantics, supportNote）',
       '- 不要为了补齐字段而猜测未明确给出的工程参数',
       '- 不要 markdown 包装或解释',
@@ -247,6 +248,7 @@ export function buildParamExtractorPrompt(
     skillInfoJson,
     '',
     'Extract engineering parameters from the user message based on the guidance above, and output a JSON object.',
+    'For a simple beam template without supplied node coordinates/connectivity, retain geometry/boundary/loads; do not invent topology. requestScope.responses includes every requested response (moment and deflection require forces and displacements). Design/report are independent requests. Leave outputs as [] until model object IDs are known; never supply output-name strings.',
     engineeringDraftSchemaDescription(locale),
     '',
     'Rules:',
@@ -413,6 +415,7 @@ function unwrapDraftPatch(parsed: Record<string, unknown>): Record<string, unkno
   const engineeringDraft = parsed.engineeringDraft;
   const draftPatch = parsed.draftPatch;
   const supplemental = {
+    ...(isRecord(parsed.requestScope) ? { requestScope: parsed.requestScope } : {}),
     ...(parsed.skillState && typeof parsed.skillState === 'object' && !Array.isArray(parsed.skillState)
       ? { skillState: parsed.skillState }
       : {}),
@@ -496,7 +499,7 @@ export async function invokeParamExtractor(
     input.plugin,
     input.message,
     input.focusFields,
-  );
+  ) + '\nRequest goal / 本次所求结果: include top-level requestScope only when this message changes the goal: {responses:[forces|reactions|displacements|rotations|stress|dynamic],method:solver|equilibrium,design:boolean,report:boolean,outputs:[]}. Do not infer design or report from enabled skills. Equilibrium is only for force-only horizontal single-span simply-supported/left-fixed cantilever without a requested engine. Missing material must not prevent this scope. Retain the prior goal for a clarification answer. / 不因勾选技能而请求设计或报告；补参数时保留目标。仅求静定单跨梁内力且没有指定引擎可用equilibrium。';
 
   let result: {
     content: unknown;

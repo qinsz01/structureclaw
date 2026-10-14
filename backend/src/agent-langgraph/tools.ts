@@ -47,10 +47,46 @@ import { analysisSettingsHash } from '../engineering/analysis-runs.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 import { checkRunResults, codeCheckFeedback } from '../engineering/code-checks.js';
 import { assertAnalysisInputEvidenceMatchesRequest, assertInputEvidenceMatchesModel, mergeInputEvidence } from '../engineering/input-evidence.js';
-import { currentRunPolicy, recordRunEvent } from '../runtime/run-context.js';
+import { currentRunPolicy, recordRunEvent, reserveToolCall, recordToolOutcome } from '../runtime/run-context.js';
+import { createQueryResultsTool } from './model-tools.js';
+import { requestScopeSchema, resolveExtractedScope, forceOnlyScope, missingInputReason, type RequestScope } from '../engineering/request-scope.js';
+import { equilibriumModel } from '../engineering/beam-equilibrium.js';
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/** Exact requested scalars use the same query service and server-side tool budget. */
+async function queryRequestedOutputs(state: AgentState, scope: RequestScope | null | undefined, config: LangGraphRunnableConfig) {
+  const quantities: Record<string, Record<string, unknown>> = {};
+  const missing: Array<Record<string, unknown>> = [];
+  const outputs = scope?.outputs ?? [];
+  for (const [index, selection] of outputs.entries()) {
+    if (resultEngine(state.analysisResult ?? {}) === 'equilibrium' && !['forces', 'reactions'].includes(String(selection.field))) {
+      missing.push({ selection, reason: 'RESPONSE_NOT_CALCULATED / 该响应尚未计算，需要对应分析属性' });
+      continue;
+    }
+    const callId = `output-${randomUUID()}`;
+    let reserved = false;
+    try {
+      reserveToolCall('query_results', callId);
+      reserved = true;
+      const command = await createQueryResultsTool().invoke(selection, {
+        ...config, toolCall: { id: callId, name: 'query_results', args: selection }, configurable: { ...config.configurable, agentState: { ...state, resultQuantities: { ...state.resultQuantities, ...quantities } } },
+      });
+      if (command instanceof Command) Object.assign(quantities, command.update?.resultQuantities ?? {});
+      recordToolOutcome('query_results', callId);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      if (reserved) recordToolOutcome('query_results', callId, reason);
+      else recordRunEvent({ kind: 'requested_output_unavailable', selection, reason });
+      missing.push({ selection, reason });
+      // Do not spend further recovery attempts on a failed automatic query.
+      missing.push(...outputs.slice(index + 1).map(selection => ({ selection, reason: 'NOT_QUERIED_AFTER_DELIVERY_FAILURE / 前项交付失败，尚未查询' })));
+      break;
+    }
+  }
+  return { resultQuantities: quantities, requestedQuantities: Object.values(quantities), missingRequestedOutputs: missing };
+}
 
 /** Get the AgentConfigurable from the LangGraph run config. */
 function getConfigurable(config: LangGraphRunnableConfig): AgentConfigurable & { agentState?: AgentState } {
@@ -2497,6 +2533,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
     async (input: {
       message?: string;
       locale?: string;
+      requestScope?: RequestScope;
     }, config: LangGraphRunnableConfig) => {
       const log = getLogger(config.configurable as Partial<AgentConfigurable> | undefined);
       const start = Date.now();
@@ -2504,7 +2541,8 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
       const state = configurable.agentState;
       const toolCallId = getToolCallId(config);
 
-      const existingState = state?.draftState || undefined;
+      const requestedScope = input.requestScope ?? state?.requestScope;
+      const existingState = state?.draftState ? { ...state.draftState, ...(requestedScope ? { requestScope: requestedScope } : {}) } : undefined;
       const skillIds = configurable.skillScope;
       const locale = (input.locale ?? state?.locale ?? 'zh') as 'zh' | 'en';
       const message = resolveToolInputMessage(input.message, state?.lastUserMessage, state?.messages);
@@ -2517,7 +2555,9 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
         toolCallId,
         'extract_draft_params',
         content,
-        stateUpdate,
+        { ...stateUpdate, ...(stateUpdate?.requestScope || requestedScope ? { requestScope: stateUpdate?.requestScope ?? requestedScope } : {}),
+          ...(stateUpdate?.draftState ? { draftState: { ...stateUpdate.draftState,
+            ...(stateUpdate.requestScope || requestedScope ? { requestScope: stateUpdate.requestScope ?? requestedScope } : {}) } } : {}) },
         nestedUsage.total(),
       );
 
@@ -2682,9 +2722,18 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
           structuralTypeMatch: match,
         });
         const { withStructuralTypeState } = await import('../agent-runtime/plugin-helpers.js');
-        const nextState = withStructuralTypeState(plugin.handler.mergeState(existingState, patch), match);
+        const requestScope = resolveExtractedScope(input.requestScope, draftPatch?.requestScope, state?.requestScope);
+        const nextState = { ...withStructuralTypeState(plugin.handler.mergeState(existingState, patch), match),
+          ...(requestScope ? { requestScope } : {}) };
         const missing = computeDraftMissing(plugin, nextState, 'execution');
         const extractionMode = draftPatch ? 'llm' : 'deterministic';
+        let equilibriumContext = requestScope?.method === 'equilibrium' && !missing.critical.length
+          ? equilibriumModel(nextState) : undefined;
+        let partialEquilibriumAvailable = false;
+        if (requestScope?.method === 'solver' && !requestScope.design && missing.critical.length
+          && requestScope.responses.some(field => ['forces', 'reactions'].includes(field))) {
+          try { equilibriumContext = equilibriumModel(nextState); partialEquilibriumAvailable = true; } catch { /* Full-model missing conditions remain authoritative. */ }
+        }
 
         // Missing engineering input is a clarification state, not a failed extraction.
         // Repeating the same evidence cannot supply user-omitted properties and must
@@ -2700,15 +2749,32 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
           skillId: plugin.id,
           routingSource: match.routingSource,
           extractionMode,
+          requestScope,
+          ...(partialEquilibriumAvailable ? { partialAnalysisAvailable: { method: 'equilibrium', allowPartial: true,
+            availableResponses: ['forces', 'reactions'], missingForFullAnalysis: missing.critical,
+            instruction: 'First run_analysis(method=equilibrium,allowPartial=true) for independently determined forces. Then ask for stiffness for displacement; the task remains partial. / 先计算可独立确定的内力，再询问位移所需刚度；不能宣布整题完成。' } } : {}),
+          ...(equilibriumContext ? { calculationContext: { nodes: equilibriumContext.nodes, elements: equilibriumContext.elements,
+            resultKeys: (equilibriumContext.load_cases as Record<string, unknown>[]).map(c => `case:${c.id}`),
+            verticalBendingMomentComponent: 'M2', verticalShearComponent: 'V3', verticalReactionComponent: 'fz',
+            note: 'Use these exact IDs and components. resultKey is the load case, not a label for a requested output. / 使用这些实际ID与分量；resultKey是工况键，不是所求结果名称。' } } : {}),
+          missingReasons: missing.critical.map(field => ({ field, reason: missingInputReason(field, requestScope, locale) })),
           llmDraftPatch: draftPatch ?? null,
           engineeringDraft: nextState.engineeringDraft ?? patch.engineeringDraft ?? null,
           extractionSource: typeof nextState.skillState?.extractionSource === 'string'
             ? nextState.skillState.extractionSource
             : (draftPatch ? 'llm-draft-patch' : 'deterministic'),
           ...buildDraftProgress(locale, missing.critical),
+          ...(partialEquilibriumAvailable ? { nextAction: 'run_analysis', canAnalyzePartial: true,
+            instruction: locale === 'zh' ? '完整分析仍缺属性；先run_analysis(method=equilibrium,allowPartial=true)计算独立内力，再澄清位移所需刚度。不要build_model或编造材料截面。'
+              : 'Full analysis lacks properties. First run_analysis(method=equilibrium,allowPartial=true) for independent forces, then clarify stiffness. Do not build_model or invent material/section.' } : {}),
+          ...(requestScope?.method === 'equilibrium' && missing.critical.length === 0 ? {
+            nextAction: 'run_analysis', instruction: locale === 'zh'
+              ? '直接调用run_analysis(method=equilibrium)。仅计算内力和反力，不需要材料截面，不生成未请求的变形、规范校核或报告。'
+              : 'Call run_analysis(method=equilibrium) directly. Forces/reactions only; no material/section, unrequested deformation, code checking or report.' } : {}),
         };
 
         const stateUpdate: Partial<AgentState> = {};
+        if (requestScope) stateUpdate.requestScope = requestScope;
         if (nextState) {
           stateUpdate.draftState = nextState;
           stateUpdate.modelPending = true;
@@ -2751,6 +2817,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
       schema: z.object({
         message: z.string().describe('The user message to extract parameters from').optional(),
         locale: z.enum(['zh', 'en']).optional().describe('User locale'),
+        requestScope: requestScopeSchema.optional().describe('Current user goal, not the full engineering workflow. Use equilibrium only for an explicitly force-only, horizontal single-span simply-supported/left-fixed cantilever beam, without a specified engine. Preserve scope while receiving missing-input answers. / 本次用户所求结果；单跨简支或左固悬臂仅求内力且未指定引擎时可用equilibrium。补参数时保留范围。'),
       }),
     },
   );
@@ -3036,7 +3103,9 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
       loadCombinationIds?: string[];
       floorLoadTransferMode?: 'auto_code_cn' | 'node_tributary' | 'one_way_slab' | 'two_way_slab';
       seismicWorkflowJson?: string;
-      method?: 'modal' | 'time_history';
+      method?: 'modal' | 'time_history' | 'equilibrium';
+      allowPartial?: boolean;
+      requestScope?: RequestScope;
       massSource?: 'nodal' | 'member-density' | 'floor-seismic';
       numModes?: number;
       direction?: 'x' | 'y' | 'z';
@@ -3055,6 +3124,44 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
       const configurable = getConfigurable(config);
       const state = configurable.agentState;
       const toolCallId = getToolCallId(config);
+
+      const equilibriumRequested = input.method === 'equilibrium' || input.requestScope?.method === 'equilibrium' || state?.requestScope?.method === 'equilibrium';
+      // A tool may select only available responses, but cannot erase the accepted goal.
+      const partialGoal = equilibriumRequested && state?.requestScope?.responses.some(field => !['forces', 'reactions'].includes(field))
+        ? state.requestScope : undefined;
+      const scope = partialGoal
+        ? { ...partialGoal, outputs: input.requestScope?.outputs.length ? input.requestScope.outputs : partialGoal.outputs }
+        : input.requestScope ?? state?.requestScope;
+      if (equilibriumRequested) {
+        const partial = (input.allowPartial === true || !!partialGoal) && scope && !scope.design
+          && scope.responses.some(field => !['forces', 'reactions'].includes(field))
+          && !scope.responses.includes('dynamic') && scope.responses.some(field => ['forces', 'reactions'].includes(field));
+        if (input.analysisType !== 'static' || !forceOnlyScope(scope) && !partial) throw new Error('EQUILIBRIUM_FORCE_ONLY_REQUIRED / 平衡计算仅适用于静力内力或反力');
+        if (input.analysisSkillId || state?.model && !state.modelPending) throw new Error('EQUILIBRIUM_NOT_A_SOLVER_FALLBACK / 指定引擎或已有完整模型必须使用真实求解路径');
+        if (!state?.draftState) throw new Error('ENGINEERING_DRAFT_REQUIRED');
+        const projection = equilibriumModel(state.draftState, state.inputEvidence);
+        const parameters = { ...(input.loadCaseIds ? { loadCaseIds: input.loadCaseIds } : {}),
+          ...(input.loadCombinationIds ? { loadCombinationIds: input.loadCombinationIds } : {}),
+          ...(input.loadCombinationId ? { loadCombinationId: input.loadCombinationId } : {}) };
+        const reservation = beginAnalysisRequest(state, analysisSettingsHash('static', 'builtin-equilibrium', parameters), projection);
+        configurable.agentState = { ...state, ...reservation };
+        configurable.onAnalysisRequest?.(reservation);
+        const requestId = randomUUID();
+        recordRunEvent({ kind: 'analysis_request', requestId, operation: 'analysis', method: 'equilibrium' });
+        const { data: run } = await configurable.engineClient.post<Record<string, unknown>>('/analyze', {
+          type: 'static', engineId: 'builtin-equilibrium', model: projection, parameters, requestScope: scope,
+          requestId, requestBinding: reservation.analysisRequest }, { signal: config.signal });
+        run.meta = { ...(isRecord(run.meta) ? run.meta : {}), requestScope: scope };
+        const update = publishAnalysis(getConfigurable(config).agentState ?? {}, reservation.analysisRequest, run);
+        const delivery = update.analysisResult ? await queryRequestedOutputs({ ...state, ...reservation, ...update }, scope, config) : undefined;
+        return toolResult(toolCallId, 'run_analysis', JSON.stringify({ ...buildAnalysisToolSummary({ result: run, model: projection }),
+          method: 'equilibrium', availableResponses: ['forces', 'reactions'], requestScope: scope,
+          ...(partial ? { deliveryStatus: 'partial', missingRequestedResponses: scope.responses.filter(field => !['forces', 'reactions'].includes(field)),
+            nextAction: 'ask_user_clarification', message: 'Forces solved; displacement/other requested responses still need analysis properties. / 内力已算；位移等其余所求量仍需分析属性。' } : {}),
+          ...(delivery ? { requestedQuantities: delivery.requestedQuantities, missingRequestedOutputs: delivery.missingRequestedOutputs } : {}),
+          instruction: 'Query forces/reactions by physical position. Displacement, stress and design were not calculated. / 按物理位置查询内力反力；没有计算位移、应力或设计。' }),
+          { ...update, ...(delivery ? { resultQuantities: delivery.resultQuantities } : {}), ...(scope ? { requestScope: scope } : {}) });
+      }
 
       // Read model from graph state channel
       const model = state?.model;
@@ -3196,7 +3303,7 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
         reservation = { ...reservation, analysisRequest: { ...reservation.analysisRequest,
           settingsHash: analysisSettingsHash(payload.type, payload.engineId, parameters) } };
         reserve();
-        payload = { ...payload, requestId: randomUUID(), requestBinding: reservation.analysisRequest };
+        payload = { ...payload, ...(scope ? { requestScope: scope } : {}), requestId: randomUUID(), requestBinding: reservation.analysisRequest };
         if (opts.signal?.aborted) throw opts.signal.reason ?? new Error('Analysis request aborted');
         recordRunEvent({ kind: 'analysis_request', requestId: payload.requestId, operation: 'analysis', engineId: payload.engineId });
         try {
@@ -3231,6 +3338,7 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
         ...analysisMeta,
         traceId,
         ...reservation.analysisRequest,
+        ...(scope ? { requestScope: scope } : {}),
       };
 
       // Store analysis result in graph state via Command.
@@ -3242,6 +3350,8 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
         model,
       });
       const analysisSucceeded = analysisSummary.success !== false;
+      const update = publishAnalysis(getConfigurable(config).agentState ?? {}, reservation.analysisRequest, analysisResult);
+      const delivery = update.analysisResult && analysisSucceeded ? await queryRequestedOutputs({ ...state, ...reservation, ...update } as AgentState, scope, config) : undefined;
       logToolCall(log, {
         tool: 'run_analysis',
         durationMs: Date.now() - start,
@@ -3251,8 +3361,10 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
       return toolResult(
         toolCallId,
         'run_analysis',
-        JSON.stringify(analysisSummary),
-        publishAnalysis(getConfigurable(config).agentState ?? {}, reservation.analysisRequest, analysisResult),
+        JSON.stringify({ ...analysisSummary, ...(delivery ? { requestedQuantities: delivery.requestedQuantities, missingRequestedOutputs: delivery.missingRequestedOutputs,
+          deliveryStatus: delivery.missingRequestedOutputs.length ? 'partial' : 'complete' } : {}), ...(scope ? { requestScope: scope, requestedOutputs: scope.outputs,
+          nextAction: 'query_results', instruction: 'Deliver the requested result locations, cases and units; code design/report only when explicitly requested. / 按指定位置、工况、单位交付；规范设计和报告分别按需。' } : {}) }),
+        { ...update, ...(delivery ? { resultQuantities: delivery.resultQuantities } : {}), ...(scope ? { requestScope: scope } : {}) },
       );
     },
     {
@@ -3267,7 +3379,7 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
       schema: z.object({
         analysisType: z
           .enum(['static', 'dynamic', 'seismic', 'nonlinear'])
-          .describe('Type of analysis to perform'),
+          .default('static').describe('Type of analysis; default static, including equilibrium. method is separate. / 分析类型，缺省静力；equilibrium属于method。'),
         analysisSkillId: z
           .enum(ANALYSIS_SKILL_ID_VALUES)
           .optional()
@@ -3278,7 +3390,9 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
           .describe('Optional single load-combination ID. Without selectors, all declared static cases and combinations are run separately.'),
         loadCaseIds: z.array(z.string()).optional().describe('Explicit load cases to solve independently.'),
         loadCombinationIds: z.array(z.string()).optional().describe('Explicit combinations to solve independently.'),
-        method: z.enum(['modal', 'time_history']).optional().describe('Dynamic analysis method / 动力方法。'),
+        method: z.enum(['modal', 'time_history', 'equilibrium']).optional().describe('equilibrium: forces/reactions from accepted single-span beam draft, no stiffness or displacement; never substitutes for a specified solver. Otherwise modal/time_history / 平衡法只计算已接受单跨梁草稿的内力反力，不能替代指定引擎。'),
+        allowPartial: z.boolean().optional().describe('Only for equilibrium: compute independently available forces first when the request also needs displacement but stiffness is missing. Missing responses remain explicit; never marks the full task complete. / 平衡法先交付独立内力；其余响应仍明确缺项，不能算整题完成。'),
+        requestScope: requestScopeSchema.optional().describe('Requested response families and exact output locations/cases/units; design/report are independent opt-in deliverables. / 所求响应及明确位置、工况和单位；设计和报告分别按需。'),
         massSource: z.enum(['nodal', 'member-density', 'floor-seismic']).optional().describe('Explicit mass basis; sources are never silently added / 明确质量来源，不隐式叠加。'),
         numModes: z.number().int().positive().optional(),
         direction: z.enum(['x', 'y', 'z']).optional(),
@@ -3311,12 +3425,18 @@ export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
       engineId?: string;
       provider?: CodeCheckProvider;
       design?: Record<string, unknown>;
+      requestScope?: RequestScope;
     }, config: LangGraphRunnableConfig) => {
       const log = getLogger(config.configurable as Partial<AgentConfigurable> | undefined);
       const start = Date.now();
       const configurable = getConfigurable(config);
       const state = configurable.agentState;
       const toolCallId = getToolCallId(config);
+      const scope = input.requestScope ?? state?.requestScope;
+      if (scope && !scope.design) return toolResult(toolCallId, 'run_code_check', JSON.stringify({ success: true,
+        skipped: true, reason: 'DESIGN_NOT_REQUESTED', message: 'Analysis does not automatically request code design.',
+        messageZh: '普通分析不自动进入规范设计；请只交付当前所求结果。' }));
+      if (resultEngine(state?.analysisResult ?? {}) === 'equilibrium') throw new Error('DESIGN_REQUIRES_FULL_MODEL / 规范设计需要真实材料截面及完整模型，不能使用无刚度平衡投影');
       const skillIds = configurable.skillScope;
       const selectedDesignCode = skillRuntime.resolveCodeCheckDesignCodeFromSkillIds(skillIds);
       const explicitDesignCode = input.designCode || state?.policy?.designCode;
@@ -3432,6 +3552,7 @@ export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
         provider: z.enum(['auto', 'native', 'builtin']).optional().describe('Commercial engines prefer native design; OpenSees uses builtin checks / 商业引擎优先原生设计，OpenSees采用公共校核。'),
         design: z.record(z.string(), z.unknown()).optional().describe('Explicit native design conditions / 明确的原生设计条件。'),
         engineId: z.string().optional().describe('Optional engine ID'),
+        requestScope: requestScopeSchema.optional().describe('Update the goal only when the user now explicitly requests design; preserve requested outputs. / 仅在用户明确请求设计时更新目标，保留所求结果。'),
       }),
     },
   );
@@ -3445,12 +3566,17 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
       locale?: string;
       selection?: ResultSelection;
       narrative?: 'structured' | 'assisted';
+      requestScope?: RequestScope;
     }, config: LangGraphRunnableConfig) => {
       const log = getLogger(config.configurable as Partial<AgentConfigurable> | undefined);
       const start = Date.now();
       const configurable = getConfigurable(config);
       const state = configurable.agentState;
       const toolCallId = getToolCallId(config);
+      const scope = input.requestScope ?? state?.requestScope;
+      if (scope && !scope.report) return toolResult(toolCallId, 'generate_report', JSON.stringify({ success: true,
+        skipped: true, reason: 'REPORT_NOT_REQUESTED', message: 'Deliver the requested results without a full report.',
+        messageZh: '用户未要求计算书；交付所求结果及计算依据即可。' }));
 
       const selection = input.selection;
       if (selection?.timeIndex !== undefined && selection.modeNumber !== undefined) throw new Error('RESULT_INDEX_CONFLICT');
@@ -3490,7 +3616,7 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
           nextAction: 'Call extract_draft_params or pass seismicWorkflowJson, rerun run_analysis and run_code_check, then retry generate_report.',
         }));
       }
-      if (analysisType === 'seismic' && !hasValidChinaSeismicCodeCheck(codeCheck, analysis)) {
+      if (analysisType === 'seismic' && scope?.design !== false && !hasValidChinaSeismicCodeCheck(codeCheck, analysis)) {
         return toolResult(toolCallId, 'generate_report', JSON.stringify({
           success: false,
           error_code: 'SEISMIC_CODE_CHECK_REQUIRED',
@@ -3544,6 +3670,7 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
         locale: z.enum(['zh', 'en']).optional().describe('Report language'),
         selection: resultSelectionSchema.optional().describe('Saved run/result and optional scalar already registered by query_results using exactly the same component, unit, location and index. Omit to report the current run. Does not replace the current report. / 保存的运行/结果及已由query_results登记的同分量、单位、位置、索引标量。省略则报告当前运行；指定selection不覆盖当前报告。'),
         narrative: z.enum(['structured', 'assisted']).optional().describe('structured produces a deterministic report without an extra language-model call. / structured直接生成结构化报告，不额外调用语言模型。'),
+        requestScope: requestScopeSchema.optional().describe('Update the goal only when the user explicitly asks for a report. / 用户明确要求报告时更新目标。'),
       }),
     },
   );

@@ -113,3 +113,18 @@ describe('saved analysis run visualization', () => {
     expect(getBucklingModes(view, view.cases[1])).toEqual([])
   })
 })
+
+it('force-only results expose forces and reactions without a fabricated deformation view', () => {
+  const scopedModel = { schema_version:'2.2.0', unit_system:'SI',coordinate_system:coordinates,
+    nodes:[{id:'A',x:0,y:0,z:0},{id:'B',x:10,y:0,z:0}],elements:[{id:'beam',type:'beam',nodes:['A','B']}],materials:[],sections:[],
+    load_cases:[{id:'LC1',loads:[{element:'beam',type:'point',position:5,fz:-1}]}],load_combinations:[] };
+  const scopedResult = { success:true,runId:'equilibrium-run',modelSnapshot:scopedModel,meta:{runId:'equilibrium-run',modelHash:'eq',settingsHash:'eq'},selectedResultKey:'case:LC1',
+    results:{'case:LC1':{success:true,selection:{key:'case:LC1',kind:'case',id:'LC1'},meta:{...resultMeta,engineId:'builtin-equilibrium',runId:'equilibrium-run',modelHash:'eq',settingsHash:'eq'},
+      data:{reactions:{A:{fz:0.5},B:{fz:0.5}},forces:{beam:{n1:{N:0,V3:0.5,M2:0},n2:{N:0,V3:-0.5,M2:0}}},
+        memberResponses:[{id:'beam',length:10,state:'force-only',reason:'Equilibrium',samples:[{x:0,position:[0,0,0],N:0,V2:0,V3:0.5,T:0,M2:0,M3:0,provenance:'mechanics-recovery',source:{kind:'equilibrium-direct'}},{x:5,position:[5,0,0],N:0,V2:0,V3:-0.5,T:0,M2:-2.5,M3:0,provenance:'mechanics-recovery',source:{kind:'equilibrium-direct'}},{x:10,position:[10,0,0],N:0,V2:0,V3:-0.5,T:0,M2:0,M3:0,provenance:'mechanics-recovery',source:{kind:'equilibrium-direct'}}]}]}}} };
+  const snapshot=buildVisualizationSnapshot({title:'Equilibrium',model:scopedModel,analysis:scopedResult});
+  expect(snapshot).not.toBeNull();
+  expect(snapshot!.availableViews).toContain('forces');
+  expect(snapshot!.availableViews).toContain('reactions');
+  expect(snapshot!.availableViews).not.toContain('deformed');
+});

@@ -1,4 +1,6 @@
-import { normalizeLegacyDraftPatch } from '../../../agent-runtime/legacy.js';
+import { normalizeLegacyDraftPatch, buildLegacyModel } from '../../../agent-runtime/legacy.js';
+import type { RequestScope } from '../../../engineering/request-scope.js';
+import { computeFrameMissing } from '../frame/interaction.js';
 import type { SkillHandler } from '../../../agent-runtime/types.js';
 import { detectConcreteFrameStructuralType } from './detect.js';
 import { buildConcreteFrameDraftPatch, coerceConcreteFrameDimension, toConcreteFramePatch } from './extract-llm.js';
@@ -308,6 +310,7 @@ export const handler: SkillHandler = {
   },
 
   computeMissing(state, phase) {
+    if ((state.requestScope as RequestScope | undefined)?.design === false) return computeFrameMissing(state, phase);
     return computeConcreteFrameMissing(state, phase);
   },
 
@@ -328,6 +331,13 @@ export const handler: SkillHandler = {
   },
 
   buildModel(state) {
+    if ((state.requestScope as RequestScope | undefined)?.design === false) {
+      // Elastic analysis does not require reinforcement sizing or slab design.
+      return buildLegacyModel({ ...state, inferredType: 'frame', skillId: 'frame',
+        engineeringDraft: { ...state.engineeringDraft,
+          material: state.engineeringDraft?.material ?? { family: 'concrete', grade: state.frameConcreteGrade },
+          sections: state.engineeringDraft?.sections ?? { beam: state.frameBeamSection, column: state.frameColumnSection } } });
+    }
     if (computeConcreteFrameMissing(state, 'execution').critical.length > 0) {
       return undefined;
     }

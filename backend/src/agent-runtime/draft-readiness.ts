@@ -3,6 +3,9 @@ import { templatePropertyIssues } from './template-properties.js';
 import { isValidConcreteGrade, isValidRebarGrade, resolveSectionProps } from '../agent-skills/structure-type/concrete-frame/model.js';
 import type { AgentSkillPlugin, DraftState, InteractionQuestion, SkillMissingResult } from './types.js';
 import type { AppLocale } from '../services/locale.js';
+import { equilibriumModel } from '../engineering/beam-equilibrium.js';
+import { forceOnlyScope, missingInputReason, type RequestScope } from '../engineering/request-scope.js';
+import { isRecord } from '../engineering/model-state.js';
 
 type ReadinessPlugin = Pick<AgentSkillPlugin, 'id' | 'handler'>;
 
@@ -12,6 +15,11 @@ function materialPropertyQuestions(state: DraftState, locale: AppLocale): Intera
   if (!Array.isArray(records)) return [];
   const prefix = draft?.model ? 'model.materials' : 'materials';
   const isZh = locale === 'zh';
+  const control = isRecord(draft?.model?.analysis_control) ? draft.model.analysis_control : draft?.analysisControl;
+  const densityMass = (draft?.analysis?.type === 'dynamic' || draft?.analysis?.type === 'seismic')
+    && !['nodal', 'floor-seismic'].includes(String(control?.mass_source));
+  const densityRequired = control?.self_weight !== false || densityMass
+    || ['pkpm', 'yjk'].includes(String(draft?.analysis?.engineTarget));
   return records.flatMap((material, index): InteractionQuestion[] => {
     if (!material || typeof material !== 'object') return [];
     const id = typeof material.id === 'string' && material.id.trim() ? material.id : `[${index}]`;
@@ -20,7 +28,7 @@ function materialPropertyQuestions(state: DraftState, locale: AppLocale): Intera
       ['name', '材料名称', 'material name', typeof material.name === 'string' && !!material.name.trim()],
       ['E', '弹性模量 E（MPa，正数）', 'elastic modulus E (MPa, positive)', typeof material.E === 'number' && Number.isFinite(material.E) && material.E > 0],
       ['nu', '泊松比 nu（0 ≤ nu < 0.5）', 'Poisson ratio nu (0 ≤ nu < 0.5)', typeof material.nu === 'number' && Number.isFinite(material.nu) && material.nu >= 0 && material.nu < 0.5],
-      ['rho', '密度 rho（kg/m³，正数）', 'density rho (kg/m³, positive)', typeof material.rho === 'number' && Number.isFinite(material.rho) && material.rho > 0],
+      ...(densityRequired || material.rho !== undefined ? [['rho', '密度 rho（kg/m³，正数）', 'density rho (kg/m³, positive)', typeof material.rho === 'number' && Number.isFinite(material.rho) && material.rho > 0] as [string, string, string, boolean]] : []),
     ];
     if (material.G !== undefined) fields.push(['G', '剪切模量 G（MPa，正数）', 'shear modulus G (MPa, positive)', typeof material.G === 'number' && Number.isFinite(material.G) && material.G > 0]);
     return fields.filter(([, , , valid]) => !valid).map(([key, zh, en]) => ({
@@ -33,6 +41,11 @@ function materialPropertyQuestions(state: DraftState, locale: AppLocale): Intera
 
 /** One draft readiness decision for extraction, clarification, and formal model creation. */
 export function computeDraftMissing(plugin: ReadinessPlugin, state: DraftState, phase: 'interactive' | 'execution'): SkillMissingResult {
+  const scope = state.requestScope as RequestScope | undefined;
+  if (scope?.method === 'equilibrium' && forceOnlyScope(scope)) {
+    try { equilibriumModel(state); return { critical: [], optional: [] }; }
+    catch (error) { return { critical: [error instanceof Error ? error.message : String(error)], optional: [] }; }
+  }
   const propertyMissing = materialPropertyQuestions(state, 'en').map((question) => question.paramKey);
   if (propertyMissing.length) return { critical: propertyMissing, optional: [] };
   try {
@@ -41,9 +54,9 @@ export function computeDraftMissing(plugin: ReadinessPlugin, state: DraftState, 
     return { critical: ['engineeringDraft'], optional: [] };
   }
   const missing = plugin.handler.computeMissing(state, phase);
-  const critical = [...missing.critical];
+  const critical = missing.critical.filter(field => scope?.design !== false || field !== 'frameRebarGrade');
   if (plugin.id === 'generic') return missing;
-  if (plugin.id === 'concrete-frame') {
+  if (plugin.id === 'concrete-frame' && scope?.design !== false) {
     if (typeof state.frameConcreteGrade !== 'string' || !isValidConcreteGrade(state.frameConcreteGrade)) critical.push('frameConcreteGrade');
     if (typeof state.frameRebarGrade !== 'string' || !isValidRebarGrade(state.frameRebarGrade)) critical.push('frameRebarGrade');
     for (const field of ['frameBeamSection', 'frameColumnSection'] as const) {
@@ -52,7 +65,7 @@ export function computeDraftMissing(plugin: ReadinessPlugin, state: DraftState, 
         resolveSectionProps(state[field] as string);
       } catch { critical.push(field); }
     }
-  } else if (['beam', 'frame', 'truss', 'column', 'double-span-beam', 'portal-frame'].includes(plugin.id) && templatePropertyIssues(state).length) {
+  } else if (['beam', 'frame', 'concrete-frame', 'truss', 'column', 'double-span-beam', 'portal-frame'].includes(plugin.id) && templatePropertyIssues(state).length) {
     critical.push('templateProperties');
   }
   return { critical: [...new Set(critical)], optional: missing.optional.filter((key) => !critical.includes(key)) };
@@ -62,10 +75,15 @@ export function buildDraftQuestions(plugin: ReadinessPlugin | null | undefined, 
   if (!plugin || critical.length === 0) return [];
   const propertyQuestions = materialPropertyQuestions(state, locale).filter((question) => critical.includes(question.paramKey));
   const questions = plugin.handler.buildQuestions([...critical, ...optional], critical, state, locale)
-    .filter((question) => !['templateProperties', 'engineeringDraft'].includes(question.paramKey)
+    .filter((question) => !question.paramKey.startsWith('EQUILIBRIUM_') && !['templateProperties', 'engineeringDraft'].includes(question.paramKey)
       && !propertyQuestions.some((property) => property.paramKey === question.paramKey));
   questions.push(...propertyQuestions);
   const isZh = locale === 'zh';
+  for (const field of critical.filter(key => key.startsWith('EQUILIBRIUM_'))) {
+    const parts = field.split(' / ');
+    questions.push({ paramKey: field, label: isZh ? '当前计算所需条件' : 'Required calculation input',
+      question: isZh ? parts.at(-1)! : parts[0]!, required: true, critical: true });
+  }
   if (critical.includes('templateProperties')) {
     const details = templatePropertyIssues(state).map((issue) => {
       const parts = issue.replace(/^[A-Z_]+:\s*/, '').split(' / ');
@@ -73,8 +91,8 @@ export function buildDraftQuestions(plugin: ReadinessPlugin | null | undefined, 
     }).join(' ');
     questions.push({ paramKey: 'templateProperties', label: isZh ? '材料、截面与构件分配' : 'Materials, sections, and member assignments',
       question: isZh
-        ? `请补充材料牌号或完整弹性属性、各类构件截面及其对应关系。${details}`
-        : `Provide a material grade or complete elastic properties, sections, and their member-role assignments. ${details}`,
+        ? `请补充材料牌号或完整弹性属性、各类构件截面及其对应关系。${details} ${missingInputReason('templateProperties', state.requestScope as RequestScope | undefined, locale)}`
+        : `Provide a material grade or complete elastic properties, sections, and their member-role assignments. ${details} ${missingInputReason('templateProperties', state.requestScope as RequestScope | undefined, locale)}`,
       required: true, critical: true });
   }
   if (critical.includes('engineeringDraft')) {

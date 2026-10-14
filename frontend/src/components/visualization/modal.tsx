@@ -348,7 +348,8 @@ export function StructuralVisualizationModal({
               <div className="mt-3 space-y-2 text-sm text-muted-foreground">
                 <div>{t('visualizationConnectedNodes')}: {selectedElementNodeIds.join(' - ')}</div>
                 {!modelOnly && selectedMemberResponse && (
-                  <div>{t(selectedMemberResponse.state === 'native-stations' ? 'visualizationMemberNativeStations'
+                  <div>{t(selectedMemberResponse.state === 'force-only' ? 'visualizationMemberForceOnly'
+                    : selectedMemberResponse.state === 'native-stations' ? 'visualizationMemberNativeStations'
                     : selectedMemberResponse.state === 'recovered' ? 'visualizationMemberRecovered'
                     : selectedMemberResponse.state === 'truss' ? 'visualizationMemberTruss'
                     : selectedMemberResponse.state === 'interpolated' ? 'visualizationMemberInterpolated'

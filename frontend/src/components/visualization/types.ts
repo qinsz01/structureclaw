@@ -113,7 +113,7 @@ export type VisualizationCase = {
 export type VisualizationMemberResponse = {
   id: string
   length: number
-  state: 'recovered' | 'interpolated' | 'truss' | 'unavailable' | 'native-stations'
+  state: 'recovered' | 'interpolated' | 'truss' | 'unavailable' | 'native-stations' | 'force-only'
   reason: string
   samples: {
     x: number

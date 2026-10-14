@@ -59,3 +59,13 @@ describe('unified draft readiness',()=>{
     expect(computeDraftMissing(concrete,state,'execution').critical).toEqual(['frameRebarGrade']);
   });
 });
+
+  test('analysis with self-weight explicitly disabled does not ask for unused density', () => {
+    const withoutDensity={...material};delete withoutDensity.rho;
+    const state={...beam,requestScope:{responses:['displacements'],method:'solver',design:false,report:false,outputs:[]},
+      engineeringDraft:{materials:[withoutDensity],sections:{beam:'100X200'},analysisControl:{self_weight:false}}};
+    expect(computeDraftMissing(plugin,state,'execution').critical).toEqual([]);
+    expect(state.engineeringDraft.materials[0].rho).toBeUndefined();
+    state.engineeringDraft.analysisControl.self_weight=true;
+    expect(computeDraftMissing(plugin,state,'execution').critical).toContain('materials.M.rho');
+  });

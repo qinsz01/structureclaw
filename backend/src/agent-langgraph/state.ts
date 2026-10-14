@@ -17,6 +17,7 @@ import type { AnalysisRequestBinding, ModelTransaction } from '../engineering/mo
 import { mergeInputEvidence } from '../engineering/input-evidence.js';
 import type { EffectiveRunPolicy } from '../runtime/run-policy.js';
 import type { RunUsage } from '../runtime/run-context.js';
+import type { RequestScope } from '../engineering/request-scope.js';
 
 export interface AgentToolAccessPolicy {
   enabledToolIds: string[] | null;
@@ -84,6 +85,7 @@ export function emptySessionState(overrides?: Partial<AgentSessionState>): Agent
  * All domain fields use a last-writer-wins (replace) reducer.
  */
 export const AgentStateAnnotation = Annotation.Root({
+  requestScope: Annotation<RequestScope | null>({ reducer: (_prev, next) => next, default: () => null }),
   runPolicy: Annotation<EffectiveRunPolicy | null>({ reducer: (_prev, next) => next, default: () => null }),
   runUsage: Annotation<RunUsage | null>({ reducer: (_prev, next) => next, default: () => null }),
   messages: Annotation<BaseMessage[]>({

@@ -409,7 +409,7 @@ class MaterialV2(BaseModel):
     E: float = Field(..., gt=0, description="弹性模量 (MPa)")
     G: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False, description='Explicit shear modulus (MPa) / 显式剪切模量')
     nu: float = Field(..., ge=0, le=0.5, description="泊松比")
-    rho: float = Field(..., gt=0, description="密度 (kg/m³)")
+    rho: Optional[float] = Field(default=None, gt=0, description="密度 (kg/m³)，自重或密度质量来源时必需")
     fy: Optional[float] = Field(default=None, gt=0, description="屈服强度 (MPa)")
     grade: Optional[str] = Field(
         default=None,
@@ -734,6 +734,10 @@ class StructureModelV2(BaseModel):
     @model_validator(mode="after")
     def validate_references(self) -> "StructureModelV2":
         """Cross-reference validation across all entity collections."""
+        if self.analysis_control is None or self.analysis_control.self_weight is not False:
+            missing_density = [material.id for material in self.materials if material.rho is None]
+            if missing_density:
+                raise ValueError(f"Density rho is required for self-weight; materials: {missing_density}. Explicitly disable self_weight for density-free elastic statics.")
         declared_dimension = self.coordinate_system.dimension
         if self.schema_version == '2.2.0':
             for section in self.sections:

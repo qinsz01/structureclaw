@@ -15,7 +15,7 @@
 - "简支" / "simply supported" / "简支梁" → `"supportType": "simply-supported"`
 - "悬臂" / "cantilever" / "悬臂梁" → `"supportType": "cantilever"`
 - "两端固" / "fixed-fixed" → `"supportType": "fixed-fixed"`
-- 未指定支座类型时默认 / Default to `"supportType": "simply-supported"` when unspecified
+- 未指定支座时追问，不默认简支。/ Ask when supports are unspecified; do not default to simply-supported.
 
 ### loadKN（荷载大小）
 - "20kN/m" / "均布荷载20kN/m" → `"loadKN": 20`
@@ -36,7 +36,7 @@
 - 当荷载只作用于某个梁段时，在 `engineeringDraft.loads[].location.spanIndex` 中输出从 1 开始的梁段索引；不要只把“第几跨/哪一构件”写进 `target` 文本。
 - 外伸梁或带内部分析节点的梁必须在 `engineeringDraft.boundary.supportPositionsM` 中明确输出实际支座坐标；分析节点不等于支座。
 
-## 输出规则
-- 必须同时输出所有已识别的参数，不能遗漏
-- 若 Known draft state 已有部分参数，新输出必须保留原有值并补充新值
-- 若用户只补充新参数（如只说"20kN"），draftPatch 中仍需包含之前已确认的全部参数
+## 输出规则 / Output rules
+- 只输出本轮明确新增或修改的字段；系统保留已接受状态。/ Emit only fields explicitly added or changed this turn; the server preserves accepted state.
+- 用户重述已有荷载不是追加荷载；确实新增时保留独立ID。/ Restating a load does not add another; preserve distinct IDs for real additions.
+- 支座、方向、位置不明时省略并形成具体待确认项，不替用户选择。/ Omit unclear supports, directions or positions and request clarification; never choose them silently.

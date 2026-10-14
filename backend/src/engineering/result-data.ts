@@ -3,6 +3,7 @@ import type { RecoveryModel, RecoveryResult } from '../skill-shared/member-respo
 import { contentHash, isRecord, type ModelRecord } from './model-state.js';
 import { nativeForceRecovery } from './native-force-recovery.js';
 import { nativeRigidMember } from './native-rigid-offsets.js';
+import { equilibriumResponse } from './beam-equilibrium.js';
 
 function recoveryModel(model: ModelRecord): model is ModelRecord & RecoveryModel {
   return model.unit_system === 'SI' && isRecord(model.coordinate_system)
@@ -171,6 +172,10 @@ export function queryPhysicalResponse(model: ModelRecord, result: ModelRecord, e
   if (!recoveryModel(model)) throw new Error('RESULT_MODEL_SNAPSHOT_REQUIRED');
   if (result.success === false) throw new Error('RESULT_UNAVAILABLE');
   const data = isRecord(result.data) ? result.data : result;
+  if (resultEngine(result) === 'equilibrium') {
+    const meta = isRecord(result.meta) ? result.meta : {};
+    return equilibriumResponse(model, isRecord(meta.effectiveParameters) ? meta.effectiveParameters : {}, elementId, positionM, side);
+  }
   if (commercial(result) || isRecord(data.memberStations)) {
     const { rows, context, length } = nativeStations(model, data, elementId);
     if (!Number.isFinite(positionM) || positionM < 0 || positionM > length

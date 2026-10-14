@@ -23,28 +23,29 @@ export function normalizeMemberResponses(
   for (const raw of value) {
     const row = raw as VisualizationMemberResponse
     if (!row || typeof row.id !== 'string' || !elements.has(row.id) || Object.hasOwn(responses, row.id)
-      || !['recovered', 'interpolated', 'truss', 'unavailable', 'native-stations'].includes(row.state)
+      || !['recovered', 'interpolated', 'truss', 'unavailable', 'native-stations', 'force-only'].includes(row.state)
       || typeof row.length !== 'number' || !Number.isFinite(row.length) || row.length < 0
       || typeof row.reason !== 'string' || !Array.isArray(row.samples)) {
       throw new Error('Invalid member response identity or status')
     }
+    const forceOnly = row.state === 'native-stations' || row.state === 'force-only'
     let previous = -Infinity
     const nativeCuts = new Map<number, Set<string>>()
     for (const sample of row.samples) {
       if (!sample || typeof sample.x !== 'number' || !Number.isFinite(sample.x)
         || sample.x < -COORDINATE_TOLERANCE || sample.x > row.length + COORDINATE_TOLERANCE || sample.x < previous
         || !finiteTuple(sample.position)
-        || (row.state === 'native-stations' ? sample.displacement !== undefined : !finiteTuple(sample.displacement))
+        || (forceOnly ? sample.displacement !== undefined : !finiteTuple(sample.displacement))
         || (sample.side !== undefined && !['left', 'right'].includes(sample.side))
         || (sample.segmentId !== undefined && typeof sample.segmentId !== 'string')
         || (dimension === 2 && (Math.abs(sample.position[1]) > COORDINATE_TOLERANCE
           || (sample.displacement !== undefined && Math.abs(sample.displacement[1]) > COORDINATE_TOLERANCE)))
-        || (row.state === 'native-stations' && (!['N', 'V2', 'V3', 'T', 'M2', 'M3'].every(key => {
+        || (forceOnly && (!['N', 'V2', 'V3', 'T', 'M2', 'M3'].every(key => {
           const value = sample[key as 'N']; return typeof value === 'number' && Number.isFinite(value)
         }) || !['solver-direct', 'linear-combination', 'mechanics-recovery'].includes(sample.provenance || '') || !sample.source))) {
         throw new Error(`Invalid member response sample for '${row.id}'`)
       }
-      if (row.state === 'native-stations') {
+      if (forceOnly) {
         const side = sample.side || 'continuous'
         const sides = nativeCuts.get(sample.x) || new Set<string>()
         if (sides.has(side) || sides.has('continuous') || (side === 'continuous' && sides.size)) {

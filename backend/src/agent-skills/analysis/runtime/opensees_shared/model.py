@@ -55,8 +55,9 @@ class OpenSeesModelBuilder(OpenSeesTagMapper):
         return value
 
     def _material_properties(self, material):
-        e, nu, rho = float(material.E) * 1000.0, float(material.nu), float(material.rho)
-        if not all(math.isfinite(v) for v in (e, nu, rho)) or e <= 0 or rho < 0 or not 0 <= nu <= .5:
+        e, nu = float(material.E) * 1000.0, float(material.nu)
+        rho = float(material.rho) if material.rho is not None else None
+        if not all(math.isfinite(v) for v in (e, nu)) or e <= 0 or rho is not None and (not math.isfinite(rho) or rho < 0) or not 0 <= nu <= .5:
             raise OpenSeesInputError(f"Material '{material.id}' requires E > 0, rho >= 0 and 0 <= nu <= 0.5")
         g = float(material.G)*1000.0 if material.G is not None else e / (2 * (1 + nu))
         if not math.isfinite(g) or g <= 0:

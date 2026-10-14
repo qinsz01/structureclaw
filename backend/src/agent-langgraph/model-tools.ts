@@ -169,6 +169,11 @@ export function createQueryResultsTool() {
       if (!isRecord(selected)) throw new Error('RESULT_NOT_FOUND');
       if (selected.success === false || selected.executionStatus === 'failed') throw new Error('RESULT_UNAVAILABLE');
       const data = isRecord(selected.data) ? selected.data : selected;
+      if (isRecord(selected.meta) && selected.meta.method === 'equilibrium'
+        && (input.field && !['forces', 'reactions', 'summary', 'memberResponses'].includes(input.field)
+          || input.component && ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'].includes(input.component))) {
+        throw new Error('RESPONSE_NOT_CALCULATED: equilibrium provides forces/reactions only; displacement needs stiffness. / 平衡计算仅提供内力反力；位移需要刚度，不能填零。');
+      }
       if (input.referenceNodeId !== undefined && (!input.nodeId || input.elementId || input.field !== 'displacements'
         || !input.component || !['ux', 'uy', 'uz', 'rx', 'ry', 'rz'].includes(input.component)
         || input.modeNumber !== undefined || timeIndex !== undefined)) {

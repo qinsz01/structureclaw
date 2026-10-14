@@ -1128,7 +1128,7 @@ function buildAvailableViews(cases: VisualizationCase[], source: VisualizationSo
   const hasForces = cases.some((item) =>
     Object.values(item.elementResults).some((result) =>
       [result.axial, result.shear, result.moment, result.torsion].some((value) => typeof value === 'number')
-    ) || Object.values(item.memberResponses || {}).some(row => row.state === 'native-stations' && row.samples.length > 0)
+    ) || Object.values(item.memberResponses || {}).some(row => (row.state === 'native-stations' || row.state === 'force-only') && row.samples.length > 0)
   )
   const hasReactions = cases.some((item) =>
     Object.values(item.nodeResults).some((result) =>

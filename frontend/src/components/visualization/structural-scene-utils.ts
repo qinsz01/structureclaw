@@ -94,7 +94,7 @@ export function getCaseNodeDisplacement(activeCase: VisualizationCase, nodeId: s
 /** Rendering only: translate precomputed global samples by the selected display scale. */
 export function getMemberDeformedPoints(activeCase: VisualizationCase, elementId: string, scale: number) {
   const row = activeCase.memberResponses?.[elementId]
-  if (!row || row.state === 'unavailable' || row.state === 'native-stations'
+  if (!row || row.state === 'unavailable' || row.state === 'native-stations' || row.state === 'force-only'
     || row.samples.length < 2 || row.samples.some(sample => !sample.displacement)) return undefined
   return row.samples.map((sample) => new THREE.Vector3(...sample.position)
     .addScaledVector(new THREE.Vector3(...sample.displacement!), scale))
@@ -115,7 +115,7 @@ export function getElementMetric(activeCase: VisualizationCase, elementId: strin
       .filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
     return values.length ? values.reduce((largest, value) => Math.abs(value) > Math.abs(largest) ? value : largest) : null
   }
-  if (native?.state === 'native-stations') {
+  if (native?.state === 'native-stations' || native?.state === 'force-only') {
     const components = forceMetric === 'axial' ? ['N'] as const
       : forceMetric === 'shear' ? ['V2', 'V3'] as const : ['M2', 'M3'] as const
     const values = native.samples.flatMap(sample => components.map(key => sample[key]))

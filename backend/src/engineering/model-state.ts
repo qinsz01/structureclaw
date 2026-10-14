@@ -21,6 +21,7 @@ export interface ModelTransaction {
   undoOf?: string;
 }
 export interface ModelState {
+  draftState?: ModelRecord | null;
   model?: ModelRecord | null;
   modelRevision?: number;
   modelPending?: boolean;
@@ -37,6 +38,7 @@ export const analysisRequestBindingSchema = z.object({
   modelRevision: z.number().int().nonnegative(),
   modelHash: z.string().min(1), settingsHash: z.string().min(1),
   requestSequence: z.number().int().positive(),
+  sourceDraftHash: z.string().optional(),
 });
 export type AnalysisRequestBinding = z.infer<typeof analysisRequestBindingSchema>;
 
@@ -60,6 +62,13 @@ function ordered(value: unknown): unknown {
 
 export function contentHash(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(ordered(value)) ?? 'null').digest('hex');
+}
+
+function sourceDraftHash(state: ModelState): string {
+  const draft = state.draftState;
+  return contentHash({ engineeringDraft: draft?.engineeringDraft, inferredType: draft?.inferredType,
+    lengthM: draft?.lengthM, supportType: draft?.supportType, draftIssues: draft?.draftIssues,
+    inputEvidence: state.inputEvidence });
 }
 
 const nonPhysicalMetadataKeys = [
@@ -215,14 +224,16 @@ export function invalidateAnalysis(state: ModelState | undefined) {
 }
 
 /** Reserve before awaiting the solver; a completion may publish only this request. */
-export function beginAnalysisRequest(state: ModelState, settingsHash: string) {
-  if (!state.model || state.modelPending) throw new Error('MODEL_REBUILD_REQUIRED');
+export function beginAnalysisRequest(state: ModelState, settingsHash: string, draftProjection?: ModelRecord) {
+  const source = draftProjection ?? state.model;
+  if (!source || !draftProjection && state.modelPending) throw new Error('MODEL_REBUILD_REQUIRED');
   assertResolvedInput(state.inputEvidence);
-  assertInputEvidenceMatchesModel(state.model, state.inputEvidence);
-  assertInputEvidenceMatchesModel(state.model);
+  assertInputEvidenceMatchesModel(source, state.inputEvidence);
+  assertInputEvidenceMatchesModel(source);
   const requestSequence = (state.analysisRequestSequence ?? 0) + 1;
   const analysisRequest: AnalysisRequestBinding = {
-    modelRevision: state.modelRevision ?? 0, modelHash: modelHash(state.model), settingsHash, requestSequence,
+    modelRevision: state.modelRevision ?? 0, modelHash: modelHash(source), settingsHash, requestSequence,
+    ...(draftProjection ? { sourceDraftHash: sourceDraftHash(state) } : {}),
   };
   return { ...invalidateAnalysis(state), analysisRequestSequence: requestSequence, analysisRequest };
 }
@@ -239,7 +250,8 @@ export function beginNativeDesignRequest(state: ModelState, settingsHash: string
 
 function matchesRequest(a: AnalysisRequestBinding, b: ModelRecord): boolean {
   return a.modelRevision === b.modelRevision && a.modelHash === b.modelHash
-    && a.settingsHash === b.settingsHash && a.requestSequence === b.requestSequence;
+    && a.settingsHash === b.settingsHash && a.requestSequence === b.requestSequence
+    && a.sourceDraftHash === b.sourceDraftHash;
 }
 
 export function undoModel(state: ModelState, transactionId?: string) {
@@ -302,7 +314,16 @@ function reverseTransaction(before: unknown, after: unknown, current: unknown, f
 }
 
 export function currentAnalysisError(state: ModelState | undefined): string | undefined {
-  if (!state?.model || !state.analysisResult) return 'ANALYSIS_REQUIRED';
+  if (!state?.analysisResult) return 'ANALYSIS_REQUIRED';
+  const meta = isRecord(state.analysisResult.meta) ? state.analysisResult.meta : {};
+  if (meta.sourceDraftHash !== undefined) {
+    if (unresolvedInputEvidence(state.inputEvidence).length) return 'INPUT_EVIDENCE_UNRESOLVED';
+    if (meta.sourceDraftHash !== sourceDraftHash(state)
+      || !state.analysisRequest || !matchesRequest(state.analysisRequest, meta)
+      || state.analysisRequest.modelRevision !== (state.modelRevision ?? 0)) return 'ANALYSIS_STALE_OR_LEGACY';
+    return state.analysisResult.success === false ? 'ANALYSIS_FAILED' : undefined;
+  }
+  if (!state.model) return 'ANALYSIS_REQUIRED';
   if (unresolvedInputEvidence(state.inputEvidence).length
     || unresolvedInputEvidence(isRecord(state.model.metadata) ? state.model.metadata.inputEvidence : undefined).length)
     return 'INPUT_EVIDENCE_UNRESOLVED';
@@ -311,7 +332,6 @@ export function currentAnalysisError(state: ModelState | undefined): string | un
     assertInputEvidenceMatchesModel(state.model, state.inputEvidence);
     assertInputEvidenceMatchesModel(state.model);
   } catch { return 'INPUT_EVIDENCE_NOT_APPLIED'; }
-  const meta = isRecord(state.analysisResult.meta) ? state.analysisResult.meta : {};
   if (meta.modelHash !== modelHash(state.model)) return 'ANALYSIS_STALE_OR_LEGACY';
   if (!state.analysisRequest || !matchesRequest(state.analysisRequest, meta)
     || state.analysisRequest.modelRevision !== (state.modelRevision ?? 0)) return 'ANALYSIS_STALE_OR_LEGACY';
@@ -331,7 +351,10 @@ export function publishAnalysis(state: ModelState, request: AnalysisRequestBindi
   const runId = String(result.runId ?? (isRecord(result.meta) ? result.meta.traceId : undefined));
   if (!runId || runId === 'undefined') throw new Error('RUN_ID_REQUIRED');
   const meta = isRecord(result.meta) ? result.meta : {};
-  const current = Boolean(state.model && !state.modelPending && modelHash(state.model) === request.modelHash
+  const sourceMatches = request.sourceDraftHash !== undefined
+    ? request.sourceDraftHash === sourceDraftHash(state)
+    : state.model && !state.modelPending && modelHash(state.model) === request.modelHash;
+  const current = Boolean(sourceMatches
     && (state.modelRevision ?? 0) === request.modelRevision && state.analysisRequest
     && matchesRequest(request, { ...state.analysisRequest }) && matchesRequest(request, meta));
   return {

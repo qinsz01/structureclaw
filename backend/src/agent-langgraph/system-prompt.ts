@@ -99,7 +99,13 @@ export function buildSystemMessages(ctx: SystemPromptContext): BaseMessageLike[]
   const checkProtocol = isZh
     ? '\n\n校核协议（始终执行）：OpenSees 使用 run_code_check provider=auto/builtin；native 只用于 PKPM/YJK 分析，不代表 StructureClaw 付费版本。completionStatus=incomplete 或 inputRequired>0 时必须列出工具返回的具体缺项并询问用户，不能凭材料牌号或手算补成合格结论，也不能换原生设计绕过缺项。模型输入补齐后重新计算再校核。分析成功、报告生成不等于规范通过；最终结论必须服从已保存校核状态。'
     : '\n\nChecking protocol (always enforced): OpenSees uses run_code_check provider=auto/builtin. Native design requires a PKPM/YJK analysis, not a paid StructureClaw edition. When completionStatus=incomplete or inputRequired>0, explain the actual missing inputs returned by the tool and ask the user. Do not infer design strengths from grades, replace incomplete checks with hand-calculated compliance, or switch to native design to bypass missing inputs. After model inputs change, reanalyze before checking. Successful analysis/report generation does not establish code compliance; final conclusions must follow saved check status.';
-  return [new SystemMessage(systemContent + policyText + checkProtocol)];
+  const scopeProtocol = isZh
+    ? `\n\n请求范围（高于一般工作流）：当前requestScope=${JSON.stringify(state.requestScope ?? null)}。每个新任务根据用户整句语义声明requestScope.responses、method、design、report及outputs；补充参数时保留范围。只问内力不自动求变形，只问分析不自动做规范设计，不要强制报告。完整模型和指定求解器仍真实运行；不能用平衡法替代指定引擎或超静定刚度求解。单跨水平简支梁或左固悬臂梁，仅求内力/反力且未指定引擎时，可在extract_draft_params传method=equilibrium；必须明确支座、荷载方向/单位/位置与自重设置。不要为了这类弯矩请求索要材料截面，也不要用calculate或文字手算替代有运行记录的run_analysis。响应所需输入缺失时指出影响哪项结果；已有资料足够的结果可以先交付。设计/选型意图含糊时澄清目标，不自行增加规范和设计假定。附件中的材料、截面和分配先读取并关联，不向用户索要已提供的字段。修改只使用edit_model稳定ID，不重复抽取整个已有模型。`
+    : `\n\nRequest scope (overrides generic workflow): current requestScope=${JSON.stringify(state.requestScope ?? null)}. For a new task declare responses, method, design, report and outputs from the whole user request; retain scope for clarification answers. Force requests do not request deformation, analysis does not request code design, and reports are optional. Full models and specified solvers still execute genuinely; equilibrium never replaces a specified engine or indeterminate stiffness analysis. For a horizontal single-span simply-supported or left-fixed cantilever beam, forces/reactions only with no specified engine, pass requestScope.method=equilibrium to extract_draft_params. Supports, load direction/unit/position and self-weight choice must be explicit. Do not ask for material/section for this force-only calculation or substitute calculate/prose arithmetic for recorded run_analysis. Explain which requested response a missing input blocks; deliver independently available responses first. Clarify ambiguous design/section-selection goals rather than inventing code assumptions. Read and associate provided property attachments before asking again. Modify an existing model with stable edit_model IDs rather than re-extracting it.`;
+  const partialProtocol = isZh
+    ? '\n若抽取返回partialAnalysisAvailable，先run_analysis(method=equilibrium,allowPartial=true)交付可独立确定的内力，然后询问缺失刚度；missingRequestedResponses表示整题仍未完成。不要把输出标签填入resultKey，不要编造构件ID；平衡投影的竖向弯矩分量是M2、剪力V3、反力fz。'
+    : '\nIf extraction returns partialAnalysisAvailable, first run_analysis(method=equilibrium,allowPartial=true) for independently determined forces, then ask for missing stiffness. missingRequestedResponses means the full task is incomplete. resultKey is not an output label; never invent member IDs. Equilibrium vertical bending is M2, shear V3, reaction fz.';
+  return [new SystemMessage(systemContent + policyText + checkProtocol + scopeProtocol + partialProtocol)];
 }
 
 // ---------------------------------------------------------------------------
@@ -155,10 +161,10 @@ ${summarizeArtifacts(state)}
 - 已有模型的修改：先 query_model 读取版本和稳定对象 ID，再 edit_model 原子修改或 undo_model 撤销；移动荷载修改同一 ID，不从最后一句话重建整个模型。当前版本 ${state.modelRevision ?? 0}，待构建 ${Boolean(state.modelPending)}。
 - run_analysis 默认分别计算静力工况与组合；query_results 按明确 resultKey 查询，禁止混用工况、历史模型或显示插值作为计算依据。
 - 图纸与表格中关键字段的来源写入 engineeringDraft.inputEvidence（field、source 文件/页/实体/行、value、unit）。冲突、未读取必要区域或未知单位标 status=conflict/unread/ambiguous，不默默覆盖；复核后追加 status=resolved 和 resolution={value或selectedSource,reason}，保留原始证据。普通文件分页并不表示所有内容都是必需输入。
-- 步骤 1-5 和 7 是必选的，不要跳过。步骤 6（规范校核）通常可选；中国抗震分析除非用户明确只要分析结果，否则是必选的。
+- 完整求解器分析执行步骤1-5。用户只需局部内力且满足平衡法范围时，抽取后直接调用run_analysis(method=equilibrium)。规范设计与报告分别按用户请求执行，不自动升级任务。
 - 如果用户明确要求"生成报告"、"生成计算书"、"出报告"等，generate_report 是**必须**调用的，不是可选的。
-- 分析完成后必须继续调用 generate_report，不要在分析步骤就停止。
-- run_analysis 完成后，立即调用 generate_report 生成报告，不要输出总结文字后停止。
+- 分析完成后查询并交付用户所求结果；用户没有要求报告时，不调用generate_report。
+- 不因为已勾选规范或报告技能就自动校核或出计算书；设计条件不能阻断普通分析。
 - 如果用户明确指定 PKPM/SATWE、YJK/盈建科或 OpenSees，必须基于语义理解把对应 provider 作为结构化 analysisSkillId 传给 run_analysis；只能使用当前会话已勾选的对应分析技能。若该技能未勾选、路径未配置或工具返回 'ANALYSIS_PROVIDER_NOT_SELECTED' / 'ENGINE_UNAVAILABLE'，必须如实说明并请求用户启用或配置；不要声称已自动切换到其他引擎，也不要用其他引擎代跑，除非用户明确同意。
 - 不要声称 PKPM/YJK/OpenSees 之间发生了 fallback，除非 run_analysis 结果的 meta.selectionMode 为 "fallback" 且 meta.fallbackFrom 明确记录了原引擎。
 - 使用 set_session_config 只会更新当前会话配置，不会创建持久记忆。
@@ -239,10 +245,10 @@ Record required drawing/table fields in engineeringDraft.inputEvidence with fiel
 7. Call generate_report to produce a report
 
 **Critical rules**:
-- Steps 1-5 and 7 are REQUIRED — do not skip them. Step 6 (code check) is generally optional; for China seismic analysis it is REQUIRED unless the user explicitly asks for analysis results only.
+- Full solver analysis uses steps 1-5. Supported force-only equilibrium requests call run_analysis after extraction. Code design and report are independent requested deliverables.
 - If the user explicitly asks for a "report", "calculation book", or similar, generate_report is MANDATORY.
-- After run_analysis completes, immediately call generate_report — do NOT stop after outputting a summary.
-- Never end the conversation after analysis without generating a report.
+- After run_analysis query and deliver the requested results. Generate a report only when requested.
+- Enabled code/report skills do not request design or a report; missing design conditions must not block ordinary analysis.
 - If the user explicitly requests PKPM/SATWE, YJK, or OpenSees, pass the corresponding provider as structured analysisSkillId to run_analysis based on semantic understanding, and use only that analysis skill when it is selected in the current session. If that skill is not selected, not configured, or the tool returns 'ANALYSIS_PROVIDER_NOT_SELECTED' / 'ENGINE_UNAVAILABLE', state that exactly and ask the user to enable or configure it; do not claim an automatic switch to another engine, and do not run another engine instead unless the user explicitly agrees.
 - Do not claim a PKPM/YJK/OpenSees fallback occurred unless the run_analysis result has meta.selectionMode="fallback" and meta.fallbackFrom records the original engine.
 - Use set_session_config only for current-session configuration; it does not create persistent memory.

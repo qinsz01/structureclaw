@@ -1,3 +1,4 @@
+import { requestScopeSchema, type RequestScope } from '../engineering/request-scope.js';
 /**
  * LangGraph-based AgentService — the sole agent implementation.
  *
@@ -65,6 +66,7 @@ export interface LangGraphRunInput {
   signal?: AbortSignal;
   context?: {
     runPolicy?: RunPolicyInput;
+    requestScope?: RequestScope;
     locale?: AppLocale;
     skillIds?: string[];
     enabledToolIds?: string[];
@@ -777,6 +779,7 @@ export class LangGraphAgentService {
       throw new Error(`MODEL_VERSION_CONFLICT: expected ${state.modelRevision ?? 0}`);
     }
     const update: Partial<AgentState> = {};
+    if (input.context?.requestScope) update.requestScope = requestScopeSchema.parse(input.context.requestScope);
     if (input.context?.model) {
       const model = await normalizeEngineeringModel(input.context.model, this.structureProtocolClient, input.context.modelFormat);
       Object.assign(update, commitModel(state, model, 'import_model'));
@@ -1189,6 +1192,7 @@ export class LangGraphAgentService {
       return {
         snapshot: {
           draft: state.draftState || null,
+          requestScope: state.requestScope ?? null,
           interaction: {
             state: clarification.waitingForReply ? 'waiting' : 'ready',
             stage: 'model',
@@ -1239,7 +1243,7 @@ export class LangGraphAgentService {
       allowedTools: INPUT_REVIEW_TOOLS.filter(id => allowed.includes(id)),
       runUsage: state.runUsage ?? null, waitingForReply: snapshot.tasks.some(task => task.interrupts?.length)
         || Boolean(state.messages?.length && pendingToolCalls(state)[0]?.name === 'ask_user_clarification'),
-      analysisCurrent: Boolean(state.analysisResult && !state.modelPending), reportCurrent: Boolean(state.report),
+      analysisCurrent: !currentAnalysisError(state), reportCurrent: Boolean(state.report),
     };
   }
 
@@ -1341,7 +1345,8 @@ export class LangGraphAgentService {
       const tools = createRegisteredTools({ skillRuntime: this.skillRuntime, workspaceRoot: this.workspaceRoot })
         .filter(tool => tool.name === input.tool);
       const callId = `input-review-${randomUUID()}`;
-      const actionState = { ...state, lastUserMessage: `${request.message}\n${JSON.stringify(input.args)}`,
+      const actionState = { ...state, ...(state.requestScope && ['run_code_check','generate_report'].includes(input.tool)
+        ? {requestScope:{...state.requestScope, ...(input.tool==='run_code_check'?{design:true}:{report:true})}} : {}), lastUserMessage: `${request.message}\n${JSON.stringify(input.args)}`,
         messages: [...(state.messages ?? []), new AIMessage({ content: '', tool_calls: [{ id: callId, name: input.tool, args: input.args }] })] };
       return await withRunContext(runtime, async () => {
         recordRunEvent({ kind: purpose === 'input' ? 'user_input_review' : 'user_result_review', tool: input.tool, callId, args: input.args });

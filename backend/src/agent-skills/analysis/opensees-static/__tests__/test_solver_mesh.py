@@ -269,3 +269,24 @@ def test_runtime_parameter_loads_cannot_bypass_explicit_unit_or_kind_validation(
     analyzer = StaticAnalyzer(beam())
     with pytest.raises(ValueError, match='unit|Unsupported structural load type'):
         analyzer._normalize_load(load)
+
+def test_density_is_not_required_for_elastic_statics_without_self_weight():
+    model = beam(cantilever=True, loads=[{'node': 'B', 'fz': -1}])
+    payload = model.model_dump()
+    del payload['materials'][0]['rho']
+    density_free = StructureModelV2.model_validate(payload)
+    result = solve(density_free)
+    assert density_free.materials[0].rho is None
+    assert result['displacements']['B']['uz'] == pytest.approx(-0.0036, rel=1e-10)
+    assert result['reactions']['A']['fz'] == pytest.approx(1, rel=1e-10)
+    payload['analysis_control']['self_weight'] = True
+    with pytest.raises(ValueError, match='Density rho is required'):
+        StructureModelV2.model_validate(payload)
+
+
+def test_density_mass_source_still_requires_density():
+    from opensees_shared.mass import density_masses
+    model = beam(cantilever=True)
+    model.materials[0].rho = None
+    with pytest.raises(ValueError, match='rho'):
+        density_masses(model)

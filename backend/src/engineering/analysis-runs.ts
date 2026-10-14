@@ -8,6 +8,7 @@ import { analysisRequestBindingSchema, contentHash, isRecord, modelHash, type Mo
 import { enrichResultData } from './result-data.js';
 import { assertInputEvidenceMatchesModel, assertResolvedInput } from './input-evidence.js';
 import { writeAtomicFile } from './atomic-json.js';
+import { requestScopeSchema } from './request-scope.js';
 
 const compress = promisify(gzip), decompress = promisify(gunzip);
 
@@ -108,6 +109,7 @@ export async function executeAnalysisRun(
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(runId)) throw new Error('RUN_ID_INVALID');
   if (!isRecord(payload.model)) throw new Error('MODEL_REQUIRED');
   const model = structuredClone(payload.model);
+  const requestScope = payload.requestScope === undefined ? undefined : requestScopeSchema.parse(payload.requestScope);
   assertResolvedInput(isRecord(model.metadata) ? model.metadata.inputEvidence : undefined);
   assertInputEvidenceMatchesModel(model);
   const parameters = normalizeAnalysisParameters(isRecord(payload.parameters) ? structuredClone(payload.parameters) : {});
@@ -174,7 +176,8 @@ export async function executeAnalysisRun(
     } catch (error) {
       result = { success: false, error_code: isRecord(error) && typeof error.errorCode === 'string' ? error.errorCode : 'ANALYSIS_EXECUTION_FAILED', message: error instanceof Error ? error.message : String(error), data: {} };
     }
-    result.meta = { ...(isRecord(result.meta) ? result.meta : {}), ...binding, runId, modelHash: fingerprint, settingsHash, effectiveParameters: effective, requestParameters: parameters };
+    result.meta = { ...(isRecord(result.meta) ? result.meta : {}), ...binding, runId, modelHash: fingerprint, settingsHash, effectiveParameters: effective, requestParameters: parameters,
+      ...(requestScope ? { requestScope } : {}) };
     const data = enrichResultData(model, result, selection as unknown as ModelRecord);
     results[selection.key] = {
       ...result, data, selection, executionStatus: executionStatus(result),

@@ -120,3 +120,92 @@ test.describe('Live provider: browser analysis delivery', () => {
     });
   }
 });
+
+for (const locale of ['zh', 'en'] as const) {
+  test(`Live provider: scoped force calculation without stiffness (${locale})`, async ({ page, request }, info) => {
+    test.skip(process.env.SCLAW_E2E_LIVE !== '1', 'Requires configured isolated live provider');
+    test.setTimeout(360_000);
+    const zh=locale==='zh', errors:string[]=[];
+    page.on('pageerror', e=>errors.push(e.message));
+    await page.goto('/');
+    await page.getByRole('button',{name:zh?/Switch language to Chinese|切换语言为中文/:/Switch language to English|切换语言为英文/}).click();
+    const prompt=zh?'只求内力：10m水平简支梁，左铰右滚，跨中向下1kN集中力，仅考虑这个荷载，不计自重。告诉我跨中弯矩和两端竖向反力，不求变形，不做规范设计，不生成计算书。'
+      :'Forces only: horizontal 3 m cantilever, fixed at the left and free at the right, downward 2 kN concentrated force at the free end, no self-weight. Find the fixed-end bending moment and vertical reaction. No deformation, code design or report.';
+    const sent=page.waitForRequest(r=>r.url().endsWith('/api/v1/chat/stream')&&r.method()==='POST');
+    const response=page.waitForResponse(r=>r.url().endsWith('/api/v1/chat/stream')&&r.request().method()==='POST');
+    await page.getByRole('textbox').fill(prompt);
+    await page.getByRole('button',{name:zh?'发送':'Send',exact:true}).click();
+    const id=(await sent).postDataJSON().conversationId;
+    expect(await (await response).finished()).toBeNull();
+    const session=await (await request.get(`/api/v1/chat/conversation/${id}/session`)).json();
+    const conversation=await (await request.get(`/api/v1/chat/conversation/${id}`)).json();
+    await info.attach('live-scoped-conversation',{body:JSON.stringify(conversation,null,2),contentType:'application/json'});
+    await info.attach('live-scoped-session',{body:JSON.stringify(session,null,2),contentType:'application/json'});
+    await info.attach('live-scoped-browser',{body:await page.screenshot(),contentType:'image/png'});
+    expect(session.waitingForReply,'Must not request material, section or design conditions for determinate force calculation').toBe(false);
+    expect(session.analysis.current).toBe(true);
+    expect(session.report.current).toBe(false);
+    const run=await (await request.get('/runs/'+session.analysis.runId)).json();
+    expect(run.meta.engineId).toBe('builtin-equilibrium');
+    expect(run.modelSnapshot.materials).toEqual([]);expect(run.modelSnapshot.sections).toEqual([]);
+    const data=run.results[session.analysis.resultKey].data;
+    expect(data.reactions.A.fz).toBeCloseTo(zh?0.5:2,8);
+    expect(data.envelope.maxAbsMoment).toBeCloseTo(zh?2.5:6,8);
+    expect(data.displacements).toBeUndefined();
+    await page.getByRole('button', { name: zh ? '结果与历史' : 'Results and history', exact: true }).click();
+    const workspace = page.getByRole('dialog', { name: zh ? '结果工作区' : 'Result workspace' });
+    const selectedQuery = page.waitForResponse(r => r.url().includes('/result-review/' + id + '/tools') && r.request().postDataJSON()?.tool === 'query_results');
+    await workspace.getByRole('button', { name: zh ? '查询所选结果' : 'Query selected result', exact: true }).click();
+    const queried = await (await selectedQuery).json();
+    expect(queried.success).toBe(true);
+    expect(queried.result.quantity.unit).toBe('kN');
+    await workspace.getByRole('button', { name: zh ? '查看所选图形' : 'View selected figure', exact: true }).click();
+    const viewer = page.getByRole('dialog');
+    for (const view of zh ? ['内力', '反力'] : ['Forces', 'Reactions']) {
+      await expect(viewer.getByRole('button', { name: view, exact: true })).toBeVisible();
+    }
+    await expect(viewer.getByRole('button', { name: zh ? '变形' : 'Deformed', exact: true })).toHaveCount(0);
+    await expect(viewer.getByTestId('visualization-modal-scene')).toBeVisible();
+    await info.attach('live-force-viewer', { body: await page.screenshot(), contentType: 'image/png' });
+    expect(conversation.messages.filter((m:{role:string;name:string;content:string})=>m.role==='tool'&&/^Error:|"success":false/.test(m.content))).toEqual([]);
+    expect(conversation.messages.filter((m:{role:string;name:string})=>m.role==='tool'&&m.name==='ask_user_clarification')).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+}
+
+test('Live provider: missing stiffness delivers forces before requesting deflection inputs', async ({ page, request }, info) => {
+  test.skip(process.env.SCLAW_E2E_LIVE !== '1', 'Requires configured isolated live provider');
+  test.setTimeout(360_000);
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.getByRole('button', { name: /Switch language to Chinese|切换语言为中文/ }).click();
+  const sent = page.waitForRequest(r => r.url().endsWith('/api/v1/chat/stream') && r.method() === 'POST');
+  const response = page.waitForResponse(r => r.url().endsWith('/api/v1/chat/stream') && r.request().method() === 'POST');
+  await page.getByRole('textbox').fill('10m水平简支梁，左铰右滚，跨中向下1kN集中力，仅考虑这个荷载，不计自重。请告诉我跨中弯矩、两端竖向反力和跨中竖向挠度。不做规范设计，不生成计算书。');
+  await page.getByRole('button', { name: '发送', exact: true }).click();
+  const id = (await sent).postDataJSON().conversationId;
+  expect(await (await response).finished()).toBeNull();
+  const session = await (await request.get(`/api/v1/chat/conversation/${id}/session`)).json();
+  const conversation = await (await request.get(`/api/v1/chat/conversation/${id}`)).json();
+  await info.attach('live-partial-conversation', { body: JSON.stringify(conversation, null, 2), contentType: 'application/json' });
+  await info.attach('live-partial-session', { body: JSON.stringify(session, null, 2), contentType: 'application/json' });
+  await info.attach('live-partial-browser', { body: await page.screenshot(), contentType: 'image/png' });
+  expect(session.analysis.current, 'Independent force results must be delivered before clarification').toBe(true);
+  expect(session.report.current).toBe(false);
+  const run = await (await request.get('/runs/' + session.analysis.runId)).json();
+  const data = run.results[session.analysis.resultKey].data;
+  expect(run.meta.engineId).toBe('builtin-equilibrium');
+  expect(data.status).toBe('partial');
+  expect(data.missingRequestedResponses).toContain('displacements');
+  expect(data.displacements).toBeUndefined();
+  expect(data.reactions.A.fz).toBeCloseTo(0.5, 8);
+  expect(data.reactions.B.fz).toBeCloseTo(0.5, 8);
+  expect(data.envelope.maxAbsMoment).toBeCloseTo(2.5, 8);
+  expect(conversation.messages.filter((m: { role: string; content: string }) => m.role === 'tool' && /^Error:|"success":false/.test(m.content))).toEqual([]);
+  expect(conversation.messages.filter((m: { role: string; name: string }) => m.role === 'tool' && m.name === 'run_code_check')).toEqual([]);
+  expect(conversation.messages.filter((m: { role: string; name: string }) => m.role === 'tool' && m.name === 'generate_report')).toEqual([]);
+  const final = conversation.messages.filter((m: { role: string }) => m.role === 'assistant').at(-1)?.content ?? '';
+  expect(final).toMatch(/刚度|弹性模量|材料|截面/);
+  expect(errors).toEqual([]);
+});

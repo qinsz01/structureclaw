@@ -50,7 +50,7 @@
 - 柱顶节点点荷载可映射为 `top-nodes`
 - 檐梁均布荷载可映射为 `full-span`
 
-## 输出规则
-- 必须同时输出所有已识别的参数，不能遗漏
-- 若 Known draft state 已有部分参数，新输出必须保留原有值并补充新值
-- 若用户只补充新参数（如只说"荷载10kN/m"），draftPatch 中仍需包含之前已确认的 spanLengthM 和 heightM
+## 输出规则 / Output rules
+- 只输出本轮明确新增或修改的字段；系统保留已接受状态。/ Emit only fields explicitly added or changed this turn; the server preserves accepted state.
+- 用户重述已有荷载不是追加荷载；确实新增时保留独立ID。/ Restating a load does not add another; preserve distinct IDs for real additions.
+- 支座、方向、位置不明时省略并形成具体待确认项，不替用户选择。/ Omit unclear supports, directions or positions and request clarification; never choose them silently.

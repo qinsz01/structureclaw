@@ -217,6 +217,11 @@ export function resolveTemplateProperties(state: DraftState, roles: TemplateRole
     let sectionId = mapping?.sectionId;
     if (explicitRecords) {
       sectionId ??= declaredSection;
+      if (!mapping?.sectionId && declaredSection && !sections.some(entry => entry.id === sectionId)) {
+        const byName = sections.filter(entry => typeof entry.name === 'string'
+          && normalizeSectionName(entry.name.replace(/\s*[（(].*$/, '')) === normalizeSectionName(declaredSection));
+        if (byName.length === 1) sectionId = String(byName[0].id);
+      }
       // A single section is unambiguous only when geometry has one member role.
       if (!sectionId && roles.length === 1 && sections.length === 1) sectionId = String(sections[0].id);
       if (!sectionId || !sections.some((entry) => entry.id === sectionId)) propertyError(`${role}.sectionId`);

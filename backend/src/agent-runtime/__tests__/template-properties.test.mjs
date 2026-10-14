@@ -49,3 +49,12 @@ describe('declared template properties', () => {
     expect(()=>normalizeEngineeringDraft({templateAssignments:{beam:{materialId:'M'}}})).toThrow(/ASSIGNMENTS/);
   });
 });
+
+  test('one reviewed named section record is associated by name without redundant user confirmation', () => {
+    const s={...section,id:'SEC-1',name:'I32a (reviewed attachment)'};
+    const state={...beam(),engineeringDraft:{materials:[material],sectionRecords:[s],sections:{beam:'I32a'}}};
+    const model=buildModel(state);
+    expect(model.elements.every(e=>e.section==='SEC-1')).toBe(true);
+    expect(model.sections[0].properties).toEqual(s.properties);
+    expect(()=>buildModel({...state,engineeringDraft:{...state.engineeringDraft,sections:{beam:'different'}}})).toThrow(/sectionId/);
+  });
