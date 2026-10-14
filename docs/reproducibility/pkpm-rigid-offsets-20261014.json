@@ -1,0 +1,780 @@
+{
+  "schema": "sclaw-pkpm-rigid-offset-acceptance/v1",
+  "date": "2026-10-14",
+  "status": "native-runtime-accepted; public-arbitrary-position-delivery-pending",
+  "notIndependentSolverCertification": true,
+  "scope": {
+    "materials": [
+      "C30 standard E30000/G12000",
+      "C35 standard E31500/G12600"
+    ],
+    "geometry": "real rectangular horizontal beams and vertical columns",
+    "settings": [
+      609,
+      641
+    ],
+    "beamStationDomain": "elastic-span",
+    "columnStationDomain": "physical-endpoints",
+    "loadSemantics": "Source full physical uniform load is compiled to clear-span loads plus rigid-segment node force/moment integrals. Native text/wire quantization is read independently, retained separately and applied only to the elastic span in executed-input recovery.",
+    "ordinaryAnalysisRequestsDesign": false,
+    "sourceNeverModified": true,
+    "numericalTolerance": {
+      "relative": 1e-05,
+      "displacementAndRotationAbsolute": 1e-11,
+      "forceAndMomentAbsolute": 1e-05
+    },
+    "acceptanceCountsMeaning": "DOF, endpoint-force, support-reaction and position comparisons; these counts do not certify every interior force ordinate."
+  },
+  "verification": [
+    "official project save/reopen readback",
+    "60-real native member record uniquely bound to source endpoints/roles",
+    "second preprocessing preserves rigid lengths",
+    "every native assignment/definition saved and reopened",
+    "adjacent signed-cut force/moment balance and free-node source equilibrium",
+    "independent Timoshenko rigid-arm reference frozen before candidate solve",
+    "required reinforcement stations bound to physical positions",
+    "Native text bridge and solved DATA.SAT/LoadZDY.SAT load records bound by member geometry/floor/ordinal/case; exact float32 readback, never force-fit",
+    "Fresh executed-input reference and original source reference frozen separately before launch; actual input compared with frozen packet"
+  ],
+  "currentRestrictions": [
+    "Automatic rigid ends with custom material stiffness or numeric reference-carrier sections are not accepted.",
+    "Paired member releases and automatic rigid ends together are not yet calibrated.",
+    "Column selfweight crossing a nonzero rigid region is explicitly rejected until source load placement is calibrated.",
+    "Very small native nodal moments can be lost despite correct SDK save/readback; free-node balance rejects these results.",
+    "No installed reinforcement or segmented physical-member design certification is added.",
+    "Native scalar/output precision may differ from exact real-valued section fields; original per-value tolerances remain unchanged."
+  ],
+  "preservedFailures": {
+    "131226": "0.01 kNm rigid-segment nodal moment lost in native preprocessing; source/reference mismatch retained",
+    "131712": "Same-node large-opposite moment encoding did not change loss; candidate removed from production",
+    "131931": "Initial cumulative ordinate equilibrium check exposed native load/output roundoff; final conservation compares adjacent force/moment increments with unchanged relative/absolute tolerances, and checks each free node against source external load"
+  },
+  "inputHistory": {
+    "131032": "Direct runtime probe includes legacy uniform alias and missing section display names; not claimed canonical public-input acceptance",
+    "132230": "Names and distributed loads validated before run; exclude_none serialization omitted required plane:null. Shared canonical roundtrip repair is tracked separately; original files remain unchanged"
+  },
+  "runs": [
+    {
+      "run": "pkpm-rigid-offsets-20261014-131032-e153e15f",
+      "status": "passed",
+      "checks": {
+        "counts": {
+          "dofs": 48,
+          "endForces": 72,
+          "reactions": 24,
+          "positions": 12
+        },
+        "failures": [],
+        "passed": true
+      },
+      "error": null,
+      "artifacts": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131032-e153e15f\\source-model.json",
+          "sha256": "4550702c52244691b06768f957076cac459d4d34441ed9b50f98fba00bdf2f5b",
+          "bytes": 3322
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131032-e153e15f\\parameters.json",
+          "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "bytes": 2
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131032-e153e15f\\rigid-lengths.json",
+          "sha256": "d9b5d48397aa3f6baaa77ef72012c12312c007cf34899a962afae98d8a70770a",
+          "bytes": 109
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131032-e153e15f\\reference.json",
+          "sha256": "c2935bde8297f3012a599f6783771e4e997e9d3f15ae9ffd05173b2f27b38ec7",
+          "bytes": 7517
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131032-e153e15f\\acceptance.json",
+          "sha256": "724fa12086f03ad9c78749022f2853dea70e94351a52912736d9e1bb065f7ab5",
+          "bytes": 1548
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131032-e153e15f\\result.json",
+          "sha256": "c2e9a1cbcc48c7958b285e9aa31bafbd9793a4a2e761130af9b2e9e251f677db",
+          "bytes": 244921
+        }
+      ],
+      "nativeDirectory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131032-e153e15f\\sc_68365e99",
+      "nativeFiles": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131032-e153e15f\\sc_68365e99\\DATA.SAT",
+          "sha256": "4828313ab962af2aae81194be30da7a6b0714c9bc7e5e6c292f68f9a15ef6784",
+          "bytes": 53960
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131032-e153e15f\\sc_68365e99\\SDATA.SAT",
+          "sha256": "b3751eb3cf2a96d95f43976f8fd4fe5123184f6ce28864fdede3051d22d91553",
+          "bytes": 54112
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131032-e153e15f\\sc_68365e99\\WMASS.OUT",
+          "sha256": "68f5edfb0fe1780a39a29f0f99fa8487b0939c3d47a4092be11e71d8117fcd3f",
+          "bytes": 20133
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131032-e153e15f\\sc_68365e99\\GOUJIAN.OUT",
+          "sha256": "b359a3c69a02cc022f8b2040fcded1734cb8a6ba8031a7352145684f46bd1983",
+          "bytes": 1889
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131032-e153e15f\\sc_68365e99\\native-rigid-load-compilation.json",
+          "sha256": "a9a186f99abb3d5508297eabedeedf5faf698c4fd01b6d96c66a707b3f5b51ae",
+          "bytes": 9208
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131032-e153e15f\\sc_68365e99\\native-stage-evidence.json",
+          "sha256": "666b94066dea4c3ab333bfdb87d8c4d69fdd61beae53a5c589a850217be2da66",
+          "bytes": 14828
+        }
+      ]
+    },
+    {
+      "run": "pkpm-rigid-offsets-20261014-131226-790235b3",
+      "status": "failed",
+      "checks": {
+        "counts": {
+          "dofs": 48,
+          "endForces": 72,
+          "reactions": 24,
+          "positions": 12
+        },
+        "failures": [
+          {
+            "field": "D/t0/ux",
+            "actual": 7.037775731078e-07,
+            "expected": 7.045866338938612e-07
+          },
+          {
+            "field": "D/t0/ry",
+            "actual": 4.357041234470671e-06,
+            "expected": 4.3638785025561915e-06
+          },
+          {
+            "field": "D/t1/ux",
+            "actual": -2.9571074833256716e-07,
+            "expected": -2.965187623871769e-07
+          },
+          {
+            "field": "D/t1/ry",
+            "actual": -4.093772076885216e-06,
+            "expected": -4.10060890803575e-06
+          },
+          {
+            "field": "D/b1/fx",
+            "actual": -1.9541717767715454,
+            "expected": -1.9573336541080986
+          },
+          {
+            "field": "D/b1/my",
+            "actual": -1.6951979398727417,
+            "expected": -1.697881721408457
+          },
+          {
+            "field": "D/b0/fx",
+            "actual": 1.954171895980835,
+            "expected": 1.9573336541080988
+          },
+          {
+            "field": "D/b0/my",
+            "actual": 1.6219911575317383,
+            "expected": 1.6246746176080145
+          },
+          {
+            "field": "D/c0/0/Vz",
+            "actual": 1.954171895980835,
+            "expected": 1.9573336541080988
+          },
+          {
+            "field": "D/c0/0/My",
+            "actual": 1.6219911575317383,
+            "expected": 1.6246746176080145
+          },
+          {
+            "field": "D/c0/1/Vz",
+            "actual": 1.954171895980835,
+            "expected": 1.9573336541080988
+          },
+          {
+            "field": "D/c0/1/My",
+            "actual": -4.240524768829346,
+            "expected": -4.247326344716282
+          },
+          {
+            "field": "D/c1/0/Vz",
+            "actual": -1.9541717767715454,
+            "expected": -1.9573336541080986
+          },
+          {
+            "field": "D/c1/0/My",
+            "actual": -1.6951979398727417,
+            "expected": -1.697881721408457
+          },
+          {
+            "field": "D/c1/1/Vz",
+            "actual": -1.9541717767715454,
+            "expected": -1.9573336541080986
+          },
+          {
+            "field": "D/c1/1/My",
+            "actual": 4.167317867279053,
+            "expected": 4.174119240915839
+          },
+          {
+            "field": "D/beam/0/N",
+            "actual": -1.954171895980835,
+            "expected": -1.9573336541080986
+          },
+          {
+            "field": "D/beam/0/My",
+            "actual": 3.5885396003723145,
+            "expected": 3.5853393593125134
+          },
+          {
+            "field": "D/beam/1/N",
+            "actual": -1.954171895980835,
+            "expected": -1.9573336541080986
+          },
+          {
+            "field": "D/beam/1/My",
+            "actual": 3.6593050956726074,
+            "expected": 3.6561062263196082
+          }
+        ],
+        "passed": false
+      },
+      "error": null,
+      "artifacts": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131226-790235b3\\source-model.json",
+          "sha256": "e398be96c0ef28fadbae8edf1fe419dd987340d4cc6db04fc666332e92137c5e",
+          "bytes": 3323
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131226-790235b3\\parameters.json",
+          "sha256": "1cb2edaf7235af557197af0a9a1b3104168e2b22a4800b1c15b1ebf2935c53c8",
+          "bytes": 159
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131226-790235b3\\rigid-lengths.json",
+          "sha256": "bbc5f01cb2461c0415c02a3b7a66266b73929c3b776512b10c8b85c64b48dac0",
+          "bytes": 109
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131226-790235b3\\reference.json",
+          "sha256": "8e74a60ec4d8cc616fa2f9578142f4a3f378e7e8d77b5055853967d99182cdb0",
+          "bytes": 7477
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131226-790235b3\\acceptance.json",
+          "sha256": "9c4a6b69c02e89bcb86db569cc63fe95f94a14aaa7bb4b9cc444cc9993d156e5",
+          "bytes": 4155
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131226-790235b3\\result.json",
+          "sha256": "9d82f5ca1902945e41ebc987e33aa12095d7df327d653c92a935b19a9b513b4c",
+          "bytes": 274945
+        }
+      ],
+      "nativeDirectory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131226-790235b3\\sc_3fc0b7d9",
+      "nativeFiles": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131226-790235b3\\sc_3fc0b7d9\\DATA.SAT",
+          "sha256": "0d64a390baa4f270810c39e99136c5b5be6893a20ea8f2699e6053f7700637a4",
+          "bytes": 53960
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131226-790235b3\\sc_3fc0b7d9\\SDATA.SAT",
+          "sha256": "6057345e89908d7fb73b6a837e43b27ee87518465034d43ab10a470f6785f413",
+          "bytes": 54112
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131226-790235b3\\sc_3fc0b7d9\\WMASS.OUT",
+          "sha256": "8f0b8e8b3f857844e1befc51dc06d9920e9fd2614dfaddb460feaf5a7709f4a4",
+          "bytes": 20133
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131226-790235b3\\sc_3fc0b7d9\\GOUJIAN.OUT",
+          "sha256": "42f869e34ddc0d0150f3729655e0cedbf5974d07fd2d55649cabc9b8eab0e543",
+          "bytes": 1889
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131226-790235b3\\sc_3fc0b7d9\\native-rigid-load-compilation.json",
+          "sha256": "5a2692a4cdf3b4da12932b838893ad456c1d03ff1b47cc33a216ed2176ff35ee",
+          "bytes": 9326
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131226-790235b3\\sc_3fc0b7d9\\native-stage-evidence.json",
+          "sha256": "10de48a6d36603bce00e60dd7fc591d786bd5abd02c477c05e94c717591d356b",
+          "bytes": 15548
+        }
+      ],
+      "design": {
+        "records": 22,
+        "checks": 5,
+        "scope": "required-reinforcement, not-installed-reinforcement",
+        "positionMapping": "same-nativeStationIndex-to-physical-positionM-as-analysis"
+      }
+    },
+    {
+      "run": "pkpm-rigid-offsets-20261014-131712-8038dadc",
+      "status": "failed",
+      "checks": {
+        "counts": {
+          "dofs": 48,
+          "endForces": 72,
+          "reactions": 24,
+          "positions": 12
+        },
+        "failures": [
+          {
+            "field": "D/t0/ux",
+            "actual": 7.037775731078e-07,
+            "expected": 7.045866338938612e-07
+          },
+          {
+            "field": "D/t0/ry",
+            "actual": 4.357041234470671e-06,
+            "expected": 4.3638785025561915e-06
+          },
+          {
+            "field": "D/t1/ux",
+            "actual": -2.9571074833256716e-07,
+            "expected": -2.965187623871769e-07
+          },
+          {
+            "field": "D/t1/ry",
+            "actual": -4.093772076885216e-06,
+            "expected": -4.10060890803575e-06
+          },
+          {
+            "field": "D/b1/fx",
+            "actual": -1.9541717767715454,
+            "expected": -1.9573336541080986
+          },
+          {
+            "field": "D/b1/my",
+            "actual": -1.6951979398727417,
+            "expected": -1.697881721408457
+          },
+          {
+            "field": "D/b0/fx",
+            "actual": 1.954171895980835,
+            "expected": 1.9573336541080988
+          },
+          {
+            "field": "D/b0/my",
+            "actual": 1.6219911575317383,
+            "expected": 1.6246746176080145
+          },
+          {
+            "field": "D/c0/0/Vz",
+            "actual": 1.954171895980835,
+            "expected": 1.9573336541080988
+          },
+          {
+            "field": "D/c0/0/My",
+            "actual": 1.6219911575317383,
+            "expected": 1.6246746176080145
+          },
+          {
+            "field": "D/c0/1/Vz",
+            "actual": 1.954171895980835,
+            "expected": 1.9573336541080988
+          },
+          {
+            "field": "D/c0/1/My",
+            "actual": -4.240524768829346,
+            "expected": -4.247326344716282
+          },
+          {
+            "field": "D/c1/0/Vz",
+            "actual": -1.9541717767715454,
+            "expected": -1.9573336541080986
+          },
+          {
+            "field": "D/c1/0/My",
+            "actual": -1.6951979398727417,
+            "expected": -1.697881721408457
+          },
+          {
+            "field": "D/c1/1/Vz",
+            "actual": -1.9541717767715454,
+            "expected": -1.9573336541080986
+          },
+          {
+            "field": "D/c1/1/My",
+            "actual": 4.167317867279053,
+            "expected": 4.174119240915839
+          },
+          {
+            "field": "D/beam/0/N",
+            "actual": -1.954171895980835,
+            "expected": -1.9573336541080986
+          },
+          {
+            "field": "D/beam/0/My",
+            "actual": 3.5885396003723145,
+            "expected": 3.5853393593125134
+          },
+          {
+            "field": "D/beam/1/N",
+            "actual": -1.954171895980835,
+            "expected": -1.9573336541080986
+          },
+          {
+            "field": "D/beam/1/My",
+            "actual": 3.6593050956726074,
+            "expected": 3.6561062263196082
+          }
+        ],
+        "passed": false
+      },
+      "error": null,
+      "artifacts": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131712-8038dadc\\source-model.json",
+          "sha256": "e398be96c0ef28fadbae8edf1fe419dd987340d4cc6db04fc666332e92137c5e",
+          "bytes": 3323
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131712-8038dadc\\parameters.json",
+          "sha256": "1cb2edaf7235af557197af0a9a1b3104168e2b22a4800b1c15b1ebf2935c53c8",
+          "bytes": 159
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131712-8038dadc\\rigid-lengths.json",
+          "sha256": "bbc5f01cb2461c0415c02a3b7a66266b73929c3b776512b10c8b85c64b48dac0",
+          "bytes": 109
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131712-8038dadc\\reference.json",
+          "sha256": "8e74a60ec4d8cc616fa2f9578142f4a3f378e7e8d77b5055853967d99182cdb0",
+          "bytes": 7477
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131712-8038dadc\\acceptance.json",
+          "sha256": "806fbf85aa93b27422b5696fa65b5043185f0f49574f1c8ae6c36a8db863138d",
+          "bytes": 4155
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131712-8038dadc\\result.json",
+          "sha256": "ff4f88835d49a1f29aef2569a48a3a6e8f4e9368512517707f35a1a99df90e52",
+          "bytes": 274945
+        }
+      ],
+      "nativeDirectory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131712-8038dadc\\sc_a8cb93be",
+      "nativeFiles": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131712-8038dadc\\sc_a8cb93be\\DATA.SAT",
+          "sha256": "b14716f7e41486f1d2352edcccabd49caefc66729bfdc534f8796a8d610c5e0e",
+          "bytes": 53960
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131712-8038dadc\\sc_a8cb93be\\SDATA.SAT",
+          "sha256": "a17828ab209e3d3bac1ff68117257f3f648ce6e13310dbc3ee15930e44b8fc47",
+          "bytes": 54112
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131712-8038dadc\\sc_a8cb93be\\WMASS.OUT",
+          "sha256": "bb640de532b8d3d546d64284f28a055d628bf98153e53d2720200eeb7268754d",
+          "bytes": 20133
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131712-8038dadc\\sc_a8cb93be\\GOUJIAN.OUT",
+          "sha256": "42f869e34ddc0d0150f3729655e0cedbf5974d07fd2d55649cabc9b8eab0e543",
+          "bytes": 1889
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131712-8038dadc\\sc_a8cb93be\\native-rigid-load-compilation.json",
+          "sha256": "20f438d7138b8a3f064d35e284953127113d1e29c9e89ccd1e2eaf4bd546e4cb",
+          "bytes": 11136
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131712-8038dadc\\sc_a8cb93be\\native-stage-evidence.json",
+          "sha256": "24ae39c26c96be66bf026bb7146d3d5ae51516744ca4e5735687c373239e3f95",
+          "bytes": 17527
+        }
+      ],
+      "design": {
+        "records": 22,
+        "checks": 5,
+        "scope": "required-reinforcement, not-installed-reinforcement",
+        "positionMapping": "same-nativeStationIndex-to-physical-positionM-as-analysis"
+      }
+    },
+    {
+      "run": "pkpm-rigid-offsets-20261014-131931-ef9dabc6",
+      "status": "failed",
+      "checks": null,
+      "error": "ValueError: Native/source load equilibrium differs: D/beam/0.8249999172985554 / 原生与源荷载平衡不符",
+      "artifacts": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131931-ef9dabc6\\source-model.json",
+          "sha256": "ab17a42855bef82a0722582f648ba73622f59966a2fddce673e35c605647a469",
+          "bytes": 3325
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131931-ef9dabc6\\parameters.json",
+          "sha256": "1cb2edaf7235af557197af0a9a1b3104168e2b22a4800b1c15b1ebf2935c53c8",
+          "bytes": 159
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131931-ef9dabc6\\rigid-lengths.json",
+          "sha256": "bbc5f01cb2461c0415c02a3b7a66266b73929c3b776512b10c8b85c64b48dac0",
+          "bytes": 109
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131931-ef9dabc6\\reference.json",
+          "sha256": "db9145c9c2c2d7a62740bb46b62d4e9aa0c42aa19b39208a800c4dd719bec2ed",
+          "bytes": 7515
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-131931-ef9dabc6\\acceptance.json",
+          "sha256": "5ec6a13de8ef216a44e4972709423c561c989d5bf8d4fbd757120eaa4647060a",
+          "bytes": 1161
+        }
+      ]
+    },
+    {
+      "run": "pkpm-rigid-offsets-20261014-132230-a84f25dc",
+      "status": "passed",
+      "checks": {
+        "counts": {
+          "dofs": 48,
+          "endForces": 72,
+          "reactions": 24,
+          "positions": 12
+        },
+        "failures": [],
+        "passed": true
+      },
+      "error": null,
+      "artifacts": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-132230-a84f25dc\\source-model.json",
+          "sha256": "a3c69e0aa7461a92b2a0eedc1e799d4cc1d1164a3779599d0157396123b9fc97",
+          "bytes": 4516
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-132230-a84f25dc\\parameters.json",
+          "sha256": "1cb2edaf7235af557197af0a9a1b3104168e2b22a4800b1c15b1ebf2935c53c8",
+          "bytes": 159
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-132230-a84f25dc\\rigid-lengths.json",
+          "sha256": "bbc5f01cb2461c0415c02a3b7a66266b73929c3b776512b10c8b85c64b48dac0",
+          "bytes": 109
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-132230-a84f25dc\\reference.json",
+          "sha256": "ca4e032ee5f120ff9dee4f4752f5489631f7c3e198e531c5264323593ab6536a",
+          "bytes": 7490
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-132230-a84f25dc\\acceptance.json",
+          "sha256": "29514b829a2fd1bfd07616101bdb935be9fab27f8e4977f3178263fbe9bdae49",
+          "bytes": 1548
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-132230-a84f25dc\\result.json",
+          "sha256": "cfd9c82582d8e90cf8958c51291ec260b82e2b543445c97860150e8ea46abb6e",
+          "bytes": 276870
+        }
+      ],
+      "nativeDirectory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-132230-a84f25dc\\sc_6a186788",
+      "nativeFiles": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-132230-a84f25dc\\sc_6a186788\\DATA.SAT",
+          "sha256": "ef919e79b49c353d3ab194e4326d9f4c04907c0adeecae65bb0e07ed5e68ed91",
+          "bytes": 53960
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-132230-a84f25dc\\sc_6a186788\\SDATA.SAT",
+          "sha256": "c6cce2d6ab42a14d9ca0b6a2aeabdf684d14deeaa3f43d917bd30dc10c3fccbc",
+          "bytes": 54112
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-132230-a84f25dc\\sc_6a186788\\WMASS.OUT",
+          "sha256": "8cde294d7176f97f67b80b6971733688a6a46b97778d8fe5844ca7059c59843c",
+          "bytes": 20133
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-132230-a84f25dc\\sc_6a186788\\GOUJIAN.OUT",
+          "sha256": "42f869e34ddc0d0150f3729655e0cedbf5974d07fd2d55649cabc9b8eab0e543",
+          "bytes": 1889
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-132230-a84f25dc\\sc_6a186788\\native-rigid-load-compilation.json",
+          "sha256": "141bd8d86258ebafaa736f12c1792606f14221aa086104efefdf2d431ef2e0cc",
+          "bytes": 9473
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-132230-a84f25dc\\sc_6a186788\\native-stage-evidence.json",
+          "sha256": "94417c6ccae88e9d35726d6c80b0fad604a06867614b95447e69adee758d3f59",
+          "bytes": 15708
+        }
+      ],
+      "design": {
+        "records": 22,
+        "checks": 5,
+        "scope": "required-reinforcement, not-installed-reinforcement",
+        "positionMapping": "same-nativeStationIndex-to-physical-positionM-as-analysis"
+      }
+    },
+    {
+      "run": "pkpm-rigid-offsets-20261014-134243-0d89ec77",
+      "status": "passed",
+      "checks": {
+        "counts": {
+          "dofs": 48,
+          "endForces": 72,
+          "reactions": 24,
+          "positions": 12
+        },
+        "failures": [],
+        "passed": true
+      },
+      "sourceReferenceComparison": {
+        "counts": {
+          "dofs": 48,
+          "endForces": 72,
+          "reactions": 24,
+          "positions": 12
+        },
+        "failures": [],
+        "passed": true
+      },
+      "error": null,
+      "artifacts": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-134243-0d89ec77\\source-model.json",
+          "sha256": "a3c69e0aa7461a92b2a0eedc1e799d4cc1d1164a3779599d0157396123b9fc97",
+          "bytes": 4516
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-134243-0d89ec77\\parameters.json",
+          "sha256": "1cb2edaf7235af557197af0a9a1b3104168e2b22a4800b1c15b1ebf2935c53c8",
+          "bytes": 159
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-134243-0d89ec77\\rigid-lengths.json",
+          "sha256": "bbc5f01cb2461c0415c02a3b7a66266b73929c3b776512b10c8b85c64b48dac0",
+          "bytes": 109
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-134243-0d89ec77\\reference.json",
+          "sha256": "ad9428a663ce654af8232363b84878adbf9dd83206b35b741a5f56709e90c6b5",
+          "bytes": 7466
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-134243-0d89ec77\\source-reference.json",
+          "sha256": "ca4e032ee5f120ff9dee4f4752f5489631f7c3e198e531c5264323593ab6536a",
+          "bytes": 7490
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-134243-0d89ec77\\executed-input-reference.json",
+          "sha256": "545131120d2b8d019e969b7cc9844e618a1fecb20d80ee0879fd1795b11d3836",
+          "bytes": 7316
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-134243-0d89ec77\\executed-reference-model.json",
+          "sha256": "35eb8d040ebe85aaa54a554eba7db694c44b9a4423093de50a17bbd8651f1af6",
+          "bytes": 4938
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-134243-0d89ec77\\reference-provenance.json",
+          "sha256": "ae76c04b384a36b240c56484690551729bc760742c2eb03b5ebf1e797ac5bcf3",
+          "bytes": 1736
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-134243-0d89ec77\\acceptance.json",
+          "sha256": "c14762881a842fdcb2109c4ae9d6a8d0b5d47ca43053bffe606899ff39470cdc",
+          "bytes": 2435
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-134243-0d89ec77\\result.json",
+          "sha256": "8480c48cfa61eebba8800a146a4cf295d21f8aae3cab4633d091bb22a1e9dd82",
+          "bytes": 287195
+        }
+      ],
+      "nativeDirectory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-134243-0d89ec77\\sc_11d5e414",
+      "nativeFiles": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-134243-0d89ec77\\sc_11d5e414\\DATA.SAT",
+          "sha256": "ef919e79b49c353d3ab194e4326d9f4c04907c0adeecae65bb0e07ed5e68ed91",
+          "bytes": 53960
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-134243-0d89ec77\\sc_11d5e414\\SDATA.SAT",
+          "sha256": "c6cce2d6ab42a14d9ca0b6a2aeabdf684d14deeaa3f43d917bd30dc10c3fccbc",
+          "bytes": 54112
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-134243-0d89ec77\\sc_11d5e414\\LoadZDY.SAT",
+          "sha256": "be0d8dc613d5da777f64aa02d63546c326cd2f43587639a544278e07ade20ff5",
+          "bytes": 844
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-134243-0d89ec77\\sc_11d5e414\\spas_sat.txt",
+          "sha256": "4460cb66b9faa2680d3ca32578f5b971947cda563d52da2a46da0defaef86a7e",
+          "bytes": 3008
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-134243-0d89ec77\\sc_11d5e414\\native-rigid-load-compilation.json",
+          "sha256": "6a53be14353036faec21400fa11924066d90dfb236e15168ebbcaccaae15c926",
+          "bytes": 9473
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-134243-0d89ec77\\sc_11d5e414\\native-frame-settings-readback.json",
+          "sha256": "5585dd6413ddbe0a5d2970974175098564b73f08f791d98fb84948e00e854c85",
+          "bytes": 288
+        }
+      ]
+    }
+  ],
+  "references": [
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-native-precision-readonly\\satwe-technical.txt",
+      "sha256": "ef272eca0140a405d0cf312a03dc81beb496ab63543cc936a8900291e12748d8",
+      "bytes": 341765
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-native-precision-readonly\\satwe-user.txt",
+      "sha256": "5ee0849b7f8a270f19cec49e1c65641f58071a5ed0b76cf5a6a1696a7723c038",
+      "bytes": 598902
+    }
+  ],
+  "officialBasis": {
+    "technicalManual": "Beam external loads use physical node-to-node length; section design uses clear span; automatic beam rigid lengths max(0,overlap-depth/4), chapter 6 section6.9.",
+    "userManual": "Independent beam/column overlap-as-rigid controls; special steel cases differ and are excluded from this concrete slice."
+  },
+  "publicDelivery": {
+    "status": "pending-parent-integration",
+    "preservedFailure": "132230 source-q-only arbitrary-position recovery fails at near-zero ordinate under unchanged tolerance; source q=-20 differs from actual net-span q=-19.999964792153545",
+    "resolution": "Use independently audited native input on elastic span, retain source load over rigid segments, preserve original source and all failed receipts."
+  },
+  "inputQuantization": {
+    "sourceQGlobalZKnM": -20.0,
+    "sdkDownwardWireQKnM": 19.33333396911621,
+    "nativeTextToken": "19.3333",
+    "solverWireQGlobalZKnM": -19.33329963684082,
+    "physicalLengthM": 6.0,
+    "elasticLengthM": 5.800000101327896,
+    "effectiveElasticQGlobalZKnM": -19.999964792153545,
+    "verification": "Every supported record must match saved SDK float32, six-significant-digit native text, then solved binary float32. A differing path is rejected rather than rounded to fit forces.",
+    "sourceReferenceUnchanged": true
+  },
+  "pythonVerification": {
+    "command": "python -m pytest backend/src/agent-skills/analysis/pkpm-static/__tests__ -q",
+    "passed": 167,
+    "failed": 0,
+    "scope": "Current PKPM helpers and independently checked rigid-arm reference; no claim of 300 tasks or independent solver certification."
+  },
+  "reviewedCodeCommit": "da0000b"
+}
