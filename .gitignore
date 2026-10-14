@@ -50,6 +50,8 @@ backend/uploads/*
 # Local test artifacts
 .tmp/
 tests/.artifacts/
+frontend/playwright-report/
+frontend/test-results/
 .structureclaw/
 
 # Personal agent planning artifacts

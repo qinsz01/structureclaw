@@ -61,10 +61,13 @@ test.describe('Install verification', () => {
     expect(body.database.writable).toBe(true);
   });
 
-  test('capabilities page loads skills', async ({ page }) => {
+  test('capabilities page loads skills', async ({ page, request }) => {
     const capPage = new CapabilitiesPage(page);
     await capPage.goto();
 
-    await expect(page.getByText(/beam|frame|truss/i).first()).toBeVisible({ timeout: 15_000 });
+    const { skills } = await (await request.get('/api/v1/agent/skills')).json();
+    const beam = skills.find((skill: { id: string }) => skill.id === 'beam');
+    expect(beam).toBeTruthy();
+    await expect(page.getByRole('button', { name: beam.name.en, exact: true })).toBeVisible();
   });
 });

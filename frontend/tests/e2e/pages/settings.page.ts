@@ -31,10 +31,11 @@ export class SettingsPage {
   async updateSettings(baseUrl: string, model: string): Promise<void> {
     await this.baseUrlInput.fill(baseUrl);
     await this.modelInput.fill(model);
-    await this.saveButton.click();
-    await this.page.waitForResponse(
+    const saved = this.page.waitForResponse(
       (resp) => resp.url().includes('/api/v1/admin/llm') && resp.request().method() === 'PUT',
       { timeout: 10_000 },
     );
+    await this.saveButton.click();
+    await saved;
   }
 }

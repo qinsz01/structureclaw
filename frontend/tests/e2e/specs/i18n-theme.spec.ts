@@ -14,18 +14,16 @@ test.describe('i18n and theme', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    // Find and click the language toggle
-    const langToggle = page.locator('button[aria-label*="Language"], button[aria-label*="语言"], [role="group"]').first();
-    if (await langToggle.isVisible()) {
-      await langToggle.click();
-    }
-
-    // After toggle, html lang should change
-    const htmlLang = await page.locator('html').getAttribute('lang');
-    expect(['en', 'zh-CN']).toContain(htmlLang);
+    await page.getByRole('button', { name: 'Switch language to Chinese', exact: true }).click();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
+    await expect(page.getByRole('button', { name: '发送', exact: true })).toBeVisible();
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
+    await page.getByRole('button', { name: '切换语言为英文', exact: true }).click();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   });
 
-  test('can write locale to localStorage', async ({ page }) => {
+  test('restores the saved locale into the rendered interface', async ({ page }) => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
@@ -34,35 +32,31 @@ test.describe('i18n and theme', () => {
       localStorage.setItem('structureclaw.locale', 'zh');
     });
 
-    // Verify it was written
-    const stored = await page.evaluate(() => localStorage.getItem('structureclaw.locale'));
-    expect(stored).toBe('zh');
+    await page.evaluate(() => { document.cookie = 'structureclaw.locale=;max-age=0;path=/'; });
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
+    await expect(page.getByRole('button', { name: '发送', exact: true })).toBeVisible();
   });
 
-  test('toggles theme from dark to light', async ({ page }) => {
+  test('changes the theme and persists it after reload', async ({ page }) => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    // Find theme toggle button
-    const themeButtons = page.locator('header button[aria-label]');
-    const themeBtn = themeButtons.nth(1);
-    if (await themeBtn.isVisible()) {
-      await themeBtn.click();
-    }
-
-    // Theme should toggle - check for class changes on html or body
-    const htmlClass = await page.locator('html').getAttribute('class');
-    expect(htmlClass).toBeTruthy();
+    const before = await page.evaluate(() => localStorage.getItem('theme'));
+    await page.getByRole('button', { name: /^Toggle theme/ }).click();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('theme'))).not.toBe(before);
+    const selected = await page.evaluate(() => localStorage.getItem('theme'));
+    await page.reload();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('theme'))).toBe(selected);
+    await expect(page.locator('html')).toHaveClass(/(?:dark|light)/);
   });
 
-  test('renders marketing page in English by default', async ({ page }) => {
+  test('renders the console in English by default', async ({ page }) => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    // The hero title should contain English text
-    const heroText = await page.locator('h1').textContent();
-    expect(heroText).toBeTruthy();
-    expect(heroText!.length).toBeGreaterThan(0);
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeVisible();
   });
 
   test('html has lang attribute', async ({ page }) => {

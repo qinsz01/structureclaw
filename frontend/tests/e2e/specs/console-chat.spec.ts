@@ -1,8 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { ConsolePage } from '../pages/console.page';
 
-const hasLlmKey = !!process.env.LLM_API_KEY;
-
 test.describe('Console chat flow', () => {
   let consolePage: ConsolePage;
 
@@ -42,28 +40,12 @@ test.describe('Console chat flow', () => {
     await expect(consolePage.chatPanel).toBeVisible();
   });
 
-  test('sends a message and triggers stream request', async ({ page }) => {
-    test.skip(!hasLlmKey, 'Requires LLM_API_KEY for real LLM streaming');
-
+  test('new conversation clears the unsent draft', async ({ page }) => {
     await consolePage.goto();
-
-    // Wait for the real stream response from the backend
-    const streamResponse = page.waitForResponse(
-      (resp) => resp.url().includes('/api/v1/chat/stream') && resp.status() === 200,
-    );
-
-    await consolePage.sendMessage('Analyze a simply supported beam');
-
-    // Verify the stream endpoint was called and returned 200
-    const response = await streamResponse;
-    expect(response.status()).toBe(200);
-  });
-
-  test('creates new conversation', async ({ page }) => {
-    await consolePage.goto();
-    const count = await consolePage.conversationItems.count();
-    // After creating, a new conversation should appear
-    expect(count).toBeGreaterThanOrEqual(0);
+    await consolePage.messageInput.fill('Unsent draft that should be cleared');
+    await consolePage.newConversationButton.click();
+    await expect(consolePage.messageInput).toHaveValue('');
+    await expect(page.locator('h1')).toBeVisible();
   });
 
   test('output panel placeholder exists in layout', async ({ page }) => {

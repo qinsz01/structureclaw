@@ -1,139 +1,74 @@
 import { test, expect } from '@playwright/test';
-import { ConsolePage } from '../pages/console.page';
 
-const hasLlmKey = !!process.env.LLM_API_KEY;
-
-test.describe('Structural analysis end-to-end', () => {
-  let consolePage: ConsolePage;
-
-  test.beforeEach(async ({ page }) => {
-    consolePage = new ConsolePage(page);
+// Real-provider smoke is opt-in. Ordinary E2E replaces only the LLM transport.
+test.describe('Live provider: browser analysis delivery', () => {
+  test.skip(process.env.SCLAW_E2E_LIVE !== '1', 'Requires an explicitly configured isolated live-provider instance');
+  test.describe.configure({ retries: 0, timeout: 360_000 });
+  test.beforeEach(async ({ request }) => {
+    const response = await request.get('/api/v1/admin/llm');
+    expect(response.ok()).toBe(true);
+    const settings = await response.json();
+    expect(settings.model, 'Configure the isolated instance with a live provider before running this file')
+      .not.toMatch(/^e2e-(scripted|unconfigured)$/);
   });
 
-  test('EN: simply supported beam - complete analysis flow', async ({ page }) => {
-    test.setTimeout(120_000);
-    test.skip(!hasLlmKey, 'Requires LLM_API_KEY');
+  for (const locale of ['en', 'zh'] as const) {
+    test(locale + ': complete beam request reaches saved report and full result viewer', async ({ page, request }, testInfo) => {
+      const zh = locale === 'zh';
+      const errors: string[] = [];
+      const failedAssets: string[] = [];
+      page.on('pageerror', error => errors.push(error.message));
+      page.on('response', response => {
+        if (response.url().includes('/_next/') && response.status() >= 400) failedAssets.push(response.status() + ' ' + response.url());
+      });
+      await page.goto('/');
+      await page.getByRole('button', { name: zh ? /Switch language to Chinese|切换语言为中文/ : /Switch language to English|切换语言为英文/ }).click();
+      const prompt = zh
+        ? '网页验收：实际计算10 m简支梁，左端铰支、右端滚支，跨中向下集中力1 kN。弹性钢材E=206000 MPa、泊松比0.3、密度7850 kg/m³；实心矩形截面宽100 mm、高200 mm，高沿竖向。不计自重，使用OpenSees二维线弹性静力。请查询两端竖向反力、跨中弯矩和竖向挠度，并生成分析报告；不做规范设计。'
+        : 'Browser acceptance: actually analyze a 3 m cantilever beam, fixed at the left end and free at the right end, with a downward 2 kN point load at the free end. Elastic steel E=200000 MPa, Poisson ratio 0.3, density 7850 kg/m³. Solid rectangular section 200 mm wide and 300 mm high, height vertical. Disable self-weight. Use OpenSees 2D linear elastic statics. Query the fixed-end vertical reaction, fixed-end reaction moment and free-end vertical deflection, and generate an analysis report. No code design.';
+      const sent = page.waitForRequest(value => value.url().endsWith('/api/v1/chat/stream') && value.method() === 'POST');
+      const response = page.waitForResponse(value => value.url().endsWith('/api/v1/chat/stream') && value.request().method() === 'POST');
+      await page.getByRole('textbox').fill(prompt);
+      await page.getByRole('button', { name: zh ? '发送' : 'Send', exact: true }).click();
+      const conversationId = (await sent).postDataJSON().conversationId as string;
+      expect(conversationId).toBeTruthy();
+      const stream = await response;
+      expect(stream.status()).toBe(200);
+      expect(await stream.finished()).toBeNull();
+      const sessionUrl = '/api/v1/chat/conversation/' + conversationId + '/session';
+      await expect.poll(async () => (await (await request.get(sessionUrl)).json()).busy, { timeout: 15_000 }).toBe(false);
+      const session = await (await request.get(sessionUrl)).json();
+      await testInfo.attach('live-session-summary', { body: JSON.stringify({ conversationId, modelRevision: session.modelRevision,
+        analysis: session.analysis, report: session.report }, null, 2), contentType: 'application/json' });
+      expect(session.analysis?.current, 'Clarification or final prose alone is not completed calculation').toBe(true);
+      expect(session.report?.current, 'The saved analysis report must be current').toBe(true);
+      expect(session.report.runId).toBe(session.analysis.runId);
 
-    await consolePage.goto();
-    const countBefore = await consolePage.getConversationCount();
+      // Counting sidebar rows cannot prove that the calculation was persisted.
+      await page.reload();
+      await page.getByTestId('console-history-panel').getByRole('button').filter({ hasText: prompt.slice(0, 25) }).click();
+      await page.getByRole('button', { name: zh ? '结果与历史' : 'Results and history', exact: true }).click();
+      const workspace = page.getByRole('dialog', { name: zh ? '结果工作区' : 'Result workspace' });
+      await expect(workspace.getByRole('combobox', { name: zh ? '运行' : 'Run', exact: true })).toHaveValue(session.analysis.runId);
+      await expect(workspace.getByRole('combobox', { name: zh ? '工况／组合' : 'Case / combination' })).toHaveValue(session.analysis.resultKey);
+      const queryResponse = page.waitForResponse(value => value.url().includes('/result-review/' + conversationId + '/tools') && value.request().postDataJSON()?.tool === 'query_results');
+      await workspace.getByRole('button', { name: zh ? '查询所选结果' : 'Query selected result', exact: true }).click();
+      const query = await (await queryResponse).json();
+      expect(query.success).toBe(true);
+      expect(query.result.runId).toBe(session.analysis.runId);
+      expect(Number.isFinite(query.result.quantity?.value)).toBe(true);
+      expect(query.result.quantity?.unit).toBe('mm');
 
-    await consolePage.sendMessageAndWaitForStream(
-      'Analyze a 6m simply supported beam with UDL of 20 kN/m. Use steel beam section.',
-    );
-
-    const countAfter = await consolePage.getConversationCount();
-    expect(countAfter).toBeGreaterThanOrEqual(countBefore);
-
-    await expect(consolePage.showResultsButton).toBeVisible({ timeout: 15_000 });
-    await consolePage.openResultDialog();
-    await expect(consolePage.analysisTab.first()).toBeVisible({ timeout: 10_000 });
-  });
-
-  test('ZH: simply supported beam - complete analysis flow', async ({ page }) => {
-    test.setTimeout(120_000);
-    test.skip(!hasLlmKey, 'Requires LLM_API_KEY');
-
-    await consolePage.goto();
-    await page.evaluate(() => {
-      localStorage.setItem('structureclaw.locale', 'zh');
-    });
-    await page.reload();
-    await page.waitForLoadState('networkidle');
-
-    await consolePage.sendMessageAndWaitForStream(
-      '分析一根6米简支梁，均布荷载20kN/m，使用钢梁截面。',
-    );
-
-    await expect(consolePage.showResultsButton).toBeVisible({ timeout: 15_000 });
-    await consolePage.openResultDialog();
-    await expect(consolePage.analysisTab.first()).toBeVisible({ timeout: 10_000 });
-  });
-
-  test('stream events are well-formed', async ({ request }) => {
-    test.setTimeout(90_000);
-    test.skip(!hasLlmKey, 'Requires LLM_API_KEY');
-
-    const convResp = await request.post('/api/v1/chat/conversation', {
-      data: { title: 'E2E stream test', type: 'analysis', locale: 'en' },
-    });
-    expect(convResp.status()).toBe(200);
-    const conv = await convResp.json();
-    const conversationId = conv.id ?? conv.conversationId;
-
-    const streamResp = await request.post('/api/v1/chat/stream', {
-      data: {
-        message: 'Analyze a simply supported beam, 6m span, UDL 20kN/m',
-        conversationId,
-        traceId: `e2e-${Date.now()}`,
-        context: { locale: 'en' },
-      },
-    });
-    expect(streamResp.status()).toBe(200);
-
-    const body = await streamResp.text();
-    const eventTypes: string[] = [];
-    for (const line of body.split('\n')) {
-      const trimmed = line.trim();
-      if (trimmed.startsWith('data:')) {
-        try {
-          const parsed = JSON.parse(trimmed.slice(5).trim());
-          if (parsed.type) eventTypes.push(parsed.type);
-        } catch {
-          // skip non-JSON lines
-        }
+      await workspace.getByRole('button', { name: zh ? '查看所选图形' : 'View selected figure', exact: true }).click();
+      const viewer = page.getByRole('dialog');
+      for (const view of zh ? ['变形', '内力', '反力'] : ['Deformed', 'Forces', 'Reactions']) {
+        await expect(viewer.getByRole('button', { name: view, exact: true })).toBeVisible();
       }
-    }
-
-    expect(eventTypes).toContain('start');
-    expect(eventTypes.some((t) => t === 'token' || t === 'result' || t === 'done')).toBe(true);
-  });
-
-  test('visualization opens from analysis result', async ({ page }) => {
-    test.setTimeout(120_000);
-    test.skip(!hasLlmKey, 'Requires LLM_API_KEY');
-
-    await consolePage.goto();
-    await consolePage.sendMessageAndWaitForStream(
-      'Analyze a 6m simply supported beam with UDL of 20 kN/m.',
-    );
-
-    await expect(consolePage.showResultsButton).toBeVisible({ timeout: 15_000 });
-    await consolePage.openResultDialog();
-
-    // Verify the result dialog opened with analysis content
-    const dialog = page.locator('[role="dialog"]');
-    await expect(dialog).toBeVisible({ timeout: 10_000 });
-
-    // Try to open visualization if the button exists
-    const visButton = page.locator(
-      '[role="dialog"] button:has-text("Visualization"), [role="dialog"] button:has-text("可视化")',
-    );
-    if (await visButton.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await visButton.first().click();
-      const sceneOrPlaceholder = page.locator(
-        '[data-testid="visualization-modal-scene"], [data-testid="visualization-modal-placeholder"]',
-      );
-      await expect(sceneOrPlaceholder.first()).toBeVisible({ timeout: 15_000 });
-    }
-  });
-
-  test('result persists after page reload', async ({ page }) => {
-    test.setTimeout(120_000);
-    test.skip(!hasLlmKey, 'Requires LLM_API_KEY');
-
-    await consolePage.goto();
-    await consolePage.sendMessageAndWaitForStream(
-      'Analyze a 6m simply supported beam with UDL of 20 kN/m.',
-    );
-
-    await expect(consolePage.showResultsButton).toBeVisible({ timeout: 15_000 });
-    const countBefore = await consolePage.getConversationCount();
-    expect(countBefore).toBeGreaterThan(0);
-
-    await page.reload();
-    await consolePage.historyPanel.waitFor({ state: 'visible' });
-
-    const countAfter = await consolePage.getConversationCount();
-    expect(countAfter).toBe(countBefore);
-  });
+      await expect(viewer.getByTestId('visualization-modal-scene')).toBeVisible();
+      await expect(viewer).not.toContainText(zh ? '当前没有可用的可视化数据' : 'No visualization data');
+      await testInfo.attach('live-result-viewer', { body: await page.screenshot(), contentType: 'image/png' });
+      expect(errors).toEqual([]);
+      expect(failedAssets).toEqual([]);
+    });
+  }
 });

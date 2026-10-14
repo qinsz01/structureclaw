@@ -7,10 +7,17 @@ on:
   push:
     branches:
       - master
+      - work/research-next
     paths:
       - 'frontend/**'
       - 'backend/src/api/**'
       - 'backend/src/services/**'
+      - 'backend/src/agent-langgraph/**'
+      - 'backend/src/agent-runtime/**'
+      - 'backend/src/runtime/**'
+      - 'backend/src/engineering/**'
+      - 'backend/src/skill-shared/**'
+      - 'backend/src/agent-skills/**'
       - 'backend/src/index.ts'
       - 'backend/package.json'
       - 'backend/package-lock.json'
@@ -122,35 +129,8 @@ jobs:
       - name: Build via sclaw
         run: node ./sclaw build
 
-      - name: Setup backend database
-        run: |
-          mkdir -p "$HOME/.structureclaw/data"
-          DATABASE_URL="file:$HOME/.structureclaw/data/test-e2e.db" npm run db:deploy --prefix backend
-
       - name: Install Playwright browsers
         run: npx --prefix frontend playwright install chromium --with-deps
-
-      - name: Write test config to settings.json
-        run: |
-          SETTINGS_PATH="$HOME/.structureclaw/settings.json"
-          TMP=$(mktemp)
-          jq --arg key "${{ secrets.LLM_API_KEY }}" \
-             --arg model "${{ vars.LLM_MODEL }}" \
-             --arg baseUrl "${{ vars.LLM_BASE_URL }}" \
-             --arg dbUrl "file:$HOME/.structureclaw/data/test-e2e.db" \
-             '.llm = (.llm // {}) | .llm.apiKey = $key | .llm.model = $model | .llm.baseUrl = $baseUrl | .database = (.database // {}) | .database.url = $dbUrl' \
-             "$SETTINGS_PATH" > "$TMP" && mv "$TMP" "$SETTINGS_PATH"
-
-      - name: Start backend
-        run: node backend/dist/index.js &
-        env:
-          SCLAW_FRONTEND_DIR: ${{ github.workspace }}/frontend/out
-          LLM_BASE_URL: ${{ vars.LLM_BASE_URL }}
-          LLM_MODEL: ${{ vars.LLM_MODEL }}
-          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-
-      - name: Wait for backend
-        run: npx wait-on http://localhost:31415/api/v1 --timeout 30000
 
       - name: Run E2E tests
         id: run-tests
@@ -159,9 +139,7 @@ jobs:
           npm run test:e2e --prefix frontend 2>&1 | tee test-output.txt
         env:
           CI: true
-          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-          LLM_MODEL: ${{ vars.LLM_MODEL }}
-          LLM_BASE_URL: ${{ vars.LLM_BASE_URL }}
+          SCLAW_E2E_LIVE: '0'
 
       - name: Extract test summary
         if: always()
@@ -220,5 +198,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: playwright-report
-          path: frontend/playwright-report/
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
           retention-days: 7

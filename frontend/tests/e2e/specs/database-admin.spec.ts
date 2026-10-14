@@ -43,7 +43,7 @@ test.describe('Database admin page', () => {
       }),
     );
     await dbPage.goto();
-    // Page should still render (error state)
-    await expect(page.locator('body')).toBeVisible();
+    await expect(page.locator('pre')).toContainText('500');
+    await expect(page.getByText('Database status could not be loaded.', { exact: false })).toBeVisible();
   });
 });
