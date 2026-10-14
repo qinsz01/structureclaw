@@ -235,6 +235,8 @@ def _legacy_workflow_warning() -> str:
 
 def run_analysis(model: StructureModelV2, parameters: Dict[str, Any]) -> Dict[str, Any]:
     validate_coordinate_contract(model)
+    from opensees_shared.mass import model_with_mass_request
+    model = model_with_mass_request(model, parameters)
     workflow = seismic_workflow_from_parameters(parameters)
     workflow_input_mode = _workflow_input_mode(workflow)
     method_preference = workflow_method_preference(workflow, parameters)

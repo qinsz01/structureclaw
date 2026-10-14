@@ -193,11 +193,7 @@ def _floor_levels(nodes: List[Any]) -> List[float]:
 
 def compute_floor_masses(payload, model, dimension):
     from opensees_shared.mass import assemble_mass
-    control = _field(model, 'analysis_control')
-    source = _field(control, 'mass_source')
-    if source is None:
-        source = 'nodal' if any(_field(n, 'mass') is not None for n in _records(payload, model, 'nodes')) else 'floor-seismic'
-    assembly = assemble_mass(model, source=source)
+    assembly = assemble_mass(model)
     return assembly['floorMasses'], []
 
 
@@ -232,10 +228,7 @@ def _assemble_opensees_model(ops: Any, payload: Dict[str, Any], model: Any, basi
             elements.append(element)
     adapted = original.model_copy(update={'elements': elements, 'sections': sections})
     builder = OpenSeesModelBuilder(adapted)
-    source = getattr(adapted.analysis_control, 'mass_source', None)
-    if source is None:
-        source = 'nodal' if any(n.mass is not None for n in adapted.nodes) else 'floor-seismic'
-    builder.effective_settings = builder.build(ops, mass=True, mass_source=source)
+    builder.effective_settings = builder.build(ops, mass=True)
     return builder
 
 

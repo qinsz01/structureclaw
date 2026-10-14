@@ -35,7 +35,8 @@ class OpenSeesDynamicExecutor(OpenSeesModelBuilder):
         return normalized, opensees_dof, global_index
 
     def _build_model(self, ops) -> float:
-        self.effective_settings = self.build(ops, mass=True, mass_source=self.parameters.get('massSource'))
+        self.effective_settings = self.build(ops, mass=True, mass_source=self.parameters.get('massSource'),
+                                             mass_directions=self.parameters.get('massDirections'))
         total = sum(self.node_masses.values())
         if total <= 0:
             raise OpenSeesMissingInputError("Dynamic analysis requires positive structural mass")

@@ -85,6 +85,48 @@ def test_roundoff_in_same_floor_elevation_preserves_one_declared_mass():
     assert sum(row['mass'] for row in floor_mass_records(model, result['nodeMasses'])) == 10
 
 
+@pytest.mark.parametrize('source', ['nodal', 'member-density', 'floor-seismic'])
+def test_undeclared_mass_selection_is_identical_for_dynamic_and_seismic(source):
+    import openseespy.opensees as ops
+    model = cantilever('2d', source)
+    model.analysis_control = None
+    dynamic = OpenSeesDynamicExecutor(OpenSeesTagMapper(model)).modal_analysis(1, ops)
+    seismic = run_modal_analysis(model, None, 1).to_dict()
+    assert dynamic['massAssembly'] == seismic['execution']['massAssembly']
+    assert dynamic['massAssembly']['source'] == source
+    assert dynamic['modes'][0]['period'] == pytest.approx(seismic['modes'][0]['period'], rel=1e-12)
+
+
+def test_explicit_floor_and_nodal_mass_are_a_conflict_even_with_selected_source():
+    from opensees_shared.mass import assemble_mass
+    model = cantilever('2d', 'nodal')
+    model.stories[0].extra = {'seismic_mass': 10}
+    with pytest.raises(ValueError, match='story seismic mass conflicts'):
+        assemble_mass(model)
+
+
+def test_request_mass_directions_conflict_and_seismic_copy_preserves_original():
+    from opensees_shared.mass import model_with_mass_request, assemble_mass
+    model = cantilever('3d', 'nodal')
+    before = model.model_dump()
+    with pytest.raises(ValueError, match='massDirections conflicts'):
+        model_with_mass_request(model, {'massDirections': ['x']})
+    model.analysis_control = None
+    selected = model_with_mass_request(model, {'massSource': 'nodal', 'massDirections': ['y']})
+    assert selected is not model and model.analysis_control is None
+    assert assemble_mass(selected)['directions'] == ['y']
+    model.analysis_control = type(selected.analysis_control).model_validate(before['analysis_control'])
+    assert model.model_dump() == before
+
+
+def test_inactive_and_empty_requested_mass_directions_fail_before_solver():
+    from opensees_shared.mass import assemble_mass
+    model = cantilever('2d', 'nodal')
+    for invalid in ([], ['y'], ['x', 'x']):
+        with pytest.raises(ValueError, match='unique active global axes'):
+            assemble_mass(model, directions=invalid)
+
+
 @pytest.mark.parametrize('mass_directions', [['x'], ['x','z']])
 def test_time_history_rejects_excitation_without_free_mass_in_its_direction(mass_directions):
     import openseespy.opensees as ops

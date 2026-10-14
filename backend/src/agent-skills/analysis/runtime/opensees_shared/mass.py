@@ -125,16 +125,55 @@ def seismic_floor_masses(model):
     return masses, floors
 
 
-def assemble_mass(model, member_masses=None, source=None, directions=None):
+def resolve_mass_options(model, source=None, directions=None):
+    """One interpretation for modal, transient and seismic entry points."""
     control = field(model, 'analysis_control')
     declared = field(control, 'mass_source')
     if source is not None and declared is not None and source != declared:
         raise OpenSeesInputError('Requested massSource conflicts with model analysis_control.mass_source')
     nodes = list(field(model, 'nodes', []))
     has_nodal = any(field(n, 'mass') is not None for n in nodes)
-    source = source or declared or ('nodal' if has_nodal else 'member-density')
+    stories = list(field(model, 'stories', []))
+    explicit_floor_mass = any(any((field(s, 'extra', {}) or {}).get(key) is not None
+        for key in ('seismic_mass', 'seismic_weight')) for s in stories)
+    gravity_mass = any(field(s, 'floor_loads') or field(s, 'dead_load') is not None
+        or field(s, 'live_load') is not None for s in stories)
+    source = source or declared or ('nodal' if has_nodal else
+        'floor-seismic' if explicit_floor_mass or gravity_mass else 'member-density')
     if has_nodal and source != 'nodal':
         raise OpenSeesInputError('node.mass conflicts with selected mass source; sources cannot be added implicitly')
+    if explicit_floor_mass and source != 'floor-seismic':
+        raise OpenSeesInputError('Explicit story seismic mass conflicts with selected mass source; sources cannot be added implicitly')
+    if source not in {'nodal', 'member-density', 'floor-seismic'}:
+        raise OpenSeesInputError(f'Unknown mass source: {source}')
+    declared_directions = field(control, 'mass_directions')
+    from coordinate_semantics import resolve_model_dimension
+    active_axes = ['x', 'z'] if resolve_model_dimension(model) == '2d' else ['x', 'y', 'z']
+    if directions is None:
+        directions = declared_directions
+    if directions is None:
+        directions = [d for d in active_axes if d != 'z'] if source == 'floor-seismic' else active_axes
+    if (not isinstance(directions, (list, tuple)) or not directions
+            or any(d not in active_axes for d in directions) or len(set(directions)) != len(directions)):
+        raise OpenSeesInputError('mass_directions requires unique active global axes')
+    if declared_directions is not None and set(directions) != set(declared_directions):
+        raise OpenSeesInputError('Requested massDirections conflicts with model analysis_control.mass_directions')
+    return source, list(directions)
+
+
+def model_with_mass_request(model, parameters):
+    """Apply request choices to a copy so every seismic sub-analysis sees them."""
+    source, directions = resolve_mass_options(model, parameters.get('massSource'), parameters.get('massDirections'))
+    from structure_protocol.structure_model_v2 import AnalysisControl
+    control = model.analysis_control or AnalysisControl()
+    return model.model_copy(update={'analysis_control': control.model_copy(update={
+        'mass_source': source, 'mass_directions': directions})})
+
+
+def assemble_mass(model, member_masses=None, source=None, directions=None):
+    source, directions = resolve_mass_options(model, source, directions)
+    nodes = list(field(model, 'nodes', []))
+    has_nodal = any(field(n, 'mass') is not None for n in nodes)
     if source == 'nodal':
         if not has_nodal:
             raise OpenSeesMissingInputError('mass_source=nodal requires explicit node.mass values in tonnes')
@@ -147,9 +186,6 @@ def assemble_mass(model, member_masses=None, source=None, directions=None):
         masses, floors = seismic_floor_masses(model)
     else:
         raise OpenSeesInputError(f'Unknown mass source: {source}')
-    directions = directions or field(control, 'mass_directions') or (['x', 'y'] if source == 'floor-seismic' else ['x', 'y', 'z'])
-    if not directions or any(d not in {'x', 'y', 'z'} for d in directions) or len(set(directions)) != len(directions):
-        raise OpenSeesInputError('mass_directions requires unique global axes')
     for value in masses.values():
         if not math.isfinite(value) or value < 0:
             raise OpenSeesInputError('Nodal mass must be finite and non-negative')
