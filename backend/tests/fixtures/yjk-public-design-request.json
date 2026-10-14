@@ -1,0 +1,10 @@
+{
+  "requested": true,
+  "mode": "required-reinforcement",
+  "code": "GB/T50010-2010(2024)",
+  "adoptedNativeDefaults": true,
+  "parameters": {
+    "beamCoverMm": 30,
+    "columnCoverMm": 35
+  }
+}

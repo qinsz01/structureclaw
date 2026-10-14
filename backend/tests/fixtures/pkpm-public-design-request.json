@@ -1,0 +1,6 @@
+{
+  "requested": true,
+  "mode": "required-reinforcement",
+  "code": "PKPM-2025R2.5-native",
+  "adoptedNativeDefaults": true
+}

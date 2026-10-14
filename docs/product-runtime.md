@@ -37,6 +37,13 @@ only when requested. Production fixtures and numerical references belong to this
 
 Bench 不在生产调用链中。可选研究命令按需加载；本体使用自己拥有的工程夹具和独立参考。
 
+New Web workspaces enable the seven existing structure templates plus generic modeling,
+OpenSees static analysis, validation and reporting. Existing saved selections, including
+empty selections, are preserved. This does not enable commercial routing or shell access.
+
+新网页工作区默认开放七个现有结构模板，以及通用建模、OpenSees静力、校验和报告。
+旧工作区的明确选择（包括空集合）保持不变，不自动增加商业引擎或Shell权限。
+
 ## Run control / 运行控制
 
 `backend/src/runtime/run-policy.ts` defines the shared input and effective policy.
@@ -175,6 +182,29 @@ node backend/tests/engineering-http-acceptance.mjs
 node backend/tests/engineering-opensees-tool-acceptance.mjs
 node backend/tests/engineering-task-lifecycle.mjs
 ```
+
+Opt-in public native tool checks / 按需执行真实商业公开工具验收：
+
+```text
+node backend/tests/engineering-commercial-tool-acceptance.mjs pkpm backend/tests/fixtures/pkpm-public-design-model.json backend/tests/fixtures/pkpm-public-design-request.json
+node backend/tests/engineering-commercial-tool-acceptance.mjs yjk backend/src/agent-skills/analysis/yjk-static/__tests__/fixtures/native-design-concrete-model.json backend/tests/fixtures/yjk-public-design-request.json
+```
+
+These runs use configured private SDK installations, then verify analysis, native
+design, exact queries, both report languages, session resume and missing-input refusal.
+Inputs and receipts belong to the product runtime. They make no provider/LLM calls.
+The accepted native profiles and remaining adapter gaps are documented in
+[native-design-profiles.md](native-design-profiles.md).
+
+该入口使用已配置的独立SDK，验证分析、原生设计、查询、双语报告、会话恢复及缺项拒绝，
+不调用付费语言模型。可用原生配置及剩余适配缺口见上述文档。
+
+For unattended startup, use `sclaw start --no-open`. The CLI honors
+`settings.json.analysis.pythonBin`; health checks use the backend port that serves both
+UI and API. A linked `node_modules` cannot be automatically cleared by dependency setup.
+
+无界面启动使用 `sclaw start --no-open`。CLI与服务使用同一Python配置；网页与API使用同一端口。
+依赖安装不会自动清空指向其他目录的 `node_modules` 链接。
 
 The task lifecycle script creates its own SQLite database and verifies a real atomic
 claim, duplicate refusal, late publication after an edit, archive retention and explicit
