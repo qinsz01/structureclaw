@@ -1375,195 +1375,89 @@ async function validateDevStartupGuards(context) {
 
 async function validateStructureJsonSkill(context) {
   await runBackendBuildOnce(context);
+  const fromBackend = (file) => import(pathToFileURL(path.join(context.rootDir, "backend", file)).href);
+  const { AgentSkillCatalogService } = await fromBackend("dist/services/agent-skill-catalog.js");
+  const { createLocalStructureProtocolClient } = await fromBackend("dist/services/structure-protocol-execution.js");
+  const { resolvePythonCommand } = await fromBackend("tests/fixtures/python-command.mjs");
+  const python = resolvePythonCommand();
+  assert(python !== null, "Structure protocol validation requires a working configured analysis.pythonBin or Python runtime");
 
-  // Test 1: Verify validation skill metadata comes from skill.yaml, not registry exports
-  const { AgentSkillCatalogService } = await import(
-    pathToFileURL(path.join(context.rootDir, "backend", "dist", "services", "agent-skill-catalog.js")).href
-  );
-  const entryModule = await import(
-    pathToFileURL(path.join(context.rootDir, "backend", "dist", "agent-skills", "validation", "entry.js")).href
-  );
-  const registryModule = await import(
-    pathToFileURL(path.join(context.rootDir, "backend", "dist", "agent-skills", "validation", "registry.js")).href
-  );
-
-  const skillCatalog = new AgentSkillCatalogService();
-  const skill = await skillCatalog.getBuiltinSkillById("validation-structure-model");
+  const skill = await new AgentSkillCatalogService().getBuiltinSkillById("validation-structure-model");
   assert(skill !== undefined, "validation-structure-model should be discoverable from the manifest-backed skill catalog");
   assert(skill.canonicalId === "validation-structure-model", "validation skill should use the canonical manifest id");
-  assert(skill.aliases.includes("structure-json-validation"), "validation skill should preserve the legacy alias from skill.yaml");
+  assert(skill.aliases.includes("structure-json-validation"), "validation skill should preserve the legacy alias");
   assert(skill.domain === "validation", "validation skill should keep validation domain");
-  assert(skill.triggers.includes("validate"), "validation skill should keep validate trigger");
-  assert(skill.triggers.includes("验证"), "validation skill should keep Chinese validate trigger");
+  assert(skill.triggers.includes("validate") && skill.triggers.includes("验证"), "validation triggers should remain bilingual");
   assert(skill.priority === 100, "validation skill priority should stay 100");
-  assert(typeof entryModule.listBuiltinValidationSkills === "undefined", "validation entry should not re-export static registry metadata helpers");
-  assert(typeof entryModule.getBuiltinValidationSkill === "undefined", "validation entry should not expose builtin metadata lookup");
-  assert(typeof registryModule.listBuiltinValidationSkills === "undefined", "validation registry should not export static metadata helpers once manifest-first runtime is active");
-  assert(typeof registryModule.getBuiltinValidationSkill === "undefined", "validation registry should not expose builtin metadata lookup");
-  assert(typeof registryModule.findValidationSkillsByTrigger === "undefined", "validation registry should not expose trigger-based metadata lookup");
-  assert(typeof registryModule.getValidationSkillCapabilities === "undefined", "validation registry should not expose capability lookup from frontmatter metadata");
   console.log("[ok] manifest-backed validation skill metadata");
 
-  // Test 2: Test Python runtime directly via CLI
-  const runtimePath = path.join(
-    context.rootDir,
-    "backend",
-    "src",
-    "agent-skills",
-    "validation",
-    "structure-json",
-    "runtime.py"
-  );
-
-  // Helper to run Python validation
-  const runPythonValidation = (jsonData, args = []) =>
-    new Promise((resolve, reject) => {
-      const proc = execFile(
-        "python",
-        [runtimePath, "--schema-version", "2.0.0", ...args, "-"],
-        { encoding: "utf8" },
-        (error, stdout, stderr) => {
-          if (error && !stdout) {
-            reject(new Error(`Python execution failed: ${stderr || error.message}`));
-            return;
-          }
-          try {
-            resolve(JSON.parse(stdout));
-          } catch (e) {
-            reject(new Error(`Failed to parse Python output: ${e.message}\nOutput: ${stdout}`));
-          }
-        }
-      );
-      proc.stdin.write(typeof jsonData === "string" ? jsonData : JSON.stringify(jsonData));
-      proc.stdin.end();
-    });
-
-  // Check if Python and schema validation are available
-  let pythonAvailable = false;
-  let schemaValidationAvailable = false;
-  try {
-    const checkResult = await runPythonValidation('{"test": true}', ["--no-semantic"]);
-    pythonAvailable = true;
-    schemaValidationAvailable = !checkResult.issues.some(i => i.code === "SCHEMA_VALIDATION_ERROR" && i.message.includes("not available"));
-  } catch (e) {
-    console.log(`[warn] Python runtime not available: ${e.message}`);
-  }
-
-  if (!pythonAvailable) {
-    console.log("[skip] Python runtime tests (python not available)");
-  } else if (!schemaValidationAvailable) {
-    console.log("[skip] Schema validation tests (StructureModelV2 not available, install structure_protocol)");
-  }
-
-  if (!pythonAvailable || !schemaValidationAvailable) {
-    console.log("[ok] validation skill tests completed with limitations");
-    return;
-  }
-
-  // Test 2a: Valid minimal structure JSON
-  const validModel = {
-    schema_version: "2.0.0",
+  const protocol = createLocalStructureProtocolClient();
+  const schema = (await protocol.get("/schema/structure-model-v2")).data;
+  assert(schema.properties.coordinate_system && schema.properties.sections, "formal model schema should expose coordinates and sections");
+  const model = {
+    schema_version: "2.2.0", unit_system: "SI",
+    coordinate_system: { semantics: "global-z-up", version: 1, dimension: "3d", plane: null,
+      dof_order: ["ux", "uy", "uz", "rx", "ry", "rz"] },
     nodes: [
       { id: "1", x: 0, y: 0, z: 0, restraints: [true, true, true, true, true, true] },
       { id: "2", x: 3, y: 0, z: 0 },
     ],
     elements: [{ id: "E1", type: "beam", nodes: ["1", "2"], material: "M1", section: "S1" }],
     materials: [{ id: "M1", name: "Steel", type: "steel", E: 205000, nu: 0.3, rho: 7850 }],
-    sections: [{ id: "S1", name: "Rectangular 0.3x0.6", type: "rectangular", width: 0.3, height: 0.6 }],
-    load_cases: [],
-    load_combinations: [],
+    sections: [{ id: "S1", name: "Rectangular 300x600 mm", type: "rectangular",
+      shape: { kind: "rectangular", B: 300, H: 600 } }],
+    load_cases: [], load_combinations: [],
   };
+  const original = JSON.stringify(model);
+  const converted = (await protocol.post("/convert", { model, source_format: "structuremodel-v2",
+    target_format: "structuremodel-v2", target_schema_version: "2.2.0" })).data.model;
+  assert(JSON.stringify(model) === original, "normalization must not mutate the authored model");
+  assert(converted.sections[0].shape.B === 300 && converted.sections[0].shape.H === 600, "section geometry must remain mm");
+  assert(Math.abs(converted.sections[0].properties.A - 0.18) < 1e-12, "300x600 mm area must be 0.18 m2");
+  assert(Math.abs(converted.sections[0].properties.Iy - 0.0054) < 1e-12, "section inertia must be m4");
+  const valid = (await protocol.post("/validate", { model: converted })).data;
+  assert(valid.valid === true && valid.schemaVersion === "2.2.0" && valid.stats.nodes === 2 && valid.stats.elements === 1,
+    "formal protocol should validate the normalized physical model");
+  console.log("[ok] formal schema, conversion and validation preserve coordinate/unit contract");
 
-  const validResult = await runPythonValidation(validModel);
-  assert(validResult.valid === true, "valid model should pass validation");
-  assert(validResult.summary.error_count === 0, "valid model should have no errors");
-  assert(validResult.validated_model !== undefined, "valid model should return validated_model");
-  console.log("[ok] python runtime validates correct model");
-
-  // Test 2b: Invalid JSON syntax
-  const invalidJsonResult = await runPythonValidation('{"invalid json');
-  assert(invalidJsonResult.valid === false, "invalid JSON should fail");
-  assert(invalidJsonResult.summary.error_count > 0, "invalid JSON should have errors");
-  assert(invalidJsonResult.issues.some((i) => i.code === "JSON_SYNTAX_ERROR"), "should report JSON_SYNTAX_ERROR");
-  console.log("[ok] python runtime detects syntax errors");
-
-  // Test 2c: Schema validation errors (missing required fields)
-  const incompleteModel = {
-    schema_version: "2.0.0",
-    nodes: [{ id: "1", x: 0, y: 0 }], // Missing z coordinate
+  const rejectModel = async (label, mutate, expected, errorCode = "VALIDATION_ERROR") => {
+    const invalid = structuredClone(model);
+    mutate(invalid);
+    let failure;
+    try { await protocol.post("/validate", { model: invalid }); } catch (error) { failure = error; }
+    assert(failure, `${label} must fail formal validation`);
+    assert(failure.errorCode === errorCode, `${label} should produce the expected boundary validation failure`);
+    assert(expected.test(JSON.stringify({ message: failure.message, detail: failure.detail })), `${label} should identify the actual invalid field/reference`);
+    console.log(`[ok] formal protocol rejects ${label}`);
   };
-  const incompleteResult = await runPythonValidation(incompleteModel);
-  assert(incompleteResult.valid === false, "incomplete model should fail validation");
-  assert(incompleteResult.issues.length > 0, "incomplete model should have issues");
-  console.log("[ok] python runtime detects schema errors");
+  // This required input is checked during migration, before Pydantic validation.
+  await rejectModel("missing coordinate contract", value => { delete value.coordinate_system; }, /coordinate_system/, "WORKER_EXECUTION_FAILED");
+  await rejectModel("invalid node reference", value => { value.elements[0].nodes[1] = "999"; }, /999/);
+  await rejectModel("duplicate node IDs", value => { value.nodes[1].id = "1"; }, /[Dd]uplicate|重复/);
+  await rejectModel("negative material stiffness", value => { value.materials[0].E = -1000; }, /materials.*E/);
+  await rejectModel("conflicting section area", value => { value.sections[0].properties = { A: 0.001 }; }, /[Cc]onflict|矛盾|inconsistent/);
 
-  // Test 2d: Semantic validation errors (invalid references)
-  const badRefModel = {
-    schema_version: "2.0.0",
-    nodes: [
-      { id: "1", x: 0, y: 0, z: 0 },
-      { id: "2", x: 3, y: 0, z: 0 },
-    ],
-    elements: [{ id: "E1", type: "beam", nodes: ["1", "999"], material: "M1", section: "S1" }], // Node 999 doesn't exist
-    materials: [{ id: "M1", name: "Steel", type: "steel", E: 205000, nu: 0.3, rho: 7850 }],
-    sections: [{ id: "S1", name: "Rectangular 0.3x0.6", type: "rectangular", width: 0.3, height: 0.6 }],
-    load_cases: [],
-    load_combinations: [],
-  };
-  const badRefResult = await runPythonValidation(badRefModel);
-  assert(badRefResult.valid === false, "model with bad references should fail");
-  assert(
-    badRefResult.issues.some((i) => i.code === "SEMANTIC_INVALID_REFERENCE"),
-    "should report SEMANTIC_INVALID_REFERENCE"
-  );
-  console.log("[ok] python runtime detects semantic errors");
-
-  // Test 2e: Duplicate ID detection
-  const dupIdModel = {
-    schema_version: "2.0.0",
-    nodes: [
-      { id: "1", x: 0, y: 0, z: 0 },
-      { id: "1", x: 3, y: 0, z: 0 }, // Duplicate ID
-    ],
-  };
-  const dupIdResult = await runPythonValidation(dupIdModel);
-  assert(dupIdResult.issues.some((i) => i.code === "SEMANTIC_DUPLICATE_ID"), "should report SEMANTIC_DUPLICATE_ID");
-  console.log("[ok] python runtime detects duplicate IDs");
-
-  // Test 2f: Material property validation
-  const badMaterialModel = {
-    schema_version: "2.0.0",
-    nodes: [
-      { id: "1", x: 0, y: 0, z: 0 },
-      { id: "2", x: 3, y: 0, z: 0 },
-    ],
-    elements: [{ id: "E1", type: "beam", nodes: ["1", "2"], material: "M1", section: "S1" }],
-    materials: [{ id: "M1", type: "steel", E: -1000, nu: 0.3, rho: 7850 }], // Negative E
-    sections: [{ id: "S1", type: "rectangular", width: 0.3, height: 0.6 }],
-    load_cases: [],
-    load_combinations: [],
-  };
-  const badMatResult = await runPythonValidation(badMaterialModel);
-  assert(
-    badMatResult.issues.some((i) => i.code === "SEMANTIC_INVALID_VALUE" && i.path.includes("materials")),
-    "should report invalid material value"
-  );
-  console.log("[ok] python runtime validates material properties");
-
-  // Test 2g: Options - skip semantic validation
-  const skipSemanticResult = await runPythonValidation(dupIdModel, ["--no-semantic"]);
-  assert(skipSemanticResult.valid === true, "model with semantic-only issues should pass when semantic is skipped");
-  console.log("[ok] python runtime respects --no-semantic flag");
-
-  // Test 2h: Options - stop on first error
-  const stopOnFirstResult = await runPythonValidation(incompleteModel, ["--stop-on-first-error"]);
-  assert(stopOnFirstResult.issues.length <= 2, "should stop after first error");
-  console.log("[ok] python runtime respects --stop-on-first-error flag");
-
-  // Test 3: Verify runtime-facing validation exports still exist
-  assert(typeof entryModule.VALIDATION_GET_ACTION_BY_PATH === "object", "validation entry should keep runtime action mapping exports");
-  assert(typeof entryModule.VALIDATION_POST_ACTION_BY_PATH === "object", "validation entry should keep runtime action mapping exports");
-  console.log("[ok] validation module runtime exports");
+  // Exercise the same worker transport from CLI; dependency failures are fatal,
+  // never a successful contract run with all Python checks skipped.
+  const worker = path.join(context.rootDir, "backend", "src", "skill-shared", "python", "structure_protocol", "worker.py");
+  const invokeWorker = input => new Promise((resolve, reject) => {
+    const proc = execFile(python.executable, [...python.args, worker],
+      { cwd: context.rootDir, encoding: "utf8", windowsHide: true, timeout: 30000,
+        env: { ...process.env, PYTHONIOENCODING: "utf-8" } }, (error, stdout, stderr) => {
+        if (error && !stdout) return reject(new Error(`Python worker execution failed: ${stderr || error.message}`));
+        try { resolve(JSON.parse(stdout)); }
+        catch (parseError) { reject(new Error(`Invalid worker response: ${parseError.message}; ${stderr || stdout}`)); }
+      });
+    proc.stdin.on("error", reject);
+    proc.stdin.end(typeof input === "string" ? input : JSON.stringify(input));
+  });
+  const cliValid = await invokeWorker({ action: "validate", input: { model: converted } });
+  assert(cliValid.ok === true && cliValid.data.valid === true, "configured Python CLI should use the same formal validator");
+  const malformed = await invokeWorker('{"invalid json');
+  assert(malformed.ok === false && malformed.errorCode === "INVALID_JSON", "worker must reject malformed JSON");
+  const unknown = await invokeWorker({ action: "no-such-action" });
+  assert(unknown.ok === false && unknown.errorCode === "UNKNOWN_ACTION", "worker must reject unknown actions");
+  console.log("[ok] configured Python worker validates models and rejects invalid transport requests");
 }
 
 async function validateSkillRouting(context) {
