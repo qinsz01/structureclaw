@@ -16,11 +16,20 @@ export function nativeDesignRecord(model: ModelRecord, run: ModelRecord, code: s
   const context = isRecord(data.nativeDesignContext) ? data.nativeDesignContext : {};
   const native = isRecord(data.nativeDesignResults) ? data.nativeDesignResults : {};
   const request = isRecord(context.request) ? context.request : {};
-  const interpreted = Array.isArray(native.checks) ? native.checks.filter(isRecord) : [];
-  const rows = interpreted.filter(row => ['pass', 'fail', 'not_applicable'].includes(String(row.status))
-    && typeof row.source === 'object' && row.source !== null && row.nativeCombination !== undefined);
+  const interpreted = Array.isArray(native.checks) ? native.checks : [];
+  const rows = interpreted.filter((row): row is ModelRecord => isRecord(row)
+    && ['pass', 'fail', 'not_applicable'].includes(String(row.status))
+    && isRecord(row.source) && Object.keys(row.source).length > 0 && row.nativeCombination !== undefined);
+  const rawRecords = Array.isArray(native.records) ? native.records : [];
+  const reinforcement = rawRecords.filter((row): row is ModelRecord => isRecord(row)
+    && typeof row.elementId === 'string' && typeof row.component === 'string' && row.unit === 'mm2'
+    && typeof row.requiredArea === 'number' && Number.isFinite(row.requiredArea) && row.requiredArea >= 0
+    && typeof row.calculatedArea === 'number' && Number.isFinite(row.calculatedArea) && row.calculatedArea >= 0
+    && isRecord(row.source) && Object.keys(row.source).length > 0 && row.nativeCombination !== undefined);
+  const requiredReinforcement = request.mode === 'required-reinforcement';
   const eligible = run.success === true && context.eligibleForConclusion === true && request.requested === true
-    && request.code === code && rows.length > 0 && rows.length === interpreted.length;
+    && request.code === code && rows.length === interpreted.length
+    && (requiredReinforcement ? reinforcement.length > 0 && reinforcement.length === rawRecords.length : rows.length > 0);
   const checks = eligible ? rows : [];
   const missingInputs = Array.isArray(context.missingInputs) ? context.missingInputs : [];
   const summary = { total: checks.length, passed: checks.filter(row => row.status === 'pass').length,
@@ -28,8 +37,12 @@ export function nativeDesignRecord(model: ModelRecord, run: ModelRecord, code: s
     notApplicable: checks.filter(row => row.status === 'not_applicable').length,
     inputRequired: missingInputs.length, unsupported: eligible || missingInputs.length ? 0 : 1, warnings: 0 };
   const record = { provider: 'native', designCode: code, completionStatus: eligible ? 'complete' : 'incomplete',
-    complianceStatus: summary.failed ? 'fail' : eligible ? summary.passed ? 'pass' : 'not_applicable' : 'incomplete',
+    complianceStatus: eligible && requiredReinforcement ? 'not_evaluated'
+      : summary.failed ? 'fail' : eligible ? summary.passed ? 'pass' : 'not_applicable' : 'incomplete',
     summary, details: checks, missingInputs, nativeDesignContext: context, nativeDesignResults: native,
+    records: eligible ? reinforcement : [], designMode: request.mode,
+    complianceScope: native.complianceScope ?? 'reported-native-checks-only',
+    ...(requiredReinforcement ? { reinforcementScope: 'required-not-installed' } : {}),
     designStatus: context.status ?? 'native-design-not-requested', combinationScope: context.combinationScope ?? 'native-design-combinations',
     boundToSelectedAnalysisResult: false,
     meta: { runId: run.runId, modelHash: meta.modelHash, modelRevision: meta.modelRevision,

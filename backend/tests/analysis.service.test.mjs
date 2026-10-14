@@ -127,7 +127,7 @@ describe('AnalysisService direct China seismic workflow', () => {
 
     expect(report.summary).toContain('Code checks passed 3 / 4, failed 0, warnings 1');
     expect(report.json).toMatchObject({
-      reportSchemaVersion: '1.0.0',
+      reportSchemaVersion: '1.1.0',
       intent: 'Run China seismic design workflow',
       analysisType: 'seismic',
       meta: {
@@ -220,7 +220,7 @@ describe('AnalysisService direct China seismic workflow', () => {
       report: {
         summary: '分析类型 seismic，分析成功，校核通过 2 / 2，失败 0，警告 0。',
         json: {
-          reportSchemaVersion: '1.0.0',
+          reportSchemaVersion: '1.1.0',
           analysisType: 'seismic',
           codeCheck: codeCheckResult,
           meta: {
@@ -319,6 +319,7 @@ describe('AnalysisService persisted-run code-check boundary', () => {
     const row = { id: 'analysis-1', modelId: 'model-1', type: 'static', status: 'completed', parameters, results,
       model: { id: 'model-1', coordinateSystem: physicalModel.coordinate_system, physicalModel } };
     prisma.analysis.findUnique = jest.fn().mockResolvedValue(row);
+    prisma.analysis.updateMany = jest.fn().mockResolvedValue({ count: 1 });
     const service = new AnalysisService();
     service.codeCheckExecutionService.codeCheck = jest.fn().mockImplementation(async payload => ({
       code: 'GB50017', status: 'success', completionStatus: payload.context.analysisSummary.analysisMode === 'D' ? 'complete' : 'incomplete',
@@ -352,6 +353,17 @@ describe('AnalysisService persisted-run code-check boundary', () => {
     expect(result).toMatchObject({ completionStatus: 'incomplete', complianceStatus: 'incomplete',
       summary: { total: 2, passed: 1, inputRequired: 1 }, meta: { runId: params.runId, analysisId: 'analysis-1' } });
     expect(Object.keys(result.checkResults)).toEqual(['case:D', 'case:L']);
+    expect(prisma.analysis.updateMany).toHaveBeenCalledWith({
+      where: { id: row.id, results: { equals: row.results } },
+      data: { results: expect.objectContaining({ codeCheck: result }) },
+    });
+  });
+
+  test('a late check cannot replace results published while it was executing', async () => {
+    const { service, params } = await fixture();
+    prisma.analysis.updateMany.mockResolvedValue({ count: 0 });
+    await expect(service.codeCheck(params)).rejects.toThrow('DESIGN_RUN_SUPERSEDED');
+    expect(service.codeCheckExecutionService.codeCheck).toHaveBeenCalledTimes(2);
   });
 
   test.each([

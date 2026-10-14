@@ -17,6 +17,7 @@ export interface EngineeringReportInput {
   analysis: unknown;
   codeCheck?: unknown;
   locale: 'zh' | 'en';
+  reportSource?: string;
 }
 
 /** A single structured source for HTTP, chat and public-tool reports. */
@@ -33,7 +34,9 @@ export function prepareEngineeringReport(input: EngineeringReportInput) {
     throw new Error('REPORT_DESIGN_RUN_MISMATCH / 校核结果不属于本次运行');
   }
   const analysisSuccess = analysis.success === true;
-  const codeCheckText = formatCheckSummary(isRecord(check.summary) ? check.summary : undefined, input.locale);
+  const codeCheckText = check.designMode === 'required-reinforcement' && check.completionStatus === 'complete'
+    ? input.locale === 'zh' ? '所需配筋计算已完成，未验算已有配筋' : 'Required reinforcement calculated; installed reinforcement was not checked'
+    : formatCheckSummary(isRecord(check.summary) ? check.summary : undefined, input.locale);
   const summary = input.locale === 'zh'
     ? `分析类型 ${input.analysisType}，分析${analysisSuccess ? '成功' : '失败'}，${codeCheckText}。`
     : `Analysis type ${input.analysisType}; analysis ${analysisSuccess ? 'succeeded' : 'failed'}; ${codeCheckText}.`;
@@ -44,7 +47,7 @@ export function prepareEngineeringReport(input: EngineeringReportInput) {
     analysisType: input.analysisType, summary, ...artifacts, normalizedModel: input.normalizedModel,
     analysis: input.analysis, codeCheck: input.codeCheck, resultSets: reportResultRows(input.analysis),
     requestedQuantities: analysis.requestedQuantities ?? [], generatedAt: new Date().toISOString(),
-    meta: { reportSkillId: 'report-export-builtin', runId: analysis.runId, source: meta,
+    meta: { reportSkillId: 'report-export-builtin', reportSource: input.reportSource, runId: analysis.runId, source: meta,
       selectedResultKey: analysis.selectedResultKey, resultKeys: Object.keys(isRecord(analysis.results) ? analysis.results : {}) } };
   return { input, narrativeInput, summary, json };
 }
@@ -63,6 +66,14 @@ export function finishEngineeringReport(prepared: ReturnType<typeof prepareEngin
   if (isRecord(input.codeCheck) && input.codeCheck.completionStatus === 'incomplete') markdown += input.locale === 'zh'
     ? '\n规范校核尚未完成；资料不足或尚不支持的项目不构成通过结论。\n'
     : '\nCode checking is incomplete; missing inputs or unsupported checks do not establish compliance.\n';
+  if (isRecord(input.codeCheck) && input.codeCheck.provider === 'native') {
+    markdown += input.locale === 'zh'
+      ? '\n原生设计使用独立的软件设计组合；结论范围仅含已读回的官方检查项目。\n'
+      : '\nNative design uses its own software design combinations; conclusions cover only the official checks read back.\n';
+    if (input.codeCheck.designMode === 'required-reinforcement') markdown += input.locale === 'zh'
+      ? '\n所需配筋结果不构成已有配筋的验算结论。\n'
+      : '\nRequired reinforcement results do not establish compliance of installed reinforcement.\n';
+  }
   return { summary, json, markdown };
 }
 

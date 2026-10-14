@@ -115,7 +115,7 @@ export function buildDirectSeismicReport(options: {
     : typeof options.parameters.intent === 'string' ? options.parameters.intent
       : locale === 'zh' ? `直接分析任务：${options.analysisName}` : `Direct analysis task: ${options.analysisName}`;
   return createEngineeringReport({ message, analysisType: 'seismic', analysis: options.analysisResults,
-    codeCheck: codeCheckPayload(options.codeCheck), locale });
+    codeCheck: codeCheckPayload(options.codeCheck), locale, reportSource: 'direct-analysis-api' });
 }
 
 export function shouldRunDirectSeismicCodeCheck(

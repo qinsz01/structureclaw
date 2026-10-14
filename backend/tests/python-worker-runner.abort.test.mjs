@@ -26,6 +26,8 @@ describe('PythonWorkerRunner abort handling', () => {
   });
 
   test('kills the worker process when AbortSignal is aborted', async () => {
+    let spawned;
+    const ready = new Promise(resolve => { spawned = resolve; });
     const stdout = new EventEmitter();
     stdout.setEncoding = jest.fn();
     const stderr = new EventEmitter();
@@ -47,6 +49,7 @@ describe('PythonWorkerRunner abort handling', () => {
     });
 
     spawnMock.mockImplementation(() => {
+      spawned();
       setTimeout(() => {
         if (settled) {
           return;
@@ -61,7 +64,7 @@ describe('PythonWorkerRunner abort handling', () => {
     const runner = new PythonWorkerRunner('/tmp/fake-worker.py');
     const controller = new AbortController();
     const promise = runner.invoke({ action: 'noop' }, { signal: controller.signal });
-
+    await ready;
     controller.abort();
 
     await expect(promise).rejects.toThrow(/abort/i);
@@ -73,5 +76,14 @@ describe('PythonWorkerRunner abort handling', () => {
         { stdio: 'ignore', windowsHide: true },
       );
     }
+  });
+
+  test('a previously cancelled request never starts a worker or probes Python', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const runner = new PythonWorkerRunner('/tmp/fake-worker.py');
+    await expect(runner.invoke({}, {signal:controller.signal})).rejects.toThrow(/abort/i);
+    expect(spawnMock).not.toHaveBeenCalled();
+    expect(spawnSyncMock).not.toHaveBeenCalled();
   });
 });

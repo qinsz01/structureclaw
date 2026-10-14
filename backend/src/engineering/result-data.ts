@@ -221,16 +221,17 @@ export function resultTableMarkdown(analysis: unknown, locale: 'zh' | 'en'): str
     markdown += '| ID | Selection | Location | Component | Value | Unit |\n| --- | --- | --- | --- | --- | --- |\n';
     markdown += quantities.map(q => {
       const location = isRecord(q.location) ? q.location : {};
-      const position = location.kind === 'member' ? `${location.id}@${location.positionM}:${location.side}`
+      const position = location.kind === 'member' ? location.end ? `${location.id}:${location.end}` : `${location.id}@${location.positionM}:${location.side}`
         : location.kind === 'node-pair' ? `${location.id} − ${location.referenceId}` : location.id;
-      return `| ${cell(q.id)} | ${cell(q.selection)} | ${cell(position)} | ${cell(q.component)} | ${cell(q.value)} | ${cell(q.unit)} |`;
+      const index = q.timeIndex !== undefined ? `; t=${q.time}s [${q.timeIndex}]` : q.modeNumber !== undefined ? `; mode=${q.modeNumber}` : '';
+      return `| ${cell(q.id)} | ${cell(q.selection)}${cell(index)} | ${cell(position)} | ${cell(q.component)} | ${cell(q.value)} | ${cell(q.unit)} |`;
     }).join('\n') + '\n';
   }
   return markdown;
 }
 
 /** Unit conversion is explicit; interpolation never becomes a recovered member force. */
-export function scalarResultQuantity(values: unknown, component: string, unit: string, member: boolean) {
+export function scalarResultQuantity(values: unknown, component: string, unit: string, member: boolean, field?: string) {
   if (!isRecord(values)) throw new Error('RESULT_COMPONENT_UNAVAILABLE');
   if (member && (values.method === 'nearest-sample' || values.state === 'interpolated')) throw new Error('EXACT_MEMBER_RESPONSE_UNAVAILABLE');
   const source = member && isRecord(values.sample) ? values.sample : values;
@@ -238,10 +239,16 @@ export function scalarResultQuantity(values: unknown, component: string, unit: s
   const raw = member && displacementIndex >= 0 && Array.isArray(source.displacement)
     ? source.displacement[displacementIndex] : source[component];
   if (typeof raw !== 'number' || !Number.isFinite(raw)) throw new Error('RESULT_COMPONENT_UNAVAILABLE');
-  const dimension = /^u[xyz]$/.test(component) ? 'length' : /^r[xyz]$/.test(component) ? 'rotation'
+  let dimension = /^u[xyz]$/.test(component) ? 'length' : /^r[xyz]$/.test(component) ? 'rotation'
     : ['T', 'M2', 'M3', 'My', 'Mz', 'mx', 'my', 'mz'].includes(component) ? 'moment' : 'force';
+  if (field === 'velocities' || field === 'accelerations') {
+    if (dimension !== 'length' && dimension !== 'rotation') throw new Error('RESULT_COMPONENT_UNAVAILABLE');
+    dimension += field === 'velocities' ? '/s' : '/s2';
+  }
   const units: Record<string, [string, number]> = { m: ['length', 1], mm: ['length', 1000],
-    rad: ['rotation', 1], kN: ['force', 1], N: ['force', 1000], 'kN.m': ['moment', 1], 'N.m': ['moment', 1000] };
+    rad: ['rotation', 1], kN: ['force', 1], N: ['force', 1000], 'kN.m': ['moment', 1], 'N.m': ['moment', 1000],
+    'm/s': ['length/s', 1], 'mm/s': ['length/s', 1000], 'rad/s': ['rotation/s', 1],
+    'm/s2': ['length/s2', 1], 'mm/s2': ['length/s2', 1000], 'rad/s2': ['rotation/s2', 1] };
   const target = units[unit];
   if (!target || target[0] !== dimension) throw new Error('RESULT_UNIT_MISMATCH');
   return raw*target[1];

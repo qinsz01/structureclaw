@@ -120,11 +120,24 @@ export function createQueryResultsTool() {
       }
       let values: unknown = input.field ? data[input.field] : data;
       let time: number | undefined;
+      let modalNormalization: Record<string, unknown> | undefined;
       if (input.timeIndex !== undefined && input.modeNumber !== undefined) throw new Error('RESULT_INDEX_CONFLICT');
       if (input.modeNumber !== undefined) {
+        if (input.elementId || (input.field && !['displacements', 'modal', 'modes'].includes(input.field))) throw new Error('MODAL_FIELD_UNAVAILABLE');
         const modes = Array.isArray(data.modes) ? data.modes : isRecord(data.modal) ? data.modal.modes : undefined;
         values = Array.isArray(modes) ? modes.find(item => isRecord(item) && item.modeNumber === input.modeNumber) : undefined;
         if (values === undefined) throw new Error('MODE_NOT_FOUND');
+        if (input.component) {
+          if (!input.nodeId || !['ux', 'uy', 'uz'].includes(input.component) || input.unit !== '1') throw new Error('MODAL_TRANSLATION_REQUIRES_DIMENSIONLESS_UNIT');
+          const shape = isRecord(values) && isRecord(values.modeShape) ? values.modeShape : {};
+          const vectors = Object.values(shape);
+          if (!vectors.length || vectors.some(v => !Array.isArray(v) || v.length !== 3 || v.some(n => typeof n !== 'number' || !Number.isFinite(n)))) throw new Error('MODAL_SHAPE_UNAVAILABLE');
+          const scale = Math.max(...(vectors as number[][]).flat().map(Math.abs));
+          if (!(scale > 0)) throw new Error('MODAL_SHAPE_UNAVAILABLE');
+          modalNormalization = { method: 'maximum-absolute-translational-component', divisor: scale, coordinateSystem: 'global', physicalDisplacement: false };
+          values = Object.fromEntries(Object.entries(shape).map(([node, vector]) => [node,
+            Object.fromEntries(['ux', 'uy', 'uz'].map((component, index) => [component, (vector as number[])[index]! / scale]))]));
+        }
       }
       if (input.timeIndex !== undefined) {
         const history = Array.isArray(data.timeHistory) ? data.timeHistory : [];
@@ -132,7 +145,7 @@ export function createQueryResultsTool() {
         if (values === undefined) throw new Error('TIME_INDEX_NOT_FOUND');
         if (!isRecord(values) || typeof values.time !== 'number' || !Number.isFinite(values.time)) throw new Error('TIME_INDEX_UNVERIFIED');
         time = values.time;
-        if (input.field === 'reactions' || input.field === 'forces') values = values[input.field];
+        if (input.field && ['reactions', 'forces', 'velocities', 'accelerations'].includes(input.field)) values = values[input.field];
         else if (input.field && !['timeHistory', 'displacements'].includes(input.field)) throw new Error('TIME_HISTORY_FIELD_UNAVAILABLE');
       }
       if (input.nodeId !== undefined) {
@@ -160,7 +173,9 @@ export function createQueryResultsTool() {
       let quantity: Record<string, unknown> | undefined;
       if (input.component !== undefined) {
         if (!input.quantityId || !input.unit || !(input.elementId || input.nodeId)) throw new Error('QUANTITY_LOCATION_ID_AND_UNIT_REQUIRED');
-        const value = scalarResultQuantity(values, input.component, input.unit, input.elementId !== undefined);
+        const value = modalNormalization && isRecord(values) ? values[input.component] as number
+          : scalarResultQuantity(values, input.component, input.unit, input.elementId !== undefined, input.field);
+        if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error('RESULT_COMPONENT_UNAVAILABLE');
         let difference: Record<string, unknown> | undefined;
         if (input.referenceNodeId !== undefined) {
           const nodes = isRecord(data.displacements) ? data.displacements : {};
@@ -170,14 +185,14 @@ export function createQueryResultsTool() {
             minuend: { nodeId: input.nodeId, value }, subtrahend: { nodeId: input.referenceNodeId, value: referenceValue },
             value: value - referenceValue, unit: input.unit, runId: run.runId, selection: resultKey };
         }
-        quantity = { id: input.quantityId, runId: run.runId, selection: resultKey, component: input.component, unit: input.unit,
+        quantity = { id: input.quantityId, runId: run.runId, selection: resultKey, field: input.field, component: input.component, unit: input.unit,
           value: difference ? difference.value : value,
           location: input.elementId ? { kind: 'member', id: input.elementId, ...(input.end ? { end: input.end } : { positionM: input.positionM, side: input.side ?? 'right' }) }
             : input.referenceNodeId ? { kind: 'node-pair', id: input.nodeId, referenceId: input.referenceNodeId }
               : { kind: 'node', id: input.nodeId }, source: selected.meta,
           ...(difference ? { derivation: difference } : {}),
           ...(input.timeIndex !== undefined ? { timeIndex: input.timeIndex, time, responseDefinition: data.responseDefinition } : {}),
-          ...(input.modeNumber !== undefined ? { modeNumber: input.modeNumber } : {}) };
+          ...(input.modeNumber !== undefined ? { modeNumber: input.modeNumber, normalization: modalNormalization } : {}) };
       }
       return { resultKey, meta: selected.meta, values, quantity };
     };
@@ -209,8 +224,8 @@ export function createQueryResultsTool() {
       referenceNodeId: z.string().min(1).optional().describe('Subtract this node from nodeId in the SAME static result; field=displacements and component/unit/quantityId required. For signed story displacement differences. / 同一静力结果内计算 nodeId 减此节点的位移差，需指定分量、单位和数值ID。'),
       quantityId: z.string().min(1).optional().describe('Stable ID for a requested report quantity / 指定报告数值的稳定ID。'),
       component: z.enum(['ux','uy','uz','rx','ry','rz','fx','fy','fz','mx','my','mz','N','V2','V3','T','M2','M3']).optional(),
-      unit: z.enum(['m','mm','rad','kN','N','kN.m','N.m']).optional(),
+      unit: z.enum(['m','mm','rad','kN','N','kN.m','N.m','m/s','mm/s','rad/s','m/s2','mm/s2','rad/s2','1']).optional(),
       elementId: z.string().optional(), positionM: z.number().nonnegative().optional(), side: z.enum(['left', 'right']).optional(),
       end: z.enum(['n1', 'n2']).optional().describe('Recorded physical member end for a time-history force query / 时程内力查询的物理构件端部。'),
-      field: z.enum(['displacements', 'forces', 'reactions', 'solverMesh', 'segmentResults', 'summary', 'modal', 'modes', 'timeHistory', 'memberResponses', 'memberResponseExtrema']).optional() }) });
+      field: z.enum(['displacements', 'velocities', 'accelerations', 'forces', 'reactions', 'solverMesh', 'segmentResults', 'summary', 'modal', 'modes', 'timeHistory', 'memberResponses', 'memberResponseExtrema']).optional() }) });
 }

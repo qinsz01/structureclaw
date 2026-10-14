@@ -90,7 +90,11 @@ describe('AnalysisExecutionService and local client', () => {
     await codeCheckClient.post('/code-check', { model_id: 'm1', code: 'GB50017', elements: [] }, { signal: controller.signal });
 
     expect(calls).toHaveLength(3);
-    expect(calls.every((item) => item.options?.signal === controller.signal)).toBe(true);
+    expect(calls.every((item) => item.options?.signal instanceof AbortSignal)).toBe(true);
+    expect(calls.every((item) => item.options.signal.aborted)).toBe(false);
+    controller.abort(new Error('caller cancelled'));
+    expect(calls.every((item) => item.options.signal.aborted)).toBe(true);
+    expect(calls.every((item) => item.options.signal.reason === controller.signal.reason)).toBe(true);
   });
 
   test('should expose structure protocol service and local client paths', async () => {
