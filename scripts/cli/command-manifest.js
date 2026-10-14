@@ -1,5 +1,11 @@
 const COMMANDS = [
   {
+    name: "run",
+    usage: "sclaw run --request <request.json> [--url <server-url>]",
+    description: "Run an agent request using the shared HTTP policy / 使用统一 HTTP 策略执行请求",
+    group: "core",
+  },
+  {
     name: "help",
     usage: "sclaw help",
     description: "Show CLI help",

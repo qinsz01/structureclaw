@@ -1,3 +1,4 @@
+import { runPolicyInputSchema, type RunPolicyInput } from '../runtime/run-policy.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -106,6 +107,7 @@ type SettingsResponse = {
     allowedShellCommands: ValueField<string>;
     shellTimeoutMs: ValueField<number>;
     maxToolCallsPerTurn: ValueField<number>;
+    runPolicy: ValueField<RunPolicyInput>;
   };
   pkpm: {
     cyclePath: ValueField<string>;
@@ -225,6 +227,7 @@ function buildSettingsResponse(): SettingsResponse {
       origins: stringSource(file?.cors?.origins, defaults.corsOrigins),
     },
     agent: {
+      runPolicy: { value: file?.agent?.runPolicy ?? {}, source: file?.agent?.runPolicy ? 'runtime' : 'default', defaultValue: {} },
       workspaceRoot: stringSource(file?.agent?.workspaceRoot, defaults.workspaceRoot),
       checkpointDir: stringSource(file?.agent?.checkpointDir, defaults.checkpointDir),
       allowShell: booleanSource(file?.agent?.allowShell, defaults.allowShell),
@@ -291,6 +294,7 @@ const updateSettingsSchema = z.object({
     origins: z.string().trim().optional(),
   }).optional(),
   agent: z.object({
+    runPolicy: runPolicyInputSchema.optional(),
     workspaceRoot: z.string().trim().optional(),
     checkpointDir: z.string().trim().optional(),
     allowShell: z.boolean().optional(),
@@ -401,6 +405,7 @@ function applyUpdate(current: SettingsFile, input: UpdateSettingsInput): Setting
     if (input.agent.allowedShellCommands !== undefined) agent.allowedShellCommands = input.agent.allowedShellCommands;
     if (input.agent.shellTimeoutMs !== undefined) agent.shellTimeoutMs = input.agent.shellTimeoutMs;
     if (input.agent.maxToolCallsPerTurn !== undefined) agent.maxToolCallsPerTurn = input.agent.maxToolCallsPerTurn;
+    if (input.agent.runPolicy !== undefined) agent.runPolicy = input.agent.runPolicy;
     next.agent = agent;
   }
 

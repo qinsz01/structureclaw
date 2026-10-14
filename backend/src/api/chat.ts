@@ -1,3 +1,4 @@
+import { runPolicyInputSchema } from '../runtime/run-policy.js';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { ConversationService } from '../services/conversation.js';
@@ -38,6 +39,7 @@ const sendMessageSchema = z.object({
   conversationId: optionalIdSchema,
   traceId: optionalIdSchema,
   context: z.object({
+    runPolicy: runPolicyInputSchema.optional(),
     locale: localeSchema,
     skillIds: z.array(z.string()).optional(),
     enabledToolIds: z.array(z.string()).optional(),
@@ -84,6 +86,7 @@ const streamMessageSchema = z.object({
   conversationId: optionalIdSchema,
   traceId: optionalIdSchema,
   context: z.object({
+    runPolicy: runPolicyInputSchema.optional(),
     locale: localeSchema,
     skillIds: z.array(z.string()).optional(),
     enabledToolIds: z.array(z.string()).optional(),
@@ -217,6 +220,7 @@ function buildPersistedDebugDetails(params: {
   // Build a compact context snapshot, omitting large fields like model/parameters
   // to avoid DB bloat.
   const compactContext: Record<string, unknown> = {};
+  if (params.context?.runPolicy) compactContext.runPolicy = params.context.runPolicy;
   if (params.context?.locale) compactContext.locale = params.context.locale;
   if (params.context?.skillIds) compactContext.skillIds = params.context.skillIds;
   if (params.context?.enabledToolIds) compactContext.enabledToolIds = params.context.enabledToolIds;

@@ -1,3 +1,4 @@
+import { runPolicyInputSchema } from '../runtime/run-policy.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { getAgentService, LangGraphAgentService } from '../agent-langgraph/index.js';
@@ -25,6 +26,7 @@ const agentRunSchema = z.object({
   conversationId: optionalIdSchema,
   traceId: optionalIdSchema,
   context: z.object({
+    runPolicy: runPolicyInputSchema.optional(),
     skillIds: z.array(z.string()).optional(),
     enabledToolIds: z.array(z.string()).optional(),
     disabledToolIds: z.array(z.string()).optional(),

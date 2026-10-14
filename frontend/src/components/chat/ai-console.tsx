@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic'
 import { createPortal } from 'react-dom'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { RunSettings, type RunPolicyInput } from './run-settings'
 import { useStore } from '@/lib/stores/context'
 import { MarkdownBody } from './markdown-body'
 import { SeismicVisualReport } from './seismic-visual-report'
@@ -2890,6 +2891,8 @@ export function AIConsole() {
   const [uploadingCount, setUploadingCount] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [conversationId, setConversationId] = useState('')
+  const [runPolicy, setRunPolicy] = useState<RunPolicyInput>({})
+  useEffect(() => { setRunPolicy({}) }, [conversationId])
   const [serverConversations, setServerConversations] = useState<ConversationSummary[]>([])
   const [conversationArchive, setConversationArchive] = useState<Record<string, PersistedConversation>>({})
   const [historyLoading, setHistoryLoading] = useState(true)
@@ -4252,6 +4255,7 @@ export function AIConsole() {
           ? []
           : undefined
       const contextPayload = {
+        runPolicy: Object.keys(runPolicy).length ? runPolicy : undefined,
         locale,
         skillIds: effectiveSkillIds,
         enabledToolIds: baseEnabledToolIds,
@@ -4772,6 +4776,7 @@ export function AIConsole() {
           ))}
         </div>
       )}
+      <RunSettings value={runPolicy} onChange={setRunPolicy} locale={locale} disabled={isStreaming} />
       <Textarea
         ref={composerTextareaRef}
         className="min-h-[96px] resize-none border-0 bg-transparent px-3 py-2.5 text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
