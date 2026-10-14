@@ -108,3 +108,22 @@ def test_invalid_or_unimplemented_release_is_explicitly_rejected(release):
     model.elements[0].releases = release
     with pytest.raises(ValueError, match='release|releases'):
         solve(model)
+
+
+def test_null_joint_rotation_cannot_be_falsely_fixed_when_coupled_by_diaphragm():
+    import openseespy.opensees as ops
+    from opensees_shared.model import OpenSeesModelBuilder
+    from structure_protocol.structure_model_v2 import StoryV2
+    model = beam(dimension='3d')
+    for node in model.nodes:
+        node.z = 1
+        node.story = 'F1'
+        node.restraints = [True, True, True, True, True, False]
+    model.stories = [StoryV2(id='F1',height=1,elevation=0)]
+    model.analysis_control.rigid_floor = True
+    model.elements[0].releases = {'i': {'rz': True}, 'j': {'rz': True}}
+    try:
+        with pytest.raises(ValueError, match='Rigid diaphragm coupling'):
+            OpenSeesModelBuilder(model).build(ops)
+    finally:
+        ops.wipe()

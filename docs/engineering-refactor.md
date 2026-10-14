@@ -158,10 +158,16 @@ OpenSees标答已逐项通过新评测自身一致性检查，该检查不等于
   unverified physical parameters block formal analysis, including mandatory V2
   material constants. / 拓扑通过不能代替材料和刚度校准；包含必需材料常数的正式V2请求目前仍被阻断。
   每项需独立原生验证，不能靠改物理模型或换引擎规避。
-- Shared elastic OpenSees currently rejects releases, offsets and P-delta. No new
-  full shell/solid/general nonlinear capability is claimed; bounded existing SDOF,
-  story-shear and hinge methods retain explicit assumptions.
-  / 端释放、偏心及二阶仍有缺口，不能把估算标成完整原结构非线性分析。
+- The 2026-10-14 shared elastic OpenSees path supports native local bending end
+  releases, preserving physical-end releases through refinement and recovering
+  internal responses from end actions and endpoint translations. Undetermined
+  joint rotations are omitted. Axial/shear/torsional/spring releases, offsets,
+  P-delta and rigid-diaphragm coupling of stiffness-null Rz remain unsupported.
+  No full shell/solid/general nonlinear capability is claimed; bounded existing
+  SDOF, story-shear and hinge methods retain explicit assumptions.
+  / 2026-10-14 已接通局部弯曲端释放、物理端分段映射和真实端力跨内恢复；无法确定的
+  节点转角省略。轴向/剪切/扭转/弹簧释放、偏心、二阶及无刚度 Rz 与刚性楼板耦合仍不支持，
+  不能把有明确假设的专用方法标成完整原结构非线性分析。
 - Evidence transport does not guarantee vision recognition accuracy. Full 300-task
   assets, independent references and paid experiments remain outside this batch.
   / 完整300题编制、标答与付费正式实验不在本批实施范围。
