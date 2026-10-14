@@ -7,13 +7,15 @@ capability acceptance is about SDK adaptation, not re-certifying a commercial so
 本文说明当前本体接口。历史预览版与论文标签按原清单保留。商业验收检查传参、原生执行和结果读回；
 不会把测试数量换算成题库覆盖率，也不重新认证成熟商业求解器。
 
-The current snapshot is `engineering-product-preview-20261014`. Its
+The historical snapshot `engineering-product-preview-20261014` and its
 [acceptance record](reproducibility/engineering-product-preview-20261014.json)
-binds the tested code and evidence. This remains a preview: mandatory native adapter
-items listed in [the profile audit](native-design-profiles-20261014.md) are still open.
+bind the code and evidence tested at that time. Later development does not move that
+tag or rewrite its failures. The [native profile audit](native-design-profiles-20261014.md)
+describes its accepted profiles and the limits observed at that point; it is not a
+declaration that every commercial feature is required by the current product scope.
 
-当前快照是本体预览版；验收记录绑定已测试代码及证据。商业适配尚有上述清单中的未完成项，
-本快照不是整体方案完成声明，也不是后续实验的300题能力冻结。
+历史预览标签及验收记录保持不变，后续开发不移动标签或改写失败记录。原生配置审计说明当时的验收范围与限制，
+不表示其中列出的每项商业高级功能都是当前场景的必需项；也不构成300题逐题通过声明。
 
 The 2026-10-14 convergence priority is faithful expression of the frozen scenario plan,
 SDK execution and result readback. The commercial solvers are trusted; tiny numerical
@@ -216,6 +218,16 @@ inspected before retry. `{sessionId,newTurn:true}` declares an actual new user t
 宿主自己的 LLM 循环和对话文本由宿主管理，返回的 enforcement 会明确这一点。
 外部会话不接受假装能强制删除宿主上下文的配置。旧低层工具接口不自动获得新会话控制保证。
 
+The optional [OpenClaw plugin](../integrations/openclaw/README.md) is shipped with the
+product and uses this same contract. It has no Bench dependency. Host identity selects
+the engineering session; an agent cannot reset its budget by declaring another turn.
+Subsequent turns use the documented operator entry. The bridge's schema, persistence,
+attachment and real host-loading checks are recorded [here](reproducibility/openclaw-product-bridge-20261014.json).
+
+可选[OpenClaw插件](../integrations/openclaw/README_CN.md)随本体打包，复用上述公开契约，不依赖Bench。
+宿主身份决定工程会话，智能体不能自行重置预算；后续用户回合由说明中的操作员入口接纳。
+真实宿主加载与本体工具测试分别记录，不将两者表述为完整Gateway模型对话已验收。
+
 Persistent sessions claim an atomic file lock across host processes. Competing hosts
 are rejected; calls in one host remain queued. An abandoned `.claim` is not taken over
 because of elapsed time or a missing PID: inspect the recorded pending operation and
@@ -357,6 +369,17 @@ physical start, with explicit breakpoint side. Time-history member forces requir
 and builtin for OpenSees. Native requests specify a supported **actual code edition**,
 design mode, required inputs and explicitly adopted native defaults. Changing assumptions
 creates a new analysis run before binding design outputs.
+
+A new native-design attempt clears the previous design conclusion and report, while
+keeping the last valid analysis available for queries. Missing inputs, unsupported
+conditions, failed execution and unknown outcomes do not replace that analysis.
+Completed design, including a genuine code-check failure, can publish its own analysis
+only while its model, evidence and request identity remain current. Failed attempts
+remain in history and never supply conclusions for a different analysis run.
+
+新原生设计请求使旧设计结论与报告失效，但保留此前有效分析供查询。缺资料、未支持条件、执行失败或结果未知
+不会替换该分析。完整执行的设计（包括真实验算超限）只有在模型、证据和请求身份仍有效时，才发布其自身分析。
+失败尝试保留为历史，不能向其他分析运行提供设计结论。
 
 所需配筋模式没有验算已有配筋；读回的官方检查存在超限时 `complianceStatus=fail`，
 其余完成情况为 `not_evaluated`，不发布已有配筋通过结论。
