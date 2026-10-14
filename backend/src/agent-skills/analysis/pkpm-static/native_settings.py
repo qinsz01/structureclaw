@@ -12,7 +12,9 @@ CONTROLS = ("self_weight", "rigid_floor", "rigid_offsets", "construction_stage",
 
 def validate_settings(data: dict) -> None:
     controls = data.get("analysis_control") or {}
-    unsupported = [key for key in CONTROLS if controls.get(key) is not None and controls.get(key) is not False]
+    unsupported = [key for key in CONTROLS if key != "self_weight" and controls.get(key) is not None and controls.get(key) is not False]
+    from native_self_weight import compile_self_weight
+    compile_self_weight(data)
     unsupported += [f"stories.{story.get('id')}.rigid_diaphragm" for story in data.get("stories", [])
                     if story.get("rigid_diaphragm") is not None and story.get("rigid_diaphragm") is not False]
     if unsupported:
@@ -32,7 +34,7 @@ def control_parameters(controls: dict) -> tuple[dict[int, int], dict[int, float]
     if controls.get("rigid_floor") is False: integers[606] = 0
     if controls.get("p_delta") is False: integers[608] = 0
     if controls.get("rigid_offsets") is False: integers.update({609: 0, 641: 0})
-    if controls.get("self_weight") is False: doubles.update({801: 0.0, 803: 0.0})
+    if type(controls.get("self_weight")) is bool: doubles.update({801: 0.0, 803: 0.0})
     return integers, doubles
 
 
@@ -57,11 +59,12 @@ def verify_effective_settings(directory: Path, controls: dict) -> dict:
         "self_weight": [r"Gc\s*=\s*0\.00", r"Gs\s*=\s*0\.00"],
     }
     for name, value in requested.items():
-        if value is not False or any(not re.search(pattern, text) for pattern in patterns[name]):
+        if (name != "self_weight" and value is not False) or any(not re.search(pattern, text) for pattern in patterns[name]):
             raise RuntimeError(f"PKPM effective setting '{name}' differs from request / 原生有效设置与请求不符")
     if controls.get("rigid_floor") is False:
         geometry = (directory / "GOUJIAN.OUT").read_text(encoding="gb18030")
         slab_counts = re.findall(r"板总数\s*=\s*(\d+)", geometry)
         if not slab_counts or any(int(count) for count in slab_counts):
             raise RuntimeError("Native solver introduced slabs in the bare frame / 原生杆系中出现未请求的楼板")
-    return {"verified": True, "requested": requested, "source": ["WMASS.OUT", "GOUJIAN.OUT"]}
+    return {"verified": True, "requested": requested, "source": ["WMASS.OUT", "GOUJIAN.OUT"],
+            "automaticNativeSelfWeight": False, "selfWeightMethod": "explicit-native-member-loads"}

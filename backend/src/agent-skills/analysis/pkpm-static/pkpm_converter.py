@@ -1025,6 +1025,11 @@ def convert_v2_to_jws(
     _validate_story_derived_loads(data)
     from native_loads import plan_native_loads, write_native_loads
     load_plan = plan_native_loads(data)
+    from native_self_weight import compile_self_weight, native_weight_records
+    self_weight = compile_self_weight(data)
+    load_plan += native_weight_records(data, self_weight)
+    if len({(row["caseId"], row["id"]) for row in load_plan}) != len(load_plan):
+        raise ValueError("Explicit load ID conflicts with generated selfweight / 显式荷载编号与自重记录冲突")
 
     # ---- Setup ----
     model = APIPyInterface.Model()
@@ -1059,9 +1064,9 @@ def convert_v2_to_jws(
             from native_materials import add_user_material
             native_materials[str(material["id"])] = add_user_material(APIPyInterface,
                 name=f"SCLAW_{len(native_materials) + 1}", E=float(material["E"]), nu=float(material["nu"]),
-                unit_weight=0. if analysis_control.get("self_weight") is False else float(material["rho"]) * 9.80665 / 1000)
+                unit_weight=0.)
             native_materials[str(material["id"])]["sourceDensityKgM3"] = float(material["rho"])
-            native_materials[str(material["id"])]["selfWeightEnabled"] = analysis_control.get("self_weight") is not False
+            native_materials[str(material["id"])]["selfWeightEnabled"] = False
     column_axes = {str(element["id"]): column_axis_plan(data, element) for element in data["elements"]} if native_materials else {}
     if not native_materials and any(abs(float(element.get("rotation_angle") or 0)) > 1e-10 for element in data["elements"]):
         raise ValueError("Column axis compilation requires explicit elastic materials / 柱截面轴编译需要明确弹性材料")
@@ -1154,7 +1159,7 @@ def convert_v2_to_jws(
                 "native_endpoint_order": node_ids,
                 "native_section_axes": column_axes.get(element_id),
             }
-            if element["type"] == "beam": targets[("beam", element_id)] = member
+            targets[(element["type"], element_id)] = member
         floor_loads = [row for row in load_plan if (row["targetType"], row["targetId"]) in targets]
         if floor_loads:
             written = write_native_loads(APIPyInterface, model, floor_loads, targets, native_load_mapping["cases"])
@@ -1216,6 +1221,7 @@ def convert_v2_to_jws(
         "floor_load_mapping": floor_load_mapping,
         "native_materials": native_materials,
         "native_load_mapping": native_load_mapping,
+        "self_weight": self_weight,
         "native_end_constraints": native_end_constraints,
         "design_conditions": {
             "site_seismic": site_seismic,

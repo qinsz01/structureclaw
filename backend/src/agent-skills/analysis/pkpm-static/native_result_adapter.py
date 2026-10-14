@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+from pathlib import Path
 
 from native_frame_stations import map_frame_stations
 from native_geometry import read_native_geometry
@@ -27,7 +28,7 @@ def _publish_selected(result, selected):
 def complete_frame_results(model, result, jws_path):
     settings = result["summary"]["effectiveNativeSettings"]
     if settings.get("verified") is not True or any(settings.get("requested", {}).get(key) is not False
-            for key in ("self_weight", "rigid_floor", "rigid_offsets", "construction_stage", "p_delta")):
+            for key in ("rigid_floor", "rigid_offsets", "construction_stage", "p_delta")):
         raise ValueError("Complete native frame results require verified linear bare-frame settings / 完整杆系结果需要原生线性无楼板设置核对")
     materials = result["summary"].get("nativeMaterialVerification", {})
     standard_profile = (materials.get("source") == "DATA.SAT; calibrated-standard-grade-profile"
@@ -99,6 +100,10 @@ def complete_frame_results(model, result, jws_path):
         case.update(capabilityStatus="complete", missingCapabilities=[],
                     forceSemantics="simultaneous-signed-stations", nativeContext=context,
                     units={"displacement": "m", "rotation": "rad", "force": "kN", "moment": "kN.m"})
+    from native_self_weight import compile_self_weight, verify_weight_results
+    weights = verify_weight_results(model, compile_self_weight(model), result["caseResults"], Path(jws_path).parent)
+    if weights is not None:
+        context["effectiveLoads"] = weights
     result.update(capabilityStatus="complete", missingCapabilities=[])
     result["summary"].update(reactionResultAvailable=True, rotationResultAvailable=True,
                              nativeGeometryVerification=geometry["source"], nodeCount=len(geometry["nodes"]))

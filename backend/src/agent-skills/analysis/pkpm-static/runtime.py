@@ -789,8 +789,13 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     if not requested_cases and extracted.get("native_displacement_source"):
         requested_cases = [str(case["id"]) for case in model_dict.get("load_cases", [])]
     if requested_cases:
+        from native_self_weight import compile_self_weight
+        weight = compile_self_weight(model_dict)
+        verification_cases = list(requested_cases)
+        if weight["enabled"] and weight["loadCaseId"] not in verification_cases:
+            verification_cases.append(weight["loadCaseId"])
         names = {}
-        for requested_id in map(str, requested_cases):
+        for requested_id in map(str, verification_cases):
             source_case = next((case for case in model_dict.get("load_cases", []) if str(case.get("id")) == requested_id), {})
             if not source_case:
                 raise AnalysisCapabilityError(engine="pkpm", capability="selected-load-case", reason=f"Unknown requested case '{requested_id}' / 请求工况不存在")

@@ -85,12 +85,12 @@ def verify_solver_materials(work_dir: Path, materials: dict[str, dict]) -> dict:
         actual = records.get(material["nativeMaterialId"])
         wanted = material["requested"]
         # Native PMCAD materializes unit weight with six significant digits.
-        # Only the no-self-weight static path is enabled; density is retained
-        # in the source and this exact transport rounding is recorded.
+        # Automatic material weight stays zero. Authored selfweight is an
+        # explicit native member load, separately bound to source rho/A/g.
         expected = (float(format(wanted["unitWeight"], ".6g")), wanted["E"] * 1000, wanted["nu"], 0., 0., 0.)
         if actual is None or actual["name"] != material["nativeName"] or actual["values"] != expected:
             raise RuntimeError(f"Native solver material differs for {source_id} / 求解器材料常数不符")
     return {"source": "UserMaterial.SAT", "sha256": hashlib.sha256(payload).hexdigest(),
             "materials": materials, "units": {"E": "kN/m2", "unitWeight": "kN/m3"},
-            "nativeUnitWeightEncoding": "six-significant-decimal-digits; static self-weight disabled",
+            "nativeUnitWeightEncoding": "six-significant-decimal-digits; automatic material self-weight disabled",
             "nativeCodeDesignSupported": False}

@@ -1,0 +1,184 @@
+{
+  "status": "passed",
+  "scope": "official-selfweight-input-transport-and-result-binding",
+  "notIndependentSolverCertification": true,
+  "method": "source rho*A*g -> official Column/Beam.SetLoad; automatic material weight disabled",
+  "supported": [
+    "global positive/negative Z",
+    "explicit source case or uniquely inferred dead case",
+    "geometric and numeric sections",
+    "selected cases and linear combinations",
+    "native design for geometric sections"
+  ],
+  "notCovered": [
+    "horizontal gravity",
+    "rigid diaphragms or member rigid offsets",
+    "nonlinear selfweight"
+  ],
+  "runs": [
+    {
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-120937-4b9f6b9e",
+      "status": "passed",
+      "inputSourceCase": "G",
+      "gravityVectorMps2": [
+        0.0,
+        0.0,
+        -9.81
+      ],
+      "sectionType": "rectangular",
+      "memberCount": 7,
+      "selectedResult": {
+        "kind": "case",
+        "id": "D"
+      },
+      "requestedCaseIds": [
+        "D",
+        "G"
+      ],
+      "totalForceVectorKn": [
+        0.0,
+        0.0,
+        -82.404
+      ],
+      "files": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-120937-4b9f6b9e\\source-model.json",
+          "sha256": "3b0b424beda12545347bfcdec3c2ef030167e3a4afec587b167d37e58b67db45"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-120937-4b9f6b9e\\result.json",
+          "sha256": "d81f444e320a3254d055be96fd13eb0af436dbf3e98511db07b0dfd79fcbca59"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-120937-4b9f6b9e\\acceptance.json",
+          "sha256": "bc55a46daba76c149eb009e4606386beccb1570db4926bfebb9862e10933e98a"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-120937-4b9f6b9e\\sc_ac541d22\\DATA.SAT",
+          "sha256": "ec5403cae7b4814d27a2eb62a72ebb246a4a5a56a68572705b8992743979c341"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-120937-4b9f6b9e\\sc_ac541d22\\WMASS.OUT",
+          "sha256": "6d70a5733707b4d645c5581ab52d17fcc49afa357fe640ba3d6444d81f9309f0"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-120937-4b9f6b9e\\sc_ac541d22\\GOUJIAN.OUT",
+          "sha256": "b63000b62bc7155d1a3dcfb3fb9f9c84b307f5f1695d4adfe5a306166373a8ef"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-120937-4b9f6b9e\\sc_ac541d22\\WNL1.OUT",
+          "sha256": "3743329db3779180a9249faf4011e95f45bdf0d9161cb42026e653b457c6e78c"
+        }
+      ]
+    },
+    {
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-selfweight-20261014-121142-ac95afe9",
+      "status": "passed",
+      "inputSourceCase": "G",
+      "gravityVectorMps2": [
+        0.0,
+        0.0,
+        -9.81
+      ],
+      "sectionType": "custom",
+      "memberCount": 7,
+      "selectedResult": {
+        "kind": "combination",
+        "id": "ULS"
+      },
+      "requestedCaseIds": [
+        "D",
+        "G"
+      ],
+      "totalForceVectorKn": [
+        0.0,
+        0.0,
+        -41.202
+      ],
+      "files": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-selfweight-20261014-121142-ac95afe9\\source-model.json",
+          "sha256": "20bde9a71cf0507376a4a2626d3d3b20ff6470e25f753391e1c48e25ccb77efa"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-selfweight-20261014-121142-ac95afe9\\result.json",
+          "sha256": "e06d7ba8f9cff155436010b92b9f8f991be6017edf51fc1b15475b1c9de16aec"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-selfweight-20261014-121142-ac95afe9\\acceptance.json",
+          "sha256": "1a1f72a36d46a5e3a165b8e26d2a8d776624c06c6ed3f49d68f84676ea46a322"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-selfweight-20261014-121142-ac95afe9\\sc_bb175cb1\\DATA.SAT",
+          "sha256": "29076dc83bc9c20a3f6ece1c605b1afed579384c9a5b4601584bfa88086ea808"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-selfweight-20261014-121142-ac95afe9\\sc_bb175cb1\\WMASS.OUT",
+          "sha256": "d66313f4c12107da6537684c638f3a0bf5ff15df8a41ef0848095ac5efbd8125"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-selfweight-20261014-121142-ac95afe9\\sc_bb175cb1\\GOUJIAN.OUT",
+          "sha256": "9bd1153e01aa82fc3211e92e9e18c8d32f5f4f3b53645689a6300e42616f7bca"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-selfweight-20261014-121142-ac95afe9\\sc_bb175cb1\\WNL1.OUT",
+          "sha256": "47778085b49f4ee3038ef6439331e0dd613b9d07c84f03e1baa2a1ae7a578182"
+        }
+      ]
+    },
+    {
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-selfweight-20261014-121321-2adf77b3",
+      "status": "passed",
+      "inputSourceCase": "G",
+      "gravityVectorMps2": [
+        0.0,
+        0.0,
+        9.81
+      ],
+      "sectionType": "custom",
+      "memberCount": 7,
+      "selectedResult": {
+        "kind": "case",
+        "id": "D"
+      },
+      "requestedCaseIds": [
+        "D"
+      ],
+      "totalForceVectorKn": [
+        0.0,
+        0.0,
+        41.202
+      ],
+      "files": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-selfweight-20261014-121321-2adf77b3\\source-model.json",
+          "sha256": "aafcdc887f7963027f532b87f988028fdb49bda874a87978909523a8b0c52dff"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-selfweight-20261014-121321-2adf77b3\\result.json",
+          "sha256": "c1c04c98a1b56bb5aeeb3252f41fd30018beeb049a9095d76678f3adf6823e97"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-selfweight-20261014-121321-2adf77b3\\acceptance.json",
+          "sha256": "f8a8bde0771633c0ac656b1f31c12abd6734e7cad63bec8705538cb00501e746"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-selfweight-20261014-121321-2adf77b3\\sc_37d6bc9f\\DATA.SAT",
+          "sha256": "29076dc83bc9c20a3f6ece1c605b1afed579384c9a5b4601584bfa88086ea808"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-selfweight-20261014-121321-2adf77b3\\sc_37d6bc9f\\WMASS.OUT",
+          "sha256": "d21a748a830450f1339a083ad4d1f3b4c96fdb492d4bd0bf7346d8fedc821e01"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-selfweight-20261014-121321-2adf77b3\\sc_37d6bc9f\\GOUJIAN.OUT",
+          "sha256": "9bd1153e01aa82fc3211e92e9e18c8d32f5f4f3b53645689a6300e42616f7bca"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-selfweight-20261014-121321-2adf77b3\\sc_37d6bc9f\\WNL1.OUT",
+          "sha256": "5913146a9da61267118313bc4f1fded9622cac798e9b0a5ed5876c0e4cdbe587"
+        }
+      ]
+    }
+  ]
+}
