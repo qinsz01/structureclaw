@@ -1,4 +1,6 @@
 import importlib.util
+import copy
+import json
 from pathlib import Path
 import struct
 import unittest
@@ -31,6 +33,37 @@ class NativeAPI:
 
 
 class NativeSettingsTests(unittest.TestCase):
+    def rigid_fixture(self):
+        return json.loads((Path(__file__).parent / "fixtures/native-rigid-diaphragm.json").read_text("utf8"))
+
+    def test_real_forced_rigid_floor_has_MF_constraints_without_floor_plates(self):
+        row = self.rigid_fixture()
+        audit = settings.audit_effective_settings(row["model"], row["fe"], row["receipt"], row["report"], row["loadAudit"])
+        self.assertTrue(audit["passed"], audit["failures"])
+        self.assertEqual(audit["diaphragms"]["groups"]["F1"]["masters"], ["1000005"])
+        self.assertEqual(len(audit["diaphragms"]["groups"]["F1"]["nodes"]), 4)
+
+    def test_rigid_floor_rejects_missing_master_wrong_scheme_and_added_slab(self):
+        row = self.rigid_fixture()
+        for mode in ("master", "scheme", "slab", "report"):
+            bad = copy.deepcopy(row)
+            if mode == "master":
+                bad["fe"]["sectionsRaw"]["NODE"] = [line.replace("FM=1000005", "FM=0", 1) for line in bad["fe"]["sectionsRaw"]["NODE"]]
+            elif mode == "scheme":
+                bad["fe"]["sectionsRaw"]["ANALYSIS"] = ["scheme=1"]
+            elif mode == "slab":
+                bad["fe"]["sectionsRaw"]["PLANAR"] = ["unrequested plate"]
+            else:
+                bad["report"] = bad["report"].replace("对所有楼层强制采用刚性楼板假定", "不强制采用")
+            audit = settings.audit_effective_settings(bad["model"], bad["fe"], bad["receipt"], bad["report"], bad["loadAudit"])
+            self.assertFalse(audit["passed"], mode)
+
+    def test_rigid_floor_rejects_non_horizontal_nodes(self):
+        row = self.rigid_fixture()
+        row["model"]["nodes"][-1]["z"] += .1
+        with self.assertRaisesRegex(ValueError, "horizontal"):
+            settings.compile_settings(row["model"])
+
     def test_false_controls_disable_both_member_rigid_zones_and_second_order(self):
         model = {"analysis_control": {key: False for key in
                  ("rigid_floor", "rigid_offsets", "self_weight", "p_delta", "construction_stage")}}

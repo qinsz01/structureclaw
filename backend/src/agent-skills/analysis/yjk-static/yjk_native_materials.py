@@ -151,11 +151,11 @@ def section_representation(section: dict) -> dict:
 
 def _require_reference_scope(model: dict):
     control = model.get("analysis_control") or {}
-    keys = ("rigid_floor", "rigid_offsets", "construction_stage", "p_delta")
+    keys = ("rigid_offsets", "construction_stage", "p_delta")
     if any(control.get(key) is not False for key in keys):
         raise ValueError("YJK reference carriers require explicit first-order bare-frame controls / 参考载体仅用于显式关闭附加刚度的一阶杆系")
-    if any(story.get("rigid_diaphragm") is True for story in model.get("stories", [])):
-        raise ValueError("YJK reference carriers do not support rigid diaphragms / 参考载体不支持刚性楼板")
+    from yjk_native_settings import compile_settings
+    compile_settings(model)  # Same explicit constraint contract as real geometry.
 
 
 def compile_orientation(model: dict, element: dict, nodes: dict) -> dict:
@@ -465,12 +465,17 @@ def physics_context(model: dict, fe: dict, material_audit: dict, settings_audit:
                     material_audit.get("artifact", {}).get("sha256") == fe.get("sha256"))
     return {"engine": "yjk", "engineVersion": engine_version, "physicalModelHash": _hash(model),
             "stiffnessHash": _hash({"materials": fe.get("materials"), "sections": fe.get("sections"),
-                                    "frames": fe.get("frames"), "constraints": fe.get("sectionsRaw", {}).get("CONSTRAINT")}),
+                                    "frames": fe.get("frames"), "constraints": fe.get("sectionsRaw", {}).get("CONSTRAINT"),
+                                    "nodes": fe.get("sectionsRaw", {}).get("NODE"),
+                                    "analysis": fe.get("sectionsRaw", {}).get("ANALYSIS")}),
             "settingsHash": _hash({"settings": settings_audit.get("audit", {}).get("readback"),
                                   "effective": effective}),
             "linearStatic": settings_ok and effective.get("linearStatic") is True,
             "effectiveSettingsVerified": settings_ok and materials_ok,
             "materialsVerified": materials_ok, "stationConventionsVerified": False,
+            "effectiveConstraints": {"verified": settings_ok,
+                                     "sourceFeaSha256": fe["sha256"],
+                                     "diaphragms": effective.get("diaphragms")},
             "effectiveLoads": {"verified": settings_ok and effective.get("loadAudit", {}).get("passed") is True,
                                "sourceFeaSha256": fe["sha256"],
                                "selfWeight": effective.get("loadAudit", {}).get("selfWeightCompilation")},

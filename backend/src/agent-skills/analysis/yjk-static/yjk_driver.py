@@ -1736,17 +1736,8 @@ def _run(model_path: str, work_dir: str, yjks_root: str) -> int:
             steps=steps,
         )
         return 1
-    # A rod model with explicit flexible-floor control has no authored slab.
-    # Creating automatic slabs here would add unrequested stiffness and mass.
-    form_slabs = (model_data.get("analysis_control") or {}).get("rigid_floor") is not False
-    if form_slabs and not _run_cmd("yjk_formslab_alllayer", phase="model_preparation", steps=steps):
-        _error(
-            "YJK crashed during slab formation",
-            phase="model_preparation",
-            command="yjk_formslab_alllayer",
-            steps=steps,
-        )
-        return 1
+    # Rod models contain no physical slabs. Parameter 606 supplies an explicit
+    # rigid diaphragm without adding plate stiffness, mass or floor loads.
     if not _run_cmd("yjk_setlayersupport", phase="model_preparation", steps=steps):
         _error(
             "YJK crashed during layer support setup",

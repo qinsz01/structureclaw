@@ -1,0 +1,248 @@
+{
+  "schema": "sclaw-native-adapter-acceptance/v1",
+  "date": "2026-10-14",
+  "engine": "YJK8",
+  "scope": "horizontal forced rigid diaphragms on all natural floors, without physical slab elements",
+  "checks": [
+    "Official scalar 606=1 and design report agree",
+    "FE scheme=2 with NM=0 and one independent FM master (T=4) per source floor",
+    "Source node coordinates and natural-floor assignment match native groups",
+    "No PLANAR/PART, native slab thickness zero and automatic slab generation removed",
+    "FX/FY/source selfweight case kinematics and six-component equilibrium",
+    "Out-of-plane translations/rotations remain independent",
+    "Actual-geometry RC native design and numerical-section analysis contexts stay distinct"
+  ],
+  "runs": [
+    {
+      "purpose": "actual-rectangular-geometry-with-native-RC-design",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-diaphragm-20261014-121043-b2db0c15",
+      "nativeJob": "sc_diaphragm-adapter_6d822bfab226",
+      "status": "passed",
+      "caseIds": [
+        "FX",
+        "FY",
+        "D"
+      ],
+      "nativeDiaphragmGroups": {
+        "F1": {
+          "masters": [
+            "1000005"
+          ],
+          "nodes": [
+            {
+              "sourceNodeId": "N100",
+              "nativeNodeId": "1000001"
+            },
+            {
+              "sourceNodeId": "N101",
+              "nativeNodeId": "1000002"
+            },
+            {
+              "sourceNodeId": "N110",
+              "nativeNodeId": "1000003"
+            },
+            {
+              "sourceNodeId": "N111",
+              "nativeNodeId": "1000004"
+            }
+          ]
+        }
+      },
+      "nativeDesignStatus": "completed",
+      "nativeDesignRecordCount": 140,
+      "nativeDesignCheckCount": 12,
+      "artifacts": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-diaphragm-20261014-121043-b2db0c15\\source.json",
+          "sha256": "d3507dcced2ff65e3b7b4aa44463cf774c64281f4b590b66029d257b894003c1"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-diaphragm-20261014-121043-b2db0c15\\request.json",
+          "sha256": "0fda60b0b679a1074fe92c3daa59f0a3c1928f4170a15892724f2a8d31ca6b08"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-diaphragm-20261014-121043-b2db0c15\\acceptance.json",
+          "sha256": "b2450665d610f8f53a65bed01e9877fe7d5be048830a73bc2cb06017b9dd84a3"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-diaphragm-20261014-121043-b2db0c15\\sc_diaphragm-adapter_6d822bfab226\\fea.dat",
+          "sha256": "d22f669372f82a94282c4c244e7abc29828402d7fb3215338e4906fd92b7f139"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-diaphragm-20261014-121043-b2db0c15\\sc_diaphragm-adapter_6d822bfab226\\native-physics-audit.json",
+          "sha256": "d9b0dd3bb428ac5efb86b24c7bbf5b7250c751804fc0ff5cf5ddce508feed352"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-diaphragm-20261014-121043-b2db0c15\\sc_diaphragm-adapter_6d822bfab226\\native-settings-readback.json",
+          "sha256": "11626f40c9d19e50f12f81bf86ab84b170e6e7e15fbabbbb03abd0d758c3a941"
+        }
+      ]
+    },
+    {
+      "purpose": "elastic-numerical-sections-with-source-selfweight",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-diaphragm-20261014-121153-ad49320f",
+      "nativeJob": "sc_diaphragm-adapter_e189ede2c281",
+      "status": "passed",
+      "caseIds": [
+        "FX",
+        "FY",
+        "D"
+      ],
+      "nativeDiaphragmGroups": {
+        "F1": {
+          "masters": [
+            "1000005"
+          ],
+          "nodes": [
+            {
+              "sourceNodeId": "N100",
+              "nativeNodeId": "1000001"
+            },
+            {
+              "sourceNodeId": "N101",
+              "nativeNodeId": "1000002"
+            },
+            {
+              "sourceNodeId": "N110",
+              "nativeNodeId": "1000003"
+            },
+            {
+              "sourceNodeId": "N111",
+              "nativeNodeId": "1000004"
+            }
+          ]
+        }
+      },
+      "nativeDesignStatus": "not-requested",
+      "nativeDesignRecordCount": 0,
+      "nativeDesignCheckCount": 0,
+      "artifacts": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-diaphragm-20261014-121153-ad49320f\\source.json",
+          "sha256": "2ea6ad267e46eadbd660f2d00397c7de6c498b7ad4c8950b6b596d85111d5dd2"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-diaphragm-20261014-121153-ad49320f\\request.json",
+          "sha256": "bc6c1e6d3ac66d355032b3313e497edef8c14a4c612908ade71e844be8da8f49"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-diaphragm-20261014-121153-ad49320f\\acceptance.json",
+          "sha256": "b18555d7bde64984b9c203519fa41e2808a8c265452da12fb73a0258c92ea386"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-diaphragm-20261014-121153-ad49320f\\sc_diaphragm-adapter_e189ede2c281\\fea.dat",
+          "sha256": "342585c83c764d7550019618e098e591f403c6274bd0a983a3f5273f22ab769d"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-diaphragm-20261014-121153-ad49320f\\sc_diaphragm-adapter_e189ede2c281\\native-physics-audit.json",
+          "sha256": "da5e0a95efd0bbda403d4f9e565edf688fd83c55968def8d1da4b6a55b61efd4"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-diaphragm-20261014-121153-ad49320f\\sc_diaphragm-adapter_e189ede2c281\\native-settings-readback.json",
+          "sha256": "f4a14304899b154cf54f1ef09ac25ec8f4c4996d437dc52b8a972db46e0998d5"
+        }
+      ]
+    },
+    {
+      "purpose": "two-natural-floors-with-distinct-MF-masters",
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-diaphragm-20261014-121421-c44f3fdb",
+      "nativeJob": "sc_diaphragm-adapter_a6c27e081be5",
+      "status": "passed",
+      "caseIds": [
+        "FX",
+        "FY",
+        "D"
+      ],
+      "nativeDiaphragmGroups": {
+        "F1": {
+          "masters": [
+            "1000005"
+          ],
+          "nodes": [
+            {
+              "sourceNodeId": "N100",
+              "nativeNodeId": "1000001"
+            },
+            {
+              "sourceNodeId": "N101",
+              "nativeNodeId": "1000002"
+            },
+            {
+              "sourceNodeId": "N110",
+              "nativeNodeId": "1000003"
+            },
+            {
+              "sourceNodeId": "N111",
+              "nativeNodeId": "1000004"
+            }
+          ]
+        },
+        "F2": {
+          "masters": [
+            "2000005"
+          ],
+          "nodes": [
+            {
+              "sourceNodeId": "N100_F2",
+              "nativeNodeId": "2000001"
+            },
+            {
+              "sourceNodeId": "N101_F2",
+              "nativeNodeId": "2000002"
+            },
+            {
+              "sourceNodeId": "N110_F2",
+              "nativeNodeId": "2000003"
+            },
+            {
+              "sourceNodeId": "N111_F2",
+              "nativeNodeId": "2000004"
+            }
+          ]
+        }
+      },
+      "nativeDesignStatus": "completed",
+      "nativeDesignRecordCount": 280,
+      "nativeDesignCheckCount": 24,
+      "artifacts": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-diaphragm-20261014-121421-c44f3fdb\\source.json",
+          "sha256": "d1fe1928f1c6d63b14d2334a0012f908c4a90a1050d67f9231298466a768adee"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-diaphragm-20261014-121421-c44f3fdb\\request.json",
+          "sha256": "0fda60b0b679a1074fe92c3daa59f0a3c1928f4170a15892724f2a8d31ca6b08"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-diaphragm-20261014-121421-c44f3fdb\\acceptance.json",
+          "sha256": "d7e48571cad174d144e1a494e7495428ab8f67cda0da2aa30d310d298ddf75a0"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-diaphragm-20261014-121421-c44f3fdb\\sc_diaphragm-adapter_a6c27e081be5\\fea.dat",
+          "sha256": "56ef02f4d4af128deb1585d9828b70f041fbe2537bfaae681fc48a8f7ef6fda0"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-diaphragm-20261014-121421-c44f3fdb\\sc_diaphragm-adapter_a6c27e081be5\\native-physics-audit.json",
+          "sha256": "68a9e73e485be92a762fdc3dcc0c0a3baf1b74758adac881ad6a3906a449b4b7"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-diaphragm-20261014-121421-c44f3fdb\\sc_diaphragm-adapter_a6c27e081be5\\native-settings-readback.json",
+          "sha256": "dc75cf6f0d25c4d4f891fcaa211abd3c99a10dab9427b0835fac3c2893b5c922"
+        }
+      ]
+    }
+  ],
+  "testCommand": "python -m pytest backend/src/agent-skills/analysis/yjk-static/__tests__ -q",
+  "testResult": "145 passed, 14 subtests passed",
+  "remaining": [
+    "Mixed floor diaphragm settings",
+    "Non-horizontal diaphragm groups",
+    "Rigid member offsets",
+    "Selfweight on inclined columns and horizontal gravity directions"
+  ],
+  "notes": [
+    "Adapter verification of authored settings and SDK output, not independent recertification of the commercial solver.",
+    "Numerical-section first acceptance harness incorrectly expected an explicit design status on unrequested raw automatic metrics; harness was corrected against request.design.requested and rerun on unchanged saved results.",
+    "Independent YJK API source/configuration/services/jobs were not modified. Only private StructureClaw SDK processes were launched."
+  ]
+}

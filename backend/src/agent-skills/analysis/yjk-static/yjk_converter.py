@@ -596,8 +596,9 @@ def convert_v2_to_ydb(
                     # SDK8: 355 denotes Q345GJ; 356 denotes Q355. Verified
                     # again through BeamMat/ColumnMat and dsnGetComMatStr.
                     floor_parameters.setVal(index, 356 if match[1] == "355" else int(match[1]))
-        if (data.get("analysis_control") or {}).get("rigid_floor") is False:
-            floor_parameters.setVal(1, 0)  # No authored floor plate in the rod model.
+        # A diaphragm is an in-plane kinematic constraint, not an authored
+        # plate. Never introduce the SDK's default 100 mm physical slab.
+        floor_parameters.setVal(1, 0)
         native_floor.Para = floor_parameters.GetValString()
         floor_id = _extract_yjk_id(native_floor)
         if floor_id is None:
@@ -647,8 +648,7 @@ def convert_v2_to_ydb(
                 axis = data_func.Axis_Generate(floor_id, start, end)
                 grid = data_func.Grid_Generate(floor_id, start, end, _extract_yjk_id(axis))
                 native_member = data_func.beam_arrange(grid, native_sections[section_id], Rotation=rotation)
-                if (data.get("analysis_control") or {}).get("rigid_floor") is False:
-                    native_member.NoSlab = 1
+                native_member.NoSlab = 1
             member_id = _extract_yjk_id(native_member)
             if member_id is None:
                 raise RuntimeError(f"YJK member '{element_id}' did not return an identifiable native object")
