@@ -644,7 +644,9 @@ class CoordinateSystemV2(BaseModel):
     semantics: Literal["global-z-up"]
     version: Literal[1]
     dimension: Literal["2d", "3d"]
-    plane: Optional[Literal["xz"]]
+    # A 3-D model has no plane; JSON exports may omit its null value.
+    # The validator below still requires an explicit X-Z plane for 2-D.
+    plane: Optional[Literal["xz"]] = None
     dof_order: List[Literal["ux", "uy", "uz", "rx", "ry", "rz"]] = Field(
         ...,
         min_length=6,

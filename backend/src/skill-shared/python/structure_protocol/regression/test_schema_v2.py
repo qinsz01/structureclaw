@@ -71,6 +71,29 @@ def _minimal_model(**kwargs) -> StructureModelV2:
 # Sub-model unit tests
 # ---------------------------------------------------------------------------
 
+class TestCoordinateRoundtrip:
+    @pytest.mark.parametrize("export_options", [{}, {"exclude_none": True}, {"exclude_unset": True}])
+    def test_three_dimensional_model_reimports_without_null_plane(self, export_options):
+        original = _minimal_model(coordinate_system=CoordinateSystemV2(**_coordinate_system("3d")))
+        exported = original.model_dump(mode="json", **export_options)
+        restored = StructureModelV2.model_validate(json.loads(json.dumps(exported)))
+        assert restored == original
+        assert restored.coordinate_system.plane is None
+        assert restored.coordinate_system.dimension == "3d"
+
+    def test_omitted_plane_does_not_guess_dimension_or_two_dimensional_plane(self):
+        coordinate = _coordinate_system("3d")
+        del coordinate["plane"]
+        assert CoordinateSystemV2.model_validate(coordinate).plane is None
+        with pytest.raises(ValueError, match="global X-Z plane"):
+            CoordinateSystemV2.model_validate({**coordinate, "dimension": "2d"})
+        with pytest.raises(ValueError, match="cannot declare a 2-D plane"):
+            CoordinateSystemV2.model_validate({**coordinate, "plane": "xz"})
+        del coordinate["dimension"]
+        with pytest.raises(ValueError, match="dimension"):
+            CoordinateSystemV2.model_validate(coordinate)
+
+
 class TestProjectInfo:
     def test_defaults(self):
         p = ProjectInfo()
