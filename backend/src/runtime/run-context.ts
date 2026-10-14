@@ -98,6 +98,13 @@ export function reserveToolCall(name: string, callId: string): void {
   const group = recoveryGroup(name);
   if (context.usage.pendingFailures.model && ['run_analysis', 'run_code_check', 'generate_report'].includes(name)) throw new Error('UNRESOLVED_MODEL_FAILURE');
   if (['run_analysis', 'run_code_check'].includes(group) && Object.values(context.usage.pendingFailures).some(value => value.includes('SOLVER_OUTCOME_UNKNOWN'))) throw new Error('SOLVER_OUTCOME_UNKNOWN: inspect the recorded job before starting another solve');
+  // A failed solve or query cannot be "repaired" by switching to a modeling tool.
+  // Read-only inspection and clarification remain available in this same run;
+  // only a new user turn creates a fresh failure ledger.
+  if (!context.policy.repair.enabled && Object.keys(context.usage.pendingFailures).length > 0
+    && (group === 'model' || ['review_input', 'set_session_config', 'run_analysis', 'run_code_check'].includes(name))) {
+    throw new Error('RECOVERY_BUDGET_EXHAUSTED: automatic repair is disabled; after a failure, inspect existing state or ask the user before changing the model/settings or starting another calculation. / 自动纠错已关闭；本回合发生失败后，只可检查已有状态或请求用户补充，不能自动修改模型、设置或重新计算。');
+  }
   if (context.usage.pendingFailures[group]) {
     requestRecovery(`${name}: ${context.usage.pendingFailures[group]}`);
     delete context.usage.pendingFailures[group];

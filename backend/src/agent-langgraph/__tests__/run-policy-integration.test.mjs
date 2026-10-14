@@ -13,7 +13,7 @@ import { createRunContext, withRunContext } from '../../../dist/runtime/run-cont
 import { wrapWithLlmLogging } from '../../../dist/utils/llm.js';
 import { Command, END, MemorySaver, START, StateGraph } from '@langchain/langgraph';
 import { ChatOpenAI } from '@langchain/openai';
-const available = { availableSkillIds: ['beam', 'generic'], availableToolIds: ['build_model', 'edit_model', 'run_analysis', 'ask_user_clarification', 'set_session_config'], defaultToolIds: ['build_model', 'edit_model', 'run_analysis', 'ask_user_clarification', 'set_session_config'] };
+const available = { availableSkillIds: ['beam', 'generic'], availableToolIds: ['build_model', 'edit_model', 'run_analysis', 'query_results', 'query_model', 'ask_user_clarification', 'set_session_config'], defaultToolIds: ['build_model', 'edit_model', 'run_analysis', 'query_results', 'query_model', 'ask_user_clarification', 'set_session_config'] };
 const policy = (requested = {}) => resolveRunPolicy({ ...available, requested });
 const plugin = { id: 'beam', structureType: 'beam', stages: ['draft'], name: { zh: '梁', en: 'Beam' }, description: { zh: 'GUIDANCE_SENTINEL', en: 'GUIDANCE_SENTINEL' }, markdownByStage: { draft: 'STAGE_SENTINEL' }, domain: 'structure-type' };
 
@@ -52,6 +52,37 @@ describe('run policy at real orchestration boundaries', () => {
     });
     expect(edits).toBe(0);
     expect(runtime.usage.toolCalls).toBe(1);
+  });
+  test.each(['run_analysis', 'query_results'])('repair off blocks %s failure from being bypassed by editing; inspection and new user turns remain usable', async failedTool => {
+    const value = policy({ repair: { enabled: false } });
+    const runtime = createRunContext(value);
+    let edits = 0, inspections = 0;
+    const tools = [
+      tool(async () => JSON.stringify({ success: false, error: 'deliberate failure' }), { name: failedTool, description: 'fail', schema: z.object({}) }),
+      tool(async () => { edits++; return 'edited'; }, { name: 'edit_model', description: 'edit', schema: z.object({}) }),
+      tool(async () => { inspections++; return 'existing model'; }, { name: 'query_model', description: 'inspect', schema: z.object({}) }),
+    ];
+    let state = { ...emptySessionState(), model: { retained: true }, analysisRuns: {}, messages: [] };
+    let sequence = 0;
+    const invoke = async (context, name) => {
+      state.messages.push(new AIMessage({ content: '', tool_calls: [{ id: `call-${++sequence}`, name, args: {} }] }));
+      const result = await withRunContext(context, () => executeToolsSequentially(tools, state, { configurable: { runContext: context } }));
+      state = { ...state, ...result.update, messages: [...state.messages, ...result.update.messages] };
+      return result;
+    };
+    await invoke(runtime, failedTool);
+    expect((await invoke(runtime, 'edit_model')).update.messages[0].content).toContain('RECOVERY_BUDGET_EXHAUSTED');
+    await invoke(runtime, 'query_model');
+    expect(inspections).toBe(1);
+    expect(edits).toBe(0);
+    const resumed = createRunContext(value, { runId: runtime.usage.runId, usage: runtime.usage, resume: true });
+    expect((await invoke(resumed, 'edit_model')).update.messages[0].content).toContain('RECOVERY_BUDGET_EXHAUSTED');
+    expect(resumed.usage.recoveries).toBe(0);
+    expect(edits).toBe(0);
+    const newUserTurn = createRunContext(value);
+    await invoke(newUserTurn, 'edit_model');
+    expect(edits).toBe(1);
+    expect(newUserTurn.usage.recoveries).toBe(0);
   });
   test('a graph interrupt resumes the same ledger without recounting its clarification', async () => {
     const runtime = createRunContext(policy());

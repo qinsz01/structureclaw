@@ -535,7 +535,11 @@ export class AgentSkillRuntime {
     assertResolvedInput(state.engineeringDraft?.inputEvidence);
     const { buildExplicitDraftModel } = await import('./explicit-model.js');
     const explicit = buildExplicitDraftModel(state);
-    if (explicit) return explicit;
+    if (explicit) {
+      recordRunEvent({ kind: 'model_builder', builder: 'explicit', requestedBuilder: policy?.builder ?? 'auto',
+        source: state.engineeringDraft?.model ? 'model' : 'topology' });
+      return explicit;
+    }
     const plugin = await this.registry.resolvePluginForState(state, skillIds);
     if (!plugin) {
       return undefined;

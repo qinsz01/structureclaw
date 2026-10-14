@@ -53,11 +53,32 @@ describe('run policy contract and aggregate accounting', () => {
   test('recovery disabled still permits the complete successful engineering chain', () => {
     const context = createRunContext(policy({ repair: { enabled: false } }));
     withRunContext(context, () => {
-      for (const name of ['build_model', 'run_analysis', 'query_results', 'generate_report']) {
+      for (const name of ['build_model', 'run_analysis', 'query_results', 'edit_model', 'generate_report']) {
         reserveToolCall(name, name); recordToolOutcome(name, name);
       }
-      expect(context.usage.toolCalls).toBe(4);
+      expect(context.usage.toolCalls).toBe(5);
       expect(() => requestRecovery('failed model')).toThrow('RECOVERY_BUDGET_EXHAUSTED');
+    });
+  });
+  test.each(['run_analysis', 'query_results'])('repair off rejects all engineering mutations after %s fails, without spending new reservations', failed => {
+    const mutations = ['detect_structure_type', 'extract_draft_params', 'build_model', 'validate_model', 'edit_model', 'undo_model',
+      'review_input', 'set_session_config', 'run_analysis', 'run_code_check'];
+    const permitted = [...new Set([...available.availableToolIds, ...mutations, 'query_model'])];
+    const value = resolveRunPolicy({ ...available, availableToolIds: permitted, defaultToolIds: permitted,
+      requested: { repair: { enabled: false } } });
+    const context = createRunContext(value);
+    withRunContext(context, () => {
+      reserveToolCall(failed, 'initial-failure');
+      recordToolOutcome(failed, 'initial-failure', 'invalid request');
+      for (const name of mutations) expect(() => reserveToolCall(name, `blocked-${name}`)).toThrow('RECOVERY_BUDGET_EXHAUSTED');
+      expect(context.usage.toolCalls).toBe(1);
+      expect(context.usage.startedToolCallIds).toEqual(['initial-failure']);
+      expect(context.usage.recoveries).toBe(0);
+      reserveToolCall('query_model', 'inspect');
+      recordToolOutcome('query_model', 'inspect');
+      reserveToolCall('ask_user_clarification', 'ask');
+      expect(context.usage.toolCalls).toBe(3);
+      expect(context.usage.pendingFailures[failed]).toBe('invalid request');
     });
   });
   test('resume takes the durable reservation over an older checkpoint and cannot reset counters or reissue a job', () => {
