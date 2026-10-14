@@ -56,7 +56,7 @@ def test_time_history_records_requested_nodes_and_time_index():
     assert result['responseScope'] == 'requested-nodes'
     assert [r['timeIndex'] for r in result['timeHistory']] == list(range(5))
     assert any(abs(r['nodes']['top']['ux']) > 0 for r in result['timeHistory'])
-    assert all(r['nodes']['base'] == {'ux':0,'uy':0,'uz':0} for r in result['timeHistory'])
+    assert all(r['nodes']['base'] == dict.fromkeys(('ux','uy','uz','rx','ry','rz'), 0) for r in result['timeHistory'])
 
 
 def test_conflicting_request_mass_source_cannot_replace_model_mass():

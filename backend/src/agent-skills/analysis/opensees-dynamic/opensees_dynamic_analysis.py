@@ -6,7 +6,7 @@ from opensees_shared.evidence import attach_execution_artifacts
 import math
 import hashlib
 import json
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 from coordinate_semantics import coordinate_contract_metadata
 
@@ -82,6 +82,8 @@ class OpenSeesDynamicExecutor(OpenSeesModelBuilder):
         direction: str = "x",
         acceleration_unit: str = "m/s2",
         monitor_node_ids: List[str] | None = None,
+        monitor_element_ids: List[str] | None = None,
+        monitor_support_node_ids: List[str] | None = None,
     ) -> Dict[str, Any]:
         selected_direction, excitation_dof, global_index = self._direction_dof(direction)
         if not math.isfinite(time_step) or not math.isfinite(duration) or time_step <= 0.0 or duration <= 0.0:
@@ -92,6 +94,16 @@ class OpenSeesDynamicExecutor(OpenSeesModelBuilder):
             raise OpenSeesInputError("groundMotionUnit must be 'm/s2' or 'g'")
         if not ground_motion:
             raise OpenSeesMissingInputError("groundMotion is required; no synthetic earthquake is substituted")
+        def requested(ids, available, label, default):
+            if ids is None:
+                return default
+            if not isinstance(ids, list) or len(ids) != len(set(ids)) or any(key not in available for key in ids):
+                raise OpenSeesInputError(f'{label} must contain unique existing object IDs')
+            return ids
+        elements = {str(e.id): e for e in self.model.elements}
+        element_ids = requested(monitor_element_ids, elements, 'monitorElementIds', [])
+        supports = {str(n.id): n for n in self.model.nodes if any(n.restraints or [])}
+        support_ids = requested(monitor_support_node_ids, supports, 'monitorSupportNodeIds', [])
         self._build_model(ops)
 
         if selected_direction not in self.mass_assembly['directions'] or not any(
@@ -149,6 +161,11 @@ class OpenSeesDynamicExecutor(OpenSeesModelBuilder):
             monitor_node = monitors[0]
 
         results = []
+        reaction_source = {'kind': 'solver-direct', 'command': "reactions('-dynamic')",
+            'definition': 'constraint residual K*u + C*v + M*a_relative - P_effective',
+            'excitationLoad': 'P_effective=-M*influence*groundAcceleration',
+            'includesInertia': True, 'includesRayleighDamping': True,
+            'referenceFrame': 'global', 'forceUnit': 'kN', 'momentUnit': 'kN.m'}
         current_time = 0.0
         num_steps = int(math.floor(duration / time_step))
         if num_steps < 1:
@@ -159,23 +176,43 @@ class OpenSeesDynamicExecutor(OpenSeesModelBuilder):
                 raise RuntimeError(
                     f"OpenSees transient analysis failed at t={current_time:.8g}s with code {analysis_code}"
                 )
-            current_time += time_step
-            vectors = {}
+            current_time = float(ops.getTime())
+            vectors, velocities, accelerations = {}, {}, {}
             for node in monitors:
-                displacement = list(map(float, ops.nodeDisp(self._ops_node_tag(node.id))))
-                vector = [displacement[0], 0.0, displacement[1]] if self.dimension == '2d' else displacement[:3]
-                vectors[str(node.id)] = {'ux': vector[0], 'uy': vector[1], 'uz': vector[2]}
+                tag = self._ops_node_tag(node.id)
+                for target, reader in ((vectors, ops.nodeDisp), (velocities, ops.nodeVel), (accelerations, ops.nodeAccel)):
+                    target[str(node.id)] = dict(zip(('ux', 'uy', 'uz', 'rx', 'ry', 'rz'), self.global_vector(reader(tag))))
+            from opensees_shared.response import member_end_actions
+            forces = {key: member_end_actions(self, ops, elements[key]) for key in element_ids}
+            reactions = {}
+            if support_ids:
+                ops.reactions('-dynamic')
+                reactions = {key: dict(zip(('fx', 'fy', 'fz', 'mx', 'my', 'mz'),
+                    self.global_vector(ops.nodeReaction(self._ops_node_tag(key))))) for key in support_ids}
             current = vectors[str(monitor_node.id)]
             global_vector = [current['ux'], current['uy'], current['uz']]
             results.append({'time': current_time, 'timeIndex': _step,
                 'displacement': global_vector[global_index], 'displacementVector': global_vector,
-                'nodes': vectors, 'referenceFrame': 'global'})
+                'nodes': vectors, 'velocities': velocities, 'accelerations': accelerations,
+                'forces': forces, 'reactions': reactions, 'reactionSource': reaction_source,
+                'referenceFrame': 'global'})
 
         peak = max(results, key=lambda record: abs(record["displacement"])) if results else None
         result = {
             "status": "success",
             "monitorNode": str(monitor_node.id),
             "monitorNodeIds": [str(n.id) for n in monitors],
+            "monitorElementIds": element_ids,
+            "monitorSupportNodeIds": support_ids,
+            "responseDefinition": {"displacement": "relative-to-uniformly-moving-ground",
+                "velocity": "relative-to-uniformly-moving-ground", "acceleration": "relative-to-uniformly-moving-ground",
+                "nodeComponents": ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'],
+                "inactiveComponents": (['uy', 'rx', 'rz'] + ([] if self.has_frame_elements else ['ry'])
+                    if self.dimension == '2d' else [] if self.has_frame_elements else ['rx','ry','rz']),
+                "elementForce": "elastic-element-end-resisting-actions", "reactions": reaction_source,
+                "timeIndex": "zero-based recorded step; first time is timeStep, no initial state row"},
+            "units": {"time": "s", "displacement": "m", "rotation": "rad", "force": "kN", "moment": "kN.m",
+                "velocity": "m/s", "angularVelocity": "rad/s", "acceleration": "m/s2", "angularAcceleration": "rad/s2"},
             "responseScope": "requested-nodes" if monitor_node_ids is not None else "selected-topmost-free-node",
             "direction": selected_direction,
             "maxDisplacement": abs(peak["displacement"]) if peak else 0.0,
@@ -186,6 +223,7 @@ class OpenSeesDynamicExecutor(OpenSeesModelBuilder):
                              "inputAccelerationUnit": acceleration_unit,
                              "sha256": hashlib.sha256(json.dumps(acceleration, separators=(',', ':'), allow_nan=False).encode()).hexdigest(),
                              "timeStep": time_step, "duration": duration,
+                             "executedDuration": current_time,
                              "postRecordExcitation": "zero"},
             "damping": {"ratio": damping_ratio, "method": "Rayleigh", "alphaMass": alpha_mass,
                         "betaCurrentStiffness": beta_stiffness},
@@ -195,4 +233,6 @@ class OpenSeesDynamicExecutor(OpenSeesModelBuilder):
         ops.wipe()
         return attach_execution_artifacts(result, self.model, {'analysisType':'time_history', 'timeStep':time_step,
             'duration':duration, 'dampingRatio':damping_ratio, 'direction':selected_direction,
+            'monitorNodeIds':[str(n.id) for n in monitors], 'monitorElementIds':element_ids,
+            'monitorSupportNodeIds':support_ids,
             'groundMotionUnit':acceleration_unit, 'groundMotionSha256':result['groundMotion']['sha256']})

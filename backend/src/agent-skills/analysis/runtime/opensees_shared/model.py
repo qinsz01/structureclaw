@@ -133,7 +133,7 @@ class OpenSeesModelBuilder(OpenSeesTagMapper):
             tag = self._ops_element_tag(element.id)
             n1, n2 = [self._ops_node_tag(n) for n in element.nodes]
             if element.type in TRUSS_ELEMENT_TYPES:
-                ops.element("truss", tag, n1, n2, area, self._ops_material_tag(element.material))
+                ops.element("truss", tag, n1, n2, area, self._ops_material_tag(element.material), '-doRayleigh', 1)
             elif self.dimension == "2d":
                 ops.geomTransf("Linear", tag)
                 axis = 'Iz' if round(float(element.rotation_angle or 0)/90) % 2 else 'Iy'

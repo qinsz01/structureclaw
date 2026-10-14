@@ -2,6 +2,27 @@
 import math
 
 
+def member_end_actions(builder, ops, element):
+    """Same signed elastic end-force contract for static and transient frames."""
+    tag = builder._ops_element_tag(element.id)
+    area = builder._section_property(builder.sections[element.section], 'A')
+    if element.type in {'beam', 'column'}:
+        force = canonical_frame_end_actions(ops.eleResponse(tag, 'localForce'), builder.dimension,
+                                            element.rotation_angle)
+        force.update(axial=force['n1']['N'], stress=force['n1']['N']/area)
+    else:
+        raw = ops.eleResponse(tag, 'axialForce')
+        if len(raw) != 1 or not math.isfinite(float(raw[0])):
+            raise ValueError(f'OpenSees returned incomplete or non-finite axial force for {element.id}')
+        axial = float(raw[0])
+        force = {'axial': axial, 'stress': axial/area, 'axialConvention': 'tension-positive',
+                 'n1': {'N': -axial}, 'n2': {'N': axial}}
+    return {**force, 'referenceFrame': 'element-local',
+            'localAxes': dict(zip(('x', 'y', 'z'), builder._element_axes(element).tolist())),
+            'source': {'kind': 'solver-direct', 'quantity': 'elastic-element-end-resisting-actions',
+                       'includesDampingForces': False, 'includesInertiaForces': False}}
+
+
 def canonical_frame_end_actions(values, dimension, rotation_degrees=0.0):
     values = [float(v) for v in values]
     expected = 6 if dimension == '2d' else 12

@@ -2,12 +2,11 @@ from __future__ import annotations
 
 from opensees_shared.errors import OpenSeesInputError, OpenSeesMissingInputError, OpenSeesCapabilityError
 
-import math
 from typing import Any, Dict
 
 from opensees_shared.mesh import MemberMesh
 from opensees_shared.model import OpenSeesModelBuilder, FRAME_ELEMENT_TYPES
-from opensees_shared.response import canonical_frame_end_actions
+from opensees_shared.response import member_end_actions
 from opensees_shared.evidence import attach_execution_artifacts
 
 
@@ -81,21 +80,7 @@ class OpenSeesStaticExecutor:
                 all_reactions[node.id] = dict(zip(('fx', 'fy', 'fz', 'mx', 'my', 'mz'), builder.global_vector(ops.nodeReaction(tag))))
             segments = {}
             for element in mesh.model.elements:
-                tag = builder._ops_element_tag(element.id)
-                area = builder._section_property(builder.sections[element.section], 'A')
-                axes = dict(zip(('x', 'y', 'z'), builder._element_axes(element).tolist()))
-                if element.type in FRAME_ELEMENT_TYPES:
-                    values = [float(v) for v in ops.eleResponse(tag, 'localForce')]
-                    force = canonical_frame_end_actions(values, builder.dimension, element.rotation_angle)
-                    force.update(axial=force['n1']['N'], stress=force['n1']['N']/area)
-                else:
-                    values = ops.eleResponse(tag, 'axialForce')
-                    axial = float(values[0])
-                    if not math.isfinite(axial):
-                        raise RuntimeError(f'OpenSees returned non-finite axial force for {element.id}')
-                    force = {'axial': axial, 'stress': axial/area, 'axialConvention': 'tension-positive',
-                             'n1': {'N': -axial}, 'n2': {'N': axial}}
-                segments[element.id] = {**force, 'referenceFrame': 'element-local', 'localAxes': axes}
+                segments[element.id] = member_end_actions(builder, ops, element)
             forces = {}
             for member, records in mesh.mapping.items():
                 first, last = segments[records[0]['id']], segments[records[-1]['id']]

@@ -39,6 +39,8 @@ def run_analysis(model: StructureModelV2, parameters: Dict[str, Any]) -> Dict[st
                 parameters.get("direction", "x"),
                 acceleration_unit=parameters.get("groundMotionUnit", "m/s2"),
                 monitor_node_ids=parameters.get("monitorNodeIds"),
+                monitor_element_ids=parameters.get("monitorElementIds"),
+                monitor_support_node_ids=parameters.get("monitorSupportNodeIds"),
             )
         except OpenSeesInputError:
             raise
