@@ -126,8 +126,8 @@ def validate_building_model(model_dict: dict, *, native_load_precision: bool = T
             raise ValueError(f"YJK explicit rotation on '{element.get('id')}' requires an audited elastic model")
         if element.get("offsets"):
             raise ValueError(f"YJK floor conversion cannot preserve end offsets on '{element.get('id')}'")
-        if element.get("releases"):
-            raise ValueError(f"YJK floor conversion cannot preserve end releases on '{element.get('id')}'")
+        from yjk_native_boundaries import beam_release_plan
+        beam_release_plan(element)
         actual_edges.add(tuple(sorted((start, end))))
         section_id = str(element.get("section", ""))
         material_id = str(element.get("material", ""))

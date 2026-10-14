@@ -362,6 +362,13 @@ def audit_frames(model: dict, fe: dict, stiffness_plan: dict | None = None,
         tag = matches[0]
         used.add(tag)
         frame = frames[tag]
+        from yjk_native_boundaries import beam_release_plan
+        forward = math.dist(fe['nodes'][frame['nodes'][0]], endpoints[0]) <= 1e-7
+        order = element['nodes'] if forward else element['nodes'][::-1]
+        release_plan = beam_release_plan(element, order)
+        if frame.get('R') != release_plan['nativeR']:
+            failures.append({'member': identifier, 'field': 'endReleases',
+                             'expected': release_plan['nativeR'], 'actual': frame.get('R')})
         column_identity = None
         if frame.get("kind") == "BRACE":
             column_identity = audit_inclined_column_identity(frame, (native_members or {}).get(tag))
@@ -440,6 +447,7 @@ def audit_frames(model: dict, fe: dict, stiffness_plan: dict | None = None,
                                "effectiveRigidities": actual_rigidities,
                                "sectionAxes": axes_audit,
                                "nativeColumnIdentity": column_identity,
+                               "nativeEndReleases": release_plan,
                                "rigidityUnits": {"EA": "MPa.m2", "EIy": "MPa.m4", "EIz": "MPa.m4",
                                                  "GJ": "MPa.m4", "GAsy": "MPa.m2", "GAsz": "MPa.m2"}}
     if set(frames) != used:

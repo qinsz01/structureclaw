@@ -653,6 +653,9 @@ def convert_v2_to_ydb(
             if member_id is None:
                 raise RuntimeError(f"YJK member '{element_id}' did not return an identifiable native object")
             all_native_members[element_id] = native_member
+            if element["type"] == "beam":
+                from yjk_native_boundaries import write_beam_releases
+                write_beam_releases(data_func, member_id, element, nodes)
             if element_id in inclined_ids:
                 from YJKAPI import Property
                 fixed_ends = Property("SpBrac")

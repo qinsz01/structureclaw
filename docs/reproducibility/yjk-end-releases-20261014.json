@@ -1,0 +1,29 @@
+{
+  "scope": "YJK SDK beam bending-release adapter; not commercial solver certification",
+  "status": "native_verified",
+  "supported": {
+    "memberType": "beam",
+    "endpoints": ["i", "j", "both"],
+    "releasedLocalDofs": ["ry", "rz"],
+    "torsion": "retained",
+    "mesh": "only original physical endpoints released; internal segments remain connected"
+  },
+  "officialInterface": "YJKAPI.Property('SpBeam').setVal(0/1), DataFunc.property_arrange(memberId, 'SpBeam', 27, value)",
+  "officialExample": "G:/qsz/yjkapi_-python/案例/二次开发/不依赖YJK案例/案例5_特殊设置/elseSetting.py",
+  "endpointContract": "SDK left/right follows authored Grid_Generate endpoints; FE endpoints are checked independently and may be reversed",
+  "executedFrameReleaseOrder": ["bendingA_i", "bendingA_j", "bendingB_i", "bendingB_j", "torsion_i", "torsion_j"],
+  "acceptanceScript": "backend/tests/analysis-yjk-end-releases.py",
+  "nativeRun": "G:/StructureClaw-All/sclaw_data/work/yjk-end-releases-20261014-123634-9a2a6a82",
+  "nativeJob": "sc_end-release-adapter_a049ec86e283",
+  "checks": [
+    "seven native cases: FX/FY/FZ/MX/MY/MZ and distributed plus interior point load",
+    "reversed source beam, partial load breakpoints and physical member restoration",
+    "FE release readback matches authored end DOFs, with no torsional release",
+    "released endpoint bending moments are zero within 1e-5 kN.m",
+    "a released bending endpoint still carries nonzero torsion",
+    "all six global equilibrium components pass unchanged relative/absolute 1e-5 tolerances"
+  ],
+  "retainedFailedDiagnostic": "G:/StructureClaw-All/sclaw_data/work/yjk-end-releases-20261014-123205-3f7cd0e8",
+  "failedDiagnosticReason": "pre-sorting SDK grid endpoints applied a reversed physical endpoint hinge incorrectly; FE audit stopped publication",
+  "remainingBoundaries": ["single bending DOF release", "torsional release", "column end release", "native physical-member design aggregation after mesh"]
+}

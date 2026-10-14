@@ -44,8 +44,10 @@ def compile_member_mesh(model: dict) -> tuple[dict, dict | None]:
             mappings[member['id']] = [{'id': member['id'], 'start': 0., 'end': length}]
             chains[member['id']] = {0.: first['id'], length: last['id']}
             continue
-        if member['type'] != 'beam' or member.get('offsets') or member.get('releases'):
-            raise ValueError('YJK load refinement requires an unreleased beam / 荷载分段需要无端释放的梁')
+        if member['type'] != 'beam' or member.get('offsets'):
+            raise ValueError('YJK load refinement requires a beam without offsets / 荷载分段需要无偏移的梁')
+        from yjk_native_boundaries import beam_release_plan
+        releases = beam_release_plan(member)['hinges']
         if story_geometry is None:
             from native_story_geometry import compile_story_geometry
             story_geometry = compile_story_geometry(model)
@@ -67,7 +69,16 @@ def compile_member_mesh(model: dict) -> tuple[dict, dict | None]:
             key = f'__yjk__{member["id"]}__s{i}'
             if key in elements:
                 raise ValueError('Reserved mesh member ID collision / 分段构件 ID 冲突')
-            mesh['elements'].append({**copy.deepcopy(member), 'id': key, 'nodes': chain[i-1:i+1]})
+            segment = {**copy.deepcopy(member), 'id': key, 'nodes': chain[i-1:i+1]}
+            segment.pop('releases', None)
+            outer = {}
+            if i == 1 and releases[0]:
+                outer['i'] = {'ry': True, 'rz': True}
+            if i == len(cuts)-1 and releases[1]:
+                outer['j'] = {'ry': True, 'rz': True}
+            if outer:
+                segment['releases'] = outer
+            mesh['elements'].append(segment)
             mappings[member['id']].append({'id': key, 'start': start, 'end': end})
             references = mesh.setdefault('metadata', {}).get('elementReferenceVectors', {})
             if member['id'] in references:

@@ -22,7 +22,7 @@ def fixture():
     fe = {"unit": [0, 0, 0], "sha256": "bound-executed-fe-hash", "gravity": 10.,
           "nodes": {"88": [0, 0, 3], "54": [4, 0, 3]},
           "frames": {"987": {"nodes": ["54", "88"], "kind": "BEAM", "DIR": [0., 0., 1.],
-                               "materialId": "3", "sectionId": "5", "RF": [1.] * 6}},
+                               "materialId": "3", "sectionId": "5", "RF": [1.] * 6, "R": [0.] * 6}},
           "materials": {"3": {"P": [206000000., .3, 0, 0, 1e-5]}},
           "sections": {"5": {"P": [.15, .003125, .001125, .00281737],
                               "raw": {"P": "0.15,0.003125,0.001125,0.00281737"}}}, "sectionsRaw": {}}

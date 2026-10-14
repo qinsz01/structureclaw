@@ -100,7 +100,14 @@ def member_geometry(fe: dict, native_member: dict, element: dict,
     if (not isinstance(physical_ids, list) or len(physical_ids) != 2
             or set(endpoint_ids) != set(physical_ids)):
         raise StationConventionUnavailable("Native endpoints do not match the physical member")
-    for field, size in (("E", 6), ("RZL", 2), ("R", 6)):
+    from yjk_native_boundaries import beam_release_plan
+    try:
+        release_plan = beam_release_plan(element, endpoint_ids)
+    except ValueError as exc:
+        raise StationConventionUnavailable(str(exc)) from exc
+    if frame.get('R') != release_plan['nativeR']:
+        raise StationConventionUnavailable("Native offsets/releases differ from the authored member")
+    for field, size in (("E", 6), ("RZL", 2)):
         values = frame.get(field)
         # YJK's executed inclined-column record omits rigid-zone lengths.
         # This is a calibrated record variant, not a fabricated zero result.
@@ -129,7 +136,8 @@ def member_geometry(fe: dict, native_member: dict, element: dict,
                 get_reference_vector(metadata or {}, str(element.get("id", element.get("v2_id"))))),
             "nativeEndpoints": endpoint_ids, "endpoints": list(physical_ids),
             "source": {"kind": "native-station-coordinate-mapping", "artifact": "fea.dat",
-                       "sha256": fe["sha256"], "convention": "yjk8-frame-stations-v1"}}
+                       "sha256": fe["sha256"], "convention": "yjk8-frame-stations-v1",
+                       "nativeEndReleases": release_plan}}
 
 
 def map_stations(rows: list, geometry: dict) -> list[dict]:

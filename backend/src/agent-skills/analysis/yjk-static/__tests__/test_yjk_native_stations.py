@@ -75,6 +75,22 @@ def test_offsets_and_releases_are_not_silently_mapped(tmp_path, field, values):
         geometry(fe)
 
 
+def test_verified_pair_of_bending_releases_keeps_station_axes_and_torsion(tmp_path):
+    fe = model(tmp_path)
+    fe['frames']['9']['R'] = [100.,0.,100.,0.,0.,0.]
+    member = {'type':'beam','nodes':['b','a'],'releases':{'j':{'ry':True,'rz':True}}}
+    g = member_geometry(fe, {'id':9,'node_i':1,'node_j':2}, member, {'1':'a','2':'b'},
+        {'a':{'x_m':0,'y_m':0,'z_m':3},'b':{'x_m':4,'y_m':0,'z_m':3}})
+    assert g['source']['nativeEndReleases']['hinges'] == [1,0]
+    rows = map_stations([[0,0,4,5,6,7]]*9,g)
+    assert rows[-1]['components']['My']==0 and rows[-1]['components']['Mz']==0
+    assert rows[-1]['components']['T']==7
+    member['releases']={'i':{'ry':True,'rz':True}}
+    with pytest.raises(StationConventionUnavailable,match='offsets/releases'):
+        member_geometry(fe, {'id':9,'node_i':1,'node_j':2}, member, {'1':'a','2':'b'},
+            {'a':{'x_m':0,'y_m':0,'z_m':3},'b':{'x_m':4,'y_m':0,'z_m':3}})
+
+
 def test_undocumented_station_count_is_rejected(tmp_path):
     with pytest.raises(StationConventionUnavailable, match="station count"):
         map_stations([[0] * 6] * 7, geometry(model(tmp_path)))

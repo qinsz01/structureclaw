@@ -1254,6 +1254,7 @@ def _build_analysis_result(
                         if raw_force.get("option") != 1:
                             raise StationConventionUnavailable("Adjusted native forces are not simultaneous solver output")
                         source_element = {**mapping["elements"][elem_id],
+                                          "releases": source_elements[elem_id].get("releases"),
                                           "rotation_angle": source_elements[elem_id].get("rotation_angle", 0)}
                         geometry = member_geometry(native_fe_model, raw_force, source_element,
                                                    result_node_lookup, mapping["nodes"],
