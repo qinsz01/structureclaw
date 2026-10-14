@@ -130,7 +130,12 @@ export class PythonWorkerRunner<TInput extends object> {
   }
 
   async invoke<T = unknown>(input: TInput, requestOptions?: { signal?: AbortSignal }): Promise<T> {
+    const assertActive = () => {
+      if (requestOptions?.signal?.aborted) throw Object.assign(new Error('Python worker aborted'), { name: 'AbortError' });
+    };
+    assertActive();
     const pythonCommand = await this.resolvePythonCommand();
+    assertActive();
     const payload = JSON.stringify(input);
     const { stdout, stderr } = await new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
       // Build child env: inherit process.env + inject settings-driven PKPM/YJK paths

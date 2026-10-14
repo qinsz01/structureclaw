@@ -22,7 +22,8 @@ export function resultEngine(result: ModelRecord): string {
   const data = isRecord(result.data) ? result.data : result;
   const dataMeta = isRecord(data.meta) ? data.meta : {};
   const native = isRecord(data.nativeContext) ? data.nativeContext : {};
-  return String(meta.engineId ?? dataMeta.engineId ?? native.engine ?? '').replace(/^builtin-/, '').toLowerCase();
+  return String(meta.engineId ?? meta.analysisAdapterKey ?? dataMeta.engineId ?? native.engine
+    ?? (/^(pkpm|yjk|opensees)[-_]/.exec(String(data.analysisMode))?.[1]) ?? '').replace(/^builtin-/, '').toLowerCase();
 }
 
 const nativeComponents = ['N', 'Vy', 'Vz', 'T', 'My', 'Mz'] as const;

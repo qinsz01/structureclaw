@@ -23,6 +23,7 @@ const convertSchema = z.object({
 });
 
 const analyzeSchema = z.object({
+  requestId: z.uuid().optional(),
   type: z.enum(['static', 'dynamic', 'seismic', 'nonlinear']),
   model: z.record(z.string(), z.any()),
   parameters: z.record(z.string(), z.any()).default({}),
@@ -31,6 +32,14 @@ const analyzeSchema = z.object({
 });
 
 export async function analysisRuntimeRoutes(fastify: FastifyInstance) {
+  fastify.get('/analysis-requests/:id', async (request, reply) => {
+    const { id } = z.object({ id: z.uuid() }).parse(request.params);
+    return reply.send(await analysisService.getRequest(id));
+  });
+  fastify.post('/analysis-requests/:id/cancel', async (request, reply) => {
+    const { id } = z.object({ id: z.uuid() }).parse(request.params);
+    return reply.send(await analysisService.cancelRequest(id));
+  });
   fastify.get('/schema/structure-model-v1', async (_request: FastifyRequest, reply: FastifyReply) => {
     return reply.send(await structureProtocolService.getStructureModelSchema());
   });
