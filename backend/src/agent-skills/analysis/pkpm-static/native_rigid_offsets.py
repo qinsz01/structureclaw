@@ -210,8 +210,10 @@ def verify_rigid_offsets(directory, model):
         token = format(sdk[1], '.6g')
         candidates = [row for row in candidates if float(row['intensityToken']) == float(token)
                       and row['globalZIntensityKnM'] == _f32(-float(token))]
-        if len(candidates) != 1:
+        if not candidates:
             raise ValueError('Native rigid-end load quantization is not verified / 原生刚域荷载量化未核对')
+        # Equal loads on the same physical member/case are a multiset. Their
+        # identical native records are interchangeable, but none can be reused.
         actual = candidates[0]
         executed['members'][ledger['elementId']].remove(actual)
         interval = ledger['elasticIntervalM']; length = ledger['sourceIntervalM'][1]
@@ -228,6 +230,10 @@ def verify_rigid_offsets(directory, model):
                 'files': executed['files']},
             'effectiveElasticIntensityVectorKnM': [0., 0., actual['globalZIntensityKnM'] * length / (interval[1]-interval[0])],
             'rigidSegmentNodeLoads': ledger['rigidSegmentNodeLoads']})
+    for identity, remaining in executed['members'].items():
+        member = result['members'][identity]
+        if remaining and (member['startLengthM'] or member['endLengthM']):
+            raise ValueError('Unclaimed native rigid-span load record / 存在未对应源荷载的原生刚域梁记录')
     return {**result, "sourceLoadSemanticsPreserved": True,
         "loadCompilation": {"method": receipt["method"], "sourceFeaSha256": result["sourceFeaSha256"],
             "sourceModelHash": receipt["physicalModelHash"], "source": "native-rigid-load-compilation.json",

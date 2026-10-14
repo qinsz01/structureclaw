@@ -61,6 +61,48 @@ def test_same_topology_changed_load_cannot_reuse_receipt(tmp_path):
         verify_rigid_offsets(tmp_path, data["analysisModel"])
 
 
+def test_identical_native_load_records_are_consumed_once_each(tmp_path, monkeypatch):
+    import native_load_readback
+    from native_numeric_sections import _model_hash
+    data = native_files(tmp_path)
+    model, receipt = data['analysisModel'], data['receipt']
+    case = model['load_cases'][0]
+    duplicate = deepcopy(next(row for row in case['loads'] if row['type'] in ('distributed', 'uniform')))
+    duplicate['id'] = 'duplicate-load'
+    case['loads'].append(duplicate)
+    _, receipt['loads'] = compile_load_records(model, {'loads': plan_native_loads(model)}, read_rigid_offsets(tmp_path, model))
+    readback = deepcopy(next(row for row in receipt['nativeReadback'] if row['targetType'] == 'beam'))
+    readback['id'] = duplicate['id']
+    receipt['nativeReadback'].append(readback)
+    receipt['physicalModelHash'] = _model_hash(model)
+    (tmp_path/'native-rigid-load-compilation.json').write_text(json.dumps(receipt), encoding='utf8')
+    original = native_load_readback.read_beam_load_inputs
+    def duplicate_decoded_records(*args):
+        decoded = original(*args)
+        rows = decoded['members']['beam']
+        rows.append(deepcopy(rows[0]))
+        return decoded
+    monkeypatch.setattr(native_load_readback, 'read_beam_load_inputs', duplicate_decoded_records)
+    result = verify_rigid_offsets(tmp_path, model)
+    loads = result['loadCompilation']['elementLoads']
+    assert len(loads) == 2
+    assert loads[0]['sourceLoadIndex'] != loads[1]['sourceLoadIndex']
+    assert loads[0]['effectiveElasticIntensityVectorKnM'] == loads[1]['effectiveElasticIntensityVectorKnM']
+
+
+def test_unclaimed_native_record_cannot_be_ignored(tmp_path, monkeypatch):
+    import native_load_readback
+    data = native_files(tmp_path)
+    original = native_load_readback.read_beam_load_inputs
+    def extra_decoded_record(*args):
+        decoded = original(*args)
+        decoded['members']['beam'].append(deepcopy(decoded['members']['beam'][0]))
+        return decoded
+    monkeypatch.setattr(native_load_readback, 'read_beam_load_inputs', extra_decoded_record)
+    with pytest.raises(ValueError, match='Unclaimed'):
+        verify_rigid_offsets(tmp_path, data['analysisModel'])
+
+
 def test_reversed_source_endpoints_reverse_native_lengths(tmp_path):
     data = native_files(tmp_path, "smallMomentFailure")
     result = read_rigid_offsets(tmp_path, data["analysisModel"])
