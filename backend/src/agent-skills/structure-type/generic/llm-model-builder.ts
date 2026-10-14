@@ -11,6 +11,7 @@ import type { StructureClawChatModel } from '../../../utils/llm.js';
 import { buildGenericModelPrompt, buildRetrySuffix } from './llm-model-prompt.js';
 import { validateExplicitModel } from '../../../agent-runtime/explicit-model.js';
 import { requestRecovery } from '../../../runtime/run-context.js';
+import { applyDraftAnalysisControl } from '../../../agent-runtime/engineering-draft.js';
 
 export async function tryBuildGenericModelWithLlm(
   llm: StructureClawChatModel | null,
@@ -82,7 +83,7 @@ export async function tryBuildGenericModelWithLlm(
         loadCaseCount: parsed.load_cases.length,
       }, 'generic llm model attempt succeeded');
 
-      return parsed;
+      return applyDraftAnalysisControl(parsed, state.engineeringDraft);
     } catch (error) {
       logger.warn({
         attempt: attempt + 1,

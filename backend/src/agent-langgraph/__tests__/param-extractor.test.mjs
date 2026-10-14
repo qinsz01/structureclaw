@@ -16,6 +16,55 @@ const beamPlugin = {
 };
 
 describe("param extractor", () => {
+  test('a density clarification preserves accepted elastic constants and reaches formal model validation', async () => {
+    const { handler } = await import('../../../dist/agent-skills/structure-type/beam/handler.js');
+    const { computeDraftMissing } = await import('../../../dist/agent-runtime/draft-readiness.js');
+    const { normalizeEngineeringModel } = await import('../../../dist/engineering/model-boundary.js');
+    const { createLocalStructureProtocolClient } = await import('../../../dist/services/structure-protocol-execution.js');
+    const initial = handler.mergeState(undefined, handler.extractDraft({ locale: 'zh', llmDraftPatch: {
+      engineeringDraft: { structureType: 'beam', geometry: { lengthM: 10 }, boundary: { supportType: 'simply-supported' },
+        loads: [{ kind: 'point', magnitude: 1, unit: 'kN', direction: 'gravity', location: { xM: 5 } }],
+        materials: [{ id: 'M', name: 'Elastic material', E: 206000, nu: 0.3 }], sections: { beam: '100X200' } },
+    } }));
+    expect(computeDraftMissing({ id: 'beam', handler }, initial, 'execution').critical).toEqual(['materials.M.rho']);
+    const next = handler.mergeState(initial, handler.extractDraft({ locale: 'zh', llmDraftPatch: {
+      engineeringDraft: { materials: [{ id: 'M', rho: 7850 }] },
+    } }));
+    expect(computeDraftMissing({ id: 'beam', handler }, next, 'execution').critical).toEqual([]);
+    const normalized = await normalizeEngineeringModel(handler.buildModel(next), createLocalStructureProtocolClient());
+    expect(normalized.materials[0]).toMatchObject({ id: 'M', name: 'Elastic material', E: 206000, nu: 0.3, rho: 7850 });
+    expect(initial.engineeringDraft.materials[0].rho).toBeUndefined();
+  });
+
+  test.each(['zh', 'en'])('documents numerical materials and preserves them through beam template construction (%s)', async (locale) => {
+    const { buildParamExtractorPrompt, parseDraftPatchFromContent } = await import('../../../dist/agent-langgraph/param-extractor.js');
+    const { handler } = await import('../../../dist/agent-skills/structure-type/beam/handler.js');
+    const { computeDraftMissing } = await import('../../../dist/agent-runtime/draft-readiness.js');
+    const { normalizeEngineeringModel } = await import('../../../dist/engineering/model-boundary.js');
+    const { createLocalStructureProtocolClient } = await import('../../../dist/services/structure-protocol-execution.js');
+    const prompt = buildParamExtractorPrompt(locale, undefined, beamPlugin, '10 m simply supported beam; 1 kN midspan; E=206000 MPa; nu=0.3; rho=7850 kg/m3; rectangular 100x200 mm.');
+    for (const key of ['"materials"', '"E"', '"rho"', '"sectionRecords"', '"templateAssignments"']) expect(prompt).toContain(key);
+    const draft = { structureType: 'beam', geometry: { lengthM: 10 }, boundary: { supportType: 'simply-supported' },
+      loads: [{ kind: 'point', magnitude: 1, unit: 'kN', direction: 'gravity', location: { xM: 5 } }],
+      materials: [{ id: 'elastic', name: 'Elastic material', E: 206000, nu: 0.3, rho: 7850 }], sections: { beam: '100X200' } };
+    const patch = handler.extractDraft({ locale, llmDraftPatch: parseDraftPatchFromContent(JSON.stringify({ engineeringDraft: draft })) });
+    const state = handler.mergeState(undefined, patch);
+    expect(computeDraftMissing({ id: 'beam', handler }, state, 'execution').critical).toEqual([]);
+    const model = handler.buildModel(state);
+    expect(model.materials).toEqual(draft.materials);
+    expect(model.sections[0].properties.A).toBeCloseTo(0.02, 12);
+    expect(model.sections[0].properties.Iy).toBeCloseTo(0.1 * 0.2 ** 3 / 12, 12);
+    expect(model.nodes.some(node => node.x === 5)).toBe(true);
+    const normalized = await normalizeEngineeringModel(model, createLocalStructureProtocolClient());
+    expect(normalized.materials[0]).toMatchObject(draft.materials[0]);
+    const explicit = structuredClone(draft);
+    explicit.sectionRecords = [{ id: 'S', name: 'Reviewed section', type: 'custom', properties: { A: 0.02, Iy: 0.0000666666666667, Iz: 0.0000166666666667, J: 0.000045776 } }];
+    explicit.sections.beam = 'S';
+    const explicitState = handler.mergeState(undefined, handler.extractDraft({ locale, llmDraftPatch: { engineeringDraft: explicit } }));
+    const explicitNormalized = await normalizeEngineeringModel(handler.buildModel(explicitState), createLocalStructureProtocolClient());
+    expect(explicitNormalized.sections[0]).toMatchObject(explicit.sectionRecords[0]);
+  });
+
   test("benchmark LLM-only mode rejects provider failures instead of using deterministic extraction", async () => {
     const { invokeParamExtractor } = await import("../../../dist/agent-langgraph/param-extractor.js");
 

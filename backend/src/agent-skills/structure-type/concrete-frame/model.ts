@@ -1,4 +1,5 @@
 import { buildExplicitDraftModel } from '../../../agent-runtime/explicit-model.js';
+import { applyDraftAnalysisControl } from '../../../agent-runtime/engineering-draft.js';
 import {
   STRUCTURAL_COORDINATE_SEMANTICS,
   withCanonicalCoordinateContract,
@@ -445,11 +446,11 @@ function buildWindRecord(input: DraftWindParams | undefined): Record<string, unk
   };
 }
 
-function buildAnalysisControlRecord(input: DraftAnalysisControl | undefined): Record<string, unknown> | undefined {
+function buildAnalysisControlRecord(input: DraftAnalysisControl | undefined, includeDefaults = true): Record<string, unknown> | undefined {
   const base: Record<string, unknown> = {
-    p_delta: input?.pDelta ?? false,
-    rigid_floor: input?.rigidFloor ?? true,
-    consideration_torsion: input?.considerationTorsion ?? true,
+    ...((includeDefaults || input?.pDelta !== undefined) && { p_delta: input?.pDelta ?? false }),
+    ...((includeDefaults || input?.rigidFloor !== undefined) && { rigid_floor: input?.rigidFloor ?? true }),
+    ...((includeDefaults || input?.considerationTorsion !== undefined) && { consideration_torsion: input?.considerationTorsion ?? true }),
   };
   if (input?.periodReductionFactor !== undefined) base.period_reduction_factor = input.periodReductionFactor;
   if (input?.accidentalEccentricity !== undefined) base.accidental_eccentricity = input.accidentalEccentricity;
@@ -1310,8 +1311,10 @@ export function buildConcreteFrameModel(
   const beamProps = resolveSectionProps(frameBeamSection);
   const siteSeismic = buildSiteSeismicRecord(state.siteSeismic as DraftSiteSeismicParams | undefined);
   const wind = buildWindRecord(state.wind as DraftWindParams | undefined);
-  const analysisControl = siteSeismic || wind || state.analysisControl
-    ? buildAnalysisControlRecord(state.analysisControl as DraftAnalysisControl | undefined)
+  const analysisControl = siteSeismic || wind || state.analysisControl || state.engineeringDraft?.analysisControl
+    ? { ...buildAnalysisControlRecord(state.analysisControl),
+      ...applyDraftAnalysisControl({ analysis_control: buildAnalysisControlRecord(state.analysisControl, false) },
+        state.engineeringDraft, true).analysis_control as Record<string, unknown> | undefined }
     : undefined;
 
   // Reinforcement must come from an explicit, confirmed design; geometry templates

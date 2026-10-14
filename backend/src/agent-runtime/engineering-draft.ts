@@ -1,4 +1,5 @@
 import { mergeInputEvidence } from '../engineering/input-evidence.js';
+import { isDeepStrictEqual } from 'node:util';
 import type {
   DraftExtraction,
   DraftFloorLoad,
@@ -397,6 +398,10 @@ export function normalizeEngineeringDraft(value: unknown): EngineeringDraft | un
   } : undefined;
 
   const wind = normalizeWindParams(raw.wind ?? raw.windParams);
+  const analysisControl = raw.analysisControl;
+  if (analysisControl !== undefined && !asRecord(analysisControl)) {
+    throw new Error('INVALID_ANALYSIS_CONTROL: object required / 分析控制必须是对象');
+  }
 
   const draft: EngineeringDraft = {
     structureType: normalizeString(raw.structureType) as EngineeringDraft['structureType'],
@@ -414,6 +419,7 @@ export function normalizeEngineeringDraft(value: unknown): EngineeringDraft | un
     loads,
     wind,
     analysis,
+    analysisControl: analysisControl === undefined ? undefined : structuredClone(asRecord(analysisControl)!),
   };
 
   return Object.values(draft).some((item) => item !== undefined) ? omitUndefined(draft) : undefined;
@@ -448,6 +454,47 @@ function omitUndefined<T>(value: T): T {
     .map(([key, item]) => [key, omitUndefined(item)])) as T;
 }
 
+function mergeDraftRecord(existing: Record<string, unknown>, patch: Record<string, unknown>): Record<string, unknown> {
+  const merged = structuredClone(existing);
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined) continue;
+    const before = asRecord(merged[key]);
+    const after = asRecord(value);
+    merged[key] = before && after ? mergeDraftRecord(before, after) : structuredClone(value);
+  }
+  return merged;
+}
+
+/** Clarification patches amend draft records by ID; an explicit [] still clears the collection. */
+function mergeDraftPropertyRecords(existing: Array<Record<string, unknown>> | undefined,
+  patch: Array<Record<string, unknown>> | undefined, sections = false): Array<Record<string, unknown>> | undefined {
+  if (!patch) return existing;
+  if (!patch.length || !existing?.length) return structuredClone(patch);
+  const updated = structuredClone(existing);
+  const seen = new Set<string>();
+  for (const record of patch) {
+    const id = typeof record.id === 'string' ? record.id : undefined;
+    if (id && seen.has(id)) throw new Error(`DUPLICATE_DRAFT_RECORD_ID: ${id} / 草稿属性记录 ID 重复`);
+    if (id) seen.add(id);
+    const matches = id ? updated.flatMap((item, index) => item.id === id ? [index] : []) : [];
+    if (matches.length > 1) throw new Error(`AMBIGUOUS_DRAFT_RECORD_ID: ${id} / 无法唯一定位草稿属性记录`);
+    const index = matches[0];
+    if (index === undefined) { updated.push(structuredClone(record)); continue; }
+    const previous = updated[index]!;
+    const beforeShape = asRecord(previous.shape), afterShape = asRecord(record.shape);
+    if (sections && beforeShape?.kind && afterShape?.kind && beforeShape.kind !== afterShape.kind) {
+      // A different physical shape replaces its geometry and derived properties;
+      // old rectangular dimensions must not survive a change to a circular section.
+      const metadata = { ...previous };
+      for (const key of ['shape', 'dimensions', 'properties', 'width', 'height', 'diameter', 'thickness', 'standard_steel_name', 'type']) delete metadata[key];
+      updated[index] = mergeDraftRecord(metadata, { type: afterShape.kind, ...record });
+    } else {
+      updated[index] = mergeDraftRecord(previous, record);
+    }
+  }
+  return updated;
+}
+
 export function mergeEngineeringDraft(
   existing: EngineeringDraft | undefined,
   patch: EngineeringDraft | undefined,
@@ -479,8 +526,8 @@ export function mergeEngineeringDraft(
     structureType,
     geometry,
     topology: { ...(existing.topology ?? {}), ...(patch.topology ?? {}) },
-    materials: patch.materials ?? existing.materials,
-    sectionRecords: patch.sectionRecords ?? existing.sectionRecords,
+    materials: mergeDraftPropertyRecords(existing.materials, patch.materials),
+    sectionRecords: mergeDraftPropertyRecords(existing.sectionRecords, patch.sectionRecords, true),
     templateAssignments: { ...(existing.templateAssignments ?? {}), ...(patch.templateAssignments ?? {}) },
     loadCases: patch.loadCases ?? existing.loadCases,
     model: patch.model ?? existing.model,
@@ -491,7 +538,36 @@ export function mergeEngineeringDraft(
     loads,
     wind,
     analysis,
+    analysisControl: mergeAnalysisControl(existing.analysisControl, patch.analysisControl),
   };
+}
+
+function mergeAnalysisControl(existing: Record<string, unknown> | undefined, patch: Record<string, unknown> | undefined,
+  rejectConflicts = false, field = 'analysis_control'): Record<string, unknown> | undefined {
+  if (!existing && !patch) return undefined;
+  const merged = structuredClone(existing ?? {});
+  for (const [key, value] of Object.entries(patch ?? {})) {
+    if (value === undefined) continue;
+    const before = merged[key];
+    if (asRecord(before) && asRecord(value)) merged[key] = mergeAnalysisControl(asRecord(before), asRecord(value), rejectConflicts, `${field}.${key}`);
+    else {
+      if (rejectConflicts && before !== undefined && !isDeepStrictEqual(before, value)) {
+        throw new Error(`ANALYSIS_CONTROL_CONFLICT: ${field}.${key} / 显式模型与草稿的分析控制冲突`);
+      }
+      merged[key] = structuredClone(value);
+    }
+  }
+  return merged;
+}
+
+/** Confirmed controls are projected once; generated candidates cannot silently omit them. */
+export function applyDraftAnalysisControl(model: Record<string, unknown>, draft: EngineeringDraft | undefined,
+  preserveExplicitModel = false): Record<string, unknown> {
+  if (draft?.analysisControl === undefined) return model;
+  if (!asRecord(draft.analysisControl) || (model.analysis_control != null && !asRecord(model.analysis_control))) {
+    throw new Error('INVALID_ANALYSIS_CONTROL: object required / 分析控制必须是对象');
+  }
+  return { ...model, analysis_control: mergeAnalysisControl(asRecord(model.analysis_control), draft.analysisControl, preserveExplicitModel) };
 }
 
 function stableJson(value: unknown): string {

@@ -1,4 +1,5 @@
 import type { DraftState } from './types.js';
+import { applyDraftAnalysisControl } from './engineering-draft.js';
 
 type FrameMaterialCategory = 'steel' | 'concrete';
 type FrameMaterialProps = { E: number; G: number; nu: number; rho: number; category: FrameMaterialCategory; fy?: number; fc?: number };
@@ -240,7 +241,7 @@ export function applyTemplateProperties(model: Record<string, unknown>, state: D
     : element.type === 'beam' ? 'beam' : 'member';
   const roles = [...new Set(elements.map(roleOf))];
   const properties = resolveTemplateProperties(state, roles);
-  return { ...model, materials: properties.materials, sections: properties.sections,
+  return applyDraftAnalysisControl({ ...model, materials: properties.materials, sections: properties.sections,
     elements: elements.map((element) => {
       const assignment = properties.byRole[roleOf(element)]!;
       return { ...element, material: assignment.materialId, section: assignment.sectionId };
@@ -250,7 +251,7 @@ export function applyTemplateProperties(model: Record<string, unknown>, state: D
     metadata: { ...(model.metadata as Record<string, unknown> ?? {}),
       inputEvidence: structuredClone(state.engineeringDraft?.inputEvidence ?? []),
       templatePropertyAssignments: properties.byRole },
-  };
+  }, state.engineeringDraft);
 }
 
 export function templatePropertyIssues(state: DraftState): string[] {

@@ -117,6 +117,8 @@ export interface EngineeringDraft {
   loads?: EngineeringDraftLoad[];
   wind?: DraftWindParams;
   analysis?: EngineeringDraftAnalysis;
+  /** V2 analysis_control fields; preserve explicit false and existing solver semantics. */
+  analysisControl?: Record<string, unknown>;
 }
 
 export type DraftIssueSeverity = 'invalid' | 'ambiguous' | 'unrealistic' | 'conflict';

@@ -3,17 +3,38 @@ import { computeDraftMissing, buildDraftQuestions } from '../../../dist/agent-ru
 import { handler } from '../../../dist/agent-skills/structure-type/beam/handler.js';
 
 const beam = { inferredType:'beam', frameDimension:'2d', lengthM:6, loadKN:10, loadType:'point', loadPosition:'end', supportType:'cantilever', updatedAt:0 };
-const material = { id:'M',E:206000,nu:0.3,rho:7850 };
+const material = { id:'M',name:'Elastic material',E:206000,nu:0.3,rho:7850 };
 const section = { id:'S',properties:{A:0.01,Iy:1e-4,Iz:1e-4,J:1e-5} };
 const plugin={id:'beam',handler};
 
 describe('unified draft readiness',()=>{
+  test.each(['name','E','nu','rho'])('identifies a missing numerical material %s before build or solve', field=>{
+    const incomplete={...material};delete incomplete[field];
+    const state={...beam,engineeringDraft:{materials:[incomplete],sections:{beam:'100X200'}}};
+    const missing=computeDraftMissing(plugin,state,'execution');
+    expect(missing.critical).toEqual([`materials.M.${field}`]);
+    for(const locale of ['en','zh']){
+      const questions=buildDraftQuestions(plugin,missing.critical,[],state,locale);
+      expect(questions).toHaveLength(1);
+      expect(questions[0]).toMatchObject({paramKey:`materials.M.${field}`,required:true,critical:true});
+      expect(questions[0].question).toContain('M');
+      expect(questions[0].question).not.toContain('templateProperties');
+      if(field==='rho') expect(questions[0].question).toContain('kg/m³');
+    }
+  });
+  test('reports invalid density without inventing a value',()=>{
+    const state={...beam,engineeringDraft:{materials:[{...material,rho:0}],sections:{beam:'100X200'}}};
+    expect(computeDraftMissing(plugin,state,'execution').critical).toEqual(['materials.M.rho']);
+    expect(state.engineeringDraft.materials[0].rho).toBe(0);
+  });
   test.each(['interactive','execution'])('asks for physical properties during %s before building',phase=>{
     const missing=computeDraftMissing(plugin,beam,phase);
     expect(missing.critical).toContain('templateProperties');
     for(const locale of ['en','zh']) {
       const question=buildDraftQuestions(plugin,missing.critical,missing.optional,beam,locale).find(q=>q.paramKey==='templateProperties');
       expect(question).toMatchObject({required:true,critical:true});expect(question.question).toMatch(/material|材料/);
+      expect(question.question).not.toContain('TEMPLATE_PROPERTY_REQUIRED');
+      expect(question.question).not.toContain(' / ');
     }
     expect(computeDraftMissing(plugin,{...beam,engineeringDraft:{materials:[material],sectionRecords:[section]}},phase).critical).toEqual([]);
   });

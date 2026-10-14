@@ -1,5 +1,6 @@
 import { assertCanonicalCoordinateModel, withCanonicalCoordinateContract } from './coordinate-semantics.js';
 import type { DraftIssue, DraftState } from './types.js';
+import { applyDraftAnalysisControl } from './engineering-draft.js';
 
 type RecordValue = Record<string, unknown>;
 const record = (value: unknown): value is RecordValue => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -63,7 +64,7 @@ export function buildExplicitDraftModel(state: DraftState): RecordValue | undefi
   if (draft.model) {
     const model = structuredClone(draft.model);
     model.metadata = { ...(record(model.metadata) ? model.metadata : {}), inputEvidence: structuredClone(draft.inputEvidence ?? (record(model.metadata) ? model.metadata.inputEvidence : undefined) ?? []) };
-    return validateExplicitModel(model);
+    return validateExplicitModel(applyDraftAnalysisControl(model, draft, true));
   }
   if (!draft.topology?.nodes?.length || !draft.topology.members?.length) fail('topology.nodes and topology.members required');
   if (!draft.materials?.length || !draft.sectionRecords?.length) fail('materials and sectionRecords required; role defaults cannot replace explicit assignments');
@@ -79,7 +80,7 @@ export function buildExplicitDraftModel(state: DraftState): RecordValue | undefi
     load_combinations: structuredClone(draft.analysis?.loadCombinations ?? []),
     metadata: { inputEvidence: structuredClone(draft.inputEvidence ?? []), physicalModel: true },
   }, state.frameDimension);
-  return validateExplicitModel(model);
+  return validateExplicitModel(applyDraftAnalysisControl(model, draft));
 }
 
 export function explicitDraftIssues(state: DraftState): DraftIssue[] {
