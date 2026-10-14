@@ -577,6 +577,20 @@ def convert_v2_to_ydb(
         # Initialize the SDK's complete floor defaults, then write every RC
         # member's grade explicitly below. Zero-filled Para is not a C30 floor.
         floor_parameters = BzcPara()
+        # These public floor parameters use modeling grade codes, not
+        # postprocessor option IDs (802xx). Elastic E/G alone does not preserve
+        # the strength identity used by native design. Mixed same-role grades
+        # still require explicit member material setters before design release.
+        for role, index in (("column", 24), ("beam", 25)):
+            role_grades = {materials[str(el["material"])].get("grade") for el in data["elements"]
+                if el["type"] == role and layout["members"][str(el["id"])]["floor_index"] == info["index"]
+                and materials[str(el["material"])].get("category") == "steel"}
+            if len(role_grades) == 1:
+                match = re.fullmatch(r"Q(235|345|355|390|420|460)", str(next(iter(role_grades))))
+                if match:
+                    # SDK8: 355 denotes Q345GJ; 356 denotes Q355. Verified
+                    # again through BeamMat/ColumnMat and dsnGetComMatStr.
+                    floor_parameters.setVal(index, 356 if match[1] == "355" else int(match[1]))
         if (data.get("analysis_control") or {}).get("rigid_floor") is False:
             floor_parameters.setVal(1, 0)  # No authored floor plate in the rod model.
         native_floor.Para = floor_parameters.GetValString()

@@ -1,0 +1,262 @@
+{
+  "schema": "sclaw-yjk-native-design-integration/v1",
+  "date": "2026-10-14",
+  "purpose": "SDK adapter and delivery acceptance; not re-validation of the commercial solver or installed reinforcement certification",
+  "independentYjkApi": "Not modified, restarted or used for these jobs; private owned SDK installation only.",
+  "scope": {
+    "concrete": "Physical rectangular C30/C35/C40 family; requested reinforcement and reported native checks; GB/T50010-2010(2024) actual native profile.",
+    "steel": "Physical symmetric I/H and equal-thickness box; grade identity checked from native material label and member parameters; GB50017-2017.",
+    "analysis": "Explicit first-order bare-frame controls and self_weight=false; no automatic extra loading accepted.",
+    "defaults": "Only after adoptedNativeDefaults=true; actual project/member inputs and native case combination coefficients recorded.",
+    "notMapped": [
+      "Explicit source design overrides outside the supported request parameters",
+      "Native design of computationally segmented physical members",
+      "Installed reinforcement compliance from required-area records",
+      "Reference-carrier section design",
+      "Automatic selfweight design reconciliation"
+    ]
+  },
+  "nativeGradeCorrection": {
+    "Q355ModelingFloorCode": 356,
+    "Q355PostprocessorCode": 80215,
+    "legacyModeling355": "Q345GJ, not Q355",
+    "verification": "BzcPara write + BeamMat/ColumnMat + dsnGetComMatStr + native material/section FE readback"
+  },
+  "requestParameters": [
+    "beamCoverMm",
+    "columnCoverMm",
+    "beamStirrupSpacingMm",
+    "columnStirrupSpacingMm"
+  ],
+  "runs": [
+    {
+      "profile": "concrete-normal",
+      "workDirectory": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090449-c6fc800b",
+      "nativeProject": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090449-c6fc800b\\sc_native-design-integration_299a46725049\\native-design-concrete.yjk",
+      "request": {
+        "requested": true,
+        "mode": "required-reinforcement",
+        "code": "GB/T50010-2010(2024)",
+        "adoptedNativeDefaults": true,
+        "parameters": {
+          "beamCoverMm": 30,
+          "columnCoverMm": 35
+        }
+      },
+      "effectiveCodeProfile": {
+        "code": "GB/T50010-2010(2024)",
+        "adoptedGeneralCode": true,
+        "report": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090449-c6fc800b\\sc_native-design-integration_299a46725049\\设计结果\\mainjss.out"
+      },
+      "checkCounts": {
+        "pass": 12,
+        "fail": 0,
+        "not_applicable": 0
+      },
+      "reinforcementRecords": 140,
+      "eligibleForConclusion": true,
+      "oneNativeJob": true,
+      "resultSetKeys": [
+        "case:D",
+        "case:L"
+      ],
+      "artifacts": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090449-c6fc800b\\result.json",
+          "sha256": "6c6c4d123bb6df4bc7ebf8580dc886e467661f51253cbada1820f1a57df9211a"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090449-c6fc800b\\source.json",
+          "sha256": "daa640ce47b806f683d2146366232ea2f8ebe907fb94c8fb56b3f8e961eacdc3"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090449-c6fc800b\\request.json",
+          "sha256": "27dad4328d061a9f1fe953b2f62ed66eafaa015413c8635c583c4c603c3e43a5"
+        }
+      ]
+    },
+    {
+      "profile": "concrete-over-limit",
+      "workDirectory": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090906-56aba572",
+      "nativeProject": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090906-56aba572\\sc_native-design-integration_d78c32a76341\\native-design-concrete.yjk",
+      "request": {
+        "requested": true,
+        "mode": "required-reinforcement",
+        "code": "GB/T50010-2010(2024)",
+        "adoptedNativeDefaults": true,
+        "parameters": {
+          "beamCoverMm": 30,
+          "columnCoverMm": 35
+        }
+      },
+      "effectiveCodeProfile": {
+        "code": "GB/T50010-2010(2024)",
+        "adoptedGeneralCode": true,
+        "report": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090906-56aba572\\sc_native-design-integration_d78c32a76341\\设计结果\\mainjss.out"
+      },
+      "checkCounts": {
+        "pass": 0,
+        "fail": 12,
+        "not_applicable": 0
+      },
+      "reinforcementRecords": 140,
+      "eligibleForConclusion": true,
+      "oneNativeJob": true,
+      "resultSetKeys": [
+        "case:D",
+        "case:L"
+      ],
+      "artifacts": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090906-56aba572\\result.json",
+          "sha256": "e050edc422e728ba1417dc173e34ecb054ca937ad1340a20aeaae928f4c625a1"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090906-56aba572\\source.json",
+          "sha256": "52a1a74c7daa43c97b4c7834cb881c9432e53f194feee665ed089693bbd3d084"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090906-56aba572\\request.json",
+          "sha256": "27dad4328d061a9f1fe953b2f62ed66eafaa015413c8635c583c4c603c3e43a5"
+        }
+      ]
+    },
+    {
+      "profile": "box-steel-normal",
+      "workDirectory": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-091110-f8640252",
+      "nativeProject": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-091110-f8640252\\sc_native-design-integration_7709cc39d971\\native-design-box.yjk",
+      "request": {
+        "requested": true,
+        "mode": "code-check",
+        "code": "GB50017-2017",
+        "adoptedNativeDefaults": true,
+        "parameters": {
+          "beamCoverMm": 30,
+          "columnCoverMm": 35
+        }
+      },
+      "effectiveCodeProfile": {
+        "code": "GB50017-2017",
+        "adoptedGeneralCode": true,
+        "report": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-091110-f8640252\\sc_native-design-integration_7709cc39d971\\设计结果\\mainjss.out"
+      },
+      "checkCounts": {
+        "pass": 140,
+        "fail": 0,
+        "not_applicable": 72
+      },
+      "reinforcementRecords": 0,
+      "eligibleForConclusion": true,
+      "oneNativeJob": true,
+      "resultSetKeys": [
+        "case:D",
+        "case:L"
+      ],
+      "artifacts": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-091110-f8640252\\result.json",
+          "sha256": "07b83b40d5fcca87cfd3bd238cccb5739c366941b216fded9ae538dd81ae902f"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-091110-f8640252\\source.json",
+          "sha256": "14d172d45bcbf00b09f2f4293a6a5624be7b188818132b36c4b897d30f485663"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-091110-f8640252\\request.json",
+          "sha256": "e2b91e8d96f18038a18aadbcf5505e8e4599a98a10d1bebf5d177f2b30450948"
+        }
+      ]
+    },
+    {
+      "profile": "box-steel-over-limit",
+      "workDirectory": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090659-803f122a",
+      "nativeProject": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090659-803f122a\\sc_native-design-integration_df77364d451c\\native-design-box.yjk",
+      "request": {
+        "requested": true,
+        "mode": "code-check",
+        "code": "GB50017-2017",
+        "adoptedNativeDefaults": true,
+        "parameters": {
+          "beamCoverMm": 30,
+          "columnCoverMm": 35
+        }
+      },
+      "effectiveCodeProfile": {
+        "code": "GB50017-2017",
+        "adoptedGeneralCode": true,
+        "report": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090659-803f122a\\sc_native-design-integration_df77364d451c\\设计结果\\mainjss.out"
+      },
+      "checkCounts": {
+        "pass": 52,
+        "fail": 88,
+        "not_applicable": 72
+      },
+      "reinforcementRecords": 0,
+      "eligibleForConclusion": true,
+      "oneNativeJob": true,
+      "resultSetKeys": [
+        "case:D",
+        "case:L"
+      ],
+      "artifacts": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090659-803f122a\\result.json",
+          "sha256": "9e02dfeb39a64ea5c2dcdf97ca0d313cec40538e6db4f13382a72105a6a95ceb"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090659-803f122a\\source.json",
+          "sha256": "0d55adae827286f7b9d268f063dfaa2fcec612060b9755a66dcfcca2d186bfe9"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-20261014-090659-803f122a\\request.json",
+          "sha256": "e2b91e8d96f18038a18aadbcf5505e8e4599a98a10d1bebf5d177f2b30450948"
+        }
+      ]
+    },
+    {
+      "profile": "H-steel-slenderness-limit",
+      "workDirectory": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-native-design-20261014-085916-e8dd01",
+      "nativeProject": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-native-design-20261014-085916-e8dd01\\sc_native-design-adapter_56ebed602919\\native-design-adapter.yjk",
+      "request": {
+        "requested": true,
+        "mode": "code-check",
+        "code": "GB50017-2017",
+        "adoptedNativeDefaults": true,
+        "parameters": {
+          "beamCoverMm": 30,
+          "columnCoverMm": 35
+        }
+      },
+      "effectiveCodeProfile": {
+        "code": "GB50017-2017",
+        "adoptedGeneralCode": true,
+        "report": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-native-design-20261014-085916-e8dd01\\sc_native-design-adapter_56ebed602919\\设计结果\\mainjss.out"
+      },
+      "checkCounts": {
+        "pass": 172,
+        "fail": 4,
+        "not_applicable": 36
+      },
+      "reinforcementRecords": 0,
+      "eligibleForConclusion": true,
+      "oneNativeJob": true,
+      "resultSetKeys": [],
+      "artifacts": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-native-design-20261014-085916-e8dd01\\result.json",
+          "sha256": "334f83674362b777c71950d966351ba53bf30a4e633f79eef43ff3f80fd22a41"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-native-design-20261014-085916-e8dd01\\source.json",
+          "sha256": "2137104474667c22bc8aec1f5cc6645befc6eb7bcd36b9fbfdb5296cd94e9ae8"
+        }
+      ]
+    }
+  ],
+  "tests": {
+    "pytest": "128 passed, 14 subtests passed (YJK directory plus commercial_context)",
+    "jest": "3 suites / 6 tests passed: rc-converter, driver-auth, result-normalization",
+    "nativeRunner": "backend/tests/analysis-yjk-native-design.py",
+    "missingInput": "Missing actual geometry rejected before native launch with ANALYSIS_INPUT_REQUIRED; missing or invalid SDK values never become zero/pass."
+  }
+}

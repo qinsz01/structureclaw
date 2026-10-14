@@ -781,11 +781,22 @@ def _call_design_method(YJKSDsnDataPy, debug, method_name, floor, tot_id, extra_
     )
 
 
-def _get_member_design(YJKSDsnDataPy, debug, category, config, member):
+def _get_member_design(YJKSDsnDataPy, debug, category, config, member, pre=None):
     floor = int(member.get("floor", 0))
     tot_id = int(member.get("tot_id", member.get("id", 0)))
     raw = {}
     metrics = {}
+    if pre is not None and category in {"beams", "columns"}:
+        prefix = "Beam" if category == "beams" else "Column"
+        read_methods = ("Mat", "KZDJ", "StlCover", "MainStl", "HoopStl", "Mianwai" if prefix == "Beam" else "CL")
+        raw["effective_inputs"] = {prefix + name: _json_safe(_safe_method(
+            debug, "YJKSPrePy", pre, prefix + name, int(member["id"]), default=None)) for name in read_methods}
+    raw["has_native_limits"] = _json_safe(_safe_method(debug, "YJKSDsnDataPy", YJKSDsnDataPy,
+        "dsnComHasLimitInf", floor, config.get("post_enum", config["post_kind"]), tot_id, default=None))
+    raw["native_limits"] = _json_safe(_safe_method(debug, "YJKSDsnDataPy", YJKSDsnDataPy,
+        "dsnGetComTotLimitInf", floor, config.get("post_enum", config["post_kind"]), tot_id, default=None))
+    raw["native_material_label"] = _json_safe(_safe_method(debug, "YJKSDsnDataPy", YJKSDsnDataPy,
+        "dsnGetComMatStr", floor, config["post_kind"], tot_id, default=None))
 
     for item in config.get("design_methods", []):
         key = item["key"]
@@ -855,11 +866,13 @@ def extract():
             "sequence_method": "ColumnIDInFlr",
             "force_method": "dsnGetColumnStdForce",
             "post_kind": post_column,
+            "post_enum": getattr(PostGjKind, "COM_COLUMN", post_column),
             "generic_kind": gj_column,
             "design_methods": [
                 {"key": "kind", "method": "dsnGetColumnKind"},
                 {"key": "mat_kind", "method": "dsnGetColumnMatKind"},
                 {"key": "design_method", "method": "dsnGetColumnDesignMethod"},
+                {"key": "steel_checks", "method": "dsnGetSteelColumnCheck"},
                 {"key": "reinforcement", "method": "dsnGetColumnAs"},
                 {"key": "reinforcement_aqjd", "method": "dsnGetColumnAs_AQJD"},
                 {"key": "axial_compression_ratio", "method": "dsnGetColumnZYB"},
@@ -884,12 +897,14 @@ def extract():
             "sequence_method": "BeamIDInFlr",
             "force_method": "dsnGetBeamStdForce",
             "post_kind": post_beam,
+            "post_enum": getattr(PostGjKind, "COM_BEAM", post_beam),
             "generic_kind": gj_beam,
             "design_methods": [
                 {"key": "kind", "method": "dsnGetBeamKind"},
                 {"key": "mat_kind", "method": "dsnGetBeamMatKind"},
                 {"key": "support_kind", "method": "dsnGetBeamSupKind"},
                 {"key": "cantilever_kind", "method": "dsnGetBeamCanti"},
+                {"key": "steel_checks", "method": "dsnGetSteelBeamCheck"},
                 {"key": "reinforcement", "method": "dsnGetBeamAs"},
                 {"key": "reinforcement_with_calculation", "method": "dsnGetBeamAsWithCal"},
                 {"key": "reinforcement_with_calculation_aqjd", "method": "dsnGetBeamAsWithCal_AQJD"},
@@ -913,6 +928,7 @@ def extract():
             "sequence_method": "BraceIDInFlr",
             "force_method": "dsnGetBraceStdForce",
             "post_kind": post_brace,
+            "post_enum": getattr(PostGjKind, "COM_BRACE", post_brace),
             "generic_kind": gj_brace,
             "design_methods": [
                 {"key": "kind", "method": "dsnGetBraceKind"},
@@ -932,6 +948,9 @@ def extract():
     n_floors = _to_int(_safe_method(debug, "YJKSPrePy", pre, "NZRC", default=0), 0)
     n_nodes = _to_int(_safe_method(debug, "YJKSPrePy", pre, "NJD", default=0), 0)
     load_cases = _get_load_cases(YJKSDsnDataPy, debug)
+    for case in load_cases:
+        case["nativeDesignCoefficients"] = _json_safe(_safe_method(debug, "YJKSDsnDataPy", YJKSDsnDataPy,
+            "dsnGetLDCaseCoeInf", case["id"], default=None))
     load_case_ids = [case["id"] for case in load_cases]
 
     result = {
@@ -952,6 +971,18 @@ def extract():
         "floor_stats": [],
         "extraction_debug": debug,
     }
+    try:
+        from YJKAPI import YJKSPrePy_JSCS
+        settings_api = YJKSPrePy_JSCS()
+        result["native_design_parameters"] = {
+            "int": {str(key): _json_safe(_safe_method(debug, "YJKSPrePy_JSCS", settings_api, "GetSParaInt", key,
+                default=None)) for key in (102, 603, 604, 701, 702, 709, 710, 752, 816, 817)},
+            "float": {str(key): _json_safe(_safe_method(debug, "YJKSPrePy_JSCS", settings_api, "GetSParaFlt", key,
+                default=None)) for key in (801, 803)},
+            "source": "YJKSPrePy_JSCS post-calculation readback",
+        }
+    except Exception as exc:
+        result["native_design_parameters"] = {"error": str(exc)}
 
     for case in load_cases:
         key = case["key"]
@@ -978,7 +1009,7 @@ def extract():
                     seen_members[category].add(member_key)
                     members_by_category[category].append(entry)
                     result["members"][category].append(entry)
-                    design_entry = _get_member_design(YJKSDsnDataPy, debug, category, config, entry)
+                    design_entry = _get_member_design(YJKSDsnDataPy, debug, category, config, entry, pre)
                     if design_entry is not None:
                         result["member_design"][category].append(design_entry)
 

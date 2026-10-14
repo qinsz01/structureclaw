@@ -108,6 +108,26 @@ def section_representation(section: dict) -> dict:
     kind = (section.get("shape") or {}).get("kind") or section.get("type")
     if kind == "rectangular":
         return {"method": "native-physical-rectangle", "baseline": _rectangle_baseline(section)}
+    shape = section.get("shape") or {}
+    if kind in {"H", "I"} and all(type(shape.get(key)) in (int, float) and shape[key] > 0 for key in ("B", "H", "tw", "tf")):
+        b, h, tw, tf = (float(shape[key]) / 1000 for key in ("B", "H", "tw", "tf"))
+        if h <= 2*tf or b <= tw:
+            raise ValueError("Invalid physical I section / 工字截面几何无效")
+        hw = h - 2*tf
+        properties = {"A": 2*b*tf+hw*tw, "Iy": (b*h**3-(b-tw)*hw**3)/12,
+                      "Iz": (2*tf*b**3+hw*tw**3)/12,
+                      "J": (2*b*tf**3+hw*tw**3)/3,
+                      "Asy": 5*(2*b*tf)/6, "Asz": h*tw}
+        return {"method": "native-physical-I", "baseline": properties}
+    if kind in {"Box", "box"} and all(type(shape.get(key)) in (int, float) and shape[key] > 0 for key in ("B", "H", "t")):
+        b, h, t = (float(shape[key])/1000 for key in ("B", "H", "t"))
+        if min(b, h) <= 2*t:
+            raise ValueError("Invalid physical box section / 箱形截面几何无效")
+        properties = {"A": b*h-(b-2*t)*(h-2*t), "Iy": (b*h**3-(b-2*t)*(h-2*t)**3)/12,
+                      "Iz": (h*b**3-(h-2*t)*(b-2*t)**3)/12,
+                      "J": 2*t*(b-t)**2*(h-t)**2/(b+h-2*t),
+                      "Asy": 2*b*t, "Asz": 2*h*t}
+        return {"method": "native-physical-box", "baseline": properties}
     properties = section.get("properties") or {}
     keys = ("A", "Iy", "Iz", "J", "Asy", "Asz")
     for key in keys:

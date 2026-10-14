@@ -208,7 +208,8 @@ def run_host() -> None:
     _write(directory / "result.json", result)
 
 
-def apply_in_host(command, work_dir, pid: int, plan: dict, timeout_s: float = 30) -> dict:
+def apply_in_host(command, work_dir, pid: int, plan: dict, timeout_s: float = 30,
+                  receipt_name: str = "native-settings-readback.json") -> dict:
     parameters = _normal(plan["parameters"])
     nonce = uuid.uuid4().hex
     directory = Path(work_dir) / ("native-settings-" + nonce)
@@ -228,5 +229,5 @@ def apply_in_host(command, work_dir, pid: int, plan: dict, timeout_s: float = 30
     if result.get("audit", {}).get("written") != parameters:
         raise RuntimeError("YJK settings callback wrote a different parameter set")
     verify_readback(parameters, result["audit"]["readback"])
-    _write(Path(work_dir) / "native-settings-readback.json", {"plan": plan, **result})
+    _write(Path(work_dir) / receipt_name, {"plan": plan, **result})
     return result

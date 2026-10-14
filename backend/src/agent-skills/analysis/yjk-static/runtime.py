@@ -453,6 +453,8 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     authored_model = copy.deepcopy(model_dict)
     projection = project_commercial_model(authored_model, "yjk")
     model_dict = projection["analysisModel"]
+    from yjk_native_design import compile_design_request, NativeDesignError
+    design_plan = compile_design_request(parameters.get("design"), authored_model)
     validate_coordinate_contract(model_dict)
     if resolve_model_dimension(model_dict) != "3d":
         raise AnalysisCapabilityError(
@@ -468,13 +470,23 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
         model_dict = {**copy.deepcopy(model_dict), 'materials': [normalize_material(row) for row in model_dict['materials']]}
         requested_cases, combination = _result_selection(model_dict, parameters)
         design_representation_plan = compile_stiffness_plan(model_dict)
+        if design_plan and any(row["sectionRepresentation"]["method"] == "native-reference-carrier"
+                               for row in design_representation_plan["members"].values()):
+            raise NativeDesignError("Native design needs actual section geometry; elastic reference carriers cannot be designed / 原生设计缺少实际截面几何，不能校核弹性参考载体", "ANALYSIS_INPUT_REQUIRED")
+        if design_plan and any(row["materialBaseline"]["representation"] == "elastic-reference-material"
+                               for row in design_representation_plan["members"].values()):
+            raise NativeDesignError("Native design material grade is not mapped / 原生设计材料牌号尚未映射", "ENGINE_INPUT_UNSUPPORTED")
         # Physical distances along a slope need not be decimal millimetres.
         # Audit native serialization after these loads become mesh-node loads.
         _validate_yjk_grid_conversion_scope(model_dict, native_load_precision=False)
         from member_mesh import compile_member_mesh
         source_model = model_dict
         model_dict, mesh_receipt = compile_member_mesh(source_model)
+        if design_plan and mesh_receipt:
+            raise ValueError("Native member design requires unsegmented physical members; interior-load design mapping is pending / 原生构件设计须保留物理构件，跨内荷载设计映射尚待接通")
         _validate_yjk_grid_conversion_scope(model_dict)
+    except NativeDesignError:
+        raise
     except ValueError as error:
         raise AnalysisCapabilityError(engine="yjk", capability="native-model-contract", reason=str(error)) from error
     yjk_python = _resolve_yjk_python()
@@ -486,6 +498,8 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     model_path.write_text(json.dumps(model_dict, ensure_ascii=False), encoding="utf-8")
     _write_json(work_dir / "source-model.json", authored_model)
     _write_json(work_dir / "model-projection.json", {key: value for key, value in projection.items() if key != "analysisModel"})
+    if design_plan:
+        _write_json(work_dir / "native-design-request.json", design_plan)
     if mesh_receipt is not None:
         _write_json(work_dir / 'physical-model.json', source_model)
         _write_json(work_dir / 'physical-mesh.json', mesh_receipt)
@@ -746,6 +760,11 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
             "members": {key: {"section": row["sectionRepresentation"]["method"],
                               "material": row["materialBaseline"]["representation"]}
                         for key, row in design_representation_plan["members"].items()}})
+    if design_plan:
+        from yjk_native_design import complete_native_design
+        result_payload = complete_native_design(result_payload, authored_model, design_plan, work_dir)
+    from commercial_context import attach_native_result_set
+    result_payload = attach_native_result_set(result_payload, authored_model, parameters, _select_verified_results)
     return {
         "status": output.get("status", "success"),
         **result_payload,

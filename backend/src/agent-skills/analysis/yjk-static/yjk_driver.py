@@ -1007,6 +1007,7 @@ def _build_yjk_design_results(
                 "elementId": elem_id,
                 "elementType": _category_element_type(category),
                 "floor": raw_item.get("floor"),
+                "nativeGeometry": raw_item.get("native_geometry"),
                 "yjk": {
                     "category": category,
                     "id": raw_item.get("id"),
@@ -1703,6 +1704,19 @@ def _run(model_path: str, work_dir: str, yjks_root: str) -> int:
             return 1
 
     # -- Phase 4: Model preparation (exact three_story_steel_frame.py) --
+    design_request = _load_json_file(os.path.join(work_dir, "native-design-request.json")) if os.path.isfile(
+        os.path.join(work_dir, "native-design-request.json")) else None
+    if design_request:
+        try:
+            from yjk_native_settings import apply_in_host
+            ownership = _load_json_file(os.path.join(work_dir, "owned-native.json"))
+            apply_in_host(lambda *args: _run_cmd(*args, phase="design-settings", steps=steps),
+                          work_dir, int(ownership["configured_pid"]), design_request,
+                          receipt_name="native-design-settings-readback.json")
+        except Exception as exc:
+            _error(f"YJK native design settings failed / 原生设计参数失败: {exc}",
+                   phase="design-settings", command="yjk_native_settings", steps=steps)
+            return 1
     print("[yjk_driver] Phase 4: model repair / prep", file=sys.stderr, flush=True)
     if not _run_cmd("yjk_repair", phase="model_preparation", steps=steps):
         _error(

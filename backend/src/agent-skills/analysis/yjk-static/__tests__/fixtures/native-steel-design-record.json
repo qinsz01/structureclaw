@@ -1,0 +1,67 @@
+{
+  "provenance": {
+    "engine": "YJK8",
+    "method": "dsnGetSteelBeamCheck",
+    "nativeJob": "sc_native-design-adapter_56ebed602919",
+    "sourceFile": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-native-design-20261014-085916-e8dd01\\sc_native-design-adapter_56ebed602919\\results.json",
+    "purpose": "SDK layout/signed-value adapter regression; not solver reference"
+  },
+  "raw": {
+    "steel_checks": [
+      1,
+      [
+        [
+          -22.32253074645996,
+          305.0,
+          1.0,
+          22.32253074645996,
+          305.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          36.59711456298828,
+          305.0,
+          1.0,
+          10.499342918395996,
+          175.0,
+          1.0
+        ]
+      ],
+      [
+        [
+          -22.87628936767578,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          -22.87628936767578,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          -22.87628936767578,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          30.0,
+          0.0,
+          0.0
+        ]
+      ]
+    ]
+  }
+}

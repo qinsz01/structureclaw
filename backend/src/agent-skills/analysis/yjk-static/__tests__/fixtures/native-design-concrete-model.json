@@ -1,0 +1,366 @@
+{
+  "schema_version": "2.1.0",
+  "units": {
+    "length": "m",
+    "force": "kN"
+  },
+  "coordinate_system": {
+    "dimension": "3d",
+    "vertical_axis": "Z",
+    "semantics": "global-z-up",
+    "version": 1,
+    "dof_order": [
+      "ux",
+      "uy",
+      "uz",
+      "rx",
+      "ry",
+      "rz"
+    ]
+  },
+  "stories": [
+    {
+      "id": "F1",
+      "elevation": 0,
+      "height": 3
+    }
+  ],
+  "nodes": [
+    {
+      "id": "N000",
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "restraints": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "id": "N001",
+      "x": 6,
+      "y": 0,
+      "z": 0,
+      "restraints": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "id": "N010",
+      "x": 0,
+      "y": 4,
+      "z": 0,
+      "restraints": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "id": "N011",
+      "x": 6,
+      "y": 4,
+      "z": 0,
+      "restraints": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "id": "N100",
+      "x": 0,
+      "y": 0,
+      "z": 3,
+      "restraints": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "id": "N101",
+      "x": 6,
+      "y": 0,
+      "z": 3,
+      "restraints": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "id": "N110",
+      "x": 0,
+      "y": 4,
+      "z": 3,
+      "restraints": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "id": "N111",
+      "x": 6,
+      "y": 4,
+      "z": 3,
+      "restraints": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    }
+  ],
+  "elements": [
+    {
+      "id": "C00",
+      "type": "column",
+      "nodes": [
+        "N000",
+        "N100"
+      ],
+      "material": "M",
+      "section": "SC"
+    },
+    {
+      "id": "C01",
+      "type": "column",
+      "nodes": [
+        "N001",
+        "N101"
+      ],
+      "material": "M",
+      "section": "SC"
+    },
+    {
+      "id": "C10",
+      "type": "column",
+      "nodes": [
+        "N010",
+        "N110"
+      ],
+      "material": "M",
+      "section": "SC"
+    },
+    {
+      "id": "C11",
+      "type": "column",
+      "nodes": [
+        "N011",
+        "N111"
+      ],
+      "material": "M",
+      "section": "SC"
+    },
+    {
+      "id": "BX0",
+      "type": "beam",
+      "nodes": [
+        "N100",
+        "N101"
+      ],
+      "material": "M",
+      "section": "SB"
+    },
+    {
+      "id": "BX1",
+      "type": "beam",
+      "nodes": [
+        "N110",
+        "N111"
+      ],
+      "material": "M",
+      "section": "SB"
+    },
+    {
+      "id": "BY0",
+      "type": "beam",
+      "nodes": [
+        "N100",
+        "N110"
+      ],
+      "material": "M",
+      "section": "SB"
+    },
+    {
+      "id": "BY1",
+      "type": "beam",
+      "nodes": [
+        "N101",
+        "N111"
+      ],
+      "material": "M",
+      "section": "SB"
+    }
+  ],
+  "materials": [
+    {
+      "id": "M",
+      "category": "concrete",
+      "grade": "C30",
+      "E": 30000.0,
+      "nu": 0.2,
+      "G": 12500.0,
+      "rho": 2500.0
+    }
+  ],
+  "sections": [
+    {
+      "id": "SC",
+      "type": "rectangular",
+      "shape": {
+        "kind": "rectangular",
+        "B": 300,
+        "H": 600
+      },
+      "properties": {
+        "A": 0.18,
+        "Iy": 0.0054,
+        "Iz": 0.00135,
+        "J": 0.00370828125,
+        "Asy": 0.15,
+        "Asz": 0.15
+      }
+    },
+    {
+      "id": "SB",
+      "type": "rectangular",
+      "shape": {
+        "kind": "rectangular",
+        "B": 300,
+        "H": 600
+      },
+      "properties": {
+        "A": 0.18,
+        "Iy": 0.0054,
+        "Iz": 0.00135,
+        "J": 0.00370828125,
+        "Asy": 0.15,
+        "Asz": 0.15
+      }
+    }
+  ],
+  "analysis_control": {
+    "self_weight": false,
+    "rigid_floor": false,
+    "rigid_offsets": false,
+    "construction_stage": false,
+    "p_delta": false
+  },
+  "load_cases": [
+    {
+      "id": "D",
+      "name": "D",
+      "type": "dead",
+      "loads": [
+        {
+          "id": "P-N100",
+          "type": "nodal",
+          "node": "N100",
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": -80.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        },
+        {
+          "id": "P-N101",
+          "type": "nodal",
+          "node": "N101",
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": -80.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        },
+        {
+          "id": "P-N110",
+          "type": "nodal",
+          "node": "N110",
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": -80.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        },
+        {
+          "id": "P-N111",
+          "type": "nodal",
+          "node": "N111",
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": -80.0,
+          "mx": 0.0,
+          "my": 0.0,
+          "mz": 0.0
+        }
+      ]
+    },
+    {
+      "id": "L",
+      "name": "L",
+      "type": "live",
+      "loads": [
+        {
+          "id": "q-BX0",
+          "type": "distributed",
+          "element": "BX0",
+          "wz": -10.0
+        },
+        {
+          "id": "q-BX1",
+          "type": "distributed",
+          "element": "BX1",
+          "wz": -10.0
+        },
+        {
+          "id": "q-BY0",
+          "type": "distributed",
+          "element": "BY0",
+          "wz": -10.0
+        },
+        {
+          "id": "q-BY1",
+          "type": "distributed",
+          "element": "BY1",
+          "wz": -10.0
+        }
+      ]
+    }
+  ],
+  "load_combinations": [],
+  "project": {
+    "name": "native-design-concrete"
+  }
+}
