@@ -449,6 +449,10 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
                                              + ", ".join(forbidden))
     model_dict = model.model_dump(mode="json", exclude_unset=True) if hasattr(model, "model_dump") else model
     model_dict = _ensure_v2_model(model_dict)
+    from commercial_context import project_commercial_model, attach_native_design_context
+    authored_model = copy.deepcopy(model_dict)
+    projection = project_commercial_model(authored_model, "yjk")
+    model_dict = projection["analysisModel"]
     validate_coordinate_contract(model_dict)
     if resolve_model_dimension(model_dict) != "3d":
         raise AnalysisCapabilityError(
@@ -463,7 +467,7 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
         from yjk_native_materials import normalize_material, compile_stiffness_plan
         model_dict = {**copy.deepcopy(model_dict), 'materials': [normalize_material(row) for row in model_dict['materials']]}
         requested_cases, combination = _result_selection(model_dict, parameters)
-        compile_stiffness_plan(model_dict)
+        design_representation_plan = compile_stiffness_plan(model_dict)
         # Physical distances along a slope need not be decimal millimetres.
         # Audit native serialization after these loads become mesh-node loads.
         _validate_yjk_grid_conversion_scope(model_dict, native_load_precision=False)
@@ -480,6 +484,8 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     # Write the canonical V2 model JSON to the YJK work directory.
     model_path = work_dir / "model.json"
     model_path.write_text(json.dumps(model_dict, ensure_ascii=False), encoding="utf-8")
+    _write_json(work_dir / "source-model.json", authored_model)
+    _write_json(work_dir / "model-projection.json", {key: value for key, value in projection.items() if key != "analysisModel"})
     if mesh_receipt is not None:
         _write_json(work_dir / 'physical-model.json', source_model)
         _write_json(work_dir / 'physical-mesh.json', mesh_receipt)
@@ -731,6 +737,15 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
         "driverResultPath": str(work_dir / "driver-result.json"),
         "driverOutputPath": str(driver_output_path),
     }
+    result_payload = attach_native_design_context(result_payload, authored_model, projection,
+        native_project=str(Path(result_payload.get("summary", {}).get("ydb_path") or work_dir / "project.ydb").with_suffix(".yjk")), parameters=parameters,
+        representation={"analysisOnly": any(
+            row["sectionRepresentation"]["method"] == "native-reference-carrier" or
+            row["materialBaseline"]["representation"] == "elastic-reference-material"
+            for row in design_representation_plan["members"].values()),
+            "members": {key: {"section": row["sectionRepresentation"]["method"],
+                              "material": row["materialBaseline"]["representation"]}
+                        for key, row in design_representation_plan["members"].items()}})
     return {
         "status": output.get("status", "success"),
         **result_payload,

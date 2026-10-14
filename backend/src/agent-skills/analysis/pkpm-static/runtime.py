@@ -743,6 +743,10 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     validate_coordinate_contract(model)
     from native_model_contract import validate_pkpm_material_properties, validate_pkpm_sections
     model_dict = model.model_dump(mode="json", exclude_unset=True) if hasattr(model, "model_dump") else dict(model)
+    from commercial_context import project_commercial_model, attach_native_design_context
+    source_model = model_dict
+    projection = project_commercial_model(source_model, "pkpm")
+    model_dict = projection["analysisModel"]
     combination_id = parameters.get("loadCombinationId")
     if combination_id:
         definitions = [row for row in model_dict.get("load_combinations", []) if row.get("id") == combination_id]
@@ -771,13 +775,16 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
 
     # ---- Phase 1: Generate JWS ----
     try:
-        model_dict = model.model_dump(mode="json", exclude_unset=True) if hasattr(model, "model_dump") else dict(model)
         # Detect material family before converter (converter needs it for grade setting)
         from pkpm_converter import _detect_material_family as _conv_detect_mat
         material_family = _conv_detect_mat(model_dict)
         jws_path, converter_mappings = convert_v2_to_jws(
             model_dict, work_dir, project_name, material_family=material_family
         )
+        import json
+        (work_dir / "source-model.json").write_text(json.dumps(source_model, ensure_ascii=False), encoding="utf-8")
+        (work_dir / "model-projection.json").write_text(json.dumps(
+            {key: value for key, value in projection.items() if key != "analysisModel"}, ensure_ascii=False), encoding="utf-8")
     except AnalysisCapabilityError:
         raise
     except Exception as exc:
@@ -1293,4 +1300,7 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     if requested_cases:
         from native_result_adapter import select_result
         result_dict = select_result(model_dict, result_dict, requested_cases, combination_id)
-    return result_dict
+    return attach_native_design_context(result_dict, source_model, projection,
+        native_project=str(jws_path), parameters=parameters,
+        representation={"analysisOnly": numeric_sections,
+                        "method": "native-reference-carrier" if numeric_sections else "native-physical-section"})

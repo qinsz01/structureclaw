@@ -92,6 +92,8 @@ def reject_native_input(engine: str, code: str, capability: str, fields: list[st
 
 
 def validate_pkpm_material_properties(data: dict[str, Any]) -> None:
+    from commercial_context import project_commercial_model
+    data = project_commercial_model(data, "pkpm")["analysisModel"]
     used = {str(item.get("material")) for item in data.get("elements", [])}
     identity = {"id", "name", "type", "grade", "category", "family", "code", "description", "extra", "E", "G", "nu", "rho"}
     fields = []
@@ -113,8 +115,6 @@ def validate_pkpm_material_properties(data: dict[str, Any]) -> None:
         # overrides or infer native equivalence from a nominal grade table.
         fields.extend(f"{prefix}.extra.{key}" for key, value in (material.get("extra") or {}).items()
                       if value is not None)
-    fields.extend(f"elements.{item.get('id')}.rebar_grade" for item in data.get("elements", [])
-                  if item.get("rebar_grade") is not None)
     if fields:
         reject_native_input(
             "pkpm", "PKPM_NATIVE_MATERIAL_PROPERTIES_UNVERIFIED", "native-material-properties", fields,

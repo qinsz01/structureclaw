@@ -1,0 +1,254 @@
+{
+  "schema_version": "2.1.0",
+  "units": {
+    "length": "m",
+    "force": "kN"
+  },
+  "coordinate_system": {
+    "dimension": "3d",
+    "vertical_axis": "Z"
+  },
+  "stories": [
+    {
+      "id": "F1",
+      "elevation": 0,
+      "height": 3
+    }
+  ],
+  "nodes": [
+    {
+      "id": "N000",
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "restraints": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "id": "N001",
+      "x": 6,
+      "y": 0,
+      "z": 0,
+      "restraints": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "id": "N010",
+      "x": 0,
+      "y": 4,
+      "z": 0,
+      "restraints": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "id": "N011",
+      "x": 6,
+      "y": 4,
+      "z": 0,
+      "restraints": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "id": "N100",
+      "x": 0,
+      "y": 0,
+      "z": 3,
+      "restraints": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "id": "N101",
+      "x": 6,
+      "y": 0,
+      "z": 3,
+      "restraints": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "id": "N110",
+      "x": 0,
+      "y": 4,
+      "z": 3,
+      "restraints": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "id": "N111",
+      "x": 6,
+      "y": 4,
+      "z": 3,
+      "restraints": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    }
+  ],
+  "elements": [
+    {
+      "id": "C00",
+      "type": "column",
+      "nodes": [
+        "N000",
+        "N100"
+      ],
+      "material": "M",
+      "section": "S"
+    },
+    {
+      "id": "C01",
+      "type": "column",
+      "nodes": [
+        "N001",
+        "N101"
+      ],
+      "material": "M",
+      "section": "S"
+    },
+    {
+      "id": "C10",
+      "type": "column",
+      "nodes": [
+        "N010",
+        "N110"
+      ],
+      "material": "M",
+      "section": "S"
+    },
+    {
+      "id": "C11",
+      "type": "column",
+      "nodes": [
+        "N011",
+        "N111"
+      ],
+      "material": "M",
+      "section": "S"
+    },
+    {
+      "id": "BX0",
+      "type": "beam",
+      "nodes": [
+        "N100",
+        "N101"
+      ],
+      "material": "M",
+      "section": "S"
+    },
+    {
+      "id": "BX1",
+      "type": "beam",
+      "nodes": [
+        "N110",
+        "N111"
+      ],
+      "material": "M",
+      "section": "S"
+    },
+    {
+      "id": "BY0",
+      "type": "beam",
+      "nodes": [
+        "N100",
+        "N110"
+      ],
+      "material": "M",
+      "section": "S"
+    },
+    {
+      "id": "BY1",
+      "type": "beam",
+      "nodes": [
+        "N101",
+        "N111"
+      ],
+      "material": "M",
+      "section": "S"
+    }
+  ],
+  "materials": [
+    {
+      "id": "M",
+      "type": "steel",
+      "category": "steel",
+      "grade": "Q355",
+      "E": 206000,
+      "nu": 0.3,
+      "G": 79230.76923076923,
+      "rho": 7850
+    }
+  ],
+  "sections": [
+    {
+      "id": "S",
+      "type": "rectangular",
+      "shape": {
+        "kind": "rectangular",
+        "B": 300,
+        "H": 600
+      },
+      "properties": {
+        "A": 0.18,
+        "Iy": 0.0054,
+        "Iz": 0.00135,
+        "J": 0.00370828125,
+        "Asy": 0.15,
+        "Asz": 0.15
+      }
+    }
+  ],
+  "analysis_control": {
+    "self_weight": false,
+    "rigid_floor": false,
+    "rigid_offsets": false,
+    "construction_stage": false,
+    "p_delta": false
+  },
+  "load_cases": [],
+  "load_combinations": []
+}

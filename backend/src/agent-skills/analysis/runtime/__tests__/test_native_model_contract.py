@@ -72,7 +72,7 @@ class NativeModelContractTest(unittest.TestCase):
         self.assertEqual(model, before)
         # Input admissibility does not certify the values actually executed.
         for change, field in (({"G": 12000}, "G"), ({"nu": .5}, "isotropicConstants"),
-                              ({"rho": None}, "isotropicConstants"), ({"fy": 300}, "fy")):
+                              ({"rho": None}, "isotropicConstants")):
             with self.subTest(change=change):
                 candidate = copy.deepcopy(model)
                 candidate["materials"][0].update(change)
@@ -90,8 +90,11 @@ class NativeModelContractTest(unittest.TestCase):
                              "PKPM_NATIVE_MATERIAL_PROPERTIES_UNVERIFIED", "materials.C.extra.G")
         model = self.model()
         model["elements"][0]["rebar_grade"] = "HRB500"
-        self.assert_rejected(lambda: validate_pkpm_material_properties(model),
-                             "PKPM_NATIVE_MATERIAL_PROPERTIES_UNVERIFIED", "elements.B1.rebar_grade")
+        model["materials"][0]["design"] = {"f": 305, "fv": 175}
+        model["materials"][0]["fy"] = 355
+        before = copy.deepcopy(model)
+        validate_pkpm_material_properties(model)
+        self.assertEqual(model, before)
 
     def test_section_invariants_are_preserved_for_native_readback_audit(self):
         section = self.model()["sections"][0]

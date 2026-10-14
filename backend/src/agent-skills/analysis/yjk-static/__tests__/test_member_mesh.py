@@ -14,7 +14,7 @@ from native_story_geometry import compile_story_geometry
 
 
 def model():
-    payload = json.loads((ROOT/'tests/llm-benchmark/acceptance/representative-18/STD-088/model-state-1.json').read_text(encoding='utf8'))
+    payload = json.loads((ADAPTER/'__tests__/fixtures/elastic-frame-model.json').read_text(encoding='utf8'))
     beam = next(row for row in payload['elements'] if row['type'] == 'beam')
     payload['load_cases'] = [{'id': 'PATCH', 'type': 'dead', 'loads': [
         {'id': 'udl', 'type': 'distributed', 'element': beam['id'], 'start': 1, 'end': 3.5, 'wz': -7},
