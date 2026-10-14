@@ -4,12 +4,15 @@ import { isRecord } from './model-state.js';
 /** Shared location/index contract. A selection describes a saved result; it never mutates it. */
 export const resultSelectionSchema = z.object({
   runId: z.string().optional(), resultKey: z.string().optional(),
-  nodeId: z.string().optional(), elementId: z.string().optional(),
+  nodeId: z.string().optional().describe('Stable model node ID; choose a nodal field such as reactions or displacements. Exclusive with elementId. / 稳定节点ID，配合reactions或displacements等节点结果字段，与elementId互斥。'),
+  elementId: z.string().optional().describe('Physical member ID. Static member queries require positionM, even for forces or segmentResults; time-history forces require end. No model remeshing is needed to query an interior position. / 物理构件ID，静力查询必须带positionM（包括forces或segmentResults），时程内力必须带end。查询跨内位置不需要修改或细分模型。'),
   modeNumber: z.number().int().positive().optional(), timeIndex: z.number().int().nonnegative().optional(),
-  positionM: z.number().nonnegative().optional(), side: z.enum(['left', 'right']).optional(), end: z.enum(['n1', 'n2']).optional().describe('Recorded physical end for time-history member forces. / 时程内力的已记录物理构件端。'),
-  component: z.enum(['ux','uy','uz','rx','ry','rz','fx','fy','fz','mx','my','mz','N','V2','V3','T','M2','M3']).optional(),
-  unit: z.enum(['m','mm','rad','kN','N','kN.m','N.m','m/s','mm/s','rad/s','m/s2','mm/s2','rad/s2','1']).optional(),
-  field: z.enum(['displacements', 'velocities', 'accelerations', 'forces', 'reactions', 'solverMesh', 'segmentResults', 'summary', 'modal', 'modes', 'timeHistory', 'memberResponses', 'memberResponseExtrema']).optional(),
+  positionM: z.number().nonnegative().optional().describe('Required for a static elementId: distance in m from the physical member first node, not a normalized fraction. / 静力elementId必需：距物理构件首节点的米数，不是比例。'),
+  side: z.enum(['left', 'right']).optional().describe('Cut side at the requested position. Default right; use left at the member final end and specify the desired side at load jumps. / 截面左右侧，默认right；构件末端用left，集中荷载处明确所需侧。'),
+  end: z.enum(['n1', 'n2']).optional().describe('Recorded physical end for time-history member forces only; static end queries use positionM=0 or member length. / 仅用于时程内力的已记录物理构件端；静力端部用positionM=0或构件长度。'),
+  component: z.enum(['ux','uy','uz','rx','ry','rz','fx','fy','fz','mx','my','mz','N','V2','V3','T','M2','M3']).optional().describe('Scalar query requires an explicit unit and nodeId or elementId+positionM (dynamic: end). Querying a component saves its run-bound quantity for reports. / 标量查询须同时给单位和节点或构件位置（时程构件给end）；指定分量后保存绑定运行的数值供报告使用。'),
+  unit: z.enum(['m','mm','rad','kN','N','kN.m','N.m','m/s','mm/s','rad/s','m/s2','mm/s2','rad/s2','1']).optional().describe('Required with component: m/mm for translation, rad for rotation, kN/N for force, kN.m/N.m for moment, 1 for normalized modal translation. / component必需：平移m/mm、转角rad、力kN/N、力矩kN.m/N.m、归一化平动振型1。'),
+  field: z.enum(['displacements', 'velocities', 'accelerations', 'forces', 'reactions', 'solverMesh', 'segmentResults', 'summary', 'modal', 'modes', 'timeHistory', 'memberResponses', 'memberResponseExtrema']).optional().describe('Result collection. Omit object IDs to inspect a full collection; supplying static elementId requests a physical section and therefore requires positionM. / 结果集合。不带对象ID可查看整个集合；带静力elementId则查询物理截面，必须给positionM。'),
 });
 export type ResultSelection = z.infer<typeof resultSelectionSchema>;
 

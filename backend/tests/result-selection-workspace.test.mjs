@@ -2,6 +2,12 @@ import { expect, test } from '@jest/globals';
 import { createQueryResultsTool } from '../dist/agent-langgraph/model-tools.js';
 import { createRegisteredTools } from '../dist/agent-langgraph/tool-registry.js';
 import { resultCatalogEntry, quantityMatchesSelection } from '../dist/engineering/result-selection.js';
+import { scenarios } from './fixtures/opensees-chain-reference.mjs';
+import { normalizeEngineeringModel } from '../dist/engineering/model-boundary.js';
+import { commitModel } from '../dist/engineering/model-state.js';
+import { createLocalAnalysisEngineClient } from '../dist/services/analysis-execution.js';
+import { createLocalStructureProtocolClient } from '../dist/services/structure-protocol-execution.js';
+import { AgentSkillRuntime } from '../dist/agent-runtime/index.js';
 
 const model = { schema_version:'2.1', unit_system:'SI', nodes:[{id:'A',x:0,y:0,z:0},{id:'B',x:4,y:0,z:0}],
   elements:[{id:'beam',node_ids:['A','B'],type:'beam'}], materials:[], sections:[],load_cases:[] };
@@ -59,3 +65,99 @@ test('selected structured report binds the archived run, location, time and scal
     {toolCall:{id:'bad-report'},configurable:{agentState:state,skillScope:['report-export']}})).rejects.toThrow('REPORT_SELECTION_QUERY_REQUIRED');
   expect(quantityMatchesSelection(body.report.json.requestedQuantities[0],{...selection,nodeId:'A'},'saved','analysis:dynamic')).toBe(false);
 });
+
+test('scalar IDs are automatic, stable, selection-specific and accepted by the unchanged report provenance gate', async () => {
+  const saved = run();
+  const first = await invoke(saved, selection);
+  const quantity = output(first).quantity;
+  expect(quantity.id).toMatch(/^q_[a-f0-9]{64}$/);
+  expect(first.update.resultQuantities[`saved:${quantity.id}`]).toEqual(quantity);
+  expect(output(await invoke(saved, { ...selection })).quantity.id).toBe(quantity.id);
+  for (const changed of [{ timeIndex: 2 }, { unit: 'm' }]) {
+    expect(output(await invoke(saved, { ...selection, ...changed })).quantity.id).not.toBe(quantity.id);
+  }
+  expect(output(await invoke(saved, { ...selection, quantityId: 'caller-label' })).quantity.id).toBe('caller-label');
+  await expect(invoke(saved, { ...selection, unit: undefined })).rejects.toThrow('QUANTITY_LOCATION_AND_UNIT_REQUIRED');
+  await expect(invoke(saved, { ...selection, unit: 'kN' })).rejects.toThrow('RESULT_UNIT_MISMATCH');
+  expect(output(await invoke(saved, { ...selection, timeIndex: undefined, series: {} })).series.points).toHaveLength(3);
+
+  const state = { analysisRuns: { saved }, resultQuantities: first.update.resultQuantities };
+  const tool = createRegisteredTools({ workspaceRoot: process.cwd(), skillRuntime: {} }).find(tool => tool.name === 'generate_report');
+  const report = args => tool.invoke({ message: 'Selected result', analysisType: 'dynamic', narrative: 'structured', selection: args },
+    { toolCall: { id: 'report' }, configurable: { agentState: state, skillScope: ['report-export'] } });
+  expect(output(await report(selection)).report.json.requestedQuantities[0]).toEqual(quantity);
+  for (const changed of [{ timeIndex: 2 }, { unit: 'm' }, { nodeId: 'A' }, { field: 'reactions' }]) {
+    await expect(report({ ...selection, ...changed })).rejects.toThrow('REPORT_SELECTION_QUERY_REQUIRED');
+  }
+});
+
+test('static member queries explain positions, register automatic scalar IDs and keep physical sides bound', async () => {
+  const saved = { runId: 'saved', success: true, selectedResultKey: 'case:D', modelSnapshot: {
+    unit_system: 'SI', coordinate_system: { dimension: '3d' }, nodes: [{ id: 'A', x: 0, y: 0, z: 0 }, { id: 'B', x: 4, y: 0, z: 0 }],
+    elements: [{ id: 'beam', type: 'beam', nodes: ['A', 'B'] }], materials: [], sections: [], load_cases: [{ id: 'D', loads: [] }],
+  }, results: { 'case:D': { success: true, meta: { runId: 'saved' }, data: {
+    units: { force: 'kN', moment: 'kN.m' }, forceSemantics: 'simultaneous-signed-stations', nativeContext: { engine: 'yjk', stationConventionsVerified: true },
+    memberStations: { beam: [{ positionM: 2, side: 'continuous', referenceFrame: 'element-local',
+      components: { N: 0, Vy: 0, Vz: 0, T: 0, My: -2.5, Mz: 0 }, source: 'native-sdk' }] },
+  } } } };
+  const member = { runId: 'saved', resultKey: 'case:D', elementId: 'beam', field: 'segmentResults' };
+  await expect(invoke(saved, member)).rejects.toThrow('positionM in metres');
+  const fullPoint = output(await invoke(saved, { ...member, positionM: 2 }));
+  expect(fullPoint.quantity).toBeUndefined();
+  const scalar = { ...member, positionM: 2, component: 'M2', unit: 'kN.m' };
+  const queried = await invoke(saved, scalar);
+  const quantity = output(queried).quantity;
+  expect(quantity).toMatchObject({ value: -2.5, unit: 'kN.m', location: { kind: 'member', id: 'beam', positionM: 2, side: 'right' } });
+  expect(output(await invoke(saved, { ...scalar, side: 'right' })).quantity.id).toBe(quantity.id);
+  expect(output(await invoke(saved, { ...scalar, side: 'left' })).quantity.id).not.toBe(quantity.id);
+  const state = { analysisRuns: { saved }, resultQuantities: queried.update.resultQuantities };
+  const tool = createRegisteredTools({ workspaceRoot: process.cwd(), skillRuntime: {} }).find(tool => tool.name === 'generate_report');
+  const report = selected => tool.invoke({ message: 'Member moment', analysisType: 'static', narrative: 'structured', selection: selected },
+    { toolCall: { id: 'report' }, configurable: { agentState: state } });
+  expect(output(await report(scalar)).report.json.requestedQuantities[0].value).toBe(-2.5);
+  await expect(report({ ...scalar, side: 'left' })).rejects.toThrow('REPORT_SELECTION_QUERY_REQUIRED');
+  await expect(report({ ...scalar, positionM: 1 })).rejects.toThrow('REPORT_SELECTION_QUERY_REQUIRED');
+});
+
+test('real OpenSees reactions and physical member midpoint moments/deflections register and report without caller IDs', async () => {
+  const scenario = scenarios.find(item => item.id === 'released-continuous-beam');
+  const structureProtocolClient = createLocalStructureProtocolClient();
+  const skillRuntime = new AgentSkillRuntime();
+  const normalized = await normalizeEngineeringModel(scenario.model, structureProtocolClient);
+  const configurable = { skillRuntime, structureProtocolClient, engineClient: createLocalAnalysisEngineClient(),
+    skillScope: ['opensees-static'], agentState: { ...commitModel({}, normalized, scenario.id), locale: 'en' } };
+  const tools = new Map(createRegisteredTools({ skillRuntime }).map(tool => [tool.name, tool]));
+  let sequence = 0;
+  const call = async (name, input) => {
+    const result = await tools.get(name).invoke(input, { toolCall: { id: `physical-${++sequence}` }, configurable });
+    if (result.update) {
+      const previous = configurable.agentState;
+      configurable.agentState = { ...previous, ...result.update,
+        analysisRuns: { ...previous.analysisRuns, ...result.update.analysisRuns },
+        resultQuantities: { ...previous.resultQuantities, ...result.update.resultQuantities } };
+    }
+    return result;
+  };
+  await call('run_analysis', scenario.analysis);
+  const saved = configurable.agentState.analysisResult;
+  expect(saved.success).toBe(true);
+  const targets = ['case:D-A-R', 'case:D-AB-M-2', 'case:D-AB-u-2'];
+  for (const id of targets) {
+    const reference = scenario.quantities.find(item => item.id === id);
+    const selected = { ...reference.args, runId: saved.runId,
+      ...(reference.args.elementId ? { field: 'segmentResults' } : {}) };
+    const queried = output(await call('query_results', selected));
+    const quantity = queried.quantity;
+    expect(quantity.id).toMatch(/^q_[a-f0-9]{64}$/);
+    expect(Math.abs(quantity.value - reference.value)).toBeLessThanOrEqual(
+      reference.tolerance.absolute + reference.tolerance.relative * Math.abs(reference.value));
+    expect(configurable.agentState.resultQuantities[`${saved.runId}:${quantity.id}`]).toEqual(quantity);
+    const reported = output(await call('generate_report', { message: 'Verified physical response', analysisType: 'static',
+      narrative: 'structured', selection: selected })).report.json;
+    expect(reported.requestedQuantities).toEqual([quantity]);
+    expect(reported.requestedSelection).toEqual(selected);
+    expect(reported.normalizedModel.nodes).toHaveLength(3);
+    expect(reported.normalizedModel.elements).toHaveLength(2);
+  }
+  expect(configurable.agentState.model).toEqual(normalized);
+}, 30000);

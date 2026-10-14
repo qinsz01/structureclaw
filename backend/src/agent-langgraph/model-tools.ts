@@ -223,7 +223,7 @@ export function createQueryResultsTool() {
           if (!isRecord(member) || member.referenceFrame !== 'element-local' || !isRecord(member[input.end])) throw new Error('DYNAMIC_MEMBER_RESULT_UNAVAILABLE');
           values = member[input.end];
         } else {
-        if (input.positionM === undefined) throw new Error('MEMBER_POSITION_REQUIRED');
+        if (input.positionM === undefined) throw new Error('MEMBER_POSITION_REQUIRED: static elementId queries require positionM in metres from the physical member first node. Use 0 for the first end or the member length with side="left" for the final end; omit elementId to inspect the whole field. Do not edit or split the model just to query a position. / 静力构件查询须给距首节点的positionM（米）；首端0，末端为构件长度并用side="left"。查看整个字段可省略elementId，不需要为查询位置修改或拆分模型。');
         const model = isRecord(run.modelSnapshot) ? run.modelSnapshot : !input.runId && !currentAnalysisError(state) ? state.model : undefined;
         if (!model) throw new Error('RESULT_MODEL_SNAPSHOT_REQUIRED');
         values = queryPhysicalResponse(model, selected, input.elementId, input.positionM, input.side ?? 'right');
@@ -232,7 +232,7 @@ export function createQueryResultsTool() {
       if (input.end && (timeIndex === undefined || !input.elementId)) throw new Error('DYNAMIC_MEMBER_END_ONLY');
       let quantity: Record<string, unknown> | undefined;
       if (input.component !== undefined) {
-        if (!input.quantityId || !input.unit || !(input.elementId || input.nodeId)) throw new Error('QUANTITY_LOCATION_ID_AND_UNIT_REQUIRED');
+        if (!input.unit || !(input.elementId || input.nodeId)) throw new Error('QUANTITY_LOCATION_AND_UNIT_REQUIRED: component needs unit plus nodeId or elementId and its position/end. quantityId is generated automatically and requires no user input. / 指定component时必须给unit及nodeId或elementId和位置/端点；quantityId由系统自动生成，不需要用户提供。');
         const value = modalNormalization && isRecord(values) ? values[input.component] as number
           : scalarResultQuantity(values, input.component, input.unit, input.elementId !== undefined, input.field);
         if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error('RESULT_COMPONENT_UNAVAILABLE');
@@ -245,11 +245,14 @@ export function createQueryResultsTool() {
             minuend: { nodeId: input.nodeId, value }, subtrahend: { nodeId: input.referenceNodeId, value: referenceValue },
             value: value - referenceValue, unit: input.unit, runId: run.runId, selection: resultKey };
         }
-        quantity = { id: input.quantityId, runId: run.runId, selection: resultKey, field: input.field, component: input.component, unit: input.unit,
-          value: difference ? difference.value : value,
-          location: input.elementId ? { kind: 'member', id: input.elementId, ...(input.end ? { end: input.end } : { positionM: input.positionM, side: input.side ?? 'right' }) }
+        const location = input.elementId ? { kind: 'member', id: input.elementId, ...(input.end ? { end: input.end } : { positionM: input.positionM, side: input.side ?? 'right' }) }
             : input.referenceNodeId ? { kind: 'node-pair', id: input.nodeId, referenceId: input.referenceNodeId }
-              : { kind: 'node', id: input.nodeId }, source: selected.meta,
+              : { kind: 'node', id: input.nodeId };
+        const quantityId = input.quantityId ?? `q_${contentHash({ runId: run.runId, resultKey, field: input.field,
+          component: input.component, unit: input.unit, location, timeIndex, modeNumber: input.modeNumber,
+          ...(input.compareResultKeys ? { compareResultKeys: input.compareResultKeys, comparison: input.comparison ?? 'absolute-max' } : {}) })}`;
+        quantity = { id: quantityId, runId: run.runId, selection: resultKey, field: input.field, component: input.component, unit: input.unit,
+          value: difference ? difference.value : value, location, source: selected.meta,
           responseSource: input.elementId && isRecord(values) ? { method: values.method, provenance: values.provenance, source: values.source }
             : { normalization: modalNormalization, responseDefinition: data.responseDefinition, source: data.source,
               objectSource: isRecord(data.objectSources) && input.nodeId ? data.objectSources[input.nodeId] : undefined },
@@ -260,7 +263,7 @@ export function createQueryResultsTool() {
       return { resultKey, meta: selected.meta, resultSelection: selected.selection, values, quantity, viewData };
     };
     if (input.series) {
-      if (input.timeIndex !== undefined || input.modeNumber !== undefined || input.compareResultKeys || !input.component || !input.quantityId) throw new Error('TIME_SERIES_REQUIRES_SINGLE_RESULT_COMPONENT');
+      if (input.timeIndex !== undefined || input.modeNumber !== undefined || input.compareResultKeys || !input.component) throw new Error('TIME_SERIES_REQUIRES_SINGLE_RESULT_COMPONENT');
       const key = input.resultKey ?? run.selectedResultKey;
       const selected = isRecord(run.results) && typeof key === 'string' ? run.results[key] : run;
       const data = isRecord(selected) && isRecord(selected.data) ? selected.data : selected;
@@ -306,14 +309,14 @@ export function createQueryResultsTool() {
     const response = { runId: run.runId, historical: Boolean(input.runId), current: !input.runId && !currentAnalysisError(state),
       ...(input.includeModelSnapshot ? { modelSnapshot, visualizationData: viewData, analysisType: run.analysis_type ?? run.analysisType } : {}),
       resultKey, meta, resultSelection, resultKeys: isRecord(run.results) ? Object.keys(run.results) : [], values, ...(quantity ? { quantity } : {}) };
-    return quantity ? result(id, 'query_results', response, { resultQuantities: { [`${String(run.runId)}:${input.quantityId}`]: quantity } }) : JSON.stringify(response);
-  }, { name: 'query_results', description: 'Read authoritative signed results for a case/combination or historical run. / 查询指定工况、组合或历史运行的有符号结果。',
+    return quantity ? result(id, 'query_results', response, { resultQuantities: { [`${String(run.runId)}:${String(quantity.id)}`]: quantity } }) : JSON.stringify(response);
+  }, { name: 'query_results', description: 'Read authoritative signed results for a case/combination or historical run. For a report scalar, supply component, unit and a node or physical member position; the returned quantity is saved with its provenance and an automatic ID. Interior member queries do not require model edits or remeshing. / 查询指定工况、组合或历史运行的有符号结果。报告标量需给分量、单位及节点或物理构件位置；返回数值自动编号并保存来源。跨内查询不需要修改或细分模型。',
     schema: resultSelectionSchema.extend({
       includeModelSnapshot: z.boolean().optional().describe('Return the run-bound model and selected direct display data for a viewer. / 返回该运行模型及选定结果的显示数据。'),
       series: z.object({ startIndex: z.number().int().nonnegative().optional(), endIndex: z.number().int().nonnegative().optional(), stride: z.number().int().positive().optional() }).optional().describe('Recorded time series, at most 10000 explicit samples; no interpolation. Exclusive with timeIndex/modeNumber. / 实际记录时程，最多10000点，不插值。'),
       compareResultKeys: z.array(z.string().min(1)).min(2).max(256).optional().describe('Compare the same static scalar over distinct keys in one run; exclusive with resultKey. / 同一运行中比较指定互异静力结果的同一数值，与resultKey互斥。'),
       comparison: z.enum(['absolute-max', 'max', 'min']).optional().describe('Default absolute-max; the controlling value retains its sign. / 默认按绝对值控制，返回值保留符号。'),
-      referenceNodeId: z.string().min(1).optional().describe('Static displacement: nodeId minus referenceNodeId; component, unit and quantityId required. / 静力位移nodeId减referenceNodeId，需分量、单位和数值ID。'),
-      quantityId: z.string().min(1).optional().describe('Stable ID for a requested report quantity / 指定报告数值的稳定ID。'),
+      referenceNodeId: z.string().min(1).optional().describe('Static displacement: nodeId minus referenceNodeId; component and unit required. / 静力位移nodeId减referenceNodeId，需分量和单位。'),
+      quantityId: z.string().min(1).optional().describe('Optional caller-chosen label; omitted IDs are generated deterministically from the exact result selection. Never ask the user for this internal ID. / 可选自定义标识；省略时由完整结果选择确定性生成，不应向用户索要此内部ID。'),
     }) });
 }
