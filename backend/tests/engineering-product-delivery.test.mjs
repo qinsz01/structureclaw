@@ -36,8 +36,16 @@ describe('product report and native design provenance', () => {
     const report = createEngineeringReport({message:'Report',analysisType:'static',analysis:r,codeCheck:check,locale:'en'});
     expect(report.summary).toContain('installed reinforcement was not checked');
     expect(report.markdown).toContain('own software design combinations');
+    expect(report.markdown).toContain('| top | 550 | 565 | mm2 |');
+    expect(report.markdown).toContain('SDK.BeamAs');
+    delete r.data.nativeDesignResults.records[0].calculatedArea;
+    expect(nativeDesignRecord(model,r,'GB/T50010-2010(2024)').completionStatus).toBe('complete');
     r.data.nativeDesignResults.records.push({elementId:'bad',requiredArea:0});
     expect(nativeDesignRecord(model,r,'GB/T50010-2010(2024)').completionStatus).toBe('incomplete');
+  });
+  test.each([['DESIGN_INPUT_REQUIRED','insufficient_data'],['NATIVE_RESULT_UNAVAILABLE','failed'],['SDK_UNAVAILABLE','environment_unavailable'],['DESIGN_MODE_UNSUPPORTED','unsupported']])('native failure %s retains its cause', (error_code,executionStatus) => {
+    const r={...run(),success:false,error_code:'RESULT_SET_INCOMPLETE',selectedResultKey:'case:D',results:{'case:D':{success:false,error_code,message:'specific native cause'}}};
+    expect(nativeDesignRecord(model,r,'GB50017')).toMatchObject({completionStatus:'incomplete',executionStatus,errorCode:error_code,message:'specific native cause',designStatus:executionStatus});
   });
   test('one report source preserves quantities; mismatched models and design runs fail', () => {
     const r = run(); r.requestedQuantities = [{id:'reaction',runId:'run',selection:'case:D',location:{kind:'node',id:'A'},component:'fz',value:-500,unit:'N'}];

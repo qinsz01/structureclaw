@@ -82,7 +82,7 @@ export function analysisSelections(model: ModelRecord, rawParameters: ModelRecor
 export function executionStatus(result: ModelRecord): string {
   if (result.success !== false) return 'completed';
   const code = String(result.error_code ?? result.errorCode ?? '');
-  if (/UNAVAILABLE|NOT_INSTALLED|LICENSE|ENVIRONMENT/.test(code)) return 'environment_unavailable';
+  if (/ENGINE_UNAVAILABLE|SDK_UNAVAILABLE|SOLVER_UNAVAILABLE|NOT_INSTALLED|LICENSE|ENVIRONMENT/.test(code)) return 'environment_unavailable';
   if (/UNSUPPORTED|NOT_SUPPORTED|UNVERIFIED/.test(code)) return 'unsupported';
   if (/MISSING|REQUIRED|INVALID_MODEL|INPUT_INVALID|INSUFFICIENT/.test(code)) return 'insufficient_data';
   return 'failed';

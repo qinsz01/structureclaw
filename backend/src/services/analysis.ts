@@ -447,28 +447,43 @@ export class AnalysisService {
     if (analysis.status !== 'completed' || results.runId !== params.runId) throw new Error('CURRENT_ANALYSIS_RUN_REQUIRED');
     const model = buildDirectAnalysisModelForCodeCheck({ ...analysis.model,
       coordinate_system: analysis.model.coordinateSystem, ...asRecord(analysis.model.physicalModel) });
+    const sourceParameters = asRecord(analysis.parameters);
+    const sourceMeta = asRecord(results.meta);
+    if (results.success === false) throw new Error('CURRENT_ANALYSIS_RUN_REQUIRED');
+    if (sourceMeta.modelHash !== modelHash(model)) throw new Error('ANALYSIS_MODEL_MISMATCH');
+    if (sourceMeta.settingsHash !== analysisSettingsHash(analysis.type, sourceParameters.engineId, sourceParameters)) throw new Error('ANALYSIS_SETTINGS_MISMATCH');
+    const currentInput = { id: analysis.id, type: analysis.type, model: { updatedAt: analysis.model.updatedAt },
+      parameters: { equals: analysis.parameters === null ? Prisma.JsonNull : analysis.parameters as Prisma.InputJsonValue } };
     if (resolveCheckProvider(params.provider, results) === 'native') {
       const engineId = `builtin-${resultEngine(results)}`;
       if (params.engineId && params.engineId !== engineId) throw new Error('DESIGN_ENGINE_MISMATCH');
-      const parameters = { ...asRecord(analysis.parameters), design: { ...params.design, requested: true, code: params.code } };
-      const designRun = await this.executionService.analyze({ type: 'static', engineId, model, parameters });
+      const parameters = { ...sourceParameters, engineId, design: { ...params.design, requested: true, code: params.code } };
+      const reservation = { requestId: randomUUID(), previousRunId: params.runId, purpose: 'native-design' };
+      const claimed = await prisma.analysis.updateMany({ where: { ...currentInput, status: 'completed',
+        results: { equals: JSON.parse(JSON.stringify(analysis.results)) } },
+        data: { status: 'running', results: reservation, startedAt: new Date(), completedAt: null, error: null } });
+      if (claimed.count !== 1) throw new Error('DESIGN_RUN_SUPERSEDED');
+      const owned = { id: analysis.id, status: 'running', results: { equals: reservation } };
+      try {
+      const designRun = await this.executionService.analyze({ type: 'static', engineId, model, parameters, requestId: reservation.requestId });
       const record = nativeDesignRecord(model, designRun, params.code);
-      // Compare-and-set: a concurrent rerun must not receive this older design result.
-      const current = await prisma.analysis.findUnique({ where: { id: analysis.id } });
-      if (asRecord(current?.results).runId !== params.runId) throw new Error('DESIGN_RUN_SUPERSEDED');
-      const published = await prisma.analysis.updateMany({ where: { id: analysis.id,
-        results: { equals: JSON.parse(JSON.stringify(current?.results)) } }, data: {
+      const published = await prisma.analysis.updateMany({ where: { ...currentInput, ...owned }, data: {
         results: JSON.parse(JSON.stringify({ ...designRun, codeCheck: record })),
         parameters: JSON.parse(JSON.stringify({ ...parameters, engineId })),
         status: designRun.success === true ? 'completed' : 'failed', completedAt: new Date(),
       } });
       if (published.count !== 1) throw new Error('DESIGN_RUN_SUPERSEDED');
       return record;
+      } catch (error) {
+        await prisma.analysis.updateMany({ where: owned, data: {status:'failed', completedAt:new Date(),
+          error: error instanceof Error ? error.message : String(error)} });
+        throw error;
+      }
     }
     if (params.design) throw new Error('BUILTIN_DESIGN_REQUEST_UNSUPPORTED');
     const checked = await this.checkAnalysisRun({ analysisId: analysis.id, model, analysis: results,
       parameters: asRecord(analysis.parameters), analysisType: analysis.type, code: params.code, elements: params.elements, engineId: params.engineId });
-    const published = await prisma.analysis.updateMany({ where: { id: analysis.id,
+    const published = await prisma.analysis.updateMany({ where: { ...currentInput, status:'completed',
       results: { equals: JSON.parse(JSON.stringify(analysis.results)) } }, data: {
       results: JSON.parse(JSON.stringify({ ...results, codeCheck: checked })),
     } });

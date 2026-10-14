@@ -367,7 +367,7 @@ describe('AnalysisService persisted-run code-check boundary', () => {
       summary: { total: 2, passed: 1, inputRequired: 1 }, meta: { runId: params.runId, analysisId: 'analysis-1' } });
     expect(Object.keys(result.checkResults)).toEqual(['case:D', 'case:L']);
     expect(prisma.analysis.updateMany).toHaveBeenCalledWith({
-      where: { id: row.id, results: { equals: row.results } },
+      where: expect.objectContaining({ id: row.id, status:'completed', results: { equals: row.results }, parameters:{equals:row.parameters} }),
       data: { results: expect.objectContaining({ codeCheck: result }) },
     });
   });

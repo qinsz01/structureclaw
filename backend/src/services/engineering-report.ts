@@ -73,6 +73,17 @@ export function finishEngineeringReport(prepared: ReturnType<typeof prepareEngin
     if (input.codeCheck.designMode === 'required-reinforcement') markdown += input.locale === 'zh'
       ? '\n所需配筋结果不构成已有配筋的验算结论。\n'
       : '\nRequired reinforcement results do not establish compliance of installed reinforcement.\n';
+    const records = Array.isArray(input.codeCheck.records) ? input.codeCheck.records.filter(isRecord) : [];
+    if (records.length) {
+      const cell = (value: unknown) => (value === undefined || value === null ? '—'
+        : typeof value === 'object' ? JSON.stringify(value) : String(value)).replace(/\|/g, '\\|').replace(/[\r\n]+/g, ' ');
+      markdown += input.locale === 'zh'
+        ? '\n原生配筋输出（站点为软件序号，面积不表示已有配筋）：\n\n| 构件 | 原生站点 | 分量 | 所需面积 | SDK计算面积 | 单位 | 原生组合 | 官方来源 |\n'
+        : '\nNative reinforcement output (stations are software indices; areas are not installed reinforcement):\n\n| Member | Native station | Component | Required area | SDK calculated area | Unit | Native combination | Official source |\n';
+      markdown += '| --- | --- | --- | --- | --- | --- | --- | --- |\n';
+      markdown += records.map(row => `| ${[row.elementId, row.nativeStationIndex, row.component,
+        row.requiredArea, row.calculatedArea, row.unit, row.nativeCombination, row.source].map(cell).join(' | ')} |`).join('\n') + '\n';
+    }
   }
   return { summary, json, markdown };
 }

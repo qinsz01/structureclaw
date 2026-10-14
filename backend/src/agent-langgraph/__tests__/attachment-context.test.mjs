@@ -43,7 +43,11 @@ describe('attachment context', () => {
       LLM_VISION_BASE_URL: process.env.LLM_VISION_BASE_URL,
     };
     process.env.SCLAW_DATA_DIR = tmpDir;
-    const runtimePython = path.join(previousEnv.SCLAW_DATA_DIR ?? path.join(os.homedir(), '.structureclaw'), '.venv', ...(process.platform === 'win32' ? ['Scripts', 'python.exe'] : ['bin', 'python']));
+    const previousData = previousEnv.SCLAW_DATA_DIR ?? path.join(os.homedir(), '.structureclaw');
+    let configuredPython;
+    try { configuredPython = JSON.parse(await fs.readFile(path.join(previousData, 'settings.json'), 'utf8')).analysis?.pythonBin; }
+    catch { /* An unconfigured installation uses its conventional runtime. */ }
+    const runtimePython = configuredPython || path.join(previousData, '.venv', ...(process.platform === 'win32' ? ['Scripts', 'python.exe'] : ['bin', 'python']));
     try {
       await fs.access(runtimePython);
       await fs.writeFile(path.join(tmpDir, 'settings.json'), JSON.stringify({ analysis: { pythonBin: runtimePython } }));

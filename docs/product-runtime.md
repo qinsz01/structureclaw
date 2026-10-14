@@ -172,6 +172,7 @@ npm run build --prefix backend
 npm run lint --prefix backend
 npm test --prefix backend -- --runInBand
 node backend/tests/engineering-http-acceptance.mjs
+node backend/tests/engineering-opensees-tool-acceptance.mjs
 node backend/tests/engineering-task-lifecycle.mjs
 ```
 
