@@ -972,6 +972,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
       const stream = agentService.resumeStream(
         body.conversationId,
         body.resumeValue,
+        abortController.signal,
       );
 
       let resumeAssistantContent = '';

@@ -800,12 +800,17 @@ export class LangGraphAgentService {
   async *resumeStream(
     conversationId: string,
     resumeValue: string,
+    signal?: AbortSignal,
   ): AsyncGenerator<AgentStreamChunk> {
+    signal?.throwIfAborted();
     const release = await this.sessionLock.acquire(conversationId);
-    try { yield* this.resumeStreamUnlocked(conversationId, resumeValue); } finally { release(); }
+    try {
+      signal?.throwIfAborted();
+      yield* this.resumeStreamUnlocked(conversationId, resumeValue, signal);
+    } finally { release(); }
   }
 
-  private async *resumeStreamUnlocked(conversationId: string, resumeValue: string): AsyncGenerator<AgentStreamChunk> {
+  private async *resumeStreamUnlocked(conversationId: string, resumeValue: string, signal?: AbortSignal): AsyncGenerator<AgentStreamChunk> {
     const traceId = randomUUID();
     const startedAt = new Date().toISOString();
     const reqStart = Date.now();
@@ -813,9 +818,10 @@ export class LangGraphAgentService {
     const graph = await this.getGraph();
 
     const resumedState = (await graph.getState({ configurable: { thread_id: conversationId } })).values as AgentState;
-    const resumeInput = { conversationId, message: resumedState.lastUserMessage ?? '', context: { locale: resumedState.locale ?? 'zh' } };
+    const resumeInput = { conversationId, message: resumedState.lastUserMessage ?? '', signal, context: { locale: resumedState.locale ?? 'zh' } };
     const runtime = await this.prepareRunContext(resumeInput, conversationId, true);
     const config = this.buildGraphRuntimeConfig(resumeInput, traceId, conversationId, runtime);
+    signal?.throwIfAborted();
 
     const reqLogger = createAgentLogger(traceId, conversationId);
     reqLogger.info('LangGraph agent resume started');
