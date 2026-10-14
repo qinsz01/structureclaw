@@ -38,6 +38,7 @@ describe('product report and native design provenance', () => {
     expect(report.markdown).toContain('own software design combinations');
     expect(report.markdown).toContain('| top | 550 | 565 | mm2 |');
     expect(report.markdown).toContain('SDK.BeamAs');
+    expect(report.json.keyMetrics.codeCheckPassRate).toBeNull();
     delete r.data.nativeDesignResults.records[0].calculatedArea;
     expect(nativeDesignRecord(model,r,'GB/T50010-2010(2024)').completionStatus).toBe('complete');
     r.data.nativeDesignResults.records.push({elementId:'bad',requiredArea:0});

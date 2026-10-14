@@ -2433,7 +2433,7 @@ export function createDetectStructureTypeTool(skillRuntime: AgentSkillRuntime) {
       const state = configurable.agentState;
       const toolCallId = getToolCallId(config);
       const skillIds = configurable.skillScope;
-      const locale = (input.locale === 'en' ? 'en' : (state?.locale || 'zh')) as 'zh' | 'en';
+        const locale = (input.locale ?? state?.locale ?? 'zh') as 'en' | 'zh';
       const message = resolveToolInputMessage(input.message, state?.lastUserMessage, state?.messages);
       const detectionMessage = resolveRetryTaskMessage(message);
       const nestedUsage = nestedLlmUsageCollector();

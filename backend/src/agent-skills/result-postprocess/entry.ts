@@ -24,7 +24,7 @@ export function extractKeyMetrics(analysis: unknown, codeCheck: unknown): Record
     maxBaseShear: envelopeObject['maxBaseShear'] ?? null,
     maxStoryDriftRatio: envelopeObject['maxStoryDriftRatio'] ?? null,
     modalMassParticipationRatio: envelopeObject['modalMassParticipationRatio'] ?? null,
-    codeCheckPassRate: total > 0 ? Number((passed / total).toFixed(4)) : null,
+    codeCheckPassRate: total > 0 && codeCheckPayload['complianceStatus'] !== 'not_evaluated' ? Number((passed / total).toFixed(4)) : null,
   };
 }
 
@@ -33,6 +33,12 @@ export function extractClauseTraceability(codeCheck: unknown): Array<Record<stri
   const details = codeCheckPayload['details'];
   if (!Array.isArray(details)) {
     return [];
+  }
+  if (codeCheckPayload.provider === 'native') {
+    return details.filter((row): row is Record<string, unknown> => Boolean(row && typeof row === 'object' && !Array.isArray(row)))
+      .map(row => ({ ...row, code: codeCheckPayload.designCode, source: codeCheckPayload.meta,
+        evidenceSource: row.source, clause: row.clause ?? null, formula: row.formula ?? null,
+        combinationScope: codeCheckPayload.combinationScope, boundToSelectedAnalysisResult: false }));
   }
 
   const traceRows: Array<Record<string, unknown>> = [];

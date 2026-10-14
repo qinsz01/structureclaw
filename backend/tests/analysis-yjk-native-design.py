@@ -24,10 +24,10 @@ sys.path[:0] = [str(ADAPTER), str(ADAPTER.parent / "runtime"), str(ROOT / "backe
 def specimen(kind: str, factor: float = 1.) -> dict:
     model = json.loads((ADAPTER / "__tests__/fixtures/elastic-frame-model.json").read_text("utf-8"))
     model["project"] = {"name": "native-design-" + kind}
-    model["coordinate_system"].update(semantics="global-z-up", version=1,
+    model["coordinate_system"].update(semantics="global-z-up", version=1, plane=None,
         dof_order=["ux", "uy", "uz", "rx", "ry", "rz"])
     concrete = kind == "concrete"
-    model["materials"] = [{"id": "M", "category": "concrete" if concrete else "steel",
+    model["materials"] = [{"id": "M", "name": "C30" if concrete else "Q355", "category": "concrete" if concrete else "steel",
         "grade": "C30" if concrete else "Q355", "E": 30000. if concrete else 206000.,
         "nu": .2 if concrete else .3, "G": 12500. if concrete else 206000./2.6,
         "rho": 2500. if concrete else 7850.}]
@@ -45,7 +45,7 @@ def specimen(kind: str, factor: float = 1.) -> dict:
             "properties": {"A": 2*b*tf+(h-2*tf)*tw, "Iy": (b*h**3-(b-tw)*(h-2*tf)**3)/12,
                 "Iz": (2*tf*b**3+(h-2*tf)*tw**3)/12, "J": (2*b*tf**3+(h-2*tf)*tw**3)/3,
                 "Asy": 5*(2*b*tf)/6, "Asz": h*tw}}
-    model["sections"] = [{**copy.deepcopy(section), "id": key} for key in ("SC", "SB")]
+    model["sections"] = [{**copy.deepcopy(section), "id": key, "name": key} for key in ("SC", "SB")]
     for element in model["elements"]:
         element["section"] = "SC" if element["type"] == "column" else "SB"
     nodal = [{"id": "P-"+node["id"], "type": "nodal", "node": node["id"], "fx": 0., "fy": 0.,
