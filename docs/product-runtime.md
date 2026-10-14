@@ -128,6 +128,17 @@ Old benchmark environment switches no longer alter production behavior.
 Shell 默认关闭。禁用纠错不会阻止首次正常工作流，只阻止失败后的额外语义修正。LLM 传输重试保持既有设置，
 求解作业不会因响应丢失而盲目重交。旧评测环境变量不再改变生产行为。
 
+Missing engineering input is a normal clarification state. The extractor does not
+repeat the same evidence to fill omitted properties or spend recovery budget on
+missing fields. A user answer may refine a unique existing load's omitted direction;
+it does not add a second load. Explicit object IDs, different cases and explicitly
+different directions remain distinct. Extraction/transport failures still retain
+their own error handling and the configured limits.
+
+缺少工程参数属于正常澄清状态，不对同一份证据重复抽取来补写缺项，也不因此消耗纠错次数。
+用户补充方向时，更新唯一匹配的未明确方向荷载，不能额外增加同一荷载；明确对象 ID、不同工况和
+明确不同方向仍分别保留。抽取失败和传输失败继续遵守各自的错误处理与配置限制。
+
 `EffectiveRunPolicy` returns field sources, `policyHash`, actual allowed/denied skills and
 tools, and enforcement ownership. LLM calls record usage, duration, failure and owning run.
 Model credentials are not policy fields and are not exported in these records.

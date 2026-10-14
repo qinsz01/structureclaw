@@ -1,0 +1,96 @@
+{
+  "date": "2026-10-14",
+  "scope": "Missing-input clarification and load-direction refinement in StructureClaw only",
+  "baseline": "b50c10b",
+  "userConversationInspected": "cmv84do1v000098wm6hoj3x5a",
+  "fixes": [
+    "Missing required inputs no longer cause an ungrounded focused retry or consume semantic recovery budget",
+    "Clarification of omitted load direction refines a unique existing load instead of adding a duplicate",
+    "Single-span point-load location aliases normalize spanIndex=1",
+    "Live acceptance rejects every erroneous calculation and plain Error: tool response, not merely final success"
+  ],
+  "validation": {
+    "backendTargeted": {
+      "suites": 6,
+      "tests": 91,
+      "passed": true
+    },
+    "backendBuild": true,
+    "frontendTypecheck": true,
+    "changedBackendLint": true,
+    "live": {
+      "provider": "glm-5-turbo",
+      "transportMocked": false,
+      "browser": "Playwright Chromium",
+      "port": 31521,
+      "conversationId": "cmv851i2900009gwmi94odulg",
+      "runId": "6966c792-b5f1-4df4-beee-568beceae62d",
+      "analysisCurrent": true,
+      "reportCurrent": true,
+      "recoveries": 0,
+      "toolCalls": 13,
+      "llmCalls": 13,
+      "elapsedMinutesApprox": 3.8,
+      "calculations": [
+        {
+          "runId": "6966c792-b5f1-4df4-beee-568beceae62d",
+          "keyMetrics": {
+            "maxAbsDisplacement": 0.0015169902912621357,
+            "maxAbsAxialForce": 0,
+            "maxAbsShearForce": 0.5000000000000006,
+            "maxAbsMoment": 2.500000000000001,
+            "maxAbsReaction": 0.5000000000000006
+          }
+        }
+      ],
+      "modelLoads": [
+        {
+          "id": "LC1",
+          "type": "other",
+          "loads": [
+            {
+              "node": "2",
+              "fz": -1,
+              "reference_frame": "global",
+              "id": "LC1:load:1"
+            }
+          ]
+        }
+      ],
+      "reference": {
+        "loadKn": 1,
+        "spanM": 10,
+        "sectionMm": [
+          100,
+          200
+        ],
+        "modulusMpa": 206000,
+        "reactionKn": 0.5,
+        "midpointMomentMagnitudeKnm": 2.5,
+        "midpointDisplacementMm": -1.516990291262136
+      },
+      "referenceMethod": "Euler-Bernoulli R=P/2, |M|=PL/4, uz=-PL^3/(48EI) with I=bh^3/12; no self-weight"
+    }
+  },
+  "earlierAttempts": [
+    {
+      "kind": "test setup failure",
+      "reason": "isolated instance initially lacked the existing machine credential; no LLM calls; artifacts retained"
+    },
+    {
+      "kind": "live diagnostic run",
+      "conversationId": "cmv84q4bp0003rwwm2la8w1j3",
+      "reason": "original weak assertions passed despite a duplicate load in the first calculation and a plain Error: edit response; independent archive audit found 2 kN instead of 1 kN. The LLM eventually removed the duplicate. This is not accepted as a clean pass.",
+      "elapsedMinutesApprox": 6.6
+    }
+  ],
+  "limitations": [
+    "One natural-language analysis workflow certified; not a full product acceptance",
+    "I32a catalog/assignment clarification path remains unverified and repeatedly asks for input in the inspected user conversation",
+    "Live latency remains high; no general stability claim",
+    "Native commercial engines and normative design not exercised in this round",
+    "Bench gitlink remains 5102acb3fdf4618c31f385e51fd0e5b9280438a1",
+    "Stopping the owned idle test process was rejected by automatic policy with reason blocked by policy; both isolated credentials cleared after evidence capture"
+  ],
+  "localEvidence": "G:/StructureClaw-All/sclaw_data/verification/live-clarification-20261014"
+}

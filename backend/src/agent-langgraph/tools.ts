@@ -47,7 +47,7 @@ import { analysisSettingsHash } from '../engineering/analysis-runs.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 import { checkRunResults, codeCheckFeedback } from '../engineering/code-checks.js';
 import { assertAnalysisInputEvidenceMatchesRequest, assertInputEvidenceMatchesModel, mergeInputEvidence } from '../engineering/input-evidence.js';
-import { currentRunPolicy, requestRecovery, canRecover, recordRunEvent } from '../runtime/run-context.js';
+import { currentRunPolicy, recordRunEvent } from '../runtime/run-context.js';
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -1479,31 +1479,6 @@ function buildClarificationQuestions(
   return buildDraftQuestions(plugin, criticalMissing, optionalMissing, state, locale);
 }
 
-export function shouldRetryDraftExtraction(
-  draftPatch: Record<string, unknown> | null | undefined,
-  missing: { critical: string[] },
-  state: DraftState,
-): boolean {
-  if (!draftPatch || missing.critical.length === 0) {
-    return false;
-  }
-  const unresolved = new Set<string>();
-  for (const issue of state.draftIssues ?? []) {
-    if (typeof issue.field === 'string' && issue.field.trim()) {
-      unresolved.add(issue.field);
-    }
-  }
-  const invalidDraftFields = state.skillState?.invalidDraftFields;
-  if (Array.isArray(invalidDraftFields)) {
-    for (const field of invalidDraftFields) {
-      if (typeof field === 'string' && field.trim()) {
-        unresolved.add(field);
-      }
-    }
-  }
-  return missing.critical.every((field) => !unresolved.has(field));
-}
-
 function hasStableDraftType(state: DraftState | null | undefined): state is DraftState {
   return !!state?.inferredType && state.inferredType !== 'unknown';
 }
@@ -2688,7 +2663,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
 
         // Step 3: Sub-agent extracts parameters (skill manifest driven)
         const { invokeParamExtractor } = await import('./param-extractor.js');
-        let draftPatch = await invokeParamExtractor({
+        const draftPatch = await invokeParamExtractor({
           message: extractionMessage,
           existingState,
           locale,
@@ -2699,7 +2674,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
         });
 
         // Step 4: Handler pipeline (extractDraft → mergeState → computeMissing)
-        let patch = plugin.handler.extractDraft({
+        const patch = plugin.handler.extractDraft({
           message: extractionMessage,
           locale,
           currentState: existingState,
@@ -2707,42 +2682,14 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
           structuralTypeMatch: match,
         });
         const { withStructuralTypeState } = await import('../agent-runtime/plugin-helpers.js');
-        let nextState = withStructuralTypeState(plugin.handler.mergeState(existingState, patch), match);
-        let missing = computeDraftMissing(plugin, nextState, 'execution');
-        let extractionMode = draftPatch ? 'llm' : 'deterministic';
+        const nextState = withStructuralTypeState(plugin.handler.mergeState(existingState, patch), match);
+        const missing = computeDraftMissing(plugin, nextState, 'execution');
+        const extractionMode = draftPatch ? 'llm' : 'deterministic';
 
-        if (shouldRetryDraftExtraction(draftPatch, missing, nextState) && canRecover()) {
-          requestRecovery('parameter extraction: missing required fields');
-          const retryDraftPatch = await invokeParamExtractor({
-            message: extractionMessage,
-            existingState: nextState,
-            locale,
-            plugin,
-            focusFields: missing.critical.flatMap((field) => field === 'templateProperties'
-              ? ['material', 'materials', 'sections', 'sectionRecords', 'templateAssignments'] : [field]),
-            traceLogger: log,
-            signal: config.signal,
-            onUsage: nestedUsage.onUsage,
-          });
-          if (retryDraftPatch) {
-            const retryPatch = plugin.handler.extractDraft({
-              message: extractionMessage,
-              locale,
-              currentState: nextState,
-              llmDraftPatch: retryDraftPatch,
-              structuralTypeMatch: match,
-            });
-            const retryState = withStructuralTypeState(plugin.handler.mergeState(nextState, retryPatch), match);
-            const retryMissing = computeDraftMissing(plugin, retryState, 'execution');
-            if (retryMissing.critical.length < missing.critical.length) {
-              draftPatch = retryDraftPatch;
-              patch = retryPatch;
-              nextState = retryState;
-              missing = retryMissing;
-              extractionMode = 'llm-focused-retry';
-            }
-          }
-        }
+        // Missing engineering input is a clarification state, not a failed extraction.
+        // Repeating the same evidence cannot supply user-omitted properties and must
+        // not consume the semantic recovery budget. Invalid LLM output is handled
+        // separately inside invokeParamExtractor.
 
         const responseJson = {
           nextState,

@@ -8,27 +8,6 @@ const unknownFallbackMatch = {
 };
 
 describe("draft extraction preservation", () => {
-  test("does not retry extraction against the same message when user correction is required", async () => {
-    const { shouldRetryDraftExtraction } = await import("../../../dist/agent-langgraph/tools.js");
-    const draftPatch = { lengthM: -5 };
-    const missing = { critical: ["lengthM"], optional: [] };
-
-    expect(shouldRetryDraftExtraction(draftPatch, missing, {
-      inferredType: "beam",
-      updatedAt: 0,
-      draftIssues: [{
-        field: "lengthM",
-        severity: "invalid",
-        reason: "Length must be positive.",
-      }],
-      skillState: { invalidDraftFields: ["lengthM"] },
-    })).toBe(false);
-    expect(shouldRetryDraftExtraction(draftPatch, missing, {
-      inferredType: "beam",
-      updatedAt: 0,
-    })).toBe(true);
-  });
-
   test("reuses the structural type recorded by the preceding detection tool", async () => {
     const { resolveDetectedStructuralTypeMatch } = await import("../../../dist/agent-langgraph/tools.js");
     const plugin = {

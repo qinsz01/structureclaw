@@ -1,5 +1,53 @@
 import { test, expect } from '@playwright/test';
 
+test('Live provider: omitted properties pause, supplied properties resume and calculate', async ({ page, request }, info) => {
+  test.skip(process.env.SCLAW_E2E_LIVE !== '1', 'Requires a configured isolated live provider');
+  test.setTimeout(600_000);
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.getByRole('button', { name: /Switch language to Chinese|切换语言为中文/ }).click();
+  const sent = page.waitForRequest(r => r.url().endsWith('/api/v1/chat/stream') && r.method() === 'POST');
+  const response = page.waitForResponse(r => r.url().endsWith('/api/v1/chat/stream') && r.request().method() === 'POST');
+  await page.getByRole('textbox').fill('设计一个简支梁，跨度10m，梁中间荷载1kN');
+  await page.getByRole('button', { name: '发送', exact: true }).click();
+  const id = (await sent).postDataJSON().conversationId;
+  expect(await (await response).finished()).toBeNull();
+  const url = '/api/v1/chat/conversation/' + id + '/session';
+  await expect.poll(async () => (await (await request.get(url)).json()).busy).toBe(false);
+  const paused = await (await request.get(url)).json();
+  await info.attach('clarification-session', { body: JSON.stringify(paused, null, 2), contentType: 'application/json' });
+  expect(paused.waitingForReply).toBe(true);
+  expect(paused.analysis.current).toBe(false);
+  expect(paused.usage.recoveries).toBe(0);
+  const resumed = page.waitForResponse(r => r.url().endsWith('/api/v1/chat/stream/resume') && r.request().method() === 'POST');
+  await page.getByRole('textbox').fill('明确采用弹性钢材，E=206000 MPa、泊松比0.3、密度7850 kg/m³；单根梁使用实心矩形截面，宽100mm、高200mm，200mm沿竖向。左端铰支、右端滚支，跨中1kN向下，不计自重。使用OpenSees二维线弹性静力。先只做分析，不做规范设计；查询两端竖向反力、跨中弯矩和竖向挠度，生成分析报告。');
+  await page.getByRole('button', { name: '发送', exact: true }).click();
+  expect(await (await resumed).finished()).toBeNull();
+  await expect.poll(async () => (await (await request.get(url)).json()).busy).toBe(false);
+  const finished = await (await request.get(url)).json();
+  const conversation = await (await request.get('/api/v1/chat/conversation/' + id)).json();
+  await info.attach('live-conversation', { body: JSON.stringify(conversation, null, 2), contentType: 'application/json' });
+  await info.attach('live-final-session', { body: JSON.stringify(finished, null, 2), contentType: 'application/json' });
+  await info.attach('live-clarification-browser', { body: await page.screenshot(), contentType: 'image/png' });
+  expect(finished.waitingForReply, 'Repeated clarification is not completed calculation').toBe(false);
+  expect(finished.analysis.current).toBe(true);
+  expect(finished.report.current).toBe(true);
+  expect(errors).toEqual([]);
+  // Final success must not conceal an earlier wrong calculation or tool error.
+  const analyses = conversation.messages.filter((m: { role: string; name: string }) => m.role === 'tool' && m.name === 'run_analysis');
+  expect(analyses.length).toBeGreaterThan(0);
+  for (const message of analyses) {
+    const result = JSON.parse(message.content);
+    expect(result.success).toBe(true);
+    expect(result.keyMetrics.maxAbsReaction).toBeCloseTo(0.5, 8);
+    expect(result.keyMetrics.maxAbsMoment).toBeCloseTo(2.5, 8);
+    expect(result.keyMetrics.maxAbsDisplacement * 1000).toBeCloseTo(1.516990291262136, 8);
+  }
+  const toolErrors = conversation.messages.filter((m: { role: string; content: string }) => m.role === 'tool' && /^Error:|RECOVERY_BUDGET_EXHAUSTED|"success":false/.test(m.content));
+  expect(toolErrors, 'Preserve real failures rather than silently retry the test').toEqual([]);
+});
+
 // Real-provider smoke is opt-in. Ordinary E2E replaces only the LLM transport.
 test.describe('Live provider: browser analysis delivery', () => {
   test.skip(process.env.SCLAW_E2E_LIVE !== '1', 'Requires an explicitly configured isolated live-provider instance');

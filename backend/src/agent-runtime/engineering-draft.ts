@@ -593,10 +593,7 @@ function loadLocationMergeValue(
   draft: Pick<EngineeringDraft, 'structureType' | 'geometry'>,
 ): EngineeringDraftLoad['location'] {
   const location = load.location;
-  const isDistributed = load.kind === 'line'
-    || load.kind === 'distributed'
-    || load.unit === 'kN/m';
-  if (!location || !isDistributed || !isSingleSpanBeam(draft) || location.spanIndex !== 1) {
+  if (!location || !isSingleSpanBeam(draft) || location.spanIndex !== 1) {
     return location;
   }
   const { spanIndex: _spanIndex, ...rest } = location;
@@ -652,10 +649,25 @@ function mergeEngineeringDraftLoads(
   }
   for (const load of patch ?? []) {
     const key = engineeringLoadMergeKey(load, draft);
-    const prior = merged.get(key);
-    merged.set(key, prior && load.location === undefined
-      ? { ...prior, ...load, location: prior.location }
-      : load);
+    let prior = merged.get(key);
+    // Supplying a previously omitted direction refines one existing load.
+    // It must not append a second force at the same location. Explicit IDs,
+    // distinct cases and two explicitly different directions stay distinct.
+    if (!prior && !load.id) {
+      const undirectedKey = engineeringLoadMergeKey({ ...load, direction: undefined }, draft);
+      const candidates = Array.from(merged.entries()).filter(([, candidate]) =>
+        !candidate.id && (candidate.direction === undefined || load.direction === undefined)
+        && engineeringLoadMergeKey({ ...candidate, direction: undefined }, draft) === undirectedKey);
+      if (candidates.length === 1) {
+        const [priorKey, candidate] = candidates[0];
+        prior = candidate;
+        merged.delete(priorKey);
+      }
+    }
+    const next = prior ? { ...prior, ...load,
+      direction: load.direction ?? prior.direction,
+      location: load.location ?? prior.location } : load;
+    merged.set(engineeringLoadMergeKey(next, draft), next);
   }
   return Array.from(merged.values());
 }
