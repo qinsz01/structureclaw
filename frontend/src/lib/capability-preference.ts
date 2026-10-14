@@ -3,6 +3,7 @@
 export type CapabilityPreferenceState = {
   skillIds: string[]
   toolIds: string[]
+  explicit: boolean
 }
 
 export const CAPABILITY_PREFERENCE_STORAGE_KEY = 'structureclaw.console.capabilities'
@@ -23,10 +24,12 @@ export function loadCapabilityPreferences(): CapabilityPreferenceState | null {
     if (!raw) {
       return null
     }
-    const parsed = JSON.parse(raw) as { skillIds?: unknown; toolIds?: unknown }
+    const parsed = JSON.parse(raw) as { skillIds?: unknown; toolIds?: unknown; explicit?: unknown }
     return {
       skillIds: normalizeStringArray(parsed?.skillIds),
       toolIds: normalizeStringArray(parsed?.toolIds),
+      // Legacy stored selections are retained, including an explicit empty set.
+      explicit: typeof parsed?.explicit === 'boolean' ? parsed.explicit : true,
     }
   } catch {
     return null
@@ -43,6 +46,7 @@ export function saveCapabilityPreferences(preferences: CapabilityPreferenceState
     JSON.stringify({
       skillIds: preferences.skillIds,
       toolIds: preferences.toolIds,
+      explicit: preferences.explicit,
     })
   )
 }

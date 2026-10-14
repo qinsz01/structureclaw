@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import { createAppStore } from '@/lib/stores/context'
+import { CAPABILITY_PREFERENCE_STORAGE_KEY } from '@/lib/capability-preference'
 import {
   createPreferencesSlice,
   initialPreferencesState,
@@ -8,6 +9,8 @@ import {
 } from '@/lib/stores/slices/preferences'
 
 describe('Preferences Slice (STAT-04)', () => {
+  afterEach(() => window.localStorage.clear())
+
   it('createPreferencesSlice returns initial state with locale', () => {
     const slice = createPreferencesSlice(() => {}, () => ({} as any), {} as any)
 
@@ -40,6 +43,29 @@ describe('Preferences Slice (STAT-04)', () => {
 
     store.getState().closeWorkspaceSettings()
     expect(store.getState().workspaceSettingsOpen).toBe(false)
+  })
+
+  it('distinguishes first use from an explicitly empty selection after reload', () => {
+    const store = createAppStore()
+    expect(store.getState().capabilityExplicit).toBe(false)
+    store.getState().setCapabilityPreferences([], [], true)
+    expect(createAppStore().getState()).toMatchObject({
+      capabilityExplicit: true, capabilitySkillIds: [], capabilityToolIds: [],
+    })
+  })
+
+  it.each([{ skillIds: [] }, { skillIds: ['generic', 'opensees-static'] }])('preserves legacy selections without expanding their scope: $skillIds', ({ skillIds }) => {
+    window.localStorage.setItem(CAPABILITY_PREFERENCE_STORAGE_KEY, JSON.stringify({ skillIds, toolIds: [] }))
+    expect(createAppStore().getState()).toMatchObject({
+      capabilityExplicit: true, capabilitySkillIds: skillIds, capabilityToolIds: [],
+    })
+  })
+
+  it('persists automatic default provenance separately from the selected capabilities', () => {
+    createAppStore().getState().setCapabilityPreferences(['beam', 'generic'], ['build_model'], false)
+    expect(createAppStore().getState()).toMatchObject({
+      capabilityExplicit: false, capabilitySkillIds: ['beam', 'generic'], capabilityToolIds: ['build_model'],
+    })
   })
 })
 

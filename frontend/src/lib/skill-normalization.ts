@@ -207,6 +207,13 @@ export function buildSkillNormalizationContext(
 export const DEFAULT_CONSOLE_SKILL_IDS = [
   'opensees-static',
   'generic',
+  'beam',
+  'column',
+  'double-span-beam',
+  'frame',
+  'concrete-frame',
+  'portal-frame',
+  'truss',
   'validation-structure-model',
   'report-export-builtin',
 ] as const

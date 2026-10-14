@@ -393,7 +393,9 @@ describe('Capability settings and console integration', () => {
     expect(streamCall).toBeTruthy()
     const requestInit = streamCall?.[1] as RequestInit | undefined
     const body = JSON.parse(String(requestInit?.body || '{}')) as { context?: { skillIds?: string[]; enabledToolIds?: string[]; model?: unknown } }
-    expect(body.context?.skillIds).toEqual(expect.arrayContaining(['generic']))
+    expect(body.context?.skillIds).toEqual(expect.arrayContaining(['generic', 'beam', 'opensees-static']))
+    expect(body.context?.skillIds).not.toContain('pkpm-static')
+    expect(body.context?.skillIds).not.toContain('yjk-static')
     expect(body.context?.model).toBeUndefined()
   })
 
@@ -1117,7 +1119,7 @@ describe('Capability settings and console integration', () => {
     })
   })
 
-  it('repairs legacy foundation-only default tool preferences on the capability settings page', async () => {    window.localStorage.setItem(CAPABILITY_PREFERENCE_STORAGE_KEY, JSON.stringify({
+  it('preserves legacy foundation-only tool preferences without granting extra tools', async () => {    window.localStorage.setItem(CAPABILITY_PREFERENCE_STORAGE_KEY, JSON.stringify({
       skillIds: ['opensees-static', 'generic'],
       toolIds: ['detect_structure_type'],
     }))
@@ -1211,11 +1213,11 @@ describe('Capability settings and console integration', () => {
 
     await waitFor(() => {
       const stored = JSON.parse(window.localStorage.getItem(CAPABILITY_PREFERENCE_STORAGE_KEY) || '{}') as { toolIds?: string[] }
-      expect([...(stored.toolIds ?? [])].sort()).toEqual(['build_model', 'detect_structure_type', 'extract_draft_params', 'run_analysis'])
+      expect(stored.toolIds).toEqual(['detect_structure_type'])
     })
   })
 
-  it('does not treat duplicated stored skill ids as the default skill set during repair', async () => {
+  it('normalizes duplicated stored skill ids without expanding tool permissions', async () => {
     window.localStorage.setItem(CAPABILITY_PREFERENCE_STORAGE_KEY, JSON.stringify({
       skillIds: ['generic', 'generic'],
       toolIds: ['detect_structure_type'],

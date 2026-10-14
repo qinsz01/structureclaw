@@ -34,12 +34,12 @@ interface PreferencesActions {
 
 export type PreferencesSlice = PreferencesState & PreferencesActions
 
-function hydrateCapabilityPreferences(): { skillIds: string[]; toolIds: string[] } {
+function hydrateCapabilityPreferences(): { skillIds: string[]; toolIds: string[]; explicit: boolean } {
   const stored = loadCapabilityPreferences()
   if (stored) {
-    return { skillIds: stored.skillIds, toolIds: stored.toolIds }
+    return stored
   }
-  return { skillIds: [], toolIds: [] }
+  return { skillIds: [], toolIds: [], explicit: false }
 }
 
 export function createInitialPreferencesState(): PreferencesState {
@@ -50,7 +50,7 @@ export function createInitialPreferencesState(): PreferencesState {
     workspaceSettingsTab: 'general',
     capabilitySkillIds: initialCapabilities.skillIds,
     capabilityToolIds: initialCapabilities.toolIds,
-    capabilityExplicit: initialCapabilities.skillIds.length > 0 || initialCapabilities.toolIds.length > 0,
+    capabilityExplicit: initialCapabilities.explicit,
   }
 }
 
@@ -70,7 +70,7 @@ export const createPreferencesSlice: StateCreator<
   }),
   closeWorkspaceSettings: () => set({ workspaceSettingsOpen: false }),
   setCapabilityPreferences: (skillIds, toolIds, explicit) => {
-    saveCapabilityPreferences({ skillIds, toolIds })
+    saveCapabilityPreferences({ skillIds, toolIds, explicit })
     set({ capabilitySkillIds: skillIds, capabilityToolIds: toolIds, capabilityExplicit: explicit })
   },
 })
