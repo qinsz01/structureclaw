@@ -13,10 +13,12 @@ import {
 
 const originalFindUnique = prisma.analysis.findUnique;
 const originalUpdate = prisma.analysis.update;
+const originalUpdateMany = prisma.analysis.updateMany;
 
 afterEach(() => {
   prisma.analysis.findUnique = originalFindUnique;
   prisma.analysis.update = originalUpdate;
+  prisma.analysis.updateMany = originalUpdateMany;
   jest.restoreAllMocks();
 });
 
@@ -192,6 +194,7 @@ describe('AnalysisService direct China seismic workflow', () => {
       id: 'analysis-1',
       ...data,
     }));
+    prisma.analysis.updateMany = jest.fn().mockResolvedValue({count:1});
 
     const service = new AnalysisService();
     service.executionService.analyze = jest.fn().mockResolvedValue(analysisResult);
@@ -232,7 +235,7 @@ describe('AnalysisService direct China seismic workflow', () => {
       },
     });
     expect(prisma.analysis.update).toHaveBeenLastCalledWith({
-      where: { id: 'analysis-1' },
+      where: expect.objectContaining({ id: 'analysis-1', status:'running', results:{equals:expect.objectContaining({requestId:expect.any(String)})} }),
       data: expect.objectContaining({
         status: 'completed',
         results: expect.objectContaining({
@@ -285,6 +288,7 @@ describe('AnalysisService direct China seismic workflow', () => {
       id: 'analysis-1',
       ...data,
     }));
+    prisma.analysis.updateMany = jest.fn().mockResolvedValue({count:1});
 
     const service = new AnalysisService();
     service.executionService.analyze = jest.fn().mockResolvedValue(analysisResult);
@@ -292,13 +296,22 @@ describe('AnalysisService direct China seismic workflow', () => {
 
     await expect(service.runAnalysis('analysis-1')).rejects.toThrow(/GB50011-compatible designCode/);
     expect(service.codeCheckExecutionService.codeCheck).not.toHaveBeenCalled();
-    expect(prisma.analysis.update).toHaveBeenLastCalledWith({
-      where: { id: 'analysis-1' },
+    expect(prisma.analysis.updateMany).toHaveBeenLastCalledWith({
+      where: expect.objectContaining({ id:'analysis-1',status:'running',results:{equals:expect.objectContaining({requestId:expect.any(String)})} }),
       data: expect.objectContaining({
         status: 'failed',
         error: expect.stringContaining('GB50011-compatible designCode'),
       }),
     });
+  });
+
+  test('a running task cannot launch a second solver job', async () => {
+    prisma.analysis.findUnique = jest.fn().mockResolvedValue({id:'busy',type:'static',parameters:{},model:{updatedAt:new Date()}});
+    prisma.analysis.updateMany = jest.fn().mockResolvedValue({count:0});
+    const service = new AnalysisService();
+    service.executionService.analyze = jest.fn();
+    await expect(service.runAnalysis('busy')).rejects.toThrow('ANALYSIS_TASK_RUNNING_OR_CHANGED');
+    expect(service.executionService.analyze).not.toHaveBeenCalled();
   });
 });
 

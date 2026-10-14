@@ -21,7 +21,7 @@ test('CLI forwards the shared HTTP contract without hidden retry or policy defau
     expect(calls).toBe(1);
     expect(response.effectiveRunPolicy.skillIds).toEqual([]);
     calls=0;
-    await expect(runAgent(['--request',file],{},async()=>{calls++;throw new Error('response lost')})).rejects.toThrow('response lost');
+    await expect(runAgent(['--request',file],{},async(url)=>{calls++;expect(url.port).toBe('31415');throw new Error('response lost')})).rejects.toThrow('response lost');
     expect(calls).toBe(1);
   } finally {
     if(path.dirname(path.resolve(dir))!==path.resolve(os.tmpdir()) || !path.basename(dir).startsWith('sclaw-cli-request-')) throw new Error('Invalid fixture directory');

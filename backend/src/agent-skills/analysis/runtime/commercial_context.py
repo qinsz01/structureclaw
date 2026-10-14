@@ -121,3 +121,39 @@ def attach_native_design_context(result: dict, source: dict, projection: dict, *
     if isinstance(result.get("nativeDesignResults"), dict):
         result["nativeDesignResults"]["context"] = context
     return result
+
+
+def attach_native_result_set(result: dict, model: dict, parameters: dict, select) -> dict:
+    """Project requested views of one completed native job; never rerun its solver."""
+    selections = parameters.get("_internalResultSelections")
+    if selections is None:
+        return result
+    if not isinstance(selections, list) or not selections:
+        raise ValueError("NATIVE_RESULT_SELECTION_INVALID")
+    combinations = {str(row["id"]): row for row in model.get("load_combinations", [])}
+    cases = {str(row["id"]) for row in model.get("load_cases", [])}
+    entries = {}
+    for row in selections:
+        if not isinstance(row, dict) or row.get("kind") not in ("case", "combination"):
+            raise ValueError("NATIVE_RESULT_SELECTION_INVALID")
+        key, identity, kind = row.get("key"), row.get("id"), row["kind"]
+        if key != f"{kind}:{identity}" or key in entries:
+            raise ValueError("NATIVE_RESULT_SELECTION_INVALID")
+        if (kind == "case" and identity not in cases) or (kind == "combination" and identity not in combinations):
+            raise ValueError("NATIVE_RESULT_SELECTION_NOT_FOUND")
+        combo = combinations.get(identity) if kind == "combination" else None
+        selected_ids = list(combo["factors"]) if combo else [identity]
+        try:
+            selected = select(copy.deepcopy(result), selected_ids, combo)
+            if selected.get("selectedResult") != {"kind": kind, "id": identity}:
+                raise ValueError("NATIVE_RESULT_SELECTION_MISMATCH")
+            # All raw cases remain on the primary result; views carry their own
+            # signed selected values and the same native project provenance.
+            for field in ("caseResults", "envelopeTables", "nativeResultSet"):
+                selected.pop(field, None)
+            entries[key] = {"success": True, "data": selected}
+        except Exception as exc:
+            entries[key] = {"success": False, "data": {},
+                            "error_code": getattr(exc, "error_code", "NATIVE_RESULT_PROJECTION_FAILED"),
+                            "message": str(exc)}
+    return {**result, "nativeResultSet": {"schema": "sclaw-native-result-set/v1", "results": entries}}

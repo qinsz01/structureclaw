@@ -6,6 +6,28 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from commercial_context import project_commercial_model, build_native_design_context
+from commercial_context import attach_native_result_set
+
+
+def test_native_result_set_projects_one_job_without_mutating_source_or_cross_case_contamination():
+    model = {"load_cases": [{"id": "D"}, {"id": "L"}],
+             "load_combinations": [{"id": "U", "factors": {"D": 1.2, "L": 1.4}}]}
+    source_result = {"caseResults": {"D": {"value": 2}, "L": {"value": 3}}, "summary": {"nativeProject": "owned.jws"}}
+    before = copy.deepcopy(source_result)
+    def select(output, cases, combo):
+        value = sum(output["caseResults"][key]["value"] * (combo["factors"][key] if combo else 1) for key in cases)
+        output["caseResults"]["D"]["value"] = 999
+        output.update(value=value, selectedResult={"kind": "combination" if combo else "case", "id": combo["id"] if combo else cases[0]})
+        return output
+    params = {"_internalResultSelections": [{"key": f"{kind}:{identity}", "kind": kind, "id": identity}
+              for kind, identity in [("case", "D"), ("case", "L"), ("combination", "U")]]}
+    result = attach_native_result_set(source_result, model, params, select)
+    entries = result["nativeResultSet"]["results"]
+    assert entries["case:D"]["data"]["value"] == 2
+    assert entries["case:L"]["data"]["value"] == 3
+    assert entries["combination:U"]["data"]["value"] == pytest.approx(6.6)
+    assert "caseResults" not in entries["case:D"]["data"]
+    assert source_result == before
 
 
 def source():

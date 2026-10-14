@@ -8,6 +8,29 @@ import { createQueryResultsTool } from '../dist/agent-langgraph/model-tools.js';
 import { resultTableMarkdown, scalarResultQuantity, queryPhysicalResponse, enrichResultData } from '../dist/engineering/result-data.js';
 
 describe('archived and requested results', () => {
+  test.each(['builtin-pkpm', 'builtin-yjk'])('one %s job supplies every explicit result without resubmission', async engineId => {
+    const model = {nodes:[],elements:[],materials:[],sections:[],load_cases:[{id:'D',loads:[]},{id:'L',loads:[]}],load_combinations:[{id:'U',factors:{D:1.2,L:1.4}}]};
+    const payload = {model,type:'static',engineId,parameters:{}};
+    let calls = 0;
+    const invoke = async request => {
+      calls++;
+      expect(request.parameters._internalResultSelections.map(s => s.key)).toEqual(['case:D','case:L','combination:U']);
+      return {success:true,data:{nativeResultSet:{schema:'sclaw-native-result-set/v1',results:Object.fromEntries(
+        request.parameters._internalResultSelections.map((s,i) => [s.key,{success:true,data:{selectedResult:{kind:s.kind,id:s.id},summary:{maxDisplacement:i+1}}}]))}}};
+    };
+    const run = await executeAnalysisRun(payload, invoke, async () => {});
+    expect(calls).toBe(1); expect(run.success).toBe(true);
+    expect(run.results['combination:U'].data.summary.maxDisplacement).toBe(3);
+    expect(run.results['case:L'].meta.effectiveParameters).toEqual({loadCaseIds:['L']});
+    expect(run.meta.requestParameters).toEqual({});
+    calls=0;
+    const unknown = await executeAnalysisRun(payload, async () => { calls++; throw new Error('connection lost'); }, async () => {});
+    expect(calls).toBe(1); expect(unknown.success).toBe(false);
+    expect(Object.values(unknown.results).every(r => r.success === false)).toBe(true);
+    calls=0;
+    const missing = await executeAnalysisRun(payload, async () => {calls++;return {success:true,data:{}};},async () => {});
+    expect(calls).toBe(1); expect(missing.results['case:L'].error_code).toBe('NATIVE_RESULT_SET_INCOMPLETE');
+  });
   test('an unknown selection cannot relabel a legacy single-result run', async () => {
     const legacy = { runId: 'legacy', success: true, data: { displacements: { a: { ux: .001 } } } };
     const invoke = args => createQueryResultsTool().invoke({ runId: 'legacy', field: 'displacements', nodeId: 'a',

@@ -1,10 +1,12 @@
 import { attachNativeReport, createEngineeringReport } from './engineering-report.js';
 import { nativeDesignRecord, resolveCheckProvider, type CodeCheckProvider } from '../engineering/native-design.js';
 import { resultEngine } from '../engineering/result-data.js';
-import { checkRunResults, formatCheckSummary } from '../engineering/code-checks.js';
+import { checkRunResults } from '../engineering/code-checks.js';
 import { modelHash, isRecord as isReportResult } from '../engineering/model-state.js';
 import { analysisSettingsHash } from '../engineering/analysis-runs.js';
+import { randomUUID } from 'node:crypto';
 import { prisma } from '../utils/database.js';
+import { Prisma } from '../generated/prisma/client.js';
 import { cache } from '../utils/cache.js';
 import { ensureConversationId } from '../utils/demo-conversation.js';
 import { AnalysisExecutionService } from './analysis-execution.js';
@@ -83,19 +85,10 @@ export function withDirectModelCoordinateContract<T extends Record<string, unkno
   };
 }
 
-function nonEmptyRecord(value: unknown): Record<string, unknown> | undefined {
-  const record = asRecord(value);
-  return Object.keys(record).length > 0 ? record : undefined;
-}
-
 function codeCheckPayload(codeCheck: unknown): Record<string, unknown> {
   const record = asRecord(codeCheck);
   const data = asRecord(record.data);
   return Object.keys(data).length > 0 ? data : record;
-}
-
-function codeCheckSummary(codeCheck: unknown): Record<string, unknown> | undefined {
-  return nonEmptyRecord(codeCheckPayload(codeCheck).summary);
 }
 
 
@@ -264,11 +257,17 @@ export class AnalysisService {
       throw new Error('分析任务不存在');
     }
 
-    // 更新状态
-    await prisma.analysis.update({
-      where: { id: analysisId },
-      data: { status: 'running', startedAt: new Date() },
-    });
+    // A task is not a solver request. Claim it atomically so concurrent HTTP
+    // calls cannot launch duplicate native jobs or publish out of order.
+    const reservation = { requestId: randomUUID(), modelVersion: analysis.model.updatedAt?.toISOString(),
+      parameters: analysis.parameters, type: analysis.type };
+    const currentInput = { id: analysisId, type: analysis.type,
+      parameters: { equals: analysis.parameters === null ? Prisma.JsonNull : analysis.parameters as Prisma.InputJsonValue },
+      model: { updatedAt: analysis.model.updatedAt } };
+    const claimed = await prisma.analysis.updateMany({ where: { ...currentInput, status: { not: 'running' } },
+      data: { status: 'running', startedAt: new Date(), completedAt: null, error: null, results: reservation } });
+    if (claimed.count !== 1) throw new Error('ANALYSIS_TASK_RUNNING_OR_CHANGED / 分析任务正在运行或输入已变化');
+    const owned = { ...currentInput, status: 'running', results: { equals: reservation } };
 
     try {
       const persistedModel = {
@@ -282,6 +281,7 @@ export class AnalysisService {
         engineId: (analysis.parameters as Record<string, unknown> | null)?.engineId,
         model: canonicalAnalysisModel,
         parameters: analysis.parameters,
+        requestId: reservation.requestId,
       });
       if (results && results.success === false) {
         const errorCode = results.error_code || 'ANALYSIS_EXECUTION_FAILED';
@@ -316,7 +316,7 @@ export class AnalysisService {
 
       // 保存结果
       const updatedAnalysis = await prisma.analysis.update({
-        where: { id: analysisId },
+        where: owned,
         data: {
           status: 'completed',
           completedAt: new Date(),
@@ -326,8 +326,8 @@ export class AnalysisService {
 
       return updatedAnalysis;
     } catch (error: any) {
-      await prisma.analysis.update({
-        where: { id: analysisId },
+      await prisma.analysis.updateMany({
+        where: owned,
         data: {
           status: 'failed',
           error: error.message,

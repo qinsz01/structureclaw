@@ -99,6 +99,7 @@ export async function executeAnalysisRun(
   assertResolvedInput(isRecord(model.metadata) ? model.metadata.inputEvidence : undefined);
   assertInputEvidenceMatchesModel(model);
   const parameters = normalizeAnalysisParameters(isRecord(payload.parameters) ? structuredClone(payload.parameters) : {});
+  if ('_internalResultSelections' in parameters) throw new Error('RESERVED_ANALYSIS_PARAMETER');
   const selections = analysisSelections(model, parameters, payload.type);
   const runId = randomUUID();
   const startedAt = new Date().toISOString();
@@ -109,6 +110,9 @@ export async function executeAnalysisRun(
     throw new Error('ANALYSIS_REQUEST_BINDING_MISMATCH');
   }
   const results: ModelRecord = {};
+  const commercialBatch = ['builtin-pkpm', 'builtin-yjk'].includes(String(payload.engineId))
+    && selections.every(selection => selection.kind !== 'analysis');
+  let nativeResponse: ModelRecord | undefined;
   for (const selection of selections) {
     const effective = { ...parameters };
     for (const key of SELECTION_FIELDS) delete effective[key];
@@ -116,7 +120,36 @@ export async function executeAnalysisRun(
     if (selection.kind === 'combination') effective.loadCombinationId = selection.id;
     let result: ModelRecord;
     try {
-      result = await invoke({ ...payload, model, parameters: effective });
+      if (commercialBatch) {
+        // Commercial backends solve all native cases in one owned job. A failed
+        // projection must not silently launch another analysis/design job.
+        if (!nativeResponse) {
+          try {
+            nativeResponse = await invoke({ ...payload, model,
+              parameters: { ...effective, _internalResultSelections: selections } });
+          } catch (error) {
+            nativeResponse = { success: false, error_code: 'ANALYSIS_EXECUTION_FAILED',
+              message: error instanceof Error ? error.message : String(error), data: {} };
+          }
+        }
+        const data = isRecord(nativeResponse.data) ? nativeResponse.data : {};
+        const batch = isRecord(data.nativeResultSet) ? data.nativeResultSet : {};
+        const entry = isRecord(batch.results) ? batch.results[selection.key] : undefined;
+        if (nativeResponse.success === false) result = structuredClone(nativeResponse);
+        else if (batch.schema !== 'sclaw-native-result-set/v1' || !isRecord(entry) || typeof entry.success !== 'boolean') {
+          result = { success: false, error_code: 'NATIVE_RESULT_SET_INCOMPLETE', message: `Missing native result: ${selection.key}`, data: {} };
+        } else {
+          result = { ...structuredClone(nativeResponse), ...structuredClone(entry), meta: nativeResponse.meta };
+          const selectedNative = isRecord(result.data) && isRecord(result.data.selectedResult) ? result.data.selectedResult : {};
+          if (entry.success && (selectedNative.id !== selection.id || selectedNative.kind !== selection.kind)) {
+            throw new Error('NATIVE_RESULT_SELECTION_MISMATCH');
+          }
+          if (isRecord(result.data) && selection === selections[0]) {
+            result.data.caseResults = data.caseResults;
+            result.data.envelopeTables = data.envelopeTables;
+          }
+        }
+      } else result = await invoke({ ...payload, model, parameters: effective });
       const suppliedMeta = isRecord(result.meta) ? result.meta : {};
       const expected: ModelRecord = { ...binding, modelHash: fingerprint, settingsHash };
       for (const key of ['modelHash', 'settingsHash', 'modelRevision', 'requestSequence']) {
