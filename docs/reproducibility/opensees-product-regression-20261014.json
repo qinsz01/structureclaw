@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-14",
+  "scope": "StructureClaw product OpenSees static, modal, transient, seismic and archived delivery; no Bench, commercial native execution or paid LLM",
+  "status": "passed-production-boundary",
+  "codeCommit": "e42845ceb36003821310fe088264d1034910aa8a",
+  "isolatedDataDirectory": "G:\\StructureClaw-All\\sclaw_data\\work\\opensees-product-regression-20261014-151217-db2c5a08",
+  "checks": [
+    {
+      "name": "public-tools",
+      "status": "passed",
+      "scenarios": [
+        "released-continuous-beam",
+        "spatial-mixed-bracing",
+        "transient-nodes-endforces-reactions",
+        "modal-two-orthogonal-bending-modes"
+      ],
+      "queries": 76,
+      "delivery": [
+        "query_results",
+        "archived run",
+        "English report",
+        "Chinese report"
+      ],
+      "artifacts": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\opensees-product-regression-20261014-151217-db2c5a08\\final-public-tools.log",
+          "sha256": "071393d525ea09a4996058634632b4f3e2655b446d1c2bf120de212703d179a9"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\opensees-product-regression-20261014-151217-db2c5a08\\work\\opensees-tools-RJ2XH7\\acceptance.json",
+          "sha256": "c5952b2adf5670b2ef8948bb63ec06a448e8889ee2f743fab48eab1442ee2676"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\opensees-product-regression-20261014-151217-db2c5a08\\work\\opensees-tools-RJ2XH7\\frozen-input-reference.json",
+          "sha256": "036fdf1899626a614a68223189d3d6bc464fe4fa0f37b76190a024d4cc00a2f9"
+        }
+      ]
+    },
+    {
+      "name": "real-http-archive",
+      "status": "passed",
+      "queries": 21,
+      "coverage": [
+        "D/L/U",
+        "request revision/hash/settings/sequence preserved",
+        "archived query",
+        "station/side/unit values"
+      ],
+      "artifact": {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\opensees-product-regression-20261014-151217-db2c5a08\\final-http-archive.log",
+        "sha256": "2339df10b3a6b3379e940df404826612eb764afd88d11cb2286ab3ab1699fe5e"
+      }
+    },
+    {
+      "name": "python-representative-regression",
+      "status": "passed",
+      "tests": 36,
+      "artifact": {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\opensees-product-regression-20261014-151217-db2c5a08\\python-worker-boundary-final.xml",
+        "sha256": "5a08f35092d87720107f0957e86ea3f9749f5c239a1a52359e3b8ab941e00332"
+      },
+      "command": "python -m pytest backend/src/agent-skills/analysis/opensees-static/__tests__/test_planned_capability_combinations.py::test_spatial_truss_star_with_different_bar_properties backend/src/agent-skills/analysis/opensees-static/__tests__/test_planned_capability_combinations.py::test_spatial_mixed_brace_and_frame_six_dof_coupling backend/src/agent-skills/analysis/opensees-dynamic/__tests__/test_shared_mass_modal.py backend/src/agent-skills/analysis/opensees-dynamic/__tests__/test_transient_observations.py -q"
+    },
+    {
+      "name": "validate-opensees-runtime-and-routing",
+      "status": "passed",
+      "command": "node tests/runner.mjs validate validate-opensees-runtime-and-routing",
+      "artifact": {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\opensees-product-regression-20261014-151217-db2c5a08\\validate-opensees-runtime-and-routing.log",
+        "sha256": "30c91553182482892a7f3b74ae334713aa1c98f631d2f76a01632c51a0ff2575"
+      }
+    },
+    {
+      "name": "validate-analyze-contract",
+      "status": "passed",
+      "command": "node tests/runner.mjs validate validate-analyze-contract",
+      "artifact": {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\opensees-product-regression-20261014-151217-db2c5a08\\validate-analyze-contract.log",
+        "sha256": "cde46f94f283f4ad9094b0912f88c16de5803b68167986c2d40ecea44a6889a4"
+      }
+    },
+    {
+      "name": "validate-seismic-analyze-contract",
+      "status": "passed",
+      "command": "node tests/runner.mjs validate validate-seismic-analyze-contract",
+      "artifact": {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\opensees-product-regression-20261014-151217-db2c5a08\\validate-seismic-analyze-contract.log",
+        "sha256": "b9bb5053f0a42ce4f9cdf9d1788a8c8a7ba7523e59e7df633403294a39645391"
+      }
+    },
+    {
+      "name": "validate-seismic-directional-ground-motion-contract",
+      "status": "passed",
+      "command": "node tests/runner.mjs validate validate-seismic-directional-ground-motion-contract",
+      "artifact": {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\opensees-product-regression-20261014-151217-db2c5a08\\validate-seismic-directional-ground-motion-contract.log",
+        "sha256": "bdf51cd035412a7b5aeae76c7fb8a3128b25cbfe66b36501471ca784a0f1d4d9"
+      }
+    },
+    {
+      "name": "pkpm-api-flow-test-only",
+      "status": "passed",
+      "tests": 21,
+      "nativeExecution": false,
+      "changeCommit": "3f69716",
+      "artifact": {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\opensees-product-regression-20261014-151217-db2c5a08\\pkpm-flow-test.json",
+        "sha256": "885228a92dfae91bdfdb0b26ff5f9e82ea7130cf41c328d08eec5d4d4262e413"
+      }
+    }
+  ],
+  "directLibraryLimitation": {
+    "status": "reproduced-outside-production-worker-boundary",
+    "trigger": "Same Python process first solves a pure 3-D/3-DOF truss, then a 2-D/3-DOF mixed frame/truss transient; ops.wipe() does not clear upstream Truss class-static work buffers.",
+    "observed": "First top ux = -8.921834428289673e-7 m instead of -4.614737775410002e-9 m; standalone same model passes. Nonphysical truss end moments appear after the dimension switch.",
+    "upstreamSource": "https://github.com/OpenSees/OpenSees/blob/master/SRC/element/truss/Truss.cpp",
+    "upstreamSections": [
+      "class-static trussM6/trussV6",
+      "setDomain 2-D/3-DOF and 3-D/3-DOF choose same buffers",
+      "getResistingForce writes only dimension translation entries"
+    ],
+    "productionBoundary": "AnalysisRuntimeRunner invokes PythonWorkerRunner; each invoke spawns a new process. runtime/worker.py reads and executes one request then exits. Batch cases use one unchanged model dimension.",
+    "resolution": "Regression now executes two consecutive real worker requests and retains all original 100-step Newmark, member force and reaction assertions. No production DOF, model, reference, tolerance or result adjustment was made.",
+    "testCommit": "214262a",
+    "failureEvidence": [
+      {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\opensees-product-regression-20261014-151217-db2c5a08\\python-regression.log",
+        "sha256": "f7237e4987a219cecf846d6dd49df249a214dc7cd458f1fa019ff8110c7286f3"
+      },
+      {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\opensees-product-regression-20261014-151217-db2c5a08\\python-regression.xml",
+        "sha256": "09288376ad07b3c5160e2a6d06b17c55b81fc6700108fc24cdae7ce84cf3a19f"
+      },
+      {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\opensees-product-regression-20261014-151217-db2c5a08\\test_spatial_truss_star_with_different_bar_properties-order.log",
+        "sha256": "6fc4a3d6b3abfbeca872bc1a92e0887c946e2b59e4c2157e62c5e5afce518419"
+      }
+    ],
+    "standaloneEvidence": {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\opensees-product-regression-20261014-151217-db2c5a08\\mixed-2d-isolated.xml",
+      "sha256": "7945924925a67649dbda4c88a3a67e1ab79cd6c9ef143d656f85b684339504e0"
+    },
+    "remainingLimit": "Direct embedded Python use across these layouts in one process is not certified; use the existing per-request worker boundary."
+  },
+  "executionFingerprint": [
+    {
+      "path": "backend/tests/fixtures/opensees-chain-reference.mjs",
+      "sha256": "c4cc433749e20c9c9f8d76149db1805d462d050963069d293708b0e9eb762cf2"
+    },
+    {
+      "path": "backend/tests/fixtures/cantilever-reference.mjs",
+      "sha256": "23b4d7dbe7bb14816a314f22778f37386db19248379718a6bcc12cf03c1ca683"
+    },
+    {
+      "path": "backend/dist/agent-langgraph/tools.js",
+      "sha256": "bb96f08c598705f44f76ea2e43e1f4eeb42ce8ca74d413cda46d7b4d014fcae8"
+    },
+    {
+      "path": "backend/dist/agent-langgraph/model-tools.js",
+      "sha256": "fb72a13cc861f4ff49767bfe97a1bab4089bdce092c7d0b324610133012214a0"
+    },
+    {
+      "path": "backend/dist/services/analysis-execution.js",
+      "sha256": "cda44807f0de6238064f40c847e7b4fb4b07342b970e02605e7fe2cc07e87f56"
+    },
+    {
+      "path": "tests/regression/analysis-runner.py",
+      "sha256": "8f413d2850554066d1299a7990b1e6ea59a202d4aaee292ae13699340a0ad07c"
+    }
+  ],
+  "jsBuildNote": "First JS run was successful but overlapped unrelated builds; final-js-receipt records the rerun after the coordinated successful build.",
+  "finalJsReceipt": {
+    "path": "G:\\StructureClaw-All\\sclaw_data\\work\\opensees-product-regression-20261014-151217-db2c5a08\\final-js-receipt.json",
+    "sha256": "4c24bbf55b6a05d2c49ac9a24caff5399bb790b51ae52cafe404eb0a1bd7ac14"
+  }
+}
