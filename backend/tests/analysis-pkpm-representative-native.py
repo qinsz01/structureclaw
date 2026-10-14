@@ -10,6 +10,10 @@ Use --case INT-089 --state 1|2 --planned-proxy or --case MM-089
 For numeric-section acceptance use --model-file with the saved inputs under
 backend/tests/fixtures/pkpm-numeric-capabilities; add --combination for its
 pin-combination.json input. These are capability probes, not authored Bench tasks.
+For physical load refinement use --case interior-loads --model-file
+backend/tests/fixtures/pkpm-interior-load-capabilities/partial-point-deep-reversed.json
+--combination. The deep reversed member combines partial uniform and six-component
+point actions in D/L/ULS; physical nodes and member end forces remain the checks.
 
 Every invocation freezes model, independent reference and tolerances before the
 candidate runs, retains all native files, and exits nonzero on any missing or
@@ -46,11 +50,21 @@ def external_resultant(model, case):
             member = members[load["element"]]
             first, last = (nodes[key] for key in member["nodes"])
             length = math.dist(first, last)
-            if load.get("start", 0) != 0 or load.get("end", length) != length:
-                raise ValueError("Reference equilibrium currently requires full-span line loads")
-            point = [(a+b)/2 for a, b in zip(first, last)]
-            force = [load.get(key, 0.)*length for key in ("wx", "wy", "wz")]
+            start, end = float(load.get('start', 0)), float(load.get('end', length))
+            if not 0 <= start < end <= length or load.get('distribution', 'uniform') != 'uniform':
+                raise ValueError("Reference equilibrium requires bounded uniform line loads")
+            point = [a+(b-a)*(start+end)/(2*length) for a, b in zip(first, last)]
+            force = [load.get(key, 0.)*(end-start) for key in ("wx", "wy", "wz")]
             moment = [0.] * 3
+        elif load['type'] == 'point':
+            first, last = (nodes[key] for key in members[load['element']]['nodes'])
+            length = math.dist(first, last)
+            position = float(load['position'])
+            if not 0 <= position <= length:
+                raise ValueError('Reference point load lies outside physical member')
+            point = [a+(b-a)*position/length for a, b in zip(first, last)]
+            force = [load.get(key, 0.) for key in ('fx', 'fy', 'fz')]
+            moment = [load.get(key, 0.) for key in ('mx', 'my', 'mz')]
         else:
             raise ValueError("Unsupported reference equilibrium load")
         cross = [point[1]*force[2]-point[2]*force[1], point[2]*force[0]-point[0]*force[2], point[0]*force[1]-point[1]*force[0]]

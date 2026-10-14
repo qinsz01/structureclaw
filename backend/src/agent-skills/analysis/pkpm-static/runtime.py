@@ -698,6 +698,11 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     design_plan = compile_design_request(parameters.get("design"), source_model)
     projection = project_commercial_model(source_model, "pkpm")
     model_dict = projection["analysisModel"]
+    from native_member_mesh import compile_member_mesh, restore_physical_results
+    physical_model = model_dict
+    model_dict, mesh_receipt = compile_member_mesh(physical_model)
+    if mesh_receipt and design_plan:
+        raise ValueError('Native member design requires physical-member grouping; refined beam design is not yet mapped / 原生构件设计需要物理构件归并，分段梁设计尚未接通')
     from native_rigid_offsets import material_plan as rigid_material_plan
     material_plan = rigid_material_plan(model_dict)
     combination_id = parameters.get("loadCombinationId")
@@ -736,6 +741,8 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
             model_dict, work_dir, project_name, material_family=material_family, design_plan=design_plan, **material_options)
         import json
         (work_dir / "source-model.json").write_text(json.dumps(source_model, ensure_ascii=False), encoding="utf-8")
+        if mesh_receipt:
+            (work_dir / 'physical-mesh.json').write_text(json.dumps(mesh_receipt, ensure_ascii=False, indent=2), encoding='utf8')
         (work_dir / "model-projection.json").write_text(json.dumps(
             {key: value for key, value in projection.items() if key != "analysisModel"}, ensure_ascii=False), encoding="utf-8")
         if design_plan:
@@ -1270,17 +1277,19 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     if extracted.get("native_displacement_source"):
         from native_result_adapter import complete_frame_results
         result_dict = complete_frame_results(model_dict, result_dict, jws_path)
+    result_dict = restore_physical_results(result_dict, mesh_receipt)
     if requested_cases:
         from native_result_adapter import select_result
-        result_dict = select_result(model_dict, result_dict, requested_cases, combination_id)
+        result_dict = select_result(physical_model, result_dict, requested_cases, combination_id)
     result_dict = attach_native_design_context(result_dict, source_model, projection,
         native_project=str(jws_path), parameters=parameters,
-        representation={"analysisOnly": numeric_sections,
-                        "method": "native-reference-carrier" if numeric_sections else "native-physical-section"})
+        representation={"analysisOnly": numeric_sections or bool(mesh_receipt),
+                        "method": "native-connected-load-breakpoint-segments" if mesh_receipt else
+                            "native-reference-carrier" if numeric_sections else "native-physical-section"})
     if design_plan:
         from pkpm_native_design import finish_native_design
         result_dict = finish_native_design(result_dict, source_model, design_plan, jws_path, pm_floor_elem_to_v2)
     from commercial_context import attach_native_result_set
     from native_result_adapter import select_result
     return attach_native_result_set(result_dict, source_model, parameters,
-        lambda output, cases, combination: select_result(model_dict, output, cases, combination["id"] if combination else None))
+        lambda output, cases, combination: select_result(physical_model, output, cases, combination["id"] if combination else None))

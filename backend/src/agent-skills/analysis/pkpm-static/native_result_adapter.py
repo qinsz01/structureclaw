@@ -16,6 +16,15 @@ def _hash(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
+def station_envelope(rows):
+    values = {key: max((row['components'][key] for row in rows), key=abs)
+              for key in ('N', 'Vy', 'Vz', 'T', 'My', 'Mz')}
+    values.update(V=max(math.hypot(row['components']['Vy'], row['components']['Vz']) for row in rows),
+                  M=max(math.hypot(row['components']['My'], row['components']['Mz']) for row in rows),
+                  referenceFrame='element-local')
+    return values
+
+
 def _publish_selected(result, selected):
     for field in ("displacements", "forces", "reactions", "memberStations", "nativeContext", "forceSemantics", "units",
                   "missingCapabilities", "capabilityStatus", "reactionSource", "reactionObjectSources", "boundaryDisplacementSource", "source"):
@@ -100,12 +109,7 @@ def complete_frame_results(model, result, jws_path):
             geometry["rigidOffsets"].setdefault("loadVerification", {})[case_id] = verify_case_equilibrium(model, case, case_id)
         case["forces"] = {}
         for member_id, rows in case["memberStations"].items():
-            components = {key: max((row["components"][key] for row in rows), key=abs)
-                          for key in ("N", "Vy", "Vz", "T", "My", "Mz")}
-            components.update(V=max(math.hypot(row["components"]["Vy"], row["components"]["Vz"]) for row in rows),
-                              M=max(math.hypot(row["components"]["My"], row["components"]["Mz"]) for row in rows),
-                              referenceFrame="element-local")
-            case["forces"][member_id] = components
+            case["forces"][member_id] = station_envelope(rows)
         case.update(capabilityStatus="complete", missingCapabilities=[],
                     forceSemantics="simultaneous-signed-stations", nativeContext=context,
                     units={"displacement": "m", "rotation": "rad", "force": "kN", "moment": "kN.m"})
@@ -134,10 +138,7 @@ def select_result(model, result, selected_ids, combination_id=None):
         selected = combine_linear_native_results(cases, definitions[0]["factors"], cases[selected_ids[0]].get("nativeContext", {}))
         selected["forces"] = {}
         for member_id, rows in selected["memberStations"].items():
-            values = {key: max((row["components"][key] for row in rows), key=abs) for key in ("N", "Vy", "Vz", "T", "My", "Mz")}
-            values.update(V=max(math.hypot(row["components"]["Vy"], row["components"]["Vz"]) for row in rows),
-                          M=max(math.hypot(row["components"]["My"], row["components"]["Mz"]) for row in rows), referenceFrame="element-local")
-            selected["forces"][member_id] = values
+            selected["forces"][member_id] = station_envelope(rows)
         result["combinationResults"] = {combination_id: selected}
         selection = {"kind": "combination", "id": combination_id}
     else:
