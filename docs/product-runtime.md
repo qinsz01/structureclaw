@@ -147,6 +147,63 @@ Model credentials are not policy fields and are not exported in these records.
 
 ## Shared entry points / 统一入口
 
+`requestScope` records response families, method, independent design/report requests,
+and exact scalar outputs (object, position, side, component, unit, saved case key).
+It belongs to the request, is saved in run metadata, and is accepted by chat context
+and public tool arguments. Ordinary analysis does not request code checking or a
+calculation book. A deliberate result-workspace action may still request either.
+Requested scalars use the common query service and its permissions/budget. Failed
+queries remain delivery deficiencies; solver success alone is not full delivery.
+
+`requestScope`记录响应类别、方法、独立设计/报告需求与标量位置、左右侧、分量、单位、工况键；
+它属于请求而非物理模型，保存在运行元数据中，聊天context与公开工具共用。普通分析不自动验算
+或生成计算书；结果工作区中的明确点击仍可请求这些交付。指定标量走公共查询及权限/预算；
+查询失败保留为交付缺项，求解成功不等于所求结果已全部交付。
+
+`run_analysis(method="equilibrium")` reuses the job/archive/query services for a
+horizontal single-span left-pinned/right-roller beam or left-fixed cantilever:
+explicit downward point forces, full-span UDL, cases and linear combinations.
+It never substitutes for a specified solver or an already built full model. Its
+read-only V2 geometry/load projection contains no fictional material/section and
+is bound to the accepted draft, revision, settings and request sequence. Only
+forces/reactions are available; displacement, stress and design are not calculated.
+Force curves render without a deformation view. With no requested additional
+weight, only named loads are included and that assumption is recorded. Explicit
+self-weight needs supplied weight data; units and unresolved evidence remain hard
+checks. Before object IDs exist, leave scalar outputs empty rather than invent IDs.
+An equivalent explicit two-node/single-member topology is checked without renaming
+its objects. If force and displacement are both requested but stiffness is missing,
+extraction exposes `partialAnalysisAvailable`. `run_analysis(method="equilibrium",
+allowPartial=true)` retains the complete accepted goal, publishes available forces,
+and records `missingRequestedResponses` with `data.status="partial"`. It cannot
+claim the whole request succeeded or fill the missing displacement with zero.
+Selecting equilibrium for a subset cannot remove other responses from the accepted
+goal; the service records the remaining responses as partial even if the agent
+supplies a temporarily narrowed scope.
+
+平衡方法复用同一作业、归档、查询服务，只支持水平单跨左铰右滚梁或左固悬臂梁、明确向下点力、
+全跨均布载、工况与线性组合。不能替代指定求解器或已有完整模型。只读V2几何/荷载投影不填假
+材料截面，有效性绑定草稿、版本、设置和请求次序；仅提供内力反力，不计算位移、应力或设计。
+图中不显示变形。未要求附加重量时仅计算题给荷载并记录假定；明确自重需要重量资料，单位和证据
+冲突检查保持执行。对象ID尚未产生时标量输出留空，不能编造ID或把输出名称当作工况键。
+等价的两节点单构件拓扑会校验支座和连接，保留对象ID。同时求内力与位移但缺少刚度时，抽取
+返回`partialAnalysisAvailable`；以`allowPartial=true`运行平衡法会保留完整请求目标，先交付
+内力，记录`missingRequestedResponses`与`data.status="partial"`，不能宣布整题完成或补零。
+Agent临时只选择内力计算，也不能删除已接受请求中的挠度等其他响应；服务端仍将其记为部分完成。
+
+For elastic statics with self-weight explicitly disabled, V2 may omit unused rho.
+OpenSees retains absent density; self-weight and density-derived mass still require
+it. Commercial custom material setters may require density as an SDK condition.
+Invalid declared density remains rejected. Concrete analysis uses the shared elastic
+template without reinforcement/slab sizing prerequisites. Reviewed section records
+are associated by an unambiguous ID/name; unreviewed catalogs do not get fabricated
+lookup values. These are general product behaviors, with no Bench IDs or runtime flags.
+
+自重明确关闭的弹性静力可不提供不用的密度，OpenSees保留缺项而不补假值；自重和密度质量来源
+仍要求密度，商业自定义材料可因SDK写入条件而需要它。显式无效密度仍被拒绝。混凝土分析复用
+公共弹性模板，不先做钢筋/楼板选型。审定截面按唯一ID/名称关联，未审定目录不编造查表值。
+这些是通用产品行为，不读取Bench题号或评测开关。
+
 Web advanced run settings and `sclaw run --request request.json` use the shared agent
 service and `context.runPolicy` contract. The CLI sends JSON to `POST /api/v1/agent/run`
 and honors the configured backend port (default 31415); `--url` overrides the address.

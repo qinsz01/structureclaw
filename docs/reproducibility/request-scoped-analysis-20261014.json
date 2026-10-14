@@ -1,0 +1,260 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-14",
+  "baseCommit": "a4a0459",
+  "implementationCommit": "c55e563c2e86e2d1a78973c2ee8b2528f9d53d9f",
+  "branch": "work/research-next",
+  "scope": "StructureClaw request-scoped analysis and partial delivery; no Bench/evaluation or independent commercial API changes",
+  "benchGitlinkBeforeAndAfter": "5102acb3fdf4618c31f385e51fd0e5b9280438a1",
+  "acceptance": [
+    "Force-only horizontal single-span beam calculation has no fictional material/stiffness, uses shared run/archive/query services, and has forces/reactions views without deformation.",
+    "Specified engines and complete models retain the real solver path; ordinary analysis does not automatically request code design or a report.",
+    "Partial force execution retains the complete accepted response goal and explicitly records missing displacement; narrower tool arguments cannot mark the whole request complete.",
+    "Source draft, evidence, revision, settings and request sequence protect current results; unsupported physics and unavailable response quantities are rejected.",
+    "Automatic scalar queries consume the server tool permissions and budget; disabled or exhausted queries remain explicit delivery deficiencies."
+  ],
+  "checks": [
+    {
+      "name": "backend-build",
+      "passed": true,
+      "log": "request-scope-backend-build-final.log"
+    },
+    {
+      "name": "backend-regression",
+      "passed": true,
+      "suites": 152,
+      "tests": 1723,
+      "log": "request-scope-backend-complete.log"
+    },
+    {
+      "name": "OpenSees-static",
+      "passed": true,
+      "tests": 89,
+      "log": "request-scope-static-python.log"
+    },
+    {
+      "name": "OpenSees-dynamic",
+      "passed": true,
+      "tests": 41,
+      "log": "request-scope-dynamic-final.log"
+    },
+    {
+      "name": "seismic",
+      "passed": true,
+      "tests": 102,
+      "subtests": 9,
+      "log": "request-scope-seismic-python.log"
+    },
+    {
+      "name": "frontend-components",
+      "passed": true,
+      "files": 4,
+      "tests": 45,
+      "log": "request-scope-frontend-components.log"
+    },
+    {
+      "name": "frontend-typecheck-and-build",
+      "passed": true,
+      "log": "request-scope-frontend-build-final.log"
+    },
+    {
+      "name": "browser-regression-scripted-LLM-only",
+      "passed": true,
+      "tests": 43,
+      "liveTestsSkipped": 5,
+      "log": "request-scope-browser.log"
+    },
+    {
+      "name": "real-provider-full-and-force-cases-earlier-candidate",
+      "passed": true,
+      "tests": 4,
+      "log": "request-scope-live-final.log"
+    },
+    {
+      "name": "real-provider-force-cases-with-viewer",
+      "passed": true,
+      "tests": 2,
+      "failedPartialCaseRetained": true,
+      "log": "request-scope-live-release.log"
+    },
+    {
+      "name": "real-provider-final-full-and-partial-cases",
+      "passed": true,
+      "tests": 2,
+      "automaticTestRetries": 0,
+      "log": "request-scope-live-complete.log"
+    },
+    {
+      "name": "agent-contract",
+      "passed": true,
+      "log": "request-scope-agent-contract-complete.log"
+    },
+    {
+      "name": "chat-stream-contract",
+      "passed": true,
+      "log": "request-scope-chat-contract-complete.log"
+    },
+    {
+      "name": "analyze-contract",
+      "passed": true,
+      "log": "request-scope-analyze-contract-complete.log"
+    },
+    {
+      "name": "changed-backend-lint",
+      "passed": true,
+      "errors": 0,
+      "existingWarnings": 1,
+      "log": "request-scope-lint-final.log"
+    }
+  ],
+  "liveReferences": [
+    {
+      "kind": "full OpenSees simply-supported beam + report + saved viewer",
+      "conversationId": "cmv88zb7r0000d0wmoe71aric",
+      "runId": "13760942-cc43-4230-a741-53429e317bd4",
+      "expected": {
+        "reactionsKN": [
+          0.5,
+          0.5
+        ],
+        "saggingMomentKNm": 2.5,
+        "deflectionMagnitudeMM": 1.516990291262136
+      }
+    },
+    {
+      "kind": "full OpenSees cantilever + report + saved viewer; earlier candidate",
+      "conversationId": "cmv87esqu0000nswmourrcmsf",
+      "runId": "f8453578-bd85-41d9-a972-befd32624df7",
+      "expected": {
+        "verticalReactionKN": 2,
+        "fixedEndMomentMagnitudeKNm": 6,
+        "deflectionMagnitudeMM": 0.2
+      }
+    },
+    {
+      "kind": "Chinese force-only beam + query + real viewer",
+      "conversationId": "cmv88mnss0000kwwmoj4qktb6",
+      "runId": "86c82b02-35f3-496a-9688-c50ca11cf280",
+      "expected": {
+        "reactionsKN": [
+          0.5,
+          0.5
+        ],
+        "saggingMomentKNm": 2.5,
+        "displacements": "not calculated"
+      }
+    },
+    {
+      "kind": "English force-only cantilever + query + real viewer",
+      "conversationId": "cmv88ok1v000dkwwmuxo21w5e",
+      "runId": "c82b8e5e-a901-4d60-9e3b-0ccf7943fe69",
+      "expected": {
+        "verticalReactionKN": 2,
+        "fixedEndMomentMagnitudeKNm": 6,
+        "displacements": "not calculated"
+      }
+    },
+    {
+      "kind": "final mixed force/deflection request without stiffness",
+      "conversationId": "cmv892cye000kd0wm8en0lphe",
+      "runId": "988f1f4c-55c2-4e0d-8d82-4a2372c4eb20",
+      "expected": {
+        "status": "partial",
+        "reactionsKN": [
+          0.5,
+          0.5
+        ],
+        "saggingMomentKNm": 2.5,
+        "missingRequestedResponses": [
+          "displacements"
+        ],
+        "displacements": "not calculated"
+      }
+    }
+  ],
+  "failedAttemptsPreserved": [
+    {
+      "log": "request-scope-live-attempt1.log",
+      "reason": "Static analysisType was initially required; scalar selectors were not grounded; valid left-fixed cantilever supportPositions=[0] was rejected.",
+      "repairs": [
+        "default static type",
+        "ground object IDs, components and case keys",
+        "validate support positions per support type"
+      ]
+    },
+    {
+      "log": "request-scope-partial-live.log",
+      "reason": "A force-only action plan omitted requested deflection; synthesized single-member topology was rejected.",
+      "repairs": [
+        "retain extracted full response families",
+        "accept and validate equivalent single-member topology with stable IDs"
+      ]
+    },
+    {
+      "log": "request-scope-live-stable.log",
+      "reason": "Missing coordinate protocol prevented actual viewer; narrowed partial goal was archived as full success.",
+      "repairs": [
+        "complete canonical result coordinate metadata",
+        "preserve accepted response goal in equilibrium execution"
+      ]
+    },
+    {
+      "log": "request-scope-live-release.log",
+      "reason": "Force-only browser cases passed; partial workflow still failed before final service-side goal preservation.",
+      "repairs": [
+        "treat narrowed equilibrium execution as partial against accepted full goal"
+      ]
+    },
+    {
+      "log": "request-scope-partial-release.log",
+      "reason": "Temporary run scope removed displacement and left data.status=success despite a pending clarification.",
+      "repairs": [
+        "cannot erase missing response families through run_analysis arguments; final mixed-case browser test passed"
+      ]
+    },
+    {
+      "logs": [
+        "request-scope-python.log",
+        "request-scope-python-importlib.log"
+      ],
+      "reason": "Combining sibling pytest suites caused duplicate basenames/import-helper collection failures; final runs use separate suite processes."
+    },
+    {
+      "log": "request-scope-dynamic-python.log",
+      "reason": "Density-free change temporarily rejected a legacy zero-mass test before mass validation; final builder preserves that existing independent mass check."
+    },
+    {
+      "logs": [
+        "request-scope-frontend.log",
+        "request-scope-frontend-final.log"
+      ],
+      "reason": "Initial frontend force-only test fixture had an incorrect transport shape; canonical fixture and actual browser delivery now pass."
+    }
+  ],
+  "evidence": {
+    "localDirectory": "G:/StructureClaw-All/sclaw_data/verification/request-scoped-analysis-20261014",
+    "manifest": "manifest.json",
+    "liveCases": "live-cases.json",
+    "credentialTextScan": "passed; no machine API credential found in exported JSON/log/HTML",
+    "includes": [
+      "logs",
+      "Playwright HTML reports",
+      "traces",
+      "screenshots",
+      "test-owned conversation/session exports",
+      "saved run snapshots"
+    ],
+    "excludes": [
+      "settings and API credentials",
+      "user databases",
+      "commercial user jobs"
+    ]
+  },
+  "limits": [
+    "This record certifies the tested product flows, not 300 authored Bench cases or a 100% language-model answer rate.",
+    "Equilibrium supports only validated horizontal one-member simply-supported/left-fixed beams with explicit point loads/full-span UDL and linear case combinations. Other structures retain full-model solvers.",
+    "Missing design information and unreviewed section catalogs remain explicit; no fabricated design values or catalog properties.",
+    "Commercial SDKs/APIs were not changed or re-certified in this scope.",
+    "Real-provider response latency varied from roughly 1 to 4 minutes per tested single-turn case."
+  ]
+}
