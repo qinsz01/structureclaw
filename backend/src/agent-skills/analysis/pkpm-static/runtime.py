@@ -201,82 +201,24 @@ def _assert_no_external_cycle(cycle_path: Path) -> None:
         raise RuntimeError("Another native PKPM batch is active; its configuration was not changed / 已有 PKPM 原生批处理运行，未修改其目录配置")
 
 
-def _run_jws_cycle(cycle_path: Path, work_dir: Path, timeout: int = 600, constraints=None, section_model=None) -> None:
-    """Launch JWSCYCLE.exe using the official DirectorySet.conf mechanism.
+def _run_jws_cycle(cycle_path: Path, work_dir: Path, timeout: int = 600, constraints=None, section_model=None, include_design=False) -> None:
+    """Run explicit native phases in the owned project; never select a shared directory.
 
-    Per PKPM official API documentation (gitee.com/pkpmgh/pkpm-official---api-release):
-    1. Write work_dir path into DirectorySet.conf in the PkpmCycle directory.
-    2. Set cwd to the PkpmCycle directory.
-    3. Launch JWSCYCLE.exe (no CLI arguments needed).
-
-    Serializes processes, preserves configuration bytes, retains the launcher
-    transcript, and terminates only this launcher's process tree on timeout.
+    Even forcibly terminating the Python worker leaves the installation's
+    DirectorySet.conf untouched. Native finalization can generate design data;
+    interpreting that data still requires an explicit validated design request.
     """
-    cycle_dir = cycle_path.parent
-    if constraints or section_model is not None:
-        from native_stages import run_native_stages
-        with _jws_cycle_lock, _cycle_file_lock(cycle_dir / ".structureclaw-cycle.lock", timeout):
-            _assert_no_external_cycle(cycle_path)
-            run_native_stages(cycle_path, work_dir, constraints, _terminate_cycle_tree, timeout, section_model=section_model)
-        return
-    conf_path = cycle_dir / "DirectorySet.conf"
+    from native_stages import run_native_stages
+    import hashlib
+    lock_directory = Path(tempfile.gettempdir()) / "structureclaw-pkpm-locks"
+    lock_directory.mkdir(exist_ok=True)
+    lock = lock_directory / (hashlib.sha256(str(cycle_path.resolve()).casefold().encode()).hexdigest() + ".lock")
     started_at = time.time()
-
-    with _jws_cycle_lock, _cycle_file_lock(cycle_dir / ".structureclaw-cycle.lock", timeout):
+    with _jws_cycle_lock, _cycle_file_lock(lock, timeout):
         _assert_no_external_cycle(cycle_path)
-        had_previous_conf = conf_path.exists()
-        previous_conf = conf_path.read_bytes() if had_previous_conf else None
-        selected_conf = str(work_dir).encode("utf-8")
-        conf_path.write_bytes(selected_conf)
-        proc = None
-        try:
-            try:
-                proc = subprocess.Popen(
-                    [str(cycle_path)],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    encoding="utf-8",
-                    errors="replace",
-                    cwd=str(cycle_dir),
-                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
-                    start_new_session=os.name != "nt",
-                )
-                try:
-                    stdout, stderr = proc.communicate(timeout=timeout)
-                except subprocess.TimeoutExpired:
-                    _terminate_cycle_tree(proc)
-                    stdout, stderr = proc.communicate()
-                    (work_dir / "cycle-stdout.log").write_text(stdout or "", encoding="utf-8")
-                    (work_dir / "cycle-stderr.log").write_text(stderr or "", encoding="utf-8")
-                    raise RuntimeError(f"PKPM analysis timed out after {timeout}s; its process tree was stopped / PKPM 计算超时，已终止本次进程树")
-                (work_dir / "cycle-stdout.log").write_text(stdout or "", encoding="utf-8")
-                (work_dir / "cycle-stderr.log").write_text(stderr or "", encoding="utf-8")
-            except (FileNotFoundError, OSError) as exc:
-                raise RuntimeError(
-                    f"Failed to launch JWSCYCLE.exe at '{cycle_path}': {exc}"
-                ) from exc
-        except BaseException:
-            if proc is not None and proc.poll() is None:
-                _terminate_cycle_tree(proc)
-            raise
-        finally:
-            # An external native client may have selected another directory.
-            # Do not overwrite that newer choice while releasing our lock.
-            if conf_path.exists() and conf_path.read_bytes() == selected_conf:
-                if had_previous_conf:
-                    conf_path.write_bytes(previous_conf)
-                else:
-                    conf_path.unlink()
-
-    if proc.returncode != 0:
-        stderr_snippet = (stderr or "")[:500]
-        raise RuntimeError(
-            f"JWSCYCLE.exe exited with code {proc.returncode}. "
-            f"stderr: {stderr_snippet}"
-        )
+        run_native_stages(cycle_path, work_dir, constraints, _terminate_cycle_tree, timeout,
+                          section_model=section_model, include_design=include_design)
     _verify_native_completion(work_dir, started_at)
-
 
 def _verify_native_completion(work_dir: Path, started_at: float) -> None:
     """Launcher exit zero alone also occurs when native stages fail."""
@@ -1300,7 +1242,11 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     if requested_cases:
         from native_result_adapter import select_result
         result_dict = select_result(model_dict, result_dict, requested_cases, combination_id)
-    return attach_native_design_context(result_dict, source_model, projection,
+    result_dict = attach_native_design_context(result_dict, source_model, projection,
         native_project=str(jws_path), parameters=parameters,
         representation={"analysisOnly": numeric_sections,
                         "method": "native-reference-carrier" if numeric_sections else "native-physical-section"})
+    from commercial_context import attach_native_result_set
+    from native_result_adapter import select_result
+    return attach_native_result_set(result_dict, source_model, parameters,
+        lambda output, cases, combination: select_result(model_dict, output, cases, combination["id"] if combination else None))

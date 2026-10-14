@@ -9,7 +9,7 @@ import subprocess
 import time
 
 
-def run_native_stages(cycle_path, work_dir, constraints, terminate_tree, timeout=120, section_model=None):
+def run_native_stages(cycle_path, work_dir, constraints, terminate_tree, timeout=120, section_model=None, include_design=False):
     executable = cycle_path.parent.parent / "Ribbon" / "PKPMMain.exe"
     if section_model is not None:
         solver = executable.parent / "SAT" / "SAT64" / "WINSAT-A_x64.exe"
@@ -19,9 +19,14 @@ def run_native_stages(cycle_path, work_dir, constraints, terminate_tree, timeout
         ["-PMCAD", "-PMCAD", "-AUTORIB", "BACKGROUNDONLY"],
         ["-ANA", "-auto_data", "BACKGROUNDONLY"],
         ["-ANA", "-auto_sata", "BACKGROUNDONLY"],
+        # The installed ResultData SDK requires this native finalization stage
+        # even for elastic results. It can also generate design data; only an
+        # explicit, validated design request may expose those conclusions.
         ["-ANA", "-auto_satf", "BACKGROUNDONLY"],
     ]
-    evidence = {"executable": str(executable), "cwd": str(work_dir), "phases": [], "status": "failed"}
+    evidence = {"executable": str(executable), "cwd": str(work_dir), "includeDesign": include_design,
+                "nativeFinalizationGeneratesDesignData": True,
+                "phases": [], "status": "failed", "sharedDirectoryConfigurationModified": False}
     started = time.time()
     try:
         for index, arguments in enumerate(phases):

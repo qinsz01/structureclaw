@@ -36,7 +36,7 @@ class NativeProcessTest(unittest.TestCase):
             launch.assert_not_called()
             self.assertEqual(config.read_bytes(), b"existing native batch")
 
-    def test_preserves_original_configuration_bytes_and_transcripts(self):
+    def test_native_stages_never_modify_installation_configuration(self):
         with tempfile.TemporaryDirectory() as directory:
             folder = Path(directory)
             work = folder / "work"
@@ -44,49 +44,57 @@ class NativeProcessTest(unittest.TestCase):
             config = folder / "DirectorySet.conf"
             original = "G:\\工程\\既有目录\r\n".encode("gbk")
             config.write_bytes(original)
-            process = Mock(returncode=0)
-            process.communicate.return_value = ("native stdout", "native stderr")
-            with patch.object(runtime.subprocess, "Popen", return_value=process):
+            def stages(cycle, project, constraints, terminate, timeout, **kwargs):
+                self.assertEqual(config.read_bytes(), original)
+                self.assertEqual(project, work)
+                self.assertFalse(kwargs["include_design"])
+                self.assertEqual(terminate, runtime._terminate_cycle_tree)
+            with patch("native_stages.run_native_stages", side_effect=stages) as launch:
                 runtime._run_jws_cycle(folder / "JWSCYCLE.exe", work)
+            launch.assert_called_once()
             self.assertEqual(config.read_bytes(), original)
-            self.assertEqual((work / "cycle-stdout.log").read_text(), "native stdout")
-            self.assertEqual((work / "cycle-stderr.log").read_text(), "native stderr")
+            self.assertFalse((folder / ".structureclaw-cycle.lock").exists())
 
-    def test_timeout_terminates_owned_tree_before_restoring_directory(self):
+    def test_abrupt_worker_failure_does_not_need_configuration_restoration(self):
         with tempfile.TemporaryDirectory() as directory:
             folder = Path(directory)
-            work = folder / "work"
-            work.mkdir()
             config = folder / "DirectorySet.conf"
-            config.write_bytes(b"original")
-            process = Mock()
-            process.communicate.side_effect = [subprocess.TimeoutExpired("JWSCYCLE", 1), ("partial", "")]
+            config.write_bytes(b"user-owned configuration")
+            with patch("native_stages.run_native_stages", side_effect=SystemExit("worker stopped")):
+                with self.assertRaisesRegex(SystemExit, "worker stopped"):
+                    runtime._run_jws_cycle(folder / "JWSCYCLE.exe", folder)
+            self.assertEqual(config.read_bytes(), b"user-owned configuration")
 
-            def terminate(owned):
-                self.assertIs(owned, process)
-                self.assertEqual(config.read_text(), str(work))
-
-            with patch.object(runtime.subprocess, "Popen", return_value=process), patch.object(runtime, "_terminate_cycle_tree", side_effect=terminate) as stop:
-                with self.assertRaisesRegex(RuntimeError, "timed out"):
-                    runtime._run_jws_cycle(folder / "JWSCYCLE.exe", work, 1)
-            stop.assert_called_once_with(process)
-            self.assertEqual(config.read_bytes(), b"original")
-            self.assertEqual((work / "cycle-stdout.log").read_text(), "partial")
-
-    def test_does_not_replace_new_external_directory_selection(self):
+    def test_compiled_constraints_and_design_interpretation_are_explicit(self):
         with tempfile.TemporaryDirectory() as directory:
             folder = Path(directory)
-            process = Mock(returncode=0)
+            constraints, model = [{"id": "pin"}], {"sections": []}
+            with patch("native_stages.run_native_stages") as launch:
+                runtime._run_jws_cycle(folder / "JWSCYCLE.exe", folder, 17,
+                                      constraints=constraints, section_model=model, include_design=True)
+            self.assertEqual(launch.call_args.args[2], constraints)
+            self.assertEqual(launch.call_args.kwargs, {"section_model": model, "include_design": True})
+            self.assertFalse((folder / "DirectorySet.conf").exists())
 
-            def communicate(**_kwargs):
-                (folder / "DirectorySet.conf").write_bytes(b"external user's choice")
-                return "", ""
-
-            process.communicate.side_effect = communicate
-            with patch.object(runtime.subprocess, "Popen", return_value=process):
-                runtime._run_jws_cycle(folder / "JWSCYCLE.exe", folder)
-            self.assertEqual((folder / "DirectorySet.conf").read_bytes(), b"external user's choice")
-
+    def test_stage_timeout_stops_only_owned_process_and_keeps_failure_evidence(self):
+        from native_stages import run_native_stages
+        import json
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            process = Mock(returncode=-9)
+            process.poll.return_value = None
+            process.communicate.side_effect = [subprocess.TimeoutExpired("owned", 1), (b"partial", b"")]
+            def stop(owned):
+                self.assertIs(owned, process)
+                process.poll.return_value = -9
+            with patch("native_stages.subprocess.Popen", return_value=process), patch.object(runtime, "_terminate_cycle_tree", side_effect=stop) as terminate:
+                with self.assertRaisesRegex(RuntimeError, "timed out"):
+                    run_native_stages(folder / "JWSCYCLE.exe", folder, None, terminate, timeout=1)
+            terminate.assert_called_once_with(process)
+            receipt = json.loads((folder / "native-stage-evidence.json").read_text())
+            self.assertEqual(receipt["status"], "failed")
+            self.assertFalse(receipt["sharedDirectoryConfigurationModified"])
+            self.assertTrue(receipt["phases"][0]["timedOut"])
     def test_independent_process_cannot_acquire_owned_lock(self):
         with tempfile.TemporaryDirectory() as directory:
             lock = Path(directory) / "cycle.lock"
