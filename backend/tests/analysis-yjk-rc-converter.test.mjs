@@ -4,6 +4,7 @@ import { resolvePythonCommand } from './fixtures/python-command.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
