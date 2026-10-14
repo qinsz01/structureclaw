@@ -6,9 +6,10 @@ import { ConversationJobs } from './conversation-jobs'
 
 export type { RunPolicyInput }
 
-export function RunSettings({ value, onChange, locale, disabled, runtime, statusError, onRefresh }: {
+export function RunSettings({ value, onChange, locale, disabled, runtime, statusError, onRefresh, modelingSkills = [] }: {
   value: RunPolicyInput; onChange: (value: RunPolicyInput) => void; locale: 'zh' | 'en'; disabled: boolean
   runtime?: ConversationRuntimeSnapshot | null; statusError?: string; onRefresh?: () => void
+  modelingSkills?: Array<{ id: string; label: string }>
 }) {
   const zh = locale === 'zh'
   const inherit = zh ? '沿用会话／系统设置' : 'Use conversation / system settings'
@@ -80,5 +81,41 @@ export function RunSettings({ value, onChange, locale, disabled, runtime, status
           onChange={e => onChange({ ...value, budgets: { ...value.budgets, maxToolCallsPerTurn: e.target.value === '' ? undefined : Math.max(1, Math.min(200, Number(e.target.value))) } })} />
       </label>
     </fieldset>
+    <details className="mt-3">
+      <summary className="cursor-pointer">{zh ? '高级设置' : 'Advanced settings'}</summary>
+      <p className="my-2">{zh ? '这里申请下一回合的路由、记忆和调用额度；当前会话及服务端权限仍是上限。' : 'Request next-turn routing, memory and call limits; conversation scope and server permissions still apply.'}</p>
+      <fieldset disabled={disabled} className="grid gap-3 sm:grid-cols-2">
+        <label className="grid gap-1">{zh ? '技能路由' : 'Skill routing'}
+          <select className={selectClass} value={value.routing?.mode === 'fixed' ? `skill:${value.routing.skillId}` : value.routing?.mode ?? ''}
+            onChange={event => onChange({ ...value, routing: !event.target.value ? undefined : event.target.value === 'auto' ? { mode: 'auto' } : { mode: 'fixed', skillId: event.target.value.slice(6) } })}>
+            <option value="">{inherit}</option><option value="auto">{zh ? '自动选择' : 'Automatic selection'}</option>
+            {modelingSkills.map(skill => <option key={skill.id} value={`skill:${skill.id}`}>{skill.label}</option>)}
+            {value.routing?.mode === 'fixed' && !modelingSkills.some(skill => skill.id === (value.routing?.mode === 'fixed' ? value.routing.skillId : ''))
+              && <option value={`skill:${value.routing.skillId}`} disabled>{value.routing.skillId} · {zh ? '当前范围不可用' : 'Unavailable in current scope'}</option>}
+          </select>
+        </label>
+        <label className="grid gap-1">{zh ? '记忆读取与写入范围' : 'Memory read and write scope'}
+          <select className={selectClass} value={value.context?.memoryScopes === undefined ? 'inherit' : [...value.context.memoryScopes].sort().join(',')}
+            onChange={event => onChange({ ...value, context: { ...value.context, memoryScopes: event.target.value === 'inherit' ? undefined
+              : event.target.value === '' ? [] : event.target.value.split(',') as Array<'conversation' | 'workspace'> } })}>
+            <option value="inherit">{inherit}</option><option value="">{zh ? '关闭记忆（保留工程状态）' : 'Memory off (keep engineering state)'}</option>
+            <option value="conversation">{zh ? '仅当前会话' : 'This conversation only'}</option>
+            <option value="workspace">{zh ? '工作区（需服务端授权）' : 'Workspace (server permission required)'}</option>
+            <option value="conversation,workspace">{zh ? '会话和工作区（需授权）' : 'Conversation and workspace (permission required)'}</option>
+          </select>
+        </label>
+        <div className="grid gap-1">
+          <label className="grid gap-1">{zh ? '内部 LLM 调用上限' : 'Internal LLM call limit'}
+            <input className={selectClass} type="number" min={1} step={1} disabled={value.budgets?.maxLlmCallsPerTurn === null}
+              placeholder={value.budgets?.maxLlmCallsPerTurn === null ? (zh ? '未申请上限' : 'No requested limit') : inherit}
+              value={value.budgets?.maxLlmCallsPerTurn ?? ''}
+              onChange={event => onChange({ ...value, budgets: { ...value.budgets, maxLlmCallsPerTurn: event.target.value === '' ? undefined : Math.max(1, Math.trunc(Number(event.target.value))) } })} />
+          </label>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={value.budgets?.maxLlmCallsPerTurn === null}
+            onChange={event => onChange({ ...value, budgets: { ...value.budgets, maxLlmCallsPerTurn: event.target.checked ? null : undefined } })} />
+            {zh ? '不申请 LLM 调用上限' : 'Do not request an LLM call limit'}</label>
+        </div>
+      </fieldset>
+    </details>
   </details>
 }

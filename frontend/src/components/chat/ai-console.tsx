@@ -4841,6 +4841,8 @@ export function AIConsole() {
         </div>
       )}
       <RunSettings value={runPolicy} onChange={setRunPolicy} locale={locale}
+        modelingSkills={availableSkills.filter(skill => selectedSkillIds.includes(skill.id) && Boolean(skill.structureType))
+          .map(skill => ({ id: skill.id, label: skill.name[locale] || skill.id }))}
         disabled={isStreaming || Boolean(sessionRuntime.view?.busy || sessionRuntime.view?.waitingForReply)}
         runtime={sessionRuntime.view} statusError={sessionRuntime.error}
         onRefresh={conversationId ? () => { void sessionRuntime.refresh().catch(() => {}) } : undefined} />

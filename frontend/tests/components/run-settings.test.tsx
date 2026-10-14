@@ -40,4 +40,17 @@ describe('run settings', () => {
     expect(screen.getByText('运行设置')).toBeInTheDocument()
     expect(screen.getByText(/工程校验始终开启/)).toBeInTheDocument()
   })
+  it.each(['en', 'zh'] as const)('keeps advanced routing, empty memory and nullable LLM limit explicit (%s)', locale => {
+    const onChange = vi.fn()
+    const value = { tools: { enabledIds: [] }, context: { history: 'current-turn' as const }, budgets: { maxToolCallsPerTurn: 12 } }
+    render(<RunSettings value={value} onChange={onChange} locale={locale} disabled={false} modelingSkills={[{ id: 'beam', label: 'Beam' }]} />)
+    fireEvent.change(screen.getByLabelText(locale === 'en' ? 'Skill routing' : '技能路由'), { target: { value: 'skill:beam' } })
+    expect(onChange).toHaveBeenLastCalledWith({ ...value, routing: { mode: 'fixed', skillId: 'beam' } })
+    fireEvent.change(screen.getByLabelText(locale === 'en' ? 'Memory read and write scope' : '记忆读取与写入范围'), { target: { value: '' } })
+    expect(onChange).toHaveBeenLastCalledWith({ ...value, context: { history: 'current-turn', memoryScopes: [] } })
+    fireEvent.click(screen.getByLabelText(locale === 'en' ? 'Do not request an LLM call limit' : '不申请 LLM 调用上限'))
+    expect(onChange).toHaveBeenLastCalledWith({ ...value, budgets: { maxToolCallsPerTurn: 12, maxLlmCallsPerTurn: null } })
+    fireEvent.change(screen.getByLabelText(locale === 'en' ? 'Internal LLM call limit' : '内部 LLM 调用上限'), { target: { value: '5' } })
+    expect(onChange).toHaveBeenLastCalledWith({ ...value, budgets: { maxToolCallsPerTurn: 12, maxLlmCallsPerTurn: 5 } })
+  })
 })
