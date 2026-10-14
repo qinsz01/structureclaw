@@ -1,0 +1,125 @@
+{
+  "schema": "sclaw-pkpm-native-precision-diagnostic/v1",
+  "date": "2026-10-14",
+  "status": "strict-interior-equilibrium-not-accepted",
+  "unchangedTolerance": {
+    "relative": 1e-05,
+    "absoluteForceMoment": 1e-05
+  },
+  "run": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-134243-0d89ec77",
+  "case": "D",
+  "member": "beam",
+  "executedLoadKnM": -19.999964792153545,
+  "checks": [
+    {
+      "nativeStationIndex": 8,
+      "positionM": 0.09999990463256836,
+      "nativeMyKnM": 35.85334396362305,
+      "equilibriumMyKnM": 35.85334396362305,
+      "residualKnM": 0.0,
+      "passesUnchangedTolerance": true
+    },
+    {
+      "nativeStationIndex": 7,
+      "positionM": 0.8249999172985554,
+      "nativeMyKnM": -0.8518600463867188,
+      "equilibriumMyKnM": -0.8518816744344244,
+      "residualKnM": 2.1628047705668507e-05,
+      "passesUnchangedTolerance": false
+    },
+    {
+      "nativeStationIndex": 6,
+      "positionM": 1.5499999299645424,
+      "nativeMyKnM": -27.044635772705078,
+      "equilibriumMyKnM": -27.044625451303208,
+      "residualKnM": -1.0321401870072577e-05,
+      "passesUnchangedTolerance": true
+    },
+    {
+      "nativeStationIndex": 5,
+      "positionM": 2.2749999426305294,
+      "nativeMyKnM": -42.72490310668945,
+      "equilibriumMyKnM": -42.7248873669833,
+      "residualKnM": -1.5739706149986432e-05,
+      "passesUnchangedTolerance": true
+    },
+    {
+      "nativeStationIndex": 4,
+      "positionM": 2.9999999552965164,
+      "nativeMyKnM": -47.892677307128906,
+      "equilibriumMyKnM": -47.89266742147471,
+      "residualKnM": -9.885654193908522e-06,
+      "passesUnchangedTolerance": true
+    },
+    {
+      "nativeStationIndex": 3,
+      "positionM": 3.7249999679625034,
+      "nativeMyKnM": -42.54798889160156,
+      "equilibriumMyKnM": -42.54796561477744,
+      "residualKnM": -2.3276824123286133e-05,
+      "passesUnchangedTolerance": true
+    },
+    {
+      "nativeStationIndex": 2,
+      "positionM": 4.4499999806284904,
+      "nativeMyKnM": -26.69080352783203,
+      "equilibriumMyKnM": -26.690781946891462,
+      "residualKnM": -2.1580940568810547e-05,
+      "passesUnchangedTolerance": true
+    },
+    {
+      "nativeStationIndex": 1,
+      "positionM": 5.1749999932944775,
+      "nativeMyKnM": -0.3211402893066406,
+      "equilibriumMyKnM": -0.32111641781682465,
+      "residualKnM": -2.38714898159742e-05,
+      "passesUnchangedTolerance": false
+    },
+    {
+      "nativeStationIndex": 0,
+      "positionM": 5.9000000059604645,
+      "nativeMyKnM": 36.561004638671875,
+      "equilibriumMyKnM": 36.56103097244653,
+      "residualKnM": -2.6333774655995512e-05,
+      "passesUnchangedTolerance": true
+    }
+  ],
+  "confirmed": [
+    "GetForce exposes station-index -> six-component vectors; the documented Python API supplies no cut-coordinate vector.",
+    "Installed PMDATAAPI GetForce ABI returns vector<float>, not vector<double>. Converted Python floats do not restore lost bits.",
+    "The source load, SDK value, native text token and DATA.SAT float32 input were independently bound before this equilibrium comparison.",
+    "Both source-input and executed-input endpoint/DOF acceptance passed, but this does not certify every interior force ordinate."
+  ],
+  "unresolved": [
+    "No independently verified higher-precision native station output has been identified.",
+    "The exact native arithmetic used to choose/evaluate the nine interior ordinates is not established. Nominal equally spaced elastic-span coordinates remain the existing mapping.",
+    "Float32 interpolation experiments can reduce some residuals, but do not prove an alternate station location or justify fitting position/load from response."
+  ],
+  "action": "Preserve raw results and strict refusal for unsupported precise recovery. Do not fit loads, change station positions, modify native output or enlarge tolerances.",
+  "files": [
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-134243-0d89ec77\\source-model.json",
+      "sha256": "a3c69e0aa7461a92b2a0eedc1e799d4cc1d1164a3779599d0157396123b9fc97"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-134243-0d89ec77\\result.json",
+      "sha256": "8480c48cfa61eebba8800a146a4cf295d21f8aae3cab4633d091bb22a1e9dd82"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-134243-0d89ec77\\acceptance.json",
+      "sha256": "c14762881a842fdcb2109c4ae9d6a8d0b5d47ca43053bffe606899ff39470cdc"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-rigid-offsets-20261014-134243-0d89ec77\\sc_11d5e414\\DATA.SAT",
+      "sha256": "ef919e79b49c353d3ab194e4326d9f4c04907c0adeecae65bb0e07ed5e68ed91"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\.venv\\Lib\\site-packages\\APIPyInterface\\APIPyInterface.pyi",
+      "sha256": "4c6d7acd8132cfbe1d221d469b95df38e829187b04ddd0c26e79464211ce01a2"
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\PMDATAAPI_x64-exports.txt",
+      "sha256": "c6702a15864ffdbd37ecb096cda1a012c950267bda63892ef24a77faf1f36cd4"
+    }
+  ]
+}

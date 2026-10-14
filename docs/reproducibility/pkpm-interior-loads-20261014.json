@@ -1,0 +1,215 @@
+{
+  "schema": "sclaw-pkpm-interior-load-acceptance/v1",
+  "date": "2026-10-14",
+  "reviewedCodeCommit": "7e93d4d",
+  "status": "native-analysis-path-accepted; public-query-check-pending",
+  "scope": [
+    "Horizontal beams with vertical columns; arbitrary bounded uniform global-Z intervals.",
+    "Point forces and moments become real analysis nodes on their owning beam; all six global components retain source signs.",
+    "Deep Timoshenko member with source endpoints reversed; original physical nodes/member endpoints and D/L/ULS identities preserved.",
+    "Native result faces from adjacent segments remain distinct at discontinuities. Only original physical ends inherit bending releases."
+  ],
+  "architecture": {
+    "compiler": "structure_protocol/member_mesh.py",
+    "sharedWith": "YJK load refinement; existing IDs/schema preserved",
+    "adapter": "analysis/pkpm-static/native_member_mesh.py",
+    "notAnotherSolver": true,
+    "sourceModelModified": false,
+    "nativePointType4Enabled": false,
+    "nativeUniformType1Enabled": true
+  },
+  "reference": {
+    "method": "independent connected Timoshenko matrix segmentation",
+    "frozenBeforeEachCandidate": true,
+    "productionImportsInReference": false,
+    "tolerance": {
+      "relative": 1e-05,
+      "translationM": 1e-11,
+      "rotationRad": 1e-11,
+      "forceKN": 1e-05,
+      "momentKNm": 1e-05
+    }
+  },
+  "preservedFailedAlternative": {
+    "run": "pkpm-point-deep-reversed-20261014-140409-d249fd0c",
+    "officialWire": "PMCAD beam load 4,P(kN),x(m)",
+    "finding": "PMCAD reordered endpoints without reflecting point position. An independent mirrored-position diagnostic still exposed deep-beam flexibility mismatch. The direct point-wire candidate was removed; no tolerance or physical geometry was changed."
+  },
+  "notClaimed": [
+    "Native design aggregation of split physical members; explicit design request rejects before native work.",
+    "Refinement combined with automatic rigid ends; requires separate position/load calibration.",
+    "Sloping beams or ordinary inclined columns; current native geometry/result conventions still require horizontal beams and vertical columns.",
+    "Every interior ordinate or continuous member displacement as solver-direct output; public query acceptance is separate."
+  ],
+  "tests": {
+    "command": "python -m pytest backend/src/agent-skills/analysis/pkpm-static/__tests__ backend/src/agent-skills/analysis/yjk-static/__tests__/test_member_mesh.py backend/src/agent-skills/analysis/yjk-static/__tests__/test_yjk_native_boundaries.py backend/src/agent-skills/analysis/yjk-static/__tests__/test_yjk_self_weight.py -q",
+    "passed": 215
+  },
+  "reproduce": "python backend/tests/analysis-pkpm-representative-native.py --case interior-loads --model-file backend/tests/fixtures/pkpm-interior-load-capabilities/partial-point-deep-reversed.json --combination --work-root <new-private-work-root> --cycle <PKPM>/PkpmCycle/JWSCYCLE.exe",
+  "runs": [
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-point-deep-reversed-20261014-140409-d249fd0c",
+      "accepted": false,
+      "counts": {
+        "timoshenkoChecks": 72,
+        "timoshenkoForceChecks": 144,
+        "equilibriumChecks": 18
+      },
+      "failedCounts": {
+        "timoshenkoChecks": 18,
+        "timoshenkoForceChecks": 48,
+        "equilibriumChecks": 3
+      },
+      "files": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-point-deep-reversed-20261014-140409-d249fd0c\\frozen-source-model.json",
+          "sha256": "03bc6e308be69d72539611cd650ac71a4639ab099bca7b0d9357e1c1b1089e5a"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-point-deep-reversed-20261014-140409-d249fd0c\\frozen-request.json",
+          "sha256": "8944518450b7cabd92ccc6de3bda385a8f95f4d204ec84fb3f4c94cf609ae175"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-point-deep-reversed-20261014-140409-d249fd0c\\frozen-timoshenko-reference.json",
+          "sha256": "c4bb90f81b01a17b7fcfb9e7392056b3b40142fc649fb6eac966983aaa23572c"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-point-deep-reversed-20261014-140409-d249fd0c\\reference-provenance.json",
+          "sha256": "025b57a0ce095e5d7612355e223108b63588f51cb8b6c17d35318398c8c99292"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-point-deep-reversed-20261014-140409-d249fd0c\\result.json",
+          "sha256": "1ae5ba94ae00ed4161f55a0a9b4804b96147226643d53f2ddb47399659ee2a2c"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-point-deep-reversed-20261014-140409-d249fd0c\\acceptance.json",
+          "sha256": "7c35d0a6227af184760f2569b6654f63e56b3ae304f78919b71df876794907c5"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-point-deep-reversed-20261014-140409-d249fd0c\\sc_73eea21e\\DATA.SAT",
+          "sha256": "1db19fe15f928f0b8691fc5854f80b829c3bde317e0b313f29484bb95c121a93"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-point-deep-reversed-20261014-140409-d249fd0c\\sc_73eea21e\\DISP.SAT",
+          "sha256": "825d7830e1b6cbd84f926fcab77143f975baeecc056b204cab668e238bb54f02"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-point-deep-reversed-20261014-140409-d249fd0c\\sc_73eea21e\\native-stage-evidence.json",
+          "sha256": "9b339eb870d8a6fb0b1f83669c59380345309bda693dd76c2a8dca3e2f033f66"
+        }
+      ]
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-point-mesh-deep-reversed-20261014-141015-f372217d",
+      "accepted": true,
+      "counts": {
+        "timoshenkoChecks": 72,
+        "timoshenkoForceChecks": 144,
+        "equilibriumChecks": 18
+      },
+      "failedCounts": {
+        "timoshenkoChecks": 0,
+        "timoshenkoForceChecks": 0,
+        "equilibriumChecks": 0
+      },
+      "files": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-point-mesh-deep-reversed-20261014-141015-f372217d\\frozen-source-model.json",
+          "sha256": "03bc6e308be69d72539611cd650ac71a4639ab099bca7b0d9357e1c1b1089e5a"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-point-mesh-deep-reversed-20261014-141015-f372217d\\frozen-request.json",
+          "sha256": "8944518450b7cabd92ccc6de3bda385a8f95f4d204ec84fb3f4c94cf609ae175"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-point-mesh-deep-reversed-20261014-141015-f372217d\\frozen-timoshenko-reference.json",
+          "sha256": "c4bb90f81b01a17b7fcfb9e7392056b3b40142fc649fb6eac966983aaa23572c"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-point-mesh-deep-reversed-20261014-141015-f372217d\\reference-provenance.json",
+          "sha256": "46be2acb39d7ae593c60a67971412aecd7be1fa6e15d95dd8773956af1566410"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-point-mesh-deep-reversed-20261014-141015-f372217d\\result.json",
+          "sha256": "e2f3bf709b5d3c7c1a8ef9b275ce08a237352d73fca8411d90137fd1e0b99548"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-point-mesh-deep-reversed-20261014-141015-f372217d\\acceptance.json",
+          "sha256": "c6e0f0f683c81ff22e1d3e911c84bd603c86c50cf10f6fcbba647794c76de2db"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-point-mesh-deep-reversed-20261014-141015-f372217d\\sc_8bae0a4d\\DATA.SAT",
+          "sha256": "d03168fcb30a8d45bff0712f97f36d34b0cec90d547931696aeb82c0b1418358"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-point-mesh-deep-reversed-20261014-141015-f372217d\\sc_8bae0a4d\\DISP.SAT",
+          "sha256": "d03866e4c5c7556374931d35dc0f7fd8393c1a6142339b4a8b3984351bb2e2b8"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-point-mesh-deep-reversed-20261014-141015-f372217d\\sc_8bae0a4d\\native-stage-evidence.json",
+          "sha256": "553fc7938edff45747a383bbd25bdfffd54367cbfd63340319a5a0f6b833b305"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-point-mesh-deep-reversed-20261014-141015-f372217d\\sc_8bae0a4d\\physical-mesh.json",
+          "sha256": "6c793713a9e9cfa47344a253bd6e8edc0f0edccc02d89b97e3ec516d65690818"
+        }
+      ]
+    },
+    {
+      "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-partial-point-mesh-20261014-141112-57d66e9f",
+      "accepted": true,
+      "counts": {
+        "timoshenkoChecks": 72,
+        "timoshenkoForceChecks": 144,
+        "equilibriumChecks": 18
+      },
+      "failedCounts": {
+        "timoshenkoChecks": 0,
+        "timoshenkoForceChecks": 0,
+        "equilibriumChecks": 0
+      },
+      "files": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-partial-point-mesh-20261014-141112-57d66e9f\\frozen-source-model.json",
+          "sha256": "efe7a8e89a5de8fc3bc4e1221e2bdc1f05b86f6cef6b4978c3898d602c0dc158"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-partial-point-mesh-20261014-141112-57d66e9f\\frozen-request.json",
+          "sha256": "8944518450b7cabd92ccc6de3bda385a8f95f4d204ec84fb3f4c94cf609ae175"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-partial-point-mesh-20261014-141112-57d66e9f\\frozen-timoshenko-reference.json",
+          "sha256": "55cbfcc8f894a46604241e3681adc53268a969cf5e274da139f450424438e3de"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-partial-point-mesh-20261014-141112-57d66e9f\\reference-provenance.json",
+          "sha256": "aa8455d59b39bbc469994403ace47df2c6216719c696d626676dfbb718fab60f"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-partial-point-mesh-20261014-141112-57d66e9f\\result.json",
+          "sha256": "4c0f2480509e4221e8bfd21b8360c64736df40615caf02cf3275dff8364055fa"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-partial-point-mesh-20261014-141112-57d66e9f\\acceptance.json",
+          "sha256": "9bc8b9ea2b1e8079b9feac7018f1cb6c0b20a2d85a5626744168fed32922ecb4"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-partial-point-mesh-20261014-141112-57d66e9f\\sc_7b5e2ad3\\DATA.SAT",
+          "sha256": "414bb23e561ff01416c5b051734a8ae543033852b0decbc4b7e7fd28be5d1272"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-partial-point-mesh-20261014-141112-57d66e9f\\sc_7b5e2ad3\\DISP.SAT",
+          "sha256": "b2eab69d2ab6a9b6b679314723c76d5f89e1f3953afb336a902b797bcee5db8d"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-partial-point-mesh-20261014-141112-57d66e9f\\sc_7b5e2ad3\\native-stage-evidence.json",
+          "sha256": "ea426dc6923dba64bc5015f8e07390400fa61776220d9b8ecb0c8b2ef820498f"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-partial-point-mesh-20261014-141112-57d66e9f\\sc_7b5e2ad3\\physical-mesh.json",
+          "sha256": "6fbf582fb2c0f039ffe157834c592c619b927f5c780ad521e45430e4ae00696b"
+        }
+      ]
+    }
+  ]
+}

@@ -41,12 +41,15 @@ the original 100 mm basis. This review does not claim that conversion is impleme
 The fresh PKPM C35 run independently verified beam/column covers 40/45 mm,
 HRB400 main bars (360 MPa), HPB300 beam stirrups (270 MPa), HRB400 column
 stirrups (360 MPa), and both 100 mm spacings in native output. Attempts to select
-HRB500 main bars did not change the effective native value; that request remains
-explicitly unsupported. YJK separately read back HRB500 main bars on all eight
-members while preserving the original hoop grade; this does not imply PKPM parity.
+HRB500 main bars initially did not change the effective native value. That failure
+remains archived. A later PKPM-specific repair reapplies official parameters after
+PMCAD and before SATWE preprocessing: run `114742-0b3da89e` reads back 435 MPa for
+both beam/column main bars. See [the subsequent HRB500 acceptance](reproducibility/pkpm-hrb500-20261014.json).
+YJK's separate readback is independent evidence, not the basis for PKPM support.
 
-C35验收核对的是八项实际生效参数。PKPM主筋HRB500的未生效尝试保留失败证据，并在运行前明确拒绝。
-YJK的HRB500已独立读回通过；不能把一家软件的能力直接外推到另一家。
+C35早期验收核对的是八项实际生效参数；主筋HRB500的早期未生效记录保留。后续PKPM专属修复在
+PMCAD之后、SATWE前处理之前重写官方参数，`114742-0b3da89e`已读回梁柱主筋435 MPa。
+YJK与PKPM分别验收，不能把一家软件的能力直接外推到另一家。
 
 YJK also verified all 14 standard concrete grade identities C15–C80 in a native
 project. Its steel-column sway flags select a native effective-length method;
@@ -135,7 +138,7 @@ every source-model field and requested output has been connected.
 | Analysis assumptions / 分析假定 | Automatic self-weight, rigid diaphragms/zones, construction stages and second-order settings are not established by the accepted bare-frame runs. / 裸框架验收不能推出自动自重、刚性楼板、刚域、施工阶段和二阶设置已接通。 |
 | YJK boundaries / YJK边界 | Current adapter requires fully fixed base supports and ordinary inclined columns below 20 degrees. Other supports, arbitrary member releases and eccentricities still need native mapping. / 其他支座、任意端释放及偏心仍须适配；不能通过修改用户模型绕过。 |
 | Member displacement / 构件位移 | Native force stations and identified equilibrium recovery are available. Continuous within-member deflection is not established as a native commercial output. / 原生截面内力和有来源的平衡恢复可用，连续跨内挠度尚未作为商业原生输出接通。 |
-| Design parameters / 设计参数 | Arbitrary prescribed effective lengths and unmapped per-member overrides need native write/readback. PKPM HRB500 main bars did not take effect in the recorded attempt; YJK only verified the documented floor/role grouping. / 不把未生效参数当作默认执行。 |
+| Design parameters / 设计参数 | Arbitrary prescribed effective lengths and unmapped per-member overrides need native write/readback. PKPM HRB500 has subsequent native acceptance; YJK verifies the documented floor/role grouping. / PKPM主筋HRB500后续已原生验收，任意计算长度及未映射逐构件覆盖仍需接通。 |
 | Physical-member design / 物理构件设计 | Design of members split for local/point loads needs a verified mapping back to the unsplit physical design member and its lengths. / 分段分析成功不能直接推出原生设计归并正确。 |
 | Reinforcement / 配筋 | Native required-area design is available within the documented profiles. Checking installed bars, and derived PKPM stirrup-spacing conversion, remain unimplemented. / 已有配筋验算与PKPM非100毫米间距的派生折算尚未实现。 |
 
