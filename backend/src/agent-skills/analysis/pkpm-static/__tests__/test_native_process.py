@@ -95,6 +95,27 @@ class NativeProcessTest(unittest.TestCase):
             self.assertEqual(receipt["status"], "failed")
             self.assertFalse(receipt["sharedDirectoryConfigurationModified"])
             self.assertTrue(receipt["phases"][0]["timedOut"])
+
+    def test_design_parameters_reapplied_after_pmcad_before_solver_preprocessing(self):
+        from native_stages import run_native_stages
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            (folder / "owned.JWS").write_bytes(b"owned")
+            process = Mock(returncode=0)
+            process.communicate.return_value = (b"", b"")
+            process.poll.return_value = 0
+            plan = {"parameters": {"beamMainRebarGrade": {"requested": "HRB500"}}}
+            def stop_after_readback(path, requested):
+                self.assertEqual(path, folder / "owned.JWS")
+                self.assertEqual(requested, plan)
+                self.assertEqual(launch.call_count, 1)
+                self.assertIn("-AUTORIB", launch.call_args.args[0])
+                raise RuntimeError("readback checkpoint")
+            with patch("native_stages.subprocess.Popen", return_value=process) as launch, \
+                    patch("pkpm_native_design.reapply_design_parameters", side_effect=stop_after_readback):
+                with self.assertRaisesRegex(RuntimeError, "readback checkpoint"):
+                    run_native_stages(folder / "JWSCYCLE.exe", folder, None, Mock(), include_design=True, design_plan=plan)
+
     def test_independent_process_cannot_acquire_owned_lock(self):
         with tempfile.TemporaryDirectory() as directory:
             lock = Path(directory) / "cycle.lock"

@@ -201,7 +201,7 @@ def _assert_no_external_cycle(cycle_path: Path) -> None:
         raise RuntimeError("Another native PKPM batch is active; its configuration was not changed / 已有 PKPM 原生批处理运行，未修改其目录配置")
 
 
-def _run_jws_cycle(cycle_path: Path, work_dir: Path, timeout: int = 600, constraints=None, section_model=None, include_design=False) -> None:
+def _run_jws_cycle(cycle_path: Path, work_dir: Path, timeout: int = 600, constraints=None, section_model=None, include_design=False, design_plan=None) -> None:
     """Run explicit native phases in the owned project; never select a shared directory.
 
     Even forcibly terminating the Python worker leaves the installation's
@@ -216,8 +216,9 @@ def _run_jws_cycle(cycle_path: Path, work_dir: Path, timeout: int = 600, constra
     started_at = time.time()
     with _jws_cycle_lock, _cycle_file_lock(lock, timeout):
         _assert_no_external_cycle(cycle_path)
+        design_options = {"design_plan": design_plan} if design_plan is not None else {}
         run_native_stages(cycle_path, work_dir, constraints, _terminate_cycle_tree, timeout,
-                          section_model=section_model, include_design=include_design)
+                          section_model=section_model, include_design=include_design, **design_options)
     _verify_native_completion(work_dir, started_at)
 
 def _verify_native_completion(work_dir: Path, started_at: float) -> None:
@@ -740,13 +741,14 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     timeout = int(parameters.get("timeout", 600))
     from native_numeric_sections import has_numeric_sections, verify_numeric_sections
     numeric_sections = has_numeric_sections(model_dict)
+    design_options = {"design_plan": design_plan} if design_plan is not None else {}
     if numeric_sections:
         _run_jws_cycle(cycle_path, work_dir, timeout=timeout,
-                       constraints=converter_mappings.get("native_end_constraints"), section_model=model_dict, include_design=bool(design_plan))
+                       constraints=converter_mappings.get("native_end_constraints"), section_model=model_dict, include_design=bool(design_plan), **design_options)
     elif converter_mappings.get("native_end_constraints"):
-        _run_jws_cycle(cycle_path, work_dir, timeout=timeout, constraints=converter_mappings["native_end_constraints"], include_design=bool(design_plan))
+        _run_jws_cycle(cycle_path, work_dir, timeout=timeout, constraints=converter_mappings["native_end_constraints"], include_design=bool(design_plan), **design_options)
     else:
-        _run_jws_cycle(cycle_path, work_dir, timeout=timeout, include_design=bool(design_plan))
+        _run_jws_cycle(cycle_path, work_dir, timeout=timeout, include_design=bool(design_plan), **design_options)
 
     # Verify the settings used; changing the solved project cannot fix a run.
     project_parameter_verification = _verify_project_material_params(jws_path, material_family)

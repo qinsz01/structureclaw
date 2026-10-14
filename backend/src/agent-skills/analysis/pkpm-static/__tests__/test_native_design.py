@@ -49,7 +49,7 @@ def test_actual_c30_normal_and_real_limit_failure_survive_normalization(tmp_path
     (lambda r,m: m["materials"][0].update(design={"fc": 14.3}), "ENGINE_INPUT_UNSUPPORTED"),
     (lambda r,m: m["materials"][0].update(fck=20.1), "ENGINE_INPUT_UNSUPPORTED"),
     (lambda r,m: r.update(parameters={"beamStirrupSpacingMm": 80}), "ENGINE_INPUT_UNSUPPORTED"),
-    (lambda r,m: r.update(parameters={"beamMainRebarGrade": "HRB500"}), "ENGINE_INPUT_UNSUPPORTED"),
+    (lambda r,m: r.update(parameters={"beamMainRebarGrade": "HRB335"}), "ENGINE_INPUT_UNSUPPORTED"),
     (lambda r,m: r.update(mode="check-provided"), "ANALYSIS_INPUT_REQUIRED"),
 ])
 def test_missing_or_conflicting_inputs_reject_before_native_execution(change, code):
@@ -90,6 +90,44 @@ def test_native_rebar_model_enum_and_result_enum_are_not_interchanged():
     assert plan["parameters"]["beamStirrupGrade"]["nativeValue"] == 12
     assert plan["parameters"]["beamStirrupGrade"]["expectedEffectiveValue"] == 270
     assert plan["parameters"]["beamCoverMm"]["nativeValue"] == 40
+
+
+def test_hrb500_uses_official_data_api_code_not_interchange_enum():
+    model = deepcopy(DATA["normal"]["model"])
+    request = {**REQUEST, "parameters": {"beamMainRebarGrade": "HRB500", "columnMainRebarGrade": "HRB500"}}
+    plan = design.compile_design_request(request, model)
+    for field in request["parameters"]:
+        assert plan["parameters"][field]["nativeValue"] == 13
+        assert plan["parameters"][field]["expectedEffectiveValue"] == 435
+    assert design.MODEL_REBAR["HRB500"] == 13
+
+
+def test_hrb500_result_cannot_pass_with_native_default_hrb400(tmp_path, monkeypatch):
+    fixture = deepcopy(DATA["normal"])
+    monkeypatch.setattr(design, "read_native_design", lambda *_: fixture["raw"])
+    (tmp_path / "WMASS.OUT").write_text(fixture["report"], encoding="gb18030")
+    request = {**REQUEST, "parameters": {"beamMainRebarGrade": "HRB500"}}
+    with pytest.raises(design.NativeDesignError, match="did not persist|differs"):
+        design.finish_native_design({"nativeDesignContext": {}}, fixture["model"],
+            design.compile_design_request(request, fixture["model"]), tmp_path / "model.JWS", {})
+
+
+def test_actual_hrb500_effective_parameters_and_reinforcement_are_preserved(tmp_path, monkeypatch):
+    fixture = json.loads((Path(__file__).parent / "fixtures/native-hrb500-design.json").read_text(encoding="utf-8"))
+    monkeypatch.setattr(design, "read_native_design", lambda *_: fixture["raw"])
+    (tmp_path / "WMASS.OUT").write_text(fixture["report"], encoding="gb18030")
+    (tmp_path / "WPJ1.OUT").write_text("\n".join(fixture["memberDesignParameterLines"]), encoding="gb18030")
+    (tmp_path / "DATA.SAT").write_bytes(b"native-fixture")
+    (tmp_path / "native-design-parameter-readback.json").write_text(json.dumps(fixture["readback"]))
+    plan = design.compile_design_request(fixture["request"], fixture["model"])
+    output = design.finish_native_design({"nativeDesignContext": {}}, fixture["model"], plan, tmp_path / "model.JWS", {})["nativeDesignResults"]
+    assert len(output["records"]) == fixture["expected"]["records"]
+    assert len(output["checks"]) == fixture["expected"]["checks"]
+    assert len(fixture["memberDesignParameterLines"]) == len(fixture["model"]["elements"])
+    for key in ("beamMainRebarGrade", "columnMainRebarGrade"):
+        assert output["context"]["effectiveParameters"][key]["value"] == 435
+        assert fixture["readback"]["floors"][0]["parameters"][key] == 13
+    assert any(row["path"].endswith("native-design-parameter-readback.json") for row in output["context"]["evidence"])
 
 
 @pytest.mark.parametrize("variant", ["normal", "overlimit"])

@@ -25,7 +25,9 @@ PARAMETERS = {"beamCoverMm": (709, "BCB", 10, 100), "columnCoverMm": (710, "ACA"
 # Actual SATREINFORCE_PARA_BY_LAYER.PM declares these native IDs. They are
 # different from the older Python ReinforcingbarGrade enum after HRB400.
 REBAR = {"HPB235": (1, 210.), "HRB335": (2, 300.), "HRB400": (3, 360.), "HPB300": (12, 270.), "HRB500": (13, 435.)}
-MODEL_REBAR = {"HPB235": 1, "HRB335": 2, "HRB400": 3, "HPB300": 5, "HRB500": 6}
+# StandFloor is the data API (API 5.0, "settings codes"), not P-TRANS's
+# interchange schema or the older Python enum. HRB500 is 13 here, not 6.
+MODEL_REBAR = {"HRB400": 3, "HRB500": 13}
 
 
 class NativeDesignError(ValueError):
@@ -110,8 +112,8 @@ def compile_design_request(request, source):
         if lower is None:
             if value not in REBAR:
                 reject("Unmapped rebar grade: " + key + " / 钢筋牌号未映射")
-            if "MainRebar" in key and value != "HRB400":
-                reject("Installed native main-bar grade override has not passed effective readback; current profile requires HRB400 / 本机原生主筋牌号覆盖尚未通过有效读回，当前配置要求HRB400", "ENGINE_INPUT_UNSUPPORTED")
+            if "MainRebar" in key and value not in MODEL_REBAR:
+                reject("Native main-bar profiles currently support HRB400 and HRB500 / 原生主筋配置当前支持HRB400与HRB500", "ENGINE_INPUT_UNSUPPORTED")
             native, effective = REBAR[value]
         else:
             if type(value) is not int or not lower <= value <= upper:
@@ -147,6 +149,50 @@ def write_design_parameters(model, plan):
     for row in plan["parameters"].values():
         if para.GetPara_Double(row["id"]) != row["nativeValue"]:
             raise NativeDesignError("Native design input did not persist / 原生设计参数未保存")
+
+
+def reapply_design_parameters(jws, plan):
+    """PMCAD AUTORIB restores floor defaults; reapply before SATWE preprocessing.
+
+    Use the official model setters, not generated result/input-file rewriting.
+    Both the saved model and the eventual WMASS design values must agree.
+    """
+    import os
+    import APIPyInterface as api
+    previous = Path.cwd()
+    jws = Path(jws).resolve()
+    try:
+        native = api.Model()
+        if native.OpenPMModel(str(jws)) != 1:
+            raise NativeDesignError("Cannot reopen native model for design parameters / 无法重开原生模型写入设计参数")
+        write_design_parameters(native, plan)
+        native.SavePMModel()
+        if native.OpenPMModel(str(jws)) != 1:
+            raise NativeDesignError("Cannot read persisted native design parameters / 无法读取已保存的原生设计参数")
+        floors = []
+        for index in range(1, native.GetStandFloorCount() + 1):
+            native.SetCurrentStandFloor(index)
+            floor = native.GetCurrentStandFloor()
+            actual = {}
+            for key, field in (("beamMainRebarGrade", 6), ("columnMainRebarGrade", 7)):
+                row = plan["parameters"].get(key)
+                if row:
+                    actual[key] = floor.GetInfoValue(field)
+                    if actual[key] != MODEL_REBAR[row["requested"]]:
+                        raise NativeDesignError("Reopened native floor rebar grade differs / 重开后的标准层钢筋牌号不符")
+            floors.append({"standardFloor": index, "parameters": actual})
+        para = native.GetProjectPara()
+        actual = {key: para.GetPara_Double(row["id"]) for key, row in plan["parameters"].items()}
+        if any(actual[key] != row["nativeValue"] for key, row in plan["parameters"].items()):
+            raise NativeDesignError("Reopened native project design parameter differs / 重开后的工程设计参数不符")
+        receipt = {"schema": "pkpm-design-parameter-readback/v1", "stage": "after-pmcad-before-satwe-data",
+                   "source": "APIPyInterface.Model/StandFloor; save-and-reopen", "floors": floors,
+                   "parameters": actual, "requestSha256": hashlib.sha256(json.dumps(plan, sort_keys=True).encode()).hexdigest(),
+                   "nativeProjectSha256": hashlib.sha256(jws.read_bytes()).hexdigest()}
+        jws.with_name("native-design-parameter-readback.json").write_text(json.dumps(receipt, indent=2), encoding="utf-8")
+        return receipt
+    finally:
+        os.chdir(previous)
 
 
 def verify_standard_materials(directory, model, plan, cycle_path):
@@ -274,13 +320,17 @@ def finish_native_design(result, source, plan, jws, member_map):
             "check": "native-design-limit-report", "status": "fail" if row["limits"] else "pass",
             "nativeLimitCodes": row["limits"], "nativeCombination": {"scope": "all-native-design-combinations"},
             "source": {**origin, "method": "GetExceedLimitInfo"}})
+    evidence_paths = [raw_path, report, directory / "DATA.SAT", directory / "WPJ1.OUT"]
+    readback = directory / "native-design-parameter-readback.json"
+    if readback.is_file():
+        evidence_paths.append(readback)
     context = result["nativeDesignContext"]
     context.update(status="completed", eligibleForConclusion=True, missingInputs=[],
         defaultPolicy=plan["defaultPolicy"], effectiveCodeProfile={"code": plan["request"]["code"], "nativeReportLines": lines},
         effectiveParameters=effective_parameters,
         materialProfiles=plan["materials"], conclusionScope="reported-native-checks-only; not-installed-reinforcement-certification",
         evidence=[{"path": str(path), "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
-                  for path in (raw_path, report, directory / "DATA.SAT", directory / "WPJ1.OUT")])
+                  for path in evidence_paths])
     result["nativeDesignResults"] = {"status": "completed", "verification": "documented-sdk-fields-and-native-readback",
         "context": context, "records": records, "checks": checks, "rawMembers": raw,
         "boundToSelectedResult": False, "complianceScope": "reported-native-checks-only",
