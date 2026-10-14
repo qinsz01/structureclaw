@@ -1,0 +1,474 @@
+{
+  "schema": "sclaw-pkpm-rigid-diaphragm-acceptance/v1",
+  "reviewedCodeCommit": "b1dd050521d86b155e9458560cae75e452ac90ee",
+  "status": "accepted-with-explicit-scope",
+  "notIndependentSolverCertification": true,
+  "scope": {
+    "globalRigidFloor": true,
+    "physicalSlabElements": false,
+    "slabWeightAdded": false,
+    "inPlaneComponents": [
+      "ux",
+      "uy",
+      "rz"
+    ],
+    "perNodeComponents": [
+      "uz",
+      "rx",
+      "ry"
+    ],
+    "sourceMapping": "native physical node -> NODEINDEX master -> source story",
+    "numericSectionSelfweight": "source rho/A/g; independent native member loads, no carrier or slab weight",
+    "casesAndCombinations": true,
+    "fixedAndPinnedBases": true,
+    "nativeDesign": "explicit physical sections; separate native design combinations"
+  },
+  "limitations": [
+    "Mixed per-floor diaphragm switches are rejected.",
+    "Rigid offsets are still disabled;609/641 documented, effective lengths and result locations not yet calibrated.",
+    "Arbitrary installed reinforcement is not certified by required reinforcement outputs.",
+    "Numeric sections remain analysis-only and use Asy=Asz=5A/6.",
+    "In-plane SDK translations and native condensed rotations are crosschecked against rigid kinematics; SDK storey-centre getters are not trusted."
+  ],
+  "tests": {
+    "command": "G:/StructureClaw-All/sclaw_data/.venv/Scripts/python.exe -m pytest backend/src/agent-skills/analysis/pkpm-static/__tests__ -q --tb=short",
+    "passed": 141,
+    "failed": 0
+  },
+  "runs": [
+    {
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-123158-5a15a5e5",
+      "scope": "official-input-readback-native-constraints-and-result-binding",
+      "status": "passed",
+      "floorCount": 1,
+      "physicalNodeCount": 12,
+      "caseCount": 2,
+      "sixDofValueCount": 144,
+      "equilibrium": [
+        {
+          "case": "D",
+          "expectedReactionResultantKN_KNm": [
+            -0.0,
+            -0.0,
+            3.0,
+            -0.0,
+            -9.0,
+            -0.0
+          ],
+          "actualReactionResultantKN_KNm": [
+            0.0,
+            1.862645149230957e-09,
+            2.999999985098839,
+            -2.2351741790771484e-08,
+            -8.999999955296516,
+            5.587935447709922e-09
+          ],
+          "residualKN_KNm": [
+            0.0,
+            1.862645149230957e-09,
+            -1.4901161193847656e-08,
+            -2.2351741790771484e-08,
+            4.470348358154297e-08,
+            5.587935447709922e-09
+          ]
+        },
+        {
+          "case": "W",
+          "expectedReactionResultantKN_KNm": [
+            -4.0,
+            7.0,
+            -0.0,
+            -21.0,
+            -12.0,
+            40.0
+          ],
+          "actualReactionResultantKN_KNm": [
+            -4.000000178813934,
+            6.999999463558197,
+            -4.470348358154297e-08,
+            -21.00000125169754,
+            -12.000000953674316,
+            39.99999815225601
+          ],
+          "residualKN_KNm": [
+            -1.7881393432617188e-07,
+            -5.364418029785156e-07,
+            -4.470348358154297e-08,
+            -1.2516975402832031e-06,
+            -9.5367431640625e-07,
+            -1.8477439880371094e-06
+          ]
+        }
+      ],
+      "tolerances": {
+        "relative": 1e-05,
+        "displacementM_rotationRad": 1e-11,
+        "balanceKN_KNm": 1e-05
+      },
+      "files": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-123158-5a15a5e5\\source-model.json",
+          "sha256": "f0f01b98f129f842e7dba64b4b02caf317eb41f41718e0152e32df75ac96983f"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-123158-5a15a5e5\\result.json",
+          "sha256": "e838ab115d23780e2f462e46c87cc82e9598fad1827074ba3854d3cc7acf8f6a"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-123158-5a15a5e5\\acceptance.json",
+          "sha256": "f7d415c4ab506a82425c955c0e6a100f3a66a4e87013d3800db3bf0b1247e1c9"
+        }
+      ],
+      "nativeFiles": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-123158-5a15a5e5\\sc_e19c8527\\native-diaphragm-readback.json",
+          "sha256": "52c81b1f6845d777abdcc80de64a28960a31b7face0632685a3c64ac6a30e527"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-123158-5a15a5e5\\sc_e19c8527\\native-stage-evidence.json",
+          "sha256": "23b07fb58992fceda03cc5c551f2a91f84041e6047c883103054e9bc9b5024db"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-123158-5a15a5e5\\sc_e19c8527\\NODEINDEX.SAT",
+          "sha256": "2bfdae8bf8693e765c694945eccddde264a178f521e7c519d894a8b3c92a40eb"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-123158-5a15a5e5\\sc_e19c8527\\MESH.SAT",
+          "sha256": "e3ab45d20f5a7fba981d1bcbff8b47d60ac83acc2ddc2c49dac0702b60fc0046"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-123158-5a15a5e5\\sc_e19c8527\\DISP.SAT",
+          "sha256": "8a189b236433b49040c36da76285d8889e3dcf9267f0e1b1d7d747b1858834f3"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-123158-5a15a5e5\\sc_e19c8527\\DISP1.SAT",
+          "sha256": "e0a54ffad7c9e7f60a47b18bf1f67799b0b7864b8a6db8aec80e4ee08909752c"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-123158-5a15a5e5\\sc_e19c8527\\ConstraintNodeNo.SAT",
+          "sha256": "b858e8d6f0df336f19a7efbd8bec82490cac7abf19df50040552d6cb6e7b7dff"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-123158-5a15a5e5\\sc_e19c8527\\DATA.SAT",
+          "sha256": "e0f03e8c35dcac9b72c3526ece64e67773d40b93a3c65e5f938c2900b6370342"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-123158-5a15a5e5\\sc_e19c8527\\WMASS.OUT",
+          "sha256": "1224d6615fa4d737e16d25ddf461e3a94524278ff9b947e3e8de262a3e2775e2"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-123158-5a15a5e5\\sc_e19c8527\\GOUJIAN.OUT",
+          "sha256": "d568b1fc0f467608418ddbba627dba9b1816b552ebf1cdc6f6c02a29c78b4283"
+        }
+      ],
+      "selection": {
+        "kind": "case",
+        "id": "D"
+      },
+      "groups": [
+        {
+          "floor": 1,
+          "masterTag": 13,
+          "physicalNodeTags": [
+            7,
+            8,
+            9,
+            10,
+            11,
+            12
+          ],
+          "sourceNodeIds": [
+            "t0",
+            "t3",
+            "t1",
+            "t4",
+            "t2",
+            "t5"
+          ],
+          "elevationM": 3.0,
+          "sourceStoryId": "s1",
+          "constrainedComponents": [
+            "ux",
+            "uy",
+            "rz"
+          ],
+          "independentComponents": [
+            "uz",
+            "rx",
+            "ry"
+          ]
+        }
+      ],
+      "design": {
+        "recordCount": 138,
+        "checkCount": 19,
+        "eligibleForConclusion": true,
+        "analysisControl": {
+          "self_weight": false,
+          "rigid_floor": true,
+          "p_delta": false,
+          "rigid_offsets": false,
+          "construction_stage": false
+        }
+      }
+    },
+    {
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-diaphragm-20261014-123832-dc0111ec",
+      "scope": "official-input-readback-native-constraints-and-result-binding",
+      "status": "passed",
+      "floorCount": 2,
+      "physicalNodeCount": 18,
+      "caseCount": 3,
+      "sixDofValueCount": 324,
+      "equilibrium": [
+        {
+          "case": "D",
+          "expectedReactionResultantKN_KNm": [
+            -0.0,
+            -0.0,
+            3.0,
+            -0.0,
+            -9.0,
+            -0.0
+          ],
+          "actualReactionResultantKN_KNm": [
+            1.4094628242311558e-18,
+            -3.259629011154175e-09,
+            3.0000000428408384,
+            -2.6193447411060333e-08,
+            -9.000000128522515,
+            -9.778887037582493e-09
+          ],
+          "residualKN_KNm": [
+            1.4094628242311558e-18,
+            -3.259629011154175e-09,
+            4.284083843231201e-08,
+            -2.6193447411060333e-08,
+            -1.2852251529693604e-07,
+            -9.778887037582493e-09
+          ]
+        },
+        {
+          "case": "W",
+          "expectedReactionResultantKN_KNm": [
+            -4.0,
+            7.0,
+            -0.0,
+            -42.0,
+            -24.0,
+            40.0
+          ],
+          "actualReactionResultantKN_KNm": [
+            -4.000000029802322,
+            6.999998569488525,
+            5.960464477539063e-08,
+            -42.000001430511475,
+            -23.99999624490738,
+            40.00000463426113
+          ],
+          "residualKN_KNm": [
+            -2.9802322387695312e-08,
+            -1.430511474609375e-06,
+            5.960464477539063e-08,
+            -1.430511474609375e-06,
+            3.7550926208496094e-06,
+            4.634261131286621e-06
+          ]
+        },
+        {
+          "case": "G",
+          "expectedReactionResultantKN_KNm": [
+            -0.0,
+            -0.0,
+            152.98374,
+            229.47561000000005,
+            -458.9512200000001,
+            -0.0
+          ],
+          "actualReactionResultantKN_KNm": [
+            1.9170975917859323e-10,
+            -2.9802322387695312e-08,
+            152.98375129699707,
+            229.4756272137165,
+            -458.95125388858287,
+            -9.387653732151335e-08
+          ],
+          "residualKN_KNm": [
+            1.9170975917859323e-10,
+            -2.9802322387695312e-08,
+            1.1296997058707348e-05,
+            1.721371646112857e-05,
+            -3.388858277730833e-05,
+            -9.387653732151335e-08
+          ]
+        }
+      ],
+      "tolerances": {
+        "relative": 1e-05,
+        "displacementM_rotationRad": 1e-11,
+        "balanceKN_KNm": 1e-05
+      },
+      "files": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-diaphragm-20261014-123832-dc0111ec\\source-model.json",
+          "sha256": "9c550f4f86bf5e1d6374fddee761581d7b6e4f22f1041f248cf077649b5e14ae"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-diaphragm-20261014-123832-dc0111ec\\result.json",
+          "sha256": "1f88ab5c588b0acd231e8febaf005df14362c74e5757d98000757d8764f559fd"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-diaphragm-20261014-123832-dc0111ec\\acceptance.json",
+          "sha256": "173d0ad5f0f1d0747748db809cc31c247b5e3a0feec8161ddb196f66067acf2d"
+        }
+      ],
+      "nativeFiles": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-diaphragm-20261014-123832-dc0111ec\\sc_197a15ee\\native-diaphragm-readback.json",
+          "sha256": "9cda5cfc6739f88bde7f9d75b5dc1c1593def61ced47d24f4cd60b4dfd54b238"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-diaphragm-20261014-123832-dc0111ec\\sc_197a15ee\\native-stage-evidence.json",
+          "sha256": "27a272db305be16e61f7bdcb6c3ec1f29699c39f927389f6606ee1919cb248f4"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-diaphragm-20261014-123832-dc0111ec\\sc_197a15ee\\NODEINDEX.SAT",
+          "sha256": "1f43de5474484c5d2a19ffb307e11d40995ab5bfaee69ca7892a7aa696505549"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-diaphragm-20261014-123832-dc0111ec\\sc_197a15ee\\MESH.SAT",
+          "sha256": "182ea00349c233cdd06bc5d6096aaf9b355fedaf4cab0954d9047fe6758ddf7d"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-diaphragm-20261014-123832-dc0111ec\\sc_197a15ee\\DISP.SAT",
+          "sha256": "d22bda3d5efcf4324df0af0e03fa35b8c65d7b6fbb1e027df2449ea321c85d16"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-diaphragm-20261014-123832-dc0111ec\\sc_197a15ee\\DISP1.SAT",
+          "sha256": "c9401821a75a754c4f475be1d049495090368dbe16e160fbcec433276e5ee323"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-diaphragm-20261014-123832-dc0111ec\\sc_197a15ee\\ConstraintNodeNo.SAT",
+          "sha256": "768bc700d109ec75c912fb7bcbfd372f4b2dcc82be924bed5776f68822233509"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-diaphragm-20261014-123832-dc0111ec\\sc_197a15ee\\DATA.SAT",
+          "sha256": "d4d3a2309f9b2c338fabb0e39064995479b4e10f959026023ab464bb8a8d2647"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-diaphragm-20261014-123832-dc0111ec\\sc_197a15ee\\WMASS.OUT",
+          "sha256": "d13d2e0fa1d0c53d98a668916919c363f0779e58f349b00f7f08ddc591df73c3"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-diaphragm-20261014-123832-dc0111ec\\sc_197a15ee\\GOUJIAN.OUT",
+          "sha256": "6a5aac94a940223bbc5340d5d915c91cbe8785b4780064b1047bc0cb51f1f69f"
+        }
+      ],
+      "selection": {
+        "kind": "combination",
+        "id": "C"
+      },
+      "groups": [
+        {
+          "floor": 1,
+          "masterTag": 13,
+          "physicalNodeTags": [
+            7,
+            8,
+            9,
+            10,
+            11,
+            12
+          ],
+          "sourceNodeIds": [
+            "t0",
+            "t3",
+            "t1",
+            "t4",
+            "t2",
+            "t5"
+          ],
+          "elevationM": 3.0,
+          "sourceStoryId": "s1",
+          "constrainedComponents": [
+            "ux",
+            "uy",
+            "rz"
+          ],
+          "independentComponents": [
+            "uz",
+            "rx",
+            "ry"
+          ]
+        },
+        {
+          "floor": 2,
+          "masterTag": 20,
+          "physicalNodeTags": [
+            14,
+            15,
+            16,
+            17,
+            18,
+            19
+          ],
+          "sourceNodeIds": [
+            "u0",
+            "u3",
+            "u1",
+            "u4",
+            "u2",
+            "u5"
+          ],
+          "elevationM": 6.0,
+          "sourceStoryId": "s2",
+          "constrainedComponents": [
+            "ux",
+            "uy",
+            "rz"
+          ],
+          "independentComponents": [
+            "uz",
+            "rx",
+            "ry"
+          ]
+        }
+      ]
+    }
+  ],
+  "preservedDiagnostics": [
+    {
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-122907-75174cd1",
+      "reason": "Conflicting global true/story false was correctly rejected before native execution.",
+      "acceptance": {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-122907-75174cd1\\acceptance.json",
+        "sha256": "20d7964e757ae0759da0912aba4e22ee166df9418c02a344d024c54f852180c3"
+      }
+    },
+    {
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-123000-009ddf33",
+      "reason": "Readback mistook surviving zero-thickness room polygons for physical slabs; fixed only after documented Slab.Get tuple and GOUJIAN plate-count proof.",
+      "acceptance": {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-design-parameters-20261014-123000-009ddf33\\acceptance.json",
+        "sha256": "93d7b33dedb4f65031dcba3326d5bcbbe0e58e1b94cbddceaa40f6fb57fbe6f1"
+      }
+    },
+    {
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-diaphragm-20261014-123423-506397b1",
+      "reason": "Two-floor probe disproved floor-scaled MESH marker assumption; marker is fixed100/101 and floor comes from NODEINDEX partitions/physical coordinates.",
+      "acceptance": {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-diaphragm-20261014-123423-506397b1\\acceptance.json",
+        "sha256": "19726330238a19b4a407791ff13f00269bdd78ccbb84f47985adb7fecd94854d"
+      }
+    },
+    {
+      "directory": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-diaphragm-20261014-123619-b8caa875",
+      "reason": "Production result completed; provisional audit compared residual with zero using absolute-only1e-5. Final audit compares support resultant with negative applied resultant using unchanged relative1e-5 and absolute1e-5. Original result and failed receipt preserved; no native values altered.",
+      "acceptance": {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-diaphragm-20261014-123619-b8caa875\\acceptance.json",
+        "sha256": "060cc27d56356f2c2743dc2e36a021897e567db776624a499c45e3a916eddd0a"
+      }
+    }
+  ],
+  "reproduce": "python backend/tests/analysis-pkpm-diaphragm-native.py --model <source-model.json> --parameters <parameters.json> --work-root <private-work-root> --cycle <JWSCYCLE.exe>; design input example uses analysis-pkpm-design-parameters-native.py with --request."
+}
