@@ -548,6 +548,334 @@
           "sha256": "0be5a1d1251bf752699ce2329a12d4e6b41190aa0b03ffd86511886d32c11640"
         }
       ]
+    },
+    {
+      "id": "pkpm-c35-native-verified-parameters-20261014-093006-df3f10c3",
+      "engine": "pkpm",
+      "analysisExecutionStatus": "success",
+      "nativeDesignStatus": "completed",
+      "request": {
+        "requested": true,
+        "code": "PKPM-2025R2.5-native",
+        "mode": "code-check",
+        "adoptedNativeDefaults": true,
+        "parameters": {
+          "beamCoverMm": 40,
+          "columnCoverMm": 45,
+          "beamStirrupSpacingMm": 100,
+          "columnStirrupSpacingMm": 100,
+          "beamMainRebarGrade": "HRB400",
+          "columnMainRebarGrade": "HRB400",
+          "beamStirrupGrade": "HPB300",
+          "columnStirrupGrade": "HRB400"
+        }
+      },
+      "recordCount": 30,
+      "checkCounts": {
+        "pass": 13,
+        "fail": 0,
+        "not_applicable": 0
+      },
+      "conclusionScope": "reported-native-checks-only",
+      "resultFiles": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-c35-native-verified-parameters-20261014-093006-df3f10c3\\result.json",
+          "sha256": "8bb864f53aeb3f223cc21f38988f6d24cd87f4e963ddaa4c90927275bb1122b9"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-c35-native-verified-parameters-20261014-093006-df3f10c3\\acceptance.json",
+          "sha256": "e535e15f9df273a6b80a231a320f3711c40073563b2a7c695a289ff73ea9fa49"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-c35-native-verified-parameters-20261014-093006-df3f10c3\\frozen-source-model.json",
+          "sha256": "740ed199850c1f3590adf568dd6c3b5911b9e1b723150e70fe2b8bed44641942"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-c35-native-verified-parameters-20261014-093006-df3f10c3\\frozen-request.json",
+          "sha256": "ce0ea331495eb7b1b2fc7986d1c0d55eedda8224a8603430ac1825689ee620c1"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-c35-native-verified-parameters-20261014-093006-df3f10c3\\frozen-timoshenko-reference.json",
+          "sha256": "988ce7ada3c216121ba453547babe853f3818f3814b58d17a45d9ed0466b003a"
+        }
+      ],
+      "nativeEvidence": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-c35-native-verified-parameters-20261014-093006-df3f10c3\\sc_d9725237\\native-design-sdk.json",
+          "sha256": "c5e12f58107a6bb39ede23161111aeefbbdf4a54c9f7beefacb48258df74bfab"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-c35-native-verified-parameters-20261014-093006-df3f10c3\\sc_d9725237\\WMASS.OUT",
+          "sha256": "dfa62ea1167fca88b0c72d12b579086d3b113227a1ba6d7f1e1fd180598561d8"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-c35-native-verified-parameters-20261014-093006-df3f10c3\\sc_d9725237\\DATA.SAT",
+          "sha256": "596c92845db7a5287750565a9d1006149ae91fb647c7dd06098f6ff112fa46cb"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\pkpm-c35-native-verified-parameters-20261014-093006-df3f10c3\\sc_d9725237\\WPJ1.OUT",
+          "sha256": "755634f371d23f4bc2307fc3cb69d790e989cfe875c306fb7d9f1de795aaf71b"
+        }
+      ],
+      "effectiveParameters": {
+        "beamCoverMm": {
+          "value": 40.0,
+          "unit": "mm",
+          "requested": 40,
+          "origin": "explicit",
+          "source": "WMASS.OUT:BCB"
+        },
+        "columnCoverMm": {
+          "value": 45.0,
+          "unit": "mm",
+          "requested": 45,
+          "origin": "explicit",
+          "source": "WMASS.OUT:ACA"
+        },
+        "beamStirrupSpacingMm": {
+          "value": 100.0,
+          "unit": "mm",
+          "requested": 100,
+          "origin": "explicit",
+          "source": "WMASS.OUT:SB"
+        },
+        "columnStirrupSpacingMm": {
+          "value": 100.0,
+          "unit": "mm",
+          "requested": 100,
+          "origin": "explicit",
+          "source": "WMASS.OUT:SC"
+        },
+        "beamMainRebarGrade": {
+          "value": 360.0,
+          "unit": "MPa",
+          "requested": "HRB400",
+          "origin": "explicit",
+          "source": "WMASS.OUT:IB"
+        },
+        "columnMainRebarGrade": {
+          "value": 360.0,
+          "unit": "MPa",
+          "requested": "HRB400",
+          "origin": "explicit",
+          "source": "WMASS.OUT:IC"
+        },
+        "beamStirrupGrade": {
+          "value": 270.0,
+          "unit": "MPa",
+          "requested": "HPB300",
+          "origin": "explicit",
+          "source": "WMASS.OUT:JB"
+        },
+        "columnStirrupGrade": {
+          "value": 360.0,
+          "unit": "MPa",
+          "requested": "HRB400",
+          "origin": "explicit",
+          "source": "WMASS.OUT:JC"
+        }
+      }
+    },
+    {
+      "id": "yjk-design-grades-20261014-092619-403b83",
+      "engine": "yjk",
+      "analysisExecutionStatus": "success",
+      "nativeDesignStatus": "completed",
+      "request": {
+        "requested": true,
+        "mode": "required-reinforcement",
+        "code": "GB/T50010-2010(2024)",
+        "adoptedNativeDefaults": true,
+        "parameters": {
+          "beamCoverMm": 30,
+          "columnCoverMm": 35
+        }
+      },
+      "recordCount": 280,
+      "checkCounts": {
+        "pass": 24,
+        "fail": 0,
+        "not_applicable": 0
+      },
+      "conclusionScope": "reported-native-checks-only",
+      "resultFiles": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-grades-20261014-092619-403b83\\result.json",
+          "sha256": "e47bfff4e08068bf942892ad197d8b7bd31811f737fbf05612fd5476e1ee256a"
+        }
+      ],
+      "nativeEvidence": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-grades-20261014-092619-403b83\\sc_native-standard-grades_a69c5addb23a\\results.json",
+          "sha256": "757bcc90dc500b41b872a876fdee1d388ba1ae5646852ea662aad4d1fff8606e"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-grades-20261014-092619-403b83\\sc_native-standard-grades_a69c5addb23a\\native-design-settings-readback.json",
+          "sha256": "81e0ac19273a343320e2e3872d05ca4cbb18896eeff7e5acf910eb75fb91301d"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-grades-20261014-092619-403b83\\sc_native-standard-grades_a69c5addb23a\\设计结果\\mainjss.out",
+          "sha256": "d67d770df87ceed7c1f228f8faf862bbff4a59b79789aa0a10a343316d7d0c29"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-grades-20261014-092619-403b83\\sc_native-standard-grades_a69c5addb23a\\fea.dat",
+          "sha256": "d36631df8d04f42a0da6e40b9cde8f3655a2329544aa71c5229b0a29943f0938"
+        }
+      ],
+      "effectiveParameters": {
+        "int": {
+          "102": 10201,
+          "603": 60301,
+          "604": 60401,
+          "701": 70103,
+          "702": 70104,
+          "706": 1,
+          "734": 1,
+          "709": 30,
+          "710": 35,
+          "752": 1,
+          "816": 100,
+          "817": 100
+        },
+        "float": {
+          "801": 0.0,
+          "803": 0.0
+        }
+      }
+    },
+    {
+      "id": "yjk-design-rebar-20261014-093033-e40ca6",
+      "engine": "yjk",
+      "analysisExecutionStatus": "success",
+      "nativeDesignStatus": "completed",
+      "request": {
+        "requested": true,
+        "mode": "required-reinforcement",
+        "code": "GB/T50010-2010(2024)",
+        "adoptedNativeDefaults": true,
+        "parameters": {
+          "beamCoverMm": 30,
+          "columnCoverMm": 35
+        }
+      },
+      "recordCount": 140,
+      "checkCounts": {
+        "pass": 12,
+        "fail": 0,
+        "not_applicable": 0
+      },
+      "conclusionScope": "reported-native-checks-only",
+      "resultFiles": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-rebar-20261014-093033-e40ca6\\result.json",
+          "sha256": "df536629141260766a36dcd80b96cb420f391baa31ba1bd390fb44383dac4940"
+        }
+      ],
+      "nativeEvidence": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-rebar-20261014-093033-e40ca6\\sc_native-main-rebar_1f789ad0916d\\results.json",
+          "sha256": "3848a0c1b03c661a4ccab418c1c570e36b44d86f4d176d5993d79b438fc013e0"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-rebar-20261014-093033-e40ca6\\sc_native-main-rebar_1f789ad0916d\\native-design-settings-readback.json",
+          "sha256": "c05a074ed54d8ce633530b244ec834c6b39cf9f3019918192ee71f23d9c23482"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-rebar-20261014-093033-e40ca6\\sc_native-main-rebar_1f789ad0916d\\设计结果\\mainjss.out",
+          "sha256": "9c7ff5d671b533a926f219e6ad32ece4bb248ad07b7a2bec1b914fd68d0a08eb"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-rebar-20261014-093033-e40ca6\\sc_native-main-rebar_1f789ad0916d\\fea.dat",
+          "sha256": "43709aaada932ecdcc30392330dad7258ce73d58b9ee68d510961d4e463bc374"
+        }
+      ],
+      "effectiveParameters": {
+        "int": {
+          "102": 10201,
+          "603": 60301,
+          "604": 60401,
+          "701": 70103,
+          "702": 70104,
+          "706": 1,
+          "734": 1,
+          "709": 30,
+          "710": 35,
+          "752": 1,
+          "816": 100,
+          "817": 100
+        },
+        "float": {
+          "801": 0.0,
+          "803": 0.0
+        }
+      }
+    },
+    {
+      "id": "yjk-design-length-method-20261014-093457-e61a96",
+      "engine": "yjk",
+      "analysisExecutionStatus": "success",
+      "nativeDesignStatus": "completed",
+      "request": {
+        "requested": true,
+        "mode": "code-check",
+        "code": "GB50017-2017",
+        "adoptedNativeDefaults": true,
+        "parameters": {
+          "steelColumnSwayX": false,
+          "steelColumnSwayY": false
+        }
+      },
+      "recordCount": 0,
+      "checkCounts": {
+        "pass": 140,
+        "fail": 0,
+        "not_applicable": 72
+      },
+      "conclusionScope": "reported-native-checks-only",
+      "resultFiles": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-length-method-20261014-093457-e61a96\\result.json",
+          "sha256": "170dd280fc6e7ef73f3e3d5d34b6a0404d33a970f49d88d3d99e1d726b34f1f6"
+        }
+      ],
+      "nativeEvidence": [
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-length-method-20261014-093457-e61a96\\sc_native-length-method_d05cbdf92b09\\results.json",
+          "sha256": "9af2ceac8571ef8720e1ec5d961a62d818b424575ec3dc02b33416f6c7ce5157"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-length-method-20261014-093457-e61a96\\sc_native-length-method_d05cbdf92b09\\native-design-settings-readback.json",
+          "sha256": "2be868272b5e57f6ce432ae85cc6fe85c7b95593585ae25af5b9a4bcd07d9775"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-length-method-20261014-093457-e61a96\\sc_native-length-method_d05cbdf92b09\\设计结果\\mainjss.out",
+          "sha256": "b21e1898a36892b378896843d070d348d104163562fd5312fb08448a8538c4cd"
+        },
+        {
+          "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-design-length-method-20261014-093457-e61a96\\sc_native-length-method_d05cbdf92b09\\fea.dat",
+          "sha256": "8522d62ea4b022bfbcad401b08e49f506126d819523c294b22a5f85349263dd5"
+        }
+      ],
+      "effectiveParameters": {
+        "int": {
+          "102": 10201,
+          "603": 60301,
+          "604": 60401,
+          "701": 70103,
+          "702": 70104,
+          "706": 0,
+          "734": 0,
+          "709": 20,
+          "710": 20,
+          "752": 1,
+          "816": 100,
+          "817": 100
+        },
+        "float": {
+          "801": 0.0,
+          "803": 0.0
+        }
+      }
     }
   ],
   "boundedScope": [
@@ -557,7 +885,7 @@
     "required reinforcement is not verification of installed reinforcement",
     "numeric reference carriers are analysis-only, not physical design geometry"
   ],
-  "furtherParameterAcceptance": "See per-engine manifests for subsequent profile and parameter receipts; this review lists completed files only.",
+  "furtherParameterAcceptance": "Includes completed C35 explicit-parameter, YJK standard-grade identity, HRB500 main-bar and non-sway length-method runs. PKPM HRB500 main-bar writes were not honored natively and remain unsupported; neither engine is declared to accept arbitrary design overrides.",
   "independentSupportingSources": [
     {
       "path": "G:\\PKPM2025R2.5\\Ribbon\\Help\\UserGuider\\PKPM 软件说明书-多层及高层建筑结构分析与设计软件 SATWE使用指南.pdf",

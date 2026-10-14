@@ -14,6 +14,7 @@ binds the completed result files and native evidence by SHA-256.
 | Profile / 配置 | Verified meaning / 已核含义 |
 |---|---|
 | PKPM C30 native design | E=30000 MPa, G=12000 MPa. Source G=12500 MPa is a conflict, not permission to change it. / 源模型刚度不符须明确修改，不能静默切换。 |
+| PKPM C35 native design | E=31500 MPa, G=12600 MPa, independently checked in the explicit-parameter run below. / 已在下列参数算例独立校核。 |
 | PKPM Q355 native design | E=206000 MPa, G=79000 MPa. SDK grade enum 29, native DATA grade −355, and WPJ report Rsc=355 are distinct representations of this identity. / 三种牌号编码分别核对。 |
 | PKPM concrete code profile | `PKPM-2025R2.5-native` is a version-bound profile. WMASS identifies the 2021 general specification; it does not establish an arbitrary GB50010 edition. / 不能把软件版本配置冒充任意混凝土规范年份。 |
 | Steel code | `GB50017-2017`, verified from native code settings/report. / 必须核对实际生效规范。 |
@@ -37,6 +38,23 @@ the original 100 mm basis. This review does not claim that conversion is impleme
 本机官方手册明确梁柱箍筋以100 mm为计算基准。不能把设置文件中的80或120当作已生效；非100 mm折算
 应另行标明派生依据，本记录不把该折算宣称为已实现能力。
 
+The fresh PKPM C35 run independently verified beam/column covers 40/45 mm,
+HRB400 main bars (360 MPa), HPB300 beam stirrups (270 MPa), HRB400 column
+stirrups (360 MPa), and both 100 mm spacings in native output. Attempts to select
+HRB500 main bars did not change the effective native value; that request remains
+explicitly unsupported. YJK separately read back HRB500 main bars on all eight
+members while preserving the original hoop grade; this does not imply PKPM parity.
+
+C35验收核对的是八项实际生效参数。PKPM主筋HRB500的未生效尝试保留失败证据，并在运行前明确拒绝。
+YJK的HRB500已独立读回通过；不能把一家软件的能力直接外推到另一家。
+
+YJK also verified all 14 standard concrete grade identities C15–C80 in a native
+project. Its steel-column sway flags select a native effective-length method;
+they do not accept an arbitrary prescribed `l0`. See the
+[YJK-specific receipt](reproducibility/yjk-native-design-20261014.json).
+
+YJK另核对14个标准混凝土牌号的原生身份，以及钢柱有无侧移计算长度方法；后者不等同于任意指定计算长度。
+
 ## Completed native runs / 已完成的原生证据
 
 Counts below refer to the normalized native records/checks, not independent
@@ -50,11 +68,15 @@ clauses or benchmark tasks. Full paths and hashes are in the review manifest.
 | PKPM `091116-643e218a` | Q355 3 m box columns / 箱柱 | 0 | 0 | 6 | 0 |
 | PKPM `091209-735605bb` | Q355 overload / 超载 | 0 | 0 | 6 | 0 |
 | PKPM `091839-52070c27` | Q355 2 m box columns / 箱柱 | 0 | 6 | 0 | 0 |
+| PKPM `093006-df3f10c3` | C35 explicit parameters / 显式参数 | 30 | 13 | 0 | 0 |
 | YJK `090449-c6fc800b` | C30 normal / 正常 | 140 | 12 | 0 | 0 |
 | YJK `090906-56aba572` | C30 load ×50 / 荷载50倍 | 140 | 0 | 12 | 0 |
 | YJK `091110-f8640252` | Q355 box normal / 正常箱形框架 | 0 | 140 | 0 | 72 |
 | YJK `090659-803f122a` | Q355 box load ×100 / 荷载100倍 | 0 | 52 | 88 | 72 |
 | YJK `085916-e8dd01` | Q355 H section / H形框架 | 0 | 172 | 4 | 36 |
+| YJK `092619-403b83` | C15–C80 native identities / 牌号身份 | 280 | 24 | 0 | 0 |
+| YJK `093033-e40ca6` | HRB500 main bars / 纵筋 | 140 | 12 | 0 | 0 |
+| YJK `093457-e61a96` | Non-sway steel-column method / 无侧移计算方法 | 0 | 140 | 0 | 72 |
 
 The PKPM 3 m box-column run is **not** an all-pass case: its official slenderness
 limit report fails even at the smaller load. The later 2 m case is a different,
