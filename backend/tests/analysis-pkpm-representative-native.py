@@ -1,7 +1,8 @@
-"""Run frozen physical references through the production PKPM entry point.
+"""Freeze independent capability references, then run the production PKPM entry.
 
 From the repository root, using the installed PKPM Python environment:
-  python backend/tests/analysis-pkpm-representative-native.py --case STD-086
+  python backend/tests/analysis-pkpm-representative-native.py --case custom-six-actions
+    --model-file backend/tests/fixtures/pkpm-numeric-capabilities/six-dof.json
     --work-root <isolated-work-root> --cycle <installation>/PkpmCycle/JWSCYCLE.exe
 Add --three-cases --combination for independently frozen D/L/W/ULS checks.
 Use --case INT-089 --state 1|2 --planned-proxy or --case MM-089
@@ -57,6 +58,33 @@ def external_resultant(model, case):
     return [math.fsum(row[index] for row in vectors) for index in range(6)]
 
 
+def require_complete_output(model, results, case_ids):
+    """Do not let checks over returned rows certify silently omitted outputs."""
+    if set(results) != set(case_ids):
+        raise ValueError("Native result case coverage differs from the frozen request")
+    nodes = {row["id"]: row for row in model["nodes"]}
+    for case_id, case in results.items():
+        for node_id, node in nodes.items():
+            for field, components in (("displacements", ("ux", "uy", "uz", "rx", "ry", "rz")),
+                                      ("reactions", ("fx", "fy", "fz", "mx", "my", "mz"))):
+                if field == "reactions" and not any(node.get("restraints", [])):
+                    continue
+                row = case.get(field, {}).get(node_id, {})
+                if any(not isinstance(row.get(key), (int, float)) or not math.isfinite(row[key]) for key in components):
+                    raise ValueError(f"Missing finite {field}: {case_id}/{node_id}")
+        for member in model["elements"]:
+            rows = case.get("memberStations", {}).get(member["id"], [])
+            points = [nodes[key] for key in member["nodes"]]
+            length = math.dist([points[0][key] for key in ("x", "y", "z")],
+                               [points[1][key] for key in ("x", "y", "z")])
+            if len(rows) < 2 or not math.isclose(rows[0].get("positionM", -1), 0., abs_tol=1e-9) or not math.isclose(rows[-1].get("positionM", -1), length, abs_tol=1e-9):
+                raise ValueError(f"Missing physical end stations: {case_id}/{member['id']}")
+            for row in (rows[0], rows[-1]):
+                values = row.get("components", {})
+                if any(not isinstance(values.get(key), (int, float)) or not math.isfinite(values[key]) for key in ("N", "Vy", "Vz", "T", "My", "Mz")):
+                    raise ValueError(f"Missing signed end components: {case_id}/{member['id']}")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--case", required=True)
@@ -67,18 +95,20 @@ def main():
     parser.add_argument("--native-solver", type=int, choices=(0, 1, 2, 3), help="Diagnostic PKPM 621 enum: Pardiso/Mumps/VSS/LDLT")
     parser.add_argument("--native-switch", choices=("SOV_DOUBLE.OUT", "READDISPDIRECT.OUT", "OPTIMIZELOOPREAD4_TO_REAL8.OUT", "OPTIMIZELOOPREAD4_TO_REAL8_2.OUT"), action="append", default=[], help="Diagnostic native numerical switch in the isolated project only")
     parser.add_argument("--combination", action="store_true", help="Request ULS after native source cases are solved")
-    parser.add_argument("--planned-proxy", action="store_true", help="Use explicit INT089/MM089 capability proxy, not formal benchmark input")
-    parser.add_argument("--model-file", type=Path, help="Explicit independent capability model; not benchmark scoring truth")
+    inputs = parser.add_mutually_exclusive_group(required=True)
+    inputs.add_argument("--planned-proxy", action="store_true", help="Use explicit INT089/MM089 capability proxy, not formal benchmark input")
+    inputs.add_argument("--model-file", type=Path, help="Explicit independent capability model; not benchmark scoring truth")
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[2]
-    fixture = repo / "tests/llm-benchmark/acceptance/representative-18" / ("STD-086" if args.planned_proxy or args.model_file else args.case)
     root = args.work_root.resolve() / f"pkpm-{args.case}-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}"
     root.mkdir(parents=True, exist_ok=False)
-    source = args.model_file.resolve() if args.model_file else fixture / f"model-state-{1 if args.planned_proxy else args.state}.json"
-    model = json.loads(source.read_text(encoding="utf-8"))
     if args.planned_proxy:
         from pkpm_planned_frame_proxies import model as planned_model
+        source = Path(__file__).with_name("pkpm_planned_frame_proxies.py")
         model = planned_model(args.case, args.state)
+    else:
+        source = args.model_file.resolve()
+        model = json.loads(source.read_text(encoding="utf-8"))
     if args.three_cases:
         dead = copy.deepcopy(model["load_cases"][0]); dead.update(id="D", type="dead")
         live = copy.deepcopy(dead); live.update(id="L", type="live")
@@ -90,7 +120,6 @@ def main():
         model["load_cases"] = [dead, live, wind]
         model["load_combinations"] = [{"id": "ULS", "factors": {"D": 1.2, "L": 1.4, "W": -.8}}]
     (root / "frozen-source-model.json").write_text(json.dumps(model, indent=2), encoding="utf-8")
-    reference = json.loads((fixture / "independent-reference.json").read_text(encoding="utf-8"))
     from native_frame_reference import solve
     timo_reference = {str(case["id"]): solve(model, str(case["id"])) for case in model["load_cases"]}
     reference_cases = copy.deepcopy(model["load_cases"])
@@ -111,12 +140,13 @@ def main():
     (root / "frozen-timoshenko-reference.json").write_text(json.dumps(timo_reference, indent=2), encoding="utf-8")
     evidence = {"status": "failed", "case": args.case, "state": args.state, "directory": str(root),
         "sourceSha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+        "sourcePath": str(source),
         "frozenModelSha256": hashlib.sha256((root / "frozen-source-model.json").read_bytes()).hexdigest(),
         "plannedCapabilityProxy": args.planned_proxy,
         "explicitCapabilityModel": bool(args.model_file),
-        "referenceSha256": hashlib.sha256((fixture / "independent-reference.json").read_bytes()).hexdigest(),
+        "referenceImplementationSha256": hashlib.sha256(Path(__file__).with_name("native_frame_reference.py").read_bytes()).hexdigest(),
         "timoshenkoReferenceSha256": hashlib.sha256((root / "frozen-timoshenko-reference.json").read_bytes()).hexdigest(),
-        "referenceKind": reference["referenceKind"], "notCommercialScoringTruth": True}
+        "referenceKind": "independent-3d-timoshenko-matrix", "notCommercialScoringTruth": True}
     (root / "reference-provenance.json").write_text(json.dumps({**evidence, "status": "reference-frozen",
         "primaryReferenceKind": "independent-3d-timoshenko-matrix", "primaryReferenceFile": "frozen-timoshenko-reference.json"}, indent=2), encoding="utf-8")
     analysis = repo / "backend/src/agent-skills/analysis"
@@ -148,26 +178,10 @@ def main():
         selection = {"loadCombinationId": "ULS"} if args.combination else {"loadCaseIds": case_ids}
         result = module.run_analysis(model, {"timeout": 120, **selection})
         (root / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
-        comparisons, missing, failures = [], [], []
-        state = {"quantities": []} if args.planned_proxy or args.model_file else next(row for row in reference["states"] if row["state"] == args.state)
-        for quantity in state["quantities"]:
-            if quantity["location"]["kind"] != "node":
-                continue
-            selection = quantity["selection"]
-            values = result["caseResults"].get(selection["id"], {}).get("displacements", {})
-            actual = values.get(quantity["location"]["id"], {}).get(quantity["component"])
-            if actual is None:
-                missing.append(quantity["id"]); continue
-            tol = quantity["tolerance"]
-            passed = math.isclose(actual, quantity["value"], rel_tol=tol["relative"], abs_tol=tol["absolute"])
-            item = {"id": quantity["id"], "actual": actual, "reference": quantity["value"], "tolerance": tol, "passed": passed}
-            comparisons.append(item)
-            if not passed: failures.append(item)
-        evidence.update(status="native-completed", nativeWorkDir=result["summary"]["work_dir"],
-            comparisons=comparisons, missingNodeQuantities=missing, discrepancies=failures,
-            numericalCapabilityAccepted=None if args.planned_proxy or args.model_file else not missing and not failures)
+        evidence.update(status="native-completed", nativeWorkDir=result["summary"]["work_dir"])
         timo_checks = []
         all_results = {**result["caseResults"], **result.get("combinationResults", {})}
+        require_complete_output(model, all_results, [case["id"] for case in reference_cases])
         for case_id, actual_case in all_results.items():
             for node_id, actual_row in actual_case["displacements"].items():
                 for component, value in actual_row.items():
@@ -220,7 +234,7 @@ def main():
     except Exception as exc:
         evidence["error"] = f"{type(exc).__name__}: {exc}"
     (root / "acceptance.json").write_text(json.dumps(evidence, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(json.dumps({key: value for key, value in evidence.items() if key not in {"comparisons", "discrepancies", "missingNodeQuantities", "timoshenkoChecks", "timoshenkoForceChecks", "equilibriumChecks"}}, ensure_ascii=False))
+    print(json.dumps({key: value for key, value in evidence.items() if key not in {"timoshenkoChecks", "timoshenkoForceChecks", "equilibriumChecks"}}, ensure_ascii=False))
     return 0 if evidence.get("completePhysicalOutputAccepted") is True else 1
 
 
