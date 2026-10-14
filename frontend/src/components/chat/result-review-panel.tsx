@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { DialogShell } from '@/components/ui/dialog-shell'
 import { buildVisualizationSnapshot } from '@/components/visualization/adapter'
 import type { VisualizationNodeResults, VisualizationSnapshot } from '@/components/visualization/types'
+import { isForceComponent } from '@/components/visualization/structural-scene-utils'
 import { MarkdownBody } from './markdown-body'
 
 const Viewer = dynamic(() => import('@/components/visualization/modal').then(module => module.StructuralVisualizationModal), { ssr: false })
@@ -51,7 +52,7 @@ export function selectedResultSnapshot(output: Row, selection: ResultSelection, 
       results: { [selection.resultKey]: { success: true, selection: output.resultSelection, meta: output.meta, data } } }
       : { success: true, meta: output.meta, data }, mode: 'analysis-result' })
     const quantity = record(output.quantity)
-    return snapshot ? { ...snapshot, statusMessage: `${zh ? '所选位置数值' : 'Selected location value'}: ${String(quantity.value ?? '—')} ${String(quantity.unit ?? '')}. ${zh ? '整体内力着色表示构件采样位置的分量组极值；精确位置、分量与断点侧以查询数值为准。' : 'Global force colors show sampled component-group extrema per member; the queried quantity identifies the exact location, component and cut side.'}` } : null
+    return snapshot ? { ...snapshot, statusMessage: `${zh ? '所选位置数值' : 'Selected location value'}: ${String(quantity.value ?? '—')} ${String(quantity.unit ?? '')}. ${zh ? '内力着色表示所选局部分量在各构件采样位置的绝对值最大值；构件读数保留符号，灰色表示缺数据。精确位置和断点侧以查询数值为准。' : 'Force colors show each member’s sampled maximum magnitude of the selected local component; member readouts retain the sign, and gray means unavailable. The queried quantity identifies the exact location and cut side.'}` } : null
   }
   const geometry = buildVisualizationSnapshot({ title, model, mode: 'model-only' })
   if (!geometry) return null
@@ -189,8 +190,8 @@ export function ResultReviewPanel({ open, onClose, conversationId, locale, disab
       {report && <div className="space-y-3 rounded-xl border border-border p-4"><div className="flex gap-2"><Button variant="outline" onClick={() => download('selected-report.md', String(report.markdown ?? ''), 'text/markdown;charset=utf-8')}>{l('导出 Markdown', 'Export Markdown')}</Button><Button variant="outline" onClick={() => download('selected-report.json', JSON.stringify(report.json, null, 2), 'application/json')}>{l('导出 JSON', 'Export JSON')}</Button><Button variant="outline" onClick={() => printSelectedReport(reportRef.current, `${selection.runId} ${selection.resultKey}`)}>{l('打印／保存 PDF', 'Print / save PDF')}</Button></div><div ref={reportRef}><MarkdownBody content={String(report.markdown ?? '')} /></div></div>}
     </div>
   </DialogShell><Viewer open={open && viewer} onClose={() => setViewer(false)} snapshot={snapshot} locale={locale} t={t}
-    initialView={selection.field === 'forces' && selection.component !== 'T' ? 'forces' : selection.field === 'reactions' ? 'reactions' : 'deformed'}
-    initialForceMetric={selection.component === 'N' ? 'axial' : ['V2', 'V3'].includes(selection.component) ? 'shear' : 'moment'}
+    initialView={selection.field === 'forces' ? 'forces' : selection.field === 'reactions' ? 'reactions' : 'deformed'}
+    initialForceMetric={isForceComponent(selection.component) ? selection.component : 'M2'} forceMetricLocked
     queryObjectKinds={selection.modeNumber !== undefined ? ['node'] : ['node', 'member']}
     selectedObject={selection.elementId ? { kind: 'member', id: selection.elementId } : selection.nodeId ? { kind: 'node', id: selection.nodeId } : undefined}
     onQueryObject={object => {

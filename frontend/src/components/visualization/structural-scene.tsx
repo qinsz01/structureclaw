@@ -19,6 +19,8 @@ import {
   getMemberDeformedPoints,
   getMemberDisplacementMagnitude,
   getElementMetric,
+  forceMetricLabel,
+  isMomentMetric,
   getNodeReactionMagnitude,
   getNodeReactionMomentMagnitude,
   getNodeDisplacementMagnitude,
@@ -737,8 +739,9 @@ function SceneContent({
             const end = view === 'deformed' ? endData.displacedPosition : endData.position
             const curve = view === 'deformed' ? getMemberDeformedPoints(activeCase, element.id, deformationScale)
               ?.map((point) => projectPosition(point, plane, snapshot.dimension)) : undefined
-            const forceColor = rawMaxElementMetric > 0
-              ? createColorScale(getElementMetric(activeCase, element.id, forceMetric), maxElementMetric)
+            const componentValue = getElementMetric(activeCase, element.id, forceMetric)
+            const forceColor = componentValue === null ? '#94a3b8' : rawMaxElementMetric > 0
+              ? createColorScale(componentValue, maxElementMetric)
               : '#38bdf8'
             const utilizationRatio = activeCase.elementResults[element.id]?.utilization ?? null
             const utilizationColor = utilizationRatio !== null
@@ -1189,10 +1192,10 @@ export function StructuralScene(props: StructuralSceneProps) {
   }, [])
 
   const rawMaxElementMetric = useMemo(
-    () => Math.max(0, ...snapshot.elements.map((element) => Math.abs(getElementMetric(activeCase, element.id, forceMetric)))),
+    () => Math.max(0, ...snapshot.elements.map((element) => Math.abs(getElementMetric(activeCase, element.id, forceMetric) ?? 0))),
     [activeCase, forceMetric, snapshot.elements]
   )
-  const maxElementMetric = Math.max(1, rawMaxElementMetric)
+  const maxElementMetric = Math.max(1e-12, rawMaxElementMetric)
   const maxReaction = useMemo(
     () => Math.max(1, ...snapshot.nodes.map((node) => getNodeReactionMagnitude(activeCase, node.id))),
     [activeCase, snapshot.nodes]
@@ -1233,8 +1236,8 @@ export function StructuralScene(props: StructuralSceneProps) {
   const colorBarProps = useMemo(() => {
     if (view === 'forces') {
       if (rawMaxElementMetric <= 0) return null
-      const metricLabel = forceMetric === 'axial' ? t('visualizationForceAxial') : forceMetric === 'shear' ? t('visualizationForceShear') : t('visualizationForceMoment')
-      const unit = forceMetric === 'moment' ? snapshot.momentUnit : snapshot.resultUnit
+      const metricLabel = `${forceMetricLabel(forceMetric, t)} · ${t('visualizationForceSampledMagnitude')}`
+      const unit = isMomentMetric(forceMetric) ? snapshot.momentUnit : snapshot.resultUnit
       return { maxValue: maxElementMetric, label: metricLabel, unit }
     }
     if (view === 'reactions') {

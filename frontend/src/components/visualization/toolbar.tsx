@@ -3,8 +3,7 @@
 import type { MessageKey } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import type { VisualizationSnapshot, VisualizationViewMode } from './types'
-
-type ForceMetric = 'axial' | 'shear' | 'moment'
+import { FORCE_COMPONENTS, forceMetricLabel, isForceComponent, type ForceMetric } from './structural-scene-utils'
 
 type VisualizationToolbarProps = {
   snapshot: VisualizationSnapshot
@@ -14,6 +13,7 @@ type VisualizationToolbarProps = {
   deformationScaleMax: number
   deformationScaleStep: number
   forceMetric: ForceMetric
+  forceMetricLocked?: boolean
   selectedView: VisualizationViewMode
   showElementLabels: boolean
   showLegend: boolean
@@ -33,12 +33,6 @@ type VisualizationToolbarProps = {
   t: (key: MessageKey) => string
 }
 
-const FORCE_LABELS: Record<ForceMetric, MessageKey> = {
-  axial: 'visualizationForceAxial',
-  shear: 'visualizationForceShear',
-  moment: 'visualizationForceMoment',
-}
-
 function getCaseLabel(caseId: string, fallbackLabel: string, t: (key: MessageKey) => string) {
   if (caseId === 'model') return t('visualizationSourceModel')
   if (caseId === 'result') return t('visualizationSourceResult')
@@ -54,6 +48,7 @@ export function VisualizationToolbar({
   deformationScaleMax,
   deformationScaleStep,
   forceMetric,
+  forceMetricLocked = false,
   selectedView,
   showElementLabels,
   showLegend,
@@ -76,6 +71,11 @@ export function VisualizationToolbar({
   const supportsForcesView = snapshot.availableViews.includes('forces')
   const supportsUtilizationView = snapshot.availableViews.includes('utilization')
   const showCaseSelector = snapshot.source === 'result' && snapshot.cases.length > 1
+  const activeCase = snapshot.cases.find(item => item.id === activeCaseId)
+  const hasComponents = Object.values(activeCase?.memberResponses ?? {}).some(row =>
+    row.samples.some(sample => FORCE_COMPONENTS.some(component => typeof sample[component] === 'number')))
+  const metrics: readonly ForceMetric[] = forceMetricLocked ? [forceMetric]
+    : hasComponents || isForceComponent(forceMetric) ? FORCE_COMPONENTS : ['axial', 'shear', 'moment']
 
   return (
     <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-4 py-3 dark:border-white/10">
@@ -97,8 +97,8 @@ export function VisualizationToolbar({
       ) : null}
 
       {supportsForcesView ? (
-        <div className="flex items-center gap-2">
-          {(['axial', 'shear', 'moment'] as const).map((metric) => (
+        <div className="flex flex-wrap items-center gap-2">
+          {metrics.map((metric) => (
             <button
               key={metric}
               className={cn(
@@ -115,9 +115,10 @@ export function VisualizationToolbar({
               }}
               type="button"
             >
-              {t(FORCE_LABELS[metric])}
+              {forceMetricLabel(metric, t)}
             </button>
           ))}
+          {(hasComponents || isForceComponent(forceMetric)) && <p className="w-full text-xs text-muted-foreground">{t('visualizationForceComponentNote')}</p>}
         </div>
       ) : null}
 

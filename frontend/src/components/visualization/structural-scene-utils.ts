@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import type { MessageKey } from '@/lib/i18n'
 import type { VisualizationCase, VisualizationLoad, VisualizationPlane, VisualizationSnapshot } from './types'
 
 export function isLoadVisible(snapshot: VisualizationSnapshot, activeCase: VisualizationCase, load: VisualizationLoad) {
@@ -23,7 +24,16 @@ export function getDistributedLoadArrows(start: THREE.Vector3, end: THREE.Vector
   })
 }
 
-export type ForceMetric = 'axial' | 'shear' | 'moment'
+export const FORCE_COMPONENTS = ['N', 'V2', 'V3', 'T', 'M2', 'M3'] as const
+export type ForceComponent = typeof FORCE_COMPONENTS[number]
+export type ForceMetric = 'axial' | 'shear' | 'moment' | ForceComponent
+export const isForceComponent = (metric: string): metric is ForceComponent => (FORCE_COMPONENTS as readonly string[]).includes(metric)
+export const isMomentMetric = (metric: ForceMetric) => ['moment', 'T', 'M2', 'M3'].includes(metric)
+export function forceMetricLabel(metric: ForceMetric, t: (key: MessageKey) => string) {
+  const key = metric === 'T' ? 'visualizationForceTorsion' : metric === 'axial' || metric === 'N'
+    ? 'visualizationForceAxial' : metric === 'shear' || metric === 'V2' || metric === 'V3' ? 'visualizationForceShear' : 'visualizationForceMoment'
+  return isForceComponent(metric) ? `${metric} · ${t(key)}` : t(key)
+}
 export type SupportKind = 'none' | 'fixed' | 'pinned' | 'roller-x' | 'roller-y' | 'roller-z' | 'partial'
 
 export function classifySupport(restraints: boolean[] | undefined, dimension: 2 | 3): SupportKind {
@@ -97,6 +107,14 @@ export function getMemberDisplacementMagnitude(activeCase: VisualizationCase, el
 
 export function getElementMetric(activeCase: VisualizationCase, elementId: string, forceMetric: ForceMetric) {
   const native = activeCase.memberResponses?.[elementId]
+  if (isForceComponent(forceMetric)) {
+    // Only explicitly named canonical samples can supply an individual component.
+    // Legacy grouped or unverified local end forces cannot be relabelled as M2/M3.
+    if (!native || native.state === 'unavailable' || native.state === 'interpolated') return null
+    const values = native.samples.map(sample => sample[forceMetric])
+      .filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
+    return values.length ? values.reduce((largest, value) => Math.abs(value) > Math.abs(largest) ? value : largest) : null
+  }
   if (native?.state === 'native-stations') {
     const components = forceMetric === 'axial' ? ['N'] as const
       : forceMetric === 'shear' ? ['V2', 'V3'] as const : ['M2', 'M3'] as const

@@ -40,9 +40,30 @@ describe('precomputed member-response visualization', () => {
     expect(getMemberDisplacementMagnitude(snapshot.cases[0],'E1')).toBe(0)
     expect(getElementMetric(snapshot.cases[0],'E1','moment')).toBe(-6)
     expect(getElementMetric(snapshot.cases[0],'E1','shear')).toBe(-3)
+    expect(getElementMetric(snapshot.cases[0],'E1','M2')).toBe(-6)
+    expect(getElementMetric(snapshot.cases[0],'E1','M3')).toBe(1)
+    expect(getElementMetric(snapshot.cases[0],'E1','V2')).toBe(2)
+    expect(getElementMetric(snapshot.cases[0],'E1','V3')).toBe(-3)
+    expect(getElementMetric(snapshot.cases[0],'E1','T')).toBe(.25)
     expect(snapshot.cases[0].memberResponses!.E1.samples[1]).not.toHaveProperty('displacement')
     row.samples[1].displacement=[0,0,0]
     expect(build([row])).toBeNull()
+  })
+
+  it('never substitutes a grouped extremum, another axis or a zero for a missing component', () => {
+    const row = response()
+    row.samples[1].M2 = -2
+    row.samples[1].M3 = 15
+    row.samples[1].T = 0
+    const active = { id: 'D', label: 'D', kind: 'result' as const, nodeResults: {},
+      elementResults: { E1: { moment: 100, torsion: 18 } }, memberResponses: { E1: row } }
+    expect(getElementMetric(active, 'E1', 'M2')).toBe(-2)
+    expect(getElementMetric(active, 'E1', 'M3')).toBe(15)
+    expect(getElementMetric(active, 'E1', 'T')).toBe(0)
+    expect(getElementMetric(active, 'E1', 'V2')).toBeNull()
+    expect(getElementMetric(active, 'absent', 'M2')).toBeNull()
+    active.memberResponses.E1 = { ...row, state: 'interpolated' }
+    expect(getElementMetric(active, 'E1', 'M2')).toBeNull()
   })
 
   it('keeps partial native station coverage explicit without nearest-location or full-curve claims', () => {

@@ -75,6 +75,21 @@ describe('VisualizationToolbar', () => {
     expect(screen.queryByText('Moment')).not.toBeInTheDocument()
   })
 
+  it('selects each canonical local component and locks a query-bound figure to its exact component', () => {
+    const snapshot = makeSnapshot({ source: 'result', cases: [{ id: 'D', label: 'D', kind: 'result', nodeResults: {}, elementResults: {},
+      memberResponses: { E1: { id: 'E1', length: 1, state: 'native-stations', reason: 'verified',
+        samples: [{ x: 0, position: [0, 0, 0], N: 1, V2: 2, V3: 3, T: 4, M2: 5, M3: 6 }] } } }] })
+    const onForceMetricChange = vi.fn()
+    const { rerender } = render(<VisualizationToolbar {...defaultProps} snapshot={snapshot} activeCaseId="D" forceMetric="T" onForceMetricChange={onForceMetricChange} />)
+    fireEvent.click(screen.getByRole('button', { name: 'M3 · Moment' }))
+    expect(onForceMetricChange).toHaveBeenLastCalledWith('M3')
+    fireEvent.click(screen.getByRole('button', { name: 'T · Torsion' }))
+    expect(onForceMetricChange).toHaveBeenLastCalledWith('T')
+    rerender(<VisualizationToolbar {...defaultProps} snapshot={snapshot} activeCaseId="D" forceMetric="M2" forceMetricLocked />)
+    expect(screen.getByRole('button', { name: 'M2 · Moment' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'M3 · Moment' })).not.toBeInTheDocument()
+  })
+
   it('renders deformation scale slider when deformed view is available', () => {
     render(<VisualizationToolbar {...defaultProps} />)
     expect(screen.getByText('Scale')).toBeInTheDocument()

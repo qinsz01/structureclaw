@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { MessageKey } from '@/lib/i18n'
+import type { ForceMetric } from './structural-scene-utils'
 import type {
   BucklingMode,
   VisualizationCase,
@@ -30,7 +31,7 @@ type VisualizationExtensionContext = {
   activeCase: VisualizationCase
   activeView: VisualizationViewMode
   bucklingModeIndex: number
-  forceMetric: 'axial' | 'shear' | 'moment'
+  forceMetric: ForceMetric
   t: (key: MessageKey) => string
 }
 

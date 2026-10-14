@@ -7,7 +7,7 @@ import { formatNumber } from '@/lib/utils'
 import { getBucklingModes, BucklingModePanel } from './extensions'
 import { VisualizationModalShell } from './modal-shell'
 import { StructuralScene } from './structural-scene'
-import { getMemberDisplacementMagnitude, isLoadVisible } from './structural-scene-utils'
+import { getMemberDisplacementMagnitude, getElementMetric, isForceComponent, isMomentMetric, forceMetricLabel, isLoadVisible, type ForceMetric } from './structural-scene-utils'
 import type { SceneExportHandle } from './structural-scene'
 import { VisualizationToolbar } from './toolbar'
 import { NativeStationPanel } from './native-station-panel'
@@ -104,7 +104,8 @@ function roundStep(value: number) {
 
 type StructuralVisualizationModalProps = {
   initialView?: VisualizationViewMode
-  initialForceMetric?: 'axial' | 'shear' | 'moment'
+  initialForceMetric?: ForceMetric
+  forceMetricLocked?: boolean
   queryObjectKinds?: ('node' | 'member')[]
   selectedObject?: { kind: 'node' | 'member'; id: string }
   onQueryObject?: (object: { kind: 'node' | 'member'; id: string }) => void
@@ -116,7 +117,7 @@ type StructuralVisualizationModalProps = {
 }
 
 export function StructuralVisualizationModal({
-  selectedObject, onQueryObject, queryObjectKinds, initialView, initialForceMetric,
+  selectedObject, onQueryObject, queryObjectKinds, initialView, initialForceMetric, forceMetricLocked,
   open,
   snapshot,
   locale,
@@ -134,7 +135,7 @@ export function StructuralVisualizationModal({
   const [resetToken, setResetToken] = useState(0)
   const [activeCaseId, setActiveCaseId] = useState('')
   const [deformationScale, setDeformationScale] = useState(12)
-  const [forceMetric, setForceMetric] = useState<'axial' | 'shear' | 'moment'>('moment')
+  const [forceMetric, setForceMetric] = useState<ForceMetric>('M2')
   const [showUndeformed, setShowUndeformed] = useState(true)
   const [showNodeLabels, setShowNodeLabels] = useState(false)
   const [showElementLabels, setShowElementLabels] = useState(false)
@@ -157,7 +158,8 @@ export function StructuralVisualizationModal({
       return
     }
     setView(initialView && snapshot.availableViews.includes(initialView) ? initialView : snapshot.availableViews[0] || 'model')
-    if (initialForceMetric) setForceMetric(initialForceMetric)
+    setForceMetric(initialForceMetric ?? (snapshot?.cases.some(item => Object.values(item.memberResponses ?? {})
+      .some(row => row.samples.some(sample => typeof sample.M2 === 'number'))) ? 'M2' : 'moment'))
     setActiveCaseId(snapshot.defaultCaseId)
     setSelectedNodeId(selectedObject?.kind === 'node' ? selectedObject.id : null)
     setSelectedElementId(selectedObject?.kind === 'member' ? selectedObject.id : null)
@@ -355,7 +357,11 @@ export function StructuralVisualizationModal({
                 {!modelOnly && typeof selectedElementResults?.axial === 'number' && <div>{t('visualizationForceAxial')}: {withUnit(formatNumber(selectedElementResults.axial, locale), snapshot?.resultUnit)}</div>}
                 {!modelOnly && typeof selectedElementResults?.shear === 'number' && <div>{t('visualizationForceShear')}: {withUnit(formatNumber(selectedElementResults.shear, locale), snapshot?.resultUnit)}</div>}
                 {!modelOnly && typeof selectedElementResults?.moment === 'number' && <div>{t('visualizationForceMoment')}: {withUnit(formatNumber(selectedElementResults.moment, locale), snapshot?.momentUnit)}</div>}
-                {!modelOnly && selectedElementResults?.controlCases?.[forceMetric] && (
+                {!modelOnly && activeCase && isForceComponent(forceMetric) && <div>{forceMetricLabel(forceMetric, t)} · {t('visualizationForceSampled')}: {
+                  getElementMetric(activeCase, selectedElement.id, forceMetric) === null ? t('visualizationMemberUnavailable')
+                    : withUnit(formatNumber(getElementMetric(activeCase, selectedElement.id, forceMetric)!, locale), isMomentMetric(forceMetric) ? snapshot?.momentUnit : snapshot?.resultUnit)
+                }</div>}
+                {!modelOnly && !isForceComponent(forceMetric) && selectedElementResults?.controlCases?.[forceMetric] && (
                   <div>{t('visualizationControlCase')}: {selectedElementResults.controlCases[forceMetric]}</div>
                 )}
                 {!modelOnly && selectedMemberResponse?.state === 'native-stations' && (
@@ -501,6 +507,7 @@ export function StructuralVisualizationModal({
             activeCaseId={activeCase.id}
             deformationScale={deformationScale}
             forceMetric={forceMetric}
+            forceMetricLocked={forceMetricLocked}
             selectedView={view}
             deformationScaleMin={deformationScaleRange.min}
             deformationScaleMax={deformationScaleRange.max}
