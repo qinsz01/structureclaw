@@ -10,9 +10,14 @@ import math
 import numpy as np
 
 
-def solve(model: dict, case_id: str) -> dict:
+def solve(model: dict, case_id: str, *, rigid_end_lengths=None) -> dict:
     """Resolve load breakpoints using independent, connected elastic segments."""
     case = next(row for row in model['load_cases'] if row['id'] == case_id)
+    if rigid_end_lengths is not None:
+        if any(load['type'] not in ('nodal', 'distributed') or
+               load.get('start', 0) != 0 or 'end' in load for load in case['loads']):
+            raise ValueError('Rigid-end reference requires nodal or full-span uniform loads')
+        return _solve_full_span(model, case_id, rigid_end_lengths=rigid_end_lengths)
     if not any(load['type'] == 'point' or (load['type'] == 'distributed' and
                ('start' in load or 'end' in load)) for load in case['loads']):
         return _solve_full_span(model, case_id)
@@ -73,7 +78,7 @@ def solve(model: dict, case_id: str) -> dict:
     return result
 
 
-def _solve_full_span(model: dict, case_id: str) -> dict:
+def _solve_full_span(model: dict, case_id: str, *, rigid_end_lengths=None) -> dict:
     nodes = model['nodes']
     index = {row['id']: i for i, row in enumerate(nodes)}
     positions = {row['id']: np.array([row[key] for key in ('x', 'y', 'z')], dtype=float) for row in nodes}
@@ -95,6 +100,15 @@ def _solve_full_span(model: dict, case_id: str) -> dict:
         y, z = math.cos(angle)*y+math.sin(angle)*z, -math.sin(angle)*y+math.cos(angle)*z
         axes = np.array([x, y, z])
         transform = np.kron(np.eye(4), axes)
+        physical_length = L
+        rigid_i, rigid_j = (rigid_end_lengths or {}).get(member['id'], (0., 0.))
+        if not all(math.isfinite(v) and v >= 0 for v in (rigid_i, rigid_j)) or rigid_i + rigid_j >= L:
+            raise ValueError('Rigid-end reference requires nonnegative lengths and a positive elastic span')
+        L -= rigid_i + rigid_j
+        rigid_map = np.eye(12)
+        # u_face = u_node + theta cross (face - node), in member axes.
+        rigid_map[1, 5], rigid_map[2, 4] = rigid_i, -rigid_i
+        rigid_map[7, 11], rigid_map[8, 10] = -rigid_j, rigid_j
         material, section = materials[member['material']], sections[member['section']]
         shape = section.get('shape') or {}
         if member.get('releases') or member.get('offsets'):
@@ -133,9 +147,11 @@ def _solve_full_span(model: dict, case_id: str) -> dict:
                 [sign*6*L, (2-phi)*L**2, -sign*6*L, (4+phi)*L**2]])
             stiffness[np.ix_(ids, ids)] = block
         dofs = np.array([6*index[node]+component for node in (a, b) for component in range(6)])
-        K[np.ix_(dofs, dofs)] += transform.T@stiffness@transform
+        K[np.ix_(dofs, dofs)] += transform.T@rigid_map.T@stiffness@rigid_map@transform
         members[member['id']] = dict(dofs=dofs, transform=transform, stiffness=stiffness,
-                                     length=L, equivalent=np.zeros(12), axes=axes)
+                                     length=L, equivalent=np.zeros(12), axes=axes, rigid_map=rigid_map,
+                                     physical_length=physical_length, rigid_lengths=(rigid_i, rigid_j),
+                                     rigid_equivalent=np.zeros(12))
     case = next(row for row in model['load_cases'] if row['id'] == case_id)
     for load in case['loads']:
         if load.get('reference_frame', 'global') != 'global':
@@ -145,22 +161,28 @@ def _solve_full_span(model: dict, case_id: str) -> dict:
             F[start:start+6] += np.array([load.get(key, 0) for key in ('fx', 'fy', 'fz', 'mx', 'my', 'mz')])
         elif load['type'] == 'distributed':
             member = members[load['element']]; L = member['length']
-            if load.get('start', 0) != 0 or load.get('end', L) != L or load.get('distribution', 'uniform') != 'uniform':
+            if load.get('start', 0) != 0 or load.get('end', member['physical_length']) != member['physical_length'] or load.get('distribution', 'uniform') != 'uniform':
                 raise ValueError('Reference requires full-span uniform load')
             qx, qy, qz = member['axes']@np.array([load.get(key, 0) for key in ('wx', 'wy', 'wz')])
             # Exact fixed-end consistent vector for a uniform transverse load.
             local = np.array([qx*L/2, qy*L/2, qz*L/2, 0, -qz*L**2/12, qy*L**2/12,
                               qx*L/2, qy*L/2, qz*L/2, 0, qz*L**2/12, -qy*L**2/12])
             member['equivalent'] += local
-            F[member['dofs']] += member['transform'].T@local
+            ri, rj = member['rigid_lengths']
+            rigid_load = np.array([qx*ri, qy*ri, qz*ri, 0, -qz*ri**2/2, qy*ri**2/2,
+                                   qx*rj, qy*rj, qz*rj, 0, qz*rj**2/2, -qy*rj**2/2])
+            member['rigid_equivalent'] += rigid_load
+            F[member['dofs']] += member['transform'].T@(member['rigid_map'].T@local+rigid_load)
         else:
             raise ValueError('Unsupported independent reference load')
     fixed = np.array([6*i+j for i, node in enumerate(nodes) for j, fixed in enumerate(node.get('restraints', [False]*6)) if fixed], dtype=int)
     free = np.setdiff1d(np.arange(6*len(nodes)), fixed)
     u = np.zeros(len(F)); u[free] = np.linalg.solve(K[np.ix_(free, free)], F[free])
     reactions = K@u-F
-    local_forces = {key: (row['stiffness']@row['transform']@u[row['dofs']]-row['equivalent']).tolist() for key, row in members.items()}
+    face_forces = {key: row['stiffness']@row['rigid_map']@row['transform']@u[row['dofs']]-row['equivalent'] for key, row in members.items()}
+    local_forces = {key: (row['rigid_map'].T@face_forces[key]-row['rigid_equivalent']).tolist() for key, row in members.items()}
     return {'method': 'independent-direct-stiffness-Timoshenko-3d',
             'displacements': {row['id']: dict(zip(('ux', 'uy', 'uz', 'rx', 'ry', 'rz'), u[6*i:6*i+6].tolist())) for i, row in enumerate(nodes)},
             'reactions': {row['id']: dict(zip(('fx', 'fy', 'fz', 'mx', 'my', 'mz'), reactions[6*i:6*i+6].tolist())) for i, row in enumerate(nodes)},
-            'localEndActions': local_forces}
+            'localEndActions': local_forces,
+            **({'elasticEndActions': {key: value.tolist() for key, value in face_forces.items()}} if rigid_end_lengths is not None else {})}
