@@ -326,17 +326,17 @@ export class AnalysisService {
 
       return updatedAnalysis;
     } catch (error: any) {
-      if (error?.code === 'P2025') error = new Error('ANALYSIS_RUN_SUPERSEDED / 分析期间输入或当前作业已变化');
+      const failure = error?.code === 'P2025' ? new Error('ANALYSIS_RUN_SUPERSEDED / 分析期间输入或当前作业已变化') : error;
       await prisma.analysis.updateMany({
         where: owned,
         data: {
           status: 'failed',
-          error: error.message,
+          error: failure.message,
           completedAt: new Date(),
         },
       });
 
-      throw error;
+      throw failure;
     }
   }
 
