@@ -27,13 +27,6 @@ class SettingsCapabilityError(ValueError):
 def compile_settings(model: dict) -> dict:
     """Compile the elastic frame settings; native evidence still gates support."""
     control = model.get("analysis_control") or {}
-    if control.get("rigid_offsets") is True and control.get("self_weight") is True:
-        # A retained native run demonstrates different axial consistent-load
-        # semantics on a column with a rigid end. Geometry/load readback alone
-        # is insufficient to certify this combination; do not publish it.
-        raise SettingsCapabilityError(
-            "YJK self-weight with rigid ends requires an axial-load mapping / "
-            "YJK 刚域与柱自重的轴向荷载映射尚未完成")
     if control.get("rigid_offsets") is True:
         nodes = {str(row['id']): row for row in model.get('nodes', [])}
         for member in model.get('elements', []):
@@ -156,8 +149,13 @@ def audit_effective_settings(model: dict, fe: dict, receipt: dict, report_text: 
         rigid_offsets = audit_rigid_offsets(model, fe, member_audit or {}, native_members or {})
         preserved = ((load_audit or {}).get('passed') is True
                      and (load_audit or {}).get('feaSha256') == fe['sha256'])
+        axial = ((load_audit or {}).get('selfWeightCompilation') or {}).get('consistentLoadCompilation')
+        if controls.get('self_weight') is True and (not isinstance(axial, dict)
+                or axial.get('verified') is not True or axial.get('sourceFeaSha256') != fe['sha256']):
+            failures.append('rigid-axial-selfweight-compilation-unverified')
+            preserved = False
         rigid_offsets['sourceLoadSemanticsPreserved'] = preserved
-        rigid_offsets['loadCompilation'] = {'method':'native-preserved-physical-loads',
+        rigid_offsets['loadCompilation'] = {'method':('native-direct-and-consistent-axial-gravity' if axial else 'native-preserved-physical-loads'),
             'sourceFeaSha256':fe['sha256'], 'loadHash':(load_audit or {}).get('loadHash'),
             'verified':preserved}
         failures.extend(rigid_offsets['failures'])

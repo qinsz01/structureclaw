@@ -86,10 +86,12 @@ class NativeSettingsTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "not calibrated"):
                 settings.compile_settings({"analysis_control": {key: True}})
 
-    def test_known_rigid_column_weight_mismatch_is_rejected_before_native_run(self):
-        with self.assertRaisesRegex(settings.SettingsCapabilityError, "axial-load mapping") as error:
-            settings.compile_settings({"analysis_control": {"rigid_offsets": True, "self_weight": True}})
-        self.assertEqual(error.exception.error_code, "ENGINE_INPUT_UNSUPPORTED")
+    def test_rigid_column_weight_requires_verified_consistent_load_compilation(self):
+        row=self.rigid_fixture()
+        row['model']['analysis_control'].update(rigid_offsets=True,self_weight=True)
+        audit=settings.audit_effective_settings(row['model'],row['fe'],row['receipt'],row['report'],row['loadAudit'])
+        self.assertIn('rigid-axial-selfweight-compilation-unverified',audit['failures'])
+        self.assertFalse(audit['passed'])
         for rigid, weight in ((False, True), (True, False)):
             plan = settings.compile_settings({"analysis_control": {"rigid_offsets": rigid, "self_weight": weight}})
             self.assertEqual(plan["controls"]["self_weight"], weight)

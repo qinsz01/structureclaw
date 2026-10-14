@@ -1264,6 +1264,14 @@ def _build_analysis_result(
                         geometry["discontinuities"] = [float(load["position"]) for load in authored_case.get("loads", [])
                                                        if load.get("element") == elem_id and load.get("position") is not None]
                         canonical_stations = map_stations(rows, geometry)
+                        compiled_weight = ((native_context.get('effectiveLoads') or {}).get('selfWeight') or {}).get('consistentLoadCompilation')
+                        compiled_members = {item['sourceSegmentId']:item for item in (compiled_weight or {}).get('members', [])}
+                        if elem_id in compiled_members and descriptor.get('sourceCaseId',case_name) == compiled_members[elem_id]['loadCaseId']:
+                            if len(canonical_stations) != 2:
+                                raise StationConventionUnavailable('Compiled axial gravity may expose only physical elastic-end native cuts / 编译轴向自重仅可提供物理弹性端面的原生截面')
+                            for station in canonical_stations:
+                                station['source']['loadFieldCompilation'] = 'axial-uniform-load-exact-virtual-work'
+                                station['source']['nativeInteriorFieldSemantics'] = 'computational-load-vector; not-physical-uniform-load'
                         case_stations[elem_id] = canonical_stations
                         force = station_envelope(canonical_stations)
                         calibrated_elements.add(elem_id)
@@ -1563,6 +1571,61 @@ def main() -> int:
         return 1
 
 
+def _prepare_axial_gravity(model: dict, work_dir: str, yjks_root: str, steps: list[dict]) -> None:
+    """Two owned preparation stages, one solve, immutable physical input."""
+    import subprocess
+    from yjk_native_axial_weight import compile_input
+    from yjk_converter import convert_v2_to_ydb
+    from yjk_native_settings import apply_in_host, compile_settings
+
+    def command(name, arg=""):
+        if not _run_cmd(name, arg, phase="axial-gravity-preparation", steps=steps):
+            raise RuntimeError("YJK axial gravity preparation failed / YJK 轴向自重准备失败: " + name)
+
+    root = Path(work_dir)
+    command("yjkSPre_GenData")
+    mapping = _load_json_file(str(root/"mapping.json"))
+    plan = compile_input(work_dir, model, mapping)
+    second = root/"axial-gravity-exchange"
+    converted = convert_v2_to_ydb(model, str(second), "axial-gravity.ydb", axial_weight_plan=plan)
+    shutil.copy2(converted, root/"axial-gravity.ydb")
+    for name in ("mapping.json", "native-load-precision.json", "native-stiffness-plan.json",
+                 "native-stiffness-precision.json", "native-settings-readback.json", "owned-native.json"):
+        if (root/name).exists():
+            shutil.copy2(root/name, root/("geometry-"+name))
+        if (second/name).exists():
+            shutil.copy2(second/name, root/name)
+    final_mapping = _load_json_file(str(root/"mapping.json"))
+    final_mapping["ydb_path"] = str(root/"axial-gravity.ydb")
+    (root/"mapping.json").write_text(json.dumps(final_mapping, ensure_ascii=False, indent=2), encoding="utf8")
+
+    # SDK8's live ReadFromYJK crashes after GenData; UINew in that host waits
+    # on an invisible dialog. Release only our proven preparation process.
+    # Both hosts remain inside the runtime's same process job and lease.
+    owned = _load_json_file(str(root/"geometry-owned-native.json"))
+    pid = int(owned["configured_pid"])
+    candidates = _owned_native_processes(os.getpid())
+    selected = _select_owned_host(candidates, os.getpid(), _find_yjks_exe(yjks_root))
+    if int(selected["ProcessId"]) != pid:
+        raise RuntimeError("YJK preparation process ownership changed / YJK 准备进程归属改变")
+    _SDK_PIPE.close()
+    subprocess.run(["taskkill", "/PID", str(pid), "/F"], check=True, timeout=15,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, creationflags=subprocess.CREATE_NO_WINDOW)
+    _record_step(steps, phase="axial-gravity-preparation", name="Release owned geometry host",
+                 status="success", pid=pid, method="verified-owned-pid-within-process-job")
+    _connect_owned_host(yjks_root, steps)
+    command("UINew", str(root/"axial-gravity.yjk"))
+    command("yjk_importydb", str(root/"axial-gravity.ydb"))
+    current = _load_json_file(str(root/"owned-native.json"))
+    apply_in_host(lambda *args: _run_cmd(*args, phase="axial-gravity-settings", steps=steps),
+                  work_dir, int(current["configured_pid"]), compile_settings(model))
+    for name in ("yjk_repair", "yjk_save", "yjk_setlayersupport", "yjkspre_genmodrel",
+                 "yjktransload_tlplan", "yjktransload_tlvert"):
+        command(name)
+    command("SetCurrentLabel", "IDSPRE_ROOT")
+    command("yjkSPre_GenData")
+
+
 def _run(model_path: str, work_dir: str, yjks_root: str) -> int:
     global _CURRENT_WORK_DIR
 
@@ -1788,13 +1851,22 @@ def _run(model_path: str, work_dir: str, yjks_root: str) -> int:
         )
         return 1
 
+    # Automatic rigid lengths are generated by the vendor, never inferred
+    # from section dimensions. The optional second import compiles only the
+    # axial gravity load vector using those actual lengths.
+    axial_gravity = (model_data.get("analysis_control", {}).get("rigid_offsets") is True
+                     and model_data.get("analysis_control", {}).get("self_weight") is True)
+    if axial_gravity:
+        _prepare_axial_gravity(model_data, work_dir, yjks_root, steps)
+
     # -- Phase 6: Synchronous design calculation ------------------------
     print("[yjk_driver] Phase 6: synchronous calculation", file=sys.stderr, flush=True)
-    if not _run_cmd("yjkdesign_dsncalculating_all", phase="analysis", steps=steps):
+    calculation = "yjkdesign_dsncalculating_cal_design" if axial_gravity else "yjkdesign_dsncalculating_all"
+    if not _run_cmd(calculation, phase="analysis", steps=steps):
         _error(
             "YJK crashed or failed during design calculation",
             phase="analysis",
-            command="yjkdesign_dsncalculating_all",
+            command=calculation,
             steps=steps,
             summary={"work_dir": work_dir, "yjk_project": yjk_project},
         )

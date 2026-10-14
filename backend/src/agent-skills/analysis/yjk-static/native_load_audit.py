@@ -13,6 +13,12 @@ import struct
 def audit_loads(model: dict, mapping: dict, fe: dict) -> dict:
     from yjk_self_weight import compile_self_weight
     weight = compile_self_weight(model)
+    path = Path(mapping['ydb_path']).parent / 'fea.dat'
+    consistent = None
+    if (path.parent/'native-axial-gravity-compilation.json').exists():
+        from yjk_native_axial_weight import verify_compilation
+        consistent = verify_compilation(path.parent, model, mapping, fe)
+    axial = {row['sourceSegmentId']: row for row in (consistent or {}).get('members', [])}
     nodes = {str(n["id"]): tuple(float(n[k]) for k in ("x", "y", "z")) for n in model["nodes"]}
     coords = lambda p: tuple(round(float(x), 9) for x in p)
     source_at = {coords(p): k for k, p in nodes.items()}
@@ -39,10 +45,9 @@ def audit_loads(model: dict, mapping: dict, fe: dict) -> dict:
 
     # Read repeated USE-STLD blocks directly; flattening repeated sections would
     # discard their case ownership and can make two wrong cases look correct.
-    path = Path(mapping["ydb_path"]).parent / "fea.dat"
     text = path.read_bytes().decode("gb18030")
     actual = {key: defaultdict(float) for key in by_native.values()}
-    executed_lines = []
+    executed_lines, executed_points = [], []
     active, section = None, ""
     for raw in text.splitlines():
         line = raw.strip()
@@ -64,13 +69,26 @@ def audit_loads(model: dict, mapping: dict, fe: dict) -> dict:
                 for index, value in enumerate(values):
                     actual[active][("node", node, index)] += value
             else:
-                if tag not in members or fields.get("DIR") != "GZ":
+                if tag not in members:
                     raise ValueError("YJK member load target/direction changed / 构件荷载对象或方向改变")
                 member, length, reversed_order = members[tag]
+                native_direction = fields.get('DIR')
+                native_values = list(values)
+                if native_direction == 'LX' and member in axial and fields.get('T') == 'CONLOAD' and len(values) == 2:
+                    frame=fe['frames'][tag]
+                    a,b=[fe['nodes'][node] for node in frame['nodes']]
+                    if a[:2] != b[:2] or a[2] == b[2]:
+                        raise ValueError('Axial gravity native axis is not vertical / 轴向自重原生轴不竖直')
+                    values[1] *= 1. if b[2] > a[2] else -1.
+                elif native_direction != 'GZ':
+                    raise ValueError("YJK member load target/direction changed / 构件荷载对象或方向改变")
                 position = lambda x: -x*length if x < 0 else x
                 if fields.get("T") == "CONLOAD" and len(values) == 2:
                     x = position(values[0]); x = length-x if reversed_order else x
                     actual[active][("point", member, round(x, 9))] += values[1]
+                    executed_points.append({'case':active,'member':member,'positionM':x,
+                                            'forceKn':values[1],'nativeFrameId':tag,
+                                            'nativeDirection':native_direction,'nativeValues':native_values})
                 elif fields.get("T") == "UNILOAD" and len(values) == 4:
                     a, b = position(values[0]), position(values[2])
                     qa, qb = values[1], values[3]
@@ -105,6 +123,17 @@ def audit_loads(model: dict, mapping: dict, fe: dict) -> dict:
     weight_keys = set()
     if weight["enabled"]:
         for member in weight["members"]:
+            compiled = axial.get(member['elementId'])
+            if compiled:
+                point = compiled['point']
+                key = ('point',member['elementId'],round(point['nativePositionM'],9))
+                expected[weight['loadCaseId']][key] += point['forceVectorKn'][2]
+                weight_keys.add((weight['loadCaseId'],key))
+                for load in compiled['rigidSegmentNodeLoads']:
+                    key = ('node',load['sourceNodeId'],2)
+                    expected[weight['loadCaseId']][key] += load['forceVectorKn'][2]
+                    weight_keys.add((weight['loadCaseId'],key))
+                continue
             for label in ("line-start", "line-end"):
                 key = (label, member["elementId"], 0., round(member["lengthM"], 9))
                 expected[weight["loadCaseId"]][key] += member["intensityKnM"]
@@ -130,6 +159,35 @@ def audit_loads(model: dict, mapping: dict, fe: dict) -> dict:
     if weight["enabled"]:
         executed = []
         for row in weight["physicalCompilation"]:
+            compiled = axial.get(row['sourceSegmentId'])
+            if compiled:
+                matching = [point for point in executed_points if point['case'] == weight['loadCaseId']
+                            and point['member'] == row['sourceSegmentId']
+                            and point['positionM'] == compiled['point']['nativePositionM']]
+                if len(matching) != 1:
+                    raise ValueError('Consistent axial load has no unique native point / 一致轴向荷载缺少唯一原生点载')
+                point_target = compiled['point']['forceVectorKn'][2]
+                encoded = float(format(struct.unpack('f',struct.pack('f',point_target))[0],'.6g'))
+                if matching[0]['forceKn'] != encoded:
+                    raise ValueError('Consistent axial point encoding differs / 一致轴向点载编码不符')
+                compiled['executedPoint'] = {'nativePositionM':matching[0]['positionM'],
+                    'forceVectorKn':[0.,0.,matching[0]['forceKn']],
+                    'nativeDirection':matching[0]['nativeDirection'], 'nativeValues':matching[0]['nativeValues']}
+                compiled['nativeNodeAggregates'] = [{'sourceNodeId':load['sourceNodeId'],
+                    'nativeNodeId':load['nativeNodeId'],
+                    'sourceTotalForceVectorKn':[expected[weight['loadCaseId']][('node',load['sourceNodeId'],i)] for i in range(3)],
+                    'executedTotalForceVectorKn':[actual[weight['loadCaseId']][('node',load['sourceNodeId'],i)] for i in range(3)]}
+                    for load in compiled['rigidSegmentNodeLoads']]
+                for node in compiled['nativeNodeAggregates']:
+                    expected_node=[float(format(struct.unpack('f',struct.pack('f',value))[0],'.6g'))
+                                   for value in node['sourceTotalForceVectorKn']]
+                    if node['executedTotalForceVectorKn'] != expected_node:
+                        raise ValueError('Consistent rigid-node load encoding differs / 一致刚段节点荷载编码不符')
+                # This is a physical-field recovery input, not an executed FE
+                # uniform-load record. Consumers must inspect the compilation.
+                executed.append({**row,'intensityVectorKnM':list(row['intensityVectorKnM']),
+                                 'executionMethod':'consistent-axial-load-vector'})
+                continue
             authored = row["intensityVectorKnM"][2]
             quantized = float(format(authored, ".6g"))
             bound = 8*math.ulp(max(abs(quantized), 1e-300))
@@ -146,6 +204,9 @@ def audit_loads(model: dict, mapping: dict, fe: dict) -> dict:
             executed.append({**row, "intensityVectorKnM": [0., 0., value]})
         weight["executedCompilation"] = executed
         weight["inputQuantization"] = {"source": "fea.dat", "significantDigits": 6}
+        if consistent:
+            consistent['verified'] = True
+            weight['consistentLoadCompilation'] = consistent
     payload = {"passed": True, "sourceCases": sorted(expected), "nativeCases": by_native,
                "feaSha256": fe["sha256"], "method": "signed-case-target-position-component-readback",
                "selfWeightExcludedFromSourceCases": (model.get("analysis_control") or {}).get("self_weight") is False}

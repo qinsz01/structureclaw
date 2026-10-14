@@ -22,10 +22,13 @@ def verify(work):
     result=json.loads((work/'result.json').read_text('utf8'))
     reference=json.loads((work/'reference.json').read_text('utf8'))
     counts={'displacement':0,'reaction':0,'elasticEndAction':0}
+    failures=[]
     def compare(actual,expected,label,unit):
         tolerance=1e-11 if unit=='displacement' else 1e-5
-        assert math.isclose(actual,expected,rel_tol=1e-5,abs_tol=tolerance),(label,actual,expected)
         counts[unit]+=1
+        if not math.isclose(actual,expected,rel_tol=1e-5,abs_tol=tolerance):
+            failures.append({'target':label,'kind':unit,'actual':actual,'expected':expected,
+                'absoluteDifference':abs(actual-expected),'relativeTolerance':1e-5,'absoluteTolerance':tolerance})
     for case in model['load_cases']:
         identifier=case['id'];data=result['nativeResultSet']['results']['case:'+identifier]['data']
         expected=reference['cases'][identifier]
@@ -56,11 +59,12 @@ def verify(work):
                 actual=[-c['N'],c['Vy'],c['Vz'],-c['T'],-c['My'],-c['Mz']]
                 for axis,value in enumerate(actual):
                     compare(sign*value,values[index*6+axis],(identifier,member,index,axis),'elasticEndAction')
-    summary={'status':'passed','checks':counts,'referenceMethod':reference['method'],
+    summary={'status':'failed' if failures else 'passed','checks':counts,'failures':failures,'referenceMethod':reference['method'],
              'nativeStationDomain':'elastic-span','rigidLengthsM':reference['rigidLengthsM'],
              'cases':list(reference['cases'])}
     (work/'acceptance.json').write_text(json.dumps(summary,indent=2),'utf8')
-    print(json.dumps({'status':'passed','workDir':str(work),'checks':counts}),flush=True)
+    print(json.dumps({'status':summary['status'],'workDir':str(work),'checks':counts,'failures':failures}),flush=True)
+    assert not failures, f'{len(failures)} independent response checks failed / 独立响应核对未通过'
 
 
 def main():

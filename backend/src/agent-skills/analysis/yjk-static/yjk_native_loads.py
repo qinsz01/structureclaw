@@ -32,7 +32,7 @@ def _native_precision(values: list[float], label: str) -> None:
         raise ValueError(f"{label}: load values exceed native 0.001 precision / 荷载值或位置超出原生三位小数精度")
 
 
-def compile_load_definitions(model: dict, *, native_precision: bool = True) -> list[dict]:
+def compile_load_definitions(model: dict, *, native_precision: bool = True, axial_weight_plan: dict | None = None) -> list[dict]:
     """Pure compilation, before touching the SDK; never drop a load component."""
     nodes = {str(node["id"]): node for node in model.get("nodes", [])}
     members = {str(member["id"]): member for member in model.get("elements", [])}
@@ -127,6 +127,27 @@ def compile_load_definitions(model: dict, *, native_precision: bool = True) -> l
         if weight["enabled"] and case_id == weight["loadCaseId"]:
             for member in weight["members"]:
                 native_value = -member["intensityKnM"]*member["actualToPlanLengthFactor"]
+                axial = [row for row in (axial_weight_plan or {}).get('members', [])
+                         if row['sourceSegmentId'] == member['elementId']]
+                if axial:
+                    if len(axial) != 1 or member['elementKind'] != 11:
+                        raise ValueError('Axial gravity plan has ambiguous source binding / 轴向自重方案的源对象绑定不唯一')
+                    row = axial[0]
+                    if (row['loadCaseId'] != case_id or row['endM'] != member['lengthM'] or row['startM'] != 0
+                            or row['sourceIntensityVectorKnM'] != member['intensityVectorKnM']):
+                        raise ValueError('Axial gravity plan differs from source / 轴向自重方案与源模型不同')
+                    compiled['loads'].append({'targetKind':'member','targetId':member['elementId'],
+                        'elementKind':11,'sourceLoadId':'self-weight:'+member['elementId'],
+                        'shapeVal':','.join(map(_text,[5,-row['point']['forceVectorKn'][2],row['point']['nativePositionM'],0,0,0,0])),
+                        'components':[-row['point']['forceVectorKn'][2]],'derivedSelfWeight':member,
+                        'consistentAxialWeight':row})
+                    for item in row['rigidSegmentNodeLoads']:
+                        compiled['loads'].append({'targetKind':'node','targetId':item['sourceNodeId'],
+                            'elementKind':-1,'sourceLoadId':'rigid-self-weight:'+member['elementId']+':'+item['sourceNodeId'],
+                            'shapeVal':','.join(map(_text,[-item['forceVectorKn'][2],0,0,0,0,0,0])),
+                            'components':[-item['forceVectorKn'][2],0,0,0,0,0], 'derivedSelfWeight':member,
+                            'consistentAxialWeight':row})
+                    continue
                 compiled["loads"].append({"targetKind": "member", "targetId": member["elementId"],
                     "elementKind": member["elementKind"], "sourceLoadId": "self-weight:"+member["elementId"],
                     "shapeVal": ",".join(map(_text, [1, native_value, 0, 0, 0, 0, 0])),
@@ -138,10 +159,10 @@ def compile_load_definitions(model: dict, *, native_precision: bool = True) -> l
     return cases
 
 
-def arrange_native_loads(data_func, model: dict, native_nodes: dict, native_members: dict) -> list[dict]:
+def arrange_native_loads(data_func, model: dict, native_nodes: dict, native_members: dict, axial_weight_plan: dict | None = None) -> list[dict]:
     from YJKAPI import GKLoadDefCreateInfo
 
-    mapping = compile_load_definitions(model)
+    mapping = compile_load_definitions(model, axial_weight_plan=axial_weight_plan)
     for case in mapping:
         info = GKLoadDefCreateInfo()
         info.SetDeadFacotr(0.0).SetLiveFacotr(case["nativeCategory"], 0.0, 0.0, 0.0)

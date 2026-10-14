@@ -490,6 +490,7 @@ def _concrete_grade(material: dict) -> int | None:
 def convert_v2_to_ydb(
     data: dict[str, Any], work_dir: str, ydb_filename: str = "model.ydb",
     design_plan: dict | None = None,
+    axial_weight_plan: dict | None = None,
 ) -> str:
     """Compile the supplied topology, one independent native floor at a time."""
     stiffness_plan = None
@@ -693,7 +694,7 @@ def convert_v2_to_ydb(
     from yjk_native_loads import arrange_native_loads
     from yjk_native_boundaries import write_supports
     write_supports(data_func, data, all_native_nodes)
-    load_case_mapping = (arrange_native_loads(data_func, data, all_native_nodes, all_native_members)
+    load_case_mapping = (arrange_native_loads(data_func, data, all_native_nodes, all_native_members, axial_weight_plan=axial_weight_plan)
                          if data.get("load_cases") else [])
     data_func.DbModel_Assign()
     reader = Hi_AddToAndReadYjk(data_func.GetDbModelData())

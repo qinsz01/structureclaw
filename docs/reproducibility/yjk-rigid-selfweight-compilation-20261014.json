@@ -1,0 +1,86 @@
+{
+  "schema": "sclaw-native-adapter-acceptance/v1",
+  "engine": "YJK",
+  "date": "2026-10-14",
+  "scope": "Vertical-column axial selfweight with vendor rigid ends, real sections and physical-member line/point-load meshing.",
+  "scopeZh": "真实截面竖柱刚域与轴向自重，以及保留物理构件身份的梁局部线载、点载分段。",
+  "status": "native-input-and-execution-audits-passed; one-independent-precision-check-failed",
+  "route": {
+    "geometry": "Official yjkSPre_GenData in an owned private host; read generated FRAME.RZL before calculation.",
+    "input": "Recompile a new SDK YDB with a midpoint axial point and rigid-segment nodal loads; source UDL/model remains immutable.",
+    "execution": "Second owned host under the same job and lease imports the new YDB, generates native data and calls yjkdesign_dsncalculating_cal_design once.",
+    "physicalBasis": "Exact linear axial virtual work: q*elasticLength/2 at each elastic end and q*rigidLength at each physical node. The internal point-load field is not a physical uniform-load field.",
+    "actualInput": "Final FE COLUMN CONLOAD DIR=LX and NODELOAD readback, separately audited from the expected-load view.",
+    "exportViewNotExecuted": "axial-gravity-expected-loads.dat is a diagnostic expectation, never passed to the native solver."
+  },
+  "evidence": {
+    "workDir": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-rigid-offsets-20261014-142158-0aa81298",
+    "jobDir": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-rigid-offsets-20261014-142158-0aa81298\\sc_rigid-offset-adapter_b2ccb3cf1d89",
+    "nativePhysicsPassed": true,
+    "actualFeaSha256": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d",
+    "files": {
+      "fea-before-axial-gravity.dat": "e05b48f9ad2e2dd9c7014f6f6336c068895a5b16ac69873b7967e9ea96f4fed1",
+      "fea.dat": "d084871b35bf321ad8879fe0097cf6c199e7846066de8d144ae36fbef6631b6d",
+      "native-axial-gravity-compilation.json": "8bab5bc0b8a85f62e52371f3bc687045951be8d2b8c5f0b2b70db6baf0e8fc8c",
+      "native-physics-audit.json": "d0b0a180cebb886f8c6dd814274f58a5b0267eab20f30fac137e5a863ad519f7",
+      "steps.json": "15a5c703cbe970ea34ad9eb9d3b96fd23fdfb776af6831df9f250cb7375fa893"
+    },
+    "independentReferenceFrozenBeforeRun": true,
+    "checks": {
+      "displacement": 336,
+      "reaction": 336,
+      "elasticEndAction": 924
+    },
+    "passedChecks": 1595,
+    "failures": [
+      {
+        "target": [
+          "D",
+          "N101",
+          "uy"
+        ],
+        "kind": "displacement",
+        "actual": 6.40952180219756e-07,
+        "expected": 6.409637323672943e-07,
+        "absoluteDifference": 1.1552147538293012e-11,
+        "relativeTolerance": 1e-05,
+        "absoluteTolerance": 1e-11
+      }
+    ],
+    "referenceAndTolerancesUnchanged": true
+  },
+  "consumerContract": {
+    "path": "nativeContext.effectiveLoads.selfWeight.consistentLoadCompilation",
+    "hashes": "sourceFeaSha256 binds final executed native FE; geometryFeaSha256 binds first official generation. After physical mesh restoration physicalModelHash binds source, compiledModelHash and sourceModelHash bind compiled input.",
+    "positions": "nativeRigidLengthsM follows nativeNodeIds; sourceNodeIds and physical segment interval are explicit.",
+    "directResults": "Only native elastic-end cuts and original physical nodes are published; never label an internal computational point field as the source UDL response.",
+    "recovery": "Source physicalCompilation remains unchanged. Consistent executed rows are tagged executionMethod=consistent-axial-load-vector; consumers must inspect actual point and node contributions.",
+    "nodeAggregation": "nativeNodeAggregates records total source/native nodal loads. An individual rigid-segment contribution must not be inferred from an aggregate with other contributors."
+  },
+  "retainedFailures": [
+    {
+      "path": "G:/StructureClaw-All/sclaw_data/work/yjk-rigid-offsets-20261014-130947-b5ac4b17",
+      "reason": "Original rigid-column UDL axial displacement mismatch; source load interpolation required consistent compilation."
+    },
+    {
+      "path": "G:/StructureClaw-All/sclaw_data/work/yjk-fe-20261014-135837-543a3b",
+      "reason": "Editing an exported FE file did not change actual official solver input; route rejected."
+    },
+    {
+      "path": "G:/StructureClaw-All/sclaw_data/work/yjk-rigid-offsets-20261014-141845-3b08a07e",
+      "reason": "Native solve completed but first input audit did not interpret local LX. Receipt retained; handling corrected with exact vertical-axis binding."
+    }
+  ],
+  "remaining": [
+    "One independent nodal displacement precision check remains outside the original frozen tolerance; this is not an all-checks-passed certification.",
+    "Public physical-field query integration is being verified separately; do not use native computational interior point-load values as a physical UDL curve.",
+    "Native design of the rigid/selfweight compiled physical load field remains explicitly unavailable.",
+    "Inclined-column selfweight, horizontal gravity and inclined/eccentric rigid ends remain separate adapter work."
+  ],
+  "unitTests": {
+    "command": "python -m pytest backend/src/agent-skills/analysis/yjk-static/__tests__ -q",
+    "passed": 206,
+    "subtestsPassed": 14
+  },
+  "independentYjkApiModified": false
+}

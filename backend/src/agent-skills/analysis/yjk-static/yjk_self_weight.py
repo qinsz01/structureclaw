@@ -99,5 +99,18 @@ def restore_physical_compilation(weight: dict, receipt: dict) -> dict:
                     or abs(actual['endM']-source['lengthM']) > 8*math.ulp(max(1., source['lengthM']))):
                 raise ValueError("Executed selfweight interval differs from native segment / 实际自重区间与原生段不一致")
             restored['executedCompilation'].append({**row,
-                'intensityVectorKnM': list(actual['intensityVectorKnM'])})
+                'intensityVectorKnM': list(actual['intensityVectorKnM']),
+                **({'executionMethod':actual['executionMethod']} if 'executionMethod' in actual else {})})
+    if weight.get('consistentLoadCompilation'):
+        packet = restored['consistentLoadCompilation']
+        if packet.get('physicalModelHash') != receipt['compiledModelHash']:
+            raise ValueError('Consistent gravity source differs from compiled mesh / 一致自重来源与计算网格不符')
+        packet['compiledModelHash'] = packet['physicalModelHash']
+        packet['physicalModelHash'] = receipt['physicalModelHash']
+        by_segment={row['sourceSegmentId']:row for row in physical}
+        for row in restored['consistentLoadCompilation']['members']:
+            segment=by_segment.get(row['sourceSegmentId'])
+            if segment is None or row['startM'] != 0 or abs(row['endM']-(segment['endM']-segment['startM'])) > 8*math.ulp(max(1.,segment['endM'])):
+                raise ValueError('Consistent gravity has no physical segment mapping / 一致自重缺少物理计算段映射')
+            row.update(physicalElementId=segment['physicalElementId'], startM=segment['startM'],endM=segment['endM'])
     return restored

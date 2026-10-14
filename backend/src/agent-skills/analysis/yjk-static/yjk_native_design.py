@@ -84,6 +84,8 @@ def _compile_design_request(request: dict | None, source: dict) -> dict | None:
         raise NativeDesignError("Steel design cannot request concrete reinforcement / 钢构件不能请求混凝土配筋")
     from yjk_self_weight import compile_self_weight
     weight = compile_self_weight(source)
+    if weight['enabled'] and (source.get('analysis_control') or {}).get('rigid_offsets') is True:
+        raise NativeDesignError("Native rigid-end gravity design needs physical-member load-field mapping / 原生刚域自重设计尚需物理构件荷载场映射", "ENGINE_INPUT_UNSUPPORTED")
     from commercial_context import project_commercial_model
     overrides = [path for path, value in project_commercial_model(source, "yjk")["designInputs"]["fields"].items()
                  if value is not None and value != {} and path not in {
