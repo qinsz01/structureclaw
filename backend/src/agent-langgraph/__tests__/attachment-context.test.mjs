@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globa
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 jest.setTimeout(20000);
 
@@ -156,5 +158,34 @@ describe('attachment context', () => {
     expect(text).toContain('"type": "dxf"');
     expect(text).toContain('"lineCount": 1');
     expect(text).toContain('SPAN 6m');
+  });
+
+  test('Excel motion samples beyond preview stay in a hashed complete file and explicit settings override preview copies', async () => {
+    const { buildInitialHumanMessagePayload, extractContextSeismicWorkflow } = await import('../../../dist/agent-langgraph/agent-service.js');
+    const XLSX = await import('xlsx').then(m => m.default ?? m);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([['time', 'accel_g'],
+      ...Array.from({length:250}, (_,index) => [index*.02,index*.001])]),'EW');
+    const file = path.join(tmpDir,'wave.xlsx');
+    await fs.writeFile(file,XLSX.write(workbook,{type:'buffer',bookType:'xlsx'}));
+    const payload = await buildInitialHumanMessagePayload('Use the supplied wave.',
+      [{fileId:'wave',originalName:'wave.xlsx',relPath:file}], 'en',tmpDir);
+    expect(payload.attachmentAnalyses[0].analysis.sheets.EW.rows).toHaveLength(250);
+    const workflow = extractContextSeismicWorkflow({seismicWorkflow:{groundMotionSet:{source:'uploaded',records:[
+      {id:'wave:EW',unit:'g',direction:'x',rows:[[0,99]],dt:.02},
+    ]}}},payload.attachmentAnalyses);
+    const record=workflow.groundMotionSet.records[0];
+    expect(record).toMatchObject({sheetName:'EW',unit:'g',direction:'x',dt:.02});
+    expect(record.rows).toBeUndefined();
+    const parsed=JSON.parse(await fs.readFile(record.fileReference.parsedPath,'utf8'));
+    expect(parsed.sheets.EW.rows).toHaveLength(250);
+    expect(parsed.sheets.EW.rows[249][1]).toBeCloseTo(.249);
+    const configured = JSON.parse(await fs.readFile(path.join(tmpDir,'settings.json'),'utf8')).analysis.pythonBin;
+    const moduleDir = fileURLToPath(new URL('../../agent-skills/analysis/opensees-seismic/',import.meta.url));
+    const output = execFileSync(configured,['-c',
+      'import sys,json; sys.path.insert(0,sys.argv[1]); from ground_motion_input import values; p=values(json.loads(sys.argv[2])); print(json.dumps({"count":len(p.values),"last":p.values[-1],"dt":p.inferred_dt,"source":p.source}))',
+      moduleDir,JSON.stringify(record)],{encoding:'utf8'});
+    expect(JSON.parse(output)).toMatchObject({count:250,last:.249,dt:.02,source:{sha256:record.fileReference.sha256}});
+    expect(payload.attachmentAnalyses[0].analysis.inputEvidence.some(item=>item.status==='truncated')).toBe(true);
   });
 });

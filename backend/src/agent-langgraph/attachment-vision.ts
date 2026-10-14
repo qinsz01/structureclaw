@@ -7,6 +7,8 @@ import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { parseVisionEvidence, visionRequestSchema, type VisionRequest } from '../engineering/vision-evidence.js';
 import { contentHash } from '../engineering/model-state.js';
+import { mergeInputEvidence } from '../engineering/input-evidence.js';
+import { collectVisionEvidence } from '../engineering/vision-evidence.js';
 
 export async function summarizeFileImages(analysis: Record<string, unknown>, filePath: string, locale: AppLocale, message: string, signal?: AbortSignal): Promise<Record<string, unknown>> {
   const result = structuredClone(analysis);
@@ -18,10 +20,10 @@ export async function summarizeFileImages(analysis: Record<string, unknown>, fil
     image.visionStatus = summary ? 'completed' : 'unavailable';
     if (!summary) {
       image.visionWarning = locale === 'zh' ? '视觉识别不可用，请补充本页必要信息。' : 'Vision is unavailable; required page information must be supplied.';
-      image.inputEvidence = (request.requiredFields ?? [`file:${filePath}:${String(image.pageNumber ?? 1)}`]).map(field => {
+      image.inputEvidence = mergeInputEvidence(collectVisionEvidence(image), (request.requiredFields ?? [`file:${filePath}:${String(image.pageNumber ?? 1)}`]).map(field => {
         const item = { field, status: 'unread', required: true, reason: image.visionWarning, source: { file: filePath, page: image.pageNumber } };
         return { ...item, id: `vision:${contentHash(item)}` };
-      });
+      }));
     }
   };
   if (result.type === 'image') {

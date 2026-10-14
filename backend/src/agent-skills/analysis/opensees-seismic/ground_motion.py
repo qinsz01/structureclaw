@@ -10,6 +10,7 @@ from design_basis import SeismicDesignBasis
 from modal import G_ACCEL, ModalAnalysis, _build_opensees_model
 from seismic_contracts import optional_number
 from spectrum import seismic_influence_coefficient
+from ground_motion_input import values as _values, unit_scale as _unit_scale, motion_direction as _motion_direction
 
 
 @dataclass
@@ -21,6 +22,8 @@ class GroundMotion:
     record_type: str
     source_format: str = "values"
     direction: Optional[str] = None
+    source: Optional[Dict[str, Any]] = None
+    time_origin: float = 0.0
 
     def to_summary(self) -> Dict[str, Any]:
         peak = max((abs(value) for value in self.accelerations_mps2), default=0.0)
@@ -31,6 +34,9 @@ class GroundMotion:
             "unit": self.unit,
             "recordType": self.record_type,
             "sourceFormat": self.source_format,
+            "timeOrigin": self.time_origin,
+            "duration": max(0, len(self.accelerations_mps2) - 1) * self.dt,
+            **({"source": self.source} if self.source else {}),
             "pgaMps2": round(peak, 6),
             "pgaG": round(peak / G_ACCEL, 6),
         }
@@ -69,263 +75,12 @@ def _ground_motion_preview(motion: GroundMotion, max_points: int = 600) -> Dict[
     }
 
 
-@dataclass
-class ParsedGroundMotionValues:
-    values: List[float]
-    inferred_dt: Optional[float] = None
-    source_format: str = "values"
-
-
-def _direct_values(record: Dict[str, Any]) -> ParsedGroundMotionValues:
-    raw = record.get("values") or record.get("accelerations") or record.get("accel") or []
-    if not isinstance(raw, list):
-        return ParsedGroundMotionValues([], source_format="values")
-    values: List[float] = []
-    for item in raw:
-        number = optional_number(item)
-        if number is not None:
-            values.append(float(number))
-    return ParsedGroundMotionValues(values, source_format="values")
-
-
-def _numeric_cells(row: Any) -> List[float]:
-    if isinstance(row, dict):
-        cells = list(row.values())
-    elif isinstance(row, (list, tuple)):
-        cells = list(row)
-    else:
-        cells = [row]
-    values: List[float] = []
-    for cell in cells:
-        number = optional_number(cell)
-        if number is not None:
-            values.append(float(number))
-    return values
-
-
-def _column_index(column: Any, headers: Sequence[Any], fallback: int) -> int:
-    if isinstance(column, (int, float)) and not isinstance(column, bool):
-        index = int(column)
-        return index if index >= 0 else fallback
-    if isinstance(column, str) and column.strip():
-        target = column.strip().lower()
-        for index, header in enumerate(headers):
-            if str(header).strip().lower() == target:
-                return index
-    return fallback
-
-
-def _median_delta(values: Sequence[float]) -> Optional[float]:
-    deltas = [
-        float(values[index + 1]) - float(values[index])
-        for index in range(len(values) - 1)
-        if math.isfinite(float(values[index + 1])) and math.isfinite(float(values[index]))
-    ]
-    positive = sorted(delta for delta in deltas if delta > 0.0)
-    if not positive:
-        return None
-    return positive[len(positive) // 2]
-
-
-def _looks_like_time_column(values: Sequence[float]) -> bool:
-    if len(values) < 3:
-        return False
-    previous = float(values[0])
-    for value in values[1:]:
-        current = float(value)
-        if not math.isfinite(current) or current <= previous:
-            return False
-        previous = current
-    dt = _median_delta(values)
-    if dt is None or dt <= 0.0:
-        return False
-    return abs(values[0]) < max(dt * 0.5, 1e-9)
-
-
-def _series_from_numeric_rows(
-    numeric_rows: Sequence[Sequence[float]],
-    *,
-    time_column: int = 0,
-    acceleration_column: Optional[int] = None,
-) -> ParsedGroundMotionValues:
-    rows = [list(row) for row in numeric_rows if row]
-    if not rows:
-        return ParsedGroundMotionValues([], source_format="rows")
-
-    if acceleration_column is not None:
-        values = [row[acceleration_column] for row in rows if len(row) > acceleration_column]
-        times = [row[time_column] for row in rows if len(row) > max(time_column, acceleration_column)]
-        inferred_dt = _median_delta(times) if _looks_like_time_column(times) else None
-        return ParsedGroundMotionValues(values, inferred_dt=inferred_dt, source_format="rows")
-
-    if len(rows) >= 3 and all(len(row) >= 2 for row in rows):
-        times = [row[0] for row in rows]
-        if _looks_like_time_column(times):
-            return ParsedGroundMotionValues(
-                [row[1] for row in rows],
-                inferred_dt=_median_delta(times),
-                source_format="rows",
-            )
-
-    return ParsedGroundMotionValues(
-        [value for row in rows for value in row],
-        source_format="rows",
-    )
-
-
-def _values_from_rows(record: Dict[str, Any]) -> ParsedGroundMotionValues:
-    rows = record.get("rows")
-    if not isinstance(rows, list):
-        return ParsedGroundMotionValues([], source_format="rows")
-    headers = record.get("headers") if isinstance(record.get("headers"), list) else []
-    time_column = _column_index(
-        record.get("timeColumn") or record.get("time_column"),
-        headers,
-        0,
-    )
-    explicit_acc_column = (
-        record.get("accelerationColumn")
-        or record.get("accelColumn")
-        or record.get("valueColumn")
-        or record.get("acceleration_column")
-    )
-    acceleration_column = None
-    if explicit_acc_column is not None:
-        acceleration_column = _column_index(explicit_acc_column, headers, 1)
-    numeric_rows = [_numeric_cells(row) for row in rows]
-    return _series_from_numeric_rows(
-        numeric_rows,
-        time_column=time_column,
-        acceleration_column=acceleration_column,
-    )
-
-
-def _split_numeric_tokens(line: str) -> List[float]:
-    tokens = line.replace(",", " ").replace(";", " ").replace("\t", " ").split()
-    values: List[float] = []
-    for token in tokens:
-        number = optional_number(token)
-        if number is not None:
-            values.append(float(number))
-    return values
-
-
-def _parse_dt_after_marker(text: str) -> Optional[float]:
-    marker_index = text.upper().find("DT=")
-    if marker_index < 0:
-        return None
-    index = marker_index + len("DT=")
-    while index < len(text) and text[index].isspace():
-        index += 1
-    chars: List[str] = []
-    while index < len(text):
-        char = text[index]
-        if char.isdigit() or char in {"+", "-", ".", "e", "E"}:
-            chars.append(char)
-            index += 1
-            continue
-        break
-    return optional_number("".join(chars))
-
-
-def _values_from_text(text: str) -> ParsedGroundMotionValues:
-    inferred_dt = _parse_dt_after_marker(text)
-    numeric_rows: List[List[float]] = []
-    for raw_line in text.splitlines():
-        line = raw_line.strip()
-        if not line:
-            continue
-        if "=" in line:
-            continue
-        values = _split_numeric_tokens(line)
-        if values:
-            numeric_rows.append(values)
-    parsed = _series_from_numeric_rows(numeric_rows)
-    parsed.inferred_dt = parsed.inferred_dt or inferred_dt
-    parsed.source_format = "text"
-    return parsed
-
-
-def _nested_record_sources(record: Dict[str, Any]) -> List[Dict[str, Any]]:
-    sources = [record]
-    for key in ("fileAnalysis", "analysis", "parsedFile", "file"):
-        value = record.get(key)
-        if isinstance(value, dict):
-            merged = {**value}
-            for inherited_key in (
-                "name",
-                "id",
-                "dt",
-                "timeStep",
-                "time_step",
-                "unit",
-                "recordType",
-                "type",
-                "timeColumn",
-                "accelerationColumn",
-                "accelColumn",
-                "valueColumn",
-                "direction",
-                "component",
-                "axis",
-                "seismicDirection",
-            ):
-                if inherited_key in record and inherited_key not in merged:
-                    merged[inherited_key] = record[inherited_key]
-            sources.append(merged)
-    return sources
-
-
-def _values(record: Dict[str, Any]) -> ParsedGroundMotionValues:
-    for source in _nested_record_sources(record):
-        direct = _direct_values(source)
-        if direct.values:
-            return direct
-        rows = _values_from_rows(source)
-        if rows.values:
-            return rows
-        for key in ("content", "text", "csv", "at2", "data"):
-            value = source.get(key)
-            if isinstance(value, str) and value.strip():
-                parsed = _values_from_text(value)
-                if parsed.values:
-                    return parsed
-    return ParsedGroundMotionValues([])
-
-
-def _motion_direction(record: Dict[str, Any]) -> Optional[str]:
-    for key in ("direction", "component", "axis", "seismicDirection"):
-        value = record.get(key)
-        if isinstance(value, str) and value.strip():
-            text = value.strip().lower()
-            if text in {"x", "global_x", "ux", "ew", "e-w"}:
-                return "x"
-            if text in {"y", "global_y", "uy", "ns", "n-s"}:
-                return "y"
-    return None
-
-
-def _unit_scale(unit: str) -> float:
-    text = unit.strip().lower()
-    if text in {"g", "gravity"}:
-        return G_ACCEL
-    if text in {"gal", "cm/s2", "cm/s^2"}:
-        return 0.01
-    return 1.0
-
-
 def parse_ground_motions(records: List[Dict[str, Any]]) -> List[GroundMotion]:
     motions: List[GroundMotion] = []
     for index, record in enumerate(records, start=1):
         parsed = _values(record)
-        if not parsed.values:
-            continue
-        dt = (
-            optional_number(record.get("dt") or record.get("timeStep") or record.get("time_step"))
-            or parsed.inferred_dt
-            or 0.02
-        )
-        unit = str(record.get("unit") or "g")
+        dt = parsed.inferred_dt
+        unit = parsed.inferred_unit
         motions.append(GroundMotion(
             name=str(record.get("name") or record.get("id") or f"GM{index}"),
             dt=float(dt),
@@ -334,6 +89,8 @@ def parse_ground_motions(records: List[Dict[str, Any]]) -> List[GroundMotion]:
             record_type=str(record.get("recordType") or record.get("type") or "actual"),
             source_format=parsed.source_format,
             direction=_motion_direction(record),
+            source=parsed.source,
+            time_origin=parsed.time_origin,
         ))
     return motions
 
@@ -342,19 +99,11 @@ def select_ground_motions_for_direction(
     motions: Sequence[GroundMotion],
     direction: str,
 ) -> Tuple[List[GroundMotion], List[str]]:
-    target = "y" if direction.strip().lower() == "y" else "x"
-    tagged = [motion for motion in motions if motion.direction in {"x", "y"}]
-    if not tagged:
-        return list(motions), []
-
+    target = _motion_direction({"direction": direction})
+    if any(motion.direction is None for motion in motions):
+        raise ValueError("GROUND_MOTION_DIRECTION_REQUIRED: untagged records cannot be applied to a global axis")
     matching = [motion for motion in motions if motion.direction == target]
-    untagged = [motion for motion in motions if motion.direction is None]
-    selected = [*matching, *untagged]
-    if matching:
-        return selected, []
-    if untagged:
-        return selected, [f"No {target.upper()}-direction tagged ground motions were provided; used untagged records for {target.upper()} direction."]
-    return [], [f"No {target.upper()}-direction ground-motion records were provided."]
+    return matching, [] if matching or not motions else [f"No {target.upper()}-direction ground-motion records were provided."]
 
 
 def ground_motion_set_checks(motions: Sequence[GroundMotion], required_count: int) -> Dict[str, Any]:

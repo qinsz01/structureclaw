@@ -36,10 +36,13 @@ export function parseVisionEvidence(text: string, source: ModelRecord, request: 
     fields.push({ ...missing, id: `vision:${contentHash(missing)}` });
   }
   for (const [name, status] of Object.entries(parsed.coverage)) {
-    if (!['missing', 'ambiguous'].includes(status) || fields.some(item => item.required
+    const emptyObserved = status === 'observed' && !fields.some(item => item.category === name
+      && item.status === 'observed' && isRecord(item.source) && Array.isArray(item.source.region));
+    if ((!['missing', 'ambiguous'].includes(status) && !emptyObserved) || fields.some(item => item.required
       && item.status !== 'observed' && (item.category === name || String(item.field).startsWith(`${name}.`)))) continue;
-    const missing = { field: `coverage.${name}`, category: name, status, required: true,
-      reason: `Incomplete visual coverage: ${name} / 图纸该类信息尚不完整`, source };
+    const missing = { field: `coverage.${name}`, category: name, status: emptyObserved ? 'missing' : status, required: true,
+      reason: emptyObserved ? `Coverage has no localized fields: ${name} / 已声明识别该类信息，但没有可定位的字段`
+        : `Incomplete visual coverage: ${name} / 图纸该类信息尚不完整`, source };
     fields.push({ ...missing, id: `vision:${contentHash(missing)}` });
   }
   return { summary: parsed.summary, coverage: parsed.coverage, inputEvidence: fields,

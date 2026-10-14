@@ -42,7 +42,7 @@ import { beginAnalysisRequest, commitModel, currentAnalysisError, invalidateAnal
 import { analysisSettingsHash } from '../engineering/analysis-runs.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 import { checkRunResults } from '../engineering/code-checks.js';
-import { assertResolvedInput, mergeInputEvidence } from '../engineering/input-evidence.js';
+import { assertAnalysisInputEvidenceMatchesRequest, assertResolvedInput, mergeInputEvidence } from '../engineering/input-evidence.js';
 import { currentRunPolicy, requestRecovery, canRecover } from '../runtime/run-context.js';
 // ---------------------------------------------------------------------------
 // Helpers
@@ -527,7 +527,20 @@ function mergeSeismicWorkflowInputs(
   if (!contextWorkflow || !shouldMergeUploadedGroundMotionContext(semanticWorkflow, contextWorkflow)) {
     return { ...semanticWorkflow };
   }
-  return mergeStructuredRecords(semanticWorkflow, contextWorkflow);
+  const merged = mergeStructuredRecords(semanticWorkflow, contextWorkflow) ?? {};
+  const semanticSet = isRecord(semanticWorkflow.groundMotionSet) ? semanticWorkflow.groundMotionSet : {};
+  const mergedSet = isRecord(merged.groundMotionSet) ? merged.groundMotionSet : {};
+  if (Array.isArray(semanticSet.records) && Array.isArray(mergedSet.records)) {
+    mergedSet.records = mergedSet.records.map(record => {
+      if (!isRecord(record)) return record;
+      const selected = (semanticSet.records as unknown[]).filter(isRecord).find(item => item.id !== undefined && item.id === record.id);
+      if (!selected) return record;
+      const settings = Object.fromEntries(Object.entries(selected).filter(([key]) => ['unit', 'direction', 'component', 'axis', 'seismicDirection',
+        'dt', 'timeStep', 'time_step', 'timeUnit', 'timeColumn', 'accelerationColumn', 'accelColumn', 'valueColumn'].includes(key)));
+      return { ...record, ...settings };
+    });
+  }
+  return merged;
 }
 
 function isPositiveFiniteNumber(value: unknown): boolean {
@@ -539,6 +552,8 @@ function isPositiveIntegerLike(value: unknown): boolean {
 }
 
 function hasGroundMotionSource(record: Record<string, unknown>): boolean {
+  if (isRecord(record.fileReference) && record.fileReference.format === 'sclaw-parsed-input-v1'
+    && ['path', 'sha256', 'parsedPath', 'parsedSha256'].every(key => typeof (record.fileReference as Record<string, unknown>)[key] === 'string')) return true;
   if (
     Array.isArray(record['values'])
     || Array.isArray(record['accelerations'])
@@ -3157,6 +3172,7 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
         semanticSeismicWorkflow,
         contextSeismicWorkflow,
       );
+      assertAnalysisInputEvidenceMatchesRequest(state?.inputEvidence, analysisType === 'seismic' ? seismicWorkflow : undefined);
       if (analysisType === 'seismic' && !hasSemanticSeismicWorkflowInput(semanticSeismicWorkflow)) {
         return toolResult(
           toolCallId,

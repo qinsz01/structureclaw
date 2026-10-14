@@ -9,14 +9,14 @@ function validDxf(entities = [], units = 6) {
     '0', 'SECTION', '2', 'ENTITIES', ...entities, '0', 'ENDSEC', '0', 'EOF', ''].join('\n');
 }
 
-function pdfFixture() {
+function pdfFixture(firstStream = 'BT /F1 12 Tf 20 120 Td (Beam B1) Tj ET 10 10 m 200 150 l S') {
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>',
     '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Resources << /Font << /F1 5 0 R >> >> /Contents 6 0 R >>',
     '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Resources << >> /Contents 7 0 R >>',
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
-    ...['BT /F1 12 Tf 20 120 Td (Beam B1) Tj ET 10 10 m 200 150 l S', '10 10 m 200 150 l S'].map(text=>`<< /Length ${Buffer.byteLength(text)} >>\nstream\n${text}\nendstream`),
+    ...[firstStream, '10 10 m 200 150 l S'].map(text=>`<< /Length ${Buffer.byteLength(text)} >>\nstream\n${text}\nendstream`),
   ];
   let value='%PDF-1.4\n'; const offsets=[0];
   for(let index=0;index<objects.length;index++){offsets.push(Buffer.byteLength(value));value+=`${index+1} 0 obj\n${objects[index]}\nendobj\n`;}
@@ -186,6 +186,26 @@ describe('createAnalyzeFileTool', () => {
     expect(preview.truncated).toBe(true);
     expect(full.rows).toHaveLength(1560);
     expect(full.truncated).toBe(false);
+  });
+
+  test('full mode reads retained DXF entities and complete selected PDF page content', async () => {
+    const { analyzeUploadedFile } = await import('../../../dist/agent-langgraph/file-tools.js');
+    const dxfPath=path.join(uploadsDir,'large.dxf');
+    const entities=Array.from({length:510},(_,i)=>['0','LINE','10',String(i),'20','0','11',String(i+1),'21','1']).flat();
+    await fs.writeFile(dxfPath,validDxf(entities));
+    expect((await analyzeUploadedFile(dxfPath,tmpDir)).linesTruncated).toBe(true);
+    const full=await analyzeUploadedFile(dxfPath,tmpDir,undefined,{mode:'full'});
+    expect(full.lines).toHaveLength(510);
+    expect(full.complete).toBe(true);
+    const pdfPath=path.join(uploadsDir,'dense.pdf');
+    await fs.writeFile(pdfPath,pdfFixture(Array.from({length:2100},()=> 'BT /F1 12 Tf 20 120 Td (Beam B1 detail) Tj ET').join('\n')));
+    const preview=await analyzeUploadedFile(pdfPath,tmpDir,undefined,{pageCount:1});
+    expect(preview.pages[0].textTruncated || preview.pages[0].itemsTruncated).toBe(true);
+    const complete=await analyzeUploadedFile(pdfPath,tmpDir,undefined,{mode:'full',pageCount:1});
+    expect(complete.pages[0].textTruncated).toBe(false);
+    expect(complete.pages[0].itemsTruncated).toBe(false);
+    expect(complete.pages[0].text.length).toBeGreaterThan(16000);
+    expect(complete.inputEvidence.find(item=>item.source.page===2).requirement).toBe('complete-read');
   });
 
   test('later PDF pages enter the same vision hook and retain page evidence', async () => {

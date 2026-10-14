@@ -4,12 +4,13 @@ import { Command, type LangGraphRunnableConfig } from '@langchain/langgraph';
 import { z } from 'zod';
 import type { AgentState } from './state.js';
 import type { AgentConfigurable } from './configurable.js';
-import { applyModelEdits, commitModel, currentAnalysisError, invalidateAnalysis, isRecord, undoModel, type ModelEdit } from '../engineering/model-state.js';
+import { applyModelEdits, commitModel, contentHash, currentAnalysisError, invalidateAnalysis, isRecord, undoModel, type ModelEdit } from '../engineering/model-state.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 import { queryPhysicalResponse, scalarResultQuantity } from '../engineering/result-data.js';
 import { loadAnalysisRun } from '../engineering/analysis-runs.js';
 import { randomUUID } from 'node:crypto';
-import { mergeInputEvidence, unresolvedInputEvidence } from '../engineering/input-evidence.js';
+import { imageRegionSchema } from '../engineering/vision-evidence.js';
+import { activeInputEvidence, analysisInputBinding, evidenceSourceFile, mergeInputEvidence, unresolvedInputEvidence } from '../engineering/input-evidence.js';
 
 function context(config: LangGraphRunnableConfig) {
   const dependencies = config.configurable as AgentConfigurable & { agentState: AgentState };
@@ -76,23 +77,65 @@ export function createReviewInputTool() {
   return tool(async (input, config) => {
     const { state, id } = context(config);
     const existing = state.inputEvidence ?? [];
-    const patch = input.resolutions.map(item => {
+    const contextSeismicWorkflow = structuredClone(state.contextSeismicWorkflow);
+    const analysisSet = isRecord(contextSeismicWorkflow?.groundMotionSet) ? contextSeismicWorkflow.groundMotionSet : {};
+    for (const item of input.resolutions ?? []) {
+      if (!item.analysisParameters) continue;
+      const records = Array.isArray(analysisSet.records) ? analysisSet.records.filter(isRecord).filter(record => record.id === item.analysisRecordId) : [];
+      if (!item.analysisRecordId || records.length !== 1) throw new Error('ANALYSIS_INPUT_RECORD_NOT_FOUND');
+      Object.assign(records[0]!, item.analysisParameters);
+    }
+    const patch = (input.resolutions ?? []).map(item => {
       if (item.selectedSource !== undefined && item.value !== undefined) throw new Error('INPUT_RESOLUTION_SOURCE_OR_VALUE_ONLY');
       if (item.selectedSource !== undefined && !existing.some(record => record.id === item.selectedSource
         && record.field === item.field && record.status === 'observed')) throw new Error('OBSERVED_INPUT_SOURCE_REQUIRED');
       if (item.selectedSource === undefined && item.value === undefined) throw new Error('INPUT_RESOLUTION_VALUE_REQUIRED');
+      const sourceEvidence = item.sourceEvidenceId ? existing.find(record => record.id === item.sourceEvidenceId) : undefined;
+      if (item.sourceEvidenceId && !sourceEvidence) throw new Error('INPUT_SOURCE_EVIDENCE_NOT_FOUND');
+      const set = analysisSet;
+      const records = Array.isArray(set.records) ? set.records.filter(isRecord).filter(record => record.id === item.analysisRecordId) : [];
+      if (item.analysisRecordId && (records.length !== 1 || !item.sourceEvidenceId || !item.field.startsWith('file:'))) {
+        throw new Error('ANALYSIS_INPUT_RECORD_NOT_FOUND');
+      }
       return { id: `review:${randomUUID()}`, field: item.field, status: 'resolved', required: true,
-        resolution: { selectedSource: item.selectedSource, value: item.value, unit: item.unit, reason: item.reason, modelField: item.modelField },
+        resolution: { selectedSource: item.selectedSource, value: item.value, unit: item.unit, reason: item.reason, modelField: item.modelField,
+          mappedFields: item.mappedFields, sourceEvidenceId: item.sourceEvidenceId,
+          ...(item.analysisRecordId ? { analysisInput: analysisInputBinding(records[0]!) } : {}) },
+        source: { ...(sourceEvidence && isRecord(sourceEvidence.source) ? sourceEvidence.source : {}),
+          ...item.sourceLocation, userMessage: state.lastUserMessage } };
+    });
+    const exclusions = (input.excludeSources ?? []).map(item => {
+      const candidates = activeInputEvidence(existing).filter(record => evidenceSourceFile(record) === item.sourceFile
+        && (!item.evidenceIds || item.evidenceIds.includes(String(record.id))));
+      if (!candidates.length || item.evidenceIds?.some(id => !candidates.some(record => record.id === id))) throw new Error('INPUT_EXCLUSION_SOURCE_NOT_FOUND');
+      return { id: `exclude:${randomUUID()}`, field: `file:${item.sourceFile}:exclusion`, status: 'excluded', required: false,
+        resolution: { sourceFile: item.sourceFile, reason: item.reason, evidenceHashes: candidates.map(contentHash) },
         source: { userMessage: state.lastUserMessage } };
     });
-    const inputEvidence = mergeInputEvidence(existing, patch) ?? [];
+    const inputEvidence = mergeInputEvidence(existing, [...patch, ...exclusions]) ?? [];
     return result(id, 'review_input', { inputEvidence, unresolved: unresolvedInputEvidence(inputEvidence),
       nextAction: 'Apply reviewed values to the draft/current model, then validate / 将复核值用于草稿或当前模型并校验' },
-    { ...invalidateAnalysis(state), modelPending: Boolean(state.model), inputEvidence });
-  }, { name: 'review_input', description: 'Resolve ambiguous/missing input after focused file review or an explicit user correction. Preserve original evidence; do not invent values. / 定点复核或用户明确补充后解决输入冲突，保留原始证据。',
+    { ...invalidateAnalysis(state), modelPending: Boolean(state.model), inputEvidence,
+      ...(input.resolutions?.some(item => item.analysisParameters) ? { contextSeismicWorkflow } : {}) });
+  }, { name: 'review_input', description: 'Review candidate fields with their source IDs; map files to model fields or a complete analysis-input record. Exclude irrelevant sources with reasons. Preserve evidence and never invent values. / 复核来源字段并绑定模型或完整分析输入；无关来源须说明排除理由，保留证据。',
     schema: z.object({ resolutions: z.array(z.object({ field: z.string().min(1), selectedSource: z.string().optional(),
       value: z.unknown().optional(), unit: z.string().optional(), reason: z.string().min(1),
-      modelField: z.string().optional().describe('Canonical model field for a semantic observation, e.g. nodes.A.x / 语义识别值对应的规范模型字段') })).min(1) }) });
+      sourceEvidenceId: z.string().optional().describe('Retain the exact parsed source for a reviewed model field / 复核字段引用的原始解析证据'),
+      sourceLocation: z.object({ row: z.number().int().positive().optional(), column: z.union([z.number().int().positive(),z.string().min(1)]).optional(),
+        entityId: z.string().min(1).optional(), region: imageRegionSchema.optional(),
+      }).optional().describe('Exact table row/column, CAD entity or image region for this field / 字段对应的表格行列、CAD实体或图像区域'),
+      analysisRecordId: z.string().optional().describe('Ground-motion record ID from context; binds complete source and current sampling settings / 地震波记录ID，绑定完整来源与当前采样设置'),
+      analysisParameters: z.object({ unit: z.string().min(1).optional(), direction: z.enum(['x', 'y']).optional(),
+        dt: z.number().positive().optional(), timeUnit: z.enum(['s', 'ms']).optional(),
+        timeColumn: z.union([z.number().int().nonnegative(), z.string().min(1)]).optional(),
+        accelerationColumn: z.union([z.number().int().nonnegative(), z.string().min(1)]).optional(),
+      }).optional().describe('Confirmed sampling parameters; original samples and file references cannot be replaced / 确认采样参数，不能替换原始样本或文件引用'),
+      mappedFields: z.array(z.string().min(1)).min(1).optional().describe('Concrete reviewed fields used from this source / 该来源已复核并采用的具体字段'),
+      modelField: z.string().optional().describe('Canonical model field for a semantic observation, e.g. nodes.A.x / 语义识别值对应的规范模型字段') })).min(1).optional(),
+      excludeSources: z.array(z.object({ sourceFile: z.string().min(1), reason: z.string().min(1),
+        evidenceIds: z.array(z.string().min(1)).min(1).optional() })).min(1).optional()
+        .describe('Explicitly exclude unrelated source observations, preserving their contents and reason / 明确排除无关来源，保留内容与原因'),
+    }).refine(value => Boolean(value.resolutions?.length || value.excludeSources?.length), 'INPUT_REVIEW_ACTION_REQUIRED') });
 }
 
 export function createQueryResultsTool() {

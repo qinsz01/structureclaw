@@ -757,6 +757,7 @@ class ChinaSeismicWorkflowTest(unittest.TestCase):
                 "groundMotionSet": {
                     "records": [{
                         "name": "ED-TH-1",
+                        "direction": "x",
                         "dt": 0.02,
                         "unit": "g",
                         "values": [0.0, 0.05, -0.04, 0.03, -0.02, 0.01, 0.0],
@@ -815,6 +816,7 @@ class ChinaSeismicWorkflowTest(unittest.TestCase):
                 "groundMotionSet": {
                     "records": [{
                         "name": "ISO-TH-1",
+                        "direction": "x",
                         "dt": 0.02,
                         "unit": "g",
                         "values": [0.0, 0.05, -0.04, 0.03, -0.02, 0.01, 0.0],
@@ -1491,9 +1493,9 @@ class ChinaSeismicWorkflowTest(unittest.TestCase):
                 "groundMotionSet": {
                     "requiredCount": 3,
                     "records": [
-                        {"name": "GM1", "dt": 0.02, "unit": "g", "values": wave},
-                        {"name": "GM2", "dt": 0.02, "unit": "g", "values": [value * 1.1 for value in wave]},
-                        {"name": "GM3", "dt": 0.02, "unit": "g", "values": [value * 0.9 for value in wave]},
+                        {"name": "GM1", "direction": "x", "dt": 0.02, "unit": "g", "values": wave},
+                        {"name": "GM2", "direction": "x", "dt": 0.02, "unit": "g", "values": [value * 1.1 for value in wave]},
+                        {"name": "GM3", "direction": "x", "dt": 0.02, "unit": "g", "values": [value * 0.9 for value in wave]},
                     ],
                 },
             },
@@ -1533,9 +1535,9 @@ class ChinaSeismicWorkflowTest(unittest.TestCase):
                 "groundMotionSet": {
                     "requiredCount": 3,
                     "records": [
-                        {"name": "GM1", "dt": 0.02, "unit": "g", "values": wave},
-                        {"name": "GM2", "dt": 0.02, "unit": "g", "values": [value * 1.1 for value in wave]},
-                        {"name": "GM3", "dt": 0.02, "unit": "g", "values": [value * 0.9 for value in wave]},
+                        {"name": "GM1", "direction": "x", "dt": 0.02, "unit": "g", "values": wave},
+                        {"name": "GM2", "direction": "x", "dt": 0.02, "unit": "g", "values": [value * 1.1 for value in wave]},
+                        {"name": "GM3", "direction": "x", "dt": 0.02, "unit": "g", "values": [value * 0.9 for value in wave]},
                     ],
                 },
                 "performanceObjective": {"name": "life_safety", "acceptanceDriftRatio": 0.015},
@@ -1574,9 +1576,9 @@ class ChinaSeismicWorkflowTest(unittest.TestCase):
                 "groundMotionSet": {
                     "requiredCount": 3,
                     "records": [
-                        {"name": "GM1", "dt": 0.02, "unit": "g", "values": wave},
-                        {"name": "GM2", "dt": 0.02, "unit": "g", "values": [value * 1.1 for value in wave]},
-                        {"name": "GM3", "dt": 0.02, "unit": "g", "values": [value * 0.9 for value in wave]},
+                        {"name": "GM1", "direction": "x", "dt": 0.02, "unit": "g", "values": wave},
+                        {"name": "GM2", "direction": "x", "dt": 0.02, "unit": "g", "values": [value * 1.1 for value in wave]},
+                        {"name": "GM3", "direction": "x", "dt": 0.02, "unit": "g", "values": [value * 0.9 for value in wave]},
                     ],
                 },
                 "performanceObjective": {"name": "collapse_prevention", "acceptanceDriftRatio": 0.015},
@@ -1622,9 +1624,9 @@ class ChinaSeismicWorkflowTest(unittest.TestCase):
                 "groundMotionSet": {
                     "requiredCount": 3,
                     "records": [
-                        {"name": "GM1", "dt": 0.02, "unit": "g", "values": wave},
-                        {"name": "GM2", "dt": 0.02, "unit": "g", "values": [value * 1.1 for value in wave]},
-                        {"name": "GM3", "dt": 0.02, "unit": "g", "values": [value * 0.9 for value in wave]},
+                        {"name": "GM1", "direction": "x", "dt": 0.02, "unit": "g", "values": wave},
+                        {"name": "GM2", "direction": "x", "dt": 0.02, "unit": "g", "values": [value * 1.1 for value in wave]},
+                        {"name": "GM3", "direction": "x", "dt": 0.02, "unit": "g", "values": [value * 0.9 for value in wave]},
                     ],
                 },
                 "performanceObjective": {"name": "collapse_prevention", "acceptanceDriftRatio": 0.015},
@@ -1651,9 +1653,9 @@ class ChinaSeismicWorkflowTest(unittest.TestCase):
                 "groundMotionSet": {
                     "requiredCount": 3,
                     "records": [
-                        {"name": "GM1", "dt": 0.02, "unit": "g", "values": wave},
-                        {"name": "GM2", "dt": 0.02, "unit": "g", "values": [value * 1.1 for value in wave]},
-                        {"name": "GM3", "dt": 0.02, "unit": "g", "values": [value * 0.9 for value in wave]},
+                        {"name": "GM1", "direction": "x", "dt": 0.02, "unit": "g", "values": wave},
+                        {"name": "GM2", "direction": "x", "dt": 0.02, "unit": "g", "values": [value * 1.1 for value in wave]},
+                        {"name": "GM3", "direction": "x", "dt": 0.02, "unit": "g", "values": [value * 0.9 for value in wave]},
                     ],
                 },
             },
@@ -1704,9 +1706,9 @@ class ChinaSeismicWorkflowTest(unittest.TestCase):
                 "groundMotionSet": {
                     "requiredCount": 3,
                     "records": [
-                        {"name": "GM1", "dt": 0.02, "unit": "g", "values": wave},
-                        {"name": "GM2", "dt": 0.02, "unit": "g", "values": [value * 1.1 for value in wave]},
-                        {"name": "GM3", "dt": 0.02, "unit": "g", "values": [value * 0.9 for value in wave]},
+                        {"name": "GM1", "direction": "x", "dt": 0.02, "unit": "g", "values": wave},
+                        {"name": "GM2", "direction": "x", "dt": 0.02, "unit": "g", "values": [value * 1.1 for value in wave]},
+                        {"name": "GM3", "direction": "x", "dt": 0.02, "unit": "g", "values": [value * 0.9 for value in wave]},
                     ],
                 },
             },
@@ -1957,9 +1959,9 @@ class ChinaSeismicWorkflowTest(unittest.TestCase):
     def test_modal_time_history_scales_selected_records_and_checks_base_shear_ratio(self) -> None:
         basis = build_design_basis(build_frame_model(), {}, {})
         motions = parse_ground_motions([
-            {"name": "GM1", "dt": 0.02, "unit": "g", "values": [0.0, 0.02, -0.02, 0.01] * 20},
-            {"name": "GM2", "dt": 0.02, "unit": "g", "values": [0.0, -0.03, 0.03, -0.01] * 20},
-            {"name": "GM3", "dt": 0.02, "unit": "g", "values": [0.0, 0.01, -0.01, 0.005] * 20},
+            {"name": "GM1", "direction": "x", "dt": 0.02, "unit": "g", "values": [0.0, 0.02, -0.02, 0.01] * 20},
+            {"name": "GM2", "direction": "x", "dt": 0.02, "unit": "g", "values": [0.0, -0.03, 0.03, -0.01] * 20},
+            {"name": "GM3", "direction": "x", "dt": 0.02, "unit": "g", "values": [0.0, 0.01, -0.01, 0.005] * 20},
         ])
         modal = ModalAnalysis(
             modes=[
@@ -2061,9 +2063,9 @@ class ChinaSeismicWorkflowTest(unittest.TestCase):
                 "groundMotionSet": {
                     "requiredCount": 3,
                     "records": [
-                        {"name": "GM1", "dt": 0.02, "unit": "g", "values": wave},
-                        {"name": "GM2", "dt": 0.02, "unit": "g", "values": [value * 1.1 for value in wave]},
-                        {"name": "GM3", "dt": 0.02, "unit": "g", "values": [value * 0.9 for value in wave]},
+                        {"name": "GM1", "direction": "x", "dt": 0.02, "unit": "g", "values": wave},
+                        {"name": "GM2", "direction": "x", "dt": 0.02, "unit": "g", "values": [value * 1.1 for value in wave]},
+                        {"name": "GM3", "direction": "x", "dt": 0.02, "unit": "g", "values": [value * 0.9 for value in wave]},
                     ],
                 },
             },
@@ -2097,11 +2099,13 @@ class ChinaSeismicWorkflowTest(unittest.TestCase):
             {"name": "GM-U1", "dt": 0.02, "unit": "g", "values": [0.0, 0.03, -0.03]},
         ])
 
-        x_motions, x_warnings = select_ground_motions_for_direction(motions, "x")
-        y_motions, y_warnings = select_ground_motions_for_direction(motions, "y")
+        with self.assertRaisesRegex(ValueError, "GROUND_MOTION_DIRECTION_REQUIRED"):
+            select_ground_motions_for_direction(motions, "x")
+        x_motions, x_warnings = select_ground_motions_for_direction(motions[:2], "x")
+        y_motions, y_warnings = select_ground_motions_for_direction(motions[:2], "y")
 
-        self.assertEqual([motion.name for motion in x_motions], ["GM-X1", "GM-U1"])
-        self.assertEqual([motion.name for motion in y_motions], ["GM-Y1", "GM-U1"])
+        self.assertEqual([motion.name for motion in x_motions], ["GM-X1"])
+        self.assertEqual([motion.name for motion in y_motions], ["GM-Y1"])
         self.assertEqual(x_warnings, [])
         self.assertEqual(y_warnings, [])
         self.assertEqual(motions[0].to_summary()["direction"], "x")

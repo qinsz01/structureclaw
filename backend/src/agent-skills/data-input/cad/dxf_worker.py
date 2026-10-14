@@ -91,7 +91,7 @@ def extract(text, limit=500, text_limit=200, file_path=None):
 if __name__ == "__main__":
     try:
         request = json.load(sys.stdin)
-        data = extract(request.get("text", ""), min(max(int(request.get("maxLines", 500)), 1), 10000), min(max(int(request.get("maxTexts", 200)), 1), 2000), request.get("filePath"))
+        data = extract(request.get("text", ""), min(max(int(request.get("maxLines", 500)), 1), 100000), min(max(int(request.get("maxTexts", 200)), 1), 100000), request.get("filePath"))
         print(json.dumps({"ok": True, "data": data}, ensure_ascii=False))
     except Exception as error:
         print(json.dumps({"ok": False, "errorCode": "INVALID_DXF", "message": str(error)}, ensure_ascii=False))

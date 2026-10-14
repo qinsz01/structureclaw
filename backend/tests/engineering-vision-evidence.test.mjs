@@ -5,10 +5,15 @@ import { createReviewInputTool } from '../dist/agent-langgraph/model-tools.js';
 import { applyInputEvidence, beginAnalysisRequest, currentAnalysisError } from '../dist/engineering/model-state.js';
 
 const observation = (value, field='nodes.A.restraints') => ({ summary: 'Visible support / 可见支座',
-  coverage: { geometry:'observed', connectivity:'observed', supports:'observed', loads:'not_applicable', materials:'not_applicable', sections:'not_applicable' },
+  coverage: { geometry:'not_applicable', connectivity:'not_applicable', supports:'observed', loads:'not_applicable', materials:'not_applicable', sections:'not_applicable' },
   fields: [{ field, category:'supports', value, status:'observed', required:true, region:[.1,.2,.3,.4], evidenceText:'Support symbol A' }] });
 
 describe('field-level image evidence without paid recognition', () => {
+  test('observed coverage without localized fields remains unresolved', () => {
+    const image = observation(5); image.coverage.geometry = 'observed';
+    const parsed = parseVisionEvidence(JSON.stringify(image), { file:'drawing.png' });
+    expect(() => assertResolvedInput(parsed.inputEvidence)).toThrow('coverage.geometry');
+  });
   test('focused crop observations retain original-page coordinates and file identity', () => {
     const parsed = parseVisionEvidence(JSON.stringify(observation([true,false,true])),
       { file:'drawing.pdf', page:2, sha256:'digest' }, { region:[.2,.3,.5,.5] });

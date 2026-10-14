@@ -25,6 +25,8 @@ import { collectVisionEvidence, imageRegionSchema, type ImageRegion } from '../e
 import { Command } from '@langchain/langgraph';
 import { ToolMessage } from '@langchain/core/messages';
 import { applyInputEvidence, type ModelState } from '../engineering/model-state.js';
+import { fileInputEvidence } from '../engineering/file-evidence.js';
+import { mergeInputEvidence } from '../engineering/input-evidence.js';
 
 const UPLOAD_DIR = path.join(runtimeBaseDir, '.uploads');
 const MAX_READ_BYTES = 10 * 1024 * 1024; // 10 MB cap for analysis
@@ -145,10 +147,12 @@ async function parsePdf(filePath: string, bytes: Buffer, options: AnalyzeUploade
       const renderedImagePath = path.join(outputDir, `page-${number}.png`);
       await fsp.writeFile(renderedImagePath, await canvas.encode('png'));
       const text = items.map((item) => item.str + (item.hasEOL ? '\n' : ' ')).join('');
+      const textLimit = options.mode === 'full' ? text.length : 16000;
+      const itemLimit = options.mode === 'full' ? items.length : 2000;
       pages.push({ pageNumber: number, width: viewport.width, height: viewport.height,
-        text: text.slice(0, 16000), textTruncated: text.length > 16000,
-        items: items.slice(0, 2000).map((item, index) => ({ text: item.str, transform: item.transform, width: item.width, height: item.height, source: { pageNumber: number, itemIndex: index } })),
-        itemsTruncated: items.length > 2000, renderedImagePath, hasGraphics, requiresVision: !text.trim() || hasGraphics,
+        text: text.slice(0, textLimit), textTruncated: text.length > textLimit,
+        items: items.slice(0, itemLimit).map((item, index) => ({ text: item.str, transform: item.transform, width: item.width, height: item.height, source: { pageNumber: number, itemIndex: index } })),
+        itemsTruncated: items.length > itemLimit, renderedImagePath, hasGraphics, requiresVision: !text.trim() || hasGraphics,
         note: 'Text extraction does not reconstruct drawing geometry; inspect rendered page / 提取文字不等于识别图形，须结合页面图像' });
       page.cleanup();
     }
@@ -160,6 +164,32 @@ async function parsePdf(filePath: string, bytes: Buffer, options: AnalyzeUploade
   } finally { await loadingTask.destroy(); }
 }
 export async function analyzeUploadedFile(
+  filePath: string,
+  workspaceRoot: string | undefined,
+  maxRows?: number,
+  options: AnalyzeUploadedFileOptions = {},
+): Promise<AnalyzeFileResult> {
+  const result = await readUploadedFile(filePath, workspaceRoot, maxRows, options);
+  if (options.mode === 'full' && result.success === true && ['csv', 'excel', 'text'].includes(String(result.type))
+    && result.source && typeof result.source === 'object') {
+    const source = result.source as Record<string, unknown>;
+    const sourcePath = String(source.filePath);
+    const payload = JSON.stringify({ format: 'sclaw-parsed-input-v1', type: result.type,
+      headers: result.headers, rows: result.rows, sheets: result.sheets, content: result.content, source });
+    const parsedSha256 = createHash('sha256').update(payload).digest('hex');
+    const parsedDir = path.join(path.dirname(sourcePath), '.parsed', String(source.sha256));
+    await fsp.mkdir(parsedDir, { recursive: true });
+    const parsedPath = path.join(parsedDir, `${parsedSha256}.json`);
+    await fsp.writeFile(parsedPath, payload, 'utf8');
+    result.fileReference = { path: sourcePath, sha256: source.sha256, parsedPath, parsedSha256,
+      format: 'sclaw-parsed-input-v1' };
+    result.source = { ...source, complete: true, fileReference: result.fileReference };
+  }
+  result.inputEvidence = mergeInputEvidence(collectVisionEvidence(result), fileInputEvidence(result, filePath));
+  return result;
+}
+
+async function readUploadedFile(
   filePath: string,
   workspaceRoot: string | undefined,
   maxRows?: number,
@@ -321,7 +351,7 @@ export async function analyzeUploadedFile(
   if (ext === '.dxf') {
     const buf = await fsp.readFile(resolvedPath);
     const text = buf.toString('utf-8');
-    const dxfData = await parseDxf(text, 500, 200, resolvedPath);
+    const dxfData = await parseDxf(text, options.mode === 'full' ? 100000 : 500, options.mode === 'full' ? 100000 : 200, resolvedPath);
     return {
       success: true,
       type: 'dxf',
@@ -363,7 +393,7 @@ export async function analyzeUploadedFile(
 export function createAnalyzeFileTool() {
   return tool(
     async (
-      input: { filePath: string; maxRows?: number; pageStart?: number; pageCount?: number; region?: ImageRegion; requiredFields?: string[] },
+      input: { filePath: string; maxRows?: number; mode?: 'preview' | 'full'; pageStart?: number; pageCount?: number; region?: ImageRegion; requiredFields?: string[] },
       config: LangGraphRunnableConfig,
     ) => {
       const configurable = config.configurable as Partial<AgentConfigurable> & { agentState?: ModelState };
@@ -389,7 +419,7 @@ export function createAnalyzeFileTool() {
           });
         }
       }
-      const analysis = await analyzeUploadedFile(input.filePath, workspaceRoot, input.maxRows, { includeImageData: true, pageStart: input.pageStart, pageCount: input.pageCount });
+      const analysis = await analyzeUploadedFile(input.filePath, workspaceRoot, input.maxRows, { includeImageData: true, mode: input.mode, pageStart: input.pageStart, pageCount: input.pageCount });
       analysis.visionRequest = { region: input.region, requiredFields: input.requiredFields };
       const summarize = (config.configurable as Partial<AgentConfigurable> | undefined)?.summarizeFileImages;
       const parsed = summarize ? await summarize(analysis, input.filePath, config.signal) : analysis;
@@ -410,6 +440,7 @@ export function createAnalyzeFileTool() {
         'filePath may be a relative path under .uploads/<conversationId>/ or an absolute path inside the upload directory.',
       schema: z.object({
         filePath: z.string().describe('Path to the uploaded file (relPath from upload response, or absolute path)'),
+        mode: z.enum(['preview', 'full']).optional().describe('Full reads preserve all table rows and text; PDF uses explicit pagination / 完整读取全部表格行和文本，PDF仍逐页读取'),
         pageStart: z.number().int().min(1).optional().describe('PDF first page, one-based / PDF起始页'),
         pageCount: z.number().int().min(1).max(12).optional().describe('PDF pages to extract and render, default 4 / 提取与渲染页数'),
         region: imageRegionSchema.optional().describe('Focused review crop, normalized x/y/width/height / 定点复核裁切区域'),

@@ -16,10 +16,37 @@ function isResolution(item: ModelRecord): boolean {
     && (item.resolution.value !== undefined || item.resolution.selectedSource !== undefined);
 }
 
+export function evidenceSourceFile(item: ModelRecord): string | undefined {
+  const source = isRecord(item.source) ? item.source : {};
+  return typeof source.file === 'string' ? source.file : typeof source.filePath === 'string' ? source.filePath : undefined;
+}
+
+/** An exclusion covers exact observations, never future reads of the same file. */
+export function activeInputEvidence(value: unknown): ModelRecord[] {
+  if (!Array.isArray(value)) return [];
+  const records = value.filter(isRecord);
+  const excluded = new Set<string>();
+  for (const item of records) {
+    if (item.status !== 'excluded') continue;
+    if (!isRecord(item.resolution) || typeof item.resolution.reason !== 'string' || !item.resolution.reason.trim()
+      || typeof item.resolution.sourceFile !== 'string' || !Array.isArray(item.resolution.evidenceHashes)
+      || !item.resolution.evidenceHashes.length) throw new Error('INPUT_EXCLUSION_REASON_AND_SOURCE_REQUIRED');
+    const resolution = item.resolution;
+    for (const hash of resolution.evidenceHashes as unknown[]) {
+      if (typeof hash !== 'string' || !records.some(record => record.status !== 'excluded'
+        && evidenceSourceFile(record) === resolution.sourceFile && contentHash(record) === hash)) {
+        throw new Error('INPUT_EXCLUSION_SOURCE_MISMATCH');
+      }
+      excluded.add(hash);
+    }
+  }
+  return records.filter(item => item.status !== 'excluded' && !excluded.has(contentHash(item)));
+}
+
 /** Evidence is retained, including superseded/conflicting observations. Resolution is explicit. */
 export function unresolvedInputEvidence(value: unknown): Array<{ field: string; reason: string }> {
   if (!Array.isArray(value)) return [];
-  const records = value.filter(isRecord);
+  const records = activeInputEvidence(value);
   const fields = new Map<string, ModelRecord[]>();
   for (const item of records) {
     if (item.required === false) continue;
@@ -68,6 +95,34 @@ export function unresolvedInputEvidence(value: unknown): Array<{ field: string; 
 export function assertResolvedInput(value: unknown): void {
   const issues = unresolvedInputEvidence(value);
   if (issues.length) throw new Error(`INPUT_EVIDENCE_UNRESOLVED: ${issues.map((item) => `${item.field}: ${item.reason}`).join('; ')} / 必需输入仍有冲突或未读取内容，请保留证据并明确解决。`);
+}
+
+/** Binds an attachment's analysis-only use to the exact record/settings, not a model value. */
+export function analysisInputBinding(record: ModelRecord): ModelRecord {
+  if (typeof record.id !== 'string' || !isRecord(record.fileReference)
+    || !['sha256', 'parsedSha256', 'path', 'parsedPath'].every(key => typeof (record.fileReference as ModelRecord)[key] === 'string')) {
+    throw new Error('ANALYSIS_INPUT_COMPLETE_SOURCE_REQUIRED');
+  }
+  const keys = ['id', 'fileReference', 'sheetName', 'unit', 'direction', 'component', 'axis', 'seismicDirection',
+    'dt', 'timeStep', 'time_step', 'timeUnit', 'timeColumn', 'accelerationColumn', 'accelColumn', 'valueColumn'];
+  return { kind: 'ground-motion', recordId: record.id, parameters: Object.fromEntries(keys
+    .filter(key => record[key] !== undefined).map(key => [key, structuredClone(record[key])])) };
+}
+
+export function assertAnalysisInputEvidenceMatchesRequest(evidence: unknown, workflow: unknown): void {
+  const set = isRecord(workflow) && isRecord(workflow.groundMotionSet) ? workflow.groundMotionSet : {};
+  const records = Array.isArray(set.records) ? set.records.filter(isRecord) : [];
+  const latest = new Map<string, ModelRecord>();
+  for (const item of activeInputEvidence(evidence)) if (isResolution(item)) latest.set(evidenceField(item), item);
+  for (const item of latest.values()) {
+    const resolution = isRecord(item.resolution) ? item.resolution : {};
+    if (!isRecord(resolution.analysisInput)) continue;
+    const binding = resolution.analysisInput;
+    const matches = records.filter(record => record.id === binding.recordId);
+    if (matches.length !== 1 || contentHash(analysisInputBinding(matches[0]!)) !== contentHash(binding)) {
+      throw new Error(`ANALYSIS_INPUT_BINDING_CHANGED: ${String(binding.recordId)} / 分析输入文件或参数已改变，须重新复核`);
+    }
+  }
 }
 
 const modelCollections = new Set(['nodes', 'elements', 'materials', 'sections', 'stories', 'load_cases', 'load_combinations']);
@@ -149,7 +204,8 @@ export function assertInputEvidenceMatchesModel(model: ModelRecord, evidence: un
   assertResolvedInput(evidence);
   if (!Array.isArray(evidence)) return;
   const byField = new Map<string, ModelRecord[]>();
-  for (const record of evidence.filter(isRecord)) {
+  const active = activeInputEvidence(evidence);
+  for (const record of active) {
     if (record.required === false) continue;
     const field = evidenceField(record);
     byField.set(field, [...(byField.get(field) ?? []), record]);
@@ -166,7 +222,52 @@ export function assertInputEvidenceMatchesModel(model: ModelRecord, evidence: un
     const resolution = latest < 0 ? {} : records[latest]!.resolution as ModelRecord;
     // File-read and category coverage reviews are workflow acknowledgments,
     // not a numerical model assignment. Concrete engineering fields still bind.
-    if (resolution.modelField === undefined && (/^file:/.test(field) || /^coverage\.(geometry|connectivity|supports|loads|materials|sections)$/.test(field))) continue;
+    if (resolution.modelField === undefined && /^file:/.test(field)) {
+      if (isRecord(resolution.analysisInput)) {
+        const binding = resolution.analysisInput;
+        const reference = isRecord(binding.parameters) && isRecord(binding.parameters.fileReference) ? binding.parameters.fileReference : {};
+        const completed = active.find(item => item.id === resolution.sourceEvidenceId);
+        const source = completed && isRecord(completed.source) ? completed.source : {};
+        if (binding.kind !== 'ground-motion' || source.complete !== true || source.sha256 !== reference.sha256
+          || evidenceSourceFile(completed ?? {}) !== evidenceSourceFile(records[0]!)
+          || !isRecord(source.fileReference) || source.fileReference.parsedSha256 !== reference.parsedSha256) {
+          throw new Error('ANALYSIS_INPUT_COMPLETE_SOURCE_REQUIRED');
+        }
+        if (source.sheet !== undefined && (!isRecord(binding.parameters) || binding.parameters.sheetName !== source.sheet)) {
+          throw new Error('ANALYSIS_INPUT_SOURCE_SHEET_MISMATCH');
+        }
+        continue;
+      }
+      const sourceRecord = records.find(item => item.requirement === 'field-mapping');
+      if (sourceRecord) {
+        const mapped = resolution.mappedFields;
+        const source = isRecord(sourceRecord.source) ? sourceRecord.source : {};
+        if (!Array.isArray(mapped) || !mapped.length || mapped.some(name => typeof name !== 'string'
+          || !active.some(item => item.field === name && item.required !== false
+            && evidenceSourceFile(item) === evidenceSourceFile(sourceRecord)
+            && (!['csv-parse', 'xlsx'].includes(String(source.parser))
+              || isRecord(item.source) && typeof item.source.row === 'number' && item.source.column !== undefined)
+            && (modelCollections.has(name.split('.')[0]!) || modelSingletons.has(name.split('.')[0]!)
+              || isResolution(item) && typeof (item.resolution as ModelRecord).modelField === 'string')
+            && (item.status === 'observed' || isResolution(item))))) {
+          throw new Error(`INPUT_SOURCE_FIELD_MAPPING_REQUIRED: ${field} / 附件须绑定已复核的工程字段或明确排除`);
+        }
+      }
+      if (records.some(item => item.requirement === 'complete-read')) {
+        const completed = active.find(item => item.id === resolution.sourceEvidenceId);
+        if (!completed || !isRecord(completed.source) || completed.source.complete !== true
+          || evidenceSourceFile(completed) !== evidenceSourceFile(records[0]!)
+          || records.some(item => {
+            const source = isRecord(item.source) ? item.source : {};
+            return ['page', 'sheet', 'sha256'].some(key => source[key] !== undefined
+              && source[key] !== (completed.source as ModelRecord)[key]);
+          })) {
+          throw new Error(`INPUT_SOURCE_COMPLETE_READ_REQUIRED: ${field} / 相关截断须完整读取或明确排除`);
+        }
+      }
+      continue;
+    }
+    if (resolution.modelField === undefined && /^coverage\.(geometry|connectivity|supports|loads|materials|sections)$/.test(field)) continue;
     if (canonical && resolution.modelField !== undefined && resolution.modelField !== field) throw new Error(`INPUT_EVIDENCE_MODEL_FIELD_CONFLICT: ${field}`);
     const modelField = resolution.modelField ?? (canonical ? field : undefined);
     if (typeof modelField !== 'string' || !modelField.trim()) throw new Error(`INPUT_EVIDENCE_MODEL_FIELD_REQUIRED: ${field} / 复核的工程值还需指定模型字段`);

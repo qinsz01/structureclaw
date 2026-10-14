@@ -35,6 +35,7 @@ import { listAgentToolDefinitions } from './tool-registry.js';
 import { analyzeUploadedFile } from './file-tools.js';
 import { summarizeFileImages } from './attachment-vision.js';
 import { collectVisionEvidence } from '../engineering/vision-evidence.js';
+import { mergeInputEvidence } from '../engineering/input-evidence.js';
 import { SessionLock } from '../engineering/session-lock.js';
 import { applyInputEvidence, commitModel, invalidateAnalysis } from '../engineering/model-state.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
@@ -206,8 +207,8 @@ function analysisRowsRecord(
     fileId: attachment.fileId,
     relPath: attachment.relPath,
     ...(idSuffix ? { sheetName: idSuffix } : {}),
-    ...(Array.isArray(analysis.headers) ? { headers: analysis.headers } : {}),
-    rows,
+    ...(analysis.fileReference ? { fileReference: analysis.fileReference }
+      : { ...(Array.isArray(analysis.headers) ? { headers: analysis.headers } : {}), rows }),
     fileAnalysis: compactAttachmentAnalysisMetadata(analysis),
   };
 }
@@ -225,7 +226,7 @@ function numericRows(rows: unknown): number[][] {
   if (!Array.isArray(rows)) return [];
   return rows
     .map((row) => Array.isArray(row)
-      ? row.map(finiteCellNumber).filter((value): value is number => value !== null)
+      ? row.every(cell => finiteCellNumber(cell) !== null) ? row.map(cell => finiteCellNumber(cell)!) : []
       : [])
     .filter((row) => row.length > 0);
 }
@@ -350,7 +351,7 @@ function groundMotionRecordsFromAttachmentAnalyses(attachmentAnalyses: Attachmen
           source: 'uploaded_attachment',
           fileId: attachment.fileId,
           relPath: attachment.relPath,
-          content,
+          ...(analysis.fileReference ? { fileReference: analysis.fileReference } : { content }),
           fileAnalysis: compactAttachmentAnalysisMetadata(analysis),
         });
       }
@@ -360,7 +361,7 @@ function groundMotionRecordsFromAttachmentAnalyses(attachmentAnalyses: Attachmen
       for (const [sheetName, sheetValue] of Object.entries(analysis.sheets)) {
         if (!isRecord(sheetValue)) continue;
         if (!looksLikeGroundMotionRows(sheetValue)) continue;
-        const record = analysisRowsRecord(attachment, sheetValue, sheetName);
+        const record = analysisRowsRecord(attachment, { ...sheetValue, fileReference: analysis.fileReference }, sheetName);
         if (record) {
           records.push({
             ...record,
@@ -410,9 +411,21 @@ export function enrichUploadedGroundMotionWorkflow(
   const groundMotionAnalyses = groundMotionAttachmentAnalyses(attachmentAnalyses);
   const uploadedAttachments = groundMotionAnalyses.map(({ attachment }) => attachmentSummary(attachment));
   const existingRecords = Array.isArray(groundMotionSet.records) ? groundMotionSet.records : undefined;
+  const fullRecords = groundMotionRecordsFromAttachmentAnalyses(groundMotionAnalyses);
   const generatedRecords = existingRecords && existingRecords.length > 0
-    ? existingRecords
-    : groundMotionRecordsFromAttachmentAnalyses(groundMotionAnalyses);
+    ? existingRecords.map(record => {
+      if (!isRecord(record)) return record;
+      const matches = fullRecords.filter(full => record.id === full.id
+        || ((record.fileId !== undefined && record.fileId === full.fileId
+          || record.relPath !== undefined && record.relPath === full.relPath) && record.sheetName === full.sheetName));
+      if (matches.length !== 1 || !matches[0]!.fileReference) return record;
+      // Keep explicit sampling settings; samples always come from the complete source.
+      const result = { ...record, ...matches[0], ...Object.fromEntries(Object.entries(record)
+        .filter(([key]) => ['unit', 'direction', 'component', 'axis', 'seismicDirection', 'dt', 'timeStep', 'time_step',
+          'timeUnit', 'timeColumn', 'accelerationColumn', 'accelColumn', 'valueColumn', 'recordType'].includes(key))) };
+      for (const key of ['values', 'accelerations', 'accel', 'rows', 'content', 'text', 'csv', 'at2', 'data']) delete result[key];
+      return result;
+    }) : fullRecords;
 
   return {
     ...seismicWorkflow,
@@ -482,7 +495,7 @@ function shouldKeepFullAttachmentAnalysis(
 ): boolean {
   const name = `${attachment.originalName} ${attachment.relPath}`.toLowerCase();
   const type = typeof analysis.type === 'string' ? analysis.type : '';
-  return (type === 'csv' || type === 'text')
+  return type === 'excel' || (type === 'csv' || type === 'text')
     && (
       name.endsWith('.csv')
       || name.endsWith('.tsv')
@@ -513,6 +526,7 @@ export async function buildInitialHumanMessagePayload(
       ? await summarizeFileImages(rawAnalysis, attachment.relPath, locale, message, options.signal) : rawAnalysis;
     const runtimeAnalysis = shouldKeepFullAttachmentAnalysis(attachment, analysis)
       ? await analyzeUploadedFile(attachment.relPath, workspaceRoot, undefined, { mode: 'full' }) : analysis;
+    runtimeAnalysis.inputEvidence = mergeInputEvidence(collectVisionEvidence(analysis), collectVisionEvidence(runtimeAnalysis));
     attachmentAnalyses.push({ attachment, analysis: runtimeAnalysis });
     const analysisText = attachmentAnalysisText(attachment, analysis, locale);
     canonicalParts.push(analysisText);
