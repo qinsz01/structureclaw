@@ -1,10 +1,15 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir } from 'node:fs/promises';
+import { gzip, gunzip } from 'node:zlib';
+import { promisify } from 'node:util';
 import path from 'node:path';
 import { runtimeBaseDir } from '../config/index.js';
 import { analysisRequestBindingSchema, contentHash, isRecord, modelHash, type ModelRecord } from './model-state.js';
 import { enrichResultData } from './result-data.js';
 import { assertInputEvidenceMatchesModel, assertResolvedInput } from './input-evidence.js';
+import { writeAtomicFile } from './atomic-json.js';
+
+const compress = promisify(gzip), decompress = promisify(gunzip);
 
 export interface ResultSelection { key: string; kind: 'case' | 'combination' | 'analysis'; id: string }
 const SELECTION_FIELDS = ['loadCaseIds', 'load_case_ids', 'loadCombinationIds', 'combinationIds',
@@ -145,7 +150,10 @@ export async function executeAnalysisRun(
         else if (batch.schema !== 'sclaw-native-result-set/v1' || !isRecord(entry) || typeof entry.success !== 'boolean') {
           result = { success: false, error_code: 'NATIVE_RESULT_SET_INCOMPLETE', message: `Missing native result: ${selection.key}`, data: {} };
         } else {
-          result = { ...structuredClone(nativeResponse), ...structuredClone(entry), meta: nativeResponse.meta };
+          // The selected entry replaces the batch data. Do not copy every case
+          // and raw native payload only to immediately discard that copy.
+          const { data: _batchData, ...envelope } = nativeResponse;
+          result = { ...structuredClone(envelope), ...structuredClone(entry), meta: nativeResponse.meta };
           const selectedNative = isRecord(result.data) && isRecord(result.data.selectedResult) ? result.data.selectedResult : {};
           if (entry.success && (selectedNative.id !== selection.id || selectedNative.kind !== selection.kind)) {
             throw new Error('NATIVE_RESULT_SELECTION_MISMATCH');
@@ -196,10 +204,15 @@ export async function executeAnalysisRun(
   };
 }
 
-async function saveAnalysisRun(id: string, record: ModelRecord): Promise<void> {
-  const directory = path.join(runtimeBaseDir, 'runs', id);
-  await mkdir(directory, { recursive: true });
-  await writeFile(path.join(directory, 'run.json'), JSON.stringify(record, null, 2), { encoding: 'utf8', flag: 'wx' });
+export async function saveAnalysisRun(id: string, record: ModelRecord, baseDirectory = path.join(runtimeBaseDir, 'runs')): Promise<void> {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new Error('RUN_ID_INVALID');
+  const bytes = await compress(JSON.stringify(record));
+  await mkdir(baseDirectory, { recursive: true });
+  const directory = path.join(baseDirectory, id);
+  // Claim a new immutable run directory. An old or interrupted archive cannot
+  // be replaced, including one written in the historical uncompressed format.
+  await mkdir(directory);
+  writeAtomicFile(path.join(directory, 'run.json.gz'), bytes);
 }
 
 /** UUID lookup only; the archived request and result fingerprints must still agree. */
@@ -207,7 +220,13 @@ export async function loadAnalysisRun(id: string, directory = path.join(runtimeB
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new Error('RUN_ID_INVALID');
   let record: ModelRecord;
   try {
-    record = JSON.parse(await readFile(path.join(directory, id, 'run.json'), 'utf8')) as ModelRecord;
+    const folder = path.join(directory, id), names = await readdir(folder);
+    const compressed = names.includes('run.json.gz'), plain = names.includes('run.json');
+    if (compressed && plain) throw new Error('RUN_ARCHIVE_AMBIGUOUS');
+    if (!compressed && !plain) throw new Error('RUN_NOT_FOUND');
+    const bytes = compressed ? await decompress(await readFile(path.join(folder, 'run.json.gz')))
+      : await readFile(path.join(folder, 'run.json'));
+    record = JSON.parse(bytes.toString('utf8')) as ModelRecord;
   } catch (error) {
     if (isRecord(error) && error.code === 'ENOENT') throw new Error('RUN_NOT_FOUND', { cause: error });
     throw error;

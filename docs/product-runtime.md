@@ -185,6 +185,17 @@ Missing/corrupt archives, live or unverified owners, and changed requests are re
 Historical requests without a reserved run identity remain readable but cannot use
 this recovery path.
 
+New immutable runs store compact JSON in `run.json.gz`, atomically published after
+compression and filesystem sync. `loadAnalysisRun` reads both the new archive and
+historical `run.json`, returning the same result structure. Existing run directories
+are never overwritten; conflicting or corrupt archives fail explicitly. Compression
+does not change numeric precision, result selections, source evidence or model hashes.
+
+新运行以无损压缩JSON归档，完整写入后原子发布。旧JSON运行仍可读取；已有目录不覆盖，
+损坏或存在两份冲突归档时明确失败。压缩不改变数值精度、工况、来源和模型指纹。
+七工况原生数据的完整归档与重读验证见
+[archive acceptance](reproducibility/engineering-native-archive-20261014.json)。
+
 分析提交前保存唯一运行编号。原进程在归档后退出时，可用检查所得状态指纹显式恢复原作业；
 归档必须与请求、模型、设置及结果身份一致。恢复不重跑、不将历史结果自动设为当前结果。
 缺归档、归档损坏、所属进程仍活跃或身份未知、请求已变化均拒绝；没有预留运行身份的历史请求保持可读。

@@ -1,0 +1,82 @@
+{
+  "schema": "sclaw-product-native-archive/v1",
+  "date": "2026-10-14",
+  "status": "passed",
+  "sourceFiles": [
+    {
+      "path": "backend/src/engineering/analysis-runs.ts",
+      "sha256": "0b568a3a2adf777e3633b3a35a04434407ec76a7b515b1a3e764ac12b89ea192"
+    },
+    {
+      "path": "backend/src/engineering/atomic-json.ts",
+      "sha256": "4d19463766d4b87b16a2f8d4edbd891ca8ddcd9a7bb98ff3dd541201a0c295d7"
+    },
+    {
+      "path": "backend/tests/analysis-run-storage.test.mjs",
+      "sha256": "9b2ed71f7442c6d9a6fa52d1dba8d438da62eaa613ffdc6d6aeb247f69642e74"
+    },
+    {
+      "path": "backend/tests/analysis-request-recovery.test.mjs",
+      "sha256": "0b1b12af3516a90fa37b10a24fb08e18e8a7d84c9c98d2269dc11cbe87a9a419"
+    },
+    {
+      "path": "backend/tests/fixtures/analysis-request-host.mjs",
+      "sha256": "65367c05c5f32a87897ed4145684d58f740e46f0cfd178580153d9cecc92233f"
+    },
+    {
+      "path": "backend/tests/engineering-native-archive.mjs",
+      "sha256": "7c120bfcbf9307af739d8b22b0e203d0974cdb0d8e3afb52f87ef87c6dc0e940"
+    }
+  ],
+  "checks": {
+    "backendBuild": "passed",
+    "targetedLint": "passed",
+    "storageRecoveryAndExternalSessions": {
+      "suites": 4,
+      "tests": 18
+    },
+    "engineeringRunDelivery": {
+      "tests": 16
+    }
+  },
+  "nativeArchive": {
+    "status": "passed",
+    "operation": "archive/reload of completed native results; no SDK job or LLM call",
+    "runId": "75f9459e-790c-4451-9761-b5f3fb0f1b79",
+    "resultKeys": [
+      "case:FX",
+      "case:FY",
+      "case:FZ",
+      "case:MX",
+      "case:MY",
+      "case:MZ",
+      "case:D"
+    ],
+    "uncompressedBytes": 21098637,
+    "compressedBytes": 1360002,
+    "reductionPercent": 93.55407650266697,
+    "archiveMs": 1191.0127000000002,
+    "reloadAndVerifyMs": 1584.4221999999995,
+    "resultsSha256": "ac5ac900d2cd1f53e9df53a0479341224405e4d45a8b4b8fe2976e0f2f588c66",
+    "files": [
+      {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-rigid-offsets-20261014-131700-dcec6d51\\source.json",
+        "sha256": "8cc3df6d9db6d413647c12525869242b4b5b78d9c84e68024efc8c204d7679b4"
+      },
+      {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\yjk-rigid-offsets-20261014-131700-dcec6d51\\result.json",
+        "sha256": "6b666bc64a89e45a6d5d81e2f382d82fc1f7e598ff8fc49ea24a24a817fabfb9"
+      },
+      {
+        "path": "G:\\StructureClaw-All\\sclaw_data\\work\\product-native-archive-20261014-01\\75f9459e-790c-4451-9761-b5f3fb0f1b79\\run.json.gz",
+        "sha256": "f884e5b77d3ba87970f5e9c8744c953377ade1c3dffeea3d710903e480da6e89"
+      }
+    ]
+  },
+  "boundaries": [
+    "This measures archive storage, not browser or checkpoint memory use.",
+    "Original SDK result files and historical run archives are unchanged.",
+    "Archived result objects have identical content hashes before and after reload.",
+    "No commercial solver or model-provider call was issued by this check."
+  ]
+}

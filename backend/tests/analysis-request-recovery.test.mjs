@@ -37,8 +37,8 @@ async function completedHost(directory, mode = 'after-archive') {
   return input;
 }
 
-test('a real stopped process recovers its bound archive without rerunning or publishing a current model', async () => fixture(async ({ directory, service, calls }) => {
-  const input = await completedHost(directory);
+test.each(['after-archive', 'after-compressed-archive'])('a real stopped process recovers its bound %s without rerunning or publishing a current model', async mode => fixture(async ({ directory, service, calls }) => {
+  const input = await completedHost(directory, mode);
   const inspected = await service.getRequest(input.requestId);
   expect(inspected).toMatchObject({ status: 'outcome_unknown', ownerAlive: false, cancellationAvailable: false });
   expect(inspected.runId).toEqual(expect.any(String));
