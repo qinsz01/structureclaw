@@ -110,6 +110,23 @@ export async function agentRoutes(fastify: FastifyInstance) {
         .send({ error: message });
     }
   });
+  fastify.get('/result-review/:conversationId', async (request: FastifyRequest<{ Params: { conversationId: string } }>, reply) => {
+    const id = request.params.conversationId;
+    if (!await new ConversationService().getConversation(id)) return reply.code(404).send({ error: 'CONVERSATION_NOT_FOUND' });
+    return reply.send(await agentService.getResultReview(id));
+  });
+  fastify.post('/result-review/:conversationId/tools', async (request: FastifyRequest<{ Params: { conversationId: string } }>, reply) => {
+    const id = request.params.conversationId;
+    if (!await new ConversationService().getConversation(id)) return reply.code(404).send({ error: 'CONVERSATION_NOT_FOUND' });
+    const body = z.object({ revisionToken: z.string().min(1), tool: z.enum(['query_results', 'generate_report']),
+      args: z.record(z.string(), z.unknown()) }).parse(request.body);
+    try { return reply.send(await agentService.invokeResultReviewTool(id, body)); }
+    catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return reply.code(message.startsWith('INPUT_REVIEW_REVISION_CONFLICT') ? 409
+        : /^(TOOL_NOT_ALLOWED|RUN_OUTSIDE_CONVERSATION)/.test(message) ? 403 : 400).send({ error: message });
+    }
+  });
   fastify.get('/tools', {
     schema: {
       tags: ['Agent'],

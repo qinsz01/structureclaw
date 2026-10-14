@@ -103,6 +103,11 @@ function roundStep(value: number) {
 }
 
 type StructuralVisualizationModalProps = {
+  initialView?: VisualizationViewMode
+  initialForceMetric?: 'axial' | 'shear' | 'moment'
+  queryObjectKinds?: ('node' | 'member')[]
+  selectedObject?: { kind: 'node' | 'member'; id: string }
+  onQueryObject?: (object: { kind: 'node' | 'member'; id: string }) => void
   open: boolean
   snapshot: VisualizationSnapshot | null
   locale: AppLocale
@@ -111,6 +116,7 @@ type StructuralVisualizationModalProps = {
 }
 
 export function StructuralVisualizationModal({
+  selectedObject, onQueryObject, queryObjectKinds, initialView, initialForceMetric,
   open,
   snapshot,
   locale,
@@ -150,13 +156,14 @@ export function StructuralVisualizationModal({
     if (!open || !snapshot) {
       return
     }
-    setView(snapshot.availableViews[0] || 'model')
+    setView(initialView && snapshot.availableViews.includes(initialView) ? initialView : snapshot.availableViews[0] || 'model')
+    if (initialForceMetric) setForceMetric(initialForceMetric)
     setActiveCaseId(snapshot.defaultCaseId)
-    setSelectedNodeId(null)
-    setSelectedElementId(null)
+    setSelectedNodeId(selectedObject?.kind === 'node' ? selectedObject.id : null)
+    setSelectedElementId(selectedObject?.kind === 'member' ? selectedObject.id : null)
     setSelectedLoadIndex(null)
     setBucklingModeIndex(0)
-  }, [open, snapshot])
+  }, [open, snapshot, selectedObject?.id, selectedObject?.kind, initialView, initialForceMetric])
 
   const placeholderTitle = useMemo(
     () => snapshot?.title || t('visualizationTitle'),
@@ -236,6 +243,11 @@ export function StructuralVisualizationModal({
             </div>
             {activeCase?.resultStatus === 'unavailable' ? <div className="mt-2 text-sm text-muted-foreground">{t('visualizationUnavailable')}</div> : null}
           </div>
+          {onQueryObject && (selectedNodeId && (!queryObjectKinds || queryObjectKinds.includes('node')) || selectedElementId && (!queryObjectKinds || queryObjectKinds.includes('member'))) && <button type="button"
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            onClick={() => onQueryObject(selectedNodeId ? { kind: 'node', id: selectedNodeId } : { kind: 'member', id: selectedElementId! })}>
+            {locale === 'zh' ? '使用此对象查询数值' : 'Query this object'}
+          </button>}
           {snapshot?.statusMessage ? (
             <div className="rounded-2xl border border-amber-300/30 bg-amber-300/10 p-4 text-sm leading-6 text-amber-900 dark:text-amber-100">
               {snapshot.statusMessage}

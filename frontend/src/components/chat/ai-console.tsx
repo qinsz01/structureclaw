@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { RunSettings, type RunPolicyInput } from './run-settings'
 import { useConversationRuntime, type ConversationRuntimeSnapshot } from './use-conversation-runtime'
+import { ResultReviewPanel } from './result-review-panel'
 import { InputReviewPanel } from './input-review-panel'
 import { useStore } from '@/lib/stores/context'
 import { MarkdownBody } from './markdown-body'
@@ -2937,6 +2938,7 @@ export function AIConsole() {
   const [uiPreferencesHydrated, setUiPreferencesHydrated] = useState(false)
   const [resultDialogOpen, setResultDialogOpen] = useState(false)
   const [inputReviewOpen, setInputReviewOpen] = useState(false)
+  const [resultReviewOpen, setResultReviewOpen] = useState(false)
   const [isSidebarLayout, setIsSidebarLayout] = useState(getIsSidebarLayout)
   const chatScrollRef = useRef<HTMLDivElement | null>(null)
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
@@ -4064,6 +4066,7 @@ export function AIConsole() {
   }
 
   function openVisualization(preferredSource: 'model' | 'result') {
+    if (preferredSource === 'result' && conversationId) { setResultDialogOpen(false); setResultReviewOpen(true); return }
     const snapshotTitle =
       mergedConversations.find((conversation) => conversation.id === conversationId)?.title
       || modelPreviewBaseTitle
@@ -4905,6 +4908,7 @@ export function AIConsole() {
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" variant="outline" className="rounded-full text-xs" disabled={!conversationId || isStreaming}
             onClick={() => setInputReviewOpen(true)}>{locale === 'zh' ? '输入与证据' : 'Inputs and evidence'}</Button>
+          <Button type="button" variant="outline" size="sm" disabled={!conversationId || isStreaming} onClick={() => setResultReviewOpen(true)}>{locale === 'zh' ? '结果与历史' : 'Results and history'}</Button>
           <Button
             type="button"
             variant="outline"
@@ -5702,6 +5706,8 @@ export function AIConsole() {
           />
         </div>
       </DialogShell>
+      <ResultReviewPanel open={resultReviewOpen} onClose={() => setResultReviewOpen(false)} conversationId={conversationId}
+        locale={locale} disabled={isStreaming || Boolean(sessionRuntime.view?.busy)} onUsageChanged={() => { void sessionRuntime.refresh().catch(() => {}) }} />
       <InputReviewPanel open={inputReviewOpen} onClose={() => setInputReviewOpen(false)} conversationId={conversationId}
         locale={locale} disabled={isStreaming} attachments={[...messages.flatMap(message => message.attachments ?? []), ...attachedFiles]}
         initialContext={{ locale, runPolicy, skillIds: selectedSkillIds, enabledToolIds: selectedToolIds,

@@ -31,6 +31,24 @@ function setup(enabled = ['review_input', 'query_model', 'ask_user_clarification
   return { service, graph, initial, runtime };
 }
 describe('same-conversation input review', () => {
+  test('result actions share the persisted ledger, keep the pending question and reject another conversation run', async () => {
+    const {service,graph,initial,runtime}=setup(['query_results','ask_user_clarification']);
+    const saved={runId:'owned',success:true,selectedResultKey:'case:D',data:{displacements:{A:{uz:-.001}}},
+      modelSnapshot:{nodes:[{id:'A'}],elements:[]}};
+    const id='result-paused'; const config={configurable:{thread_id:id,runContext:runtime}};
+    await graph.invoke({...initial,analysisRuns:{owned:saved}},config);
+    const before=await service.getResultReview(id);
+    const action=await service.invokeResultReviewTool(id,{revisionToken:before.revisionToken,tool:'query_results',
+      args:{runId:'owned',resultKey:'case:D',nodeId:'A',field:'displacements',component:'uz',unit:'mm',quantityId:'selected'}});
+    expect(action.success).toBe(true);expect(action.result.quantity.value).toBe(-1);
+    const state=(await graph.getState(config)).values;
+    expect(state.runUsage.toolCalls).toBe(2);
+    expect(state.messages.at(-1).tool_calls[0].id).toBe('question');
+    await expect(service.invokeResultReviewTool(id,{revisionToken:before.revisionToken,tool:'query_results',args:{runId:'owned'}})).rejects.toThrow('REVISION_CONFLICT');
+    await expect(service.invokeResultReviewTool(id,{revisionToken:action.review.revisionToken,tool:'query_results',args:{runId:'some-other-run'}})).rejects.toThrow('RUN_OUTSIDE_CONVERSATION');
+    expect((await graph.getState(config)).values.runUsage.toolCalls).toBe(2);
+  });
+
   test('runtime projection reads the saved policy, current ledger and real request receipt without rewriting them', async () => {
     const { service, graph, initial, runtime } = setup(['query_model']);
     const id = 'runtime-projection';

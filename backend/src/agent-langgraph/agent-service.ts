@@ -42,6 +42,7 @@ import { collectVisionEvidence } from '../engineering/vision-evidence.js';
 import { activeInputEvidence, assertInputEvidenceMatchesModel, mergeInputEvidence, unresolvedInputEvidence } from '../engineering/input-evidence.js';
 import { SessionLock } from '../engineering/session-lock.js';
 import { applyInputEvidence, commitModel, contentHash, currentAnalysisError, invalidateAnalysis } from '../engineering/model-state.js';
+import { resultCatalogEntry } from '../engineering/result-selection.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 
 // ---------------------------------------------------------------------------
@@ -115,6 +116,8 @@ export interface LangGraphRunResult {
 
 export const INPUT_REVIEW_TOOLS = ['analyze_file', 'review_input', 'query_model', 'edit_model', 'validate_model'] as const;
 export type InputReviewTool = typeof INPUT_REVIEW_TOOLS[number];
+export const RESULT_REVIEW_TOOLS = ['query_results', 'generate_report'] as const;
+export type ResultReviewTool = typeof RESULT_REVIEW_TOOLS[number];
 
 function clarificationState(state: AgentState, tasks: ReadonlyArray<{ interrupts?: readonly unknown[] }> = []) {
   const call = state.messages?.length ? pendingToolCalls(state)[0] : undefined;
@@ -128,7 +131,8 @@ function clarificationState(state: AgentState, tasks: ReadonlyArray<{ interrupts
 export function inputReviewRevision(state: Partial<AgentState>): string {
   return contentHash({ model: state.model, revision: state.modelRevision, pending: state.modelPending,
     evidence: state.inputEvidence, workflow: state.contextSeismicWorkflow, policy: state.runPolicy,
-    usage: state.runUsage, messages: state.messages?.map(message => message.id) });
+    usage: state.runUsage, analysisRequest: state.analysisRequest, currentRun: state.analysisResult?.runId,
+    runs: Object.keys(state.analysisRuns ?? {}), quantities: state.resultQuantities, messages: state.messages?.map(message => message.id) });
 }
 
 type HumanMessageContentBlock =
@@ -1010,7 +1014,7 @@ export class LangGraphAgentService {
       }));
       const reason = currentAnalysisError(state);
       const runId = typeof state.analysisResult?.runId === 'string' ? state.analysisResult.runId : null;
-      const reportMeta = isRecord(state.report?.meta) ? state.report.meta : {};
+      const reportMeta = isRecord(state.report?.meta) ? state.report.meta : isRecord(state.report?.json) && isRecord(state.report.json.meta) ? state.report.json.meta : {};
       const reportCurrent = Boolean(state.report && !reason && runId && reportMeta.runId === runId);
       const runtime: ConversationRuntimeSnapshot = { conversationId, busy: this.sessionLock.isBusy(conversationId), ...clarification,
         modelRevision: state.modelRevision ?? 0, modelPending: state.modelPending ?? false, policy,
@@ -1076,12 +1080,45 @@ export class LangGraphAgentService {
     };
   }
 
+  /** Catalog only: archived numerical data are queried through the same permitted tool path. */
+  async getResultReview(conversationId: string) {
+    const graph = await this.getGraph();
+    const snapshot = await graph.getState({ configurable: { thread_id: conversationId } });
+    const state = snapshot.values as AgentState;
+    const policy = state.runPolicy;
+    const configurable = { ...this.buildConfigurable(), runContext: policy ? { policy, usage: state.runUsage } : undefined } as AgentConfigurable & Record<string, unknown>;
+    applyToolsNodeSessionContext(configurable, state);
+    const allowed = resolveActiveToolIds({ requestedEnabledToolIds: configurable.enabledToolIds,
+      requestedDisabledToolIds: configurable.disabledToolIds, allowShell: false }).activeToolIds;
+    const runs = { ...(state.analysisRuns ?? {}) };
+    if (typeof state.analysisResult?.runId === 'string') runs[state.analysisResult.runId] = state.analysisResult;
+    return { conversationId, revisionToken: inputReviewRevision(state), busy: this.sessionLock.isBusy(conversationId),
+      currentRunId: !currentAnalysisError(state) ? state.analysisResult?.runId ?? null : null,
+      allowedTools: policy ? RESULT_REVIEW_TOOLS.filter(id => allowed.includes(id)) : [],
+      runs: Object.values(runs).map(run => resultCatalogEntry(run,
+        run.runId === state.analysisResult?.runId && !currentAnalysisError(state))) };
+  }
+
+  async invokeResultReviewTool(conversationId: string, input: {
+    revisionToken: string; tool: ResultReviewTool; args: Record<string, unknown>; signal?: AbortSignal;
+  }) {
+    if (!RESULT_REVIEW_TOOLS.includes(input.tool)) throw new Error('RESULT_REVIEW_TOOL_NOT_ALLOWED');
+    return this.invokeConversationTool(conversationId, input, 'result');
+  }
+
   /** Deterministic user actions share the chat lock, registered tools and persisted policy ledger. */
   async invokeInputReviewTool(conversationId: string, input: {
     revisionToken: string; tool: InputReviewTool; args: Record<string, unknown>;
     initialContext?: LangGraphRunInput['context']; signal?: AbortSignal;
   }) {
     if (!INPUT_REVIEW_TOOLS.includes(input.tool)) throw new Error('INPUT_REVIEW_TOOL_NOT_ALLOWED');
+    return this.invokeConversationTool(conversationId, input, 'input');
+  }
+
+  private async invokeConversationTool(conversationId: string, input: {
+    revisionToken: string; tool: InputReviewTool | ResultReviewTool; args: Record<string, unknown>;
+    initialContext?: LangGraphRunInput['context']; signal?: AbortSignal;
+  }, purpose: 'input' | 'result') {
     const release = await this.sessionLock.acquire(conversationId);
     try {
       input.signal?.throwIfAborted();
@@ -1090,7 +1127,13 @@ export class LangGraphAgentService {
       let state = (await graph.getState(graphConfig)).values as AgentState;
       if (input.revisionToken !== inputReviewRevision(state)) throw new Error('INPUT_REVIEW_REVISION_CONFLICT');
       const initialized = Boolean(state.runPolicy && state.runUsage);
-      const request: LangGraphRunInput = { conversationId, message: `Input review / 输入复核: ${input.tool}`, signal: input.signal,
+      if (purpose === 'result') {
+        if (!initialized) throw new Error('CONVERSATION_POLICY_REQUIRED');
+        const selection = input.tool === 'generate_report' && isRecord(input.args.selection) ? input.args.selection : input.args;
+        const runId = selection.runId;
+        if (typeof runId !== 'string' || (!state.analysisRuns?.[runId] && state.analysisResult?.runId !== runId)) throw new Error('RUN_OUTSIDE_CONVERSATION');
+      }
+      const request: LangGraphRunInput = { conversationId, message: `${purpose === 'input' ? 'Input review / 输入复核' : 'Result review / 结果查看'}: ${input.tool}`, signal: input.signal,
         context: initialized ? { locale: state.locale } : input.initialContext };
       const runtime = await this.prepareRunContext(request, conversationId, initialized);
       state = (await graph.getState(graphConfig)).values as AgentState;
@@ -1128,7 +1171,7 @@ export class LangGraphAgentService {
       const actionState = { ...state, lastUserMessage: `${request.message}\n${JSON.stringify(input.args)}`,
         messages: [...(state.messages ?? []), new AIMessage({ content: '', tool_calls: [{ id: callId, name: input.tool, args: input.args }] })] };
       return await withRunContext(runtime, async () => {
-        recordRunEvent({ kind: 'user_input_review', tool: input.tool, callId, args: input.args });
+        recordRunEvent({ kind: purpose === 'input' ? 'user_input_review' : 'user_result_review', tool: input.tool, callId, args: input.args });
         const command = await executeToolsSequentially(tools, actionState, executionConfig);
         const { messages, ...update } = command.update as Partial<AgentState>;
         // Synthetic calls are not appended to chat: the pending clarification call must stay current.
@@ -1139,7 +1182,7 @@ export class LangGraphAgentService {
         if (typeof result === 'string') { try { result = JSON.parse(result); } catch { /* plain tool output */ } }
         const failed = (value: unknown) => isRecord(value) && (value.success === false || value.valid === false || Boolean(value.error) || value.status === 'failed');
         return { result, success: output?.status !== 'error' && !failed(result) && !failed(isRecord(result) ? result.result : undefined),
-          review: await this.getInputReview(conversationId) };
+          review: purpose === 'input' ? await this.getInputReview(conversationId) : await this.getResultReview(conversationId) };
       });
     } finally { release(); }
   }

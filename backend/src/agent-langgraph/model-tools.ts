@@ -7,6 +7,7 @@ import type { AgentConfigurable } from './configurable.js';
 import { applyModelEdits, commitModel, contentHash, currentAnalysisError, invalidateAnalysis, isRecord, undoModel, type ModelEdit } from '../engineering/model-state.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 import { queryPhysicalResponse, scalarResultQuantity } from '../engineering/result-data.js';
+import { resultSelectionSchema } from '../engineering/result-selection.js';
 import { loadAnalysisRun } from '../engineering/analysis-runs.js';
 import { randomUUID } from 'node:crypto';
 import { imageRegionSchema } from '../engineering/vision-evidence.js';
@@ -154,12 +155,13 @@ export function createQueryResultsTool() {
     const { state, id } = context(config);
     const run = input.runId ? state.analysisRuns?.[input.runId] ?? await loadAnalysisRun(input.runId) : state.analysisResult;
     if (!run) throw new Error('RUN_NOT_FOUND');
+    if (input.nodeId && input.elementId) throw new Error('RESULT_LOCATION_AMBIGUOUS');
     if (input.compareResultKeys && (input.resultKey || !isRecord(run.results) || !input.component || input.modeNumber !== undefined || input.timeIndex !== undefined
       || new Set(input.compareResultKeys).size !== input.compareResultKeys.length)) {
       throw new Error('RESULT_COMPARISON_REQUIRES_DISTINCT_STATIC_KEYS_AND_COMPONENT / 比较需指定互异静力结果及同一分量');
     }
     if (input.comparison && !input.compareResultKeys) throw new Error('RESULT_COMPARISON_KEYS_REQUIRED');
-    const querySelection = (resultKey: unknown) => {
+    const querySelection = (resultKey: unknown, timeIndex = input.timeIndex) => {
       if (typeof resultKey === 'string' && !isRecord(run.results) && resultKey !== run.selectedResultKey) {
         throw new Error('RESULT_NOT_FOUND');
       }
@@ -169,36 +171,40 @@ export function createQueryResultsTool() {
       const data = isRecord(selected.data) ? selected.data : selected;
       if (input.referenceNodeId !== undefined && (!input.nodeId || input.elementId || input.field !== 'displacements'
         || !input.component || !['ux', 'uy', 'uz', 'rx', 'ry', 'rz'].includes(input.component)
-        || input.modeNumber !== undefined || input.timeIndex !== undefined)) {
+        || input.modeNumber !== undefined || timeIndex !== undefined)) {
         throw new Error('NODE_DIFFERENCE_REQUIRES_STATIC_DISPLACEMENT_COMPONENT / 节点差值需指定静力位移或转角分量');
       }
       let values: unknown = input.field ? data[input.field] : data;
+      let viewData: unknown = data;
       let time: number | undefined;
       let modalNormalization: Record<string, unknown> | undefined;
-      if (input.timeIndex !== undefined && input.modeNumber !== undefined) throw new Error('RESULT_INDEX_CONFLICT');
+      if (timeIndex !== undefined && input.modeNumber !== undefined) throw new Error('RESULT_INDEX_CONFLICT');
       if (input.modeNumber !== undefined) {
         if (input.elementId || (input.field && !['displacements', 'modal', 'modes'].includes(input.field))) throw new Error('MODAL_FIELD_UNAVAILABLE');
         const modes = Array.isArray(data.modes) ? data.modes : isRecord(data.modal) ? data.modal.modes : undefined;
         values = Array.isArray(modes) ? modes.find(item => isRecord(item) && item.modeNumber === input.modeNumber) : undefined;
         if (values === undefined) throw new Error('MODE_NOT_FOUND');
-        if (input.component) {
-          if (!input.nodeId || !['ux', 'uy', 'uz'].includes(input.component) || input.unit !== '1') throw new Error('MODAL_TRANSLATION_REQUIRES_DIMENSIONLESS_UNIT');
+        {
+          if (input.component && (!input.nodeId || !['ux', 'uy', 'uz'].includes(input.component) || input.unit !== '1')) throw new Error('MODAL_TRANSLATION_REQUIRES_DIMENSIONLESS_UNIT');
           const shape = isRecord(values) && isRecord(values.modeShape) ? values.modeShape : {};
           const vectors = Object.values(shape);
           if (!vectors.length || vectors.some(v => !Array.isArray(v) || v.length !== 3 || v.some(n => typeof n !== 'number' || !Number.isFinite(n)))) throw new Error('MODAL_SHAPE_UNAVAILABLE');
           const scale = Math.max(...(vectors as number[][]).flat().map(Math.abs));
           if (!(scale > 0)) throw new Error('MODAL_SHAPE_UNAVAILABLE');
           modalNormalization = { method: 'maximum-absolute-translational-component', divisor: scale, coordinateSystem: 'global', physicalDisplacement: false };
-          values = Object.fromEntries(Object.entries(shape).map(([node, vector]) => [node,
+          const normalized = Object.fromEntries(Object.entries(shape).map(([node, vector]) => [node,
             Object.fromEntries(['ux', 'uy', 'uz'].map((component, index) => [component, (vector as number[])[index]! / scale]))]));
+          viewData = { displacements: normalized, normalization: modalNormalization };
+          if (input.component) values = normalized;
         }
       }
-      if (input.timeIndex !== undefined) {
+      if (timeIndex !== undefined) {
         const history = Array.isArray(data.timeHistory) ? data.timeHistory : [];
-        values = history[input.timeIndex];
+        values = history[timeIndex];
         if (values === undefined) throw new Error('TIME_INDEX_NOT_FOUND');
         if (!isRecord(values) || typeof values.time !== 'number' || !Number.isFinite(values.time)) throw new Error('TIME_INDEX_UNVERIFIED');
         time = values.time;
+        viewData = { displacements: values.nodes, reactions: values.reactions, time, responseDefinition: data.responseDefinition };
         if (input.field && ['reactions', 'forces', 'velocities', 'accelerations'].includes(input.field)) values = values[input.field];
         else if (input.field && !['timeHistory', 'displacements'].includes(input.field)) throw new Error('TIME_HISTORY_FIELD_UNAVAILABLE');
       }
@@ -211,7 +217,7 @@ export function createQueryResultsTool() {
         values = source[input.nodeId];
       }
       if (input.elementId !== undefined) {
-        if (input.timeIndex !== undefined) {
+        if (timeIndex !== undefined) {
           if (input.field !== 'forces' || !input.end || input.positionM !== undefined || input.side !== undefined) throw new Error('DYNAMIC_MEMBER_END_REQUIRED');
           const member = isRecord(values) ? values[input.elementId] : undefined;
           if (!isRecord(member) || member.referenceFrame !== 'element-local' || !isRecord(member[input.end])) throw new Error('DYNAMIC_MEMBER_RESULT_UNAVAILABLE');
@@ -223,7 +229,7 @@ export function createQueryResultsTool() {
         values = queryPhysicalResponse(model, selected, input.elementId, input.positionM, input.side ?? 'right');
         }
       }
-      if (input.end && (input.timeIndex === undefined || !input.elementId)) throw new Error('DYNAMIC_MEMBER_END_ONLY');
+      if (input.end && (timeIndex === undefined || !input.elementId)) throw new Error('DYNAMIC_MEMBER_END_ONLY');
       let quantity: Record<string, unknown> | undefined;
       if (input.component !== undefined) {
         if (!input.quantityId || !input.unit || !(input.elementId || input.nodeId)) throw new Error('QUANTITY_LOCATION_ID_AND_UNIT_REQUIRED');
@@ -244,13 +250,41 @@ export function createQueryResultsTool() {
           location: input.elementId ? { kind: 'member', id: input.elementId, ...(input.end ? { end: input.end } : { positionM: input.positionM, side: input.side ?? 'right' }) }
             : input.referenceNodeId ? { kind: 'node-pair', id: input.nodeId, referenceId: input.referenceNodeId }
               : { kind: 'node', id: input.nodeId }, source: selected.meta,
+          responseSource: input.elementId && isRecord(values) ? { method: values.method, provenance: values.provenance, source: values.source }
+            : { normalization: modalNormalization, responseDefinition: data.responseDefinition, source: data.source,
+              objectSource: isRecord(data.objectSources) && input.nodeId ? data.objectSources[input.nodeId] : undefined },
           ...(difference ? { derivation: difference } : {}),
-          ...(input.timeIndex !== undefined ? { timeIndex: input.timeIndex, time, responseDefinition: data.responseDefinition } : {}),
+          ...(timeIndex !== undefined ? { timeIndex: timeIndex, time, responseDefinition: data.responseDefinition } : {}),
           ...(input.modeNumber !== undefined ? { modeNumber: input.modeNumber, normalization: modalNormalization } : {}) };
       }
-      return { resultKey, meta: selected.meta, values, quantity };
+      return { resultKey, meta: selected.meta, resultSelection: selected.selection, values, quantity, viewData };
     };
-    const candidates = (input.compareResultKeys ?? [input.resultKey ?? run.selectedResultKey]).map(querySelection);
+    if (input.series) {
+      if (input.timeIndex !== undefined || input.modeNumber !== undefined || input.compareResultKeys || !input.component || !input.quantityId) throw new Error('TIME_SERIES_REQUIRES_SINGLE_RESULT_COMPONENT');
+      const key = input.resultKey ?? run.selectedResultKey;
+      const selected = isRecord(run.results) && typeof key === 'string' ? run.results[key] : run;
+      const data = isRecord(selected) && isRecord(selected.data) ? selected.data : selected;
+      const history = isRecord(data) && Array.isArray(data.timeHistory) ? data.timeHistory : [];
+      const start = input.series.startIndex ?? 0;
+      const end = input.series.endIndex ?? history.length - 1;
+      const stride = input.series.stride ?? 1;
+      if (start > end || end >= history.length || Math.floor((end - start) / stride) + 1 > 10000) throw new Error('TIME_SERIES_RANGE_INVALID_OR_TOO_LARGE');
+      for (let index = start; index <= end; index++) {
+        const row = history[index]; const previous = history[index - 1];
+        if (!isRecord(row) || typeof row.time !== 'number' || !Number.isFinite(row.time)
+          || (index > start && (!isRecord(previous) || typeof previous.time !== 'number' || row.time <= previous.time))) throw new Error('TIME_AXIS_NOT_STRICTLY_INCREASING');
+      }
+      const points: Record<string, unknown>[] = [];
+      for (let index = start; index <= end; index += stride) {
+        const { quantity } = querySelection(key, index);
+        if (!quantity) throw new Error('TIME_SERIES_COMPONENT_REQUIRED');
+        points.push({ timeIndex: index, time: quantity.time, value: quantity.value });
+      }
+      return JSON.stringify({ runId: run.runId, resultKey: key, series: { points, startIndex: start, endIndex: end, stride,
+        sampled: stride > 1, interpolation: 'none', component: input.component, unit: input.unit, field: input.field,
+        location: { nodeId: input.nodeId, elementId: input.elementId, end: input.end }, responseDefinition: isRecord(data) ? data.responseDefinition : undefined } });
+    }
+    const candidates = (input.compareResultKeys ?? [input.resultKey ?? run.selectedResultKey]).map(key => querySelection(key));
     let chosen = candidates[0]!;
     if (input.compareResultKeys) {
       const comparison = input.comparison ?? 'absolute-max';
@@ -266,20 +300,20 @@ export function createQueryResultsTool() {
         tiePolicy: 'exact-score-equality-first-requested-key',
       } } };
     }
-    const { resultKey, meta, values, quantity } = chosen;
+    const { resultKey, meta, resultSelection, values, quantity, viewData } = chosen;
+    const modelSnapshot = isRecord(run.modelSnapshot) ? run.modelSnapshot : !input.runId && !currentAnalysisError(state) ? state.model : undefined;
+    if (input.includeModelSnapshot && !modelSnapshot) throw new Error('RESULT_MODEL_SNAPSHOT_REQUIRED');
     const response = { runId: run.runId, historical: Boolean(input.runId), current: !input.runId && !currentAnalysisError(state),
-      resultKey, meta, resultKeys: isRecord(run.results) ? Object.keys(run.results) : [], values, ...(quantity ? { quantity } : {}) };
+      ...(input.includeModelSnapshot ? { modelSnapshot, visualizationData: viewData, analysisType: run.analysis_type ?? run.analysisType } : {}),
+      resultKey, meta, resultSelection, resultKeys: isRecord(run.results) ? Object.keys(run.results) : [], values, ...(quantity ? { quantity } : {}) };
     return quantity ? result(id, 'query_results', response, { resultQuantities: { [`${String(run.runId)}:${input.quantityId}`]: quantity } }) : JSON.stringify(response);
   }, { name: 'query_results', description: 'Read authoritative signed results for a case/combination or historical run. / 查询指定工况、组合或历史运行的有符号结果。',
-    schema: z.object({ runId: z.string().optional(), resultKey: z.string().optional(),
-      compareResultKeys: z.array(z.string().min(1)).min(2).max(256).optional().describe('Compare the same requested quantity over these explicit result keys in ONE run, preserving signed values and controlling IDs. Exclusive with resultKey. / 在同一次运行中比较指定工况/组合的同一数值，保留符号和控制ID，与resultKey互斥。'),
-      comparison: z.enum(['absolute-max', 'max', 'min']).optional().describe('Comparison criterion; defaults to absolute-max, returned value retains its sign. / 默认按绝对值控制，返回值保留原符号。'),
-      nodeId: z.string().optional(), modeNumber: z.number().int().positive().optional(), timeIndex: z.number().int().nonnegative().optional(),
-      referenceNodeId: z.string().min(1).optional().describe('Subtract this node from nodeId in the SAME static result; field=displacements and component/unit/quantityId required. For signed story displacement differences. / 同一静力结果内计算 nodeId 减此节点的位移差，需指定分量、单位和数值ID。'),
+    schema: resultSelectionSchema.extend({
+      includeModelSnapshot: z.boolean().optional().describe('Return the run-bound model and selected direct display data for a viewer. / 返回该运行模型及选定结果的显示数据。'),
+      series: z.object({ startIndex: z.number().int().nonnegative().optional(), endIndex: z.number().int().nonnegative().optional(), stride: z.number().int().positive().optional() }).optional().describe('Recorded time series, at most 10000 explicit samples; no interpolation. Exclusive with timeIndex/modeNumber. / 实际记录时程，最多10000点，不插值。'),
+      compareResultKeys: z.array(z.string().min(1)).min(2).max(256).optional().describe('Compare the same static scalar over distinct keys in one run; exclusive with resultKey. / 同一运行中比较指定互异静力结果的同一数值，与resultKey互斥。'),
+      comparison: z.enum(['absolute-max', 'max', 'min']).optional().describe('Default absolute-max; the controlling value retains its sign. / 默认按绝对值控制，返回值保留符号。'),
+      referenceNodeId: z.string().min(1).optional().describe('Static displacement: nodeId minus referenceNodeId; component, unit and quantityId required. / 静力位移nodeId减referenceNodeId，需分量、单位和数值ID。'),
       quantityId: z.string().min(1).optional().describe('Stable ID for a requested report quantity / 指定报告数值的稳定ID。'),
-      component: z.enum(['ux','uy','uz','rx','ry','rz','fx','fy','fz','mx','my','mz','N','V2','V3','T','M2','M3']).optional(),
-      unit: z.enum(['m','mm','rad','kN','N','kN.m','N.m','m/s','mm/s','rad/s','m/s2','mm/s2','rad/s2','1']).optional(),
-      elementId: z.string().optional(), positionM: z.number().nonnegative().optional(), side: z.enum(['left', 'right']).optional(),
-      end: z.enum(['n1', 'n2']).optional().describe('Recorded physical member end for a time-history force query / 时程内力查询的物理构件端部。'),
-      field: z.enum(['displacements', 'velocities', 'accelerations', 'forces', 'reactions', 'solverMesh', 'segmentResults', 'summary', 'modal', 'modes', 'timeHistory', 'memberResponses', 'memberResponseExtrema']).optional() }) });
+    }) });
 }

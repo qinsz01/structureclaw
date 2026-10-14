@@ -49,7 +49,7 @@ export function prepareEngineeringReport(input: EngineeringReportInput) {
   const json: Record<string, unknown> = { reportSchemaVersion: '1.1.0', intent: input.message,
     analysisType: input.analysisType, summary, ...artifacts, normalizedModel: input.normalizedModel,
     analysis: input.analysis, codeCheck: input.codeCheck, resultSets: reportResultRows(input.analysis),
-    requestedQuantities: analysis.requestedQuantities ?? [], generatedAt: new Date().toISOString(),
+    requestedQuantities: analysis.requestedQuantities ?? [], requestedSelection: analysis.requestedSelection, generatedAt: new Date().toISOString(),
     meta: { reportSkillId: 'report-export-builtin', reportSource: input.reportSource, runId: analysis.runId, source: meta,
       selectedResultKey: analysis.selectedResultKey, resultKeys: Object.keys(isRecord(analysis.results) ? analysis.results : {}) } };
   return { input, narrativeInput, summary, json };
@@ -66,6 +66,20 @@ export function finishEngineeringReport(prepared: ReturnType<typeof prepareEngin
   if (analysis.runId) markdown += input.locale === 'zh'
     ? `\n\n计算来源：运行 ${String(analysis.runId)}；结果 ${String(analysis.selectedResultKey ?? 'default')}。\n`
     : `\n\nCalculation source: run ${String(analysis.runId)}; result ${String(analysis.selectedResultKey ?? 'default')}.\n`;
+  if (isRecord(analysis.requestedSelection)) {
+    const selection = analysis.requestedSelection;
+    const tags = [selection.nodeId ? `${input.locale === 'zh' ? '节点' : 'Node'} ${String(selection.nodeId)}` : undefined,
+      selection.elementId ? `${input.locale === 'zh' ? '构件' : 'Member'} ${String(selection.elementId)}` : undefined,
+      selection.positionM !== undefined ? `x = ${String(selection.positionM)} m (${String(selection.side ?? 'right')})` : undefined,
+      selection.end, selection.component, selection.unit,
+      selection.modeNumber !== undefined ? `${input.locale === 'zh' ? '模态' : 'Mode'} ${String(selection.modeNumber)}` : undefined,
+      selection.timeIndex !== undefined ? `${input.locale === 'zh' ? '时间索引' : 'Time index'} ${String(selection.timeIndex)}` : undefined,
+    ].filter(value => value !== undefined).map(String);
+    markdown += `\n${input.locale === 'zh' ? '所选输出' : 'Selected output'}: ${tags.join(' · ')}.\n`;
+    if (selection.timeIndex !== undefined || selection.modeNumber !== undefined) markdown += input.locale === 'zh'
+      ? '\n概况表描述该工况的完整运行；指定数值表中的模态或时间索引限定所选输出。归一化振型为无量纲显示量，不是实际位移。\n'
+      : '\nThe summary describes the complete result; mode or time indices in the requested-quantity table identify the selected output. Normalized mode shapes are dimensionless display quantities, not physical displacements.\n';
+  }
   if (isRecord(input.codeCheck) && input.codeCheck.completionStatus === 'incomplete') markdown += input.locale === 'zh'
     ? '\n规范校核尚未完成；资料不足或尚不支持的项目不构成通过结论。\n'
     : '\nCode checking is incomplete; missing inputs or unsupported checks do not establish compliance.\n';

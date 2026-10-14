@@ -37,7 +37,9 @@ import type {
   StructuralTypeMatch,
 } from '../agent-runtime/types.js';
 import { isFreshGenericStructuralRoute } from '../agent-runtime/plugin-helpers.js';
-import { attachNativeReport } from '../services/engineering-report.js';
+import { loadAnalysisRun } from '../engineering/analysis-runs.js';
+import { resultSelectionSchema, selectedSavedResult, quantityMatchesSelection, type ResultSelection } from '../engineering/result-selection.js';
+import { createEngineeringReport, attachNativeReport } from '../services/engineering-report.js';
 import { beginAnalysisRequest, commitModel, currentAnalysisError, invalidateAnalysis, modelHash, publishAnalysis } from '../engineering/model-state.js';
 import { analysisSettingsHash } from '../engineering/analysis-runs.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
@@ -419,16 +421,6 @@ function inferAnalysisTypeFromResult(analysis: unknown): ToolAnalysisType | unde
     return 'seismic';
   }
   return undefined;
-}
-
-function inferEffectiveAnalysisType(
-  inputAnalysisType: unknown,
-  state: AgentState | undefined,
-): ToolAnalysisType {
-  return inferAnalysisTypeFromResult(state?.analysisResult)
-    ?? normalizeAnalysisType(state?.policy?.analysisType)
-    ?? normalizeAnalysisType(inputAnalysisType)
-    ?? 'static';
 }
 
 function parseJsonObjectInput(value: string | undefined, fieldName: string): ParsedJsonObjectInput | undefined {
@@ -3493,6 +3485,8 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
       message: string;
       analysisType: string;
       locale?: string;
+      selection?: ResultSelection;
+      narrative?: 'structured' | 'assisted';
     }, config: LangGraphRunnableConfig) => {
       const log = getLogger(config.configurable as Partial<AgentConfigurable> | undefined);
       const start = Date.now();
@@ -3500,19 +3494,32 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
       const state = configurable.agentState;
       const toolCallId = getToolCallId(config);
 
-      // Read analysis, codeCheck, draftState from graph state channels
-      const analysis: Record<string, unknown> | null = state?.analysisResult ? { ...state.analysisResult,
-        requestedQuantities: Object.values(state.resultQuantities ?? {}).filter(q => q.runId === state.analysisResult?.runId) } : null;
-      if (!analysis) {
-        return toolResult(toolCallId, 'generate_report', JSON.stringify({ error: 'No analysis results available. Run run_analysis first.' }));
-      }
+      const selection = input.selection;
+      if (selection?.timeIndex !== undefined && selection.modeNumber !== undefined) throw new Error('RESULT_INDEX_CONFLICT');
+      const run = selection?.runId ? state?.analysisRuns?.[selection.runId]
+        ?? (state?.analysisResult?.runId === selection.runId ? state.analysisResult : await loadAnalysisRun(selection.runId)) : state?.analysisResult;
+      if (!run) return toolResult(toolCallId, 'generate_report', JSON.stringify({ error: 'RUN_NOT_FOUND' }));
       const freshnessError = currentAnalysisError(state);
-      if (freshnessError) return toolResult(toolCallId, 'generate_report', JSON.stringify({ success: false, error_code: freshnessError, message: 'Current model analysis is required.', messageZh: '需要当前模型的有效分析结果。' }));
-      const codeCheck = state?.codeCheckResult || undefined;
-      const draftState = state?.draftState || undefined;
+      if (!selection?.runId && freshnessError) return toolResult(toolCallId, 'generate_report', JSON.stringify({ success: false,
+        error_code: freshnessError, message: 'Current model analysis is required.', messageZh: '需要当前模型的有效分析结果。' }));
+      const { resultKey, selected } = selectedSavedResult(run, selection?.resultKey);
+      if (selected.success === false || selected.executionStatus === 'failed') throw new Error('RESULT_UNAVAILABLE');
+      const quantities = Object.values(state?.resultQuantities ?? {}).filter(q => selection
+        ? quantityMatchesSelection(q, selection, run.runId, resultKey) : q.runId === run.runId);
+      if (selection && (selection.component || selection.timeIndex !== undefined || selection.modeNumber !== undefined) && !quantities.length) {
+        throw new Error('REPORT_SELECTION_QUERY_REQUIRED / 请先查询同一位置、分量和索引的数值');
+      }
+      const analysis = { ...run, ...(selection ? selected : {}), runId: run.runId, selectedResultKey: resultKey,
+        results: selection && resultKey ? { [resultKey]: selected } : run.results,
+        requestedQuantities: quantities, requestedSelection: selection };
+      const normalizedModel = isRecord(run.modelSnapshot) ? run.modelSnapshot : !freshnessError && run.runId === state?.analysisResult?.runId ? state?.model : undefined;
+      if (!normalizedModel) throw new Error('RESULT_MODEL_SNAPSHOT_REQUIRED');
+      const currentCheck = state?.codeCheckResult;
+      const codeCheck = !selection || (isRecord(currentCheck?.meta) && currentCheck.meta.runId === run.runId) ? currentCheck : undefined;
+      const draftState = selection?.runId ? undefined : state?.draftState || undefined;
       const skillIds = configurable.skillScope;
       const locale = (input.locale ?? state?.locale ?? 'zh') as 'zh' | 'en';
-      const analysisType = inferEffectiveAnalysisType(input.analysisType, state);
+      const analysisType = inferAnalysisTypeFromResult(run) ?? normalizeAnalysisType(input.analysisType) ?? 'static';
       const workflowInputMode = analysisWorkflowInputModeFromResult(analysis);
       if (analysisType === 'seismic' && workflowInputMode !== 'structured_seismic_workflow') {
         return toolResult(toolCallId, 'generate_report', JSON.stringify({
@@ -3535,10 +3542,12 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
         }));
       }
 
-      const result = await skillRuntime.executeReportSkill({
+      const result = input.narrative === 'structured' ? { report: createEngineeringReport({
+        message: input.message, analysisType, normalizedModel, analysis, codeCheck, locale, reportSource: 'selected-result' }) }
+        : await skillRuntime.executeReportSkill({
         message: input.message,
         analysisType,
-        normalizedModel: state?.model,
+        normalizedModel,
         analysis,
         codeCheck,
         format: 'both',
@@ -3548,7 +3557,7 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
       });
 
       await attachNativeReport({ ...result.report, markdown: result.report.markdown ?? '' }, {
-        message: input.message, analysisType, normalizedModel: state?.model, analysis, codeCheck, locale,
+        message: input.message, analysisType, normalizedModel, analysis, codeCheck, locale,
       });
 
       // Store report in graph state via Command
@@ -3556,8 +3565,8 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
       return toolResult(
         toolCallId,
         'generate_report',
-        JSON.stringify({ success: true, summary: result.report.summary }),
-        { report: result.report as unknown as Record<string, unknown> },
+        JSON.stringify({ success: true, summary: result.report.summary, ...(selection ? { report: result.report } : {}) }),
+        selection ? {} : { report: result.report as unknown as Record<string, unknown> },
       );
     },
     {
@@ -3574,6 +3583,8 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
           .enum(['static', 'dynamic', 'seismic', 'nonlinear'])
           .describe('Analysis type that was performed'),
         locale: z.enum(['zh', 'en']).optional().describe('Report language'),
+        selection: resultSelectionSchema.optional().describe('Saved run/result and optional queried scalar location/index. Does not replace the current report. / 保存的运行、结果及已查询的位置或索引，不覆盖当前报告。'),
+        narrative: z.enum(['structured', 'assisted']).optional().describe('structured produces a deterministic report without an extra language-model call. / structured直接生成结构化报告，不额外调用语言模型。'),
       }),
     },
   );
