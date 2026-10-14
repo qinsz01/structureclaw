@@ -16,6 +16,7 @@ import { createLocalAnalysisEngineClient } from '../services/analysis-execution.
 import { createLocalCodeCheckClient } from '../services/code-check-execution.js';
 import { createLocalStructureProtocolClient } from '../services/structure-protocol-execution.js';
 import { SessionLock } from '../engineering/session-lock.js';
+import { acquirePersistentSessionLock } from '../engineering/persistent-session-lock.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 import { commitModel } from '../engineering/model-state.js';
 
@@ -55,6 +56,13 @@ export function getPublicToolDefinitions(deps?: AgentToolFactoryDeps) {
 }
 
 const publicSessions = new SessionLock();
+async function acquirePublicSession(sessionId: string, file: string) {
+  const release = await publicSessions.acquire(sessionId);
+  try {
+    const releaseClaim = await acquirePersistentSessionLock(file);
+    return async () => { try { await releaseClaim(); } finally { release(); } };
+  } catch (error) { release(); throw error; }
+}
 interface PublicSessionRecord {
   sessionId: string; policy: EffectiveRunPolicy; usage: RunUsage; state: Record<string, unknown>;
   pendingCall?: { id: string; name: string };
@@ -77,7 +85,7 @@ export async function createPublicToolSession(input: {
     fs.writeFileSync(temporary, JSON.stringify(record), { mode: 0o600 });
     fs.renameSync(temporary, file);
   };
-  const release = await publicSessions.acquire(sessionId);
+  const release = await acquirePublicSession(sessionId, file);
   let record: PublicSessionRecord;
   const protocol = createLocalStructureProtocolClient();
   try {
@@ -102,13 +110,13 @@ export async function createPublicToolSession(input: {
       record = { sessionId, policy, usage: snapshotRunUsage(runtime), state };
       write(record);
     }
-  } finally { release(); }
+  } finally { await release(); }
   return {
     sessionId,
     policy: record.policy,
     snapshot: () => structuredClone(read()),
     invoke: async (name: string, args: Record<string, unknown>) => {
-      const unlock = await publicSessions.acquire(sessionId);
+      const unlock = await acquirePublicSession(sessionId, file);
       try {
         const saved = read();
         if (saved.policy.policyHash !== record.policy.policyHash || saved.usage.runId !== record.usage.runId) throw new Error('PUBLIC_SESSION_TURN_CHANGED');
@@ -135,7 +143,7 @@ export async function createPublicToolSession(input: {
         record = { sessionId, policy: saved.policy, usage: snapshotRunUsage(runtime), state: next };
         write(record);
         return { sessionId, policy: saved.policy, usage: record.usage, messages: update.messages, state: next };
-      } finally { unlock(); }
+      } finally { await unlock(); }
     },
   };
 }
