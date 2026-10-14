@@ -74,6 +74,24 @@ def test_one_story_mass_is_not_repeated_at_different_roof_elevations():
         assemble_mass(model)
 
 
+def test_explicit_massless_member_adds_stiffness_without_fabricating_density_mass():
+    from opensees_shared.mass import assemble_mass
+    model = cantilever('2d', 'member-density')
+    expected = assemble_mass(model)
+    model.materials.append(model.materials[0].model_copy(update={'id':'massless', 'rho':0}))
+    model.elements.append(model.elements[0].model_copy(update={'id':'brace', 'type':'brace','material':'massless'}))
+    assert assemble_mass(model) == expected
+
+
+def test_all_massless_members_cannot_produce_a_modal_success():
+    import openseespy.opensees as ops
+    model = cantilever('2d', 'member-density')
+    model.materials[0].rho = 0
+    with pytest.raises(ValueError, match='positive structural mass'):
+        OpenSeesDynamicExecutor(OpenSeesTagMapper(model)).modal_analysis(1, ops)
+    ops.wipe()
+
+
 def test_roundoff_in_same_floor_elevation_preserves_one_declared_mass():
     from opensees_shared.mass import assemble_mass, floor_mass_records
     model = cantilever('2d','floor-seismic')

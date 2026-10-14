@@ -40,7 +40,9 @@ def density_masses(model):
         a, b = [nodes[str(n)] for n in ids]
         length = math.sqrt(sum((float(field(b, axis))-float(field(a, axis)))**2 for axis in ['x', 'y', 'z']))
         area = positive(field(sections[str(field(element, 'section'))], 'properties', {}).get('A'), 'Section A')
-        rho = positive(field(materials[str(field(element, 'material'))], 'rho'), 'Material rho')
+        rho = field(materials[str(field(element, 'material'))], 'rho')
+        if isinstance(rho, bool) or not isinstance(rho, (int, float)) or not math.isfinite(rho) or rho < 0:
+            raise OpenSeesInputError('Material rho requires a finite non-negative value')
         for node_id in ids:
             masses[str(node_id)] += rho*area*length/2000.0
     return masses
