@@ -267,7 +267,7 @@ export class AnalysisService {
     const claimed = await prisma.analysis.updateMany({ where: { ...currentInput, status: { not: 'running' } },
       data: { status: 'running', startedAt: new Date(), completedAt: null, error: null, results: reservation } });
     if (claimed.count !== 1) throw new Error('ANALYSIS_TASK_RUNNING_OR_CHANGED / 分析任务正在运行或输入已变化');
-    const owned = { ...currentInput, status: 'running', results: { equals: reservation } };
+    const owned = { id: analysisId, status: 'running', results: { equals: reservation } };
 
     try {
       const persistedModel = {
@@ -316,7 +316,7 @@ export class AnalysisService {
 
       // 保存结果
       const updatedAnalysis = await prisma.analysis.update({
-        where: owned,
+        where: { ...currentInput, ...owned },
         data: {
           status: 'completed',
           completedAt: new Date(),
@@ -326,6 +326,7 @@ export class AnalysisService {
 
       return updatedAnalysis;
     } catch (error: any) {
+      if (error?.code === 'P2025') error = new Error('ANALYSIS_RUN_SUPERSEDED / 分析期间输入或当前作业已变化');
       await prisma.analysis.updateMany({
         where: owned,
         data: {

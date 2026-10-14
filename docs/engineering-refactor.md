@@ -1,5 +1,9 @@
 # Engineering core V2.1 / 工程内核重构
 
+> Historical V2.1 preview record. Current product interfaces, run controls and commercial
+> analysis/design separation are documented in [Product runtime](./product-runtime.md).
+> 以下保留 V2.1 预览阶段记录；当前本体接口、运行控制与商业分析/设计分离见上方新文档。
+
 This records an implemented core and its acceptance boundaries. It does **not**
 certify all 300 planned tasks or every commercial capability. Historical paper
 tags, experiments and reference data remain unchanged.
