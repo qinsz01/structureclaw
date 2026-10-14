@@ -62,6 +62,17 @@ class NativeCombinationTest(unittest.TestCase):
         cancelled = combine_linear_native_results({"D": first, "W": first}, {"D": 1, "W": -1}, self.context)
         self.assertEqual(cancelled["reactions"]["B"]["R"], 0)
 
+    def test_combination_retains_and_checks_native_segment_identity(self):
+        first = copy.deepcopy(self.case)
+        first['memberStations']['M'][0]['nativeSegmentId'] = '__pkpm__M__s2'
+        second = copy.deepcopy(first)
+        result = combine_linear_native_results({'D': first, 'L': second}, {'D': 1.2, 'L': 1.4}, self.context)
+        self.assertEqual(result['memberStations']['M'][0]['nativeSegmentId'], '__pkpm__M__s2')
+        for value in (None, '__pkpm__M__s3'):
+            second['memberStations']['M'][0]['nativeSegmentId'] = value
+            with self.assertRaisesRegex(ValueError, 'segment mapping'):
+                combine_linear_native_results({'D': first, 'L': second}, {'D': 1.2, 'L': 1.4}, self.context)
+
     def test_combination_preserves_boundary_and_reaction_derivation_evidence(self):
         first, second = copy.deepcopy(self.case), copy.deepcopy(self.case)
         for name, case in (("D", first), ("W", second)):

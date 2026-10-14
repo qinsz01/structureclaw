@@ -113,6 +113,8 @@ def combine_linear_native_results(cases: dict[str, dict], factors: dict[str, flo
                     raise ValueError(f"Physical station, side or axes differ for '{member_id}'")
                 if other.get("localAxes") != row.get("localAxes"):
                     raise ValueError(f"Calibrated local axes differ for '{member_id}'")
+                if other.get('nativeSegmentId') != row.get('nativeSegmentId'):
+                    raise ValueError(f"Native physical segment mapping differs for '{member_id}'")
             vector = vector_sum([(factor, case["memberStations"][member_id][index]["components"]) for _, factor, case in selected], set(COMPONENTS))
             station = {"positionM": position, "side": row.get("side"), "referenceFrame": "element-local", "components": vector,
                        "source": {"kind": "linear-combination", "factors": dict(factors),
@@ -120,6 +122,8 @@ def combine_linear_native_results(cases: dict[str, dict], factors: dict[str, flo
                                             for key, _, case in selected}}}
             if "localAxes" in row:
                 station["localAxes"] = copy.deepcopy(row["localAxes"])
+            if 'nativeSegmentId' in row:
+                station['nativeSegmentId'] = row['nativeSegmentId']
             combined.append(station)
         result["memberStations"][member_id] = combined
     missing = {item for _, _, case in selected for item in case.get("missingCapabilities", [])}
