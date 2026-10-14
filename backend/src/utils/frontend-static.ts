@@ -6,9 +6,16 @@ import { existsSync } from 'node:fs';
 export async function registerFrontendStatic(fastify: FastifyInstance, frontendDir: string): Promise<void> {
   await fastify.register(fastifyStatic, {
     root: frontendDir,
-    prefix: '/',
+    serve: false,
+  });
+  // @fastify/static does not expose route config. Keep its file handling, but
+  // register the route explicitly so page assets cannot exhaust the API budget.
+  fastify.route<{ Params: { '*': string } }>({
+    method: ['GET', 'HEAD'],
+    url: '/*',
+    config: { rateLimit: false },
     // Resolve files at request time: a rebuilt export has different chunk names.
-    wildcard: true,
+    handler: (request, reply) => { reply.sendFile(request.params['*'] || 'index.html'); },
   });
 
   fastify.setNotFoundHandler((request, reply) => {
