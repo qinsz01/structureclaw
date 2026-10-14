@@ -3,7 +3,7 @@ import { AIMessage } from '@langchain/core/messages';
 import { tool } from '@langchain/core/tools';
 import { Command } from '@langchain/langgraph';
 import { z } from 'zod';
-import { applyModelEdits, beginAnalysisRequest, commitModel, modelHash, undoModel, currentAnalysisError, publishAnalysis } from '../dist/engineering/model-state.js';
+import { applyInputEvidence, applyModelEdits, beginAnalysisRequest, beginNativeDesignRequest, commitModel, modelHash, undoModel, currentAnalysisError, publishAnalysis, publishNativeDesign } from '../dist/engineering/model-state.js';
 import { analysisSelections, executeAnalysisRun, executionStatus } from '../dist/engineering/analysis-runs.js';
 import { SessionLock } from '../dist/engineering/session-lock.js';
 import { checkRunResults, formatCheckSummary } from '../dist/engineering/code-checks.js';
@@ -129,6 +129,34 @@ describe('physical model revisions', () => {
     expect(publishAnalysis(retried, first.analysisRequest, result).analysisResult).toBeUndefined();
     const fresh = { runId: 'new-run', success: true, meta: retried.analysisRequest };
     expect(publishAnalysis(retried, retried.analysisRequest, fresh).analysisResult).toBe(fresh);
+  });
+
+  test('native design candidates preserve current physics and late completions cannot roll state back', () => {
+    const base = commitModel(undefined, model(), 'create');
+    const state = { ...base, ...beginAnalysisRequest(base, 'analysis') };
+    const analysis = { runId: 'analysis', success: true, meta: state.analysisRequest };
+    Object.assign(state, publishAnalysis(state, state.analysisRequest, analysis));
+    const pending = beginNativeDesignRequest(state, 'design');
+    Object.assign(state, pending.update);
+    expect(currentAnalysisError(state)).toBeUndefined();
+    const result = { runId: 'design', success: true, meta: pending.request };
+    const design = { completionStatus: 'complete', complianceStatus: 'fail', meta: { runId: 'design', modelHash: pending.request.modelHash } };
+    const publish = current => publishNativeDesign(current, pending.request, result, design);
+    const newerDesign = beginNativeDesignRequest(state, 'other-design');
+    const newAnalysis = beginAnalysisRequest(state, 'other-analysis');
+    const edited = commitModel(state, applyModelEdits(state.model, [{ operation: 'update', collection: 'nodes', id: 'b', values: { x: 7 } }]), 'edit');
+    const evidence = applyInputEvidence(state, [{ id: 'new-drawing', field: 'nodes.b.x', status: 'unread', required: true }]);
+    for (const newer of [{ ...state, ...newerDesign.update }, { ...state, ...newAnalysis }, { ...state, ...edited }, { ...state, ...evidence }]) {
+      const before = structuredClone(newer);
+      expect(publish(newer)).toEqual({ analysisRuns: { design: result } });
+      expect(newer).toEqual(before);
+    }
+    const mismatch = { ...result, meta: { ...result.meta, settingsHash: 'wrong' } };
+    expect(publishNativeDesign(state, pending.request, mismatch, design).analysisResult).toBeUndefined();
+    expect(publishNativeDesign(state, pending.request, result, { ...design, completionStatus: 'incomplete' })).toEqual({ analysisRuns: { design: result } });
+    const completed = publish(state);
+    expect(completed.analysisResult).toBe(result); expect(completed.codeCheckResult).toBe(design);
+    expect(currentAnalysisError({ ...state, ...completed })).toBeUndefined();
   });
 });
 

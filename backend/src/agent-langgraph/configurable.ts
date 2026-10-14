@@ -8,7 +8,7 @@ import type { AgentSkillRuntime } from '../agent-runtime/index.js';
 import type { LocalAnalysisEngineClient } from '../agent-skills/analysis/types.js';
 import type { CodeCheckClient } from '../agent-skills/code-check/rule.js';
 import type { LocalStructureProtocolClient } from '../services/structure-protocol-execution.js';
-import type { beginAnalysisRequest } from '../engineering/model-state.js';
+import type { beginAnalysisRequest, beginNativeDesignRequest } from '../engineering/model-state.js';
 import type { RunContext } from '../runtime/run-context.js';
 
 export interface AgentConfigurable {
@@ -40,6 +40,6 @@ export interface AgentConfigurable {
    */
   skillScope?: string[];
   /** Reserve the request before solver I/O, including on failures and cancellation. */
-  onAnalysisRequest?: (update: ReturnType<typeof beginAnalysisRequest>) => void;
+  onAnalysisRequest?: (update: ReturnType<typeof beginAnalysisRequest> | ReturnType<typeof beginNativeDesignRequest>['update']) => void;
   summarizeFileImages?: (analysis: Record<string, unknown>, filePath: string, signal?: AbortSignal) => Promise<Record<string, unknown>>;
 }

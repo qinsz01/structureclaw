@@ -13,7 +13,9 @@ const { AgentStateAnnotation } = await import('../../../dist/agent-langgraph/sta
 const { FileCheckpointer } = await import('../../../dist/agent-langgraph/file-checkpointer.js');
 const { resolveApplicationRunPolicy } = await import('../../../dist/runtime/policy-settings.js');
 const { createRunContext, snapshotRunUsage } = await import('../../../dist/runtime/run-context.js');
-const { beginAnalysisRequest, modelHash } = await import('../../../dist/engineering/model-state.js');
+const { beginAnalysisRequest, currentAnalysisError, modelHash } = await import('../../../dist/engineering/model-state.js');
+const { createQueryResultsTool } = await import('../../../dist/agent-langgraph/model-tools.js');
+const { createGenerateReportTool } = await import('../../../dist/agent-langgraph/tools.js');
 const { nativeDesignOptions, nativeDesignReview, savedNativeDesignRecord } = await import('../../../dist/engineering/native-design-options.js');
 afterAll(() => fs.rmSync(directory, { recursive: true, force: true }));
 const model = { nodes: [{ id: 'A', x: 0, y: 0, z: 0 }], elements: [], sections: [], materials: [{ id: 'c', type: 'concrete', E: 30000 }], load_cases: [] };
@@ -35,7 +37,7 @@ async function setup(enabled = ['run_code_check', 'generate_report']) {
   service.getGraph = async () => graph;
   const initial = { model, modelRevision: 3, runPolicy: policy, runUsage: snapshotRunUsage(runtime), selectedSkillIds: ['generic'] };
   const pending = beginAnalysisRequest(initial, 'initial-settings');
-  const analysis = { runId: 'initial', success: true, modelSnapshot: model, selectedResultKey: 'case:D', data: {}, meta: { ...pending.analysisRequest, engineId: 'builtin-pkpm' } };
+  const analysis = { runId: 'initial', success: true, modelSnapshot: model, selectedResultKey: 'case:D', data: { displacements: { A: { ux: .001, uy: 0, uz: 0 } } }, meta: { ...pending.analysisRequest, engineId: 'builtin-pkpm' } };
   await graph.updateState(graphConfig, { ...initial, ...pending, analysisResult: analysis, analysisRuns: { initial: analysis } }, 'agent');
   return { id, graphConfig, graph, service, runtime };
 }
@@ -107,4 +109,76 @@ test.each(['en', 'zh'])('historical design report binds to its saved run after a
   const after = (await graph.getState(graphConfig)).values;
   expect(after.analysisResult.runId).toBe('failed'); expect(after.codeCheckResult.meta.runId).toBe('failed');
   expect(after.runUsage).toMatchObject({ toolCalls: 1, llmCalls: 0 });
+});
+
+test.each(['ANALYSIS_INPUT_REQUIRED', 'ANALYSIS_UNSUPPORTED', 'ANALYSIS_EXECUTION_FAILED'])(
+  'native design %s retains current analysis and allows a complete retry without re-analysis', async errorCode => {
+    const { id, service, graph, graphConfig } = await setup();
+    await graph.updateState(graphConfig, { codeCheckResult: { meta: { runId: 'initial' }, completionStatus: 'complete' }, report: { markdown: 'old design report' } });
+    service.engineClient = { post: async (_url, payload) => ({ data: {
+      ...designRun('failed-design', payload.requestBinding, payload.parameters.design), success: false, data: {},
+      error_code: errorCode, message: 'Native design did not complete',
+    } }) };
+    const before = await service.getResultReview(id);
+    const args = { designCode: request.code, provider: 'native', design: { mode: request.mode, adoptedNativeDefaults: true } };
+    const failure = await service.invokeResultReviewTool(id, { revisionToken: before.revisionToken, tool: 'run_code_check', args });
+    expect(failure.success).toBe(false);
+    const state = (await graph.getState(graphConfig)).values;
+    expect(state.analysisResult.runId).toBe('initial');
+    expect(currentAnalysisError(state)).toBeUndefined();
+    expect(state.analysisRequest.requestSequence).toBe(1); expect(state.analysisRequestSequence).toBe(2);
+    expect(state.analysisRuns['failed-design'].error_code).toBe(errorCode);
+    expect(state.codeCheckResult).toBeNull(); expect(state.report).toBeNull();
+    expect(failure.review.nativeDesign.available).toBe(true);
+    expect(failure.review.nativeDesign.latestAttempt.errorCode).toBe(errorCode);
+    const query = await createQueryResultsTool().invoke({ field: 'displacements', nodeId: 'A', component: 'ux', unit: 'mm', quantityId: 'retained' },
+      { toolCall: { id: 'query' }, configurable: { agentState: state } });
+    expect(query.update.resultQuantities['initial:retained'].value).toBe(1);
+    for (const locale of ['en', 'zh']) {
+      const report = await createGenerateReportTool({}).invoke({ message: 'Analysis only', analysisType: 'static', narrative: 'structured', locale },
+        { toolCall: { id: 'report' }, configurable: { agentState: state } });
+      expect(report.update.report.json.meta.runId).toBe('initial');
+      expect(report.update.report.json.codeCheck).toBeNull();
+    }
+    service.engineClient = { post: async (_url, payload) => {
+      const run = designRun('complete-design', payload.requestBinding, payload.parameters.design);
+      run.data.nativeDesignResults.checks = [{ status: 'fail', source: { method: 'SDK' }, nativeCombination: 12 }];
+      return { data: run };
+    } };
+    const retry = await service.invokeResultReviewTool(id, { revisionToken: failure.review.revisionToken, tool: 'run_code_check', args });
+    expect(retry.success).toBe(true);
+    const updated = (await graph.getState(graphConfig)).values;
+    expect(updated.analysisResult.runId).toBe('complete-design');
+    expect(updated.analysisRequest.requestSequence).toBe(3); expect(currentAnalysisError(updated)).toBeUndefined();
+    expect(updated.codeCheckResult).toMatchObject({ completionStatus: 'complete', complianceStatus: 'fail', meta: { runId: 'complete-design' } });
+  });
+
+test.each(['connection lost', 'cancelled by owner'])('native design transport error keeps solved physics and clears obsolete design (%s)', async message => {
+  const { id, service, graph, graphConfig } = await setup();
+  await graph.updateState(graphConfig, { codeCheckResult: { meta: { runId: 'initial' }, completionStatus: 'complete' }, report: { markdown: 'old design report' } });
+  service.engineClient = { post: async () => { throw new Error(message); } };
+  const before = await service.getResultReview(id);
+  const response = await service.invokeResultReviewTool(id, { revisionToken: before.revisionToken, tool: 'run_code_check',
+    args: { designCode: request.code, provider: 'native' } });
+  expect(response.success).toBe(false);
+  const state = (await graph.getState(graphConfig)).values;
+  expect(state.analysisResult.runId).toBe('initial'); expect(currentAnalysisError(state)).toBeUndefined();
+  expect(state.analysisRequestSequence).toBe(2); expect(state.codeCheckResult).toBeNull(); expect(state.report).toBeNull();
+  expect(response.review.nativeDesign.available).toBe(true);
+});
+
+test('aborting native design preserves the completed analysis and clears prior design artifacts', async () => {
+  const { id, service, graph, graphConfig } = await setup();
+  await graph.updateState(graphConfig, { codeCheckResult: { meta: { runId: 'initial' }, completionStatus: 'complete' }, report: { markdown: 'old design report' } });
+  const controller = new AbortController();
+  service.engineClient = { post: async () => {
+    controller.abort(new Error('Design cancelled'));
+    throw controller.signal.reason;
+  } };
+  const before = await service.getResultReview(id);
+  await service.invokeResultReviewTool(id, { revisionToken: before.revisionToken, tool: 'run_code_check', signal: controller.signal,
+    args: { designCode: request.code, provider: 'native' } }).catch(error => { expect(error.message).toMatch(/cancel|abort/i); });
+  const state = (await graph.getState(graphConfig)).values;
+  expect(state.analysisResult.runId).toBe('initial'); expect(currentAnalysisError(state)).toBeUndefined();
+  expect(state.analysisRequestSequence).toBe(2); expect(state.codeCheckResult).toBeNull(); expect(state.report).toBeNull();
 });

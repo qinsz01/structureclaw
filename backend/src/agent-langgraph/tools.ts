@@ -41,7 +41,7 @@ import { isFreshGenericStructuralRoute } from '../agent-runtime/plugin-helpers.j
 import { loadAnalysisRun } from '../engineering/analysis-runs.js';
 import { resultSelectionSchema, selectedSavedResult, quantityMatchesSelection, type ResultSelection } from '../engineering/result-selection.js';
 import { createEngineeringReport, attachNativeReport } from '../services/engineering-report.js';
-import { beginAnalysisRequest, commitModel, currentAnalysisError, invalidateAnalysis, modelHash, publishAnalysis } from '../engineering/model-state.js';
+import { beginAnalysisRequest, beginNativeDesignRequest, commitModel, currentAnalysisError, invalidateAnalysis, modelHash, publishAnalysis, publishNativeDesign } from '../engineering/model-state.js';
 import { analysisSettingsHash } from '../engineering/analysis-runs.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 import { checkRunResults } from '../engineering/code-checks.js';
@@ -3405,25 +3405,25 @@ export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
         const parameters = { ...(isRecord(meta.requestParameters) ? meta.requestParameters
           : isRecord(meta.effectiveParameters) ? meta.effectiveParameters : {}),
           design: { ...input.design, requested: true, code: requestedDesignCode } };
-        const pending = beginAnalysisRequest(state!, analysisSettingsHash('static', engineId, parameters));
-        Object.assign(state!, pending);
-        configurable.onAnalysisRequest?.(pending);
+        const pending = beginNativeDesignRequest(state!, analysisSettingsHash('static', engineId, parameters));
+        Object.assign(state!, pending.update, { analysisRuns: { ...state?.analysisRuns, ...pending.update.analysisRuns } });
+        configurable.onAnalysisRequest?.(pending.update);
         const requestId = randomUUID();
         recordRunEvent({ kind: 'analysis_request', requestId, operation: 'native-design', engineId });
         const response = await configurable.engineClient.post<Record<string, unknown>>('/analyze', {
-          type: 'static', engineId, model, parameters, requestId, requestBinding: pending.analysisRequest }, { signal: config.signal })
+          type: 'static', engineId, model, parameters, requestId, requestBinding: pending.request }, { signal: config.signal })
           .catch((error: unknown) => {
             if (config.signal?.aborted) throw error;
             throw new Error(`SOLVER_OUTCOME_UNKNOWN: requestId=${requestId}; ${error instanceof Error ? error.message : String(error)}`, { cause: error });
           });
         const next = response.data;
-        const published = publishAnalysis(state!, pending.analysisRequest, next);
         const designRecord = nativeDesignRecord(model, next, requestedDesignCode);
+        const published = publishNativeDesign(getConfigurable(config).agentState ?? state!, pending.request, next, designRecord);
         return toolResult(toolCallId, 'run_code_check', JSON.stringify({ success: next.success === true,
           provider: 'native', runId: next.runId, completionStatus: designRecord.completionStatus,
           complianceStatus: designRecord.complianceStatus, summary: designRecord.summary,
           missingInputs: designRecord.missingInputs, designStatus: designRecord.designStatus }),
-          { ...published, ...(published.analysisResult ? { codeCheckResult: designRecord } : {}) });
+          published);
       }
       if (!codeCheckSkillId) throw new Error('BUILTIN_CODE_UNSUPPORTED / 公共规范未实现');
       if (skillIds && !skillIds.includes(codeCheckSkillId)) throw new Error('CODE_CHECK_OUTSIDE_SCOPE / 当前技能范围不允许此规范');

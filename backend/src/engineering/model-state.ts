@@ -227,6 +227,16 @@ export function beginAnalysisRequest(state: ModelState, settingsHash: string) {
   return { ...invalidateAnalysis(state), analysisRequestSequence: requestSequence, analysisRequest };
 }
 
+/** Design has its own candidate run; a failed attempt cannot invalidate solved physics. */
+export function beginNativeDesignRequest(state: ModelState, settingsHash: string) {
+  const pending = beginAnalysisRequest(state, settingsHash);
+  return { request: pending.analysisRequest, update: {
+    analysisRequestSequence: pending.analysisRequestSequence,
+    ...(pending.analysisRuns ? { analysisRuns: pending.analysisRuns } : {}),
+    codeCheckResult: null, report: null,
+  } };
+}
+
 function matchesRequest(a: AnalysisRequestBinding, b: ModelRecord): boolean {
   return a.modelRevision === b.modelRevision && a.modelHash === b.modelHash
     && a.settingsHash === b.settingsHash && a.requestSequence === b.requestSequence;
@@ -329,4 +339,20 @@ export function publishAnalysis(state: ModelState, request: AnalysisRequestBindi
     ...(current ? { analysisResult: result, analysisRequest: request,
       analysisRequestSequence: request.requestSequence, codeCheckResult: null, report: null } : {}),
   };
+}
+
+/** Archive every attempt; only a complete current design may replace its analysis. */
+export function publishNativeDesign(state: ModelState, request: AnalysisRequestBinding, result: ModelRecord, design: ModelRecord) {
+  const runId = String(result.runId ?? '');
+  if (!runId) throw new Error('RUN_ID_REQUIRED');
+  const meta = isRecord(result.meta) ? result.meta : {};
+  const designMeta = isRecord(design.meta) ? design.meta : {};
+  const current = !currentAnalysisError(state) && state.model && modelHash(state.model) === request.modelHash
+    && (state.modelRevision ?? 0) === request.modelRevision && state.analysisRequestSequence === request.requestSequence
+    && matchesRequest(request, meta);
+  if (!current || result.success !== true || design.completionStatus !== 'complete'
+    || designMeta.runId !== runId || designMeta.modelHash !== request.modelHash) {
+    return { analysisRuns: { [runId]: result } };
+  }
+  return { ...publishAnalysis({ ...state, analysisRequest: request }, request, result), codeCheckResult: design };
 }
