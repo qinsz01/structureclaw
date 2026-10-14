@@ -1,292 +1,205 @@
-/**
- * File-based checkpoint saver for LangGraph.
- *
- * Persists agent state (conversation + draft state + artifacts) to the local
- * filesystem under a configurable data directory. No Redis or external DB required.
- *
- * Storage layout:
- *   <dataDir>/checkpoints/<threadId>/<checkpointId>.json
- *   <dataDir>/writes/<threadId>/<checkpointId>/<taskId>.json
- */
-import fs from 'fs/promises';
-import fsSync from 'fs';
-import path from 'path';
+/** Durable LangGraph checkpoints. The empty namespace retains the historical layout. */
+import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
+import path from 'node:path';
+import { createHash, randomUUID } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import {
-  BaseCheckpointSaver,
-  type Checkpoint,
-  type CheckpointMetadata,
-  type CheckpointTuple,
-} from '@langchain/langgraph';
-import type { PendingWrite } from '@langchain/langgraph-checkpoint';
-import { logger } from '../utils/logger.js';
-import { logStateTransition } from '../utils/agent-logger.js';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+  BaseCheckpointSaver, WRITES_IDX_MAP, TASKS, maxChannelVersion,
+  type Checkpoint, type CheckpointMetadata, type CheckpointTuple,
+  type CheckpointListOptions, type CheckpointPendingWrite, type PendingWrite,
+} from '@langchain/langgraph-checkpoint';
 
 const SAFE_ID_RE = /^(?!\.\.?$)[a-zA-Z0-9._-]+$/;
-
 function validateId(id: string, label: string): void {
-  if (!id || !SAFE_ID_RE.test(id)) {
-    throw new Error(`Invalid ${label}: contains unsafe characters`);
-  }
+  if (typeof id !== 'string' || !SAFE_ID_RE.test(id)) throw new Error('Invalid ' + label + ': contains unsafe characters');
 }
-
-function threadDir(dataDir: string, threadId: string): string {
-  return path.join(dataDir, 'checkpoints', threadId);
-}
-
-function checkpointPath(dataDir: string, threadId: string, checkpointId: string): string {
-  return path.join(threadDir(dataDir, threadId), `${checkpointId}.json`);
-}
-
-function writesDir(dataDir: string, threadId: string, checkpointId: string): string {
-  return path.join(dataDir, 'writes', threadId, checkpointId);
-}
-
-interface CheckpointListOptions {
-  limit?: number;
-  before?: RunnableConfig;
-  filter?: Record<string, unknown>;
-}
-
+function missing(error: unknown): boolean { return (error as NodeJS.ErrnoException).code === 'ENOENT'; }
+type Serialized = { type: string; data: string };
 interface StoredCheckpoint {
-  checkpoint: string;   // serde-serialized JSON string
-  metadata: string;     // serde-serialized JSON string
+  checkpoint: Serialized | string;
+  metadata: Serialized | string;
+  namespace?: string;
   parentCheckpointId?: string;
 }
-
-// ---------------------------------------------------------------------------
-// FileCheckpointer
-// ---------------------------------------------------------------------------
+type StoredWrites = { version: 2; entries: Record<string, { channel: string; value: Serialized | string }> };
 
 export class FileCheckpointer extends BaseCheckpointSaver {
-  private readonly dataDir: string;
-
-  constructor(dataDir: string) {
+  private readonly writes = new Map<string, Promise<unknown>>();
+  constructor(private readonly dataDir: string) {
     super();
-    this.dataDir = dataDir;
-    // Ensure directories exist synchronously on construction
-    fsSync.mkdirSync(path.join(dataDir, 'checkpoints'), { recursive: true });
-    fsSync.mkdirSync(path.join(dataDir, 'writes'), { recursive: true });
+    for (const kind of ['checkpoints', 'writes']) fsSync.mkdirSync(path.join(dataDir, kind), { recursive: true });
   }
 
-  // ----- getTuple -----
+  private directory(kind: 'checkpoints' | 'writes', thread: string, namespace = ''): string {
+    validateId(thread, 'thread_id');
+    const root = path.join(this.dataDir, kind, thread);
+    return namespace ? path.join(root, 'namespaces', createHash('sha256').update(namespace).digest('hex')) : root;
+  }
+
+  private async serialize(value: unknown): Promise<Serialized> {
+    const [type, bytes] = await this.serde.dumpsTyped(value);
+    return { type, data: Buffer.from(bytes).toString('base64') };
+  }
+
+  private deserialize(value: Serialized | string): Promise<unknown> {
+    return typeof value === 'string' ? this.serde.loadsTyped('json', value)
+      : this.serde.loadsTyped(value.type, Buffer.from(value.data, 'base64'));
+  }
+
+  private async readJson<T>(file: string): Promise<T | undefined> {
+    try { return JSON.parse(await fs.readFile(file, 'utf8')) as T; }
+    catch (error) {
+      if (missing(error)) return undefined;
+      // A corrupt current state must never silently become an older/new conversation.
+      throw new Error('CHECKPOINT_READ_FAILED: ' + file, { cause: error });
+    }
+  }
+
+  private async files(directory: string): Promise<string[]> {
+    try { return (await fs.readdir(directory)).filter(file => file.endsWith('.json')).sort(); }
+    catch (error) { if (missing(error)) return []; throw error; }
+  }
+
+  private async atomicWrite(file: string, value: unknown): Promise<void> {
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    const temporary = file + '.' + randomUUID() + '.tmp';
+    const handle = await fs.open(temporary, 'wx');
+    try { await handle.writeFile(JSON.stringify(value), 'utf8'); await handle.sync(); }
+    finally { await handle.close(); }
+    try { await fs.rename(temporary, file); }
+    finally { await fs.unlink(temporary).catch(error => { if (!missing(error)) throw error; }); }
+  }
+
+  private async readWrites(file: string): Promise<StoredWrites> {
+    const stored = await this.readJson<StoredWrites | [string, string][]>(file);
+    if (!stored) return { version: 2, entries: {} };
+    if (!Array.isArray(stored)) {
+      if (stored.version !== 2 || !stored.entries) throw new Error('CHECKPOINT_WRITES_INVALID: ' + file);
+      return stored;
+    }
+    // Old files stored channel/JSON pairs without serializer type or write indices.
+    return { version: 2, entries: Object.fromEntries(stored.map(([channel, value], i) =>
+      [String(WRITES_IDX_MAP[channel] ?? i), { channel, value }])) };
+  }
+
+  private async pendingWrites(thread: string, namespace: string, id: string): Promise<CheckpointPendingWrite[]> {
+    validateId(id, 'checkpoint_id');
+    const directory = path.join(this.directory('writes', thread, namespace), id);
+    const pending: CheckpointPendingWrite[] = [];
+    for (const file of await this.files(directory)) {
+      const taskId = file.slice(0, -5);
+      validateId(taskId, 'task_id');
+      const stored = await this.readWrites(path.join(directory, file));
+      for (const { channel, value } of Object.values(stored.entries)) pending.push([taskId, channel, await this.deserialize(value)]);
+    }
+    return pending;
+  }
+
+  private async tuple(thread: string, namespace: string, id: string): Promise<CheckpointTuple | undefined> {
+    validateId(id, 'checkpoint_id');
+    const stored = await this.readJson<StoredCheckpoint>(path.join(this.directory('checkpoints', thread, namespace), id + '.json'));
+    if (!stored) return undefined;
+    if ((stored.namespace ?? '') !== namespace) throw new Error('CHECKPOINT_NAMESPACE_MISMATCH');
+    const checkpoint = await this.deserialize(stored.checkpoint) as Checkpoint;
+    if (checkpoint.id !== id || !Number.isFinite(Date.parse(checkpoint.ts))) throw new Error('CHECKPOINT_ID_OR_TIME_INVALID');
+    const metadata = await this.deserialize(stored.metadata) as CheckpointMetadata;
+    const config = { configurable: { thread_id: thread, checkpoint_ns: namespace, checkpoint_id: id } };
+    let parentConfig: RunnableConfig | undefined;
+    if (stored.parentCheckpointId) {
+      validateId(stored.parentCheckpointId, 'parent_checkpoint_id');
+      parentConfig = { configurable: { ...config.configurable, checkpoint_id: stored.parentCheckpointId } };
+      if (checkpoint.v < 4) {
+        const parentWrites = await this.pendingWrites(thread, namespace, stored.parentCheckpointId);
+        checkpoint.channel_values[TASKS] = parentWrites.filter(([, channel]) => channel === TASKS).map(([, , value]) => value);
+        const versions = Object.values(checkpoint.channel_versions);
+        checkpoint.channel_versions[TASKS] = versions.length ? maxChannelVersion(...versions) : this.getNextVersion(undefined);
+      }
+    }
+    return { config, checkpoint, metadata, parentConfig, pendingWrites: await this.pendingWrites(thread, namespace, id) };
+  }
+
+  private async orderedIds(thread: string, namespace: string): Promise<string[]> {
+    const directory = this.directory('checkpoints', thread, namespace);
+    const entries = await Promise.all((await this.files(directory)).map(async file => {
+      const stored = await this.readJson<StoredCheckpoint>(path.join(directory, file));
+      if (!stored) return undefined;
+      const checkpoint = await this.deserialize(stored.checkpoint) as Checkpoint;
+      if (checkpoint.id !== file.slice(0, -5) || !Number.isFinite(Date.parse(checkpoint.ts))) throw new Error('CHECKPOINT_ID_OR_TIME_INVALID');
+      return { id: checkpoint.id, ts: checkpoint.ts };
+    }));
+    return entries.filter((entry): entry is { id: string; ts: string } => Boolean(entry))
+      .sort((a, b) => b.ts.localeCompare(a.ts) || b.id.localeCompare(a.id)).map(entry => entry.id);
+  }
 
   async getTuple(config: RunnableConfig): Promise<CheckpointTuple | undefined> {
-    const threadId = config.configurable?.thread_id as string | undefined;
-    if (!threadId) return undefined;
-    validateId(threadId, 'thread_id');
-
-    const checkpointId = config.configurable?.checkpoint_id as string | undefined;
-    const dir = threadDir(this.dataDir, threadId);
-
-    let targetFile: string | undefined;
-    if (checkpointId) {
-      targetFile = checkpointPath(this.dataDir, threadId, checkpointId);
-    } else {
-      try {
-        const files = await fs.readdir(dir);
-        const jsonFiles = files.filter((f) => f.endsWith('.json'));
-        if (jsonFiles.length === 0) return undefined;
-        // Select the most recent checkpoint by file modification time
-        // (lexicographic sort is unreliable for non-monotonic IDs like UUIDs)
-        const latest = (
-          await Promise.all(
-            jsonFiles.map(async (file) => {
-              const filePath = path.join(dir, file);
-              const stat = await fs.stat(filePath);
-              return { file, filePath, mtimeMs: stat.mtimeMs };
-            }),
-          )
-        ).reduce((best, current) => {
-          if (!best) return current;
-          if (current.mtimeMs > best.mtimeMs) return current;
-          if (current.mtimeMs === best.mtimeMs && current.file > best.file) return current;
-          return best;
-        }, undefined as { file: string; filePath: string; mtimeMs: number } | undefined);
-        if (!latest) return undefined;
-        targetFile = latest.filePath;
-      } catch {
-        return undefined;
-      }
-    }
-
-    try {
-      const raw = await fs.readFile(targetFile, 'utf-8');
-      const stored: StoredCheckpoint = JSON.parse(raw);
-      const deserializedCheckpoint = await this.serde.loadsTyped('json', stored.checkpoint) as Checkpoint;
-      const deserializedMetadata = await this.serde.loadsTyped('json', stored.metadata) as CheckpointMetadata;
-      logStateTransition(logger, { node: 'checkpoint:getTuple', extra: { threadId, found: true } });
-      return {
-        config: {
-          configurable: {
-            thread_id: threadId,
-            checkpoint_id: deserializedCheckpoint.id,
-          },
-        },
-        checkpoint: deserializedCheckpoint,
-        metadata: deserializedMetadata,
-        parentConfig: stored.parentCheckpointId
-          ? {
-              configurable: {
-                thread_id: threadId,
-                checkpoint_id: stored.parentCheckpointId,
-              },
-            }
-          : undefined,
-      };
-    } catch {
-      return undefined;
-    }
+    const thread = config.configurable?.thread_id as string | undefined;
+    if (!thread) return undefined;
+    const namespace = config.configurable?.checkpoint_ns ?? '';
+    const id = config.configurable?.checkpoint_id as string | undefined
+      ?? (await this.orderedIds(thread, namespace))[0];
+    return id ? this.tuple(thread, namespace, id) : undefined;
   }
 
-  // ----- list -----
-
-  async *list(
-    config: RunnableConfig,
-    options?: CheckpointListOptions,
-  ): AsyncGenerator<CheckpointTuple> {
-    const threadId = config.configurable?.thread_id as string | undefined;
-    if (!threadId) return;
-    validateId(threadId, 'thread_id');
-
-    const dir = threadDir(this.dataDir, threadId);
-    let files: string[];
-    try {
-      files = (await fs.readdir(dir)).filter((f) => f.endsWith('.json')).sort().reverse();
-    } catch {
-      return;
-    }
-
-    const limit = options?.limit ?? 10;
+  async *list(config: RunnableConfig, options?: CheckpointListOptions): AsyncGenerator<CheckpointTuple> {
+    const thread = config.configurable?.thread_id as string | undefined;
+    if (!thread) return;
+    const namespace = config.configurable?.checkpoint_ns ?? '';
+    const ids = await this.orderedIds(thread, namespace);
+    const before = options?.before?.configurable?.checkpoint_id;
+    const start = before ? ids.indexOf(before) + 1 : 0;
+    if (before && start === 0) return;
     let count = 0;
-
-    for (const file of files) {
-      if (count >= limit) break;
-      try {
-        const raw = await fs.readFile(path.join(dir, file), 'utf-8');
-        const stored: StoredCheckpoint = JSON.parse(raw);
-        const deserializedCheckpoint = await this.serde.loadsTyped('json', stored.checkpoint) as Checkpoint;
-        const deserializedMetadata = await this.serde.loadsTyped('json', stored.metadata) as CheckpointMetadata;
-        yield {
-          config: {
-            configurable: {
-              thread_id: threadId,
-              checkpoint_id: deserializedCheckpoint.id,
-            },
-          },
-          checkpoint: deserializedCheckpoint,
-          metadata: deserializedMetadata,
-          parentConfig: stored.parentCheckpointId
-            ? {
-                configurable: {
-                  thread_id: threadId,
-                  checkpoint_id: stored.parentCheckpointId,
-                },
-              }
-            : undefined,
-        };
-        count++;
-      } catch {
-        // Skip corrupt files
-      }
+    for (const id of ids.slice(start)) {
+      if (count >= (options?.limit ?? Infinity)) break;
+      if (config.configurable?.checkpoint_id && id !== config.configurable.checkpoint_id) continue;
+      const entry = await this.tuple(thread, namespace, id);
+      if (!entry) continue;
+      const metadata = entry.metadata as Record<string, unknown> | undefined;
+      if (options?.filter && !Object.entries(options.filter).every(([key, value]) => isDeepStrictEqual(metadata?.[key], value))) continue;
+      yield entry;
+      count++;
     }
   }
 
-  // ----- put -----
-
-  async put(
-    config: RunnableConfig,
-    checkpoint: Checkpoint,
-    metadata: CheckpointMetadata,
-    _newVersions: Record<string, string | number>,
-  ): Promise<RunnableConfig> {
-    const threadId = config.configurable?.thread_id as string;
-    if (!threadId) throw new Error('thread_id is required for checkpoint storage');
-    validateId(threadId, 'thread_id');
+  async put(config: RunnableConfig, checkpoint: Checkpoint, metadata: CheckpointMetadata,
+    _newVersions: Record<string, string | number>): Promise<RunnableConfig> {
+    const thread = config.configurable?.thread_id as string;
+    const namespace = config.configurable?.checkpoint_ns ?? '';
     validateId(checkpoint.id, 'checkpoint_id');
-
-    const dir = threadDir(this.dataDir, threadId);
-    await fs.mkdir(dir, { recursive: true });
-
     const parentCheckpointId = config.configurable?.checkpoint_id as string | undefined;
-    const filePath = checkpointPath(this.dataDir, threadId, checkpoint.id);
-
-    // Use serde to serialize so LangChain message objects (BaseMessage etc.)
-    // retain their class identity through serialize → deserialize cycles.
-    const [, serializedCheckpoint] = await this.serde.dumpsTyped(checkpoint);
-    const [, serializedMetadata] = await this.serde.dumpsTyped(metadata);
-    const checkpointStr = typeof serializedCheckpoint === 'string'
-      ? serializedCheckpoint
-      : new TextDecoder().decode(serializedCheckpoint);
-    const metadataStr = typeof serializedMetadata === 'string'
-      ? serializedMetadata
-      : new TextDecoder().decode(serializedMetadata);
-
-    const stored: StoredCheckpoint = {
-      checkpoint: checkpointStr,
-      metadata: metadataStr,
-      parentCheckpointId,
-    };
-
-    await fs.writeFile(filePath, JSON.stringify(stored), 'utf-8');
-
-    logger.debug({ threadId, checkpointId: checkpoint.id }, 'Checkpoint saved');
-    logStateTransition(logger, { node: 'checkpoint:put', extra: { threadId, checkpointId: checkpoint.id } });
-
-    return {
-      configurable: {
-        thread_id: threadId,
-        checkpoint_id: checkpoint.id,
-      },
-    };
+    if (parentCheckpointId) validateId(parentCheckpointId, 'parent_checkpoint_id');
+    const file = path.join(this.directory('checkpoints', thread, namespace), checkpoint.id + '.json');
+    const stored: StoredCheckpoint = { checkpoint: await this.serialize(checkpoint), metadata: await this.serialize(metadata), namespace, parentCheckpointId };
+    await this.atomicWrite(file, stored);
+    return { configurable: { thread_id: thread, checkpoint_ns: namespace, checkpoint_id: checkpoint.id } };
   }
 
-  // ----- putWrites -----
-
-  async putWrites(
-    config: RunnableConfig,
-    writes: PendingWrite[],
-    taskId: string,
-  ): Promise<void> {
-    const threadId = config.configurable?.thread_id as string;
-    const checkpointId = config.configurable?.checkpoint_id as string;
-    if (!threadId || !checkpointId) return;
-    validateId(threadId, 'thread_id');
-    validateId(checkpointId, 'checkpoint_id');
+  async putWrites(config: RunnableConfig, writes: PendingWrite[], taskId: string): Promise<void> {
+    const thread = config.configurable?.thread_id as string;
+    const id = config.configurable?.checkpoint_id as string;
+    const namespace = config.configurable?.checkpoint_ns ?? '';
+    validateId(id, 'checkpoint_id');
     validateId(taskId, 'task_id');
-
-    const dir = writesDir(this.dataDir, threadId, checkpointId);
-    await fs.mkdir(dir, { recursive: true });
-
-    // Serialize writes through serde to preserve BaseMessage class identity
-    const serializedWrites = await Promise.all(
-      writes.map(async ([channel, value]) => {
-        const [, serialized] = await this.serde.dumpsTyped(value);
-        const serializedStr = typeof serialized === 'string'
-          ? serialized
-          : new TextDecoder().decode(serialized);
-        return [channel, serializedStr] as PendingWrite;
-      }),
-    );
-
-    const filePath = path.join(dir, `${taskId}.json`);
-    await fs.writeFile(filePath, JSON.stringify(serializedWrites), 'utf-8');
-    logStateTransition(logger, { node: 'checkpoint:putWrites', extra: { threadId, checkpointId, writeCount: writes.length } });
+    const file = path.join(this.directory('writes', thread, namespace), id, taskId + '.json');
+    // Merge concurrent task writes, retaining the first committed normal write.
+    const pending = (this.writes.get(file) ?? Promise.resolve()).then(async () => {
+      const stored = await this.readWrites(file);
+      for (const [i, [channel, value]] of writes.entries()) {
+        const index = WRITES_IDX_MAP[channel] ?? i;
+        if (index >= 0 && stored.entries[index]) continue;
+        stored.entries[index] = { channel, value: await this.serialize(value) };
+      }
+      await this.atomicWrite(file, stored);
+    });
+    this.writes.set(file, pending);
+    try { await pending; }
+    finally { if (this.writes.get(file) === pending) this.writes.delete(file); }
   }
 
-  // ----- deleteThread -----
-
-  async deleteThread(threadId: string): Promise<void> {
-    validateId(threadId, 'thread_id');
-    const cpDir = threadDir(this.dataDir, threadId);
-    const wDir = path.join(this.dataDir, 'writes', threadId);
-
-    await fs.rm(cpDir, { recursive: true, force: true }).catch(() => {});
-    await fs.rm(wDir, { recursive: true, force: true }).catch(() => {});
-    logger.info({ threadId }, 'checkpoint thread deleted');
+  async deleteThread(thread: string): Promise<void> {
+    validateId(thread, 'thread_id');
+    for (const kind of ['checkpoints', 'writes'] as const) await fs.rm(this.directory(kind, thread), { recursive: true, force: true });
   }
 }

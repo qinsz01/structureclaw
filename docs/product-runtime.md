@@ -62,6 +62,17 @@ Resume retains them. A new user turn is an explicit operation.
 解析顺序为默认值→会话配置→用户明确更新，服务端权限始终是上限。单轮开始后固定策略、指纹和计数，
 恢复不会重置。新用户回合需要明确建立。
 
+File checkpoints restore pending task writes and clarification interrupts, including
+nested graph namespaces. Checkpoints and merged task writes use atomic replacement;
+corrupt state fails explicitly rather than silently restarting the conversation.
+Historical JSON checkpoints remain readable. A completed, checkpointed tool is not
+replayed when a later clarification resumes after a process restart. An external
+operation whose completion was never persisted still requires job inspection.
+
+文件检查点会恢复待处理任务写入及澄清中断，并隔离嵌套图的命名空间。检查点及合并后的任务写入采用原子替换，
+损坏记录明确报错，不能静默开始新会话。旧JSON检查点保持可读；后续澄清重启恢复时不会重放已持久保存的工具。
+外部操作若尚未持久保存完成状态，仍须先核查原生作业，不能据此保证任意外部副作用恰好执行一次。
+
 | Setting / 设置 | Default / 默认 | Meaning / 含义 |
 |---|---|---|
 | `knowledge` | `enabled` | Optional skill guidance; units/tool protocol/validation remain mandatory / 可选专业说明，不影响单位与硬校验 |
@@ -224,6 +235,14 @@ UI and API. A linked `node_modules` cannot be automatically cleared by dependenc
 
 无界面启动使用 `sclaw start --no-open`。CLI与服务使用同一Python配置；网页与API使用同一端口。
 依赖安装不会自动清空指向其他目录的 `node_modules` 链接。
+
+Startup waits up to two minutes for this server instance and its database to become
+healthy, reports progress every ten seconds, and stops waiting if the owned process
+exits. A cold installation may take longer than a warm start. A timeout is a failure,
+not a reason to launch another process automatically.
+
+启动最多等待两分钟，每十秒显示进度，仅在当前服务实例及数据库健康后报告成功；所属进程退出则立即停止等待。
+首次安装的冷启动可能慢于后续启动。超时明确失败，不会自动重复启动进程。
 
 Installation migration: lifecycle commands now preserve an explicit SQLite URL;
 `doctor` and `start` use the same database. Without explicit configuration, the
