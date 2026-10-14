@@ -220,7 +220,11 @@ def _make_section_shape(
     elif sec_kind_attr == "IDSec_Box":
         if H is not None: sh.Set_H(round(H))
         if B is not None: sh.Set_B(round(B))
-        if T is not None: sh.Set_T(round(T))
+        # PMCAD appendix A / bundled Q355 box-section library: U,T,D,F
+        # are the four plate thicknesses. Setting only T creates no box.
+        if T is not None:
+            for field in ("U", "T", "D", "F"):
+                getattr(sh, "Set_" + field)(round(T))
     elif sec_kind_attr == "IDSec_Tube":
         if D is not None: sh.Set_D(round(D))
         if T is not None: sh.Set_T(round(T))
@@ -983,6 +987,7 @@ def convert_v2_to_jws(
     work_dir: Path,
     project_name: str,
     material_family: str = "steel",
+    design_plan: dict | None = None,
 ) -> tuple[Path, dict[str, Any]]:
     """
     Convert V2 StructureModelV2 JSON dict to a PKPM JWS file.
@@ -1048,7 +1053,9 @@ def convert_v2_to_jws(
     # ---- Sections ----
     native_materials = {}
     for material in data.get("materials", []):
-        if material.get("E") is not None:
+        if design_plan is not None:
+            native_materials[str(material["id"])] = dict(design_plan["materials"][str(material["id"])])
+        elif material.get("E") is not None:
             from native_materials import add_user_material
             native_materials[str(material["id"])] = add_user_material(APIPyInterface,
                 name=f"SCLAW_{len(native_materials) + 1}", E=float(material["E"]), nu=float(material["nu"]),

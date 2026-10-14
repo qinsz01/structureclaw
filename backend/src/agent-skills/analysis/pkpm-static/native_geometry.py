@@ -196,7 +196,7 @@ def bind_native_geometry(model, snapshot, artifacts):
                 section_axis_evidence = column_axis_plan(model, source_element)
                 dimensions = native.get("sectionDimensionsMm")
                 if dimensions is not None:
-                    if dimensions != {"kind": 1, **section_axis_evidence["nativeDimensionsMm"]}:
+                    if dimensions != {"kind": section_axis_evidence["nativeSectionKind"], **section_axis_evidence["nativeDimensionsMm"]}:
                         raise NativeGeometryUnavailable("Native column section dimensions do not preserve physical axes / 原生柱截面尺寸与物理轴映射不符")
                     section_axis_evidence = {**section_axis_evidence, "nativeReadback": dimensions}
                 elif (section_axis_evidence["sourceDimensionsMm"] is None or

@@ -687,6 +687,8 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     model_dict = model.model_dump(mode="json", exclude_unset=True) if hasattr(model, "model_dump") else dict(model)
     from commercial_context import project_commercial_model, attach_native_design_context
     source_model = model_dict
+    from pkpm_native_design import compile_design_request
+    design_plan = compile_design_request(parameters.get("design"), source_model)
     projection = project_commercial_model(source_model, "pkpm")
     model_dict = projection["analysisModel"]
     combination_id = parameters.get("loadCombinationId")
@@ -721,7 +723,7 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
         from pkpm_converter import _detect_material_family as _conv_detect_mat
         material_family = _conv_detect_mat(model_dict)
         jws_path, converter_mappings = convert_v2_to_jws(
-            model_dict, work_dir, project_name, material_family=material_family
+            model_dict, work_dir, project_name, material_family=material_family, design_plan=design_plan
         )
         import json
         (work_dir / "source-model.json").write_text(json.dumps(source_model, ensure_ascii=False), encoding="utf-8")
@@ -738,18 +740,22 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     numeric_sections = has_numeric_sections(model_dict)
     if numeric_sections:
         _run_jws_cycle(cycle_path, work_dir, timeout=timeout,
-                       constraints=converter_mappings.get("native_end_constraints"), section_model=model_dict)
+                       constraints=converter_mappings.get("native_end_constraints"), section_model=model_dict, include_design=bool(design_plan))
     elif converter_mappings.get("native_end_constraints"):
-        _run_jws_cycle(cycle_path, work_dir, timeout=timeout, constraints=converter_mappings["native_end_constraints"])
+        _run_jws_cycle(cycle_path, work_dir, timeout=timeout, constraints=converter_mappings["native_end_constraints"], include_design=bool(design_plan))
     else:
-        _run_jws_cycle(cycle_path, work_dir, timeout=timeout)
+        _run_jws_cycle(cycle_path, work_dir, timeout=timeout, include_design=bool(design_plan))
 
     # Verify the settings used; changing the solved project cannot fix a run.
     project_parameter_verification = _verify_project_material_params(jws_path, material_family)
     native_controls = converter_mappings.get("design_conditions", {}).get("analysis_control", {})
     effective_settings = verify_effective_settings(work_dir, native_controls)
     from native_materials import verify_solver_materials
-    material_verification = verify_solver_materials(work_dir, converter_mappings.get("native_materials", {}))
+    if design_plan:
+        from pkpm_native_design import verify_standard_materials
+        material_verification = verify_standard_materials(work_dir, model_dict, design_plan, cycle_path)
+    else:
+        material_verification = verify_solver_materials(work_dir, converter_mappings.get("native_materials", {}))
     section_verification = verify_numeric_sections(work_dir, model_dict) if numeric_sections else None
 
     # ---- Phase 3: Extract results via APIPyInterface ----
@@ -1246,6 +1252,9 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
         native_project=str(jws_path), parameters=parameters,
         representation={"analysisOnly": numeric_sections,
                         "method": "native-reference-carrier" if numeric_sections else "native-physical-section"})
+    if design_plan:
+        from pkpm_native_design import finish_native_design
+        result_dict = finish_native_design(result_dict, source_model, design_plan, jws_path, pm_floor_elem_to_v2)
     from commercial_context import attach_native_result_set
     from native_result_adapter import select_result
     return attach_native_result_set(result_dict, source_model, parameters,

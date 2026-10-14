@@ -31,7 +31,7 @@ def has_numeric_sections(model):
                for section in model.get("sections", []))
 
 
-def _members(payload, model):
+def _members(payload, model, allowed_section_kinds=(1.,)):
     """Read the calibrated 60-real bare-frame record via its floor pointers."""
     if len(payload) % 4 or len(payload) < 16000:
         raise ValueError("Truncated native frame data / 原生杆系输入不完整")
@@ -63,7 +63,7 @@ def _members(payload, model):
             for ordinal in range(number):
                 offset = base + ordinal * 60
                 row = data[offset:offset + 60]
-                if len(row) != 60 or row[34] != 1. or not all(math.isfinite(value) for value in row):
+                if len(row) != 60 or row[34] not in allowed_section_kinds or not all(math.isfinite(value) for value in row):
                     raise ValueError("Unverified native elastic carrier record / 未验收的原生弹性载体记录")
                 key = (kind, frozenset((_point(row[6:9]), _point(row[9:12]))))
                 member = by_edge.get(key)

@@ -106,6 +106,15 @@ def _solve_full_span(model: dict, case_id: str) -> dict:
             wide, narrow = max(width, height), min(width, height)
             J = wide*narrow**3*(1/3-.21*narrow/wide*(1-narrow**4/(12*wide**4)))
             prop = {'A': A, 'Iy': Iy, 'Iz': Iz, 'J': J, 'Asy': 5*A/6, 'Asz': 5*A/6, **prop}
+        elif shape.get('kind') == 'box':
+            width, height, thick = (shape[key]/1000 for key in ('B', 'H', 'T'))
+            A = width*height-(width-2*thick)*(height-2*thick)
+            Iy = (width*height**3-(width-2*thick)*(height-2*thick)**3)/12
+            Iz = (height*width**3-(height-2*thick)*(width-2*thick)**3)/12
+            J = 2*thick*(width-thick)**2*(height-thick)**2/(width+height-2*thick)
+            # Thin-walled closed box. Native design acceptance below uses
+            # axial-only loads; these shear assumptions are not thereby certified.
+            prop = {'A': A, 'Iy': Iy, 'Iz': Iz, 'J': J, 'Asy': 5*A/6, 'Asz': 5*A/6, **prop}
         if any(type(prop.get(key)) not in (int, float) or not math.isfinite(prop[key]) or prop[key] <= 0
                for key in ('A', 'Iy', 'Iz', 'J', 'Asy', 'Asz')):
             raise ValueError('Independent reference requires six complete positive elastic section properties')

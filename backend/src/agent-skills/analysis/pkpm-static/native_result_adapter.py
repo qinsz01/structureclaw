@@ -30,7 +30,9 @@ def complete_frame_results(model, result, jws_path):
             for key in ("self_weight", "rigid_floor", "rigid_offsets", "construction_stage", "p_delta")):
         raise ValueError("Complete native frame results require verified linear bare-frame settings / 完整杆系结果需要原生线性无楼板设置核对")
     materials = result["summary"].get("nativeMaterialVerification", {})
-    if (materials.get("source") != "UserMaterial.SAT" or len(materials.get("sha256", "")) != 64
+    standard_profile = (materials.get("source") == "DATA.SAT; calibrated-standard-grade-profile"
+                        and materials.get("verified") is True and len(materials.get("solverSha256", "")) == 64)
+    if ((materials.get("source") != "UserMaterial.SAT" and not standard_profile) or len(materials.get("sha256", "")) != 64
             or set(materials.get("materials", {})) != {str(row["id"]) for row in model["materials"]}):
         raise ValueError("Native elastic material verification is incomplete / 原生弹性材料核对证据不完整")
     geometry = read_native_geometry(jws_path, model)

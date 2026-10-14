@@ -95,6 +95,7 @@ def main():
     parser.add_argument("--native-solver", type=int, choices=(0, 1, 2, 3), help="Diagnostic PKPM 621 enum: Pardiso/Mumps/VSS/LDLT")
     parser.add_argument("--native-switch", choices=("SOV_DOUBLE.OUT", "READDISPDIRECT.OUT", "OPTIMIZELOOPREAD4_TO_REAL8.OUT", "OPTIMIZELOOPREAD4_TO_REAL8_2.OUT"), action="append", default=[], help="Diagnostic native numerical switch in the isolated project only")
     parser.add_argument("--combination", action="store_true", help="Request ULS after native source cases are solved")
+    parser.add_argument("--native-design", choices=("PKPM-2025R2.5-native", "GB50017-2017"), help="Explicit native-grade design with recorded software defaults")
     inputs = parser.add_mutually_exclusive_group(required=True)
     inputs.add_argument("--planned-proxy", action="store_true", help="Use explicit INT089/MM089 capability proxy, not formal benchmark input")
     inputs.add_argument("--model-file", type=Path, help="Explicit independent capability model; not benchmark scoring truth")
@@ -176,7 +177,11 @@ def main():
             pkpm_converter.convert_v2_to_jws = solver_selection
         case_ids = [str(case["id"]) for case in model["load_cases"]]
         selection = {"loadCombinationId": "ULS"} if args.combination else {"loadCaseIds": case_ids}
-        result = module.run_analysis(model, {"timeout": 120, **selection})
+        parameters = {"timeout": 120, **selection}
+        if args.native_design:
+            parameters["design"] = {"requested": True, "code": args.native_design, "mode": "code-check", "adoptedNativeDefaults": True}
+        (root / "frozen-request.json").write_text(json.dumps(parameters, indent=2), encoding="utf-8")
+        result = module.run_analysis(model, parameters)
         (root / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
         evidence.update(status="native-completed", nativeWorkDir=result["summary"]["work_dir"])
         timo_checks = []
