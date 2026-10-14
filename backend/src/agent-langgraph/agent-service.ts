@@ -106,6 +106,9 @@ export interface LangGraphRunResult {
   completedAt: string;
   success: boolean;
   response: string;
+  waitingForReply: boolean;
+  question: string | null;
+  options: string[];
   mode: 'conversation' | 'execution';
   toolCalls: unknown[];
   model?: Record<string, unknown>;
@@ -878,6 +881,30 @@ export class LangGraphAgentService {
     } finally { release(); }
   }
 
+  /** JSON entry point consumes the same checkpoint resumption as Web streaming. */
+  async resume(conversationId: string, resumeValue: string, signal?: AbortSignal): Promise<LangGraphRunResult> {
+    signal?.throwIfAborted();
+    const release = await this.sessionLock.acquire(conversationId);
+    try {
+      signal?.throwIfAborted();
+      await this.assertTurnState(conversationId, true);
+      let start: StreamContext | undefined;
+      for await (const chunk of this.resumeStreamUnlocked(conversationId, resumeValue, signal)) {
+        if (chunk.type === 'start') start = chunk.content as StreamContext;
+        if (chunk.type === 'error') throw new Error(chunk.error || 'AGENT_RESUME_FAILED');
+      }
+      if (!start) throw new Error('AGENT_RESUME_RESULT_MISSING');
+      const snapshot = await (await this.getGraph()).getState({ configurable: { thread_id: conversationId } });
+      const state = snapshot.values as AgentState;
+      const result = this.extractResult(state, conversationId, start.traceId, start.startedAt);
+      Object.assign(result, clarificationState(state, snapshot.tasks));
+      result.runPolicy = state.runPolicy ?? undefined;
+      result.runUsage = state.runPolicy && state.runUsage
+        ? readRunUsage(state.runPolicy, state.runUsage, path.join(runtimeBaseDir, 'run-records')) : undefined;
+      return result;
+    } finally { release(); }
+  }
+
   private async *resumeStreamUnlocked(conversationId: string, resumeValue: string, signal?: AbortSignal): AsyncGenerator<AgentStreamChunk> {
     const traceId = randomUUID();
     const startedAt = new Date().toISOString();
@@ -1360,6 +1387,7 @@ export class LangGraphAgentService {
       completedAt: new Date().toISOString(),
       success: true,
       response,
+      ...clarificationState(finalState),
       mode: toolCalls.length > 0 ? 'execution' : 'conversation',
       toolCalls,
       draftState: finalState.draftState ?? undefined,

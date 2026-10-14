@@ -23,12 +23,20 @@ const optionalIdSchema = z.preprocess((value) => {
   return value;
 }, z.string().optional());
 
+const attachmentSchema = z.object({
+  fileId: z.string(), originalName: z.string(), relPath: z.string(), mimeType: z.string().optional(),
+});
+
 const agentRunSchema = z.object({
   message: z.string().min(1).max(10000),
   conversationId: optionalIdSchema,
   traceId: optionalIdSchema,
   context: z.object({
     runPolicy: runPolicyInputSchema.optional(),
+    locale: z.enum(['en', 'zh']).optional(),
+    attachments: z.array(attachmentSchema).optional(),
+    restrictFileAccessToAttachments: z.boolean().optional(),
+    seismicWorkflow: z.record(z.string(), z.unknown()).optional(),
     skillIds: z.array(z.string()).optional(),
     enabledToolIds: z.array(z.string()).optional(),
     disabledToolIds: z.array(z.string()).optional(),
@@ -49,6 +57,12 @@ const agentRunSchema = z.object({
     providedValues: z.record(z.string(), z.any()).optional(),
   }).optional(),
 });
+
+// A reply resumes the saved policy and ledger; it cannot configure a new turn.
+const agentResumeSchema = z.object({
+  conversationId: z.string().min(1),
+  resumeValue: z.string().min(1).max(10000),
+}).strict();
 
 const capabilityMatrixQuerySchema = z.object({
   analysisType: z.enum(['static', 'dynamic', 'seismic', 'nonlinear']).optional(),
@@ -89,7 +103,7 @@ const inputReviewBodySchema = z.object({
     locale: z.enum(['en', 'zh']).optional(), runPolicy: runPolicyInputSchema.optional(),
     skillIds: z.array(z.string()).optional(), enabledToolIds: z.array(z.string()).optional(), disabledToolIds: z.array(z.string()).optional(),
     restrictFileAccessToAttachments: z.boolean().optional(),
-    attachments: z.array(z.object({ fileId: z.string(), originalName: z.string(), relPath: z.string(), mimeType: z.string().optional() })).optional(),
+    attachments: z.array(attachmentSchema).optional(),
   }).optional(),
 });
 
@@ -250,7 +264,26 @@ export async function agentRoutes(fastify: FastifyInstance) {
     },
   }, async (request: FastifyRequest<{ Body: z.infer<typeof agentRunSchema> }>, reply: FastifyReply) => {
     const body = agentRunSchema.parse(request.body);
-    const result = await agentService.run(body);
-    return reply.send(result);
+    try { return reply.send(await agentService.run(body)); }
+    catch (error) {
+      if (error instanceof Error && error.message.startsWith('CONVERSATION_WAITING_FOR_REPLY')) {
+        return reply.code(409).send({ error: error.message });
+      }
+      throw error;
+    }
+  });
+
+  fastify.post('/resume', {
+    schema: { tags: ['Agent'], summary: 'Resume a saved clarification / 回复已保存的澄清问题' },
+  }, async (request, reply) => {
+    const parsed = agentResumeSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'INVALID_RESUME_REQUEST', details: parsed.error.issues });
+    try { return reply.send(await agentService.resume(parsed.data.conversationId, parsed.data.resumeValue)); }
+    catch (error) {
+      if (error instanceof Error && error.message.startsWith('CONVERSATION_NOT_WAITING_FOR_REPLY')) {
+        return reply.code(409).send({ error: error.message });
+      }
+      throw error;
+    }
   });
 }

@@ -7,8 +7,8 @@ const COMMANDS = [
   },
   {
     name: "run",
-    usage: "sclaw run --request <request.json> [--url <server-url>]",
-    description: "Run an agent request using the shared HTTP policy / 使用统一 HTTP 策略执行请求",
+    usage: "sclaw run [--resume] --request <request.json> [--url <server-url>]",
+    description: "Run or resume an agent request using the shared HTTP policy / 使用统一 HTTP 策略执行或恢复请求",
     group: "core",
   },
   {

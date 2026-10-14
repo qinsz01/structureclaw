@@ -6,6 +6,11 @@ import path from 'node:path';
 const { runAgent } = createRequire(import.meta.url)('../../scripts/cli/run-agent.js');
 const { analysisJob } = createRequire(import.meta.url)('../../scripts/cli/analysis-job.js');
 
+async function removeFixture(dir, prefix) {
+  if (path.dirname(path.resolve(dir)) !== path.resolve(os.tmpdir()) || !path.basename(dir).startsWith(prefix)) throw new Error('Invalid fixture directory');
+  await rm(dir, { recursive: true, force: true });
+}
+
 test('CLI job actions inspect or settle the exact request without reanalysis or implicit recovery', async () => {
   const id = '05a02a2c-5ab2-4564-a773-36d84e87c3fa';
   const calls = [];
@@ -48,7 +53,33 @@ test('CLI forwards the shared HTTP contract without hidden retry or policy defau
     await expect(runAgent(['--request',file],{},async(url)=>{calls++;expect(url.port).toBe('31415');throw new Error('response lost')})).rejects.toThrow('response lost');
     expect(calls).toBe(1);
   } finally {
-    if(path.dirname(path.resolve(dir))!==path.resolve(os.tmpdir()) || !path.basename(dir).startsWith('sclaw-cli-request-')) throw new Error('Invalid fixture directory');
-    await rm(dir,{recursive:true,force:true});
+    await removeFixture(dir, 'sclaw-cli-request-');
+  }
+});
+
+test('CLI explicitly resumes the saved turn and never retries a rejected reply as a new request', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'sclaw-cli-resume-'));
+  const file = path.join(dir, 'reply.json');
+  const reply = { conversationId: 'waiting', resumeValue: 'A is pinned / A 为铰支座' };
+  await writeFile(file, JSON.stringify(reply));
+  try {
+    const calls = [];
+    const fetchImpl = async (url, options) => {
+      calls.push({ url: url.href, body: JSON.parse(options.body) });
+      return { ok: false, status: 409, json: async () => ({ error: 'CONVERSATION_NOT_WAITING_FOR_REPLY' }) };
+    };
+    await expect(runAgent(['--resume', '--request', file, '--url', 'http://localhost:4321'], {}, fetchImpl))
+      .rejects.toThrow('CONVERSATION_NOT_WAITING_FOR_REPLY');
+    expect(calls).toEqual([{ url: 'http://localhost:4321/api/v1/agent/resume', body: reply }]);
+    await expect(runAgent(['--request', file, '--resume', '--resume'], {}, fetchImpl)).rejects.toThrow('Usage');
+    expect(calls).toHaveLength(1);
+    const result = await runAgent(['--request', file, '--resume'], {}, async (url, options) => {
+      expect(url.pathname).toBe('/api/v1/agent/resume');
+      expect(JSON.parse(options.body)).toEqual(reply);
+      return { ok: true, json: async () => ({ waitingForReply: false, runUsage: { runId: 'saved', toolCalls: 7 } }) };
+    });
+    expect(result.runUsage).toEqual({ runId: 'saved', toolCalls: 7 });
+  } finally {
+    await removeFixture(dir, 'sclaw-cli-resume-');
   }
 });

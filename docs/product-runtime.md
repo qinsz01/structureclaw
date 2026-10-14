@@ -15,6 +15,16 @@ items listed in [the profile audit](native-design-profiles-20261014.md) are stil
 当前快照是本体预览版；验收记录绑定已测试代码及证据。商业适配尚有上述清单中的未完成项，
 本快照不是整体方案完成声明，也不是后续实验的300题能力冻结。
 
+The 2026-10-14 convergence priority is faithful expression of the frozen scenario plan,
+SDK execution and result readback. The commercial solvers are trusted; tiny numerical
+residuals and complex native design outside that plan do not gate scenario compatibility.
+Existing preview tags and historical evidence remain unchanged. Code-to-requirement mapping
+does not mean that all 300 questions have been run and passed.
+
+2026-10-14收敛优先级是冻结规划所需的准确表达、SDK执行与结果读回。商业求解器本身可信；
+微小数值残差与规划外复杂原生设计不作为场景兼容门槛。既有预览标签与历史证据保持不变，
+代码与需求的对应关系不代表300题已经逐题运行通过。
+
 ```mermaid
 flowchart TD
   Web[Web / HTTP / CLI] --> Policy[EffectiveRunPolicy + durable counters]
@@ -116,9 +126,10 @@ Model credentials are not policy fields and are not exported in these records.
 
 ## Shared entry points / 统一入口
 
-Web advanced run settings send `context.runPolicy` to the same agent endpoint used by
-`sclaw run --request request.json`. The CLI honors the configured backend port (default
-31415); `--url` overrides the address. Example request:
+Web advanced run settings and `sclaw run --request request.json` use the shared agent
+service and `context.runPolicy` contract. The CLI sends JSON to `POST /api/v1/agent/run`
+and honors the configured backend port (default 31415); `--url` overrides the address.
+Example request:
 
 网页高级设置与 CLI 使用相同的 agent 请求。CLI 沿用后端端口配置，默认31415，可用 `--url` 明确指定。
 
@@ -135,6 +146,65 @@ Web advanced run settings send `context.runPolicy` to the same agent endpoint us
   }
 }
 ```
+
+The initial `context` also accepts `locale` (`en`/`zh`), uploaded `attachments`
+(`fileId`, `originalName`, `relPath`, optional `mimeType`), `restrictFileAccessToAttachments`
+and `seismicWorkflow`. Attachments enter the same parsers and evidence transactions as Web.
+Upload files to `POST /api/v1/files/upload?conversationId=<id>` first, then use its returned
+metadata; a path alone is not a declaration that its contents were reviewed.
+
+初次请求还接收语言、上传附件元数据、附件访问范围和地震工作流配置。附件进入网页同一套解析及证据事务；
+先通过上传接口取得元数据，再放入`context.attachments`，不能把一个路径当作已复核内容。
+
+If the JSON response has `waitingForReply: true`, answer its `question`/`options` with
+`sclaw run --resume --request reply.json` (HTTP: `POST /api/v1/agent/resume`):
+
+返回`waitingForReply: true`时，用以下文件回复已保存的问题，不重新发起`run`：
+
+```json
+{"conversationId":"<returned-conversation-id>","resumeValue":"A is pinned / A为铰支座"}
+```
+
+Resume accepts only these two fields. It keeps the original policy, counters, locale and
+file access scope. New context/policy overrides are rejected; a conversation that is not
+waiting returns HTTP 409. Neither CLI entry retries a lost response or automatically
+starts a new turn. `success: true` with `waitingForReply: true` means the turn paused
+successfully, not that its engineering work is finished.
+
+恢复仅接收上述两个字段，保留原策略、计数、语言与文件访问范围，拒绝夹带新配置；未等待回复的会话返回409。
+CLI不因响应丢失重试，也不自动另起回合。`success: true`且`waitingForReply: true`表示已暂停等待，
+不表示工程任务完成。
+
+For a supplemental drawing/table while waiting, register and read it in the existing
+input-review transaction before resuming. This PowerShell sequence uses the returned
+conversation ID and preserves its policy/tool budget:
+
+等待时补图或补表，先使用同一会话的输入复核事务登记并读取，再回复问题。以下PowerShell步骤沿用原权限和预算：
+
+```powershell
+$server = 'http://127.0.0.1:31415'
+$conversationId = '<returned-conversation-id>'
+$upload = curl.exe -s -F 'file=@support.csv' "$server/api/v1/files/upload?conversationId=$conversationId" | ConvertFrom-Json
+$view = Invoke-RestMethod "$server/api/v1/agent/input-review/$conversationId"
+$body = @{
+  revisionToken = $view.revisionToken
+  tool = 'analyze_file'
+  args = @{ filePath = $upload.files[0].relPath; mode = 'full' }
+  initialContext = @{ attachments = @($upload.files[0]) }
+} | ConvertTo-Json -Depth 15
+$reviewed = Invoke-RestMethod -Method Post -ContentType 'application/json' -Body $body "$server/api/v1/agent/input-review/$conversationId/tools"
+$answer = @{ conversationId = $conversationId; resumeValue = 'Support details are in support.csv / 支座信息见补充表' } | ConvertTo-Json
+[System.IO.File]::WriteAllText((Join-Path $PWD 'reply.json'), $answer)
+node sclaw run --resume --request reply.json --url $server
+```
+
+`analyze_file` must already be allowed by the saved policy. Inspect `$reviewed` before
+continuing; reading a file does not confirm conflicting fields or apply them to the model.
+Use the same endpoint's `review_input` / `edit_model` / `validate_model` actions as needed,
+always with the latest revision token. See the [input-review contract](input-review-contract.md).
+
+原策略必须已允许`analyze_file`。继续前检查`$reviewed`；完整读取不会自动解决字段冲突或修改模型。
+按需通过同一接口复核字段、修改模型并校验，每次使用最新版本令牌；上述门禁在恢复后仍然有效。
 
 External hosts import `getPublicToolDefinitions` and `createPublicToolSession` from
 `backend/dist/agent-langgraph/public-tool-contracts.js`. Create a session, call
