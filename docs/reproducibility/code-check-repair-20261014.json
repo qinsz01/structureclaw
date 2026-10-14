@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-10-14T12:56:29.930Z",
+  "recordedAt": "2026-10-14T12:57:42.800Z",
   "sourceCommit": "6f8876ec4d9f1a0f181c57b6f95883b067b2d967",
   "scope": "StructureClaw product repair following an actual user code-check failure; Bench and independent YJK API are unchanged.",
   "observedFailure": {
@@ -75,7 +75,112 @@
         "existing load increases to 1000 kN; real checks fail and false pass prose is excluded"
       ],
       "llm": "Only external LLM responses are scripted; engineering services, solver, checker, reports, persistence and UI execute for real.",
-      "feedback": []
+      "feedback": [
+        {
+          "missing": {
+            "summary": {
+              "total": 7,
+              "passed": 0,
+              "failed": 0,
+              "warnings": 0,
+              "notApplicable": 1,
+              "inputRequired": 6,
+              "unsupported": 0,
+              "maxUtilization": null
+            },
+            "fields": [
+              "material.design.f",
+              "material.design.fv",
+              "member.design.beta1",
+              "member.design.phi_b",
+              "member.design.lambdaLimit",
+              "response.deflection",
+              "member.design.deflectionLimitN",
+              "member.design.serviceability_result_keys"
+            ]
+          },
+          "complete": {
+            "completionStatus": "complete",
+            "complianceStatus": "pass",
+            "summary": {
+              "total": 7,
+              "passed": 6,
+              "failed": 0,
+              "warnings": 0,
+              "notApplicable": 1,
+              "inputRequired": 0,
+              "unsupported": 0,
+              "maxUtilization": 0.2309
+            }
+          },
+          "overloaded": {
+            "completionStatus": "complete",
+            "complianceStatus": "fail",
+            "summary": {
+              "total": 7,
+              "passed": 2,
+              "failed": 4,
+              "warnings": 0,
+              "notApplicable": 1,
+              "inputRequired": 0,
+              "unsupported": 0,
+              "maxUtilization": 37.9248
+            }
+          }
+        },
+        {
+          "missing": {
+            "summary": {
+              "total": 7,
+              "passed": 0,
+              "failed": 0,
+              "warnings": 0,
+              "notApplicable": 1,
+              "inputRequired": 6,
+              "unsupported": 0,
+              "maxUtilization": null
+            },
+            "fields": [
+              "material.design.f",
+              "material.design.fv",
+              "member.design.beta1",
+              "member.design.phi_b",
+              "member.design.lambdaLimit",
+              "response.deflection",
+              "member.design.deflectionLimitN",
+              "member.design.serviceability_result_keys"
+            ]
+          },
+          "complete": {
+            "completionStatus": "complete",
+            "complianceStatus": "pass",
+            "summary": {
+              "total": 7,
+              "passed": 6,
+              "failed": 0,
+              "warnings": 0,
+              "notApplicable": 1,
+              "inputRequired": 0,
+              "unsupported": 0,
+              "maxUtilization": 0.2309
+            }
+          },
+          "overloaded": {
+            "completionStatus": "complete",
+            "complianceStatus": "fail",
+            "summary": {
+              "total": 7,
+              "passed": 2,
+              "failed": 4,
+              "warnings": 0,
+              "notApplicable": 1,
+              "inputRequired": 0,
+              "unsupported": 0,
+              "maxUtilization": 37.9248
+            }
+          }
+        }
+      ]
     },
     "staticChecks": [
       "backend TypeScript build",
