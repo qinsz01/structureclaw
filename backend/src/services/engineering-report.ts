@@ -1,0 +1,100 @@
+import { buildReportDomainArtifacts } from '../agent-skills/report-export/entry.js';
+import { buildDefaultReportNarrative } from '../agent-runtime/report-template.js';
+import type { SkillReportNarrativeInput } from '../agent-runtime/types.js';
+import { formatCheckSummary } from '../engineering/code-checks.js';
+import { reportResultRows, resultTableMarkdown } from '../engineering/result-data.js';
+import { isRecord, modelHash } from '../engineering/model-state.js';
+import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { runPkpmCalcbook } from '../agent-skills/report-export/calculation-book/pkpm-calcbook/runner.js';
+import { resultEngine } from '../engineering/result-data.js';
+
+export interface EngineeringReportInput {
+  message: string;
+  analysisType: 'static' | 'dynamic' | 'seismic' | 'nonlinear';
+  normalizedModel?: unknown;
+  analysis: unknown;
+  codeCheck?: unknown;
+  locale: 'zh' | 'en';
+}
+
+/** A single structured source for HTTP, chat and public-tool reports. */
+export function prepareEngineeringReport(input: EngineeringReportInput) {
+  const analysis = isRecord(input.analysis) ? input.analysis : {};
+  const check = isRecord(input.codeCheck) ? input.codeCheck : {};
+  const meta = isRecord(analysis.meta) ? analysis.meta : {};
+  const checkMeta = isRecord(check.meta) ? check.meta : {};
+  if (isRecord(input.normalizedModel) && meta.modelHash && meta.modelHash !== modelHash(input.normalizedModel)) {
+    throw new Error('REPORT_MODEL_MISMATCH / 报告模型与运行不一致');
+  }
+  if (analysis.runId && Object.keys(check).length &&
+    (checkMeta.runId !== analysis.runId || (meta.modelHash && checkMeta.modelHash !== meta.modelHash))) {
+    throw new Error('REPORT_DESIGN_RUN_MISMATCH / 校核结果不属于本次运行');
+  }
+  const analysisSuccess = analysis.success === true;
+  const codeCheckText = formatCheckSummary(isRecord(check.summary) ? check.summary : undefined, input.locale);
+  const summary = input.locale === 'zh'
+    ? `分析类型 ${input.analysisType}，分析${analysisSuccess ? '成功' : '失败'}，${codeCheckText}。`
+    : `Analysis type ${input.analysisType}; analysis ${analysisSuccess ? 'succeeded' : 'failed'}; ${codeCheckText}.`;
+  const artifacts = buildReportDomainArtifacts({ normalizedModel: input.normalizedModel,
+    postprocessedResult: input.analysis, codeCheckResult: input.codeCheck });
+  const narrativeInput: SkillReportNarrativeInput = { ...input, ...artifacts, analysisSuccess, codeCheckText, summary };
+  const json: Record<string, unknown> = { reportSchemaVersion: '1.1.0', intent: input.message,
+    analysisType: input.analysisType, summary, ...artifacts, normalizedModel: input.normalizedModel,
+    analysis: input.analysis, codeCheck: input.codeCheck, resultSets: reportResultRows(input.analysis),
+    requestedQuantities: analysis.requestedQuantities ?? [], generatedAt: new Date().toISOString(),
+    meta: { reportSkillId: 'report-export-builtin', runId: analysis.runId, source: meta,
+      selectedResultKey: analysis.selectedResultKey, resultKeys: Object.keys(isRecord(analysis.results) ? analysis.results : {}) } };
+  return { input, narrativeInput, summary, json };
+}
+
+export function finishEngineeringReport(prepared: ReturnType<typeof prepareEngineeringReport>, narrative?: string) {
+  const { input, summary, json } = prepared;
+  const analysis = isRecord(input.analysis) ? input.analysis : {};
+  let markdown = narrative ?? buildDefaultReportNarrative(prepared.narrativeInput);
+  markdown += resultTableMarkdown(input.analysis, input.locale);
+  if (reportResultRows(input.analysis).some(row => row.capabilityStatus === 'partial')) markdown += input.locale === 'zh'
+    ? '\n本次运行包含部分能力或估算结果；不能视为原结构完整分析或全面规范合格。\n'
+    : '\nThis run includes partial capabilities or estimates; it does not establish complete analysis or overall code compliance.\n';
+  if (analysis.runId) markdown += input.locale === 'zh'
+    ? `\n\n计算来源：运行 ${String(analysis.runId)}；结果 ${String(analysis.selectedResultKey ?? 'default')}。\n`
+    : `\n\nCalculation source: run ${String(analysis.runId)}; result ${String(analysis.selectedResultKey ?? 'default')}.\n`;
+  if (isRecord(input.codeCheck) && input.codeCheck.completionStatus === 'incomplete') markdown += input.locale === 'zh'
+    ? '\n规范校核尚未完成；资料不足或尚不支持的项目不构成通过结论。\n'
+    : '\nCode checking is incomplete; missing inputs or unsupported checks do not establish compliance.\n';
+  return { summary, json, markdown };
+}
+
+export function createEngineeringReport(input: EngineeringReportInput) {
+  return finishEngineeringReport(prepareEngineeringReport(input));
+}
+
+/** Optional vendor attachment; the structured report remains authoritative. */
+export async function attachNativeReport(report: ReturnType<typeof createEngineeringReport>, input: EngineeringReportInput) {
+  const run = isRecord(input.analysis) ? input.analysis : {};
+  if (run.success !== true || !run.runId || resultEngine(run) !== 'pkpm') return;
+  const data = isRecord(run.data) ? run.data : {};
+  const context = isRecord(data.nativeDesignContext) ? data.nativeDesignContext : {};
+  const summary = isRecord(data.summary) ? data.summary : {};
+  const project = summary.jws_path;
+  if (typeof project !== 'string' || typeof context.nativeProject !== 'string'
+    || path.resolve(project) !== path.resolve(context.nativeProject)) return;
+  prepareEngineeringReport(input);
+  try {
+    const digest = createHash('sha256').update(await readFile(project)).digest('hex');
+    if (digest !== context.nativeProjectSha256) throw new Error('NATIVE_PROJECT_CHANGED');
+    const check = isRecord(input.codeCheck) ? input.codeCheck : {};
+    const includeDesign = context.eligibleForConclusion === true && check.provider === 'native'
+      && check.completionStatus === 'complete';
+    const calcbook = await runPkpmCalcbook(project, undefined, { includeDesign, designContext: context });
+    report.json.nativeAttachments = [{ kind: 'native-results-reformatted', engine: 'pkpm',
+      label: { zh: 'PKPM 原生结果整理版', en: 'PKPM native results, reformatted by StructureClaw' },
+      runId: run.runId, modelHash: isRecord(run.meta) ? run.meta.modelHash : undefined,
+      sourceProject: project, sourceSha256: digest, includesDesign: includeDesign,
+      markdown: calcbook.markdown, artifacts: calcbook.summary, warnings: calcbook.warnings ?? [] }];
+  } catch (error) {
+    report.json.attachmentIssues = [{ code: 'NATIVE_REPORT_ATTACHMENT_UNAVAILABLE',
+      message: error instanceof Error ? error.message : String(error) }];
+  }
+}

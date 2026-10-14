@@ -1,7 +1,7 @@
-// Real HTTP and OpenSees acceptance against the frozen independent STD-008 oracle.
+// Real HTTP and OpenSees acceptance against product-owned closed-form references.
 // No model-provider calls. Build backend first; set SCLAW_DATA_DIR to the test runtime.
 import assert from 'node:assert/strict';
-import fs from 'node:fs/promises';
+import { model as raw, reference } from './fixtures/cantilever-reference.mjs';
 import Fastify from 'fastify';
 import { analysisRuntimeRoutes } from '../dist/api/analysis-runtime.js';
 import { normalizeEngineeringModel } from '../dist/engineering/model-boundary.js';
@@ -10,9 +10,6 @@ import { modelHash } from '../dist/engineering/model-state.js';
 import { analysisSettingsHash } from '../dist/engineering/analysis-runs.js';
 import { createQueryResultsTool } from '../dist/agent-langgraph/model-tools.js';
 
-const pack = new URL('../../tests/llm-benchmark/acceptance/representative-18/STD-008/', import.meta.url);
-const raw = JSON.parse(await fs.readFile(new URL('model-state-1.json', pack), 'utf8'));
-const reference = JSON.parse(await fs.readFile(new URL('independent-reference.json', pack), 'utf8')).states[0];
 const model = await normalizeEngineeringModel(raw, createLocalStructureProtocolClient());
 const payload = { type:'static', engineId:'builtin-opensees', model, parameters:{} };
 payload.requestBinding = { modelRevision:1, modelHash:modelHash(model),
@@ -40,7 +37,7 @@ try {
     const actual = Object.values(queried.update.resultQuantities)[0].value;
     assert.ok(Number.isFinite(actual) && Math.abs(actual-q.value) <= q.tolerance.absolute+q.tolerance.relative*Math.abs(q.value), `${q.id}: ${actual} != ${q.value}`);
   }
-  console.log(JSON.stringify({ status:'passed', interface:'real HTTP + archived tool query', case:'STD-008',
+  console.log(JSON.stringify({ status:'passed', interface:'real HTTP + archived tool query', case:'analytic-cantilever-D-L-U',
     runId:run.runId, queriedQuantities:reference.quantities.length, requestBinding:payload.requestBinding,
     checks:['HTTP preserves request binding','native OpenSees','archive roundtrip','independent station/side/unit values'] }, null, 2));
 } finally { await app.close(); }

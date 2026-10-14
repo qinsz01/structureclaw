@@ -1,0 +1,63 @@
+import { describe, expect, test } from '@jest/globals';
+import { createEngineeringReport } from '../dist/services/engineering-report.js';
+import { nativeDesignRecord, resolveCheckProvider } from '../dist/engineering/native-design.js';
+import { modelHash } from '../dist/engineering/model-state.js';
+import { createQueryResultsTool } from '../dist/agent-langgraph/model-tools.js';
+import { assertInputEvidenceMatchesModel, mergeInputEvidence } from '../dist/engineering/input-evidence.js';
+
+const model = { nodes: [{ id: 'A', x: 0, y: 0, z: 0 }], elements: [], materials: [], sections: [] };
+const run = () => ({ runId: 'run', success: true, meta: { runId: 'run', modelHash: modelHash(model), engineId: 'builtin-yjk' }, data: {} });
+describe('product report and native design provenance', () => {
+  test('provider selection never silently replaces commercial native design', () => {
+    expect(resolveCheckProvider('auto', run())).toBe('native');
+    expect(resolveCheckProvider('builtin', run())).toBe('builtin');
+    expect(() => resolveCheckProvider('native', {meta:{engineId:'builtin-opensees'}})).toThrow('NATIVE_DESIGN_ENGINE_REQUIRED');
+  });
+  test('raw SDK arrays and empty checks cannot become compliance', () => {
+    const r = run(); r.data.nativeDesignContext = { request: { requested:true, code:'GB50017' }, eligibleForConclusion:true };
+    r.data.nativeDesignResults = { beamAs: [[1,0,0]], checks:[] };
+    expect(nativeDesignRecord(model,r,'GB50017')).toMatchObject({completionStatus:'incomplete',complianceStatus:'incomplete'});
+    r.data.nativeDesignResults.checks = [{status:'pass',source:{method:'SDK'}}];
+    expect(nativeDesignRecord(model,r,'GB50017').complianceStatus).toBe('incomplete');
+    r.data.nativeDesignResults.checks[0].nativeCombination = 12;
+    expect(nativeDesignRecord(model,r,'GB50017').complianceStatus).toBe('pass');
+    r.data.nativeDesignResults.checks[0].status = 'fail';
+    expect(nativeDesignRecord(model,r,'GB50017').complianceStatus).toBe('fail');
+    expect(nativeDesignRecord(model,r,'different-code').complianceStatus).toBe('incomplete');
+  });
+  test('one report source preserves quantities; mismatched models and design runs fail', () => {
+    const r = run(); r.requestedQuantities = [{id:'reaction',runId:'run',selection:'case:D',location:{kind:'node',id:'A'},component:'fz',value:-500,unit:'N'}];
+    for (const locale of ['zh','en']) {
+      const input = {message:'Report',analysisType:'static',normalizedModel:model,analysis:r,locale};
+      const report = createEngineeringReport(input);
+      expect(report.json.meta.runId).toBe('run');
+      expect(report.markdown).toContain('| reaction | case:D | A | fz | -500 | N |');
+      expect(() => createEngineeringReport({...input,normalizedModel:{...model,nodes:[]}})).toThrow('REPORT_MODEL_MISMATCH');
+      expect(() => createEngineeringReport({...input,codeCheck:{meta:{runId:'old'},summary:{total:1,passed:1}}})).toThrow('REPORT_DESIGN_RUN_MISMATCH');
+    }
+  });
+});
+
+test('required semantic observations must bind to a stable model field', () => {
+  const evidence = [{ id:'drawing:A',field:'support-A-x',status:'observed',required:true,value:0,unit:'m',source:{file:'drawing.pdf',page:1,region:[0,0,.2,.2]} }];
+  expect(() => assertInputEvidenceMatchesModel(model,evidence)).toThrow('INPUT_EVIDENCE_MODEL_FIELD_REQUIRED');
+  const reviewed = mergeInputEvidence(evidence,[{id:'review-A',field:'support-A-x',status:'resolved',resolution:{selectedSource:'drawing:A',modelField:'nodes.A.x',reason:'Identified support A'}}]);
+  expect(() => assertInputEvidenceMatchesModel(model,reviewed)).not.toThrow();
+  expect(() => assertInputEvidenceMatchesModel({...model,nodes:[{id:'A',x:1}]},reviewed)).toThrow('INPUT_EVIDENCE_MODEL_VALUE_MISMATCH');
+  expect(evidence[0].status).toBe('observed');
+});
+
+test('time queries select reactions and physical member ends from the requested frame', async () => {
+  const r = { ...run(), data: { responseDefinition:{displacement:'relative'},
+    timeHistory:[{time:0.1,timeIndex:0,nodes:{A:{ry:.2}},reactions:{A:{fz:-.5}},
+      forces:{beam:{referenceFrame:'element-local',n1:{M2:3},n2:{M2:0}}}}] } };
+  const invoke = args => createQueryResultsTool().invoke({runId:'run',quantityId:'q',timeIndex:0,...args},
+    {toolCall:{id:'q'},configurable:{agentState:{analysisRuns:{run:r}}}});
+  const reaction = (await invoke({field:'reactions',nodeId:'A',component:'fz',unit:'N'})).update.resultQuantities['run:q'];
+  expect(reaction).toMatchObject({value:-500,time:.1,timeIndex:0});
+  const force = (await invoke({field:'forces',elementId:'beam',end:'n1',component:'M2',unit:'kN.m'})).update.resultQuantities['run:q'];
+  expect(force).toMatchObject({value:3,location:{id:'beam',end:'n1'}});
+  await expect(invoke({field:'forces',elementId:'beam',positionM:0,component:'M2',unit:'kN.m'})).rejects.toThrow('DYNAMIC_MEMBER_END_REQUIRED');
+  r.data.nodalResponseAvailability={A:{ry:false}};
+  await expect(invoke({field:'displacements',nodeId:'A',component:'ry',unit:'rad'})).rejects.toThrow('NODE_DOF_RESPONSE_UNAVAILABLE');
+});

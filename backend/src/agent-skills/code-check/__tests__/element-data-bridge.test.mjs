@@ -349,7 +349,23 @@ describe('elementData bridge', () => {
     const element = input.context['elementData']['B1'];
     expect(element.forces).toEqual({});
     expect(element.forceStates).toEqual([]);
-    expect(element.forceInputIssue).toContain('Native component envelopes');
+    expect(element.forceInputIssue).toContain('NATIVE_STATION_CONVENTIONS_UNVERIFIED');
+  });
+
+  test('verified commercial stations enter explicit builtin checks without splicing envelopes', () => {
+    const model = makeModel();
+    const data = { analysisMode: 'pkpm-satwe', units: {force:'kN',moment:'kN.m'},
+      forceSemantics: 'simultaneous-signed-stations', nativeContext: {stationConventionsVerified:true},
+      memberStations: {B2: [{ positionM:3,side:'continuous',referenceFrame:'element-local',
+        components:{N:-5,Vy:0,Vz:3,T:0,My:12,Mz:0}, source:{method:'official SDK',case:'D'} }] } };
+    const input = buildCodeCheckInput({traceId:'native',designCode:'GB50017',model,analysis:{data},analysisParameters:{}});
+    const element = input.context.elementData.B2;
+    expect(element.forceInputIssue).toBeUndefined();
+    expect(element.forceStates).toHaveLength(1);
+    expect(element.forceStates[0]).toMatchObject({positionM:3,forces:{N:-5000,Mx:12000000,V:3000}});
+    data.memberStations.B2[0].components.My = null;
+    const invalid = buildCodeCheckInput({traceId:'native',designCode:'GB50017',model,analysis:{data},analysisParameters:{}});
+    expect(invalid.context.elementData.B2.forceInputIssue).toBe('NATIVE_STATION_COMPONENTS_INCOMPLETE');
   });
 
   test('converts OpenSees force units before GB50017 elementData consumption', () => {

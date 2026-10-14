@@ -119,6 +119,8 @@ export function createQueryResultsTool() {
         throw new Error('NODE_DIFFERENCE_REQUIRES_STATIC_DISPLACEMENT_COMPONENT / 节点差值需指定静力位移或转角分量');
       }
       let values: unknown = input.field ? data[input.field] : data;
+      let time: number | undefined;
+      if (input.timeIndex !== undefined && input.modeNumber !== undefined) throw new Error('RESULT_INDEX_CONFLICT');
       if (input.modeNumber !== undefined) {
         const modes = Array.isArray(data.modes) ? data.modes : isRecord(data.modal) ? data.modal.modes : undefined;
         values = Array.isArray(modes) ? modes.find(item => isRecord(item) && item.modeNumber === input.modeNumber) : undefined;
@@ -128,19 +130,33 @@ export function createQueryResultsTool() {
         const history = Array.isArray(data.timeHistory) ? data.timeHistory : [];
         values = history[input.timeIndex];
         if (values === undefined) throw new Error('TIME_INDEX_NOT_FOUND');
+        if (!isRecord(values) || typeof values.time !== 'number' || !Number.isFinite(values.time)) throw new Error('TIME_INDEX_UNVERIFIED');
+        time = values.time;
+        if (input.field === 'reactions' || input.field === 'forces') values = values[input.field];
+        else if (input.field && !['timeHistory', 'displacements'].includes(input.field)) throw new Error('TIME_HISTORY_FIELD_UNAVAILABLE');
       }
       if (input.nodeId !== undefined) {
+        const availability = isRecord(data.nodalResponseAvailability) ? data.nodalResponseAvailability[input.nodeId] : undefined;
+        if (input.component && isRecord(availability) && availability[input.component] === false) throw new Error('NODE_DOF_RESPONSE_UNAVAILABLE');
         const source = isRecord(values) && isRecord(values.nodes) ? values.nodes
           : isRecord(values) && isRecord(values.modeShape) ? values.modeShape : values;
         if (!isRecord(source) || source[input.nodeId] === undefined) throw new Error('RESULT_NODE_NOT_FOUND');
         values = source[input.nodeId];
       }
       if (input.elementId !== undefined) {
+        if (input.timeIndex !== undefined) {
+          if (input.field !== 'forces' || !input.end || input.positionM !== undefined || input.side !== undefined) throw new Error('DYNAMIC_MEMBER_END_REQUIRED');
+          const member = isRecord(values) ? values[input.elementId] : undefined;
+          if (!isRecord(member) || member.referenceFrame !== 'element-local' || !isRecord(member[input.end])) throw new Error('DYNAMIC_MEMBER_RESULT_UNAVAILABLE');
+          values = member[input.end];
+        } else {
         if (input.positionM === undefined) throw new Error('MEMBER_POSITION_REQUIRED');
         const model = isRecord(run.modelSnapshot) ? run.modelSnapshot : !input.runId && !currentAnalysisError(state) ? state.model : undefined;
         if (!model) throw new Error('RESULT_MODEL_SNAPSHOT_REQUIRED');
         values = queryPhysicalResponse(model, selected, input.elementId, input.positionM, input.side ?? 'right');
+        }
       }
+      if (input.end && (input.timeIndex === undefined || !input.elementId)) throw new Error('DYNAMIC_MEMBER_END_ONLY');
       let quantity: Record<string, unknown> | undefined;
       if (input.component !== undefined) {
         if (!input.quantityId || !input.unit || !(input.elementId || input.nodeId)) throw new Error('QUANTITY_LOCATION_ID_AND_UNIT_REQUIRED');
@@ -156,11 +172,11 @@ export function createQueryResultsTool() {
         }
         quantity = { id: input.quantityId, runId: run.runId, selection: resultKey, component: input.component, unit: input.unit,
           value: difference ? difference.value : value,
-          location: input.elementId ? { kind: 'member', id: input.elementId, positionM: input.positionM, side: input.side ?? 'right' }
+          location: input.elementId ? { kind: 'member', id: input.elementId, ...(input.end ? { end: input.end } : { positionM: input.positionM, side: input.side ?? 'right' }) }
             : input.referenceNodeId ? { kind: 'node-pair', id: input.nodeId, referenceId: input.referenceNodeId }
               : { kind: 'node', id: input.nodeId }, source: selected.meta,
           ...(difference ? { derivation: difference } : {}),
-          ...(input.timeIndex !== undefined ? { timeIndex: input.timeIndex } : {}),
+          ...(input.timeIndex !== undefined ? { timeIndex: input.timeIndex, time, responseDefinition: data.responseDefinition } : {}),
           ...(input.modeNumber !== undefined ? { modeNumber: input.modeNumber } : {}) };
       }
       return { resultKey, meta: selected.meta, values, quantity };
@@ -195,5 +211,6 @@ export function createQueryResultsTool() {
       component: z.enum(['ux','uy','uz','rx','ry','rz','fx','fy','fz','mx','my','mz','N','V2','V3','T','M2','M3']).optional(),
       unit: z.enum(['m','mm','rad','kN','N','kN.m','N.m']).optional(),
       elementId: z.string().optional(), positionM: z.number().nonnegative().optional(), side: z.enum(['left', 'right']).optional(),
+      end: z.enum(['n1', 'n2']).optional().describe('Recorded physical member end for a time-history force query / 时程内力查询的物理构件端部。'),
       field: z.enum(['displacements', 'forces', 'reactions', 'solverMesh', 'segmentResults', 'summary', 'modal', 'modes', 'timeHistory', 'memberResponses', 'memberResponseExtrema']).optional() }) });
 }

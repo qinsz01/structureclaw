@@ -34,7 +34,7 @@ const commercial = (result: ModelRecord) => ['yjk', 'pkpm'].includes(resultEngin
 const sameNativePosition = (left: number, right: number, length: number) =>
   Math.abs(left - right) <= 8 * Number.EPSILON * Math.max(1, length);
 
-function nativeStations(model: RecoveryModel, data: ModelRecord, elementId: string) {
+export function nativeStations(model: RecoveryModel, data: ModelRecord, elementId: string) {
   const context = isRecord(data.nativeContext) ? data.nativeContext : {};
   if (context.stationConventionsVerified !== true || data.forceSemantics !== 'simultaneous-signed-stations') {
     throw new Error('NATIVE_STATION_CONVENTIONS_UNVERIFIED');

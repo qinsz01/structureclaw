@@ -78,6 +78,8 @@ const createModelSchema = z.object({
 }).passthrough();
 
 export const codeCheckSchema = z.object({
+  provider: z.enum(['auto', 'native', 'builtin']).optional(),
+  design: z.record(z.string(), z.unknown()).optional(),
   modelId: z.string().min(1).optional(),
   model_id: z.string().min(1).optional(),
   analysisId: z.string().min(1),
@@ -93,6 +95,13 @@ export const codeCheckSchema = z.object({
 }).transform(({ model_id, ...value }) => ({ ...value, modelId: (value.modelId ?? model_id)! }));
 
 export async function analysisRoutes(fastify: FastifyInstance) {
+  fastify.post('/tasks/:id/report', async (request, reply) => {
+    const { id } = z.object({ id: z.string().min(1) }).parse(request.params);
+    const input = z.object({ runId: z.string().min(1), locale: z.enum(['zh','en']).optional(),
+      resultKey: z.string().min(1).optional() }).strict().parse(request.body);
+    return reply.send(await analysisService.generateReport(id, input));
+  });
+
   // 内置地震波目录元数据，不返回完整波形数组。
   fastify.get('/seismic/ground-motion-catalog', {
     schema: {

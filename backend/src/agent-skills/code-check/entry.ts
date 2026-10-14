@@ -7,6 +7,7 @@ import type { ExecutionRequestOptions } from '../analysis/types.js';
 import { withGB50011CodeCheckMetadata } from './gb50011/metadata.js';
 import { recoverAnalysisMembers } from '../result-postprocess/member-response.js';
 import type { RecoveryModel, RecoveryResult } from '../../skill-shared/member-response.js';
+import { nativeStations } from '../../engineering/result-data.js';
 
 export type { CodeCheckDomainInput } from './types.js';
 export {
@@ -389,8 +390,22 @@ function extractElementDataForCodeCheck(
     const elemForces = asRecord(rawForces[elemId]);
     const incompatibleFrame = elemForces['referenceFrame'] !== undefined && elemForces['referenceFrame'] !== 'element-local';
     const forceStates: ForceState[] = [];
+    let nativeStationIssue: string | undefined;
     const recovered = recoveredById.get(elemId);
-    if (recovered) {
+    if (nativeEnvelope) {
+      try {
+        const { rows } = nativeStations(model as unknown as RecoveryModel, data, elemId);
+        for (const row of rows) {
+          const c = row.components;
+          const vector = { N: c.N, V2: c.Vy, V3: c.Vz, T: c.T, M2: c.My, M3: c.Mz };
+          forceStates.push({ ...codeCheckForceState(vector, { force: 1000, moment: 1e6 },
+            'native_station', row.positionM, swappedPrincipalAxes ? 3 : 2), positionM: row.positionM,
+            ...(row.side === 'left' || row.side === 'right' ? { side: row.side } : {}) });
+        }
+      } catch (error) {
+        nativeStationIssue = error instanceof Error ? error.message : 'NATIVE_STATIONS_UNAVAILABLE';
+      }
+    } else if (recovered) {
       for (const sample of recovered.samples) {
         forceStates.push({ ...codeCheckForceState(sample as unknown as Record<string, unknown>, { force: 1000, moment: 1e6 }, 'member_response', sample.x, swappedPrincipalAxes ? 3 : 2), positionM: sample.x, ...(sample.segmentId ? { segmentId: sample.segmentId } : {}), ...(sample.side ? { side: sample.side } : {}) });
       }
@@ -408,7 +423,7 @@ function extractElementDataForCodeCheck(
       if (!forceStates.length && hasRecordKeys(elemForces)) forceStates.push(codeCheckForceState(elemForces, factors, 'provided_station', 'provided', swappedPrincipalAxes ? 3 : 2));
     }
     const forceInputIssue = nativeEnvelope
-      ? 'Native component envelopes lack verified simultaneous station conventions / 原生分量包络尚缺同截面向量约定，不能用于组合验算。'
+      ? nativeStationIssue
       : incompatibleFrame ? 'Member checks require verified element-local actions / 构件校核需要已验证的局部坐标内力。'
         : !factors && hasRecordKeys(elemForces) ? 'Analysis force units are not declared / 分析内力单位未声明。' : undefined;
 

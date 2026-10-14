@@ -127,7 +127,7 @@ export async function executeAnalysisRun(
     } catch (error) {
       result = { success: false, error_code: isRecord(error) && typeof error.errorCode === 'string' ? error.errorCode : 'ANALYSIS_EXECUTION_FAILED', message: error instanceof Error ? error.message : String(error), data: {} };
     }
-    result.meta = { ...(isRecord(result.meta) ? result.meta : {}), ...binding, runId, modelHash: fingerprint, settingsHash, effectiveParameters: effective };
+    result.meta = { ...(isRecord(result.meta) ? result.meta : {}), ...binding, runId, modelHash: fingerprint, settingsHash, effectiveParameters: effective, requestParameters: parameters };
     const data = enrichResultData(model, result, selection as unknown as ModelRecord);
     results[selection.key] = {
       ...result, data, selection, executionStatus: executionStatus(result),
@@ -135,7 +135,7 @@ export async function executeAnalysisRun(
         : data.status === 'partial' || data.status === 'preliminary' || data.isPreliminary === true
           || Array.isArray(data.missingCapabilities) && data.missingCapabilities.length > 0
           || Array.isArray(data.missingInputs) && data.missingInputs.length > 0 ? 'partial' : 'complete',
-      meta: { ...(isRecord(result.meta) ? result.meta : {}), runId, modelHash: fingerprint, settingsHash, effectiveParameters: effective },
+      meta: { ...(isRecord(result.meta) ? result.meta : {}), runId, modelHash: fingerprint, settingsHash, effectiveParameters: effective, requestParameters: parameters },
     };
   }
   const selectedResultKey = selections[0]!.key;

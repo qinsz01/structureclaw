@@ -158,7 +158,11 @@ export function assertInputEvidenceMatchesModel(model: ModelRecord, evidence: un
     const canonical = modelCollections.has(field.split('.')[0]!) || modelSingletons.has(field.split('.')[0]!);
     const latest = records.reduce((last, item, index) => isResolution(item) ? index : last, -1);
     const directObservation = latest < 0 ? records.filter(item => item.status === 'observed').at(-1) : undefined;
-    if (latest < 0 && (!canonical || !directObservation)) continue;
+    if (latest < 0 && !directObservation) continue;
+    if (latest < 0 && !canonical) {
+      if (/^file:/.test(field) || /^coverage\.(geometry|connectivity|supports|loads|materials|sections)$/.test(field)) continue;
+      throw new Error(`INPUT_EVIDENCE_MODEL_FIELD_REQUIRED: ${field} / 必需识别值尚未绑定到稳定模型字段`);
+    }
     const resolution = latest < 0 ? {} : records[latest]!.resolution as ModelRecord;
     // File-read and category coverage reviews are workflow acknowledgments,
     // not a numerical model assignment. Concrete engineering fields still bind.

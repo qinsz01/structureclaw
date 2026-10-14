@@ -1,5 +1,8 @@
+import { attachNativeReport, createEngineeringReport } from './engineering-report.js';
+import { nativeDesignRecord, resolveCheckProvider, type CodeCheckProvider } from '../engineering/native-design.js';
+import { resultEngine } from '../engineering/result-data.js';
 import { checkRunResults, formatCheckSummary } from '../engineering/code-checks.js';
-import { modelHash } from '../engineering/model-state.js';
+import { modelHash, isRecord as isReportResult } from '../engineering/model-state.js';
 import { analysisSettingsHash } from '../engineering/analysis-runs.js';
 import { prisma } from '../utils/database.js';
 import { cache } from '../utils/cache.js';
@@ -11,8 +14,6 @@ import {
   executeCodeCheckDomain,
 } from '../agent-skills/code-check/entry.js';
 import { resolveCodeCheckRule } from '../agent-skills/code-check/registry.js';
-import { buildReportDomainArtifacts } from '../agent-skills/report-export/entry.js';
-import { buildDefaultReportNarrative } from '../agent-runtime/report-template.js';
 import type { AppLocale } from './locale.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 import { createLocalStructureProtocolClient } from './structure-protocol-execution.js';
@@ -110,66 +111,11 @@ export function buildDirectSeismicReport(options: {
   parameters: Record<string, unknown>;
 }): { summary: string; json: Record<string, unknown>; markdown: string } {
   const locale = directReportLocale(options.parameters);
-  const analysisSuccess = Boolean(options.analysisResults.success);
-  const codeCheckText = formatCheckSummary(codeCheckSummary(options.codeCheck), locale);
-  const message = typeof options.parameters.message === 'string' && options.parameters.message.trim()
-    ? options.parameters.message.trim()
-    : typeof options.parameters.intent === 'string' && options.parameters.intent.trim()
-      ? options.parameters.intent.trim()
-      : locale === 'zh'
-        ? `直接分析任务：${options.analysisName}`
-        : `Direct analysis task: ${options.analysisName}`;
-  const summary = locale === 'zh'
-    ? `分析类型 ${options.analysisType}，分析${analysisSuccess ? '成功' : '失败'}，${codeCheckText}。`
-    : `Analysis type ${options.analysisType}; analysis ${analysisSuccess ? 'succeeded' : 'failed'}; ${codeCheckText}.`;
-  const {
-    keyMetrics,
-    clauseTraceability,
-    controllingCases,
-    visualizationHints,
-  } = buildReportDomainArtifacts({
-    designBasis: undefined,
-    normalizedModel: undefined,
-    postprocessedResult: options.analysisResults,
-    codeCheckResult: options.codeCheck,
-  });
-  const jsonReport: Record<string, unknown> = {
-    reportSchemaVersion: '1.0.0',
-    intent: message,
-    analysisType: options.analysisType,
-    summary,
-    keyMetrics,
-    clauseTraceability,
-    controllingCases,
-    visualizationHints,
-    analysis: options.analysisResults,
-    codeCheck: options.codeCheck,
-    generatedAt: new Date().toISOString(),
-    meta: {
-      reportSkillId: 'report-export-builtin',
-      reportSource: 'direct-analysis-api',
-    },
-  };
-  const markdown = buildDefaultReportNarrative({
-    message,
-    analysisType: 'seismic',
-    analysisSuccess,
-    codeCheckText,
-    summary,
-    keyMetrics,
-    clauseTraceability,
-    controllingCases,
-    visualizationHints,
-    analysis: options.analysisResults,
-    codeCheck: options.codeCheck,
-    locale,
-  });
-
-  return {
-    summary,
-    json: jsonReport,
-    markdown,
-  };
+  const message = typeof options.parameters.message === 'string' ? options.parameters.message
+    : typeof options.parameters.intent === 'string' ? options.parameters.intent
+      : locale === 'zh' ? `直接分析任务：${options.analysisName}` : `Direct analysis task: ${options.analysisName}`;
+  return createEngineeringReport({ message, analysisType: 'seismic', analysis: options.analysisResults,
+    codeCheck: codeCheckPayload(options.codeCheck), locale });
 }
 
 export function shouldRunDirectSeismicCodeCheck(
@@ -440,6 +386,28 @@ export class AnalysisService {
   }
 
   // 获取分析结果
+  async generateReport(analysisId: string, input: { runId: string; locale?: AppLocale; resultKey?: string }) {
+    const stored = await prisma.analysis.findUnique({ where: { id: analysisId }, include: { model: true } });
+    if (!stored || stored.status !== 'completed') throw new Error('CURRENT_ANALYSIS_RUN_REQUIRED');
+    const run = asRecord(stored.results);
+    const model = buildDirectAnalysisModelForCodeCheck({ ...stored.model,
+      coordinate_system: stored.model.coordinateSystem, ...asRecord(stored.model.physicalModel) });
+    const meta = asRecord(run.meta);
+    if (run.runId !== input.runId || meta.modelHash !== modelHash(model)) throw new Error('REPORT_MODEL_MISMATCH');
+    if (meta.settingsHash !== analysisSettingsHash(stored.type, asRecord(stored.parameters).engineId, asRecord(stored.parameters))) {
+      throw new Error('ANALYSIS_SETTINGS_MISMATCH');
+    }
+    const selected = input.resultKey === undefined ? run : asRecord(run.results)[input.resultKey];
+    if (!isReportResult(selected)) throw new Error('RESULT_NOT_FOUND');
+    const analysis = input.resultKey ? { ...run, ...selected, runId: run.runId, results: run.results, selectedResultKey: input.resultKey } : run;
+    const codeCheck = Object.keys(asRecord(run.codeCheck)).length ? run.codeCheck : undefined;
+    const options = { message: stored.name, analysisType: (['static','dynamic','seismic','nonlinear'].includes(stored.type) ? stored.type : 'static') as 'static'|'dynamic'|'seismic'|'nonlinear',
+      normalizedModel: model, analysis, codeCheck, locale: input.locale ?? 'zh' as AppLocale };
+    const report = createEngineeringReport(options);
+    await attachNativeReport(report, options);
+    return report;
+  }
+
   async getResults(analysisId: string) {
     const analysis = await prisma.analysis.findUnique({
       where: { id: analysisId },
@@ -467,6 +435,8 @@ export class AnalysisService {
     elements: string[];
     context?: Record<string, unknown>;
     engineId?: string;
+    provider?: CodeCheckProvider;
+    design?: Record<string, unknown>;
   }) {
     if (!params.analysisId || !params.runId) throw new Error('ANALYSIS_ID_AND_RUN_ID_REQUIRED');
     if (Object.keys(asRecord(params.context)).length) throw new Error('CODE_CHECK_CONTEXT_OVERRIDE_UNSUPPORTED');
@@ -476,7 +446,32 @@ export class AnalysisService {
     if (analysis.status !== 'completed' || results.runId !== params.runId) throw new Error('CURRENT_ANALYSIS_RUN_REQUIRED');
     const model = buildDirectAnalysisModelForCodeCheck({ ...analysis.model,
       coordinate_system: analysis.model.coordinateSystem, ...asRecord(analysis.model.physicalModel) });
-    return this.checkAnalysisRun({ analysisId: analysis.id, model, analysis: results,
+    if (resolveCheckProvider(params.provider, results) === 'native') {
+      const engineId = `builtin-${resultEngine(results)}`;
+      if (params.engineId && params.engineId !== engineId) throw new Error('DESIGN_ENGINE_MISMATCH');
+      const parameters = { ...asRecord(analysis.parameters), design: { ...params.design, requested: true, code: params.code } };
+      const designRun = await this.executionService.analyze({ type: 'static', engineId, model, parameters });
+      const record = nativeDesignRecord(model, designRun, params.code);
+      // Compare-and-set: a concurrent rerun must not receive this older design result.
+      const current = await prisma.analysis.findUnique({ where: { id: analysis.id } });
+      if (asRecord(current?.results).runId !== params.runId) throw new Error('DESIGN_RUN_SUPERSEDED');
+      const published = await prisma.analysis.updateMany({ where: { id: analysis.id,
+        results: { equals: JSON.parse(JSON.stringify(current?.results)) } }, data: {
+        results: JSON.parse(JSON.stringify({ ...designRun, codeCheck: record })),
+        parameters: JSON.parse(JSON.stringify({ ...parameters, engineId })),
+        status: designRun.success === true ? 'completed' : 'failed', completedAt: new Date(),
+      } });
+      if (published.count !== 1) throw new Error('DESIGN_RUN_SUPERSEDED');
+      return record;
+    }
+    if (params.design) throw new Error('BUILTIN_DESIGN_REQUEST_UNSUPPORTED');
+    const checked = await this.checkAnalysisRun({ analysisId: analysis.id, model, analysis: results,
       parameters: asRecord(analysis.parameters), analysisType: analysis.type, code: params.code, elements: params.elements, engineId: params.engineId });
+    const published = await prisma.analysis.updateMany({ where: { id: analysis.id,
+      results: { equals: JSON.parse(JSON.stringify(analysis.results)) } }, data: {
+      results: JSON.parse(JSON.stringify({ ...results, codeCheck: checked })),
+    } });
+    if (published.count !== 1) throw new Error('DESIGN_RUN_SUPERSEDED');
+    return checked;
   }
 }
