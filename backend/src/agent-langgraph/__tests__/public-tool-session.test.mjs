@@ -39,4 +39,16 @@ describe('durable public tool session', () => {
     expect(result.usage.toolCalls).toBe(1);
     expect(session.snapshot().pendingCall).toBeUndefined();
   });
+  test('host redelivery cannot repeat a completed call, even after another call and a new turn', async () => {
+    const session = await createPublicToolSession({ runPolicy: { skillIds: [], tools: { enabledIds: ['calculate'] } } });
+    await session.invoke('calculate', { expression: '6 * 7' }, 'host-call-1');
+    await session.invoke('calculate', { expression: '1 + 1' }, 'host-call-2');
+    const resumed = await createPublicToolSession({ sessionId: session.sessionId, resume: true });
+    await expect(resumed.invoke('calculate', { expression: '6 * 7' }, 'host-call-1')).rejects.toThrow('PUBLIC_TOOL_CALL_ALREADY_COMPLETED');
+    await expect(resumed.invoke('calculate', { expression: '7 * 7' }, 'host-call-1')).rejects.toThrow('HOST_TOOL_CALL_ID_CONFLICT');
+    expect(resumed.snapshot().usage.toolCalls).toBe(2);
+    const next = await createPublicToolSession({ sessionId: session.sessionId, newTurn: true, message: 'Next request' });
+    await expect(next.invoke('calculate', { expression: '6 * 7' }, 'host-call-1')).rejects.toThrow('PUBLIC_TOOL_CALL_ALREADY_COMPLETED');
+    expect(next.snapshot().usage.toolCalls).toBe(0);
+  });
 });

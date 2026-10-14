@@ -20,6 +20,7 @@ import { acquirePersistentSessionLock, readPersistentSession, withAbandonedSessi
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 import { commitModel, contentHash } from '../engineering/model-state.js';
 import { writeAtomicJson as atomicRecord } from '../engineering/atomic-json.js';
+import { summarizeFileImages } from './attachment-vision.js';
 
 /** Apply the application reducers to external tool updates, without duplicating state rules. */
 export function applyPublicToolStateUpdate(
@@ -66,6 +67,8 @@ async function acquirePublicSession(sessionId: string, file: string) {
 }
 interface PublicSessionRecord {
   sessionId: string; policy: EffectiveRunPolicy; usage: RunUsage; state: Record<string, unknown>;
+  attachmentPaths?: string[];
+  completedHostCalls?: Record<string, { name: string; argsHash: string; callId: string; runId: string }>;
   pendingCall?: { id: string; name: string };
 }
 
@@ -159,6 +162,7 @@ export async function recoverPublicToolSession(input: { sessionId: string; expec
 export async function createPublicToolSession(input: {
   sessionId?: string; resume?: boolean; newTurn?: boolean; runPolicy?: RunPolicyInput;
   message?: string; locale?: 'zh' | 'en'; model?: Record<string, unknown>; modelFormat?: string;
+  attachmentPaths?: string[];
 }, deps: AgentToolFactoryDeps = { skillRuntime: new AgentSkillRuntime() }) {
   const sessionId = input.sessionId ?? randomUUID();
   const file = sessionPath(sessionId);
@@ -175,7 +179,7 @@ export async function createPublicToolSession(input: {
     const saved = exists ? read() : undefined;
     if (saved?.pendingCall) throw new Error('PUBLIC_TOOL_OUTCOME_UNKNOWN: inspect the saved run; do not automatically reissue the operation');
     if (input.resume && !input.newTurn) {
-      if (input.runPolicy || input.message !== undefined || input.model) throw new Error('PUBLIC_SESSION_RESUME_IMMUTABLE');
+      if (input.runPolicy || input.message !== undefined || input.model || input.attachmentPaths !== undefined) throw new Error('PUBLIC_SESSION_RESUME_IMMUTABLE');
       record = saved!;
     } else {
       const policy = resolveApplicationRunPolicy({ availableSkillIds: (await deps.skillRuntime.listSkillManifests()).map(item => item.id),
@@ -187,7 +191,8 @@ export async function createPublicToolSession(input: {
         runPolicy: policy, runUsage: snapshotRunUsage(runtime), locale: input.locale ?? saved?.state.locale ?? 'zh',
         lastUserMessage: input.message ?? '', workspaceRoot: deps.workspaceRoot ?? config.agentWorkspaceRoot };
       if (input.model) Object.assign(state, commitModel(state as unknown as AgentState, await normalizeEngineeringModel(input.model, protocol, input.modelFormat), 'import_model'));
-      record = { sessionId, policy, usage: snapshotRunUsage(runtime), state };
+      record = { sessionId, policy, usage: snapshotRunUsage(runtime), state, attachmentPaths: [...(input.attachmentPaths ?? [])],
+        completedHostCalls: saved?.completedHostCalls ?? {} };
       write(record);
     }
   } finally { await release(); }
@@ -195,10 +200,23 @@ export async function createPublicToolSession(input: {
     sessionId,
     policy: record.policy,
     snapshot: () => structuredClone(read()),
-    invoke: async (name: string, args: Record<string, unknown>) => {
+    invoke: async (name: string, args: Record<string, unknown>, hostCallId?: string) => {
       const unlock = await acquirePublicSession(sessionId, file);
       try {
         const saved = read();
+        // A host may redeliver a call after the committed response was lost.
+        // Keep its identity across turns/restarts, including calls older than
+        // the latest recovery receipt. Never repeat an admitted mutation.
+        if (hostCallId !== undefined && (typeof hostCallId !== 'string' || !hostCallId.trim() || hostCallId.length > 512)) {
+          throw new Error('INVALID_HOST_TOOL_CALL_ID / 宿主工具调用标识无效');
+        }
+        const hostCallKey = hostCallId === undefined ? undefined : contentHash(hostCallId);
+        const argsHash = contentHash(args);
+        const previous = hostCallKey ? saved.completedHostCalls?.[hostCallKey] : undefined;
+        if (previous) {
+          if (previous.name !== name || previous.argsHash !== argsHash) throw new Error('HOST_TOOL_CALL_ID_CONFLICT / 宿主调用标识对应不同参数');
+          throw new Error(`PUBLIC_TOOL_CALL_ALREADY_COMPLETED: runId=${previous.runId}, callId=${previous.callId}; do not replay / 调用已完成，禁止重放`);
+        }
         if (saved.policy.policyHash !== record.policy.policyHash || saved.usage.runId !== record.usage.runId) throw new Error('PUBLIC_SESSION_TURN_CHANGED');
         if (saved.pendingCall) throw new Error('PUBLIC_TOOL_OUTCOME_UNKNOWN');
         const runtime = createRunContext(saved.policy, { runId: saved.usage.runId, usage: saved.usage, journalDir, resume: true });
@@ -215,13 +233,18 @@ export async function createPublicToolSession(input: {
           skillScope: saved.policy.activeSkillIds.filter(item => state.selectedSkillIds.includes(item)),
           enabledToolIds: saved.policy.activeToolIds, disabledToolIds: [], allowShell: config.agentAllowShell,
           workspaceRoot: deps.workspaceRoot ?? config.agentWorkspaceRoot,
+          fileAccessAllowlist: saved.attachmentPaths ?? [],
+          summarizeFileImages: (analysis: Record<string, unknown>, filePath: string, signal?: AbortSignal) => summarizeFileImages(analysis, filePath,
+            state.locale === 'en' ? 'en' : 'zh', String(state.lastUserMessage ?? ''), signal),
           maxToolCallsPerTurn: saved.policy.budgets.maxToolCallsPerTurn, engineClient: createLocalAnalysisEngineClient(),
           codeCheckClient: createLocalCodeCheckClient(), structureProtocolClient: protocol,
         } }));
         const update = output.update as Record<string, unknown>;
         const next = applyPublicToolStateUpdate(saved.state, update);
         next.messages = [];
-        record = { sessionId, policy: saved.policy, usage: snapshotRunUsage(runtime), state: next };
+        record = { sessionId, policy: saved.policy, usage: snapshotRunUsage(runtime), state: next, attachmentPaths: saved.attachmentPaths ?? [],
+          completedHostCalls: { ...saved.completedHostCalls,
+            ...(hostCallKey ? { [hostCallKey]: { name, argsHash, callId: id, runId: saved.usage.runId } } : {}) } };
         // Commit the completed output before publishing state. A stopped host can
         // recover this exact result without replaying a model edit or solver call.
         const messages = (update.messages as BaseMessage[]).map(message => ({ type: message.getType(), name: message.name,
