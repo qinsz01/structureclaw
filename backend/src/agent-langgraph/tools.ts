@@ -2522,7 +2522,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
 
       const existingState = state?.draftState || undefined;
       const skillIds = configurable.skillScope;
-      const locale = (input.locale === 'en' ? 'en' : (state?.locale || 'zh')) as 'zh' | 'en';
+      const locale = (input.locale ?? state?.locale ?? 'zh') as 'zh' | 'en';
       const message = resolveToolInputMessage(input.message, state?.lastUserMessage, state?.messages);
       const extractionMessage = resolveRetryTaskMessage(message);
       const nestedUsage = nestedLlmUsageCollector();
@@ -3492,7 +3492,7 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
       const codeCheck = state?.codeCheckResult || undefined;
       const draftState = state?.draftState || undefined;
       const skillIds = configurable.skillScope;
-      const locale = (input.locale === 'en' ? 'en' : (state?.locale || 'zh')) as 'zh' | 'en';
+      const locale = (input.locale ?? state?.locale ?? 'zh') as 'zh' | 'en';
       const analysisType = inferEffectiveAnalysisType(input.analysisType, state);
       const workflowInputMode = analysisWorkflowInputModeFromResult(analysis);
       if (analysisType === 'seismic' && workflowInputMode !== 'structured_seismic_workflow') {
