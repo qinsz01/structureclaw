@@ -5,8 +5,8 @@ name:
   zh: OpenSees 静力分析
   en: OpenSees Static Analysis
 description:
-  zh: 使用 OpenSees 执行静力/线弹性分析的 skill。
-  en: Skill for static and linear-elastic analysis using OpenSees.
+  zh: OpenSees 二维/三维线弹性杆系静力分析：梁柱、桁架与混合支撑，局部/集中荷载、多工况组合及弯曲端释放。跨内力学恢复与直接节点结果区分；轴向/剪切/扭转释放、刚端偏心和二阶分析尚不支持。
+  en: OpenSees 2-D/3-D linear frame statics with beams, columns, trusses, mixed braces, partial/point loads, case combinations and bending end releases. Interior mechanics recovery is distinct from direct nodal results. Axial/shear/torsional releases, rigid offsets and second-order analysis are unsupported.
 triggers:
   - OpenSees 静力分析
   - 静力分析

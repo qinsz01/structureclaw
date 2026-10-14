@@ -47,6 +47,7 @@ interface CapabilitySkill {
     skillApiVersion: string;
   };
   stages: string[];
+  implementationScope: { zh?: string; en?: string };
   name: {
     zh?: string;
     en?: string;
@@ -84,6 +85,8 @@ interface CapabilityEngine {
   enabled: boolean;
   available: boolean;
   status?: string;
+  environment: { status: 'available' | 'unavailable' | 'disabled' | 'unknown'; checkedAt?: string; reason?: string; scope: 'environment-readiness-only' };
+  constraints: Record<string, unknown>;
   supportedModelFamilies: string[];
   supportedAnalysisTypes: string[];
 }
@@ -359,6 +362,7 @@ export class AgentCapabilityService {
           skillApiVersion: entry.compatibility.skillApiVersion,
         },
         stages: uniqueStrings(entry.stages),
+        implementationScope: { ...entry.description },
         name: {
           zh: entry.name?.zh,
           en: entry.name?.en,
@@ -395,8 +399,16 @@ export class AgentCapabilityService {
         id: String(engine.id),
         name: typeof engine.name === 'string' ? engine.name : undefined,
         enabled: engine.enabled !== false,
-        available: engine.available !== false,
+        available: engine.available === true,
         status: typeof engine.status === 'string' ? engine.status : undefined,
+        environment: {
+          status: engine.enabled === false ? 'disabled' : engine.available === true ? 'available' : engine.available === false ? 'unavailable' : 'unknown',
+          checkedAt: typeof engine.checkedAt === 'string' ? engine.checkedAt : undefined,
+          reason: typeof engine.unavailableReason === 'string' ? engine.unavailableReason : undefined,
+          scope: 'environment-readiness-only',
+        },
+        constraints: engine.constraints && typeof engine.constraints === 'object' && !Array.isArray(engine.constraints)
+          ? engine.constraints as Record<string, unknown> : {},
         supportedModelFamilies: normalizeModelFamilies(engine.supportedModelFamilies),
         supportedAnalysisTypes: normalizeAnalysisTypes(engine.supportedAnalysisTypes),
       }));

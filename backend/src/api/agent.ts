@@ -5,6 +5,8 @@ import { getAgentService, LangGraphAgentService } from '../agent-langgraph/index
 import { AgentCapabilityService } from '../services/agent-capability.js';
 import { AgentSkillHubService } from '../services/agent-skillhub.js';
 import type { SkillDomain } from '../agent-runtime/types.js';
+import { ConversationService } from '../services/conversation.js';
+import { assessCurrentEngineeringInput } from '../engineering/capability-assessment.js';
 
 const agentService = getAgentService();
 const capabilityService = new AgentCapabilityService();
@@ -50,6 +52,7 @@ const agentRunSchema = z.object({
 
 const capabilityMatrixQuerySchema = z.object({
   analysisType: z.enum(['static', 'dynamic', 'seismic', 'nonlinear']).optional(),
+  conversationId: z.string().min(1).max(256).optional(),
 });
 
 const skillHubDomainSchema = z.enum([
@@ -104,7 +107,15 @@ export async function agentRoutes(fastify: FastifyInstance) {
     },
   }, async (request: FastifyRequest<{ Querystring: z.infer<typeof capabilityMatrixQuerySchema> }>, reply: FastifyReply) => {
     const query = capabilityMatrixQuerySchema.parse(request.query);
-    return reply.send(await capabilityService.getCapabilityMatrix({ analysisType: query.analysisType }));
+    const matrix = await capabilityService.getCapabilityMatrix({ analysisType: query.analysisType });
+    let session;
+    if (query.conversationId) {
+      // Follow the same conversation lookup as GET /chat/conversation/:id.
+      const conversation = await new ConversationService().getConversation(query.conversationId);
+      if (!conversation) return reply.code(404).send({ error: 'CONVERSATION_NOT_FOUND' });
+      session = await agentService.getConversationSessionSnapshot(query.conversationId, 'en');
+    }
+    return reply.send({ ...matrix, currentAssessment: assessCurrentEngineeringInput(session?.state, query.conversationId) });
   });
 
   fastify.get('/skillhub/search', {

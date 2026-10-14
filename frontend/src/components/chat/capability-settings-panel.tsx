@@ -10,6 +10,7 @@ import { useI18n, type MessageKey } from '@/lib/i18n'
 import type { AppLocale } from '@/lib/stores/slices/preferences'
 import { useStore } from '@/lib/stores/context'
 import { cn } from '@/lib/utils'
+import { CapabilityReadinessPanel, type CapabilityReadiness } from './capability-readiness-panel'
 
 type AgentSkillSummary = SkillMetadataLike & {
   name: { zh?: string; en?: string }
@@ -43,7 +44,7 @@ type CapabilityDomainSummary = {
   skillIds?: string[]
 }
 
-type CapabilityMatrixPayload = {
+type CapabilityMatrixPayload = CapabilityReadiness & {
   skills?: CapabilitySkillSummary[]
   tools?: CapabilityToolSummary[]
   domainSummaries?: CapabilityDomainSummary[]
@@ -121,6 +122,10 @@ export function CapabilitySettingsPanel() {
   const initializedRef = useRef(false)
   const [skillsLoaded, setSkillsLoaded] = useState(false)
   const [capabilityMatrixLoaded, setCapabilityMatrixLoaded] = useState(false)
+  const [readinessLoading, setReadinessLoading] = useState(true)
+  const [readinessFailed, setReadinessFailed] = useState(false)
+  const [conversationId, setConversationId] = useState('')
+  const [conversations, setConversations] = useState<Array<{ id: string; title?: string }>>([])
 
   const storeSkillIds = useStore((s) => s.capabilitySkillIds)
   const storeToolIds = useStore((s) => s.capabilityToolIds)
@@ -183,15 +188,19 @@ export function CapabilitySettingsPanel() {
     let active = true
 
     async function loadCapabilityMatrix() {
-      const response = await fetch(`${API_BASE}/api/v1/agent/capability-matrix`)
+      setReadinessLoading(true)
+      setReadinessFailed(false)
+      const query = conversationId ? `?conversationId=${encodeURIComponent(conversationId)}` : ''
+      const response = await fetch(`${API_BASE}/api/v1/agent/capability-matrix${query}`)
       if (!response.ok) {
-        if (active) setCapabilityMatrixLoaded(true)
+        if (active) { setCapabilityMatrixLoaded(true); setReadinessFailed(true); setReadinessLoading(false) }
         return
       }
       const payload = await response.json()
       if (active && payload && typeof payload === 'object') {
         setCapabilityMatrix(payload as CapabilityMatrixPayload)
         setCapabilityMatrixLoaded(true)
+        setReadinessLoading(false)
       }
     }
 
@@ -199,12 +208,24 @@ export function CapabilitySettingsPanel() {
       if (active) {
         setCapabilityMatrix(null)
         setCapabilityMatrixLoaded(true)
+        setReadinessFailed(true)
+        setReadinessLoading(false)
       }
     })
 
     return () => {
       active = false
     }
+  }, [conversationId])
+
+  useEffect(() => {
+    let active = true
+    void fetch(`${API_BASE}/api/v1/chat/conversations`).then(async response => {
+      if (!response.ok) return
+      const payload: unknown = await response.json()
+      if (active && Array.isArray(payload)) setConversations(payload.filter(item => item && typeof item.id === 'string'))
+    }).catch(() => { /* The page can still show implementation/environment without a selected conversation. */ })
+    return () => { active = false }
   }, [])
 
   // One-time initialization: normalize store IDs and apply defaults if needed
@@ -361,6 +382,8 @@ export function CapabilitySettingsPanel() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <CapabilityReadinessPanel matrix={capabilityMatrix} conversations={conversations} conversationId={conversationId}
+            onConversationChange={setConversationId} loading={readinessLoading} failed={readinessFailed} />
           <div className="rounded-[24px] border border-border/70 bg-background/75 p-5 dark:border-white/10 dark:bg-white/5">
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm font-medium text-foreground">{t('capabilitySettingsSectionTitle')}</p>

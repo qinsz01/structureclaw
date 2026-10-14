@@ -5,8 +5,8 @@ name:
   zh: OpenSees 动力分析
   en: OpenSees Dynamic Analysis
 description:
-  zh: 使用 OpenSees 执行模态或时程动力分析的 skill。
-  en: Skill for modal and time-history dynamic analysis using OpenSees.
+  zh: OpenSees 线弹性模态与一致时间步地震时程分析；显式质量方案、激励方向、阻尼，记录指定节点六分量位移/速度/加速度、构件端力和支座反力。时程运动相对地面；暂不提供任意跨内瞬态响应或通用非线性动力。
+  en: OpenSees linear modal and earthquake time-history analysis with explicit mass source, direction, damping and time step. Records requested six-component nodal motion, member end forces and support reactions. Motion is relative to the ground; arbitrary interior transient responses and general nonlinear dynamics are unsupported.
 triggers:
   - OpenSees 动力分析
   - 模态分析
