@@ -698,6 +698,10 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     design_plan = compile_design_request(parameters.get("design"), source_model)
     projection = project_commercial_model(source_model, "pkpm")
     model_dict = projection["analysisModel"]
+    # Reject inconsistent authored physics before a compilation step needs
+    # geometry or creates derived member identities.
+    validate_pkpm_material_properties(model_dict)
+    validate_pkpm_sections(model_dict)
     from native_member_mesh import compile_member_mesh, restore_physical_results
     physical_model = model_dict
     model_dict, mesh_receipt = compile_member_mesh(physical_model)
@@ -714,8 +718,6 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     available_cases = {str(case["id"]) for case in model_dict.get("load_cases", [])}
     if set(requested_cases) - available_cases:
         raise ValueError("Requested source case does not exist / 请求的源工况不存在")
-    validate_pkpm_material_properties(model_dict)
-    validate_pkpm_sections(model_dict)
     cycle_path = _check_pkpm_available()
     _import_apipyinterface()
 

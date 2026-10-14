@@ -138,9 +138,12 @@ class NativeModelContractTest(unittest.TestCase):
         runtime = load_runtime("pkpm")
         model = self.model()
         model["materials"][0].update(E=30000, nu=.2, G=12000, rho=2500)
-        with patch.object(runtime, "validate_coordinate_contract"), patch.object(runtime, "_check_pkpm_available") as available:
+        with (patch.object(runtime, "validate_coordinate_contract"),
+              patch("native_member_mesh.compile_member_mesh") as mesh,
+              patch.object(runtime, "_check_pkpm_available") as available):
             self.assert_rejected(lambda: runtime.run_analysis(model, {}),
                                  "PKPM_NATIVE_MATERIAL_PROPERTIES_UNVERIFIED", "materials.C.G")
+        mesh.assert_not_called()
         available.assert_not_called()
 
     def test_unmapped_node_springs_and_member_modifiers_are_not_ignored(self):
