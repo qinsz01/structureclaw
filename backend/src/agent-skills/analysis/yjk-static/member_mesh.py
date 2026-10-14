@@ -18,100 +18,18 @@ def _hash(value: dict) -> str:
 
 
 def compile_member_mesh(model: dict) -> tuple[dict, dict | None]:
-    nodes = {row['id']: row for row in model['nodes']}
-    elements = {row['id']: row for row in model['elements']}
-    loads = [load for case in model['load_cases'] for load in case['loads']]
-    mesh = copy.deepcopy(model)
-    mesh['elements'] = []
-    mappings, chains = {}, {}
+    from structure_protocol.member_mesh import compile_load_breakpoints
+    from yjk_native_boundaries import beam_release_plan
     story_geometry = None
-    for member in model['elements']:
-        first, last = [nodes[key] for key in member['nodes']]
-        length = math.dist([first[k] for k in ('x', 'y', 'z')], [last[k] for k in ('x', 'y', 'z')])
-        cuts = {0., length}
-        for load in loads:
-            if load.get('element') != member['id']:
-                continue
-            if load['type'] == 'point':
-                cuts.add(float(load['position']))
-            elif load['type'] == 'distributed':
-                cuts.update((float(load.get('start', 0)), float(load.get('end', length))))
-        if any(not math.isfinite(x) or not 0 <= x <= length for x in cuts):
-            raise ValueError('YJK member load position outside physical member / 构件荷载位置越界')
-        cuts = sorted(cuts)
-        if len(cuts) == 2:
-            mesh['elements'].append(copy.deepcopy(member))
-            mappings[member['id']] = [{'id': member['id'], 'start': 0., 'end': length}]
-            chains[member['id']] = {0.: first['id'], length: last['id']}
-            continue
-        if member['type'] != 'beam' or member.get('offsets'):
-            raise ValueError('YJK load refinement requires a beam without offsets / 荷载分段需要无偏移的梁')
-        from yjk_native_boundaries import beam_release_plan
-        releases = beam_release_plan(member)['hinges']
+    def node_fields(member):
+        nonlocal story_geometry
         if story_geometry is None:
             from native_story_geometry import compile_story_geometry
             story_geometry = compile_story_geometry(model)
-        chain = [first['id']]
-        for i, position in enumerate(cuts[1:-1], 1):
-            key = f'__yjk__{member["id"]}__n{i}'
-            if key in nodes:
-                raise ValueError('Reserved mesh node ID collision / 分段节点 ID 冲突')
-            node = {'id': key, **{k: first[k]+position/length*(last[k]-first[k]) for k in ('x', 'y', 'z')}}
-            # A roof can cross the nominal storey top. Preserve the validated
-            # member's natural floor instead of inferring a new floor from Z.
-            node['story'] = story_geometry['members'][member['id']]['floor']
-            mesh['nodes'].append(node)
-            chain.append(key)
-        chain.append(last['id'])
-        mappings[member['id']] = []
-        chains[member['id']] = dict(zip(cuts, chain))
-        for i, (start, end) in enumerate(zip(cuts, cuts[1:]), 1):
-            key = f'__yjk__{member["id"]}__s{i}'
-            if key in elements:
-                raise ValueError('Reserved mesh member ID collision / 分段构件 ID 冲突')
-            segment = {**copy.deepcopy(member), 'id': key, 'nodes': chain[i-1:i+1]}
-            segment.pop('releases', None)
-            outer = {}
-            if i == 1 and releases[0]:
-                outer['i'] = {'ry': True, 'rz': True}
-            if i == len(cuts)-1 and releases[1]:
-                outer['j'] = {'ry': True, 'rz': True}
-            if outer:
-                segment['releases'] = outer
-            mesh['elements'].append(segment)
-            mappings[member['id']].append({'id': key, 'start': start, 'end': end})
-            references = mesh.setdefault('metadata', {}).get('elementReferenceVectors', {})
-            if member['id'] in references:
-                references[key] = references[member['id']]
-    if not any(len(rows) > 1 for rows in mappings.values()) and not any(load['type'] == 'point' for load in loads):
-        return model, None
-    for case in mesh['load_cases']:
-        compiled = []
-        for load in case['loads']:
-            if load['type'] == 'point':
-                compiled.append({**{k: v for k, v in load.items() if k not in {'element', 'position'}},
-                                 'type': 'nodal', 'node': chains[load['element']][float(load['position'])]})
-            elif load['type'] == 'distributed':
-                rows = mappings[load['element']]
-                for segment in rows:
-                    if float(load.get('start', 0)) <= segment['start'] and segment['end'] <= float(load.get('end', rows[-1]['end'])):
-                        entry = {k: v for k, v in load.items() if k not in {'start', 'end'}}
-                        entry['element'] = segment['id']
-                        if 'id' in entry:
-                            entry['id'] += ':'+segment['id']
-                        compiled.append(entry)
-            else:
-                compiled.append(load)
-        case['loads'] = compiled
-    metadata = mesh.get('metadata', {})
-    if 'elementReferenceVectors' in metadata:
-        ids = {element['id'] for element in mesh['elements']}
-        metadata['elementReferenceVectors'] = {key: value for key, value in metadata['elementReferenceVectors'].items() if key in ids}
-    receipt = {'schema': 'sclaw-yjk-physical-mesh/v1', 'physicalModelHash': _hash(model),
-               'compiledModelHash': _hash(mesh), 'members': mappings,
-               'physicalNodeIds': list(nodes), 'positionUnit': 'm',
-               'reason': 'native-connected-load-breakpoint-segments'}
-    return mesh, receipt
+        # Sloped roofs retain the validated physical member's natural floor.
+        return {'story': story_geometry['members'][member['id']]['floor']}
+    return compile_load_breakpoints(model, engine='yjk',
+        beam_hinges=lambda member: beam_release_plan(member)['hinges'], node_fields=node_fields)
 
 
 def restore_physical_results(output: dict, receipt: dict | None) -> dict:
