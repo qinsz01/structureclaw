@@ -43,8 +43,14 @@ describe('YJK RC frame converter', () => {
           'import sqlite3',
           'from types import SimpleNamespace',
           'calls = []',
+          'beam_members = []',
           'class BzcPara:',
+          '    def setVal(self, index, value):',
+          '        calls.append({"method": "floor_parameter", "index": index, "value": value})',
           '    def GetValString(self): return "floor defaults"',
+          'class Property:',
+          '    def __init__(self, name):',
+          '        raise AssertionError("The fixed-base fixture must not add special supports or releases: " + name)',
           '',
           'class DataFunc:',
           '    def StdFlr_Generate(self, height_mm, dead, live):',
@@ -77,7 +83,9 @@ describe('YJK RC frame converter', () => {
           '',
           '    def beam_arrange(self, grid, section, Rotation=0):',
           '        calls.append({"method": "beam_arrange", "grid": grid, "section": section, "rotation": Rotation})',
-          '        return {"ID": len(calls)}',
+          '        member = SimpleNamespace(ID=len(calls), NoSlab=0)',
+          '        beam_members.append(member)',
+          '        return member',
           '',
           '    def Floors_Assemb(self, start_mm, std_flr, count, height_mm):',
           '        calls.append({"method": "Floors_Assemb", "start_mm": start_mm, "count": count, "height_mm": height_mm})',
@@ -208,13 +216,13 @@ describe('YJK RC frame converter', () => {
         `sys.path.insert(0, ${JSON.stringify(stubsDir)})`,
         `sys.path.insert(1, ${JSON.stringify(converterDir)})`,
         'import yjk_converter',
-        'from YJKAPI import calls',
+        'from YJKAPI import calls, beam_members',
         'model = json.loads(sys.stdin.read())',
         `work_dir = ${JSON.stringify(workDir)}`,
         'ydb_path = yjk_converter.convert_v2_to_ydb(model, work_dir, "rc.ydb")',
         'with open(os.path.join(work_dir, "mapping.json"), "r", encoding="utf-8") as f:',
         '    mapping = json.load(f)',
-        'print(json.dumps({"ydbExists": os.path.exists(ydb_path), "calls": calls, "mapping": mapping}, ensure_ascii=False))',
+        'print(json.dumps({"ydbExists": os.path.exists(ydb_path), "calls": calls, "mapping": mapping, "beamNoSlab": [member.NoSlab for member in beam_members]}, ensure_ascii=False))',
       ].join('\n');
 
       const result = spawnSync(
@@ -248,6 +256,12 @@ describe('YJK RC frame converter', () => {
       const beamSectionCall = payload.calls.find((call) => call.method === 'BeamSect_Def');
 
       expect(payload.ydbExists).toBe(true);
+      expect(payload.beamNoSlab.length).toBeGreaterThan(0);
+      expect(payload.beamNoSlab.every((value) => value === 1)).toBe(true);
+      expect(payload.calls.filter((call) => call.method === 'floor_parameter')).toEqual([
+        { method: 'floor_parameter', index: 1, value: 0 },
+        { method: 'floor_parameter', index: 1, value: 0 },
+      ]);
       expect(colSectionCall).toMatchObject({
         mat: 6,
         kind: 1,
