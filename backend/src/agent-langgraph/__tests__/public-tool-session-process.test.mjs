@@ -8,7 +8,7 @@ import path from 'node:path';
 const previous = process.env.SCLAW_DATA_DIR;
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'sclaw-public-process-'));
 process.env.SCLAW_DATA_DIR = temporary;
-const { createPublicToolSession } = await import('../../../dist/agent-langgraph/public-tool-contracts.js');
+const { createPublicToolSession, inspectPublicToolSession, recoverPublicToolSession } = await import('../../../dist/agent-langgraph/public-tool-contracts.js');
 const { acquirePersistentSessionLock } = await import('../../../dist/engineering/persistent-session-lock.js');
 const hosts = [];
 
@@ -20,7 +20,7 @@ async function stop(child) {
 }
 function host(sessionId, hold = false) {
   const child = fork(new URL('../../../tests/fixtures/public-session-host.mjs', import.meta.url),
-    [sessionId, hold ? 'hold' : 'normal'], { env: { ...process.env }, execArgv: [], windowsHide: true,
+    [sessionId, typeof hold === 'string' ? hold : hold ? 'hold' : 'normal'], { env: { ...process.env }, execArgv: [], windowsHide: true,
       stdio: ['ignore', 'ignore', 'pipe', 'ipc'] });
   hosts.push(child);
   const messages = [];
@@ -65,6 +65,8 @@ describe('independent public tool hosts', () => {
     expect(await second.next()).toMatchObject({ type: 'error', message: expect.stringContaining('PUBLIC_SESSION_BUSY_OR_OUTCOME_UNKNOWN') });
     const pending = session.snapshot().pendingCall;
     expect(pending.name).toBe('calculate');
+    const inFlight = await inspectPublicToolSession(session.sessionId);
+    expect(inFlight).toMatchObject({ status: 'busy', usage: { toolCalls: 1 }, recovery: null });
     first.child.send('release');
     expect(await first.next()).toMatchObject({ type: 'result', toolCalls: 1 });
     second.child.send('invoke');
@@ -97,6 +99,13 @@ describe('independent public tool hosts', () => {
     expect(fs.readFileSync(file, 'utf8')).toBe(saved);
     expect(fs.readFileSync(claim, 'utf8')).toBe(owner);
     expect(JSON.parse(saved).pendingCall.name).toBe('calculate');
+    const inspected = await inspectPublicToolSession(session.sessionId);
+    expect(inspected.status).toBe('outcome_unknown');
+    expect(inspected.usage.toolCalls).toBe(1);
+    await expect(recoverPublicToolSession({ sessionId: session.sessionId, expectedStateHash: inspected.stateHash,
+      expectedClaimToken: inspected.claim.token })).rejects.toThrow('PUBLIC_TOOL_OUTCOME_UNKNOWN');
+    expect(fs.readFileSync(file, 'utf8')).toBe(saved);
+    expect(fs.readFileSync(claim, 'utf8')).toBe(owner);
     // The claim is per session, not a global application lock.
     const separate = await newSession();
     expect((await separate.invoke('calculate', { expression: '2+3' })).usage.toolCalls).toBe(1);
@@ -121,4 +130,69 @@ describe('independent public tool hosts', () => {
     expect(results.map(result => result.usage.toolCalls)).toEqual([1, 2]);
     expect(session.snapshot().usage.toolCalls).toBe(2);
   });
+
+  test.each(['crash-before-commit', 'crash-after-commit'])('explicit recovery after %s keeps the completed result and budgets without invoking the tool', async mode => {
+    const session = await newSession();
+    const first = host(session.sessionId, mode);
+    expect(await first.next()).toEqual({ type: 'ready' });
+    const exited = once(first.child, 'exit');
+    first.child.send('invoke');
+    expect((await exited)[0]).toBe(mode === 'crash-before-commit' ? 72 : 73);
+    const inspected = await inspectPublicToolSession(session.sessionId);
+    expect(inspected).toMatchObject({ status: 'recoverable', claim: { alive: false }, usage: { toolCalls: 1 } });
+    const request = { sessionId: session.sessionId, expectedStateHash: inspected.stateHash, expectedClaimToken: inspected.claim.token };
+    await expect(recoverPublicToolSession({ ...request, expectedStateHash: '0'.repeat(64) })).rejects.toThrow('PUBLIC_SESSION_STATE_CHANGED');
+    await expect(recoverPublicToolSession({ ...request, expectedClaimToken: 'not-the-inspected-owner' })).rejects.toThrow('PUBLIC_SESSION_CLAIM_CHANGED');
+    const restored = await recoverPublicToolSession(request);
+    expect(restored).toMatchObject({ status: 'idle', claim: null, policy: inspected.policy, usage: { toolCalls: 1 } });
+    expect(JSON.stringify(restored.completedCall.messages)).toContain('42');
+    expect(JSON.stringify((await inspectPublicToolSession(session.sessionId)).completedCall.messages)).toContain('42');
+    const resumed = await createPublicToolSession({ sessionId: session.sessionId, resume: true });
+    const second = await resumed.invoke('calculate', { expression: '10 + 3' });
+    expect(second.usage.toolCalls).toBe(2);
+    expect(JSON.stringify((await inspectPublicToolSession(session.sessionId)).completedCall.messages)).toContain('13');
+    expect(second.usage.events.filter(event => event.kind === 'tool_finished')).toHaveLength(2);
+    const third = await resumed.invoke('calculate', { expression: '99' });
+    expect(JSON.stringify(third.messages)).toContain('TOOL_CALL_BUDGET_EXHAUSTED');
+  }, 45000);
+
+  test('a live host cannot be recovered even with an exact state and claim token', async () => {
+    const session = await newSession();
+    const first = host(session.sessionId, true);
+    expect(await first.next()).toEqual({ type: 'ready' });
+    first.child.send('invoke');
+    expect(await first.next()).toEqual({ type: 'entered' });
+    const inspected = await inspectPublicToolSession(session.sessionId);
+    expect(inspected.status).toBe('busy');
+    await expect(recoverPublicToolSession({ sessionId: session.sessionId, expectedStateHash: inspected.stateHash,
+      expectedClaimToken: inspected.claim.token })).rejects.toThrow('PUBLIC_SESSION_OWNER_RUNNING');
+    first.child.send('release');
+    expect(await first.next()).toMatchObject({ type: 'result', toolCalls: 1 });
+    await stop(first.child);
+  }, 45000);
+
+  test('a completion with a changed policy or lost ledger is never published', async () => {
+    const session = await newSession();
+    const first = host(session.sessionId, 'crash-before-commit');
+    expect(await first.next()).toEqual({ type: 'ready' });
+    const exited = once(first.child, 'exit');
+    first.child.send('invoke');
+    await exited;
+    const file = path.join(temporary, 'public-tool-sessions', `${session.sessionId}.json`);
+    const receiptFile = `${file}.completed`;
+    const original = fs.readFileSync(receiptFile, 'utf8');
+    const receipt = JSON.parse(original);
+    receipt.record.policy.activeToolIds.push('shell');
+    fs.writeFileSync(receiptFile, JSON.stringify(receipt));
+    await expect(inspectPublicToolSession(session.sessionId)).rejects.toThrow('PUBLIC_SESSION_COMPLETION_INVALID');
+    fs.writeFileSync(receiptFile, original);
+    const inspected = await inspectPublicToolSession(session.sessionId);
+    const ledger = path.join(temporary, 'run-records', `${inspected.usage.runId}.json`);
+    const usage = JSON.parse(fs.readFileSync(ledger, 'utf8'));
+    usage.usage.toolCalls = 0;
+    fs.writeFileSync(ledger, JSON.stringify(usage));
+    await expect(recoverPublicToolSession({ sessionId: session.sessionId, expectedStateHash: inspected.stateHash,
+      expectedClaimToken: inspected.claim.token })).rejects.toThrow('PUBLIC_SESSION_COMPLETION_LEDGER_MISMATCH');
+    expect(JSON.parse(fs.readFileSync(file, 'utf8')).pendingCall).toBeDefined();
+  }, 45000);
 });

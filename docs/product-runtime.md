@@ -140,6 +140,21 @@ its native job before explicitly recovering it. Only the owning claim can be rel
 持久会话使用跨进程原子占用，同进程调用继续排队。异常退出留下的 `.claim` 不按超时或PID消失自动夺取；
 必须先核查记录中的未决操作及原生作业，再明确恢复。释放操作只清理自己持有的占用。
 
+`inspectPublicToolSession(sessionId)` returns the current state hash, owner claim,
+live persisted usage, and `busy`, `recoverable`, `outcome_unknown`, or `idle`.
+When a tool completed but its host stopped before returning, its durable completion
+receipt retains the exact output and resulting state. Explicit recovery accepts
+`{sessionId, expectedStateHash, expectedClaimToken}` from inspection and publishes
+only that recorded completion. It does not invoke the tool, reset usage, change
+policy, or take a live owner's session. An idle session also exposes its last
+completed output. A later unknown operation cannot reuse an earlier receipt.
+
+外部宿主可先调用 `inspectPublicToolSession`，取得状态指纹、占用信息和实时持久用量。
+工具已完成但宿主未返回时，完成记录保留同一次输出及更新后的状态；再将检查得到的
+`sessionId/expectedStateHash/expectedClaimToken` 传给 `recoverPublicToolSession`。
+恢复只发布已记录的完成结果，不重新调用工具、不重置预算或修改策略，也不夺取仍活跃的会话。
+正常空闲会话同样可读最后一次完成输出；较早的成功记录不能替后续未知操作证明完成。
+
 ## Engineering identity and jobs / 模型身份与作业
 
 The canonical model is the only writable physical source. Analysis projections remove
