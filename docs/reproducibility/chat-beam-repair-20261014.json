@@ -1,0 +1,132 @@
+{
+  "schema": "structureclaw-live-chat-repair/v1",
+  "date": "2026-10-14",
+  "status": "verified-for-recorded-workflows",
+  "implementationCommit": "f1012aa",
+  "branch": "work/research-next",
+  "scope": "User-reported page loading, simply supported beam chat workflow and runtime controls. Product fixes only; no Bench or independent YJK API changes.",
+  "supersedesAcceptanceClaim": "Earlier product-entry tests did not adequately cover the real browser clarification-to-report-to-viewer workflow. This record adds live evidence without changing historical records.",
+  "fixes": [
+    "Fingerprint source frontend builds at startup; preserve real HTML routes and return 404 for missing assets instead of serving index HTML as JavaScript.",
+    "Normalize clarification options and show pending questions after session restoration; preserve explicit material, section and analysis control fields through clarification.",
+    "Reject node/member load-target mismatches before atomic model edits commit.",
+    "Suppress nested extraction JSON from chat prose; display tool failures accurately; persist resumed responses, questions, tables and presentation events.",
+    "Generate internal result quantity IDs automatically; document physical member queries without editing or remeshing; generate reports from registered quantities.",
+    "Enforce disabled automatic repair across tool groups after failures; retain normal successful execution and read-only inspection.",
+    "End a paused turn explicitly without executing pending tools, changing the model or resetting its usage ledger.",
+    "Accept exactly equivalent solver effective-load representations in the viewer display projection while retaining source validation, conflicting-load rejection and full-field provenance.",
+    "Isolate regression databases and mock persistence so chat contract tests no longer create empty conversations in the user database. Existing history was preserved."
+  ],
+  "liveDefaultWorkflow": {
+    "conversationId": "cmv7wm6m70000bwwmywxrq9qr",
+    "agentRunId": "4742ffbe-671e-4c45-a7ed-43c679676a60",
+    "analysisRunId": "4cff2525-743f-45f4-84a8-390cf841144c",
+    "modelRevision": 1,
+    "model": "glm-5-turbo",
+    "input": {
+      "spanM": 10,
+      "midspanDownwardLoadKN": 1,
+      "elasticModulusMPa": 206000,
+      "poissonRatio": 0.3,
+      "densityKgM3": 7850,
+      "rectangleWidthMM": 100,
+      "rectangleHeightMM": 200,
+      "selfWeight": false,
+      "analysis": "OpenSees 2D linear elastic static; pin and roller supports; no code design requested"
+    },
+    "policy": { "knowledge": "enabled", "builder": "auto", "repair": { "enabled": true, "maxRecoveriesPerTurn": 2 } },
+    "actualBuilder": "template",
+    "skillId": "beam",
+    "llmCalls": 9,
+    "autonomousToolCalls": 10,
+    "subsequentBrowserQueries": 2,
+    "recoveries": 0,
+    "resultKey": "case:LC1",
+    "results": {
+      "leftReactionKN": 0.5000000000000004,
+      "rightReactionKN": 0.5000000000000006,
+      "midspanLocalM2KNM": -2.500000000000001,
+      "midspanGlobalUzMM": -1.5169902912621356
+    },
+    "independentReference": {
+      "secondMomentM4": 0.00006666666666666667,
+      "reactionFormula": "P/2",
+      "momentMagnitudeFormula": "P*L/4",
+      "downwardDeflectionMagnitudeFormula": "P*L^3/(48*E*I)",
+      "reactionKN": 0.5,
+      "momentMagnitudeKNM": 2.5,
+      "deflectionMagnitudeMM": 1.5169902912621359,
+      "note": "SI conversion: E=206000000 kN/m^2; rectangular I=b*h^3/12. Signed M2 follows the saved member local axes."
+    },
+    "browserVerified": [
+      "Actual model build, solver execution, four registered scalar queries and analysis report completed without recovery.",
+      "Report contains all four requested values with units and the same analysis run.",
+      "Reloading and reopening the saved conversation preserves the completed response and report.",
+      "Result workspace query for node 2 uz gives -1.516990291 mm.",
+      "The selected run opens complete deformation, force and reaction views; recovered member curves remain present.",
+      "No browser console errors were observed during final verification."
+    ]
+  },
+  "controls": {
+    "offConversationId": "cmv7vnd7d0000lcwm8nzdx8vu",
+    "offAgentRunId": "189bf9d9-457f-473d-8dbc-2b5bb7602f1f",
+    "offPolicy": {
+      "knowledge": "disabled",
+      "builder": "llm",
+      "repair": { "enabled": false, "maxRecoveriesPerTurn": 0 },
+      "context": { "history": "current-turn", "memoryScopes": [] }
+    },
+    "actualBuilder": "llm",
+    "liveOutcome": "First analysis b502f317-eae8-47be-a562-d45c8b63eaa9 succeeded. The LLM then unnecessarily edited the model, producing a node/member point-load mismatch; second analysis 526bee61-93ca-4501-9e85-18e1dfba8201 failed. No third solve followed. This is not recorded as a successful complete off-policy task.",
+    "followupFixes": "The observed invalid edit is now rejected before commit, physical-position query documentation is explicit, and disabled repair blocks semantic repair through a different tool after failure.",
+    "verifiedByRealGraphAndRegisteredToolTests": [
+      "Guidance off removes optional skill text while retaining mandatory contracts.",
+      "Template and general builders invoke their respective implementations; explicit imported models record their separate provenance.",
+      "Current-turn history excludes prior dialogue while keeping the engineering model.",
+      "Empty memory scope removes memory tool access; persisted policies survive reopening and can be explicitly restored.",
+      "Empty tool/skill sets remain empty; disabled repair allows a successful normal chain and blocks retries or cross-tool mutation after failure."
+    ],
+    "endWaitingTurn": {
+      "browserButton": "结束本轮 / End turn",
+      "api": "POST /api/v1/chat/conversation/:id/turn/end",
+      "preservedModelRevision": 2,
+      "ledgerSha256BeforeAndAfter": "d77a504872d4afc4fbaf7ffd9b2aecb64589356c765b92265da0f09c374eef51",
+      "result": "Waiting ended with no LLM or solver execution and byte-identical usage ledger; normal message input was restored."
+    }
+  },
+  "checks": {
+    "backendFull": {
+      "suites": 147,
+      "tests": 1689,
+      "passed": 1688,
+      "failed": 1,
+      "failure": "A native-entry flow test exceeded its existing 5000 ms timeout during the full run.",
+      "unchangedTargetedRerun": "Passed: analysis-pkpm-frame-flow.test.mjs / canonical builder and legacy section G reach the native entry without losing material or design data. No timeout, tolerance or assertion was relaxed.",
+      "jsonSha256": "18122bad1e36a712a1d81f73ff84f8cbdb81890b9dfe407cf548f8012e830b1f",
+      "rerunLogSha256": "7694d31d712fb7adaa8daa88662eeb5e97332012b75e5cb1887997bb0c91bf72"
+    },
+    "additionalFocusedChecks": {
+      "pythonProtocolAndLoads": "209 passed",
+      "realWorkerAtomicLoadEdits": "5 passed",
+      "chatSessionAndEndTurn": "5 suites, 66 passed",
+      "queryReportAndControls": "4 suites, 27 passed, including real OpenSees through public tools",
+      "regressionDatabaseIsolation": "2 passed; inherited user database sentinel unchanged",
+      "viewerAndResultWorkspace": "4 files, 59 passed, plus real archived-run adapter verification",
+      "endTurnBilingualUI": "4 passed",
+      "frontendIntegration": "Initial run: 11 files/92 tests passed, one ambiguous test selector failed. After scoping that selector to the chat panel, the affected suite passed (50 passed, 1 skipped).",
+      "backendTypeScript": "passed",
+      "frontendTypeScriptAndProductionBuild": "passed"
+    }
+  },
+  "screenshot": {
+    "path": "G:/StructureClaw-All/sclaw_data/verification/chat-beam-20261014.jpg",
+    "sha256": "8db4e13c5c1ec4c97796cdb6ed35e48ace629794132a26cf4629f0a8b9a34186"
+  },
+  "boundaries": [
+    "This is a product regression check, not a formal experiment or certification of all 300 planned scenarios.",
+    "LLM prose remains fallible: the successful chat wrote PL/2 in the reaction formula column although the registered reaction values were correct. The independent reference is P/2. This narrative error was not silently rewritten or treated as solver evidence.",
+    "The off-policy LLM failure and earlier interrupted/failed debugging conversations remain in history; successful replay does not erase them.",
+    "Bench gitlink remains 5102acb3fdf4618c31f385e51fd0e5b9280438a1. Independent YJK API, historical paper tags and results were not modified.",
+    "The verified local service uses the repository entrypoint: node G:/StructureClaw-All/structureclaw/sclaw start. A separately installed global package is not updated by these source commits."
+  ]
+}
