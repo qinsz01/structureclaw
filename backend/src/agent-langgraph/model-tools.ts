@@ -8,7 +8,7 @@ import { applyModelEdits, commitModel, contentHash, currentAnalysisError, invali
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 import { assertModelEditReadback, editCollectionSchema, engineeringModelSchema, modelEditGuidance, modelFieldEdit, normalizeModelEdits } from '../engineering/model-edit-contract.js';
 import { queryPhysicalResponse, scalarResultQuantity } from '../engineering/result-data.js';
-import { resultSelectionSchema, solverMeshQueryGuidance } from '../engineering/result-selection.js';
+import { resolveNodalResultSelection, resultSelectionSchema, solverMeshQueryGuidance } from '../engineering/result-selection.js';
 import { loadAnalysisRun } from '../engineering/analysis-runs.js';
 import { randomUUID } from 'node:crypto';
 import { imageRegionSchema } from '../engineering/vision-evidence.js';
@@ -42,9 +42,9 @@ export function createEditModelTool() {
       transaction: changed ? update.modelHistory.at(-1)?.id : null }, update);
   }, {
     name: 'edit_model',
-    description: `Atomically update physical objects using query_model revision and stable IDs. Move existing loads, never duplicate. / 按稳定对象ID原子修改。 ${Object.values(modelEditGuidance).join(' ')}`,
+    description: `Atomically update physical objects using the latest returned revision and stable IDs. Combine all currently known material, section and member updates into ONE edit_model call. Issue only one model-changing tool call per assistant message; wait for its returned revision before another edit or undo. Never guess a future revision or reuse an earlier revision. Move existing loads, never duplicate. / 按最新返回版本及稳定对象ID原子修改；把已知材料、截面和构件修改合并成一次edit_model。每条助手消息只发起一次模型写入，等待返回新版本后再编辑或撤销，禁止猜测未来版本或复用旧版本。 ${Object.values(modelEditGuidance).join(' ')}`,
     schema: z.object({
-      baseRevision: z.number().int().nonnegative(), label: z.string().optional(),
+      baseRevision: z.number().int().nonnegative().describe('Latest revision returned by query_model, edit_model or undo_model. Do not send another model write in the same assistant message. / 使用query_model、edit_model或undo_model最新返回的版本；同条助手消息不再发另一模型写入。'), label: z.string().optional(),
       edits: z.array(z.object({ operation: z.enum(['add', 'update', 'remove']),
         collection: z.enum(['nodes', 'elements', 'materials', 'sections', 'stories', 'load_cases', 'load_combinations', 'loads', 'model_settings']),
         id: z.string().min(1), caseId: z.string().optional(), values: z.record(z.string(), z.unknown()).optional(),
@@ -62,8 +62,8 @@ export function createUndoModelTool() {
     const normalized = await normalizeEngineeringModel(candidate.model, structureProtocolClient);
     const update = commitModel(state, normalized, transaction.label, transaction.undoOf);
     return result(id, 'undo_model', { success: true, revision: update.modelRevision }, update);
-  }, { name: 'undo_model', description: 'Undo the selected transaction as a new revision, preserving unrelated later edits. Reject conflicts with the changed fields or references. / 选择性撤销指定事务，保留后续无关修改；字段或引用冲突时拒绝。',
-    schema: z.object({ baseRevision: z.number().int().nonnegative(), transactionId: z.string().optional() }) });
+  }, { name: 'undo_model', description: 'Undo the selected transaction as a new revision, preserving unrelated later edits. Issue only one model-changing tool call per assistant message, wait for the latest revision, and reject conflicts with changed fields or references. / 选择性撤销指定事务，保留后续无关修改；每条助手消息只发起一次模型写入并等待最新版本；字段或引用冲突时拒绝。',
+    schema: z.object({ baseRevision: z.number().int().nonnegative().describe('Latest returned model revision; await any earlier model edit or undo before requesting this operation. / 使用最新返回模型版本；先等待此前编辑或撤销完成。'), transactionId: z.string().optional() }) });
 }
 
 export function createQueryModelTool() {
@@ -176,11 +176,14 @@ export function createReviewInputTool() {
 }
 
 export function createQueryResultsTool() {
-  return tool(async (input, config) => {
+  return tool(async (requestedInput, config) => {
     const { state, id } = context(config);
-    const run = input.runId ? state.analysisRuns?.[input.runId] ?? await loadAnalysisRun(input.runId) : state.analysisResult;
+    const run = requestedInput.runId ? state.analysisRuns?.[requestedInput.runId] ?? await loadAnalysisRun(requestedInput.runId) : state.analysisResult;
     if (!run) throw new Error('RUN_NOT_FOUND');
-    if (input.nodeId && input.elementId) throw new Error('RESULT_LOCATION_AMBIGUOUS');
+    if (requestedInput.nodeId && requestedInput.elementId) throw new Error('RESULT_LOCATION_AMBIGUOUS');
+    const input = resolveNodalResultSelection(requestedInput);
+    const fieldResolution = requestedInput.field === undefined && input.field !== undefined
+      ? { field: input.field, source: 'node-component-unit', component: input.component, unit: input.unit } : undefined;
     if (input.compareResultKeys && (input.resultKey || !isRecord(run.results) || !input.component || input.modeNumber !== undefined || input.timeIndex !== undefined
       || new Set(input.compareResultKeys).size !== input.compareResultKeys.length)) {
       throw new Error('RESULT_COMPARISON_REQUIRES_DISTINCT_STATIC_KEYS_AND_COMPONENT / 比较需指定互异静力结果及同一分量');
@@ -313,7 +316,7 @@ export function createQueryResultsTool() {
         if (!quantity) throw new Error('TIME_SERIES_COMPONENT_REQUIRED');
         points.push({ timeIndex: index, time: quantity.time, value: quantity.value });
       }
-      return JSON.stringify({ runId: run.runId, resultKey: key, series: { points, startIndex: start, endIndex: end, stride,
+      return JSON.stringify({ runId: run.runId, resultKey: key, ...(fieldResolution ? { fieldResolution } : {}), series: { points, startIndex: start, endIndex: end, stride,
         sampled: stride > 1, interpolation: 'none', component: input.component, unit: input.unit, field: input.field,
         location: { nodeId: input.nodeId, elementId: input.elementId, end: input.end }, responseDefinition: isRecord(data) ? data.responseDefinition : undefined } });
     }
@@ -339,10 +342,11 @@ export function createQueryResultsTool() {
     const response = { runId: run.runId, historical: Boolean(input.runId), current: !input.runId && !currentAnalysisError(state),
       ...(input.includeModelSnapshot ? { modelSnapshot, visualizationData: viewData, analysisType: run.analysis_type ?? run.analysisType } : {}),
       resultKey, meta, resultSelection, resultKeys: isRecord(run.results) ? Object.keys(run.results) : [],
+      ...(fieldResolution ? { fieldResolution } : {}),
       ...(input.field === 'solverMesh' && isRecord(viewData) ? { queryGuidance: solverMeshQueryGuidance(viewData) } : {}),
       values, ...(quantity ? { quantity } : {}) };
     return quantity ? result(id, 'query_results', response, { resultQuantities: { [`${String(run.runId)}:${String(quantity.id)}`]: quantity } }) : JSON.stringify(response);
-  }, { name: 'query_results', description: 'Read authoritative signed results for a case/combination or historical run. For a report scalar, supply component, unit and a node or physical member position; the returned quantity is saved with its provenance and an automatic ID. Interior displacement and force queries use physical elementId + positionM, never solverMesh internal node IDs, and do not require model edits or remeshing. / 查询指定工况、组合或历史运行的有符号结果。报告标量需给分量、单位及节点或物理构件位置；返回数值自动编号并保存来源。跨内位移和内力用物理elementId + positionM，不要使用solverMesh内部节点ID，也不需要修改或细分模型。',
+  }, { name: 'query_results', description: 'Read authoritative signed results for a case/combination or historical run. For a report scalar, supply component, unit and a node or physical member position; the returned quantity is saved with its provenance and an automatic ID. An omitted nodal field is resolved only from unambiguous component/unit pairs: displacement or rotation to displacements, force or moment to reactions; velocities/accelerations need an explicit field. The receipt states any field resolution. Interior displacement and force queries use physical elementId + positionM, never solverMesh internal node IDs, and do not require model edits or remeshing. / 查询指定工况、组合或历史运行的有符号结果。报告标量需给分量、单位及节点或物理构件位置；返回数值自动编号并保存来源。节点省略字段时仅根据明确的分量及单位选择位移/转角displacements或力/力矩reactions，并在回执说明；速度/加速度须明确字段。跨内位移和内力用物理elementId + positionM，不要使用solverMesh内部节点ID，也不需要修改或细分模型。',
     schema: resultSelectionSchema.extend({
       includeModelSnapshot: z.boolean().optional().describe('Return the run-bound model and selected direct display data for a viewer. / 返回该运行模型及选定结果的显示数据。'),
       series: z.object({ startIndex: z.number().int().nonnegative().optional(), endIndex: z.number().int().nonnegative().optional(), stride: z.number().int().positive().optional() }).optional().describe('Recorded time series, at most 10000 explicit samples; no interpolation. Exclusive with timeIndex/modeNumber. / 实际记录时程，最多10000点，不插值。'),

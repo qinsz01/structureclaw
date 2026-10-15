@@ -206,3 +206,91 @@ test('solver mesh receipts distinguish internal nodes and expose physical cuts f
   expect(physical.quantity.location).toMatchObject({ kind: 'member', id: 'beam', positionM: 2 });
   expect(configurable.agentState.model).toEqual(normalized);
 }, 30000);
+
+test('real physical nodal queries without field resolve only the documented component/unit and preserve report binding', async () => {
+  const protocol = createLocalStructureProtocolClient();
+  const skillRuntime = new AgentSkillRuntime();
+  const normalized = await normalizeEngineeringModel({
+    schema_version: '2.2.0', unit_system: 'SI',
+    coordinate_system: { semantics: 'global-z-up', version: 1, dimension: '2d', plane: 'xz',
+      dof_order: ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'] },
+    analysis_control: { self_weight: false },
+    nodes: [{ id: '1', x: 0, y: 0, z: 0, restraints: [true, true, true, true, false, true] },
+      { id: '2', x: 2, y: 0, z: 0 },
+      { id: '3', x: 4, y: 0, z: 0, restraints: [false, true, true, true, false, true] }],
+    elements: [{ id: '1', type: 'beam', nodes: ['1', '2'], material: 'steel', section: 'rect' },
+      { id: '2', type: 'beam', nodes: ['2', '3'], material: 'steel', section: 'rect' }],
+    materials: [{ id: 'steel', name: 'Elastic steel', E: 200000, nu: .3, rho: 7850 }],
+    sections: [{ id: 'rect', name: '100 x 200 mm', type: 'rectangular', shape: { kind: 'rectangular', B: 100, H: 200 } }],
+    load_cases: [{ id: 'LC1', type: 'other', loads: [{ id: 'P', type: 'nodal', node: '2', fz: -1 }] }],
+    load_combinations: [],
+  }, protocol);
+  const configurable = { skillRuntime, structureProtocolClient: protocol, engineClient: createLocalAnalysisEngineClient(),
+    skillScope: ['opensees-static'], agentState: { ...commitModel({}, normalized, 'physical-nodal-query'), locale: 'en' } };
+  const tools = new Map(createRegisteredTools({ skillRuntime }).map(tool => [tool.name, tool]));
+  const analyzed = await tools.get('run_analysis').invoke({ analysisType: 'static', analysisSkillId: 'opensees-static', loadCaseIds: ['LC1'] },
+    { toolCall: { id: 'nodal-analysis' }, configurable });
+  configurable.agentState = { ...configurable.agentState, ...analyzed.update };
+  const saved = configurable.agentState.analysisResult;
+  expect(saved.success).toBe(true);
+  expect(saved.results['case:LC1'].data.execution.executed).toBe(true);
+  expect(Object.keys(saved.results['case:LC1'].data.displacements)).toEqual(['1', '2', '3']);
+  expect(Object.keys(saved.results['case:LC1'].data.reactions)).toEqual(['1', '3']);
+  const query = input => tools.get('query_results').invoke({ resultKey: 'case:LC1', ...input },
+    { toolCall: { id: 'nodal-query' }, configurable });
+  for (const [args, field, expected] of [
+    [{ nodeId: '2', component: 'uz', unit: 'mm' }, 'displacements', -.1],
+    [{ nodeId: '1', component: 'fz', unit: 'kN' }, 'reactions', .5],
+    [{ nodeId: '3', component: 'fz', unit: 'N' }, 'reactions', 500],
+  ]) {
+    const before = structuredClone(args);
+    const command = await query(args), inferred = output(command);
+    const explicit = output(await query({ ...args, field }));
+    expect(args).toEqual(before);
+    expect(inferred.fieldResolution).toEqual({ field, source: 'node-component-unit', component: args.component, unit: args.unit });
+    expect(explicit.fieldResolution).toBeUndefined();
+    expect(inferred.quantity).toEqual(explicit.quantity);
+    expect(inferred.quantity).toMatchObject({ field, runId: saved.runId, selection: 'case:LC1', location: { kind: 'node', id: args.nodeId } });
+    expect(inferred.quantity.value).toBeCloseTo(expected, 8);
+    expect(quantityMatchesSelection(inferred.quantity, args, saved.runId, 'case:LC1')).toBe(true);
+    const report = await tools.get('generate_report').invoke({ message: 'Verified nodal scalar', analysisType: 'static', narrative: 'structured',
+      selection: { runId: saved.runId, resultKey: 'case:LC1', ...args } },
+    { toolCall: { id: 'nodal-report' }, configurable: { ...configurable,
+      agentState: { ...configurable.agentState, resultQuantities: command.update.resultQuantities } } });
+    expect(output(report).report.json.requestedQuantities).toEqual([inferred.quantity]);
+  }
+  const rotation = output(await query({ nodeId: '1', component: 'ry', unit: 'rad' }));
+  expect(rotation.quantity.field).toBe('displacements');
+  expect(rotation.quantity.value).toBe(saved.results['case:LC1'].data.displacements['1'].ry);
+  const moment = output(await query({ nodeId: '1', component: 'my', unit: 'kN.m' }));
+  expect(moment.quantity.field).toBe('reactions');
+  expect(moment.quantity.value).toBe(0);
+  await expect(query({ nodeId: 'missing', component: 'uz', unit: 'mm' })).rejects.toThrow('RESULT_NODE_NOT_FOUND');
+  await expect(query({ field: 'displacements', nodeId: '1', component: 'fz', unit: 'kN' })).rejects.toThrow('RESULT_COMPONENT_UNAVAILABLE');
+  await expect(query({ field: 'displacements', nodeId: '2', component: 'uz', unit: 'kN' })).rejects.toThrow('RESULT_UNIT_MISMATCH');
+  for (const args of [{ nodeId: '2' }, { nodeId: '2', component: 'uz', unit: 'kN' },
+    { nodeId: '2', component: 'uz', unit: 'm/s' }, { nodeId: '2', component: 'uz', unit: 'm/s2' }]) {
+    await expect(query(args)).rejects.toThrow('NODE_RESULT_FIELD_REQUIRED');
+  }
+  expect(configurable.agentState.model).toEqual(normalized);
+}, 30000);
+
+test('field resolution preserves explicit dynamic vectors, implicit time-history displacement and modal selection', async () => {
+  const saved = run();
+  saved.results['analysis:dynamic'].data.timeHistory[1].velocities = { B: { uz: .003 } };
+  const implicit = { ...selection, field: undefined };
+  const queried = output(await invoke(saved, implicit));
+  expect(queried.quantity).toMatchObject({ field: 'displacements', value: -2, timeIndex: 1, time: .03 });
+  expect(queried.quantity).toEqual(output(await invoke(saved, selection)).quantity);
+  expect(output(await invoke(saved, { ...implicit, component: undefined, unit: undefined })).values).toEqual({ uz: -.002 });
+  expect(output(await invoke(saved, { ...selection, field: 'velocities', unit: 'mm/s' })).quantity.value).toBe(3);
+  await expect(invoke(saved, { ...implicit, unit: 'mm/s' })).rejects.toThrow('NODE_RESULT_FIELD_REQUIRED');
+  const series = output(await invoke(saved, { ...implicit, timeIndex: undefined, series: {} }));
+  expect(series.series.field).toBe('displacements');
+  expect(series.fieldResolution.field).toBe('displacements');
+  saved.results['analysis:dynamic'].data = { modes: [{ modeNumber: 2, modeShape: { A: [0, 0, 0], B: [-2, 1, 0] } }] };
+  const modal = output(await invoke(saved, { ...implicit, timeIndex: undefined, modeNumber: 2, component: 'ux', unit: '1' }));
+  expect(modal.quantity).toMatchObject({ value: -1, modeNumber: 2 });
+  expect(modal.fieldResolution).toBeUndefined();
+  expect(modal.quantity.field).toBeUndefined();
+});
