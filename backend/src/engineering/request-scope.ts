@@ -12,17 +12,40 @@ export const requestScopeSchema = z.object({
   })).default([]).describe('Exact scalar queries after real object IDs are known. Before building leave outputs empty; never invent IDs. resultKey is a saved case:<ID>/combination:<ID>, not an output label. / 获得实际对象ID后填写标量查询；建模前留空，不编造ID。resultKey是工况/组合键，不是输出名称。'),
 }).strict();
 export type RequestScope = z.infer<typeof requestScopeSchema>;
+export type ScopeDiagnostic = { field: string; code: string };
 
 /** Extraction reads the entire user request; a tool's partial plan must not omit a response family. */
-export function resolveExtractedScope(declared: RequestScope | undefined, extracted: unknown, previous?: RequestScope | null): RequestScope | undefined {
-  let extractedGoal: RequestScope | undefined;
-  if (extracted && typeof extracted === 'object' && !Array.isArray(extracted)) {
-    // Object IDs are not grounded yet. Scalar selectors are supplied by tools after projection/build.
-    extractedGoal = requestScopeSchema.parse({ ...extracted, outputs: [] });
+export function resolveExtractedScope(declared: RequestScope | undefined, extracted: unknown, previous?: RequestScope | null,
+  diagnostics: ScopeDiagnostic[] = []): RequestScope | undefined {
+  if (extracted === undefined || extracted === null) return declared ?? previous ?? undefined;
+  const fields: Record<string, unknown> = {};
+  if (typeof extracted === 'object' && !Array.isArray(extracted)) {
+    const raw = extracted as Record<string, unknown>;
+    // Internal extraction is a patch, never a replacement for the validated tool request.
+    // Validate supplied fields independently; empty/invalid responses cannot erase a known goal.
+    for (const key of ['responses', 'method', 'design', 'report'] as const) {
+      if (raw[key] === undefined) continue;
+      const parsed = requestScopeSchema.shape[key].safeParse(raw[key]);
+      if (parsed.success) fields[key] = parsed.data;
+      else diagnostics.push({ field: `requestScope.${key}`, code: 'EXTRACTED_SCOPE_FIELD_IGNORED' });
+    }
+    for (const key of Object.keys(raw)) {
+      if (!['responses', 'method', 'design', 'report', 'outputs'].includes(key)) {
+        diagnostics.push({ field: `requestScope.${key}`, code: 'EXTRACTED_SCOPE_FIELD_UNKNOWN' });
+      }
+    }
+  } else {
+    diagnostics.push({ field: 'requestScope', code: 'EXTRACTED_SCOPE_OBJECT_REQUIRED' });
   }
-  const goal = declared ?? extractedGoal ?? previous;
-  if (!goal) return undefined;
-  const responses = [...new Set([...goal.responses, ...(extractedGoal?.responses ?? [])])];
+  // Only grounded public-tool selectors may be executed. New extracted response
+  // families have no object IDs yet and cannot supply scalar output labels.
+  const candidate = requestScopeSchema.safeParse(declared ?? { ...previous, ...fields, ...(fields.responses ? { outputs: [] } : {}) });
+  if (!candidate.success) {
+    diagnostics.push({ field: 'requestScope.responses', code: 'REQUEST_GOAL_REQUIRED' });
+    return undefined;
+  }
+  const goal = candidate.data;
+  const responses = [...new Set([...goal.responses, ...(fields.responses as RequestScope['responses'] | undefined ?? [])])];
   return requestScopeSchema.parse({ ...goal, responses,
     method: responses.some(field => !['forces', 'reactions'].includes(field)) ? 'solver' : goal.method });
 }

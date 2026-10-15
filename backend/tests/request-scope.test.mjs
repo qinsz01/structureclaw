@@ -75,6 +75,19 @@ describe('deterministic beam equilibrium and scoped engineering delivery', () =>
       outputs:['unbound_output_label']})).toMatchObject({responses:['forces','reactions','displacements'],method:'solver',outputs:[],design:false});
     expect(resolveExtractedScope(undefined,undefined,scope)).toEqual(scope);
   });
+  test('internal goal patches retain accepted fields and do not weaken the public contract', async () => {
+    const {resolveExtractedScope,requestScopeSchema}=await import('../dist/engineering/request-scope.js');
+    const previous={...scope,method:'solver',design:true,responses:['forces','displacements']};
+    const diagnostics=[];
+    expect(resolveExtractedScope(undefined,{responses:[],report:true},previous,diagnostics)).toMatchObject({
+      responses:['forces','displacements'],method:'solver',design:true,report:true});
+    expect(diagnostics).toContainEqual({field:'requestScope.responses',code:'EXTRACTED_SCOPE_FIELD_IGNORED'});
+    const unresolved=[];
+    expect(resolveExtractedScope(undefined,{design:true,responses:[]},undefined,unresolved)).toBeUndefined();
+    expect(unresolved).toContainEqual({field:'requestScope.responses',code:'REQUEST_GOAL_REQUIRED'});
+    expect(()=>requestScopeSchema.parse({...scope,responses:[]})).toThrow();
+    expect(()=>requestScopeSchema.parse({...scope,responses:undefined})).toThrow();
+  });
   test.each([
     d=>{d.engineeringDraft.boundary.supportType='fixed-fixed'},
     d=>{d.engineeringDraft.analysis={engineTarget:'opensees'}},

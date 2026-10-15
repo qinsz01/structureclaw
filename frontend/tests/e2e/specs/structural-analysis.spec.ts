@@ -1,5 +1,37 @@
 import { test, expect } from '@playwright/test';
 
+for (const attempt of [1, 2]) {
+  test(`Live provider: original short beam request has no extraction-format retry (${attempt})`, async ({ page, request }, info) => {
+    test.skip(process.env.SCLAW_E2E_LIVE !== '1', 'Requires a configured isolated live provider');
+    test.setTimeout(360_000);
+    const pageErrors: string[] = [];
+    page.on('pageerror', error => pageErrors.push(error.message));
+    await page.goto('/');
+    await page.getByRole('button', { name: /Switch language to Chinese|切换语言为中文/ }).click();
+    const sent = page.waitForRequest(r => r.url().endsWith('/api/v1/chat/stream') && r.method() === 'POST');
+    const response = page.waitForResponse(r => r.url().endsWith('/api/v1/chat/stream') && r.request().method() === 'POST');
+    await page.getByRole('textbox').fill('设计一个简支梁，跨度10m，梁中间荷载1kN');
+    await page.getByRole('button', { name: '发送', exact: true }).click();
+    const id = (await sent).postDataJSON().conversationId;
+    expect(await (await response).finished()).toBeNull();
+    const session = await (await request.get(`/api/v1/chat/conversation/${id}/session`)).json();
+    const conversation = await (await request.get(`/api/v1/chat/conversation/${id}`)).json();
+    await info.attach('original-short-request', { body: JSON.stringify({ conversation, session }, null, 2), contentType: 'application/json' });
+    await info.attach('original-short-browser', { body: await page.screenshot(), contentType: 'image/png' });
+    const toolMessages = conversation.messages.filter((m: { role: string }) => m.role === 'tool');
+    expect(toolMessages.filter((m: { content: string }) => /^Error:|RECOVERY_BUDGET_EXHAUSTED|"success":false/.test(m.content))).toEqual([]);
+    const extractions = toolMessages.filter((m: { name: string }) => m.name === 'extract_draft_params');
+    expect(extractions).toHaveLength(1);
+    const extracted = JSON.parse(extractions[0].content);
+    expect(extracted.nextState.engineeringDraft.geometry.lengthM).toBe(10);
+    expect(extracted.nextState.engineeringDraft.loads).toHaveLength(1);
+    expect(extracted.nextState.engineeringDraft.loads[0].magnitude).toBe(1);
+    expect(session.usage.recoveries).toBe(0);
+    expect(session.waitingForReply || session.analysis.current, 'Reach calculation or specific engineering clarification').toBe(true);
+    expect(pageErrors).toEqual([]);
+  });
+}
+
 test('Live provider: omitted properties pause, supplied properties resume and calculate', async ({ page, request }, info) => {
   test.skip(process.env.SCLAW_E2E_LIVE !== '1', 'Requires a configured isolated live provider');
   test.setTimeout(600_000);

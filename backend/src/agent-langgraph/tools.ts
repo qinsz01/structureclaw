@@ -49,7 +49,7 @@ import { checkRunResults, codeCheckFeedback } from '../engineering/code-checks.j
 import { assertAnalysisInputEvidenceMatchesRequest, assertInputEvidenceMatchesModel, mergeInputEvidence } from '../engineering/input-evidence.js';
 import { currentRunPolicy, recordRunEvent, reserveToolCall, recordToolOutcome } from '../runtime/run-context.js';
 import { createQueryResultsTool } from './model-tools.js';
-import { requestScopeSchema, resolveExtractedScope, forceOnlyScope, missingInputReason, type RequestScope } from '../engineering/request-scope.js';
+import { requestScopeSchema, resolveExtractedScope, forceOnlyScope, missingInputReason, type RequestScope, type ScopeDiagnostic } from '../engineering/request-scope.js';
 import { equilibriumModel } from '../engineering/beam-equilibrium.js';
 // ---------------------------------------------------------------------------
 // Helpers
@@ -2722,10 +2722,14 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
           structuralTypeMatch: match,
         });
         const { withStructuralTypeState } = await import('../agent-runtime/plugin-helpers.js');
-        const requestScope = resolveExtractedScope(input.requestScope, draftPatch?.requestScope, state?.requestScope);
+        const scopeDiagnostics: ScopeDiagnostic[] = [];
+        const requestScope = resolveExtractedScope(input.requestScope, draftPatch?.requestScope, state?.requestScope, scopeDiagnostics);
+        if (scopeDiagnostics.length) recordRunEvent({ kind: 'request_scope_diagnostic', source: 'parameter-extractor', diagnostics: scopeDiagnostics,
+          resolvedBy: input.requestScope ? 'declared-request' : state?.requestScope ? 'accepted-request' : 'clarification' });
         const nextState = { ...withStructuralTypeState(plugin.handler.mergeState(existingState, patch), match),
           ...(requestScope ? { requestScope } : {}) };
-        const missing = computeDraftMissing(plugin, nextState, 'execution');
+        const goalRequired = scopeDiagnostics.some(issue => issue.code === 'REQUEST_GOAL_REQUIRED');
+        const missing = goalRequired ? { critical: ['requestScope'], optional: [] } : computeDraftMissing(plugin, nextState, 'execution');
         const extractionMode = draftPatch ? 'llm' : 'deterministic';
         let equilibriumContext = requestScope?.method === 'equilibrium' && !missing.critical.length
           ? equilibriumModel(nextState) : undefined;
@@ -2744,12 +2748,16 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
           nextState,
           criticalMissing: missing.critical,
           optionalMissing: missing.optional,
-          clarificationQuestions: buildClarificationQuestions(plugin, missing.critical, missing.optional, nextState, locale),
+          clarificationQuestions: goalRequired ? [{ paramKey: 'requestScope', label: locale === 'zh' ? '所求结果' : 'Requested results',
+            question: locale === 'zh' ? '你需要内力/反力、位移/挠度，还是还需要规范设计或报告？已提供的梁跨度与荷载会保留。'
+              : 'Do you need forces/reactions, displacement/deflection, or also code design or a report? The supplied span and loads are retained.',
+            required: true, critical: true }] : buildClarificationQuestions(plugin, missing.critical, missing.optional, nextState, locale),
           structuralTypeMatch: match,
           skillId: plugin.id,
           routingSource: match.routingSource,
           extractionMode,
           requestScope,
+          ...(scopeDiagnostics.length ? { scopeDiagnostics } : {}),
           ...(partialEquilibriumAvailable ? { partialAnalysisAvailable: { method: 'equilibrium', allowPartial: true,
             availableResponses: ['forces', 'reactions'], missingForFullAnalysis: missing.critical,
             instruction: 'First run_analysis(method=equilibrium,allowPartial=true) for independently determined forces. Then ask for stiffness for displacement; the task remains partial. / 先计算可独立确定的内力，再询问位移所需刚度；不能宣布整题完成。' } } : {}),
