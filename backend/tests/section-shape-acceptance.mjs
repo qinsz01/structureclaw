@@ -1,6 +1,6 @@
 // Product-owned acceptance: public tools, real OpenSees, no LLM or Bench dependency.
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { AgentSkillRuntime } from '../dist/agent-runtime/index.js';
 import { handler } from '../dist/agent-skills/structure-type/beam/handler.js';
@@ -11,6 +11,7 @@ import { createLocalCodeCheckClient } from '../dist/services/code-check-executio
 import { runtimeBaseDir } from '../dist/config/index.js';
 
 const hInertia = (h, b, tw, tf) => (b*h**3 - (b-tw)*(h-2*tf)**3)/12;
+const persisted = JSON.parse((await readFile(new URL('./fixtures/hw-design-draft-reproduction-20261015.json', import.meta.url), 'utf8')).replace(/^\uFEFF/, ''));
 const cases = [
   { id: 'reported-lowercase-h', name: 'HW300×300×10×15', shape: { kind: 'h', H: 300, B: 300, tw: 10, tf: 15 }, I: hInertia(.3,.3,.01,.015) },
   { id: 'uppercase-h', name: 'H300×300×10×15', shape: { kind: 'H', H: 300, B: 300, tw: 10, tf: 15 }, I: hInertia(.3,.3,.01,.015) },
@@ -20,6 +21,7 @@ const cases = [
   { id: 'circular', name: 'Circular 200 mm', shape: { kind: 'CIRCULAR', d: 200 }, I: Math.PI*.2**4/64 },
   { id: 'pipe', name: 'Pipe 200×10 mm', shape: { kind: 'PIPE', d: 200, T: 10 }, I: Math.PI*(.2**4-.18**4)/64 },
   { id: 'reviewed-i20a', name: 'I20a', I: 2370e-8 },
+  { id: 'persisted-design-diagnostics', name: 'HW300×300×10×15', I: hInertia(.3,.3,.01,.015), completeDesign: true },
 ];
 const references = cases.map(row => ({ ...row, reactionKn: .5, momentKnm: 2.5,
   deflectionMm: 1*10**3/(48*206e6*row.I)*1000, rotationRad: 1*10**2/(16*206e6*row.I) }));
@@ -40,7 +42,8 @@ try {
       ...(fixture.shape ? { sectionRecords: [{ id: 'SEC-BEAM-1', name: fixture.name, type: fixture.shape.kind, shape: fixture.shape }] } : {}),
       loads: [{ kind: 'point', magnitude: 1, unit: 'kN', direction: 'gravity', target: 'beam', location: { xM: 5 } }],
       analysisControl: { self_weight: false }, analysis: { loadCombinations: [] } };
-    const draftState = handler.mergeState(undefined, handler.extractDraft({ locale: 'zh', llmDraftPatch: { engineeringDraft: draft } }));
+    const draftState = fixture.completeDesign ? structuredClone(persisted.draftState)
+      : handler.mergeState(undefined, handler.extractDraft({ locale: 'zh', llmDraftPatch: { engineeringDraft: draft } }));
     draftState.requestScope = { responses: ['forces','reactions','displacements'], method: 'solver', design: false, report: true, outputs: [] };
     const originalDraft = structuredClone(draftState);
     const configurable = { skillRuntime, engineClient: createLocalAnalysisEngineClient(), structureProtocolClient: protocol,
@@ -80,8 +83,18 @@ try {
     const unrequested = await invoke('run_code_check', { designCode: 'GB50017', provider: 'builtin' });
     assert.equal(unrequested.reason, 'DESIGN_NOT_REQUESTED');
     const check = await invoke('run_code_check', { designCode: 'GB50017', provider: 'builtin', requestScope: { ...draftState.requestScope, design: true } });
-    assert.equal(check.completionStatus, 'incomplete');
-    assert.ok(check.missingInputCount > 0);
+    assert.equal(check.completionStatus, fixture.completeDesign ? 'complete' : 'incomplete');
+    if (fixture.completeDesign) {
+      assert.equal(check.complianceStatus, 'pass');
+      assert.equal(check.conclusionEligible, true);
+      assert.equal(check.summary.total, 14);
+      assert.equal(check.summary.passed, 14);
+      for (const locale of ['zh','en']) {
+        await invoke('generate_report', { analysisType: 'static', message: 'Report the complete explicitly supplied design', locale, narrative: 'structured' });
+        assert.equal(configurable.agentState.report.json.codeCheck.summary.passed, 14);
+        assert.equal(configurable.agentState.report.json.codeCheck.meta.runId, configurable.agentState.analysisResult.runId);
+      }
+    } else assert.ok(check.missingInputCount > 0);
     receipts.push({ case: fixture.id, runId: configurable.agentState.analysisResult.runId, reference: fixture,
       actual: { metrics: analysis.keyMetrics, deflectionMm: query.quantity.value, leftRotation: rotation.quantity.value },
       formalCheck: check.completionStatus, bilingualReportMatched: true, sourceDraftUnchanged: true });

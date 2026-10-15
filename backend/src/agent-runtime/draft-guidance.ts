@@ -5,7 +5,8 @@ import { localize } from './plugin-helpers.js';
 /** Design-only diagnostics remain pending for code-check, but cannot block an elastic model. */
 export function isDesignDraftField(field: string): boolean {
   return /^(?:engineeringDraft\.)?(?:design|designCheck|designCriteria|designParameters|codeCheck)(?:\.|\[|$)/.test(field)
-    || /^(?:engineeringDraft\.)?material\.designStrength$/.test(field);
+    || /^(?:engineeringDraft\.)?material\.designStrength$/.test(field)
+    || /^(?:engineeringDraft\.)?(?:model\.)?(?:(?:materials|elements)(?:\[[^\]]*\]|\.[^.]+)|templateAssignments\.(?:beam|column|member)|material|member)\.design(?:\.|\[|$)/.test(field);
 }
 
 function getInvalidDraftFields(state: DraftState): string[] {
