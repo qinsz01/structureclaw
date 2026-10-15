@@ -11,6 +11,7 @@ import type {
   DraftSiteSeismicParams,
   DraftState,
   DraftWindParams,
+  EngineeringDraft,
   EngineeringDraftLoad,
 } from '../../../agent-runtime/types.js';
 import {
@@ -727,7 +728,7 @@ function buildConcreteLoadCaseBundle(
   liveLoads: Array<Record<string, unknown>>,
   lineLoads: Array<Record<string, unknown>>,
   lateralLoads: Array<Record<string, unknown>>,
-  options: { includeWind?: boolean; includeSeismic?: boolean; frameDimension?: '2d' | '3d' } = {},
+  options: { includeWind?: boolean; includeSeismic?: boolean; frameDimension?: '2d' | '3d'; loadCombinations?: NonNullable<EngineeringDraft['analysis']>['loadCombinations'] } = {},
 ): { load_cases: Array<Record<string, unknown>>; load_combinations: Array<Record<string, unknown>> } {
   const loadCases: Array<Record<string, unknown>> = [];
 
@@ -759,10 +760,9 @@ function buildConcreteLoadCaseBundle(
     loadCases.push({ id: 'LC1', type: 'other', loads: [] });
   }
 
-  const factors = Object.fromEntries(loadCases.map((loadCase) => [String(loadCase.id), 1.0]));
   return {
     load_cases: loadCases,
-    load_combinations: [{ id: 'ULS', factors, combination_type: 'uls', code_reference: 'GB50010' }],
+    load_combinations: (options.loadCombinations ?? []).map(combination => ({ ...structuredClone(combination) })),
   };
 }
 
@@ -1012,6 +1012,7 @@ function buildConcreteFrame2dLocalModel(options: {
     includeWind: options.wind !== undefined,
     includeSeismic: options.siteSeismic !== undefined,
     frameDimension: '2d',
+    loadCombinations: options.engineeringDraft?.analysis?.loadCombinations,
   });
   const common = buildCommonModelFields({
     ...options,
@@ -1196,6 +1197,7 @@ function buildConcreteFrame3dLocalModel(options: {
     includeWind: options.wind !== undefined,
     includeSeismic: options.siteSeismic !== undefined,
     frameDimension: '3d',
+    loadCombinations: options.engineeringDraft?.analysis?.loadCombinations,
   });
   const common = buildCommonModelFields({
     ...options,

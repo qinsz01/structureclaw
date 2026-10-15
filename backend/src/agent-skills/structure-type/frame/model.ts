@@ -232,15 +232,10 @@ function buildFrameLoadCaseBundle(
   }
 
   const explicitCombinations = state.engineeringDraft?.analysis?.loadCombinations;
-  const loadCombinations = explicitCombinations?.length
-    ? explicitCombinations.map((combination) => ({
+  const loadCombinations = (explicitCombinations ?? []).map((combination) => ({
         id: combination.id,
         factors: { ...combination.factors },
-      }))
-    : [{
-        id: 'ULS',
-        factors: Object.fromEntries(Array.from(loadCases.keys()).map((id) => [id, 1.0])),
-      }];
+      }));
   return {
     load_cases: Array.from(loadCases.values()),
     load_combinations: loadCombinations,

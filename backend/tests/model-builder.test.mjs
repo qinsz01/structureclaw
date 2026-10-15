@@ -38,7 +38,7 @@ describe('buildModel - beam', () => {
 
     expect(model.elements).toHaveLength(2);
     expect(model.load_cases[0].loads).toEqual([{ node: '2', fz: -10, reference_frame: 'global' }]);
-    expect(model.load_combinations).toEqual([{ id: 'ULS', factors: { LC1: 1.0 } }]);
+    expect(model.load_combinations).toEqual([]);
   });
 
   it('should build a simply-supported beam with point load', () => {
@@ -249,7 +249,7 @@ describe('buildModel - truss', () => {
       { node: 'T2', fz: -10, reference_frame: 'global' },
       { node: 'T3', fz: -10, reference_frame: 'global' },
     ]);
-    expect(model.load_combinations).toEqual([{ id: 'ULS', factors: { LC1: 1.0 } }]);
+    expect(model.load_combinations).toEqual([]);
   });
 });
 

@@ -391,12 +391,7 @@ describe('concrete-frame canonicalize core contract', () => {
     expect(model.load_cases.map((loadCase) => loadCase.id)).toEqual(['D']);
     expect(model.load_cases.find((loadCase) => loadCase.id === 'D').loads).toHaveLength(4);
     expect(model.load_cases.find((loadCase) => loadCase.id === 'D').loads.reduce((sum, load) => sum + load.fz, 0)).toBeCloseTo(-200);
-    expect(model.load_combinations[0]).toMatchObject({
-      id: 'ULS',
-      combination_type: 'uls',
-      code_reference: 'GB50010',
-      factors: { D: 1 },
-    });
+    expect(model.load_combinations).toEqual([]);
   });
 
   test('normalizes duplicate concrete floor loads while preserving upward signed gravity loads', () => {

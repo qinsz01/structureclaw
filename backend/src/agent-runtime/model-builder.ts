@@ -122,7 +122,7 @@ function buildFrame2dModel(state: DraftState, metadata: Record<string, unknown>)
     materials: [],
     sections: [],
     load_cases: loadCases,
-    load_combinations: [{ id: 'ULS', factors: { LC1: 1.0 } }],
+    load_combinations: [],
     metadata: {
       ...metadata,
       coordinateSemantics: STRUCTURAL_COORDINATE_SEMANTICS,
@@ -248,7 +248,7 @@ function buildFrame3dModel(state: DraftState, metadata: Record<string, unknown>)
     materials: [],
     sections: [],
     load_cases: loadCases,
-    load_combinations: [{ id: 'ULS', factors: { LC1: 1.0 } }],
+    load_combinations: [],
     metadata: {
       ...metadata,
       coordinateSemantics: STRUCTURAL_COORDINATE_SEMANTICS,
@@ -594,7 +594,7 @@ function buildTrussModel(state: DraftState, metadata: Record<string, unknown>): 
     load_cases: [
       { id: 'LC1', type: 'other', loads: nodalLoads },
     ],
-    load_combinations: [{ id: 'ULS', factors: { LC1: 1.0 } }],
+    load_combinations: [],
     metadata: {
       ...metadata,
       trussTopology: topology,
@@ -1027,7 +1027,7 @@ function buildSemanticBeamModel(
     load_cases: [
       { id: 'LC1', type: 'other', loads },
     ],
-    load_combinations: [{ id: 'ULS', factors: { LC1: 1.0 } }],
+    load_combinations: [],
     metadata: { ...metadata, supportType, semanticLoadCount: semanticLoads.length },
   };
 }
@@ -1065,7 +1065,7 @@ function buildColumnModel(state: DraftState, metadata: Record<string, unknown>):
     load_cases: [
       { id: 'LC1', type: 'other', loads },
     ],
-    load_combinations: [{ id: 'ULS', factors: { LC1: 1.0 } }],
+    load_combinations: [],
     metadata: {
       ...metadata,
       materialFamily,
@@ -1191,7 +1191,7 @@ function buildContinuousBeamModel(state: DraftState, metadata: Record<string, un
     load_cases: [
       { id: 'LC1', type: 'other', loads },
     ],
-    load_combinations: [{ id: 'ULS', factors: { LC1: 1.0 } }],
+    load_combinations: [],
     metadata: {
       ...metadata,
       spanCount: spans.length,
@@ -1322,7 +1322,7 @@ function buildPortalFrameModel(state: DraftState, metadata: Record<string, unkno
     load_cases: [
       { id: 'LC1', type: 'other', loads },
     ],
-    load_combinations: [{ id: 'ULS', factors: { LC1: 1.0 } }],
+    load_combinations: [],
     metadata: {
       ...metadata,
       bayCount: spans.length,
@@ -1384,7 +1384,7 @@ function buildBaseModel(state: DraftState): Record<string, unknown> {
     load_cases: [
       { id: 'LC1', type: 'other', loads: beamLoads },
     ],
-    load_combinations: [{ id: 'ULS', factors: { LC1: 1.0 } }],
+    load_combinations: [],
     metadata: { ...metadata, supportType, loadPositionM: state.loadPositionM, simpleSpanM: simpleSpan, overhangLengthM: overhangLength },
   };
 }

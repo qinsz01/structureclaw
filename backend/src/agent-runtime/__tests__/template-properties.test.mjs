@@ -8,6 +8,14 @@ const material = { id:'M',E:70000,nu:0.3,rho:2700 };
 const section = { id:'S',properties:{A:0.02,Iy:2e-4,Iz:3e-4,J:1e-5} };
 
 describe('declared template properties', () => {
+  test('templates do not invent analysis or design combinations; declared combinations remain exact', () => {
+    const state = { ...beam(), engineeringDraft: { materials: [material], sectionRecords: [section] } };
+    expect(buildModel(state).load_combinations).toEqual([]);
+    state.engineeringDraft.analysis = { loadCombinations: [{ id: 'specified', factors: { LC1: 1.25 } }] };
+    expect(buildModel(state).load_combinations).toEqual(state.engineeringDraft.analysis.loadCombinations);
+    state.engineeringDraft.analysis.loadCombinations = [];
+    expect(buildModel(state).load_combinations).toEqual([]);
+  });
   test('missing or unknown physical properties cannot create an executable placeholder model', () => {
     expect(()=>buildModel(beam())).toThrow(/material/);
     expect(()=>buildModel({...beam(), engineeringDraft:{material:{grade:'Q355'}}})).toThrow(/section/);

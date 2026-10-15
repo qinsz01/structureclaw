@@ -275,7 +275,7 @@ describe('frame canonicalize core contract', () => {
     expect(model.load_cases.map((loadCase) => loadCase.id)).toEqual(['D', 'L']);
     expect(model.load_cases.find((loadCase) => loadCase.id === 'D').loads).toEqual([]);
     expect(model.load_cases.find((loadCase) => loadCase.id === 'L').loads).toEqual([]);
-    expect(model.load_combinations[0]).toMatchObject({ id: 'ULS', factors: { D: 1, L: 1 } });
+    expect(model.load_combinations).toEqual([]);
   });
 
   test('normalizes duplicate floor loads while preserving upward signed gravity loads', () => {
