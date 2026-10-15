@@ -2368,12 +2368,11 @@ export function buildModelToolStateUpdate(
   state?: AgentState,
 ): Partial<AgentState> {
   if (summary.success === false) {
+    if (state?.model && !state.modelPending) return {};
     return {
+      ...invalidateAnalysis(state),
       model: state?.model ?? null,
       modelPending: true,
-      analysisResult: null,
-      codeCheckResult: null,
-      report: null,
     };
   }
   return commitModel(state, model, 'build_model');
@@ -2696,7 +2695,8 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
             extractionMode: 'deterministic',
             ...buildDraftProgress(locale, missing.critical),
           };
-          const stateUpdate: Partial<AgentState> = { draftState: nextState, structuralTypeKey: match.key };
+          const stateUpdate: Partial<AgentState> = { ...(resetToGeneric ? { ...invalidateAnalysis(state), modelPending: true } : {}),
+            draftState: nextState, structuralTypeKey: match.key };
           logToolCall(log, { tool: 'extract_draft_params', durationMs: Date.now() - start, extra: { skillId: plugin.id, extractionMode: 'deterministic', criticalMissing: missing.critical.length, routingSource: match.routingSource } });
           return extractionToolResult(JSON.stringify(responseJson), stateUpdate);
         }
@@ -2784,11 +2784,9 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
         const stateUpdate: Partial<AgentState> = {};
         if (requestScope) stateUpdate.requestScope = requestScope;
         if (nextState) {
+          Object.assign(stateUpdate, invalidateAnalysis(state));
           stateUpdate.draftState = nextState;
           stateUpdate.modelPending = true;
-          stateUpdate.analysisResult = null;
-          stateUpdate.codeCheckResult = null;
-          stateUpdate.report = null;
         }
         if (match.key) stateUpdate.structuralTypeKey = match.key;
 
@@ -2888,8 +2886,8 @@ export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
 export function createAskUserClarificationTool() {
   return tool(
     async (input: { question: string; optionsJson?: string }) => {
-      const rawOptions: unknown = input.optionsJson ? JSON.parse(input.optionsJson) : undefined;
-      const options = rawOptions === undefined ? undefined : normalizeClarificationOptions(rawOptions);
+      const options = input.optionsJson === undefined ? undefined : normalizeClarificationOptions(input.optionsJson);
+      if (input.optionsJson && !options?.length) recordRunEvent({ kind: 'clarification_options_ignored', reason: 'OPTIONAL_CHOICES_UNAVAILABLE' });
 
       if (currentRunPolicy()?.executionOwner === 'external') {
         return JSON.stringify({ type: 'clarification_needed', question: input.question, options,
@@ -2917,7 +2915,7 @@ export function createAskUserClarificationTool() {
         'Use this when you cannot proceed without user input. ' +
         'The graph will resume once the user provides an answer.',
       schema: z.object({
-        question: z.string().describe('The question to ask the user'),
+        question: z.string().trim().min(1).describe('The question to ask the user'),
         optionsJson: z
           .string()
           .optional()
@@ -3133,13 +3131,16 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
       const state = configurable.agentState;
       const toolCallId = getToolCallId(config);
 
-      const equilibriumRequested = input.method === 'equilibrium' || input.requestScope?.method === 'equilibrium' || state?.requestScope?.method === 'equilibrium';
+      const equilibriumRequested = input.method !== undefined ? input.method === 'equilibrium'
+        : input.requestScope !== undefined ? input.requestScope.method === 'equilibrium'
+          : !input.analysisSkillId && state?.requestScope?.method === 'equilibrium';
       // A tool may select only available responses, but cannot erase the accepted goal.
       const partialGoal = equilibriumRequested && state?.requestScope?.responses.some(field => !['forces', 'reactions'].includes(field))
         ? state.requestScope : undefined;
-      const scope = partialGoal
+      const goal = partialGoal
         ? { ...partialGoal, outputs: input.requestScope?.outputs.length ? input.requestScope.outputs : partialGoal.outputs }
         : input.requestScope ?? state?.requestScope;
+      const scope = !equilibriumRequested && goal?.method === 'equilibrium' ? { ...goal, method: 'solver' as const } : goal;
       if (equilibriumRequested) {
         const partial = (input.allowPartial === true || !!partialGoal) && scope && !scope.design
           && scope.responses.some(field => !['forces', 'reactions'].includes(field))

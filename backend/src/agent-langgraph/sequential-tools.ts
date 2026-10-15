@@ -3,7 +3,6 @@ import { Command, isCommand, messagesStateReducer, type LangGraphRunnableConfig 
 import { ToolNode } from '@langchain/langgraph/prebuilt';
 import type { StructuredToolInterface } from '@langchain/core/tools';
 import type { AgentState } from './state.js';
-import { invalidateAnalysis } from '../engineering/model-state.js';
 import { reserveToolCall, recordToolOutcome, currentRunContext, snapshotRunUsage } from '../runtime/run-context.js';
 import { toolMessageFailure } from '../utils/tool-outcome.js';
 
@@ -36,19 +35,15 @@ export async function executeToolsSequentially(tools: StructuredToolInterface[],
   }
   const update: Record<string, unknown> = { messages: [] };
   let current = state;
-  if (['run_analysis', 'build_model', 'extract_draft_params'].includes(call.name)) {
-    const invalidation = invalidateAnalysis(current);
-    const analysisRuns = { ...current.analysisRuns, ...invalidation.analysisRuns };
-    current = { ...current, ...invalidation, analysisRuns };
-    Object.assign(update, invalidation, { analysisRuns });
-    config.writer?.({ type: 'artifact_payload_sync', artifact: 'analysis', invalidated: true });
-    config.writer?.({ type: 'artifact_payload_sync', artifact: 'report', invalidated: true });
-  }
+  // Tools invalidate only after accepting a draft/model change or reserving a
+  // solver request. A schema/provider failure must preserve the committed state.
   const invocationConfig = { ...config, configurable: { ...config.configurable, agentState: current,
     onAnalysisRequest: (reservation: Partial<AgentState>) => {
       current = { ...current, ...reservation, analysisRuns: { ...current.analysisRuns, ...reservation.analysisRuns } };
       Object.assign(update, reservation, { analysisRuns: current.analysisRuns });
       invocationConfig.configurable.agentState = current;
+      if (reservation.analysisResult === null) config.writer?.({ type: 'artifact_payload_sync', artifact: 'analysis', invalidated: true });
+      if (reservation.report === null) config.writer?.({ type: 'artifact_payload_sync', artifact: 'report', invalidated: true });
     },
   } };
   const node = new ToolNode(tools);

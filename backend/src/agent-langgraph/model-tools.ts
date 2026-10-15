@@ -143,9 +143,9 @@ export function createReviewInputTool() {
         accelerationColumn: z.union([z.number().int().nonnegative(), z.string().min(1)]).optional(),
       }).optional().describe('Confirmed sampling parameters; original samples and file references cannot be replaced / 确认采样参数，不能替换原始样本或文件引用'),
       mappedFields: z.array(z.string().min(1)).min(1).optional().describe('Concrete reviewed fields used from this source / 该来源已复核并采用的具体字段'),
-      modelField: z.string().optional().describe('Canonical model field for a semantic observation, e.g. nodes.A.x / 语义识别值对应的规范模型字段') })).min(1).optional(),
+      modelField: z.string().optional().describe('Canonical model field for a semantic observation, e.g. nodes.A.x / 语义识别值对应的规范模型字段') })).optional(),
       excludeSources: z.array(z.object({ sourceFile: z.string().min(1), reason: z.string().min(1),
-        evidenceIds: z.array(z.string().min(1)).min(1).optional() })).min(1).optional()
+        evidenceIds: z.array(z.string().min(1)).min(1).optional() })).optional()
         .describe('Explicitly exclude unrelated source observations, preserving their contents and reason / 明确排除无关来源，保留内容与原因'),
     }).refine(value => Boolean(value.resolutions?.length || value.excludeSources?.length), 'INPUT_REVIEW_ACTION_REQUIRED') });
 }

@@ -2504,9 +2504,29 @@ describe("build model tool summary", () => {
     expect(update).toEqual({
       model: null,
       modelPending: true,
+      analysisRequest: null,
       analysisResult: null,
       codeCheckResult: null,
       report: null,
     });
+  });
+
+  test('a rejected empty candidate preserves the committed model and its valid results', async () => {
+    const { buildModelToolStateUpdate } = await import('../../../dist/agent-langgraph/tools.js');
+    const state = { model: { nodes: [{ id: 'A' }], elements: [{ id: 'E' }] }, modelPending: false,
+      analysisResult: { runId: 'previous-run' }, report: { runId: 'previous-run' } };
+    const before = structuredClone(state);
+    const update = buildModelToolStateUpdate({ nodes: [], elements: [] }, { success: false, errorCode: 'EMPTY_MODEL' }, state);
+    expect(update).toEqual({});
+    expect(state).toEqual(before);
+  });
+
+  test('a failed pending rebuild retains the prior run in history', async () => {
+    const { buildModelToolStateUpdate } = await import('../../../dist/agent-langgraph/tools.js');
+    const state = { model: { nodes: [{ id: 'A' }] }, modelPending: true, analysisResult: { runId: 'previous-run' } };
+    const update = buildModelToolStateUpdate({ nodes: [], elements: [] }, { success: false }, state);
+    expect(update.modelPending).toBe(true);
+    expect(update.analysisResult).toBeNull();
+    expect(update.analysisRuns['previous-run']).toEqual(state.analysisResult);
   });
 });

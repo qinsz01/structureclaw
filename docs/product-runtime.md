@@ -569,3 +569,52 @@ projects with official readback; mocks cannot establish installed SDK behavior.
 迁移变化：默认纠错统一为每回合最多2次；新配置中 null 与空集合明确区分；旧字段仅在入口转换，
 冲突报错。历史会话仍可读，继续计算时经过统一转换。未通过原生验证的必需能力仍是未完成项，
 不能由构建、接口或单元测试通过替代。
+
+Tool boundary handling (2026-10-15): rejected arguments, failed extraction and
+uncommitted model candidates preserve the committed model and its current results.
+Accepting a draft/model change or reserving a solver request invalidates downstream
+artifacts and retains the prior run in history. Solver failures after reservation
+do not restore an obsolete result as current.
+
+工具边界处理：参数拒绝、提取失败及尚未提交的建模候选不会清空已确认模型和有效结果；
+接受草稿/模型变更或登记新的求解请求时，才使下游结果失效并保存历史。已登记求解请求
+随后失败时，不会把旧结果恢复为当前结果。
+
+Nested routing, extraction and generic modeling read provider text blocks through
+one text adapter; reasoning/image blocks are not engineering JSON. Optional
+clarification choices may be omitted when malformed, while the nonempty question
+is still delivered. Input review accepts an empty unused action list, but requires
+at least one actual action; empty permission lists retain their existing meaning.
+
+内部路由、参数提取和通用建模统一读取模型的文本块，不把推理或图像块当成工程 JSON。
+可选澄清按钮格式错误时仍可提出有效问题。输入复核允许未使用的操作列表为空，但至少
+需要一项实际操作；权限空集合的原有含义不变。
+
+An explicit analysis method/scope/provider supersedes a prior equilibrium method;
+an explicitly incompatible equilibrium/solver request remains rejected. Generic
+and explicit models apply confirmed analysis controls before validation. Density
+is not required for elastic analysis with self-weight explicitly disabled; mass
+and self-weight requirements remain enforced by the requested analysis.
+
+本次明确指定的分析方法、目标或引擎优先于旧平衡法设置，显式冲突仍拒绝执行。通用与
+显式模型先应用已确认的分析控制；明确不计自重的弹性分析不强制要求未使用的密度，
+自重与动力质量条件仍按所求分析检查。
+
+For a single-span equilibrium beam, a numeric point-load position and a recognized
+location label may coexist when they agree. Contradictory or unknown labels are
+rejected; point labels cannot turn a line load into a full-span load. A supplied
+load-field correction clears its previous draft diagnostic only for the matching
+load identity, not another load at the same patch-array offset. Unrelated and
+newly reported issues remain unresolved.
+
+单跨梁平衡计算允许一致的坐标与位置标签同时存在；矛盾或未知标签仍拒绝，集中力位置
+也不能使线荷载被当成全跨均布载。补充荷载字段后，只清理对应荷载的旧诊断，不按补丁
+数组下标误清其他荷载；其他未解决问题和本轮新问题继续保留。
+
+Template role assignments are draft patches: material and section IDs can arrive
+separately. Empty optional entries do not erase accepted IDs. Formal building
+still requires a resolvable assignment from declared records or declared section
+names; ambiguous or unknown references cannot create a model.
+
+模板角色分配允许逐字段补充材料与截面ID，空的可选项不删除已确认ID。正式建模仍须从
+已提供的属性记录或截面名称明确确定分配；有歧义或未知引用时不能生成计算模型。

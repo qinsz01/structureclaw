@@ -107,7 +107,7 @@ export interface EngineeringDraft {
   materials?: Array<Record<string, unknown>>;
   sectionRecords?: Array<Record<string, unknown>>;
   /** Explicit assignment for generated geometry. member means a declared uniform assignment. */
-  templateAssignments?: Partial<Record<'beam' | 'column' | 'member', { materialId: string; sectionId: string }>>;
+  templateAssignments?: Partial<Record<'beam' | 'column' | 'member', { materialId?: string; sectionId?: string }>>;
   loadCases?: Array<Record<string, unknown>>;
   model?: Record<string, unknown>;
   inputEvidence?: Array<Record<string, unknown>>;

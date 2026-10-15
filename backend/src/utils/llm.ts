@@ -6,6 +6,7 @@ import { getEffectiveLlmSettings, getEffectiveVisionLlmSettings } from '../confi
 import { llmCallLogger } from './llm-logger.js';
 import { logger, logLlmCall } from './agent-logger.js';
 import { reserveLlmCall, recordRunEvent } from '../runtime/run-context.js';
+import { llmContentText } from './llm-content.js';
 
 export type StructureClawChatModel = BaseChatModel & {
   bindTools: NonNullable<BaseChatModel['bindTools']>;
@@ -426,11 +427,7 @@ export function wrapWithLlmLogging<TModel extends StructureClawChatModel>(model:
     const callId = reserveLlmCall(loggedModel);
     try {
       const result = await originalInvoke(input, options);
-      const content = sanitizeBase64ForLogging(
-        typeof result.content === 'string'
-          ? result.content
-          : JSON.stringify(result.content),
-      );
+      const content = sanitizeBase64ForLogging(llmContentText(result.content));
       const durationMs = Date.now() - start;
       recordRunEvent({ kind: 'llm_finished', callId, model: loggedModel, success: true, durationMs, usage: extractLlmTokenUsage(result) ?? null });
       llmCallLogger.log({

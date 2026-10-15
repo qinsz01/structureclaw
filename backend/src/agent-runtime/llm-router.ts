@@ -1,5 +1,6 @@
 import type { AppLocale } from '../services/locale.js';
 import { currentRunPolicy } from '../runtime/run-context.js';
+import { llmContentText } from '../utils/llm-content.js';
 import {
   extractLlmTokenUsage,
   type LlmTokenUsage,
@@ -355,9 +356,7 @@ export async function invokeStructuralTypeRouter(input: StructuralRouterInput): 
   }
   const usage = extractLlmTokenUsage(result);
   if (usage) input.onUsage?.(usage);
-  const content = typeof result.content === 'string'
-    ? result.content
-    : JSON.stringify(result.content);
+  const content = llmContentText(result.content);
   const parsed = parseJsonObject(content);
   const match = parsed ? resolveRouterMatch(normalizeDecision(parsed), input) : null;
   return match;

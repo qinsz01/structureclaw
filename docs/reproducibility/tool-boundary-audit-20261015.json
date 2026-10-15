@@ -1,0 +1,247 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-15",
+  "baseCommit": "d45369d5ae11fa6a8dca95d7faea850f478b157a",
+  "branch": "work/research-next",
+  "scope": {
+    "product": "StructureClaw",
+    "registeredTools": 25,
+    "benchmarkModified": false,
+    "benchmarkGitlink": "5102acb3fdf4618c31f385e51fd0e5b9280438a1",
+    "independentYjkApiModified": false,
+    "historicalTagsModified": false,
+    "paidBenchmarkExperimentsStarted": false
+  },
+  "defects": [
+    {
+      "id": "provider-text-blocks",
+      "cause": "Routing, extraction and generic modeling serialized content-block wrappers as engineering JSON; undefined content could throw TypeError.",
+      "fix": "Shared provider-text reader excludes reasoning/image blocks and produces a controlled empty-output diagnostic.",
+      "tests": [
+        "backend/tests/llm-content-boundaries.test.mjs",
+        "backend/src/agent-langgraph/__tests__/param-extractor.test.mjs"
+      ]
+    },
+    {
+      "id": "premature-artifact-invalidation",
+      "cause": "The graph invalidated committed results before input/precondition validation, and failed empty candidates could clear artifacts.",
+      "fix": "Invalidation belongs to accepted draft/model commits and reserved solver requests. Failed pending rebuilds archive prior runs; rejected uncommitted candidates preserve current results.",
+      "tests": [
+        "backend/src/agent-langgraph/__tests__/sequential-tools-checkpoint.test.mjs",
+        "backend/src/agent-langgraph/__tests__/tool-boundaries.test.mjs",
+        "frontend/tests/e2e/specs/engineering-workflow.spec.ts"
+      ]
+    },
+    {
+      "id": "stale-equilibrium-method",
+      "cause": "A prior equilibrium goal overrode a newly explicit solver scope/method/provider.",
+      "fix": "Explicit current selections take precedence; explicitly incompatible equilibrium requests remain rejected.",
+      "tests": [
+        "backend/tests/request-scope.test.mjs"
+      ]
+    },
+    {
+      "id": "optional-clarification-choices",
+      "cause": "Malformed optional choices prevented delivering a valid clarification question.",
+      "fix": "Reuse the existing choice normalizer; preserve the nonempty question and record an optional-choice diagnostic.",
+      "tests": [
+        "backend/src/agent-langgraph/__tests__/clarification-options.test.mjs"
+      ]
+    },
+    {
+      "id": "empty-unused-review-list",
+      "cause": "A valid review action was rejected when the other optional action list was empty.",
+      "fix": "Require at least one action across the two lists. Permission/selection empty-list semantics are unchanged.",
+      "tests": [
+        "backend/src/agent-langgraph/__tests__/tool-boundaries.test.mjs"
+      ]
+    },
+    {
+      "id": "unused-density",
+      "cause": "Generic/explicit model validation required density for elastic analysis even when self-weight was disabled; draft controls were applied after validation.",
+      "fix": "Apply confirmed controls first. Require density when needed; reject invalid supplied values; dynamic mass validation remains independent.",
+      "tests": [
+        "backend/tests/llm-content-boundaries.test.mjs",
+        "backend/tests/request-scope.test.mjs"
+      ]
+    },
+    {
+      "id": "equivalent-point-location",
+      "cause": "A real provider supplied both xM=5 and nodeRole=midspan on a 10m beam; the equilibrium projection rejected the otherwise consistent location.",
+      "fix": "Resolve supported point labels and check agreement with numeric position. Conflicts, unknown roles and point labels on line loads still fail.",
+      "tests": [
+        "backend/tests/request-scope.test.mjs"
+      ],
+      "liveFailureConversation": "cmv8xz2na001rz4wm74792y6n"
+    },
+    {
+      "id": "stale-load-diagnostic",
+      "cause": "A real clarification supplied gravity direction, but old loads[0].direction issues and invalid-field flags survived; the agent repeatedly extracted parameters and then failed to build.",
+      "fix": "Clear explicitly corrected load-field diagnostics using existing load identity, not patch array offsets. Preserve unrelated issues and newly reported invalid fields.",
+      "tests": [
+        "backend/src/agent-langgraph/__tests__/param-extractor.test.mjs"
+      ],
+      "liveFailureConversation": "cmv8xqdx70009z4wm9plhv0o1"
+    },
+    {
+      "id": "partial-template-assignment",
+      "cause": "The draft normalizer required both IDs for every supplied role, rejecting partial or empty optional assignments before saving other extracted data.",
+      "fix": "Draft assignments allow partial fields and merge accepted IDs per role. Empty optional entries are omitted; formal template resolution still rejects ambiguous or unknown physical assignments.",
+      "tests": [
+        "backend/src/agent-runtime/__tests__/template-properties.test.mjs"
+      ],
+      "liveFailureConversation": "cmv8y92pf00007cwm9lftfl63",
+      "evidenceLimit": "The rejected nested response was not persisted; the runtime logged INVALID_TEMPLATE_ASSIGNMENTS. Deterministic tests reproduce partial-draft rejection and verify execution guards; the exact rejected key layout is not asserted."
+    }
+  ],
+  "verification": {
+    "beforeFix": {
+      "logs": [
+        "boundary-audit-repro-20261015.log",
+        "boundary-method-repro-20261015.log",
+        "boundary-clarification-repro-20261015.log",
+        "boundary-registry-repro-corrected-20261015.log",
+        "boundary-density-repro-20261015.log",
+        "boundary-empty-build-repro-20261015.log",
+        "boundary-point-location-repro-20261015.log",
+        "boundary-stale-diagnostic-repro-20261015.log"
+      ],
+      "note": "All failed attempts are retained. The first registry probe also had a test-only message-ID assertion issue; corrected probe isolates the actual empty-list rejection. A new integration fixture initially omitted required material/section labels and was corrected without weakening validation."
+    },
+    "initialBackend": {
+      "log": "boundary-audit-backend-20261015.log",
+      "passed": false,
+      "note": "Superseded run: one 5-second subprocess timeout under concurrent load, an incomplete new fixture, a legacy eager-invalidation expectation, and newly added tests against previously loaded compiled modules. No tolerances/time limits were relaxed."
+    },
+    "backend": {
+      "log": "boundary-audit-backend-final3-20261015.log",
+      "passed": true,
+      "suites": 154,
+      "tests": 1792
+    },
+    "targeted": {
+      "log": "boundary-audit-targeted-final2-20261015.log",
+      "passed": true,
+      "suites": 9,
+      "tests": 182
+    },
+    "identity": {
+      "log": "boundary-audit-identity-final-20261015.log",
+      "passed": true,
+      "suites": 2,
+      "tests": 52
+    },
+    "liveInitial": {
+      "log": "boundary-audit-live-20261015.log",
+      "providerModel": "glm-5.3",
+      "retries": 0,
+      "workers": 2,
+      "passed": 6,
+      "failed": 2,
+      "scenarios": 8,
+      "note": "Two genuine product failures found by the real provider were fixed and rerun; this initial run is not reported as passing."
+    },
+    "livePostLocation": {
+      "log": "boundary-audit-live-final-20261015.log",
+      "providerModel": "glm-5.3",
+      "retries": 0,
+      "workers": 2,
+      "passed": 3,
+      "interrupted": 1,
+      "note": "Both force-only languages and partial delivery passed. The two-turn case emitted INVALID_TEMPLATE_ASSIGNMENTS; it was stopped before further automatic retries and rerun after fixing the draft contract."
+    },
+    "assignmentGuards": {
+      "log": "boundary-assignment-physical-guards-20261015.log",
+      "passed": true,
+      "tests": 7
+    },
+    "build": {
+      "log": "boundary-audit-build-final3-20261015.log",
+      "passed": true
+    },
+    "lint": {
+      "log": "boundary-audit-lint-final3-20261015.log",
+      "passed": true
+    },
+    "frontendTypes": {
+      "log": "boundary-audit-frontend-types-20261015.log",
+      "passed": true
+    },
+    "contracts": [
+      {
+        "name": "agent",
+        "log": "boundary-audit-orchestration-final3-20261015.log",
+        "passed": true
+      },
+      {
+        "name": "chat stream",
+        "log": "boundary-audit-chat-contract-final3-20261015.log",
+        "passed": true
+      },
+      {
+        "name": "analyze",
+        "log": "boundary-audit-analyze-contract-final3-20261015.log",
+        "passed": true
+      }
+    ],
+    "backendPriorClean": {
+      "log": "boundary-audit-backend-final2-20261015.log",
+      "passed": true,
+      "suites": 154,
+      "tests": 1791,
+      "note": "Before the final partial-assignment change."
+    },
+    "assignmentTargeted": {
+      "log": "boundary-audit-targeted-assignment-20261015.log",
+      "passed": true,
+      "suites": 3,
+      "tests": 59
+    },
+    "browser": {
+      "log": "boundary-audit-browser-final2-20261015.log",
+      "passed": true,
+      "tests": 44,
+      "skipped": 8,
+      "retries": 0,
+      "note": "Live-provider cases are explicitly opt-in and tested separately. Real OpenSees, persistence, reports, WebGL, editing/undo, bilingual runtime controls and three injected rejected operations are exercised; only the LLM transport is scripted."
+    },
+    "liveClarificationFinal": {
+      "log": "boundary-audit-live-assignment-20261015.log",
+      "providerModel": "glm-5.3",
+      "retries": 0,
+      "workers": 1,
+      "passed": 1,
+      "failed": 0,
+      "durationMinutes": 4.4,
+      "conversationId": "cmv8ym8lo0000qgwmx6r6t5yr",
+      "runId": "586d4c60-e790-4151-88b0-2b0dee43a486",
+      "userTurns": 2,
+      "extractionCalls": 2,
+      "toolErrors": 0,
+      "recoveries": 0,
+      "analysisCurrent": true,
+      "reportCurrent": true
+    },
+    "liveCoverage": {
+      "testCases": 8,
+      "note": "Initial 6 passing cases, 3 post-location passing cases and the final two-turn passing case cover all eight live test cases. Two original requests are intentionally repeated. Failed and interrupted attempts remain in the evidence; this is not one uninterrupted all-green eight-case batch."
+    },
+    "health": {
+      "log": "boundary-audit-main-health-20261015.log",
+      "passed": true
+    }
+  },
+  "limits": [
+    "This is product boundary and representative workflow acceptance, not certification of arbitrary natural-language requests or all 300 planned scenarios.",
+    "Commercial adapter contract tests are included; this task did not rerun installed commercial SDK acceptance or modify the independent YJK API.",
+    "Real provider latency remains measured in minutes; no latency improvement is claimed."
+  ],
+  "evidenceDirectory": "G:/StructureClaw-All/sclaw_data/verification/tool-boundary-audit-20261015",
+  "mainRuntime": {
+    "url": "http://127.0.0.1:31415",
+    "sourceProcessId": 23508,
+    "sourceProcessCreatedAtLocal": "2026-10-15 11:07:13",
+    "healthy": true,
+    "globallyInstalledNpmPackageUpdated": false
+  }
+}

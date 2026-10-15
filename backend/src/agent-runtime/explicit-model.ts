@@ -32,10 +32,11 @@ export function validateExplicitModel(model: RecordValue): RecordValue {
     if (!sectionIds.has(element.section)) fail(`element ${element.id}: unknown section ${element.section}`);
   }
   for (const material of materials) {
-    for (const key of ['E', 'nu', 'rho']) {
+    const densityRequired = !record(model.analysis_control) || model.analysis_control.self_weight !== false;
+    for (const key of ['E', 'nu', ...(densityRequired || material.rho !== undefined ? ['rho'] : [])]) {
       if (typeof material[key] !== 'number' || !Number.isFinite(material[key])) fail(`material ${material.id}: finite ${key} required`);
     }
-    if (Number(material.E) <= 0 || Number(material.rho) < 0 || Number(material.nu) <= -1 || Number(material.nu) >= 0.5) fail(`material ${material.id}: invalid elastic constants/density`);
+    if (Number(material.E) <= 0 || material.rho !== undefined && Number(material.rho) < 0 || Number(material.nu) <= -1 || Number(material.nu) >= 0.5) fail(`material ${material.id}: invalid elastic constants/density`);
   }
   for (const section of sections) {
     if (!record(section.properties) && !record(section.dimensions) && !record(section.shape)) fail(`section ${section.id}: properties, dimensions or shape required`);

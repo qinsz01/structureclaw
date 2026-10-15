@@ -426,16 +426,22 @@ export function normalizeEngineeringDraft(value: unknown): EngineeringDraft | un
 }
 
 function normalizeTemplateAssignments(value: unknown): EngineeringDraft['templateAssignments'] {
-  if (value === undefined) return undefined;
+  if (value === undefined || value === null) return undefined;
   const mappings = asRecord(value);
   if (!mappings) throw new Error('INVALID_TEMPLATE_ASSIGNMENTS: object required / 请提供构件角色属性映射');
+  const normalized: NonNullable<EngineeringDraft['templateAssignments']> = {};
   for (const [role, raw] of Object.entries(mappings)) {
+    if (['beam', 'column', 'member'].includes(role) && raw == null) continue;
     const entry = asRecord(raw);
-    if (!['beam', 'column', 'member'].includes(role) || !entry || !normalizeString(entry.materialId) || !normalizeString(entry.sectionId)) {
-      throw new Error('INVALID_TEMPLATE_ASSIGNMENTS: beam/column/member needs materialId and sectionId / 每个角色须明确材料与截面ID');
+    if (!['beam', 'column', 'member'].includes(role) || !entry
+      || Object.keys(entry).some(key => !['materialId', 'sectionId'].includes(key))
+      || ['materialId', 'sectionId'].some(key => entry[key] != null && typeof entry[key] !== 'string')) {
+      throw new Error(`INVALID_TEMPLATE_ASSIGNMENTS: ${role} requires an object with nonempty supplied materialId/sectionId / 角色映射只接受明确的材料或截面ID`);
     }
+    const materialId = normalizeString(entry.materialId), sectionId = normalizeString(entry.sectionId);
+    if (materialId || sectionId) normalized[role as keyof typeof normalized] = { ...(materialId ? { materialId } : {}), ...(sectionId ? { sectionId } : {}) };
   }
-  return structuredClone(mappings) as EngineeringDraft['templateAssignments'];
+  return normalized;
 }
 
 function normalizeRecordArray(value: unknown, label: string): Array<Record<string, unknown>> | undefined {
@@ -528,7 +534,9 @@ export function mergeEngineeringDraft(
     topology: { ...(existing.topology ?? {}), ...(patch.topology ?? {}) },
     materials: mergeDraftPropertyRecords(existing.materials, patch.materials),
     sectionRecords: mergeDraftPropertyRecords(existing.sectionRecords, patch.sectionRecords, true),
-    templateAssignments: { ...(existing.templateAssignments ?? {}), ...(patch.templateAssignments ?? {}) },
+    templateAssignments: Object.fromEntries([...new Set([...Object.keys(existing.templateAssignments ?? {}), ...Object.keys(patch.templateAssignments ?? {})])]
+      .map(role => { const key = role as keyof NonNullable<EngineeringDraft['templateAssignments']>;
+        return [role, { ...existing.templateAssignments?.[key], ...patch.templateAssignments?.[key] }]; })),
     loadCases: patch.loadCases ?? existing.loadCases,
     model: patch.model ?? existing.model,
     inputEvidence: mergeInputEvidence(existing.inputEvidence, patch.inputEvidence),
@@ -600,7 +608,7 @@ function loadLocationMergeValue(
   return Object.values(rest).some((value) => value !== undefined) ? rest : undefined;
 }
 
-function engineeringLoadMergeKey(
+export function engineeringLoadMergeKey(
   load: EngineeringDraftLoad,
   draft: Pick<EngineeringDraft, 'structureType' | 'geometry' | 'analysis'>,
 ): string {

@@ -16,6 +16,7 @@ import { logger as rootLogger } from '../utils/agent-logger.js';
 import type { Logger } from 'pino';
 import type { AgentSkillPlugin, DraftState } from '../agent-runtime/types.js';
 import { currentRunPolicy, requestRecovery } from '../runtime/run-context.js';
+import { llmContentText } from '../utils/llm-content.js';
 
 // ---------------------------------------------------------------------------
 // Skill context
@@ -527,9 +528,7 @@ export async function invokeParamExtractor(
 
   const usage = extractLlmTokenUsage(result);
   if (usage) input.onUsage?.(usage);
-  const content = typeof result.content === 'string'
-    ? result.content
-    : JSON.stringify(result.content);
+  const content = llmContentText(result.content);
   const patch = parseDraftPatchFromContent(content);
   const rawFinishReason = result.response_metadata?.finish_reason
     ?? result.response_metadata?.stop_reason;

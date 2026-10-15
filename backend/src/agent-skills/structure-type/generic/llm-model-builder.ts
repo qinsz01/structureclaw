@@ -7,6 +7,7 @@ import {
   STRUCTURAL_COORDINATE_SEMANTICS,
 } from '../../../agent-runtime/coordinate-semantics.js';
 import { logger } from '../../../utils/logger.js';
+import { llmContentText } from '../../../utils/llm-content.js';
 import type { StructureClawChatModel } from '../../../utils/llm.js';
 import { buildGenericModelPrompt, buildRetrySuffix } from './llm-model-prompt.js';
 import { validateExplicitModel } from '../../../agent-runtime/explicit-model.js';
@@ -45,9 +46,7 @@ export async function tryBuildGenericModelWithLlm(
     // Provider/transport failures propagate; only invalid candidates below may be corrected.
     const aiMessage = await llm.invoke(prompt, { signal });
     try {
-      const content = typeof aiMessage.content === 'string'
-        ? aiMessage.content
-        : JSON.stringify(aiMessage.content);
+      const content = llmContentText(aiMessage.content);
       const parsed = parseJsonObject(content);
       if (!parsed) {
         logger.warn({
@@ -72,8 +71,9 @@ export async function tryBuildGenericModelWithLlm(
 
       canonicalizeGenericModel(parsed);
       const dimension = stampCanonicalMetadata(parsed, state);
-      assertCanonicalCoordinateModel(parsed, dimension);
-      validateExplicitModel(parsed);
+      const candidate = applyDraftAnalysisControl(parsed, state.engineeringDraft);
+      assertCanonicalCoordinateModel(candidate, dimension);
+      validateExplicitModel(candidate);
 
       logger.info({
         attempt: attempt + 1,
@@ -83,7 +83,7 @@ export async function tryBuildGenericModelWithLlm(
         loadCaseCount: parsed.load_cases.length,
       }, 'generic llm model attempt succeeded');
 
-      return applyDraftAnalysisControl(parsed, state.engineeringDraft);
+      return candidate;
     } catch (error) {
       logger.warn({
         attempt: attempt + 1,

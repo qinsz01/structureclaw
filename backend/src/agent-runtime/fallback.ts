@@ -6,6 +6,7 @@ import type {
   DraftLoadPosition,
   DraftLoadType,
   DraftState,
+  EngineeringDraft,
   DraftSupportType,
   FrameBaseSupportType,
   FrameDimension,
@@ -15,7 +16,7 @@ import type {
   StructuralTypeMatch,
   StructuralTypeKey,
 } from './types.js';
-import { mergeEngineeringDraft } from './engineering-draft.js';
+import { engineeringLoadMergeKey, mergeEngineeringDraft } from './engineering-draft.js';
 import { buildModel as buildDraftModel } from './model-builder.js';
 import { localize } from './plugin-helpers.js';
 
@@ -89,7 +90,7 @@ function getInvalidDraftFields(state: DraftState | DraftExtraction | undefined):
   return fields.filter((field): field is string => typeof field === 'string');
 }
 
-function collectValidPatchFields(patch: DraftExtraction): Set<string> {
+function collectValidPatchFields(patch: DraftExtraction, existing?: DraftState, mergedDraft?: EngineeringDraft): Set<string> {
   const valid = new Set<string>();
   const checkPositive = (field: string, value: unknown) => {
     if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
@@ -162,16 +163,31 @@ function collectValidPatchFields(patch: DraftExtraction): Set<string> {
     }
     checkNonNegativeArray('boundary.supportPositionsM', boundary.supportPositionsM);
   }
-  for (const [index, load] of (patch.engineeringDraft?.loads ?? []).entries()) {
-    if (Number.isFinite(load.magnitude)) valid.add(`loads[${index}].magnitude`);
+  for (const [patchIndex, load] of (patch.engineeringDraft?.loads ?? []).entries()) {
+    const previous = existing?.engineeringDraft?.loads ?? [];
+    const matches = previous.map((candidate, index) => ({ candidate, index })).filter(({ candidate }) => load.id
+      ? candidate.id === load.id
+      : !candidate.id && mergedDraft && engineeringLoadMergeKey({ ...candidate, direction: undefined }, mergedDraft)
+        === engineeringLoadMergeKey({ ...load, direction: undefined }, mergedDraft));
+    // A patch's array offset is not the identity of an existing load.
+    const index = previous.length ? matches.length === 1 ? matches[0]!.index : undefined : patchIndex;
+    if (index === undefined) continue;
+    const add = (field: string) => { valid.add(`loads[${index}].${field}`); valid.add(`engineeringDraft.loads[${index}].${field}`); };
+    if (Number.isFinite(load.magnitude)) add('magnitude');
+    if (['gravity', 'globalX', 'globalY', 'globalZ'].includes(String(load.direction))) add('direction');
+    if (['kN', 'kN/m', 'kN/m2'].includes(load.unit)) add('unit');
+    if (load.kind) add('kind');
+    for (const key of ['xM', 'story', 'spanIndex'] as const) {
+      if (typeof load.location?.[key] === 'number' && Number.isFinite(load.location[key])) add(`location.${key}`);
+    }
+    if (load.location?.nodeRole?.trim()) add('location.nodeRole');
   }
   return valid;
 }
 
-function mergeInvalidDraftFields(existing: DraftState | undefined, patch: DraftExtraction): string[] | undefined {
+function mergeInvalidDraftFields(existing: DraftState | undefined, patch: DraftExtraction, clearedByPatch: Set<string>): string[] | undefined {
   const patchInvalidFields = getInvalidDraftFields(patch);
   const patchInvalid = new Set(patchInvalidFields);
-  const clearedByPatch = collectValidPatchFields(patch);
   const merged = [
     ...getInvalidDraftFields(existing).filter((field) => !clearedByPatch.has(field) || patchInvalid.has(field)),
     ...patchInvalidFields,
@@ -463,8 +479,8 @@ export function mergeDraftState(existing: DraftState | undefined, patch: DraftEx
   const bayWidthsYM = patch.bayWidthsYM ?? existing?.bayWidthsYM;
   const floorLoads = mergeFloorLoads(existing?.floorLoads, patch.floorLoads);
   const engineeringDraft = mergeEngineeringDraft(existing?.engineeringDraft, patch.engineeringDraft);
-  const clearedFields = collectValidPatchFields(patch);
-  const invalidDraftFields = mergeInvalidDraftFields(existing, patch);
+  const clearedFields = collectValidPatchFields(patch, existing, engineeringDraft);
+  const invalidDraftFields = mergeInvalidDraftFields(existing, patch, clearedFields);
   const draftIssues = mergeDraftIssues(existing, patch, clearedFields);
   const rawSkillState = existing?.skillState || patch.skillState
     ? {

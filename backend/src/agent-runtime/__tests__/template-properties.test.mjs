@@ -46,7 +46,20 @@ describe('declared template properties', () => {
     const prior=normalizeEngineeringDraft({templateAssignments:{beam:{materialId:'M',sectionId:'S'},column:{materialId:'C',sectionId:'SC'}}});
     const next=mergeEngineeringDraft(prior,normalizeEngineeringDraft({templateAssignments:{beam:{materialId:'M',sectionId:'SB'}}}));
     expect(next.templateAssignments.column.sectionId).toBe('SC');expect(next.templateAssignments.beam.sectionId).toBe('SB');
-    expect(()=>normalizeEngineeringDraft({templateAssignments:{beam:{materialId:'M'}}})).toThrow(/ASSIGNMENTS/);
+    const partial=mergeEngineeringDraft(prior,normalizeEngineeringDraft({templateAssignments:{beam:{materialId:'NEW'},column:{}}}));
+    expect(partial.templateAssignments.beam).toEqual({materialId:'NEW',sectionId:'S'});
+    expect(partial.templateAssignments.column).toEqual(prior.templateAssignments.column);
+    expect(mergeEngineeringDraft(prior,normalizeEngineeringDraft({templateAssignments:{beam:{materialId:' ',sectionId:null},column:null}})).templateAssignments).toEqual(prior.templateAssignments);
+    expect(()=>normalizeEngineeringDraft({templateAssignments:{beam:{materialId:42}}})).toThrow(/ASSIGNMENTS/);
+  });
+  test('a partial draft mapping preserves supplied properties while unresolved physical choices still block execution', () => {
+    const draft=normalizeEngineeringDraft({materials:[material],sectionRecords:[section],templateAssignments:{beam:{materialId:'M'},column:{}}});
+    const model=buildModel({...beam(),engineeringDraft:draft});
+    expect(model.elements.every(e=>e.material==='M'&&e.section==='S')).toBe(true);
+    expect(model.materials).toEqual([material]);expect(model.sections).toEqual([section]);
+    expect(()=>buildModel({...beam(),engineeringDraft:{...draft,materials:[material,{...material,id:'OTHER'}],templateAssignments:{beam:{sectionId:'S'}}}})).toThrow(/materialId/);
+    expect(()=>buildModel({...beam(),engineeringDraft:{...draft,sectionRecords:[section,{...section,id:'OTHER'}]}})).toThrow(/sectionId/);
+    expect(()=>buildModel({...beam(),engineeringDraft:{...draft,templateAssignments:{beam:{materialId:'UNKNOWN'}}}})).toThrow(/materialId/);
   });
 });
 

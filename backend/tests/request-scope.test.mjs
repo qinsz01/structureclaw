@@ -16,6 +16,48 @@ const draft = (support='simply-supported', loads) => ({ inferredType: 'beam', up
   loads: loads ?? [{ kind: 'point', magnitude: 1, unit: 'kN', direction: 'gravity', location: { xM: 5 } }],
 } });
 describe('deterministic beam equilibrium and scoped engineering delivery', () => {
+  test('generic no-self-weight model without density reaches real OpenSees and retains units', async () => {
+    const { tryBuildGenericModelWithLlm } = await import('../dist/agent-skills/structure-type/generic/llm-model-builder.js');
+    const { normalizeEngineeringModel } = await import('../dist/engineering/model-boundary.js');
+    const { createLocalStructureProtocolClient } = await import('../dist/services/structure-protocol-execution.js');
+    const candidate = { schema_version: '2.2.0', unit_system: 'SI',
+      coordinate_system: { semantics: 'global-z-up', version: 1, dimension: '2d', plane: 'xz', dof_order: ['ux','uy','uz','rx','ry','rz'] },
+      nodes: [{ id: 'A', x: 0, y: 0, z: 0, restraints: [true,true,true,true,true,true] }, { id: 'B', x: 10, y: 0, z: 0 }],
+      materials: [{ id: 'M', name: 'Elastic steel', type: 'steel', E: 206000, nu: 0.3 }],
+      sections: [{ id: 'S', name: 'Reviewed custom section', type: 'custom', properties: { A: 0.02, Iy: 0.00006, Iz: 0.00002, J: 0.00004 } }],
+      elements: [{ id: 'E', type: 'beam', nodes: ['A','B'], material: 'M', section: 'S' }],
+      load_cases: [{ id: 'LC1', type: 'other', loads: [{ id: 'P', type: 'nodal', node: 'B', fz: -1 }] }] };
+    const generated = await tryBuildGenericModelWithLlm({ invoke: async () => ({ content: [{ type: 'text', text: JSON.stringify(candidate) }] }) },
+      'Cantilever, ignore self weight', { inferredType: 'beam', updatedAt: 0, engineeringDraft: { analysisControl: { self_weight: false } } }, 'en');
+    const model = await normalizeEngineeringModel(generated, createLocalStructureProtocolClient())
+      .catch(error => { throw new Error(JSON.stringify(error.detail), { cause: error }); });
+    const client = createLocalAnalysisEngineClient();
+    const { data } = await client.post('/analyze', { type: 'static', engineId: 'builtin-opensees', model, parameters: {} });
+    expect(data.success).toBe(true);
+    const state = { analysisRuns: { [data.runId]: data } };
+    for (const [nodeId, field, component, unit, value] of [['A','reactions','fz','kN',1], ['A','reactions','my','kN.m',-10],
+      ['B','displacements','uz','mm',-1 * 10 ** 3 / (3 * 206000000 * 0.00006) * 1000]]) {
+      const result = await createQueryResultsTool().invoke({ runId: data.runId, resultKey: 'case:LC1', nodeId, field, component, unit },
+        { toolCall: { id: `query-${component}` }, configurable: { agentState: state } });
+      expect(JSON.parse(result.update.messages[0].content).quantity.value).toBeCloseTo(value, 8);
+    }
+  }, 30000);
+
+  test.each([
+    { requestScope: { ...scope, method: 'solver' } },
+    { method: 'modal', analysisType: 'dynamic' },
+    { analysisSkillId: 'opensees-static' },
+  ])('an explicit solver selection overrides the previous equilibrium method (%j)', async selection => {
+    const state = { model: { nodes: [], elements: [], materials: [], sections: [], load_cases: [] },
+      modelRevision: 1, modelPending: false, requestScope: scope };
+    let options;
+    const runtime = { executeAnalysisSkill: async value => { options = value; throw new Error('REAL_SOLVER_REACHED'); } };
+    await expect(createRunAnalysisTool(runtime).invoke({ analysisType: 'static', ...selection },
+      { toolCall: { id: 'changed-method' }, configurable: { agentState: state, skillScope: ['opensees-static', 'opensees-dynamic'] } })).rejects.toThrow('REAL_SOLVER_REACHED');
+    expect(options.model).toBe(state.model);
+    expect(options.analysisType).toBe(selection.analysisType ?? 'static');
+  });
+
   test('simply-supported beam is solved without material or section; point-load sides remain distinct', () => {
     const model = equilibriumModel(draft()); const result = solveBeamEquilibrium({ model, parameters: {} });
     expect(model.materials).toEqual([]); expect(model.sections).toEqual([]);
@@ -27,6 +69,25 @@ describe('deterministic beam equilibrium and scoped engineering delivery', () =>
     expect(result.data.execution.balance.verticalResidual).toBe(0);
     expect(result.meta).toMatchObject({coordinateSemantics:'global-z-up',coordinateContractVersion:1,dimension:'2d',plane:'xz',
       dofOrder:['ux','uy','uz','rx','ry','rz'],activeDofs:['ux','uz','ry'],nodalResultFrame:'global',elementForceFrame:'element-local'});
+  });
+  test.each(['midspan', 'mid-span', '跨中'])('matching semantic/numeric point locations are accepted (%s)', nodeRole => {
+    const d = draft();
+    d.engineeringDraft.loads[0].location.nodeRole = nodeRole;
+    expect(solveBeamEquilibrium({ model: equilibriumModel(d), parameters: {} }).data.reactions.A.fz).toBe(0.5);
+    d.engineeringDraft.loads[0].location.xM = 4;
+    expect(() => equilibriumModel(d)).toThrow('LOAD_LOCATION_CONFLICT');
+    delete d.engineeringDraft.loads[0].location.xM;
+    expect(equilibriumModel(d).load_cases[0].loads[0].position).toBe(5);
+  });
+  test('cantilever endpoint roles preserve position and reject ambiguity', () => {
+    const d = draft('cantilever', [{ kind: 'point', magnitude: 2, unit: 'kN', direction: 'gravity', location: { xM: 10, nodeRole: 'free-end' } }]);
+    expect(solveBeamEquilibrium({ model: equilibriumModel(d), parameters: {} }).data.reactions.A.my).toBe(-20);
+    d.engineeringDraft.loads[0].location.nodeRole = 'fixed-end';
+    expect(() => equilibriumModel(d)).toThrow('LOAD_LOCATION_CONFLICT');
+    d.engineeringDraft.loads[0].location.nodeRole = 'unspecified-joint';
+    expect(() => equilibriumModel(d)).toThrow('LOAD_LOCATION_UNSUPPORTED');
+    const line = draft('simply-supported', [{ kind: 'line', magnitude: 1, unit: 'kN/m', direction: 'gravity', target: 'full-span', location: { nodeRole: 'midspan' } }]);
+    expect(() => equilibriumModel(line)).toThrow('FULL_SPAN_LINE_REQUIRED');
   });
   test('cantilever end load has the correct force and signed global support moment', () => {
     const d=draft('cantilever', [{ kind:'point',magnitude:2,unit:'kN',direction:'gravity',location:{xM:10} }]);

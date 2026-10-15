@@ -14,6 +14,45 @@ test.describe('Real engineering service through the browser', () => {
   })
   test.afterAll(async () => { await llm?.close() })
 
+  test('invalid tool arguments preserve the saved analysis, report and browser figure', async ({ page, request }, info) => {
+    test.setTimeout(180_000)
+    const pageErrors: string[] = []
+    page.on('pageerror', error => pageErrors.push(error.message))
+    await page.addInitScript(() => localStorage.setItem('structureclaw.locale', 'en'))
+    await page.goto('/')
+    await page.getByRole('button', { name: 'New Conversation', exact: true }).click()
+    await page.getByRole('button', { name: 'Context', exact: true }).click()
+    await page.getByPlaceholder('Paste StructureModel v2 JSON here.', { exact: false }).fill(JSON.stringify(beamModel))
+    await page.keyboard.press('Escape')
+    const initial = await sendScript(page, llm, 'Analyze the supplied beam and save its report.', [
+      toolCall('run_analysis', beamAnalysis, 'preserve-analysis'),
+      toolCall('generate_report', { message: 'Computed report', analysisType: 'static', locale: 'en', narrative: 'structured' }, 'preserve-report'), 'INITIAL_SAVED'])
+    const url = `/api/v1/chat/conversation/${initial.conversationId}/session`
+    const before = await (await request.get(url)).json()
+    expect(before.analysis.current).toBe(true)
+    expect(before.report.current).toBe(true)
+    for (const call of [toolCall('run_analysis', { analysisType: 'equilibrium' }, 'invalid-analysis-type'),
+      toolCall('extract_draft_params', { requestScope: { responses: [] } }, 'invalid-extraction-scope'),
+      toolCall('build_model', {}, 'missing-build-draft')]) {
+      const invalid = await sendScript(page, llm, 'Injected rejected operation must preserve the saved result.', [call, 'INVALID_CALL_REJECTED'], 1)
+      expect(invalid.events.filter(event => event.type === 'artifact_payload_sync' && event.invalidated)).toEqual([])
+      const retained = await (await request.get(url)).json()
+      expect(retained.analysis).toEqual(before.analysis)
+      expect(retained.report).toEqual(before.report)
+    }
+    const after = await (await request.get(url)).json()
+    const workspace = await openResults(page)
+    await expect(workspace.getByLabel('Run', { exact: true }).locator('option:checked')).toHaveText(`Current · ${before.analysis.runId}`)
+    await selectMidpointDisplacement(workspace)
+    expect((await querySelected(page, workspace)).quantity.value).toBeCloseTo(beamReference.midpointDisplacementMm, 8)
+    await workspace.getByRole('button', { name: 'View selected figure', exact: true }).click()
+    await expect(page.getByTestId('visualization-modal-scene')).toBeVisible()
+    await expect(page.getByTestId('visualization-scene-fallback')).toHaveCount(0)
+    expect(pageErrors).toEqual([])
+    await info.attach('retained-result-session', { body: JSON.stringify({ before, after }, null, 2), contentType: 'application/json' })
+    await info.attach('retained-result-figure', { body: await page.screenshot(), contentType: 'image/png' })
+  })
+
   test('OpenSees → selected quantity → report/figure → edit invalidation → history → undo/recalculate', async ({ page, request }, testInfo) => {
     test.setTimeout(180_000)
     page.setDefaultTimeout(15_000)
@@ -165,7 +204,7 @@ test.describe('Real engineering service through the browser', () => {
   })
 })
 
-async function sendScript(page: Page, llm: Awaited<ReturnType<typeof startLlmFixture>>, message: string, responses: Parameters<typeof llm.enqueue>) {
+async function sendScript(page: Page, llm: Awaited<ReturnType<typeof startLlmFixture>>, message: string, responses: Parameters<typeof llm.enqueue>, expectedToolErrors = 0) {
   llm.enqueue(...responses)
   const responsePromise = page.waitForResponse(response => response.url().endsWith('/api/v1/chat/stream'))
   await page.locator('textarea[placeholder]').fill(message)
@@ -175,7 +214,7 @@ async function sendScript(page: Page, llm: Awaited<ReturnType<typeof startLlmFix
   const events = (await response.text()).split('\n').filter(line => line.startsWith('data: ') && !line.includes('[DONE]')).map(line => JSON.parse(line.slice(6)))
   expect(events.filter(event => event.type === 'error' || event.type === 'presentation_error')).toEqual([])
   const steps = events.filter(event => event.type === 'step_upsert').map(event => event.step)
-  expect(steps.filter(step => step.status === 'error')).toEqual([])
+  expect(steps.filter(step => step.status === 'error')).toHaveLength(expectedToolErrors)
   await expect(page.getByRole('button', { name: 'Results and history', exact: true })).toBeEnabled()
   return { events, steps, conversationId: events.find(event => event.type === 'start').content.conversationId as string }
 }

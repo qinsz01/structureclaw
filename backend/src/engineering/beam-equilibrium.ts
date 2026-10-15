@@ -46,15 +46,24 @@ export function equilibriumModel(draft: DraftState, evidence?: ModelRecord[]): M
   const byCase = new Map<string, ModelRecord[]>();
   d.loads.forEach((load, index) => {
     if (!finite(load.magnitude) || load.magnitude < 0 || load.direction !== 'gravity') fail('VERTICAL_LOAD_REQUIRED / 需要明确向下荷载和单位');
-    if (load.location?.spanIndex !== undefined && load.location.spanIndex !== 1 || load.location?.story !== undefined || load.location?.nodeRole !== undefined) fail('LOAD_LOCATION_UNSUPPORTED');
+    if (load.location?.spanIndex !== undefined && load.location.spanIndex !== 1 || load.location?.story !== undefined) fail('LOAD_LOCATION_UNSUPPORTED');
     const caseId = load.caseId ?? 'LC1';
     const loads = byCase.get(caseId) ?? [];
     if (load.kind === 'point' && load.unit === 'kN') {
-      const x = load.location?.xM;
+      const role = load.location?.nodeRole?.trim().toLowerCase();
+      const rolePosition = role === undefined ? undefined
+        : ['midspan', 'mid-span', 'mid_span', 'center', 'centre', '跨中'].includes(role) ? L / 2
+          : ['left', 'left-end', 'left_end', 'start', '左端'].includes(role) ? 0
+            : ['right', 'right-end', 'right_end', '右端'].includes(role) ? L
+              : support === 'cantilever' && ['free-end', 'free_end', 'tip', '自由端'].includes(role) ? L
+                : support === 'cantilever' && ['fixed-end', 'fixed_end', '固定端'].includes(role) ? 0 : undefined;
+      if (role !== undefined && rolePosition === undefined) fail('LOAD_LOCATION_UNSUPPORTED / 集中力位置标签无法明确对应梁上位置');
+      const x = load.location?.xM ?? rolePosition;
+      if (finite(x) && rolePosition !== undefined && Math.abs(x - rolePosition) > tol(L)) fail('LOAD_LOCATION_CONFLICT / 集中力坐标与位置标签矛盾');
       if (!finite(x) || x < 0 || x > L) fail('POINT_POSITION_REQUIRED / 集中力位置必须明确且在梁内');
       loads.push({ id: load.id ?? `${caseId}:load:${index + 1}`, type: 'point', element: memberId, position: x, fz: -load.magnitude, reference_frame: 'global' });
     } else if (['line', 'distributed'].includes(load.kind) && load.unit === 'kN/m') {
-      if (load.location?.xM !== undefined || load.target && !/^(beam|full[- ]span|全跨|全长|梁)$/i.test(load.target)) fail('FULL_SPAN_LINE_REQUIRED / 本方法仅支持明确全跨均布载');
+      if (load.location?.xM !== undefined || load.location?.nodeRole !== undefined || load.target && !/^(beam|full[- ]span|全跨|全长|梁)$/i.test(load.target)) fail('FULL_SPAN_LINE_REQUIRED / 本方法仅支持明确全跨均布载');
       loads.push({ id: load.id ?? `${caseId}:load:${index + 1}`, type: 'distributed', element: memberId, wz: -load.magnitude, reference_frame: 'global' });
     } else fail('LOAD_KIND_UNSUPPORTED');
     byCase.set(caseId, loads);

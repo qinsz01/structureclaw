@@ -16,6 +16,54 @@ const beamPlugin = {
 };
 
 describe("param extractor", () => {
+  test('a load-direction answer clears its old diagnostic without erasing unrelated issues', async () => {
+    const { handler } = await import('../../../dist/agent-skills/structure-type/beam/handler.js');
+    const initial = handler.mergeState(undefined, handler.extractDraft({ locale: 'zh', llmDraftPatch: {
+      engineeringDraft: { structureType: 'beam', geometry: { lengthM: 10 }, boundary: { supportType: 'simply-supported' },
+        loads: [{ id: 'P', kind: 'point', magnitude: 1, unit: 'kN', target: 'beam', location: { xM: 5 } }] },
+      draftIssues: [{ field: 'loads[0].direction', severity: 'ambiguous', reason: 'Direction not supplied' },
+        { field: 'material.grade', severity: 'ambiguous', reason: 'Grade not supplied' }],
+      skillState: { invalidDraftFields: ['loads[0].direction', 'material.grade'] },
+    } }));
+    const patch = load => handler.extractDraft({ locale: 'zh', llmDraftPatch: { engineeringDraft: { loads: [load] }, draftIssues: [] } });
+    const load = { id: 'P', kind: 'point', magnitude: 1, unit: 'kN', direction: 'gravity', target: 'beam', location: { xM: 5 } };
+    const updated = handler.mergeState(initial, patch(load));
+    expect(updated.draftIssues.map(issue => issue.field)).toEqual(['material.grade']);
+    expect(updated.skillState.invalidDraftFields).toEqual(['material.grade']);
+    expect(updated.engineeringDraft.loads).toHaveLength(1);
+    expect(updated.engineeringDraft.loads[0].direction).toBe('gravity');
+    expect(handler.mergeState(initial, patch({ ...load, id: 'OTHER' })).draftIssues).toEqual(initial.draftIssues);
+    const twoLoads = structuredClone(initial);
+    twoLoads.engineeringDraft.loads.push({ ...twoLoads.engineeringDraft.loads[0], id: 'Q', location: { xM: 7 } });
+    twoLoads.draftIssues.push({ field: 'loads[1].direction', severity: 'ambiguous', reason: 'Second direction not supplied' });
+    twoLoads.skillState.invalidDraftFields.push('loads[1].direction');
+    const secondOnly = handler.mergeState(twoLoads, patch({ ...load, id: 'Q', location: { xM: 7 } }));
+    expect(secondOnly.draftIssues.map(issue => issue.field)).toEqual(['loads[0].direction', 'material.grade']);
+    expect(secondOnly.skillState.invalidDraftFields).toEqual(['loads[0].direction', 'material.grade']);
+    const withoutId = structuredClone(initial);
+    delete withoutId.engineeringDraft.loads[0].id;
+    delete load.id;
+    expect(handler.mergeState(withoutId, patch(load)).draftIssues.map(issue => issue.field)).toEqual(['material.grade']);
+    expect(initial.engineeringDraft.loads[0].direction).toBeUndefined();
+  });
+
+  test.each([
+    content => [{ type: 'text', text: content }],
+    content => [{ type: 'reasoning', reasoning: 'private reasoning' }, { type: 'text', text: content.slice(0, 20) }, { type: 'text', text: content.slice(20) }],
+  ])('reads JSON from provider text blocks without losing the engineering draft', async wrap => {
+    const { invokeParamExtractor } = await import('../../../dist/agent-langgraph/param-extractor.js');
+    const patch = { engineeringDraft: { geometry: { lengthM: 10 } }, requestScope: { responses: [] } };
+    const result = await invokeParamExtractor({ message: '10m beam', locale: 'en', plugin: beamPlugin,
+      requireLlmResult: true, llm: { invoke: async () => ({ content: wrap(JSON.stringify(patch)) }) } });
+    expect(result).toEqual(patch);
+  });
+
+  test.each([undefined, null, [], [{ type: 'reasoning', reasoning: '{"geometry":{"lengthM":999}}' }]])('empty/non-text provider output has a controlled diagnostic (%j)', async content => {
+    const { invokeParamExtractor } = await import('../../../dist/agent-langgraph/param-extractor.js');
+    await expect(invokeParamExtractor({ message: '10m beam', locale: 'en', plugin: beamPlugin,
+      requireLlmResult: true, llm: { invoke: async () => ({ content }) } })).rejects.toThrow('LLM_PARAM_EXTRACTOR_INVALID_OUTPUT');
+  });
+
   test('a density clarification preserves accepted elastic constants and reaches formal model validation', async () => {
     const { handler } = await import('../../../dist/agent-skills/structure-type/beam/handler.js');
     const { computeDraftMissing } = await import('../../../dist/agent-runtime/draft-readiness.js');

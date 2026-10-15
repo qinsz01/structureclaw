@@ -2,6 +2,21 @@ import { describe, expect, test, jest } from '@jest/globals';
 const extract = jest.fn();
 jest.unstable_mockModule('../../../dist/agent-langgraph/param-extractor.js', () => ({ invokeParamExtractor: extract }));
 describe('missing engineering input is clarification, not recovery', () => {
+  test('accepted new parameters archive the old run through the direct tool entry', async () => {
+    const { handler } = await import('../../../dist/agent-skills/structure-type/beam/handler.js');
+    const { createExtractDraftParamsTool } = await import('../../../dist/agent-langgraph/tools.js');
+    const plugin = { id: 'beam', structureType: 'beam', manifest: { structuralTypeKeys: ['beam'] }, handler };
+    extract.mockResolvedValue({ engineeringDraft: { structureType: 'beam', geometry: { lengthM: 10 } } });
+    const oldRun = { runId: 'old-run', success: true };
+    const result = await createExtractDraftParamsTool({ resolvePluginForType: async () => plugin }).invoke({ message: '10m beam',
+      requestScope: { responses: ['forces'], method: 'solver', design: false, report: false, outputs: [] } },
+    { toolCall: { id: 'accepted-change' }, configurable: { agentState: { structuralTypeKey: 'beam', analysisResult: oldRun, report: { runId: 'old-run' } } } });
+    expect(result.update.analysisResult).toBeNull();
+    expect(result.update.report).toBeNull();
+    expect(result.update.modelPending).toBe(true);
+    expect(result.update.analysisRuns['old-run']).toEqual(oldRun);
+  });
+
   test.each([
     {}, { design: true }, { responses: [] }, { responses: undefined }, { responses: 'forces' },
   ])('valid outer scope survives an incomplete internal scope %j without re-extraction', async internalScope => {

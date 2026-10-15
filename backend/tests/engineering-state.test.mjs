@@ -310,9 +310,12 @@ test('checks retain each case and expose incomplete scope independently of execu
   expect(formatCheckSummary(checked.summary, 'zh')).toContain('资料不足 1');
 });
 
-test('failed recompute clears the old current analysis but preserves history', async () => {
-  const fail = tool(async () => { throw new Error('solver unavailable'); }, { name: 'run_analysis', description: 'test', schema: z.object({}) });
-  const result = await executeToolsSequentially([fail], { artifacts: {}, analysisRuns: {}, analysisResult: { runId: 'previous', success: true },
+test('a reserved failed recompute clears the old current analysis but preserves history', async () => {
+  const fail = tool(async (_, config) => {
+    config.configurable.onAnalysisRequest(beginAnalysisRequest(config.configurable.agentState, 'new-settings'));
+    throw new Error('solver unavailable');
+  }, { name: 'run_analysis', description: 'test', schema: z.object({}) });
+  const result = await executeToolsSequentially([fail], { model: { nodes: [], elements: [] }, artifacts: {}, analysisRuns: {}, analysisResult: { runId: 'previous', success: true },
     messages: [new AIMessage({ content: '', tool_calls: [{ name: 'run_analysis', args: {}, id: 'r' }] })] }, { configurable: {} });
   expect(result.update.analysisResult).toBeNull(); expect(result.update.analysisRuns.previous.success).toBe(true);
 });
