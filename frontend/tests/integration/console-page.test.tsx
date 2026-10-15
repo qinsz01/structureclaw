@@ -330,6 +330,7 @@ function createSseResponse(events: unknown[]) {
 }
 
 function mockConsoleSupportRequest(url: string) {
+  if (url.includes('/api/v1/agent/skills')) return Response.json(mockSkills)
   if (url.includes('/api/v1/agent/capability-matrix')) {
     return {
       ok: true,
@@ -930,6 +931,8 @@ describe('ConsolePage Integration (CONS-13)', () => {
 
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = String(input)
+      const supportResponse = mockConsoleSupportRequest(url)
+      if (supportResponse) return supportResponse
 
       if (url.includes('/api/v1/agent/skills')) {
         return {
@@ -1035,6 +1038,8 @@ describe('ConsolePage Integration (CONS-13)', () => {
 
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = String(input)
+      const supportResponse = mockConsoleSupportRequest(url)
+      if (supportResponse) return supportResponse
 
       if (url.includes('/api/v1/agent/skills')) {
         return {

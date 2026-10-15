@@ -35,6 +35,7 @@ function fixture(savedPolicy = false) {
       { id: `${match[1]}-message`, role: 'assistant', content: 'Restored conversation', createdAt: '2026-10-14T00:00:00Z' },
     ], session: { model: { note: 'server-owned model' }, runtime: saved(match[1]) } })
     if (url.pathname.endsWith('/conversation')) return Response.json({ id: 'new-chat', title: 'New chat' })
+    if (url.pathname.endsWith('/capability-matrix')) return Response.json({ skills: [], tools: [] })
     if (url.pathname.endsWith('/skills') || url.pathname.endsWith('/tools')) return Response.json([])
     return Response.json({})
   })

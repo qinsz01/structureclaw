@@ -122,7 +122,7 @@ describe('AIConsole presentation rendering', () => {
       }
 
       if (url.includes('/api/v1/agent/capability-matrix')) {
-        return Response.json({})
+        return Response.json({ skills: [], tools: [] })
       }
 
       if (url.includes('/snapshot')) {
@@ -206,7 +206,7 @@ describe('AIConsole presentation rendering', () => {
       }
 
       if (url.includes('/api/v1/agent/capability-matrix')) {
-        return Response.json({})
+        return Response.json({ skills: [], tools: [] })
       }
 
       if (url.includes('/snapshot')) {
@@ -349,7 +349,7 @@ describe('AIConsole presentation rendering', () => {
       }
 
       if (url.includes('/api/v1/agent/capability-matrix')) {
-        return Response.json({})
+        return Response.json({ skills: [], tools: [] })
       }
 
       return Response.json({})
@@ -454,7 +454,7 @@ describe('AIConsole presentation rendering', () => {
       }
 
       if (url.includes('/api/v1/agent/capability-matrix')) {
-        return Response.json({})
+        return Response.json({ skills: [], tools: [] })
       }
 
       if (url.includes('/snapshot')) {

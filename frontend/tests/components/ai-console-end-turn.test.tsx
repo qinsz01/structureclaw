@@ -43,6 +43,7 @@ describe('explicitly ending a paused conversation turn', () => {
         runtime.waitingForReply = false
         return new Response('data: {"type":"done"}\n\ndata: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } })
       }
+      if (url.pathname.endsWith('/capability-matrix')) return Response.json({ skills: [], tools: [] })
       if (url.pathname.endsWith('/skills') || url.pathname.endsWith('/tools')) return Response.json([])
       return Response.json({})
     })
