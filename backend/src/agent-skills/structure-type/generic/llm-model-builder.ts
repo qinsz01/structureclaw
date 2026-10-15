@@ -12,7 +12,7 @@ import type { StructureClawChatModel } from '../../../utils/llm.js';
 import { buildGenericModelPrompt, buildRetrySuffix } from './llm-model-prompt.js';
 import { validateExplicitModel } from '../../../agent-runtime/explicit-model.js';
 import { requestRecovery } from '../../../runtime/run-context.js';
-import { applyDraftAnalysisControl } from '../../../agent-runtime/engineering-draft.js';
+import { applyDraftAnalysisControl, applyDraftTemplateDesign, projectDraftMaterialDesign } from '../../../agent-runtime/engineering-draft.js';
 import { completeReviewedSectionRecord, reviewedSectionName, reviewedSectionNames } from '../../../agent-runtime/section-catalog.js';
 
 export async function tryBuildGenericModelWithLlm(
@@ -73,7 +73,9 @@ export async function tryBuildGenericModelWithLlm(
       canonicalizeGenericModel(parsed);
       if (!currentModel) projectConfirmedGeometricSections(parsed, state);
       const dimension = stampCanonicalMetadata(parsed, state);
-      const candidate = applyDraftAnalysisControl(parsed, state.engineeringDraft);
+      const controlled = applyDraftAnalysisControl(parsed, state.engineeringDraft);
+      const candidate = currentModel ? controlled
+        : projectDraftMaterialDesign(applyDraftTemplateDesign(controlled, state.engineeringDraft), state.engineeringDraft);
       assertCanonicalCoordinateModel(candidate, dimension);
       validateExplicitModel(candidate);
 

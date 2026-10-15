@@ -9,6 +9,7 @@ import type {
   DraftWindParams,
   AgentAnalysisType,
   EngineeringDraft,
+  EngineeringDraftTemplateAssignment,
   EngineeringDraftLoad,
   EngineeringDraftLoadCaseType,
   EngineeringDraftLoadCombination,
@@ -420,6 +421,13 @@ export function normalizeEngineeringDraft(value: unknown): EngineeringDraft | un
     wind,
     analysis,
     analysisControl: analysisControl === undefined ? undefined : structuredClone(asRecord(analysisControl)!),
+    ...(asRecord(raw.metadata) || raw.designParameters !== undefined ? { metadata: {
+      ...structuredClone(asRecord(raw.metadata) ?? {}),
+      ...(raw.designParameters !== undefined ? { unmappedDesignParameters: {
+        status: 'requires-confirmation', sourcePath: 'engineeringDraft.designParameters',
+        values: structuredClone(raw.designParameters),
+      } } : {}),
+    } } : {}),
   };
 
   return Object.values(draft).some((item) => item !== undefined) ? omitUndefined(draft) : undefined;
@@ -434,14 +442,77 @@ function normalizeTemplateAssignments(value: unknown): EngineeringDraft['templat
     if (['beam', 'column', 'member'].includes(role) && raw == null) continue;
     const entry = asRecord(raw);
     if (!['beam', 'column', 'member'].includes(role) || !entry
-      || Object.keys(entry).some(key => !['materialId', 'sectionId'].includes(key))
+      || Object.keys(entry).some(key => !['materialId', 'sectionId', 'design'].includes(key))
+      || entry.design !== undefined && !asRecord(entry.design)
       || ['materialId', 'sectionId'].some(key => entry[key] != null && typeof entry[key] !== 'string')) {
-      throw new Error(`INVALID_TEMPLATE_ASSIGNMENTS: ${role} requires an object with nonempty supplied materialId/sectionId / 角色映射只接受明确的材料或截面ID`);
+      throw new Error(`INVALID_TEMPLATE_ASSIGNMENTS: ${role} requires supplied materialId/sectionId strings and an optional design object / 角色映射只接受明确的材料、截面ID及设计输入对象`);
     }
     const materialId = normalizeString(entry.materialId), sectionId = normalizeString(entry.sectionId);
-    if (materialId || sectionId) normalized[role as keyof typeof normalized] = { ...(materialId ? { materialId } : {}), ...(sectionId ? { sectionId } : {}) };
+    if (materialId || sectionId || entry.design !== undefined) normalized[role as keyof typeof normalized] = {
+      ...(materialId ? { materialId } : {}), ...(sectionId ? { sectionId } : {}),
+      ...(entry.design !== undefined ? { design: structuredClone(asRecord(entry.design)!) } : {}),
+    };
   }
   return normalized;
+}
+
+/** A role-specific assignment amends the explicit uniform member assignment. */
+export function resolveDraftTemplateAssignment(draft: EngineeringDraft | undefined,
+  role: 'beam' | 'column' | 'member'): EngineeringDraftTemplateAssignment | undefined {
+  const uniform = draft?.templateAssignments?.member;
+  const specific = role === 'member' ? undefined : draft?.templateAssignments?.[role];
+  if (!uniform && !specific) return undefined;
+  return mergeDraftRecord({ ...uniform }, { ...specific }) as EngineeringDraftTemplateAssignment;
+}
+
+/** Preserve canonical material design records when the LLM only generates their topology references. */
+export function projectDraftMaterialDesign(model: Record<string, unknown>, draft: EngineeringDraft | undefined): Record<string, unknown> {
+  const sources = (draft?.materials ?? []).filter(material => material.design !== undefined);
+  if (!sources.length) return model;
+  if (!Array.isArray(model.materials) || model.materials.some(material => !asRecord(material))) {
+    throw new Error('DRAFT_MATERIAL_DESIGN_TARGET_UNRESOLVED / 材料设计输入需要明确的模型材料');
+  }
+  const materials = structuredClone(model.materials) as Array<Record<string, unknown>>;
+  const mapped = new Set<Record<string, unknown>>();
+  for (const source of sources) {
+    const matches = materials.filter(material => material.id === source.id);
+    const target = matches.length === 1 ? matches[0]
+      : !matches.length && draft?.materials?.length === 1 && materials.length === 1 ? materials[0] : undefined;
+    if (!target || mapped.has(target)) throw new Error(`DRAFT_MATERIAL_DESIGN_TARGET_UNRESOLVED: ${source.id} / 无法唯一对应已确认材料的设计输入`);
+    if (!asRecord(source.design) || target.design != null && !asRecord(target.design)) {
+      throw new Error(`INVALID_MATERIAL_DESIGN: ${source.id} / 材料设计输入必须是对象`);
+    }
+    target.design = mergeDraftRecord(asRecord(target.design) ?? {}, source.design as Record<string, unknown>);
+    mapped.add(target);
+  }
+  return { ...model, materials };
+}
+
+/** Project confirmed role-wide design inputs onto newly generated geometry, never infer them from mesh length. */
+export function applyDraftTemplateDesign(model: Record<string, unknown>, draft: EngineeringDraft | undefined): Record<string, unknown> {
+  const assignments = draft?.templateAssignments;
+  const declaredRoles = Object.entries(assignments ?? {}).filter(([, assignment]) => assignment?.design !== undefined)
+    .map(([role]) => role);
+  if (!declaredRoles.length) return model;
+  if (!Array.isArray(model.elements) || model.elements.some(element => !asRecord(element))) {
+    throw new Error('TEMPLATE_DESIGN_TARGET_UNRESOLVED: model elements are required / 构件设计输入需要明确的模型构件');
+  }
+  const roleOf = (element: Record<string, unknown>) => element.type === 'column' ? 'column'
+    : element.type === 'beam' ? 'beam' : 'member';
+  const elements = model.elements as Array<Record<string, unknown>>;
+  for (const role of declaredRoles) {
+    if (role !== 'member' && !elements.some(element => roleOf(element) === role)) {
+      throw new Error(`TEMPLATE_DESIGN_TARGET_UNRESOLVED: ${role} / 所声明设计条件的构件角色在模型中不存在，不能丢弃或改用于其他构件`);
+    }
+  }
+  return { ...model, elements: elements.map(element => {
+    const design = resolveDraftTemplateAssignment(draft, roleOf(element))?.design;
+    if (design === undefined) return element;
+    if (!asRecord(design) || element.design != null && !asRecord(element.design)) {
+      throw new Error(`INVALID_TEMPLATE_DESIGN: ${element.id} requires an object / 构件设计输入必须是对象`);
+    }
+    return { ...element, design: mergeDraftRecord(asRecord(element.design) ?? {}, design) };
+  }) };
 }
 
 function normalizeRecordArray(value: unknown, label: string): Array<Record<string, unknown>> | undefined {
@@ -536,7 +607,7 @@ export function mergeEngineeringDraft(
     sectionRecords: mergeDraftPropertyRecords(existing.sectionRecords, patch.sectionRecords, true),
     templateAssignments: Object.fromEntries([...new Set([...Object.keys(existing.templateAssignments ?? {}), ...Object.keys(patch.templateAssignments ?? {})])]
       .map(role => { const key = role as keyof NonNullable<EngineeringDraft['templateAssignments']>;
-        return [role, { ...existing.templateAssignments?.[key], ...patch.templateAssignments?.[key] }]; })),
+        return [role, mergeDraftRecord({ ...existing.templateAssignments?.[key] }, { ...patch.templateAssignments?.[key] })]; })),
     loadCases: patch.loadCases ?? existing.loadCases,
     model: patch.model ?? existing.model,
     inputEvidence: mergeInputEvidence(existing.inputEvidence, patch.inputEvidence),
@@ -547,6 +618,7 @@ export function mergeEngineeringDraft(
     wind,
     analysis,
     analysisControl: mergeAnalysisControl(existing.analysisControl, patch.analysisControl),
+    ...(existing.metadata || patch.metadata ? { metadata: mergeDraftRecord(existing.metadata ?? {}, patch.metadata ?? {}) } : {}),
   };
 }
 

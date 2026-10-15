@@ -1,6 +1,6 @@
 import { completeReviewedSectionRecord, reviewedSectionName, reviewedSectionNames, reviewedSectionRecord } from './section-catalog.js';
 import type { DraftState } from './types.js';
-import { applyDraftAnalysisControl } from './engineering-draft.js';
+import { applyDraftAnalysisControl, applyDraftTemplateDesign, resolveDraftTemplateAssignment } from './engineering-draft.js';
 
 type FrameMaterialCategory = 'steel' | 'concrete';
 type FrameMaterialProps = { E: number; G: number; nu: number; rho: number; category: FrameMaterialCategory; fy?: number; fc?: number };
@@ -225,7 +225,7 @@ export function resolveTemplateProperties(state: DraftState, roles: TemplateRole
   }
   const byRole: Partial<Record<TemplateRole, { materialId: string; sectionId: string }>> = {};
   for (const role of roles) {
-    const mapping = draft?.templateAssignments?.[role] ?? draft?.templateAssignments?.member;
+    const mapping = resolveDraftTemplateAssignment(draft, role);
     const materialId = mapping?.materialId ?? (materials.length === 1 ? String(materials[0].id) : propertyError(`${role}.materialId`));
     const material = materials.find((entry) => entry.id === materialId);
     if (!material) propertyError(`${role}.materialId=${materialId}`);
@@ -272,7 +272,7 @@ export function applyTemplateProperties(model: Record<string, unknown>, state: D
     : element.type === 'beam' ? 'beam' : 'member';
   const roles = [...new Set(elements.map(roleOf))];
   const properties = resolveTemplateProperties(state, roles);
-  return applyDraftAnalysisControl({ ...model, materials: properties.materials, sections: properties.sections,
+  return applyDraftTemplateDesign(applyDraftAnalysisControl({ ...model, materials: properties.materials, sections: properties.sections,
     elements: elements.map((element) => {
       const assignment = properties.byRole[roleOf(element)]!;
       return { ...element, material: assignment.materialId, section: assignment.sectionId };
@@ -282,7 +282,7 @@ export function applyTemplateProperties(model: Record<string, unknown>, state: D
     metadata: { ...(model.metadata as Record<string, unknown> ?? {}),
       inputEvidence: structuredClone(state.engineeringDraft?.inputEvidence ?? []),
       templatePropertyAssignments: properties.byRole },
-  }, state.engineeringDraft);
+  }, state.engineeringDraft), state.engineeringDraft);
 }
 
 export function templatePropertyIssues(state: DraftState): string[] {

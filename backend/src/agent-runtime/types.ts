@@ -99,6 +99,13 @@ export interface EngineeringDraftAnalysis {
   loadCombinations?: EngineeringDraftLoadCombination[];
 }
 
+export interface EngineeringDraftTemplateAssignment {
+  materialId?: string;
+  sectionId?: string;
+  /** Explicit uniform MemberDesign inputs for this role; lengths are mm. */
+  design?: Record<string, unknown>;
+}
+
 export interface EngineeringDraft {
   structureType?: StructuralTypeKey;
   geometry?: EngineeringDraftGeometry;
@@ -107,7 +114,7 @@ export interface EngineeringDraft {
   materials?: Array<Record<string, unknown>>;
   sectionRecords?: Array<Record<string, unknown>>;
   /** Explicit assignment for generated geometry. member means a declared uniform assignment. */
-  templateAssignments?: Partial<Record<'beam' | 'column' | 'member', { materialId?: string; sectionId?: string }>>;
+  templateAssignments?: Partial<Record<'beam' | 'column' | 'member', EngineeringDraftTemplateAssignment>>;
   loadCases?: Array<Record<string, unknown>>;
   model?: Record<string, unknown>;
   inputEvidence?: Array<Record<string, unknown>>;
@@ -119,6 +126,8 @@ export interface EngineeringDraft {
   analysis?: EngineeringDraftAnalysis;
   /** V2 analysis_control fields; preserve explicit false and existing solver semantics. */
   analysisControl?: Record<string, unknown>;
+  /** Preserved input context. Unmapped design values here are not model/checker inputs. */
+  metadata?: Record<string, unknown>;
 }
 
 export type DraftIssueSeverity = 'invalid' | 'ambiguous' | 'unrealistic' | 'conflict';
