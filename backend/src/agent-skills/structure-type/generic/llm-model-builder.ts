@@ -13,6 +13,7 @@ import { buildGenericModelPrompt, buildRetrySuffix } from './llm-model-prompt.js
 import { validateExplicitModel } from '../../../agent-runtime/explicit-model.js';
 import { requestRecovery } from '../../../runtime/run-context.js';
 import { applyDraftAnalysisControl } from '../../../agent-runtime/engineering-draft.js';
+import { completeReviewedSectionRecord, reviewedSectionName, reviewedSectionNames } from '../../../agent-runtime/section-catalog.js';
 
 export async function tryBuildGenericModelWithLlm(
   llm: StructureClawChatModel | null,
@@ -105,20 +106,47 @@ export async function tryBuildGenericModelWithLlm(
   return undefined;
 }
 
-/** Topology generation must not replace a confirmed geometric section with LLM arithmetic.
+/** Topology generation must not replace confirmed geometry or reviewed catalog data with LLM arithmetic.
  * Explicit user properties remain on the source record and still undergo physics validation.
  */
 export function projectConfirmedGeometricSections(model: Record<string, unknown>, state: DraftState): void {
-  const sources = state.engineeringDraft?.sectionRecords ?? [];
-  if (!sources.length || !Array.isArray(model.sections)) return;
+  if (!Array.isArray(model.sections)) return;
   const generated = model.sections;
+  const draft = state.engineeringDraft;
+  let sources = draft?.sectionRecords ?? [];
+  if (!sources.length) {
+    const declarations = [...new Set(Object.values(draft?.sections ?? {}).filter(value => typeof value === 'string'))];
+    const declaredCatalog = declarations.filter(value => reviewedSectionName(value));
+    sources = generated.flatMap(value => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+      const target = value as Record<string, unknown>;
+      const assigned = (['beam', 'column', 'member'] as const).flatMap(role =>
+        (draft?.templateAssignments?.[role] ?? draft?.templateAssignments?.member)?.sectionId === target.id
+          ? [draft?.sections?.[role] ?? draft?.sections?.member] : []).find(name => reviewedSectionName(name));
+      const name = assigned ?? (generated.length === 1 && declarations.length === 1 ? declaredCatalog[0] : undefined);
+      return name && typeof target.id === 'string' ? [{ id: target.id, name, type: 'custom' }] : [];
+    });
+    if (declaredCatalog.length && !sources.length) throw new Error('REVIEWED_SECTION_ASSIGNMENT_REQUIRED: associate the confirmed catalog section with a stable section ID / 请明确目录截面与模型截面ID的对应关系');
+  }
+  if (!sources.length) return;
   model.sections = generated.map(value => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
     const section = value as Record<string, unknown>;
     const source = sources.find(item => item.id === section.id)
       ?? (sources.length === 1 && generated.length === 1 ? sources[0] : undefined);
-    if (!source?.shape || typeof source.shape !== 'object' || Array.isArray(source.shape)) return value;
-    return { ...structuredClone(source), id: section.id, name: source.name ?? section.name ?? section.id, type: source.type ?? section.type };
+    if (!source) return value;
+    const catalog = completeReviewedSectionRecord(source, reviewedSectionNames(source, state.engineeringDraft));
+    const confirmed = catalog ?? source;
+    const hasShape = !!source.shape && typeof source.shape === 'object' && !Array.isArray(source.shape);
+    const sourceExtra = source.extra && typeof source.extra === 'object' && !Array.isArray(source.extra)
+      ? source.extra as Record<string, unknown> : {};
+    const hasCatalog = !!catalog || !!sourceExtra.catalogSource;
+    const hasProperties = !!source.properties && typeof source.properties === 'object'
+      && !Array.isArray(source.properties) && Object.keys(source.properties).length > 0;
+    // An unknown or explicitly custom numeric source stays explicit/incomplete;
+    // topology generation cannot fill its missing mechanics from memory.
+    if (!hasShape && !hasCatalog && !hasProperties) return value;
+    return { ...structuredClone(confirmed), id: section.id, name: confirmed.name ?? section.name ?? section.id, type: confirmed.type ?? section.type };
   });
 }
 

@@ -1,4 +1,4 @@
-import { reviewedSectionRecord } from './section-catalog.js';
+import { completeReviewedSectionRecord, reviewedSectionName, reviewedSectionNames, reviewedSectionRecord } from './section-catalog.js';
 import type { DraftState } from './types.js';
 import { applyDraftAnalysisControl } from './engineering-draft.js';
 
@@ -209,25 +209,18 @@ export function resolveTemplateProperties(state: DraftState, roles: TemplateRole
   const sections = structuredClone(draft?.sectionRecords ?? []);
   const explicitRecords = sections.length > 0;
   for (const section of sections) {
+    const completed = completeReviewedSectionRecord(section, reviewedSectionNames(section, draft));
+    if (completed) {
+      Object.assign(section, completed);
+      delete section.shape;
+      delete section.dimensions;
+    }
     const hasDefinition = ['properties', 'dimensions', 'shape'].some((key) => {
       const value = section[key];
       return value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length > 0;
     });
     if (!hasDefinition) {
-      // A name-only record carries the same reviewed catalog request as sections.beam.
-      // Never replace any explicitly supplied geometry/property with catalog values.
-      const hasPhysicalInput = ['width', 'height', 'diameter', 'thickness', 'standard_steel_name'].some(key => section[key] != null);
-      const catalog = !hasPhysicalInput && typeof section.name === 'string' && typeof section.id === 'string'
-        ? reviewedSectionRecord(section.name, section.id, section.purpose === 'column' ? 'column' : 'beam') : undefined;
-      if (!catalog) return propertyError(`section ${section.id}: properties, dimensions or shape required`);
-      const purpose = section.purpose;
-      const extra = section.extra && typeof section.extra === 'object' && !Array.isArray(section.extra)
-        ? section.extra as Record<string, unknown> : {};
-      Object.assign(section, catalog, { extra: { ...extra, ...(catalog.extra as Record<string, unknown>) } });
-      if (purpose === undefined) delete section.purpose;
-      else section.purpose = purpose;
-      delete section.shape;
-      delete section.dimensions;
+      return propertyError(`section ${section.id}: properties, dimensions or shape required`);
     }
   }
   const byRole: Partial<Record<TemplateRole, { materialId: string; sectionId: string }>> = {};
@@ -243,8 +236,11 @@ export function resolveTemplateProperties(state: DraftState, roles: TemplateRole
     if (explicitRecords) {
       sectionId ??= declaredSection;
       if (!mapping?.sectionId && declaredSection && !sections.some(entry => entry.id === sectionId)) {
+        const catalogName = reviewedSectionName(declaredSection);
         const byName = sections.filter(entry => typeof entry.name === 'string'
-          && normalizeSectionName(entry.name.replace(/\s*[（(].*$/, '')) === normalizeSectionName(declaredSection));
+          && (normalizeSectionName(entry.name.replace(/\s*[（(].*$/, '')) === normalizeSectionName(declaredSection)
+            || !!catalogName && (reviewedSectionName(entry.name) === catalogName
+              || (entry.extra as { catalogSource?: { recordId?: string } } | undefined)?.catalogSource?.recordId === catalogName)));
         if (byName.length === 1) sectionId = String(byName[0].id);
       }
       // A single section is unambiguous only when geometry has one member role.
