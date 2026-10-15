@@ -7,6 +7,8 @@ import { equilibriumModel } from '../engineering/beam-equilibrium.js';
 import { forceOnlyScope, missingInputReason, type RequestScope } from '../engineering/request-scope.js';
 import { isRecord } from '../engineering/model-state.js';
 import { isDesignDraftField } from './draft-guidance.js';
+import { currentDraftDiagnostics, unresolvedDraftFields } from './draft-diagnostics.js';
+import { currentRunPolicy } from '../runtime/run-context.js';
 
 type ReadinessPlugin = Pick<AgentSkillPlugin, 'id' | 'handler'>;
 
@@ -29,9 +31,9 @@ function materialPropertyQuestions(state: DraftState, locale: AppLocale): Intera
       ['name', '材料名称', 'material name', typeof material.name === 'string' && !!material.name.trim()],
       ['E', '弹性模量 E（MPa，正数）', 'elastic modulus E (MPa, positive)', typeof material.E === 'number' && Number.isFinite(material.E) && material.E > 0],
       ['nu', '泊松比 nu（0 ≤ nu < 0.5）', 'Poisson ratio nu (0 ≤ nu < 0.5)', typeof material.nu === 'number' && Number.isFinite(material.nu) && material.nu >= 0 && material.nu < 0.5],
-      ...(densityRequired || material.rho !== undefined ? [['rho', '密度 rho（kg/m³，正数）', 'density rho (kg/m³, positive)', typeof material.rho === 'number' && Number.isFinite(material.rho) && material.rho > 0] as [string, string, string, boolean]] : []),
+      ...(densityRequired || material.rho != null ? [['rho', '密度 rho（kg/m³，正数）', 'density rho (kg/m³, positive)', typeof material.rho === 'number' && Number.isFinite(material.rho) && material.rho > 0] as [string, string, string, boolean]] : []),
     ];
-    if (material.G !== undefined) fields.push(['G', '剪切模量 G（MPa，正数）', 'shear modulus G (MPa, positive)', typeof material.G === 'number' && Number.isFinite(material.G) && material.G > 0]);
+    if (material.G != null) fields.push(['G', '剪切模量 G（MPa，正数）', 'shear modulus G (MPa, positive)', typeof material.G === 'number' && Number.isFinite(material.G) && material.G > 0]);
     return fields.filter(([, , , valid]) => !valid).map(([key, zh, en]) => ({
       paramKey: `${prefix}.${id}.${key}`, label: isZh ? `${id}：${zh}` : `${id}: ${en}`,
       question: isZh ? `请补充或修正材料 ${id} 的${zh}。` : `Provide or correct ${en} for material ${id}.`,
@@ -42,6 +44,7 @@ function materialPropertyQuestions(state: DraftState, locale: AppLocale): Intera
 
 /** One draft readiness decision for extraction, clarification, and formal model creation. */
 export function computeDraftMissing(plugin: ReadinessPlugin, state: DraftState, phase: 'interactive' | 'execution'): SkillMissingResult {
+  state = currentDraftDiagnostics(state);
   const scope = state.requestScope as RequestScope | undefined;
   const pendingDesign = [...new Set([
     ...(state.draftIssues ?? []).flatMap((issue) => issue.field ? [issue.field] : []),
@@ -50,6 +53,12 @@ export function computeDraftMissing(plugin: ReadinessPlugin, state: DraftState, 
   if (scope?.method === 'equilibrium' && forceOnlyScope(scope)) {
     try { equilibriumModel(state); return { critical: [], optional: [] }; }
     catch (error) { return { critical: [error instanceof Error ? error.message : String(error)], optional: [] }; }
+  }
+  if (currentRunPolicy()?.builder === 'llm') {
+    // Templates describe one geometry recipe, not what the LLM must ask users.
+    // Actual unresolved evidence still blocks; the generated model must pass the
+    // same formal/physical validation as every other model before execution.
+    return { critical: unresolvedDraftFields(state).filter(field => !isDesignDraftField(field)), optional: pendingDesign };
   }
   const propertyMissing = materialPropertyQuestions(state, 'en').map((question) => question.paramKey);
   if (propertyMissing.length) return { critical: propertyMissing, optional: pendingDesign };

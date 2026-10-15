@@ -22,6 +22,9 @@ export async function normalizeEngineeringModel(model: ModelRecord, client: Loca
   const normalized = structuredClone(response.data.model);
   for (const loadCase of (normalized.load_cases ?? []) as ModelRecord[]) {
     const loads = (loadCase.loads ?? []) as ModelRecord[];
+    // Python's exclude_unset serialization may omit the legitimate [] default.
+    // Materialize it before the reference checker; never invent an applied load.
+    loadCase.loads = loads;
     const used = new Set(loads.map((load) => load.id).filter(Boolean));
     for (let i = 0; i < loads.length; i++) {
       if (loads[i]!.id) continue;

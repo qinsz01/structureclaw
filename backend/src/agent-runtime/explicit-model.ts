@@ -33,10 +33,10 @@ export function validateExplicitModel(model: RecordValue): RecordValue {
   }
   for (const material of materials) {
     const densityRequired = !record(model.analysis_control) || model.analysis_control.self_weight !== false;
-    for (const key of ['E', 'nu', ...(densityRequired || material.rho !== undefined ? ['rho'] : [])]) {
+    for (const key of ['E', 'nu', ...(densityRequired || material.rho != null ? ['rho'] : [])]) {
       if (typeof material[key] !== 'number' || !Number.isFinite(material[key])) fail(`material ${material.id}: finite ${key} required`);
     }
-    if (Number(material.E) <= 0 || material.rho !== undefined && Number(material.rho) < 0 || Number(material.nu) <= -1 || Number(material.nu) >= 0.5) fail(`material ${material.id}: invalid elastic constants/density`);
+    if (Number(material.E) <= 0 || material.rho != null && Number(material.rho) < 0 || Number(material.nu) <= -1 || Number(material.nu) >= 0.5) fail(`material ${material.id}: invalid elastic constants/density`);
   }
   for (const section of sections) {
     if (!record(section.properties) && !record(section.dimensions) && !record(section.shape)) fail(`section ${section.id}: properties, dimensions or shape required`);
@@ -69,8 +69,15 @@ export function buildExplicitDraftModel(state: DraftState): RecordValue | undefi
   }
   if (!draft.topology?.nodes?.length || !draft.topology.members?.length) fail('topology.nodes and topology.members required');
   if (!draft.materials?.length || !draft.sectionRecords?.length) fail('materials and sectionRecords required; role defaults cannot replace explicit assignments');
-  if (!state.frameDimension) fail('frameDimension required; a planar drawing alone does not establish a 2-D analysis');
+  const dimension = draft.coordinateSystem?.dimension ?? state.frameDimension;
+  if (!['2d', '3d'].includes(String(dimension))) fail('coordinateSystem.dimension required; a planar drawing alone does not establish a 2-D analysis');
+  if (draft.coordinateSystem?.dimension && state.frameDimension && draft.coordinateSystem.dimension !== state.frameDimension) {
+    fail('coordinateSystem.dimension conflicts with legacy frameDimension');
+  }
   if (!draft.loadCases && draft.loads?.length) fail('loadCases required for explicit topology: preserve targets, signs, components and member positions');
+  if (draft.loads?.length && !draft.loadCases?.some(loadCase => Array.isArray(loadCase.loads) && loadCase.loads.length)) {
+    fail('loadCases[].loads must contain the declared loads with node/element targets; draft.loads cannot substitute for explicit load records');
+  }
   const model = withCanonicalCoordinateContract({
     schema_version: '2.2.0',
     nodes: structuredClone(draft.topology.nodes),
@@ -80,7 +87,9 @@ export function buildExplicitDraftModel(state: DraftState): RecordValue | undefi
     load_cases: structuredClone(draft.loadCases ?? []),
     load_combinations: structuredClone(draft.analysis?.loadCombinations ?? []),
     metadata: { inputEvidence: structuredClone(draft.inputEvidence ?? []), physicalModel: true },
-  }, state.frameDimension);
+  }, dimension as '2d' | '3d');
+  // Fill only protocol constants; validate any explicitly supplied coordinate semantics.
+  if (draft.coordinateSystem) Object.assign(model.coordinate_system, draft.coordinateSystem);
   return validateExplicitModel(applyDraftAnalysisControl(model, draft));
 }
 

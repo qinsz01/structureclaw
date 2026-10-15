@@ -69,6 +69,6 @@ describe('tryBuildGenericModelWithLlm', () => {
       'build a beam',
       { inferredType: 'beam', skillId: 'generic', structuralTypeKey: 'beam', updatedAt: 0 },
       'en',
-    )).resolves.toBeUndefined();
+    )).rejects.toThrow('LLM_MODEL_VALIDATION_FAILED: Generic V2 models must explicitly declare coordinate_system.dimension');
   });
 });

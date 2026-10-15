@@ -15,6 +15,13 @@ import { requestRecovery } from '../../../runtime/run-context.js';
 import { applyDraftAnalysisControl, applyDraftTemplateDesign, projectDraftMaterialDesign } from '../../../agent-runtime/engineering-draft.js';
 import { completeReviewedSectionRecord, reviewedSectionName, reviewedSectionNames } from '../../../agent-runtime/section-catalog.js';
 
+export class ModelInputRequiredError extends Error {
+  constructor(readonly missingFields: Array<string | { field: string; reason?: string }>) {
+    super(`MODEL_INPUT_REQUIRED: ${JSON.stringify(missingFields)}`);
+    this.name = 'ModelInputRequiredError';
+  }
+}
+
 export async function tryBuildGenericModelWithLlm(
   llm: StructureClawChatModel | null,
   message: string,
@@ -23,18 +30,19 @@ export async function tryBuildGenericModelWithLlm(
   conversationHistory?: string,
   signal?: AbortSignal,
   currentModel?: Record<string, unknown>,
+  validateCandidate?: (candidate: Record<string, unknown>) => Promise<Record<string, unknown>>,
 ): Promise<Record<string, unknown> | undefined> {
   if (!llm) {
     return undefined;
   }
 
   const basePrompt = buildGenericModelPrompt(message, state, locale, conversationHistory, currentModel);
-  const retrySuffix = buildRetrySuffix(locale);
+  let failure: { error: string; candidate: string } | undefined;
   const stateHint = JSON.stringify(state);
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     if (attempt > 0) requestRecovery('generic model: invalid candidate');
-    const prompt = attempt === 0 ? basePrompt : `${basePrompt}${retrySuffix}`;
+    const prompt = failure ? basePrompt + buildRetrySuffix(locale, failure.error, failure.candidate) : basePrompt;
     const startedAt = Date.now();
     logger.info({
       attempt: attempt + 1,
@@ -46,8 +54,8 @@ export async function tryBuildGenericModelWithLlm(
 
     // Provider/transport failures propagate; only invalid candidates below may be corrected.
     const aiMessage = await llm.invoke(prompt, { signal });
+    const content = llmContentText(aiMessage.content);
     try {
-      const content = llmContentText(aiMessage.content);
       const parsed = parseJsonObject(content);
       if (!parsed) {
         logger.warn({
@@ -56,7 +64,13 @@ export async function tryBuildGenericModelWithLlm(
           responseChars: content.length,
           responsePreview: content.slice(0, 200),
         }, 'generic llm model returned non-json content');
-        continue;
+        throw new Error('MODEL_JSON_REQUIRED: response must be a JSON object / 必须输出JSON对象');
+      }
+
+      if (Array.isArray(parsed.missing_fields) && parsed.missing_fields.length
+        && parsed.missing_fields.every(field => typeof field === 'string' && field.trim()
+          || field && typeof field === 'object' && typeof field.field === 'string' && field.field.trim())) {
+        throw new ModelInputRequiredError(parsed.missing_fields);
       }
 
       if (!Array.isArray(parsed.nodes) || !Array.isArray(parsed.elements) || !Array.isArray(parsed.load_cases)) {
@@ -67,7 +81,7 @@ export async function tryBuildGenericModelWithLlm(
           hasElements: Array.isArray(parsed.elements),
           hasLoadCases: Array.isArray(parsed.load_cases),
         }, 'generic llm model returned json without required structural arrays');
-        continue;
+        throw new Error('MODEL_ARRAYS_REQUIRED: nodes, elements and load_cases must be arrays / 节点、构件和工况必须为数组');
       }
 
       canonicalizeGenericModel(parsed);
@@ -78,6 +92,7 @@ export async function tryBuildGenericModelWithLlm(
         : projectDraftMaterialDesign(applyDraftTemplateDesign(controlled, state.engineeringDraft), state.engineeringDraft);
       assertCanonicalCoordinateModel(candidate, dimension);
       validateExplicitModel(candidate);
+      const validated = validateCandidate ? await validateCandidate(candidate) : candidate;
 
       logger.info({
         attempt: attempt + 1,
@@ -87,14 +102,15 @@ export async function tryBuildGenericModelWithLlm(
         loadCaseCount: parsed.load_cases.length,
       }, 'generic llm model attempt succeeded');
 
-      return candidate;
+      return validated;
     } catch (error) {
       logger.warn({
         attempt: attempt + 1,
         durationMs: Date.now() - startedAt,
         error: error instanceof Error ? error.message : String(error),
       }, 'generic llm model attempt failed with upstream error');
-      if (error instanceof Error && /BUDGET_EXHAUSTED/.test(error.message)) throw error;
+      if (error instanceof ModelInputRequiredError || error instanceof Error && /BUDGET_EXHAUSTED/.test(error.message)) throw error;
+      failure = { error: error instanceof Error ? error.message : String(error), candidate: content };
       continue;
     }
   }
@@ -105,7 +121,7 @@ export async function tryBuildGenericModelWithLlm(
     messagePreview: message.slice(0, 160),
   }, 'generic llm model exhausted all attempts without a valid model');
 
-  return undefined;
+  throw new Error(`LLM_MODEL_VALIDATION_FAILED: ${failure?.error ?? 'No valid model / 无有效模型'}`);
 }
 
 /** Topology generation must not replace confirmed geometry or reviewed catalog data with LLM arithmetic.

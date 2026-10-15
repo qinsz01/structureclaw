@@ -48,8 +48,13 @@ test.each([undefined, null, 'false', 0, 'no'])('unconfirmed or mistyped input %j
   expect(after.draftIssues).toContainEqual(issue('analysisControl.self_weight'));
 });
 
-test.each([{ severity: 'conflict', value: null }, { severity: 'invalid', value: null }, { severity: 'ambiguous', value: 'conflicting source' }])('an unresolved source issue %j survives a boolean patch', fields => {
+test.each([{ severity: 'conflict', value: null }, { severity: 'ambiguous', value: 'conflicting source' }])('an unresolved source issue %j survives a boolean patch', fields => {
   const conflict = { ...issue('analysisControl.self_weight'), ...fields };
   const after = amend(state([conflict]), { self_weight: false });
   expect(after.draftIssues).toContainEqual(conflict);
+});
+
+test('a corrected invalid boolean follows the same field-contract validation as other corrected values', () => {
+  const after = amend(state([{ ...issue('analysisControl.self_weight'), severity: 'invalid' }]), { self_weight: false });
+  expect(after.draftIssues ?? []).toEqual([]);
 });

@@ -2900,12 +2900,23 @@ export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
       }
       const skillIds = configurable.skillScope;
 
-      const candidate = await skillRuntime.buildModel(draftState, skillIds, {
-        message: state?.lastUserMessage || '',
-        locale: state?.locale || 'zh',
-        currentModel: state?.model ?? undefined,
-        conversationHistory: state?.messages.map((message) => `${messageRole(message)}: ${messageText(message)}`).join('\n'),
-      });
+      let candidate: Record<string, unknown> | undefined;
+      try {
+        candidate = await skillRuntime.buildModel(draftState, skillIds, {
+          message: state?.lastUserMessage || '',
+          locale: state?.locale || 'zh',
+          currentModel: state?.model ?? undefined,
+          conversationHistory: state?.messages.map((message) => `${messageRole(message)}: ${messageText(message)}`).join('\n'),
+        });
+      } catch (error) {
+        const { ModelInputRequiredError } = await import('../agent-skills/structure-type/generic/llm-model-builder.js');
+        if (!(error instanceof ModelInputRequiredError)) throw error;
+        // An identified missing fact is a normal clarification state, not an
+        // invalid candidate or a reason to consume the automatic-repair budget.
+        return toolResult(toolCallId, 'build_model', JSON.stringify({ status: 'input_required', modelBuilt: false,
+          missingFields: error.missingFields, nextAction: 'ask_user_clarification',
+          instruction: 'Ask for these missing facts, then extract the new answer before building. The saved model is unchanged. / 请询问这些缺失信息，收到新答复后再提取建模；原模型未变。' }));
+      }
       if (!candidate) {
         logToolCall(log, { tool: 'build_model', durationMs: Date.now() - start, extra: { success: false } });
         throw new Error('MODEL_BUILD_UNAVAILABLE: the selected builder did not produce a model. Inspect the active modeling skill and builder diagnostics before continuing; do not repeat extraction without new user input / 所选建模器未生成模型；请检查当前建模技能和诊断，不要在没有新用户输入时重复提取。');

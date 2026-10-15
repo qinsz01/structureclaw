@@ -531,11 +531,17 @@ export class AgentSkillRuntime {
     context?: { message?: string; locale?: AppLocale; currentModel?: Record<string, unknown>; conversationHistory?: string },
   ): Promise<Record<string, unknown> | undefined> {
     const policy = currentRunPolicy();
+    const { currentDraftDiagnostics, unresolvedDraftFields, isDesignDraftField } = await import('./draft-diagnostics.js');
+    state = currentDraftDiagnostics(state);
     if (policy) skillIds = policy.activeSkillIds.filter(id => skillIds === undefined || skillIds.includes(id));
     assertResolvedInput(state.engineeringDraft?.inputEvidence);
     const { buildExplicitDraftModel } = await import('./explicit-model.js');
-    const explicit = buildExplicitDraftModel(state);
+    // A complete imported model is immutable input. Partial topology is still a
+    // modeling task: llm policy must be allowed to finish it using the source text.
+    const explicit = policy?.builder === 'llm' && !state.engineeringDraft?.model ? undefined : buildExplicitDraftModel(state);
     if (explicit) {
+      const unresolved = unresolvedDraftFields(state).filter(field => !isDesignDraftField(field));
+      if (unresolved.length) throw new Error(`MODEL_DRAFT_INCOMPLETE: ${unresolved.join(', ')} / 尚有未解决的工程输入`);
       recordRunEvent({ kind: 'model_builder', builder: 'explicit', requestedBuilder: policy?.builder ?? 'auto',
         source: state.engineeringDraft?.model ? 'model' : 'topology' });
       return explicit;
@@ -562,6 +568,9 @@ export class AgentSkillRuntime {
       recordRunEvent({ kind: 'model_builder', builder: 'llm', skillId: plugin.id });
       const { tryBuildGenericModelWithLlm } = await import('../agent-skills/structure-type/generic/llm-model-builder.js');
       const { createChatModel } = await import('../utils/llm.js');
+      const { normalizeEngineeringModel } = await import('../engineering/model-boundary.js');
+      const { createLocalStructureProtocolClient } = await import('../services/structure-protocol-execution.js');
+      const protocol = createLocalStructureProtocolClient();
       const llm = createChatModel(0);
       if (!llm) {
         throw new Error(
@@ -572,6 +581,7 @@ export class AgentSkillRuntime {
       }
       return tryBuildGenericModelWithLlm(
         llm, context.message || '', state, context.locale || 'zh', policy?.context.history === 'current-turn' ? undefined : context.conversationHistory, undefined, context.currentModel,
+        candidate => normalizeEngineeringModel(candidate, protocol),
       );
     }
 

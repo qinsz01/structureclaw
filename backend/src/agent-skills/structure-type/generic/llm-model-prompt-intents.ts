@@ -1,5 +1,6 @@
 import type { AppLocale } from '../../../services/locale.js';
-import { getCommonConstraints, getStructureModelTemplate } from './llm-model-prompt-fragments.js';
+import { getCommonConstraints } from './llm-model-prompt-fragments.js';
+import { modelContract, promptContract } from '../../../engineering/draft-contract.js';
 
 export type GenericModelPromptIntent = 'build-structure-model-v2';
 
@@ -11,22 +12,19 @@ type PromptIntentConfig = {
 const INTENT_CONFIGS: Record<GenericModelPromptIntent, PromptIntentConfig> = {
   'build-structure-model-v2': {
     opening: (locale) => {
-      const template = getStructureModelTemplate();
       if (locale === 'zh') {
         return [
           '你是结构建模专家。',
           '请根据用户描述输出可计算的 StructureModel V2 JSON。',
           '只输出 JSON 对象，不要 Markdown。',
-          '以下 2.2.0 JSON 模板是核心格式，请严格遵循键名与层级。',
-          `模板:\n${template}`,
+          '使用 {"schema_version":"2.2.0"} 和下方正式字段定义。节点、构件、属性及荷载全部依据本次用户资料建立；没有预设算例可复制。',
         ];
       }
       return [
         'You are a structural modeling expert.',
         'Generate a computable StructureModel V2 JSON from the user request.',
         'Return JSON object only, without markdown.',
-        'The 2.2.0 JSON template below is the base format. Follow its keys and nesting strictly.',
-        `Template:\n${template}`,
+        'Use {"schema_version":"2.2.0"} and the formal field definitions below. Generate nodes, members, properties and loads from this request; there is no preset example structure to copy.',
       ];
     },
     closing: (locale, stateHint, message, conversationHistory) => {
@@ -57,5 +55,7 @@ export function composePromptByIntent(
   const opening = config.opening(locale);
   const constraints = getCommonConstraints(locale);
   const closing = config.closing(locale, stateHint, message, conversationHistory);
-  return [...opening, ...constraints, ...closing].join('\n');
+  return [...opening, ...constraints,
+    `Authoritative model schema / 正式模型字段定义（模板仅为格式示例，不是用户模型）:\n${JSON.stringify(promptContract(modelContract))}`,
+    ...closing].join('\n');
 }

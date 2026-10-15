@@ -8,6 +8,15 @@ from __future__ import annotations
 
 import math
 
+# Consumed numeric properties, shared by physical validation and the exported
+# field/unit contract. Other legacy annotations remain readable.
+SECTION_PROPERTY_UNITS = {
+    'A': 'm2', 'As': 'm2', 'Asy': 'm2', 'Asz': 'm2',
+    'Iy': 'm4', 'Iz': 'm4', 'J': 'm4',
+    'Wx': 'm3', 'Wz': 'm3', 'Wnx': 'm3', 'S': 'm3', 'Sz': 'm3',
+    'tw': 'm', 'tz': 'm', 'b': 'm', 't': 'm', 'imin': 'm',
+}
+
 
 def geometry_properties(shape):
     kind = shape.kind
@@ -77,7 +86,7 @@ def validate_derived_section_metadata(section):
 def validate_section_physics(section):
     validate_derived_section_metadata(section.model_dump(exclude_none=True))
     props = section.properties
-    for key in ('A', 'Iy', 'Iz', 'J', 'Wx', 'Wz', 'Wnx', 'S', 'Sz', 'As', 'Asz', 'tw', 'tz', 'b', 't', 'imin'):
+    for key in SECTION_PROPERTY_UNITS:
         if key in props and (isinstance(props[key], bool) or not isinstance(props[key], (float, int))
                              or not math.isfinite(props[key]) or props[key] <= 0):
             raise ValueError(f"Section '{section.id}' {key} must be finite and positive")

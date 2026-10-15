@@ -108,6 +108,8 @@ export interface EngineeringDraftTemplateAssignment {
 
 export interface EngineeringDraft {
   structureType?: StructuralTypeKey;
+  /** V2 coordinate_system, including the explicitly requested analysis dimension. */
+  coordinateSystem?: Record<string, unknown>;
   geometry?: EngineeringDraftGeometry;
   topology?: EngineeringDraftTopology;
   /** Full V2 records for explicit models; never reduced to one role-wide property. */
@@ -134,6 +136,10 @@ export type DraftIssueSeverity = 'invalid' | 'ambiguous' | 'unrealistic' | 'conf
 
 export interface DraftIssue {
   field?: string;
+  /** Missing values are re-evaluated; confirmation/ambiguity is not inferred away. */
+  kind?: 'missing' | 'confirmation';
+  /** Runtime-bound stable field address; the displayed legacy field is retained. */
+  target?: string;
   value?: unknown;
   severity: DraftIssueSeverity;
   reason: string;

@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { buildExplicitDraftModel, validateExplicitModel } from '../../../dist/agent-runtime/explicit-model.js';
-import { normalizeEngineeringDraft, mergeEngineeringDraft } from '../../../dist/agent-runtime/engineering-draft.js';
+import { normalizeEngineeringDraft, mergeEngineeringDraft, projectEngineeringDraftToLegacyPatch } from '../../../dist/agent-runtime/engineering-draft.js';
 import { buildModel } from '../../../dist/agent-runtime/model-builder.js';
 
 function draft() {
@@ -14,6 +14,24 @@ function draft() {
   }};
 }
 describe('explicit physical model boundary', () => {
+  test.each(['2d', '3d'])('the generated draft contract carries %s through extraction, merge and construction', dimension => {
+    const state = draft(); delete state.frameDimension;
+    state.engineeringDraft = normalizeEngineeringDraft({ ...state.engineeringDraft, coordinateSystem: { dimension, plane: dimension === '2d' ? 'xz' : null } });
+    state.engineeringDraft = mergeEngineeringDraft(state.engineeringDraft, { analysisControl: { self_weight: false } });
+    const model = buildExplicitDraftModel(state);
+    expect(model.coordinate_system).toMatchObject({ dimension, plane: dimension === '2d' ? 'xz' : null });
+    expect(model.nodes).toEqual(state.engineeringDraft.topology.nodes);
+    expect(projectEngineeringDraftToLegacyPatch(state, 'frame').frameDimension).toBe(dimension);
+    expect(model.load_combinations).toEqual([]);
+  });
+  test('analysis dimension must be explicit and cannot contradict coordinate semantics or legacy input', () => {
+    const state = draft(); delete state.frameDimension;
+    expect(() => buildExplicitDraftModel(state)).toThrow('coordinateSystem.dimension required');
+    state.engineeringDraft.coordinateSystem = { dimension: '2d', plane: 'xy' };
+    expect(() => buildExplicitDraftModel(state)).toThrow('canonical');
+    state.engineeringDraft.coordinateSystem.plane = 'xz'; state.frameDimension = '3d';
+    expect(() => buildExplicitDraftModel(state)).toThrow('conflicts');
+  });
   test('preserves mixed elements, per-member properties and internal loads without template remeshing', () => {
     const state=draft(), original=structuredClone(state);
     const model=buildExplicitDraftModel(state);
@@ -38,6 +56,14 @@ describe('explicit physical model boundary', () => {
     expect(merged.material).toMatchObject({family:'steel',grade:'Q235'});
     expect(merged.loads).toHaveLength(1);
     expect(merged.loads[0].magnitude).toBe(-0.5);
+  });
+  test('a partial case description preserves its applied loads; missing explicit loads never disappear into a template field', () => {
+    const state = draft();
+    const merged = mergeEngineeringDraft(state.engineeringDraft, { loadCases: [{ id: 'P', description: 'Confirmed service case' }] });
+    expect(merged.loadCases[0].loads).toEqual(state.engineeringDraft.loadCases[0].loads);
+    state.engineeringDraft.loadCases = [{ id: 'P', type: 'other' }];
+    state.engineeringDraft.loads = [{ kind: 'point', magnitude: 1, unit: 'kN', direction: 'gravity', target: 'B' }];
+    expect(() => buildExplicitDraftModel(state)).toThrow('loadCases[].loads');
   });
   test('does not guess units or discard malformed topology rows', () => {
     expect(()=>normalizeEngineeringDraft({loads:[{kind:'point',magnitude:3}]})).toThrow(/LOAD_UNIT_REQUIRED/);

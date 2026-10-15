@@ -150,7 +150,8 @@ describe("param extractor", () => {
         sentPrompt = prompt;
         return { content: JSON.stringify({ engineeringDraft: { materials: [{ id: 'M', rho: 7850 }] } }) };
       } } });
-    expect(sentPrompt).toContain('"shape": { "kind": "rectangular", "B": number, "H": number }');
+    const { promptContract } = await import('../../../dist/engineering/draft-contract.js');
+    expect(sentPrompt).toContain(JSON.stringify(promptContract()));
     expect(sentPrompt).toContain(locale === 'zh' ? '仅给几何时只保留 shape，完全省略 properties' : 'For geometry-only input, retain shape and OMIT properties completely');
     expect(sentPrompt).toContain(locale === 'zh' ? '不能删掉显式 properties 隐藏冲突' : 'Never delete explicit properties to hide a conflict');
     expect(sentPrompt).toContain(locale === 'zh' ? '保留已有已确认记录中的 shape、properties、ID 及来源' : 'Preserve shape, properties, IDs and sources in existing confirmed records');
@@ -287,7 +288,7 @@ describe("param extractor", () => {
     expect(prompt).toContain("不得补写用户未提供的荷载单位或荷载种类");
     expect(prompt).toContain("无法区分总力、线荷载或面荷载");
     expect(prompt).toContain("源面荷载及其按受荷宽度折算得到的线荷载不是两个独立荷载");
-    expect(prompt).toContain('"factors": { "<loadCaseId>": number }');
+    expect(prompt).toContain('"factors":{"additionalProperties":{"type":"number"}');
     expect(prompt).not.toContain("get_skill_parameter_info");
   });
 
@@ -307,7 +308,7 @@ describe("param extractor", () => {
     expect(prompt).toContain("Never supply a load unit or load kind that the user did not provide");
     expect(prompt).toContain("does not distinguish total force, line load, or area load");
     expect(prompt).toContain("A source area load and the line load derived from it by tributary width are not independent loads");
-    expect(prompt).toContain('"factors": { "<loadCaseId>": number }');
+    expect(prompt).toContain('"factors":{"additionalProperties":{"type":"number"}');
   });
 
   test("includes structured semantic seismic workflow contract in extraction prompt", async () => {

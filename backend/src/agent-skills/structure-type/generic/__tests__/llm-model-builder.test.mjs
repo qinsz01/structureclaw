@@ -144,13 +144,8 @@ describe('generic LLM model builder', () => {
       },
     };
 
-    const model = await tryBuildGenericModelWithLlm(
-      fakeLlm,
+    await expect(tryBuildGenericModelWithLlm(fakeLlm,
       'Single-bay lateral frame, span 6m, height 4m, lateral 50kN.',
-      { inferredType: 'generic', updatedAt: 0 },
-      'en',
-    );
-
-    expect(model).toBeUndefined();
+      { inferredType: 'generic', updatedAt: 0 }, 'en')).rejects.toThrow('LLM_MODEL_VALIDATION_FAILED');
   });
 });

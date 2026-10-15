@@ -1,35 +1,30 @@
 import type { DraftIssue, EngineeringDraft } from './types.js';
-import { draftRecordPaths } from './draft-record-paths.js';
+import catalogData from '../engineering/reviewed-sections.json' with { type: 'json' };
+import { draftFieldValues } from './draft-diagnostics.js';
+import { validDraftValue } from '../engineering/draft-contract.js';
 
 /** Reviewed numerical catalog data. Rolled/tapered I sections are not rectangular-flange H sections. */
-const source = {
-  title: 'SAMR public GB/T 706 revision draft, Table A.1 / 市场监管总局公开热轧型钢修订草案表A.1',
-  url: 'https://std.samr.gov.cn/dcpspTools/gbPlan/download?path=%2Fzxd%2F2024003445%2F20_%E6%A0%87%E5%87%86%E8%B5%B7%E8%8D%89%2F20_WD_2024003445_%E7%83%AD%E8%BD%A7%E5%9E%8B%E9%92%A2.pdf',
-  sha256: '1aff5bea9e9c9fdb27c09aa2de9000b00f8760af0ad733f1f994017c7838b5a5',
-  status: 'reference-data-from-public-draft',
-  axisMapping: 'table Ix -> model Iy; table Iy -> model Iz',
-};
+const catalogEntries: Array<Record<string, any>> = catalogData;
 const isRecord = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const supplementalProperties = new Set(['S', 'Sz', 'Wnx', 'As', 'Asy', 'Asz', 'b', 't', 'tz']);
 
 export function reviewedSectionName(name: unknown): string | undefined {
   if (typeof name !== 'string') return;
   const normalized = name.trim().replace(/Ⅰ/g, 'I');
-  if (/^I20a$/i.test(normalized)) return 'I20a';
-  // Require both a standalone designation and an explicit catalog description.
-  // Labels such as I20ab/custom20a are not reviewed section identities.
-  if (/(?:^|[^a-z0-9])I20a(?:$|[^a-z0-9])/i.test(normalized)
-    && /(?:GB\s*\/\s*T\s*706(?!\d)|热轧工字钢|hot[- ]rolled\s+I[- ]sections?)/i.test(normalized)) return 'I20a';
+  const found = catalogEntries.filter(entry => {
+    if (entry.name.toLowerCase() === normalized.toLowerCase()) return true;
+    const escaped = entry.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(?:^|[^a-z0-9])${escaped}(?:$|[^a-z0-9])`, 'i').test(normalized)
+      && /(?:GB\s*\/\s*T\s*706(?!\d)|热轧工字钢|hot[- ]rolled\s+I[- ]sections?)/i.test(normalized);
+  });
+  return found.length === 1 ? found[0]!.name : undefined;
 }
 
 /** Only reviewed rows are accepted. No dimensions, torsion, net modulus or code coefficients are inferred. */
 export function reviewedSectionRecord(name: string, id: string, purpose: 'beam' | 'column'): Record<string, unknown> | undefined {
-  if (!reviewedSectionName(name)) return undefined;
-  return {
-    id, name: 'I20a', type: 'custom', purpose, width: 100, height: 200,
-    properties: { A: 35.55e-4, Iy: 2370e-8, Iz: 158e-8, Wx: 237e-6, Wz: 31.5e-6, tw: 7e-3, imin: 2.12e-2 },
-    extra: { catalogSource: { ...source, recordId: 'I20a' }, catalogDimensionsMM: { H: 200, B: 100, tw: 7, tf: 11.4, r1: 9, r2: 4.5 } },
-  };
+  const identity = reviewedSectionName(name);
+  const entry = catalogEntries.find(row => row.name === identity);
+  return entry ? { ...structuredClone(entry), id, purpose } : undefined;
 }
 
 /** A stable assignment or one unambiguous declared role may identify a labeled record. */
@@ -81,13 +76,14 @@ export function assertReviewedSectionProvenance(section: Record<string, unknown>
     return;
   }
   const claim = extra.catalogSource;
-  if (!isRecord(claim) || claim.sha256 !== source.sha256) {
+  const entry = isRecord(claim) ? catalogEntries.find(row => row.extra.catalogSource.recordId === claim.recordId) : undefined;
+  if (!entry || !isRecord(claim) || claim.sha256 !== entry.extra.catalogSource.sha256) {
     throw new Error(`CATALOG_SECTION_SOURCE_UNVERIFIED: sections.${String(section.id)}.extra.catalogSource; this catalog source is not registered as reviewed / 该目录来源尚未登记核定。Explicit custom sections require both catalog claims set to null and a nonempty customSectionBasis / 自定义截面须明确清空两项目录来源并说明依据。`);
   }
-  if (Object.entries(source).some(([key, value]) => claim[key] !== value)) fail('extra.catalogSource');
+  if (Object.entries(entry.extra.catalogSource).some(([key, value]) => claim[key] !== value)) fail('extra.catalogSource');
   const identity = isRecord(claim) && typeof claim.recordId === 'string' ? claim.recordId : section.name;
-  if (reviewedSectionName(identity) !== 'I20a') fail('extra.catalogSource.recordId');
-  const catalog = reviewedSectionRecord('I20a', String(section.id), 'beam')!;
+  if (reviewedSectionName(identity) !== entry.name) fail('extra.catalogSource.recordId');
+  const catalog = reviewedSectionRecord(entry.name, String(section.id), 'beam')!;
   // Match the existing physical validator's serialization tolerance; no alternative table values.
   const same = (actual: unknown, expected: unknown) => typeof actual === 'number' && Number.isFinite(actual)
     && typeof expected === 'number' && Math.abs(actual - expected) <= Math.max(1e-14, 1e-6 * Math.abs(expected));
@@ -106,15 +102,18 @@ export function assertReviewedSectionProvenance(section: Record<string, unknown>
 /** A missing-only diagnostic cannot block values supplied by the same reviewed catalog as the builder. */
 export function catalogResolvesMissingSectionIssue(draft: EngineeringDraft | undefined, issue: DraftIssue): boolean {
   if (issue.severity !== 'ambiguous' || issue.value != null || typeof issue.field !== 'string') return false;
-  const match = /^(?:engineeringDraft\.)?(sectionRecords.+)\.properties(?:\.(A|Iy|Iz|Wx|Wz|tw|imin)(?:\/(?:A|Iy|Iz|Wx|Wz|tw|imin))*)?$/.exec(issue.field);
-  if (!match) return false;
-  const records = draft?.sectionRecords ?? [];
-  const matches = records.filter((record, index) => draftRecordPaths('sectionRecords', record.id, index).includes(match[1]!));
-  if (matches.length !== 1) return false;
-  const selected = matches[0]!;
-  const completed = completeReviewedSectionRecord(selected, reviewedSectionNames(selected, draft));
-  if (!completed) return false;
-  // Validate the catalog claim before treating any diagnostic as resolved.
-  assertReviewedSectionProvenance(completed);
-  return true;
+  const field = issue.field.replace(/^engineeringDraft\./, '');
+  if (!field.startsWith('sectionRecords') || !field.includes('.properties')) return false;
+  const records = (draft?.sectionRecords ?? []).map(record => {
+    const completed = completeReviewedSectionRecord(record, reviewedSectionNames(record, draft));
+    if (!completed) return { id: record.id };
+    assertReviewedSectionProvenance(completed);
+    return completed;
+  });
+  // Read old grouped diagnostics at the boundary; new diagnostics name one field.
+  const split = field.lastIndexOf('.'), prefix = field.slice(0, split + 1);
+  return field.slice(split + 1).split('/').every(component => {
+    const values = draftFieldValues({ ...draft, sectionRecords: records }, prefix + component);
+    return values.length > 0 && values.every(item => validDraftValue(item.schema, item.value));
+  });
 }

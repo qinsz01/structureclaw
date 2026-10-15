@@ -31,8 +31,9 @@ export function buildGenericModelPrompt(
     : 'The complete confirmed V2 model follows. Change only the objects and fields explicitly requested this turn. Preserve all other nodes, connectivity, properties, loads, combinations and IDs; do not rebuild or simplify from the structure name. Never guess an ambiguous target or missing critical value.'}\n${JSON.stringify(currentModel)}`;
 }
 
-export function buildRetrySuffix(locale: AppLocale): string {
-  return locale === 'zh'
-    ? '\n上一轮输出未通过 JSON 校验。请仅返回合法 JSON 对象。'
-    : '\nThe previous output did not pass JSON validation. Return a valid JSON object only.';
+export function buildRetrySuffix(locale: AppLocale, error: string, candidate: string): string {
+  const instruction = locale === 'zh'
+    ? '上一候选模型未通过校验。依据下面的实际错误修正字段；保留用户已确认的几何、荷载与属性，不通过删减需求绕过错误。只返回完整 JSON 模型。'
+    : 'The previous candidate failed validation. Correct the fields using the actual error below. Preserve confirmed geometry, loads and properties; do not remove requirements to evade validation. Return the complete JSON model only.';
+  return `\n${instruction}\n${JSON.stringify({ validationError: error, previousCandidate: candidate })}`;
 }

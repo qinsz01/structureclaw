@@ -1,13 +1,14 @@
 import type { LocalStructureProtocolClient } from '../services/structure-protocol-execution.js';
 import type { EngineeringDraft } from '../agent-runtime/types.js';
 import { isRecord, type ModelEdit, type ModelRecord } from './model-state.js';
+import modelSchema from './structure-model-v2.schema.json' with { type: 'json' };
 
 type Schema = Record<string, any>;
 const schemas = new WeakMap<LocalStructureProtocolClient, Promise<Schema>>();
-export const sectionPropertyUnits: Record<string, string> = {
-  A: 'm2', As: 'm2', Asy: 'm2', Asz: 'm2', Iy: 'm4', Iz: 'm4', J: 'm4',
-  Wx: 'm3', Wz: 'm3', Wnx: 'm3', S: 'm3', Sz: 'm3', tw: 'm', tz: 'm', b: 'm', t: 'm', imin: 'm',
-};
+export const sectionPropertyUnits: Record<string, string> = Object.fromEntries(
+  Object.entries((modelSchema as Schema).$defs.SectionV2.properties.properties.properties)
+    .map(([key, value]) => [key, (value as Schema)['x-unit']]),
+);
 export const modelEditGuidance = {
   format: 'Use nested objects or canonical dotted paths within values; do not prefix paths with material/member. / values使用嵌套对象或规范点路径，不加material/member前缀。',
   materials: 'materials[id].design: f/fv in MPa; material design strengths belong to the referenced material, not the element. / 设计强度写入引用材料的design。',

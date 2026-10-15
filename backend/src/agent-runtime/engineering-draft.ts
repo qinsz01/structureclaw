@@ -20,6 +20,7 @@ import type {
   EngineeringDraftTopologyMember,
   EngineeringDraftTopologyNode,
   FrameBaseSupportType,
+  FrameDimension,
   InferredModelType,
   MaterialFamily,
 } from './types.js';
@@ -404,8 +405,12 @@ export function normalizeEngineeringDraft(value: unknown): EngineeringDraft | un
     throw new Error('INVALID_ANALYSIS_CONTROL: object required / 分析控制必须是对象');
   }
 
+  if (raw.coordinateSystem !== undefined && !asRecord(raw.coordinateSystem)) {
+    throw new Error('INVALID_COORDINATE_SYSTEM: object required / 坐标定义必须是对象');
+  }
   const draft: EngineeringDraft = {
     structureType: normalizeString(raw.structureType) as EngineeringDraft['structureType'],
+    ...(raw.coordinateSystem !== undefined ? { coordinateSystem: structuredClone(asRecord(raw.coordinateSystem)!) } : {}),
     geometry,
     topology: normalizeEngineeringTopology(raw.topology),
     materials: normalizeRecordArray(raw.materials, 'materials'),
@@ -602,6 +607,7 @@ export function mergeEngineeringDraft(
   });
   return {
     structureType,
+    ...(existing.coordinateSystem || patch.coordinateSystem ? { coordinateSystem: { ...existing.coordinateSystem, ...patch.coordinateSystem } } : {}),
     geometry,
     topology: { ...(existing.topology ?? {}), ...(patch.topology ?? {}) },
     materials: mergeDraftPropertyRecords(existing.materials, patch.materials),
@@ -609,7 +615,7 @@ export function mergeEngineeringDraft(
     templateAssignments: Object.fromEntries([...new Set([...Object.keys(existing.templateAssignments ?? {}), ...Object.keys(patch.templateAssignments ?? {})])]
       .map(role => { const key = role as keyof NonNullable<EngineeringDraft['templateAssignments']>;
         return [role, mergeDraftRecord({ ...existing.templateAssignments?.[key] }, { ...patch.templateAssignments?.[key] })]; })),
-    loadCases: patch.loadCases ?? existing.loadCases,
+    loadCases: mergeDraftPropertyRecords(existing.loadCases, patch.loadCases),
     model: patch.model ?? existing.model,
     inputEvidence: mergeInputEvidence(existing.inputEvidence, patch.inputEvidence),
     material: { ...(existing.material ?? {}), ...(patch.material ?? {}) },
@@ -1100,6 +1106,14 @@ export function projectEngineeringDraftToLegacyPatch(
     engineeringDraft,
     skillState,
   };
+
+  const dimension = engineeringDraft.coordinateSystem?.dimension;
+  if (dimension !== undefined) {
+    if (!['2d', '3d'].includes(String(dimension)) || next.frameDimension && next.frameDimension !== dimension) {
+      throw new Error('COORDINATE_DIMENSION_CONFLICT: coordinateSystem.dimension / 分析维度无效或与旧字段冲突');
+    }
+    next.frameDimension = dimension as FrameDimension;
+  }
 
   if (engineeringDraft.geometry?.lengthM !== undefined) next.lengthM = next.lengthM ?? engineeringDraft.geometry.lengthM;
   if (engineeringDraft.geometry?.heightM !== undefined) next.heightM = next.heightM ?? engineeringDraft.geometry.heightM;

@@ -2,11 +2,9 @@ import type { AppLocale } from '../services/locale.js';
 import type {
   DraftExtraction,
   DraftFloorLoad,
-  DraftIssue,
   DraftLoadPosition,
   DraftLoadType,
   DraftState,
-  EngineeringDraft,
   DraftSupportType,
   FrameBaseSupportType,
   FrameDimension,
@@ -16,8 +14,8 @@ import type {
   StructuralTypeMatch,
   StructuralTypeKey,
 } from './types.js';
-import { engineeringLoadClarifiesExisting, mergeEngineeringDraft } from './engineering-draft.js';
-import { draftRecordPaths } from './draft-record-paths.js';
+import { mergeEngineeringDraft } from './engineering-draft.js';
+import { mergeDraftDiagnostics } from './draft-diagnostics.js';
 import { buildModel as buildDraftModel } from './model-builder.js';
 import { localize } from './plugin-helpers.js';
 
@@ -81,170 +79,6 @@ function mergeFloorLoads(
     .sort((a, b) => a.story - b.story);
 
   return normalized.length > 0 ? normalized : undefined;
-}
-
-function getInvalidDraftFields(state: DraftState | DraftExtraction | undefined): string[] {
-  const fields = state?.skillState?.invalidDraftFields;
-  if (!Array.isArray(fields)) {
-    return [];
-  }
-  return fields.filter((field): field is string => typeof field === 'string');
-}
-
-function collectValidPatchFields(patch: DraftExtraction, existing?: DraftState, mergedDraft?: EngineeringDraft): Set<string> {
-  const valid = new Set<string>();
-  const checkPositive = (field: string, value: unknown) => {
-    if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
-      valid.add(field);
-    }
-  };
-  const checkArray = (field: string, value: unknown) => {
-    if (Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === 'number' && Number.isFinite(item) && item > 0)) {
-      valid.add(field);
-    }
-  };
-  const checkNonNegativeArray = (field: string, value: unknown) => {
-    if (Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === 'number' && Number.isFinite(item) && item >= 0)) {
-      valid.add(field);
-    }
-  };
-  if (typeof patch.loadKN === 'number' && Number.isFinite(patch.loadKN)) valid.add('loadKN');
-  for (const field of ['lengthM', 'spanLengthM', 'heightM'] as const) {
-    checkPositive(field, patch[field]);
-  }
-  for (const field of ['storyCount', 'bayCount', 'bayCountX', 'bayCountY'] as const) {
-    checkPositive(field, patch[field]);
-  }
-  for (const field of ['storyHeightsM', 'bayWidthsM', 'bayWidthsXM', 'bayWidthsYM'] as const) {
-    checkArray(field, patch[field]);
-  }
-  const geometry = patch.engineeringDraft?.geometry;
-  if (geometry) {
-    checkPositive('lengthM', geometry.lengthM);
-    checkPositive('heightM', geometry.heightM);
-    checkArray('spanLengthsM', geometry.spanLengthsM);
-    checkArray('storyHeightsM', geometry.storyHeightsM);
-    checkArray('bayWidthsM', geometry.bayWidthsM);
-    checkArray('bayWidthsXM', geometry.bayWidthsXM);
-    checkArray('bayWidthsYM', geometry.bayWidthsYM);
-    checkPositive('geometry.lengthM', geometry.lengthM);
-    checkPositive('geometry.heightM', geometry.heightM);
-    checkArray('geometry.spanLengthsM', geometry.spanLengthsM);
-    checkArray('geometry.storyHeightsM', geometry.storyHeightsM);
-    checkArray('geometry.bayWidthsM', geometry.bayWidthsM);
-    checkArray('geometry.bayWidthsXM', geometry.bayWidthsXM);
-    checkArray('geometry.bayWidthsYM', geometry.bayWidthsYM);
-  }
-  const sections = patch.engineeringDraft?.sections;
-  if (sections) {
-    for (const [key, value] of Object.entries(sections)) {
-      if (typeof value === 'string' && value.trim()) {
-        valid.add('sections');
-        valid.add(`sections.${key}`);
-      }
-    }
-  }
-  const material = patch.engineeringDraft?.material;
-  if (material) {
-    for (const key of ['family', 'grade', 'rebarGrade'] as const) {
-      const value = material[key];
-      if (typeof value === 'string' && value.trim()) {
-        valid.add('material');
-        valid.add(`material.${key}`);
-      }
-    }
-  }
-  // Material arrays merge by stable ID. Clear only the fields explicitly supplied
-  // in this patch, using their merged identity (never the patch array's offset).
-  const materialRecords = mergedDraft?.materials ?? [];
-  const validMaterialValue = (field: string, value: unknown): boolean => {
-    if (field === 'name' || field === 'id') return typeof value === 'string' && !!value.trim();
-    if (typeof value !== 'number' || !Number.isFinite(value)) return false;
-    return field === 'nu' ? value >= 0 && value < 0.5 : value > 0;
-  };
-  for (const record of patch.engineeringDraft?.materials ?? []) {
-    if (typeof record.id !== 'string') continue;
-    const matches = materialRecords.flatMap((item, index) => item.id === record.id ? [index] : []);
-    if (matches.length !== 1) continue;
-    const index = matches[0]!;
-    for (const field of ['id', 'name', 'E', 'G', 'nu', 'rho']) {
-      if (!Object.hasOwn(record, field) || !validMaterialValue(field, record[field])) continue;
-      const selectors = draftRecordPaths('materials', record.id, index).map(selector => `${selector}.${field}`);
-      // A wildcard describes every material, including records outside this patch.
-      if (materialRecords.length && materialRecords.every(item => validMaterialValue(field, item[field]))) {
-        selectors.push(`materials[].${field}`, `materials[*].${field}`);
-      }
-      for (const selector of selectors) {
-        valid.add(selector);
-        valid.add(`engineeringDraft.${selector}`);
-      }
-    }
-  }
-  const boundary = patch.engineeringDraft?.boundary;
-  // A confirmed false is a complete answer. Clear only missing-input markers;
-  // a conflict between evidence sources is not resolved by merely writing a flag.
-  for (const key of ['self_weight', 'rigid_floor', 'p_delta', 'rigid_offsets', 'construction_stage', 'consideration_torsion', 'live_load_reduction']) {
-    if (typeof patch.engineeringDraft?.analysisControl?.[key] !== 'boolean') continue;
-    for (const prefix of ['analysisControl', 'engineeringDraft.analysisControl']) {
-      const field = `${prefix}.${key}`;
-      const issues = existing?.draftIssues?.filter(issue => issue.field === field) ?? [];
-      if (issues.every(issue => issue.severity === 'ambiguous' && issue.value == null)) valid.add(field);
-    }
-  }
-  if (boundary) {
-    if (typeof boundary.supportType === 'string' && boundary.supportType.trim()) {
-      valid.add('boundary.supportType');
-    }
-    if (typeof boundary.frameBaseSupportType === 'string' && boundary.frameBaseSupportType.trim()) {
-      valid.add('boundary.frameBaseSupportType');
-    }
-    checkNonNegativeArray('boundary.supportPositionsM', boundary.supportPositionsM);
-  }
-  for (const [patchIndex, load] of (patch.engineeringDraft?.loads ?? []).entries()) {
-    const previous = existing?.engineeringDraft?.loads ?? [];
-    const matches = previous.map((candidate, index) => ({ candidate, index })).filter(({ candidate }) => load.id
-      ? candidate.id === load.id
-      : !candidate.id && mergedDraft && engineeringLoadClarifiesExisting(candidate, load, mergedDraft));
-    // A patch's array offset is not the identity of an existing load.
-    const index = previous.length ? matches.length === 1 ? matches[0]!.index : undefined : patchIndex;
-    if (index === undefined) continue;
-    const add = (field: string) => { valid.add(`loads[${index}].${field}`); valid.add(`engineeringDraft.loads[${index}].${field}`); };
-    if (Number.isFinite(load.magnitude)) add('magnitude');
-    if (['gravity', 'globalX', 'globalY', 'globalZ'].includes(String(load.direction))) add('direction');
-    if (['kN', 'kN/m', 'kN/m2'].includes(load.unit)) add('unit');
-    if (load.kind) add('kind');
-    if (['dead', 'live', 'wind', 'seismic', 'other'].includes(String(load.caseType))) add('caseType');
-    for (const key of ['xM', 'story', 'spanIndex'] as const) {
-      if (typeof load.location?.[key] === 'number' && Number.isFinite(load.location[key])) add(`location.${key}`);
-    }
-    if (load.location?.nodeRole?.trim()) add('location.nodeRole');
-  }
-  return valid;
-}
-
-function mergeInvalidDraftFields(existing: DraftState | undefined, patch: DraftExtraction, clearedByPatch: Set<string>): string[] | undefined {
-  const patchInvalidFields = getInvalidDraftFields(patch);
-  const patchInvalid = new Set(patchInvalidFields);
-  const merged = [
-    ...getInvalidDraftFields(existing).filter((field) => !clearedByPatch.has(field) || patchInvalid.has(field)),
-    ...patchInvalidFields,
-  ];
-  const unique = Array.from(new Set(merged));
-  return unique.length ? unique : undefined;
-}
-
-function mergeDraftIssues(
-  existing: DraftState | undefined,
-  patch: DraftExtraction,
-  clearedFields: Set<string>,
-): DraftIssue[] | undefined {
-  const existingIssues = Array.isArray(existing?.draftIssues) ? existing.draftIssues : [];
-  const patchIssues = Array.isArray(patch.draftIssues) ? patch.draftIssues : [];
-  const next = [
-    ...existingIssues.filter((issue) => !issue.field || !clearedFields.has(issue.field)),
-    ...patchIssues,
-  ];
-  return next.length ? next : undefined;
 }
 
 export function normalizeLoadType(value: unknown): DraftLoadType | undefined {
@@ -516,30 +350,11 @@ export function mergeDraftState(existing: DraftState | undefined, patch: DraftEx
   const bayWidthsYM = patch.bayWidthsYM ?? existing?.bayWidthsYM;
   const floorLoads = mergeFloorLoads(existing?.floorLoads, patch.floorLoads);
   const engineeringDraft = mergeEngineeringDraft(existing?.engineeringDraft, patch.engineeringDraft);
-  const clearedFields = collectValidPatchFields(patch, existing, engineeringDraft);
-  const invalidDraftFields = mergeInvalidDraftFields(existing, patch, clearedFields);
-  const draftIssues = mergeDraftIssues(existing, patch, clearedFields);
-  const rawSkillState = existing?.skillState || patch.skillState
-    ? {
-      ...(existing?.skillState ?? {}),
-      ...(patch.skillState ?? {}),
-    }
-    : undefined;
-  const { invalidDraftFields: _discardInvalidDraftFields, ...skillStateWithoutInvalid } = rawSkillState ?? {};
-  const skillState = rawSkillState || invalidDraftFields
-    ? {
-      ...skillStateWithoutInvalid,
-      ...(invalidDraftFields ? { invalidDraftFields } : {}),
-    }
-    : undefined;
-
-  return {
+  const result: DraftState = {
     inferredType: mergedType,
     engineeringDraft,
-    draftIssues,
     lengthM: mergedLength,
     spanLengthM,
-    skillState,
     heightM: patch.heightM ?? existing?.heightM,
     supportType: patch.supportType ?? existing?.supportType,
     frameDimension,
@@ -566,6 +381,7 @@ export function mergeDraftState(existing: DraftState | undefined, patch: DraftEx
     loadPositionM: patch.loadPositionM ?? existing?.loadPositionM,
     updatedAt: Date.now(),
   };
+  return { ...result, ...mergeDraftDiagnostics(existing, patch, result) };
 }
 
 

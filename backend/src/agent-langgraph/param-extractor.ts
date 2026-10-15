@@ -17,6 +17,8 @@ import type { Logger } from 'pino';
 import type { AgentSkillPlugin, DraftState } from '../agent-runtime/types.js';
 import { currentRunPolicy, requestRecovery } from '../runtime/run-context.js';
 import { llmContentText } from '../utils/llm-content.js';
+import { promptContract } from '../engineering/draft-contract.js';
+import { currentDraftDiagnostics } from '../agent-runtime/draft-diagnostics.js';
 
 // ---------------------------------------------------------------------------
 // Skill context
@@ -89,44 +91,26 @@ function cleanPromptState(value: unknown, keyPath: string[] = []): unknown {
 }
 
 function engineeringDraftSchemaDescription(locale: 'zh' | 'en'): string {
+  const seismicEvidence = '"seismicMemberEvidence": {"byElementId": {"<stable member ID>": {"seismicCapacity": {}, "capacityDesign": {}, "strongShearWeakBending": {}, "shearCompression": {}, "jointCore": {}, "wallData": {}, "boundaryElement": {}, "steelSeismicDetailing": {}}}}. Preserve supplied seismic evidence in this top-level field or skillState.seismicWorkflow.memberEvidence. / 抗震构件证据保留在此顶层字段或抗震工作流中，不把证据生成验算结论。';
   if (locale === 'zh') {
     return [
-      '优先输出名为 engineeringDraft 的字段，字段值结构如下：',
-      '{ "engineeringDraft":',
-      '{',
-      '  "structureType": "beam|column|truss|portal-frame|steel-frame|concrete-frame",',
-      '  "geometry": { "lengthM": number, "heightM": number, "mezzanineHeightM": number, "mezzanineLengthM": number, "spanLengthsM": number[], "storyHeightsM": number[], "bayWidthsM": number[], "bayWidthsXM": number[], "bayWidthsYM": number[] },',
-      '  "topology": { "nodes": [{ "id": string, "x": number, "y": number, "z": number, "restraints": boolean[6] }], "members": [{ "id": string, "nodes": [string, string] }] },',
+      'engineeringDraft uses this generated contract. All fields may be omitted in a partial draft; preserve explicitly supplied values and stable IDs. / 草稿允许缺项，但不得编造信息：',
+      JSON.stringify(promptContract()),
+      seismicEvidence,
+      'draftIssues: [{field: string, kind: missing|confirmation, severity: invalid|ambiguous|unrealistic|conflict, reason: string, question?: string}]. Use one exact field per issue with quoted stable IDs, e.g. materials["M1"].E. missing means absent data; confirmation means a present value needs user confirmation. Do not repeat a missing issue after supplying its value. Do not emit skillState.invalidDraftFields; the runtime derives it. / 缺项按当前值重新判断；确认与来源冲突单独保留。每项诊断对应一个字段和稳定ID，不维护第二份缺项列表。',
       '  // restraints 顺序严格为 [ux,uy,uz,rx,ry,rz]，true 表示约束。X-Z 平面铰支座为 [true,true,true,false,false,false]，沿全局 X 向可滑动的滚动支座为 [false,true,true,false,false,false]。',
-      '  "material": { "family": "steel|concrete|composite|timber|masonry|generic", "grade": string, "rebarGrade": string },',
-      '  "materials": [{ "id": string, "name": string, "E": number, "G": number, "nu": number, "rho": number, "design": { "f": number, "fv": number, "basis": object } }],',
       '  // 用户给出数值材料时使用 materials，不要把 E/G/nu/rho 放进仅保存牌号的 material。E/G 单位 MPa，rho 单位 kg/m³；材料设计强度放在 materials[].design.f/fv（MPa），basis 保存明确依据。保留明确给出的值，不猜牌号或设计强度，缺少必需属性时提出缺项。',
-      '  "sections": { "beam": string, "column": string, "member": string },',
       '  // sections 保存用户给出的目录型号或角色名称；简单截面尺寸也可保留为 sections.beam="100X200"（矩形，宽×高，mm）或 "H300X150X6.5X9"（高×宽×腹板厚×翼缘厚，mm），不要替换成心算属性。',
-      '  // 以下为用户明确给出矩形尺寸时的 sectionRecords 示例，不是其他截面的默认形状：',
-      '  "sectionRecords": [{ "id": string, "name": string, "type": "rectangular", "shape": { "kind": "rectangular", "B": number, "H": number } }],',
+      '  // 显式节点与连接表须保留 coordinateSystem 中用户指定的二维/三维及平面；二维 XZ 对应 dimension="2d", plane="xz"。不要仅根据坐标共面猜测分析维度。',
+      '  // 显式拓扑的每项荷载写入 loadCases[].loads，包含 node/element 目标及有符号分量。只写工况 id/type 会丢失荷载；便捷 loads 仅供模板描述使用，不与 loadCases 重复存放同一力。',
       '  // 仅给几何时只保留 shape，完全省略 properties。矩形 B=宽、H=竖向高度，单位 mm；其他形状按其明确的 shape.kind 和尺寸保留。不计算或补写 A、Iy、Iz、J、截面模量等派生值，交由确定性几何程序计算。',
       '  // 只有用户或附件明确给出的数值截面属性才写 properties，例如 {"id":string,"type":"custom","properties":{"A":number,"Iy":number}}；A 单位 m²、Iy/Iz/J 单位 m⁴，保留来源并正确换算单位。不要把几何描述替换成舍入后的 properties。',
       '  // 保留已有已确认记录中的 shape、properties、ID 及来源；本轮只更正明确改变的字段。若用户同时给了几何和数值属性，两者均保留并交由物理校验，不能删掉显式 properties 隐藏冲突，也不能用派生值覆盖用户数值。',
-      '  "templateAssignments": { "beam": { "materialId": string, "sectionId": string, "design": object }, "column": { "materialId": string, "sectionId": string, "design": object }, "member": { "materialId": string, "sectionId": string, "design": object } },',
       '  // 用户明确适用于整类构件的设计输入保存到 templateAssignments.beam/column/member.design；member 仅表示用户明确声明对所有构件统一适用。具体角色覆盖统一字段，补参按字段合并，不丢弃未改变值。模板/新建模型会确定性写入对应 elements[].design；不依赖后续 edit_model 重述。',
       '  // design 字段示例：{"l0":number,"beta1":number,"phi_b":number,"btLimit":number,"lambdaLimit":number,"deflectionLimitN":number,"serviceability_result_keys":["case:LC1"],"basis":object}。l0 是明确给定的计算长度，单位 mm，禁止用网格单元长度代替；其余示例系数无量纲，挠度限值为 L/n 的 n。不输出 l0mm/memberDesignL0Mm 等别名，也不把这些值放进任意 designParameters。',
       '  // 仅针对已给稳定构件ID的设计输入放 topology.members[].design，不自行生成拓扑来存设计参数。不得凭牌号、支撑位置或规范名称补默认设计值。单位或适用对象不明时保留待确认信息并提出具体缺项；尚无规范字段的参数保存 metadata.unmappedDesignParameters，不能声称已用于校核。',
-      '  "analysisControl": { "self_weight": boolean, "self_weight_case_id": string, "gravity_m_s2": number, "gravity_direction": "x|-x|y|-y|z|-z", "rigid_floor": boolean, "p_delta": boolean },',
       '  // 明确“考虑自重”或“不计自重”时必须分别保留 self_weight=true 或 false；自重工况和其他分析控制仅按明确输入保留，不猜测。',
-      '  "boundary": { "supportType": "cantilever|simply-supported|fixed-fixed|fixed-pinned", "frameBaseSupportType": "fixed|pinned", "supportPositionsM": number[] },',
-      '  "loads": [',
-      '    { "kind": "point|line|area|nodal|distributed", "magnitude": number, "unit": "kN|kN/m|kN/m2", "direction": "gravity|globalX|globalY|globalZ", "target": string, "location": { "xM": number, "spanIndex": number, "story": number, "nodeRole": string }, "caseId": string, "caseType": "dead|live|wind|seismic|other" } // spanIndex 和 story 均从 1 开始；明确给出工况时必须保留 caseId/caseType',
-      '  ],',
-      '  "seismicMemberEvidence": { "byElementId": { "E1": { "seismicCapacity": object, "capacityDesign": object, "strongShearWeakBending": object, "shearCompression": object, "jointCore": object, "wallData": object, "boundaryElement": object, "steelSeismicDetailing": object } } },',
-      '  "wind": { "basicPressureKNM2": number, "terrainRoughness": "A|B|C|D", "shapeFactor": number, "heightVariationFactor": number },',
-      '  "analysis": { "type": "static|dynamic|seismic|nonlinear", "engineTarget": "opensees|pkpm|yjk", "loadCombinations": [{ "id": string, "factors": { "<loadCaseId>": number } }] }',
-      '} },',
-      '"draftIssues": [',
-      '  { "field": string, "value": any, "severity": "invalid|ambiguous|unrealistic|conflict", "reason": string, "question": string }',
-      '],',
       '"skillState": {',
-      '  "invalidDraftFields": string[],',
       '  "seismicWorkflow": {',
       '    "methodPreference": "auto|response_spectrum|time_history|pushover|elastic_plastic_time_history",',
       '    "designBasis": { "codes": string[], "region": string, "regionCode": string, "siteSeismic": { "intensity": number, "accelerationG": number, "designGroup": string, "siteCategory": string }, "groundMotionZonation": { "source": string, "records": object[] } },',
@@ -141,42 +125,23 @@ function engineeringDraftSchemaDescription(locale: 'zh' | 'en'): string {
     ].join('\n');
   }
   return [
-    'Prefer a field named engineeringDraft whose value has this shape:',
-    '{ "engineeringDraft":',
-    '{',
-    '  "structureType": "beam|column|truss|portal-frame|steel-frame|concrete-frame",',
-    '  "geometry": { "lengthM": number, "heightM": number, "mezzanineHeightM": number, "mezzanineLengthM": number, "spanLengthsM": number[], "storyHeightsM": number[], "bayWidthsM": number[], "bayWidthsXM": number[], "bayWidthsYM": number[] },',
-    '  "topology": { "nodes": [{ "id": string, "x": number, "y": number, "z": number, "restraints": boolean[6] }], "members": [{ "id": string, "nodes": [string, string] }] },',
+      'engineeringDraft uses this generated contract. All fields may be omitted in a partial draft; preserve explicitly supplied values and stable IDs. / 草稿允许缺项，但不得编造信息：',
+      JSON.stringify(promptContract()),
+      seismicEvidence,
+      'draftIssues: [{field: string, kind: missing|confirmation, severity: invalid|ambiguous|unrealistic|conflict, reason: string, question?: string}]. Use one exact field per issue with quoted stable IDs, e.g. materials["M1"].E. missing means absent data; confirmation means a present value needs user confirmation. Do not repeat a missing issue after supplying its value. Do not emit skillState.invalidDraftFields; the runtime derives it. / 缺项按当前值重新判断；确认与来源冲突单独保留。每项诊断对应一个字段和稳定ID，不维护第二份缺项列表。',
     '  // restraints are exactly [ux,uy,uz,rx,ry,rz], where true means restrained. In an X-Z model, a pin is [true,true,true,false,false,false] and a roller free in global X is [false,true,true,false,false,false].',
-      '  "material": { "family": "steel|concrete|composite|timber|masonry|generic", "grade": string, "rebarGrade": string },',
-      '  "materials": [{ "id": string, "name": string, "E": number, "G": number, "nu": number, "rho": number, "design": { "f": number, "fv": number, "basis": object } }],',
       '  // Use materials for numerical material properties; material stores grade metadata only. E/G are MPa and rho is kg/m³. Material design strengths belong to materials[].design.f/fv in MPa; basis records their declared source. Preserve explicit values; never guess a grade or design strength. Report missing required properties.',
-      '  "sections": { "beam": string, "column": string, "member": string },',
       '  // sections retains user-supplied catalog designations or role names. Simple geometry may also remain as sections.beam="100X200" (rectangular width×depth, mm) or "H300X150X6.5X9" (depth×width×web thickness×flange thickness, mm); never replace it with calculated properties.',
-      '  // The sectionRecords example below is for explicitly supplied rectangular geometry, not a default shape for other sections:',
-      '  "sectionRecords": [{ "id": string, "name": string, "type": "rectangular", "shape": { "kind": "rectangular", "B": number, "H": number } }],',
+      '  // Explicit node/connectivity records retain the user-declared analysis dimension and plane in coordinateSystem: 2D XZ means dimension="2d", plane="xz". Coplanar coordinates alone do not establish the analysis dimension.',
+      '  // For explicit topology, put every actual load inside loadCases[].loads with node/element target and signed components. A case id/type alone loses the load. Convenience loads describe templates; do not duplicate the same force in both locations.',
       '  // For geometry-only input, retain shape and OMIT properties completely. For rectangles B is width and H is vertical depth, in mm; preserve the explicit shape.kind and dimensions of other shapes. Do not calculate or add A, Iy, Iz, J or section moduli; deterministic geometry code derives them.',
       '  // Write properties only for numerical section properties explicitly supplied by the user or attachments, e.g. {"id":string,"type":"custom","properties":{"A":number,"Iy":number}}. A is in m² and Iy/Iz/J in m⁴; preserve their source and convert units correctly. Never replace geometry with rounded properties.',
       '  // Preserve shape, properties, IDs and sources in existing confirmed records; amend only fields explicitly changed this turn. When geometry and numerical properties are both supplied, retain both for physics validation. Never delete explicit properties to hide a conflict or overwrite user values with derived ones.',
-      '  "templateAssignments": { "beam": { "materialId": string, "sectionId": string, "design": object }, "column": { "materialId": string, "sectionId": string, "design": object }, "member": { "materialId": string, "sectionId": string, "design": object } },',
       '  // Store explicitly role-wide member design inputs in templateAssignments.beam/column/member.design. member means an explicitly declared uniform assignment to all members. A specific role amends uniform fields; clarification patches preserve unchanged values. Templates and new models deterministically project these inputs to elements[].design without a later edit_model restatement.',
       '  // Supported design input examples: {"l0":number,"beta1":number,"phi_b":number,"btLimit":number,"lambdaLimit":number,"deflectionLimitN":number,"serviceability_result_keys":["case:LC1"],"basis":object}. l0 is a declared effective length in mm, never the mesh element length; the other example coefficients are dimensionless and deflectionLimitN is n in L/n. Do not emit aliases l0mm/memberDesignL0Mm or place these values in arbitrary designParameters.',
       '  // For supplied stable member IDs use topology.members[].design; never invent topology to store design inputs. Do not infer design defaults from grades, supports or a code name. Clarify ambiguous units or applicability. Preserve unsupported parameters under metadata.unmappedDesignParameters and never claim that they were used by the checker.',
-      '  "analysisControl": { "self_weight": boolean, "self_weight_case_id": string, "gravity_m_s2": number, "gravity_direction": "x|-x|y|-y|z|-z", "rigid_floor": boolean, "p_delta": boolean },',
       '  // Explicitly include or exclude self-weight using self_weight=true or false. Preserve the stated self-weight case and other analysis controls; never guess unstated controls.',
-      '  "boundary": { "supportType": "cantilever|simply-supported|fixed-fixed|fixed-pinned", "frameBaseSupportType": "fixed|pinned", "supportPositionsM": number[] },',
-      '  "loads": [',
-      '    { "kind": "point|line|area|nodal|distributed", "magnitude": number, "unit": "kN|kN/m|kN/m2", "direction": "gravity|globalX|globalY|globalZ", "target": string, "location": { "xM": number, "spanIndex": number, "story": number, "nodeRole": string }, "caseId": string, "caseType": "dead|live|wind|seismic|other" } // spanIndex and story are 1-based; preserve caseId/caseType whenever a load case is explicit',
-      '  ],',
-      '  "seismicMemberEvidence": { "byElementId": { "E1": { "seismicCapacity": object, "capacityDesign": object, "strongShearWeakBending": object, "shearCompression": object, "jointCore": object, "wallData": object, "boundaryElement": object, "steelSeismicDetailing": object } } },',
-      '  "wind": { "basicPressureKNM2": number, "terrainRoughness": "A|B|C|D", "shapeFactor": number, "heightVariationFactor": number },',
-      '  "analysis": { "type": "static|dynamic|seismic|nonlinear", "engineTarget": "opensees|pkpm|yjk", "loadCombinations": [{ "id": string, "factors": { "<loadCaseId>": number } }] }',
-    '} },',
-    '"draftIssues": [',
-    '  { "field": string, "value": any, "severity": "invalid|ambiguous|unrealistic|conflict", "reason": string, "question": string }',
-    '],',
     '"skillState": {',
-    '  "invalidDraftFields": string[],',
     '  "seismicWorkflow": {',
     '    "methodPreference": "auto|response_spectrum|time_history|pushover|elastic_plastic_time_history",',
     '    "designBasis": { "codes": string[], "region": string, "regionCode": string, "siteSeismic": { "intensity": number, "accelerationG": number, "designGroup": string, "siteCategory": string }, "groundMotionZonation": { "source": string, "records": object[] } },',
@@ -227,8 +192,8 @@ export function buildParamExtractorPrompt(
       '- 已有 draftState 由系统保留；本轮 JSON 只输出用户最新消息明确新增或更正的字段，不要重复未改变的旧参数',
       '- 已有 draftState 只代表已接受的参数；如果当前用户消息是在回答追问或更正缺失/无效字段，必须输出新给出的字段，不要重复旧的缺参或无效诊断',
       '- 不确定时省略字段，不要猜测',
-      '- 不得补写用户未提供的荷载单位或荷载种类；若荷载数值没有单位，或“楼面荷载”等表述无法区分总力、线荷载或面荷载，必须省略该荷载，输出 draftIssues，并把对应荷载字段写入 skillState.invalidDraftFields，要求用户确认单位和荷载种类',
-      '- 如果用户给出数学上无效的几何尺寸、荷载符号/单位/位置含义不明确，或要求彼此矛盾，不要把相关值写入 engineeringDraft/draftPatch；输出 draftIssues，并把对应字段名写入 skillState.invalidDraftFields。数值仅仅非常规或很大/很小并不自动构成无效输入',
+      '- 不得补写用户未提供的荷载单位或荷载种类；若荷载数值没有单位，或“楼面荷载”等表述无法区分总力、线荷载或面荷载，必须省略该荷载，输出 draftIssues，要求用户确认单位和荷载种类',
+      '- 如果用户给出数学上无效的几何尺寸、荷载符号/单位/位置含义不明确，或要求彼此矛盾，不要把相关值写入 engineeringDraft/draftPatch；输出 draftIssues。数值仅仅非常规或很大/很小并不自动构成无效输入',
       '- 负号可能表示方向或吸力时，必须用 draftIssues 标记为 ambiguous 并追问；只有方向明确且数值大小为正时，才写入荷载 magnitude',
       '- 对框架楼面线荷载/面荷载（如 kN/m、kN/m2），如果已有层数和跨度信息，应输出 engineeringDraft.loads 中的 line/area 荷载；不要因为它不是总 kN 就追问',
       '- 对“基本风压 / basic wind pressure”输出 engineeringDraft.wind.basicPressureKNM2；不要把风压当作竖向楼面荷载',
@@ -271,8 +236,8 @@ export function buildParamExtractorPrompt(
     '- Existing draftState values are preserved by the system; output only fields explicitly added or corrected by the latest user message, without repeating unchanged prior parameters',
     '- Treat the existing draftState as accepted parameters only; if the current user message answers a clarification question or corrects a missing/invalid field, output the newly provided field instead of repeating the old missing/invalid diagnostic',
       '- Omit fields you are unsure about — do NOT guess',
-      '- Never supply a load unit or load kind that the user did not provide; if a load magnitude has no unit, or wording such as "floor load" does not distinguish total force, line load, or area load, omit that load, output draftIssues, put the corresponding load field in skillState.invalidDraftFields, and ask the user to confirm the unit and load kind',
-      '- If geometry is mathematically invalid, a load sign/unit/location is ambiguous, or requirements contradict one another, do NOT write the affected value into engineeringDraft/draftPatch; output draftIssues and put the corresponding field name in skillState.invalidDraftFields. An unusual, large, or small value is not invalid by magnitude alone',
+      '- Never supply a load unit or load kind that the user did not provide; if a load magnitude has no unit, or wording such as "floor load" does not distinguish total force, line load, or area load, omit that load, output draftIssues and and ask the user to confirm the unit and load kind',
+      '- If geometry is mathematically invalid, a load sign/unit/location is ambiguous, or requirements contradict one another, do NOT write the affected value into engineeringDraft/draftPatch; output draftIssues. An unusual, large, or small value is not invalid by magnitude alone',
     '- If a negative sign may mean direction or suction/uplift, mark it as an ambiguous draftIssue and ask for clarification; only write a load magnitude when the direction is clear and the magnitude is positive',
     '- For frame floor line/area loads such as kN/m or kN/m2, output line/area entries in engineeringDraft.loads when story and span geometry are available; do not ask for total kN just because the user provided intensity units',
     '- For basic wind pressure, output engineeringDraft.wind.basicPressureKNM2; do not treat wind pressure as a vertical floor load',
@@ -331,7 +296,7 @@ function buildFocusedParamExtractorPrompt(
       '- 如果用户最新回答明确提供了本轮重点字段，必须输出该字段对应的 engineeringDraft/draftPatch',
       '- 不要把旧的缺参诊断或无效诊断重复输出为本轮结果',
       '- 不确定时省略字段，不要猜测',
-      '- 若本轮荷载数值仍没有单位，或仍无法区分总力、线荷载或面荷载，不得自行补写；输出 draftIssues 和 skillState.invalidDraftFields，并继续要求确认单位和荷载种类',
+      '- 若本轮荷载数值仍没有单位，或仍无法区分总力、线荷载或面荷载，不得自行补写；输出 draftIssues，并继续要求确认单位和荷载种类',
       '- 不要 markdown 包装或解释',
       '',
       `已有 draftState:\n${stateJson}`,
@@ -361,7 +326,7 @@ function buildFocusedParamExtractorPrompt(
     '- If the latest user answer clearly provides a focus field, you MUST output the corresponding engineeringDraft/draftPatch field',
     '- Do not repeat old missing/invalid diagnostics as the result for this turn',
     '- Omit fields you are unsure about; do not guess',
-    '- If the latest load magnitude still has no unit, or still does not distinguish total force, line load, or area load, do not supply one; output draftIssues and skillState.invalidDraftFields and continue asking for the unit and load kind',
+    '- If the latest load magnitude still has no unit, or still does not distinguish total force, line load, or area load, do not supply one; output draftIssues and continue asking for the unit and load kind',
     '- No markdown fences, no explanations',
     '',
     `Existing draftState:\n${stateJson}`,
@@ -495,6 +460,7 @@ export interface ParamExtractorInput {
 export async function invokeParamExtractor(
   input: ParamExtractorInput,
 ): Promise<Record<string, unknown> | null> {
+  input = { ...input, existingState: input.existingState ? currentDraftDiagnostics(input.existingState) : undefined };
   const log = input.traceLogger ?? rootLogger;
   const pluginId = input.plugin.id;
   const locale = input.locale;

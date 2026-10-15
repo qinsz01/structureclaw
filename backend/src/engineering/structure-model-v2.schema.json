@@ -1,0 +1,2740 @@
+{
+  "$defs": {
+    "AnalysisControl": {
+      "description": "分析控制参数 / Analysis control settings.",
+      "properties": {
+        "p_delta": {
+          "default": false,
+          "description": "考虑 P-Δ 效应",
+          "title": "P Delta",
+          "type": "boolean"
+        },
+        "rigid_floor": {
+          "default": true,
+          "description": "刚性楼板假定",
+          "title": "Rigid Floor",
+          "type": "boolean"
+        },
+        "self_weight": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "显式自重开关 / explicit self-weight setting",
+          "title": "Self Weight"
+        },
+        "self_weight_case_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "接收自重的源工况；省略时仅允许唯一恒载工况 / source case receiving self weight; otherwise exactly one dead case is required",
+          "title": "Self Weight Case Id"
+        },
+        "gravity_m_s2": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "重力加速度，m/s²；默认9.80665 / gravitational acceleration, default 9.80665 m/s²",
+          "title": "Gravity M S2"
+        },
+        "gravity_direction": {
+          "anyOf": [
+            {
+              "enum": [
+                "x",
+                "-x",
+                "y",
+                "-y",
+                "z",
+                "-z"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "全局重力方向；默认-z / global gravity direction, default -z",
+          "title": "Gravity Direction"
+        },
+        "mass_source": {
+          "anyOf": [
+            {
+              "enum": [
+                "nodal",
+                "member-density",
+                "floor-seismic"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "动力质量来源；nodal 与杆件密度互斥 / mutually exclusive dynamic mass source",
+          "title": "Mass Source"
+        },
+        "mass_directions": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "x",
+                  "y",
+                  "z"
+                ],
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Global translational mass directions / 全局平动质量方向",
+          "title": "Mass Directions"
+        },
+        "rigid_offsets": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "自动刚域开关 / automatic rigid offsets",
+          "title": "Rigid Offsets"
+        },
+        "construction_stage": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "施工阶段分析 / construction-stage analysis",
+          "title": "Construction Stage"
+        },
+        "period_reduction_factor": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "周期折减系数",
+          "title": "Period Reduction Factor"
+        },
+        "accidental_eccentricity": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "偶然偏心比",
+          "title": "Accidental Eccentricity"
+        },
+        "consideration_torsion": {
+          "default": true,
+          "description": "考虑扭转耦联",
+          "title": "Consideration Torsion",
+          "type": "boolean"
+        },
+        "modal_count": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "振型数",
+          "title": "Modal Count"
+        },
+        "basement_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "地下室层数，对应 PKPM SysInfoDetail.UnderGroundFloorNum",
+          "title": "Basement Count"
+        },
+        "vibration_mode_method": {
+          "anyOf": [
+            {
+              "enum": [
+                "ritz",
+                "subspace",
+                "lanczos"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "振型计算方法",
+          "title": "Vibration Mode Method"
+        },
+        "live_load_reduction": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "活荷载折减，对应 PKPM SysInfoDetail.LiveLoadReductionFlag",
+          "title": "Live Load Reduction"
+        },
+        "structure_importance_factor": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "结构重要性系数 γ0，对应 PKPM SysInfoDetail.StructureImportanceFactor",
+          "title": "Structure Importance Factor"
+        },
+        "damping_ratio_wind": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "风振计算阻尼比（可与 SiteSeismicParams.damping_ratio 不同）",
+          "title": "Damping Ratio Wind"
+        },
+        "design_params": {
+          "additionalProperties": true,
+          "description": "引擎专用扩展设计参数，e.g. {'pkpm': {'satwe_params': {...}}}",
+          "title": "Design Params",
+          "type": "object"
+        },
+        "extra": {
+          "additionalProperties": true,
+          "title": "Extra",
+          "type": "object"
+        }
+      },
+      "title": "AnalysisControl",
+      "type": "object"
+    },
+    "CoordinateSystemV2": {
+      "description": "Canonical global coordinate and DOF contract.\n\nStructureClaw uses a right-handed global Z-up system.  Two-dimensional\nstructures are represented only in the global X-Z plane; Y is their\nout-of-plane axis.",
+      "properties": {
+        "semantics": {
+          "const": "global-z-up",
+          "title": "Semantics",
+          "type": "string"
+        },
+        "version": {
+          "const": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "dimension": {
+          "enum": [
+            "2d",
+            "3d"
+          ],
+          "title": "Dimension",
+          "type": "string"
+        },
+        "plane": {
+          "anyOf": [
+            {
+              "const": "xz",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Plane"
+        },
+        "dof_order": {
+          "items": {
+            "enum": [
+              "ux",
+              "uy",
+              "uz",
+              "rx",
+              "ry",
+              "rz"
+            ],
+            "type": "string"
+          },
+          "maxItems": 6,
+          "minItems": 6,
+          "title": "Dof Order",
+          "type": "array"
+        }
+      },
+      "required": [
+        "semantics",
+        "version",
+        "dimension",
+        "dof_order"
+      ],
+      "title": "CoordinateSystemV2",
+      "type": "object"
+    },
+    "ElementV2": {
+      "additionalProperties": false,
+      "description": "单元 / Element — extended from V1 with per-element grades and geometry.",
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "default": "beam",
+          "enum": [
+            "beam",
+            "column",
+            "truss",
+            "shell",
+            "solid",
+            "wall",
+            "slab",
+            "link",
+            "brace"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "nodes": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 2,
+          "title": "Nodes",
+          "type": "array"
+        },
+        "material": {
+          "minLength": 1,
+          "title": "Material",
+          "type": "string"
+        },
+        "section": {
+          "minLength": 1,
+          "title": "Section",
+          "type": "string"
+        },
+        "story": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "所属楼层 id",
+          "title": "Story"
+        },
+        "releases": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "端部释放条件 / end releases",
+          "title": "Releases"
+        },
+        "concrete_grade": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "混凝土强度等级, e.g. 'C30', 'C35'。对应 PKPM ColumnSection/BeamSection.SetConcrete()",
+          "title": "Concrete Grade"
+        },
+        "steel_grade": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "钢材牌号, e.g. 'Q355', 'Q420'。对应 PKPM SteelColumn/SteelBeam.SetSteel()",
+          "title": "Steel Grade"
+        },
+        "rebar_grade": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "纵筋强度等级, e.g. 'HRB400', 'HRB500'",
+          "title": "Rebar Grade"
+        },
+        "seismic_grade": {
+          "anyOf": [
+            {
+              "enum": [
+                "special",
+                "first",
+                "second",
+                "third",
+                "fourth",
+                "none"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "构件级抗震等级（覆盖 StructureSystem.seismic_grade）",
+          "title": "Seismic Grade"
+        },
+        "rotation_angle": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "截面绕构件轴的旋转角 (度)，对应 PKPM SetAngle()",
+          "title": "Rotation Angle"
+        },
+        "offsets": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "端部偏心距 (m)，keys: 'i_x', 'i_y', 'i_z', 'j_x', 'j_y', 'j_z'。对应 PKPM SetExcentricity()",
+          "title": "Offsets"
+        },
+        "extra": {
+          "additionalProperties": true,
+          "title": "Extra",
+          "type": "object"
+        },
+        "design": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MemberDesign"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "nodes",
+        "material",
+        "section"
+      ],
+      "title": "ElementV2",
+      "type": "object"
+    },
+    "FloorLoad": {
+      "description": "楼面荷载 / Floor area loads (kN/m²).",
+      "properties": {
+        "type": {
+          "default": "other",
+          "enum": [
+            "dead",
+            "live",
+            "other"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "value": {
+          "description": "荷载值 (kN/m²)",
+          "title": "Value",
+          "type": "number"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "FloorLoad",
+      "type": "object"
+    },
+    "LoadCaseV2": {
+      "description": "荷载工况 / Load case.",
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "default": "other",
+          "enum": [
+            "dead",
+            "live",
+            "wind",
+            "seismic",
+            "temperature",
+            "settlement",
+            "crane",
+            "snow",
+            "other"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "permanent",
+                "variable",
+                "accidental"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "荷载种类（GB50009/EN1990 分类）: permanent=永久, variable=可变, accidental=偶然",
+          "title": "Kind"
+        },
+        "loads": {
+          "description": "Actual signed loads in this case, not just a case label / 本工况实际荷载，保留方向和位置",
+          "items": {
+            "description": "Nodal: type=nodal, node, fx/fy/fz (kN), mx/my/mz (kN*m). Member point: type=point, element, position (m from i end), fx/fy/fz/mx/my/mz. Member line: type=distributed, element, wx/wy/wz (kN/m), optional start/end (m). Target exactly one node or element; keep signed components. 节点荷载指定node；跨内集中力指定element和position；线载指定element和起止位置。",
+            "properties": {
+              "id": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": {
+                "description": "nodal, point or distributed; other types require engine support / 其他类型须引擎支持",
+                "type": "string"
+              },
+              "node": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "element": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "reference_frame": {
+                "enum": [
+                  "global",
+                  "element-local"
+                ]
+              },
+              "fx": {
+                "type": "number",
+                "x-unit": "kN"
+              },
+              "fy": {
+                "type": "number",
+                "x-unit": "kN"
+              },
+              "fz": {
+                "type": "number",
+                "x-unit": "kN"
+              },
+              "mx": {
+                "type": "number",
+                "x-unit": "kN*m"
+              },
+              "my": {
+                "type": "number",
+                "x-unit": "kN*m"
+              },
+              "mz": {
+                "type": "number",
+                "x-unit": "kN*m"
+              },
+              "wx": {
+                "type": "number",
+                "x-unit": "kN/m"
+              },
+              "wy": {
+                "type": "number",
+                "x-unit": "kN/m"
+              },
+              "wz": {
+                "type": "number",
+                "x-unit": "kN/m"
+              },
+              "position": {
+                "type": "number",
+                "x-unit": "m"
+              },
+              "start": {
+                "type": "number",
+                "x-unit": "m"
+              },
+              "end": {
+                "type": "number",
+                "x-unit": "m"
+              }
+            },
+            "type": "object"
+          },
+          "title": "Loads",
+          "type": "array"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "extra": {
+          "additionalProperties": true,
+          "title": "Extra",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "LoadCaseV2",
+      "type": "object"
+    },
+    "LoadCombinationV2": {
+      "description": "荷载组合 / Load combination — with code reference.",
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "factors": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Factors",
+          "type": "object"
+        },
+        "combination_type": {
+          "anyOf": [
+            {
+              "enum": [
+                "uls",
+                "sls",
+                "accidental"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "组合类型: 承载能力极限状态 / 正常使用极限状态 / 偶然",
+          "title": "Combination Type"
+        },
+        "code_reference": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "规范条文号",
+          "title": "Code Reference"
+        },
+        "extra": {
+          "additionalProperties": true,
+          "title": "Extra",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "LoadCombinationV2",
+      "type": "object"
+    },
+    "MaterialDesign": {
+      "additionalProperties": false,
+      "properties": {
+        "basis": {
+          "additionalProperties": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "description": "Declared source or basis by design field / 各设计字段的输入依据",
+          "title": "Basis",
+          "type": "object"
+        },
+        "f": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "F"
+        },
+        "fv": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fv"
+        },
+        "fc": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fc"
+        },
+        "fck": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fck"
+        },
+        "ft": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ft"
+        },
+        "ftk": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ftk"
+        },
+        "Ec": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ec"
+        },
+        "Es": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Es"
+        },
+        "fy": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fy"
+        },
+        "fyk": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fyk"
+        },
+        "fstk": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fstk"
+        },
+        "fyv": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fyv"
+        },
+        "fy_compression": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fy Compression"
+        },
+        "ecu": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ecu"
+        },
+        "alpha1": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Alpha1"
+        },
+        "beta1": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Beta1"
+        }
+      },
+      "title": "MaterialDesign",
+      "type": "object"
+    },
+    "MaterialV2": {
+      "description": "材料 / Material — extended from V1 with code-grade support.",
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "E": {
+          "description": "弹性模量 (MPa)",
+          "exclusiveMinimum": 0,
+          "title": "E",
+          "type": "number"
+        },
+        "G": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Explicit shear modulus (MPa) / 显式剪切模量",
+          "title": "G"
+        },
+        "nu": {
+          "description": "泊松比；弹性杆系要求小于0.5 / Poisson ratio, less than 0.5 for elastic members",
+          "exclusiveMaximum": 0.5,
+          "minimum": 0,
+          "title": "Nu",
+          "type": "number"
+        },
+        "rho": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "密度 (kg/m³)，自重或密度质量来源时必需",
+          "title": "Rho"
+        },
+        "fy": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "屈服强度 (MPa)",
+          "title": "Fy"
+        },
+        "grade": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "规范材料等级, e.g. 'C30', 'HRB400', 'Q355'",
+          "title": "Grade"
+        },
+        "category": {
+          "anyOf": [
+            {
+              "enum": [
+                "concrete",
+                "rebar",
+                "steel",
+                "other"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "材料类别",
+          "title": "Category"
+        },
+        "extra": {
+          "additionalProperties": true,
+          "title": "Extra",
+          "type": "object"
+        },
+        "design": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MaterialDesign"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "E",
+        "nu"
+      ],
+      "title": "MaterialV2",
+      "type": "object"
+    },
+    "MemberDesign": {
+      "additionalProperties": false,
+      "properties": {
+        "basis": {
+          "additionalProperties": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "description": "Declared source or basis by design field / 各设计字段的输入依据",
+          "title": "Basis",
+          "type": "object"
+        },
+        "l0": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Effective length (mm) / 计算长度",
+          "title": "L0"
+        },
+        "h0": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Effective depth (mm) / 有效高度",
+          "title": "H0"
+        },
+        "phi": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Phi"
+        },
+        "phi_b": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Phi B"
+        },
+        "phi_axial": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Phi Axial"
+        },
+        "beta1": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Beta1"
+        },
+        "btLimit": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Btlimit"
+        },
+        "lambdaLimit": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lambdalimit"
+        },
+        "deflectionLimitN": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Denominator n of L/n",
+          "title": "Deflectionlimitn"
+        },
+        "axialRatioLimit": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Axialratiolimit"
+        },
+        "crackWidthLimit": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Crack-width limit (mm)",
+          "title": "Crackwidthlimit"
+        },
+        "alpha_cr": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Alpha Cr"
+        },
+        "requested_checks": {
+          "anyOf": [
+            {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Explicit user-selected check IDs or exact check names; omitted means all implemented checks. A selected subset is not full design compliance / 用户明确选择的专项校核，省略时执行所有已实现项，专项通过不代表完整设计合格",
+          "title": "Requested Checks"
+        },
+        "serviceability_result_keys": {
+          "description": "Explicit service result keys, e.g. case:S or combination:SLS; no ULS-to-SLS inference",
+          "items": {
+            "type": "string"
+          },
+          "title": "Serviceability Result Keys",
+          "type": "array"
+        },
+        "reinforcement": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReinforcementInput"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "MemberDesign",
+      "type": "object"
+    },
+    "NodeV2": {
+      "additionalProperties": false,
+      "description": "节点 / Node — same as V1.",
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "x": {
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "title": "Y",
+          "type": "number"
+        },
+        "z": {
+          "title": "Z",
+          "type": "number"
+        },
+        "restraints": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "boolean"
+              },
+              "maxItems": 6,
+              "minItems": 6,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "[ux, uy, uz, rx, ry, rz]; true=restrained, false=free",
+          "title": "Restraints"
+        },
+        "story": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "所属楼层 id",
+          "title": "Story"
+        },
+        "mass": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "节点集中平动质量 (tonne)，显式节点质量模式不叠加杆件密度质量 / lumped translational mass in tonnes",
+          "title": "Mass"
+        }
+      },
+      "required": [
+        "id",
+        "x",
+        "y",
+        "z"
+      ],
+      "title": "NodeV2",
+      "type": "object"
+    },
+    "ProjectInfo": {
+      "description": "项目基本信息 / Project metadata.",
+      "properties": {
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "项目名称",
+          "title": "Name"
+        },
+        "code_standard": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "设计规范版本, e.g. 'GB50011-2010', 'GB50010-2010'",
+          "title": "Code Standard"
+        },
+        "design_life": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "设计基准期 (年)",
+          "title": "Design Life"
+        },
+        "importance_class": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "建筑重要性类别, e.g. '甲', '乙', '丙', '丁'",
+          "title": "Importance Class"
+        },
+        "extra": {
+          "additionalProperties": true,
+          "title": "Extra",
+          "type": "object"
+        }
+      },
+      "title": "ProjectInfo",
+      "type": "object"
+    },
+    "ReinforcementInput": {
+      "additionalProperties": false,
+      "properties": {
+        "confirmed": {
+          "default": false,
+          "title": "Confirmed",
+          "type": "boolean"
+        },
+        "values": {
+          "$ref": "#/$defs/ReinforcementValues"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source"
+        }
+      },
+      "required": [
+        "values"
+      ],
+      "title": "ReinforcementInput",
+      "type": "object"
+    },
+    "ReinforcementValues": {
+      "additionalProperties": false,
+      "properties": {
+        "As": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "As"
+        },
+        "Asv": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Asv"
+        },
+        "stirrup_dia": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stirrup Dia"
+        },
+        "stirrup_spacing": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stirrup Spacing"
+        },
+        "main_dia": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Main Dia"
+        },
+        "bar_count": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bar Count"
+        },
+        "sn": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sn"
+        },
+        "cover": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cover"
+        },
+        "crack_cover": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Crack Cover"
+        }
+      },
+      "title": "ReinforcementValues",
+      "type": "object"
+    },
+    "SectionShape": {
+      "additionalProperties": false,
+      "description": "参数化截面形状 / Parametric section geometry (all dimensions in mm).\n\nThe 16 fields cover the geometry of all 22 SECTION_SHAPE_KINDS.\nOnly the fields relevant to the chosen ``kind`` need to be set.\n\nCommon field → kind mapping\n---------------------------\nH, B                    rectangular, I, H, T, channel, Z, cross, built-up-I, SRC\nH, B, T                 box, built-up-box, CFT-rectangular\nd                       circular, pipe, CFT-circular, hollow-circular\nd, T                    pipe, CFT-circular, hollow-circular (T = wall thickness)\na, t                    L (equal leg angle)\na, a2, t                unequal-angle\nH, B, tw, tf            I, H, T, channel\nH, B, tw, tf, tf2, B2   built-up-I with unequal flanges\n\nWall sections (purpose=\"wall\")\n--------------------------------\nUse kind=\"rectangular\" with ``T`` (wall thickness in mm). The other\nparameters are not required. Maps to PKPM WallSection.SetSect().",
+      "properties": {
+        "kind": {
+          "description": "截面种类",
+          "enum": [
+            "rectangular",
+            "circular",
+            "I",
+            "H",
+            "T",
+            "L",
+            "box",
+            "hollow-circular",
+            "channel",
+            "Z",
+            "cross",
+            "thin-walled-I",
+            "built-up-I",
+            "built-up-box",
+            "pipe",
+            "double-angle",
+            "unequal-angle",
+            "CFT-circular",
+            "CFT-rectangular",
+            "SRC",
+            "cold-formed-C",
+            "custom"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "H": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "截面总高度 (mm)",
+          "title": "H"
+        },
+        "B": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "截面总宽度 / 翼缘宽度 (mm)",
+          "title": "B"
+        },
+        "tw": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "腹板厚度 tw (mm)",
+          "title": "Tw"
+        },
+        "tf": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "上翼缘厚度 tf (mm)",
+          "title": "Tf"
+        },
+        "tf2": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "下翼缘厚度 tf2 (mm，不等翼缘时使用)",
+          "title": "Tf2"
+        },
+        "B2": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "下翼缘宽度 B2 (mm，不等翼缘时使用)",
+          "title": "B2"
+        },
+        "T": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "壁厚 T (mm，管/箱/空心截面)",
+          "title": "T"
+        },
+        "d": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "外径 d (mm)",
+          "title": "D"
+        },
+        "d2": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "内径 d2 (mm，空心圆)",
+          "title": "D2"
+        },
+        "a": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "角钢肢长 a (mm)",
+          "title": "A"
+        },
+        "a2": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "不等肢角钢第二肢长 a2 (mm)",
+          "title": "A2"
+        },
+        "t": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "角钢肢厚 t (mm)",
+          "title": "T"
+        },
+        "hw": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "腹板净高 hw (mm，组合截面)",
+          "title": "Hw"
+        },
+        "r": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "圆角半径 r (mm)",
+          "title": "R"
+        },
+        "t2": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "辅助厚度 t2 (mm)",
+          "title": "T2"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "SectionShape",
+      "type": "object"
+    },
+    "SectionV2": {
+      "description": "截面 / Section — extended from V1 with parametric shapes.\n\nV2.2 uses one reviewed numerical source. Explicit geometry and section\nproperties must agree; catalog names cannot silently replace them. Historical\ninputs remain readable, while new solves enforce the same physical validation.",
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "description": "e.g. 'rectangular', 'circular', 'I', 'H', 'box', 'custom'",
+          "minLength": 1,
+          "title": "Type",
+          "type": "string"
+        },
+        "purpose": {
+          "anyOf": [
+            {
+              "enum": [
+                "beam",
+                "column",
+                "wall",
+                "slab",
+                "brace",
+                "other"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "截面用途，用于引擎选择建模 API（beam/column/wall/slab/brace/other）",
+          "title": "Purpose"
+        },
+        "shape": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SectionShape"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "参数化截面几何。purpose='wall' 时只需 kind='rectangular' + T (厚度 mm)。几何与显式属性必须一致；不能同时声明未校准型钢目录来源。"
+        },
+        "standard_steel_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "国标型钢名称, e.g. 'HN400x200', 'HW200x200', 'L100x10'。对应 PKPM SetStandSteelSect(name, shape_code)。目录映射必须先校准；不得覆盖 shape 或 properties。",
+          "title": "Standard Steel Name"
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "A": {
+              "exclusiveMinimum": 0,
+              "type": "number",
+              "x-unit": "m2"
+            },
+            "As": {
+              "exclusiveMinimum": 0,
+              "type": "number",
+              "x-unit": "m2"
+            },
+            "Asy": {
+              "exclusiveMinimum": 0,
+              "type": "number",
+              "x-unit": "m2"
+            },
+            "Asz": {
+              "exclusiveMinimum": 0,
+              "type": "number",
+              "x-unit": "m2"
+            },
+            "Iy": {
+              "exclusiveMinimum": 0,
+              "type": "number",
+              "x-unit": "m4"
+            },
+            "Iz": {
+              "exclusiveMinimum": 0,
+              "type": "number",
+              "x-unit": "m4"
+            },
+            "J": {
+              "exclusiveMinimum": 0,
+              "type": "number",
+              "x-unit": "m4"
+            },
+            "Wx": {
+              "exclusiveMinimum": 0,
+              "type": "number",
+              "x-unit": "m3"
+            },
+            "Wz": {
+              "exclusiveMinimum": 0,
+              "type": "number",
+              "x-unit": "m3"
+            },
+            "Wnx": {
+              "exclusiveMinimum": 0,
+              "type": "number",
+              "x-unit": "m3"
+            },
+            "S": {
+              "exclusiveMinimum": 0,
+              "type": "number",
+              "x-unit": "m3"
+            },
+            "Sz": {
+              "exclusiveMinimum": 0,
+              "type": "number",
+              "x-unit": "m3"
+            },
+            "tw": {
+              "exclusiveMinimum": 0,
+              "type": "number",
+              "x-unit": "m"
+            },
+            "tz": {
+              "exclusiveMinimum": 0,
+              "type": "number",
+              "x-unit": "m"
+            },
+            "b": {
+              "exclusiveMinimum": 0,
+              "type": "number",
+              "x-unit": "m"
+            },
+            "t": {
+              "exclusiveMinimum": 0,
+              "type": "number",
+              "x-unit": "m"
+            },
+            "imin": {
+              "exclusiveMinimum": 0,
+              "type": "number",
+              "x-unit": "m"
+            }
+          },
+          "title": "Properties"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "截面宽度 b (mm)",
+          "title": "Width"
+        },
+        "height": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "截面高度 h (mm)",
+          "title": "Height"
+        },
+        "diameter": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "直径 d (mm)",
+          "title": "Diameter"
+        },
+        "thickness": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "壁厚 t (mm)",
+          "title": "Thickness"
+        },
+        "extra": {
+          "additionalProperties": true,
+          "title": "Extra",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "type"
+      ],
+      "title": "SectionV2",
+      "type": "object"
+    },
+    "SiteSeismicParams": {
+      "description": "场地与地震参数 / Site and seismic design parameters.",
+      "properties": {
+        "intensity": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "设防烈度, e.g. 7, 7.5, 8",
+          "title": "Intensity"
+        },
+        "design_group": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "设计地震分组, e.g. '第一组', '第二组', '第三组'",
+          "title": "Design Group"
+        },
+        "site_category": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "场地类别, e.g. 'I', 'II', 'III', 'IV'",
+          "title": "Site Category"
+        },
+        "characteristic_period": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "特征周期 Tg (s)",
+          "title": "Characteristic Period"
+        },
+        "max_influence_coefficient": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "水平地震影响系数最大值 αmax",
+          "title": "Max Influence Coefficient"
+        },
+        "damping_ratio": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.05,
+          "description": "阻尼比 ζ",
+          "title": "Damping Ratio"
+        },
+        "extra": {
+          "additionalProperties": true,
+          "title": "Extra",
+          "type": "object"
+        }
+      },
+      "title": "SiteSeismicParams",
+      "type": "object"
+    },
+    "SlabOpening": {
+      "description": "板洞 / Opening in a floor slab.",
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "story_id": {
+          "description": "所在楼层 id",
+          "title": "Story Id",
+          "type": "string"
+        },
+        "x": {
+          "description": "洞口中心 X 坐标 (m)",
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "description": "洞口中心 Y 坐标 (m)",
+          "title": "Y",
+          "type": "number"
+        },
+        "width": {
+          "description": "洞口宽度 X 方向 (m)",
+          "exclusiveMinimum": 0,
+          "title": "Width",
+          "type": "number"
+        },
+        "depth": {
+          "description": "洞口深度 Y 方向 (m)",
+          "exclusiveMinimum": 0,
+          "title": "Depth",
+          "type": "number"
+        },
+        "shape": {
+          "default": "rectangular",
+          "description": "洞口形状",
+          "enum": [
+            "rectangular",
+            "circular"
+          ],
+          "title": "Shape",
+          "type": "string"
+        },
+        "extra": {
+          "additionalProperties": true,
+          "title": "Extra",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "story_id",
+        "x",
+        "y",
+        "width",
+        "depth"
+      ],
+      "title": "SlabOpening",
+      "type": "object"
+    },
+    "StoryDef": {
+      "description": "楼层定义 / Story definition.",
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "height": {
+          "description": "层高 (m)",
+          "exclusiveMinimum": 0,
+          "title": "Height",
+          "type": "number"
+        },
+        "elevation": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "楼层底部标高 (m)",
+          "title": "Elevation"
+        },
+        "is_basement": {
+          "default": false,
+          "description": "是否为地下室层",
+          "title": "Is Basement",
+          "type": "boolean"
+        },
+        "rigid_diaphragm": {
+          "default": true,
+          "description": "刚性楼板假定",
+          "title": "Rigid Diaphragm",
+          "type": "boolean"
+        },
+        "floor_loads": {
+          "items": {
+            "$ref": "#/$defs/FloorLoad"
+          },
+          "title": "Floor Loads",
+          "type": "array"
+        },
+        "load_area_m2": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Declared actual loaded floor area (m2), never a bounding rectangle / 实际受荷面积",
+          "title": "Load Area M2"
+        },
+        "standard_floor_group": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "标准层分组 id，相同 group 的楼层共用同一 PKPM 标准层定义",
+          "title": "Standard Floor Group"
+        },
+        "dead_load": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "恒荷载标准值 (kN/m²)，对应 PKPM SysInfoDetail.DeadLoad",
+          "title": "Dead Load"
+        },
+        "live_load": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "活荷载标准值 (kN/m²)，对应 PKPM SysInfoDetail.LiveLoad",
+          "title": "Live Load"
+        },
+        "extra": {
+          "additionalProperties": true,
+          "title": "Extra",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "height"
+      ],
+      "title": "StoryDef",
+      "type": "object"
+    },
+    "StructureSystem": {
+      "description": "结构体系描述 / Structure system definition.",
+      "properties": {
+        "type": {
+          "anyOf": [
+            {
+              "enum": [
+                "frame",
+                "frame-shear-wall",
+                "shear-wall",
+                "frame-tube",
+                "tube-in-tube",
+                "braced-frame",
+                "masonry",
+                "other"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "结构类型",
+          "title": "Type"
+        },
+        "seismic_grade": {
+          "anyOf": [
+            {
+              "enum": [
+                "special",
+                "first",
+                "second",
+                "third",
+                "fourth",
+                "none"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "抗震等级（全局默认，可被构件级 seismic_grade 覆盖）",
+          "title": "Seismic Grade"
+        },
+        "direction_x_system": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "X 向抗侧力体系",
+          "title": "Direction X System"
+        },
+        "direction_y_system": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Y 向抗侧力体系",
+          "title": "Direction Y System"
+        },
+        "extra": {
+          "additionalProperties": true,
+          "title": "Extra",
+          "type": "object"
+        }
+      },
+      "title": "StructureSystem",
+      "type": "object"
+    },
+    "WallOpening": {
+      "description": "墙洞 / Opening in a wall element.\n\nCoordinates are relative to the wall element's local system:\n  x_offset — horizontal distance from wall i-node (m)\n  z_offset — vertical distance from the story bottom elevation (m)",
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "wall_element_id": {
+          "description": "所在墙单元 id",
+          "title": "Wall Element Id",
+          "type": "string"
+        },
+        "x_offset": {
+          "description": "洞口水平偏移（距 i 节点，m）",
+          "minimum": 0,
+          "title": "X Offset",
+          "type": "number"
+        },
+        "z_offset": {
+          "description": "洞口底部垂直偏移（距楼层底，m）",
+          "minimum": 0,
+          "title": "Z Offset",
+          "type": "number"
+        },
+        "width": {
+          "description": "洞口宽度 (m)",
+          "exclusiveMinimum": 0,
+          "title": "Width",
+          "type": "number"
+        },
+        "height": {
+          "description": "洞口高度 (m)",
+          "exclusiveMinimum": 0,
+          "title": "Height",
+          "type": "number"
+        },
+        "extra": {
+          "additionalProperties": true,
+          "title": "Extra",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "wall_element_id",
+        "x_offset",
+        "z_offset",
+        "width",
+        "height"
+      ],
+      "title": "WallOpening",
+      "type": "object"
+    },
+    "WindParams": {
+      "description": "风荷载参数 / Wind load parameters.",
+      "properties": {
+        "basic_pressure": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "基本风压 w0 (kN/m²)",
+          "title": "Basic Pressure"
+        },
+        "terrain_roughness": {
+          "anyOf": [
+            {
+              "enum": [
+                "A",
+                "B",
+                "C",
+                "D"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "地面粗糙度类别",
+          "title": "Terrain Roughness"
+        },
+        "shape_factor": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "风荷载体型系数 μs",
+          "title": "Shape Factor"
+        },
+        "height_variation_factor": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "风压高度变化系数 μz",
+          "title": "Height Variation Factor"
+        },
+        "extra": {
+          "additionalProperties": true,
+          "title": "Extra",
+          "type": "object"
+        }
+      },
+      "title": "WindParams",
+      "type": "object"
+    }
+  },
+  "description": "Unified structural analysis JSON schema V2.\n\nCovers the core parameters required by OpenSeesPy, PKPM, YJK, and other\nmainstream structural analysis engines.  Migrated V1 payloads receive an\nexplicit typed coordinate contract before V2 validation.",
+  "properties": {
+    "schema_version": {
+      "default": "2.2.0",
+      "enum": [
+        "2.0.0",
+        "2.1.0",
+        "2.2.0"
+      ],
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "unit_system": {
+      "default": "SI",
+      "title": "Unit System",
+      "type": "string"
+    },
+    "coordinate_system": {
+      "$ref": "#/$defs/CoordinateSystemV2"
+    },
+    "project": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProjectInfo"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "structure_system": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/StructureSystem"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "site_seismic": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SiteSeismicParams"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "wind": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/WindParams"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "stories": {
+      "items": {
+        "$ref": "#/$defs/StoryDef"
+      },
+      "title": "Stories",
+      "type": "array"
+    },
+    "analysis_control": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AnalysisControl"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "wall_openings": {
+      "items": {
+        "$ref": "#/$defs/WallOpening"
+      },
+      "title": "Wall Openings",
+      "type": "array"
+    },
+    "slab_openings": {
+      "items": {
+        "$ref": "#/$defs/SlabOpening"
+      },
+      "title": "Slab Openings",
+      "type": "array"
+    },
+    "nodes": {
+      "items": {
+        "$ref": "#/$defs/NodeV2"
+      },
+      "title": "Nodes",
+      "type": "array"
+    },
+    "elements": {
+      "items": {
+        "$ref": "#/$defs/ElementV2"
+      },
+      "title": "Elements",
+      "type": "array"
+    },
+    "materials": {
+      "items": {
+        "$ref": "#/$defs/MaterialV2"
+      },
+      "title": "Materials",
+      "type": "array"
+    },
+    "sections": {
+      "items": {
+        "$ref": "#/$defs/SectionV2"
+      },
+      "title": "Sections",
+      "type": "array"
+    },
+    "load_cases": {
+      "items": {
+        "$ref": "#/$defs/LoadCaseV2"
+      },
+      "title": "Load Cases",
+      "type": "array"
+    },
+    "load_combinations": {
+      "items": {
+        "$ref": "#/$defs/LoadCombinationV2"
+      },
+      "title": "Load Combinations",
+      "type": "array"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    },
+    "extensions": {
+      "additionalProperties": true,
+      "description": "Engine-specific extension fields, e.g. {'pkpm': {...}}",
+      "title": "Extensions",
+      "type": "object"
+    }
+  },
+  "required": [
+    "coordinate_system"
+  ],
+  "title": "StructureModelV2",
+  "type": "object"
+}

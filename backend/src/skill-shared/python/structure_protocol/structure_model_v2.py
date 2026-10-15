@@ -33,7 +33,7 @@ from typing import Any, Dict, List, Literal, Optional, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator, model_validator
 from structure_protocol.design_properties import MaterialDesign, MemberDesign, migrate_design_fields
-from structure_protocol.section_properties import validate_section_physics
+from structure_protocol.section_properties import SECTION_PROPERTY_UNITS, validate_section_physics
 
 
 def _resolve_entity_alias(
@@ -419,7 +419,7 @@ class MaterialV2(BaseModel):
     name: str = Field(..., min_length=1)
     E: float = Field(..., gt=0, description="弹性模量 (MPa)")
     G: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False, description='Explicit shear modulus (MPa) / 显式剪切模量')
-    nu: float = Field(..., ge=0, le=0.5, description="泊松比")
+    nu: float = Field(..., ge=0, lt=0.5, description="泊松比；弹性杆系要求小于0.5 / Poisson ratio, less than 0.5 for elastic members")
     rho: Optional[float] = Field(default=None, gt=0, description="密度 (kg/m³)，自重或密度质量来源时必需")
     fy: Optional[float] = Field(default=None, gt=0, description="屈服强度 (MPa)")
     grade: Optional[str] = Field(
@@ -485,7 +485,12 @@ class SectionV2(BaseModel):
     )
 
     # Legacy convenience dimensions (all in mm)
-    properties: Dict[str, Any] = Field(default_factory=dict)
+    properties: Dict[str, Any] = Field(default_factory=dict, json_schema_extra={
+        'properties': {
+            key: {'type': 'number', 'exclusiveMinimum': 0, 'x-unit': unit}
+            for key, unit in SECTION_PROPERTY_UNITS.items()
+        },
+    })
     width: Optional[float] = Field(default=None, gt=0, description="截面宽度 b (mm)")
     height: Optional[float] = Field(default=None, gt=0, description="截面高度 h (mm)")
     diameter: Optional[float] = Field(default=None, gt=0, description="直径 d (mm)")
@@ -549,7 +554,31 @@ class LoadCaseV2(BaseModel):
             "permanent=永久, variable=可变, accidental=偶然"
         ),
     )
-    loads: List[Dict[str, Any]] = Field(default_factory=list)
+    loads: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Actual signed loads in this case, not just a case label / 本工况实际荷载，保留方向和位置",
+        json_schema_extra={"items": {
+            "type": "object",
+            "description": (
+                "Nodal: type=nodal, node, fx/fy/fz (kN), mx/my/mz (kN*m). "
+                "Member point: type=point, element, position (m from i end), fx/fy/fz/mx/my/mz. "
+                "Member line: type=distributed, element, wx/wy/wz (kN/m), optional start/end (m). "
+                "Target exactly one node or element; keep signed components. "
+                "节点荷载指定node；跨内集中力指定element和position；线载指定element和起止位置。"
+            ),
+            "properties": {
+                "id": {"type": "string", "minLength": 1},
+                "type": {"type": "string", "description": "nodal, point or distributed; other types require engine support / 其他类型须引擎支持"},
+                "node": {"type": "string", "minLength": 1},
+                "element": {"type": "string", "minLength": 1},
+                "reference_frame": {"enum": ["global", "element-local"]},
+                **{key: {"type": "number", "x-unit": unit} for key, unit in {
+                    "fx": "kN", "fy": "kN", "fz": "kN", "mx": "kN*m", "my": "kN*m", "mz": "kN*m",
+                    "wx": "kN/m", "wy": "kN/m", "wz": "kN/m", "position": "m", "start": "m", "end": "m",
+                }.items()},
+            },
+        }},
+    )
     description: Optional[str] = None
     extra: Dict[str, Any] = Field(default_factory=dict)
 

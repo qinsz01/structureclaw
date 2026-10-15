@@ -1,4 +1,5 @@
 import { catalogResolvesMissingSectionIssue } from './section-catalog.js';
+import { currentDraftDiagnostics } from './draft-diagnostics.js';
 import {
   mergeDraftState,
   normalizeFloorLoads,
@@ -60,6 +61,8 @@ function normalizeDraftIssues(value: unknown): DraftIssue[] | undefined {
       }
       return {
         ...(typeof record.field === 'string' && record.field.trim() ? { field: record.field.trim() } : {}),
+        ...(record.kind === 'missing' || record.kind === 'confirmation' ? { kind: record.kind } : {}),
+        ...(typeof record.target === 'string' ? { target: record.target } : {}),
         ...(record.value !== undefined ? { value: record.value } : {}),
         severity,
         reason: reason.trim(),
@@ -355,6 +358,7 @@ export function computeLegacyMissing(
   phase: 'interactive' | 'execution',
   allowedKeys: string[],
 ): { critical: string[]; optional: string[] } {
+  state = currentDraftDiagnostics(state);
   const allowed = new Set(allowedKeys);
   const critical = computeMissingCriticalKeys(state).filter((key) => allowed.has(key));
   const invalidDraftFields = Array.isArray(state.skillState?.invalidDraftFields)
