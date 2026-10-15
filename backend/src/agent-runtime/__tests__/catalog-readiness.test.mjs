@@ -15,7 +15,9 @@ function draft() {
 }
 const missing = state => computeDraftMissing({ id: 'beam', handler }, state, 'execution').critical;
 
-test.each([field, 'sectionRecords.SEC.properties', 'engineeringDraft.sectionRecords[0].properties'])('a reviewed catalog resolves missing properties at %s', async diagnosticField => {
+test.each([field, 'sectionRecords.SEC.properties', 'engineeringDraft.sectionRecords[0].properties',
+  'sectionRecords[SEC].properties', 'engineeringDraft.sectionRecords["SEC"].properties.Iy',
+  "sectionRecords['SEC'].properties.A/Iy/Iz"])('a reviewed catalog resolves missing properties at %s', async diagnosticField => {
   const state = draft(); state.draftIssues[0].field = diagnosticField;
   const before = structuredClone(state);
   expect(missing(state)).toEqual([]);

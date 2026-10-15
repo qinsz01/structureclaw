@@ -1,4 +1,5 @@
 import type { DraftIssue, EngineeringDraft } from './types.js';
+import { draftRecordPaths } from './draft-record-paths.js';
 
 /** Reviewed numerical catalog data. Rolled/tapered I sections are not rectangular-flange H sections. */
 const source = {
@@ -105,11 +106,12 @@ export function assertReviewedSectionProvenance(section: Record<string, unknown>
 /** A missing-only diagnostic cannot block values supplied by the same reviewed catalog as the builder. */
 export function catalogResolvesMissingSectionIssue(draft: EngineeringDraft | undefined, issue: DraftIssue): boolean {
   if (issue.severity !== 'ambiguous' || issue.value != null || typeof issue.field !== 'string') return false;
-  const match = /^(?:engineeringDraft\.)?sectionRecords(?:\[(\d+)\]|\.([^.]+))\.properties(?:\.(A|Iy|Iz|Wx|Wz|tw|imin)(?:\/(?:A|Iy|Iz|Wx|Wz|tw|imin))*)?$/.exec(issue.field);
+  const match = /^(?:engineeringDraft\.)?(sectionRecords.+)\.properties(?:\.(A|Iy|Iz|Wx|Wz|tw|imin)(?:\/(?:A|Iy|Iz|Wx|Wz|tw|imin))*)?$/.exec(issue.field);
   if (!match) return false;
   const records = draft?.sectionRecords ?? [];
-  const selected = match[1] !== undefined ? records[Number(match[1])] : records.find(record => record.id === match[2]);
-  if (!selected) return false;
+  const matches = records.filter((record, index) => draftRecordPaths('sectionRecords', record.id, index).includes(match[1]!));
+  if (matches.length !== 1) return false;
+  const selected = matches[0]!;
   const completed = completeReviewedSectionRecord(selected, reviewedSectionNames(selected, draft));
   if (!completed) return false;
   // Validate the catalog claim before treating any diagnostic as resolved.

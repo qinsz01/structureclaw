@@ -33,6 +33,33 @@ const clarification = () => normalizeLegacyDraftPatch({ engineeringDraft: {
 }, skillState: { designParameters: { gammaX: 1, memberDesignL0Mm: 4800 } } });
 
 describe('clarification retires only the material issues it resolves', () => {
+  test.each(['materials[MAT-Q235B].E', 'materials["MAT-Q235B"].E', "materials['MAT-Q235B'].E",
+    'engineeringDraft.materials[MAT-Q235B].E'])('a supplied stable-ID material clears %s and permits building', async field => {
+    const before = initial();
+    before.draftIssues = [issue(field)]; before.skillState.invalidDraftFields = [field];
+    const after = handler.mergeState(before, clarification());
+    expect(fields(after)).toEqual([]);
+    expect(after.skillState.invalidDraftFields ?? []).toEqual([]);
+    expect(computeDraftMissing(plugin, after, 'execution').critical).toEqual([]);
+    expect((await new AgentSkillRuntime().buildModel(after, ['beam'])).materials[0].E).toBe(206000);
+  });
+
+  test('a bracket selector never clears another material or a new explicit conflict', () => {
+    const before = { inferredType: 'beam', engineeringDraft: { materials: [{ id: 'A' }, { id: 'B' }] },
+      draftIssues: [issue('materials[A].E'), issue('materials[B].E'), issue('materials[missing].E')] };
+    const conflict = issue('materials[B].E', 'conflict');
+    const after = mergeDraftState(before, { engineeringDraft: { materials: [{ id: 'B', E: 206000 }] }, draftIssues: [conflict] });
+    expect(after.draftIssues).toEqual([before.draftIssues[0], before.draftIssues[2], conflict]);
+  });
+
+  test('unquoted numeric selectors retain array-index meaning when another record has that ID', () => {
+    const before = { inferredType: 'beam', engineeringDraft: { materials: [{ id: 'A' }, { id: '0' }] },
+      draftIssues: [issue('materials[0].E'), issue('materials["0"].E'), issue('materials[1].E')] };
+    const after = mergeDraftState(before, { engineeringDraft: { materials: [{ id: '0', E: 206000 }] } });
+    expect(fields(after)).toEqual(['materials[0].E']);
+    expect(after.engineeringDraft.materials[0].E).toBeUndefined();
+  });
+
   test('the actual beam reply clears the stale wildcard E issue and permits the original template', async () => {
     const before = initial(), saved = structuredClone(before);
     expect(computeDraftMissing(plugin, before, 'execution').critical).toEqual(['materials.MAT-Q235B.E', 'materials.MAT-Q235B.nu']);

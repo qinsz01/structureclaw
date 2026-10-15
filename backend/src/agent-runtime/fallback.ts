@@ -17,6 +17,7 @@ import type {
   StructuralTypeKey,
 } from './types.js';
 import { engineeringLoadClarifiesExisting, mergeEngineeringDraft } from './engineering-draft.js';
+import { draftRecordPaths } from './draft-record-paths.js';
 import { buildModel as buildDraftModel } from './model-builder.js';
 import { localize } from './plugin-helpers.js';
 
@@ -168,7 +169,7 @@ function collectValidPatchFields(patch: DraftExtraction, existing?: DraftState, 
     const index = matches[0]!;
     for (const field of ['id', 'name', 'E', 'G', 'nu', 'rho']) {
       if (!Object.hasOwn(record, field) || !validMaterialValue(field, record[field])) continue;
-      const selectors = [`materials.${record.id}.${field}`, `materials[${index}].${field}`];
+      const selectors = draftRecordPaths('materials', record.id, index).map(selector => `${selector}.${field}`);
       // A wildcard describes every material, including records outside this patch.
       if (materialRecords.length && materialRecords.every(item => validMaterialValue(field, item[field]))) {
         selectors.push(`materials[].${field}`, `materials[*].${field}`);
