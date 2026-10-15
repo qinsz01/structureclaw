@@ -181,6 +181,16 @@ function collectValidPatchFields(patch: DraftExtraction, existing?: DraftState, 
     }
   }
   const boundary = patch.engineeringDraft?.boundary;
+  // A confirmed false is a complete answer. Clear only missing-input markers;
+  // a conflict between evidence sources is not resolved by merely writing a flag.
+  for (const key of ['self_weight', 'rigid_floor', 'p_delta', 'rigid_offsets', 'construction_stage', 'consideration_torsion', 'live_load_reduction']) {
+    if (typeof patch.engineeringDraft?.analysisControl?.[key] !== 'boolean') continue;
+    for (const prefix of ['analysisControl', 'engineeringDraft.analysisControl']) {
+      const field = `${prefix}.${key}`;
+      const issues = existing?.draftIssues?.filter(issue => issue.field === field) ?? [];
+      if (issues.every(issue => issue.severity === 'ambiguous' && issue.value == null)) valid.add(field);
+    }
+  }
   if (boundary) {
     if (typeof boundary.supportType === 'string' && boundary.supportType.trim()) {
       valid.add('boundary.supportType');
