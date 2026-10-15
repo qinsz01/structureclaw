@@ -131,6 +131,10 @@ Use the smallest category that proves the behavior:
 
 ## Current Gaps Made Explicit
 
+Model-schema changes also require regenerating `backend/src/engineering/structure-model-v2.schema.json` with the configured product Python: `python backend/scripts/export-model-contract.py`. Run the same command with `--check` in verification. The `draft-contract` regression compares the shipped schema to the running Python protocol, so a stale prompt contract fails independently of TypeScript compilation. Normal installation/build uses the checked-in file and does not require this development generator.
+
+For agent fixes, retain the failing live conversation as well as any passing rerun. Deterministic regressions cover field contracts, stable object identity, missing/confirmation/conflict behavior, builder policy and exact retry feedback. Isolated, opt-in live browser probes verify actual tool execution and saved delivery; compare numerical values with an independent engineering reference. A successful narrative, nonempty result or isolated unit test is insufficient evidence of a working full conversation. Never change the user's active settings or conversations to run these probes.
+
 - E2E covers navigation, i18n/theme, capabilities, database admin, run controls and browser delivery using real engineering services. Live model calls run separately on demand; this is not a full agent quality suite.
 - Frontend integration tests have a dedicated local command, but are not wired into CI until the integration runner is stable.
 - `install-smoke.yml` now owns native install/build compatibility only.

@@ -130,6 +130,10 @@ node frontend/tests/e2e/manual/live-beam-browser.cjs --config=.tmp/live-beam.jso
 
 ## 当前明确出来的差距
 
+修改模型 Schema 后，须用配置的产品 Python 执行 `python backend/scripts/export-model-contract.py`，更新 `backend/src/engineering/structure-model-v2.schema.json`；验证时加 `--check`。`draft-contract` 回归将受版本管理的 Schema 与实际 Python 协议比较，因此过期的提示契约不会仅凭 TypeScript 编译通过而漏检。正常安装和构建读取仓库中的文件，不依赖这个开发用生成脚本。
+
+修复 Agent 时同时保留失败的真实对话和修复后的运行记录。确定性回归覆盖字段契约、稳定对象身份、缺项/确认/冲突、建模策略及具体纠错反馈。真实浏览器验证在独立实例中按需执行，核对实际工具调用、已保存交付及独立工程参考数值。聊天解释正确、返回非空结果或某个单元测试通过，都不足以证明完整对话成功。测试不得修改用户正在使用的配置或会话。
+
 - E2E 覆盖导航、i18n/theme、capabilities、database admin、运行控制及真实工程服务的浏览器交付流程。真实模型调用单独按需运行；它不是完整的 agent 质量套件。
 - Frontend integration 测试已有本地命令，但 integration runner 稳定前暂不接入 CI。
 - `install-smoke.yml` 现在只负责 native install/build 兼容性。

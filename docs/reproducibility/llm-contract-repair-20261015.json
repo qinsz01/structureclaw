@@ -1,0 +1,303 @@
+{
+  "date": "2026-10-15",
+  "scope": "StructureClaw product contract and LLM workflow repair; no Bench or scoring changes",
+  "baselineCommit": "dc508bc6dc3ff2e77fa1589783361474aef750de",
+  "implementationCommits": [
+    "e570cd0",
+    "8733470"
+  ],
+  "changes": [
+    "Authoritative Python V2 schema exported to extraction, generic modeling, draft diagnostics and section unit descriptions.",
+    "Missing data is recalculated from typed current values; confirmations and source conflicts remain distinct; stable IDs survive reordering.",
+    "Coordinate dimension and signed load records flow through the draft; metadata-only case patches preserve existing loads.",
+    "LLM builder bypasses template preconditions, validates candidates with the public model converter, and receives precise retry errors and its previous candidate.",
+    "Missing-field builder output requests clarification without recovery cost. Optional null density/G follows the physical requirement rather than forcing a value.",
+    "Removed fabricated factor-one ULS combinations and per-field diagnostic clearing; reviewed catalogue values retain provenance in data."
+  ],
+  "tests": {
+    "backend": {
+      "suites": 165,
+      "passed": 2042,
+      "failed": 0,
+      "artifact": {
+        "path": ".tmp/llm-contract-audit-20261015/backend-release.json",
+        "sha256": "dd914c71ff1e98c99b126d291abf9d8f4288698c6453ad43eba02c490f4c4c92"
+      }
+    },
+    "python": {
+      "passed": 232,
+      "subtestsPassed": 7,
+      "artifact": {
+        "path": ".tmp/llm-contract-audit-20261015/python-complete-configured.log",
+        "sha256": "7a515f34e81482ca7b4568175fa2bc4a03f970b79909c5b6f45d90c8f7fcf514"
+      },
+      "scope": "Structure protocol regression and shared solver runtime tests; earlier 515-test run retained separately."
+    },
+    "publicContracts": [
+      {
+        "name": "validate-agent-orchestration",
+        "artifact": {
+          "path": ".tmp/llm-contract-audit-20261015/contract-agent-release.log",
+          "sha256": "7674e736b40d6ef3119ce5c76b4fd1a4a4b34d7e6a0145eda64c2ebf77cd22d5"
+        }
+      },
+      {
+        "name": "validate-chat-stream-contract",
+        "artifact": {
+          "path": ".tmp/llm-contract-audit-20261015/contract-stream-release.log",
+          "sha256": "24a8e0979ac34259e75dfc372491f198f406874a00a6d51fcab1f544ce565aeb"
+        }
+      },
+      {
+        "name": "validate-analyze-contract",
+        "artifact": {
+          "path": ".tmp/llm-contract-audit-20261015/contract-analysis-release.log",
+          "sha256": "39d07713649ae05aab509eebbb5187a7a05abbd1ca82852952db1dc37d26c568"
+        }
+      }
+    ],
+    "solverTools": {
+      "cases": 9,
+      "passed": true,
+      "artifact": {
+        "path": ".tmp/llm-contract-audit-20261015/solver-complete.log",
+        "sha256": "03a2afaeb436069921bb80b530f4083a1cb497ae324d4a325965b93d291b1e20"
+      },
+      "scope": "Real OpenSees with independent beam references and saved-design draft; bilingual report consistency."
+    },
+    "forceOnlyBrowser": {
+      "locales": [
+        "zh",
+        "en"
+      ],
+      "passed": 2,
+      "artifact": {
+        "path": ".tmp/llm-contract-audit-20261015/live-force-release.log",
+        "sha256": "66278767b66f88de781df0c78563cf62c25296c849ab63c0959c4195d666f4c5"
+      }
+    },
+    "lint": {
+      "errors": 0,
+      "existingWarning": "streaming.ts consistent-type-imports",
+      "artifact": {
+        "path": ".tmp/llm-contract-audit-20261015/lint-complete.log",
+        "sha256": "35d38d6ef8dd4afe374cb9b5dfa60e4a7451bcb8ac93020bc53c0bed464ab8a9"
+      }
+    },
+    "frontendTypeCheck": {
+      "passed": true,
+      "artifact": {
+        "path": ".tmp/llm-contract-audit-20261015/frontend-types.log",
+        "sha256": "9545cce7a3e04a8f6480b95c8ca164412dbff08fec44ae7aced196ac1067fc0b"
+      }
+    },
+    "earlierFailures": {
+      "description": "Failing intermediate runs retained, including a full-suite 5 s PKPM adapter-test timeout. It passed at the original timeout in the targeted rerun and final full suite; no timeout or numerical tolerance was relaxed.",
+      "artifacts": [
+        {
+          "path": ".tmp/llm-contract-audit-20261015/backend-complete.json",
+          "sha256": "96474dc9c25fb8fd1559f610cd203832d8edc6575e864720ddeeb016b89d3c36"
+        },
+        {
+          "path": ".tmp/llm-contract-audit-20261015/final-rerun.json",
+          "sha256": "cdcd06431b0110457fcfbd54ffd20795fc0f02f691f1df28aec22d7494112e3b"
+        }
+      ]
+    }
+  },
+  "live": {
+    "provider": "glm-5.3",
+    "independentVerification": {
+      "path": ".tmp/llm-contract-audit-20261015/live-independent-verification.json",
+      "sha256": "a4dce796697f61d8fa3e5b00869c381e386361e4b2cae7602e8f4341fef4aee1"
+    },
+    "cases": [
+      {
+        "kind": "auto-beam",
+        "runId": "6b8d902e-ad8c-4d44-a389-fa0de3686919",
+        "requestedBuilder": "auto",
+        "actualSource": "markdown-skill-draft",
+        "recoveries": 0,
+        "pass": true,
+        "reference": {
+          "reactionKn": 0.5,
+          "momentKnm": 2.5,
+          "deflectionM": 0.0005073694602307383,
+          "I": 0.00019932749999999983
+        },
+        "reportRunAndQuantitiesMatched": true,
+        "artifact": {
+          "path": ".tmp/llm-contract-audit-20261015/live-auto-final/2026-10-15T14-07-25-938Z-zh/summary.json",
+          "sha256": "0058ec83c0079271bacc6625982153344d7e35b09d80068545a7f0405e01b677"
+        }
+      },
+      {
+        "kind": "llm-frame",
+        "runId": "bc7202fc-b76c-425c-ad08-abb2789eeb6f",
+        "requestedBuilder": "llm",
+        "actualSource": "generic-llm-draft",
+        "recoveries": 0,
+        "pass": true,
+        "reference": {
+          "reaction": {
+            "fx": -2,
+            "fz": 1,
+            "my": -7
+          },
+          "B": {
+            "ux": 0.0000014563106796116501,
+            "uz": -0.0019660194174757274,
+            "ry": 0.0012014563106796112
+          },
+          "C": {
+            "ux": 0.0027927184466019408,
+            "uz": -0.0019665048543689315,
+            "ry": 0.0014927184466019413
+          }
+        },
+        "reportRunAndQuantitiesMatched": true,
+        "artifact": {
+          "path": ".tmp/llm-contract-audit-20261015/live-llm-final/2026-10-15T14-14-54-496Z-en/summary.json",
+          "sha256": "27ed5242c49d963a8998490da3f4870097625b52aea018b8aec1a6ab4b6de2c6"
+        }
+      },
+      {
+        "kind": "llm-beam",
+        "runId": "1e4a18cb-bfaa-4156-9e18-c306794c4c05",
+        "requestedBuilder": "llm",
+        "actualSource": "generic-llm-draft",
+        "recoveries": 1,
+        "pass": true,
+        "reference": {
+          "reactionKn": 0.5,
+          "momentKnm": 2.5,
+          "deflectionM": 0.0005073694602307383,
+          "I": 0.00019932749999999983
+        },
+        "reportRunAndQuantitiesMatched": true,
+        "artifact": {
+          "path": ".tmp/llm-contract-audit-20261015/live-generated-final/2026-10-15T14-14-54-508Z-zh/summary.json",
+          "sha256": "ececa6902e8b2fe38bd8ddd2cacbe4d1ed5d2745913595fb57dbbcf52e75b2a5"
+        }
+      }
+    ],
+    "attempts": [
+      {
+        "family": "live-auto",
+        "directory": ".tmp/llm-contract-audit-20261015/live-auto/2026-10-15T13-36-01-402Z-zh",
+        "status": "live-product-workflow-passed",
+        "pass": true,
+        "conversationId": "cmv9l0ttq0000dowmqrhxi92m",
+        "toolErrors": 0
+      },
+      {
+        "family": "live-llm",
+        "directory": ".tmp/llm-contract-audit-20261015/live-llm/2026-10-15T13-36-53-166Z-en",
+        "status": "live-product-workflow-incomplete-or-failed",
+        "pass": false,
+        "conversationId": "cmv9l1xt40001dowmu9ofqa2l",
+        "toolErrors": 3
+      },
+      {
+        "family": "live-auto-final",
+        "directory": ".tmp/llm-contract-audit-20261015/live-auto-final/2026-10-15T13-55-20-191Z-zh",
+        "status": "live-product-workflow-passed",
+        "pass": true,
+        "conversationId": "cmv9lpprg0001ewwmpk3jjsox",
+        "toolErrors": 0
+      },
+      {
+        "family": "live-auto-final",
+        "directory": ".tmp/llm-contract-audit-20261015/live-auto-final/2026-10-15T14-07-25-938Z-zh",
+        "status": "live-product-workflow-passed",
+        "pass": true,
+        "conversationId": "cmv9m5a5400017kwmsuy3pk59",
+        "toolErrors": 0
+      },
+      {
+        "family": "live-llm-final",
+        "directory": ".tmp/llm-contract-audit-20261015/live-llm-final/2026-10-15T13-55-20-205Z-en",
+        "status": "live-product-workflow-incomplete-or-failed",
+        "pass": false,
+        "conversationId": "cmv9lpphv0000ewwm0rxqvtx0",
+        "toolErrors": 4
+      },
+      {
+        "family": "live-llm-final",
+        "directory": ".tmp/llm-contract-audit-20261015/live-llm-final/2026-10-15T14-07-25-933Z-en",
+        "status": "probe-error",
+        "pass": false,
+        "conversationId": "cmv9m5a6s00027kwmmur09pz3",
+        "toolErrors": 0
+      },
+      {
+        "family": "live-llm-final",
+        "directory": ".tmp/llm-contract-audit-20261015/live-llm-final/2026-10-15T14-14-54-496Z-en",
+        "status": "live-product-workflow-passed",
+        "pass": true,
+        "conversationId": "cmv9mev8h00011gwmladbulsk",
+        "toolErrors": 0
+      },
+      {
+        "family": "live-generated-final",
+        "directory": ".tmp/llm-contract-audit-20261015/live-generated-final/2026-10-15T14-07-25-948Z-zh",
+        "status": "live-product-workflow-incomplete-or-failed",
+        "pass": false,
+        "conversationId": "cmv9m5a2i00007kwmg5ixk0gx",
+        "toolErrors": 3
+      },
+      {
+        "family": "live-generated-final",
+        "directory": ".tmp/llm-contract-audit-20261015/live-generated-final/2026-10-15T14-14-54-508Z-zh",
+        "status": "live-product-workflow-passed",
+        "pass": true,
+        "conversationId": "cmv9mevbc00021gwmr8oqczhs",
+        "toolErrors": 0
+      }
+    ],
+    "defectsFoundDuringLiveTesting": [
+      "Missing coordinate field in draft contract",
+      "Underspecified load record contract and incomplete case assembly",
+      "Nullable optional density treated as mandatory input"
+    ]
+  },
+  "deployment": {
+    "verifiedAt": "2026-10-15T14:33:01.513Z",
+    "url": "http://127.0.0.1:31415/",
+    "backendPid": 11872,
+    "previousPid": 3516,
+    "settingsUnchanged": true,
+    "health": {
+      "status": "ok",
+      "instanceId": "1e5ebbd2-450f-4bd1-8359-1be6eaf51ec4",
+      "timestamp": "2026-10-15T14:33:00.981Z",
+      "services": {
+        "database": true
+      }
+    },
+    "webpageLoaded": true,
+    "pageErrors": [],
+    "writeRequests": [],
+    "scope": "Read-only production browser check after CLI restart; engineering conversations tested in isolated instances."
+  },
+  "limitations": [
+    "Successful representative workflows do not certify every prompt, structure, native commercial engine or all 300 planned scenarios.",
+    "One LLM beam used one bounded candidate correction; no claim that model generation always succeeds on its first attempt.",
+    "H-section reference uses explicitly requested sharp-corner geometry, not a full rolled-section catalogue calibration.",
+    "Nine deterministic engineering cases include code checks with complete supplied design data; this is not a claim that an underspecified free-form design request finishes without clarification.",
+    "Real provider latency remains visible in retained browser evidence."
+  ],
+  "preserved": {
+    "benchPointer": "534e3f02b0593c16a035f32924dfbe7654ce68be",
+    "historicalTagsUnchanged": true,
+    "independentYjkApiUnchanged": true
+  },
+  "isolation": {
+    "ownedTestPorts": [
+      31649,
+      31650
+    ],
+    "temporaryProviderKeysCleared": true,
+    "ownedServersStopped": true
+  }
+}

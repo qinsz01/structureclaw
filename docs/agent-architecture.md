@@ -2,6 +2,18 @@
 
 This document describes the current StructureClaw 1.0.0 agent runtime. It is a code-aligned reference for contributors, not a planning document.
 
+### Model contract and responsibility boundaries
+
+The LLM interprets intent, identifies missing information, and proposes model fields. Deterministic code validates units, physical consistency, evidence, edits and run identity, then executes the selected solver. Reference material/section tables and geometric calculations remain deterministic; they must not contain example-specific answers.
+
+`StructureModelV2` in Python is the authoritative physical schema. `backend/scripts/export-model-contract.py` exports the checked-in JSON schema used by the extraction and generic-building prompts. The draft adds only convenience fields, with physical records and `coordinateSystem`/`analysisControl` referring to this schema. Coordinate dimension must come from the request; coplanar coordinates alone do not establish a 2D analysis. Legacy scalar locations are converted at the boundary. Templates no longer invent an all-cases, factor-one `ULS` combination: combinations require declared factors.
+
+Draft issues distinguish `kind: missing` from `kind: confirmation`. Missing values are re-evaluated against current typed data; confirmation needs an explicit new field value, and source conflicts remain unresolved. Runtime-bound paths follow stable IDs through record reordering. `invalidDraftFields` is a compatibility view rather than a separately maintained checklist. Old ambiguous issues with an existing value remain conservative. No builder, including explicit imports, may bypass unresolved physical input.
+
+The default builder remains `auto`. Choosing `llm` skips template-specific counts and recipes while retaining formal model validation; partial topology goes through LLM completion. A full imported model still uses the preserving import path, recorded as `builder: explicit` with the requested policy; `auto` also directly assembles complete explicit topology. Actual LLM generation receives the model schema, and any correction receives the previous candidate and exact validation error. A builder's `missing_fields` response requests clarification without a failed tool call or recovery-budget charge. Invalid candidate correction still uses the shared recovery budget; transport failures are not disguised as semantic corrections.
+
+The reviewed section catalogue is data in `backend/src/engineering/reviewed-sections.json`, with retained provenance. Moving an existing record there does not certify additional catalogue entries or turn sharp-corner H geometry into an exact rolled-section catalogue result.
+
 ## 1. Runtime Shape
 
 StructureClaw uses a capability-driven agent:
