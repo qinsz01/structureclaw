@@ -13,20 +13,183 @@
   "runPolicy": {
     "knowledge": "enabled",
     "builder": "auto",
-    "repair": { "enabled": true },
-    "context": { "history": "full", "memoryScopes": [] },
-    "routing": { "mode": "auto" }
+    "repair": {
+      "enabled": true
+    },
+    "context": {
+      "history": "full",
+      "memoryScopes": []
+    },
+    "routing": {
+      "mode": "auto"
+    }
   },
   "expectedModelValues": [
-    { "collection": "sections", "path": "shape.kind", "value": "H" },
-    { "collection": "sections", "path": "shape.H", "value": 300 },
-    { "collection": "sections", "path": "shape.B", "value": 300 },
-    { "collection": "sections", "path": "shape.tw", "value": 10 },
-    { "collection": "sections", "path": "shape.tf", "value": 15 }
+    {
+      "collection": "sections",
+      "path": "shape.kind",
+      "value": "H"
+    },
+    {
+      "collection": "sections",
+      "path": "shape.H",
+      "value": 300
+    },
+    {
+      "collection": "sections",
+      "path": "shape.B",
+      "value": 300
+    },
+    {
+      "collection": "sections",
+      "path": "shape.tw",
+      "value": 10
+    },
+    {
+      "collection": "sections",
+      "path": "shape.tf",
+      "value": 15
+    },
+    {
+      "path": "analysis_control.self_weight",
+      "value": false
+    },
+    {
+      "collection": "sections",
+      "path": "properties.A",
+      "value": 0.011700000000000002,
+      "absoluteTolerance": 1e-12
+    },
+    {
+      "collection": "sections",
+      "path": "properties.Iy",
+      "value": 0.00019932749999999983,
+      "absoluteTolerance": 1e-12
+    },
+    {
+      "collection": "sections",
+      "path": "properties.Iz",
+      "value": 0.00006752249999999999,
+      "absoluteTolerance": 1e-12
+    },
+    {
+      "collection": "sections",
+      "path": "properties.Wx",
+      "value": 0.0013288499999999988,
+      "absoluteTolerance": 1e-12
+    },
+    {
+      "collection": "sections",
+      "path": "properties.Wz",
+      "value": 0.00045014999999999996,
+      "absoluteTolerance": 1e-12
+    },
+    {
+      "collection": "sections",
+      "path": "properties.S",
+      "value": 0.000732375,
+      "absoluteTolerance": 1e-12
+    },
+    {
+      "collection": "sections",
+      "path": "properties.imin",
+      "value": 0.07596811071860247,
+      "absoluteTolerance": 1e-12
+    },
+    {
+      "collection": "materials",
+      "path": "E",
+      "value": 206000
+    },
+    {
+      "collection": "materials",
+      "path": "design.f",
+      "value": 215
+    },
+    {
+      "collection": "materials",
+      "path": "design.fv",
+      "value": 125
+    },
+    {
+      "collection": "elements",
+      "where": {
+        "type": "beam"
+      },
+      "minMatches": 2,
+      "path": "design.l0",
+      "value": 5000
+    },
+    {
+      "collection": "elements",
+      "where": {
+        "type": "beam"
+      },
+      "minMatches": 2,
+      "path": "design.beta1",
+      "value": 1.1
+    },
+    {
+      "collection": "elements",
+      "where": {
+        "type": "beam"
+      },
+      "minMatches": 2,
+      "path": "design.phi_b",
+      "value": 0.9
+    },
+    {
+      "collection": "elements",
+      "where": {
+        "type": "beam"
+      },
+      "minMatches": 2,
+      "path": "design.btLimit",
+      "value": 13
+    },
+    {
+      "collection": "elements",
+      "where": {
+        "type": "beam"
+      },
+      "minMatches": 2,
+      "path": "design.lambdaLimit",
+      "value": 250
+    },
+    {
+      "collection": "elements",
+      "where": {
+        "type": "beam"
+      },
+      "minMatches": 2,
+      "path": "design.deflectionLimitN",
+      "value": 250
+    },
+    {
+      "collection": "elements",
+      "where": {
+        "type": "beam"
+      },
+      "minMatches": 2,
+      "path": "design.serviceability_result_keys",
+      "value": [
+        "case:LC1"
+      ]
+    }
   ],
   "notes": [
     "Start with the actual short user prompt. Review each live clarification before supplying the exact section answer.",
     "The four supplied dimensions define sharp-corner H geometry. Do not claim catalog-exact fillet properties or silently change the section.",
-    "Additional design and load assumptions must be explicitly supplied in a reviewed user turn; numerical references are frozen independently before solving."
-  ]
+    "Additional design and load assumptions must be explicitly supplied in a reviewed user turn; numerical references are frozen independently before solving.",
+    "The reviewed design answer is a synthetic acceptance input, not recommended engineering parameters. Send it only after reviewing the actual conversation; it may be supplied together with the section selection when the user explicitly continues design."
+  ],
+  "reviewedDesignConditions": "确认采用本次功能验收明确给定的合成设计条件（不作为通用推荐值）：GB 50017-2017，Q235B 设计强度 f=215MPa、fv=125MPa，挠度限值 L/250。\n保持10m简支梁、跨中向下1kN、不计自重；只用工况 LC1，承载力和挠度均采用 case:LC1、系数1.0，不新增组合。H截面四项尺寸仍为300×300×10×15mm，不计圆角。\n对所有梁构件均明确给定 l0=5000mm、beta1=1.1、phi_b=0.9、btLimit=13、lambdaLimit=250、deflectionLimitN=250，使用工况为 case:LC1。本次测试在跨中设侧向支撑，上述稳定系数为明确给定值。\n截面补充参数明确给定：Wx=Wnx=0.0013288499999999988m³、Wz=0.00045014999999999996m³、S=0.000732375m³、tw=0.01m、b=0.145m、t=0.015m、imin=0.07596811071860247m。保留按给定几何得到的A、Iy、Iz、J。\n弹性材料仍采用前面明确给定的E=206000MPa、ν=0.3、ρ=7850kg/m³，G按E/[2(1+ν)]。请执行完整分析和全部适用校核，不删减校核项目；不要变更荷载、截面或引擎。最后生成中文报告，清楚列出本次测试假定与数值结果。",
+  "expectedAnalysis": {
+    "reference": "Explicit 10 m simple beam, midspan downwards 1 kN, no self-weight. P/2 and PL/4; never reinterpret runs with changed loads.",
+    "absoluteTolerance": 1e-8,
+    "metrics": {
+      "maxAbsReaction": 0.5,
+      "maxAbsMoment": 2.5
+    }
+  }
 }

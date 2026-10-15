@@ -101,6 +101,10 @@ node frontend/tests/e2e/manual/live-beam-browser.cjs --config=.tmp/live-beam.jso
 
 每次尝试使用新浏览器上下文及带时间戳的证据目录，保留会话、运行状态、流事件、分析运行、工具消息、截图、Playwright trace 和浏览器错误，包括失败尝试。完成要求当前有效分析／报告及所请求的完整通过校核；仅澄清不算完成。不自动重试。这是产品流程验收，不是 Bench 准确率结果；运行中不要重新构建或重启被测后端。
 
+`beam-hw-reproduction-20261015.json` 保留了原始简短梁问题，以及实际报错的 Q235B / HW300×300×10×15 选项。逐轮审核澄清答复，不能用已经完整建好的 I20a 模型代替这条输入链路。截面类型的大小写按 V2 词表统一处理，尺寸、数值属性、来源冲突和设计缺项仍须校验。H/HW/HM/HN 的明确四项尺寸表示不计圆角的几何截面，不冒充已经核定的热轧型钢目录数据。
+
+确定性验收使用 `node backend/tests/section-shape-acceptance.mjs`，将 `SCLAW_DATA_DIR` 指向隔离目录，并在该目录设置中指定已经安装的分析 Python。脚本先冻结解析参考，再经公开工具与真实 OpenSees 测试八种截面表示，核对位移、转角和中英文报告数值，并确认缺少设计条件不能得到通过结论。第九个算例直接回放已经补齐设计条件、却仍有旧设计缺项标记的保存草稿，要求不改写历史即可完成全部14项校核。不需要 LLM 密钥或 Bench 文件。独立的分析控制澄清 Jest 回归验证明确的 `false` 能清除缺项标记，同时保留来源冲突。
+
 可选的 `expectedModelValues` 直接检查 `/agent/input-review` 返回的已保存模型，不把断言值发送给对话。每条规则使用点分隔的 `path` 和 `value`；可用 `collection` 配合可选的 `id` 或 `where` 筛选对象。例如 `{"collection":"elements","where":{"type":"beam"},"path":"design.l0","value":4800}` 会检查所有梁，不依赖单元编号，且没有匹配梁时失败。`minMatches` 可要求多个匹配对象，`absoluteTolerance` 用于数值容差。即使报告声称通过，缺失或不一致的输入仍使 `summary.pass` 为 false。断言只应填写本轮明确提供的条件，并保留原失败证据。
 
 

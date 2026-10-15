@@ -1,0 +1,181 @@
+{
+  "createdAt": "2026-10-15T12:27:32.812Z",
+  "scope": "StructureClaw product fixes for the reported Q235B / HW300×300×10×15 beam; not a Bench or commercial-engine certification",
+  "baseline": "37327246133b036b07a19fc0583fa633e3507a7d",
+  "implementationCommits": [
+    "e075287",
+    "1d96d5d",
+    "d8b20bd"
+  ],
+  "defects": [
+    {
+      "issue": "Lowercase shape kinds reached a case-sensitive model schema; case-only draft patches could remove confirmed properties.",
+      "fix": "Canonicalize from the actual V2 shape vocabulary at extraction/edit/model boundaries, preserve shape-equivalent patches, reject unknown fields and invalid dimensions."
+    },
+    {
+      "issue": "Explicit no-self-weight input retained its old missing-input marker.",
+      "fix": "Confirmed true/false controls clear missing-only markers; unresolved source conflicts remain."
+    },
+    {
+      "issue": "Nested materials/templateAssignments design diagnostics were treated as mandatory elastic-model inputs even after values had been supplied.",
+      "fix": "Recognize canonical nested design paths; keep checks separate from elastic readiness. Replay the exact saved draft through complete checks and reports."
+    }
+  ],
+  "tests": {
+    "backend": {
+      "suites": 164,
+      "passed": 2013,
+      "failed": 0,
+      "artifact": {
+        "path": ".tmp/section-contract-audit-20261015/backend-release-results.json",
+        "sha256": "40fec9325dca307ba3a1355f9a6bce779c7cd9a583f5f359a918b5bee6188b4b"
+      }
+    },
+    "python": {
+      "passed": 515,
+      "artifact": {
+        "path": ".tmp/section-contract-audit-20261015/python-final.log",
+        "sha256": "f605ff448dac47955c3144b445597d05402857c1a6a8bedbe1470f8d252b22ad"
+      }
+    },
+    "publicContracts": [
+      "validate-analyze-contract",
+      "validate-agent-orchestration",
+      "validate-chat-stream-contract"
+    ],
+    "deterministicTools": {
+      "cases": 9,
+      "realSolver": "OpenSees",
+      "savedDraftFullChecks": 14,
+      "artifact": {
+        "path": ".tmp/section-contract-audit-20261015/backend-runtime/work/section-shape-laIOsz/acceptance.json",
+        "sha256": "cd16f8c2628a031fd513ae4dcb45b30ef05a43a1e0202006bc026e9ba684d1b2"
+      },
+      "portableRunner": "backend/tests/section-shape-acceptance.mjs"
+    },
+    "designEditAcceptance": {
+      "stages": 6,
+      "artifact": {
+        "path": ".tmp/section-contract-audit-20261015/design-acceptance-final.log",
+        "sha256": "d1d796a7242725fd1ab4741f1439229109913bedf01080dfe99ee4ff481aa710"
+      }
+    },
+    "forceOnlyLive": {
+      "languages": [
+        "zh",
+        "en"
+      ],
+      "passed": 2,
+      "artifact": {
+        "path": ".tmp/section-contract-audit-20261015/force-only-live.log",
+        "sha256": "1acfeb512a1bed3d2a5b1449621ed868132a179d00814937054446055302eff9"
+      }
+    },
+    "build": "passed",
+    "lint": {
+      "errors": 0,
+      "preexistingWarnings": 1
+    }
+  },
+  "live": {
+    "status": "live-product-workflow-passed",
+    "provider": "glm-5.3",
+    "conversationId": "cmv9i79is0000wcwm5fg2lorz",
+    "runId": "b8807948-bd17-4b4d-8873-a6760a527c16",
+    "userTurns": 2,
+    "toolErrors": 0,
+    "recoveries": [
+      0,
+      0
+    ],
+    "designChecks": 14,
+    "numericChecks": 31,
+    "independentReference": {
+      "A": 0.011700000000000002,
+      "Iy": 0.00019932749999999983,
+      "Iz": 6.752249999999999E-05,
+      "Wx": 0.0013288499999999988,
+      "Wz": 0.00045014999999999996,
+      "S": 0.000732375,
+      "imin": 0.07596811071860247,
+      "reactionKn": 0.5,
+      "momentKnm": 2.5,
+      "deflectionMm": 0.5073694602307384,
+      "rotationRad": 0.00015221083806922148,
+      "stressMpa": 1.8813259585355777,
+      "stressCapacityMpa": 215,
+      "stabilityCapacityNmm": 257132474.99999976,
+      "deflectionCapacityMm": 40
+    },
+    "evidence": [
+      {
+        "path": ".tmp/section-contract-audit-20261015/live-hw/2026-10-15T12-17-02-742Z-zh/summary.json",
+        "sha256": "72e2d770bbd28a9c98cac2c829d323f837181411282e9ec4e07a03196a3af445"
+      },
+      {
+        "path": ".tmp/section-contract-audit-20261015/live-hw/2026-10-15T12-17-02-742Z-zh/independent-delivery-check.json",
+        "sha256": "c446263935ef3fa1e66baf4000c41c1dc73c6bb6626859e16e2abe3f265a2241"
+      },
+      {
+        "path": ".tmp/section-contract-audit-20261015/live-hw/2026-10-15T12-17-02-742Z-zh/saved-report.json",
+        "sha256": "69e05c146010954d5398c5d3e321d8c3280c6e6aebbf3ed7250e1fd33b0e3f17"
+      },
+      {
+        "path": ".tmp/section-contract-audit-20261015/live-hw/2026-10-15T12-17-02-742Z-zh/saved-codeCheckResult.json",
+        "sha256": "670eee39fa401aaf59289dcfa2fa51eeb23e321e10defbc6d4e4c6e2afd06572"
+      },
+      {
+        "sha256": "c3cfa8d7b72a53887e7d3ec90a46296360e17d486a74cb3878e5d3c65060ee88",
+        "path": ".tmp/section-contract-audit-20261015/live-hw/2026-10-15T12-17-02-742Z-zh/model-input-check.json"
+      }
+    ],
+    "portableInputs": "frontend/tests/e2e/manual/beam-hw-reproduction-20261015.json",
+    "modelInputChecks": 23
+  },
+  "retainedFailures": [
+    {
+      "stage": "Initial shape fix, before boolean clarification fix",
+      "reason": "Explicit self_weight=false remained blocked by its missing-input marker",
+      "artifact": {
+        "path": ".tmp/section-contract-audit-20261015/live-hw/2026-10-15T11-49-16-583Z-zh/summary.json",
+        "sha256": "ab3d89a548dd3f0acbfc4c5f35a1fcc1f676b2ab32cd0c2e97d8c7ebcfe1a3ee"
+      }
+    },
+    {
+      "stage": "Before nested design diagnostic fix",
+      "reason": "Supplied design values remained blocked by stale nested design markers",
+      "artifact": {
+        "path": ".tmp/section-contract-audit-20261015/live-hw/2026-10-15T12-01-40-816Z-zh/summary.json",
+        "sha256": "e1fb9da035b7d1582871295ded4cb306693c323fd9266d74e3c0e059d057bdf4"
+      }
+    }
+  ],
+  "mainApplication": {
+    "probe": {
+      "path": ".tmp/section-contract-audit-20261015/main-server-convert-probe.json",
+      "sha256": "d71eaca585cc808559de09283e83366b27d602fc0142c656111f006d501e6a33"
+    },
+    "productionSettingsSha256": "9fef7cf76f73eb561fd1366c6e0ac2eb27808d28c428dd4045f7f17a7eda8e24",
+    "userConversationNotEdited": true
+  },
+  "limitations": [
+    "No claim that every model-generated task will succeed.",
+    "H-section numeric reference uses the explicitly supplied four dimensions, neglects fillets, and excludes self-weight; it is not catalog calibration.",
+    "The live provider remains slow; elapsed time is retained in browser evidence.",
+    "PKPM/YJK native execution and the 300-scenario plan were not re-certified in this bug-fix audit."
+  ],
+  "preserved": {
+    "benchPointer": "534e3f02b0593c16a035f32924dfbe7654ce68be",
+    "independentYjkApiUnchanged": true,
+    "historicalTagsUnchanged": true
+  },
+  "isolation": {
+    "temporaryProviderKeysCleared": true,
+    "ownedServersStopped": [
+      31646,
+      31647,
+      31648
+    ],
+    "productionSettingsUnchanged": true
+  }
+}
