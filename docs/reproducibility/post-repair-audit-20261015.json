@@ -1,0 +1,365 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-15",
+  "createdAt": "2026-10-15T09:59:56.861Z",
+  "baselineCommit": "2fcbe1cf199d9fee78fad2829e97b591f6a76ab0",
+  "verifiedCodeCommit": "9a7ae5fb955df1a3e6aab367f14ff7bb33ef4145",
+  "branch": "work/research-next",
+  "status": "verified-scoped-product-workflows",
+  "scope": "StructureClaw-owned engineering, tool, frontend and real-provider browser tests. No Bench, evaluation, historical reference or independent YJK API changes.",
+  "fixes": [
+    {
+      "commit": "40ff811",
+      "issue": "Force and reaction-moment magnitudes were mixed in reaction envelopes",
+      "resolution": "Separate kN force and kN.m moment envelopes and controls; preserve unavailable moments",
+      "regression": "3 m cantilever with 2 kN tip load: 2 kN reaction, 6 kN.m reaction moment; independent multi-case controls"
+    },
+    {
+      "commit": "ca5d556",
+      "issue": "Stable-ID material/section diagnostics could survive valid explicit corrections",
+      "resolution": "Resolve index, dotted and quoted/bracket stable IDs consistently, without clearing conflicts or other objects"
+    },
+    {
+      "commit": "357977c",
+      "issue": "Frontend workflow mocks supplied invalid capability catalogs",
+      "resolution": "Repair stale test fixtures; retain the production readiness gate and original assertions"
+    },
+    {
+      "commit": "6b166bf",
+      "issue": "Explicit default comparison option rejected a valid single-result query",
+      "resolution": "absolute-max is inert without comparison keys; preserve sign, result selection and quantity ID; max/min still require comparison keys"
+    },
+    {
+      "commit": "0cb1048",
+      "issue": "Extractor could invent executable design fields or non-string basis values and poison the persisted draft",
+      "resolution": "Pass authoritative V2 design definitions; reject invalid generated design before state commit; repeated bad extractions consume the existing recovery budget; force-only extraction does not require the protocol service"
+    },
+    {
+      "commit": "9a7ae5f",
+      "issue": "Summary-only code-check feedback left the final chat without the formulas and values needed for a correct explanation",
+      "resolution": "Return bounded per-item computed evidence with run, member, result, formula, demand, capacity, unit and utilization; distinguish different checks explicitly"
+    }
+  ],
+  "validation": {
+    "backend": {
+      "suites": 161,
+      "passed": 1965,
+      "failed": 0,
+      "skipped": 0,
+      "evidence": ".tmp/post-repair-audit-20261015/backend-delivery-final-results.json"
+    },
+    "frontendUnit": {
+      "passed": 344,
+      "todo": 6,
+      "passedFiles": 44,
+      "skippedFiles": 2,
+      "evidence": ".tmp/post-repair-audit-20261015/frontend-unit-fixed.log"
+    },
+    "frontendIntegration": {
+      "passed": 91,
+      "skipped": 2,
+      "passedFiles": 11,
+      "skippedFiles": 1,
+      "evidence": ".tmp/post-repair-audit-20261015/frontend-integration-fixed.log"
+    },
+    "python": {
+      "passed": 485,
+      "scope": [
+        "structure_protocol",
+        "code-check",
+        "opensees-static"
+      ],
+      "evidence": ".tmp/post-repair-audit-20261015/python-final-corrected-fixture.log"
+    },
+    "ordinaryPlaywright": {
+      "passed": 46,
+      "liveOptInSkipped": 12,
+      "retries": 0,
+      "evidence": ".tmp/post-repair-audit-20261015/browser-tests.log",
+      "note": "Executed before the final backend-only fixes; later real-provider and backend tests cover the repaired paths"
+    },
+    "livePlaywright": {
+      "provider": "glm-5.3",
+      "retries": 0,
+      "passedScenarios": [
+        "Chinese run controls",
+        "English run controls",
+        "original bare beam request",
+        "English force-only cantilever",
+        "Chinese force-only simply supported beam"
+      ],
+      "initialBatch": {
+        "passed": 4,
+        "failed": 1,
+        "evidence": ".tmp/post-repair-audit-20261015/live-controls.log"
+      },
+      "failedScenarioRetest": {
+        "passed": 1,
+        "failed": 0,
+        "evidence": ".tmp/post-repair-audit-20261015/live-force-final.log"
+      }
+    },
+    "registeredToolAcceptance": {
+      "passedStages": 6,
+      "includes": [
+        "missing inputs",
+        "explicit selected scope and bilingual report",
+        "complete supplied synthetic conditions",
+        "real overload",
+        "support-motion-relative cantilever deflection",
+        "explicit cantilever without template metadata"
+      ],
+      "evidence": ".tmp/post-repair-audit-20261015/check-evidence-acceptance.log"
+    },
+    "checks": {
+      "backendBuild": "passed",
+      "frontendTypecheck": "passed",
+      "backendLint": {
+        "errors": 0,
+        "preexistingWarnings": 1,
+        "warning": "streaming.ts:231 import-type annotation"
+      },
+      "gitDiffCheck": "passed"
+    }
+  },
+  "finalLiveBeam": {
+    "conversationId": "cmv9cu062000090wmmfbvrk2v",
+    "providerModel": "glm-5.3",
+    "analysisRunId": "cbc49943-f2e5-45ce-bc4c-0a308921732f",
+    "solver": "OpenSees 3.8.0",
+    "pass": true,
+    "userTurns": 2,
+    "toolCalls": 19,
+    "llmCalls": 15,
+    "automaticRecoveries": 0,
+    "toolErrors": 0,
+    "browserErrors": {
+      "console": [],
+      "page": [],
+      "network": [],
+      "http": []
+    },
+    "modelInputGroupsPassed": 21,
+    "independentNumericalChecksPassed": 20,
+    "codeCheck": {
+      "total": 14,
+      "passed": 14,
+      "failed": 0,
+      "warnings": 0,
+      "notApplicable": 0,
+      "inputRequired": 0,
+      "unsupported": 0,
+      "maxUtilization": 0.9057
+    },
+    "preserved": {
+      "beamEffectiveLengthMm": 4800,
+      "loadCases": [
+        "LC1"
+      ],
+      "loadCombinations": [],
+      "selfWeight": false,
+      "requestedCheckSubset": false
+    },
+    "results": {
+      "supportReactionEachKN": 0.5,
+      "maxMomentKNm": 2.5,
+      "midspanDeflectionDownMm": 4.2672019444785825,
+      "beamEndRotationMagnitudeRad": 0.0012801605833435746
+    },
+    "reportAnalysisAndCheckSameRun": true,
+    "finalProseReviewed": {
+      "normalStressCapacityMPa": 215,
+      "equivalentStressCapacityMPa": 236.5,
+      "lateralStabilityCapacityKNm": 45.86,
+      "incorrectMixedCapacity212_85Absent": true
+    },
+    "elapsed": {
+      "firstUserTurnSeconds": 184.544,
+      "clarificationTurnSeconds": 289.722,
+      "meaning": "Measured browser submit-to-completed-turn times; excludes manual clarification review"
+    },
+    "assertionsRelaxed": false,
+    "evidenceDirectory": ".tmp/post-repair-audit-20261015/beam-live-evidence/2026-10-15T09-46-45-406Z-zh"
+  },
+  "earlierFailuresRetained": [
+    {
+      "conversationId": "cmv9abdk90000ckwmk5jciemz",
+      "issue": "Stale materials[MAT-Q235B].E missing-input diagnostic",
+      "evidence": ".tmp/post-repair-audit-20261015/beam-live/2026-10-15T08-36-17-576Z-zh"
+    },
+    {
+      "conversationId": "cmv9b9jds000060wmmaw0ffsx",
+      "issue": "Invalid design fields and basis value types persisted in the draft; repeated extraction; 600 s turn timeout",
+      "evidence": ".tmp/post-repair-audit-20261015/beam-live-fixed/2026-10-15T09-02-51-584Z-zh"
+    },
+    {
+      "conversationId": "cmv9bhi1y000y60wmzx4l4mqt",
+      "issue": "RESULT_COMPARISON_KEYS_REQUIRED for an inert default on a single case",
+      "evidence": ".tmp/post-repair-audit-20261015/live-controls-results"
+    },
+    {
+      "conversationId": "cmv9c9fpz000014wmcq2c225w",
+      "status": "Toolchain passed, final-chat explanation failed review",
+      "issue": "Chat multiplied beta1 and phi_b into one stress capacity (212.85 MPa). Stored check and report were correct. Fixed by exposing actual per-item evidence.",
+      "evidence": ".tmp/post-repair-audit-20261015/beam-live-contract/2026-10-15T09-30-46-427Z-zh"
+    }
+  ],
+  "reproduction": {
+    "fixture": "frontend/tests/e2e/manual/beam-design-reviewed-20261015.json",
+    "manualRunner": "frontend/tests/e2e/manual/live-beam-browser.cjs",
+    "setup": "Start a dedicated isolated test server on port 31515 and configure its live provider. Do not point this fixture at the production port or production data directory.",
+    "command": "node frontend/tests/e2e/manual/live-beam-browser.cjs --run --manual --config=frontend/tests/e2e/manual/beam-design-reviewed-20261015.json",
+    "clarification": "Review the actual question. For the omitted elastic constants use reviewedClarification verbatim in the emitted reply-N.json; after complete delivery use {\"finish\":true}.",
+    "independentToolCommand": "node backend/tests/engineering-design-edit-acceptance.mjs",
+    "offlineTests": "Use an isolated SCLAW_DATA_DIR, configured Python runtime and test database; clear provider keys. Run backend Jest from backend/ after building. Python suites require PYTHONPATH=backend/src/skill-shared/python.",
+    "artifactAvailability": "Input fixture and this manifest are tracked. Large raw traces/screenshots remain local under .tmp; SHA-256 entries identify the inspected artifacts."
+  },
+  "isolation": {
+    "mainService": "http://127.0.0.1:31415",
+    "mainServiceHealth": "ok",
+    "productionSettingsUnchanged": true,
+    "productionSettingsSha256": "9fef7cf76f73eb561fd1366c6e0ac2eb27808d28c428dd4045f7f17a7eda8e24",
+    "cleanup": [
+      {
+        "port": 31642,
+        "instanceId": "playwright-e518246c-2afa-48aa-a9eb-da0457d36d91",
+        "pid": 10820,
+        "storedLlmCredentialCleared": true,
+        "ownedServerStopped": true
+      },
+      {
+        "port": 31643,
+        "instanceId": "playwright-b55e7081-1f1d-43fd-8cd3-eb2975253bf6",
+        "pid": 22248,
+        "storedLlmCredentialCleared": true,
+        "ownedServerStopped": true
+      },
+      {
+        "port": 31644,
+        "instanceId": "playwright-195c814d-e514-457f-802f-0d4f92fb8bb1",
+        "pid": 25960,
+        "storedLlmCredentialCleared": true,
+        "ownedServerStopped": true
+      },
+      {
+        "port": 31645,
+        "instanceId": "playwright-f7a04fe7-c833-43cc-a817-2d2c743c0d74",
+        "pid": 17172,
+        "storedLlmCredentialCleared": true,
+        "ownedServerStopped": true
+      }
+    ],
+    "benchGitlinkUnchanged": "534e3f02b0593c16a035f32924dfbe7654ce68be",
+    "historyTagsChanged": false,
+    "independentYjkApiChanged": false
+  },
+  "limits": [
+    "This certifies the listed scenarios and assertions, not universal LLM correctness or future 300-case coverage.",
+    "PKPM/YJK native installed-software acceptance, full multimodal workflows and all dynamic scenarios were not rerun in this audit.",
+    "The live design scenario uses explicit synthetic design inputs and a reviewed catalogue record; it is not a design recommendation or complete code certification.",
+    "Complex design conversation still took about eight minutes of model/tool turns on this provider; correctness passing does not certify interactive latency.",
+    "Previously damaged drafts and user conversations were preserved, not automatically rewritten; live acceptance used isolated new conversations."
+  ],
+  "artifacts": [
+    {
+      "path": ".tmp/post-repair-audit-20261015/backend-delivery-final-results.json",
+      "sha256": "9f941a07dfc9f907df5c956f19558b3794d8fa08429bf141818d409778d3d220"
+    },
+    {
+      "path": ".tmp/post-repair-audit-20261015/backend-delivery-final.log",
+      "sha256": "b108b08a8c1e5c72bd4d5e4c534fb2b472d999b9831f5eb09c5f4afbda89a8e5"
+    },
+    {
+      "path": ".tmp/post-repair-audit-20261015/frontend-unit-fixed.log",
+      "sha256": "9a6eca8c3fd08d8d098e69c3263b25550c9a9cffd3b128c70f2b3c9d494e677f"
+    },
+    {
+      "path": ".tmp/post-repair-audit-20261015/frontend-integration-fixed.log",
+      "sha256": "e75397137d489247300939538a984689ce72b88b37cae3062505b333f28acdf9"
+    },
+    {
+      "path": ".tmp/post-repair-audit-20261015/python-final-corrected-fixture.log",
+      "sha256": "e3a880099d2695e93962bf76eec2baa55a21b221b4f567d9075ae9dc5f4f6042"
+    },
+    {
+      "path": ".tmp/post-repair-audit-20261015/browser-tests.log",
+      "sha256": "e3048a183bd7ad4dfe2e30a4c9189bff14435bd1868e5feafe8bb0f0869a802f"
+    },
+    {
+      "path": ".tmp/post-repair-audit-20261015/live-controls.log",
+      "sha256": "5dc868d016d2d74ea46e109d7692eac952ce4e523ea6717d22638ea38d69a19e"
+    },
+    {
+      "path": ".tmp/post-repair-audit-20261015/live-force-final.log",
+      "sha256": "c1b359c5d977d428bfb5d3cff2142214e0c225a895dc777855d1f80ba7f253de"
+    },
+    {
+      "path": ".tmp/post-repair-audit-20261015/check-evidence-tests.log",
+      "sha256": "a7ae42bbaf12007c85d1e05a9a3a5930241c84e9e7d494024085a8c6766545c1"
+    },
+    {
+      "path": ".tmp/post-repair-audit-20261015/check-evidence-acceptance.log",
+      "sha256": "3e1d78395e0f363d9ad620c5ef60ef17fcc05369929d1349859672d5139a48cc"
+    },
+    {
+      "path": ".tmp/post-repair-audit-20261015/lint-check-evidence.log",
+      "sha256": "35d38d6ef8dd4afe374cb9b5dfa60e4a7451bcb8ac93020bc53c0bed464ab8a9"
+    },
+    {
+      "path": ".tmp/post-repair-audit-20261015/frontend-typecheck.log",
+      "sha256": "9545cce7a3e04a8f6480b95c8ca164412dbff08fec44ae7aced196ac1067fc0b"
+    },
+    {
+      "path": ".tmp/post-repair-audit-20261015/build-check-evidence.log",
+      "sha256": "04154d7100fbb045a912f63644c6cef1e02ac9d897264550e807f8552162b800"
+    },
+    {
+      "path": ".tmp/post-repair-audit-20261015/reaction-before.log",
+      "sha256": "6da2e870d3e4af0822ea496e26df4fcc97cd76fbacd8a7147e8b173ceaa8caa6"
+    },
+    {
+      "path": ".tmp/post-repair-audit-20261015/material-path-before.log",
+      "sha256": "bc45613cb723e9cba671d3a53cdedeb44fa791f4b3c5648d69e2b518816f8fa8"
+    },
+    {
+      "path": ".tmp/post-repair-audit-20261015/comparison-before.log",
+      "sha256": "64878cd86562c5130f26bddce0a2c0782058ba87c3d4ace2fc202b7b6dc62159"
+    },
+    {
+      "path": "frontend/tests/e2e/manual/beam-design-reviewed-20261015.json",
+      "sha256": "0ad6102c4528cb8a0551f6c1455519ea0c26b2139c4b6a7b843cc77910cf1db9"
+    },
+    {
+      "path": ".tmp/post-repair-audit-20261015/beam-live-evidence/2026-10-15T09-46-45-406Z-zh/summary.json",
+      "sha256": "8bae335d0fb43df8ea564a805d981e26cfdef429651259fd42c72f9293229d61"
+    },
+    {
+      "path": ".tmp/post-repair-audit-20261015/beam-live-evidence/2026-10-15T09-46-45-406Z-zh/turn-2-analysis-run.json",
+      "sha256": "6fea65a4f019d802ccfce1583d3a9319306dbc331fd468753c908c110bf77a48"
+    },
+    {
+      "path": ".tmp/post-repair-audit-20261015/beam-live-evidence/2026-10-15T09-46-45-406Z-zh/saved-codeCheckResult.json",
+      "sha256": "05d235b0af3e1a519824b583cdb30f1b072ca5435f21e384371cc08534ded9a6"
+    },
+    {
+      "path": ".tmp/post-repair-audit-20261015/beam-live-evidence/2026-10-15T09-46-45-406Z-zh/saved-report.json",
+      "sha256": "d1b4302662ce0086111220dd1a6be947001b4ac560da676bf47d7e150c65d58a"
+    },
+    {
+      "path": ".tmp/post-repair-audit-20261015/beam-live-evidence/2026-10-15T09-46-45-406Z-zh/saved-report.md",
+      "sha256": "a06d714f457cbad6c18d8ae7cb12eb2abcd5401078da1902e2066699d9e51e0b"
+    },
+    {
+      "path": ".tmp/post-repair-audit-20261015/beam-live-evidence/2026-10-15T09-46-45-406Z-zh/turn-2-conversation.json",
+      "sha256": "bf8c86149bdb161e7a93ef24c89ff2006c0016f697824edcd5c1f604ac70d2f5"
+    },
+    {
+      "path": ".tmp/post-repair-audit-20261015/beam-live-evidence/2026-10-15T09-46-45-406Z-zh/turn-2.png",
+      "sha256": "4675c0b0042b32a320dbb655ef6cef58c4b32c6b6ca973aa58d8811241152258"
+    },
+    {
+      "path": ".tmp/post-repair-audit-20261015/beam-live-evidence/2026-10-15T09-46-45-406Z-zh/independent-delivery-check.json",
+      "sha256": "93feb2c70e48c9db7d7d90df83ebe9401b4bf878e931dc98b005e177f11f878b"
+    }
+  ]
+}

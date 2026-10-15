@@ -1,0 +1,187 @@
+{
+  "baseURL": "http://127.0.0.1:31515",
+  "outputDirectory": ".tmp/live-beam-design-acceptance",
+  "locale": "zh",
+  "headless": true,
+  "turnTimeoutMs": 600000,
+  "manual": true,
+  "manualReplyTimeoutMs": 1800000,
+  "maxUserTurns": 6,
+  "initialPrompt": "设计一个简支梁，跨度10m，梁中间荷载1kN。\n采用 Q235B 钢材、GB/T 706 热轧工字钢 I20a，强轴受弯，保持跨度10m和跨中向下1kN集中荷载；本次验收不计自重。请采用截面表数据，继续分析与设计校核；缺少设计条件时集中列出。\n这是端到端功能验收，以下数值均作为本次合成测试的明确给定条件，不是让系统自行推荐规范参数：仅使用试验工况 LC1，承载力和挠度都选 case:LC1，荷载系数1.0，不新增荷载组合；保留10m跨度、跨中向下1kN、不计自重。采用 GB 50017-2017，在跨中设侧向支撑，本次明确给定 l0=4800mm。对两根建模梁单元都设置 beta1=1.1、phi_b=0.9、btLimit=13、lambdaLimit=250、deflectionLimitN=250、serviceability_result_keys=[case:LC1]。材料设计输入 f=215MPa、fv=125MPa。截面设计输入明确给定 S=0.000104m³、Wnx=0.000237m³、b=0.0465m、t=0.0114m；保留核定目录中的 A/Iy/Iz/Wx/Wz/tw/imin。请执行所有适用校核，不通过删减校核范围获得通过；检查模型修改后的分析是否有效，必要时重新分析，最后生成中文设计报告，列明这些测试假定、实际结果和完整校核状态。若仍缺输入集中说明。",
+  "requireCodeCheck": true,
+  "expectedAnalysis": {
+    "reference": "Only P/2 and PL/4 for explicit no-self-weight midspan 1 kN on a 10 m simply supported beam; do not apply this expectation to runs with different user-confirmed loads.",
+    "absoluteTolerance": 1e-8,
+    "metrics": {
+      "maxAbsReaction": 0.5,
+      "maxAbsMoment": 2.5
+    }
+  },
+  "runPolicy": {
+    "knowledge": "enabled",
+    "builder": "auto",
+    "repair": {
+      "enabled": true
+    },
+    "context": {
+      "history": "full",
+      "memoryScopes": []
+    },
+    "routing": {
+      "mode": "auto"
+    }
+  },
+  "expectedModelValues": [
+    {
+      "collection": "elements",
+      "where": {
+        "type": "beam"
+      },
+      "minMatches": 2,
+      "path": "design.l0",
+      "value": 4800
+    },
+    {
+      "collection": "elements",
+      "where": {
+        "type": "beam"
+      },
+      "minMatches": 2,
+      "path": "design.beta1",
+      "value": 1.1
+    },
+    {
+      "collection": "elements",
+      "where": {
+        "type": "beam"
+      },
+      "minMatches": 2,
+      "path": "design.phi_b",
+      "value": 0.9
+    },
+    {
+      "collection": "elements",
+      "where": {
+        "type": "beam"
+      },
+      "minMatches": 2,
+      "path": "design.btLimit",
+      "value": 13
+    },
+    {
+      "collection": "elements",
+      "where": {
+        "type": "beam"
+      },
+      "minMatches": 2,
+      "path": "design.lambdaLimit",
+      "value": 250
+    },
+    {
+      "collection": "elements",
+      "where": {
+        "type": "beam"
+      },
+      "minMatches": 2,
+      "path": "design.deflectionLimitN",
+      "value": 250
+    },
+    {
+      "collection": "elements",
+      "where": {
+        "type": "beam"
+      },
+      "minMatches": 2,
+      "path": "design.serviceability_result_keys",
+      "value": [
+        "case:LC1"
+      ]
+    },
+    {
+      "collection": "materials",
+      "path": "design.f",
+      "value": 215
+    },
+    {
+      "collection": "materials",
+      "path": "design.fv",
+      "value": 125
+    },
+    {
+      "collection": "sections",
+      "path": "properties.S",
+      "value": 0.000104,
+      "absoluteTolerance": 1e-12
+    },
+    {
+      "collection": "sections",
+      "path": "properties.Wnx",
+      "value": 0.000237,
+      "absoluteTolerance": 1e-12
+    },
+    {
+      "collection": "sections",
+      "path": "properties.b",
+      "value": 0.0465,
+      "absoluteTolerance": 1e-12
+    },
+    {
+      "collection": "sections",
+      "path": "properties.t",
+      "value": 0.0114,
+      "absoluteTolerance": 1e-12
+    },
+    {
+      "collection": "sections",
+      "path": "properties.A",
+      "value": 0.003555,
+      "absoluteTolerance": 1e-12
+    },
+    {
+      "collection": "sections",
+      "path": "properties.Iy",
+      "value": 0.0000237,
+      "absoluteTolerance": 1e-12
+    },
+    {
+      "collection": "sections",
+      "path": "properties.Iz",
+      "value": 0.00000158,
+      "absoluteTolerance": 1e-12
+    },
+    {
+      "collection": "sections",
+      "path": "properties.Wx",
+      "value": 0.000237,
+      "absoluteTolerance": 1e-12
+    },
+    {
+      "collection": "sections",
+      "path": "properties.Wz",
+      "value": 0.0000315,
+      "absoluteTolerance": 1e-12
+    },
+    {
+      "collection": "sections",
+      "path": "properties.tw",
+      "value": 0.007,
+      "absoluteTolerance": 1e-12
+    },
+    {
+      "collection": "sections",
+      "path": "properties.imin",
+      "value": 0.0212,
+      "absoluteTolerance": 1e-12
+    },
+    {
+      "path": "analysis_control.self_weight",
+      "value": false
+    }
+  ],
+  "reviewedClarification": "本次测试明确给定钢材弹性模量 E=206000MPa、泊松比ν=0.3、密度ρ=7850kg/m³；G按E/[2(1+ν)]一致推导，不使用舍入的79000MPa。仍不计自重。本次采用弹性正应力校核，不考虑截面塑性发展。保留前面所有明确参数，特别是每个梁单元 design.l0=4800mm，不得以5m单元长度代替。请继续完成真实分析、全部适用设计校核和中文报告，报告明确这些合成测试条件。",
+  "notes": [
+    "Synthetic acceptance inputs, not recommended design parameters.",
+    "Use the reviewed clarification only if the live question requests the omitted elastic constants. Do not change the engineering inputs or tolerances to match output.",
+    "Manual mode pauses for review; copy the reviewed clarification into the emitted reply-N.json path."
+  ]
+}
