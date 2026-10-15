@@ -132,7 +132,7 @@ class CodeChecker:
         }
 
         for elem_id in elements:
-            check_result = self._check_element(elem_id, context)
+            check_result = self._apply_requested_checks(elem_id, self._check_element(elem_id, context), context)
             results['details'].append(check_result)
 
             items = self._flatten_result_items(check_result)
@@ -158,7 +158,43 @@ class CodeChecker:
             'fail' if summary['failed'] else 'incomplete' if incomplete or not elements
             else 'pass' if summary['passed'] else 'not_applicable'
         )
+        scopes = {row['elementId']: row['checkScope'] for row in results['details'] if 'checkScope' in row}
+        if scopes:
+            results['checkScope'] = {'mode': 'selected', 'limited': any(scope['omittedChecks'] for scope in scopes.values()), 'elements': scopes}
         return results
+
+    def _apply_requested_checks(self, elem_id: str, result: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+        element = context.get('elementData', {}).get(elem_id, {})
+        requested = element.get('requestedChecks') if isinstance(element, dict) else None
+        if requested is None:
+            return result
+        available = {item.get('item') for item in self._flatten_result_items(result)}
+        aliases = self.rules.get('checkIds', {})
+        valid_list = isinstance(requested, list) and bool(requested) and all(isinstance(item, str) and item.strip() for item in requested)
+        names = [aliases.get(item.strip(), item.strip()) for item in requested] if valid_list else []
+        if not names or any(name not in available for name in names):
+            return self._build_element_result(elem_id, result.get('elementType', ''), [{
+                'name': '校核范围 / Check scope', 'items': [{
+                    'item': '校核范围 / Check scope', 'status': 'input_required', 'category': 'input_required',
+                    'utilization': None, 'governingEligible': False,
+                    'missingInputs': [{'field': 'member.design.requested_checks', 'label': '明确的适用校核项 / Explicit applicable checks', 'unit': 'check IDs', 'source': 'design', 'choices': sorted(name for name in available if isinstance(name, str))}],
+                    'availableChecks': sorted(name for name in available if isinstance(name, str)),
+                    'message': 'Requested checks must be a nonempty list of applicable check IDs or names / 所选校核须为非空且适用于该构件的检查项列表。',
+                }],
+            }], result.get('code', self.code))
+        selected = set(names)
+        omitted = sorted(name for name in available if name not in selected)
+        checks = [{**group, 'items': [item if item.get('item') in selected else {
+            'item': item.get('item'), 'clause': item.get('clause'), 'formula': item.get('formula'),
+            'status': 'not_applicable', 'category': 'not_applicable', 'scopeReason': 'not_requested',
+            'utilization': None, 'governingEligible': False,
+            'message': 'Outside the explicitly requested checks; no compliance conclusion for this item / 该项不在用户明确选择的校核范围内，不代表该项通过。',
+        } for item in group.get('items', [])]} for group in result.get('checks', [])]
+        scoped = {**result, **self._build_element_result(elem_id, result.get('elementType', ''), checks, result.get('code', self.code)),
+                  'checkScope': {'requestedChecks': list(dict.fromkeys(names)), 'omittedChecks': omitted}}
+        if 'chapters' in scoped:
+            scoped['chapters'] = self._build_chapter_summaries(scoped['checks'])
+        return scoped
 
     @staticmethod
     def _flatten_result_items(check_result: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -348,7 +384,7 @@ class CodeChecker:
             return {'item': item_name, 'status': 'not_applicable', 'category': 'not_applicable',
                     'clause': clause, 'formula': formula, 'utilization': None, 'governingEligible': False,
                     'message': 'This result is outside the explicitly selected service cases / 本结果不属于显式指定的正常使用工况。'}
-        force_items = {'正应力', '剪应力', '折算应力', '整体稳定', '偏心受压', '正截面受弯', '斜截面受剪'}
+        force_items = {'正应力', '剪应力', '折算应力', '整体稳定', '轴压稳定', '偏心受压', '正截面受弯', '斜截面受剪'}
         if unsupported and item_name in force_items:
             return {'item': item_name, 'status': 'unsupported', 'category': 'unsupported',
                     'utilization': None, 'governingEligible': False, 'clause': clause, 'formula': formula,

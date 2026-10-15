@@ -87,6 +87,34 @@ try {
     close(Math.abs(configurable.agentState.report.json.requestedQuantities.find(row => row.id === 'midpoint-deflection').value), reference.deflectionMm);
   }
   receipts.push({ stage: 'actual supplied inputs', runId: configurable.agentState.analysisResult.runId, partial, deflectionMm: reference.deflectionMm });
+  // User explicitly requests strength + deflection only. Exercise public edits,
+  // actual OpenSees, checker and bilingual reports; no stability inputs are filled.
+  await edit(['1', '2'].map(id => update('elements', id, {
+    'design.requested_checks': ['normal_stress', 'shear_stress', 'equivalent_stress', 'deflection'],
+    'design.basis.requested_checks': 'Explicit test request: strength and deflection only',
+  })));
+  await invoke('run_analysis', analysis);
+  const selected = await invoke('run_code_check', { designCode: 'GB50017', provider: 'builtin' });
+  assert.equal(selected.completionStatus, 'complete'); assert.equal(selected.complianceStatus, 'pass');
+  assert.equal(selected.checkScope.limited, true); assert.equal(selected.conclusionEligible, false);
+  assert.equal(selected.requestedChecksPassed, true); assert.equal(selected.missingInputCount, 0);
+  for (const member of configurable.agentState.model.elements) {
+    assert.equal(member.design.phi_b, undefined); assert.equal(member.design.lambdaLimit, undefined);
+  }
+  const selectedItems = items(configurable.agentState.codeCheckResult);
+  for (const row of selectedItems.filter(row => ['整体稳定', '局部稳定', '长细比'].includes(row.item))) {
+    assert.equal(row.status, 'not_applicable'); assert.equal(row.scopeReason, 'not_requested');
+  }
+  for (const row of selectedItems.filter(row => row.item === '正应力')) close(row.inputs.demand, 2.5e6 / 237000);
+  for (const row of selectedItems.filter(row => row.item === '挠度' && row.resultKey === 'case:LC1')) close(row.inputs.demand, reference.deflectionMm);
+  for (const locale of ['zh', 'en']) {
+    await invoke('generate_report', { message: 'Explicit strength and deflection checks only', analysisType: 'static', locale, narrative: 'structured' });
+    assert.equal(configurable.agentState.report.json.codeCheck.checkScope.limited, true);
+    assert.ok(configurable.agentState.report.markdown.includes(locale === 'zh' ? '未请求项目未校核' : 'Unrequested checks were not performed'));
+  }
+  receipts.push({ stage: 'explicit selected strength and deflection checks with bilingual reports', runId: configurable.agentState.analysisResult.runId, selected });
+  // Removing the declared subset restores all implemented checks.
+  await edit(['1', '2'].map(id => update('elements', id, { 'design.requested_checks': null })));
   // Independent additional synthetic design data, explicitly declared here.
   await edit([update('sections', 'SEC-I20A', { properties: { b: .04, t: .0084 } }),
     ...['1', '2'].map(id => update('elements', id, { design: { phi_b: .9, btLimit: 13, lambdaLimit: 250, l0: 5000,
@@ -123,6 +151,19 @@ try {
     assert.equal(row.calculationInputs.deflectionResponse.definition,'transverse-displacement-relative-to-fixed-end');
   }
   receipts.push({stage:'cantilever excludes fixed-end translation and rotation',runId:configurable.agentState.analysisResult.runId,deflectionMm:reference.cantileverDeflectionMm});
+  // A generic explicit cantilever has the same physical restraints but no
+  // template labels. Its tip response must not be removed as endpoint drift.
+  delete cantilever.metadata;
+  configurable.agentState = {...commitModel({},await normalizeEngineeringModel(cantilever,protocol),'explicit-cantilever-reference'),locale:'zh',inputEvidence:[],policy:{analysisType:'static'}};
+  await invoke('run_analysis',analysis);
+  await invoke('run_code_check',{designCode:'GB50017'});
+  const explicitCantileverItems = items(configurable.agentState.codeCheckResult).filter(row => row.item==='挠度' && row.resultKey==='case:LC1');
+  assert.equal(explicitCantileverItems.length,2);
+  for (const row of explicitCantileverItems) {
+    assert.equal(row.status,'fail'); close(row.inputs.demand,reference.cantileverDeflectionMm); close(row.inputs.capacity,reference.serviceCapacityMm);
+    assert.equal(row.calculationInputs.deflectionResponse.definition,'transverse-displacement-relative-to-fixed-end');
+  }
+  receipts.push({stage:'explicit cantilever without template metadata retains tip deflection',runId:configurable.agentState.analysisResult.runId,deflectionMm:reference.cantileverDeflectionMm});
   await writeFile(path.join(directory, 'acceptance.json'), JSON.stringify({ status: 'passed', reference, receipts }, null, 2));
   console.log(JSON.stringify({ status: 'passed', directory, reference, stages: receipts.map(row => ({ stage: row.stage, runId: row.runId })) }, null, 2));
 } catch (error) {

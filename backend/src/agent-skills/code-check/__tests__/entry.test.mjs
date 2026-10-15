@@ -549,3 +549,13 @@ describe('buildCodeCheckInput', () => {
     });
   });
 });
+
+
+
+test('explicit member check scope survives the model-to-check bridge without inventing coefficients', () => {
+  const input = buildCodeCheckInput({ traceId: 'selected-scope', designCode: 'GB50017',
+    model: { elements: [{ id: 'beam', type: 'beam', design: { requested_checks: ['normal_stress', 'deflection'] } }] },
+    analysis: { success: true }, analysisParameters: {} });
+  expect(input.context.elementData.beam.requestedChecks).toEqual(['normal_stress', 'deflection']);
+  expect(input.context.elementData.beam.phi_b).toBeUndefined();
+});

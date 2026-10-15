@@ -271,11 +271,11 @@ function memberDeflection(member: ReturnType<typeof recoverAnalysisMembers>[numb
  */
 function standaloneBeamDeflection(model: Record<string, unknown>, members: Map<string, ReturnType<typeof recoverAnalysisMembers>[number]>, data: Record<string, unknown>) {
   const metadata = asRecord(model['metadata']), coordinates = asRecord(model['coordinate_system']);
-  if (metadata['inferredType'] !== 'beam' || coordinates['dimension'] !== '2d') return;
-  const support = metadata['supportType'];
-  if (!['simply-supported', 'cantilever'].includes(String(support))) return;
+  if (coordinates['dimension'] !== '2d' || metadata['inferredType'] !== undefined && metadata['inferredType'] !== 'beam') return;
+  let support = metadata['supportType'];
+  if (support !== undefined && !['simply-supported', 'cantilever'].includes(String(support))) return;
   const elements = Array.isArray(model['elements']) ? model['elements'].map(asRecord) : [];
-  if (!elements.length || support === 'simply-supported' && elements.length === 1) return;
+  if (!elements.length) return;
   const nodes = new Map((Array.isArray(model['nodes']) ? model['nodes'].map(asRecord) : []).map(node => [String(node['id']), node]));
   const adjacency = new Map<string, string[]>();
   for (const element of elements) {
@@ -297,6 +297,15 @@ function standaloneBeamDeflection(model: Record<string, unknown>, members: Map<s
   const vertical = coordinates['plane'] === 'xz' ? 2 : 1, rotation = vertical === 2 ? 4 : 5;
   const restrained = (id: string, dof: number) => (nodes.get(id)?.['restraints'] as unknown[] | undefined)?.[dof] === true;
   if ([...adjacency.keys()].some(id => !endpoints.includes(id) && [0, vertical, rotation].some(dof => restrained(id, dof)))) return;
+  // Explicit models need not carry template metadata. Infer only these two
+  // endpoint conditions from the actual restraints on the verified beam chain.
+  if (support === undefined) {
+    const fixed = endpoints.filter(id => [0, vertical, rotation].every(dof => restrained(id, dof)));
+    if (fixed.length === 1 && ![0, vertical, rotation].some(dof => restrained(endpoints.find(id => id !== fixed[0])!, dof))) support = 'cantilever';
+    else if (endpoints.every(id => restrained(id, vertical)) && !endpoints.some(id => restrained(id, rotation))) support = 'simply-supported';
+    else return;
+  }
+  if (support === 'simply-supported' && elements.length === 1) return;
   if (support === 'simply-supported' && (!endpoints.every(id => restrained(id, vertical)) || endpoints.some(id => restrained(id, rotation)))) return;
   if (support === 'cantilever') {
     const fixed = endpoints.filter(id => [0, vertical, rotation].every(dof => restrained(id, dof)));
@@ -713,6 +722,7 @@ function extractElementDataForCodeCheck(
       ...(lengthMm !== undefined ? { length: lengthMm } : {}),
       ...numericDesign,
       designBasis: memberDesign['basis'] ?? {},
+      ...(memberDesign['requested_checks'] != null ? { requestedChecks: memberDesign['requested_checks'] } : {}),
       ...(deflectionResponse ? { deflection: deflectionResponse.valueMm, deflectionResponse } : {}),
       ...(serviceResult && beamDeflection ? { serviceabilityLength: beamDeflection.serviceabilityLengthMm } : {}),
       serviceabilityResult: serviceResult,

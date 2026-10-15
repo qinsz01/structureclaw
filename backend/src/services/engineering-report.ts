@@ -59,9 +59,13 @@ export function finishEngineeringReport(prepared: ReturnType<typeof prepareEngin
   const { input, summary, json } = prepared;
   const analysis = isRecord(input.analysis) ? input.analysis : {};
   const check = isRecord(input.codeCheck) ? input.codeCheck : undefined;
-  const unverified = check && (check.completionStatus !== 'complete' || check.complianceStatus === 'fail');
+  const limitedChecks = check && isRecord(check.checkScope) && check.checkScope.limited === true;
+  const unverified = check && (check.completionStatus !== 'complete' || check.complianceStatus === 'fail' || limitedChecks);
   let markdown = !unverified && narrative ? narrative : buildDefaultReportNarrative(prepared.narrativeInput);
   markdown += resultTableMarkdown(input.analysis, input.locale);
+  if (limitedChecks) markdown += input.locale === 'zh'
+    ? '\n本报告仅包含用户明确选择的专项校核；未请求项目未校核，不构成完整设计合格结论。\n'
+    : '\nThis report covers only the explicitly requested checks. Unrequested checks were not performed; this does not establish complete design compliance.\n';
   if (reportResultRows(input.analysis).some(row => row.capabilityStatus === 'partial')) markdown += input.locale === 'zh'
     ? '\n本次运行包含部分能力或估算结果；不能视为原结构完整分析或全面规范合格。\n'
     : '\nThis run includes partial capabilities or estimates; it does not establish complete analysis or overall code compliance.\n';

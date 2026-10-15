@@ -90,6 +90,7 @@ class MemberDesign(BaseModel):
     axialRatioLimit: Optional[PositiveFinite] = None
     crackWidthLimit: Optional[PositiveFinite] = Field(default=None, description='Crack-width limit (mm)')
     alpha_cr: Optional[PositiveFinite] = None
+    requested_checks: Optional[Annotated[list[Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]], Field(min_length=1)]] = Field(default=None, description='Explicit user-selected check IDs or exact check names; omitted means all implemented checks. A selected subset is not full design compliance / 用户明确选择的专项校核，省略时执行所有已实现项，专项通过不代表完整设计合格')
     serviceability_result_keys: list[str] = Field(default_factory=list, description='Explicit service result keys, e.g. case:S or combination:SLS; no ULS-to-SLS inference')
     reinforcement: Optional[ReinforcementInput] = None
 

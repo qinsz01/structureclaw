@@ -33,8 +33,10 @@ export async function checkRunResults(analysis: ModelRecord, execute: (result: M
   const values = entries.flatMap((item) => isRecord(item.summary) && typeof item.summary.maxUtilization === 'number' ? [item.summary.maxUtilization] : []);
   summary.maxUtilization = values.length ? Math.max(...values) : null;
   const incomplete = entries.some((item) => item.completionStatus !== 'complete');
+  const scopes = entries.filter(item => isRecord(item.checkScope)).map(item => item.checkScope as ModelRecord);
   return {
     ...selected, summary, checkResults: checks,
+    ...(scopes.length ? { checkScope: { ...scopes[0], limited: scopes.some(scope => scope.limited === true) } } : {}),
     details: entries.flatMap((item) => Array.isArray(item.details) ? item.details.map((detail) => ({ ...(isRecord(detail) ? detail : {}), resultKey: item.resultKey })) : []),
     completionStatus: incomplete ? 'incomplete' : 'complete',
     complianceStatus: entries.some((item) => item.complianceStatus === 'fail') ? 'fail' : incomplete ? 'incomplete' : entries.every((item) => item.complianceStatus === 'not_applicable') ? 'not_applicable' : 'pass',
@@ -78,7 +80,7 @@ export function codeCheckFeedback(check: ModelRecord, model?: ModelRecord, analy
     } else fields.set(key, { ...field, elementId: row.elementId, checks: [row.check], resultKeys: [row.resultKey] });
   }
   const writeTargets = new Map<string, ModelRecord>();
-  const missingFields = [...fields.values()].map(row => {
+  const missingFields = [...fields.values()].map((row): ModelRecord => {
     const element = (Array.isArray(model?.elements) ? model.elements.filter(isRecord) : []).find(item => item.id === row.elementId);
     const field = String(row.field);
     const owner = field.startsWith('material.design.') ? ['materials', element?.material, field.replace('material.', '')]
@@ -95,17 +97,33 @@ export function codeCheckFeedback(check: ModelRecord, model?: ModelRecord, analy
     else writeTargets.set(key, { ...writeTarget, label: row.label, elementIds: [row.elementId] });
     return { ...row, writable: true, writeTarget };
   });
+  const limited = isRecord(check.checkScope) && check.checkScope.limited === true;
+  const unresolvedResults = missingFields.filter(row => row.source === 'result' && !(row.field === 'response.deflection' && missingFields.some(field => field.elementId === row.elementId && field.field === 'member.design.serviceability_result_keys')));
+  let nextAction = 'generate_report';
+  if (check.completionStatus !== 'complete') {
+    const unsupported = Number(isRecord(check.summary) ? check.summary.unsupported ?? 0 : 0) > 0;
+    nextAction = unresolvedResults.length ? 'inspect_analysis' : unsupported && !missingFields.length ? 'inspect_capability' : 'ask_user_clarification';
+  }
   return { completionStatus: check.completionStatus, complianceStatus: check.complianceStatus, summary: check.summary,
+    ...(check.checkScope ? { checkScope: check.checkScope } : {}),
+    requestedChecksPassed: check.completionStatus === 'complete' && check.complianceStatus === 'pass',
     missingInputs: missingFields, writeTargets: [...writeTargets.values()], missingInputCount: writeTargets.size + missingFields.filter(row => !row.writable).length,
     availableResultKeys: isRecord(analysis?.results) ? Object.keys(analysis.results) : [], editGuidance: modelEditGuidance,
     guidance: 'Write already supplied inputs to the listed owners; ask only for genuinely missing conditions. Counts of input-required checks are not counts of questions. Never invent coefficients, limits or computed responses. / 已确认输入按目标路径写入，仅询问真正缺失的条件；待输入校核项数不等于问题数，禁止虚构系数、限值或计算结果。',
     inputRequiredChecks: missingInputs.map(({ fields: _fields, ...row }) => row),
-    nextAction: check.completionStatus !== 'complete' ? 'ask_user_clarification' : 'generate_report',
-    conclusionEligible: check.completionStatus === 'complete' && check.complianceStatus === 'pass' };
+    nextAction,
+    conclusionEligible: !limited && check.completionStatus === 'complete' && check.complianceStatus === 'pass' };
 }
 
 /** An incomplete engineering check must not be promoted to compliance by final prose. */
 export function codeCheckDeliveryNotice(check: ModelRecord, locale: 'zh' | 'en'): string {
+  if (check.completionStatus === 'complete' && check.complianceStatus === 'pass' && isRecord(check.checkScope) && check.checkScope.limited === true) {
+    const elements = isRecord(check.checkScope.elements) ? check.checkScope.elements : {};
+    const selected = [...new Set(Object.values(elements).filter(isRecord).flatMap(scope => Array.isArray(scope.requestedChecks) ? scope.requestedChecks : []))].join('、');
+    return locale === 'zh'
+      ? `已完成并通过用户指定的专项校核：${selected}。\n\n${formatCheckSummary(isRecord(check.summary) ? check.summary : undefined, locale)}。其余项目未校核，不能据此给出完整设计合格结论。`
+      : `The requested checks are complete and passed: ${selected}.\n\n${formatCheckSummary(isRecord(check.summary) ? check.summary : undefined, locale)}. Other checks were not requested; this does not establish complete design compliance.`;
+  }
   if (check.complianceStatus === 'fail') return locale === 'zh'
     ? `规范校核存在未通过项，不能给出设计合格结论。\n\n${formatCheckSummary(isRecord(check.summary) ? check.summary : undefined, locale)}。请查看已保存校核明细中的控制构件及需求、承载力，再决定修改方案。`
     : `Code checking found failed items; design compliance has not been established.\n\n${formatCheckSummary(isRecord(check.summary) ? check.summary : undefined, locale)}. Inspect the saved governing member, demand and capacity before deciding how to revise the model.`;

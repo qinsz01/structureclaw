@@ -57,3 +57,32 @@ test('a misspelled or absent service result key is rejected before any check is 
   expect(() => validateServiceabilitySelection(model, { results:{'case:S':{},'combination:ULS':{}} })).not.toThrow();
   expect(() => validateServiceabilitySelection(model, { results:{'combination:ULS':{}} })).toThrow(/SERVICEABILITY_RESULT_UNAVAILABLE/);
 });
+
+
+
+test('missing computed responses lead to analysis inspection, while unselected service cases request design clarification', () => {
+  const make = fields => ({ completionStatus: 'incomplete', complianceStatus: 'incomplete',
+    details: [{ elementId: 'B1', checks: [{ items: [{ item: '挠度', status: 'input_required', missingInputs: fields }] }] }] });
+  const response = { field: 'response.deflection', unit: 'mm', source: 'result' };
+  expect(codeCheckFeedback(make([response])).nextAction).toBe('inspect_analysis');
+  expect(codeCheckFeedback(make([response, { field: 'member.design.serviceability_result_keys', source: 'design' }])).nextAction).toBe('ask_user_clarification');
+  expect(codeCheckFeedback({ completionStatus: 'incomplete', summary: { unsupported: 1 } }).nextAction).toBe('inspect_capability');
+});
+
+test.each(['zh', 'en'])('selected checks are reported as a limited scope in %s, never complete design compliance', locale => {
+  const check = { completionStatus: 'complete', complianceStatus: 'pass', summary: { total: 7, passed: 1, notApplicable: 6 },
+    checkScope: { mode: 'selected', limited: true, elements: { B1: { requestedChecks: ['正应力'], omittedChecks: ['整体稳定'] } } }, meta: { runId: 'run' } };
+  const feedback = codeCheckFeedback(check);
+  expect(feedback.conclusionEligible).toBe(false);
+  expect(feedback.requestedChecksPassed).toBe(true);
+  expect(feedback.nextAction).toBe('generate_report');
+  const notice = codeCheckDeliveryNotice(check, locale);
+  expect(notice).toContain('正应力');
+  expect(notice).toContain(locale === 'zh' ? '其余项目未校核' : 'Other checks were not requested');
+  const prepared = prepareEngineeringReport({ message: 'report selected checks', analysisType: 'static', locale,
+    analysis: { success: true, runId: 'run', meta: {} }, codeCheck: check });
+  const report = finishEngineeringReport(prepared, 'FALSE_FULL_DESIGN_PASS_SENTINEL');
+  expect(report.markdown).not.toContain('FALSE_FULL_DESIGN_PASS_SENTINEL');
+  expect(report.markdown).toContain(locale === 'zh' ? '未请求项目未校核' : 'Unrequested checks were not performed');
+  expect(report.json.codeCheck.checkScope).toEqual(check.checkScope);
+});

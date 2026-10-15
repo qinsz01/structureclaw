@@ -107,3 +107,68 @@ def test_empty_requested_scope_is_not_vacuously_passed():
     result = CodeChecker('GB50017').check('m', [], {})
     assert result['completionStatus'] == 'incomplete'
     assert result['complianceStatus'] == 'incomplete'
+
+
+
+def _selected_beam(requested=None, moment=2500000):
+    element = {'type': 'beam', 'section': {'A': 5000, 'Wnx': 200000},
+               'material': {'f': 215}, 'forces': {'N': 0, 'Mx': moment}}
+    if requested is not None:
+        element['requestedChecks'] = requested
+    return CodeChecker('GB50017').check('scope', ['B1'], {'elementData': {'B1': element}})
+
+
+def test_explicit_strength_scope_completes_without_inventing_stability_inputs():
+    result = _selected_beam(['normal_stress'])
+    assert result['completionStatus'] == 'complete'
+    assert result['complianceStatus'] == 'pass'
+    assert result['summary']['passed'] == 1 and result['summary']['inputRequired'] == 0
+    assert result['checkScope']['limited'] is True
+    assert result['checkScope']['elements']['B1']['requestedChecks'] == ['正应力']
+    items = [item for group in result['details'][0]['checks'] for item in group['items']]
+    skipped = [item for item in items if item['item'] != '正应力']
+    assert len(skipped) == 6
+    assert all(item['status'] == 'not_applicable' and item['scopeReason'] == 'not_requested' and not item.get('missingInputs') for item in skipped)
+    assert _selected_beam()['completionStatus'] == 'incomplete'  # Default scope remains unchanged.
+
+
+@pytest.mark.parametrize('requested', [[], ['unknown'], ['axial_stability'], '', [True], ['normal_stress', 'unknown']])
+def test_empty_unknown_or_inapplicable_scope_cannot_hide_missing_checks(requested):
+    result = _selected_beam(requested)
+    assert result['completionStatus'] == 'incomplete'
+    assert result['complianceStatus'] == 'incomplete'
+    assert result['summary']['passed'] == 0
+    assert result['details'][0]['checks'][0]['items'][0]['missingInputs'][0]['field'] == 'member.design.requested_checks'
+
+
+def test_selected_scope_preserves_real_failure_and_accepts_exact_check_names():
+    result = _selected_beam(['正应力'], moment=100000000)
+    assert result['completionStatus'] == 'complete' and result['complianceStatus'] == 'fail'
+    assert result['summary']['failed'] == 1
+
+
+def test_valid_property_alias_is_used_when_primary_alias_is_invalid():
+    element = {'type': 'beam', 'section': {'A': 5000, 'Wnx': 0, 'Wx': 200000},
+               'material': {'f': 215}, 'forces': {'N': 0, 'Mx': 2500000}, 'requestedChecks': ['normal_stress']}
+    result = CodeChecker('GB50017').check('aliases', ['B1'], {'elementData': {'B1': element}, 'utilizationByElement': {'B1': {'正应力': float('nan')}}})
+    assert result['complianceStatus'] == 'pass'
+    assert result['summary']['maxUtilization'] == pytest.approx(2500000 / 200000 / 215, abs=0.00005)
+
+
+def test_selected_axial_check_does_not_ignore_unsupported_force_frame():
+    element = {'type': 'column', 'section': {'A': 5000}, 'material': {'f': 215},
+               'forces': {'N': 1000}, 'phi_axial': 0.9, 'forceInputIssue': 'unverified force frame',
+               'requestedChecks': ['axial_stability']}
+    result = CodeChecker('GB50017').check('scope', ['C1'], {'elementData': {'C1': element}})
+    assert result['complianceStatus'] == 'incomplete'
+    assert result['summary']['unsupported'] == 1
+
+
+def test_member_design_schema_preserves_scope_and_rejects_empty_selection():
+    from structure_protocol.design_properties import MemberDesign
+    from pydantic import ValidationError
+    design = MemberDesign(requested_checks=['normal_stress', 'deflection'])
+    assert design.model_dump()['requested_checks'] == ['normal_stress', 'deflection']
+    for value in ([], [''], [False]):
+        with pytest.raises(ValidationError):
+            MemberDesign(requested_checks=value)

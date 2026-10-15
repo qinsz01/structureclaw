@@ -454,7 +454,8 @@ function createCallModelNode(
     const checkedThisTurn = currentTurnMessages.some(message => getMessageType(message) === 'tool'
       && !String(message.content).includes('"skipped":true')
       && (getToolName(message) === 'run_code_check' || getToolName(message) === 'generate_report' && !!check));
-    if (!hasToolCalls && checkedThisTurn && (!check || check.completionStatus !== 'complete' || check.complianceStatus === 'fail')) {
+    if (!hasToolCalls && checkedThisTurn && (!check || check.completionStatus !== 'complete' || check.complianceStatus === 'fail'
+      || !!check.checkScope && typeof check.checkScope === 'object' && (check.checkScope as Record<string, unknown>).limited === true)) {
       return { messages: [new AIMessage({ content: codeCheckDeliveryNotice(check ?? {}, state.locale),
         id: response.id, response_metadata: response.response_metadata,
         usage_metadata: response.usage_metadata })] };

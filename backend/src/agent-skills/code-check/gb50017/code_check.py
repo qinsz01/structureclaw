@@ -11,6 +11,11 @@ import math
 
 RULE_VERSION = 'v2-member-checks'
 CODE_VERSION = 'GB50017-2017'
+CHECK_IDS = {
+    'normal_stress': '正应力', 'shear_stress': '剪应力', 'equivalent_stress': '折算应力',
+    'lateral_stability': '整体稳定', 'axial_stability': '轴压稳定',
+    'local_stability': '局部稳定', 'slenderness': '长细比', 'deflection': '挠度',
+}
 
 CHAPTERS = [
     {
@@ -36,6 +41,7 @@ def get_rules() -> Dict[str, Any]:
         'code': 'GB50017',
         'version': RULE_VERSION,
         'chapters': CHAPTERS,
+        'checkIds': CHECK_IDS,
         'rules': [
             {
                 'name': '强度验算',
@@ -203,7 +209,7 @@ def _compute_utilization_overrides(
     def _has_override(key: str) -> bool:
         """Check if caller provided a numeric override for this check item."""
         val = per_elem.get(key)
-        return isinstance(val, (int, float))
+        return isinstance(val, (int, float)) and not isinstance(val, bool) and math.isfinite(val) and val >= 0
 
     def number(value, *, positive=False):
         if isinstance(value, bool) or not isinstance(value, (int, float)):
@@ -212,7 +218,7 @@ def _compute_utilization_overrides(
         return value if math.isfinite(value) and (not positive or value > 0) else None
 
     def positive(record, *keys):
-        return next((number(record[key], positive=True) for key in keys if key in record), None)
+        return next((value for key in keys if (value := number(record.get(key), positive=True)) is not None), None)
 
     def save(name, value, demand=None, capacity=None, unit=None):
         if not _has_override(name) and math.isfinite(value) and value >= 0:
@@ -325,7 +331,7 @@ def missing_inputs(elem_id: str, item: str, context: Dict[str, Any]) -> List[Dic
         require(element, ['lambdaLimit'], 'member.design.lambdaLimit', '长细比限值 / Slenderness limit', '1')
     if item == '挠度':
         require(forces if 'deflection' in forces else element, ['deflection'], 'response.deflection', '使用工况相对挠度 / Service relative deflection', 'mm', 'result', False)
-        require(element, ['length'], 'member.length', '构件长度 / Member length', 'mm', 'geometry')
+        require(element, ['serviceabilityLength', 'length'], 'member.length', '构件长度 / Member length', 'mm', 'geometry')
         require(element, ['deflectionLimitN'], 'member.design.deflectionLimitN', '挠度限值 L/n 的 n 及依据 / Denominator n of L/n and basis', '1')
         if not element.get('serviceabilityResult') and 'serviceabilityResult' in element:
             missing.append({'field': 'member.design.serviceability_result_keys', 'label': '使用工况或组合 / Service case or combination', 'unit': 'result key', 'source': 'design'})
