@@ -258,7 +258,10 @@ def _compute_utilization_overrides(
     b, t, bt_limit = positive(section, 'flangeWidth', 'b'), positive(section, 'flangeThickness', 't'), positive(elem, 'btLimit')
     if b and t and bt_limit:
         save('局部稳定', b / t / bt_limit, b/t, bt_limit, '1')
-    l0, i_min, lambda_limit = positive(elem, 'l0', 'length'), positive(section, 'imin', 'i'), positive(elem, 'lambdaLimit')
+    # Geometric/mesh element length is not an effective buckling length. The
+    # bridge supplies l0 only from explicit design data; do not infer restraints
+    # or a length factor from the analysis discretization.
+    l0, i_min, lambda_limit = positive(elem, 'l0'), positive(section, 'imin', 'i'), positive(elem, 'lambdaLimit')
     if l0 and i_min and lambda_limit:
         save('长细比', l0 / i_min / lambda_limit, l0/i_min, lambda_limit, '1')
     displacement = number(forces.get('deflection', elem.get('deflection')))
@@ -326,7 +329,7 @@ def missing_inputs(elem_id: str, item: str, context: Dict[str, Any]) -> List[Dic
         require(section, ['flangeThickness', 't'], 'section.t', '板件厚度 / Plate thickness', 'mm', 'section')
         require(element, ['btLimit'], 'member.design.btLimit', '宽厚比限值及依据 / Width-thickness limit and basis', '1')
     if item == '长细比':
-        require(element, ['l0', 'length'], 'member.design.l0', '计算长度 / Effective length', 'mm')
+        require(element, ['l0'], 'member.design.l0', '明确的计算长度及约束依据 / Explicit effective length and restraint basis', 'mm')
         require(section, ['imin', 'i'], 'section.imin', '最小回转半径 / Minimum radius of gyration', 'mm', 'section')
         require(element, ['lambdaLimit'], 'member.design.lambdaLimit', '长细比限值 / Slenderness limit', '1')
     if item == '挠度':

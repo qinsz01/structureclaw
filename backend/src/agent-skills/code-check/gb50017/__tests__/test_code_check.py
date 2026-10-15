@@ -258,7 +258,7 @@ class TestComputeUtilizationOverrides:
 
     def test_computes_slenderness(self):
         ctx: Dict[str, Any] = {
-            'elementData': {'C1': _make_column_element_data()},
+            'elementData': {'C1': _make_column_element_data(l0=4000.0)},
         }
         result = gb50017._compute_utilization_overrides('C1', ctx)
         assert '长细比' in result
@@ -650,3 +650,49 @@ class TestElementDataBridgeIntegration:
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
+
+
+class TestExplicitEffectiveLength:
+    @pytest.mark.parametrize('segment_lengths', [[6000.0], [3000.0, 3000.0], [1500.0] * 4])
+    def test_discretizing_one_physical_member_cannot_supply_effective_length(self, segment_lengths):
+        # The bridge always supplies geometric length in mm. Refining a 6 m
+        # member must not turn that geometry into an unconfirmed design l0.
+        elements = {f'E{i}': _make_beam_element_data(
+            length=length, lambdaLimit=150.0, requestedChecks=['slenderness'])
+            for i, length in enumerate(segment_lengths)}
+        result = _generic_module.CodeChecker('GB50017').check('same-physical-member', list(elements),
+                                                               {'elementData': elements})
+        assert result['completionStatus'] == 'incomplete'
+        assert result['complianceStatus'] == 'incomplete'
+        assert result['summary']['passed'] == 0
+        assert result['summary']['inputRequired'] == len(elements)
+        for detail in result['details']:
+            item = next(item for group in detail['checks'] for item in group['items'] if item['item'] == '长细比')
+            assert item['status'] == 'input_required'
+            assert item['utilization'] is None
+            assert item['governingEligible'] is False
+            assert [row['field'] for row in item['missingInputs']] == ['member.design.l0']
+            assert item['missingInputs'][0]['source'] == 'design'
+
+    def test_explicit_effective_length_controls_check_instead_of_shorter_mesh_length(self):
+        # Explicit l0=9 m, i=40 mm: lambda=225 > 150, regardless of mesh length.
+        # Falling back to the 1.5 m cell would incorrectly report lambda=37.5.
+        element = _make_column_element_data(length=1500.0, l0=9000.0, requestedChecks=['slenderness'])
+        result = _generic_module.CodeChecker('GB50017').check('confirmed-effective-length', ['E'],
+                                                               {'elementData': {'E': element}})
+        item = next(item for group in result['details'][0]['checks'] for item in group['items']
+                    if item['item'] == '长细比')
+        assert item['status'] == 'fail'
+        assert item['utilization'] == pytest.approx(1.5)
+        assert item['inputs']['demand'] == pytest.approx(225.0)
+        assert item['inputs']['capacity'] == pytest.approx(150.0)
+        assert result['completionStatus'] == 'complete'
+        assert result['complianceStatus'] == 'fail'
+        assert element['length'] == 1500.0 and element['l0'] == 9000.0
+
+    @pytest.mark.parametrize('invalid_l0', [0, -1, True, float('nan'), float('inf')])
+    def test_invalid_effective_length_cannot_fall_back_to_valid_geometry(self, invalid_l0):
+        context = {'elementData': {'E': _make_column_element_data(l0=invalid_l0)}}
+        assert '长细比' not in gb50017._compute_utilization_overrides('E', context)
+        missing = gb50017.missing_inputs('E', '长细比', context)
+        assert [row['field'] for row in missing] == ['member.design.l0']

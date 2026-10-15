@@ -71,7 +71,7 @@ try {
   await invoke('run_analysis', analysis);
   const partial = await invoke('run_code_check', { designCode: 'GB50017', provider: 'builtin' });
   const missing = [...new Set(partial.missingInputs.map(row => row.field))].sort();
-  assert.deepEqual(missing, ['member.design.btLimit', 'member.design.lambdaLimit', 'member.design.phi_b', 'section.b', 'section.t']);
+  assert.deepEqual(missing, ['member.design.btLimit', 'member.design.l0', 'member.design.lambdaLimit', 'member.design.phi_b', 'section.b', 'section.t']);
   const partialItems = items(configurable.agentState.codeCheckResult);
   for (const row of partialItems.filter(row => row.item === '挠度')) {
     if (row.resultKey === 'case:LC1') {
