@@ -202,11 +202,16 @@ const propertyError = (field: string): never => {
 };
 
 /** A template supplies geometry; material and section choices must come from declared inputs. */
-export function resolveTemplateProperties(state: DraftState, roles: TemplateRole[]) {
+export function resolveTemplateMaterials(state: DraftState) {
   const draft = state.engineeringDraft;
   const grade = draft?.material?.grade ?? state.frameMaterial as string | undefined;
-  const materials = draft?.materials?.length ? structuredClone(draft.materials)
+  return draft?.materials?.length ? structuredClone(draft.materials)
     : [buildMaterialRecord(resolveFrameMaterialProps(grade))];
+}
+
+export function resolveTemplateProperties(state: DraftState, roles: TemplateRole[]) {
+  const draft = state.engineeringDraft;
+  const materials = resolveTemplateMaterials(state);
   const sections = structuredClone(draft?.sectionRecords ?? []);
   const explicitRecords = sections.length > 0;
   for (const section of sections) {

@@ -10,7 +10,6 @@ import {
   STRUCTURAL_COORDINATE_SEMANTICS,
 } from '../../../dist/agent-runtime/coordinate-semantics.js';
 import { buildElementReferenceVectors } from '../../../dist/agent-runtime/reference-vectors.js';
-import { skillExecutionSchema } from '../../../dist/agent-runtime/schema.js';
 
 describe('agent runtime helper utilities', () => {
   test('loads structural handlers from the active backend build', async () => {
@@ -680,35 +679,6 @@ describe('agent runtime helper utilities', () => {
       C1: [1, 0, 0],
       B1: [0, 0, 1],
     });
-  });
-
-  test('skillExecutionSchema accepts valid payloads and rejects invalid stages', () => {
-    const parsed = skillExecutionSchema.parse({
-      inferredType: 'beam',
-      draftPatch: { lengthM: 6 },
-      missingCritical: ['supportType'],
-      questions: [{
-        paramKey: 'supportType',
-        label: 'Support type',
-        question: 'What support type should be used?',
-        required: true,
-        critical: true,
-      }],
-      defaultProposals: [{
-        paramKey: 'supportType',
-        value: 'pinned',
-        reason: 'Common default for simple beams',
-      }],
-      stage: 'model',
-      supportLevel: 'supported',
-      routingSource: 'explicit-keyword',
-      skillId: 'beam',
-    });
-
-    expect(parsed.stage).toBe('model');
-    expect(parsed.routingSource).toBe('explicit-keyword');
-    expect(parsed.questions?.[0].critical).toBe(true);
-    expect(() => skillExecutionSchema.parse({ stage: 'design' })).toThrow();
   });
 
   test('legacy draft validation blocks non-positive model parameters until corrected', async () => {

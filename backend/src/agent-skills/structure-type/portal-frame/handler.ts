@@ -167,8 +167,8 @@ export const handler: SkillHandler = {
   parseProvidedValues(values) {
     return toPortalFramePatch(normalizeLegacyDraftPatch(values));
   },
-  extractDraft({ llmDraftPatch }) {
-    return toPortalFramePatch(normalizeLlmDraftPatch(llmDraftPatch));
+  extractDraft({ llmDraftPatch, currentState }) {
+    return toPortalFramePatch(normalizeLlmDraftPatch(llmDraftPatch, currentState));
   },
   mergeState(existing, patch) {
     return mergeLegacyState(existing, toPortalFramePatch(patch), 'portal-frame', 'portal-frame');

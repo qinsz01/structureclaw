@@ -91,11 +91,14 @@ function cleanPromptState(value: unknown, keyPath: string[] = []): unknown {
 }
 
 function engineeringDraftSchemaDescription(locale: 'zh' | 'en'): string {
+  const updateContract = 'Draft update protocol / 草稿更新协议: omitted fields stay unchanged; nested objects and record arrays merge by stable ID. To delete an existing field, emit top-level clearDraftFields: [\'sectionRecords["S1"].standard_steel_name\']; omission DOES NOT delete it. Clear operations run atomically BEFORE engineeringDraft updates. To replace an entire shape or properties object, clear that object and provide its replacement. Use exact existing IDs, never array indexes; do not clear identity or input evidence. Only clear fields the latest user explicitly withdrew or replaced. / 省略不等于删除；用户明确“不使用目录名”时必须输出对应 clearDraftFields，不能只在新补丁省略目录名。仅改厚度时保留其他尺寸和未变属性；更换截面来源时明确清除被替代的旧来源，不得删除用户未撤回的冲突证据。';
+  const sectionSources = 'Section source / 截面来源: name is a display label. standard_steel_name requests a native catalog lookup; it is NOT a copy of name and cannot coexist with numerical shape/properties. For explicitly chosen dimensional geometry, retain the designation in name only. A rolled designation does not authorize inventing fillets or claiming verified catalog properties: if exact catalog geometry is required but unavailable, ask for its numerical data or approval to use the stated idealized geometry. / 名称保存在name；standard_steel_name是原生目录选择器，不能为带几何的截面重复填写。明确采用尺寸建模时只写shape；精确热轧目录数值缺失时说明所缺数据或确认是否采用已给尺寸的理想化几何，不得偷偷替换。';
   const seismicEvidence = '"seismicMemberEvidence": {"byElementId": {"<stable member ID>": {"seismicCapacity": {}, "capacityDesign": {}, "strongShearWeakBending": {}, "shearCompression": {}, "jointCore": {}, "wallData": {}, "boundaryElement": {}, "steelSeismicDetailing": {}}}}. Preserve supplied seismic evidence in this top-level field or skillState.seismicWorkflow.memberEvidence. / 抗震构件证据保留在此顶层字段或抗震工作流中，不把证据生成验算结论。';
   if (locale === 'zh') {
     return [
       'engineeringDraft uses this generated contract. All fields may be omitted in a partial draft; preserve explicitly supplied values and stable IDs. / 草稿允许缺项，但不得编造信息：',
       JSON.stringify(promptContract()),
+      updateContract, sectionSources,
       seismicEvidence,
       'draftIssues: [{field: string, kind: missing|confirmation, severity: invalid|ambiguous|unrealistic|conflict, reason: string, question?: string}]. Use one exact field per issue with quoted stable IDs, e.g. materials["M1"].E. missing means absent data; confirmation means a present value needs user confirmation. Do not repeat a missing issue after supplying its value. Do not emit skillState.invalidDraftFields; the runtime derives it. / 缺项按当前值重新判断；确认与来源冲突单独保留。每项诊断对应一个字段和稳定ID，不维护第二份缺项列表。',
       '  // restraints 顺序严格为 [ux,uy,uz,rx,ry,rz]，true 表示约束。X-Z 平面铰支座为 [true,true,true,false,false,false]，沿全局 X 向可滑动的滚动支座为 [false,true,true,false,false,false]。',
@@ -127,6 +130,7 @@ function engineeringDraftSchemaDescription(locale: 'zh' | 'en'): string {
   return [
       'engineeringDraft uses this generated contract. All fields may be omitted in a partial draft; preserve explicitly supplied values and stable IDs. / 草稿允许缺项，但不得编造信息：',
       JSON.stringify(promptContract()),
+      updateContract, sectionSources,
       seismicEvidence,
       'draftIssues: [{field: string, kind: missing|confirmation, severity: invalid|ambiguous|unrealistic|conflict, reason: string, question?: string}]. Use one exact field per issue with quoted stable IDs, e.g. materials["M1"].E. missing means absent data; confirmation means a present value needs user confirmation. Do not repeat a missing issue after supplying its value. Do not emit skillState.invalidDraftFields; the runtime derives it. / 缺项按当前值重新判断；确认与来源冲突单独保留。每项诊断对应一个字段和稳定ID，不维护第二份缺项列表。',
     '  // restraints are exactly [ux,uy,uz,rx,ry,rz], where true means restrained. In an X-Z model, a pin is [true,true,true,false,false,false] and a roller free in global X is [false,true,true,false,false,false].',
@@ -393,6 +397,7 @@ function unwrapDraftPatch(parsed: Record<string, unknown>): Record<string, unkno
   const engineeringDraft = parsed.engineeringDraft;
   const draftPatch = parsed.draftPatch;
   const supplemental = {
+    ...(parsed.clearDraftFields !== undefined ? { clearDraftFields: parsed.clearDraftFields } : {}),
     ...(isRecord(parsed.requestScope) ? { requestScope: parsed.requestScope } : {}),
     ...(parsed.skillState && typeof parsed.skillState === 'object' && !Array.isArray(parsed.skillState)
       ? { skillState: parsed.skillState }

@@ -2821,6 +2821,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
             note: 'Use these exact IDs and components. resultKey is the load case, not a label for a requested output. / 使用这些实际ID与分量；resultKey是工况键，不是所求结果名称。' } } : {}),
           missingReasons: missing.critical.map(field => ({ field, reason: missingInputReason(field, requestScope, locale) })),
           llmDraftPatch: draftPatch ?? null,
+          appliedDraftUpdate: { clearedFields: patch.clearDraftFields ?? [], order: 'clear-then-merge' },
           engineeringDraft: nextState.engineeringDraft ?? patch.engineeringDraft ?? null,
           extractionSource: typeof nextState.skillState?.extractionSource === 'string'
             ? nextState.skillState.extractionSource

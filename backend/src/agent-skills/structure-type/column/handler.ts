@@ -4,6 +4,7 @@ import {
   computeLegacyMissing,
   mergeLegacyState,
   normalizeLegacyDraftPatch,
+  restrictLegacyDraftPatch,
 } from '../../../agent-runtime/legacy.js';
 import { projectEngineeringDraftToLegacyPatch } from '../../../agent-runtime/engineering-draft.js';
 import { buildInteractionQuestions } from '../../../agent-runtime/fallback.js';
@@ -24,14 +25,7 @@ const ALLOWED_KEYS = ['heightM', 'lengthM', 'loadKN', 'loadType', 'loadPosition'
 
 function toColumnPatch(patch: DraftExtraction): DraftExtraction {
   const semanticPatch = projectEngineeringDraftToLegacyPatch(patch, 'column');
-  const nextPatch: DraftExtraction = { inferredType: 'column' };
-  nextPatch.engineeringDraft = semanticPatch.engineeringDraft;
-  nextPatch.draftIssues = semanticPatch.draftIssues;
-  nextPatch.heightM = semanticPatch.heightM;
-  nextPatch.lengthM = semanticPatch.lengthM;
-  nextPatch.loadKN = semanticPatch.loadKN;
-  nextPatch.loadType = semanticPatch.loadType;
-  nextPatch.loadPosition = semanticPatch.loadPosition;
+  const nextPatch = restrictLegacyDraftPatch(semanticPatch, 'column', ALLOWED_KEYS);
   if (nextPatch.heightM === undefined && nextPatch.lengthM !== undefined) {
     nextPatch.heightM = nextPatch.lengthM;
   }
@@ -107,8 +101,8 @@ export const handler: SkillHandler = {
   parseProvidedValues(values) {
     return toColumnPatch(normalizeLegacyDraftPatch(values));
   },
-  extractDraft({ llmDraftPatch }) {
-    return toColumnPatch(normalizeLegacyDraftPatch(llmDraftPatch));
+  extractDraft({ llmDraftPatch, currentState }) {
+    return toColumnPatch(normalizeLegacyDraftPatch(llmDraftPatch, currentState));
   },
   mergeState(existing, patch) {
     return mergeLegacyState(existing, toColumnPatch(patch), 'column', 'column');

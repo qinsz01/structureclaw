@@ -15,6 +15,7 @@ import type {
   StructuralTypeKey,
 } from './types.js';
 import { mergeEngineeringDraft } from './engineering-draft.js';
+import { clearDraftFields } from './draft-update.js';
 import { mergeDraftDiagnostics } from './draft-diagnostics.js';
 import { buildModel as buildDraftModel } from './model-builder.js';
 import { localize } from './plugin-helpers.js';
@@ -335,6 +336,7 @@ export function detectUnsupportedStructuralTypeByRules(message: string, locale: 
 }
 
 export function mergeDraftState(existing: DraftState | undefined, patch: DraftExtraction): DraftState {
+  existing = clearDraftFields(existing, patch.clearDraftFields);
   const mergedType = patch.inferredType && patch.inferredType !== 'unknown' ? patch.inferredType : (existing?.inferredType || 'unknown');
   const mergedLength = patch.lengthM ?? existing?.lengthM;
   const mergedSpan = patch.spanLengthM ?? existing?.spanLengthM;
@@ -381,7 +383,10 @@ export function mergeDraftState(existing: DraftState | undefined, patch: DraftEx
     loadPositionM: patch.loadPositionM ?? existing?.loadPositionM,
     updatedAt: Date.now(),
   };
-  return { ...result, ...mergeDraftDiagnostics(existing, patch, result) };
+  const diagnostics = mergeDraftDiagnostics(existing, patch, result);
+  return { ...result, ...diagnostics, ...(diagnostics.skillState?.engineeringDraft ? {
+    skillState: { ...diagnostics.skillState, engineeringDraft },
+  } : {}) };
 }
 
 

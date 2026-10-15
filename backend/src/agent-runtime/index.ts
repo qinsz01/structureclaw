@@ -12,7 +12,6 @@ import { resolveCodeCheckRule } from '../agent-skills/code-check/registry.js';
 import type { CodeCheckClient } from '../agent-skills/code-check/rule.js';
 import { AgentSkillRegistry } from './registry.js';
 import { AgentSkillLoader } from './loader.js';
-import { AgentSkillExecutor } from './executor.js';
 import { invokeStructuralTypeRouter } from './llm-router.js';
 import { buildDefaultReportNarrative } from './report-template.js';
 import { isFreshGenericStructuralRoute, withStructuralTypeState } from './plugin-helpers.js';
@@ -498,19 +497,20 @@ export class AgentSkillRuntime {
       return { nextState, missing, structuralTypeMatch, plugin, extractionMode: 'deterministic' };
     }
 
-    const executor = new AgentSkillExecutor(llm);
-    const execution = await executor.execute({
+    const { invokeParamExtractor } = await import('../agent-langgraph/param-extractor.js');
+    const draftPatch = await invokeParamExtractor({
+      llm,
       message,
       locale,
       existingState,
-      selectedSkill: plugin,
+      plugin,
       signal,
     });
     const patch = plugin.handler.extractDraft({
       message,
       locale,
       currentState: existingState,
-      llmDraftPatch: execution.draftPatch,
+      llmDraftPatch: draftPatch,
       structuralTypeMatch,
     });
     const nextState = withStructuralTypeState(plugin.handler.mergeState(existingState, patch), structuralTypeMatch);
@@ -520,7 +520,7 @@ export class AgentSkillRuntime {
       missing,
       structuralTypeMatch,
       plugin,
-      extractionMode: plugin.id === 'generic' || execution.draftPatch ? 'llm' : 'deterministic',
+      extractionMode: plugin.id === 'generic' || draftPatch ? 'llm' : 'deterministic',
     };
   }
 

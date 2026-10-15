@@ -166,8 +166,8 @@ export const handler: SkillHandler = {
   parseProvidedValues(values) {
     return toDoubleSpanPatch(normalizeLegacyDraftPatch(values));
   },
-  extractDraft({ llmDraftPatch }) {
-    return toDoubleSpanPatch(normalizeLlmDraftPatch(llmDraftPatch));
+  extractDraft({ llmDraftPatch, currentState }) {
+    return toDoubleSpanPatch(normalizeLlmDraftPatch(llmDraftPatch, currentState));
   },
   mergeState(existing, patch) {
     return mergeLegacyState(existing, toDoubleSpanPatch(patch), 'double-span-beam', 'double-span-beam');

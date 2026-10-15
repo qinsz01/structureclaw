@@ -1,29 +1,14 @@
 import type { DraftExtraction, DraftIssue, DraftState, EngineeringDraft } from './types.js';
 import { engineeringLoadClarifiesExisting } from './engineering-draft.js';
+import { resolveTemplateMaterials } from './template-properties.js';
 import { draftContract, legacyDraftContract, legacyDraftPaths, resolveFieldSchema, validDraftValue, type FieldSchema } from '../engineering/draft-contract.js';
 
-type Token = { key: string; index?: boolean; wildcard?: boolean };
+import { fieldTokens as tokens, type FieldToken as Token } from '../engineering/field-path.js';
 type Located = { path: string; value: unknown; schema: FieldSchema };
 const record = (value: unknown): value is Record<string, any> => !!value && typeof value === 'object' && !Array.isArray(value);
 const invalidFields = (state: DraftExtraction | DraftState | undefined): string[] =>
   Array.isArray(state?.skillState?.invalidDraftFields) ? state.skillState.invalidDraftFields.filter((v): v is string => typeof v === 'string') : [];
 
-function tokens(field: string): Token[] {
-  const result: Token[] = [];
-  const pattern = /(?:^|\.)([^.[\]]+)|\[("(?:[^"\\]|\\.)*"|'[^']*'|[^\]]*)\]/g;
-  let consumed = 0;
-  for (const match of field.matchAll(pattern)) {
-    if (match.index !== consumed) return [];
-    consumed += match[0].length;
-    const raw = match[1] ?? match[2]!, quoted = /^['"]/.test(raw);
-    let key = raw;
-    if (raw.startsWith('"')) { try { key = JSON.parse(raw); } catch { return []; } }
-    else if (quoted) key = raw.slice(1, -1);
-    if (['__proto__', 'prototype', 'constructor'].includes(key)) return [];
-    result.push({ key, index: match[2] !== undefined && !quoted && /^\d+$/.test(raw), wildcard: !quoted && (key === '' || key === '*') });
-  }
-  return consumed === field.length ? result : [];
-}
 function canonicalPath(field: string): string {
   const path = field.replace(/^engineeringDraft\./, '');
   const root = tokens(path)[0]?.key;
@@ -116,6 +101,15 @@ export function mergeDraftDiagnostics(existing: DraftState | undefined, patch: D
     if (!issue.field || issue.severity === 'conflict'
       || !issue.kind && issue.severity === 'ambiguous' && issue.value != null) return false;
     const field = issue.target ?? issue.field;
+    // A whole material-group absence can be satisfied by either supported input
+    // representation. Reuse the builder's projection, never guess numeric data.
+    // A specific record/field or a confirmation/conflict is not interchangeable.
+    if (issue.kind === 'missing' && ['material', 'materials'].includes(canonicalPath(field))
+      && !merged.engineeringDraft?.model) {
+      try {
+        if (validDraftValue(draftContract.properties.materials, resolveTemplateMaterials(merged))) return true;
+      } catch { /* An unknown grade remains missing; the builder reports its required properties. */ }
+    }
     const old = existing ? locate(existing, field) : [];
     const current = old.length ? old.flatMap(item => locate(merged, item.path)) : locate(merged, field);
     if (!current.length || current.some(item => !validDraftValue(item.schema, item.value))) return false;

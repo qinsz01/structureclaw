@@ -260,6 +260,8 @@ export interface DraftState {
 }
 
 export interface DraftExtraction {
+  /** Explicit removals from engineeringDraft; omitted fields are unchanged. Stable IDs select records. */
+  clearDraftFields?: string[];
   inferredType?: InferredModelType;
   skillId?: string;
   structuralTypeKey?: StructuralTypeKey;
@@ -461,14 +463,6 @@ export interface SkillHandler {
 export interface AgentSkillPlugin extends AgentSkillBundle {
   manifest: SkillManifest;
   handler: SkillHandler;
-}
-
-export interface AgentSkillExecutorInput {
-  message: string;
-  locale: AppLocale;
-  existingState?: DraftState;
-  selectedSkill: AgentSkillPlugin;
-  signal?: AbortSignal;
 }
 
 // ---------------------------------------------------------------------------

@@ -13,11 +13,11 @@ describe('draft material and section clarification patches', () => {
     expect(before.sectionRecords[0].properties.Iy).toBe(1e-4);
     expect(mergeEngineeringDraft(before, { materials: [], sectionRecords: [] })).toMatchObject({ materials: [], sectionRecords: [] });
   });
-  test('a new shape kind replaces old geometry and properties without changing the section identity', () => {
+  test('a changed kind alone does not silently erase supplied properties or geometry', () => {
     const before = { sectionRecords: [{ id: 'S', name: 'Section', purpose: 'beam', type: 'rectangular',
       shape: { kind: 'rectangular', B: 100, H: 200 }, width: 100, height: 200, properties: { A: 0.02, Iy: 1e-4 } }] };
     const after = mergeEngineeringDraft(before, { sectionRecords: [{ id: 'S', shape: { kind: 'circular', D: 120 } }] });
-    expect(after.sectionRecords[0]).toEqual({ id: 'S', name: 'Section', purpose: 'beam', type: 'circular', shape: { kind: 'circular', D: 120 } });
+    expect(after.sectionRecords[0]).toEqual({ ...before.sectionRecords[0], shape: { ...before.sectionRecords[0].shape, kind: 'circular', D: 120 } });
     expect(before.sectionRecords[0].shape.H).toBe(200);
   });
   test('an ambiguous ID is rejected instead of overwriting an arbitrary record', () => {

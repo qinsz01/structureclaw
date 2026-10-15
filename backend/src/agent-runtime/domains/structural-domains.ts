@@ -76,6 +76,7 @@ export function composeStructuralDomainPatch(options: {
   return {
     ...geometry,
     ...loadBoundary,
+    ...(options.patch.clearDraftFields !== undefined && { clearDraftFields: options.patch.clearDraftFields }),
     ...(options.patch.engineeringDraft !== undefined && { engineeringDraft: options.patch.engineeringDraft }),
     ...(options.patch.draftIssues !== undefined && { draftIssues: options.patch.draftIssues }),
     ...(options.patch.skillState !== undefined && { skillState: options.patch.skillState }),

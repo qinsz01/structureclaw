@@ -118,14 +118,23 @@ function normalizeTopologyMember(value: unknown): EngineeringDraftTopologyMember
   };
 }
 
-function normalizeEngineeringTopology(value: unknown): EngineeringDraftTopology | undefined {
+/** Validate partial records using their accepted fields, never guessed coordinates or load units. */
+function hydrateDraftRecord(value: unknown, existing: Array<Record<string, unknown>> | undefined): unknown {
+  const patch = asRecord(value);
+  if (!patch || typeof patch.id !== 'string') return value;
+  const matches = existing?.filter(record => record.id === patch.id) ?? [];
+  if (matches.length > 1) throw new Error(`AMBIGUOUS_DRAFT_RECORD_ID: ${patch.id} / 无法唯一定位草稿对象`);
+  return matches.length ? mergeDraftRecord(matches[0]!, patch) : value;
+}
+
+function normalizeEngineeringTopology(value: unknown, existing?: EngineeringDraftTopology): EngineeringDraftTopology | undefined {
   const raw = asRecord(value);
   if (!raw) return undefined;
   const nodes = Array.isArray(raw.nodes)
-    ? raw.nodes.map(normalizeTopologyNode).filter((node): node is EngineeringDraftTopologyNode => node !== undefined)
+    ? raw.nodes.map(item => normalizeTopologyNode(hydrateDraftRecord(item, existing?.nodes))).filter((node): node is EngineeringDraftTopologyNode => node !== undefined)
     : undefined;
   const members = Array.isArray(raw.members)
-    ? raw.members.map(normalizeTopologyMember).filter((member): member is EngineeringDraftTopologyMember => member !== undefined)
+    ? raw.members.map(item => normalizeTopologyMember(hydrateDraftRecord(item, existing?.members))).filter((member): member is EngineeringDraftTopologyMember => member !== undefined)
     : undefined;
   if ((Array.isArray(raw.nodes) && nodes?.length !== raw.nodes.length)
     || (Array.isArray(raw.members) && members?.length !== raw.members.length)) {
@@ -343,7 +352,7 @@ function normalizeMezzanineLength(rawGeometry: Record<string, unknown>): number 
   ]);
 }
 
-export function normalizeEngineeringDraft(value: unknown): EngineeringDraft | undefined {
+export function normalizeEngineeringDraft(value: unknown, existing?: EngineeringDraft): EngineeringDraft | undefined {
   const raw = asRecord(value);
   if (!raw) return undefined;
 
@@ -382,7 +391,7 @@ export function normalizeEngineeringDraft(value: unknown): EngineeringDraft | un
   } : undefined;
 
   const loads = Array.isArray(raw.loads)
-    ? raw.loads.map(normalizeEngineeringLoad).filter((load): load is EngineeringDraftLoad => load !== undefined)
+    ? raw.loads.map(item => normalizeEngineeringLoad(hydrateDraftRecord(item, existing?.loads?.map(load => ({ ...load }))))).filter((load): load is EngineeringDraftLoad => load !== undefined)
     : undefined;
   if (raw.loads !== undefined && (!Array.isArray(raw.loads) || raw.loads.length !== loads?.length)) {
     throw new Error('INVALID_ENGINEERING_LOAD: every load needs supported type, finite signed magnitude and explicit unit / 每条荷载需有效类型、带符号有限数值及单位');
@@ -412,7 +421,7 @@ export function normalizeEngineeringDraft(value: unknown): EngineeringDraft | un
     structureType: normalizeString(raw.structureType) as EngineeringDraft['structureType'],
     ...(raw.coordinateSystem !== undefined ? { coordinateSystem: structuredClone(asRecord(raw.coordinateSystem)!) } : {}),
     geometry,
-    topology: normalizeEngineeringTopology(raw.topology),
+    topology: normalizeEngineeringTopology(raw.topology, existing?.topology),
     materials: normalizeRecordArray(raw.materials, 'materials'),
     sectionRecords: normalizeRecordArray(raw.sectionRecords ?? (Array.isArray(raw.sections) ? raw.sections : undefined), 'sections'),
     templateAssignments: normalizeTemplateAssignments(raw.templateAssignments),
@@ -540,19 +549,23 @@ function mergeDraftRecord(existing: Record<string, unknown>, patch: Record<strin
   const merged = structuredClone(existing);
   for (const [key, value] of Object.entries(patch)) {
     if (value === undefined) continue;
+    if (['__proto__', 'constructor', 'prototype'].includes(key)) throw new Error('DRAFT_INVALID_FIELD / 草稿字段无效');
     const before = asRecord(merged[key]);
     const after = asRecord(value);
-    merged[key] = before && after ? mergeDraftRecord(before, after) : structuredClone(value);
+    const idRecords = Array.isArray(value) && value.length > 0
+      && value.every(item => asRecord(item) && typeof item.id === 'string');
+    merged[key] = idRecords ? mergeDraftPropertyRecords(Array.isArray(merged[key]) ? merged[key] as Array<Record<string, unknown>> : undefined, value as Array<Record<string, unknown>>)
+      : before && after ? mergeDraftRecord(before, after) : structuredClone(value);
   }
   return merged;
 }
 
 /** Clarification patches amend draft records by ID; an explicit [] still clears the collection. */
 function mergeDraftPropertyRecords(existing: Array<Record<string, unknown>> | undefined,
-  patch: Array<Record<string, unknown>> | undefined, sections = false): Array<Record<string, unknown>> | undefined {
+  patch: Array<Record<string, unknown>> | undefined): Array<Record<string, unknown>> | undefined {
   if (!patch) return existing;
-  if (!patch.length || !existing?.length) return structuredClone(patch);
-  const updated = structuredClone(existing);
+  if (!patch.length) return [];
+  const updated = structuredClone(existing ?? []);
   const seen = new Set<string>();
   for (const record of patch) {
     const id = typeof record.id === 'string' ? record.id : undefined;
@@ -562,18 +575,7 @@ function mergeDraftPropertyRecords(existing: Array<Record<string, unknown>> | un
     if (matches.length > 1) throw new Error(`AMBIGUOUS_DRAFT_RECORD_ID: ${id} / 无法唯一定位草稿属性记录`);
     const index = matches[0];
     if (index === undefined) { updated.push(structuredClone(record)); continue; }
-    const previous = updated[index]!;
-    const beforeShape = asRecord(previous.shape), afterShape = asRecord(record.shape);
-    if (sections && beforeShape?.kind && afterShape?.kind
-      && String(beforeShape.kind).trim().toLowerCase() !== String(afterShape.kind).trim().toLowerCase()) {
-      // A different physical shape replaces its geometry and derived properties;
-      // old rectangular dimensions must not survive a change to a circular section.
-      const metadata = { ...previous };
-      for (const key of ['shape', 'dimensions', 'properties', 'width', 'height', 'diameter', 'thickness', 'standard_steel_name', 'type']) delete metadata[key];
-      updated[index] = mergeDraftRecord(metadata, { type: afterShape.kind, ...record });
-    } else {
-      updated[index] = mergeDraftRecord(previous, record);
-    }
+    updated[index] = mergeDraftRecord(updated[index]!, record);
   }
   return updated;
 }
@@ -596,7 +598,7 @@ export function mergeEngineeringDraft(
   }
   const structureType = patch.structureType ?? existing.structureType;
   const geometry = { ...(existing.geometry ?? {}), ...(patch.geometry ?? {}) };
-  const analysis = { ...(existing.analysis ?? {}), ...(patch.analysis ?? {}) };
+  const analysis = mergeDraftRecord({ ...existing.analysis }, { ...patch.analysis }) as EngineeringDraft['analysis'];
   const wind = existing.wind || patch.wind
     ? { ...(existing.wind ?? {}), ...(patch.wind ?? {}) }
     : undefined;
@@ -609,9 +611,9 @@ export function mergeEngineeringDraft(
     structureType,
     ...(existing.coordinateSystem || patch.coordinateSystem ? { coordinateSystem: { ...existing.coordinateSystem, ...patch.coordinateSystem } } : {}),
     geometry,
-    topology: { ...(existing.topology ?? {}), ...(patch.topology ?? {}) },
+    topology: mergeDraftRecord({ ...existing.topology }, { ...patch.topology }) as EngineeringDraftTopology,
     materials: mergeDraftPropertyRecords(existing.materials, patch.materials),
-    sectionRecords: mergeDraftPropertyRecords(existing.sectionRecords, patch.sectionRecords, true),
+    sectionRecords: mergeDraftPropertyRecords(existing.sectionRecords, patch.sectionRecords),
     templateAssignments: Object.fromEntries([...new Set([...Object.keys(existing.templateAssignments ?? {}), ...Object.keys(patch.templateAssignments ?? {})])]
       .map(role => { const key = role as keyof NonNullable<EngineeringDraft['templateAssignments']>;
         return [role, mergeDraftRecord({ ...existing.templateAssignments?.[key] }, { ...patch.templateAssignments?.[key] })]; })),
@@ -746,6 +748,7 @@ function mergeEngineeringDraftLoads(
   patch: EngineeringDraftLoad[] | undefined,
   draft: Pick<EngineeringDraft, 'structureType' | 'geometry' | 'analysis'>,
 ): EngineeringDraftLoad[] | undefined {
+  if (patch?.length === 0) return [];
   if (!existing?.length && !patch?.length) return undefined;
   const merged = new Map<string, EngineeringDraftLoad>();
   for (const load of existing ?? []) {

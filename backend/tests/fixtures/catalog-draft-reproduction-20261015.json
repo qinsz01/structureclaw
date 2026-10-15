@@ -1,0 +1,146 @@
+{
+  "description": "Persisted failing engineering draft from the 2026-10-15 reported catalog/geometry clarification. No conversation history or credentials.",
+  "clarification": "按显式数值截面建模：H形总高400mm、翼缘宽200mm、腹板厚8mm、翼缘厚13mm，Q235钢，自重计入（不使用目录名）",
+  "draftState": {
+    "inferredType": "beam",
+    "engineeringDraft": {
+      "structureType": "beam",
+      "geometry": {
+        "lengthM": 10
+      },
+      "topology": {},
+      "sectionRecords": [
+        {
+          "id": "S1",
+          "name": "HN400X200X8X13",
+          "type": "H",
+          "purpose": "beam",
+          "shape": {
+            "kind": "H",
+            "H": 400,
+            "B": 200,
+            "tw": 8,
+            "tf": 13
+          },
+          "standard_steel_name": "HN400x200x8x13"
+        }
+      ],
+      "templateAssignments": {},
+      "material": {
+        "family": "steel",
+        "grade": "Q235"
+      },
+      "sections": {
+        "beam": "HN400X200X8X13"
+      },
+      "boundary": {
+        "supportType": "simply-supported"
+      },
+      "loads": [
+        {
+          "id": "L1",
+          "kind": "point",
+          "magnitude": 1,
+          "unit": "kN",
+          "direction": "gravity",
+          "target": "beam",
+          "location": {
+            "xM": 5,
+            "nodeRole": "midspan"
+          }
+        }
+      ],
+      "analysis": {},
+      "analysisControl": {
+        "self_weight": true
+      }
+    },
+    "lengthM": 10,
+    "supportType": "simply-supported",
+    "loadKN": 1,
+    "loadType": "point",
+    "loadPosition": "midspan",
+    "loadPositionM": 5,
+    "updatedAt": 1792075780560,
+    "skillState": {
+      "engineeringDraft": {
+        "structureType": "beam",
+        "geometry": {
+          "lengthM": 10
+        },
+        "topology": {},
+        "sectionRecords": [
+          {
+            "id": "S1",
+            "name": "HN400X200X8X13",
+            "type": "H",
+            "purpose": "beam",
+            "shape": {
+              "kind": "H",
+              "H": 400,
+              "B": 200,
+              "tw": 8,
+              "tf": 13
+            },
+            "standard_steel_name": "HN400x200x8x13"
+          }
+        ],
+        "templateAssignments": {},
+        "material": {
+          "family": "steel",
+          "grade": "Q235"
+        },
+        "sections": {
+          "beam": "HN400X200X8X13"
+        },
+        "boundary": {
+          "supportType": "simply-supported"
+        },
+        "loads": [
+          {
+            "id": "L1",
+            "kind": "point",
+            "magnitude": 1,
+            "unit": "kN",
+            "direction": "gravity",
+            "target": "beam",
+            "location": {
+              "xM": 5,
+              "nodeRole": "midspan"
+            }
+          }
+        ],
+        "analysis": {},
+        "analysisControl": {
+          "self_weight": true
+        }
+      },
+      "extractionSource": "engineering-draft",
+      "beamLoads": [
+        {
+          "kind": "point",
+          "magnitude": 1,
+          "unit": "kN",
+          "direction": "gravity",
+          "target": "beam",
+          "xM": 5
+        }
+      ]
+    },
+    "skillId": "beam",
+    "structuralTypeKey": "beam",
+    "coordinateSemantics": "global-z-up",
+    "supportLevel": "supported",
+    "routingSource": "current-state",
+    "requestScope": {
+      "responses": [
+        "forces",
+        "reactions"
+      ],
+      "method": "solver",
+      "design": true,
+      "report": false,
+      "outputs": []
+    }
+  }
+}

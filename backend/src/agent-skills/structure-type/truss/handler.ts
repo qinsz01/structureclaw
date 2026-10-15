@@ -286,8 +286,8 @@ export const handler: SkillHandler = {
   parseProvidedValues(values) {
     return toTrussPatch(normalizeLegacyDraftPatch(values));
   },
-  extractDraft({ llmDraftPatch }) {
-    return toTrussPatch(normalizeLlmDraftPatch(llmDraftPatch));
+  extractDraft({ llmDraftPatch, currentState }) {
+    return toTrussPatch(normalizeLlmDraftPatch(llmDraftPatch, currentState));
   },
   mergeState(existing, patch) {
     const trussPatch = toTrussPatch(patch);

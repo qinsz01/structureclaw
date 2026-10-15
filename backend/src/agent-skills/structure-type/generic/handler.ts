@@ -1,4 +1,5 @@
 import { mapMissingFieldLabels } from '../../../agent-runtime/draft-guidance.js';
+import { clearDraftFields, normalizeClearDraftFields } from '../../../agent-runtime/draft-update.js';
 import {
   buildInteractionQuestions,
   mergeDraftState,
@@ -103,9 +104,12 @@ function inferLoadTypeFromPatch(patch: Record<string, unknown>): DraftExtraction
 
 function normalizeGenericDraftPatch(
   llmDraftPatch: Record<string, unknown> | null | undefined,
+  existing?: DraftState,
 ): DraftExtraction {
   const source = llmDraftPatch ?? {};
-  const engineeringDraft = normalizeEngineeringDraft(source.engineeringDraft);
+  const cleared = source.clearDraftFields !== undefined ? normalizeClearDraftFields(source.clearDraftFields) : undefined;
+  const accepted = existing ? clearDraftFields(existing, cleared) : existing;
+  const engineeringDraft = normalizeEngineeringDraft(source.engineeringDraft, accepted?.engineeringDraft);
   const pointLoad = firstRecord(source.pointLoads ?? source.point_loads);
   const distributedLoad = firstRecord(source.distributedLoads ?? source.distributed_loads);
   const span = normalizeNumber(source.lengthM ?? source.spanLengthM ?? source.span ?? source.length);
@@ -136,6 +140,7 @@ function normalizeGenericDraftPatch(
     ?? normalizeLlmDeclaredType(source.type);
 
   const patch: DraftExtraction = {};
+  if (cleared !== undefined) patch.clearDraftFields = cleared;
   if (inferredType) patch.inferredType = inferredType;
   if (engineeringDraft) patch.engineeringDraft = engineeringDraft;
   const draftIssues = draftIssuesFromSource(source);
@@ -252,8 +257,8 @@ export const handler: SkillHandler = {
     return patch;
   },
 
-  extractDraft({ llmDraftPatch }) {
-    return normalizeGenericDraftPatch(llmDraftPatch);
+  extractDraft({ llmDraftPatch, currentState }) {
+    return normalizeGenericDraftPatch(llmDraftPatch, currentState);
   },
 
   mergeState(existing, patch) {

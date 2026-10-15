@@ -83,3 +83,20 @@ test.each(['HW300×300', 'HN400×200', 'HW300×300×10×200'])('incomplete or im
   const state = handler.mergeState(undefined, handler.extractDraft({ locale: 'zh', llmDraftPatch: { engineeringDraft: { ...source, sectionRecords: [], sections: { beam: name } } } }));
   expect(() => handler.buildModel(state)).toThrow();
 });
+
+test('public extraction clears a withdrawn selector in the persisted failed draft and returns the applied update', async () => {
+  const saved = handler.mergeState(undefined, handler.extractDraft({ locale: 'zh', llmDraftPatch: { engineeringDraft: {
+    ...source, analysisControl: { self_weight: true }, sectionRecords: [{ ...source.sectionRecords[0], standard_steel_name: 'HW300x300x10x15' }],
+  } } }));
+  extract.mockResolvedValue({ clearDraftFields: ['sectionRecords["SEC-BEAM-1"].standard_steel_name'],
+    engineeringDraft: { sectionRecords: [{ id: 'SEC-BEAM-1', shape: { ...source.sectionRecords[0].shape } }] } });
+  const result = await invoke({ structuralTypeKey: 'beam', draftState: saved });
+  const feedback = JSON.parse(result.update.messages[0].content);
+  expect(feedback.appliedDraftUpdate.clearedFields).toEqual(['sectionRecords["SEC-BEAM-1"].standard_steel_name']);
+  expect(feedback.canProceed).toBe(true);
+  expect(result.update.draftState.engineeringDraft.sectionRecords[0]).not.toHaveProperty('standard_steel_name');
+  const model = await normalizeEngineeringModel(handler.buildModel(result.update.draftState), client);
+  expect(model.sections[0].shape.kind).toBe('H');
+  expect(model.analysis_control.self_weight).toBe(true);
+  expect(saved.engineeringDraft.sectionRecords[0].standard_steel_name).toBe('HW300x300x10x15');
+});

@@ -90,7 +90,7 @@ export function buildConcreteFramePatchFromLlm(
   rawPatch: Record<string, unknown> | null | undefined,
   existingState: DraftState | undefined,
 ): DraftExtraction {
-  const normalized = toConcreteFramePatch(normalizeLegacyDraftPatch(rawPatch));
+  const normalized = toConcreteFramePatch(normalizeLegacyDraftPatch(rawPatch, existingState));
   const storyCount = normalized.storyCount ?? existingState?.storyCount ?? existingState?.storyHeightsM?.length;
   const bayCount = normalized.bayCount ?? existingState?.bayCount;
   const bayCountX = normalized.bayCountX ?? existingState?.bayCountX;

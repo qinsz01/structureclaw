@@ -1,4 +1,5 @@
 import { catalogResolvesMissingSectionIssue } from './section-catalog.js';
+import { clearDraftFields, normalizeClearDraftFields } from './draft-update.js';
 import { currentDraftDiagnostics } from './draft-diagnostics.js';
 import {
   mergeDraftState,
@@ -169,27 +170,31 @@ function withInvalidDraftFields(
   };
 }
 
-function normalizeDraftWithReportedLoadIssue(value: unknown, issues: DraftIssue[] | undefined) {
-  try { return normalizeSemanticEngineeringDraft(value); }
+function normalizeDraftWithReportedLoadIssue(value: unknown, issues: DraftIssue[] | undefined, existing?: DraftState) {
+  try { return normalizeSemanticEngineeringDraft(value, existing?.engineeringDraft); }
   catch (error) {
     // A reported ambiguity is a clarification state, never a partially executable load.
     const reported = issues?.some((issue) => issue.field === 'loadType' || issue.field === 'loadKN');
     if (!reported || !/INVALID_ENGINEERING_LOAD|LOAD_UNIT_REQUIRED|LOAD_DIRECTION_INVALID/.test(String(error))
       || !value || typeof value !== 'object' || Array.isArray(value)) throw error;
-    return normalizeSemanticEngineeringDraft({ ...value, loads: undefined });
+    return normalizeSemanticEngineeringDraft({ ...value, loads: undefined }, existing?.engineeringDraft);
   }
 }
 
-export function normalizeLegacyDraftPatch(patch: Record<string, unknown> | null | undefined): DraftExtraction {
+export function normalizeLegacyDraftPatch(patch: Record<string, unknown> | null | undefined, existing?: DraftState): DraftExtraction {
   if (!patch) {
     return {};
   }
   const draftIssues = normalizeDraftIssues(patch.draftIssues);
+  const cleared = patch.clearDraftFields !== undefined ? normalizeClearDraftFields(patch.clearDraftFields) : undefined;
+  const accepted = existing ? clearDraftFields(existing, cleared) : existing;
+  const engineeringDraft = normalizeDraftWithReportedLoadIssue(patch.engineeringDraft, draftIssues, accepted);
   const issueFields = draftIssues
     ?.map((issue) => issue.field)
     .filter((field): field is string => typeof field === 'string' && field.trim().length > 0);
   const invalidDraftFields = Array.from(new Set([
-    ...(collectInvalidDraftFields(patch) ?? []),
+    ...(collectInvalidDraftFields(engineeringDraft?.loads && patch.engineeringDraft && typeof patch.engineeringDraft === 'object'
+      ? { ...patch, engineeringDraft: { ...patch.engineeringDraft, loads: engineeringDraft.loads } } : patch) ?? []),
     ...(issueFields ?? []),
   ]));
   const skillState = withInvalidDraftFields(
@@ -198,8 +203,9 @@ export function normalizeLegacyDraftPatch(patch: Record<string, unknown> | null 
   );
   return {
     inferredType: normalizeInferredType(patch.inferredType),
+    ...(cleared !== undefined ? { clearDraftFields: cleared } : {}),
     skillId: typeof patch.skillId === 'string' ? patch.skillId : undefined,
-    engineeringDraft: normalizeDraftWithReportedLoadIssue(patch.engineeringDraft, draftIssues),
+    engineeringDraft,
     draftIssues,
     skillState,
     lengthM: normalizeNumber(patch.lengthM),
@@ -315,8 +321,9 @@ export function mergeDraftPatchWithSupplemental(
 
 export function normalizeLlmDraftPatch(
   llmDraftPatch: Record<string, unknown> | null | undefined,
+  existing?: DraftState,
 ): DraftExtraction {
-  return normalizeLegacyDraftPatch(llmDraftPatch);
+  return normalizeLegacyDraftPatch(llmDraftPatch, existing);
 }
 
 export function restrictLegacyDraftPatch(
@@ -325,6 +332,7 @@ export function restrictLegacyDraftPatch(
   allowedKeys: string[],
 ): DraftExtraction {
   const nextPatch: DraftExtraction = { inferredType };
+  if (patch.clearDraftFields !== undefined) nextPatch.clearDraftFields = patch.clearDraftFields;
   if (patch.engineeringDraft !== undefined) {
     nextPatch.engineeringDraft = patch.engineeringDraft;
   }

@@ -354,8 +354,8 @@ export const handler: SkillHandler = {
     const patch = normalizeLegacyDraftPatch(values);
     return toBeamPatch(patch);
   },
-  extractDraft({ locale, llmDraftPatch }) {
-    const patch = toBeamPatch(normalizeLlmDraftPatch(llmDraftPatch));
+  extractDraft({ locale, llmDraftPatch, currentState }) {
+    const patch = toBeamPatch(normalizeLlmDraftPatch(llmDraftPatch, currentState));
     return withBeamLoadConflict(patch, locale);
   },
   mergeState(existing, patch) {
