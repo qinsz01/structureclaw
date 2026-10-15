@@ -119,9 +119,14 @@ describe('real OpenSees static envelope includes recovered interior responses', 
 
   test('cantilever direct end and actual node peaks remain represented', async () => {
     const span = 3, P = 2;
-    const { run, raw } = await solve(beam({ dimension: '3d', span, cantilever: true,
+    const { run, raw, summary } = await solve(beam({ dimension: '3d', span, cantilever: true,
       loads: [{ id: 'P', type: 'nodal', node: 'B', fz: -P }] }));
     near(run.data.envelope.maxAbsMoment, P * span);
+    near(raw[0].data.envelope.maxAbsReaction, P);
+    near(run.data.envelope.maxAbsReaction, P);
+    near(summary.keyMetrics.maxAbsReaction, P);
+    near(run.data.envelope.maxAbsReactionMoment, P * span);
+    near(summary.keyMetrics.maxAbsReactionMoment, P * span);
     near(run.data.envelope.maxAbsDisplacement, P * span ** 3 / (3 * E * Iy));
     expect(run.data.envelope.maxAbsMoment).toBeGreaterThanOrEqual(raw[0].data.envelope.maxAbsMoment);
     expect(run.data.envelope.maxAbsDisplacement).toBeGreaterThanOrEqual(raw[0].data.envelope.maxAbsDisplacement);
@@ -147,4 +152,24 @@ test('sampled envelope preserves legacy direct peaks, excludes display interpola
   expect(result.envelope.maxAbsDisplacement).toBe(.003);
   expect(result.envelope.controlLocations.displacement).toMatchObject({ kind: 'node', nodeId: 'B', provenance: 'solver-direct' });
   expect({ data, members }).toEqual(before);
+});
+
+test('signed raw reactions correct a legacy mixed-unit maximum without mixing force and moment locations', () => {
+  const data = { envelope: { maxAbsReaction: 600, controlNodeReaction: 'A' },
+    reactions: { A: { fx: 0, fy: 0, fz: 2, mx: 0, my: -600, mz: 0 },
+      B: { fx: -3, fy: 0, fz: 0, mx: 0, my: 4, mz: 0 } } };
+  const before = structuredClone(data);
+  const result = withRecoveredStaticEnvelope(beam(), data, [], { kind: 'case', id: 'D' });
+  expect(result.envelope.maxAbsReaction).toBe(3);
+  expect(result.envelope.maxAbsReactionMoment).toBe(600);
+  expect(result.envelope.controlLocations.reaction).toMatchObject({ nodeId: 'B', component: 'fx', unit: 'kN' });
+  expect(result.envelope.controlLocations.reactionMoment).toMatchObject({ nodeId: 'A', component: 'my', unit: 'kN·m' });
+  expect(data).toEqual(before);
+});
+
+test('missing reaction moments remain missing rather than being filled with zero', () => {
+  const result = withRecoveredStaticEnvelope(beam(), { reactions: { A: { fz: 2, my: null } } }, [], { kind: 'case', id: 'D' });
+  expect(result.envelope.maxAbsReaction).toBe(2);
+  expect(result.envelope.maxAbsReactionMoment).toBeUndefined();
+  expect(result.envelope.controlLocations.reactionMoment).toBeUndefined();
 });

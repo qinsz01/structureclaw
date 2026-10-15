@@ -4,12 +4,13 @@ import { isRecord, type ModelRecord } from './model-state.js';
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 const metrics = {
   displacement: 'maxAbsDisplacement', axialForce: 'maxAbsAxialForce', shearForce: 'maxAbsShearForce',
-  moment: 'maxAbsMoment', reaction: 'maxAbsReaction',
+  moment: 'maxAbsMoment', reaction: 'maxAbsReaction', reactionMoment: 'maxAbsReactionMoment',
 } as const;
 type Quantity = keyof typeof metrics;
 const controlFields = {
   displacement: 'controlNodeDisplacement', axialForce: 'controlElementAxialForce',
   shearForce: 'controlElementShearForce', moment: 'controlElementMoment', reaction: 'controlNodeReaction',
+  reactionMoment: 'controlNodeReactionMoment',
 } as const;
 
 /** Preserve direct solver extrema and include verified member samples, never display interpolation.
@@ -27,9 +28,10 @@ export function withRecoveredStaticEnvelope(
   // representation. Such a location deliberately carries no invented station.
   for (const quantity of Object.keys(metrics) as Quantity[]) {
     const previous = envelope[metrics[quantity]], control = envelope[controlFields[quantity]];
+    if (quantity === 'reactionMoment' && !finite(previous)) continue;
     envelope[metrics[quantity]] = finite(previous) && previous >= 0 ? previous : 0;
     if (finite(previous) && previous >= 0) {
-      const isNode = quantity === 'displacement' || quantity === 'reaction';
+      const isNode = quantity === 'displacement' || quantity === 'reaction' || quantity === 'reactionMoment';
       locations[quantity] = { kind: typeof control === 'string' && control ? isNode ? 'node' : 'member' : 'envelope',
         ...(typeof control === 'string' && control ? { [isNode ? 'nodeId' : 'elementId']: control } : {}),
         provenance: 'solver-direct-envelope', resultKey };
@@ -42,7 +44,7 @@ export function withRecoveredStaticEnvelope(
     if (finite(previous) && (magnitude < previous || magnitude === previous && locationKnown)) return;
     envelope[metric] = magnitude;
     locations[quantity] = { ...location, resultKey };
-    envelope[controlFields[quantity]] = quantity === 'displacement' || quantity === 'reaction'
+    envelope[controlFields[quantity]] = quantity === 'displacement' || quantity === 'reaction' || quantity === 'reactionMoment'
       ? location.nodeId ?? '' : location.elementId ?? '';
     if (quantity === 'displacement') envelope.controlElementDisplacement = location.elementId ?? '';
   };
@@ -70,10 +72,21 @@ export function withRecoveredStaticEnvelope(
       update('moment', endMagnitude(end, ['M2', 'M3'], 'M'), location);
     }
   }
-  for (const [nodeId, raw] of Object.entries(isRecord(data.reactions) ? data.reactions : {})) {
-    if (!isRecord(raw)) continue;
-    for (const [component, value] of Object.entries(raw)) if (finite(value)) {
-      update('reaction', Math.abs(value), { kind: 'node', nodeId, component, provenance: 'solver-direct' });
+  const reactions = Object.entries(isRecord(data.reactions) ? data.reactions : {});
+  for (const [quantity, components, unit] of [
+    ['reaction', ['fx', 'fy', 'fz'], 'kN'], ['reactionMoment', ['mx', 'my', 'mz'], 'kN·m'],
+  ] as const) {
+    // A legacy scalar may mix force and moment units; signed raw components are authoritative.
+    if (reactions.some(([, raw]) => isRecord(raw) && components.some(component => finite(raw[component])))) {
+      envelope[metrics[quantity]] = 0;
+      delete locations[quantity];
+      delete envelope[controlFields[quantity]];
+    }
+    for (const [nodeId, raw] of reactions) {
+      if (!isRecord(raw)) continue;
+      for (const component of components) if (finite(raw[component])) {
+        update(quantity, Math.abs(raw[component]), { kind: 'node', nodeId, component, unit, provenance: 'solver-direct' });
+      }
     }
   }
   for (const member of members) {

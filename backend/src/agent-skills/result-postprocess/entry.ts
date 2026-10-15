@@ -21,6 +21,7 @@ export function extractKeyMetrics(analysis: unknown, codeCheck: unknown): Record
     maxAbsShearForce: envelopeObject['maxAbsShearForce'] ?? null,
     maxAbsMoment: envelopeObject['maxAbsMoment'] ?? null,
     maxAbsReaction: envelopeObject['maxAbsReaction'] ?? null,
+    maxAbsReactionMoment: envelopeObject['maxAbsReactionMoment'] ?? null,
     maxBaseShear: envelopeObject['maxBaseShear'] ?? null,
     maxStoryDriftRatio: envelopeObject['maxStoryDriftRatio'] ?? null,
     modalMassParticipationRatio: envelopeObject['modalMassParticipationRatio'] ?? null,

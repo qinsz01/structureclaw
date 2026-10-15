@@ -2140,6 +2140,7 @@ function buildSuccessfulAnalysisDetails(
     maxAbsShearForce: pickNumberLike(envelope, 'maxAbsShearForce'),
     maxAbsMoment: pickNumberLike(envelope, 'maxAbsMoment'),
     maxAbsReaction: pickNumberLike(envelope, 'maxAbsReaction'),
+    maxAbsReactionMoment: pickNumberLike(envelope, 'maxAbsReactionMoment'),
     maxBaseShear: pickNumberLike(envelope, 'maxBaseShear'),
     maxStoryDriftRatio: pickNumberLike(envelope, 'maxStoryDriftRatio'),
     modalMassParticipationRatio: pickNumberLike(envelope, 'modalMassParticipationRatio'),
@@ -2153,6 +2154,7 @@ function buildSuccessfulAnalysisDetails(
     controlElementShearForce: pickStringLike(envelope, 'controlElementShearForce'),
     controlElementMoment: pickStringLike(envelope, 'controlElementMoment'),
     controlNodeReaction: pickStringLike(envelope, 'controlNodeReaction'),
+    controlNodeReactionMoment: pickStringLike(envelope, 'controlNodeReactionMoment'),
   }) : undefined;
   const responseEntityLimit = 60;
   const compactResponseEntities = (

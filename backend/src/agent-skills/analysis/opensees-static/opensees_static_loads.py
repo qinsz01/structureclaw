@@ -60,6 +60,7 @@ class StaticLoadContext:
                 'shearForce': '',
                 'moment': '',
                 'reaction': '',
+                'reactionMoment': '',
             },
         }
         node_displacement_envelope: Dict[str, Dict[str, Any]] = {}
@@ -90,10 +91,13 @@ class StaticLoadContext:
                 ('maxAbsShearForce', 'shearForce'),
                 ('maxAbsMoment', 'moment'),
                 ('maxAbsReaction', 'reaction'),
+                ('maxAbsReactionMoment', 'reactionMoment'),
             ]
             for metric, control_name in mapping:
-                value = float(env.get(metric, 0.0))
-                if value > float(summary_envelope[metric]):
+                if metric not in env:
+                    continue
+                value = float(env[metric])
+                if metric not in summary_envelope or value > float(summary_envelope[metric]):
                     summary_envelope[metric] = value
                     summary_envelope['controlCase'][control_name] = case_id
 
@@ -177,20 +181,25 @@ class StaticLoadContext:
 
         reactions = case_result.get('reactions', {})
         for node_id, reaction in reactions.items():
-            max_reaction = 0.0
-            for v in self._iter_numeric_values(reaction):
-                max_reaction = max(max_reaction, abs(float(v)))
-
             item = node_reaction_envelope.setdefault(
                 str(node_id),
                 {
                     'maxAbsReaction': 0.0,
                     'controlCase': '',
+                    'controlCaseReactionMoment': '',
                 },
             )
-            if max_reaction > float(item['maxAbsReaction']):
-                item['maxAbsReaction'] = max_reaction
-                item['controlCase'] = case_id
+            for metric, control, components in (
+                ('maxAbsReaction', 'controlCase', ('fx', 'fy', 'fz')),
+                ('maxAbsReactionMoment', 'controlCaseReactionMoment', ('mx', 'my', 'mz')),
+            ):
+                values = self._reaction_magnitudes(reaction, components)
+                if not values:
+                    continue
+                peak = max(values)
+                if metric not in item or peak > float(item[metric]):
+                    item[metric] = peak
+                    item[control] = case_id
 
 
     def _collect_nodal_loads(self, parameters: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -1459,28 +1468,37 @@ class StaticLoadContext:
                         max_abs_axial = axial
                         control_element_axial = str(elem_id)
 
-        max_abs_reaction = 0.0
-        control_node_reaction = ''
-        for node_id, reaction in reactions.items():
-            for v in self._iter_numeric_values(reaction):
-                abs_v = abs(float(v))
-                if abs_v > max_abs_reaction:
-                    max_abs_reaction = abs_v
-                    control_node_reaction = str(node_id)
+        reaction_envelope = {}
+        for metric, control, components in (
+            ('maxAbsReaction', 'controlNodeReaction', ('fx', 'fy', 'fz')),
+            ('maxAbsReactionMoment', 'controlNodeReactionMoment', ('mx', 'my', 'mz')),
+        ):
+            peak, control_node = None, ''
+            for node_id, reaction in reactions.items():
+                for value in self._reaction_magnitudes(reaction, components):
+                    if peak is None or value > peak:
+                        peak, control_node = value, str(node_id)
+            if peak is not None:
+                reaction_envelope.update({metric: peak, control: control_node})
 
         return {
             'maxAbsDisplacement': max_abs_disp,
             'maxAbsAxialForce': max_abs_axial,
             'maxAbsShearForce': max_abs_shear,
             'maxAbsMoment': max_abs_moment,
-            'maxAbsReaction': max_abs_reaction,
+            **reaction_envelope,
             'controlNodeDisplacement': control_node_disp,
             'controlElementAxialForce': control_element_axial,
             'controlElementShearForce': control_element_shear,
             'controlElementMoment': control_element_moment,
-            'controlNodeReaction': control_node_reaction,
         }
 
+    @staticmethod
+    def _reaction_magnitudes(reaction, components):
+        if not isinstance(reaction, dict):
+            return []
+        return [abs(float(value)) for key in components
+                if isinstance(value := reaction.get(key), (int, float)) and math.isfinite(value)]
 
     def _iter_numeric_values(self, obj: Any):
         if isinstance(obj, dict):
