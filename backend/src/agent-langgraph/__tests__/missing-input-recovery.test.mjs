@@ -1,6 +1,70 @@
 import { describe, expect, test, jest } from '@jest/globals';
 const extract = jest.fn();
 jest.unstable_mockModule('../../../dist/agent-langgraph/param-extractor.js', () => ({ invokeParamExtractor: extract }));
+
+test('design extraction uses the formal schema and rejects bad generated fields before changing the draft', async () => {
+  const { handler } = await import('../../../dist/agent-skills/structure-type/beam/handler.js');
+  const { createExtractDraftParamsTool } = await import('../../../dist/agent-langgraph/tools.js');
+  const { createLocalStructureProtocolClient } = await import('../../../dist/services/structure-protocol-execution.js');
+  const { engineeringModelSchema, draftDesignSchema } = await import('../../../dist/engineering/model-edit-contract.js');
+  const client = createLocalStructureProtocolClient();
+  const contract = draftDesignSchema(await engineeringModelSchema(client));
+  expect(contract.$defs.MemberDesign.additionalProperties).toBe(false);
+  expect(contract.$defs.MemberDesign.properties.basis.additionalProperties.type).toBe('string');
+  const plugin = { id: 'beam', structureType: 'beam', manifest: { structuralTypeKeys: ['beam'] }, handler };
+  const tool = createExtractDraftParamsTool({ resolvePluginForType: async () => plugin });
+  const state = { structuralTypeKey: 'beam', draftState: handler.mergeState(undefined, handler.extractDraft({ locale: 'en',
+    llmDraftPatch: { engineeringDraft: { structureType: 'beam', geometry: { lengthM: 10 } } } })) };
+  const before = structuredClone(state);
+  const requestScope = { responses: ['forces'], method: 'solver', design: true, report: false, outputs: [] };
+  const invoke = () => tool.invoke({ message: 'Use the supplied design conditions', requestScope },
+    { toolCall: { id: 'design-extract' }, configurable: { structureProtocolClient: client, agentState: state } });
+  for (const design of [
+    { basis: { noNewLoadCombinations: true } }, { basis: { capacityCheck: { caseId: 'LC1' } } },
+    { stressCheckType: 'elastic' }, { sectionPlasticDevelopment: false },
+  ]) {
+    extract.mockResolvedValue({ engineeringDraft: { templateAssignments: { beam: { design } } } });
+    await expect(invoke()).rejects.toThrow('MODEL_EDIT_FIELD_INVALID');
+    expect(state).toEqual(before);
+    expect(extract.mock.lastCall[0].designSchema).toEqual(contract);
+  }
+  extract.mockResolvedValue({ engineeringDraft: { materials: [{ id: 'M', design: { f: 215, fv: 125, basis: { source: 'Supplied' } } }],
+    templateAssignments: { beam: { design: { l0: 4800, serviceability_result_keys: ['case:LC1'],
+      basis: { capacityCheck: 'Use case:LC1 only', assumptions: 'Elastic stress; no plastic development' } } } } } });
+  const result = await invoke();
+  expect(result.update.draftState.engineeringDraft.templateAssignments.beam.design).toMatchObject({ l0: 4800,
+    serviceability_result_keys: ['case:LC1'], basis: { assumptions: 'Elastic stress; no plastic development' } });
+  expect(result.update.draftState.engineeringDraft.materials[0].design.f).toBe(215);
+  expect(state).toEqual(before);
+
+  // Malformed extraction is a failure, not a successful merge that resets the
+  // correction path. Repeated bad drafts consume the shared limit and stop.
+  const { AIMessage } = await import('@langchain/core/messages');
+  const { executeToolsSequentially } = await import('../../../dist/agent-langgraph/sequential-tools.js');
+  const { createRunContext, withRunContext } = await import('../../../dist/runtime/run-context.js');
+  const { resolveRunPolicy } = await import('../../../dist/runtime/run-policy.js');
+  const context = createRunContext(resolveRunPolicy({ availableSkillIds: ['beam'], availableToolIds: ['extract_draft_params'],
+    defaultToolIds: ['extract_draft_params'], requested: { repair: { enabled: true, maxRecoveriesPerTurn: 2 } } }));
+  extract.mockClear();
+  extract.mockResolvedValue({ engineeringDraft: { templateAssignments: { beam: { design: { basis: { bad: true } } } } } });
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const command = await withRunContext(context, () => executeToolsSequentially([tool], { ...state, messages: [new AIMessage({ content: '',
+      tool_calls: [{ id: `attempt-${attempt}`, name: 'extract_draft_params', args: { message: 'Use supplied conditions', requestScope } }] })] },
+      { configurable: { structureProtocolClient: client } }));
+    expect(command.update.messages[0].status).toBe('error');
+    expect(command.update.messages[0].content).toContain(attempt === 3 ? 'RECOVERY_BUDGET_EXHAUSTED' : 'MODEL_EDIT_FIELD_INVALID');
+    expect(command.update.draftState).toBeUndefined();
+  }
+  expect(context.usage.recoveries).toBe(2);
+  expect(extract).toHaveBeenCalledTimes(3);
+
+  const unavailable = { get: jest.fn(() => { throw Error('Python must not be called for force-only input'); }) };
+  extract.mockResolvedValue({ engineeringDraft: { geometry: { lengthM: 10 } } });
+  await tool.invoke({ message: 'Only calculate forces', requestScope: { ...requestScope, design: false, method: 'equilibrium' } },
+    { toolCall: { id: 'force-only' }, configurable: { structureProtocolClient: unavailable, agentState: state } });
+  expect(unavailable.get).not.toHaveBeenCalled();
+  expect(extract.mock.lastCall[0].designSchema).toBeUndefined();
+});
 describe('missing engineering input is clarification, not recovery', () => {
   test('accepted new parameters archive the old run through the direct tool entry', async () => {
     const { handler } = await import('../../../dist/agent-skills/structure-type/beam/handler.js');

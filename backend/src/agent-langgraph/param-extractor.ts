@@ -468,6 +468,8 @@ export interface ParamExtractorInput {
   locale: 'zh' | 'en';
   plugin: AgentSkillPlugin;
   focusFields?: string[];
+  /** Read-only projection of the actual V2 design schema, supplied by the tool. */
+  designSchema?: Record<string, unknown>;
   /** Per-request logger with traceId/conversationId. Falls back to root logger. */
   traceLogger?: Logger;
   /** Require structured LLM output rather than handler-only extraction. */
@@ -512,7 +514,9 @@ export async function invokeParamExtractor(
     input.plugin,
     input.message,
     input.focusFields,
-  ) + '\nRequest goal / 本次所求结果: include top-level requestScope only when this message changes the goal: {responses:[forces|reactions|displacements|rotations|stress|dynamic],method:solver|equilibrium,design:boolean,report:boolean,outputs:[]}. Do not infer design or report from enabled skills. Equilibrium is only for force-only horizontal single-span simply-supported/left-fixed cantilever without a requested engine. Missing material must not prevent this scope. Retain the prior goal for a clarification answer. / 不因勾选技能而请求设计或报告；补参数时保留目标。仅求静定单跨梁内力且没有指定引擎可用equilibrium。';
+  ) + '\nDesign field contract / 设计字段协议: design.basis is a map of nonempty strings, never booleans, numbers, arrays or nested objects. Descriptive assumptions belong in basis as evidence, not invented executable design fields. Preserve unsupported computational requests in metadata.unmappedDesignParameters and report them as unresolved; do not claim basis implements them. / design.basis的每个值必须是非空字符串；描述性假定作为依据保存，不要编造可执行设计字段。未知计算条件保留为metadata.unmappedDesignParameters待解决，不得声称写入basis就已实现。'
+    + (input.designSchema ? `\nAuthoritative V2 design schema / 正式V2设计字段定义（只能使用所列字段）:\n${JSON.stringify(input.designSchema)}` : '')
+    + '\nRequest goal / 本次所求结果: include top-level requestScope only when this message changes the goal: {responses:[forces|reactions|displacements|rotations|stress|dynamic],method:solver|equilibrium,design:boolean,report:boolean,outputs:[]}. Do not infer design or report from enabled skills. Equilibrium is only for force-only horizontal single-span simply-supported/left-fixed cantilever without a requested engine. Missing material must not prevent this scope. Retain the prior goal for a clarification answer. / 不因勾选技能而请求设计或报告；补参数时保留目标。仅求静定单跨梁内力且没有指定引擎可用equilibrium。';
 
   let result: {
     content: unknown;

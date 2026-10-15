@@ -16,6 +16,21 @@ const beamPlugin = {
 };
 
 describe("param extractor", () => {
+  test.each(['zh', 'en'])('passes the authoritative design field definitions to the extraction model (%s)', async locale => {
+    const { invokeParamExtractor } = await import('../../../dist/agent-langgraph/param-extractor.js');
+    const { createLocalStructureProtocolClient } = await import('../../../dist/services/structure-protocol-execution.js');
+    const { engineeringModelSchema, draftDesignSchema } = await import('../../../dist/engineering/model-edit-contract.js');
+    const designSchema = draftDesignSchema(await engineeringModelSchema(createLocalStructureProtocolClient()));
+    for (const focusFields of [[], ['materials.M.rho']]) {
+      let sent;
+      await invokeParamExtractor({ message: 'Use supplied design conditions', locale, plugin: beamPlugin, designSchema,
+        focusFields, llm: { invoke: async prompt => { sent = prompt; return { content: '{"engineeringDraft":{"geometry":{"lengthM":10}}}' }; } } });
+      expect(sent).toContain(JSON.stringify(designSchema));
+      expect(sent).toContain('design.basis is a map of nonempty strings');
+      expect(sent).toContain('metadata.unmappedDesignParameters');
+      expect(designSchema.$defs.MemberDesign.properties.stressCheckType).toBeUndefined();
+    }
+  });
   test('a load-direction answer clears its old diagnostic without erasing unrelated issues', async () => {
     const { handler } = await import('../../../dist/agent-skills/structure-type/beam/handler.js');
     const initial = handler.mergeState(undefined, handler.extractDraft({ locale: 'zh', llmDraftPatch: {

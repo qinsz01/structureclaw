@@ -45,6 +45,8 @@ import { createEngineeringReport, attachNativeReport } from '../services/enginee
 import { beginAnalysisRequest, beginNativeDesignRequest, commitModel, currentAnalysisError, invalidateAnalysis, modelHash, publishAnalysis, publishNativeDesign } from '../engineering/model-state.js';
 import { analysisSettingsHash } from '../engineering/analysis-runs.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
+import { engineeringModelSchema, draftDesignSchema, hasDraftDesignInputs, assertDraftDesignInputs } from '../engineering/model-edit-contract.js';
+import { createLocalStructureProtocolClient } from '../services/structure-protocol-execution.js';
 import { checkRunResults, codeCheckFeedback, validateServiceabilitySelection } from '../engineering/code-checks.js';
 import { assertAnalysisInputEvidenceMatchesRequest, assertInputEvidenceMatchesModel, mergeInputEvidence } from '../engineering/input-evidence.js';
 import { currentRunContext, currentRunPolicy, recordRunEvent, reserveToolCall, recordToolOutcome } from '../runtime/run-context.js';
@@ -2577,6 +2579,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
 
       const requestedScope = input.requestScope ?? state?.requestScope;
       const existingState = state?.draftState ? { ...state.draftState, ...(requestedScope ? { requestScope: requestedScope } : {}) } : undefined;
+      const hasExistingDesign = hasDraftDesignInputs(existingState?.engineeringDraft);
       const skillIds = configurable.skillScope;
       const locale = (input.locale ?? state?.locale ?? 'zh') as 'zh' | 'en';
       const message = resolveExtractionInputMessage(input.message, state?.lastUserMessage, state?.messages);
@@ -2738,6 +2741,11 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
 
         // Step 3: Sub-agent extracts parameters (skill manifest driven)
         const { invokeParamExtractor } = await import('./param-extractor.js');
+        // A force-only extraction does not need the Python model service. Design
+        // extraction and any generated design fields use its authoritative schema.
+        const protocolClient = configurable.structureProtocolClient ?? createLocalStructureProtocolClient();
+        let designContract = requestedScope?.design || hasExistingDesign
+          ? await engineeringModelSchema(protocolClient) : undefined;
         const draftPatch = await invokeParamExtractor({
           message: extractionMessage,
           existingState,
@@ -2746,6 +2754,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
           traceLogger: log,
           signal: config.signal,
           onUsage: nestedUsage.onUsage,
+          designSchema: designContract ? draftDesignSchema(designContract) : undefined,
         });
 
         // Step 4: Handler pipeline (extractDraft → mergeState → computeMissing)
@@ -2763,6 +2772,10 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
           resolvedBy: input.requestScope ? 'declared-request' : state?.requestScope ? 'accepted-request' : 'clarification' });
         const nextState = { ...withStructuralTypeState(plugin.handler.mergeState(existingState, patch), match),
           ...(requestScope ? { requestScope } : {}) };
+        if (hasDraftDesignInputs(nextState.engineeringDraft)) {
+          designContract ??= await engineeringModelSchema(protocolClient);
+          assertDraftDesignInputs(nextState.engineeringDraft, designContract);
+        }
         const goalRequired = scopeDiagnostics.some(issue => issue.code === 'REQUEST_GOAL_REQUIRED');
         const missing = goalRequired ? { critical: ['requestScope'], optional: [] } : computeDraftMissing(plugin, nextState, 'execution');
         const extractionMode = draftPatch ? 'llm' : 'deterministic';

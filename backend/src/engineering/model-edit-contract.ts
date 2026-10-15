@@ -157,8 +157,7 @@ export function assertModelEditReadback(model: ModelRecord, edits: ModelEdit[]):
   }
 }
 
-export function editCollectionSchema(root: Schema, collection?: string): ModelRecord {
-  const names = collection ? [collection] : ['materials', 'elements', 'sections'];
+function referencedDefinitions(root: Schema, selected: unknown): Schema {
   const definitions: Schema = {};
   const visit = (value: unknown): void => {
     if (Array.isArray(value)) { value.forEach(visit); return; }
@@ -169,7 +168,47 @@ export function editCollectionSchema(root: Schema, collection?: string): ModelRe
     }
     Object.values(value).forEach(visit);
   };
+  visit(selected);
+  return definitions;
+}
+
+export function editCollectionSchema(root: Schema, collection?: string): ModelRecord {
+  const names = collection ? [collection] : ['materials', 'elements', 'sections'];
   const collections = Object.fromEntries(names.map(name => [name, root.properties[name]?.items ?? root.properties[name] ?? {}]));
-  visit(collections);
+  const definitions = referencedDefinitions(root, collections);
   return { collections, $defs: definitions, sectionPropertyUnits };
+}
+
+/** The extractor receives the same design contract as model validation and edits. */
+export function draftDesignSchema(root: Schema): ModelRecord {
+  const inputs = {
+    'materials[].design': resolved(root.properties.materials.items, root).properties.design,
+    'templateAssignments.<role>.design': resolved(root.properties.elements.items, root).properties.design,
+  };
+  return { inputs, $defs: referencedDefinitions(root, inputs) };
+}
+
+export function hasDraftDesignInputs(draft: unknown): boolean {
+  if (!isRecord(draft)) return false;
+  return (Array.isArray(draft.materials) && draft.materials.some(row => isRecord(row) && row.design !== undefined))
+    || (isRecord(draft.templateAssignments) && Object.values(draft.templateAssignments).some(row => isRecord(row) && row.design !== undefined));
+}
+
+/** Reject malformed generated design records before a deep merge poisons the saved draft.
+ * This checks field names and types; full physical validation remains at model entry.
+ */
+export function assertDraftDesignInputs(draft: unknown, root: Schema): void {
+  if (!isRecord(draft)) return;
+  const check = (design: unknown, collection: 'materials' | 'elements', id: string, path: string) => {
+    if (design === undefined) return;
+    const schema = resolved(root.properties[collection].items, root).properties.design;
+    const canonical = normalized(design, schema, root, path, {}, { operation: 'update', collection, id });
+    if (!equalValue(canonical, design)) fail(path, 'use canonical typed values; draft unchanged');
+  };
+  for (const [index, row] of (Array.isArray(draft.materials) ? draft.materials : []).entries()) {
+    if (isRecord(row)) check(row.design, 'materials', String(row.id ?? index), `materials[${row.id ?? index}].design`);
+  }
+  for (const [role, row] of Object.entries(isRecord(draft.templateAssignments) ? draft.templateAssignments : {})) {
+    if (isRecord(row)) check(row.design, 'elements', role, `templateAssignments.${role}.design`);
+  }
 }
