@@ -1,0 +1,627 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-15",
+  "baselineCommit": "f78c03d6bac24f76218397d0078e11c5cf5cb8f3",
+  "status": "verified-toolchain-with-recorded-live-limitation",
+  "scope": "Product-owned beam workflow and switch repair, with live browser acceptance and candidate Bench compatibility diagnostics; no changes to frozen references or paper baselines",
+  "originalConversation": "cmv91srwd0000mcwmijcpgm1r",
+  "originalPrompt": "设计一个简支梁，跨度10m，梁中间荷载1kN",
+  "firstLiveAttempts": [
+    {
+      "conversationId": "cmv94cml60000jgwmrrmr8yay",
+      "model": "glm-5.3",
+      "status": "failed_build_before_analysis",
+      "toolCalls": 9,
+      "llmCalls": 14,
+      "recoveries": 1,
+      "reason": "Design-only draft issues incorrectly blocked computable model construction",
+      "evidence": ".tmp/live-beam-browser-20261015/evidence/2026-10-15T05-49-19-196Z-zh",
+      "endedExplicitly": true
+    },
+    {
+      "conversationId": "cmv94fddm0008jgwmhrxyct07",
+      "model": "glm-5.3",
+      "status": "failed_generic_geometry_conflict",
+      "toolCalls": 6,
+      "llmCalls": 8,
+      "recoveries": 0,
+      "reason": "Extractor invented section properties with swapped axes; generic builder duplicated rounded properties alongside exact shape",
+      "evidence": "frontend/.tmp/lbh-live-controls-results-second"
+    },
+    {
+      "conversationId": "cmv95l76u0000j8wm2v2ds9l6",
+      "model": "glm-5.3",
+      "status": "failed_query_contract_and_summary_envelope",
+      "analysisRunId": "af74d61b-1bdf-464f-9179-e1420cb06731",
+      "recoveries": 0,
+      "reason": "Agent used a solver-internal mesh node ID for a physical-node response query; disabled correction correctly blocked retry. End-only summary omitted nonzero recovered span responses.",
+      "actualMemberResponse": {
+        "xM": 2,
+        "M2KNm": -1,
+        "uzM": -0.0001
+      },
+      "evidence": "frontend/.tmp/lbh-live-controls-results-final-beam",
+      "analysisAndReportCurrent": true,
+      "assertionsRelaxed": false
+    },
+    {
+      "conversationId": "cmv95lj8d0001j8wmplp6l9j0",
+      "model": "glm-5.3",
+      "status": "browser_workflow_passed_but_declared_input_audit_failed",
+      "userTurns": 3,
+      "toolCalls": 23,
+      "llmCalls": 27,
+      "recoveries": 0,
+      "analysisRunId": "db2f0a76-378b-42ef-a1f5-74eb33b19ada",
+      "codeCheck": {
+        "passed": 26,
+        "notApplicable": 2,
+        "missingInputs": 0
+      },
+      "reason": "LLM omitted explicitly supplied effective length l0 in edit_model; code checker silently substituted 5 m mesh length, accidentally equal to the declared test value. Independent model-input audit caught two missing values despite browser workflow pass.",
+      "independentInputChecks": {
+        "passed": 46,
+        "failed": 2
+      },
+      "evidence": ".tmp/live-beam-browser-20261015/evidence-final-31619/2026-10-15T06-24-13-865Z-zh"
+    },
+    {
+      "conversationId": "cmv96p0pn0000r0wms7mc4252",
+      "model": "glm-5.3",
+      "status": "failed_input_fidelity_and_tool_errors",
+      "userTurns": 2,
+      "toolCalls": 22,
+      "llmCalls": 21,
+      "recoveries": 2,
+      "analysisRunId": "464bcffa-9dbc-410f-98e7-87c59d4751fe",
+      "reason": "Supplementary section properties suppressed reviewed catalog enrichment. LLM supplied incorrect catalog properties and issued model mutations with stale revisions. Final report/current analysis existed but independent input audit rejected four catalog values and an unrequested load combination. Optional node-query field was not resolved from unambiguous component/unit, causing two erroneous RESULT_NODE_NOT_FOUND errors for existing physical nodes and exhausting recovery.",
+      "independentInputAndResultChecks": {
+        "passed": 46,
+        "failed": 5
+      },
+      "effectiveLengthBothBeamsMM": 4800,
+      "previousIncorrectDisplacementMM": 6.4008029167,
+      "finalDisplacementMM": 4.26720194448,
+      "evidence": ".tmp/live-beam-browser-20261015/evidence-final-31623/2026-10-15T06-54-55-610Z-zh",
+      "endedExplicitly": true,
+      "assertionsRelaxed": false,
+      "toolErrors": 4,
+      "streamErrors": 0,
+      "browserErrors": 0,
+      "modelValueRules": {
+        "passed": 17,
+        "failed": 4,
+        "matches": 28
+      },
+      "turns": [
+        {
+          "startedAt": "2026-10-15T06:55:03.236Z",
+          "endedAt": "2026-10-15T07:01:29.281Z",
+          "durationSeconds": 386.045
+        },
+        {
+          "startedAt": "2026-10-15T07:03:32.667Z",
+          "endedAt": "2026-10-15T07:10:18.429Z",
+          "durationSeconds": 405.762
+        }
+      ]
+    },
+    {
+      "status": "probe-error",
+      "conversationId": "cmv97v6i50000iowm4izq9v3h",
+      "providerModel": "glm-5.3",
+      "realLlm": true,
+      "sourceCommit": "275245e",
+      "initialSubmittedAt": "2026-10-15T07:27:50.284Z",
+      "turnTimeoutMs": 600000,
+      "assertionsUnchanged": true,
+      "evidence": ".tmp/live-beam-browser-20261015/evidence-final-31625/2026-10-15T07-27-41-493Z-zh",
+      "error": "TURN_TIMEOUT_600000ms",
+      "usage": {
+        "toolCalls": 17,
+        "llmCalls": 17,
+        "recoveries": 2
+      },
+      "toolErrors": 3,
+      "modelProduced": false,
+      "analysisProduced": false,
+      "reportProduced": false,
+      "modelRules": {
+        "total": 21,
+        "passed": 0,
+        "zeroMatch": 21
+      },
+      "cause": "Resolved material E issue persisted under materials[].E; designParameters.gammaX was incorrectly treated as an elastic-model prerequisite. Two build attempts returned undefined and an edit without a model failed; original turn deadline expired.",
+      "followupFixes": [
+        "75a7149381146a746bebd5922b8833f112465a02",
+        "80042aa741b023cbafbae4877db650b1a60dc589"
+      ],
+      "pass": false
+    }
+  ],
+  "verification": {
+    "initialCandidateBackend": {
+      "suitesPassed": 155,
+      "testsPassed": 1818,
+      "log": ".tmp/lbh-jest-20261015.log"
+    },
+    "scriptedProviderRealEngineeringBrowser": {
+      "testsPassed": 14,
+      "languages": [
+        "zh",
+        "en"
+      ],
+      "realOpenSees": true,
+      "realCodeCheck": true,
+      "realLlm": false,
+      "log": ".tmp/lbh-workflows-clarification-design-delivery-31628-20261015.log",
+      "durationSeconds": 192,
+      "evidence": "clarification-design-delivery-31628/manifest.json",
+      "sourceCommit": "3592ef10d2b93791a64b2221ce7d18d624d88591"
+    },
+    "directRegisteredTools": {
+      "status": "passed",
+      "evidence": ".tmp/lbh-final-design-acceptance-runtime-20261015/work/design-edit-AoewdK/acceptance.json",
+      "realLlm": false,
+      "realOpenSees": true,
+      "realCodeCheck": true,
+      "stagesPassed": 6,
+      "log": ".tmp/lbh-final-lint/direct-design-edit-l0-final-20261015.log",
+      "containsExplicitEffectiveLengthFix": true
+    },
+    "contracts": [
+      "validate-agent-orchestration",
+      "validate-chat-stream-contract",
+      "validate-analyze-contract"
+    ],
+    "finalCompiledBackend": {
+      "sourceCommit": "3592ef10d2b93791a64b2221ce7d18d624d88591",
+      "suitesPassed": 160,
+      "testsPassed": 1939,
+      "durationSeconds": 320.062,
+      "log": ".tmp/lbh-final-lint/full-jest-clarification-design-delivery-20261015.log",
+      "boundary": "Before the final catalog-readiness-only patch; final patch covered by 103 targeted tests, not another full-suite run."
+    },
+    "liveBilingualSwitches": {
+      "testsPassed": 2,
+      "realLlm": true,
+      "providerModel": "glm-5.3",
+      "retries": 0,
+      "languages": [
+        "en",
+        "zh"
+      ],
+      "conversations": [
+        "cmv953inq0006k0wmjbeq4slh",
+        "cmv954854000fk0wma6o99m3b"
+      ],
+      "evidence": "frontend/.tmp/lbh-live-controls-results-fourth",
+      "checks": [
+        "Disabled tool selection survives reload",
+        "Backend policy matches run switches",
+        "Only selected calculate tool is invoked",
+        "Same conversation keeps policy after reload"
+      ]
+    },
+    "liveAlternativePolicyBeam": {
+      "status": "passed",
+      "conversationId": "cmv96b7x60000vcwm2bsl56ey",
+      "runId": "caea4fbd-f9f8-485c-9a69-566c18843e52",
+      "model": "glm-5.3",
+      "realLlm": true,
+      "realOpenSees": true,
+      "guidance": "disabled",
+      "builder": "llm",
+      "repair": false,
+      "recoveries": 0,
+      "testsPassed": 1,
+      "evidence": "frontend/.tmp/lbh-live-controls-results-latest-beam-31621",
+      "reference": {
+        "reactionKN": 0.5,
+        "momentKNm": 1,
+        "displacementMM": 0.1
+      },
+      "analysisAndReportSameCurrentRun": true,
+      "toolErrors": 0,
+      "sourceCommit": "1a0b385"
+    },
+    "productionDeployment": {
+      "log": ".tmp/lbh-final-lint/production-catalog-readiness-final-20261015.json",
+      "health": "ok",
+      "settingsHashUnchanged": true,
+      "frontendIndexMatchesBuild": true,
+      "frontendAssetsVerified": 13,
+      "checksPassed": 8,
+      "pythonCheckerPerInvocation": true,
+      "settingsSha256": "9fef7cf76f73eb561fd1366c6e0ac2eb27808d28c428dd4045f7f17a7eda8e24",
+      "productionEntry": "http://101.6.50.83:31415",
+      "settingsUnchanged": true,
+      "sourceCommit": "25af2dea33be8b2e4ed0b8e5e2b84eb69d52c4ee",
+      "processId": 16740,
+      "loadedAfterSource": true,
+      "priorFullAudit": ".tmp/lbh-production-post-clarification-design-delivery-audit-20261015.json"
+    },
+    "windowsPythonDesignChecks": {
+      "testsPassed": 93,
+      "log": ".tmp/lbh-final-lint/python-gb50017-l0-final-20261015.log",
+      "includesExplicitEffectiveLengthRegressions": true
+    },
+    "contractsEvidence": {
+      "allPassed": true,
+      "sourceCommit": "3592ef10d2b93791a64b2221ce7d18d624d88591",
+      "archive": "clarification-design-delivery-31628/manifest.json",
+      "note": "Original orchestration, chat stream and analyze contract assertions; prebuilt isolated runner."
+    },
+    "backendLint": {
+      "errors": 0,
+      "preexistingWarnings": 1,
+      "log": ".tmp/lbh-final-lint/lint-clarification-design-delivery-20261015.log",
+      "finalChangedFilesLint": "passed, .tmp/lbh-final-lint/lint-catalog-readiness-final-20261015.log"
+    },
+    "catalogAndBuilderTargets": {
+      "suitesPassed": 4,
+      "testsPassed": 65,
+      "realNormalizer": true,
+      "realLlm": false,
+      "log": ".tmp/lbh-final-lint/target-reviewed-catalog-template-generic-20261015.log"
+    },
+    "nodalAndRevisionTargets": {
+      "suitesPassed": 4,
+      "testsPassed": 29,
+      "realOpenSees": true,
+      "realLlm": false,
+      "log": ".tmp/lbh-final-lint/nodal-revision-targets-final-20261015.log"
+    },
+    "backendBuild": {
+      "status": "passed",
+      "log": ".tmp/lbh-final-lint/build-catalog-readiness-final-20261015.log"
+    },
+    "previousCompiledBackend": {
+      "suitesPassed": 156,
+      "testsPassed": 1861,
+      "log": ".tmp/lbh-final-lint/full-jest-final-with-explicit-l0-20261015.log",
+      "containsExplicitEffectiveLengthFix": true
+    },
+    "latestLiveControls31627": {
+      "sourceCommit": "275245e55011d5d9a68e5f5d48bf6039fdeb4707",
+      "realLlm": true,
+      "providerModel": "glm-5.3",
+      "retries": 0,
+      "passed": 1,
+      "failed": 2,
+      "allPassed": false,
+      "cases": [
+        {
+          "name": "beam_with_guidance_off_llm_builder_repair_off",
+          "pass": false,
+          "conversationId": "cmv97yq4100006swmxyld2cht",
+          "independentPhysicalChecksPassed": 24,
+          "independentPhysicalChecksFailed": 0,
+          "reactionKN": 0.5,
+          "momentKNm": 1,
+          "deflectionMm": 0.1,
+          "cause": "LLM supplied mutually exclusive nodeId and elementId; first query correctly failed with RESULT_LOCATION_AMBIGUOUS; next three query attempts correctly blocked by repair=0. Valid saved analysis and current report do not establish zero-error completion.",
+          "completionOverstatement": "Final assistant disclosed query failures but also claimed all deliverables covered; report omitted unresolved query failure."
+        },
+        {
+          "name": "english_capability_switches",
+          "pass": false,
+          "conversationId": "cmv985f5x000k6swmz1a9lhzm",
+          "cause": "New policy correctly enabled calculate and explicitly switched history from current-turn to full. LLM retained old user instruction describing disabled tools and made no tool calls.",
+          "toolPolicyApplied": true,
+          "historyPolicyApplied": true
+        },
+        {
+          "name": "chinese_capability_switches",
+          "pass": true
+        }
+      ]
+    },
+    "materialIssueRegression": {
+      "before": {
+        "tests": 15,
+        "passed": 10,
+        "failed": 5,
+        "sourceCommit": "275245e",
+        "log": ".tmp/lbh-final-lint/material-issue-repro-before-fix-20261015.log"
+      },
+      "after": {
+        "suites": 10,
+        "tests": 141,
+        "failed": 0,
+        "seconds": 31.214,
+        "sourceCommit": "3592ef1",
+        "log": ".tmp/lbh-final-lint/material-issue-targets-after-fix-20261015.log"
+      },
+      "originalAssertionsRetained": true
+    },
+    "canonicalDesignProjection": {
+      "suites": 5,
+      "tests": 66,
+      "failed": 0,
+      "seconds": 13.034,
+      "newTests": 16,
+      "realV2OpenSeesAndGB50017": true,
+      "effectiveLengthMm": 4800,
+      "analysisCellLengthM": 5,
+      "sourceCommit": "3592ef1",
+      "log": ".tmp/lbh-final-lint/clarification-design-delivery-targets-20261015.log"
+    },
+    "previousCompiledBackend1904": {
+      "suitesPassed": 158,
+      "testsPassed": 1904,
+      "durationSeconds": 296.212,
+      "log": ".tmp/lbh-final-lint/full-jest-catalog-node-query-20261015.log",
+      "sourceCommit": "275245e"
+    },
+    "previousScriptedBrowser31626": {
+      "testsPassed": 14,
+      "languages": [
+        "zh",
+        "en"
+      ],
+      "realOpenSees": true,
+      "realCodeCheck": true,
+      "realLlm": false,
+      "log": ".tmp/lbh-workflows-clarification-design-delivery-31628-20261015.log",
+      "durationSeconds": 192,
+      "evidence": "clarification-design-delivery-31628/manifest.json",
+      "sourceCommit": "3592ef10d2b93791a64b2221ce7d18d624d88591"
+    },
+    "liveControls31630": {
+      "sourceCommit": "3592ef10d2b93791a64b2221ce7d18d624d88591",
+      "testsPassed": 3,
+      "failed": 0,
+      "retries": 0,
+      "realLlm": true,
+      "realOpenSees": true,
+      "cases": [
+        "alternative 4m beam: guidance off, LLM builder, repair off",
+        "English capability switches",
+        "Chinese capability switches"
+      ],
+      "beamRunId": "67967517-7826-448b-84c8-e20d47bc9af3",
+      "reactionKN": 0.5,
+      "momentKNm": 1,
+      "displacementMM": 0.1,
+      "boundary": "Four explicit-run queries succeeded; historical/current flags retain existing explicit-run semantics. No declared report scalar selections were requested.",
+      "archive": "clarification-design-delivery-live-controls-31630/manifest.json"
+    },
+    "catalogReadinessFinal": {
+      "sourceCommit": "25af2dea33be8b2e4ed0b8e5e2b84eb69d52c4ee",
+      "suitesPassed": 5,
+      "testsPassed": 103,
+      "durationSeconds": 18.011,
+      "log": ".tmp/lbh-final-lint/catalog-readiness-final-20261015.log",
+      "initialReproduction": {
+        "passed": 8,
+        "failed": 1
+      },
+      "originalDraftGroupDiagnosticReproduced": true
+    },
+    "recordedOriginalDraftReplay": {
+      "sourceCommit": "25af2dea33be8b2e4ed0b8e5e2b84eb69d52c4ee",
+      "pass": true,
+      "realLlm": false,
+      "llmCalls": 0,
+      "inputDraftMutated": false,
+      "conversationId": "cmv991yhy00004kwm7ftgfitc",
+      "stages": [
+        "build_model",
+        "validate_model",
+        "run_analysis",
+        "run_code_check",
+        "generate_report"
+      ],
+      "modelRulesPassed": 21,
+      "realOpenSees": true,
+      "realGB50017": true,
+      "completionStatus": "complete",
+      "complianceStatus": "pass",
+      "reactionKN": 0.5,
+      "momentKNm": 2.5,
+      "deflectionMM": 4.267201944478582,
+      "effectiveLengthMM": 4800,
+      "generatedLoadCombinations": 0,
+      "receipt": ".tmp/lbh-final-lint/replay-31629-draft-after-fix-20261015.json",
+      "boundary": "A deterministic registered-tool replay of the actual failed live draft, not a fresh true-provider browser pass. Harness-only setup failures retained separately."
+    }
+  },
+  "bench": {
+    "frozenBaselineUnchanged": true,
+    "formalTrialsRun": 0,
+    "firstCandidateToolReceipt": ".tmp/lbh-bench-candidate-tools-20261015.json",
+    "firstStatus": "failed",
+    "issues": [
+      "Legacy raw material.type incorrectly reintroduced by acceptance edit diff",
+      "Frozen truss reference includes undefined free rotations as numerical zero placeholders"
+    ],
+    "newFreezeRequiredBeforeFormalExperiments": true,
+    "harnessCommit": "534e3f0",
+    "candidateReceipt": ".tmp/lbh-bench-candidate-tools-final-clarification-20261015.json",
+    "candidateStatus": "reference-review-required",
+    "openSeesCases": 12,
+    "openSeesStates": 19,
+    "physicalNumericalValuesPassed": 3230,
+    "reportValuesPassed": 3230,
+    "unreviewedUndefinedTrussRotationReferences": 10,
+    "nativeCommercialCasesAwaitingReference": 6,
+    "evaluationTestsPassed": 59,
+    "openclawTestsPassed": 15,
+    "corpusScenariosValidated": 150,
+    "frozenManifestSha256": "245dc8b655caff319d5debc751e6c0da10304d3c3ac58e0ac61356e0d708c92a",
+    "scenarioFreezePreflightAtInitialBaseline": "failed: FROZEN_IMPLEMENTATION_CHANGED",
+    "scenarioFrozenCommit": "ce79cee11e9571f5a83af5eccc2ec911a8a20c41",
+    "scenarioFrozenTag": "bench300-capability-freeze-20261013",
+    "oldFreezeRegenerated": false,
+    "paperTagsMoved": false,
+    "referenceReviewBoundary": "STD-036 has 10 zero placeholders for undefined free truss rotations. Full reference comparison remains failed; physical quantities pass and public queries reject undefined rotations. No frozen expected numbers or tolerances were changed.",
+    "openSeesStatesMechanicallyPassed": 18,
+    "openSeesStatesAwaitingReferenceReview": 1,
+    "statusIsOverallPass": false,
+    "previousCandidateReceipt": ".tmp/lbh-bench-candidate-tools-final-livefix-20261015.json",
+    "sourceCommit": "3592ef10d2b93791a64b2221ce7d18d624d88591",
+    "workingDiffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "liveFinal": {
+    "status": "live-product-workflow-incomplete-or-failed",
+    "conversationId": "cmv991yhy00004kwm7ftgfitc",
+    "realLlm": true,
+    "providerModel": "glm-5.3",
+    "sourceCommit": "3592ef10d2b93791a64b2221ce7d18d624d88591",
+    "initialSubmittedAt": "2026-10-15T08:01:06.129Z",
+    "turnTimeoutMs": 600000,
+    "inputPromptAndRunnerAssertionsUnchanged": true,
+    "evidence": ".tmp/live-beam-browser-20261015/evidence-final-31629/2026-10-15T08-00-58-035Z-zh",
+    "independentAuditTightenedToOriginalDeclaredScope": "No generated load combinations; only case:LC1. Removed an older helper allowance for a prior-session identity ULS.",
+    "reason": "Repeated clarification about catalog-backed section properties; no model built before the final readiness fix.",
+    "finalFixCommit": "25af2dea33be8b2e4ed0b8e5e2b84eb69d52c4ee",
+    "freshPaidBrowserRerunAfterFix": false,
+    "waitingTurnEnded": true,
+    "pass": false
+  },
+  "developmentCommits": [
+    "b0e5904",
+    "9ee0f95",
+    "c6fd681",
+    "2ef641e",
+    "811c2f5",
+    "13938b9",
+    "1a0b385",
+    "3a0b958",
+    "7b23bb8",
+    "3337973",
+    "275245e",
+    {
+      "commit": "75a7149381146a746bebd5922b8833f112465a02",
+      "subject": "fix(draft): clear resolved material issues after clarification"
+    },
+    {
+      "commit": "80042aa741b023cbafbae4877db650b1a60dc589",
+      "subject": "fix(design): retain declared member inputs through model construction"
+    },
+    {
+      "commit": "3592ef10d2b93791a64b2221ce7d18d624d88591",
+      "subject": "fix(agent): expose current tools and incomplete result delivery"
+    },
+    {
+      "commit": "25af2dea33be8b2e4ed0b8e5e2b84eb69d52c4ee",
+      "summary": "Resolve missing section properties and whole-property-group diagnostics using the same reviewed catalog and provenance checks as model construction."
+    }
+  ],
+  "implementation": [
+    "Reviewed I20a numerical catalog and suffixed steel-grade handling; no invented rectangular-H geometry for rolled tapered I sections",
+    "Authoritative user-turn extraction; explicit geometry survives extraction and generic model generation",
+    "Design-only missing inputs do not block elastic analysis; clarification cannot duplicate an existing physical load",
+    "Requested code-check scope remains explicit; absent result data and missing design inputs remain distinguishable; reports preserve compliance limits",
+    "Effective buckling length is mandatory for steel slenderness and cannot be inferred from mesh-cell length",
+    "Span response samples augment static summary extrema with physical control locations and sampled provenance",
+    "Solver-internal node IDs are distinguished from physical query locations",
+    "Capability catalog failures retain choices and support retry; defaults and explicit opt-outs remain distinct; run controls are verified through persisted backend policy",
+    "Portable live browser tests independently assert declared values in the saved model and preserve failed attempts",
+    "Supplemental section design fields no longer suppress reviewed catalog completion in either builder; catalog-source conflicts reject mutation rather than silently replacing values",
+    "Atomic model-update instructions preserve strict version conflicts and external-edit protection",
+    "Nodal scalar queries resolve unambiguous component/unit pairs to saved displacement or reaction fields and retain report provenance",
+    "Single-case factor 1 is distinguished from an explicitly requested load combination"
+  ],
+  "evidenceArchive": {
+    "root": "G:/StructureClaw-All/verification/beam-e2e-20261015",
+    "status": "complete",
+    "retainsFailures": true,
+    "runtimeSettingsAndDatabasesExcluded": true,
+    "switchAndRegression": {
+      "manifest": "switch-and-regression/manifest.json",
+      "files": 71,
+      "bytes": 224745715,
+      "allCopiesSha256Verified": true,
+      "secretsScanPassed": true
+    },
+    "manualLiveFailures": {
+      "manifest": "manual-live/archive-manifest.json",
+      "files": 119,
+      "bytes": 644261532,
+      "allCopiesSha256Verified": true,
+      "actualProviderCredentialScanPassed": true
+    },
+    "nodalQueryAndRevision": {
+      "manifest": "nodal-query-and-revision-regression/manifest.json",
+      "files": 8,
+      "bytes": 18241,
+      "allCopiesSha256Verified": true,
+      "secretsScanPassed": true
+    },
+    "latestScriptedBrowser": {
+      "manifest": "browser-regression-complete-31626/manifest.json",
+      "files": 6,
+      "bytes": 559822,
+      "allCopiesSha256Verified": true,
+      "secretsScanPassed": true
+    },
+    "latestCandidateBench": {
+      "manifest": "candidate-tools-final-clarification/archive-manifest.json",
+      "files": 22,
+      "bytes": 144855862,
+      "allCopiesSha256Verified": true,
+      "secretsScanPassed": true
+    },
+    "liveControls31627": {
+      "directory": "G:/StructureClaw-All/verification/beam-e2e-20261015/live-controls-complete-31627",
+      "files": 59,
+      "bytes": 121034147,
+      "manifestSha256": "9e790aadf3a5e94fe935c14b01a283864db2a90148a61e8e39d3c9471785b8ec",
+      "secretsScanPassed": true,
+      "allFileHashesMatched": true
+    },
+    "liveControls31627IndependentReview": {
+      "directory": "G:/StructureClaw-All/verification/beam-e2e-20261015/live-controls-complete-31627-readonly-review",
+      "files": 8,
+      "bytes": 3390081,
+      "manifestSha256": "2c457cc29ddc53ac7b94f6a410ba43e556fd686d27152cb08520e9faf4697e4b",
+      "secretsScanPassed": true,
+      "allFileHashesMatched": true
+    },
+    "manualLive31625": {
+      "manifest": "G:/StructureClaw-All/verification/beam-e2e-20261015/manual-live/archive-manifest-31625.json",
+      "files": 37,
+      "bytes": 315585618,
+      "secretsScanPassed": true,
+      "allFileHashesMatched": true,
+      "earlierArchivesRetained": true
+    },
+    "clarificationDesignDelivery": {
+      "manifest": "clarification-design-delivery-31628/manifest.json",
+      "files": 49,
+      "bytes": 1643843
+    },
+    "liveControls31630": {
+      "manifest": "clarification-design-delivery-live-controls-31630/manifest.json",
+      "files": 62,
+      "bytes": 15326007
+    },
+    "manualLive31629": {
+      "manifest": "manual-live/archive-manifest-31629.json",
+      "files": 31,
+      "bytes": 172180634
+    },
+    "catalogReadinessFinal": {
+      "manifest": "catalog-readiness-final/manifest.json",
+      "files": 16,
+      "bytes": 1241580,
+      "secretsScanPassed": true,
+      "allFileHashesMatched": true
+    }
+  },
+  "publishedSource": {
+    "branch": "work/research-next",
+    "remote": "origin",
+    "repository": "qinsz01/structureclaw",
+    "commit": "25af2dea33be8b2e4ed0b8e5e2b84eb69d52c4ee",
+    "verifiedRemoteHead": true,
+    "note": "Implementation commit verified on origin/work/research-next; the verification receipt is committed subsequently."
+  },
+  "costControl": {
+    "subagentsStopped": true,
+    "additionalPaidModelRetries": 0,
+    "finalFixValidatedWithRecordedDraftAndLocalWorkers": true
+  }
+}
