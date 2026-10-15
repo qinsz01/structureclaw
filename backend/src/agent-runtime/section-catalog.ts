@@ -1,4 +1,4 @@
-import type { EngineeringDraft } from './types.js';
+import type { DraftIssue, EngineeringDraft } from './types.js';
 
 /** Reviewed numerical catalog data. Rolled/tapered I sections are not rectangular-flange H sections. */
 const source = {
@@ -100,4 +100,19 @@ export function assertReviewedSectionProvenance(section: Record<string, unknown>
     if (!same(dimensions[field], expected)) fail(`extra.catalogDimensionsMM.${field}`);
   }
   if (section.shape != null) fail('shape');
+}
+
+/** A missing-only diagnostic cannot block values supplied by the same reviewed catalog as the builder. */
+export function catalogResolvesMissingSectionIssue(draft: EngineeringDraft | undefined, issue: DraftIssue): boolean {
+  if (issue.severity !== 'ambiguous' || issue.value != null || typeof issue.field !== 'string') return false;
+  const match = /^(?:engineeringDraft\.)?sectionRecords(?:\[(\d+)\]|\.([^.]+))\.properties(?:\.(A|Iy|Iz|Wx|Wz|tw|imin)(?:\/(?:A|Iy|Iz|Wx|Wz|tw|imin))*)?$/.exec(issue.field);
+  if (!match) return false;
+  const records = draft?.sectionRecords ?? [];
+  const selected = match[1] !== undefined ? records[Number(match[1])] : records.find(record => record.id === match[2]);
+  if (!selected) return false;
+  const completed = completeReviewedSectionRecord(selected, reviewedSectionNames(selected, draft));
+  if (!completed) return false;
+  // Validate the catalog claim before treating any diagnostic as resolved.
+  assertReviewedSectionProvenance(completed);
+  return true;
 }
