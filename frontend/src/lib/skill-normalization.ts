@@ -214,6 +214,8 @@ export const DEFAULT_CONSOLE_SKILL_IDS = [
   'concrete-frame',
   'portal-frame',
   'truss',
+  'code-check-gb50017',
+  'code-check-gb50010',
   'validation-structure-model',
   'report-export-builtin',
 ] as const

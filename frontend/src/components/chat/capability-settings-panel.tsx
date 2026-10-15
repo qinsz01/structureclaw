@@ -122,6 +122,9 @@ export function CapabilitySettingsPanel() {
   const initializedRef = useRef(false)
   const [skillsLoaded, setSkillsLoaded] = useState(false)
   const [capabilityMatrixLoaded, setCapabilityMatrixLoaded] = useState(false)
+  const [skillsFailed, setSkillsFailed] = useState(false)
+  const [catalogRefresh, setCatalogRefresh] = useState(0)
+  const catalogReady = skillsLoaded && capabilityMatrixLoaded
   const [readinessLoading, setReadinessLoading] = useState(true)
   const [readinessFailed, setReadinessFailed] = useState(false)
   const [conversationId, setConversationId] = useState('')
@@ -156,48 +159,42 @@ export function CapabilitySettingsPanel() {
   useEffect(() => {
     let active = true
 
+    setSkillsLoaded(false)
+    setSkillsFailed(false)
     async function loadSkills() {
       const response = await fetch(`${API_BASE}/api/v1/agent/skills`)
-      if (!response.ok) {
-        if (active) setSkillsLoaded(true)
-        return
-      }
+      if (!response.ok) throw new Error('SKILL_CATALOG_UNAVAILABLE')
       const payload = await response.json()
       const skillsArray = Array.isArray(payload) ? payload : Array.isArray(payload?.skills) ? payload.skills : null
+      if (!skillsArray) throw new Error('SKILL_CATALOG_INVALID')
       if (active) {
-        if (skillsArray) {
-          setAvailableSkills(skillsArray as AgentSkillSummary[])
-        }
+        setAvailableSkills(skillsArray as AgentSkillSummary[])
         setSkillsLoaded(true)
       }
     }
 
     void loadSkills().catch(() => {
-      if (active) {
-        setAvailableSkills([])
-        setSkillsLoaded(true)
-      }
+      if (active) setSkillsFailed(true)
     })
 
     return () => {
       active = false
     }
-  }, [])
+  }, [catalogRefresh])
 
   useEffect(() => {
     let active = true
 
     async function loadCapabilityMatrix() {
+      setCapabilityMatrixLoaded(false)
       setReadinessLoading(true)
       setReadinessFailed(false)
       const query = conversationId ? `?conversationId=${encodeURIComponent(conversationId)}` : ''
       const response = await fetch(`${API_BASE}/api/v1/agent/capability-matrix${query}`)
-      if (!response.ok) {
-        if (active) { setCapabilityMatrixLoaded(true); setReadinessFailed(true); setReadinessLoading(false) }
-        return
-      }
+      if (!response.ok) throw new Error('CAPABILITY_CATALOG_UNAVAILABLE')
       const payload = await response.json()
-      if (active && payload && typeof payload === 'object') {
+      if (!payload || typeof payload !== 'object' || !Array.isArray(payload.tools)) throw new Error('CAPABILITY_CATALOG_INVALID')
+      if (active) {
         setCapabilityMatrix(payload as CapabilityMatrixPayload)
         setCapabilityMatrixLoaded(true)
         setReadinessLoading(false)
@@ -206,8 +203,6 @@ export function CapabilitySettingsPanel() {
 
     void loadCapabilityMatrix().catch(() => {
       if (active) {
-        setCapabilityMatrix(null)
-        setCapabilityMatrixLoaded(true)
         setReadinessFailed(true)
         setReadinessLoading(false)
       }
@@ -216,7 +211,7 @@ export function CapabilitySettingsPanel() {
     return () => {
       active = false
     }
-  }, [conversationId])
+  }, [conversationId, catalogRefresh])
 
   useEffect(() => {
     let active = true
@@ -234,7 +229,7 @@ export function CapabilitySettingsPanel() {
     if (!skillsLoaded || !capabilityMatrixLoaded) return
     initializedRef.current = true
 
-    if (storeSkillIds.length === 0 && storeToolIds.length === 0 && !storeExplicit) {
+    if (!storeExplicit) {
       setCapabilityPreferences(defaultSelectedSkillIds, defaultSelectedToolIds, false)
     } else {
       const validSkillIds = skillNormalization.normalizeSkillIds(storeSkillIds)
@@ -372,6 +367,10 @@ export function CapabilitySettingsPanel() {
         <CardContent className="space-y-4">
           <CapabilityReadinessPanel matrix={capabilityMatrix} conversations={conversations} conversationId={conversationId}
             onConversationChange={setConversationId} loading={readinessLoading} failed={readinessFailed} />
+          {(skillsFailed || readinessFailed) && <div role="alert" className="text-sm text-amber-700 dark:text-amber-300">
+            <p>{t('capabilityCatalogFailed')}</p>
+            <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => setCatalogRefresh(value => value + 1)}>{t('capabilityCatalogRetry')}</Button>
+          </div>}
           <div className="rounded-[24px] border border-border/70 bg-background/75 p-5 dark:border-white/10 dark:bg-white/5">
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm font-medium text-foreground">{t('capabilitySettingsSectionTitle')}</p>
@@ -401,7 +400,7 @@ export function CapabilitySettingsPanel() {
                 <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">{t('loadedSkillsTitle')}</div>
                 <div className="mt-1 text-sm text-muted-foreground">{t('loadedSkillsHint')}</div>
               </div>
-              <Button type="button" variant="outline" size="sm" className="rounded-full" onClick={resetSkillDefaults}>
+              <Button type="button" variant="outline" size="sm" className="rounded-full" onClick={resetSkillDefaults} disabled={!catalogReady}>
                 {t('useDefaultSkillSelection')}
               </Button>
             </div>
@@ -428,7 +427,7 @@ export function CapabilitySettingsPanel() {
                 <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">{t('loadedToolsTitle')}</div>
                 <div className="mt-1 text-sm text-muted-foreground">{t('loadedToolsHint')}</div>
               </div>
-              <Button type="button" variant="outline" size="sm" className="rounded-full" onClick={resetToolDefaults}>
+              <Button type="button" variant="outline" size="sm" className="rounded-full" onClick={resetToolDefaults} disabled={!catalogReady}>
                 {t('useDefaultToolSelection')}
               </Button>
             </div>
@@ -469,7 +468,7 @@ export function CapabilitySettingsPanel() {
                       <button
                         type="button"
                         onClick={() => toggleSkillDomain(group.skillIds)}
-                        disabled={group.skillIds.length === 0}
+                        disabled={!catalogReady || group.skillIds.length === 0}
                         className="rounded-full border border-border/70 bg-background/70 px-3 py-1 text-xs text-muted-foreground transition hover:text-foreground dark:border-white/10 dark:bg-white/5"
                       >
                         {allSelected ? t('skillClearDomainSelection') : t('skillSelectDomainSelection')}
@@ -487,6 +486,8 @@ export function CapabilitySettingsPanel() {
                             key={skill.id}
                             type="button"
                             onClick={() => toggleSkill(skill.id)}
+                            disabled={!catalogReady}
+                            aria-pressed={selected}
                             className={cn(
                               'rounded-full border px-3 py-1.5 text-sm transition',
                               selected
@@ -526,7 +527,7 @@ export function CapabilitySettingsPanel() {
                       <button
                         type="button"
                         onClick={() => toggleToolCategory(group.toolIds)}
-                        disabled={group.toolIds.length === 0}
+                        disabled={!catalogReady || group.toolIds.length === 0}
                         className="rounded-full border border-border/70 bg-background/70 px-3 py-1 text-xs text-muted-foreground transition hover:text-foreground dark:border-white/10 dark:bg-white/5"
                       >
                         {allSelected ? t('toolClearCategorySelection') : t('toolSelectCategorySelection')}
@@ -542,6 +543,8 @@ export function CapabilitySettingsPanel() {
                             type="button"
                             title={description || tool.id}
                             onClick={() => toggleTool(tool.id)}
+                            disabled={!catalogReady}
+                            aria-pressed={selected}
                             className={cn(
                               'rounded-full border px-3 py-1.5 text-sm transition',
                               selected

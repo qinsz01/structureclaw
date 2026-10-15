@@ -34,6 +34,12 @@ describe('run settings', () => {
     fireEvent.change(screen.getByLabelText('Automatic correction after failure'), {target:{value:'0'}})
     expect(onChange).toHaveBeenLastCalledWith({knowledge:'enabled',tools:{enabledIds:[]},repair:{enabled:false,maxRecoveriesPerTurn:0}})
   })
+  it('sends integer tool limits accepted by the server', () => {
+    const onChange = vi.fn()
+    render(<RunSettings value={{}} onChange={onChange} locale="en" disabled={false} />)
+    fireEvent.change(screen.getByLabelText('Tool call limit'), { target: { value: '8.5' } })
+    expect(onChange).toHaveBeenLastCalledWith({ budgets: { maxToolCallsPerTurn: 8 } })
+  })
   it('keeps the active run immutable and provides bilingual labels', () => {
     render(<RunSettings value={{}} onChange={vi.fn()} locale="zh" disabled />)
     expect(screen.getByLabelText('专业指导')).toBeDisabled()

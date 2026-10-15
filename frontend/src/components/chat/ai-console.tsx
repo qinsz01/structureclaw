@@ -2949,6 +2949,9 @@ export function AIConsole() {
   const capabilityInitializedRef = useRef(false)
   const [skillsLoaded, setSkillsLoaded] = useState(false)
   const [capabilityMatrixLoaded, setCapabilityMatrixLoaded] = useState(false)
+  const [skillsFailed, setSkillsFailed] = useState(false)
+  const [capabilityMatrixFailed, setCapabilityMatrixFailed] = useState(false)
+  const [catalogRefresh, setCatalogRefresh] = useState(0)
   // 追踪最后有效的结果用于持久化（不会被引擎切换清除）
   const lastValidResultRef = useRef<AgentResult | null>(null)
   const lastValidResultVisualizationRef = useRef<VisualizationSnapshot | null>(null)
@@ -3226,41 +3229,29 @@ export function AIConsole() {
   useEffect(() => {
     let active = true
 
+    setSkillsLoaded(false)
+    setSkillsFailed(false)
     async function loadSkills() {
       try {
         const response = await fetch(`${API_BASE}/api/v1/agent/skills`)
-        if (!response.ok) {
-          if (active) {
-            setSkillsLoaded(true)
-          }
-          return
-        }
+        if (!response.ok) throw new Error('SKILL_CATALOG_UNAVAILABLE')
         const payload = await response.json()
         const skillsArray = Array.isArray(payload) ? payload : Array.isArray(payload?.skills) ? payload.skills : null
-        if (!active) {
-          return
-        }
-        if (!skillsArray) {
-          setSkillsLoaded(true)
-          return
-        }
-        const skills = skillsArray as AgentSkillSummary[]
-        setAvailableSkills(skills)
+        if (!skillsArray) throw new Error('SKILL_CATALOG_INVALID')
+        if (!active) return
+        setAvailableSkills(skillsArray as AgentSkillSummary[])
         setSkillsLoaded(true)
       } catch {
-        if (active) {
-          setAvailableSkills([])
-          setSkillsLoaded(true)
-        }
+        if (active) setSkillsFailed(true)
       }
     }
 
-    loadSkills()
+    void loadSkills()
 
     return () => {
       active = false
     }
-  }, [])
+  }, [catalogRefresh])
 
   useEffect(() => {
     let active = true
@@ -3372,7 +3363,7 @@ export function AIConsole() {
     if (!skillsLoaded || !capabilityMatrixLoaded) return
     capabilityInitializedRef.current = true
 
-    if (storeSkillIds.length === 0 && storeToolIds.length === 0 && !storeExplicit) {
+    if (!storeExplicit) {
       const defaultToolIds = availableTools.filter((tool) => tool.enabledByDefault).map((tool) => tool.id)
       setCapabilityPreferences(defaultSelectedSkillIds, defaultToolIds, false)
     }
@@ -3381,35 +3372,28 @@ export function AIConsole() {
   useEffect(() => {
     let active = true
 
+    setCapabilityMatrixLoaded(false)
+    setCapabilityMatrixFailed(false)
     async function loadCapabilityMatrix() {
       try {
         const response = await fetch(`${API_BASE}/api/v1/agent/capability-matrix`)
-        if (!response.ok) {
-          if (active) {
-            setCapabilityMatrixLoaded(true)
-          }
-          return
-        }
+        if (!response.ok) throw new Error('CAPABILITY_CATALOG_UNAVAILABLE')
         const payload = await response.json()
-        if (!active || !payload || typeof payload !== 'object') {
-          return
-        }
+        if (!payload || typeof payload !== 'object' || !Array.isArray(payload.tools)) throw new Error('CAPABILITY_CATALOG_INVALID')
+        if (!active) return
         setCapabilityMatrix(payload as CapabilityMatrixPayload)
         setCapabilityMatrixLoaded(true)
       } catch {
-        if (active) {
-          setCapabilityMatrix(null)
-          setCapabilityMatrixLoaded(true)
-        }
+        if (active) setCapabilityMatrixFailed(true)
       }
     }
 
-    loadCapabilityMatrix()
+    void loadCapabilityMatrix()
 
     return () => {
       active = false
     }
-  }, [])
+  }, [catalogRefresh])
 
   useEffect(() => {
     let cancelled = false
@@ -4886,8 +4870,12 @@ export function AIConsole() {
           ))}
         </div>
       )}
+      {(skillsFailed || capabilityMatrixFailed) && <div role="alert" className="mx-3 mb-2 text-sm text-amber-700 dark:text-amber-300">
+        <p>{t('capabilityCatalogFailed')}</p>
+        <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => setCatalogRefresh(value => value + 1)}>{t('capabilityCatalogRetry')}</Button>
+      </div>}
       <RunSettings value={runPolicy} onChange={setRunPolicy} locale={locale}
-        modelingSkills={availableSkills.filter(skill => selectedSkillIds.includes(skill.id) && Boolean(skill.structureType))
+        modelingSkills={availableSkills.filter(skill => selectedSkillIds.includes(skill.id) && skillDomainById[skill.id] === 'structure-type')
           .map(skill => ({ id: skill.id, label: skill.name[locale] || skill.id }))}
         disabled={isStreaming || Boolean(sessionRuntime.view?.busy || sessionRuntime.view?.waitingForReply)}
         runtime={sessionRuntime.view} statusError={sessionRuntime.error}

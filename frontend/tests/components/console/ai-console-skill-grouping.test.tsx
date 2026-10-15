@@ -6,7 +6,6 @@ import { AppStoreProvider } from '@/lib/stores/context'
 import { CapabilitySettingsPanel } from '@/components/chat/capability-settings-panel'
 import { API_BASE } from '@/lib/api-base'
 import { CAPABILITY_PREFERENCE_STORAGE_KEY } from '@/lib/capability-preference'
-import { DEFAULT_CONSOLE_SKILL_IDS } from '@/lib/skill-normalization'
 
 function createSseResponse(events: unknown[]) {
   const encoder = new TextEncoder()
@@ -657,7 +656,7 @@ describe('Capability settings and console integration', () => {
     expect([...(body.context?.enabledToolIds ?? [])].sort()).toEqual(['build_model', 'detect_structure_type', 'extract_draft_params', 'run_analysis'])
   })
 
-  it('falls back to default engineering skills when the console submits before capability hydration finishes', async () => {
+  it('waits for successful capability hydration before sending the selected defaults', async () => {
     const user = userEvent.setup()
 
     let resolveSkills: ((value: Response) => void) | null = null
@@ -713,65 +712,69 @@ describe('Capability settings and console integration', () => {
 
     const composer = await screen.findByPlaceholderText(/describe your structural goal/i)
     await user.type(composer, 'design immediately')
-    await user.click(screen.getByRole('button', { name: /send/i }))
+    const sendButton = screen.getByRole('button', { name: /send/i })
+    expect(sendButton).toBeDisabled()
+    await user.click(sendButton)
+    expect(fetchMock.mock.calls.some(([input]) => String(input) === `${API_BASE}/api/v1/chat/stream`)).toBe(false)
 
+    await act(async () => {
+      resolveSkills?.({
+        ok: true,
+        json: async () => ([
+          {
+            id: 'generic',
+            name: { zh: '通用结构类型', en: 'Generic Structure Type' },
+            description: { zh: 'generic', en: 'generic' },
+          },
+          {
+            id: 'opensees-static',
+            name: { zh: 'OpenSees 静力分析', en: 'OpenSees Static Analysis' },
+            description: { zh: 'static', en: 'static' },
+          },
+        ]),
+      } as Response)
+      resolveCapabilityMatrix?.({
+        ok: true,
+        json: async () => ({
+          skills: [
+            { id: 'generic', domain: 'structure-type' },
+            { id: 'opensees-static', domain: 'analysis' },
+          ],
+          tools: [
+            {
+              id: 'build_model',
+              enabledByDefault: true,
+              category: 'modeling',
+              displayName: { zh: '构建模型', en: 'Build Model' },
+              description: { zh: '从草稿构建可计算模型', en: 'Build a computable model from draft' },
+            },
+          ],
+          enabledToolIdsBySkill: {
+            generic: ['build_model'],
+          },
+          skillDomainById: {
+            generic: 'structure-type',
+            'opensees-static': 'analysis',
+          },
+          domainSummaries: [
+            { domain: 'structure-type', skillIds: ['generic'] },
+            { domain: 'analysis', skillIds: ['opensees-static'] },
+          ],
+        }),
+      } as Response)
+    })
+    await waitFor(() => expect(sendButton).toBeEnabled())
+    await user.click(sendButton)
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
         `${API_BASE}/api/v1/chat/stream`,
         expect.objectContaining({ method: 'POST' })
       )
     })
-
     const streamCall = fetchMock.mock.calls.findLast(([input]) => String(input) === `${API_BASE}/api/v1/chat/stream`)
-    expect(streamCall).toBeTruthy()
-    const requestInit = streamCall?.[1] as RequestInit | undefined
-    const body = JSON.parse(String(requestInit?.body || '{}')) as { context?: { skillIds?: string[]; enabledToolIds?: string[] } }
-    expect(body.context?.skillIds).toEqual([...DEFAULT_CONSOLE_SKILL_IDS])
-    expect(body.context?.enabledToolIds).toBeUndefined()
-
-    resolveSkills?.({
-      ok: true,
-      json: async () => ([
-        {
-          id: 'generic',
-          name: { zh: '通用结构类型', en: 'Generic Structure Type' },
-          description: { zh: 'generic', en: 'generic' },
-        },
-        {
-          id: 'opensees-static',
-          name: { zh: 'OpenSees 静力分析', en: 'OpenSees Static Analysis' },
-          description: { zh: 'static', en: 'static' },
-        },
-      ]),
-    } as Response)
-    resolveCapabilityMatrix?.({
-      ok: true,
-      json: async () => ({
-        skills: [
-          { id: 'generic', domain: 'structure-type' },
-          { id: 'opensees-static', domain: 'analysis' },
-        ],
-        tools: [
-          {
-            id: 'build_model',
-            category: 'modeling',
-            displayName: { zh: '构建模型', en: 'Build Model' },
-            description: { zh: '从草稿构建可计算模型', en: 'Build a computable model from draft' },
-          },
-        ],
-        enabledToolIdsBySkill: {
-          generic: ['build_model'],
-        },
-        skillDomainById: {
-          generic: 'structure-type',
-          'opensees-static': 'analysis',
-        },
-        domainSummaries: [
-          { domain: 'structure-type', skillIds: ['generic'] },
-          { domain: 'analysis', skillIds: ['opensees-static'] },
-        ],
-      }),
-    } as Response)
+    const body = JSON.parse(String(streamCall?.[1]?.body || '{}')) as { context?: { skillIds?: string[]; enabledToolIds?: string[] } }
+    expect([...(body.context?.skillIds ?? [])].sort()).toEqual(['generic', 'opensees-static'])
+    expect(body.context?.enabledToolIds).toEqual(['build_model'])
   })
 
   it('does not send analysis type from frontend when executing with selected analysis skills', async () => {

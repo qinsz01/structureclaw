@@ -78,7 +78,7 @@ export function RunSettings({ value, onChange, locale, disabled, runtime, status
       </label>
       <label className="grid gap-1">{zh ? '工具调用上限' : 'Tool call limit'}
         <input className={selectClass} type="number" min={1} max={200} placeholder={inherit} value={value.budgets?.maxToolCallsPerTurn ?? ''}
-          onChange={e => onChange({ ...value, budgets: { ...value.budgets, maxToolCallsPerTurn: e.target.value === '' ? undefined : Math.max(1, Math.min(200, Number(e.target.value))) } })} />
+          onChange={e => onChange({ ...value, budgets: { ...value.budgets, maxToolCallsPerTurn: e.target.value === '' ? undefined : Math.max(1, Math.min(200, Math.trunc(Number(e.target.value)))) } })} />
       </label>
     </fieldset>
     <details className="mt-3">
