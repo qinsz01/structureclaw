@@ -256,7 +256,7 @@ def _compute_utilization_overrides(
     if l0 and i_min and lambda_limit:
         save('长细比', l0 / i_min / lambda_limit, l0/i_min, lambda_limit, '1')
     displacement = number(forces.get('deflection', elem.get('deflection')))
-    L, n_limit = positive(elem, 'length'), positive(elem, 'deflectionLimitN')
+    L, n_limit = positive(elem, 'serviceabilityLength', 'length'), positive(elem, 'deflectionLimitN')
     if displacement is not None and L and n_limit:
         save('挠度', abs(displacement) / (L / n_limit), abs(displacement), L/n_limit, 'mm')
 

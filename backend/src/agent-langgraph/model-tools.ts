@@ -6,12 +6,13 @@ import type { AgentState } from './state.js';
 import type { AgentConfigurable } from './configurable.js';
 import { applyModelEdits, commitModel, contentHash, currentAnalysisError, invalidateAnalysis, isRecord, undoModel, type ModelEdit } from '../engineering/model-state.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
+import { assertModelEditReadback, editCollectionSchema, engineeringModelSchema, modelEditGuidance, modelFieldEdit, normalizeModelEdits } from '../engineering/model-edit-contract.js';
 import { queryPhysicalResponse, scalarResultQuantity } from '../engineering/result-data.js';
 import { resultSelectionSchema } from '../engineering/result-selection.js';
 import { loadAnalysisRun } from '../engineering/analysis-runs.js';
 import { randomUUID } from 'node:crypto';
 import { imageRegionSchema } from '../engineering/vision-evidence.js';
-import { activeInputEvidence, analysisInputBinding, canonicalInputValue, evidenceSourceFile, mergeInputEvidence, unresolvedInputEvidence } from '../engineering/input-evidence.js';
+import { activeInputEvidence, analysisInputBinding, canonicalInputValue, evidenceSourceFile, isCanonicalModelField, mergeInputEvidence, unresolvedInputEvidence } from '../engineering/input-evidence.js';
 
 function context(config: LangGraphRunnableConfig) {
   const dependencies = config.configurable as AgentConfigurable & { agentState: AgentState };
@@ -28,16 +29,20 @@ export function createEditModelTool() {
     const { id, state, structureProtocolClient } = context(config);
     if (!state.model) throw new Error('MODEL_REQUIRED');
     if (input.baseRevision !== state.modelRevision) throw new Error(`MODEL_VERSION_CONFLICT: expected ${state.modelRevision}`);
-    const edited = applyModelEdits(state.model, input.edits as ModelEdit[]);
+    const edits = normalizeModelEdits(state.model, input.edits as ModelEdit[], await engineeringModelSchema(structureProtocolClient));
+    const edited = applyModelEdits(state.model, edits);
     const metadata = isRecord(edited.metadata) ? edited.metadata : {};
     edited.metadata = { ...metadata, inputEvidence: mergeInputEvidence(state.inputEvidence,
       Array.isArray(metadata.inputEvidence) ? metadata.inputEvidence.filter(isRecord) : []) };
     const model = await normalizeEngineeringModel(edited, structureProtocolClient);
+    assertModelEditReadback(model, edits);
     const update = commitModel(state, model, input.label ?? 'edit_model');
-    return result(id, 'edit_model', { success: true, revision: update.modelRevision, transaction: update.modelHistory.at(-1)?.id }, update);
+    const changed = update.modelRevision !== state.modelRevision;
+    return result(id, 'edit_model', { success: true, changed, revision: update.modelRevision,
+      transaction: changed ? update.modelHistory.at(-1)?.id : null }, update);
   }, {
     name: 'edit_model',
-    description: 'Atomically update named physical objects. Read query_model first; use its revision and stable IDs. Move an existing load by updating its position, never add a duplicate. / 按稳定对象ID原子修改、删除或添加。',
+    description: `Atomically update physical objects using query_model revision and stable IDs. Move existing loads, never duplicate. / 按稳定对象ID原子修改。 ${Object.values(modelEditGuidance).join(' ')}`,
     schema: z.object({
       baseRevision: z.number().int().nonnegative(), label: z.string().optional(),
       edits: z.array(z.object({ operation: z.enum(['add', 'update', 'remove']),
@@ -63,20 +68,21 @@ export function createUndoModelTool() {
 
 export function createQueryModelTool() {
   return tool(async (input, config) => {
-    const { state } = context(config);
+    const { state, structureProtocolClient } = context(config);
     const model = state.model;
     const collection = input.collection && model ? model[input.collection] : model;
     const objects = input.ids && Array.isArray(collection) ? collection.filter((item) => isRecord(item) && input.ids!.includes(String(item.id))) : collection;
     return JSON.stringify({ revision: state.modelRevision, pending: state.modelPending, model: objects,
+      ...(input.includeSchema ? { editGuidance: modelEditGuidance, editSchema: editCollectionSchema(await engineeringModelSchema(structureProtocolClient), input.collection) } : {}),
       inputEvidence: state.inputEvidence ?? [], inputIssues: unresolvedInputEvidence(state.inputEvidence),
       history: state.modelHistory?.map(({ beforeModel: _before, ...summary }) => summary) });
   }, { name: 'query_model', description: 'Read the current physical model, stable IDs, revision and modification history before editing. / 查询模型、对象ID、版本和修改历史。',
-    schema: z.object({ collection: z.string().optional(), ids: z.array(z.string()).optional() }) });
+    schema: z.object({ collection: z.string().optional(), ids: z.array(z.string()).optional(), includeSchema: z.boolean().optional() }) });
 }
 
 export function createReviewInputTool() {
   return tool(async (input, config) => {
-    const { state, id } = context(config);
+    const { state, id, structureProtocolClient } = context(config);
     const existing = state.inputEvidence ?? [];
     const contextSeismicWorkflow = structuredClone(state.contextSeismicWorkflow);
     const analysisSet = isRecord(contextSeismicWorkflow?.groundMotionSet) ? contextSeismicWorkflow.groundMotionSet : {};
@@ -116,20 +122,39 @@ export function createReviewInputTool() {
     const inputEvidence = mergeInputEvidence(existing, [...patch, ...exclusions]) ?? [];
     const modelValues: Record<string, unknown>[] = [];
     const modelValueErrors: Record<string, unknown>[] = [];
+    const modelMappingsRequired: string[] = [];
     for (const item of patch) {
       if (!state.model || item.field.startsWith('file:') || item.field.startsWith('coverage.')) continue;
       const field = item.resolution.modelField ?? item.field;
+      if (!item.resolution.modelField && !isCanonicalModelField(field)) {
+        // Resolving what a drawing shows is distinct from locating its model
+        // object. Keep the reviewed source; the hard model-binding check still
+        // blocks execution until a concrete canonical mapping is supplied.
+        modelMappingsRequired.push(field); continue;
+      }
       const selected = existing.find(record => record.id === item.resolution.selectedSource);
       const value = item.resolution.value ?? selected?.normalizedValue ?? selected?.value;
       const unit = item.resolution.selectedSource !== undefined ? selected?.normalizedUnit ?? selected?.unit : item.resolution.unit;
-      try { modelValues.push({ field, ...canonicalInputValue(state.model, field, value, unit) }); }
+      try {
+        let converted: Record<string, unknown>;
+        try { converted = canonicalInputValue(state.model, field, value, unit); }
+        catch (error) {
+          if (!(error instanceof Error) || !error.message.startsWith('INPUT_EVIDENCE_MODEL_FIELD_NOT_FOUND_OR_AMBIGUOUS:')) throw error;
+          // An optional field may be reviewed before it is populated, but only
+          // if the actual V2 schema accepts its owner, path and supplied type.
+          normalizeModelEdits(state.model, [modelFieldEdit(state.model, field, value)], await engineeringModelSchema(structureProtocolClient));
+          converted = canonicalInputValue(state.model, field, value, unit, true);
+        }
+        modelValues.push({ field, ...converted });
+      }
       catch (error) { modelValueErrors.push({ field, reason: error instanceof Error ? error.message : String(error) }); }
     }
-    return result(id, 'review_input', { inputEvidence, unresolved: unresolvedInputEvidence(inputEvidence), modelValues, modelValueErrors,
+    if (modelValueErrors.length) throw new Error(`INPUT_REVIEW_INVALID: ${modelValueErrors.map(row => `${row.field}: ${row.reason}`).join('; ')} / 复核字段无效，未保存本次复核，模型与已有结果未变`);
+    return result(id, 'review_input', { inputEvidence, unresolved: unresolvedInputEvidence(inputEvidence), modelValues, modelValueErrors, modelMappingsRequired,
       nextAction: 'Apply reviewed values to the draft/current model, then validate / 将复核值用于草稿或当前模型并校验' },
     { ...invalidateAnalysis(state), inputEvidence,
       ...(input.resolutions?.some(item => item.analysisParameters) ? { contextSeismicWorkflow } : {}) });
-  }, { name: 'review_input', description: 'Review candidate fields with their source IDs; map files to model fields or a complete analysis-input record. Exclude irrelevant sources with reasons. Preserve evidence and never invent values. / 复核来源字段并绑定模型或完整分析输入；无关来源须说明排除理由，保留证据。',
+  }, { name: 'review_input', description: 'Resolve existing input evidence/issues; this proposes reviewed values and does NOT edit the model. For ordinary user text updates use edit_model directly. Supply EITHER value+unit OR selectedSource (an existing observed evidence ID), never both; user text is not a source ID. / 解决已有证据问题，仅提出复核值、不修改模型。普通文字补参直接使用edit_model；value+unit与selectedSource已有证据ID二选一，用户文字不是证据ID。',
     schema: z.object({ resolutions: z.array(z.object({ field: z.string().min(1), selectedSource: z.string().optional(),
       value: z.unknown().optional(), unit: z.string().optional(), reason: z.string().min(1),
       sourceEvidenceId: z.string().optional().describe('Retain the exact parsed source for a reviewed model field / 复核字段引用的原始解析证据'),

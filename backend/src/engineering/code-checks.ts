@@ -1,4 +1,17 @@
 import { isRecord, type ModelRecord } from './model-state.js';
+import { modelEditGuidance, sectionPropertyUnits } from './model-edit-contract.js';
+
+/** A declared service case must exist in this run before other cases may be excluded. */
+export function validateServiceabilitySelection(model: ModelRecord, analysis: ModelRecord): void {
+  const available = isRecord(analysis.results) ? Object.keys(analysis.results)
+    : [analysis.selectedResultKey ?? (isRecord(analysis.selection) ? analysis.selection.key : undefined)].filter((key): key is string => typeof key === 'string');
+  for (const element of Array.isArray(model.elements) ? model.elements.filter(isRecord) : []) {
+    const keys = isRecord(element.design) ? element.design.serviceability_result_keys : undefined;
+    if (!Array.isArray(keys)) continue;
+    const unknown = keys.filter(key => !available.includes(key));
+    if (unknown.length) throw new Error(`SERVICEABILITY_RESULT_UNAVAILABLE: elements.${element.id}.design.serviceability_result_keys=${JSON.stringify(unknown)}; available=${JSON.stringify(available)} / 指定使用工况不在当前运行中，请将所需工况纳入分析`);
+  }
+}
 
 /** Check actual case results independently; never combine component-wise force envelopes. */
 export async function checkRunResults(analysis: ModelRecord, execute: (result: ModelRecord) => Promise<ModelRecord>): Promise<ModelRecord> {
@@ -44,7 +57,7 @@ export function formatCheckSummary(summary: ModelRecord | undefined, locale: 'zh
 }
 
 /** Keep missing-input evidence when reducing a check to the agent's tool response. */
-export function codeCheckFeedback(check: ModelRecord): ModelRecord {
+export function codeCheckFeedback(check: ModelRecord, model?: ModelRecord, analysis?: ModelRecord): ModelRecord {
   const missingInputs: ModelRecord[] = [];
   for (const detail of Array.isArray(check.details) ? check.details.filter(isRecord) : []) {
     for (const group of Array.isArray(detail.checks) ? detail.checks.filter(isRecord) : []) {
@@ -64,8 +77,29 @@ export function codeCheckFeedback(check: ModelRecord): ModelRecord {
       saved.resultKeys = [...new Set([...(saved.resultKeys as unknown[]), row.resultKey])];
     } else fields.set(key, { ...field, elementId: row.elementId, checks: [row.check], resultKeys: [row.resultKey] });
   }
+  const writeTargets = new Map<string, ModelRecord>();
+  const missingFields = [...fields.values()].map(row => {
+    const element = (Array.isArray(model?.elements) ? model.elements.filter(isRecord) : []).find(item => item.id === row.elementId);
+    const field = String(row.field);
+    const owner = field.startsWith('material.design.') ? ['materials', element?.material, field.replace('material.', '')]
+      : field.startsWith('member.design.') ? ['elements', element?.id, field.replace('member.', '')]
+      : field.startsWith('section.') ? ['sections', element?.section, `properties.${field.slice(8) === 'I' ? 'Iy' : field.slice(8)}`] : undefined;
+    if (!owner || !owner[1]) return { ...row, action: 'inspect_analysis', writable: false };
+    const modelUnit = owner[0] === 'sections' ? sectionPropertyUnits[String(owner[2]).slice(11)] : row.unit;
+    const scale = row.unit === 'mm3' && modelUnit === 'm3' ? 1e-9 : row.unit === 'mm4' && modelUnit === 'm4' ? 1e-12
+      : row.unit === 'mm2' && modelUnit === 'm2' ? 1e-6 : row.unit === 'mm' && modelUnit === 'm' ? .001 : 1;
+    const writeTarget = { collection: owner[0], id: owner[1], path: owner[2], modelUnit, inputUnit: row.unit, inputToModelScale: scale };
+    const key = JSON.stringify(owner);
+    const grouped = writeTargets.get(key);
+    if (grouped) grouped.elementIds = [...new Set([...(grouped.elementIds as unknown[]), row.elementId])];
+    else writeTargets.set(key, { ...writeTarget, label: row.label, elementIds: [row.elementId] });
+    return { ...row, writable: true, writeTarget };
+  });
   return { completionStatus: check.completionStatus, complianceStatus: check.complianceStatus, summary: check.summary,
-    missingInputs: [...fields.values()], inputRequiredChecks: missingInputs.map(({ fields: _fields, ...row }) => row),
+    missingInputs: missingFields, writeTargets: [...writeTargets.values()], missingInputCount: writeTargets.size + missingFields.filter(row => !row.writable).length,
+    availableResultKeys: isRecord(analysis?.results) ? Object.keys(analysis.results) : [], editGuidance: modelEditGuidance,
+    guidance: 'Write already supplied inputs to the listed owners; ask only for genuinely missing conditions. Counts of input-required checks are not counts of questions. Never invent coefficients, limits or computed responses. / 已确认输入按目标路径写入，仅询问真正缺失的条件；待输入校核项数不等于问题数，禁止虚构系数、限值或计算结果。',
+    inputRequiredChecks: missingInputs.map(({ fields: _fields, ...row }) => row),
     nextAction: check.completionStatus !== 'complete' ? 'ask_user_clarification' : 'generate_report',
     conclusionEligible: check.completionStatus === 'complete' && check.complianceStatus === 'pass' };
 }

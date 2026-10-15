@@ -1,0 +1,294 @@
+{
+  "source": "Product-owned reproduction of the reported design edit failure; values are declared inputs, not certified catalog data",
+  "model": {
+    "schema_version": "2.2.0",
+    "unit_system": "SI",
+    "coordinate_system": {
+      "semantics": "global-z-up",
+      "version": 1,
+      "dimension": "2d",
+      "plane": "xz",
+      "dof_order": [
+        "ux",
+        "uy",
+        "uz",
+        "rx",
+        "ry",
+        "rz"
+      ]
+    },
+    "nodes": [
+      {
+        "id": "1",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+          true,
+          true,
+          true,
+          false,
+          false,
+          false
+        ]
+      },
+      {
+        "id": "2",
+        "x": 5,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "id": "3",
+        "x": 10,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+          false,
+          true,
+          true,
+          false,
+          false,
+          false
+        ]
+      }
+    ],
+    "elements": [
+      {
+        "id": "1",
+        "type": "beam",
+        "nodes": [
+          "1",
+          "2"
+        ],
+        "material": "1",
+        "section": "SEC-I20A"
+      },
+      {
+        "id": "2",
+        "type": "beam",
+        "nodes": [
+          "2",
+          "3"
+        ],
+        "material": "1",
+        "section": "SEC-I20A"
+      }
+    ],
+    "materials": [
+      {
+        "id": "1",
+        "name": "Q235",
+        "E": 206000,
+        "G": 79000,
+        "nu": 0.3,
+        "rho": 7850,
+        "fy": 235,
+        "grade": "Q235",
+        "category": "steel"
+      }
+    ],
+    "sections": [
+      {
+        "id": "SEC-I20A",
+        "name": "I20a (GB/T 706)",
+        "type": "custom",
+        "properties": {
+          "A": 0.00355,
+          "Iy": 2.37E-05
+        }
+      }
+    ],
+    "load_cases": [
+      {
+        "id": "LC1",
+        "type": "other",
+        "loads": [
+          {
+            "node": "2",
+            "fz": -1,
+            "reference_frame": "global",
+            "id": "LC1:load:1"
+          }
+        ]
+      }
+    ],
+    "load_combinations": [
+      {
+        "id": "ULS",
+        "factors": {
+          "LC1": 1
+        }
+      }
+    ],
+    "metadata": {
+      "source": "markdown-skill-draft",
+      "inferredType": "beam",
+      "frameDimension": "2d",
+      "supportType": "simply-supported",
+      "semanticLoadCount": 1,
+      "inputEvidence": [],
+      "templatePropertyAssignments": {
+        "beam": {
+          "materialId": "1",
+          "sectionId": "SEC-I20A"
+        }
+      },
+      "coordinateSemantics": "global-z-up",
+      "coordinateContractVersion": 1
+    }
+  },
+  "reportedEdits": [
+    {
+      "baseRevision": 1,
+      "edits": [
+        {
+          "collection": "sections",
+          "id": "SEC-I20A",
+          "operation": "update",
+          "values": {
+            "b": "100",
+            "h": "200",
+            "imin": "21",
+            "name": "I20a (GB/T 706)",
+            "properties": "{\"Wnx\":237000,\"S\":104000,\"tw\":5.2,\"b\":100,\"t\":8.4,\"imin\":21,\"h\":200}",
+            "t": "8.4"
+          }
+        },
+        {
+          "collection": "elements",
+          "id": "1",
+          "operation": "update",
+          "values": {
+            "design": "{\"f\":215,\"fv\":125,\"beta1\":1.1,\"phi_b\":1.0,\"phi_b_basis\":\"跨中设侧向支承，受压翼缘自由长度满足GB50017-2017 4.2.1，整体稳定不控制\",\"btLimit\":13,\"btLimit_basis\":\"GB50017-2017 表8.4.1 S3级，Q235 ε=1，翼缘b/t≤13\",\"lambdaLimit\":250,\"lambdaLimit_basis\":\"GB50017-2017 一般受弯构件主梁\",\"deflectionLimitN\":250,\"deflectionLimit_basis\":\"GB50017-2017 附录B 一般受弯梁 L/250\",\"serviceability_result_keys\":[\"case:LC1\"]}",
+            "material.design.f": "215",
+            "material.design.fv": "125",
+            "member.design.beta1": "1.1",
+            "member.design.btLimit": "13",
+            "member.design.deflectionLimitN": "250",
+            "member.design.lambdaLimit": "250",
+            "member.design.phi_b": "1.0",
+            "member.design.serviceability_result_keys": "case:LC1"
+          }
+        },
+        {
+          "collection": "elements",
+          "id": "2",
+          "operation": "update",
+          "values": {
+            "design": "{\"f\":215,\"fv\":125,\"beta1\":1.1,\"phi_b\":1.0,\"phi_b_basis\":\"跨中设侧向支承，受压翼缘自由长度满足GB50017-2017 4.2.1，整体稳定不控制\",\"btLimit\":13,\"btLimit_basis\":\"GB50017-2017 表8.4.1 S3级，Q235 ε=1，翼缘b/t≤13\",\"lambdaLimit\":250,\"lambdaLimit_basis\":\"GB50017-2017 一般受弯构件主梁\",\"deflectionLimitN\":250,\"deflectionLimit_basis\":\"GB50017-2017 附录B 一般受弯梁 L/250\",\"serviceability_result_keys\":[\"case:LC1\"]}",
+            "material.design.f": "215",
+            "material.design.fv": "125",
+            "member.design.beta1": "1.1",
+            "member.design.btLimit": "13",
+            "member.design.deflectionLimitN": "250",
+            "member.design.lambdaLimit": "250",
+            "member.design.phi_b": "1.0",
+            "member.design.serviceability_result_keys": "case:LC1"
+          }
+        }
+      ],
+      "label": "补充GB50017设计校核输入（Q235强度、I20a截面属性、支承与挠度限值）"
+    },
+    {
+      "baseRevision": 1,
+      "edits": [
+        {
+          "collection": "sections",
+          "id": "SEC-I20A",
+          "operation": "update",
+          "values": {
+            "design": "{\"Wnx\":237000,\"S\":104000,\"tw\":5.2,\"b\":100,\"t\":8.4,\"imin\":21}",
+            "properties.A": "0.00355",
+            "properties.Ix": "2.37e-5",
+            "properties.Iy": "1.58e-7",
+            "properties.S": "104000",
+            "properties.Wnx": "237000",
+            "properties.b": "100",
+            "properties.h": "200",
+            "properties.imin": "21",
+            "properties.t": "8.4",
+            "properties.tw": "5.2"
+          }
+        }
+      ],
+      "label": "补充I20a截面设计属性"
+    },
+    {
+      "baseRevision": 1,
+      "edits": [
+        {
+          "collection": "elements",
+          "id": "1",
+          "operation": "update",
+          "values": {
+            "design": "{\"f\":215,\"fv\":125,\"beta1\":1.1,\"phi_b\":1.0,\"phi_b_basis\":\"跨中设侧向支承，整体稳定不控制\",\"btLimit\":13,\"lambdaLimit\":250,\"deflectionLimitN\":250,\"serviceability_result_keys\":[\"case:LC1\"]}",
+            "design.f": "215",
+            "design.fv": "125",
+            "design.beta1": "1.1",
+            "design.btLimit": "13",
+            "design.deflectionLimitN": "250",
+            "design.lambdaLimit": "250",
+            "design.phi_b": "1.0",
+            "design.serviceability_result_keys": "case:LC1"
+          }
+        },
+        {
+          "collection": "elements",
+          "id": "2",
+          "operation": "update",
+          "values": {
+            "design": "{\"f\":215,\"fv\":125,\"beta1\":1.1,\"phi_b\":1.0,\"phi_b_basis\":\"跨中设侧向支承，整体稳定不控制\",\"btLimit\":13,\"lambdaLimit\":250,\"deflectionLimitN\":250,\"serviceability_result_keys\":[\"case:LC1\"]}",
+            "design.f": "215",
+            "design.fv": "125",
+            "design.beta1": "1.1",
+            "design.btLimit": "13",
+            "design.deflectionLimitN": "250",
+            "design.lambdaLimit": "250",
+            "design.phi_b": "1.0",
+            "design.serviceability_result_keys": "case:LC1"
+          }
+        }
+      ],
+      "label": "补充构件设计校核参数"
+    },
+    {
+      "baseRevision": 1,
+      "edits": [
+        {
+          "collection": "elements",
+          "id": "1",
+          "operation": "update",
+          "values": {
+            "design.beta1": "1.1",
+            "design.btLimit": "13",
+            "design.deflectionLimitN": "250",
+            "design.f": "215",
+            "design.fv": "125",
+            "design.lambdaLimit": "250",
+            "design.phi_b": "1.0",
+            "design.phi_b_basis": "跨中设侧向支承，整体稳定不控制",
+            "design.serviceability_result_keys": "case:LC1"
+          }
+        }
+      ],
+      "label": "补充构件1设计校核参数"
+    },
+    {
+      "baseRevision": 1,
+      "edits": [
+        {
+          "collection": "materials",
+          "id": "1",
+          "operation": "update",
+          "values": {
+            "design.beta1": "1.1",
+            "design.f": "215",
+            "design.fv": "125"
+          }
+        }
+      ],
+      "label": "补充Q235设计强度"
+    }
+  ]
+}

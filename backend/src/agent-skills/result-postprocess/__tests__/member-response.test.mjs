@@ -44,6 +44,25 @@ function model(loads = []) {
 }
 
 describe("shared member response recovery", () => {
+  test('a canonical 2-D beam needs only its active inertia; 3-D and loaded inactive directions cannot bypass stiffness', () => {
+    const m = model([{ type: 'distributed', element: 'beam', reference_frame: 'global', wz: -2 }]);
+    delete m.sections[0].properties.Iz;
+    const result = { units, responseCoordinateConvention: 'global-xyz',
+      displacements: { A: d(), B: d(-2*6**4/(8*20000), 2*6**3/(6*20000)) },
+      forces: { beam: force(end(12, -36), end()) } };
+    const recovered = recoverMemberResponses(m, result, { D: 1 }, 'opensees')[0];
+    expect(recovered.state).toBe('recovered');
+    expect(recovered.samples.at(-1).displacement[2]).toBeCloseTo(-2*6**4/(8*20000), 10);
+    expect(m.sections[0].properties.Iz).toBeUndefined();
+    m.coordinate_system.dimension = '3d';
+    expect(recoverMemberResponses(m, result, { D: 1 }, 'opensees')[0]).toMatchObject({ state: 'interpolated', reason: 'stiffness' });
+    m.coordinate_system.dimension = '2d';
+    result.forces.beam.n1.V2 = 1e-15;
+    expect(recoverMemberResponses(m, result, { D: 1 }, 'opensees')[0]).toMatchObject({ state: 'interpolated', reason: 'stiffness' });
+    result.forces.beam.n1.V2 = 0;
+    delete m.sections[0].properties.Iy;
+    expect(recoverMemberResponses(m, result, { D: 1 }, 'opensees')[0]).toMatchObject({ state: 'interpolated', reason: 'stiffness' });
+  });
   test("an endpoint differing by machine roundoff is accepted, an outside station is not", () => {
     const length = Math.hypot(1, 3.3);
     const responses = [{ id: "slope", length, state: "recovered", samples: [{ x: length, N: 5 }] }];

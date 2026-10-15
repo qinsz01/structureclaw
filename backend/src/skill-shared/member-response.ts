@@ -304,8 +304,19 @@ export function recoverMemberResponses(
       }
     const Iy = planar ? p?.Iy : p?.Iz,
       Iz = p?.Iy;
+    // A canonical 2-D result still carries three local components. Its inactive
+    // transverse direction needs no section inertia, but only when the declared
+    // plane, axes, actions, loads, translations and slopes all agree it is absent.
+    // Do not substitute an invented out-of-plane stiffness into a 2-D model.
+    const normal: Vec | undefined = m.coordinate_system.dimension === '2d'
+      ? m.coordinate_system.plane === 'xz' ? [0, 1, 0] : m.coordinate_system.plane === 'xy' ? [0, 0, 1] : undefined : undefined;
+    const inactiveY = !planar && !!normal && Math.abs(dot(axes[1], normal)) > 1 - 1e-10
+      && [va[1], vb[1], ra[2], rb[2], n1?.V2, n2?.V2, n1?.M3, n2?.M3, q[1], dq[1]].every(value => value === 0);
+    const inactiveZ = !planar && !!normal && Math.abs(dot(axes[2], normal)) > 1 - 1e-10
+      && [va[2], vb[2], ra[1], rb[1], n1?.V3, n2?.V3, n1?.M2, n2?.M2, q[2], dq[2]].every(value => value === 0);
+    const activeInertias = [...(inactiveY ? [] : [Iy]), ...(inactiveZ ? [] : [Iz])];
     const stiffness =
-      !!p && finite([E, p.A, Iy, Iz]) && E > 0 && p.A > 0 && Iy! > 0 && Iz! > 0;
+      !!p && finite([E, p.A, ...activeInertias]) && E > 0 && p.A > 0 && activeInertias.every(value => value! > 0);
     const required = planar
       ? ["N", "V", "M"]
       : ["N", "V2", "V3", "M2", "M3", "T"];
@@ -327,13 +338,13 @@ export function recoverMemberResponses(
       (n1?.V3 || 0) * x -
       (q[2] * x * x) / 2 -
       (dq[2] * x ** 3) / 6;
-    const poly = (x: number) =>
+    const poly = (x: number) => inactiveY ? 0 :
       ((-M * x * x) / 2 +
         (V * x ** 3) / 6 +
         (q[1] * x ** 4) / 24 +
         (dq[1] * x ** 5) / 120) /
       (E * Iy!);
-    const polyZ = (x: number) =>
+    const polyZ = (x: number) => inactiveZ ? 0 :
       (((n1?.M2 || 0) * x * x) / 2 +
         ((n1?.V3 || 0) * x ** 3) / 6 +
         (q[2] * x ** 4) / 24 +
@@ -341,11 +352,11 @@ export function recoverMemberResponses(
       (E * Iz!);
     const sy = (vb[1] - va[1] - poly(L)) / L,
       sz = (vb[2] - va[2] - polyZ(L)) / L;
-    const slopeY =
+    const slopeY = inactiveY ? 0 :
       sy +
       (-M * L + (V * L * L) / 2 + (q[1] * L ** 3) / 6 + (dq[1] * L ** 4) / 24) /
         (E * Iy!);
-    const slopeZ =
+    const slopeZ = inactiveZ ? 0 :
       sz +
       ((n1?.M2 || 0) * L +
         ((n1?.V3 || 0) * L * L) / 2 +

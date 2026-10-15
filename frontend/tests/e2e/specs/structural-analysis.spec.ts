@@ -1,4 +1,61 @@
 import { test, expect } from '@playwright/test';
+import fs from 'node:fs';
+import path from 'node:path';
+
+test('Live provider: confirmed design inputs survive edit, check and report', async ({ page, request }, info) => {
+  test.skip(process.env.SCLAW_E2E_LIVE !== '1', 'Requires a configured isolated live provider');
+  test.setTimeout(900_000);
+  const fixture = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), '../backend/tests/fixtures/design-edit-boundary-20261015.json'), 'utf8').replace(/^\uFEFF/, ''));
+  fixture.model.analysis_control = { self_weight: false, rigid_floor: false, rigid_offsets: false, p_delta: false, construction_stage: false };
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.context().addCookies([{ name: 'structureclaw.locale', value: 'zh', url: info.project.use.baseURL! }]);
+  await page.addInitScript(() => localStorage.setItem('structureclaw.locale', 'zh'));
+  await page.goto('/capabilities');
+  await page.waitForLoadState('networkidle');
+  const { skills } = await (await request.get('/api/v1/agent/skills')).json();
+  for (const id of ['beam', 'opensees-static', 'validation-structure-model', 'report-export-builtin', 'code-check-gb50017']) {
+    const skill = skills.find((item: { id: string }) => item.id === id);
+    expect(skill).toBeTruthy();
+    const selected = await page.evaluate(() => JSON.parse(localStorage.getItem('structureclaw.console.capabilities') ?? '{}').skillIds ?? []);
+    if (!selected.includes(id)) await page.getByRole('button', { name: skill.name.zh, exact: true }).click();
+  }
+  await page.goto('/');
+  await page.getByRole('button', { name: /^(Context|工程上下文)$/ }).click();
+  await page.getByPlaceholder(/Paste StructureModel v2 JSON here|将 StructureModel v2 JSON 粘贴/).fill(JSON.stringify(fixture.model));
+  await page.keyboard.press('Escape');
+  const send = async (text: string) => {
+    const response = page.waitForResponse(r => /\/api\/v1\/chat\/stream(?:\/resume)?$/.test(r.url()) && r.request().method() === 'POST');
+    await page.getByRole('textbox').fill(text);
+    await page.getByRole('button', { name: '发送', exact: true }).click();
+    const stream = await response;
+    expect(await stream.finished()).toBeNull();
+    const events = (await stream.text()).split('\n').filter(line => line.startsWith('data: ') && !line.includes('[DONE]')).map(line => JSON.parse(line.slice(6)));
+    expect(events.filter(event => event.type === 'error')).toEqual([]);
+    const id = events.find(event => event.type === 'start')?.content?.conversationId ?? stream.request().postDataJSON().conversationId;
+    const conversation = await (await request.get(`/api/v1/chat/conversation/${id}`)).json();
+    const session = await (await request.get(`/api/v1/chat/conversation/${id}/session`)).json();
+    await info.attach(`design-turn-${session.modelRevision}`, { body: JSON.stringify({ conversation, session }, null, 2), contentType: 'application/json' });
+    const failures = conversation.messages.filter((m: { role: string; content: string }) => m.role === 'tool' && /^Error:|RECOVERY_BUDGET_EXHAUSTED|"success":false/.test(m.content));
+    expect(failures, 'A final success must not conceal edit format errors').toEqual([]);
+    expect(session.usage.recoveries).toBe(0);
+    return { id, conversation, session };
+  };
+  const first = await send('请在已提供的10m简支梁模型上进行OpenSees计算和GB50017-2017校核，不计自重。已确认条件：Q235（t≤16mm）f=215MPa、fv=125MPa、beta1=1.1；I20a补充属性S≈104cm³、tw=5.2mm、Wnx=237cm³、imin≈21mm；跨中设侧向支承；挠度限值L/250。只把已给定的条件写入模型，不要自行补造未给定的系数或限值。用原有LC1作为使用工况，保留原组合，并明确剩余缺项。');
+  const checks = first.conversation.messages.filter((m: { role: string; name: string }) => m.role === 'tool' && m.name === 'run_code_check');
+  expect(checks.length).toBeGreaterThan(0);
+  const partial = JSON.parse(checks.at(-1).content);
+  expect(partial).toMatchObject({ completionStatus: 'incomplete', complianceStatus: 'incomplete' });
+  const missing = partial.missingInputs.map((row: { field: string }) => row.field);
+  for (const field of ['material.design.f', 'material.design.fv', 'member.design.beta1', 'member.design.deflectionLimitN', 'section.S', 'section.tw', 'section.Wnx', 'section.imin', 'response.deflection']) expect(missing).not.toContain(field);
+  const second = await send('补充明确的本次测试条件（不是让你推定标准值）：两个构件均取phi_b=0.9、btLimit=13、lambdaLimit=250、计算长度l0=5000mm；截面板件计算宽度b=40mm、板厚t=8.4mm。保留前面全部条件与工况组合。更新现有模型后重新计算、完成内置GB50017校核、查询跨中节点竖向挠度并生成中文报告；报告说明这些是用户给定条件。');
+  const finalChecks = second.conversation.messages.filter((m: { role: string; name: string }) => m.role === 'tool' && m.name === 'run_code_check');
+  expect(JSON.parse(finalChecks.at(-1).content)).toMatchObject({ completionStatus: 'complete', complianceStatus: 'pass', conclusionEligible: true });
+  expect(second.session.analysis.current).toBe(true);
+  expect(second.session.report.current).toBe(true);
+  await info.attach('confirmed-design-browser', { body: await page.screenshot(), contentType: 'image/png' });
+  expect(errors).toEqual([]);
+});
 
 for (const attempt of [1, 2]) {
   test(`Live provider: original short beam request has no extraction-format retry (${attempt})`, async ({ page, request }, info) => {

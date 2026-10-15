@@ -1,10 +1,18 @@
 import { test, expect, type Page, type APIRequestContext } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import { beamModel, beamAnalysis } from '../fixtures/engineering-beam';
 import { startLlmFixture, configureFixtureLlm, toolCall, type LlmFixture } from '../fixtures/llm-server';
 
-for (const locale of ['en', 'zh'] as const) {
-  test(`Code checking through the browser (${locale}): missing inputs, supplied conditions, real failure and truthful delivery`, async ({ page, request, baseURL }, info) => {
+const splitBeam = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), '../backend/tests/fixtures/design-edit-boundary-20261015.json'), 'utf8').replace(/^\uFEFF/, '')).model;
+splitBeam.analysis_control = {self_weight:false,rigid_floor:false,rigid_offsets:false,p_delta:false,construction_stage:false};
+const scenarios = [
+  {name:'rectangle',model:beamModel,analysis:beamAnalysis,material:'steel',members:['beam'],load:'midpoint-load'},
+  {name:'reported split numerical beam',model:splitBeam,analysis:{...beamAnalysis,loadCombinationIds:['ULS']},material:'1',members:['1','2'],load:'LC1:load:1'},
+];
+for (const locale of ['en', 'zh'] as const) for (const scenario of scenarios) {
+  test(`Code checking through the browser (${locale}, ${scenario.name}): missing inputs, supplied conditions, real failure and truthful delivery`, async ({ page, request, baseURL }, info) => {
     test.setTimeout(180_000);
     const llm = await startLlmFixture();
     const errors: string[] = [];
@@ -26,11 +34,11 @@ for (const locale of ['en', 'zh'] as const) {
       }
       await page.goto('/');
       await page.getByRole('button', { name: /^(Context|工程上下文)$/ }).click();
-      await page.getByPlaceholder(/Paste StructureModel v2 JSON here|将 StructureModel v2 JSON 粘贴/).fill(JSON.stringify(beamModel));
+      await page.getByPlaceholder(/Paste StructureModel v2 JSON here|将 StructureModel v2 JSON 粘贴/).fill(JSON.stringify(scenario.model));
       await page.keyboard.press('Escape');
       const message = `E2E-${locale}-${randomUUID().slice(0,8)}: Analyze and check the supplied beam, asking for missing conditions.`;
       // Deliberately unreliable prose must not override the real saved status.
-      const initial = await send(page, llm, message, [toolCall('run_analysis', beamAnalysis),
+      const initial = await send(page, llm, message, [toolCall('run_analysis', scenario.analysis),
         toolCall('run_code_check', { designCode: 'GB50017', provider: 'auto' }), 'UNVERIFIED_COMPLIANCE_SENTINEL: all checks passed, design complete.']);
       const missing = await lastCheck(request, initial);
       expect(missing).toMatchObject({ provider: 'builtin', engine: 'opensees', completionStatus: 'incomplete', complianceStatus: 'incomplete', conclusionEligible: false, nextAction: 'ask_user_clarification' });
@@ -42,11 +50,14 @@ for (const locale of ['en', 'zh'] as const) {
       const before = await (await request.get(`/api/v1/chat/conversation/${initial}/session`)).json();
       const design = { beta1: 1, phi_b: 1, l0: 1000, lambdaLimit: 150, deflectionLimitN: 250, serviceability_result_keys: ['case:LC1'] };
       // Product fixture: these are expressly supplied conditions, not inferred defaults.
-      await send(page, llm, 'Confirmed fixture conditions: f=215 MPa, fv=125 MPa; restrained member phi_b=1, effective length 1000 mm, lambda limit 150, beta1=1; deflection L/250 under case:LC1. Update and reanalyze before checking.', [
+      await send(page, llm, 'Confirmed synthetic fixture conditions: f=215 MPa, fv=125 MPa; phi_b=1, effective length 1000 mm, lambda limit 150, beta1=1, btLimit=13; deflection L/250 under case:LC1. For the split custom numerical section also explicitly supply S=104 cm3, Wnx=237 cm3, tw=5.2 mm, imin=21 mm, b=40 mm, t=8.4 mm. These are declared test inputs, not inferred standard values. Update and reanalyze before checking.', [
         toolCall('edit_model', { baseRevision: before.modelRevision, edits: [
-          { operation: 'update', collection: 'materials', id: 'steel', values: { design: { f: 215, fv: 125 } } },
-          { operation: 'update', collection: 'elements', id: 'beam', values: { design } },
-        ] }), toolCall('run_analysis', beamAnalysis), toolCall('run_code_check', { designCode: 'GB50017', provider: 'builtin' }),
+          { operation: 'update', collection: 'materials', id: scenario.material, values: { design: JSON.stringify({ f: 215, fv: 125 }) } },
+          ...scenario.members.map(id => ({ operation:'update', collection:'elements', id, values:{design:JSON.stringify({...design,btLimit:13})} })),
+          ...(scenario.name === 'rectangle' ? [] : [{operation:'update',collection:'sections',id:'SEC-I20A',values:{
+            'properties.S':'.000104','properties.Wnx':'.000237','properties.tw':'.0052','properties.imin':'.021','properties.b':'.04','properties.t':'.0084',
+          }}]),
+        ] }), toolCall('run_analysis', scenario.analysis), toolCall('run_code_check', { designCode: 'GB50017', provider: 'builtin' }),
         toolCall('generate_report', { message: 'Computed checks under explicitly supplied fixture conditions', analysisType: 'static', locale, narrative: 'structured' }), 'CONFIRMED_CHECKS_DONE',
       ]);
       const complete = await lastCheck(request, initial);
@@ -58,8 +69,8 @@ for (const locale of ['en', 'zh'] as const) {
       expect(session.analysis.runId).not.toBe(before.analysis.runId);
 
       await send(page, llm, 'Increase the existing load to 1000 kN, retain the supplied design conditions, reanalyze, check and report the actual result.', [
-        toolCall('edit_model', { baseRevision: session.modelRevision, edits: [{ operation: 'update', collection: 'loads', caseId: 'LC1', id: 'midpoint-load', values: { fz: -1000 } }] }),
-        toolCall('run_analysis', beamAnalysis), toolCall('run_code_check', { designCode: 'GB50017' }),
+        toolCall('edit_model', { baseRevision: session.modelRevision, edits: [{ operation: 'update', collection: 'loads', caseId: 'LC1', id: scenario.load, values: { fz: -1000 } }] }),
+        toolCall('run_analysis', scenario.analysis), toolCall('run_code_check', { designCode: 'GB50017' }),
         toolCall('generate_report', { message: 'Actual overloaded fixture result', analysisType: 'static', locale, narrative: 'structured' }), 'FALSE_PASS_SENTINEL: design meets all requirements.',
       ]);
       const failed = await lastCheck(request, initial);

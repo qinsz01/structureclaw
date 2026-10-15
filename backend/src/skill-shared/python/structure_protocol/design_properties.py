@@ -8,15 +8,17 @@ from __future__ import annotations
 
 from copy import deepcopy
 from typing import Any, Optional
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 from typing import Annotated
 
 PositiveFinite = Annotated[float, Field(gt=0, allow_inf_nan=False)]
 NonnegativeFinite = Annotated[float, Field(ge=0, allow_inf_nan=False)]
+DesignBasis = dict[str, Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]]
 
 
 class MaterialDesign(BaseModel):
     model_config = ConfigDict(extra='forbid')
+    basis: DesignBasis = Field(default_factory=dict, description='Declared source or basis by design field / 各设计字段的输入依据')
     f: Optional[PositiveFinite] = None
     fv: Optional[PositiveFinite] = None
     fc: Optional[PositiveFinite] = None
@@ -75,6 +77,7 @@ class ReinforcementInput(BaseModel):
 
 class MemberDesign(BaseModel):
     model_config = ConfigDict(extra='forbid')
+    basis: DesignBasis = Field(default_factory=dict, description='Declared source or basis by design field / 各设计字段的输入依据')
     l0: Optional[PositiveFinite] = Field(default=None, description='Effective length (mm) / 计算长度')
     h0: Optional[PositiveFinite] = Field(default=None, description='Effective depth (mm) / 有效高度')
     phi: Optional[PositiveFinite] = None

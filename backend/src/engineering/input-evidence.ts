@@ -179,9 +179,13 @@ export function assertAnalysisInputEvidenceMatchesRequest(evidence: unknown, wor
 const modelCollections = new Set(['nodes', 'elements', 'materials', 'sections', 'stories', 'load_cases', 'load_combinations']);
 const modelSingletons = new Set(['analysis_control', 'site_seismic', 'structure_system', 'wind', 'coordinate_system']);
 const unsafeKeys = new Set(['__proto__', 'prototype', 'constructor']);
+export function isCanonicalModelField(field: string): boolean {
+  const root = field.split('.')[0]!;
+  return modelCollections.has(root) || modelSingletons.has(root);
+}
 
 /** Arrays are addressed by stable IDs, never their current array index. */
-function readModelField(model: ModelRecord, field: string): { value: unknown; route: string[] } {
+function readModelField(model: ModelRecord, field: string, allowMissing = false): { value: unknown; route: string[] } {
   const root = field.slice(0, field.indexOf('.'));
   if (!modelCollections.has(root) && !modelSingletons.has(root)) throw new Error(`INPUT_EVIDENCE_MODEL_FIELD_REQUIRED: ${field}`);
   function read(value: unknown, remaining: string, route: string[]): Array<{ value: unknown; route: string[] }> {
@@ -190,13 +194,16 @@ function readModelField(model: ModelRecord, field: string): { value: unknown; ro
       return value.filter(isRecord).flatMap(item => typeof item.id === 'string' && remaining.startsWith(`${item.id}.`)
         ? read(item, remaining.slice(item.id.length + 1), route) : []);
     }
-    if (!isRecord(value)) return [];
+    if (!isRecord(value)) {
+      if (allowMissing && value === undefined) return read({}, remaining, route);
+      return [];
+    }
     const [key, ...rest] = remaining.split('.');
-    if (!key || unsafeKeys.has(key) || !Object.hasOwn(value, key)) return [];
+    if (!key || unsafeKeys.has(key) || !Object.hasOwn(value, key) && !allowMissing) return [];
     return read(value[key], rest.join('.'), [...route, key]);
   }
   const matches = read(model[root], field.slice(root.length + 1), [root]);
-  if (matches.length !== 1 || matches[0]!.value === undefined) throw new Error(`INPUT_EVIDENCE_MODEL_FIELD_NOT_FOUND_OR_AMBIGUOUS: ${field}`);
+  if (matches.length !== 1 || matches[0]!.value === undefined && !allowMissing) throw new Error(`INPUT_EVIDENCE_MODEL_FIELD_NOT_FOUND_OR_AMBIGUOUS: ${field}`);
   return matches[0]!;
 }
 
@@ -209,9 +216,10 @@ function modelFieldUnit(route: string[]): string | undefined {
   if (path === 'materials.rho') return 'kg/m3';
   if (/^materials\.(nu|design\.(ecu|alpha1|beta1))$/.test(path)) return '1';
   if (/^sections\.shape\.(H|B|T|d|a|a2|t|tw|tf|tf2|B2|r|r1|r2|b|h)$/.test(path)) return 'mm';
-  if (/^sections\.properties\.(A|Asy|Asz)$/.test(path) || path === 'stories.load_area_m2') return 'm2';
+  if (/^sections\.properties\.(A|As|Asy|Asz)$/.test(path) || path === 'stories.load_area_m2') return 'm2';
   if (/^sections\.properties\.(I|Iy|Iz|Iyy|Izz|J)$/.test(path)) return 'm4';
-  if (/^sections\.properties\.(W|Wy|Wz|Wyy|Wzz)$/.test(path)) return 'm3';
+  if (/^sections\.properties\.(W|Wx|Wy|Wz|Wnx|Wyy|Wzz|S|Sz)$/.test(path)) return 'm3';
+  if (/^sections\.properties\.(tw|tz|b|t|imin)$/.test(path)) return 'm';
   if (/^elements\.design\.(l0|h0|crackWidthLimit)$/.test(path)) return 'mm';
   if (/^elements\.design\.(phi|phi_b|phi_axial|beta1|btLimit|lambdaLimit|deflectionLimitN|axialRatioLimit)$/.test(path)) return '1';
   if (path === 'elements.rotation_angle') return 'deg';
@@ -249,8 +257,8 @@ function hasNumericValue(value: unknown): boolean {
 }
 
 /** Shared conversion for both evidence comparison and explicit user application. */
-export function canonicalInputValue(model: ModelRecord, field: string, value: unknown, unit: unknown): ModelRecord {
-  const actual = readModelField(model, field);
+export function canonicalInputValue(model: ModelRecord, field: string, value: unknown, unit: unknown, allowMissing = false): ModelRecord {
+  const actual = readModelField(model, field, allowMissing);
   if (typeof value !== 'number') {
     if (value === undefined || value === null || hasNumericValue(value)) throw new Error(`INPUT_EVIDENCE_SCALAR_MAPPING_REQUIRED: ${field}`);
     return { value };

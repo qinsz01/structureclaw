@@ -1,7 +1,7 @@
 import { attachNativeReport, createEngineeringReport } from './engineering-report.js';
 import { nativeDesignRecord, resolveCheckProvider, type CodeCheckProvider } from '../engineering/native-design.js';
 import { resultEngine } from '../engineering/result-data.js';
-import { checkRunResults } from '../engineering/code-checks.js';
+import { checkRunResults, validateServiceabilitySelection } from '../engineering/code-checks.js';
 import { modelHash, isRecord as isReportResult } from '../engineering/model-state.js';
 import { analysisSettingsHash } from '../engineering/analysis-runs.js';
 import { randomUUID } from 'node:crypto';
@@ -368,6 +368,7 @@ export class AnalysisService {
     const knownIds = new Set((Array.isArray(options.model.elements) ? options.model.elements : [])
       .map(element => asRecord(element).id));
     if (options.elements?.some(id => !knownIds.has(id))) throw new Error('CODE_CHECK_ELEMENT_NOT_FOUND');
+    validateServiceabilitySelection(options.model, options.analysis);
     const result = await checkRunResults(options.analysis, async caseResult => {
       const caseMeta = asRecord(caseResult.meta);
       if (caseResult.success !== true || caseMeta.runId !== runId || caseMeta.modelHash !== fingerprint || caseMeta.settingsHash !== settingsHash) {

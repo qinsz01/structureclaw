@@ -32,6 +32,16 @@ def test_steel_deflection_missing_inputs_distinguish_service_selection_and_compu
     assert 'member.length' not in fields
 
 
+@pytest.mark.parametrize('code', ['GB50017', 'GB50010'])
+def test_explicit_non_service_case_is_not_a_missing_deflection_or_a_pass(code):
+    element = {'type':'beam','section':{},'material':{},'forces':{},'serviceabilityResult':False,'serviceabilityExcluded':True}
+    result = CodeChecker(code).check('m',['beam'],{'elementData':{'beam':element}})
+    item = next(item for group in result['details'][0]['checks'] for item in group['items'] if item['item']=='挠度')
+    assert item['status']=='not_applicable' and item['utilization'] is None
+    assert item['governingEligible'] is False and not item.get('missingInputs')
+    assert result['complianceStatus']=='incomplete'  # Other design inputs are still missing.
+
+
 @pytest.mark.parametrize('code', ['GB50017', 'GB50010', 'GB50011'])
 def test_absent_inputs_never_pass_or_have_controlling_utilization(code):
     result = CodeChecker(code).check('m', ['E1', 'renamed-element'], {})

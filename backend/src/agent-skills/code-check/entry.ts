@@ -265,6 +265,78 @@ function memberDeflection(member: ReturnType<typeof recoverAnalysisMembers>[numb
     definition: 'transverse-displacement-relative-to-endpoint-chord', numericalScope: 'sampled-member-response' };
 }
 
+/** The beam template may contain several physical members, e.g. at a point load.
+ * Only an unbranched, collinear, simply-supported/cantilever beam has an implicit
+ * whole-span reference. Never infer such a group for a frame or continuous beam.
+ */
+function standaloneBeamDeflection(model: Record<string, unknown>, members: Map<string, ReturnType<typeof recoverAnalysisMembers>[number]>, data: Record<string, unknown>) {
+  const metadata = asRecord(model['metadata']), coordinates = asRecord(model['coordinate_system']);
+  if (metadata['inferredType'] !== 'beam' || coordinates['dimension'] !== '2d') return;
+  const support = metadata['supportType'];
+  if (!['simply-supported', 'cantilever'].includes(String(support))) return;
+  const elements = Array.isArray(model['elements']) ? model['elements'].map(asRecord) : [];
+  if (!elements.length || support === 'simply-supported' && elements.length === 1) return;
+  const nodes = new Map((Array.isArray(model['nodes']) ? model['nodes'].map(asRecord) : []).map(node => [String(node['id']), node]));
+  const adjacency = new Map<string, string[]>();
+  for (const element of elements) {
+    const ends = element['nodes'];
+    if (element['type'] !== 'beam' || !Array.isArray(ends) || ends.length !== 2
+      || Object.keys(asRecord(element['releases'])).length || Object.keys(asRecord(element['offsets'])).length
+      || members.get(String(element['id']))?.state !== 'recovered') return;
+    for (const id of ends) adjacency.set(String(id), [...(adjacency.get(String(id)) ?? []), String(element['id'])]);
+  }
+  const endpoints = [...adjacency].filter(([, edges]) => edges.length === 1).map(([id]) => id);
+  if (endpoints.length !== 2 || [...adjacency.values()].some(edges => edges.length > 2)) return;
+  // Traversal excludes a disconnected cycle plus an otherwise valid open chain.
+  const visited = new Set<string>(), pending = [endpoints[0]!];
+  while (pending.length) {
+    const id = pending.pop()!; if (visited.has(id)) continue; visited.add(id);
+    for (const element of elements.filter(element => (element['nodes'] as string[]).includes(id))) pending.push(...element['nodes'] as string[]);
+  }
+  if (visited.size !== adjacency.size) return;
+  const vertical = coordinates['plane'] === 'xz' ? 2 : 1, rotation = vertical === 2 ? 4 : 5;
+  const restrained = (id: string, dof: number) => (nodes.get(id)?.['restraints'] as unknown[] | undefined)?.[dof] === true;
+  if ([...adjacency.keys()].some(id => !endpoints.includes(id) && [0, vertical, rotation].some(dof => restrained(id, dof)))) return;
+  if (support === 'simply-supported' && (!endpoints.every(id => restrained(id, vertical)) || endpoints.some(id => restrained(id, rotation)))) return;
+  if (support === 'cantilever') {
+    const fixed = endpoints.filter(id => [0, vertical, rotation].every(dof => restrained(id, dof)));
+    if (fixed.length !== 1 || [0, vertical, rotation].some(dof => restrained(endpoints.find(id => id !== fixed[0])!, dof))) return;
+    endpoints.sort(id => id === fixed[0] ? -1 : 1);
+  }
+  const point = (id: string) => ['x', 'y', 'z'].map(key => Number(nodes.get(id)?.[key]));
+  const start = point(endpoints[0]!), end = point(endpoints[1]!);
+  const delta = end.map((value, i) => value - start[i]!), span = Math.hypot(...delta);
+  if (!(span > 0) || !Number.isFinite(span)) return;
+  const axis = delta.map(value => value / span);
+  const position = (point: number[]) => point.reduce((sum, value, i) => sum + (value - start[i]!) * axis[i]!, 0);
+  if ([...adjacency.keys()].some(id => {
+    const p = point(id), x = position(p);
+    return x < -1e-9 || x > span + 1e-9 || Math.hypot(...p.map((value, i) => value - start[i]! - x * axis[i]!)) > 1e-9;
+  })) return;
+  const samples = [...members.values()].flatMap(member => member.samples.map(sample => ({ ...sample, memberId: member.id })));
+  const atStart = samples.find(sample => Math.abs(position(sample.position)) < 1e-9);
+  const atEnd = samples.find(sample => Math.abs(position(sample.position) - span) < 1e-9);
+  if (!atStart || !atEnd) return;
+  const fixedDisplacements = asRecord(asRecord(data['displacements'])[endpoints[0]!]);
+  const angle = fixedDisplacements[vertical === 2 ? 'ry' : 'rz'];
+  if (support === 'cantilever' && !finiteNumber(angle)) return;
+  let governing: { valueMm: number; positionM: number; memberId: string } | undefined;
+  for (const sample of samples) {
+    const x = position(sample.position);
+    const offset = sample.position.map((value, i) => value - start[i]!);
+    const rigidRotation = vertical === 2 ? [Number(angle) * offset[2]!, 0, -Number(angle) * offset[0]!]
+      : [-Number(angle) * offset[1]!, Number(angle) * offset[0]!, 0];
+    const relative = sample.displacement.map((value, i) => value - atStart.displacement[i]!
+      - (support === 'simply-supported' ? x / span * (atEnd.displacement[i]! - atStart.displacement[i]!) : rigidRotation[i]!));
+    const longitudinal = relative.reduce((sum, value, i) => sum + value * axis[i]!, 0);
+    const valueMm = Math.hypot(...relative.map((value, i) => value - longitudinal * axis[i]!)) * 1000;
+    if (!governing || valueMm > governing.valueMm) governing = { valueMm, positionM: x, memberId: sample.memberId };
+  }
+  return governing && { ...governing, source: 'mechanics-recovery', serviceabilityLengthMm: span * 1000,
+    referenceNodeIds: endpoints, definition: support === 'simply-supported' ? 'transverse-displacement-relative-to-whole-span-chord' : 'transverse-displacement-relative-to-fixed-end',
+    numericalScope: 'sampled-member-response' };
+}
+
 function forceUnitFactors(analysis: Record<string, unknown>, data: Record<string, unknown>): { force: number; moment: number } | undefined {
   const meta = asRecord(analysis['meta']);
   const units = asRecord(meta['units'] ?? data['units']);
@@ -343,6 +415,7 @@ function extractElementDataForCodeCheck(
       if (member.state === 'recovered' || member.state === 'truss') recoveredById.set(member.id, member);
     }
   }
+  const beamDeflection = standaloneBeamDeflection(model, recoveredById, data);
 
   // lookup tables: section/material/node by id (supports both string and number IDs)
   const sectionById: Record<string, Record<string, unknown>> = {};
@@ -459,7 +532,8 @@ function extractElementDataForCodeCheck(
     const As_mm2 = As_m2 * 1e6;
 
     // rotation radius i = sqrt(I / A) in mm
-    const i_min = A_mm2 > 0 ? Math.sqrt(Math.min(Iy_mm4, Iz_mm4) / A_mm2) : undefined;
+    const i_min = finiteNumber(sectionProps['imin']) ? sectionProps['imin'] * 1000
+      : A_mm2 > 0 && Iy_mm4 > 0 && Iz_mm4 > 0 ? Math.sqrt(Math.min(Iy_mm4, Iz_mm4) / A_mm2) : undefined;
 
     // V2 SectionShape dimensions are millimetres, independently of their magnitude.
     let derivedWnxMm3 = Wx_mm3;
@@ -596,7 +670,7 @@ function extractElementDataForCodeCheck(
     const resultKey = analysis['selectedResultKey'] ?? asRecord(analysis['selection'])['key'];
     const serviceKeys = memberDesign['serviceability_result_keys'];
     const serviceResult = Array.isArray(serviceKeys) && serviceKeys.includes(resultKey);
-    const deflectionResponse = serviceResult ? memberDeflection(recovered) : undefined;
+    const deflectionResponse = serviceResult ? beamDeflection ?? memberDeflection(recovered) : undefined;
     if (serviceResult) for (const state of forceStates) {
       if (finiteNumber(state.forces['Mx'])) state.forces['M_service'] = state.forces['Mx'];
     }
@@ -613,7 +687,8 @@ function extractElementDataForCodeCheck(
         ...(Iy_mm4 > 0 ? { I: Iy_mm4 } : {}),
         ...(Iz_mm4 > 0 ? { Iz: Iz_mm4 } : {}),
         ...(J_mm4 > 0 ? { J: J_mm4 } : {}),
-        ...(i_min !== undefined ? { i: i_min } : {}),
+        ...(i_min !== undefined ? { i: i_min, imin: i_min } : {}),
+        ...Object.fromEntries(['b', 't'].flatMap(key => finiteNumber(sectionProps[key]) ? [[key, sectionProps[key] * 1000]] : [])),
         ...(derivedWnxMm3 > 0 ? { Wx: derivedWnxMm3, Wnx: derivedWnxMm3 } : {}),
         ...(derivedS_mm3 > 0 ? { S: derivedS_mm3 } : {}),
         ...(derivedTw_mm > 0 ? { tw: derivedTw_mm } : {}),
@@ -637,8 +712,11 @@ function extractElementDataForCodeCheck(
       ...(forceInputIssue ? { forceInputIssue } : {}),
       ...(lengthMm !== undefined ? { length: lengthMm } : {}),
       ...numericDesign,
+      designBasis: memberDesign['basis'] ?? {},
       ...(deflectionResponse ? { deflection: deflectionResponse.valueMm, deflectionResponse } : {}),
+      ...(serviceResult && beamDeflection ? { serviceabilityLength: beamDeflection.serviceabilityLengthMm } : {}),
       serviceabilityResult: serviceResult,
+      serviceabilityExcluded: Array.isArray(serviceKeys) && serviceKeys.length > 0 && typeof resultKey === 'string' && !serviceResult,
       ...(elem['seismic_grade'] !== undefined ? { seismicGrade: elem['seismic_grade'] } : {}),
       ...(storyHeightMm !== undefined ? { storyHeightMm } : {}),
       ...(storyHeight !== undefined ? { storyHeight } : {}),

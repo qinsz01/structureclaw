@@ -94,6 +94,24 @@ def test_unknown_design_keys_cannot_masquerade_as_supported_checks():
         ElementV2(id='b',nodes=['a','b'],material='m',section='s',design={'deflection':0.001})
 
 
+def test_design_basis_survives_roundtrip_without_allowing_fake_response_fields():
+    source = {'id':'b','nodes':['a','b'],'material':'m','section':'s',
+              'design':{'phi_b':.9,'basis':{'phi_b':'User supplied coefficient, not inferred'}}}
+    member = ElementV2.model_validate(source)
+    assert member.model_dump(exclude_unset=True)['design'] == source['design']
+    assert ElementV2.model_validate(member.model_dump()).design.basis == source['design']['basis']
+    for invalid in ({'basis':{'phi_b':''}}, {'basis':{'phi_b':1}}, {'phi_b':.9,'fake_pass':True}):
+        with pytest.raises(ValueError):
+            ElementV2.model_validate({**source,'design':invalid})
+
+
+@pytest.mark.parametrize('field', ['b','t','imin'])
+@pytest.mark.parametrize('value', [0, -1, float('inf'), True])
+def test_additional_consumed_section_lengths_are_positive_and_finite(field, value):
+    with pytest.raises(ValueError, match='finite and positive'):
+        validate_section_physics(SectionV2(id='s',name='s',type='custom',properties={'A':.01,'Iy':1e-4,field:value}))
+
+
 def test_legacy_reinforcement_is_preserved_without_inventing_confirmation():
     member = ElementV2(id='b',nodes=['a','b'],material='m',section='s',extra={'As':1256,'cover':30})
     exported = member.model_dump(exclude_unset=True)

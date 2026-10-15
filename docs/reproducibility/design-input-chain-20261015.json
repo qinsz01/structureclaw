@@ -1,0 +1,179 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-15",
+  "baselineCommit": "c9df1a13c3b072e413359733f5497dae25cbcd6b",
+  "scope": "Product-owned design-input, model-edit, serviceability and delivery repair; no Bench or evaluation changes",
+  "status": "verified_for_recorded_scope",
+  "originalFailure": {
+    "conversationId": "cmv8zez3g0000x4wmy8vras0u",
+    "fixture": "backend/tests/fixtures/design-edit-boundary-20261015.json",
+    "falselySuccessfulTransaction": "e1300a84-7ca9-4a71-91e0-88b3932f83bb",
+    "unchangedRevision": 1,
+    "historyModified": false,
+    "reproducedBeforeRepair": "5 of 5 targeted tests failed"
+  },
+  "repairs": [
+    "Validate edits against the actual V2 schema; normalize canonical dotted paths, numeric strings and serialized containers without guessing units",
+    "Reject unknown fields, wrong design owners, unsafe keys, conflicting paths and conversion-discarded edits atomically",
+    "No-op returns changed=false and transaction=null instead of reusing an earlier transaction",
+    "Expose actual schema discovery, canonical write targets, stable owner IDs and explicit input-to-model unit conversion",
+    "Preserve declared design basis, section b/t/imin and engineering input units through checker conversion",
+    "Differentiate ordinary confirmed text edits from evidence review; accept absent optional schema fields as proposals; invalid explicit mappings save no false resolution",
+    "Preserve semantic source review while retaining the hard requirement to map it to an actual model object before calculation",
+    "Use a verified whole-span/fixed-end serviceability reference for unambiguous 2D standalone beams; do not group frames or continuous beams implicitly",
+    "Canonical 2D recovery needs no invented inactive bending stiffness; 3D or nonzero inactive actions retain stiffness requirements",
+    "Validate service-result selection in agent and direct service; explicitly unselected cases have inapplicable service checks, never fabricated zero responses"
+  ],
+  "verification": {
+    "backend": {
+      "suitesPassed": 155,
+      "testsPassed": 1804,
+      "log": "design-edit-full-backend-final-20261015.log"
+    },
+    "python": {
+      "testsPassed": 374,
+      "log": "design-edit-python-full-20261015.log"
+    },
+    "targeted": {
+      "suitesPassed": 8,
+      "testsPassed": 71,
+      "log": "design-edit-targeted-final-20261015.log"
+    },
+    "browser": {
+      "status": "passed",
+      "testsPassed": 46,
+      "optInLiveTestsSkipped": 9,
+      "newRegressions": "Original split numerical beam, serialized/dotted edits, real checks and reports in both languages",
+      "log": "design-browser-release-20261015.log"
+    },
+    "liveProvider": {
+      "status": "passed_two_turns",
+      "model": "glm-5.3",
+      "port": 31545,
+      "conversationId": "cmv91ebw10000b4wm3rxaokfw",
+      "test": "Live provider: confirmed design inputs survive edit, check and report",
+      "firstTurn": {
+        "revision": 2,
+        "toolErrors": 0,
+        "recoveries": 0,
+        "completionStatus": "incomplete",
+        "remainingFields": [
+          "member.design.btLimit",
+          "member.design.lambdaLimit",
+          "member.design.phi_b",
+          "section.b",
+          "section.t"
+        ]
+      },
+      "secondTurn": {
+        "revision": 3,
+        "toolErrors": 0,
+        "recoveries": 0,
+        "completionStatus": "complete",
+        "complianceStatus": "pass",
+        "runId": "3aea4017-f355-48d5-979e-dc50ae4acda2",
+        "analysisCurrent": true,
+        "reportCurrent": true,
+        "checksPassed": 26,
+        "notApplicable": 2,
+        "inputRequired": 0,
+        "maximumUtilization": 0.9524
+      },
+      "automaticTestRetries": 0,
+      "log": "design-live-release-20261015.log"
+    },
+    "registeredToolAcceptance": {
+      "status": "passed",
+      "script": "backend/tests/engineering-design-edit-acceptance.mjs",
+      "realOpenSees": true,
+      "realCodeCheckWorker": true,
+      "reports": [
+        "zh",
+        "en"
+      ],
+      "stages": [
+        "actual supplied partial conditions",
+        "explicit additional synthetic conditions",
+        "unavailable service case rejected",
+        "real overload",
+        "cantilever imposed translation and rotation excluded"
+      ],
+      "reference": {
+        "simpleBeamDeflectionMm": 4.2672019444785825,
+        "cantileverRelativeDeflectionMm": 68.27523111165732,
+        "declaredL250LimitMm": 40,
+        "absoluteTolerance": 1e-8,
+        "relativeTolerance": 1e-8
+      },
+      "log": "design-edit-public-release-20261015.log"
+    },
+    "existingEngineeringAcceptance": {
+      "status": "passed",
+      "realOpenSeesRuns": 10,
+      "script": "backend/tests/engineering-code-check-acceptance.mjs",
+      "log": "design-edit-existing-code-check-20261015.log"
+    },
+    "contracts": [
+      "validate-agent-orchestration",
+      "validate-chat-stream-contract",
+      "validate-analyze-contract"
+    ],
+    "backendBuild": "passed",
+    "changedTypeScriptLint": "passed",
+    "frontendTypeCheck": "passed"
+  },
+  "earlierAttemptsRetained": [
+    {
+      "log": "design-live-20261015.log",
+      "result": "failed",
+      "reason": "Real-provider evidence-review misuse, malformed field and invalid review state; prompted the additional contract and atomic review fixes"
+    },
+    {
+      "log": "design-live-fixed-20261015.log",
+      "result": "failed",
+      "reason": "Harness omitted the code-check capability; server correctly refused CODE_CHECK_OUTSIDE_SCOPE. Corrected harness selection, not the permission boundary"
+    },
+    {
+      "log": "design-live-selected-20261015.log",
+      "result": "failed",
+      "reason": "Provider request timed out after 180018 ms following a successful edit; zero tool errors/recoveries, but not a completed run"
+    },
+    {
+      "log": "design-edit-full-backend-stable-20261015.log",
+      "result": "154 suites passed, 1 failed",
+      "reason": "Overly strict review validation rejected semantic source review; repaired without waiving model mapping"
+    },
+    {
+      "log": "design-edit-full-backend-fixed-20261015.log",
+      "result": "interrupted",
+      "reason": "Concurrent validator compilation rewrote dist during Jest imports; discarded the invalid test run and reran after compilation completed"
+    }
+  ],
+  "localEvidenceRoot": "G:/StructureClaw-All/sclaw_data/verification/design-input-chain-20261015",
+  "limits": [
+    "A supplied numerical section is not certification of a rolled-section catalogue or its normative applicability",
+    "A qualitative restraint statement does not automatically provide phi_b or other missing numerical design conditions",
+    "Whole-span maxima remain explicitly sampled recovery results, not proofs of continuous extrema",
+    "These tests do not certify complete code coverage, every arbitrary LLM response or new commercial SDK paths",
+    "Production credentials/configuration, original conversations and historical results were not rewritten"
+  ],
+  "preservedBenchGitlink": "5102acb3fdf4618c31f385e51fd0e5b9280438a1",
+  "independentYjkApiModified": false,
+  "sourceHashFormat": "sha256:utf8-lf-normalized",
+  "sourceHashes": {
+    "backend/src/engineering/model-edit-contract.ts": "a52acb377d860d41622cb1a06fe57ab3dc492ad559a9e0502c0a1bbd61f75885",
+    "backend/src/agent-langgraph/model-tools.ts": "2bf571733f2bc351320deee4cc2d34e8a64e54227c352118abec8b46bed9457b",
+    "backend/src/agent-langgraph/system-prompt.ts": "176a817618529637c1e25584d8285b479b270562580f1c1bf1d467caabc7d256",
+    "backend/src/engineering/input-evidence.ts": "03f17e7d4ff90627e58bd43d9cdbbf610459c2d520e00bbc869a838eafc7eef1",
+    "backend/src/engineering/model-boundary.ts": "4e3dfdb1bbdcb9f5bf1d4e018e8ee91f7942392a524527c4caa73138aafc00e1",
+    "backend/src/engineering/code-checks.ts": "e7a526b303a3fba78a235f5b41acc8dcc21060189f593dbb0c88ac20c2dca0ed",
+    "backend/src/services/analysis.ts": "d5f4f4b86990488135cb0182cbecc20d1c52d7ae1783d5faeffbd59cf5aadd4a",
+    "backend/src/agent-skills/code-check/entry.ts": "0efd878c8238acd4fb6c22ed157e10765ee4f5dfbb56adc3c8efaa08dc5fbd2f",
+    "backend/src/skill-shared/member-response.ts": "671c499517f70bd7a9170b8f3cdb790618578a9fecbd0d0a31125f96b239fd85",
+    "backend/src/agent-skills/code-check/code_check.py": "0cb45fdf78a57dae5782e990c9a61a0400c0f7df0673227e4dce9327badf085a",
+    "backend/src/agent-skills/code-check/gb50017/code_check.py": "49cd9a35440355fa51f26f3319e38331a0605dbed358fa72fbb8b743704a7432",
+    "backend/src/agent-skills/code-check/gb50010/code_check.py": "84d1f79d89f621696a3e2c74c3795884c7d12c34ef315ae3c530e1540332b540",
+    "backend/src/skill-shared/python/structure_protocol/design_properties.py": "3da59d9df3de725df1fc7c2a59a4e65bc52479e384b3c9a413b548420b076289",
+    "backend/src/skill-shared/python/structure_protocol/section_properties.py": "58ddedf112df7f64b334490e6861d5146d0a846c4041449cea16e742dfea054d"
+  }
+}

@@ -77,7 +77,7 @@ def validate_derived_section_metadata(section):
 def validate_section_physics(section):
     validate_derived_section_metadata(section.model_dump(exclude_none=True))
     props = section.properties
-    for key in ('A', 'Iy', 'Iz', 'J', 'Wx', 'Wz', 'Wnx', 'S', 'Sz', 'As', 'Asz', 'tw', 'tz'):
+    for key in ('A', 'Iy', 'Iz', 'J', 'Wx', 'Wz', 'Wnx', 'S', 'Sz', 'As', 'Asz', 'tw', 'tz', 'b', 't', 'imin'):
         if key in props and (isinstance(props[key], bool) or not isinstance(props[key], (float, int))
                              or not math.isfinite(props[key]) or props[key] <= 0):
             raise ValueError(f"Section '{section.id}' {key} must be finite and positive")

@@ -372,6 +372,16 @@ describe('AnalysisService persisted-run code-check boundary', () => {
     });
   });
 
+  test('direct HTTP/CLI service rejects an absent serviceability case before executing checks', async () => {
+    const {service,row,params} = await fixture();
+    row.model.physicalModel.elements[0].design = {serviceability_result_keys:['case:TYPO']};
+    row.results = await executeAnalysisRun({type:'static',model:row.model.physicalModel,parameters:row.parameters},
+      async () => ({success:true,data:{}}),async () => {});
+    params.runId = row.results.runId;
+    await expect(service.codeCheck(params)).rejects.toThrow('SERVICEABILITY_RESULT_UNAVAILABLE');
+    expect(service.codeCheckExecutionService.codeCheck).not.toHaveBeenCalled();
+  });
+
   test('a late check cannot replace results published while it was executing', async () => {
     const { service, params } = await fixture();
     prisma.analysis.updateMany.mockResolvedValue({ count: 0 });

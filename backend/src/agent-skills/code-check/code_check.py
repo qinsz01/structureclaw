@@ -344,6 +344,10 @@ class CodeChecker:
     ) -> Dict[str, Any]:
         element = context.get('elementData', {}).get(elem_id, {})
         unsupported = element.get('forceInputIssue') if isinstance(element, dict) else None
+        if item_name in {'挠度', '裂缝宽度'} and isinstance(element, dict) and element.get('serviceabilityExcluded'):
+            return {'item': item_name, 'status': 'not_applicable', 'category': 'not_applicable',
+                    'clause': clause, 'formula': formula, 'utilization': None, 'governingEligible': False,
+                    'message': 'This result is outside the explicitly selected service cases / 本结果不属于显式指定的正常使用工况。'}
         force_items = {'正应力', '剪应力', '折算应力', '整体稳定', '偏心受压', '正截面受弯', '斜截面受剪'}
         if unsupported and item_name in force_items:
             return {'item': item_name, 'status': 'unsupported', 'category': 'unsupported',

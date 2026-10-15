@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { codeCheckFeedback, codeCheckDeliveryNotice } from '../dist/engineering/code-checks.js';
+import { codeCheckFeedback, codeCheckDeliveryNotice, validateServiceabilitySelection } from '../dist/engineering/code-checks.js';
 import { createRunCodeCheckTool } from '../dist/agent-langgraph/tools.js';
 import { beginAnalysisRequest } from '../dist/engineering/model-state.js';
 import { prepareEngineeringReport, finishEngineeringReport } from '../dist/services/engineering-report.js';
@@ -36,4 +36,24 @@ test('OpenSees native-design mismatch explains the correct provider without subm
   const payload = JSON.parse(result.update.messages[0].content);
   expect(payload).toMatchObject({ success: false, errorCode: 'NATIVE_DESIGN_ENGINE_REQUIRED', engine: 'opensees', allowedProviders: ['auto', 'builtin'] });
   expect(payload.messageZh).toContain('不是 StructureClaw 需要付费版本');
+});
+
+test('feedback locates shared material and section owners and states explicit input-to-model unit conversion', () => {
+  const model = { elements: ['1','2'].map(id => ({ id, material:'steel', section:'s' })) };
+  const check = { details: ['1','2'].map(elementId => ({ elementId, resultKey:'case:S', checks:[{ items:[{ item:'design', status:'input_required', missingInputs:[
+    { field:'material.design.f', unit:'MPa' }, { field:'section.S', unit:'mm3' }, { field:'response.deflection', unit:'mm', source:'result' },
+  ] }] }] })) };
+  const feedback = codeCheckFeedback(check, model, { results:{'case:S':{}} });
+  expect(feedback.writeTargets).toEqual(expect.arrayContaining([
+    expect.objectContaining({ collection:'materials', id:'steel', path:'design.f', modelUnit:'MPa', elementIds:['1','2'] }),
+    expect.objectContaining({ collection:'sections', id:'s', path:'properties.S', modelUnit:'m3', inputToModelScale:1e-9, elementIds:['1','2'] }),
+  ]));
+  expect(feedback.writeTargets).toHaveLength(2);
+  expect(feedback.missingInputs.filter(row => row.field === 'response.deflection').every(row => row.writable === false)).toBe(true);
+});
+
+test('a misspelled or absent service result key is rejected before any check is made inapplicable', () => {
+  const model = { elements:[{id:'beam', design:{ serviceability_result_keys:['case:S'] }}] };
+  expect(() => validateServiceabilitySelection(model, { results:{'case:S':{},'combination:ULS':{}} })).not.toThrow();
+  expect(() => validateServiceabilitySelection(model, { results:{'combination:ULS':{}} })).toThrow(/SERVICEABILITY_RESULT_UNAVAILABLE/);
 });

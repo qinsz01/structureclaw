@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { parseVisionEvidence, collectVisionEvidence, imageRegionSchema } from '../dist/engineering/vision-evidence.js';
-import { mergeInputEvidence, unresolvedInputEvidence, assertResolvedInput } from '../dist/engineering/input-evidence.js';
+import { mergeInputEvidence, unresolvedInputEvidence, assertResolvedInput, assertInputEvidenceMatchesModel } from '../dist/engineering/input-evidence.js';
 import { createReviewInputTool } from '../dist/agent-langgraph/model-tools.js';
 import { applyInputEvidence, beginAnalysisRequest, currentAnalysisError } from '../dist/engineering/model-state.js';
 
@@ -42,6 +42,8 @@ describe('field-level image evidence without paid recognition', () => {
     expect(reviewed.update.modelPending).toBeUndefined();
     expect(reviewed.update.analysisResult).toBeNull();
     expect(reviewed.update.inputEvidence).toHaveLength(4);
+    expect(JSON.parse(reviewed.update.messages[0].content).modelMappingsRequired).toEqual(['supports.left']);
+    expect(() => assertInputEvidenceMatchesModel(state.model, reviewed.update.inputEvidence)).toThrow('INPUT_EVIDENCE_MODEL_FIELD_REQUIRED');
   });
 
   test('conflicting drawing/table observations remain visible and cannot silently override', () => {

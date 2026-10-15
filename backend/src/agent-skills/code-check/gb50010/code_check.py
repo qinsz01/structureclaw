@@ -267,8 +267,9 @@ def _compute_utilization_overrides(
 
     displacement = number(forces.get('deflection', elem.get('deflection')))
     deflection_limit_n = positive(elem, 'deflectionLimitN')
-    if displacement is not None and length and deflection_limit_n:
-        save('挠度', abs(displacement) / (length / deflection_limit_n), abs(displacement), length/deflection_limit_n, 'mm')
+    service_length = positive(elem, 'serviceabilityLength') or length
+    if displacement is not None and service_length and deflection_limit_n:
+        save('挠度', abs(displacement) / (service_length / deflection_limit_n), abs(displacement), service_length/deflection_limit_n, 'mm')
 
     service_moment = number(forces.get('M_service'))
     crack_cover = number(elem.get('crack_cover'))

@@ -45,7 +45,7 @@ import { createEngineeringReport, attachNativeReport } from '../services/enginee
 import { beginAnalysisRequest, beginNativeDesignRequest, commitModel, currentAnalysisError, invalidateAnalysis, modelHash, publishAnalysis, publishNativeDesign } from '../engineering/model-state.js';
 import { analysisSettingsHash } from '../engineering/analysis-runs.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
-import { checkRunResults, codeCheckFeedback } from '../engineering/code-checks.js';
+import { checkRunResults, codeCheckFeedback, validateServiceabilitySelection } from '../engineering/code-checks.js';
 import { assertAnalysisInputEvidenceMatchesRequest, assertInputEvidenceMatchesModel, mergeInputEvidence } from '../engineering/input-evidence.js';
 import { currentRunPolicy, recordRunEvent, reserveToolCall, recordToolOutcome } from '../runtime/run-context.js';
 import { createQueryResultsTool } from './model-tools.js';
@@ -3512,6 +3512,7 @@ export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
       if (!codeCheckSkillId) throw new Error('BUILTIN_CODE_UNSUPPORTED / 公共规范未实现');
       if (skillIds && !skillIds.includes(codeCheckSkillId)) throw new Error('CODE_CHECK_OUTSIDE_SCOPE / 当前技能范围不允许此规范');
       if (input.design) throw new Error('BUILTIN_DESIGN_REQUEST_UNSUPPORTED / 公共校核不执行商业设计条件');
+      validateServiceabilitySelection(model, analysis);
       const traceId = `lg-cc-${Date.now()}`;
 
       const codeCheckResult = await checkRunResults(analysis, async (caseResult) => {
@@ -3541,7 +3542,7 @@ export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
       return toolResult(
         toolCallId,
         'run_code_check',
-        JSON.stringify({ success: true, provider: 'builtin', engine: resultEngine(analysis), skillId: codeCheckSkillId, ...codeCheckFeedback(codeCheckPayload) }),
+        JSON.stringify({ success: true, provider: 'builtin', engine: resultEngine(analysis), skillId: codeCheckSkillId, ...codeCheckFeedback(codeCheckPayload, model, analysis) }),
         { codeCheckResult: codeCheckPayload },
       );
     },

@@ -7,6 +7,14 @@ export async function normalizeEngineeringModel(model: ModelRecord, client: Loca
   assertResolvedInput(isRecord(model.metadata) ? model.metadata.inputEvidence : undefined);
   const response = await client.post('/convert', {
     model, source_format: sourceFormat, target_format: 'structuremodel-v2', target_schema_version: '2.2.0',
+  }).catch((error: unknown) => {
+    if (error instanceof Error && 'detail' in error) {
+      const detail = error.detail;
+      const errors = isRecord(detail) && Array.isArray(detail.errors) ? detail.errors : [];
+      const fields = errors.filter(isRecord).slice(0, 20).map(item => `${Array.isArray(item.loc) ? item.loc.join('.') : 'model'}: ${String(item.msg)}`);
+      if (fields.length) error.message += `: ${fields.join('; ')} / 具体字段校验失败，原模型未变`;
+    }
+    throw error;
   });
   if (!isRecord(response.data) || !isRecord(response.data.model)) throw new Error('MODEL_CONVERSION_FAILED');
   const normalized = structuredClone(response.data.model);
