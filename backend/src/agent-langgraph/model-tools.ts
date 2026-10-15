@@ -188,7 +188,9 @@ export function createQueryResultsTool() {
       || new Set(input.compareResultKeys).size !== input.compareResultKeys.length)) {
       throw new Error('RESULT_COMPARISON_REQUIRES_DISTINCT_STATIC_KEYS_AND_COMPONENT / 比较需指定互异静力结果及同一分量');
     }
-    if (input.comparison && !input.compareResultKeys) throw new Error('RESULT_COMPARISON_KEYS_REQUIRED');
+    // An explicitly emitted default does not request a multi-case comparison.
+    // The saved signed quantity and its selection remain unchanged.
+    if (input.comparison && input.comparison !== 'absolute-max' && !input.compareResultKeys) throw new Error('RESULT_COMPARISON_KEYS_REQUIRED');
     const querySelection = (resultKey: unknown, timeIndex = input.timeIndex) => {
       if (typeof resultKey === 'string' && !isRecord(run.results) && resultKey !== run.selectedResultKey) {
         throw new Error('RESULT_NOT_FOUND');
@@ -351,7 +353,7 @@ export function createQueryResultsTool() {
       includeModelSnapshot: z.boolean().optional().describe('Return the run-bound model and selected direct display data for a viewer. / 返回该运行模型及选定结果的显示数据。'),
       series: z.object({ startIndex: z.number().int().nonnegative().optional(), endIndex: z.number().int().nonnegative().optional(), stride: z.number().int().positive().optional() }).optional().describe('Recorded time series, at most 10000 explicit samples; no interpolation. Exclusive with timeIndex/modeNumber. / 实际记录时程，最多10000点，不插值。'),
       compareResultKeys: z.array(z.string().min(1)).min(2).max(256).optional().describe('Compare the same static scalar over distinct keys in one run; exclusive with resultKey. / 同一运行中比较指定互异静力结果的同一数值，与resultKey互斥。'),
-      comparison: z.enum(['absolute-max', 'max', 'min']).optional().describe('Default absolute-max; the controlling value retains its sign. / 默认按绝对值控制，返回值保留符号。'),
+      comparison: z.enum(['absolute-max', 'max', 'min']).optional().describe('Only used with compareResultKeys; omit for a single result. Default absolute-max retains the controlling sign. Explicit absolute-max without comparison keys is inert and does not create an envelope. / 仅配合compareResultKeys使用，单结果省略；默认按绝对值控制并保留符号。单结果附带该默认值不改变查询，也不生成包络。'),
       referenceNodeId: z.string().min(1).optional().describe('Static displacement: nodeId minus referenceNodeId; component and unit required. / 静力位移nodeId减referenceNodeId，需分量和单位。'),
       quantityId: z.string().min(1).optional().describe('Optional caller-chosen label; omitted IDs are generated deterministically from the exact result selection. Never ask the user for this internal ID. / 可选自定义标识；省略时由完整结果选择确定性生成，不应向用户索要此内部ID。'),
     }) });

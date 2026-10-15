@@ -114,6 +114,15 @@ test('static member queries explain positions, register automatic scalar IDs and
   expect(quantity).toMatchObject({ value: -2.5, unit: 'kN.m', location: { kind: 'member', id: 'beam', positionM: 2, side: 'right' } });
   expect(output(await invoke(saved, { ...scalar, side: 'right' })).quantity.id).toBe(quantity.id);
   expect(output(await invoke(saved, { ...scalar, side: 'left' })).quantity.id).not.toBe(quantity.id);
+  // Providers sometimes emit the documented default for a single-result query.
+  // It must neither trigger a comparison nor change the signed scalar or its ID.
+  const defaulted = output(await invoke(saved, { ...scalar, comparison: 'absolute-max' }));
+  expect(defaulted.quantity).toEqual(quantity);
+  expect(defaulted.values).toEqual(output(queried).values);
+  expect(defaulted.comparison).toBeUndefined();
+  for (const comparison of ['max', 'min']) {
+    await expect(invoke(saved, { ...scalar, comparison })).rejects.toThrow('RESULT_COMPARISON_KEYS_REQUIRED');
+  }
   const state = { analysisRuns: { saved }, resultQuantities: queried.update.resultQuantities };
   const tool = createRegisteredTools({ workspaceRoot: process.cwd(), skillRuntime: {} }).find(tool => tool.name === 'generate_report');
   const report = selected => tool.invoke({ message: 'Member moment', analysisType: 'static', narrative: 'structured', selection: selected },
