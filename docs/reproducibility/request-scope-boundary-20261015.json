@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-15",
+  "baseCommit": "6c3647b78ecb401ca1b15dcdbe98f069bca4a1cc",
+  "implementationCommit": "bf486b3ee745e05c363d069a9a74a223fdf178bb",
+  "branch": "work/research-next",
+  "defect": {
+    "userPrompt": "设计一个简支梁，跨度10m，梁中间荷载1kN",
+    "sourceConversations": [
+      "cmv8vkzfk00006owm9lcf6pe4",
+      "cmv8wb1qo001e6owmqehsghc9"
+    ],
+    "symptoms": [
+      "Valid outer responses array rejected as undefined",
+      "Valid outer responses array rejected because internal responses was empty",
+      "Repeating the same extraction did not supply missing engineering information"
+    ],
+    "cause": "resolveExtractedScope applied the complete public request schema to the nested extractor's partial goal object before using the already-valid outer request.",
+    "previousVerificationGap": "The previous acceptance covered normal scopes and real solver flows, but did not cover malformed/partial nested scope fields. Its passing test count did not establish this boundary."
+  },
+  "behavior": [
+    "Public requestScope remains strict: responses is required and nonempty; physical input validation is unchanged.",
+    "Internal scope fields are independently validated as advisory changes. Missing/empty responses cannot erase a valid outer request or accepted goal.",
+    "Known outer response families survive; additional valid response families are retained. Internal diagnostics are recorded without a tool failure or semantic retry.",
+    "When neither a valid declared scope nor an accepted/usable extracted response goal exists, retain geometry and loads and ask a localized requested-results question.",
+    "No invented default response family, stiffness, engine change, design conclusion or repeated extraction is used to repair optional metadata."
+  ],
+  "verification": {
+    "beforeFix": {
+      "suites": 1,
+      "failed": 5,
+      "passed": 2,
+      "log": "extracted-scope-repro-20261015.log"
+    },
+    "afterFix": [
+      {
+        "name": "scope/extraction targeted regression",
+        "passed": true,
+        "suites": 3,
+        "tests": 46,
+        "log": "extracted-scope-targeted-20261015.log"
+      },
+      {
+        "name": "backend regression",
+        "passed": true,
+        "suites": 152,
+        "tests": 1731,
+        "log": "extracted-scope-backend-20261015.log"
+      },
+      {
+        "name": "TypeScript build",
+        "passed": true,
+        "log": "extracted-scope-build-20261015.log"
+      },
+      {
+        "name": "changed-source lint",
+        "passed": true,
+        "log": "extracted-scope-lint-20261015.log"
+      },
+      {
+        "name": "agent contract",
+        "passed": true,
+        "log": "extracted-scope-agent-contract-20261015.log"
+      },
+      {
+        "name": "chat stream contract",
+        "passed": true,
+        "log": "extracted-scope-chat-contract-20261015.log"
+      },
+      {
+        "name": "real-provider browser",
+        "passed": true,
+        "model": "glm-5.3",
+        "tests": 3,
+        "automaticTestRetries": 0,
+        "log": "extracted-scope-browser-20261015.log"
+      }
+    ],
+    "browserCases": [
+      {
+        "conversationId": "cmv8wnes200004gwmef3zn3uv",
+        "kind": "Exact original prompt, fresh conversation",
+        "extractionCalls": 1,
+        "recoveries": 0,
+        "waitingForReply": true,
+        "internalScope": {
+          "responses": [],
+          "design": true,
+          "report": false,
+          "outputs": []
+        },
+        "acceptedScope": {
+          "responses": [
+            "forces",
+            "reactions",
+            "displacements"
+          ],
+          "method": "solver",
+          "design": true,
+          "report": false,
+          "outputs": []
+        },
+        "note": "The live provider actually emitted empty responses. The valid complete outer goal survived and the app asked for engineering inputs without a format error."
+      },
+      {
+        "conversationId": "cmv8wprx800084gwmx61rryhc",
+        "kind": "Exact original prompt, second fresh conversation",
+        "extractionCalls": 1,
+        "recoveries": 0,
+        "waitingForReply": true,
+        "acceptedScope": {
+          "responses": [
+            "forces",
+            "reactions"
+          ],
+          "method": "equilibrium",
+          "design": false,
+          "report": false,
+          "outputs": []
+        },
+        "note": "Normal engineering clarification; no extraction-format retry or forced material assumption."
+      },
+      {
+        "conversationId": "cmv8wunca000g4gwmkwnzccul",
+        "kind": "Exact original prompt followed by explicit numerical properties and analysis-only request",
+        "extractionCalls": 2,
+        "userTurns": 2,
+        "recoveries": 0,
+        "runId": "d2823c76-dd03-4597-a2fe-d70f0b1207bd",
+        "engine": "builtin-opensees",
+        "currentAnalysis": true,
+        "currentReport": true,
+        "expected": {
+          "spanM": 10,
+          "pointLoadKN": 1,
+          "reactionsKN": [
+            0.5,
+            0.5
+          ],
+          "momentMagnitudeKNm": 2.5,
+          "deflectionMagnitudeMM": 1.516990291262136
+        },
+        "note": "One extraction per user turn, unchanged single load, real solver and report; all tool errors are asserted absent."
+      }
+    ]
+  },
+  "runtime": {
+    "mainURL": "http://127.0.0.1:31415",
+    "health": "healthy",
+    "sourceProcessStartedAfterFix": true,
+    "liveInstance": "playwright-148a927e-e35e-42d7-8951-142419bfc3c8",
+    "latency": "The two initial single-turn live requests took about 1.9 and 3.8 minutes. The two-turn calculation took 5.8 minutes total. Latency was observed, not optimized by this change."
+  },
+  "evidence": {
+    "directory": "G:/StructureClaw-All/sclaw_data/verification/extracted-scope-boundary-20261015",
+    "files": [
+      "manifest.json",
+      "original-failures.json",
+      "live-cases.json",
+      "conversations/",
+      "sessions/",
+      "runs/",
+      "extracted-scope-browser-20261015-html/"
+    ],
+    "credentialTextScan": "passed; exported JSON/log/HTML contains no machine API credential"
+  },
+  "boundaries": {
+    "benchGitlinkUnchanged": "5102acb3fdf4618c31f385e51fd0e5b9280438a1",
+    "untouched": [
+      "Bench and evaluation",
+      "solver algorithms",
+      "independent commercial APIs",
+      "historical tags and results"
+    ],
+    "claim": "Verified for the reported scope-parsing boundary and the recorded flows; not a certification that the entire product has no other bugs."
+  }
+}

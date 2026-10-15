@@ -160,6 +160,16 @@ queries remain delivery deficiencies; solver success alone is not full delivery.
 或生成计算书；结果工作区中的明确点击仍可请求这些交付。指定标量走公共查询及权限/预算；
 查询失败保留为交付缺项，求解成功不等于所求结果已全部交付。
 
+The public request-scope contract remains strict. Internal parameter extraction may
+return a partial goal patch: missing or empty response lists cannot erase the valid
+tool request or accepted goal. Invalid advisory fields are recorded separately from
+engineering input errors. With no known response goal, ask for the requested results
+while retaining the extracted geometry and loads; do not invent a response list or retry extraction.
+
+公开请求范围仍严格校验。内部参数抽取可以只补充目标字段；缺失或空的响应列表不能清空外层
+有效请求或已接受目标。内部辅助字段异常单独记录，不再把它误报成用户工程参数错误。确实没有
+可用目标时，保留已抽取的几何与荷载并正常澄清所求结果，不编造响应列表，不重复抽取。
+
 `run_analysis(method="equilibrium")` reuses the job/archive/query services for a
 horizontal single-span left-pinned/right-roller beam or left-fixed cantilever:
 explicit downward point forces, full-span UDL, cases and linear combinations.
