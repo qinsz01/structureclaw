@@ -83,7 +83,7 @@ export function resolveFrameMaterialProps(grade: string | undefined): ResolvedFr
 
 function parseCustomHSection(raw: string): { H: number; B: number; tw: number; tf: number } | null {
   const normalized = raw.toUpperCase().replace(/[×X*]/g, 'x').replace(/\s+/g, '');
-  const match = normalized.match(/^H(\d+)x(\d+)x([\d.]+)x([\d.]+)$/);
+  const match = normalized.match(/^H[WMN]?(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)$/);
   if (!match) return null;
   const H = parseFloat(match[1]!);
   const B = parseFloat(match[2]!);
@@ -137,19 +137,20 @@ export function resolveSectionProps(
 ): SectionProps {
   if (!section) throw new Error(`TEMPLATE_PROPERTY_REQUIRED: ${role} section / 请明确该类构件截面`);
   const normalized = normalizeSectionName(section);
-  if (/^H[WN]/.test(normalized)) {
-    throw new Error('SECTION_CATALOG_UNVERIFIED: supply reviewed complete section properties or explicit H×B×tw×tf geometry / 型钢目录尚未审定，请提供核定截面属性或明确四项尺寸');
-  }
   const custom = section ? parseCustomHSection(section) : null;
   if (custom) {
     const props = computeHSectionProps(custom.H, custom.B, custom.tw, custom.tf, matG);
-    const name = `H${custom.H}X${custom.B}X${custom.tw}X${custom.tf}`;
+    // Four explicitly given dimensions define geometry, not a catalog lookup.
+    const name = normalized;
     return {
       name,
       type: 'H',
       ...props,
       shape: { kind: 'H', H: custom.H, B: custom.B, tw: custom.tw, tf: custom.tf },
     };
+  }
+  if (/^H[WMN]/.test(normalized)) {
+    throw new Error('SECTION_CATALOG_UNVERIFIED: supply reviewed complete section properties or explicit H×B×tw×tf geometry / 型钢目录尚未审定，请提供核定截面属性或明确四项尺寸');
   }
   const rectangular = section ? parseRectangularSection(section) : null;
   if (rectangular) {

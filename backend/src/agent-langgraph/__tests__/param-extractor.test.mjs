@@ -19,13 +19,17 @@ describe("param extractor", () => {
   test.each(['zh', 'en'])('passes the authoritative design field definitions to the extraction model (%s)', async locale => {
     const { invokeParamExtractor } = await import('../../../dist/agent-langgraph/param-extractor.js');
     const { createLocalStructureProtocolClient } = await import('../../../dist/services/structure-protocol-execution.js');
-    const { engineeringModelSchema, draftDesignSchema } = await import('../../../dist/engineering/model-edit-contract.js');
-    const designSchema = draftDesignSchema(await engineeringModelSchema(createLocalStructureProtocolClient()));
+    const { engineeringModelSchema, draftDesignSchema, draftSectionShapeSchema } = await import('../../../dist/engineering/model-edit-contract.js');
+    const contract = await engineeringModelSchema(createLocalStructureProtocolClient());
+    const designSchema = draftDesignSchema(contract), sectionShapeSchema = draftSectionShapeSchema(contract);
     for (const focusFields of [[], ['materials.M.rho']]) {
       let sent;
-      await invokeParamExtractor({ message: 'Use supplied design conditions', locale, plugin: beamPlugin, designSchema,
+      await invokeParamExtractor({ message: 'Use supplied design conditions', locale, plugin: beamPlugin, designSchema, sectionShapeSchema,
         focusFields, llm: { invoke: async prompt => { sent = prompt; return { content: '{"engineeringDraft":{"geometry":{"lengthM":10}}}' }; } } });
       expect(sent).toContain(JSON.stringify(designSchema));
+      expect(sent).toContain(JSON.stringify(sectionShapeSchema));
+      expect(sectionShapeSchema.properties.kind.enum).toContain('H');
+      expect(sectionShapeSchema.properties.kind.enum).not.toContain('h');
       expect(sent).toContain('design.basis is a map of nonempty strings');
       expect(sent).toContain('metadata.unmappedDesignParameters');
       expect(designSchema.$defs.MemberDesign.properties.stressCheckType).toBeUndefined();

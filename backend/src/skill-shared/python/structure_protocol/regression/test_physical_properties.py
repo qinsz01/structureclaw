@@ -73,8 +73,8 @@ def test_section_moduli_cannot_disagree_with_geometry_or_grow_net_capacity():
 
 @pytest.mark.parametrize('kind, height', [('H',500), ('rectangular',float('inf'))])
 def test_shape_labels_and_finite_geometry_are_validated(kind, height):
-    section = SectionV2(id='s',name='s',type=kind,shape=SectionShape(kind='rectangular',B=200,H=height))
     with pytest.raises(ValueError):
+        section = SectionV2(id='s',name='s',type=kind,shape=SectionShape(kind='rectangular',B=200,H=height))
         validate_section_physics(section)
 
 

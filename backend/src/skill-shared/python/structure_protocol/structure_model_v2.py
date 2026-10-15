@@ -29,9 +29,9 @@ from __future__ import annotations
 
 import math
 from copy import deepcopy
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, get_args
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator, model_validator
 from structure_protocol.design_properties import MaterialDesign, MemberDesign, migrate_design_fields
 from structure_protocol.section_properties import validate_section_physics
 
@@ -264,6 +264,14 @@ SECTION_PURPOSE = Literal[
 ]
 
 
+def canonical_section_kind(value):
+    """Accept case/outer-whitespace aliases only; never guess a different shape."""
+    if isinstance(value, str):
+        return next((kind for kind in get_args(SECTION_SHAPE_KINDS)
+                     if kind.casefold() == value.strip().casefold()), value)
+    return value
+
+
 class SectionShape(BaseModel):
     """参数化截面形状 / Parametric section geometry (all dimensions in mm).
 
@@ -287,7 +295,10 @@ class SectionShape(BaseModel):
     parameters are not required. Maps to PKPM WallSection.SetSect().
     """
 
+    model_config = ConfigDict(extra='forbid', allow_inf_nan=False)
+
     kind: SECTION_SHAPE_KINDS = Field(..., description="截面种类")
+    _canonical_kind = field_validator('kind', mode='before')(canonical_section_kind)
 
     # Overall dimensions
     H: Optional[float] = Field(default=None, gt=0, description="截面总高度 (mm)")
@@ -450,6 +461,7 @@ class SectionV2(BaseModel):
         ..., min_length=1,
         description="e.g. 'rectangular', 'circular', 'I', 'H', 'box', 'custom'",
     )
+    _canonical_type = field_validator('type', mode='before')(canonical_section_kind)
 
     # Parametric shape (V2 preferred)
     purpose: Optional[SECTION_PURPOSE] = Field(

@@ -1,4 +1,5 @@
 import type { LocalStructureProtocolClient } from '../services/structure-protocol-execution.js';
+import type { EngineeringDraft } from '../agent-runtime/types.js';
 import { isRecord, type ModelEdit, type ModelRecord } from './model-state.js';
 
 type Schema = Record<string, any>;
@@ -55,6 +56,9 @@ function equalValue(left: unknown, right: unknown): boolean {
   if (isRecord(left) && isRecord(right)) return Object.keys(left).length === Object.keys(right).length && Object.keys(left).every(key => Object.hasOwn(right, key) && equalValue(left[key], right[key]));
   return Object.is(left, right);
 }
+function canonicalEnum(value: unknown, allowed: string[]): unknown {
+  return typeof value === 'string' ? allowed.find(item => item.toLowerCase() === value.trim().toLowerCase()) ?? value : value;
+}
 function field(schema: Schema, key: string, root: Schema, path: string, model: ModelRecord, edit: ModelEdit): Schema {
   if (['__proto__', 'prototype', 'constructor'].includes(key)) fail(path, 'unsafe field');
   const current = resolved(schema, root);
@@ -73,6 +77,7 @@ function field(schema: Schema, key: string, root: Schema, path: string, model: M
 function normalized(value: unknown, schema: Schema, root: Schema, path: string, model: ModelRecord, edit: ModelEdit): unknown {
   if (value === null) return null; // The formal validator decides whether null is allowed.
   const current = resolved(schema, root);
+  if (edit.collection === 'sections' && path.endsWith('.shape.kind') && current.enum) value = canonicalEnum(value, current.enum);
   if ((current.type === 'object' || current.properties) && typeof value === 'string') {
     try { value = JSON.parse(value); } catch { fail(path, 'expected a JSON object'); }
   }
@@ -92,6 +97,12 @@ function normalized(value: unknown, schema: Schema, root: Schema, path: string, 
   if (['number', 'integer'].includes(current.type) && (typeof value !== 'number' || !Number.isFinite(value))) fail(path, `expected finite ${current.type}`);
   if (current.type === 'object' || current.type === 'array') fail(path, `expected ${current.type}`);
   if (current.type === 'boolean' && typeof value !== 'boolean' || current.type === 'string' && typeof value !== 'string') fail(path, `expected ${current.type}`);
+  if (current.enum && !current.enum.includes(value)) fail(path, `expected one of ${current.enum.join(', ')}`);
+  if (typeof value === 'number') {
+    if (current.exclusiveMinimum !== undefined && value <= current.exclusiveMinimum) fail(path, `must be greater than ${current.exclusiveMinimum}`);
+    if (current.minimum !== undefined && value < current.minimum) fail(path, `must be greater than or equal to ${current.minimum}`);
+    if (current.maximum !== undefined && value > current.maximum) fail(path, `must be less than or equal to ${current.maximum}`);
+  }
   return value;
 }
 function insert(target: ModelRecord, keys: string[], value: unknown, path: string): void {
@@ -211,4 +222,31 @@ export function assertDraftDesignInputs(draft: unknown, root: Schema): void {
   for (const [role, row] of Object.entries(isRecord(draft.templateAssignments) ? draft.templateAssignments : {})) {
     if (isRecord(row)) check(row.design, 'elements', role, `templateAssignments.${role}.design`);
   }
+}
+
+/** The Python model owns the shape vocabulary. Drafts use that same schema,
+ * before readiness or persistence, rather than asking the LLM to repair casing.
+ */
+export function draftSectionShapeSchema(root: Schema): Schema {
+  return resolved(resolved(root.properties.sections.items, root).properties.shape, root);
+}
+
+export function normalizeDraftSectionInputs(draft: EngineeringDraft, root: Schema): EngineeringDraft {
+  const schema = draftSectionShapeSchema(root);
+  const kinds = schema.properties.kind.enum as string[];
+  const section = (row: Record<string, unknown>) => {
+    const next = structuredClone(row);
+    if (next.type !== undefined) next.type = canonicalEnum(next.type, kinds);
+    if (next.shape != null) {
+      const path = `sectionRecords[${row.id}].shape`;
+      if (!isRecord(next.shape) || next.shape.kind == null) fail(path, 'an object with an explicit kind is required');
+      next.shape = normalized(next.shape, schema, root,
+        path, {}, { operation: 'update', collection: 'sections', id: String(row.id) });
+    }
+    return next;
+  };
+  return { ...draft,
+    ...(draft.sectionRecords ? { sectionRecords: draft.sectionRecords.map(section) } : {}),
+    ...(Array.isArray(draft.model?.sections) ? { model: { ...draft.model, sections: draft.model.sections.map(section) } } : {}),
+  };
 }

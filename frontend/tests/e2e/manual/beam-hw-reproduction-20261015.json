@@ -1,0 +1,32 @@
+{
+  "baseURL": "http://127.0.0.1:31515",
+  "outputDirectory": ".tmp/live-beam-hw-acceptance",
+  "locale": "zh",
+  "headless": true,
+  "turnTimeoutMs": 600000,
+  "manual": true,
+  "manualReplyTimeoutMs": 1800000,
+  "maxUserTurns": 6,
+  "initialPrompt": "设计一个简支梁，跨度10m，梁中间荷载1kN",
+  "reviewedSectionAnswer": "钢结构：Q235B 钢材，截面采用 HW300×300×10×15 热轧H型钢",
+  "requireCodeCheck": true,
+  "runPolicy": {
+    "knowledge": "enabled",
+    "builder": "auto",
+    "repair": { "enabled": true },
+    "context": { "history": "full", "memoryScopes": [] },
+    "routing": { "mode": "auto" }
+  },
+  "expectedModelValues": [
+    { "collection": "sections", "path": "shape.kind", "value": "H" },
+    { "collection": "sections", "path": "shape.H", "value": 300 },
+    { "collection": "sections", "path": "shape.B", "value": 300 },
+    { "collection": "sections", "path": "shape.tw", "value": 10 },
+    { "collection": "sections", "path": "shape.tf", "value": 15 }
+  ],
+  "notes": [
+    "Start with the actual short user prompt. Review each live clarification before supplying the exact section answer.",
+    "The four supplied dimensions define sharp-corner H geometry. Do not claim catalog-exact fillet properties or silently change the section.",
+    "Additional design and load assumptions must be explicitly supplied in a reviewed user turn; numerical references are frozen independently before solving."
+  ]
+}

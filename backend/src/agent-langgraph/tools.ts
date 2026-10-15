@@ -45,7 +45,7 @@ import { createEngineeringReport, attachNativeReport } from '../services/enginee
 import { beginAnalysisRequest, beginNativeDesignRequest, commitModel, currentAnalysisError, invalidateAnalysis, modelHash, publishAnalysis, publishNativeDesign } from '../engineering/model-state.js';
 import { analysisSettingsHash } from '../engineering/analysis-runs.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
-import { engineeringModelSchema, draftDesignSchema, hasDraftDesignInputs, assertDraftDesignInputs } from '../engineering/model-edit-contract.js';
+import { engineeringModelSchema, draftDesignSchema, hasDraftDesignInputs, assertDraftDesignInputs, draftSectionShapeSchema, normalizeDraftSectionInputs } from '../engineering/model-edit-contract.js';
 import { createLocalStructureProtocolClient } from '../services/structure-protocol-execution.js';
 import { checkRunResults, codeCheckFeedback, validateServiceabilitySelection } from '../engineering/code-checks.js';
 import { assertAnalysisInputEvidenceMatchesRequest, assertInputEvidenceMatchesModel, mergeInputEvidence } from '../engineering/input-evidence.js';
@@ -2744,7 +2744,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
         // A force-only extraction does not need the Python model service. Design
         // extraction and any generated design fields use its authoritative schema.
         const protocolClient = configurable.structureProtocolClient ?? createLocalStructureProtocolClient();
-        let designContract = requestedScope?.design || hasExistingDesign
+        let designContract = requestedScope?.design || hasExistingDesign || requestedScope?.method === 'solver'
           ? await engineeringModelSchema(protocolClient) : undefined;
         const draftPatch = await invokeParamExtractor({
           message: extractionMessage,
@@ -2755,6 +2755,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
           signal: config.signal,
           onUsage: nestedUsage.onUsage,
           designSchema: designContract ? draftDesignSchema(designContract) : undefined,
+          sectionShapeSchema: designContract ? draftSectionShapeSchema(designContract) : undefined,
         });
 
         // Step 4: Handler pipeline (extractDraft → mergeState → computeMissing)
@@ -2772,6 +2773,11 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
           resolvedBy: input.requestScope ? 'declared-request' : state?.requestScope ? 'accepted-request' : 'clarification' });
         const nextState = { ...withStructuralTypeState(plugin.handler.mergeState(existingState, patch), match),
           ...(requestScope ? { requestScope } : {}) };
+        if (nextState.engineeringDraft?.sectionRecords?.length || Array.isArray(nextState.engineeringDraft?.model?.sections)) {
+          designContract ??= await engineeringModelSchema(protocolClient);
+          nextState.engineeringDraft = normalizeDraftSectionInputs(nextState.engineeringDraft!, designContract);
+          if (nextState.skillState?.engineeringDraft) nextState.skillState = { ...nextState.skillState, engineeringDraft: nextState.engineeringDraft };
+        }
         if (hasDraftDesignInputs(nextState.engineeringDraft)) {
           designContract ??= await engineeringModelSchema(protocolClient);
           assertDraftDesignInputs(nextState.engineeringDraft, designContract);

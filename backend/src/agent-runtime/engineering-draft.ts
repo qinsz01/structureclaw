@@ -559,7 +559,8 @@ function mergeDraftPropertyRecords(existing: Array<Record<string, unknown>> | un
     if (index === undefined) { updated.push(structuredClone(record)); continue; }
     const previous = updated[index]!;
     const beforeShape = asRecord(previous.shape), afterShape = asRecord(record.shape);
-    if (sections && beforeShape?.kind && afterShape?.kind && beforeShape.kind !== afterShape.kind) {
+    if (sections && beforeShape?.kind && afterShape?.kind
+      && String(beforeShape.kind).trim().toLowerCase() !== String(afterShape.kind).trim().toLowerCase()) {
       // A different physical shape replaces its geometry and derived properties;
       // old rectangular dimensions must not survive a change to a circular section.
       const metadata = { ...previous };
