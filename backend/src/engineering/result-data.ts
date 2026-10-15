@@ -4,6 +4,7 @@ import { contentHash, isRecord, type ModelRecord } from './model-state.js';
 import { nativeForceRecovery } from './native-force-recovery.js';
 import { nativeRigidMember } from './native-rigid-offsets.js';
 import { equilibriumResponse } from './beam-equilibrium.js';
+import { withRecoveredStaticEnvelope } from './response-envelope.js';
 
 function recoveryModel(model: ModelRecord): model is ModelRecord & RecoveryModel {
   return model.unit_system === 'SI' && isRecord(model.coordinate_system)
@@ -157,12 +158,16 @@ function nativeMemberData(model: RecoveryModel, data: ModelRecord, factors?: Rec
 export function enrichResultData(model: ModelRecord, result: ModelRecord, selection: ModelRecord): ModelRecord {
   const data = isRecord(result.data) ? result.data : result;
   if (result.success === false || !recoveryModel(model)) return data;
-  const source = { ...data, meta: { ...(isRecord(data.meta) ? data.meta : {}), ...(isRecord(result.meta) ? result.meta : {}) } };
+  const source: ModelRecord = { ...data, meta: { ...(isRecord(data.meta) ? data.meta : {}), ...(isRecord(result.meta) ? result.meta : {}) } };
   if (commercial(result) || isRecord(data.memberStations)) return { ...source, ...nativeMemberData(model, source, resultFactors(model, selection)) };
   if (!isRecord(data.displacements)) return data;
   const memberResponses = recoverAnalysisMembers(model, source as RecoveryResult, resultEngine(result), resultFactors(model, selection));
   const extrema = memberResponseExtrema(memberResponses);
-  return { ...source, memberResponses, memberResponseExtrema: { ...extrema,
+  const execution = isRecord(source.execution) ? source.execution : {};
+  const solverConfiguration = isRecord(execution.solverConfiguration) ? execution.solverConfiguration : {};
+  const enriched = resultEngine(result) === 'opensees' && execution.executed === true && solverConfiguration.analysis === 'Static'
+    ? withRecoveredStaticEnvelope(model, source, memberResponses, selection) : source;
+  return { ...enriched, memberResponses, memberResponseExtrema: { ...extrema,
     values: Object.fromEntries(Object.entries(extrema.values).map(([component, point]) => [component, { ...point,
       provenance: memberResponses.find(member => member.id === point.elementId)?.state === 'interpolated'
         ? 'display-interpolation' : 'mechanics-recovery' }])) } };

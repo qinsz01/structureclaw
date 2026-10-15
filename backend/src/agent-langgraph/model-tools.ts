@@ -8,7 +8,7 @@ import { applyModelEdits, commitModel, contentHash, currentAnalysisError, invali
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 import { assertModelEditReadback, editCollectionSchema, engineeringModelSchema, modelEditGuidance, modelFieldEdit, normalizeModelEdits } from '../engineering/model-edit-contract.js';
 import { queryPhysicalResponse, scalarResultQuantity } from '../engineering/result-data.js';
-import { resultSelectionSchema } from '../engineering/result-selection.js';
+import { resultSelectionSchema, solverMeshQueryGuidance } from '../engineering/result-selection.js';
 import { loadAnalysisRun } from '../engineering/analysis-runs.js';
 import { randomUUID } from 'node:crypto';
 import { imageRegionSchema } from '../engineering/vision-evidence.js';
@@ -338,9 +338,11 @@ export function createQueryResultsTool() {
     if (input.includeModelSnapshot && !modelSnapshot) throw new Error('RESULT_MODEL_SNAPSHOT_REQUIRED');
     const response = { runId: run.runId, historical: Boolean(input.runId), current: !input.runId && !currentAnalysisError(state),
       ...(input.includeModelSnapshot ? { modelSnapshot, visualizationData: viewData, analysisType: run.analysis_type ?? run.analysisType } : {}),
-      resultKey, meta, resultSelection, resultKeys: isRecord(run.results) ? Object.keys(run.results) : [], values, ...(quantity ? { quantity } : {}) };
+      resultKey, meta, resultSelection, resultKeys: isRecord(run.results) ? Object.keys(run.results) : [],
+      ...(input.field === 'solverMesh' && isRecord(viewData) ? { queryGuidance: solverMeshQueryGuidance(viewData) } : {}),
+      values, ...(quantity ? { quantity } : {}) };
     return quantity ? result(id, 'query_results', response, { resultQuantities: { [`${String(run.runId)}:${String(quantity.id)}`]: quantity } }) : JSON.stringify(response);
-  }, { name: 'query_results', description: 'Read authoritative signed results for a case/combination or historical run. For a report scalar, supply component, unit and a node or physical member position; the returned quantity is saved with its provenance and an automatic ID. Interior member queries do not require model edits or remeshing. / 查询指定工况、组合或历史运行的有符号结果。报告标量需给分量、单位及节点或物理构件位置；返回数值自动编号并保存来源。跨内查询不需要修改或细分模型。',
+  }, { name: 'query_results', description: 'Read authoritative signed results for a case/combination or historical run. For a report scalar, supply component, unit and a node or physical member position; the returned quantity is saved with its provenance and an automatic ID. Interior displacement and force queries use physical elementId + positionM, never solverMesh internal node IDs, and do not require model edits or remeshing. / 查询指定工况、组合或历史运行的有符号结果。报告标量需给分量、单位及节点或物理构件位置；返回数值自动编号并保存来源。跨内位移和内力用物理elementId + positionM，不要使用solverMesh内部节点ID，也不需要修改或细分模型。',
     schema: resultSelectionSchema.extend({
       includeModelSnapshot: z.boolean().optional().describe('Return the run-bound model and selected direct display data for a viewer. / 返回该运行模型及选定结果的显示数据。'),
       series: z.object({ startIndex: z.number().int().nonnegative().optional(), endIndex: z.number().int().nonnegative().optional(), stride: z.number().int().positive().optional() }).optional().describe('Recorded time series, at most 10000 explicit samples; no interpolation. Exclusive with timeIndex/modeNumber. / 实际记录时程，最多10000点，不插值。'),

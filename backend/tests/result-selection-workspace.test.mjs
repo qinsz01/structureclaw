@@ -161,3 +161,48 @@ test('real OpenSees reactions and physical member midpoint moments/deflections r
   }
   expect(configurable.agentState.model).toEqual(normalized);
 }, 30000);
+
+
+test('solver mesh receipts distinguish internal nodes and expose physical cuts for midpoint displacement queries', async () => {
+  const structureProtocolClient = createLocalStructureProtocolClient();
+  const skillRuntime = new AgentSkillRuntime();
+  const normalized = await normalizeEngineeringModel({
+    schema_version: '2.2.0', unit_system: 'SI',
+    coordinate_system: { semantics: 'global-z-up', version: 1, dimension: '2d', plane: 'xz',
+      dof_order: ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'] },
+    analysis_control: { self_weight: false },
+    nodes: [{ id: 'A', x: 0, y: 0, z: 0, restraints: [true, true, true, true, false, true] },
+      { id: 'B', x: 4, y: 0, z: 0, restraints: [false, true, true, true, false, true] }],
+    elements: [{ id: 'beam', type: 'beam', nodes: ['A', 'B'], material: 'steel', section: 'rect' }],
+    materials: [{ id: 'steel', name: 'Elastic steel', E: 200000, nu: .3, rho: 7850 }],
+    sections: [{ id: 'rect', name: '100 x 200 mm', type: 'rectangular', shape: { kind: 'rectangular', B: 100, H: 200 } }],
+    load_cases: [{ id: 'D', type: 'other', loads: [{ type: 'point', element: 'beam', position: 2, fz: -1 }] }],
+    load_combinations: [],
+  }, structureProtocolClient);
+  const configurable = { skillRuntime, structureProtocolClient, engineClient: createLocalAnalysisEngineClient(),
+    skillScope: ['opensees-static'], agentState: { ...commitModel({}, normalized, 'interior-point-load'), locale: 'en' } };
+  const tools = new Map(createRegisteredTools({ skillRuntime }).map(tool => [tool.name, tool]));
+  const analyzed = await tools.get('run_analysis').invoke({ analysisType: 'static', analysisSkillId: 'opensees-static', loadCaseIds: ['D'] },
+    { toolCall: { id: 'mesh-analysis' }, configurable });
+  configurable.agentState = { ...configurable.agentState, ...analyzed.update };
+  const saved = configurable.agentState.analysisResult;
+  expect(saved.success).toBe(true);
+  const query = input => tools.get('query_results').invoke({ runId: saved.runId, resultKey: 'case:D', ...input },
+    { toolCall: { id: 'mesh-query' }, configurable });
+  const receipt = output(await query({ field: 'solverMesh' }));
+  expect(receipt.queryGuidance.nodeIdsByField.displacements.sort()).toEqual(['A', 'B']);
+  const interior = receipt.queryGuidance.internalNodeLocations.find(node =>
+    node.memberPositions.some(position => position.elementId === 'beam' && position.positionM === 2));
+  expect(interior).toMatchObject({ queryableAsNode: false, memberPositions: expect.arrayContaining([
+    { elementId: 'beam', positionM: 2, side: 'left' }, { elementId: 'beam', positionM: 2, side: 'right' },
+  ]) });
+  expect(receipt.values.nodes.find(node => node.id === interior.solverNodeId)).toMatchObject({ physicalNodeId: null, x: 2 });
+  expect(receipt.queryGuidance.instruction).toContain('内部节点ID');
+  expect(receipt.queryGuidance.instruction).toContain('elementId + positionM');
+  await expect(query({ field: 'displacements', nodeId: interior.solverNodeId, component: 'uz', unit: 'mm' }))
+    .rejects.toThrow('RESULT_NODE_NOT_FOUND');
+  const physical = output(await query({ field: 'displacements', elementId: 'beam', positionM: 2, component: 'uz', unit: 'mm' }));
+  expect(physical.quantity.value).toBeCloseTo(-.1, 10);
+  expect(physical.quantity.location).toMatchObject({ kind: 'member', id: 'beam', positionM: 2 });
+  expect(configurable.agentState.model).toEqual(normalized);
+}, 30000);

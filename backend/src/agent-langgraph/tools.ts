@@ -2147,6 +2147,8 @@ function buildSuccessfulAnalysisDetails(
 
   const controlling = envelope ? omitEmptyRecord({
     controlNodeDisplacement: pickStringLike(envelope, 'controlNodeDisplacement'),
+    controlElementDisplacement: pickStringLike(envelope, 'controlElementDisplacement'),
+    locations: optionalRecord(envelope.controlLocations),
     controlElementAxialForce: pickStringLike(envelope, 'controlElementAxialForce'),
     controlElementShearForce: pickStringLike(envelope, 'controlElementShearForce'),
     controlElementMoment: pickStringLike(envelope, 'controlElementMoment'),
@@ -2238,6 +2240,7 @@ function buildSuccessfulAnalysisDetails(
     workflowInputMode: pickStringLike(data, 'workflowInputMode') ?? pickStringLike(result, 'workflowInputMode'),
     counts,
     keyMetrics,
+    envelopeMethod: envelope ? pickStringLike(envelope, 'method') : undefined,
     controlling,
     modelContext: compactAnalysisModelContext(
       model,
