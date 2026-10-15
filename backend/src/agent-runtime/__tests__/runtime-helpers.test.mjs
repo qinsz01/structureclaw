@@ -906,7 +906,7 @@ describe('agent runtime helper utilities', () => {
     await expect(runtime.buildModel({
       inferredType: 'beam',
       updatedAt: 0,
-    })).resolves.toBeUndefined();
+    })).rejects.toThrow('MODEL_DRAFT_INCOMPLETE: loadType');
   });
 
   test('detectStructuralType keeps current portal-frame context for parameter updates', async () => {

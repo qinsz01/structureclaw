@@ -153,6 +153,32 @@ function collectValidPatchFields(patch: DraftExtraction, existing?: DraftState, 
       }
     }
   }
+  // Material arrays merge by stable ID. Clear only the fields explicitly supplied
+  // in this patch, using their merged identity (never the patch array's offset).
+  const materialRecords = mergedDraft?.materials ?? [];
+  const validMaterialValue = (field: string, value: unknown): boolean => {
+    if (field === 'name' || field === 'id') return typeof value === 'string' && !!value.trim();
+    if (typeof value !== 'number' || !Number.isFinite(value)) return false;
+    return field === 'nu' ? value >= 0 && value < 0.5 : value > 0;
+  };
+  for (const record of patch.engineeringDraft?.materials ?? []) {
+    if (typeof record.id !== 'string') continue;
+    const matches = materialRecords.flatMap((item, index) => item.id === record.id ? [index] : []);
+    if (matches.length !== 1) continue;
+    const index = matches[0]!;
+    for (const field of ['id', 'name', 'E', 'G', 'nu', 'rho']) {
+      if (!Object.hasOwn(record, field) || !validMaterialValue(field, record[field])) continue;
+      const selectors = [`materials.${record.id}.${field}`, `materials[${index}].${field}`];
+      // A wildcard describes every material, including records outside this patch.
+      if (materialRecords.length && materialRecords.every(item => validMaterialValue(field, item[field]))) {
+        selectors.push(`materials[].${field}`, `materials[*].${field}`);
+      }
+      for (const selector of selectors) {
+        valid.add(selector);
+        valid.add(`engineeringDraft.${selector}`);
+      }
+    }
+  }
   const boundary = patch.engineeringDraft?.boundary;
   if (boundary) {
     if (typeof boundary.supportType === 'string' && boundary.supportType.trim()) {

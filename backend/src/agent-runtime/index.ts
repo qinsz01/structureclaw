@@ -547,7 +547,7 @@ export class AgentSkillRuntime {
 
     const missing = computeDraftMissing(plugin, state, 'execution');
     if (missing.critical.length > 0) {
-      return undefined;
+      throw new Error(`MODEL_DRAFT_INCOMPLETE: ${missing.critical.join(', ')}. Ask the user to clarify these unresolved fields; extract only a new answer, then rebuild / 请澄清这些尚未解决的字段；收到新答复后再提取并建模，不要重复提取同一消息。`);
     }
 
     // Deterministic model building (beam, truss, frame, etc.)

@@ -1,0 +1,113 @@
+import { describe, expect, test } from '@jest/globals';
+import { handler } from '../../../dist/agent-skills/structure-type/beam/handler.js';
+import { normalizeLegacyDraftPatch } from '../../../dist/agent-runtime/legacy.js';
+import { mergeDraftState } from '../../../dist/agent-runtime/fallback.js';
+import { computeDraftMissing } from '../../../dist/agent-runtime/draft-readiness.js';
+import { AgentSkillRuntime } from '../../../dist/agent-runtime/index.js';
+import { createBuildModelTool } from '../../../dist/agent-langgraph/tools.js';
+
+const issue = (field, severity = 'ambiguous') => ({ field, value: null, severity,
+  reason: 'This input has not been confirmed.', question: `Please confirm ${field}.` });
+const fields = state => (state.draftIssues ?? []).map(value => value.field);
+const plugin = { id: 'beam', handler };
+
+// Minimal engineering-only reproduction of the saved 31625 draft: the original
+// material lacked E/nu and an explicit reply supplied them under the same ID.
+const initial = () => handler.mergeState(undefined, normalizeLegacyDraftPatch({
+  inferredType: 'beam', lengthM: 10, supportType: 'simply-supported', loadKN: 1,
+  loadType: 'point', loadPosition: 'midspan', loadPositionM: 5,
+  engineeringDraft: { structureType: 'beam', geometry: { lengthM: 10 },
+    materials: [{ id: 'MAT-Q235B', name: 'Q235B', f: 215, fv: 125 }],
+    material: { family: 'steel', grade: 'Q235B' }, sections: { beam: 'I20a' },
+    sectionRecords: [{ id: 'SEC-I20A', name: 'I20a (GB/T 706 热轧工字钢)', type: 'custom',
+      properties: { S: .000104, Wnx: .000237, b: .0465, t: .0114 } }],
+    templateAssignments: { beam: { materialId: 'MAT-Q235B', sectionId: 'SEC-I20A' } },
+    boundary: { supportType: 'simply-supported', supportPositionsM: [0, 10] },
+    loads: [{ kind: 'point', magnitude: 1, unit: 'kN', direction: 'gravity', target: 'beam',
+      location: { xM: 5, spanIndex: 1, nodeRole: 'midspan' }, caseId: 'LC1', caseType: 'other' }],
+    analysis: { loadCombinations: [] }, analysisControl: { self_weight: false } },
+  draftIssues: [issue('materials[].E'), issue('designParameters.gammaX')],
+}));
+const clarification = () => normalizeLegacyDraftPatch({ engineeringDraft: {
+  materials: [{ id: 'MAT-Q235B', E: 206000, G: 79230.77, nu: .3, rho: 7850 }],
+}, skillState: { designParameters: { gammaX: 1, memberDesignL0Mm: 4800 } } });
+
+describe('clarification retires only the material issues it resolves', () => {
+  test('the actual beam reply clears the stale wildcard E issue and permits the original template', async () => {
+    const before = initial(), saved = structuredClone(before);
+    expect(computeDraftMissing(plugin, before, 'execution').critical).toEqual(['materials.MAT-Q235B.E', 'materials.MAT-Q235B.nu']);
+    expect(handler.buildModel(before)).toBeUndefined();
+    const after = handler.mergeState(before, clarification());
+    expect(fields(after)).toEqual(['designParameters.gammaX']);
+    expect(after.skillState.invalidDraftFields).toEqual(['designParameters.gammaX']);
+    expect(computeDraftMissing(plugin, after, 'execution')).toEqual({ critical: [], optional: ['designParameters.gammaX'] });
+    expect(handler.computeMissing(after, 'execution')).toEqual({ critical: [], optional: ['designParameters.gammaX'] });
+    const model = await new AgentSkillRuntime().buildModel(after, ['beam'], { locale: 'zh' });
+    expect(model.nodes.map(node => node.x)).toEqual([0, 5, 10]);
+    expect(model.materials[0]).toMatchObject({ id: 'MAT-Q235B', E: 206000, nu: .3, rho: 7850, f: 215, fv: 125 });
+    expect(model.sections[0].properties).toMatchObject({ A: .003555, Iy: .0000237, Iz: .00000158 });
+    expect(model.elements).toHaveLength(2);
+    expect(before).toEqual(saved);
+  });
+
+  test('material IDs and original indices identify issues independently of patch ordering', () => {
+    const before = { inferredType: 'beam', engineeringDraft: { materials: [{ id: 'A' }, { id: 'B' }] },
+      draftIssues: ['materials.A.E', 'materials[0].E', 'materials.B.E', 'materials[1].E', 'engineeringDraft.materials.B.E', 'materials[].E'].map(field => issue(field)) };
+    const after = mergeDraftState(before, { engineeringDraft: { materials: [{ id: 'B', E: 206000 }] } });
+    expect(fields(after)).toEqual(['materials.A.E', 'materials[0].E', 'materials[].E']);
+    expect(after.engineeringDraft.materials).toEqual([{ id: 'A' }, { id: 'B', E: 206000 }]);
+    const complete = mergeDraftState(after, { engineeringDraft: { materials: [{ id: 'A', E: 30000 }] } });
+    expect(fields(complete)).toEqual([]);
+  });
+
+  test.each([undefined, 0, -1, NaN, Infinity])('a wildcard remains unresolved when another material has E=%s', value => {
+    const before = { inferredType: 'beam', engineeringDraft: { materials: [{ id: 'A', E: value }, { id: 'B' }] },
+      draftIssues: [issue('materials[].E'), issue('engineeringDraft.materials[*].E')] };
+    expect(fields(mergeDraftState(before, { engineeringDraft: { materials: [{ id: 'B', E: 206000 }] } })))
+      .toEqual(['materials[].E', 'engineeringDraft.materials[*].E']);
+  });
+
+  test('existing values without a confirming patch do not silently erase diagnostics', () => {
+    const before = initial();
+    before.engineeringDraft.materials[0].E = 206000;
+    const after = handler.mergeState(before, normalizeLegacyDraftPatch({ engineeringDraft: { materials: [{ id: 'MAT-Q235B', nu: .3 }] } }));
+    expect(fields(after)).toContain('materials[].E');
+    expect(computeDraftMissing(plugin, after, 'execution').critical).toContain('materials[].E');
+  });
+
+  test('a new explicit conflict survives a valid numeric patch and still blocks building', async () => {
+    const conflict = issue('materials[].E', 'conflict');
+    const patch = clarification();
+    patch.draftIssues = [conflict]; patch.skillState.invalidDraftFields = ['materials[].E'];
+    const after = handler.mergeState(initial(), patch);
+    expect(after.draftIssues).toContainEqual(conflict);
+    expect(after.skillState.invalidDraftFields).toContain('materials[].E');
+    expect(computeDraftMissing(plugin, after, 'execution').critical).toEqual(['materials[].E']);
+    await expect(new AgentSkillRuntime().buildModel(after, ['beam'])).rejects.toThrow('MODEL_DRAFT_INCOMPLETE: materials[].E');
+  });
+
+  test('invalid nu is retained while independent valid E is resolved', () => {
+    const before = initial(); before.draftIssues.push(issue('materials[].nu', 'invalid'));
+    const patch = clarification(); patch.engineeringDraft.materials[0].nu = .5;
+    const after = handler.mergeState(before, patch);
+    expect(fields(after)).not.toContain('materials[].E');
+    expect(fields(after)).toContain('materials[].nu');
+    expect(computeDraftMissing(plugin, after, 'execution').critical).toEqual(['materials.MAT-Q235B.nu']);
+  });
+
+  test.each(['loadKN', 'supportType', 'loads[0].direction', 'unrecognizedPhysicalInput'])('a material answer does not clear unrelated physical issue %s', field => {
+    const before = initial(); before.draftIssues.push(issue(field));
+    const after = handler.mergeState(before, clarification());
+    expect(fields(after)).toContain(field);
+    expect(computeDraftMissing(plugin, after, 'execution').critical).toContain(field);
+  });
+
+  test('build_model names the actual unresolved fields and asks for a new answer instead of repeating extraction', async () => {
+    const invoke = createBuildModelTool(new AgentSkillRuntime()).invoke({}, {
+      toolCall: { id: 'incomplete', name: 'build_model' }, configurable: {
+        skillScope: ['beam'], agentState: { draftState: initial(), locale: 'zh', messages: [], lastUserMessage: '' },
+      },
+    });
+    await expect(invoke).rejects.toThrow('MODEL_DRAFT_INCOMPLETE: materials.MAT-Q235B.E, materials.MAT-Q235B.nu');
+  });
+});

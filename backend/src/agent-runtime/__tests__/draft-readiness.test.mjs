@@ -86,7 +86,8 @@ test.each([{}, { properties: {} }, { shape: {}, dimensions: {} }])('a reviewed n
 
 describe('analysis readiness is separate from code-check completeness', () => {
   const designFields = ['design.standard', 'design.lateralBracing', 'design.deflectionLimit',
-    'designCheck.stabilityCoefficient', 'designCheck.loadApplicationPoint', 'engineeringDraft.designCriteria.strength', 'material.designStrength'];
+    'designCheck.stabilityCoefficient', 'designCheck.loadApplicationPoint', 'engineeringDraft.designCriteria.strength',
+    'designParameters.gammaX', 'engineeringDraft.designParameters.l0', 'material.designStrength'];
   const issues = fields => fields.map(field => ({ field, severity:'ambiguous', reason:'User input is still required.' }));
   const complete = { ...beam, requestScope:{ responses:['forces','displacements'], method:'solver', design:true, report:true, outputs:[] },
     engineeringDraft:{ materials:[material], sectionRecords:[section], analysisControl:{ self_weight:false } },
