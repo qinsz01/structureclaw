@@ -87,3 +87,32 @@ describe('confirmed draft analysis controls reach every V2 model-building path',
     expect((await normalize(result)).analysis_control).toMatchObject({ self_weight: selfWeight, rigid_floor: false });
   }, 30000);
 });
+
+
+describe('generic topology uses confirmed section geometry without invented rounded properties', () => {
+  test('real normalization derives exact stiffness from the confirmed rectangle even if the LLM duplicates rounded values', async () => {
+    const state = beamState({ self_weight: false });
+    state.engineeringDraft.sectionRecords = [{ id: 'user-section', name: '100 by 200 mm', type: 'rectangular', shape: { kind: 'rectangular', B: 100, H: 200 } }];
+    const candidate = buildModel(beamState({ self_weight: false }));
+    candidate.sections = [{ id: '1', type: 'rectangular', shape: { kind: 'rectangular', B: 100, H: 200 },
+      properties: { A: .02, Iy: .000066667, Iz: .000016667 } }];
+    const before = structuredClone(state);
+    const result = await tryBuildGenericModelWithLlm({ invoke: async () => ({ content: JSON.stringify(candidate) }) },
+      'Use the confirmed 100 mm wide, 200 mm high rectangle', state, 'en');
+    const model = await normalize(result);
+    expect(model.sections[0].properties.Iy).toBeCloseTo(100 * 200 ** 3 / 12e12, 14);
+    expect(model.sections[0].properties.Iz).toBeCloseTo(200 * 100 ** 3 / 12e12, 14);
+    expect(model.sections[0].extra.derived_properties.method).toBe('section-geometry-v1');
+    expect(model.elements[0].section).toBe(model.sections[0].id);
+    expect(state).toEqual(before);
+  }, 30000);
+
+  test('conflicting properties explicitly present in the confirmed source are retained and rejected, not silently corrected', async () => {
+    const state = beamState({ self_weight: false });
+    state.engineeringDraft.sectionRecords = [{ id: '1', type: 'rectangular', shape: { kind: 'rectangular', B: 100, H: 200 }, properties: { Iy: .0001 } }];
+    const candidate = buildModel(beamState({ self_weight: false }));
+    const result = await tryBuildGenericModelWithLlm({ invoke: async () => ({ content: JSON.stringify(candidate) }) }, 'Use the supplied record', state, 'en');
+    expect(result.sections[0].properties.Iy).toBe(.0001);
+    await expect(normalize(result)).rejects.toThrow(/conflicts with geometry/);
+  }, 30000);
+});

@@ -11,6 +11,8 @@ describe('generic LLM model builder', () => {
     );
 
     expect(prompt).toContain('StructureModel V2');
+    expect(prompt).toContain('OMIT properties completely');
+    expect(prompt).toContain('Numerical properties explicitly provided by the user must be preserved');
     expect(prompt).toContain('"schema_version":"2.2.0"');
     expect(prompt).toContain('point forces are kN');
     expect(prompt).toContain('distributed member loads are kN/m');

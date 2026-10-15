@@ -113,6 +113,37 @@ describe("param extractor", () => {
     expect(explicitNormalized.sections[0]).toMatchObject(explicit.sectionRecords[0]);
   });
 
+  test.each([
+    ['zh', []], ['en', []], ['zh', ['materials.M.rho']], ['en', ['materials.M.rho']],
+  ])('the actual extractor request preserves section sources in normal and focused prompts (%s, %j)', async (locale, focusFields) => {
+    const { invokeParamExtractor } = await import('../../../dist/agent-langgraph/param-extractor.js');
+    const { handler } = await import('../../../dist/agent-skills/structure-type/beam/handler.js');
+    const section = { id: 'source-section', name: 'User dimensions and measured inertia', type: 'rectangular',
+      shape: { kind: 'rectangular', B: 100, H: 200 }, properties: { Iy: 0.0001 },
+      extra: { source: 'explicit-user-table' } };
+    const state = handler.mergeState(undefined, handler.extractDraft({ locale, llmDraftPatch: {
+      engineeringDraft: { materials: [{ id: 'M', E: 206000, nu: 0.3 }], sectionRecords: [section] },
+    } }));
+    const before = structuredClone(state);
+    let sentPrompt;
+    const patch = await invokeParamExtractor({ message: 'rho=7850 kg/m3', existingState: state, locale, plugin: beamPlugin,
+      focusFields, requireLlmResult: true, llm: { invoke: async prompt => {
+        sentPrompt = prompt;
+        return { content: JSON.stringify({ engineeringDraft: { materials: [{ id: 'M', rho: 7850 }] } }) };
+      } } });
+    expect(sentPrompt).toContain('"shape": { "kind": "rectangular", "B": number, "H": number }');
+    expect(sentPrompt).toContain(locale === 'zh' ? '仅给几何时只保留 shape，完全省略 properties' : 'For geometry-only input, retain shape and OMIT properties completely');
+    expect(sentPrompt).toContain(locale === 'zh' ? '不能删掉显式 properties 隐藏冲突' : 'Never delete explicit properties to hide a conflict');
+    expect(sentPrompt).toContain(locale === 'zh' ? '保留已有已确认记录中的 shape、properties、ID 及来源' : 'Preserve shape, properties, IDs and sources in existing confirmed records');
+    expect(sentPrompt).toContain('"H": 200');
+    expect(sentPrompt).toContain('"Iy": 0.0001');
+    expect(sentPrompt).toContain('explicit-user-table');
+    const next = handler.mergeState(state, handler.extractDraft({ locale, currentState: state, llmDraftPatch: patch }));
+    expect(next.engineeringDraft.sectionRecords).toEqual([section]);
+    expect(next.engineeringDraft.materials[0]).toMatchObject({ id: 'M', E: 206000, nu: 0.3, rho: 7850 });
+    expect(state).toEqual(before);
+  });
+
   test("benchmark LLM-only mode rejects provider failures instead of using deterministic extraction", async () => {
     const { invokeParamExtractor } = await import("../../../dist/agent-langgraph/param-extractor.js");
 

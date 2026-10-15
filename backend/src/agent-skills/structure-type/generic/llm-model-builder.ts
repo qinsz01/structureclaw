@@ -70,6 +70,7 @@ export async function tryBuildGenericModelWithLlm(
       }
 
       canonicalizeGenericModel(parsed);
+      if (!currentModel) projectConfirmedGeometricSections(parsed, state);
       const dimension = stampCanonicalMetadata(parsed, state);
       const candidate = applyDraftAnalysisControl(parsed, state.engineeringDraft);
       assertCanonicalCoordinateModel(candidate, dimension);
@@ -102,6 +103,23 @@ export async function tryBuildGenericModelWithLlm(
   }, 'generic llm model exhausted all attempts without a valid model');
 
   return undefined;
+}
+
+/** Topology generation must not replace a confirmed geometric section with LLM arithmetic.
+ * Explicit user properties remain on the source record and still undergo physics validation.
+ */
+export function projectConfirmedGeometricSections(model: Record<string, unknown>, state: DraftState): void {
+  const sources = state.engineeringDraft?.sectionRecords ?? [];
+  if (!sources.length || !Array.isArray(model.sections)) return;
+  const generated = model.sections;
+  model.sections = generated.map(value => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+    const section = value as Record<string, unknown>;
+    const source = sources.find(item => item.id === section.id)
+      ?? (sources.length === 1 && generated.length === 1 ? sources[0] : undefined);
+    if (!source?.shape || typeof source.shape !== 'object' || Array.isArray(source.shape)) return value;
+    return { ...structuredClone(source), id: section.id, name: source.name ?? section.name ?? section.id, type: source.type ?? section.type };
+  });
 }
 
 function canonicalizeGenericModel(model: Record<string, unknown>): void {

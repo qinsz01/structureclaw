@@ -50,6 +50,9 @@ export class AgentSkillExecutor {
         ? '优先输出 engineeringDraft：geometry 表达跨度/高度/多跨数组，loads 表达集中力、线荷载、面积荷载或节点荷载，wind.basicPressureKNM2 表达基本风压，analysis.engineTarget 表达 opensees/pkpm/yjk。必要时可同时输出旧 draftPatch。'
         : 'Prefer engineeringDraft as a top-level field: use geometry for lengths/heights/span arrays, loads for point/line/area/nodal loads, wind.basicPressureKNM2 for basic wind pressure, and analysis.engineTarget for opensees/pkpm/yjk. You may also output legacy draftPatch when useful.',
       input.locale === 'zh'
+        ? '截面提取只记录用户实际提供的来源：矩形等明确几何写入 sectionRecords.shape（kind、B/H 等，mm），目录型号写入 sections 的角色名称；不要心算或补写 A、Iy、Iz、J、截面模量等派生值。几何属性由确定性程序计算。只有用户或附件明确给出了数值截面属性时才写 properties，并原样保留其数值来源；旧状态中已确认的显式属性不得丢失。global-z-up 下矩形 H 是竖向高度，强轴 Iy=B*H^3/12，禁止交换强弱轴。'
+        : 'Extract only the section source actually supplied: put explicit geometry in sectionRecords.shape (kind and B/H etc. in mm), or catalog designations in the role-based sections map. Do not calculate or add A, Iy, Iz, J or section moduli; deterministic geometry code derives them. Write properties only for numerical section properties explicitly supplied by the user or attachments, preserving their source. Keep previously confirmed explicit properties. For global-z-up rectangular sections H is vertical and Iy=B*H^3/12; never swap the axes.',
+      input.locale === 'zh'
         ? '如果用户明确给出多个荷载，每个荷载都必须作为 engineeringDraft.loads 的独立条目输出，不要合并或丢弃集中力/节点力。'
         : 'If the user explicitly gives multiple loads, output each load as its own engineeringDraft.loads entry; do not merge or drop point/nodal loads.',
       input.locale === 'zh'
