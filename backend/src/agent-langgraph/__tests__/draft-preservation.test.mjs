@@ -283,3 +283,46 @@ describe("draft extraction preservation", () => {
     expect(result.responseJson.nextState.updatedAt).toBeGreaterThanOrEqual(before);
   });
 });
+
+  test('extraction cannot turn an agent restatement into user-supplied dimensions', async () => {
+    const { resolveExtractionInputMessage } = await import('../../../dist/agent-langgraph/tools.js');
+    expect(resolveExtractionInputMessage('Q235B, I20a, web 5mm, flange 7mm', 'Q235B + I20a')).toBe('Q235B + I20a');
+    expect(resolveExtractionInputMessage('direct external tool input', '')).toBe('direct external tool input');
+  });
+  test('extraction uses the latest actual clarification answer without losing previous draft fields', async () => {
+    const { resolveExtractionInputMessage } = await import('../../../dist/agent-langgraph/tools.js');
+    const messages=[{role:'user',content:'10m beam, 1kN at midspan'},
+      {role:'tool',name:'ask_user_clarification',content:JSON.stringify({type:'clarification_answered',answer:'Q235B + I20a'})},
+      {role:'assistant',content:'I will assume a 5mm web'}];
+    expect(resolveExtractionInputMessage('web 5mm', '10m beam, 1kN at midspan', messages)).toBe('Q235B + I20a');
+    messages.push({role:'user',content:'Change the section to 100X200'});
+    expect(resolveExtractionInputMessage('100X300', 'Change the section to 100X200', messages)).toBe('Change the section to 100X200');
+  });
+
+test.each(['接受', '不接受，用Q355B', '可以'])('clarification answer %s retains its question as unconfirmed context and canonical attachment evidence', async answer => {
+  const {resolveExtractionInputMessage}=await import('../../../dist/agent-langgraph/tools.js');
+  const canonical='按附件设计梁\n\n[附件解析: beam.csv]\nspan_m,load_kn\n10,1';
+  const question='材料Q235B、截面I20a，是否接受？';
+  const messages=[{role:'user',content:canonical},{role:'tool',name:'ask_user_clarification',content:JSON.stringify({type:'clarification_answered',question,answer})}];
+  const resolved=resolveExtractionInputMessage('ASSISTANT_INVENTED_COEFFICIENT',canonical,messages);
+  expect(resolved).not.toContain('ASSISTANT_INVENTED_COEFFICIENT');
+  expect(JSON.parse(resolved.split('\n')[1])).toEqual({question,answer});
+  expect(resolved).toContain('unconfirmed context, not user-supplied facts');
+  expect(resolved).toContain('rejected or unselected alternatives remain unconfirmed');
+  expect(resolved).toContain('[附件解析: beam.csv]');
+});
+
+test('option labels and numeric answers remain bound to the recorded clarification', async () => {
+  const {resolveExtractionInputMessage}=await import('../../../dist/agent-langgraph/tools.js');
+  const question='梁跨度(m)是多少？', answer='10', options=[{label:'10m',value:'10'}];
+  const resolved=resolveExtractionInputMessage('20m','design beam',[{role:'tool',name:'ask_user_clarification',content:JSON.stringify({type:'clarification_answered',question,options,answer})}]);
+  expect(JSON.parse(resolved.split('\n')[1])).toEqual({question,options,answer});
+  expect(resolved).toContain('A bare yes to multiple alternatives does not select one');
+});
+
+test('external hosts retain canonical turn evidence and can supply input directly when no turn message exists', async () => {
+  const {resolveExtractionInputMessage}=await import('../../../dist/agent-langgraph/tools.js');
+  expect(resolveExtractionInputMessage('assistant restatement','actual first task',[])).toBe('actual first task');
+  expect(resolveExtractionInputMessage('assistant restatement','actual clarification in a new turn',[])).toBe('actual clarification in a new turn');
+  expect(resolveExtractionInputMessage('direct host input','',[])).toBe('direct host input');
+});

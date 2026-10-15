@@ -2,6 +2,12 @@ import type { AppLocale } from '../services/locale.js';
 import type { DraftState } from './types.js';
 import { localize } from './plugin-helpers.js';
 
+/** Design-only diagnostics remain pending for code-check, but cannot block an elastic model. */
+export function isDesignDraftField(field: string): boolean {
+  return /^(?:engineeringDraft\.)?(?:design|designCheck|designCriteria|codeCheck)(?:[.\[]|$)/.test(field)
+    || /^(?:engineeringDraft\.)?material\.designStrength$/.test(field);
+}
+
 function getInvalidDraftFields(state: DraftState): string[] {
   const fields = state.skillState?.invalidDraftFields;
   if (!Array.isArray(fields)) {

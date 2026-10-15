@@ -16,7 +16,7 @@ import type {
   StructuralTypeMatch,
   StructuralTypeKey,
 } from './types.js';
-import { engineeringLoadMergeKey, mergeEngineeringDraft } from './engineering-draft.js';
+import { engineeringLoadClarifiesExisting, mergeEngineeringDraft } from './engineering-draft.js';
 import { buildModel as buildDraftModel } from './model-builder.js';
 import { localize } from './plugin-helpers.js';
 
@@ -167,8 +167,7 @@ function collectValidPatchFields(patch: DraftExtraction, existing?: DraftState, 
     const previous = existing?.engineeringDraft?.loads ?? [];
     const matches = previous.map((candidate, index) => ({ candidate, index })).filter(({ candidate }) => load.id
       ? candidate.id === load.id
-      : !candidate.id && mergedDraft && engineeringLoadMergeKey({ ...candidate, direction: undefined }, mergedDraft)
-        === engineeringLoadMergeKey({ ...load, direction: undefined }, mergedDraft));
+      : !candidate.id && mergedDraft && engineeringLoadClarifiesExisting(candidate, load, mergedDraft));
     // A patch's array offset is not the identity of an existing load.
     const index = previous.length ? matches.length === 1 ? matches[0]!.index : undefined : patchIndex;
     if (index === undefined) continue;
@@ -177,6 +176,7 @@ function collectValidPatchFields(patch: DraftExtraction, existing?: DraftState, 
     if (['gravity', 'globalX', 'globalY', 'globalZ'].includes(String(load.direction))) add('direction');
     if (['kN', 'kN/m', 'kN/m2'].includes(load.unit)) add('unit');
     if (load.kind) add('kind');
+    if (['dead', 'live', 'wind', 'seismic', 'other'].includes(String(load.caseType))) add('caseType');
     for (const key of ['xM', 'story', 'spanIndex'] as const) {
       if (typeof load.location?.[key] === 'number' && Number.isFinite(load.location[key])) add(`location.${key}`);
     }

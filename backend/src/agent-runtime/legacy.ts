@@ -17,6 +17,7 @@ import { buildModel } from './model-builder.js';
 import {
   computeMissingCriticalKeys,
   computeMissingLoadDetailKeys,
+  isDesignDraftField,
   mapMissingFieldLabels,
 } from './draft-guidance.js';
 import {
@@ -373,7 +374,9 @@ export function computeLegacyMissing(
   if (phase === 'interactive') {
     critical.push(...computeMissingLoadDetailKeys(state).filter((key) => allowed.has(key) && !critical.includes(key)));
   }
-  return { critical, optional: [] };
+  // Missing stability factors, strengths and serviceability limits belong to
+  // code-check. Keep the diagnostics without preventing a physically complete solve.
+  return { critical: critical.filter((field) => !isDesignDraftField(field)), optional: critical.filter(isDesignDraftField) };
 }
 
 export function buildLegacyLabels(keys: string[], locale: AppLocale): string[] {

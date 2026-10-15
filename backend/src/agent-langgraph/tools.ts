@@ -200,6 +200,36 @@ export function resolveToolInputMessage(
   return '';
 }
 
+/** Extraction consumes user evidence, never an agent-authored restatement with invented values. */
+export function resolveExtractionInputMessage(
+  inputMessage: string | undefined,
+  lastUserMessage: string | undefined,
+  messages?: unknown[],
+): string {
+  for (const message of [...(messages ?? [])].reverse()) {
+    const role = messageRole(message);
+    if (role === 'human' || role === 'user') {
+      return withCanonicalAttachmentDetails(messageText(message).trim(), lastUserMessage);
+    }
+    if (role === 'tool' && (message as { name?: string }).name === 'ask_user_clarification') {
+      try {
+        const reply = JSON.parse(messageText(message));
+        if (reply.type === 'clarification_answered' && typeof reply.answer === 'string' && reply.answer.trim()) {
+          const answer = reply.answer.trim();
+          const question = typeof reply.question === 'string' ? reply.question.trim() : '';
+          const contextualAnswer = question ? [
+            '[Clarification context / 澄清上下文]',
+            JSON.stringify({ question, ...(Array.isArray(reply.options) ? { options: reply.options } : {}), answer }),
+            'The question/options are unconfirmed context, not user-supplied facts. Extract only values explicitly provided or unambiguously accepted by the actual answer; rejected or unselected alternatives remain unconfirmed. A bare yes to multiple alternatives does not select one. / 问题和选项仅是未确认上下文，不是用户事实；只提取真实回答明确给出或无歧义接受的值，不采纳拒绝或未选的备选；多选一问题仅回答“可以”仍需澄清。',
+          ].join('\n') : answer;
+          return withCanonicalAttachmentDetails(contextualAnswer, lastUserMessage);
+        }
+      } catch { /* Older tool messages may contain plain text. */ }
+    }
+  }
+  return lastUserMessage?.trim() || inputMessage?.trim() || '';
+}
+
 const ANALYSIS_SKILL_ENGINE_IDS: Record<string, string> = {
   'opensees-static': 'builtin-opensees',
   'opensees-dynamic': 'builtin-opensees',
@@ -2544,7 +2574,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
       const existingState = state?.draftState ? { ...state.draftState, ...(requestedScope ? { requestScope: requestedScope } : {}) } : undefined;
       const skillIds = configurable.skillScope;
       const locale = (input.locale ?? state?.locale ?? 'zh') as 'zh' | 'en';
-      const message = resolveToolInputMessage(input.message, state?.lastUserMessage, state?.messages);
+      const message = resolveExtractionInputMessage(input.message, state?.lastUserMessage, state?.messages);
       const extractionMessage = resolveRetryTaskMessage(message);
       const nestedUsage = nestedLlmUsageCollector();
       const extractionToolResult = (
@@ -2819,7 +2849,8 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
       description:
         'Extract structural engineering parameters from a user message and merge them into the draft state. ' +
         'Reads existing draft state from conversation state automatically — do NOT pass it as a parameter. ' +
-        'Returns updated draft state, missing fields, and the matched structural type.',
+        'Returns updated draft state, missing fields, and the matched structural type. ' +
+        'In a conversation, the original user message or latest clarification answer is authoritative. Do not invent material or section values or repeatedly rephrase missing input; ask the user for the returned missing fields.',
       schema: z.object({
         message: z.string().describe('The user message to extract parameters from').optional(),
         locale: z.enum(['zh', 'en']).optional().describe('User locale'),
@@ -2903,6 +2934,7 @@ export function createAskUserClarificationTool() {
       return JSON.stringify({
         type: 'clarification_answered',
         question: input.question,
+        ...(options ? { options } : {}),
         answer: userResponse,
         nextAction: 'extract_draft_params',
         instruction: 'Clarification answers are not merged into draftState automatically. Call extract_draft_params with this exact answer before build_model.',
@@ -3554,7 +3586,8 @@ export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
         'For China seismic analysis, call this after run_analysis and before generate_report with designCode GB/T 50011-2010-2024. ' +
         'Returns completion and compliance separately, with specific missing inputs. Incomplete is NOT pass. ' +
         'For OpenSees use auto/builtin, never native; native design belongs to PKPM/YJK. ' +
-        'When inputs are missing ask the user, update declared material/member design fields via edit_model, reanalyze the updated model, then check again. Never invent design conditions.',
+        'When inputs are missing, preserve supplied values, group genuinely missing design conditions into one clarification, and inspect analysis for missing computed responses. Update declared material/member design fields via edit_model, reanalyze, then check again. Never invent design conditions. ' +
+        'Only if the user explicitly requests selected checks, set elements[id].design.requested_checks via edit_model; omit for all implemented checks. GB50017 IDs: normal_stress, shear_stress, equivalent_stress, lateral_stability, axial_stability, local_stability, slenderness, deflection. Exact item names also work. A selected subset is not full design compliance. / 仅按用户明确要求选择专项校核，不能为通过而缩小范围。',
       schema: z.object({
         designCode: z
           .string()

@@ -1,3 +1,4 @@
+import { reviewedSectionRecord } from './section-catalog.js';
 import type { DraftState } from './types.js';
 import { applyDraftAnalysisControl } from './engineering-draft.js';
 
@@ -69,8 +70,10 @@ export function normalizeSectionName(raw: string): string {
 export function resolveFrameMaterialProps(grade: string | undefined): ResolvedFrameMaterialProps {
   if (!grade) throw new Error('TEMPLATE_PROPERTY_REQUIRED: material grade / 请明确材料牌号或完整材料记录');
   const normalized = normalizeSteelGrade(grade);
-  if (STEEL_GRADE_PROPERTIES[normalized]) {
-    return { ...STEEL_GRADE_PROPERTIES[normalized]!, resolvedGrade: normalized };
+  // Quality suffixes do not change the elastic constants; retain the declared grade.
+  const baseGrade = normalized.replace(/^(Q235)[ABCD]$|^(Q(?:345|355|390|420))[BCDE]$/, '$1$2');
+  if (STEEL_GRADE_PROPERTIES[baseGrade]) {
+    return { ...STEEL_GRADE_PROPERTIES[baseGrade]!, resolvedGrade: normalized };
   }
   if (CONCRETE_GRADE_PROPERTIES[normalized]) {
     return { ...CONCRETE_GRADE_PROPERTIES[normalized]!, resolvedGrade: normalized };
@@ -205,6 +208,28 @@ export function resolveTemplateProperties(state: DraftState, roles: TemplateRole
     : [buildMaterialRecord(resolveFrameMaterialProps(grade))];
   const sections = structuredClone(draft?.sectionRecords ?? []);
   const explicitRecords = sections.length > 0;
+  for (const section of sections) {
+    const hasDefinition = ['properties', 'dimensions', 'shape'].some((key) => {
+      const value = section[key];
+      return value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length > 0;
+    });
+    if (!hasDefinition) {
+      // A name-only record carries the same reviewed catalog request as sections.beam.
+      // Never replace any explicitly supplied geometry/property with catalog values.
+      const hasPhysicalInput = ['width', 'height', 'diameter', 'thickness', 'standard_steel_name'].some(key => section[key] != null);
+      const catalog = !hasPhysicalInput && typeof section.name === 'string' && typeof section.id === 'string'
+        ? reviewedSectionRecord(section.name, section.id, section.purpose === 'column' ? 'column' : 'beam') : undefined;
+      if (!catalog) return propertyError(`section ${section.id}: properties, dimensions or shape required`);
+      const purpose = section.purpose;
+      const extra = section.extra && typeof section.extra === 'object' && !Array.isArray(section.extra)
+        ? section.extra as Record<string, unknown> : {};
+      Object.assign(section, catalog, { extra: { ...extra, ...(catalog.extra as Record<string, unknown>) } });
+      if (purpose === undefined) delete section.purpose;
+      else section.purpose = purpose;
+      delete section.shape;
+      delete section.dimensions;
+    }
+  }
   const byRole: Partial<Record<TemplateRole, { materialId: string; sectionId: string }>> = {};
   for (const role of roles) {
     const mapping = draft?.templateAssignments?.[role] ?? draft?.templateAssignments?.member;
@@ -231,9 +256,14 @@ export function resolveTemplateProperties(state: DraftState, roles: TemplateRole
       const sectionName = declaredSection ?? (concreteColumn && width > 0 && depth > 0 ? `${width * 1000}X${depth * 1000}` : undefined);
       const E = Number(material!.E), nu = Number(material!.nu);
       if (!(E > 0) || !Number.isFinite(nu)) propertyError(`${role}.material elastic constants`);
-      const props = resolveSectionProps(sectionName, role === 'column' ? 'column' : 'beam', 0, Number(material!.G ?? E / (2 * (1 + nu))));
       sectionId = roles.length === 1 || role === 'column' ? '1' : '2';
-      sections.push(buildSectionRecord(sectionId, role === 'column' ? 'column' : 'beam', props));
+      const purpose = role === 'column' ? 'column' : 'beam';
+      const catalog = sectionName ? reviewedSectionRecord(sectionName, sectionId, purpose) : undefined;
+      if (catalog) sections.push(catalog);
+      else {
+        const props = resolveSectionProps(sectionName, purpose, 0, Number(material!.G ?? E / (2 * (1 + nu))));
+        sections.push(buildSectionRecord(sectionId, purpose, props));
+      }
     }
     byRole[role] = { materialId, sectionId: sectionId! };
   }

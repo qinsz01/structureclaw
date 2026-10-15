@@ -69,3 +69,50 @@ describe('unified draft readiness',()=>{
     state.engineeringDraft.analysisControl.self_weight=true;
     expect(computeDraftMissing(plugin,state,'execution').critical).toContain('materials.M.rho');
   });
+
+  test.each([{}, {properties:{}}])('a named section with no numerical definition cannot be reported ready: %j', definition => {
+    const state={...beam,engineeringDraft:{materials:[material],sectionRecords:[{id:'S',name:'UNREVIEWED-I999',type:'custom',...definition}]}};
+    const missing=computeDraftMissing(plugin,state,'execution');
+    expect(missing.critical).toContain('templateProperties');
+    expect(buildDraftQuestions(plugin,missing.critical,[],state,'en')[0].question).toContain('section S');
+  });
+
+test.each([{}, { properties: {} }, { shape: {}, dimensions: {} }])('a reviewed name-only section record is ready without asking for its catalog properties: %j', definition => {
+  const state={...beam,engineeringDraft:{materials:[material],sectionRecords:[{id:'S',name:'I20a',type:'custom',...definition}]}};
+  expect(computeDraftMissing(plugin,state,'execution').critical).toEqual([]);
+  expect(state.engineeringDraft.sectionRecords[0].properties?.A).toBeUndefined();
+});
+
+
+describe('analysis readiness is separate from code-check completeness', () => {
+  const designFields = ['design.standard', 'design.lateralBracing', 'design.deflectionLimit',
+    'designCheck.stabilityCoefficient', 'designCheck.loadApplicationPoint', 'engineeringDraft.designCriteria.strength', 'material.designStrength'];
+  const issues = fields => fields.map(field => ({ field, severity:'ambiguous', reason:'User input is still required.' }));
+  const complete = { ...beam, requestScope:{ responses:['forces','displacements'], method:'solver', design:true, report:true, outputs:[] },
+    engineeringDraft:{ materials:[material], sectionRecords:[section], analysisControl:{ self_weight:false } },
+    draftIssues:issues(designFields), skillState:{ invalidDraftFields:designFields } };
+
+  test.each(['interactive','execution'])('keeps code-check inputs pending without blocking %s model readiness', phase => {
+    const snapshot=JSON.stringify(complete);
+    expect(computeDraftMissing(plugin,complete,phase)).toEqual({critical:[],optional:designFields});
+    // The handler has its own readiness gate; it must agree with the public gate.
+    expect(handler.computeMissing(complete,phase)).toEqual({critical:[],optional:designFields});
+    const model=handler.buildModel(complete);
+    expect(model?.nodes.length).toBeGreaterThan(0);
+    expect(model?.elements.length).toBeGreaterThan(0);
+    expect(JSON.stringify(complete)).toBe(snapshot);
+    expect(model?.design?.stabilityCoefficient).toBeUndefined();
+  });
+
+  test.each(['loadKN','supportType','materials.M.E','sections.beam','loads[0].direction','unknownPhysicalInput'])(
+    'still blocks an unresolved physical input %s even when its draft value exists', field => {
+      const state={...complete,draftIssues:[...complete.draftIssues,...issues([field])]};
+      expect(computeDraftMissing(plugin,state,'execution').critical).toContain(field);
+      expect(handler.buildModel(state)).toBeUndefined();
+    });
+
+  test('the generic route also retains design diagnostics without marking analysis unready', () => {
+    const generic={id:'generic',handler:{...handler,computeMissing:()=>({critical:[...designFields,'topology.members'],optional:[]})}};
+    expect(computeDraftMissing(generic,complete,'execution')).toEqual({critical:['topology.members'],optional:designFields});
+  });
+});

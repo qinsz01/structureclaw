@@ -645,6 +645,23 @@ export function engineeringLoadMergeKey(
   ].join('|');
 }
 
+/** A clarification may identify one unnamed force without introducing a second load. */
+export function engineeringLoadClarifiesExisting(
+  existing: EngineeringDraftLoad,
+  patch: EngineeringDraftLoad,
+  draft: Pick<EngineeringDraft, 'structureType' | 'geometry' | 'analysis'>,
+): boolean {
+  if (existing.id || patch.id) return false;
+  if (existing.direction !== undefined && patch.direction !== undefined && existing.direction !== patch.direction) return false;
+  const undirected = (load: EngineeringDraftLoad) => engineeringLoadMergeKey({ ...load, direction: undefined }, draft);
+  if (undirected(existing) === undirected(patch)) return true;
+  // Assigning a case to an unclassified force is a refinement only when the
+  // physical force is unchanged. Two explicit cases must always stay distinct.
+  if (existing.caseId || existing.caseType || !(patch.caseId || patch.caseType) || existing.magnitude !== patch.magnitude) return false;
+  return undirected({ ...existing, caseId: undefined, caseType: undefined })
+    === undirected({ ...patch, caseId: undefined, caseType: undefined });
+}
+
 function mergeEngineeringDraftLoads(
   existing: EngineeringDraftLoad[] | undefined,
   patch: EngineeringDraftLoad[] | undefined,
@@ -658,14 +675,11 @@ function mergeEngineeringDraftLoads(
   for (const load of patch ?? []) {
     const key = engineeringLoadMergeKey(load, draft);
     let prior = merged.get(key);
-    // Supplying a previously omitted direction refines one existing load.
-    // It must not append a second force at the same location. Explicit IDs,
-    // distinct cases and two explicitly different directions stay distinct.
+    // Supplying an omitted direction or case refines exactly one existing load.
+    // Ambiguous candidates and explicitly different forces/cases stay separate.
     if (!prior && !load.id) {
-      const undirectedKey = engineeringLoadMergeKey({ ...load, direction: undefined }, draft);
       const candidates = Array.from(merged.entries()).filter(([, candidate]) =>
-        !candidate.id && (candidate.direction === undefined || load.direction === undefined)
-        && engineeringLoadMergeKey({ ...candidate, direction: undefined }, draft) === undirectedKey);
+        engineeringLoadClarifiesExisting(candidate, load, draft));
       if (candidates.length === 1) {
         const [priorKey, candidate] = candidates[0];
         prior = candidate;

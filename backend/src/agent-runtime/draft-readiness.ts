@@ -6,6 +6,7 @@ import type { AppLocale } from '../services/locale.js';
 import { equilibriumModel } from '../engineering/beam-equilibrium.js';
 import { forceOnlyScope, missingInputReason, type RequestScope } from '../engineering/request-scope.js';
 import { isRecord } from '../engineering/model-state.js';
+import { isDesignDraftField } from './draft-guidance.js';
 
 type ReadinessPlugin = Pick<AgentSkillPlugin, 'id' | 'handler'>;
 
@@ -42,20 +43,25 @@ function materialPropertyQuestions(state: DraftState, locale: AppLocale): Intera
 /** One draft readiness decision for extraction, clarification, and formal model creation. */
 export function computeDraftMissing(plugin: ReadinessPlugin, state: DraftState, phase: 'interactive' | 'execution'): SkillMissingResult {
   const scope = state.requestScope as RequestScope | undefined;
+  const pendingDesign = [...new Set([
+    ...(state.draftIssues ?? []).flatMap((issue) => issue.field ? [issue.field] : []),
+    ...(Array.isArray(state.skillState?.invalidDraftFields) ? state.skillState.invalidDraftFields.filter((field): field is string => typeof field === 'string') : []),
+  ].filter(isDesignDraftField))];
   if (scope?.method === 'equilibrium' && forceOnlyScope(scope)) {
     try { equilibriumModel(state); return { critical: [], optional: [] }; }
     catch (error) { return { critical: [error instanceof Error ? error.message : String(error)], optional: [] }; }
   }
   const propertyMissing = materialPropertyQuestions(state, 'en').map((question) => question.paramKey);
-  if (propertyMissing.length) return { critical: propertyMissing, optional: [] };
+  if (propertyMissing.length) return { critical: propertyMissing, optional: pendingDesign };
   try {
-    if (buildExplicitDraftModel(state)) return { critical: [], optional: [] };
+    if (buildExplicitDraftModel(state)) return { critical: [], optional: pendingDesign };
   } catch {
-    return { critical: ['engineeringDraft'], optional: [] };
+    return { critical: ['engineeringDraft'], optional: pendingDesign };
   }
   const missing = plugin.handler.computeMissing(state, phase);
-  const critical = missing.critical.filter(field => scope?.design !== false || field !== 'frameRebarGrade');
-  if (plugin.id === 'generic') return missing;
+  const critical = missing.critical.filter(field => !isDesignDraftField(field) && (scope?.design !== false || field !== 'frameRebarGrade'));
+  const optional = [...new Set([...missing.optional, ...pendingDesign, ...missing.critical.filter(isDesignDraftField)])];
+  if (plugin.id === 'generic') return { critical, optional: optional.filter((key) => !critical.includes(key)) };
   if (plugin.id === 'concrete-frame' && scope?.design !== false) {
     if (typeof state.frameConcreteGrade !== 'string' || !isValidConcreteGrade(state.frameConcreteGrade)) critical.push('frameConcreteGrade');
     if (typeof state.frameRebarGrade !== 'string' || !isValidRebarGrade(state.frameRebarGrade)) critical.push('frameRebarGrade');
@@ -68,7 +74,7 @@ export function computeDraftMissing(plugin: ReadinessPlugin, state: DraftState, 
   } else if (['beam', 'frame', 'concrete-frame', 'truss', 'column', 'double-span-beam', 'portal-frame'].includes(plugin.id) && templatePropertyIssues(state).length) {
     critical.push('templateProperties');
   }
-  return { critical: [...new Set(critical)], optional: missing.optional.filter((key) => !critical.includes(key)) };
+  return { critical: [...new Set(critical)], optional: optional.filter((key) => !critical.includes(key)) };
 }
 
 export function buildDraftQuestions(plugin: ReadinessPlugin | null | undefined, critical: string[], optional: string[], state: DraftState, locale: AppLocale): InteractionQuestion[] {

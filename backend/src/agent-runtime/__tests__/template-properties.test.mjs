@@ -71,3 +71,39 @@ describe('declared template properties', () => {
     expect(model.sections[0].properties).toEqual(s.properties);
     expect(()=>buildModel({...state,engineeringDraft:{...state.engineeringDraft,sections:{beam:'different'}}})).toThrow(/sectionId/);
   });
+
+  test.each(['Q235B', 'Q235D', 'Q355B', 'Q345E'])('preserves declared quality grade %s while resolving its elastic properties', grade => {
+    const model = buildModel({...beam(), engineeringDraft:{material:{grade}, sections:{beam:'100X200'}}});
+    expect(model.materials[0]).toMatchObject({name:grade, grade, E:206000, nu:0.3, rho:7850});
+  });
+  test('unknown quality suffixes remain unsupported', () => {
+    expect(() => buildModel({...beam(), engineeringDraft:{material:{grade:'Q235X'}, sections:{beam:'100X200'}}})).toThrow(/unsupported material/);
+  });
+
+  test('the reviewed I20a catalog row retains tapered-section values and provenance', () => {
+    const model=buildModel({...beam(),engineeringDraft:{material:{grade:'Q235B'},sections:{beam:'I20a'}}});
+    const catalog=model.sections[0];
+    expect(catalog).toMatchObject({name:'I20a',type:'custom',properties:{A:0.003555,Iy:0.0000237,Iz:0.00000158,tw:0.007}});
+    expect(catalog.shape).toBeUndefined(); // A tapered rolled section is not a rectangular-flange H approximation.
+    expect(catalog.properties.J).toBeUndefined();
+    expect(catalog.properties.Wnx).toBeUndefined();
+    expect(catalog.extra.catalogSource.status).toBe('reference-data-from-public-draft');
+    expect(model.materials[0].design).toBeUndefined();
+  });
+
+test('reviewed name-only section records preserve IDs, purpose and notes without mutating the draft', () => {
+  const record={id:'USER-SECTION',name:'I20a',type:'custom',purpose:'column',extra:{note:'supplied label'}};
+  const state={...beam(),engineeringDraft:{materials:[material],sectionRecords:[record]}};
+  const model=buildModel(state);
+  expect(model.sections[0]).toMatchObject({id:'USER-SECTION',purpose:'column',properties:{A:.003555,Iy:.0000237},extra:{note:'supplied label',catalogSource:{status:'reference-data-from-public-draft'}}});
+  expect(model.elements.every(row=>row.section==='USER-SECTION')).toBe(true);
+  expect(record).not.toHaveProperty('properties');
+});
+
+test('explicit numerical or geometric inputs under a reviewed name are never replaced by a catalog row', () => {
+  const record={id:'S',name:'I20a',type:'custom',properties:{A:.004,Iy:.00003,Iz:.000002}};
+  const model=buildModel({...beam(),engineeringDraft:{materials:[material],sectionRecords:[record]}});
+  expect(model.sections[0].properties).toEqual(record.properties);
+  expect(model.sections[0].extra?.catalogSource).toBeUndefined();
+  expect(()=>buildModel({...beam(),engineeringDraft:{materials:[material],sectionRecords:[{id:'S',name:'I20a',type:'custom',width:120}]}})).toThrow(/properties, dimensions or shape required/);
+});
