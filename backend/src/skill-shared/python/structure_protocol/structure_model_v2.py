@@ -609,7 +609,7 @@ class AnalysisControl(BaseModel):
     rigid_floor: bool = Field(default=True, description="刚性楼板假定")
     self_weight: Optional[bool] = Field(default=None, description="显式自重开关 / explicit self-weight setting")
     self_weight_case_id: Optional[str] = Field(default=None, min_length=1,
-        description="接收自重的源工况；省略时仅允许唯一恒载工况 / source case receiving self weight; otherwise exactly one dead case is required")
+        description="接收自重的源工况；省略时取唯一恒载工况或全模型仅有的other分析工况 / source case receiving self weight; default: unique dead case, or the model's sole unclassified (other) case")
     gravity_m_s2: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False,
         description="重力加速度，m/s²；默认9.80665 / gravitational acceleration, default 9.80665 m/s²")
     gravity_direction: Optional[Literal['x', '-x', 'y', '-y', 'z', '-z']] = Field(default=None,

@@ -33,10 +33,14 @@ def resolve_self_weight(model: dict) -> dict:
     case_id = controls.get("self_weight_case_id")
     if case_id is None:
         candidates = [row["id"] for row in cases if row.get("type") == "dead"]
-        if len(candidates) != 1:
+        if len(candidates) == 1:
+            case_id, basis = candidates[0], "unique-dead-case"
+        elif len(cases) == 1 and cases[0].get("type") == "other":
+            # A single unnamed analysis case has no competing destination. Keep
+            # its classification and record this resolution; never relabel it D.
+            case_id, basis = cases[0]["id"], "sole-unclassified-case"
+        else:
             raise SelfWeightInputError("Specify self_weight_case_id when there is not exactly one dead case / 非唯一恒载工况时须指定自重工况")
-        case_id = candidates[0]
-        basis = "unique-dead-case"
     else:
         basis = "explicit-case-id"
     if not isinstance(case_id, str) or sum(row.get("id") == case_id for row in cases) != 1:

@@ -25,6 +25,18 @@ def test_explicit_target_resolves_multiple_dead_cases_and_schema_preserves_field
     assert parsed.model_dump()["self_weight_case_id"] == "D2"
 
 
+def test_simple_unclassified_analysis_case_accepts_requested_self_weight_without_relabeling():
+    model = {"analysis_control": {"self_weight": True}, "load_cases": [{"id": "LC1", "type": "other"}]}
+    original = copy.deepcopy(model)
+    result = resolve_self_weight(model)
+    assert result["loadCaseId"] == "LC1"
+    assert result["caseSource"] == "sole-unclassified-case"
+    assert model == original
+    for cases in ([{"id": "L", "type": "live"}], [{"id": "A", "type": "other"}, {"id": "B", "type": "other"}]):
+        with pytest.raises(SelfWeightInputError):
+            resolve_self_weight({**model, "load_cases": cases})
+
+
 @pytest.mark.parametrize("value", [0, -1, True, float("nan"), float("inf"), "9.81"])
 def test_invalid_gravity_is_not_guessed(value):
     with pytest.raises(SelfWeightInputError): resolve_self_weight({"analysis_control": {"gravity_m_s2": value}})

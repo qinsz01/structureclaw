@@ -39,7 +39,7 @@
             }
           ],
           "default": null,
-          "description": "接收自重的源工况；省略时仅允许唯一恒载工况 / source case receiving self weight; otherwise exactly one dead case is required",
+          "description": "接收自重的源工况；省略时取唯一恒载工况或全模型仅有的other分析工况 / source case receiving self weight; default: unique dead case, or the model's sole unclassified (other) case",
           "title": "Self Weight Case Id"
         },
         "gravity_m_s2": {
