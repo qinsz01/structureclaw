@@ -83,9 +83,26 @@ Frontend 现在有两个 Vitest 配置，归属互斥：
 
 默认浏览器测试使用本地脚本化 LLM 响应验证编排；应用、模型事务、OpenSees、结果查询和报告服务仍真实执行。这些脚本证明产品行为，不评价模型质量。付费 live 冒烟必须显式设置 `SCLAW_E2E_LIVE=1`，并另外启动独立实例，通过该实例自己的设置页面或 API 配置 LLM。仅在 shell 中存在密钥不会启用 live 测试。Live 冒烟检查交付和可见失败，不进行 benchmark 评分。
 
-Live 运行时设置 `SCLAW_E2E_ATTACH=1` 和对应端口，执行 `npm run test:e2e --prefix frontend -- structural-analysis.spec.ts`。Live 模式只加载该文件，脚本化 LLM 夹具拒绝在此模式下修改设置。真实调用会消耗已配置服务的额度；不自动重试失败用例。
+Live 运行时设置 `SCLAW_E2E_ATTACH=1` 和对应端口，执行 `npm run test:e2e --prefix frontend -- structural-analysis.spec.ts`。Live 模式允许加载 `structural-analysis.spec.ts` 和 `live-run-settings.spec.ts`；脚本化 LLM 夹具拒绝在此模式下修改设置。真实调用会消耗已配置服务的额度；不自动重试失败用例。
 
 确定性工程流程覆盖真实 OpenSees 求解、指定位置的查询/报告/图形一致性、JSON 导出、刷新、修改失效、历史读取和撤销重算。运行控制通过中英文网页检查指导文本、上下文、记忆权限、纠错、暂停续答及工具预算的实际行为。建模方式与固定路由的控件传递由浏览器验证，具体执行分支仍由对应 runtime 回归负责；这些不是模型答题能力测试。
+
+### 手工审核的真实梁设计回放
+
+要逐轮复现真实模型与真实求解器流程，使用 `frontend/tests/e2e/manual/live-beam-browser.cjs`。先构建，再用独立 `SCLAW_E2E_PORT` 启动 `frontend/tests/e2e/start-server.mjs`，通过该隔离实例的设置页面或 API 配置 LLM。回放程序核对服务凭据文件、实例 ID 和独立数据库路径，拒绝日常产品端口及脚本化／未配置的模型，不改 provider 设置、不复制密钥。
+
+将 `frontend/tests/e2e/manual/beam-design.example.json` 复制到未跟踪位置，修改对应端口、语言（`en` 或 `zh`）、原始问题、运行开关和证据目录。不加 `--run` 只准备浏览器；显式加上后才发送真实请求：
+
+```bash
+node frontend/tests/e2e/manual/live-beam-browser.cjs --config=.tmp/live-beam.json --run
+```
+
+每轮结束后，先检查真实问题及保存的工具轨迹，再向 `pending-reply.json` 指明的 `reply-N.json` 写入 `{"text":"审核后的澄清答复"}`，浏览器才会继续发送。写入 `{"finish":true}` 结束。示例不会预先选择答案或编造材料、截面、设计条件；人为给定的测试假定必须明确标注。可选的 `expectedAnalysis.metrics` 和 `absoluteTolerance` 将实际分析摘要与独立给定参考值比较，这些参考值不发送给 agent。
+
+每次尝试使用新浏览器上下文及带时间戳的证据目录，保留会话、运行状态、流事件、分析运行、工具消息、截图、Playwright trace 和浏览器错误，包括失败尝试。完成要求当前有效分析／报告及所请求的完整通过校核；仅澄清不算完成。不自动重试。这是产品流程验收，不是 Bench 准确率结果；运行中不要重新构建或重启被测后端。
+
+可选的 `expectedModelValues` 直接检查 `/agent/input-review` 返回的已保存模型，不把断言值发送给对话。每条规则使用点分隔的 `path` 和 `value`；可用 `collection` 配合可选的 `id` 或 `where` 筛选对象。例如 `{"collection":"elements","where":{"type":"beam"},"path":"design.l0","value":4800}` 会检查所有梁，不依赖单元编号，且没有匹配梁时失败。`minMatches` 可要求多个匹配对象，`absoluteTolerance` 用于数值容差。即使报告声称通过，缺失或不一致的输入仍使 `summary.pass` 为 false。断言只应填写本轮明确提供的条件，并保留原失败证据。
+
 
 ## 如何选择测试
 

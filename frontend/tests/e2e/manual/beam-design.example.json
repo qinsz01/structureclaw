@@ -1,0 +1,26 @@
+{
+  "baseURL": "http://127.0.0.1:31515",
+  "outputDirectory": ".tmp/manual-live-beam",
+  "locale": "zh",
+  "headless": true,
+  "turnTimeoutMs": 600000,
+  "manual": true,
+  "manualReplyTimeoutMs": 7200000,
+  "maxUserTurns": 8,
+  "initialPrompt": "设计一个简支梁，跨度10m，梁中间荷载1kN",
+  "requireCodeCheck": true,
+  "runPolicy": {
+    "knowledge": "enabled",
+    "builder": "auto",
+    "repair": {
+      "enabled": true
+    },
+    "context": {
+      "history": "full",
+      "memoryScopes": []
+    },
+    "routing": {
+      "mode": "auto"
+    }
+  }
+}

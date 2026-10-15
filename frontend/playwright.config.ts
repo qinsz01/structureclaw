@@ -9,7 +9,7 @@ const baseURL = `http://127.0.0.1:${port}`;
 export default defineConfig({
   testDir: './tests/e2e/specs',
   // A live-provider run must never execute fixtures that replace its LLM settings.
-  ...(process.env.SCLAW_E2E_LIVE === '1' ? { testMatch: '**/structural-analysis.spec.ts' } : {}),
+  ...(process.env.SCLAW_E2E_LIVE === '1' ? { testMatch: ['**/structural-analysis.spec.ts', '**/live-run-settings.spec.ts'] } : {}),
   timeout: 60_000,
   expect: { timeout: 15_000 },
   fullyParallel: false,

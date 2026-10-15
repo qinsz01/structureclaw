@@ -84,9 +84,26 @@ Startup strictly checks the frontend build fingerprint. The backend currently ha
 
 Default browser tests use local scripted LLM responses for orchestration checks, while the application, model transactions, OpenSees, result queries and report services execute normally. These scripts prove product behavior, not model quality. Paid live smoke tests require `SCLAW_E2E_LIVE=1` and a separately started isolated instance whose LLM settings were explicitly configured through its own settings page or API. A provider key in the shell alone does not enable live tests. Live smoke checks delivery and visible failures; it is not benchmark scoring.
 
-For live smoke, set `SCLAW_E2E_ATTACH=1` and the matching port, then run `npm run test:e2e --prefix frontend -- structural-analysis.spec.ts`. Live mode selects only this file, and scripted LLM fixtures refuse to modify settings in this mode. Real calls consume the configured provider's allowance; failed live tests are not automatically retried.
+For live smoke, set `SCLAW_E2E_ATTACH=1` and the matching port, then run `npm run test:e2e --prefix frontend -- structural-analysis.spec.ts`. Live mode allows `structural-analysis.spec.ts` and `live-run-settings.spec.ts`; scripted LLM fixtures refuse to modify settings in this mode. Real calls consume the configured provider's allowance; failed live tests are not automatically retried.
 
 The deterministic engineering workflow covers real OpenSees execution, agreement between selected-position queries/reports/figures, JSON export, reload, edit invalidation, history and undo/recalculation. Bilingual browser controls verify actual guidance, context, memory permission, correction, clarification/resume and tool-budget behavior. Browser assertions cover builder/fixed-routing control transmission; the corresponding runtime regressions own execution-branch coverage. These are not model-answer quality tests.
+
+### Manual live beam replay
+
+For a reviewed, multi-turn reproduction with a real provider and real solver, use `frontend/tests/e2e/manual/live-beam-browser.cjs`. Build first, start `frontend/tests/e2e/start-server.mjs` on a dedicated `SCLAW_E2E_PORT`, and configure the LLM through that isolated instance's settings UI or API. The probe verifies its server receipt, instance ID and database path; it rejects normal product ports and scripted/unconfigured model identities. It never updates provider settings or copies credentials.
+
+Copy `frontend/tests/e2e/manual/beam-design.example.json` outside tracked files to set the matching port, locale (`en` or `zh`), original prompt, requested controls and evidence directory. Run the command without `--run` to prepare the browser; explicitly add `--run` to send real requests:
+
+```bash
+node frontend/tests/e2e/manual/live-beam-browser.cjs --config=.tmp/live-beam.json --run
+```
+
+After each response, inspect the actual question and saved tool trace. Write `{"text":"your reviewed clarification"}` to the `reply-N.json` path printed in `pending-reply.json`; only then does the browser send the next message. Use `{"finish":true}` to finish. The example never preselects an answer or invents material, section or design conditions. User-supplied test assumptions must be identified as such. Optional `expectedAnalysis.metrics` and `absoluteTolerance` compare actual analysis summaries against independently supplied reference values; those values are not sent to the agent.
+
+Each attempt uses a new browser context and timestamped evidence directory. Conversations, sessions, streamed events, analysis runs, tool messages, screenshots, a Playwright trace and browser errors are retained, including failed attempts. Completion requires current analysis/report evidence and, when requested, a complete passing code check; clarification alone is incomplete. There are no automatic retries. This is live product workflow acceptance, not a Bench accuracy result. Avoid rebuilding or restarting the tested backend during a turn.
+
+Optional `expectedModelValues` asserts facts directly from the persisted `/agent/input-review` model, without sending them to chat. Each rule uses a dot-separated `path` and `value`; add `collection` with an optional `id` or `where` filter to inspect records. For example, `{"collection":"elements","where":{"type":"beam"},"path":"design.l0","value":4800}` checks every beam, regardless of its ID, and fails if no beam exists. Use `minMatches` to require multiple matches and `absoluteTolerance` for numeric comparisons. Missing or unequal values make `summary.pass` false even if the report says the design passed. Only configure facts explicitly supplied for that attempt; retain the original failing evidence.
+
 
 ## Choosing A Test
 
