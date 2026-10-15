@@ -58,12 +58,18 @@ export function formatCheckSummary(summary: ModelRecord | undefined, locale: 'zh
   return base + suffix + (unavailable || summary.inputRequired !== undefined || summary.unsupported !== undefined ? scope : '');
 }
 
-/** Keep missing-input evidence when reducing a check to the agent's tool response. */
+/** Keep both missing inputs and computed evidence in the agent's tool response. */
 export function codeCheckFeedback(check: ModelRecord, model?: ModelRecord, analysis?: ModelRecord): ModelRecord {
   const missingInputs: ModelRecord[] = [];
+  const checkedItems: ModelRecord[] = [];
   for (const detail of Array.isArray(check.details) ? check.details.filter(isRecord) : []) {
     for (const group of Array.isArray(detail.checks) ? detail.checks.filter(isRecord) : []) {
       for (const item of Array.isArray(group.items) ? group.items.filter(isRecord) : []) {
+        checkedItems.push({ elementId: detail.elementId, resultKey: detail.resultKey ?? check.resultKey,
+          check: item.item, clause: item.clause, status: item.status, formula: item.formula,
+          utilization: item.utilization, ...(isRecord(item.inputs) ? { inputs: item.inputs } : {}),
+          ...(isRecord(item.forceState) ? { forceState: item.forceState } : {}),
+          ...(item.message ? { message: item.message } : {}) });
         if (item.status !== 'input_required') continue;
         missingInputs.push({ elementId: detail.elementId, resultKey: detail.resultKey, check: item.item, clause: item.clause,
           fields: Array.isArray(item.missingInputs) ? item.missingInputs : [], message: item.message });
@@ -105,11 +111,13 @@ export function codeCheckFeedback(check: ModelRecord, model?: ModelRecord, analy
     nextAction = unresolvedResults.length ? 'inspect_analysis' : unsupported && !missingFields.length ? 'inspect_capability' : 'ask_user_clarification';
   }
   return { completionStatus: check.completionStatus, complianceStatus: check.complianceStatus, summary: check.summary,
+    checkedItems: { runId: isRecord(check.meta) ? check.meta.runId : undefined,
+      totalCount: checkedItems.length, truncated: checkedItems.length > 100, items: checkedItems.slice(0, 100) },
     ...(check.checkScope ? { checkScope: check.checkScope } : {}),
     requestedChecksPassed: check.completionStatus === 'complete' && check.complianceStatus === 'pass',
     missingInputs: missingFields, writeTargets: [...writeTargets.values()], missingInputCount: writeTargets.size + missingFields.filter(row => !row.writable).length,
     availableResultKeys: isRecord(analysis?.results) ? Object.keys(analysis.results) : [], editGuidance: modelEditGuidance,
-    guidance: 'Write already supplied inputs to the listed owners; ask only for genuinely missing conditions. Counts of input-required checks are not counts of questions. Never invent coefficients, limits or computed responses. / 已确认输入按目标路径写入，仅询问真正缺失的条件；待输入校核项数不等于问题数，禁止虚构系数、限值或计算结果。',
+    guidance: 'Write already supplied inputs to the listed owners; ask only for genuinely missing conditions. Counts of input-required checks are not counts of questions. Explain checks using checkedItems: preserve each formula, demand, capacity, unit, utilization and selection. Never combine coefficients across different checks or invent missing calculations. If truncated, use the saved report for remaining items. / 已确认输入按目标路径写入，仅询问真正缺失的条件；待输入校核项数不等于问题数。校核解释须引用checkedItems中各自的公式、需求、承载力、单位、利用率及工况，不得混用不同校核的系数或编造缺失计算；截断的其余项目查阅保存报告。',
     inputRequiredChecks: missingInputs.map(({ fields: _fields, ...row }) => row),
     nextAction,
     conclusionEligible: !limited && check.completionStatus === 'complete' && check.complianceStatus === 'pass' };

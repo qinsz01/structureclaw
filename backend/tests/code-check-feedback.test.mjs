@@ -4,6 +4,29 @@ import { createRunCodeCheckTool } from '../dist/agent-langgraph/tools.js';
 import { beginAnalysisRequest } from '../dist/engineering/model-state.js';
 import { prepareEngineeringReport, finishEngineeringReport } from '../dist/services/engineering-report.js';
 
+test('computed feedback preserves separate stress and stability evidence without inventing missing values', () => {
+  const items = [
+    { item: '正应力', status: 'pass', utilization: 0.0491, formula: '(|N|/A + |M|/Wnx) / f <= 1',
+      inputs: { demand: 2500000 / 237000, capacity: 215, unit: 'MPa' } },
+    { item: '整体稳定', status: 'pass', utilization: 0.0545, formula: 'M / (phi_b * Wx * f) <= 1',
+      inputs: { demand: 2500000, capacity: 0.9 * 237000 * 215, unit: 'N.mm' }, forceState: { positionM: 5, side: 'left' } },
+    { item: '缺资料', status: 'input_required', formula: 'Requires declared data', missingInputs: [] },
+  ];
+  const check = { meta: { runId: 'checked-run' }, details: [{ elementId: 'beam-1', resultKey: 'case:LC1', checks: [{ items }] }] };
+  const feedback = codeCheckFeedback(check);
+  expect(feedback.checkedItems).toMatchObject({ runId: 'checked-run', totalCount: 3, truncated: false });
+  const rows = feedback.checkedItems.items;
+  expect(rows[0]).toMatchObject({ elementId: 'beam-1', resultKey: 'case:LC1', check: '正应力', inputs: items[0].inputs, formula: items[0].formula });
+  expect(rows[1]).toMatchObject({ elementId: 'beam-1', resultKey: 'case:LC1', check: '整体稳定', inputs: items[1].inputs, forceState: items[1].forceState });
+  expect(rows[2].inputs).toBeUndefined();
+  expect(rows[2].utilization).toBeUndefined();
+  expect(feedback.guidance).toContain('Never combine coefficients');
+  check.details = Array.from({ length: 101 }, (_, i) => ({ elementId: String(i), resultKey: 'case:LC1', checks: [{ items: [items[0]] }] }));
+  const limited = codeCheckFeedback(check).checkedItems;
+  expect(limited).toMatchObject({ totalCount: 101, truncated: true });
+  expect(limited.items).toHaveLength(100);
+});
+
 test.each(['incomplete', 'fail'])('a report cannot accept a fabricated pass narrative for %s checks', status => {
   const check = { completionStatus: status === 'fail' ? 'complete' : 'incomplete', complianceStatus: status,
     summary: { total: 1, passed: 0, failed: status === 'fail' ? 1 : 0, inputRequired: status === 'incomplete' ? 1 : 0 }, meta: { runId: 'run' } };

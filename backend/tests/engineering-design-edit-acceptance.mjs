@@ -15,6 +15,8 @@ import { runtimeBaseDir } from '../dist/config/index.js';
 
 const fixture = JSON.parse((await readFile(new URL('./fixtures/design-edit-boundary-20261015.json', import.meta.url), 'utf8')).replace(/^\uFEFF/, ''));
 const reference = { reactionKn: .5, momentKnm: 2.5, deflectionMm: 1 * 10 ** 3 / (48 * 206e6 * 2.37e-5) * 1000,
+  normalStressMpa: 2.5e6 / 237000, normalCapacityMpa: 215,
+  stabilityDemandNmm: 2.5e6, stabilityCapacityNmm: .9 * 237000 * 215,
   cantileverDeflectionMm: 1 * 10 ** 3 / (3 * 206e6 * 2.37e-5) * 1000,
   serviceCapacityMm: 10000 / 250, tolerance: { absolute: 1e-8, relative: 1e-8 } };
 await mkdir(path.join(runtimeBaseDir, 'work'), { recursive: true });
@@ -123,6 +125,19 @@ try {
   const complete = await invoke('run_code_check', { designCode: 'GB50017' });
   assert.equal(complete.completionStatus, 'complete'); assert.equal(complete.complianceStatus, 'pass');
   assert.equal(complete.summary.inputRequired, 0);
+  assert.equal(complete.checkedItems.runId, configurable.agentState.analysisResult.runId);
+  assert.equal(complete.checkedItems.truncated, false);
+  for (const id of ['1', '2']) {
+    const row = name => complete.checkedItems.items.find(item => item.elementId === id && item.resultKey === 'case:LC1' && item.check === name);
+    assert.equal(row('正应力').inputs.unit, 'MPa');
+    close(row('正应力').inputs.demand, reference.normalStressMpa);
+    close(row('正应力').inputs.capacity, reference.normalCapacityMpa);
+    assert.equal(row('整体稳定').inputs.unit, 'N.mm');
+    close(row('整体稳定').inputs.demand, reference.stabilityDemandNmm);
+    close(row('整体稳定').inputs.capacity, reference.stabilityCapacityNmm);
+    close(row('挠度').inputs.demand, reference.deflectionMm);
+    close(row('挠度').inputs.capacity, reference.serviceCapacityMm);
+  }
   assert.notEqual(configurable.agentState.analysisResult.runId, initialRun);
   receipts.push({ stage: 'explicit complete synthetic conditions', runId: configurable.agentState.analysisResult.runId, complete });
   await edit([update('elements', '1', { 'design.serviceability_result_keys': ['case:TYPO'] })]);
