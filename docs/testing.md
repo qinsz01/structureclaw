@@ -102,6 +102,8 @@ After each response, inspect the actual question and saved tool trace. Write `{"
 
 Each attempt uses a new browser context and timestamped evidence directory. Conversations, sessions, streamed events, analysis runs, tool messages, screenshots, a Playwright trace and browser errors are retained, including failed attempts. Completion requires current analysis/report evidence and, when requested, a complete passing code check; clarification alone is incomplete. There are no automatic retries. This is live product workflow acceptance, not a Bench accuracy result. Avoid rebuilding or restarting the tested backend during a turn.
 
+To explicitly continue an interrupted isolated conversation, set `resumeConversationId` and use `initialPrompt` for the reviewed next message. The probe selects the saved conversation through the UI, refuses a busy session and captures its state before continuing. Keep the preceding failed evidence alongside the continuation; a successful continuation is not an uninterrupted pass. Finish all validation commands that rebuild `dist` before starting parallel browser or subprocess tests.
+
 `beam-hw-reproduction-20261015.json` retains the short beam request and the reported Q235B / HW300×300×10×15 selection. Review clarification answers before sending them; checking only an already completed I20a model does not cover this input path. Section kind casing is canonicalized from the V2 vocabulary, while dimensions, properties, source conflicts and missing design conditions remain subject to validation. Four explicit H/HW/HM/HN dimensions describe sharp-corner geometry, not a verified rolled-section catalog row.
 
 For deterministic coverage, run `node backend/tests/section-shape-acceptance.mjs` with an isolated `SCLAW_DATA_DIR` whose settings specify the installed analysis Python. It freezes analytical references before building, then uses registered tools and real OpenSees for eight section representations, checks queried displacement/rotation and bilingual report values, and verifies that absent design conditions cannot yield a passing check. A ninth case replays the saved draft with supplied design conditions and stale nested design diagnostics, requiring all 14 checks to pass without rewriting its history. No LLM key or Bench files are needed. The Jest analysis-control clarification regression separately checks that explicit `false` answers clear missing-input markers without clearing source conflicts.
@@ -110,6 +112,8 @@ Optional `expectedModelValues` asserts facts directly from the persisted `/agent
 
 
 ## Choosing A Test
+
+`node backend/tests/draft-update-acceptance.mjs` replays the saved catalog/geometry failure through the shared update path and public build/analysis/query/check/report tools. It freezes independent beam references including self-weight, preserves the original draft, and checks bilingual report values. Missing design conditions must remain `incomplete`. In an isolated `.tmp` runtime configured with a real provider, add `--live` to test the LLM translating the original clarification into an explicit field removal; this makes a paid provider call. It neither modifies Bench nor requires its checkout. The accompanying Jest cases exercise deletion through all eight structural handlers, record-ID merges, atomic rejection and source preservation.
 
 Use the smallest category that proves the behavior:
 

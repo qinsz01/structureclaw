@@ -195,8 +195,23 @@ async function waitForReviewedReply(result, number) {
   heartbeat.unref();
   await chooseCapabilities();
   await page.goto('/');
-  const newButtons = page.getByRole('button', { name: /^(新建对话|New Conversation)$/ });
-  for (let i = 0; i < await newButtons.count(); i++) if (await newButtons.nth(i).isVisible()) { await newButtons.nth(i).click(); break; }
+  if (config.resumeConversationId) {
+    const saved = await getJSON(`/api/v1/chat/conversation/${config.resumeConversationId}`);
+    const session = await getJSON(`/api/v1/chat/conversation/${config.resumeConversationId}/session`);
+    if (session.busy) throw new Error('REFUSE_BUSY_CONVERSATION');
+    // The landing-page suggested prompt may have exactly the conversation title.
+    const button = page.locator('button.min-w-0').filter({ has: page.getByText(saved.title, { exact: true }) });
+    await expect(button).toHaveCount(1);
+    const loaded = page.waitForResponse(response => new URL(response.url()).pathname === `/api/v1/chat/conversation/${config.resumeConversationId}` && response.ok());
+    await button.click();
+    await loaded;
+    conversationId = config.resumeConversationId;
+    summary.resumedConversationId = conversationId;
+    await capture('before-resume');
+  } else {
+    const newButtons = page.getByRole('button', { name: /^(新建对话|New Conversation)$/ });
+    for (let i = 0; i < await newButtons.count(); i++) if (await newButtons.nth(i).isVisible()) { await newButtons.nth(i).click(); break; }
+  }
   await selectPolicy();
   await expect(page.locator('textarea[placeholder]')).toBeEnabled({ timeout: 30000 });
   await page.screenshot({ path: path.join(out, 'ready.png'), fullPage: true });

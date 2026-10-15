@@ -1,0 +1,814 @@
+{
+  "date": "2026-10-16",
+  "recordedAt": "2026-10-15T16:25:04.855Z",
+  "status": "engineering-regression-passed; final live browser design/report incomplete after two LLM request timeouts",
+  "scope": "StructureClaw draft-update and input-readiness repair; no Bench, scoring, native API or historical baseline changes",
+  "baselineCommit": "9cd2811e5932a9385bbfa03423467e3488d18e6d",
+  "implementationCommit": "0b509766a906dc4409516e3fc6c31e6ac96c3245",
+  "rootCauses": [
+    "Extraction omitted a withdrawn catalog selector, but omission in a partial deep merge retained its previous value.",
+    "Chat and runtime maintained separate extraction protocols; column filtering dropped the new update operation.",
+    "Record-array replacement and complete-record validation prevented stable-ID partial edits.",
+    "A whole materials-group missing diagnostic did not recognize the declared-grade representation used by the template builder.",
+    "Self-weight could not select the sole unclassified analysis case without an unnecessary explicit case identifier."
+  ],
+  "implementation": [
+    "One LLM extractor; explicit stable-ID clears precede immutable partial merges. Invalid or ambiguous edits leave the original draft unchanged.",
+    "Shared accepted-record validation preserves other coordinates, connections, loads, combination factors and design fields.",
+    "Builder and missing-input diagnostics share a read-only material projection; unknown grades, incomplete records and conflicts remain unresolved.",
+    "Deleted the duplicate executor/schema and shape-change auto-erasure; raw evidence and formal physical validation remain protected."
+  ],
+  "tests": {
+    "backend": {
+      "suites": 166,
+      "passed": 2076,
+      "failed": 0,
+      "artifact": {
+        "path": ".tmp/draft-update-audit-20261015/backend-release-3.json",
+        "sha256": "9723f55783bcdb673660c10739cadfd7e580dd473511a5fed3397b2babdf15c6"
+      }
+    },
+    "python": {
+      "passed": 324,
+      "subtestsPassed": 7,
+      "artifact": {
+        "path": ".tmp/draft-update-audit-20261015/python-final.log",
+        "sha256": "2e35cd4c10e76c8289b67449f057a844e3cbea1ffd70fc332d25870b14f649a1"
+      }
+    },
+    "focused": {
+      "passed": 85,
+      "artifact": {
+        "path": ".tmp/draft-update-audit-20261015/targeted-release-3.json",
+        "sha256": "43fdc4929e09219814912a6a9048d5968a9d94c56eccd908270e2251fdf7a206"
+      }
+    },
+    "schema": {
+      "path": ".tmp/draft-update-audit-20261015/schema-final.log",
+      "sha256": "ef3a0eebdf0792c4e04efcc2660c9d526c7932357ae7f99d6171eda8b1233cd1"
+    },
+    "publicContracts": [
+      {
+        "path": ".tmp/draft-update-audit-20261015/orchestration-release-2.log",
+        "sha256": "7674e736b40d6ef3119ce5c76b4fd1a4a4b34d7e6a0145eda64c2ebf77cd22d5"
+      },
+      {
+        "path": ".tmp/draft-update-audit-20261015/stream-release-2.log",
+        "sha256": "28a4cefe9b6c4997149fe9260ca865685387927fd873221661c9d8481a4a42e4"
+      },
+      {
+        "path": ".tmp/draft-update-audit-20261015/analysis-release-2.log",
+        "sha256": "39d07713649ae05aab509eebbb5187a7a05abbd1ca82852952db1dc37d26c568"
+      }
+    ],
+    "lint": {
+      "errors": 0,
+      "existingWarnings": 1,
+      "artifact": {
+        "path": ".tmp/draft-update-audit-20261015/lint-release-3.log",
+        "sha256": "35d38d6ef8dd4afe374cb9b5dfa60e4a7451bcb8ac93020bc53c0bed464ab8a9"
+      }
+    }
+  },
+  "frozenReference": {
+    "geometry": "Explicit ideal H section 400 x 200 x 8 x 13 mm, no fillets; not a native rolled catalog certification",
+    "spanM": 10,
+    "pointLoadKN": 1,
+    "materialE_MPa": 206000,
+    "densityKgM3": 7850,
+    "gravityMS2": 9.80665,
+    "A": 0.008192,
+    "I": 0.00022964868266666695,
+    "qKNM": 0.6306382028799998,
+    "reactionKN": 3.653191014399999,
+    "momentKNM": 10.382977535999999,
+    "deflectionMM": 2.176132806682965,
+    "absolutePlusRelativeTolerance": 1e-8
+  },
+  "savedFailureReplay": {
+    "model": "glm-5.3",
+    "originalFixture": {
+      "path": "backend/tests/fixtures/catalog-draft-reproduction-20261015.json",
+      "sha256": "dcfa4ae66f12d40d1aef97be5349ad7ca0828a2928e075b043a9a8449dbcead0"
+    },
+    "evidence": {
+      "success": true,
+      "liveExtractor": true,
+      "runId": "f3ceea46-2d08-449f-8246-15a2a98adcdf",
+      "reference": {
+        "A": 0.008192,
+        "I": 0.00022964868266666695,
+        "qKNM": 0.6306382028799998,
+        "reactionKN": 3.653191014399999,
+        "momentKNM": 10.382977535999999,
+        "deflectionMM": 2.176132806682965
+      },
+      "actualMetrics": {
+        "maxAbsDisplacement": 0.0021761328066829673,
+        "maxAbsAxialForce": 0,
+        "maxAbsShearForce": 3.6531910143999995,
+        "maxAbsMoment": 10.382977535999999,
+        "maxAbsReaction": 3.6531910144,
+        "maxAbsReactionMoment": 2.6645352591003757e-15
+      },
+      "deflectionMM": -2.1761328066829675,
+      "designStatus": "incomplete",
+      "designMissingInputCount": 20,
+      "bilingualReportsMatched": true,
+      "sourceDraftUnchanged": true,
+      "directory": "G:\\StructureClaw-All\\structureclaw\\.tmp\\playwright-MJsQqo\\work\\draft-update-9oyXo3"
+    },
+    "artifact": {
+      "path": ".tmp/draft-update-audit-20261015/replay-live-release-3.log",
+      "sha256": "3977b553cf8fc0c0b14bdc83dc4d327612a71da274c0d22a85d4ddcb56b89be2"
+    }
+  },
+  "browser": {
+    "conversationId": "cmv9qgf2h0000wkwmn4nlpevp",
+    "resumedConversationId": "cmv9qgf2h0000wkwmn4nlpevp",
+    "model": "glm-5.3",
+    "instanceId": "playwright-fa750fdf-82b9-41db-8966-276fcdc42e07",
+    "pass": false,
+    "turns": [
+      {
+        "number": 1,
+        "conversationId": "cmv9qgf2h0000wkwmn4nlpevp",
+        "waitingForReply": false,
+        "question": null,
+        "analysis": {
+          "runId": "8d5a93f0-a75b-432c-89a1-fe180a0195b8",
+          "resultKey": "case:LC1",
+          "current": true,
+          "reason": null
+        },
+        "report": {
+          "current": false,
+          "runId": null
+        },
+        "usage": {
+          "runId": "e7a00aab-e060-4b86-8ba4-136f1aa75b7d",
+          "policyHash": "632e7b3fa27d5ff0c99ffbea65d67ca3e0aca996effd37b63091cd8d24b4d8f1",
+          "toolCalls": 0,
+          "llmCalls": 1,
+          "recoveries": 0
+        },
+        "streamErrors": [
+          {
+            "type": "error",
+            "error": "Request timed out."
+          }
+        ],
+        "toolErrorCount": 0
+      }
+    ],
+    "finalCheck": {
+      "completionStatus": "incomplete",
+      "complianceStatus": "incomplete",
+      "conclusionEligible": false,
+      "missingInputs": [
+        {
+          "field": "material.design.f",
+          "label": "抗拉抗压抗弯设计强度 / Design normal strength",
+          "unit": "MPa",
+          "source": "design",
+          "elementId": "1",
+          "checks": [
+            "正应力",
+            "折算应力",
+            "整体稳定"
+          ],
+          "resultKeys": [
+            "case:LC1"
+          ],
+          "writable": true,
+          "writeTarget": {
+            "collection": "materials",
+            "id": "1",
+            "path": "design.f",
+            "modelUnit": "MPa",
+            "inputUnit": "MPa",
+            "inputToModelScale": 1
+          }
+        },
+        {
+          "field": "material.design.fv",
+          "label": "抗剪设计强度 / Design shear strength",
+          "unit": "MPa",
+          "source": "design",
+          "elementId": "1",
+          "checks": [
+            "剪应力"
+          ],
+          "resultKeys": [
+            "case:LC1"
+          ],
+          "writable": true,
+          "writeTarget": {
+            "collection": "materials",
+            "id": "1",
+            "path": "design.fv",
+            "modelUnit": "MPa",
+            "inputUnit": "MPa",
+            "inputToModelScale": 1
+          }
+        },
+        {
+          "field": "member.design.beta1",
+          "label": "折算应力系数 / Equivalent-stress factor",
+          "unit": "1",
+          "source": "design",
+          "elementId": "1",
+          "checks": [
+            "折算应力"
+          ],
+          "resultKeys": [
+            "case:LC1"
+          ],
+          "writable": true,
+          "writeTarget": {
+            "collection": "elements",
+            "id": "1",
+            "path": "design.beta1",
+            "modelUnit": "1",
+            "inputUnit": "1",
+            "inputToModelScale": 1
+          }
+        },
+        {
+          "field": "member.design.phi_b",
+          "label": "整体稳定系数及支承依据 / Lateral stability factor and support basis",
+          "unit": "1",
+          "source": "design",
+          "elementId": "1",
+          "checks": [
+            "整体稳定"
+          ],
+          "resultKeys": [
+            "case:LC1"
+          ],
+          "writable": true,
+          "writeTarget": {
+            "collection": "elements",
+            "id": "1",
+            "path": "design.phi_b",
+            "modelUnit": "1",
+            "inputUnit": "1",
+            "inputToModelScale": 1
+          }
+        },
+        {
+          "field": "section.b",
+          "label": "板件计算宽度 / Plate width",
+          "unit": "mm",
+          "source": "section",
+          "elementId": "1",
+          "checks": [
+            "局部稳定"
+          ],
+          "resultKeys": [
+            "case:LC1"
+          ],
+          "writable": true,
+          "writeTarget": {
+            "collection": "sections",
+            "id": "S1",
+            "path": "properties.b",
+            "modelUnit": "m",
+            "inputUnit": "mm",
+            "inputToModelScale": 0.001
+          }
+        },
+        {
+          "field": "section.t",
+          "label": "板件厚度 / Plate thickness",
+          "unit": "mm",
+          "source": "section",
+          "elementId": "1",
+          "checks": [
+            "局部稳定"
+          ],
+          "resultKeys": [
+            "case:LC1"
+          ],
+          "writable": true,
+          "writeTarget": {
+            "collection": "sections",
+            "id": "S1",
+            "path": "properties.t",
+            "modelUnit": "m",
+            "inputUnit": "mm",
+            "inputToModelScale": 0.001
+          }
+        },
+        {
+          "field": "member.design.btLimit",
+          "label": "宽厚比限值及依据 / Width-thickness limit and basis",
+          "unit": "1",
+          "source": "design",
+          "elementId": "1",
+          "checks": [
+            "局部稳定"
+          ],
+          "resultKeys": [
+            "case:LC1"
+          ],
+          "writable": true,
+          "writeTarget": {
+            "collection": "elements",
+            "id": "1",
+            "path": "design.btLimit",
+            "modelUnit": "1",
+            "inputUnit": "1",
+            "inputToModelScale": 1
+          }
+        },
+        {
+          "field": "member.design.l0",
+          "label": "明确的计算长度及约束依据 / Explicit effective length and restraint basis",
+          "unit": "mm",
+          "source": "design",
+          "elementId": "1",
+          "checks": [
+            "长细比"
+          ],
+          "resultKeys": [
+            "case:LC1"
+          ],
+          "writable": true,
+          "writeTarget": {
+            "collection": "elements",
+            "id": "1",
+            "path": "design.l0",
+            "modelUnit": "mm",
+            "inputUnit": "mm",
+            "inputToModelScale": 1
+          }
+        },
+        {
+          "field": "member.design.lambdaLimit",
+          "label": "长细比限值 / Slenderness limit",
+          "unit": "1",
+          "source": "design",
+          "elementId": "1",
+          "checks": [
+            "长细比"
+          ],
+          "resultKeys": [
+            "case:LC1"
+          ],
+          "writable": true,
+          "writeTarget": {
+            "collection": "elements",
+            "id": "1",
+            "path": "design.lambdaLimit",
+            "modelUnit": "1",
+            "inputUnit": "1",
+            "inputToModelScale": 1
+          }
+        },
+        {
+          "field": "response.deflection",
+          "label": "使用工况相对挠度 / Service relative deflection",
+          "unit": "mm",
+          "source": "result",
+          "elementId": "1",
+          "checks": [
+            "挠度"
+          ],
+          "resultKeys": [
+            "case:LC1"
+          ],
+          "action": "inspect_analysis",
+          "writable": false
+        },
+        {
+          "field": "member.design.deflectionLimitN",
+          "label": "挠度限值 L/n 的 n 及依据 / Denominator n of L/n and basis",
+          "unit": "1",
+          "source": "design",
+          "elementId": "1",
+          "checks": [
+            "挠度"
+          ],
+          "resultKeys": [
+            "case:LC1"
+          ],
+          "writable": true,
+          "writeTarget": {
+            "collection": "elements",
+            "id": "1",
+            "path": "design.deflectionLimitN",
+            "modelUnit": "1",
+            "inputUnit": "1",
+            "inputToModelScale": 1
+          }
+        },
+        {
+          "field": "member.design.serviceability_result_keys",
+          "label": "使用工况或组合 / Service case or combination",
+          "unit": "result key",
+          "source": "design",
+          "elementId": "1",
+          "checks": [
+            "挠度"
+          ],
+          "resultKeys": [
+            "case:LC1"
+          ],
+          "writable": true,
+          "writeTarget": {
+            "collection": "elements",
+            "id": "1",
+            "path": "design.serviceability_result_keys",
+            "modelUnit": "result key",
+            "inputUnit": "result key",
+            "inputToModelScale": 1
+          }
+        },
+        {
+          "field": "material.design.f",
+          "label": "抗拉抗压抗弯设计强度 / Design normal strength",
+          "unit": "MPa",
+          "source": "design",
+          "elementId": "2",
+          "checks": [
+            "正应力",
+            "折算应力",
+            "整体稳定"
+          ],
+          "resultKeys": [
+            "case:LC1"
+          ],
+          "writable": true,
+          "writeTarget": {
+            "collection": "materials",
+            "id": "1",
+            "path": "design.f",
+            "modelUnit": "MPa",
+            "inputUnit": "MPa",
+            "inputToModelScale": 1
+          }
+        },
+        {
+          "field": "material.design.fv",
+          "label": "抗剪设计强度 / Design shear strength",
+          "unit": "MPa",
+          "source": "design",
+          "elementId": "2",
+          "checks": [
+            "剪应力"
+          ],
+          "resultKeys": [
+            "case:LC1"
+          ],
+          "writable": true,
+          "writeTarget": {
+            "collection": "materials",
+            "id": "1",
+            "path": "design.fv",
+            "modelUnit": "MPa",
+            "inputUnit": "MPa",
+            "inputToModelScale": 1
+          }
+        },
+        {
+          "field": "member.design.beta1",
+          "label": "折算应力系数 / Equivalent-stress factor",
+          "unit": "1",
+          "source": "design",
+          "elementId": "2",
+          "checks": [
+            "折算应力"
+          ],
+          "resultKeys": [
+            "case:LC1"
+          ],
+          "writable": true,
+          "writeTarget": {
+            "collection": "elements",
+            "id": "2",
+            "path": "design.beta1",
+            "modelUnit": "1",
+            "inputUnit": "1",
+            "inputToModelScale": 1
+          }
+        },
+        {
+          "field": "member.design.phi_b",
+          "label": "整体稳定系数及支承依据 / Lateral stability factor and support basis",
+          "unit": "1",
+          "source": "design",
+          "elementId": "2",
+          "checks": [
+            "整体稳定"
+          ],
+          "resultKeys": [
+            "case:LC1"
+          ],
+          "writable": true,
+          "writeTarget": {
+            "collection": "elements",
+            "id": "2",
+            "path": "design.phi_b",
+            "modelUnit": "1",
+            "inputUnit": "1",
+            "inputToModelScale": 1
+          }
+        },
+        {
+          "field": "section.b",
+          "label": "板件计算宽度 / Plate width",
+          "unit": "mm",
+          "source": "section",
+          "elementId": "2",
+          "checks": [
+            "局部稳定"
+          ],
+          "resultKeys": [
+            "case:LC1"
+          ],
+          "writable": true,
+          "writeTarget": {
+            "collection": "sections",
+            "id": "S1",
+            "path": "properties.b",
+            "modelUnit": "m",
+            "inputUnit": "mm",
+            "inputToModelScale": 0.001
+          }
+        },
+        {
+          "field": "section.t",
+          "label": "板件厚度 / Plate thickness",
+          "unit": "mm",
+          "source": "section",
+          "elementId": "2",
+          "checks": [
+            "局部稳定"
+          ],
+          "resultKeys": [
+            "case:LC1"
+          ],
+          "writable": true,
+          "writeTarget": {
+            "collection": "sections",
+            "id": "S1",
+            "path": "properties.t",
+            "modelUnit": "m",
+            "inputUnit": "mm",
+            "inputToModelScale": 0.001
+          }
+        },
+        {
+          "field": "member.design.btLimit",
+          "label": "宽厚比限值及依据 / Width-thickness limit and basis",
+          "unit": "1",
+          "source": "design",
+          "elementId": "2",
+          "checks": [
+            "局部稳定"
+          ],
+          "resultKeys": [
+            "case:LC1"
+          ],
+          "writable": true,
+          "writeTarget": {
+            "collection": "elements",
+            "id": "2",
+            "path": "design.btLimit",
+            "modelUnit": "1",
+            "inputUnit": "1",
+            "inputToModelScale": 1
+          }
+        },
+        {
+          "field": "member.design.l0",
+          "label": "明确的计算长度及约束依据 / Explicit effective length and restraint basis",
+          "unit": "mm",
+          "source": "design",
+          "elementId": "2",
+          "checks": [
+            "长细比"
+          ],
+          "resultKeys": [
+            "case:LC1"
+          ],
+          "writable": true,
+          "writeTarget": {
+            "collection": "elements",
+            "id": "2",
+            "path": "design.l0",
+            "modelUnit": "mm",
+            "inputUnit": "mm",
+            "inputToModelScale": 1
+          }
+        },
+        {
+          "field": "member.design.lambdaLimit",
+          "label": "长细比限值 / Slenderness limit",
+          "unit": "1",
+          "source": "design",
+          "elementId": "2",
+          "checks": [
+            "长细比"
+          ],
+          "resultKeys": [
+            "case:LC1"
+          ],
+          "writable": true,
+          "writeTarget": {
+            "collection": "elements",
+            "id": "2",
+            "path": "design.lambdaLimit",
+            "modelUnit": "1",
+            "inputUnit": "1",
+            "inputToModelScale": 1
+          }
+        },
+        {
+          "field": "response.deflection",
+          "label": "使用工况相对挠度 / Service relative deflection",
+          "unit": "mm",
+          "source": "result",
+          "elementId": "2",
+          "checks": [
+            "挠度"
+          ],
+          "resultKeys": [
+            "case:LC1"
+          ],
+          "action": "inspect_analysis",
+          "writable": false
+        },
+        {
+          "field": "member.design.deflectionLimitN",
+          "label": "挠度限值 L/n 的 n 及依据 / Denominator n of L/n and basis",
+          "unit": "1",
+          "source": "design",
+          "elementId": "2",
+          "checks": [
+            "挠度"
+          ],
+          "resultKeys": [
+            "case:LC1"
+          ],
+          "writable": true,
+          "writeTarget": {
+            "collection": "elements",
+            "id": "2",
+            "path": "design.deflectionLimitN",
+            "modelUnit": "1",
+            "inputUnit": "1",
+            "inputToModelScale": 1
+          }
+        },
+        {
+          "field": "member.design.serviceability_result_keys",
+          "label": "使用工况或组合 / Service case or combination",
+          "unit": "result key",
+          "source": "design",
+          "elementId": "2",
+          "checks": [
+            "挠度"
+          ],
+          "resultKeys": [
+            "case:LC1"
+          ],
+          "writable": true,
+          "writeTarget": {
+            "collection": "elements",
+            "id": "2",
+            "path": "design.serviceability_result_keys",
+            "modelUnit": "result key",
+            "inputUnit": "result key",
+            "inputToModelScale": 1
+          }
+        }
+      ],
+      "summary": {
+        "total": 14,
+        "passed": 0,
+        "failed": 0,
+        "warnings": 0,
+        "notApplicable": 0,
+        "inputRequired": 14,
+        "unsupported": 0,
+        "maxUtilization": null
+      }
+    },
+    "metricChecks": [
+      {
+        "analysisIndex": 0,
+        "key": "maxAbsMoment",
+        "expected": 10.382977535999999,
+        "actual": 10.382977535999999,
+        "pass": true
+      },
+      {
+        "analysisIndex": 0,
+        "key": "maxAbsReaction",
+        "expected": 3.653191014399999,
+        "actual": 3.6531910144,
+        "pass": true
+      },
+      {
+        "analysisIndex": 0,
+        "key": "maxAbsDisplacement",
+        "expected": 0.002176132806682965,
+        "actual": 0.0021761328066829673,
+        "pass": true
+      }
+    ],
+    "artifact": {
+      "path": ".tmp/draft-update-audit-20261015/live-resumed/2026-10-15T16-17-38-082Z-zh/summary.json",
+      "sha256": "ef2d3d548af247ccca316ffd2f38e17e0279477ceeaeb5c32100aa92b9486a2a"
+    },
+    "inputs": {
+      "path": ".tmp/draft-update-audit-20261015/live-resumed.json",
+      "sha256": "d9c59d695531925a57214ee523ffebfc8dcf1cdcb4e4026220411ded0226ea06"
+    },
+    "originalInputs": {
+      "path": ".tmp/draft-update-audit-20261015/live-release-3.json",
+      "sha256": "a4b22599b64fde21085f59105e77a204f879f5d80a7ba89440d2c0a572f972b4"
+    },
+    "interruptedFirstPart": {
+      "path": ".tmp/draft-update-audit-20261015/live-release-3/2026-10-15T16-08-06-257Z-zh/summary.json",
+      "sha256": "1597a954082265a364cb32b9fb8942e862a086e5fd60db6a678f6b26a3f449d1"
+    },
+    "interruption": "Initial two browser turns completed modeling, real analysis and incomplete code check; the subsequent LLM response timed out. Resuming the same saved conversation through the UI also timed out on its first LLM call. Final live design/report is NOT certified complete.",
+    "designBasis": "A fourth test input was prepared with explicit strengths, section properties, stability factor, restraints and limits; it was not reached in the final browser run."
+  },
+  "earlierBrowserPass": {
+    "artifact": {
+      "path": ".tmp/draft-update-audit-20261015/live-original/2026-10-15T15-18-22-794Z-zh/summary.json",
+      "sha256": "6bc4779eaa6d723a8c3d47d5b8bf7020976ef1eb98d6d7d06f0c7f092061f87a"
+    },
+    "conversationId": "cmv9ooh7z0000uswmq9dk15ud",
+    "scope": "Earlier candidate completed four live turns and 14/14 design checks with explicit fixture inputs. Subsequent partial-record/material-readiness changes prevent using this as a final-build uninterrupted pass."
+  },
+  "retainedFailedAttempts": [
+    {
+      "artifact": {
+        "path": ".tmp/draft-update-audit-20261015/backend-all.json",
+        "sha256": "ebe246182a80004b162895b0c17598fa5dbd3b82f90487afd04fc9ba017fd9e8"
+      },
+      "reason": "Column handler dropped the deletion operation; migrated to shared field propagation."
+    },
+    {
+      "artifact": {
+        "path": ".tmp/draft-update-audit-20261015/backend-release.json",
+        "sha256": "b833c8fc469f25ce3c404ddfb68a2cca5cc6f3c4340e5713281ec5449332b90f"
+      },
+      "reason": "Validation command rebuilt dist while a subprocess test imported it; reran the entire suite after builds completed."
+    },
+    {
+      "artifact": {
+        "path": ".tmp/draft-update-audit-20261015/stale-material-diagnostic.jsonl",
+        "sha256": "90ad33101293a874eeb2958746d92d98ebca3ab574fa6a17f057d817707fddde"
+      },
+      "reason": "Live browser reproduced stale materials-group missing diagnostic after Q235 was provided; fixed shared material projection and retained this failed run."
+    }
+  ],
+  "preservation": {
+    "benchmarkSubmodule": "160000 commit 534e3f02b0593c16a035f32924dfbe7654ce68be\ttests/llm-benchmark",
+    "productionSettingsSha256": "9fef7cf76f73eb561fd1366c6e0ac2eb27808d28c428dd4045f7f17a7eda8e24",
+    "originalConversationEdited": false,
+    "historicalTagsMoved": false
+  },
+  "deployment": {
+    "production": {
+      "verifiedAt": "2026-10-15T16:24:28.211Z",
+      "url": "http://127.0.0.1:31415/",
+      "backendPid": 24212,
+      "previousPid": 16672,
+      "settingsUnchanged": true,
+      "health": {
+        "status": "ok",
+        "instanceId": "c2f18769-b6fb-4194-9079-5408fa379abe",
+        "timestamp": "2026-10-15T16:24:27.656Z",
+        "services": {
+          "database": true
+        }
+      },
+      "webpageLoaded": true,
+      "pageErrors": [],
+      "writeRequests": [],
+      "scope": "Read-only production browser check after CLI restart; engineering conversations tested in isolated instances."
+    },
+    "artifact": {
+      "path": ".tmp/draft-update-audit-20261015/production-release.json",
+      "sha256": "f387fe18100431590beb8c7c888435752835da4aebe15fde09e24a73f95b05c4"
+    },
+    "isolatedCredentialCleanup": {
+      "path": ".tmp/draft-update-audit-20261015/cleanup-31650.json",
+      "sha256": "101443a7e587916ce17064fff1e056cf0c4c2a7377ea857a20222ea7ecc683cd"
+    }
+  },
+  "limits": [
+    "These results certify the recorded workflows and covered regressions, not all structures or all 300 planned scenarios.",
+    "No exact native HN rolled-section catalog mapping was added; explicit numerical geometry remains distinct from a native catalog request.",
+    "Missing design conditions remain incomplete. Complete/pass results here use explicit test-supplied design conditions.",
+    "Live provider behavior remains probabilistic; failed attempts are retained, not replaced by successful attempts.",
+    "Final live browser design/report remains incomplete after two LLM timeouts. The timeout root cause was not established; it is not assumed to be solely a provider fault."
+  ]
+}
