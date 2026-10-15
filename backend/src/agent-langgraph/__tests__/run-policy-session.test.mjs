@@ -87,6 +87,27 @@ describe('policy applied through the persisted chat service and real graph', () 
     expect(boundTools.at(-1)).toEqual([]);
   });
 
+  test.each(['en', 'zh'])('tool availability in the actual model prompt follows the new turn while full history remains (%s)', async locale => {
+    const service = new LangGraphAgentService(skillRuntime);
+    const conversationId = randomUUID();
+    const prefix = locale === 'zh' ? '本次调用实际可用工具=' : 'Tools available for this invocation=';
+    await service.runFull({ conversationId, message: 'OLD_TOOLS_DISABLED_SENTINEL', context: { locale, runPolicy: {
+      tools: { enabledIds: [] }, context: { history: 'current-turn', memoryScopes: [] },
+    } } });
+    expect(boundTools.at(-1)).toEqual([]);
+    expect(prompts.at(-1)[0].content).toContain(`${prefix}[]`);
+    const reopened = new LangGraphAgentService(skillRuntime);
+    await reopened.runFull({ conversationId, message: 'Use calculate now', context: { locale, runPolicy: {
+      tools: { enabledIds: ['calculate'] }, context: { history: 'full', memoryScopes: [] },
+    } } });
+    expect(JSON.stringify(prompts.at(-1))).toContain('OLD_TOOLS_DISABLED_SENTINEL');
+    expect(boundTools.at(-1)).toEqual(['calculate']);
+    expect(prompts.at(-1)[0].content).toContain(`${prefix}["calculate"]`);
+    await reopened.runFull({ conversationId, message: 'Disable again', context: { locale, runPolicy: { tools: { enabledIds: [] } } } });
+    expect(boundTools.at(-1)).toEqual([]);
+    expect(prompts.at(-1)[0].content).toContain(`${prefix}[]`);
+  });
+
   test('repair off permits a successful registered calculation but blocks a failed one from retrying', async () => {
     const service = new LangGraphAgentService(skillRuntime);
     responses = [new AIMessage({ content: '', tool_calls: [{ id: 'ok', name: 'calculate', args: { expression: '6 * 7' } }] }), new AIMessage('42')];

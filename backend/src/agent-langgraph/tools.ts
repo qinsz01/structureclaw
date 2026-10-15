@@ -47,7 +47,7 @@ import { analysisSettingsHash } from '../engineering/analysis-runs.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 import { checkRunResults, codeCheckFeedback, validateServiceabilitySelection } from '../engineering/code-checks.js';
 import { assertAnalysisInputEvidenceMatchesRequest, assertInputEvidenceMatchesModel, mergeInputEvidence } from '../engineering/input-evidence.js';
-import { currentRunPolicy, recordRunEvent, reserveToolCall, recordToolOutcome } from '../runtime/run-context.js';
+import { currentRunContext, currentRunPolicy, recordRunEvent, reserveToolCall, recordToolOutcome } from '../runtime/run-context.js';
 import { createQueryResultsTool } from './model-tools.js';
 import { requestScopeSchema, resolveExtractedScope, forceOnlyScope, missingInputReason, type RequestScope, type ScopeDiagnostic } from '../engineering/request-scope.js';
 import { equilibriumModel } from '../engineering/beam-equilibrium.js';
@@ -2887,7 +2887,7 @@ export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
       });
       if (!candidate) {
         logToolCall(log, { tool: 'build_model', durationMs: Date.now() - start, extra: { success: false } });
-        throw new Error('Model build returned undefined — draft may be incomplete. Try running extract_draft_params again with more explicit parameters.');
+        throw new Error('MODEL_BUILD_UNAVAILABLE: the selected builder did not produce a model. Inspect the active modeling skill and builder diagnostics before continuing; do not repeat extraction without new user input / 所选建模器未生成模型；请检查当前建模技能和诊断，不要在没有新用户输入时重复提取。');
       }
       const metadata = isRecord(candidate.metadata) ? candidate.metadata : {};
       const model = await normalizeEngineeringModel({ ...candidate, metadata: { ...metadata,
@@ -3406,7 +3406,8 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
         toolCallId,
         'run_analysis',
         JSON.stringify({ ...analysisSummary, ...(delivery ? { requestedQuantities: delivery.requestedQuantities, missingRequestedOutputs: delivery.missingRequestedOutputs,
-          deliveryStatus: delivery.missingRequestedOutputs.length ? 'partial' : 'complete' } : {}), ...(scope ? { requestScope: scope, requestedOutputs: scope.outputs,
+          deliveryScope: 'declared-output-selections',
+          deliveryStatus: !scope?.outputs?.length ? 'not-specified' : delivery.missingRequestedOutputs.length ? 'partial' : 'complete' } : {}), ...(scope ? { requestScope: scope, requestedOutputs: scope.outputs,
           nextAction: 'query_results', instruction: 'Deliver the requested result locations, cases and units; code design/report only when explicitly requested. / 按指定位置、工况、单位交付；规范设计和报告分别按需。' } : {}) }),
         { ...update, ...(delivery ? { resultQuantities: delivery.resultQuantities } : {}), ...(scope ? { requestScope: scope } : {}) },
       );
@@ -3687,6 +3688,19 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
         skillIds,
       });
 
+      // A valid analysis/report does not erase an unresolved query from this turn.
+      // Keep the available results, while making partial delivery explicit in every format.
+      const pendingQueryFailure = currentRunContext()?.usage.pendingFailures.query_results;
+      if (pendingQueryFailure) {
+        const warning = locale === 'zh'
+          ? '本轮仍有未解决的结果查询失败。报告保留已有计算结果，但不能视为所有所求结果均已交付。'
+          : 'This turn still has an unresolved result query failure. The report retains available analysis results, but does not establish that all requested results have been delivered.';
+        result.report.summary = `${warning} ${result.report.summary}`;
+        result.report.json = { ...result.report.json, workflowStatus: { completionStatus: 'incomplete',
+          reasonCodes: ['UNRESOLVED_RESULT_QUERY'], pendingTools: ['query_results'], message: warning } };
+        result.report.markdown = `> ${warning}\n\n${result.report.markdown ?? ''}`;
+      }
+
       await attachNativeReport({ ...result.report, markdown: result.report.markdown ?? '' }, {
         message: input.message, analysisType, normalizedModel, analysis, codeCheck, locale,
       });
@@ -3696,7 +3710,7 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
       return toolResult(
         toolCallId,
         'generate_report',
-        JSON.stringify({ success: true, summary: result.report.summary, ...(selection ? { report: result.report } : {}) }),
+        JSON.stringify({ success: true, summary: result.report.summary, ...(result.report.json.workflowStatus ? { workflowStatus: result.report.json.workflowStatus } : {}), ...(selection ? { report: result.report } : {}) }),
         selection ? {} : { report: result.report as unknown as Record<string, unknown> },
       );
     },

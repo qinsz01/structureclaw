@@ -1,4 +1,8 @@
 import { expect, test } from '@jest/globals';
+import { AIMessage } from '@langchain/core/messages';
+import { resolveRunPolicy } from '../dist/runtime/run-policy.js';
+import { createRunContext, withRunContext } from '../dist/runtime/run-context.js';
+import { executeToolsSequentially } from '../dist/agent-langgraph/sequential-tools.js';
 import { createQueryResultsTool } from '../dist/agent-langgraph/model-tools.js';
 import { createRegisteredTools } from '../dist/agent-langgraph/tool-registry.js';
 import { resultCatalogEntry, quantityMatchesSelection } from '../dist/engineering/result-selection.js';
@@ -230,6 +234,7 @@ test('real physical nodal queries without field resolve only the documented comp
   const tools = new Map(createRegisteredTools({ skillRuntime }).map(tool => [tool.name, tool]));
   const analyzed = await tools.get('run_analysis').invoke({ analysisType: 'static', analysisSkillId: 'opensees-static', loadCaseIds: ['LC1'] },
     { toolCall: { id: 'nodal-analysis' }, configurable });
+  expect(output(analyzed)).toMatchObject({ deliveryScope: 'declared-output-selections', deliveryStatus: 'not-specified' });
   configurable.agentState = { ...configurable.agentState, ...analyzed.update };
   const saved = configurable.agentState.analysisResult;
   expect(saved.success).toBe(true);
@@ -293,4 +298,50 @@ test('field resolution preserves explicit dynamic vectors, implicit time-history
   expect(modal.quantity).toMatchObject({ value: -1, modeNumber: 2 });
   expect(modal.fieldResolution).toBeUndefined();
   expect(modal.quantity.field).toBeUndefined();
+});
+
+
+test.each(['en', 'zh'])('report discloses an unresolved registered query failure without hiding valid results or bypassing repair=0 (%s)', async locale => {
+  const saved = run();
+  const queried = await invoke(saved, selection);
+  const tools = createRegisteredTools({ workspaceRoot: process.cwd(), skillRuntime: {} });
+  const ids = ['query_results', 'generate_report'];
+  const policy = resolveRunPolicy({ availableSkillIds: [], availableToolIds: ids, defaultToolIds: ids,
+    requested: { repair: { enabled: false }, tools: { enabledIds: ids } } });
+  const context = createRunContext(policy);
+  const state = { analysisRuns: { saved }, resultQuantities: queried.update.resultQuantities, locale,
+    messages: [new AIMessage({ content: '', tool_calls: [
+      { id: 'ambiguous-query', name: 'query_results', args: { ...selection, elementId: 'beam' } },
+      { id: 'blocked-retry', name: 'query_results', args: selection },
+      { id: 'partial-report', name: 'generate_report', args: { message: 'Report the requested results', analysisType: 'dynamic', locale, selection, narrative: 'structured' } },
+    ] })] };
+  let current = state;
+  const messages = [];
+  for (let index = 0; index < 3; index++) {
+    const result = await withRunContext(context, () => executeToolsSequentially(tools, current,
+      { configurable: { runContext: context, skillScope: [] } }));
+    messages.push(...result.update.messages);
+    current = { ...current, ...result.update, messages: [...current.messages, ...result.update.messages] };
+  }
+  expect(messages[0].content).toContain('RESULT_LOCATION_AMBIGUOUS');
+  expect(messages[1].content).toContain('RECOVERY_BUDGET_EXHAUSTED');
+  const response = JSON.parse(messages[2].content);
+  expect(response.success).toBe(true);
+  expect(response.workflowStatus).toMatchObject({ completionStatus: 'incomplete', reasonCodes: ['UNRESOLVED_RESULT_QUERY'] });
+  expect(response.report.json.workflowStatus).toEqual(response.workflowStatus);
+  const warning = locale === 'zh' ? '未解决的结果查询失败' : 'unresolved result query failure';
+  expect(response.summary).toContain(warning);
+  expect(response.report.markdown).toContain(warning);
+  expect(response.report.json.requestedQuantities).toHaveLength(1);
+  expect(response.report.json.requestedQuantities[0].value).toBe(-2);
+  expect(context.usage).toMatchObject({ toolCalls: 2, recoveries: 0 });
+  expect(context.usage.pendingFailures.query_results).toContain('RESULT_LOCATION_AMBIGUOUS');
+
+  const next = createRunContext(policy);
+  const cleanReport = await withRunContext(next, () => tools.find(tool => tool.name === 'generate_report').invoke(
+    { message: 'Report this saved scalar only', analysisType: 'dynamic', locale, selection, narrative: 'structured' },
+    { toolCall: { id: 'new-turn-report' }, configurable: { agentState: state } }));
+  expect(output(cleanReport).workflowStatus).toBeUndefined();
+  expect(output(cleanReport).report.json.workflowStatus).toBeUndefined();
+  expect(output(cleanReport).report.json.requestedQuantities[0].value).toBe(-2);
 });

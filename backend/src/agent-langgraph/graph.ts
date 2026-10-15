@@ -276,7 +276,8 @@ function createCallModelNode(
     const modelWithTools = model.bindTools(activeTools);
 
     // Build system prompt
-    const systemMessages = buildSystemMessages({ state, skillManifests, maxToolCallsPerTurn: configurable.maxToolCallsPerTurn });
+    const systemMessages = buildSystemMessages({ state, skillManifests, maxToolCallsPerTurn: configurable.maxToolCallsPerTurn,
+      activeToolIds: activeTools.map(tool => tool.name) });
 
     // Validate and reconstruct messages — checkpoint deserialization may
     // strip class methods (_getType), leaving plain objects that the LLM API

@@ -61,6 +61,8 @@ export interface SystemPromptContext {
   state: AgentState;
   skillManifests: SkillManifest[];
   maxToolCallsPerTurn?: number;
+  /** Names actually bound for this invocation, after all session policy filters. */
+  activeToolIds?: string[];
 }
 
 /**
@@ -93,12 +95,16 @@ export function buildSystemMessages(ctx: SystemPromptContext): BaseMessageLike[]
     : buildEnPrompt(state, skillList, toolCallLimit);
 
   const runtimePolicy = state.runPolicy;
+  const activeToolIds = ctx.activeToolIds ?? runtimePolicy?.activeToolIds;
+  const toolAvailability = activeToolIds === undefined ? '' : (isZh
+    ? `\n\n本次调用实际可用工具=${JSON.stringify(activeToolIds)}。此列表是当前配置；历史消息关于工具开启或关闭的描述仅适用于当时，不能覆盖本轮配置。列表为空时说明当前没有可用工具；有工具时按用户最新请求使用，不能声称仍被旧配置关闭。工具可用不代表已经执行或成功。`
+    : `\n\nTools available for this invocation=${JSON.stringify(activeToolIds)}. This is the current configuration. Historical statements about enabled or disabled tools applied at that time and do not override this turn. An empty list means no tools are currently available; otherwise use the available tools for the latest user request rather than claiming an old setting still disables them. Availability does not mean execution or success.`);
   const policyText = runtimePolicy ? (isZh
     ? `\n\n运行约束：知识文本=${runtimePolicy.knowledge}；建模器=${runtimePolicy.builder}；自动纠错=${runtimePolicy.repair.enabled}，全轮最多 ${runtimePolicy.repair.maxRecoveriesPerTurn} 次，内部重试同样计数。纠错关闭或预算耗尽后，如实说明错误并请求用户补充，禁止换工具绕过。持久记忆范围=${runtimePolicy.context.memoryScopes.join(',') || '禁用'}。上述限制优先于一般工作流程建议。`
     : `\n\nRun constraints: guidance=${runtimePolicy.knowledge}; builder=${runtimePolicy.builder}; recovery=${runtimePolicy.repair.enabled}, maximum ${runtimePolicy.repair.maxRecoveriesPerTurn} extra recoveries per turn including internal retries. When recovery is disabled or exhausted, report the error and ask for user input; do not bypass the limit using another tool. Persistent memory scopes=${runtimePolicy.context.memoryScopes.join(',') || 'disabled'}. These constraints override general workflow suggestions.`) : '';
   const checkProtocol = isZh
-    ? '\n\n校核协议（始终执行）：OpenSees 使用 run_code_check provider=auto/builtin；native 只用于 PKPM/YJK 分析，不代表 StructureClaw 付费版本。completionStatus=incomplete 或 inputRequired>0 时必须列出工具返回的具体缺项并询问用户，不能凭材料牌号或手算补成合格结论，也不能换原生设计绕过缺项。模型输入补齐后重新计算再校核。分析成功、报告生成不等于规范通过；最终结论必须服从已保存校核状态。'
-    : '\n\nChecking protocol (always enforced): OpenSees uses run_code_check provider=auto/builtin. Native design requires a PKPM/YJK analysis, not a paid StructureClaw edition. When completionStatus=incomplete or inputRequired>0, explain the actual missing inputs returned by the tool and ask the user. Do not infer design strengths from grades, replace incomplete checks with hand-calculated compliance, or switch to native design to bypass missing inputs. After model inputs change, reanalyze before checking. Successful analysis/report generation does not establish code compliance; final conclusions must follow saved check status.';
+    ? '\n\n校核协议（始终执行）：OpenSees 使用 run_code_check provider=auto/builtin；native 只用于 PKPM/YJK 分析，不代表 StructureClaw 付费版本。completionStatus=incomplete 或 inputRequired>0 时必须列出工具返回的具体缺项并询问用户，不能凭材料牌号或手算补成合格结论，也不能换原生设计绕过缺项。模型输入补齐后重新计算再校核。分析成功、报告生成不等于规范通过；最终结论必须服从已保存校核状态。若结果查询失败且尚未解决，或报告workflowStatus.completionStatus=incomplete，必须明确未完成的所求结果，不能声称整题或全部交付已完成。'
+    : '\n\nChecking protocol (always enforced): OpenSees uses run_code_check provider=auto/builtin. Native design requires a PKPM/YJK analysis, not a paid StructureClaw edition. When completionStatus=incomplete or inputRequired>0, explain the actual missing inputs returned by the tool and ask the user. Do not infer design strengths from grades, replace incomplete checks with hand-calculated compliance, or switch to native design to bypass missing inputs. After model inputs change, reanalyze before checking. Successful analysis/report generation does not establish code compliance; final conclusions must follow saved check status. If a result query remains unresolved or report workflowStatus.completionStatus=incomplete, identify the outstanding requested results and never claim the whole task or all deliverables are complete.';
   const editProtocol = isZh
     ? '\n已确认的普通文字补参：query_model读取当前版本和ID，直接edit_model写入已给参数；不要先调用review_input建立一套待应用证据。review_input仅用于已有inputEvidence/inputIssues或附件的复核。材料强度属于materials[id].design，构件系数属于elements[id].design，截面补充属性属于sections[id].properties（米制）；serviceability_result_keys是结果键数组。字段不明确时查询includeSchema，不要猜字段或伪造占位键。将本轮已给参数合并成一次edit_model事务；同一条消息不得提交多个修改模型的调用，必须等待返回新版本后才能继续修改。values内嵌套对象和点路径均为合并更新，只发送需要修改的字段；补充S/Wnx/b/t时不要重传A/Iy/Iz等已有属性。query_model中的已核定目录数值、单位和轴映射属于输入依据，不得凭记忆重算或替换。目录冲突必须核对来源或询问用户，不能为绕过校验自行清除catalogSource；只有用户明确要求转为自定义截面时才能解除目录来源。核对changed、新版本及更新后的输入；缺失的其他条件保持缺项。'
     : '\nConfirmed ordinary text updates: read query_model revision/IDs, then write supplied inputs directly with edit_model; do not first create pending review evidence. review_input resolves existing inputEvidence/inputIssues or attachment observations. Material strengths belong to materials[id].design; member coefficients to elements[id].design; section properties to sections[id].properties in metres; serviceability_result_keys is an array of result keys. Use includeSchema when fields are unclear; never guess paths or invent placeholder keys. Combine supplied inputs into one edit_model transaction. Never issue multiple model mutations in the same message; wait for the returned revision before another mutation. Nested objects and dotted paths in values merge into existing fields, so send only changed fields; adding S/Wnx/b/t does not require resending A/Iy/Iz. Reviewed catalog values, units and axis mappings returned by query_model are input evidence: never recalculate or replace them from memory. Resolve a catalog conflict against its source or ask the user; do not clear catalogSource to bypass validation. Only an explicit user request to adopt a custom section permits detaching the catalog source. Verify changed/revision and updated inputs, leaving genuinely missing conditions incomplete.';
@@ -108,7 +114,7 @@ export function buildSystemMessages(ctx: SystemPromptContext): BaseMessageLike[]
   const partialProtocol = isZh
     ? '\n若抽取返回partialAnalysisAvailable，先run_analysis(method=equilibrium,allowPartial=true)交付可独立确定的内力，然后询问缺失刚度；missingRequestedResponses表示整题仍未完成。不要把输出标签填入resultKey，不要编造构件ID；平衡投影的竖向弯矩分量是M2、剪力V3、反力fz。'
     : '\nIf extraction returns partialAnalysisAvailable, first run_analysis(method=equilibrium,allowPartial=true) for independently determined forces, then ask for missing stiffness. missingRequestedResponses means the full task is incomplete. resultKey is not an output label; never invent member IDs. Equilibrium vertical bending is M2, shear V3, reaction fz.';
-  return [new SystemMessage(systemContent + policyText + checkProtocol + editProtocol + scopeProtocol + partialProtocol)];
+  return [new SystemMessage(systemContent + policyText + toolAvailability + checkProtocol + editProtocol + scopeProtocol + partialProtocol)];
 }
 
 // ---------------------------------------------------------------------------
