@@ -135,6 +135,11 @@ async function sendTurn(text, number) {
   records.push(row);
   save('summary.json', summary);
   log(row);
+  if (number <= (config.designUnconfirmedThroughTurn ?? 0)) {
+    const premature = ['materials', 'elements'].flatMap(collection => (captured.inputReview?.model?.[collection] ?? [])
+      .filter(item => item.design && Object.keys(item.design).length > 0).map(item => ({ collection, id: item.id, design: item.design })));
+    expect(premature, 'Design conditions must be explicitly confirmed before being written').toEqual([]);
+  }
   return captured;
 }
 

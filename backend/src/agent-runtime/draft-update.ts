@@ -37,7 +37,9 @@ export function clearDraftFields(state: DraftState | undefined, fields: string[]
         } else owner = owner[matches[0]!];
       } else if (record(owner)) {
         if (last) {
-          if (!Object.hasOwn(owner, key)) fail(path, 'field does not exist');
+          // Repeating an explicit withdrawal is harmless when this existing object's
+          // field is declared by the canonical schema. Typos and missing IDs still fail.
+          if (!Object.hasOwn(owner, key) && draftFieldValues(next.engineeringDraft!, path).length !== 1) fail(path, 'field is not declared');
           delete owner[key];
         } else owner = owner[key];
       } else fail(path, 'parent field does not exist');

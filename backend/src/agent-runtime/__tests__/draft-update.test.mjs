@@ -44,6 +44,19 @@ test('a full object replacement clears old geometry, while ordinary partial upda
   expect(update(before, { engineeringDraft: { sectionRecords: [{ id: 'S1', properties: { J: 5e-6 } }] } }).engineeringDraft.sectionRecords[0].properties).toEqual({ A: .008192, J: 5e-6 });
 });
 
+test('repeating a catalog withdrawal is idempotent while unknown fields and object IDs remain errors', () => {
+  const patch = { clearDraftFields: ['sectionRecords["S1"].standard_steel_name'] };
+  const once = update(original, patch);
+  const snapshot = structuredClone(once);
+  const repeated = update(once, patch);
+  expect(repeated.engineeringDraft).toEqual(snapshot.engineeringDraft);
+  expect(repeated.engineeringDraft.loads).toEqual(original.engineeringDraft.loads);
+  expect(repeated.engineeringDraft.analysisControl).toEqual(original.engineeringDraft.analysisControl);
+  expect(once).toEqual(snapshot);
+  expect(() => update(once, { clearDraftFields: ['sectionRecords["S1"].standard_steel_nam'] })).toThrow('DRAFT_CLEAR_INVALID');
+  expect(() => update(once, { clearDraftFields: ['sectionRecords["missing"].standard_steel_name'] })).toThrow('DRAFT_CLEAR_INVALID');
+});
+
 test('record updates preserve unrelated nodes, members, loads and design parameters by stable ID', () => {
   const before = { topology: { nodes: [{ id: 'N1', x: 0, z: 0 }, { id: 'N2', x: 10, z: 0 }],
     members: [{ id: 'E1', nodes: ['N1', 'N2'], type: 'beam', material: 'M', section: 'S' }] },

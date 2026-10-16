@@ -114,7 +114,10 @@ export function buildSystemMessages(ctx: SystemPromptContext): BaseMessageLike[]
   const partialProtocol = isZh
     ? '\n若抽取返回partialAnalysisAvailable，先run_analysis(method=equilibrium,allowPartial=true)交付可独立确定的内力，然后询问缺失刚度；missingRequestedResponses表示整题仍未完成。不要把输出标签填入resultKey，不要编造构件ID；平衡投影的竖向弯矩分量是M2、剪力V3、反力fz。'
     : '\nIf extraction returns partialAnalysisAvailable, first run_analysis(method=equilibrium,allowPartial=true) for independently determined forces, then ask for missing stiffness. missingRequestedResponses means the full task is incomplete. resultKey is not an output label; never invent member IDs. Equilibrium vertical bending is M2, shear V3, reaction fz.';
-  return [new SystemMessage(systemContent + policyText + toolAvailability + checkProtocol + editProtocol + scopeProtocol + partialProtocol)];
+  const designConfirmation = isZh
+    ? '\n设计补参须先确认后写入：材料牌号不等于用户已给出设计强度，熟悉的规范推荐系数和限值也不等于已获确认。用户尚未给出的设计数值只能作为建议，一次集中调用ask_user_clarification确认；确认前不得通过extract_draft_params或edit_model补入design。可从已知几何确定的截面几何属性与待确认的设计条件分别处理。已有模型只用query_model/edit_model修改；用户重复确认当前已有属性时说明已满足，不重新提取整份草稿。'
+    : '\nConfirm design inputs before writing them: a material grade is not a supplied design strength; familiar recommended code coefficients and limits are not confirmed inputs. Propose missing design values in one ask_user_clarification call. Before confirmation, do not insert them into design through extract_draft_params or edit_model. Distinguish section geometry deterministically derived from known dimensions from unconfirmed design conditions. Modify an existing model with query_model/edit_model only; if the user repeats properties already present, acknowledge that they are satisfied without re-extracting the draft.';
+  return [new SystemMessage(systemContent + policyText + toolAvailability + checkProtocol + editProtocol + scopeProtocol + partialProtocol + designConfirmation)];
 }
 
 // ---------------------------------------------------------------------------
