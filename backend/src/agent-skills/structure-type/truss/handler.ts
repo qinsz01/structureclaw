@@ -7,7 +7,7 @@ import {
   normalizeLegacyDraftPatch,
   restrictLegacyDraftPatch,
 } from '../../../agent-runtime/legacy.js';
-import { projectEngineeringDraftToLegacyPatch } from '../../../agent-runtime/engineering-draft.js';
+import { projectDraftPatch } from '../../../agent-runtime/draft/boundary.js';
 import { combineDomainKeys, composeStructuralDomainPatch } from '../../../agent-runtime/domains/structural-domains.js';
 import { buildStructuralTypeMatch, resolveLegacyStructuralStage } from '../../../agent-runtime/plugin-helpers.js';
 import { buildInteractionQuestions } from '../../../agent-runtime/fallback.js';
@@ -138,7 +138,7 @@ function applyTrussSanity(patch: DraftExtraction): DraftExtraction {
 }
 
 function toTrussPatch(patch: DraftExtraction): DraftExtraction {
-  const semanticPatch = projectEngineeringDraftToLegacyPatch(patch, 'truss');
+  const semanticPatch = projectDraftPatch(patch, 'truss');
   const domainPatch = composeStructuralDomainPatch({
     patch: semanticPatch,
     geometryKeys: GEOMETRY_KEYS,

@@ -2,7 +2,7 @@ import {
   normalizeLegacyDraftPatch,
   restrictLegacyDraftPatch,
 } from '../../../agent-runtime/legacy.js';
-import { projectEngineeringDraftToLegacyPatch } from '../../../agent-runtime/engineering-draft.js';
+import { projectDraftPatch } from '../../../agent-runtime/draft/boundary.js';
 import { composeStructuralDomainPatch } from '../../../agent-runtime/domains/structural-domains.js';
 import { normalizeNumber } from '../../../agent-runtime/fallback.js';
 import type {
@@ -28,7 +28,7 @@ import {
 import { normalizeConcreteGrade, normalizeSectionName } from './model.js';
 
 export function toConcreteFramePatch(patch: DraftExtraction): DraftExtraction {
-  const semanticPatch = projectEngineeringDraftToLegacyPatch(patch, 'frame');
+  const semanticPatch = projectDraftPatch(patch, 'frame');
   const domainPatch = composeStructuralDomainPatch({
     patch: semanticPatch,
     geometryKeys: GEOMETRY_KEYS,

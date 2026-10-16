@@ -43,22 +43,6 @@ export const draftContract: FieldSchema = { ...object({
   inputEvidence: { type: 'array', items: { type: 'object' } }, metadata: { type: 'object' },
 }), $defs: { ...modelContract.$defs, CompleteModel: { ...modelContract, $defs: undefined } } };
 
-/** Compatibility aliases name locations, never engineering defaults or answers. */
-export const legacyDraftPaths: Record<string, string> = {
-  ...Object.fromEntries(Object.keys(geometry.properties).map(key => [key, `geometry.${key}`])),
-  supportType: 'boundary.supportType', frameBaseSupportType: 'boundary.frameBaseSupportType',
-  frameDimension: 'coordinateSystem.dimension',
-  frameMaterial: 'material.grade', frameConcreteGrade: 'material.grade', frameRebarGrade: 'material.rebarGrade',
-  frameBeamSection: 'sections.beam', frameColumnSection: 'sections.column',
-  elements: 'topology.members', nodes: 'topology.nodes',
-};
-export const legacyDraftContract = object({
-  loadKN: number, loadPositionM: { type: 'number', minimum: 0 }, spanLengthM: positive,
-  loadType: choice('point', 'distributed'), loadPosition: choice('end', 'midspan', 'full-span', 'top-nodes', 'middle-joint', 'free-joint'),
-  frameDimension: choice('2d', '3d'),
-  ...Object.fromEntries(['storyCount', 'bayCount', 'bayCountX', 'bayCountY'].map(key => [key, integer])),
-});
-
 export function resolveFieldSchema(schema: FieldSchema, root: FieldSchema = draftContract): FieldSchema {
   if (schema.$ref) return resolveFieldSchema(root.$defs?.[schema.$ref.split('/').at(-1)] ?? {}, root);
   if (schema.anyOf) return resolveFieldSchema(schema.anyOf.find((item: FieldSchema) => item.type !== 'null') ?? {}, root);

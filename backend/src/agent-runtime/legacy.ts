@@ -1,21 +1,7 @@
 import { catalogResolvesMissingSectionIssue } from './section-catalog.js';
-import { clearDraftFields, normalizeClearDraftFields } from './draft-update.js';
 import { currentDraftDiagnostics } from './draft-diagnostics.js';
-import {
-  mergeDraftState,
-  normalizeFloorLoads,
-  normalizeFrameBaseSupportType,
-  normalizeFrameDimension,
-  normalizeInferredType,
-  normalizeLoadPosition,
-  normalizeLoadPositionM,
-  normalizeLoadType,
-  normalizeNumber,
-  normalizeNumberArray,
-  normalizePositiveInteger,
-  normalizeSupportType,
-} from './fallback.js';
-import { normalizeEngineeringDraft as normalizeSemanticEngineeringDraft } from './engineering-draft.js';
+import { ingestDraft, mergeDraftState } from './draft/boundary.js';
+import { invalidDraftFieldsOf, mergeFloorLoadsByStory } from './draft/normalize.js';
 import { buildModel } from './model-builder.js';
 import {
   computeMissingCriticalKeys,
@@ -28,206 +14,11 @@ import {
   stampDraftSemantics,
 } from '../engineering/coordinate-semantics.js';
 import type { AppLocale } from '../shared/locale.js';
-import type { DraftExtraction, DraftFloorLoad, DraftIssue, DraftState, InferredModelType } from '../shared/types/agent.js';
+import type { DraftExtraction, DraftFloorLoad, DraftState, InferredModelType } from '../shared/types/agent.js';
 
-function normalizeSkillState(value: unknown): Record<string, unknown> | undefined {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return undefined;
-  }
-  return { ...(value as Record<string, unknown>) };
-}
-
-function normalizeDraftIssues(value: unknown): DraftIssue[] | undefined {
-  if (!Array.isArray(value)) {
-    return undefined;
-  }
-  const issues = value
-    .map((item): DraftIssue | null => {
-      if (!item || typeof item !== 'object' || Array.isArray(item)) {
-        return null;
-      }
-      const record = item as Record<string, unknown>;
-      const severity = record.severity;
-      const reason = record.reason;
-      if (
-        severity !== 'invalid'
-        && severity !== 'ambiguous'
-        && severity !== 'unrealistic'
-        && severity !== 'conflict'
-      ) {
-        return null;
-      }
-      if (typeof reason !== 'string' || !reason.trim()) {
-        return null;
-      }
-      return {
-        ...(typeof record.field === 'string' && record.field.trim() ? { field: record.field.trim() } : {}),
-        ...(record.kind === 'missing' || record.kind === 'confirmation' ? { kind: record.kind } : {}),
-        ...(typeof record.target === 'string' ? { target: record.target } : {}),
-        ...(record.value !== undefined ? { value: record.value } : {}),
-        severity,
-        reason: reason.trim(),
-        ...(typeof record.question === 'string' && record.question.trim() ? { question: record.question.trim() } : {}),
-      };
-    })
-    .filter((item): item is DraftIssue => item !== null);
-  return issues.length ? issues : undefined;
-}
-
-function pushUnique(values: string[], key: string): void {
-  if (!values.includes(key)) {
-    values.push(key);
-  }
-}
-
-function invalidIfNonPositive(patch: Record<string, unknown>, key: string, invalid: string[]): void {
-  if (!(key in patch)) {
-    return;
-  }
-  const parsed = normalizeNumber(patch[key]);
-  if (parsed !== undefined && parsed <= 0) {
-    pushUnique(invalid, key);
-  }
-}
-
-function invalidIfArrayHasNonPositive(patch: Record<string, unknown>, key: string, invalid: string[]): void {
-  const value = patch[key];
-  if (!Array.isArray(value)) {
-    return;
-  }
-  const hasInvalid = value.some((item) => {
-    const parsed = normalizeNumber(item);
-    return parsed !== undefined && parsed <= 0;
-  });
-  if (hasInvalid) {
-    pushUnique(invalid, key);
-  }
-}
-
-function collectEngineeringDraftInvalidFields(engineeringDraft: unknown, invalid: string[]): void {
-  if (!engineeringDraft || typeof engineeringDraft !== 'object' || Array.isArray(engineeringDraft)) {
-    return;
-  }
-  const draft = engineeringDraft as Record<string, unknown>;
-  const geometry = draft.geometry;
-  if (geometry && typeof geometry === 'object' && !Array.isArray(geometry)) {
-    const rawGeometry = geometry as Record<string, unknown>;
-    invalidIfNonPositive(rawGeometry, 'lengthM', invalid);
-    invalidIfNonPositive(rawGeometry, 'heightM', invalid);
-    invalidIfArrayHasNonPositive(rawGeometry, 'spanLengthsM', invalid);
-    invalidIfArrayHasNonPositive(rawGeometry, 'storyHeightsM', invalid);
-    invalidIfArrayHasNonPositive(rawGeometry, 'bayWidthsM', invalid);
-    invalidIfArrayHasNonPositive(rawGeometry, 'bayWidthsXM', invalid);
-    invalidIfArrayHasNonPositive(rawGeometry, 'bayWidthsYM', invalid);
-  }
-  if (Array.isArray(draft.loads)) {
-    const hasInvalidLoad = draft.loads.some((item) => {
-      if (!item || typeof item !== 'object' || Array.isArray(item)) {
-        return false;
-      }
-      const record = item as Record<string, unknown>;
-      const parsed = normalizeNumber(record.magnitude ?? record.value ?? record.loadKN ?? record.forceKN ?? record.intensity);
-      return parsed === undefined;
-    });
-    if (hasInvalidLoad) {
-      pushUnique(invalid, 'loadKN');
-    }
-  }
-}
-
-function collectInvalidDraftFields(patch: Record<string, unknown>): string[] | undefined {
-  const invalid: string[] = [];
-  for (const key of ['lengthM', 'spanLengthM', 'heightM'] as const) {
-    invalidIfNonPositive(patch, key, invalid);
-  }
-  for (const key of ['storyCount', 'bayCount', 'bayCountX', 'bayCountY'] as const) {
-    invalidIfNonPositive(patch, key, invalid);
-  }
-  for (const key of ['storyHeightsM', 'bayWidthsM', 'bayWidthsXM', 'bayWidthsYM'] as const) {
-    invalidIfArrayHasNonPositive(patch, key, invalid);
-  }
-  collectEngineeringDraftInvalidFields(patch.engineeringDraft, invalid);
-  return invalid.length ? invalid : undefined;
-}
-
-function withInvalidDraftFields(
-  skillState: Record<string, unknown> | undefined,
-  invalidDraftFields: string[] | undefined,
-): Record<string, unknown> | undefined {
-  if (!skillState && !invalidDraftFields?.length) {
-    return undefined;
-  }
-  const existing = Array.isArray(skillState?.invalidDraftFields)
-    ? skillState.invalidDraftFields.filter((field): field is string => typeof field === 'string')
-    : [];
-  const merged = Array.from(new Set([
-    ...existing,
-    ...(invalidDraftFields ?? []),
-  ]));
-  return {
-    ...(skillState ?? {}),
-    ...(merged.length ? { invalidDraftFields: merged } : {}),
-  };
-}
-
-function normalizeDraftWithReportedLoadIssue(value: unknown, issues: DraftIssue[] | undefined, existing?: DraftState) {
-  try { return normalizeSemanticEngineeringDraft(value, existing?.engineeringDraft); }
-  catch (error) {
-    // A reported ambiguity is a clarification state, never a partially executable load.
-    const reported = issues?.some((issue) => issue.field === 'loadType' || issue.field === 'loadKN');
-    if (!reported || !/INVALID_ENGINEERING_LOAD|LOAD_UNIT_REQUIRED|LOAD_DIRECTION_INVALID/.test(String(error))
-      || !value || typeof value !== 'object' || Array.isArray(value)) throw error;
-    return normalizeSemanticEngineeringDraft({ ...value, loads: undefined }, existing?.engineeringDraft);
-  }
-}
-
+/** Raw patch -> extraction; the conversion itself lives in the draft boundary (`ingestDraft`). */
 export function normalizeLegacyDraftPatch(patch: Record<string, unknown> | null | undefined, existing?: DraftState): DraftExtraction {
-  if (!patch) {
-    return {};
-  }
-  const draftIssues = normalizeDraftIssues(patch.draftIssues);
-  const cleared = patch.clearDraftFields !== undefined ? normalizeClearDraftFields(patch.clearDraftFields) : undefined;
-  const accepted = existing ? clearDraftFields(existing, cleared) : existing;
-  const engineeringDraft = normalizeDraftWithReportedLoadIssue(patch.engineeringDraft, draftIssues, accepted);
-  const issueFields = draftIssues
-    ?.map((issue) => issue.field)
-    .filter((field): field is string => typeof field === 'string' && field.trim().length > 0);
-  const invalidDraftFields = Array.from(new Set([
-    ...(collectInvalidDraftFields(engineeringDraft?.loads && patch.engineeringDraft && typeof patch.engineeringDraft === 'object'
-      ? { ...patch, engineeringDraft: { ...patch.engineeringDraft, loads: engineeringDraft.loads } } : patch) ?? []),
-    ...(issueFields ?? []),
-  ]));
-  const skillState = withInvalidDraftFields(
-    normalizeSkillState(patch.skillState),
-    invalidDraftFields.length ? invalidDraftFields : undefined,
-  );
-  return {
-    inferredType: normalizeInferredType(patch.inferredType),
-    ...(cleared !== undefined ? { clearDraftFields: cleared } : {}),
-    skillId: typeof patch.skillId === 'string' ? patch.skillId : undefined,
-    engineeringDraft,
-    draftIssues,
-    skillState,
-    lengthM: normalizeNumber(patch.lengthM),
-    spanLengthM: normalizeNumber(patch.spanLengthM),
-    heightM: normalizeNumber(patch.heightM),
-    supportType: normalizeSupportType(patch.supportType),
-    frameDimension: normalizeFrameDimension(patch.frameDimension),
-    storyCount: normalizePositiveInteger(patch.storyCount),
-    bayCount: normalizePositiveInteger(patch.bayCount),
-    bayCountX: normalizePositiveInteger(patch.bayCountX),
-    bayCountY: normalizePositiveInteger(patch.bayCountY),
-    storyHeightsM: normalizeNumberArray(patch.storyHeightsM),
-    bayWidthsM: normalizeNumberArray(patch.bayWidthsM),
-    bayWidthsXM: normalizeNumberArray(patch.bayWidthsXM),
-    bayWidthsYM: normalizeNumberArray(patch.bayWidthsYM),
-    floorLoads: normalizeFloorLoads(patch.floorLoads),
-    frameBaseSupportType: normalizeFrameBaseSupportType(patch.frameBaseSupportType),
-    loadKN: normalizeNumber(patch.loadKN),
-    loadType: normalizeLoadType(patch.loadType),
-    loadPosition: normalizeLoadPosition(patch.loadPosition),
-    loadPositionM: normalizeLoadPositionM(patch.loadPositionM),
-  };
+  return ingestDraft(patch, existing);
 }
 
 function mergeFloorLoadsWithSupplemental(
@@ -240,23 +31,7 @@ function mergeFloorLoadsWithSupplemental(
   if (!supplementalFloorLoads?.length) {
     return [...llmFloorLoads].sort((left, right) => left.story - right.story);
   }
-
-  const merged = new Map<number, DraftFloorLoad>();
-  for (const load of supplementalFloorLoads) {
-    merged.set(load.story, { ...load });
-  }
-  for (const load of llmFloorLoads) {
-    const current = merged.get(load.story);
-    merged.set(load.story, {
-      story: load.story,
-      verticalKN: load.verticalKN ?? current?.verticalKN,
-      liveLoadKN: load.liveLoadKN ?? current?.liveLoadKN,
-      lateralXKN: load.lateralXKN ?? current?.lateralXKN,
-      lateralYKN: load.lateralYKN ?? current?.lateralYKN,
-    });
-  }
-
-  return Array.from(merged.values()).sort((left, right) => left.story - right.story);
+  return mergeFloorLoadsByStory(supplementalFloorLoads, llmFloorLoads);
 }
 
 function mergeSkillStateWithSupplemental(
@@ -323,7 +98,7 @@ export function normalizeLlmDraftPatch(
   llmDraftPatch: Record<string, unknown> | null | undefined,
   existing?: DraftState,
 ): DraftExtraction {
-  return normalizeLegacyDraftPatch(llmDraftPatch, existing);
+  return ingestDraft(llmDraftPatch, existing);
 }
 
 export function restrictLegacyDraftPatch(
@@ -369,11 +144,7 @@ export function computeLegacyMissing(
   state = currentDraftDiagnostics(state);
   const allowed = new Set(allowedKeys);
   const critical = computeMissingCriticalKeys(state).filter((key) => allowed.has(key));
-  const invalidDraftFields = Array.isArray(state.skillState?.invalidDraftFields)
-    ? state.skillState.invalidDraftFields.filter((field): field is string => (
-      typeof field === 'string' && allowed.has(field)
-    ))
-    : [];
+  const invalidDraftFields = invalidDraftFieldsOf(state).filter((field) => allowed.has(field));
   const issueFields = Array.isArray(state.draftIssues)
     ? state.draftIssues
       .filter((issue) => !catalogResolvesMissingSectionIssue(state.engineeringDraft, issue))

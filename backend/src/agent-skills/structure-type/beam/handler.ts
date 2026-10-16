@@ -7,7 +7,7 @@ import {
   normalizeLegacyDraftPatch,
   restrictLegacyDraftPatch,
 } from '../../../agent-runtime/legacy.js';
-import { projectEngineeringDraftToLegacyPatch } from '../../../agent-runtime/engineering-draft.js';
+import { projectBeamLoads, projectDraftPatch, projectDraftState } from '../../../agent-runtime/draft/boundary.js';
 import { combineDomainKeys, composeStructuralDomainPatch } from '../../../agent-runtime/domains/structural-domains.js';
 import { buildStructuralTypeMatch, resolveLegacyStructuralStage } from '../../../agent-runtime/plugin-helpers.js';
 import { buildInteractionQuestions } from '../../../agent-runtime/fallback.js';
@@ -146,21 +146,11 @@ function clearResolvedBeamLoadConflict(state: DraftState): DraftState {
   const invalidDraftFields = Array.isArray(state.skillState?.invalidDraftFields)
     ? state.skillState.invalidDraftFields.filter((field) => field !== 'loadPosition')
     : undefined;
-  const skillState = state.skillState
+  const projected = projectDraftState(nextEngineeringDraft, state, { mirror: 'whenSkillState' });
+  const skillState = projected.skillState
     ? {
-      ...state.skillState,
-      engineeringDraft: nextEngineeringDraft,
-      beamLoads: loads.map((load) => ({
-        kind: load.kind === 'line' || load.kind === 'distributed' || load.unit === 'kN/m'
-          ? 'distributed'
-          : 'point',
-        magnitude: load.magnitude,
-        unit: load.unit,
-        direction: load.direction,
-        target: load.target,
-        xM: load.location?.xM,
-        spanIndex: load.location?.spanIndex,
-      })),
+      ...projected.skillState,
+      beamLoads: projectBeamLoads(loads),
       invalidDraftFields: invalidDraftFields?.length ? invalidDraftFields : undefined,
     }
     : undefined;
@@ -172,8 +162,7 @@ function clearResolvedBeamLoadConflict(state: DraftState): DraftState {
     ? resolvedPointLoad.location?.xM ?? beamNodeCoordinate(nextEngineeringDraft, resolvedPointLoad.target)
     : undefined;
   return {
-    ...state,
-    engineeringDraft: nextEngineeringDraft,
+    ...projected,
     draftIssues: draftIssues?.length ? draftIssues : undefined,
     skillState,
     loadPositionM: resolvedPointLoadX ?? state.loadPositionM,
@@ -213,7 +202,7 @@ function applyBeamDefaults(patch: DraftExtraction): DraftExtraction {
 }
 
 function toBeamPatch(patch: DraftExtraction): DraftExtraction {
-  const semanticPatch = projectEngineeringDraftToLegacyPatch(patch, 'beam');
+  const semanticPatch = projectDraftPatch(patch, 'beam');
   const domainPatch = composeStructuralDomainPatch({
     patch: semanticPatch,
     geometryKeys: GEOMETRY_KEYS,

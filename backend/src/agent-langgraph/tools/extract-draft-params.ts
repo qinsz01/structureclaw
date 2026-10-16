@@ -1,4 +1,5 @@
 import { computeDraftMissing } from '../../agent-runtime/draft-readiness.js';
+import { projectDraftState } from '../../agent-runtime/draft/boundary.js';
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 import type { AgentSkillRuntime } from '../../agent-runtime/index.js';
@@ -225,12 +226,11 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
         const requestScope = resolveExtractedScope(input.requestScope, draftPatch?.requestScope, state?.requestScope, scopeDiagnostics);
         if (scopeDiagnostics.length) recordRunEvent({ kind: 'request_scope_diagnostic', source: 'parameter-extractor', diagnostics: scopeDiagnostics,
           resolvedBy: input.requestScope ? 'declared-request' : state?.requestScope ? 'accepted-request' : 'clarification' });
-        const nextState = { ...withStructuralTypeState(plugin.handler.mergeState(existingState, patch), match),
+        let nextState = { ...withStructuralTypeState(plugin.handler.mergeState(existingState, patch), match),
           ...(requestScope ? { requestScope } : {}) };
         if (nextState.engineeringDraft?.sectionRecords?.length || Array.isArray(nextState.engineeringDraft?.model?.sections)) {
           designContract ??= await engineeringModelSchema(protocolClient);
-          nextState.engineeringDraft = normalizeDraftSectionInputs(nextState.engineeringDraft!, designContract);
-          if (nextState.skillState?.engineeringDraft) nextState.skillState = { ...nextState.skillState, engineeringDraft: nextState.engineeringDraft };
+          nextState = projectDraftState(normalizeDraftSectionInputs(nextState.engineeringDraft!, designContract), nextState);
         }
         if (hasDraftDesignInputs(nextState.engineeringDraft)) {
           designContract ??= await engineeringModelSchema(protocolClient);

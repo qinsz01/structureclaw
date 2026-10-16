@@ -1,24 +1,10 @@
 import { mapMissingFieldLabels } from '../../../agent-runtime/draft-guidance.js';
-import { clearDraftFields, normalizeClearDraftFields } from '../../../agent-runtime/draft-update.js';
-import {
-  buildInteractionQuestions,
-  mergeDraftState,
-  normalizeInferredType,
-  normalizeLoadPosition,
-  normalizeLoadPositionM,
-  normalizeLoadType,
-  normalizeNumber,
-  normalizeSupportType,
-} from '../../../agent-runtime/fallback.js';
-import {
-  normalizeEngineeringDraft,
-  projectEngineeringDraftToLegacyPatch,
-} from '../../../agent-runtime/engineering-draft.js';
+import { buildInteractionQuestions } from '../../../agent-runtime/fallback.js';
+import { ingestGenericDraft, mergeDraftState } from '../../../agent-runtime/draft/boundary.js';
 import { buildStructuralTypeMatch } from '../../../agent-runtime/plugin-helpers.js';
 import type {
   DraftExtraction,
   DraftState,
-  InferredModelType,
   SkillHandler,
   SkillReportNarrativeInput,
 } from '../../../shared/types/agent.js';
@@ -31,157 +17,6 @@ function hasStructuralIntent(text: string): boolean {
     return true;
   }
   return /(\d+(?:\.\d+)?)\s*(m|米|kn|kN|千牛)/.test(text);
-}
-
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : undefined;
-}
-
-function firstRecord(value: unknown): Record<string, unknown> | undefined {
-  return Array.isArray(value) ? asRecord(value[0]) : asRecord(value);
-}
-
-function stringValue(value: unknown): string | undefined {
-  return typeof value === 'string' ? value.trim() : undefined;
-}
-
-function normalizeLlmDeclaredType(value: unknown): InferredModelType | undefined {
-  const normalizedText = stringValue(value)?.toLowerCase().trim();
-  if (!normalizedText) return undefined;
-  const normalized = normalizeInferredType(normalizedText);
-  if (normalized && normalized !== 'unknown') return normalized;
-  if (
-    normalizedText === 'steel-frame'
-    || normalizedText === 'concrete-frame'
-    || normalizedText === 'reinforced-concrete-frame'
-  ) {
-    return 'frame';
-  }
-  if (normalizedText === 'portal') return 'portal-frame';
-  if (normalizedText === 'girder') return 'beam';
-  return undefined;
-}
-
-function draftIssuesFromSource(source: Record<string, unknown>): DraftExtraction['draftIssues'] {
-  const issues = source.draftIssues;
-  if (!Array.isArray(issues)) {
-    return undefined;
-  }
-  return issues.filter((issue): issue is NonNullable<DraftExtraction['draftIssues']>[number] => (
-    !!issue && typeof issue === 'object' && !Array.isArray(issue)
-  ));
-}
-
-function genericSkillStateFromSource(source: Record<string, unknown>): Record<string, unknown> {
-  const sourceSkillState = asRecord(source.skillState);
-  return {
-    ...(sourceSkillState ?? {}),
-    genericDraft: source,
-  };
-}
-
-function inferSupportTypeFromText(value: unknown): DraftExtraction['supportType'] {
-  const normalized = normalizeSupportType(value);
-  if (normalized) return normalized;
-  const text = stringValue(value)?.toLowerCase();
-  if (!text) return undefined;
-  if (text.includes('simply') || text.includes('simple') || text.includes('简支')) return 'simply-supported';
-  if (text.includes('cantilever') || text.includes('悬臂')) return 'cantilever';
-  if (text.includes('fixed-fixed') || text.includes('两端固')) return 'fixed-fixed';
-  if (text.includes('fixed-pinned') || text.includes('固铰')) return 'fixed-pinned';
-  return undefined;
-}
-
-function inferLoadTypeFromPatch(patch: Record<string, unknown>): DraftExtraction['loadType'] {
-  const normalized = normalizeLoadType(patch.loadType ?? patch.load_type);
-  if (normalized) return normalized;
-  if (Array.isArray(patch.pointLoads) || Array.isArray(patch.point_loads)) return 'point';
-  if (Array.isArray(patch.distributedLoads) || Array.isArray(patch.distributed_loads)) return 'distributed';
-  return undefined;
-}
-
-function normalizeGenericDraftPatch(
-  llmDraftPatch: Record<string, unknown> | null | undefined,
-  existing?: DraftState,
-): DraftExtraction {
-  const source = llmDraftPatch ?? {};
-  const cleared = source.clearDraftFields !== undefined ? normalizeClearDraftFields(source.clearDraftFields) : undefined;
-  const accepted = existing ? clearDraftFields(existing, cleared) : existing;
-  const engineeringDraft = normalizeEngineeringDraft(source.engineeringDraft, accepted?.engineeringDraft);
-  const pointLoad = firstRecord(source.pointLoads ?? source.point_loads);
-  const distributedLoad = firstRecord(source.distributedLoads ?? source.distributed_loads);
-  const span = normalizeNumber(source.lengthM ?? source.spanLengthM ?? source.span ?? source.length);
-  const loadValue = normalizeNumber(
-    source.loadKN
-    ?? source.load
-    ?? source.loadValue
-    ?? pointLoad?.force
-    ?? pointLoad?.value
-    ?? pointLoad?.magnitude
-    ?? distributedLoad?.force
-    ?? distributedLoad?.value,
-  );
-  const loadPositionM = normalizeLoadPositionM(
-    source.loadPositionM
-    ?? source.position
-    ?? pointLoad?.position
-    ?? pointLoad?.positionM,
-  );
-  const loadType = inferLoadTypeFromPatch(source);
-  const explicitType = normalizeInferredType(source.inferredType);
-  const inferredType =
-    (explicitType && explicitType !== 'unknown' ? explicitType : undefined)
-    ?? normalizeLlmDeclaredType(engineeringDraft?.structureType)
-    ?? normalizeLlmDeclaredType(source.componentType)
-    ?? normalizeLlmDeclaredType(source.structureType)
-    ?? normalizeLlmDeclaredType(source.structuralType)
-    ?? normalizeLlmDeclaredType(source.type);
-
-  const patch: DraftExtraction = {};
-  if (cleared !== undefined) patch.clearDraftFields = cleared;
-  if (inferredType) patch.inferredType = inferredType;
-  if (engineeringDraft) patch.engineeringDraft = engineeringDraft;
-  const draftIssues = draftIssuesFromSource(source);
-  if (draftIssues?.length) patch.draftIssues = draftIssues;
-  if (span !== undefined) patch.lengthM = span;
-  if (loadValue !== undefined) patch.loadKN = loadValue;
-  if (loadType) patch.loadType = loadType;
-  const supportType = inferSupportTypeFromText(
-    source.supportType
-    ?? source.supportCondition
-    ?? source.support_condition
-    ?? source.boundaryCondition,
-  );
-  if (supportType) patch.supportType = supportType;
-  const loadPosition = normalizeLoadPosition(source.loadPosition ?? source.load_position);
-  if (loadPosition) {
-    patch.loadPosition = loadPosition;
-  } else if (loadType === 'point' && span !== undefined && loadPositionM !== undefined && Math.abs(loadPositionM - span / 2) < 1e-6) {
-    patch.loadPosition = 'midspan';
-  } else if (loadType === 'distributed') {
-    patch.loadPosition = 'full-span';
-  }
-  if (loadPositionM !== undefined) patch.loadPositionM = loadPositionM;
-
-  if (Object.keys(source).length > 0) {
-    const skillState = genericSkillStateFromSource(source);
-    const existingInvalidDraftFields = Array.isArray(skillState.invalidDraftFields)
-      ? skillState.invalidDraftFields.filter((field): field is string => typeof field === 'string')
-      : [];
-    const issueFields = draftIssues
-      ?.map((issue) => issue.field)
-      .filter((field): field is string => typeof field === 'string' && field.trim().length > 0)
-      ?? [];
-    patch.skillState = {
-      ...skillState,
-      ...((existingInvalidDraftFields.length || issueFields.length)
-        ? { invalidDraftFields: Array.from(new Set([...existingInvalidDraftFields, ...issueFields])) }
-        : {}),
-    };
-  }
-  return inferredType ? projectEngineeringDraftToLegacyPatch(patch, inferredType) : patch;
 }
 
 function buildGenericReportNarrative(input: SkillReportNarrativeInput): string {
@@ -258,7 +93,7 @@ export const handler: SkillHandler = {
   },
 
   extractDraft({ llmDraftPatch, currentState }) {
-    return normalizeGenericDraftPatch(llmDraftPatch, currentState);
+    return ingestGenericDraft(llmDraftPatch, currentState);
   },
 
   mergeState(existing, patch) {

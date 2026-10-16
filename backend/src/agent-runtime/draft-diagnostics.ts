@@ -1,29 +1,13 @@
 import type { DraftExtraction, DraftIssue, DraftState, EngineeringDraft } from '../shared/types/agent.js';
 import { engineeringLoadClarifiesExisting } from './engineering-draft.js';
 import { resolveTemplateMaterials } from './template-properties.js';
-import { draftContract, legacyDraftContract, legacyDraftPaths, resolveFieldSchema, validDraftValue, type FieldSchema } from '../engineering/draft-contract.js';
+import { draftContract, resolveFieldSchema, validDraftValue, type FieldSchema } from '../engineering/draft-contract.js';
+import { canonicalDraftPath as canonicalPath, legacyDraftContract, withLegacyScalarViews } from './draft/legacy-fields.js';
+import { invalidDraftFieldsOf } from './draft/normalize.js';
 
 import { fieldTokens as tokens, type FieldToken as Token } from '../engineering/field-path.js';
 type Located = { path: string; value: unknown; schema: FieldSchema };
 const record = (value: unknown): value is Record<string, any> => !!value && typeof value === 'object' && !Array.isArray(value);
-const invalidFields = (state: DraftExtraction | DraftState | undefined): string[] =>
-  Array.isArray(state?.skillState?.invalidDraftFields) ? state.skillState.invalidDraftFields.filter((v): v is string => typeof v === 'string') : [];
-
-function canonicalPath(field: string): string {
-  const path = field.replace(/^engineeringDraft\./, '');
-  const root = tokens(path)[0]?.key;
-  return root && legacyDraftPaths[root] ? legacyDraftPaths[root] + path.slice(root.length) : path;
-}
-function stateData(state: DraftExtraction | DraftState): Record<string, unknown> {
-  // Historical scalar fields are read only at the compatibility boundary.
-  const result: Record<string, any> = { ...state, ...(state.engineeringDraft ?? {}) };
-  for (const [old, path] of Object.entries(legacyDraftPaths)) {
-    if (state[old] === undefined || !path.includes('.')) continue;
-    const [owner, key] = path.split('.');
-    result[owner!] = { [key!]: state[old], ...(result[owner!] ?? {}) };
-  }
-  return result;
-}
 function locate(state: DraftExtraction | DraftState, field: string): Located[] {
   const path = canonicalPath(field), keys = tokens(path);
   if (!keys.length) return [];
@@ -45,7 +29,7 @@ function locate(state: DraftExtraction | DraftState, field: string): Located[] {
     if (!child) return [];
     return walk(record(value) ? value[part!.key] : undefined, child, tail, address ? `${address}.${part!.key}` : part!.key);
   };
-  return walk(stateData(state), { ...draftContract, properties: { ...legacyDraftContract.properties, ...draftContract.properties } }, keys, '');
+  return walk(withLegacyScalarViews(state), { ...draftContract, properties: { ...legacyDraftContract.properties, ...draftContract.properties } }, keys, '');
 }
 
 export function draftFieldValues(draft: EngineeringDraft, field: string): Located[] {
@@ -123,7 +107,7 @@ export function mergeDraftDiagnostics(existing: DraftState | undefined, patch: D
       const locations = locate(merged, issue.field);
       return locations.length === 1 ? { ...issue, target: locations[0]!.path } : issue;
     });
-  const legacy = [...new Set([...invalidFields(existing), ...invalidFields(patch)])]
+  const legacy = [...new Set([...invalidDraftFieldsOf(existing), ...invalidDraftFieldsOf(patch)])]
     .filter(field => issues.some(issue => issue.field === field)
       || !(existing?.draftIssues ?? []).some(issue => issue.field === field) && !resolved({ field, severity: 'invalid', reason: 'Legacy diagnostic' }));
   const fields = [...new Set([...legacy, ...issues.flatMap(issue => issue.field ? [issue.field] : [])])];
@@ -137,5 +121,5 @@ export function currentDraftDiagnostics(state: DraftState): DraftState {
 }
 
 export function unresolvedDraftFields(state: DraftState): string[] {
-  return [...new Set([...(state.draftIssues ?? []).map(issue => issue.field ?? issue.reason), ...invalidFields(state)])];
+  return [...new Set([...(state.draftIssues ?? []).map(issue => issue.field ?? issue.reason), ...invalidDraftFieldsOf(state)])];
 }

@@ -5,9 +5,10 @@ import {
 import {
   hasIncompleteFramePointLoadLocation,
   mergeFrameFloorLoadValues,
-  projectEngineeringDraftToLegacyPatch,
   projectWindPressureToFloorLoads,
 } from '../../../agent-runtime/engineering-draft.js';
+import { projectDraftPatch } from '../../../agent-runtime/draft/boundary.js';
+import { normalizeWindTerrainRoughness } from '../../../agent-runtime/draft/normalize.js';
 import { composeStructuralDomainPatch } from '../../../agent-runtime/domains/structural-domains.js';
 import { normalizeNumber } from '../../../agent-runtime/fallback.js';
 import type {
@@ -73,7 +74,7 @@ function withIncompleteFramePointLoadIssue(
 }
 
 export function toFramePatch(patch: DraftExtraction): DraftExtraction {
-  const semanticPatch = projectEngineeringDraftToLegacyPatch(patch, 'frame');
+  const semanticPatch = projectDraftPatch(patch, 'frame');
   const domainPatch = composeStructuralDomainPatch({
     patch: semanticPatch,
     geometryKeys: GEOMETRY_KEYS,
@@ -133,11 +134,6 @@ function normalizePlainRecord(value: unknown): Record<string, unknown> | undefin
   return value && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>
     : undefined;
-}
-
-function normalizeWindTerrainRoughness(value: unknown): DraftWindParams['terrainRoughness'] | undefined {
-  const raw = typeof value === 'string' ? value.trim().toUpperCase().replace(/类$/, '') : undefined;
-  return raw === 'A' || raw === 'B' || raw === 'C' || raw === 'D' ? raw : undefined;
 }
 
 function normalizeWindPatch(

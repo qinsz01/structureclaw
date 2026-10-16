@@ -6,7 +6,7 @@ import {
   normalizeLegacyDraftPatch,
   restrictLegacyDraftPatch,
 } from '../../../agent-runtime/legacy.js';
-import { projectEngineeringDraftToLegacyPatch } from '../../../agent-runtime/engineering-draft.js';
+import { projectDraftPatch } from '../../../agent-runtime/draft/boundary.js';
 import { buildInteractionQuestions } from '../../../agent-runtime/fallback.js';
 import { buildStructuralTypeMatch, resolveLegacyStructuralStage } from '../../../agent-runtime/plugin-helpers.js';
 import { buildDefaultReportNarrative } from '../../../agent-runtime/report-template.js';
@@ -24,7 +24,7 @@ import type {
 const ALLOWED_KEYS = ['heightM', 'lengthM', 'loadKN', 'loadType', 'loadPosition'];
 
 function toColumnPatch(patch: DraftExtraction): DraftExtraction {
-  const semanticPatch = projectEngineeringDraftToLegacyPatch(patch, 'column');
+  const semanticPatch = projectDraftPatch(patch, 'column');
   const nextPatch = restrictLegacyDraftPatch(semanticPatch, 'column', ALLOWED_KEYS);
   if (nextPatch.heightM === undefined && nextPatch.lengthM !== undefined) {
     nextPatch.heightM = nextPatch.lengthM;

@@ -7,7 +7,7 @@ import {
   normalizeLegacyDraftPatch,
   restrictLegacyDraftPatch,
 } from '../../../agent-runtime/legacy.js';
-import { projectEngineeringDraftToLegacyPatch } from '../../../agent-runtime/engineering-draft.js';
+import { projectDraftPatch } from '../../../agent-runtime/draft/boundary.js';
 import { combineDomainKeys, composeStructuralDomainPatch } from '../../../agent-runtime/domains/structural-domains.js';
 import { buildStructuralTypeMatch, resolveLegacyStructuralStage } from '../../../agent-runtime/plugin-helpers.js';
 import { buildInteractionQuestions } from '../../../agent-runtime/fallback.js';
@@ -28,7 +28,7 @@ const LOAD_BOUNDARY_KEYS = ['loadKN', 'loadType', 'loadPosition'] as const;
 const ALLOWED_KEYS = combineDomainKeys(GEOMETRY_KEYS, LOAD_BOUNDARY_KEYS);
 
 function toDoubleSpanPatch(patch: DraftExtraction): DraftExtraction {
-  const semanticPatch = projectEngineeringDraftToLegacyPatch(patch, 'double-span-beam');
+  const semanticPatch = projectDraftPatch(patch, 'double-span-beam');
   const domainPatch = composeStructuralDomainPatch({
     patch: semanticPatch,
     geometryKeys: GEOMETRY_KEYS,

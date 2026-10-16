@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, test } from '@jest/globals';
 import { withDeclaredProperties } from '../../../tests/fixtures/declared-template-properties.mjs';
 import { normalizeLegacyDraftPatch } from '../../../dist/agent-runtime/legacy.js';
+import { ingestDraft, projectDraftState } from '../../../dist/agent-runtime/draft/boundary.js';
 import { buildParamExtractorPrompt } from '../../../dist/agent-langgraph/param-extractor.js';
 
 const fixture = JSON.parse(readFileSync(new URL('../../../tests/fixtures/draft-boundary-compat-20261017.json', import.meta.url), 'utf8'));
@@ -38,6 +39,21 @@ describe('old persisted draft states', () => {
     expect(ingested.value.engineeringDraft).toEqual(stored);
   });
 
+  test.each(fixture.scenarios.map(item => [item.id, item]))('%s: ingest -> project round-trips through the boundary', (_id, scenario) => {
+    const ingested = attempt(() => ingestDraft(structuredClone(scenario.state)));
+    expect(ingested).toEqual(scenario.expected.ingest);
+    const projected = projectDraftState(ingested.value.engineeringDraft, structuredClone(scenario.state));
+    expect(pick(projected, FLAT_FIELDS)).toBe(pick(scenario.state, FLAT_FIELDS));
+    const { engineeringDraft: _draft, skillState, ...rest } = projected;
+    const { engineeringDraft: _stored, skillState: storedSkillState, ...storedRest } = scenario.state;
+    expect(rest).toEqual(storedRest);
+    const { engineeringDraft: mirror, ...skillRest } = skillState ?? {};
+    const { engineeringDraft: _storedMirror, ...storedSkillRest } = storedSkillState ?? {};
+    expect(skillRest).toEqual(storedSkillRest);
+    // The mirror is written only where it was persisted before, and then equals the canonical draft.
+    expect(mirror).toEqual(storedSkillState?.engineeringDraft === undefined ? undefined : projected.engineeringDraft);
+  });
+
   test.each(fixture.scenarios.map(item => [item.id, item]))('%s: the next turn behaves exactly as before', (_id, scenario) => {
     const handler = handlers[scenario.skillId];
     const original = structuredClone(scenario.state);
@@ -67,6 +83,30 @@ describe('old persisted draft states', () => {
     const stale = fixture.scenarios.find(item => item.id === 'fixture-catalog-stale-mirror');
     expect(stale.state.skillState.engineeringDraft.geometry).toEqual({ lengthM: 9 });
     expect(JSON.parse(stale.expected.next.json).skillState.engineeringDraft.geometry).toEqual({ lengthM: 10 });
+  });
+});
+
+describe('projectDraftState', () => {
+  const draft = { structureType: 'beam', geometry: { lengthM: 6 } };
+  test('never invents a skill state or a mirror that was not persisted', () => {
+    const plain = { inferredType: 'beam', lengthM: 6, updatedAt: 1 };
+    expect(Object.keys(projectDraftState(draft, plain))).toEqual(['inferredType', 'lengthM', 'updatedAt', 'engineeringDraft']);
+    const withState = { inferredType: 'beam', engineeringDraft: {}, skillState: { extractionSource: 'llm' }, updatedAt: 1 };
+    expect(projectDraftState(draft, withState)).toEqual({ ...withState, engineeringDraft: draft });
+    expect(projectDraftState(undefined, plain)).toEqual(plain);
+    expect(Object.keys(projectDraftState(undefined, plain))).toEqual(Object.keys(plain));
+  });
+
+  test('refreshes an existing mirror in place, or adds one on request when a skill state exists', () => {
+    const stale = { inferredType: 'beam', engineeringDraft: { structureType: 'beam' }, skillState: { engineeringDraft: { old: true }, beamLoads: [] }, updatedAt: 1 };
+    const refreshed = projectDraftState(draft, stale);
+    expect(refreshed.skillState).toEqual({ engineeringDraft: draft, beamLoads: [] });
+    expect(Object.keys(refreshed.skillState)).toEqual(['engineeringDraft', 'beamLoads']);
+    expect(stale.skillState.engineeringDraft).toEqual({ old: true });
+    const noMirror = { inferredType: 'beam', engineeringDraft: {}, skillState: { invalidDraftFields: ['loadPosition'] }, updatedAt: 1 };
+    expect(projectDraftState(draft, noMirror, { mirror: 'whenSkillState' }).skillState)
+      .toEqual({ invalidDraftFields: ['loadPosition'], engineeringDraft: draft });
+    expect(projectDraftState(draft, { inferredType: 'beam', updatedAt: 1 }, { mirror: 'whenSkillState' })).not.toHaveProperty('skillState');
   });
 });
 

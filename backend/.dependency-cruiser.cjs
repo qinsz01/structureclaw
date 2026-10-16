@@ -36,12 +36,12 @@ const COMPAT_SHIMS = '^src/runtime/policy-settings\\.ts$';
 //
 // 2. Structure-type and section skill handlers are plugins of agent-runtime and consume its
 //    skill-handler/draft SDK (legacy draft normalisation, fallback, engineering-draft, draft guidance,
-//    routing and report helpers). Moving that SDK out of agent-runtime would pull the whole draft core
-//    into the domain layer; blueprint step 10 (Single Draft, agent-runtime/draft/) owns that redesign,
-//    so exactly these edges are allowed until then. No other L2 module may import L3, and the handlers
-//    may not import any other agent-runtime module.
+//    routing and report helpers, and the agent-runtime/draft/ boundary). Moving that SDK out of
+//    agent-runtime would pull the whole draft core into the domain layer, so exactly these edges are
+//    allowed. No other L2 module may import L3, and the handlers may not import any other
+//    agent-runtime module.
 const SKILL_HANDLER_PLUGINS = '^src/agent-skills/(structure-type|section)/';
-const SKILL_HANDLER_SDK = '^src/agent-runtime/(legacy|fallback|engineering-draft|draft-guidance|draft-update|explicit-model|template-properties|plugin-helpers|structural-routing|report-template|reference-vectors|domains/structural-domains)\\.ts$';
+const SKILL_HANDLER_SDK = '^src/agent-runtime/(legacy|fallback|engineering-draft|draft/boundary|draft/normalize|draft-guidance|explicit-model|template-properties|plugin-helpers|structural-routing|report-template|reference-vectors|domains/structural-domains)\\.ts$';
 
 function layerRule(name, from, to, comment, { fromNot = COMPAT_SHIMS, toNot } = {}) {
   return {
