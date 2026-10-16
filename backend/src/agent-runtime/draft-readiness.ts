@@ -1,6 +1,5 @@
 import { buildExplicitDraftModel } from './explicit-model.js';
 import { templatePropertyIssues } from './template-properties.js';
-import { isValidConcreteGrade, isValidRebarGrade, resolveSectionProps } from '../agent-skills/structure-type/concrete-frame/model.js';
 import type { AgentSkillPlugin, DraftState, InteractionQuestion, SkillMissingResult } from '../shared/types/agent.js';
 import type { AppLocale } from '../shared/locale.js';
 import { equilibriumModel } from '../engineering/beam-equilibrium.js';
@@ -71,15 +70,10 @@ export function computeDraftMissing(plugin: ReadinessPlugin, state: DraftState, 
   const critical = missing.critical.filter(field => !isDesignDraftField(field) && (scope?.design !== false || field !== 'frameRebarGrade'));
   const optional = [...new Set([...missing.optional, ...pendingDesign, ...missing.critical.filter(isDesignDraftField)])];
   if (plugin.id === 'generic') return { critical, optional: optional.filter((key) => !critical.includes(key)) };
-  if (plugin.id === 'concrete-frame' && scope?.design !== false) {
-    if (typeof state.frameConcreteGrade !== 'string' || !isValidConcreteGrade(state.frameConcreteGrade)) critical.push('frameConcreteGrade');
-    if (typeof state.frameRebarGrade !== 'string' || !isValidRebarGrade(state.frameRebarGrade)) critical.push('frameRebarGrade');
-    for (const field of ['frameBeamSection', 'frameColumnSection'] as const) {
-      try {
-        if (typeof state[field] !== 'string' || !state[field]) throw new Error('missing');
-        resolveSectionProps(state[field] as string);
-      } catch { critical.push(field); }
-    }
+  // Skill-specific design prerequisites come from the resolved handler (e.g. concrete-frame grades/sections).
+  const designMissing = scope?.design !== false ? plugin.handler.computeDesignMissing?.(state) : undefined;
+  if (designMissing) {
+    critical.push(...designMissing);
   } else if (['beam', 'frame', 'concrete-frame', 'truss', 'column', 'double-span-beam', 'portal-frame'].includes(plugin.id) && templatePropertyIssues(state).length) {
     critical.push('templateProperties');
   }

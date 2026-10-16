@@ -1,6 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 import { computeDraftMissing, buildDraftQuestions } from '../../../dist/agent-runtime/draft-readiness.js';
 import { handler } from '../../../dist/agent-skills/structure-type/beam/handler.js';
+import { handler as concreteFrameHandler } from '../../../dist/agent-skills/structure-type/concrete-frame/handler.js';
 
 const beam = { inferredType:'beam', frameDimension:'2d', lengthM:6, loadKN:10, loadType:'point', loadPosition:'end', supportType:'cantilever', updatedAt:0 };
 const material = { id:'M',name:'Elastic material',E:206000,nu:0.3,rho:7850 };
@@ -52,7 +53,7 @@ describe('unified draft readiness',()=>{
     expect(buildDraftQuestions(plugin,['engineeringDraft'],[],state,'en')[0].question).toContain('unknown section');
   });
   test('checks concrete-specific material fields without demanding frameMaterial',()=>{
-    const concrete={id:'concrete-frame',handler:{...handler,computeMissing:()=>({critical:[],optional:[]})}};
+    const concrete={id:'concrete-frame',handler:{...concreteFrameHandler,computeMissing:()=>({critical:[],optional:[]})}};
     const state={...beam,inferredType:'frame',frameConcreteGrade:'C30',frameRebarGrade:'HRB400',frameColumnSection:'500X500',frameBeamSection:'300X600'};
     expect(computeDraftMissing(concrete,state,'execution').critical).toEqual([]);
     delete state.frameRebarGrade;

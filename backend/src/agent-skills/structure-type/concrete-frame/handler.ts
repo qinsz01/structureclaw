@@ -13,7 +13,7 @@ import {
   resolveConcreteFrameStage,
 } from './interaction.js';
 import { mergeConcreteFrameState } from './merge.js';
-import { buildConcreteFrameModel, getConcreteMaterial, isValidConcreteGrade, isValidRebarGrade, normalizeConcreteGrade, normalizeSectionName } from './model.js';
+import { buildConcreteFrameModel, getConcreteMaterial, isValidConcreteGrade, isValidRebarGrade, normalizeConcreteGrade, normalizeSectionName, resolveSectionProps } from './model.js';
 import { DEFAULT_FLOOR_LOAD_KN_PER_M2 } from './constants.js';
 import type {
   ConcreteBeam,
@@ -373,6 +373,19 @@ export const handler: SkillHandler = {
 
   resolveStage(missingKeys) {
     return resolveConcreteFrameStage(missingKeys);
+  },
+
+  computeDesignMissing(state) {
+    const critical: string[] = [];
+    if (typeof state.frameConcreteGrade !== 'string' || !isValidConcreteGrade(state.frameConcreteGrade)) critical.push('frameConcreteGrade');
+    if (typeof state.frameRebarGrade !== 'string' || !isValidRebarGrade(state.frameRebarGrade)) critical.push('frameRebarGrade');
+    for (const field of ['frameBeamSection', 'frameColumnSection'] as const) {
+      try {
+        if (typeof state[field] !== 'string' || !state[field]) throw new Error('missing');
+        resolveSectionProps(state[field] as string);
+      } catch { critical.push(field); }
+    }
+    return critical;
   },
 };
 

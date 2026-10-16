@@ -441,6 +441,8 @@ export interface SkillHandler {
   buildReportNarrative?(input: SkillReportNarrativeInput): string;
   buildModel(state: DraftState): Record<string, unknown> | undefined;
   resolveStage?(missingKeys: string[], state: DraftState): 'intent' | 'model' | 'loads' | 'analysis' | 'code_check' | 'report';
+  /** Fields still required before design/code check; consulted unless the request scope excludes design. */
+  computeDesignMissing?(state: DraftState): string[];
 }
 
 export interface AgentSkillPlugin extends AgentSkillBundle {
