@@ -28,8 +28,13 @@ const ABOVE_L3 = '^src/(services|agent-langgraph|api)/|^src/index\\.ts$';
 const ABOVE_L4 = '^src/(agent-langgraph|api)/|^src/index\\.ts$';
 const ABOVE_L5 = '^src/api/|^src/index\\.ts$';
 
+// Allowed exceptions. Each entry is a deliberate, documented edge that would otherwise violate the layering.
+// - runtime/policy-settings.ts: re-export shim kept because integrations/openclaw/worker.mjs imports
+//   dist/runtime/policy-settings.js; the implementation lives in agent-langgraph/policy-resolver.ts.
+const COMPAT_SHIMS = '^src/runtime/policy-settings\\.ts$';
+
 function layerRule(name, from, to, comment) {
-  return { name, comment, severity: SEVERITY, from: { path: from }, to: { path: to } };
+  return { name, comment, severity: SEVERITY, from: { path: from, pathNot: COMPAT_SHIMS }, to: { path: to } };
 }
 
 module.exports = {

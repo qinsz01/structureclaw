@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { config, runtimeBaseDir } from '../config/index.js';
-import { resolveApplicationRunPolicy } from '../runtime/policy-settings.js';
+import { resolveApplicationRunPolicy } from './policy-resolver.js';
 import type { RunPolicyInput, EffectiveRunPolicy } from '../runtime/run-policy.js';
 import { createRunContext, withRunContext, snapshotRunUsage, type RunUsage } from '../runtime/run-context.js';
 import { executeToolsSequentially } from './sequential-tools.js';

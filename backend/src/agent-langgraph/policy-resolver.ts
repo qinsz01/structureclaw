@@ -1,8 +1,8 @@
 import { config } from '../config/index.js';
 import { readSettingsFile } from '../config/settings-file.js';
-import { listAgentToolDefinitions } from '../agent-langgraph/tool-registry.js';
-import { resolveActiveToolIds } from '../agent-langgraph/tool-policy.js';
-import { resolveRunPolicy, type RunPolicyInput, type RunPolicy } from './run-policy.js';
+import { listAgentToolDefinitions } from './tool-registry.js';
+import { resolveActiveToolIds } from './tool-policy.js';
+import { resolveRunPolicy, type RunPolicyInput, type RunPolicy } from '../runtime/run-policy.js';
 
 /** One settings/permission boundary for chat and direct public-tool sessions. */
 export function resolveApplicationRunPolicy(input: {

@@ -21,7 +21,7 @@ import type { AgentState, AgentToolAccessPolicy } from './state.js';
 import { getAllowShellTools, getCheckpointerDataDir, getWorkspaceRoot, getWorkspaceSkillRoot } from './config.js';
 import { config, runtimeBaseDir } from '../config/index.js';
 import type { RunPolicyInput, EffectiveRunPolicy } from '../runtime/run-policy.js';
-import { resolveApplicationRunPolicy } from '../runtime/policy-settings.js';
+import { resolveApplicationRunPolicy } from './policy-resolver.js';
 import { createRunContext, withRunContext, snapshotRunUsage, readRunUsage, recordRunEvent, type RunContext, type RunUsage } from '../runtime/run-context.js';
 import { DEFAULT_MAX_TOOL_CALLS_PER_TURN } from '../runtime/limits.js';
 import type { ConversationRuntimeSnapshot } from '../types/conversation-runtime.js';
