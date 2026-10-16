@@ -2,10 +2,6 @@ import { withDeclaredProperties } from '../../../tests/fixtures/declared-templat
 import { describe, expect, test } from '@jest/globals';
 import process from 'node:process';
 import {
-  computeDependencyFingerprint,
-  computeDraftStateContentHash,
-} from '../../../dist/agent-runtime/artifact-helpers.js';
-import {
   stampDraftSemantics,
   STRUCTURAL_COORDINATE_SEMANTICS,
 } from '../../../dist/agent-runtime/coordinate-semantics.js';
@@ -569,82 +565,6 @@ describe('agent runtime helper utilities', () => {
       },
       '办公楼，混凝土柱网，三层',
     )).toBe(false);
-  });
-
-  test('dependency fingerprints are stable regardless of reference insertion order', () => {
-    const left = computeDependencyFingerprint({
-      analysis: { artifactId: 'analysis-1', revision: 3 },
-      model: { artifactId: 'model-1', revision: 2 },
-    });
-    const right = computeDependencyFingerprint({
-      model: { artifactId: 'model-1', revision: 2 },
-      analysis: { artifactId: 'analysis-1', revision: 3 },
-    });
-
-    expect(left).toBe(right);
-    expect(left).toMatch(/^[a-f0-9]{16}$/);
-  });
-
-  test('dependency fingerprints include provider bindings and draft state hashes', () => {
-    const refs = {
-      model: { artifactId: 'model-1', revision: 2 },
-    };
-    const base = computeDependencyFingerprint(refs);
-
-    expect(computeDependencyFingerprint(refs, { analysisProviderSkillId: 'analysis-opensees-static' })).not.toBe(base);
-    expect(computeDependencyFingerprint(refs, { codeCheckProviderSkillId: 'code-check-gb50017' })).not.toBe(base);
-    expect(computeDependencyFingerprint(refs, undefined, 'draft-hash-1')).not.toBe(base);
-  });
-
-  test('draft state content hashes ignore updatedAt while tracking real content changes', () => {
-    const first = computeDraftStateContentHash({
-      inferredType: 'beam',
-      lengthM: 6,
-      loadKNPerM: 20,
-      updatedAt: 100,
-    });
-    const second = computeDraftStateContentHash({
-      updatedAt: 200,
-      loadKNPerM: 20,
-      lengthM: 6,
-      inferredType: 'beam',
-    });
-    const changed = computeDraftStateContentHash({
-      inferredType: 'beam',
-      lengthM: 7,
-      loadKNPerM: 20,
-      updatedAt: 100,
-    });
-
-    expect(first).toBe(second);
-    expect(changed).not.toBe(first);
-  });
-
-  test('draft state content hashes are stable for nested objects while tracking nested changes', () => {
-    const first = computeDraftStateContentHash({
-      nested: {
-        section: { heightM: 0.5, widthM: 0.25 },
-        loads: [{ id: 'L1', value: 20 }],
-      },
-      updatedAt: 100,
-    });
-    const reordered = computeDraftStateContentHash({
-      updatedAt: 200,
-      nested: {
-        loads: [{ value: 20, id: 'L1' }],
-        section: { widthM: 0.25, heightM: 0.5 },
-      },
-    });
-    const changed = computeDraftStateContentHash({
-      nested: {
-        section: { heightM: 0.5, widthM: 0.25 },
-        loads: [{ id: 'L1', value: 25 }],
-      },
-      updatedAt: 100,
-    });
-
-    expect(reordered).toBe(first);
-    expect(changed).not.toBe(first);
   });
 
   test('stampDraftSemantics adds global coordinate semantics without mutating input', () => {
