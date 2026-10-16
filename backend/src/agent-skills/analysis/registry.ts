@@ -4,7 +4,7 @@ import {
   loadSkillManifestsFromDirectorySync,
   resolveBuiltinSkillManifestRoot,
   type LoadedSkillManifest,
-} from '../../agent-runtime/skill-manifest-loader.js';
+} from '../../skill-shared/skill-manifest-loader.js';
 import type {
   AnalysisEngineDefinition,
   AnalysisExecutionAction,

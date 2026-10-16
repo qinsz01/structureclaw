@@ -5,8 +5,8 @@ import type { CodeCheckDomainInput } from './types.js';
 import type { CodeCheckClient } from './rule.js';
 import type { ExecutionRequestOptions } from '../analysis/types.js';
 import { withGB50011CodeCheckMetadata } from './gb50011/metadata.js';
-import { recoverAnalysisMembers } from '../result-postprocess/member-response.js';
-import type { RecoveryModel, RecoveryResult } from '../../skill-shared/member-response.js';
+import { recoverAnalysisMembers } from '../../engineering/member-response-query.js';
+import type { RecoveryModel, RecoveryResult } from '../../engineering/member-response.js';
 import { nativeStations } from '../../engineering/result-data.js';
 
 export type { CodeCheckDomainInput } from './types.js';

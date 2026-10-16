@@ -2,7 +2,7 @@ import { computeMissingCriticalKeys } from '../../../agent-runtime/draft-guidanc
 import {
   STRUCTURAL_COORDINATE_SEMANTICS,
   withCanonicalCoordinateContract,
-} from '../../../agent-runtime/coordinate-semantics.js';
+} from '../../../engineering/coordinate-semantics.js';
 import { isLocalizedFramePointLoad } from '../../../agent-runtime/engineering-draft.js';
 import { buildElementReferenceVectors } from '../../../agent-runtime/reference-vectors.js';
 import { buildExplicitDraftModel, validateExplicitModel } from '../../../agent-runtime/explicit-model.js';

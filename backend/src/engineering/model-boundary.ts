@@ -1,4 +1,4 @@
-import type { LocalStructureProtocolClient } from '../services/structure-protocol-execution.js';
+import type { LocalStructureProtocolClient } from '../skill-shared/structure-protocol-execution.js';
 import { isRecord, validateModelReferences, type ModelRecord } from './model-state.js';
 import { assertResolvedInput, assertInputEvidenceMatchesModel } from './input-evidence.js';
 import { assertReviewedSectionProvenance } from './section-tables.js';

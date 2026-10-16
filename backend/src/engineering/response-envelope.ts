@@ -1,4 +1,4 @@
-import type { MemberResponse, RecoveryModel } from '../skill-shared/member-response.js';
+import type { MemberResponse, RecoveryModel } from './member-response.js';
 import { isRecord, type ModelRecord } from './model-state.js';
 
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);

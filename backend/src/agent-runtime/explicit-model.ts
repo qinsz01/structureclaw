@@ -1,4 +1,4 @@
-import { assertCanonicalCoordinateModel, withCanonicalCoordinateContract } from './coordinate-semantics.js';
+import { assertCanonicalCoordinateModel, withCanonicalCoordinateContract } from '../engineering/coordinate-semantics.js';
 import type { DraftState } from '../shared/types/agent.js';
 import { applyDraftAnalysisControl } from './engineering-draft.js';
 

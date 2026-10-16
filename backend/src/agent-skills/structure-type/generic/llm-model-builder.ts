@@ -5,7 +5,7 @@ import {
   buildStructuralCoordinateSystem,
   STRUCTURAL_COORDINATE_CONTRACT_VERSION,
   STRUCTURAL_COORDINATE_SEMANTICS,
-} from '../../../agent-runtime/coordinate-semantics.js';
+} from '../../../engineering/coordinate-semantics.js';
 import { logger } from '../../../utils/logger.js';
 import { llmContentText } from '../../../utils/llm-content.js';
 import type { StructureClawChatModel } from '../../../utils/llm.js';

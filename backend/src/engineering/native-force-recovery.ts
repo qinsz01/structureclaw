@@ -1,4 +1,4 @@
-import type { RecoveryModel, Vec } from '../skill-shared/member-response.js';
+import type { RecoveryModel, Vec } from './member-response.js';
 import { isRecord, type ModelRecord } from './model-state.js';
 import { nativeRigidMember } from './native-rigid-offsets.js';
 import { pkpmExecutedUniformLoad } from './native-load-readback.js';

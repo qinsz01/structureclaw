@@ -1,5 +1,5 @@
 import { isRecord, type ModelRecord } from './model-state.js';
-import type { Vec } from '../skill-shared/member-response.js';
+import type { Vec } from './member-response.js';
 
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 const digest = (value: unknown) => typeof value === 'string' && /^[a-f0-9]{64}$/i.test(value);

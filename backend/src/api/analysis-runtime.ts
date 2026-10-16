@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { AnalysisExecutionService } from '../services/analysis-execution.js';
 import { AnalysisService } from '../services/analysis.js';
 import { codeCheckSchema } from './analysis.js';
-import { StructureProtocolExecutionService } from '../services/structure-protocol-execution.js';
+import { StructureProtocolExecutionService } from '../skill-shared/structure-protocol-execution.js';
 import { analysisRequestBindingSchema } from '../engineering/model-state.js';
 import { requestScopeSchema } from '../engineering/request-scope.js';
 

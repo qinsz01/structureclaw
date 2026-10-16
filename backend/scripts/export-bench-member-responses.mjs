@@ -46,10 +46,10 @@ fs.writeFileSync(
     algorithm: {
       name: "StructureClaw member response recovery",
       version: 1,
-      source: "backend/src/skill-shared/member-response.ts",
+      source: "backend/src/engineering/member-response.ts",
       sha256: sha256(
         fs.readFileSync(
-          path.join(root, "backend/src/skill-shared/member-response.ts"),
+          path.join(root, "backend/src/engineering/member-response.ts"),
         ),
       ),
     },

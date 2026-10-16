@@ -1,5 +1,5 @@
 import { isRecord, type ModelRecord } from './model-state.js';
-import type { RecoveryModel, Vec } from '../skill-shared/member-response.js';
+import type { RecoveryModel, Vec } from './member-response.js';
 import type { nativeRigidMember } from './native-rigid-offsets.js';
 
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);

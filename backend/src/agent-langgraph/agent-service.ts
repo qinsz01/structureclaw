@@ -29,7 +29,7 @@ import type { AgentStreamChunk } from '../types/agent-stream.js';
 import type { AppLocale } from '../shared/locale.js';
 import { AnalysisExecutionService, createLocalAnalysisEngineClient } from '../services/analysis-execution.js';
 import { createLocalCodeCheckClient } from '../services/code-check-execution.js';
-import { createLocalStructureProtocolClient } from '../services/structure-protocol-execution.js';
+import { createLocalStructureProtocolClient } from '../skill-shared/structure-protocol-execution.js';
 import { prisma } from '../utils/database.js';
 import { Command } from '@langchain/langgraph';
 import { logger } from '../utils/logger.js';

@@ -3,7 +3,7 @@ import { applyDraftAnalysisControl } from '../../../agent-runtime/engineering-dr
 import {
   STRUCTURAL_COORDINATE_SEMANTICS,
   withCanonicalCoordinateContract,
-} from '../../../agent-runtime/coordinate-semantics.js';
+} from '../../../engineering/coordinate-semantics.js';
 import { buildElementReferenceVectors } from '../../../agent-runtime/reference-vectors.js';
 import type {
   DraftAnalysisControl,

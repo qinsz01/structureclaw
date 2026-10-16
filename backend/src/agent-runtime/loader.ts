@@ -2,8 +2,8 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import { fileURLToPath, pathToFileURL } from 'url';
 import path from 'path';
 import { parse as parseYaml } from 'yaml';
-import { formatManifestIssues, skillManifestFileSchema } from './manifest-schema.js';
-import { loadSkillManifestsFromDirectorySync, toRuntimeSkillManifest } from './skill-manifest-loader.js';
+import { formatManifestIssues, skillManifestFileSchema } from '../skill-shared/manifest-schema.js';
+import { loadSkillManifestsFromDirectorySync, toRuntimeSkillManifest } from '../skill-shared/skill-manifest-loader.js';
 import { resolveBackendAsset } from '../utils/bundled-paths.js';
 import type { AgentSkillBundle, AgentSkillFile, AgentSkillMetadata, AgentSkillPlugin, SkillDomain, SkillManifest, SkillStage } from '../shared/types/agent.js';
 

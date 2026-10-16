@@ -26,7 +26,7 @@ import {
 import {
   STRUCTURAL_COORDINATE_SEMANTICS,
   stampDraftSemantics,
-} from './coordinate-semantics.js';
+} from '../engineering/coordinate-semantics.js';
 import type { AppLocale } from '../shared/locale.js';
 import type { DraftExtraction, DraftFloorLoad, DraftIssue, DraftState, InferredModelType } from '../shared/types/agent.js';
 

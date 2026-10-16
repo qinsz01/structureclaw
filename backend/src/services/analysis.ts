@@ -1,4 +1,4 @@
-import { attachNativeReport, createEngineeringReport } from './engineering-report.js';
+import { attachNativeReport, createEngineeringReport } from '../agent-runtime/engineering-report.js';
 import { nativeDesignRecord, resolveCheckProvider, type CodeCheckProvider } from '../engineering/native-design.js';
 import { resultEngine } from '../engineering/result-data.js';
 import { checkRunResults, validateServiceabilitySelection } from '../engineering/code-checks.js';
@@ -18,13 +18,13 @@ import {
 import { resolveCodeCheckRule } from '../agent-skills/code-check/registry.js';
 import type { AppLocale } from '../shared/locale.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
-import { createLocalStructureProtocolClient } from './structure-protocol-execution.js';
+import { createLocalStructureProtocolClient } from '../skill-shared/structure-protocol-execution.js';
 import {
   assertCanonicalCoordinateModel,
   buildStructuralCoordinateSystem,
   STRUCTURAL_COORDINATE_CONTRACT_VERSION,
   STRUCTURAL_COORDINATE_SEMANTICS,
-} from '../agent-runtime/coordinate-semantics.js';
+} from '../engineering/coordinate-semantics.js';
 
 export interface CreateModelParams {
   [key: string]: unknown;

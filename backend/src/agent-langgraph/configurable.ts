@@ -7,7 +7,7 @@
 import type { AgentSkillRuntime } from '../agent-runtime/index.js';
 import type { LocalAnalysisEngineClient } from '../agent-skills/analysis/types.js';
 import type { CodeCheckClient } from '../agent-skills/code-check/rule.js';
-import type { LocalStructureProtocolClient } from '../services/structure-protocol-execution.js';
+import type { LocalStructureProtocolClient } from '../skill-shared/structure-protocol-execution.js';
 import type { beginAnalysisRequest, beginNativeDesignRequest } from '../engineering/model-state.js';
 import type { RunContext } from '../runtime/run-context.js';
 

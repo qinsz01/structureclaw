@@ -1,5 +1,5 @@
-import { recoverAnalysisMembers, queryMemberResponse, memberResponseExtrema } from '../agent-skills/result-postprocess/member-response.js';
-import type { RecoveryModel, RecoveryResult } from '../skill-shared/member-response.js';
+import { recoverAnalysisMembers, queryMemberResponse, memberResponseExtrema } from './member-response-query.js';
+import type { RecoveryModel, RecoveryResult } from './member-response.js';
 import { contentHash, isRecord, type ModelRecord } from './model-state.js';
 import { nativeForceRecovery } from './native-force-recovery.js';
 import { nativeRigidMember } from './native-rigid-offsets.js';

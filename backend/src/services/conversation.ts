@@ -4,7 +4,7 @@ import {
   assertCanonicalCoordinateModel,
   STRUCTURAL_COORDINATE_CONTRACT_VERSION,
   STRUCTURAL_COORDINATE_SEMANTICS,
-} from '../agent-runtime/coordinate-semantics.js';
+} from '../engineering/coordinate-semantics.js';
 import { resolveLocale, type AppLocale } from '../shared/locale.js';
 
 /**

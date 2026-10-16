@@ -4,7 +4,7 @@ import {
   ROLLER_X_RESTRAINT,
   STRUCTURAL_COORDINATE_SEMANTICS,
   withCanonicalCoordinateContract,
-} from './coordinate-semantics.js';
+} from '../engineering/coordinate-semantics.js';
 import { buildElementReferenceVectors } from './reference-vectors.js';
 import { buildExplicitDraftModel, validateExplicitModel } from './explicit-model.js';
 import { applyTemplateProperties } from './template-properties.js';

@@ -1,4 +1,4 @@
-import type { LocalStructureProtocolClient } from '../services/structure-protocol-execution.js';
+import type { LocalStructureProtocolClient } from '../skill-shared/structure-protocol-execution.js';
 import type { EngineeringDraft } from '../shared/types/agent.js';
 import { isRecord, type ModelEdit, type ModelRecord } from './model-state.js';
 import modelSchema from './structure-model-v2.schema.json' with { type: 'json' };

@@ -1,4 +1,4 @@
-import { prepareEngineeringReport, finishEngineeringReport } from '../services/engineering-report.js';
+import { prepareEngineeringReport, finishEngineeringReport } from './engineering-report.js';
 import { computeDraftMissing } from './draft-readiness.js';
 import { assertResolvedInput } from '../engineering/input-evidence.js';
 import { currentRunPolicy, requestRecovery, recordRunEvent } from '../runtime/run-context.js';
@@ -19,7 +19,7 @@ import {
   resolveBuiltinSkillManifestRoot,
   toRuntimeSkillManifest,
   type LoadedSkillManifest,
-} from './skill-manifest-loader.js';
+} from '../skill-shared/skill-manifest-loader.js';
 import type {
   AgentSkillBundle,
   AgentSkillPlugin,
@@ -488,7 +488,7 @@ export class AgentSkillRuntime {
       const { tryBuildGenericModelWithLlm } = await import('../agent-skills/structure-type/generic/llm-model-builder.js');
       const { createChatModel } = await import('../utils/llm.js');
       const { normalizeEngineeringModel } = await import('../engineering/model-boundary.js');
-      const { createLocalStructureProtocolClient } = await import('../services/structure-protocol-execution.js');
+      const { createLocalStructureProtocolClient } = await import('../skill-shared/structure-protocol-execution.js');
       const protocol = createLocalStructureProtocolClient();
       const llm = createChatModel(0);
       if (!llm) {

@@ -41,12 +41,12 @@ import type {
 import { isFreshGenericStructuralRoute } from '../agent-runtime/plugin-helpers.js';
 import { loadAnalysisRun } from '../engineering/analysis-runs.js';
 import { resultSelectionSchema, selectedSavedResult, quantityMatchesSelection, type ResultSelection } from '../engineering/result-selection.js';
-import { createEngineeringReport, attachNativeReport } from '../services/engineering-report.js';
+import { createEngineeringReport, attachNativeReport } from '../agent-runtime/engineering-report.js';
 import { beginAnalysisRequest, beginNativeDesignRequest, commitModel, currentAnalysisError, invalidateAnalysis, modelHash, publishAnalysis, publishNativeDesign } from '../engineering/model-state.js';
 import { analysisSettingsHash } from '../engineering/analysis-runs.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 import { engineeringModelSchema, draftDesignSchema, hasDraftDesignInputs, assertDraftDesignInputs, draftSectionShapeSchema, normalizeDraftSectionInputs } from '../engineering/model-edit-contract.js';
-import { createLocalStructureProtocolClient } from '../services/structure-protocol-execution.js';
+import { createLocalStructureProtocolClient } from '../skill-shared/structure-protocol-execution.js';
 import { checkRunResults, codeCheckFeedback, validateServiceabilitySelection } from '../engineering/code-checks.js';
 import { assertAnalysisInputEvidenceMatchesRequest, assertInputEvidenceMatchesModel, mergeInputEvidence } from '../engineering/input-evidence.js';
 import { currentRunContext, currentRunPolicy, recordRunEvent, reserveToolCall, recordToolOutcome } from '../runtime/run-context.js';

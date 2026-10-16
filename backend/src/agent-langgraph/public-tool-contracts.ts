@@ -14,7 +14,7 @@ import { createRunContext, withRunContext, snapshotRunUsage, type RunUsage } fro
 import { executeToolsSequentially } from './sequential-tools.js';
 import { createLocalAnalysisEngineClient } from '../services/analysis-execution.js';
 import { createLocalCodeCheckClient } from '../services/code-check-execution.js';
-import { createLocalStructureProtocolClient } from '../services/structure-protocol-execution.js';
+import { createLocalStructureProtocolClient } from '../skill-shared/structure-protocol-execution.js';
 import { SessionLock } from '../engineering/session-lock.js';
 import { acquirePersistentSessionLock, readPersistentSession, withAbandonedSessionRecovery } from '../engineering/persistent-session-lock.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
