@@ -93,6 +93,30 @@ describe('chat routes message persistence', () => {
     await app.close();
   });
 
+  test.each(['/stream', '/stream/resume'])('%s preserves completed tool messages and the user input on a model timeout', async url => {
+    const { AIMessage, ToolMessage } = await import('@langchain/core/messages');
+    const call = new AIMessage({ content: 'Analyzing', tool_calls: [{ id: 'completed-analysis', name: 'run_analysis', args: {}, type: 'tool_call' }] });
+    const output = new ToolMessage({ name: 'run_analysis', tool_call_id: 'completed-analysis', content: '{"success":true,"runId":"retained-run"}' });
+    getSnapshotSpy.mockResolvedValueOnce({ snapshot: {}, state: { messages: [call, output] } });
+    const spy = url === '/stream' ? agentRunStreamSpy : agentResumeStreamSpy;
+    spy.mockImplementationOnce(async function* () {
+      yield { type: 'start', content: { conversationId: 'conv-paused', traceId: 'timeout-trace' } };
+      throw new Error('Request timed out.');
+    });
+    const payload = url === '/stream' ? { conversationId: 'conv-paused', message: 'Keep my model' }
+      : { conversationId: 'conv-paused', resumeValue: 'Keep my model' };
+    const response = await app.inject({ method: 'POST', url, payload });
+    expect(response.body).toContain('"code":"LLM_TIMEOUT"');
+    expect(response.body).toContain('"retriable":true');
+    expect(response.body).toContain('Completed tool results are retained');
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(prisma.message.createMany).toHaveBeenCalledTimes(1);
+    const records = prisma.message.createMany.mock.calls[0][0].data;
+    expect(records[0]).toMatchObject({ role: 'user', content: 'Keep my model' });
+    expect(records).toEqual(expect.arrayContaining([expect.objectContaining({ role: 'tool', toolCallId: 'completed-analysis', content: output.content })]));
+    expect(records.at(-1)).toMatchObject({ role: 'assistant', metadata: { presentation: { status: 'error' } } });
+  });
+
   test('persists paused messages with aborted metadata instead of mutating the content', async () => {
     const response = await app.inject({
       method: 'POST',

@@ -110,6 +110,9 @@ describe('run policy at real orchestration boundaries', () => {
     const finished = runtime.usage.events.filter(item => item.kind === 'llm_finished');
     expect(finished[0].usage).toEqual({ inputTokens: 3, outputTokens: 2, totalTokens: 5 });
     expect(finished[1].success).toBe(false);
+    expect(finished[0]).toMatchObject({ promptChars: 5, messageCount: 1 });
+    expect(finished[1]).toMatchObject({ errorCode: 'INTERNAL_ERROR', promptChars: 5, messageCount: 1 });
+    expect(finished[1]).not.toHaveProperty('prompt');
   });
   test('the main model bound to tools records exactly one call and no provider request is made', async () => {
     const model = new ChatOpenAI({ apiKey: 'local-fixture', model: 'fixture', maxRetries: 0, disableStreaming: true,

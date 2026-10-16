@@ -1,5 +1,40 @@
 import { expect, test } from '@jest/globals';
-import { codeCheckFeedback, codeCheckDeliveryNotice, validateServiceabilitySelection } from '../dist/engineering/code-checks.js';
+import { codeCheckFeedback, compactCodeCheckFeedback, codeCheckDeliveryNotice, validateServiceabilitySelection } from '../dist/engineering/code-checks.js';
+import { readFile } from 'node:fs/promises';
+import { ToolMessage } from '@langchain/core/messages';
+import { projectToolMessagesForContext } from '../dist/agent-langgraph/graph.js';
+
+test('the actual incomplete-check response is compacted without losing inputs, units, owners or computed evidence', async () => {
+  const original = JSON.parse(await readFile(new URL('./fixtures/code-check-context-20261016.json', import.meta.url), 'utf8'));
+  const saved = structuredClone(original);
+  const compact = compactCodeCheckFeedback(original);
+  const expand = rows => rows.flatMap(({ appliesTo, ...shared }) => appliesTo.map(binding => ({ ...shared, ...binding })));
+  const unordered = rows => rows.map(row => JSON.stringify(Object.fromEntries(Object.entries(row).sort(([a], [b]) => a.localeCompare(b))))).sort();
+  expect(unordered(expand(compact.checkedItems.items))).toEqual(unordered(original.checkedItems.items));
+  expect(unordered(expand(compact.missingInputs))).toEqual(unordered(original.missingInputs));
+  expect(compact).toMatchObject({ completionStatus: 'incomplete', complianceStatus: 'incomplete', conclusionEligible: false });
+  expect(compact.inputRequiredChecks).toBeUndefined();
+  expect(compact.writeTargets).toBeUndefined();
+  expect(JSON.stringify(compact).length).toBeLessThan(JSON.stringify(original).length * .8);
+  expect(original).toEqual(saved);
+  const message = new ToolMessage({ id: 'saved', tool_call_id: 'check', name: 'run_code_check', content: JSON.stringify(original) });
+  const [projected] = projectToolMessagesForContext([message]);
+  expect(projected).toMatchObject({ id: 'saved', tool_call_id: 'check', name: 'run_code_check' });
+  expect(JSON.parse(projected.content)).toEqual(JSON.parse(JSON.stringify(compact)));
+  expect(JSON.parse(message.content)).toEqual(saved);
+  const unfamiliar = { ...original, writeTargets: [...original.writeTargets, { externalField: 'retain-me' }],
+    inputRequiredChecks: [...original.inputRequiredChecks, { check: 'unsupported-extension', reason: 'retain-me' }] };
+  expect(compactCodeCheckFeedback(unfamiliar)).toMatchObject({ writeTargets: [{ externalField: 'retain-me' }],
+    inputRequiredChecks: [{ check: 'unsupported-extension', reason: 'retain-me' }] });
+});
+
+test('context projection preserves failures and non-check tool responses verbatim', () => {
+  for (const [name, content] of [['run_code_check', 'Error: missing engine'], ['run_code_check', '{"success":false,"errorCode":"CURRENT_ANALYSIS_REQUIRED"}'],
+    ['query_results', '{"quantity":{"value":-2.5,"unit":"kN.m","side":"left"}}']]) {
+    const message = new ToolMessage({ name, content, tool_call_id: 'fixture' });
+    expect(projectToolMessagesForContext([message])[0]).toBe(message);
+  }
+});
 import { createRunCodeCheckTool } from '../dist/agent-langgraph/tools.js';
 import { beginAnalysisRequest } from '../dist/engineering/model-state.js';
 import { prepareEngineeringReport, finishEngineeringReport } from '../dist/services/engineering-report.js';

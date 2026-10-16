@@ -1,0 +1,1190 @@
+{
+  "success": true,
+  "provider": "builtin",
+  "engine": "opensees",
+  "skillId": "code-check-gb50017",
+  "completionStatus": "incomplete",
+  "complianceStatus": "incomplete",
+  "summary": {
+    "total": 14,
+    "passed": 0,
+    "failed": 0,
+    "warnings": 0,
+    "notApplicable": 0,
+    "inputRequired": 14,
+    "unsupported": 0,
+    "maxUtilization": null
+  },
+  "checkedItems": {
+    "runId": "8d5a93f0-a75b-432c-89a1-fe180a0195b8",
+    "totalCount": 14,
+    "truncated": false,
+    "items": [
+      {
+        "elementId": "1",
+        "resultKey": "case:LC1",
+        "check": "正应力",
+        "clause": "GB50017-2017 7.1.1",
+        "status": "input_required",
+        "formula": "(|N|/A + |Mₓ|/Wₙₓ) / f ≤ 1.0",
+        "utilization": null,
+        "inputs": {
+          "demand": null,
+          "capacity": null,
+          "limit": 1
+        },
+        "forceState": {
+          "source": "member_response",
+          "station": 0,
+          "positionM": 0,
+          "segmentId": "1",
+          "side": "right"
+        },
+        "message": "Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。"
+      },
+      {
+        "elementId": "1",
+        "resultKey": "case:LC1",
+        "check": "剪应力",
+        "clause": "GB50017-2017 7.1.2",
+        "status": "input_required",
+        "formula": "τ = V·S/(I·tw) ≤ f_v",
+        "utilization": null,
+        "inputs": {
+          "demand": null,
+          "capacity": null,
+          "limit": 1
+        },
+        "forceState": {
+          "source": "member_response",
+          "station": 0,
+          "positionM": 0,
+          "segmentId": "1",
+          "side": "right"
+        },
+        "message": "Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。"
+      },
+      {
+        "elementId": "1",
+        "resultKey": "case:LC1",
+        "check": "折算应力",
+        "clause": "GB50017-2017 7.1.4",
+        "status": "input_required",
+        "formula": "√(σₓ²+σ_b²-σₓ·σ_b+3τ²) ≤ β₁·f",
+        "utilization": null,
+        "inputs": {
+          "demand": null,
+          "capacity": null,
+          "limit": 1
+        },
+        "forceState": {
+          "source": "member_response",
+          "station": 0,
+          "positionM": 0,
+          "segmentId": "1",
+          "side": "right"
+        },
+        "message": "Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。"
+      },
+      {
+        "elementId": "1",
+        "resultKey": "case:LC1",
+        "check": "整体稳定",
+        "clause": "GB50017-2017 8.2.1",
+        "status": "input_required",
+        "formula": "M/(φb·Wₓ·f) ≤ 1.0",
+        "utilization": null,
+        "inputs": {
+          "demand": null,
+          "capacity": null,
+          "limit": 1
+        },
+        "forceState": {
+          "source": "member_response",
+          "station": 0,
+          "positionM": 0,
+          "segmentId": "1",
+          "side": "right"
+        },
+        "message": "Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。"
+      },
+      {
+        "elementId": "1",
+        "resultKey": "case:LC1",
+        "check": "局部稳定",
+        "clause": "GB50017-2017 8.4.1",
+        "status": "input_required",
+        "formula": "b/t ≤ [b/t]",
+        "utilization": null,
+        "inputs": {
+          "demand": null,
+          "capacity": null,
+          "limit": 1
+        },
+        "forceState": {
+          "source": "member_response",
+          "station": 0,
+          "positionM": 0,
+          "segmentId": "1",
+          "side": "right"
+        },
+        "message": "Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。"
+      },
+      {
+        "elementId": "1",
+        "resultKey": "case:LC1",
+        "check": "长细比",
+        "clause": "GB50017-2017 10.1.1",
+        "status": "input_required",
+        "formula": "λ = l₀/i ≤ [λ]",
+        "utilization": null,
+        "inputs": {
+          "demand": null,
+          "capacity": null,
+          "limit": 1
+        },
+        "forceState": {
+          "source": "member_response",
+          "station": 0,
+          "positionM": 0,
+          "segmentId": "1",
+          "side": "right"
+        },
+        "message": "Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。"
+      },
+      {
+        "elementId": "1",
+        "resultKey": "case:LC1",
+        "check": "挠度",
+        "clause": "GB50017-2017 10.2.1",
+        "status": "input_required",
+        "formula": "f_max ≤ L/n",
+        "utilization": null,
+        "inputs": {
+          "demand": null,
+          "capacity": null,
+          "limit": 1
+        },
+        "forceState": {
+          "source": "member_response",
+          "station": 0,
+          "positionM": 0,
+          "segmentId": "1",
+          "side": "right"
+        },
+        "message": "Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。"
+      },
+      {
+        "elementId": "2",
+        "resultKey": "case:LC1",
+        "check": "正应力",
+        "clause": "GB50017-2017 7.1.1",
+        "status": "input_required",
+        "formula": "(|N|/A + |Mₓ|/Wₙₓ) / f ≤ 1.0",
+        "utilization": null,
+        "inputs": {
+          "demand": null,
+          "capacity": null,
+          "limit": 1
+        },
+        "forceState": {
+          "source": "member_response",
+          "station": 0,
+          "positionM": 0,
+          "segmentId": "2",
+          "side": "right"
+        },
+        "message": "Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。"
+      },
+      {
+        "elementId": "2",
+        "resultKey": "case:LC1",
+        "check": "剪应力",
+        "clause": "GB50017-2017 7.1.2",
+        "status": "input_required",
+        "formula": "τ = V·S/(I·tw) ≤ f_v",
+        "utilization": null,
+        "inputs": {
+          "demand": null,
+          "capacity": null,
+          "limit": 1
+        },
+        "forceState": {
+          "source": "member_response",
+          "station": 0,
+          "positionM": 0,
+          "segmentId": "2",
+          "side": "right"
+        },
+        "message": "Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。"
+      },
+      {
+        "elementId": "2",
+        "resultKey": "case:LC1",
+        "check": "折算应力",
+        "clause": "GB50017-2017 7.1.4",
+        "status": "input_required",
+        "formula": "√(σₓ²+σ_b²-σₓ·σ_b+3τ²) ≤ β₁·f",
+        "utilization": null,
+        "inputs": {
+          "demand": null,
+          "capacity": null,
+          "limit": 1
+        },
+        "forceState": {
+          "source": "member_response",
+          "station": 0,
+          "positionM": 0,
+          "segmentId": "2",
+          "side": "right"
+        },
+        "message": "Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。"
+      },
+      {
+        "elementId": "2",
+        "resultKey": "case:LC1",
+        "check": "整体稳定",
+        "clause": "GB50017-2017 8.2.1",
+        "status": "input_required",
+        "formula": "M/(φb·Wₓ·f) ≤ 1.0",
+        "utilization": null,
+        "inputs": {
+          "demand": null,
+          "capacity": null,
+          "limit": 1
+        },
+        "forceState": {
+          "source": "member_response",
+          "station": 0,
+          "positionM": 0,
+          "segmentId": "2",
+          "side": "right"
+        },
+        "message": "Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。"
+      },
+      {
+        "elementId": "2",
+        "resultKey": "case:LC1",
+        "check": "局部稳定",
+        "clause": "GB50017-2017 8.4.1",
+        "status": "input_required",
+        "formula": "b/t ≤ [b/t]",
+        "utilization": null,
+        "inputs": {
+          "demand": null,
+          "capacity": null,
+          "limit": 1
+        },
+        "forceState": {
+          "source": "member_response",
+          "station": 0,
+          "positionM": 0,
+          "segmentId": "2",
+          "side": "right"
+        },
+        "message": "Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。"
+      },
+      {
+        "elementId": "2",
+        "resultKey": "case:LC1",
+        "check": "长细比",
+        "clause": "GB50017-2017 10.1.1",
+        "status": "input_required",
+        "formula": "λ = l₀/i ≤ [λ]",
+        "utilization": null,
+        "inputs": {
+          "demand": null,
+          "capacity": null,
+          "limit": 1
+        },
+        "forceState": {
+          "source": "member_response",
+          "station": 0,
+          "positionM": 0,
+          "segmentId": "2",
+          "side": "right"
+        },
+        "message": "Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。"
+      },
+      {
+        "elementId": "2",
+        "resultKey": "case:LC1",
+        "check": "挠度",
+        "clause": "GB50017-2017 10.2.1",
+        "status": "input_required",
+        "formula": "f_max ≤ L/n",
+        "utilization": null,
+        "inputs": {
+          "demand": null,
+          "capacity": null,
+          "limit": 1
+        },
+        "forceState": {
+          "source": "member_response",
+          "station": 0,
+          "positionM": 0,
+          "segmentId": "2",
+          "side": "right"
+        },
+        "message": "Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。"
+      }
+    ]
+  },
+  "requestedChecksPassed": false,
+  "missingInputs": [
+    {
+      "field": "material.design.f",
+      "label": "抗拉抗压抗弯设计强度 / Design normal strength",
+      "unit": "MPa",
+      "source": "design",
+      "elementId": "1",
+      "checks": [
+        "正应力",
+        "折算应力",
+        "整体稳定"
+      ],
+      "resultKeys": [
+        "case:LC1"
+      ],
+      "writable": true,
+      "writeTarget": {
+        "collection": "materials",
+        "id": "1",
+        "path": "design.f",
+        "modelUnit": "MPa",
+        "inputUnit": "MPa",
+        "inputToModelScale": 1
+      }
+    },
+    {
+      "field": "material.design.fv",
+      "label": "抗剪设计强度 / Design shear strength",
+      "unit": "MPa",
+      "source": "design",
+      "elementId": "1",
+      "checks": [
+        "剪应力"
+      ],
+      "resultKeys": [
+        "case:LC1"
+      ],
+      "writable": true,
+      "writeTarget": {
+        "collection": "materials",
+        "id": "1",
+        "path": "design.fv",
+        "modelUnit": "MPa",
+        "inputUnit": "MPa",
+        "inputToModelScale": 1
+      }
+    },
+    {
+      "field": "member.design.beta1",
+      "label": "折算应力系数 / Equivalent-stress factor",
+      "unit": "1",
+      "source": "design",
+      "elementId": "1",
+      "checks": [
+        "折算应力"
+      ],
+      "resultKeys": [
+        "case:LC1"
+      ],
+      "writable": true,
+      "writeTarget": {
+        "collection": "elements",
+        "id": "1",
+        "path": "design.beta1",
+        "modelUnit": "1",
+        "inputUnit": "1",
+        "inputToModelScale": 1
+      }
+    },
+    {
+      "field": "member.design.phi_b",
+      "label": "整体稳定系数及支承依据 / Lateral stability factor and support basis",
+      "unit": "1",
+      "source": "design",
+      "elementId": "1",
+      "checks": [
+        "整体稳定"
+      ],
+      "resultKeys": [
+        "case:LC1"
+      ],
+      "writable": true,
+      "writeTarget": {
+        "collection": "elements",
+        "id": "1",
+        "path": "design.phi_b",
+        "modelUnit": "1",
+        "inputUnit": "1",
+        "inputToModelScale": 1
+      }
+    },
+    {
+      "field": "section.b",
+      "label": "板件计算宽度 / Plate width",
+      "unit": "mm",
+      "source": "section",
+      "elementId": "1",
+      "checks": [
+        "局部稳定"
+      ],
+      "resultKeys": [
+        "case:LC1"
+      ],
+      "writable": true,
+      "writeTarget": {
+        "collection": "sections",
+        "id": "S1",
+        "path": "properties.b",
+        "modelUnit": "m",
+        "inputUnit": "mm",
+        "inputToModelScale": 0.001
+      }
+    },
+    {
+      "field": "section.t",
+      "label": "板件厚度 / Plate thickness",
+      "unit": "mm",
+      "source": "section",
+      "elementId": "1",
+      "checks": [
+        "局部稳定"
+      ],
+      "resultKeys": [
+        "case:LC1"
+      ],
+      "writable": true,
+      "writeTarget": {
+        "collection": "sections",
+        "id": "S1",
+        "path": "properties.t",
+        "modelUnit": "m",
+        "inputUnit": "mm",
+        "inputToModelScale": 0.001
+      }
+    },
+    {
+      "field": "member.design.btLimit",
+      "label": "宽厚比限值及依据 / Width-thickness limit and basis",
+      "unit": "1",
+      "source": "design",
+      "elementId": "1",
+      "checks": [
+        "局部稳定"
+      ],
+      "resultKeys": [
+        "case:LC1"
+      ],
+      "writable": true,
+      "writeTarget": {
+        "collection": "elements",
+        "id": "1",
+        "path": "design.btLimit",
+        "modelUnit": "1",
+        "inputUnit": "1",
+        "inputToModelScale": 1
+      }
+    },
+    {
+      "field": "member.design.l0",
+      "label": "明确的计算长度及约束依据 / Explicit effective length and restraint basis",
+      "unit": "mm",
+      "source": "design",
+      "elementId": "1",
+      "checks": [
+        "长细比"
+      ],
+      "resultKeys": [
+        "case:LC1"
+      ],
+      "writable": true,
+      "writeTarget": {
+        "collection": "elements",
+        "id": "1",
+        "path": "design.l0",
+        "modelUnit": "mm",
+        "inputUnit": "mm",
+        "inputToModelScale": 1
+      }
+    },
+    {
+      "field": "member.design.lambdaLimit",
+      "label": "长细比限值 / Slenderness limit",
+      "unit": "1",
+      "source": "design",
+      "elementId": "1",
+      "checks": [
+        "长细比"
+      ],
+      "resultKeys": [
+        "case:LC1"
+      ],
+      "writable": true,
+      "writeTarget": {
+        "collection": "elements",
+        "id": "1",
+        "path": "design.lambdaLimit",
+        "modelUnit": "1",
+        "inputUnit": "1",
+        "inputToModelScale": 1
+      }
+    },
+    {
+      "field": "response.deflection",
+      "label": "使用工况相对挠度 / Service relative deflection",
+      "unit": "mm",
+      "source": "result",
+      "elementId": "1",
+      "checks": [
+        "挠度"
+      ],
+      "resultKeys": [
+        "case:LC1"
+      ],
+      "action": "inspect_analysis",
+      "writable": false
+    },
+    {
+      "field": "member.design.deflectionLimitN",
+      "label": "挠度限值 L/n 的 n 及依据 / Denominator n of L/n and basis",
+      "unit": "1",
+      "source": "design",
+      "elementId": "1",
+      "checks": [
+        "挠度"
+      ],
+      "resultKeys": [
+        "case:LC1"
+      ],
+      "writable": true,
+      "writeTarget": {
+        "collection": "elements",
+        "id": "1",
+        "path": "design.deflectionLimitN",
+        "modelUnit": "1",
+        "inputUnit": "1",
+        "inputToModelScale": 1
+      }
+    },
+    {
+      "field": "member.design.serviceability_result_keys",
+      "label": "使用工况或组合 / Service case or combination",
+      "unit": "result key",
+      "source": "design",
+      "elementId": "1",
+      "checks": [
+        "挠度"
+      ],
+      "resultKeys": [
+        "case:LC1"
+      ],
+      "writable": true,
+      "writeTarget": {
+        "collection": "elements",
+        "id": "1",
+        "path": "design.serviceability_result_keys",
+        "modelUnit": "result key",
+        "inputUnit": "result key",
+        "inputToModelScale": 1
+      }
+    },
+    {
+      "field": "material.design.f",
+      "label": "抗拉抗压抗弯设计强度 / Design normal strength",
+      "unit": "MPa",
+      "source": "design",
+      "elementId": "2",
+      "checks": [
+        "正应力",
+        "折算应力",
+        "整体稳定"
+      ],
+      "resultKeys": [
+        "case:LC1"
+      ],
+      "writable": true,
+      "writeTarget": {
+        "collection": "materials",
+        "id": "1",
+        "path": "design.f",
+        "modelUnit": "MPa",
+        "inputUnit": "MPa",
+        "inputToModelScale": 1
+      }
+    },
+    {
+      "field": "material.design.fv",
+      "label": "抗剪设计强度 / Design shear strength",
+      "unit": "MPa",
+      "source": "design",
+      "elementId": "2",
+      "checks": [
+        "剪应力"
+      ],
+      "resultKeys": [
+        "case:LC1"
+      ],
+      "writable": true,
+      "writeTarget": {
+        "collection": "materials",
+        "id": "1",
+        "path": "design.fv",
+        "modelUnit": "MPa",
+        "inputUnit": "MPa",
+        "inputToModelScale": 1
+      }
+    },
+    {
+      "field": "member.design.beta1",
+      "label": "折算应力系数 / Equivalent-stress factor",
+      "unit": "1",
+      "source": "design",
+      "elementId": "2",
+      "checks": [
+        "折算应力"
+      ],
+      "resultKeys": [
+        "case:LC1"
+      ],
+      "writable": true,
+      "writeTarget": {
+        "collection": "elements",
+        "id": "2",
+        "path": "design.beta1",
+        "modelUnit": "1",
+        "inputUnit": "1",
+        "inputToModelScale": 1
+      }
+    },
+    {
+      "field": "member.design.phi_b",
+      "label": "整体稳定系数及支承依据 / Lateral stability factor and support basis",
+      "unit": "1",
+      "source": "design",
+      "elementId": "2",
+      "checks": [
+        "整体稳定"
+      ],
+      "resultKeys": [
+        "case:LC1"
+      ],
+      "writable": true,
+      "writeTarget": {
+        "collection": "elements",
+        "id": "2",
+        "path": "design.phi_b",
+        "modelUnit": "1",
+        "inputUnit": "1",
+        "inputToModelScale": 1
+      }
+    },
+    {
+      "field": "section.b",
+      "label": "板件计算宽度 / Plate width",
+      "unit": "mm",
+      "source": "section",
+      "elementId": "2",
+      "checks": [
+        "局部稳定"
+      ],
+      "resultKeys": [
+        "case:LC1"
+      ],
+      "writable": true,
+      "writeTarget": {
+        "collection": "sections",
+        "id": "S1",
+        "path": "properties.b",
+        "modelUnit": "m",
+        "inputUnit": "mm",
+        "inputToModelScale": 0.001
+      }
+    },
+    {
+      "field": "section.t",
+      "label": "板件厚度 / Plate thickness",
+      "unit": "mm",
+      "source": "section",
+      "elementId": "2",
+      "checks": [
+        "局部稳定"
+      ],
+      "resultKeys": [
+        "case:LC1"
+      ],
+      "writable": true,
+      "writeTarget": {
+        "collection": "sections",
+        "id": "S1",
+        "path": "properties.t",
+        "modelUnit": "m",
+        "inputUnit": "mm",
+        "inputToModelScale": 0.001
+      }
+    },
+    {
+      "field": "member.design.btLimit",
+      "label": "宽厚比限值及依据 / Width-thickness limit and basis",
+      "unit": "1",
+      "source": "design",
+      "elementId": "2",
+      "checks": [
+        "局部稳定"
+      ],
+      "resultKeys": [
+        "case:LC1"
+      ],
+      "writable": true,
+      "writeTarget": {
+        "collection": "elements",
+        "id": "2",
+        "path": "design.btLimit",
+        "modelUnit": "1",
+        "inputUnit": "1",
+        "inputToModelScale": 1
+      }
+    },
+    {
+      "field": "member.design.l0",
+      "label": "明确的计算长度及约束依据 / Explicit effective length and restraint basis",
+      "unit": "mm",
+      "source": "design",
+      "elementId": "2",
+      "checks": [
+        "长细比"
+      ],
+      "resultKeys": [
+        "case:LC1"
+      ],
+      "writable": true,
+      "writeTarget": {
+        "collection": "elements",
+        "id": "2",
+        "path": "design.l0",
+        "modelUnit": "mm",
+        "inputUnit": "mm",
+        "inputToModelScale": 1
+      }
+    },
+    {
+      "field": "member.design.lambdaLimit",
+      "label": "长细比限值 / Slenderness limit",
+      "unit": "1",
+      "source": "design",
+      "elementId": "2",
+      "checks": [
+        "长细比"
+      ],
+      "resultKeys": [
+        "case:LC1"
+      ],
+      "writable": true,
+      "writeTarget": {
+        "collection": "elements",
+        "id": "2",
+        "path": "design.lambdaLimit",
+        "modelUnit": "1",
+        "inputUnit": "1",
+        "inputToModelScale": 1
+      }
+    },
+    {
+      "field": "response.deflection",
+      "label": "使用工况相对挠度 / Service relative deflection",
+      "unit": "mm",
+      "source": "result",
+      "elementId": "2",
+      "checks": [
+        "挠度"
+      ],
+      "resultKeys": [
+        "case:LC1"
+      ],
+      "action": "inspect_analysis",
+      "writable": false
+    },
+    {
+      "field": "member.design.deflectionLimitN",
+      "label": "挠度限值 L/n 的 n 及依据 / Denominator n of L/n and basis",
+      "unit": "1",
+      "source": "design",
+      "elementId": "2",
+      "checks": [
+        "挠度"
+      ],
+      "resultKeys": [
+        "case:LC1"
+      ],
+      "writable": true,
+      "writeTarget": {
+        "collection": "elements",
+        "id": "2",
+        "path": "design.deflectionLimitN",
+        "modelUnit": "1",
+        "inputUnit": "1",
+        "inputToModelScale": 1
+      }
+    },
+    {
+      "field": "member.design.serviceability_result_keys",
+      "label": "使用工况或组合 / Service case or combination",
+      "unit": "result key",
+      "source": "design",
+      "elementId": "2",
+      "checks": [
+        "挠度"
+      ],
+      "resultKeys": [
+        "case:LC1"
+      ],
+      "writable": true,
+      "writeTarget": {
+        "collection": "elements",
+        "id": "2",
+        "path": "design.serviceability_result_keys",
+        "modelUnit": "result key",
+        "inputUnit": "result key",
+        "inputToModelScale": 1
+      }
+    }
+  ],
+  "writeTargets": [
+    {
+      "collection": "materials",
+      "id": "1",
+      "path": "design.f",
+      "modelUnit": "MPa",
+      "inputUnit": "MPa",
+      "inputToModelScale": 1,
+      "label": "抗拉抗压抗弯设计强度 / Design normal strength",
+      "elementIds": [
+        "1",
+        "2"
+      ]
+    },
+    {
+      "collection": "materials",
+      "id": "1",
+      "path": "design.fv",
+      "modelUnit": "MPa",
+      "inputUnit": "MPa",
+      "inputToModelScale": 1,
+      "label": "抗剪设计强度 / Design shear strength",
+      "elementIds": [
+        "1",
+        "2"
+      ]
+    },
+    {
+      "collection": "elements",
+      "id": "1",
+      "path": "design.beta1",
+      "modelUnit": "1",
+      "inputUnit": "1",
+      "inputToModelScale": 1,
+      "label": "折算应力系数 / Equivalent-stress factor",
+      "elementIds": [
+        "1"
+      ]
+    },
+    {
+      "collection": "elements",
+      "id": "1",
+      "path": "design.phi_b",
+      "modelUnit": "1",
+      "inputUnit": "1",
+      "inputToModelScale": 1,
+      "label": "整体稳定系数及支承依据 / Lateral stability factor and support basis",
+      "elementIds": [
+        "1"
+      ]
+    },
+    {
+      "collection": "sections",
+      "id": "S1",
+      "path": "properties.b",
+      "modelUnit": "m",
+      "inputUnit": "mm",
+      "inputToModelScale": 0.001,
+      "label": "板件计算宽度 / Plate width",
+      "elementIds": [
+        "1",
+        "2"
+      ]
+    },
+    {
+      "collection": "sections",
+      "id": "S1",
+      "path": "properties.t",
+      "modelUnit": "m",
+      "inputUnit": "mm",
+      "inputToModelScale": 0.001,
+      "label": "板件厚度 / Plate thickness",
+      "elementIds": [
+        "1",
+        "2"
+      ]
+    },
+    {
+      "collection": "elements",
+      "id": "1",
+      "path": "design.btLimit",
+      "modelUnit": "1",
+      "inputUnit": "1",
+      "inputToModelScale": 1,
+      "label": "宽厚比限值及依据 / Width-thickness limit and basis",
+      "elementIds": [
+        "1"
+      ]
+    },
+    {
+      "collection": "elements",
+      "id": "1",
+      "path": "design.l0",
+      "modelUnit": "mm",
+      "inputUnit": "mm",
+      "inputToModelScale": 1,
+      "label": "明确的计算长度及约束依据 / Explicit effective length and restraint basis",
+      "elementIds": [
+        "1"
+      ]
+    },
+    {
+      "collection": "elements",
+      "id": "1",
+      "path": "design.lambdaLimit",
+      "modelUnit": "1",
+      "inputUnit": "1",
+      "inputToModelScale": 1,
+      "label": "长细比限值 / Slenderness limit",
+      "elementIds": [
+        "1"
+      ]
+    },
+    {
+      "collection": "elements",
+      "id": "1",
+      "path": "design.deflectionLimitN",
+      "modelUnit": "1",
+      "inputUnit": "1",
+      "inputToModelScale": 1,
+      "label": "挠度限值 L/n 的 n 及依据 / Denominator n of L/n and basis",
+      "elementIds": [
+        "1"
+      ]
+    },
+    {
+      "collection": "elements",
+      "id": "1",
+      "path": "design.serviceability_result_keys",
+      "modelUnit": "result key",
+      "inputUnit": "result key",
+      "inputToModelScale": 1,
+      "label": "使用工况或组合 / Service case or combination",
+      "elementIds": [
+        "1"
+      ]
+    },
+    {
+      "collection": "elements",
+      "id": "2",
+      "path": "design.beta1",
+      "modelUnit": "1",
+      "inputUnit": "1",
+      "inputToModelScale": 1,
+      "label": "折算应力系数 / Equivalent-stress factor",
+      "elementIds": [
+        "2"
+      ]
+    },
+    {
+      "collection": "elements",
+      "id": "2",
+      "path": "design.phi_b",
+      "modelUnit": "1",
+      "inputUnit": "1",
+      "inputToModelScale": 1,
+      "label": "整体稳定系数及支承依据 / Lateral stability factor and support basis",
+      "elementIds": [
+        "2"
+      ]
+    },
+    {
+      "collection": "elements",
+      "id": "2",
+      "path": "design.btLimit",
+      "modelUnit": "1",
+      "inputUnit": "1",
+      "inputToModelScale": 1,
+      "label": "宽厚比限值及依据 / Width-thickness limit and basis",
+      "elementIds": [
+        "2"
+      ]
+    },
+    {
+      "collection": "elements",
+      "id": "2",
+      "path": "design.l0",
+      "modelUnit": "mm",
+      "inputUnit": "mm",
+      "inputToModelScale": 1,
+      "label": "明确的计算长度及约束依据 / Explicit effective length and restraint basis",
+      "elementIds": [
+        "2"
+      ]
+    },
+    {
+      "collection": "elements",
+      "id": "2",
+      "path": "design.lambdaLimit",
+      "modelUnit": "1",
+      "inputUnit": "1",
+      "inputToModelScale": 1,
+      "label": "长细比限值 / Slenderness limit",
+      "elementIds": [
+        "2"
+      ]
+    },
+    {
+      "collection": "elements",
+      "id": "2",
+      "path": "design.deflectionLimitN",
+      "modelUnit": "1",
+      "inputUnit": "1",
+      "inputToModelScale": 1,
+      "label": "挠度限值 L/n 的 n 及依据 / Denominator n of L/n and basis",
+      "elementIds": [
+        "2"
+      ]
+    },
+    {
+      "collection": "elements",
+      "id": "2",
+      "path": "design.serviceability_result_keys",
+      "modelUnit": "result key",
+      "inputUnit": "result key",
+      "inputToModelScale": 1,
+      "label": "使用工况或组合 / Service case or combination",
+      "elementIds": [
+        "2"
+      ]
+    }
+  ],
+  "missingInputCount": 20,
+  "availableResultKeys": [
+    "case:LC1"
+  ],
+  "editGuidance": {
+    "format": "Use nested objects or canonical dotted paths within values; do not prefix paths with material/member. / values使用嵌套对象或规范点路径，不加material/member前缀。",
+    "materials": "materials[id].design: f/fv in MPa; material design strengths belong to the referenced material, not the element. / 设计强度写入引用材料的design。",
+    "elements": "elements[id].design: beta1, phi_b, btLimit, lambdaLimit, deflectionLimitN; l0/h0 in mm; serviceability_result_keys is an array of saved result keys; requested_checks is an optional nonempty array of user-selected check IDs/names (omit for all checks); basis maps field names to supplied evidence. / 构件设计条件、使用工况数组及依据；requested_checks仅用于用户明确指定的专项范围，省略则检查全部。",
+    "sections": "sections[id].properties: A/As m2, Iy/Iz/J m4, Wnx/Wx/Wz/S/Sz m3, tw/tz/b/t/imin m. shape dimensions are mm. Updates deep-merge: send only changed properties, preserving reviewed catalog values and axis mappings. Never infer units from magnitude or recompute catalog data. / 截面属性采用米制，shape尺寸为mm；更新会递归合并，只传修改字段，保留已核定目录值及轴映射，禁止按大小猜单位或重算目录数据。",
+    "discovery": "query_model(includeSchema=true, collection=materials|elements|sections) returns fields from the actual V2 schema. / 可查询实际V2字段。"
+  },
+  "guidance": "Write already supplied inputs to the listed owners; ask only for genuinely missing conditions. Counts of input-required checks are not counts of questions. Explain checks using checkedItems: preserve each formula, demand, capacity, unit, utilization and selection. Never combine coefficients across different checks or invent missing calculations. If truncated, use the saved report for remaining items. / 已确认输入按目标路径写入，仅询问真正缺失的条件；待输入校核项数不等于问题数。校核解释须引用checkedItems中各自的公式、需求、承载力、单位、利用率及工况，不得混用不同校核的系数或编造缺失计算；截断的其余项目查阅保存报告。",
+  "inputRequiredChecks": [
+    {
+      "elementId": "1",
+      "resultKey": "case:LC1",
+      "check": "正应力",
+      "clause": "GB50017-2017 7.1.1",
+      "message": "Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。"
+    },
+    {
+      "elementId": "1",
+      "resultKey": "case:LC1",
+      "check": "剪应力",
+      "clause": "GB50017-2017 7.1.2",
+      "message": "Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。"
+    },
+    {
+      "elementId": "1",
+      "resultKey": "case:LC1",
+      "check": "折算应力",
+      "clause": "GB50017-2017 7.1.4",
+      "message": "Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。"
+    },
+    {
+      "elementId": "1",
+      "resultKey": "case:LC1",
+      "check": "整体稳定",
+      "clause": "GB50017-2017 8.2.1",
+      "message": "Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。"
+    },
+    {
+      "elementId": "1",
+      "resultKey": "case:LC1",
+      "check": "局部稳定",
+      "clause": "GB50017-2017 8.4.1",
+      "message": "Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。"
+    },
+    {
+      "elementId": "1",
+      "resultKey": "case:LC1",
+      "check": "长细比",
+      "clause": "GB50017-2017 10.1.1",
+      "message": "Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。"
+    },
+    {
+      "elementId": "1",
+      "resultKey": "case:LC1",
+      "check": "挠度",
+      "clause": "GB50017-2017 10.2.1",
+      "message": "Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。"
+    },
+    {
+      "elementId": "2",
+      "resultKey": "case:LC1",
+      "check": "正应力",
+      "clause": "GB50017-2017 7.1.1",
+      "message": "Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。"
+    },
+    {
+      "elementId": "2",
+      "resultKey": "case:LC1",
+      "check": "剪应力",
+      "clause": "GB50017-2017 7.1.2",
+      "message": "Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。"
+    },
+    {
+      "elementId": "2",
+      "resultKey": "case:LC1",
+      "check": "折算应力",
+      "clause": "GB50017-2017 7.1.4",
+      "message": "Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。"
+    },
+    {
+      "elementId": "2",
+      "resultKey": "case:LC1",
+      "check": "整体稳定",
+      "clause": "GB50017-2017 8.2.1",
+      "message": "Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。"
+    },
+    {
+      "elementId": "2",
+      "resultKey": "case:LC1",
+      "check": "局部稳定",
+      "clause": "GB50017-2017 8.4.1",
+      "message": "Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。"
+    },
+    {
+      "elementId": "2",
+      "resultKey": "case:LC1",
+      "check": "长细比",
+      "clause": "GB50017-2017 10.1.1",
+      "message": "Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。"
+    },
+    {
+      "elementId": "2",
+      "resultKey": "case:LC1",
+      "check": "挠度",
+      "clause": "GB50017-2017 10.2.1",
+      "message": "Required finite calculation inputs are missing or invalid / 缺少有效计算参数，尚未完成校核。"
+    }
+  ],
+  "nextAction": "ask_user_clarification",
+  "conclusionEligible": false
+}
