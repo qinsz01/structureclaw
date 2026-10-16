@@ -13,7 +13,7 @@ import { buildGenericModelPrompt, buildRetrySuffix } from './llm-model-prompt.js
 import { validateExplicitModel } from '../../../agent-runtime/explicit-model.js';
 import { canRecover, requestRecovery } from '../../../runtime/run-context.js';
 import { applyDraftAnalysisControl, applyDraftTemplateDesign, projectDraftMaterialDesign } from '../../../agent-runtime/engineering-draft.js';
-import { completeReviewedSectionRecord, reviewedSectionName, reviewedSectionNames } from '../../../agent-runtime/section-catalog.js';
+import { completeReviewedSectionRecord, reviewedSectionName, reviewedSectionNames } from '../../../engineering/section-tables.js';
 
 export class ModelInputRequiredError extends Error {
   constructor(readonly missingFields: Array<string | { field: string; reason?: string }>) {

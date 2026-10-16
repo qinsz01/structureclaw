@@ -1,4 +1,4 @@
-import { completeReviewedSectionRecord, reviewedSectionName, reviewedSectionNames, reviewedSectionRecord } from './section-catalog.js';
+import { completeReviewedSectionRecord, reviewedSectionName, reviewedSectionNames, reviewedSectionRecord } from '../engineering/section-tables.js';
 import type { DraftState } from './types.js';
 import { applyDraftAnalysisControl, applyDraftTemplateDesign, resolveDraftTemplateAssignment } from './engineering-draft.js';
 
