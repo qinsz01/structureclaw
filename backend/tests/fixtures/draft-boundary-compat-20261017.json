@@ -1,0 +1,6325 @@
+{
+ "description": "Old persisted DraftState samples (characterization checkpoints, reported fixtures, legacy flat-field drafts) with next-turn goldens captured from the pre-refactor runtime (2026-10-17, before step 10). Regenerate only with an explicitly reviewed behaviour change.",
+ "scenarios": [
+  {
+   "id": "checkpoint-beam-complete",
+   "skillId": "beam",
+   "source": "characterization draft-path checkpoint (zh beam)",
+   "state": {
+    "inferredType": "beam",
+    "engineeringDraft": {
+     "structureType": "beam",
+     "geometry": {
+      "lengthM": 6
+     },
+     "materials": [
+      {
+       "id": "M1",
+       "name": "Q235 钢",
+       "E": 206000,
+       "nu": 0.3,
+       "rho": 7850
+      }
+     ],
+     "sectionRecords": [
+      {
+       "id": "S1",
+       "name": "200×400 矩形",
+       "type": "rectangular",
+       "shape": {
+        "kind": "rectangular",
+        "B": 200,
+        "H": 400
+       }
+      }
+     ],
+     "templateAssignments": {
+      "beam": {
+       "materialId": "M1",
+       "sectionId": "S1"
+      }
+     },
+     "boundary": {
+      "supportType": "simply-supported"
+     },
+     "loads": [
+      {
+       "id": "P1",
+       "kind": "point",
+       "magnitude": 10,
+       "unit": "kN",
+       "direction": "gravity",
+       "target": "beam",
+       "location": {
+        "xM": 3
+       }
+      }
+     ],
+     "analysis": {
+      "loadCombinations": []
+     },
+     "analysisControl": {
+      "self_weight": false
+     }
+    },
+    "lengthM": 6,
+    "supportType": "simply-supported",
+    "loadKN": 10,
+    "loadType": "point",
+    "loadPosition": "free-joint",
+    "loadPositionM": 3,
+    "updatedAt": 1792182363802,
+    "skillState": {
+     "engineeringDraft": {
+      "structureType": "beam",
+      "geometry": {
+       "lengthM": 6
+      },
+      "materials": [
+       {
+        "id": "M1",
+        "name": "Q235 钢",
+        "E": 206000,
+        "nu": 0.3,
+        "rho": 7850
+       }
+      ],
+      "sectionRecords": [
+       {
+        "id": "S1",
+        "name": "200×400 矩形",
+        "type": "rectangular",
+        "shape": {
+         "kind": "rectangular",
+         "B": 200,
+         "H": 400
+        }
+       }
+      ],
+      "templateAssignments": {
+       "beam": {
+        "materialId": "M1",
+        "sectionId": "S1"
+       }
+      },
+      "boundary": {
+       "supportType": "simply-supported"
+      },
+      "loads": [
+       {
+        "id": "P1",
+        "kind": "point",
+        "magnitude": 10,
+        "unit": "kN",
+        "direction": "gravity",
+        "target": "beam",
+        "location": {
+         "xM": 3
+        }
+       }
+      ],
+      "analysis": {
+       "loadCombinations": []
+      },
+      "analysisControl": {
+       "self_weight": false
+      }
+     },
+     "extractionSource": "engineering-draft",
+     "beamLoads": [
+      {
+       "kind": "point",
+       "magnitude": 10,
+       "unit": "kN",
+       "direction": "gravity",
+       "target": "beam",
+       "xM": 3
+      }
+     ]
+    },
+    "skillId": "beam",
+    "structuralTypeKey": "beam",
+    "coordinateSemantics": "global-z-up",
+    "supportLevel": "supported",
+    "supportNote": "characterization",
+    "routingSource": "llm-suggested",
+    "requestScope": {
+     "responses": [
+      "forces",
+      "reactions",
+      "displacements"
+     ],
+     "method": "solver",
+     "design": false,
+     "report": true,
+     "outputs": []
+    }
+   },
+   "raw": {
+    "engineeringDraft": {
+     "loads": [
+      {
+       "id": "P1",
+       "magnitude": 12
+      }
+     ]
+    }
+   },
+   "expected": {
+    "ingest": {
+     "value": {
+      "inferredType": "beam",
+      "skillId": "beam",
+      "engineeringDraft": {
+       "structureType": "beam",
+       "geometry": {
+        "lengthM": 6
+       },
+       "materials": [
+        {
+         "id": "M1",
+         "name": "Q235 钢",
+         "E": 206000,
+         "nu": 0.3,
+         "rho": 7850
+        }
+       ],
+       "sectionRecords": [
+        {
+         "id": "S1",
+         "name": "200×400 矩形",
+         "type": "rectangular",
+         "shape": {
+          "kind": "rectangular",
+          "B": 200,
+          "H": 400
+         }
+        }
+       ],
+       "templateAssignments": {
+        "beam": {
+         "materialId": "M1",
+         "sectionId": "S1"
+        }
+       },
+       "boundary": {
+        "supportType": "simply-supported"
+       },
+       "loads": [
+        {
+         "id": "P1",
+         "kind": "point",
+         "magnitude": 10,
+         "unit": "kN",
+         "direction": "gravity",
+         "target": "beam",
+         "location": {
+          "xM": 3
+         }
+        }
+       ],
+       "analysis": {
+        "loadCombinations": []
+       },
+       "analysisControl": {
+        "self_weight": false
+       }
+      },
+      "skillState": {
+       "engineeringDraft": {
+        "structureType": "beam",
+        "geometry": {
+         "lengthM": 6
+        },
+        "materials": [
+         {
+          "id": "M1",
+          "name": "Q235 钢",
+          "E": 206000,
+          "nu": 0.3,
+          "rho": 7850
+         }
+        ],
+        "sectionRecords": [
+         {
+          "id": "S1",
+          "name": "200×400 矩形",
+          "type": "rectangular",
+          "shape": {
+           "kind": "rectangular",
+           "B": 200,
+           "H": 400
+          }
+         }
+        ],
+        "templateAssignments": {
+         "beam": {
+          "materialId": "M1",
+          "sectionId": "S1"
+         }
+        },
+        "boundary": {
+         "supportType": "simply-supported"
+        },
+        "loads": [
+         {
+          "id": "P1",
+          "kind": "point",
+          "magnitude": 10,
+          "unit": "kN",
+          "direction": "gravity",
+          "target": "beam",
+          "location": {
+           "xM": 3
+          }
+         }
+        ],
+        "analysis": {
+         "loadCombinations": []
+        },
+        "analysisControl": {
+         "self_weight": false
+        }
+       },
+       "extractionSource": "engineering-draft",
+       "beamLoads": [
+        {
+         "kind": "point",
+         "magnitude": 10,
+         "unit": "kN",
+         "direction": "gravity",
+         "target": "beam",
+         "xM": 3
+        }
+       ]
+      },
+      "lengthM": 6,
+      "supportType": "simply-supported",
+      "loadKN": 10,
+      "loadType": "point",
+      "loadPosition": "free-joint",
+      "loadPositionM": 3
+     }
+    },
+    "next": {
+     "json": "{\"inferredType\":\"beam\",\"engineeringDraft\":{\"structureType\":\"beam\",\"geometry\":{\"lengthM\":6},\"topology\":{},\"materials\":[{\"id\":\"M1\",\"name\":\"Q235 钢\",\"E\":206000,\"nu\":0.3,\"rho\":7850}],\"sectionRecords\":[{\"id\":\"S1\",\"name\":\"200×400 矩形\",\"type\":\"rectangular\",\"shape\":{\"kind\":\"rectangular\",\"B\":200,\"H\":400}}],\"templateAssignments\":{\"beam\":{\"materialId\":\"M1\",\"sectionId\":\"S1\"}},\"material\":{},\"sections\":{},\"boundary\":{\"supportType\":\"simply-supported\"},\"loads\":[{\"id\":\"P1\",\"kind\":\"point\",\"magnitude\":12,\"unit\":\"kN\",\"direction\":\"gravity\",\"target\":\"beam\",\"location\":{\"xM\":3}}],\"analysis\":{\"loadCombinations\":[]},\"analysisControl\":{\"self_weight\":false}},\"lengthM\":6,\"supportType\":\"simply-supported\",\"loadKN\":12,\"loadType\":\"point\",\"loadPosition\":\"free-joint\",\"loadPositionM\":3,\"updatedAt\":0,\"skillState\":{\"engineeringDraft\":{\"structureType\":\"beam\",\"geometry\":{\"lengthM\":6},\"topology\":{},\"materials\":[{\"id\":\"M1\",\"name\":\"Q235 钢\",\"E\":206000,\"nu\":0.3,\"rho\":7850}],\"sectionRecords\":[{\"id\":\"S1\",\"name\":\"200×400 矩形\",\"type\":\"rectangular\",\"shape\":{\"kind\":\"rectangular\",\"B\":200,\"H\":400}}],\"templateAssignments\":{\"beam\":{\"materialId\":\"M1\",\"sectionId\":\"S1\"}},\"material\":{},\"sections\":{},\"boundary\":{\"supportType\":\"simply-supported\"},\"loads\":[{\"id\":\"P1\",\"kind\":\"point\",\"magnitude\":12,\"unit\":\"kN\",\"direction\":\"gravity\",\"target\":\"beam\",\"location\":{\"xM\":3}}],\"analysis\":{\"loadCombinations\":[]},\"analysisControl\":{\"self_weight\":false}},\"extractionSource\":\"engineering-draft\",\"beamLoads\":[{\"kind\":\"point\",\"magnitude\":12,\"unit\":\"kN\",\"direction\":\"gravity\",\"target\":\"beam\",\"xM\":3}]},\"skillId\":\"beam\",\"structuralTypeKey\":\"beam\",\"coordinateSemantics\":\"global-z-up\"}"
+    },
+    "missingExecution": {
+     "value": {
+      "critical": [],
+      "optional": []
+     }
+    },
+    "missingInteractive": {
+     "value": {
+      "critical": [],
+      "optional": []
+     }
+    },
+    "questions": {
+     "value": []
+    },
+    "model": {
+     "value": {
+      "schema_version": "2.2.0",
+      "unit_system": "SI",
+      "nodes": [
+       {
+        "id": "1",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+         true,
+         true,
+         true,
+         false,
+         false,
+         false
+        ]
+       },
+       {
+        "id": "2",
+        "x": 3,
+        "y": 0,
+        "z": 0
+       },
+       {
+        "id": "3",
+        "x": 6,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+         false,
+         true,
+         true,
+         false,
+         false,
+         false
+        ]
+       }
+      ],
+      "elements": [
+       {
+        "id": "1",
+        "type": "beam",
+        "nodes": [
+         "1",
+         "2"
+        ],
+        "material": "M1",
+        "section": "S1"
+       },
+       {
+        "id": "2",
+        "type": "beam",
+        "nodes": [
+         "2",
+         "3"
+        ],
+        "material": "M1",
+        "section": "S1"
+       }
+      ],
+      "materials": [
+       {
+        "id": "M1",
+        "name": "Q235 钢",
+        "E": 206000,
+        "nu": 0.3,
+        "rho": 7850
+       }
+      ],
+      "sections": [
+       {
+        "id": "S1",
+        "name": "200×400 矩形",
+        "type": "rectangular",
+        "shape": {
+         "kind": "rectangular",
+         "B": 200,
+         "H": 400
+        }
+       }
+      ],
+      "load_cases": [
+       {
+        "id": "LC1",
+        "type": "other",
+        "loads": [
+         {
+          "node": "2",
+          "fz": -12,
+          "reference_frame": "global"
+         }
+        ]
+       }
+      ],
+      "load_combinations": [],
+      "metadata": {
+       "source": "markdown-skill-draft",
+       "inferredType": "beam",
+       "frameDimension": "2d",
+       "supportType": "simply-supported",
+       "semanticLoadCount": 1,
+       "inputEvidence": [],
+       "templatePropertyAssignments": {
+        "beam": {
+         "materialId": "M1",
+         "sectionId": "S1"
+        }
+       },
+       "coordinateSemantics": "global-z-up",
+       "coordinateContractVersion": 1
+      },
+      "analysis_control": {
+       "self_weight": false
+      },
+      "coordinate_system": {
+       "semantics": "global-z-up",
+       "version": 1,
+       "dimension": "2d",
+       "plane": "xz",
+       "dof_order": [
+        "ux",
+        "uy",
+        "uz",
+        "rx",
+        "ry",
+        "rz"
+       ]
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "checkpoint-beam-paused",
+   "skillId": "beam",
+   "source": "characterization clarification-resume checkpoint before the answer",
+   "state": {
+    "inferredType": "beam",
+    "engineeringDraft": {
+     "structureType": "beam",
+     "geometry": {
+      "lengthM": 8
+     },
+     "materials": [
+      {
+       "id": "M1",
+       "name": "Q235 钢",
+       "E": 206000,
+       "nu": 0.3,
+       "rho": 7850
+      }
+     ],
+     "sectionRecords": [
+      {
+       "id": "S1",
+       "name": "200×400 矩形",
+       "type": "rectangular",
+       "shape": {
+        "kind": "rectangular",
+        "B": 200,
+        "H": 400
+       }
+      }
+     ],
+     "templateAssignments": {
+      "beam": {
+       "materialId": "M1",
+       "sectionId": "S1"
+      }
+     },
+     "boundary": {
+      "supportType": "simply-supported"
+     },
+     "analysis": {
+      "loadCombinations": []
+     },
+     "analysisControl": {
+      "self_weight": false
+     }
+    },
+    "lengthM": 8,
+    "supportType": "simply-supported",
+    "updatedAt": 1792182386573,
+    "skillState": {
+     "engineeringDraft": {
+      "structureType": "beam",
+      "geometry": {
+       "lengthM": 8
+      },
+      "materials": [
+       {
+        "id": "M1",
+        "name": "Q235 钢",
+        "E": 206000,
+        "nu": 0.3,
+        "rho": 7850
+       }
+      ],
+      "sectionRecords": [
+       {
+        "id": "S1",
+        "name": "200×400 矩形",
+        "type": "rectangular",
+        "shape": {
+         "kind": "rectangular",
+         "B": 200,
+         "H": 400
+        }
+       }
+      ],
+      "templateAssignments": {
+       "beam": {
+        "materialId": "M1",
+        "sectionId": "S1"
+       }
+      },
+      "boundary": {
+       "supportType": "simply-supported"
+      },
+      "analysis": {
+       "loadCombinations": []
+      },
+      "analysisControl": {
+       "self_weight": false
+      }
+     },
+     "extractionSource": "engineering-draft",
+     "beamLoads": []
+    },
+    "skillId": "beam",
+    "structuralTypeKey": "beam",
+    "coordinateSemantics": "global-z-up",
+    "supportLevel": "supported",
+    "supportNote": "characterization",
+    "routingSource": "llm-suggested",
+    "requestScope": {
+     "responses": [
+      "forces",
+      "reactions",
+      "displacements"
+     ],
+     "method": "solver",
+     "design": false,
+     "report": false,
+     "outputs": []
+    }
+   },
+   "raw": {
+    "engineeringDraft": {
+     "loads": [
+      {
+       "id": "P1",
+       "kind": "point",
+       "magnitude": 20,
+       "unit": "kN",
+       "direction": "gravity",
+       "target": "beam",
+       "location": {
+        "xM": 4
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "ingest": {
+     "value": {
+      "inferredType": "beam",
+      "skillId": "beam",
+      "engineeringDraft": {
+       "structureType": "beam",
+       "geometry": {
+        "lengthM": 8
+       },
+       "materials": [
+        {
+         "id": "M1",
+         "name": "Q235 钢",
+         "E": 206000,
+         "nu": 0.3,
+         "rho": 7850
+        }
+       ],
+       "sectionRecords": [
+        {
+         "id": "S1",
+         "name": "200×400 矩形",
+         "type": "rectangular",
+         "shape": {
+          "kind": "rectangular",
+          "B": 200,
+          "H": 400
+         }
+        }
+       ],
+       "templateAssignments": {
+        "beam": {
+         "materialId": "M1",
+         "sectionId": "S1"
+        }
+       },
+       "boundary": {
+        "supportType": "simply-supported"
+       },
+       "analysis": {
+        "loadCombinations": []
+       },
+       "analysisControl": {
+        "self_weight": false
+       }
+      },
+      "skillState": {
+       "engineeringDraft": {
+        "structureType": "beam",
+        "geometry": {
+         "lengthM": 8
+        },
+        "materials": [
+         {
+          "id": "M1",
+          "name": "Q235 钢",
+          "E": 206000,
+          "nu": 0.3,
+          "rho": 7850
+         }
+        ],
+        "sectionRecords": [
+         {
+          "id": "S1",
+          "name": "200×400 矩形",
+          "type": "rectangular",
+          "shape": {
+           "kind": "rectangular",
+           "B": 200,
+           "H": 400
+          }
+         }
+        ],
+        "templateAssignments": {
+         "beam": {
+          "materialId": "M1",
+          "sectionId": "S1"
+         }
+        },
+        "boundary": {
+         "supportType": "simply-supported"
+        },
+        "analysis": {
+         "loadCombinations": []
+        },
+        "analysisControl": {
+         "self_weight": false
+        }
+       },
+       "extractionSource": "engineering-draft",
+       "beamLoads": []
+      },
+      "lengthM": 8,
+      "supportType": "simply-supported"
+     }
+    },
+    "next": {
+     "json": "{\"inferredType\":\"beam\",\"engineeringDraft\":{\"structureType\":\"beam\",\"geometry\":{\"lengthM\":8},\"topology\":{},\"materials\":[{\"id\":\"M1\",\"name\":\"Q235 钢\",\"E\":206000,\"nu\":0.3,\"rho\":7850}],\"sectionRecords\":[{\"id\":\"S1\",\"name\":\"200×400 矩形\",\"type\":\"rectangular\",\"shape\":{\"kind\":\"rectangular\",\"B\":200,\"H\":400}}],\"templateAssignments\":{\"beam\":{\"materialId\":\"M1\",\"sectionId\":\"S1\"}},\"material\":{},\"sections\":{},\"boundary\":{\"supportType\":\"simply-supported\"},\"loads\":[{\"id\":\"P1\",\"kind\":\"point\",\"magnitude\":20,\"unit\":\"kN\",\"direction\":\"gravity\",\"target\":\"beam\",\"location\":{\"xM\":4}}],\"analysis\":{\"loadCombinations\":[]},\"analysisControl\":{\"self_weight\":false}},\"lengthM\":8,\"supportType\":\"simply-supported\",\"loadKN\":20,\"loadType\":\"point\",\"loadPosition\":\"free-joint\",\"loadPositionM\":4,\"updatedAt\":0,\"skillState\":{\"engineeringDraft\":{\"structureType\":\"beam\",\"geometry\":{\"lengthM\":8},\"topology\":{},\"materials\":[{\"id\":\"M1\",\"name\":\"Q235 钢\",\"E\":206000,\"nu\":0.3,\"rho\":7850}],\"sectionRecords\":[{\"id\":\"S1\",\"name\":\"200×400 矩形\",\"type\":\"rectangular\",\"shape\":{\"kind\":\"rectangular\",\"B\":200,\"H\":400}}],\"templateAssignments\":{\"beam\":{\"materialId\":\"M1\",\"sectionId\":\"S1\"}},\"material\":{},\"sections\":{},\"boundary\":{\"supportType\":\"simply-supported\"},\"loads\":[{\"id\":\"P1\",\"kind\":\"point\",\"magnitude\":20,\"unit\":\"kN\",\"direction\":\"gravity\",\"target\":\"beam\",\"location\":{\"xM\":4}}],\"analysis\":{\"loadCombinations\":[]},\"analysisControl\":{\"self_weight\":false}},\"extractionSource\":\"engineering-draft\",\"beamLoads\":[{\"kind\":\"point\",\"magnitude\":20,\"unit\":\"kN\",\"direction\":\"gravity\",\"target\":\"beam\",\"xM\":4}]},\"skillId\":\"beam\",\"structuralTypeKey\":\"beam\",\"coordinateSemantics\":\"global-z-up\"}"
+    },
+    "missingExecution": {
+     "value": {
+      "critical": [],
+      "optional": []
+     }
+    },
+    "missingInteractive": {
+     "value": {
+      "critical": [],
+      "optional": []
+     }
+    },
+    "questions": {
+     "value": []
+    },
+    "model": {
+     "value": {
+      "schema_version": "2.2.0",
+      "unit_system": "SI",
+      "nodes": [
+       {
+        "id": "1",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+         true,
+         true,
+         true,
+         false,
+         false,
+         false
+        ]
+       },
+       {
+        "id": "2",
+        "x": 4,
+        "y": 0,
+        "z": 0
+       },
+       {
+        "id": "3",
+        "x": 8,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+         false,
+         true,
+         true,
+         false,
+         false,
+         false
+        ]
+       }
+      ],
+      "elements": [
+       {
+        "id": "1",
+        "type": "beam",
+        "nodes": [
+         "1",
+         "2"
+        ],
+        "material": "M1",
+        "section": "S1"
+       },
+       {
+        "id": "2",
+        "type": "beam",
+        "nodes": [
+         "2",
+         "3"
+        ],
+        "material": "M1",
+        "section": "S1"
+       }
+      ],
+      "materials": [
+       {
+        "id": "M1",
+        "name": "Q235 钢",
+        "E": 206000,
+        "nu": 0.3,
+        "rho": 7850
+       }
+      ],
+      "sections": [
+       {
+        "id": "S1",
+        "name": "200×400 矩形",
+        "type": "rectangular",
+        "shape": {
+         "kind": "rectangular",
+         "B": 200,
+         "H": 400
+        }
+       }
+      ],
+      "load_cases": [
+       {
+        "id": "LC1",
+        "type": "other",
+        "loads": [
+         {
+          "node": "2",
+          "fz": -20,
+          "reference_frame": "global"
+         }
+        ]
+       }
+      ],
+      "load_combinations": [],
+      "metadata": {
+       "source": "markdown-skill-draft",
+       "inferredType": "beam",
+       "frameDimension": "2d",
+       "supportType": "simply-supported",
+       "semanticLoadCount": 1,
+       "inputEvidence": [],
+       "templatePropertyAssignments": {
+        "beam": {
+         "materialId": "M1",
+         "sectionId": "S1"
+        }
+       },
+       "coordinateSemantics": "global-z-up",
+       "coordinateContractVersion": 1
+      },
+      "analysis_control": {
+       "self_weight": false
+      },
+      "coordinate_system": {
+       "semantics": "global-z-up",
+       "version": 1,
+       "dimension": "2d",
+       "plane": "xz",
+       "dof_order": [
+        "ux",
+        "uy",
+        "uz",
+        "rx",
+        "ry",
+        "rz"
+       ]
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "checkpoint-beam-resumed-withdraw-load",
+   "skillId": "beam",
+   "source": "characterization clarification-resume checkpoint after the answer",
+   "state": {
+    "inferredType": "beam",
+    "engineeringDraft": {
+     "structureType": "beam",
+     "geometry": {
+      "lengthM": 8
+     },
+     "topology": {},
+     "materials": [
+      {
+       "id": "M1",
+       "name": "Q235 钢",
+       "E": 206000,
+       "nu": 0.3,
+       "rho": 7850
+      }
+     ],
+     "sectionRecords": [
+      {
+       "id": "S1",
+       "name": "200×400 矩形",
+       "type": "rectangular",
+       "shape": {
+        "kind": "rectangular",
+        "B": 200,
+        "H": 400
+       }
+      }
+     ],
+     "templateAssignments": {
+      "beam": {
+       "materialId": "M1",
+       "sectionId": "S1"
+      }
+     },
+     "material": {},
+     "sections": {},
+     "boundary": {
+      "supportType": "simply-supported"
+     },
+     "loads": [
+      {
+       "id": "P1",
+       "kind": "point",
+       "magnitude": 20,
+       "unit": "kN",
+       "direction": "gravity",
+       "target": "beam",
+       "location": {
+        "xM": 4
+       }
+      }
+     ],
+     "analysis": {
+      "loadCombinations": []
+     },
+     "analysisControl": {
+      "self_weight": false
+     }
+    },
+    "lengthM": 8,
+    "supportType": "simply-supported",
+    "loadKN": 20,
+    "loadType": "point",
+    "loadPosition": "free-joint",
+    "loadPositionM": 4,
+    "updatedAt": 1792182388141,
+    "skillState": {
+     "engineeringDraft": {
+      "structureType": "beam",
+      "geometry": {
+       "lengthM": 8
+      },
+      "topology": {},
+      "materials": [
+       {
+        "id": "M1",
+        "name": "Q235 钢",
+        "E": 206000,
+        "nu": 0.3,
+        "rho": 7850
+       }
+      ],
+      "sectionRecords": [
+       {
+        "id": "S1",
+        "name": "200×400 矩形",
+        "type": "rectangular",
+        "shape": {
+         "kind": "rectangular",
+         "B": 200,
+         "H": 400
+        }
+       }
+      ],
+      "templateAssignments": {
+       "beam": {
+        "materialId": "M1",
+        "sectionId": "S1"
+       }
+      },
+      "material": {},
+      "sections": {},
+      "boundary": {
+       "supportType": "simply-supported"
+      },
+      "loads": [
+       {
+        "id": "P1",
+        "kind": "point",
+        "magnitude": 20,
+        "unit": "kN",
+        "direction": "gravity",
+        "target": "beam",
+        "location": {
+         "xM": 4
+        }
+       }
+      ],
+      "analysis": {
+       "loadCombinations": []
+      },
+      "analysisControl": {
+       "self_weight": false
+      }
+     },
+     "extractionSource": "engineering-draft",
+     "beamLoads": [
+      {
+       "kind": "point",
+       "magnitude": 20,
+       "unit": "kN",
+       "direction": "gravity",
+       "target": "beam",
+       "xM": 4
+      }
+     ]
+    },
+    "skillId": "beam",
+    "structuralTypeKey": "beam",
+    "coordinateSemantics": "global-z-up",
+    "supportLevel": "supported",
+    "routingSource": "current-state",
+    "requestScope": {
+     "responses": [
+      "forces",
+      "reactions",
+      "displacements"
+     ],
+     "method": "solver",
+     "design": false,
+     "report": false,
+     "outputs": []
+    }
+   },
+   "raw": {
+    "clearDraftFields": [
+     "loads[\"P1\"]"
+    ]
+   },
+   "expected": {
+    "ingest": {
+     "value": {
+      "inferredType": "beam",
+      "skillId": "beam",
+      "engineeringDraft": {
+       "structureType": "beam",
+       "geometry": {
+        "lengthM": 8
+       },
+       "materials": [
+        {
+         "id": "M1",
+         "name": "Q235 钢",
+         "E": 206000,
+         "nu": 0.3,
+         "rho": 7850
+        }
+       ],
+       "sectionRecords": [
+        {
+         "id": "S1",
+         "name": "200×400 矩形",
+         "type": "rectangular",
+         "shape": {
+          "kind": "rectangular",
+          "B": 200,
+          "H": 400
+         }
+        }
+       ],
+       "templateAssignments": {
+        "beam": {
+         "materialId": "M1",
+         "sectionId": "S1"
+        }
+       },
+       "material": {},
+       "sections": {},
+       "boundary": {
+        "supportType": "simply-supported"
+       },
+       "loads": [
+        {
+         "id": "P1",
+         "kind": "point",
+         "magnitude": 20,
+         "unit": "kN",
+         "direction": "gravity",
+         "target": "beam",
+         "location": {
+          "xM": 4
+         }
+        }
+       ],
+       "analysis": {
+        "loadCombinations": []
+       },
+       "analysisControl": {
+        "self_weight": false
+       }
+      },
+      "skillState": {
+       "engineeringDraft": {
+        "structureType": "beam",
+        "geometry": {
+         "lengthM": 8
+        },
+        "topology": {},
+        "materials": [
+         {
+          "id": "M1",
+          "name": "Q235 钢",
+          "E": 206000,
+          "nu": 0.3,
+          "rho": 7850
+         }
+        ],
+        "sectionRecords": [
+         {
+          "id": "S1",
+          "name": "200×400 矩形",
+          "type": "rectangular",
+          "shape": {
+           "kind": "rectangular",
+           "B": 200,
+           "H": 400
+          }
+         }
+        ],
+        "templateAssignments": {
+         "beam": {
+          "materialId": "M1",
+          "sectionId": "S1"
+         }
+        },
+        "material": {},
+        "sections": {},
+        "boundary": {
+         "supportType": "simply-supported"
+        },
+        "loads": [
+         {
+          "id": "P1",
+          "kind": "point",
+          "magnitude": 20,
+          "unit": "kN",
+          "direction": "gravity",
+          "target": "beam",
+          "location": {
+           "xM": 4
+          }
+         }
+        ],
+        "analysis": {
+         "loadCombinations": []
+        },
+        "analysisControl": {
+         "self_weight": false
+        }
+       },
+       "extractionSource": "engineering-draft",
+       "beamLoads": [
+        {
+         "kind": "point",
+         "magnitude": 20,
+         "unit": "kN",
+         "direction": "gravity",
+         "target": "beam",
+         "xM": 4
+        }
+       ]
+      },
+      "lengthM": 8,
+      "supportType": "simply-supported",
+      "loadKN": 20,
+      "loadType": "point",
+      "loadPosition": "free-joint",
+      "loadPositionM": 4
+     }
+    },
+    "next": {
+     "json": "{\"inferredType\":\"beam\",\"engineeringDraft\":{\"structureType\":\"beam\",\"geometry\":{\"lengthM\":8},\"topology\":{},\"materials\":[{\"id\":\"M1\",\"name\":\"Q235 钢\",\"E\":206000,\"nu\":0.3,\"rho\":7850}],\"sectionRecords\":[{\"id\":\"S1\",\"name\":\"200×400 矩形\",\"type\":\"rectangular\",\"shape\":{\"kind\":\"rectangular\",\"B\":200,\"H\":400}}],\"templateAssignments\":{\"beam\":{\"materialId\":\"M1\",\"sectionId\":\"S1\"}},\"material\":{},\"sections\":{},\"boundary\":{\"supportType\":\"simply-supported\"},\"loads\":[],\"analysis\":{\"loadCombinations\":[]},\"analysisControl\":{\"self_weight\":false}},\"lengthM\":8,\"supportType\":\"simply-supported\",\"updatedAt\":0,\"skillState\":{\"engineeringDraft\":{\"structureType\":\"beam\",\"geometry\":{\"lengthM\":8},\"topology\":{},\"materials\":[{\"id\":\"M1\",\"name\":\"Q235 钢\",\"E\":206000,\"nu\":0.3,\"rho\":7850}],\"sectionRecords\":[{\"id\":\"S1\",\"name\":\"200×400 矩形\",\"type\":\"rectangular\",\"shape\":{\"kind\":\"rectangular\",\"B\":200,\"H\":400}}],\"templateAssignments\":{\"beam\":{\"materialId\":\"M1\",\"sectionId\":\"S1\"}},\"material\":{},\"sections\":{},\"boundary\":{\"supportType\":\"simply-supported\"},\"loads\":[],\"analysis\":{\"loadCombinations\":[]},\"analysisControl\":{\"self_weight\":false}},\"extractionSource\":\"engineering-draft\",\"beamLoads\":[{\"kind\":\"point\",\"magnitude\":20,\"unit\":\"kN\",\"direction\":\"gravity\",\"target\":\"beam\",\"xM\":4}]},\"skillId\":\"beam\",\"structuralTypeKey\":\"beam\",\"coordinateSemantics\":\"global-z-up\"}"
+    },
+    "missingExecution": {
+     "value": {
+      "critical": [
+       "loadKN"
+      ],
+      "optional": []
+     }
+    },
+    "missingInteractive": {
+     "value": {
+      "critical": [
+       "loadKN",
+       "loadType",
+       "loadPosition"
+      ],
+      "optional": []
+     }
+    },
+    "questions": {
+     "value": [
+      {
+       "paramKey": "loadKN",
+       "label": "Load",
+       "question": "Please confirm the controlling load magnitude.",
+       "unit": "kN",
+       "required": true,
+       "critical": true
+      },
+      {
+       "paramKey": "loadType",
+       "label": "Load type",
+       "question": "Please confirm beam load type (point / distributed). For typical cases, distributed load is recommended as the starting point.",
+       "required": true,
+       "critical": true,
+       "suggestedValue": "distributed"
+      },
+      {
+       "paramKey": "loadPosition",
+       "label": "Load position",
+       "question": "Please confirm beam load position (midspan / end / full-span); for distributed load, full-span is usually preferred.",
+       "required": true,
+       "critical": true,
+       "suggestedValue": "full-span"
+      }
+     ]
+    },
+    "model": {
+     "value": null
+    }
+   }
+  },
+  {
+   "id": "checkpoint-portal-frame",
+   "skillId": "portal-frame",
+   "source": "characterization draft-path checkpoint (portal frame)",
+   "state": {
+    "inferredType": "portal-frame",
+    "engineeringDraft": {
+     "structureType": "portal-frame",
+     "geometry": {
+      "heightM": 6,
+      "spanLengthsM": [
+       12
+      ]
+     },
+     "materials": [
+      {
+       "id": "Q355",
+       "name": "Q355 steel",
+       "E": 206000,
+       "nu": 0.3,
+       "rho": 7850,
+       "grade": "Q355",
+       "category": "steel"
+      }
+     ],
+     "sectionRecords": [
+      {
+       "id": "COL",
+       "name": "HW300×300×10×15",
+       "type": "H",
+       "shape": {
+        "kind": "H",
+        "H": 300,
+        "B": 300,
+        "tw": 10,
+        "tf": 15
+       }
+      },
+      {
+       "id": "RAF",
+       "name": "HN400×200×8×13",
+       "type": "H",
+       "shape": {
+        "kind": "H",
+        "H": 400,
+        "B": 200,
+        "tw": 8,
+        "tf": 13
+       }
+      }
+     ],
+     "templateAssignments": {
+      "column": {
+       "materialId": "Q355",
+       "sectionId": "COL"
+      },
+      "beam": {
+       "materialId": "Q355",
+       "sectionId": "RAF"
+      }
+     },
+     "boundary": {
+      "frameBaseSupportType": "fixed"
+     },
+     "loads": [
+      {
+       "id": "ROOF",
+       "kind": "line",
+       "magnitude": 5,
+       "unit": "kN/m",
+       "direction": "gravity",
+       "target": "roof"
+      }
+     ],
+     "analysis": {
+      "loadCombinations": []
+     },
+     "analysisControl": {
+      "self_weight": false
+     }
+    },
+    "spanLengthM": 12,
+    "heightM": 6,
+    "frameBaseSupportType": "fixed",
+    "loadKN": 5,
+    "loadType": "distributed",
+    "loadPosition": "full-span",
+    "updatedAt": 1792182371661,
+    "skillState": {
+     "engineeringDraft": {
+      "structureType": "portal-frame",
+      "geometry": {
+       "heightM": 6,
+       "spanLengthsM": [
+        12
+       ]
+      },
+      "materials": [
+       {
+        "id": "Q355",
+        "name": "Q355 steel",
+        "E": 206000,
+        "nu": 0.3,
+        "rho": 7850,
+        "grade": "Q355",
+        "category": "steel"
+       }
+      ],
+      "sectionRecords": [
+       {
+        "id": "COL",
+        "name": "HW300×300×10×15",
+        "type": "H",
+        "shape": {
+         "kind": "H",
+         "H": 300,
+         "B": 300,
+         "tw": 10,
+         "tf": 15
+        }
+       },
+       {
+        "id": "RAF",
+        "name": "HN400×200×8×13",
+        "type": "H",
+        "shape": {
+         "kind": "H",
+         "H": 400,
+         "B": 200,
+         "tw": 8,
+         "tf": 13
+        }
+       }
+      ],
+      "templateAssignments": {
+       "column": {
+        "materialId": "Q355",
+        "sectionId": "COL"
+       },
+       "beam": {
+        "materialId": "Q355",
+        "sectionId": "RAF"
+       }
+      },
+      "boundary": {
+       "frameBaseSupportType": "fixed"
+      },
+      "loads": [
+       {
+        "id": "ROOF",
+        "kind": "line",
+        "magnitude": 5,
+        "unit": "kN/m",
+        "direction": "gravity",
+        "target": "roof"
+       }
+      ],
+      "analysis": {
+       "loadCombinations": []
+      },
+      "analysisControl": {
+       "self_weight": false
+      }
+     },
+     "extractionSource": "engineering-draft",
+     "portalBaySpansM": [
+      12
+     ],
+     "portalBayCount": 1,
+     "roofLoadKNM": 5
+    },
+    "skillId": "portal-frame",
+    "structuralTypeKey": "portal-frame",
+    "coordinateSemantics": "global-z-up",
+    "supportLevel": "supported",
+    "supportNote": "characterization",
+    "routingSource": "llm-suggested",
+    "requestScope": {
+     "responses": [
+      "forces",
+      "reactions",
+      "displacements"
+     ],
+     "method": "solver",
+     "design": true,
+     "report": true,
+     "outputs": []
+    }
+   },
+   "raw": {
+    "engineeringDraft": {
+     "geometry": {
+      "heightM": 7
+     }
+    }
+   },
+   "expected": {
+    "ingest": {
+     "value": {
+      "inferredType": "portal-frame",
+      "skillId": "portal-frame",
+      "engineeringDraft": {
+       "structureType": "portal-frame",
+       "geometry": {
+        "heightM": 6,
+        "spanLengthsM": [
+         12
+        ]
+       },
+       "materials": [
+        {
+         "id": "Q355",
+         "name": "Q355 steel",
+         "E": 206000,
+         "nu": 0.3,
+         "rho": 7850,
+         "grade": "Q355",
+         "category": "steel"
+        }
+       ],
+       "sectionRecords": [
+        {
+         "id": "COL",
+         "name": "HW300×300×10×15",
+         "type": "H",
+         "shape": {
+          "kind": "H",
+          "H": 300,
+          "B": 300,
+          "tw": 10,
+          "tf": 15
+         }
+        },
+        {
+         "id": "RAF",
+         "name": "HN400×200×8×13",
+         "type": "H",
+         "shape": {
+          "kind": "H",
+          "H": 400,
+          "B": 200,
+          "tw": 8,
+          "tf": 13
+         }
+        }
+       ],
+       "templateAssignments": {
+        "column": {
+         "materialId": "Q355",
+         "sectionId": "COL"
+        },
+        "beam": {
+         "materialId": "Q355",
+         "sectionId": "RAF"
+        }
+       },
+       "boundary": {
+        "frameBaseSupportType": "fixed"
+       },
+       "loads": [
+        {
+         "id": "ROOF",
+         "kind": "line",
+         "magnitude": 5,
+         "unit": "kN/m",
+         "direction": "gravity",
+         "target": "roof"
+        }
+       ],
+       "analysis": {
+        "loadCombinations": []
+       },
+       "analysisControl": {
+        "self_weight": false
+       }
+      },
+      "skillState": {
+       "engineeringDraft": {
+        "structureType": "portal-frame",
+        "geometry": {
+         "heightM": 6,
+         "spanLengthsM": [
+          12
+         ]
+        },
+        "materials": [
+         {
+          "id": "Q355",
+          "name": "Q355 steel",
+          "E": 206000,
+          "nu": 0.3,
+          "rho": 7850,
+          "grade": "Q355",
+          "category": "steel"
+         }
+        ],
+        "sectionRecords": [
+         {
+          "id": "COL",
+          "name": "HW300×300×10×15",
+          "type": "H",
+          "shape": {
+           "kind": "H",
+           "H": 300,
+           "B": 300,
+           "tw": 10,
+           "tf": 15
+          }
+         },
+         {
+          "id": "RAF",
+          "name": "HN400×200×8×13",
+          "type": "H",
+          "shape": {
+           "kind": "H",
+           "H": 400,
+           "B": 200,
+           "tw": 8,
+           "tf": 13
+          }
+         }
+        ],
+        "templateAssignments": {
+         "column": {
+          "materialId": "Q355",
+          "sectionId": "COL"
+         },
+         "beam": {
+          "materialId": "Q355",
+          "sectionId": "RAF"
+         }
+        },
+        "boundary": {
+         "frameBaseSupportType": "fixed"
+        },
+        "loads": [
+         {
+          "id": "ROOF",
+          "kind": "line",
+          "magnitude": 5,
+          "unit": "kN/m",
+          "direction": "gravity",
+          "target": "roof"
+         }
+        ],
+        "analysis": {
+         "loadCombinations": []
+        },
+        "analysisControl": {
+         "self_weight": false
+        }
+       },
+       "extractionSource": "engineering-draft",
+       "portalBaySpansM": [
+        12
+       ],
+       "portalBayCount": 1,
+       "roofLoadKNM": 5
+      },
+      "spanLengthM": 12,
+      "heightM": 6,
+      "frameBaseSupportType": "fixed",
+      "loadKN": 5,
+      "loadType": "distributed",
+      "loadPosition": "full-span"
+     }
+    },
+    "next": {
+     "json": "{\"inferredType\":\"portal-frame\",\"engineeringDraft\":{\"structureType\":\"portal-frame\",\"geometry\":{\"heightM\":7,\"spanLengthsM\":[12]},\"topology\":{},\"materials\":[{\"id\":\"Q355\",\"name\":\"Q355 steel\",\"E\":206000,\"nu\":0.3,\"rho\":7850,\"grade\":\"Q355\",\"category\":\"steel\"}],\"sectionRecords\":[{\"id\":\"COL\",\"name\":\"HW300×300×10×15\",\"type\":\"H\",\"shape\":{\"kind\":\"H\",\"H\":300,\"B\":300,\"tw\":10,\"tf\":15}},{\"id\":\"RAF\",\"name\":\"HN400×200×8×13\",\"type\":\"H\",\"shape\":{\"kind\":\"H\",\"H\":400,\"B\":200,\"tw\":8,\"tf\":13}}],\"templateAssignments\":{\"column\":{\"materialId\":\"Q355\",\"sectionId\":\"COL\"},\"beam\":{\"materialId\":\"Q355\",\"sectionId\":\"RAF\"}},\"material\":{},\"sections\":{},\"boundary\":{\"frameBaseSupportType\":\"fixed\"},\"loads\":[{\"id\":\"ROOF\",\"kind\":\"line\",\"magnitude\":5,\"unit\":\"kN/m\",\"direction\":\"gravity\",\"target\":\"roof\"}],\"analysis\":{\"loadCombinations\":[]},\"analysisControl\":{\"self_weight\":false}},\"spanLengthM\":12,\"heightM\":7,\"frameBaseSupportType\":\"fixed\",\"loadKN\":5,\"loadType\":\"distributed\",\"loadPosition\":\"full-span\",\"updatedAt\":0,\"skillState\":{\"engineeringDraft\":{\"structureType\":\"portal-frame\",\"geometry\":{\"heightM\":7,\"spanLengthsM\":[12]},\"topology\":{},\"materials\":[{\"id\":\"Q355\",\"name\":\"Q355 steel\",\"E\":206000,\"nu\":0.3,\"rho\":7850,\"grade\":\"Q355\",\"category\":\"steel\"}],\"sectionRecords\":[{\"id\":\"COL\",\"name\":\"HW300×300×10×15\",\"type\":\"H\",\"shape\":{\"kind\":\"H\",\"H\":300,\"B\":300,\"tw\":10,\"tf\":15}},{\"id\":\"RAF\",\"name\":\"HN400×200×8×13\",\"type\":\"H\",\"shape\":{\"kind\":\"H\",\"H\":400,\"B\":200,\"tw\":8,\"tf\":13}}],\"templateAssignments\":{\"column\":{\"materialId\":\"Q355\",\"sectionId\":\"COL\"},\"beam\":{\"materialId\":\"Q355\",\"sectionId\":\"RAF\"}},\"material\":{},\"sections\":{},\"boundary\":{\"frameBaseSupportType\":\"fixed\"},\"loads\":[{\"id\":\"ROOF\",\"kind\":\"line\",\"magnitude\":5,\"unit\":\"kN/m\",\"direction\":\"gravity\",\"target\":\"roof\"}],\"analysis\":{\"loadCombinations\":[]},\"analysisControl\":{\"self_weight\":false}},\"extractionSource\":\"engineering-draft\",\"portalBaySpansM\":[12],\"portalBayCount\":1,\"roofLoadKNM\":5},\"skillId\":\"portal-frame\",\"structuralTypeKey\":\"portal-frame\",\"coordinateSemantics\":\"global-z-up\"}"
+    },
+    "missingExecution": {
+     "value": {
+      "critical": [],
+      "optional": []
+     }
+    },
+    "missingInteractive": {
+     "value": {
+      "critical": [],
+      "optional": []
+     }
+    },
+    "questions": {
+     "value": []
+    },
+    "model": {
+     "value": {
+      "schema_version": "2.2.0",
+      "unit_system": "SI",
+      "nodes": [
+       {
+        "id": "B0",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+         true,
+         true,
+         true,
+         true,
+         true,
+         true
+        ]
+       },
+       {
+        "id": "T0",
+        "x": 0,
+        "y": 0,
+        "z": 7
+       },
+       {
+        "id": "B1",
+        "x": 12,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+         true,
+         true,
+         true,
+         true,
+         true,
+         true
+        ]
+       },
+       {
+        "id": "T1",
+        "x": 12,
+        "y": 0,
+        "z": 7
+       }
+      ],
+      "elements": [
+       {
+        "id": "C0",
+        "type": "column",
+        "nodes": [
+         "B0",
+         "T0"
+        ],
+        "material": "Q355",
+        "section": "COL"
+       },
+       {
+        "id": "C1",
+        "type": "column",
+        "nodes": [
+         "B1",
+         "T1"
+        ],
+        "material": "Q355",
+        "section": "COL"
+       },
+       {
+        "id": "R0",
+        "type": "beam",
+        "nodes": [
+         "T0",
+         "T1"
+        ],
+        "material": "Q355",
+        "section": "RAF"
+       }
+      ],
+      "materials": [
+       {
+        "id": "Q355",
+        "name": "Q355 steel",
+        "E": 206000,
+        "nu": 0.3,
+        "rho": 7850,
+        "grade": "Q355",
+        "category": "steel"
+       }
+      ],
+      "sections": [
+       {
+        "id": "COL",
+        "name": "HW300×300×10×15",
+        "type": "H",
+        "shape": {
+         "kind": "H",
+         "H": 300,
+         "B": 300,
+         "tw": 10,
+         "tf": 15
+        }
+       },
+       {
+        "id": "RAF",
+        "name": "HN400×200×8×13",
+        "type": "H",
+        "shape": {
+         "kind": "H",
+         "H": 400,
+         "B": 200,
+         "tw": 8,
+         "tf": 13
+        }
+       }
+      ],
+      "load_cases": [
+       {
+        "id": "LC1",
+        "type": "other",
+        "loads": [
+         {
+          "type": "distributed",
+          "element": "R0",
+          "wz": -5,
+          "wy": 0,
+          "reference_frame": "global"
+         }
+        ]
+       }
+      ],
+      "load_combinations": [],
+      "metadata": {
+       "source": "markdown-skill-draft",
+       "inferredType": "portal-frame",
+       "frameDimension": "2d",
+       "bayCount": 1,
+       "hasMezzanine": false,
+       "geometry": {
+        "spanLengthsM": [
+         12
+        ],
+        "heightM": 7
+       },
+       "inputEvidence": [],
+       "templatePropertyAssignments": {
+        "column": {
+         "materialId": "Q355",
+         "sectionId": "COL"
+        },
+        "beam": {
+         "materialId": "Q355",
+         "sectionId": "RAF"
+        }
+       },
+       "coordinateSemantics": "global-z-up",
+       "coordinateContractVersion": 1
+      },
+      "analysis_control": {
+       "self_weight": false
+      },
+      "coordinate_system": {
+       "semantics": "global-z-up",
+       "version": 1,
+       "dimension": "2d",
+       "plane": "xz",
+       "dof_order": [
+        "ux",
+        "uy",
+        "uz",
+        "rx",
+        "ry",
+        "rz"
+       ]
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "fixture-catalog-withdrawal",
+   "skillId": "beam",
+   "source": "tests/fixtures/catalog-draft-reproduction-20261015.json",
+   "state": {
+    "inferredType": "beam",
+    "engineeringDraft": {
+     "structureType": "beam",
+     "geometry": {
+      "lengthM": 10
+     },
+     "topology": {},
+     "sectionRecords": [
+      {
+       "id": "S1",
+       "name": "HN400X200X8X13",
+       "type": "H",
+       "purpose": "beam",
+       "shape": {
+        "kind": "H",
+        "H": 400,
+        "B": 200,
+        "tw": 8,
+        "tf": 13
+       },
+       "standard_steel_name": "HN400x200x8x13"
+      }
+     ],
+     "templateAssignments": {},
+     "material": {
+      "family": "steel",
+      "grade": "Q235"
+     },
+     "sections": {
+      "beam": "HN400X200X8X13"
+     },
+     "boundary": {
+      "supportType": "simply-supported"
+     },
+     "loads": [
+      {
+       "id": "L1",
+       "kind": "point",
+       "magnitude": 1,
+       "unit": "kN",
+       "direction": "gravity",
+       "target": "beam",
+       "location": {
+        "xM": 5,
+        "nodeRole": "midspan"
+       }
+      }
+     ],
+     "analysis": {},
+     "analysisControl": {
+      "self_weight": true
+     }
+    },
+    "lengthM": 10,
+    "supportType": "simply-supported",
+    "loadKN": 1,
+    "loadType": "point",
+    "loadPosition": "midspan",
+    "loadPositionM": 5,
+    "updatedAt": 1792075780560,
+    "skillState": {
+     "engineeringDraft": {
+      "structureType": "beam",
+      "geometry": {
+       "lengthM": 10
+      },
+      "topology": {},
+      "sectionRecords": [
+       {
+        "id": "S1",
+        "name": "HN400X200X8X13",
+        "type": "H",
+        "purpose": "beam",
+        "shape": {
+         "kind": "H",
+         "H": 400,
+         "B": 200,
+         "tw": 8,
+         "tf": 13
+        },
+        "standard_steel_name": "HN400x200x8x13"
+       }
+      ],
+      "templateAssignments": {},
+      "material": {
+       "family": "steel",
+       "grade": "Q235"
+      },
+      "sections": {
+       "beam": "HN400X200X8X13"
+      },
+      "boundary": {
+       "supportType": "simply-supported"
+      },
+      "loads": [
+       {
+        "id": "L1",
+        "kind": "point",
+        "magnitude": 1,
+        "unit": "kN",
+        "direction": "gravity",
+        "target": "beam",
+        "location": {
+         "xM": 5,
+         "nodeRole": "midspan"
+        }
+       }
+      ],
+      "analysis": {},
+      "analysisControl": {
+       "self_weight": true
+      }
+     },
+     "extractionSource": "engineering-draft",
+     "beamLoads": [
+      {
+       "kind": "point",
+       "magnitude": 1,
+       "unit": "kN",
+       "direction": "gravity",
+       "target": "beam",
+       "xM": 5
+      }
+     ]
+    },
+    "skillId": "beam",
+    "structuralTypeKey": "beam",
+    "coordinateSemantics": "global-z-up",
+    "supportLevel": "supported",
+    "routingSource": "current-state",
+    "requestScope": {
+     "responses": [
+      "forces",
+      "reactions"
+     ],
+     "method": "solver",
+     "design": true,
+     "report": false,
+     "outputs": []
+    }
+   },
+   "raw": {
+    "clearDraftFields": [
+     "sectionRecords[\"S1\"].standard_steel_name"
+    ],
+    "engineeringDraft": {
+     "sectionRecords": [
+      {
+       "id": "S1",
+       "shape": {
+        "kind": "H",
+        "H": 400,
+        "B": 200,
+        "tw": 8,
+        "tf": 13
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "ingest": {
+     "value": {
+      "inferredType": "beam",
+      "skillId": "beam",
+      "engineeringDraft": {
+       "structureType": "beam",
+       "geometry": {
+        "lengthM": 10
+       },
+       "sectionRecords": [
+        {
+         "id": "S1",
+         "name": "HN400X200X8X13",
+         "type": "H",
+         "purpose": "beam",
+         "shape": {
+          "kind": "H",
+          "H": 400,
+          "B": 200,
+          "tw": 8,
+          "tf": 13
+         },
+         "standard_steel_name": "HN400x200x8x13"
+        }
+       ],
+       "templateAssignments": {},
+       "material": {
+        "family": "steel",
+        "grade": "Q235"
+       },
+       "sections": {
+        "beam": "HN400X200X8X13"
+       },
+       "boundary": {
+        "supportType": "simply-supported"
+       },
+       "loads": [
+        {
+         "id": "L1",
+         "kind": "point",
+         "magnitude": 1,
+         "unit": "kN",
+         "direction": "gravity",
+         "target": "beam",
+         "location": {
+          "xM": 5,
+          "nodeRole": "midspan"
+         }
+        }
+       ],
+       "analysis": {},
+       "analysisControl": {
+        "self_weight": true
+       }
+      },
+      "skillState": {
+       "engineeringDraft": {
+        "structureType": "beam",
+        "geometry": {
+         "lengthM": 10
+        },
+        "topology": {},
+        "sectionRecords": [
+         {
+          "id": "S1",
+          "name": "HN400X200X8X13",
+          "type": "H",
+          "purpose": "beam",
+          "shape": {
+           "kind": "H",
+           "H": 400,
+           "B": 200,
+           "tw": 8,
+           "tf": 13
+          },
+          "standard_steel_name": "HN400x200x8x13"
+         }
+        ],
+        "templateAssignments": {},
+        "material": {
+         "family": "steel",
+         "grade": "Q235"
+        },
+        "sections": {
+         "beam": "HN400X200X8X13"
+        },
+        "boundary": {
+         "supportType": "simply-supported"
+        },
+        "loads": [
+         {
+          "id": "L1",
+          "kind": "point",
+          "magnitude": 1,
+          "unit": "kN",
+          "direction": "gravity",
+          "target": "beam",
+          "location": {
+           "xM": 5,
+           "nodeRole": "midspan"
+          }
+         }
+        ],
+        "analysis": {},
+        "analysisControl": {
+         "self_weight": true
+        }
+       },
+       "extractionSource": "engineering-draft",
+       "beamLoads": [
+        {
+         "kind": "point",
+         "magnitude": 1,
+         "unit": "kN",
+         "direction": "gravity",
+         "target": "beam",
+         "xM": 5
+        }
+       ]
+      },
+      "lengthM": 10,
+      "supportType": "simply-supported",
+      "loadKN": 1,
+      "loadType": "point",
+      "loadPosition": "midspan",
+      "loadPositionM": 5
+     }
+    },
+    "next": {
+     "json": "{\"inferredType\":\"beam\",\"engineeringDraft\":{\"structureType\":\"beam\",\"geometry\":{\"lengthM\":10},\"topology\":{},\"sectionRecords\":[{\"id\":\"S1\",\"name\":\"HN400X200X8X13\",\"type\":\"H\",\"purpose\":\"beam\",\"shape\":{\"kind\":\"H\",\"H\":400,\"B\":200,\"tw\":8,\"tf\":13}}],\"templateAssignments\":{},\"material\":{\"family\":\"steel\",\"grade\":\"Q235\"},\"sections\":{\"beam\":\"HN400X200X8X13\"},\"boundary\":{\"supportType\":\"simply-supported\"},\"loads\":[{\"id\":\"L1\",\"kind\":\"point\",\"magnitude\":1,\"unit\":\"kN\",\"direction\":\"gravity\",\"target\":\"beam\",\"location\":{\"xM\":5,\"nodeRole\":\"midspan\"}}],\"analysis\":{},\"analysisControl\":{\"self_weight\":true}},\"lengthM\":10,\"supportType\":\"simply-supported\",\"loadKN\":1,\"loadType\":\"point\",\"loadPosition\":\"midspan\",\"loadPositionM\":5,\"updatedAt\":0,\"skillState\":{\"engineeringDraft\":{\"structureType\":\"beam\",\"geometry\":{\"lengthM\":10},\"topology\":{},\"sectionRecords\":[{\"id\":\"S1\",\"name\":\"HN400X200X8X13\",\"type\":\"H\",\"purpose\":\"beam\",\"shape\":{\"kind\":\"H\",\"H\":400,\"B\":200,\"tw\":8,\"tf\":13}}],\"templateAssignments\":{},\"material\":{\"family\":\"steel\",\"grade\":\"Q235\"},\"sections\":{\"beam\":\"HN400X200X8X13\"},\"boundary\":{\"supportType\":\"simply-supported\"},\"loads\":[{\"id\":\"L1\",\"kind\":\"point\",\"magnitude\":1,\"unit\":\"kN\",\"direction\":\"gravity\",\"target\":\"beam\",\"location\":{\"xM\":5,\"nodeRole\":\"midspan\"}}],\"analysis\":{},\"analysisControl\":{\"self_weight\":true}},\"extractionSource\":\"engineering-draft\",\"beamLoads\":[{\"kind\":\"point\",\"magnitude\":1,\"unit\":\"kN\",\"direction\":\"gravity\",\"target\":\"beam\",\"xM\":5}]},\"skillId\":\"beam\",\"structuralTypeKey\":\"beam\",\"coordinateSemantics\":\"global-z-up\"}"
+    },
+    "missingExecution": {
+     "value": {
+      "critical": [],
+      "optional": []
+     }
+    },
+    "missingInteractive": {
+     "value": {
+      "critical": [],
+      "optional": []
+     }
+    },
+    "questions": {
+     "value": []
+    },
+    "model": {
+     "value": {
+      "schema_version": "2.2.0",
+      "unit_system": "SI",
+      "nodes": [
+       {
+        "id": "1",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+         true,
+         true,
+         true,
+         false,
+         false,
+         false
+        ]
+       },
+       {
+        "id": "2",
+        "x": 5,
+        "y": 0,
+        "z": 0
+       },
+       {
+        "id": "3",
+        "x": 10,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+         false,
+         true,
+         true,
+         false,
+         false,
+         false
+        ]
+       }
+      ],
+      "elements": [
+       {
+        "id": "1",
+        "type": "beam",
+        "nodes": [
+         "1",
+         "2"
+        ],
+        "material": "1",
+        "section": "S1"
+       },
+       {
+        "id": "2",
+        "type": "beam",
+        "nodes": [
+         "2",
+         "3"
+        ],
+        "material": "1",
+        "section": "S1"
+       }
+      ],
+      "materials": [
+       {
+        "id": "1",
+        "name": "Q235",
+        "grade": "Q235",
+        "category": "steel",
+        "E": 206000,
+        "G": 79000,
+        "nu": 0.3,
+        "rho": 7850,
+        "fy": 235
+       }
+      ],
+      "sections": [
+       {
+        "id": "S1",
+        "name": "HN400X200X8X13",
+        "type": "H",
+        "purpose": "beam",
+        "shape": {
+         "kind": "H",
+         "H": 400,
+         "B": 200,
+         "tw": 8,
+         "tf": 13
+        }
+       }
+      ],
+      "load_cases": [
+       {
+        "id": "LC1",
+        "type": "other",
+        "loads": [
+         {
+          "node": "2",
+          "fz": -1,
+          "reference_frame": "global"
+         }
+        ]
+       }
+      ],
+      "load_combinations": [],
+      "metadata": {
+       "source": "markdown-skill-draft",
+       "inferredType": "beam",
+       "frameDimension": "2d",
+       "supportType": "simply-supported",
+       "semanticLoadCount": 1,
+       "inputEvidence": [],
+       "templatePropertyAssignments": {
+        "beam": {
+         "materialId": "1",
+         "sectionId": "S1"
+        }
+       },
+       "coordinateSemantics": "global-z-up",
+       "coordinateContractVersion": 1
+      },
+      "analysis_control": {
+       "self_weight": true
+      },
+      "coordinate_system": {
+       "semantics": "global-z-up",
+       "version": 1,
+       "dimension": "2d",
+       "plane": "xz",
+       "dof_order": [
+        "ux",
+        "uy",
+        "uz",
+        "rx",
+        "ry",
+        "rz"
+       ]
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "fixture-catalog-stale-mirror",
+   "skillId": "beam",
+   "source": "catalog fixture with an out-of-date skillState.engineeringDraft mirror",
+   "state": {
+    "inferredType": "beam",
+    "engineeringDraft": {
+     "structureType": "beam",
+     "geometry": {
+      "lengthM": 10
+     },
+     "topology": {},
+     "sectionRecords": [
+      {
+       "id": "S1",
+       "name": "HN400X200X8X13",
+       "type": "H",
+       "purpose": "beam",
+       "shape": {
+        "kind": "H",
+        "H": 400,
+        "B": 200,
+        "tw": 8,
+        "tf": 13
+       },
+       "standard_steel_name": "HN400x200x8x13"
+      }
+     ],
+     "templateAssignments": {},
+     "material": {
+      "family": "steel",
+      "grade": "Q235"
+     },
+     "sections": {
+      "beam": "HN400X200X8X13"
+     },
+     "boundary": {
+      "supportType": "simply-supported"
+     },
+     "loads": [
+      {
+       "id": "L1",
+       "kind": "point",
+       "magnitude": 1,
+       "unit": "kN",
+       "direction": "gravity",
+       "target": "beam",
+       "location": {
+        "xM": 5,
+        "nodeRole": "midspan"
+       }
+      }
+     ],
+     "analysis": {},
+     "analysisControl": {
+      "self_weight": true
+     }
+    },
+    "lengthM": 10,
+    "supportType": "simply-supported",
+    "loadKN": 1,
+    "loadType": "point",
+    "loadPosition": "midspan",
+    "loadPositionM": 5,
+    "updatedAt": 1792075780560,
+    "skillState": {
+     "engineeringDraft": {
+      "structureType": "beam",
+      "geometry": {
+       "lengthM": 9
+      },
+      "topology": {},
+      "sectionRecords": [
+       {
+        "id": "S1",
+        "name": "HN400X200X8X13",
+        "type": "H",
+        "purpose": "beam",
+        "shape": {
+         "kind": "H",
+         "H": 400,
+         "B": 200,
+         "tw": 8,
+         "tf": 13
+        },
+        "standard_steel_name": "HN400x200x8x13"
+       }
+      ],
+      "templateAssignments": {},
+      "material": {
+       "family": "steel",
+       "grade": "Q235"
+      },
+      "sections": {
+       "beam": "HN400X200X8X13"
+      },
+      "boundary": {
+       "supportType": "simply-supported"
+      },
+      "loads": [
+       {
+        "id": "L1",
+        "kind": "point",
+        "magnitude": 1,
+        "unit": "kN",
+        "direction": "gravity",
+        "target": "beam",
+        "location": {
+         "xM": 5,
+         "nodeRole": "midspan"
+        }
+       }
+      ],
+      "analysis": {},
+      "analysisControl": {
+       "self_weight": true
+      }
+     },
+     "extractionSource": "engineering-draft",
+     "beamLoads": [
+      {
+       "kind": "point",
+       "magnitude": 1,
+       "unit": "kN",
+       "direction": "gravity",
+       "target": "beam",
+       "xM": 5
+      }
+     ]
+    },
+    "skillId": "beam",
+    "structuralTypeKey": "beam",
+    "coordinateSemantics": "global-z-up",
+    "supportLevel": "supported",
+    "routingSource": "current-state",
+    "requestScope": {
+     "responses": [
+      "forces",
+      "reactions"
+     ],
+     "method": "solver",
+     "design": true,
+     "report": false,
+     "outputs": []
+    }
+   },
+   "raw": {},
+   "expected": {
+    "ingest": {
+     "value": {
+      "inferredType": "beam",
+      "skillId": "beam",
+      "engineeringDraft": {
+       "structureType": "beam",
+       "geometry": {
+        "lengthM": 10
+       },
+       "sectionRecords": [
+        {
+         "id": "S1",
+         "name": "HN400X200X8X13",
+         "type": "H",
+         "purpose": "beam",
+         "shape": {
+          "kind": "H",
+          "H": 400,
+          "B": 200,
+          "tw": 8,
+          "tf": 13
+         },
+         "standard_steel_name": "HN400x200x8x13"
+        }
+       ],
+       "templateAssignments": {},
+       "material": {
+        "family": "steel",
+        "grade": "Q235"
+       },
+       "sections": {
+        "beam": "HN400X200X8X13"
+       },
+       "boundary": {
+        "supportType": "simply-supported"
+       },
+       "loads": [
+        {
+         "id": "L1",
+         "kind": "point",
+         "magnitude": 1,
+         "unit": "kN",
+         "direction": "gravity",
+         "target": "beam",
+         "location": {
+          "xM": 5,
+          "nodeRole": "midspan"
+         }
+        }
+       ],
+       "analysis": {},
+       "analysisControl": {
+        "self_weight": true
+       }
+      },
+      "skillState": {
+       "engineeringDraft": {
+        "structureType": "beam",
+        "geometry": {
+         "lengthM": 9
+        },
+        "topology": {},
+        "sectionRecords": [
+         {
+          "id": "S1",
+          "name": "HN400X200X8X13",
+          "type": "H",
+          "purpose": "beam",
+          "shape": {
+           "kind": "H",
+           "H": 400,
+           "B": 200,
+           "tw": 8,
+           "tf": 13
+          },
+          "standard_steel_name": "HN400x200x8x13"
+         }
+        ],
+        "templateAssignments": {},
+        "material": {
+         "family": "steel",
+         "grade": "Q235"
+        },
+        "sections": {
+         "beam": "HN400X200X8X13"
+        },
+        "boundary": {
+         "supportType": "simply-supported"
+        },
+        "loads": [
+         {
+          "id": "L1",
+          "kind": "point",
+          "magnitude": 1,
+          "unit": "kN",
+          "direction": "gravity",
+          "target": "beam",
+          "location": {
+           "xM": 5,
+           "nodeRole": "midspan"
+          }
+         }
+        ],
+        "analysis": {},
+        "analysisControl": {
+         "self_weight": true
+        }
+       },
+       "extractionSource": "engineering-draft",
+       "beamLoads": [
+        {
+         "kind": "point",
+         "magnitude": 1,
+         "unit": "kN",
+         "direction": "gravity",
+         "target": "beam",
+         "xM": 5
+        }
+       ]
+      },
+      "lengthM": 10,
+      "supportType": "simply-supported",
+      "loadKN": 1,
+      "loadType": "point",
+      "loadPosition": "midspan",
+      "loadPositionM": 5
+     }
+    },
+    "next": {
+     "json": "{\"inferredType\":\"beam\",\"engineeringDraft\":{\"structureType\":\"beam\",\"geometry\":{\"lengthM\":10},\"topology\":{},\"sectionRecords\":[{\"id\":\"S1\",\"name\":\"HN400X200X8X13\",\"type\":\"H\",\"purpose\":\"beam\",\"shape\":{\"kind\":\"H\",\"H\":400,\"B\":200,\"tw\":8,\"tf\":13},\"standard_steel_name\":\"HN400x200x8x13\"}],\"templateAssignments\":{},\"material\":{\"family\":\"steel\",\"grade\":\"Q235\"},\"sections\":{\"beam\":\"HN400X200X8X13\"},\"boundary\":{\"supportType\":\"simply-supported\"},\"loads\":[{\"id\":\"L1\",\"kind\":\"point\",\"magnitude\":1,\"unit\":\"kN\",\"direction\":\"gravity\",\"target\":\"beam\",\"location\":{\"xM\":5,\"nodeRole\":\"midspan\"}}],\"analysis\":{},\"analysisControl\":{\"self_weight\":true}},\"lengthM\":10,\"supportType\":\"simply-supported\",\"loadKN\":1,\"loadType\":\"point\",\"loadPosition\":\"midspan\",\"loadPositionM\":5,\"updatedAt\":0,\"skillState\":{\"engineeringDraft\":{\"structureType\":\"beam\",\"geometry\":{\"lengthM\":10},\"topology\":{},\"sectionRecords\":[{\"id\":\"S1\",\"name\":\"HN400X200X8X13\",\"type\":\"H\",\"purpose\":\"beam\",\"shape\":{\"kind\":\"H\",\"H\":400,\"B\":200,\"tw\":8,\"tf\":13},\"standard_steel_name\":\"HN400x200x8x13\"}],\"templateAssignments\":{},\"material\":{\"family\":\"steel\",\"grade\":\"Q235\"},\"sections\":{\"beam\":\"HN400X200X8X13\"},\"boundary\":{\"supportType\":\"simply-supported\"},\"loads\":[{\"id\":\"L1\",\"kind\":\"point\",\"magnitude\":1,\"unit\":\"kN\",\"direction\":\"gravity\",\"target\":\"beam\",\"location\":{\"xM\":5,\"nodeRole\":\"midspan\"}}],\"analysis\":{},\"analysisControl\":{\"self_weight\":true}},\"extractionSource\":\"engineering-draft\",\"beamLoads\":[{\"kind\":\"point\",\"magnitude\":1,\"unit\":\"kN\",\"direction\":\"gravity\",\"target\":\"beam\",\"xM\":5}]},\"skillId\":\"beam\",\"structuralTypeKey\":\"beam\",\"coordinateSemantics\":\"global-z-up\"}"
+    },
+    "missingExecution": {
+     "value": {
+      "critical": [],
+      "optional": []
+     }
+    },
+    "missingInteractive": {
+     "value": {
+      "critical": [],
+      "optional": []
+     }
+    },
+    "questions": {
+     "value": []
+    },
+    "model": {
+     "value": {
+      "schema_version": "2.2.0",
+      "unit_system": "SI",
+      "nodes": [
+       {
+        "id": "1",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+         true,
+         true,
+         true,
+         false,
+         false,
+         false
+        ]
+       },
+       {
+        "id": "2",
+        "x": 5,
+        "y": 0,
+        "z": 0
+       },
+       {
+        "id": "3",
+        "x": 10,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+         false,
+         true,
+         true,
+         false,
+         false,
+         false
+        ]
+       }
+      ],
+      "elements": [
+       {
+        "id": "1",
+        "type": "beam",
+        "nodes": [
+         "1",
+         "2"
+        ],
+        "material": "1",
+        "section": "S1"
+       },
+       {
+        "id": "2",
+        "type": "beam",
+        "nodes": [
+         "2",
+         "3"
+        ],
+        "material": "1",
+        "section": "S1"
+       }
+      ],
+      "materials": [
+       {
+        "id": "1",
+        "name": "Q235",
+        "grade": "Q235",
+        "category": "steel",
+        "E": 206000,
+        "G": 79000,
+        "nu": 0.3,
+        "rho": 7850,
+        "fy": 235
+       }
+      ],
+      "sections": [
+       {
+        "id": "S1",
+        "name": "HN400X200X8X13",
+        "type": "H",
+        "purpose": "beam",
+        "shape": {
+         "kind": "H",
+         "H": 400,
+         "B": 200,
+         "tw": 8,
+         "tf": 13
+        },
+        "standard_steel_name": "HN400x200x8x13"
+       }
+      ],
+      "load_cases": [
+       {
+        "id": "LC1",
+        "type": "other",
+        "loads": [
+         {
+          "node": "2",
+          "fz": -1,
+          "reference_frame": "global"
+         }
+        ]
+       }
+      ],
+      "load_combinations": [],
+      "metadata": {
+       "source": "markdown-skill-draft",
+       "inferredType": "beam",
+       "frameDimension": "2d",
+       "supportType": "simply-supported",
+       "semanticLoadCount": 1,
+       "inputEvidence": [],
+       "templatePropertyAssignments": {
+        "beam": {
+         "materialId": "1",
+         "sectionId": "S1"
+        }
+       },
+       "coordinateSemantics": "global-z-up",
+       "coordinateContractVersion": 1
+      },
+      "analysis_control": {
+       "self_weight": true
+      },
+      "coordinate_system": {
+       "semantics": "global-z-up",
+       "version": 1,
+       "dimension": "2d",
+       "plane": "xz",
+       "dof_order": [
+        "ux",
+        "uy",
+        "uz",
+        "rx",
+        "ry",
+        "rz"
+       ]
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "fixture-hw-design-no-mirror",
+   "skillId": "beam",
+   "source": "tests/fixtures/hw-design-draft-reproduction-20261015.json",
+   "state": {
+    "inferredType": "beam",
+    "engineeringDraft": {
+     "structureType": "beam",
+     "geometry": {
+      "lengthM": 10
+     },
+     "topology": {},
+     "materials": [
+      {
+       "id": "MAT-Q235B",
+       "name": "Q235B 钢材（用户给定弹性分析属性与设计强度）",
+       "E": 206000,
+       "G": 79230.77,
+       "nu": 0.3,
+       "rho": 7850,
+       "design": {
+        "basis": {
+         "E": "用户明确给定 E=206000 MPa",
+         "G": "用户指定按 G=E/[2(1+ν)]=206000/2.6≈79230.77 MPa 推导",
+         "nu": "用户明确给定 ν=0.3",
+         "rho": "用户明确给定 ρ=7850 kg/m³",
+         "f": "GB 50017-2017 Q235B（t≤16mm）f=215 MPa，用户确认为本次验收给定设计条件，不作为通用推荐值",
+         "fv": "GB 50017-2017 Q235B（t≤16mm）fv=125 MPa，用户确认为本次验收给定设计条件"
+        },
+        "f": 215,
+        "fv": 125
+       }
+      }
+     ],
+     "sectionRecords": [
+      {
+       "id": "SEC-HW300X300X10X15",
+       "name": "HW300×300×10×15 热轧H型钢（含用户明确给定的补充截面参数）",
+       "type": "H",
+       "shape": {
+        "kind": "H",
+        "H": 300,
+        "B": 300,
+        "tw": 10,
+        "tf": 15
+       },
+       "properties": {
+        "Wx": 0.0013288499999999988,
+        "Wnx": 0.0013288499999999988,
+        "Wz": 0.00045014999999999996,
+        "S": 0.000732375,
+        "tw": 0.01,
+        "b": 0.145,
+        "t": 0.015,
+        "imin": 0.07596811071860247
+       }
+      }
+     ],
+     "templateAssignments": {
+      "beam": {
+       "materialId": "MAT-Q235B",
+       "sectionId": "SEC-HW300X300X10X15",
+       "design": {
+        "l0": 5000,
+        "beta1": 1.1,
+        "phi_b": 0.9,
+        "btLimit": 13,
+        "lambdaLimit": 250,
+        "deflectionLimitN": 250,
+        "serviceability_result_keys": [
+         "case:LC1"
+        ],
+        "basis": {
+         "l0": "用户明确给定 l0=5000mm，本次测试在跨中设侧向支撑，为给定值非网格单元长度",
+         "beta1": "用户明确给定 beta1=1.1",
+         "phi_b": "用户明确给定 phi_b=0.9（跨中设侧向支撑条件下的给定稳定系数）",
+         "btLimit": "用户明确给定 btLimit=13",
+         "lambdaLimit": "用户明确给定 lambdaLimit=250",
+         "deflectionLimitN": "用户确认挠度限值 L/250（GB 50017-2017，本次验收给定条件）",
+         "serviceability_result_keys": "用户明确挠度校核采用 case:LC1，系数1.0，不新增组合"
+        }
+       }
+      }
+     },
+     "material": {
+      "family": "steel",
+      "grade": "Q235B"
+     },
+     "sections": {
+      "beam": "HW300X300X10X15"
+     },
+     "boundary": {
+      "supportType": "simply-supported"
+     },
+     "loads": [
+      {
+       "kind": "point",
+       "magnitude": 1,
+       "unit": "kN",
+       "location": {
+        "xM": 5
+       },
+       "direction": "gravity",
+       "caseId": "LC1",
+       "caseType": "other"
+      }
+     ],
+     "analysis": {
+      "loadCombinations": []
+     },
+     "analysisControl": {
+      "self_weight": false
+     }
+    },
+    "draftIssues": [
+     {
+      "field": "materials[0].design.fy",
+      "value": null,
+      "severity": "ambiguous",
+      "reason": "用户要求完成强度校核，但未给出Q235B强度设计值（fy、fv），且已声明不猜测设计强度",
+      "question": "强度校核用Q235B的fy、fv分别取多少？请给出数值或明确取值依据（如GB 50017）。"
+     },
+     {
+      "field": "templateAssignments.beam.design.deflectionLimitN",
+      "value": null,
+      "severity": "ambiguous",
+      "reason": "用户要求完成校核并生成报告，但未给出挠度限值L/n的n，无法完成正常使用极限状态校核",
+      "question": "挠度限值按L/n取多少（例如L/250或L/400）？"
+     }
+    ],
+    "lengthM": 10,
+    "skillState": {
+     "extractionSource": "engineering-draft",
+     "beamLoads": [
+      {
+       "kind": "point",
+       "magnitude": 1,
+       "unit": "kN",
+       "direction": "gravity",
+       "xM": 5
+      }
+     ],
+     "invalidDraftFields": [
+      "materials[0].design.fy",
+      "materials[0].design.fv",
+      "templateAssignments.beam.design.deflectionLimitN"
+     ]
+    },
+    "supportType": "simply-supported",
+    "loadKN": 1,
+    "loadType": "point",
+    "loadPosition": "free-joint",
+    "loadPositionM": 5,
+    "skillId": "beam",
+    "structuralTypeKey": "beam",
+    "coordinateSemantics": "global-z-up",
+    "supportLevel": "supported",
+    "routingSource": "current-state",
+    "requestScope": {
+     "responses": [
+      "forces",
+      "reactions",
+      "displacements",
+      "stress"
+     ],
+     "method": "solver",
+     "design": true,
+     "report": true,
+     "outputs": []
+    }
+   },
+   "raw": {
+    "engineeringDraft": {
+     "materials": [
+      {
+       "id": "MAT-Q235B",
+       "design": {
+        "fy": 235
+       }
+      }
+     ],
+     "templateAssignments": {
+      "beam": {
+       "design": {
+        "deflectionLimitN": 400
+       }
+      }
+     }
+    }
+   },
+   "expected": {
+    "ingest": {
+     "value": {
+      "inferredType": "beam",
+      "skillId": "beam",
+      "engineeringDraft": {
+       "structureType": "beam",
+       "geometry": {
+        "lengthM": 10
+       },
+       "materials": [
+        {
+         "id": "MAT-Q235B",
+         "name": "Q235B 钢材（用户给定弹性分析属性与设计强度）",
+         "E": 206000,
+         "G": 79230.77,
+         "nu": 0.3,
+         "rho": 7850,
+         "design": {
+          "basis": {
+           "E": "用户明确给定 E=206000 MPa",
+           "G": "用户指定按 G=E/[2(1+ν)]=206000/2.6≈79230.77 MPa 推导",
+           "nu": "用户明确给定 ν=0.3",
+           "rho": "用户明确给定 ρ=7850 kg/m³",
+           "f": "GB 50017-2017 Q235B（t≤16mm）f=215 MPa，用户确认为本次验收给定设计条件，不作为通用推荐值",
+           "fv": "GB 50017-2017 Q235B（t≤16mm）fv=125 MPa，用户确认为本次验收给定设计条件"
+          },
+          "f": 215,
+          "fv": 125
+         }
+        }
+       ],
+       "sectionRecords": [
+        {
+         "id": "SEC-HW300X300X10X15",
+         "name": "HW300×300×10×15 热轧H型钢（含用户明确给定的补充截面参数）",
+         "type": "H",
+         "shape": {
+          "kind": "H",
+          "H": 300,
+          "B": 300,
+          "tw": 10,
+          "tf": 15
+         },
+         "properties": {
+          "Wx": 0.0013288499999999988,
+          "Wnx": 0.0013288499999999988,
+          "Wz": 0.00045014999999999996,
+          "S": 0.000732375,
+          "tw": 0.01,
+          "b": 0.145,
+          "t": 0.015,
+          "imin": 0.07596811071860247
+         }
+        }
+       ],
+       "templateAssignments": {
+        "beam": {
+         "materialId": "MAT-Q235B",
+         "sectionId": "SEC-HW300X300X10X15",
+         "design": {
+          "l0": 5000,
+          "beta1": 1.1,
+          "phi_b": 0.9,
+          "btLimit": 13,
+          "lambdaLimit": 250,
+          "deflectionLimitN": 250,
+          "serviceability_result_keys": [
+           "case:LC1"
+          ],
+          "basis": {
+           "l0": "用户明确给定 l0=5000mm，本次测试在跨中设侧向支撑，为给定值非网格单元长度",
+           "beta1": "用户明确给定 beta1=1.1",
+           "phi_b": "用户明确给定 phi_b=0.9（跨中设侧向支撑条件下的给定稳定系数）",
+           "btLimit": "用户明确给定 btLimit=13",
+           "lambdaLimit": "用户明确给定 lambdaLimit=250",
+           "deflectionLimitN": "用户确认挠度限值 L/250（GB 50017-2017，本次验收给定条件）",
+           "serviceability_result_keys": "用户明确挠度校核采用 case:LC1，系数1.0，不新增组合"
+          }
+         }
+        }
+       },
+       "material": {
+        "family": "steel",
+        "grade": "Q235B"
+       },
+       "sections": {
+        "beam": "HW300X300X10X15"
+       },
+       "boundary": {
+        "supportType": "simply-supported"
+       },
+       "loads": [
+        {
+         "kind": "point",
+         "magnitude": 1,
+         "unit": "kN",
+         "direction": "gravity",
+         "location": {
+          "xM": 5
+         },
+         "caseId": "LC1",
+         "caseType": "other"
+        }
+       ],
+       "analysis": {
+        "loadCombinations": []
+       },
+       "analysisControl": {
+        "self_weight": false
+       }
+      },
+      "draftIssues": [
+       {
+        "field": "materials[0].design.fy",
+        "value": null,
+        "severity": "ambiguous",
+        "reason": "用户要求完成强度校核，但未给出Q235B强度设计值（fy、fv），且已声明不猜测设计强度",
+        "question": "强度校核用Q235B的fy、fv分别取多少？请给出数值或明确取值依据（如GB 50017）。"
+       },
+       {
+        "field": "templateAssignments.beam.design.deflectionLimitN",
+        "value": null,
+        "severity": "ambiguous",
+        "reason": "用户要求完成校核并生成报告，但未给出挠度限值L/n的n，无法完成正常使用极限状态校核",
+        "question": "挠度限值按L/n取多少（例如L/250或L/400）？"
+       }
+      ],
+      "skillState": {
+       "extractionSource": "engineering-draft",
+       "beamLoads": [
+        {
+         "kind": "point",
+         "magnitude": 1,
+         "unit": "kN",
+         "direction": "gravity",
+         "xM": 5
+        }
+       ],
+       "invalidDraftFields": [
+        "materials[0].design.fy",
+        "materials[0].design.fv",
+        "templateAssignments.beam.design.deflectionLimitN"
+       ]
+      },
+      "lengthM": 10,
+      "supportType": "simply-supported",
+      "loadKN": 1,
+      "loadType": "point",
+      "loadPosition": "free-joint",
+      "loadPositionM": 5
+     }
+    },
+    "next": {
+     "json": "{\"inferredType\":\"beam\",\"engineeringDraft\":{\"structureType\":\"beam\",\"geometry\":{\"lengthM\":10},\"topology\":{},\"materials\":[{\"id\":\"MAT-Q235B\",\"name\":\"Q235B 钢材（用户给定弹性分析属性与设计强度）\",\"E\":206000,\"G\":79230.77,\"nu\":0.3,\"rho\":7850,\"design\":{\"basis\":{\"E\":\"用户明确给定 E=206000 MPa\",\"G\":\"用户指定按 G=E/[2(1+ν)]=206000/2.6≈79230.77 MPa 推导\",\"nu\":\"用户明确给定 ν=0.3\",\"rho\":\"用户明确给定 ρ=7850 kg/m³\",\"f\":\"GB 50017-2017 Q235B（t≤16mm）f=215 MPa，用户确认为本次验收给定设计条件，不作为通用推荐值\",\"fv\":\"GB 50017-2017 Q235B（t≤16mm）fv=125 MPa，用户确认为本次验收给定设计条件\"},\"f\":215,\"fv\":125,\"fy\":235}}],\"sectionRecords\":[{\"id\":\"SEC-HW300X300X10X15\",\"name\":\"HW300×300×10×15 热轧H型钢（含用户明确给定的补充截面参数）\",\"type\":\"H\",\"shape\":{\"kind\":\"H\",\"H\":300,\"B\":300,\"tw\":10,\"tf\":15},\"properties\":{\"Wx\":0.0013288499999999988,\"Wnx\":0.0013288499999999988,\"Wz\":0.00045014999999999996,\"S\":0.000732375,\"tw\":0.01,\"b\":0.145,\"t\":0.015,\"imin\":0.07596811071860247}}],\"templateAssignments\":{\"beam\":{\"materialId\":\"MAT-Q235B\",\"sectionId\":\"SEC-HW300X300X10X15\",\"design\":{\"l0\":5000,\"beta1\":1.1,\"phi_b\":0.9,\"btLimit\":13,\"lambdaLimit\":250,\"deflectionLimitN\":400,\"serviceability_result_keys\":[\"case:LC1\"],\"basis\":{\"l0\":\"用户明确给定 l0=5000mm，本次测试在跨中设侧向支撑，为给定值非网格单元长度\",\"beta1\":\"用户明确给定 beta1=1.1\",\"phi_b\":\"用户明确给定 phi_b=0.9（跨中设侧向支撑条件下的给定稳定系数）\",\"btLimit\":\"用户明确给定 btLimit=13\",\"lambdaLimit\":\"用户明确给定 lambdaLimit=250\",\"deflectionLimitN\":\"用户确认挠度限值 L/250（GB 50017-2017，本次验收给定条件）\",\"serviceability_result_keys\":\"用户明确挠度校核采用 case:LC1，系数1.0，不新增组合\"}}}},\"material\":{\"family\":\"steel\",\"grade\":\"Q235B\"},\"sections\":{\"beam\":\"HW300X300X10X15\"},\"boundary\":{\"supportType\":\"simply-supported\"},\"loads\":[{\"kind\":\"point\",\"magnitude\":1,\"unit\":\"kN\",\"location\":{\"xM\":5},\"direction\":\"gravity\",\"caseId\":\"LC1\",\"caseType\":\"other\"}],\"analysis\":{\"loadCombinations\":[]},\"analysisControl\":{\"self_weight\":false}},\"lengthM\":10,\"supportType\":\"simply-supported\",\"loadKN\":1,\"loadType\":\"point\",\"loadPosition\":\"free-joint\",\"loadPositionM\":5,\"updatedAt\":0,\"skillState\":{\"extractionSource\":\"engineering-draft\",\"beamLoads\":[{\"kind\":\"point\",\"magnitude\":1,\"unit\":\"kN\",\"direction\":\"gravity\",\"xM\":5}],\"engineeringDraft\":{\"structureType\":\"beam\",\"geometry\":{\"lengthM\":10},\"topology\":{},\"materials\":[{\"id\":\"MAT-Q235B\",\"name\":\"Q235B 钢材（用户给定弹性分析属性与设计强度）\",\"E\":206000,\"G\":79230.77,\"nu\":0.3,\"rho\":7850,\"design\":{\"basis\":{\"E\":\"用户明确给定 E=206000 MPa\",\"G\":\"用户指定按 G=E/[2(1+ν)]=206000/2.6≈79230.77 MPa 推导\",\"nu\":\"用户明确给定 ν=0.3\",\"rho\":\"用户明确给定 ρ=7850 kg/m³\",\"f\":\"GB 50017-2017 Q235B（t≤16mm）f=215 MPa，用户确认为本次验收给定设计条件，不作为通用推荐值\",\"fv\":\"GB 50017-2017 Q235B（t≤16mm）fv=125 MPa，用户确认为本次验收给定设计条件\"},\"f\":215,\"fv\":125,\"fy\":235}}],\"sectionRecords\":[{\"id\":\"SEC-HW300X300X10X15\",\"name\":\"HW300×300×10×15 热轧H型钢（含用户明确给定的补充截面参数）\",\"type\":\"H\",\"shape\":{\"kind\":\"H\",\"H\":300,\"B\":300,\"tw\":10,\"tf\":15},\"properties\":{\"Wx\":0.0013288499999999988,\"Wnx\":0.0013288499999999988,\"Wz\":0.00045014999999999996,\"S\":0.000732375,\"tw\":0.01,\"b\":0.145,\"t\":0.015,\"imin\":0.07596811071860247}}],\"templateAssignments\":{\"beam\":{\"materialId\":\"MAT-Q235B\",\"sectionId\":\"SEC-HW300X300X10X15\",\"design\":{\"l0\":5000,\"beta1\":1.1,\"phi_b\":0.9,\"btLimit\":13,\"lambdaLimit\":250,\"deflectionLimitN\":400,\"serviceability_result_keys\":[\"case:LC1\"],\"basis\":{\"l0\":\"用户明确给定 l0=5000mm，本次测试在跨中设侧向支撑，为给定值非网格单元长度\",\"beta1\":\"用户明确给定 beta1=1.1\",\"phi_b\":\"用户明确给定 phi_b=0.9（跨中设侧向支撑条件下的给定稳定系数）\",\"btLimit\":\"用户明确给定 btLimit=13\",\"lambdaLimit\":\"用户明确给定 lambdaLimit=250\",\"deflectionLimitN\":\"用户确认挠度限值 L/250（GB 50017-2017，本次验收给定条件）\",\"serviceability_result_keys\":\"用户明确挠度校核采用 case:LC1，系数1.0，不新增组合\"}}}},\"material\":{\"family\":\"steel\",\"grade\":\"Q235B\"},\"sections\":{\"beam\":\"HW300X300X10X15\"},\"boundary\":{\"supportType\":\"simply-supported\"},\"loads\":[{\"kind\":\"point\",\"magnitude\":1,\"unit\":\"kN\",\"location\":{\"xM\":5},\"direction\":\"gravity\",\"caseId\":\"LC1\",\"caseType\":\"other\"}],\"analysis\":{\"loadCombinations\":[]},\"analysisControl\":{\"self_weight\":false}},\"invalidDraftFields\":[\"materials[0].design.fv\"]},\"skillId\":\"beam\",\"structuralTypeKey\":\"beam\",\"coordinateSemantics\":\"global-z-up\"}"
+    },
+    "missingExecution": {
+     "value": {
+      "critical": [],
+      "optional": []
+     }
+    },
+    "missingInteractive": {
+     "value": {
+      "critical": [],
+      "optional": []
+     }
+    },
+    "questions": {
+     "value": []
+    },
+    "model": {
+     "value": {
+      "schema_version": "2.2.0",
+      "unit_system": "SI",
+      "nodes": [
+       {
+        "id": "1",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+         true,
+         true,
+         true,
+         false,
+         false,
+         false
+        ]
+       },
+       {
+        "id": "2",
+        "x": 5,
+        "y": 0,
+        "z": 0
+       },
+       {
+        "id": "3",
+        "x": 10,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+         false,
+         true,
+         true,
+         false,
+         false,
+         false
+        ]
+       }
+      ],
+      "elements": [
+       {
+        "id": "1",
+        "type": "beam",
+        "nodes": [
+         "1",
+         "2"
+        ],
+        "material": "MAT-Q235B",
+        "section": "SEC-HW300X300X10X15",
+        "design": {
+         "l0": 5000,
+         "beta1": 1.1,
+         "phi_b": 0.9,
+         "btLimit": 13,
+         "lambdaLimit": 250,
+         "deflectionLimitN": 400,
+         "serviceability_result_keys": [
+          "case:LC1"
+         ],
+         "basis": {
+          "l0": "用户明确给定 l0=5000mm，本次测试在跨中设侧向支撑，为给定值非网格单元长度",
+          "beta1": "用户明确给定 beta1=1.1",
+          "phi_b": "用户明确给定 phi_b=0.9（跨中设侧向支撑条件下的给定稳定系数）",
+          "btLimit": "用户明确给定 btLimit=13",
+          "lambdaLimit": "用户明确给定 lambdaLimit=250",
+          "deflectionLimitN": "用户确认挠度限值 L/250（GB 50017-2017，本次验收给定条件）",
+          "serviceability_result_keys": "用户明确挠度校核采用 case:LC1，系数1.0，不新增组合"
+         }
+        }
+       },
+       {
+        "id": "2",
+        "type": "beam",
+        "nodes": [
+         "2",
+         "3"
+        ],
+        "material": "MAT-Q235B",
+        "section": "SEC-HW300X300X10X15",
+        "design": {
+         "l0": 5000,
+         "beta1": 1.1,
+         "phi_b": 0.9,
+         "btLimit": 13,
+         "lambdaLimit": 250,
+         "deflectionLimitN": 400,
+         "serviceability_result_keys": [
+          "case:LC1"
+         ],
+         "basis": {
+          "l0": "用户明确给定 l0=5000mm，本次测试在跨中设侧向支撑，为给定值非网格单元长度",
+          "beta1": "用户明确给定 beta1=1.1",
+          "phi_b": "用户明确给定 phi_b=0.9（跨中设侧向支撑条件下的给定稳定系数）",
+          "btLimit": "用户明确给定 btLimit=13",
+          "lambdaLimit": "用户明确给定 lambdaLimit=250",
+          "deflectionLimitN": "用户确认挠度限值 L/250（GB 50017-2017，本次验收给定条件）",
+          "serviceability_result_keys": "用户明确挠度校核采用 case:LC1，系数1.0，不新增组合"
+         }
+        }
+       }
+      ],
+      "materials": [
+       {
+        "id": "MAT-Q235B",
+        "name": "Q235B 钢材（用户给定弹性分析属性与设计强度）",
+        "E": 206000,
+        "G": 79230.77,
+        "nu": 0.3,
+        "rho": 7850,
+        "design": {
+         "basis": {
+          "E": "用户明确给定 E=206000 MPa",
+          "G": "用户指定按 G=E/[2(1+ν)]=206000/2.6≈79230.77 MPa 推导",
+          "nu": "用户明确给定 ν=0.3",
+          "rho": "用户明确给定 ρ=7850 kg/m³",
+          "f": "GB 50017-2017 Q235B（t≤16mm）f=215 MPa，用户确认为本次验收给定设计条件，不作为通用推荐值",
+          "fv": "GB 50017-2017 Q235B（t≤16mm）fv=125 MPa，用户确认为本次验收给定设计条件"
+         },
+         "f": 215,
+         "fv": 125,
+         "fy": 235
+        }
+       }
+      ],
+      "sections": [
+       {
+        "id": "SEC-HW300X300X10X15",
+        "name": "HW300×300×10×15 热轧H型钢（含用户明确给定的补充截面参数）",
+        "type": "H",
+        "shape": {
+         "kind": "H",
+         "H": 300,
+         "B": 300,
+         "tw": 10,
+         "tf": 15
+        },
+        "properties": {
+         "Wx": 0.0013288499999999988,
+         "Wnx": 0.0013288499999999988,
+         "Wz": 0.00045014999999999996,
+         "S": 0.000732375,
+         "tw": 0.01,
+         "b": 0.145,
+         "t": 0.015,
+         "imin": 0.07596811071860247
+        }
+       }
+      ],
+      "load_cases": [
+       {
+        "id": "LC1",
+        "type": "other",
+        "loads": [
+         {
+          "node": "2",
+          "fz": -1,
+          "reference_frame": "global"
+         }
+        ]
+       }
+      ],
+      "load_combinations": [],
+      "metadata": {
+       "source": "markdown-skill-draft",
+       "inferredType": "beam",
+       "frameDimension": "2d",
+       "supportType": "simply-supported",
+       "semanticLoadCount": 1,
+       "inputEvidence": [],
+       "templatePropertyAssignments": {
+        "beam": {
+         "materialId": "MAT-Q235B",
+         "sectionId": "SEC-HW300X300X10X15"
+        }
+       },
+       "coordinateSemantics": "global-z-up",
+       "coordinateContractVersion": 1
+      },
+      "analysis_control": {
+       "self_weight": false
+      },
+      "coordinate_system": {
+       "semantics": "global-z-up",
+       "version": 1,
+       "dimension": "2d",
+       "plane": "xz",
+       "dof_order": [
+        "ux",
+        "uy",
+        "uz",
+        "rx",
+        "ry",
+        "rz"
+       ]
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "beam-conflict-old-state-without-mirror",
+   "skillId": "beam",
+   "source": "beam conflict state persisted before the mirror existed",
+   "state": {
+    "inferredType": "beam",
+    "engineeringDraft": {
+     "structureType": "beam",
+     "geometry": {
+      "spanLengthsM": [
+       4,
+       2,
+       6
+      ]
+     },
+     "topology": {
+      "nodes": [
+       {
+        "id": "N1",
+        "x": 0,
+        "y": 0,
+        "z": 0
+       },
+       {
+        "id": "N2",
+        "x": 4,
+        "y": 0,
+        "z": 0
+       },
+       {
+        "id": "N3",
+        "x": 6,
+        "y": 0,
+        "z": 0
+       },
+       {
+        "id": "N4",
+        "x": 12,
+        "y": 0,
+        "z": 0
+       }
+      ]
+     },
+     "boundary": {
+      "supportType": "simply-supported"
+     },
+     "loads": [
+      {
+       "kind": "point",
+       "magnitude": 50,
+       "unit": "kN",
+       "direction": "gravity",
+       "target": "N2",
+       "location": {
+        "xM": 6
+       }
+      }
+     ]
+    },
+    "lengthM": 12,
+    "supportType": "simply-supported",
+    "loadKN": 50,
+    "loadType": "point",
+    "loadPosition": "free-joint",
+    "loadPositionM": 6,
+    "updatedAt": 1792182562728,
+    "draftIssues": [
+     {
+      "field": "loadPosition",
+      "value": {
+       "target": "N2",
+       "xM": 6
+      },
+      "severity": "conflict",
+      "reason": "集中荷载目标 N2 与坐标 x=6m 冲突。",
+      "question": "请确认集中荷载的目标节点或坐标。"
+     }
+    ],
+    "skillState": {
+     "extractionSource": "engineering-draft",
+     "beamLoads": [
+      {
+       "kind": "point",
+       "magnitude": 50,
+       "unit": "kN",
+       "direction": "gravity",
+       "target": "N2",
+       "xM": 6
+      }
+     ],
+     "invalidDraftFields": [
+      "loadPosition"
+     ]
+    },
+    "skillId": "beam",
+    "structuralTypeKey": "beam",
+    "coordinateSemantics": "global-z-up"
+   },
+   "raw": {
+    "engineeringDraft": {
+     "loads": [
+      {
+       "kind": "point",
+       "magnitude": 50,
+       "unit": "kN",
+       "direction": "gravity",
+       "target": "N2"
+      }
+     ]
+    }
+   },
+   "expected": {
+    "ingest": {
+     "value": {
+      "inferredType": "beam",
+      "skillId": "beam",
+      "engineeringDraft": {
+       "structureType": "beam",
+       "geometry": {
+        "spanLengthsM": [
+         4,
+         2,
+         6
+        ]
+       },
+       "topology": {
+        "nodes": [
+         {
+          "id": "N1",
+          "x": 0,
+          "y": 0,
+          "z": 0
+         },
+         {
+          "id": "N2",
+          "x": 4,
+          "y": 0,
+          "z": 0
+         },
+         {
+          "id": "N3",
+          "x": 6,
+          "y": 0,
+          "z": 0
+         },
+         {
+          "id": "N4",
+          "x": 12,
+          "y": 0,
+          "z": 0
+         }
+        ]
+       },
+       "boundary": {
+        "supportType": "simply-supported"
+       },
+       "loads": [
+        {
+         "kind": "point",
+         "magnitude": 50,
+         "unit": "kN",
+         "direction": "gravity",
+         "target": "N2",
+         "location": {
+          "xM": 6
+         }
+        }
+       ]
+      },
+      "draftIssues": [
+       {
+        "field": "loadPosition",
+        "value": {
+         "target": "N2",
+         "xM": 6
+        },
+        "severity": "conflict",
+        "reason": "集中荷载目标 N2 与坐标 x=6m 冲突。",
+        "question": "请确认集中荷载的目标节点或坐标。"
+       }
+      ],
+      "skillState": {
+       "extractionSource": "engineering-draft",
+       "beamLoads": [
+        {
+         "kind": "point",
+         "magnitude": 50,
+         "unit": "kN",
+         "direction": "gravity",
+         "target": "N2",
+         "xM": 6
+        }
+       ],
+       "invalidDraftFields": [
+        "loadPosition"
+       ]
+      },
+      "lengthM": 12,
+      "supportType": "simply-supported",
+      "loadKN": 50,
+      "loadType": "point",
+      "loadPosition": "free-joint",
+      "loadPositionM": 6
+     }
+    },
+    "next": {
+     "json": "{\"inferredType\":\"beam\",\"engineeringDraft\":{\"structureType\":\"beam\",\"geometry\":{\"spanLengthsM\":[4,2,6]},\"topology\":{\"nodes\":[{\"id\":\"N1\",\"x\":0,\"y\":0,\"z\":0},{\"id\":\"N2\",\"x\":4,\"y\":0,\"z\":0},{\"id\":\"N3\",\"x\":6,\"y\":0,\"z\":0},{\"id\":\"N4\",\"x\":12,\"y\":0,\"z\":0}]},\"templateAssignments\":{},\"material\":{},\"sections\":{},\"boundary\":{\"supportType\":\"simply-supported\"},\"loads\":[{\"kind\":\"point\",\"magnitude\":50,\"unit\":\"kN\",\"direction\":\"gravity\",\"target\":\"N2\"}],\"analysis\":{}},\"lengthM\":12,\"supportType\":\"simply-supported\",\"loadKN\":50,\"loadType\":\"point\",\"loadPosition\":\"midspan\",\"loadPositionM\":4,\"updatedAt\":0,\"skillState\":{\"extractionSource\":\"engineering-draft\",\"beamLoads\":[{\"kind\":\"point\",\"magnitude\":50,\"unit\":\"kN\",\"direction\":\"gravity\",\"target\":\"N2\"}],\"engineeringDraft\":{\"structureType\":\"beam\",\"geometry\":{\"spanLengthsM\":[4,2,6]},\"topology\":{\"nodes\":[{\"id\":\"N1\",\"x\":0,\"y\":0,\"z\":0},{\"id\":\"N2\",\"x\":4,\"y\":0,\"z\":0},{\"id\":\"N3\",\"x\":6,\"y\":0,\"z\":0},{\"id\":\"N4\",\"x\":12,\"y\":0,\"z\":0}]},\"templateAssignments\":{},\"material\":{},\"sections\":{},\"boundary\":{\"supportType\":\"simply-supported\"},\"loads\":[{\"kind\":\"point\",\"magnitude\":50,\"unit\":\"kN\",\"direction\":\"gravity\",\"target\":\"N2\"}],\"analysis\":{}}},\"skillId\":\"beam\",\"structuralTypeKey\":\"beam\",\"coordinateSemantics\":\"global-z-up\"}"
+    },
+    "missingExecution": {
+     "value": {
+      "critical": [],
+      "optional": []
+     }
+    },
+    "missingInteractive": {
+     "value": {
+      "critical": [],
+      "optional": []
+     }
+    },
+    "questions": {
+     "value": []
+    },
+    "model": {
+     "value": {
+      "schema_version": "2.2.0",
+      "unit_system": "SI",
+      "nodes": [
+       {
+        "id": "1",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+         true,
+         true,
+         true,
+         false,
+         false,
+         false
+        ]
+       },
+       {
+        "id": "2",
+        "x": 4,
+        "y": 0,
+        "z": 0
+       },
+       {
+        "id": "3",
+        "x": 6,
+        "y": 0,
+        "z": 0
+       },
+       {
+        "id": "4",
+        "x": 12,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+         false,
+         true,
+         true,
+         false,
+         false,
+         false
+        ]
+       }
+      ],
+      "elements": [
+       {
+        "id": "1",
+        "type": "beam",
+        "nodes": [
+         "1",
+         "2"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "2",
+        "type": "beam",
+        "nodes": [
+         "2",
+         "3"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "3",
+        "type": "beam",
+        "nodes": [
+         "3",
+         "4"
+        ],
+        "material": "1",
+        "section": "1"
+       }
+      ],
+      "materials": [
+       {
+        "id": "1",
+        "name": "Q355",
+        "grade": "Q355",
+        "category": "steel",
+        "E": 206000,
+        "G": 79000,
+        "nu": 0.3,
+        "rho": 7850,
+        "fy": 355
+       }
+      ],
+      "sections": [
+       {
+        "id": "1",
+        "name": "H300X200X8X12",
+        "type": "H",
+        "purpose": "beam",
+        "shape": {
+         "kind": "H",
+         "H": 300,
+         "B": 200,
+         "tw": 8,
+         "tf": 12
+        },
+        "properties": {
+         "A": 0.007008,
+         "Iy": 0.000113606784,
+         "Iz": 0.000016011776,
+         "J": 2.77504e-7
+        }
+       }
+      ],
+      "load_cases": [
+       {
+        "id": "LC1",
+        "type": "other",
+        "loads": [
+         {
+          "node": "2",
+          "fz": -50,
+          "reference_frame": "global"
+         }
+        ]
+       }
+      ],
+      "load_combinations": [],
+      "metadata": {
+       "source": "markdown-skill-draft",
+       "inferredType": "beam",
+       "frameDimension": "2d",
+       "supportType": "simply-supported",
+       "semanticLoadCount": 1,
+       "inputEvidence": [],
+       "templatePropertyAssignments": {
+        "beam": {
+         "materialId": "1",
+         "sectionId": "1"
+        }
+       },
+       "coordinateSemantics": "global-z-up",
+       "coordinateContractVersion": 1
+      },
+      "coordinate_system": {
+       "semantics": "global-z-up",
+       "version": 1,
+       "dimension": "2d",
+       "plane": "xz",
+       "dof_order": [
+        "ux",
+        "uy",
+        "uz",
+        "rx",
+        "ry",
+        "rz"
+       ]
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "beam-legacy-coordinate-correction",
+   "skillId": "beam",
+   "source": "beam conflict state answered with a legacy scalar",
+   "state": {
+    "inferredType": "beam",
+    "engineeringDraft": {
+     "structureType": "beam",
+     "geometry": {
+      "spanLengthsM": [
+       4,
+       2,
+       6
+      ]
+     },
+     "topology": {
+      "nodes": [
+       {
+        "id": "N1",
+        "x": 0,
+        "y": 0,
+        "z": 0
+       },
+       {
+        "id": "N2",
+        "x": 4,
+        "y": 0,
+        "z": 0
+       },
+       {
+        "id": "N3",
+        "x": 6,
+        "y": 0,
+        "z": 0
+       },
+       {
+        "id": "N4",
+        "x": 12,
+        "y": 0,
+        "z": 0
+       }
+      ]
+     },
+     "boundary": {
+      "supportType": "simply-supported"
+     },
+     "loads": [
+      {
+       "kind": "point",
+       "magnitude": 50,
+       "unit": "kN",
+       "direction": "gravity",
+       "target": "N2",
+       "location": {
+        "xM": 6
+       }
+      }
+     ]
+    },
+    "lengthM": 12,
+    "supportType": "simply-supported",
+    "loadKN": 50,
+    "loadType": "point",
+    "loadPosition": "free-joint",
+    "loadPositionM": 6,
+    "updatedAt": 1792182562728,
+    "draftIssues": [
+     {
+      "field": "loadPosition",
+      "value": {
+       "target": "N2",
+       "xM": 6
+      },
+      "severity": "conflict",
+      "reason": "集中荷载目标 N2 与坐标 x=6m 冲突。",
+      "question": "请确认集中荷载的目标节点或坐标。"
+     }
+    ],
+    "skillState": {
+     "engineeringDraft": {
+      "structureType": "beam",
+      "geometry": {
+       "spanLengthsM": [
+        4,
+        2,
+        6
+       ]
+      },
+      "topology": {
+       "nodes": [
+        {
+         "id": "N1",
+         "x": 0,
+         "y": 0,
+         "z": 0
+        },
+        {
+         "id": "N2",
+         "x": 4,
+         "y": 0,
+         "z": 0
+        },
+        {
+         "id": "N3",
+         "x": 6,
+         "y": 0,
+         "z": 0
+        },
+        {
+         "id": "N4",
+         "x": 12,
+         "y": 0,
+         "z": 0
+        }
+       ]
+      },
+      "boundary": {
+       "supportType": "simply-supported"
+      },
+      "loads": [
+       {
+        "kind": "point",
+        "magnitude": 50,
+        "unit": "kN",
+        "direction": "gravity",
+        "target": "N2",
+        "location": {
+         "xM": 6
+        }
+       }
+      ]
+     },
+     "extractionSource": "engineering-draft",
+     "beamLoads": [
+      {
+       "kind": "point",
+       "magnitude": 50,
+       "unit": "kN",
+       "direction": "gravity",
+       "target": "N2",
+       "xM": 6
+      }
+     ],
+     "invalidDraftFields": [
+      "loadPosition"
+     ]
+    },
+    "skillId": "beam",
+    "structuralTypeKey": "beam",
+    "coordinateSemantics": "global-z-up"
+   },
+   "raw": {
+    "loadPositionM": 4
+   },
+   "expected": {
+    "ingest": {
+     "value": {
+      "inferredType": "beam",
+      "skillId": "beam",
+      "engineeringDraft": {
+       "structureType": "beam",
+       "geometry": {
+        "spanLengthsM": [
+         4,
+         2,
+         6
+        ]
+       },
+       "topology": {
+        "nodes": [
+         {
+          "id": "N1",
+          "x": 0,
+          "y": 0,
+          "z": 0
+         },
+         {
+          "id": "N2",
+          "x": 4,
+          "y": 0,
+          "z": 0
+         },
+         {
+          "id": "N3",
+          "x": 6,
+          "y": 0,
+          "z": 0
+         },
+         {
+          "id": "N4",
+          "x": 12,
+          "y": 0,
+          "z": 0
+         }
+        ]
+       },
+       "boundary": {
+        "supportType": "simply-supported"
+       },
+       "loads": [
+        {
+         "kind": "point",
+         "magnitude": 50,
+         "unit": "kN",
+         "direction": "gravity",
+         "target": "N2",
+         "location": {
+          "xM": 6
+         }
+        }
+       ]
+      },
+      "draftIssues": [
+       {
+        "field": "loadPosition",
+        "value": {
+         "target": "N2",
+         "xM": 6
+        },
+        "severity": "conflict",
+        "reason": "集中荷载目标 N2 与坐标 x=6m 冲突。",
+        "question": "请确认集中荷载的目标节点或坐标。"
+       }
+      ],
+      "skillState": {
+       "engineeringDraft": {
+        "structureType": "beam",
+        "geometry": {
+         "spanLengthsM": [
+          4,
+          2,
+          6
+         ]
+        },
+        "topology": {
+         "nodes": [
+          {
+           "id": "N1",
+           "x": 0,
+           "y": 0,
+           "z": 0
+          },
+          {
+           "id": "N2",
+           "x": 4,
+           "y": 0,
+           "z": 0
+          },
+          {
+           "id": "N3",
+           "x": 6,
+           "y": 0,
+           "z": 0
+          },
+          {
+           "id": "N4",
+           "x": 12,
+           "y": 0,
+           "z": 0
+          }
+         ]
+        },
+        "boundary": {
+         "supportType": "simply-supported"
+        },
+        "loads": [
+         {
+          "kind": "point",
+          "magnitude": 50,
+          "unit": "kN",
+          "direction": "gravity",
+          "target": "N2",
+          "location": {
+           "xM": 6
+          }
+         }
+        ]
+       },
+       "extractionSource": "engineering-draft",
+       "beamLoads": [
+        {
+         "kind": "point",
+         "magnitude": 50,
+         "unit": "kN",
+         "direction": "gravity",
+         "target": "N2",
+         "xM": 6
+        }
+       ],
+       "invalidDraftFields": [
+        "loadPosition"
+       ]
+      },
+      "lengthM": 12,
+      "supportType": "simply-supported",
+      "loadKN": 50,
+      "loadType": "point",
+      "loadPosition": "free-joint",
+      "loadPositionM": 6
+     }
+    },
+    "next": {
+     "json": "{\"inferredType\":\"beam\",\"engineeringDraft\":{\"structureType\":\"beam\",\"geometry\":{\"spanLengthsM\":[4,2,6]},\"topology\":{\"nodes\":[{\"id\":\"N1\",\"x\":0,\"y\":0,\"z\":0},{\"id\":\"N2\",\"x\":4,\"y\":0,\"z\":0},{\"id\":\"N3\",\"x\":6,\"y\":0,\"z\":0},{\"id\":\"N4\",\"x\":12,\"y\":0,\"z\":0}]},\"boundary\":{\"supportType\":\"simply-supported\"},\"loads\":[{\"kind\":\"point\",\"magnitude\":50,\"unit\":\"kN\",\"direction\":\"gravity\",\"target\":\"N2\",\"location\":{\"xM\":4}}]},\"lengthM\":12,\"supportType\":\"simply-supported\",\"loadKN\":50,\"loadType\":\"point\",\"loadPosition\":\"free-joint\",\"loadPositionM\":4,\"updatedAt\":0,\"skillState\":{\"engineeringDraft\":{\"structureType\":\"beam\",\"geometry\":{\"spanLengthsM\":[4,2,6]},\"topology\":{\"nodes\":[{\"id\":\"N1\",\"x\":0,\"y\":0,\"z\":0},{\"id\":\"N2\",\"x\":4,\"y\":0,\"z\":0},{\"id\":\"N3\",\"x\":6,\"y\":0,\"z\":0},{\"id\":\"N4\",\"x\":12,\"y\":0,\"z\":0}]},\"boundary\":{\"supportType\":\"simply-supported\"},\"loads\":[{\"kind\":\"point\",\"magnitude\":50,\"unit\":\"kN\",\"direction\":\"gravity\",\"target\":\"N2\",\"location\":{\"xM\":4}}]},\"extractionSource\":\"engineering-draft\",\"beamLoads\":[{\"kind\":\"point\",\"magnitude\":50,\"unit\":\"kN\",\"direction\":\"gravity\",\"target\":\"N2\",\"xM\":4}]},\"skillId\":\"beam\",\"structuralTypeKey\":\"beam\",\"coordinateSemantics\":\"global-z-up\"}"
+    },
+    "missingExecution": {
+     "value": {
+      "critical": [],
+      "optional": []
+     }
+    },
+    "missingInteractive": {
+     "value": {
+      "critical": [],
+      "optional": []
+     }
+    },
+    "questions": {
+     "value": []
+    },
+    "model": {
+     "value": {
+      "schema_version": "2.2.0",
+      "unit_system": "SI",
+      "nodes": [
+       {
+        "id": "1",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+         true,
+         true,
+         true,
+         false,
+         false,
+         false
+        ]
+       },
+       {
+        "id": "2",
+        "x": 4,
+        "y": 0,
+        "z": 0
+       },
+       {
+        "id": "3",
+        "x": 6,
+        "y": 0,
+        "z": 0
+       },
+       {
+        "id": "4",
+        "x": 12,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+         false,
+         true,
+         true,
+         false,
+         false,
+         false
+        ]
+       }
+      ],
+      "elements": [
+       {
+        "id": "1",
+        "type": "beam",
+        "nodes": [
+         "1",
+         "2"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "2",
+        "type": "beam",
+        "nodes": [
+         "2",
+         "3"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "3",
+        "type": "beam",
+        "nodes": [
+         "3",
+         "4"
+        ],
+        "material": "1",
+        "section": "1"
+       }
+      ],
+      "materials": [
+       {
+        "id": "1",
+        "name": "Q355",
+        "grade": "Q355",
+        "category": "steel",
+        "E": 206000,
+        "G": 79000,
+        "nu": 0.3,
+        "rho": 7850,
+        "fy": 355
+       }
+      ],
+      "sections": [
+       {
+        "id": "1",
+        "name": "H300X200X8X12",
+        "type": "H",
+        "purpose": "beam",
+        "shape": {
+         "kind": "H",
+         "H": 300,
+         "B": 200,
+         "tw": 8,
+         "tf": 12
+        },
+        "properties": {
+         "A": 0.007008,
+         "Iy": 0.000113606784,
+         "Iz": 0.000016011776,
+         "J": 2.77504e-7
+        }
+       }
+      ],
+      "load_cases": [
+       {
+        "id": "LC1",
+        "type": "other",
+        "loads": [
+         {
+          "node": "2",
+          "fz": -50,
+          "reference_frame": "global"
+         }
+        ]
+       }
+      ],
+      "load_combinations": [],
+      "metadata": {
+       "source": "markdown-skill-draft",
+       "inferredType": "beam",
+       "frameDimension": "2d",
+       "supportType": "simply-supported",
+       "semanticLoadCount": 1,
+       "inputEvidence": [],
+       "templatePropertyAssignments": {
+        "beam": {
+         "materialId": "1",
+         "sectionId": "1"
+        }
+       },
+       "coordinateSemantics": "global-z-up",
+       "coordinateContractVersion": 1
+      },
+      "coordinate_system": {
+       "semantics": "global-z-up",
+       "version": 1,
+       "dimension": "2d",
+       "plane": "xz",
+       "dof_order": [
+        "ux",
+        "uy",
+        "uz",
+        "rx",
+        "ry",
+        "rz"
+       ]
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "frame-legacy-flat",
+   "skillId": "frame",
+   "source": "flat-only legacy frame draftPatch",
+   "state": {
+    "inferredType": "frame",
+    "frameDimension": "2d",
+    "storyCount": 2,
+    "bayCount": 2,
+    "storyHeightsM": [
+     3.6,
+     3.3
+    ],
+    "bayWidthsM": [
+     6,
+     6
+    ],
+    "floorLoads": [
+     {
+      "story": 1,
+      "verticalKN": 120,
+      "lateralXKN": 10
+     },
+     {
+      "story": 2,
+      "verticalKN": 90
+     }
+    ],
+    "frameBaseSupportType": "fixed",
+    "updatedAt": 1792182562731,
+    "skillId": "frame",
+    "structuralTypeKey": "frame",
+    "coordinateSemantics": "global-z-up",
+    "frameMaterial": "Q355",
+    "frameColumnSection": "HW300X300",
+    "frameBeamSection": "HN400X200"
+   },
+   "raw": {
+    "engineeringDraft": {
+     "wind": {
+      "basicPressureKNM2": 0.45
+     },
+     "loads": [
+      {
+       "kind": "area",
+       "magnitude": 5,
+       "unit": "kN/m2",
+       "direction": "gravity",
+       "target": "floor 2"
+      }
+     ]
+    }
+   },
+   "expected": {
+    "ingest": {
+     "value": {
+      "inferredType": "frame",
+      "skillId": "frame",
+      "frameDimension": "2d",
+      "storyCount": 2,
+      "bayCount": 2,
+      "storyHeightsM": [
+       3.6,
+       3.3
+      ],
+      "bayWidthsM": [
+       6,
+       6
+      ],
+      "floorLoads": [
+       {
+        "story": 1,
+        "verticalKN": 120,
+        "lateralXKN": 10
+       },
+       {
+        "story": 2,
+        "verticalKN": 90
+       }
+      ],
+      "frameBaseSupportType": "fixed"
+     }
+    },
+    "next": {
+     "json": "{\"inferredType\":\"frame\",\"engineeringDraft\":{\"loads\":[{\"kind\":\"area\",\"magnitude\":5,\"unit\":\"kN/m2\",\"direction\":\"gravity\",\"target\":\"floor 2\"}],\"wind\":{\"basicPressureKNM2\":0.45}},\"frameDimension\":\"2d\",\"storyCount\":2,\"bayCount\":2,\"storyHeightsM\":[3.6,3.3],\"bayWidthsM\":[6,6],\"floorLoads\":[{\"story\":1,\"verticalKN\":120,\"lateralXKN\":19.44},{\"story\":2,\"verticalKN\":90,\"lateralXKN\":17.82}],\"frameBaseSupportType\":\"fixed\",\"updatedAt\":0,\"skillState\":{\"engineeringDraft\":{\"loads\":[{\"kind\":\"area\",\"magnitude\":5,\"unit\":\"kN/m2\",\"direction\":\"gravity\",\"target\":\"floor 2\"}],\"wind\":{\"basicPressureKNM2\":0.45}},\"extractionSource\":\"engineering-draft\"},\"skillId\":\"frame\",\"structuralTypeKey\":\"frame\",\"coordinateSemantics\":\"global-z-up\",\"frameMaterial\":\"Q355\",\"frameColumnSection\":\"HW300X300\",\"frameBeamSection\":\"HN400X200\",\"wind\":{\"basicPressureKNM2\":0.45}}"
+    },
+    "missingExecution": {
+     "value": {
+      "critical": [],
+      "optional": []
+     }
+    },
+    "missingInteractive": {
+     "value": {
+      "critical": [],
+      "optional": []
+     }
+    },
+    "questions": {
+     "value": []
+    },
+    "model": {
+     "error": "SECTION_CATALOG_UNVERIFIED: supply reviewed complete section properties or explicit H×B×tw×tf geometry / 型钢目录尚未审定，请提供核定截面属性或明确四项尺寸"
+    }
+   }
+  },
+  {
+   "id": "frame-3d-engineering",
+   "skillId": "frame",
+   "source": "3D frame from engineeringDraft",
+   "state": {
+    "inferredType": "frame",
+    "engineeringDraft": {
+     "structureType": "frame",
+     "geometry": {
+      "storyHeightsM": [
+       4,
+       3.5,
+       3.5
+      ],
+      "bayWidthsXM": [
+       6,
+       6
+      ],
+      "bayWidthsYM": [
+       5
+      ]
+     },
+     "material": {
+      "family": "concrete",
+      "grade": "C30",
+      "rebarGrade": "HRB400"
+     },
+     "sections": {
+      "beam": "300x600",
+      "column": "500x500"
+     },
+     "loads": [
+      {
+       "kind": "point",
+       "magnitude": 40,
+       "unit": "kN",
+       "direction": "globalX",
+       "location": {
+        "story": 3
+       }
+      }
+     ]
+    },
+    "frameDimension": "3d",
+    "storyCount": 3,
+    "bayCountX": 2,
+    "bayCountY": 1,
+    "storyHeightsM": [
+     4,
+     3.5,
+     3.5
+    ],
+    "bayWidthsXM": [
+     6,
+     6
+    ],
+    "bayWidthsYM": [
+     5
+    ],
+    "updatedAt": 1792182562732,
+    "draftIssues": [
+     {
+      "field": "frameNodalLoadLocation",
+      "value": [
+       {
+        "story": 3
+       }
+      ],
+      "severity": "ambiguous",
+      "reason": "框架点荷载或节点荷载只给出了楼层或节点角色的一部分，无法唯一确定作用节点。",
+      "question": "请确认该荷载所在楼层及节点位置（左侧、右侧或中间节点）。"
+     }
+    ],
+    "skillState": {
+     "engineeringDraft": {
+      "structureType": "frame",
+      "geometry": {
+       "storyHeightsM": [
+        4,
+        3.5,
+        3.5
+       ],
+       "bayWidthsXM": [
+        6,
+        6
+       ],
+       "bayWidthsYM": [
+        5
+       ]
+      },
+      "material": {
+       "family": "concrete",
+       "grade": "C30",
+       "rebarGrade": "HRB400"
+      },
+      "sections": {
+       "beam": "300x600",
+       "column": "500x500"
+      },
+      "loads": [
+       {
+        "kind": "point",
+        "magnitude": 40,
+        "unit": "kN",
+        "direction": "globalX",
+        "location": {
+         "story": 3
+        }
+       }
+      ]
+     },
+     "extractionSource": "engineering-draft",
+     "invalidDraftFields": [
+      "frameNodalLoadLocation"
+     ]
+    },
+    "skillId": "frame",
+    "structuralTypeKey": "frame",
+    "coordinateSemantics": "global-z-up",
+    "frameColumnSection": "500x500",
+    "frameBeamSection": "300x600"
+   },
+   "raw": {
+    "storyCount": 3,
+    "frameDimension": "3d",
+    "engineeringDraft": {
+     "loads": [
+      {
+       "kind": "point",
+       "magnitude": 15,
+       "unit": "kN",
+       "direction": "globalY",
+       "location": {
+        "story": 2,
+        "nodeRole": "corner"
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "ingest": {
+     "value": {
+      "inferredType": "frame",
+      "skillId": "frame",
+      "engineeringDraft": {
+       "structureType": "frame",
+       "geometry": {
+        "storyHeightsM": [
+         4,
+         3.5,
+         3.5
+        ],
+        "bayWidthsXM": [
+         6,
+         6
+        ],
+        "bayWidthsYM": [
+         5
+        ]
+       },
+       "material": {
+        "family": "concrete",
+        "grade": "C30",
+        "rebarGrade": "HRB400"
+       },
+       "sections": {
+        "beam": "300x600",
+        "column": "500x500"
+       },
+       "loads": [
+        {
+         "kind": "point",
+         "magnitude": 40,
+         "unit": "kN",
+         "direction": "globalX",
+         "location": {
+          "story": 3
+         }
+        }
+       ]
+      },
+      "draftIssues": [
+       {
+        "field": "frameNodalLoadLocation",
+        "value": [
+         {
+          "story": 3
+         }
+        ],
+        "severity": "ambiguous",
+        "reason": "框架点荷载或节点荷载只给出了楼层或节点角色的一部分，无法唯一确定作用节点。",
+        "question": "请确认该荷载所在楼层及节点位置（左侧、右侧或中间节点）。"
+       }
+      ],
+      "skillState": {
+       "engineeringDraft": {
+        "structureType": "frame",
+        "geometry": {
+         "storyHeightsM": [
+          4,
+          3.5,
+          3.5
+         ],
+         "bayWidthsXM": [
+          6,
+          6
+         ],
+         "bayWidthsYM": [
+          5
+         ]
+        },
+        "material": {
+         "family": "concrete",
+         "grade": "C30",
+         "rebarGrade": "HRB400"
+        },
+        "sections": {
+         "beam": "300x600",
+         "column": "500x500"
+        },
+        "loads": [
+         {
+          "kind": "point",
+          "magnitude": 40,
+          "unit": "kN",
+          "direction": "globalX",
+          "location": {
+           "story": 3
+          }
+         }
+        ]
+       },
+       "extractionSource": "engineering-draft",
+       "invalidDraftFields": [
+        "frameNodalLoadLocation"
+       ]
+      },
+      "frameDimension": "3d",
+      "storyCount": 3,
+      "bayCountX": 2,
+      "bayCountY": 1,
+      "storyHeightsM": [
+       4,
+       3.5,
+       3.5
+      ],
+      "bayWidthsXM": [
+       6,
+       6
+      ],
+      "bayWidthsYM": [
+       5
+      ]
+     }
+    },
+    "next": {
+     "json": "{\"inferredType\":\"frame\",\"engineeringDraft\":{\"structureType\":\"frame\",\"geometry\":{\"storyHeightsM\":[4,3.5,3.5],\"bayWidthsXM\":[6,6],\"bayWidthsYM\":[5]},\"topology\":{},\"templateAssignments\":{},\"material\":{\"family\":\"concrete\",\"grade\":\"C30\",\"rebarGrade\":\"HRB400\"},\"sections\":{\"beam\":\"300x600\",\"column\":\"500x500\"},\"boundary\":{},\"loads\":[{\"kind\":\"point\",\"magnitude\":40,\"unit\":\"kN\",\"direction\":\"globalX\",\"location\":{\"story\":3}},{\"kind\":\"point\",\"magnitude\":15,\"unit\":\"kN\",\"direction\":\"globalY\",\"location\":{\"story\":2,\"nodeRole\":\"corner\"}}],\"analysis\":{}},\"frameDimension\":\"3d\",\"storyCount\":3,\"bayCountX\":2,\"bayCountY\":1,\"storyHeightsM\":[4,3.5,3.5],\"bayWidthsXM\":[6,6],\"bayWidthsYM\":[5],\"updatedAt\":0,\"draftIssues\":[{\"field\":\"frameNodalLoadLocation\",\"value\":[{\"story\":3}],\"severity\":\"ambiguous\",\"reason\":\"框架点荷载或节点荷载只给出了楼层或节点角色的一部分，无法唯一确定作用节点。\",\"question\":\"请确认该荷载所在楼层及节点位置（左侧、右侧或中间节点）。\"}],\"skillState\":{\"engineeringDraft\":{\"structureType\":\"frame\",\"geometry\":{\"storyHeightsM\":[4,3.5,3.5],\"bayWidthsXM\":[6,6],\"bayWidthsYM\":[5]},\"topology\":{},\"templateAssignments\":{},\"material\":{\"family\":\"concrete\",\"grade\":\"C30\",\"rebarGrade\":\"HRB400\"},\"sections\":{\"beam\":\"300x600\",\"column\":\"500x500\"},\"boundary\":{},\"loads\":[{\"kind\":\"point\",\"magnitude\":40,\"unit\":\"kN\",\"direction\":\"globalX\",\"location\":{\"story\":3}},{\"kind\":\"point\",\"magnitude\":15,\"unit\":\"kN\",\"direction\":\"globalY\",\"location\":{\"story\":2,\"nodeRole\":\"corner\"}}],\"analysis\":{}},\"extractionSource\":\"engineering-draft\",\"invalidDraftFields\":[\"frameNodalLoadLocation\"]},\"skillId\":\"frame\",\"structuralTypeKey\":\"frame\",\"coordinateSemantics\":\"global-z-up\",\"frameColumnSection\":\"500x500\",\"frameBeamSection\":\"300x600\"}"
+    },
+    "missingExecution": {
+     "value": {
+      "critical": [
+       "floorLoads",
+       "frameNodalLoadLocation"
+      ],
+      "optional": []
+     }
+    },
+    "missingInteractive": {
+     "value": {
+      "critical": [
+       "floorLoads",
+       "frameNodalLoadLocation"
+      ],
+      "optional": []
+     }
+    },
+    "questions": {
+     "value": [
+      {
+       "paramKey": "floorLoads",
+       "label": "Per-floor total load",
+       "question": "Please confirm per-story total load (kN). This is the total load on each story, and it will be distributed equally to all nodes on that floor. At minimum provide vertical load per story, plus lateral loads in both X and Y.",
+       "unit": "kN",
+       "required": true,
+       "critical": true
+      },
+      {
+       "paramKey": "frameNodalLoadLocation",
+       "label": "frameNodalLoadLocation",
+       "question": "框架点荷载或节点荷载只给出了楼层或节点角色的一部分，无法唯一确定作用节点。 请确认该荷载所在楼层及节点位置（左侧、右侧或中间节点）。",
+       "required": true,
+       "critical": true
+      }
+     ]
+    },
+    "model": {
+     "value": null
+    }
+   }
+  },
+  {
+   "id": "concrete-frame-flat",
+   "skillId": "concrete-frame",
+   "source": "concrete frame legacy scalars",
+   "state": {
+    "inferredType": "frame",
+    "frameDimension": "2d",
+    "storyCount": 3,
+    "bayCount": 2,
+    "storyHeightsM": [
+     3,
+     3,
+     3
+    ],
+    "bayWidthsM": [
+     6,
+     7.2
+    ],
+    "floorLoads": [
+     {
+      "story": 1,
+      "verticalKN": 300
+     },
+     {
+      "story": 2,
+      "verticalKN": 300
+     },
+     {
+      "story": 3,
+      "verticalKN": 200
+     }
+    ],
+    "updatedAt": 1792182562734,
+    "skillId": "frame",
+    "structuralTypeKey": "frame",
+    "coordinateSemantics": "global-z-up",
+    "frameConcreteGrade": "C35",
+    "frameRebarGrade": "HRB400"
+   },
+   "raw": {
+    "frameColumnSection": "600x600",
+    "engineeringDraft": {
+     "material": {
+      "family": "concrete",
+      "grade": "C40"
+     }
+    }
+   },
+   "expected": {
+    "ingest": {
+     "value": {
+      "inferredType": "frame",
+      "skillId": "frame",
+      "frameDimension": "2d",
+      "storyCount": 3,
+      "bayCount": 2,
+      "storyHeightsM": [
+       3,
+       3,
+       3
+      ],
+      "bayWidthsM": [
+       6,
+       7.2
+      ],
+      "floorLoads": [
+       {
+        "story": 1,
+        "verticalKN": 300
+       },
+       {
+        "story": 2,
+        "verticalKN": 300
+       },
+       {
+        "story": 3,
+        "verticalKN": 200
+       }
+      ]
+     }
+    },
+    "next": {
+     "json": "{\"inferredType\":\"frame\",\"engineeringDraft\":{\"material\":{\"family\":\"concrete\",\"grade\":\"C40\"}},\"frameDimension\":\"2d\",\"storyCount\":3,\"bayCount\":2,\"storyHeightsM\":[3,3,3],\"bayWidthsM\":[6,7.2],\"floorLoads\":[{\"story\":1,\"verticalKN\":300},{\"story\":2,\"verticalKN\":300},{\"story\":3,\"verticalKN\":200}],\"updatedAt\":0,\"skillState\":{\"engineeringDraft\":{\"material\":{\"family\":\"concrete\",\"grade\":\"C40\"}},\"extractionSource\":\"engineering-draft\"},\"skillId\":\"frame\",\"structuralTypeKey\":\"frame\",\"coordinateSemantics\":\"global-z-up\",\"frameConcreteGrade\":\"C40\",\"frameRebarGrade\":\"HRB400\",\"frameColumnSection\":\"600X600\"}"
+    },
+    "missingExecution": {
+     "value": {
+      "critical": [],
+      "optional": []
+     }
+    },
+    "missingInteractive": {
+     "value": {
+      "critical": [
+       "frameBeamSection"
+      ],
+      "optional": []
+     }
+    },
+    "questions": {
+     "value": [
+      {
+       "paramKey": "frameBeamSection",
+       "label": "Beam section",
+       "question": "Please confirm the beam section designation (e.g. 300X600 or 400X800). Suggested: 300X600.",
+       "required": true,
+       "critical": true,
+       "suggestedValue": "300X600"
+      }
+     ]
+    },
+    "model": {
+     "value": null
+    }
+   }
+  },
+  {
+   "id": "portal-frame-flat",
+   "skillId": "portal-frame",
+   "source": "portal frame from engineeringDraft then legacy loadKN",
+   "state": {
+    "inferredType": "portal-frame",
+    "engineeringDraft": {
+     "structureType": "portal-frame",
+     "geometry": {
+      "heightM": 8,
+      "mezzanineHeightM": 4,
+      "spanLengthsM": [
+       18
+      ]
+     },
+     "boundary": {
+      "frameBaseSupportType": "fixed"
+     },
+     "loads": [
+      {
+       "kind": "line",
+       "magnitude": 5,
+       "unit": "kN/m",
+       "direction": "gravity",
+       "target": "roof rafter"
+      },
+      {
+       "kind": "point",
+       "magnitude": 30,
+       "unit": "kN",
+       "direction": "gravity",
+       "target": "crane bracket"
+      }
+     ]
+    },
+    "spanLengthM": 18,
+    "heightM": 8,
+    "frameBaseSupportType": "fixed",
+    "loadKN": 5,
+    "loadType": "distributed",
+    "loadPosition": "full-span",
+    "updatedAt": 1792182562735,
+    "skillState": {
+     "engineeringDraft": {
+      "structureType": "portal-frame",
+      "geometry": {
+       "heightM": 8,
+       "mezzanineHeightM": 4,
+       "spanLengthsM": [
+        18
+       ]
+      },
+      "boundary": {
+       "frameBaseSupportType": "fixed"
+      },
+      "loads": [
+       {
+        "kind": "line",
+        "magnitude": 5,
+        "unit": "kN/m",
+        "direction": "gravity",
+        "target": "roof rafter"
+       },
+       {
+        "kind": "point",
+        "magnitude": 30,
+        "unit": "kN",
+        "direction": "gravity",
+        "target": "crane bracket"
+       }
+      ]
+     },
+     "extractionSource": "engineering-draft",
+     "portalBaySpansM": [
+      18
+     ],
+     "portalBayCount": 1,
+     "mezzanineHeightM": 4,
+     "roofLoadKNM": 5,
+     "craneLoadKN": 30
+    },
+    "skillId": "portal-frame",
+    "structuralTypeKey": "portal-frame",
+    "coordinateSemantics": "global-z-up"
+   },
+   "raw": {
+    "loadKN": 6,
+    "loadType": "distributed"
+   },
+   "expected": {
+    "ingest": {
+     "value": {
+      "inferredType": "portal-frame",
+      "skillId": "portal-frame",
+      "engineeringDraft": {
+       "structureType": "portal-frame",
+       "geometry": {
+        "heightM": 8,
+        "mezzanineHeightM": 4,
+        "spanLengthsM": [
+         18
+        ]
+       },
+       "boundary": {
+        "frameBaseSupportType": "fixed"
+       },
+       "loads": [
+        {
+         "kind": "line",
+         "magnitude": 5,
+         "unit": "kN/m",
+         "direction": "gravity",
+         "target": "roof rafter"
+        },
+        {
+         "kind": "point",
+         "magnitude": 30,
+         "unit": "kN",
+         "direction": "gravity",
+         "target": "crane bracket"
+        }
+       ]
+      },
+      "skillState": {
+       "engineeringDraft": {
+        "structureType": "portal-frame",
+        "geometry": {
+         "heightM": 8,
+         "mezzanineHeightM": 4,
+         "spanLengthsM": [
+          18
+         ]
+        },
+        "boundary": {
+         "frameBaseSupportType": "fixed"
+        },
+        "loads": [
+         {
+          "kind": "line",
+          "magnitude": 5,
+          "unit": "kN/m",
+          "direction": "gravity",
+          "target": "roof rafter"
+         },
+         {
+          "kind": "point",
+          "magnitude": 30,
+          "unit": "kN",
+          "direction": "gravity",
+          "target": "crane bracket"
+         }
+        ]
+       },
+       "extractionSource": "engineering-draft",
+       "portalBaySpansM": [
+        18
+       ],
+       "portalBayCount": 1,
+       "mezzanineHeightM": 4,
+       "roofLoadKNM": 5,
+       "craneLoadKN": 30
+      },
+      "spanLengthM": 18,
+      "heightM": 8,
+      "frameBaseSupportType": "fixed",
+      "loadKN": 5,
+      "loadType": "distributed",
+      "loadPosition": "full-span"
+     }
+    },
+    "next": {
+     "json": "{\"inferredType\":\"portal-frame\",\"engineeringDraft\":{\"structureType\":\"portal-frame\",\"geometry\":{\"heightM\":8,\"mezzanineHeightM\":4,\"spanLengthsM\":[18]},\"boundary\":{\"frameBaseSupportType\":\"fixed\"},\"loads\":[{\"kind\":\"line\",\"magnitude\":5,\"unit\":\"kN/m\",\"direction\":\"gravity\",\"target\":\"roof rafter\"},{\"kind\":\"point\",\"magnitude\":30,\"unit\":\"kN\",\"direction\":\"gravity\",\"target\":\"crane bracket\"}]},\"spanLengthM\":18,\"heightM\":8,\"frameBaseSupportType\":\"fixed\",\"loadKN\":6,\"loadType\":\"distributed\",\"loadPosition\":\"full-span\",\"updatedAt\":0,\"skillState\":{\"engineeringDraft\":{\"structureType\":\"portal-frame\",\"geometry\":{\"heightM\":8,\"mezzanineHeightM\":4,\"spanLengthsM\":[18]},\"boundary\":{\"frameBaseSupportType\":\"fixed\"},\"loads\":[{\"kind\":\"line\",\"magnitude\":5,\"unit\":\"kN/m\",\"direction\":\"gravity\",\"target\":\"roof rafter\"},{\"kind\":\"point\",\"magnitude\":30,\"unit\":\"kN\",\"direction\":\"gravity\",\"target\":\"crane bracket\"}]},\"extractionSource\":\"engineering-draft\",\"portalBaySpansM\":[18],\"portalBayCount\":1,\"mezzanineHeightM\":4,\"roofLoadKNM\":5,\"craneLoadKN\":30},\"skillId\":\"portal-frame\",\"structuralTypeKey\":\"portal-frame\",\"coordinateSemantics\":\"global-z-up\"}"
+    },
+    "missingExecution": {
+     "value": {
+      "critical": [],
+      "optional": []
+     }
+    },
+    "missingInteractive": {
+     "value": {
+      "critical": [],
+      "optional": []
+     }
+    },
+    "questions": {
+     "value": []
+    },
+    "model": {
+     "value": {
+      "schema_version": "2.2.0",
+      "unit_system": "SI",
+      "nodes": [
+       {
+        "id": "B0",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+         true,
+         true,
+         true,
+         true,
+         true,
+         true
+        ]
+       },
+       {
+        "id": "T0",
+        "x": 0,
+        "y": 0,
+        "z": 8
+       },
+       {
+        "id": "B1",
+        "x": 18,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+         true,
+         true,
+         true,
+         true,
+         true,
+         true
+        ]
+       },
+       {
+        "id": "T1",
+        "x": 18,
+        "y": 0,
+        "z": 8
+       }
+      ],
+      "elements": [
+       {
+        "id": "C0",
+        "type": "column",
+        "nodes": [
+         "B0",
+         "T0"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "C1",
+        "type": "column",
+        "nodes": [
+         "B1",
+         "T1"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "R0",
+        "type": "beam",
+        "nodes": [
+         "T0",
+         "T1"
+        ],
+        "material": "1",
+        "section": "2"
+       }
+      ],
+      "materials": [
+       {
+        "id": "1",
+        "name": "Q355",
+        "grade": "Q355",
+        "category": "steel",
+        "E": 206000,
+        "G": 79000,
+        "nu": 0.3,
+        "rho": 7850,
+        "fy": 355
+       }
+      ],
+      "sections": [
+       {
+        "id": "1",
+        "name": "H300X200X8X12",
+        "type": "H",
+        "purpose": "column",
+        "shape": {
+         "kind": "H",
+         "H": 300,
+         "B": 200,
+         "tw": 8,
+         "tf": 12
+        },
+        "properties": {
+         "A": 0.007008,
+         "Iy": 0.000113606784,
+         "Iz": 0.000016011776,
+         "J": 2.77504e-7
+        }
+       },
+       {
+        "id": "2",
+        "name": "H300X200X8X12",
+        "type": "H",
+        "purpose": "beam",
+        "shape": {
+         "kind": "H",
+         "H": 300,
+         "B": 200,
+         "tw": 8,
+         "tf": 12
+        },
+        "properties": {
+         "A": 0.007008,
+         "Iy": 0.000113606784,
+         "Iz": 0.000016011776,
+         "J": 2.77504e-7
+        }
+       }
+      ],
+      "load_cases": [
+       {
+        "id": "LC1",
+        "type": "other",
+        "loads": [
+         {
+          "type": "distributed",
+          "element": "R0",
+          "wz": -5,
+          "wy": 0,
+          "reference_frame": "global"
+         },
+         {
+          "node": "T0",
+          "fz": -30,
+          "reference_frame": "global"
+         }
+        ]
+       }
+      ],
+      "load_combinations": [],
+      "metadata": {
+       "source": "markdown-skill-draft",
+       "inferredType": "portal-frame",
+       "frameDimension": "2d",
+       "bayCount": 1,
+       "hasMezzanine": false,
+       "geometry": {
+        "spanLengthsM": [
+         18
+        ],
+        "heightM": 8
+       },
+       "inputEvidence": [],
+       "templatePropertyAssignments": {
+        "column": {
+         "materialId": "1",
+         "sectionId": "1"
+        },
+        "beam": {
+         "materialId": "1",
+         "sectionId": "2"
+        }
+       },
+       "coordinateSemantics": "global-z-up",
+       "coordinateContractVersion": 1
+      },
+      "coordinate_system": {
+       "semantics": "global-z-up",
+       "version": 1,
+       "dimension": "2d",
+       "plane": "xz",
+       "dof_order": [
+        "ux",
+        "uy",
+        "uz",
+        "rx",
+        "ry",
+        "rz"
+       ]
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "double-span-beam",
+   "skillId": "double-span-beam",
+   "source": "double-span beam",
+   "state": {
+    "inferredType": "double-span-beam",
+    "engineeringDraft": {
+     "structureType": "double-span-beam",
+     "geometry": {
+      "spanLengthsM": [
+       6,
+       8
+      ]
+     },
+     "loads": [
+      {
+       "kind": "line",
+       "magnitude": 12,
+       "unit": "kN/m",
+       "direction": "gravity"
+      },
+      {
+       "kind": "point",
+       "magnitude": 20,
+       "unit": "kN",
+       "direction": "gravity",
+       "location": {
+        "xM": 10,
+        "spanIndex": 2
+       }
+      }
+     ]
+    },
+    "spanLengthM": 6,
+    "loadKN": 12,
+    "loadType": "distributed",
+    "loadPosition": "full-span",
+    "updatedAt": 1792182562735,
+    "skillState": {
+     "engineeringDraft": {
+      "structureType": "double-span-beam",
+      "geometry": {
+       "spanLengthsM": [
+        6,
+        8
+       ]
+      },
+      "loads": [
+       {
+        "kind": "line",
+        "magnitude": 12,
+        "unit": "kN/m",
+        "direction": "gravity"
+       },
+       {
+        "kind": "point",
+        "magnitude": 20,
+        "unit": "kN",
+        "direction": "gravity",
+        "location": {
+         "xM": 10,
+         "spanIndex": 2
+        }
+       }
+      ]
+     },
+     "extractionSource": "engineering-draft",
+     "spanLengthsM": [
+      6,
+      8
+     ],
+     "spanCount": 2,
+     "distributedLoadKNM": 12,
+     "pointLoadKN": 20,
+     "pointLoadSpanIndex": 2,
+     "pointLoadXM": 10
+    },
+    "skillId": "double-span-beam",
+    "structuralTypeKey": "double-span-beam",
+    "coordinateSemantics": "global-z-up"
+   },
+   "raw": {
+    "spanLengthM": 6.5,
+    "engineeringDraft": {
+     "boundary": {
+      "supportPositionsM": [
+       0,
+       6,
+       14
+      ]
+     }
+    }
+   },
+   "expected": {
+    "ingest": {
+     "value": {
+      "inferredType": "double-span-beam",
+      "skillId": "double-span-beam",
+      "engineeringDraft": {
+       "structureType": "double-span-beam",
+       "geometry": {
+        "spanLengthsM": [
+         6,
+         8
+        ]
+       },
+       "loads": [
+        {
+         "kind": "line",
+         "magnitude": 12,
+         "unit": "kN/m",
+         "direction": "gravity"
+        },
+        {
+         "kind": "point",
+         "magnitude": 20,
+         "unit": "kN",
+         "direction": "gravity",
+         "location": {
+          "xM": 10,
+          "spanIndex": 2
+         }
+        }
+       ]
+      },
+      "skillState": {
+       "engineeringDraft": {
+        "structureType": "double-span-beam",
+        "geometry": {
+         "spanLengthsM": [
+          6,
+          8
+         ]
+        },
+        "loads": [
+         {
+          "kind": "line",
+          "magnitude": 12,
+          "unit": "kN/m",
+          "direction": "gravity"
+         },
+         {
+          "kind": "point",
+          "magnitude": 20,
+          "unit": "kN",
+          "direction": "gravity",
+          "location": {
+           "xM": 10,
+           "spanIndex": 2
+          }
+         }
+        ]
+       },
+       "extractionSource": "engineering-draft",
+       "spanLengthsM": [
+        6,
+        8
+       ],
+       "spanCount": 2,
+       "distributedLoadKNM": 12,
+       "pointLoadKN": 20,
+       "pointLoadSpanIndex": 2,
+       "pointLoadXM": 10
+      },
+      "spanLengthM": 6,
+      "loadKN": 12,
+      "loadType": "distributed",
+      "loadPosition": "full-span"
+     }
+    },
+    "next": {
+     "json": "{\"inferredType\":\"double-span-beam\",\"engineeringDraft\":{\"structureType\":\"double-span-beam\",\"geometry\":{\"spanLengthsM\":[6,8]},\"topology\":{},\"templateAssignments\":{},\"material\":{},\"sections\":{},\"boundary\":{\"supportPositionsM\":[0,6,14]},\"loads\":[{\"kind\":\"line\",\"magnitude\":12,\"unit\":\"kN/m\",\"direction\":\"gravity\"},{\"kind\":\"point\",\"magnitude\":20,\"unit\":\"kN\",\"direction\":\"gravity\",\"location\":{\"xM\":10,\"spanIndex\":2}}],\"analysis\":{}},\"spanLengthM\":6.5,\"loadKN\":12,\"loadType\":\"distributed\",\"loadPosition\":\"full-span\",\"updatedAt\":0,\"skillState\":{\"engineeringDraft\":{\"structureType\":\"double-span-beam\",\"geometry\":{\"spanLengthsM\":[6,8]},\"topology\":{},\"templateAssignments\":{},\"material\":{},\"sections\":{},\"boundary\":{\"supportPositionsM\":[0,6,14]},\"loads\":[{\"kind\":\"line\",\"magnitude\":12,\"unit\":\"kN/m\",\"direction\":\"gravity\"},{\"kind\":\"point\",\"magnitude\":20,\"unit\":\"kN\",\"direction\":\"gravity\",\"location\":{\"xM\":10,\"spanIndex\":2}}],\"analysis\":{}},\"extractionSource\":\"engineering-draft\",\"spanLengthsM\":[6,8],\"spanCount\":2,\"distributedLoadKNM\":12,\"pointLoadKN\":20,\"pointLoadSpanIndex\":2,\"pointLoadXM\":10},\"skillId\":\"double-span-beam\",\"structuralTypeKey\":\"double-span-beam\",\"coordinateSemantics\":\"global-z-up\"}"
+    },
+    "missingExecution": {
+     "value": {
+      "critical": [],
+      "optional": []
+     }
+    },
+    "missingInteractive": {
+     "value": {
+      "critical": [],
+      "optional": []
+     }
+    },
+    "questions": {
+     "value": []
+    },
+    "model": {
+     "value": {
+      "schema_version": "2.2.0",
+      "unit_system": "SI",
+      "nodes": [
+       {
+        "id": "1",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+         true,
+         true,
+         true,
+         false,
+         false,
+         false
+        ]
+       },
+       {
+        "id": "2",
+        "x": 6,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+         false,
+         true,
+         true,
+         false,
+         false,
+         false
+        ]
+       },
+       {
+        "id": "3",
+        "x": 10,
+        "y": 0,
+        "z": 0
+       },
+       {
+        "id": "4",
+        "x": 14,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+         false,
+         true,
+         true,
+         false,
+         false,
+         false
+        ]
+       }
+      ],
+      "elements": [
+       {
+        "id": "1",
+        "type": "beam",
+        "nodes": [
+         "1",
+         "2"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "2",
+        "type": "beam",
+        "nodes": [
+         "2",
+         "3"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "3",
+        "type": "beam",
+        "nodes": [
+         "3",
+         "4"
+        ],
+        "material": "1",
+        "section": "1"
+       }
+      ],
+      "materials": [
+       {
+        "id": "1",
+        "name": "Q355",
+        "grade": "Q355",
+        "category": "steel",
+        "E": 206000,
+        "G": 79000,
+        "nu": 0.3,
+        "rho": 7850,
+        "fy": 355
+       }
+      ],
+      "sections": [
+       {
+        "id": "1",
+        "name": "H300X200X8X12",
+        "type": "H",
+        "purpose": "beam",
+        "shape": {
+         "kind": "H",
+         "H": 300,
+         "B": 200,
+         "tw": 8,
+         "tf": 12
+        },
+        "properties": {
+         "A": 0.007008,
+         "Iy": 0.000113606784,
+         "Iz": 0.000016011776,
+         "J": 2.77504e-7
+        }
+       }
+      ],
+      "load_cases": [
+       {
+        "id": "LC1",
+        "type": "other",
+        "loads": [
+         {
+          "type": "distributed",
+          "element": "1",
+          "wz": -12,
+          "wy": 0,
+          "reference_frame": "global"
+         },
+         {
+          "type": "distributed",
+          "element": "2",
+          "wz": -12,
+          "wy": 0,
+          "reference_frame": "global"
+         },
+         {
+          "type": "distributed",
+          "element": "3",
+          "wz": -12,
+          "wy": 0,
+          "reference_frame": "global"
+         },
+         {
+          "node": "3",
+          "fz": -20,
+          "reference_frame": "global"
+         }
+        ]
+       }
+      ],
+      "load_combinations": [],
+      "metadata": {
+       "source": "markdown-skill-draft",
+       "inferredType": "double-span-beam",
+       "frameDimension": "2d",
+       "spanCount": 2,
+       "geometry": {
+        "spanLengthsM": [
+         6,
+         8
+        ]
+       },
+       "inputEvidence": [],
+       "templatePropertyAssignments": {
+        "beam": {
+         "materialId": "1",
+         "sectionId": "1"
+        }
+       },
+       "coordinateSemantics": "global-z-up",
+       "coordinateContractVersion": 1
+      },
+      "coordinate_system": {
+       "semantics": "global-z-up",
+       "version": 1,
+       "dimension": "2d",
+       "plane": "xz",
+       "dof_order": [
+        "ux",
+        "uy",
+        "uz",
+        "rx",
+        "ry",
+        "rz"
+       ]
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "truss-flat",
+   "skillId": "truss",
+   "source": "truss legacy scalars incl. a Chinese numeral",
+   "state": {
+    "inferredType": "truss",
+    "lengthM": 18,
+    "heightM": 2.5,
+    "bayCount": 6,
+    "loadKN": 15,
+    "loadType": "point",
+    "loadPosition": "top-nodes",
+    "updatedAt": 1792182562736,
+    "skillState": {
+     "invalidDraftFields": []
+    },
+    "skillId": "truss",
+    "structuralTypeKey": "truss",
+    "coordinateSemantics": "global-z-up"
+   },
+   "raw": {
+    "engineeringDraft": {
+     "geometry": {
+      "spanLengthsM": [
+       3,
+       3,
+       3,
+       3,
+       3,
+       3
+      ]
+     }
+    }
+   },
+   "expected": {
+    "ingest": {
+     "value": {
+      "inferredType": "truss",
+      "skillId": "truss",
+      "skillState": {
+       "invalidDraftFields": []
+      },
+      "lengthM": 18,
+      "heightM": 2.5,
+      "bayCount": 6,
+      "loadKN": 15,
+      "loadType": "point",
+      "loadPosition": "top-nodes"
+     }
+    },
+    "next": {
+     "json": "{\"inferredType\":\"truss\",\"engineeringDraft\":{\"geometry\":{\"spanLengthsM\":[3,3,3,3,3,3]}},\"lengthM\":18,\"heightM\":2.5,\"bayCount\":6,\"loadKN\":15,\"loadType\":\"point\",\"loadPosition\":\"top-nodes\",\"updatedAt\":0,\"skillState\":{\"engineeringDraft\":{\"geometry\":{\"spanLengthsM\":[3,3,3,3,3,3]}},\"extractionSource\":\"engineering-draft\",\"invalidDraftFields\":[]},\"skillId\":\"truss\",\"structuralTypeKey\":\"truss\",\"coordinateSemantics\":\"global-z-up\"}"
+    },
+    "missingExecution": {
+     "value": {
+      "critical": [],
+      "optional": []
+     }
+    },
+    "missingInteractive": {
+     "value": {
+      "critical": [],
+      "optional": []
+     }
+    },
+    "questions": {
+     "value": []
+    },
+    "model": {
+     "value": {
+      "schema_version": "2.2.0",
+      "unit_system": "SI",
+      "nodes": [
+       {
+        "id": "B0",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+         true,
+         true,
+         true,
+         false,
+         false,
+         false
+        ]
+       },
+       {
+        "id": "B1",
+        "x": 3,
+        "y": 0,
+        "z": 0
+       },
+       {
+        "id": "B2",
+        "x": 6,
+        "y": 0,
+        "z": 0
+       },
+       {
+        "id": "B3",
+        "x": 9,
+        "y": 0,
+        "z": 0
+       },
+       {
+        "id": "B4",
+        "x": 12,
+        "y": 0,
+        "z": 0
+       },
+       {
+        "id": "B5",
+        "x": 15,
+        "y": 0,
+        "z": 0
+       },
+       {
+        "id": "B6",
+        "x": 18,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+         false,
+         true,
+         true,
+         false,
+         false,
+         false
+        ]
+       },
+       {
+        "id": "T0",
+        "x": 0,
+        "y": 0,
+        "z": 2.5
+       },
+       {
+        "id": "T1",
+        "x": 3,
+        "y": 0,
+        "z": 2.5
+       },
+       {
+        "id": "T2",
+        "x": 6,
+        "y": 0,
+        "z": 2.5
+       },
+       {
+        "id": "T3",
+        "x": 9,
+        "y": 0,
+        "z": 2.5
+       },
+       {
+        "id": "T4",
+        "x": 12,
+        "y": 0,
+        "z": 2.5
+       },
+       {
+        "id": "T5",
+        "x": 15,
+        "y": 0,
+        "z": 2.5
+       },
+       {
+        "id": "T6",
+        "x": 18,
+        "y": 0,
+        "z": 2.5
+       }
+      ],
+      "elements": [
+       {
+        "id": "BC0",
+        "type": "truss",
+        "nodes": [
+         "B0",
+         "B1"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "TC0",
+        "type": "truss",
+        "nodes": [
+         "T0",
+         "T1"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "BC1",
+        "type": "truss",
+        "nodes": [
+         "B1",
+         "B2"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "TC1",
+        "type": "truss",
+        "nodes": [
+         "T1",
+         "T2"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "BC2",
+        "type": "truss",
+        "nodes": [
+         "B2",
+         "B3"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "TC2",
+        "type": "truss",
+        "nodes": [
+         "T2",
+         "T3"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "BC3",
+        "type": "truss",
+        "nodes": [
+         "B3",
+         "B4"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "TC3",
+        "type": "truss",
+        "nodes": [
+         "T3",
+         "T4"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "BC4",
+        "type": "truss",
+        "nodes": [
+         "B4",
+         "B5"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "TC4",
+        "type": "truss",
+        "nodes": [
+         "T4",
+         "T5"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "BC5",
+        "type": "truss",
+        "nodes": [
+         "B5",
+         "B6"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "TC5",
+        "type": "truss",
+        "nodes": [
+         "T5",
+         "T6"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "WV0",
+        "type": "truss",
+        "nodes": [
+         "B0",
+         "T0"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "WD0",
+        "type": "truss",
+        "nodes": [
+         "B0",
+         "T1"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "WV1",
+        "type": "truss",
+        "nodes": [
+         "B1",
+         "T1"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "WD1",
+        "type": "truss",
+        "nodes": [
+         "B1",
+         "T2"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "WV2",
+        "type": "truss",
+        "nodes": [
+         "B2",
+         "T2"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "WD2",
+        "type": "truss",
+        "nodes": [
+         "B2",
+         "T3"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "WV3",
+        "type": "truss",
+        "nodes": [
+         "B3",
+         "T3"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "WD3",
+        "type": "truss",
+        "nodes": [
+         "B4",
+         "T3"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "WV4",
+        "type": "truss",
+        "nodes": [
+         "B4",
+         "T4"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "WD4",
+        "type": "truss",
+        "nodes": [
+         "B5",
+         "T4"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "WV5",
+        "type": "truss",
+        "nodes": [
+         "B5",
+         "T5"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "WD5",
+        "type": "truss",
+        "nodes": [
+         "B6",
+         "T5"
+        ],
+        "material": "1",
+        "section": "1"
+       },
+       {
+        "id": "WV6",
+        "type": "truss",
+        "nodes": [
+         "B6",
+         "T6"
+        ],
+        "material": "1",
+        "section": "1"
+       }
+      ],
+      "materials": [
+       {
+        "id": "1",
+        "name": "Q355",
+        "grade": "Q355",
+        "category": "steel",
+        "E": 206000,
+        "G": 79000,
+        "nu": 0.3,
+        "rho": 7850,
+        "fy": 355
+       }
+      ],
+      "sections": [
+       {
+        "id": "1",
+        "name": "H300X200X8X12",
+        "type": "H",
+        "purpose": "beam",
+        "shape": {
+         "kind": "H",
+         "H": 300,
+         "B": 200,
+         "tw": 8,
+         "tf": 12
+        },
+        "properties": {
+         "A": 0.007008,
+         "Iy": 0.000113606784,
+         "Iz": 0.000016011776,
+         "J": 2.77504e-7
+        }
+       }
+      ],
+      "load_cases": [
+       {
+        "id": "LC1",
+        "type": "other",
+        "loads": [
+         {
+          "node": "T1",
+          "fz": -15,
+          "reference_frame": "global"
+         },
+         {
+          "node": "T2",
+          "fz": -15,
+          "reference_frame": "global"
+         },
+         {
+          "node": "T3",
+          "fz": -15,
+          "reference_frame": "global"
+         },
+         {
+          "node": "T4",
+          "fz": -15,
+          "reference_frame": "global"
+         },
+         {
+          "node": "T5",
+          "fz": -15,
+          "reference_frame": "global"
+         }
+        ]
+       }
+      ],
+      "load_combinations": [],
+      "metadata": {
+       "source": "markdown-skill-draft",
+       "inferredType": "truss",
+       "frameDimension": "2d",
+       "trussTopology": "generic",
+       "topologySource": "generated",
+       "loadChord": "top",
+       "panelCount": 6,
+       "panelCountDefaulted": false,
+       "heightDefaulted": false,
+       "geometry": {
+        "spanM": 18,
+        "heightM": 2.5,
+        "panelLengthM": 3
+       },
+       "inputEvidence": [],
+       "templatePropertyAssignments": {
+        "member": {
+         "materialId": "1",
+         "sectionId": "1"
+        }
+       },
+       "coordinateSemantics": "global-z-up",
+       "coordinateContractVersion": 1
+      },
+      "coordinate_system": {
+       "semantics": "global-z-up",
+       "version": 1,
+       "dimension": "2d",
+       "plane": "xz",
+       "dof_order": [
+        "ux",
+        "uy",
+        "uz",
+        "rx",
+        "ry",
+        "rz"
+       ]
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "column-engineering",
+   "skillId": "column",
+   "source": "column from engineeringDraft",
+   "state": {
+    "inferredType": "column",
+    "engineeringDraft": {
+     "structureType": "column",
+     "geometry": {
+      "heightM": 4.5
+     },
+     "material": {
+      "family": "concrete",
+      "grade": "C30"
+     },
+     "sections": {
+      "column": "400x500"
+     },
+     "boundary": {
+      "supportType": "cantilever"
+     },
+     "loads": [
+      {
+       "kind": "point",
+       "magnitude": 800,
+       "unit": "kN",
+       "direction": "gravity"
+      },
+      {
+       "kind": "point",
+       "magnitude": 20,
+       "unit": "kN",
+       "direction": "globalX"
+      }
+     ]
+    },
+    "lengthM": 4.5,
+    "heightM": 4.5,
+    "loadKN": 800,
+    "loadType": "point",
+    "loadPosition": "top-nodes",
+    "updatedAt": 1792182562737,
+    "skillState": {
+     "engineeringDraft": {
+      "structureType": "column",
+      "geometry": {
+       "heightM": 4.5
+      },
+      "material": {
+       "family": "concrete",
+       "grade": "C30"
+      },
+      "sections": {
+       "column": "400x500"
+      },
+      "boundary": {
+       "supportType": "cantilever"
+      },
+      "loads": [
+       {
+        "kind": "point",
+        "magnitude": 800,
+        "unit": "kN",
+        "direction": "gravity"
+       },
+       {
+        "kind": "point",
+        "magnitude": 20,
+        "unit": "kN",
+        "direction": "globalX"
+       }
+      ]
+     },
+     "extractionSource": "engineering-draft",
+     "sectionWidthM": 0.4,
+     "sectionDepthM": 0.5,
+     "materialFamily": "concrete",
+     "columnLoads": [
+      {
+       "fzKN": -800
+      },
+      {
+       "fxKN": 20
+      }
+     ]
+    },
+    "skillId": "column",
+    "structuralTypeKey": "column",
+    "coordinateSemantics": "global-z-up"
+   },
+   "raw": {
+    "heightM": 5
+   },
+   "expected": {
+    "ingest": {
+     "value": {
+      "inferredType": "column",
+      "skillId": "column",
+      "engineeringDraft": {
+       "structureType": "column",
+       "geometry": {
+        "heightM": 4.5
+       },
+       "material": {
+        "family": "concrete",
+        "grade": "C30"
+       },
+       "sections": {
+        "column": "400x500"
+       },
+       "boundary": {
+        "supportType": "cantilever"
+       },
+       "loads": [
+        {
+         "kind": "point",
+         "magnitude": 800,
+         "unit": "kN",
+         "direction": "gravity"
+        },
+        {
+         "kind": "point",
+         "magnitude": 20,
+         "unit": "kN",
+         "direction": "globalX"
+        }
+       ]
+      },
+      "skillState": {
+       "engineeringDraft": {
+        "structureType": "column",
+        "geometry": {
+         "heightM": 4.5
+        },
+        "material": {
+         "family": "concrete",
+         "grade": "C30"
+        },
+        "sections": {
+         "column": "400x500"
+        },
+        "boundary": {
+         "supportType": "cantilever"
+        },
+        "loads": [
+         {
+          "kind": "point",
+          "magnitude": 800,
+          "unit": "kN",
+          "direction": "gravity"
+         },
+         {
+          "kind": "point",
+          "magnitude": 20,
+          "unit": "kN",
+          "direction": "globalX"
+         }
+        ]
+       },
+       "extractionSource": "engineering-draft",
+       "sectionWidthM": 0.4,
+       "sectionDepthM": 0.5,
+       "materialFamily": "concrete",
+       "columnLoads": [
+        {
+         "fzKN": -800
+        },
+        {
+         "fxKN": 20
+        }
+       ]
+      },
+      "lengthM": 4.5,
+      "heightM": 4.5,
+      "loadKN": 800,
+      "loadType": "point",
+      "loadPosition": "top-nodes"
+     }
+    },
+    "next": {
+     "json": "{\"inferredType\":\"column\",\"engineeringDraft\":{\"structureType\":\"column\",\"geometry\":{\"heightM\":4.5},\"material\":{\"family\":\"concrete\",\"grade\":\"C30\"},\"sections\":{\"column\":\"400x500\"},\"boundary\":{\"supportType\":\"cantilever\"},\"loads\":[{\"kind\":\"point\",\"magnitude\":800,\"unit\":\"kN\",\"direction\":\"gravity\"},{\"kind\":\"point\",\"magnitude\":20,\"unit\":\"kN\",\"direction\":\"globalX\"}]},\"lengthM\":5,\"heightM\":5,\"loadKN\":800,\"loadType\":\"point\",\"loadPosition\":\"top-nodes\",\"updatedAt\":0,\"skillState\":{\"engineeringDraft\":{\"structureType\":\"column\",\"geometry\":{\"heightM\":4.5},\"material\":{\"family\":\"concrete\",\"grade\":\"C30\"},\"sections\":{\"column\":\"400x500\"},\"boundary\":{\"supportType\":\"cantilever\"},\"loads\":[{\"kind\":\"point\",\"magnitude\":800,\"unit\":\"kN\",\"direction\":\"gravity\"},{\"kind\":\"point\",\"magnitude\":20,\"unit\":\"kN\",\"direction\":\"globalX\"}]},\"extractionSource\":\"engineering-draft\",\"sectionWidthM\":0.4,\"sectionDepthM\":0.5,\"materialFamily\":\"concrete\",\"columnLoads\":[{\"fzKN\":-800},{\"fxKN\":20}]},\"skillId\":\"column\",\"structuralTypeKey\":\"column\",\"coordinateSemantics\":\"global-z-up\"}"
+    },
+    "missingExecution": {
+     "value": {
+      "critical": [],
+      "optional": []
+     }
+    },
+    "missingInteractive": {
+     "value": {
+      "critical": [],
+      "optional": []
+     }
+    },
+    "questions": {
+     "value": []
+    },
+    "model": {
+     "value": {
+      "schema_version": "2.2.0",
+      "unit_system": "SI",
+      "nodes": [
+       {
+        "id": "1",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "restraints": [
+         true,
+         true,
+         true,
+         true,
+         true,
+         true
+        ]
+       },
+       {
+        "id": "2",
+        "x": 0,
+        "y": 0,
+        "z": 5
+       }
+      ],
+      "elements": [
+       {
+        "id": "1",
+        "type": "column",
+        "nodes": [
+         "1",
+         "2"
+        ],
+        "material": "1",
+        "section": "1"
+       }
+      ],
+      "materials": [
+       {
+        "id": "1",
+        "name": "C30",
+        "grade": "C30",
+        "category": "concrete",
+        "E": 30000,
+        "G": 12500,
+        "nu": 0.2,
+        "rho": 2500,
+        "design": {
+         "fc": 14.3
+        }
+       }
+      ],
+      "sections": [
+       {
+        "id": "1",
+        "name": "400X500",
+        "type": "rectangular",
+        "purpose": "column",
+        "shape": {
+         "kind": "rectangular",
+         "B": 400,
+         "H": 500
+        },
+        "width": 400,
+        "height": 500,
+        "properties": {
+         "A": 0.2,
+         "Iy": 0.004166666666666667,
+         "Iz": 0.0026666666666666666,
+         "J": 0.005474167466666666
+        }
+       }
+      ],
+      "load_cases": [
+       {
+        "id": "LC1",
+        "type": "other",
+        "loads": [
+         {
+          "node": "2",
+          "fz": -800,
+          "reference_frame": "global"
+         },
+         {
+          "node": "2",
+          "fx": 20,
+          "reference_frame": "global"
+         }
+        ]
+       }
+      ],
+      "load_combinations": [],
+      "metadata": {
+       "source": "markdown-skill-draft",
+       "inferredType": "column",
+       "frameDimension": "2d",
+       "materialFamily": "concrete",
+       "geometry": {
+        "heightM": 5,
+        "sectionWidthM": 0.4,
+        "sectionDepthM": 0.5
+       },
+       "inputEvidence": [],
+       "templatePropertyAssignments": {
+        "column": {
+         "materialId": "1",
+         "sectionId": "1"
+        }
+       },
+       "coordinateSemantics": "global-z-up",
+       "coordinateContractVersion": 1
+      },
+      "coordinate_system": {
+       "semantics": "global-z-up",
+       "version": 1,
+       "dimension": "2d",
+       "plane": "xz",
+       "dof_order": [
+        "ux",
+        "uy",
+        "uz",
+        "rx",
+        "ry",
+        "rz"
+       ]
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "generic-aliases",
+   "skillId": "generic",
+   "source": "generic skill loose aliases",
+   "state": {
+    "inferredType": "beam",
+    "lengthM": 6,
+    "supportType": "simply-supported",
+    "loadKN": 10,
+    "loadType": "point",
+    "loadPosition": "midspan",
+    "loadPositionM": 3,
+    "updatedAt": 1792182562737,
+    "skillState": {
+     "genericDraft": {
+      "span": "6",
+      "load": 10,
+      "pointLoads": [
+       {
+        "position": 3
+       }
+      ],
+      "supportCondition": "simply supported beam",
+      "componentType": "girder"
+     }
+    },
+    "skillId": "generic",
+    "structuralTypeKey": "beam",
+    "supportLevel": "fallback"
+   },
+   "raw": {
+    "engineeringDraft": {
+     "structureType": "beam",
+     "loads": [
+      {
+       "kind": "point",
+       "magnitude": 12,
+       "unit": "kN",
+       "direction": "gravity",
+       "location": {
+        "xM": 3
+       }
+      }
+     ]
+    },
+    "distributedLoads": [
+     {
+      "value": 2
+     }
+    ]
+   },
+   "expected": {
+    "ingest": {
+     "value": {
+      "inferredType": "beam",
+      "skillId": "generic",
+      "skillState": {
+       "genericDraft": {
+        "span": "6",
+        "load": 10,
+        "pointLoads": [
+         {
+          "position": 3
+         }
+        ],
+        "supportCondition": "simply supported beam",
+        "componentType": "girder"
+       }
+      },
+      "lengthM": 6,
+      "supportType": "simply-supported",
+      "loadKN": 10,
+      "loadType": "point",
+      "loadPosition": "midspan",
+      "loadPositionM": 3
+     }
+    },
+    "next": {
+     "json": "{\"inferredType\":\"beam\",\"engineeringDraft\":{\"structureType\":\"beam\",\"loads\":[{\"kind\":\"point\",\"magnitude\":12,\"unit\":\"kN\",\"direction\":\"gravity\",\"location\":{\"xM\":3}}]},\"lengthM\":6,\"supportType\":\"simply-supported\",\"loadKN\":2,\"loadType\":\"distributed\",\"loadPosition\":\"full-span\",\"loadPositionM\":3,\"updatedAt\":0,\"skillState\":{\"genericDraft\":{\"engineeringDraft\":{\"structureType\":\"beam\",\"loads\":[{\"kind\":\"point\",\"magnitude\":12,\"unit\":\"kN\",\"direction\":\"gravity\",\"location\":{\"xM\":3}}]},\"distributedLoads\":[{\"value\":2}]},\"engineeringDraft\":{\"structureType\":\"beam\",\"loads\":[{\"kind\":\"point\",\"magnitude\":12,\"unit\":\"kN\",\"direction\":\"gravity\",\"location\":{\"xM\":3}}]},\"extractionSource\":\"engineering-draft\",\"beamLoads\":[{\"kind\":\"point\",\"magnitude\":12,\"unit\":\"kN\",\"direction\":\"gravity\",\"xM\":3}]},\"skillId\":\"generic\",\"structuralTypeKey\":\"beam\",\"supportLevel\":\"fallback\"}"
+    },
+    "missingExecution": {
+     "value": {
+      "critical": [],
+      "optional": []
+     }
+    },
+    "missingInteractive": {
+     "value": {
+      "critical": [],
+      "optional": []
+     }
+    },
+    "questions": {
+     "value": []
+    },
+    "model": {
+     "value": null
+    }
+   }
+  }
+ ]
+}
