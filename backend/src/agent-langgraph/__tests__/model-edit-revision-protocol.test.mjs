@@ -51,7 +51,9 @@ describe('model writes use observed revisions without automatic rebasing', () =>
     expect(state.modelHistory).toHaveLength(2);
     expect(state.model.sections[0].properties.Wnx).toBe(.000237);
     expect(state.model.elements[0].design).toMatchObject({ l0: 4000, beta1: 1.1 });
-    expect(receipt(toolMessages(state)[0])).toMatchObject({ success: true, changed: true, revision: 2 });
+    expect(receipt(toolMessages(state)[0])).toMatchObject({ success: true, changed: true, revision: 2,
+      analysisCurrent: false, analysisReason: 'ANALYSIS_REQUIRED' });
+    expect(receipt(toolMessages(state)[0]).instruction).toContain('run_analysis');
     expect(state.analysisResult).toBeNull();
     expect(state.report).toBeNull();
     expect(initial.modelRevision).toBe(1);
@@ -65,7 +67,7 @@ describe('model writes use observed revisions without automatic rebasing', () =>
     const messages = toolMessages(state);
     expect(messages.map(item => item.tool_call_id)).toEqual(['section', 'inspect', 'member-stale']);
     expect(receipt(messages[0])).toMatchObject({ success: true, revision: 2 });
-    expect(receipt(messages[1])).toMatchObject({ revision: 2 });
+    expect(receipt(messages[1])).toMatchObject({ revision: 2, analysisCurrent: false, analysisReason: 'ANALYSIS_REQUIRED' });
     expect(messages[2].status).toBe('error');
     expect(messages[2].content).toContain('MODEL_VERSION_CONFLICT: expected 2');
     expect(state.modelRevision).toBe(2);
@@ -86,6 +88,7 @@ describe('model writes use observed revisions without automatic rebasing', () =>
     const undone = await application.invoke({ messages: [message([{ id: 'undo', name: 'undo_model',
       args: { baseRevision: receipt(toolMessages(second).at(-1)).revision } }])] }, options);
     expect(undone.modelRevision).toBe(4);
+    expect(receipt(toolMessages(undone).at(-1))).toMatchObject({ analysisCurrent: false, analysisReason: 'ANALYSIS_REQUIRED' });
     expect(undone.model.sections[0].properties.Wnx).toBe(.000237);
     expect(undone.model.elements[0].design?.l0).toBeUndefined();
     expect(toolMessages(undone).every(item => item.status !== 'error')).toBe(true);

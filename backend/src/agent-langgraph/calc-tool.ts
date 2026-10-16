@@ -93,7 +93,7 @@ export function createCalculateTool() {
         'and constants (pi, e). The % operator is modulo (remainder). ' +
         'Does NOT rely on LLM text generation — results are deterministic.',
       schema: z.object({
-        expression: z.string().describe('Math expression to evaluate, e.g. "sqrt(3^2 + 4^2)" or "20e3 * 6^2 / 8"'),
+        expression: z.string().describe('Math.js expression, e.g. "sqrt(3^2 + 4^2)" or "20e3 * 6^2 / 8". Powers use ^ or pow(x,y); Python/JavaScript ** is not supported. / Math.js表达式：乘方使用^或pow(x,y)，不支持**。'),
         unit: z.string().optional().describe('Optional unit label for display (e.g. "kN·m", "mm²"). Does not affect calculation.'),
       }),
     },

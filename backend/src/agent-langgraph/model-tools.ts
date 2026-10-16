@@ -23,6 +23,11 @@ function context(config: LangGraphRunnableConfig) {
 function result(id: string, name: string, data: unknown, update: Partial<AgentState> = {}) {
   return new Command({ update: { ...update, messages: [new ToolMessage({ tool_call_id: id, name, content: JSON.stringify(data) })] } });
 }
+function analysisAvailability(state: Parameters<typeof currentAnalysisError>[0]) {
+  const reason = currentAnalysisError(state);
+  return { analysisCurrent: !reason, analysisReason: reason ?? null,
+    ...(reason ? { instruction: 'Before querying computed results, checking or reporting, resolve the analysis reason. After a model change, run_analysis must complete again; historical results remain saved. / 查询计算结果、校核或报告前先解决分析状态问题；修改模型后须重新完成 run_analysis，历史结果仍保留。' } : {}) };
+}
 
 export function createEditModelTool() {
   return tool(async (input, config) => {
@@ -39,7 +44,7 @@ export function createEditModelTool() {
     const update = commitModel(state, model, input.label ?? 'edit_model');
     const changed = update.modelRevision !== state.modelRevision;
     return result(id, 'edit_model', { success: true, changed, revision: update.modelRevision,
-      transaction: changed ? update.modelHistory.at(-1)?.id : null }, update);
+      transaction: changed ? update.modelHistory.at(-1)?.id : null, ...analysisAvailability({ ...state, ...update }) }, update);
   }, {
     name: 'edit_model',
     description: `Atomically update physical objects using the latest returned revision and stable IDs. Combine all currently known material, section and member updates into ONE edit_model call. Issue only one model-changing tool call per assistant message; wait for its returned revision before another edit or undo. Never guess a future revision or reuse an earlier revision. Move existing loads, never duplicate. / 按最新返回版本及稳定对象ID原子修改；把已知材料、截面和构件修改合并成一次edit_model。每条助手消息只发起一次模型写入，等待返回新版本后再编辑或撤销，禁止猜测未来版本或复用旧版本。 ${Object.values(modelEditGuidance).join(' ')}`,
@@ -61,7 +66,7 @@ export function createUndoModelTool() {
     const transaction = candidate.modelHistory.at(-1)!;
     const normalized = await normalizeEngineeringModel(candidate.model, structureProtocolClient);
     const update = commitModel(state, normalized, transaction.label, transaction.undoOf);
-    return result(id, 'undo_model', { success: true, revision: update.modelRevision }, update);
+    return result(id, 'undo_model', { success: true, revision: update.modelRevision, ...analysisAvailability({ ...state, ...update }) }, update);
   }, { name: 'undo_model', description: 'Undo the selected transaction as a new revision, preserving unrelated later edits. Issue only one model-changing tool call per assistant message, wait for the latest revision, and reject conflicts with changed fields or references. / 选择性撤销指定事务，保留后续无关修改；每条助手消息只发起一次模型写入并等待最新版本；字段或引用冲突时拒绝。',
     schema: z.object({ baseRevision: z.number().int().nonnegative().describe('Latest returned model revision; await any earlier model edit or undo before requesting this operation. / 使用最新返回模型版本；先等待此前编辑或撤销完成。'), transactionId: z.string().optional() }) });
 }
@@ -72,7 +77,7 @@ export function createQueryModelTool() {
     const model = state.model;
     const collection = input.collection && model ? model[input.collection] : model;
     const objects = input.ids && Array.isArray(collection) ? collection.filter((item) => isRecord(item) && input.ids!.includes(String(item.id))) : collection;
-    return JSON.stringify({ revision: state.modelRevision, pending: state.modelPending, model: objects,
+    return JSON.stringify({ revision: state.modelRevision, pending: state.modelPending, model: objects, ...analysisAvailability(state),
       ...(input.includeSchema ? { editGuidance: modelEditGuidance, editSchema: editCollectionSchema(await engineeringModelSchema(structureProtocolClient), input.collection) } : {}),
       inputEvidence: state.inputEvidence ?? [], inputIssues: unresolvedInputEvidence(state.inputEvidence),
       history: state.modelHistory?.map(({ beforeModel: _before, ...summary }) => summary) });
