@@ -1,4 +1,4 @@
-import { contentHash, isRecord, type ModelRecord } from './model-state.js';
+import { contentHash, isRecord, type ModelRecord } from './model-record.js';
 
 function evidenceField(item: ModelRecord): string {
   return typeof item.field === 'string' ? item.field : String(item.id ?? 'input');
