@@ -309,14 +309,6 @@ export interface DraftResult {
   structuralTypeMatch?: StructuralTypeMatch;
 }
 
-export interface DraftParameterExtractionResult {
-  nextState: DraftState;
-  missing: { critical: string[]; optional: string[] };
-  structuralTypeMatch: StructuralTypeMatch;
-  plugin: AgentSkillPlugin | undefined;
-  extractionMode: 'llm' | 'deterministic';
-}
-
 export interface InteractionQuestion {
   paramKey: string;
   label: string;

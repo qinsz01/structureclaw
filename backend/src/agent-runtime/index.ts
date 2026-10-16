@@ -14,7 +14,6 @@ import { AgentSkillRegistry } from './registry.js';
 import { AgentSkillLoader } from './loader.js';
 import { invokeStructuralTypeRouter } from './llm-router.js';
 import { buildDefaultReportNarrative } from './report-template.js';
-import { isFreshGenericStructuralRoute, withStructuralTypeState } from './plugin-helpers.js';
 import {
   loadSkillManifestsFromDirectorySync,
   resolveBuiltinSkillManifestRoot,
@@ -24,7 +23,6 @@ import {
 import type {
   AgentSkillBundle,
   AgentSkillPlugin,
-  DraftParameterExtractionResult,
   DraftState,
   StructuralTypeMatch,
   SkillReportNarrativeInput,
@@ -48,7 +46,6 @@ export type {
   DraftFloorLoad,
   DraftLoadPosition,
   DraftLoadType,
-  DraftParameterExtractionResult,
   DraftState,
   DraftSupportType,
   FrameBaseSupportType,
@@ -446,84 +443,6 @@ export class AgentSkillRuntime {
   async resolvePluginForType(skillId: string, skillIds?: string[]): Promise<AgentSkillPlugin | null> {
     return this.registry.resolvePluginForIdentifier(skillId, skillIds);
   }
-
-  async extractDraftParameters(
-    llm: StructureClawChatModel | null,
-    message: string,
-    existingState: DraftState | undefined,
-    locale: AppLocale,
-    skillIds?: string[],
-    signal?: AbortSignal,
-  ): Promise<DraftParameterExtractionResult> {
-    const structuralTypeMatch = await this.detectStructuralTypeWithLlm(llm, message, locale, existingState, skillIds, signal);
-    if (!structuralTypeMatch.skillId) {
-      const stateToPersist: DraftState = {
-        ...(existingState || { inferredType: 'unknown' }),
-        structuralTypeKey: structuralTypeMatch.key,
-        supportLevel: structuralTypeMatch.supportLevel,
-        supportNote: structuralTypeMatch.supportNote,
-        routingSource: structuralTypeMatch.routingSource,
-        updatedAt: Date.now(),
-      };
-      return {
-        nextState: stateToPersist,
-        missing: { critical: ['inferredType'], optional: [] },
-        structuralTypeMatch,
-        plugin: undefined,
-        extractionMode: 'deterministic',
-      };
-    }
-
-    const plugin = await this.registry.resolvePluginForIdentifier(structuralTypeMatch.skillId, skillIds);
-    if (!plugin) {
-      return {
-        nextState: existingState
-          ? { ...existingState, routingSource: structuralTypeMatch.routingSource, updatedAt: Date.now() }
-          : { inferredType: 'unknown', routingSource: structuralTypeMatch.routingSource, updatedAt: Date.now() },
-        missing: { critical: ['inferredType'], optional: [] },
-        structuralTypeMatch,
-        plugin: undefined,
-        extractionMode: 'deterministic',
-      };
-    }
-
-    if (plugin.id === 'generic' && existingState?.inferredType && existingState.inferredType !== 'unknown') {
-      const resetToGeneric = isFreshGenericStructuralRoute(structuralTypeMatch);
-      const nextState = withStructuralTypeState(
-        plugin.handler.mergeState(resetToGeneric ? undefined : existingState, resetToGeneric ? { inferredType: 'unknown' } : {}),
-        structuralTypeMatch,
-      );
-      const missing = computeDraftMissing(plugin, nextState, 'execution');
-      return { nextState, missing, structuralTypeMatch, plugin, extractionMode: 'deterministic' };
-    }
-
-    const { invokeParamExtractor } = await import('../agent-langgraph/param-extractor.js');
-    const draftPatch = await invokeParamExtractor({
-      llm,
-      message,
-      locale,
-      existingState,
-      plugin,
-      signal,
-    });
-    const patch = plugin.handler.extractDraft({
-      message,
-      locale,
-      currentState: existingState,
-      llmDraftPatch: draftPatch,
-      structuralTypeMatch,
-    });
-    const nextState = withStructuralTypeState(plugin.handler.mergeState(existingState, patch), structuralTypeMatch);
-    const missing = computeDraftMissing(plugin, nextState, 'execution');
-    return {
-      nextState,
-      missing,
-      structuralTypeMatch,
-      plugin,
-      extractionMode: plugin.id === 'generic' || draftPatch ? 'llm' : 'deterministic',
-    };
-  }
-
 
   async buildModel(
     state: DraftState,
