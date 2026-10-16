@@ -278,11 +278,6 @@ const ANALYSIS_SKILL_ID_VALUES = [
   'yjk-static',
 ] as const;
 
-export function detectRequestedAnalysisSkillId(_message: string | undefined): string | undefined {
-  // Provider requests must arrive as structured analysisSkillId, not text matches.
-  return undefined;
-}
-
 function selectedAnalysisSkillIds(
   selectedSkillIds?: string[],
   analysisType?: 'static' | 'dynamic' | 'seismic' | 'nonlinear',
