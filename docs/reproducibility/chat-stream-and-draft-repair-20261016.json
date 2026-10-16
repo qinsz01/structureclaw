@@ -1,0 +1,751 @@
+{
+  "date": "2026-10-16",
+  "recordedAt": "2026-10-16T04:22:14.121Z",
+  "status": "Both final live browser workflows passed; backend coverage passed after migrating one obsolete error-message assertion and rerunning its suite; saved failing draft replay passed",
+  "scope": "StructureClaw product repair only. No Bench/scoring, independent YJK API, historical result, or frozen tag changes.",
+  "baselineCommit": "2021235e6a8aa7ec3ee9e84735f04aeea63b0420",
+  "testedCodeCommit": "864340976fe36430e32454af57480c4091478257",
+  "implementationCommits": [
+    {
+      "commit": "a720c8f17844518425f1e028d7da25832f65c65b",
+      "subject": "fix(agent): preserve streamed tool calls and interrupted chat state"
+    },
+    {
+      "commit": "b4ffc8745ff2505b53160e47c2d0dd7ea2350a67",
+      "subject": "test(agent): cover streamed calls and interrupted design conversations"
+    },
+    {
+      "commit": "6d80a43efef76e6a6406d4a0f9f18284478900f1",
+      "subject": "fix(agent): accept repeated withdrawals and require design confirmation"
+    },
+    {
+      "commit": "decdb500cbb7926a61d94be0e4914ca33375e5ea",
+      "subject": "test(pkpm): allow Python startup time in adapter boundary test"
+    },
+    {
+      "commit": "6572d2bc6fd37b3376c7af86efd185ab93127052",
+      "subject": "fix(chat): keep rejected stream requests out of conversation history"
+    },
+    {
+      "commit": "dab167223c237059c9438aa6cb6ba7b3df7a7081",
+      "subject": "fix(agent): route clarification answers to current model editing"
+    },
+    {
+      "commit": "85277f6d075fddbb07d929bfeaf9c7c0d42a68cb",
+      "subject": "fix(model): align nullable fields and preserve builder failure causes"
+    },
+    {
+      "commit": "d98b73a07e17dcabd426177359ab543427362a5a",
+      "subject": "fix(tools): expose analysis validity after model changes"
+    },
+    {
+      "commit": "864340976fe36430e32454af57480c4091478257",
+      "subject": "test(model): expect the original failure when correction is disabled"
+    }
+  ],
+  "previousRecord": {
+    "path": "docs/reproducibility/draft-update-repair-20261016.json",
+    "sha256": "4b2e214e891a0c5c625f5b4c6581a94b7f7e8bc3a57b9185b02d599ed0b9db67"
+  },
+  "fixes": [
+    "Use streaming for the main agent without changing the provider/model/reasoning configuration. Normalize missing assistant roles before chunk aggregation and persist complete AI messages so tool calls are not dropped.",
+    "Reject aborted partial responses. Share bilingual timeout errors and preserve resumed input/intermediate tool results even when the outer stream exits with an exception.",
+    "Project repeated code-check feedback into reversible groups for LLM context only; saved source results remain intact. Record request size, elapsed time, usage and error codes without putting secrets in run events.",
+    "Make repeated removal of a declared, already-absent draft leaf idempotent on an existing stable-ID object. Unknown fields, absent/ambiguous IDs, protected fields and atomic batch validation remain enforced.",
+    "Tell the agent to confirm missing design conditions before writing them, and to edit existing models rather than reconstructing drafts. Live acceptance asserts no material/member design fields before the explicit fourth input.",
+    "Allow 20 seconds for one adapter boundary test containing three protocol and two Python entry process starts. Physical assertions and numeric tolerances were not changed.",
+    "Persist only streams that emitted start. Rejected duplicate or stale clarification requests must not copy prior tools or modify conversation history. Both public streaming endpoints have regression counterexamples.",
+    "Remove the clarification tool instruction that always forced draft extraction, even after an existing model was built. Answers now direct current-model updates to query_model/edit_model; a missing or pending model still follows draft extraction. This resolves a conflict with the main system instruction, without changing engineering input values.",
+    "Align optional null node restraints and element rotation with the authoritative Python V2 schema. Do not coerce malformed strings or invent values. Test both fields through the real Python conversion without automatic repair.",
+    "When generic model correction is disabled or exhausted, preserve the original validation failure rather than replacing it with a recovery-budget error. The first attempt remains available and no extra model call is made.",
+    "Expose current-analysis validity and its reason in query/edit/undo responses, using the existing validity check. Explain that edited models require analysis before checks/reports. Explicitly document Math.js exponent syntax in the calculator argument."
+  ],
+  "verification": {
+    "backendFull": {
+      "suites": 167,
+      "passedSuites": 166,
+      "failedSuites": 1,
+      "total": 2092,
+      "passed": 2091,
+      "failed": 1,
+      "pending": 0,
+      "artifact": {
+        "path": ".tmp/llm-reliability-audit-20261016/verified-full-tests.json",
+        "sha256": "400791257f5565355ce1017072f600a48a62788a7fd1e2b3feb14a7c7abb85d8"
+      }
+    },
+    "errorContractMigration": {
+      "suites": 1,
+      "passedSuites": 1,
+      "failedSuites": 0,
+      "total": 12,
+      "passed": 12,
+      "failed": 0,
+      "pending": 0,
+      "artifact": {
+        "path": ".tmp/llm-reliability-audit-20261016/verified-builder-policy-rerun.json",
+        "sha256": "f9e6d953296cd0201c076b57161275f27d2d1507f1807030d81016d83f9b8f44"
+      },
+      "explanation": "The full run had one assertion still expecting RECOVERY_BUDGET_EXHAUSTED after a first invalid candidate with repair disabled. It now expects the original MODEL_JSON_REQUIRED cause, still requires one invocation, and additionally asserts zero recoveries. The entire affected suite passed. No physical reference or numeric tolerance changed.",
+      "interpretation": "2092 backend cases covered by the full run plus the focused successful migration rerun; not represented as one all-green final full execution."
+    },
+    "focusedRerun": {
+      "suites": 5,
+      "passedSuites": 5,
+      "failedSuites": 0,
+      "total": 28,
+      "passed": 28,
+      "failed": 0,
+      "pending": 0,
+      "artifact": {
+        "path": ".tmp/llm-reliability-audit-20261016/verified-targeted.json",
+        "sha256": "1ad1ba34a27a8e4c1340359fc2b04e0f741e391edc7485ce07151afe49ee500d"
+      },
+      "scope": "Real V2 nullable-field conversion, explicit model input, generic builder failure handling, coordinates, design edits and model revision feedback."
+    },
+    "contracts": [
+      {
+        "name": "validate-agent-orchestration",
+        "passed": true,
+        "artifact": {
+          "path": ".tmp/llm-reliability-audit-20261016/verified-validate-agent-orchestration.log",
+          "sha256": "7674e736b40d6ef3119ce5c76b4fd1a4a4b34d7e6a0145eda64c2ebf77cd22d5"
+        }
+      },
+      {
+        "name": "validate-chat-stream-contract",
+        "passed": true,
+        "artifact": {
+          "path": ".tmp/llm-reliability-audit-20261016/verified-validate-chat-stream-contract.log",
+          "sha256": "a4bf5e72f646afc28f95322e143de53f73bd733ed68b90903afe90c511a7085a"
+        }
+      },
+      {
+        "name": "validate-analyze-contract",
+        "passed": true,
+        "artifact": {
+          "path": ".tmp/llm-reliability-audit-20261016/nullable-validate-analyze-contract.log",
+          "sha256": "39d07713649ae05aab509eebbb5187a7a05abbd1ca82852952db1dc37d26c568"
+        }
+      }
+    ],
+    "lint": {
+      "errors": 0,
+      "existingWarnings": 1,
+      "artifact": {
+        "path": ".tmp/llm-reliability-audit-20261016/verified-lint.log",
+        "sha256": "73feb00c398a6a9251398ce8202f9b1909e9aaae3f208be9e24f3c49ac3e2375"
+      }
+    },
+    "streamingRegressions": {
+      "artifact": {
+        "path": ".tmp/llm-reliability-audit-20261016/stream-tests.log",
+        "sha256": "b65db5f67b3b016ae765d0a9c7f26d930f214fe417b4cc783a794703dd199dfe"
+      },
+      "scope": "Missing role, reasoning and tool fragments, graph callback aggregation, broken stream, cancellation and slow local SSE response."
+    },
+    "executionOrder": "Build/contract validation completed before full tests and live browser execution; no dist rebuild during subprocess acceptance."
+  },
+  "frozenReference": {
+    "geometry": "Explicit ideal H section 400 x 200 x 8 x 13 mm, no fillets; not a native rolled catalog certification",
+    "spanM": 10,
+    "pointLoadKN": 1,
+    "materialE_MPa": 206000,
+    "densityKgM3": 7850,
+    "gravityMS2": 9.80665,
+    "A": 0.008192,
+    "I": 0.00022964868266666695,
+    "qKNM": 0.6306382028799998,
+    "reactionKN": 3.653191014399999,
+    "momentKNM": 10.382977535999999,
+    "deflectionMM": 2.176132806682965,
+    "absolutePlusRelativeTolerance": 1e-8
+  },
+  "originalConversationBrowser": {
+    "pass": true,
+    "model": "glm-5.3",
+    "instanceId": "playwright-571f4c87-4530-4eff-9ff3-860be2fae373",
+    "conversationId": "cmvagdlht000064wmed0szj8d",
+    "elapsedSeconds": 301.013,
+    "inputs": {
+      "initial": "设计一个简支梁，跨度10m，梁中间荷载1kN",
+      "replies": [
+        "Q235钢，热轧H型钢 HN400×200×8×13（自重计入）",
+        "按显式数值截面建模：H形总高400mm、翼缘宽200mm、腹板厚8mm、翼缘厚13mm，Q235钢，自重计入（不使用目录名）",
+        "设计条件按本次测试明确给定如下：材料f=215MPa、fv=125MPa；所有梁构件beta1=1.1、phi_b=0.9、l0=5000mm、btLimit=13、lambdaLimit=250、deflectionLimitN=250、serviceability_result_keys=[\"case:LC1\"]。在两端及跨中有侧向支承；phi_b=0.9是本次明确给定输入，不声称为系统按规范自动推导。截面按已确认的理想H几何不计圆角，补充几何计算属性如下，单位Wx/Wnx/Wz/S为m³，tw/b/t/imin为m：{\"Wx\":0.0011482434133333348,\"Wnx\":0.0011482434133333348,\"Wz\":0.00017349290666666668,\"S\":0.000642976,\"tw\":0.008,\"b\":0.096,\"t\":0.013,\"imin\":0.04601992322172358}。这些值作为明确数值输入及校核依据保留，不新增荷载或组合，自重继续计入。请完成校核并生成包含内力、反力、跨中挠度及缺项或结论的报告。"
+      ]
+    },
+    "designUnconfirmedThroughTurn": 3,
+    "currentModelEditsOnly": true,
+    "turns": [
+      {
+        "number": 1,
+        "waitingForReply": true,
+        "analysis": {
+          "runId": null,
+          "resultKey": null,
+          "current": false,
+          "reason": "ANALYSIS_REQUIRED"
+        },
+        "report": {
+          "current": false,
+          "runId": null
+        },
+        "usage": {
+          "runId": "06a92a33-edef-42f4-a3aa-4efeb8573388",
+          "policyHash": "632e7b3fa27d5ff0c99ffbea65d67ca3e0aca996effd37b63091cd8d24b4d8f1",
+          "toolCalls": 3,
+          "llmCalls": 5,
+          "recoveries": 0
+        },
+        "streamErrors": [],
+        "toolErrorCount": 0
+      },
+      {
+        "number": 2,
+        "waitingForReply": true,
+        "analysis": {
+          "runId": "6ee8b50f-5392-4bb6-b4d4-dc19124eec50",
+          "resultKey": "case:LC1",
+          "current": true,
+          "reason": null
+        },
+        "report": {
+          "current": false,
+          "runId": null
+        },
+        "usage": {
+          "runId": "06a92a33-edef-42f4-a3aa-4efeb8573388",
+          "policyHash": "632e7b3fa27d5ff0c99ffbea65d67ca3e0aca996effd37b63091cd8d24b4d8f1",
+          "toolCalls": 9,
+          "llmCalls": 12,
+          "recoveries": 0
+        },
+        "streamErrors": [],
+        "toolErrorCount": 0
+      },
+      {
+        "number": 3,
+        "waitingForReply": true,
+        "analysis": {
+          "runId": "21d3b5c6-64c7-438f-b8fd-4b04bf92d3a3",
+          "resultKey": "case:LC1",
+          "current": true,
+          "reason": null
+        },
+        "report": {
+          "current": false,
+          "runId": null
+        },
+        "usage": {
+          "runId": "06a92a33-edef-42f4-a3aa-4efeb8573388",
+          "policyHash": "632e7b3fa27d5ff0c99ffbea65d67ca3e0aca996effd37b63091cd8d24b4d8f1",
+          "toolCalls": 13,
+          "llmCalls": 16,
+          "recoveries": 0
+        },
+        "streamErrors": [],
+        "toolErrorCount": 0
+      },
+      {
+        "number": 4,
+        "waitingForReply": false,
+        "analysis": {
+          "runId": "06d61ce4-6652-4d7d-be52-45c847bc2888",
+          "resultKey": "case:LC1",
+          "current": true,
+          "reason": null
+        },
+        "report": {
+          "current": true,
+          "runId": "06d61ce4-6652-4d7d-be52-45c847bc2888"
+        },
+        "usage": {
+          "runId": "06a92a33-edef-42f4-a3aa-4efeb8573388",
+          "policyHash": "632e7b3fa27d5ff0c99ffbea65d67ca3e0aca996effd37b63091cd8d24b4d8f1",
+          "toolCalls": 22,
+          "llmCalls": 21,
+          "recoveries": 0
+        },
+        "streamErrors": [],
+        "toolErrorCount": 0
+      }
+    ],
+    "finalCheck": {
+      "completionStatus": "complete",
+      "complianceStatus": "pass",
+      "conclusionEligible": true,
+      "missingInputs": [],
+      "summary": {
+        "total": 14,
+        "passed": 14,
+        "failed": 0,
+        "warnings": 0,
+        "notApplicable": 0,
+        "inputRequired": 0,
+        "unsupported": 0,
+        "maxUtilization": 0.568
+      }
+    },
+    "modelValueChecks": [
+      {
+        "index": 0,
+        "collection": "sections",
+        "path": "shape.kind",
+        "value": "H",
+        "matched": 1,
+        "results": [
+          {
+            "id": "SEC1",
+            "present": true,
+            "actual": "H",
+            "pass": true
+          }
+        ],
+        "pass": true
+      },
+      {
+        "index": 1,
+        "collection": "sections",
+        "path": "shape.H",
+        "value": 400,
+        "matched": 1,
+        "results": [
+          {
+            "id": "SEC1",
+            "present": true,
+            "actual": 400,
+            "pass": true
+          }
+        ],
+        "pass": true
+      },
+      {
+        "index": 2,
+        "collection": "sections",
+        "path": "shape.B",
+        "value": 200,
+        "matched": 1,
+        "results": [
+          {
+            "id": "SEC1",
+            "present": true,
+            "actual": 200,
+            "pass": true
+          }
+        ],
+        "pass": true
+      },
+      {
+        "index": 3,
+        "collection": "sections",
+        "path": "shape.tw",
+        "value": 8,
+        "matched": 1,
+        "results": [
+          {
+            "id": "SEC1",
+            "present": true,
+            "actual": 8,
+            "pass": true
+          }
+        ],
+        "pass": true
+      },
+      {
+        "index": 4,
+        "collection": "sections",
+        "path": "shape.tf",
+        "value": 13,
+        "matched": 1,
+        "results": [
+          {
+            "id": "SEC1",
+            "present": true,
+            "actual": 13,
+            "pass": true
+          }
+        ],
+        "pass": true
+      },
+      {
+        "index": 5,
+        "collection": "materials",
+        "path": "E",
+        "value": 206000,
+        "matched": 1,
+        "results": [
+          {
+            "id": "1",
+            "present": true,
+            "actual": 206000,
+            "pass": true
+          }
+        ],
+        "pass": true
+      }
+    ],
+    "metricChecks": [
+      {
+        "analysisIndex": 0,
+        "key": "maxAbsMoment",
+        "expected": 10.382977535999999,
+        "actual": 10.382977535999999,
+        "pass": true
+      },
+      {
+        "analysisIndex": 0,
+        "key": "maxAbsReaction",
+        "expected": 3.653191014399999,
+        "actual": 3.6531910144,
+        "pass": true
+      },
+      {
+        "analysisIndex": 0,
+        "key": "maxAbsDisplacement",
+        "expected": 0.002176132806682965,
+        "actual": 0.0021761328066829673,
+        "pass": true
+      },
+      {
+        "analysisIndex": 1,
+        "key": "maxAbsMoment",
+        "expected": 10.382977535999999,
+        "actual": 10.382977535999999,
+        "pass": true
+      },
+      {
+        "analysisIndex": 1,
+        "key": "maxAbsReaction",
+        "expected": 3.653191014399999,
+        "actual": 3.6531910144,
+        "pass": true
+      },
+      {
+        "analysisIndex": 1,
+        "key": "maxAbsDisplacement",
+        "expected": 0.002176132806682965,
+        "actual": 0.0021761328066829673,
+        "pass": true
+      },
+      {
+        "analysisIndex": 2,
+        "key": "maxAbsMoment",
+        "expected": 10.382977535999999,
+        "actual": 10.382977535999999,
+        "pass": true
+      },
+      {
+        "analysisIndex": 2,
+        "key": "maxAbsReaction",
+        "expected": 3.653191014399999,
+        "actual": 3.6531910144,
+        "pass": true
+      },
+      {
+        "analysisIndex": 2,
+        "key": "maxAbsDisplacement",
+        "expected": 0.002176132806682965,
+        "actual": 0.0021761328066829673,
+        "pass": true
+      }
+    ],
+    "artifact": {
+      "path": ".tmp/llm-reliability-audit-20261016/live-verified/2026-10-16T04-13-44-886Z-zh/summary.json",
+      "sha256": "d27693e99f66d24263a58e1ca81bf6820fa4a4b07b3dc92c5217a1e4b6d020b9"
+    },
+    "inputsArtifact": {
+      "path": ".tmp/llm-reliability-audit-20261016/live-verified.json",
+      "sha256": "6599bf8bdeeaf5b790f0825aa44151ae8aba7bec2afbfaaab5244fe1571acf07"
+    },
+    "browserScreenshot": {
+      "path": ".tmp/llm-reliability-audit-20261016/live-verified/2026-10-16T04-13-44-886Z-zh/turn-4.png",
+      "sha256": "8b7bb4c2c267b187711e95fb6e897c572b69f61dd62a460fe6d7b6b9b158a8d1"
+    },
+    "limitations": "Complete/pass is conditional on explicit test-supplied design inputs, including phi_b=0.9. This does not certify automatic code-factor derivation or every provision of GB50017."
+  },
+  "alternativePolicyBrowser": {
+    "pass": true,
+    "model": "glm-5.3",
+    "conversationId": "cmvagdqh3000164wmg6l5m1ga",
+    "effectiveSelections": {
+      "knowledge": "disabled",
+      "builder": "llm",
+      "repair": {
+        "enabled": false,
+        "maxRecoveriesPerTurn": 0
+      },
+      "context": {
+        "history": "current-turn",
+        "memoryScopes": []
+      },
+      "routing": {
+        "mode": "fixed",
+        "skillId": "beam"
+      }
+    },
+    "analysis": {
+      "runId": "7b3c760f-3cf2-4746-9eac-9df50dfe61dd",
+      "resultKey": "case:LC1",
+      "current": true,
+      "reason": null
+    },
+    "report": {
+      "current": true,
+      "runId": "7b3c760f-3cf2-4746-9eac-9df50dfe61dd"
+    },
+    "usage": {
+      "runId": "17c52b7a-dec9-489d-95d3-9e638cf4813b",
+      "policyHash": "fdb152dcfe69ccb80720cb43e62371ba34bf3b60a3dbe3b27e667bbec24a050f",
+      "toolCalls": 11,
+      "llmCalls": 11,
+      "recoveries": 0
+    },
+    "physicalCase": "4 m simply-supported rectangular 100 x 200 mm beam, E=200000 MPa, central 1 kN, self-weight disabled; no design requested.",
+    "expected": {
+      "reactionKN": 0.5,
+      "absoluteMomentKNM": 1,
+      "downwardMidspanMM": 0.1
+    },
+    "assertions": "Actual solver, query and report complete, same current run; effective settings and no semantic repairs verified by Playwright.",
+    "artifact": {
+      "path": ".tmp/llm-reliability-audit-20261016/verified-switches/live-run-settings-Live-pro-bbbca--and-generic-model-building-chromium/beam-alternative-policy.json",
+      "sha256": "f90f1a06237d2a500515468c82740997e82eeddabf542bebb943223da3358aca"
+    },
+    "events": {
+      "path": ".tmp/llm-reliability-audit-20261016/verified-switches/live-run-settings-Live-pro-bbbca--and-generic-model-building-chromium/beam-alternative-policy-events.json",
+      "sha256": "180469c8fad15b4902e21f2f0e7b6426ec17544de1a17df514610fa394da8f17"
+    },
+    "testLog": {
+      "path": ".tmp/llm-reliability-audit-20261016/verified-switches.log",
+      "sha256": "378b9e02005ce4fad67247d6fd5e090f5cc78754bfeb926ce52f1a960ce51a40"
+    }
+  },
+  "savedFailureReplay": {
+    "success": true,
+    "liveExtractor": true,
+    "runId": "f72378ef-72d4-4f01-8a62-c305ec6445c0",
+    "reference": {
+      "A": 0.008192,
+      "I": 0.00022964868266666695,
+      "qKNM": 0.6306382028799998,
+      "reactionKN": 3.653191014399999,
+      "momentKNM": 10.382977535999999,
+      "deflectionMM": 2.176132806682965
+    },
+    "actualMetrics": {
+      "maxAbsDisplacement": 0.0021761328066829673,
+      "maxAbsAxialForce": 0,
+      "maxAbsShearForce": 3.6531910143999995,
+      "maxAbsMoment": 10.382977535999999,
+      "maxAbsReaction": 3.6531910144,
+      "maxAbsReactionMoment": 2.6645352591003757e-15
+    },
+    "deflectionMM": -2.1761328066829675,
+    "designStatus": "incomplete",
+    "designMissingInputCount": 20,
+    "bilingualReportsMatched": true,
+    "sourceDraftUnchanged": true,
+    "directory": "G:\\StructureClaw-All\\structureclaw\\.tmp\\playwright-5Q28Az\\work\\draft-update-mxz5Ms",
+    "testedBeforeFinalChatAndNullableRefinements": true,
+    "scope": "Saved draft withdrawal, confirmed geometry, real solver and bilingual result delivery. Final null-optional validation and public chat response refinements have separate acceptance above.",
+    "artifact": {
+      "path": ".tmp/llm-reliability-audit-20261016/accepted-saved-draft-replay.log",
+      "sha256": "c46ee682be4da4120a274c25904020a8056a59a983986a8ea0793738097ed318"
+    },
+    "fixture": {
+      "path": "backend/tests/fixtures/catalog-draft-reproduction-20261015.json",
+      "sha256": "dcfa4ae66f12d40d1aef97be5349ad7ca0828a2928e075b043a9a8449dbcead0"
+    }
+  },
+  "retainedAttempts": [
+    {
+      "artifact": {
+        "path": ".tmp/llm-reliability-audit-20261016/compact-live.log",
+        "sha256": "7c4024f605f6e5f5336230227ba5e1b36431dea43ab766f2a0a7128d036c612b"
+      },
+      "outcome": "Reducing repeated context alone still timed out at 180 seconds; not counted as a success."
+    },
+    {
+      "artifact": {
+        "path": ".tmp/llm-reliability-audit-20261016/full-tests.json",
+        "sha256": "065c6a12320331a4097d46d9961d2b08d2ee0a9547248bb93cc047249ea2c8b4"
+      },
+      "outcome": "Initial test runtime selected the wrong Python environment; missing DXF dependency and a startup timeout. Reconfigured only the isolated test runtime."
+    },
+    {
+      "artifact": {
+        "path": ".tmp/llm-reliability-audit-20261016/interrupted-attempt.json",
+        "sha256": "1e5dab6a4f299f7f2f1a3ea28712e29a274d17ad7760764463aa80e33fa988fd"
+      },
+      "outcome": "Earlier owned browser candidate deliberately interrupted to test repaired streaming; not counted as acceptance."
+    },
+    {
+      "artifact": {
+        "path": ".tmp/llm-reliability-audit-20261016/live-final/2026-10-16T02-47-52-684Z-zh/summary.json",
+        "sha256": "402e9ebfc62648b24f536107ae0bff29d0203d97f1310baa8e5731037aab7223"
+      },
+      "outcome": "Earlier candidate delivered a numerical result/report but failed cumulative tool-error acceptance on repeated clear. Also exposed premature design values. Both defects prompted the final repair and stronger browser assertion."
+    },
+    {
+      "artifact": {
+        "path": ".tmp/llm-reliability-audit-20261016/final-full-tests.json",
+        "sha256": "9a5296bde3aa0c84150b683edd9e99b5af50a32c3be585c500eb324815e404f4"
+      },
+      "outcome": "Earlier candidate passed 167 suites / 2084 tests, before the final idempotence/confirmation change. Not substituted for final-code verification."
+    },
+    {
+      "artifact": {
+        "path": ".tmp/llm-reliability-audit-20261016/accepted-full-tests.json",
+        "sha256": "a28a4a93bf09833808c0dcbc8cd2f3d01a247c21d21c8b47ee9223ee5bd5f5b2"
+      },
+      "outcome": "2084/2085 tests passed; one adapter test exceeded its 5-second process-start deadline. The entire affected suite and draft-update suite then passed 56 tests; the only test change was a 20-second deadline, with numerical assertions unchanged.",
+      "rerun": {
+        "path": ".tmp/llm-reliability-audit-20261016/accepted-targeted.json",
+        "sha256": "690ed9f1e50f184b6f0b0adcb88ca0dd4798405ad3adc06129023f9f600b8b60"
+      }
+    },
+    {
+      "artifact": {
+        "path": ".tmp/llm-reliability-audit-20261016/live-accepted/2026-10-16T03-08-20-296Z-zh/summary.json",
+        "sha256": "0d38bce74eb8544e63220c9a3a87a288c258229b7bf500d9fa85618c859f1438"
+      },
+      "outcome": "Four-turn browser flow passed before the final rejected-request history guard. Repeated on the final code."
+    },
+    {
+      "artifact": {
+        "path": ".tmp/llm-reliability-audit-20261016/preflight-rejection-before.log",
+        "sha256": "9db5ee0551ee749b53d48cafa399a57d91502ef1ff9a881b881c5ef0d47a29fc"
+      },
+      "outcome": "New negative tests reproduced history writes for both rejected stream endpoints before the final guard."
+    },
+    {
+      "artifact": {
+        "path": ".tmp/llm-reliability-audit-20261016/interrupted-clarification-path.json",
+        "sha256": "2ccb7aa26fae5379ad976ebf0cf80dbe16b233d25df73e1ebb503af5eb6f4bb5"
+      },
+      "outcome": "Owned browser run deliberately stopped after tracing repeated existing-model extraction to the clarification tool unconditional nextAction hint. The run was not counted as a final pass."
+    },
+    {
+      "artifact": {
+        "path": ".tmp/llm-reliability-audit-20261016/clarification-path-before.log",
+        "sha256": "b30469f2df6e489d731393f2c0e897985e1ca757615fc12f264c2bcf6b8c689c"
+      },
+      "outcome": "An actual interrupt/resume graph reproduced the incorrect draft-extraction hint for a current model; draft and pending-draft cases already passed."
+    },
+    {
+      "artifact": {
+        "path": ".tmp/llm-reliability-audit-20261016/release-full-tests.json",
+        "sha256": "474d5b92ac1e764fe6c4c309d75cdfcc32c5d301a21ab2aad2b194ac15106b28"
+      },
+      "outcome": "167 suites / 2087 tests passed before the final clarification routing fix; retained separately from final full verification."
+    },
+    {
+      "artifact": {
+        "path": ".tmp/llm-reliability-audit-20261016/converged-switches.log",
+        "sha256": "9c679884edb4b96b61adbeb4a8af4ac8bb014d3bbdd03982f6ead6d95dee3cc8"
+      },
+      "outcome": "Repair-disabled generic build stopped on invalid rotation_angle; the error was masked by RECOVERY_BUDGET_EXHAUSTED. The original generated value was not saved, so its exact type is unknown. Independently reproduced a TS/Python null-optional mismatch for rotation_angle and restraints, then fixed it and the error masking.",
+      "conversation": {
+        "path": ".tmp/llm-reliability-audit-20261016/generic-builder-failure-conversation.json",
+        "sha256": "4f2e8a72963755397d445074d417f77c50f46c2f2bd18265ca7a40743bd3fae9"
+      }
+    },
+    {
+      "artifact": {
+        "path": ".tmp/llm-reliability-audit-20261016/nullable-before.log",
+        "sha256": "bb68a5b66bcb2409d64935181e73c25ef596e4c3b5ce8c6bdd845373ad832671"
+      },
+      "outcome": "Three new regressions failed before the fix: optional null rotation, optional null restraints, and original invalid-field cause when correction is disabled. All subsequently passed, including real Python V2 conversion."
+    },
+    {
+      "artifact": {
+        "path": ".tmp/llm-reliability-audit-20261016/live-converged/2026-10-16T03-52-09-299Z-zh/summary.json",
+        "sha256": "cabae46efb887164db9a7d6ec816c23e483a5d66aa3782260933d1c3ec044d99"
+      },
+      "outcome": "Completed four turns, 14/14 checks, report and independent numerical checks, but strict zero-error acceptance failed. Recorded two corrections: calculator ** syntax and code-check after invalidating analysis. Existing-model edit-path and no-unconfirmed-design assertions passed. Kept as a recovered completion, not a clean pass."
+    }
+  ],
+  "rejectedResumeLive": {
+    "passed": true,
+    "instanceId": "playwright-571f4c87-4530-4eff-9ff3-860be2fae373",
+    "conversationId": "cmvagfckf000964wmpj007lgg",
+    "historyUnchanged": true,
+    "messagesBefore": 0,
+    "messagesAfter": 0,
+    "modelInvocationRequired": false,
+    "at": "2026-10-16T04:15:14.384Z",
+    "artifact": {
+      "path": ".tmp/llm-reliability-audit-20261016/preflight-live.json",
+      "sha256": "92ecf43030168af9cb9aafc66a512971c678aa8d6888e8eba47cd13205fad96a"
+    }
+  },
+  "deployment": {
+    "production": {
+      "verifiedAt": "2026-10-16T04:21:34.389Z",
+      "url": "http://127.0.0.1:31415/",
+      "backendPid": 320,
+      "previousInstanceId": "733d6efd-bfb3-472d-b39d-6f383c33df73",
+      "settingsUnchanged": true,
+      "health": {
+        "status": "ok",
+        "instanceId": "235ef337-920b-48ab-b401-354617e85d10",
+        "timestamp": "2026-10-16T04:21:33.758Z",
+        "services": {
+          "database": true
+        }
+      },
+      "webpageLoaded": true,
+      "pageErrors": [],
+      "writeRequests": [],
+      "scope": "Read-only production browser check after CLI restart; engineering conversations tested with the same code in an isolated instance."
+    },
+    "artifact": {
+      "path": ".tmp/llm-reliability-audit-20261016/production-release.json",
+      "sha256": "45aa7464f662b929eddbadf9ffd69a1258af1659c8d07d7d51bfb5a27c0850c9"
+    },
+    "idlePreflight": {
+      "path": ".tmp/llm-reliability-audit-20261016/production-before-restart.json",
+      "sha256": "f70d686e83e2c84c30bb9543ea0cf2f775489d6ea7e5e4e7dbb37823e0ec542d"
+    },
+    "isolatedCredentialCleanup": [
+      {
+        "path": ".tmp/llm-reliability-audit-20261016/cleanup-31652.json",
+        "sha256": "ab15aa7c9550008c83e7fdd6c8028bf260746e8b788c81f597af696458b3ea31"
+      },
+      {
+        "path": ".tmp/llm-reliability-audit-20261016/cleanup-31653.json",
+        "sha256": "a380785bcd632de5904b1ee271db0981aa6a963b90e28ab6811167593405fcb4"
+      },
+      {
+        "path": ".tmp/llm-reliability-audit-20261016/cleanup-31654.json",
+        "sha256": "1c192f169409fa3aa3c062cc90fc9a82f4bbfe13d97df7a6f5565683b2ce2208"
+      },
+      {
+        "path": ".tmp/llm-reliability-audit-20261016/cleanup-31655.json",
+        "sha256": "8643450021c8ffccc272aa9438eb2fff2c2fa93051757e0cda630d0e26511186"
+      },
+      {
+        "path": ".tmp/llm-reliability-audit-20261016/cleanup-31656.json",
+        "sha256": "0d47bda2f043952b19c54d17cc3a85e71e5beb048a45ad1706890616253fb012"
+      }
+    ]
+  },
+  "preservation": {
+    "benchmarkSubmodule": "160000 commit 534e3f02b0593c16a035f32924dfbe7654ce68be\ttests/llm-benchmark",
+    "productionSettingsSha256": "9fef7cf76f73eb561fd1366c6e0ac2eb27808d28c428dd4045f7f17a7eda8e24",
+    "originalConversationsEdited": false,
+    "historicalTagsMoved": false,
+    "providerModelChanged": false,
+    "providerReasoningLowered": false,
+    "providerTimeoutRaised": false
+  },
+  "limits": [
+    "Certifies these recorded workflows and regression coverage, not every future model output or the 300 planned scenarios.",
+    "Live model behavior remains probabilistic. Design confirmation is an agent instruction with a browser regression assertion, not a universal proof of user consent enforced by the schema.",
+    "GLM-5.3 default high reasoning remained enabled; measured full-conversation time is recorded in originalConversationBrowser.elapsedSeconds. Streaming addresses transport/aggregation and does not guarantee low latency or eliminate provider timeouts.",
+    "No calibrated rolled-section catalog was added. Confirmed explicit sharp-corner geometry remains different from a certified native rolled profile.",
+    "PKPM/YJK native engineering execution was not re-certified in this repair. The adapter boundary test timeout change is only test orchestration.",
+    "Raw local traces are retained under ignored .tmp directories; they are not public repository artifacts. Hashes identify the exact local evidence used."
+  ]
+}
