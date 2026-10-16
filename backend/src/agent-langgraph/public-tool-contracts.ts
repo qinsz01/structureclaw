@@ -21,6 +21,7 @@ import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 import { commitModel, contentHash } from '../engineering/model-state.js';
 import { writeAtomicJson as atomicRecord } from '../engineering/atomic-json.js';
 import { summarizeFileImages } from './attachment-vision.js';
+import { deriveToolContext } from './tool-context.js';
 
 /** Apply the application reducers to external tool updates, without duplicating state rules. */
 export function applyPublicToolStateUpdate(
@@ -230,13 +231,15 @@ export async function createPublicToolSession(input: {
         const output = await withRunContext(runtime, () => executeToolsSequentially(tools, state, { configurable: {
           thread_id: `public-${sessionId}`,
           runContext: runtime, agentState: state, skillRuntime: deps.skillRuntime,
-          skillScope: saved.policy.activeSkillIds.filter(item => state.selectedSkillIds.includes(item)),
-          enabledToolIds: saved.policy.activeToolIds, disabledToolIds: [], allowShell: config.agentAllowShell,
+          // External sessions are scoped by their own attachment list, not a checkpointed chat access policy.
+          toolContext: deriveToolContext({ ...state, toolAccessPolicy: undefined }, saved.policy,
+            { allowShell: config.agentAllowShell, fileAccessAllowlist: saved.attachmentPaths ?? [] }),
+          allowShell: config.agentAllowShell,
           workspaceRoot: deps.workspaceRoot ?? config.agentWorkspaceRoot,
           fileAccessAllowlist: saved.attachmentPaths ?? [],
           summarizeFileImages: (analysis: Record<string, unknown>, filePath: string, signal?: AbortSignal) => summarizeFileImages(analysis, filePath,
             state.locale === 'en' ? 'en' : 'zh', String(state.lastUserMessage ?? ''), signal),
-          maxToolCallsPerTurn: saved.policy.budgets.maxToolCallsPerTurn, engineClient: createLocalAnalysisEngineClient(),
+          engineClient: createLocalAnalysisEngineClient(),
           codeCheckClient: createLocalCodeCheckClient(), structureProtocolClient: protocol,
         } }));
         const update = output.update as Record<string, unknown>;

@@ -4,7 +4,7 @@
 // access policies (including pre-policy checkpoints), host inputs and skill selections.
 import { readFileSync } from 'node:fs';
 import { describe, expect, test } from '@jest/globals';
-import { applyToolsNodeSessionContext } from '../../../dist/agent-langgraph/graph.js';
+import { applyToolsNodeSessionContext, toolContextForNode } from '../../../dist/agent-langgraph/graph.js';
 import { resolveActiveToolIds } from '../../../dist/agent-langgraph/tool-policy.js';
 import { listAgentToolDefinitions } from '../../../dist/agent-langgraph/tool-registry.js';
 import { resolveRunPolicy } from '../../../dist/runtime/run-policy.js';
@@ -43,5 +43,27 @@ describe('tool context matrix', () => {
       maxToolCallsPerTurn: nullable(configurable.maxToolCallsPerTurn),
       fileAccessAllowlist: nullable(configurable.fileAccessAllowlist),
     }).toEqual(item.expected);
+  });
+
+  test.each(fixture.cases.map(item => [item.id, item]))('%s: the graph host derives the same frozen tool context', (_id, item) => {
+    const { policy, host, state } = inputs(item);
+    const snapshot = structuredClone(state);
+    // Hosts no longer seed tool policy into configurable; only direct hosts without a policy inject it.
+    const configurable = Object.freeze({ allowShell: host.allowShell, fileAccessAllowlist: host.fileAccessAllowlist,
+      ...(policy ? { runContext: { policy } } : { enabledToolIds: host.enabledToolIds, disabledToolIds: host.disabledToolIds,
+        maxToolCallsPerTurn: host.maxToolCallsPerTurn }) });
+    const context = toolContextForNode(state, configurable);
+    expect({
+      activeToolIds: [...context.activeToolIds],
+      skillScope: nullable(context.skillScope),
+      maxToolCallsPerTurn: nullable(context.maxToolCallsPerTurn),
+      fileAccessAllowlist: nullable(context.fileAccessAllowlist),
+    }).toEqual(item.expected);
+    expect(Object.isFrozen(context)).toBe(true);
+    expect(state).toEqual(snapshot);
+  });
+
+  test('the default policy hash is unchanged', () => {
+    expect(policies.default.policyHash).toBe(resolveRunPolicy({ availableSkillIds: fixture.skills, availableToolIds: toolIds, defaultToolIds }).policyHash);
   });
 });

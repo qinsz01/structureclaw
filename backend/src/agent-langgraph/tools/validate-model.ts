@@ -4,7 +4,7 @@ import type { AgentSkillRuntime } from '../../agent-runtime/index.js';
 import type { LangGraphRunnableConfig } from '@langchain/langgraph';
 import { assertInputEvidenceMatchesModel } from '../../engineering/input-evidence.js';
 import { resolveRequestedAnalysisEngineId, resolveUnselectedRequestedAnalysisSkillId, buildAnalysisProviderNotSelectedPayload, normalizeAnalysisType } from './analysis-resolution.js';
-import { getConfigurable } from './shared.js';
+import { getConfigurable, toolSkillScope } from './shared.js';
 
 export function createValidateModelTool(skillRuntime: AgentSkillRuntime) {
   return tool(
@@ -17,7 +17,7 @@ export function createValidateModelTool(skillRuntime: AgentSkillRuntime) {
         return JSON.stringify({ error: 'No model available. Run build_model first.' });
       }
       assertInputEvidenceMatchesModel(model, state?.inputEvidence);
-      const skillIds = configurable.skillScope;
+      const skillIds = toolSkillScope(config);
       const analysisType = normalizeAnalysisType(state?.policy?.analysisType);
       const unselectedRequestedSkillId = resolveUnselectedRequestedAnalysisSkillId(
         state?.lastUserMessage,

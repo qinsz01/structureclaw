@@ -8,7 +8,7 @@ import { normalizeEngineeringModel } from '../../engineering/model-boundary.js';
 import { mergeInputEvidence } from '../../engineering/input-evidence.js';
 import { buildModelToolSummary, buildModelToolStateUpdate } from './compaction/analysis.js';
 import { messageRole, messageText } from './input-message.js';
-import { getConfigurable, getToolCallId, toolResult, isRecord } from './shared.js';
+import { getConfigurable, getToolCallId, toolResult, isRecord, toolSkillScope } from './shared.js';
 
 export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
   return tool(
@@ -24,7 +24,7 @@ export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
       if (!draftState) {
         throw new Error('No draft state available. Run extract_draft_params first.');
       }
-      const skillIds = configurable.skillScope;
+      const skillIds = toolSkillScope(config);
 
       let candidate: Record<string, unknown> | undefined;
       try {

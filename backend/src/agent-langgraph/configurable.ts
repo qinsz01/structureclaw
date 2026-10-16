@@ -10,6 +10,7 @@ import type { CodeCheckClient } from '../agent-skills/code-check/rule.js';
 import type { LocalStructureProtocolClient } from '../skill-shared/structure-protocol-execution.js';
 import type { beginAnalysisRequest, beginNativeDesignRequest } from '../engineering/model-state.js';
 import type { RunContext } from '../runtime/run-context.js';
+import type { ToolContext } from './tool-context.js';
 
 export interface AgentConfigurable {
   runContext?: RunContext;
@@ -23,22 +24,15 @@ export interface AgentConfigurable {
   structureProtocolClient: LocalStructureProtocolClient;
   /** Absolute path to the workspace root. */
   workspaceRoot: string;
-  /** Exact file paths that analyze_file may read for a restricted run. */
+  /** Request-level file paths that analyze_file may read; the checkpointed allow-list takes precedence. */
   fileAccessAllowlist?: string[];
-  /** Requested allow-list of tool IDs for this run; undefined means registry defaults. */
-  enabledToolIds?: string[];
-  /** Requested deny-list of tool IDs for this run. */
-  disabledToolIds?: string[];
   /** Whether shell-risk tools may be activated for this run. */
   allowShell: boolean;
-  /** Maximum tool calls per conversation turn. */
-  maxToolCallsPerTurn: number;
   /**
-   * Skill scope resolved from the user's selected skills.
-   * Set once per tool-node invocation by the graph; all tools read this
-   * instead of independently extracting skillIds from state.
+   * Tool exposure, skill scope, budget and file allow-list for the current node, derived from the
+   * turn's frozen run policy (`deriveToolContext`). Set by the host on a per-node config copy.
    */
-  skillScope?: string[];
+  toolContext?: ToolContext;
   /** Reserve the request before solver I/O, including on failures and cancellation. */
   onAnalysisRequest?: (update: ReturnType<typeof beginAnalysisRequest> | ReturnType<typeof beginNativeDesignRequest>['update']) => void;
   summarizeFileImages?: (analysis: Record<string, unknown>, filePath: string, signal?: AbortSignal) => Promise<Record<string, unknown>>;

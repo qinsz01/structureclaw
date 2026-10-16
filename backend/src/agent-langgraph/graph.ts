@@ -33,7 +33,7 @@ import { getWorkspaceToolRoot } from './config.js';
 import { buildSystemMessages } from './system-prompt.js';
 import type { SkillManifest } from '../shared/types/agent.js';
 import type { AgentConfigurable } from './configurable.js';
-import { resolveActiveToolIds } from './tool-policy.js';
+import { deriveSkillScope, deriveToolContext, deriveToolRequest, type LegacyToolConfigurable, type ToolContext } from './tool-context.js';
 import type { StructuredToolInterface } from '@langchain/core/tools';
 import { getLogger } from '../utils/agent-logger.js';
 import { compactMessagesForContext, estimateMessagesCharLength } from './context-window.js';
@@ -50,36 +50,36 @@ function getAgentLogger(config: LangGraphRunnableConfig) {
   return getLogger(config.configurable as Partial<AgentConfigurable> | undefined);
 }
 
-export function applySessionToolAccessPolicy(
-  configurable: Partial<AgentConfigurable>,
-  policy: AgentToolAccessPolicy | undefined,
-): void {
-  if (Array.isArray(policy?.enabledToolIds)) {
-    configurable.enabledToolIds = [...policy.enabledToolIds];
-  }
-  if (Array.isArray(policy?.disabledToolIds)) {
-    configurable.disabledToolIds = [...policy.disabledToolIds];
-  }
-  if (Array.isArray(policy?.fileAccessAllowlist)) {
-    configurable.fileAccessAllowlist = [...policy.fileAccessAllowlist];
-  }
-  if (configurable.runContext) {
-    const effective = configurable.runContext.policy;
-    configurable.enabledToolIds = effective.activeToolIds.filter(id => !Array.isArray(policy?.enabledToolIds) || policy.enabledToolIds.includes(id));
-    configurable.disabledToolIds = [...new Set([...(configurable.disabledToolIds ?? []), ...effective.tools.disabledIds])];
-    configurable.maxToolCallsPerTurn = effective.budgets.maxToolCallsPerTurn;
-  }
+/** Tool context for a graph node: derived from the turn's frozen policy and the node state. */
+export function toolContextForNode(state: AgentState, configurable: Partial<AgentConfigurable> & LegacyToolConfigurable): ToolContext {
+  return deriveToolContext(state, configurable.runContext?.policy, {
+    allowShell: configurable.allowShell ?? false,
+    fileAccessAllowlist: configurable.fileAccessAllowlist,
+    // Only consulted without a run policy (direct hosts and pre-policy checkpoints).
+    enabledToolIds: configurable.enabledToolIds,
+    disabledToolIds: configurable.disabledToolIds,
+    maxToolCallsPerTurn: configurable.maxToolCallsPerTurn,
+  });
 }
 
+/**
+ * @deprecated Compatibility mutator for callers that still read tool policy from `configurable`.
+ * Graph nodes derive a ToolContext instead (`toolContextForNode`).
+ */
+export function applySessionToolAccessPolicy(
+  configurable: Partial<AgentConfigurable> & LegacyToolConfigurable,
+  policy: AgentToolAccessPolicy | undefined,
+): void {
+  Object.assign(configurable, deriveToolRequest(policy, configurable.runContext?.policy, configurable));
+}
+
+/** @deprecated Compatibility mutator; see `applySessionToolAccessPolicy`. */
 export function applyToolsNodeSessionContext(
-  configurable: Partial<AgentConfigurable> & Record<string, unknown>,
+  configurable: Partial<AgentConfigurable> & LegacyToolConfigurable & Record<string, unknown>,
   state: AgentState,
 ): void {
   configurable.agentState = state;
-  const effective = state.runPolicy ?? configurable.runContext?.policy;
-  configurable.skillScope = effective
-    ? effective.activeSkillIds.filter(id => state.selectedSkillIds.includes(id))
-    : state.selectedSkillIds?.length ? state.selectedSkillIds : undefined;
+  configurable.skillScope = deriveSkillScope(state, configurable.runContext?.policy);
   applySessionToolAccessPolicy(configurable, state.toolAccessPolicy);
 }
 
@@ -196,10 +196,7 @@ function createCallModelNode(
     config: LangGraphRunnableConfig,
   ): Promise<Partial<AgentState>> {
     const log = getAgentLogger(config);
-    const configurable = config.configurable as Partial<AgentConfigurable> | undefined;
-    if (configurable) {
-      applySessionToolAccessPolicy(configurable, state.toolAccessPolicy);
-    }
+    const configurable = config.configurable as (Partial<AgentConfigurable> & LegacyToolConfigurable) | undefined;
     // Receive long reasoning responses incrementally; the provider adapter aggregates
     // complete, typed assistant/tool-call messages before any tool can execute.
     const model = createChatModel(0, { streaming: true });
@@ -228,11 +225,12 @@ function createCallModelNode(
       };
     }
 
-    const activeTools = resolveActiveTools(tools, configurable);
+    const toolContext = toolContextForNode(state, configurable);
+    const activeTools = selectActiveTools(tools, toolContext);
     const modelWithTools = model.bindTools(activeTools);
 
     // Build system prompt
-    const systemMessages = buildSystemMessages({ state, skillManifests, maxToolCallsPerTurn: configurable.maxToolCallsPerTurn,
+    const systemMessages = buildSystemMessages({ state, skillManifests, maxToolCallsPerTurn: toolContext.maxToolCallsPerTurn,
       activeToolIds: activeTools.map(tool => tool.name) });
 
     // Validate and reconstruct messages — checkpoint deserialization may
@@ -320,7 +318,7 @@ function createCallModelNode(
       return count;
     }, 0);
 
-    const maxToolCalls = configurable?.maxToolCallsPerTurn ?? DEFAULT_MAX_TOOL_CALLS_PER_TURN;
+    const maxToolCalls = toolContext.maxToolCallsPerTurn ?? DEFAULT_MAX_TOOL_CALLS_PER_TURN;
     if (Math.max(toolCallCount, configurable?.runContext?.usage.toolCalls ?? 0) >= maxToolCalls) {
       log.warn({ node: 'agent', toolCallCount, max: maxToolCalls }, 'max tool call limit reached');
       const warning = state.locale === 'zh'
@@ -335,10 +333,6 @@ function createCallModelNode(
     // receives the same config object) also sees agentState.
     const configurableAny = config.configurable as Record<string, unknown>;
     configurableAny.agentState = state;
-    applySessionToolAccessPolicy(
-      configurableAny as Partial<AgentConfigurable>,
-      state.toolAccessPolicy,
-    );
 
     // Remove base64 image data from ToolMessages before the main agent LLM.
     // Applied after turn-boundary computation so binary payload stripping
@@ -418,16 +412,8 @@ export interface GraphDeps extends AgentToolFactoryDeps {
   checkpointer?: BaseCheckpointSaver;
 }
 
-function resolveActiveTools(
-  tools: StructuredToolInterface[],
-  configurable: Partial<AgentConfigurable> | undefined,
-): StructuredToolInterface[] {
-  const result = resolveActiveToolIds({
-    requestedEnabledToolIds: configurable?.enabledToolIds,
-    requestedDisabledToolIds: configurable?.disabledToolIds,
-    allowShell: configurable?.allowShell ?? false,
-  });
-  const activeIds = new Set(result.activeToolIds);
+function selectActiveTools(tools: StructuredToolInterface[], toolContext: ToolContext): StructuredToolInterface[] {
+  const activeIds = new Set(toolContext.activeToolIds);
   return tools.filter((toolDefinition) => activeIds.has(toolDefinition.name));
 }
 
@@ -467,14 +453,13 @@ export async function buildAgentGraph(deps: GraphDeps) {
   // done in callModel is invisible to the raw ToolNode.
   const toolsNode = async (state: AgentState, config: LangGraphRunnableConfig) => {
     const nodeLog = getAgentLogger(config);
-    const configurableAny = config.configurable as Partial<AgentConfigurable> & Record<string, unknown>;
-    applyToolsNodeSessionContext(configurableAny, state);
-    const activeTools = resolveActiveTools(
-      tools,
-      configurableAny,
-    );
+    const configurable = config.configurable as Partial<AgentConfigurable> & LegacyToolConfigurable;
+    const toolContext = toolContextForNode(state, configurable);
+    const activeTools = selectActiveTools(tools, toolContext);
     nodeLog.debug({ node: 'tools', activeToolCount: activeTools.length }, 'tools node executing');
-    return withRunContext(configurableAny.runContext, () => executeToolsSequentially(activeTools, state, config));
+    // A fresh config per node: the shared configurable is never mutated with policy.
+    const nodeConfig = { ...config, configurable: { ...config.configurable, agentState: state, toolContext } };
+    return withRunContext(configurable.runContext, () => executeToolsSequentially(activeTools, state, nodeConfig));
   };
 
   const workflow = new StateGraph(AgentStateAnnotation)

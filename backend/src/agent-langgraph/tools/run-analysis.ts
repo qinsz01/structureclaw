@@ -19,7 +19,7 @@ import { resolveRequestedAnalysisSkillId, resolveUnselectedRequestedAnalysisSkil
 import { buildAnalysisToolSummary } from './compaction/analysis.js';
 import { parseJsonObjectInput, hasStructuredSeismicWorkflow, hasSemanticSeismicWorkflowInput, mergeSeismicWorkflowInputs } from './seismic-workflow/merge.js';
 import { validateSeismicWorkflowInput } from './seismic-workflow/validate-design.js';
-import { getConfigurable, getToolCallId, toolResult, isRecord, pickStringLike } from './shared.js';
+import { getConfigurable, getToolCallId, toolResult, isRecord, pickStringLike, toolSkillScope } from './shared.js';
 
 /** Exact requested scalars use the same query service and server-side tool budget. */
 async function queryRequestedOutputs(state: AgentState, scope: RequestScope | null | undefined, config: LangGraphRunnableConfig) {
@@ -134,7 +134,7 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
       }
       if (state?.modelPending) return toolResult(toolCallId, 'run_analysis', JSON.stringify({ success: false, error_code: 'MODEL_REBUILD_REQUIRED', message: 'Build the pending model first.', messageZh: '请先构建待确认的模型。' }));
       assertInputEvidenceMatchesModel(model, state?.inputEvidence);
-      const skillIds = configurable.skillScope;
+      const skillIds = toolSkillScope(config);
       const analysisType = (input.analysisType || 'static') as 'static' | 'dynamic' | 'seismic' | 'nonlinear';
       const unselectedRequestedSkillId = resolveUnselectedRequestedAnalysisSkillId(
         state?.lastUserMessage,

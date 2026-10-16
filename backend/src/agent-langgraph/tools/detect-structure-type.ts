@@ -7,7 +7,7 @@ import type { AgentState } from '../state.js';
 import type { AgentConfigurable } from '../configurable.js';
 import { resolveRetryTaskMessage, detectStructuralTypeWithConfiguredLlm } from './draft-helpers.js';
 import { resolveToolInputMessage } from './input-message.js';
-import { getConfigurable, getToolCallId, toolResult, nestedLlmUsageCollector } from './shared.js';
+import { getConfigurable, getToolCallId, toolResult, nestedLlmUsageCollector, toolSkillScope } from './shared.js';
 
 export function createDetectStructureTypeTool(skillRuntime: AgentSkillRuntime) {
   return tool(
@@ -17,7 +17,7 @@ export function createDetectStructureTypeTool(skillRuntime: AgentSkillRuntime) {
       const configurable = getConfigurable(config);
       const state = configurable.agentState;
       const toolCallId = getToolCallId(config);
-      const skillIds = configurable.skillScope;
+      const skillIds = toolSkillScope(config);
         const locale = (input.locale ?? state?.locale ?? 'zh') as 'en' | 'zh';
       const message = resolveToolInputMessage(input.message, state?.lastUserMessage, state?.messages);
       const detectionMessage = resolveRetryTaskMessage(message);

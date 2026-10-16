@@ -405,12 +405,14 @@ export function createAnalyzeFileTool() {
     ) => {
       const configurable = config.configurable as Partial<AgentConfigurable> & { agentState?: ModelState & { contextSeismicWorkflow?: Record<string, unknown> | null } };
       const workspaceRoot = configurable?.workspaceRoot;
-      if (Array.isArray(configurable?.fileAccessAllowlist)) {
+      // The host's derived ToolContext carries the checkpointed allow-list; direct hosts set it themselves.
+      const fileAccessAllowlist = configurable?.toolContext ? configurable.toolContext.fileAccessAllowlist : configurable?.fileAccessAllowlist;
+      if (Array.isArray(fileAccessAllowlist)) {
         let requestedPath: string;
         let allowedPaths: string[];
         try {
           requestedPath = resolveUploadPath(input.filePath, workspaceRoot);
-          allowedPaths = configurable.fileAccessAllowlist.map(
+          allowedPaths = fileAccessAllowlist.map(
             (filePath) => resolveUploadPath(filePath, workspaceRoot),
           );
         } catch (error) {

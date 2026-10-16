@@ -12,7 +12,7 @@ import { currentAnalysisError } from '../../engineering/model-state.js';
 import { currentRunContext } from '../../runtime/run-context.js';
 import { requestScopeSchema, type RequestScope } from '../../engineering/request-scope.js';
 import { normalizeAnalysisType, inferAnalysisTypeFromResult, codeCheckSkillIdFromResult, hasValidChinaSeismicCodeCheck, analysisWorkflowInputModeFromResult } from './analysis-resolution.js';
-import { getConfigurable, getToolCallId, toolResult, isRecord } from './shared.js';
+import { getConfigurable, getToolCallId, toolResult, isRecord, toolSkillScope } from './shared.js';
 
 export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
   return tool(
@@ -58,7 +58,7 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
       const codeCheck = !selection || (isRecord(currentCheck?.meta) && currentCheck.meta.runId === run.runId)
         ? currentCheck : savedNativeDesignRecord(run) ?? undefined;
       const draftState = selection?.runId ? undefined : state?.draftState || undefined;
-      const skillIds = configurable.skillScope;
+      const skillIds = toolSkillScope(config);
       const locale = (input.locale ?? state?.locale ?? 'zh') as 'zh' | 'en';
       const analysisType = inferAnalysisTypeFromResult(run) ?? normalizeAnalysisType(input.analysisType) ?? 'static';
       const workflowInputMode = analysisWorkflowInputModeFromResult(analysis);

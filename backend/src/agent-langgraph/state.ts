@@ -20,8 +20,15 @@ import type { RunUsage } from '../runtime/run-context.js';
 import type { RequestScope } from '../engineering/request-scope.js';
 
 export interface AgentToolAccessPolicy {
+  /**
+   * Legacy request lists, still persisted in the historical checkpoint shape. The turn's run policy
+   * already contains them; tool exposure reads them only to narrow it (`deriveToolRequest`), which
+   * matters for conversations checkpointed before run policies existed.
+   */
   enabledToolIds: string[] | null;
+  /** Legacy, see `enabledToolIds`. */
   disabledToolIds: string[] | null;
+  /** Exact attachment paths analyze_file may read; extended by input review. */
   fileAccessAllowlist: string[] | null;
 }
 

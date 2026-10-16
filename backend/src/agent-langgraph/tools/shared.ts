@@ -3,10 +3,17 @@ import { ToolMessage } from '@langchain/core/messages';
 import { mergeLlmTokenUsage, type LlmTokenUsage } from '../../utils/llm.js';
 import type { AgentState } from '../state.js';
 import type { AgentConfigurable } from '../configurable.js';
+import type { LegacyToolConfigurable } from '../tool-context.js';
 
 /** Get the AgentConfigurable from the LangGraph run config. */
 export function getConfigurable(config: LangGraphRunnableConfig): AgentConfigurable & { agentState?: AgentState } {
   return config.configurable as AgentConfigurable & { agentState?: AgentState };
+}
+
+/** Skills a tool may resolve: the host's derived ToolContext, else a direct host's injected scope. */
+export function toolSkillScope(config: LangGraphRunnableConfig): string[] | undefined {
+  const configurable = getConfigurable(config) as AgentConfigurable & LegacyToolConfigurable;
+  return configurable.toolContext ? configurable.toolContext.skillScope : configurable.skillScope;
 }
 
 /** Get the tool call ID from the LangChain config. */

@@ -14,7 +14,7 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import { AgentSkillRuntime } from '../agent-runtime/index.js';
 import type { SkillManifest } from '../shared/types/agent.js';
-import { applyToolsNodeSessionContext, buildAgentGraph } from './graph.js';
+import { buildAgentGraph } from './graph.js';
 import { FileCheckpointer } from './file-checkpointer.js';
 import { streamGraphToChunks, type StreamContext } from './streaming.js';
 import type { AgentState, AgentToolAccessPolicy } from './state.js';
@@ -36,7 +36,7 @@ import { createAgentLogger } from '../utils/agent-logger.js';
 import type { AgentConfigurable } from './configurable.js';
 import { createRegisteredTools, listAgentToolDefinitions } from './tool-registry.js';
 import { executeToolsSequentially, pendingToolCalls } from './sequential-tools.js';
-import { resolveActiveToolIds } from './tool-policy.js';
+import { deriveToolContext } from './tool-context.js';
 import { isPathWithinRoot, resolveUploadPath } from './file-tools.js';
 import { summarizeFileImages } from './attachment-vision.js';
 import { collectVisionEvidence } from '../engineering/vision-evidence.js';
@@ -126,10 +126,7 @@ export class LangGraphAgentService {
       fileAccessAllowlist: input?.context?.restrictFileAccessToAttachments
         ? (input.context.attachments || []).map((attachment) => attachment.relPath)
         : undefined,
-      enabledToolIds: input?.context?.enabledToolIds,
-      disabledToolIds: input?.context?.disabledToolIds,
       allowShell: getAllowShellTools(),
-      maxToolCallsPerTurn: config.agentMaxToolCallsPerTurn,
       summarizeFileImages: (analysis, filePath, signal) => summarizeFileImages(analysis, filePath, input?.context?.locale ?? 'zh', input?.message ?? '', signal),
       _logger: childLogger,
     };
@@ -142,8 +139,7 @@ export class LangGraphAgentService {
       configurable: {
         thread_id: conversationId,
         ...this.buildConfigurable(input, traceId, conversationId),
-        ...(runContext ? { runContext, maxToolCallsPerTurn: runContext.policy.budgets.maxToolCallsPerTurn,
-          enabledToolIds: runContext.policy.activeToolIds, disabledToolIds: [], skillScope: runContext.policy.activeSkillIds } : {}),
+        ...(runContext ? { runContext } : {}),
       },
     };
   }
@@ -552,11 +548,7 @@ export class LangGraphAgentService {
     // Recheck current server limits without changing the saved policy or its usage ledger.
     const policy = resolveApplicationRunPolicy({ previous: state.runPolicy,
       availableSkillIds: (await this.skillRuntime.listSkillManifests()).map(item => item.id) });
-    const configurable = { ...this.buildConfigurable(), enabledToolIds: policy.activeToolIds,
-      disabledToolIds: [], runContext: { policy, usage: state.runUsage } } as AgentConfigurable & Record<string, unknown>;
-    applyToolsNodeSessionContext(configurable, state);
-    return resolveActiveToolIds({ requestedEnabledToolIds: configurable.enabledToolIds,
-      requestedDisabledToolIds: configurable.disabledToolIds, allowShell: false }).activeToolIds
+    return deriveToolContext(state, policy, { allowShell: false }).activeToolIds
       .filter(id => state.runPolicy!.activeToolIds.includes(id));
   }
 
@@ -637,10 +629,7 @@ export class LangGraphAgentService {
     const policy = state.runPolicy ?? resolveApplicationRunPolicy({
       availableSkillIds: (await this.skillRuntime.listSkillManifests()).map(item => item.id),
     });
-    const configurable = { ...this.buildConfigurable(), runContext: { policy, usage: state.runUsage } } as AgentConfigurable & Record<string, unknown>;
-    applyToolsNodeSessionContext(configurable, { ...state, selectedSkillIds: state.selectedSkillIds ?? [] });
-    const allowed = resolveActiveToolIds({ requestedEnabledToolIds: configurable.enabledToolIds,
-      requestedDisabledToolIds: configurable.disabledToolIds, allowShell: false }).activeToolIds;
+    const allowed = [...deriveToolContext({ ...state, selectedSkillIds: state.selectedSkillIds ?? [] }, policy, { allowShell: false }).activeToolIds];
     return buildInputReview(conversationId, state, snapshot.tasks, allowed);
   }
 
@@ -649,11 +638,7 @@ export class LangGraphAgentService {
     const graph = await this.getGraph();
     const snapshot = await graph.getState({ configurable: { thread_id: conversationId } });
     const state = snapshot.values as AgentState;
-    const policy = state.runPolicy;
-    const configurable = { ...this.buildConfigurable(), runContext: policy ? { policy, usage: state.runUsage } : undefined } as AgentConfigurable & Record<string, unknown>;
-    applyToolsNodeSessionContext(configurable, state);
-    const allowed = resolveActiveToolIds({ requestedEnabledToolIds: configurable.enabledToolIds,
-      requestedDisabledToolIds: configurable.disabledToolIds, allowShell: false }).activeToolIds;
+    const allowed = [...deriveToolContext(state, state.runPolicy ?? undefined, { allowShell: false }).activeToolIds];
     return buildResultReview(conversationId, state, allowed, this.sessionLock.isBusy(conversationId));
   }
 
@@ -711,10 +696,10 @@ export class LangGraphAgentService {
         state = { ...state, ...update };
       }
       const executionConfig = this.buildGraphRuntimeConfig(request, randomUUID(), conversationId, runtime);
-      applyToolsNodeSessionContext(executionConfig.configurable, state);
-      const allowed = resolveActiveToolIds({ requestedEnabledToolIds: executionConfig.configurable.enabledToolIds,
-        requestedDisabledToolIds: executionConfig.configurable.disabledToolIds, allowShell: false }).activeToolIds;
-      if (!allowed.includes(input.tool)) throw new Error(`TOOL_NOT_ALLOWED: ${input.tool}`);
+      const toolContextFor = (current: AgentState) => deriveToolContext(current, runtime.policy,
+        { allowShell: false, fileAccessAllowlist: executionConfig.configurable.fileAccessAllowlist });
+      let toolContext = toolContextFor(state);
+      if (!toolContext.activeToolIds.includes(input.tool)) throw new Error(`TOOL_NOT_ALLOWED: ${input.tool}`);
       // A user may add a drawing while the chat is waiting. Only an explicitly supplied,
       // existing upload in this conversation can extend its attachment list; tool scope stays fixed.
       if (initialized && input.tool === 'analyze_file' && typeof input.args.filePath === 'string'
@@ -729,7 +714,7 @@ export class LangGraphAgentService {
           const toolAccessPolicy = { ...state.toolAccessPolicy, fileAccessAllowlist: [...state.toolAccessPolicy.fileAccessAllowlist, attachment.relPath] };
           await graph.updateState(graphConfig, { toolAccessPolicy });
           state = { ...state, toolAccessPolicy };
-          applyToolsNodeSessionContext(executionConfig.configurable, state);
+          toolContext = toolContextFor(state);
         }
       }
       const tools = createRegisteredTools({ skillRuntime: this.skillRuntime, workspaceRoot: this.workspaceRoot })
@@ -740,7 +725,8 @@ export class LangGraphAgentService {
         messages: [...(state.messages ?? []), new AIMessage({ content: '', tool_calls: [{ id: callId, name: input.tool, args: input.args }] })] };
       return await withRunContext(runtime, async () => {
         recordRunEvent({ kind: purpose === 'input' ? 'user_input_review' : 'user_result_review', tool: input.tool, callId, args: input.args });
-        const command = await executeToolsSequentially(tools, actionState, executionConfig);
+        const command = await executeToolsSequentially(tools, actionState,
+          { ...executionConfig, configurable: { ...executionConfig.configurable, agentState: state, toolContext } });
         const { messages, ...update } = command.update as Partial<AgentState>;
         // Synthetic calls are not appended to chat: the pending clarification call must stay current.
         // State updates follow LangGraph's normal human-in-the-loop update semantics.

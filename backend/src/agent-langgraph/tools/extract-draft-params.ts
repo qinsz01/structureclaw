@@ -17,7 +17,7 @@ import { requestScopeSchema, resolveExtractedScope, missingInputReason, type Req
 import { equilibriumModel } from '../../engineering/beam-equilibrium.js';
 import { buildDraftProgress, buildClarificationQuestions, hasStableDraftType, shouldPreserveExistingDraftState, resolveRetryTaskMessage, buildPreservedDraftExtractionResult, resolveExistingDraftPlugin, detectStructuralTypeWithConfiguredLlm, resolveDetectedStructuralTypeMatch } from './draft-helpers.js';
 import { resolveExtractionInputMessage } from './input-message.js';
-import { getConfigurable, getToolCallId, toolResult, nestedLlmUsageCollector } from './shared.js';
+import { getConfigurable, getToolCallId, toolResult, nestedLlmUsageCollector, toolSkillScope } from './shared.js';
 
 export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
   return tool(
@@ -35,7 +35,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
       const requestedScope = input.requestScope ?? state?.requestScope;
       const existingState = state?.draftState ? { ...state.draftState, ...(requestedScope ? { requestScope: requestedScope } : {}) } : undefined;
       const hasExistingDesign = hasDraftDesignInputs(existingState?.engineeringDraft);
-      const skillIds = configurable.skillScope;
+      const skillIds = toolSkillScope(config);
       const locale = (input.locale ?? state?.locale ?? 'zh') as 'zh' | 'en';
       const message = resolveExtractionInputMessage(input.message, state?.lastUserMessage, state?.messages);
       const extractionMessage = resolveRetryTaskMessage(message);

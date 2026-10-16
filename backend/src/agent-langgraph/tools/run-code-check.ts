@@ -13,7 +13,7 @@ import { checkRunResults, codeCheckFeedback, validateServiceabilitySelection } f
 import { recordRunEvent } from '../../runtime/run-context.js';
 import { requestScopeSchema, type RequestScope } from '../../engineering/request-scope.js';
 import { analysisTraceIdFromResult } from './analysis-resolution.js';
-import { getConfigurable, getToolCallId, toolResult, isRecord } from './shared.js';
+import { getConfigurable, getToolCallId, toolResult, isRecord, toolSkillScope } from './shared.js';
 
 export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
   return tool(
@@ -34,7 +34,7 @@ export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
         skipped: true, reason: 'DESIGN_NOT_REQUESTED', message: 'Analysis does not automatically request code design.',
         messageZh: '普通分析不自动进入规范设计；请只交付当前所求结果。' }));
       if (resultEngine(state?.analysisResult ?? {}) === 'equilibrium') throw new Error('DESIGN_REQUIRES_FULL_MODEL / 规范设计需要真实材料截面及完整模型，不能使用无刚度平衡投影');
-      const skillIds = configurable.skillScope;
+      const skillIds = toolSkillScope(config);
       const selectedDesignCode = skillRuntime.resolveCodeCheckDesignCodeFromSkillIds(skillIds);
       const explicitDesignCode = input.designCode || state?.policy?.designCode;
       const requestedDesignCode = explicitDesignCode || selectedDesignCode;
