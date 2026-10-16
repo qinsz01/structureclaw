@@ -152,44 +152,6 @@ export function logLlmCall(log: Logger, params: LlmCallParams): void {
   log.trace(base, `llm:${model} call completed (trace)`);
 }
 
-export interface StateTransitionParams {
-  node: string;
-  channelsChanged?: string[];
-  channelValues?: Record<string, unknown>;
-  extra?: Record<string, unknown>;
-  level?: 'debug' | 'trace';
-}
-
-/**
- * Log a state transition between graph nodes.
- * - debug (default): node name + channel names
- * - trace:           + truncated channel values
- */
-export function logStateTransition(log: Logger, params: StateTransitionParams): void {
-  const { node, channelsChanged, channelValues, extra, level = 'debug' } = params;
-
-  const base: Record<string, unknown> = {
-    node,
-    channelsChanged,
-    ...extra,
-  };
-
-  if (level === 'debug') {
-    log.debug(base, `state transition: ${node}`);
-    return;
-  }
-
-  // trace — include truncated channel values
-  if (channelValues) {
-    const truncated: Record<string, string> = {};
-    for (const [key, val] of Object.entries(channelValues)) {
-      truncated[key] = truncate(stringify(val));
-    }
-    base.channelValues = truncated;
-  }
-  log.trace(base, `state transition: ${node}`);
-}
-
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------

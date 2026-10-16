@@ -73,9 +73,6 @@ const REBAR_GRADES: Record<string, RebarMaterial> = {
   HRBF500: { grade: 'HRBF500', fyk: 500, fstk: 630, fy: 435, fy_compression: 400, fyv: 360, Es: 200000 },
 };
 
-// Rebar diameters
-const REBAR_DIAMETERS = [6, 8, 10, 12, 14, 16, 18, 20, 22, 25, 28, 32];
-
 /**
  * Get concrete material properties by grade.
  * @param grade Concrete grade string (e.g., "C30")
@@ -148,14 +145,6 @@ export function isValidConcreteGrade(grade: string): boolean {
  */
 export function isValidRebarGrade(grade: string): boolean {
   return grade.toUpperCase() in REBAR_GRADES;
-}
-
-/**
- * Get available rebar diameters.
- * @returns Array of rebar diameters in mm
- */
-export function getRebarDiameters(): number[] {
-  return [...REBAR_DIAMETERS];
 }
 
 /**

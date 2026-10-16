@@ -300,15 +300,6 @@ export interface DraftExtraction {
   [key: string]: unknown;
 }
 
-export interface DraftResult {
-  inferredType: InferredModelType;
-  missingFields: string[];
-  model?: Record<string, unknown>;
-  extractionMode: 'llm' | 'deterministic';
-  stateToPersist?: DraftState;
-  structuralTypeMatch?: StructuralTypeMatch;
-}
-
 export interface InteractionQuestion {
   paramKey: string;
   label: string;
@@ -543,8 +534,6 @@ export type ArtifactKind =
   | 'drawingArtifact'
   | 'reportArtifact';
 
-export type ProjectArtifactKind = Exclude<ArtifactKind, 'draftState'>;
-
 // --- Artifact references and envelope ---
 
 export interface ArtifactRef {
@@ -581,28 +570,6 @@ export interface ArtifactEnvelope<T = unknown> {
   payload: T;
 }
 
-// --- Patch record (type only; reducer logic is follow-up) ---
-
-export type PatchKind = 'modelPatch' | 'designPatch';
-export type PatchStatus = 'proposed' | 'accepted' | 'rejected' | 'conflicted';
-export type PatchMergeStrategy = 'merge' | 'replace' | 'append';
-
-export interface ModelPatchRecord {
-  patchId: string;
-  patchKind: PatchKind;
-  producerSkillId: string;
-  baseModelRevision: number;
-  basedOn: ArtifactRef[];
-  status: PatchStatus;
-  acceptedBy?: 'user' | 'policy' | 'system';
-  priority: number;
-  mergeStrategy?: PatchMergeStrategy;
-  conflicts?: Array<{ path: string; withPatchId: string }>;
-  createdAt: number;
-  reason: string;
-  payload: Record<string, unknown>;
-}
-
 // --- Project execution policy ---
 
 export interface AutoDesignIterationPolicy {
@@ -620,18 +587,6 @@ export interface AgentExecutionPolicy {
   allowAsync?: boolean;
   autoDesignIterationPolicy?: AutoDesignIterationPolicy;
   requireApprovalBeforeExecution?: boolean;
-  deliverableProfiles?: {
-    drawing?: string;
-    report?: string;
-  };
-}
-
-export interface RequestExecutionOverrides {
-  forceRecompute?: boolean;
-  analysisType?: AgentAnalysisType;
-  designCode?: string;
-  allowAsync?: boolean;
-  autoDesignIterationEnabled?: boolean;
   deliverableProfiles?: {
     drawing?: string;
     report?: string;
@@ -722,12 +677,4 @@ export interface AgentArtifactState {
   codeCheckResult?: ArtifactEnvelope;
   drawingArtifact?: ArtifactEnvelope;
   reportArtifact?: ArtifactEnvelope;
-}
-
-export interface ConversationPipelineState {
-  policy: AgentExecutionPolicy;
-  bindings: ProviderBindingState;
-  artifacts: AgentArtifactState;
-  patches?: ModelPatchRecord[];
-  updatedAt: number;
 }

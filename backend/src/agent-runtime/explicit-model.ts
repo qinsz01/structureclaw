@@ -1,5 +1,5 @@
 import { assertCanonicalCoordinateModel, withCanonicalCoordinateContract } from './coordinate-semantics.js';
-import type { DraftIssue, DraftState } from './types.js';
+import type { DraftState } from './types.js';
 import { applyDraftAnalysisControl } from './engineering-draft.js';
 
 type RecordValue = Record<string, unknown>;
@@ -91,9 +91,4 @@ export function buildExplicitDraftModel(state: DraftState): RecordValue | undefi
   // Fill only protocol constants; validate any explicitly supplied coordinate semantics.
   if (draft.coordinateSystem) Object.assign(model.coordinate_system, draft.coordinateSystem);
   return validateExplicitModel(applyDraftAnalysisControl(model, draft));
-}
-
-export function explicitDraftIssues(state: DraftState): DraftIssue[] {
-  try { buildExplicitDraftModel(state); return []; }
-  catch (error) { return [{ field: 'engineeringDraft', severity: 'invalid', reason: error instanceof Error ? error.message : String(error) }]; }
 }
