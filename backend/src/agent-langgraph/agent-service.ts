@@ -1,4 +1,3 @@
-import { requestScopeSchema, type RequestScope } from '../engineering/request-scope.js';
 /**
  * LangGraph-based AgentService — the sole agent implementation.
  *
@@ -8,7 +7,8 @@ import { requestScopeSchema, type RequestScope } from '../engineering/request-sc
  * Dependency injection uses config.configurable (no globalThis).
  * The graph is built once and cached for the process lifetime.
  */
-import { AIMessage, HumanMessage, ToolMessage } from '@langchain/core/messages';
+import { requestScopeSchema } from '../engineering/request-scope.js';
+import { AIMessage, ToolMessage } from '@langchain/core/messages';
 import { randomUUID } from 'crypto';
 import path from 'node:path';
 import fs from 'node:fs/promises';
@@ -20,7 +20,6 @@ import { streamGraphToChunks, type StreamContext } from './streaming.js';
 import type { AgentState, AgentToolAccessPolicy } from './state.js';
 import { getAllowShellTools, getCheckpointerDataDir, getWorkspaceRoot, getWorkspaceSkillRoot } from './config.js';
 import { config, runtimeBaseDir } from '../config/index.js';
-import type { RunPolicyInput, EffectiveRunPolicy } from '../runtime/run-policy.js';
 import { resolveApplicationRunPolicy } from './policy-resolver.js';
 import { createRunContext, withRunContext, snapshotRunUsage, readRunUsage, recordRunEvent, type RunContext, type RunUsage } from '../runtime/run-context.js';
 import { DEFAULT_MAX_TOOL_CALLS_PER_TURN } from '../runtime/limits.js';
@@ -34,56 +33,22 @@ import { prisma } from '../utils/database.js';
 import { Command } from '@langchain/langgraph';
 import { logger } from '../utils/logger.js';
 import { createAgentLogger } from '../utils/agent-logger.js';
-import { normalizeClarificationOptions } from '../utils/clarification-options.js';
 import type { AgentConfigurable } from './configurable.js';
 import { createRegisteredTools, listAgentToolDefinitions } from './tool-registry.js';
 import { executeToolsSequentially, pendingToolCalls } from './sequential-tools.js';
 import { resolveActiveToolIds } from './tool-policy.js';
-import { analyzeUploadedFile, isPathWithinRoot, resolveUploadPath } from './file-tools.js';
+import { isPathWithinRoot, resolveUploadPath } from './file-tools.js';
 import { summarizeFileImages } from './attachment-vision.js';
 import { collectVisionEvidence } from '../engineering/vision-evidence.js';
-import { activeInputEvidence, assertInputEvidenceMatchesModel, mergeInputEvidence, unresolvedInputEvidence } from '../engineering/input-evidence.js';
 import { SessionLock } from '../engineering/session-lock.js';
-import { applyInputEvidence, commitModel, contentHash, currentAnalysisError, invalidateAnalysis } from '../engineering/model-state.js';
-import { resultCatalogEntry } from '../engineering/result-selection.js';
+import { applyInputEvidence, commitModel, invalidateAnalysis } from '../engineering/model-state.js';
 import { nativeDesignReview } from '../engineering/native-design-options.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export interface AttachmentInfo {
-  fileId: string;
-  originalName: string;
-  relPath: string;
-  mimeType?: string;
-}
-
-export interface LangGraphRunInput {
-  message: string;
-  conversationId?: string;
-  traceId?: string;
-  signal?: AbortSignal;
-  context?: {
-    runPolicy?: RunPolicyInput;
-    requestScope?: RequestScope;
-    locale?: AppLocale;
-    skillIds?: string[];
-    enabledToolIds?: string[];
-    disabledToolIds?: string[];
-    model?: Record<string, unknown>;
-    modelFormat?: string;
-    modelRevision?: number;
-    analysisType?: 'static' | 'dynamic' | 'seismic' | 'nonlinear';
-    engineId?: string;
-    designCode?: string;
-    includeReport?: boolean;
-    seismicWorkflow?: Record<string, unknown>;
-    attachments?: AttachmentInfo[];
-    restrictFileAccessToAttachments?: boolean;
-  };
-}
+import { isRecord } from './attachments/attachment-analysis.js';
+import { extractContextSeismicWorkflow } from './attachments/ground-motion.js';
+import { toInitialHumanMessage, buildInitialHumanMessagePayload } from './attachments/initial-message.js';
+import type { LangGraphRunInput, LangGraphRunResult } from './service-types.js';
+import { INPUT_REVIEW_TOOLS, type InputReviewTool, RESULT_REVIEW_TOOLS, type ResultReviewTool, clarificationState, inputReviewRevision, conversationJobReferences, sessionRunUsage, conversationJobSnapshots, buildConversationSessionSnapshot, buildInputReview, buildResultReview } from './session/snapshot.js';
 
 export function buildToolAccessPolicy(
   context: LangGraphRunInput['context'] | undefined,
@@ -101,521 +66,12 @@ export function buildToolAccessPolicy(
   };
 }
 
-export interface LangGraphRunResult {
-  runPolicy?: EffectiveRunPolicy;
-  runUsage?: RunUsage;
-  conversationId: string;
-  traceId: string;
-  startedAt: string;
-  completedAt: string;
-  success: boolean;
-  response: string;
-  waitingForReply: boolean;
-  question: string | null;
-  options: string[];
-  mode: 'conversation' | 'execution';
-  toolCalls: unknown[];
-  model?: Record<string, unknown>;
-  analysis?: Record<string, unknown>;
-  report?: Record<string, unknown>;
-  draftState?: Record<string, unknown>;
-  presentation?: Record<string, unknown>;
-}
-
-export const INPUT_REVIEW_TOOLS = ['analyze_file', 'review_input', 'query_model', 'edit_model', 'validate_model'] as const;
-export type InputReviewTool = typeof INPUT_REVIEW_TOOLS[number];
-export const RESULT_REVIEW_TOOLS = ['query_results', 'generate_report', 'run_code_check'] as const;
-export type ResultReviewTool = typeof RESULT_REVIEW_TOOLS[number];
-
-function clarificationState(state: AgentState, tasks: ReadonlyArray<{ interrupts?: readonly unknown[] }> = []) {
-  const call = state.messages?.length ? pendingToolCalls(state)[0] : undefined;
-  const waitingForReply = tasks.some(task => task.interrupts?.length) || call?.name === 'ask_user_clarification';
-  const args = call?.name === 'ask_user_clarification' ? call.args : undefined;
-  return { waitingForReply, question: typeof args?.question === 'string' ? args.question : null,
-    options: normalizeClarificationOptions(args?.options ?? args?.optionsJson) };
-}
-
-/** A revision covers evidence and excitation settings as well as the physical model. */
-export function inputReviewRevision(state: Partial<AgentState>): string {
-  return contentHash({ model: state.model, revision: state.modelRevision, pending: state.modelPending,
-    evidence: state.inputEvidence, workflow: state.contextSeismicWorkflow, policy: state.runPolicy,
-    usage: state.runUsage, analysisRequest: state.analysisRequest, currentRun: state.analysisResult?.runId,
-    runs: Object.keys(state.analysisRuns ?? {}), quantities: state.resultQuantities, messages: state.messages?.map(message => message.id) });
-}
-
-/** Ownership comes only from this checkpoint and its existing ledger, never a global job scan. */
-function conversationJobReferences(state: AgentState, usage: RunUsage | null) {
-  const references = new Map<string, { operation: string; runId?: string; inHistory: boolean }>();
-  const runs = { ...(state.analysisRuns ?? {}) };
-  if (typeof state.analysisResult?.runId === 'string') runs[state.analysisResult.runId] = state.analysisResult;
-  for (const run of Object.values(runs)) {
-    if (typeof run.requestId !== 'string' || typeof run.runId !== 'string') continue;
-    const parameters = isRecord(run.meta) && isRecord(run.meta.requestParameters) ? run.meta.requestParameters : {};
-    references.set(run.requestId, { operation: isRecord(parameters.design) && parameters.design.requested === true ? 'native-design' : 'analysis',
-      runId: run.runId, inHistory: true });
-  }
-  for (const event of usage?.events ?? []) {
-    if (event.kind !== 'analysis_request' || typeof event.requestId !== 'string') continue;
-    references.set(event.requestId, { ...references.get(event.requestId), operation: String(event.operation),
-      inHistory: references.get(event.requestId)?.inHistory ?? false });
-  }
-  return references;
-}
-
-type HumanMessageContentBlock =
-  | { type: 'text'; text: string };
-
-interface InitialHumanMessagePayload {
-  content: string | HumanMessageContentBlock[];
-  canonicalMessage: string;
-  attachmentAnalyses: AttachmentAnalysis[];
-}
-
-interface InitialHumanMessageOptions {
-  summarizeImages?: boolean;
-  signal?: AbortSignal;
-}
-
-export interface AttachmentAnalysis {
-  attachment: AttachmentInfo;
-  analysis: Record<string, unknown>;
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 export function getLangGraphRecursionLimit(maxToolCallsPerTurn: number | undefined): number {
   const toolLimit = typeof maxToolCallsPerTurn === 'number' && Number.isFinite(maxToolCallsPerTurn) && maxToolCallsPerTurn > 0
     ? maxToolCallsPerTurn
     : DEFAULT_MAX_TOOL_CALLS_PER_TURN;
   return Math.max(50, toolLimit * 2 + 10);
 }
-
-function buildAttachmentBlock(attachments: AttachmentInfo[] | undefined, locale: AppLocale): string {
-  if (!attachments || attachments.length === 0) return '';
-  const header = locale === 'zh' ? '[已上传文件]' : '[Attached files]';
-  const instruction = locale === 'zh'
-    ? '下面会提供附件的解析内容。请基于已解析文本、DXF 几何或视觉摘要识别结构类型、尺寸、荷载和边界条件；如果关键信息缺失，请追问。'
-    : 'Parsed attachment content follows. Use parsed text, DXF geometry, or vision summaries to identify structural type, dimensions, loads, and boundary conditions; ask for clarification when critical information is missing.';
-  const lines = attachments.map(a => `- ${a.originalName} (${a.relPath})`);
-  return `\n\n${header}\n${instruction}\n${lines.join('\n')}`;
-}
-
-function sanitizeAttachmentNote(note: string): string {
-  return note.replace(/\bbase64DataUri\b/g, 'image binary data');
-}
-
-function compactAttachmentAnalysis(analysis: Record<string, unknown>): Record<string, unknown> {
-  const rest = { ...analysis };
-  delete rest.base64DataUri;
-  if (rest.type === 'image') {
-    rest.note = typeof rest.note === 'string'
-      ? sanitizeAttachmentNote(rest.note)
-      : 'Image binary is parsed only by the configured vision model; the main agent receives text summaries only.';
-  }
-  return rest;
-}
-
-function compactAttachmentAnalysisMetadata(analysis: Record<string, unknown>): Record<string, unknown> {
-  const rest = compactAttachmentAnalysis(analysis);
-  delete rest.rows;
-  delete rest.content;
-  delete rest.text;
-  delete rest.csv;
-  delete rest.at2;
-  delete rest.data;
-  delete rest.sheets;
-  return rest;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
-}
-
-function attachmentSummary(attachment: AttachmentInfo): Record<string, unknown> {
-  return {
-    fileId: attachment.fileId,
-    originalName: attachment.originalName,
-    relPath: attachment.relPath,
-    ...(attachment.mimeType ? { mimeType: attachment.mimeType } : {}),
-  };
-}
-
-function analysisRowsRecord(
-  attachment: AttachmentInfo,
-  analysis: Record<string, unknown>,
-  idSuffix?: string,
-): Record<string, unknown> | null {
-  const rows = analysis.rows;
-  if (!Array.isArray(rows) || rows.length === 0) {
-    return null;
-  }
-  const sheetLabel = idSuffix ? `:${idSuffix}` : '';
-  return {
-    id: `${attachment.fileId || attachment.relPath || attachment.originalName}${sheetLabel}`,
-    name: idSuffix ? `${attachment.originalName}:${idSuffix}` : attachment.originalName,
-    recordType: 'actual',
-    source: 'uploaded_attachment',
-    fileId: attachment.fileId,
-    relPath: attachment.relPath,
-    ...(idSuffix ? { sheetName: idSuffix } : {}),
-    ...(analysis.fileReference ? { fileReference: analysis.fileReference }
-      : { ...(Array.isArray(analysis.headers) ? { headers: analysis.headers } : {}), rows }),
-    fileAnalysis: compactAttachmentAnalysisMetadata(analysis),
-  };
-}
-
-function finiteCellNumber(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (typeof value === 'string' && value.trim()) {
-    const parsed = Number(value.trim());
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-}
-
-function numericRows(rows: unknown): number[][] {
-  if (!Array.isArray(rows)) return [];
-  return rows
-    .map((row) => Array.isArray(row)
-      ? row.every(cell => finiteCellNumber(cell) !== null) ? row.map(cell => finiteCellNumber(cell)!) : []
-      : [])
-    .filter((row) => row.length > 0);
-}
-
-function normalizeHeader(value: unknown): string {
-  return String(value ?? '').trim().toLowerCase();
-}
-
-function isNumericHeaderRow(headers: unknown): boolean {
-  return Array.isArray(headers)
-    && headers.length > 0
-    && headers.every((header) => finiteCellNumber(header) !== null);
-}
-
-function hasMotionHeaders(headers: unknown): boolean {
-  if (!Array.isArray(headers)) return false;
-  const normalized = headers.map(normalizeHeader);
-  const hasTime = normalized.some((header) =>
-    ['time', 't', 'sec', 'second', 'seconds'].includes(header)
-    || header.includes('time')
-    || header.includes('(s)'));
-  const hasAcceleration = normalized.some((header) =>
-    ['acc', 'ag', 'a', 'gal', 'g'].includes(header)
-    || header.includes('accel')
-    || header.includes('acceler')
-    || header.includes('cm/s')
-    || header.includes('m/s'));
-  return hasTime && hasAcceleration;
-}
-
-function hasClearlyNonMotionHeaders(headers: unknown): boolean {
-  if (!Array.isArray(headers)) return false;
-  const normalized = headers.map(normalizeHeader).join(' ');
-  return [
-    'story',
-    'floor',
-    'load',
-    'force',
-    'node',
-    'element',
-    'member',
-    'beam',
-    'column',
-    'region',
-    'intensity',
-    'designgroup',
-    'design group',
-    'sitecategory',
-    'site category',
-    'alphamax',
-    'alpha max',
-    'characteristicperiod',
-  ].some((token) => normalized.includes(token));
-}
-
-function hasLikelyGroundMotionTimeColumn(rows: number[][]): boolean {
-  const timeValues = rows
-    .filter((row) => row.length >= 2)
-    .map((row) => row[0]);
-  if (timeValues.length < 3) return false;
-  const deltas = timeValues.slice(1).map((value, index) => value - timeValues[index]);
-  return deltas.every((delta) => delta > 0 && delta <= 0.5);
-}
-
-function looksLikeGroundMotionRows(analysis: Record<string, unknown>): boolean {
-  const rows = numericRows(analysis.rows);
-  if (rows.length < 3) return false;
-  if (hasMotionHeaders(analysis.headers)) return rows.some((row) => row.length >= 2);
-  if (hasClearlyNonMotionHeaders(analysis.headers)) return false;
-  if (!isNumericHeaderRow(analysis.headers)) return false;
-  if (rows.every((row) => row.length === 1)) return rows.length >= 8;
-  return hasLikelyGroundMotionTimeColumn(rows);
-}
-
-function looksLikeGroundMotionText(analysis: Record<string, unknown>): boolean {
-  const ext = typeof analysis.ext === 'string' ? analysis.ext.toLowerCase() : '';
-  const content = typeof analysis.content === 'string' ? analysis.content : '';
-  if (!content.trim()) return false;
-  if (ext === '.at2') return true;
-  if (ext !== '.txt') return false;
-  const lines = content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  const numericLines = lines.filter((line) => {
-    const values = line.split(/[\s,;]+/).map(finiteCellNumber).filter((value) => value !== null);
-    return values.length > 0 && values.length === line.split(/[\s,;]+/).filter(Boolean).length;
-  });
-  return numericLines.length >= 4 && numericLines.length >= Math.ceil(lines.length * 0.5);
-}
-
-function looksLikeGroundMotionAttachmentAnalysis(analysis: Record<string, unknown>): boolean {
-  const type = typeof analysis.type === 'string' ? analysis.type : '';
-  if (type === 'csv') return looksLikeGroundMotionRows(analysis);
-  if (type === 'text') return looksLikeGroundMotionText(analysis);
-  if (type === 'excel' && isRecord(analysis.sheets)) {
-    return Object.values(analysis.sheets).some((sheetValue) =>
-      isRecord(sheetValue) && looksLikeGroundMotionRows(sheetValue));
-  }
-  return false;
-}
-
-function groundMotionAttachmentAnalyses(
-  attachmentAnalyses: AttachmentAnalysis[],
-): AttachmentAnalysis[] {
-  return attachmentAnalyses.filter(({ analysis }) => looksLikeGroundMotionAttachmentAnalysis(analysis));
-}
-
-function groundMotionRecordsFromAttachmentAnalyses(attachmentAnalyses: AttachmentAnalysis[]): Record<string, unknown>[] {
-  const records: Record<string, unknown>[] = [];
-  for (const { attachment, analysis } of attachmentAnalyses) {
-    const type = typeof analysis.type === 'string' ? analysis.type : '';
-    if (type === 'csv') {
-      const record = analysisRowsRecord(attachment, analysis);
-      if (record) records.push(record);
-      continue;
-    }
-    if (type === 'text') {
-      const content = typeof analysis.content === 'string' ? analysis.content : '';
-      if (content.trim()) {
-        records.push({
-          id: attachment.fileId || attachment.relPath || attachment.originalName,
-          name: attachment.originalName,
-          recordType: 'actual',
-          source: 'uploaded_attachment',
-          fileId: attachment.fileId,
-          relPath: attachment.relPath,
-          ...(analysis.fileReference ? { fileReference: analysis.fileReference } : { content }),
-          fileAnalysis: compactAttachmentAnalysisMetadata(analysis),
-        });
-      }
-      continue;
-    }
-    if (type === 'excel' && isRecord(analysis.sheets)) {
-      for (const [sheetName, sheetValue] of Object.entries(analysis.sheets)) {
-        if (!isRecord(sheetValue)) continue;
-        if (!looksLikeGroundMotionRows(sheetValue)) continue;
-        const record = analysisRowsRecord(attachment, { ...sheetValue, fileReference: analysis.fileReference }, sheetName);
-        if (record) {
-          records.push({
-            ...record,
-            fileAnalysis: {
-              ...compactAttachmentAnalysisMetadata(sheetValue),
-              workbook: compactAttachmentAnalysisMetadata(analysis),
-            },
-          });
-        }
-      }
-    }
-  }
-  return records;
-}
-
-function uploadedGroundMotionWorkflowFromAttachmentAnalyses(
-  attachmentAnalyses: AttachmentAnalysis[],
-): Record<string, unknown> | null {
-  const groundMotionAnalyses = groundMotionAttachmentAnalyses(attachmentAnalyses);
-  const records = groundMotionRecordsFromAttachmentAnalyses(groundMotionAnalyses);
-  if (records.length === 0) {
-    return null;
-  }
-  return {
-    groundMotionSet: {
-      source: 'uploaded',
-      uploadedAttachments: groundMotionAnalyses.map(({ attachment }) => attachmentSummary(attachment)),
-      records,
-    },
-  };
-}
-
-export function enrichUploadedGroundMotionWorkflow(
-  seismicWorkflow: Record<string, unknown>,
-  attachmentAnalyses: AttachmentAnalysis[],
-): Record<string, unknown> {
-  const groundMotionSet = isRecord(seismicWorkflow.groundMotionSet)
-    ? seismicWorkflow.groundMotionSet
-    : undefined;
-  const source = typeof groundMotionSet?.source === 'string'
-    ? groundMotionSet.source.trim().toLowerCase()
-    : '';
-  if (source !== 'uploaded' || !groundMotionSet) {
-    return seismicWorkflow;
-  }
-
-  const groundMotionAnalyses = groundMotionAttachmentAnalyses(attachmentAnalyses);
-  const uploadedAttachments = groundMotionAnalyses.map(({ attachment }) => attachmentSummary(attachment));
-  const existingRecords = Array.isArray(groundMotionSet.records) ? groundMotionSet.records : undefined;
-  const fullRecords = groundMotionRecordsFromAttachmentAnalyses(groundMotionAnalyses);
-  const generatedRecords = existingRecords && existingRecords.length > 0
-    ? existingRecords.map(record => {
-      if (!isRecord(record)) return record;
-      const matches = fullRecords.filter(full => record.id === full.id
-        || ((record.fileId !== undefined && record.fileId === full.fileId
-          || record.relPath !== undefined && record.relPath === full.relPath) && record.sheetName === full.sheetName));
-      if (matches.length !== 1 || !matches[0]!.fileReference) return record;
-      // Keep explicit sampling settings; samples always come from the complete source.
-      const result = { ...record, ...matches[0], ...Object.fromEntries(Object.entries(record)
-        .filter(([key]) => ['unit', 'direction', 'component', 'axis', 'seismicDirection', 'dt', 'timeStep', 'time_step',
-          'timeUnit', 'timeColumn', 'accelerationColumn', 'accelColumn', 'valueColumn', 'recordType'].includes(key))) };
-      for (const key of ['values', 'accelerations', 'accel', 'rows', 'content', 'text', 'csv', 'at2', 'data']) delete result[key];
-      return result;
-    }) : fullRecords;
-
-  return {
-    ...seismicWorkflow,
-    groundMotionSet: {
-      ...groundMotionSet,
-      uploadedAttachments,
-      ...(generatedRecords.length > 0 ? { records: generatedRecords } : {}),
-    },
-  };
-}
-
-export function extractContextSeismicWorkflow(
-  context?: LangGraphRunInput['context'],
-  attachmentAnalyses: AttachmentAnalysis[] = [],
-): Record<string, unknown> | null {
-  const seismicWorkflow = context?.seismicWorkflow;
-  if (!isRecord(seismicWorkflow) || Object.keys(seismicWorkflow).length === 0) {
-    return uploadedGroundMotionWorkflowFromAttachmentAnalyses(attachmentAnalyses);
-  }
-  return enrichUploadedGroundMotionWorkflow(seismicWorkflow, attachmentAnalyses);
-}
-
-function attachmentAnalysisText(
-  attachment: AttachmentInfo,
-  analysis: Record<string, unknown>,
-  locale: AppLocale,
-): string {
-  const header = locale === 'zh'
-    ? `[附件解析: ${attachment.originalName}]`
-    : `[Attachment analysis: ${attachment.originalName}]`;
-  return `${header}\n${JSON.stringify(compactAttachmentAnalysis(analysis), null, 2)}`;
-}
-
-function attachmentVisionSummaryText(
-  attachment: AttachmentInfo,
-  summary: string,
-  locale: AppLocale,
-): string {
-  const header = locale === 'zh'
-    ? `[附件视觉摘要: ${attachment.originalName}]`
-    : `[Attachment vision summary: ${attachment.originalName}]`;
-  return `${header}\n${summary}`;
-}
-
-function attachmentVisionUnavailableText(
-  attachment: AttachmentInfo,
-  locale: AppLocale,
-): string {
-  const header = locale === 'zh'
-    ? `[附件视觉摘要不可用: ${attachment.originalName}]`
-    : `[Attachment vision summary unavailable: ${attachment.originalName}]`;
-  const body = locale === 'zh'
-    ? '未配置独立 vision 模型或 vision 模型调用失败。不要假设图片中的尺寸、荷载或边界条件；如需继续分析，请向用户追问缺失信息。'
-    : 'No independent vision model is configured or the vision call failed. Do not assume dimensions, loads, or boundary conditions from this image; ask the user for missing information before analysis.';
-  return `${header}\n${body}`;
-}
-
-function toInitialHumanMessage(content: string | HumanMessageContentBlock[]): HumanMessage {
-  return Array.isArray(content)
-    ? new HumanMessage({ content })
-    : new HumanMessage(content);
-}
-
-function shouldKeepFullAttachmentAnalysis(
-  attachment: AttachmentInfo,
-  analysis: Record<string, unknown>,
-): boolean {
-  const name = `${attachment.originalName} ${attachment.relPath}`.toLowerCase();
-  const type = typeof analysis.type === 'string' ? analysis.type : '';
-  return type === 'excel' || (type === 'csv' || type === 'text')
-    && (
-      name.endsWith('.csv')
-      || name.endsWith('.tsv')
-      || name.endsWith('.at2')
-      || name.endsWith('.txt')
-    );
-}
-
-export async function buildInitialHumanMessagePayload(
-  message: string,
-  attachments: AttachmentInfo[] | undefined,
-  locale: AppLocale,
-  workspaceRoot: string,
-  options: InitialHumanMessageOptions = {},
-): Promise<InitialHumanMessagePayload> {
-  const attachmentBlock = buildAttachmentBlock(attachments, locale);
-  if (!attachments || attachments.length === 0) {
-    return { content: message, canonicalMessage: message, attachmentAnalyses: [] };
-  }
-
-  const contentParts = [message + attachmentBlock];
-  const canonicalParts = [message + attachmentBlock];
-  const attachmentAnalyses: AttachmentAnalysis[] = [];
-
-  for (const attachment of attachments) {
-    const rawAnalysis = await analyzeUploadedFile(attachment.relPath, workspaceRoot, undefined, { includeImageData: true });
-    const analysis = options.summarizeImages && ['image', 'pdf'].includes(String(rawAnalysis.type))
-      ? await summarizeFileImages(rawAnalysis, attachment.relPath, locale, message, options.signal) : rawAnalysis;
-    const runtimeAnalysis = shouldKeepFullAttachmentAnalysis(attachment, analysis)
-      ? await analyzeUploadedFile(attachment.relPath, workspaceRoot, undefined, { mode: 'full' }) : analysis;
-    runtimeAnalysis.inputEvidence = mergeInputEvidence(collectVisionEvidence(analysis), collectVisionEvidence(runtimeAnalysis));
-    attachmentAnalyses.push({ attachment, analysis: runtimeAnalysis });
-    const analysisText = attachmentAnalysisText(attachment, analysis, locale);
-    canonicalParts.push(analysisText);
-    contentParts.push(analysisText);
-    const images = analysis.type === 'image' ? [analysis] : analysis.type === 'pdf' && Array.isArray(analysis.pages)
-      ? analysis.pages.filter(isRecord).filter(page => page.requiresVision) : [];
-    if (options.summarizeImages) for (const image of images) {
-      const imageAttachment = { ...attachment, originalName: image.pageNumber
-        ? `${attachment.originalName} · ${String(image.pageNumber)}` : attachment.originalName };
-      const text = typeof image.visionSummary === 'string'
-        ? attachmentVisionSummaryText(imageAttachment, image.visionSummary, locale)
-        : attachmentVisionUnavailableText(imageAttachment, locale);
-      canonicalParts.push(text);
-      contentParts.push(text);
-    }
-  }
-
-  return {
-    content: contentParts.join('\n\n'),
-    canonicalMessage: canonicalParts.join('\n\n'),
-    attachmentAnalyses,
-  };
-}
-
-export async function buildInitialHumanMessageContent(
-  message: string,
-  attachments: AttachmentInfo[] | undefined,
-  locale: AppLocale,
-  workspaceRoot: string,
-): Promise<string | HumanMessageContentBlock[]> {
-  return (await buildInitialHumanMessagePayload(message, attachments, locale, workspaceRoot)).content;
-}
-
-// ---------------------------------------------------------------------------
-// Singleton factory
-// ---------------------------------------------------------------------------
 
 let singleton: LangGraphAgentService | undefined;
 
@@ -627,10 +83,6 @@ export function getAgentService(): LangGraphAgentService {
   }
   return singleton;
 }
-
-// ---------------------------------------------------------------------------
-// Service class
-// ---------------------------------------------------------------------------
 
 export class LangGraphAgentService {
   private readonly sessionLock = new SessionLock();
@@ -1112,21 +564,7 @@ export class LangGraphAgentService {
     const execution = new AnalysisExecutionService();
     let allowed: string[] = [];
     try { allowed = await this.currentJobTools(state); } catch { /* Revoked/removed scope cannot authorize a job action. */ }
-    return Promise.all([...conversationJobReferences(state, usage)].map(async ([requestId, reference]) => {
-      let receipt: Record<string, unknown>;
-      try { receipt = await execution.getRequest(requestId); } catch { receipt = { status: 'outcome_unknown' }; }
-      const tool = reference.operation === 'analysis' ? 'run_analysis' : reference.operation === 'native-design' ? 'run_code_check' : null;
-      const permitted = Boolean(tool && allowed.includes(tool));
-      const matched = !reference.runId || reference.runId === receipt.runId;
-      return { requestId, kind: reference.operation, status: String(receipt.status),
-        runId: typeof receipt.runId === 'string' ? receipt.runId : null,
-        stateHash: typeof receipt.stateHash === 'string' ? receipt.stateHash : undefined,
-        ownerAlive: typeof receipt.ownerAlive === 'boolean' ? receipt.ownerAlive : null, inHistory: reference.inHistory,
-        cancellationAvailable: matched && permitted && receipt.status === 'running' && receipt.cancellationAvailable === true,
-        recoveryAvailable: matched && permitted && allowed.includes('query_results') && !reference.inHistory
-          && typeof receipt.runId === 'string' && typeof receipt.stateHash === 'string'
-          && (receipt.status === 'completed' || receipt.status === 'outcome_unknown' && receipt.ownerAlive === false) };
-    }));
+    return conversationJobSnapshots(execution, state, usage, allowed);
   }
 
   /** Cancellation deliberately bypasses the long-running chat lock; the service owns the controller. */
@@ -1176,37 +614,10 @@ export class LangGraphAgentService {
       const stateSnapshot = await graph.getState(config);
       const state = stateSnapshot.values as AgentState;
       const clarification = clarificationState(state, stateSnapshot.tasks);
-      const policy = state.runPolicy ?? null;
-      const usage = policy && state.runUsage ? readRunUsage(policy, state.runUsage, path.join(runtimeBaseDir, 'run-records')) : null;
+      const usage = sessionRunUsage(state);
       const jobs = await this.conversationJobs(state, usage);
-      const reason = currentAnalysisError(state);
-      const runId = typeof state.analysisResult?.runId === 'string' ? state.analysisResult.runId : null;
-      const reportMeta = isRecord(state.report?.meta) ? state.report.meta : isRecord(state.report?.json) && isRecord(state.report.json.meta) ? state.report.json.meta : {};
-      const reportCurrent = Boolean(state.report && !reason && runId && reportMeta.runId === runId);
-      const runtime: ConversationRuntimeSnapshot = { conversationId, busy: this.sessionLock.isBusy(conversationId), ...clarification,
-        modelRevision: state.modelRevision ?? 0, modelPending: state.modelPending ?? false, policy,
-        usage: usage ? { runId: usage.runId, policyHash: usage.policyHash, toolCalls: usage.toolCalls,
-          llmCalls: usage.llmCalls, recoveries: usage.recoveries } : null,
-        analysis: { runId, resultKey: typeof state.analysisResult?.selectedResultKey === 'string' ? state.analysisResult.selectedResultKey : null,
-          current: !reason, reason: reason ?? null }, report: { current: reportCurrent, runId: reportCurrent ? runId : null }, jobs };
-
-      return {
-        snapshot: {
-          draft: state.draftState || null,
-          requestScope: state.requestScope ?? null,
-          interaction: {
-            state: clarification.waitingForReply ? 'waiting' : 'ready',
-            stage: 'model',
-            turnId: conversationId,
-          },
-          runtime,
-          model: state.model ?? undefined,
-          modelRevision: state.modelRevision ?? 0,
-          modelPending: state.modelPending ?? false,
-          updatedAt: new Date().toISOString(),
-        },
-        state,
-      };
+      return buildConversationSessionSnapshot({ conversationId, state, clarification, usage, jobs,
+        busy: this.sessionLock.isBusy(conversationId) });
     } catch (error) {
       logger.debug({ conversationId, error }, 'Failed to load session snapshot');
       return undefined;
@@ -1230,22 +641,7 @@ export class LangGraphAgentService {
     applyToolsNodeSessionContext(configurable, { ...state, selectedSkillIds: state.selectedSkillIds ?? [] });
     const allowed = resolveActiveToolIds({ requestedEnabledToolIds: configurable.enabledToolIds,
       requestedDisabledToolIds: configurable.disabledToolIds, allowShell: false }).activeToolIds;
-    const inputIssues = unresolvedInputEvidence(state.inputEvidence);
-    if (state.model && !inputIssues.length) {
-      try { assertInputEvidenceMatchesModel(state.model, state.inputEvidence); }
-      catch (error) { inputIssues.push({ field: 'model', reason: error instanceof Error ? error.message : String(error) }); }
-    }
-    return { conversationId, revisionToken: inputReviewRevision(state), model: state.model ?? null,
-      modelRevision: state.modelRevision ?? 0, modelPending: state.modelPending ?? false,
-      inputEvidence: state.inputEvidence ?? [], activeEvidenceIds: activeInputEvidence(state.inputEvidence).map(item => item.id),
-      inputIssues,
-      groundMotionRecords: isRecord(state.contextSeismicWorkflow?.groundMotionSet)
-        ? state.contextSeismicWorkflow.groundMotionSet.records ?? [] : [],
-      allowedTools: INPUT_REVIEW_TOOLS.filter(id => allowed.includes(id)),
-      runUsage: state.runUsage ?? null, waitingForReply: snapshot.tasks.some(task => task.interrupts?.length)
-        || Boolean(state.messages?.length && pendingToolCalls(state)[0]?.name === 'ask_user_clarification'),
-      analysisCurrent: !currentAnalysisError(state), reportCurrent: Boolean(state.report),
-    };
+    return buildInputReview(conversationId, state, snapshot.tasks, allowed);
   }
 
   /** Catalog only: archived numerical data are queried through the same permitted tool path. */
@@ -1258,14 +654,7 @@ export class LangGraphAgentService {
     applyToolsNodeSessionContext(configurable, state);
     const allowed = resolveActiveToolIds({ requestedEnabledToolIds: configurable.enabledToolIds,
       requestedDisabledToolIds: configurable.disabledToolIds, allowShell: false }).activeToolIds;
-    const runs = { ...(state.analysisRuns ?? {}) };
-    if (typeof state.analysisResult?.runId === 'string') runs[state.analysisResult.runId] = state.analysisResult;
-    return { conversationId, revisionToken: inputReviewRevision(state), busy: this.sessionLock.isBusy(conversationId),
-      currentRunId: !currentAnalysisError(state) ? state.analysisResult?.runId ?? null : null,
-      allowedTools: policy ? RESULT_REVIEW_TOOLS.filter(id => allowed.includes(id)) : [],
-      nativeDesign: nativeDesignReview(state, policy ? allowed : []),
-      runs: Object.values(runs).map(run => resultCatalogEntry(run,
-        run.runId === state.analysisResult?.runId && !currentAnalysisError(state))) };
+    return buildResultReview(conversationId, state, allowed, this.sessionLock.isBusy(conversationId));
   }
 
   async invokeResultReviewTool(conversationId: string, input: {
@@ -1441,3 +830,8 @@ export class LangGraphAgentService {
     };
   }
 }
+
+export type { AttachmentInfo, LangGraphRunInput, LangGraphRunResult, AttachmentAnalysis } from './service-types.js';
+export { INPUT_REVIEW_TOOLS, type InputReviewTool, RESULT_REVIEW_TOOLS, type ResultReviewTool, inputReviewRevision } from './session/snapshot.js';
+export { enrichUploadedGroundMotionWorkflow, extractContextSeismicWorkflow } from './attachments/ground-motion.js';
+export { buildInitialHumanMessagePayload, buildInitialHumanMessageContent } from './attachments/initial-message.js';
