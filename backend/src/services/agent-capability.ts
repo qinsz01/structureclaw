@@ -3,9 +3,7 @@ import { AgentSkillCatalogService } from './agent-skill-catalog.js';
 import { AgentSkillRuntime } from '../agent-runtime/index.js';
 import { normalizeMaterialFamilies as normalizeDomainMaterialFamilies } from '../agent-skills/material/entry.js';
 import { ALL_SKILL_DOMAINS } from '../shared/types/agent.js';
-import { listAgentToolDefinitions } from '../agent-langgraph/tool-registry.js';
 import type { AgentAnalysisType, MaterialFamily, SkillDomain, SkillManifest, SkillRuntimeStatus } from '../shared/types/agent.js';
-import type { AgentToolDefinition } from '../agent-langgraph/tool-registry.js';
 import type { BuiltinSkillCatalogEntry } from './agent-skill-catalog.js';
 
 const ACTIVE_RUNTIME_DOMAINS = new Set<SkillDomain>([
@@ -106,7 +104,17 @@ function uniqueStrings(values: readonly string[]): string[] {
   return Array.from(new Set(values.filter((value) => typeof value === 'string' && value.trim().length > 0)));
 }
 
-function toFrontendToolCategory(tool: AgentToolDefinition): string {
+/** Tool metadata the capability matrix needs; supplied by the agent host (agent-langgraph tool registry). */
+export interface CapabilityToolDefinition {
+  id: string;
+  category: string;
+  risk: string;
+  defaultEnabled: boolean;
+  displayName?: { zh: string; en: string };
+  description?: { zh: string; en: string };
+}
+
+function toFrontendToolCategory(tool: CapabilityToolDefinition): string {
   if (tool.id === 'run_analysis') {
     return 'analysis';
   }
@@ -212,7 +220,7 @@ function buildCatalogEntryFromManifest(
   };
 }
 
-function toCapabilityTool(tool: AgentToolDefinition): CapabilityTool {
+function toCapabilityTool(tool: CapabilityToolDefinition): CapabilityTool {
   const category = toFrontendToolCategory(tool);
   return {
     id: tool.id,
@@ -298,7 +306,7 @@ export class AgentCapabilityService {
         : new AnalysisEngineCatalogService());
   }
 
-  async getCapabilityMatrix(options?: { analysisType?: CapabilityAnalysisType }) {
+  async getCapabilityMatrix(options?: { analysisType?: CapabilityAnalysisType; toolDefinitions?: readonly CapabilityToolDefinition[] }) {
     const runtimeSkills = this.skillRuntime.listSkills();
     const staticCatalogEntries = await this.skillCatalog.listBuiltinSkills();
     const manifests = await this.skillRuntime.listSkillManifests();
@@ -328,7 +336,7 @@ export class AgentCapabilityService {
     const manifestByCanonicalId = new Map<string, SkillManifest>(
       manifests.map((manifest) => [resolveCanonicalSkillId(manifest.id), manifest]),
     );
-    const toolDefinitions = listAgentToolDefinitions();
+    const toolDefinitions = options?.toolDefinitions ?? [];
     const defaultToolIds = toolDefinitions
       .filter((tool) => tool.defaultEnabled)
       .map((tool) => tool.id)

@@ -3,6 +3,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { getAgentService, LangGraphAgentService } from '../agent-langgraph/index.js';
 import { AgentCapabilityService } from '../services/agent-capability.js';
+import { listAgentToolDefinitions } from '../agent-langgraph/tool-registry.js';
 import { AgentSkillHubService } from '../services/agent-skillhub.js';
 import type { SkillDomain } from '../shared/types/agent.js';
 import { ConversationService } from '../services/conversation.js';
@@ -177,7 +178,7 @@ export async function agentRoutes(fastify: FastifyInstance) {
     },
   }, async (request: FastifyRequest<{ Querystring: z.infer<typeof capabilityMatrixQuerySchema> }>, reply: FastifyReply) => {
     const query = capabilityMatrixQuerySchema.parse(request.query);
-    const matrix = await capabilityService.getCapabilityMatrix({ analysisType: query.analysisType });
+    const matrix = await capabilityService.getCapabilityMatrix({ analysisType: query.analysisType, toolDefinitions: listAgentToolDefinitions() });
     let session;
     if (query.conversationId) {
       // Follow the same conversation lookup as GET /chat/conversation/:id.
