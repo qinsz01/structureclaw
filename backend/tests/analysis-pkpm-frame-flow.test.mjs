@@ -760,7 +760,7 @@ describe('PKPM frame analysis flow', () => {
     const conflict = await normalizeEngineeringModel(legacy, protocol).catch(error => error);
     expect(conflict).toBeInstanceOf(Error);
     expect(JSON.stringify(conflict.detail)).toContain('G conflicts');
-  });
+  }, 20_000); // Three protocol runs and two Python entry probes include process startup on Windows.
 
   test('unknown physical section properties still fail before native execution', () => {
     const source = buildCanonicalRcModel();
