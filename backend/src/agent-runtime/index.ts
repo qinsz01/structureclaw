@@ -2,7 +2,7 @@ import { prepareEngineeringReport, finishEngineeringReport } from '../services/e
 import { computeDraftMissing } from './draft-readiness.js';
 import { assertResolvedInput } from '../engineering/input-evidence.js';
 import { currentRunPolicy, requestRecovery, recordRunEvent } from '../runtime/run-context.js';
-import type { AppLocale } from '../services/locale.js';
+import type { AppLocale } from '../shared/locale.js';
 import type { LlmTokenUsage, StructureClawChatModel } from '../utils/llm.js';
 import {
   buildCodeCheckInput,

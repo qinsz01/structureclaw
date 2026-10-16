@@ -1,4 +1,4 @@
-import type { AppLocale } from '../../../services/locale.js';
+import type { AppLocale } from '../../../shared/locale.js';
 
 const STRUCTURE_MODEL_V2_TEMPLATE = JSON.stringify({
   schema_version: '2.2.0',

@@ -1,5 +1,5 @@
 import { AIMessage, type BaseMessage } from '@langchain/core/messages';
-import type { AppLocale } from '../services/locale.js';
+import type { AppLocale } from '../shared/locale.js';
 
 const DEFAULT_CONTEXT_COMPACT_CHAR_LIMIT = 60000;
 const DEFAULT_COMPACT_SUMMARY_CHAR_LIMIT = 12000;

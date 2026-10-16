@@ -27,7 +27,7 @@ import {
   STRUCTURAL_COORDINATE_SEMANTICS,
   stampDraftSemantics,
 } from './coordinate-semantics.js';
-import type { AppLocale } from '../services/locale.js';
+import type { AppLocale } from '../shared/locale.js';
 import type { DraftExtraction, DraftFloorLoad, DraftIssue, DraftState, InferredModelType } from './types.js';
 
 function normalizeSkillState(value: unknown): Record<string, unknown> | undefined {

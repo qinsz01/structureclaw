@@ -5,7 +5,7 @@ import {
   STRUCTURAL_COORDINATE_CONTRACT_VERSION,
   STRUCTURAL_COORDINATE_SEMANTICS,
 } from '../agent-runtime/coordinate-semantics.js';
-import { resolveLocale, type AppLocale } from './locale.js';
+import { resolveLocale, type AppLocale } from '../shared/locale.js';
 
 /**
  * Conversation snapshots (latestResult, modelSnapshot, resultSnapshot) are

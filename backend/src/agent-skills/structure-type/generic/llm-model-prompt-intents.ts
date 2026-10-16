@@ -1,4 +1,4 @@
-import type { AppLocale } from '../../../services/locale.js';
+import type { AppLocale } from '../../../shared/locale.js';
 import { getCommonConstraints } from './llm-model-prompt-fragments.js';
 import { modelContract, promptContract } from '../../../engineering/draft-contract.js';
 

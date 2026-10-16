@@ -1,4 +1,4 @@
-import type { AppLocale } from '../services/locale.js';
+import type { AppLocale } from '../shared/locale.js';
 import { currentRunPolicy } from '../runtime/run-context.js';
 import { llmContentText } from '../utils/llm-content.js';
 import {

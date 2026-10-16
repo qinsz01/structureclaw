@@ -1,4 +1,4 @@
-import type { AppLocale } from '../services/locale.js';
+import type { AppLocale } from '../shared/locale.js';
 import { listStructureModelingProviders } from '../agent-skills/structure-type/registry.js';
 import { AgentSkillLoader } from './loader.js';
 import { buildUnknownStructuralType, detectUnsupportedStructuralTypeByRules } from './fallback.js';

@@ -40,6 +40,7 @@ import { compactMessagesForContext, estimateMessagesCharLength } from './context
 import { repairToolMessageProtocol } from './message-protocol.js';
 import { withRunContext, snapshotRunUsage } from '../runtime/run-context.js';
 import { codeCheckDeliveryNotice, compactCodeCheckFeedback } from '../engineering/code-checks.js';
+import { DEFAULT_MAX_TOOL_CALLS_PER_TURN } from '../runtime/limits.js';
 
 function getAgentLogger(config: LangGraphRunnableConfig) {
   return getLogger(config.configurable as Partial<AgentConfigurable> | undefined);
@@ -82,7 +83,7 @@ export function applyToolsNodeSessionContext(
 // Max ReAct iterations guard
 // ---------------------------------------------------------------------------
 
-export const DEFAULT_MAX_TOOL_CALLS_PER_TURN = 200;
+export { DEFAULT_MAX_TOOL_CALLS_PER_TURN };
 
 function getMessageType(message: BaseMessage): string | null {
   return typeof (message as any)._getType === 'function'

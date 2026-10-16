@@ -12,7 +12,7 @@ import type {
   AgentExecutionPolicy,
   ProviderBindingState,
 } from '../agent-runtime/types.js';
-import type { AppLocale } from '../services/locale.js';
+import type { AppLocale } from '../shared/locale.js';
 import type { AnalysisRequestBinding, ModelTransaction } from '../engineering/model-state.js';
 import { mergeInputEvidence } from '../engineering/input-evidence.js';
 import type { EffectiveRunPolicy } from '../runtime/run-policy.js';

@@ -1,7 +1,7 @@
 import { HumanMessage } from '@langchain/core/messages';
 import { createVisionChatModel } from '../utils/llm.js';
 import { logger } from '../utils/logger.js';
-import type { AppLocale } from '../services/locale.js';
+import type { AppLocale } from '../shared/locale.js';
 import type { AttachmentInfo } from './agent-service.js';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';

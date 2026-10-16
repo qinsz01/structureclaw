@@ -13,7 +13,7 @@ import { buildStructuralTypeMatch, resolveLegacyStructuralStage } from '../../..
 import { buildInteractionQuestions } from '../../../agent-runtime/fallback.js';
 import { buildDefaultReportNarrative } from '../../../agent-runtime/report-template.js';
 import { matchConservativeStructuralRoute } from '../../../agent-runtime/structural-routing.js';
-import type { AppLocale } from '../../../services/locale.js';
+import type { AppLocale } from '../../../shared/locale.js';
 import type {
   DraftExtraction,
   DraftState,

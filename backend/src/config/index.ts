@@ -3,6 +3,7 @@ import path from 'path';
 import process from 'process';
 import { fileURLToPath } from 'url';
 import { readSettingsFile, migrateLegacyLlmSettings } from './settings-file.js';
+import { DEFAULT_MAX_TOOL_CALLS_PER_TURN } from '../runtime/limits.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -73,7 +74,7 @@ const AGENT_DEFAULTS = {
   allowShell: false,
   allowedShellCommands: 'node,npm,python,python3,./sclaw,./sclaw_cn',
   shellTimeoutMs: 300000,
-  maxToolCallsPerTurn: 200,
+  maxToolCallsPerTurn: DEFAULT_MAX_TOOL_CALLS_PER_TURN,
 } as const;
 
 const PKPM_DEFAULTS = {

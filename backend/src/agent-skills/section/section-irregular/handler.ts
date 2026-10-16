@@ -10,7 +10,7 @@ import type {
   SkillReportNarrativeInput,
   StructuralTypeMatch,
 } from '../../../agent-runtime/types.js';
-import type { AppLocale } from '../../../services/locale.js';
+import type { AppLocale } from '../../../shared/locale.js';
 import { buildStructuralTypeMatch } from '../../../agent-runtime/plugin-helpers.js';
 import {
   buildQuestion,

@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { config, runtimeBaseDir } from '../config/index.js';
+import { DEFAULT_MAX_TOOL_CALLS_PER_TURN, MAX_TOOL_CALLS_PER_TURN_LIMIT } from '../runtime/limits.js';
 import {
   readSettingsFile,
   readSettingsFileForUpdate,
@@ -168,7 +169,7 @@ function buildSettingsResponse(): SettingsResponse {
     allowShell: false,
     allowedShellCommands: 'node,npm,python,python3,./sclaw,./sclaw_cn',
     shellTimeoutMs: 300000,
-    agentMaxToolCallsPerTurn: 200,
+    agentMaxToolCallsPerTurn: DEFAULT_MAX_TOOL_CALLS_PER_TURN,
     pkpmCyclePath: '',
     pkpmWorkDir: path.join(runtimeBaseDir, 'analysis', 'pkpm'),
     yjkInstallRoot: '',
@@ -300,7 +301,7 @@ const updateSettingsSchema = z.object({
     allowShell: z.boolean().optional(),
     allowedShellCommands: z.string().trim().optional(),
     shellTimeoutMs: z.number().int().min(1000).optional(),
-    maxToolCallsPerTurn: z.number().int().min(1).max(200).optional(),
+    maxToolCallsPerTurn: z.number().int().min(1).max(MAX_TOOL_CALLS_PER_TURN_LIMIT).optional(),
   }).optional(),
   pkpm: z.object({
     cyclePath: z.string().trim().optional(),

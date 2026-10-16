@@ -8,7 +8,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { runPolicyInputSchema, type RunPolicyInput } from '../runtime/run-policy.js';
+import { runPolicyInputSchema, type RunPolicyInput } from '../runtime/run-policy-schema.js';
 
 // ---------------------------------------------------------------------------
 // Types

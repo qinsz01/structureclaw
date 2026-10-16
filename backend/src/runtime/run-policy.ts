@@ -1,22 +1,7 @@
 import { createHash } from 'node:crypto';
-import { z } from 'zod';
-
-const ids = z.array(z.string().trim().min(1));
-const positive = z.number().int().positive();
-export const runPolicyInputSchema = z.object({
-  knowledge: z.enum(['enabled', 'disabled']).optional(),
-  builder: z.enum(['auto', 'llm']).optional(),
-  skillIds: ids.nullable().optional(),
-  routing: z.discriminatedUnion('mode', [
-    z.object({ mode: z.literal('auto') }).strict(),
-    z.object({ mode: z.literal('fixed'), skillId: z.string().trim().min(1) }).strict(),
-  ]).optional(),
-  repair: z.object({ enabled: z.boolean().optional(), maxRecoveriesPerTurn: z.number().int().nonnegative().optional() }).strict().optional(),
-  context: z.object({ history: z.enum(['full', 'current-turn']).optional(), memoryScopes: z.array(z.enum(['conversation', 'workspace'])).optional() }).strict().optional(),
-  tools: z.object({ enabledIds: ids.nullable().optional(), disabledIds: ids.optional() }).strict().optional(),
-  budgets: z.object({ maxToolCallsPerTurn: positive.optional(), maxLlmCallsPerTurn: positive.nullable().optional() }).strict().optional(),
-}).strict();
-export type RunPolicyInput = z.infer<typeof runPolicyInputSchema>;
+import { DEFAULT_MAX_TOOL_CALLS_PER_TURN } from './limits.js';
+import { runPolicyInputSchema, type RunPolicyInput } from './run-policy-schema.js';
+export { runPolicyInputSchema, type RunPolicyInput };
 export interface RunPolicy {
   knowledge: 'enabled' | 'disabled';
   builder: 'auto' | 'llm';
@@ -44,7 +29,7 @@ export const DEFAULT_RUN_POLICY: RunPolicy = {
   repair: { enabled: true, maxRecoveriesPerTurn: 2 },
   context: { history: 'full', memoryScopes: ['conversation', 'workspace'] },
   tools: { enabledIds: null, disabledIds: [] },
-  budgets: { maxToolCallsPerTurn: 200, maxLlmCallsPerTurn: null },
+  budgets: { maxToolCallsPerTurn: DEFAULT_MAX_TOOL_CALLS_PER_TURN, maxLlmCallsPerTurn: null },
 };
 function merge(base: RunPolicy, patch: RunPolicyInput): RunPolicy {
   return { ...base, ...patch, repair: { ...base.repair, ...patch.repair }, context: { ...base.context, ...patch.context },

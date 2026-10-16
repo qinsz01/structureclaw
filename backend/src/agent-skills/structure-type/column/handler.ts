@@ -11,7 +11,7 @@ import { buildInteractionQuestions } from '../../../agent-runtime/fallback.js';
 import { buildStructuralTypeMatch, resolveLegacyStructuralStage } from '../../../agent-runtime/plugin-helpers.js';
 import { buildDefaultReportNarrative } from '../../../agent-runtime/report-template.js';
 import { matchConservativeStructuralRoute } from '../../../agent-runtime/structural-routing.js';
-import type { AppLocale } from '../../../services/locale.js';
+import type { AppLocale } from '../../../shared/locale.js';
 import type {
   DraftExtraction,
   DraftState,

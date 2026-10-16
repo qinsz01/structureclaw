@@ -16,7 +16,7 @@ import {
   executeCodeCheckDomain,
 } from '../agent-skills/code-check/entry.js';
 import { resolveCodeCheckRule } from '../agent-skills/code-check/registry.js';
-import type { AppLocale } from './locale.js';
+import type { AppLocale } from '../shared/locale.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 import { createLocalStructureProtocolClient } from './structure-protocol-execution.js';
 import {

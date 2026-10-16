@@ -1,4 +1,4 @@
-import type { AppLocale } from '../../../services/locale.js';
+import type { AppLocale } from '../../../shared/locale.js';
 import type { DraftState } from '../../../agent-runtime/types.js';
 import { composePromptByIntent } from './llm-model-prompt-intents.js';
 

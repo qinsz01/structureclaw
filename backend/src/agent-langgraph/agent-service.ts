@@ -23,9 +23,10 @@ import { config, runtimeBaseDir } from '../config/index.js';
 import type { RunPolicyInput, EffectiveRunPolicy } from '../runtime/run-policy.js';
 import { resolveApplicationRunPolicy } from '../runtime/policy-settings.js';
 import { createRunContext, withRunContext, snapshotRunUsage, readRunUsage, recordRunEvent, type RunContext, type RunUsage } from '../runtime/run-context.js';
+import { DEFAULT_MAX_TOOL_CALLS_PER_TURN } from '../runtime/limits.js';
 import type { ConversationRuntimeSnapshot } from '../types/conversation-runtime.js';
 import type { AgentStreamChunk } from '../types/agent-stream.js';
-import type { AppLocale } from '../services/locale.js';
+import type { AppLocale } from '../shared/locale.js';
 import { AnalysisExecutionService, createLocalAnalysisEngineClient } from '../services/analysis-execution.js';
 import { createLocalCodeCheckClient } from '../services/code-check-execution.js';
 import { createLocalStructureProtocolClient } from '../services/structure-protocol-execution.js';
@@ -187,7 +188,7 @@ export interface AttachmentAnalysis {
 export function getLangGraphRecursionLimit(maxToolCallsPerTurn: number | undefined): number {
   const toolLimit = typeof maxToolCallsPerTurn === 'number' && Number.isFinite(maxToolCallsPerTurn) && maxToolCallsPerTurn > 0
     ? maxToolCallsPerTurn
-    : 200;
+    : DEFAULT_MAX_TOOL_CALLS_PER_TURN;
   return Math.max(50, toolLimit * 2 + 10);
 }
 
