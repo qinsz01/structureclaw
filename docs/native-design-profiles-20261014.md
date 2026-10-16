@@ -3,7 +3,7 @@
 This review covers StructureClaw's input, execution and result adaptation. It is
 not a new certification of PKPM/YJK, and it does not mean 300 benchmark tasks have
 been authored or executed. The [product runtime](product-runtime.md) describes the
-public interfaces; the [read-only review manifest](reproducibility/native-design-independent-review-20261014.json)
+public interfaces; the [read-only review manifest](archive/acceptance-records-2026-10/native-design-independent-review-20261014.json)
 binds the completed result files and native evidence by SHA-256.
 
 本记录独立复查本体的传参、原生执行、结果读回及交付口径，不重新认证商业求解器，也不把代表算例通过
@@ -44,7 +44,7 @@ stirrups (360 MPa), and both 100 mm spacings in native output. Attempts to selec
 HRB500 main bars initially did not change the effective native value. That failure
 remains archived. A later PKPM-specific repair reapplies official parameters after
 PMCAD and before SATWE preprocessing: run `114742-0b3da89e` reads back 435 MPa for
-both beam/column main bars. See [the subsequent HRB500 acceptance](reproducibility/pkpm-hrb500-20261014.json).
+both beam/column main bars. See [the subsequent HRB500 acceptance](archive/acceptance-records-2026-10/pkpm-hrb500-20261014.json).
 YJK's separate readback is independent evidence, not the basis for PKPM support.
 
 C35早期验收核对的是八项实际生效参数；主筋HRB500的早期未生效记录保留。后续PKPM专属修复在
@@ -54,7 +54,7 @@ YJK与PKPM分别验收，不能把一家软件的能力直接外推到另一家�
 YJK also verified all 14 standard concrete grade identities C15–C80 in a native
 project. Its steel-column sway flags select a native effective-length method;
 they do not accept an arbitrary prescribed `l0`. See the
-[YJK-specific receipt](reproducibility/yjk-native-design-20261014.json).
+[YJK-specific receipt](archive/acceptance-records-2026-10/yjk-native-design-20261014.json).
 
 YJK另核对14个标准混凝土牌号的原生身份，以及钢柱有无侧移计算长度方法；后者不等同于任意指定计算长度。
 

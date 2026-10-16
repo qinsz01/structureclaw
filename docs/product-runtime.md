@@ -8,7 +8,7 @@ capability acceptance is about SDK adaptation, not re-certifying a commercial so
 不会把测试数量换算成题库覆盖率，也不重新认证成熟商业求解器。
 
 The historical snapshot `engineering-product-preview-20261014` and its
-[acceptance record](reproducibility/engineering-product-preview-20261014.json)
+[acceptance record](archive/acceptance-records-2026-10/engineering-product-preview-20261014.json)
 bind the code and evidence tested at that time. Later development does not move that
 tag or rewrite its failures. The [native profile audit](native-design-profiles-20261014.md)
 describes its accepted profiles and the limits observed at that point; it is not a
@@ -27,12 +27,12 @@ does not mean that all 300 questions have been run and passed.
 微小数值残差与规划外复杂原生设计不作为场景兼容门槛。既有预览标签与历史证据保持不变，
 代码与需求的对应关系不代表300题已经逐题运行通过。
 
-The [current entry acceptance](reproducibility/product-entry-closeout-20261014.json)
+The [current entry acceptance](archive/acceptance-records-2026-10/product-entry-closeout-20261014.json)
 binds the final source, full backend and frontend integration regressions, and a real
 production-only tarball installation. It includes installed OpenSees queries and the
 OpenClaw bridge. This record does not create a new experiment freeze.
 
-[本轮入口验收](reproducibility/product-entry-closeout-20261014.json)绑定最终代码、后端全量与网页集成回归，
+[本轮入口验收](archive/acceptance-records-2026-10/product-entry-closeout-20261014.json)绑定最终代码、后端全量与网页集成回归，
 以及仅安装生产依赖的真实安装包检查，涵盖安装后的OpenSees查询和OpenClaw桥。本记录不新建实验冻结版本。
 
 ```mermaid
@@ -105,7 +105,7 @@ This is a storage/restart check, not a new native solver acceptance.
 选择最新记录时无需反序列化全部历史结果。旧记录仍可读取，身份不符或压缩损坏明确失败。
 七工况原生结果经过独立进程重读后内容哈希完全一致；三份检查点由约74.5 MB原始序列化内容
 压缩为6.4 MB磁盘文件。此项验证存储与恢复，不重复认证求解器。
-见[checkpoint acceptance](reproducibility/engineering-checkpoint-20261014.json)。
+见[checkpoint acceptance](archive/acceptance-records-2026-10/engineering-checkpoint-20261014.json)。
 
 | Setting / 设置 | Default / 默认 | Meaning / 含义 |
 |---|---|---|
@@ -308,7 +308,7 @@ The optional [OpenClaw plugin](../integrations/openclaw/README.md) is shipped wi
 product and uses this same contract. It has no Bench dependency. Host identity selects
 the engineering session; an agent cannot reset its budget by declaring another turn.
 Subsequent turns use the documented operator entry. The bridge's schema, persistence,
-attachment and real host-loading checks are recorded [here](reproducibility/openclaw-product-bridge-20261014.json).
+attachment and real host-loading checks are recorded [here](archive/acceptance-records-2026-10/openclaw-product-bridge-20261014.json).
 
 可选[OpenClaw插件](../integrations/openclaw/README_CN.md)随本体打包，复用上述公开契约，不依赖Bench。
 宿主身份决定工程会话，智能体不能自行重置预算；后续用户回合由说明中的操作员入口接纳。
@@ -376,7 +376,7 @@ does not change numeric precision, result selections, source evidence or model h
 新运行以无损压缩JSON归档，完整写入后原子发布。旧JSON运行仍可读取；已有目录不覆盖，
 损坏或存在两份冲突归档时明确失败。压缩不改变数值精度、工况、来源和模型指纹。
 七工况原生数据的完整归档与重读验证见
-[archive acceptance](reproducibility/engineering-native-archive-20261014.json)。
+[archive acceptance](archive/acceptance-records-2026-10/engineering-native-archive-20261014.json)。
 
 分析提交前保存唯一运行编号。原进程在归档后退出时，可用检查所得状态指纹显式恢复原作业；
 归档必须与请求、模型、设置及结果身份一致。恢复不重跑、不将历史结果自动设为当前结果。
@@ -418,7 +418,7 @@ certify arbitrary-position results: every native force station must still close
 under the existing tolerance. A failed closure keeps the direct stations and a
 structured `memberResponses[].recovery` reason; queries retain the underlying
 cause. The current PKPM integration limitation is recorded in
-[load-readback verification](reproducibility/engineering-pkpm-load-readback-20261014.json).
+[load-readback verification](archive/acceptance-records-2026-10/engineering-pkpm-load-readback-20261014.json).
 
 PKPM刚域恢复同时核对保存的SDK浮点值、官方文本及实际二进制荷载，绑定同一工况、构件与输入哈希。
 净跨使用已审计的执行值，物理刚段荷载仍保留源值积分。这项输入核对不等于任意位置结果已通过；
@@ -437,7 +437,7 @@ which may be inside the member. This does not provide interior displacement.
 必须核对刚域长度及绑定同一原生输入的荷载执行证据，并通过全部原生站点的平衡检查。
 图表来源指向实际使用的净跨站点，不将恢复的物理端点标成原生结果；此能力不提供跨内挠度。
 已验证的真实运行及双语交付证据见
-[rigid-member delivery](reproducibility/engineering-native-rigid-delivery-20261014.json)。
+[rigid-member delivery](archive/acceptance-records-2026-10/engineering-native-rigid-delivery-20261014.json)。
 
 ## Results, native design and reports / 结果、原生设计与报告
 

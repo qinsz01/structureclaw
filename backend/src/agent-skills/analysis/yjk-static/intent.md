@@ -17,8 +17,8 @@ runtimeRelativePath: runtime.py
 ---
 # YJK Static Analysis
 
-- `zh`: 通过系统公共工程服务执行三维梁柱模型的原生静力分析与显式请求的原生设计。每次原生作业保存源模型、投影、设置、日志和结果；同一次作业的工况集合供后续查询与报告复用。设计接入验收见 `docs/reproducibility/yjk-native-design-20261014.json`。
-- `en`: Executes native 3-D frame analysis and explicitly requested native design through the shared engineering service. Each owned job retains the source model, solver projection, settings, logs and results. The same-job case set is reused for queries and reports; see `docs/reproducibility/yjk-native-design-20261014.json` for adapter acceptance.
+- `zh`: 通过系统公共工程服务执行三维梁柱模型的原生静力分析与显式请求的原生设计。每次原生作业保存源模型、投影、设置、日志和结果；同一次作业的工况集合供后续查询与报告复用。设计接入验收见 `docs/archive/acceptance-records-2026-10/yjk-native-design-20261014.json`。
+- `en`: Executes native 3-D frame analysis and explicitly requested native design through the shared engineering service. Each owned job retains the source model, solver projection, settings, logs and results. The same-job case set is reused for queries and reports; see `docs/archive/acceptance-records-2026-10/yjk-native-design-20261014.json` for adapter acceptance.
 
 - `zh`: 分析支持已映射的矩形、对称 H/I、等厚箱形和完整数值截面杆系；数值截面的参考载体仅用于弹性刚度装配。普通斜柱倾角须小于20°，底部为 Z=0。一阶杆系可选择自由楼层或全楼水平刚性楼板约束；后者经原生 MF 主从节点及楼层读回核对，仅约束平面内运动，不生成实体楼板、附加重量或面单元刚度。混合楼层约束和非水平刚性层尚未适配；P-Delta 与施工阶段仍须关闭。执行时核对实际几何、刚度、荷载与有效设置，不得更换构件角色、荷载或引擎规避缺项。
 - `en`: Analysis supports mapped rectangular, symmetric I/H, equal-thickness box and complete numerical rod sections. Numerical-section carriers are elastic assembly details only. Ordinary inclined columns are below 20 degrees and bases are at Z=0. First-order rods support flexible floors or horizontal rigid diaphragms throughout the building. Native MF master/slave and floor readback verifies only in-plane constraints, without physical slabs, added weight or plate stiffness. Mixed floor constraints and non-horizontal rigid floors remain unmapped; P-Delta and construction staging remain disabled. Actual geometry, rigidities, loads and settings are checked. Do not change member roles, loads or engines to hide missing capabilities.

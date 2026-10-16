@@ -81,6 +81,6 @@ npm run type-check --prefix frontend
 node tests/llm-benchmark/scripts/check-representative-pack.mjs --output=<new-output.json>
 ```
 
-The dated `docs/reproducibility/engineering-v2.2-preview-20261013.json` records
+The dated `docs/archive/acceptance-records-2026-10/engineering-v2.2-preview-20261013.json` records
 the verified commands, result counts, code/benchmark identities and remaining
 capability blocks. Historical run artifacts stay in the configured runtime folder.

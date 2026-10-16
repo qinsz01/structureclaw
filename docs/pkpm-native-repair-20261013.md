@@ -35,7 +35,7 @@ directories; existing models, paper fixtures and tags were not modified.
 
 Raw input, reference, SDK readback, results and acceptance files remain under
 `G:/StructureClaw-All/sclaw_data/work/<run>/`. The tracked compact manifest is
-[`reproducibility/pkpm-native-repair-20261013.json`](reproducibility/pkpm-native-repair-20261013.json).
+[`archive/acceptance-records-2026-10/pkpm-native-repair-20261013.json`](archive/acceptance-records-2026-10/pkpm-native-repair-20261013.json).
 
 原始输入、参考、接口回读、计算结果和验收记录保存在上述独立运行目录；紧凑索引另行跟踪。
 

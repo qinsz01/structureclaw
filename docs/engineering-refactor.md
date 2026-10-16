@@ -12,7 +12,7 @@ tags, experiments and reference data remain unchanged.
 历史论文标签、实验与标答保持不变；候选冻结不能掩盖剩余缺口。
 
 Frozen implementation and machine-readable test evidence:
-[engineering-v2.1-preview-20261013](./reproducibility/engineering-v2.1-preview-20261013.json).
+[engineering-v2.1-preview-20261013](./archive/acceptance-records-2026-10/engineering-v2.1-preview-20261013.json).
 Final verification: backend **1339/1339**, frontend **273 passed / 6 existing todo**,
 evaluator **38/38**, and **51/51** engineering regression steps. Backend and frontend
 build/lint passed. The final stale-summary guard also passed its 11 focused tests

@@ -2,7 +2,7 @@
 
 后续状态：本轮已完成 [300 个规划场景的工具能力冻结](reproducibility/scenario-freeze-20261013.json)，包含 OpenSees 267、PKPM 16、YJK 17 个场景。Bench 尚未编制，该冻结不是逐题答案或模型实验认证。以下保留较早阶段的原生数值记录和精度限制；当前逐场景能力以冻结文件链接的三引擎审计为准。
 
-本记录新增本轮商业求解链的真实证据，不覆盖旧 `commercial-native-repair`、`pkpm-native-repair`、论文标签、原始实验或参考答案。逐文件 SHA256、输入、冻结参考、验收记录、结果和原生证据见 [机器记录](reproducibility/commercial-native-chain-20261013.json)。当前仍是明确范围的预览版，不是全部 300 题或全部 33 道商业题认证。
+本记录新增本轮商业求解链的真实证据，不覆盖旧 `commercial-native-repair`、`pkpm-native-repair`、论文标签、原始实验或参考答案。逐文件 SHA256、输入、冻结参考、验收记录、结果和原生证据见 [机器记录](archive/acceptance-records-2026-10/commercial-native-chain-20261013.json)。当前仍是明确范围的预览版，不是全部 300 题或全部 33 道商业题认证。
 
 ## 已验收的含义
 
