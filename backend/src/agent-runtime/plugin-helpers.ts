@@ -1,5 +1,5 @@
 import type { AppLocale } from '../shared/locale.js';
-import type { DraftState, RoutingSource, StructuralTypeMatch, StructuralTypeSupportLevel } from './types.js';
+import type { DraftState, RoutingSource, StructuralTypeMatch, StructuralTypeSupportLevel } from '../shared/types/agent.js';
 
 type StructuralStage = 'intent' | 'model' | 'loads' | 'analysis' | 'code_check' | 'report';
 

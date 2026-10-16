@@ -12,7 +12,7 @@ import type {
   EngineeringDraftLoad,
   EngineeringDraftLoadCaseType,
   EngineeringDraftLoadCombination,
-} from '../../../agent-runtime/types.js';
+} from '../../../shared/types/agent.js';
 import { REQUIRED_KEYS } from './constants.js';
 
 import { applyTemplateProperties } from '../../../agent-runtime/template-properties.js';

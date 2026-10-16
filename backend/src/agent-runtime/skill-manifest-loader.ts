@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from 'fs';
 import path from 'path';
 import { parse as parseYaml } from 'yaml';
 import { formatManifestIssues, skillManifestFileSchema, type SkillManifestFile } from './manifest-schema.js';
-import type { SkillDomain, SkillManifest } from './types.js';
+import type { SkillDomain, SkillManifest } from '../shared/types/agent.js';
 import { resolveBackendAsset } from '../utils/bundled-paths.js';
 
 export interface LoadedSkillManifest extends SkillManifestFile {

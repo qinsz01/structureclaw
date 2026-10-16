@@ -11,7 +11,7 @@
  */
 import { SystemMessage, type BaseMessageLike } from '@langchain/core/messages';
 import type { AgentState } from './state.js';
-import type { SkillManifest } from '../agent-runtime/types.js';
+import type { SkillManifest } from '../shared/types/agent.js';
 import { DEFAULT_MAX_TOOL_CALLS_PER_TURN } from '../runtime/limits.js';
 import { currentAnalysisError } from '../engineering/model-state.js';
 

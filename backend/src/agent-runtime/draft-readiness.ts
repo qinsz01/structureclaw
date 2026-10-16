@@ -1,7 +1,7 @@
 import { buildExplicitDraftModel } from './explicit-model.js';
 import { templatePropertyIssues } from './template-properties.js';
 import { isValidConcreteGrade, isValidRebarGrade, resolveSectionProps } from '../agent-skills/structure-type/concrete-frame/model.js';
-import type { AgentSkillPlugin, DraftState, InteractionQuestion, SkillMissingResult } from './types.js';
+import type { AgentSkillPlugin, DraftState, InteractionQuestion, SkillMissingResult } from '../shared/types/agent.js';
 import type { AppLocale } from '../shared/locale.js';
 import { equilibriumModel } from '../engineering/beam-equilibrium.js';
 import { forceOnlyScope, missingInputReason, type RequestScope } from '../engineering/request-scope.js';

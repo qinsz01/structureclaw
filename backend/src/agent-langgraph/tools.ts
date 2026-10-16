@@ -37,7 +37,7 @@ import type {
   InteractionQuestion,
   StructuralTypeKey,
   StructuralTypeMatch,
-} from '../agent-runtime/types.js';
+} from '../shared/types/agent.js';
 import { isFreshGenericStructuralRoute } from '../agent-runtime/plugin-helpers.js';
 import { loadAnalysisRun } from '../engineering/analysis-runs.js';
 import { resultSelectionSchema, selectedSavedResult, quantityMatchesSelection, type ResultSelection } from '../engineering/result-selection.js';

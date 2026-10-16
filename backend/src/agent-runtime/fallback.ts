@@ -13,7 +13,7 @@ import type {
   RoutingSource,
   StructuralTypeMatch,
   StructuralTypeKey,
-} from './types.js';
+} from '../shared/types/agent.js';
 import { mergeEngineeringDraft } from './engineering-draft.js';
 import { clearDraftFields } from './draft-update.js';
 import { mergeDraftDiagnostics } from './draft-diagnostics.js';

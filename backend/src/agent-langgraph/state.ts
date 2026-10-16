@@ -11,7 +11,7 @@ import type {
   AgentArtifactState,
   AgentExecutionPolicy,
   ProviderBindingState,
-} from '../agent-runtime/types.js';
+} from '../shared/types/agent.js';
 import type { AppLocale } from '../shared/locale.js';
 import type { AnalysisRequestBinding, ModelTransaction } from '../engineering/model-state.js';
 import { mergeInputEvidence } from '../engineering/input-evidence.js';

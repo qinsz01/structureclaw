@@ -1,5 +1,5 @@
 import type { AppLocale } from '../shared/locale.js';
-import type { DraftState } from './types.js';
+import type { DraftState } from '../shared/types/agent.js';
 import { localize } from './plugin-helpers.js';
 
 export { isDesignDraftField } from './draft-diagnostics.js';

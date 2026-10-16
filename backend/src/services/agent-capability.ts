@@ -2,9 +2,9 @@ import { AnalysisEngineCatalogService } from './analysis-engine.js';
 import { AgentSkillCatalogService } from './agent-skill-catalog.js';
 import { AgentSkillRuntime } from '../agent-runtime/index.js';
 import { normalizeMaterialFamilies as normalizeDomainMaterialFamilies } from '../agent-skills/material/entry.js';
-import { ALL_SKILL_DOMAINS } from '../agent-runtime/types.js';
+import { ALL_SKILL_DOMAINS } from '../shared/types/agent.js';
 import { listAgentToolDefinitions } from '../agent-langgraph/tool-registry.js';
-import type { AgentAnalysisType, MaterialFamily, SkillDomain, SkillManifest, SkillRuntimeStatus } from '../agent-runtime/types.js';
+import type { AgentAnalysisType, MaterialFamily, SkillDomain, SkillManifest, SkillRuntimeStatus } from '../shared/types/agent.js';
 import type { AgentToolDefinition } from '../agent-langgraph/tool-registry.js';
 import type { BuiltinSkillCatalogEntry } from './agent-skill-catalog.js';
 

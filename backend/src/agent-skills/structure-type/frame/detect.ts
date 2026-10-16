@@ -1,6 +1,6 @@
 import { buildStructuralTypeMatch } from '../../../agent-runtime/plugin-helpers.js';
 import { matchConservativeStructuralRoute } from '../../../agent-runtime/structural-routing.js';
-import type { SkillDetectionInput, StructuralTypeMatch } from '../../../agent-runtime/types.js';
+import type { SkillDetectionInput, StructuralTypeMatch } from '../../../shared/types/agent.js';
 
 export function detectFrameStructuralType({ message, locale }: SkillDetectionInput): StructuralTypeMatch | null {
   const text = message.toLowerCase();

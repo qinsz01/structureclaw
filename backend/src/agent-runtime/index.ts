@@ -27,7 +27,7 @@ import type {
   StructuralTypeMatch,
   SkillReportNarrativeInput,
   SkillManifest,
-} from './types.js';
+} from '../shared/types/agent.js';
 
 function requireStructuralRouterLlm(llm: StructureClawChatModel | null, locale: AppLocale): StructureClawChatModel {
   if (llm) {
@@ -59,7 +59,7 @@ export type {
   SkillHandler,
   SkillManifest,
   SkillReportNarrativeInput,
-} from './types.js';
+} from '../shared/types/agent.js';
 
 export class AgentSkillRuntime {
   private readonly registry: AgentSkillRegistry;

@@ -15,7 +15,7 @@ import type {
   DraftSupportType,
   EngineeringDraftLoad,
   FrameBaseSupportType,
-} from './types.js';
+} from '../shared/types/agent.js';
 
 function buildFixedRestraint(baseSupport: FrameBaseSupportType): boolean[] {
   if (baseSupport === 'pinned') {

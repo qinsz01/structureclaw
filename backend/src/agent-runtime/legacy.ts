@@ -28,7 +28,7 @@ import {
   stampDraftSemantics,
 } from './coordinate-semantics.js';
 import type { AppLocale } from '../shared/locale.js';
-import type { DraftExtraction, DraftFloorLoad, DraftIssue, DraftState, InferredModelType } from './types.js';
+import type { DraftExtraction, DraftFloorLoad, DraftIssue, DraftState, InferredModelType } from '../shared/types/agent.js';
 
 function normalizeSkillState(value: unknown): Record<string, unknown> | undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {

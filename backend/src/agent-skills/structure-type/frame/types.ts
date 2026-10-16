@@ -1,4 +1,4 @@
-import type { DraftExtraction, DraftState } from '../../../agent-runtime/types.js';
+import type { DraftExtraction, DraftState } from '../../../shared/types/agent.js';
 
 export interface FramePatchSources {
   existingState?: DraftState;

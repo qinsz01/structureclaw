@@ -1,7 +1,7 @@
 import { normalizeLegacyDraftPatch, buildLegacyModel } from '../../../agent-runtime/legacy.js';
 import type { RequestScope } from '../../../engineering/request-scope.js';
 import { computeFrameMissing } from '../frame/interaction.js';
-import type { SkillHandler } from '../../../agent-runtime/types.js';
+import type { SkillHandler } from '../../../shared/types/agent.js';
 import { detectConcreteFrameStructuralType } from './detect.js';
 import { buildConcreteFrameDraftPatch, coerceConcreteFrameDimension, toConcreteFramePatch } from './extract-llm.js';
 import {

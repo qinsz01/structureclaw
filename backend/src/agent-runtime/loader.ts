@@ -5,7 +5,7 @@ import { parse as parseYaml } from 'yaml';
 import { formatManifestIssues, skillManifestFileSchema } from './manifest-schema.js';
 import { loadSkillManifestsFromDirectorySync, toRuntimeSkillManifest } from './skill-manifest-loader.js';
 import { resolveBackendAsset } from '../utils/bundled-paths.js';
-import type { AgentSkillBundle, AgentSkillFile, AgentSkillMetadata, AgentSkillPlugin, SkillDomain, SkillManifest, SkillStage } from './types.js';
+import type { AgentSkillBundle, AgentSkillFile, AgentSkillMetadata, AgentSkillPlugin, SkillDomain, SkillManifest, SkillStage } from '../shared/types/agent.js';
 
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 

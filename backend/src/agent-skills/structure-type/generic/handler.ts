@@ -21,7 +21,7 @@ import type {
   InferredModelType,
   SkillHandler,
   SkillReportNarrativeInput,
-} from '../../../agent-runtime/types.js';
+} from '../../../shared/types/agent.js';
 
 function hasStructuralIntent(text: string): boolean {
   if (/(beam|truss|frame|portal|girder|cantilever|support|span|bay|story|load|model|analysis|design|member|node|element|structure)/i.test(text)) {

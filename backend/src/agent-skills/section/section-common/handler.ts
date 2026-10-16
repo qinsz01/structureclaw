@@ -10,7 +10,7 @@ import type {
   StructuralTypeMatch,
   SkillReportNarrativeInput,
   LocalizedText,
-} from '../../../agent-runtime/types.js';
+} from '../../../shared/types/agent.js';
 import type { AppLocale } from '../../../shared/locale.js';
 import { buildStructuralTypeMatch } from '../../../agent-runtime/plugin-helpers.js';
 import {

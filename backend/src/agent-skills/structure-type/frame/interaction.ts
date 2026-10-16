@@ -12,7 +12,7 @@ import type {
   SkillDefaultProposal,
   SkillMissingResult,
   SkillReportNarrativeInput,
-} from '../../../agent-runtime/types.js';
+} from '../../../shared/types/agent.js';
 import {
   FRAME_MATERIAL_KEYS,
   LOAD_BOUNDARY_KEYS,

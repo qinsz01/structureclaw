@@ -1,4 +1,4 @@
-import type { AgentAnalysisType, LocalizedText } from '../../agent-runtime/types.js';
+import type { AgentAnalysisType, LocalizedText } from '../../shared/types/agent.js';
 
 export type AnalysisExecutionAction =
   | 'list_engines'

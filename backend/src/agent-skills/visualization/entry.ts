@@ -1,4 +1,4 @@
-import type { VisualizationHints, ForceVector6, BucklingMode } from '../../agent-runtime/types.js';
+import type { VisualizationHints, ForceVector6, BucklingMode } from '../../shared/types/agent.js';
 
 export function extractVisualizationHints(analysis: unknown): VisualizationHints {
 	const analysisPayload = analysis && typeof analysis === 'object' ? analysis as Record<string, unknown> : {};

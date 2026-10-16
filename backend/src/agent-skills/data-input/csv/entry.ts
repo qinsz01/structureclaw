@@ -12,7 +12,7 @@
  * it renders the patch into a natural-language message so the regular
  * draft extraction path remains the single source of truth.
  */
-import type { DraftFloorLoad, DraftState } from '../../../agent-runtime/types.js';
+import type { DraftFloorLoad, DraftState } from '../../../shared/types/agent.js';
 import {
   COLUMN_ALIASES,
   matchColumnToField,

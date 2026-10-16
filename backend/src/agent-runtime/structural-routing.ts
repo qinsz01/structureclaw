@@ -1,4 +1,4 @@
-import type { InferredModelType, RoutingSource, StructuralTypeKey, StructuralTypeSupportLevel } from './types.js';
+import type { InferredModelType, RoutingSource, StructuralTypeKey, StructuralTypeSupportLevel } from '../shared/types/agent.js';
 
 type SwitchStrength = 'strong' | 'weak';
 

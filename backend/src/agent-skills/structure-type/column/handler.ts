@@ -19,7 +19,7 @@ import type {
   SkillDefaultProposal,
   SkillHandler,
   SkillReportNarrativeInput,
-} from '../../../agent-runtime/types.js';
+} from '../../../shared/types/agent.js';
 
 const ALLOWED_KEYS = ['heightM', 'lengthM', 'loadKN', 'loadType', 'loadPosition'];
 

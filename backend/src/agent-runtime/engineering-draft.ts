@@ -23,7 +23,7 @@ import type {
   FrameDimension,
   InferredModelType,
   MaterialFamily,
-} from './types.js';
+} from '../shared/types/agent.js';
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === 'object' && !Array.isArray(value)

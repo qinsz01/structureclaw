@@ -13,7 +13,7 @@ import type {
   DraftWindParams,
   EngineeringDraft,
   EngineeringDraftLoad,
-} from '../../../agent-runtime/types.js';
+} from '../../../shared/types/agent.js';
 import {
   normalizeSeismicDesignGroup,
   normalizeSeismicSiteCategory,

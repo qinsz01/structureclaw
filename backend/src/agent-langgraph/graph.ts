@@ -31,7 +31,7 @@ import { createRegisteredTools, type AgentToolFactoryDeps, type AgentToolDefinit
 import { loadUserTools } from './user-tool-loader.js';
 import { getWorkspaceToolRoot } from './config.js';
 import { buildSystemMessages } from './system-prompt.js';
-import type { SkillManifest } from '../agent-runtime/types.js';
+import type { SkillManifest } from '../shared/types/agent.js';
 import type { AgentConfigurable } from './configurable.js';
 import { resolveActiveToolIds } from './tool-policy.js';
 import type { StructuredToolInterface } from '@langchain/core/tools';

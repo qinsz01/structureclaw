@@ -5,7 +5,7 @@ import {
   type PostprocessedResultArtifact,
 } from '../result-postprocess/entry.js';
 import { extractVisualizationHints } from '../visualization/entry.js';
-import type { VisualizationHints } from '../../agent-runtime/types.js';
+import type { VisualizationHints } from '../../shared/types/agent.js';
 
 function isPostprocessedResultArtifact(value: unknown): value is PostprocessedResultArtifact {
   if (!value || typeof value !== 'object') return false;

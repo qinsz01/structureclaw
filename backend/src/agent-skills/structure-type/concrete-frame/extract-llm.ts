@@ -12,7 +12,7 @@ import type {
   DraftSiteSeismicParams,
   DraftState,
   DraftWindParams,
-} from '../../../agent-runtime/types.js';
+} from '../../../shared/types/agent.js';
 import {
   canonicalizeConcreteFramePatch,
   fillConcreteFrameDimensionSpecificGeometry,

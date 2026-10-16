@@ -5,7 +5,7 @@ import type {
   InteractionQuestion,
   LocalizedText,
   SkillDefaultProposal,
-} from '../../agent-runtime/types.js';
+} from '../../shared/types/agent.js';
 
 export interface SectionPoint {
   x: number;

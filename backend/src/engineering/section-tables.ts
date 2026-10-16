@@ -1,4 +1,4 @@
-import type { EngineeringDraft } from '../agent-runtime/types.js';
+import type { EngineeringDraft } from '../shared/types/agent.js';
 import catalogData from './reviewed-sections.json' with { type: 'json' };
 
 /** Reviewed numerical catalog data. Rolled/tapered I sections are not rectangular-flange H sections. */

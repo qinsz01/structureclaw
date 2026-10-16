@@ -1,5 +1,5 @@
 import { assertCanonicalCoordinateModel, withCanonicalCoordinateContract } from './coordinate-semantics.js';
-import type { DraftState } from './types.js';
+import type { DraftState } from '../shared/types/agent.js';
 import { applyDraftAnalysisControl } from './engineering-draft.js';
 
 type RecordValue = Record<string, unknown>;

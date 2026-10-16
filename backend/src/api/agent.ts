@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { getAgentService, LangGraphAgentService } from '../agent-langgraph/index.js';
 import { AgentCapabilityService } from '../services/agent-capability.js';
 import { AgentSkillHubService } from '../services/agent-skillhub.js';
-import type { SkillDomain } from '../agent-runtime/types.js';
+import type { SkillDomain } from '../shared/types/agent.js';
 import { ConversationService } from '../services/conversation.js';
 import { assessCurrentEngineeringInput } from '../engineering/capability-assessment.js';
 

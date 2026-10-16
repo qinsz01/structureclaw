@@ -14,7 +14,7 @@ import type {
   StructuralTypeKey,
   StructuralTypeMatch,
   StructuralTypeSupportLevel,
-} from './types.js';
+} from '../shared/types/agent.js';
 
 type StructuralRouterAction = 'continue_current' | 'switch_skill' | 'unsupported' | 'generic' | 'ask';
 type RouterLlm = Pick<StructureClawChatModel, 'invoke'>;

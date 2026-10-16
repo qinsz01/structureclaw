@@ -7,7 +7,7 @@ import type {
   DraftExtraction,
   DraftState,
   EngineeringDraftLoad,
-} from '../../../agent-runtime/types.js';
+} from '../../../shared/types/agent.js';
 import {
   FRAME_NODAL_LOAD_LOCATION_FIELD,
   coerceFrameDimension,

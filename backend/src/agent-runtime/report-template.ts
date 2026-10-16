@@ -1,5 +1,5 @@
 import type { AppLocale } from '../shared/locale.js';
-import type { SkillReportNarrativeInput } from './types.js';
+import type { SkillReportNarrativeInput } from '../shared/types/agent.js';
 import { localize } from './plugin-helpers.js';
 
 function asRecord(value: unknown): Record<string, unknown> {

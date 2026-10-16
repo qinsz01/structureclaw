@@ -16,7 +16,7 @@ import type {
   DraftIssue,
   DraftState,
   DraftWindParams,
-} from '../../../agent-runtime/types.js';
+} from '../../../shared/types/agent.js';
 import type { AppLocale } from '../../../shared/locale.js';
 import {
   canonicalizeFramePatch,

@@ -1,4 +1,4 @@
-import type { AgentSkillPlugin } from '../../agent-runtime/types.js';
+import type { AgentSkillPlugin } from '../../shared/types/agent.js';
 import { loadSkillProviders } from '../../skill-shared/loader.js';
 import {
   toStructureModelingProvider,

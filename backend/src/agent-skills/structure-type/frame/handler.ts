@@ -1,5 +1,5 @@
 import { normalizeLegacyDraftPatch } from '../../../agent-runtime/legacy.js';
-import type { SkillHandler } from '../../../agent-runtime/types.js';
+import type { SkillHandler } from '../../../shared/types/agent.js';
 import { detectFrameStructuralType } from './detect.js';
 import { buildFrameDraftPatch, coerceFrameDimension, toFramePatch } from './extract-llm.js';
 import {

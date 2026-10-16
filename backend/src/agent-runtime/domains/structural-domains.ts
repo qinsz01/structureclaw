@@ -1,4 +1,4 @@
-import type { DraftExtraction } from '../types.js';
+import type { DraftExtraction } from '../../shared/types/agent.js';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- used via typeof for type inference
 const GEOMETRY_DOMAIN_KEYS = [

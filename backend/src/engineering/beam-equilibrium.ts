@@ -1,4 +1,4 @@
-import type { DraftState } from '../agent-runtime/types.js';
+import type { DraftState } from '../shared/types/agent.js';
 import { buildStructuralCoordinateSystem } from '../agent-runtime/coordinate-semantics.js';
 import { assertResolvedInput } from './input-evidence.js';
 import { isRecord, type ModelRecord } from './model-state.js';

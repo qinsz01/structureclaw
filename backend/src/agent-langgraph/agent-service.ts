@@ -13,7 +13,7 @@ import { randomUUID } from 'crypto';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { AgentSkillRuntime } from '../agent-runtime/index.js';
-import type { SkillManifest } from '../agent-runtime/types.js';
+import type { SkillManifest } from '../shared/types/agent.js';
 import { applyToolsNodeSessionContext, buildAgentGraph } from './graph.js';
 import { FileCheckpointer } from './file-checkpointer.js';
 import { streamGraphToChunks, type StreamContext } from './streaming.js';

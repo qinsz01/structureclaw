@@ -1,4 +1,4 @@
-import type { DraftIssue, EngineeringDraft } from './types.js';
+import type { DraftIssue, EngineeringDraft } from '../shared/types/agent.js';
 import { draftFieldValues } from './draft-diagnostics.js';
 import { validDraftValue } from '../engineering/draft-contract.js';
 import { assertReviewedSectionProvenance, completeReviewedSectionRecord, reviewedSectionNames } from '../engineering/section-tables.js';

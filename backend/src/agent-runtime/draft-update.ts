@@ -1,7 +1,7 @@
 import { fieldTokens } from '../engineering/field-path.js';
 import { draftContract, legacyDraftPaths } from '../engineering/draft-contract.js';
 import { draftFieldValues } from './draft-diagnostics.js';
-import type { DraftState } from './types.js';
+import type { DraftState } from '../shared/types/agent.js';
 
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const fail = (path: string, reason: string): never => { throw new Error(`DRAFT_CLEAR_INVALID: ${path}: ${reason} / 草稿删除操作无效，原状态未变`); };

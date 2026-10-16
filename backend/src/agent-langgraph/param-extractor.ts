@@ -14,7 +14,7 @@ import {
 } from '../utils/llm.js';
 import { logger as rootLogger } from '../utils/agent-logger.js';
 import type { Logger } from 'pino';
-import type { AgentSkillPlugin, DraftState } from '../agent-runtime/types.js';
+import type { AgentSkillPlugin, DraftState } from '../shared/types/agent.js';
 import { currentRunPolicy, requestRecovery } from '../runtime/run-context.js';
 import { llmContentText } from '../utils/llm-content.js';
 import { promptContract } from '../engineering/draft-contract.js';

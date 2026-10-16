@@ -1,4 +1,4 @@
-import type { DraftWindParams } from '../../../agent-runtime/types.js';
+import type { DraftWindParams } from '../../../shared/types/agent.js';
 
 export function seismicDesignGroupIndex(raw: unknown): 1 | 2 | 3 | undefined {
   if (typeof raw !== 'string' && typeof raw !== 'number') return undefined;

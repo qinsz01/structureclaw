@@ -21,7 +21,7 @@ import type {
   SkillDefaultProposal,
   SkillHandler,
   SkillReportNarrativeInput,
-} from '../../../agent-runtime/types.js';
+} from '../../../shared/types/agent.js';
 
 const GEOMETRY_KEYS = ['spanLengthM', 'heightM'] as const;
 const LOAD_BOUNDARY_KEYS = ['loadKN', 'loadType', 'loadPosition', 'frameBaseSupportType'] as const;

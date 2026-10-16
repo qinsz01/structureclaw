@@ -1,4 +1,4 @@
-import type { DraftExtraction, DraftIssue, DraftState, EngineeringDraft } from './types.js';
+import type { DraftExtraction, DraftIssue, DraftState, EngineeringDraft } from '../shared/types/agent.js';
 import { engineeringLoadClarifiesExisting } from './engineering-draft.js';
 import { resolveTemplateMaterials } from './template-properties.js';
 import { draftContract, legacyDraftContract, legacyDraftPaths, resolveFieldSchema, validDraftValue, type FieldSchema } from '../engineering/draft-contract.js';

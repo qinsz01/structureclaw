@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ALL_SKILL_DOMAINS } from './types.js';
+import { ALL_SKILL_DOMAINS } from '../shared/types/agent.js';
 
 const localizedTextSchema = z.object({
   zh: z.string().trim().min(1),

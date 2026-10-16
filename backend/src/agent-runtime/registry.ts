@@ -4,7 +4,7 @@ import { AgentSkillLoader } from './loader.js';
 import { buildUnknownStructuralType, detectUnsupportedStructuralTypeByRules } from './fallback.js';
 import { localize } from './plugin-helpers.js';
 import { isExplicitStructuralSwitch } from './structural-routing.js';
-import type { AgentSkillBundle, AgentSkillPlugin, DraftState, InferredModelType, StructuralTypeMatch, StructuralTypeKey } from './types.js';
+import type { AgentSkillBundle, AgentSkillPlugin, DraftState, InferredModelType, StructuralTypeMatch, StructuralTypeKey } from '../shared/types/agent.js';
 
 function hasStableCurrentState(state: DraftState | undefined): state is DraftState {
   return !!state?.inferredType && state.inferredType !== 'unknown';

@@ -1,6 +1,6 @@
 import { buildReportDomainArtifacts } from '../agent-skills/report-export/entry.js';
 import { buildDefaultReportNarrative } from '../agent-runtime/report-template.js';
-import type { SkillReportNarrativeInput } from '../agent-runtime/types.js';
+import type { SkillReportNarrativeInput } from '../shared/types/agent.js';
 import { formatCheckSummary } from '../engineering/code-checks.js';
 import { reportResultRows, resultTableMarkdown } from '../engineering/result-data.js';
 import { isRecord, modelHash } from '../engineering/model-state.js';

@@ -1,5 +1,5 @@
 import type { AppLocale } from '../../../shared/locale.js';
-import type { DraftState } from '../../../agent-runtime/types.js';
+import type { DraftState } from '../../../shared/types/agent.js';
 import { composePromptByIntent } from './llm-model-prompt-intents.js';
 
 const STATE_METADATA_KEYS = new Set([

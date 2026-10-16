@@ -1,5 +1,5 @@
 import type { ManifestBackedSkillProvider, SkillProviderSource } from '../../skill-shared/provider.js';
-import type { AgentSkillPlugin, SkillHandler, SkillManifest } from '../../agent-runtime/types.js';
+import type { AgentSkillPlugin, SkillHandler, SkillManifest } from '../../shared/types/agent.js';
 
 export interface StructureModelingProvider extends ManifestBackedSkillProvider<'structure-type', SkillManifest> {
   handler: SkillHandler;

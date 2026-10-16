@@ -3,7 +3,7 @@ import type {
   MaterialFamily,
   SkillCompatibility,
   SkillDomain,
-} from '../agent-runtime/types.js';
+} from '../shared/types/agent.js';
 import type { SkillProviderSource } from './provider.js';
 
 interface SkillPackageEntrypoints {

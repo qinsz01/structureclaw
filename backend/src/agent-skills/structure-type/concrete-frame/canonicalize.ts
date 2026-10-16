@@ -1,5 +1,5 @@
 import { mergeDraftPatchWithSupplemental } from '../../../agent-runtime/legacy.js';
-import type { DraftExtraction, DraftFloorLoad, EngineeringDraftLoad } from '../../../agent-runtime/types.js';
+import type { DraftExtraction, DraftFloorLoad, EngineeringDraftLoad } from '../../../shared/types/agent.js';
 import type { ConcreteFramePatchSources } from './types.js';
 
 function isSemanticGravityLineLoad(load: EngineeringDraftLoad): boolean {

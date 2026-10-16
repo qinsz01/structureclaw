@@ -5,7 +5,7 @@ import path from 'path';
 import { runtimeBaseDir } from '../config/index.js';
 import { evaluateSkillCompatibility } from '../skill-shared/loader.js';
 import type { SkillCompatibilityReasonCode } from '../skill-shared/loader.js';
-import type { SkillDomain } from '../agent-runtime/types.js';
+import type { SkillDomain } from '../shared/types/agent.js';
 type SkillIntegrityReasonCode = 'signature_invalid' | 'checksum_mismatch';
 
 export interface SkillHubCatalogEntry {

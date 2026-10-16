@@ -1,5 +1,5 @@
 import { completeReviewedSectionRecord, reviewedSectionName, reviewedSectionNames, reviewedSectionRecord } from '../engineering/section-tables.js';
-import type { DraftState } from './types.js';
+import type { DraftState } from '../shared/types/agent.js';
 import { applyDraftAnalysisControl, applyDraftTemplateDesign, resolveDraftTemplateAssignment } from './engineering-draft.js';
 
 type FrameMaterialCategory = 'steel' | 'concrete';

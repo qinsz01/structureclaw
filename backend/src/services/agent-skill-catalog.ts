@@ -13,7 +13,7 @@ import type {
   MaterialFamily,
   SkillCompatibility,
   SkillDomain,
-} from '../agent-runtime/types.js';
+} from '../shared/types/agent.js';
 
 const DEFAULT_COMPATIBILITY: SkillCompatibility = {
   minRuntimeVersion: '0.1.0',
