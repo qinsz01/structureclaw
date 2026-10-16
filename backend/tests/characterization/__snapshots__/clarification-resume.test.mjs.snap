@@ -1,0 +1,66 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`characterization: clarification interrupt and resume missing load pauses on ask_user_clarification; the resumed answer completes the draft and analysis: interrupt-interaction-payload 1`] = `
+{
+  "content": {
+    "conversationStage": "awaiting_user_input",
+    "options": [],
+    "pending": {
+      "criticalMissing": [],
+    },
+    "questions": [
+      {
+        "label": "请提供荷载大小、类型与作用位置。",
+        "question": "请提供荷载大小、类型与作用位置。",
+      },
+    ],
+    "resumeRequired": true,
+  },
+  "type": "interaction_update",
+}
+`;
+
+exports[`characterization: clarification interrupt and resume missing load pauses on ask_user_clarification; the resumed answer completes the draft and analysis: interrupt-turn-sse-event-sequence 1`] = `
+[
+  "start",
+  "presentation_init",
+  "step:extract_draft_params:running",
+  "step:extract_draft_params:done",
+  "summary_replace",
+  "artifact:analysis:invalidated",
+  "artifact:report:invalidated",
+  "step:ask_user_clarification:running",
+  "summary_replace",
+  "interaction_update",
+]
+`;
+
+exports[`characterization: clarification interrupt and resume missing load pauses on ask_user_clarification; the resumed answer completes the draft and analysis: resume-turn-sse-event-sequence 1`] = `
+[
+  "start",
+  "presentation_init",
+  "step:ask_user_clarification:done",
+  "step:extract_draft_params:running",
+  "step:extract_draft_params:done",
+  "artifact:analysis:invalidated",
+  "artifact:report:invalidated",
+  "step:build_model:running",
+  "step:build_model:done",
+  "artifact:analysis:invalidated",
+  "artifact:report:invalidated",
+  "artifact:model",
+  "step:run_analysis:running",
+  "artifact:analysis:invalidated",
+  "artifact:report:invalidated",
+  "artifact:analysis:invalidated",
+  "artifact:report:invalidated",
+  "step:run_analysis:done",
+  "artifact:report:invalidated",
+  "artifact:analysis",
+  "token",
+  "summary_replace",
+  "result",
+  "presentation_complete",
+  "done",
+]
+`;

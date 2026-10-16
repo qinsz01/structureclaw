@@ -1,0 +1,26 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`characterization: explicit model → OpenSees → report analysis and report are current and match the Euler–Bernoulli reference: sse-event-sequence 1`] = `
+[
+  "artifact:analysis:invalidated",
+  "artifact:report:invalidated",
+  "start",
+  "presentation_init",
+  "step:run_analysis:running",
+  "artifact:analysis:invalidated",
+  "artifact:report:invalidated",
+  "artifact:analysis:invalidated",
+  "artifact:report:invalidated",
+  "step:run_analysis:done",
+  "artifact:report:invalidated",
+  "artifact:analysis",
+  "step:generate_report:running",
+  "step:generate_report:done",
+  "artifact:report",
+  "token",
+  "summary_replace",
+  "result",
+  "presentation_complete",
+  "done",
+]
+`;

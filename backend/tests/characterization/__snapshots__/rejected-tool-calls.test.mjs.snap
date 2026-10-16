@@ -1,0 +1,57 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`characterization: rejected tool calls preserve saved results invalid tool arguments preserve the saved analysis and report: rejected-tool-results 1`] = `
+{
+  "invalid-analysis-type": {
+    "events": [
+      "start",
+      "presentation_init",
+      "step:run_analysis:running",
+      "step:run_analysis:error",
+      "token",
+      "summary_replace",
+      "result",
+      "presentation_complete",
+      "done",
+    ],
+    "toolResult": "Error: Received tool input did not match expected schema
+
+✖ Invalid option: expected one of "static"|"dynamic"|"seismic"|"nonlinear"
+  → at analysisType
+ Please fix your mistakes.",
+  },
+  "invalid-extraction-scope": {
+    "events": [
+      "start",
+      "presentation_init",
+      "step:extract_draft_params:running",
+      "step:extract_draft_params:error",
+      "token",
+      "summary_replace",
+      "result",
+      "presentation_complete",
+      "done",
+    ],
+    "toolResult": "Error: Received tool input did not match expected schema
+
+✖ Too small: expected array to have >=1 items
+  → at requestScope.responses
+ Please fix your mistakes.",
+  },
+  "missing-build-draft": {
+    "events": [
+      "start",
+      "presentation_init",
+      "step:build_model:running",
+      "step:build_model:error",
+      "token",
+      "summary_replace",
+      "result",
+      "presentation_complete",
+      "done",
+    ],
+    "toolResult": "Error: No draft state available. Run extract_draft_params first.
+ Please fix your mistakes.",
+  },
+}
+`;

@@ -1,0 +1,58 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`characterization: model edit invalidation and undo edit_model invalidates analysis and report; undo_model + run_analysis restores the reference values: edit-turn-sse-event-sequence 1`] = `
+[
+  "start",
+  "presentation_init",
+  "step:edit_model:running",
+  "step:edit_model:done",
+  "artifact:analysis:invalidated",
+  "artifact:report:invalidated",
+  "artifact:model",
+  "token",
+  "summary_replace",
+  "result",
+  "presentation_complete",
+  "done",
+]
+`;
+
+exports[`characterization: model edit invalidation and undo edit_model invalidates analysis and report; undo_model + run_analysis restores the reference values: invalidated-session-state 1`] = `
+{
+  "analysis": {
+    "current": false,
+    "reason": "ANALYSIS_REQUIRED",
+    "resultKey": null,
+    "runId": null,
+  },
+  "report": {
+    "current": false,
+    "runId": null,
+  },
+}
+`;
+
+exports[`characterization: model edit invalidation and undo edit_model invalidates analysis and report; undo_model + run_analysis restores the reference values: undo-turn-sse-event-sequence 1`] = `
+[
+  "start",
+  "presentation_init",
+  "step:undo_model:running",
+  "step:undo_model:done",
+  "artifact:analysis:invalidated",
+  "artifact:report:invalidated",
+  "artifact:model",
+  "step:run_analysis:running",
+  "artifact:analysis:invalidated",
+  "artifact:report:invalidated",
+  "artifact:analysis:invalidated",
+  "artifact:report:invalidated",
+  "step:run_analysis:done",
+  "artifact:report:invalidated",
+  "artifact:analysis",
+  "token",
+  "summary_replace",
+  "result",
+  "presentation_complete",
+  "done",
+]
+`;
