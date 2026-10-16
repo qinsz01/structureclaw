@@ -11,7 +11,7 @@
  *   - start, presentation_init, phase_upsert, step_upsert, artifact_upsert,
  *     summary_replace, result, presentation_complete, done, error
  */
-import type { AIMessageChunk, BaseMessage } from '@langchain/core/messages';
+import type { AIMessageChunk, BaseMessage, ToolMessage } from '@langchain/core/messages';
 import { randomUUID } from 'crypto';
 import { isCommand } from '@langchain/langgraph';
 import {
@@ -229,7 +229,7 @@ export function langGraphEventToChunks(
           const toolCallId = (msg as any).tool_call_id || (msg as any).id;
           const phase = mapToolToPhase(toolName);
           const content = typeof msg.content === 'string' ? msg.content : '';
-          const failure = toolMessageFailure(msg as import('@langchain/core/messages').ToolMessage);
+          const failure = toolMessageFailure(msg as ToolMessage);
 
           chunks.push({
             type: 'step_upsert',
