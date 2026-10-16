@@ -4,20 +4,16 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { ConversationService } from '../services/conversation.js';
 import { config } from '../config/index.js';
-import { isLlmTimeoutError, isContextOverflowError, toLlmApiError, toLlmStreamError } from '../utils/llm-error.js';
+import { isLlmTimeoutError, toLlmApiError } from '../utils/llm-error.js';
 import { prisma } from '../utils/database.js';
-import type { InputJsonValue } from '../utils/json.js';
-import {
-  createEmptyAssistantPresentation,
-  buildCompletedAssistantPresentation as rebuildAssistantPresentationFromResult,
-  reducePresentationEvent,
-  type AssistantPresentation,
-} from '../services/chat-presentation.js';
+import { createEmptyAssistantPresentation, buildCompletedAssistantPresentation as rebuildAssistantPresentationFromResult, reducePresentationEvent, type AssistantPresentation } from '../services/chat-presentation.js';
 import { getAgentService } from '../agent-langgraph/index.js';
 import type { AgentState } from '../agent-langgraph/state.js';
-import type { BaseMessage } from '@langchain/core/messages';
+import { buildPersistedDebugDetails, persistLatestConversationResult, persistConversationWithState } from '../services/chat-persistence.js';
+import { runSseTurn, type SseTurnSession } from './chat-sse.js';
 
 const conversationService = new ConversationService();
+
 const agentService = getAgentService();
 
 const optionalIdSchema = z.preprocess((value) => {
@@ -32,6 +28,7 @@ const optionalIdSchema = z.preprocess((value) => {
 }, z.string().optional());
 
 const localeSchema = z.enum(['en', 'zh']).optional();
+
 const seismicWorkflowSchema = z.record(z.string(), z.any()).optional();
 
 // 请求验证
@@ -141,37 +138,6 @@ const persistMessagesSchema = z.object({
   })).optional(),
 });
 
-function toMessageMetadata(value: Record<string, unknown> | undefined): InputJsonValue | undefined {
-  if (!value || Object.keys(value).length === 0) {
-    return undefined;
-  }
-  return value as InputJsonValue;
-}
-
-function getPersistedMessageTraceId(metadata: unknown): string | undefined {
-  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
-    return undefined;
-  }
-  const traceId = (metadata as Record<string, unknown>).traceId;
-  return typeof traceId === 'string' && traceId.trim().length > 0 ? traceId : undefined;
-}
-
-function setSseCorsHeaders(request: FastifyRequest, reply: FastifyReply) {
-  const origin = request.headers.origin;
-
-  if (!origin) {
-    return;
-  }
-
-  if (!config.corsOrigins.includes(origin)) {
-    return;
-  }
-
-  reply.raw.setHeader('Access-Control-Allow-Origin', origin);
-  reply.raw.setHeader('Access-Control-Allow-Credentials', 'true');
-  reply.raw.setHeader('Vary', 'Origin');
-}
-
 function buildEffectiveAgentMessage(message: string, resumeFromMessage?: string): string {
   const normalizedMessage = message.trim();
   const normalizedResume = typeof resumeFromMessage === 'string' ? resumeFromMessage.trim() : '';
@@ -181,262 +147,6 @@ function buildEffectiveAgentMessage(message: string, resumeFromMessage?: string)
   }
 
   return `${normalizedResume}\n\n${normalizedMessage}`;
-}
-
-function buildPersistedDebugDetails(params: {
-  userMessage: string;
-  context?: z.infer<typeof sendMessageSchema>['context'];
-  result: unknown;
-}): Record<string, unknown> | undefined {
-  const resultRecord = params.result && typeof params.result === 'object' && !Array.isArray(params.result)
-    ? params.result as Record<string, unknown>
-    : null;
-  if (!resultRecord) {
-    return undefined;
-  }
-
-  const skillIds = Array.isArray(params.context?.skillIds)
-    ? params.context.skillIds.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-    : [];
-  const toolIds = Array.isArray(params.context?.enabledToolIds)
-    ? params.context.enabledToolIds.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-    : [];
-  const routing = resultRecord.routing && typeof resultRecord.routing === 'object' && !Array.isArray(resultRecord.routing)
-    ? resultRecord.routing as Record<string, unknown>
-    : undefined;
-  const plan = Array.isArray(resultRecord.plan)
-    ? resultRecord.plan.filter((value): value is string => typeof value === 'string')
-    : [];
-  const toolCalls = Array.isArray(resultRecord.toolCalls) ? resultRecord.toolCalls : [];
-
-  if (
-    skillIds.length === 0
-    && toolIds.length === 0
-    && !routing
-    && plan.length === 0
-    && toolCalls.length === 0
-    && typeof resultRecord.response !== 'string'
-  ) {
-    return undefined;
-  }
-
-  // Build a compact context snapshot, omitting large fields like model/parameters
-  // to avoid DB bloat.
-  const compactContext: Record<string, unknown> = {};
-  if (params.context?.runPolicy) compactContext.runPolicy = params.context.runPolicy;
-  if (params.context?.locale) compactContext.locale = params.context.locale;
-  if (params.context?.skillIds) compactContext.skillIds = params.context.skillIds;
-  if (params.context?.enabledToolIds) compactContext.enabledToolIds = params.context.enabledToolIds;
-  if (params.context?.engineId) compactContext.engineId = params.context.engineId;
-  if (params.context?.seismicWorkflow) compactContext.seismicWorkflow = params.context.seismicWorkflow;
-
-  return {
-    promptSnapshot: JSON.stringify({
-      message: params.userMessage,
-      context: compactContext,
-    }, null, 2),
-    skillIds,
-    toolIds,
-    routing,
-    responseSummary: typeof resultRecord.response === 'string' ? resultRecord.response : '',
-    plan,
-    toolCalls,
-  };
-}
-
-async function persistLatestConversationResult(params: {
-  conversationId?: string;
-  latestResult: unknown;
-}): Promise<void> {
-  const conversationId = params.conversationId?.trim();
-  if (!conversationId) {
-    return;
-  }
-
-  try {
-    const conversation = await prisma.conversation.findFirst({
-      where: { id: conversationId },
-      select: { id: true },
-    });
-
-    if (!conversation) {
-      return;
-    }
-
-    const latestResult =
-      params.latestResult && typeof params.latestResult === 'object' && !Array.isArray(params.latestResult)
-        ? (params.latestResult as Record<string, unknown>)
-        : { response: String(params.latestResult ?? ''), success: false };
-
-    await conversationService.saveConversationSnapshot({
-      conversationId: conversation.id,
-      latestResult,
-    });
-  } catch (error) {
-    console.warn('[chat] skip latestResult persistence:', error instanceof Error ? error.message : String(error));
-  }
-}
-
-/**
- * Unified persistence: writes user message, intermediate tool-call chain,
- * and final assistant message in ONE createMany call so that `createdAt`
- * timestamps naturally reflect conversational order.
- *
- * Order: user → [AI(tool_calls) → tool(output)]* → assistant(final)
- */
-async function persistConversationWithState(params: {
-  conversationId?: string;
-  userMessage: string;
-  assistantContent: string;
-  assistantAborted?: boolean;
-  traceId?: string;
-  assistantMetadata?: Record<string, unknown>;
-  assistantPresentation?: AssistantPresentation;
-  userMessageAttachments?: Array<Record<string, unknown>>;
-  state?: AgentState;
-}): Promise<void> {
-  const conversationId = params.conversationId?.trim();
-  const userMessage = params.userMessage.trim();
-  const assistantContent = params.assistantContent.length > 10000
-    ? params.assistantContent.slice(0, 10000)
-    : params.assistantContent;
-  const shouldPersistAssistant = assistantContent.trim().length > 0 || Boolean(params.assistantAborted);
-
-  if (!conversationId || !userMessage || !shouldPersistAssistant) return;
-
-  try {
-    const conversation = await prisma.conversation.findFirst({
-      where: { id: conversationId },
-      select: { id: true },
-    });
-    if (!conversation) return;
-
-    // Trace-based dedup: if we already persisted this trace, skip entirely.
-    if (params.traceId) {
-      const recentMessages = await prisma.message.findMany({
-        where: { conversationId },
-        orderBy: { createdAt: 'desc' },
-        take: 6,
-        select: { metadata: true },
-      });
-      if (recentMessages.some((msg: { metadata: unknown }) => getPersistedMessageTraceId(msg.metadata) === params.traceId)) {
-        return;
-      }
-    }
-
-    const records: Record<string, unknown>[] = [];
-    // Use an explicit base timestamp with 1ms offsets per record so that
-    // createdAt reliably reflects conversational order.  SQLite's
-    // datetime('now') has only second precision — a single createMany would
-    // assign identical createdAt to every row, making order undefined.
-    const baseTime = Date.now();
-
-    // 1. User message (always first)
-    records.push({
-      conversationId,
-      role: 'user',
-      content: userMessage,
-      createdAt: new Date(baseTime),
-      metadata: toMessageMetadata({
-        ...(params.traceId ? { traceId: params.traceId } : {}),
-        ...(params.userMessageAttachments && params.userMessageAttachments.length > 0
-          ? { attachments: params.userMessageAttachments }
-          : {}),
-      }),
-    });
-
-    // 2. Intermediate messages from LangGraph state (tool calls + outputs)
-    //    These sit BETWEEN user message and final assistant message.
-    if (params.state && Array.isArray(params.state.messages)) {
-      let seq = records.length; // continues after user message
-      const allMessages: BaseMessage[] = params.state.messages;
-
-      // Id-based dedup against existing DB records
-      const existingToolMessages = await prisma.message.findMany({
-        where: { conversationId, role: 'tool', toolCallId: { not: null } },
-        select: { toolCallId: true },
-      });
-      const existingToolCallIds = new Set(
-        existingToolMessages.map((m: { toolCallId: string | null }) => m.toolCallId).filter(Boolean),
-      );
-      const existingAssistantWithToolCalls = await prisma.message.findMany({
-        where: { conversationId, role: 'assistant' },
-        select: { toolCalls: true },
-      });
-      const existingToolCallIdsOnAssistant = new Set<string>();
-      for (const row of existingAssistantWithToolCalls) {
-        const tcs = Array.isArray(row.toolCalls) ? row.toolCalls : [];
-        for (const tc of tcs) {
-          const tcRecord = tc as Record<string, unknown>;
-          if (typeof tcRecord.id === 'string') existingToolCallIdsOnAssistant.add(tcRecord.id);
-        }
-      }
-
-      for (const msg of allMessages) {
-        if (msg == null || typeof msg !== 'object') continue;
-
-        const getType = typeof (msg as any)._getType === 'function' ? (msg as any)._getType() : null;
-        const content = typeof msg.content === 'string'
-          ? msg.content
-          : Array.isArray(msg.content)
-            ? msg.content
-                .filter((b: unknown): b is { type: string; text: string } =>
-                  typeof b === 'object' && b !== null && 'text' in b)
-                .map((b) => b.text)
-                .join('')
-            : JSON.stringify(msg.content);
-
-        if (getType === 'tool') {
-          const toolCallId = (msg as any).tool_call_id || undefined;
-          if (toolCallId && existingToolCallIds.has(toolCallId)) continue;
-          records.push({
-            conversationId,
-            role: 'tool',
-            content: typeof content === 'string' ? content : JSON.stringify(content),
-            name: (msg as any).name || undefined,
-            toolCallId,
-            createdAt: new Date(baseTime + seq),
-          });
-          seq += 1;
-        } else if (getType === 'ai') {
-          const toolCalls = Array.isArray((msg as any).tool_calls) ? (msg as any).tool_calls : [];
-          if (toolCalls.length === 0) continue; // final AI is handled separately below
-          const tcIds = toolCalls.map((tc: any) => tc.id ?? '');
-          if (tcIds.length > 0 && tcIds.every((id: string) => existingToolCallIdsOnAssistant.has(id))) continue;
-          records.push({
-            conversationId,
-            role: 'assistant',
-            content: typeof content === 'string' ? content : JSON.stringify(content),
-            toolCalls: toolCalls.map((tc: any) => ({
-              id: tc.id ?? '',
-              name: tc.name ?? '',
-              args: tc.args ?? {},
-            })),
-            createdAt: new Date(baseTime + seq),
-          });
-          seq += 1;
-        }
-      }
-    }
-
-    // 3. Final assistant message (always last)
-    records.push({
-      conversationId,
-      role: 'assistant',
-      content: assistantContent,
-      createdAt: new Date(baseTime + records.length),
-      metadata: toMessageMetadata({
-        ...(params.assistantMetadata ? params.assistantMetadata : {}),
-        ...(params.assistantPresentation ? { presentation: params.assistantPresentation } : {}),
-        ...(params.traceId ? { traceId: params.traceId } : {}),
-        ...(params.assistantAborted ? { status: 'aborted' } : {}),
-      }),
-    });
-
-    await prisma.message.createMany({ data: records as any });
-  } catch (error) {
-    console.warn('[chat] skip message persistence:', error instanceof Error ? error.message : String(error));
-  }
 }
 
 export async function chatRoutes(fastify: FastifyInstance) {
@@ -717,22 +427,6 @@ export async function chatRoutes(fastify: FastifyInstance) {
     let streamConversationId = conversationId;
     const effectiveMessage = buildEffectiveAgentMessage(body.message, body.context?.resumeFromMessage);
 
-    reply.hijack();
-    setSseCorsHeaders(request, reply);
-    reply.raw.setHeader('Content-Type', 'text/event-stream');
-    reply.raw.setHeader('Cache-Control', 'no-cache');
-    reply.raw.setHeader('Connection', 'keep-alive');
-    reply.raw.setHeader('X-Accel-Buffering', 'no');
-    reply.raw.flushHeaders?.();
-
-    const abortController = new AbortController();
-    const onClose = () => { abortController.abort(); };
-    // Listen on both reply.raw and request.socket to reliably detect
-    // client disconnect. reply.raw 'close' may not fire on all Node.js
-    // versions; request.socket 'close' fires when the TCP socket closes.
-    reply.raw.on('close', onClose);
-    request.socket.on('close', onClose);
-
     let assistantContent = '';
     let assistantMetadata: Record<string, unknown> | undefined;
     let streamTraceId = body.traceId;
@@ -782,16 +476,16 @@ export async function chatRoutes(fastify: FastifyInstance) {
       messagesPersisted = true;
     };
 
-    try {
+    const relay = async (session: SseTurnSession) => {
       const stream = agentService.runStream({
         ...body,
         conversationId,
         message: effectiveMessage,
-        signal: abortController.signal,
+        signal: session.signal,
       });
 
       for await (const chunk of stream) {
-        if (abortController.signal.aborted) break;
+        if (session.signal.aborted) break;
         if (chunk.type === 'start') streamStarted = true;
         if (
           chunk
@@ -921,8 +615,8 @@ export async function chatRoutes(fastify: FastifyInstance) {
             for (const phase of assistantPresentation.phases) {
               for (const step of phase.steps) {
                 if (!preStepIds.has(step.id)) {
-                  reply.raw.write(`data: ${JSON.stringify({ type: 'phase_upsert', phase: { phaseId: phase.phaseId, phase: phase.phase, title: phase.title, status: phase.status, steps: [] } })}\n\n`);
-                  reply.raw.write(`data: ${JSON.stringify({ type: 'step_upsert', phaseId: phase.phaseId, step })}\n\n`);
+                  session.writeEvent({ type: 'phase_upsert', phase: { phaseId: phase.phaseId, phase: phase.phase, title: phase.title, status: phase.status, steps: [] } });
+                  session.writeEvent({ type: 'step_upsert', phaseId: phase.phaseId, step });
                 }
               }
             }
@@ -957,36 +651,23 @@ export async function chatRoutes(fastify: FastifyInstance) {
             assistantContent = (interactionContent.questions[0] as { question: string }).question;
           }
         }
-        reply.raw.write(`data: ${JSON.stringify(normalizePublicStreamChunk(chunk))}\n\n`);
+        session.writeChunk(chunk);
       }
+    };
 
-      // Save user + assistant messages to DB so the next request has context.
-      // This runs for both completed and aborted streams.
-      const wasAborted = abortController.signal.aborted;
-      await persistStreamMessages(wasAborted);
-
-      reply.raw.write('data: [DONE]\n\n');
-      reply.raw.end();
-    } catch (error) {
-      if (abortController.signal.aborted) {
-        request.log.info({ conversationId: streamConversationId }, 'Stream aborted by client');
-        reply.raw.end();
-      } else {
-        request.log.error({ err: error }, 'Unexpected error in /api/v1/chat/stream');
-        const failure = toLlmStreamError(error);
-        assistantContent = failure.error;
-        assistantPresentation = reducePresentationEvent(assistantPresentation, { type: 'presentation_error', phase: 'modeling', message: failure.error });
-        await persistStreamMessages(false).catch(persistError => request.log.error({ err: persistError }, 'Failed to persist interrupted stream'));
-        reply.raw.write(`data: ${JSON.stringify(failure)}\n\n`);
-        reply.raw.write('data: [DONE]\n\n');
-        reply.raw.end();
-      }
-    } finally {
-      // Ensure messages are persisted even on unexpected errors.
-      await persistStreamMessages(abortController.signal.aborted).catch(() => {});
-      reply.raw.off('close', onClose);
-      request.socket.off('close', onClose);
-    }
+    await runSseTurn(request, reply, {
+      route: '/api/v1/chat/stream',
+      abortedMessage: 'Stream aborted by client',
+      conversationId: () => streamConversationId,
+      relay,
+      persist: persistStreamMessages,
+      onFailure: (message) => {
+        assistantContent = message;
+        assistantPresentation = reducePresentationEvent(assistantPresentation, { type: 'presentation_error', phase: 'modeling', message });
+      },
+      interruptedPersistMessage: 'Failed to persist interrupted stream',
+      onFinalPersistError: () => {},
+    });
   });
 
   // Resume a paused LangGraph agent (human-in-the-loop clarification response)
@@ -997,19 +678,6 @@ export async function chatRoutes(fastify: FastifyInstance) {
     },
   }, async (request: FastifyRequest<{ Body: z.infer<typeof resumeStreamSchema> }>, reply: FastifyReply) => {
     const body = resumeStreamSchema.parse(request.body);
-
-    reply.hijack();
-    setSseCorsHeaders(request, reply);
-    reply.raw.setHeader('Content-Type', 'text/event-stream');
-    reply.raw.setHeader('Cache-Control', 'no-cache');
-    reply.raw.setHeader('Connection', 'keep-alive');
-    reply.raw.setHeader('X-Accel-Buffering', 'no');
-    reply.raw.flushHeaders?.();
-
-    const abortController = new AbortController();
-    const onClose = () => { abortController.abort(); };
-    reply.raw.on('close', onClose);
-    request.socket.on('close', onClose);
 
     let resumeAssistantContent = '';
     let resumePresentation = createEmptyAssistantPresentation({ mode: 'execution' });
@@ -1031,11 +699,11 @@ export async function chatRoutes(fastify: FastifyInstance) {
       });
     };
 
-    try {
-      const stream = agentService.resumeStream(body.conversationId, body.resumeValue, abortController.signal);
+    const relay = async (session: SseTurnSession) => {
+      const stream = agentService.resumeStream(body.conversationId, body.resumeValue, session.signal);
 
       for await (const chunk of stream) {
-        if (abortController.signal.aborted) break;
+        if (session.signal.aborted) break;
         if (chunk.type === 'start') resumeStarted = true;
         if (chunk.type === 'start' && chunk.content && typeof chunk.content === 'object') {
           const traceId = (chunk.content as { traceId?: unknown }).traceId;
@@ -1069,69 +737,23 @@ export async function chatRoutes(fastify: FastifyInstance) {
           }
           resumePresentation = reducePresentationEvent(resumePresentation, { type: 'summary_replace', summaryText: resumeAssistantContent });
         }
-        reply.raw.write(`data: ${JSON.stringify(normalizePublicStreamChunk(chunk))}\n\n`);
+        session.writeChunk(chunk);
       }
+    };
 
-      await persistResume(abortController.signal.aborted);
-
-      reply.raw.write('data: [DONE]\n\n');
-      reply.raw.end();
-    } catch (error) {
-      if (abortController.signal.aborted) {
-        request.log.info({ conversationId: body.conversationId }, 'Resume stream aborted by client');
-        reply.raw.end();
-      } else {
-        request.log.error({ err: error }, 'Unexpected error in /api/v1/chat/stream/resume');
-        const failure = toLlmStreamError(error);
-        resumeAssistantContent = failure.error;
-        resumePresentation = reducePresentationEvent(resumePresentation, { type: 'presentation_error', phase: 'modeling', message: failure.error });
-        await persistResume(false).catch(persistError => request.log.error({ err: persistError }, 'Failed to persist interrupted resume'));
-        reply.raw.write(`data: ${JSON.stringify(failure)}\n\n`);
-        reply.raw.write('data: [DONE]\n\n');
-        reply.raw.end();
-      }
-    } finally {
-      await persistResume(abortController.signal.aborted).catch(persistError => request.log.error({ err: persistError }, 'Failed to persist resume'));
-      reply.raw.off('close', onClose);
-      request.socket.off('close', onClose);
-    }
+    await runSseTurn(request, reply, {
+      route: '/api/v1/chat/stream/resume',
+      abortedMessage: 'Resume stream aborted by client',
+      conversationId: () => body.conversationId,
+      relay,
+      persist: persistResume,
+      onFailure: (message) => {
+        resumeAssistantContent = message;
+        resumePresentation = reducePresentationEvent(resumePresentation, { type: 'presentation_error', phase: 'modeling', message });
+      },
+      interruptedPersistMessage: 'Failed to persist interrupted resume',
+      onFinalPersistError: persistError => request.log.error({ err: persistError }, 'Failed to persist resume'),
+    });
   });
 
-}
-
-function normalizePublicStreamChunk(chunk: unknown): unknown {
-  if (!chunk || typeof chunk !== 'object') {
-    return chunk;
-  }
-
-  const raw = chunk as { type?: string; error?: string; code?: string; retriable?: boolean; content?: unknown };
-  const value = raw.type && raw.content && typeof raw.content === 'object' && !Array.isArray(raw.content)
-    ? raw
-    : raw;
-
-  if (value.type !== 'error' || !value.error) {
-    return value;
-  }
-
-  if (isLlmTimeoutError(value.error)) {
-    return {
-      ...value,
-      code: 'LLM_TIMEOUT',
-      retriable: true,
-    };
-  }
-
-  if (isContextOverflowError(value.error)) {
-    return {
-      ...value,
-      code: 'CONTEXT_OVERFLOW',
-      retriable: false,
-    };
-  }
-
-  return {
-    ...value,
-    code: value.code || 'INTERNAL_ERROR',
-    retriable: value.retriable ?? false,
-  };
 }
