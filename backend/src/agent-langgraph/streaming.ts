@@ -21,6 +21,7 @@ import {
 import { createAgentLogger } from '../utils/agent-logger.js';
 import { normalizeClarificationOptions } from '../utils/clarification-options.js';
 import { toolMessageFailure } from '../utils/tool-outcome.js';
+import { toLlmStreamError } from '../utils/llm-error.js';
 
 // Re-export the stream chunk type for convenience
 export type { AgentStreamChunk } from '../types/agent-stream.js';
@@ -625,7 +626,8 @@ export async function* streamGraphToChunks(
     }
   } catch (error) {
     streamLog.error({ err: error, totalChunks, durationMs: Date.now() - streamStart }, 'LangGraph stream error');
-    yield { type: 'presentation_error', phase: 'modeling' as const, message: error instanceof Error ? error.message : String(error) };
-    yield { type: 'error', error: String(error) };
+    const failure = toLlmStreamError(error);
+    yield { type: 'presentation_error', phase: 'modeling' as const, message: failure.error };
+    yield failure;
   }
 }

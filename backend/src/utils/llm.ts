@@ -1,5 +1,6 @@
 import { ChatAnthropic } from '@langchain/anthropic';
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
+import { AIMessage } from '@langchain/core/messages';
 import { ChatOpenAI, ChatOpenAICompletions } from '@langchain/openai';
 import type { config } from '../config/index.js';
 import { getEffectiveLlmSettings, getEffectiveVisionLlmSettings } from '../config/llm-runtime.js';
@@ -7,6 +8,7 @@ import { llmCallLogger } from './llm-logger.js';
 import { logger, logLlmCall } from './agent-logger.js';
 import { reserveLlmCall, recordRunEvent } from '../runtime/run-context.js';
 import { llmContentText } from './llm-content.js';
+import { toLlmApiError } from './llm-error.js';
 
 export type StructureClawChatModel = BaseChatModel & {
   bindTools: NonNullable<BaseChatModel['bindTools']>;
@@ -21,6 +23,7 @@ type ChatModelConfigLike = Pick<
 
 export interface ChatModelRuntimeOptions {
   disableStreaming?: boolean;
+  streaming?: boolean;
   maxTokens?: number;
 }
 
@@ -184,7 +187,7 @@ export function buildChatModelOptions(
     maxRetries: modelConfig.llmMaxRetries,
     apiKey: modelConfig.llmApiKey,
     disableStreaming,
-    ...(disableStreaming ? { streaming: false } : {}),
+    ...(disableStreaming ? { streaming: false } : runtimeOptions.streaming === undefined ? {} : { streaming: runtimeOptions.streaming }),
     ...(Number.isSafeInteger(maxTokens) && (maxTokens ?? 0) > 0 ? { maxTokens } : {}),
     configuration: {
       baseURL: modelConfig.llmBaseUrl,
@@ -209,7 +212,7 @@ export function buildAnthropicChatModelOptions(
     apiKey: modelConfig.llmApiKey,
     maxRetries: modelConfig.llmMaxRetries,
     disableStreaming,
-    ...(disableStreaming ? { streaming: false } : {}),
+    ...(disableStreaming ? { streaming: false } : runtimeOptions.streaming === undefined ? {} : { streaming: runtimeOptions.streaming }),
     ...(Number.isSafeInteger(maxTokens) && (maxTokens ?? 0) > 0 ? { maxTokens } : {}),
     ...(anthropicApiUrl ? { anthropicApiUrl } : {}),
     clientOptions: {
@@ -328,13 +331,24 @@ function withoutSourceMessagesOption(options: any) {
   return rest;
 }
 
-class DeepSeekV4CompatibleChatOpenAICompletions extends ChatOpenAICompletions {
+export class CompatibleChatOpenAICompletions extends ChatOpenAICompletions {
+  _convertCompletionsDeltaToBaseMessageChunk(delta: any, rawResponse: any, defaultRole?: any) {
+    // Compatible servers may omit the role on empty/reasoning/tool chunks.
+    // An absent role must not seed a generic ChatMessageChunk and lose tool calls during concat.
+    return super._convertCompletionsDeltaToBaseMessageChunk(delta, rawResponse, defaultRole ?? 'assistant');
+  }
+
   async _generate(messages: any[], options: any, runManager?: any) {
-    return await super._generate(messages, withSourceMessages(options, messages), runManager);
+    const result = await super._generate(messages, isDeepSeekV4Model(this.model) ? withSourceMessages(options, messages) : options, runManager);
+    options.signal?.throwIfAborted();
+    // invoke() must publish complete messages to the durable graph, including after streaming.
+    return { ...result, generations: result.generations.map(generation => ({ ...generation,
+      message: new AIMessage(Object.fromEntries(Object.entries(generation.message).filter(([key]) => !key.startsWith('lc_'))) as any),
+    })) };
   }
 
   async *_streamResponseChunks(messages: any[], options: any, runManager?: any) {
-    yield* super._streamResponseChunks(messages, withSourceMessages(options, messages), runManager);
+    yield* super._streamResponseChunks(messages, isDeepSeekV4Model(this.model) ? withSourceMessages(options, messages) : options, runManager);
   }
 
   completionWithRetry(request: any, requestOptions?: any): Promise<any> {
@@ -345,12 +359,9 @@ class DeepSeekV4CompatibleChatOpenAICompletions extends ChatOpenAICompletions {
 }
 
 function withProviderCompatibility(options: ReturnType<typeof buildChatModelOptions>) {
-  if (!isDeepSeekV4Model(options.modelName)) {
-    return options;
-  }
   return {
     ...options,
-    completions: new DeepSeekV4CompatibleChatOpenAICompletions(options as any),
+    completions: new CompatibleChatOpenAICompletions(options as any),
   };
 }
 
@@ -425,11 +436,18 @@ export function wrapWithLlmLogging<TModel extends StructureClawChatModel>(model:
     const start = Date.now();
     const loggedModel = modelName();
     const callId = reserveLlmCall(loggedModel);
+    const contextSize = { promptChars: promptStr.length, messageCount: Array.isArray(input) ? input.length : 1 };
     try {
-      const result = await originalInvoke(input, options);
+      const message = await originalInvoke(input, options);
+      options?.signal?.throwIfAborted();
+      // LangGraph callbacks can select streaming without calling the adapter's _generate.
+      // Persist its fully aggregated assistant as a message, never as a provider chunk.
+      const result = message._getType?.() === 'ai' && !(message instanceof AIMessage)
+        ? new AIMessage(Object.fromEntries(Object.entries(message).filter(([key]) => !key.startsWith('lc_'))) as any)
+        : message;
       const content = sanitizeBase64ForLogging(llmContentText(result.content));
       const durationMs = Date.now() - start;
-      recordRunEvent({ kind: 'llm_finished', callId, model: loggedModel, success: true, durationMs, usage: extractLlmTokenUsage(result) ?? null });
+      recordRunEvent({ kind: 'llm_finished', callId, model: loggedModel, success: true, durationMs, ...contextSize, usage: extractLlmTokenUsage(result) ?? null });
       llmCallLogger.log({
         model: loggedModel,
         prompt: promptStr,
@@ -441,7 +459,8 @@ export function wrapWithLlmLogging<TModel extends StructureClawChatModel>(model:
       return result;
     } catch (error) {
       const durationMs = Date.now() - start;
-      recordRunEvent({ kind: 'llm_finished', callId, model: loggedModel, success: false, durationMs });
+      recordRunEvent({ kind: 'llm_finished', callId, model: loggedModel, success: false, durationMs, ...contextSize,
+        errorCode: options?.signal?.aborted ? 'REQUEST_ABORTED' : toLlmApiError(error).body.error.code });
       llmCallLogger.log({
         model: loggedModel,
         prompt: promptStr,

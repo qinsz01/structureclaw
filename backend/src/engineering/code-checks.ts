@@ -123,6 +123,42 @@ export function codeCheckFeedback(check: ModelRecord, model?: ModelRecord, analy
     conclusionEligible: !limited && check.completionStatus === 'complete' && check.complianceStatus === 'pass' };
 }
 
+/** Lossless grouping for the model context only; saved checks and public tool outputs stay complete. */
+export function compactCodeCheckFeedback(feedback: ModelRecord): ModelRecord {
+  if (!isRecord(feedback.checkedItems) || !Array.isArray(feedback.checkedItems.items)
+    || !Array.isArray(feedback.missingInputs)) return feedback;
+  const items = feedback.checkedItems.items;
+  if (!items.every(isRecord) || !feedback.missingInputs.every(isRecord)) return feedback;
+  const group = (rows: ModelRecord[], varying: string[]) => {
+    const groups = new Map<string, ModelRecord>();
+    for (const row of rows) {
+      const shared = Object.fromEntries(Object.entries(row).filter(([key]) => !varying.includes(key)));
+      const binding = Object.fromEntries(Object.entries(row).filter(([key]) => varying.includes(key)));
+      const key = JSON.stringify(shared);
+      const existing = groups.get(key);
+      if (existing) (existing.appliesTo as ModelRecord[]).push(binding);
+      else groups.set(key, { ...shared, appliesTo: [binding] });
+    }
+    return [...groups.values()];
+  };
+  // These two indexes repeat data already present in checkedItems/missingInputs.
+  // Retain any unfamiliar or unmatched row instead of assuming it is redundant.
+  const required = Array.isArray(feedback.inputRequiredChecks) ? feedback.inputRequiredChecks.filter(row => !isRecord(row)
+    || !items.some(item => Object.entries(row).every(([key, value]) => JSON.stringify(item[key]) === JSON.stringify(value)))) : feedback.inputRequiredChecks;
+  const targets = Array.isArray(feedback.writeTargets) ? feedback.writeTargets.filter(row => !isRecord(row)
+    || !Array.isArray(row.elementIds) || !row.elementIds.every(id => feedback.missingInputs instanceof Array
+      && feedback.missingInputs.some(field => isRecord(field) && field.elementId === id && isRecord(field.writeTarget)
+        && Object.entries(row).every(([key, value]) => key === 'elementIds'
+          || JSON.stringify(key === 'label' ? field.label : (field.writeTarget as ModelRecord)[key]) === JSON.stringify(value))))) : feedback.writeTargets;
+  return { ...feedback,
+    checkedItems: { ...feedback.checkedItems, items: group(items, ['elementId', 'resultKey', 'forceState']) },
+    missingInputs: group(feedback.missingInputs, ['elementId', 'checks', 'resultKeys']),
+    ...(Array.isArray(required) && required.length === 0 ? { inputRequiredChecks: undefined } : { inputRequiredChecks: required }),
+    ...(Array.isArray(targets) && targets.length === 0 ? { writeTargets: undefined } : { writeTargets: targets }),
+    contextFormat: 'Grouped rows: each appliesTo entry inherits all fields of its parent. Full original tool output and checks remain saved. / 分组行的每个 appliesTo 项继承父行全部字段；原始工具输出与校核明细完整保留。',
+  };
+}
+
 /** An incomplete engineering check must not be promoted to compliance by final prose. */
 export function codeCheckDeliveryNotice(check: ModelRecord, locale: 'zh' | 'en'): string {
   if (check.completionStatus === 'complete' && check.complianceStatus === 'pass' && isRecord(check.checkScope) && check.checkScope.limited === true) {

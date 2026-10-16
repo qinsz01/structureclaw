@@ -4,7 +4,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { ConversationService } from '../services/conversation.js';
 import { config } from '../config/index.js';
-import { isLlmTimeoutError, isContextOverflowError, toLlmApiError } from '../utils/llm-error.js';
+import { isLlmTimeoutError, isContextOverflowError, toLlmApiError, toLlmStreamError } from '../utils/llm-error.js';
 import { prisma } from '../utils/database.js';
 import type { InputJsonValue } from '../utils/json.js';
 import {
@@ -971,10 +971,11 @@ export async function chatRoutes(fastify: FastifyInstance) {
         reply.raw.end();
       } else {
         request.log.error({ err: error }, 'Unexpected error in /api/v1/chat/stream');
-        reply.raw.write(`data: ${JSON.stringify({
-          type: 'error',
-          error: error instanceof Error ? error.message : 'stream failed',
-        })}\n\n`);
+        const failure = toLlmStreamError(error);
+        assistantContent = failure.error;
+        assistantPresentation = reducePresentationEvent(assistantPresentation, { type: 'presentation_error', phase: 'modeling', message: failure.error });
+        await persistStreamMessages(false).catch(persistError => request.log.error({ err: persistError }, 'Failed to persist interrupted stream'));
+        reply.raw.write(`data: ${JSON.stringify(failure)}\n\n`);
         reply.raw.write('data: [DONE]\n\n');
         reply.raw.end();
       }
@@ -1008,17 +1009,27 @@ export async function chatRoutes(fastify: FastifyInstance) {
     reply.raw.on('close', onClose);
     request.socket.on('close', onClose);
 
-    try {
-      const stream = agentService.resumeStream(
-        body.conversationId,
-        body.resumeValue,
-        abortController.signal,
-      );
+    let resumeAssistantContent = '';
+    let resumePresentation = createEmptyAssistantPresentation({ mode: 'execution' });
+    let resumeLatestResult: Record<string, unknown> | undefined;
+    let resumeTraceId: string | undefined;
+    let resumePersisted = false;
+    const persistResume = async (assistantAborted = false) => {
+      if (resumePersisted) return;
+      let state: AgentState | undefined;
+      try { state = (await agentService.getConversationSessionSnapshot(body.conversationId, 'en'))?.state; }
+      catch { /* The durable graph checkpoint remains authoritative if its read fails. */ }
+      await persistConversationWithState({ conversationId: body.conversationId, userMessage: body.resumeValue,
+        assistantContent: resumeAssistantContent, assistantAborted, traceId: resumeTraceId,
+        assistantPresentation: resumePresentation, state });
+      resumePersisted = true;
+      if (resumeLatestResult) await persistLatestConversationResult({
+        conversationId: body.conversationId, latestResult: resumeLatestResult,
+      });
+    };
 
-      let resumeAssistantContent = '';
-      let resumePresentation = createEmptyAssistantPresentation({ mode: 'execution' });
-      let resumeLatestResult: Record<string, unknown> | undefined;
-      let resumeTraceId: string | undefined;
+    try {
+      const stream = agentService.resumeStream(body.conversationId, body.resumeValue, abortController.signal);
 
       for await (const chunk of stream) {
         if (abortController.signal.aborted) break;
@@ -1057,31 +1068,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
         reply.raw.write(`data: ${JSON.stringify(normalizePublicStreamChunk(chunk))}\n\n`);
       }
 
-      // Persist resume messages + intermediate tool-call chain in one write
-      let resumeSnapshotState: AgentState | undefined;
-      try {
-        const snapshot = await agentService.getConversationSessionSnapshot(
-          body.conversationId,
-          'en',
-        );
-        resumeSnapshotState = snapshot?.state;
-      } catch { /* best-effort */ }
-
-      await persistConversationWithState({
-        conversationId: body.conversationId,
-        userMessage: body.resumeValue,
-        assistantContent: resumeAssistantContent,
-        traceId: resumeTraceId,
-        assistantPresentation: resumePresentation,
-        state: resumeSnapshotState,
-      }).catch(() => {});
-
-      if (resumeLatestResult) {
-        await persistLatestConversationResult({
-          conversationId: body.conversationId,
-          latestResult: resumeLatestResult,
-        }).catch(() => {});
-      }
+      await persistResume(abortController.signal.aborted);
 
       reply.raw.write('data: [DONE]\n\n');
       reply.raw.end();
@@ -1091,14 +1078,16 @@ export async function chatRoutes(fastify: FastifyInstance) {
         reply.raw.end();
       } else {
         request.log.error({ err: error }, 'Unexpected error in /api/v1/chat/stream/resume');
-        reply.raw.write(`data: ${JSON.stringify({
-          type: 'error',
-          error: error instanceof Error ? error.message : 'resume failed',
-        })}\n\n`);
+        const failure = toLlmStreamError(error);
+        resumeAssistantContent = failure.error;
+        resumePresentation = reducePresentationEvent(resumePresentation, { type: 'presentation_error', phase: 'modeling', message: failure.error });
+        await persistResume(false).catch(persistError => request.log.error({ err: persistError }, 'Failed to persist interrupted resume'));
+        reply.raw.write(`data: ${JSON.stringify(failure)}\n\n`);
         reply.raw.write('data: [DONE]\n\n');
         reply.raw.end();
       }
     } finally {
+      await persistResume(abortController.signal.aborted).catch(persistError => request.log.error({ err: persistError }, 'Failed to persist resume'));
       reply.raw.off('close', onClose);
       request.socket.off('close', onClose);
     }

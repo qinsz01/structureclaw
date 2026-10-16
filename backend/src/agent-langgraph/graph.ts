@@ -39,7 +39,7 @@ import { getLogger } from '../utils/agent-logger.js';
 import { compactMessagesForContext, estimateMessagesCharLength } from './context-window.js';
 import { repairToolMessageProtocol } from './message-protocol.js';
 import { withRunContext, snapshotRunUsage } from '../runtime/run-context.js';
-import { codeCheckDeliveryNotice } from '../engineering/code-checks.js';
+import { codeCheckDeliveryNotice, compactCodeCheckFeedback } from '../engineering/code-checks.js';
 
 function getAgentLogger(config: LangGraphRunnableConfig) {
   return getLogger(config.configurable as Partial<AgentConfigurable> | undefined);
@@ -191,7 +191,7 @@ export function shouldReplaceEmptyFinalResponse(response: BaseMessage, currentTu
 
 const IMAGE_JSON_REGEX = /"type"\s*:\s*"image"/;
 
-function sanitizeImageToolMessages(messages: BaseMessage[]): BaseMessage[] {
+export function projectToolMessagesForContext(messages: BaseMessage[]): BaseMessage[] {
   const result: BaseMessage[] = [];
   for (const message of messages) {
     if (getMessageType(message) !== 'tool') {
@@ -199,6 +199,18 @@ function sanitizeImageToolMessages(messages: BaseMessage[]): BaseMessage[] {
       continue;
     }
     const content = typeof message.content === 'string' ? message.content : '';
+    if (getToolName(message) === 'run_code_check') {
+      try {
+        const parsed = JSON.parse(content);
+        if (asRecord(parsed)) {
+          const projected = JSON.stringify(compactCodeCheckFeedback(parsed));
+          if (projected.length < content.length) {
+            result.push(new ToolMessage({ ...message, content: projected, tool_call_id: (message as ToolMessage).tool_call_id }));
+            continue;
+          }
+        }
+      } catch { /* Unstructured errors are preserved verbatim. */ }
+    }
     if (!content || !IMAGE_JSON_REGEX.test(content)) {
       result.push(message);
       continue;
@@ -242,11 +254,9 @@ function createCallModelNode(
     if (configurable) {
       applySessionToolAccessPolicy(configurable, state.toolAccessPolicy);
     }
-    // LangGraph's `messages` stream mode installs a callback handler that
-    // prefers streaming. LangChain may then make `invoke()` return message
-    // chunks; GLM-compatible streaming can yield empty/generic chunks after
-    // tool calls. Keep graph state on complete AIMessage instances.
-    const model = createChatModel(0, { disableStreaming: true });
+    // Receive long reasoning responses incrementally; the provider adapter aggregates
+    // complete, typed assistant/tool-call messages before any tool can execute.
+    const model = createChatModel(0, { streaming: true });
     if (!model) {
       return {
         messages: [
@@ -388,7 +398,7 @@ function createCallModelNode(
     // Applied after turn-boundary computation so binary payload stripping
     // does not affect tool-call counting or compaction turn detection.
     const visibleMessages = state.runPolicy?.context.history === 'current-turn' && lastHumanIndex >= 0 ? msgs.slice(lastHumanIndex) : msgs;
-    const effectiveMsgs = sanitizeImageToolMessages(visibleMessages);
+    const effectiveMsgs = projectToolMessagesForContext(visibleMessages);
 
     const compaction = compactMessagesForContext({
       messages: effectiveMsgs,

@@ -83,3 +83,12 @@ export function toLlmApiError(error: unknown): { statusCode: number; body: ApiEr
     },
   };
 }
+
+/** The same failure contract applies before and during both chat stream endpoints. */
+export function toLlmStreamError(error: unknown): { type: 'error'; error: string; code: string; retriable: boolean } {
+  const mapped = toLlmApiError(error).body.error;
+  const message = mapped.code === 'LLM_TIMEOUT'
+    ? '模型响应超时，已完成的工具结果保留。可在当前对话继续；这不是计算失败，也不需要重新提交整个模型。 / Model response timed out. Completed tool results are retained; continue in this conversation. This is not a solver failure.'
+    : error instanceof Error ? error.message : String(error);
+  return { type: 'error', error: message, code: mapped.code, retriable: mapped.retriable };
+}
