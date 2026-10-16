@@ -144,7 +144,7 @@ export function assertCanonicalCoordinateModel(
       throw new Error(`Node '${id}' has non-zero global Y in a canonical 2-D X-Z model`);
     }
     if (
-      node.restraints !== undefined
+      node.restraints != null
       && (!Array.isArray(node.restraints)
         || node.restraints.length !== STRUCTURAL_DOF_ORDER.length
         || node.restraints.some((entry) => typeof entry !== 'boolean'))
@@ -188,7 +188,7 @@ export function assertCanonicalCoordinateModel(
       throw new Error(`Element '${id}' has zero length`);
     }
     elementDirections.set(id, direction);
-    if (element.rotation_angle !== undefined) {
+    if (element.rotation_angle != null) {
       const rotation = finiteNumber(element.rotation_angle, `Element '${id}' rotation_angle`);
       if (dimension === '2d' && Math.abs(rotation / 90 - Math.round(rotation / 90)) > COORDINATE_TOLERANCE) {
         throw new Error(`Element '${id}' 2-D section rotation must be a multiple of 90 degrees / 二维截面转角须为90度的整数倍，非主轴弯曲须使用三维模型`);

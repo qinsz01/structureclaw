@@ -24,7 +24,7 @@ export function validateExplicitModel(model: RecordValue): RecordValue {
   const materialIds = new Set(materials.map((item) => item.id));
   const sectionIds = new Set(sections.map((item) => item.id));
   for (const node of nodes) {
-    if (node.restraints !== undefined && (!Array.isArray(node.restraints) || node.restraints.length !== 6 || node.restraints.some((v) => typeof v !== 'boolean'))) fail(`node ${node.id}: restraints must contain six booleans`);
+    if (node.restraints != null && (!Array.isArray(node.restraints) || node.restraints.length !== 6 || node.restraints.some((v) => typeof v !== 'boolean'))) fail(`node ${node.id}: restraints must contain six booleans`);
   }
   for (const element of elements) {
     if (!['beam', 'column', 'truss', 'brace', 'link', 'shell', 'solid', 'wall', 'slab'].includes(String(element.type))) fail(`element ${element.id}: explicit type required`);

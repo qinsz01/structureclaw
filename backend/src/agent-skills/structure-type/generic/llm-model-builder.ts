@@ -11,7 +11,7 @@ import { llmContentText } from '../../../utils/llm-content.js';
 import type { StructureClawChatModel } from '../../../utils/llm.js';
 import { buildGenericModelPrompt, buildRetrySuffix } from './llm-model-prompt.js';
 import { validateExplicitModel } from '../../../agent-runtime/explicit-model.js';
-import { requestRecovery } from '../../../runtime/run-context.js';
+import { canRecover, requestRecovery } from '../../../runtime/run-context.js';
 import { applyDraftAnalysisControl, applyDraftTemplateDesign, projectDraftMaterialDesign } from '../../../agent-runtime/engineering-draft.js';
 import { completeReviewedSectionRecord, reviewedSectionName, reviewedSectionNames } from '../../../agent-runtime/section-catalog.js';
 
@@ -41,7 +41,10 @@ export async function tryBuildGenericModelWithLlm(
   const stateHint = JSON.stringify(state);
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    if (attempt > 0) requestRecovery('generic model: invalid candidate');
+    if (attempt > 0) {
+      if (!canRecover()) break;
+      requestRecovery('generic model: invalid candidate');
+    }
     const prompt = failure ? basePrompt + buildRetrySuffix(locale, failure.error, failure.candidate) : basePrompt;
     const startedAt = Date.now();
     logger.info({
