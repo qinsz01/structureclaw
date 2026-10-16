@@ -112,6 +112,11 @@ function buildEngineDefinition(
 
 const BUILTIN_ANALYSIS_SKILLS: AnalysisSkillManifest[] = discoverBuiltinAnalysisSkills();
 
+/** Builtin analysis skill manifests (priority descending, then id). */
+export function listBuiltinAnalysisSkills(): readonly AnalysisSkillManifest[] {
+  return BUILTIN_ANALYSIS_SKILLS;
+}
+
 export const BUILTIN_ANALYSIS_ENGINES: AnalysisEngineDefinition[] = [
   buildEngineDefinition(BUILTIN_ANALYSIS_SKILLS, {
     id: 'builtin-opensees',

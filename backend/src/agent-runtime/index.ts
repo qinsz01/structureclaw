@@ -11,6 +11,7 @@ import {
 import { resolveCodeCheckRule } from '../agent-skills/code-check/registry.js';
 import type { CodeCheckClient } from '../agent-skills/code-check/rule.js';
 import { AgentSkillRegistry } from './registry.js';
+import { matchesAnalysisContext } from '../agent-skills/analysis/catalog.js';
 import { AgentSkillLoader } from './loader.js';
 import { invokeStructuralTypeRouter } from './llm-router.js';
 import { buildDefaultReportNarrative } from './report-template.js';
@@ -168,26 +169,12 @@ export class AgentSkillRuntime {
         .map((family) => family.trim().toLowerCase())
       : [];
 
-    const matchesContext = (skill: LoadedSkillManifest): boolean => {
-      if (skill.domain !== 'analysis') {
-        return false;
-      }
-      if (options?.analysisType && skill.analysisType !== options.analysisType) {
-        return false;
-      }
-      if (normalizedEngineId && skill.engineId !== normalizedEngineId) {
-        return false;
-      }
-      if (supportedFamilies.length > 0) {
-        const skillFamilies = Array.isArray(skill.supportedModelFamilies)
-          ? skill.supportedModelFamilies.map((family) => family.trim().toLowerCase())
-          : [];
-        if (!skillFamilies.some((family) => supportedFamilies.includes(family))) {
-          return false;
-        }
-      }
-      return true;
-    };
+    const matchesContext = (skill: LoadedSkillManifest): boolean => skill.domain === 'analysis'
+      && matchesAnalysisContext(skill, {
+        analysisType: options?.analysisType,
+        engineId: normalizedEngineId,
+        supportedModelFamilies: supportedFamilies,
+      });
 
     const analysisSkills = this.listBuiltinAnalysisSkillManifests();
     const matchedSelected = analysisSkills.filter((skill) => selectedSkillIds.has(skill.id) && matchesContext(skill));

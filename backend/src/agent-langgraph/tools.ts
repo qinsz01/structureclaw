@@ -4,6 +4,7 @@ import { nativeDesignRecord, resolveCheckProvider, type CodeCheckProvider } from
 import { savedNativeDesignRecord } from '../engineering/native-design-options.js';
 import { resultEngine } from '../engineering/result-data.js';
 import { computeDraftMissing, buildDraftQuestions } from '../agent-runtime/draft-readiness.js';
+import { ANALYSIS_SKILL_IDS, analysisSkillLabel, getAnalysisSkillCatalogEntry, matchesAnalysisContext } from '../agent-skills/analysis/catalog.js';
 /**
  * LangGraph tool definitions for the StructureClaw ReAct agent.
  *
@@ -232,33 +233,6 @@ export function resolveExtractionInputMessage(
   return lastUserMessage?.trim() || inputMessage?.trim() || '';
 }
 
-const ANALYSIS_SKILL_ENGINE_IDS: Record<string, string> = {
-  'opensees-static': 'builtin-opensees',
-  'opensees-dynamic': 'builtin-opensees',
-  'opensees-seismic': 'builtin-opensees',
-  'opensees-nonlinear': 'builtin-opensees',
-  'pkpm-static': 'builtin-pkpm',
-  'yjk-static': 'builtin-yjk',
-};
-
-const ANALYSIS_SKILL_TYPES: Record<string, 'static' | 'dynamic' | 'seismic' | 'nonlinear'> = {
-  'opensees-static': 'static',
-  'opensees-dynamic': 'dynamic',
-  'opensees-seismic': 'seismic',
-  'opensees-nonlinear': 'nonlinear',
-  'pkpm-static': 'static',
-  'yjk-static': 'static',
-};
-
-const ANALYSIS_SKILL_LABELS: Record<string, string> = {
-  'opensees-static': 'OpenSees static analysis',
-  'opensees-dynamic': 'OpenSees dynamic analysis',
-  'opensees-seismic': 'OpenSees seismic analysis',
-  'opensees-nonlinear': 'OpenSees nonlinear analysis',
-  'pkpm-static': 'PKPM/SATWE static analysis',
-  'yjk-static': 'YJK static analysis',
-};
-
 const CHINA_SEISMIC_BASELINE_SKILL_IDS = [
   'generic',
   'frame',
@@ -269,23 +243,16 @@ const CHINA_SEISMIC_BASELINE_SKILL_IDS = [
   'report-export-builtin',
 ];
 
-const ANALYSIS_SKILL_ID_VALUES = [
-  'opensees-static',
-  'opensees-dynamic',
-  'opensees-seismic',
-  'opensees-nonlinear',
-  'pkpm-static',
-  'yjk-static',
-] as const;
 
 function selectedAnalysisSkillIds(
   selectedSkillIds?: string[],
   analysisType?: 'static' | 'dynamic' | 'seismic' | 'nonlinear',
 ): string[] {
   return Array.isArray(selectedSkillIds)
-    ? selectedSkillIds.filter((skillId) =>
-      ANALYSIS_SKILL_ENGINE_IDS[skillId]
-      && (!analysisType || ANALYSIS_SKILL_TYPES[skillId] === analysisType))
+    ? selectedSkillIds.filter((skillId) => {
+      const entry = getAnalysisSkillCatalogEntry(skillId);
+      return entry !== undefined && matchesAnalysisContext(entry, { analysisType });
+    })
     : [];
 }
 
@@ -299,7 +266,7 @@ export function resolveRequestedAnalysisSkillId(
   if (requestedAnalysisSkillId) {
     if (
       analysisSkillIds.includes(requestedAnalysisSkillId)
-      && (!analysisType || ANALYSIS_SKILL_TYPES[requestedAnalysisSkillId] === analysisType)
+      && (!analysisType || getAnalysisSkillCatalogEntry(requestedAnalysisSkillId)?.analysisType === analysisType)
     ) {
       return requestedAnalysisSkillId;
     }
@@ -316,7 +283,7 @@ export function resolveRequestedAnalysisEngineId(
   requestedAnalysisSkillId?: string,
 ): string | undefined {
   const skillId = resolveRequestedAnalysisSkillId(message, selectedSkillIds, analysisType, requestedAnalysisSkillId);
-  return skillId ? ANALYSIS_SKILL_ENGINE_IDS[skillId] : undefined;
+  return skillId ? getAnalysisSkillCatalogEntry(skillId)?.engineId : undefined;
 }
 
 export function resolveUnselectedRequestedAnalysisSkillId(
@@ -325,23 +292,23 @@ export function resolveUnselectedRequestedAnalysisSkillId(
   analysisType?: 'static' | 'dynamic' | 'seismic' | 'nonlinear',
   requestedAnalysisSkillId?: string,
 ): string | undefined {
-  if (!requestedAnalysisSkillId || !ANALYSIS_SKILL_ENGINE_IDS[requestedAnalysisSkillId]) {
+  const requested = getAnalysisSkillCatalogEntry(requestedAnalysisSkillId);
+  if (!requestedAnalysisSkillId || !requested) {
     return undefined;
   }
-  if (analysisType && ANALYSIS_SKILL_TYPES[requestedAnalysisSkillId] !== analysisType) {
+  if (analysisType && requested.analysisType !== analysisType) {
     return requestedAnalysisSkillId;
   }
   const selected = selectedAnalysisSkillIds(selectedSkillIds, analysisType);
-  const requestedEngineId = ANALYSIS_SKILL_ENGINE_IDS[requestedAnalysisSkillId];
   const providerSatisfied = selected.some((skillId) =>
-    skillId === requestedAnalysisSkillId || ANALYSIS_SKILL_ENGINE_IDS[skillId] === requestedEngineId);
+    skillId === requestedAnalysisSkillId || getAnalysisSkillCatalogEntry(skillId)?.engineId === requested.engineId);
   return providerSatisfied
     ? undefined
     : requestedAnalysisSkillId;
 }
 
 function buildAnalysisProviderNotSelectedPayload(skillId: string) {
-  const label = ANALYSIS_SKILL_LABELS[skillId] ?? skillId;
+  const label = analysisSkillLabel(skillId);
   return {
     success: false,
     error_code: 'ANALYSIS_PROVIDER_NOT_SELECTED',
@@ -3458,7 +3425,7 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
           .enum(['static', 'dynamic', 'seismic', 'nonlinear'])
           .default('static').describe('Type of analysis; default static, including equilibrium. method is separate. / 分析类型，缺省静力；equilibrium属于method。'),
         analysisSkillId: z
-          .enum(ANALYSIS_SKILL_ID_VALUES)
+          .enum(ANALYSIS_SKILL_IDS)
           .optional()
           .describe('Optional structured analysis skill ID from LLM semantic understanding or UI selection. Do not infer it from keyword matching.'),
         loadCombinationId: z
