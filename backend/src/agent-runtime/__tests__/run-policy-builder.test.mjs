@@ -74,11 +74,12 @@ describe('model builder choice is independent of routing and guidance', () => {
     expect(result.schema_version).toBe('2.2.0');
     expect(templates).toBe(1); expect(generated).toBe(1);
   });
-  test('invalid generated candidates use the shared recovery ledger; transport failures are never hidden retries', async () => {
+  test('disabled correction preserves the invalid candidate cause; transport failures are never hidden retries', async () => {
     const runtime = createRunContext(resolve({ repair: { enabled: false } }));
     let calls = 0;
-    await expect(withRunContext(runtime, () => tryBuildGenericModelWithLlm({ invoke: async () => { calls++; return { content: 'invalid' }; } }, 'model', {}, 'en'))).rejects.toThrow('RECOVERY_BUDGET_EXHAUSTED');
+    await expect(withRunContext(runtime, () => tryBuildGenericModelWithLlm({ invoke: async () => { calls++; return { content: 'invalid' }; } }, 'model', {}, 'en'))).rejects.toThrow('LLM_MODEL_VALIDATION_FAILED: MODEL_JSON_REQUIRED');
     expect(calls).toBe(1);
+    expect(runtime.usage.recoveries).toBe(0);
     calls = 0;
     await expect(withRunContext(createRunContext(resolve({})), () => tryBuildGenericModelWithLlm({ invoke: async () => { calls++; throw new Error('transport'); } }, 'model', {}, 'en'))).rejects.toThrow('transport');
     expect(calls).toBe(1);
