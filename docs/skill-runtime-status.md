@@ -21,7 +21,7 @@ Status is derived from:
 | `validation` | `partial` | 1 | Runtime-connected structure JSON validation skill with a Python runtime. |
 | `report-export` | `partial` | 2 | Manifest-backed report-export skills; the PKPM calculation-book skill includes a Python runtime. |
 | `result-postprocess` | `active` | 1 | Built-in postprocess domain participates in the artifact flow through manifest metadata. |
-| `load-boundary` | `discoverable` | 10 | Catalog-visible load and boundary skills. Most include `runtime.py`, but the main agent tool flow does not auto-bind them today. |
+| `load-boundary` | `discoverable` | 10 | Catalog-visible load and boundary skills (manifest + prompt assets only; no per-skill Python runtime). |
 | `visualization` | `discoverable` | 1 | Catalog-visible visualization prompt asset without a per-skill runtime module. |
 | `section` | `discoverable` | 3 | Catalog-visible section skills with `handler.ts` and `runtime.py`; they are not auto-activated by the main agent binder. |
 | `general` | `discoverable` | 2 | Catalog-visible general skills for memory and shell concepts; concrete runtime behavior is implemented by built-in agent tools. |
@@ -46,7 +46,7 @@ Status is derived from:
 | `validation` | 1 skill with `skill.yaml` + `intent.md` + `runtime.py` |
 | `report-export` | 2 skills; the PKPM calculation-book skill includes `intent.md` + `runtime.py` |
 | `result-postprocess` | 1 skill with `skill.yaml` + `intent.md` |
-| `load-boundary` | 10 skills with `skill.yaml`; 9 also include `intent.md` + `runtime.py` |
+| `load-boundary` | 10 skills with `skill.yaml`; 9 also include `intent.md` |
 | `visualization` | 1 skill with `skill.yaml` + `intent.md` |
 | `section` | 3 skills with `skill.yaml` + `intent.md` + `handler.ts` + `runtime.py` |
 | `general` | 2 skills with `skill.yaml`; the memory skill also has `intent.md` |

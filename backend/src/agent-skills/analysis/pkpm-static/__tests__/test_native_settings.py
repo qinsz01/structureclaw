@@ -1,4 +1,5 @@
 from pathlib import Path
+import importlib.util
 import os
 import sys
 import tempfile
@@ -8,7 +9,19 @@ import unittest
 SKILL = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(SKILL), str(SKILL.parent / "runtime")]
 from native_settings import control_parameters, validate_settings, verify_effective_settings
-from runtime import _verify_native_completion
+
+
+def _load_module(name, path):
+    """Load a skill's runtime.py under a unique name; runtime.py exists in several skills."""
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+_load_module("pkpm_static_runtime", SKILL / "runtime.py")
+from pkpm_static_runtime import _verify_native_completion
 
 
 class NativeSettingsTest(unittest.TestCase):

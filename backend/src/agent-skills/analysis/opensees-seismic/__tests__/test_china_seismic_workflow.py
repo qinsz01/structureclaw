@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import math
 import sys
 import unittest
@@ -15,6 +16,18 @@ sys.path.insert(0, str(OPENSEES_SEISMIC_DIR.parent))
 sys.path.insert(0, str(OPENSEES_SEISMIC_DIR.parent / "runtime"))
 sys.path.insert(0, str(BACKEND_SRC_DIR / "skill-shared" / "python"))
 
+
+def _load_module(name, path):
+    """Load a skill's runtime.py under a unique name; runtime.py exists in several skills."""
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+_load_module("opensees_seismic_runtime", OPENSEES_SEISMIC_DIR / "runtime.py")
+
 from design_basis import build_design_basis  # noqa: E402
 from ground_motion import _story_drift_snapshot, parse_ground_motions, run_modal_time_history, select_ground_motions_for_direction  # noqa: E402
 from ground_motion_catalog import list_recorded_reference_catalog, resolve_builtin_catalog_records, resolve_catalog_records  # noqa: E402
@@ -24,7 +37,7 @@ from modal import compute_floor_masses, run_modal_analysis  # noqa: E402
 from regularity import assess_regularity  # noqa: E402
 from result_adapter import build_pushover_seismic_result, build_seismic_result  # noqa: E402
 from response_spectrum import apply_minimum_story_shear_adjustment, run_response_spectrum  # noqa: E402
-from runtime import run_analysis as run_seismic_analysis  # noqa: E402
+from opensees_seismic_runtime import run_analysis as run_seismic_analysis  # noqa: E402
 from spectrum import generate_design_spectrum, seismic_influence_coefficient  # noqa: E402
 from structure_protocol.structure_model_v2 import StructureModelV2  # noqa: E402
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import sys
 from pathlib import Path
 
@@ -13,8 +14,19 @@ for path in (SKILL_DIR, ANALYSIS_RUNTIME_DIR, SHARED_PYTHON_DIR):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
+
+def _load_module(name, path):
+    """Load a skill's runtime.py under a unique name; runtime.py exists in several skills."""
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 from reference_linear_solver import ReferenceStaticAnalyzer as StaticAnalyzer  # noqa: E402
-from runtime import run_analysis as run_opensees_analysis  # noqa: E402
+_load_module("opensees_static_runtime", SKILL_DIR / "runtime.py")
+from opensees_static_runtime import run_analysis as run_opensees_analysis  # noqa: E402
 from structure_protocol.structure_model_v2 import StructureModelV2  # noqa: E402
 
 

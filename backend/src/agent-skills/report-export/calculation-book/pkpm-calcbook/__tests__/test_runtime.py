@@ -1,6 +1,7 @@
 """Tests for pkpm-calcbook runtime."""
 from __future__ import annotations
 
+import importlib.util
 import json
 import math
 import sys
@@ -17,7 +18,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 _api = types.ModuleType("APIPyInterface")
 sys.modules.setdefault("APIPyInterface", _api)
 
-from runtime import (
+def _load_module(name, path):
+    """Load a skill's runtime.py under a unique name; runtime.py exists in several skills."""
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+_load_module("pkpm_calcbook_runtime", Path(__file__).resolve().parent.parent / "runtime.py")
+from pkpm_calcbook_runtime import (
     _dump_worker_response,
     _extract_base_shear,
     _extract_beam_design,
@@ -257,7 +268,7 @@ def test_analysis_report_skips_design_and_preserves_real_zero(tmp_path):
     result.GetStoreyUnitMass.return_value = []
     result.GetStiffWeightRatioFrame.return_value = []
     with patch.object(_api, "ResultData", return_value=result, create=True), \
-            patch("runtime._generate_docx"), patch("runtime._generate_pdf"):
+            patch("pkpm_calcbook_runtime._generate_docx"), patch("pkpm_calcbook_runtime._generate_pdf"):
         report = run_analysis({}, {"jws_path": str(project)})
     result.GetDesignBeams.assert_not_called()
     result.GetDesignColumns.assert_not_called()
@@ -272,7 +283,7 @@ def test_failed_native_result_initialization_does_not_read_stale_values(tmp_path
     result = MagicMock()
     result.InitialResult.return_value = -1
     with patch.object(_api, "ResultData", return_value=result, create=True), \
-            patch("runtime._generate_docx"), patch("runtime._generate_pdf"):
+            patch("pkpm_calcbook_runtime._generate_docx"), patch("pkpm_calcbook_runtime._generate_pdf"):
         report = run_analysis({}, {"jws_path": str(project)})
     result.GetModePeriods.assert_not_called()
     assert any("InitialResult" in warning for warning in report["warnings"])

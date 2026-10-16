@@ -21,7 +21,7 @@
 | `validation` | `partial` | 1 | 已接入运行时的 structure JSON validation skill，包含 Python runtime。 |
 | `report-export` | `partial` | 2 | 已 manifest 化的 report-export skills；PKPM calculation-book skill 包含 Python runtime。 |
 | `result-postprocess` | `active` | 1 | 内置 postprocess domain 通过 manifest 元数据参与 artifact flow。 |
-| `load-boundary` | `discoverable` | 10 | catalog-visible 的荷载与边界 skills。多数包含 `runtime.py`，但当前主 agent tool flow 不会自动绑定它们。 |
+| `load-boundary` | `discoverable` | 10 | catalog-visible 的荷载与边界 skills（仅清单与提示内容，无独立 Python 运行时）。 |
 | `visualization` | `discoverable` | 1 | catalog-visible 的 visualization prompt 资产，暂无 per-skill runtime 模块。 |
 | `section` | `discoverable` | 3 | catalog-visible 的截面 skills，包含 `handler.ts` 和 `runtime.py`；当前不会被主 agent binder 自动激活。 |
 | `general` | `discoverable` | 2 | catalog-visible 的通用 skills，覆盖 memory 和 shell 概念；具体运行能力由内置 agent tools 实现。 |
@@ -46,7 +46,7 @@
 | `validation` | 1 个 skill，包含 `skill.yaml` + `intent.md` + `runtime.py` |
 | `report-export` | 2 个 skills；PKPM calculation-book skill 包含 `intent.md` + `runtime.py` |
 | `result-postprocess` | 1 个 skill，包含 `skill.yaml` + `intent.md` |
-| `load-boundary` | 10 个 skills，均有 `skill.yaml`；其中 9 个还有 `intent.md` + `runtime.py` |
+| `load-boundary` | 10 个 skills，均有 `skill.yaml`；其中 9 个还有 `intent.md` |
 | `visualization` | 1 个 skill，包含 `skill.yaml` + `intent.md` |
 | `section` | 3 个 skills，均包含 `skill.yaml` + `intent.md` + `handler.ts` + `runtime.py` |
 | `general` | 2 个 skills，均包含 `skill.yaml`；其中 memory skill 还有 `intent.md` |

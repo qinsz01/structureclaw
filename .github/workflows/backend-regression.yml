@@ -46,17 +46,9 @@ jobs:
           pip install pytest
 
       - name: Run Python unit tests
-        run: |
-          pytest \
-            backend/src/agent-skills/material/__tests__/ \
-            backend/src/agent-skills/code-check/gb50009/__tests__/ \
-            backend/src/agent-skills/code-check/gb50010/__tests__/ \
-            backend/src/agent-skills/code-check/gb50011/__tests__/ \
-            backend/src/agent-skills/code-check/gb50017/__tests__/ \
-            backend/src/agent-skills/code-check/jgj3/__tests__/ \
-            backend/src/agent-skills/data-input/converters/__tests__/ \
-            backend/src/agent-skills/report-export/calculation-book/pkpm-calcbook/__tests__/ \
-            -v
+        run: npm run test:python --prefix backend -- -v
+        env:
+          PYTHON_FOR_TEST: python
 
   backend-regression:
     strategy:
