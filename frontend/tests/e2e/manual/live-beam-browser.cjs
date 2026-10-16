@@ -95,6 +95,10 @@ async function selectPolicy() {
 
 async function sendTurn(text, number) {
   const label = `turn-${number}`;
+  const priorSession = config.currentModelEditsOnly && conversationId
+    ? await getJSON(`/api/v1/chat/conversation/${conversationId}/session`) : null;
+  const priorToolIds = priorSession ? new Set((await getJSON(`/api/v1/chat/conversation/${conversationId}`)).messages
+    .filter(message => message.role === 'tool').map(message => message.id)) : new Set();
   save(`${label}-input.json`, { text, suppliedBy: number === 1 ? (config.initialPromptSource ?? 'original-user-reproduction') : 'explicit-test-fixture-config' });
   const requestPromise = page.waitForRequest(request => request.method() === 'POST' && streamURL(request.url()), { timeout: 30000 });
   const responsePromise = page.waitForResponse(response => response.request().method() === 'POST' && streamURL(response.url()), { timeout: timeLimit });
@@ -139,6 +143,11 @@ async function sendTurn(text, number) {
     const premature = ['materials', 'elements'].flatMap(collection => (captured.inputReview?.model?.[collection] ?? [])
       .filter(item => item.design && Object.keys(item.design).length > 0).map(item => ({ collection, id: item.id, design: item.design })));
     expect(premature, 'Design conditions must be explicitly confirmed before being written').toEqual([]);
+  }
+  if (priorSession?.modelRevision > 0 && !priorSession.modelPending) {
+    const rebuilt = captured.tools.filter(message => !priorToolIds.has(message.id)
+      && ['extract_draft_params', 'build_model'].includes(message.name));
+    expect(rebuilt.map(message => message.name), 'Updating a current model must use precise edits, not rebuild its draft').toEqual([]);
   }
   return captured;
 }

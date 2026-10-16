@@ -84,17 +84,24 @@ describe('run policy at real orchestration boundaries', () => {
     expect(edits).toBe(1);
     expect(newUserTurn.usage.recoveries).toBe(0);
   });
-  test('a graph interrupt resumes the same ledger without recounting its clarification', async () => {
+  test.each([
+    ['draft', null, false, 'extract_draft_params'],
+    ['existing model', { nodes: [{ id: 'N1', x: 0, y: 0, z: 0 }] }, false, 'query_model'],
+    ['pending draft', { nodes: [{ id: 'N1', x: 0, y: 0, z: 0 }] }, true, 'extract_draft_params'],
+  ])('a graph interrupt resumes the same ledger and correct editing path for %s', async (_label, model, modelPending, nextAction) => {
     const runtime = createRunContext(policy());
     const ask = createAskUserClarificationTool();
     const graph = new StateGraph(AgentStateAnnotation).addNode('tools', (state, config) => withRunContext(runtime, () => executeToolsSequentially([ask], state, config)))
       .addEdge(START, 'tools').addEdge('tools', END).compile({ checkpointer: new MemorySaver() });
     const config = { configurable: { thread_id: 'policy-interrupt', runContext: runtime } };
-    const paused = await graph.invoke({ messages: [new AIMessage({ content: '', tool_calls: [{ id: 'ask', name: 'ask_user_clarification', args: { question: 'Span?' } }] })] }, config);
+    const paused = await graph.invoke({ model, modelPending, messages: [new AIMessage({ content: '', tool_calls: [{ id: 'ask', name: 'ask_user_clarification', args: { question: 'Span?' } }] })] }, config);
     expect(paused.__interrupt__).toHaveLength(1); expect(runtime.usage.toolCalls).toBe(1);
     const resumed = await graph.invoke(new Command({ resume: '6 m' }), config);
     expect(runtime.usage.toolCalls).toBe(1);
     expect(resumed.messages.at(-1).content).toContain('6 m');
+    expect(JSON.parse(resumed.messages.at(-1).content)).toMatchObject({ answer: '6 m', nextAction });
+    expect(resumed.model).toEqual(model);
+    expect(resumed.modelPending).toBe(modelPending);
   });
   test('external clarification returns a host-owned request, never starts an unresumable local interrupt', async () => {
     const value = resolveRunPolicy({ ...available, executionOwner: 'external' });
