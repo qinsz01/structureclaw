@@ -741,9 +741,10 @@ export async function chatRoutes(fastify: FastifyInstance) {
       mode: 'execution',
     });
     let messagesPersisted = false;
+    let streamStarted = false;
 
     const persistStreamMessages = async (assistantAborted?: boolean) => {
-      if (messagesPersisted) {
+      if (messagesPersisted || !streamStarted) {
         return;
       }
       const persistedPresentation = assistantAborted && assistantPresentation.status === 'streaming'
@@ -791,6 +792,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
 
       for await (const chunk of stream) {
         if (abortController.signal.aborted) break;
+        if (chunk.type === 'start') streamStarted = true;
         if (
           chunk
           && typeof chunk === 'object'
@@ -1014,8 +1016,9 @@ export async function chatRoutes(fastify: FastifyInstance) {
     let resumeLatestResult: Record<string, unknown> | undefined;
     let resumeTraceId: string | undefined;
     let resumePersisted = false;
+    let resumeStarted = false;
     const persistResume = async (assistantAborted = false) => {
-      if (resumePersisted) return;
+      if (resumePersisted || !resumeStarted) return;
       let state: AgentState | undefined;
       try { state = (await agentService.getConversationSessionSnapshot(body.conversationId, 'en'))?.state; }
       catch { /* The durable graph checkpoint remains authoritative if its read fails. */ }
@@ -1033,6 +1036,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
 
       for await (const chunk of stream) {
         if (abortController.signal.aborted) break;
+        if (chunk.type === 'start') resumeStarted = true;
         if (chunk.type === 'start' && chunk.content && typeof chunk.content === 'object') {
           const traceId = (chunk.content as { traceId?: unknown }).traceId;
           if (typeof traceId === 'string') resumeTraceId = traceId;

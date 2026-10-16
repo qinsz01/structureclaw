@@ -117,6 +117,21 @@ describe('chat routes message persistence', () => {
     expect(records.at(-1)).toMatchObject({ role: 'assistant', metadata: { presentation: { status: 'error' } } });
   });
 
+  test.each([
+    ['/stream', 'CONVERSATION_WAITING_FOR_REPLY'],
+    ['/stream/resume', 'CONVERSATION_NOT_WAITING_FOR_REPLY'],
+  ])('%s does not copy a previous turn into history when rejected before start', async (url, error) => {
+    const spy = url === '/stream' ? agentRunStreamSpy : agentResumeStreamSpy;
+    spy.mockImplementationOnce(async function* () { throw new Error(error); });
+    const payload = url === '/stream' ? { conversationId: 'conv-paused', message: 'Duplicate answer' }
+      : { conversationId: 'conv-paused', resumeValue: 'Duplicate answer' };
+    const response = await app.inject({ method: 'POST', url, payload });
+    expect(response.body).toContain(error);
+    expect(prisma.message.createMany).not.toHaveBeenCalled();
+    expect(prisma.conversation.update).not.toHaveBeenCalled();
+    expect(getSnapshotSpy).not.toHaveBeenCalled();
+  });
+
   test('persists paused messages with aborted metadata instead of mutating the content', async () => {
     const response = await app.inject({
       method: 'POST',
