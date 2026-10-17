@@ -79,14 +79,6 @@ function numberText(value: unknown, locale: AppLocale, maximumFractionDigits = 3
   })
 }
 
-function percentText(value: unknown, locale: AppLocale, maximumFractionDigits = 1) {
-  const number = finiteNumber(value)
-  if (number === null) return 'N/A'
-  return `${(number * 100).toLocaleString(locale === 'zh' ? 'zh-CN' : 'en-US', {
-    maximumFractionDigits,
-  })}%`
-}
-
 function driftText(value: unknown) {
   const number = finiteNumber(value)
   return number === null ? 'N/A' : number.toFixed(8)
