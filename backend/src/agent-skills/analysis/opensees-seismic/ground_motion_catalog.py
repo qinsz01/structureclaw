@@ -211,6 +211,10 @@ RECORDED_REFERENCE_CATALOG_META = [
     },
 ]
 
+# Source marker for the deterministic artificial catalog. These synthetic records are
+# not oriented recordings, so they may be applied to any requested global axis.
+BUILTIN_ARTIFICIAL_SOURCE = "builtin_artificial_catalog"
+
 CATALOG_BY_ID = {item["id"]: item for item in CATALOG_META}
 REFERENCE_CATALOG_BY_ID = {item["id"]: item for item in RECORDED_REFERENCE_CATALOG_META}
 
@@ -253,7 +257,7 @@ def _catalog_record(catalog_id: str) -> Dict[str, Any]:
         "dt": meta["dt"],
         "unit": meta["unit"],
         "recordType": meta["recordType"],
-        "source": "builtin_artificial_catalog",
+        "source": BUILTIN_ARTIFICIAL_SOURCE,
         "values": _wave_values(index, float(meta["duration"]), float(meta["dt"])),
     }
 
@@ -541,5 +545,5 @@ def catalog_summary_for_records(records: Sequence[Dict[str, Any]]) -> Dict[str, 
     return {
         "source": sources[0] if len(sources) == 1 else "mixed_ground_motion_catalog",
         "catalogIds": catalog_ids,
-        **({"catalog": list_builtin_catalog()} if sources == ["builtin_artificial_catalog"] else {}),
+        **({"catalog": list_builtin_catalog()} if sources == [BUILTIN_ARTIFICIAL_SOURCE] else {}),
     }

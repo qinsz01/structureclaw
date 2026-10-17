@@ -2124,6 +2124,27 @@ class ChinaSeismicWorkflowTest(unittest.TestCase):
         self.assertEqual(motions[0].to_summary()["direction"], "x")
         self.assertEqual(motions[1].to_summary()["direction"], "y")
 
+    def test_builtin_artificial_catalog_records_apply_to_every_requested_direction(self) -> None:
+        catalog_records = resolve_builtin_catalog_records({"catalogIds": ["SCGM-A1", "SCGM-A2"]})
+        motions = parse_ground_motions([
+            *catalog_records,
+            {"name": "GM-X1", "direction": "x", "dt": 0.02, "unit": "g", "values": [0.0, 0.01, -0.01]},
+        ])
+
+        x_motions, x_warnings = select_ground_motions_for_direction(motions, "x")
+        y_motions, y_warnings = select_ground_motions_for_direction(motions, "y")
+
+        self.assertEqual([motion.direction for motion in x_motions], ["x", "x", "x"])
+        self.assertEqual([motion.direction for motion in y_motions], ["y", "y"])
+        self.assertEqual(x_warnings, [])
+        self.assertEqual(y_warnings, [])
+        self.assertIsNone(motions[0].direction, "selection must not mutate the parsed catalog record")
+        user_untagged = parse_ground_motions([
+            {"name": "U1", "source": "uploaded", "dt": 0.02, "unit": "g", "values": [0.0, 0.01]},
+        ])
+        with self.assertRaisesRegex(ValueError, "GROUND_MOTION_DIRECTION_REQUIRED"):
+            select_ground_motions_for_direction(user_untagged, "x")
+
     def test_multi_direction_time_history_uses_matching_ground_motion_components(self) -> None:
         wave = [0.0, 0.02, -0.02, 0.01, -0.01, 0.0] * 20
         result = run_seismic_analysis(build_space_frame_model(), {

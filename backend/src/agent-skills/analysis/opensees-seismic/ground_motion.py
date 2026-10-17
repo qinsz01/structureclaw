@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
@@ -10,6 +10,7 @@ from design_basis import SeismicDesignBasis
 from modal import G_ACCEL, ModalAnalysis, _build_opensees_model
 from seismic_contracts import optional_number
 from spectrum import seismic_influence_coefficient
+from ground_motion_catalog import BUILTIN_ARTIFICIAL_SOURCE
 from ground_motion_input import values as _values, unit_scale as _unit_scale, motion_direction as _motion_direction
 
 
@@ -24,6 +25,9 @@ class GroundMotion:
     direction: Optional[str] = None
     source: Optional[Dict[str, Any]] = None
     time_origin: float = 0.0
+    # True only for system-generated artificial catalog records: they carry no recording
+    # orientation, so they are valid for every requested horizontal axis.
+    direction_neutral: bool = False
 
     def to_summary(self) -> Dict[str, Any]:
         peak = max((abs(value) for value in self.accelerations_mps2), default=0.0)
@@ -91,6 +95,7 @@ def parse_ground_motions(records: List[Dict[str, Any]]) -> List[GroundMotion]:
             direction=_motion_direction(record),
             source=parsed.source,
             time_origin=parsed.time_origin,
+            direction_neutral=record.get("source") == BUILTIN_ARTIFICIAL_SOURCE,
         ))
     return motions
 
@@ -100,9 +105,13 @@ def select_ground_motions_for_direction(
     direction: str,
 ) -> Tuple[List[GroundMotion], List[str]]:
     target = _motion_direction({"direction": direction})
-    if any(motion.direction is None for motion in motions):
+    if any(motion.direction is None and not motion.direction_neutral for motion in motions):
         raise ValueError("GROUND_MOTION_DIRECTION_REQUIRED: untagged records cannot be applied to a global axis")
-    matching = [motion for motion in motions if motion.direction == target]
+    matching = [
+        replace(motion, direction=target) if motion.direction is None else motion
+        for motion in motions
+        if motion.direction == target or (motion.direction is None and motion.direction_neutral)
+    ]
     return matching, [] if matching or not motions else [f"No {target.upper()}-direction ground-motion records were provided."]
 
 
