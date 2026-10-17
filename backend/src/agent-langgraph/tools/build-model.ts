@@ -8,7 +8,7 @@ import { normalizeEngineeringModel } from '../../engineering/model-boundary.js';
 import { mergeInputEvidence } from '../../engineering/input-evidence.js';
 import { buildModelToolSummary, buildModelToolStateUpdate } from './compaction/analysis.js';
 import { messageRole, messageText } from './input-message.js';
-import { getConfigurable, getToolCallId, toolResult, isRecord, toolSkillScope } from './shared.js';
+import { getConfigurable, getToolCallId, toolResult, isRecord, toolSkillScope, nextActionForMissingInput, clarificationAvailable } from './shared.js';
 
 export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
   return tool(
@@ -40,8 +40,10 @@ export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
         // An identified missing fact is a normal clarification state, not an
         // invalid candidate or a reason to consume the automatic-repair budget.
         return toolResult(toolCallId, 'build_model', JSON.stringify({ status: 'input_required', modelBuilt: false,
-          missingFields: error.missingFields, nextAction: 'ask_user_clarification',
-          instruction: 'Ask for these missing facts, then extract the new answer before building. The saved model is unchanged. / 请询问这些缺失信息，收到新答复后再提取建模；原模型未变。' }));
+          missingFields: error.missingFields, nextAction: nextActionForMissingInput(),
+          instruction: clarificationAvailable()
+            ? 'Ask for these missing facts, then extract the new answer before building. The saved model is unchanged. / 请询问这些缺失信息，收到新答复后再提取建模；原模型未变。'
+            : 'List these missing facts in your final reply and end the turn; never invent values. The saved model is unchanged. / 在最终回复中列出这些缺失信息并结束本轮，不得编造数值；原模型未变。' }));
       }
       if (!candidate) {
         logToolCall(log, { tool: 'build_model', durationMs: Date.now() - start, extra: { success: false } });

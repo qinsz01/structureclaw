@@ -4,6 +4,19 @@ import { mergeLlmTokenUsage, type LlmTokenUsage } from '../../utils/llm.js';
 import type { AgentState } from '../state.js';
 import type { AgentConfigurable } from '../configurable.js';
 import type { LegacyToolConfigurable } from '../tool-context.js';
+import { currentRunPolicy } from '../../runtime/run-context.js';
+import { missingInputNextAction, type MissingInputNextAction } from '../../runtime/ablation-profiles.js';
+
+/** Whether ask_user_clarification is exposed in this run (no policy: direct host, full system). */
+export function clarificationAvailable(): boolean {
+  const policy = currentRunPolicy();
+  return !policy || policy.activeToolIds.includes('ask_user_clarification');
+}
+
+/** Single emission point for the next action after a missing engineering input. */
+export function nextActionForMissingInput(): MissingInputNextAction {
+  return missingInputNextAction(clarificationAvailable());
+}
 
 /** Get the AgentConfigurable from the LangGraph run config. */
 export function getConfigurable(config: LangGraphRunnableConfig): AgentConfigurable & { agentState?: AgentState } {

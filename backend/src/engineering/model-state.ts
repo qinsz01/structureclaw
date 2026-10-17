@@ -34,6 +34,22 @@ export interface ModelState {
   analysisRequestSequence?: number;
   analysisRequest?: AnalysisRequestBinding | null;
   inputEvidence?: ModelRecord[];
+  /** The turn's run policy as stored in the session state; only the stateVersioning switch is read here. */
+  runPolicy?: { features?: { stateVersioning?: 'on' | 'off' } } | null;
+}
+
+/**
+ * State-versioning ablation (features.stateVersioning='off', docs/ablation.md): edits still record
+ * revisions, history and hashes, but saved analysis/check/report results are not invalidated and
+ * the freshness check ignores revision/hash mismatches. Read from the explicitly passed state.
+ */
+export function staleResultsKept(state: ModelState | undefined): boolean {
+  return state?.runPolicy?.features?.stateVersioning === 'off';
+}
+
+/** Invalidation caused by a model, draft, evidence or settings change (skipped when versioning is off). */
+export function invalidateStaleResults(state: ModelState | undefined) {
+  return staleResultsKept(state) ? {} : invalidateAnalysis(state);
 }
 
 export const analysisRequestBindingSchema = z.object({
@@ -190,7 +206,7 @@ export function commitModel(state: ModelState | undefined, model: ModelRecord, l
   });
   return {
     model: structuredClone(model), modelRevision: revision, modelPending: false, modelHistory: history,
-    ...(changed ? invalidateAnalysis(state) : {}),
+    ...(changed ? invalidateStaleResults(state) : {}),
   };
 }
 
@@ -296,25 +312,26 @@ function reverseTransaction(before: unknown, after: unknown, current: unknown, f
 export function currentAnalysisError(state: ModelState | undefined): string | undefined {
   if (!state?.analysisResult) return 'ANALYSIS_REQUIRED';
   const meta = isRecord(state.analysisResult.meta) ? state.analysisResult.meta : {};
+  const versioned = !staleResultsKept(state);
   if (meta.sourceDraftHash !== undefined) {
     if (unresolvedInputEvidence(state.inputEvidence).length) return 'INPUT_EVIDENCE_UNRESOLVED';
-    if (meta.sourceDraftHash !== sourceDraftHash(state)
+    if (versioned && (meta.sourceDraftHash !== sourceDraftHash(state)
       || !state.analysisRequest || !matchesRequest(state.analysisRequest, meta)
-      || state.analysisRequest.modelRevision !== (state.modelRevision ?? 0)) return 'ANALYSIS_STALE_OR_LEGACY';
+      || state.analysisRequest.modelRevision !== (state.modelRevision ?? 0))) return 'ANALYSIS_STALE_OR_LEGACY';
     return state.analysisResult.success === false ? 'ANALYSIS_FAILED' : undefined;
   }
   if (!state.model) return 'ANALYSIS_REQUIRED';
   if (unresolvedInputEvidence(state.inputEvidence).length
     || unresolvedInputEvidence(isRecord(state.model.metadata) ? state.model.metadata.inputEvidence : undefined).length)
     return 'INPUT_EVIDENCE_UNRESOLVED';
-  if (state.modelPending) return 'MODEL_REBUILD_REQUIRED';
+  if (versioned && state.modelPending) return 'MODEL_REBUILD_REQUIRED';
   try {
     assertInputEvidenceMatchesModel(state.model, state.inputEvidence);
     assertInputEvidenceMatchesModel(state.model);
   } catch { return 'INPUT_EVIDENCE_NOT_APPLIED'; }
-  if (meta.modelHash !== modelHash(state.model)) return 'ANALYSIS_STALE_OR_LEGACY';
-  if (!state.analysisRequest || !matchesRequest(state.analysisRequest, meta)
-    || state.analysisRequest.modelRevision !== (state.modelRevision ?? 0)) return 'ANALYSIS_STALE_OR_LEGACY';
+  if (versioned && meta.modelHash !== modelHash(state.model)) return 'ANALYSIS_STALE_OR_LEGACY';
+  if (versioned && (!state.analysisRequest || !matchesRequest(state.analysisRequest, meta)
+    || state.analysisRequest.modelRevision !== (state.modelRevision ?? 0))) return 'ANALYSIS_STALE_OR_LEGACY';
   if (state.analysisResult.success === false) return 'ANALYSIS_FAILED';
   return undefined;
 }
@@ -324,7 +341,7 @@ export function applyInputEvidence(state: ModelState, patch: ModelRecord[]) {
   const inputEvidence = mergeInputEvidence(state.inputEvidence, patch) ?? [];
   const previous = new Set((state.inputEvidence ?? []).map(contentHash));
   const changed = inputEvidence.some(item => item.required !== false && !previous.has(contentHash(item)));
-  return { inputEvidence, ...(changed ? invalidateAnalysis(state) : {}) };
+  return { inputEvidence, ...(changed ? invalidateStaleResults(state) : {}) };
 }
 
 export function publishAnalysis(state: ModelState, request: AnalysisRequestBinding, result: ModelRecord) {

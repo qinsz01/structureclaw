@@ -13,7 +13,7 @@ import { checkRunResults, codeCheckFeedback, validateServiceabilitySelection } f
 import { recordRunEvent } from '../../runtime/run-context.js';
 import { requestScopeSchema, type RequestScope } from '../../engineering/request-scope.js';
 import { analysisTraceIdFromResult } from './analysis-resolution.js';
-import { getConfigurable, getToolCallId, toolResult, isRecord, toolSkillScope } from './shared.js';
+import { getConfigurable, getToolCallId, toolResult, isRecord, toolSkillScope, clarificationAvailable } from './shared.js';
 
 export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
   return tool(
@@ -130,7 +130,7 @@ export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
       return toolResult(
         toolCallId,
         'run_code_check',
-        JSON.stringify({ success: true, provider: 'builtin', engine: resultEngine(analysis), skillId: codeCheckSkillId, ...codeCheckFeedback(codeCheckPayload, model, analysis) }),
+        JSON.stringify({ success: true, provider: 'builtin', engine: resultEngine(analysis), skillId: codeCheckSkillId, ...codeCheckFeedback(codeCheckPayload, model, analysis, { clarification: clarificationAvailable() }) }),
         { codeCheckResult: codeCheckPayload },
       );
     },

@@ -90,7 +90,7 @@ describe('missing engineering input is clarification, not recovery', () => {
     const { resolveRunPolicy } = await import('../../../dist/runtime/run-policy.js');
     const plugin = { id: 'beam', structureType: 'beam', manifest: { structuralTypeKeys: ['beam'] }, handler };
     const runtime = { resolvePluginForType: async () => plugin };
-    const context = createRunContext(resolveRunPolicy({ availableSkillIds: ['beam'], availableToolIds: ['extract_draft_params'], defaultToolIds: ['extract_draft_params'],
+    const context = createRunContext(resolveRunPolicy({ availableSkillIds: ['beam'], availableToolIds: ['extract_draft_params', 'ask_user_clarification'], defaultToolIds: ['extract_draft_params', 'ask_user_clarification'],
       requested: { repair: { enabled: false } } }));
     const scope = { responses: ['forces', 'reactions'], method: 'solver', design: true, report: false, outputs: [] };
     extract.mockClear();
@@ -117,7 +117,7 @@ describe('missing engineering input is clarification, not recovery', () => {
     const { resolveRunPolicy } = await import('../../../dist/runtime/run-policy.js');
     const plugin = { id: 'beam', structureType: 'beam', manifest: { structuralTypeKeys: ['beam'] }, handler };
     const runtime = { resolvePluginForType: async () => plugin };
-    const policy = resolveRunPolicy({ availableSkillIds: ['beam'], availableToolIds: ['extract_draft_params'], defaultToolIds: ['extract_draft_params'], requested: { repair: { enabled, maxRecoveriesPerTurn: 2 } } });
+    const policy = resolveRunPolicy({ availableSkillIds: ['beam'], availableToolIds: ['extract_draft_params', 'ask_user_clarification'], defaultToolIds: ['extract_draft_params', 'ask_user_clarification'], requested: { repair: { enabled, maxRecoveriesPerTurn: 2 } } });
     const context = createRunContext(policy);
     extract.mockClear();
     extract.mockResolvedValue({ engineeringDraft: { structureType: 'beam', geometry: { lengthM: 10 }, boundary: { supportType: 'simply-supported' }, loads: [{ kind: 'point', magnitude: 1, unit: 'kN', location: { xM: 5 } }] } });

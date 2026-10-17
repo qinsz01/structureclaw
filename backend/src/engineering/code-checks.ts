@@ -1,5 +1,6 @@
 import { isRecord, type ModelRecord } from './model-state.js';
 import { modelEditGuidance, sectionPropertyUnits } from './model-edit-contract.js';
+import { missingInputNextAction } from '../runtime/ablation-profiles.js';
 
 /** A declared service case must exist in this run before other cases may be excluded. */
 export function validateServiceabilitySelection(model: ModelRecord, analysis: ModelRecord): void {
@@ -58,8 +59,11 @@ export function formatCheckSummary(summary: ModelRecord | undefined, locale: 'zh
   return base + suffix + (unavailable || summary.inputRequired !== undefined || summary.unsupported !== undefined ? scope : '');
 }
 
-/** Keep both missing inputs and computed evidence in the agent's tool response. */
-export function codeCheckFeedback(check: ModelRecord, model?: ModelRecord, analysis?: ModelRecord): ModelRecord {
+/**
+ * Keep both missing inputs and computed evidence in the agent's tool response.
+ * `clarification: false` when the run exposes no clarification tool (ablation); missing inputs are then reported.
+ */
+export function codeCheckFeedback(check: ModelRecord, model?: ModelRecord, analysis?: ModelRecord, options: { clarification?: boolean } = {}): ModelRecord {
   const missingInputs: ModelRecord[] = [];
   const checkedItems: ModelRecord[] = [];
   for (const detail of Array.isArray(check.details) ? check.details.filter(isRecord) : []) {
@@ -108,7 +112,7 @@ export function codeCheckFeedback(check: ModelRecord, model?: ModelRecord, analy
   let nextAction = 'generate_report';
   if (check.completionStatus !== 'complete') {
     const unsupported = Number(isRecord(check.summary) ? check.summary.unsupported ?? 0 : 0) > 0;
-    nextAction = unresolvedResults.length ? 'inspect_analysis' : unsupported && !missingFields.length ? 'inspect_capability' : 'ask_user_clarification';
+    nextAction = unresolvedResults.length ? 'inspect_analysis' : unsupported && !missingFields.length ? 'inspect_capability' : missingInputNextAction(options.clarification !== false);
   }
   return { completionStatus: check.completionStatus, complianceStatus: check.complianceStatus, summary: check.summary,
     checkedItems: { runId: isRecord(check.meta) ? check.meta.runId : undefined,

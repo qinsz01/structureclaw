@@ -2,7 +2,7 @@ import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 import type { LangGraphRunnableConfig } from '@langchain/langgraph';
 import type { AgentState } from '../state.js';
-import { invalidateAnalysis } from '../../engineering/model-state.js';
+import { invalidateStaleResults, staleResultsKept } from '../../engineering/model-state.js';
 import { currentRunPolicy } from '../../runtime/run-context.js';
 import { getConfigurable, getToolCallId, toolResult } from './shared.js';
 
@@ -153,8 +153,8 @@ export function createSetSessionConfigTool() {
       // Only return Command if there are actual updates
       if (updatedKeys.length > 0) {
         if (input.analysisType && input.analysisType !== state?.policy?.analysisType || input.skillIdsJson) {
-          Object.assign(stateUpdate, invalidateAnalysis(state));
-        } else if (input.designCode && input.designCode !== state?.policy?.designCode) {
+          Object.assign(stateUpdate, invalidateStaleResults(state));
+        } else if (input.designCode && input.designCode !== state?.policy?.designCode && !staleResultsKept(state)) {
           stateUpdate.codeCheckResult = null;
           stateUpdate.report = null;
         }

@@ -24,7 +24,7 @@ import { runtimeBaseDir } from '../config/index.js';
 import { collectVisionEvidence, imageRegionSchema, type ImageRegion } from '../engineering/vision-evidence.js';
 import { Command } from '@langchain/langgraph';
 import { ToolMessage } from '@langchain/core/messages';
-import { applyInputEvidence, invalidateAnalysis, isRecord, type ModelState } from '../engineering/model-state.js';
+import { applyInputEvidence, invalidateStaleResults, isRecord, type ModelState } from '../engineering/model-state.js';
 import { fileInputEvidence } from '../engineering/file-evidence.js';
 import { mergeInputEvidence } from '../engineering/input-evidence.js';
 
@@ -446,7 +446,7 @@ export function createAnalyzeFileTool() {
           name: path.basename(input.filePath), recordType: 'actual', ...selection, fileReference: reference };
         workflow.groundMotionSet = { ...set, source: 'uploaded', records: [...records.filter(item => item.id !== record.id), record] };
         analysis.groundMotionRecord = record;
-        workflowUpdate = { ...invalidateAnalysis(configurable.agentState ?? {}), contextSeismicWorkflow: workflow };
+        workflowUpdate = { ...invalidateStaleResults(configurable.agentState ?? {}), contextSeismicWorkflow: workflow };
         // Full samples are retained in the immutable parsed file; the response is a bounded preview.
         for (const key of ['rows', 'content', 'sheets', 'text']) delete analysis[key];
       }

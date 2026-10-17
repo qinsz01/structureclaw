@@ -19,7 +19,7 @@ import { resolveRequestedAnalysisSkillId, resolveUnselectedRequestedAnalysisSkil
 import { buildAnalysisToolSummary } from './compaction/analysis.js';
 import { parseJsonObjectInput, hasStructuredSeismicWorkflow, hasSemanticSeismicWorkflowInput, mergeSeismicWorkflowInputs } from './seismic-workflow/merge.js';
 import { validateSeismicWorkflowInput } from './seismic-workflow/validate-design.js';
-import { getConfigurable, getToolCallId, toolResult, isRecord, pickStringLike, toolSkillScope } from './shared.js';
+import { getConfigurable, getToolCallId, toolResult, isRecord, pickStringLike, toolSkillScope, nextActionForMissingInput } from './shared.js';
 
 /** Exact requested scalars use the same query service and server-side tool budget. */
 async function queryRequestedOutputs(state: AgentState, scope: RequestScope | null | undefined, config: LangGraphRunnableConfig) {
@@ -121,7 +121,7 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
         return toolResult(toolCallId, 'run_analysis', JSON.stringify({ ...buildAnalysisToolSummary({ result: run, model: projection }),
           method: 'equilibrium', availableResponses: ['forces', 'reactions'], requestScope: scope,
           ...(partial ? { deliveryStatus: 'partial', missingRequestedResponses: scope.responses.filter(field => !['forces', 'reactions'].includes(field)),
-            nextAction: 'ask_user_clarification', message: 'Forces solved; displacement/other requested responses still need analysis properties. / 内力已算；位移等其余所求量仍需分析属性。' } : {}),
+            nextAction: nextActionForMissingInput(), message: 'Forces solved; displacement/other requested responses still need analysis properties. / 内力已算；位移等其余所求量仍需分析属性。' } : {}),
           ...(delivery ? { requestedQuantities: delivery.requestedQuantities, missingRequestedOutputs: delivery.missingRequestedOutputs } : {}),
           instruction: 'Query forces/reactions by physical position. Displacement, stress and design were not calculated. / 按物理位置查询内力反力；没有计算位移、应力或设计。' }),
           { ...update, ...(delivery ? { resultQuantities: delivery.resultQuantities } : {}), ...(scope ? { requestScope: scope } : {}) });

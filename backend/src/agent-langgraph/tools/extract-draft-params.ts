@@ -9,7 +9,7 @@ import type { AgentState } from '../state.js';
 import type { AgentConfigurable } from '../configurable.js';
 import type { DraftState } from '../../shared/types/agent.js';
 import { isFreshGenericStructuralRoute } from '../../agent-runtime/plugin-helpers.js';
-import { invalidateAnalysis } from '../../engineering/model-state.js';
+import { invalidateStaleResults } from '../../engineering/model-state.js';
 import { engineeringModelSchema, draftDesignSchema, hasDraftDesignInputs, assertDraftDesignInputs, draftSectionShapeSchema, normalizeDraftSectionInputs } from '../../engineering/model-edit-contract.js';
 import { createLocalStructureProtocolClient } from '../../skill-shared/structure-protocol-execution.js';
 import { currentRunPolicy, recordRunEvent } from '../../runtime/run-context.js';
@@ -188,7 +188,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
             extractionMode: 'deterministic',
             ...buildDraftProgress(locale, missing.critical),
           };
-          const stateUpdate: Partial<AgentState> = { ...(resetToGeneric ? { ...invalidateAnalysis(state), modelPending: true } : {}),
+          const stateUpdate: Partial<AgentState> = { ...(resetToGeneric ? { ...invalidateStaleResults(state), modelPending: true } : {}),
             draftState: nextState, structuralTypeKey: match.key };
           logToolCall(log, { tool: 'extract_draft_params', durationMs: Date.now() - start, extra: { skillId: plugin.id, extractionMode: 'deterministic', criticalMissing: missing.critical.length, routingSource: match.routingSource } });
           return extractionToolResult(JSON.stringify(responseJson), stateUpdate);
@@ -293,7 +293,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
         const stateUpdate: Partial<AgentState> = {};
         if (requestScope) stateUpdate.requestScope = requestScope;
         if (nextState) {
-          Object.assign(stateUpdate, invalidateAnalysis(state));
+          Object.assign(stateUpdate, invalidateStaleResults(state));
           stateUpdate.draftState = nextState;
           stateUpdate.modelPending = true;
         }

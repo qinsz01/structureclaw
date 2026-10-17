@@ -1,5 +1,5 @@
 import type { AgentState } from '../../state.js';
-import { commitModel, invalidateAnalysis } from '../../../engineering/model-state.js';
+import { commitModel, invalidateStaleResults } from '../../../engineering/model-state.js';
 import { compactText } from './context.js';
 import { pickAnalysisDiagnostics, buildSuccessfulAnalysisDetails } from './summary.js';
 import { isRecord, optionalRecord } from '../shared.js';
@@ -160,7 +160,7 @@ export function buildModelToolStateUpdate(
   if (summary.success === false) {
     if (state?.model && !state.modelPending) return {};
     return {
-      ...invalidateAnalysis(state),
+      ...invalidateStaleResults(state),
       model: state?.model ?? null,
       modelPending: true,
     };

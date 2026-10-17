@@ -20,7 +20,7 @@ import { streamGraphToChunks, type StreamContext } from './streaming.js';
 import type { AgentState, AgentToolAccessPolicy } from './state.js';
 import { getAllowShellTools, getCheckpointerDataDir, getWorkspaceRoot, getWorkspaceSkillRoot } from './config.js';
 import { config, runtimeBaseDir } from '../config/index.js';
-import { resolveApplicationRunPolicy } from './policy-resolver.js';
+import { resolveApplicationRunPolicy, skillCatalog } from './policy-resolver.js';
 import { createRunContext, withRunContext, snapshotRunUsage, readRunUsage, recordRunEvent, type RunContext, type RunUsage } from '../runtime/run-context.js';
 import { DEFAULT_MAX_TOOL_CALLS_PER_TURN } from '../runtime/limits.js';
 import type { ConversationRuntimeSnapshot } from '../types/conversation-runtime.js';
@@ -41,7 +41,7 @@ import { isPathWithinRoot, resolveUploadPath } from './file-tools.js';
 import { summarizeFileImages } from './attachment-vision.js';
 import { collectVisionEvidence } from '../engineering/vision-evidence.js';
 import { SessionLock } from '../engineering/session-lock.js';
-import { applyInputEvidence, commitModel, invalidateAnalysis } from '../engineering/model-state.js';
+import { applyInputEvidence, commitModel, invalidateStaleResults, staleResultsKept } from '../engineering/model-state.js';
 import { nativeDesignReview } from '../engineering/native-design-options.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 import { isRecord } from './attachments/attachment-analysis.js';
@@ -154,7 +154,7 @@ export class LangGraphAgentService {
     const policy = resolveApplicationRunPolicy({ previous: saved.runPolicy ?? undefined, requested: input.context?.runPolicy,
       legacy: { skillIds: input.context?.skillIds ?? (!saved.runPolicy && saved.selectedSkillIds?.length ? saved.selectedSkillIds : undefined),
         enabledToolIds: input.context?.enabledToolIds, disabledToolIds: input.context?.disabledToolIds },
-      availableSkillIds: (await this.skillRuntime.listSkillManifests()).map(item => item.id),
+      ...skillCatalog(await this.skillRuntime.listSkillManifests()),
     });
     if (policy.routing.mode === 'fixed' && !await this.skillRuntime.resolvePluginForType(policy.routing.skillId, policy.activeSkillIds)) throw new Error('FIXED_SKILL_NOT_A_MODELING_PROVIDER');
     const runtime = createRunContext(policy, { journalDir });
@@ -235,8 +235,8 @@ export class LangGraphAgentService {
     }
     if (input.context?.analysisType && input.context.analysisType !== state.policy?.analysisType
       || input.context?.skillIds && JSON.stringify([...input.context.skillIds].sort()) !== JSON.stringify([...(state.selectedSkillIds ?? [])].sort())) {
-      Object.assign(update, invalidateAnalysis(state));
-    } else if (input.context?.designCode && input.context.designCode !== state.policy?.designCode) {
+      Object.assign(update, invalidateStaleResults(state));
+    } else if (input.context?.designCode && input.context.designCode !== state.policy?.designCode && !staleResultsKept(state)) {
       Object.assign(update, { codeCheckResult: null, report: null });
     }
     if (evidence.length) Object.assign(update, applyInputEvidence({ ...state, ...update }, evidence));
@@ -547,7 +547,7 @@ export class LangGraphAgentService {
     if (!state.runPolicy) return [];
     // Recheck current server limits without changing the saved policy or its usage ledger.
     const policy = resolveApplicationRunPolicy({ previous: state.runPolicy,
-      availableSkillIds: (await this.skillRuntime.listSkillManifests()).map(item => item.id) });
+      ...skillCatalog(await this.skillRuntime.listSkillManifests()) });
     return deriveToolContext(state, policy, { allowShell: false }).activeToolIds
       .filter(id => state.runPolicy!.activeToolIds.includes(id));
   }
@@ -627,7 +627,7 @@ export class LangGraphAgentService {
     const snapshot = await graph.getState({ configurable: { thread_id: conversationId } });
     const state = snapshot.values as AgentState;
     const policy = state.runPolicy ?? resolveApplicationRunPolicy({
-      availableSkillIds: (await this.skillRuntime.listSkillManifests()).map(item => item.id),
+      ...skillCatalog(await this.skillRuntime.listSkillManifests()),
     });
     const allowed = [...deriveToolContext({ ...state, selectedSkillIds: state.selectedSkillIds ?? [] }, policy, { allowShell: false }).activeToolIds];
     return buildInputReview(conversationId, state, snapshot.tasks, allowed);

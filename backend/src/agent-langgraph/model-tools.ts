@@ -4,7 +4,7 @@ import { Command, type LangGraphRunnableConfig } from '@langchain/langgraph';
 import { z } from 'zod';
 import type { AgentState } from './state.js';
 import type { AgentConfigurable } from './configurable.js';
-import { applyModelEdits, commitModel, contentHash, currentAnalysisError, invalidateAnalysis, isRecord, undoModel, type ModelEdit } from '../engineering/model-state.js';
+import { applyModelEdits, commitModel, contentHash, currentAnalysisError, invalidateStaleResults, isRecord, undoModel, type ModelEdit } from '../engineering/model-state.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 import { assertModelEditReadback, editCollectionSchema, engineeringModelSchema, modelEditGuidance, modelFieldEdit, normalizeModelEdits } from '../engineering/model-edit-contract.js';
 import { queryPhysicalResponse, scalarResultQuantity } from '../engineering/result-data.js';
@@ -157,7 +157,7 @@ export function createReviewInputTool() {
     if (modelValueErrors.length) throw new Error(`INPUT_REVIEW_INVALID: ${modelValueErrors.map(row => `${row.field}: ${row.reason}`).join('; ')} / 复核字段无效，未保存本次复核，模型与已有结果未变`);
     return result(id, 'review_input', { inputEvidence, unresolved: unresolvedInputEvidence(inputEvidence), modelValues, modelValueErrors, modelMappingsRequired,
       nextAction: 'Apply reviewed values to the draft/current model, then validate / 将复核值用于草稿或当前模型并校验' },
-    { ...invalidateAnalysis(state), inputEvidence,
+    { ...invalidateStaleResults(state), inputEvidence,
       ...(input.resolutions?.some(item => item.analysisParameters) ? { contextSeismicWorkflow } : {}) });
   }, { name: 'review_input', description: 'Resolve existing input evidence/issues; this proposes reviewed values and does NOT edit the model. For ordinary user text updates use edit_model directly. Supply EITHER value+unit OR selectedSource (an existing observed evidence ID), never both; user text is not a source ID. / 解决已有证据问题，仅提出复核值、不修改模型。普通文字补参直接使用edit_model；value+unit与selectedSource已有证据ID二选一，用户文字不是证据ID。',
     schema: z.object({ resolutions: z.array(z.object({ field: z.string().min(1), selectedSource: z.string().optional(),

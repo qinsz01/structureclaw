@@ -9,7 +9,8 @@ import { loadAnalysisRun } from '../../engineering/analysis-runs.js';
 import { resultSelectionSchema, selectedSavedResult, quantityMatchesSelection, type ResultSelection } from '../../engineering/result-selection.js';
 import { createEngineeringReport, attachNativeReport } from '../../agent-runtime/engineering-report.js';
 import { currentAnalysisError } from '../../engineering/model-state.js';
-import { currentRunContext } from '../../runtime/run-context.js';
+import { currentRunContext, currentRunPolicy } from '../../runtime/run-context.js';
+import { runFeatures } from '../../runtime/ablation-profiles.js';
 import { requestScopeSchema, type RequestScope } from '../../engineering/request-scope.js';
 import { normalizeAnalysisType, inferAnalysisTypeFromResult, codeCheckSkillIdFromResult, hasValidChinaSeismicCodeCheck, analysisWorkflowInputModeFromResult } from './analysis-resolution.js';
 import { getConfigurable, getToolCallId, toolResult, isRecord, toolSkillScope } from './shared.js';
@@ -52,11 +53,16 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
       const analysis = { ...run, ...(selection ? selected : {}), runId: run.runId, selectedResultKey: resultKey,
         results: selection && resultKey ? { [resultKey]: selected } : run.results,
         requestedQuantities: quantities, requestedSelection: selection };
-      const normalizedModel = isRecord(run.modelSnapshot) ? run.modelSnapshot : !freshnessError && run.runId === state?.analysisResult?.runId ? state?.model : undefined;
+      // Evidence-binding ablation: pair the session's current model and check with the selected run
+      // without verifying that they belong together; the report records meta.evidenceBinding='off'.
+      const evidenceBinding = runFeatures(currentRunPolicy()).evidenceBinding;
+      const normalizedModel = evidenceBinding === 'off' ? state?.model ?? (isRecord(run.modelSnapshot) ? run.modelSnapshot : undefined)
+        : isRecord(run.modelSnapshot) ? run.modelSnapshot : !freshnessError && run.runId === state?.analysisResult?.runId ? state?.model : undefined;
       if (!normalizedModel) throw new Error('RESULT_MODEL_SNAPSHOT_REQUIRED');
       const currentCheck = state?.codeCheckResult;
-      const codeCheck = !selection || (isRecord(currentCheck?.meta) && currentCheck.meta.runId === run.runId)
-        ? currentCheck : savedNativeDesignRecord(run) ?? undefined;
+      const codeCheck = evidenceBinding === 'off' ? currentCheck ?? savedNativeDesignRecord(run) ?? undefined
+        : !selection || (isRecord(currentCheck?.meta) && currentCheck.meta.runId === run.runId)
+          ? currentCheck : savedNativeDesignRecord(run) ?? undefined;
       const draftState = selection?.runId ? undefined : state?.draftState || undefined;
       const skillIds = toolSkillScope(config);
       const locale = (input.locale ?? state?.locale ?? 'zh') as 'zh' | 'en';
@@ -84,7 +90,7 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
       }
 
       const result = input.narrative === 'structured' ? { report: createEngineeringReport({
-        message: input.message, analysisType, normalizedModel, analysis, codeCheck, locale, reportSource: 'selected-result' }) }
+        message: input.message, analysisType, normalizedModel, analysis, codeCheck, locale, reportSource: 'selected-result', evidenceBinding }) }
         : await skillRuntime.executeReportSkill({
         message: input.message,
         analysisType,
@@ -95,6 +101,7 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
         locale,
         draft: draftState,
         skillIds,
+        evidenceBinding,
       });
 
       // A valid analysis/report does not erase an unresolved query from this turn.
@@ -111,7 +118,7 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
       }
 
       await attachNativeReport({ ...result.report, markdown: result.report.markdown ?? '' }, {
-        message: input.message, analysisType, normalizedModel, analysis, codeCheck, locale,
+        message: input.message, analysisType, normalizedModel, analysis, codeCheck, locale, evidenceBinding,
       });
 
       // Store report in graph state via Command

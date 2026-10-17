@@ -359,6 +359,7 @@ export class AgentSkillRuntime {
     locale: AppLocale;
     draft?: DraftState;
     skillIds?: string[];
+    evidenceBinding?: 'on' | 'off';
   }): Promise<{
     report: { summary: string; json: Record<string, unknown>; markdown?: string };
     skillId: 'report-export-builtin';

@@ -3,11 +3,13 @@ import type { AgentSkillRuntime } from '../../agent-runtime/index.js';
 import { createChatModel, type LlmTokenUsage } from '../../utils/llm.js';
 import type { AgentState } from '../state.js';
 import type { AgentSkillPlugin, DraftState, InteractionQuestion, StructuralTypeKey, StructuralTypeMatch } from '../../shared/types/agent.js';
+import type { MissingInputNextAction } from '../../runtime/ablation-profiles.js';
+import { nextActionForMissingInput } from './shared.js';
 
 export function buildDraftProgress(
   locale: 'zh' | 'en',
   criticalMissing: string[],
-): { canProceed: boolean; nextAction: 'ask_user_clarification' | 'build_model'; reason?: string; instruction: string } {
+): { canProceed: boolean; nextAction: MissingInputNextAction | 'build_model'; reason?: string; instruction: string } {
   if (criticalMissing.length === 0) {
     return {
       canProceed: true,
@@ -18,6 +20,19 @@ export function buildDraftProgress(
     };
   }
   const missingText = criticalMissing.join(', ');
+  const nextAction = nextActionForMissingInput();
+  if (nextAction === 'report_missing_inputs') {
+    return {
+      canProceed: false,
+      nextAction,
+      instruction: locale === 'zh'
+        ? '存在关键缺失字段。本次运行不提供澄清工具：在最终回复中列出这些缺失输入并结束本轮；不得编造数值，不要调用 build_model。'
+        : 'Critical fields are missing. Clarification is not available in this run: list these missing inputs in your final reply and end the turn; never invent values and do not call build_model.',
+      reason: locale === 'zh'
+        ? `草稿仍缺少关键参数：${missingText}。需要向用户说明缺失项，不能直接构建模型或写入 memory。`
+        : `The draft is still missing critical parameters: ${missingText}. Report them to the user; do not build the model or store draft values in memory.`,
+    };
+  }
   return {
     canProceed: false,
     nextAction: 'ask_user_clarification',
@@ -32,10 +47,10 @@ export function buildDraftProgress(
 
 function buildPluginUnavailableProgress(
   locale: 'zh' | 'en',
-): { canProceed: false; nextAction: 'ask_user_clarification'; reason: string } {
+): { canProceed: false; nextAction: MissingInputNextAction; reason: string } {
   return {
     canProceed: false,
-    nextAction: 'ask_user_clarification',
+    nextAction: nextActionForMissingInput(),
     reason: locale === 'zh'
       ? '已保留上一版有效草稿，但无法解析对应结构类型插件，不能可靠计算缺失字段或继续建模。请先确认结构类型或恢复可用 skillScope。'
       : 'The previous valid draft was preserved, but its structure-type plugin could not be resolved. Missing fields cannot be computed reliably, so ask the user to confirm the structural type or restore the available skill scope before building a model.',

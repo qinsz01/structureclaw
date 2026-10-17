@@ -18,6 +18,8 @@ export interface EngineeringReportInput {
   codeCheck?: unknown;
   locale: 'zh' | 'en';
   reportSource?: string;
+  /** 'off' (ablation, docs/ablation.md) skips the report ↔ model/run/check provenance checks and marks meta. */
+  evidenceBinding?: 'on' | 'off';
 }
 
 /** A single structured source for HTTP, chat and public-tool reports. */
@@ -26,10 +28,11 @@ export function prepareEngineeringReport(input: EngineeringReportInput) {
   const check = isRecord(input.codeCheck) ? input.codeCheck : {};
   const meta = isRecord(analysis.meta) ? analysis.meta : {};
   const checkMeta = isRecord(check.meta) ? check.meta : {};
-  if (isRecord(input.normalizedModel) && meta.modelHash && meta.modelHash !== modelHash(input.normalizedModel)) {
+  const bound = input.evidenceBinding !== 'off';
+  if (bound && isRecord(input.normalizedModel) && meta.modelHash && meta.modelHash !== modelHash(input.normalizedModel)) {
     throw new Error('REPORT_MODEL_MISMATCH / 报告模型与运行不一致');
   }
-  if (analysis.runId && Object.keys(check).length &&
+  if (bound && analysis.runId && Object.keys(check).length &&
     (checkMeta.runId !== analysis.runId || (meta.modelHash && checkMeta.modelHash !== meta.modelHash))) {
     throw new Error('REPORT_DESIGN_RUN_MISMATCH / 校核结果不属于本次运行');
   }
@@ -51,7 +54,8 @@ export function prepareEngineeringReport(input: EngineeringReportInput) {
     analysis: input.analysis, codeCheck: input.codeCheck, resultSets: reportResultRows(input.analysis),
     requestedQuantities: analysis.requestedQuantities ?? [], requestedSelection: analysis.requestedSelection, generatedAt: new Date().toISOString(),
     meta: { reportSkillId: 'report-export-builtin', reportSource: input.reportSource, runId: analysis.runId, source: meta,
-      selectedResultKey: analysis.selectedResultKey, resultKeys: Object.keys(isRecord(analysis.results) ? analysis.results : {}) } };
+      selectedResultKey: analysis.selectedResultKey, resultKeys: Object.keys(isRecord(analysis.results) ? analysis.results : {}),
+      ...(bound ? {} : { evidenceBinding: 'off' as const }) } };
   return { input, narrativeInput, summary, json };
 }
 
