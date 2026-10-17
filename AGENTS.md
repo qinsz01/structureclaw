@@ -88,7 +88,7 @@ node tests/runner.mjs llm-benchmark --scenario <id>          # Run a single benc
 | API routes | `backend/src/api/` |
 | Agent orchestration | `backend/src/services/` and `backend/src/agent-runtime/` |
 | Skill domains | `backend/src/agent-skills/<domain>/` |
-| Executable agent tools | `backend/src/agent-langgraph/tool-registry.ts` and `backend/src/agent-langgraph/tools.ts` |
+| Executable agent tools | `backend/src/agent-langgraph/tools/` (one module per tool; `tools.ts` is the barrel) and `backend/src/agent-langgraph/tool-registry.ts` |
 | Shared skill utilities | `backend/src/skill-shared/` |
 | Shared helpers | `backend/src/utils/` |
 | Frontend pages | `frontend/src/app/` |
@@ -105,6 +105,8 @@ All user-facing settings are stored in `settings.json` (managed via the frontend
 - `analysis.pythonBin` — leave blank for auto-detected `~/.structureclaw/.venv` Python
 
 Infrastructure-only env vars: `SCLAW_DATA_DIR`, `NODE_ENV`.
+
+Benchmark exception: `SCLAW_RUN_PROFILE=<id>` selects one of the pre-registered, versioned ablation profiles (`backend/src/runtime/ablation-profiles.ts`) for the backend process. It ranks above `settings.json` `agent.runPolicy` and below the request's `context.runPolicy`; unknown ids stop startup. See `docs/ablation.md` / `docs/ablation_CN.md`.
 
 ## Testing Guidance
 
