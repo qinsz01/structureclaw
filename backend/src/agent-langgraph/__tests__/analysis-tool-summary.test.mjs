@@ -102,7 +102,7 @@ describe("analysis tool summary", () => {
 
     const result = await validateModel.invoke({}, {
       configurable: {
-        skillScope: ["opensees-seismic", "pkpm-static"],
+        toolContext: { skillScope: ["opensees-seismic", "pkpm-static"] },
         agentState: {
           policy: { analysisType: "static" },
           lastUserMessage: "validate this static model",
@@ -138,7 +138,7 @@ describe("analysis tool summary", () => {
     const command = await runAnalysis.invoke({ analysisType: "static", analysisSkillId: "pkpm-static" }, {
       toolCall: { id: "call-test" },
       configurable: {
-        skillScope: ["concrete-frame", "opensees-static"],
+        toolContext: { skillScope: ["concrete-frame", "opensees-static"] },
         agentState: {
           lastUserMessage: "请用 PKPM 计算这个框架",
           model: {
@@ -192,7 +192,7 @@ describe("analysis tool summary", () => {
     await runAnalysis.invoke({ analysisType: "static" }, {
       toolCall: { id: "call-test" },
       configurable: {
-        skillScope: ["frame", "opensees-static"],
+        toolContext: { skillScope: ["frame", "opensees-static"] },
         agentState: {
           lastUserMessage: "Analyze the current model.",
           model: {
@@ -227,7 +227,7 @@ describe("analysis tool summary", () => {
     const command = await runAnalysis.invoke({ analysisType: "static", loadCombinationIds: ["ULS", "SLS"] }, {
       toolCall: { id: "call-test" },
       configurable: {
-        skillScope: ["frame", "opensees-static"],
+        toolContext: { skillScope: ["frame", "opensees-static"] },
         agentState: {
           lastUserMessage: "Analyze the current model.",
           model: {
@@ -351,7 +351,7 @@ describe("analysis tool summary", () => {
     }, {
       toolCall: { id: "call-test" },
       configurable: {
-        skillScope: ["concrete-frame", "opensees-seismic"],
+        toolContext: { skillScope: ["concrete-frame", "opensees-seismic"] },
         agentState: {
           lastUserMessage: "做中国抗震分析",
           model: {
@@ -499,7 +499,7 @@ describe("analysis tool summary", () => {
     }, {
       toolCall: { id: "call-test" },
       configurable: {
-        skillScope: ["opensees-seismic"],
+        toolContext: { skillScope: ["opensees-seismic"] },
         agentState: {
           lastUserMessage: "执行中国抗震结构化 workflow",
           model: {
@@ -541,7 +541,7 @@ describe("analysis tool summary", () => {
     await runAnalysis.invoke({ analysisType: "seismic" }, {
       toolCall: { id: "call-test" },
       configurable: {
-        skillScope: ["opensees-seismic"],
+        toolContext: { skillScope: ["opensees-seismic"] },
         agentState: {
           lastUserMessage: "执行抗震计算",
           draftState: { skillState: { seismicWorkflow: workflow } },
@@ -602,7 +602,7 @@ describe("analysis tool summary", () => {
     await runAnalysis.invoke({ analysisType: "seismic" }, {
       toolCall: { id: "call-test" },
       configurable: {
-        skillScope: ["opensees-seismic"],
+        toolContext: { skillScope: ["opensees-seismic"] },
         agentState: {
           lastUserMessage: "执行抗震计算",
           draftState: { skillState: { seismicWorkflow: draftWorkflow } },
@@ -695,7 +695,7 @@ describe("analysis tool summary", () => {
     }, {
       toolCall: { id: "call-test" },
       configurable: {
-        skillScope: ["opensees-seismic"],
+        toolContext: { skillScope: ["opensees-seismic"] },
         agentState: {
           lastUserMessage: "用上传的 El Centro 波做时程分析",
           contextSeismicWorkflow: contextWorkflow,
@@ -731,7 +731,7 @@ describe("analysis tool summary", () => {
     const command = await runAnalysis.invoke({ analysisType: "seismic" }, {
       toolCall: { id: "call-test" },
       configurable: {
-        skillScope: ["opensees-seismic"],
+        toolContext: { skillScope: ["opensees-seismic"] },
         agentState: {
           lastUserMessage: "按中国抗震规范做反应谱分析，也做时程、Pushover 和弹塑性时程",
           model: {
@@ -783,7 +783,7 @@ describe("analysis tool summary", () => {
     }, {
       toolCall: { id: "call-test" },
       configurable: {
-        skillScope: ["opensees-seismic"],
+        toolContext: { skillScope: ["opensees-seismic"] },
         agentState: {
           lastUserMessage: "按中国抗震规范做反应谱分析",
           model: {
@@ -855,7 +855,7 @@ describe("analysis tool summary", () => {
     }, {
       toolCall: { id: "call-test" },
       configurable: {
-        skillScope: ["opensees-seismic"],
+        toolContext: { skillScope: ["opensees-seismic"] },
         agentState: {
           lastUserMessage: "执行中国抗震结构化 workflow",
           model: {
@@ -948,7 +948,7 @@ describe("analysis tool summary", () => {
     }, {
       toolCall: { id: "call-test" },
       configurable: {
-        skillScope: ["opensees-seismic"],
+        toolContext: { skillScope: ["opensees-seismic"] },
         agentState: {
           lastUserMessage: "执行中国抗震结构化 workflow",
           model: {
@@ -1050,7 +1050,7 @@ describe("analysis tool summary", () => {
     }, {
       toolCall: { id: "call-test" },
       configurable: {
-        skillScope: ["opensees-seismic"],
+        toolContext: { skillScope: ["opensees-seismic"] },
         agentState: {
           lastUserMessage: "按结构化 GB18306 区划表执行抗震 workflow",
           model: {
@@ -1134,7 +1134,7 @@ describe("analysis tool summary", () => {
     }, {
       toolCall: { id: "call-test" },
       configurable: {
-        skillScope: ["opensees-seismic"],
+        toolContext: { skillScope: ["opensees-seismic"] },
         agentState: {
           lastUserMessage: "按结构化性能目标自动选择抗震分析方法",
           model: {
@@ -1200,7 +1200,7 @@ describe("analysis tool summary", () => {
     }, {
       toolCall: { id: "call-test" },
       configurable: {
-        skillScope: ["opensees-seismic"],
+        toolContext: { skillScope: ["opensees-seismic"] },
         agentState: {
           lastUserMessage: "执行无效的结构化性能目标 workflow",
           model: {
@@ -1275,7 +1275,7 @@ describe("analysis tool summary", () => {
     }, {
       toolCall: { id: "call-test" },
       configurable: {
-        skillScope: ["opensees-seismic"],
+        toolContext: { skillScope: ["opensees-seismic"] },
         agentState: {
           lastUserMessage: "执行中国抗震结构化 workflow",
           model: {
@@ -1326,7 +1326,7 @@ describe("analysis tool summary", () => {
     }, {
       toolCall: { id: "call-test" },
       configurable: {
-        skillScope: ["opensees-seismic"],
+        toolContext: { skillScope: ["opensees-seismic"] },
         agentState: {
           lastUserMessage: "按本地地震波目录做时程分析",
           model: {
@@ -1371,7 +1371,7 @@ describe("analysis tool summary", () => {
     }, {
       toolCall: { id: "call-test" },
       configurable: {
-        skillScope: ["opensees-seismic"],
+        toolContext: { skillScope: ["opensees-seismic"] },
         agentState: {
           lastUserMessage: "按上传地震波做时程分析",
           model: {
@@ -1421,7 +1421,7 @@ describe("analysis tool summary", () => {
     }, {
       toolCall: { id: "call-test" },
       configurable: {
-        skillScope: ["opensees-seismic"],
+        toolContext: { skillScope: ["opensees-seismic"] },
         agentState: {
           lastUserMessage: "按本地地震波目录做时程分析",
           model: {
@@ -1462,7 +1462,7 @@ describe("analysis tool summary", () => {
     }, {
       toolCall: { id: "call-report" },
       configurable: {
-        skillScope: ["concrete-frame", "opensees-seismic"],
+        toolContext: { skillScope: ["concrete-frame", "opensees-seismic"] },
         agentState: {
           locale: "zh",
           analysisResult: {
@@ -1502,7 +1502,7 @@ describe("analysis tool summary", () => {
     }, {
       toolCall: { id: "call-report-stale-type" },
       configurable: {
-        skillScope: ["concrete-frame", "opensees-seismic"],
+        toolContext: { skillScope: ["concrete-frame", "opensees-seismic"] },
         agentState: {
           locale: "zh",
           policy: { analysisType: "static" },
@@ -1544,7 +1544,7 @@ describe("analysis tool summary", () => {
     }, {
       toolCall: { id: "call-report" },
       configurable: {
-        skillScope: ["concrete-frame", "opensees-seismic"],
+        toolContext: { skillScope: ["concrete-frame", "opensees-seismic"] },
         agentState: {
           locale: "zh",
           analysisResult: {
@@ -1591,7 +1591,7 @@ describe("analysis tool summary", () => {
     }, {
       toolCall: { id: "call-report" },
       configurable: {
-        skillScope: ["concrete-frame", "opensees-seismic"],
+        toolContext: { skillScope: ["concrete-frame", "opensees-seismic"] },
         agentState: {
           locale: "zh",
           analysisResult: {
@@ -1641,7 +1641,7 @@ describe("analysis tool summary", () => {
     }, {
       toolCall: { id: "call-report" },
       configurable: {
-        skillScope: ["concrete-frame", "opensees-seismic"],
+        toolContext: { skillScope: ["concrete-frame", "opensees-seismic"] },
         agentState: {
           locale: "zh",
           analysisResult: {
@@ -1688,7 +1688,7 @@ describe("analysis tool summary", () => {
     }, {
       toolCall: { id: "call-report" },
       configurable: {
-        skillScope: ["concrete-frame", "opensees-seismic"],
+        toolContext: { skillScope: ["concrete-frame", "opensees-seismic"] },
         agentState: {
           locale: "zh",
           analysisResult: {
@@ -1734,7 +1734,7 @@ describe("analysis tool summary", () => {
     }, {
       toolCall: { id: "call-report" },
       configurable: {
-        skillScope: ["concrete-frame", "opensees-seismic"],
+        toolContext: { skillScope: ["concrete-frame", "opensees-seismic"] },
         agentState: {
           locale: "zh",
           analysisResult: {
@@ -1786,7 +1786,7 @@ describe("analysis tool summary", () => {
     }, {
       toolCall: { id: "call-report" },
       configurable: {
-        skillScope: ["concrete-frame", "opensees-seismic"],
+        toolContext: { skillScope: ["concrete-frame", "opensees-seismic"] },
         agentState: {
           locale: "zh",
           analysisResult: {
@@ -1919,14 +1919,14 @@ describe("analysis tool summary", () => {
 
     const analysisCommand = await runAnalysis.invoke({ analysisType: "seismic" }, {
       toolCall: { id: "call-analysis" },
-      configurable: { skillScope, agentState: state },
+      configurable: { toolContext: { skillScope }, agentState: state },
     });
     Object.assign(state, analysisCommand.update);
     expect(state.analysisResult.meta.traceId).toMatch(/^lg-/);
 
     const codeCheckCommand = await runCodeCheck.invoke({ designCode: "GB/T 50011-2010-2024" }, {
       toolCall: { id: "call-code-check" },
-      configurable: { skillScope, agentState: state },
+      configurable: { toolContext: { skillScope }, agentState: state },
     });
     Object.assign(state, codeCheckCommand.update);
 
@@ -1941,7 +1941,7 @@ describe("analysis tool summary", () => {
       locale: "zh",
     }, {
       toolCall: { id: "call-report" },
-      configurable: { skillScope, agentState: state },
+      configurable: { toolContext: { skillScope }, agentState: state },
     });
     const reportPayload = JSON.parse(reportCommand.update.messages[0].content);
 
@@ -1977,7 +1977,7 @@ describe("analysis tool summary", () => {
       signal: abortController.signal,
       toolCall: { id: "call-test" },
       configurable: {
-        skillScope: ["opensees-static"],
+        toolContext: { skillScope: ["opensees-static"] },
         agentState: {
           lastUserMessage: "Run static analysis",
           model: {

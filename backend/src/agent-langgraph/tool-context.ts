@@ -22,28 +22,10 @@ export interface ToolContext {
   readonly fileAccessAllowlist: string[] | undefined;
 }
 
-/**
- * Host inputs. Without a run policy (direct tool hosts such as scripts and tests, and conversations
- * checkpointed before run policies existed) the tool request comes from here; with a policy only
- * `allowShell` and the request-level `fileAccessAllowlist` are consulted.
- */
+/** Host inputs: the shell gate and the request-level file allow-list. */
 export interface ToolHostInputs {
   allowShell: boolean;
   fileAccessAllowlist?: string[];
-  enabledToolIds?: string[];
-  disabledToolIds?: string[];
-  maxToolCallsPerTurn?: number;
-}
-
-/**
- * Tool-policy fields that direct tool hosts (scripts, tests) may still inject into `configurable`.
- * They apply only when the host passes no ToolContext and the turn has no run policy.
- */
-export interface LegacyToolConfigurable {
-  enabledToolIds?: string[];
-  disabledToolIds?: string[];
-  maxToolCallsPerTurn?: number;
-  skillScope?: string[];
 }
 
 type ToolContextState = Partial<Pick<AgentState, 'runPolicy' | 'selectedSkillIds' | 'toolAccessPolicy'>>;
@@ -64,22 +46,22 @@ export function deriveSkillScope(state: ToolContextState, policy: EffectiveRunPo
 export function deriveToolRequest(
   access: Partial<AgentToolAccessPolicy> | undefined,
   policy: EffectiveRunPolicy | undefined,
-  host: Omit<ToolHostInputs, 'allowShell'>,
+  host: Pick<ToolHostInputs, 'fileAccessAllowlist'>,
 ): { enabledToolIds?: string[]; disabledToolIds?: string[]; fileAccessAllowlist?: string[]; maxToolCallsPerTurn?: number } {
   const enabled = Array.isArray(access?.enabledToolIds) ? access.enabledToolIds : undefined;
   const disabled = Array.isArray(access?.disabledToolIds) ? access.disabledToolIds : undefined;
   const fileAccessAllowlist = Array.isArray(access?.fileAccessAllowlist) ? [...access.fileAccessAllowlist] : host.fileAccessAllowlist;
   if (!policy) {
     return {
-      enabledToolIds: enabled ? [...enabled] : host.enabledToolIds,
-      disabledToolIds: disabled ? [...disabled] : host.disabledToolIds,
+      enabledToolIds: enabled ? [...enabled] : undefined,
+      disabledToolIds: disabled ? [...disabled] : undefined,
       fileAccessAllowlist,
-      maxToolCallsPerTurn: host.maxToolCallsPerTurn,
+      maxToolCallsPerTurn: undefined,
     };
   }
   return {
     enabledToolIds: policy.activeToolIds.filter(id => !enabled || enabled.includes(id)),
-    disabledToolIds: [...new Set([...(disabled ?? host.disabledToolIds ?? []), ...policy.tools.disabledIds])],
+    disabledToolIds: [...new Set([...(disabled ?? []), ...policy.tools.disabledIds])],
     fileAccessAllowlist,
     maxToolCallsPerTurn: policy.budgets.maxToolCallsPerTurn,
   };

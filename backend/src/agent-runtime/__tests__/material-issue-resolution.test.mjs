@@ -132,7 +132,7 @@ describe('clarification retires only the material issues it resolves', () => {
   test('build_model names the actual unresolved fields and asks for a new answer instead of repeating extraction', async () => {
     const invoke = createBuildModelTool(new AgentSkillRuntime()).invoke({}, {
       toolCall: { id: 'incomplete', name: 'build_model' }, configurable: {
-        skillScope: ['beam'], agentState: { draftState: initial(), locale: 'zh', messages: [], lastUserMessage: '' },
+        toolContext: { skillScope: ['beam'] }, agentState: { draftState: initial(), locale: 'zh', messages: [], lastUserMessage: '' },
       },
     });
     await expect(invoke).rejects.toThrow('MODEL_DRAFT_INCOMPLETE: materials.MAT-Q235B.E, materials.MAT-Q235B.nu');

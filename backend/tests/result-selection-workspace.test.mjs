@@ -57,7 +57,7 @@ test('selected structured report binds the archived run, location, time and scal
   let narrativeCalls=0;
   const tool=createRegisteredTools({workspaceRoot:process.cwd(),skillRuntime:{executeReportSkill(){narrativeCalls++;throw new Error('unexpected model');}}}).find(tool=>tool.name==='generate_report');
   const result=await tool.invoke({message:'selected point',analysisType:'dynamic',locale:'en',selection,narrative:'structured'},
-    {toolCall:{id:'report'},configurable:{agentState:state,skillScope:['report-export']}});
+    {toolCall:{id:'report'},configurable:{agentState:state,toolContext:{ skillScope: ['report-export'] }}});
   const body=output(result);
   expect(narrativeCalls).toBe(0); expect(result.update.report).toBeUndefined();
   expect(body.report.json.normalizedModel).toEqual(model);
@@ -66,7 +66,7 @@ test('selected structured report binds the archived run, location, time and scal
   expect(body.report.json.requestedSelection).toEqual(selection);
   expect(body.report.markdown).toContain('saved');
   await expect(tool.invoke({message:'wrong time',analysisType:'dynamic',selection:{...selection,timeIndex:2},narrative:'structured'},
-    {toolCall:{id:'bad-report'},configurable:{agentState:state,skillScope:['report-export']}})).rejects.toThrow('REPORT_SELECTION_QUERY_REQUIRED');
+    {toolCall:{id:'bad-report'},configurable:{agentState:state,toolContext:{ skillScope: ['report-export'] }}})).rejects.toThrow('REPORT_SELECTION_QUERY_REQUIRED');
   expect(quantityMatchesSelection(body.report.json.requestedQuantities[0],{...selection,nodeId:'A'},'saved','analysis:dynamic')).toBe(false);
 });
 
@@ -88,7 +88,7 @@ test('scalar IDs are automatic, stable, selection-specific and accepted by the u
   const state = { analysisRuns: { saved }, resultQuantities: first.update.resultQuantities };
   const tool = createRegisteredTools({ workspaceRoot: process.cwd(), skillRuntime: {} }).find(tool => tool.name === 'generate_report');
   const report = args => tool.invoke({ message: 'Selected result', analysisType: 'dynamic', narrative: 'structured', selection: args },
-    { toolCall: { id: 'report' }, configurable: { agentState: state, skillScope: ['report-export'] } });
+    { toolCall: { id: 'report' }, configurable: { agentState: state, toolContext: { skillScope: ['report-export'] } } });
   expect(output(await report(selection)).report.json.requestedQuantities[0]).toEqual(quantity);
   for (const changed of [{ timeIndex: 2 }, { unit: 'm' }, { nodeId: 'A' }, { field: 'reactions' }]) {
     await expect(report({ ...selection, ...changed })).rejects.toThrow('REPORT_SELECTION_QUERY_REQUIRED');
@@ -138,7 +138,7 @@ test('real OpenSees reactions and physical member midpoint moments/deflections r
   const skillRuntime = new AgentSkillRuntime();
   const normalized = await normalizeEngineeringModel(scenario.model, structureProtocolClient);
   const configurable = { skillRuntime, structureProtocolClient, engineClient: createLocalAnalysisEngineClient(),
-    skillScope: ['opensees-static'], agentState: { ...commitModel({}, normalized, scenario.id), locale: 'en' } };
+    toolContext: { skillScope: ['opensees-static'] }, agentState: { ...commitModel({}, normalized, scenario.id), locale: 'en' } };
   const tools = new Map(createRegisteredTools({ skillRuntime }).map(tool => [tool.name, tool]));
   let sequence = 0;
   const call = async (name, input) => {
@@ -193,7 +193,7 @@ test('solver mesh receipts distinguish internal nodes and expose physical cuts f
     load_combinations: [],
   }, structureProtocolClient);
   const configurable = { skillRuntime, structureProtocolClient, engineClient: createLocalAnalysisEngineClient(),
-    skillScope: ['opensees-static'], agentState: { ...commitModel({}, normalized, 'interior-point-load'), locale: 'en' } };
+    toolContext: { skillScope: ['opensees-static'] }, agentState: { ...commitModel({}, normalized, 'interior-point-load'), locale: 'en' } };
   const tools = new Map(createRegisteredTools({ skillRuntime }).map(tool => [tool.name, tool]));
   const analyzed = await tools.get('run_analysis').invoke({ analysisType: 'static', analysisSkillId: 'opensees-static', loadCaseIds: ['D'] },
     { toolCall: { id: 'mesh-analysis' }, configurable });
@@ -239,7 +239,7 @@ test('real physical nodal queries without field resolve only the documented comp
     load_combinations: [],
   }, protocol);
   const configurable = { skillRuntime, structureProtocolClient: protocol, engineClient: createLocalAnalysisEngineClient(),
-    skillScope: ['opensees-static'], agentState: { ...commitModel({}, normalized, 'physical-nodal-query'), locale: 'en' } };
+    toolContext: { skillScope: ['opensees-static'] }, agentState: { ...commitModel({}, normalized, 'physical-nodal-query'), locale: 'en' } };
   const tools = new Map(createRegisteredTools({ skillRuntime }).map(tool => [tool.name, tool]));
   const analyzed = await tools.get('run_analysis').invoke({ analysisType: 'static', analysisSkillId: 'opensees-static', loadCaseIds: ['LC1'] },
     { toolCall: { id: 'nodal-analysis' }, configurable });
@@ -328,7 +328,7 @@ test.each(['en', 'zh'])('report discloses an unresolved registered query failure
   const messages = [];
   for (let index = 0; index < 3; index++) {
     const result = await withRunContext(context, () => executeToolsSequentially(tools, current,
-      { configurable: { runContext: context, skillScope: [] } }));
+      { configurable: { runContext: context, toolContext: { skillScope: [] } } }));
     messages.push(...result.update.messages);
     current = { ...current, ...result.update, messages: [...current.messages, ...result.update.messages] };
   }

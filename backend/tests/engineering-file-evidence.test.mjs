@@ -77,12 +77,12 @@ describe('parsed input must reach the engineering model or an explicit analysis 
       reason:'Confirmed wave',sourceEvidenceId:parsed[0].id,analysisInput:analysisInputBinding(record)}}]);
     await expect(tool.invoke({analysisType:'seismic',seismicWorkflowJson:JSON.stringify({methodPreference:'time_history',
       groundMotionSet:{source:'uploaded',records:[{...record,unit:'m/s2'}]}})},
-      {toolCall:{id:'analysis'},configurable:{skillScope:['opensees-seismic'],agentState:{model,inputEvidence:evidence,
+      {toolCall:{id:'analysis'},configurable:{toolContext:{ skillScope: ['opensees-seismic'] },agentState:{model,inputEvidence:evidence,
         contextSeismicWorkflow:{groundMotionSet:{source:'uploaded',records:[record]}}}}})).rejects.toThrow('ANALYSIS_INPUT_BINDING_CHANGED');
     expect(called).toBe(false);
     await expect(tool.invoke({analysisType:'seismic',seismicWorkflowJson:JSON.stringify({methodPreference:'time_history',
       groundMotionSet:{source:'uploaded',records:[record]}})},
-      {toolCall:{id:'confirmed-analysis'},configurable:{skillScope:['opensees-seismic'],agentState:{model,modelPending:false,inputEvidence:evidence,
+      {toolCall:{id:'confirmed-analysis'},configurable:{toolContext:{ skillScope: ['opensees-seismic'] },agentState:{model,modelPending:false,inputEvidence:evidence,
         contextSeismicWorkflow:{groundMotionSet:{source:'uploaded',records:[record]}}}}})).rejects.toThrow('Unexpected execution');
     expect(called).toBe(true);
   });
@@ -93,7 +93,7 @@ describe('parsed input must reach the engineering model or an explicit analysis 
     let called = 0;
     const tool = createRunAnalysisTool({ async executeAnalysisSkill() { called++; throw new Error('ENGINE_REACHED'); } });
     const execute = (state) => tool.invoke({ analysisType:'static' }, { toolCall:{id:'check-input'},
-      configurable:{skillScope:['opensees-static'],agentState:state} });
+      configurable:{toolContext:{ skillScope: ['opensees-static'] },agentState:state} });
     const source = fileInputEvidence({success:true,type:'csv',source:{filePath:'notes.csv',sha256:'notes'}},'notes.csv');
     const initial = { model, modelPending:false, inputEvidence:[], analysisRuns:{} };
     const read = { ...initial, ...applyInputEvidence(initial, source) };

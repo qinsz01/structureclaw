@@ -3,7 +3,6 @@ import { ToolMessage } from '@langchain/core/messages';
 import { mergeLlmTokenUsage, type LlmTokenUsage } from '../../utils/llm.js';
 import type { AgentState } from '../state.js';
 import type { AgentConfigurable } from '../configurable.js';
-import type { LegacyToolConfigurable } from '../tool-context.js';
 import { currentRunPolicy } from '../../runtime/run-context.js';
 import { missingInputNextAction, type MissingInputNextAction } from '../../runtime/ablation-profiles.js';
 
@@ -23,10 +22,9 @@ export function getConfigurable(config: LangGraphRunnableConfig): AgentConfigura
   return config.configurable as AgentConfigurable & { agentState?: AgentState };
 }
 
-/** Skills a tool may resolve: the host's derived ToolContext, else a direct host's injected scope. */
+/** Skills a tool may resolve, from the host's derived ToolContext; undefined means unrestricted. */
 export function toolSkillScope(config: LangGraphRunnableConfig): string[] | undefined {
-  const configurable = getConfigurable(config) as AgentConfigurable & LegacyToolConfigurable;
-  return configurable.toolContext ? configurable.toolContext.skillScope : configurable.skillScope;
+  return getConfigurable(config).toolContext?.skillScope;
 }
 
 /** Get the tool call ID from the LangChain config. */

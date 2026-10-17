@@ -34,7 +34,7 @@ const skillRuntime = new AgentSkillRuntime();
 const tools = new Map(createRegisteredTools({ skillRuntime }).map(tool => [tool.name, tool]));
 const configurable = { skillRuntime, engineClient: createLocalAnalysisEngineClient(), structureProtocolClient: createLocalStructureProtocolClient(),
   codeCheckClient: createLocalCodeCheckClient(), workspaceRoot: directory, allowShell: false,
-  skillScope: ['beam', 'opensees-static', 'code-check-gb50017', 'report-export-builtin'],
+  toolContext: { skillScope: ['beam', 'opensees-static', 'code-check-gb50017', 'report-export-builtin'] },
   agentState: { draftState: structuredClone(original), structuralTypeKey: 'beam', locale: 'zh', messages: [], inputEvidence: [],
     policy: { analysisType: 'static' }, requestScope: original.requestScope, lastUserMessage: fixture.clarification } };
 const trace = [];

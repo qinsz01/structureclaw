@@ -48,7 +48,7 @@ try {
     const originalDraft = structuredClone(draftState);
     const configurable = { skillRuntime, engineClient: createLocalAnalysisEngineClient(), structureProtocolClient: protocol,
       codeCheckClient: createLocalCodeCheckClient(), workspaceRoot: directory,
-      skillScope: ['beam','opensees-static','code-check-gb50017','report-export-builtin'], allowShell: false,
+      toolContext: { skillScope: ['beam','opensees-static','code-check-gb50017','report-export-builtin'] }, allowShell: false,
       agentState: { draftState, structuralTypeKey: 'beam', locale: 'zh', messages: [], inputEvidence: [],
         policy: { analysisType: 'static' }, requestScope: draftState.requestScope, lastUserMessage: 'Product acceptance: explicitly supplied geometry and loading' } };
     let sequence = 0;

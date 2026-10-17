@@ -53,7 +53,7 @@ describe('deterministic beam equilibrium and scoped engineering delivery', () =>
     let options;
     const runtime = { executeAnalysisSkill: async value => { options = value; throw new Error('REAL_SOLVER_REACHED'); } };
     await expect(createRunAnalysisTool(runtime).invoke({ analysisType: 'static', ...selection },
-      { toolCall: { id: 'changed-method' }, configurable: { agentState: state, skillScope: ['opensees-static', 'opensees-dynamic'] } })).rejects.toThrow('REAL_SOLVER_REACHED');
+      { toolCall: { id: 'changed-method' }, configurable: { agentState: state, toolContext: { skillScope: ['opensees-static', 'opensees-dynamic'] } } })).rejects.toThrow('REAL_SOLVER_REACHED');
     expect(options.model).toBe(state.model);
     expect(options.analysisType).toBe(selection.analysisType ?? 'static');
   });

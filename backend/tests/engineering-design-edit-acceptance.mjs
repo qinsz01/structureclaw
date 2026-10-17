@@ -30,8 +30,8 @@ raw.analysis_control = { self_weight: false, rigid_floor: false, rigid_offsets: 
 const model = await normalizeEngineeringModel(raw, protocol);
 const configurable = { skillRuntime, engineClient: createLocalAnalysisEngineClient(), structureProtocolClient: protocol,
   codeCheckClient: createLocalCodeCheckClient(), workspaceRoot: directory,
-  skillScope: ['beam', 'opensees-static', 'code-check-gb50017', 'report-export-builtin'], allowShell: false,
-  maxToolCallsPerTurn: 200, agentState: { ...commitModel({}, model, 'reproduction'), locale: 'zh', inputEvidence: [],
+  toolContext: { skillScope: ['beam', 'opensees-static', 'code-check-gb50017', 'report-export-builtin'] }, allowShell: false,
+  agentState: { ...commitModel({}, model, 'reproduction'), locale: 'zh', inputEvidence: [],
     policy: { analysisType: 'static' }, lastUserMessage: 'Explicit product-owned reproduction' } };
 let sequence = 0;
 const receipts = [];

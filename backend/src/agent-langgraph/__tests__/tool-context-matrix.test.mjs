@@ -23,19 +23,23 @@ const inputs = item => {
   return { policy, host, state };
 };
 const nullable = value => value ?? null;
+// Direct hosts can no longer inject tool policy into configurable; those goldens describe a removed input.
+const legacyInjection = item => !policies[item.policy] && ['enabledToolIds', 'disabledToolIds', 'maxToolCallsPerTurn']
+  .some(key => fixture.hosts[item.host][key] !== undefined);
+const supportedCases = fixture.cases.filter(item => !legacyInjection(item));
 
 describe('tool context matrix', () => {
   test('covers every policy, access policy, host and selection', () => {
     expect(fixture.cases.length).toBe(405);
+    expect(supportedCases.length).toBe(390);
   });
 
-  test.each(fixture.cases.map(item => [item.id, item]))('%s: the graph host derives the same frozen tool context', (_id, item) => {
+  test.each(supportedCases.map(item => [item.id, item]))('%s: the graph host derives the same frozen tool context', (_id, item) => {
     const { policy, host, state } = inputs(item);
     const snapshot = structuredClone(state);
-    // Hosts no longer seed tool policy into configurable; only direct hosts without a policy inject it.
+    // Hosts never seed tool policy into configurable.
     const configurable = Object.freeze({ allowShell: host.allowShell, fileAccessAllowlist: host.fileAccessAllowlist,
-      ...(policy ? { runContext: { policy } } : { enabledToolIds: host.enabledToolIds, disabledToolIds: host.disabledToolIds,
-        maxToolCallsPerTurn: host.maxToolCallsPerTurn }) });
+      ...(policy ? { runContext: { policy } } : {}) });
     const context = toolContextForNode(state, configurable);
     expect({
       activeToolIds: [...context.activeToolIds],

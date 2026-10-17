@@ -32,7 +32,7 @@ import { getWorkspaceToolRoot } from './config.js';
 import { buildSystemMessages } from './system-prompt.js';
 import type { SkillManifest } from '../shared/types/agent.js';
 import type { AgentConfigurable } from './configurable.js';
-import { deriveToolContext, type LegacyToolConfigurable, type ToolContext } from './tool-context.js';
+import { deriveToolContext, type ToolContext } from './tool-context.js';
 import type { StructuredToolInterface } from '@langchain/core/tools';
 import { getLogger } from '../utils/agent-logger.js';
 import { compactMessagesForContext, estimateMessagesCharLength } from './context-window.js';
@@ -50,14 +50,10 @@ function getAgentLogger(config: LangGraphRunnableConfig) {
 }
 
 /** Tool context for a graph node: derived from the turn's frozen policy and the node state. */
-export function toolContextForNode(state: AgentState, configurable: Partial<AgentConfigurable> & LegacyToolConfigurable): ToolContext {
+export function toolContextForNode(state: AgentState, configurable: Partial<AgentConfigurable>): ToolContext {
   return deriveToolContext(state, configurable.runContext?.policy, {
     allowShell: configurable.allowShell ?? false,
     fileAccessAllowlist: configurable.fileAccessAllowlist,
-    // Only consulted without a run policy (direct hosts and pre-policy checkpoints).
-    enabledToolIds: configurable.enabledToolIds,
-    disabledToolIds: configurable.disabledToolIds,
-    maxToolCallsPerTurn: configurable.maxToolCallsPerTurn,
   });
 }
 
@@ -174,7 +170,7 @@ function createCallModelNode(
     config: LangGraphRunnableConfig,
   ): Promise<Partial<AgentState>> {
     const log = getAgentLogger(config);
-    const configurable = config.configurable as (Partial<AgentConfigurable> & LegacyToolConfigurable) | undefined;
+    const configurable = config.configurable as Partial<AgentConfigurable> | undefined;
     // Receive long reasoning responses incrementally; the provider adapter aggregates
     // complete, typed assistant/tool-call messages before any tool can execute.
     const model = createChatModel(0, { streaming: true });
@@ -431,7 +427,7 @@ export async function buildAgentGraph(deps: GraphDeps) {
   // done in callModel is invisible to the raw ToolNode.
   const toolsNode = async (state: AgentState, config: LangGraphRunnableConfig) => {
     const nodeLog = getAgentLogger(config);
-    const configurable = config.configurable as Partial<AgentConfigurable> & LegacyToolConfigurable;
+    const configurable = config.configurable as Partial<AgentConfigurable>;
     const toolContext = toolContextForNode(state, configurable);
     const activeTools = selectActiveTools(tools, toolContext);
     nodeLog.debug({ node: 'tools', activeToolCount: activeTools.length }, 'tools node executing');

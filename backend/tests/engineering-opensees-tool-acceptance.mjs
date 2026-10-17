@@ -28,7 +28,7 @@ try {
   for (const scenario of scenarios) {
     const model=await normalizeEngineeringModel(scenario.model,structureProtocolClient);
     const configurable={skillRuntime,engineClient,structureProtocolClient,codeCheckClient,workspaceRoot:directory,
-      skillScope:[scenario.analysis.analysisSkillId,'code-check-gb50017'],allowShell:false,maxToolCallsPerTurn:256,
+      toolContext:{ skillScope: [scenario.analysis.analysisSkillId,'code-check-gb50017'] },allowShell:false,
       agentState:{...commitModel({},model,scenario.id),locale:'en',lastUserMessage:scenario.basis,
         policy:{analysisType:scenario.analysis.analysisType},inputEvidence:[]}};
     let sequence=0;
