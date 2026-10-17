@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from fastapi import HTTPException
 from pydantic import ValidationError
 
 from structure_protocol.migrations import (
@@ -11,6 +10,14 @@ from structure_protocol.migrations import (
     migrate_v1_to_v2,
 )
 from structure_protocol.structure_model_v2 import StructureModelV2
+
+
+def _http_error(*, status_code: int, detail: Dict[str, Any]) -> Exception:
+    # Imported lazily: FastAPI accounts for most of the structure-protocol worker's cold
+    # start (one Python process per schema/validate/convert call) and only error paths need it.
+    from fastapi import HTTPException
+
+    return HTTPException(status_code=status_code, detail=detail)
 
 
 def get_structure_model_schema() -> Dict[str, Any]:
@@ -43,7 +50,7 @@ def convert_structure_model_payload(
     get_converter,
 ) -> Dict[str, Any]:
     if not is_supported_target_schema_version(target_schema_version):
-        raise HTTPException(
+        raise _http_error(
             status_code=400,
             detail={
                 "errorCode": "UNSUPPORTED_TARGET_SCHEMA",
@@ -53,7 +60,7 @@ def convert_structure_model_payload(
 
     source_converter = get_converter(source_format)
     if source_converter is None:
-        raise HTTPException(
+        raise _http_error(
             status_code=400,
             detail={
                 "errorCode": "UNSUPPORTED_SOURCE_FORMAT",
@@ -64,7 +71,7 @@ def convert_structure_model_payload(
 
     target_converter = get_converter(target_format)
     if target_converter is None:
-        raise HTTPException(
+        raise _http_error(
             status_code=400,
             detail={
                 "errorCode": "UNSUPPORTED_TARGET_FORMAT",
@@ -89,7 +96,7 @@ def convert_structure_model_payload(
         else:
             normalized = target_converter.from_v2(converted_model if target_schema_version == '2.2.0' else model)
     except ValidationError as error:
-        raise HTTPException(
+        raise _http_error(
             status_code=422,
             detail={
                 "errorCode": "INVALID_STRUCTURE_MODEL",
@@ -98,7 +105,7 @@ def convert_structure_model_payload(
             },
         ) from error
     except ValueError as error:
-        raise HTTPException(
+        raise _http_error(
             status_code=422,
             detail={
                 "errorCode": "INVALID_STRUCTURE_MODEL",

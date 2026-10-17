@@ -5,8 +5,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from fastapi import HTTPException
 from pydantic import ValidationError
+# fastapi.HTTPException subclasses this; importing the Starlette base avoids loading FastAPI
+# (most of this worker's cold start) on every success path.
+from starlette.exceptions import HTTPException
 
 CURRENT_DIR = Path(__file__).resolve().parent
 BACKEND_SRC = CURRENT_DIR.parents[2]
