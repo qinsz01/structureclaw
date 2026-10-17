@@ -104,32 +104,6 @@ export function getRebarMaterial(grade: string): RebarMaterial {
 }
 
 /**
- * Get rebar compressive strength based on loading condition.
- * According to GB/T 50010-2010 (2024):
- * - For HRB500 grade, the compressive strength is limited to 400 N/mm² for axial compression
- * - For all other grades, use the standard compressive strength
- * 
- * @param grade Rebar grade string (e.g., "HRB500")
- * @param loadingType Loading condition type
- * @returns Compressive strength design value (N/mm²)
- */
-export function getRebarCompressiveStrength(
-  grade: string, 
-  loadingType: 'axial-compression' | 'bending' | 'general'
-): number {
-  const material = getRebarMaterial(grade);
-  
-  // HRB500 and HRBF500 have special limitation for axial compression
-  if ((grade.toUpperCase() === 'HRB500' || grade.toUpperCase() === 'HRBF500') && 
-      loadingType === 'axial-compression') {
-    return 400; // Special limitation for HRB500 in axial compression
-  }
-  
-  // For all other cases, return the standard compressive strength
-  return material.fy_compression;
-}
-
-/**
  * Check if a concrete grade is valid.
  * @param grade Concrete grade string
  * @returns true if grade exists in CONCRETE_GRADES

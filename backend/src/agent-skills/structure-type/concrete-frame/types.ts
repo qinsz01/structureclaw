@@ -110,16 +110,3 @@ export interface ConcreteFrameOutput {
   warnings?: Array<{ code: string; message: string }>;
   errors?: Array<{ code: string; message: string }>;
 }
-
-/**
- * 混凝土框架特有状态接口
- */
-export interface ConcreteFrameDraftState extends DraftState {
-  concreteBeams?: ConcreteBeam[];
-  concreteColumns?: ConcreteColumn[];
-  concreteSlabs?: ConcreteSlab[];
-  structureSystem?: 'moment-frame' | 'frame-shear-wall' | 'shear-wall';
-  seismicGrade?: string;
-  slabType?: 'one-way' | 'two-way' | 'flat-slab' | 'waffle';
-  beamType?: 'rectangular' | 't-shaped';
-}
