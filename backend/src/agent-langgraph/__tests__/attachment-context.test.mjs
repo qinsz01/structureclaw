@@ -9,7 +9,7 @@ jest.setTimeout(20000);
 
 describe('attachment context', () => {
   test('persists tool and attachment access policy for interrupted runs', async () => {
-    const { buildToolAccessPolicy } = await import('../../../dist/agent-langgraph/agent-service.js');
+    const { buildToolAccessPolicy } = await import('../../../dist/agent-langgraph/turn-config.js');
     const context = {
       enabledToolIds: ['analyze_file', 'ask_user_clarification'],
       disabledToolIds: ['read_file'],

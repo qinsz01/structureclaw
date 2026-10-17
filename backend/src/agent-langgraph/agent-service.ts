@@ -17,12 +17,11 @@ import type { SkillManifest } from '../shared/types/agent.js';
 import { buildAgentGraph } from './graph.js';
 import { FileCheckpointer } from './file-checkpointer.js';
 import { streamGraphToChunks, type StreamContext } from './streaming.js';
-import type { AgentState, AgentToolAccessPolicy } from './state.js';
+import type { AgentState } from './state.js';
 import { getAllowShellTools, getCheckpointerDataDir, getWorkspaceRoot, getWorkspaceSkillRoot } from './config.js';
 import { config, runtimeBaseDir } from '../config/index.js';
 import { resolveApplicationRunPolicy, skillCatalog } from './policy-resolver.js';
 import { createRunContext, withRunContext, snapshotRunUsage, readRunUsage, recordRunEvent, type RunContext, type RunUsage } from '../runtime/run-context.js';
-import { DEFAULT_MAX_TOOL_CALLS_PER_TURN } from '../runtime/limits.js';
 import type { ConversationRuntimeSnapshot } from '../types/conversation-runtime.js';
 import type { AgentStreamChunk } from '../types/agent-stream.js';
 import type { AppLocale } from '../shared/locale.js';
@@ -49,29 +48,7 @@ import { extractContextSeismicWorkflow } from './attachments/ground-motion.js';
 import { toInitialHumanMessage, buildInitialHumanMessagePayload } from './attachments/initial-message.js';
 import type { LangGraphRunInput, LangGraphRunResult } from './service-types.js';
 import { INPUT_REVIEW_TOOLS, type InputReviewTool, RESULT_REVIEW_TOOLS, type ResultReviewTool, clarificationState, inputReviewRevision, conversationJobReferences, sessionRunUsage, conversationJobSnapshots, buildConversationSessionSnapshot, buildInputReview, buildResultReview } from './session/snapshot.js';
-
-export function buildToolAccessPolicy(
-  context: LangGraphRunInput['context'] | undefined,
-): AgentToolAccessPolicy {
-  return {
-    enabledToolIds: Array.isArray(context?.enabledToolIds)
-      ? [...context.enabledToolIds]
-      : null,
-    disabledToolIds: Array.isArray(context?.disabledToolIds)
-      ? [...context.disabledToolIds]
-      : null,
-    fileAccessAllowlist: context?.restrictFileAccessToAttachments
-      ? (context.attachments ?? []).map((attachment) => attachment.relPath)
-      : null,
-  };
-}
-
-export function getLangGraphRecursionLimit(maxToolCallsPerTurn: number | undefined): number {
-  const toolLimit = typeof maxToolCallsPerTurn === 'number' && Number.isFinite(maxToolCallsPerTurn) && maxToolCallsPerTurn > 0
-    ? maxToolCallsPerTurn
-    : DEFAULT_MAX_TOOL_CALLS_PER_TURN;
-  return Math.max(50, toolLimit * 2 + 10);
-}
+import { getLangGraphRecursionLimit, buildToolAccessPolicy } from './turn-config.js';
 
 let singleton: LangGraphAgentService | undefined;
 
@@ -816,4 +793,3 @@ export class LangGraphAgentService {
     };
   }
 }
-

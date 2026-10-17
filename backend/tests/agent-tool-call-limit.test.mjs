@@ -23,7 +23,7 @@ describe('agent tool call limit defaults', () => {
       'src/config/index.ts': 'maxToolCallsPerTurn: DEFAULT_MAX_TOOL_CALLS_PER_TURN',
       'src/api/admin-settings/settings-response.ts': 'agentMaxToolCallsPerTurn: DEFAULT_MAX_TOOL_CALLS_PER_TURN',
       'src/runtime/run-policy.ts': 'maxToolCallsPerTurn: DEFAULT_MAX_TOOL_CALLS_PER_TURN',
-      'src/agent-langgraph/agent-service.ts': ': DEFAULT_MAX_TOOL_CALLS_PER_TURN;',
+      'src/agent-langgraph/turn-config.ts': ': DEFAULT_MAX_TOOL_CALLS_PER_TURN;',
     };
     for (const [file, expected] of Object.entries(consumers)) {
       const source = read(file);

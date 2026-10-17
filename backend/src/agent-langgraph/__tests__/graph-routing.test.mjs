@@ -87,7 +87,7 @@ describe('agent graph empty final response guard', () => {
 
 describe('agent graph runtime config', () => {
   test('raises LangGraph recursion limit above the default graph limit', async () => {
-    const { getLangGraphRecursionLimit } = await import('../../../dist/agent-langgraph/agent-service.js');
+    const { getLangGraphRecursionLimit } = await import('../../../dist/agent-langgraph/turn-config.js');
 
     expect(getLangGraphRecursionLimit(200)).toBe(410);
     expect(getLangGraphRecursionLimit(10)).toBe(50);
