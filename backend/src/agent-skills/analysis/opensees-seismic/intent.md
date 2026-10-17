@@ -138,8 +138,9 @@ When the user uploads ground-motion files, call `analyze_file` first and put the
 
 If a CSV has more than two numeric columns, set structured `timeColumn` and `accelerationColumn` fields based on the
 file schema. This is file-format mapping, not seismic-method selection.
-For 3D time-history analysis, emit `direction` or `component` as `x`/`y` on each ground-motion record when directional
-components are known. Untagged records are treated as usable for each requested horizontal direction.
+For time-history analysis, emit `direction` or `component` as `x`/`y` on every user-supplied ground-motion record.
+Untagged user records are rejected (`GROUND_MOTION_DIRECTION_REQUIRED`); if the user has not said which axis a record
+belongs to, ask instead of guessing. Built-in artificial catalog records need no direction tag.
 
 If the user asks the system to select example waves and does not provide uploaded records, use the built-in artificial
 catalog explicitly:
