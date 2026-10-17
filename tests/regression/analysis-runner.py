@@ -911,9 +911,9 @@ def validate_seismic_elastic_plastic_time_history_boundary_contract():
             "groundMotionSet": {
                 "requiredCount": 3,
                 "records": [
-                    {"name": "GM1", "dt": 0.02, "unit": "g", "values": wave},
-                    {"name": "GM2", "dt": 0.02, "unit": "g", "values": [value * 1.1 for value in wave]},
-                    {"name": "GM3", "dt": 0.02, "unit": "g", "values": [value * 0.9 for value in wave]},
+                    {"name": "GM1", "direction": "x", "dt": 0.02, "unit": "g", "values": wave},
+                    {"name": "GM2", "direction": "x", "dt": 0.02, "unit": "g", "values": [value * 1.1 for value in wave]},
+                    {"name": "GM3", "direction": "x", "dt": 0.02, "unit": "g", "values": [value * 0.9 for value in wave]},
                 ],
             },
         }
@@ -994,9 +994,9 @@ def validate_seismic_elastic_plastic_member_hinge_time_history_contract():
             "groundMotionSet": {
                 "requiredCount": 3,
                 "records": [
-                    {"name": "GM1", "dt": 0.02, "unit": "g", "values": wave},
-                    {"name": "GM2", "dt": 0.02, "unit": "g", "values": [value * 1.1 for value in wave]},
-                    {"name": "GM3", "dt": 0.02, "unit": "g", "values": [value * 0.9 for value in wave]},
+                    {"name": "GM1", "direction": "x", "dt": 0.02, "unit": "g", "values": wave},
+                    {"name": "GM2", "direction": "x", "dt": 0.02, "unit": "g", "values": [value * 1.1 for value in wave]},
+                    {"name": "GM3", "direction": "x", "dt": 0.02, "unit": "g", "values": [value * 0.9 for value in wave]},
                 ],
             },
             "performanceObjective": {"name": "collapse_prevention", "acceptanceDriftRatio": 0.015},
@@ -1050,9 +1050,9 @@ def validate_seismic_auto_performance_objective_contract():
             "groundMotionSet": {
                 "requiredCount": 3,
                 "records": [
-                    {"name": "GM1", "dt": 0.02, "unit": "g", "values": wave},
-                    {"name": "GM2", "dt": 0.02, "unit": "g", "values": [value * 1.1 for value in wave]},
-                    {"name": "GM3", "dt": 0.02, "unit": "g", "values": [value * 0.9 for value in wave]},
+                    {"name": "GM1", "direction": "x", "dt": 0.02, "unit": "g", "values": wave},
+                    {"name": "GM2", "direction": "x", "dt": 0.02, "unit": "g", "values": [value * 1.1 for value in wave]},
+                    {"name": "GM3", "direction": "x", "dt": 0.02, "unit": "g", "values": [value * 0.9 for value in wave]},
                 ],
             },
             "performanceObjective": {"name": "collapse_prevention", "acceptanceDriftRatio": 0.015},
@@ -1193,6 +1193,7 @@ def validate_seismic_special_system_boundary_contract():
                 "records": [
                     {
                         "name": "ISO-TH-1",
+                        "direction": "x",
                         "dt": 0.02,
                         "unit": "g",
                         "values": [0.0, 0.05, -0.04, 0.03, -0.02, 0.01, 0.0],
@@ -1340,9 +1341,12 @@ def validate_seismic_workflow_contract_aliases_contract():
             "designRequirements": {"fortificationCategory": "standard"},
             "groundMotionSet": {
                 "records": [
-                    {"name": "GM1", "dt": 0.02, "unit": "g", "values": wave},
-                    {"name": "GM2", "dt": 0.02, "unit": "g", "values": [value * 1.1 for value in wave]},
-                    {"name": "GM3", "dt": 0.02, "unit": "g", "values": [value * 0.9 for value in wave]},
+                    {"name": "GM1", "direction": "x", "dt": 0.02, "unit": "g", "values": wave},
+                    {"name": "GM2", "direction": "x", "dt": 0.02, "unit": "g", "values": [value * 1.1 for value in wave]},
+                    {"name": "GM3", "direction": "x", "dt": 0.02, "unit": "g", "values": [value * 0.9 for value in wave]},
+                    {"name": "GM1-Y", "direction": "y", "dt": 0.02, "unit": "g", "values": wave},
+                    {"name": "GM2-Y", "direction": "y", "dt": 0.02, "unit": "g", "values": [value * 1.1 for value in wave]},
+                    {"name": "GM3-Y", "direction": "y", "dt": 0.02, "unit": "g", "values": [value * 0.9 for value in wave]},
                 ],
             },
         }
@@ -1381,9 +1385,9 @@ def validate_seismic_time_history_contract():
                 "requiredCount": 3,
                 "scaleFactorLimit": 20.0,
                 "records": [
-                    {"name": "GM1", "dt": 0.02, "unit": "g", "values": wave},
-                    {"name": "GM2", "dt": 0.02, "unit": "g", "values": [value * 1.2 for value in wave]},
-                    {"name": "GM3", "dt": 0.02, "unit": "g", "values": [value * 0.8 for value in wave]},
+                    {"name": "GM1", "direction": "x", "dt": 0.02, "unit": "g", "values": wave},
+                    {"name": "GM2", "direction": "x", "dt": 0.02, "unit": "g", "values": [value * 1.2 for value in wave]},
+                    {"name": "GM3", "direction": "x", "dt": 0.02, "unit": "g", "values": [value * 0.8 for value in wave]},
                 ],
             },
         }
@@ -1458,7 +1462,7 @@ def validate_seismic_ground_motion_requirement_contract():
             "groundMotionSet": {
                 "requiredCount": 3,
                 "records": [
-                    {"name": "GM1", "dt": 0.02, "unit": "g", "values": wave},
+                    {"name": "GM1", "direction": "x", "dt": 0.02, "unit": "g", "values": wave},
                 ],
             },
         }
@@ -1555,9 +1559,9 @@ def validate_seismic_local_catalog_time_history_contract():
                 "requiredCount": 3,
                 "localCatalog": {
                     "records": [
-                        {"id": "LC-01", "name": "licensed record 1", "recordType": "actual", "dt": 0.02, "unit": "g", "values": wave},
-                        {"id": "LC-02", "name": "licensed record 2", "recordType": "actual", "dt": 0.02, "unit": "g", "values": [value * 1.2 for value in wave]},
-                        {"id": "LC-03", "name": "licensed record 3", "recordType": "actual", "dt": 0.02, "unit": "g", "values": [value * 0.8 for value in wave]},
+                        {"id": "LC-01", "direction": "x", "name": "licensed record 1", "recordType": "actual", "dt": 0.02, "unit": "g", "values": wave},
+                        {"id": "LC-02", "direction": "x", "name": "licensed record 2", "recordType": "actual", "dt": 0.02, "unit": "g", "values": [value * 1.2 for value in wave]},
+                        {"id": "LC-03", "direction": "x", "name": "licensed record 3", "recordType": "actual", "dt": 0.02, "unit": "g", "values": [value * 0.8 for value in wave]},
                     ],
                 },
             },
@@ -1599,11 +1603,11 @@ def validate_seismic_local_catalog_selection_contract():
                 },
                 "localCatalog": {
                     "records": [
-                        {"id": "LC-S0", "name": "wrong site", "recordType": "actual", "siteClass": "II", "magnitude": 6.6, "distanceKm": 28.0, "dt": 0.02, "unit": "g", "values": wave},
-                        {"id": "LC-S1", "name": "selected 1", "recordType": "actual", "siteClass": "III", "magnitude": 6.5, "distanceKm": 35.0, "dt": 0.02, "unit": "g", "values": wave},
-                        {"id": "LC-S2", "name": "selected 2", "recordType": "actual", "siteClass": "III", "magnitude": 6.8, "distanceKm": 22.0, "dt": 0.02, "unit": "g", "values": [value * 1.2 for value in wave]},
-                        {"id": "LC-S3", "name": "selected 3", "recordType": "actual", "siteClass": "III", "magnitude": 6.1, "distanceKm": 45.0, "dt": 0.02, "unit": "g", "values": [value * 0.8 for value in wave]},
-                        {"id": "LC-S4", "name": "artificial", "recordType": "artificial", "siteClass": "III", "magnitude": 6.6, "distanceKm": 30.0, "dt": 0.02, "unit": "g", "values": wave},
+                        {"id": "LC-S0", "direction": "x", "name": "wrong site", "recordType": "actual", "siteClass": "II", "magnitude": 6.6, "distanceKm": 28.0, "dt": 0.02, "unit": "g", "values": wave},
+                        {"id": "LC-S1", "direction": "x", "name": "selected 1", "recordType": "actual", "siteClass": "III", "magnitude": 6.5, "distanceKm": 35.0, "dt": 0.02, "unit": "g", "values": wave},
+                        {"id": "LC-S2", "direction": "x", "name": "selected 2", "recordType": "actual", "siteClass": "III", "magnitude": 6.8, "distanceKm": 22.0, "dt": 0.02, "unit": "g", "values": [value * 1.2 for value in wave]},
+                        {"id": "LC-S3", "direction": "x", "name": "selected 3", "recordType": "actual", "siteClass": "III", "magnitude": 6.1, "distanceKm": 45.0, "dt": 0.02, "unit": "g", "values": [value * 0.8 for value in wave]},
+                        {"id": "LC-S4", "direction": "x", "name": "artificial", "recordType": "artificial", "siteClass": "III", "magnitude": 6.6, "distanceKm": 30.0, "dt": 0.02, "unit": "g", "values": wave},
                     ],
                 },
             },
@@ -2265,17 +2269,20 @@ def validate_seismic_uploaded_text_time_history_contract():
                 "records": [
                     {
                         "name": "uploaded-rows.csv",
+                        "direction": "x",
                         "unit": "g",
                         "headers": ["time", "accel_g"],
                         "rows": rows,
                     },
                     {
                         "name": "uploaded-at2.at2",
+                        "direction": "x",
                         "unit": "g",
                         "content": at2_text,
                     },
                     {
                         "name": "uploaded-nested-file.csv",
+                        "direction": "x",
                         "unit": "g",
                         "fileAnalysis": {
                             "type": "csv",
