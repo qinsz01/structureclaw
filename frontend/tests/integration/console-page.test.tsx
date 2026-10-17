@@ -1587,6 +1587,9 @@ describe('ConsolePage Integration (CONS-13)', () => {
         ])
       }
 
+      const supportResponse = mockConsoleSupportRequest(url)
+      if (supportResponse) return supportResponse
+
       throw new Error(`Unexpected fetch: ${url}`)
     })
 
@@ -1882,6 +1885,7 @@ describe('ConsolePage Integration (CONS-13)', () => {
           ok: true,
           json: vi.fn().mockResolvedValue({
             skills: [{ id: 'beam', domain: 'structure-type' }],
+            tools: [{ id: 'run_analysis', category: 'analysis' }],
             skillDomainById: { beam: 'structure-type' },
             domainSummaries: [{ domain: 'structure-type', skillIds: ['beam'] }],
           }),
@@ -1908,6 +1912,9 @@ describe('ConsolePage Integration (CONS-13)', () => {
           json: vi.fn().mockResolvedValue({ model: null }),
         } as unknown as Response
       }
+
+      const supportResponse = mockConsoleSupportRequest(url)
+      if (supportResponse) return supportResponse
 
       throw new Error(`Unexpected fetch: ${url}`)
     })
@@ -1948,6 +1955,7 @@ describe('ConsolePage Integration (CONS-13)', () => {
           ok: true,
           json: vi.fn().mockResolvedValue({
             skills: [{ id: 'beam', domain: 'structure-type' }],
+            tools: [{ id: 'run_analysis', category: 'analysis' }],
             skillDomainById: { beam: 'structure-type' },
             domainSummaries: [{ domain: 'structure-type', skillIds: ['beam'] }],
           }),
@@ -2022,6 +2030,9 @@ describe('ConsolePage Integration (CONS-13)', () => {
           },
         ])
       }
+
+      const supportResponse = mockConsoleSupportRequest(url)
+      if (supportResponse) return supportResponse
 
       throw new Error(`Unexpected fetch: ${url}`)
     })
@@ -2427,6 +2438,9 @@ describe('ConsolePage Integration (CONS-13)', () => {
         ])
       }
 
+      const supportResponse = mockConsoleSupportRequest(url)
+      if (supportResponse) return supportResponse
+
       throw new Error(`Unexpected fetch: ${url}`)
     })
 
@@ -2518,6 +2532,9 @@ describe('ConsolePage Integration (CONS-13)', () => {
         ])
       }
 
+      const supportResponse = mockConsoleSupportRequest(url)
+      if (supportResponse) return supportResponse
+
       throw new Error(`Unexpected fetch: ${url}`)
     })
 
@@ -2594,6 +2611,9 @@ describe('ConsolePage Integration (CONS-13)', () => {
         ])
       }
 
+      const supportResponse = mockConsoleSupportRequest(url)
+      if (supportResponse) return supportResponse
+
       throw new Error(`Unexpected fetch: ${url}`)
     })
 
@@ -2660,6 +2680,9 @@ describe('ConsolePage Integration (CONS-13)', () => {
           },
         ])
       }
+
+      const supportResponse = mockConsoleSupportRequest(url)
+      if (supportResponse) return supportResponse
 
       throw new Error(`Unexpected fetch: ${url}`)
     })
@@ -2742,6 +2765,9 @@ describe('ConsolePage Integration (CONS-13)', () => {
         ])
       }
 
+      const supportResponse = mockConsoleSupportRequest(url)
+      if (supportResponse) return supportResponse
+
       throw new Error(`Unexpected fetch: ${url}`)
     })
 
@@ -2809,6 +2835,9 @@ describe('ConsolePage Integration (CONS-13)', () => {
           },
         ])
       }
+
+      const supportResponse = mockConsoleSupportRequest(url)
+      if (supportResponse) return supportResponse
 
       throw new Error(`Unexpected fetch: ${url}`)
     })
