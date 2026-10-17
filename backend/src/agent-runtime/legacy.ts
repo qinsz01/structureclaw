@@ -1,4 +1,3 @@
-import { catalogResolvesMissingSectionIssue } from './section-catalog.js';
 import { currentDraftDiagnostics } from './draft-diagnostics.js';
 import { mergeDraftState } from './draft/boundary.js';
 import { invalidDraftFieldsOf, mergeFloorLoadsByStory } from './draft/normalize.js';
@@ -133,7 +132,6 @@ export function computeLegacyMissing(
   const invalidDraftFields = invalidDraftFieldsOf(state).filter((field) => allowed.has(field));
   const issueFields = Array.isArray(state.draftIssues)
     ? state.draftIssues
-      .filter((issue) => !catalogResolvesMissingSectionIssue(state.engineeringDraft, issue))
       .map((issue) => issue.field)
       .filter((field): field is string => typeof field === 'string' && field.trim().length > 0)
     : [];

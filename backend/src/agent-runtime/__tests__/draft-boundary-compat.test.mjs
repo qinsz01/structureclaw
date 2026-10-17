@@ -2,6 +2,8 @@
 // Old persisted DraftState samples — real characterization checkpoints, the reported 2026-10-15
 // fixtures and legacy flat-field drafts — are resumed with a next-turn patch. The goldens were
 // captured from the pre-refactor runtime; every replay must stay byte-identical.
+// 2026-10-18 (stop before code check): fixture-hw-design-no-mirror.next no longer carries a design-field
+// invalidDraftFields entry, and frame-legacy-flat.model reports the missing tw/tf instead of a catalog error.
 import { readFileSync } from 'node:fs';
 import { describe, expect, test } from '@jest/globals';
 import { withDeclaredProperties } from '../../../tests/fixtures/declared-template-properties.mjs';

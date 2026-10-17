@@ -6,7 +6,7 @@ export const requestScopeSchema = z.object({
   responses: z.array(z.enum(['forces', 'reactions', 'displacements', 'rotations', 'stress', 'dynamic'])).min(1),
   method: z.enum(['solver', 'equilibrium']).default('solver'),
   design: z.boolean().default(false),
-  report: z.boolean().default(false),
+  report: z.boolean().default(true),
   outputs: z.array(resultSelectionSchema.omit({ runId: true }).extend({
     field: resultSelectionSchema.shape.field.unwrap(), component: resultSelectionSchema.shape.component.unwrap(), unit: resultSelectionSchema.shape.unit.unwrap(),
   })).default([]).describe('Exact scalar queries after real object IDs are known. Before building leave outputs empty; never invent IDs. resultKey is a saved case:<ID>/combination:<ID>, not an output label. / 获得实际对象ID后填写标量查询；建模前留空，不编造ID。resultKey是工况/组合键，不是输出名称。'),

@@ -20,7 +20,6 @@ const cases = [
   { id: 'rectangular', name: '250×500', shape: { kind: 'RECTANGULAR', B: 250, H: 500 }, I: .25*.5**3/12 },
   { id: 'circular', name: 'Circular 200 mm', shape: { kind: 'CIRCULAR', d: 200 }, I: Math.PI*.2**4/64 },
   { id: 'pipe', name: 'Pipe 200×10 mm', shape: { kind: 'PIPE', d: 200, T: 10 }, I: Math.PI*(.2**4-.18**4)/64 },
-  { id: 'reviewed-i20a', name: 'I20a', I: 2370e-8 },
   { id: 'persisted-design-diagnostics', name: 'HW300×300×10×15', I: hInertia(.3,.3,.01,.015), completeDesign: true },
 ];
 const references = cases.map(row => ({ ...row, reactionKn: .5, momentKnm: 2.5,

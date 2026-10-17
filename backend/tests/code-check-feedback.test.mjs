@@ -84,6 +84,26 @@ test('feedback deduplicates missing fields across cases while keeping member and
   expect(codeCheckDeliveryNotice({ completionStatus: 'complete', complianceStatus: 'fail', summary: { failed: 1 } }, 'en')).toContain('failed items');
 });
 
+test.each([
+  ['zh', '已完成的校核', '未执行的校核及所缺输入', '后续消息'],
+  ['en', 'Checks performed', 'Checks not performed and missing inputs', 'later message'],
+])('an incomplete check is delivered with performed and not-performed checks in %s, without asking', (locale, performed, notPerformed, later) => {
+  const result = { completionStatus: 'incomplete', complianceStatus: 'incomplete', summary: { total: 2, passed: 1, inputRequired: 1 },
+    details: [{ elementId: 'beam', resultKey: 'case:LC1', checks: [{ items: [
+      { item: '剪应力', clause: 'GB50017-2017 7.1.2', status: 'pass', utilization: 0.12 },
+      { item: '正应力', clause: 'GB50017-2017 7.1.1', status: 'input_required',
+        missingInputs: [{ field: 'material.design.f', label: '抗拉抗压抗弯设计强度 / Design normal strength', unit: 'MPa', source: 'design' }] },
+    ] }] }] };
+  expect(codeCheckFeedback(result).nextAction).toBe('report_missing_inputs');
+  const notice = codeCheckDeliveryNotice(result, locale);
+  expect(notice).toContain(performed);
+  expect(notice).toContain('剪应力 / Shear stress [GB50017-2017 7.1.2]: pass');
+  expect(notice).toContain('0.120');
+  expect(notice).toContain(notPerformed);
+  expect(notice).toContain('正应力 / Normal stress [GB50017-2017 7.1.1]: 抗拉抗压抗弯设计强度 / Design normal strength (MPa)');
+  expect(notice).toContain(later);
+});
+
 test('OpenSees native-design mismatch explains the correct provider without submitting a commercial job', async () => {
   const state = { model: { nodes: [], elements: [], materials: [], sections: [] }, modelRevision: 1 };
   state.analysisRequest = beginAnalysisRequest(state, 'fixture').analysisRequest;
@@ -118,12 +138,12 @@ test('a misspelled or absent service result key is rejected before any check is 
 
 
 
-test('missing computed responses lead to analysis inspection, while unselected service cases request design clarification', () => {
+test('missing computed responses lead to analysis inspection, while unselected service cases are reported without an interrupt', () => {
   const make = fields => ({ completionStatus: 'incomplete', complianceStatus: 'incomplete',
     details: [{ elementId: 'B1', checks: [{ items: [{ item: '挠度', status: 'input_required', missingInputs: fields }] }] }] });
   const response = { field: 'response.deflection', unit: 'mm', source: 'result' };
   expect(codeCheckFeedback(make([response])).nextAction).toBe('inspect_analysis');
-  expect(codeCheckFeedback(make([response, { field: 'member.design.serviceability_result_keys', source: 'design' }])).nextAction).toBe('ask_user_clarification');
+  expect(codeCheckFeedback(make([response, { field: 'member.design.serviceability_result_keys', source: 'design' }])).nextAction).toBe('report_missing_inputs');
   expect(codeCheckFeedback({ completionStatus: 'incomplete', summary: { unsupported: 1 } }).nextAction).toBe('inspect_capability');
 });
 

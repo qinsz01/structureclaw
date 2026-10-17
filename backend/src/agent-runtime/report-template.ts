@@ -118,6 +118,22 @@ function metricText(value: unknown, unit: unknown): string {
   return `${String(value)}${unitText}`;
 }
 
+/** H sections are computed from sharp-corner plate geometry; the report states this idealization. */
+function renderSectionBasisMarkdown(input: SkillReportNarrativeInput): string[] {
+  const model = asRecord(input.normalizedModel);
+  const sections = Array.isArray(model['sections']) ? model['sections'].map(asRecord) : [];
+  const rows = sections.flatMap((section) => {
+    const shape = asRecord(section['shape']);
+    if (shape['kind'] !== 'H') return [];
+    const label = typeof section['name'] === 'string' && section['name'].trim() ? ` (${section['name']})` : '';
+    const dims = `${String(shape['H'])}×${String(shape['B'])}×${String(shape['tw'])}×${String(shape['tf'])} mm`;
+    return [localize(input.locale,
+      `- 截面 ${String(section['id'])}${label}：H×B×tw×tf = ${dims}，按无圆角理想化板件几何计算截面属性（未计入轧制圆角）。`,
+      `- Section ${String(section['id'])}${label}: H×B×tw×tf = ${dims}; properties computed from sharp-corner plate geometry (rolled root fillets not included).`)];
+  });
+  return rows.length ? ['', localize(input.locale, '## 截面依据', '## Section Basis'), ...rows] : [];
+}
+
 export function buildDefaultReportNarrative(input: SkillReportNarrativeInput): string {
   const { locale, message, analysisType, analysisSuccess, codeCheckText, summary, keyMetrics, clauseTraceability, controllingCases } = input;
   const units = analysisUnits(input);
@@ -154,6 +170,7 @@ export function buildDefaultReportNarrative(input: SkillReportNarrativeInput): s
     localize(locale, `- 校核通过率: ${String(keyMetrics.codeCheckPassRate ?? 'N/A')}`, `- Code-check pass rate: ${String(keyMetrics.codeCheckPassRate ?? 'N/A')}`),
     ...renderCodeCheckSummaryMarkdown(input),
     ...renderSeismicMarkdown(input),
+    ...renderSectionBasisMarkdown(input),
     '',
     localize(locale, '## 条文追溯', '## Clause Traceability'),
     ...renderClauseTraceabilityMarkdown(clauseTraceability, locale),

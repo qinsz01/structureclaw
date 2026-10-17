@@ -19,7 +19,7 @@ const initial = () => handler.mergeState(undefined, ingestDraft({
     materials: [{ id: 'MAT-Q235B', name: 'Q235B', f: 215, fv: 125 }],
     material: { family: 'steel', grade: 'Q235B' }, sections: { beam: 'I20a' },
     sectionRecords: [{ id: 'SEC-I20A', name: 'I20a (GB/T 706 热轧工字钢)', type: 'custom',
-      properties: { S: .000104, Wnx: .000237, b: .0465, t: .0114 } }],
+      properties: { A: .003555, Iy: .0000237, Iz: .00000158, S: .000104, Wnx: .000237, b: .0465, t: .0114 } }],
     templateAssignments: { beam: { materialId: 'MAT-Q235B', sectionId: 'SEC-I20A' } },
     boundary: { supportType: 'simply-supported', supportPositionsM: [0, 10] },
     loads: [{ kind: 'point', magnitude: 1, unit: 'kN', direction: 'gravity', target: 'beam',
@@ -64,10 +64,11 @@ describe('clarification retires only the material issues it resolves', () => {
     expect(computeDraftMissing(plugin, before, 'execution').critical).toEqual(['materials.MAT-Q235B.E', 'materials.MAT-Q235B.nu']);
     expect(handler.buildModel(before)).toBeUndefined();
     const after = handler.mergeState(before, clarification());
-    expect(fields(after)).toEqual(['designParameters.gammaX']);
-    expect(after.skillState.invalidDraftFields).toEqual(['designParameters.gammaX']);
-    expect(computeDraftMissing(plugin, after, 'execution')).toEqual({ critical: [], optional: ['designParameters.gammaX'] });
-    expect(handler.computeMissing(after, 'execution')).toEqual({ critical: [], optional: ['designParameters.gammaX'] });
+    // Design diagnostics are not draft issues: the code check reports its own missing inputs.
+    expect(fields(after)).toEqual([]);
+    expect(after.skillState.invalidDraftFields).toBeUndefined();
+    expect(computeDraftMissing(plugin, after, 'execution')).toEqual({ critical: [], optional: [] });
+    expect(handler.computeMissing(after, 'execution')).toEqual({ critical: [], optional: [] });
     const model = await new AgentSkillRuntime().buildModel(after, ['beam'], { locale: 'zh' });
     expect(model.nodes.map(node => node.x)).toEqual([0, 5, 10]);
     expect(model.materials[0]).toMatchObject({ id: 'MAT-Q235B', E: 206000, nu: .3, rho: 7850, f: 215, fv: 125 });

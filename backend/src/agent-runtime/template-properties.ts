@@ -1,4 +1,3 @@
-import { completeReviewedSectionRecord, reviewedSectionCatalogNames, reviewedSectionName, reviewedSectionNames, reviewedSectionRecord } from '../engineering/section-tables.js';
 import type { DraftState } from '../shared/types/agent.js';
 import { applyDraftAnalysisControl, applyDraftTemplateDesign, resolveDraftTemplateAssignment } from './engineering-draft.js';
 
@@ -81,9 +80,11 @@ function resolveFrameMaterialProps(grade: string | undefined): ResolvedFrameMate
   throw new Error(`TEMPLATE_PROPERTY_REQUIRED: unsupported material ${grade} / 未知材料请提供完整材料属性`);
 }
 
+/** Four explicit dimensions (HN300×150×6.5×9, H300x150x6.5x9) define sharp-corner plate geometry; the
+ * designation itself is only a label and never a catalog lookup. */
 function parseCustomHSection(raw: string): { H: number; B: number; tw: number; tf: number } | null {
   const normalized = raw.toUpperCase().replace(/[×X*]/g, 'x').replace(/\s+/g, '');
-  const match = normalized.match(/^H[WMN]?(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)$/);
+  const match = normalized.match(/^H[WMNP]?(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)$/);
   if (!match) return null;
   const H = parseFloat(match[1]!);
   const B = parseFloat(match[2]!);
@@ -92,6 +93,25 @@ function parseCustomHSection(raw: string): { H: number; B: number; tw: number; t
   if (H > 2 * tf && B > tw && tw > 0 && tf > 0) return { H, B, tw, tf };
   return null;
 }
+
+// No letter may precede the H, so words such as "width 300×150" are not designations.
+const DESIGNATION_TOKEN = /(?<![A-Za-z])H[WMNP]?\s*\d+(?:\.\d+)?(?:\s*[x×*]\s*\d+(?:\.\d+)?)+/gi;
+
+/** H-family designation tokens inside a free-text label, e.g. "H型钢 HN300×150×6.5×9". */
+function designationTokens(label: string): string[] {
+  return label.match(DESIGNATION_TOKEN) ?? [];
+}
+
+/** First H designation with all four plate dimensions among the labels. */
+function designationGeometry(labels: string[]): { H: number; B: number; tw: number; tf: number } | undefined {
+  return labels.flatMap(designationTokens).map(parseCustomHSection).find(geometry => !!geometry) ?? undefined;
+}
+
+/** An H designation naming depth and width without plate thicknesses (HN300×150). */
+function incompleteHDesignation(labels: string[]): string | undefined {
+  return labels.flatMap(designationTokens).find(token => !parseCustomHSection(token));
+}
+
 
 function computeHSectionProps(H: number, B: number, tw: number, tf: number, G: number) {
   const hw = H - 2 * tf;
@@ -149,8 +169,9 @@ export function resolveSectionProps(
       shape: { kind: 'H', H: custom.H, B: custom.B, tw: custom.tw, tf: custom.tf },
     };
   }
-  if (/^H[WMN]/.test(normalized)) {
-    throw new Error('SECTION_CATALOG_UNVERIFIED: supply reviewed complete section properties or explicit H×B×tw×tf geometry / 型钢目录尚未审定，请提供核定截面属性或明确四项尺寸');
+  if (/^H[WMNP]?\d/.test(normalized)) {
+    return propertyError(`${role} section ${section}: web thickness tw and flange thickness tf (mm) are required, or complete properties A, Iy, Iz, J`,
+      `${role === 'column' ? '柱' : '梁'}截面 ${section}：请补充腹板厚 tw 和翼缘厚 tf（mm），或提供完整截面属性 A、Iy、Iz、J`);
   }
   const rectangular = section ? parseRectangularSection(section) : null;
   if (rectangular) {
@@ -206,29 +227,33 @@ const hasSectionDefinition = (section: Record<string, unknown>): boolean => ['pr
   return !!value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length > 0;
 });
 
-const sectionDesignations = (section: Record<string, unknown>, draft: DraftState['engineeringDraft']): string[] =>
-  [...new Set([section.standard_steel_name, section.name, ...reviewedSectionNames(section, draft)]
-    .filter((name): name is string => typeof name === 'string' && !!name.trim()).map(name => name.trim()))];
-
-/** Declared designations the template cannot build: neither reviewed catalog rows nor explicit dimensions. */
-function unsupportedSectionDesignations(state: DraftState): string[] {
-  const draft = state.engineeringDraft;
-  // Only rolled H-family designations (HN/HW/HM/HP…) are recognised; role names are never treated as choices.
-  const unsupported = (name: string) => /^H[WMNP]?\s*\d/i.test(name) && !reviewedSectionName(name) && !parseCustomHSection(name);
-  const records = draft?.sectionRecords ?? [];
-  const names = records.length
-    ? records.filter(section => !hasSectionDefinition(section) && !completeReviewedSectionRecord(section, reviewedSectionNames(section, draft)))
-      .flatMap(section => sectionDesignations(section, draft))
-    : Object.values(draft?.sections ?? {}).filter((name): name is string => typeof name === 'string' && !!name.trim());
-  return [...new Set(names.filter(unsupported))];
+/** Labels that may name a record: its own name and selector, plus a declaration assigned to it. Labels never
+ * select catalog data; only a full H×B×tw×tf designation is read as explicit geometry. */
+function sectionDesignations(section: Record<string, unknown>, draft: DraftState['engineeringDraft']): string[] {
+  const names: unknown[] = [section.standard_steel_name, section.name];
+  for (const role of ['beam', 'column', 'member'] as const) {
+    const mapping = draft?.templateAssignments?.[role] ?? draft?.templateAssignments?.member;
+    if (mapping?.sectionId === section.id) names.push(draft?.sections?.[role] ?? draft?.sections?.member);
+  }
+  const declarations = [...new Set(Object.values(draft?.sections ?? {}).filter(value => typeof value === 'string'))];
+  if (draft?.sectionRecords?.length === 1 && declarations.length === 1) names.push(declarations[0]);
+  return [...new Set(names.filter((name): name is string => typeof name === 'string' && !!name.trim()).map(name => name.trim()))];
 }
 
-const DESIGNATION_TOKEN = /H[WMNP]?\s*\d+(?:\.\d+)?(?:\s*[x×*]\s*\d+(?:\.\d+)?)+/gi;
+/** Declared H designations the template cannot build because plate thicknesses are missing. */
+function unsupportedSectionDesignations(state: DraftState): string[] {
+  const draft = state.engineeringDraft;
+  const records = draft?.sectionRecords ?? [];
+  const labels = records.length
+    ? records.filter(section => !hasSectionDefinition(section)).flatMap(section => sectionDesignations(section, draft))
+    : Object.values(draft?.sections ?? {}).filter((name): name is string => typeof name === 'string' && !!name.trim());
+  return [...new Set(labels.flatMap(designationTokens).filter(token => !parseCustomHSection(token)))];
+}
 
-/** A choice naming an unsupported designation, without any explicitly dimensioned section, would be rejected again. */
+/** A choice naming an incomplete designation, without any explicitly dimensioned section, would be rejected again. */
 function unsupportedSectionChoice(option: string, designations: string[]): boolean {
   if (!designations.length) return false;
-  const tokens = option.match(DESIGNATION_TOKEN) ?? [];
+  const tokens = designationTokens(option);
   if (tokens.some(token => parseCustomHSection(token))) return false;
   const rejected = new Set(designations.map(normalizeSectionName));
   return tokens.some(token => rejected.has(normalizeSectionName(token)));
@@ -240,50 +265,59 @@ export function supportedClarificationOptions(options: string[], state: DraftSta
   return options.filter(option => !unsupportedSectionChoice(option, unsupported));
 }
 
-/** Name the actual blocking reason of an undefined section record; never suggest values the template rejects. */
-function undefinedSectionError(section: Record<string, unknown>, draft: DraftState['engineeringDraft']): never {
+/** A record without shape/properties is defined by a full H designation among its labels; otherwise the
+ * exact missing analysis input is reported. */
+function designatedSectionRecord(section: Record<string, unknown>, draft: DraftState['engineeringDraft']): Record<string, unknown> {
   const id = String(section.id);
   const designations = sectionDesignations(section, draft);
+  const geometry = designationGeometry(designations);
+  if (geometry) {
+    const { standard_steel_name: _selector, ...rest } = section;
+    return { ...rest, name: typeof section.name === 'string' && section.name.trim() ? section.name : designations[0],
+      type: 'H', shape: { kind: 'H', ...geometry } };
+  }
   const label = designations[0];
-  // A reviewed designation here carries partial overrides that block catalog completion.
-  if (!label || designations.some(name => reviewedSectionName(name))) {
-    return propertyError(`section ${id}: properties, dimensions or shape required`, `截面 ${id} 缺少截面属性、尺寸或形状定义`);
+  if (!label) return propertyError(`section ${id}: properties, dimensions or shape required`, `截面 ${id} 缺少截面属性、尺寸或形状定义`);
+  const partial = incompleteHDesignation(designations);
+  if (partial) {
+    return propertyError(`section ${id} (${label}): web thickness tw and flange thickness tf (mm) are required to define the H section ${partial}; alternatively supply complete properties A, Iy, Iz, J`,
+      `截面 ${id}（${label}）：请补充 H 形截面 ${partial} 的腹板厚 tw 和翼缘厚 tf（mm），或提供完整截面属性 A、Iy、Iz、J`);
   }
-  const dims = designations.map(parseCustomHSection).find(Boolean);
-  const reviewed = reviewedSectionCatalogNames().join(', ');
-  const choices = `Clarification choices may offer only explicit dimensions, complete properties or reviewed catalog sections (${reviewed})`;
-  const choicesZh = `澄清选项只能提供明确尺寸、完整截面属性或已审定目录截面（${reviewed}）`;
-  if (dims) {
-    const plate = `${dims.H}×${dims.B}×${dims.tw}×${dims.tf}`;
-    return propertyError(`section ${id} (${label}): this designation is not in the reviewed section catalog and the record has no explicit geometry; confirm the idealized H×B×tw×tf plate geometry ${plate} mm (no fillets, no catalog properties) as the section shape, or supply complete properties A, Iy, Iz, J. ${choices}`,
-      `截面 ${id}（${label}）：该型号不在已审定截面目录中，且记录没有明确几何；请确认按 H×B×tw×tf = ${plate} mm 的理想化板件几何（不含圆角、不采用目录属性）作为截面形状，或提供完整截面属性 A、Iy、Iz、J。${choicesZh}`);
-  }
-  return propertyError(`section ${id} (${label}): this designation is not in the reviewed section catalog; provide explicit dimensions in mm (H-sections H×B×tw×tf, rectangles B×H) or complete properties A, Iy, Iz, J. ${choices}`,
-    `截面 ${id}（${label}）：该型号不在已审定截面目录中；请提供明确尺寸（mm，H 形截面 H×B×tw×tf，矩形 B×H）或完整截面属性 A、Iy、Iz、J。${choicesZh}`);
+  return propertyError(`section ${id} (${label}): provide explicit dimensions in mm (H-sections H×B×tw×tf, rectangles B×H) or complete properties A, Iy, Iz, J`,
+    `截面 ${id}（${label}）：请提供明确尺寸（mm，H 形截面 H×B×tw×tf，矩形 B×H）或完整截面属性 A、Iy、Iz、J`);
 }
 
 /** A template supplies geometry; material and section choices must come from declared inputs. */
 export function resolveTemplateMaterials(state: DraftState) {
   const draft = state.engineeringDraft;
   const grade = draft?.material?.grade ?? state.frameMaterial as string | undefined;
-  return draft?.materials?.length ? structuredClone(draft.materials)
+  return draft?.materials?.length ? completeDeclaredGradeMaterials(draft.materials)
     : [buildMaterialRecord(resolveFrameMaterialProps(grade))];
+}
+
+/** A material record that declares a supported grade but no elastic modulus gets that grade's elastic
+ * constants for the fields it omits, exactly as a grade declared on `material` does; explicit values are
+ * never replaced, and a record with its own E is left to its own data. */
+export function completeDeclaredGradeMaterials<T extends Record<string, unknown>>(records: T[]): T[] {
+  return records.map((record) => {
+    const copy = structuredClone(record);
+    if (!copy || typeof copy !== 'object') return copy;
+    const grade = typeof copy.grade === 'string' && copy.grade.trim() ? copy.grade : undefined;
+    if (!grade || copy.E != null) return copy;
+    let props: ResolvedFrameMaterialProps;
+    try { props = resolveFrameMaterialProps(grade); } catch { return copy; }
+    const filled: Record<string, unknown> = { ...copy };
+    for (const key of ['E', 'G', 'nu', 'rho'] as const) if (filled[key] == null) filled[key] = props[key];
+    return filled as T;
+  });
 }
 
 export function resolveTemplateProperties(state: DraftState, roles: TemplateRole[]) {
   const draft = state.engineeringDraft;
   const materials = resolveTemplateMaterials(state);
-  const sections = structuredClone(draft?.sectionRecords ?? []);
+  const sections = (draft?.sectionRecords ?? []).map(section => hasSectionDefinition(section)
+    ? structuredClone(section) : designatedSectionRecord(structuredClone(section), draft));
   const explicitRecords = sections.length > 0;
-  for (const section of sections) {
-    const completed = completeReviewedSectionRecord(section, reviewedSectionNames(section, draft));
-    if (completed) {
-      Object.assign(section, completed);
-      delete section.shape;
-      delete section.dimensions;
-    }
-    if (!hasSectionDefinition(section)) undefinedSectionError(section, draft);
-  }
   const byRole: Partial<Record<TemplateRole, { materialId: string; sectionId: string }>> = {};
   for (const role of roles) {
     const mapping = resolveDraftTemplateAssignment(draft, role);
@@ -297,11 +331,8 @@ export function resolveTemplateProperties(state: DraftState, roles: TemplateRole
     if (explicitRecords) {
       sectionId ??= declaredSection;
       if (!mapping?.sectionId && declaredSection && !sections.some(entry => entry.id === sectionId)) {
-        const catalogName = reviewedSectionName(declaredSection);
         const byName = sections.filter(entry => typeof entry.name === 'string'
-          && (normalizeSectionName(entry.name.replace(/\s*[（(].*$/, '')) === normalizeSectionName(declaredSection)
-            || !!catalogName && (reviewedSectionName(entry.name) === catalogName
-              || (entry.extra as { catalogSource?: { recordId?: string } } | undefined)?.catalogSource?.recordId === catalogName)));
+          && normalizeSectionName(entry.name.replace(/\s*[（(].*$/, '')) === normalizeSectionName(declaredSection));
         if (byName.length === 1) sectionId = String(byName[0].id);
       }
       // A single section is unambiguous only when geometry has one member role.
@@ -315,12 +346,8 @@ export function resolveTemplateProperties(state: DraftState, roles: TemplateRole
       if (!(E > 0) || !Number.isFinite(nu)) propertyError(`${role}.material elastic constants`);
       sectionId = roles.length === 1 || role === 'column' ? '1' : '2';
       const purpose = role === 'column' ? 'column' : 'beam';
-      const catalog = sectionName ? reviewedSectionRecord(sectionName, sectionId, purpose) : undefined;
-      if (catalog) sections.push(catalog);
-      else {
-        const props = resolveSectionProps(sectionName, purpose, 0, Number(material!.G ?? E / (2 * (1 + nu))));
-        sections.push(buildSectionRecord(sectionId, purpose, props));
-      }
+      const props = resolveSectionProps(sectionName, purpose, 0, Number(material!.G ?? E / (2 * (1 + nu))));
+      sections.push(buildSectionRecord(sectionId, purpose, props));
     }
     byRole[role] = { materialId, sectionId: sectionId! };
   }

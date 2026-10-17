@@ -23,7 +23,9 @@ function confirmedDraft() {
   return normalizeEngineeringDraft({ structureType: 'beam', geometry: { lengthM: 10 },
     materials: [{ id: 'MAT', name: 'User steel', E: 206000, nu: .3, rho: 7850, design: { f: 215, fv: 125, basis: { f: 'Explicit synthetic input in MPa' } } }],
     sections: { beam: 'I20a' }, sectionRecords: [{ id: 'SEC', name: 'GB/T 706 热轧工字钢 I20a', type: 'custom',
-      properties: { S: .000104, Wnx: .000237, b: .0465, t: .0114 } }],
+      // Explicit test properties (designations are labels; no catalog completes them).
+      properties: { A: .003555, Iy: .0000237, Iz: .00000158, Wx: .000237, Wz: .0000315, tw: .007, imin: .0212,
+        S: .000104, Wnx: .000237, b: .0465, t: .0114 } }],
     templateAssignments: { beam: { materialId: 'MAT', sectionId: 'SEC', design: structuredClone(memberDesign) } },
     boundary: { supportType: 'simply-supported' }, analysisControl: { self_weight: false },
     analysis: { loadCombinations: [] },
@@ -83,7 +85,7 @@ describe('canonical declared design inputs survive the draft/model boundary', ()
     expect(model.elements).toHaveLength(2);
     for (const element of model.elements) expect(element.design).toEqual(memberDesign);
     expect(model.materials[0].design).toEqual(input.engineeringDraft.materials[0].design);
-    expect(model.sections[0].extra.catalogSource.recordId).toBe('I20a');
+    expect(model.sections[0].extra?.catalogSource).toBeUndefined();
     expect(model.sections[0].properties.Iy).toBe(.0000237);
     const legacy = structuredClone(built);
     delete legacy.materials[0].design;

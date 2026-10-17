@@ -100,7 +100,10 @@ function assignedRoleSection(field: string, merged: DraftState): { role: Templat
  */
 export function mergeDraftDiagnostics(existing: DraftState | undefined, patch: DraftExtraction, merged: DraftState): Pick<DraftState, 'draftIssues' | 'skillState'> {
   const aligned = alignedPatch(patch, existing, merged.engineeringDraft);
-  const newIssues: DraftIssue[] = (patch.draftIssues ?? []).map(({ target: _untrustedTarget, ...issue }) => issue);
+  // Design inputs are not draft diagnostics: the analysis workflow never asks for them and an
+  // explicitly requested code check reports its own missing inputs.
+  const analysisIssue = (issue: DraftIssue): boolean => !issue.field || !isDesignDraftField(issue.field);
+  const newIssues: DraftIssue[] = (patch.draftIssues ?? []).filter(analysisIssue).map(({ target: _untrustedTarget, ...issue }) => issue);
   const resolved = (issue: DraftIssue): boolean => {
     if (!issue.field || issue.severity === 'conflict'
       || !issue.kind && issue.severity === 'ambiguous' && issue.value != null) return false;
@@ -114,6 +117,14 @@ export function mergeDraftDiagnostics(existing: DraftState | undefined, patch: D
         if (validDraftValue(draftContract.properties.materials, resolveTemplateMaterials(merged))) return true;
       } catch { /* An unknown grade remains missing; the builder reports its required properties. */ }
     }
+    // A missing elastic field of a record that declares a supported grade is supplied by the same
+    // grade projection the template builder uses; explicit values and unknown grades are unaffected.
+    if (issue.kind === 'missing' && canonicalPath(field).startsWith('materials') && merged.engineeringDraft?.materials?.length
+      && !merged.engineeringDraft.model) {
+      const projected = { ...merged, engineeringDraft: { ...merged.engineeringDraft, materials: resolveTemplateMaterials(merged) } };
+      const located = locate(projected, field);
+      if (located.length && located.every(item => validDraftValue(item.schema, item.value))) return true;
+    }
     // `sections.<role>` and the complete section record assigned to that role are one
     // engineering fact; a confirmation is answered by a new value in either representation.
     const assigned = assignedRoleSection(field, merged);
@@ -125,7 +136,7 @@ export function mergeDraftDiagnostics(existing: DraftState | undefined, patch: D
     if (!current.length || current.some(item => !validDraftValue(item.schema, item.value))) return false;
     return issue.kind === 'missing' || current.some(item => locate(aligned, item.path).some(supplied => supplied.value != null));
   };
-  const pending = (existing?.draftIssues ?? []).filter(issue => !resolved(issue));
+  const pending = (existing?.draftIssues ?? []).filter(issue => analysisIssue(issue) && !resolved(issue));
   const issues = [...pending.filter(issue => issue.severity === 'conflict' || !newIssues.some(next => next.field && next.field === issue.field)), ...newIssues]
     .filter(issue => issue.kind !== 'missing' || !resolved(issue))
     .map(issue => {
@@ -134,6 +145,7 @@ export function mergeDraftDiagnostics(existing: DraftState | undefined, patch: D
       return locations.length === 1 ? { ...issue, target: locations[0]!.path } : issue;
     });
   const legacy = [...new Set([...invalidDraftFieldsOf(existing), ...invalidDraftFieldsOf(patch)])]
+    .filter(field => !isDesignDraftField(field))
     .filter(field => issues.some(issue => issue.field === field)
       || !(existing?.draftIssues ?? []).some(issue => issue.field === field) && !resolved({ field, severity: 'invalid', reason: 'Legacy diagnostic' }));
   const fields = [...new Set([...legacy, ...issues.flatMap(issue => issue.field ? [issue.field] : [])])];

@@ -32,13 +32,14 @@ test('a classified load clears only its own stale case-type diagnostic', () => {
   const next=mergeDraftState(state,patch);
   expect(next.engineeringDraft.loads).toHaveLength(2);
   expect(next.engineeringDraft.loads[0].caseType).toBe('other');
-  expect(next.draftIssues.map(issue=>issue.field)).toEqual(fields.slice(2));
-  expect(next.skillState.invalidDraftFields).toEqual(fields.slice(2));
+  // Design diagnostics are not draft issues; only the unresolved physical ones remain.
+  expect(next.draftIssues.map(issue=>issue.field)).toEqual(fields.slice(2,4));
+  expect(next.skillState.invalidDraftFields).toEqual(fields.slice(2,4));
   expect(state.draftIssues).toHaveLength(5);
   // A fresh conflict always wins over a resolved old diagnostic.
   const conflict={field:'loads[0].caseType',severity:'conflict',reason:'Contradictory category supplied'};
   expect(mergeDraftState(state,{...patch,draftIssues:[conflict],skillState:{invalidDraftFields:[conflict.field]}}).draftIssues).toContainEqual(conflict);
-  expect(mergeDraftState(state,{engineeringDraft:{loads:[load]}}).draftIssues).toEqual(state.draftIssues);
+  expect(mergeDraftState(state,{engineeringDraft:{loads:[load]}}).draftIssues).toEqual(state.draftIssues.slice(0,4));
 });
 
 
@@ -53,8 +54,8 @@ test('the original three-turn beam clarification assigns LC1 once without invent
   expect(next.engineeringDraft.loads).toHaveLength(1);
   expect(next.engineeringDraft.loads[0]).toMatchObject({magnitude:1,direction:'gravity',caseId:'LC1',caseType:'other',location:{xM:5}});
   expect(next.engineeringDraft.analysis?.loadCombinations).toBeUndefined();
-  expect(next.draftIssues.map(issue=>issue.field)).toEqual(['designCheck.stabilityCoefficient']);
-  expect(next.skillState.invalidDraftFields).toEqual(['designCheck.stabilityCoefficient']);
+  expect(next.draftIssues).toBeUndefined();
+  expect(next.skillState?.invalidDraftFields).toBeUndefined();
   expect(supported.loads[0].caseId).toBeUndefined();
 });
 

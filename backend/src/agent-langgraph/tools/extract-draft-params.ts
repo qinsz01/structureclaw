@@ -296,8 +296,8 @@ function buildLlmExtractionResponse(options: {
         : 'Full analysis lacks properties. First run_analysis(method=equilibrium,allowPartial=true) for independent forces, then clarify stiffness. Do not build_model or invent material/section.' } : {}),
     ...(requestScope?.method === 'equilibrium' && missing.critical.length === 0 ? {
       nextAction: 'run_analysis', instruction: locale === 'zh'
-        ? '直接调用run_analysis(method=equilibrium)。仅计算内力和反力，不需要材料截面，不生成未请求的变形、规范校核或报告。'
-        : 'Call run_analysis(method=equilibrium) directly. Forces/reactions only; no material/section, unrequested deformation, code checking or report.' } : {}),
+        ? '直接调用run_analysis(method=equilibrium)。仅计算内力和反力，不需要材料截面，不生成未请求的变形或规范校核。'
+        : 'Call run_analysis(method=equilibrium) directly. Forces/reactions only; no material/section, unrequested deformation or code checking.' } : {}),
   };
 }
 

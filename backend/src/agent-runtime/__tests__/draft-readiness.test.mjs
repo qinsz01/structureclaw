@@ -78,9 +78,9 @@ describe('unified draft readiness',()=>{
     expect(buildDraftQuestions(plugin,missing.critical,[],state,'en')[0].question).toContain('section S');
   });
 
-test.each([{}, { properties: {} }, { shape: {}, dimensions: {} }])('a reviewed name-only section record is ready without asking for its catalog properties: %j', definition => {
+test.each([{}, { properties: {} }, { shape: {}, dimensions: {} }])('a name-only section record is a label: no catalog completes it, so its properties are asked for: %j', definition => {
   const state={...beam,engineeringDraft:{materials:[material],sectionRecords:[{id:'S',name:'I20a',type:'custom',...definition}]}};
-  expect(computeDraftMissing(plugin,state,'execution').critical).toEqual([]);
+  expect(computeDraftMissing(plugin,state,'execution').critical).toEqual(['templateProperties']);
   expect(state.engineeringDraft.sectionRecords[0].properties?.A).toBeUndefined();
 });
 
@@ -94,11 +94,11 @@ describe('analysis readiness is separate from code-check completeness', () => {
     engineeringDraft:{ materials:[material], sectionRecords:[section], analysisControl:{ self_weight:false } },
     draftIssues:issues(designFields), skillState:{ invalidDraftFields:designFields } };
 
-  test.each(['interactive','execution'])('keeps code-check inputs pending without blocking %s model readiness', phase => {
+  test.each(['interactive','execution'])('drops code-check inputs from %s model readiness: they neither block nor prompt', phase => {
     const snapshot=JSON.stringify(complete);
-    expect(computeDraftMissing(plugin,complete,phase)).toEqual({critical:[],optional:designFields});
+    expect(computeDraftMissing(plugin,complete,phase)).toEqual({critical:[],optional:[]});
     // The handler has its own readiness gate; it must agree with the public gate.
-    expect(handler.computeMissing(complete,phase)).toEqual({critical:[],optional:designFields});
+    expect(handler.computeMissing(complete,phase)).toEqual({critical:[],optional:[]});
     const model=handler.buildModel(complete);
     expect(model?.nodes.length).toBeGreaterThan(0);
     expect(model?.elements.length).toBeGreaterThan(0);
@@ -113,8 +113,8 @@ describe('analysis readiness is separate from code-check completeness', () => {
       expect(handler.buildModel(state)).toBeUndefined();
     });
 
-  test('the generic route also retains design diagnostics without marking analysis unready', () => {
+  test('the generic route also drops design diagnostics without marking analysis unready', () => {
     const generic={id:'generic',handler:{...handler,computeMissing:()=>({critical:[...designFields,'topology.members'],optional:[]})}};
-    expect(computeDraftMissing(generic,complete,'execution')).toEqual({critical:['topology.members'],optional:designFields});
+    expect(computeDraftMissing(generic,complete,'execution')).toEqual({critical:['topology.members'],optional:[]});
   });
 });

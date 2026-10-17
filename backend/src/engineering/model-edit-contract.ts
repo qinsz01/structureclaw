@@ -13,7 +13,7 @@ export const modelEditGuidance = {
   format: 'Use nested objects or canonical dotted paths within values; do not prefix paths with material/member. / values使用嵌套对象或规范点路径，不加material/member前缀。',
   materials: 'materials[id].design: f/fv in MPa; material design strengths belong to the referenced material, not the element. / 设计强度写入引用材料的design。',
   elements: 'elements[id].design: beta1, phi_b, btLimit, lambdaLimit, deflectionLimitN; l0/h0 in mm; serviceability_result_keys is an array of saved result keys; requested_checks is an optional nonempty array of user-selected check IDs/names (omit for all checks); basis maps field names to supplied evidence. / 构件设计条件、使用工况数组及依据；requested_checks仅用于用户明确指定的专项范围，省略则检查全部。',
-  sections: 'sections[id].properties: A/As m2, Iy/Iz/J m4, Wnx/Wx/Wz/S/Sz m3, tw/tz/b/t/imin m. shape dimensions are mm. Updates deep-merge: send only changed properties, preserving reviewed catalog values and axis mappings. Never infer units from magnitude or recompute catalog data. / 截面属性采用米制，shape尺寸为mm；更新会递归合并，只传修改字段，保留已核定目录值及轴映射，禁止按大小猜单位或重算目录数据。',
+  sections: 'sections[id].properties: A/As m2, Iy/Iz/J m4, Wnx/Wx/Wz/S/Sz m3, tw/tz/b/t/imin m. shape dimensions are mm. Updates deep-merge: send only changed properties, preserving supplied values and axis mappings. Never infer units from magnitude. / 截面属性采用米制，shape尺寸为mm；更新会递归合并，只传修改字段，保留已给数值及轴映射，禁止按大小猜单位。',
   discovery: 'query_model(includeSchema=true, collection=materials|elements|sections) returns fields from the actual V2 schema. / 可查询实际V2字段。',
 };
 

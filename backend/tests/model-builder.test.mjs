@@ -296,10 +296,10 @@ describe('buildModel - column', () => {
     expect(model.sections[0].properties.J).toBeCloseTo(0.005775046875, 12);
   });
 
-  it('rejects an uncalibrated catalog section instead of changing its geometry', () => {
+  it('asks for plate thicknesses of a designation without them instead of inventing geometry', () => {
     const state = makeState({inferredType: 'column',heightM: 5,loadKN: 700,
       engineeringDraft: {material: {family:'steel',grade:'Q345'},sections:{column:'HW300x300'}}});
-    expect(() => buildModel(state)).toThrow(/SECTION_CATALOG_UNVERIFIED/);
+    expect(() => buildModel(state)).toThrow(/HW300x300: web thickness tw and flange thickness tf/);
   });
 
 });

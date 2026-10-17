@@ -1,6 +1,6 @@
 import { isRecord, type ModelRecord } from './model-state.js';
 import { modelEditGuidance, sectionPropertyUnits } from './model-edit-contract.js';
-import { missingInputNextAction } from '../runtime/ablation-profiles.js';
+import { codeCheckLabelEn } from '../agent-skills/code-check/labels.js';
 
 /** A declared service case must exist in this run before other cases may be excluded. */
 export function validateServiceabilitySelection(model: ModelRecord, analysis: ModelRecord): void {
@@ -65,10 +65,10 @@ export function formatCheckSummary(summary: ModelRecord | undefined, locale: 'zh
 }
 
 /**
- * Keep both missing inputs and computed evidence in the agent's tool response.
- * `clarification: false` when the run exposes no clarification tool (ablation); missing inputs are then reported.
+ * Keep both missing inputs and computed evidence in the agent's tool response. Missing inputs are
+ * reported, never turned into a clarification interrupt, with or without the clarification tool.
  */
-export function codeCheckFeedback(check: ModelRecord, model?: ModelRecord, analysis?: ModelRecord, options: { clarification?: boolean } = {}): ModelRecord {
+export function codeCheckFeedback(check: ModelRecord, model?: ModelRecord, analysis?: ModelRecord): ModelRecord {
   const missingInputs: ModelRecord[] = [];
   const checkedItems: ModelRecord[] = [];
   for (const detail of Array.isArray(check.details) ? check.details.filter(isRecord) : []) {
@@ -117,7 +117,9 @@ export function codeCheckFeedback(check: ModelRecord, model?: ModelRecord, analy
   let nextAction = 'generate_report';
   if (check.completionStatus !== 'complete') {
     const unsupported = Number(isRecord(check.summary) ? check.summary.unsupported ?? 0 : 0) > 0;
-    nextAction = unresolvedResults.length ? 'inspect_analysis' : unsupported && !missingFields.length ? 'inspect_capability' : missingInputNextAction(options.clarification !== false);
+    // Missing design inputs never interrupt: the check is delivered with performed items and the
+    // not-performed list; the user may supply inputs in a later turn.
+    nextAction = unresolvedResults.length ? 'inspect_analysis' : unsupported && !missingFields.length ? 'inspect_capability' : 'report_missing_inputs';
   }
   return { completionStatus: check.completionStatus, complianceStatus: check.complianceStatus, summary: check.summary,
     checkedItems: { runId: isRecord(check.meta) ? check.meta.runId : undefined,
@@ -126,7 +128,7 @@ export function codeCheckFeedback(check: ModelRecord, model?: ModelRecord, analy
     requestedChecksPassed: check.completionStatus === 'complete' && check.complianceStatus === 'pass',
     missingInputs: missingFields, writeTargets: [...writeTargets.values()], missingInputCount: writeTargets.size + missingFields.filter(row => !row.writable).length,
     availableResultKeys: isRecord(analysis?.results) ? Object.keys(analysis.results) : [], editGuidance: modelEditGuidance,
-    guidance: 'Write already supplied inputs to the listed owners; ask only for genuinely missing conditions. Counts of input-required checks are not counts of questions. Explain checks using checkedItems: preserve each formula, demand, capacity, unit, utilization and selection. Never combine coefficients across different checks or invent missing calculations. If truncated, use the saved report for remaining items. / 已确认输入按目标路径写入，仅询问真正缺失的条件；待输入校核项数不等于问题数。校核解释须引用checkedItems中各自的公式、需求、承载力、单位、利用率及工况，不得混用不同校核的系数或编造缺失计算；截断的其余项目查阅保存报告。',
+    guidance: 'Do not ask clarification questions for missing design inputs and do not loop: report the performed checks and list the checks not performed with their missing inputs in the final reply; the user may supply them in a later turn. Write inputs the user already supplied to the listed owners. Explain checks using checkedItems: preserve each formula, demand, capacity, unit, utilization and selection. Never combine coefficients across different checks or invent missing calculations. If truncated, use the saved report for remaining items. / 不要为缺失设计输入发起追问或循环：在最终回复中报告已完成校核，并列出未执行项及所缺输入，用户可在后续轮次补充；用户已给出的输入按目标路径写入。校核解释须引用checkedItems中各自的公式、需求、承载力、单位、利用率及工况，不得混用不同校核的系数或编造缺失计算；截断的其余项目查阅保存报告。',
     inputRequiredChecks: missingInputs.map(({ fields: _fields, ...row }) => row),
     nextAction,
     conclusionEligible: !limited && check.completionStatus === 'complete' && check.complianceStatus === 'pass' };
@@ -181,10 +183,50 @@ export function codeCheckDeliveryNotice(check: ModelRecord, locale: 'zh' | 'en')
     ? `规范校核存在未通过项，不能给出设计合格结论。\n\n${formatCheckSummary(isRecord(check.summary) ? check.summary : undefined, locale)}。请查看已保存校核明细中的控制构件及需求、承载力，再决定修改方案。`
     : `Code checking found failed items; design compliance has not been established.\n\n${formatCheckSummary(isRecord(check.summary) ? check.summary : undefined, locale)}. Inspect the saved governing member, demand and capacity before deciding how to revise the model.`;
   const feedback = codeCheckFeedback(check);
-  const fields = (feedback.missingInputs as ModelRecord[]);
-  const list = fields.slice(0, 12).map(field => `- ${String(field.elementId)}: ${String(field.label)} (${String(field.unit)})`).join('\n');
-  const tail = fields.length > 12 ? locale === 'zh' ? '\n完整缺项见校核结果。' : '\nSee the check result for all missing inputs.' : '';
+  const summaryText = formatCheckSummary(isRecord(check.summary) ? check.summary : undefined, locale);
+  const { performed, notPerformed } = checkDeliveryLists(feedback, locale);
+  const performedText = performed.length
+    ? (locale === 'zh' ? `已完成的校核：\n${performed.join('\n')}\n\n` : `Checks performed:\n${performed.join('\n')}\n\n`)
+    : (locale === 'zh' ? '尚无可完成的校核项。\n\n' : 'No check could be completed yet.\n\n');
+  const notPerformedText = notPerformed.length
+    ? (locale === 'zh' ? `未执行的校核及所缺输入 / Checks not performed and missing inputs：\n${notPerformed.join('\n')}\n\n`
+      : `Checks not performed and missing inputs / 未执行的校核及所缺输入:\n${notPerformed.join('\n')}\n\n`)
+    : '';
   return locale === 'zh'
-    ? `规范校核尚未完成，不能给出设计合格结论。\n\n${formatCheckSummary(isRecord(check.summary) ? check.summary : undefined, locale)}。\n\n${list ? `需要补充或核实：\n${list}${tail}\n\n` : ''}请补充上述资料；计算结果缺失项需检查分析工况，不能用手填数值替代。确认后在当前模型上继续校核。`
-    : `Code checking is incomplete; design compliance has not been established.\n\n${formatCheckSummary(isRecord(check.summary) ? check.summary : undefined, locale)}.\n\n${list ? `Provide or verify:\n${list}${tail}\n\n` : ''}Supply the missing inputs. Missing computed results require inspection of the analysis case, not manually invented values. Then continue checking the current model.`;
+    ? `规范校核未全部完成，不能给出设计合格结论。\n\n${summaryText}。\n\n${performedText}${notPerformedText}如需完成其余校核，请在后续消息中提供上述输入（不会使用默认值）；计算结果缺失项需检查分析工况，不能用手填数值替代。`
+    : `Code checking is not complete; design compliance has not been established.\n\n${summaryText}.\n\n${performedText}${notPerformedText}To complete the remaining checks, supply these inputs in a later message (no defaults are assumed). Missing computed results require inspection of the analysis case, not manually invented values.`;
+}
+
+const bilingualCheckName = (value: unknown): string => {
+  const name = String(value ?? '');
+  const en = codeCheckLabelEn(name);
+  return en && en !== name ? `${name} / ${en}` : name;
+};
+
+/** Performed checks (status and governing utilization) and not-performed checks with their missing inputs. */
+function checkDeliveryLists(feedback: ModelRecord, locale: 'zh' | 'en'): { performed: string[]; notPerformed: string[] } {
+  const items = isRecord(feedback.checkedItems) && Array.isArray(feedback.checkedItems.items) ? feedback.checkedItems.items.filter(isRecord) : [];
+  const performed = new Map<string, { clause: unknown; statuses: Set<string>; utilization: number | undefined }>();
+  for (const item of items.filter(row => !['input_required', 'unsupported'].includes(String(row.status)))) {
+    const key = String(item.check);
+    const saved = performed.get(key) ?? { clause: item.clause, statuses: new Set<string>(), utilization: undefined };
+    saved.statuses.add(String(item.status));
+    if (typeof item.utilization === 'number' && Number.isFinite(item.utilization)) saved.utilization = Math.max(saved.utilization ?? 0, item.utilization);
+    performed.set(key, saved);
+  }
+  const missing = new Map<string, { clause: unknown; fields: Set<string> }>();
+  for (const field of Array.isArray(feedback.missingInputs) ? feedback.missingInputs.filter(isRecord) : []) {
+    for (const name of Array.isArray(field.checks) ? field.checks : []) {
+      const key = String(name);
+      const saved = missing.get(key) ?? { clause: items.find(item => item.check === name)?.clause, fields: new Set<string>() };
+      saved.fields.add(`${String(field.label)} (${String(field.unit)})`);
+      missing.set(key, saved);
+    }
+  }
+  const clause = (value: unknown) => value ? ` [${String(value)}]` : '';
+  const utilizationText = (value: number | undefined) => value === undefined ? '' : locale === 'zh' ? `，最大利用率 ${value.toFixed(3)}` : `, max utilization ${value.toFixed(3)}`;
+  return {
+    performed: [...performed.entries()].map(([name, row]) => `- ${bilingualCheckName(name)}${clause(row.clause)}: ${[...row.statuses].join('/')}${utilizationText(row.utilization)}`),
+    notPerformed: [...missing.entries()].map(([name, row]) => `- ${bilingualCheckName(name)}${clause(row.clause)}: ${[...row.fields].join('; ')}`),
+  };
 }

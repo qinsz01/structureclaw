@@ -17,7 +17,7 @@ test.each(['materials[0].E', 'materials.M.G', 'sectionRecords[0].properties.Iy',
   expect(isDesignDraftField(field)).toBe(false);
 });
 
-test.each([true, false])('reported design-only missing fields remain visible without blocking solver construction, design=%s', design => {
+test.each([true, false])('reported design-only missing fields are dropped: they neither block nor prompt solver construction, design=%s', design => {
   const issues = ['materials[0].design.fy', 'templateAssignments.beam.design.deflectionLimitN'];
   const state = handler.mergeState(undefined, handler.extractDraft({ locale: 'zh', llmDraftPatch: {
     engineeringDraft: { structureType: 'beam', geometry: { lengthM: 10 }, material: { grade: 'Q235B' },
@@ -29,6 +29,7 @@ test.each([true, false])('reported design-only missing fields remain visible wit
   state.requestScope = { responses: ['forces'], method: 'solver', design, report: false, outputs: [] };
   const missing = computeDraftMissing({ id: 'beam', handler }, state, 'execution');
   expect(missing.critical).toEqual([]);
-  expect(missing.optional).toEqual(expect.arrayContaining(issues));
+  expect(missing.optional).toEqual([]);
+  expect(state.draftIssues).toBeUndefined();
   expect(handler.buildModel(state).sections[0].shape.kind).toBe('H');
 });

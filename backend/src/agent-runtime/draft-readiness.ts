@@ -1,5 +1,5 @@
 import { buildExplicitDraftModel } from './explicit-model.js';
-import { templatePropertyIssues } from './template-properties.js';
+import { completeDeclaredGradeMaterials, templatePropertyIssues } from './template-properties.js';
 import type { AgentSkillPlugin, DraftState, InteractionQuestion, SkillMissingResult } from '../shared/types/agent.js';
 import type { AppLocale } from '../shared/locale.js';
 import { equilibriumModel } from '../engineering/beam-equilibrium.js';
@@ -13,7 +13,8 @@ type ReadinessPlugin = Pick<AgentSkillPlugin, 'id' | 'handler'>;
 
 function materialPropertyQuestions(state: DraftState, locale: AppLocale): InteractionQuestion[] {
   const draft = state.engineeringDraft;
-  const records = draft?.model?.materials ?? draft?.materials;
+  // Template records use the same grade projection as model construction.
+  const records = draft?.model?.materials ?? (Array.isArray(draft?.materials) ? completeDeclaredGradeMaterials(draft.materials) : undefined);
   if (!Array.isArray(records)) return [];
   const prefix = draft?.model ? 'model.materials' : 'materials';
   const isZh = locale === 'zh';
@@ -45,10 +46,6 @@ function materialPropertyQuestions(state: DraftState, locale: AppLocale): Intera
 export function computeDraftMissing(plugin: ReadinessPlugin, state: DraftState, phase: 'interactive' | 'execution'): SkillMissingResult {
   state = currentDraftDiagnostics(state);
   const scope = state.requestScope as RequestScope | undefined;
-  const pendingDesign = [...new Set([
-    ...(state.draftIssues ?? []).flatMap((issue) => issue.field ? [issue.field] : []),
-    ...(Array.isArray(state.skillState?.invalidDraftFields) ? state.skillState.invalidDraftFields.filter((field): field is string => typeof field === 'string') : []),
-  ].filter(isDesignDraftField))];
   if (scope?.method === 'equilibrium' && forceOnlyScope(scope)) {
     try { equilibriumModel(state); return { critical: [], optional: [] }; }
     catch (error) { return { critical: [error instanceof Error ? error.message : String(error)], optional: [] }; }
@@ -57,18 +54,20 @@ export function computeDraftMissing(plugin: ReadinessPlugin, state: DraftState, 
     // Templates describe one geometry recipe, not what the LLM must ask users.
     // Actual unresolved evidence still blocks; the generated model must pass the
     // same formal/physical validation as every other model before execution.
-    return { critical: unresolvedDraftFields(state).filter(field => !isDesignDraftField(field)), optional: pendingDesign };
+    return { critical: unresolvedDraftFields(state).filter(field => !isDesignDraftField(field)), optional: [] };
   }
   const propertyMissing = materialPropertyQuestions(state, 'en').map((question) => question.paramKey);
-  if (propertyMissing.length) return { critical: propertyMissing, optional: pendingDesign };
+  if (propertyMissing.length) return { critical: propertyMissing, optional: [] };
   try {
-    if (buildExplicitDraftModel(state)) return { critical: [], optional: pendingDesign };
+    if (buildExplicitDraftModel(state)) return { critical: [], optional: [] };
   } catch {
-    return { critical: ['engineeringDraft'], optional: pendingDesign };
+    return { critical: ['engineeringDraft'], optional: [] };
   }
   const missing = plugin.handler.computeMissing(state, phase);
+  // Design inputs never block or prompt the analysis workflow; an explicitly requested code check
+  // reports them itself. frameRebarGrade is a concrete-frame builder input, released only for design=false.
   const critical = missing.critical.filter(field => !isDesignDraftField(field) && (scope?.design !== false || field !== 'frameRebarGrade'));
-  const optional = [...new Set([...missing.optional, ...pendingDesign, ...missing.critical.filter(isDesignDraftField)])];
+  const optional = [...new Set(missing.optional.filter(field => !isDesignDraftField(field)))];
   if (plugin.id === 'generic') return { critical, optional: optional.filter((key) => !critical.includes(key)) };
   // Skill-specific design prerequisites come from the resolved handler (e.g. concrete-frame grades/sections).
   const designMissing = scope?.design !== false ? plugin.handler.computeDesignMissing?.(state) : undefined;

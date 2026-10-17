@@ -88,30 +88,39 @@ describe('declared template properties', () => {
     expect(() => buildModel({...beam(), engineeringDraft:{material:{grade:'Q235X'}, sections:{beam:'100X200'}}})).toThrow(/unsupported material/);
   });
 
-  test('the reviewed I20a catalog row retains tapered-section values and provenance', () => {
-    const model=buildModel({...beam(),engineeringDraft:{material:{grade:'Q235B'},sections:{beam:'I20a'}}});
-    const catalog=model.sections[0];
-    expect(catalog).toMatchObject({name:'I20a',type:'custom',properties:{A:0.003555,Iy:0.0000237,Iz:0.00000158,tw:0.007}});
-    expect(catalog.shape).toBeUndefined(); // A tapered rolled section is not a rectangular-flange H approximation.
-    expect(catalog.properties.J).toBeUndefined();
-    expect(catalog.properties.Wnx).toBeUndefined();
-    expect(catalog.extra.catalogSource.status).toBe('reference-data-from-public-draft');
-    expect(model.materials[0].design).toBeUndefined();
+  test('a rolled designation without dimensions is a label: no catalog supplies its properties', () => {
+    expect(()=>buildModel({...beam(),engineeringDraft:{material:{grade:'Q235B'},sections:{beam:'I20a'}}})).toThrow(/unsupported section I20a/);
+    expect(()=>buildModel({...beam(),engineeringDraft:{material:{grade:'Q235B'},sections:{beam:'HN300×150'}}}))
+      .toThrow(/web thickness tw and flange thickness tf/);
   });
 
-test('reviewed name-only section records preserve IDs, purpose and notes without mutating the draft', () => {
-  const record={id:'USER-SECTION',name:'I20a',type:'custom',purpose:'column',extra:{note:'supplied label'}};
+  test.each(['HN300×150×6.5×9', 'H300x150x6.5x9', 'hn300X150X6.5X9'])('a four-dimension designation %s is sharp-corner H geometry', designation => {
+    const model=buildModel({...beam(),engineeringDraft:{material:{grade:'Q355'},sections:{beam:designation}}});
+    expect(model.sections[0]).toMatchObject({type:'H',shape:{kind:'H',H:300,B:150,tw:6.5,tf:9}});
+    const hw=300-18;
+    expect(model.sections[0].properties.Iy).toBeCloseTo((6.5*hw**3/12+2*(150*9**3/12+150*9*((hw+9)/2)**2))/1e12,14);
+  });
+
+test('name-only section records parse a full designation and preserve IDs, purpose and notes without mutating the draft', () => {
+  const record={id:'USER-SECTION',name:'H型钢 HN300×150×6.5×9',type:'custom',purpose:'column',standard_steel_name:'HN300×150×6.5×9',extra:{note:'supplied label'}};
   const state={...beam(),engineeringDraft:{materials:[material],sectionRecords:[record]}};
   const model=buildModel(state);
-  expect(model.sections[0]).toMatchObject({id:'USER-SECTION',purpose:'column',properties:{A:.003555,Iy:.0000237},extra:{note:'supplied label',catalogSource:{status:'reference-data-from-public-draft'}}});
+  expect(model.sections[0]).toMatchObject({id:'USER-SECTION',name:'H型钢 HN300×150×6.5×9',type:'H',purpose:'column',
+    shape:{kind:'H',H:300,B:150,tw:6.5,tf:9},extra:{note:'supplied label'}});
+  expect(model.sections[0]).not.toHaveProperty('standard_steel_name');
   expect(model.elements.every(row=>row.section==='USER-SECTION')).toBe(true);
-  expect(record).not.toHaveProperty('properties');
+  expect(record).not.toHaveProperty('shape');
+  expect(()=>buildModel({...beam(),engineeringDraft:{materials:[material],sectionRecords:[{id:'S',name:'I20a',type:'custom'}]}}))
+    .toThrow(/section S \(I20a\): provide explicit dimensions/);
+  // A word ending in "h" before dimensions is not an H designation.
+  expect(()=>buildModel({...beam(),engineeringDraft:{materials:[material],sectionRecords:[{id:'S',name:'width 300×150',type:'custom'}]}}))
+    .toThrow(/section S \(width 300×150\): provide explicit dimensions/);
 });
 
-test('explicit numerical or geometric inputs under a reviewed name are never replaced by a catalog row', () => {
+test('explicit numerical or geometric inputs under a designation name are used as given', () => {
   const record={id:'S',name:'I20a',type:'custom',properties:{A:.004,Iy:.00003,Iz:.000002}};
   const model=buildModel({...beam(),engineeringDraft:{materials:[material],sectionRecords:[record]}});
   expect(model.sections[0].properties).toEqual(record.properties);
   expect(model.sections[0].extra?.catalogSource).toBeUndefined();
-  expect(()=>buildModel({...beam(),engineeringDraft:{materials:[material],sectionRecords:[{id:'S',name:'I20a',type:'custom',width:120}]}})).toThrow(/properties, dimensions or shape required/);
+  expect(()=>buildModel({...beam(),engineeringDraft:{materials:[material],sectionRecords:[{id:'S',name:'I20a',type:'custom',width:120}]}})).toThrow(/provide explicit dimensions/);
 });

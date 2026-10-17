@@ -32,8 +32,8 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
       const toolCallId = getToolCallId(config);
       const scope = input.requestScope ?? state?.requestScope;
       if (scope && !scope.report) return toolResult(toolCallId, 'generate_report', JSON.stringify({ success: true,
-        skipped: true, reason: 'REPORT_NOT_REQUESTED', message: 'Deliver the requested results without a full report.',
-        messageZh: '用户未要求计算书；交付所求结果及计算依据即可。' }));
+        skipped: true, reason: 'REPORT_NOT_REQUESTED', message: 'The user declined a report; deliver the requested results without one.',
+        messageZh: '用户明确不要计算书；交付所求结果及计算依据即可。' }));
 
       const selection = input.selection;
       if (selection?.timeIndex !== undefined && selection.modeNumber !== undefined) throw new Error('RESULT_INDEX_CONFLICT');
@@ -136,7 +136,7 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
         'Generate an engineering report with summary, key metrics, and compliance narrative. ' +
         'Reads analysis results, code check results, and draft state from conversation state automatically — ' +
         'do NOT pass them as parameters. ' +
-        'Requires run_analysis to have been called first. For a scalar selection, first call query_results with the identical run/result, location, component, unit and index; reading a full field alone does not register the scalar. The query assigns quantityId automatically. / 指定标量selection前须先用query_results查询同一运行/结果、位置、分量、单位与索引；整个字段查询不会登记标量，数值ID自动生成。 ' +
+        'Requires run_analysis to have been called first. Part of the default workflow after analysis; skipped only when the user declined a report. For a scalar selection, first call query_results with the identical run/result, location, component, unit and index; reading a full field alone does not register the scalar. The query assigns quantityId automatically. / 指定标量selection前须先用query_results查询同一运行/结果、位置、分量、单位与索引；整个字段查询不会登记标量，数值ID自动生成。 ' +
         'For China seismic reports, run_code_check with GB/T 50011-2010-2024 must be called first.',
       schema: z.object({
         message: z.string().describe('Original user message / intent'),
@@ -146,7 +146,7 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
         locale: z.enum(['zh', 'en']).optional().describe('Report language'),
         selection: resultSelectionSchema.optional().describe('Saved run/result and optional scalar already registered by query_results using exactly the same component, unit, location and index. Omit to report the current run. Does not replace the current report. / 保存的运行/结果及已由query_results登记的同分量、单位、位置、索引标量。省略则报告当前运行；指定selection不覆盖当前报告。'),
         narrative: z.enum(['structured', 'assisted']).optional().describe('structured produces a deterministic report without an extra language-model call. / structured直接生成结构化报告，不额外调用语言模型。'),
-        requestScope: requestScopeSchema.optional().describe('Update the goal only when the user explicitly asks for a report. / 用户明确要求报告时更新目标。'),
+        requestScope: requestScopeSchema.optional().describe('report defaults to true; set false only when the user explicitly declines a report. / 报告默认生成，仅在用户明确不要报告时设为false。'),
       }),
     },
   );
