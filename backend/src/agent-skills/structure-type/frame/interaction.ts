@@ -18,7 +18,7 @@ import {
   LOAD_BOUNDARY_KEYS,
   REQUIRED_KEYS,
 } from './constants.js';
-import { hasFrameAnalysisLoadInput } from './model.js';
+import { hasFrameAnalysisLoadInput } from './model/loads.js';
 import { getDefaultBeamSection, getDefaultColumnSection } from '../../../agent-runtime/template-properties.js';
 import {
   FRAME_NODAL_LOAD_LOCATION_FIELD,
