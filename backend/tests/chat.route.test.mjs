@@ -132,6 +132,20 @@ describe('chat routes message persistence', () => {
     expect(getSnapshotSpy).not.toHaveBeenCalled();
   });
 
+  test.each([
+    ['/stream', { message: 'Analyze', context: { locale: 'en', runPolicy: { profile: 'no-such-profile' } } }, ['UNKNOWN_RUN_PROFILE', '未知的运行配置档']],
+    ['/stream/resume', { conversationId: 'conv-paused', resumeValue: '' }, ['resumeValue']],
+  ])('%s rejects a schema-invalid body with 400 before any turn, keeping the error body shape', async (url, payload, texts) => {
+    const response = await app.inject({ method: 'POST', url, payload });
+    expect(response.statusCode).toBe(400);
+    expect(Object.keys(response.json()).sort()).toEqual(['error', 'message', 'statusCode']);
+    expect(response.json()).toMatchObject({ statusCode: 400, error: 'Bad Request' });
+    for (const text of texts) expect(response.json().message).toContain(text);
+    expect(agentRunStreamSpy).not.toHaveBeenCalled();
+    expect(agentResumeStreamSpy).not.toHaveBeenCalled();
+    expect(prisma.conversation.create).not.toHaveBeenCalled();
+  });
+
   test('persists paused messages with aborted metadata instead of mutating the content', async () => {
     const response = await app.inject({
       method: 'POST',

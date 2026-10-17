@@ -92,8 +92,8 @@ describe('characterization: ablation profiles', () => {
 
   test('an unknown requested profile is rejected at request validation with a bilingual error', async () => {
     const response = await ctx.backend.post('/api/v1/chat/stream', { message: MESSAGE, context: { locale: 'en', runPolicy: { profile: 'no-such-profile' } } });
-    // The stream route rejects any schema-invalid body before a turn starts (existing status mapping).
-    expect(response.status).toBeGreaterThanOrEqual(400);
+    // The stream route rejects any schema-invalid body with 400 before a turn starts.
+    expect(response.status).toBe(400);
     const text = JSON.stringify(response.body);
     expect(text).toContain('UNKNOWN_RUN_PROFILE');
     expect(text).toContain('未知的运行配置档');

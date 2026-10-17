@@ -5,6 +5,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { getAgentService, LangGraphAgentService } from '../agent-langgraph/index.js';
 import { AgentCapabilityService } from '../services/agent-capability.js';
+import { parseRequest } from './request-validation.js';
 import { listAgentToolDefinitions } from '../agent-langgraph/tool-registry.js';
 import { AgentSkillHubService } from '../services/agent-skillhub.js';
 import type { SkillDomain } from '../shared/types/agent.js';
@@ -277,7 +278,7 @@ export async function agentRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request: FastifyRequest<{ Body: z.infer<typeof agentRunSchema> }>, reply: FastifyReply) => {
-    const body = agentRunSchema.parse(request.body);
+    const body = parseRequest(agentRunSchema, request.body);
     try { return reply.send(await agentService.run(body)); }
     catch (error) {
       if (error instanceof Error && error.message.startsWith('CONVERSATION_WAITING_FOR_REPLY')) {

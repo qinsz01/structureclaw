@@ -11,6 +11,7 @@ import { getAgentService } from '../agent-langgraph/index.js';
 import type { AgentState } from '../agent-langgraph/state.js';
 import { buildPersistedDebugDetails, persistLatestConversationResult, persistConversationWithState } from '../services/chat-persistence.js';
 import { runSseTurn, type SseTurnSession } from './chat-sse.js';
+import { parseRequest } from './request-validation.js';
 
 const conversationService = new ConversationService();
 
@@ -418,7 +419,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
       summary: '流式对话 (Server-Sent Events)',
     },
   }, async (request: FastifyRequest<{ Body: z.infer<typeof streamMessageSchema> }>, reply: FastifyReply) => {
-    const body = streamMessageSchema.parse(request.body);
+    const body = parseRequest(streamMessageSchema, request.body);
     const conversationId = body.conversationId || (await conversationService.createConversation({
       title: body.message.slice(0, 48),
       type: 'general',
@@ -677,7 +678,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
       summary: 'Resume a paused agent after human clarification',
     },
   }, async (request: FastifyRequest<{ Body: z.infer<typeof resumeStreamSchema> }>, reply: FastifyReply) => {
-    const body = resumeStreamSchema.parse(request.body);
+    const body = parseRequest(resumeStreamSchema, request.body);
 
     let resumeAssistantContent = '';
     let resumePresentation = createEmptyAssistantPresentation({ mode: 'execution' });

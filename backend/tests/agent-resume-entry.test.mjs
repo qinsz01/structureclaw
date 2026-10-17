@@ -133,3 +133,11 @@ test('JSON resume surfaces a graph failure without pretending the consumed error
   expect(response.statusCode).toBe(500);
   expect(response.json().message).toContain('FIXTURE_RESUME_FAILURE');
 });
+
+test('a schema-invalid run body is rejected with 400 and the bilingual profile message', async () => {
+  const response = await post('run', { message: 'Analyze', context: { runPolicy: { profile: 'no-such-profile' } } });
+  expect(response.statusCode).toBe(400);
+  expect(response.json()).toMatchObject({ statusCode: 400, error: 'Bad Request' });
+  expect(response.json().message).toContain('UNKNOWN_RUN_PROFILE');
+  expect(response.json().message).toContain('未知的运行配置档');
+});
