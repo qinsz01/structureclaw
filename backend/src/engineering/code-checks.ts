@@ -33,6 +33,11 @@ export async function checkRunResults(analysis: ModelRecord, execute: (result: M
   }
   const values = entries.flatMap((item) => isRecord(item.summary) && typeof item.summary.maxUtilization === 'number' ? [item.summary.maxUtilization] : []);
   summary.maxUtilization = values.length ? Math.max(...values) : null;
+  // Keep the governing element and check of the case that holds the maximum utilization.
+  const governing = entries.find((item) => isRecord(item.summary) && item.summary.maxUtilization === summary.maxUtilization)?.summary as ModelRecord | undefined;
+  for (const key of ['controllingElement', 'controllingCheck'] as const) {
+    if (governing?.[key] !== undefined && governing[key] !== null) summary[key] = governing[key];
+  }
   const incomplete = entries.some((item) => item.completionStatus !== 'complete');
   const scopes = entries.filter(item => isRecord(item.checkScope)).map(item => item.checkScope as ModelRecord);
   return {

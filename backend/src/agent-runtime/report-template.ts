@@ -1,6 +1,7 @@
 import type { AppLocale } from '../shared/locale.js';
 import type { SkillReportNarrativeInput } from '../shared/types/agent.js';
 import { localize } from './plugin-helpers.js';
+import { localizeCodeCheckLabel } from '../agent-skills/code-check/labels.js';
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -213,8 +214,8 @@ function flattenCodeCheckItems(input: SkillReportNarrativeInput): Array<Record<s
   ) => {
     rows.push({
       elementId: detail['elementId'] ?? detail['id'] ?? '__global__',
-      check: check['name'] ?? check['check'] ?? detail['check'] ?? 'unknown',
-      item: item['item'] ?? item['name'] ?? check['item'] ?? '',
+      check: localizeCodeCheckLabel(check['name'] ?? check['check'] ?? detail['check'] ?? 'unknown', input.locale),
+      item: localizeCodeCheckLabel(item['item'] ?? item['name'] ?? check['item'] ?? '', input.locale),
       clause: item['clause'] ?? check['clause'] ?? '',
       utilization: item['utilization'] ?? check['utilization'] ?? detail['utilization'],
       displayUtilization: item['displayUtilization'] ?? check['displayUtilization'] ?? detail['displayUtilization'],
@@ -390,7 +391,7 @@ function renderCodeCheckSummaryMarkdown(input: SkillReportNarrativeInput): strin
   const notApplicableSummaryZh = notApplicableText ? `，不适用/资料不足 ${notApplicableText}` : '';
   const notApplicableSummaryEn = notApplicableText ? `, not applicable/unavailable ${notApplicableText}` : '';
   const controllingElement = summary['controllingElement'];
-  const controllingCheck = summary['controllingCheck'];
+  const controllingCheck = localizeCodeCheckLabel(summary['controllingCheck'], input.locale);
   const maxUtilization = summary['maxUtilization'];
   const controllingUtilizationText = codeCheckUtilizationDisplay({ utilization: maxUtilization });
 
@@ -1100,8 +1101,8 @@ function renderClauseTraceabilityMarkdown(
   }
   return traceability.slice(0, 8).map((row) => {
     const elementId = row['elementId'] ?? 'unknown';
-    const check = row['check'] ?? 'unknown';
-    const item = row['item'];
+    const check = localizeCodeCheckLabel(row['check'] ?? 'unknown', locale);
+    const item = localizeCodeCheckLabel(row['item'], locale);
     const itemSuffix = item !== undefined && item !== null && String(item).trim().length > 0
       ? ` / ${String(item)}`
       : '';
@@ -1187,8 +1188,30 @@ function renderControlNodeDisplacementMarkdown(input: SkillReportNarrativeInput)
   ];
 }
 
+/** Result units reported by the analysis engine (meta.units of the run or of its first case). */
+function analysisUnits(input: SkillReportNarrativeInput): Record<string, unknown> {
+  const data = analysisData(input);
+  const own = asRecord(asRecord(data['meta'])['units']);
+  if (Object.keys(own).length > 0) return own;
+  const results = Object.values(asRecord(data['results'])).map(asRecord);
+  return results.map((result) => asRecord(asRecord(result['meta'])['units'])).find((units) => Object.keys(units).length > 0) ?? {};
+}
+
+/** Key-metric value with the engine unit when one is reported (never a guessed unit). */
+function metricText(value: unknown, unit: unknown): string {
+  if (value === undefined || value === null) return 'N/A';
+  const unitText = typeof unit === 'string' && unit.trim().length > 0 ? ` ${unit.trim()}` : '';
+  return `${String(value)}${unitText}`;
+}
+
 export function buildDefaultReportNarrative(input: SkillReportNarrativeInput): string {
   const { locale, message, analysisType, analysisSuccess, codeCheckText, summary, keyMetrics, clauseTraceability, controllingCases } = input;
+  const units = analysisUnits(input);
+  const displacement = metricText(keyMetrics.maxAbsDisplacement, units['displacement']);
+  const axialForce = metricText(keyMetrics.maxAbsAxialForce, units['force']);
+  const shearForce = metricText(keyMetrics.maxAbsShearForce, units['force']);
+  const moment = metricText(keyMetrics.maxAbsMoment, units['moment']);
+  const reaction = metricText(keyMetrics.maxAbsReaction, units['force']);
 
   return [
     localize(locale, '# StructureClaw 计算报告', '# StructureClaw Calculation Report'),
@@ -1208,12 +1231,12 @@ export function buildDefaultReportNarrative(input: SkillReportNarrativeInput): s
     summary,
     '',
     localize(locale, '## 关键指标', '## Key Metrics'),
-    localize(locale, `- 最大位移: ${String(keyMetrics.maxAbsDisplacement ?? 'N/A')}`, `- Max displacement: ${String(keyMetrics.maxAbsDisplacement ?? 'N/A')}`),
+    localize(locale, `- 最大位移: ${displacement}`, `- Max displacement: ${displacement}`),
     ...renderControlNodeDisplacementMarkdown(input),
-    localize(locale, `- 最大轴力: ${String(keyMetrics.maxAbsAxialForce ?? 'N/A')}`, `- Max axial force: ${String(keyMetrics.maxAbsAxialForce ?? 'N/A')}`),
-    localize(locale, `- 最大剪力: ${String(keyMetrics.maxAbsShearForce ?? 'N/A')}`, `- Max shear force: ${String(keyMetrics.maxAbsShearForce ?? 'N/A')}`),
-    localize(locale, `- 最大弯矩: ${String(keyMetrics.maxAbsMoment ?? 'N/A')}`, `- Max moment: ${String(keyMetrics.maxAbsMoment ?? 'N/A')}`),
-    localize(locale, `- 最大反力: ${String(keyMetrics.maxAbsReaction ?? 'N/A')}`, `- Max reaction: ${String(keyMetrics.maxAbsReaction ?? 'N/A')}`),
+    localize(locale, `- 最大轴力: ${axialForce}`, `- Max axial force: ${axialForce}`),
+    localize(locale, `- 最大剪力: ${shearForce}`, `- Max shear force: ${shearForce}`),
+    localize(locale, `- 最大弯矩: ${moment}`, `- Max moment: ${moment}`),
+    localize(locale, `- 最大反力: ${reaction}`, `- Max reaction: ${reaction}`),
     localize(locale, `- 校核通过率: ${String(keyMetrics.codeCheckPassRate ?? 'N/A')}`, `- Code-check pass rate: ${String(keyMetrics.codeCheckPassRate ?? 'N/A')}`),
     ...renderCodeCheckSummaryMarkdown(input),
     ...renderSeismicMarkdown(input),

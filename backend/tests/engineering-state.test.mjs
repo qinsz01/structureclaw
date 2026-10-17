@@ -310,6 +310,19 @@ test('checks retain each case and expose incomplete scope independently of execu
   expect(formatCheckSummary(checked.summary, 'zh')).toContain('资料不足 1');
 });
 
+test('combined check summary keeps the governing element and check of the maximum utilization', async () => {
+  const checked = await checkRunResults({ selectedResultKey: 'case:D', results: {
+    'case:D': { success: true, selection: { id: 'D' }, meta: { runId: 'r' } },
+    'case:L': { success: true, selection: { id: 'L' }, meta: { runId: 'r' } },
+  } }, async (r) => r.selection.id === 'D'
+    ? { completionStatus: 'complete', complianceStatus: 'pass', summary: { total: 1, passed: 1, maxUtilization: 0.4, controllingElement: 'C0', controllingCheck: '正应力' }, details: [] }
+    : { completionStatus: 'complete', complianceStatus: 'fail', summary: { total: 1, failed: 1, maxUtilization: 1.043, controllingElement: 'R0', controllingCheck: '长细比' }, details: [] });
+  expect(checked.summary).toMatchObject({ maxUtilization: 1.043, controllingElement: 'R0', controllingCheck: '长细比' });
+  const none = await checkRunResults({ results: { 'case:D': { success: true, selection: { id: 'D' }, meta: {} } } },
+    async () => ({ completionStatus: 'complete', complianceStatus: 'pass', summary: { total: 0, maxUtilization: null }, details: [] }));
+  expect(none.summary).not.toHaveProperty('controllingElement');
+});
+
 test('a reserved failed recompute clears the old current analysis but preserves history', async () => {
   const fail = tool(async (_, config) => {
     config.configurable.onAnalysisRequest(beginAnalysisRequest(config.configurable.agentState, 'new-settings'));
