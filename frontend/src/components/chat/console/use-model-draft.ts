@@ -35,19 +35,7 @@ export function useModelDraft({
     }
   }, [sessionView])
 
-  const parsedComposerModelState = useMemo(() => {
-    const result = parseModelJson(modelText, t)
-    // Debug logging for model parsing
-    if (modelText && result.model) {
-      console.log('[AI Console] Parsed model:', {
-        hasNodes: 'nodes' in result.model,
-        nodesCount: Array.isArray(result.model.nodes) ? result.model.nodes.length : 0,
-        hasElements: 'elements' in result.model,
-        elementsCount: Array.isArray(result.model.elements) ? result.model.elements.length : 0,
-      })
-    }
-    return result
-  }, [modelText, t])
+  const parsedComposerModelState = useMemo(() => parseModelJson(modelText, t), [modelText, t])
   const parsedComposerModel = parsedComposerModelState.model
   const parsedComposerModelError = parsedComposerModelState.error || ''
   const modelPreviewBaseTitle = useMemo(
@@ -60,7 +48,6 @@ export function useModelDraft({
 
   useEffect(() => {
     if (!parsedComposerModel) {
-      console.log('[AI Console] Visualization effect: No parsedComposerModel, skipping snapshot')
       return
     }
 
@@ -69,7 +56,6 @@ export function useModelDraft({
       model: parsedComposerModel,
       mode: 'model-only',
     })
-    console.log('[AI Console] Setting model visualization snapshot:', snapshot ? 'success' : 'null')
     setLatestModelVisualizationSnapshot(snapshot)
     // 保存模型快照到后端
     if (snapshot && conversationId) {

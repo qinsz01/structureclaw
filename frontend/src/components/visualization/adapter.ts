@@ -180,17 +180,6 @@ export function buildVisualizationSnapshot(params: VisualizationInput): Visualiz
     (element) => element.nodeIds.some((nodeId) => !nodeIdSet.has(nodeId))
   ).length
 
-  if (debugEnabled) {
-    console.info('[Visualization] Snapshot normalization summary:', {
-      source,
-      nodesInputCount: nodesInput.length,
-      nodesNormalizedCount: nodes.length,
-      elementsInputCount: elementsInput.length,
-      elementsNormalizedCount: elements.length,
-      elementsWithInvalidNodeRefs,
-    })
-  }
-
   if (!nodes.length || !elements.length || invalidElementCoordinates || elementsWithInvalidNodeRefs > 0) {
     if (debugEnabled) {
       console.warn('[Visualization] Snapshot skipped after normalization because its element geometry or local axes are invalid.', {
