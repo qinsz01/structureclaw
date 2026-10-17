@@ -16,12 +16,18 @@ This document clarifies the current test system for issue #234 and is updated wh
 | Smoke | Install, setup, build, and lifecycle compatibility checks on supported platforms | Owning unit, integration, or E2E coverage | `node tests/runner.mjs smoke-native` |
 | LLM integration | Legacy real-LLM and routing integration checks | Long-term agent quality scoring | `node tests/runner.mjs llm-integration` |
 | LLM benchmark | Real LangGraph agent quality checks with scenario scoring | Fast deterministic unit or contract coverage | `node tests/runner.mjs llm-benchmark` |
+| Architecture | Layer boundaries and file-level import cycles in `backend/src` | Runtime behaviour | `npm run check:deps --prefix backend` |
+| Python | `test_*.py` modules under `backend/src` and `backend/tests` | Node/Jest contracts | `npm run test:python --prefix backend` |
+| Characterization | Scripted-LLM end-to-end agent behaviour pinned by snapshots (`backend/tests/characterization`) | Real LLM quality, Bench scoring | `npm run test:characterization --prefix backend` |
 
 ## Test Ownership
 
 | Location | Category owner | Runner |
 | --- | --- | --- |
 | `backend/tests/*.test.mjs` | Backend unit or backend integration, depending on fixture scope | `npm test --prefix backend -- --runInBand` |
+| `backend/tests/dist-surface.test.mjs` | Compiled `backend/dist` surface consumed by code outside `backend/src` | `npm test --prefix backend -- --runInBand` |
+| `backend/tests/characterization/**` | Backend characterization: scripted-LLM agent behaviour and snapshot-pinned contracts | `npm run test:characterization --prefix backend` |
+| `backend/src/**/test_*.py`, `backend/tests/test_*.py` | Backend Python tests | `npm run test:python --prefix backend` |
 | `backend/src/**/__tests__/*.test.mjs` | Backend unit or focused subsystem integration | `npm test --prefix backend -- --runInBand` |
 | `backend/src/agent-skills/**/__tests__/*` | Skill unit, handler, or skill integration coverage | `npm test --prefix backend -- --runInBand` or skill-specific npm scripts |
 | `frontend/tests/*.test.ts(x)` plus `frontend/tests/lib/**`, `frontend/tests/stores/**`, and non-console `frontend/tests/components/**` | Frontend unit and configuration coverage | `npm run test:run --prefix frontend` |
@@ -74,6 +80,26 @@ The frontend has two Vitest configs with mutually exclusive ownership:
 - `frontend/vitest.integration.config.ts` owns app-route/provider/console integration coverage and includes `tests/integration/**/*.test.tsx`, `tests/components/console/**/*.test.tsx`, and `tests/accessibility/semantic.test.tsx`.
 - New console shell tests, provider-backed page tests, or tests that need the integration backend fixture should go into the integration runner even if they render React components.
 
+## Backend Layering, Python, Characterization And Compiled-Surface Gates
+
+These backend gates run from the repository root with `--prefix backend`.
+
+| Command | Owns | Notes |
+| --- | --- | --- |
+| `npm run check:deps --prefix backend` | Import layering and file-level import cycles in `backend/src` | Runs dependency-cruiser with `backend/.dependency-cruiser.cjs`. Layers run from L0 (`shared/`, `types/`) to L6 (`api/`, `index.ts`); lower layers never import higher ones. The config lists the two allowed exceptions: the `runtime/policy-settings.ts` shim and the structure-type/section handler SDK edges. |
+| `npm run test:python --prefix backend` | Every `test_*.py` under `backend/src` and `backend/tests`, as selected by `backend/pytest.ini` | Runs `pytest` with the first interpreter that can import it: `PYTHON_FOR_TEST`, `backend/.venv`, `<SCLAW_DATA_DIR or ~/.structureclaw>/.venv`, then the platform launcher order (`py`, `python3`, `python`). Arguments after `--` go to pytest, e.g. `-- -k native_design`. |
+| `npm run test:characterization --prefix backend` | Scripted-LLM end-to-end characterization in `backend/tests/characterization` | Builds the backend, then runs Jest on that folder. Each scenario drives the real LangGraph agent, tools and run policy with a scripted LLM (`helpers/llm-fixture.mjs`). Snapshots in `__snapshots__/` pin tool exposure, system prompts, the default `policyHash`, draft paths, edit invalidation, clarification resume and ablation profiles. OpenSees-backed cases are skipped with a warning when no Python with OpenSees is found; set `SCLAW_TEST_PYTHON` to choose one. |
+| `backend/tests/dist-surface.test.mjs` (also run by `npm test --prefix backend`) | The compiled `backend/dist` surface consumed from outside `backend/src` | Asserts that the modules and symbols used by `tests/llm-benchmark/runner.cjs`, `integrations/openclaw`, `tests/regression/backend-validations.js` and `scripts/verify-scenario-freeze.mjs` still import and export the expected names. It reads `dist/`, so build first. Moving such a module requires a re-export shim at the old path. |
+
+`npm test --prefix backend` matches `tests/**/*.test.mjs`, so the characterization suite and the dist-surface test also run in the default Jest pass.
+
+### Characterization Snapshot Policy
+
+- Snapshots under `backend/tests/characterization/__snapshots__/` record the current agent behaviour. A failing snapshot is a finding to explain, not noise to clear.
+- Update only for an intentional behaviour change: `npm run test:characterization --prefix backend -- -u`. Review the `.snap` diff line by line in the same change, and state the behavioural reason in the commit message.
+- Do not update snapshots to make an unexplained failure pass, and do not update them in a change that is meant to preserve behaviour (for example a refactor). Such a diff is a regression until shown otherwise.
+
+
 ## Isolated Browser E2E
 
 Build with `node sclaw build`, install the matching browser with `npm exec --prefix frontend -- playwright install chromium`, then run `npm run test:e2e --prefix frontend`. Playwright starts the real backend and an immutable copy of the exported frontend on `127.0.0.1:31515`, with a fresh SQLite database and settings under `.tmp/playwright-*`. It never reuses the normal application ports or imports personal LLM credentials. Test artifacts remain under `frontend/test-results` and `frontend/playwright-report`.
@@ -117,7 +143,7 @@ Optional `expectedModelValues` asserts facts directly from the persisted `/agent
 
 Use the smallest category that proves the behavior:
 
-- Backend logic or route behavior: add or run targeted Jest tests, then run `node tests/runner.mjs backend-regression` if contracts can be affected.
+- Backend logic or route behavior: add or run targeted Jest tests, then run `node tests/runner.mjs backend-regression` if contracts can be affected. Agent orchestration, tool exposure, prompts or run-policy behaviour: also run `npm run test:characterization --prefix backend`. Import or module-boundary changes: run `npm run check:deps --prefix backend`. Python changes: run `npm run test:python --prefix backend`.
 - Frontend component or state behavior: add or run Vitest tests, plus `npm run type-check --prefix frontend`. Use the integration Vitest runner for console shell, provider-backed page, route, or accessibility coverage.
 - Browser behavior across pages: use Playwright E2E.
 - Engineering analysis output, converter behavior, schema contracts, or agent orchestration payloads: use named validations or analysis regression.

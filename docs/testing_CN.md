@@ -16,12 +16,18 @@
 | Smoke | 支持平台上的安装、初始化、构建和生命周期兼容性 | 不拥有 unit、integration、E2E 覆盖 | `node tests/runner.mjs smoke-native` |
 | LLM integration | 旧的真实 LLM 与 routing integration 检查 | 长期 agent 质量评分 | `node tests/runner.mjs llm-integration` |
 | LLM benchmark | 带场景评分的真实 LangGraph agent 质量检查 | 快速确定性的 unit 或 contract 覆盖 | `node tests/runner.mjs llm-benchmark` |
+| Architecture | `backend/src` 中的 layer 边界与文件级 import 循环 | 运行时行为 | `npm run check:deps --prefix backend` |
+| Python | `backend/src` 与 `backend/tests` 中的 `test_*.py` 模块 | Node/Jest contract | `npm run test:python --prefix backend` |
+| Characterization | 由快照固定的脚本化 LLM 端到端 agent 行为（`backend/tests/characterization`） | 真实 LLM 质量、Bench 评分 | `npm run test:characterization --prefix backend` |
 
 ## 测试归属
 
 | 位置 | 分类归属 | Runner |
 | --- | --- | --- |
 | `backend/tests/*.test.mjs` | Backend unit 或 backend integration，取决于 fixture 范围 | `npm test --prefix backend -- --runInBand` |
+| `backend/tests/dist-surface.test.mjs` | `backend/src` 之外消费的编译产物 `backend/dist` 接口 | `npm test --prefix backend -- --runInBand` |
+| `backend/tests/characterization/**` | Backend characterization：脚本化 LLM 的 agent 行为与快照固定的 contract | `npm run test:characterization --prefix backend` |
+| `backend/src/**/test_*.py`、`backend/tests/test_*.py` | Backend Python 测试 | `npm run test:python --prefix backend` |
 | `backend/src/**/__tests__/*.test.mjs` | Backend unit 或聚焦的子系统 integration | `npm test --prefix backend -- --runInBand` |
 | `backend/src/agent-skills/**/__tests__/*` | Skill unit、handler 或 skill integration 覆盖 | `npm test --prefix backend -- --runInBand` 或 skill 专用 npm script |
 | `frontend/tests/*.test.ts(x)` 以及 `frontend/tests/lib/**`、`frontend/tests/stores/**`、非 console 的 `frontend/tests/components/**` | Frontend unit 与配置覆盖 | `npm run test:run --prefix frontend` |
@@ -73,6 +79,26 @@ Frontend 现在有两个 Vitest 配置，归属互斥：
 - `frontend/vitest.integration.config.ts` 负责 app route、provider、console integration 覆盖，并包含 `tests/integration/**/*.test.tsx`、`tests/components/console/**/*.test.tsx` 和 `tests/accessibility/semantic.test.tsx`。
 - 新增 console shell 测试、依赖 provider 的页面测试、route 测试，或需要 integration backend fixture 的测试，即使渲染的是 React component，也应放入 integration runner。
 
+## Backend 分层、Python、Characterization 与编译产物接口门禁
+
+以下 backend 门禁都在仓库根目录通过 `--prefix backend` 运行。
+
+| 命令 | 负责内容 | 说明 |
+| --- | --- | --- |
+| `npm run check:deps --prefix backend` | `backend/src` 中的 import 分层与文件级 import 循环 | 使用 `backend/.dependency-cruiser.cjs` 运行 dependency-cruiser。分层从 L0（`shared/`、`types/`）到 L6（`api/`、`index.ts`），低层不得 import 高层。配置中列出两处允许的例外：`runtime/policy-settings.ts` 垫片，以及结构类型/截面 handler 的 SDK 依赖边。 |
+| `npm run test:python --prefix backend` | `backend/pytest.ini` 选中的 `backend/src` 与 `backend/tests` 下全部 `test_*.py` | 使用第一个能导入 pytest 的解释器运行 `pytest`，查找顺序为：`PYTHON_FOR_TEST`、`backend/.venv`、`<SCLAW_DATA_DIR 或 ~/.structureclaw>/.venv`，然后是系统的 `py`、`python3` 或 `python`（按平台顺序）。`--` 之后的参数会传给 pytest，例如 `-- -k native_design`。 |
+| `npm run test:characterization --prefix backend` | `backend/tests/characterization` 中由脚本化 LLM 驱动的端到端 characterization | 先构建 backend，再对该目录运行 Jest。每个场景通过脚本化 LLM（`helpers/llm-fixture.mjs`）驱动真实的 LangGraph agent、tools 和运行策略。`__snapshots__/` 中的快照固定了 tool 暴露、system prompt、默认 `policyHash`、草稿路径、编辑失效、澄清恢复以及消融 profile 的行为。若找不到带 OpenSees 的 Python，依赖 OpenSees 的用例会打印警告并跳过；可用 `SCLAW_TEST_PYTHON` 指定解释器。 |
+| `backend/tests/dist-surface.test.mjs`（`npm test --prefix backend` 也会运行） | `backend/src` 之外消费的编译产物 `backend/dist` 接口 | 断言 `tests/llm-benchmark/runner.cjs`、`integrations/openclaw`、`tests/regression/backend-validations.js` 与 `scripts/verify-scenario-freeze.mjs` 使用的模块和符号仍可导入、导出名称正确。该测试读取 `dist/`，因此需先构建。移动此类模块时，必须在原路径保留 re-export 垫片。 |
+
+`npm test --prefix backend` 匹配 `tests/**/*.test.mjs`，因此 characterization 套件与 dist-surface 测试也会在默认 Jest 运行中执行。
+
+### Characterization 快照策略
+
+- `backend/tests/characterization/__snapshots__/` 中的快照记录当前 agent 行为。快照失败是需要解释的发现，不是可以忽略的噪声。
+- 仅在行为有意变化时更新：`npm run test:characterization --prefix backend -- -u`。在同一次变更中逐行审阅 `.snap` 差异，并在提交信息中说明行为变化的原因。
+- 不得为了让无法解释的失败通过而更新快照；也不得在旨在保持行为不变的变更（例如重构）中更新快照。在证明之前，此类差异应视为回归。
+
+
 ## 隔离的浏览器 E2E
 
 先执行 `node sclaw build`，再用 `npm exec --prefix frontend -- playwright install chromium` 安装匹配的浏览器，最后执行 `npm run test:e2e --prefix frontend`。Playwright 在 `127.0.0.1:31515` 启动真实后端及导出前端的独立副本，SQLite 数据库和设置均新建于 `.tmp/playwright-*`，不复用日常应用端口，不导入个人 LLM 密钥。测试产物保留于 `frontend/test-results` 和 `frontend/playwright-report`。
@@ -116,7 +142,7 @@ node frontend/tests/e2e/manual/live-beam-browser.cjs --config=.tmp/live-beam.jso
 
 使用能证明行为的最小分类：
 
-- Backend 逻辑或 route 行为：添加或运行定向 Jest；如果可能影响 contract，再运行 `node tests/runner.mjs backend-regression`。
+- Backend 逻辑或 route 行为：添加或运行定向 Jest；如果可能影响 contract，再运行 `node tests/runner.mjs backend-regression`。涉及 agent 编排、tool 暴露、prompt 或运行策略时，还需运行 `npm run test:characterization --prefix backend`。修改 import 或模块边界时运行 `npm run check:deps --prefix backend`。修改 Python 时运行 `npm run test:python --prefix backend`。
 - Frontend 组件或状态行为：添加或运行 Vitest，并运行 `npm run type-check --prefix frontend`。Console shell、依赖 provider 的页面、route 或 accessibility 覆盖应使用 integration Vitest runner。
 - 跨页面浏览器行为：使用 Playwright E2E。
 - 工程分析输出、converter 行为、schema contract 或 agent orchestration payload：使用命名 validation 或 analysis regression。
