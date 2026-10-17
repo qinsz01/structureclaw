@@ -98,11 +98,11 @@ agent capability、运行、审阅与 SkillHub routes 位于 [backend/src/api/ag
 
 | 区域 | 文件 | 职责 |
 |---|---|---|
-| Agent service | [backend/src/agent-langgraph/agent-service.ts](../backend/src/agent-langgraph/agent-service.ts) | 创建单例 `LangGraphAgentService`；负责 streaming、同步、run 与 resume 入口、会话创建、checkpointer 配置和执行 client 注入。附件与地震动处理（`attachments/`）、初始消息构造以及会话 snapshot（`session/snapshot.ts`）已从中拆出。 |
+| Agent service | [backend/src/agent-langgraph/agent-service.ts](../backend/src/agent-langgraph/agent-service.ts) | 创建单例 `LangGraphAgentService`；负责 streaming、同步、run 与 resume 入口、会话创建、checkpointer 配置和执行 client 注入。附件与地震动处理（`attachments/`）、初始消息构造、会话 snapshot（`session/snapshot.ts`）以及每轮的工具访问策略与递归上限（`turn-config.ts`）已从中拆出。 |
 | Graph | [backend/src/agent-langgraph/graph.ts](../backend/src/agent-langgraph/graph.ts) | 构建 LangGraph ReAct 循环（`START -> agent -> tools -> agent -> END`）以及每个节点的 tool context。 |
 | 运行策略 | [backend/src/runtime/run-policy.ts](../backend/src/runtime/run-policy.ts)、[run-policy-schema.ts](../backend/src/runtime/run-policy-schema.ts)、[run-context.ts](../backend/src/runtime/run-context.ts) | 每轮解析一次的 `EffectiveRunPolicy`，由 `createRunContext` 冻结；请求与设置输入的 Zod schema；运行用量。 |
 | 策略解析 | [backend/src/agent-langgraph/policy-resolver.ts](../backend/src/agent-langgraph/policy-resolver.ts) | 为 `runtime/run-policy.ts` 的 `resolveRunPolicy` 组装各层输入：设置、`config/index.ts` 中读取的 `SCLAW_RUN_PROFILE`、skill 目录与请求字段。 |
-| Tool context | [backend/src/agent-langgraph/tool-context.ts](../backend/src/agent-langgraph/tool-context.ts) | `deriveToolContext` 根据策略和 checkpoint 状态生成冻结的 `ToolContext`（生效 tool ID、skill 范围、工具调用预算、文件白名单）。 |
+| Tool context | [backend/src/agent-langgraph/tool-context.ts](../backend/src/agent-langgraph/tool-context.ts) | `deriveToolContext` 根据策略和 checkpoint 状态生成冻结的 `ToolContext`（生效 tool ID、skill 范围、工具调用预算、文件白名单）。tools 只从中读取 skill 范围与文件白名单；直接调用 tools 的宿主（脚本、测试）在 `configurable` 上传入 `toolContext`。 |
 | 消融 profile | [backend/src/runtime/ablation-profiles.ts](../backend/src/runtime/ablation-profiles.ts) | 预注册 profile（`ABLATION_PROFILES_VERSION`）、策略预设与能力分组。见 [ablation_CN.md](./ablation_CN.md)。 |
 | 上限 | [backend/src/runtime/limits.ts](../backend/src/runtime/limits.ts) | `DEFAULT_MAX_TOOL_CALLS_PER_TURN`（200）以及用户可配置项的上限。 |
 | State | [backend/src/agent-langgraph/state.ts](../backend/src/agent-langgraph/state.ts) | graph state channels：messages、locale、已选 skills、草稿状态、artifacts 与运行策略。 |
@@ -224,7 +224,7 @@ taxonomy 是稳定的，但 domain 成熟度不同。domain 可以处于：
   -> 生成报告
 ```
 
-LLM 抽取器与 skill handler 产生的草稿补丁由 `ingestDraft` 归一化（经由 `agent-runtime/legacy.ts` 的包装函数调用）。未提供的字段保持不变，记录数组按稳定 ID 合并，明确删除通过 `clearDraftFields` 完成。tools 从 graph state 中读取 model、analysis、report 和 draft artifacts。LLM 不应该在 tools 之间传递很大的 `modelJson`、`analysisJson` 或 `stateJson` 参数。
+LLM 抽取器与 skill handler 产生的草稿补丁由 `ingestDraft`（`agent-runtime/draft/boundary.ts`）归一化，skill handler 直接调用该函数。未提供的字段保持不变，记录数组按稳定 ID 合并，明确删除通过 `clearDraftFields` 完成。tools 从 graph state 中读取 model、analysis、report 和 draft artifacts。LLM 不应该在 tools 之间传递很大的 `modelJson`、`analysisJson` 或 `stateJson` 参数。
 
 ## 9. 分析执行
 

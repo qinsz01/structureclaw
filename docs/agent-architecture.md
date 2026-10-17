@@ -98,11 +98,11 @@ The dependency rules have two deliberate exceptions:
 
 | Area | File | Responsibility |
 |---|---|---|
-| Agent service | [backend/src/agent-langgraph/agent-service.ts](../backend/src/agent-langgraph/agent-service.ts) | Creates the singleton `LangGraphAgentService`; owns streaming, synchronous, run and resume entry points, conversation creation, checkpointer setup and execution-client injection. Attachment and ground-motion handling (`attachments/`), initial-message construction, and session snapshots (`session/snapshot.ts`) are split out of it. |
+| Agent service | [backend/src/agent-langgraph/agent-service.ts](../backend/src/agent-langgraph/agent-service.ts) | Creates the singleton `LangGraphAgentService`; owns streaming, synchronous, run and resume entry points, conversation creation, checkpointer setup and execution-client injection. Attachment and ground-motion handling (`attachments/`), initial-message construction, session snapshots (`session/snapshot.ts`), and the per-turn tool access policy and recursion limit (`turn-config.ts`) are split out of it. |
 | Graph | [backend/src/agent-langgraph/graph.ts](../backend/src/agent-langgraph/graph.ts) | Builds the LangGraph ReAct loop (`START -> agent -> tools -> agent -> END`) and the per-node tool context. |
 | Run policy | [backend/src/runtime/run-policy.ts](../backend/src/runtime/run-policy.ts), [run-policy-schema.ts](../backend/src/runtime/run-policy-schema.ts), [run-context.ts](../backend/src/runtime/run-context.ts) | `EffectiveRunPolicy` resolved once per turn and frozen by `createRunContext`; the Zod schema for request and settings input; run usage. |
 | Policy resolution | [backend/src/agent-langgraph/policy-resolver.ts](../backend/src/agent-langgraph/policy-resolver.ts) | Builds the layers for `resolveRunPolicy` (`runtime/run-policy.ts`) from settings, the `SCLAW_RUN_PROFILE` value read in `config/index.ts`, the skill catalogue and the request. |
-| Tool context | [backend/src/agent-langgraph/tool-context.ts](../backend/src/agent-langgraph/tool-context.ts) | `deriveToolContext` turns the policy and checkpointed state into a frozen `ToolContext` (active tool IDs, skill scope, tool-call budget, file allow-list). |
+| Tool context | [backend/src/agent-langgraph/tool-context.ts](../backend/src/agent-langgraph/tool-context.ts) | `deriveToolContext` turns the policy and checkpointed state into a frozen `ToolContext` (active tool IDs, skill scope, tool-call budget, file allow-list). Tools read skill scope and file allow-list only from it; direct tool hosts (scripts, tests) pass a `toolContext` on `configurable`. |
 | Ablation profiles | [backend/src/runtime/ablation-profiles.ts](../backend/src/runtime/ablation-profiles.ts) | Pre-registered profiles (`ABLATION_PROFILES_VERSION`), their policy presets and capability groups. See [ablation.md](./ablation.md). |
 | Limits | [backend/src/runtime/limits.ts](../backend/src/runtime/limits.ts) | `DEFAULT_MAX_TOOL_CALLS_PER_TURN` (200) and the upper bound for the user-configured setting. |
 | State | [backend/src/agent-langgraph/state.ts](../backend/src/agent-langgraph/state.ts) | Graph state channels: messages, locale, selected skills, draft state, artifacts and run policy. |
@@ -224,7 +224,7 @@ detect structure type
   -> generate report
 ```
 
-Draft patches from the LLM extractor and the skill handlers are normalised by `ingestDraft` (reached through the `agent-runtime/legacy.ts` wrappers). Omitted fields are unchanged, record arrays merge by stable ID, and explicit removals use `clearDraftFields`. Tools read model, analysis, report, and draft artifacts from graph state. The LLM should not pass large serialized `modelJson`, `analysisJson`, or `stateJson` arguments between tools.
+Draft patches from the LLM extractor and the skill handlers are normalised by `ingestDraft` (`agent-runtime/draft/boundary.ts`), which the handlers call directly. Omitted fields are unchanged, record arrays merge by stable ID, and explicit removals use `clearDraftFields`. Tools read model, analysis, report, and draft artifacts from graph state. The LLM should not pass large serialized `modelJson`, `analysisJson`, or `stateJson` arguments between tools.
 
 ## 9. Analysis Execution
 
