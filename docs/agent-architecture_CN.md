@@ -55,89 +55,109 @@ flowchart LR
 
 ## 2. 对外入口
 
-当前 chat routes 位于 [backend/src/api/chat.ts](../backend/src/api/chat.ts)：
+chat routes 位于 [backend/src/api/chat.ts](../backend/src/api/chat.ts)，挂载在 `/api/v1/chat` 下：
 
 - `POST /api/v1/chat/message`：同步对话执行。
-- `POST /api/v1/chat/stream`：SSE 流式对话。
+- `POST /api/v1/chat/stream`：SSE 流式对话（由 [backend/src/api/chat-sse.ts](../backend/src/api/chat-sse.ts) 中的 `runSseTurn` 处理）。
 - `POST /api/v1/chat/stream/resume`：恢复一次暂停的交互。
-- conversation snapshot 与消息持久化路由也在同一模块中。
+- 会话创建、列表、snapshot、session 与消息路由也在同一模块中。
 
-agent capability 与 SkillHub routes 位于 [backend/src/api/agent.ts](../backend/src/api/agent.ts)：
+agent capability、运行、审阅与 SkillHub routes 位于 [backend/src/api/agent.ts](../backend/src/api/agent.ts)，挂载在 `/api/v1/agent` 下：
 
-- `GET /api/v1/agent/skills`
-- `GET /api/v1/agent/tools`
-- `GET /api/v1/agent/capability-matrix`
-- `GET /api/v1/agent/skillhub/search`
-- `GET /api/v1/agent/skillhub/installed`
-- `POST /api/v1/agent/skillhub/install`
-- `POST /api/v1/agent/skillhub/enable`
-- `POST /api/v1/agent/skillhub/disable`
-- `POST /api/v1/agent/skillhub/uninstall`
-- `POST /api/v1/agent/run`
+- `GET /api/v1/agent/skills`、`GET /api/v1/agent/tools`、`GET /api/v1/agent/capability-matrix`
+- `GET /api/v1/agent/run-profiles`：消融实验 profile 目录（见 [ablation_CN.md](./ablation_CN.md)）。
+- `POST /api/v1/agent/run` 与 `POST /api/v1/agent/resume`：agent 编排入口与恢复已保存的澄清问题。
+- `GET` / `POST /api/v1/agent/input-review/:conversationId[/tools]` 与 `GET` / `POST /api/v1/agent/result-review/:conversationId[/tools]`：输入证据与结果复核面板。
+- `GET /api/v1/agent/skillhub/search`、`GET /api/v1/agent/skillhub/installed`，以及 `POST /api/v1/agent/skillhub/{install,enable,disable,uninstall}`。
 
-后端分析运行时入口位于 [backend/src/api/analysis-runtime.ts](../backend/src/api/analysis-runtime.ts)：
+后端分析运行时入口位于 [backend/src/api/analysis-runtime.ts](../backend/src/api/analysis-runtime.ts)，注册时不带 `/api/v1` 前缀：
 
-- `POST /validate`
-- `POST /convert`
-- `POST /analyze`
-- `POST /code-check`
-- `GET /schema/converters`
-- `GET /engines`
-- `GET /engines/:id`
-- `POST /engines/:id/check`
+- `POST /validate`、`POST /convert`、`POST /analyze`、`POST /code-check`
+- `GET /runs/:id`、`GET /analysis-requests/:id`、`POST /analysis-requests/:id/{cancel,recover}`
+- `GET /schema/structure-model-v1`、`GET /schema/structure-model-v2`、`GET /schema/converters`
+- `GET /engines`、`GET /engines/:id`、`POST /engines/:id/check`
 
-## 3. 核心运行时文件
+## 3. 分层与核心运行时文件
 
-| 层级 | 文件 | 职责 |
+后端分为七层，从 L0（shared）到 L6（delivery）。[backend/.dependency-cruiser.cjs](../backend/.dependency-cruiser.cjs) 负责强制执行这些规则；修改跨模块 import 后运行 `npm run check:deps --prefix backend`。低层不得 import 高层，文件级 import 循环视为错误。
+
+| 层级 | 位置 | 内容 |
 |---|---|---|
-| Agent service | [backend/src/agent-langgraph/agent-service.ts](../backend/src/agent-langgraph/agent-service.ts) | 创建单例 `LangGraphAgentService`，负责 streaming / synchronous / resume 入口、会话创建、checkpointer 配置和执行 client 注入。 |
-| Graph | [backend/src/agent-langgraph/graph.ts](../backend/src/agent-langgraph/graph.ts) | 构建 LangGraph ReAct 循环：`START -> agent -> tools -> agent -> END`。 |
-| State | [backend/src/agent-langgraph/state.ts](../backend/src/agent-langgraph/state.ts) | 定义 graph state channels，包括 messages、locale、selected skills、draft state、artifacts 与 policy。 |
-| Prompt | [backend/src/agent-langgraph/system-prompt.ts](../backend/src/agent-langgraph/system-prompt.ts) | 根据已选 skill manifests 与当前 state 构建双语 system prompt。 |
-| Tools | [backend/src/agent-langgraph/tools.ts](../backend/src/agent-langgraph/tools.ts) | 实现草稿提取、模型构建、校验、分析、规范校核和报告生成等工程工具。 |
-| Tool registry | [backend/src/agent-langgraph/tool-registry.ts](../backend/src/agent-langgraph/tool-registry.ts) | 声明内置 tools、双语元数据、风险等级、默认启用状态与 factory。 |
-| Tool policy | [backend/src/agent-langgraph/tool-policy.ts](../backend/src/agent-langgraph/tool-policy.ts) | 解析 enabled / disabled tool IDs，并在 shell gate 未开启时阻止 shell tool。 |
-| User tools | [backend/src/agent-langgraph/user-tool-loader.ts](../backend/src/agent-langgraph/user-tool-loader.ts) | 加载 workspace tool 定义，并在 graph 构建时追加到 tool set。 |
-| Skill runtime | [backend/src/agent-runtime/index.ts](../backend/src/agent-runtime/index.ts) | 提供 `AgentSkillRuntime`、skill 发现、manifest 列表、分析 / 规范校核 skill 选择和执行辅助函数。 |
+| L0 shared | `backend/src/shared/`（`locale.ts`、`types/agent.ts`）、`backend/src/types/` | 跨层类型与语言解析。 |
+| L1 kernel | `backend/src/runtime/`、`backend/src/config/`、`backend/src/utils/`、`backend/src/generated/` | 运行策略与运行上下文、工具调用上限、消融 profile、配置加载、Prisma client、日志与通用工具。 |
+| L2 domain | `backend/src/engineering/`、`backend/src/skill-shared/`、`backend/src/agent-skills/` | 结构模型契约、已审定截面数据、求解与规范校核逻辑，以及 skill 实现。 |
+| L3 agent-core | `backend/src/agent-runtime/` | skill loader 与 registry、`AgentSkillRuntime`，以及草稿边界（`draft/`）。 |
+| L4 services | `backend/src/services/` | capability 元数据、分析与规范校核执行 client、chat 持久化、会话与记忆服务。 |
+| L5 agent-host | `backend/src/agent-langgraph/` | LangGraph graph、tools、tool context、最终回答交付、会话 snapshot、附件。 |
+| L6 delivery | `backend/src/api/`、`backend/src/index.ts` | Fastify routes 与 SSE 传输。 |
+
+依赖规则有两处有意保留的例外：
+
+- `runtime/policy-settings.ts` 是 `agent-langgraph/policy-resolver.ts` 的 re-export 兼容垫片，因为 `integrations/openclaw/worker.mjs` 仍导入旧路径。
+- 结构类型与截面 skill handler 可以导入固定列表中的 agent-runtime skill-handler SDK 模块（`SKILL_HANDLER_SDK`）。其他 L2 模块不得导入 L3。
+
+| 区域 | 文件 | 职责 |
+|---|---|---|
+| Agent service | [backend/src/agent-langgraph/agent-service.ts](../backend/src/agent-langgraph/agent-service.ts) | 创建单例 `LangGraphAgentService`；负责 streaming、同步、run 与 resume 入口、会话创建、checkpointer 配置和执行 client 注入。附件与地震动处理（`attachments/`）、初始消息构造以及会话 snapshot（`session/snapshot.ts`）已从中拆出。 |
+| Graph | [backend/src/agent-langgraph/graph.ts](../backend/src/agent-langgraph/graph.ts) | 构建 LangGraph ReAct 循环（`START -> agent -> tools -> agent -> END`）以及每个节点的 tool context。 |
+| 运行策略 | [backend/src/runtime/run-policy.ts](../backend/src/runtime/run-policy.ts)、[run-policy-schema.ts](../backend/src/runtime/run-policy-schema.ts)、[run-context.ts](../backend/src/runtime/run-context.ts) | 每轮解析一次的 `EffectiveRunPolicy`，由 `createRunContext` 冻结；请求与设置输入的 Zod schema；运行用量。 |
+| 策略解析 | [backend/src/agent-langgraph/policy-resolver.ts](../backend/src/agent-langgraph/policy-resolver.ts) | 为 `runtime/run-policy.ts` 的 `resolveRunPolicy` 组装各层输入：设置、`config/index.ts` 中读取的 `SCLAW_RUN_PROFILE`、skill 目录与请求字段。 |
+| Tool context | [backend/src/agent-langgraph/tool-context.ts](../backend/src/agent-langgraph/tool-context.ts) | `deriveToolContext` 根据策略和 checkpoint 状态生成冻结的 `ToolContext`（生效 tool ID、skill 范围、工具调用预算、文件白名单）。 |
+| 消融 profile | [backend/src/runtime/ablation-profiles.ts](../backend/src/runtime/ablation-profiles.ts) | 预注册 profile（`ABLATION_PROFILES_VERSION`）、策略预设与能力分组。见 [ablation_CN.md](./ablation_CN.md)。 |
+| 上限 | [backend/src/runtime/limits.ts](../backend/src/runtime/limits.ts) | `DEFAULT_MAX_TOOL_CALLS_PER_TURN`（200）以及用户可配置项的上限。 |
+| State | [backend/src/agent-langgraph/state.ts](../backend/src/agent-langgraph/state.ts) | graph state channels：messages、locale、已选 skills、草稿状态、artifacts 与运行策略。 |
+| Prompt | [backend/src/agent-langgraph/system-prompt.ts](../backend/src/agent-langgraph/system-prompt.ts) | 根据已选 skill manifests、当前 state 与策略构建双语 system prompt。 |
+| Tool 聚合导出 | [backend/src/agent-langgraph/tools.ts](../backend/src/agent-langgraph/tools.ts) | 从 `tools/` 重新导出工程工具的 factory 与辅助函数。 |
+| 工程工具 | [backend/src/agent-langgraph/tools/](../backend/src/agent-langgraph/tools/) | 工作流工具各自一个模块（结构类型识别、参数提取、建模、校验、运行分析、规范校核、报告、澄清、会话配置），另有共享辅助模块（`shared.ts`、`draft-helpers.ts`、`analysis-resolution.ts`、`input-message.ts`）及 `compaction/`、`seismic-workflow/` 子目录。模型编辑类工具（`review_input`、`query_model`、`edit_model`、`undo_model`、`query_results`）位于 `model-tools.ts`。 |
+| Tool registry | [backend/src/agent-langgraph/tool-registry.ts](../backend/src/agent-langgraph/tool-registry.ts) | 声明内置 tools（ID、分类、风险等级、双语元数据、factory）并构建 tool set。位于其他模块中的工具（`model-tools.ts`、`workspace-tools.ts`、`file-tools.ts`、`shell-tool.ts`、`memory-tool.ts`、`calc-tool.ts`）也在此注册。 |
+| Tool policy | [backend/src/agent-langgraph/tool-policy.ts](../backend/src/agent-langgraph/tool-policy.ts) | 解析 enabled / disabled tool ID；shell gate 未开启时阻止 shell tool。 |
+| 用户 tools | [backend/src/agent-langgraph/user-tool-loader.ts](../backend/src/agent-langgraph/user-tool-loader.ts) | 加载 workspace tool 定义，并在 graph 构建时追加。 |
+| 最终回答 | [backend/src/agent-langgraph/delivery/final-answer.ts](../backend/src/agent-langgraph/delivery/final-answer.ts) | `applyFinalAnswerPolicy` 将空的最终模型回复替换为双语兜底文本。 |
+| 草稿边界 | [backend/src/agent-runtime/draft/boundary.ts](../backend/src/agent-runtime/draft/boundary.ts) | 唯一的草稿边界：`ingestDraft` 将抽取补丁（包括 `clearDraftFields`）合并进已有草稿；`projectDraftState` 派生状态视图。辅助模块位于 `draft/normalize.ts`、`draft/project-patch.ts` 与 `draft/legacy-fields.ts`。 |
+| Skill runtime | [backend/src/agent-runtime/index.ts](../backend/src/agent-runtime/index.ts) | `AgentSkillRuntime`：manifest 列表、结构类型识别、模型构建，以及分析、规范校核、校验与报告 skill 的执行。 |
 | Skill loader | [backend/src/agent-runtime/loader.ts](../backend/src/agent-runtime/loader.ts) | 发现 skill 目录，加载阶段 Markdown，并导入可选 handler。 |
 | Skill registry | [backend/src/agent-runtime/registry.ts](../backend/src/agent-runtime/registry.ts) | 按 ID、结构类型和 domain 解析 skills / plugins。 |
-| Capability API | [backend/src/services/agent-capability.ts](../backend/src/services/agent-capability.ts) | 根据 skills、tools 与 engine 可用性生成前端所需 capability 元数据。 |
-| Analysis execution | [backend/src/services/analysis-execution.ts](../backend/src/services/analysis-execution.ts) | 创建 agent tool layer 使用的本地分析 client。 |
-| Code-check execution | [backend/src/services/code-check-execution.ts](../backend/src/services/code-check-execution.ts) | 创建 agent tool layer 使用的本地规范校核 client。 |
-| Structure protocol | [backend/src/services/structure-protocol-execution.ts](../backend/src/services/structure-protocol-execution.ts) | 提供结构校验 / 转换执行辅助函数。 |
+| 分析目录 | [backend/src/agent-skills/analysis/catalog.ts](../backend/src/agent-skills/analysis/catalog.ts) | 内置分析 skill 的唯一 engine 目录（ID、engine ID、分析类型），由各 `skill.yaml` 派生，并提供 `run_analysis` 的 skill 枚举。 |
+| Capability API | [backend/src/services/agent-capability.ts](../backend/src/services/agent-capability.ts) | 根据 skills、tools 与 engine 可用性生成前端 capability 元数据。 |
+| 执行 client | [analysis-execution.ts](../backend/src/services/analysis-execution.ts)、[code-check-execution.ts](../backend/src/services/code-check-execution.ts)、[structure-protocol-execution.ts](../backend/src/services/structure-protocol-execution.ts) | agent tool 层使用的本地 client，以及结构校验与转换辅助函数。 |
+| Chat 持久化 | [backend/src/services/chat-persistence.ts](../backend/src/services/chat-persistence.ts) | 为 chat routes 持久化 assistant 消息、调试详情、最新结果与会话状态。 |
 
 ## 4. ReAct 循环
 
 当前 graph 很小：
 
-1. `agent` node 构建双语 system prompt，绑定 active tools，调用 chat model，并限制每轮最多 15 次 tool call。
+1. `agent` node 构建双语 system prompt，依据冻结的运行策略与 checkpoint 状态为该节点导出 `ToolContext`，绑定 active tools，调用 chat model；一旦达到本轮工具调用预算即以警告结束本轮。预算即生效运行策略中的 `budgets.maxToolCallsPerTurn`，来自设置中的 `agent.maxToolCallsPerTurn`；默认 200，上限同为 200（`runtime/limits.ts`）。
 2. `shouldContinue` 检查模型是否返回 tool calls。
-3. `tools` node 将当前 graph state 注入 `config.configurable.agentState`，解析 active tools，执行 tool calls，并把 artifacts 写回 graph state。
+3. `tools` node 为该节点构造新的 config（`{ ...config, configurable: { ..., agentState, toolContext } }`），在本轮 run context 中按顺序执行调用，并把 artifacts 写回 graph state。策略通过 `toolContext` 和 `runContext` 传给 tools；共享的 `configurable` 不会被写入策略字段。
 4. 控制流回到 `agent`，直到模型不再请求 tool call。
 
-compiled graph 在进程生命周期内缓存。skill / tool 变化后，可以通过 `LangGraphAgentService.resetGraph()` 强制重建。
+`agent` node 仍会把当前 state snapshot 写入 `config.configurable.agentState`，以便 tools node 读取 state channels；这是 `configurable` 中唯一保留的原地写入。
+
+compiled graph 在进程生命周期内缓存。skill 或 tool 变化后，可以通过 `LangGraphAgentService.resetGraph()` 重建。
 
 ## 5. 内置 Tool Set
 
-当前内置 tool registry 定义了这些 tool IDs：
+内置 tool registry（`tool-registry.ts` 中的 `AGENT_TOOL_DEFINITIONS`）定义了以下 25 个 tool ID：
 
 | 分类 | Tool IDs |
 |---|---|
-| Engineering | `detect_structure_type`, `extract_draft_params`, `build_model`, `validate_model`, `run_analysis`, `run_code_check`, `generate_report` |
+| Engineering | `detect_structure_type`、`extract_draft_params`、`build_model`、`validate_model`、`run_analysis`、`run_code_check`、`generate_report`、`calculate`、`review_input`、`query_model`、`edit_model`、`undo_model`、`query_results` |
 | Interaction | `ask_user_clarification` |
 | Session | `set_session_config` |
 | Memory | `memory` |
-| Workspace read | `glob_files`, `grep_files`, `read_file` |
-| Workspace write | `write_file`, `replace_in_file`, `move_path` |
-| Destructive workspace | `delete_path` |
+| Workspace | `analyze_file`、`glob_files`、`grep_files`、`read_file`、`write_file`、`replace_in_file`、`move_path`、`delete_path` |
 | Shell | `shell` |
+
+每个工具都有风险等级（`low`、`workspace-read`、`workspace-write`、`destructive` 或 `shell`）。破坏性工具与 shell 工具的门禁最严格。
 
 tool 选择是 request-scoped：
 
 - 如果请求没有显式 enabled list，则默认启用的 tools 可用。
-- `disabledToolIds` 会从 active set 中移除 tools。
+- `disabledToolIds` 会从 active set 中移除 tools；运行策略中被禁用的 tools 也会加入其中。
 - `shell` 需要 agent 配置中的 shell gate 允许。
 - 未知 tool ID 会由 policy resolution 返回。
+
+工程工具从 graph state 中读取 model、analysis、report 和 draft artifacts，而不是依赖大型序列化参数（见第 8 节）。
 
 ## 6. Skill 模型
 
@@ -165,7 +185,7 @@ backend/src/agent-skills/<domain>/<skill-id>/
 
 ## 7. 稳定 Skill Domains
 
-domain taxonomy 由 [backend/src/agent-runtime/types.ts](../backend/src/agent-runtime/types.ts) 中的 `ALL_SKILL_DOMAINS` 定义：
+domain taxonomy 由 [backend/src/shared/types/agent.ts](../backend/src/shared/types/agent.ts) 中的 `ALL_SKILL_DOMAINS` 定义：
 
 - `structure-type`
 - `analysis`
@@ -204,7 +224,7 @@ taxonomy 是稳定的，但 domain 成熟度不同。domain 可以处于：
   -> 生成报告
 ```
 
-tools 会从 graph state 中读取 model、analysis、report 和 draft artifacts。LLM 不应该在 tools 之间传递很大的 `modelJson`、`analysisJson` 或 `stateJson` 参数。
+LLM 抽取器与 skill handler 产生的草稿补丁由 `ingestDraft` 归一化（经由 `agent-runtime/legacy.ts` 的包装函数调用）。未提供的字段保持不变，记录数组按稳定 ID 合并，明确删除通过 `clearDraftFields` 完成。tools 从 graph state 中读取 model、analysis、report 和 draft artifacts。LLM 不应该在 tools 之间传递很大的 `modelJson`、`analysisJson` 或 `stateJson` 参数。
 
 ## 9. 分析执行
 
@@ -225,11 +245,11 @@ flowchart LR
   YJK --> Result
 ```
 
-分析选择会使用请求中的 analysis type、engine ID、selected skill IDs、supported model families 以及 skill manifest 元数据。如果没有兼容的 analysis skill 被选中，runtime 不会静默挑选 engine，而会通过 tool path 返回绑定错误。
+分析选择会使用请求中的 analysis type、engine ID、selected skill IDs、supported model families 以及 skill manifest 元数据。skill ID、engine ID 与分析类型均来自 `agent-skills/analysis/catalog.ts` 这一唯一目录；`backend/tests/analysis-skill-catalog.test.mjs` 检查该目录与 `skill.yaml` manifests 一致。如果没有兼容的 analysis skill 被选中，runtime 不会静默挑选 engine，而会通过 tool path 返回绑定错误。
 
 ## 10. 会话状态与流式输出
 
-`LangGraphAgentService` 创建或复用 conversation record，分配 trace ID，并通过 [backend/src/agent-langgraph/streaming.ts](../backend/src/agent-langgraph/streaming.ts) 流式输出 LangGraph 结果。chat API 会把 stream events 归约成 assistant presentation object，用于持久化和前端渲染。
+`LangGraphAgentService` 创建或复用 conversation record，分配 trace ID，并通过 [backend/src/agent-langgraph/streaming.ts](../backend/src/agent-langgraph/streaming.ts) 流式输出 LangGraph 结果。chat API 会把 stream events 归约成 assistant presentation object，用于持久化和前端渲染。`/stream` 使用 `runSseTurn`；`/stream/resume` 在 `api/chat.ts` 中有自己的 SSE 处理函数。两者都通过 `services/chat-persistence.ts` 持久化。
 
 Graph checkpoint 数据通过 [backend/src/agent-langgraph/file-checkpointer.ts](../backend/src/agent-langgraph/file-checkpointer.ts) 存储，路径由 [backend/src/agent-langgraph/config.ts](../backend/src/agent-langgraph/config.ts) 中的 agent 配置辅助函数解析。
 
@@ -244,10 +264,13 @@ Graph checkpoint 数据通过 [backend/src/agent-langgraph/file-checkpointer.ts]
 
 高风险 tools 仍受 policy gate 约束。尤其是 shell execution，只有配置中的 shell gate 允许时才可用。
 
+每次运行只会在一个预注册的消融 profile 或完整系统下执行。profile 只移除一种机制，工具、接口与求解器保持不变，因此 agent 仍会以回答结束本轮。profile 的选择优先级与记录字段见 [ablation_CN.md](./ablation_CN.md)。
+
 ## 12. 贡献者规则
 
 - 将本文档视为 1.0.0 实现快照。
 - 不要把不存在的模块或计划中的文件写成当前架构。
 - 产品行为变化时，公开文案需要保持中英文一致。
 - 修改 agent 架构时，同步更新本文档和 `agent-architecture.md`。
+- 修改 import 后运行 `npm run check:deps --prefix backend`；新增跨层 import 时，必须同时更新分层规则和本节。
 - 新增、删除或改变 skill-domain 成熟度时，同步更新 [skill-runtime-status_CN.md](./skill-runtime-status_CN.md)。

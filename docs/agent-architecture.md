@@ -55,89 +55,109 @@ flowchart LR
 
 ## 2. Public Entry Points
 
-Current chat routes live in [backend/src/api/chat.ts](../backend/src/api/chat.ts):
+Chat routes live in [backend/src/api/chat.ts](../backend/src/api/chat.ts) and are mounted under `/api/v1/chat`:
 
 - `POST /api/v1/chat/message`: synchronous chat execution.
-- `POST /api/v1/chat/stream`: server-sent event streaming.
+- `POST /api/v1/chat/stream`: server-sent event streaming (handled by `runSseTurn` in [backend/src/api/chat-sse.ts](../backend/src/api/chat-sse.ts)).
 - `POST /api/v1/chat/stream/resume`: resume a paused interaction.
-- Conversation snapshot and persistence routes are in the same module.
+- Conversation create, list, snapshot, session and message routes are in the same module.
 
-Agent capability and SkillHub routes live in [backend/src/api/agent.ts](../backend/src/api/agent.ts):
+Agent capability, run, review and SkillHub routes live in [backend/src/api/agent.ts](../backend/src/api/agent.ts) under `/api/v1/agent`:
 
-- `GET /api/v1/agent/skills`
-- `GET /api/v1/agent/tools`
-- `GET /api/v1/agent/capability-matrix`
-- `GET /api/v1/agent/skillhub/search`
-- `GET /api/v1/agent/skillhub/installed`
-- `POST /api/v1/agent/skillhub/install`
-- `POST /api/v1/agent/skillhub/enable`
-- `POST /api/v1/agent/skillhub/disable`
-- `POST /api/v1/agent/skillhub/uninstall`
-- `POST /api/v1/agent/run`
+- `GET /api/v1/agent/skills`, `GET /api/v1/agent/tools`, `GET /api/v1/agent/capability-matrix`
+- `GET /api/v1/agent/run-profiles`: ablation profile catalogue (see [ablation.md](./ablation.md)).
+- `POST /api/v1/agent/run` (agent orchestration entry) and `POST /api/v1/agent/resume` (resume a saved clarification).
+- `GET` / `POST /api/v1/agent/input-review/:conversationId[/tools]` and `GET` / `POST /api/v1/agent/result-review/:conversationId[/tools]`: input-evidence and result-review panels.
+- `GET /api/v1/agent/skillhub/search`, `GET /api/v1/agent/skillhub/installed`, and `POST /api/v1/agent/skillhub/{install,enable,disable,uninstall}`.
 
-Backend-hosted analysis endpoints live in [backend/src/api/analysis-runtime.ts](../backend/src/api/analysis-runtime.ts):
+Backend-hosted analysis runtime endpoints live in [backend/src/api/analysis-runtime.ts](../backend/src/api/analysis-runtime.ts). They are registered without the `/api/v1` prefix:
 
-- `POST /validate`
-- `POST /convert`
-- `POST /analyze`
-- `POST /code-check`
-- `GET /schema/converters`
-- `GET /engines`
-- `GET /engines/:id`
-- `POST /engines/:id/check`
+- `POST /validate`, `POST /convert`, `POST /analyze`, `POST /code-check`
+- `GET /runs/:id`, `GET /analysis-requests/:id`, `POST /analysis-requests/:id/{cancel,recover}`
+- `GET /schema/structure-model-v1`, `GET /schema/structure-model-v2`, `GET /schema/converters`
+- `GET /engines`, `GET /engines/:id`, `POST /engines/:id/check`
 
-## 3. Core Runtime Files
+## 3. Layers And Core Runtime Files
 
-| Layer | File | Responsibility |
+The backend is organised into seven layers, L0 (shared) to L6 (delivery). [backend/.dependency-cruiser.cjs](../backend/.dependency-cruiser.cjs) enforces them; run `npm run check:deps --prefix backend` after changing imports across modules. Lower layers never import higher ones, and file-level import cycles are errors.
+
+| Layer | Location | Contents |
 |---|---|---|
-| Agent service | [backend/src/agent-langgraph/agent-service.ts](../backend/src/agent-langgraph/agent-service.ts) | Creates the singleton `LangGraphAgentService`, owns streaming/synchronous/resume entry points, conversation creation, checkpointer setup, and execution-client injection. |
-| Graph | [backend/src/agent-langgraph/graph.ts](../backend/src/agent-langgraph/graph.ts) | Builds the LangGraph ReAct loop: `START -> agent -> tools -> agent -> END`. |
-| State | [backend/src/agent-langgraph/state.ts](../backend/src/agent-langgraph/state.ts) | Defines graph state channels for messages, locale, selected skills, draft state, artifacts, and policy. |
-| Prompt | [backend/src/agent-langgraph/system-prompt.ts](../backend/src/agent-langgraph/system-prompt.ts) | Builds bilingual system prompts from selected skill manifests and current state. |
-| Tools | [backend/src/agent-langgraph/tools.ts](../backend/src/agent-langgraph/tools.ts) | Implements engineering tools such as draft extraction, model building, validation, analysis, code checking, and report generation. |
-| Tool registry | [backend/src/agent-langgraph/tool-registry.ts](../backend/src/agent-langgraph/tool-registry.ts) | Declares built-in tools, localized metadata, risk levels, default enablement, and factory functions. |
-| Tool policy | [backend/src/agent-langgraph/tool-policy.ts](../backend/src/agent-langgraph/tool-policy.ts) | Resolves enabled/disabled tool IDs and blocks shell tools unless the shell gate is enabled. |
+| L0 shared | `backend/src/shared/` (`locale.ts`, `types/agent.ts`), `backend/src/types/` | Cross-layer types and locale resolution. |
+| L1 kernel | `backend/src/runtime/`, `backend/src/config/`, `backend/src/utils/`, `backend/src/generated/` | Run policy and run context, tool-call limits, ablation profiles, settings loading, Prisma client, logging and helpers. |
+| L2 domain | `backend/src/engineering/`, `backend/src/skill-shared/`, `backend/src/agent-skills/` | Structure-model contracts, reviewed section data, solver and code-check logic, and skill implementations. |
+| L3 agent-core | `backend/src/agent-runtime/` | Skill loader and registry, `AgentSkillRuntime`, and the draft boundary (`draft/`). |
+| L4 services | `backend/src/services/` | Capability metadata, analysis and code-check execution clients, chat persistence, conversation and memory services. |
+| L5 agent-host | `backend/src/agent-langgraph/` | LangGraph graph, tools, tool context, final-answer delivery, session snapshots, attachments. |
+| L6 delivery | `backend/src/api/`, `backend/src/index.ts` | Fastify routes and SSE transport. |
+
+The dependency rules have two deliberate exceptions:
+
+- `runtime/policy-settings.ts` is a re-export shim for `agent-langgraph/policy-resolver.ts`, kept because `integrations/openclaw/worker.mjs` imports the old path.
+- Structure-type and section skill handlers may import a fixed list of agent-runtime skill-handler SDK modules (`SKILL_HANDLER_SDK`). No other L2 module may import L3.
+
+| Area | File | Responsibility |
+|---|---|---|
+| Agent service | [backend/src/agent-langgraph/agent-service.ts](../backend/src/agent-langgraph/agent-service.ts) | Creates the singleton `LangGraphAgentService`; owns streaming, synchronous, run and resume entry points, conversation creation, checkpointer setup and execution-client injection. Attachment and ground-motion handling (`attachments/`), initial-message construction, and session snapshots (`session/snapshot.ts`) are split out of it. |
+| Graph | [backend/src/agent-langgraph/graph.ts](../backend/src/agent-langgraph/graph.ts) | Builds the LangGraph ReAct loop (`START -> agent -> tools -> agent -> END`) and the per-node tool context. |
+| Run policy | [backend/src/runtime/run-policy.ts](../backend/src/runtime/run-policy.ts), [run-policy-schema.ts](../backend/src/runtime/run-policy-schema.ts), [run-context.ts](../backend/src/runtime/run-context.ts) | `EffectiveRunPolicy` resolved once per turn and frozen by `createRunContext`; the Zod schema for request and settings input; run usage. |
+| Policy resolution | [backend/src/agent-langgraph/policy-resolver.ts](../backend/src/agent-langgraph/policy-resolver.ts) | Builds the layers for `resolveRunPolicy` (`runtime/run-policy.ts`) from settings, the `SCLAW_RUN_PROFILE` value read in `config/index.ts`, the skill catalogue and the request. |
+| Tool context | [backend/src/agent-langgraph/tool-context.ts](../backend/src/agent-langgraph/tool-context.ts) | `deriveToolContext` turns the policy and checkpointed state into a frozen `ToolContext` (active tool IDs, skill scope, tool-call budget, file allow-list). |
+| Ablation profiles | [backend/src/runtime/ablation-profiles.ts](../backend/src/runtime/ablation-profiles.ts) | Pre-registered profiles (`ABLATION_PROFILES_VERSION`), their policy presets and capability groups. See [ablation.md](./ablation.md). |
+| Limits | [backend/src/runtime/limits.ts](../backend/src/runtime/limits.ts) | `DEFAULT_MAX_TOOL_CALLS_PER_TURN` (200) and the upper bound for the user-configured setting. |
+| State | [backend/src/agent-langgraph/state.ts](../backend/src/agent-langgraph/state.ts) | Graph state channels: messages, locale, selected skills, draft state, artifacts and run policy. |
+| Prompt | [backend/src/agent-langgraph/system-prompt.ts](../backend/src/agent-langgraph/system-prompt.ts) | Builds bilingual system prompts from selected skill manifests, current state and policy. |
+| Tool barrel | [backend/src/agent-langgraph/tools.ts](../backend/src/agent-langgraph/tools.ts) | Re-exports the engineering tool factories and helpers from `tools/`. |
+| Engineering tools | [backend/src/agent-langgraph/tools/](../backend/src/agent-langgraph/tools/) | One module per workflow tool (detect, extract, build, validate, run analysis, code check, report, clarification, session config), plus shared helpers (`shared.ts`, `draft-helpers.ts`, `analysis-resolution.ts`, `input-message.ts`) and the `compaction/` and `seismic-workflow/` subfolders. Model-editing tools (`review_input`, `query_model`, `edit_model`, `undo_model`, `query_results`) are in `model-tools.ts`. |
+| Tool registry | [backend/src/agent-langgraph/tool-registry.ts](../backend/src/agent-langgraph/tool-registry.ts) | Declares built-in tools (ID, category, risk, localized metadata, factory) and builds the tool set. Tools defined in sibling modules (`model-tools.ts`, `workspace-tools.ts`, `file-tools.ts`, `shell-tool.ts`, `memory-tool.ts`, `calc-tool.ts`) are registered here too. |
+| Tool policy | [backend/src/agent-langgraph/tool-policy.ts](../backend/src/agent-langgraph/tool-policy.ts) | Resolves enabled and disabled tool IDs; blocks shell tools unless the shell gate is enabled. |
 | User tools | [backend/src/agent-langgraph/user-tool-loader.ts](../backend/src/agent-langgraph/user-tool-loader.ts) | Loads workspace tool definitions and appends them when the graph is built. |
-| Skill runtime | [backend/src/agent-runtime/index.ts](../backend/src/agent-runtime/index.ts) | Provides `AgentSkillRuntime`, skill discovery, manifest listing, analysis/code-check skill selection, and skill execution helpers. |
+| Final answer | [backend/src/agent-langgraph/delivery/final-answer.ts](../backend/src/agent-langgraph/delivery/final-answer.ts) | `applyFinalAnswerPolicy` replaces an empty final model response with a bilingual fallback. |
+| Draft boundary | [backend/src/agent-runtime/draft/boundary.ts](../backend/src/agent-runtime/draft/boundary.ts) | The single draft boundary: `ingestDraft` merges an extraction patch (including `clearDraftFields`) into the existing draft; `projectDraftState` derives the state view. Helpers are in `draft/normalize.ts`, `draft/project-patch.ts` and `draft/legacy-fields.ts`. |
+| Skill runtime | [backend/src/agent-runtime/index.ts](../backend/src/agent-runtime/index.ts) | `AgentSkillRuntime`: manifest listing, structural-type detection, model building, and analysis, code-check, validation and report skill execution. |
 | Skill loader | [backend/src/agent-runtime/loader.ts](../backend/src/agent-runtime/loader.ts) | Discovers skill directories, loads stage markdown, and imports optional handlers. |
-| Skill registry | [backend/src/agent-runtime/registry.ts](../backend/src/agent-runtime/registry.ts) | Resolves skills and plugins by ID, structure type, and domain. |
-| Capability API | [backend/src/services/agent-capability.ts](../backend/src/services/agent-capability.ts) | Builds frontend-facing capability metadata from skills, tools, and engine availability. |
-| Analysis execution | [backend/src/services/analysis-execution.ts](../backend/src/services/analysis-execution.ts) | Creates the local analysis client used by the agent tool layer. |
-| Code-check execution | [backend/src/services/code-check-execution.ts](../backend/src/services/code-check-execution.ts) | Creates the local code-check client used by the agent tool layer. |
-| Structure protocol | [backend/src/services/structure-protocol-execution.ts](../backend/src/services/structure-protocol-execution.ts) | Provides structure validation/conversion execution helpers. |
+| Skill registry | [backend/src/agent-runtime/registry.ts](../backend/src/agent-runtime/registry.ts) | Resolves skills and plugins by ID, structure type and domain. |
+| Analysis catalog | [backend/src/agent-skills/analysis/catalog.ts](../backend/src/agent-skills/analysis/catalog.ts) | Single engine catalog for builtin analysis skills (IDs, engine IDs, analysis types), derived from each `skill.yaml`. It feeds the `run_analysis` skill enum. |
+| Capability API | [backend/src/services/agent-capability.ts](../backend/src/services/agent-capability.ts) | Builds frontend-facing capability metadata from skills, tools and engine availability. |
+| Execution clients | [analysis-execution.ts](../backend/src/services/analysis-execution.ts), [code-check-execution.ts](../backend/src/services/code-check-execution.ts), [structure-protocol-execution.ts](../backend/src/services/structure-protocol-execution.ts) | Local clients used by the agent tool layer, plus structure validation and conversion helpers. |
+| Chat persistence | [backend/src/services/chat-persistence.ts](../backend/src/services/chat-persistence.ts) | Persists assistant messages, debug details, latest results and session state for the chat routes. |
 
 ## 4. ReAct Loop
 
 The graph is intentionally small:
 
-1. `agent` node builds the bilingual system prompt, binds active tools, invokes the chat model, and enforces a 15-tool-call limit per turn.
+1. `agent` node builds the bilingual system prompt, derives the node's `ToolContext` from the frozen run policy and checkpointed state, binds the active tools, invokes the chat model, and stops the turn with a warning once the tool-call budget is reached. The budget is `budgets.maxToolCallsPerTurn` in the effective run policy. It comes from `agent.maxToolCallsPerTurn` in settings, which defaults to 200 and is capped at 200 (`runtime/limits.ts`).
 2. `shouldContinue` checks whether the model returned tool calls.
-3. `tools` node injects current graph state into `config.configurable.agentState`, resolves active tools, executes the requested tool calls, and writes artifacts back into graph state.
+3. `tools` node builds a fresh config for the node (`{ ...config, configurable: { ..., agentState, toolContext } }`), runs the calls sequentially inside the turn's run context, and writes artifacts back into graph state. Policy reaches tools through `toolContext` and `runContext`; the shared `configurable` is not mutated with policy fields.
 4. Control returns to `agent` until no tool calls remain.
 
-The compiled graph is cached for the process lifetime and can be rebuilt through `LangGraphAgentService.resetGraph()` after skill/tool changes.
+The `agent` node still writes the current state snapshot into `config.configurable.agentState` so the tools node can read state channels; this is the one remaining in-place write to `configurable`.
+
+The compiled graph is cached for the process lifetime and can be rebuilt through `LangGraphAgentService.resetGraph()` after skill or tool changes.
 
 ## 5. Built-In Tool Set
 
-The built-in tool registry currently defines these tool IDs:
+The built-in tool registry (`AGENT_TOOL_DEFINITIONS` in `tool-registry.ts`) defines these 25 tool IDs:
 
 | Category | Tool IDs |
 |---|---|
-| Engineering | `detect_structure_type`, `extract_draft_params`, `build_model`, `validate_model`, `run_analysis`, `run_code_check`, `generate_report` |
+| Engineering | `detect_structure_type`, `extract_draft_params`, `build_model`, `validate_model`, `run_analysis`, `run_code_check`, `generate_report`, `calculate`, `review_input`, `query_model`, `edit_model`, `undo_model`, `query_results` |
 | Interaction | `ask_user_clarification` |
 | Session | `set_session_config` |
 | Memory | `memory` |
-| Workspace read | `glob_files`, `grep_files`, `read_file` |
-| Workspace write | `write_file`, `replace_in_file`, `move_path` |
-| Destructive workspace | `delete_path` |
+| Workspace | `analyze_file`, `glob_files`, `grep_files`, `read_file`, `write_file`, `replace_in_file`, `move_path`, `delete_path` |
 | Shell | `shell` |
+
+Each tool carries a risk level (`low`, `workspace-read`, `workspace-write`, `destructive` or `shell`). Destructive and shell tools are the most gated.
 
 Tool selection is request-scoped:
 
 - If no explicit enabled list is provided, default-enabled tools are available.
-- `disabledToolIds` removes tools from the active set.
+- `disabledToolIds` removes tools from the active set. The run policy's disabled tools are added to it.
 - `shell` requires the shell gate from agent configuration.
 - Unknown tool IDs are reported by policy resolution.
+
+Engineering tools read model, analysis, report and draft artifacts from graph state rather than from large serialized arguments (see section 8).
 
 ## 6. Skill Model
 
@@ -165,7 +185,7 @@ Runtime behavior is domain-specific:
 
 ## 7. Stable Skill Domains
 
-The domain taxonomy is defined by `ALL_SKILL_DOMAINS` in [backend/src/agent-runtime/types.ts](../backend/src/agent-runtime/types.ts):
+The domain taxonomy is defined by `ALL_SKILL_DOMAINS` in [backend/src/shared/types/agent.ts](../backend/src/shared/types/agent.ts):
 
 - `structure-type`
 - `analysis`
@@ -204,7 +224,7 @@ detect structure type
   -> generate report
 ```
 
-Tools read model, analysis, report, and draft artifacts from graph state. The LLM should not pass large serialized `modelJson`, `analysisJson`, or `stateJson` arguments between tools.
+Draft patches from the LLM extractor and the skill handlers are normalised by `ingestDraft` (reached through the `agent-runtime/legacy.ts` wrappers). Omitted fields are unchanged, record arrays merge by stable ID, and explicit removals use `clearDraftFields`. Tools read model, analysis, report, and draft artifacts from graph state. The LLM should not pass large serialized `modelJson`, `analysisJson`, or `stateJson` arguments between tools.
 
 ## 9. Analysis Execution
 
@@ -225,11 +245,11 @@ flowchart LR
   YJK --> Result
 ```
 
-Analysis selection uses the requested analysis type, engine ID, selected skill IDs, supported model families, and skill manifest metadata. If no compatible analysis skill is selected, the runtime does not silently pick an engine; it returns a binding error through the tool path.
+Analysis selection uses the requested analysis type, engine ID, selected skill IDs, supported model families, and skill manifest metadata. The skill IDs, engine IDs and analysis types come from the single catalog in `agent-skills/analysis/catalog.ts`; `backend/tests/analysis-skill-catalog.test.mjs` checks that the catalog matches the `skill.yaml` manifests. If no compatible analysis skill is selected, the runtime does not silently pick an engine; it returns a binding error through the tool path.
 
 ## 10. Conversation State And Streaming
 
-`LangGraphAgentService` creates or reuses a conversation record, assigns a trace ID, and streams LangGraph output through [backend/src/agent-langgraph/streaming.ts](../backend/src/agent-langgraph/streaming.ts). The chat API reduces stream events into an assistant presentation object for persistence and frontend rendering.
+`LangGraphAgentService` creates or reuses a conversation record, assigns a trace ID, and streams LangGraph output through [backend/src/agent-langgraph/streaming.ts](../backend/src/agent-langgraph/streaming.ts). The chat API reduces stream events into an assistant presentation object for persistence and frontend rendering. `/stream` uses `runSseTurn`; `/stream/resume` has its own SSE handler in `api/chat.ts`. Both persist through `services/chat-persistence.ts`.
 
 Graph checkpoint data is stored through [backend/src/agent-langgraph/file-checkpointer.ts](../backend/src/agent-langgraph/file-checkpointer.ts), with paths resolved from agent configuration helpers in [backend/src/agent-langgraph/config.ts](../backend/src/agent-langgraph/config.ts).
 
@@ -244,10 +264,13 @@ There are two extension surfaces:
 
 High-risk tools remain policy-gated. In particular, shell execution is unavailable unless the configured shell gate allows it.
 
+Each run executes under one pre-registered ablation profile or the full system. A profile removes exactly one mechanism while keeping tools, interfaces and the solver unchanged, so the agent still ends the turn with an answer. Profile selection precedence and the recorded fields are described in [ablation.md](./ablation.md).
+
 ## 12. Contributor Rules
 
 - Treat this document as a snapshot of the 1.0.0 implementation.
 - Do not document nonexistent modules or planned files as current architecture.
 - Keep public-facing wording bilingual when product behavior changes.
 - Update this file together with `agent-architecture_CN.md` when changing agent architecture.
+- Run `npm run check:deps --prefix backend` after changing imports; do not add a cross-layer import without updating the layering rules and this section.
 - Update [skill-runtime-status.md](./skill-runtime-status.md) when adding, removing, or changing skill-domain maturity.
