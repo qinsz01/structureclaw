@@ -152,7 +152,6 @@ export function buildInteractionMessage(
   const fallbackSupportNote = payload.content?.fallbackSupportNote
   const recommendedNextStep = payload.content?.recommendedNextStep
   const criticalMissing = payload.content?.pending?.criticalMissing || []
-  const options = payload.content?.options || []
   const lines: string[] = []
 
   if (conversationStage) {

@@ -244,6 +244,19 @@ export type SeismicContextRow = {
   assumed?: boolean
 }
 
+export type UploadedFileAttachment = { fileId: string; originalName: string; relPath: string; size: number; mimeType: string }
+
+export type AnalysisEngineSummary = {
+  id: string
+  name: string
+  available: boolean
+  priority: number
+  status: string
+  unavailableReason?: string
+}
+
+export type EngineProbeResult = { passed: boolean; durationMs?: number; error?: string; loading?: boolean }
+
 export type SeismicContextSummary = {
   status: string
   summaryRows: SeismicContextRow[]
