@@ -30,6 +30,8 @@ export interface EffectiveRunPolicy extends RunPolicy {
   fieldSources: Record<string, RunPolicyFieldSource>;
   enforcement: { hostLoop: 'structureclaw' | 'external'; conversationText: 'structureclaw' | 'external'; llmBudget: 'structureclaw-calls'; recovery: 'structureclaw-operations' };
   compatibilityNotes: string[];
+  /** Mechanism fields whose effective value differs from the selected profile's preset; omitted when none. */
+  profileOverrides?: string[];
 }
 export const DEFAULT_RUN_POLICY: RunPolicy = {
   knowledge: 'enabled', builder: 'auto', skillIds: null, routing: { mode: 'auto' },
@@ -51,6 +53,24 @@ function withoutProfile(input: RunPolicyInput): PolicyPatch {
   return rest;
 }
 function sorted(values: string[]): string[] { return [...new Set(values)].sort(); }
+/**
+ * Mechanism field paths where `value` departs from the profile preset. Skill lists are excluded:
+ * they only narrow the scope (generic-only is enforced as a ceiling), so they cannot undo an ablation.
+ */
+function profileOverrideFields(value: RunPolicy, preset: RunPolicyInput): string[] {
+  const actualFeatures = { ...DEFAULT_RUN_FEATURES, ...value.features };
+  const presetFeatures = { ...DEFAULT_RUN_FEATURES, ...preset.features };
+  const pairs: Array<[string, unknown, unknown]> = [
+    ['knowledge', value.knowledge, preset.knowledge],
+    ['builder', value.builder, preset.builder],
+    ['routing', value.routing, preset.routing],
+    ['repair.enabled', value.repair.enabled, preset.repair?.enabled],
+    ...(Object.keys(DEFAULT_RUN_FEATURES) as Array<keyof RunFeatures>)
+      .map((key): [string, unknown, unknown] => [`features.${key}`, actualFeatures[key], presetFeatures[key]]),
+  ];
+  return pairs.filter(([, actual, expected]) => expected !== undefined && JSON.stringify(actual) !== JSON.stringify(expected))
+    .map(([path]) => path);
+}
 export function runPolicyValues(value: RunPolicy): RunPolicy {
   const { knowledge, builder, skillIds, routing, repair, context, tools, budgets, features, profileId } = value;
   return { knowledge, builder, skillIds, routing, repair: { ...repair }, context: { ...context }, tools: { ...tools }, budgets: { ...budgets },
@@ -141,7 +161,9 @@ export function resolveRunPolicy(input: {
   // New fields stay out of the hash body at their defaults so the default policyHash is unchanged.
   const { features, profileId, ...core } = value;
   const hashedFeatures = features && !isDefaultFeatures(features) ? { features } : {};
-  const body = { ...core, ...hashedFeatures, ...(profileId && profileId !== 'full' ? { profileId } : {}), version: 1 as const, activeSkillIds, activeToolIds,
+  const profileOverrides = profileId ? profileOverrideFields(value, profilePolicyInput(profileId, catalog)) : [];
+  const body = { ...core, ...hashedFeatures, ...(profileId && profileId !== 'full' ? { profileId } : {}),
+    ...(profileOverrides.length ? { profileOverrides } : {}), version: 1 as const, activeSkillIds, activeToolIds,
     deniedSkillIds: wantedSkills.filter(id => !activeSkillIds.includes(id)), deniedToolIds: wantedTools.filter(id => !activeToolIds.includes(id)),
     executionOwner: input.executionOwner ?? 'structureclaw' as const };
   return { ...body, ...(profileId ? { profileId } : {}), policyHash: createHash('sha256').update(JSON.stringify(body)).digest('hex'), fieldSources,

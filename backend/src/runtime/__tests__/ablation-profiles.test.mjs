@@ -94,6 +94,27 @@ describe('ablation profiles', () => {
     expect(switched.policyHash).toBe(resolve().policyHash);
   });
 
+  test('explicit fields that depart from the profile preset are recorded as profileOverrides and hashed', () => {
+    const base = resolve();
+    const pure = resolve({ requested: { profile: 'no-knowledge' } });
+    expect(pure).not.toHaveProperty('profileOverrides');
+    // Turn 2 re-enables knowledge: the saved profile id stays, but the label is no longer a pure ablation.
+    const reenabled = resolve({ previous: pure, requested: { knowledge: 'enabled' } });
+    expect(reenabled).toMatchObject({ profileId: 'no-knowledge', knowledge: 'enabled', profileOverrides: ['knowledge'] });
+    expect(reenabled.policyHash).not.toBe(base.policyHash);
+    expect(reenabled.policyHash).not.toBe(pure.policyHash);
+    // Overrides are recomputed each turn, not inherited from the saved policy.
+    expect(resolve({ previous: reenabled, requested: { knowledge: 'disabled' } })).not.toHaveProperty('profileOverrides');
+    expect(resolve({ envProfile: 'no-repair', requested: { knowledge: 'disabled', features: { validation: 'disabled' } } }).profileOverrides)
+      .toEqual(['knowledge', 'features.validation']);
+    // Skill lists only narrow scope and are not overrides; full with no overrides keeps the default hash.
+    expect(resolve({ requested: { profile: 'no-knowledge' }, legacy: { skillIds: ['beam'] } })).not.toHaveProperty('profileOverrides');
+    expect(resolve({ envProfile: 'generic-only', legacy: { skillIds: ['beam', 'generic'] } })).not.toHaveProperty('profileOverrides');
+    expect(resolve({ requested: { profile: 'full', builder: 'auto' } }).policyHash).toBe(base.policyHash);
+    expect(resolve({ requested: { profile: 'full', builder: 'llm' } }).profileOverrides).toEqual(['builder']);
+    expect(resolve({ requested: { builder: 'llm' } })).not.toHaveProperty('profileOverrides');
+  });
+
   test('generic-only is a skill ceiling: explicit or legacy skill lists cannot re-enable specialist structure skills', () => {
     const legacy = resolve({ envProfile: 'generic-only', legacy: { skillIds: ['beam', 'generic', 'opensees-static'] } });
     expect(legacy.activeSkillIds).toEqual(['generic', 'opensees-static']);

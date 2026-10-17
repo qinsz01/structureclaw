@@ -98,7 +98,13 @@ Recorded wherever the run policy is already recorded — the run-record ledger
 
 - `profileId` — present whenever a profile was selected (including `full`);
 - `features` — present only when a feature is not at its default;
-- `policyHash` — `profileId` (except `full`) and non-default `features` are part of the hash body,
+- `profileOverrides` — mechanism field paths (`knowledge`, `builder`, `routing`, `repair.enabled`,
+  `features.*`) whose effective value differs from the selected profile's preset, e.g. turn 1
+  `{ "profile": "no-knowledge" }` then turn 2 `{ "knowledge": "enabled" }` gives
+  `profileOverrides: ["knowledge"]`. Recomputed every turn and omitted when empty. Skill lists only
+  narrow the scope (`generic-only` is enforced as a ceiling), so they are not reported;
+- `policyHash` — `profileId` (except `full`), non-default `features` and a non-empty
+  `profileOverrides` are part of the hash body,
   so the default and `full` hashes are identical to the pre-profile hash;
 - `fieldSources` — per field: `default`, `settings`, `env`, `session`, `legacy`, `request` or
   `server-limit`; `fieldSources.profileId` tells where the profile came from.

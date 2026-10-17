@@ -83,7 +83,11 @@ StructureClaw 提供预先注册、带版本号的消融配置档，基准测试
 
 - `profileId`——只要选择了配置档（包括 `full`）就会出现；
 - `features`——仅当某项功能不是默认值时出现；
-- `policyHash`——`profileId`（`full` 除外）和非默认的 `features` 计入哈希，因此默认配置与 `full` 的哈希与引入配置档前一致；
+- `profileOverrides`——机制字段（`knowledge`、`builder`、`routing`、`repair.enabled`、`features.*`）的生效值
+  与所选配置档预设不一致时，列出这些字段路径，例如第 1 轮 `{ "profile": "no-knowledge" }`、第 2 轮
+  `{ "knowledge": "enabled" }` 得到 `profileOverrides: ["knowledge"]`。每轮重新计算；无偏离时省略。
+  技能列表只会缩小范围（`generic-only` 作为上限强制执行），不计为偏离；
+- `policyHash`——`profileId`（`full` 除外）、非默认的 `features` 和非空的 `profileOverrides` 计入哈希，因此默认配置与 `full` 的哈希与引入配置档前一致；
 - `fieldSources`——每个字段的来源：`default`、`settings`、`env`、`session`、`legacy`、`request` 或
   `server-limit`；`fieldSources.profileId` 说明配置档的来源。
 
