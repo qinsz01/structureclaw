@@ -11,7 +11,7 @@ export interface AgentMemoryScope {
   scopeId: string;
 }
 
-export interface AgentMemoryEntryView {
+interface AgentMemoryEntryView {
   scopeType: AgentMemoryScopeType;
   scopeId: string;
   key: string;

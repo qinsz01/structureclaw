@@ -30,7 +30,7 @@ export const DEFAULT_RUN_FEATURES: Readonly<RunFeatures> = Object.freeze({
 /** Bench review capability groups (2026-10-12): A model fidelity, B result interpretation,
  * C capability boundary / missing input, D state revision, E evidence and report provenance,
  * F constrained candidate selection. */
-export type CapabilityGroup = 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
+type CapabilityGroup = 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
 
 interface Localized { en: string; zh: string }
 interface ProfileDefinition {
@@ -81,7 +81,7 @@ const PROFILES: Record<ProfileId, ProfileDefinition> = {
       zh: '自动规则回退与纠错重试，以及鼓励自动恢复的提示文本。' } },
 };
 
-export function isProfileId(value: unknown): value is ProfileId {
+function isProfileId(value: unknown): value is ProfileId {
   return typeof value === 'string' && (PROFILE_IDS as readonly string[]).includes(value);
 }
 
@@ -119,7 +119,7 @@ export function profileRestrictsStructureSkills(id: ProfileId | undefined): bool
   return Boolean(id && PROFILES[id].genericStructureOnly);
 }
 
-export interface ProfileDescription {
+interface ProfileDescription {
   id: ProfileId;
   version: string;
   policy: RunPolicyInput;

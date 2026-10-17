@@ -206,7 +206,7 @@ function uploadedGroundMotionWorkflowFromAttachmentAnalyses(
   };
 }
 
-export function enrichUploadedGroundMotionWorkflow(
+function enrichUploadedGroundMotionWorkflow(
   seismicWorkflow: Record<string, unknown>,
   attachmentAnalyses: AttachmentAnalysis[],
 ): Record<string, unknown> {

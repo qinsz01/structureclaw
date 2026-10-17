@@ -29,7 +29,7 @@ export type SettingsFileLlm = {
   maxRetries?: number;
 };
 
-export type SettingsFileDatabase = {
+type SettingsFileDatabase = {
   url?: string;
 };
 

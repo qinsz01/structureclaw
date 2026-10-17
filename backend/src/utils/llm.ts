@@ -14,14 +14,14 @@ export type StructureClawChatModel = BaseChatModel & {
   bindTools: NonNullable<BaseChatModel['bindTools']>;
 };
 
-export type LlmProvider = 'openai-compatible' | 'anthropic';
+type LlmProvider = 'openai-compatible' | 'anthropic';
 
 type ChatModelConfigLike = Pick<
   typeof config,
   'llmApiKey' | 'llmModel' | 'llmTimeoutMs' | 'llmMaxRetries' | 'llmBaseUrl'
 >;
 
-export interface ChatModelRuntimeOptions {
+interface ChatModelRuntimeOptions {
   disableStreaming?: boolean;
   streaming?: boolean;
   maxTokens?: number;
@@ -97,7 +97,7 @@ function withoutTrailingSlash(value: string): string {
   return value.replace(/\/+$/, '');
 }
 
-export function isClaudeModel(modelName: string | undefined): boolean {
+function isClaudeModel(modelName: string | undefined): boolean {
   const normalized = modelName?.trim().toLowerCase();
   return !!normalized && (normalized === 'claude' || normalized.startsWith('claude-'));
 }

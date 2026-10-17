@@ -23,7 +23,7 @@ interface PythonWorkerSuccess<T = unknown> {
   data: T;
 }
 
-export type PythonWorkerResponse<T = unknown> = PythonWorkerSuccess<T> | PythonWorkerFailure;
+type PythonWorkerResponse<T = unknown> = PythonWorkerSuccess<T> | PythonWorkerFailure;
 
 const YJK_WORKER_TIMEOUT_GRACE_MS = 30_000;
 

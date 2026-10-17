@@ -9,7 +9,7 @@ import { ConversationService } from './conversation.js';
 const conversationService = new ConversationService();
 
 /** Request-context fields recorded in the persisted debug details. */
-export interface PersistedDebugContext {
+interface PersistedDebugContext {
   runPolicy?: RunPolicyInput;
   locale?: AppLocale;
   skillIds?: string[];
@@ -19,7 +19,7 @@ export interface PersistedDebugContext {
 }
 
 /** The checkpointed agent-state slice whose intermediate tool-call messages are persisted. */
-export interface PersistableConversationState {
+interface PersistableConversationState {
   messages?: BaseMessage[];
 }
 

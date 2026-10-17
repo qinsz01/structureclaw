@@ -10,7 +10,7 @@ import path from 'node:path';
 import { runPkpmCalcbook } from '../agent-skills/report-export/calculation-book/pkpm-calcbook/runner.js';
 import { resultEngine } from '../engineering/result-data.js';
 
-export interface EngineeringReportInput {
+interface EngineeringReportInput {
   message: string;
   analysisType: 'static' | 'dynamic' | 'seismic' | 'nonlinear';
   normalizedModel?: unknown;

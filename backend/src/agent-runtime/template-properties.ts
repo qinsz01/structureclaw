@@ -67,7 +67,7 @@ export function normalizeSectionName(raw: string): string {
   return raw.trim().toUpperCase().replace(/\s+/g, '').replace(/[×x*]/gi, 'X');
 }
 
-export function resolveFrameMaterialProps(grade: string | undefined): ResolvedFrameMaterialProps {
+function resolveFrameMaterialProps(grade: string | undefined): ResolvedFrameMaterialProps {
   if (!grade) throw new Error('TEMPLATE_PROPERTY_REQUIRED: material grade / 请明确材料牌号或完整材料记录');
   const normalized = normalizeSteelGrade(grade);
   // Quality suffixes do not change the elastic constants; retain the declared grade.
@@ -168,7 +168,7 @@ export function resolveSectionProps(
   throw new Error(`TEMPLATE_PROPERTY_REQUIRED: unsupported section ${section} / 截面无法解析，请提供完整截面属性`);
 }
 
-export function buildMaterialRecord(matProps: ResolvedFrameMaterialProps): Record<string, unknown> {
+function buildMaterialRecord(matProps: ResolvedFrameMaterialProps): Record<string, unknown> {
   return {
     id: '1',
     name: matProps.resolvedGrade,
@@ -183,7 +183,7 @@ export function buildMaterialRecord(matProps: ResolvedFrameMaterialProps): Recor
   };
 }
 
-export function buildSectionRecord(id: string, purpose: 'column' | 'beam', props: SectionProps): Record<string, unknown> {
+function buildSectionRecord(id: string, purpose: 'column' | 'beam', props: SectionProps): Record<string, unknown> {
   return {
     id,
     name: props.name,
@@ -211,7 +211,7 @@ const sectionDesignations = (section: Record<string, unknown>, draft: DraftState
     .filter((name): name is string => typeof name === 'string' && !!name.trim()).map(name => name.trim()))];
 
 /** Declared designations the template cannot build: neither reviewed catalog rows nor explicit dimensions. */
-export function unsupportedSectionDesignations(state: DraftState): string[] {
+function unsupportedSectionDesignations(state: DraftState): string[] {
   const draft = state.engineeringDraft;
   // Only rolled H-family designations (HN/HW/HM/HP…) are recognised; role names are never treated as choices.
   const unsupported = (name: string) => /^H[WMNP]?\s*\d/i.test(name) && !reviewedSectionName(name) && !parseCustomHSection(name);
@@ -226,7 +226,7 @@ export function unsupportedSectionDesignations(state: DraftState): string[] {
 const DESIGNATION_TOKEN = /H[WMNP]?\s*\d+(?:\.\d+)?(?:\s*[x×*]\s*\d+(?:\.\d+)?)+/gi;
 
 /** A choice naming an unsupported designation, without any explicitly dimensioned section, would be rejected again. */
-export function unsupportedSectionChoice(option: string, designations: string[]): boolean {
+function unsupportedSectionChoice(option: string, designations: string[]): boolean {
   if (!designations.length) return false;
   const tokens = option.match(DESIGNATION_TOKEN) ?? [];
   if (tokens.some(token => parseCustomHSection(token))) return false;

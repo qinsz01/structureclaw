@@ -2,7 +2,7 @@ import type { ExecutionRequestOptions } from '../agent-skills/analysis/types.js'
 import { PythonWorkerRunner, resolveWorkerPath } from '../utils/python-worker-runner.js';
 import type { CodeCheckClient } from '../agent-skills/code-check/rule.js';
 
-export interface CodeCheckExecutionInput {
+interface CodeCheckExecutionInput {
   action: 'code_check';
   input?: Record<string, unknown>;
 }

@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { Writable } from 'stream';
 
-export interface RotationOptions {
+interface RotationOptions {
   /** Max file size in bytes before rotation. Caller must provide a positive integer. */
   maxSize: number;
   /** Max age in days for old log files. Caller must provide a positive integer. */

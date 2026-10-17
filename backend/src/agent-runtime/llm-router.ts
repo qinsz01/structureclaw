@@ -29,7 +29,7 @@ interface StructuralRouterDecision {
   reason?: string;
 }
 
-export interface StructuralRouterInput {
+interface StructuralRouterInput {
   llm: RouterLlm;
   message: string;
   locale: AppLocale;

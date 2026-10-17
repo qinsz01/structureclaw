@@ -23,7 +23,7 @@ export interface ToolContext {
 }
 
 /** Host inputs: the shell gate and the request-level file allow-list. */
-export interface ToolHostInputs {
+interface ToolHostInputs {
   allowShell: boolean;
   fileAccessAllowlist?: string[];
 }
@@ -31,7 +31,7 @@ export interface ToolHostInputs {
 type ToolContextState = Partial<Pick<AgentState, 'runPolicy' | 'selectedSkillIds' | 'toolAccessPolicy'>>;
 
 /** Skill scope: the policy's active skills intersected with the session selection. */
-export function deriveSkillScope(state: ToolContextState, policy: EffectiveRunPolicy | undefined): string[] | undefined {
+function deriveSkillScope(state: ToolContextState, policy: EffectiveRunPolicy | undefined): string[] | undefined {
   const effective = state.runPolicy ?? policy;
   return effective
     ? effective.activeSkillIds.filter(id => state.selectedSkillIds!.includes(id))

@@ -1,10 +1,10 @@
 export const STRUCTURAL_COORDINATE_SEMANTICS = 'global-z-up' as const;
 export const STRUCTURAL_COORDINATE_CONTRACT_VERSION = 1 as const;
-export const STRUCTURAL_DOF_ORDER = ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'] as const;
+const STRUCTURAL_DOF_ORDER = ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'] as const;
 
-export type StructuralFrameDimension = '2d' | '3d';
+type StructuralFrameDimension = '2d' | '3d';
 
-export type StructuralCoordinateSystem = {
+type StructuralCoordinateSystem = {
   semantics: typeof STRUCTURAL_COORDINATE_SEMANTICS;
   version: typeof STRUCTURAL_COORDINATE_CONTRACT_VERSION;
   dimension: StructuralFrameDimension;

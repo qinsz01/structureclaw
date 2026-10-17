@@ -7,7 +7,7 @@ import type {
   SkillDefaultProposal,
 } from '../../shared/types/agent.js';
 
-export interface SectionPoint {
+interface SectionPoint {
   x: number;
   y: number;
 }
@@ -33,7 +33,7 @@ interface SectionPropertySummary {
   warnings: string[];
 }
 
-export interface SectionModelOptions {
+interface SectionModelOptions {
   skillId: string;
   family: string;
   title: LocalizedText;

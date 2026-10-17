@@ -18,7 +18,7 @@ export const ANALYSIS_SKILL_LABELS: Readonly<Record<string, string>> = {
   'yjk-static': 'YJK static analysis',
 };
 
-export interface AnalysisSkillCatalogEntry {
+interface AnalysisSkillCatalogEntry {
   id: string;
   engineId: BuiltInAnalysisEngineId;
   analysisType: AgentAnalysisType;
@@ -51,7 +51,7 @@ export function analysisSkillLabel(skillId: string): string {
   return ANALYSIS_SKILL_LABELS[skillId] ?? skillId;
 }
 
-export interface AnalysisSkillContext {
+interface AnalysisSkillContext {
   analysisType?: string;
   /** Already trimmed engine id. */
   engineId?: string;

@@ -14,44 +14,42 @@
  */
 import type { DraftFloorLoad, DraftState } from '../../../shared/types/agent.js';
 import {
-  COLUMN_ALIASES,
   matchColumnToField,
   normalizeHeader,
   type KnownDraftField,
 } from './column-aliases.js';
 
-export { matchColumnToField, normalizeHeader, COLUMN_ALIASES };
-export type { KnownDraftField };
+export { matchColumnToField, normalizeHeader };
 
 // ---------------------------------------------------------------------------
 // analyze_file output shapes (subset we depend on)
 // ---------------------------------------------------------------------------
 
-export interface AnalyzeFileCsvOutput {
+interface AnalyzeFileCsvOutput {
   type: 'csv';
   headers: string[];
   rows: string[][];
 }
 
-export interface AnalyzeFileExcelSheet {
+interface AnalyzeFileExcelSheet {
   headers: string[];
   rows: unknown[][];
 }
 
-export interface AnalyzeFileExcelOutput {
+interface AnalyzeFileExcelOutput {
   type: 'excel';
   sheets: Record<string, AnalyzeFileExcelSheet>;
 }
 
-export type AnalyzeFileSpreadsheet = AnalyzeFileCsvOutput | AnalyzeFileExcelOutput;
+type AnalyzeFileSpreadsheet = AnalyzeFileCsvOutput | AnalyzeFileExcelOutput;
 
 /** Hints the skill can produce. Mirrors the relevant DraftState slice. */
-export type CsvDraftHints = Pick<
+type CsvDraftHints = Pick<
   DraftState,
   'storyCount' | 'storyHeightsM' | 'spanLengthM' | 'bayWidthsM' | 'heightM' | 'floorLoads'
 >;
 
-export interface MapCsvToDraftHintsResult {
+interface MapCsvToDraftHintsResult {
   fields: Partial<CsvDraftHints>;
   unmappedHeaders: string[];
   warnings: string[];
@@ -63,7 +61,7 @@ export interface MapCsvToDraftHintsResult {
 // Cell parsing
 // ---------------------------------------------------------------------------
 
-export interface ParsedCell {
+interface ParsedCell {
   value: number;
   /** Detected unit, lower-cased; empty string when the cell carried no unit. */
   unit: string;

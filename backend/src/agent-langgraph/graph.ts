@@ -379,7 +379,7 @@ export function shouldContinue(
 // Graph builder
 // ---------------------------------------------------------------------------
 
-export interface GraphDeps extends AgentToolFactoryDeps {
+interface GraphDeps extends AgentToolFactoryDeps {
   skillManifests: SkillManifest[];
   checkpointer?: BaseCheckpointSaver;
 }

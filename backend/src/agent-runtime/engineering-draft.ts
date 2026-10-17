@@ -618,7 +618,7 @@ function loadLocationMergeValue(
   return Object.values(rest).some((value) => value !== undefined) ? rest : undefined;
 }
 
-export function engineeringLoadMergeKey(
+function engineeringLoadMergeKey(
   load: EngineeringDraftLoad,
   draft: Pick<EngineeringDraft, 'structureType' | 'geometry' | 'analysis'>,
 ): string {

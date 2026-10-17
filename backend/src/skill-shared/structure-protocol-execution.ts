@@ -7,7 +7,7 @@ type StructureProtocolAction =
   | 'validate'
   | 'convert';
 
-export interface StructureProtocolExecutionInput {
+interface StructureProtocolExecutionInput {
   action: StructureProtocolAction;
   input?: Record<string, unknown>;
 }

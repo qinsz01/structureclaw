@@ -27,7 +27,7 @@ type StoredLlmSettings = {
   maxRetries?: number;
 };
 
-export type EffectiveLlmSettings = Pick<
+type EffectiveLlmSettings = Pick<
   typeof config,
   'llmApiKey' | 'llmModel' | 'llmBaseUrl' | 'llmTimeoutMs' | 'llmMaxRetries'
 >;
@@ -36,7 +36,7 @@ export type LlmValueSource = 'runtime' | 'default';
 export type ApiKeySource = 'runtime' | 'env' | 'unset';
 export type VisionValueSource = 'runtime' | 'env' | 'llm' | 'default' | 'unset';
 
-export type PublicLlmSettings = {
+type PublicLlmSettings = {
   baseUrl: string;
   model: string;
   defaultBaseUrl: string;
@@ -49,7 +49,7 @@ export type PublicLlmSettings = {
   apiKeySource: ApiKeySource;
 };
 
-export type PublicVisionLlmSettings = {
+type PublicVisionLlmSettings = {
   baseUrl: string;
   model: string;
   defaultBaseUrl: string;
@@ -62,14 +62,14 @@ export type PublicVisionLlmSettings = {
   apiKeySource: VisionValueSource;
 };
 
-export type UpdateRuntimeLlmSettingsInput = {
+type UpdateRuntimeLlmSettingsInput = {
   baseUrl: string;
   model: string;
   apiKey?: string;
   apiKeyMode?: 'keep' | 'replace' | 'inherit';
 };
 
-export type UpdateRuntimeVisionLlmSettingsInput = {
+type UpdateRuntimeVisionLlmSettingsInput = {
   baseUrl?: string;
   model?: string;
   apiKey?: string;

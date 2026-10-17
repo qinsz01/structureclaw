@@ -35,7 +35,7 @@ export function processIsAlive(pid: number): boolean {
   catch (error) { return (error as NodeJS.ErrnoException).code !== 'ESRCH'; }
 }
 
-export function inspectPersistentSessionLock(sessionFile: string) {
+function inspectPersistentSessionLock(sessionFile: string) {
   const raw = readOptional(sessionFile + '.claim');
   if (raw === undefined) return null;
   const claim = JSON.parse(raw) as { token: string; pid: number; createdAt?: string };

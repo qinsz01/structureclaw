@@ -2,7 +2,7 @@ import type { InferredModelType, RoutingSource, StructuralTypeKey, StructuralTyp
 
 type SwitchStrength = 'strong' | 'weak';
 
-export interface ConservativeStructuralRoute {
+interface ConservativeStructuralRoute {
   key: StructuralTypeKey;
   mappedType: InferredModelType;
   skillId: string;

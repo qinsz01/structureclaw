@@ -2,7 +2,7 @@ import type { AppLocale } from '../../../shared/locale.js';
 import { getCommonConstraints } from './llm-model-prompt-fragments.js';
 import { modelContract, promptContract } from '../../../engineering/draft-contract.js';
 
-export type GenericModelPromptIntent = 'build-structure-model-v2';
+type GenericModelPromptIntent = 'build-structure-model-v2';
 
 type PromptIntentConfig = {
   opening: (locale: AppLocale) => string[];

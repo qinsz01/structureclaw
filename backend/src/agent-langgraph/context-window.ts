@@ -7,7 +7,7 @@ const MAX_COMPACTED_HISTORY_MESSAGES = 80;
 const MESSAGE_SNIPPET_LIMIT = 700;
 const TOOL_SNIPPET_LIMIT = 500;
 
-export interface ContextCompactionInput {
+interface ContextCompactionInput {
   messages: BaseMessage[];
   locale: AppLocale;
   baseCharCount?: number;
@@ -15,7 +15,7 @@ export interface ContextCompactionInput {
   summaryCharLimit?: number;
 }
 
-export interface ContextCompactionResult {
+interface ContextCompactionResult {
   messages: BaseMessage[];
   compacted: boolean;
   originalCharCount: number;

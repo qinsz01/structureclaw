@@ -1,4 +1,4 @@
-export type BuiltinGroundMotionCatalogRecord = {
+type BuiltinGroundMotionCatalogRecord = {
   id: string;
   name: string;
   recordType: 'artificial';
@@ -10,7 +10,7 @@ export type BuiltinGroundMotionCatalogRecord = {
   descriptionZh: string;
 };
 
-export type CommonRecordedGroundMotionReference = {
+type CommonRecordedGroundMotionReference = {
   id: string;
   name: string;
   recordType: 'reference';

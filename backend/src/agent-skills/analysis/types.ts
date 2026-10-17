@@ -23,8 +23,8 @@ export interface LocalAnalysisEngineClient {
 }
 
 export type BuiltInAnalysisEngineId = 'builtin-opensees' | 'builtin-pkpm' | 'builtin-yjk';
-export type AnalysisRuntimeAdapterKey = BuiltInAnalysisEngineId;
-export type AnalysisSoftware = 'opensees' | 'pkpm' | 'yjk';
+type AnalysisRuntimeAdapterKey = BuiltInAnalysisEngineId;
+type AnalysisSoftware = 'opensees' | 'pkpm' | 'yjk';
 export type AnalysisModelFamily = 'frame' | 'truss' | 'generic';
 
 export interface AnalysisSkillManifest {

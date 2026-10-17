@@ -45,7 +45,7 @@ const UPLOAD_EXT_WHITELIST = new Set([
 
 const UPLOAD_MAX_BYTES = 50 * 1024 * 1024; // 50 MB
 
-export interface UploadedFileMetadata {
+interface UploadedFileMetadata {
   fileId: string;
   originalName: string;
   storedPath: string;

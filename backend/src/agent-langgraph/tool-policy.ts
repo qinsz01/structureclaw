@@ -1,12 +1,12 @@
 import { listAgentToolDefinitions } from './tool-registry.js';
 
-export interface ResolveActiveToolIdsInput {
+interface ResolveActiveToolIdsInput {
   requestedEnabledToolIds?: string[];
   requestedDisabledToolIds?: string[];
   allowShell: boolean;
 }
 
-export interface ResolveActiveToolIdsResult {
+interface ResolveActiveToolIdsResult {
   activeToolIds: string[];
   deniedToolIds: Record<string, string[]>;
   unknownToolIds: string[];

@@ -50,7 +50,7 @@ export { projectBeamLoads, projectDraftPatch } from './project-patch.js';
 // Outbound: canonical draft -> DraftState
 // ---------------------------------------------------------------------------
 
-export interface ProjectDraftStateOptions {
+interface ProjectDraftStateOptions {
   /**
    * When to write the legacy `skillState.engineeringDraft` mirror:
    * - 'existing' (default): only where the base state already carries one;
@@ -171,7 +171,7 @@ export function mergeDraftState(existing: DraftState | undefined, patch: DraftEx
 const isPlainRecord = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const failClear = (path: string, reason: string): never => { throw new Error(`DRAFT_CLEAR_INVALID: ${path}: ${reason} / 草稿删除操作无效，原状态未变`); };
 
-export function normalizeClearDraftFields(value: unknown): string[] {
+function normalizeClearDraftFields(value: unknown): string[] {
   if (!Array.isArray(value) || value.some(field => typeof field !== 'string' || !field.trim())) failClear('clearDraftFields', 'expected field paths');
   return [...new Set((value as string[]).map(field => field.trim().replace(/^engineeringDraft\./, '')))];
 }

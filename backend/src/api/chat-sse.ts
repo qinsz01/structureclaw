@@ -62,7 +62,7 @@ export interface SseTurnSession {
   writeEvent(event: unknown): void;
 }
 
-export interface SseTurnHandlers {
+interface SseTurnHandlers {
   /** Route path used in the unexpected-error log line. */
   route: string;
   /** Log message when the client aborted the stream. */

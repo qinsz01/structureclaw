@@ -130,7 +130,7 @@ export async function tryBuildGenericModelWithLlm(
 /** Topology generation must not replace confirmed geometry or reviewed catalog data with LLM arithmetic.
  * Explicit user properties remain on the source record and still undergo physics validation.
  */
-export function projectConfirmedGeometricSections(model: Record<string, unknown>, state: DraftState): void {
+function projectConfirmedGeometricSections(model: Record<string, unknown>, state: DraftState): void {
   if (!Array.isArray(model.sections)) return;
   const generated = model.sections;
   const draft = state.engineeringDraft;

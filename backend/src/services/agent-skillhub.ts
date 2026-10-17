@@ -8,7 +8,7 @@ import type { SkillCompatibilityReasonCode } from '../skill-shared/loader.js';
 import type { SkillDomain } from '../shared/types/agent.js';
 type SkillIntegrityReasonCode = 'signature_invalid' | 'checksum_mismatch';
 
-export interface SkillHubCatalogEntry {
+interface SkillHubCatalogEntry {
   id: string;
   version: string;
   domain: SkillDomain;

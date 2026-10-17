@@ -14,7 +14,7 @@ const choice = (...values: string[]): FieldSchema => ({ type: 'string', enum: va
 const integer = { type: 'integer', minimum: 1 };
 
 /** Flat alias -> canonical draft path. */
-export const legacyDraftPaths: Record<string, string> = {
+const legacyDraftPaths: Record<string, string> = {
   ...Object.fromEntries(Object.keys(draftContract.properties.geometry.properties).map(key => [key, `geometry.${key}`])),
   supportType: 'boundary.supportType', frameBaseSupportType: 'boundary.frameBaseSupportType',
   frameDimension: 'coordinateSystem.dimension',

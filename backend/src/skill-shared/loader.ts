@@ -5,7 +5,7 @@ type SkillProviderPriorityOrder = 'asc' | 'desc';
 
 export type SkillCompatibilityReasonCode = 'runtime_version_incompatible' | 'skill_api_version_incompatible';
 
-export interface SkillCompatibilityResult {
+interface SkillCompatibilityResult {
   compatible: boolean;
   reasonCodes: SkillCompatibilityReasonCode[];
 }
@@ -60,12 +60,12 @@ interface SkillDependencyRejection {
   detail: string;
 }
 
-export interface SkillDependencyResolution<TProvider extends BaseSkillProvider<string>> {
+interface SkillDependencyResolution<TProvider extends BaseSkillProvider<string>> {
   accepted: TProvider[];
   rejected: SkillDependencyRejection[];
 }
 
-export interface LoadSkillProvidersOptions<TProvider extends BaseSkillProvider<string>> {
+interface LoadSkillProvidersOptions<TProvider extends BaseSkillProvider<string>> {
   builtInProviders?: TProvider[];
   externalProviders?: TProvider[];
   priorityOrder?: SkillProviderPriorityOrder;
@@ -74,7 +74,7 @@ export interface LoadSkillProvidersOptions<TProvider extends BaseSkillProvider<s
   packages?: Map<string, SkillPackageMetadata>;
 }
 
-export interface ExecutableSkillProviderLoadFailure<TPackage extends SkillPackageMetadata<string>> {
+interface ExecutableSkillProviderLoadFailure<TPackage extends SkillPackageMetadata<string>> {
   packageId: string;
   packageVersion: string;
   domain: TPackage['domain'];
@@ -84,7 +84,7 @@ export interface ExecutableSkillProviderLoadFailure<TPackage extends SkillPackag
   detail?: string;
 }
 
-export interface LoadExecutableSkillProvidersOptions<
+interface LoadExecutableSkillProvidersOptions<
   TPackage extends SkillPackageMetadata<string>,
   TModule,
   TProvider extends BaseSkillProvider<string>,
@@ -259,7 +259,7 @@ export async function loadExecutableSkillProviders<
   return { providers, failures };
 }
 
-export interface SkillLoadSummary {
+interface SkillLoadSummary {
   loaded: number;
   failed: number;
   failuresByReason: Record<string, number>;

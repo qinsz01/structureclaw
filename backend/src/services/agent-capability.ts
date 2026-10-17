@@ -106,7 +106,7 @@ function uniqueStrings(values: readonly string[]): string[] {
 }
 
 /** Tool metadata the capability matrix needs; supplied by the agent host (agent-langgraph tool registry). */
-export interface CapabilityToolDefinition {
+interface CapabilityToolDefinition {
   id: string;
   category: string;
   risk: string;

@@ -35,7 +35,7 @@ export function getLogger(configurable: Record<string, unknown> | undefined): Lo
 // Structured log helpers — each respects the pino level hierarchy
 // ---------------------------------------------------------------------------
 
-export interface ToolCallParams {
+interface ToolCallParams {
   tool: string;
   input?: unknown;
   output?: unknown;
@@ -91,7 +91,7 @@ export function logToolCall(log: Logger, params: ToolCallParams): void {
   log.trace(base, `tool:${tool} completed (trace)`);
 }
 
-export interface LlmCallParams {
+interface LlmCallParams {
   model: string;
   /** prompt token count, if available */
   promptTokens?: number;

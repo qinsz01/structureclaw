@@ -7,7 +7,7 @@ type NormalizedToolCall = {
   type: 'tool_call';
 };
 
-export interface ToolProtocolRepairResult {
+interface ToolProtocolRepairResult {
   messages: BaseMessage[];
   repairedCount: number;
 }

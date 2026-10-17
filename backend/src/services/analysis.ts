@@ -26,7 +26,7 @@ import {
   STRUCTURAL_COORDINATE_SEMANTICS,
 } from '../engineering/coordinate-semantics.js';
 
-export interface CreateModelParams {
+interface CreateModelParams {
   [key: string]: unknown;
   name: string;
   coordinate_system: ReturnType<typeof buildStructuralCoordinateSystem>;
@@ -39,7 +39,7 @@ export interface CreateModelParams {
   conversationId?: string;
 }
 
-export interface CreateAnalysisParams {
+interface CreateAnalysisParams {
   name: string;
   type: string;
   modelId: string;

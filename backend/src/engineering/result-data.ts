@@ -11,7 +11,7 @@ function recoveryModel(model: ModelRecord): model is ModelRecord & RecoveryModel
     && ['nodes', 'elements', 'materials', 'sections', 'load_cases'].every((key) => Array.isArray(model[key]));
 }
 
-export function resultFactors(model: ModelRecord, selection: ModelRecord): Record<string, number> | undefined {
+function resultFactors(model: ModelRecord, selection: ModelRecord): Record<string, number> | undefined {
   if (selection.kind === 'case') return { [String(selection.id)]: 1 };
   if (selection.kind === 'combination' && Array.isArray(model.load_combinations)) {
     const combination = model.load_combinations.find((item) => isRecord(item) && item.id === selection.id);

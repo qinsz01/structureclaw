@@ -27,8 +27,8 @@ import { createShellTool } from './shell-tool.js';
 import { createCalculateTool } from './calc-tool.js';
 import { createEditModelTool, createUndoModelTool, createQueryModelTool, createQueryResultsTool, createReviewInputTool } from './model-tools.js';
 
-export type AgentToolRisk = 'low' | 'workspace-read' | 'workspace-write' | 'destructive' | 'shell';
-export type AgentToolCategory = 'engineering' | 'interaction' | 'session' | 'workspace' | 'memory' | 'shell';
+type AgentToolRisk = 'low' | 'workspace-read' | 'workspace-write' | 'destructive' | 'shell';
+type AgentToolCategory = 'engineering' | 'interaction' | 'session' | 'workspace' | 'memory' | 'shell';
 
 export interface AgentToolFactoryDeps {
   skillRuntime: AgentSkillRuntime;

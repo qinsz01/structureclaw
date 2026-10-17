@@ -94,7 +94,7 @@ export function getConcreteMaterial(grade: string): ConcreteMaterial {
  * @returns RebarMaterial object
  * @throws Error if grade is invalid
  */
-export function getRebarMaterial(grade: string): RebarMaterial {
+function getRebarMaterial(grade: string): RebarMaterial {
   const normalized = grade.toUpperCase();
   const material = REBAR_GRADES[normalized];
   if (!material) {
@@ -224,7 +224,7 @@ type RebarMaterialProps = RebarMaterial & { category: 'rebar' };
  * @param grade Concrete grade (e.g., "C30")
  * @returns ConcreteMaterialProps with E, G, nu, rho
  */
-export function resolveConcreteMaterialProps(grade: string): ConcreteMaterialProps {
+function resolveConcreteMaterialProps(grade: string): ConcreteMaterialProps {
   const concrete = getConcreteMaterial(grade);
   const E = concrete.Ec; // Elastic modulus from table (N/mm²)
   const nu = 0.2; // Poisson's ratio for concrete
@@ -245,7 +245,7 @@ export function resolveConcreteMaterialProps(grade: string): ConcreteMaterialPro
  * @param grade Rebar grade (e.g., "HRB400")
  * @returns RebarMaterialProps with category 'rebar'
  */
-export function resolveRebarMaterialProps(grade: string): RebarMaterialProps {
+function resolveRebarMaterialProps(grade: string): RebarMaterialProps {
   const rebar = getRebarMaterial(grade);
   return {
     ...rebar,

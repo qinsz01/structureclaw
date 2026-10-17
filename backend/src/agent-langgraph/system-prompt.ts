@@ -58,13 +58,13 @@ function summarizeArtifacts(state: AgentState): string {
  * Mechanisms the prompt must describe consistently with the tools actually bound. With every
  * mechanism available the prompt is byte-identical to the full system.
  */
-export interface PromptFeatures {
+interface PromptFeatures {
   clarification: boolean;
   validation: boolean;
   repair: boolean;
 }
 
-export function promptFeatures(state: AgentState, activeToolIds: string[] | undefined): PromptFeatures {
+function promptFeatures(state: AgentState, activeToolIds: string[] | undefined): PromptFeatures {
   return {
     clarification: activeToolIds === undefined || activeToolIds.includes('ask_user_clarification'),
     validation: activeToolIds === undefined || activeToolIds.includes('validate_model'),
@@ -141,7 +141,7 @@ function promptLine(locale: 'zh' | 'en', key: keyof typeof PROMPT_LINES['en'], f
 // Public API
 // ---------------------------------------------------------------------------
 
-export interface SystemPromptContext {
+interface SystemPromptContext {
   state: AgentState;
   skillManifests: SkillManifest[];
   maxToolCallsPerTurn?: number;

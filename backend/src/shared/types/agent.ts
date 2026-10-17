@@ -13,7 +13,7 @@ export type EngineeringDraftLoadUnit = 'kN' | 'kN/m' | 'kN/m2';
 export type EngineeringDraftLoadDirection = 'gravity' | 'globalX' | 'globalY' | 'globalZ';
 export type EngineeringDraftLoadCaseType = 'dead' | 'live' | 'wind' | 'seismic' | 'other';
 
-export interface EngineeringDraftGeometry {
+interface EngineeringDraftGeometry {
   lengthM?: number;
   heightM?: number;
   mezzanineHeightM?: number;
@@ -51,25 +51,25 @@ export interface EngineeringDraftTopology {
   members?: EngineeringDraftTopologyMember[];
 }
 
-export interface EngineeringDraftMaterial {
+interface EngineeringDraftMaterial {
   family?: MaterialFamily;
   grade?: string;
   rebarGrade?: string;
 }
 
-export interface EngineeringDraftSections {
+interface EngineeringDraftSections {
   beam?: string;
   column?: string;
   member?: string;
 }
 
-export interface EngineeringDraftBoundary {
+interface EngineeringDraftBoundary {
   supportType?: DraftSupportType;
   frameBaseSupportType?: FrameBaseSupportType;
   supportPositionsM?: number[];
 }
 
-export interface EngineeringDraftLoadLocation {
+interface EngineeringDraftLoadLocation {
   xM?: number;
   spanIndex?: number;
   story?: number;
@@ -93,7 +93,7 @@ export interface EngineeringDraftLoadCombination {
   factors: Record<string, number>;
 }
 
-export interface EngineeringDraftAnalysis {
+interface EngineeringDraftAnalysis {
   type?: AgentAnalysisType;
   engineTarget?: 'opensees' | 'pkpm' | 'yjk';
   loadCombinations?: EngineeringDraftLoadCombination[];
@@ -132,7 +132,7 @@ export interface EngineeringDraft {
   metadata?: Record<string, unknown>;
 }
 
-export type DraftIssueSeverity = 'invalid' | 'ambiguous' | 'unrealistic' | 'conflict';
+type DraftIssueSeverity = 'invalid' | 'ambiguous' | 'unrealistic' | 'conflict';
 
 export interface DraftIssue {
   field?: string;
@@ -525,7 +525,7 @@ export interface VisualizationHints {
 
 // --- Artifact kinds ---
 
-export type ArtifactKind =
+type ArtifactKind =
   | 'draftState'
   | 'designBasis'
   | 'normalizedModel'
@@ -538,23 +538,23 @@ export type ArtifactKind =
 
 // --- Artifact references and envelope ---
 
-export interface ArtifactRef {
+interface ArtifactRef {
   kind: ArtifactKind;
   artifactId: string;
   revision: number;
 }
 
-export type ArtifactScope = 'session' | 'project' | 'deliverable';
-export type ArtifactStatus = 'draft' | 'ready' | 'stale' | 'blocked' | 'failed';
+type ArtifactScope = 'session' | 'project' | 'deliverable';
+type ArtifactStatus = 'draft' | 'ready' | 'stale' | 'blocked' | 'failed';
 
-export interface ArtifactProvenance {
+interface ArtifactProvenance {
   toolId?: string;
   toolVersion?: string;
   skillContractVersion?: string;
   warnings?: string[];
 }
 
-export interface ArtifactEnvelope<T = unknown> {
+interface ArtifactEnvelope<T = unknown> {
   artifactId: string;
   kind: ArtifactKind;
   scope: ArtifactScope;
@@ -574,7 +574,7 @@ export interface ArtifactEnvelope<T = unknown> {
 
 // --- Project execution policy ---
 
-export interface AutoDesignIterationPolicy {
+interface AutoDesignIterationPolicy {
   enabled: boolean;
   maxIterations: number;
   acceptanceCriteria: string[];
@@ -608,7 +608,7 @@ export interface ProviderBindingState {
 
 // --- Runtime contract (all role variants) ---
 
-export interface ProviderRuntimeContract {
+interface ProviderRuntimeContract {
   role: 'provider';
   providerSlot: 'analysisProvider' | 'codeCheckProvider';
   selectionPolicy?: 'optional' | 'explicit_required';
@@ -620,7 +620,7 @@ export interface ProviderRuntimeContract {
   supportedModelFamilies?: string[];
 }
 
-export interface DesignerRuntimeContract {
+interface DesignerRuntimeContract {
   role: 'designer';
   selectionPolicy?: 'optional' | 'explicit_required';
   consumes?: ArtifactKind[];
@@ -632,7 +632,7 @@ export interface DesignerRuntimeContract {
   };
 }
 
-export interface ConsumerRuntimeContract {
+interface ConsumerRuntimeContract {
   role: 'consumer';
   targetArtifact?: ArtifactKind;
   deliverableProfileKey?: string;
@@ -648,20 +648,20 @@ export interface ConsumerRuntimeContract {
   provides?: ArtifactKind[];
 }
 
-export interface TransformerRuntimeContract {
+interface TransformerRuntimeContract {
   role: 'transformer';
   consumes?: ArtifactKind[];
   provides?: ArtifactKind[];
 }
 
-export interface BaseRuntimeContract {
+interface BaseRuntimeContract {
   role: 'entry' | 'enricher' | 'validator' | 'assistant';
   selectionPolicy?: 'optional' | 'explicit_required';
   consumes?: ArtifactKind[];
   provides?: ArtifactKind[];
 }
 
-export type SkillRuntimeContract =
+type SkillRuntimeContract =
   | ProviderRuntimeContract
   | DesignerRuntimeContract
   | ConsumerRuntimeContract

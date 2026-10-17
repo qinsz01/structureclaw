@@ -1,6 +1,6 @@
 /** Solver-independent inputs. Model units: m, kN, kN.m; material E in MPa. */
-export type RecoveryNode = { id: string; x: number; y: number; z: number };
-export type RecoveryElement = {
+type RecoveryNode = { id: string; x: number; y: number; z: number };
+type RecoveryElement = {
   id: string;
   nodes: string[];
   type: string;

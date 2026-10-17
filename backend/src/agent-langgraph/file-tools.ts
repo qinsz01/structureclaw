@@ -189,7 +189,7 @@ export async function analyzeUploadedFile(
   return result;
 }
 
-export async function inspectGroundMotionFile(analysis: AnalyzeFileResult, selection: Record<string, unknown>) {
+async function inspectGroundMotionFile(analysis: AnalyzeFileResult, selection: Record<string, unknown>) {
   if (!analysis.fileReference) throw new Error('GROUND_MOTION_COMPLETE_FILE_REQUIRED / 须先完整读取地震波文件');
   const runner = new PythonWorkerRunner<Record<string, unknown>>(resolveWorkerPath('agent-skills/analysis/opensees-seismic/ground_motion_worker.py'));
   return runner.invoke({ ...selection, fileReference: analysis.fileReference });

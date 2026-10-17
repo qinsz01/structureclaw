@@ -23,7 +23,7 @@ function ids(value: unknown): string[] {
 }
 
 /** Normalize legacy selector names once; never let a child solver override its result label. */
-export function normalizeAnalysisParameters(parameters: ModelRecord): ModelRecord {
+function normalizeAnalysisParameters(parameters: ModelRecord): ModelRecord {
   const normalized = { ...parameters };
   for (const key of SELECTION_FIELDS) delete normalized[key];
   for (const key of ['loadCases', 'load_cases', 'batchCases', 'combinations']) {

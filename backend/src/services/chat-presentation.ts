@@ -82,7 +82,7 @@ interface PresentationToolCallLike {
   errorCode?: string;
 }
 
-export interface PresentationResultLike {
+interface PresentationResultLike {
   response?: string;
   completedAt?: string;
   routing?: {

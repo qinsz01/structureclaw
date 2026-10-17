@@ -18,7 +18,7 @@ export interface RunPolicy {
   /** Selected ablation profile; omitted when none was selected. */
   profileId?: ProfileId;
 }
-export type RunPolicyFieldSource = 'default' | 'settings' | 'env' | 'session' | 'legacy' | 'request' | 'server-limit';
+type RunPolicyFieldSource = 'default' | 'settings' | 'env' | 'session' | 'legacy' | 'request' | 'server-limit';
 export interface EffectiveRunPolicy extends RunPolicy {
   version: 1;
   policyHash: string;
@@ -71,7 +71,7 @@ function profileOverrideFields(value: RunPolicy, preset: RunPolicyInput): string
   return pairs.filter(([, actual, expected]) => expected !== undefined && JSON.stringify(actual) !== JSON.stringify(expected))
     .map(([path]) => path);
 }
-export function runPolicyValues(value: RunPolicy): RunPolicy {
+function runPolicyValues(value: RunPolicy): RunPolicy {
   const { knowledge, builder, skillIds, routing, repair, context, tools, budgets, features, profileId } = value;
   return { knowledge, builder, skillIds, routing, repair: { ...repair }, context: { ...context }, tools: { ...tools }, budgets: { ...budgets },
     ...(features ? { features: { ...features } } : {}), ...(profileId ? { profileId } : {}) };

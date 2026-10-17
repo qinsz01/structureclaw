@@ -431,7 +431,7 @@ export function parseDraftPatchFromContent(content: string): Record<string, unkn
 // Public API
 // ---------------------------------------------------------------------------
 
-export interface ParamExtractorInput {
+interface ParamExtractorInput {
   message: string;
   existingState: DraftState | undefined;
   locale: 'zh' | 'en';

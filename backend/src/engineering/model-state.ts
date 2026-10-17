@@ -5,7 +5,7 @@ import { assertInputEvidenceMatchesModel, assertResolvedInput, mergeInputEvidenc
 
 export { contentHash, isRecord, type ModelRecord };
 
-export type ModelCollection = 'nodes' | 'elements' | 'materials' | 'sections' | 'stories' | 'load_cases' | 'load_combinations' | 'loads' | 'model_settings';
+type ModelCollection = 'nodes' | 'elements' | 'materials' | 'sections' | 'stories' | 'load_cases' | 'load_combinations' | 'loads' | 'model_settings';
 export interface ModelEdit {
   operation: 'add' | 'update' | 'remove';
   collection: ModelCollection;
@@ -220,7 +220,7 @@ export function commitModel(state: ModelState | undefined, model: ModelRecord, l
   };
 }
 
-export function invalidateAnalysis(state: ModelState | undefined) {
+function invalidateAnalysis(state: ModelState | undefined) {
   const previous = state?.analysisResult;
   const id = previous ? String(previous.runId ?? `legacy-${randomUUID()}`) : undefined;
   return {
