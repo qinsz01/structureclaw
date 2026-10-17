@@ -24,7 +24,7 @@ import {
   normalizeSeismicSiteCategory,
   normalizeWindTerrainRoughness,
 } from './design-conditions.js';
-import { normalizeConcreteGrade, normalizeSectionName } from './model.js';
+import { normalizeConcreteGrade, normalizeSectionName } from './model/materials.js';
 
 export function toConcreteFramePatch(patch: DraftExtraction): DraftExtraction {
   const semanticPatch = projectDraftPatch(patch, 'frame');

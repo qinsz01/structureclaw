@@ -14,7 +14,8 @@ import {
   resolveConcreteFrameStage,
 } from './interaction.js';
 import { mergeConcreteFrameState } from './merge.js';
-import { buildConcreteFrameModel, getConcreteMaterial, isValidConcreteGrade, isValidRebarGrade, normalizeConcreteGrade, normalizeSectionName, resolveSectionProps } from './model.js';
+import { buildConcreteFrameModel } from './model.js';
+import { getConcreteMaterial, isValidConcreteGrade, isValidRebarGrade, normalizeConcreteGrade, normalizeSectionName, resolveSectionProps } from './model/materials.js';
 import { DEFAULT_FLOOR_LOAD_KN_PER_M2 } from './constants.js';
 import type {
   ConcreteBeam,

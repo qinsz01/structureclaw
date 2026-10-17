@@ -19,7 +19,8 @@ import {
   LOAD_BOUNDARY_KEYS,
   REQUIRED_KEYS,
 } from './constants.js';
-import { getDefaultBeamSection, getDefaultColumnSection, hasConcreteFrameAnalysisLoadInput } from './model.js';
+import { hasConcreteFrameAnalysisLoadInput } from './model/loads.js';
+import { getDefaultBeamSection, getDefaultColumnSection } from './model/materials.js';
 import { hasLateralYFloorLoad } from './extract-llm.js';
 
 function inferConcreteFrameDimensionProposal(state: DraftState): '2d' | '3d' {
