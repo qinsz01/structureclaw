@@ -55,8 +55,9 @@ function assertSafeTempDir(directory) {
 /**
  * Start an isolated backend. `llmBaseUrl` must be the fake provider.
  * Returns HTTP helpers plus the data dir for direct inspection of run-records.
+ * `env` adds product environment variables (e.g. SCLAW_RUN_PROFILE) to the child process.
  */
-export async function startBackend({ llmBaseUrl, pythonBin }) {
+export async function startBackend({ llmBaseUrl, pythonBin, env: extraEnv = {} }) {
   const entry = path.join(backendDir, 'dist', 'index.js');
   if (!fs.existsSync(entry)) throw new Error('CHARACTERIZATION_BUILD_REQUIRED: run npm run build --prefix backend');
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), TEMP_PREFIX));
@@ -80,8 +81,9 @@ export async function startBackend({ llmBaseUrl, pythonBin }) {
     if (key.startsWith('LLM_') || key === 'OPENAI_API_KEY' || key === 'ANTHROPIC_API_KEY') delete env[key];
   }
   delete env.NODE_OPTIONS; // Jest's --experimental-vm-modules is not needed by the product server.
+  delete env.SCLAW_RUN_PROFILE; // A developer's ablation profile must not leak into characterization; pass it via `env`.
   Object.assign(env, { SCLAW_DATA_DIR: dataDir, DATABASE_URL: databaseUrl, PORT: String(port), NODE_ENV: 'test',
-    SCLAW_INSTANCE_ID: `characterization-${randomUUID()}`, SCLAW_FRONTEND_DIR: path.join(dataDir, 'no-frontend') });
+    SCLAW_INSTANCE_ID: `characterization-${randomUUID()}`, SCLAW_FRONTEND_DIR: path.join(dataDir, 'no-frontend') }, extraEnv);
   const sync = spawnSync(process.execPath, [path.join(backendDir, 'scripts', 'sync-sqlite-schema.mjs')], {
     cwd: backendDir, env, encoding: 'utf8', windowsHide: true, timeout: 120_000,
   });
@@ -96,7 +98,10 @@ export async function startBackend({ llmBaseUrl, pythonBin }) {
   const baseUrl = `http://127.0.0.1:${port}`;
   const deadline = Date.now() + 60_000;
   for (;;) {
-    if (child.exitCode !== null) throw new Error(`Backend exited early (${child.exitCode}): ${output}`);
+    if (child.exitCode !== null) {
+      fs.rmSync(dataDir, { recursive: true, force: true });
+      throw new Error(`Backend exited early (${child.exitCode}): ${output}`);
+    }
     try {
       const response = await fetch(`${baseUrl}/health`);
       if (response.ok) break;
