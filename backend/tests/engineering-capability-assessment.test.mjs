@@ -22,6 +22,23 @@ describe('read-only capability assessment separates task state from implementati
     expect(matrix.engines[1].environment).toMatchObject({status:'unavailable',reason:'SDK missing',checkedAt:'2026-10-14T00:00:00Z'});
     expect(matrix.analysisCompatibility.static.compatibleEngineIds).toEqual([]);
   });
+  test('recommended tools follow the effective run policy; without a policy the matrix is unchanged',async()=>{
+    const text={zh:'梁',en:'Beam'};
+    const manifests=[{id:'beam',domain:'structure-type',name:text,description:text,stages:['draft'],compatibility:{minRuntimeVersion:'0.1.0',skillApiVersion:'v1'}},
+      {id:'validation-core',domain:'validation',name:text,description:text,stages:['analysis'],compatibility:{minRuntimeVersion:'0.1.0',skillApiVersion:'v1'}}];
+    const service=new AgentCapabilityService({listSkills:()=>[],listSkillManifests:async()=>manifests},
+      {listBuiltinSkills:async()=>[],resolveCanonicalSkillId:id=>id},{listEngines:async()=>({engines:[]})});
+    const toolDefinitions=['build_model','validate_model','run_analysis'].map(id=>({id,category:'engineering',risk:'low',defaultEnabled:true}));
+    const full=await service.getCapabilityMatrix({toolDefinitions});
+    expect(full.enabledToolIdsBySkill.beam).toContain('validate_model');
+    expect(full.enabledToolIdsBySkill['validation-core']).toEqual(['validate_model']);
+    expect(Object.keys(full.skillIdsByToolId)).toContain('validate_model');
+    const gated=await service.getCapabilityMatrix({toolDefinitions,runPolicy:{activeToolIds:['build_model','run_analysis']}});
+    expect(gated.enabledToolIdsBySkill.beam).toEqual(['build_model','run_analysis']);
+    expect(gated.enabledToolIdsBySkill['validation-core']).toEqual([]);
+    expect(Object.keys(gated.skillIdsByToolId).sort()).toEqual(['build_model','run_analysis']);
+    expect(gated.tools.map(tool=>tool.id)).toEqual(full.tools.map(tool=>tool.id));
+  });
   test('no selected task cannot be called ready',()=>{
     expect(assessCurrentEngineeringInput()).toMatchObject({status:'not_assessed',issues:[]});
     expect(assessCurrentEngineeringInput(undefined,'missing')).toMatchObject({status:'unavailable'});

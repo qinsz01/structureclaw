@@ -4,7 +4,7 @@ import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { AgentStateAnnotation, emptySessionState } from '../../../dist/agent-langgraph/state.js';
 import { executeToolsSequentially } from '../../../dist/agent-langgraph/sequential-tools.js';
-import { applyToolsNodeSessionContext } from '../../../dist/agent-langgraph/graph.js';
+import { toolContextForNode } from '../../../dist/agent-langgraph/graph.js';
 import { buildParamExtractorPrompt } from '../../../dist/agent-langgraph/param-extractor.js';
 import { buildSystemMessages } from '../../../dist/agent-langgraph/system-prompt.js';
 import { createSetSessionConfigTool, createAskUserClarificationTool } from '../../../dist/agent-langgraph/tools.js';
@@ -26,15 +26,24 @@ describe('run policy at real orchestration boundaries', () => {
       expect(prompt).toContain('12 kN'); expect(prompt).toContain('engineeringDraft');
       const system = buildSystemMessages({ state: { ...emptySessionState(), selectedSkillIds: ['beam'], runPolicy: runtime.policy }, skillManifests: [plugin] })[0].content;
       expect(system).not.toContain('GUIDANCE_SENTINEL'); expect(system).toContain('beam');
+      // Stage names are stage knowledge too; skill id, name and domain stay.
+      expect(system).not.toContain('stages='); expect(system).toMatch(/- beam \(.+\): {2}\[domain=structure-type\]/);
+      expect(prompt).not.toContain('"stages"');
+    });
+    const full = createRunContext(policy());
+    withRunContext(full, () => {
+      expect(buildParamExtractorPrompt('en', { lengthM: 6 }, plugin, 'A beam with 12 kN')).toContain('"stages"');
+      const system = buildSystemMessages({ state: { ...emptySessionState(), locale: 'en', selectedSkillIds: ['beam'], runPolicy: full.policy }, skillManifests: [plugin] })[0].content;
+      expect(system).toContain('- beam (Beam): GUIDANCE_SENTINEL [domain=structure-type, stages=draft]');
     });
   });
   test('an empty selected scope stays empty and set_session_config cannot widen its immutable ceiling', async () => {
     const runtime = createRunContext(policy({ skillIds: ['generic'] }));
     const state = { ...emptySessionState(), runPolicy: runtime.policy, selectedSkillIds: [], messages: [] };
     const configurable = { runContext: runtime };
-    applyToolsNodeSessionContext(configurable, state);
-    expect(configurable.skillScope).toEqual([]);
-    const output = await withRunContext(runtime, () => createSetSessionConfigTool().invoke({ skillIdsJson: '["beam"]' }, { toolCall: { id: 'scope' }, configurable: { ...configurable, agentState: state } }));
+    const toolContext = toolContextForNode(state, configurable);
+    expect(toolContext.skillScope).toEqual([]);
+    const output = await withRunContext(runtime, () => createSetSessionConfigTool().invoke({ skillIdsJson: '["beam"]' }, { toolCall: { id: 'scope' }, configurable: { ...configurable, agentState: state, toolContext } }));
     expect(JSON.parse(output.update.messages[0].content).error_code).toBe('SKILL_SCOPE_IMMUTABLE');
     expect(output.update.selectedSkillIds).toBeUndefined();
   });

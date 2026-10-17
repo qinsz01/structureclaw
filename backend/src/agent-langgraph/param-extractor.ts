@@ -28,8 +28,7 @@ function buildSkillInfo(plugin: AgentSkillPlugin): Record<string, unknown> {
   return {
     skillId: plugin.id,
     name: plugin.name,
-    ...(currentRunPolicy()?.knowledge !== 'disabled' ? { description: plugin.description } : {}),
-    stages: plugin.stages,
+    ...(currentRunPolicy()?.knowledge !== 'disabled' ? { description: plugin.description, stages: plugin.stages } : {}),
     structureType: plugin.structureType,
     draftStageGuidance: getDraftStageGuidance(plugin),
   };

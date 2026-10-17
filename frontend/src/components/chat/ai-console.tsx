@@ -38,6 +38,7 @@ import {
 } from './message-presentation'
 import type { AppLocale } from '@/lib/stores/slices/preferences'
 import { API_BASE } from '@/lib/api-base'
+import { conversationStageLabel } from '@/lib/conversation-stage'
 import { ALL_SKILL_DOMAINS, buildSkillNormalizationContext, DEFAULT_CONSOLE_SKILL_IDS, type SkillDomain, type SkillMetadataLike } from '@/lib/skill-normalization'
 import { cn, formatDate, formatNumber } from '@/lib/utils'
 
@@ -1074,7 +1075,7 @@ function buildInteractionMessage(
   const lines: string[] = []
 
   if (conversationStage) {
-    lines.push(`${t('guidanceCurrentStage')}: ${conversationStage}`)
+    lines.push(`${t('guidanceCurrentStage')}: ${conversationStageLabel(conversationStage, t)}`)
   }
   if (fallbackSupportNote) {
     lines.push(fallbackSupportNote)
@@ -2621,7 +2622,7 @@ function AnalysisPanel({
                     {guidance.conversationStage && (
                       <div className="rounded-2xl border border-border/70 bg-background/70 p-4 dark:border-white/10 dark:bg-white/5">
                         <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{t('guidanceCurrentStage')}</div>
-                        <div className="mt-2 text-base font-semibold text-foreground">{guidance.conversationStage}</div>
+                        <div className="mt-2 text-base font-semibold text-foreground">{conversationStageLabel(guidance.conversationStage, t)}</div>
                       </div>
                     )}
                   </div>

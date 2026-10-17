@@ -5,6 +5,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { getAgentService, LangGraphAgentService } from '../agent-langgraph/index.js';
 import { AgentCapabilityService } from '../services/agent-capability.js';
+import { parseRequest } from './request-validation.js';
 import { listAgentToolDefinitions } from '../agent-langgraph/tool-registry.js';
 import { AgentSkillHubService } from '../services/agent-skillhub.js';
 import type { SkillDomain } from '../shared/types/agent.js';
@@ -189,7 +190,6 @@ export async function agentRoutes(fastify: FastifyInstance) {
     },
   }, async (request: FastifyRequest<{ Querystring: z.infer<typeof capabilityMatrixQuerySchema> }>, reply: FastifyReply) => {
     const query = capabilityMatrixQuerySchema.parse(request.query);
-    const matrix = await capabilityService.getCapabilityMatrix({ analysisType: query.analysisType, toolDefinitions: listAgentToolDefinitions() });
     let session;
     if (query.conversationId) {
       // Follow the same conversation lookup as GET /chat/conversation/:id.
@@ -197,6 +197,9 @@ export async function agentRoutes(fastify: FastifyInstance) {
       if (!conversation) return reply.code(404).send({ error: 'CONVERSATION_NOT_FOUND' });
       session = await agentService.getConversationSessionSnapshot(query.conversationId, 'en');
     }
+    // A conversation's saved run policy gates the recommended tools (e.g. no-validation-gate).
+    const matrix = await capabilityService.getCapabilityMatrix({ analysisType: query.analysisType, toolDefinitions: listAgentToolDefinitions(),
+      runPolicy: session?.state?.runPolicy });
     return reply.send({ ...matrix, currentAssessment: assessCurrentEngineeringInput(session?.state, query.conversationId) });
   });
 
@@ -275,7 +278,7 @@ export async function agentRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request: FastifyRequest<{ Body: z.infer<typeof agentRunSchema> }>, reply: FastifyReply) => {
-    const body = agentRunSchema.parse(request.body);
+    const body = parseRequest(agentRunSchema, request.body);
     try { return reply.send(await agentService.run(body)); }
     catch (error) {
       if (error instanceof Error && error.message.startsWith('CONVERSATION_WAITING_FOR_REPLY')) {

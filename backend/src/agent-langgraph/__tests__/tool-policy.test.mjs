@@ -2,33 +2,22 @@ import { describe, expect, test } from "@jest/globals";
 
 describe("LangGraph tool policy", () => {
   test("checkpointed tool policy overrides missing resume-request configuration", async () => {
-    const { applySessionToolAccessPolicy } = await import("../../../dist/agent-langgraph/graph.js");
-    const configurable = {
-      enabledToolIds: undefined,
-      disabledToolIds: undefined,
-      fileAccessAllowlist: undefined,
-    };
+    const { deriveToolContext } = await import("../../../dist/agent-langgraph/tool-context.js");
+    const context = deriveToolContext({
+      toolAccessPolicy: {
+        enabledToolIds: ["detect_structure_type", "ask_user_clarification"],
+        disabledToolIds: ["calculate"],
+        fileAccessAllowlist: [".uploads/case/input.dxf"],
+      },
+    }, undefined, { allowShell: false });
 
-    applySessionToolAccessPolicy(configurable, {
-      enabledToolIds: ["detect_structure_type", "ask_user_clarification"],
-      disabledToolIds: ["calculate"],
-      fileAccessAllowlist: [".uploads/case/input.dxf"],
-    });
-
-    expect(configurable).toMatchObject({
-      enabledToolIds: ["detect_structure_type", "ask_user_clarification"],
-      disabledToolIds: ["calculate"],
-      fileAccessAllowlist: [".uploads/case/input.dxf"],
-    });
+    expect([...context.activeToolIds]).toEqual(["ask_user_clarification", "detect_structure_type"]);
+    expect(context.fileAccessAllowlist).toEqual([".uploads/case/input.dxf"]);
   });
 
   test("tools node restores checkpointed access policy before resolving tools", async () => {
-    const { applyToolsNodeSessionContext } = await import("../../../dist/agent-langgraph/graph.js");
-    const configurable = {
-      enabledToolIds: undefined,
-      disabledToolIds: undefined,
-      fileAccessAllowlist: undefined,
-    };
+    const { toolContextForNode } = await import("../../../dist/agent-langgraph/graph.js");
+    const configurable = Object.freeze({ allowShell: false });
     const state = {
       selectedSkillIds: ["beam"],
       toolAccessPolicy: {
@@ -38,13 +27,12 @@ describe("LangGraph tool policy", () => {
       },
     };
 
-    applyToolsNodeSessionContext(configurable, state);
+    const context = toolContextForNode(state, configurable);
 
-    expect(configurable).toMatchObject({
-      agentState: state,
+    expect({ ...context, activeToolIds: [...context.activeToolIds] }).toEqual({
+      activeToolIds: ["analyze_file"],
       skillScope: ["beam"],
-      enabledToolIds: ["analyze_file"],
-      disabledToolIds: ["read_file"],
+      maxToolCallsPerTurn: undefined,
       fileAccessAllowlist: [".uploads/case/input.dxf"],
     });
   });

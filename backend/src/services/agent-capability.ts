@@ -5,6 +5,7 @@ import { normalizeMaterialFamilies as normalizeDomainMaterialFamilies } from '..
 import { ALL_SKILL_DOMAINS } from '../shared/types/agent.js';
 import type { AgentAnalysisType, MaterialFamily, SkillDomain, SkillManifest, SkillRuntimeStatus } from '../shared/types/agent.js';
 import type { BuiltinSkillCatalogEntry } from './agent-skill-catalog.js';
+import type { EffectiveRunPolicy } from '../runtime/run-policy.js';
 
 const ACTIVE_RUNTIME_DOMAINS = new Set<SkillDomain>([
   'structure-type',
@@ -306,7 +307,18 @@ export class AgentCapabilityService {
         : new AnalysisEngineCatalogService());
   }
 
-  async getCapabilityMatrix(options?: { analysisType?: CapabilityAnalysisType; toolDefinitions?: readonly CapabilityToolDefinition[] }) {
+  /**
+   * `runPolicy` (optional): the effective run policy of a conversation. Tools it does not expose
+   * (for example validate_model under no-validation-gate) are dropped from the per-skill
+   * recommendations and the default tool → skill map.
+   */
+  async getCapabilityMatrix(options?: {
+    analysisType?: CapabilityAnalysisType;
+    toolDefinitions?: readonly CapabilityToolDefinition[];
+    runPolicy?: Pick<EffectiveRunPolicy, 'activeToolIds'> | null;
+  }) {
+    const activeToolIds = options?.runPolicy ? new Set(options.runPolicy.activeToolIds) : undefined;
+    const isExposed = (toolId: string) => !activeToolIds || activeToolIds.has(toolId);
     const runtimeSkills = this.skillRuntime.listSkills();
     const staticCatalogEntries = await this.skillCatalog.listBuiltinSkills();
     const manifests = await this.skillRuntime.listSkillManifests();
@@ -338,7 +350,7 @@ export class AgentCapabilityService {
     );
     const toolDefinitions = options?.toolDefinitions ?? [];
     const defaultToolIds = toolDefinitions
-      .filter((tool) => tool.defaultEnabled)
+      .filter((tool) => tool.defaultEnabled && isExposed(tool.id))
       .map((tool) => tool.id)
       .sort();
     const tools = toolDefinitions
@@ -378,7 +390,7 @@ export class AgentCapabilityService {
       };
     });
     const enabledToolIdsBySkill = skills.reduce<Record<string, string[]>>((acc, skill) => {
-      acc[skill.id] = recommendedToolIdsForSkill(skill);
+      acc[skill.id] = recommendedToolIdsForSkill(skill).filter(isExposed);
       return acc;
     }, {});
     const skillAliasesByCanonicalId = catalogEntries.reduce<Record<string, string[]>>((acc, entry) => {

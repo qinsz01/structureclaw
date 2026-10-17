@@ -9,7 +9,7 @@
  */
 import type { RunPolicyInput } from './run-policy-schema.js';
 
-export const ABLATION_PROFILES_VERSION = '2026-10-17.1';
+export const ABLATION_PROFILES_VERSION = '2026-10-17.2';
 
 export const PROFILE_IDS = [
   'full', 'generic-only', 'no-routing', 'no-knowledge', 'no-template-builder', 'no-validation-gate',
@@ -59,8 +59,8 @@ const PROFILES: Record<ProfileId, ProfileDefinition> = {
     removes: { en: 'Automatic structure-skill selection; routing is fixed to the generic skill.',
       zh: '自动结构技能选择；路由固定为 generic 技能。' } },
   'no-knowledge': { policy: preset({ knowledge: 'disabled' }), targets: ['A', 'C'],
-    removes: { en: 'Skill descriptions and stage markdown in every prompt (agent, structural router, parameter extractor).',
-      zh: '所有提示词中的技能描述和阶段知识文本（主代理、结构路由、参数抽取）。' } },
+    removes: { en: 'Skill descriptions, triggers, stage names and stage markdown in every prompt (agent, structural router, parameter extractor).',
+      zh: '所有提示词中的技能描述、触发词、阶段名称和阶段知识文本（主代理、结构路由、参数抽取）。' } },
   'no-template-builder': { policy: preset({ builder: 'llm' }), targets: ['A'],
     removes: { en: 'Deterministic template model builders; build_model asks the LLM model builder.',
       zh: '确定性模板建模器；build_model 改由大模型建模器生成模型。' } },

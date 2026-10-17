@@ -864,4 +864,76 @@ describe('default report template seismic section', () => {
     expect(markdown).toContain('| pass | C1 | Seismic action combination | member capacity');
     expect(markdown).toContain('No failed or attention-required check items found.');
   });
+  const steelCheckInput = locale => ({
+    ...baseInput,
+    locale,
+    message: locale === 'zh' ? '钢门式刚架校核' : 'Check a steel portal frame',
+    summary: locale === 'zh' ? '静力分析成功。' : 'Static analysis succeeded.',
+    codeCheckText: locale === 'zh' ? '校核通过 1 / 2' : 'Code checks passed 1 / 2',
+    analysisType: 'static',
+    keyMetrics: { maxAbsDisplacement: 0.0109, maxAbsAxialForce: 30, maxAbsShearForce: 30, maxAbsMoment: 46.52, maxAbsReaction: 30, codeCheckPassRate: 0.9333 },
+    clauseTraceability: [{ elementId: 'C0', check: '强度验算', item: '正应力', clause: 'GB50017-2017 7.1.1', utilization: 0.1232, status: 'pass' }],
+    analysis: { success: true, data: { meta: { units: { length: 'm', force: 'kN', moment: 'kN.m', displacement: 'm', rotation: 'rad' } } } },
+    codeCheck: {
+      summary: { total: 2, passed: 1, failed: 1, warnings: 0, maxUtilization: 1.043, controllingElement: 'R0', controllingCheck: '长细比' },
+      details: [{ elementId: 'R0', checks: [
+        { name: '刚度验算', items: [{ item: '长细比', status: 'fail', utilization: 1.043, clause: 'GB50017-2017 10.1.1' }] },
+        { name: '适用范围 / Applicability', items: [{ item: '构件类型 / Member type', status: 'pass', utilization: 0.5 }] },
+      ] }],
+    },
+  });
+
+  test('English report localizes engine check names, names the governing check and labels key-metric units', async () => {
+    const { buildDefaultReportNarrative } = await import('../../../dist/agent-runtime/report-template.js');
+    const markdown = buildDefaultReportNarrative(steelCheckInput('en'));
+    expect(markdown).toContain('- Governing check: R0 / Slenderness ratio / utilization 1.043');
+    expect(markdown).toContain('| fail | R0 | Stiffness check | Slenderness ratio | GB50017-2017 10.1.1 | 1.043 |');
+    expect(markdown).toContain('| pass | R0 | Applicability | Member type |');
+    expect(markdown).toContain('- Scope C0 / Strength check / Normal stress / GB50017-2017 7.1.1 / utilization 0.1232 / pass');
+    expect(markdown).toContain('- Max displacement: 0.0109 m');
+    expect(markdown).toContain('- Max axial force: 30 kN');
+    expect(markdown).toContain('- Max shear force: 30 kN');
+    expect(markdown).toContain('- Max moment: 46.52 kN.m');
+    expect(markdown).toContain('- Max reaction: 30 kN');
+    expect(markdown).not.toMatch(/[一-龥]/);
+  });
+
+  test('Chinese report keeps engine check names, names the governing check and labels key-metric units', async () => {
+    const { buildDefaultReportNarrative } = await import('../../../dist/agent-runtime/report-template.js');
+    const markdown = buildDefaultReportNarrative(steelCheckInput('zh'));
+    expect(markdown).toContain('- 控制校核: R0 / 长细比 / 利用率 1.043');
+    expect(markdown).toContain('| 未通过 | R0 | 刚度验算 | 长细比 |');
+    expect(markdown).toContain('- 范围 C0 / 强度验算 / 正应力 / GB50017-2017 7.1.1 / 利用率 0.1232');
+    expect(markdown).toContain('- 最大位移: 0.0109 m');
+    expect(markdown).toContain('- 最大弯矩: 46.52 kN.m');
+    expect(markdown).toContain('- 最大反力: 30 kN');
+  });
+
+  test('key metrics carry no unit when the engine reports none', async () => {
+    const { buildDefaultReportNarrative } = await import('../../../dist/agent-runtime/report-template.js');
+    const markdown = buildDefaultReportNarrative({ ...steelCheckInput('en'), analysis: { success: true, data: {} } });
+    expect(markdown.split('\n')).toEqual(expect.arrayContaining(['- Max displacement: 0.0109', '- Max moment: 46.52']));
+  });
+
+  test('every Chinese check or item name the code-check engines emit has an English label', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const { fileURLToPath } = await import('node:url');
+    const { codeCheckLabelEn } = await import('../../../dist/agent-skills/code-check/labels.js');
+    const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../agent-skills');
+    const files = [path.join(root, 'code-check', 'code_check.py'),
+      ...['gb50009', 'gb50010', 'gb50011', 'gb50017', 'jgj3'].map(code => path.join(root, 'code-check', code, 'code_check.py')),
+      path.join(root, 'analysis', 'opensees-seismic', 'special_systems.py')];
+    const patterns = [/['"](?:name|item|check)['"]\s*:\s*['"]([^'"\n]+)['"]/g, /item_name\s*=\s*['"]([^'"\n]+)['"]/g,
+      /_check_item\(\s*['"]([^'"\n]+)['"]/g, /_displacement_check\([^)]*,\s*"([^"\n]+)"\)/g];
+    const labels = new Set();
+    for (const file of files) {
+      const text = fs.readFileSync(file, 'utf8');
+      for (const pattern of patterns) {
+        for (const match of text.matchAll(pattern)) if (/[一-龥]/.test(match[1]) && !match[1].includes(' / ')) labels.add(match[1]);
+      }
+    }
+    expect(labels.size).toBeGreaterThan(80);
+    expect([...labels].filter(label => !codeCheckLabelEn(label)).sort()).toEqual([]);
+  });
 });

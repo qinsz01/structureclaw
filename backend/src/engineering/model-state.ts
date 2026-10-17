@@ -153,6 +153,15 @@ function mergeFields(target: ModelRecord, values: ModelRecord): ModelRecord {
   return result;
 }
 
+/** Names the requested load case (or its absence) and the available ones. */
+function loadCaseNotFoundMessage(edit: ModelEdit, available: string[]): string {
+  const target = `loads:${String(edit.id)}`;
+  const known = available.length ? available.join(', ') : '(none)';
+  return edit.caseId === undefined || edit.caseId === null || String(edit.caseId).trim() === ''
+    ? `MODEL_LOAD_CASE_NOT_FOUND: ${target} requires caseId; available load_cases: ${known} / 荷载编辑 ${target} 缺少 caseId；现有荷载工况：${known}`
+    : `MODEL_LOAD_CASE_NOT_FOUND: caseId ${JSON.stringify(edit.caseId)} for ${target}; available load_cases: ${known} / 荷载编辑 ${target} 指定的工况 ${JSON.stringify(edit.caseId)} 不存在；现有荷载工况：${known}`;
+}
+
 export function applyModelEdits(model: ModelRecord, edits: ModelEdit[]): ModelRecord {
   if (edits.length === 0) throw new Error('MODEL_EMPTY_EDIT');
   const updated = structuredClone(model);
@@ -169,8 +178,9 @@ export function applyModelEdits(model: ModelRecord, edits: ModelEdit[]): ModelRe
     }
     let owner = updated;
     if (edit.collection === 'loads') {
-      const loadCase = entities(updated, 'load_cases').find((item) => item.id === edit.caseId);
-      if (!loadCase) throw new Error(`MODEL_LOAD_CASE_NOT_FOUND: ${edit.caseId}`);
+      const loadCases = entities(updated, 'load_cases');
+      const loadCase = loadCases.find((item) => item.id === edit.caseId);
+      if (!loadCase) throw new Error(loadCaseNotFoundMessage(edit, loadCases.map((item) => String(item.id))));
       owner = loadCase;
     }
     if (edit.operation === 'add' && owner[edit.collection] === undefined) owner[edit.collection] = [];

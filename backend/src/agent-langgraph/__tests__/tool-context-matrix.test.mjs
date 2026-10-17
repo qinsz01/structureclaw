@@ -1,11 +1,11 @@
 // Pins per-node tool exposure, skill scope, budget and file allow-list (blueprint step 11).
 // Goldens were produced by the pre-step-11 graph host (buildGraphRuntimeConfig seeding +
 // applyToolsNodeSessionContext + resolveActiveToolIds) over a matrix of run policies, checkpointed
-// access policies (including pre-policy checkpoints), host inputs and skill selections.
+// access policies (including pre-policy checkpoints), host inputs and skill selections; the
+// production toolContextForNode path must keep reproducing them.
 import { readFileSync } from 'node:fs';
 import { describe, expect, test } from '@jest/globals';
-import { applyToolsNodeSessionContext, toolContextForNode } from '../../../dist/agent-langgraph/graph.js';
-import { resolveActiveToolIds } from '../../../dist/agent-langgraph/tool-policy.js';
+import { toolContextForNode } from '../../../dist/agent-langgraph/graph.js';
 import { listAgentToolDefinitions } from '../../../dist/agent-langgraph/tool-registry.js';
 import { resolveRunPolicy } from '../../../dist/runtime/run-policy.js';
 
@@ -27,22 +27,6 @@ const nullable = value => value ?? null;
 describe('tool context matrix', () => {
   test('covers every policy, access policy, host and selection', () => {
     expect(fixture.cases.length).toBe(405);
-  });
-
-  test.each(fixture.cases.map(item => [item.id, item]))('%s: compatibility wrappers keep their output', (_id, item) => {
-    const { policy, host, state } = inputs(item);
-    const configurable = { allowShell: host.allowShell, fileAccessAllowlist: host.fileAccessAllowlist,
-      ...(policy ? { runContext: { policy }, maxToolCallsPerTurn: policy.budgets.maxToolCallsPerTurn,
-        enabledToolIds: policy.activeToolIds, disabledToolIds: [], skillScope: policy.activeSkillIds }
-        : { enabledToolIds: host.enabledToolIds, disabledToolIds: host.disabledToolIds, maxToolCallsPerTurn: host.maxToolCallsPerTurn }) };
-    applyToolsNodeSessionContext(configurable, state);
-    expect({
-      activeToolIds: resolveActiveToolIds({ requestedEnabledToolIds: configurable.enabledToolIds,
-        requestedDisabledToolIds: configurable.disabledToolIds, allowShell: configurable.allowShell }).activeToolIds,
-      skillScope: nullable(configurable.skillScope),
-      maxToolCallsPerTurn: nullable(configurable.maxToolCallsPerTurn),
-      fileAccessAllowlist: nullable(configurable.fileAccessAllowlist),
-    }).toEqual(item.expected);
   });
 
   test.each(fixture.cases.map(item => [item.id, item]))('%s: the graph host derives the same frozen tool context', (_id, item) => {

@@ -25,7 +25,6 @@ import { createChatModel, getReasoningContentLength } from '../utils/llm.js';
 import {
   AgentStateAnnotation,
   type AgentState,
-  type AgentToolAccessPolicy,
 } from './state.js';
 import { createRegisteredTools, type AgentToolFactoryDeps, type AgentToolDefinition } from './tool-registry.js';
 import { loadUserTools } from './user-tool-loader.js';
@@ -33,7 +32,7 @@ import { getWorkspaceToolRoot } from './config.js';
 import { buildSystemMessages } from './system-prompt.js';
 import type { SkillManifest } from '../shared/types/agent.js';
 import type { AgentConfigurable } from './configurable.js';
-import { deriveSkillScope, deriveToolContext, deriveToolRequest, type LegacyToolConfigurable, type ToolContext } from './tool-context.js';
+import { deriveToolContext, type LegacyToolConfigurable, type ToolContext } from './tool-context.js';
 import type { StructuredToolInterface } from '@langchain/core/tools';
 import { getLogger } from '../utils/agent-logger.js';
 import { compactMessagesForContext, estimateMessagesCharLength } from './context-window.js';
@@ -60,27 +59,6 @@ export function toolContextForNode(state: AgentState, configurable: Partial<Agen
     disabledToolIds: configurable.disabledToolIds,
     maxToolCallsPerTurn: configurable.maxToolCallsPerTurn,
   });
-}
-
-/**
- * @deprecated Compatibility mutator for callers that still read tool policy from `configurable`.
- * Graph nodes derive a ToolContext instead (`toolContextForNode`).
- */
-export function applySessionToolAccessPolicy(
-  configurable: Partial<AgentConfigurable> & LegacyToolConfigurable,
-  policy: AgentToolAccessPolicy | undefined,
-): void {
-  Object.assign(configurable, deriveToolRequest(policy, configurable.runContext?.policy, configurable));
-}
-
-/** @deprecated Compatibility mutator; see `applySessionToolAccessPolicy`. */
-export function applyToolsNodeSessionContext(
-  configurable: Partial<AgentConfigurable> & LegacyToolConfigurable & Record<string, unknown>,
-  state: AgentState,
-): void {
-  configurable.agentState = state;
-  configurable.skillScope = deriveSkillScope(state, configurable.runContext?.policy);
-  applySessionToolAccessPolicy(configurable, state.toolAccessPolicy);
 }
 
 // ---------------------------------------------------------------------------

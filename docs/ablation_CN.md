@@ -7,7 +7,7 @@ StructureClaw 提供预先注册、带版本号的消融配置档，基准测试
 代理仍然以一条回答结束本轮。
 
 唯一来源：`backend/src/runtime/ablation-profiles.ts`（`ABLATION_PROFILES_VERSION`，当前为
-`2026-10-17.1`）。修改任何配置档定义都必须更新版本号。
+`2026-10-17.2`；`.2` 起 `no-knowledge` 同时移除阶段名称）。修改任何配置档定义都必须更新版本号。
 
 ## 选择配置档
 
@@ -49,7 +49,7 @@ StructureClaw 提供预先注册、带版本号的消融配置档，基准测试
 | `full` | 默认值 | 无（参照配置）；策略哈希与默认哈希一致 | — |
 | `generic-only` | `skillIds` = 除 `generic` 以外的结构类型技能之外的全部技能（技能上限） | 专用结构技能；分析、校核、报告等其他领域保持不变 | A、B |
 | `no-routing` | `routing: { mode: fixed, skillId: generic }` | 自动结构技能选择（不调用结构路由器） | A |
-| `no-knowledge` | `knowledge: disabled` | 主代理、结构路由器和参数抽取提示词中的技能描述与阶段知识文本 | A、C |
+| `no-knowledge` | `knowledge: disabled` | 主代理、结构路由器和参数抽取提示词中的技能描述、触发词、阶段名称与阶段知识文本 | A、C |
 | `no-template-builder` | `builder: llm` | 确定性模板建模器；`build_model` 改用大模型建模器 | A |
 | `no-validation-gate` | `features.validation: disabled` | `validate_model` 工具及其工作流步骤；模型规范化与求解器检查保留 | A、C |
 | `no-clarification` | `features.clarification: disabled` | `ask_user_clarification` 中断及相关提示；代理在最终回复中列出缺失输入 | C |
@@ -63,7 +63,7 @@ StructureClaw 提供预先注册、带版本号的消融配置档，基准测试
   被拒绝的 ID 记录在 `deniedSkillIds`。对结构技能而言等同于基准运行器自带的 `generic-only` 模式。
 - **no-routing**：`detect_structure_type` / `extract_draft_params` 返回 `routingSource: policy-fixed`、
   `skillId: generic`。技能范围必须包含 `generic`，否则本轮以 `FIXED_SKILL_OUTSIDE_SCOPE` 失败。
-- **no-knowledge**：技能名称、ID、领域和阶段仍然可见，只移除描述、触发词和阶段知识文本。
+- **no-knowledge**：技能名称、ID 和领域仍然可见；移除描述、触发词、阶段名称（主代理提示中的 `stages=`、参数抽取提示中的 `stages`）和阶段知识文本。
 - **no-validation-gate** / **no-clarification**：工具从暴露列表中移除（工具结构不变，直接调用会被
   `TOOL_NOT_ALLOWED` 拒绝），系统提示词同步改写。工具因其他原因不可用（例如 `tools.disabledIds`）时，
   提示词同样保持一致。关闭澄清后，原本返回 `nextAction: "ask_user_clarification"` 的工具改为返回
@@ -83,7 +83,11 @@ StructureClaw 提供预先注册、带版本号的消融配置档，基准测试
 
 - `profileId`——只要选择了配置档（包括 `full`）就会出现；
 - `features`——仅当某项功能不是默认值时出现；
-- `policyHash`——`profileId`（`full` 除外）和非默认的 `features` 计入哈希，因此默认配置与 `full` 的哈希与引入配置档前一致；
+- `profileOverrides`——机制字段（`knowledge`、`builder`、`routing`、`repair.enabled`、`features.*`）的生效值
+  与所选配置档预设不一致时，列出这些字段路径，例如第 1 轮 `{ "profile": "no-knowledge" }`、第 2 轮
+  `{ "knowledge": "enabled" }` 得到 `profileOverrides: ["knowledge"]`。每轮重新计算；无偏离时省略。
+  技能列表只会缩小范围（`generic-only` 作为上限强制执行），不计为偏离；
+- `policyHash`——`profileId`（`full` 除外）、非默认的 `features` 和非空的 `profileOverrides` 计入哈希，因此默认配置与 `full` 的哈希与引入配置档前一致；
 - `fieldSources`——每个字段的来源：`default`、`settings`、`env`、`session`、`legacy`、`request` 或
   `server-limit`；`fieldSources.profileId` 说明配置档的来源。
 

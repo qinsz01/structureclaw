@@ -403,7 +403,12 @@ function emitArtifactSync(toolOutput: string, nodeState?: any): AgentStreamChunk
 }
 
 const USER_ACTIONABLE_FAILURE_TOOLS = new Set(['memory']);
-const LOCAL_PATH_PATTERN = /(?:[A-Za-z]:\\|\/)[^\s"'`]+/g;
+/**
+ * Local filesystem paths in user-facing failure text: drive paths (C:\… or C:/…), rooted or
+ * home paths at a token start (/tmp/…, ~/…), and relative paths ending in a file name
+ * (.uploads/case/input.dxf). A slash inside a word ("2/2", "routing/extraction", "N/A") is text.
+ */
+const LOCAL_PATH_PATTERN = /(?:(?<![A-Za-z])[A-Za-z]:[\\/]|(?<![\w.~/\\-])~?\/)[^\s"'`]+|(?<![\w./\\-])[\w.-]+(?:\/[\w.-]+)+\.[A-Za-z][A-Za-z0-9]{0,7}\b/g;
 
 function sanitizeToolBlockerReason(message: string): string | undefined {
   const normalized = message
