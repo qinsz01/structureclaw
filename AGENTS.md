@@ -287,6 +287,13 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - After the scenario-compatible baseline is accepted and frozen, do not modify its production code, tool schemas, skill prompts, solver mapping, or dependencies in response to Bench cases/results. Run `node scripts/verify-scenario-freeze.mjs` before experiments. A failed preflight stops the run; it must not repair or regenerate the baseline automatically.
 - Benchmark authoring may supply the still-missing complete numerical appendices and attachments within the reviewed physical contract. It must not introduce unreviewed solver capabilities and then tune StructureClaw against the resulting tasks. Record model mistakes and failed experiments honestly; do not patch the evaluated baseline against them.
 - 先验证规划场景的工具链可表达、可执行、可查询，再冻结系统。后续编题、制作标答与实验不反向修改该冻结系统；语言模型答错与工具缺能力分别记录，不能混淆。
+- Status (2026-10-17): the 2026-10-13 freeze manifest (`docs/reproducibility/scenario-freeze-20261013.json`, implementation commit `ce79cee`) no longer matches the code. Later commits and the clean-core refactor changed the frozen tree, so `node scripts/verify-scenario-freeze.mjs` reports `FROZEN_IMPLEMENTATION_CHANGED`. Treat that manifest as a historical record: a new freeze must be produced after the refactor and before the next experiment round. Do not edit the manifest or the verifier to make the check pass.
+- 状态（2026-10-17）：2026-10-13 冻结清单（`docs/reproducibility/scenario-freeze-20261013.json`，实现提交 `ce79cee`）已与当前代码不一致。后续提交与 clean-core 重构改变了冻结代码树，`node scripts/verify-scenario-freeze.mjs` 报告 `FROZEN_IMPLEMENTATION_CHANGED`。该清单仅作历史记录：下一轮实验前必须在重构完成后生成新的冻结。不得为通过校验而修改清单或校验脚本。
+
+## Refactor baseline / 重构基线
+
+- Clean-core refactor: branch `refactor/clean-core`, baseline tag `pre-refactor-20261017`. Changes must preserve the tagged behaviour except for the items listed in `docs/refactor/clean-core-blueprint.md`.
+- clean-core 重构：分支 `refactor/clean-core`，基线标签 `pre-refactor-20261017`。除 `docs/refactor/clean-core-blueprint.md` 列出的条目外，行为必须与该标签保持一致。
 
 ## Frozen Paper v2 Baseline / 论文 v2 冻结基线
 
