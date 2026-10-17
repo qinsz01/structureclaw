@@ -1,5 +1,10 @@
 import { describe, expect, test } from "@jest/globals";
 
+// Tests that call createLocalStructureProtocolClient() spawn a cold Python structure-protocol worker
+// per schema/validate call (about 1 s each when idle, several times that on a loaded machine), so
+// the 5 s Jest default leaves no headroom for the 1-3 spawns they make.
+const PYTHON_WORKER_TEST_TIMEOUT_MS = 30_000;
+
 const beamPlugin = {
   id: "beam",
   name: { zh: "梁", en: "Beam" },
@@ -34,7 +39,7 @@ describe("param extractor", () => {
       expect(sent).toContain('metadata.unmappedDesignParameters');
       expect(designSchema.$defs.MemberDesign.properties.stressCheckType).toBeUndefined();
     }
-  });
+  }, PYTHON_WORKER_TEST_TIMEOUT_MS);
   test('a load-direction answer clears its old diagnostic without erasing unrelated issues', async () => {
     const { handler } = await import('../../../dist/agent-skills/structure-type/beam/handler.js');
     const initial = handler.mergeState(undefined, handler.extractDraft({ locale: 'zh', llmDraftPatch: {
@@ -101,7 +106,7 @@ describe("param extractor", () => {
     const normalized = await normalizeEngineeringModel(handler.buildModel(next), createLocalStructureProtocolClient());
     expect(normalized.materials[0]).toMatchObject({ id: 'M', name: 'Elastic material', E: 206000, nu: 0.3, rho: 7850 });
     expect(initial.engineeringDraft.materials[0].rho).toBeUndefined();
-  });
+  }, PYTHON_WORKER_TEST_TIMEOUT_MS);
 
   test.each(['zh', 'en'])('documents numerical materials and preserves them through beam template construction (%s)', async (locale) => {
     const { buildParamExtractorPrompt, parseDraftPatchFromContent } = await import('../../../dist/agent-langgraph/param-extractor.js');
@@ -130,7 +135,7 @@ describe("param extractor", () => {
     const explicitState = handler.mergeState(undefined, handler.extractDraft({ locale, llmDraftPatch: { engineeringDraft: explicit } }));
     const explicitNormalized = await normalizeEngineeringModel(handler.buildModel(explicitState), createLocalStructureProtocolClient());
     expect(explicitNormalized.sections[0]).toMatchObject(explicit.sectionRecords[0]);
-  });
+  }, PYTHON_WORKER_TEST_TIMEOUT_MS);
 
   test.each([
     ['zh', []], ['en', []], ['zh', ['materials.M.rho']], ['en', ['materials.M.rho']],

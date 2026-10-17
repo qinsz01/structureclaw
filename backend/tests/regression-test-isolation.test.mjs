@@ -8,6 +8,10 @@ import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const { ensureRegressionSqliteDatabaseUrl } = require('../../tests/regression/shared.js');
+// The child is a fresh Node process (so config/database modules bind the regression DATABASE_URL)
+// that cold-imports the whole backend dist graph (agent-service alone takes about 3 s idle). It
+// starts no network or subprocess work, but cold module loading slows sharply under CPU contention.
+const CHILD_TIMEOUT_MS = 90_000;
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const fixture = fn => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'sclaw-regression-isolation-'));
@@ -55,10 +59,10 @@ test('standalone chat regressions use complete persistence fixtures and leave in
       await prisma.$disconnect();
     })().catch(error => { console.error(error); process.exitCode = 1; });
   `;
-  const result = spawnSync(process.execPath, ['-e', script], { cwd: rootDir, encoding: 'utf8', windowsHide: true, timeout: 25000,
+  const result = spawnSync(process.execPath, ['-e', script], { cwd: rootDir, encoding: 'utf8', windowsHide: true, timeout: CHILD_TIMEOUT_MS,
     env: { ...process.env, SCLAW_DATA_DIR: path.join(directory, 'runtime'), DATABASE_URL: `file:${inheritedDatabase.replace(/\\/g, '/')}` } });
-  expect({ status: result.status, stderr: result.stderr }).toEqual({ status: 0, stderr: '' });
+  expect({ status: result.status, error: result.error?.code, stderr: result.stderr }).toEqual({ status: 0, error: undefined, stderr: '' });
   expect(result.stdout).toContain('[ok] chat stream contract regression');
   expect(result.stdout).toContain('[ok] chat message routing contract');
   expect(fs.readFileSync(inheritedDatabase, 'utf8')).toBe(sentinel);
-}), 30000);
+}), CHILD_TIMEOUT_MS + 10_000);
