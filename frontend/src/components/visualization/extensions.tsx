@@ -180,10 +180,6 @@ const visualizationExtensionRegistry: VisualizationExtensionDefinition[] = [
   },
 ]
 
-function getAvailableVisualizationExtensions(snapshot: VisualizationSnapshot | null) {
-  return visualizationExtensionRegistry.filter((extension) => extension.isAvailable(snapshot))
-}
-
 export function getVisualizationViewLabelKey(view: VisualizationViewMode): MessageKey {
   if (view === 'model') return 'visualizationViewModel'
   if (view === 'deformed') return 'visualizationViewDeformed'
