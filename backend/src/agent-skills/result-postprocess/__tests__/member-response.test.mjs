@@ -5,7 +5,7 @@ import {
   queryMemberResponse,
   sampleMemberResponse,
   memberResponseExtrema,
-} from "../../../../dist/agent-skills/result-postprocess/member-response.js";
+} from "../../../../dist/engineering/member-response-query.js";
 
 const units = { displacement: "m", force: "kN", moment: "kN.m" };
 const axes = { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] };

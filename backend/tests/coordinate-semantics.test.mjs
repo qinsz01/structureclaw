@@ -4,7 +4,7 @@ import {
   PINNED_RESTRAINT,
   ROLLER_X_RESTRAINT,
   withCanonicalCoordinateContract,
-} from '../dist/agent-runtime/coordinate-semantics.js';
+} from '../dist/engineering/coordinate-semantics.js';
 
 describe('canonical coordinate semantics', () => {
   test('defines physically consistent global support restraints', () => {

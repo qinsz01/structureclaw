@@ -1,13 +1,11 @@
 import {
-  buildLegacyLabels,
   buildLegacyModel,
   computeLegacyMissing,
   mergeLegacyState,
-  normalizeLlmDraftPatch,
-  normalizeLegacyDraftPatch,
   restrictLegacyDraftPatch,
 } from '../../../agent-runtime/legacy.js';
-import { projectDraftPatch } from '../../../agent-runtime/draft/boundary.js';
+import { mapMissingFieldLabels } from '../../../agent-runtime/draft-guidance.js';
+import { ingestDraft, projectDraftPatch } from '../../../agent-runtime/draft/boundary.js';
 import { combineDomainKeys, composeStructuralDomainPatch } from '../../../agent-runtime/domains/structural-domains.js';
 import { buildStructuralTypeMatch, resolveLegacyStructuralStage } from '../../../agent-runtime/plugin-helpers.js';
 import { buildInteractionQuestions } from '../../../agent-runtime/fallback.js';
@@ -165,10 +163,10 @@ export const handler: SkillHandler = {
     return null;
   },
   parseProvidedValues(values) {
-    return toPortalFramePatch(normalizeLegacyDraftPatch(values));
+    return toPortalFramePatch(ingestDraft(values));
   },
   extractDraft({ llmDraftPatch, currentState }) {
-    return toPortalFramePatch(normalizeLlmDraftPatch(llmDraftPatch, currentState));
+    return toPortalFramePatch(ingestDraft(llmDraftPatch, currentState));
   },
   mergeState(existing, patch) {
     return mergeLegacyState(existing, toPortalFramePatch(patch), 'portal-frame', 'portal-frame');
@@ -177,7 +175,7 @@ export const handler: SkillHandler = {
     return computeLegacyMissing({ ...state, inferredType: 'portal-frame' }, phase, [...ALLOWED_KEYS]);
   },
   mapLabels(keys, locale) {
-    return buildLegacyLabels(keys, locale);
+    return mapMissingFieldLabels(keys, locale);
   },
   buildQuestions(keys, criticalMissing, state, locale) {
     return buildPortalFrameQuestions(keys, criticalMissing, state, locale);

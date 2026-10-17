@@ -1,4 +1,5 @@
-import { normalizeLegacyDraftPatch, buildLegacyModel } from '../../../agent-runtime/legacy.js';
+import { buildLegacyModel } from '../../../agent-runtime/legacy.js';
+import { ingestDraft } from '../../../agent-runtime/draft/boundary.js';
 import type { RequestScope } from '../../../engineering/request-scope.js';
 import { computeFrameMissing } from '../frame/interaction.js';
 import type { SkillHandler } from '../../../shared/types/agent.js';
@@ -288,7 +289,7 @@ export const handler: SkillHandler = {
 
   parseProvidedValues(values) {
     const base = coerceConcreteFrameDimension(
-      toConcreteFramePatch(normalizeLegacyDraftPatch(values)),
+      toConcreteFramePatch(ingestDraft(values)),
       undefined,
     );
     return {

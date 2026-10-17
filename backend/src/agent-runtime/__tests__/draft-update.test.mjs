@@ -1,8 +1,7 @@
 import { expect, test } from '@jest/globals';
 import { handler } from '../../../dist/agent-skills/structure-type/beam/handler.js';
 import { mergeEngineeringDraft } from '../../../dist/agent-runtime/engineering-draft.js';
-import { mergeDraftState } from '../../../dist/agent-runtime/fallback.js';
-import { normalizeLegacyDraftPatch } from '../../../dist/agent-runtime/legacy.js';
+import { mergeDraftState, ingestDraft } from '../../../dist/agent-runtime/draft/boundary.js';
 import { parseDraftPatchFromContent, buildParamExtractorPrompt } from '../../../dist/agent-langgraph/param-extractor.js';
 import { normalizeEngineeringModel } from '../../../dist/engineering/model-boundary.js';
 import { createLocalStructureProtocolClient } from '../../../dist/services/structure-protocol-execution.js';
@@ -152,8 +151,8 @@ test('explicit withdrawal resolves only that field diagnostic; other conflicts a
 test('every extraction wrapper preserves removal instructions and both locales explain their semantics', () => {
   const clearDraftFields = ['sectionRecords["S1"].standard_steel_name'];
   const parsed = parseDraftPatchFromContent(JSON.stringify({ draftPatch: {}, clearDraftFields }));
-  expect(normalizeLegacyDraftPatch(parsed).clearDraftFields).toEqual(clearDraftFields);
-  expect(() => normalizeLegacyDraftPatch({ clearDraftFields: 'S1' })).toThrow('DRAFT_CLEAR_INVALID');
+  expect(ingestDraft(parsed).clearDraftFields).toEqual(clearDraftFields);
+  expect(() => ingestDraft({ clearDraftFields: 'S1' })).toThrow('DRAFT_CLEAR_INVALID');
   const plugin = { id: 'beam', name: { zh: '梁', en: 'Beam' }, description: {}, stages: ['draft'], structureType: 'beam', markdownByStage: {} };
   for (const locale of ['zh', 'en']) {
     const prompt = buildParamExtractorPrompt(locale, original, plugin, 'Use explicit geometry, no catalog name');

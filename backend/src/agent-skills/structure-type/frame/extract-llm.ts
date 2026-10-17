@@ -1,16 +1,10 @@
 import {
-  normalizeLegacyDraftPatch,
   restrictLegacyDraftPatch,
 } from '../../../agent-runtime/legacy.js';
-import {
-  hasIncompleteFramePointLoadLocation,
-  mergeFrameFloorLoadValues,
-  projectWindPressureToFloorLoads,
-} from '../../../agent-runtime/engineering-draft.js';
-import { projectDraftPatch } from '../../../agent-runtime/draft/boundary.js';
-import { normalizeWindTerrainRoughness } from '../../../agent-runtime/draft/normalize.js';
+import { ingestDraft, projectDraftPatch } from '../../../agent-runtime/draft/boundary.js';
+import { hasIncompleteFramePointLoadLocation, mergeFrameFloorLoadValues, projectWindPressureToFloorLoads } from '../../../agent-runtime/draft/project-patch.js';
+import { normalizeWindTerrainRoughness, normalizeNumber } from '../../../agent-runtime/draft/normalize.js';
 import { composeStructuralDomainPatch } from '../../../agent-runtime/domains/structural-domains.js';
-import { normalizeNumber } from '../../../agent-runtime/fallback.js';
 import type {
   DraftExtraction,
   DraftFloorLoad,
@@ -160,7 +154,7 @@ export function buildFramePatchFromLlm(
   rawPatch: Record<string, unknown> | null | undefined,
   existingState: DraftState | undefined,
 ): DraftExtraction {
-  const normalized = toFramePatch(normalizeLegacyDraftPatch(rawPatch, existingState));
+  const normalized = toFramePatch(ingestDraft(rawPatch, existingState));
   const storyCount = normalized.storyCount ?? existingState?.storyCount ?? existingState?.storyHeightsM?.length;
   const bayCount = normalized.bayCount ?? existingState?.bayCount;
   const bayCountX = normalized.bayCountX ?? existingState?.bayCountX;

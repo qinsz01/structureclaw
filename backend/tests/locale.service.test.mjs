@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { resolveLocale } from '../dist/services/locale.js';
+import { resolveLocale } from '../dist/shared/locale.js';
 
 describe('resolveLocale', () => {
   test('returns "zh" when locale is exactly "zh"', () => {

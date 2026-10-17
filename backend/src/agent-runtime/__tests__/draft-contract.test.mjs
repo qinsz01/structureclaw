@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
 import { modelContract, draftContract, promptContract } from '../../../dist/engineering/draft-contract.js';
-import { mergeDraftState } from '../../../dist/agent-runtime/fallback.js';
+import { mergeDraftState } from '../../../dist/agent-runtime/draft/boundary.js';
 import { currentDraftDiagnostics } from '../../../dist/agent-runtime/draft-diagnostics.js';
 import { createLocalStructureProtocolClient } from '../../../dist/services/structure-protocol-execution.js';
 import { engineeringModelSchema } from '../../../dist/engineering/model-edit-contract.js';

@@ -3,7 +3,7 @@ import {
   STRUCTURAL_COORDINATE_SEMANTICS,
   withCanonicalCoordinateContract,
 } from '../../../engineering/coordinate-semantics.js';
-import { isLocalizedFramePointLoad } from '../../../agent-runtime/engineering-draft.js';
+import { isLocalizedFramePointLoad } from '../../../agent-runtime/draft/project-patch.js';
 import { buildElementReferenceVectors } from '../../../agent-runtime/reference-vectors.js';
 import { buildExplicitDraftModel, validateExplicitModel } from '../../../agent-runtime/explicit-model.js';
 import type {

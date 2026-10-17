@@ -1,6 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 import { buildExplicitDraftModel, validateExplicitModel } from '../../../dist/agent-runtime/explicit-model.js';
-import { normalizeEngineeringDraft, mergeEngineeringDraft, projectEngineeringDraftToLegacyPatch } from '../../../dist/agent-runtime/engineering-draft.js';
+import { normalizeEngineeringDraft, mergeEngineeringDraft } from '../../../dist/agent-runtime/engineering-draft.js';
+import { projectDraftPatch } from '../../../dist/agent-runtime/draft/project-patch.js';
 import { buildModel } from '../../../dist/agent-runtime/model-builder.js';
 
 function draft() {
@@ -21,7 +22,7 @@ describe('explicit physical model boundary', () => {
     const model = buildExplicitDraftModel(state);
     expect(model.coordinate_system).toMatchObject({ dimension, plane: dimension === '2d' ? 'xz' : null });
     expect(model.nodes).toEqual(state.engineeringDraft.topology.nodes);
-    expect(projectEngineeringDraftToLegacyPatch(state, 'frame').frameDimension).toBe(dimension);
+    expect(projectDraftPatch(state, 'frame').frameDimension).toBe(dimension);
     expect(model.load_combinations).toEqual([]);
   });
   test('analysis dimension must be explicit and cannot contradict coordinate semantics or legacy input', () => {

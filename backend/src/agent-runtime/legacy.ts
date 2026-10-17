@@ -1,25 +1,18 @@
 import { catalogResolvesMissingSectionIssue } from './section-catalog.js';
 import { currentDraftDiagnostics } from './draft-diagnostics.js';
-import { ingestDraft, mergeDraftState } from './draft/boundary.js';
+import { mergeDraftState } from './draft/boundary.js';
 import { invalidDraftFieldsOf, mergeFloorLoadsByStory } from './draft/normalize.js';
 import { buildModel } from './model-builder.js';
 import {
   computeMissingCriticalKeys,
   computeMissingLoadDetailKeys,
   isDesignDraftField,
-  mapMissingFieldLabels,
 } from './draft-guidance.js';
 import {
   STRUCTURAL_COORDINATE_SEMANTICS,
   stampDraftSemantics,
 } from '../engineering/coordinate-semantics.js';
-import type { AppLocale } from '../shared/locale.js';
 import type { DraftExtraction, DraftFloorLoad, DraftState, InferredModelType } from '../shared/types/agent.js';
-
-/** Raw patch -> extraction; the conversion itself lives in the draft boundary (`ingestDraft`). */
-export function normalizeLegacyDraftPatch(patch: Record<string, unknown> | null | undefined, existing?: DraftState): DraftExtraction {
-  return ingestDraft(patch, existing);
-}
 
 function mergeFloorLoadsWithSupplemental(
   llmFloorLoads: DraftFloorLoad[] | undefined,
@@ -94,13 +87,6 @@ export function mergeDraftPatchWithSupplemental(
   return nextPatch;
 }
 
-export function normalizeLlmDraftPatch(
-  llmDraftPatch: Record<string, unknown> | null | undefined,
-  existing?: DraftState,
-): DraftExtraction {
-  return ingestDraft(llmDraftPatch, existing);
-}
-
 export function restrictLegacyDraftPatch(
   patch: DraftExtraction,
   inferredType: InferredModelType,
@@ -162,10 +148,6 @@ export function computeLegacyMissing(
   // Missing stability factors, strengths and serviceability limits belong to
   // code-check. Keep the diagnostics without preventing a physically complete solve.
   return { critical: critical.filter((field) => !isDesignDraftField(field)), optional: critical.filter(isDesignDraftField) };
-}
-
-export function buildLegacyLabels(keys: string[], locale: AppLocale): string[] {
-  return mapMissingFieldLabels(keys, locale);
 }
 
 export function buildLegacyModel(

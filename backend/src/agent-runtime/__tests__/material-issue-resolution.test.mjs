@@ -1,7 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { handler } from '../../../dist/agent-skills/structure-type/beam/handler.js';
-import { normalizeLegacyDraftPatch } from '../../../dist/agent-runtime/legacy.js';
-import { mergeDraftState } from '../../../dist/agent-runtime/fallback.js';
+import { ingestDraft, mergeDraftState } from '../../../dist/agent-runtime/draft/boundary.js';
 import { computeDraftMissing } from '../../../dist/agent-runtime/draft-readiness.js';
 import { AgentSkillRuntime } from '../../../dist/agent-runtime/index.js';
 import { createBuildModelTool } from '../../../dist/agent-langgraph/tools.js';
@@ -13,7 +12,7 @@ const plugin = { id: 'beam', handler };
 
 // Minimal engineering-only reproduction of the saved 31625 draft: the original
 // material lacked E/nu and an explicit reply supplied them under the same ID.
-const initial = () => handler.mergeState(undefined, normalizeLegacyDraftPatch({
+const initial = () => handler.mergeState(undefined, ingestDraft({
   inferredType: 'beam', lengthM: 10, supportType: 'simply-supported', loadKN: 1,
   loadType: 'point', loadPosition: 'midspan', loadPositionM: 5,
   engineeringDraft: { structureType: 'beam', geometry: { lengthM: 10 },
@@ -28,7 +27,7 @@ const initial = () => handler.mergeState(undefined, normalizeLegacyDraftPatch({
     analysis: { loadCombinations: [] }, analysisControl: { self_weight: false } },
   draftIssues: [issue('materials[].E'), issue('designParameters.gammaX')],
 }));
-const clarification = () => normalizeLegacyDraftPatch({ engineeringDraft: {
+const clarification = () => ingestDraft({ engineeringDraft: {
   materials: [{ id: 'MAT-Q235B', E: 206000, G: 79230.77, nu: .3, rho: 7850 }],
 }, skillState: { designParameters: { gammaX: 1, memberDesignL0Mm: 4800 } } });
 
@@ -97,7 +96,7 @@ describe('clarification retires only the material issues it resolves', () => {
   test('existing values without a confirming patch do not silently erase diagnostics', () => {
     const before = initial();
     before.engineeringDraft.materials[0].E = 206000;
-    const after = handler.mergeState(before, normalizeLegacyDraftPatch({ engineeringDraft: { materials: [{ id: 'MAT-Q235B', nu: .3 }] } }));
+    const after = handler.mergeState(before, ingestDraft({ engineeringDraft: { materials: [{ id: 'MAT-Q235B', nu: .3 }] } }));
     expect(fields(after)).toContain('materials[].E');
     expect(computeDraftMissing(plugin, after, 'execution').critical).toContain('materials[].E');
   });

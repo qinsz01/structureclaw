@@ -1,8 +1,8 @@
 import type { AppLocale } from '../../../shared/locale.js';
 import {
-  buildLegacyLabels,
   computeLegacyMissing,
 } from '../../../agent-runtime/legacy.js';
+import { mapMissingFieldLabels } from '../../../agent-runtime/draft-guidance.js';
 import { buildInteractionQuestions } from '../../../agent-runtime/fallback.js';
 import { resolveLegacyStructuralStage } from '../../../agent-runtime/plugin-helpers.js';
 import { buildDefaultReportNarrative } from '../../../agent-runtime/report-template.js';
@@ -124,7 +124,7 @@ export function mapConcreteFrameLabels(keys: string[], locale: AppLocale): strin
       case 'frameRebarGrade': return locale === 'zh' ? '钢筋等级' : 'Rebar grade';
       case 'frameColumnSection': return locale === 'zh' ? '柱截面' : 'Column section';
       case 'frameBeamSection': return locale === 'zh' ? '梁截面' : 'Beam section';
-      default: return buildLegacyLabels([key], locale)[0];
+      default: return mapMissingFieldLabels([key], locale)[0];
     }
   });
 }

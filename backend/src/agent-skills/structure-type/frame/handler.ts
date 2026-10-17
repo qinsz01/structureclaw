@@ -1,4 +1,4 @@
-import { normalizeLegacyDraftPatch } from '../../../agent-runtime/legacy.js';
+import { ingestDraft } from '../../../agent-runtime/draft/boundary.js';
 import type { SkillHandler } from '../../../shared/types/agent.js';
 import { detectFrameStructuralType } from './detect.js';
 import { buildFrameDraftPatch, coerceFrameDimension, toFramePatch } from './extract-llm.js';
@@ -20,7 +20,7 @@ export const handler: SkillHandler = {
 
   parseProvidedValues(values) {
     const base = coerceFrameDimension(
-      toFramePatch(normalizeLegacyDraftPatch(values)),
+      toFramePatch(ingestDraft(values)),
       undefined,
     );
     return {

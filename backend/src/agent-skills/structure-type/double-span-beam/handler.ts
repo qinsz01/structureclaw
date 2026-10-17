@@ -1,13 +1,11 @@
 import {
-  buildLegacyLabels,
   buildLegacyModel,
   computeLegacyMissing,
   mergeLegacyState,
-  normalizeLlmDraftPatch,
-  normalizeLegacyDraftPatch,
   restrictLegacyDraftPatch,
 } from '../../../agent-runtime/legacy.js';
-import { projectDraftPatch } from '../../../agent-runtime/draft/boundary.js';
+import { mapMissingFieldLabels } from '../../../agent-runtime/draft-guidance.js';
+import { ingestDraft, projectDraftPatch } from '../../../agent-runtime/draft/boundary.js';
 import { combineDomainKeys, composeStructuralDomainPatch } from '../../../agent-runtime/domains/structural-domains.js';
 import { buildStructuralTypeMatch, resolveLegacyStructuralStage } from '../../../agent-runtime/plugin-helpers.js';
 import { buildInteractionQuestions } from '../../../agent-runtime/fallback.js';
@@ -164,10 +162,10 @@ export const handler: SkillHandler = {
     return null;
   },
   parseProvidedValues(values) {
-    return toDoubleSpanPatch(normalizeLegacyDraftPatch(values));
+    return toDoubleSpanPatch(ingestDraft(values));
   },
   extractDraft({ llmDraftPatch, currentState }) {
-    return toDoubleSpanPatch(normalizeLlmDraftPatch(llmDraftPatch, currentState));
+    return toDoubleSpanPatch(ingestDraft(llmDraftPatch, currentState));
   },
   mergeState(existing, patch) {
     return mergeLegacyState(existing, toDoubleSpanPatch(patch), 'double-span-beam', 'double-span-beam');
@@ -176,7 +174,7 @@ export const handler: SkillHandler = {
     return computeLegacyMissing({ ...state, inferredType: 'double-span-beam' }, phase, [...ALLOWED_KEYS]);
   },
   mapLabels(keys, locale) {
-    return buildLegacyLabels(keys, locale);
+    return mapMissingFieldLabels(keys, locale);
   },
   buildQuestions(keys, criticalMissing, state, locale) {
     return buildDoubleSpanQuestions(keys, criticalMissing, state, locale);

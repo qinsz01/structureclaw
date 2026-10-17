@@ -1,8 +1,5 @@
 import { mergeLegacyState } from '../../../agent-runtime/legacy.js';
-import {
-  hasIncompleteFramePointLoadLocation,
-  isLocalizedFramePointLoad,
-} from '../../../agent-runtime/engineering-draft.js';
+import { hasIncompleteFramePointLoadLocation, isLocalizedFramePointLoad } from '../../../agent-runtime/draft/project-patch.js';
 import type {
   DraftExtraction,
   DraftState,

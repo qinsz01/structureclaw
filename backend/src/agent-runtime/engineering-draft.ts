@@ -32,15 +32,6 @@ import {
   positiveNumberArray,
 } from './draft/normalize.js';
 
-// The draft -> flat projection moved to the draft boundary; these names stay importable here.
-export {
-  hasIncompleteFramePointLoadLocation,
-  isLocalizedFramePointLoad,
-  mergeFrameFloorLoadValues,
-  projectDraftPatch as projectEngineeringDraftToLegacyPatch,
-  projectWindPressureToFloorLoads,
-} from './draft/project-patch.js';
-
 function normalizeTopologyNode(value: unknown): EngineeringDraftTopologyNode | undefined {
   const raw = asRecord(value);
   if (!raw) return undefined;

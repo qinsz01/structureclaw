@@ -37,7 +37,7 @@ test('context projection preserves failures and non-check tool responses verbati
 });
 import { createRunCodeCheckTool } from '../dist/agent-langgraph/tools.js';
 import { beginAnalysisRequest } from '../dist/engineering/model-state.js';
-import { prepareEngineeringReport, finishEngineeringReport } from '../dist/services/engineering-report.js';
+import { prepareEngineeringReport, finishEngineeringReport } from '../dist/agent-runtime/engineering-report.js';
 
 test('computed feedback preserves separate stress and stability evidence without inventing missing values', () => {
   const items = [

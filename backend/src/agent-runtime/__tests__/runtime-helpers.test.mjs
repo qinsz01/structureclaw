@@ -4,7 +4,7 @@ import process from 'node:process';
 import {
   stampDraftSemantics,
   STRUCTURAL_COORDINATE_SEMANTICS,
-} from '../../../dist/agent-runtime/coordinate-semantics.js';
+} from '../../../dist/engineering/coordinate-semantics.js';
 import { buildElementReferenceVectors } from '../../../dist/agent-runtime/reference-vectors.js';
 
 describe('agent runtime helper utilities', () => {
@@ -479,14 +479,10 @@ describe('agent runtime helper utilities', () => {
   });
 
   test('legacy draft validation blocks non-positive model parameters until corrected', async () => {
-    const {
-      buildLegacyModel,
-      computeLegacyMissing,
-      mergeLegacyState,
-      normalizeLegacyDraftPatch,
-    } = await import('../../../dist/agent-runtime/legacy.js');
+    const { buildLegacyModel, computeLegacyMissing, mergeLegacyState } = await import('../../../dist/agent-runtime/legacy.js');
+    const { ingestDraft } = await import('../../../dist/agent-runtime/draft/boundary.js');
 
-    const invalidPatch = normalizeLegacyDraftPatch({
+    const invalidPatch = ingestDraft({
       inferredType: 'beam',
       lengthM: -5,
       supportType: 'simply-supported',
@@ -498,7 +494,7 @@ describe('agent runtime helper utilities', () => {
     expect(computeLegacyMissing(invalidState, 'execution', ['lengthM', 'supportType', 'loadKN']).critical).toContain('lengthM');
     expect(buildLegacyModel(invalidState)).toBeUndefined();
 
-    const correctedPatch = normalizeLegacyDraftPatch({ lengthM: 5 });
+    const correctedPatch = ingestDraft({ lengthM: 5 });
     const correctedState = mergeLegacyState(invalidState, correctedPatch, 'beam', 'beam');
 
     expect(correctedState.skillState?.invalidDraftFields ?? []).not.toContain('lengthM');
@@ -506,13 +502,10 @@ describe('agent runtime helper utilities', () => {
   });
 
   test('draft issues mark fields invalid even when invalidDraftFields is omitted', async () => {
-    const {
-      computeLegacyMissing,
-      mergeLegacyState,
-      normalizeLegacyDraftPatch,
-    } = await import('../../../dist/agent-runtime/legacy.js');
+    const { computeLegacyMissing, mergeLegacyState } = await import('../../../dist/agent-runtime/legacy.js');
+    const { ingestDraft } = await import('../../../dist/agent-runtime/draft/boundary.js');
 
-    const patch = normalizeLegacyDraftPatch({
+    const patch = ingestDraft({
       inferredType: 'portal-frame',
       spanLengthM: 18,
       heightM: 6,
@@ -530,14 +523,10 @@ describe('agent runtime helper utilities', () => {
   });
 
   test('unresolved issues on defaultable fields block legacy execution and model building', async () => {
-    const {
-      buildLegacyModel,
-      computeLegacyMissing,
-      mergeLegacyState,
-      normalizeLegacyDraftPatch,
-    } = await import('../../../dist/agent-runtime/legacy.js');
+    const { buildLegacyModel, computeLegacyMissing, mergeLegacyState } = await import('../../../dist/agent-runtime/legacy.js');
+    const { ingestDraft } = await import('../../../dist/agent-runtime/draft/boundary.js');
 
-    const patch = normalizeLegacyDraftPatch({
+    const patch = ingestDraft({
       inferredType: 'beam',
       lengthM: 6,
       supportType: 'simply-supported',
@@ -556,14 +545,10 @@ describe('agent runtime helper utilities', () => {
   });
 
   test('structured engineering-draft issue paths block legacy execution until corrected', async () => {
-    const {
-      buildLegacyModel,
-      computeLegacyMissing,
-      mergeLegacyState,
-      normalizeLegacyDraftPatch,
-    } = await import('../../../dist/agent-runtime/legacy.js');
+    const { buildLegacyModel, computeLegacyMissing, mergeLegacyState } = await import('../../../dist/agent-runtime/legacy.js');
+    const { ingestDraft } = await import('../../../dist/agent-runtime/draft/boundary.js');
 
-    const patch = normalizeLegacyDraftPatch({
+    const patch = ingestDraft({
       inferredType: 'beam',
       engineeringDraft: {
         structureType: 'beam',
@@ -609,7 +594,7 @@ describe('agent runtime helper utilities', () => {
     ]));
     expect(buildLegacyModel(state, allowedKeys)).toBeUndefined();
 
-    const correctedPatch = normalizeLegacyDraftPatch({
+    const correctedPatch = ingestDraft({
       engineeringDraft: {
         geometry: { lengthM: 6 },
         sections: { beam: 'H400x200x8x13' },
@@ -729,7 +714,7 @@ describe('agent runtime helper utilities', () => {
   });
 
   test('valid engineering draft span arrays clear prior invalid span issues', async () => {
-    const { mergeDraftState } = await import('../../../dist/agent-runtime/fallback.js');
+    const { mergeDraftState } = await import('../../../dist/agent-runtime/draft/boundary.js');
 
     const state = mergeDraftState({
       inferredType: 'portal-frame',
@@ -751,7 +736,7 @@ describe('agent runtime helper utilities', () => {
   });
 
   test('valid support positions may start at the global origin', async () => {
-    const { mergeDraftState } = await import('../../../dist/agent-runtime/fallback.js');
+    const { mergeDraftState } = await import('../../../dist/agent-runtime/draft/boundary.js');
 
     const state = mergeDraftState({
       inferredType: 'beam',
@@ -773,7 +758,7 @@ describe('agent runtime helper utilities', () => {
   });
 
   test('merges engineering draft loads without duplicating repeated load definitions', async () => {
-    const { mergeDraftState } = await import('../../../dist/agent-runtime/fallback.js');
+    const { mergeDraftState } = await import('../../../dist/agent-runtime/draft/boundary.js');
 
     const first = mergeDraftState(undefined, {
       engineeringDraft: {
@@ -899,7 +884,7 @@ describe('agent runtime helper utilities', () => {
   });
 
   test('treats span 1 and omitted locations as the same full-span load for a single-span beam', async () => {
-    const { mergeDraftState } = await import('../../../dist/agent-runtime/fallback.js');
+    const { mergeDraftState } = await import('../../../dist/agent-runtime/draft/boundary.js');
 
     const first = mergeDraftState(undefined, {
       engineeringDraft: {
@@ -961,9 +946,9 @@ describe('agent runtime helper utilities', () => {
   });
 
   test('projects frame area engineering loads into per-story floor loads', async () => {
-    const { projectEngineeringDraftToLegacyPatch } = await import('../../../dist/agent-runtime/engineering-draft.js');
+    const { projectDraftPatch } = await import('../../../dist/agent-runtime/draft/project-patch.js');
 
-    const patch = projectEngineeringDraftToLegacyPatch({
+    const patch = projectDraftPatch({
       engineeringDraft: {
         structureType: 'concrete-frame',
         geometry: {
@@ -984,9 +969,9 @@ describe('agent runtime helper utilities', () => {
   });
 
   test('does not project frame line loads into floor loads but keeps point lateral loads', async () => {
-    const { projectEngineeringDraftToLegacyPatch } = await import('../../../dist/agent-runtime/engineering-draft.js');
+    const { projectDraftPatch } = await import('../../../dist/agent-runtime/draft/project-patch.js');
 
-    const patch = projectEngineeringDraftToLegacyPatch({
+    const patch = projectDraftPatch({
       engineeringDraft: {
         structureType: 'steel-frame',
         geometry: {
@@ -1007,9 +992,9 @@ describe('agent runtime helper utilities', () => {
   });
 
   test('prefers structured story locations when projecting frame floor loads', async () => {
-    const { projectEngineeringDraftToLegacyPatch } = await import('../../../dist/agent-runtime/engineering-draft.js');
+    const { projectDraftPatch } = await import('../../../dist/agent-runtime/draft/project-patch.js');
 
-    const patch = projectEngineeringDraftToLegacyPatch({
+    const patch = projectDraftPatch({
       engineeringDraft: {
         structureType: 'concrete-frame',
         geometry: {
@@ -1043,9 +1028,9 @@ describe('agent runtime helper utilities', () => {
   });
 
   test('preserves explicitly located frame nodal loads instead of projecting them as floor totals', async () => {
-    const { projectEngineeringDraftToLegacyPatch } = await import('../../../dist/agent-runtime/engineering-draft.js');
+    const { projectDraftPatch } = await import('../../../dist/agent-runtime/draft/project-patch.js');
 
-    const patch = projectEngineeringDraftToLegacyPatch({
+    const patch = projectDraftPatch({
       engineeringDraft: {
         structureType: 'steel-frame',
         geometry: {
@@ -1087,9 +1072,9 @@ describe('agent runtime helper utilities', () => {
   });
 
   test('treats x-only engineering frame spans as 2d geometry', async () => {
-    const { projectEngineeringDraftToLegacyPatch } = await import('../../../dist/agent-runtime/engineering-draft.js');
+    const { projectDraftPatch } = await import('../../../dist/agent-runtime/draft/project-patch.js');
 
-    const patch = projectEngineeringDraftToLegacyPatch({
+    const patch = projectDraftPatch({
       engineeringDraft: {
         structureType: 'steel-frame',
         geometry: {
@@ -1114,9 +1099,9 @@ describe('agent runtime helper utilities', () => {
   });
 
   test('maps partial untargeted frame point loads by order instead of duplicating to every story', async () => {
-    const { projectEngineeringDraftToLegacyPatch } = await import('../../../dist/agent-runtime/engineering-draft.js');
+    const { projectDraftPatch } = await import('../../../dist/agent-runtime/draft/project-patch.js');
 
-    const patch = projectEngineeringDraftToLegacyPatch({
+    const patch = projectDraftPatch({
       engineeringDraft: {
         structureType: 'steel-frame',
         geometry: {
@@ -1137,9 +1122,9 @@ describe('agent runtime helper utilities', () => {
   });
 
   test('parses compound Chinese story ordinals for targeted frame point loads', async () => {
-    const { projectEngineeringDraftToLegacyPatch } = await import('../../../dist/agent-runtime/engineering-draft.js');
+    const { projectDraftPatch } = await import('../../../dist/agent-runtime/draft/project-patch.js');
 
-    const patch = projectEngineeringDraftToLegacyPatch({
+    const patch = projectDraftPatch({
       engineeringDraft: {
         structureType: 'steel-frame',
         geometry: {
@@ -1156,9 +1141,9 @@ describe('agent runtime helper utilities', () => {
   });
 
   test('parses Chinese top-story targets without treating member tops as roof stories', async () => {
-    const { projectEngineeringDraftToLegacyPatch } = await import('../../../dist/agent-runtime/engineering-draft.js');
+    const { projectDraftPatch } = await import('../../../dist/agent-runtime/draft/project-patch.js');
 
-    const topStoryPatch = projectEngineeringDraftToLegacyPatch({
+    const topStoryPatch = projectDraftPatch({
       engineeringDraft: {
         structureType: 'steel-frame',
         geometry: {
@@ -1170,7 +1155,7 @@ describe('agent runtime helper utilities', () => {
         ],
       },
     }, 'frame');
-    const memberTopPatch = projectEngineeringDraftToLegacyPatch({
+    const memberTopPatch = projectDraftPatch({
       engineeringDraft: {
         structureType: 'steel-frame',
         geometry: {
@@ -1192,9 +1177,9 @@ describe('agent runtime helper utilities', () => {
   });
 
   test('does not duplicate excess untargeted frame point loads onto every story', async () => {
-    const { projectEngineeringDraftToLegacyPatch } = await import('../../../dist/agent-runtime/engineering-draft.js');
+    const { projectDraftPatch } = await import('../../../dist/agent-runtime/draft/project-patch.js');
 
-    const patch = projectEngineeringDraftToLegacyPatch({
+    const patch = projectDraftPatch({
       engineeringDraft: {
         structureType: 'steel-frame',
         geometry: {
@@ -1216,10 +1201,10 @@ describe('agent runtime helper utilities', () => {
   });
 
   test('does not convert frame load intensity into fallback floor totals', async () => {
-    const { mergeDraftState } = await import('../../../dist/agent-runtime/fallback.js');
-    const { projectEngineeringDraftToLegacyPatch } = await import('../../../dist/agent-runtime/engineering-draft.js');
+    const { mergeDraftState } = await import('../../../dist/agent-runtime/draft/boundary.js');
+    const { projectDraftPatch } = await import('../../../dist/agent-runtime/draft/project-patch.js');
 
-    const patch = projectEngineeringDraftToLegacyPatch({
+    const patch = projectDraftPatch({
       engineeringDraft: {
         structureType: 'steel-frame',
         geometry: {

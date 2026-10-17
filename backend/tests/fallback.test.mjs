@@ -1,23 +1,13 @@
 import { withDeclaredProperties } from './fixtures/declared-template-properties.mjs';
 import { describe, expect, it, test } from '@jest/globals';
 import {
-  normalizeLoadType,
-  normalizeSupportType,
-  normalizeLoadPosition,
-  normalizeLoadPositionM,
-  normalizeInferredType,
-  normalizeFrameDimension,
-  normalizeFrameBaseSupportType,
-  normalizeNumber,
-  normalizePositiveInteger,
-  normalizeNumberArray,
-  normalizeFloorLoads,
   buildUnknownStructuralType,
   detectUnsupportedStructuralTypeByRules,
-  mergeDraftState,
   buildInteractionQuestions,
-  buildModel,
 } from '../dist/agent-runtime/fallback.js';
+import { buildModel } from '../dist/agent-runtime/model-builder.js';
+import { normalizeLoadType, normalizeSupportType, normalizeLoadPosition, normalizeLoadPositionM, normalizeInferredType, normalizeFrameDimension, normalizeFrameBaseSupportType, normalizeNumber, normalizePositiveInteger, normalizeNumberArray, normalizeFloorLoads } from '../dist/agent-runtime/draft/normalize.js';
+import { mergeDraftState } from '../dist/agent-runtime/draft/boundary.js';
 
 // ---------------------------------------------------------------------------
 // normalizeLoadType

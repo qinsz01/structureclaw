@@ -5,7 +5,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, test } from '@jest/globals';
 import { withDeclaredProperties } from '../../../tests/fixtures/declared-template-properties.mjs';
-import { normalizeLegacyDraftPatch } from '../../../dist/agent-runtime/legacy.js';
 import { ingestDraft, projectDraftState } from '../../../dist/agent-runtime/draft/boundary.js';
 import { buildParamExtractorPrompt } from '../../../dist/agent-langgraph/param-extractor.js';
 
@@ -30,7 +29,7 @@ const pick = (value, keys) => JSON.stringify(Object.fromEntries(keys.map(key => 
 
 describe('old persisted draft states', () => {
   test.each(fixture.scenarios.map(item => [item.id, item]))('%s: ingesting the stored state keeps every flat field', (_id, scenario) => {
-    const ingested = attempt(() => normalizeLegacyDraftPatch(structuredClone(scenario.state)));
+    const ingested = attempt(() => ingestDraft(structuredClone(scenario.state)));
     expect(ingested).toEqual(scenario.expected.ingest);
     expect(pick(ingested.value, FLAT_FIELDS)).toBe(pick(scenario.state, FLAT_FIELDS));
     // Normalization only drops an empty topology container; every engineering value round-trips.

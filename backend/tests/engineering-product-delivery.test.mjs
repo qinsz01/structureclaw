@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { createEngineeringReport } from '../dist/services/engineering-report.js';
+import { createEngineeringReport } from '../dist/agent-runtime/engineering-report.js';
 import { nativeDesignRecord, resolveCheckProvider } from '../dist/engineering/native-design.js';
 import { modelHash } from '../dist/engineering/model-state.js';
 import { createQueryResultsTool } from '../dist/agent-langgraph/model-tools.js';

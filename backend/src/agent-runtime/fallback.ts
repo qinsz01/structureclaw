@@ -7,25 +7,7 @@ import type {
   StructuralTypeMatch,
   StructuralTypeKey,
 } from '../shared/types/agent.js';
-import { buildModel as buildDraftModel } from './model-builder.js';
 import { localize } from './plugin-helpers.js';
-
-// Draft normalizers and the state merge live in the draft boundary; these names stay importable here.
-export {
-  normalizeFloorLoads,
-  normalizeFrameBaseSupportType,
-  normalizeFrameDimension,
-  normalizeInferredType,
-  normalizeLoadPosition,
-  normalizeLoadPositionM,
-  normalizeLoadType,
-  normalizeNumber,
-  normalizeNumberArray,
-  normalizePositiveInteger,
-  normalizeSupportType,
-  parseChineseNumber,
-} from './draft/normalize.js';
-export { mergeDraftState } from './draft/boundary.js';
 
 function buildUnsupportedStructuralType(
   locale: AppLocale,
@@ -226,8 +208,4 @@ export function buildInteractionQuestions(
       suggestedValue: undefined,
     };
   });
-}
-
-export function buildModel(state: DraftState): Record<string, unknown> {
-  return buildDraftModel(state);
 }

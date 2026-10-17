@@ -1,13 +1,11 @@
 import {
-  buildLegacyLabels,
   buildLegacyModel,
   computeLegacyMissing,
   mergeLegacyState,
-  normalizeLlmDraftPatch,
-  normalizeLegacyDraftPatch,
   restrictLegacyDraftPatch,
 } from '../../../agent-runtime/legacy.js';
-import { projectBeamLoads, projectDraftPatch, projectDraftState } from '../../../agent-runtime/draft/boundary.js';
+import { mapMissingFieldLabels } from '../../../agent-runtime/draft-guidance.js';
+import { ingestDraft, projectBeamLoads, projectDraftPatch, projectDraftState } from '../../../agent-runtime/draft/boundary.js';
 import { combineDomainKeys, composeStructuralDomainPatch } from '../../../agent-runtime/domains/structural-domains.js';
 import { buildStructuralTypeMatch, resolveLegacyStructuralStage } from '../../../agent-runtime/plugin-helpers.js';
 import { buildInteractionQuestions } from '../../../agent-runtime/fallback.js';
@@ -340,11 +338,11 @@ export const handler: SkillHandler = {
     return buildStructuralTypeMatch('beam', 'beam', 'beam', route.supportLevel, locale, undefined, route.routingSource);
   },
   parseProvidedValues(values) {
-    const patch = normalizeLegacyDraftPatch(values);
+    const patch = ingestDraft(values);
     return toBeamPatch(patch);
   },
   extractDraft({ locale, llmDraftPatch, currentState }) {
-    const patch = toBeamPatch(normalizeLlmDraftPatch(llmDraftPatch, currentState));
+    const patch = toBeamPatch(ingestDraft(llmDraftPatch, currentState));
     return withBeamLoadConflict(patch, locale);
   },
   mergeState(existing, patch) {
@@ -358,7 +356,7 @@ export const handler: SkillHandler = {
     return computeLegacyMissing({ ...state, inferredType: 'beam' }, phase, [...ALLOWED_KEYS]);
   },
   mapLabels(keys, locale) {
-    return buildLegacyLabels(keys, locale);
+    return mapMissingFieldLabels(keys, locale);
   },
   buildQuestions(keys, criticalMissing, state, locale) {
     return buildBeamQuestions(keys, criticalMissing, state, locale);

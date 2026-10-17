@@ -1,13 +1,11 @@
 import {
-  buildLegacyLabels,
   buildLegacyModel,
   computeLegacyMissing,
   mergeLegacyState,
-  normalizeLlmDraftPatch,
-  normalizeLegacyDraftPatch,
   restrictLegacyDraftPatch,
 } from '../../../agent-runtime/legacy.js';
-import { projectDraftPatch } from '../../../agent-runtime/draft/boundary.js';
+import { mapMissingFieldLabels } from '../../../agent-runtime/draft-guidance.js';
+import { ingestDraft, projectDraftPatch } from '../../../agent-runtime/draft/boundary.js';
 import { combineDomainKeys, composeStructuralDomainPatch } from '../../../agent-runtime/domains/structural-domains.js';
 import { buildStructuralTypeMatch, resolveLegacyStructuralStage } from '../../../agent-runtime/plugin-helpers.js';
 import { buildInteractionQuestions } from '../../../agent-runtime/fallback.js';
@@ -284,10 +282,10 @@ export const handler: SkillHandler = {
     return null;
   },
   parseProvidedValues(values) {
-    return toTrussPatch(normalizeLegacyDraftPatch(values));
+    return toTrussPatch(ingestDraft(values));
   },
   extractDraft({ llmDraftPatch, currentState }) {
-    return toTrussPatch(normalizeLlmDraftPatch(llmDraftPatch, currentState));
+    return toTrussPatch(ingestDraft(llmDraftPatch, currentState));
   },
   mergeState(existing, patch) {
     const trussPatch = toTrussPatch(patch);
@@ -297,7 +295,7 @@ export const handler: SkillHandler = {
     return computeLegacyMissing({ ...state, inferredType: 'truss' }, phase, [...ALLOWED_KEYS]);
   },
   mapLabels(keys, locale) {
-    return buildLegacyLabels(keys, locale);
+    return mapMissingFieldLabels(keys, locale);
   },
   buildQuestions(keys, criticalMissing, state, locale) {
     return buildTrussQuestions(keys, criticalMissing, state, locale);

@@ -1,12 +1,11 @@
 import {
-  buildLegacyLabels,
   buildLegacyModel,
   computeLegacyMissing,
   mergeLegacyState,
-  normalizeLegacyDraftPatch,
   restrictLegacyDraftPatch,
 } from '../../../agent-runtime/legacy.js';
-import { projectDraftPatch } from '../../../agent-runtime/draft/boundary.js';
+import { mapMissingFieldLabels } from '../../../agent-runtime/draft-guidance.js';
+import { ingestDraft, projectDraftPatch } from '../../../agent-runtime/draft/boundary.js';
 import { buildInteractionQuestions } from '../../../agent-runtime/fallback.js';
 import { buildStructuralTypeMatch, resolveLegacyStructuralStage } from '../../../agent-runtime/plugin-helpers.js';
 import { buildDefaultReportNarrative } from '../../../agent-runtime/report-template.js';
@@ -99,10 +98,10 @@ export const handler: SkillHandler = {
     return null;
   },
   parseProvidedValues(values) {
-    return toColumnPatch(normalizeLegacyDraftPatch(values));
+    return toColumnPatch(ingestDraft(values));
   },
   extractDraft({ llmDraftPatch, currentState }) {
-    return toColumnPatch(normalizeLegacyDraftPatch(llmDraftPatch, currentState));
+    return toColumnPatch(ingestDraft(llmDraftPatch, currentState));
   },
   mergeState(existing, patch) {
     return mergeLegacyState(existing, toColumnPatch(patch), 'column', 'column');
@@ -111,7 +110,7 @@ export const handler: SkillHandler = {
     return computeLegacyMissing({ ...state, inferredType: 'column' }, phase, [...ALLOWED_KEYS]);
   },
   mapLabels(keys, locale) {
-    return buildLegacyLabels(keys, locale);
+    return mapMissingFieldLabels(keys, locale);
   },
   buildQuestions(keys, criticalMissing, state, locale) {
     return buildColumnQuestions(keys, criticalMissing, state, locale);

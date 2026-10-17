@@ -8,7 +8,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { queryPhysicalResponse, enrichResultData, scalarResultQuantity } from '../dist/engineering/result-data.js';
-import { createEngineeringReport } from '../dist/services/engineering-report.js';
+import { createEngineeringReport } from '../dist/agent-runtime/engineering-report.js';
 import { normalizeEngineeringModel } from '../dist/engineering/model-boundary.js';
 import { createLocalStructureProtocolClient } from '../dist/services/structure-protocol-execution.js';
 import { contentHash } from '../dist/engineering/model-state.js';

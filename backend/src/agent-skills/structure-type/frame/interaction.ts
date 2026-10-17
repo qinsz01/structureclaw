@@ -1,8 +1,8 @@
 import type { AppLocale } from '../../../shared/locale.js';
 import {
-  buildLegacyLabels,
   computeLegacyMissing,
 } from '../../../agent-runtime/legacy.js';
+import { mapMissingFieldLabels } from '../../../agent-runtime/draft-guidance.js';
 import { buildInteractionQuestions } from '../../../agent-runtime/fallback.js';
 import { resolveLegacyStructuralStage } from '../../../agent-runtime/plugin-helpers.js';
 import { buildDefaultReportNarrative } from '../../../agent-runtime/report-template.js';
@@ -103,7 +103,7 @@ export function mapFrameLabels(keys: string[], locale: AppLocale): string[] {
       case 'frameColumnSection': return locale === 'zh' ? '柱截面' : 'Column section';
       case 'frameBeamSection': return locale === 'zh' ? '梁截面' : 'Beam section';
       case FRAME_NODAL_LOAD_LOCATION_FIELD: return locale === 'zh' ? '框架节点荷载位置' : 'Frame nodal-load location';
-      default: return buildLegacyLabels([key], locale)[0];
+      default: return mapMissingFieldLabels([key], locale)[0];
     }
   });
 }

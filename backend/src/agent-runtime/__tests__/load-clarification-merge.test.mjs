@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { mergeDraftState } from '../../../dist/agent-runtime/fallback.js';
+import { mergeDraftState } from '../../../dist/agent-runtime/draft/boundary.js';
 import { mergeEngineeringDraft } from '../../../dist/agent-runtime/engineering-draft.js';
 const first = { structureType: 'beam', geometry: { lengthM: 10 }, loads: [{ kind: 'point', magnitude: 1, unit: 'kN', target: 'beam', location: { xM: 5, spanIndex: 1 } }] };
 test('clarification refines load direction without doubling the force', () => {
