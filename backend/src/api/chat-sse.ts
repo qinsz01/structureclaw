@@ -23,10 +23,7 @@ function normalizePublicStreamChunk(chunk: unknown): unknown {
     return chunk;
   }
 
-  const raw = chunk as { type?: string; error?: string; code?: string; retriable?: boolean; content?: unknown };
-  const value = raw.type && raw.content && typeof raw.content === 'object' && !Array.isArray(raw.content)
-    ? raw
-    : raw;
+  const value = chunk as { type?: string; error?: string; code?: string; retriable?: boolean };
 
   if (value.type !== 'error' || !value.error) {
     return value;

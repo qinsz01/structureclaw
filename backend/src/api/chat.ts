@@ -666,7 +666,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
         assistantPresentation = reducePresentationEvent(assistantPresentation, { type: 'presentation_error', phase: 'modeling', message });
       },
       interruptedPersistMessage: 'Failed to persist interrupted stream',
-      onFinalPersistError: () => {},
+      onFinalPersistError: persistError => request.log.error({ err: persistError }, 'Failed to persist stream'),
     });
   });
 
