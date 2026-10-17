@@ -88,6 +88,7 @@ Frontend 现在有两个 Vitest 配置，归属互斥：
 | `npm run check:deps --prefix backend` | `backend/src` 中的 import 分层与文件级 import 循环 | 使用 `backend/.dependency-cruiser.cjs` 运行 dependency-cruiser。分层从 L0（`shared/`、`types/`）到 L6（`api/`、`index.ts`），低层不得 import 高层。配置中列出两处允许的例外：`runtime/policy-settings.ts` 垫片，以及结构类型/截面 handler 的 SDK 依赖边。 |
 | `npm run test:python --prefix backend` | `backend/pytest.ini` 选中的 `backend/src` 与 `backend/tests` 下全部 `test_*.py` | 使用第一个能导入 pytest 的解释器运行 `pytest`，查找顺序为：`PYTHON_FOR_TEST`、`backend/.venv`、`<SCLAW_DATA_DIR 或 ~/.structureclaw>/.venv`，然后是系统的 `py`、`python3` 或 `python`（按平台顺序）。`--` 之后的参数会传给 pytest，例如 `-- -k native_design`。 |
 | `npm run test:characterization --prefix backend` | `backend/tests/characterization` 中由脚本化 LLM 驱动的端到端 characterization | 先构建 backend，再对该目录运行 Jest。每个场景通过脚本化 LLM（`helpers/llm-fixture.mjs`）驱动真实的 LangGraph agent、tools 和运行策略。`__snapshots__/` 中的快照固定了 tool 暴露、system prompt、默认 `policyHash`、草稿路径、编辑失效、澄清恢复以及消融 profile 的行为。若找不到带 OpenSees 的 Python，依赖 OpenSees 的用例会打印警告并跳过；可用 `SCLAW_TEST_PYTHON` 指定解释器。 |
+| `npm run test:live --prefix backend -- --base-url <url>` | 针对已启动后端及其已配置 LLM 的一句话梁实测验收（`backend/tests/live/one-sentence-beam.mjs`） | 不属于 Jest。中英文“设计一个简支钢梁……HN300×150×6.5×9”须一轮完成，分析与报告为当前结果且不调用 `run_code_check`；支座反力、跨中弯矩与挠度按闭合解比较（相对误差 1e-6）；随后“按GB50017验算”须执行校核并列出缺失输入，不中断追问。后端未配置 LLM 密钥时跳过。选项：`--locale zh|en|all`、`--runs N`、`--variant beam|hn-no-thickness|original`、`--out <dir>`。 |
 | `backend/tests/dist-surface.test.mjs`（`npm test --prefix backend` 也会运行） | `backend/src` 之外消费的编译产物 `backend/dist` 接口 | 断言 `tests/llm-benchmark/runner.cjs`、`integrations/openclaw`、`tests/regression/backend-validations.js` 与 `scripts/verify-scenario-freeze.mjs` 使用的模块和符号仍可导入、导出名称正确。该测试读取 `dist/`，因此需先构建。移动此类模块时，必须在原路径保留 re-export 垫片。 |
 
 `npm test --prefix backend` 匹配 `tests/**/*.test.mjs`，因此 characterization 套件与 dist-surface 测试也会在默认 Jest 运行中执行。
@@ -131,7 +132,7 @@ node frontend/tests/e2e/manual/live-beam-browser.cjs --config=.tmp/live-beam.jso
 
 `beam-hw-reproduction-20261015.json` 保留了原始简短梁问题，以及实际报错的 Q235B / HW300×300×10×15 选项。逐轮审核澄清答复，不能用已经完整建好的 I20a 模型代替这条输入链路。截面类型的大小写按 V2 词表统一处理，尺寸、数值属性、来源冲突和设计缺项仍须校验。H/HW/HM/HN 的明确四项尺寸表示不计圆角的几何截面，不冒充已经核定的热轧型钢目录数据。
 
-确定性验收使用 `node backend/tests/section-shape-acceptance.mjs`，将 `SCLAW_DATA_DIR` 指向隔离目录，并在该目录设置中指定已经安装的分析 Python。脚本先冻结解析参考，再经公开工具与真实 OpenSees 测试八种截面表示，核对位移、转角和中英文报告数值，并确认缺少设计条件不能得到通过结论。第九个算例直接回放已经补齐设计条件、却仍有旧设计缺项标记的保存草稿，要求不改写历史即可完成全部14项校核。不需要 LLM 密钥或 Bench 文件。独立的分析控制澄清 Jest 回归验证明确的 `false` 能清除缺项标记，同时保留来源冲突。
+确定性验收使用 `node backend/tests/section-shape-acceptance.mjs`，将 `SCLAW_DATA_DIR` 指向隔离目录，并在该目录设置中指定已经安装的分析 Python。脚本先冻结解析参考，再经公开工具与真实 OpenSees 测试七种截面表示（型号只是名称，已无截面目录），核对位移、转角和中英文报告数值，并确认缺少设计条件不能得到通过结论。第八个算例直接回放已经补齐设计条件、却仍有旧设计缺项标记的保存草稿，要求不改写历史即可完成全部14项校核。不需要 LLM 密钥或 Bench 文件。独立的分析控制澄清 Jest 回归验证明确的 `false` 能清除缺项标记，同时保留来源冲突。
 
 可选的 `expectedModelValues` 直接检查 `/agent/input-review` 返回的已保存模型，不把断言值发送给对话。每条规则使用点分隔的 `path` 和 `value`；可用 `collection` 配合可选的 `id` 或 `where` 筛选对象。例如 `{"collection":"elements","where":{"type":"beam"},"path":"design.l0","value":4800}` 会检查所有梁，不依赖单元编号，且没有匹配梁时失败。`minMatches` 可要求多个匹配对象，`absoluteTolerance` 用于数值容差。即使报告声称通过，缺失或不一致的输入仍使 `summary.pass` 为 false。断言只应填写本轮明确提供的条件，并保留原失败证据。
 

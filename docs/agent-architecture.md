@@ -10,7 +10,7 @@ A whole-material-group missing diagnostic uses the same material projection as t
 
 Chat and the runtime extraction entry point use the same LLM extractor and update contract. Omitted fields are unchanged; record arrays merge by stable ID. An explicit withdrawal is expressed as `clearDraftFields: ['sectionRecords["S1"].standard_steel_name']`, then the new `engineeringDraft` fields are merged. Clear operations validate all targets on a copy before committing. Record IDs and raw evidence cannot be cleared as ordinary fields. The tool returns the applied clears and the resulting draft. Shape changes no longer silently erase supplied properties; replacing a definition requires an explicit clear of the old definition. No natural-language deletion regex is used.
 
-Section `name` is a label; `standard_steel_name` selects a native catalog source. With user-confirmed numerical geometry, the designation may remain in `name`, while the withdrawn selector is removed. Geometry/property conflicts still fail formal validation. Self-weight may use the sole unclassified (`other`) analysis case without renaming it a dead case; its recorded resolution is `sole-unclassified-case`. Multiple candidate cases still require a target.
+Section `name` is a label; designations never select catalog data (there is no section catalogue). A designation with four dimensions (`HN300×150×6.5×9`, `H300x150x6.5x9`) is read as explicit sharp-corner H×B×tw×tf geometry, stated in the report; a designation without plate thicknesses (`HN300×150`) produces one clarification for tw/tf or complete properties. `standard_steel_name` is only a native PKPM/YJK selector and is dropped when a designation is parsed into geometry. Geometry/property conflicts still fail formal validation. Self-weight may use the sole unclassified (`other`) analysis case without renaming it a dead case; its recorded resolution is `sole-unclassified-case`. Multiple candidate cases still require a target.
 
 The LLM interprets intent, identifies missing information, and proposes model fields. Deterministic code validates units, physical consistency, evidence, edits and run identity, then executes the selected solver. Reference material/section tables and geometric calculations remain deterministic; they must not contain example-specific answers.
 
@@ -20,7 +20,7 @@ Draft issues distinguish `kind: missing` from `kind: confirmation`. Missing valu
 
 The default builder remains `auto`. Choosing `llm` skips template-specific counts and recipes while retaining formal model validation; partial topology goes through LLM completion. A full imported model still uses the preserving import path, recorded as `builder: explicit` with the requested policy; `auto` also directly assembles complete explicit topology. Actual LLM generation receives the model schema, and any correction receives the previous candidate and exact validation error. A builder's `missing_fields` response requests clarification without a failed tool call or recovery-budget charge. Invalid candidate correction still uses the shared recovery budget; transport failures are not disguised as semantic corrections.
 
-The reviewed section catalogue is data in `backend/src/engineering/reviewed-sections.json`, with retained provenance. Moving an existing record there does not certify additional catalogue entries or turn sharp-corner H geometry into an exact rolled-section catalogue result.
+Design inputs (design strengths, stability factors, limits, effective lengths, service keys) are not draft diagnostics: extraction drops design-field issues, so they never block or prompt the analysis workflow. They are stored only when the user supplies them, and an explicitly requested code check reports any that are missing.
 
 ## 1. Runtime Shape
 
@@ -85,7 +85,7 @@ The backend is organised into seven layers, L0 (shared) to L6 (delivery). [backe
 |---|---|---|
 | L0 shared | `backend/src/shared/` (`locale.ts`, `types/agent.ts`), `backend/src/types/` | Cross-layer types and locale resolution. |
 | L1 kernel | `backend/src/runtime/`, `backend/src/config/`, `backend/src/utils/`, `backend/src/generated/` | Run policy and run context, tool-call limits, ablation profiles, settings loading, Prisma client, logging and helpers. |
-| L2 domain | `backend/src/engineering/`, `backend/src/skill-shared/`, `backend/src/agent-skills/` | Structure-model contracts, reviewed section data, solver and code-check logic, and skill implementations. |
+| L2 domain | `backend/src/engineering/`, `backend/src/skill-shared/`, `backend/src/agent-skills/` | Structure-model contracts, section geometry, solver and code-check logic, and skill implementations. |
 | L3 agent-core | `backend/src/agent-runtime/` | Skill loader and registry, `AgentSkillRuntime`, and the draft boundary (`draft/`). |
 | L4 services | `backend/src/services/` | Capability metadata, analysis and code-check execution clients, chat persistence, conversation and memory services. |
 | L5 agent-host | `backend/src/agent-langgraph/` | LangGraph graph, tools, tool context, final-answer delivery, session snapshots, attachments. |
@@ -216,13 +216,15 @@ The current prompt and tools guide structural requests through this pipeline:
 ```text
 detect structure type
   -> extract and merge draft parameters
-  -> ask for critical missing values when needed
+  -> ask for critical missing analysis inputs when needed
   -> build StructureModel
   -> validate model
   -> run analysis
-  -> optionally run code check
   -> generate report
+  -> stop: summarize results and offer next steps (code check, model change)
 ```
+
+"Design a beam" means this default workflow; it does not trigger a code check. `run_code_check` runs only on an explicit request (验算, 校核, 按规范, code check, check against GB…), with `requestScope.design=true`; otherwise the tool returns `DESIGN_NOT_REQUESTED`. Clarification in the default workflow asks only for analysis inputs (geometry, supports, loads, elastic material properties, section dimensions or properties). An explicit check never interrupts for design inputs: it returns `nextAction: "report_missing_inputs"`, and the final reply lists the performed checks and the checks not performed with their missing inputs; the user may supply them in a later turn. `requestScope.report` defaults to `true` and is `false` only when the user declines a report.
 
 Draft patches from the LLM extractor and the skill handlers are normalised by `ingestDraft` (`agent-runtime/draft/boundary.ts`), which the handlers call directly. Omitted fields are unchanged, record arrays merge by stable ID, and explicit removals use `clearDraftFields`. Tools read model, analysis, report, and draft artifacts from graph state. The LLM should not pass large serialized `modelJson`, `analysisJson`, or `stateJson` arguments between tools.
 

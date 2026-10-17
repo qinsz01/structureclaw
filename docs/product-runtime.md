@@ -205,13 +205,13 @@ For elastic statics with self-weight explicitly disabled, V2 may omit unused rho
 OpenSees retains absent density; self-weight and density-derived mass still require
 it. Commercial custom material setters may require density as an SDK condition.
 Invalid declared density remains rejected. Concrete analysis uses the shared elastic
-template without reinforcement/slab sizing prerequisites. Reviewed section records
-are associated by an unambiguous ID/name; unreviewed catalogs do not get fabricated
-lookup values. These are general product behaviors, with no Bench IDs or runtime flags.
+template without reinforcement/slab sizing prerequisites. Section records are
+associated by an unambiguous ID/name; designations are labels with no catalog lookup, and
+only a four-dimension H designation is read as sharp-corner geometry. These are general product behaviors, with no Bench IDs or runtime flags.
 
 自重明确关闭的弹性静力可不提供不用的密度，OpenSees保留缺项而不补假值；自重和密度质量来源
 仍要求密度，商业自定义材料可因SDK写入条件而需要它。显式无效密度仍被拒绝。混凝土分析复用
-公共弹性模板，不先做钢筋/楼板选型。审定截面按唯一ID/名称关联，未审定目录不编造查表值。
+公共弹性模板，不先做钢筋/楼板选型。截面按唯一ID/名称关联；型号只是名称，不查目录，仅四项尺寸的H型号按无圆角几何读取。
 这些是通用产品行为，不读取Bench题号或评测开关。
 
 Web advanced run settings and `sclaw run --request request.json` use the shared agent

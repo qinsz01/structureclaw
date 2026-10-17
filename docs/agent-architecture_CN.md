@@ -10,7 +10,7 @@
 
 聊天与运行时抽取入口共用同一个 LLM 抽取器及更新协议。省略字段表示不变，记录数组按稳定 ID 合并。用户明确撤回字段时，抽取结果使用 `clearDraftFields: ['sectionRecords["S1"].standard_steel_name']`，随后再合并本轮 `engineeringDraft`。删除先在副本上核对全部目标，成功后一起提交；对象 ID、原始证据不能当普通字段删除。工具返回实际执行的清除项及更新后的草稿。改变形状不再自动删掉用户给过的属性；替换定义必须明确清除旧定义。没有通过自然语言关键词或正则猜删除意图。
 
-截面 `name` 是显示名称，`standard_steel_name` 是原生目录来源选择器。用户确认按数值几何建模后，名称可以保留，已撤回的目录选择器必须删除；几何与属性矛盾仍由正式校验拒绝。自重可以归入全模型仅有的 `other` 分析工况，并记录 `sole-unclassified-case` 依据，不把它改名或改为恒载；存在多个候选工况时仍须明确目标。
+截面 `name` 是显示名称；型号不查询任何目录（已无截面目录）。含四项尺寸的型号（`HN300×150×6.5×9`、`H300x150x6.5x9`）按无圆角的 H×B×tw×tf 明确几何读取，并在报告中说明；缺少板厚的型号（`HN300×150`）只发起一次澄清，询问 tw/tf 或完整截面属性。`standard_steel_name` 仅为 PKPM/YJK 原生选择器，型号解析为几何时将其移除；几何与属性矛盾仍由正式校验拒绝。自重可以归入全模型仅有的 `other` 分析工况，并记录 `sole-unclassified-case` 依据，不把它改名或改为恒载；存在多个候选工况时仍须明确目标。
 
 大模型负责理解请求、识别缺项和提出模型字段。确定性程序负责单位、物理一致性、证据、编辑和运行身份校验，然后调用所选求解器。材料与截面参考表、几何计算仍由确定性代码处理，其中不能写入某个例题的答案。
 
@@ -20,7 +20,7 @@ Python 的 `StructureModelV2` 是物理字段的权威定义。`backend/scripts/
 
 默认建模方式仍为 `auto`。选择 `llm` 时跳过模板专属的层数、跨数与配方条件，部分拓扑交给 LLM 补全，正式模型校验仍然执行。完整导入模型仍走保留原始信息的导入路径，记录实际 `builder: explicit` 和用户选择的策略；`auto` 还会直接装配完整的显式拓扑。真正的 LLM 建模读取模型 Schema，纠错时收到上次候选模型和具体校验错误。模型返回 `missing_fields` 时正常请求澄清，不记为工具失败、不消耗纠错次数；无效候选的自动修正仍受统一预算限制，传输失败不伪装成语义纠错。
 
-已有审定截面记录移入 `backend/src/engineering/reviewed-sections.json`，保留来源。数据迁移不代表新增目录型号已被审定，也不把理想直角 H 形几何结果宣称为精确的轧制型钢目录结果。
+设计输入（设计强度、稳定系数、限值、计算长度、使用工况）不属于草稿诊断：抽取时丢弃设计字段缺项，因此不会阻断分析流程，也不会被追问。只有用户明确给出时才保存；明确请求的规范校核会报告缺少的设计输入。
 
 ## 1. 运行时形态
 
@@ -85,7 +85,7 @@ agent capability、运行、审阅与 SkillHub routes 位于 [backend/src/api/ag
 |---|---|---|
 | L0 shared | `backend/src/shared/`（`locale.ts`、`types/agent.ts`）、`backend/src/types/` | 跨层类型与语言解析。 |
 | L1 kernel | `backend/src/runtime/`、`backend/src/config/`、`backend/src/utils/`、`backend/src/generated/` | 运行策略与运行上下文、工具调用上限、消融 profile、配置加载、Prisma client、日志与通用工具。 |
-| L2 domain | `backend/src/engineering/`、`backend/src/skill-shared/`、`backend/src/agent-skills/` | 结构模型契约、已审定截面数据、求解与规范校核逻辑，以及 skill 实现。 |
+| L2 domain | `backend/src/engineering/`、`backend/src/skill-shared/`、`backend/src/agent-skills/` | 结构模型契约、截面几何、求解与规范校核逻辑，以及 skill 实现。 |
 | L3 agent-core | `backend/src/agent-runtime/` | skill loader 与 registry、`AgentSkillRuntime`，以及草稿边界（`draft/`）。 |
 | L4 services | `backend/src/services/` | capability 元数据、分析与规范校核执行 client、chat 持久化、会话与记忆服务。 |
 | L5 agent-host | `backend/src/agent-langgraph/` | LangGraph graph、tools、tool context、最终回答交付、会话 snapshot、附件。 |
@@ -216,13 +216,15 @@ taxonomy 是稳定的，但 domain 成熟度不同。domain 可以处于：
 ```text
 识别结构类型
   -> 提取并合并草稿参数
-  -> 必要时询问关键缺失值
+  -> 必要时询问关键缺失的分析输入
   -> 构建 StructureModel
   -> 校验模型
   -> 执行分析
-  -> 可选执行规范校核
   -> 生成报告
+  -> 停止：总结结果并提示下一步（规范验算、修改模型）
 ```
+
+“设计一个梁”即执行上述默认流程，不触发规范校核。只有用户明确要求（验算、校核、按规范、code check、check against GB…）时才调用 `run_code_check`，并传 `requestScope.design=true`；否则该工具返回 `DESIGN_NOT_REQUESTED`。默认流程中的澄清只询问分析所需输入（几何、支座、荷载、材料弹性属性、截面尺寸或属性）。明确请求的校核不会因设计输入缺失而中断：工具返回 `nextAction: "report_missing_inputs"`，最终回复列出已完成的校核以及未执行项和所缺输入，用户可在后续轮次补充。`requestScope.report` 默认为 `true`，仅在用户明确不要报告时为 `false`。
 
 LLM 抽取器与 skill handler 产生的草稿补丁由 `ingestDraft`（`agent-runtime/draft/boundary.ts`）归一化，skill handler 直接调用该函数。未提供的字段保持不变，记录数组按稳定 ID 合并，明确删除通过 `clearDraftFields` 完成。tools 从 graph state 中读取 model、analysis、report 和 draft artifacts。LLM 不应该在 tools 之间传递很大的 `modelJson`、`analysisJson` 或 `stateJson` 参数。
 

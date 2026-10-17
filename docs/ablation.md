@@ -8,7 +8,9 @@ tool interfaces and inputs and removes exactly one mechanism. Removing a mechani
 loss, not a broken interface: the agent still finishes the turn with an answer.
 
 Source of truth: `backend/src/runtime/ablation-profiles.ts` (`ABLATION_PROFILES_VERSION`, currently
-`2026-10-17.2`; `.2` also removes stage names under `no-knowledge`). Any change to a profile
+`2026-10-18.1`; `.2` also removed stage names under `no-knowledge`; `2026-10-18.1` changes the default
+prompts of every profile: the workflow stops after analysis and report, code checks run only on explicit
+request, and missing design inputs are reported instead of asked for). Any change to a profile
 definition requires a new version.
 
 ## Selecting a profile
