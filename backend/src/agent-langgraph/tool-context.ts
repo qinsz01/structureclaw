@@ -44,7 +44,6 @@ export interface LegacyToolConfigurable {
   disabledToolIds?: string[];
   maxToolCallsPerTurn?: number;
   skillScope?: string[];
-  fileAccessAllowlist?: string[];
 }
 
 type ToolContextState = Partial<Pick<AgentState, 'runPolicy' | 'selectedSkillIds' | 'toolAccessPolicy'>>;
