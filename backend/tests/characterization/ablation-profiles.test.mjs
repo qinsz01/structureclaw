@@ -145,10 +145,16 @@ describe('characterization: ablation profiles', () => {
     // The prompt never mentions a tool that is not offered.
     expect(captured['no-clarification'].prompt).not.toContain('ask_user_clarification');
     expect(captured['no-clarification'].prompt).toContain('list the missing inputs in your final reply and end the turn');
-    expect(captured['no-validation-gate'].prompt).toContain('validate_model is not available in this run');
+    expect(captured['no-validation-gate'].prompt).toContain('A separate model-validation step is not available in this run');
     expect(captured['no-validation-gate'].prompt).not.toContain('Call validate_model');
     expect(captured['no-repair'].prompt).toContain('Automatic recovery is disabled for this run');
     expect(captured['no-repair'].prompt).not.toContain('do NOT give up');
+    // Generic guard: no profile's system prompt names a tool that profile removed from exposure.
+    for (const profile of PROFILE_IDS) {
+      for (const removed of full.tools.filter(item => !captured[profile].tools.includes(item))) {
+        expect({ profile, removed, mentioned: captured[profile].prompt.includes(removed) }).toEqual({ profile, removed, mentioned: false });
+      }
+    }
     // Mechanisms enforced inside tools leave the prompt identical to the full system.
     for (const profile of ['no-routing', 'no-state-versioning', 'no-evidence-binding']) expect(captured[profile].prompt).toBe(full.prompt);
     expect(captured['generic-only'].prompt).toMatch(/Selected skills: [^\n]*generic/);
@@ -254,6 +260,24 @@ describe('characterization: ablation profiles', () => {
       const session = await ctx.backend.session(ablated.turn.conversationId);
       expect(session).toMatchObject({ waitingForReply: false, busy: false });
     }, TURN_TIMEOUT_MS);
+
+    test('gated tools never appear in any prompt sent under their profile (agent, router, extractor, tool results)', async () => {
+      const gating = PROFILE_IDS.map(profile => [profile, captured.full.tools.filter(item => !captured[profile].tools.includes(item))])
+        .filter(([, removed]) => removed.length > 0);
+      expect(gating.map(([profile]) => profile).sort()).toEqual(['no-clarification', 'no-validation-gate']);
+      for (const [profile, removed] of gating) {
+        for (const script of [{ draft: beamDraft() }, { draft: beamDraft(false), script: { message: INCOMPLETE } }]) {
+          const { turn } = await extractorTurn(profile, script);
+          expect(turn.requests.map(request => request.kind)).toEqual(expect.arrayContaining(['structural-router', 'param-extractor']));
+          for (const request of turn.requests) {
+            const text = requestText(request.body);
+            for (const tool of removed) {
+              expect({ profile, kind: request.kind, tool, mentioned: text.includes(tool) }).toEqual({ profile, kind: request.kind, tool, mentioned: false });
+            }
+          }
+        }
+      }
+    }, TURN_TIMEOUT_MS * 4);
 
     const analyzeThenEdit = async profile => {
       ctx.llm.setInternal(null);

@@ -89,7 +89,7 @@ const PROMPT_LINES = {
     },
     step4: {
       full: "4. 调用 validate_model 验证模型",
-      validationOff: "4. 本次运行不提供 validate_model；直接进入 run_analysis（build_model 的规范化和求解器检查仍然生效）"
+      validationOff: "4. 本次运行不提供独立的模型校验步骤；直接进入 run_analysis（build_model 的规范化和求解器检查仍然生效）"
     },
     canProceed: {
       full: "- 如果 extract_draft_params 返回 canProceed=false 或 criticalMissing 非空，必须继续调用 ask_user_clarification 或直接说明缺失项；不要调用 memory 来修补草稿参数，也不要静默结束。",
@@ -116,7 +116,7 @@ const PROMPT_LINES = {
     },
     step4: {
       full: "4. Call validate_model to validate the model",
-      validationOff: "4. validate_model is not available in this run; proceed to run_analysis (build_model normalization and solver checks still apply)"
+      validationOff: "4. A separate model-validation step is not available in this run; proceed to run_analysis (build_model normalization and solver checks still apply)"
     },
     canProceed: {
       full: "- If extract_draft_params returns canProceed=false or non-empty criticalMissing, you must continue with ask_user_clarification or clearly explain the missing fields; do not use memory to patch draft parameters and do not silently stop.",

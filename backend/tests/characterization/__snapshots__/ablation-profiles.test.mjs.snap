@@ -1576,8 +1576,8 @@ exports[`characterization: ablation profiles profile no-validation-gate: offered
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 26136,
-  "systemPromptSha256": "95b14081019600a4f837448004cfce872fcfc39f548e74be20dbc2e9680752ef",
+  "systemPromptChars": 26154,
+  "systemPromptSha256": "680402d4dcc6d4d0cc6721b6a48f7fcf309e35c1b21d01fa1a95eb78ab4003d6",
 }
 `;
 
@@ -1669,7 +1669,7 @@ Record required drawing/table fields in engineeringDraft.inputEvidence with fiel
 1. For a new model, call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel
 2. If extract_draft_params returns criticalMissing fields, use ask_user_clarification to ask for them
 3. Once parameters are complete, call build_model to construct the model
-4. validate_model is not available in this run; proceed to run_analysis (build_model normalization and solver checks still apply)
+4. A separate model-validation step is not available in this run; proceed to run_analysis (build_model normalization and solver checks still apply)
 5. Call run_analysis to execute the analysis
 6. (Optional) Call run_code_check for code compliance
 7. Call generate_report to produce a report
