@@ -1,4 +1,4 @@
-import { completeReviewedSectionRecord, reviewedSectionName, reviewedSectionNames, reviewedSectionRecord } from '../engineering/section-tables.js';
+import { completeReviewedSectionRecord, reviewedSectionCatalogNames, reviewedSectionName, reviewedSectionNames, reviewedSectionRecord } from '../engineering/section-tables.js';
 import type { DraftState } from '../shared/types/agent.js';
 import { applyDraftAnalysisControl, applyDraftTemplateDesign, resolveDraftTemplateAssignment } from './engineering-draft.js';
 
@@ -197,9 +197,70 @@ export function buildSectionRecord(id: string, purpose: 'column' | 'beam', props
 }
 
 type TemplateRole = 'beam' | 'column' | 'member';
-const propertyError = (field: string): never => {
-  throw new Error(`TEMPLATE_PROPERTY_REQUIRED: ${field} / 请明确材料、截面与构件角色对应关系后再建模`);
+const propertyError = (field: string, zh = `${field}：请明确材料、截面与构件角色对应关系后再建模`): never => {
+  throw new Error(`TEMPLATE_PROPERTY_REQUIRED: ${field} / ${zh}`);
 };
+
+const hasSectionDefinition = (section: Record<string, unknown>): boolean => ['properties', 'dimensions', 'shape'].some((key) => {
+  const value = section[key];
+  return !!value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length > 0;
+});
+
+const sectionDesignations = (section: Record<string, unknown>, draft: DraftState['engineeringDraft']): string[] =>
+  [...new Set([section.standard_steel_name, section.name, ...reviewedSectionNames(section, draft)]
+    .filter((name): name is string => typeof name === 'string' && !!name.trim()).map(name => name.trim()))];
+
+/** Declared designations the template cannot build: neither reviewed catalog rows nor explicit dimensions. */
+export function unsupportedSectionDesignations(state: DraftState): string[] {
+  const draft = state.engineeringDraft;
+  // Only rolled H-family designations (HN/HW/HM/HP…) are recognised; role names are never treated as choices.
+  const unsupported = (name: string) => /^H[WMNP]?\s*\d/i.test(name) && !reviewedSectionName(name) && !parseCustomHSection(name);
+  const records = draft?.sectionRecords ?? [];
+  const names = records.length
+    ? records.filter(section => !hasSectionDefinition(section) && !completeReviewedSectionRecord(section, reviewedSectionNames(section, draft)))
+      .flatMap(section => sectionDesignations(section, draft))
+    : Object.values(draft?.sections ?? {}).filter((name): name is string => typeof name === 'string' && !!name.trim());
+  return [...new Set(names.filter(unsupported))];
+}
+
+const DESIGNATION_TOKEN = /H[WMNP]?\s*\d+(?:\.\d+)?(?:\s*[x×*]\s*\d+(?:\.\d+)?)+/gi;
+
+/** A choice naming an unsupported designation, without any explicitly dimensioned section, would be rejected again. */
+export function unsupportedSectionChoice(option: string, designations: string[]): boolean {
+  if (!designations.length) return false;
+  const tokens = option.match(DESIGNATION_TOKEN) ?? [];
+  if (tokens.some(token => parseCustomHSection(token))) return false;
+  const rejected = new Set(designations.map(normalizeSectionName));
+  return tokens.some(token => rejected.has(normalizeSectionName(token)));
+}
+
+/** Clarification choices the current draft's template would not reject again. */
+export function supportedClarificationOptions(options: string[], state: DraftState | null | undefined): string[] {
+  const unsupported = state ? unsupportedSectionDesignations(state) : [];
+  return options.filter(option => !unsupportedSectionChoice(option, unsupported));
+}
+
+/** Name the actual blocking reason of an undefined section record; never suggest values the template rejects. */
+function undefinedSectionError(section: Record<string, unknown>, draft: DraftState['engineeringDraft']): never {
+  const id = String(section.id);
+  const designations = sectionDesignations(section, draft);
+  const label = designations[0];
+  // A reviewed designation here carries partial overrides that block catalog completion.
+  if (!label || designations.some(name => reviewedSectionName(name))) {
+    return propertyError(`section ${id}: properties, dimensions or shape required`, `截面 ${id} 缺少截面属性、尺寸或形状定义`);
+  }
+  const dims = designations.map(parseCustomHSection).find(Boolean);
+  const reviewed = reviewedSectionCatalogNames().join(', ');
+  const choices = `Clarification choices may offer only explicit dimensions, complete properties or reviewed catalog sections (${reviewed})`;
+  const choicesZh = `澄清选项只能提供明确尺寸、完整截面属性或已审定目录截面（${reviewed}）`;
+  if (dims) {
+    const plate = `${dims.H}×${dims.B}×${dims.tw}×${dims.tf}`;
+    return propertyError(`section ${id} (${label}): this designation is not in the reviewed section catalog and the record has no explicit geometry; confirm the idealized H×B×tw×tf plate geometry ${plate} mm (no fillets, no catalog properties) as the section shape, or supply complete properties A, Iy, Iz, J. ${choices}`,
+      `截面 ${id}（${label}）：该型号不在已审定截面目录中，且记录没有明确几何；请确认按 H×B×tw×tf = ${plate} mm 的理想化板件几何（不含圆角、不采用目录属性）作为截面形状，或提供完整截面属性 A、Iy、Iz、J。${choicesZh}`);
+  }
+  return propertyError(`section ${id} (${label}): this designation is not in the reviewed section catalog; provide explicit dimensions in mm (H-sections H×B×tw×tf, rectangles B×H) or complete properties A, Iy, Iz, J. ${choices}`,
+    `截面 ${id}（${label}）：该型号不在已审定截面目录中；请提供明确尺寸（mm，H 形截面 H×B×tw×tf，矩形 B×H）或完整截面属性 A、Iy、Iz、J。${choicesZh}`);
+}
 
 /** A template supplies geometry; material and section choices must come from declared inputs. */
 export function resolveTemplateMaterials(state: DraftState) {
@@ -221,13 +282,7 @@ export function resolveTemplateProperties(state: DraftState, roles: TemplateRole
       delete section.shape;
       delete section.dimensions;
     }
-    const hasDefinition = ['properties', 'dimensions', 'shape'].some((key) => {
-      const value = section[key];
-      return value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length > 0;
-    });
-    if (!hasDefinition) {
-      return propertyError(`section ${section.id}: properties, dimensions or shape required`);
-    }
+    if (!hasSectionDefinition(section)) undefinedSectionError(section, draft);
   }
   const byRole: Partial<Record<TemplateRole, { materialId: string; sectionId: string }>> = {};
   for (const role of roles) {

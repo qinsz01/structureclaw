@@ -4,12 +4,17 @@ import { z } from 'zod';
 import { type LangGraphRunnableConfig, interrupt } from '@langchain/langgraph';
 import { currentRunPolicy, recordRunEvent } from '../../runtime/run-context.js';
 import { getConfigurable } from './shared.js';
+import { supportedClarificationOptions } from '../../agent-runtime/template-properties.js';
 
 export function createAskUserClarificationTool() {
   return tool(
     async (input: { question: string; optionsJson?: string }, config: LangGraphRunnableConfig) => {
-      const options = input.optionsJson === undefined ? undefined : normalizeClarificationOptions(input.optionsJson);
-      if (input.optionsJson && !options?.length) recordRunEvent({ kind: 'clarification_options_ignored', reason: 'OPTIONAL_CHOICES_UNAVAILABLE' });
+      const proposed = input.optionsJson === undefined ? undefined : normalizeClarificationOptions(input.optionsJson);
+      if (input.optionsJson && !proposed?.length) recordRunEvent({ kind: 'clarification_options_ignored', reason: 'OPTIONAL_CHOICES_UNAVAILABLE' });
+      // A choice the template would reject again only restarts the same clarification.
+      const options = proposed && supportedClarificationOptions(proposed, getConfigurable(config)?.agentState?.draftState);
+      if (proposed && options && options.length < proposed.length) recordRunEvent({ kind: 'clarification_options_ignored',
+        reason: 'SECTION_DESIGNATION_UNSUPPORTED', options: proposed.filter(option => !options.includes(option)) });
 
       if (currentRunPolicy()?.executionOwner === 'external') {
         return JSON.stringify({ type: 'clarification_needed', question: input.question, options,

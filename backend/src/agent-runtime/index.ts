@@ -1,5 +1,5 @@
 import { prepareEngineeringReport, finishEngineeringReport } from './engineering-report.js';
-import { computeDraftMissing } from './draft-readiness.js';
+import { computeDraftMissing, describeCriticalMissing } from './draft-readiness.js';
 import { assertResolvedInput } from '../engineering/input-evidence.js';
 import { currentRunPolicy, requestRecovery, recordRunEvent } from '../runtime/run-context.js';
 import type { AppLocale } from '../shared/locale.js';
@@ -460,7 +460,7 @@ export class AgentSkillRuntime {
 
     const missing = computeDraftMissing(plugin, state, 'execution');
     if (missing.critical.length > 0) {
-      throw new Error(`MODEL_DRAFT_INCOMPLETE: ${missing.critical.join(', ')}. Ask the user to clarify these unresolved fields; extract only a new answer, then rebuild / 请澄清这些尚未解决的字段；收到新答复后再提取并建模，不要重复提取同一消息。`);
+      throw new Error(`MODEL_DRAFT_INCOMPLETE: ${describeCriticalMissing(missing.critical, state).join(', ')}. Ask the user to clarify these unresolved fields; extract only a new answer, then rebuild / 请澄清这些尚未解决的字段；收到新答复后再提取并建模，不要重复提取同一消息。`);
     }
 
     // Deterministic model building (beam, truss, frame, etc.)

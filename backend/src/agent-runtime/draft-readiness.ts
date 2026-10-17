@@ -112,3 +112,12 @@ export function buildDraftQuestions(plugin: ReadinessPlugin | null | undefined, 
   }
   return questions.filter((question, index) => questions.findIndex((entry) => entry.paramKey === question.paramKey) === index);
 }
+
+/** Critical fields with their blocking reason, so the agent sees why a template cannot be built. */
+export function describeCriticalMissing(critical: string[], state: DraftState): string[] {
+  return critical.map(field => {
+    if (field !== 'templateProperties') return field;
+    const issues = templatePropertyIssues(state).map(issue => issue.replace(/^[A-Z_]+:\s*/, ''));
+    return issues.length ? `${field} (${issues.join('; ')})` : field;
+  });
+}

@@ -5,6 +5,7 @@ import { runtimeBaseDir } from '../../config/index.js';
 import type { ConversationRuntimeSnapshot } from '../../types/conversation-runtime.js';
 import type { AnalysisExecutionService } from '../../services/analysis-execution.js';
 import { normalizeClarificationOptions } from '../../utils/clarification-options.js';
+import { supportedClarificationOptions } from '../../agent-runtime/template-properties.js';
 import { pendingToolCalls } from '../sequential-tools.js';
 import { contentHash, currentAnalysisError } from '../../engineering/model-state.js';
 import { activeInputEvidence, assertInputEvidenceMatchesModel, unresolvedInputEvidence } from '../../engineering/input-evidence.js';
@@ -25,7 +26,7 @@ export function clarificationState(state: AgentState, tasks: ReadonlyArray<{ int
   const waitingForReply = tasks.some(task => task.interrupts?.length) || call?.name === 'ask_user_clarification';
   const args = call?.name === 'ask_user_clarification' ? call.args : undefined;
   return { waitingForReply, question: typeof args?.question === 'string' ? args.question : null,
-    options: normalizeClarificationOptions(args?.options ?? args?.optionsJson) };
+    options: supportedClarificationOptions(normalizeClarificationOptions(args?.options ?? args?.optionsJson), state.draftState) };
 }
 
 /** A revision covers evidence and excitation settings as well as the physical model. */

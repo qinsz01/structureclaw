@@ -18,6 +18,11 @@ export function reviewedSectionName(name: unknown): string | undefined {
   return found.length === 1 ? found[0]!.name : undefined;
 }
 
+/** Designations the reviewed catalog can complete; nothing else may be offered as a catalog choice. */
+export function reviewedSectionCatalogNames(): string[] {
+  return catalogEntries.map(entry => String(entry.name));
+}
+
 /** Only reviewed rows are accepted. No dimensions, torsion, net modulus or code coefficients are inferred. */
 export function reviewedSectionRecord(name: string, id: string, purpose: 'beam' | 'column'): Record<string, unknown> | undefined {
   const identity = reviewedSectionName(name);
