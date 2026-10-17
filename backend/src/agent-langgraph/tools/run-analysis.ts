@@ -54,77 +54,249 @@ async function queryRequestedOutputs(state: AgentState, scope: RequestScope | nu
   return { resultQuantities: quantities, requestedQuantities: Object.values(quantities), missingRequestedOutputs: missing };
 }
 
+interface RunAnalysisInput {
+  analysisType: string;
+  analysisSkillId?: string;
+  loadCombinationId?: string;
+  loadCaseIds?: string[];
+  loadCombinationIds?: string[];
+  floorLoadTransferMode?: 'auto_code_cn' | 'node_tributary' | 'one_way_slab' | 'two_way_slab';
+  seismicWorkflowJson?: string;
+  method?: 'modal' | 'time_history' | 'equilibrium';
+  allowPartial?: boolean;
+  requestScope?: RequestScope;
+  massSource?: 'nodal' | 'member-density' | 'floor-seismic';
+  numModes?: number;
+  direction?: 'x' | 'y' | 'z';
+  timeStep?: number;
+  duration?: number;
+  dampingRatio?: number;
+  groundMotion?: number[];
+  groundMotionUnit?: 'm/s2' | 'g';
+  monitorNodeIds?: string[];
+  monitorElementIds?: string[];
+  monitorSupportNodeIds?: string[];
+  massDirections?: ('x' | 'y' | 'z')[];
+}
+
+type AnalysisType = 'static' | 'dynamic' | 'seismic' | 'nonlinear';
+type ToolPayloadOutcome<T> = { errorPayload: Record<string, unknown> } | T;
+
+/** Scope of this call: equilibrium may select only the available responses, but cannot erase the accepted goal. */
+function resolveAnalysisScope(input: RunAnalysisInput, state: AgentState | undefined) {
+  const equilibriumRequested = input.method !== undefined ? input.method === 'equilibrium'
+    : input.requestScope !== undefined ? input.requestScope.method === 'equilibrium'
+      : !input.analysisSkillId && state?.requestScope?.method === 'equilibrium';
+  // A tool may select only available responses, but cannot erase the accepted goal.
+  const partialGoal = equilibriumRequested && state?.requestScope?.responses.some(field => !['forces', 'reactions'].includes(field))
+    ? state.requestScope : undefined;
+  const goal = partialGoal
+    ? { ...partialGoal, outputs: input.requestScope?.outputs.length ? input.requestScope.outputs : partialGoal.outputs }
+    : input.requestScope ?? state?.requestScope;
+  const scope = !equilibriumRequested && goal?.method === 'equilibrium' ? { ...goal, method: 'solver' as const } : goal;
+  return { equilibriumRequested, partialGoal, scope };
+}
+
+type AnalysisScope = ReturnType<typeof resolveAnalysisScope>;
+
+/** Force-only equilibrium of an accepted single-span beam draft; never a fallback for a specified solver. */
+async function runEquilibriumAnalysis(options: {
+  input: RunAnalysisInput;
+  state: AgentState | undefined;
+  scope: AnalysisScope['scope'];
+  partialGoal: AnalysisScope['partialGoal'];
+  config: LangGraphRunnableConfig;
+  toolCallId: string;
+}): Promise<Command> {
+  const { input, state, scope, partialGoal, config, toolCallId } = options;
+  const configurable = getConfigurable(config);
+  const partial = (input.allowPartial === true || !!partialGoal) && scope && !scope.design
+    && scope.responses.some(field => !['forces', 'reactions'].includes(field))
+    && !scope.responses.includes('dynamic') && scope.responses.some(field => ['forces', 'reactions'].includes(field));
+  if (input.analysisType !== 'static' || !forceOnlyScope(scope) && !partial) throw new Error('EQUILIBRIUM_FORCE_ONLY_REQUIRED / 平衡计算仅适用于静力内力或反力');
+  if (input.analysisSkillId || state?.model && !state.modelPending) throw new Error('EQUILIBRIUM_NOT_A_SOLVER_FALLBACK / 指定引擎或已有完整模型必须使用真实求解路径');
+  if (!state?.draftState) throw new Error('ENGINEERING_DRAFT_REQUIRED');
+  const projection = equilibriumModel(state.draftState, state.inputEvidence);
+  const parameters = { ...(input.loadCaseIds ? { loadCaseIds: input.loadCaseIds } : {}),
+    ...(input.loadCombinationIds ? { loadCombinationIds: input.loadCombinationIds } : {}),
+    ...(input.loadCombinationId ? { loadCombinationId: input.loadCombinationId } : {}) };
+  const reservation = beginAnalysisRequest(state, analysisSettingsHash('static', 'builtin-equilibrium', parameters), projection);
+  configurable.agentState = { ...state, ...reservation };
+  configurable.onAnalysisRequest?.(reservation);
+  const requestId = randomUUID();
+  recordRunEvent({ kind: 'analysis_request', requestId, operation: 'analysis', method: 'equilibrium' });
+  const { data: run } = await configurable.engineClient.post<Record<string, unknown>>('/analyze', {
+    type: 'static', engineId: 'builtin-equilibrium', model: projection, parameters, requestScope: scope,
+    requestId, requestBinding: reservation.analysisRequest }, { signal: config.signal });
+  run.meta = { ...(isRecord(run.meta) ? run.meta : {}), requestScope: scope };
+  const update = publishAnalysis(getConfigurable(config).agentState ?? {}, reservation.analysisRequest, run);
+  const delivery = update.analysisResult ? await queryRequestedOutputs({ ...state, ...reservation, ...update }, scope, config) : undefined;
+  return toolResult(toolCallId, 'run_analysis', JSON.stringify({ ...buildAnalysisToolSummary({ result: run, model: projection }),
+    method: 'equilibrium', availableResponses: ['forces', 'reactions'], requestScope: scope,
+    ...(partial ? { deliveryStatus: 'partial', missingRequestedResponses: scope.responses.filter(field => !['forces', 'reactions'].includes(field)),
+      nextAction: nextActionForMissingInput(), message: 'Forces solved; displacement/other requested responses still need analysis properties. / 内力已算；位移等其余所求量仍需分析属性。' } : {}),
+    ...(delivery ? { requestedQuantities: delivery.requestedQuantities, missingRequestedOutputs: delivery.missingRequestedOutputs } : {}),
+    instruction: 'Query forces/reactions by physical position. Displacement, stress and design were not calculated. / 按物理位置查询内力反力；没有计算位移、应力或设计。' }),
+    { ...update, ...(delivery ? { resultQuantities: delivery.resultQuantities } : {}), ...(scope ? { requestScope: scope } : {}) });
+}
+
+/** China seismic workflow: parsed tool argument, else the draft's, else the uploaded context; validated before solving. */
+function resolveSeismicWorkflowInput(input: RunAnalysisInput, state: AgentState | undefined, analysisType: AnalysisType):
+  ToolPayloadOutcome<{ seismicWorkflow: ReturnType<typeof mergeSeismicWorkflowInputs> }> {
+  const parsedSeismicWorkflow = parseJsonObjectInput(input.seismicWorkflowJson, 'seismicWorkflowJson');
+  if (parsedSeismicWorkflow && !parsedSeismicWorkflow.ok) {
+    return {
+      errorPayload: {
+        success: false,
+        error_code: 'INVALID_SEISMIC_WORKFLOW_JSON',
+        message: parsedSeismicWorkflow.error,
+      },
+    };
+  }
+  const draftSeismicWorkflow = isRecord(state?.draftState?.skillState?.seismicWorkflow)
+    ? state?.draftState?.skillState?.seismicWorkflow as Record<string, unknown>
+    : undefined;
+  const contextSeismicWorkflow = isRecord(state?.contextSeismicWorkflow)
+    ? state.contextSeismicWorkflow
+    : undefined;
+  const semanticSeismicWorkflow = parsedSeismicWorkflow?.ok
+    ? parsedSeismicWorkflow.value
+    : draftSeismicWorkflow ?? (
+      hasSemanticSeismicWorkflowInput(contextSeismicWorkflow)
+        ? contextSeismicWorkflow
+        : undefined
+    );
+  const seismicWorkflow = mergeSeismicWorkflowInputs(
+    semanticSeismicWorkflow,
+    contextSeismicWorkflow,
+  );
+  assertAnalysisInputEvidenceMatchesRequest(state?.inputEvidence, analysisType === 'seismic' ? seismicWorkflow : undefined);
+  if (analysisType === 'seismic' && !hasSemanticSeismicWorkflowInput(semanticSeismicWorkflow)) {
+    return {
+      errorPayload: {
+        success: false,
+        error_code: 'SEISMIC_WORKFLOW_REQUIRED',
+        message: 'China seismic analysis requires a non-empty structured seismicWorkflow from LLM semantic understanding before run_analysis.',
+        messageZh: '中国抗震分析必须先由 LLM 语义理解形成非空 seismicWorkflow 结构化对象，不能直接按关键词进入计算。',
+        nextAction: 'Call extract_draft_params or pass seismicWorkflowJson, then retry run_analysis.',
+      },
+    };
+  }
+  if (analysisType === 'seismic' && hasStructuredSeismicWorkflow(seismicWorkflow)) {
+    const workflowErrors = validateSeismicWorkflowInput(seismicWorkflow);
+    if (workflowErrors.length > 0) {
+      return {
+        errorPayload: {
+          success: false,
+          error_code: 'INVALID_SEISMIC_WORKFLOW',
+          message: 'China seismic workflow contains invalid structured fields.',
+          messageZh: '中国抗震 seismicWorkflow 存在无效结构化字段。',
+          errors: workflowErrors,
+          nextAction: 'Correct seismicWorkflowJson or rerun extract_draft_params to produce valid structured fields.',
+        },
+      };
+    }
+  }
+  return { seismicWorkflow };
+}
+
+/** A requested load combination must exist in the current model. */
+function resolveLoadCombinationId(model: Record<string, unknown>, requestedId: string | undefined):
+  ToolPayloadOutcome<{ loadCombinationId: string | undefined }> {
+  const rawLoadCombinations = Array.isArray(model.load_combinations)
+    ? model.load_combinations
+    : Array.isArray(model.loadCombinations)
+      ? model.loadCombinations
+      : [];
+  const loadCombinationIds = rawLoadCombinations
+    .filter(isRecord)
+    .map((combination) => pickStringLike(combination, 'id'))
+    .filter((id): id is string => !!id);
+  const requestedLoadCombinationId = requestedId?.trim();
+  if (requestedLoadCombinationId && !loadCombinationIds.includes(requestedLoadCombinationId)) {
+    return {
+      errorPayload: {
+        success: false,
+        error_code: 'LOAD_COMBINATION_NOT_FOUND',
+        message: `Load combination '${requestedLoadCombinationId}' is not present in the current model.`,
+        availableLoadCombinationIds: loadCombinationIds,
+      },
+    };
+  }
+  return { loadCombinationId: requestedLoadCombinationId };
+}
+
+/** Solver parameters: selectors, floor-load transfer, seismic workflow and explicit dynamic settings. */
+function buildAnalysisParameters(
+  input: RunAnalysisInput,
+  analysisType: AnalysisType,
+  seismicWorkflow: ReturnType<typeof mergeSeismicWorkflowInputs>,
+  loadCombinationId: string | undefined,
+): Record<string, unknown> {
+  const parameters: Record<string, unknown> = {
+    ...(loadCombinationId ? { loadCombinationId } : {}),
+    ...(input.loadCaseIds ? { loadCaseIds: input.loadCaseIds } : {}),
+    ...(input.loadCombinationIds ? { loadCombinationIds: input.loadCombinationIds } : {}),
+    ...(input.floorLoadTransferMode ? { floorLoadTransferMode: input.floorLoadTransferMode } : {}),
+    ...(analysisType === 'seismic' && seismicWorkflow ? { seismicWorkflow } : {}),
+  };
+  if (input.method !== undefined) parameters.analysisType = input.method;
+  for (const key of ['massSource', 'numModes', 'direction', 'timeStep', 'duration', 'dampingRatio',
+    'groundMotion', 'groundMotionUnit', 'monitorNodeIds', 'monitorElementIds', 'monitorSupportNodeIds', 'massDirections'] as const) {
+    if (input[key] !== undefined) parameters[key] = input[key];
+  }
+  return parameters;
+}
+
+/** The solver result must belong to the reserved request; its meta records the binding, trace and scope. */
+function bindAnalysisResult(
+  raw: unknown,
+  analysisRequest: ReturnType<typeof beginAnalysisRequest>['analysisRequest'],
+  traceId: string,
+  scope: AnalysisScope['scope'],
+): Record<string, unknown> {
+  const analysisResult: Record<string, unknown> = isRecord(raw)
+    ? { ...raw }
+    : { result: raw };
+  const analysisMeta = isRecord(analysisResult.meta) ? analysisResult.meta : {};
+  for (const key of ['modelRevision', 'modelHash', 'settingsHash', 'requestSequence'] as const) {
+    if (analysisMeta[key] !== undefined && analysisMeta[key] !== analysisRequest[key]) {
+      throw new Error(`ANALYSIS_RESULT_BINDING_MISMATCH: ${key}`);
+    }
+  }
+  analysisResult.meta = {
+    ...analysisMeta,
+    traceId,
+    ...analysisRequest,
+    ...(scope ? { requestScope: scope } : {}),
+  };
+  return analysisResult;
+}
+
+/** Tool message: compact summary plus the declared output deliveries and next action. */
+function analysisResponsePayload(
+  analysisSummary: ReturnType<typeof buildAnalysisToolSummary>,
+  delivery: Awaited<ReturnType<typeof queryRequestedOutputs>> | undefined,
+  scope: AnalysisScope['scope'],
+) {
+  return { ...analysisSummary, ...(delivery ? { requestedQuantities: delivery.requestedQuantities, missingRequestedOutputs: delivery.missingRequestedOutputs,
+    deliveryScope: 'declared-output-selections',
+    deliveryStatus: !scope?.outputs?.length ? 'not-specified' : delivery.missingRequestedOutputs.length ? 'partial' : 'complete' } : {}), ...(scope ? { requestScope: scope, requestedOutputs: scope.outputs,
+    nextAction: 'query_results', instruction: 'Deliver the requested result locations, cases and units; code design/report only when explicitly requested. / 按指定位置、工况、单位交付；规范设计和报告分别按需。' } : {}) };
+}
+
 export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
   return tool(
-    async (input: {
-      analysisType: string;
-      analysisSkillId?: string;
-      loadCombinationId?: string;
-      loadCaseIds?: string[];
-      loadCombinationIds?: string[];
-      floorLoadTransferMode?: 'auto_code_cn' | 'node_tributary' | 'one_way_slab' | 'two_way_slab';
-      seismicWorkflowJson?: string;
-      method?: 'modal' | 'time_history' | 'equilibrium';
-      allowPartial?: boolean;
-      requestScope?: RequestScope;
-      massSource?: 'nodal' | 'member-density' | 'floor-seismic';
-      numModes?: number;
-      direction?: 'x' | 'y' | 'z';
-      timeStep?: number;
-      duration?: number;
-      dampingRatio?: number;
-      groundMotion?: number[];
-      groundMotionUnit?: 'm/s2' | 'g';
-      monitorNodeIds?: string[];
-      monitorElementIds?: string[];
-      monitorSupportNodeIds?: string[];
-      massDirections?: ('x' | 'y' | 'z')[];
-    }, config: LangGraphRunnableConfig) => {
+    async (input: RunAnalysisInput, config: LangGraphRunnableConfig) => {
       const log = getLogger(config.configurable as Partial<AgentConfigurable> | undefined);
       const start = Date.now();
       const configurable = getConfigurable(config);
       const state = configurable.agentState;
       const toolCallId = getToolCallId(config);
 
-      const equilibriumRequested = input.method !== undefined ? input.method === 'equilibrium'
-        : input.requestScope !== undefined ? input.requestScope.method === 'equilibrium'
-          : !input.analysisSkillId && state?.requestScope?.method === 'equilibrium';
-      // A tool may select only available responses, but cannot erase the accepted goal.
-      const partialGoal = equilibriumRequested && state?.requestScope?.responses.some(field => !['forces', 'reactions'].includes(field))
-        ? state.requestScope : undefined;
-      const goal = partialGoal
-        ? { ...partialGoal, outputs: input.requestScope?.outputs.length ? input.requestScope.outputs : partialGoal.outputs }
-        : input.requestScope ?? state?.requestScope;
-      const scope = !equilibriumRequested && goal?.method === 'equilibrium' ? { ...goal, method: 'solver' as const } : goal;
+      const { equilibriumRequested, partialGoal, scope } = resolveAnalysisScope(input, state);
       if (equilibriumRequested) {
-        const partial = (input.allowPartial === true || !!partialGoal) && scope && !scope.design
-          && scope.responses.some(field => !['forces', 'reactions'].includes(field))
-          && !scope.responses.includes('dynamic') && scope.responses.some(field => ['forces', 'reactions'].includes(field));
-        if (input.analysisType !== 'static' || !forceOnlyScope(scope) && !partial) throw new Error('EQUILIBRIUM_FORCE_ONLY_REQUIRED / 平衡计算仅适用于静力内力或反力');
-        if (input.analysisSkillId || state?.model && !state.modelPending) throw new Error('EQUILIBRIUM_NOT_A_SOLVER_FALLBACK / 指定引擎或已有完整模型必须使用真实求解路径');
-        if (!state?.draftState) throw new Error('ENGINEERING_DRAFT_REQUIRED');
-        const projection = equilibriumModel(state.draftState, state.inputEvidence);
-        const parameters = { ...(input.loadCaseIds ? { loadCaseIds: input.loadCaseIds } : {}),
-          ...(input.loadCombinationIds ? { loadCombinationIds: input.loadCombinationIds } : {}),
-          ...(input.loadCombinationId ? { loadCombinationId: input.loadCombinationId } : {}) };
-        const reservation = beginAnalysisRequest(state, analysisSettingsHash('static', 'builtin-equilibrium', parameters), projection);
-        configurable.agentState = { ...state, ...reservation };
-        configurable.onAnalysisRequest?.(reservation);
-        const requestId = randomUUID();
-        recordRunEvent({ kind: 'analysis_request', requestId, operation: 'analysis', method: 'equilibrium' });
-        const { data: run } = await configurable.engineClient.post<Record<string, unknown>>('/analyze', {
-          type: 'static', engineId: 'builtin-equilibrium', model: projection, parameters, requestScope: scope,
-          requestId, requestBinding: reservation.analysisRequest }, { signal: config.signal });
-        run.meta = { ...(isRecord(run.meta) ? run.meta : {}), requestScope: scope };
-        const update = publishAnalysis(getConfigurable(config).agentState ?? {}, reservation.analysisRequest, run);
-        const delivery = update.analysisResult ? await queryRequestedOutputs({ ...state, ...reservation, ...update }, scope, config) : undefined;
-        return toolResult(toolCallId, 'run_analysis', JSON.stringify({ ...buildAnalysisToolSummary({ result: run, model: projection }),
-          method: 'equilibrium', availableResponses: ['forces', 'reactions'], requestScope: scope,
-          ...(partial ? { deliveryStatus: 'partial', missingRequestedResponses: scope.responses.filter(field => !['forces', 'reactions'].includes(field)),
-            nextAction: nextActionForMissingInput(), message: 'Forces solved; displacement/other requested responses still need analysis properties. / 内力已算；位移等其余所求量仍需分析属性。' } : {}),
-          ...(delivery ? { requestedQuantities: delivery.requestedQuantities, missingRequestedOutputs: delivery.missingRequestedOutputs } : {}),
-          instruction: 'Query forces/reactions by physical position. Displacement, stress and design were not calculated. / 按物理位置查询内力反力；没有计算位移、应力或设计。' }),
-          { ...update, ...(delivery ? { resultQuantities: delivery.resultQuantities } : {}), ...(scope ? { requestScope: scope } : {}) });
+        return runEquilibriumAnalysis({ input, state, scope, partialGoal, config, toolCallId });
       }
 
       // Read model from graph state channel
@@ -156,103 +328,14 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
         input.analysisSkillId,
       );
       const traceId = `lg-${Date.now()}`;
-      const parsedSeismicWorkflow = parseJsonObjectInput(input.seismicWorkflowJson, 'seismicWorkflowJson');
-      if (parsedSeismicWorkflow && !parsedSeismicWorkflow.ok) {
-        return toolResult(
-          toolCallId,
-          'run_analysis',
-          JSON.stringify({
-            success: false,
-            error_code: 'INVALID_SEISMIC_WORKFLOW_JSON',
-            message: parsedSeismicWorkflow.error,
-          }),
-        );
-      }
-      const draftSeismicWorkflow = isRecord(state?.draftState?.skillState?.seismicWorkflow)
-        ? state?.draftState?.skillState?.seismicWorkflow as Record<string, unknown>
-        : undefined;
-      const contextSeismicWorkflow = isRecord(state?.contextSeismicWorkflow)
-        ? state.contextSeismicWorkflow
-        : undefined;
-      const semanticSeismicWorkflow = parsedSeismicWorkflow?.ok
-        ? parsedSeismicWorkflow.value
-        : draftSeismicWorkflow ?? (
-          hasSemanticSeismicWorkflowInput(contextSeismicWorkflow)
-            ? contextSeismicWorkflow
-            : undefined
-        );
-      const seismicWorkflow = mergeSeismicWorkflowInputs(
-        semanticSeismicWorkflow,
-        contextSeismicWorkflow,
-      );
-      assertAnalysisInputEvidenceMatchesRequest(state?.inputEvidence, analysisType === 'seismic' ? seismicWorkflow : undefined);
-      if (analysisType === 'seismic' && !hasSemanticSeismicWorkflowInput(semanticSeismicWorkflow)) {
-        return toolResult(
-          toolCallId,
-          'run_analysis',
-          JSON.stringify({
-            success: false,
-            error_code: 'SEISMIC_WORKFLOW_REQUIRED',
-            message: 'China seismic analysis requires a non-empty structured seismicWorkflow from LLM semantic understanding before run_analysis.',
-            messageZh: '中国抗震分析必须先由 LLM 语义理解形成非空 seismicWorkflow 结构化对象，不能直接按关键词进入计算。',
-            nextAction: 'Call extract_draft_params or pass seismicWorkflowJson, then retry run_analysis.',
-          }),
-        );
-      }
-      if (analysisType === 'seismic' && hasStructuredSeismicWorkflow(seismicWorkflow)) {
-        const workflowErrors = validateSeismicWorkflowInput(seismicWorkflow);
-        if (workflowErrors.length > 0) {
-          return toolResult(
-            toolCallId,
-            'run_analysis',
-            JSON.stringify({
-              success: false,
-              error_code: 'INVALID_SEISMIC_WORKFLOW',
-              message: 'China seismic workflow contains invalid structured fields.',
-              messageZh: '中国抗震 seismicWorkflow 存在无效结构化字段。',
-              errors: workflowErrors,
-              nextAction: 'Correct seismicWorkflowJson or rerun extract_draft_params to produce valid structured fields.',
-            }),
-          );
-        }
-      }
+      const seismic = resolveSeismicWorkflowInput(input, state, analysisType);
+      if ('errorPayload' in seismic) return toolResult(toolCallId, 'run_analysis', JSON.stringify(seismic.errorPayload));
+      const { seismicWorkflow } = seismic;
 
       const engineClient = configurable.engineClient;
-      const rawLoadCombinations = Array.isArray(model.load_combinations)
-        ? model.load_combinations
-        : Array.isArray(model.loadCombinations)
-          ? model.loadCombinations
-          : [];
-      const loadCombinationIds = rawLoadCombinations
-        .filter(isRecord)
-        .map((combination) => pickStringLike(combination, 'id'))
-        .filter((id): id is string => !!id);
-      const requestedLoadCombinationId = input.loadCombinationId?.trim();
-      if (requestedLoadCombinationId && !loadCombinationIds.includes(requestedLoadCombinationId)) {
-        return toolResult(
-          toolCallId,
-          'run_analysis',
-          JSON.stringify({
-            success: false,
-            error_code: 'LOAD_COMBINATION_NOT_FOUND',
-            message: `Load combination '${requestedLoadCombinationId}' is not present in the current model.`,
-            availableLoadCombinationIds: loadCombinationIds,
-          }),
-        );
-      }
-      const loadCombinationId = requestedLoadCombinationId;
-      const parameters: Record<string, unknown> = {
-        ...(loadCombinationId ? { loadCombinationId } : {}),
-        ...(input.loadCaseIds ? { loadCaseIds: input.loadCaseIds } : {}),
-        ...(input.loadCombinationIds ? { loadCombinationIds: input.loadCombinationIds } : {}),
-        ...(input.floorLoadTransferMode ? { floorLoadTransferMode: input.floorLoadTransferMode } : {}),
-        ...(analysisType === 'seismic' && seismicWorkflow ? { seismicWorkflow } : {}),
-      };
-      if (input.method !== undefined) parameters.analysisType = input.method;
-      for (const key of ['massSource', 'numModes', 'direction', 'timeStep', 'duration', 'dampingRatio',
-        'groundMotion', 'groundMotionUnit', 'monitorNodeIds', 'monitorElementIds', 'monitorSupportNodeIds', 'massDirections'] as const) {
-        if (input[key] !== undefined) parameters[key] = input[key];
-      }
+      const loadCombination = resolveLoadCombinationId(model, input.loadCombinationId);
+      if ('errorPayload' in loadCombination) return toolResult(toolCallId, 'run_analysis', JSON.stringify(loadCombination.errorPayload));
+      const parameters = buildAnalysisParameters(input, analysisType, seismicWorkflow, loadCombination.loadCombinationId);
       let reservation = beginAnalysisRequest(state ?? {}, analysisSettingsHash(analysisType, requestedAnalysisSkillId, parameters));
       const reserve = () => {
         configurable.agentState = { ...configurable.agentState, ...reservation } as AgentState;
@@ -289,21 +372,7 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
         postToEngineWithRetry,
         signal: config.signal,
       });
-      const analysisResult: Record<string, unknown> = isRecord(result.result)
-        ? { ...result.result }
-        : { result: result.result };
-      const analysisMeta = isRecord(analysisResult.meta) ? analysisResult.meta : {};
-      for (const key of ['modelRevision', 'modelHash', 'settingsHash', 'requestSequence'] as const) {
-        if (analysisMeta[key] !== undefined && analysisMeta[key] !== reservation.analysisRequest[key]) {
-          throw new Error(`ANALYSIS_RESULT_BINDING_MISMATCH: ${key}`);
-        }
-      }
-      analysisResult.meta = {
-        ...analysisMeta,
-        traceId,
-        ...reservation.analysisRequest,
-        ...(scope ? { requestScope: scope } : {}),
-      };
+      const analysisResult = bindAnalysisResult(result.result, reservation.analysisRequest, traceId, scope);
 
       // Store analysis result in graph state via Command.
       // Keep ToolMessage content compact — the full data lives in graph state.
@@ -325,10 +394,7 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
       return toolResult(
         toolCallId,
         'run_analysis',
-        JSON.stringify({ ...analysisSummary, ...(delivery ? { requestedQuantities: delivery.requestedQuantities, missingRequestedOutputs: delivery.missingRequestedOutputs,
-          deliveryScope: 'declared-output-selections',
-          deliveryStatus: !scope?.outputs?.length ? 'not-specified' : delivery.missingRequestedOutputs.length ? 'partial' : 'complete' } : {}), ...(scope ? { requestScope: scope, requestedOutputs: scope.outputs,
-          nextAction: 'query_results', instruction: 'Deliver the requested result locations, cases and units; code design/report only when explicitly requested. / 按指定位置、工况、单位交付；规范设计和报告分别按需。' } : {}) }),
+        JSON.stringify(analysisResponsePayload(analysisSummary, delivery, scope)),
         { ...update, ...(delivery ? { resultQuantities: delivery.resultQuantities } : {}), ...(scope ? { requestScope: scope } : {}) },
       );
     },
