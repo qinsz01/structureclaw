@@ -74,6 +74,8 @@ describe('characterization: run policy and ablation surface', () => {
     const base = captured['default-en'];
     expect(captured['tools-disabled-ask-user-clarification'].tools).toEqual(base.tools.filter(name => name !== 'ask_user_clarification'));
     expect(captured['tools-disabled-ask-user-clarification'].prompt).not.toContain('"ask_user_clarification"');
+    // The prompt must never instruct the agent to use a tool it is not offered.
+    expect(captured['tools-disabled-ask-user-clarification'].prompt).not.toContain('ask_user_clarification');
     // Fixed routing is enforced in tools (extract_draft_params skips the router), not announced in the prompt.
     expect(captured['routing-fixed-beam']).toEqual(base);
     for (const name of ['knowledge-disabled', 'builder-llm']) {

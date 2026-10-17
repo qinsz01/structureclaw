@@ -53,6 +53,90 @@ function summarizeArtifacts(state: AgentState): string {
   ].join('\n');
 }
 
+
+/**
+ * Mechanisms the prompt must describe consistently with the tools actually bound. With every
+ * mechanism available the prompt is byte-identical to the full system.
+ */
+export interface PromptFeatures {
+  clarification: boolean;
+  validation: boolean;
+  repair: boolean;
+}
+
+export function promptFeatures(state: AgentState, activeToolIds: string[] | undefined): PromptFeatures {
+  return {
+    clarification: activeToolIds === undefined || activeToolIds.includes('ask_user_clarification'),
+    validation: activeToolIds === undefined || activeToolIds.includes('validate_model'),
+    repair: state.runPolicy?.repair.enabled !== false,
+  };
+}
+
+const PROMPT_LINES = {
+  zh: {
+    rule2: {
+      full: "2. **错误恢复**: 如果工具返回错误或 \"unknown\"，不要放弃。继续尝试其他工具或使用 ask_user_clarification 询问用户",
+      repairOff: "2. **错误处理**: 本次运行已关闭自动纠错。工具返回错误或 \"unknown\" 时，如实说明错误及所需输入；不要重试，也不要换用其他工具绕过",
+      clarificationOff: "2. **错误恢复**: 如果工具返回错误或 \"unknown\"，不要放弃。继续尝试其他工具，或在最终回复中列出缺失的输入"
+    },
+    rule5: {
+      full: "5. **主动提问**: 当关键参数缺失时，使用 ask_user_clarification 工具询问用户",
+      clarificationOff: "5. **缺失输入**: 当关键参数缺失时，在最终回复中列出缺失的输入并结束本轮；不得编造数值"
+    },
+    step2: {
+      full: "2. 如果 extract_draft_params 返回 criticalMissing 字段，使用 ask_user_clarification 询问缺失参数",
+      clarificationOff: "2. 如果 extract_draft_params 返回 criticalMissing 字段，在最终回复中列出缺失参数并结束本轮；不得编造数值"
+    },
+    step4: {
+      full: "4. 调用 validate_model 验证模型",
+      validationOff: "4. 本次运行不提供 validate_model；直接进入 run_analysis（build_model 的规范化和求解器检查仍然生效）"
+    },
+    canProceed: {
+      full: "- 如果 extract_draft_params 返回 canProceed=false 或 criticalMissing 非空，必须继续调用 ask_user_clarification 或直接说明缺失项；不要调用 memory 来修补草稿参数，也不要静默结束。",
+      clarificationOff: "- 如果 extract_draft_params 返回 canProceed=false 或 criticalMissing 非空，必须在最终回复中明确列出缺失项并结束本轮；不要调用 memory 来修补草稿参数，不得编造数值，也不要静默结束。"
+    },
+    answers: {
+      full: "- ask_user_clarification 返回的用户回答不会自动写入 draftState。收到 clarification_answered 后，必须先用回答原文调用 extract_draft_params，确认 criticalMissing 为空后，才能调用 build_model。",
+      clarificationOff: "- 用户在后续轮次补充缺失输入时，必须先用用户原文调用 extract_draft_params，确认 criticalMissing 为空后，才能调用 build_model。"
+    }
+  },
+  en: {
+    rule2: {
+      full: "2. **Error recovery**: If a tool returns an error or \"unknown\", do NOT give up. Try other tools or use ask_user_clarification to ask the user",
+      repairOff: "2. **Errors**: Automatic recovery is disabled for this run. If a tool returns an error or \"unknown\", report the error and the inputs it needs; do not retry or switch tools to work around it",
+      clarificationOff: "2. **Error recovery**: If a tool returns an error or \"unknown\", do NOT give up. Try other tools, or list the missing inputs in your final reply"
+    },
+    rule5: {
+      full: "5. **Ask when unclear**: Use the ask_user_clarification tool when critical parameters are missing",
+      clarificationOff: "5. **Missing inputs**: When critical parameters are missing, list the missing inputs in your final reply and end the turn; never invent values"
+    },
+    step2: {
+      full: "2. If extract_draft_params returns criticalMissing fields, use ask_user_clarification to ask for them",
+      clarificationOff: "2. If extract_draft_params returns criticalMissing fields, list them in your final reply and end the turn; never invent values"
+    },
+    step4: {
+      full: "4. Call validate_model to validate the model",
+      validationOff: "4. validate_model is not available in this run; proceed to run_analysis (build_model normalization and solver checks still apply)"
+    },
+    canProceed: {
+      full: "- If extract_draft_params returns canProceed=false or non-empty criticalMissing, you must continue with ask_user_clarification or clearly explain the missing fields; do not use memory to patch draft parameters and do not silently stop.",
+      clarificationOff: "- If extract_draft_params returns canProceed=false or non-empty criticalMissing, clearly list the missing fields in your final reply and end the turn; do not use memory to patch draft parameters, never invent values and do not silently stop."
+    },
+    answers: {
+      full: "- User answers returned by ask_user_clarification are not automatically merged into draftState. After clarification_answered, call extract_draft_params with the exact answer text first, then call build_model only after criticalMissing is empty.",
+      clarificationOff: "- When the user supplies missing inputs in a later turn, call extract_draft_params with the exact user text first, then call build_model only after criticalMissing is empty."
+    }
+  }
+} as const;
+
+function promptLine(locale: 'zh' | 'en', key: keyof typeof PROMPT_LINES['en'], features: PromptFeatures): string {
+  const line: { full: string; repairOff?: string; clarificationOff?: string; validationOff?: string } = PROMPT_LINES[locale][key];
+  if (!features.repair && line.repairOff) return line.repairOff;
+  if (!features.clarification && line.clarificationOff) return line.clarificationOff;
+  if (!features.validation && line.validationOff) return line.validationOff;
+  return line.full;
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -90,12 +174,13 @@ export function buildSystemMessages(ctx: SystemPromptContext): BaseMessageLike[]
     })
     .join('\n');
 
-  const systemContent = isZh
-    ? buildZhPrompt(state, skillList, toolCallLimit)
-    : buildEnPrompt(state, skillList, toolCallLimit);
-
   const runtimePolicy = state.runPolicy;
   const activeToolIds = ctx.activeToolIds ?? runtimePolicy?.activeToolIds;
+  const features = promptFeatures(state, activeToolIds);
+  const systemContent = isZh
+    ? buildZhPrompt(state, skillList, toolCallLimit, features)
+    : buildEnPrompt(state, skillList, toolCallLimit, features);
+
   const toolAvailability = activeToolIds === undefined ? '' : (isZh
     ? `\n\n本次调用实际可用工具=${JSON.stringify(activeToolIds)}。此列表是当前配置；历史消息关于工具开启或关闭的描述仅适用于当时，不能覆盖本轮配置。列表为空时说明当前没有可用工具；有工具时按用户最新请求使用，不能声称仍被旧配置关闭。工具可用不代表已经执行或成功。`
     : `\n\nTools available for this invocation=${JSON.stringify(activeToolIds)}. This is the current configuration. Historical statements about enabled or disabled tools applied at that time and do not override this turn. An empty list means no tools are currently available; otherwise use the available tools for the latest user request rather than claiming an old setting still disables them. Availability does not mean execution or success.`);
@@ -115,8 +200,8 @@ export function buildSystemMessages(ctx: SystemPromptContext): BaseMessageLike[]
     ? '\n若抽取返回partialAnalysisAvailable，先run_analysis(method=equilibrium,allowPartial=true)交付可独立确定的内力，然后询问缺失刚度；missingRequestedResponses表示整题仍未完成。不要把输出标签填入resultKey，不要编造构件ID；平衡投影的竖向弯矩分量是M2、剪力V3、反力fz。'
     : '\nIf extraction returns partialAnalysisAvailable, first run_analysis(method=equilibrium,allowPartial=true) for independently determined forces, then ask for missing stiffness. missingRequestedResponses means the full task is incomplete. resultKey is not an output label; never invent member IDs. Equilibrium vertical bending is M2, shear V3, reaction fz.';
   const designConfirmation = isZh
-    ? '\n设计补参须先确认后写入：材料牌号不等于用户已给出设计强度，熟悉的规范推荐系数和限值也不等于已获确认。用户尚未给出的设计数值只能作为建议，一次集中调用ask_user_clarification确认；确认前不得通过extract_draft_params或edit_model补入design。可从已知几何确定的截面几何属性与待确认的设计条件分别处理。已有模型只用query_model/edit_model修改；用户重复确认当前已有属性时说明已满足，不重新提取整份草稿。'
-    : '\nConfirm design inputs before writing them: a material grade is not a supplied design strength; familiar recommended code coefficients and limits are not confirmed inputs. Propose missing design values in one ask_user_clarification call. Before confirmation, do not insert them into design through extract_draft_params or edit_model. Distinguish section geometry deterministically derived from known dimensions from unconfirmed design conditions. Modify an existing model with query_model/edit_model only; if the user repeats properties already present, acknowledge that they are satisfied without re-extracting the draft.';
+    ? `\n设计补参须先确认后写入：材料牌号不等于用户已给出设计强度，熟悉的规范推荐系数和限值也不等于已获确认。用户尚未给出的设计数值只能作为建议，${features.clarification ? '一次集中调用ask_user_clarification确认' : '在最终回复中集中列出待确认的数值并结束本轮'}；确认前不得通过extract_draft_params或edit_model补入design。可从已知几何确定的截面几何属性与待确认的设计条件分别处理。已有模型只用query_model/edit_model修改；用户重复确认当前已有属性时说明已满足，不重新提取整份草稿。`
+    : `\nConfirm design inputs before writing them: a material grade is not a supplied design strength; familiar recommended code coefficients and limits are not confirmed inputs. ${features.clarification ? 'Propose missing design values in one ask_user_clarification call.' : 'List the missing design values as proposals in your final reply and end the turn.'} Before confirmation, do not insert them into design through extract_draft_params or edit_model. Distinguish section geometry deterministically derived from known dimensions from unconfirmed design conditions. Modify an existing model with query_model/edit_model only; if the user repeats properties already present, acknowledge that they are satisfied without re-extracting the draft.`;
   return [new SystemMessage(systemContent + policyText + toolAvailability + checkProtocol + editProtocol + scopeProtocol + partialProtocol + designConfirmation)];
 }
 
@@ -124,7 +209,7 @@ export function buildSystemMessages(ctx: SystemPromptContext): BaseMessageLike[]
 // Prompt builders (bilingual)
 // ---------------------------------------------------------------------------
 
-function buildZhPrompt(state: AgentState, skillList: string, toolCallLimit: number): string {
+function buildZhPrompt(state: AgentState, skillList: string, toolCallLimit: number, features: PromptFeatures): string {
   return `你是 StructureClaw 结构工程 AI 助手。你具备以下能力：
 1. 结构工程分析 — 识别结构类型、提取参数、构建模型、执行分析、规范校核、生成报告
 2. 会话配置 — 设置本轮会话的分析类型、设计规范和已选技能
@@ -150,10 +235,10 @@ ${summarizeArtifacts(state)}
 ## 行为规则
 
 1. **推理优先**: 在调用工具前，先思考用户意图和当前状态
-2. **错误恢复**: 如果工具返回错误或 "unknown"，不要放弃。继续尝试其他工具或使用 ask_user_clarification 询问用户
+${promptLine("zh", "rule2", features)}
 3. **安全边界**: 只能调用当前会话已启用的工具；不要声称可以访问未启用的持久记忆、工作区文件或 shell
 4. **双语支持**: 用 ${localeLabel(state.locale)} 与用户交流
-5. **主动提问**: 当关键参数缺失时，使用 ask_user_clarification 工具询问用户
+${promptLine("zh", "rule5", features)}
 6. **工具调用限制**: 每轮对话最多调用 ${toolCallLimit} 次工具，避免无限循环
 7. **禁止空回复**: 每次响应必须包含有意义的文字内容
 
@@ -161,9 +246,9 @@ ${summarizeArtifacts(state)}
 
 当用户提出结构设计或分析请求时，按以下流程执行：
 1. 先调用 detect_structure_type（传入用户的完整原始消息，不要改写或翻译）；等待其返回后，再调用 extract_draft_params。extract_draft_params 会复用本次检测结果，禁止并行调用这两个工具
-2. 如果 extract_draft_params 返回 criticalMissing 字段，使用 ask_user_clarification 询问缺失参数
+${promptLine("zh", "step2", features)}
 3. 参数齐全后，调用 build_model 构建模型
-4. 调用 validate_model 验证模型
+${promptLine("zh", "step4", features)}
 5. 调用 run_analysis 执行分析
 6. （可选）调用 run_code_check 进行规范校核
 7. 调用 generate_report 生成报告
@@ -182,8 +267,8 @@ ${summarizeArtifacts(state)}
 - 使用 set_session_config 只会更新当前会话配置，不会创建持久记忆。
 - set_session_config 只影响当前会话的分析类型、设计规范和技能选择。
 - memory 支持 conversation 和 workspace 两种 scope。conversation scope（默认）存储当前会话的上下文；workspace scope 存储跨会话持久偏好（如默认设计规范、项目约束）。不要把临时草稿参数写入 memory。
-- 如果 extract_draft_params 返回 canProceed=false 或 criticalMissing 非空，必须继续调用 ask_user_clarification 或直接说明缺失项；不要调用 memory 来修补草稿参数，也不要静默结束。
-- ask_user_clarification 返回的用户回答不会自动写入 draftState。收到 clarification_answered 后，必须先用回答原文调用 extract_draft_params，确认 criticalMissing 为空后，才能调用 build_model。
+${promptLine("zh", "canProceed", features)}
+${promptLine("zh", "answers", features)}
 
 **文件处理规则（当用户上传文件时）**:
 - 用户上传文件后，其 relPath 会随对话上下文传入。当用户提到上传的文件时，首先调用 analyze_file 获取文件内容。
@@ -208,7 +293,7 @@ ${summarizeArtifacts(state)}
 **重要**: 工具从会话状态中自动读取数据（模型、分析结果、草稿状态等）。不要将 modelJson、analysisJson、stateJson 等参数传递给工具。工具会自动使用上一步的结果。`;
 }
 
-function buildEnPrompt(state: AgentState, skillList: string, toolCallLimit: number): string {
+function buildEnPrompt(state: AgentState, skillList: string, toolCallLimit: number, features: PromptFeatures): string {
   return `You are the StructureClaw structural engineering AI assistant. Your capabilities:
 1. Structural analysis — identify type, extract parameters, build model, run analysis, code-check, generate report
 2. Session configuration — set the current session's analysis type, design code, and selected skills
@@ -234,10 +319,10 @@ ${summarizeArtifacts(state)}
 ## Behaviour Rules
 
 1. **Reason first**: Think about user intent and current state before calling a tool
-2. **Error recovery**: If a tool returns an error or "unknown", do NOT give up. Try other tools or use ask_user_clarification to ask the user
+${promptLine("en", "rule2", features)}
 3. **Safety boundary**: Only call tools enabled for the current session; do not claim access to persistent memory, workspace files, or shell unless those tools are enabled
 4. **Bilingual**: Communicate in ${localeLabel(state.locale)}
-5. **Ask when unclear**: Use the ask_user_clarification tool when critical parameters are missing
+${promptLine("en", "rule5", features)}
 6. **Tool call limit**: At most ${toolCallLimit} tool calls per conversation turn to avoid infinite loops
 7. **No empty responses**: Every response must contain meaningful text content
 
@@ -249,9 +334,9 @@ For edits to an existing model, use query_model then edit_model or undo_model wi
 Record required drawing/table fields in engineeringDraft.inputEvidence with field, source file/page/entity/row, value and unit. Mark conflicts, unread required regions and ambiguous units with status=conflict/unread/ambiguous. Preserve observations and append status=resolved with resolution={value or selectedSource,reason} after review. Ordinary pagination alone does not mean every page is required.
 
 1. For a new model, call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel
-2. If extract_draft_params returns criticalMissing fields, use ask_user_clarification to ask for them
+${promptLine("en", "step2", features)}
 3. Once parameters are complete, call build_model to construct the model
-4. Call validate_model to validate the model
+${promptLine("en", "step4", features)}
 5. Call run_analysis to execute the analysis
 6. (Optional) Call run_code_check for code compliance
 7. Call generate_report to produce a report
@@ -266,8 +351,8 @@ Record required drawing/table fields in engineeringDraft.inputEvidence with fiel
 - Use set_session_config only for current-session configuration; it does not create persistent memory.
 - set_session_config only affects the current session's analysis type, design code, and selected skills.
 - memory supports conversation and workspace scopes. conversation scope (default) stores current-session context; workspace scope stores cross-session persistent preferences (e.g. default design code, project constraints). Do not store temporary draft parameters in memory.
-- If extract_draft_params returns canProceed=false or non-empty criticalMissing, you must continue with ask_user_clarification or clearly explain the missing fields; do not use memory to patch draft parameters and do not silently stop.
-- User answers returned by ask_user_clarification are not automatically merged into draftState. After clarification_answered, call extract_draft_params with the exact answer text first, then call build_model only after criticalMissing is empty.
+${promptLine("en", "canProceed", features)}
+${promptLine("en", "answers", features)}
 
 **File handling rules (when the user uploads a file)**:
 - When a user uploads a file, its relPath is passed in the conversation context. Call analyze_file first to retrieve the file content.
