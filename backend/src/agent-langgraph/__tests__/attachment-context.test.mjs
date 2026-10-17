@@ -71,7 +71,7 @@ describe('attachment context', () => {
   });
 
   test('keeps uploaded image binaries out of the main agent message', async () => {
-    const { buildInitialHumanMessagePayload } = await import('../../../dist/agent-langgraph/agent-service.js');
+    const { buildInitialHumanMessagePayload } = await import('../../../dist/agent-langgraph/attachments/initial-message.js');
     const pngPath = path.join(tmpDir, 'beam-sketch.png');
     await fs.writeFile(
       pngPath,
@@ -100,7 +100,7 @@ describe('attachment context', () => {
   });
 
   test('preserves large image notes and asks for missing vision details', async () => {
-    const { buildInitialHumanMessagePayload } = await import('../../../dist/agent-langgraph/agent-service.js');
+    const { buildInitialHumanMessagePayload } = await import('../../../dist/agent-langgraph/attachments/initial-message.js');
     const pngPath = path.join(tmpDir, 'large-frame-sketch.png');
     await fs.writeFile(pngPath, Buffer.alloc(4 * 1024 * 1024 + 1, 1));
 
@@ -126,7 +126,7 @@ describe('attachment context', () => {
   });
 
   test('embeds DXF structural hints as text context', async () => {
-    const { buildInitialHumanMessageContent } = await import('../../../dist/agent-langgraph/agent-service.js');
+    const { buildInitialHumanMessageContent } = await import('../../../dist/agent-langgraph/attachments/initial-message.js');
     const dxfPath = path.join(tmpDir, 'beam.dxf');
     const dxf = [
       '0', 'SECTION', '2', 'HEADER', '9', '$ACADVER', '1', 'AC1009', '9', '$INSUNITS', '70', '4', '0', 'ENDSEC',
@@ -161,7 +161,8 @@ describe('attachment context', () => {
   });
 
   test('Excel motion samples beyond preview stay in a hashed complete file and explicit settings override preview copies', async () => {
-    const { buildInitialHumanMessagePayload, extractContextSeismicWorkflow } = await import('../../../dist/agent-langgraph/agent-service.js');
+    const { buildInitialHumanMessagePayload } = await import('../../../dist/agent-langgraph/attachments/initial-message.js');
+    const { extractContextSeismicWorkflow } = await import('../../../dist/agent-langgraph/attachments/ground-motion.js');
     const XLSX = await import('xlsx').then(m => m.default ?? m);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([['time', 'accel_g'],

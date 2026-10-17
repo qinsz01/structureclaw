@@ -2,13 +2,12 @@ import { HumanMessage } from '@langchain/core/messages';
 import { createVisionChatModel } from '../utils/llm.js';
 import { logger } from '../utils/logger.js';
 import type { AppLocale } from '../shared/locale.js';
-import type { AttachmentInfo } from './agent-service.js';
+import type { AttachmentInfo } from './service-types.js';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { parseVisionEvidence, visionRequestSchema, type VisionRequest } from '../engineering/vision-evidence.js';
+import { parseVisionEvidence, visionRequestSchema, type VisionRequest, collectVisionEvidence } from '../engineering/vision-evidence.js';
 import { contentHash } from '../engineering/model-state.js';
 import { mergeInputEvidence } from '../engineering/input-evidence.js';
-import { collectVisionEvidence } from '../engineering/vision-evidence.js';
 
 export async function summarizeFileImages(analysis: Record<string, unknown>, filePath: string, locale: AppLocale, message: string, signal?: AbortSignal): Promise<Record<string, unknown>> {
   const result = structuredClone(analysis);

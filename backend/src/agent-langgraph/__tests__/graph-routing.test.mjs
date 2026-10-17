@@ -59,7 +59,7 @@ describe('agent graph conditional routing (shouldContinue)', () => {
 
 describe('agent graph empty final response guard', () => {
   test('buildEmptyFinalResponseFallback zh with tool names', async () => {
-    const { buildEmptyFinalResponseFallback } = await import('../../../dist/agent-langgraph/graph.js');
+    const { buildEmptyFinalResponseFallback } = await import('../../../dist/agent-langgraph/delivery/final-answer.js');
 
     const msg = buildEmptyFinalResponseFallback('zh', ['run_analysis', 'validate_model']);
     expect(msg).toContain('run_analysis');
@@ -68,7 +68,7 @@ describe('agent graph empty final response guard', () => {
   });
 
   test('buildEmptyFinalResponseFallback en with empty tool list', async () => {
-    const { buildEmptyFinalResponseFallback } = await import('../../../dist/agent-langgraph/graph.js');
+    const { buildEmptyFinalResponseFallback } = await import('../../../dist/agent-langgraph/delivery/final-answer.js');
 
     const msg = buildEmptyFinalResponseFallback('en', []);
     expect(msg).toContain('did not produce');
@@ -76,7 +76,7 @@ describe('agent graph empty final response guard', () => {
   });
 
   test('buildEmptyFinalResponseFallback deduplicates repeated tool names', async () => {
-    const { buildEmptyFinalResponseFallback } = await import('../../../dist/agent-langgraph/graph.js');
+    const { buildEmptyFinalResponseFallback } = await import('../../../dist/agent-langgraph/delivery/final-answer.js');
 
     const msg = buildEmptyFinalResponseFallback('zh', ['memory', 'memory', 'glob_files']);
     // Should not have duplicate tool names

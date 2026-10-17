@@ -45,7 +45,6 @@ import type {
 } from '../../shared/types/agent.js';
 
 export { projectBeamLoads, projectDraftPatch } from './project-patch.js';
-export { canonicalDraftPath, legacyDraftContract, legacyDraftPaths } from './legacy-fields.js';
 
 // ---------------------------------------------------------------------------
 // Outbound: canonical draft -> DraftState

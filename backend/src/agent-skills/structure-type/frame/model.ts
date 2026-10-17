@@ -16,7 +16,6 @@ import type {
 import { REQUIRED_KEYS } from './constants.js';
 
 import { applyTemplateProperties } from '../../../agent-runtime/template-properties.js';
-export { getDefaultColumnSection, getDefaultBeamSection, normalizeSteelGrade, normalizeSectionName } from '../../../agent-runtime/template-properties.js';
 
 function accumulateCoords(lengths: number[]): number[] {
   const coords = [0];

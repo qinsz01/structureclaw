@@ -16,9 +16,6 @@ describe('agent tool call limit defaults', () => {
 
     const { DEFAULT_RUN_POLICY } = await import('../dist/runtime/run-policy.js');
     expect(DEFAULT_RUN_POLICY.budgets.maxToolCallsPerTurn).toBe(limits.DEFAULT_MAX_TOOL_CALLS_PER_TURN);
-
-    const graph = await import('../dist/agent-langgraph/graph.js');
-    expect(graph.DEFAULT_MAX_TOOL_CALLS_PER_TURN).toBe(limits.DEFAULT_MAX_TOOL_CALLS_PER_TURN);
   });
 
   test('backend consumers reference the shared constant instead of a literal', () => {

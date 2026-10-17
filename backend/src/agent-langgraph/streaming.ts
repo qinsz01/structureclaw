@@ -24,7 +24,6 @@ import { toolMessageFailure } from '../utils/tool-outcome.js';
 import { toLlmStreamError } from '../utils/llm-error.js';
 
 // Re-export the stream chunk type for convenience
-export type { AgentStreamChunk } from '../types/agent-stream.js';
 import type { AgentStreamChunk } from '../types/agent-stream.js';
 
 // ---------------------------------------------------------------------------

@@ -9,7 +9,6 @@ import { recoverAnalysisMembers } from '../../engineering/member-response-query.
 import type { RecoveryModel, RecoveryResult } from '../../engineering/member-response.js';
 import { nativeStations } from '../../engineering/result-data.js';
 
-export type { CodeCheckDomainInput } from './types.js';
 export {
   listCodeCheckRuleProviders,
   resolveCodeCheckDesignCodeFromSkillIds,

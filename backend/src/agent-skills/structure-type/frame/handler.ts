@@ -11,7 +11,8 @@ import {
   resolveFrameStage,
 } from './interaction.js';
 import { mergeFrameState } from './merge.js';
-import { buildFrameModel, normalizeSectionName, normalizeSteelGrade } from './model.js';
+import { buildFrameModel } from './model.js';
+import { normalizeSectionName, normalizeSteelGrade } from '../../../agent-runtime/template-properties.js';
 
 export const handler: SkillHandler = {
   detectStructuralType(input) {

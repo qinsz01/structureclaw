@@ -2,7 +2,7 @@ import { describe, expect, test } from '@jest/globals';
 
 describe('seismic workflow context', () => {
   test('extracts structured seismic workflow context without creating draft state', async () => {
-    const { extractContextSeismicWorkflow } = await import('../../../dist/agent-langgraph/agent-service.js');
+    const { extractContextSeismicWorkflow } = await import('../../../dist/agent-langgraph/attachments/ground-motion.js');
 
     const seismicWorkflow = {
       methodPreference: 'elastic_plastic_time_history',
@@ -16,7 +16,7 @@ describe('seismic workflow context', () => {
   });
 
   test('ignores empty or non-object seismic workflow context', async () => {
-    const { extractContextSeismicWorkflow } = await import('../../../dist/agent-langgraph/agent-service.js');
+    const { extractContextSeismicWorkflow } = await import('../../../dist/agent-langgraph/attachments/ground-motion.js');
 
     expect(extractContextSeismicWorkflow()).toBeNull();
     expect(extractContextSeismicWorkflow({ seismicWorkflow: {} })).toBeNull();
@@ -25,7 +25,7 @@ describe('seismic workflow context', () => {
   });
 
   test('enriches uploaded ground-motion workflow with parsed attachment records', async () => {
-    const { extractContextSeismicWorkflow } = await import('../../../dist/agent-langgraph/agent-service.js');
+    const { extractContextSeismicWorkflow } = await import('../../../dist/agent-langgraph/attachments/ground-motion.js');
 
     const result = extractContextSeismicWorkflow({
       seismicWorkflow: {
@@ -71,7 +71,7 @@ describe('seismic workflow context', () => {
   });
 
   test('filters non-ground-motion attachment tables out of seismic workflow context', async () => {
-    const { extractContextSeismicWorkflow } = await import('../../../dist/agent-langgraph/agent-service.js');
+    const { extractContextSeismicWorkflow } = await import('../../../dist/agent-langgraph/attachments/ground-motion.js');
 
     const result = extractContextSeismicWorkflow(undefined, [{
       attachment: {
@@ -146,7 +146,7 @@ describe('seismic workflow context', () => {
   });
 
   test('exposes uploaded ground-motion records as context when no workflow is provided', async () => {
-    const { extractContextSeismicWorkflow } = await import('../../../dist/agent-langgraph/agent-service.js');
+    const { extractContextSeismicWorkflow } = await import('../../../dist/agent-langgraph/attachments/ground-motion.js');
 
     const result = extractContextSeismicWorkflow(undefined, [{
       attachment: {

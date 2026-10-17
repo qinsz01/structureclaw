@@ -20,7 +20,7 @@ import {
   resolveFrameDimension,
 } from './canonicalize.js';
 import { GEOMETRY_KEYS, LOAD_BOUNDARY_KEYS } from './constants.js';
-import { normalizeSectionName, normalizeSteelGrade } from './model.js';
+import { normalizeSectionName, normalizeSteelGrade } from '../../../agent-runtime/template-properties.js';
 
 export const FRAME_NODAL_LOAD_LOCATION_FIELD = 'frameNodalLoadLocation';
 

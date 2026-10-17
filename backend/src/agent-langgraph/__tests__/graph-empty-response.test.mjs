@@ -3,10 +3,7 @@ import { AIMessage, ToolMessage } from '@langchain/core/messages';
 
 describe('agent graph empty final response guard', () => {
   test('replaces an empty final response after tool results', async () => {
-    const {
-      buildEmptyFinalResponseFallback,
-      shouldReplaceEmptyFinalResponse,
-    } = await import('../../../dist/agent-langgraph/graph.js');
+    const { buildEmptyFinalResponseFallback, shouldReplaceEmptyFinalResponse } = await import('../../../dist/agent-langgraph/delivery/final-answer.js');
 
     const toolMessage = new ToolMessage({
       name: 'memory',
@@ -21,7 +18,7 @@ describe('agent graph empty final response guard', () => {
   });
 
   test('keeps normal content and tool-call responses unchanged', async () => {
-    const { shouldReplaceEmptyFinalResponse } = await import('../../../dist/agent-langgraph/graph.js');
+    const { shouldReplaceEmptyFinalResponse } = await import('../../../dist/agent-langgraph/delivery/final-answer.js');
     const toolMessage = new ToolMessage({
       name: 'memory',
       tool_call_id: 'call-memory',
