@@ -1,0 +1,299 @@
+{
+ "description": "Minimised DraftStates from the 2026-10-17 live acceptance of \"简支钢梁，跨度6m，跨中集中荷载10kN，Q355，H型钢 HN300x150，用OpenSees静力分析并出报告\" (zh and en). Each state deadlocked before analysis. Source: verification/clean-core-20261017 (cases/case1-zh.state.json, cases/case1-en-verbatim.state.json, browser/zh-verbatim-attempt/state.json).",
+ "scenarios": {
+  "catalogNameWithoutGeometry": {
+   "source": "cases/case1-zh.state.json",
+   "defect": "section record carries only an unreviewed HN catalog designation; the zh question hid the blocking reason",
+   "state": {
+    "inferredType": "beam",
+    "lengthM": 6,
+    "supportType": "simply-supported",
+    "loadKN": 10,
+    "loadType": "point",
+    "loadPosition": "midspan",
+    "loadPositionM": 3,
+    "engineeringDraft": {
+     "structureType": "beam",
+     "geometry": {
+      "lengthM": 6
+     },
+     "materials": [
+      {
+       "id": "M1",
+       "name": "Q355",
+       "category": "steel",
+       "grade": "Q355",
+       "E": 206000,
+       "G": 79000,
+       "nu": 0.3,
+       "rho": 7850
+      }
+     ],
+     "sectionRecords": [
+      {
+       "id": "SEC1",
+       "name": "HN300x150x6.5x9",
+       "type": "H",
+       "purpose": "beam",
+       "standard_steel_name": "HN300x150x6.5x9"
+      }
+     ],
+     "templateAssignments": {
+      "beam": {
+       "materialId": "M1",
+       "sectionId": "SEC1"
+      }
+     },
+     "material": {
+      "family": "steel",
+      "grade": "Q355"
+     },
+     "sections": {
+      "beam": "HN300x150x6.5x9"
+     },
+     "boundary": {
+      "supportType": "simply-supported"
+     },
+     "loads": [
+      {
+       "id": "L1",
+       "kind": "point",
+       "magnitude": 10,
+       "unit": "kN",
+       "direction": "gravity",
+       "target": "beam",
+       "location": {
+        "xM": 3,
+        "nodeRole": "midspan"
+       }
+      }
+     ],
+     "analysis": {
+      "type": "static",
+      "engineTarget": "opensees"
+     },
+     "analysisControl": {
+      "self_weight": false
+     }
+    },
+    "requestScope": {
+     "responses": [
+      "forces",
+      "reactions",
+      "displacements",
+      "rotations"
+     ],
+     "method": "solver",
+     "design": false,
+     "report": true,
+     "outputs": []
+    }
+   }
+  },
+  "unqualifiedMaterialField": {
+   "source": "cases/case1-en-verbatim.state.json",
+   "defect": "missing issue on materials.E never clears although materials[M1].E = 206000",
+   "state": {
+    "inferredType": "beam",
+    "lengthM": 6,
+    "supportType": "simply-supported",
+    "loadKN": 10,
+    "loadType": "point",
+    "loadPosition": "midspan",
+    "loadPositionM": 3,
+    "engineeringDraft": {
+     "structureType": "beam",
+     "geometry": {
+      "lengthM": 6
+     },
+     "materials": [
+      {
+       "id": "M1",
+       "name": "Q355",
+       "category": "steel",
+       "grade": "Q355",
+       "E": 206000,
+       "nu": 0.3,
+       "rho": 7850
+      }
+     ],
+     "sectionRecords": [
+      {
+       "id": "S1",
+       "name": "HN300x150x6.5x9",
+       "type": "H",
+       "purpose": "beam",
+       "shape": {
+        "kind": "H",
+        "H": 300,
+        "B": 150,
+        "tw": 6.5,
+        "tf": 9,
+        "r": 13
+       }
+      }
+     ],
+     "material": {
+      "family": "steel",
+      "grade": "Q355"
+     },
+     "boundary": {
+      "supportType": "simply-supported"
+     },
+     "loads": [
+      {
+       "id": "L1",
+       "kind": "point",
+       "magnitude": 10,
+       "unit": "kN",
+       "direction": "gravity",
+       "target": "beam",
+       "location": {
+        "xM": 3
+       }
+      }
+     ],
+     "analysis": {
+      "type": "static",
+      "engineTarget": "opensees"
+     }
+    },
+    "requestScope": {
+     "responses": [
+      "forces",
+      "reactions",
+      "displacements",
+      "rotations"
+     ],
+     "method": "solver",
+     "design": false,
+     "report": true,
+     "outputs": []
+    },
+    "draftIssues": [
+     {
+      "field": "materials.E",
+      "kind": "missing",
+      "severity": "invalid",
+      "reason": "Only the grade designation Q355 is supplied; no numerical elastic modulus is provided, and an OpenSees elastic static analysis requires E in MPa.",
+      "question": "Confirm the elastic modulus for Q355 steel (e.g. 206000 MPa) or provide an explicit E value."
+     }
+    ],
+    "skillState": {
+     "invalidDraftFields": [
+      "materials.E"
+     ]
+    }
+   }
+  },
+  "roleSectionConfirmation": {
+   "source": "browser/zh-verbatim-attempt/state.json",
+   "defect": "confirmation on sections.beam is only cleared by re-sending sections.beam; a complete assigned section record does not clear it",
+   "state": {
+    "inferredType": "beam",
+    "lengthM": 6,
+    "supportType": "simply-supported",
+    "loadKN": 10,
+    "loadType": "point",
+    "loadPosition": "midspan",
+    "loadPositionM": 3,
+    "engineeringDraft": {
+     "structureType": "beam",
+     "geometry": {
+      "lengthM": 6
+     },
+     "materials": [
+      {
+       "id": "MAT-Q355",
+       "name": "Q355",
+       "category": "steel",
+       "grade": "Q355",
+       "E": 206000,
+       "G": 79000,
+       "nu": 0.3,
+       "rho": 7850
+      }
+     ],
+     "sectionRecords": [
+      {
+       "id": "SEC-B1",
+       "name": "HN300x150",
+       "type": "H",
+       "purpose": "beam",
+       "shape": {
+        "kind": "H",
+        "H": 300,
+        "B": 150,
+        "tw": 6.5,
+        "tf": 9
+       }
+      }
+     ],
+     "templateAssignments": {
+      "beam": {
+       "materialId": "MAT-Q355",
+       "sectionId": "SEC-B1"
+      }
+     },
+     "material": {
+      "family": "steel",
+      "grade": "Q355"
+     },
+     "sections": {
+      "beam": "HN300x150"
+     },
+     "boundary": {
+      "supportType": "simply-supported"
+     },
+     "loads": [
+      {
+       "id": "LD-1",
+       "kind": "point",
+       "magnitude": 10,
+       "unit": "kN",
+       "direction": "gravity",
+       "target": "beam",
+       "location": {
+        "xM": 3,
+        "nodeRole": "midspan"
+       }
+      }
+     ],
+     "analysis": {
+      "type": "static",
+      "engineTarget": "opensees"
+     },
+     "analysisControl": {
+      "self_weight": false
+     }
+    },
+    "requestScope": {
+     "responses": [
+      "forces",
+      "reactions",
+      "displacements"
+     ],
+     "method": "solver",
+     "design": false,
+     "report": true,
+     "outputs": []
+    },
+    "draftIssues": [
+     {
+      "field": "sections.beam",
+      "kind": "confirmation",
+      "severity": "ambiguous",
+      "reason": "用户仅给出热轧目录型号 HN300x150，未提供数值截面尺寸或属性；OpenSees 静力分析需要 A、Iy、Iz 等数值，目录映射须先校准。",
+      "question": "是否采用内置 HN300x150 目录截面数值（含 H×B×tw×tf、A、Iy、Iz），还是提供具体截面尺寸或数值属性？",
+      "target": "sections.beam"
+     }
+    ],
+    "skillState": {
+     "invalidDraftFields": [
+      "sections.beam"
+     ]
+    }
+   }
+  }
+ }
+}
