@@ -1,10 +1,10 @@
 // Scenario: 2026-10-17 live-acceptance conversation shape that deadlocked before analysis.
 // "简支钢梁，跨度6m，跨中集中荷载10kN，Q355，H型钢 HN300x150，用OpenSees静力分析并出报告"
-// The extractor (scripted like the live provider) records the unreviewed catalog designation
-// HN300x150 without geometry, a confirmation on sections.beam and an unqualified missing
-// `materials.E` while already writing E. The blocking section reason must reach the agent, the
-// clarification must not offer the rejected catalog choice, and an answer that supplies the
-// assigned section record (not sections.beam) must complete the model, analysis and report.
+// The extractor (scripted like the live provider) records the designation HN300x150 without plate
+// thicknesses, a confirmation on sections.beam and an unqualified missing `materials.E` while already
+// writing E. Designations are labels (there is no section catalog): exactly one clarification asks for
+// tw/tf, a choice naming the incomplete designation is not offered, and an answer that supplies the
+// assigned section record (not sections.beam) completes the model, analysis and report.
 import { expect, test } from '@jest/globals';
 import { toolCall } from './helpers/llm-fixture.mjs';
 import { describeWithOpenSees, internalResponder, querySimplyBeamResponses, routerDecision, runTurn, setupHarness,
@@ -13,7 +13,7 @@ import { stepStatuses } from './helpers/normalize.mjs';
 
 const MESSAGE = '简支钢梁，跨度6m，跨中集中荷载10kN，Q355，H型钢 HN300x150，用OpenSees静力分析并出报告';
 const QUESTION = '截面 HN300x150 需要落实为具体尺寸，请选择。';
-const CATALOG_OPTION = '按国标 GB/T 11263 目录 HN300x150 取目录截面属性';
+const CATALOG_OPTION = '按 HN300x150 取截面属性';
 const EXPLICIT_OPTION = '按 H300x150x6.5x9（H×B×tw×tf，mm）理想化板件几何建模';
 const ANSWER = EXPLICIT_OPTION;
 
@@ -47,10 +47,10 @@ function plateHMidspanDeflectionMm({ P, L, E, H, B, tw, tf }) {
   return -P * L ** 3 / (48 * E * 1000 * I) * 1000;
 }
 
-describeWithOpenSees('characterization: unreviewed HN catalog section clarification', () => {
+describeWithOpenSees('characterization: HN designation without plate thicknesses', () => {
   const ctx = setupHarness();
 
-  test('the blocking section reason is surfaced, rejected choices are dropped and the answer reaches analysis and report', async () => {
+  test('exactly one clarification asks for tw/tf, rejected choices are dropped and the answer reaches analysis and report', async () => {
     const extractorPrompts = [];
     ctx.llm.setInternal(internalResponder({
       'structural-router': () => routerDecision('beam'),
@@ -69,8 +69,8 @@ describeWithOpenSees('characterization: unreviewed HN catalog section clarificat
     expect(extraction.criticalMissing).not.toContain('materials.E');
     const sectionQuestion = extraction.clarificationQuestions.find(question => question.paramKey === 'templateProperties');
     expect(sectionQuestion.question).toContain('截面 SEC1（HN300x150）');
-    expect(sectionQuestion.question).toContain('已审定截面目录');
-    expect(sectionQuestion.question).toContain('H×B×tw×tf');
+    expect(sectionQuestion.question).toContain('腹板厚 tw 和翼缘厚 tf');
+    expect(sectionQuestion.question).not.toContain('目录');
     expect(stepStatuses(first.steps)).toEqual([
       { tool: 'extract_draft_params', status: 'done' }, { tool: 'ask_user_clarification', status: 'running' }]);
     expect(first.interactions).toHaveLength(1);
@@ -85,6 +85,7 @@ describeWithOpenSees('characterization: unreviewed HN catalog section clarificat
       'HN_DONE',
     ], { resume: true });
 
+    expect(resumed.interactions).toEqual([]);
     expect(extractorPrompts).toHaveLength(2);
     const merged = toolResultSeenByAgent(resumed.requests, 'hn-extract-answer');
     expect(merged.criticalMissing).toEqual([]);
