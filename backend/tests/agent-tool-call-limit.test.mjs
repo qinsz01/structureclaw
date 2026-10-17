@@ -21,7 +21,7 @@ describe('agent tool call limit defaults', () => {
   test('backend consumers reference the shared constant instead of a literal', () => {
     const consumers = {
       'src/config/index.ts': 'maxToolCallsPerTurn: DEFAULT_MAX_TOOL_CALLS_PER_TURN',
-      'src/api/admin-settings.ts': 'agentMaxToolCallsPerTurn: DEFAULT_MAX_TOOL_CALLS_PER_TURN',
+      'src/api/admin-settings/settings-response.ts': 'agentMaxToolCallsPerTurn: DEFAULT_MAX_TOOL_CALLS_PER_TURN',
       'src/runtime/run-policy.ts': 'maxToolCallsPerTurn: DEFAULT_MAX_TOOL_CALLS_PER_TURN',
       'src/agent-langgraph/agent-service.ts': ': DEFAULT_MAX_TOOL_CALLS_PER_TURN;',
     };
