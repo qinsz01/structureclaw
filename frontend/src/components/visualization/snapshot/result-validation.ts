@@ -3,7 +3,7 @@ import { normalizeMemberResponses } from '../normalization'
 import { asRecord, asNumber, parseVector3 } from './values'
 import { COORDINATE_TOLERANCE } from './vectors'
 
-export function validateResultEntityMap(
+function validateResultEntityMap(
   value: unknown,
   validIds: Set<string>,
   label: string,
@@ -24,7 +24,7 @@ export function validateResultEntityMap(
   }
 }
 
-export function validateElementForceMap(
+function validateElementForceMap(
   value: unknown,
   elements: Map<string, VisualizationElement>,
   label: string,

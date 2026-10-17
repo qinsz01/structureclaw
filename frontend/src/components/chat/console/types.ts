@@ -3,7 +3,7 @@ import type { VisualizationSnapshot } from '@/components/visualization/types'
 import type { AssistantPresentation, TimelinePhaseGroup, TimelineStepItem, PresentationArtifactState } from '../message-presentation'
 import type { SkillDomain, SkillMetadataLike } from '@/lib/skill-normalization'
 
-export type AnalysisType = 'static' | 'dynamic' | 'seismic' | 'nonlinear'
+type AnalysisType = 'static' | 'dynamic' | 'seismic' | 'nonlinear'
 
 export type PanelTab = 'analysis' | 'report' | 'context'
 
@@ -54,7 +54,7 @@ export type MessageDebugDetails = {
   toolCalls: AgentToolCall[]
 }
 
-export type MessageMetadata = {
+type MessageMetadata = {
   debugDetails?: MessageDebugDetails
   status?: 'done' | 'error' | 'aborted'
   traceId?: string
@@ -139,7 +139,7 @@ export type ConversationSummary = {
   updatedAt?: string
 }
 
-export type AgentSessionSnapshot = {
+type AgentSessionSnapshot = {
   runtime?: ConversationRuntimeSnapshot
   draft?: Record<string, unknown>
   resolved?: {

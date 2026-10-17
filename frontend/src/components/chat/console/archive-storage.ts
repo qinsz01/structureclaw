@@ -1,17 +1,17 @@
 import type { Message, AgentResult, PersistedConversation, ConsoleUiPreferences } from './types'
 import { sanitizePersistedConversation } from './snapshot-utils'
 
-export const STORAGE_KEY = 'structureclaw.console.conversations'
+const STORAGE_KEY = 'structureclaw.console.conversations'
 
-export const CONSOLE_UI_PREFERENCES_STORAGE_KEY = 'structureclaw.console.ui-preferences'
+const CONSOLE_UI_PREFERENCES_STORAGE_KEY = 'structureclaw.console.ui-preferences'
 
-export const ARCHIVE_STORAGE_MAX_CONVERSATIONS = 20
+const ARCHIVE_STORAGE_MAX_CONVERSATIONS = 20
 
-export const ARCHIVE_STORAGE_MAX_MESSAGES = 40
+const ARCHIVE_STORAGE_MAX_MESSAGES = 40
 
-export const ARCHIVE_STORAGE_TEXT_LIMIT = 12000
+const ARCHIVE_STORAGE_TEXT_LIMIT = 12000
 
-export const ARCHIVE_STORAGE_REPORT_LIMIT = 30000
+const ARCHIVE_STORAGE_REPORT_LIMIT = 30000
 
 export const DEFAULT_CONSOLE_UI_PREFERENCES: ConsoleUiPreferences = {
   historyCollapsed: false,
@@ -54,7 +54,7 @@ export function saveConsoleUiPreferences(preferences: ConsoleUiPreferences) {
   }
 }
 
-export function isStorageQuotaError(error: unknown) {
+function isStorageQuotaError(error: unknown) {
   if (typeof DOMException !== 'undefined' && error instanceof DOMException) {
     return error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED'
   }
@@ -64,14 +64,14 @@ export function isStorageQuotaError(error: unknown) {
   )
 }
 
-export function truncateArchiveText(value: string | undefined, maxLength = ARCHIVE_STORAGE_TEXT_LIMIT) {
+function truncateArchiveText(value: string | undefined, maxLength = ARCHIVE_STORAGE_TEXT_LIMIT) {
   if (typeof value !== 'string' || value.length <= maxLength) {
     return value
   }
   return `${value.slice(0, maxLength)}\n...`
 }
 
-export function compactArchiveMessage(message: Message): Message {
+function compactArchiveMessage(message: Message): Message {
   return {
     ...message,
     content: truncateArchiveText(message.content) || '',
@@ -87,7 +87,7 @@ export function compactArchiveMessage(message: Message): Message {
   }
 }
 
-export function compactArchiveResult(result: AgentResult | null | undefined): AgentResult | null {
+function compactArchiveResult(result: AgentResult | null | undefined): AgentResult | null {
   if (!result) {
     return null
   }
@@ -114,11 +114,11 @@ export function compactArchiveResult(result: AgentResult | null | undefined): Ag
   }
 }
 
-export function archiveSortTime(conversation: PersistedConversation) {
+function archiveSortTime(conversation: PersistedConversation) {
   return conversation.updatedAt || conversation.createdAt || ''
 }
 
-export function compactConversationArchiveForStorage(
+function compactConversationArchiveForStorage(
   archive: Record<string, PersistedConversation>,
 ): Record<string, PersistedConversation> {
   const entries = Object.values(archive)

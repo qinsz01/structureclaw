@@ -4,7 +4,7 @@ import { formatNumber } from '@/lib/utils'
 import type { AgentResult, SeismicContextRow, SeismicContextSummary } from './types'
 import { extractAnalysis, asRecord } from './result-utils'
 
-export function formatSeismicContextValue(value: unknown, locale: AppLocale): string {
+function formatSeismicContextValue(value: unknown, locale: AppLocale): string {
   if (value === undefined || value === null) return 'N/A'
   if (typeof value === 'number' && Number.isFinite(value)) return formatNumber(value, locale)
   if (typeof value === 'boolean') return value ? 'true' : 'false'
@@ -20,7 +20,7 @@ export function formatSeismicContextValue(value: unknown, locale: AppLocale): st
   return String(value)
 }
 
-export function formatWorkflowInputMode(value: unknown, t: (key: MessageKey) => string): string {
+function formatWorkflowInputMode(value: unknown, t: (key: MessageKey) => string): string {
   const workflowInputMode = typeof value === 'string' ? value.trim() : ''
   if (workflowInputMode === 'structured_seismic_workflow') return t('analysisOverviewWorkflowInputModeStructured')
   if (workflowInputMode === 'legacy_compatibility_parameters') return t('analysisOverviewWorkflowInputModeLegacy')

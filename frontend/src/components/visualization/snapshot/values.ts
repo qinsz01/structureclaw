@@ -37,7 +37,7 @@ export function asStringId(value: unknown): string | null {
   return null
 }
 
-export function getByPath(source: Record<string, unknown> | null, path: string): unknown {
+function getByPath(source: Record<string, unknown> | null, path: string): unknown {
   if (!source) {
     return null
   }

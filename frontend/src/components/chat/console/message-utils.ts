@@ -56,7 +56,7 @@ export function resolveAbortedAssistantContent(content: string, assistantSeed: s
   return content.trim() === assistantSeed.trim() ? '' : content
 }
 
-export const RESUME_MESSAGE_INTENTS = new Set([
+const RESUME_MESSAGE_INTENTS = new Set([
   '继续',
   '继续吧',
   '继续分析',
@@ -78,7 +78,7 @@ export const RESUME_MESSAGE_INTENTS = new Set([
   'confirm',
 ])
 
-export function inferProceedIntent(message: string) {
+function inferProceedIntent(message: string) {
   const normalized = message
     .trim()
     .toLowerCase()
@@ -181,7 +181,7 @@ export function buildInteractionMessage(
   return lines.length > 0 ? lines.join('\n') : t('interactionNeedMoreParams')
 }
 
-export const PDF_LINK_RE = /\[PDF[^\]]*\]\(([^)\s]+)\)/
+const PDF_LINK_RE = /\[PDF[^\]]*\]\(([^)\s]+)\)/
 
 export function extractPdfUrl(content: string): string | null {
   const m = content.match(PDF_LINK_RE)

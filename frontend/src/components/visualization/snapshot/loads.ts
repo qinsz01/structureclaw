@@ -3,7 +3,7 @@ import { asRecord, asNonEmptyString, asNumber, asStringId, vectorMagnitude } fro
 import { COORDINATE_TOLERANCE, transformLocalVectorToGlobal } from './vectors'
 import { getFloorAreaLoads } from './floor-loads'
 
-export function resolveTargetAlias(load: Record<string, unknown>, keys: string[], label: string): string | null {
+function resolveTargetAlias(load: Record<string, unknown>, keys: string[], label: string): string | null {
   const values = keys
     .filter((key) => load[key] !== undefined && load[key] !== null)
     .map((key) => asStringId(load[key]))
@@ -17,7 +17,7 @@ export function resolveTargetAlias(load: Record<string, unknown>, keys: string[]
   return unique[0] || null
 }
 
-export function resolveNumericAliases(
+function resolveNumericAliases(
   load: Record<string, unknown>,
   keys: string[],
   label: string,
@@ -37,7 +37,7 @@ export function resolveNumericAliases(
   return values[0]
 }
 
-export function resolveDirectionalMagnitude(
+function resolveDirectionalMagnitude(
   load: Record<string, unknown>,
   componentKeys: string[],
   magnitudeKeys: string[],
@@ -49,7 +49,7 @@ export function resolveDirectionalMagnitude(
   return resolveNumericAliases(load, present, label)
 }
 
-export function resolveNodalLoadVectors(load: Record<string, unknown>): {
+function resolveNodalLoadVectors(load: Record<string, unknown>): {
   force: VisualizationVector3
   moment: VisualizationVector3
 } {
@@ -106,7 +106,7 @@ export function resolveNodalLoadVectors(load: Record<string, unknown>): {
   return { force: { x, y, z }, moment: { x: mx, y: my, z: mz } }
 }
 
-export function resolveDistributedLoadVector(load: Record<string, unknown>): VisualizationVector3 {
+function resolveDistributedLoadVector(load: Record<string, unknown>): VisualizationVector3 {
   const direction = String(load.direction ?? load.axis ?? '').trim().toLowerCase()
   const magnitudeKeys = ['q', 'w', 'value', 'magnitude'].filter((key) => load[key] !== undefined)
   let x = resolveNumericAliases(load, ['wx'], 'Distributed load wx')

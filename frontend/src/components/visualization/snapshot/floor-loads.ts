@@ -1,11 +1,11 @@
 import type { VisualizationLoad, VisualizationNode } from '../types'
 import { asRecord, asNonEmptyString, asStringId, pickNumber, pickNodeCoordinate } from './values'
 
-export function nearlyEqual(left: number, right: number, tolerance = 1e-6) {
+function nearlyEqual(left: number, right: number, tolerance = 1e-6) {
   return Math.abs(left - right) <= tolerance
 }
 
-export function getStoryFloorLoadComponents(story: Record<string, unknown>): Array<{ type: string; value: number }> {
+function getStoryFloorLoadComponents(story: Record<string, unknown>): Array<{ type: string; value: number }> {
   const components: Array<{ type: string; value: number }> = []
   const seenTypes = new Set<string>()
   const floorLoads = Array.isArray(story.floor_loads) ? story.floor_loads : []

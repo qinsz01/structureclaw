@@ -90,7 +90,7 @@ export function extractVisualizationHints(result: AgentResult | null): Visualiza
   return null
 }
 
-export function hasAnalysisPayload(result: AgentResult | null | undefined) {
+function hasAnalysisPayload(result: AgentResult | null | undefined) {
   return Boolean(extractAnalysis(result ?? null))
 }
 

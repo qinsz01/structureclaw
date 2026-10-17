@@ -3,7 +3,7 @@ import type { AppLocale } from '@/lib/stores/slices/preferences'
 import { formatNumber } from '@/lib/utils'
 import { finiteNumber } from './context'
 
-export type SummaryStat = { label: string; value: string }
+type SummaryStat = { label: string; value: string }
 
 /** Accumulates summary stats in insertion order; mirrors the original local helpers. */
 export function createStatsBuilder(t: (key: MessageKey) => string, locale: AppLocale) {

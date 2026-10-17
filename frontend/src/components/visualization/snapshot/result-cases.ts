@@ -1,7 +1,7 @@
 import type { VisualizationCase, VisualizationElementResults, VisualizationMemberResponse, VisualizationNodeResults } from '../types'
 import { asRecord, asNumber, pickNumber, compactNumberRecord } from './values'
 
-export function flattenEndForces(source: Record<string, unknown> | null) {
+function flattenEndForces(source: Record<string, unknown> | null) {
   if (!source) {
     return {}
   }
@@ -26,7 +26,7 @@ export function flattenEndForces(source: Record<string, unknown> | null) {
   return flattened
 }
 
-export function extractElementMetrics(entry: Record<string, unknown> | null): VisualizationElementResults {
+function extractElementMetrics(entry: Record<string, unknown> | null): VisualizationElementResults {
   const flat = flattenEndForces(entry)
   const flatValues = Object.values(flat)
   const shearCandidates = [
@@ -65,7 +65,7 @@ export function extractElementMetrics(entry: Record<string, unknown> | null): Vi
   }
 }
 
-export function extractNodeResults(entry: Record<string, unknown> | null): VisualizationNodeResults {
+function extractNodeResults(entry: Record<string, unknown> | null): VisualizationNodeResults {
   return {
     displacement: entry
       ? compactNumberRecord([

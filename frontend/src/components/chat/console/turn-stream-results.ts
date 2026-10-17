@@ -8,7 +8,7 @@ import { ensureTextMessage, type TurnState } from './turn-state'
 import { handlePresentationPayload, type TurnStreamDeps } from './turn-stream-events'
 
 /** Applies artifact sync, final result and error events of a chat stream. */
-export function handleResultPayload(turn: TurnState, deps: TurnStreamDeps, payload: StreamPayload) {
+function handleResultPayload(turn: TurnState, deps: TurnStreamDeps, payload: StreamPayload) {
   const {
     t,
     trimmedInput,

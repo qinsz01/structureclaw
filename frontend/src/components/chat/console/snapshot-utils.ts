@@ -12,7 +12,7 @@ export function toModelText(model?: Record<string, unknown> | null) {
   return JSON.stringify(model, null, 2)
 }
 
-export function toModelFromVisualizationSnapshot(snapshot?: VisualizationSnapshot | null): Record<string, unknown> | null {
+function toModelFromVisualizationSnapshot(snapshot?: VisualizationSnapshot | null): Record<string, unknown> | null {
   if (!snapshot || isStaleVisualizationSnapshot(snapshot)) {
     return null
   }
@@ -111,7 +111,7 @@ export function toModelTextFromSnapshot(snapshot?: VisualizationSnapshot | null)
   return toModelText(toModelFromVisualizationSnapshot(snapshot))
 }
 
-export const CANONICAL_COORDINATE_SEMANTICS = 'global-z-up'
+const CANONICAL_COORDINATE_SEMANTICS = 'global-z-up'
 
 export function isStaleVisualizationSnapshot(snapshot?: VisualizationSnapshot | null) {
   if (!snapshot) return false
@@ -208,7 +208,7 @@ export function sanitizePersistedConversation(archived: PersistedConversation): 
   }
 }
 
-export function snapshotHasResultData(snapshot?: VisualizationSnapshot | null) {
+function snapshotHasResultData(snapshot?: VisualizationSnapshot | null) {
   if (!snapshot || !Array.isArray(snapshot.cases)) {
     return false
   }

@@ -163,7 +163,7 @@ export function parsePersistedPresentation(metadata: unknown): AssistantPresenta
   }
 }
 
-export const LEGACY_ABORTED_SUFFIX_PATTERNS = [
+const LEGACY_ABORTED_SUFFIX_PATTERNS = [
   /\n\n---\n\*(?:Stream stopped|已停止)\*$/u,
   /（已停止）$/u,
 ] as const
@@ -182,7 +182,7 @@ export function mapToolNameToPhase(toolName: string | undefined): 'understanding
   return 'understanding'
 }
 
-export function hasLegacyAbortedSuffix(content: string) {
+function hasLegacyAbortedSuffix(content: string) {
   return LEGACY_ABORTED_SUFFIX_PATTERNS.some((pattern) => pattern.test(content))
 }
 

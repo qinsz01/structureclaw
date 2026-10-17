@@ -2,7 +2,7 @@ import type { VisualizationLocalAxes, VisualizationVector3 } from '../types'
 
 export const COORDINATE_TOLERANCE = 1e-9
 
-export function cleanCoordinate(value: number) {
+function cleanCoordinate(value: number) {
   return Math.abs(value) <= COORDINATE_TOLERANCE ? 0 : value
 }
 
@@ -10,7 +10,7 @@ export function vectorLength(vector: VisualizationVector3) {
   return Math.sqrt(vector.x ** 2 + vector.y ** 2 + vector.z ** 2)
 }
 
-export function normalizeVector(vector: VisualizationVector3): VisualizationVector3 | null {
+function normalizeVector(vector: VisualizationVector3): VisualizationVector3 | null {
   const length = vectorLength(vector)
   if (!Number.isFinite(length) || length <= COORDINATE_TOLERANCE) {
     return null
@@ -22,11 +22,11 @@ export function normalizeVector(vector: VisualizationVector3): VisualizationVect
   }
 }
 
-export function dotVector(left: VisualizationVector3, right: VisualizationVector3) {
+function dotVector(left: VisualizationVector3, right: VisualizationVector3) {
   return left.x * right.x + left.y * right.y + left.z * right.z
 }
 
-export function crossVector(left: VisualizationVector3, right: VisualizationVector3): VisualizationVector3 {
+function crossVector(left: VisualizationVector3, right: VisualizationVector3): VisualizationVector3 {
   return {
     x: left.y * right.z - left.z * right.y,
     y: left.z * right.x - left.x * right.z,
@@ -34,7 +34,7 @@ export function crossVector(left: VisualizationVector3, right: VisualizationVect
   }
 }
 
-export function scaleAndAdd(
+function scaleAndAdd(
   left: VisualizationVector3,
   leftScale: number,
   right: VisualizationVector3,
