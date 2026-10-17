@@ -4,6 +4,7 @@ import process from 'process';
 import { fileURLToPath } from 'url';
 import { readSettingsFile, migrateLegacyLlmSettings } from './settings-file.js';
 import { DEFAULT_MAX_TOOL_CALLS_PER_TURN } from '../runtime/limits.js';
+import { parseRunProfileEnv } from '../runtime/ablation-profiles.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -12,6 +13,9 @@ function getUserDataDir(): string {
 }
 
 const runtimeBaseDir = process.env.SCLAW_DATA_DIR || getUserDataDir();
+
+// Benchmark exception to the infrastructure-only env rule (docs/ablation.md); unknown ids fail at startup.
+const runProfile = parseRunProfileEnv(process.env.SCLAW_RUN_PROFILE);
 
 // Migrate legacy llm-settings.json → settings.json if needed
 migrateLegacyLlmSettings();
@@ -120,6 +124,8 @@ export const config = {
   port: typeof backendPort === 'number' ? backendPort : parseInt(String(backendPort), 10),
   host: fileSettings?.server?.host ?? '0.0.0.0',
   nodeEnv: process.env.NODE_ENV || 'development',
+  /** Ablation profile selected by SCLAW_RUN_PROFILE (ranks above settings, below session/request). */
+  runProfile,
   bodyLimitMb: fileSettings?.server?.bodyLimitMb ?? 20,
   frontendPort: parseInt(frontendPort, 10),
 

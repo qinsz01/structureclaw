@@ -1,4 +1,6 @@
 import { runPolicyInputSchema } from '../runtime/run-policy.js';
+import { ABLATION_PROFILES_VERSION, listProfiles } from '../runtime/ablation-profiles.js';
+import { config } from '../config/index.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { getAgentService, LangGraphAgentService } from '../agent-langgraph/index.js';
@@ -160,6 +162,15 @@ export async function agentRoutes(fastify: FastifyInstance) {
     },
   }, async (_request: FastifyRequest, reply: FastifyReply) => {
     return reply.send(LangGraphAgentService.getProtocol());
+  });
+
+  fastify.get('/run-profiles', {
+    schema: {
+      tags: ['Agent'],
+      summary: '查询预注册的消融运行配置档 / List pre-registered ablation run profiles',
+    },
+  }, async (_request: FastifyRequest, reply: FastifyReply) => {
+    return reply.send({ version: ABLATION_PROFILES_VERSION, envProfile: config.runProfile ?? null, profiles: listProfiles() });
   });
 
   fastify.get('/skills', {

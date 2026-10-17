@@ -14,7 +14,9 @@ async function execute(request) {
   ]);
   const deps = { skillRuntime: new AgentSkillRuntime(), ...(options.workspaceRoot ? { workspaceRoot: options.workspaceRoot } : {}) };
   if (action === 'definitions') {
-    const policy = resolveApplicationRunPolicy({ availableSkillIds: (await deps.skillRuntime.listSkillManifests()).map(item => item.id),
+    const manifests = await deps.skillRuntime.listSkillManifests();
+    const policy = resolveApplicationRunPolicy({ availableSkillIds: manifests.map(item => item.id),
+      structureTypeSkillIds: manifests.filter(item => item.domain === 'structure-type').map(item => item.id),
       requested: options.runPolicy, executionOwner: 'external' });
     return contracts.getPublicToolDefinitions(deps).filter(item => policy.activeToolIds.includes(item.name));
   }

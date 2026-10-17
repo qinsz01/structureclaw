@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { config, runtimeBaseDir } from '../config/index.js';
-import { resolveApplicationRunPolicy } from './policy-resolver.js';
+import { resolveApplicationRunPolicy, skillCatalog } from './policy-resolver.js';
 import type { RunPolicyInput, EffectiveRunPolicy } from '../runtime/run-policy.js';
 import { createRunContext, withRunContext, snapshotRunUsage, type RunUsage } from '../runtime/run-context.js';
 import { executeToolsSequentially } from './sequential-tools.js';
@@ -183,7 +183,7 @@ export async function createPublicToolSession(input: {
       if (input.runPolicy || input.message !== undefined || input.model || input.attachmentPaths !== undefined) throw new Error('PUBLIC_SESSION_RESUME_IMMUTABLE');
       record = saved!;
     } else {
-      const policy = resolveApplicationRunPolicy({ availableSkillIds: (await deps.skillRuntime.listSkillManifests()).map(item => item.id),
+      const policy = resolveApplicationRunPolicy({ ...skillCatalog(await deps.skillRuntime.listSkillManifests()),
         previous: saved?.policy, requested: input.runPolicy, executionOwner: 'external' });
       if (policy.routing.mode === 'fixed' && !await deps.skillRuntime.resolvePluginForType(policy.routing.skillId, policy.activeSkillIds)) throw new Error('FIXED_SKILL_NOT_A_MODELING_PROVIDER');
       const runtime = createRunContext(policy, { journalDir });

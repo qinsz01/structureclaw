@@ -16,8 +16,8 @@ export function RunSettings({ value, onChange, locale, disabled, runtime, status
   const selectClass = 'rounded-lg border border-border bg-background px-2 py-1 text-xs'
   const policy = runtime?.policy
   const source = (key: string) => {
-    const labels = zh ? { default: '系统默认', settings: '系统设置', session: '会话保存', legacy: '兼容入口', request: '本次请求', 'server-limit': '服务端限制' }
-      : { default: 'Default', settings: 'Settings', session: 'Saved session', legacy: 'Legacy input', request: 'Request', 'server-limit': 'Server limit' }
+    const labels = zh ? { default: '系统默认', settings: '系统设置', env: '环境变量配置档', session: '会话保存', legacy: '兼容入口', request: '本次请求', 'server-limit': '服务端限制' }
+      : { default: 'Default', settings: 'Settings', env: 'Environment profile', session: 'Saved session', legacy: 'Legacy input', request: 'Request', 'server-limit': 'Server limit' }
     const keySource = policy?.fieldSources[key]
     return keySource ? labels[keySource] : '—'
   }
