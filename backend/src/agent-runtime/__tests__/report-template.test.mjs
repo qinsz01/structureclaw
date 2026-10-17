@@ -921,8 +921,13 @@ describe('default report template seismic section', () => {
     const { fileURLToPath } = await import('node:url');
     const { codeCheckLabelEn } = await import('../../../dist/agent-skills/code-check/labels.js');
     const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../agent-skills');
+    // Engine sources: every non-test *.py under each code directory (gb50011 splits its checks into a package).
+    const enginePythonFiles = dir => fs.readdirSync(dir, { withFileTypes: true })
+      .filter(entry => !entry.name.startsWith('__'))
+      .flatMap(entry => entry.isDirectory() ? enginePythonFiles(path.join(dir, entry.name))
+        : entry.name.endsWith('.py') ? [path.join(dir, entry.name)] : []);
     const files = [path.join(root, 'code-check', 'code_check.py'),
-      ...['gb50009', 'gb50010', 'gb50011', 'gb50017', 'jgj3'].map(code => path.join(root, 'code-check', code, 'code_check.py')),
+      ...['gb50009', 'gb50010', 'gb50011', 'gb50017', 'jgj3'].flatMap(code => enginePythonFiles(path.join(root, 'code-check', code))),
       path.join(root, 'analysis', 'opensees-seismic', 'special_systems.py')];
     const patterns = [/['"](?:name|item|check)['"]\s*:\s*['"]([^'"\n]+)['"]/g, /item_name\s*=\s*['"]([^'"\n]+)['"]/g,
       /_check_item\(\s*['"]([^'"\n]+)['"]/g, /_displacement_check\([^)]*,\s*"([^"\n]+)"\)/g];
@@ -933,7 +938,7 @@ describe('default report template seismic section', () => {
         for (const match of text.matchAll(pattern)) if (/[一-龥]/.test(match[1]) && !match[1].includes(' / ')) labels.add(match[1]);
       }
     }
-    expect(labels.size).toBeGreaterThan(80);
+    expect(labels.size).toBe(99);
     expect([...labels].filter(label => !codeCheckLabelEn(label)).sort()).toEqual([]);
   });
 });
