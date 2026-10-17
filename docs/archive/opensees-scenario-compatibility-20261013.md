@@ -2,7 +2,7 @@
 
 267 个 OpenSees 规划场景（STD / INT / MM 各 89 个）都能由当前工具链表达、计算和查询。这个结论针对完整、经核对且稳定的一阶线弹性杆系模型；它不等于 267 道 Bench 已编制、已建立标答或已完成模型答题实验。
 
-逐题记录在 [`reproducibility/opensees-scenario-compatibility-20261013.json`](reproducibility/opensees-scenario-compatibility-20261013.json)。原始题目及模型的全部字段保存在 [`reproducibility/scenario-plan-300-20261013.json`](reproducibility/scenario-plan-300-20261013.json)。本次核对包含 `spec`、独立属性、边界、加载、交互轮次、输出及分析约定，没有把旧关键词投影作为支持证据。
+逐题记录在 [`reproducibility/opensees-scenario-compatibility-20261013.json`](../reproducibility/opensees-scenario-compatibility-20261013.json)。原始题目及模型的全部字段保存在 [`reproducibility/scenario-plan-300-20261013.json`](../reproducibility/scenario-plan-300-20261013.json)。本次核对包含 `spec`、独立属性、边界、加载、交互轮次、输出及分析约定，没有把旧关键词投影作为支持证据。
 
 ## 关键辨别
 

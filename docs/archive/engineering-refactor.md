@@ -1,7 +1,7 @@
 # Engineering core V2.1 / 工程内核重构
 
 > Historical V2.1 preview record. Current product interfaces, run controls and commercial
-> analysis/design separation are documented in [Product runtime](./product-runtime.md).
+> analysis/design separation are documented in [Product runtime](../product-runtime.md).
 > 以下保留 V2.1 预览阶段记录；当前本体接口、运行控制与商业分析/设计分离见上方新文档。
 
 This records an implemented core and its acceptance boundaries. It does **not**
@@ -12,7 +12,7 @@ tags, experiments and reference data remain unchanged.
 历史论文标签、实验与标答保持不变；候选冻结不能掩盖剩余缺口。
 
 Frozen implementation and machine-readable test evidence:
-[engineering-v2.1-preview-20261013](./archive/acceptance-records-2026-10/engineering-v2.1-preview-20261013.json).
+[engineering-v2.1-preview-20261013](./acceptance-records-2026-10/engineering-v2.1-preview-20261013.json).
 Final verification: backend **1339/1339**, frontend **273 passed / 6 existing todo**,
 evaluator **38/38**, and **51/51** engineering regression steps. Backend and frontend
 build/lint passed. The final stale-summary guard also passed its 11 focused tests
@@ -113,7 +113,7 @@ fractions of member length. Conflicting explicit units are rejected.
 - Commercial compilers preserve natural-floor topology and per-member sections.
   Formal V2 execution remains gated until native material-property preservation is
   calibrated. / 商业转换器不补齐矩形网格；原生材料属性尚未校准，正式V2计算仍被门禁阻断。
-  原生证据见[验收记录](./commercial-native-acceptance.md)。
+  原生证据见[验收记录](../commercial-native-acceptance.md)。
 - Code checking preserves simultaneous signed station vectors and evaluates stations
   before choosing a controlling result. Missing data/unsupported rules stay incomplete.
   / 不生成假利用率，不补假配筋，单轴公式及筛查方法保留适用范围。

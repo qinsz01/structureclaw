@@ -64,7 +64,7 @@ treated as equivalent to different requested inputs.
 
 - 最新 YJK API 的 4 份核心源码、控制器源码和生产配置，共 6 份 SHA256 前后一致。没有修改其文件、提交任务、重启服务或控制原用户进程；原 PID `4616/14708/16540` 仍在。
 - 最终商业与工程状态回归：6 个 Jest suites、54 项测试通过；YJK 与商业合同 Python 38 项及 13 个 subtests 通过。另有 13 项真实 Windows IPC/进程测试与 PKPM 11 项 Python 测试通过。
-- 原始产物保存在 `G:/StructureClaw-All/sclaw_data/work/`；输入、参考、读回、结果和 API 保护哈希见 [紧凑记录](archive/acceptance-records-2026-10/commercial-native-repair-20261013.json)。
+- 原始产物保存在 `G:/StructureClaw-All/sclaw_data/work/`；输入、参考、读回、结果和 API 保护哈希见 [紧凑记录](acceptance-records-2026-10/commercial-native-repair-20261013.json)。
 - 只推送个人 fork 开发分支；未移动历史标签，也未进行付费模型实验。
 
 Six inspected API source/configuration hashes are unchanged, its existing
