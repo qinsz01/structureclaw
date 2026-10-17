@@ -1520,7 +1520,6 @@ describe('ConsolePage Integration (CONS-13)', () => {
   })
 
   it('moves the active conversation to the top only after a completed new chat round', async () => {
-    if (!hasLlmKey) return
     window.localStorage.setItem('structureclaw.console.conversations', JSON.stringify({
       'conv-active-round': {
         id: 'conv-active-round',
@@ -1829,7 +1828,6 @@ describe('ConsolePage Integration (CONS-13)', () => {
   })
 
   it('sends the active locale with execute requests', async () => {
-    if (!hasLlmKey) return
     window.localStorage.setItem(LOCALE_STORAGE_KEY, 'zh')
 
     let executePayload: Record<string, unknown> | null = null
@@ -1939,7 +1937,6 @@ describe('ConsolePage Integration (CONS-13)', () => {
   })
 
   it('shows the analysis engine used for execution results', async () => {
-    if (!hasLlmKey) return
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = String(input)
 
@@ -2385,7 +2382,6 @@ describe('ConsolePage Integration (CONS-13)', () => {
   })
 
   it('renders guided discuss-first state in English', async () => {
-    if (!hasLlmKey) return
     window.localStorage.setItem(LOCALE_STORAGE_KEY, 'en')
     let streamPayload: Record<string, unknown> | null = null
     const interaction = {
@@ -2466,7 +2462,6 @@ describe('ConsolePage Integration (CONS-13)', () => {
   })
 
   it('synchronizes model json from a collecting chat result once the structural model is complete', async () => {
-    if (!hasLlmKey) return
     window.localStorage.setItem(LOCALE_STORAGE_KEY, 'en')
     const synchronizedModel = {
       schema_version: '2.0.0',
@@ -2560,7 +2555,6 @@ describe('ConsolePage Integration (CONS-13)', () => {
   })
 
   it('renders guided discuss-first state in Chinese', async () => {
-    if (!hasLlmKey) return
     window.localStorage.setItem(LOCALE_STORAGE_KEY, 'zh')
     const interaction = {
       detectedStructuralType: 'unknown',
@@ -2636,7 +2630,6 @@ describe('ConsolePage Integration (CONS-13)', () => {
   })
 
   it('opens the structural visualization modal after a successful execute run with model JSON', async () => {
-    if (!hasLlmKey) return
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = String(input)
 
@@ -2717,7 +2710,6 @@ describe('ConsolePage Integration (CONS-13)', () => {
   })
 
   it('sends autoCodeCheck=true during execute when a code-check skill is selected', async () => {
-    if (!hasLlmKey) return
     const executeBodies: Array<Record<string, unknown>> = []
 
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
@@ -2788,7 +2780,6 @@ describe('ConsolePage Integration (CONS-13)', () => {
   })
 
   it('sends autoCodeCheck=false during execute when no code-check skill is selected', async () => {
-    if (!hasLlmKey) return
     const executeBodies: Array<Record<string, unknown>> = []
 
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
