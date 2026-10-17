@@ -7,7 +7,7 @@ import type { LangGraphRunnableConfig, Command } from '@langchain/langgraph';
 import { getLogger, logToolCall } from '../../utils/agent-logger.js';
 import type { AgentState } from '../state.js';
 import type { AgentConfigurable } from '../configurable.js';
-import type { DraftState } from '../../shared/types/agent.js';
+import type { AgentSkillPlugin, DraftExtraction, DraftState, StructuralTypeMatch } from '../../shared/types/agent.js';
 import { isFreshGenericStructuralRoute } from '../../agent-runtime/plugin-helpers.js';
 import { invalidateStaleResults } from '../../engineering/model-state.js';
 import { engineeringModelSchema, draftDesignSchema, hasDraftDesignInputs, assertDraftDesignInputs, draftSectionShapeSchema, normalizeDraftSectionInputs } from '../../engineering/model-edit-contract.js';
@@ -18,6 +18,309 @@ import { equilibriumModel } from '../../engineering/beam-equilibrium.js';
 import { buildDraftProgress, buildClarificationQuestions, hasStableDraftType, shouldPreserveExistingDraftState, resolveRetryTaskMessage, buildPreservedDraftExtractionResult, resolveExistingDraftPlugin, detectStructuralTypeWithConfiguredLlm, resolveDetectedStructuralTypeMatch } from './draft-helpers.js';
 import { resolveExtractionInputMessage } from './input-message.js';
 import { getConfigurable, getToolCallId, toolResult, nestedLlmUsageCollector, toolSkillScope } from './shared.js';
+
+type ExtractionLocale = 'zh' | 'en';
+type SkillMissing = ReturnType<typeof computeDraftMissing>;
+
+type UsageListener = ReturnType<typeof nestedLlmUsageCollector>['onUsage'];
+
+/** Step 1: reuse the accepted structural type unless routing is fixed, else ask the configured LLM router. */
+async function detectStructuralMatch(skillRuntime: AgentSkillRuntime, options: {
+  structuralTypeKey: AgentState['structuralTypeKey'] | undefined;
+  existingState: DraftState | undefined;
+  skillIds: string[] | undefined;
+  extractionMessage: string;
+  locale: ExtractionLocale;
+  signal: AbortSignal | undefined;
+  onUsage: UsageListener;
+}) {
+  const { structuralTypeKey, existingState, skillIds, extractionMessage, locale, signal, onUsage } = options;
+  const detectedMatch = currentRunPolicy()?.routing.mode === 'fixed' ? null : await resolveDetectedStructuralTypeMatch(
+    skillRuntime,
+    structuralTypeKey,
+    skillIds,
+  );
+  const match = detectedMatch ?? await detectStructuralTypeWithConfiguredLlm(skillRuntime, {
+    message: extractionMessage,
+    locale,
+    currentState: existingState,
+    skillIds,
+    signal,
+    onUsage,
+  });
+  const matchedPlugin = match.skillId
+    ? await skillRuntime.resolvePluginForType(match.skillId, skillIds)
+    : null;
+  return { detectedMatch, match, matchedPlugin };
+}
+
+/** A conflicting route does not replace an accepted draft: answer from the existing draft's plugin. */
+async function preserveExistingDraft(
+  skillRuntime: AgentSkillRuntime,
+  existingState: DraftState,
+  match: StructuralTypeMatch,
+  skillIds: string[] | undefined,
+  matchedPlugin: AgentSkillPlugin | null,
+  locale: ExtractionLocale,
+) {
+  const preservationPlugin = await resolveExistingDraftPlugin(
+    skillRuntime,
+    existingState,
+    skillIds,
+    matchedPlugin,
+  );
+  return buildPreservedDraftExtractionResult({
+    existingState,
+    structuralTypeMatch: match,
+    plugin: preservationPlugin,
+    locale,
+  });
+}
+
+/** Steps 3-4: LLM parameter extraction, then the handler pipeline (extractDraft → mergeState → computeMissing). */
+async function extractAndMergeDraft(options: {
+  input: { requestScope?: RequestScope };
+  state: AgentState | undefined;
+  existingState: DraftState | undefined;
+  requestedScope: RequestScope | null | undefined;
+  hasExistingDesign: boolean;
+  configurable: ReturnType<typeof getConfigurable>;
+  signal: AbortSignal | undefined;
+  plugin: AgentSkillPlugin;
+  match: StructuralTypeMatch;
+  extractionMessage: string;
+  locale: ExtractionLocale;
+  log: ReturnType<typeof getLogger>;
+  onUsage: UsageListener;
+}) {
+  const { input, state, existingState, requestedScope, hasExistingDesign, configurable, signal, plugin, match,
+    extractionMessage, locale, log, onUsage } = options;
+  // Step 3: Sub-agent extracts parameters (skill manifest driven)
+  const { invokeParamExtractor } = await import('../param-extractor.js');
+  // A force-only extraction does not need the Python model service. Design
+  // extraction and any generated design fields use its authoritative schema.
+  const protocolClient = configurable.structureProtocolClient ?? createLocalStructureProtocolClient();
+  let designContract = requestedScope?.design || hasExistingDesign || requestedScope?.method === 'solver'
+    ? await engineeringModelSchema(protocolClient) : undefined;
+  const draftPatch = await invokeParamExtractor({
+    message: extractionMessage,
+    existingState,
+    locale,
+    plugin,
+    traceLogger: log,
+    signal,
+    onUsage,
+    designSchema: designContract ? draftDesignSchema(designContract) : undefined,
+    sectionShapeSchema: designContract ? draftSectionShapeSchema(designContract) : undefined,
+  });
+
+  // Step 4: Handler pipeline (extractDraft → mergeState → computeMissing)
+  const patch = plugin.handler.extractDraft({
+    message: extractionMessage,
+    locale,
+    currentState: existingState,
+    llmDraftPatch: draftPatch,
+    structuralTypeMatch: match,
+  });
+  const { withStructuralTypeState } = await import('../../agent-runtime/plugin-helpers.js');
+  const scopeDiagnostics: ScopeDiagnostic[] = [];
+  const requestScope = resolveExtractedScope(input.requestScope, draftPatch?.requestScope, state?.requestScope, scopeDiagnostics);
+  if (scopeDiagnostics.length) recordRunEvent({ kind: 'request_scope_diagnostic', source: 'parameter-extractor', diagnostics: scopeDiagnostics,
+    resolvedBy: input.requestScope ? 'declared-request' : state?.requestScope ? 'accepted-request' : 'clarification' });
+  let nextState = { ...withStructuralTypeState(plugin.handler.mergeState(existingState, patch), match),
+    ...(requestScope ? { requestScope } : {}) };
+  if (nextState.engineeringDraft?.sectionRecords?.length || Array.isArray(nextState.engineeringDraft?.model?.sections)) {
+    designContract ??= await engineeringModelSchema(protocolClient);
+    nextState = projectDraftState(normalizeDraftSectionInputs(nextState.engineeringDraft!, designContract), nextState);
+  }
+  if (hasDraftDesignInputs(nextState.engineeringDraft)) {
+    designContract ??= await engineeringModelSchema(protocolClient);
+    assertDraftDesignInputs(nextState.engineeringDraft, designContract);
+  }
+  const goalRequired = scopeDiagnostics.some(issue => issue.code === 'REQUEST_GOAL_REQUIRED');
+  const missing = goalRequired ? { critical: ['requestScope'], optional: [] } : computeDraftMissing(plugin, nextState, 'execution');
+  return { draftPatch, patch, scopeDiagnostics, requestScope, nextState, goalRequired, missing };
+}
+
+/** Graph-state update of the LLM extraction path: new draft, pending model, stale results invalidated. */
+function llmExtractionStateUpdate(requestScope: RequestScope | undefined, nextState: DraftState, state: AgentState | undefined,
+  match: StructuralTypeMatch): Partial<AgentState> {
+  const stateUpdate: Partial<AgentState> = {};
+  if (requestScope) stateUpdate.requestScope = requestScope;
+  if (nextState) {
+    Object.assign(stateUpdate, invalidateStaleResults(state));
+    stateUpdate.draftState = nextState;
+    stateUpdate.modelPending = true;
+  }
+  if (match.key) stateUpdate.structuralTypeKey = match.key;
+  return stateUpdate;
+}
+
+/** No skill matched the message: keep the draft and ask for the structure type. */
+function unmatchedSkillOutcome(existingState: DraftState | undefined, match: StructuralTypeMatch, locale: ExtractionLocale) {
+  const nextState = {
+    ...(existingState || { inferredType: 'unknown' as const }),
+    structuralTypeKey: match.key,
+    supportLevel: match.supportLevel,
+    supportNote: match.supportNote,
+    routingSource: match.routingSource,
+    updatedAt: Date.now(),
+  };
+  const responseJson = {
+    nextState,
+    criticalMissing: ['inferredType'],
+    optionalMissing: [],
+    clarificationQuestions: [],
+    structuralTypeMatch: match,
+    skillId: undefined,
+    routingSource: match.routingSource,
+    extractionMode: 'not-applicable',
+    ...buildDraftProgress(locale, ['inferredType']),
+  };
+  const stateUpdate: Partial<AgentState> = { draftState: nextState };
+  if (match.key) stateUpdate.structuralTypeKey = match.key;
+  return { responseJson, stateUpdate };
+}
+
+/** A skill matched but its plugin is not available in this scope. */
+function unavailablePluginOutcome(existingState: DraftState | undefined, match: StructuralTypeMatch, locale: ExtractionLocale) {
+  const nextState: DraftState = existingState == null
+    ? { inferredType: 'unknown' as const, routingSource: match.routingSource, updatedAt: Date.now() }
+    : { ...(existingState as DraftState), routingSource: match.routingSource, updatedAt: Date.now() };
+  const responseJson = {
+    nextState,
+    criticalMissing: ['inferredType'],
+    optionalMissing: [],
+    clarificationQuestions: [],
+    structuralTypeMatch: match,
+    skillId: undefined,
+    routingSource: match.routingSource,
+    extractionMode: 'unavailable',
+    ...buildDraftProgress(locale, ['inferredType']),
+  };
+  return { responseJson, nextState };
+}
+
+/** Generic skill with a stable draft: deterministic merge, no LLM extraction. */
+async function genericDeterministicOutcome(
+  plugin: AgentSkillPlugin,
+  stableExistingState: DraftState,
+  match: StructuralTypeMatch,
+  state: AgentState | undefined,
+  locale: ExtractionLocale,
+) {
+  const { withStructuralTypeState } = await import('../../agent-runtime/plugin-helpers.js');
+  const resetToGeneric = isFreshGenericStructuralRoute(match);
+  const nextState = withStructuralTypeState(
+    plugin.handler.mergeState(resetToGeneric ? undefined : stableExistingState, resetToGeneric ? { inferredType: 'unknown' } : {}),
+    match,
+  );
+  const missing = computeDraftMissing(plugin, nextState, 'execution');
+  const responseJson = {
+    nextState,
+    criticalMissing: missing.critical,
+    optionalMissing: missing.optional,
+    clarificationQuestions: buildClarificationQuestions(plugin, missing.critical, missing.optional, nextState, locale),
+    structuralTypeMatch: match,
+    skillId: plugin.id,
+    routingSource: match.routingSource,
+    extractionMode: 'deterministic',
+    ...buildDraftProgress(locale, missing.critical),
+  };
+  const stateUpdate: Partial<AgentState> = { ...(resetToGeneric ? { ...invalidateStaleResults(state), modelPending: true } : {}),
+    draftState: nextState, structuralTypeKey: match.key };
+  return { responseJson, stateUpdate, missing };
+}
+
+/** Equilibrium context for a complete force-only request, or partial forces when only properties are missing. */
+function resolveEquilibriumContext(requestScope: RequestScope | undefined, missing: SkillMissing, nextState: DraftState) {
+  let equilibriumContext = requestScope?.method === 'equilibrium' && !missing.critical.length
+    ? equilibriumModel(nextState) : undefined;
+  let partialEquilibriumAvailable = false;
+  if (requestScope?.method === 'solver' && !requestScope.design && missing.critical.length
+    && requestScope.responses.some(field => ['forces', 'reactions'].includes(field))) {
+    try { equilibriumContext = equilibriumModel(nextState); partialEquilibriumAvailable = true; } catch { /* Full-model missing conditions remain authoritative. */ }
+  }
+  return { equilibriumContext, partialEquilibriumAvailable };
+}
+
+/** Response of the LLM extraction path: draft, missing input, scope and the next action. */
+function buildLlmExtractionResponse(options: {
+  nextState: DraftState;
+  missing: SkillMissing;
+  goalRequired: boolean;
+  locale: ExtractionLocale;
+  plugin: AgentSkillPlugin;
+  match: StructuralTypeMatch;
+  extractionMode: 'llm' | 'deterministic';
+  requestScope: RequestScope | undefined;
+  scopeDiagnostics: ScopeDiagnostic[];
+  partialEquilibriumAvailable: boolean;
+  equilibriumContext: ReturnType<typeof equilibriumModel> | undefined;
+  draftPatch: Record<string, unknown> | null;
+  patch: DraftExtraction;
+}) {
+  const { nextState, missing, goalRequired, locale, plugin, match, extractionMode, requestScope, scopeDiagnostics,
+    partialEquilibriumAvailable, equilibriumContext, draftPatch, patch } = options;
+  return {
+    nextState,
+    criticalMissing: missing.critical,
+    optionalMissing: missing.optional,
+    clarificationQuestions: goalRequired ? [{ paramKey: 'requestScope', label: locale === 'zh' ? '所求结果' : 'Requested results',
+      question: locale === 'zh' ? '你需要内力/反力、位移/挠度，还是还需要规范设计或报告？已提供的梁跨度与荷载会保留。'
+        : 'Do you need forces/reactions, displacement/deflection, or also code design or a report? The supplied span and loads are retained.',
+      required: true, critical: true }] : buildClarificationQuestions(plugin, missing.critical, missing.optional, nextState, locale),
+    structuralTypeMatch: match,
+    skillId: plugin.id,
+    routingSource: match.routingSource,
+    extractionMode,
+    requestScope,
+    ...(scopeDiagnostics.length ? { scopeDiagnostics } : {}),
+    ...(partialEquilibriumAvailable ? { partialAnalysisAvailable: { method: 'equilibrium', allowPartial: true,
+      availableResponses: ['forces', 'reactions'], missingForFullAnalysis: missing.critical,
+      instruction: 'First run_analysis(method=equilibrium,allowPartial=true) for independently determined forces. Then ask for stiffness for displacement; the task remains partial. / 先计算可独立确定的内力，再询问位移所需刚度；不能宣布整题完成。' } } : {}),
+    ...(equilibriumContext ? { calculationContext: { nodes: equilibriumContext.nodes, elements: equilibriumContext.elements,
+      resultKeys: (equilibriumContext.load_cases as Record<string, unknown>[]).map(c => `case:${c.id}`),
+      verticalBendingMomentComponent: 'M2', verticalShearComponent: 'V3', verticalReactionComponent: 'fz',
+      note: 'Use these exact IDs and components. resultKey is the load case, not a label for a requested output. / 使用这些实际ID与分量；resultKey是工况键，不是所求结果名称。' } } : {}),
+    missingReasons: missing.critical.map(field => ({ field, reason: missingInputReason(field, requestScope, locale) })),
+    llmDraftPatch: draftPatch ?? null,
+    appliedDraftUpdate: { clearedFields: patch.clearDraftFields ?? [], order: 'clear-then-merge' },
+    engineeringDraft: nextState.engineeringDraft ?? patch.engineeringDraft ?? null,
+    extractionSource: typeof nextState.skillState?.extractionSource === 'string'
+      ? nextState.skillState.extractionSource
+      : (draftPatch ? 'llm-draft-patch' : 'deterministic'),
+    ...buildDraftProgress(locale, missing.critical),
+    ...(partialEquilibriumAvailable ? { nextAction: 'run_analysis', canAnalyzePartial: true,
+      instruction: locale === 'zh' ? '完整分析仍缺属性；先run_analysis(method=equilibrium,allowPartial=true)计算独立内力，再澄清位移所需刚度。不要build_model或编造材料截面。'
+        : 'Full analysis lacks properties. First run_analysis(method=equilibrium,allowPartial=true) for independent forces, then clarify stiffness. Do not build_model or invent material/section.' } : {}),
+    ...(requestScope?.method === 'equilibrium' && missing.critical.length === 0 ? {
+      nextAction: 'run_analysis', instruction: locale === 'zh'
+        ? '直接调用run_analysis(method=equilibrium)。仅计算内力和反力，不需要材料截面，不生成未请求的变形、规范校核或报告。'
+        : 'Call run_analysis(method=equilibrium) directly. Forces/reactions only; no material/section, unrequested deformation, code checking or report.' } : {}),
+  };
+}
+
+/** Invalid router/extractor output is returned to the model for a retry; other errors propagate. */
+function invalidLlmOutputPayload(errorMessage: string): Record<string, unknown> | undefined {
+  if (
+    !(
+      errorMessage.startsWith('LLM_PARAM_EXTRACTOR_INVALID_OUTPUT:')
+      || errorMessage.startsWith('LLM_STRUCTURAL_ROUTER_INVALID_OUTPUT:')
+    )
+  ) {
+    return undefined;
+  }
+  const errorCode = errorMessage.startsWith('LLM_PARAM_EXTRACTOR_INVALID_OUTPUT:')
+    ? 'LLM_PARAM_EXTRACTOR_INVALID_OUTPUT'
+    : 'LLM_STRUCTURAL_ROUTER_INVALID_OUTPUT';
+  return {
+    success: false,
+    errorCode,
+    message: errorMessage,
+    nextAction: 'retry_extraction',
+  };
+}
 
 export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
   return tool(
@@ -62,22 +365,10 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
           resolvedMessagePreview: message.slice(0, 120),
           extractionMessagePreview: extractionMessage.slice(0, 120),
         }, 'extract_draft_params resolved message');
-        const detectedMatch = currentRunPolicy()?.routing.mode === 'fixed' ? null : await resolveDetectedStructuralTypeMatch(
-          skillRuntime,
-          state?.structuralTypeKey,
-          skillIds,
-        );
-        const match = detectedMatch ?? await detectStructuralTypeWithConfiguredLlm(skillRuntime, {
-          message: extractionMessage,
-          locale,
-          currentState: existingState,
-          skillIds,
-          signal: config.signal,
-          onUsage: nestedUsage.onUsage,
+        const { detectedMatch, match, matchedPlugin } = await detectStructuralMatch(skillRuntime, {
+          structuralTypeKey: state?.structuralTypeKey, existingState, skillIds, extractionMessage, locale,
+          signal: config.signal, onUsage: nestedUsage.onUsage,
         });
-        const matchedPlugin = match.skillId
-          ? await skillRuntime.resolvePluginForType(match.skillId, skillIds)
-          : null;
         log.debug({
           detectedKey: match.key,
           detectedSkillId: match.skillId,
@@ -87,18 +378,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
         }, 'extract_draft_params structural match');
 
         if (shouldPreserveExistingDraftState(existingState, match, message)) {
-          const preservationPlugin = await resolveExistingDraftPlugin(
-            skillRuntime,
-            existingState,
-            skillIds,
-            matchedPlugin,
-          );
-          const preserved = buildPreservedDraftExtractionResult({
-            existingState,
-            structuralTypeMatch: match,
-            plugin: preservationPlugin,
-            locale,
-          });
+          const preserved = await preserveExistingDraft(skillRuntime, existingState, match, skillIds, matchedPlugin, locale);
           logToolCall(log, {
             tool: 'extract_draft_params',
             durationMs: Date.now() - start,
@@ -118,27 +398,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
 
         // Early return when no skill matched
         if (!match.skillId) {
-          const nextState = {
-            ...(existingState || { inferredType: 'unknown' as const }),
-            structuralTypeKey: match.key,
-            supportLevel: match.supportLevel,
-            supportNote: match.supportNote,
-            routingSource: match.routingSource,
-            updatedAt: Date.now(),
-          };
-          const responseJson = {
-            nextState,
-            criticalMissing: ['inferredType'],
-            optionalMissing: [],
-            clarificationQuestions: [],
-            structuralTypeMatch: match,
-            skillId: undefined,
-            routingSource: match.routingSource,
-            extractionMode: 'not-applicable',
-            ...buildDraftProgress(locale, ['inferredType']),
-          };
-          const stateUpdate: Partial<AgentState> = { draftState: nextState };
-          if (match.key) stateUpdate.structuralTypeKey = match.key;
+          const { responseJson, stateUpdate } = unmatchedSkillOutcome(existingState, match, locale);
           logToolCall(log, { tool: 'extract_draft_params', durationMs: Date.now() - start, extra: { skillId: undefined, criticalMissing: 1, routingSource: match.routingSource } });
           return extractionToolResult(JSON.stringify(responseJson), stateUpdate);
         }
@@ -146,20 +406,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
         // Step 2: Resolve plugin
         const plugin = matchedPlugin;
         if (!plugin) {
-          const nextState: DraftState = existingState == null
-            ? { inferredType: 'unknown' as const, routingSource: match.routingSource, updatedAt: Date.now() }
-            : { ...(existingState as DraftState), routingSource: match.routingSource, updatedAt: Date.now() };
-          const responseJson = {
-            nextState,
-            criticalMissing: ['inferredType'],
-            optionalMissing: [],
-            clarificationQuestions: [],
-            structuralTypeMatch: match,
-            skillId: undefined,
-            routingSource: match.routingSource,
-            extractionMode: 'unavailable',
-            ...buildDraftProgress(locale, ['inferredType']),
-          };
+          const { responseJson, nextState } = unavailablePluginOutcome(existingState, match, locale);
           logToolCall(log, { tool: 'extract_draft_params', durationMs: Date.now() - start, extra: { skillId: match.skillId, pluginResolved: false, routingSource: match.routingSource } });
           return extractionToolResult(JSON.stringify(responseJson), { draftState: nextState });
         }
@@ -170,156 +417,35 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
           plugin.id === 'generic'
           && stableExistingState
         ) {
-          const { withStructuralTypeState } = await import('../../agent-runtime/plugin-helpers.js');
-          const resetToGeneric = isFreshGenericStructuralRoute(match);
-          const nextState = withStructuralTypeState(
-            plugin.handler.mergeState(resetToGeneric ? undefined : stableExistingState, resetToGeneric ? { inferredType: 'unknown' } : {}),
-            match,
-          );
-          const missing = computeDraftMissing(plugin, nextState, 'execution');
-          const responseJson = {
-            nextState,
-            criticalMissing: missing.critical,
-            optionalMissing: missing.optional,
-            clarificationQuestions: buildClarificationQuestions(plugin, missing.critical, missing.optional, nextState, locale),
-            structuralTypeMatch: match,
-            skillId: plugin.id,
-            routingSource: match.routingSource,
-            extractionMode: 'deterministic',
-            ...buildDraftProgress(locale, missing.critical),
-          };
-          const stateUpdate: Partial<AgentState> = { ...(resetToGeneric ? { ...invalidateStaleResults(state), modelPending: true } : {}),
-            draftState: nextState, structuralTypeKey: match.key };
+          const { responseJson, stateUpdate, missing } = await genericDeterministicOutcome(plugin, stableExistingState, match, state, locale);
           logToolCall(log, { tool: 'extract_draft_params', durationMs: Date.now() - start, extra: { skillId: plugin.id, extractionMode: 'deterministic', criticalMissing: missing.critical.length, routingSource: match.routingSource } });
           return extractionToolResult(JSON.stringify(responseJson), stateUpdate);
         }
 
-        // Step 3: Sub-agent extracts parameters (skill manifest driven)
-        const { invokeParamExtractor } = await import('../param-extractor.js');
-        // A force-only extraction does not need the Python model service. Design
-        // extraction and any generated design fields use its authoritative schema.
-        const protocolClient = configurable.structureProtocolClient ?? createLocalStructureProtocolClient();
-        let designContract = requestedScope?.design || hasExistingDesign || requestedScope?.method === 'solver'
-          ? await engineeringModelSchema(protocolClient) : undefined;
-        const draftPatch = await invokeParamExtractor({
-          message: extractionMessage,
-          existingState,
-          locale,
-          plugin,
-          traceLogger: log,
-          signal: config.signal,
-          onUsage: nestedUsage.onUsage,
-          designSchema: designContract ? draftDesignSchema(designContract) : undefined,
-          sectionShapeSchema: designContract ? draftSectionShapeSchema(designContract) : undefined,
+        const { draftPatch, patch, scopeDiagnostics, requestScope, nextState, goalRequired, missing } = await extractAndMergeDraft({
+          input, state, existingState, requestedScope, hasExistingDesign, configurable, signal: config.signal,
+          plugin, match, extractionMessage, locale, log, onUsage: nestedUsage.onUsage,
         });
-
-        // Step 4: Handler pipeline (extractDraft → mergeState → computeMissing)
-        const patch = plugin.handler.extractDraft({
-          message: extractionMessage,
-          locale,
-          currentState: existingState,
-          llmDraftPatch: draftPatch,
-          structuralTypeMatch: match,
-        });
-        const { withStructuralTypeState } = await import('../../agent-runtime/plugin-helpers.js');
-        const scopeDiagnostics: ScopeDiagnostic[] = [];
-        const requestScope = resolveExtractedScope(input.requestScope, draftPatch?.requestScope, state?.requestScope, scopeDiagnostics);
-        if (scopeDiagnostics.length) recordRunEvent({ kind: 'request_scope_diagnostic', source: 'parameter-extractor', diagnostics: scopeDiagnostics,
-          resolvedBy: input.requestScope ? 'declared-request' : state?.requestScope ? 'accepted-request' : 'clarification' });
-        let nextState = { ...withStructuralTypeState(plugin.handler.mergeState(existingState, patch), match),
-          ...(requestScope ? { requestScope } : {}) };
-        if (nextState.engineeringDraft?.sectionRecords?.length || Array.isArray(nextState.engineeringDraft?.model?.sections)) {
-          designContract ??= await engineeringModelSchema(protocolClient);
-          nextState = projectDraftState(normalizeDraftSectionInputs(nextState.engineeringDraft!, designContract), nextState);
-        }
-        if (hasDraftDesignInputs(nextState.engineeringDraft)) {
-          designContract ??= await engineeringModelSchema(protocolClient);
-          assertDraftDesignInputs(nextState.engineeringDraft, designContract);
-        }
-        const goalRequired = scopeDiagnostics.some(issue => issue.code === 'REQUEST_GOAL_REQUIRED');
-        const missing = goalRequired ? { critical: ['requestScope'], optional: [] } : computeDraftMissing(plugin, nextState, 'execution');
         const extractionMode = draftPatch ? 'llm' : 'deterministic';
-        let equilibriumContext = requestScope?.method === 'equilibrium' && !missing.critical.length
-          ? equilibriumModel(nextState) : undefined;
-        let partialEquilibriumAvailable = false;
-        if (requestScope?.method === 'solver' && !requestScope.design && missing.critical.length
-          && requestScope.responses.some(field => ['forces', 'reactions'].includes(field))) {
-          try { equilibriumContext = equilibriumModel(nextState); partialEquilibriumAvailable = true; } catch { /* Full-model missing conditions remain authoritative. */ }
-        }
+        const { equilibriumContext, partialEquilibriumAvailable } = resolveEquilibriumContext(requestScope, missing, nextState);
 
         // Missing engineering input is a clarification state, not a failed extraction.
         // Repeating the same evidence cannot supply user-omitted properties and must
         // not consume the semantic recovery budget. Invalid LLM output is handled
         // separately inside invokeParamExtractor.
 
-        const responseJson = {
-          nextState,
-          criticalMissing: missing.critical,
-          optionalMissing: missing.optional,
-          clarificationQuestions: goalRequired ? [{ paramKey: 'requestScope', label: locale === 'zh' ? '所求结果' : 'Requested results',
-            question: locale === 'zh' ? '你需要内力/反力、位移/挠度，还是还需要规范设计或报告？已提供的梁跨度与荷载会保留。'
-              : 'Do you need forces/reactions, displacement/deflection, or also code design or a report? The supplied span and loads are retained.',
-            required: true, critical: true }] : buildClarificationQuestions(plugin, missing.critical, missing.optional, nextState, locale),
-          structuralTypeMatch: match,
-          skillId: plugin.id,
-          routingSource: match.routingSource,
-          extractionMode,
-          requestScope,
-          ...(scopeDiagnostics.length ? { scopeDiagnostics } : {}),
-          ...(partialEquilibriumAvailable ? { partialAnalysisAvailable: { method: 'equilibrium', allowPartial: true,
-            availableResponses: ['forces', 'reactions'], missingForFullAnalysis: missing.critical,
-            instruction: 'First run_analysis(method=equilibrium,allowPartial=true) for independently determined forces. Then ask for stiffness for displacement; the task remains partial. / 先计算可独立确定的内力，再询问位移所需刚度；不能宣布整题完成。' } } : {}),
-          ...(equilibriumContext ? { calculationContext: { nodes: equilibriumContext.nodes, elements: equilibriumContext.elements,
-            resultKeys: (equilibriumContext.load_cases as Record<string, unknown>[]).map(c => `case:${c.id}`),
-            verticalBendingMomentComponent: 'M2', verticalShearComponent: 'V3', verticalReactionComponent: 'fz',
-            note: 'Use these exact IDs and components. resultKey is the load case, not a label for a requested output. / 使用这些实际ID与分量；resultKey是工况键，不是所求结果名称。' } } : {}),
-          missingReasons: missing.critical.map(field => ({ field, reason: missingInputReason(field, requestScope, locale) })),
-          llmDraftPatch: draftPatch ?? null,
-          appliedDraftUpdate: { clearedFields: patch.clearDraftFields ?? [], order: 'clear-then-merge' },
-          engineeringDraft: nextState.engineeringDraft ?? patch.engineeringDraft ?? null,
-          extractionSource: typeof nextState.skillState?.extractionSource === 'string'
-            ? nextState.skillState.extractionSource
-            : (draftPatch ? 'llm-draft-patch' : 'deterministic'),
-          ...buildDraftProgress(locale, missing.critical),
-          ...(partialEquilibriumAvailable ? { nextAction: 'run_analysis', canAnalyzePartial: true,
-            instruction: locale === 'zh' ? '完整分析仍缺属性；先run_analysis(method=equilibrium,allowPartial=true)计算独立内力，再澄清位移所需刚度。不要build_model或编造材料截面。'
-              : 'Full analysis lacks properties. First run_analysis(method=equilibrium,allowPartial=true) for independent forces, then clarify stiffness. Do not build_model or invent material/section.' } : {}),
-          ...(requestScope?.method === 'equilibrium' && missing.critical.length === 0 ? {
-            nextAction: 'run_analysis', instruction: locale === 'zh'
-              ? '直接调用run_analysis(method=equilibrium)。仅计算内力和反力，不需要材料截面，不生成未请求的变形、规范校核或报告。'
-              : 'Call run_analysis(method=equilibrium) directly. Forces/reactions only; no material/section, unrequested deformation, code checking or report.' } : {}),
-        };
+        const responseJson = buildLlmExtractionResponse({ nextState, missing, goalRequired, locale, plugin, match, extractionMode,
+          requestScope, scopeDiagnostics, partialEquilibriumAvailable, equilibriumContext, draftPatch, patch });
 
-        const stateUpdate: Partial<AgentState> = {};
-        if (requestScope) stateUpdate.requestScope = requestScope;
-        if (nextState) {
-          Object.assign(stateUpdate, invalidateStaleResults(state));
-          stateUpdate.draftState = nextState;
-          stateUpdate.modelPending = true;
-        }
-        if (match.key) stateUpdate.structuralTypeKey = match.key;
+        const stateUpdate = llmExtractionStateUpdate(requestScope, nextState, state, match);
 
         logToolCall(log, { tool: 'extract_draft_params', durationMs: Date.now() - start, extra: { skillId: plugin.id, extractionMode: responseJson.extractionMode, criticalMissing: missing.critical.length, routingSource: match.routingSource } });
         return extractionToolResult(JSON.stringify(responseJson), stateUpdate);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         logToolCall(log, { tool: 'extract_draft_params', durationMs: Date.now() - start, success: false, extra: { error: errorMessage } });
-        if (
-          (
-            errorMessage.startsWith('LLM_PARAM_EXTRACTOR_INVALID_OUTPUT:')
-            || errorMessage.startsWith('LLM_STRUCTURAL_ROUTER_INVALID_OUTPUT:')
-          )
-        ) {
-          const errorCode = errorMessage.startsWith('LLM_PARAM_EXTRACTOR_INVALID_OUTPUT:')
-            ? 'LLM_PARAM_EXTRACTOR_INVALID_OUTPUT'
-            : 'LLM_STRUCTURAL_ROUTER_INVALID_OUTPUT';
-          return extractionToolResult(JSON.stringify({
-            success: false,
-            errorCode,
-            message: errorMessage,
-            nextAction: 'retry_extraction',
-          }));
-        }
+        const invalidOutput = invalidLlmOutputPayload(errorMessage);
+        if (invalidOutput) return extractionToolResult(JSON.stringify(invalidOutput));
         throw error;
       }
     },
