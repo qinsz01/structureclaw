@@ -169,7 +169,9 @@ export function buildSystemMessages(ctx: SystemPromptContext): BaseMessageLike[]
   const skillList = activeManifests
     .map((s) => {
       const name = isZh ? s.name.zh : s.name.en;
-      const desc = state.runPolicy?.knowledge === 'disabled' ? '' : isZh ? s.description.zh : s.description.en;
+      // Knowledge off removes skill descriptions and stage knowledge (including stage names).
+      if (state.runPolicy?.knowledge === 'disabled') return `- ${s.id} (${name}):  [domain=${s.domain}]`;
+      const desc = isZh ? s.description.zh : s.description.en;
       return `- ${s.id} (${name}): ${desc} [domain=${s.domain}, stages=${s.stages.join('/')}]`;
     })
     .join('\n');

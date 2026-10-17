@@ -8,7 +8,8 @@ tool interfaces and inputs and removes exactly one mechanism. Removing a mechani
 loss, not a broken interface: the agent still finishes the turn with an answer.
 
 Source of truth: `backend/src/runtime/ablation-profiles.ts` (`ABLATION_PROFILES_VERSION`, currently
-`2026-10-17.1`). Any change to a profile definition requires a new version.
+`2026-10-17.2`; `.2` also removes stage names under `no-knowledge`). Any change to a profile
+definition requires a new version.
 
 ## Selecting a profile
 
@@ -55,7 +56,7 @@ interpretation, **C** capability boundaries and missing input, **D** state revis
 | `full` | defaults | nothing (reference); policy hash equals the default hash | — |
 | `generic-only` | `skillIds` = every skill except structure-type skills other than `generic` (a skill ceiling) | specialist structure skills; analysis, code-check, report and other domains stay | A, B |
 | `no-routing` | `routing: { mode: fixed, skillId: generic }` | automatic structure-skill selection (the structural router is not called) | A |
-| `no-knowledge` | `knowledge: disabled` | skill descriptions and stage markdown in the agent, structural-router and parameter-extractor prompts | A, C |
+| `no-knowledge` | `knowledge: disabled` | skill descriptions, triggers, stage names and stage markdown in the agent, structural-router and parameter-extractor prompts | A, C |
 | `no-template-builder` | `builder: llm` | deterministic template model builders; `build_model` uses the LLM model builder | A |
 | `no-validation-gate` | `features.validation: disabled` | the `validate_model` tool and its workflow step; model normalization and solver checks stay | A, C |
 | `no-clarification` | `features.clarification: disabled` | the `ask_user_clarification` interrupt and its prompt instructions; the agent lists missing inputs in its final reply | C |
@@ -72,8 +73,8 @@ interpretation, **C** capability boundaries and missing input, **D** state revis
 - **no-routing**: `detect_structure_type` / `extract_draft_params` return `routingSource:
   policy-fixed` with `skillId: generic`. Combine with a skill scope that contains `generic`;
   otherwise the turn fails with `FIXED_SKILL_OUTSIDE_SCOPE`.
-- **no-knowledge**: skill names, ids, domains and stages stay visible; only descriptions, triggers
-  and stage markdown are removed.
+- **no-knowledge**: skill names, ids and domains stay visible; descriptions, triggers, stage names
+  (`stages=` in the agent prompt, `stages` in the extractor prompt) and stage markdown are removed.
 - **no-validation-gate** / **no-clarification**: the tool is removed from exposure (its schema is
   unchanged and a direct call is refused with `TOOL_NOT_ALLOWED`). The system prompt is rewritten
   consistently. The same prompt consistency applies whenever the tool is unavailable for another

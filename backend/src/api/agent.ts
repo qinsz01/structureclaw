@@ -189,7 +189,6 @@ export async function agentRoutes(fastify: FastifyInstance) {
     },
   }, async (request: FastifyRequest<{ Querystring: z.infer<typeof capabilityMatrixQuerySchema> }>, reply: FastifyReply) => {
     const query = capabilityMatrixQuerySchema.parse(request.query);
-    const matrix = await capabilityService.getCapabilityMatrix({ analysisType: query.analysisType, toolDefinitions: listAgentToolDefinitions() });
     let session;
     if (query.conversationId) {
       // Follow the same conversation lookup as GET /chat/conversation/:id.
@@ -197,6 +196,9 @@ export async function agentRoutes(fastify: FastifyInstance) {
       if (!conversation) return reply.code(404).send({ error: 'CONVERSATION_NOT_FOUND' });
       session = await agentService.getConversationSessionSnapshot(query.conversationId, 'en');
     }
+    // A conversation's saved run policy gates the recommended tools (e.g. no-validation-gate).
+    const matrix = await capabilityService.getCapabilityMatrix({ analysisType: query.analysisType, toolDefinitions: listAgentToolDefinitions(),
+      runPolicy: session?.state?.runPolicy });
     return reply.send({ ...matrix, currentAssessment: assessCurrentEngineeringInput(session?.state, query.conversationId) });
   });
 
