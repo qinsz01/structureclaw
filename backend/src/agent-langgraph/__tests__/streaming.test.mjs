@@ -29,6 +29,17 @@ describe('LangGraph streaming adapter', () => {
     expect(step.errorMessage).toBe(toolMessageFailure(message));
   });
 
+  test('failure text keeps ratios and slash-joined words while local paths stay redacted', async () => {
+    const { langGraphEventToChunks } = await import('../../../dist/agent-langgraph/streaming.js');
+    const budget = 'RECOVERY_BUDGET_EXHAUSTED: 2/2 automatic corrections used; internal routing/extraction corrections share this limit. N/A';
+    const paths = ' Files: C:\\tmp\\model.tcl, D:/runs/out.json, /home/user/run.py, ~/cache/x, .uploads/case/input.dxf';
+    const message = new ToolMessage({ name: 'edit_model', tool_call_id: 'budget', status: 'error', content: budget + paths });
+    const step = langGraphEventToChunks({ tools: { messages: [message] } }, 'updates').find(chunk => chunk.type === 'step_upsert').step;
+    expect(step.errorMessage).toContain('2/2 automatic corrections used; internal routing/extraction corrections share this limit. N/A');
+    expect(step.errorMessage).toContain('Files: [path] [path] [path] [path] [path]');
+    for (const leaked of ['tmp', 'runs', 'home', 'cache', 'uploads']) expect(step.errorMessage).not.toContain(leaked);
+  });
+
   test('keeps main-agent tables accompanying clarification tool calls and excludes nested JSON', async () => {
     const { streamGraphToChunks } = await import('../../../dist/agent-langgraph/streaming.js');
     const table = '| Result | Value |\n| --- | --- |\n| Midspan deflection | -1.51699029 mm |';

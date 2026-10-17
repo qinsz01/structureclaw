@@ -310,6 +310,13 @@ test('checks retain each case and expose incomplete scope independently of execu
   expect(formatCheckSummary(checked.summary, 'zh')).toContain('资料不足 1');
 });
 
+test('a load edit without a valid caseId names the requested target and the available cases', () => {
+  expect(() => applyModelEdits(model(), [{ operation: 'update', collection: 'loads', id: 'p', values: { position: 3 } }]))
+    .toThrow('MODEL_LOAD_CASE_NOT_FOUND: loads:p requires caseId; available load_cases: D, L / 荷载编辑 loads:p 缺少 caseId；现有荷载工况：D, L');
+  expect(() => applyModelEdits(model(), [{ operation: 'update', collection: 'loads', caseId: 'LC9', id: 'p', values: { position: 3 } }]))
+    .toThrow('MODEL_LOAD_CASE_NOT_FOUND: caseId "LC9" for loads:p; available load_cases: D, L');
+});
+
 test('combined check summary keeps the governing element and check of the maximum utilization', async () => {
   const checked = await checkRunResults({ selectedResultKey: 'case:D', results: {
     'case:D': { success: true, selection: { id: 'D' }, meta: { runId: 'r' } },
