@@ -1,6 +1,6 @@
 import type { DraftExtraction, DraftIssue, DraftState, EngineeringDraft } from '../shared/types/agent.js';
 import { engineeringLoadClarifiesExisting } from './engineering-draft.js';
-import { resolveTemplateMaterials } from './template-properties.js';
+import { resolveTemplateMaterials, resolveTemplateProperties } from './template-properties.js';
 import { draftContract, resolveFieldSchema, validDraftValue, type FieldSchema } from '../engineering/draft-contract.js';
 import { canonicalDraftPath as canonicalPath, legacyDraftContract, withLegacyScalarViews } from './draft/legacy-fields.js';
 import { invalidDraftFieldsOf } from './draft/normalize.js';
@@ -16,6 +16,13 @@ function locate(state: DraftExtraction | DraftState, field: string): Located[] {
     const current = resolveFieldSchema(schema), [part, ...tail] = rest;
     if (current.type === 'array') {
       if (!Array.isArray(value) || !current.items) return [];
+      // `materials.E` names a record field, not a record ID: it addresses every record
+      // of the collection (the sole one, typically) and is reported by stable ID.
+      if (!part!.wildcard && !part!.index && !value.some(item => record(item) && item.id === part!.key)
+        && resolveFieldSchema(current.items).properties?.[part!.key]) {
+        return value.flatMap((item, index) => walk(item, current.items!, rest,
+          `${address}[${record(item) && typeof item.id === 'string' ? JSON.stringify(item.id) : index}]`));
+      }
       const selected = part!.wildcard ? value.map((item, index) => ({ item, index }))
         : part!.index ? [{ item: value[Number(part!.key)], index: Number(part!.key) }]
           : value.flatMap((item, index) => record(item) && item.id === part!.key ? [{ item, index }] : []);
@@ -75,6 +82,19 @@ function alignedPatch(patch: DraftExtraction, existing: DraftState | undefined, 
   return { ...patch, engineeringDraft: align(patch.engineeringDraft, existing?.engineeringDraft, draft, '') };
 }
 
+type TemplateRole = 'beam' | 'column' | 'member';
+/** For `sections.<role>`: the role and the complete section record the template assigns to it. */
+function assignedRoleSection(field: string, merged: DraftState): { role: TemplateRole; sectionId: string } | undefined {
+  const [owner, role, ...rest] = tokens(canonicalPath(field));
+  if (owner?.key !== 'sections' || rest.length || !['beam', 'column', 'member'].includes(role?.key ?? '')
+    || !merged.engineeringDraft?.sectionRecords?.length || merged.engineeringDraft.model) return undefined;
+  const key = role!.key as TemplateRole;
+  try {
+    const sectionId = resolveTemplateProperties(merged, [key]).byRole[key]?.sectionId;
+    return sectionId ? { role: key, sectionId } : undefined;
+  } catch { return undefined; }
+}
+
 /** Missing data is derived; ambiguity/conflicting evidence requires a new explicit answer.
  * Old field strings are accepted conservatively and resolved by stable record identity.
  */
@@ -94,6 +114,12 @@ export function mergeDraftDiagnostics(existing: DraftState | undefined, patch: D
         if (validDraftValue(draftContract.properties.materials, resolveTemplateMaterials(merged))) return true;
       } catch { /* An unknown grade remains missing; the builder reports its required properties. */ }
     }
+    // `sections.<role>` and the complete section record assigned to that role are one
+    // engineering fact; a confirmation is answered by a new value in either representation.
+    const assigned = assignedRoleSection(field, merged);
+    if (assigned && (issue.kind === 'missing' || [`sectionRecords[${JSON.stringify(assigned.sectionId)}]`,
+      `templateAssignments.${assigned.role}.sectionId`, 'templateAssignments.member.sectionId']
+      .some(path => locate(aligned, path).some(supplied => supplied.value != null)))) return true;
     const old = existing ? locate(existing, field) : [];
     const current = old.length ? old.flatMap(item => locate(merged, item.path)) : locate(merged, field);
     if (!current.length || current.some(item => !validDraftValue(item.schema, item.value))) return false;
