@@ -1,4 +1,5 @@
 import { prisma } from '../utils/database.js';
+import { logger } from '../utils/logger.js';
 import type { InputJsonValue } from '../utils/json.js';
 import type { AssistantPresentation } from './chat-presentation.js';
 import type { AppLocale } from '../shared/locale.js';
@@ -128,7 +129,7 @@ export async function persistLatestConversationResult(params: {
       latestResult,
     });
   } catch (error) {
-    console.warn('[chat] skip latestResult persistence:', error instanceof Error ? error.message : String(error));
+    logger.warn({ err: error }, '[chat] skip latestResult persistence');
   }
 }
 
@@ -290,6 +291,6 @@ export async function persistConversationWithState(params: {
 
     await prisma.message.createMany({ data: records as any });
   } catch (error) {
-    console.warn('[chat] skip message persistence:', error instanceof Error ? error.message : String(error));
+    logger.warn({ err: error }, '[chat] skip message persistence');
   }
 }

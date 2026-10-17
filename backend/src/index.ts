@@ -100,7 +100,7 @@ async function start() {
     if (frontendDir) {
       await registerFrontendStatic(fastify, frontendDir);
 
-      console.log(`🌐 Frontend UI served from ${frontendDir}`);
+      fastify.log.info(`Frontend UI served from ${frontendDir}`);
     }
 
     // 健康检查
@@ -119,8 +119,8 @@ async function start() {
       host: config.host,
     });
 
-    console.log(`🚀 StructureClaw API running on http://${config.host}:${config.port}`);
-    console.log(`📚 API Docs: http://${config.host}:${config.port}/docs`);
+    fastify.log.info(`StructureClaw API running on http://${config.host}:${config.port}`);
+    fastify.log.info(`API Docs: http://${config.host}:${config.port}/docs`);
 
   } catch (err) {
     fastify.log.error(err);
@@ -140,14 +140,14 @@ async function checkDatabase(): Promise<boolean> {
 
 // 优雅关闭
 process.on('SIGTERM', async () => {
-  console.log('Received SIGTERM, shutting down gracefully...');
+  fastify.log.info('Received SIGTERM, shutting down gracefully...');
   await fastify.close();
   await prisma.$disconnect();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
-  console.log('Received SIGINT, shutting down gracefully...');
+  fastify.log.info('Received SIGINT, shutting down gracefully...');
   await fastify.close();
   await prisma.$disconnect();
   process.exit(0);

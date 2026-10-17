@@ -400,11 +400,11 @@ export async function buildAgentGraph(deps: GraphDeps) {
     userToolDefinitions = result.tools;
     if (result.failures.length > 0) {
       for (const failure of result.failures) {
-        console.warn(`[user-tools] Failed to load tool from ${failure.toolDir}: ${failure.reason} ${failure.detail ?? ''}`);
+        getLogger(undefined).warn({ toolDir: failure.toolDir, reason: failure.reason, detail: failure.detail }, '[user-tools] Failed to load workspace tool');
       }
     }
   } catch (err) {
-    console.warn(`[user-tools] Failed to scan workspace tools: ${err instanceof Error ? err.message : err}`);
+    getLogger(undefined).warn({ err }, '[user-tools] Failed to scan workspace tools');
   }
 
   // Create tools ONCE — shared between ToolNode and callModel
