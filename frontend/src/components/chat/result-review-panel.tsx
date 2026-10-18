@@ -22,10 +22,14 @@ const record = (value: unknown): Row => value && typeof value === 'object' && !A
 const box = 'w-full rounded-lg border border-border bg-background px-2.5 py-2 text-sm'
 const forceOnlyRun = (run?: RunInfo, key?: string) => {
   const definition=record(run?.results.find(result=>result.key===(key ?? run.selectedResultKey))?.responseDefinition)
-  return Array.isArray(definition.available) && !definition.available.includes('displacements')
+  return (Array.isArray(definition.available) && !definition.available.includes('displacements'))
+    || (Array.isArray(definition.unavailable) && definition.unavailable.includes('displacements'))
 }
-const defaultSelection = (run?: RunInfo): ResultSelection => ({ runId: run?.runId ?? '', resultKey: run?.selectedResultKey ?? run?.results[0]?.key ?? '', nodeId: run?.nodes[0],
-  ...(forceOnlyRun(run) ? {field:'reactions',component:'fz',unit:'kN'} : {field:'displacements',component:'uz',unit:'mm'}) })
+const defaultSelection = (run?: RunInfo, key?: string): ResultSelection => {
+  const resultKey = key ?? run?.selectedResultKey ?? run?.results[0]?.key ?? ''
+  return { runId: run?.runId ?? '', resultKey, nodeId: run?.nodes[0],
+    ...(forceOnlyRun(run, resultKey) ? {field:'reactions',component:'fz',unit:'kN'} : {field:'displacements',component:'uz',unit:'mm'}) }
+}
 const cleanSelection = (selection: ResultSelection) => Object.fromEntries(Object.entries(selection).filter(([, value]) => value !== undefined))
 /** Print the already-rendered selected report; never parses raw HTML from a model response. */
 export function printSelectedReport(element: HTMLElement | null, title: string) {
@@ -127,7 +131,7 @@ export function ResultReviewPanel({ open, onClose, conversationId, locale, disab
   const locked = busy || disabled
   const change = (next: ResultSelection) => { setSelection(next); setResult(null); setSeries(null); setReport(null); setError(''); setViewer(false) }
   const selectResult = (nextRun: RunInfo | undefined, key?: string) => {
-    const next = defaultSelection(nextRun); if (key) next.resultKey = key
+    const next = defaultSelection(nextRun, key)
     const value = nextRun?.results.find(result => result.key === next.resultKey)
     if (value?.times.length) next.timeIndex = 0
     else if (value?.modes.length) { next.modeNumber = value.modes[0]!.modeNumber; next.unit = '1' }
@@ -209,7 +213,7 @@ export function ResultReviewPanel({ open, onClose, conversationId, locale, disab
     onQueryObject={object => {
       if (object.kind === 'member' && selection.modeNumber !== undefined) return
       change(object.kind === 'node'
-        ? { ...selection, nodeId: object.id, elementId: undefined, positionM: undefined, side: undefined, end: undefined, field: 'displacements', component: 'uz', unit: componentUnit('uz', 'displacements') }
+        ? { ...selection, nodeId: object.id, elementId: undefined, positionM: undefined, side: undefined, end: undefined, ...(forceOnly ? { field: 'reactions', component: 'fz', unit: 'kN' } : { field: 'displacements', component: 'uz', unit: componentUnit('uz', 'displacements') }) }
         : { ...selection, nodeId: undefined, elementId: object.id, positionM: selection.timeIndex === undefined ? 0 : undefined, end: selection.timeIndex === undefined ? undefined : 'n1', field: 'forces', component: 'M2', unit: 'kN.m' })
     }} /></>
 }

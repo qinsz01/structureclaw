@@ -54,6 +54,25 @@ describe('one selected result for query, curve and report', () => {
     expect(screen.getByRole('button',{name:'Query selected result'})).toBeDisabled()
     expect(fetch).toHaveBeenCalledTimes(1)
   })
+
+  it.each([
+    ['unavailable', {stiffnessPlaceholder:true,unavailable:['displacements','rotations']}],
+    ['available', {available:['forces','reactions']}],
+  ])('a force-only run (%s) defaults to reactions and never offers displacements', async (_kind, responseDefinition) => {
+    const posts: {args:Record<string,unknown>}[]=[]
+    const forceOnly={...catalog,runs:[{...catalog.runs[0],current:true,results:[{...catalog.runs[0].results[0],responseDefinition}]}]}
+    vi.stubGlobal('fetch',vi.fn(async(_url:string,init?:RequestInit)=>{
+      if (!init?.method) return {ok:true,json:async()=>forceOnly}
+      posts.push(JSON.parse(String(init.body)))
+      return {ok:true,json:async()=>({success:true,result:{runId:'old',resultKey:'case:D',quantity:{value:1,unit:'kN'}},review:forceOnly})}
+    }))
+    render(<ResultReviewPanel open conversationId="A" locale="en" disabled={false} onClose={()=>{}} onUsageChanged={()=>{}} />)
+    const response=await screen.findByLabelText('Response') as HTMLSelectElement
+    expect([...response.options].map(option=>option.value)).toEqual(['reactions'])
+    fireEvent.click(screen.getByRole('button',{name:'Query selected result'}))
+    await waitFor(()=>expect(posts).toHaveLength(1))
+    expect(posts[0].args).toMatchObject({field:'reactions',component:'fz',unit:'kN'})
+  })
 })
 
 it('mode and time figures use archived geometry and never invent unobserved node translations', () => {

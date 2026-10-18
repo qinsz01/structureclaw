@@ -109,6 +109,7 @@ describe('placeholder results are never presented with displacements', () => {
     expect(visible.data.memberResponses[0].samples[0]).toEqual({ x: 5, M2: -2.5 });
     expect(Object.keys(visible.data.memberResponseExtrema.values)).toEqual(['M2']);
     expect(visible.data.responseDefinition.unavailable).toEqual(expect.arrayContaining(['displacements', 'rotations']));
+    expect(visible.data.responseDefinition.available).toEqual(['forces', 'reactions']);
     expect(visible.results['case:LC1'].data.displacements).toBeUndefined();
     expect(run.data.displacements).toEqual({ 2: { uz: -0.02 } });
     const ordinary = { runId: 'o', data: { displacements: { 2: { uz: -1 } } } };
@@ -116,6 +117,17 @@ describe('placeholder results are never presented with displacements', () => {
     expect(placeholder.isDisplacementSelection('displacements', undefined)).toBe(true);
     expect(placeholder.isDisplacementSelection('forces', 'uz')).toBe(true);
     expect(placeholder.isDisplacementSelection('forces', 'M2')).toBe(false);
+  });
+
+  test('the result-review catalog marks a placeholder run force-only', async () => {
+    const { resultCatalogEntry } = await import('../dist/engineering/result-selection.js');
+    const run = { runId: 'r', selectedResultKey: 'case:LC1', modelSnapshot: { metadata: { stiffnessPlaceholder: { material: true, section: true } } },
+      results: { 'case:LC1': { data: { displacements: { 2: { uz: -0.02 } }, reactions: {}, responseDefinition: { frame: 'global' } } } } };
+    const [entry] = resultCatalogEntry(run, true).results;
+    expect(entry.responseDefinition).toMatchObject({ frame: 'global', stiffnessPlaceholder: true, available: ['forces', 'reactions'] });
+    expect(entry.responseDefinition.unavailable).toContain('displacements');
+    const ordinary = resultCatalogEntry({ ...run, modelSnapshot: {} }, true).results[0];
+    expect(ordinary.responseDefinition).toEqual({ frame: 'global' });
   });
 });
 

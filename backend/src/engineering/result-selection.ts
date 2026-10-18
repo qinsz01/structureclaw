@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isRecord } from './model-state.js';
+import { placeholderResponseDefinition, stiffnessPlaceholderOf } from './stiffness-placeholder.js';
 
 /** Shared location/index contract. A selection describes a saved result; it never mutates it. */
 export const resultSelectionSchema = z.object({
@@ -73,6 +74,7 @@ export function selectedSavedResult(run: Record<string, unknown>, key?: string) 
 
 export function resultCatalogEntry(run: Record<string, unknown>, current: boolean) {
   const results = isRecord(run.results) ? Object.entries(run.results) : [[String(run.selectedResultKey ?? 'default'), run]] as const;
+  const forceOnly = stiffnessPlaceholderOf(run) !== undefined;
   const model = isRecord(run.modelSnapshot) ? run.modelSnapshot : {};
   const meta = isRecord(run.meta) ? run.meta : {};
   const data = isRecord(run.data) ? run.data : {};
@@ -91,7 +93,7 @@ export function resultCatalogEntry(run: Record<string, unknown>, current: boolea
       return { key, selection: selected.selection, available: selected.success !== false && selected.executionStatus !== 'failed',
         modes: modes.filter(isRecord).map(mode => ({ modeNumber: mode.modeNumber, period: mode.period, frequency: mode.frequency })),
         times: history.map((row, index) => ({ index, time: isRecord(row) ? row.time : null })),
-        responseDefinition: data.responseDefinition };
+        responseDefinition: forceOnly ? placeholderResponseDefinition(data.responseDefinition) : data.responseDefinition };
     }) };
 }
 

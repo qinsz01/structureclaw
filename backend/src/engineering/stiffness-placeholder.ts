@@ -133,10 +133,15 @@ function stripData(data: ModelRecord): ModelRecord {
     copy.memberResponseExtrema = { ...data.memberResponseExtrema, values: Object.fromEntries(Object.entries(data.memberResponseExtrema.values)
       .filter(([component]) => !DISPLACEMENT_COMPONENTS.has(component))) };
   }
-  const definition = isRecord(data.responseDefinition) ? data.responseDefinition : {};
-  copy.responseDefinition = { ...definition, stiffnessPlaceholder: true,
-    unavailable: [...new Set([...(Array.isArray(definition.unavailable) ? definition.unavailable : []), 'displacements', 'rotations', 'stress', 'design'])] };
+  copy.responseDefinition = placeholderResponseDefinition(data.responseDefinition);
   return copy;
+}
+
+/** Response definition of a placeholder run: forces and reactions only. */
+export function placeholderResponseDefinition(definition: unknown): ModelRecord {
+  const base = isRecord(definition) ? definition : {};
+  return { ...base, stiffnessPlaceholder: true, available: ['forces', 'reactions'],
+    unavailable: [...new Set([...(Array.isArray(base.unavailable) ? base.unavailable : []), 'displacements', 'rotations', 'stress', 'design'])] };
 }
 
 /**
