@@ -39,4 +39,5 @@
 ## 输出规则 / Output rules
 - 只输出本轮明确新增或修改的字段；系统保留已接受状态。/ Emit only fields explicitly added or changed this turn; the server preserves accepted state.
 - 用户重述已有荷载不是追加荷载；确实新增时保留独立ID。/ Restating a load does not add another; preserve distinct IDs for real additions.
-- 支座、方向、位置不明时省略并形成具体待确认项，不替用户选择。/ Omit unclear supports, directions or positions and request clarification; never choose them silently.
+- 梁上荷载（集中、均布）未说明方向时按重力方向（竖直向下，`direction: "gravity"`），不形成待确认项；数值为负或可能是上拔/吸力时仍需确认。/ A beam load (point or distributed) without a stated direction acts in gravity direction (`direction: "gravity"`) without a clarification issue; a negative value or possible uplift/suction is still asked.
+- 支座、其他方向、位置不明时省略并形成具体待确认项，不替用户选择。/ Omit unclear supports, other directions or positions and request clarification; never choose them silently.
