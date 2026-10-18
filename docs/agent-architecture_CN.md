@@ -22,7 +22,7 @@ Python 的 `StructureModelV2` 是物理字段的权威定义。`backend/scripts/
 
 设计输入（设计强度、稳定系数、限值、计算长度、使用工况）不属于草稿诊断：抽取时丢弃设计字段缺项，因此不会阻断分析流程，也不会被追问。只有用户明确给出时才保存。明确请求的规范校核自行确定规范可确定的数值，并在 `designValues` 中记录每个数值及其来源（校核输出、交付说明和报告均显示）：GB 50017-2017 的 f、fv、fy 按牌号和控制板厚查表 4.4.1（H 形截面取翼缘厚）；截面特性按几何计算；β1 按 6.1.5 取 1.1（模型未计算局部压应力）；εk 按牌号屈服点；宽厚比限值按表 3.5.1 S4 级（6.1.1 采用全截面模量、γx=1.0 所需）；长细比限值仅对柱按表 7.4.6 取值。GB 50010 的 fc、ft 及钢筋 fy 按混凝土强度等级和钢筋牌号查表。各表集中在 `skill-shared/python/structure_protocol/design_code_tables.py`。模型中给出的数值优先。工程判断输入（侧向支承/计算长度 → φb、l0；挠度限值类别 → L/n；使用工况）不默认取值，列为缺项。混凝土框架的钢筋牌号也属于校核输入：弹性分析从不需要它。
 
-只求内力（内力、反力）时不需要材料和截面。静力且只求内力/反力的请求（`requestScope.design=false`、不计自重、不指定商业引擎）未声明材料和/或截面时，模板建模使用标注的单位刚度占位（`engineering/stiffness-placeholder.ts`），并在 `metadata.stiffnessPlaceholder` 记录超静定次数。静定结构的内力与刚度无关；超静定结构按各构件 EI 相同求解，`build_model`/`run_analysis` 返回 `equalStiffnessAssumed=true`，回答中须说明该假定。部分构件声明了截面而其余未声明时仍会询问。占位运行的位移从不展示：run_analysis 摘要、`query_results`、报告和前端分析数据均去除位移（保存的运行仍保留求解数据以便恢复内力）。之后请求位移、周期或设计时不再满足只求内力的条件，草稿会询问实际材料和截面；`run_code_check` 对占位模型返回 `STIFFNESS_PLACEHOLDER_MODEL`。
+只求内力（内力、反力）时不需要材料和截面。静力且只求内力/反力的请求（`requestScope.design=false`、不计自重、不指定商业引擎）未声明材料和/或截面时，模板建模使用标注的单位刚度占位（`engineering/stiffness-placeholder.ts`），并在 `metadata.stiffnessPlaceholder` 记录超静定次数。静定结构的内力与刚度无关；超静定结构按各构件 EI 相同求解，`build_model`/`run_analysis` 返回 `equalStiffnessAssumed=true`，回答中须说明该假定。部分构件声明了截面而其余未声明时仍会询问。占位运行的位移从不展示：run_analysis 摘要和前端分析数据去除位移，`query_results` 拒绝位移查询，`generate_report` 拒绝该运行（`STIFFNESS_PLACEHOLDER_RUN`）；保存的运行仍保留求解数据以便恢复内力。之后请求位移、周期或设计时不再满足只求内力的条件，草稿会询问实际材料和截面；`run_code_check` 对占位模型返回 `STIFFNESS_PLACEHOLDER_MODEL`。
 
 ## 1. 运行时形态
 
@@ -226,7 +226,7 @@ taxonomy 是稳定的，但 domain 成熟度不同。domain 可以处于：
   -> 停止：总结结果并提示下一步（规范验算、修改模型）
 ```
 
-“设计一个梁”即执行上述默认流程，不触发规范校核。只有用户明确要求（验算、校核、按规范、code check、check against GB…）时才调用 `run_code_check`，并传 `requestScope.design=true`；否则该工具返回 `DESIGN_NOT_REQUESTED`。默认流程中的澄清只询问分析所需输入（几何、支座、荷载、材料弹性属性、截面尺寸或属性）。明确请求的校核不会因设计输入缺失而中断：工具返回 `nextAction: "report_missing_inputs"`，最终回复列出已完成的校核以及未执行项和所缺输入，用户可在后续轮次补充。用户要求报告/计算书或完整设计/分析交付（“设计一个梁”“分析并出报告”）时 `requestScope.report` 为 `true`；只求具体结果（内力、反力、位移）或用户不要报告时为 `false`。省略时，只求内力/反力不生成报告，其余请求生成报告（`engineering/request-scope.ts` 中的 `reportRequested`）；否则 `generate_report` 返回 `REPORT_NOT_REQUESTED`。
+意图判断由大模型完成：是否校核、是否出报告以及需要哪些响应，均通过提示词和工具说明引导，并在工具参数中声明（`requestScope`）；代码不匹配用户文本。“设计一个梁”即执行上述默认流程，不构成校核请求；用户要求校核时代理才调用 `run_code_check`（声明 `requestScope.design=true`），用户要求报告或完整设计/分析交付时才调用 `generate_report`（`requestScope.report`），只求具体结果时不调用。工具不再复核这些决定，只校验状态和前提条件（有当前分析、结果未过期、ID 和参数有效、校核/报告/位移查询不基于单位刚度占位运行），并返回带中英文恢复提示的结构化错误。默认流程中的澄清只询问所求结果需要的分析输入（几何、支座、荷载、材料弹性属性、截面尺寸或属性）。明确请求的校核不会因设计输入缺失而中断：工具返回 `nextAction: "report_missing_inputs"`，最终回复列出已完成的校核以及未执行项和所缺输入，用户可在后续轮次补充。
 
 LLM 抽取器与 skill handler 产生的草稿补丁由 `ingestDraft`（`agent-runtime/draft/boundary.ts`）归一化，skill handler 直接调用该函数。未提供的字段保持不变，记录数组按稳定 ID 合并，明确删除通过 `clearDraftFields` 完成。tools 从 graph state 中读取 model、analysis、report 和 draft artifacts。LLM 不应该在 tools 之间传递很大的 `modelJson`、`analysisJson` 或 `stateJson` 参数。
 
