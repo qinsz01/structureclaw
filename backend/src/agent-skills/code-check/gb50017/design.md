@@ -1,7 +1,0 @@
-# Design
-
-- 该技能面向 GB50017 单规范校核，第一版按章节输出：第 7 章强度、第 8 章稳定、第 10 章正常使用极限状态。
-- 仅在用户明确要求按 GB 50017 验算/校核时执行；普通设计或分析请求不触发。/ Runs only when the user explicitly requests a GB 50017 check; ordinary design or analysis requests do not trigger it.
-- 规范确定的数值自动确定并记录来源：f、fv、fy 按表 4.4.1 由牌号和控制板厚（H 形截面取翼缘厚）分组查得；Wnx、S、tw、h0、翼缘 b/t、imin 由截面几何计算；β1 按 6.1.5（模型未计算局部压应力 σc，取 1.1）；εk=√(235/fy)（fy 取牌号屈服点）；宽厚比限值按表 3.5.1 S4 级（6.1.1 采用全截面模量、γx 取 1.0 所需）；长细比限值仅对柱按 7.4.6 取 150，受弯构件无长细比限值。用户给出的数值优先。/ Code-determined values are looked up with recorded sources: f, fv, fy from Table 4.4.1 by grade and governing plate thickness (flange for H sections); Wnx, S, tw, h0, flange b/t and imin from geometry; β1 per 6.1.5 (1.1, the model does not compute a local compressive stress σc); εk=√(235/fy) with the grade's nominal yield; width-thickness limits from Table 3.5.1 class S4 (needed by 6.1.1 for the full section modulus with γx=1.0); a slenderness limit only for columns (7.4.6, 150), none for flexural members. User-supplied values take precedence.
-- 工程判断输入（侧向支承/计算长度 → φb、l0；挠度限值类别 → L/n；使用工况）不追问、不使用默认值：交付已完成的校核，并列出未执行项及所缺输入，用户可在后续消息中补充。/ Engineering-judgment inputs (lateral bracing/effective length → φb, l0; deflection-limit category → L/n; service case) are never asked for or defaulted: deliver the performed checks and list the checks not performed with their missing inputs; the user may supply them later.
-- 后续扩展条文级实现时，保持 `summary`、`details`、`traceability` 输出结构稳定。

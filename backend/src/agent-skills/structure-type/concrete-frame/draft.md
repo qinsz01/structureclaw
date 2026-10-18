@@ -28,12 +28,12 @@ A `DraftExtraction` JSON object with the following optional keys (see `constants
 | Key | Type | Example | Notes |
 |-----|------|---------|-------|
 | `floorLoads` | `Array<{ story: number; verticalKN?: number; lateralXKN?: number; lateralYKN?: number; liveLoadKN?: number }>` | `[{ story: 1, verticalKN: -200, lateralXKN: 50 }]` | Vertical load negative (downward). Lateral loads positive in global X/Y. |
-| `frameBaseSupportType` | `"fixed"` or `"pinned"` | `"fixed"` | Default `"fixed"`. |
+| `frameBaseSupportType` | `"fixed"` or `"pinned"` | `"fixed"` | Only when stated; when omitted the template models fixed bases. |
 
 ### Materials & Sections
 | Key | Type | Example | Notes |
 |-----|------|---------|-------|
-| `frameConcreteGrade` | `string` | `"C30"` | Concrete grade (C20–C80). Default `"C30"`. |
+| `frameConcreteGrade` | `string` | `"C30"` | Concrete grade (C20–C80), only when the user gives one. |
 | `frameRebarGrade` | `string` | `"HRB400"` | Rebar grade (HPB300, HRB400, HRB500), only when the user gives one. A code-check input; analysis never needs it, so never ask for it or default it. |
 | `frameColumnSection` | `string` | `"400X400"` | Column cross‑section description. See section parsing below. |
 | `frameBeamSection` | `"string"` | `"300X600"` | Beam cross‑section description. |
@@ -51,8 +51,7 @@ Concrete frame sections are described as rectangular cross‑sections:
 
 - **Rectangular**: `"400X400"`, `"B400H600"`, `"RECT400X500"` → width × height (mm).
 - The parser expects width (B) and height (H) in millimeters.
-- Default column section: `"500X500"` for up to 5 stories, `"600X600"` for 6–10 stories, `"700X700"` for >10 stories.
-- Default beam section: `"300X600"` for up to 5 stories, `"350X700"` for 6–10 stories, `"400X800"` for >10 stories.
+- Extract sections only when given; never choose a default section.
 
 ## Extraction Rules
 1. **Story/bay numbers**: Look for patterns like "3‑story 2‑bay", "4层3跨".
@@ -69,4 +68,4 @@ Concrete frame sections are described as rectangular cross‑sections:
    → `{ frameDimension: "2d", storyCount: 5, bayCount: 4, storyHeightsM: [3.6,3.6,3.6,3.6,3.6], bayWidthsM: [6,6,6,6], frameConcreteGrade: "C40", frameRebarGrade: "HRB500", frameBaseSupportType: "fixed" }`
 
 ## Missing Values
-If a required key (see `REQUIRED_KEYS` in `constants.ts`) is missing after extraction, the skill will generate interactive questions to fill the gap.
+Omit what the user did not give; the skill asks for missing required inputs.

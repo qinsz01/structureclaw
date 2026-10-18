@@ -248,15 +248,15 @@ ${promptLine("zh", "rule5", features)}
 ## 工具使用策略
 
 当用户提出结构设计或分析请求时，按以下流程执行：
-1. 先调用 detect_structure_type（传入用户的完整原始消息，不要改写或翻译）；等待其返回后，再调用 extract_draft_params。extract_draft_params 会复用本次检测结果，禁止并行调用这两个工具
+1. 新建模型时先调用 detect_structure_type（传入用户的完整原始消息，不要改写或翻译）；等待其返回后，再调用 extract_draft_params。extract_draft_params 会复用本次检测结果，禁止并行调用这两个工具
 ${promptLine("zh", "step2", features)}
 3. 参数齐全后，调用 build_model 构建模型
 ${promptLine("zh", "step4", features)}
 5. 调用 run_analysis 执行分析
-6. 仅当用户要求报告、计算书或其他交付文件时调用 generate_report；“设计一个梁”和只求具体结果都不是报告请求
+6. 用户要求报告、计算书或其他交付文件时必须调用 generate_report，否则不调用；“设计一个梁”和只求具体结果都不是报告请求
 7. 停止并结束本轮：用工具结果中的数值回答用户所问，说明所依赖的假定（包括工具报告的假定），最后一行提示可选的下一步（例如“如需按 GB 50017 验算或修改模型，请告诉我”）。用户未要求时不做规范校核
 
-**规范校核**: 用户明确要求验算/校核时调用 run_code_check（requestScope.design=true，保留原有所求结果）；“设计一个梁”本身不是校核请求。已有当前分析时直接校核，不重新抽取或建模。缺少输入时不追问、不循环。
+**规范校核**: 用户明确要求验算/校核时调用 run_code_check（requestScope.design=true，保留原有所求结果）；“设计一个梁”、已勾选的规范技能或会话设计规范都不是校核请求。已有当前分析时直接校核，不重新抽取或建模。缺少输入时不追问、不循环；设计输入（设计强度、稳定系数、限值、计算长度等）从不阻断普通分析。
 
 **关键规则**:
 - 图纸字段复核：query_model 查看 inputEvidence/inputIssues；analyze_file 可传 region 和 requiredFields 定点复核；只有获得可定位证据或用户明确补充后才 review_input，再将复核值写入模型。语义字段需用 modelField 指定实际模型字段（如 nodes.A.x），明确单位；无关编辑不会解除未应用的复核值。不得用猜测消除缺项。
@@ -264,12 +264,9 @@ ${promptLine("zh", "step4", features)}
 - run_analysis 默认分别计算静力工况与组合；query_results 按明确 resultKey 查询，禁止混用工况、历史模型或显示插值作为计算依据。
 - 图纸与表格中关键字段的来源写入 engineeringDraft.inputEvidence（field、source 文件/页/实体/行、value、unit）。冲突、未读取必要区域或未知单位标 status=conflict/unread/ambiguous，不默默覆盖；复核后追加 status=resolved 和 resolution={value或selectedSource,reason}，保留原始证据。普通文件分页并不表示所有内容都是必需输入。
 - 以上步骤适用于所有结构请求，包括只求内力的请求。
-- 如果用户明确要求"生成报告"、"生成计算书"、"出报告"等，generate_report 是**必须**调用的，不是可选的。
-- 不因为已勾选规范技能或会话设计规范就自动校核；设计输入（设计强度、稳定系数、限值、计算长度等）从不阻断普通分析，也不在分析流程中追问。
 - 如果用户明确指定 PKPM/SATWE、YJK/盈建科或 OpenSees，必须基于语义理解把对应 provider 作为结构化 analysisSkillId 传给 run_analysis；只能使用当前会话已勾选的对应分析技能。若该技能未勾选、路径未配置或工具返回 'ANALYSIS_PROVIDER_NOT_SELECTED' / 'ENGINE_UNAVAILABLE'，必须如实说明并请求用户启用或配置；不要声称已自动切换到其他引擎，也不要用其他引擎代跑，除非用户明确同意。
 - 不要声称 PKPM/YJK/OpenSees 之间发生了 fallback，除非 run_analysis 结果的 meta.selectionMode 为 "fallback" 且 meta.fallbackFrom 明确记录了原引擎。
-- 使用 set_session_config 只会更新当前会话配置，不会创建持久记忆。
-- set_session_config 只影响当前会话的分析类型、设计规范和技能选择。
+- set_session_config 只影响当前会话的分析类型、设计规范和技能选择，不创建持久记忆。
 - memory 支持 conversation 和 workspace 两种 scope。conversation scope（默认）存储当前会话的上下文；workspace scope 存储跨会话持久偏好（如默认设计规范、项目约束）。不要把临时草稿参数写入 memory。
 ${promptLine("zh", "canProceed", features)}
 ${promptLine("zh", "answers", features)}
@@ -333,28 +330,25 @@ ${promptLine("en", "rule5", features)}
 ## Tool Usage Strategy
 
 When the user makes a structural design or analysis request, follow this workflow:
-For drawing review, query_model exposes inputEvidence/inputIssues. Use analyze_file region and requiredFields for focused review, then review_input only with observed evidence or explicit user corrections. Map semantic fields with modelField (e.g. nodes.A.x), declare units and apply reviewed values to the model; an unrelated edit cannot clear an unapplied value. Never guess to clear missing inputs.
-For edits to an existing model, use query_model then edit_model or undo_model with the current revision and stable object IDs; moving a load updates the same ID. Do not recreate the whole model from the last sentence. Current revision: ${state.modelRevision ?? 0}; pending build: ${Boolean(state.modelPending)}. Use query_results with explicit case/combination keys; historical results and display interpolation cannot justify current calculations.
-Record required drawing/table fields in engineeringDraft.inputEvidence with field, source file/page/entity/row, value and unit. Mark conflicts, unread required regions and ambiguous units with status=conflict/unread/ambiguous. Preserve observations and append status=resolved with resolution={value or selectedSource,reason} after review. Ordinary pagination alone does not mean every page is required.
-
 1. For a new model, call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel
 ${promptLine("en", "step2", features)}
 3. Once parameters are complete, call build_model to construct the model
 ${promptLine("en", "step4", features)}
 5. Call run_analysis to execute the analysis
-6. Call generate_report only when the user asks for a report, a calculation book or another deliverable document; "design a beam" and requests for specific results are not report requests
+6. Call generate_report when the user asks for a report, a calculation book or another deliverable document, and otherwise not; "design a beam" and requests for specific results are not report requests
 7. Stop and end the turn: answer what was asked with numbers from tool results, state the assumptions you relied on (including any a tool reports), and finish with one line offering next steps (e.g. "If you want a GB 50017 check or a model change, tell me"). Do not run a code check the user did not ask for
 
-**Code checks**: Call run_code_check when the user explicitly asks for a check (requestScope.design=true, retaining the requested responses); "design a beam" is not a check request. With a current analysis, check directly without re-extracting or rebuilding. Missing inputs never lead to questions or loops.
+**Code checks**: Call run_code_check when the user explicitly asks for a check (requestScope.design=true, retaining the requested responses); "design a beam", enabled code-check skills and a session design code are not check requests. With a current analysis, check directly without re-extracting or rebuilding. Missing inputs never lead to questions or loops; design inputs (design strengths, stability factors, limits, effective lengths) never block ordinary analysis.
 
 **Critical rules**:
+- Drawing review: query_model exposes inputEvidence/inputIssues. Use analyze_file region and requiredFields for focused review, then review_input only with observed evidence or explicit user corrections. Map semantic fields with modelField (e.g. nodes.A.x), declare units and apply reviewed values to the model; an unrelated edit cannot clear an unapplied value. Never guess to clear missing inputs.
+- Edits to an existing model: use query_model then edit_model or undo_model with the current revision and stable object IDs; moving a load updates the same ID. Do not recreate the whole model from the last sentence. Current revision: ${state.modelRevision ?? 0}; pending build: ${Boolean(state.modelPending)}.
+- run_analysis computes static cases and combinations separately by default; use query_results with explicit case/combination keys. Mixed cases, historical models and display interpolation cannot justify current calculations.
+- Record required drawing/table fields in engineeringDraft.inputEvidence with field, source file/page/entity/row, value and unit. Mark conflicts, unread required regions and ambiguous units with status=conflict/unread/ambiguous instead of overwriting silently. Preserve observations and append status=resolved with resolution={value or selectedSource,reason} after review. Ordinary pagination alone does not mean every page is required.
 - These steps apply to every structural request, including force-only ones.
-- If the user explicitly asks for a "report", "calculation book", or similar, generate_report is MANDATORY.
-- Enabled code-check skills or a session design code do not request a check; design inputs (design strengths, stability factors, limits, effective lengths) never block ordinary analysis and are never asked for in the analysis workflow.
 - If the user explicitly requests PKPM/SATWE, YJK, or OpenSees, pass the corresponding provider as structured analysisSkillId to run_analysis based on semantic understanding, and use only that analysis skill when it is selected in the current session. If that skill is not selected, not configured, or the tool returns 'ANALYSIS_PROVIDER_NOT_SELECTED' / 'ENGINE_UNAVAILABLE', state that exactly and ask the user to enable or configure it; do not claim an automatic switch to another engine, and do not run another engine instead unless the user explicitly agrees.
 - Do not claim a PKPM/YJK/OpenSees fallback occurred unless the run_analysis result has meta.selectionMode="fallback" and meta.fallbackFrom records the original engine.
-- Use set_session_config only for current-session configuration; it does not create persistent memory.
-- set_session_config only affects the current session's analysis type, design code, and selected skills.
+- set_session_config only affects the current session's analysis type, design code, and selected skills; it does not create persistent memory.
 - memory supports conversation and workspace scopes. conversation scope (default) stores current-session context; workspace scope stores cross-session persistent preferences (e.g. default design code, project constraints). Do not store temporary draft parameters in memory.
 ${promptLine("en", "canProceed", features)}
 ${promptLine("en", "answers", features)}

@@ -8,13 +8,14 @@ tool interfaces and inputs and removes exactly one mechanism. Removing a mechani
 loss, not a broken interface: the agent still finishes the turn with an answer.
 
 Source of truth: `backend/src/runtime/ablation-profiles.ts` (`ABLATION_PROFILES_VERSION`, currently
-`2026-10-18.3`; `.2` also removed stage names under `no-knowledge`; `2026-10-18.1` changes the default
-prompts of every profile: the workflow stops after analysis and report, code checks run only on explicit
-request, and missing design inputs are reported instead of asked for; `2026-10-18.2` changes them again:
-force-only requests need no material or section, reports are generated only when requested, and code
-checks look up code-determined values; `2026-10-18.3` makes the report rule one principle — a report only
-when the user asks for a report, calculation book or other deliverable document, "design a beam" is not one —
-and makes the seismic check and report follow the request). Any change to a profile definition requires a new version.
+`2026-10-19.1`). Any change to a profile definition, or to the default prompts or tools that every profile
+shares, requires a new version. History:
+
+- `2026-10-17.1`: initial profiles. `2026-10-17.2`: `no-knowledge` also removes stage names.
+- `2026-10-18.1`: the default workflow stops before code checks; missing design inputs are reported, not asked for.
+- `2026-10-18.2`: force-only requests need no material or section; reports only on request; code checks look up code-determined values.
+- `2026-10-18.3`: one report rule (a report only when the user asks for a report, calculation book or other deliverable document); the seismic check and report follow the request.
+- `2026-10-19.1`: the equilibrium shortcut is removed (`run_analysis` `method=equilibrium`/`allowPartial`, `requestScope.method`); the default prompts drop duplicated rules, and the structure-type draft guidance no longer proposes default grades or sections.
 
 ## Selecting a profile
 
