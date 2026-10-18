@@ -196,10 +196,10 @@ function sentenceAround(text: string, index: number): string {
   return text.slice(start, ends.length ? Math.min(...ends) : text.length);
 }
 
-/** "L/250 = 24 mm", "22.5 + 75 + 22.5 = 120 kN", "L/250 (24 mm)": the derivation precedes the value. */
-const DERIVED_BEFORE = /[/×*÷+−-][^=＝，,;；。\n]{0,24}[=＝]\s*[≈约]?\s*$|[A-Za-zδΔ]\s*[/／]\s*\d+(?:\.\d+)?\s*[（(]\s*[≈约]?\s*$/;
-/** "120 kN = 10×12": the derivation follows the value. */
-const DERIVED_AFTER = /^\s*[=＝≈]\s*[^=＝，,;；。\n]{0,24}?[\d.)）]\s*[/×*÷+−]\s*[\d.(（]/;
+/** "L/250 = 24 mm", "15×10⁶ / 478×10³ ≈ 31 MPa", "L/250 (24 mm)": the derivation precedes the value. */
+const DERIVED_BEFORE = /[/×*÷+−-][^=＝≈，,;；。\n]{0,24}[=＝≈]\s*[≈约]?\s*$|[A-Za-zδΔ]\s*[/／]\s*\d+(?:\.\d+)?\s*[（(]\s*[≈约]?\s*$/;
+/** "120 kN = 10 kN/m × 12 m": the derivation follows the value ("/" alone is a unit, not an operator). */
+const DERIVED_AFTER = /^\s*[=＝≈]\s*[^=＝，,;；。\n]{0,30}?[×*÷+]/;
 
 function isShownDerivation(answer: string, claim: UnitNumber): boolean {
   const end = claim.index + claim.length;
@@ -249,8 +249,9 @@ const ACTION_PATTERNS: Record<ClaimedAction, RegExp[]> = {
     new RegExp(`\\b(?:I|we)\\s+(?:have\\s+)?(?:ran|run|completed|performed|executed)\\s+(?:a|an|the)\\s+${EN_ANALYSIS}\\b`, 'gi'),
   ],
   'check-passed': [
-    /(?:验算|校核|复核)(?:结果)?(?:均|全部|都)?(?:已)?(?:通过|合格)/g,
-    /\b(?:all\s+)?(?:code\s+|design\s+)?checks?\s+(?:have\s+|has\s+)?passed\b/gi,
+    // An equilibrium check ("竖向平衡校核通过") is not a code check.
+    /(?<!平衡)(?:验算|校核|复核)(?:结果)?(?:均|全部|都)?(?:已)?(?:通过|合格)/g,
+    /\b(?<!equilibrium\s)(?:all\s+)?(?:code\s+|design\s+)?checks?\s+(?:have\s+|has\s+)?passed\b/gi,
     /\bpasse[sd]\s+(?:all\s+|the\s+)?(?:code\s+|design\s+|GB\s*50017\s+)?checks?\b/gi,
   ],
 };

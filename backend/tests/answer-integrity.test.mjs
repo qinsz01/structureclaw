@@ -45,6 +45,9 @@ const NEGATIVES = [
   ['截面按 HN300×150×6.5×9 几何计算 Ix≈6930 cm⁴，A = 45.3 cm²，W = 462 cm³。', beamEvidence],
   ['far below typical limits such as L/400 (15 mm) or L/250 (24 mm).', beamEvidence],
   ['Reactions: 22.5 kN, 75 kN and 22.5 kN. Total = 120 kN = 10×12. ✓', buildEvidence(['two-span beam, each span 6 m, 10 kN/m', '22.5 75 22.5'])],
+  // Live batch 4: units inside the following derivation; "≈" as the result sign.
+  ['合计 120 kN = 10 kN/m × 12 m，竖向平衡满足。', buildEvidence(['两跨连续梁，每跨6m，满跨均布荷载10kN/m', JSON.stringify({ nodes: [{ x: 0 }, { x: 6 }, { x: 12 }] })])],
+  ['the elastic bending stress is roughly 15×10⁶ / 478×10³ ≈ 31 MPa.', beamEvidence],
   ['No numbers with units here: case 1, 2 and 3.', beamEvidence],
   // A unit weight is not a line load: kN/m³ is not checked as kN/m.
   ['Concrete unit weight 25 kN/m³ (25 kN/m3).', beamEvidence],
@@ -122,6 +125,8 @@ describe('claimed-action detection', () => {
     'I have generated a summary of the report.',
     '本次未执行规范校核，当前分析结果不构成"验算合格"的结论。',
     '以上数值仅反映弹性分析结果，不构成验算合格与否的判断。',
+    '合计 120 kN，竖向平衡校核通过。',
+    'The equilibrium check passed.',
     '已生成报告摘要。',
   ])('negated, conditional or offered: %s', (answer) => {
     expect(findActionClaims(answer)).toEqual([]);
