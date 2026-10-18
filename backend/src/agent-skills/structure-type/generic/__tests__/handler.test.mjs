@@ -2,6 +2,10 @@ import { describe, expect, test } from '@jest/globals';
 import { handler } from '../../../../../dist/agent-skills/structure-type/generic/handler.js';
 
 describe('generic structure-type handler', () => {
+  test.each(['帮我看看这个', 'Please take a look at this'])('is the routing fallback without matching keywords in the text: %s', message => {
+    expect(handler.detectStructuralType({ message, locale: 'en' })).toMatchObject({ skillId: 'generic', supportLevel: 'fallback' });
+  });
+
   test('normalizes generic beam aliases from LLM extraction output', () => {
     const patch = handler.extractDraft({
       message: '这条用户消息不参与参数抽取',

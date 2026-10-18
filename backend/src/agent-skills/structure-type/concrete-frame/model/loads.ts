@@ -201,6 +201,8 @@ export function build2dConcreteBeamLineLoads(
   return loads;
 }
 
+// Reads the LLM-extracted free-text load `target` label: the draft has no structured beam-axis
+// field. An unmatched label loads every beam of the story.
 function lineLoadTargetAxis(target: string | undefined): 'x' | 'y' | undefined {
   if (!target) return undefined;
   const text = target.toLowerCase();

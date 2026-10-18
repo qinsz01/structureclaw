@@ -9,16 +9,6 @@ import type {
   SkillReportNarrativeInput,
 } from '../../../shared/types/agent.js';
 
-function hasStructuralIntent(text: string): boolean {
-  if (/(beam|truss|frame|portal|girder|cantilever|support|span|bay|story|load|model|analysis|design|member|node|element|structure)/i.test(text)) {
-    return true;
-  }
-  if (/(梁|桁架|框架|刚架|门架|跨度|跨|层|荷载|支座|结构|模型|分析|设计|构件|节点)/.test(text)) {
-    return true;
-  }
-  return /(\d+(?:\.\d+)?)\s*(m|米|kn|kN|千牛)/.test(text);
-}
-
 function buildGenericReportNarrative(input: SkillReportNarrativeInput): string {
   const metricCount = Object.keys(input.keyMetrics || {}).length;
   if (input.locale === 'zh') {
@@ -55,7 +45,9 @@ function buildGenericReportNarrative(input: SkillReportNarrativeInput): string {
 }
 
 export const handler: SkillHandler = {
-  detectStructuralType({ message, locale, currentState }) {
+  // Whether a message is a structural request is the agent's and the LLM router's decision; the
+  // generic skill is the advisory fallback whenever no specific skill matches.
+  detectStructuralType({ locale, currentState }) {
     if (currentState?.skillId === 'generic') {
       return buildStructuralTypeMatch(
         currentState.structuralTypeKey ?? 'unknown',
@@ -69,10 +61,6 @@ export const handler: SkillHandler = {
         },
         'current-state',
       );
-    }
-
-    if (!hasStructuralIntent(message)) {
-      return null;
     }
 
     return buildStructuralTypeMatch('unknown', 'unknown', 'generic', 'fallback', locale, {
