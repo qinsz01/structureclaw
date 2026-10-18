@@ -117,7 +117,7 @@ async function runEquilibriumAnalysis(options: {
     && scope.responses.some(field => !['forces', 'reactions'].includes(field))
     && !scope.responses.includes('dynamic') && scope.responses.some(field => ['forces', 'reactions'].includes(field));
   if (input.analysisType !== 'static' || !forceOnlyScope(scope) && !partial) throw new Error('EQUILIBRIUM_FORCE_ONLY_REQUIRED / 平衡计算仅适用于静力内力或反力');
-  if (input.analysisSkillId || state?.model && !state.modelPending) throw new Error('EQUILIBRIUM_NOT_A_SOLVER_FALLBACK / 指定引擎或已有完整模型必须使用真实求解路径');
+  if (input.analysisSkillId || state?.model && !state.modelPending) throw new Error('EQUILIBRIUM_NOT_A_SOLVER_FALLBACK: a specified engine or a built model is solved by the solver; call run_analysis again without method=equilibrium. / 指定引擎或已有完整模型必须使用真实求解路径；请去掉 method=equilibrium 重新调用 run_analysis。');
   if (!state?.draftState) throw new Error('ENGINEERING_DRAFT_REQUIRED');
   const projection = equilibriumModel(state.draftState, state.inputEvidence);
   const parameters = { ...(input.loadCaseIds ? { loadCaseIds: input.loadCaseIds } : {}),
