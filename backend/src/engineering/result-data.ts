@@ -175,6 +175,8 @@ export function enrichResultData(model: ModelRecord, result: ModelRecord, select
 export function queryPhysicalResponse(model: ModelRecord, result: ModelRecord, elementId: string, positionM: number, side: 'left' | 'right') {
   if (!recoveryModel(model)) throw new Error('RESULT_MODEL_SNAPSHOT_REQUIRED');
   if (result.success === false) throw new Error('RESULT_UNAVAILABLE');
+  // An unknown ID is reported as such (the tool error lists the model's member IDs), not as an invalid position.
+  if (!model.elements.some(element => isRecord(element) && element.id === elementId)) throw new Error('MEMBER_NOT_FOUND');
   const data = isRecord(result.data) ? result.data : result;
   if (commercial(result) || isRecord(data.memberStations)) {
     const { rows, context, length } = nativeStations(model, data, elementId);

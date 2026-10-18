@@ -309,6 +309,7 @@ describe('native force equilibrium recovery',()=>{
     for(const [position,side]of [[4+5e-10,'left'],[0,'left'],[4,'right']]) {
       expect(()=>queryPhysicalResponse(model,beam,'beam',position,side)).toThrow('MEMBER_RESPONSE_UNAVAILABLE_OR_POSITION_INVALID');
     }
+    expect(()=>queryPhysicalResponse(model,beam,'no-such-member',1,'right')).toThrow('MEMBER_NOT_FOUND');
   });
   test('real PKPM adapter vectors feed exact queries, equilibrium, chart and report with original evidence',()=>{
     const f=JSON.parse(readFileSync(new URL('./fixtures/pkpm-native-STD086-delivery.json',import.meta.url),'utf8'));

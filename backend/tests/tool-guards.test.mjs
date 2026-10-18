@@ -131,6 +131,7 @@ describe('structured tool errors', () => {
     expect(JSON.parse(structuredToolError('Error: RUN_NOT_FOUND\n Please fix your mistakes.', 'RUN_NOT_FOUND', state)))
       .toMatchObject({ errorCode: 'RUN_NOT_FOUND', availableRunIds: ['r0', 'r1'] });
     expect(JSON.parse(structuredToolError('Error: RESULT_NODE_NOT_FOUND', 'RESULT_NODE_NOT_FOUND', state))).toMatchObject({ availableNodeIds: ['A', 'B'] });
+    expect(JSON.parse(structuredToolError('Error: MEMBER_NOT_FOUND', 'MEMBER_NOT_FOUND', state))).toMatchObject({ availableElementIds: ['beam'] });
     expect(JSON.parse(structuredToolError('Error: MODEL_OBJECT_NOT_FOUND: elements:x', 'MODEL_OBJECT_NOT_FOUND: elements:x', state)))
       .toMatchObject({ collection: 'elements', availableIds: ['beam'] });
     expect(JSON.parse(structuredToolError(JSON.stringify({ success: false, errorCode: 'RESULT_NOT_FOUND' }), 'RESULT_NOT_FOUND', state)))
