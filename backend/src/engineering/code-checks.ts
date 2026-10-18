@@ -107,8 +107,9 @@ export function designValueLines(rows: ModelRecord[], locale: 'zh' | 'en'): stri
     const label = DESIGN_VALUE_LABELS[String(row.field)];
     const name = label ? label[locale] : String(row.field);
     const unit = row.unit && row.unit !== '1' ? ` ${String(row.unit)}` : '';
-    return locale === 'zh' ? `- ${name} = ${String(row.value)}${unit}（${String(row.source)}）`
-      : `- ${name} = ${String(row.value)}${unit} (${String(row.source)})`;
+    const value = typeof row.value === 'number' && Number.isFinite(row.value) ? String(Number(row.value.toPrecision(6))) : String(row.value);
+    return locale === 'zh' ? `- ${name} = ${value}${unit}（${String(row.source)}）`
+      : `- ${name} = ${value}${unit} (${String(row.source)})`;
   });
 }
 
@@ -171,9 +172,9 @@ export function codeCheckFeedback(check: ModelRecord, model?: ModelRecord, analy
   }
   const designValues = checkDesignValues(check);
   return { completionStatus: check.completionStatus, complianceStatus: check.complianceStatus, summary: check.summary,
-    ...(designValues.length ? { designValues } : {}),
     checkedItems: { runId: isRecord(check.meta) ? check.meta.runId : undefined,
       totalCount: checkedItems.length, truncated: checkedItems.length > 100, items: checkedItems.slice(0, 100) },
+    ...(designValues.length ? { designValues } : {}),
     ...(check.checkScope ? { checkScope: check.checkScope } : {}),
     requestedChecksPassed: check.completionStatus === 'complete' && check.complianceStatus === 'pass',
     missingInputs: missingFields, writeTargets: [...writeTargets.values()], missingInputCount: writeTargets.size + missingFields.filter(row => !row.writable).length,

@@ -30,15 +30,12 @@ export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
       const configurable = getConfigurable(config);
       const state = configurable.agentState;
       const toolCallId = getToolCallId(config);
-      const scope = input.requestScope ?? state?.requestScope;
-      if (scope && !scope.design) return toolResult(toolCallId, 'run_code_check', JSON.stringify({ success: true,
-        skipped: true, reason: 'DESIGN_NOT_REQUESTED', message: 'Code checks run only on an explicit request (e.g. check against GB 50017). Deliver the analysis results and offer the check as a next step. If the user explicitly requested a check in the latest message, call again with requestScope.design=true and the retained responses.',
-        messageZh: '规范校核只在用户明确要求时执行（如按 GB 50017 验算）。请交付分析结果并提示可继续验算；若用户最新消息已明确要求验算，请携带 requestScope.design=true 及原有所求结果重新调用。' }));
+      // Whether to check is the agent's decision; this tool validates only the state it needs.
       if (resultEngine(state?.analysisResult ?? {}) === 'equilibrium') throw new Error('DESIGN_REQUIRES_FULL_MODEL / 规范设计需要真实材料截面及完整模型，不能使用无刚度平衡投影');
       if (stiffnessPlaceholderOf(state?.model)) return toolResult(toolCallId, 'run_code_check', JSON.stringify({ success: false,
         errorCode: 'STIFFNESS_PLACEHOLDER_MODEL', nextAction: 'ask_user_clarification',
-        message: 'The current model used unit placeholder stiffness for a force-only request. A code check needs the real material grade and section: ask the user for them, extract the answer (requestScope.design=true), rebuild, reanalyze, then check. Do not reuse the placeholder results.',
-        messageZh: '当前模型仅为内力计算使用了单位刚度占位。规范验算需要实际材料牌号和截面：请向用户询问，提取答复（requestScope.design=true）后重新建模、分析再验算；不要沿用占位结果。' }));
+        message: 'The current model used unit placeholder stiffness for a force-only request. A code check needs the real material grade and section: ask the user for them, extract the answer, rebuild, reanalyze, then check. Do not reuse the placeholder results.',
+        messageZh: '当前模型仅为内力计算使用了单位刚度占位。规范验算需要实际材料牌号和截面：请向用户询问，提取答复后重新建模、分析再验算；不要沿用占位结果。' }));
       const skillIds = toolSkillScope(config);
       const selectedDesignCode = skillRuntime.resolveCodeCheckDesignCodeFromSkillIds(skillIds);
       const explicitDesignCode = input.designCode || state?.policy?.designCode;
@@ -147,7 +144,7 @@ export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
         'For China seismic analysis, call this after run_analysis and before generate_report with designCode GB/T 50011-2010-2024. ' +
         'Returns completion and compliance separately, with specific missing inputs. Incomplete is NOT pass. ' +
         'For OpenSees use auto/builtin, never native; native design belongs to PKPM/YJK. ' +
-        'Call only when the user explicitly requests a code check (验算/校核/按规范/code check), with requestScope.design=true; designing a member is not such a request. ' +
+        'Call when the user asks for a code check; designing a member is not such a request. ' +
         'Missing design inputs never interrupt: report the performed checks and list the checks not performed with their missing inputs in the final reply; do not ask clarification questions or loop. When the user later supplies values, write them via edit_model, reanalyze if the model changed, then check again. Never invent design conditions. ' +
         'Only if the user explicitly requests selected checks, set elements[id].design.requested_checks via edit_model; omit for all implemented checks. GB50017 IDs: normal_stress, shear_stress, equivalent_stress, lateral_stability, axial_stability, local_stability, slenderness, deflection. Exact item names also work. A selected subset is not full design compliance. / 仅按用户明确要求选择专项校核，不能为通过而缩小范围。',
       schema: z.object({
@@ -157,7 +154,7 @@ export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
         provider: z.enum(['auto', 'native', 'builtin']).optional().describe('Commercial engines prefer native design; OpenSees uses builtin checks / 商业引擎优先原生设计，OpenSees采用公共校核。'),
         design: z.record(z.string(), z.unknown()).optional().describe('Explicit native design conditions / 明确的原生设计条件。'),
         engineId: z.string().optional().describe('Optional engine ID'),
-        requestScope: requestScopeSchema.optional().describe('Pass design=true when the user explicitly requests a code check; preserve requested responses. / 用户明确要求规范验算时传 design=true，并保留原有所求结果。'),
+        requestScope: requestScopeSchema.optional().describe('The current goal with design=true; preserve requested responses. / 当前目标（design=true），保留原有所求结果。'),
       }),
     },
   );

@@ -11,8 +11,8 @@ import { createEngineeringReport, attachNativeReport } from '../../agent-runtime
 import { currentAnalysisError } from '../../engineering/model-state.js';
 import { currentRunContext, currentRunPolicy } from '../../runtime/run-context.js';
 import { runFeatures } from '../../runtime/ablation-profiles.js';
-import { reportRequested, requestScopeSchema, type RequestScope } from '../../engineering/request-scope.js';
-import { stiffnessPlaceholderOf, withoutPlaceholderDisplacements } from '../../engineering/stiffness-placeholder.js';
+import { requestScopeSchema, type RequestScope } from '../../engineering/request-scope.js';
+import { stiffnessPlaceholderOf } from '../../engineering/stiffness-placeholder.js';
 import { normalizeAnalysisType, inferAnalysisTypeFromResult, codeCheckSkillIdFromResult, hasValidChinaSeismicCodeCheck, analysisWorkflowInputModeFromResult } from './analysis-resolution.js';
 import { getConfigurable, getToolCallId, toolResult, isRecord, toolSkillScope } from './shared.js';
 
@@ -31,10 +31,8 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
       const configurable = getConfigurable(config);
       const state = configurable.agentState;
       const toolCallId = getToolCallId(config);
+      // Whether to report is the agent's decision; this tool validates only the state it needs.
       const scope = input.requestScope ?? state?.requestScope;
-      if (scope && !reportRequested(scope)) return toolResult(toolCallId, 'generate_report', JSON.stringify({ success: true,
-        skipped: true, reason: 'REPORT_NOT_REQUESTED', message: 'No report was requested for this narrow request (or the user declined one); deliver the requested results and stop.',
-        messageZh: '本次只求具体结果（或用户不要计算书），不生成报告；交付所求结果后结束本轮。' }));
 
       const selection = input.selection;
       if (selection?.timeIndex !== undefined && selection.modeNumber !== undefined) throw new Error('RESULT_INDEX_CONFLICT');
@@ -51,11 +49,13 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
       if (selection && (selection.component || selection.timeIndex !== undefined || selection.modeNumber !== undefined) && !quantities.length) {
         throw new Error(`REPORT_SELECTION_QUERY_REQUIRED: call query_results first with the same run, result, location, component, unit and index, then retry this report. A full-field query does not save a scalar. quantityId is automatic; do not ask the user for it. / 请先用query_results查询同一运行、结果、位置、分量、单位和索引，再生成报告。整个字段的查询不会登记标量；quantityId自动生成，不需要询问用户。 query_results: ${JSON.stringify({ ...selection, runId: run.runId, resultKey })}`);
       }
-      const placeholder = stiffnessPlaceholderOf(run);
-      const visibleRun = placeholder ? withoutPlaceholderDisplacements(run, placeholder) : run;
-      const visibleSelected = placeholder ? withoutPlaceholderDisplacements(selected, placeholder) : selected;
-      const analysis = { ...visibleRun, ...(selection ? visibleSelected : {}), runId: run.runId, selectedResultKey: resultKey,
-        results: selection && resultKey ? { [resultKey]: visibleSelected } : visibleRun.results,
+      // A placeholder-stiffness run has forces only; a report would present stiffness-dependent content.
+      if (stiffnessPlaceholderOf(run)) return toolResult(toolCallId, 'generate_report', JSON.stringify({ success: false,
+        errorCode: 'STIFFNESS_PLACEHOLDER_RUN', nextAction: 'ask_user_clarification',
+        message: 'This run used unit placeholder stiffness for forces only. Deliver the forces in the reply; a report needs the real material and section: ask for them, extract the answer, rebuild and reanalyze first.',
+        messageZh: '本次运行仅为内力计算使用了单位刚度占位。请在回复中交付内力；如需报告，须先询问实际材料和截面，提取后重新建模分析。' }));
+      const analysis = { ...run, ...(selection ? selected : {}), runId: run.runId, selectedResultKey: resultKey,
+        results: selection && resultKey ? { [resultKey]: selected } : run.results,
         requestedQuantities: quantities, requestedSelection: selection };
       // Evidence-binding ablation: pair the session's current model and check with the selected run
       // without verifying that they belong together; the report records meta.evidenceBinding='off'.
@@ -140,7 +140,7 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
         'Generate an engineering report with summary, key metrics, and compliance narrative. ' +
         'Reads analysis results, code check results, and draft state from conversation state automatically — ' +
         'do NOT pass them as parameters. ' +
-        'Requires run_analysis to have been called first. Call only when the user asks for a report/calculation book or a full design/analysis deliverable; narrow requests for specific results (forces, reactions, displacement) get no report. For a scalar selection, first call query_results with the identical run/result, location, component, unit and index; reading a full field alone does not register the scalar. The query assigns quantityId automatically. / 指定标量selection前须先用query_results查询同一运行/结果、位置、分量、单位与索引；整个字段查询不会登记标量，数值ID自动生成。 ' +
+        'Requires run_analysis to have been called first. Call when the user asks for a report/calculation book or a full design/analysis deliverable, not for a request for specific results only. For a scalar selection, first call query_results with the identical run/result, location, component, unit and index; reading a full field alone does not register the scalar. The query assigns quantityId automatically. / 指定标量selection前须先用query_results查询同一运行/结果、位置、分量、单位与索引；整个字段查询不会登记标量，数值ID自动生成。 ' +
         'For China seismic reports, run_code_check with GB/T 50011-2010-2024 must be called first.',
       schema: z.object({
         message: z.string().describe('Original user message / intent'),
@@ -150,7 +150,7 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
         locale: z.enum(['zh', 'en']).optional().describe('Report language'),
         selection: resultSelectionSchema.optional().describe('Saved run/result and optional scalar already registered by query_results using exactly the same component, unit, location and index. Omit to report the current run. Does not replace the current report. / 保存的运行/结果及已由query_results登记的同分量、单位、位置、索引标量。省略则报告当前运行；指定selection不覆盖当前报告。'),
         narrative: z.enum(['structured', 'assisted']).optional().describe('structured produces a deterministic report without an extra language-model call. / structured直接生成结构化报告，不额外调用语言模型。'),
-        requestScope: requestScopeSchema.optional().describe('report=true only for a requested report or full design/analysis deliverable. / 仅在用户要求报告或完整设计/分析交付时report=true。'),
+        requestScope: requestScopeSchema.optional().describe('The current goal. / 当前目标。'),
       }),
     },
   );

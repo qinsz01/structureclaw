@@ -6,7 +6,7 @@ export const requestScopeSchema = z.object({
   responses: z.array(z.enum(['forces', 'reactions', 'displacements', 'rotations', 'stress', 'dynamic'])).min(1),
   method: z.enum(['solver', 'equilibrium']).default('solver'),
   design: z.boolean().default(false),
-  report: z.boolean().optional().describe('true when the user asks for a report/calculation book or a full design/analysis deliverable ("design a beam", "analyse and report"); false for a narrow request for specific results (forces, reactions, displacement only) or when the user declines one. Omitted: forces/reactions-only requests get no report, other requests get one. / 用户要求报告/计算书或完整设计/分析交付（“设计一个…”“分析并出报告”）时为true；只求内力、反力、位移等具体结果或明确不要报告时为false。省略时仅求内力反力不出报告，其余出报告。'),
+  report: z.boolean().optional().describe('true when the user asks for a report or a full design/analysis deliverable; false for specific results only. / 用户要求报告或完整设计/分析交付时为true，只求具体结果时为false。'),
   outputs: z.array(resultSelectionSchema.omit({ runId: true }).extend({
     field: resultSelectionSchema.shape.field.unwrap(), component: resultSelectionSchema.shape.component.unwrap(), unit: resultSelectionSchema.shape.unit.unwrap(),
   })).default([]).describe('Exact scalar queries after real object IDs are known. Before building leave outputs empty; never invent IDs. resultKey is a saved case:<ID>/combination:<ID>, not an output label. / 获得实际对象ID后填写标量查询；建模前留空，不编造ID。resultKey是工况/组合键，不是输出名称。'),
@@ -52,12 +52,6 @@ export function resolveExtractedScope(declared: RequestScope | undefined, extrac
 
 export function forceOnlyScope(scope: RequestScope | null | undefined): boolean {
   return !!scope && !scope.design && scope.responses.every(field => field === 'forces' || field === 'reactions');
-}
-
-/** A report is a deliverable only when requested; an omitted flag means none for a forces/reactions-only request. */
-export function reportRequested(scope: RequestScope | null | undefined): boolean {
-  if (!scope) return true;
-  return scope.report ?? !forceOnlyScope(scope);
 }
 
 export function missingInputReason(field: string, scope?: RequestScope | null, locale: 'zh' | 'en' = 'en'): string {
