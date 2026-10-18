@@ -12,10 +12,9 @@ import re
 from typing import Any, Dict, Optional, Tuple
 
 # (upper thickness bound mm, f, fv, fy). A row applies to previous bound < t <= upper bound.
-# Q355-Q460 yield strengths follow GB/T 1591-2018; Q345 is the GB 50017-2017 table row.
+# Q355-Q460 yield strengths follow GB/T 1591-2018. Q345 is not in the 2017 table (see SUPERSEDED_STEEL_GRADES).
 STEEL_TABLE_4_4_1: Dict[str, Tuple[Tuple[float, float, float, float], ...]] = {
     'Q235': ((16, 215, 125, 235), (40, 205, 120, 225), (100, 200, 115, 215)),
-    'Q345': ((16, 305, 175, 345), (40, 295, 170, 335), (63, 290, 165, 325), (80, 280, 160, 315), (100, 270, 155, 305)),
     'Q355': ((16, 305, 175, 355), (40, 295, 170, 345), (63, 290, 165, 335), (80, 280, 160, 325), (100, 270, 155, 315)),
     'Q390': ((16, 345, 200, 390), (40, 330, 190, 380), (63, 310, 180, 360), (100, 295, 170, 340)),
     'Q420': ((16, 375, 215, 420), (40, 355, 205, 410), (63, 320, 185, 390), (100, 305, 175, 370)),
@@ -31,6 +30,23 @@ def normalize_steel_grade(raw: Any) -> Optional[str]:
         return None
     match = re.fullmatch(r'(Q\d{3})[A-E]?', raw.strip().upper().replace(' ', ''))
     return match.group(1) if match and match.group(1) in STEEL_TABLE_4_4_1 else None
+
+
+# Grades GB 50017-2017 no longer tabulates, with the successor grade. Never mapped silently.
+SUPERSEDED_STEEL_GRADES = {'Q345': 'Q355'}
+
+
+def superseded_steel_hint(raw: Any) -> Optional[str]:
+    """Bilingual hint for a superseded grade (Q345B -> use Q355), else None."""
+    if not isinstance(raw, str):
+        return None
+    match = re.fullmatch(r'(Q\d{3})[A-E]?', raw.strip().upper().replace(' ', ''))
+    successor = SUPERSEDED_STEEL_GRADES.get(match.group(1)) if match else None
+    if successor is None:
+        return None
+    return (f'GB 50017-2017 表4.4.1 无 {match.group(1)}，其后续牌号为 {successor}（GB/T 1591-2018）；如按 {successor} 验算请确认牌号，或直接给出 f、fv。'
+            f' / GB 50017-2017 Table 4.4.1 has no {match.group(1)}; its successor grade is {successor} (GB/T 1591-2018). '
+            f'Confirm {successor} to check with it, or supply f and fv.')
 
 
 def _fmt(value: float) -> str:

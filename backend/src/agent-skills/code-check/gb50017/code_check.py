@@ -14,7 +14,7 @@ _SHARED_PYTHON = Path(__file__).resolve().parents[3] / 'skill-shared' / 'python'
 if _SHARED_PYTHON.exists() and str(_SHARED_PYTHON) not in sys.path:
     sys.path.insert(0, str(_SHARED_PYTHON))
 
-from structure_protocol.design_code_tables import WIDTH_THICKNESS_S4, epsilon_k, nominal_yield, normalize_steel_grade, steel_strength  # noqa: E402
+from structure_protocol.design_code_tables import WIDTH_THICKNESS_S4, epsilon_k, nominal_yield, normalize_steel_grade, steel_strength, superseded_steel_hint  # noqa: E402
 
 
 RULE_VERSION = 'v2-member-checks'
@@ -433,6 +433,10 @@ def missing_inputs(elem_id: str, item: str, context: Dict[str, Any]) -> List[Dic
         require(element, ['deflectionLimitN'], 'member.design.deflectionLimitN', '挠度限值 L/n 的 n（取决于构件类别：主梁/次梁等）/ Denominator n of L/n (depends on member category: primary/secondary beam etc.)', '1')
         if not element.get('serviceabilityResult') and 'serviceabilityResult' in element:
             missing.append({'field': 'member.design.serviceability_result_keys', 'label': '使用工况或组合 / Service case or combination', 'unit': 'result key', 'source': 'design'})
+    hint = superseded_steel_hint(material.get('grade')) or superseded_steel_hint(material.get('name'))
+    if hint:
+        grade_fields = {'material.design.f', 'material.design.fv', 'member.design.btLimit'}
+        missing = [{**row, 'hint': hint} if row['field'] in grade_fields else row for row in missing]
     return missing
 
 def _beam_slenderness_item(checker: Any, elem_id: str, context: Dict[str, Any]) -> Dict[str, Any]:

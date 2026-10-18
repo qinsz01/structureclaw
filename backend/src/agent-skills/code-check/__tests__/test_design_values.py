@@ -190,3 +190,18 @@ def test_concrete_rebar_grade_is_looked_up_when_given():
     values = {row['field']: row for row in detail['designValues']}
     assert values['material.design.fy'] == {'field': 'material.design.fy', 'value': 360.0, 'unit': 'MPa', 'origin': 'code-table',
                                             'source': 'GB 50010-2010 表4.2.3-1, HRB400'}
+
+
+def test_q345_is_not_in_table_4_4_1_and_is_listed_as_missing_with_the_successor_hint():
+    assert steel_strength('Q345', 9) is None and epsilon_k('Q345B') is None
+    detail = CodeChecker('GB50017').check('m', ['1'], {'elementData': {'1': _hn300({'grade': 'Q345B'})}})['details'][0]
+    assert 'material.design.f' not in {row['field'] for row in detail['designValues']}
+    rows = {row['field']: row for row in _items(detail)['正应力']['missingInputs']}
+    assert 'Q355' in rows['material.design.f']['hint'] and 'Q345' in rows['material.design.f']['hint']
+    shear = {row['field']: row for row in _items(detail)['剪应力']['missingInputs']}
+    assert 'Q355' in shear['material.design.fv']['hint']
+
+
+def test_unknown_grade_gets_no_successor_hint():
+    detail = CodeChecker('GB50017').check('m', ['1'], {'elementData': {'1': _hn300({'grade': 'S355'})}})['details'][0]
+    assert all('hint' not in row for row in _items(detail)['正应力']['missingInputs'])
