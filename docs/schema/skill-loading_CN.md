@@ -383,7 +383,6 @@ interface SkillLoadSummary {
 1. **工程会话状态重置**：清空 skill 相关草稿、结构类型 carry-over 和缓存模型状态。
 2. **仅保留对话能力**：Agent 仍可用普通对话方式帮助用户澄清需求。
 3. **不再隐式执行工程工具**：`build_model`、`run_analysis`、`run_code_check`、`generate_report` 等外接 tool 必须先由已启用 skill 授权。
-4. 如果调用方强制要求执行 tool，而当前没有启用 skill，请求会以 `NO_EXECUTABLE_TOOL` 阻断。
 
 ### 5.5 失败策略汇总
 

@@ -18,7 +18,7 @@ This wiki mirrors the current repository documentation and gives a stable landin
 - Monorepo layout: `frontend`, `backend`, `scripts`, `docs`
 - Backend hosts both the Fastify API and the Python analysis runtime
 - StructureClaw 1.0 can run from `npm install -g @structureclaw/structureclaw` in installed single-process mode
-- Main engineering flow: `draft -> validate -> analyze -> code-check -> report`
+- Main engineering flow: `draft -> validate -> analyze -> results` (code check and report on request)
 - Primary local workflow: `./sclaw doctor`, `./sclaw start`, `./sclaw status`
 - Runtime data lives in the user data directory such as `~/.structureclaw/`
 - Windows users can use `node .\sclaw doctor`, `node .\sclaw start`, etc.

@@ -10,6 +10,8 @@ This directory is the documentation hub for StructureClaw 1.0. Start with the ha
 - [Agent architecture](./agent-architecture.md): current 1.0.0 architecture for the LangGraph agent, skills, tools, and orchestration
 - [Ablation profiles](./ablation.md): pre-registered run-policy profiles for matched benchmark ablations, selection precedence and recorded fields
 - [Skill runtime status](./skill-runtime-status.md): current implementation maturity for each skill domain
+- [Product runtime](./product-runtime.md): current product interfaces, force-only placeholder stiffness, native adapters and acceptance boundaries
+- [Input review contract](./input-review-contract.md): input-evidence sidebar API and its allowed tools
 - [China seismic workflow design](./china-seismic-workflow-design.md): planning document for LLM-understood, OpenSees-backed China seismic analysis
 
 ## Refactor And Experiment Controls
@@ -31,6 +33,8 @@ Dated repair, acceptance and preview records. They are kept for traceability and
 - [Commercial engine repair, 2026-10-13](./archive/commercial-native-repair-20261013.md)
 - [PKPM native repair, 2026-10-13](./archive/pkpm-native-repair-20261013.md)
 - [OpenSees scenario compatibility, 2026-10-13](./archive/opensees-scenario-compatibility-20261013.md)
+- [Engineering V2.2 properties and checks (acceptance record)](./archive/engineering-v2.2-properties-and-checks.md)
+- [End-to-end install test plan (zh)](./archive/e2e-test-plan.md)
 
 Dated records that remain at their current path because frozen evidence or current pages link to them:
 
@@ -51,5 +55,8 @@ Dated records that remain at their current path because frozen evidence or curre
 - [中文文档入口](./README_CN.md)
 - [中文手册](./handbook_CN.md)
 - [中文参考文档](./reference_CN.md)
+- [中文测试分类](./testing_CN.md)
 - [中文 Agent 架构](./agent-architecture_CN.md)
+- [中文消融 profile](./ablation_CN.md)
+- [中文 Skill 运行时状态](./skill-runtime-status_CN.md)
 - [中文路线图](../ROADMAP_CN.md)

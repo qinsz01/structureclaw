@@ -12,7 +12,7 @@ StructureClaw is an AI-assisted structural engineering workspace. It takes natur
 frontend (Next.js 14)  →  backend (Fastify + Prisma)  →  analysis engine (e.g. Python analysis runtime (OpenSees))
 ```
 
-- **Backend** (`backend/`): Fastify API with Prisma ORM (SQLite default). Route handlers in `src/api`, orchestration/domain logic in `src/services`, shared helpers in `src/utils`.
+- **Backend** (`backend/`): Fastify API with Prisma ORM (SQLite default). Route handlers in `src/api`, the LangGraph agent host in `src/agent-langgraph`, the skill runtime and draft boundary in `src/agent-runtime`, domain logic in `src/engineering`, services in `src/services`, shared helpers in `src/utils`. Layering is enforced by `npm run check:deps --prefix backend` (see `docs/agent-architecture.md` §3).
 - **Frontend** (`frontend/`): Next.js 14 app-router. Routes in `src/app`, reusable UI in `src/components`, client state (Zustand) and i18n in `src/lib`.
 - **Agent runtime** (`backend/src/agent-runtime/`): Capability-driven orchestration — base model (chat) → skill layer (engineering advisor) → tool layer (executable agent). 14 skill domains live under `backend/src/agent-skills/` (structure-type, analysis, code-check, data-input, design, drawing, general, load-boundary, material, report-export, result-postprocess, section, validation, visualization).
 - **Analysis execution** (`backend/src/agent-skills/analysis/`): Spawns a Python subprocess using OpenSees for structural analysis. Python runtime lives in `~/.structureclaw/.venv/`.
@@ -39,6 +39,10 @@ npm run lint --prefix backend           # ESLint
 npm test --prefix backend -- --runInBand  # Jest (internally runs db:generate + build first)
 npm run db:generate --prefix backend    # Regenerate Prisma client (required before build after schema changes)
 npm run db:push --prefix backend        # Sync Prisma schema to SQLite (no migration files)
+npm run check:deps --prefix backend     # Layer and import-cycle rules (dependency-cruiser)
+npm run test:python --prefix backend    # pytest over backend/src and backend/tests
+npm run test:characterization --prefix backend  # Scripted-LLM end-to-end snapshots
+npm run test:live --prefix backend      # Real-LLM acceptance against an already running backend
 ```
 
 **Frontend only:**
@@ -53,7 +57,7 @@ npm run test:e2e --prefix frontend      # Playwright E2E tests
 **Running a single test:**
 ```bash
 # Backend (Jest)
-npm test --prefix backend -- --runInBand path/to/test.test.ts
+npm test --prefix backend -- --runInBand path/to/test.test.mjs
 
 # Frontend (Vitest)
 npm run test:run --prefix frontend -- path/to/test.test.ts
@@ -86,7 +90,11 @@ node tests/runner.mjs llm-benchmark --scenario <id>          # Run a single benc
 | Concern | Location |
 |---------|----------|
 | API routes | `backend/src/api/` |
-| Agent orchestration | `backend/src/services/` and `backend/src/agent-runtime/` |
+| Agent host (LangGraph graph, tools, delivery) | `backend/src/agent-langgraph/` |
+| Skill runtime and draft boundary | `backend/src/agent-runtime/` |
+| Engineering domain logic | `backend/src/engineering/` |
+| Run policy, ablation profiles, limits | `backend/src/runtime/` |
+| Services (execution clients, persistence) | `backend/src/services/` |
 | Skill domains | `backend/src/agent-skills/<domain>/` |
 | Executable agent tools | `backend/src/agent-langgraph/tools/` (one module per tool; `tools.ts` is the barrel) and `backend/src/agent-langgraph/tool-registry.ts` |
 | Shared skill utilities | `backend/src/skill-shared/` |
@@ -106,7 +114,7 @@ All user-facing settings are stored in `settings.json` (managed via the frontend
 
 Infrastructure-only env vars: `SCLAW_DATA_DIR`, `NODE_ENV`.
 
-Benchmark exception: `SCLAW_RUN_PROFILE=<id>` selects one of the pre-registered, versioned ablation profiles (`backend/src/runtime/ablation-profiles.ts`) for the backend process. It ranks above `settings.json` `agent.runPolicy` and below the request's `context.runPolicy`; unknown ids stop startup. See `docs/ablation.md` / `docs/ablation_CN.md`.
+Benchmark exception: `SCLAW_RUN_PROFILE=<id>` selects one of the pre-registered, versioned ablation profiles (`backend/src/runtime/ablation-profiles.ts`) for the backend process. It ranks above `settings.json` `agent.runPolicy` and below the conversation's saved policy and the request's profile or `context.runPolicy`; unknown ids stop startup. See `docs/ablation.md` / `docs/ablation_CN.md`.
 
 ## Testing Guidance
 
@@ -156,7 +164,7 @@ A skill is the unit of extensibility in the agent. Each skill lives under `backe
 
 ### 1. Skill Manifest (`skill.yaml`)
 
-Required file. Declares identity, capabilities, and routing. Schema validated by `backend/src/agent-runtime/manifest-schema.ts`. Key fields:
+Required file. Declares identity, capabilities, and routing. Schema validated by `backend/src/skill-shared/manifest-schema.ts` (re-exported from `backend/src/agent-runtime/manifest-schema.ts`). Key fields:
 
 ```yaml
 id: frame                          # unique skill identifier
@@ -174,11 +182,11 @@ compatibility:
 
 ### 2. Stage Markdown (`<stage>.md`, at least one required)
 
-Markdown files (`intent.md`, `draft.md`, `analysis.md`, `design.md`) that provide domain knowledge prompts injected into the LLM context at each pipeline stage. Content-only; no YAML frontmatter. At least one stage `.md` file is required for the `AgentSkillLoader` to discover the skill directory.
+Markdown files (`intent.md`, `draft.md`, `analysis.md`, `design.md`) with domain guidance. Content-only; no YAML frontmatter. At least one stage `.md` file is required for the `AgentSkillLoader` to discover the skill directory. Only a structure-type skill's `draft.md` (else `intent.md`) reaches a prompt: the parameter extractor's draft-stage guidance.
 
 ### 3. Handler Module (`handler.ts`, optional but required for interactive skills)
 
-Exports a `SkillHandler` object (interface defined in `backend/src/agent-runtime/types.ts`). The handler methods form the skill's lifecycle:
+Exports a `SkillHandler` object (interface defined in `backend/src/shared/types/agent.ts`, re-exported from `backend/src/agent-runtime/types.ts`). The handler methods form the skill's lifecycle:
 
 ```
 detectStructuralType()  → match user message to this skill's structural type
@@ -189,6 +197,7 @@ computeMissing()        → return critical/optional missing fields
 mapLabels()             → localize missing-field keys for display
 buildQuestions()        → generate InteractionQuestion[] for missing fields
 buildDefaultProposals() → suggest default values (optional)
+computeDesignMissing()  → design prerequisites for an explicit code check (optional)
 buildModel()            → produce the final computable model JSON
 resolveStage()          → determine pipeline stage from current state (optional)
 buildReportNarrative()  → custom report narrative (optional)

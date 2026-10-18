@@ -8,7 +8,7 @@
 ### Agent Run
 
 - `POST /api/v1/agent/run` — chat-first orchestration entry
-- Chain: `detect structure type -> extract draft parameters -> build model -> validate -> analyze -> code-check -> report`
+- Chain: `detect structure type -> extract draft parameters -> build model -> validate -> analyze -> results` (code check and report on request)
 
 ### Chat and Streaming
 

@@ -10,6 +10,8 @@
 - [Agent 架构](./agent-architecture_CN.md)：LangGraph agent、skill、tool 与编排层的 1.0.0 当前架构
 - [消融 profile](./ablation_CN.md)：预注册的运行策略消融 profile、选择优先级与记录字段
 - [Skill 运行时状态](./skill-runtime-status_CN.md)：各 skill domain 当前实现成熟度
+- [本体运行链](./product-runtime.md)：当前本体接口、只求内力的单位刚度占位、原生适配与验收边界
+- [输入复核契约](./input-review-contract.md)：输入与证据侧栏接口及允许的工具
 - [中国抗震全流程设计](./china-seismic-workflow-design_CN.md)：基于 LLM 语义理解和 OpenSees 的中国抗震分析规划文档
 
 ## 重构与实验控制
@@ -31,6 +33,8 @@
 - [2026-10-13 商业引擎修复](./archive/commercial-native-repair-20261013.md)
 - [2026-10-13 PKPM 原生修复](./archive/pkpm-native-repair-20261013.md)
 - [2026-10-13 OpenSees 场景兼容性](./archive/opensees-scenario-compatibility-20261013.md)
+- [工程 V2.2 材料、截面与校核（验收记录）](./archive/engineering-v2.2-properties-and-checks.md)
+- [端到端安装测试方案](./archive/e2e-test-plan.md)
 
 以下带日期的记录仍保留在当前路径，因为冻结证据或现行页面会链接到它们：
 
@@ -51,5 +55,8 @@
 - [English documentation hub](./README.md)
 - [Handbook](./handbook.md)
 - [Reference](./reference.md)
+- [Testing taxonomy](./testing.md)
 - [Agent architecture](./agent-architecture.md)
+- [Ablation profiles](./ablation.md)
+- [Skill runtime status](./skill-runtime-status.md)
 - [Roadmap](../ROADMAP.md)

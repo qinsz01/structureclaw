@@ -64,7 +64,7 @@ API endpoints:
 
 ## Main Workflow
 
-`natural language -> draft model -> validate -> analyze -> code-check -> report`
+`natural language -> draft model -> validate -> analyze -> results` (code check and report on request)
 
 ## Recommended Startup
 

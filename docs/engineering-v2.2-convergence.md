@@ -21,7 +21,7 @@ replacing original answers, or running paid language-model experiments.
 | External tools / 外部入口 | OpenClaw consumes the application registry's JSON schemas and state reducers, including model edit/undo/query, multi-result analysis, paged PDF and input review. / 删除外部手写的平行参数定义。 |
 | Evaluation / 评测 | 300-task mapping separates required/forbidden/output requirements. Eighteen candidate packs freeze inputs and independent references; new evaluation requires real execution evidence and checks station/side/unit/report errors. / 保留267/16/17引擎分配。 |
 
-Details: [properties and checks](engineering-v2.2-properties-and-checks.md),
+Details: [properties and checks](archive/engineering-v2.2-properties-and-checks.md),
 [commercial native evidence](commercial-native-acceptance.md),
 [representative acceptance](../tests/llm-benchmark/acceptance/README.md).
 

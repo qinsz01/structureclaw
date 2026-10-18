@@ -103,7 +103,7 @@ Use OpenSees for a fully open local run. Select PKPM or YJK only when the corres
 StructureClaw turns a natural-language structural description into a traceable engineering workflow:
 
 ```text
-describe -> draft model -> validate -> analyze -> code-check -> report
+describe -> draft model -> validate -> analyze -> results (code check / report on request)
 ```
 
 What makes it useful:
