@@ -3,7 +3,7 @@
 // derivations, counts, rounding) must not be flagged; invented result values must be.
 import { describe, expect, test } from '@jest/globals';
 
-const { buildEvidence, extractUnitNumbers, findActionClaims, findUnsupportedNumbers } = await import('../dist/agent-langgraph/delivery/answer-integrity.js');
+const { buildEvidence, derivedInputNumbers, extractUnitNumbers, findActionClaims, findUnsupportedNumbers } = await import('../dist/agent-langgraph/delivery/answer-integrity.js');
 
 const beamTool = JSON.stringify({ success: true, runId: '3f9c1d2e-8a7b-4c6d-9e0f-123456789abc', createdAt: '2026-10-18T09:12:33.123Z',
   reactions: { '1': { fz: 5.000000000001 }, '3': { fz: 4.999999999 } }, memberForces: { '1': { M2: -15.0000000002 } },
@@ -12,7 +12,8 @@ const BEAM_ZH = '设计一个简支钢梁，跨度6m，跨中集中荷载10kN，
 const BEAM_EN = 'Design a simply supported steel beam, span 6 m, 10 kN point load at midspan, Q355, HN300×150×6.5×9';
 const beamEvidence = buildEvidence([BEAM_ZH, BEAM_EN, beamTool]);
 const forcesEvidence = buildEvidence(['计算简支梁内力，跨度10m，跨中1kN', JSON.stringify({ reactions: { A: { fz: 0.5 }, B: { fz: 0.5 } }, M: -2.5 })]);
-const continuousEvidence = buildEvidence(['two-span continuous beam 2×6 m, 10 kN/m, forces only',
+const CONTINUOUS = 'two-span continuous beam 2×6 m, 10 kN/m, forces only';
+const continuousEvidence = buildEvidence([CONTINUOUS, derivedInputNumbers([CONTINUOUS]),
   JSON.stringify({ reactions: { A: 22.5, B: 75, C: 22.5 }, supportMoment: -45 })]);
 
 // [answer, evidence] pairs that must produce no unsupported number.
@@ -34,6 +35,9 @@ const NEGATIVES = [
   ['Q355 has a nominal yield strength of 355 MPa.', beamEvidence],
   ['E = 206,000 MPa', buildEvidence([JSON.stringify({ materials: [{ E: 206000 }] })])],
   ['uniform load q = 10 N/mm', continuousEvidence],
+  // Live run 2026-10-18: equilibrium checks and totals derived from the user's inputs.
+  ['总反力校核：22.5 + 75 + 22.5 = 120 kN = 10 kN/m × 12 m ✓', continuousEvidence],
+  ['The total load is 120 kN over the 12 m length.', continuousEvidence],
   ['No numbers with units here: case 1, 2 and 3.', beamEvidence],
   // A unit weight is not a line load: kN/m³ is not checked as kN/m.
   ['Concrete unit weight 25 kN/m³ (25 kN/m3).', beamEvidence],

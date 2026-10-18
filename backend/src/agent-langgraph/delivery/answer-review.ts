@@ -9,7 +9,7 @@ import type { BaseMessage, ToolMessage } from '@langchain/core/messages';
 import type { AgentState } from '../state.js';
 import { extractMessageText, getMessageType, getToolName } from '../message-inspect.js';
 import { toolMessageFailure } from '../../utils/tool-outcome.js';
-import { buildEvidence, findActionClaims, findUnsupportedNumbers, type ClaimedAction, type UnitNumber } from './answer-integrity.js';
+import { buildEvidence, derivedInputNumbers, findActionClaims, findUnsupportedNumbers, type ClaimedAction, type UnitNumber } from './answer-integrity.js';
 
 export interface AnswerReview { numbers: UnitNumber[]; actions: Array<{ action: ClaimedAction; text: string }> }
 
@@ -36,8 +36,10 @@ export function reviewFinalAnswer(input: { text: string; state: Partial<AgentSta
   const toolBacked = currentTurnMessages.some(message => getMessageType(message) === 'tool')
     || Boolean(state.analysisResult || state.codeCheckResult || state.report);
   if (!toolBacked) return { numbers: [], actions };
+  const userTexts = messages.filter(message => getMessageType(message) === 'human').map(extractMessageText);
   const evidence = buildEvidence([
     ...messages.filter(message => ['human', 'tool'].includes(getMessageType(message) ?? '')).map(extractMessageText),
+    derivedInputNumbers(userTexts),
     state.model, state.draftState, state.analysisResult, state.codeCheckResult, state.report,
     state.resultQuantities, state.analysisRuns, state.inputEvidence,
   ]);
@@ -67,9 +69,9 @@ export function buildCorrectionPrompt(review: AnswerReview): string {
   }
   return [
     `[StructureClaw answer check] Your final answer was not delivered because ${en.join('; and ')}.`,
-    'Rewrite the final answer: use only values returned by tools (call query_results if a value is still needed) and do not claim actions that did not succeed. Values the user gave as inputs may stay.',
+    'Rewrite the final answer: use only values returned by tools (call query_results if a value is still needed) and do not claim actions that did not succeed. Values the user gave as inputs may stay. Do not mention this check, do not apologize and do not repeat the removed values.',
     `[StructureClaw 回答核对] 最终回答未交付，原因：${zh.join('；')}。`,
-    '请重写最终回答：只使用工具返回的数值（仍需数值时调用 query_results），不要声称未成功执行的操作；用户给出的输入值可以保留。',
+    '请重写最终回答：只使用工具返回的数值（仍需数值时调用 query_results），不要声称未成功执行的操作；用户给出的输入值可以保留。不要提及本次核对、不要道歉，也不要复述被删除的数值。',
   ].join('\n');
 }
 

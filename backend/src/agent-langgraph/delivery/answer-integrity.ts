@@ -112,6 +112,28 @@ function addValue(value: unknown, into: number[], key = ''): void {
   }
 }
 
+const MAX_INPUT_NUMBERS = 16;
+
+/**
+ * Simple quantities the answer may derive from the user's own inputs without a tool: products of
+ * two or three input numbers (total load q·L, 2 × 6 × 10) and quotients of two (P/2, L/n).
+ */
+export function derivedInputNumbers(texts: string[]): number[] {
+  const values: number[] = [];
+  for (const text of texts) addText(text, values);
+  const inputs = [...new Set(values.filter(value => value > 0))].slice(0, MAX_INPUT_NUMBERS);
+  const derived: number[] = [];
+  inputs.forEach((a, i) => inputs.forEach((b, j) => {
+    if (i === j) return;
+    derived.push(a / b);
+    if (j > i) {
+      derived.push(a * b);
+      for (let k = j + 1; k < inputs.length; k += 1) derived.push(a * b * inputs[k]!);
+    }
+  }));
+  return derived;
+}
+
 /** Sorted absolute values of every number in the evidence (JSON values, JSON strings or text). */
 export function buildEvidence(sources: unknown[]): Float64Array {
   const values: number[] = [];
@@ -158,8 +180,8 @@ function sentenceAround(text: string, index: number): string {
   return text.slice(start, ends.length ? Math.min(...ends) : text.length);
 }
 
-/** "L/250 = 24 mm", "q·L²/8 = 45 kN·m": the value is shown with its own derivation. */
-const DERIVED = /[/×*÷][^=＝，,;；。\n]{0,24}[=＝]\s*[≈约]?\s*$/;
+/** "L/250 = 24 mm", "22.5 + 75 + 22.5 = 120 kN": the value is shown with its own derivation. */
+const DERIVED = /[/×*÷+−-][^=＝，,;；。\n]{0,24}[=＝]\s*[≈约]?\s*$/;
 
 /** Values with units that match no evidence, excluding cited code values and shown derivations. */
 export function findUnsupportedNumbers(answer: string, evidence: Float64Array): UnitNumber[] {
