@@ -184,7 +184,7 @@ describe('deterministic beam equilibrium and scoped engineering delivery', () =>
   });
 });
 
-  test('analysis scope avoids reinforcement design and unwanted code/report execution', async () => {
+  test('analysis scope avoids reinforcement design', async () => {
     const {handler}=await import('../dist/agent-skills/structure-type/concrete-frame/handler.js');
     const {computeDraftMissing}=await import('../dist/agent-runtime/draft-readiness.js');
     const analysisScope={responses:['displacements','forces'],method:'solver',design:false,report:false,outputs:[]};
@@ -201,12 +201,7 @@ describe('deterministic beam equilibrium and scoped engineering delivery', () =>
     numerical.engineeringDraft={materials:[{id:'elastic',name:'Declared concrete stiffness',type:'concrete',E:31000,nu:0.2,rho:2400}]};
     expect(computeDraftMissing({id:'concrete-frame',handler},numerical,'execution').critical).toEqual([]);
     expect(handler.buildModel(numerical).materials[0].E).toBe(31000);
-    const {createRunCodeCheckTool,createGenerateReportTool}=await import('../dist/agent-langgraph/tools.js');
-    const config={toolCall:{id:'unrequested'},configurable:{agentState:{requestScope:analysisScope}}};
-    const check=await createRunCodeCheckTool({}).invoke({designCode:'GB50010'},config);
-    expect(JSON.parse(check.update.messages[0].content)).toMatchObject({success:true,skipped:true,reason:'DESIGN_NOT_REQUESTED'});
-    const report=await createGenerateReportTool({}).invoke({message:'ordinary analysis',analysisType:'static'},config);
-    expect(JSON.parse(report.update.messages[0].content)).toMatchObject({success:true,skipped:true,reason:'REPORT_NOT_REQUESTED'});
+    // Whether to check or report is the agent's decision; those tools validate state only (no scope gate).
   });
 
   test('missing stiffness does not block independently determined force outputs', async () => {

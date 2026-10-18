@@ -59,8 +59,6 @@ exports[`characterization: natural-language draft path zh simply supported steel
   "step:run_analysis:done",
   "artifact:report:invalidated",
   "artifact:analysis",
-  "step:run_code_check:running",
-  "step:run_code_check:done",
   "step:generate_report:running",
   "step:generate_report:done",
   "artifact:report",

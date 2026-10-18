@@ -78,9 +78,7 @@ try {
       assert.equal(configurable.agentState.report.json.analysis.runId, configurable.agentState.analysisResult.runId);
       assert.equal(configurable.agentState.report.json.meta.runId, configurable.agentState.analysisResult.runId);
     }
-    // No invented design strengths or stability factors are allowed to produce a pass.
-    const unrequested = await invoke('run_code_check', { designCode: 'GB50017', provider: 'builtin' });
-    assert.equal(unrequested.reason, 'DESIGN_NOT_REQUESTED');
+    // No invented stability factors or limits are allowed to produce a pass.
     const check = await invoke('run_code_check', { designCode: 'GB50017', provider: 'builtin', requestScope: { ...draftState.requestScope, design: true } });
     assert.equal(check.completionStatus, fixture.completeDesign ? 'complete' : 'incomplete');
     if (fixture.completeDesign) {

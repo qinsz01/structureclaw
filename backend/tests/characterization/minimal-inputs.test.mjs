@@ -1,9 +1,10 @@
 // Scenario: requests answered with minimal inputs (2026-10-18 product decision "用户要什么就做什么").
-// - Internal forces only, no material/section: no clarification, no report, no code check. A statically
-//   determinate beam runs on labelled unit stiffness; an indeterminate beam additionally states the
-//   equal-EI assumption. Displacements from such a run are never presented.
-// - A later displacement request after a placeholder run asks for the real material and section, and a
-//   code check refuses the placeholder model.
+// - Internal forces only, no material/section: no clarification. A statically determinate beam runs on
+//   labelled unit stiffness; an indeterminate beam additionally reports the equal-EI assumption.
+//   Displacements from such a run are never presented. Whether to report or check is the agent's
+//   decision; if it schedules a report anyway, the tool refuses the placeholder run with a recovery hint.
+// - A later displacement request after a placeholder run asks for the real material and section; a code
+//   check refuses the placeholder model with a recovery hint.
 // - A concrete frame without a rebar grade is analysed; the grade matters only for an explicit check.
 import { expect, test } from '@jest/globals';
 import { systemPrompt, toolCall } from './helpers/llm-fixture.mjs';
@@ -14,8 +15,8 @@ import { stepStatuses } from './helpers/normalize.mjs';
 const FORCE_SCOPE = { responses: ['forces', 'reactions'], method: 'solver', design: false, outputs: [] };
 
 const SIMPLE = {
-  zh: { message: '计算一个简支梁的内力，跨度10m，跨中集中荷载1kN', rule: '只求内力/反力', followUp: '那挠度呢' },
-  en: { message: 'Compute the internal forces of a simply supported beam, span 10 m, 1 kN point load at midspan', rule: 'Force-only requests', followUp: 'And the deflection?' },
+  zh: { message: '计算一个简支梁的内力，跨度10m，跨中集中荷载1kN', rule: '内力和反力不需要材料截面', followUp: '那挠度呢' },
+  en: { message: 'Compute the internal forces of a simply supported beam, span 10 m, 1 kN point load at midspan', rule: 'forces and reactions need no material or section', followUp: 'And the deflection?' },
 };
 const simpleDraft = {
   engineeringDraft: { structureType: 'beam', geometry: { lengthM: 10 }, boundary: { supportType: 'simply-supported' },
@@ -45,7 +46,7 @@ describeWithOpenSees('characterization: minimal inputs', () => {
       toolCall('run_analysis', { analysisType: 'static' }, `${prefix}-analysis`),
       toolCall('generate_report', { message: spec.message, analysisType: 'static', locale, narrative: 'structured' }, `${prefix}-report`),
       'Reactions 0.5 kN each; maximum moment 2.5 kN·m at midspan.',
-    ]);
+    ], { expectedToolErrors: 1 });
     expect(systemPrompt(turn.requests.find(request => request.kind === 'agent').body)).toContain(spec.rule);
     const extraction = toolResultSeenByAgent(turn.requests, `${prefix}-extract`);
     expect(extraction.criticalMissing).toEqual([]);
@@ -59,7 +60,9 @@ describeWithOpenSees('characterization: minimal inputs', () => {
     expect(analysis.success).toBe(true);
     expect(analysis.stiffnessPlaceholder).toMatchObject({ equalStiffnessAssumed: false, availableResponses: ['forces', 'reactions'] });
     expect(JSON.stringify(analysis)).not.toMatch(/maxAbsDisplacement|"displacements"/);
-    expect(toolResultSeenByAgent(turn.requests, `${prefix}-report`)).toMatchObject({ skipped: true, reason: 'REPORT_NOT_REQUESTED' });
+    const report = toolResultSeenByAgent(turn.requests, `${prefix}-report`);
+    expect(report).toMatchObject({ success: false, errorCode: 'STIFFNESS_PLACEHOLDER_RUN', nextAction: 'ask_user_clarification' });
+    expect(report.messageZh).toContain('实际材料和截面');
 
     const session = await ctx.backend.session(turn.conversationId);
     expect(session).toMatchObject({ waitingForReply: false, analysis: { current: true } });

@@ -1,13 +1,12 @@
 // Force-only requests without material/section: labelled unit stiffness, determinacy, no displacement output,
-// report only when requested, and code-determined design values shown with their sources.
+// and code-determined design values shown with their sources.
 import { describe, expect, test, beforeAll } from '@jest/globals';
 
-let placeholder, templateProperties, readiness, requestScope, codeChecks, modelBuilder;
+let placeholder, templateProperties, readiness, codeChecks, modelBuilder;
 beforeAll(async () => {
   placeholder = await import('../dist/engineering/stiffness-placeholder.js');
   templateProperties = await import('../dist/agent-runtime/template-properties.js');
   readiness = await import('../dist/agent-runtime/draft-readiness.js');
-  requestScope = await import('../dist/engineering/request-scope.js');
   codeChecks = await import('../dist/engineering/code-checks.js');
   modelBuilder = await import('../dist/agent-runtime/model-builder.js');
 });
@@ -117,18 +116,6 @@ describe('placeholder results are never presented with displacements', () => {
     expect(placeholder.isDisplacementSelection('displacements', undefined)).toBe(true);
     expect(placeholder.isDisplacementSelection('forces', 'uz')).toBe(true);
     expect(placeholder.isDisplacementSelection('forces', 'M2')).toBe(false);
-  });
-});
-
-describe('reports only when requested', () => {
-  test.each([
-    [{ ...FORCES }, false],
-    [{ ...FORCES, report: true }, true],
-    [{ ...FORCES, responses: ['forces', 'displacements'] }, true],
-    [{ ...FORCES, responses: ['displacements'], report: false }, false],
-    [undefined, true],
-  ])('reportRequested(%j) = %s', (scope, expected) => {
-    expect(requestScope.reportRequested(scope)).toBe(expected);
   });
 });
 

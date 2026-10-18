@@ -1,5 +1,7 @@
 // Scenario 2: natural-language draft path
-//   extract_draft_params → build_model → validate_model → run_analysis → run_code_check → generate_report
+//   extract_draft_params → build_model → validate_model → run_analysis → [run_code_check] → generate_report
+// The agent decides whether to check: the zh request asks for no check, so the script calls none (the
+// tool no longer second-guesses the agent's decision); the en request asks for a GB50017 check.
 // The internal structural-type router and parameter extractor are answered realistically by
 // inspecting each provider request; the agent tool-call sequence is scripted in order.
 import { expect, test } from '@jest/globals';
@@ -10,14 +12,15 @@ import { eventSignature, parseStepOutput, stepStatuses } from './helpers/normali
 import { simplySupportedCentralLoad } from './fixtures/engineering-beam.mjs';
 
 const DRAFT_PIPELINE = ['extract_draft_params', 'build_model', 'validate_model', 'run_analysis', 'run_code_check', 'generate_report'];
+const ANALYSIS_PIPELINE = DRAFT_PIPELINE.filter(tool => tool !== 'run_code_check');
 
-function pipelineScript(locale, prefix) {
+function pipelineScript(locale, prefix, { check = true } = {}) {
   return [
     toolCall('extract_draft_params', { locale }, `${prefix}-extract`),
     toolCall('build_model', {}, `${prefix}-build`),
     toolCall('validate_model', {}, `${prefix}-validate`),
     toolCall('run_analysis', { analysisType: 'static', analysisSkillId: 'opensees-static' }, `${prefix}-analysis`),
-    toolCall('run_code_check', { designCode: 'GB50017' }, `${prefix}-check`),
+    ...(check ? [toolCall('run_code_check', { designCode: 'GB50017' }, `${prefix}-check`)] : []),
     toolCall('generate_report', { message: locale === 'zh' ? '生成报告' : 'Generate the report', analysisType: 'static', locale,
       narrative: 'structured' }, `${prefix}-report`),
     `${prefix.toUpperCase()}_DONE`,
@@ -45,17 +48,16 @@ describeWithOpenSees('characterization: natural-language draft path', () => {
       'param-extractor': text => { seen.push('extractor'); expect(text).toContain('"skillId": "beam"'); return beamDraft; },
     }));
     const message = '一根6米长的简支钢梁，跨中作用10kN集中荷载，矩形截面宽200mm高400mm，钢材E=206000MPa，不计自重，请分析内力、反力和挠度并出报告。';
-    const turn = await runTurn(ctx, { message, context: { locale: 'zh' } }, pipelineScript('zh', 'zh-beam'));
+    const turn = await runTurn(ctx, { message, context: { locale: 'zh' } }, pipelineScript('zh', 'zh-beam', { check: false }));
 
     expect(seen).toEqual(['router', 'extractor']);
     expect(turn.requests.map(request => request.kind)).toEqual(['agent', 'structural-router', 'param-extractor',
-      'agent', 'agent', 'agent', 'agent', 'agent', 'agent']);
-    expect(stepStatuses(turn.steps)).toEqual(DRAFT_PIPELINE.map(tool => ({ tool, status: 'done' })));
+      'agent', 'agent', 'agent', 'agent', 'agent']);
+    expect(stepStatuses(turn.steps)).toEqual(ANALYSIS_PIPELINE.map(tool => ({ tool, status: 'done' })));
     expect(eventSignature(turn.events)).toMatchSnapshot('zh-beam-sse-event-sequence');
     expect(parseStepOutput(turn.steps, 'build_model')).toMatchObject({ success: true, nodeCount: 3, elementCount: 2, nextAction: 'run_analysis' });
     expect(parseStepOutput(turn.steps, 'validate_model').result).toEqual({ valid: true, schemaVersion: '2.2.0',
       stats: { nodes: 3, elements: 2, materials: 1, sections: 1, loadCases: 1, loadCombinations: 0 } });
-    expect(parseStepOutput(turn.steps, 'run_code_check')).toMatchObject({ success: true, skipped: true, reason: 'DESIGN_NOT_REQUESTED' });
 
     const { model } = await ctx.backend.inputReview(turn.conversationId);
     expect(model.nodes).toEqual([
