@@ -43,8 +43,8 @@ Lower layers never import higher ones; no cycles.
 | 1 | Characterization suite (`backend/tests/characterization`), dist-surface test, prompt/hash snapshots |
 | 2 | Delete dead code: `agent-runtime/{patch-reducer,artifact-helpers,load-boundary-types}.ts`, `services/{agent-policy,agent-pipeline-state}.ts`, `AgentSkillRuntime.extractDraftParameters`, `detectRequestedAnalysisSkillId`, `validation/structure-json/runtime.py`, abandoned load-boundary Python |
 | 3 | `shared/locale.ts`, `runtime/limits.ts` (single 200 tool-call default), `runtime/run-policy-schema.ts`; dep-cruiser at warn |
-| 4 | Break file cycles (input-evidence↔model-state, graph↔system-prompt, section-catalog 3-cycle); move `policy-settings` to host layer |
-| 5 | `shared/types`, coordinate-semantics/section-catalog/member-response into `engineering/` with shims; dep-cruiser at error |
+| 4 | Break file cycles (input-evidence↔model-state, graph↔system-prompt, the former section-catalog 3-cycle); move `policy-settings` to host layer |
+| 5 | `shared/types`, coordinate-semantics/member-response into `engineering/` with shims; dep-cruiser at error. The section catalogue moved with them was later removed (`dbc164d`): designations no longer select catalogue data |
 | 6 | Engine catalog `agent-skills/analysis/catalog.ts` + TS/manifest parity test |
 | 7 | Split `tools.ts` into `agent-langgraph/tools/*` (barrel keeps exports) |
 | 8 | Split `agent-service.ts` (attachments/ground-motion, initial-message, session/snapshot) |
