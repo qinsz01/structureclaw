@@ -449,7 +449,8 @@ class TestBackwardCompatibility:
         assert len(all_items) > 0
         for item in all_items:
             assert item['utilization'] is None
-            assert item['status'] == 'input_required'
+            # GB 50017-2017 sets no slenderness limit for flexural members.
+            assert item['status'] == ('not_applicable' if item['item'] == '长细比' else 'input_required')
 
     def test_caller_override_priority(self):
         """When both elementData and utilizationByElement provide values, caller wins."""

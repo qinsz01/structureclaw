@@ -169,6 +169,7 @@ export function extractElementDataForCodeCheck(
     let derivedS_mm3 = S_mm3;
     let derivedTw_mm = tw_mm;
     let derivedAs_mm2 = As_mm2;
+    let derivedWzMm3 = Number(sectionProps['Wz'] ?? 0) * 1e9;
     if (sectionShape && ['H', 'I', 'built-up-I'].includes(String(sectionShape['kind']))) {
       const Hmm = Number(sectionShape['H'] ?? 0);
       const Bmm = Number(sectionShape['B'] ?? 0);
@@ -192,6 +193,9 @@ export function extractElementDataForCodeCheck(
         }
         if (derivedAs_mm2 <= 0 && !swappedPrincipalAxes) {
           derivedAs_mm2 = twmm * hw;
+        }
+        if (derivedWzMm3 <= 0 && !swappedPrincipalAxes && Iz_mm4 > 0) {
+          derivedWzMm3 = Iz_mm4 / (Bmm / 2);
         }
       }
     }
@@ -319,6 +323,7 @@ export function extractElementDataForCodeCheck(
         ...(i_min !== undefined ? { i: i_min, imin: i_min } : {}),
         ...Object.fromEntries(['b', 't'].flatMap(key => finiteNumber(sectionProps[key]) ? [[key, sectionProps[key] * 1000]] : [])),
         ...(derivedWnxMm3 > 0 ? { Wx: derivedWnxMm3, Wnx: derivedWnxMm3 } : {}),
+        ...(derivedWzMm3 > 0 ? { Wz: derivedWzMm3 } : {}),
         ...(derivedS_mm3 > 0 ? { S: derivedS_mm3 } : {}),
         ...(derivedTw_mm > 0 ? { tw: derivedTw_mm } : {}),
         ...(derivedAs_mm2 > 0 ? { As: derivedAs_mm2 } : {}),

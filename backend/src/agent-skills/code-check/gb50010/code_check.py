@@ -9,6 +9,14 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 import math
+import sys
+from pathlib import Path
+
+_SHARED_PYTHON = Path(__file__).resolve().parents[3] / 'skill-shared' / 'python'
+if _SHARED_PYTHON.exists() and str(_SHARED_PYTHON) not in sys.path:
+    sys.path.insert(0, str(_SHARED_PYTHON))
+
+from structure_protocol.design_code_tables import CONCRETE_GRADES, REBAR_GRADES, concrete_value, rebar_value  # noqa: E402
 
 
 def get_rules() -> Dict[str, Any]:
@@ -67,31 +75,28 @@ def _resolve_element_type(elem_id: str, context: Dict[str, Any]) -> str:
 # Material property lookup — GB/T 50010-2010 Tables 4.1.3, 4.1.5, 4.2.3
 # ---------------------------------------------------------------------------
 
-_CONCRETE_GRADES: Dict[str, Dict[str, float]] = {
-    'C20':  {'fck': 13.4, 'ftk': 1.54, 'fc': 9.6,  'ft': 1.10, 'Ec': 25500, 'ecu': 0.0033, 'alpha1': 1.0,  'beta1': 0.80},
-    'C25':  {'fck': 16.7, 'ftk': 1.78, 'fc': 11.9, 'ft': 1.27, 'Ec': 28000, 'ecu': 0.0033, 'alpha1': 1.0,  'beta1': 0.80},
-    'C30':  {'fck': 20.1, 'ftk': 2.01, 'fc': 14.3, 'ft': 1.43, 'Ec': 30000, 'ecu': 0.0033, 'alpha1': 1.0,  'beta1': 0.80},
-    'C35':  {'fck': 23.4, 'ftk': 2.20, 'fc': 16.7, 'ft': 1.57, 'Ec': 31500, 'ecu': 0.0033, 'alpha1': 1.0,  'beta1': 0.80},
-    'C40':  {'fck': 26.8, 'ftk': 2.39, 'fc': 19.1, 'ft': 1.71, 'Ec': 32500, 'ecu': 0.0033, 'alpha1': 1.0,  'beta1': 0.80},
-    'C45':  {'fck': 29.6, 'ftk': 2.51, 'fc': 21.1, 'ft': 1.80, 'Ec': 33500, 'ecu': 0.0033, 'alpha1': 0.99, 'beta1': 0.79},
-    'C50':  {'fck': 32.4, 'ftk': 2.64, 'fc': 23.1, 'ft': 1.89, 'Ec': 34500, 'ecu': 0.0033, 'alpha1': 0.98, 'beta1': 0.78},
-    'C55':  {'fck': 35.5, 'ftk': 2.74, 'fc': 25.3, 'ft': 1.96, 'Ec': 35500, 'ecu': 0.00325,'alpha1': 0.97, 'beta1': 0.77},
-    'C60':  {'fck': 38.5, 'ftk': 2.85, 'fc': 27.5, 'ft': 2.04, 'Ec': 36000, 'ecu': 0.0032, 'alpha1': 0.96, 'beta1': 0.76},
-    'C65':  {'fck': 41.5, 'ftk': 2.93, 'fc': 29.7, 'ft': 2.09, 'Ec': 36500, 'ecu': 0.00315,'alpha1': 0.95, 'beta1': 0.75},
-    'C70':  {'fck': 44.5, 'ftk': 2.99, 'fc': 31.8, 'ft': 2.14, 'Ec': 37000, 'ecu': 0.0031, 'alpha1': 0.94, 'beta1': 0.74},
-    'C75':  {'fck': 47.4, 'ftk': 3.05, 'fc': 33.8, 'ft': 2.18, 'Ec': 37500, 'ecu': 0.00305,'alpha1': 0.93, 'beta1': 0.73},
-    'C80':  {'fck': 50.2, 'ftk': 3.11, 'fc': 35.9, 'ft': 2.22, 'Ec': 38000, 'ecu': 0.003,  'alpha1': 0.92, 'beta1': 0.72},
-}
+# Centralised tables: structure_protocol/design_code_tables.py (GB 50010-2010 4.1.3/4.1.4/4.1.5, 4.2.2/4.2.3/4.2.5).
+_CONCRETE_GRADES: Dict[str, Dict[str, float]] = CONCRETE_GRADES
+_REBAR_GRADES: Dict[str, Dict[str, float]] = REBAR_GRADES
 
-_REBAR_GRADES: Dict[str, Dict[str, float]] = {
-    'HPB300': {'fyk': 300, 'fstk': 420, 'fy': 270, 'fy_compression': 270, 'fyv': 270, 'Es': 210000},
-    'HRB335': {'fyk': 335, 'fstk': 455, 'fy': 300, 'fy_compression': 300, 'fyv': 300, 'Es': 200000},
-    'HRB400': {'fyk': 400, 'fstk': 540, 'fy': 360, 'fy_compression': 360, 'fyv': 360, 'Es': 200000},
-    'HRBF400':{'fyk': 400, 'fstk': 540, 'fy': 360, 'fy_compression': 360, 'fyv': 360, 'Es': 200000},
-    'RRB400': {'fyk': 400, 'fstk': 540, 'fy': 360, 'fy_compression': 360, 'fyv': 360, 'Es': 200000},
-    'HRB500': {'fyk': 500, 'fstk': 630, 'fy': 435, 'fy_compression': 410, 'fyv': 360, 'Es': 200000},
-    'HRBF500':{'fyk': 500, 'fstk': 630, 'fy': 435, 'fy_compression': 410, 'fyv': 360, 'Es': 200000},
-}
+
+def _design_value_sources(concrete_grade: str | None, rebar_grade: str | None, elem_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Source of each strength the checks use: the model's own value (it overrides), otherwise the code table."""
+    material = elem_data.get('material', {}) if isinstance(elem_data.get('material'), dict) else {}
+    rows: List[Dict[str, Any]] = []
+    for key, lookup, grade, label in (('fc', concrete_value, concrete_grade, 'material.design.fc'),
+                                      ('ft', concrete_value, concrete_grade, 'material.design.ft'),
+                                      ('fy', rebar_value, rebar_grade, 'material.design.fy'),
+                                      ('fyv', rebar_value, rebar_grade, 'material.design.fyv')):
+        value = material.get(key)
+        found = lookup(grade, key)
+        # A model value equal to the table value is the table value; a different one is an explicit override.
+        if isinstance(value, (int, float)) and not isinstance(value, bool) and not (found and abs(float(value) - found['value']) <= 1e-9):
+            rows.append({'field': label, 'value': float(value), 'unit': 'MPa', 'origin': 'model-input', 'source': f'materials.design.{key}'})
+            continue
+        if found:
+            rows.append({'field': label, 'value': found['value'], 'unit': 'MPa', 'origin': 'code-table', 'source': found['source']})
+    return rows
 
 
 def _resolve_material_props(
@@ -289,6 +294,76 @@ def _compute_utilization_overrides(
     return computed
 
 
+def missing_inputs(elem_id: str, item: str, context: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Operands an unexecuted check lacks; code-table values are looked up from the grades."""
+    element_data = context.get('elementData', {})
+    element = element_data.get(elem_id, {}) if isinstance(element_data, dict) else {}
+    element = element if isinstance(element, dict) else {}
+    section = element.get('section', {}) if isinstance(element.get('section'), dict) else {}
+    forces = element.get('forces', {}) if isinstance(element.get('forces'), dict) else {}
+    material = element.get('material', {}) if isinstance(element.get('material'), dict) else {}
+    element_context = _resolve_element_context(elem_id, context)
+    mat = _resolve_material_props(element_context.get('concreteGrade') or material.get('concreteGrade') or material.get('grade'),
+                                  element_context.get('rebarGrade') or material.get('rebarGrade'), element)
+    missing: List[Dict[str, Any]] = []
+
+    def valid(record: Dict[str, Any], keys: List[str], positive: bool = True) -> bool:
+        return any(isinstance(record.get(key), (int, float)) and not isinstance(record.get(key), bool)
+                   and math.isfinite(record[key]) and (not positive or record[key] > 0) for key in keys)
+
+    def require(record: Dict[str, Any], keys: List[str], field: str, label: str, unit: str, source: str, positive: bool = True) -> None:
+        if not valid(record, keys, positive) and not any(row['field'] == field for row in missing):
+            missing.append({'field': field, 'label': label, 'unit': unit, 'source': source})
+
+    concrete = lambda key, label: require(mat, [key], f'material.design.{key}', f'{label}（由混凝土强度等级按 GB 50010 确定）/ {label} (from the concrete grade, GB 50010)', 'MPa', 'design')
+    rebar = lambda key, label: require(mat, [key], f'material.design.{key}', f'{label}（由钢筋牌号按 GB 50010 表4.2.3 确定）/ {label} (from the rebar grade, GB 50010 Table 4.2.3)', 'MPa', 'design')
+    width = lambda: require(section, ['width', 'B'], 'section.width', '截面宽度 b / Section width b', 'mm', 'section')
+    height = lambda: require(section, ['height', 'H'], 'section.height', '截面高度 h / Section height h', 'mm', 'section')
+    depth = lambda: require(element, ['h0'], 'member.design.h0', '有效高度 h0（或保护层与钢筋直径）/ Effective depth h0 (or cover and bar diameters)', 'mm', 'design')
+    steel = lambda key, label: require(element, [key], f'member.design.reinforcement.values.{key}', label, 'mm2' if key in ('As', 'Asv') else 'mm', 'design')
+    if item == '轴压比':
+        require(forces, ['N'], 'forces.N', '轴力 / Axial force', 'N', 'result', False)
+        require(section, ['A'], 'section.A', '截面面积 / Section area', 'mm2', 'section')
+        concrete('fc', '混凝土抗压强度设计值 fc / Concrete design strength fc')
+        require(element, ['axialRatioLimit'], 'member.design.axialRatioLimit', '轴压比限值及依据 / Axial-compression ratio limit and basis', '1', 'design')
+    elif item == '长细比':
+        require(element, ['l0'], 'member.design.l0', '计算长度及约束依据 / Effective length and restraint basis', 'mm', 'design')
+        require(element, ['lambdaLimit'], 'member.design.lambdaLimit', '长细比限值 / Slenderness limit', '1', 'design')
+    elif item == '偏心受压':
+        require(forces, ['N'], 'forces.N', '轴力 / Axial force', 'N', 'result', False)
+        require(forces, ['Mx'], 'forces.Mx', '弯矩 / Bending moment', 'N.mm', 'result', False)
+        width(); height(); depth()
+        steel('As', '纵筋面积 As / Longitudinal reinforcement area As')
+        concrete('fc', '混凝土抗压强度设计值 fc / Concrete design strength fc')
+        rebar('fy', '钢筋抗拉强度设计值 fy / Rebar design strength fy')
+        require(element, ['l0'], 'member.design.l0', '计算长度及约束依据 / Effective length and restraint basis', 'mm', 'design')
+    elif item == '斜截面受剪':
+        require(forces, ['V'], 'forces.V', '剪力 / Shear force', 'N', 'result', False)
+        width(); depth()
+        concrete('ft', '混凝土抗拉强度设计值 ft / Concrete tensile design strength ft')
+        rebar('fyv', '箍筋抗拉强度设计值 fyv / Stirrup design strength fyv')
+        steel('Asv', '箍筋面积 Asv / Stirrup area Asv')
+        steel('stirrup_spacing', '箍筋间距 s / Stirrup spacing s')
+    elif item == '正截面受弯':
+        require(forces, ['Mx'], 'forces.Mx', '弯矩 / Bending moment', 'N.mm', 'result', False)
+        width(); depth()
+        steel('As', '纵筋面积 As / Longitudinal reinforcement area As')
+        concrete('fc', '混凝土抗压强度设计值 fc / Concrete design strength fc')
+        rebar('fy', '钢筋抗拉强度设计值 fy / Rebar design strength fy')
+    elif item == '挠度':
+        require(forces if 'deflection' in forces else element, ['deflection'], 'response.deflection', '使用工况相对挠度 / Service relative deflection', 'mm', 'result', False)
+        require(element, ['deflectionLimitN'], 'member.design.deflectionLimitN', '挠度限值 L/n 的 n 及依据（取决于构件类别）/ Denominator n of L/n and basis (depends on member category)', '1', 'design')
+    elif item == '裂缝宽度':
+        require(forces, ['M_service'], 'member.design.serviceability_result_keys', '使用工况或组合 / Service case or combination', 'result key', 'design', False)
+        width(); height(); depth()
+        steel('As', '纵筋面积 As / Longitudinal reinforcement area As')
+        steel('main_dia', '纵筋直径 / Main bar diameter')
+        steel('crack_cover', '裂缝计算保护层厚度 / Cover for crack width', )
+        require(element, ['crackWidthLimit'], 'member.design.crackWidthLimit', '裂缝宽度限值及依据 / Crack-width limit and basis', 'mm', 'design')
+        require(element, ['alpha_cr'], 'member.design.alpha_cr', '构件受力特征系数 αcr / Member stress-type factor αcr', '1', 'design')
+    return missing
+
+
 def _has_spacing_metadata(elem_id: str, context: Dict[str, Any]) -> bool:
     """Check whether the element has complete rebar spacing metadata in elementData."""
     element_data = context.get('elementData', {})
@@ -420,4 +495,9 @@ def check_element(checker: Any, elem_id: str, context: Dict[str, Any]) -> Dict[s
         'concreteGrade': element_context.get('concreteGrade'),
         'rebarGrade': element_context.get('rebarGrade'),
     }
+    data = context.get('elementData', {}).get(elem_id, {}) if isinstance(context.get('elementData'), dict) else {}
+    material = data.get('material', {}) if isinstance(data, dict) and isinstance(data.get('material'), dict) else {}
+    result['designValues'] = _design_value_sources(
+        element_context.get('concreteGrade') or material.get('concreteGrade') or material.get('grade'),
+        element_context.get('rebarGrade') or material.get('rebarGrade'), data if isinstance(data, dict) else {})
     return result

@@ -1,7 +1,7 @@
 import { buildReportDomainArtifacts } from '../agent-skills/report-export/entry.js';
 import { buildDefaultReportNarrative } from './report-template.js';
 import type { SkillReportNarrativeInput } from '../shared/types/agent.js';
-import { formatCheckSummary } from '../engineering/code-checks.js';
+import { checkDesignValues, designValueLines, formatCheckSummary } from '../engineering/code-checks.js';
 import { reportResultRows, resultTableMarkdown } from '../engineering/result-data.js';
 import { isRecord, modelHash } from '../engineering/model-state.js';
 import { createHash } from 'node:crypto';
@@ -70,6 +70,10 @@ export function finishEngineeringReport(prepared: ReturnType<typeof prepareEngin
   if (limitedChecks) markdown += input.locale === 'zh'
     ? '\n本报告仅包含用户明确选择的专项校核；未请求项目未校核，不构成完整设计合格结论。\n'
     : '\nThis report covers only the explicitly requested checks. Unrequested checks were not performed; this does not establish complete design compliance.\n';
+  const designValues = check ? designValueLines(checkDesignValues(check), input.locale) : [];
+  if (designValues.length) markdown += input.locale === 'zh'
+    ? `\n规范校核采用的规范及几何确定值（模型中给出的数值优先）：\n\n${designValues.join('\n')}\n`
+    : `\nCode- and geometry-determined values used by the code check (values given in the model take precedence):\n\n${designValues.join('\n')}\n`;
   if (reportResultRows(input.analysis).some(row => row.capabilityStatus === 'partial')) markdown += input.locale === 'zh'
     ? '\n本次运行包含部分能力或估算结果；不能视为原结构完整分析或全面规范合格。\n'
     : '\nThis run includes partial capabilities or estimates; it does not establish complete analysis or overall code compliance.\n';

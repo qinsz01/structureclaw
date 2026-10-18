@@ -64,6 +64,54 @@ export function formatCheckSummary(summary: ModelRecord | undefined, locale: 'zh
   return base + suffix + (unavailable || summary.inputRequired !== undefined || summary.unsupported !== undefined ? scope : '');
 }
 
+const DESIGN_VALUE_LABELS: Record<string, { zh: string; en: string }> = {
+  'material.design.f': { zh: '抗拉、抗压和抗弯强度设计值 f', en: 'design strength f' },
+  'material.design.fv': { zh: '抗剪强度设计值 fv', en: 'shear design strength fv' },
+  'material.fy': { zh: '屈服强度 fy', en: 'yield strength fy' },
+  'material.design.fc': { zh: '混凝土轴心抗压强度设计值 fc', en: 'concrete design strength fc' },
+  'material.design.ft': { zh: '混凝土轴心抗拉强度设计值 ft', en: 'concrete tensile design strength ft' },
+  'material.design.fy': { zh: '钢筋抗拉强度设计值 fy', en: 'rebar design strength fy' },
+  'material.design.fyv': { zh: '箍筋抗拉强度设计值 fyv', en: 'stirrup design strength fyv' },
+  'section.b': { zh: '翼缘外伸宽度 b', en: 'flange outstand b' },
+  'section.t': { zh: '翼缘厚度 t', en: 'flange thickness t' },
+  'section.h0': { zh: '腹板计算高度 h0', en: 'web depth h0' },
+  'section.tw': { zh: '腹板厚度 tw', en: 'web thickness tw' },
+  'section.Wnx': { zh: '强轴截面模量 Wnx', en: 'strong-axis section modulus Wnx' },
+  'section.Wz': { zh: '弱轴截面模量 Wz', en: 'weak-axis section modulus Wz' },
+  'section.S': { zh: '面积矩 S', en: 'first moment of area S' },
+  'section.imin': { zh: '最小回转半径 imin', en: 'minimum radius of gyration imin' },
+  epsilonK: { zh: '钢号修正系数 εk', en: 'steel grade factor εk' },
+  'member.design.btLimit': { zh: '翼缘宽厚比限值', en: 'flange width-thickness limit' },
+  'member.design.webLimit': { zh: '腹板高厚比限值', en: 'web depth-thickness limit' },
+  'member.design.beta1': { zh: '折算应力强度增大系数 β1', en: 'equivalent-stress factor β1' },
+  'member.design.lambdaLimit': { zh: '容许长细比 [λ]', en: 'slenderness limit [λ]' },
+};
+
+/** Design values each check used, with their recorded sources, grouped over the elements sharing them. */
+export function checkDesignValues(check: ModelRecord): ModelRecord[] {
+  const rows = new Map<string, ModelRecord>();
+  for (const detail of Array.isArray(check.details) ? check.details.filter(isRecord) : []) {
+    for (const value of Array.isArray(detail.designValues) ? detail.designValues.filter(isRecord) : []) {
+      const key = JSON.stringify([value.field, value.value, value.unit, value.source]);
+      const saved = rows.get(key);
+      if (saved) saved.elementIds = [...new Set([...(saved.elementIds as unknown[]), detail.elementId])];
+      else rows.set(key, { ...value, elementIds: [detail.elementId] });
+    }
+  }
+  return [...rows.values()];
+}
+
+/** One line per value: label = value unit (source). */
+export function designValueLines(rows: ModelRecord[], locale: 'zh' | 'en'): string[] {
+  return rows.map(row => {
+    const label = DESIGN_VALUE_LABELS[String(row.field)];
+    const name = label ? label[locale] : String(row.field);
+    const unit = row.unit && row.unit !== '1' ? ` ${String(row.unit)}` : '';
+    return locale === 'zh' ? `- ${name} = ${String(row.value)}${unit}（${String(row.source)}）`
+      : `- ${name} = ${String(row.value)}${unit} (${String(row.source)})`;
+  });
+}
+
 /**
  * Keep both missing inputs and computed evidence in the agent's tool response. Missing inputs are
  * reported, never turned into a clarification interrupt, with or without the clarification tool.
@@ -121,14 +169,16 @@ export function codeCheckFeedback(check: ModelRecord, model?: ModelRecord, analy
     // not-performed list; the user may supply inputs in a later turn.
     nextAction = unresolvedResults.length ? 'inspect_analysis' : unsupported && !missingFields.length ? 'inspect_capability' : 'report_missing_inputs';
   }
+  const designValues = checkDesignValues(check);
   return { completionStatus: check.completionStatus, complianceStatus: check.complianceStatus, summary: check.summary,
+    ...(designValues.length ? { designValues } : {}),
     checkedItems: { runId: isRecord(check.meta) ? check.meta.runId : undefined,
       totalCount: checkedItems.length, truncated: checkedItems.length > 100, items: checkedItems.slice(0, 100) },
     ...(check.checkScope ? { checkScope: check.checkScope } : {}),
     requestedChecksPassed: check.completionStatus === 'complete' && check.complianceStatus === 'pass',
     missingInputs: missingFields, writeTargets: [...writeTargets.values()], missingInputCount: writeTargets.size + missingFields.filter(row => !row.writable).length,
     availableResultKeys: isRecord(analysis?.results) ? Object.keys(analysis.results) : [], editGuidance: modelEditGuidance,
-    guidance: 'Do not ask clarification questions for missing design inputs and do not loop: report the performed checks and list the checks not performed with their missing inputs in the final reply; the user may supply them in a later turn. Write inputs the user already supplied to the listed owners. Explain checks using checkedItems: preserve each formula, demand, capacity, unit, utilization and selection. Never combine coefficients across different checks or invent missing calculations. If truncated, use the saved report for remaining items. / 不要为缺失设计输入发起追问或循环：在最终回复中报告已完成校核，并列出未执行项及所缺输入，用户可在后续轮次补充；用户已给出的输入按目标路径写入。校核解释须引用checkedItems中各自的公式、需求、承载力、单位、利用率及工况，不得混用不同校核的系数或编造缺失计算；截断的其余项目查阅保存报告。',
+    guidance: 'designValues lists code- and geometry-determined values (design strengths from grade and thickness, section properties, clause factors) with their sources; cite them with their sources in the reply and never ask the user for them. Do not ask clarification questions for missing design inputs and do not loop: report the performed checks and list the checks not performed with their missing inputs in the final reply; the user may supply them in a later turn. Write inputs the user already supplied to the listed owners. Explain checks using checkedItems: preserve each formula, demand, capacity, unit, utilization and selection. Never combine coefficients across different checks or invent missing calculations. If truncated, use the saved report for remaining items. / 不要为缺失设计输入发起追问或循环：在最终回复中报告已完成校核，并列出未执行项及所缺输入，用户可在后续轮次补充；用户已给出的输入按目标路径写入。校核解释须引用checkedItems中各自的公式、需求、承载力、单位、利用率及工况，不得混用不同校核的系数或编造缺失计算；截断的其余项目查阅保存报告。',
     inputRequiredChecks: missingInputs.map(({ fields: _fields, ...row }) => row),
     nextAction,
     conclusionEligible: !limited && check.completionStatus === 'complete' && check.complianceStatus === 'pass' };
@@ -185,6 +235,10 @@ export function codeCheckDeliveryNotice(check: ModelRecord, locale: 'zh' | 'en')
   const feedback = codeCheckFeedback(check);
   const summaryText = formatCheckSummary(isRecord(check.summary) ? check.summary : undefined, locale);
   const { performed, notPerformed } = checkDeliveryLists(feedback, locale);
+  const designValues = designValueLines(checkDesignValues(check), locale);
+  const valuesText = designValues.length
+    ? (locale === 'zh' ? `采用的规范及几何确定值：\n${designValues.join('\n')}\n\n` : `Code- and geometry-determined values used:\n${designValues.join('\n')}\n\n`)
+    : '';
   const performedText = performed.length
     ? (locale === 'zh' ? `已完成的校核：\n${performed.join('\n')}\n\n` : `Checks performed:\n${performed.join('\n')}\n\n`)
     : (locale === 'zh' ? '尚无可完成的校核项。\n\n' : 'No check could be completed yet.\n\n');
@@ -193,8 +247,8 @@ export function codeCheckDeliveryNotice(check: ModelRecord, locale: 'zh' | 'en')
       : `Checks not performed and missing inputs / 未执行的校核及所缺输入:\n${notPerformed.join('\n')}\n\n`)
     : '';
   return locale === 'zh'
-    ? `规范校核未全部完成，不能给出设计合格结论。\n\n${summaryText}。\n\n${performedText}${notPerformedText}如需完成其余校核，请在后续消息中提供上述输入（不会使用默认值）；计算结果缺失项需检查分析工况，不能用手填数值替代。`
-    : `Code checking is not complete; design compliance has not been established.\n\n${summaryText}.\n\n${performedText}${notPerformedText}To complete the remaining checks, supply these inputs in a later message (no defaults are assumed). Missing computed results require inspection of the analysis case, not manually invented values.`;
+    ? `规范校核未全部完成，不能给出设计合格结论。\n\n${summaryText}。\n\n${performedText}${valuesText}${notPerformedText}如需完成其余校核，请在后续消息中提供上述输入（不会使用默认值）；计算结果缺失项需检查分析工况，不能用手填数值替代。`
+    : `Code checking is not complete; design compliance has not been established.\n\n${summaryText}.\n\n${performedText}${valuesText}${notPerformedText}To complete the remaining checks, supply these inputs in a later message (no defaults are assumed). Missing computed results require inspection of the analysis case, not manually invented values.`;
 }
 
 const bilingualCheckName = (value: unknown): string => {

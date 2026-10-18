@@ -5,8 +5,16 @@
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 import math
+import sys
+from pathlib import Path
+
+_SHARED_PYTHON = Path(__file__).resolve().parents[3] / 'skill-shared' / 'python'
+if _SHARED_PYTHON.exists() and str(_SHARED_PYTHON) not in sys.path:
+    sys.path.insert(0, str(_SHARED_PYTHON))
+
+from structure_protocol.design_code_tables import WIDTH_THICKNESS_S4, epsilon_k, nominal_yield, normalize_steel_grade, steel_strength  # noqa: E402
 
 
 RULE_VERSION = 'v2-member-checks'
@@ -122,6 +130,88 @@ def get_rules() -> Dict[str, Any]:
             },
         ],
     }
+
+
+# ---------------------------------------------------------------------------
+# Code-determined design values (recorded with their sources; model values override)
+# ---------------------------------------------------------------------------
+
+def _finite(value: Any) -> Optional[float]:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    value = float(value)
+    return value if math.isfinite(value) else None
+
+
+def _h_shape(section: Dict[str, Any]) -> Optional[Dict[str, float]]:
+    shape = section.get('shape') if isinstance(section.get('shape'), dict) else {}
+    if shape.get('kind') not in {'H', 'I', 'built-up-I'}:
+        return None
+    dims = {key: _finite(shape.get(key)) for key in ('H', 'B', 'tw', 'tf')}
+    if any(value is None or value <= 0 for value in dims.values()) or dims['H'] <= 2 * dims['tf'] or dims['B'] <= dims['tw']:
+        return None
+    return dims  # type: ignore[return-value]
+
+
+def resolve_design_values(elem: Dict[str, Any], element_type: str) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
+    """Fill code-determined inputs that the model does not supply; return the element copy and the sources.
+
+    f, fv, fy: Table 4.4.1 by grade and governing plate thickness (flange tf for H sections).
+    b/t and h0/tw: sharp-corner H geometry. εk = sqrt(235/fy) with the grade's nominal yield.
+    Width-thickness limits: Table 3.5.1 class S4, the class 6.1.1 needs for the full section
+    modulus with γx = 1.0 (γx is not used). β1 = 1.1 per 6.1.5 because the analysis model
+    computes no local compressive stress σc. Slenderness limit 150 for columns (7.4.6) only.
+    Judgment inputs (φb, l0, L/n, service case) are never filled.
+    """
+    material = dict(elem.get('material') or {}) if isinstance(elem.get('material'), dict) else {}
+    section = dict(elem.get('section') or {}) if isinstance(elem.get('section'), dict) else {}
+    result = {**elem, 'material': material, 'section': section}
+    rows: List[Dict[str, Any]] = []
+    grade = next((value for value in (material.get('grade'), material.get('name')) if normalize_steel_grade(value)), None)
+    shape = _h_shape(section)
+
+    def record(field: str, value: float, unit: str, origin: str, source: str) -> None:
+        rows.append({'field': field, 'value': round(value, 6), 'unit': unit, 'origin': origin, 'source': source})
+
+    thickness = shape['tf'] if shape else _finite(section.get('t')) or _finite(section.get('flangeThickness'))
+    strength = steel_strength(grade, thickness) if grade and thickness else None
+    for key in ('f', 'fv'):
+        supplied = _finite(material.get(key))
+        if supplied is not None and supplied > 0:
+            record(f'material.design.{key}', supplied, 'MPa', 'model-input', f'materials.design.{key}')
+        elif strength:
+            material[key] = strength[key]
+            record(f'material.design.{key}', strength[key], 'MPa', 'code-table', strength['source'])
+    if strength:
+        record('material.fy', strength['fy'], 'MPa', 'code-table', strength['source'])
+    if shape:
+        geometry = f"无圆角H形截面 {shape['H']:g}×{shape['B']:g}×{shape['tw']:g}×{shape['tf']:g} / sharp-corner H geometry"
+        derived = {'b': (shape['B'] - shape['tw']) / 2, 't': shape['tf'], 'h0': shape['H'] - 2 * shape['tf'], 'tw': shape['tw']}
+        for key, value in derived.items():
+            if _finite(section.get(key)) is None:
+                section[key] = value
+            same = abs(section[key] - value) <= 1e-9 * max(1.0, abs(value))
+            record(f'section.{key}', section[key], 'mm', 'geometry' if same else 'model-input',
+                   geometry if same else f'sections.properties.{key}')
+        for key, unit in (('Wnx', 'mm3'), ('Wz', 'mm3'), ('S', 'mm3'), ('imin', 'mm')):
+            if _finite(section.get(key)) is not None:
+                record(f'section.{key}', section[key], unit, 'geometry', geometry)
+    eps = epsilon_k(grade) if grade else None
+    if eps:
+        record('epsilonK', eps, '1', 'clause', f'GB 50017-2017 εk=√(235/fy), fy={nominal_yield(grade):g} ({normalize_steel_grade(grade)})')
+        if element_type in {'beam', 'column'} and _finite(elem.get('btLimit')) is None:
+            result['btLimit'] = WIDTH_THICKNESS_S4['flange'] * eps
+            record('member.design.btLimit', result['btLimit'], '1', 'clause', 'GB 50017-2017 表3.5.1 S4级翼缘 15εk（6.1.1 全截面模量、γx=1.0 所需）/ Table 3.5.1 class S4 flange (full section modulus, γx=1.0)')
+        if element_type == 'beam' and shape and _finite(elem.get('webLimit')) is None:
+            result['webLimit'] = WIDTH_THICKNESS_S4['beam_web'] * eps
+            record('member.design.webLimit', result['webLimit'], '1', 'clause', 'GB 50017-2017 表3.5.1 S4级受弯构件腹板 124εk / Table 3.5.1 class S4 flexural web')
+    if element_type == 'beam' and _finite(elem.get('beta1')) is None:
+        result['beta1'] = 1.1
+        record('member.design.beta1', 1.1, '1', 'clause', 'GB 50017-2017 6.1.5: σc=0（模型未计算局部压应力）取 β1=1.1 / σc=0 (no local compressive stress modelled)')
+    if element_type == 'column' and _finite(elem.get('lambdaLimit')) is None:
+        result['lambdaLimit'] = 150.0
+        record('member.design.lambdaLimit', 150.0, '1', 'clause', 'GB 50017-2017 表7.4.6 柱 [λ]=150 / Table 7.4.6 columns')
+    return result, rows
 
 
 # ---------------------------------------------------------------------------
@@ -257,7 +347,12 @@ def _compute_utilization_overrides(
         save('轴压稳定', abs(N) / (phi_axial * A * f), abs(N), phi_axial*A*f, 'N')
     b, t, bt_limit = positive(section, 'flangeWidth', 'b'), positive(section, 'flangeThickness', 't'), positive(elem, 'btLimit')
     if b and t and bt_limit:
-        save('局部稳定', b / t / bt_limit, b/t, bt_limit, '1')
+        h0, web_limit = positive(section, 'h0'), positive(elem, 'webLimit')
+        ratios = [(b / t / bt_limit, b / t, bt_limit)]
+        if h0 and tw and web_limit:
+            ratios.append((h0 / tw / web_limit, h0 / tw, web_limit))
+        governing = max(ratios, key=lambda row: row[0])
+        save('局部稳定', governing[0], governing[1], governing[2], '1')
     # Geometric/mesh element length is not an effective buckling length. The
     # bridge supplies l0 only from explicit design data; do not infer restraints
     # or a length factor from the analysis discretization.
@@ -319,7 +414,7 @@ def missing_inputs(elem_id: str, item: str, context: Dict[str, Any]) -> List[Dic
     if item == '整体稳定':
         bending()
         require(material, ['f'], 'material.design.f', '设计强度 / Design strength', 'MPa')
-        require(element, ['phi_b', 'phi'], 'member.design.phi_b', '整体稳定系数及支承依据 / Lateral stability factor and support basis', '1')
+        require(element, ['phi_b', 'phi'], 'member.design.phi_b', '整体稳定系数 φb（取决于侧向支承/受压翼缘自由长度）/ Lateral stability factor φb (depends on lateral bracing / unbraced compression-flange length)', '1')
     if item == '轴压稳定':
         axial()
         require(material, ['f'], 'material.design.f', '设计强度 / Design strength', 'MPa')
@@ -335,10 +430,20 @@ def missing_inputs(elem_id: str, item: str, context: Dict[str, Any]) -> List[Dic
     if item == '挠度':
         require(forces if 'deflection' in forces else element, ['deflection'], 'response.deflection', '使用工况相对挠度 / Service relative deflection', 'mm', 'result', False)
         require(element, ['serviceabilityLength', 'length'], 'member.length', '构件长度 / Member length', 'mm', 'geometry')
-        require(element, ['deflectionLimitN'], 'member.design.deflectionLimitN', '挠度限值 L/n 的 n 及依据 / Denominator n of L/n and basis', '1')
+        require(element, ['deflectionLimitN'], 'member.design.deflectionLimitN', '挠度限值 L/n 的 n（取决于构件类别：主梁/次梁等）/ Denominator n of L/n (depends on member category: primary/secondary beam etc.)', '1')
         if not element.get('serviceabilityResult') and 'serviceabilityResult' in element:
             missing.append({'field': 'member.design.serviceability_result_keys', 'label': '使用工况或组合 / Service case or combination', 'unit': 'result key', 'source': 'design'})
     return missing
+
+def _beam_slenderness_item(checker: Any, elem_id: str, context: Dict[str, Any]) -> Dict[str, Any]:
+    """The code sets no slenderness limit for flexural members; only a limit given in the model is checked."""
+    element = context.get('elementData', {}).get(elem_id, {})
+    if isinstance(element, dict) and _finite(element.get('lambdaLimit')) is not None:
+        return checker._calc_item(elem_id, '长细比', context, 'GB50017-2017 10.1.1', 'λ = l₀/i ≤ [λ]', 1.0)
+    return {'item': '长细比', 'status': 'not_applicable', 'category': 'not_applicable', 'clause': 'GB50017-2017 7.4',
+            'formula': 'λ = l₀/i ≤ [λ]', 'utilization': None, 'governingEligible': False,
+            'message': 'GB 50017-2017 sets no slenderness limit for flexural members / 受弯构件无长细比限值规定。'}
+
 
 def _check_beam(checker: Any, elem_id: str, context: Dict[str, Any]) -> List[Dict[str, Any]]:
     return [
@@ -363,7 +468,7 @@ def _check_beam(checker: Any, elem_id: str, context: Dict[str, Any]) -> List[Dic
             'chapter': '第10章 正常使用极限状态',
             'name': '刚度验算',
             'items': [
-                checker._calc_item(elem_id, '长细比', context, 'GB50017-2017 10.1.1', 'λ = l₀/i ≤ [λ]', 1.0),
+                _beam_slenderness_item(checker, elem_id, context),
                 checker._calc_item(elem_id, '挠度', context, 'GB50017-2017 10.2.1', 'f_max ≤ L/n', 1.0),
             ],
         },
@@ -443,6 +548,11 @@ def check_element(checker: Any, elem_id: str, context: Dict[str, Any]) -> Dict[s
     """GB50017-2017 构件校核入口。"""
     element_context = _resolve_element_context(elem_id, context)
     element_type = _resolve_element_type(elem_id, context)
+    element_data = context.get('elementData', {}) if isinstance(context.get('elementData'), dict) else {}
+    design_values: List[Dict[str, Any]] = []
+    if isinstance(element_data.get(elem_id), dict):
+        enriched, design_values = resolve_design_values(element_data[elem_id], element_type)
+        context = {**context, 'elementData': {**element_data, elem_id: enriched}}
 
     # Compute utilization overrides immutably — merge into a copy of context
     evidence: Dict[str, Any] = {}
@@ -492,4 +602,5 @@ def check_element(checker: Any, elem_id: str, context: Dict[str, Any]) -> Dict[s
         'section': element_context.get('section'),
         'material': element_context.get('material'),
     }
+    result['designValues'] = design_values
     return result
