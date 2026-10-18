@@ -15,23 +15,25 @@
 
 export type UnitFamily = 'force' | 'moment' | 'length' | 'stress' | 'lineLoad' | 'rotation' | 'frequency';
 
-export interface UnitNumber { raw: string; value: number; unit: string; family: UnitFamily; scale: number; decimals: number; index: number }
+export interface UnitNumber { raw: string; value: number; unit: string; family: UnitFamily; scale: number; decimals: number; index: number; length: number }
 
 interface UnitDefinition { pattern: string; family: UnitFamily; scale: number }
 
 const SEP = '[·•⋅*.\\-]?';
+/** Exponents: m²/mm³/cm⁴ are areas, volumes and second moments, not lengths or line loads. */
+const POWER = '²³⁴⁵⁶0-9^';
 /** Longest alternatives first; scale converts the unit to the family's base unit. */
 const UNITS: UnitDefinition[] = [
   { pattern: `千牛${SEP}米`, family: 'moment', scale: 1e3 },
   { pattern: `kN${SEP}mm`, family: 'moment', scale: 1 },
-  { pattern: `kN${SEP}m(?![m²2³3^/])`, family: 'moment', scale: 1e3 },
-  { pattern: `N${SEP}mm(?![²2^])`, family: 'moment', scale: 1e-3 },
-  { pattern: `N${SEP}m(?![m²2³3^/])`, family: 'moment', scale: 1 },
+  { pattern: `kN${SEP}m(?![m${POWER}/])`, family: 'moment', scale: 1e3 },
+  { pattern: `N${SEP}mm(?![${POWER}])`, family: 'moment', scale: 1e-3 },
+  { pattern: `N${SEP}m(?![m${POWER}/])`, family: 'moment', scale: 1 },
   { pattern: 'kN/m(?:²|2|\\^2)', family: 'stress', scale: 1e3 },
-  { pattern: 'kN/m(?![m²2³3^])', family: 'lineLoad', scale: 1e3 },
+  { pattern: `kN/m(?![m${POWER}])`, family: 'lineLoad', scale: 1e3 },
   { pattern: 'N/mm(?:²|2|\\^2)', family: 'stress', scale: 1e6 },
-  { pattern: 'N/mm(?![²2³3^])', family: 'lineLoad', scale: 1e3 },
-  { pattern: 'N/m(?![m²2³3^])', family: 'lineLoad', scale: 1 },
+  { pattern: `N/mm(?![${POWER}])`, family: 'lineLoad', scale: 1e3 },
+  { pattern: `N/m(?![m${POWER}])`, family: 'lineLoad', scale: 1 },
   { pattern: 'GPa', family: 'stress', scale: 1e9 },
   { pattern: 'MPa', family: 'stress', scale: 1e6 },
   { pattern: '兆帕', family: 'stress', scale: 1e6 },
@@ -43,11 +45,11 @@ const UNITS: UnitDefinition[] = [
   { pattern: 'N(?![/·•⋅*])', family: 'force', scale: 1 },
   { pattern: 'mrad', family: 'rotation', scale: 1e-3 },
   { pattern: 'rad', family: 'rotation', scale: 1 },
-  { pattern: 'mm(?![²2³3^])', family: 'length', scale: 1e-3 },
+  { pattern: `mm(?![${POWER}])`, family: 'length', scale: 1e-3 },
   { pattern: '毫米', family: 'length', scale: 1e-3 },
-  { pattern: 'cm(?![²2³3^])', family: 'length', scale: 1e-2 },
+  { pattern: `cm(?![${POWER}])`, family: 'length', scale: 1e-2 },
   { pattern: '厘米', family: 'length', scale: 1e-2 },
-  { pattern: 'm(?![m²2³3^/])', family: 'length', scale: 1 },
+  { pattern: `m(?![m${POWER}/])`, family: 'length', scale: 1 },
   { pattern: '米(?![²2³3])', family: 'length', scale: 1 },
   { pattern: 'Hz', family: 'frequency', scale: 1 },
 ];
@@ -69,7 +71,7 @@ export function extractUnitNumbers(text: string): UnitNumber[] {
     const value = parseNumber(raw);
     if (!definition || !Number.isFinite(value)) continue;
     const decimals = /\.(\d+)/.exec(raw.replace(/[eE].*$/, ''))?.[1]?.length ?? 0;
-    claims.push({ raw: `${raw} ${unit}`, value, unit, family: definition.family, scale: definition.scale, decimals, index: match.index ?? 0 });
+    claims.push({ raw: `${raw} ${unit}`, value, unit, family: definition.family, scale: definition.scale, decimals, index: match.index ?? 0, length: match[0].length });
   }
   return claims;
 }
@@ -194,11 +196,14 @@ function sentenceAround(text: string, index: number): string {
   return text.slice(start, ends.length ? Math.min(...ends) : text.length);
 }
 
-/** "L/250 = 24 mm", "22.5 + 75 + 22.5 = 120 kN": the value is shown with its own derivation. */
-const DERIVED = /[/×*÷+−-][^=＝，,;；。\n]{0,24}[=＝]\s*[≈约]?\s*$/;
+/** "L/250 = 24 mm", "22.5 + 75 + 22.5 = 120 kN", "L/250 (24 mm)": the derivation precedes the value. */
+const DERIVED_BEFORE = /[/×*÷+−-][^=＝，,;；。\n]{0,24}[=＝]\s*[≈约]?\s*$|[A-Za-zδΔ]\s*[/／]\s*\d+(?:\.\d+)?\s*[（(]\s*[≈约]?\s*$/;
+/** "120 kN = 10×12": the derivation follows the value. */
+const DERIVED_AFTER = /^\s*[=＝≈]\s*[^=＝，,;；。\n]{0,24}?[\d.)）]\s*[/×*÷+−]\s*[\d.(（]/;
 
 function isShownDerivation(answer: string, claim: UnitNumber): boolean {
-  return DERIVED.test(answer.slice(Math.max(0, claim.index - 40), claim.index));
+  const end = claim.index + claim.length;
+  return DERIVED_BEFORE.test(answer.slice(Math.max(0, claim.index - 40), claim.index)) || DERIVED_AFTER.test(answer.slice(end, end + 40));
 }
 
 /**

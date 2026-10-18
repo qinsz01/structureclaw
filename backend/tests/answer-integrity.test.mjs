@@ -41,6 +41,10 @@ const NEGATIVES = [
   // Live batch 2: the same value shown once with its derivation; Chinese numeral "两跨" gives no input 2.
   ['合计 120 kN，与总荷载 2×6×10 = 120 kN 平衡 ✓', buildEvidence(['两跨连续梁，每跨6m，满跨均布荷载10kN/m'])],
   ['Reactions sum to 120 kN.', buildEvidence([quantitySums([22.5, 75, 22.5])])],
+  // Live batch 3: second moment of area, limits written as "L/n (value)", derivation after the value.
+  ['截面按 HN300×150×6.5×9 几何计算 Ix≈6930 cm⁴，A = 45.3 cm²，W = 462 cm³。', beamEvidence],
+  ['far below typical limits such as L/400 (15 mm) or L/250 (24 mm).', beamEvidence],
+  ['Reactions: 22.5 kN, 75 kN and 22.5 kN. Total = 120 kN = 10×12. ✓', buildEvidence(['two-span beam, each span 6 m, 10 kN/m', '22.5 75 22.5'])],
   ['No numbers with units here: case 1, 2 and 3.', beamEvidence],
   // A unit weight is not a line load: kN/m³ is not checked as kN/m.
   ['Concrete unit weight 25 kN/m³ (25 kN/m3).', beamEvidence],
