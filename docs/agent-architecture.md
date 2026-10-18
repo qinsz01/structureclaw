@@ -137,6 +137,24 @@ The `agent` node still writes the current state snapshot into `config.configurab
 
 The compiled graph is cached for the process lifetime and can be rebuilt through `LangGraphAgentService.resetGraph()` after skill or tool changes.
 
+### Guard layer
+
+The LLM decides what to call and when to stop. A generic guard layer only handles unreasonable scheduling or output; it matches no user text and is inert on the normal path. Each intervention is a `kind: "guard"` run event (`guard`, `action`) and is counted in `usage.guards`.
+
+| Guard | Threshold | Where |
+|---|---|---|
+| Repeated identical failure: the same tool with semantically identical arguments (key order, blanks ignored) failed with the same error code | 2 failures; the 3rd identical call is not executed and returns `REPEATED_FAILED_CALL` with the earlier error and what to change | `guards/tool-guards.ts`, called from `sequential-tools.ts` before the budget ledger |
+| No progress: calls that change no state value (model, draft, analysis, report, code check, queried quantity, ...) and repeat an earlier successful call, or fail | 8 consecutive calls end the turn | same |
+| Duplicate clarification: `ask_user_clarification` whose normalized question matches (bigram similarity ≥ 0.8) one already answered in the current or previous turn | refused with `DUPLICATE_CLARIFICATION` and the stored answer | same |
+| Unknown tool / malformed arguments / missing call id | `UNKNOWN_TOOL` with `availableTools`; `MALFORMED_TOOL_ARGUMENTS`; a generated id | `tool-guards.ts`, `guards/response-guards.ts` (agent node) |
+| Guard rejections | 2 per turn (1 when `repair.enabled` is false) end the turn | `tool-guards.ts`; the agent node answers from `guards/stop-answer.ts` without another LLM call: completed steps, available results, blocked items |
+| Tool exceptions | ToolNode text becomes `{ success: false, errorCode, error, hint }`; unknown-ID codes (`RUN_NOT_FOUND`, `RESULT_NODE_NOT_FOUND`, `MODEL_OBJECT_NOT_FOUND`, ...) list existing IDs | `guards/tool-errors.ts` |
+| Final-answer numbers: values with engineering units (kN/N, kN·m/N·m/N·mm, m/mm, MPa/kPa/Pa, kN/m, rad, Hz) that match no number in the user's messages, any tool result or the saved model/draft/analysis/check/report/quantities (after unit conversion, sign ignored, tolerance max(half the last written digit, 1 %)); products/quotients of the user's input numbers (q·L, P/2) and sums of saved queried quantities (ΣR) also count; sentences citing a code table/clause and values shown after a written formula (`L/250 = 24 mm`, `22.5 + 75 + 22.5 = 120 kN`, and the same value elsewhere in the answer) are skipped | 1 correction request per turn (none when repair is disabled), then a note listing the unverified values | `delivery/answer-integrity.ts`, `answer-review.ts`, `final-review.ts` |
+| Claimed actions: "report generated", "analysis run", "checks passed" (narrow zh/en patterns, negated or conditional phrasing ignored) without a successful tool result this turn or a saved artifact | same correction-then-note | same |
+| Empty or truncated final answer | empty answers are replaced by a bilingual fallback; `finish_reason` `length`/`max_tokens` appends a truncation note | `delivery/final-answer.ts`, `final-review.ts` |
+
+The guard ledger lives with the run context (one turn or one resumed segment) and is not persisted. A guard-rejected call is never reserved or executed and changes no state.
+
 ## 5. Built-In Tool Set
 
 The built-in tool registry (`AGENT_TOOL_DEFINITIONS` in `tool-registry.ts`) defines these 25 tool IDs:

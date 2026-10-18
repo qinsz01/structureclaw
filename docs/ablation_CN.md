@@ -77,6 +77,7 @@ StructureClaw 提供预先注册、带版本号的消融配置档，基准测试
   代理运行之外的 HTTP `/api/v1/analysis` 报告接口保留原有检查。
 - **no-repair**：本轮发生失败后，修改模型/设置及求解类工具会以 `RECOVERY_BUDGET_EXHAUSTED` 被拒绝；
   只读检查仍可用，代理如实报告错误。
+  防护层仍然生效（见 agent-architecture_CN.md“防护层”）：最终回答完整性检查直接附注而不请求纠正，首次防护拒绝即结束本轮。
 
 ## 记录的字段
 

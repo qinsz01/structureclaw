@@ -93,6 +93,8 @@ interpretation, **C** capability boundaries and missing input, **D** state revis
   `/api/v1/analysis` report endpoint (outside agent runs) keeps its checks.
 - **no-repair**: after a failure in a turn, model/settings/solver tools are refused with
   `RECOVERY_BUDGET_EXHAUSTED`; read-only inspection stays available and the agent reports the error.
+  Guards still apply (agent-architecture.md, "Guard layer"): the final-answer integrity check flags
+  without a correction request, and the first guard rejection ends the turn.
 
 ## Recorded fields
 

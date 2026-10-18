@@ -137,6 +137,24 @@ agent capability、运行、审阅与 SkillHub routes 位于 [backend/src/api/ag
 
 compiled graph 在进程生命周期内缓存。skill 或 tool 变化后，可以通过 `LangGraphAgentService.resetGraph()` 重建。
 
+### 防护层
+
+调用哪个工具、何时停止由 LLM 决定。通用防护层只处理不合理的调度或输出；它不匹配用户文本，正常路径上不起作用。每次干预都记录为 `kind: "guard"` 运行事件（`guard`、`action`），并计入 `usage.guards`。
+
+| 防护 | 阈值 | 位置 |
+|---|---|---|
+| 相同失败重复：同一工具、语义相同参数（忽略键序与空值）以同一错误码失败 | 失败 2 次；第 3 次相同调用不执行，返回 `REPEATED_FAILED_CALL`，附先前错误与修改建议 | `guards/tool-guards.ts`，由 `sequential-tools.ts` 在预算账本之前调用 |
+| 无进展：调用未改变任何状态值（模型、草稿、分析、报告、校核、查询数值等）且重复先前成功调用，或调用失败 | 连续 8 次结束本轮 | 同上 |
+| 重复澄清：`ask_user_clarification` 的规范化问题与本轮或上一轮已回答的问题相同（二元组相似度 ≥ 0.8） | 以 `DUPLICATE_CLARIFICATION` 拒绝并附已保存的回答 | 同上 |
+| 未知工具 / 参数格式错误 / 缺少调用 ID | `UNKNOWN_TOOL` 附 `availableTools`；`MALFORMED_TOOL_ARGUMENTS`；自动生成 ID | `tool-guards.ts`、`guards/response-guards.ts`（agent 节点） |
+| 防护拒绝次数 | 每轮 2 次（`repair.enabled` 为 false 时 1 次）结束本轮 | `tool-guards.ts`；agent 节点不再调用 LLM，由 `guards/stop-answer.ts` 给出已完成步骤、可用结果与受阻事项 |
+| 工具异常 | ToolNode 文本转为 `{ success: false, errorCode, error, hint }`；未知 ID 错误码（`RUN_NOT_FOUND`、`RESULT_NODE_NOT_FOUND`、`MODEL_OBJECT_NOT_FOUND` 等）列出现有 ID | `guards/tool-errors.ts` |
+| 最终回答数值：带工程单位（kN/N、kN·m/N·m/N·mm、m/mm、MPa/kPa/Pa、kN/m、rad、Hz）的数值，经单位换算、忽略符号、容差取 max(末位半个单位, 1 %) 后，与用户消息、任一工具结果及已保存的模型/草稿/分析/校核/报告/查询数值均不一致；用户输入数值的乘积/商（q·L、P/2）及已保存查询数值之和（ΣR）也视为依据；引用规范表/条文的句子和紧跟书面公式的数值（`L/250 = 24 mm`、`22.5 + 75 + 22.5 = 120 kN`，以及回答中其他位置的同一数值）不检查 | 每轮 1 次纠正请求（关闭自动纠错时为 0），之后附注列出未核实数值 | `delivery/answer-integrity.ts`、`answer-review.ts`、`final-review.ts` |
+| 声称的操作："已生成报告"、"已完成分析"、"验算通过"（窄化的中英文模式，忽略否定与条件句），但本轮无成功工具结果且无已保存产物 | 同样先纠正后附注 | 同上 |
+| 空回答或被截断的回答 | 空回答替换为双语兜底文本；`finish_reason` 为 `length`/`max_tokens` 时附截断提示 | `delivery/final-answer.ts`、`final-review.ts` |
+
+防护账本随运行上下文（一轮或恢复后的一段）存在，不持久化。被防护拒绝的调用不会预留预算、不会执行，也不改变状态。
+
 ## 5. 内置 Tool Set
 
 内置 tool registry（`tool-registry.ts` 中的 `AGENT_TOOL_DEFINITIONS`）定义了以下 25 个 tool ID：
