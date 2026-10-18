@@ -1155,3 +1155,18 @@ describe('buildModel - coordinate semantics (z-up migration)', () => {
     expect(model.metadata.elementReferenceVectors.BX5).toEqual([0, 0, 1]);
   });
 });
+
+describe('stated rebar grade on template members', () => {
+  it('keeps the draft rebar grade on every member so a GB 50010 check can look up fy', async () => {
+    const { extractElementContextById } = await import('../dist/agent-skills/code-check/input-context.js');
+    const draft = { inferredType: 'beam', lengthM: 6, loadKN: 20, loadType: 'distributed', loadPosition: 'full-span', supportType: 'simply-supported',
+      engineeringDraft: { structureType: 'beam', geometry: { lengthM: 6 }, boundary: { supportType: 'simply-supported' },
+        material: { family: 'concrete', grade: 'C30', rebarGrade: 'HRB400' }, sections: { beam: '250X500' },
+        loads: [{ kind: 'distributed', magnitude: 20, unit: 'kN/m', direction: 'gravity' }] } };
+    const model = buildModel(draft);
+    expect(model.elements.every(element => element.rebar_grade === 'HRB400')).toBe(true);
+    expect(Object.values(extractElementContextById(model)).every(context => context.rebarGrade === 'HRB400')).toBe(true);
+    const withoutRebar = buildModel({ ...draft, engineeringDraft: { ...draft.engineeringDraft, material: { family: 'concrete', grade: 'C30' } } });
+    expect(withoutRebar.elements.some(element => 'rebar_grade' in element)).toBe(false);
+  });
+});

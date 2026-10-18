@@ -399,10 +399,13 @@ export function applyTemplateProperties(model: Record<string, unknown>, state: D
   // A placeholder material has no density: self-weight is excluded explicitly (it is never requested here).
   const analysisControl = properties.placeholder.material
     ? { analysis_control: { ...(model.analysis_control as Record<string, unknown> ?? {}), self_weight: false } } : {};
+  // A stated rebar grade is kept on the members (a code-check input; elastic analysis ignores it).
+  const rebarGrade = state.engineeringDraft?.material?.rebarGrade;
   return applyDraftTemplateDesign(applyDraftAnalysisControl({ ...model, ...analysisControl, materials: properties.materials, sections: properties.sections,
     elements: elements.map((element) => {
       const assignment = properties.byRole[roleOf(element)]!;
-      return { ...element, material: assignment.materialId, section: assignment.sectionId };
+      return { ...element, material: assignment.materialId, section: assignment.sectionId,
+        ...(typeof rebarGrade === 'string' && rebarGrade.trim() && element.rebar_grade === undefined ? { rebar_grade: rebarGrade.trim() } : {}) };
     }),
     ...(state.engineeringDraft?.loadCases ? { load_cases: structuredClone(state.engineeringDraft.loadCases) } : {}),
     ...(state.engineeringDraft?.analysis?.loadCombinations ? { load_combinations: structuredClone(state.engineeringDraft.analysis.loadCombinations) } : {}),
