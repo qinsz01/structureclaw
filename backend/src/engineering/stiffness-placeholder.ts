@@ -158,3 +158,33 @@ export function withoutPlaceholderDisplacements(result: ModelRecord, placeholder
   }
   return copy;
 }
+
+const isPlaceholderRecord = (record: unknown): boolean => isRecord(record) && isRecord(record.extra) && record.extra.stiffnessPlaceholder === true;
+const REAL_STIFFNESS_KEYS: Record<string, string[]> = { materials: ['E'], sections: ['properties', 'shape', 'A', 'Iy', 'Iz'] };
+
+/**
+ * After a model edit: a placeholder material/section the edit gave real stiffness loses its placeholder
+ * label. Once no member uses a placeholder record, the unused placeholder records and
+ * metadata.stiffnessPlaceholder are removed; otherwise the model stays a force-only placeholder model.
+ */
+export function settlePlaceholderStiffness(model: ModelRecord, edits: Array<{ operation: string; collection: string; id: string; values?: Record<string, unknown> }>): ModelRecord {
+  if (!stiffnessPlaceholderOf(model)) return model;
+  const realized = new Set(edits.filter(edit => edit.operation === 'update' && edit.values
+    && (REAL_STIFFNESS_KEYS[edit.collection] ?? []).some(key => key in edit.values!)).map(edit => `${edit.collection}:${edit.id}`));
+  const settle = (collection: 'materials' | 'sections') => (Array.isArray(model[collection]) ? model[collection] as unknown[] : []).map(record => {
+    if (!isRecord(record) || !isPlaceholderRecord(record) || !realized.has(`${collection}:${String(record.id)}`)) return record;
+    const { stiffnessPlaceholder: _flag, ...extra } = record.extra as ModelRecord;
+    const { extra: _extra, ...rest } = record;
+    return { ...rest, ...(Object.keys(extra).length ? { extra } : {}), ...(rest.name === PLACEHOLDER_NAME ? { name: String(record.id) } : {}) };
+  });
+  const materials = settle('materials'), sections = settle('sections');
+  const ids = (records: unknown[]) => new Set(records.filter(isPlaceholderRecord).map(record => String((record as ModelRecord).id)));
+  const placeholderMaterials = ids(materials), placeholderSections = ids(sections);
+  const elements = Array.isArray(model.elements) ? model.elements.filter(isRecord) : [];
+  if (elements.some(element => placeholderMaterials.has(String(element.material)) || placeholderSections.has(String(element.section)))) {
+    return { ...model, materials, sections };
+  }
+  const { stiffnessPlaceholder: _placeholder, ...metadata } = isRecord(model.metadata) ? model.metadata : {};
+  return { ...model, materials: materials.filter(record => !isPlaceholderRecord(record)),
+    sections: sections.filter(record => !isPlaceholderRecord(record)), metadata };
+}

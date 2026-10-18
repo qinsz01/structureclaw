@@ -10,7 +10,7 @@ import { assertModelEditReadback, editCollectionSchema, engineeringModelSchema, 
 import { queryPhysicalResponse, scalarResultQuantity } from '../engineering/result-data.js';
 import { resolveNodalResultSelection, resultSelectionSchema, solverMeshQueryGuidance } from '../engineering/result-selection.js';
 import { loadAnalysisRun } from '../engineering/analysis-runs.js';
-import { isDisplacementSelection, PLACEHOLDER_DISPLACEMENT_ERROR, stiffnessPlaceholderOf, withoutDisplacementComponents, withoutPlaceholderDisplacements } from '../engineering/stiffness-placeholder.js';
+import { isDisplacementSelection, PLACEHOLDER_DISPLACEMENT_ERROR, settlePlaceholderStiffness, stiffnessPlaceholderOf, withoutDisplacementComponents, withoutPlaceholderDisplacements } from '../engineering/stiffness-placeholder.js';
 import { randomUUID } from 'node:crypto';
 import { imageRegionSchema } from '../engineering/vision-evidence.js';
 import { activeInputEvidence, analysisInputBinding, canonicalInputValue, evidenceSourceFile, isCanonicalModelField, mergeInputEvidence, unresolvedInputEvidence } from '../engineering/input-evidence.js';
@@ -36,7 +36,7 @@ export function createEditModelTool() {
     if (!state.model) throw new Error('MODEL_REQUIRED');
     if (input.baseRevision !== state.modelRevision) throw new Error(`MODEL_VERSION_CONFLICT: expected ${state.modelRevision}`);
     const edits = normalizeModelEdits(state.model, input.edits as ModelEdit[], await engineeringModelSchema(structureProtocolClient));
-    const edited = applyModelEdits(state.model, edits);
+    const edited = settlePlaceholderStiffness(applyModelEdits(state.model, edits), edits);
     const metadata = isRecord(edited.metadata) ? edited.metadata : {};
     edited.metadata = { ...metadata, inputEvidence: mergeInputEvidence(state.inputEvidence,
       Array.isArray(metadata.inputEvidence) ? metadata.inputEvidence.filter(isRecord) : []) };
