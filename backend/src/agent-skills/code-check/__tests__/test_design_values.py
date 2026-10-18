@@ -76,6 +76,20 @@ def test_gb50010_tables_and_sources():
     assert rebar_value(None, 'fy') is None
 
 
+# GB 50010-2010 6.2.6: α1 = 1.0 and β1 = 0.8 up to C50, then linear to 0.94 / 0.74 at C80.
+@pytest.mark.parametrize('grade,alpha1,beta1', [
+    ('C15', 1.0, 0.80), ('C20', 1.0, 0.80), ('C25', 1.0, 0.80), ('C30', 1.0, 0.80), ('C35', 1.0, 0.80),
+    ('C40', 1.0, 0.80), ('C45', 1.0, 0.80), ('C50', 1.0, 0.80), ('C55', 0.99, 0.79), ('C60', 0.98, 0.78),
+    ('C65', 0.97, 0.77), ('C70', 0.96, 0.76), ('C75', 0.95, 0.75), ('C80', 0.94, 0.74),
+])
+def test_gb50010_6_2_6_rectangular_stress_block_factors(grade, alpha1, beta1):
+    assert (CONCRETE_GRADES[grade]['alpha1'], CONCRETE_GRADES[grade]['beta1']) == (alpha1, beta1)
+
+
+def test_gb50010_table_covers_exactly_c15_to_c80():
+    assert list(CONCRETE_GRADES) == [f'C{n}' for n in range(15, 85, 5)]
+
+
 def _hn300(material, **overrides):
     H, B, tw, tf = 300, 150, 6.5, 9
     hw = H - 2 * tf

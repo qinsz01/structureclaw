@@ -272,6 +272,14 @@ class TestComputedUtilizationOverrides:
         assert isinstance(computed['正截面受弯'], float)
         assert computed['正截面受弯'] > 0
 
+    def test_c50_flexure_uses_alpha1_of_one(self):
+        """GB 50010 6.2.6: C50 still has α1 = 1.0, so the capacity is fc·b·x·(h0 - x/2) with x = fy·As/(fc·b)."""
+        elem_data = self._make_concrete_element_data(material={'fc': 23.1, 'fy': 360, 'E': 34500})
+        computed = gb50010._compute_utilization_overrides('B1', self._make_context(elem_data, concrete_grade='C50'))
+        h0 = 500 - 20 - 8 - 10
+        x = 360 * 628 / (1.0 * 23.1 * 300)
+        assert computed['正截面受弯'] == pytest.approx(50e6 / (23.1 * 300 * x * (h0 - x / 2)))
+
     def test_beam_shear_computes_real_value(self):
         """斜截面受剪: V=100kN on 300×500 beam → realistic utilization."""
         elem_data = self._make_concrete_element_data(forces={'N': 0, 'V': 100000, 'Mx': 50e6})
@@ -402,15 +410,15 @@ class TestComputedUtilizationOverrides:
         beta1/ecu), _resolve_material_props uses them directly — not lookup."""
         elem_data = self._make_concrete_element_data(
             material={
-                'fc': 23.1, 'ft': 1.89, 'ftk': 2.64, 'Ec': 34500, 'E': 34500,
-                'ecu': 0.0033, 'alpha1': 0.98, 'beta1': 0.78,
+                'fc': 27.5, 'ft': 2.04, 'ftk': 2.85, 'Ec': 36000, 'E': 36000,
+                'ecu': 0.0032, 'alpha1': 0.98, 'beta1': 0.78,
             },
         )
         mat = gb50010._resolve_material_props('C30', 'HRB400', elem_data)
-        # C50 design values from elementData — NOT C30 fallback
-        assert mat['fc'] == 23.1
-        assert mat['ft'] == 1.89
-        assert mat['ftk'] == 2.64
+        # C60 design values from elementData — NOT C30 fallback
+        assert mat['fc'] == 27.5
+        assert mat['ft'] == 2.04
+        assert mat['ftk'] == 2.85
         assert mat['alpha1'] == 0.98
         assert mat['beta1'] == 0.78
 
