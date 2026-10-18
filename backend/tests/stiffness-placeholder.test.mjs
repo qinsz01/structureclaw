@@ -42,6 +42,19 @@ describe('placeholder stiffness for force-only requests', () => {
     expect(model.metadata.stiffnessPlaceholder.notice.en).toContain('same EI');
   });
 
+  test('an unstated portal base is modelled fixed and reported as an assumption by build_model', async () => {
+    const { buildModelToolSummary } = await import('../dist/agent-langgraph/tools/compaction/analysis.js');
+    const portal = { inferredType: 'portal-frame', spanLengthM: 12, heightM: 6, loadKN: 5, loadType: 'distributed', loadPosition: 'full-span',
+      requestScope: FORCES, engineeringDraft: { structureType: 'portal-frame', geometry: { spanLengthsM: [12], heightM: 6 } } };
+    const model = modelBuilder.buildModel(portal);
+    expect(model.nodes.find(node => node.id === 'B0').restraints).toEqual([true, true, true, true, true, true]);
+    expect(buildModelToolSummary(model, 'zh').assumptions).toEqual(['柱脚约束未说明，按刚接（固定）柱脚计算']);
+    expect(buildModelToolSummary(model, 'en').assumptions).toEqual(['Column bases were not specified; fixed bases were assumed']);
+    const pinned = modelBuilder.buildModel({ ...portal, frameBaseSupportType: 'pinned' });
+    expect(pinned.metadata.templateAssumptions).toBeUndefined();
+    expect(buildModelToolSummary(pinned, 'en').assumptions).toBeUndefined();
+  });
+
   test('a declared material keeps its stiffness; only the missing sections are unit placeholders', () => {
     const model = modelBuilder.buildModel(beam({ material: { family: 'steel', grade: 'Q355' } }));
     expect(model.materials[0]).toMatchObject({ grade: 'Q355', E: 206000 });

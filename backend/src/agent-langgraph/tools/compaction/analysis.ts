@@ -142,6 +142,9 @@ export function buildModelToolSummary(
   }
 
   const placeholder = stiffnessPlaceholderOf(model);
+  const metadata = isRecord(model.metadata) ? model.metadata : {};
+  const assumptions = Array.isArray(metadata.templateAssumptions)
+    ? metadata.templateAssumptions.filter(isRecord).map(row => String(row[locale])) : [];
   return {
     success: true,
     nodeCount,
@@ -150,6 +153,7 @@ export function buildModelToolSummary(
     ...(placeholder ? { stiffnessPlaceholder: { material: placeholder.material, section: placeholder.section,
       staticIndeterminacy: placeholder.staticIndeterminacy, equalStiffnessAssumed: placeholder.equalStiffnessAssumed,
       notice: placeholder.notice[locale] } } : {}),
+    ...(assumptions.length ? { assumptions, assumptionInstruction: locale === 'zh' ? '在回答中说明这些建模假定。' : 'State these modelling assumptions in the answer.' } : {}),
     nextAction: 'run_analysis',
     message: locale === 'zh'
       ? '模型已构建完成。下一步必须调用 run_analysis 执行结构分析。'

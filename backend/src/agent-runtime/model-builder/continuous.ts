@@ -253,6 +253,9 @@ export function buildPortalFrameModel(state: DraftState, metadata: Record<string
       ...metadata,
       bayCount: spans.length,
       hasMezzanine,
+      // An unstated base condition is modelled as fixed and reported as an assumption, not asked for.
+      ...(state.frameBaseSupportType ? {} : { templateAssumptions: [{ field: 'frameBaseSupportType', value: 'fixed',
+        zh: '柱脚约束未说明，按刚接（固定）柱脚计算', en: 'Column bases were not specified; fixed bases were assumed' }] }),
       geometry: {
         spanLengthsM: spans,
         heightM: height,

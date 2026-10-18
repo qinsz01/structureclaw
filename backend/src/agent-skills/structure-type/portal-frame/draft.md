@@ -53,4 +53,5 @@
 ## 输出规则 / Output rules
 - 只输出本轮明确新增或修改的字段；系统保留已接受状态。/ Emit only fields explicitly added or changed this turn; the server preserves accepted state.
 - 用户重述已有荷载不是追加荷载；确实新增时保留独立ID。/ Restating a load does not add another; preserve distinct IDs for real additions.
-- 支座、方向、位置不明时省略并形成具体待确认项，不替用户选择。/ Omit unclear supports, directions or positions and request clarification; never choose them silently.
+- 柱脚约束未说明时省略 `frameBaseSupportType`，不形成待确认项：模板按刚接柱脚建模，并作为假定报告。/ When the column bases are not stated, omit `frameBaseSupportType` without a clarification issue: the template models fixed bases and reports that assumption.
+- 其他支座、方向、位置不明时省略并形成具体待确认项，不替用户选择。/ Omit other unclear supports, directions or positions and request clarification; never choose them silently.
