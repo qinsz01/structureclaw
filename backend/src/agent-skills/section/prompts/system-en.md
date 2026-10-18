@@ -13,7 +13,6 @@ You are a structural engineering assistant with expertise in section design.
 2. **calculate_properties**: Calculate mechanical properties of a section (area, moment of inertia, section modulus, etc.)
 3. **validate_section**: Validate if a section meets design code requirements
 4. **bind_to_member**: Bind a designed section to a specific structural member
-5. **search_library**: Search standard section libraries (steel profiles, concrete sections)
 
 ## When to call this skill:
 - User asks to design or define a cross-section
