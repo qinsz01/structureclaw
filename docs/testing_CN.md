@@ -14,7 +14,6 @@
 | Regression | 不能随意漂移的确定性行为，尤其是工程分析与 backend contract bundle | 探索式浏览器检查、真实模型质量 | `node tests/runner.mjs backend-regression` 或 `node tests/runner.mjs analysis-regression` |
 | Validation | 可单独选择的 contract 和 schema 校验 | 大范围 build/lint/test 组合 | `node tests/runner.mjs validate <name>` |
 | Smoke | 支持平台上的安装、初始化、构建和生命周期兼容性 | 不拥有 unit、integration、E2E 覆盖 | `node tests/runner.mjs smoke-native` |
-| LLM integration | 旧的真实 LLM 与 routing integration 检查 | 长期 agent 质量评分 | `node tests/runner.mjs llm-integration` |
 | LLM benchmark | 带场景评分的真实 LangGraph agent 质量检查 | 快速确定性的 unit 或 contract 覆盖 | `node tests/runner.mjs llm-benchmark` |
 | Architecture | `backend/src` 中的 layer 边界与文件级 import 循环 | 运行时行为 | `npm run check:deps --prefix backend` |
 | Python | `backend/src` 与 `backend/tests` 中的 `test_*.py` 模块 | Node/Jest contract | `npm run test:python --prefix backend` |
@@ -39,7 +38,7 @@
 | `tests/regression/backend-regression.js` | Backend regression bundle | `node tests/runner.mjs backend-regression` |
 | `tests/regression/analysis-runner.py` | Analysis regression fixture | `node tests/runner.mjs analysis-regression` |
 | `tests/smoke/**` | Native install 与 build smoke 检查 | `node tests/runner.mjs smoke-native` |
-| `tests/llm-integration/**` | 旧 LLM integration harness 与 helper unit test | `node tests/runner.mjs llm-integration` 加本地 helper 测试 |
+| `tests/llm-integration/**` | 技能 `__llm_tests__` 目录的 fixture 发现辅助库及其单元测试（无 runner 子命令） | 辅助库单元测试；`tests/regression/backend-validations.js` 校验 fixture |
 | `tests/llm-benchmark/**` | LangGraph agent benchmark 场景与评分（git submodule，源仓库 [structureclaw-benchmark](https://github.com/structureclaw/structureclaw-benchmark)） | `node tests/runner.mjs llm-benchmark` |
 
 公共 benchmark 子模块包含可复现评测所需的版本化评测集、冻结真值、运行器
@@ -67,7 +66,6 @@ OpenSees、PKPM、YJK 仍分别使用容量为 1 的
 | `.github/workflows/analysis-regression.yml` | Linux 和 Windows 上的确定性 analysis regression | 构建 backend，准备 analysis Python，然后运行分析 fixture。 |
 | `.github/workflows/e2e.yml` | 不使用供应商密钥的隔离 Playwright 浏览器流程 | 在 `master` 和 `work/research-next` 的相关前端及工程代码变更、手动触发，或允许用户评论 `/test-e2e` 时运行。 |
 | `.github/workflows/install-smoke.yml` | Native install/build 兼容性 smoke | 调用 `node tests/runner.mjs smoke-native`；frontend 和 backend 静态检查由各自 regression workflow 负责。 |
-| `.github/workflows/llm-integration.yml` | 真实 LLM integration 检查 | 在 `master`、手动触发，或允许用户评论 `/test-llm` 时运行。 |
 | `.github/workflows/llm-benchmark.yml` | 可信触发的真实 LLM benchmark | 使用公共 benchmark 运行器与评测集。 |
 | `.github/workflows/publish-npm.yml` | 发布前 gate | 为保护发布重复运行部分检查。它不拥有新增测试覆盖。 |
 
@@ -88,7 +86,7 @@ Frontend 现在有两个 Vitest 配置，归属互斥：
 | `npm run check:deps --prefix backend` | `backend/src` 中的 import 分层与文件级 import 循环 | 使用 `backend/.dependency-cruiser.cjs` 运行 dependency-cruiser。分层从 L0（`shared/`、`types/`）到 L6（`api/`、`index.ts`），低层不得 import 高层。配置中列出两处允许的例外：`runtime/policy-settings.ts` 垫片，以及结构类型/截面 handler 的 SDK 依赖边。 |
 | `npm run test:python --prefix backend` | `backend/pytest.ini` 选中的 `backend/src` 与 `backend/tests` 下全部 `test_*.py` | 使用第一个能导入 pytest 的解释器运行 `pytest`，查找顺序为：`PYTHON_FOR_TEST`、`backend/.venv`、`<SCLAW_DATA_DIR 或 ~/.structureclaw>/.venv`，然后是系统的 `py`、`python3` 或 `python`（按平台顺序）。`--` 之后的参数会传给 pytest，例如 `-- -k native_design`。 |
 | `npm run test:characterization --prefix backend` | `backend/tests/characterization` 中由脚本化 LLM 驱动的端到端 characterization | 先构建 backend，再对该目录运行 Jest。每个场景通过脚本化 LLM（`helpers/llm-fixture.mjs`）驱动真实的 LangGraph agent、tools 和运行策略。`__snapshots__/` 中的快照固定了 tool 暴露、system prompt、默认 `policyHash`、草稿路径、编辑失效、澄清恢复以及消融 profile 的行为。若找不到带 OpenSees 的 Python，依赖 OpenSees 的用例会打印警告并跳过；可用 `SCLAW_TEST_PYTHON` 指定解释器。`guard-fault-injection.test.mjs` 用脚本化 LLM 模拟异常行为（重复失败调用、无进展循环、重复澄清、虚构工具/ID、格式错误的调用、编造数值、声称未执行的操作、空回答/截断回答），并断言调用次数有界、状态不变、以 `done` 事件结束且记录 `guard` 运行事件。 |
-| `npm run test:live --prefix backend -- --base-url <url>` | 针对已启动后端及其已配置 LLM 的实测验收（`backend/tests/live/one-sentence-beam.mjs`、`internal-forces.mjs`，共用 `client.mjs`） | 不属于 Jest。默认 `acceptance` 变体包括：**beam** —— 中英文“设计一个简支钢梁……HN300×150×6.5×9”须一轮完成，分析为当前结果，不生成报告（未要求）且不调用 `run_code_check`；支座反力、跨中弯矩与挠度按闭合解比较（相对误差 1e-6）；随后“按GB50017验算”须执行校核且不中断追问，显示 f=305、fv=175 MPa 及 GB 50017-2017 表 4.4.1 来源，并列出整体稳定和挠度所缺输入。**forces** —— 中英文“计算一个简支梁的内力，跨度10m，跨中集中荷载1kN”须不追问、不出报告、不校核、不展示位移（反力 0.5 kN，|M| 2.5 kN·m）；随后“那挠度呢”须询问材料和截面。**continuous** —— 两跨 2×6 m、10 kN/m 连续梁只求内力：不追问，说明各构件 EI 相同的假定，中支座弯矩 45 kN·m，反力 22.5/75/22.5 kN。结果记录耗时、提问次数和工具序列。后端未配置 LLM 密钥时跳过。选项：`--locale zh|en|all`、`--runs N`、`--variant acceptance|beam|forces|continuous|portal|hn-no-thickness|original`（`portal`、`hn-no-thickness`、`original` 为探索性运行）、`--out <dir>`。 |
+| `npm run test:live --prefix backend [-- --base-url <url>]`（默认 `SCLAW_LIVE_BASE_URL` 或 `http://127.0.0.1:31415`） | 针对已启动后端及其已配置 LLM 的实测验收（`backend/tests/live/one-sentence-beam.mjs`、`internal-forces.mjs`，共用 `client.mjs`） | 不属于 Jest。默认 `acceptance` 变体包括：**beam** —— 中英文“设计一个简支钢梁……HN300×150×6.5×9”须一轮完成，分析为当前结果，不生成报告（未要求）且不调用 `run_code_check`；支座反力、跨中弯矩与挠度按闭合解比较（相对误差 1e-6）；随后“按GB50017验算”须执行校核且不中断追问，显示 f=305、fv=175 MPa 及 GB 50017-2017 表 4.4.1 来源，并列出整体稳定和挠度所缺输入。**forces** —— 中英文“计算一个简支梁的内力，跨度10m，跨中集中荷载1kN”须不追问、不出报告、不校核、不展示位移（反力 0.5 kN，|M| 2.5 kN·m）；随后“那挠度呢”须询问材料和截面。**continuous** —— 两跨 2×6 m、10 kN/m 连续梁只求内力：不追问，说明各构件 EI 相同的假定，中支座弯矩 45 kN·m，反力 22.5/75/22.5 kN。结果记录耗时、提问次数和工具序列。后端未配置 LLM 密钥时跳过。选项：`--locale zh|en|all`、`--runs N`、`--variant acceptance|beam|forces|continuous|portal|hn-no-thickness|original`（`portal`、`hn-no-thickness`、`original` 为探索性运行）、`--out <dir>`。 |
 | `backend/tests/dist-surface.test.mjs`（`npm test --prefix backend` 也会运行） | `backend/src` 之外消费的编译产物 `backend/dist` 接口 | 断言 `tests/llm-benchmark/runner.cjs`、`integrations/openclaw`、`tests/regression/backend-validations.js` 与 `scripts/verify-scenario-freeze.mjs` 使用的模块和符号仍可导入、导出名称正确。该测试读取 `dist/`，因此需先构建。移动此类模块时，必须在原路径保留 re-export 垫片。 |
 
 `npm test --prefix backend` 匹配 `tests/**/*.test.mjs`，因此 characterization 套件与 dist-surface 测试也会在默认 Jest 运行中执行。
@@ -161,12 +159,12 @@ node frontend/tests/e2e/manual/live-beam-browser.cjs --config=.tmp/live-beam.jso
 
 ## 当前明确出来的差距
 
-修改模型 Schema 后，须用配置的产品 Python 执行 `python backend/scripts/export-model-contract.py`，更新 `backend/src/engineering/structure-model-v2.schema.json`；验证时加 `--check`。`draft-contract` 回归将受版本管理的 Schema 与实际 Python 协议比较，因此过期的提示契约不会仅凭 TypeScript 编译通过而漏检。正常安装和构建读取仓库中的文件，不依赖这个开发用生成脚本。
+修改模型 Schema 后，须用配置的产品 Python 执行 `python backend/scripts/export-model-contract.py`，更新 `backend/src/engineering/structure-model-v2.schema.json`；验证时加 `--check`。Jest 测试 `backend/src/agent-runtime/__tests__/draft-contract.test.mjs`将受版本管理的 Schema 与实际 Python 协议比较，因此过期的提示契约不会仅凭 TypeScript 编译通过而漏检。正常安装和构建读取仓库中的文件，不依赖这个开发用生成脚本。
 
 修复 Agent 时同时保留失败的真实对话和修复后的运行记录。确定性回归覆盖字段契约、稳定对象身份、缺项/确认/冲突、建模策略及具体纠错反馈。真实浏览器验证在独立实例中按需执行，核对实际工具调用、已保存交付及独立工程参考数值。聊天解释正确、返回非空结果或某个单元测试通过，都不足以证明完整对话成功。测试不得修改用户正在使用的配置或会话。
 
 - E2E 覆盖导航、i18n/theme、capabilities、database admin、运行控制及真实工程服务的浏览器交付流程。真实模型调用单独按需运行；它不是完整的 agent 质量套件。
 - Frontend integration 测试已有本地命令，但 integration runner 稳定前暂不接入 CI。
 - `install-smoke.yml` 现在只负责 native install/build 兼容性。
-- `llm-integration` 和 `llm-benchmark` 现在都会触及真实 LLM 行为。新增 agent 质量场景应优先走 benchmark 路径。
+- `llm-benchmark` 是真实 LLM 质量评估路径；`npm run test:live --prefix backend` 是默认流程的真实 LLM 验收检查。
 - Issue #234 应先确定边界和文档。缺失覆盖由单独的后续 issue 补测试。
