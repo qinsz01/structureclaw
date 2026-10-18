@@ -383,7 +383,8 @@ function createCallModelNode(
       repairEnabled: configurable?.runContext?.policy.repair.enabled ?? true,
       deliver,
       reinvoke: async (draft, prompt) => {
-        const retried = await modelWithTools.invoke([...allMessages, new AIMessage(draft), new HumanMessage(prompt)], config);
+        // The draft is the provider's own final message (no tool calls); its kwargs are replayed as received.
+        const retried = await modelWithTools.invoke([...allMessages, draft, new HumanMessage(prompt)], config);
         return { response: retried, finishReason: responseFinishReason(retried) };
       },
     });

@@ -29,7 +29,7 @@ export interface FinalReviewInput {
   repairEnabled: boolean;
   log: Logger;
   /** Ask the LLM again with the draft answer and the correction prompt appended (not persisted). */
-  reinvoke: (draft: string, prompt: string) => Promise<{ response: BaseMessage; finishReason?: string }>;
+  reinvoke: (draft: BaseMessage, prompt: string) => Promise<{ response: BaseMessage; finishReason?: string }>;
   /** Tool-call repair plus the delivery policy for a new response; returns the message to deliver. */
   deliver: (response: BaseMessage) => { message: BaseMessage; final: boolean };
 }
@@ -81,17 +81,25 @@ export async function reviewAndDeliverFinalAnswer(input: FinalReviewInput): Prom
     ledger.answerCorrectionPending = true;
     recordGuardEvent('answer-integrity', { action: 'correction-requested', ...summary(first) });
     log.warn({ node: 'agent', ...summary(first) }, 'final answer integrity: correction requested');
-    const retried = await input.reinvoke(draft, buildCorrectionPrompt(first));
-    const delivered = input.deliver(retried.response);
-    // A tool call (e.g. query_results) or a policy notice continues or ends the turn normally.
-    if (!delivered.final || delivered.message !== retried.response) return delivered.message;
-    const second = review(extractMessageText(retried.response));
-    if (!hasIntegrityIssues(second)) {
+    let retried: { response: BaseMessage; finishReason?: string } | undefined;
+    try {
+      retried = await input.reinvoke(input.response, buildCorrectionPrompt(first));
+    } catch (error) {
+      // The correction is advisory: a provider or budget failure keeps the draft, flagged below.
+      log.warn({ node: 'agent', err: error }, 'final answer integrity: correction request failed');
+    }
+    const retriedText = retried ? extractMessageText(retried.response).trim() : '';
+    const delivered = retried ? input.deliver(retried.response) : undefined;
+    // A tool call (e.g. query_results) continues the turn; a policy notice ends it normally.
+    // An empty retry keeps the original draft (flagged) instead of the generic empty-answer fallback.
+    if (retried && delivered && (!delivered.final || (retriedText && delivered.message !== retried.response))) return delivered.message;
+    const second = retried && retriedText ? review(retriedText) : first;
+    if (retried && retriedText && !hasIntegrityIssues(second)) {
       ledger.answerCorrectionPending = false;
       recordGuardEvent('answer-integrity', { action: 'corrected' });
       return finish(retried.response, retried.finishReason, locale);
     }
-    current = { response: retried.response, finishReason: retried.finishReason, review: second };
+    if (retried && retriedText) current = { response: retried.response, finishReason: retried.finishReason, review: second };
   }
   if (ledger) ledger.answerCorrectionPending = false;
   recordGuardEvent('answer-integrity', { action: 'flagged', ...summary(current.review) });

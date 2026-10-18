@@ -60,6 +60,15 @@ describe('tool guards', () => {
     expect(guards.preflightToolCall({ call, toolNames, messages: [], ledger, repairEnabled: true })).toBeUndefined();
   });
 
+  test('a state change clears the failure history so a fixed call may be retried', () => {
+    const ledger = guards.guardLedger(createRunContext(policy()));
+    const call = { name: 'query_results', args: {} };
+    guards.recordToolResult(ledger, call, 'RUN_NOT_FOUND', false);
+    guards.recordToolResult(ledger, call, 'RUN_NOT_FOUND', false);
+    guards.recordToolResult(ledger, { name: 'edit_model', args: { baseRevision: 1 } }, undefined, true);
+    expect(guards.preflightToolCall({ call, toolNames, messages: [], ledger, repairEnabled: true })).toBeUndefined();
+  });
+
   test('no-progress ends the turn after the limit; state changes and new reads reset it', () => {
     const ledger = guards.guardLedger(createRunContext(policy()));
     const call = { name: 'query_results', args: {} };
@@ -75,7 +84,7 @@ describe('tool guards', () => {
     const answered = new ToolMessage({ name: 'ask_user_clarification', tool_call_id: 'c1',
       content: JSON.stringify({ type: 'clarification_answered', question: '请问梁的跨度是多少？', answer: '6米' }) });
     const messages = [new HumanMessage('分析梁'), new AIMessage(''), answered, new HumanMessage('继续')];
-    expect(guards.findAnsweredClarification('请问梁的跨度是多少', messages)).toEqual({ question: '请问梁的跨度是多少？', answer: '6米' });
+    expect(guards.findAnsweredClarification('请问梁的跨度是多少', messages)).toEqual({ question: '请问梁的跨度是多少？', answer: '6米', source: 'tool' });
     expect(guards.findAnsweredClarification('请提供荷载大小与位置', messages)).toBeUndefined();
     const empty = new ToolMessage({ name: 'ask_user_clarification', tool_call_id: 'c2',
       content: JSON.stringify({ type: 'clarification_answered', question: 'Span?', answer: ' ' }) });

@@ -26,8 +26,8 @@ function succeededThisTurn(turn: BaseMessage[], tool: string): boolean {
 function actionSupported(action: ClaimedAction, state: Partial<AgentState>, turn: BaseMessage[]): boolean {
   if (action === 'report') return succeededThisTurn(turn, 'generate_report') || Boolean(state.report);
   if (action === 'analysis') return succeededThisTurn(turn, 'run_analysis') || Boolean(state.analysisResult && state.analysisResult.success !== false);
-  const check = state.codeCheckResult;
-  return Boolean(check && check.success !== false && check.complianceStatus !== 'fail');
+  // Per-member statements ("B1 passes") are legitimate even when the overall status is fail.
+  return Boolean(state.codeCheckResult);
 }
 
 export function reviewFinalAnswer(input: { text: string; state: Partial<AgentState>; messages: BaseMessage[]; currentTurnMessages: BaseMessage[] }): AnswerReview {

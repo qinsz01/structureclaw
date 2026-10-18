@@ -35,6 +35,8 @@ const NEGATIVES = [
   ['E = 206,000 MPa', buildEvidence([JSON.stringify({ materials: [{ E: 206000 }] })])],
   ['uniform load q = 10 N/mm', continuousEvidence],
   ['No numbers with units here: case 1, 2 and 3.', beamEvidence],
+  // A unit weight is not a line load: kN/m³ is not checked as kN/m.
+  ['Concrete unit weight 25 kN/m³ (25 kN/m3).', beamEvidence],
 ];
 
 // [answer, evidence, expected flagged raw values]
@@ -82,8 +84,10 @@ describe('claimed-action detection', () => {
     ['已生成计算报告。', ['report']],
     ['I have generated the report.', ['report']],
     ['The report has been generated and saved.', ['report']],
-    ['分析已完成。', ['analysis']],
-    ['The analysis was completed successfully.', ['analysis']],
+    ['静力分析已完成。', ['analysis']],
+    ['已完成结构分析。', ['analysis']],
+    ['The static analysis was completed successfully.', ['analysis']],
+    ['I have run the OpenSees analysis.', ['analysis']],
     ['所有验算均通过。', ['check-passed']],
     ['All checks passed.', ['check-passed']],
     ['The beam passes the GB50017 checks.', ['check-passed']],
@@ -101,6 +105,11 @@ describe('claimed-action detection', () => {
     'Once the analysis is run, the checks can be evaluated.',
     'I could run the analysis if you confirm the load.',
     'Whether the checks passed depends on the missing inputs.',
+    '已完成需求分析，下面列出所需参数。',
+    '分析已完成。',
+    '我已经进行了初步分析。',
+    'I have generated a summary of the report.',
+    '已生成报告摘要。',
   ])('negated, conditional or offered: %s', (answer) => {
     expect(findActionClaims(answer)).toEqual([]);
   });

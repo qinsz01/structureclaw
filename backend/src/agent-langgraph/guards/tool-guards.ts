@@ -90,8 +90,9 @@ function guardError(errorCode: string, guard: GuardKind, error: string, hint: st
   return JSON.stringify({ success: false, errorCode, guard, error, hint, ...extra });
 }
 
-function block(ledger: GuardLedger, guard: GuardKind, tool: string, code: string, repairEnabled: boolean, details: Record<string, unknown>): void {
-  ledger.blocked.push({ guard, tool, code });
+function block(ledger: GuardLedger, guard: GuardKind, tool: string, code: string, repairEnabled: boolean, details: Record<string, unknown>,
+  countsTowardStop = true): void {
+  if (countsTowardStop) ledger.blocked.push({ guard, tool, code });
   ledger.noProgressStreak += 1;
   recordGuardEvent(guard, { action: 'blocked', tool, code, ...details });
   const limit = repairEnabled ? GUARD_BLOCK_STOP_LIMIT : 1;
@@ -152,7 +153,9 @@ export function preflightToolCall(input: PreflightInput): PreflightRejection | u
   if (ledger && call.name === 'ask_user_clarification' && typeof args.question === 'string') {
     const answered = findAnsweredClarification(args.question, input.messages);
     if (answered) {
-      block(ledger, 'duplicate-clarification', call.name, 'DUPLICATE_CLARIFICATION', repairEnabled, {});
+      // An answer inferred from the next user message (external host) may be a new instruction: no turn stop.
+      block(ledger, 'duplicate-clarification', call.name, 'DUPLICATE_CLARIFICATION', repairEnabled, { answerSource: answered.source },
+        answered.source === 'tool');
       return { kind: 'blocked', content: guardError('DUPLICATE_CLARIFICATION', 'duplicate-clarification',
         'The user already answered this question; it was not asked again. / 用户已回答过该问题，未重复提问。',
         'Use the stored answer (for example pass it to extract_draft_params or edit_model). If it is insufficient, ask a different, more specific question that names what is still missing. / 请使用已保存的回答（例如传给 extract_draft_params 或 edit_model）；若回答不足，请换一个更具体的问题说明仍缺什么。',
@@ -177,6 +180,12 @@ export function recordToolResult(ledger: GuardLedger | undefined, call: { name: 
     ledger.failures.delete(signature);
     isNewInformation = !ledger.successSignatures.has(signature);
     ledger.successSignatures.add(signature);
+  }
+  // A state change can remove the cause of earlier failures: identical retries become legitimate again.
+  if (stateChanged) {
+    const own = failure ? ledger.failures.get(signature) : undefined;
+    ledger.failures.clear();
+    if (own) ledger.failures.set(signature, { ...own, count: 1 });
   }
   ledger.noProgressStreak = stateChanged || isNewInformation ? 0 : ledger.noProgressStreak + 1;
   if (!ledger.stop && ledger.noProgressStreak >= NO_PROGRESS_LIMIT) {
@@ -233,7 +242,7 @@ function previousTurnStart(messages: BaseMessage[]): number {
 }
 
 /** An earlier clarification with a non-empty answer whose question matches `question`. */
-export function findAnsweredClarification(question: string, messages: BaseMessage[]): { question: string; answer: string } | undefined {
+export function findAnsweredClarification(question: string, messages: BaseMessage[]): { question: string; answer: string; source: 'tool' | 'next-message' } | undefined {
   const start = previousTurnStart(messages);
   for (let index = start; index < messages.length; index += 1) {
     const message = messages[index]!;
@@ -247,7 +256,7 @@ export function findAnsweredClarification(question: string, messages: BaseMessag
       answer = reply ? extractMessageText(reply) : '';
     }
     if (answer.trim() && questionSimilarity(payload.question, question) >= DUPLICATE_SIMILARITY) {
-      return { question: payload.question, answer: answer.trim() };
+      return { question: payload.question, answer: answer.trim(), source: payload.type === 'clarification_answered' ? 'tool' : 'next-message' };
     }
   }
   return undefined;

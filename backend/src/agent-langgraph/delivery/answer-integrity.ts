@@ -28,19 +28,19 @@ const UNITS: UnitDefinition[] = [
   { pattern: `N${SEP}mm(?![²2^])`, family: 'moment', scale: 1e-3 },
   { pattern: `N${SEP}m(?![m²2³3^/])`, family: 'moment', scale: 1 },
   { pattern: 'kN/m(?:²|2|\\^2)', family: 'stress', scale: 1e3 },
-  { pattern: 'kN/m(?![m²2^])', family: 'lineLoad', scale: 1e3 },
+  { pattern: 'kN/m(?![m²2³3^])', family: 'lineLoad', scale: 1e3 },
   { pattern: 'N/mm(?:²|2|\\^2)', family: 'stress', scale: 1e6 },
-  { pattern: 'N/mm', family: 'lineLoad', scale: 1e3 },
-  { pattern: 'N/m(?![m²2^])', family: 'lineLoad', scale: 1 },
+  { pattern: 'N/mm(?![²2³3^])', family: 'lineLoad', scale: 1e3 },
+  { pattern: 'N/m(?![m²2³3^])', family: 'lineLoad', scale: 1 },
   { pattern: 'GPa', family: 'stress', scale: 1e9 },
   { pattern: 'MPa', family: 'stress', scale: 1e6 },
   { pattern: '兆帕', family: 'stress', scale: 1e6 },
   { pattern: 'kPa', family: 'stress', scale: 1e3 },
   { pattern: 'Pa', family: 'stress', scale: 1 },
-  { pattern: 'MN', family: 'force', scale: 1e6 },
-  { pattern: 'kN', family: 'force', scale: 1e3 },
-  { pattern: '千牛', family: 'force', scale: 1e3 },
-  { pattern: 'N', family: 'force', scale: 1 },
+  { pattern: 'MN(?![/·•⋅*])', family: 'force', scale: 1e6 },
+  { pattern: 'kN(?![/·•⋅*])', family: 'force', scale: 1e3 },
+  { pattern: '千牛(?![/·•⋅*])', family: 'force', scale: 1e3 },
+  { pattern: 'N(?![/·•⋅*])', family: 'force', scale: 1 },
   { pattern: 'mrad', family: 'rotation', scale: 1e-3 },
   { pattern: 'rad', family: 'rotation', scale: 1 },
   { pattern: 'mm(?![²2³3^])', family: 'length', scale: 1e-3 },
@@ -176,19 +176,25 @@ export function findUnsupportedNumbers(answer: string, evidence: Float64Array): 
 
 export type ClaimedAction = 'report' | 'analysis' | 'check-passed';
 
+/** Structural analysis kinds only: "需求分析" or a quick analysis of the question is not run_analysis. */
+const ZH_ANALYSIS = '(?:结构|静力|模态|动力|内力|受力|有限元|弹性|屈曲|地震|时程|求解)分析';
+const EN_ANALYSIS = '(?:structural|static|modal|dynamic|finite[- ]element|FE|linear|nonlinear|buckling|seismic|time[- ]history|OpenSees)\\s+analysis';
+/** The report itself, not a summary or outline of it. */
+const ZH_REPORT = '报告(?!摘要|概要|要点|大纲)';
+
 const ACTION_PATTERNS: Record<ClaimedAction, RegExp[]> = {
   report: [
-    /报告(?:已经?|均已)(?:生成|完成|输出|创建|保存)/g,
-    /已经?(?:生成|输出|创建)了?[^。；;\n]{0,8}报告/g,
-    /生成了[^。；;\n]{0,8}报告/g,
+    new RegExp(`${ZH_REPORT}(?:已经?|均已)(?:生成|完成|输出|创建|保存)`, 'g'),
+    new RegExp(`已经?(?:生成|输出|创建)了?[^。；;\\n]{0,8}${ZH_REPORT}`, 'g'),
+    new RegExp(`生成了[^。；;\\n]{0,8}${ZH_REPORT}`, 'g'),
     /\breport\b[^.;\n]{0,40}\b(?:has been|have been|was|is now)\s+(?:generated|created|produced|saved|written)\b/gi,
-    /\b(?:I|we)\s+(?:have\s+)?(?:generated|created|produced|written)\s+(?:a|an|the|your)\b[^.;\n]{0,30}\breport\b/gi,
+    /\b(?:I|we)\s+(?:have\s+)?(?:generated|created|produced|written)\s+(?:a|an|the|your)\s+(?:(?!of\b)[\w-]+\s+){0,3}report\b/gi,
   ],
   analysis: [
-    /分析(?:已经?|均已)(?:完成|运行|执行)/g,
-    /已经?(?:完成|运行|执行|进行)了?[^。；;\n]{0,6}分析/g,
-    /\banalysis\b[^.;\n]{0,30}\b(?:has been|was|is now)\s+(?:run|completed|performed|executed)\b/gi,
-    /\b(?:I|we)\s+(?:have\s+)?(?:ran|run|completed|performed|executed)\s+(?:a|an|the)\b[^.;\n]{0,30}\banalysis\b/gi,
+    new RegExp(`${ZH_ANALYSIS}(?:已经?|均已)(?:完成|运行|执行)`, 'g'),
+    new RegExp(`已经?(?:完成|运行|执行|进行)了?${ZH_ANALYSIS}`, 'g'),
+    new RegExp(`\\b${EN_ANALYSIS}\\b[^.;\\n]{0,30}\\b(?:has been|was|is now)\\s+(?:run|completed|performed|executed)\\b`, 'gi'),
+    new RegExp(`\\b(?:I|we)\\s+(?:have\\s+)?(?:ran|run|completed|performed|executed)\\s+(?:a|an|the)\\s+${EN_ANALYSIS}\\b`, 'gi'),
   ],
   'check-passed': [
     /(?:验算|校核|复核)(?:结果)?(?:均|全部|都)?(?:已)?(?:通过|合格)/g,
