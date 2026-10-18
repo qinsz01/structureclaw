@@ -11,6 +11,7 @@ import { create, all } from 'mathjs';
 import { z } from 'zod';
 
 const MAX_EXPRESSION_LENGTH = 500;
+const CALCULATE_HINT = 'Pass one expression of numbers only, without names or "=": write "10*6^2/8", not "M = q*L^2/8". / 只传一个纯数字表达式，不写变量名或“=”：写“10*6^2/8”，不写“M = q*L^2/8”。';
 
 const math = create(all);
 
@@ -81,7 +82,7 @@ export function createCalculateTool() {
         return JSON.stringify(response);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        return JSON.stringify({ success: false, error: msg, expression });
+        return JSON.stringify({ success: false, error: msg, expression, hint: CALCULATE_HINT });
       }
     },
     {
@@ -93,7 +94,7 @@ export function createCalculateTool() {
         'and constants (pi, e). The % operator is modulo (remainder). ' +
         'Does NOT rely on LLM text generation — results are deterministic.',
       schema: z.object({
-        expression: z.string().describe('Math.js expression, e.g. "sqrt(3^2 + 4^2)" or "20e3 * 6^2 / 8". Powers use ^ or pow(x,y); Python/JavaScript ** is not supported. / Math.js表达式：乘方使用^或pow(x,y)，不支持**。'),
+        expression: z.string().describe('One Math.js expression of numbers, e.g. "sqrt(3^2 + 4^2)" or "20e3 * 6^2 / 8"; no variable names or "=". Powers use ^ or pow(x,y); Python/JavaScript ** is not supported. / 一个纯数字Math.js表达式，不写变量名或“=”；乘方使用^或pow(x,y)，不支持**。'),
         unit: z.string().optional().describe('Optional unit label for display (e.g. "kN·m", "mm²"). Does not affect calculation.'),
       }),
     },

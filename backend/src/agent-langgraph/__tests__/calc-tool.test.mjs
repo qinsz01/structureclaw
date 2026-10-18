@@ -228,4 +228,11 @@ describe('createCalculateTool', () => {
     const result = JSON.parse(raw);
     expect(result.success).toBe(false);
   });
+
+  test('an equation returns a hint to pass the bare numeric expression', async () => {
+    const { createCalculateTool } = await import('../../../dist/agent-langgraph/calc-tool.js');
+    const result = JSON.parse(await createCalculateTool().invoke({ expression: '1*10/4 = 2.5' }));
+    expect(result.success).toBe(false);
+    expect(result.hint).toContain('without names or "="');
+  });
 });
