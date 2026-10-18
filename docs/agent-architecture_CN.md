@@ -149,7 +149,7 @@ compiled graph 在进程生命周期内缓存。skill 或 tool 变化后，可�
 | 未知工具 / 参数格式错误 / 缺少调用 ID | `UNKNOWN_TOOL` 附 `availableTools`；`MALFORMED_TOOL_ARGUMENTS`；自动生成 ID | `tool-guards.ts`、`guards/response-guards.ts`（agent 节点） |
 | 防护拒绝次数 | 每轮 2 次（`repair.enabled` 为 false 时 1 次）结束本轮 | `tool-guards.ts`；agent 节点不再调用 LLM，由 `guards/stop-answer.ts` 给出已完成步骤、可用结果与受阻事项 |
 | 工具异常 | ToolNode 文本转为 `{ success: false, errorCode, error, hint }`；未知 ID 错误码（`RUN_NOT_FOUND`、`RESULT_NODE_NOT_FOUND`、`MODEL_OBJECT_NOT_FOUND` 等）列出现有 ID | `guards/tool-errors.ts` |
-| 最终回答数值：带工程单位（kN/N、kN·m/N·m/N·mm、m/mm、MPa/kPa/Pa、kN/m、rad、Hz）的数值，经单位换算、忽略符号、容差取 max(末位半个单位, 1 %) 后，与用户消息、任一工具结果及已保存的模型/草稿/分析/校核/报告/查询数值均不一致；用户输入数值的乘积/商（q·L、P/2）及已保存查询数值之和（ΣR）也视为依据；引用规范表/条文的句子和紧跟书面公式的数值（`L/250 = 24 mm`、`22.5 + 75 + 22.5 = 120 kN`，以及回答中其他位置的同一数值）不检查 | 每轮 1 次纠正请求（关闭自动纠错时为 0），之后附注列出未核实数值 | `delivery/answer-integrity.ts`、`answer-review.ts`、`final-review.ts` |
+| 最终回答数值：带工程单位（kN/N、kN·m/N·m/N·mm、m/mm、MPa/kPa/Pa、kN/m、rad、Hz）的数值，经单位换算、忽略符号、容差取 max(末位半个单位, 1 %) 后，与用户消息、任一工具结果及已保存的模型/草稿/分析/校核/报告/查询数值均不一致；用户输入数值的乘积/商（q·L、P/2）及已保存查询数值之和（ΣR）也视为依据；引用规范表/条文的句子和紧跟书面公式的数值（`L/250 = 24 mm`、`L/250 (24 mm)`、`22.5 + 75 + 22.5 = 120 kN`、`120 kN = 10×12`，以及回答中其他位置的同一数值）不检查；面积、体积和惯性矩（`cm⁴`、`mm²`）不检查 | 每轮 1 次纠正请求（关闭自动纠错时为 0），之后附注列出未核实数值 | `delivery/answer-integrity.ts`、`answer-review.ts`、`final-review.ts` |
 | 声称的操作："已生成报告"、"已完成分析"、"验算通过"（窄化的中英文模式，忽略否定与条件句），但本轮无成功工具结果且无已保存产物 | 同样先纠正后附注 | 同上 |
 | 空回答或被截断的回答 | 空回答替换为双语兜底文本；`finish_reason` 为 `length`/`max_tokens` 时附截断提示 | `delivery/final-answer.ts`、`final-review.ts` |
 
