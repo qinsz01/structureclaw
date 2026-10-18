@@ -2,13 +2,15 @@
  * Final-answer integrity review against structured state (guard layer, docs/agent-architecture.md).
  *
  * Evidence for numbers: the user's messages (inputs), every tool result in the conversation and
- * the saved model, draft, analysis, code-check, report and queried quantities. Claimed actions
- * are supported only by a successful tool result in this turn or by the saved artifact.
+ * the saved model, draft, analysis, code-check, report and queried quantities; placeholder-stiffness
+ * runs count without their displacements. Claimed actions are supported only by the current state:
+ * a current analysis, a report of that run, a passing code check of that run.
  */
-import type { BaseMessage, ToolMessage } from '@langchain/core/messages';
+import type { BaseMessage } from '@langchain/core/messages';
 import type { AgentState } from '../state.js';
-import { extractMessageText, getMessageType, getToolName } from '../message-inspect.js';
-import { toolMessageFailure } from '../../utils/tool-outcome.js';
+import { extractMessageText, getMessageType } from '../message-inspect.js';
+import { currentAnalysisError, isRecord, type ModelState } from '../../engineering/model-state.js';
+import { withoutPlaceholderDisplacements } from '../../engineering/stiffness-placeholder.js';
 import { buildEvidence, derivedInputNumbers, quantitySums, findActionClaims, findUnsupportedNumbers, type ClaimedAction, type UnitNumber } from './answer-integrity.js';
 
 export interface AnswerReview { numbers: UnitNumber[]; actions: Array<{ action: ClaimedAction; text: string }> }
@@ -19,20 +21,25 @@ export function hasIntegrityIssues(review: AnswerReview): boolean {
   return review.numbers.length > 0 || review.actions.length > 0;
 }
 
-function succeededThisTurn(turn: BaseMessage[], tool: string): boolean {
-  return turn.some(message => getMessageType(message) === 'tool' && getToolName(message) === tool && !toolMessageFailure(message as ToolMessage));
+const runIdOf = (artifact: unknown): unknown => {
+  const record = isRecord(artifact) ? artifact : {};
+  const meta = isRecord(record.meta) ? record.meta : isRecord(record.json) && isRecord(record.json.meta) ? record.json.meta : {};
+  return meta.runId;
+};
+
+function actionSupported(action: ClaimedAction, state: Partial<AgentState>): boolean {
+  const runId = currentAnalysisError(state as ModelState) ? undefined : state.analysisResult?.runId;
+  if (runId === undefined) return false;
+  if (action === 'analysis') return true;
+  if (action === 'report') return runIdOf(state.report) === runId;
+  return runIdOf(state.codeCheckResult) === runId && state.codeCheckResult?.complianceStatus === 'pass';
 }
 
-function actionSupported(action: ClaimedAction, state: Partial<AgentState>, turn: BaseMessage[]): boolean {
-  if (action === 'report') return succeededThisTurn(turn, 'generate_report') || Boolean(state.report);
-  if (action === 'analysis') return succeededThisTurn(turn, 'run_analysis') || Boolean(state.analysisResult && state.analysisResult.success !== false);
-  // Per-member statements ("B1 passes") are legitimate even when the overall status is fail.
-  return Boolean(state.codeCheckResult);
-}
+const presented = (run: unknown) => isRecord(run) ? withoutPlaceholderDisplacements(run) : run;
 
 export function reviewFinalAnswer(input: { text: string; state: Partial<AgentState>; messages: BaseMessage[]; currentTurnMessages: BaseMessage[] }): AnswerReview {
   const { text, state, messages, currentTurnMessages } = input;
-  const actions = findActionClaims(text).filter(claim => !actionSupported(claim.action, state, currentTurnMessages));
+  const actions = findActionClaims(text).filter(claim => !actionSupported(claim.action, state));
   const toolBacked = currentTurnMessages.some(message => getMessageType(message) === 'tool')
     || Boolean(state.analysisResult || state.codeCheckResult || state.report);
   if (!toolBacked) return { numbers: [], actions };
@@ -41,8 +48,8 @@ export function reviewFinalAnswer(input: { text: string; state: Partial<AgentSta
     ...messages.filter(message => ['human', 'tool'].includes(getMessageType(message) ?? '')).map(extractMessageText),
     derivedInputNumbers(userTexts),
     quantitySums(Object.values(state.resultQuantities ?? {}).map(quantity => Number(quantity.value))),
-    state.model, state.draftState, state.analysisResult, state.codeCheckResult, state.report,
-    state.resultQuantities, state.analysisRuns, state.inputEvidence,
+    state.model, state.draftState, presented(state.analysisResult), state.codeCheckResult, state.report,
+    state.resultQuantities, Object.values(state.analysisRuns ?? {}).map(presented), state.inputEvidence,
   ]);
   return { numbers: findUnsupportedNumbers(text, evidence), actions };
 }
