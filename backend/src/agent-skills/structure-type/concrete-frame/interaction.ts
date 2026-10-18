@@ -53,10 +53,6 @@ function buildConcreteFrameDefaultReason(paramKey: string, locale: AppLocale, st
       return locale === 'zh'
         ? '默认采用 C30 混凝土。'
         : 'Default to C30 concrete.';
-    case 'frameRebarGrade':
-      return locale === 'zh'
-        ? '默认采用 HRB400 钢筋。'
-        : 'Default to HRB400 rebar.';
     case 'frameColumnSection':
       return locale === 'zh'
         ? `根据 ${storyCount} 层框架规模，建议柱截面采用 ${getDefaultColumnSection(storyCount)}（矩形截面）。`
@@ -85,18 +81,15 @@ export function computeConcreteFrameMissing(state: DraftState, phase: 'interacti
     ],
   );
 
-  // Add material keys as critical for concrete frames in interactive phase
+  // Add material keys as critical for concrete frames in interactive phase. The rebar grade is a
+  // code-check input only and is never required for analysis.
   if (phase === 'interactive') {
     const missingConcreteGrade = state.frameConcreteGrade === undefined;
-    const missingRebarGrade = state.frameRebarGrade === undefined;
     const missingColumnSection = state.frameColumnSection === undefined;
     const missingBeamSection = state.frameBeamSection === undefined;
 
     if (missingConcreteGrade && !baseMissing.critical.includes('frameConcreteGrade')) {
       baseMissing.critical.push('frameConcreteGrade');
-    }
-    if (missingRebarGrade && !baseMissing.critical.includes('frameRebarGrade')) {
-      baseMissing.critical.push('frameRebarGrade');
     }
     if (missingColumnSection && !baseMissing.critical.includes('frameColumnSection')) {
       baseMissing.critical.push('frameColumnSection');
@@ -162,19 +155,11 @@ export function buildConcreteFrameDefaultProposals(
       reason: buildConcreteFrameDefaultReason('frameBaseSupportType', locale, state),
     });
   }
-  // M1: Separate concrete and rebar grade
   if (keys.includes('frameConcreteGrade')) {
     next.set('frameConcreteGrade', {
       paramKey: 'frameConcreteGrade',
       value: 'C30',
       reason: buildConcreteFrameDefaultReason('frameConcreteGrade', locale, state),
-    });
-  }
-  if (keys.includes('frameRebarGrade')) {
-    next.set('frameRebarGrade', {
-      paramKey: 'frameRebarGrade',
-      value: 'HRB400',
-      reason: buildConcreteFrameDefaultReason('frameRebarGrade', locale, state),
     });
   }
   if (keys.includes('frameColumnSection')) {
@@ -245,18 +230,6 @@ export function buildConcreteFrameQuestions(
         required: true,
         critical: criticalMissing.includes('frameConcreteGrade'),
         suggestedValue: 'C30',
-      };
-    }
-    if (question.paramKey === 'frameRebarGrade') {
-      return {
-        paramKey: 'frameRebarGrade',
-        label: locale === 'zh' ? '钢筋等级' : 'Rebar grade',
-        question: locale === 'zh'
-          ? '请确认钢筋等级（如 HRB400、HRB500）。'
-          : 'Please confirm the rebar grade (e.g. HRB400, HRB500).',
-        required: true,
-        critical: criticalMissing.includes('frameRebarGrade'),
-        suggestedValue: 'HRB400',
       };
     }
     if (question.paramKey === 'frameColumnSection') {

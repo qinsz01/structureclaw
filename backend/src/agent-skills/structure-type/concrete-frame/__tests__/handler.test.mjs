@@ -172,6 +172,19 @@ describe('concrete-frame handler composed modules', () => {
     expect(missing.critical).not.toContain('floorLoads');
   });
 
+  test('the interactive phase never requires or asks for the rebar grade', () => {
+    const state = { inferredType: 'concrete-frame', structuralTypeKey: 'concrete-frame', frameDimension: '2d', storyCount: 2, bayCount: 1,
+      storyHeightsM: [3.6, 3.6], bayWidthsM: [6], frameBaseSupportType: 'fixed', updatedAt: 0,
+      engineeringDraft: { structureType: 'concrete-frame', loads: [{ kind: 'line', magnitude: 20, unit: 'kN/m', direction: 'gravity' }] } };
+    const missing = handler.computeMissing(state, 'interactive');
+    expect(missing.critical).toEqual(expect.arrayContaining(['frameConcreteGrade', 'frameColumnSection', 'frameBeamSection']));
+    expect(missing.critical).not.toContain('frameRebarGrade');
+    const questions = buildConcreteFrameQuestions(missing.critical, missing.critical, state, 'zh');
+    expect(questions.map(question => question.paramKey)).not.toContain('frameRebarGrade');
+    const complete = { ...state, frameConcreteGrade: 'C30', frameColumnSection: '500X500', frameBeamSection: '300X600' };
+    expect(handler.computeMissing(complete, 'interactive').critical).toEqual([]);
+  });
+
   test('preserves existing floor loads when semantic line loads are added', () => {
     const existingState = {
       inferredType: 'concrete-frame',

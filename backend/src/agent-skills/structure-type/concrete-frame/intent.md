@@ -30,7 +30,7 @@ This skill identifies user intents for regular reinforced concrete frames (2D or
 
 ## Material Keywords
 - Concrete grades: C20, C25, C30, C35, C40, C45, C50, C55, C60, C65, C70, C75, C80
-- Rebar grades: HPB300, HRB400, HRB500
+- Rebar grades: HPB300, HRB400, HRB500 (recorded when given; not required for analysis)
 - "concrete C30", "HRB400 rebars"
 
 ## Load Keywords

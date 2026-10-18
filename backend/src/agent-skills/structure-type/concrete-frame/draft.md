@@ -34,7 +34,7 @@ A `DraftExtraction` JSON object with the following optional keys (see `constants
 | Key | Type | Example | Notes |
 |-----|------|---------|-------|
 | `frameConcreteGrade` | `string` | `"C30"` | Concrete grade (C20–C80). Default `"C30"`. |
-| `frameRebarGrade` | `string` | `"HRB400"` | Rebar grade (HPB300, HRB400, HRB500). Default `"HRB400"`. |
+| `frameRebarGrade` | `string` | `"HRB400"` | Rebar grade (HPB300, HRB400, HRB500), only when the user gives one. A code-check input; analysis never needs it, so never ask for it or default it. |
 | `frameColumnSection` | `string` | `"400X400"` | Column cross‑section description. See section parsing below. |
 | `frameBeamSection` | `"string"` | `"300X600"` | Beam cross‑section description. |
 
@@ -58,7 +58,7 @@ Concrete frame sections are described as rectangular cross‑sections:
 1. **Story/bay numbers**: Look for patterns like "3‑story 2‑bay", "4层3跨".
 2. **Dimensions**: Extract numbers followed by "m", "米", "mm", "毫米". Convert mm to m for story heights and bay widths.
 3. **Loads**: "dead load 5 kN/m²", "恒载 5 kN/m²", "live load 3 kN/m²", "活载 3 kN/m²". Prefer `engineeringDraft.loads` with `kind: "area"` and `unit: "kN/m2"` when floor geometry is available; the runtime can convert it to per-story total loads. Use legacy `floorLoads` only when the total kN per story is explicitly given or can be computed reliably.
-4. **Materials**: Look for concrete grades (C20–C80) and rebar grades (HPB300, HRB400, HRB500).
+4. **Materials**: Look for concrete grades (C20–C80) and rebar grades (HPB300, HRB400, HRB500). A missing rebar grade is not a missing analysis input.
 5. **Seismic / wind design basis**: Semantically identify seismic fortification inputs such as intensity, design acceleration, design group, site category, fortification category, seismic grade, regularity, and explicit method requirements. Put scalar site parameters into `siteSeismic`; put China-code workflow intent into `skillState.seismicWorkflow`. Do not infer the analysis method through keyword/regex matching.
 6. **Boundary**: "fixed base", "pinned base", "固接", "铰接".
 
