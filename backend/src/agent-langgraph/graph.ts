@@ -41,6 +41,10 @@ import { withRunContext, snapshotRunUsage } from '../runtime/run-context.js';
 import { compactCodeCheckFeedback } from '../engineering/code-checks.js';
 import { extractMessageText, getMessageType, getToolName } from './message-inspect.js';
 import { applyFinalAnswerPolicy } from './delivery/final-answer.js';
+import { reviewAndDeliverFinalAnswer } from './delivery/final-review.js';
+import { guardLedger } from './guards/tool-guards.js';
+import { buildGuardStopAnswer } from './guards/stop-answer.js';
+import { repairResponseToolCalls } from './guards/response-guards.js';
 import { DEFAULT_MAX_TOOL_CALLS_PER_TURN } from '../runtime/limits.js';
 
 
@@ -153,6 +157,17 @@ export function projectToolMessagesForContext(messages: BaseMessage[]): BaseMess
     }));
   }
   return result;
+}
+
+function responseHasToolCalls(response: BaseMessage): boolean {
+  const calls = (response as { tool_calls?: unknown }).tool_calls;
+  return Array.isArray(calls) && calls.length > 0;
+}
+
+function responseFinishReason(response: BaseMessage): string | undefined {
+  const metadata = (response as { response_metadata?: Record<string, unknown> }).response_metadata;
+  const reason = metadata?.finish_reason ?? metadata?.stop_reason;
+  return typeof reason === 'string' ? reason : undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -298,6 +313,11 @@ function createCallModelNode(
         : 'Reached the maximum tool call limit for this turn. I will respond with the information gathered so far.';
       return { messages: [new AIMessage(warning)] };
     }
+    const guards = guardLedger(configurable?.runContext);
+    if (guards?.stop) {
+      log.warn({ node: 'agent', stop: guards.stop }, 'guard ended the turn');
+      return { messages: [new AIMessage(buildGuardStopAnswer(guards.stop, guards, state, currentTurnMessages, state.locale))] };
+    }
 
     // Inject current state into configurable so tools can read state channels.
     // Tools access it via config.configurable.agentState.
@@ -337,13 +357,11 @@ function createCallModelNode(
 
     log.info({ node: 'agent', messageCount: allMessages.length, activeToolCount: activeTools.length, toolCallCount, compacted: compaction.compacted }, 'agent node invoking LLM');
     const llmStart = Date.now();
-    const response = await modelWithTools.invoke(allMessages, config);
+    const response = repairResponseToolCalls(await modelWithTools.invoke(allMessages, config)) as AIMessage;
     const llmDuration = Date.now() - llmStart;
 
-    const hasToolCalls = 'tool_calls' in response && Array.isArray((response as any).tool_calls) && (response as any).tool_calls.length > 0;
-    const responseMetadata = (response as { response_metadata?: Record<string, unknown> }).response_metadata;
-    const rawFinishReason = responseMetadata?.finish_reason ?? responseMetadata?.stop_reason;
-    const finishReason = typeof rawFinishReason === 'string' ? rawFinishReason : undefined;
+    const hasToolCalls = responseHasToolCalls(response);
+    const finishReason = responseFinishReason(response);
     log.info({
       node: 'agent',
       durationMs: llmDuration,
@@ -353,7 +371,23 @@ function createCallModelNode(
       reasoningContentLength: getReasoningContentLength(response),
     }, 'agent node LLM response received');
 
-    return { messages: [applyFinalAnswerPolicy({ response, hasToolCalls, currentTurnMessages, state, log })] };
+    const deliver = (candidate: BaseMessage) => {
+      const repaired = repairResponseToolCalls(candidate) as AIMessage;
+      const final = !responseHasToolCalls(repaired);
+      return { final, message: applyFinalAnswerPolicy({ response: repaired, hasToolCalls: !final, currentTurnMessages, state, log }) };
+    };
+    const delivered = applyFinalAnswerPolicy({ response, hasToolCalls, currentTurnMessages, state, log });
+    if (hasToolCalls || delivered !== response) return { messages: [delivered] };
+    const message = await reviewAndDeliverFinalAnswer({
+      response, finishReason, state, messages: msgs, currentTurnMessages, ledger: guards, log,
+      repairEnabled: configurable?.runContext?.policy.repair.enabled ?? true,
+      deliver,
+      reinvoke: async (draft, prompt) => {
+        const retried = await modelWithTools.invoke([...allMessages, new AIMessage(draft), new HumanMessage(prompt)], config);
+        return { response: retried, finishReason: responseFinishReason(retried) };
+      },
+    });
+    return { messages: [message] };
   };
 }
 

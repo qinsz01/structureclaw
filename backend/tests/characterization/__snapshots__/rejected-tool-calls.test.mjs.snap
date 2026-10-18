@@ -14,11 +14,15 @@ exports[`characterization: rejected tool calls preserve saved results invalid to
       "presentation_complete",
       "done",
     ],
-    "toolResult": "Error: Received tool input did not match expected schema
+    "toolResult": {
+      "error": "Received tool input did not match expected schema
 
 ✖ Invalid option: expected one of "static"|"dynamic"|"seismic"|"nonlinear"
-  → at analysisType
- Please fix your mistakes.",
+  → at analysisType",
+      "errorCode": "INVALID_TOOL_ARGUMENTS",
+      "hint": "Correct the listed argument fields to match the tool schema, then call again. / 请按工具参数结构修正所列字段后再调用。",
+      "success": false,
+    },
   },
   "invalid-extraction-scope": {
     "events": [
@@ -32,11 +36,15 @@ exports[`characterization: rejected tool calls preserve saved results invalid to
       "presentation_complete",
       "done",
     ],
-    "toolResult": "Error: Received tool input did not match expected schema
+    "toolResult": {
+      "error": "Received tool input did not match expected schema
 
 ✖ Too small: expected array to have >=1 items
-  → at requestScope.responses
- Please fix your mistakes.",
+  → at requestScope.responses",
+      "errorCode": "INVALID_TOOL_ARGUMENTS",
+      "hint": "Correct the listed argument fields to match the tool schema, then call again. / 请按工具参数结构修正所列字段后再调用。",
+      "success": false,
+    },
   },
   "missing-build-draft": {
     "events": [
@@ -50,8 +58,12 @@ exports[`characterization: rejected tool calls preserve saved results invalid to
       "presentation_complete",
       "done",
     ],
-    "toolResult": "Error: No draft state available. Run extract_draft_params first.
- Please fix your mistakes.",
+    "toolResult": {
+      "error": "No draft state available. Run extract_draft_params first.",
+      "errorCode": "TOOL_EXECUTION_FAILED",
+      "hint": "Read the error, change the arguments or the preceding step, and do not repeat the identical call. / 请根据错误修改参数或前置步骤，不要重复完全相同的调用。",
+      "success": false,
+    },
   },
 }
 `;

@@ -348,7 +348,13 @@ export class CompatibleChatOpenAICompletions extends ChatOpenAICompletions {
   }
 
   async *_streamResponseChunks(messages: any[], options: any, runManager?: any) {
-    yield* super._streamResponseChunks(messages, isDeepSeekV4Model(this.model) ? withSourceMessages(options, messages) : options, runManager);
+    for await (const chunk of super._streamResponseChunks(messages, isDeepSeekV4Model(this.model) ? withSourceMessages(options, messages) : options, runManager)) {
+      // A streamed invoke aggregates messages, not generation info: keep the finish reason on the
+      // message so the agent can recognise an answer cut off by the output limit.
+      const finishReason = chunk.generationInfo?.finish_reason;
+      if (typeof finishReason === 'string') chunk.message.response_metadata = { ...chunk.message.response_metadata, finish_reason: finishReason };
+      yield chunk;
+    }
   }
 
   completionWithRetry(request: any, requestOptions?: any): Promise<any> {

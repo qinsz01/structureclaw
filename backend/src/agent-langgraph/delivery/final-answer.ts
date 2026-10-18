@@ -4,13 +4,16 @@
  * Applied to every LLM response before it is written to graph state. It only
  * replaces a response that would otherwise end the turn without a usable answer:
  * an empty final message after tool calls, a run that left requested responses
- * uncomputed, or a code check that is incomplete, failed or limited in scope.
+ * uncomputed, or a code check that is incomplete, failed or limited in scope. An empty final
+ * response (with or without tool results this turn) is replaced by a bilingual fallback and
+ * recorded as a guard event.
  */
 import { AIMessage, type AIMessageChunk, type BaseMessage } from '@langchain/core/messages';
 import type { Logger } from 'pino';
 import type { AgentState } from '../state.js';
 import { codeCheckDeliveryNotice } from '../../engineering/code-checks.js';
 import { extractMessageText, getMessageType, getToolName } from '../message-inspect.js';
+import { recordGuardEvent } from '../../runtime/run-context.js';
 
 export function buildEmptyFinalResponseFallback(
   locale: 'zh' | 'en',
@@ -42,7 +45,7 @@ export function shouldReplaceEmptyFinalResponse(response: BaseMessage, currentTu
 
 /** Returns the message to deliver for this LLM response: the response itself or a policy override. */
 export function applyFinalAnswerPolicy(input: {
-  response: AIMessageChunk;
+  response: AIMessage | AIMessageChunk;
   hasToolCalls: boolean;
   currentTurnMessages: BaseMessage[];
   state: AgentState;
@@ -55,7 +58,13 @@ export function applyFinalAnswerPolicy(input: {
       .map((message) => getToolName(message))
       .filter((name): name is string => !!name);
     log.warn({ node: 'agent', toolNames }, 'empty final LLM response after tool calls');
+    recordGuardEvent('empty-final-answer', { action: 'replaced', afterTools: true });
     return new AIMessage(buildEmptyFinalResponseFallback(state.locale, toolNames));
+  }
+  if (!hasToolCalls && !extractMessageText(response).trim()) {
+    log.warn({ node: 'agent' }, 'empty final LLM response without tool calls');
+    recordGuardEvent('empty-final-answer', { action: 'replaced', afterTools: false });
+    return new AIMessage(buildEmptyFinalResponseFallback(state.locale, []));
   }
 
   const check = state.codeCheckResult;

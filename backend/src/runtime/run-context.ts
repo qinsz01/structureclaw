@@ -8,6 +8,8 @@ export interface RunUsage {
   runId: string; policyHash: string; toolCalls: number; llmCalls: number; recoveries: number;
   pendingFailures: Record<string, string>; startedToolCallIds: string[];
   events: Array<Record<string, unknown>>;
+  /** Guard interventions per guard kind (agent-langgraph/guards); absent until a guard fires. */
+  guards?: Record<string, number>;
 }
 export interface RunContext { policy: EffectiveRunPolicy; usage: RunUsage; journalPath?: string }
 const storage = new AsyncLocalStorage<RunContext>();
@@ -60,6 +62,13 @@ export function recordRunEvent(event: Record<string, unknown>): void {
   if (!context) return;
   context.usage.events.push({ at: new Date().toISOString(), ...event });
   persist(context);
+}
+/** A guard intervened (blocked a call, ended the turn, corrected or flagged an answer): counted and logged. */
+export function recordGuardEvent(guard: string, details: Record<string, unknown>): void {
+  const context = storage.getStore();
+  if (!context) return;
+  context.usage.guards = { ...context.usage.guards, [guard]: (context.usage.guards?.[guard] ?? 0) + 1 };
+  recordRunEvent({ kind: 'guard', guard, ...details });
 }
 export function requestRecovery(reason: string): void {
   const context = storage.getStore();
