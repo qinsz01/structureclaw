@@ -340,16 +340,19 @@ export const handler: SkillHandler = {
           material: state.engineeringDraft?.material ?? { family: 'concrete', grade: state.frameConcreteGrade },
           sections: state.engineeringDraft?.sections ?? { beam: state.frameBeamSection, column: state.frameColumnSection } } });
     }
-    if (computeConcreteFrameMissing(state, 'execution').critical.length > 0) {
+    // An absent rebar grade never blocks the model: only an explicit check needs it, and lists it.
+    if (computeConcreteFrameMissing(state, 'execution').critical.some(field => field !== 'frameRebarGrade' || state.frameRebarGrade !== undefined)) {
       return undefined;
     }
     try {
-      if (typeof state.frameConcreteGrade !== 'string' || !isValidConcreteGrade(state.frameConcreteGrade)
-        || typeof state.frameRebarGrade !== 'string' || !isValidRebarGrade(state.frameRebarGrade)) {
-        throw new Error('TEMPLATE_PROPERTY_REQUIRED: concrete/rebar grades / 请明确有效的混凝土与钢筋牌号');
+      if (typeof state.frameConcreteGrade !== 'string' || !isValidConcreteGrade(state.frameConcreteGrade)) {
+        throw new Error('TEMPLATE_PROPERTY_REQUIRED: concrete grade / 请明确有效的混凝土强度等级');
       }
       const concreteGrade = state.frameConcreteGrade;
-      const rebarGrade = state.frameRebarGrade;
+      if (state.frameRebarGrade !== undefined && (typeof state.frameRebarGrade !== 'string' || !isValidRebarGrade(state.frameRebarGrade))) {
+        throw new Error('TEMPLATE_PROPERTY_REQUIRED: rebar grade / 钢筋牌号无效，请更正或省略');
+      }
+      const rebarGrade = state.frameRebarGrade as string | undefined;
 
       const memberInput: ConcreteFrameInput = {
         storyCount: state.storyCount as number,
@@ -380,7 +383,6 @@ export const handler: SkillHandler = {
   computeDesignMissing(state) {
     const critical: string[] = [];
     if (typeof state.frameConcreteGrade !== 'string' || !isValidConcreteGrade(state.frameConcreteGrade)) critical.push('frameConcreteGrade');
-    if (typeof state.frameRebarGrade !== 'string' || !isValidRebarGrade(state.frameRebarGrade)) critical.push('frameRebarGrade');
     for (const field of ['frameBeamSection', 'frameColumnSection'] as const) {
       try {
         if (typeof state[field] !== 'string' || !state[field]) throw new Error('missing');

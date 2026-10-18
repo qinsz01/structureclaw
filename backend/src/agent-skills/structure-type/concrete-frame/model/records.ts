@@ -32,11 +32,11 @@ export type ConcreteFrameModel = {
   bayWidthsYM?: number[];
   frameDimension: '2d' | '3d';
   frameConcreteGrade: string;
-  frameRebarGrade: string;
+  frameRebarGrade?: string;
   frameColumnSection: string;
   frameBeamSection: string;
   concreteProps: ConcreteMaterialProps;
-  rebarProps: RebarMaterialProps;
+  rebarProps?: RebarMaterialProps;
   columnProps: SectionProps;
   beamProps: SectionProps;
   floorLoads?: Array<{ story: number; verticalKN?: number; liveLoadKN?: number; lateralXKN?: number; lateralYKN?: number }>;
@@ -169,13 +169,13 @@ export function n3dId(storyIdx: number, xIdx: number, yIdx: number): string {
 
 export function buildCommonModelFields(options: {
   frameConcreteGrade: string;
-  frameRebarGrade: string;
+  frameRebarGrade?: string;
   frameColumnSection: string;
   frameBeamSection: string;
   frameBaseSupportType: string;
   storyCount: number;
   concreteProps: ConcreteMaterialProps;
-  rebarProps: RebarMaterialProps;
+  rebarProps?: RebarMaterialProps;
   columnProps: SectionProps;
   beamProps: SectionProps;
   siteSeismic?: Record<string, unknown>;
@@ -204,7 +204,8 @@ export function buildCommonModelFields(options: {
     ...(options.analysisControl !== undefined && { analysis_control: options.analysisControl }),
     materials: [
       buildConcreteMaterialRecord(options.concreteProps),
-      buildRebarMaterialRecord(options.rebarProps),
+      // The rebar grade is optional for analysis; a check looks its strengths up when it is declared.
+      ...(options.rebarProps ? [buildRebarMaterialRecord(options.rebarProps)] : []),
     ] as ConcreteFrameModel['materials'],
     sections: [
       buildConcreteSectionRecord('1', 'column', options.columnProps),

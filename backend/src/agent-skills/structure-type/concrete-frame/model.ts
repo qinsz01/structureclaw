@@ -45,18 +45,21 @@ export function buildConcreteFrameModel(
   const rawFrameRebarGrade = (state.frameRebarGrade as string | undefined);
 
   if (!rawFrameConcreteGrade || !isValidConcreteGrade(rawFrameConcreteGrade)
-    || !rawFrameRebarGrade || !isValidRebarGrade(rawFrameRebarGrade)
     || !state.frameColumnSection || !state.frameBeamSection) {
-    throw new Error('TEMPLATE_PROPERTY_REQUIRED: concrete/rebar grades and beam/column sections / 请明确混凝土、钢筋牌号及梁柱截面');
+    throw new Error('TEMPLATE_PROPERTY_REQUIRED: concrete grade and beam/column sections / 请明确混凝土强度等级及梁柱截面');
   }
   const frameConcreteGrade = normalizeConcreteGrade(rawFrameConcreteGrade);
-  const frameRebarGrade = rawFrameRebarGrade.toUpperCase().replace(/\s+/g, '');
+  // Elastic analysis does not need the rebar grade; a declared grade must still be valid (no substitution).
+  if (rawFrameRebarGrade && !isValidRebarGrade(rawFrameRebarGrade)) {
+    throw new Error('TEMPLATE_PROPERTY_REQUIRED: rebar grade / 钢筋牌号无效，请更正或省略');
+  }
+  const frameRebarGrade = rawFrameRebarGrade ? rawFrameRebarGrade.toUpperCase().replace(/\s+/g, '') : undefined;
   const frameColumnSection = state.frameColumnSection as string;
   const frameBeamSection = state.frameBeamSection as string;
   const frameBaseSupportType = (state.frameBaseSupportType as string | undefined) || 'fixed';
 
   const concreteProps = resolveConcreteMaterialProps(frameConcreteGrade);
-  const rebarProps = resolveRebarMaterialProps(frameRebarGrade);
+  const rebarProps = frameRebarGrade ? resolveRebarMaterialProps(frameRebarGrade) : undefined;
   const columnProps = resolveSectionProps(frameColumnSection);
   const beamProps = resolveSectionProps(frameBeamSection);
   const siteSeismic = buildSiteSeismicRecord(state.siteSeismic as DraftSiteSeismicParams | undefined);

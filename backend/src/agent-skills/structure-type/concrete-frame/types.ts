@@ -29,7 +29,7 @@ export interface ConcreteFrameInput {
 
   // 材料等级
   concreteGrade: string; // 混凝土等级 (C20-C80)
-  rebarGrade: string; // 钢筋等级 (HRB400, HRB500)
+  rebarGrade?: string; // 钢筋等级 (HRB400, HRB500)；弹性分析不需要 / not needed for elastic analysis
 
   // 板设计参数
   slabType?: 'one-way' | 'two-way' | 'flat-slab' | 'waffle'; // 板类型

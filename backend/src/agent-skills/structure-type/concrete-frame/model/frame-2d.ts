@@ -13,11 +13,11 @@ export function buildConcreteFrame2dLocalModel(options: {
   floorLoads: NonNullable<ConcreteFrameModel['floorLoads']>;
   frameBaseSupportType: string;
   frameConcreteGrade: string;
-  frameRebarGrade: string;
+  frameRebarGrade?: string;
   frameColumnSection: string;
   frameBeamSection: string;
   concreteProps: ConcreteMaterialProps;
-  rebarProps: RebarMaterialProps;
+  rebarProps?: RebarMaterialProps;
   columnProps: SectionProps;
   beamProps: SectionProps;
   siteSeismic?: Record<string, unknown>;

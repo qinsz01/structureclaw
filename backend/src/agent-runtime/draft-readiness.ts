@@ -65,8 +65,8 @@ export function computeDraftMissing(plugin: ReadinessPlugin, state: DraftState, 
   }
   const missing = plugin.handler.computeMissing(state, phase);
   // Design inputs never block or prompt the analysis workflow; an explicitly requested code check
-  // reports them itself. frameRebarGrade is a concrete-frame builder input, released only for design=false.
-  const critical = missing.critical.filter(field => !isDesignDraftField(field) && (scope?.design !== false || field !== 'frameRebarGrade'));
+  // reports them itself. An absent rebar grade is such an input: elastic analysis never needs it.
+  const critical = missing.critical.filter(field => !isDesignDraftField(field) && (field !== 'frameRebarGrade' || !!state.frameRebarGrade));
   const optional = [...new Set(missing.optional.filter(field => !isDesignDraftField(field)))];
   if (plugin.id === 'generic') return { critical, optional: optional.filter((key) => !critical.includes(key)) };
   // Skill-specific design prerequisites come from the resolved handler (e.g. concrete-frame grades/sections).

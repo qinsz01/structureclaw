@@ -56,8 +56,11 @@ describe('unified draft readiness',()=>{
     const concrete={id:'concrete-frame',handler:{...concreteFrameHandler,computeMissing:()=>({critical:[],optional:[]})}};
     const state={...beam,inferredType:'frame',frameConcreteGrade:'C30',frameRebarGrade:'HRB400',frameColumnSection:'500X500',frameBeamSection:'300X600'};
     expect(computeDraftMissing(concrete,state,'execution').critical).toEqual([]);
+    // The rebar grade is a check input only: its absence never blocks analysis.
     delete state.frameRebarGrade;
-    expect(computeDraftMissing(concrete,state,'execution').critical).toEqual(['frameRebarGrade']);
+    expect(computeDraftMissing(concrete,state,'execution').critical).toEqual([]);
+    delete state.frameConcreteGrade;
+    expect(computeDraftMissing(concrete,state,'execution').critical).toEqual(['frameConcreteGrade']);
   });
 });
 
