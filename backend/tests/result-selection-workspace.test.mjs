@@ -70,6 +70,20 @@ test('selected structured report binds the archived run, location, time and scal
   expect(quantityMatchesSelection(body.report.json.requestedQuantities[0],{...selection,nodeId:'A'},'saved','analysis:dynamic')).toBe(false);
 });
 
+test('a selected report of the current run becomes the current report', async () => {
+  const { beginAnalysisRequest } = await import('../dist/engineering/model-state.js');
+  const base = { model, modelRevision: 0 };
+  const pending = beginAnalysisRequest(base, 'settings');
+  const current = { ...run(), meta: { ...pending.analysisRequest, runId: 'saved' } };
+  const queried = await invoke(current, { ...selection, quantityId: 'point' });
+  const state = { ...base, ...pending, analysisResult: current, analysisRuns: { saved: current }, resultQuantities: queried.update.resultQuantities };
+  const tool = createRegisteredTools({ workspaceRoot: process.cwd(), skillRuntime: {} }).find(tool => tool.name === 'generate_report');
+  const result = await tool.invoke({ message: 'tip report', analysisType: 'dynamic', locale: 'en', selection, narrative: 'structured' },
+    { toolCall: { id: 'report-current' }, configurable: { agentState: state, toolContext: { skillScope: ['report-export'] } } });
+  expect(result.update.report.json.meta.runId).toBe('saved');
+  expect(result.update.report.json.requestedSelection).toEqual(selection);
+});
+
 test('scalar IDs are automatic, stable, selection-specific and accepted by the unchanged report provenance gate', async () => {
   const saved = run();
   const first = await invoke(saved, selection);

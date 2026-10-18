@@ -125,13 +125,15 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
         message: input.message, analysisType, normalizedModel, analysis, codeCheck, locale, evidenceBinding,
       });
 
-      // Store report in graph state via Command
+      // Store report in graph state via Command. A selection on the current run is also the current
+      // report; a selection on an archived run never replaces it.
+      const currentRunReport = !selection || (!freshnessError && run.runId === state?.analysisResult?.runId);
       logToolCall(log, { tool: 'generate_report', durationMs: Date.now() - start, extra: { analysisType, locale, success: true } });
       return toolResult(
         toolCallId,
         'generate_report',
         JSON.stringify({ success: true, summary: result.report.summary, ...(result.report.json.workflowStatus ? { workflowStatus: result.report.json.workflowStatus } : {}), ...(selection ? { report: result.report } : {}) }),
-        selection ? {} : { report: result.report as unknown as Record<string, unknown> },
+        currentRunReport ? { report: result.report as unknown as Record<string, unknown> } : {},
       );
     },
     {
