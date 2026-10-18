@@ -24,8 +24,9 @@ interface RebarMaterial {
 
 type RectangularSectionShape = { kind: 'rectangular'; B: number; H: number };
 
-// Concrete grades data - strictly according to provided table
-const CONCRETE_GRADES: Record<string, ConcreteMaterial> = {
+// GB 50010-2010 values; __tests__/material-table-parity.test.mjs checks them against the
+// authoritative Python tables (skill-shared/python/structure_protocol/design_code_tables.py).
+export const CONCRETE_GRADES: Record<string, ConcreteMaterial> = {
   C20: { grade: 'C20', fck: 13.4, ftk: 1.54, fc: 9.6, ft: 1.10, Ec: 25500, ecu: 0.0033, alpha1: 1.00, beta1: 0.80 },
   C25: { grade: 'C25', fck: 16.7, ftk: 1.78, fc: 11.9, ft: 1.27, Ec: 28000, ecu: 0.0033, alpha1: 1.00, beta1: 0.80 },
   C30: { grade: 'C30', fck: 20.1, ftk: 2.01, fc: 14.3, ft: 1.43, Ec: 30000, ecu: 0.0033, alpha1: 1.00, beta1: 0.80 },
@@ -33,22 +34,22 @@ const CONCRETE_GRADES: Record<string, ConcreteMaterial> = {
   C40: { grade: 'C40', fck: 26.8, ftk: 2.39, fc: 19.1, ft: 1.71, Ec: 32500, ecu: 0.0033, alpha1: 1.00, beta1: 0.80 },
   C45: { grade: 'C45', fck: 29.6, ftk: 2.51, fc: 21.1, ft: 1.80, Ec: 33500, ecu: 0.0033, alpha1: 1.00, beta1: 0.80 },
   C50: { grade: 'C50', fck: 32.4, ftk: 2.64, fc: 23.1, ft: 1.89, Ec: 34500, ecu: 0.0033, alpha1: 1.00, beta1: 0.80 },
-  C55: { grade: 'C55', fck: 35.5, ftk: 2.74, fc: 25.3, ft: 1.96, Ec: 35500, ecu: 0.0033, alpha1: 0.99, beta1: 0.79 },
-  C60: { grade: 'C60', fck: 38.5, ftk: 2.85, fc: 27.5, ft: 2.04, Ec: 36000, ecu: 0.0033, alpha1: 0.98, beta1: 0.78 },
-  C65: { grade: 'C65', fck: 41.5, ftk: 2.93, fc: 29.7, ft: 2.09, Ec: 36500, ecu: 0.0033, alpha1: 0.97, beta1: 0.77 },
-  C70: { grade: 'C70', fck: 44.5, ftk: 2.99, fc: 31.8, ft: 2.14, Ec: 37000, ecu: 0.0033, alpha1: 0.96, beta1: 0.76 },
-  C75: { grade: 'C75', fck: 47.4, ftk: 3.05, fc: 33.8, ft: 2.18, Ec: 37500, ecu: 0.0033, alpha1: 0.95, beta1: 0.75 },
-  C80: { grade: 'C80', fck: 50.2, ftk: 3.11, fc: 35.9, ft: 2.22, Ec: 38000, ecu: 0.0033, alpha1: 0.94, beta1: 0.74 },
+  C55: { grade: 'C55', fck: 35.5, ftk: 2.74, fc: 25.3, ft: 1.96, Ec: 35500, ecu: 0.00325, alpha1: 0.99, beta1: 0.79 },
+  C60: { grade: 'C60', fck: 38.5, ftk: 2.85, fc: 27.5, ft: 2.04, Ec: 36000, ecu: 0.0032, alpha1: 0.98, beta1: 0.78 },
+  C65: { grade: 'C65', fck: 41.5, ftk: 2.93, fc: 29.7, ft: 2.09, Ec: 36500, ecu: 0.00315, alpha1: 0.97, beta1: 0.77 },
+  C70: { grade: 'C70', fck: 44.5, ftk: 2.99, fc: 31.8, ft: 2.14, Ec: 37000, ecu: 0.0031, alpha1: 0.96, beta1: 0.76 },
+  C75: { grade: 'C75', fck: 47.4, ftk: 3.05, fc: 33.8, ft: 2.18, Ec: 37500, ecu: 0.00305, alpha1: 0.95, beta1: 0.75 },
+  C80: { grade: 'C80', fck: 50.2, ftk: 3.11, fc: 35.9, ft: 2.22, Ec: 38000, ecu: 0.003, alpha1: 0.94, beta1: 0.74 },
 };
 
-// Rebar grades data - strictly according to provided table
-const REBAR_GRADES: Record<string, RebarMaterial> = {
+// GB 50010-2010 Tables 4.2.2/4.2.3/4.2.5; same parity test.
+export const REBAR_GRADES: Record<string, RebarMaterial> = {
   HPB300: { grade: 'HPB300', fyk: 300, fstk: 420, fy: 270, fy_compression: 270, fyv: 270, Es: 210000 },
   HRB400: { grade: 'HRB400', fyk: 400, fstk: 540, fy: 360, fy_compression: 360, fyv: 360, Es: 200000 },
   HRBF400: { grade: 'HRBF400', fyk: 400, fstk: 540, fy: 360, fy_compression: 360, fyv: 360, Es: 200000 },
   RRB400: { grade: 'RRB400', fyk: 400, fstk: 540, fy: 360, fy_compression: 360, fyv: 360, Es: 200000 },
-  HRB500: { grade: 'HRB500', fyk: 500, fstk: 630, fy: 435, fy_compression: 400, fyv: 360, Es: 200000 },
-  HRBF500: { grade: 'HRBF500', fyk: 500, fstk: 630, fy: 435, fy_compression: 400, fyv: 360, Es: 200000 },
+  HRB500: { grade: 'HRB500', fyk: 500, fstk: 630, fy: 435, fy_compression: 410, fyv: 360, Es: 200000 },
+  HRBF500: { grade: 'HRBF500', fyk: 500, fstk: 630, fy: 435, fy_compression: 410, fyv: 360, Es: 200000 },
 };
 
 /**
