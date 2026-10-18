@@ -2,28 +2,28 @@
 // LIVE acceptance against an already started backend and its configured LLM (not part of Jest).
 //
 //   npm run test:live --prefix backend -- [--base-url http://127.0.0.1:31415] [--locale zh|en|all]
-//                                         [--runs 1] [--variant beam|hn-no-thickness|original] [--out <dir>]
+//     [--runs 1] [--variant acceptance|beam|forces|continuous|portal|hn-no-thickness|original] [--out <dir>]
 //
-// beam (default): one sentence "design a simply supported steel beam ... HN300×150×6.5×9" must finish in
-// one turn with a current analysis and report, no run_code_check call and no clarification; reactions,
-// midspan moment and deflection are compared with closed-form values. The follow-up "check against
-// GB50017" must execute run_code_check and deliver performed checks plus missing inputs without an
-// interrupt. hn-no-thickness and original are exploratory runs that record what happens.
+// acceptance (default) runs beam, forces and continuous.
+// beam: one sentence "design a simply supported steel beam ... HN300×150×6.5×9" must finish in one turn
+// with a current analysis and report, no run_code_check call and no clarification; reactions, midspan
+// moment and deflection are compared with closed-form values. The follow-up "check against GB50017" must
+// execute run_code_check without an interrupt, compute the strength checks with f=305 and fv=175 MPa
+// (GB 50017-2017 Table 4.4.1, Q355, t=9 mm) and list the missing judgment inputs.
+// forces / continuous / portal: see internal-forces.mjs. hn-no-thickness and original are exploratory.
 // Skips (exit 0) when the backend has no LLM API key configured. Never prints credentials.
 import fs from 'node:fs';
 import path from 'node:path';
+import { args, BASE, backendLlm, check, json, queryResult as queryResultRecord, questionCount, relErr, toolCalls, toolSequence, turn } from './client.mjs';
+import { runContinuous, runForces, runPortal } from './internal-forces.mjs';
 
-const args = Object.fromEntries(process.argv.slice(2).reduce((pairs, item, index, all) => {
-  if (item.startsWith('--')) pairs.push([item.slice(2), all[index + 1] && !all[index + 1].startsWith('--') ? all[index + 1] : 'true']);
-  return pairs;
-}, []));
-const BASE = (args['base-url'] ?? process.env.SCLAW_LIVE_BASE_URL ?? 'http://127.0.0.1:31415').replace(/\/$/, '');
 const LOCALES = (args.locale ?? 'all') === 'all' ? ['zh', 'en'] : [args.locale];
 const RUNS = Math.max(1, Number(args.runs ?? 1));
-const VARIANT = args.variant ?? 'beam';
+const VARIANT = args.variant ?? 'acceptance';
 const OUT = args.out;
-const TURN_TIMEOUT_MS = 15 * 60_000;
 const REL_TOL = 1e-6;
+const ACCEPTANCE = ['beam', 'forces', 'continuous'];
+const VARIANTS = VARIANT === 'acceptance' ? ACCEPTANCE : [VARIANT];
 
 const PROMPTS = {
   beam: {
@@ -40,37 +40,6 @@ const PROMPTS = {
 };
 const BEAM = { P: 10, L: 6, H: 300, B: 150, tw: 6.5, tf: 9 };
 
-async function json(method, url, body) {
-  const response = await fetch(`${BASE}${url}`, { method, headers: body ? { 'Content-Type': 'application/json' } : {},
-    body: body ? JSON.stringify(body) : undefined });
-  const text = await response.text();
-  let parsed;
-  try { parsed = JSON.parse(text); } catch { parsed = text; }
-  return { status: response.status, body: parsed };
-}
-
-/** POST an SSE chat turn and collect its events. */
-async function turn(route, body) {
-  const started = Date.now();
-  const response = await fetch(`${BASE}${route}`, { method: 'POST', signal: AbortSignal.timeout(TURN_TIMEOUT_MS),
-    headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' }, body: JSON.stringify(body) });
-  const text = await response.text();
-  if (response.status !== 200) throw new Error(`SSE ${route} failed: ${response.status} ${text.slice(0, 500)}`);
-  const events = text.split('\n').filter(line => line.startsWith('data:'))
-    .map(line => line.slice(5).trim()).filter(data => data && data !== '[DONE]')
-    .flatMap(data => { try { return [JSON.parse(data)]; } catch { return []; } });
-  const steps = events.filter(event => event.type === 'step_upsert').map(event => event.step ?? {});
-  const result = [...events].reverse().find(event => event.type === 'result');
-  return {
-    wallMs: Date.now() - started, events, steps,
-    conversationId: body.conversationId ?? events.find(event => event.type === 'start')?.content?.conversationId,
-    interactions: events.filter(event => event.type === 'interaction_update'),
-    errors: events.filter(event => event.type === 'error' || event.type === 'presentation_error'),
-    response: result?.content?.response ?? null,
-  };
-}
-
-const toolCalls = (t, name) => t.steps.filter(step => step.tool === name && step.status === 'done');
 // SSE step outputs may be truncated; read the leading status fields as text.
 const checkOutput = step => {
   const text = typeof step.output === 'string' ? step.output : '';
@@ -78,16 +47,7 @@ const checkOutput = step => {
   return { skipped: text.includes('"skipped":true'), provider: field('provider'), completionStatus: field('completionStatus'),
     nextAction: field('nextAction'), hasCheckedItems: text.includes('"checkedItems"') };
 };
-const relErr = (actual, expected) => Math.abs(actual - expected) / Math.abs(expected);
-
-async function queryResult(conversationId, query) {
-  const review = await json('GET', `/api/v1/agent/result-review/${conversationId}`);
-  if (review.status !== 200) throw new Error(`result-review ${review.status}`);
-  const response = await json('POST', `/api/v1/agent/result-review/${conversationId}/tools`, {
-    revisionToken: review.body.revisionToken, tool: 'query_results', args: query });
-  if (response.status !== 200 || response.body?.success !== true) throw new Error(`query_results failed: ${JSON.stringify(response.body).slice(0, 400)}`);
-  return response.body.result.quantity;
-}
+const queryResult = async (conversationId, query) => (await queryResultRecord(conversationId, query)).quantity;
 
 /** Sharp-corner H section strong-axis inertia (m⁴). */
 function sharpCornerI({ H, B, tw, tf }) {
@@ -122,8 +82,6 @@ async function beamResponses(conversationId, runId) {
   const section = model.sections.find(item => item.id === element.section);
   return { span, reactions, moment, deflection, E: material.E, sectionIy: section?.properties?.Iy, section, selfWeight: model.analysis_control?.self_weight };
 }
-
-function check(failures, condition, message) { if (!condition) failures.push(message); }
 
 async function runBeam(locale) {
   const failures = [];
@@ -164,10 +122,16 @@ async function runBeam(locale) {
       check(failures, /未执行|not performed/i.test(follow.response ?? ''), 'final reply does not list the checks not performed and their missing inputs');
     }
   }
+  // Strength checks use the Table 4.4.1 values for Q355 with a 9 mm flange, shown with their source.
+  const reply = follow.response ?? '';
+  check(failures, /305/.test(reply) && /175/.test(reply), 'the check reply does not show f=305 and fv=175 MPa');
+  check(failures, /4\.4\.1/.test(reply), 'the check reply does not cite GB 50017-2017 Table 4.4.1');
+  check(failures, /(φb|phi_b|整体稳定|lateral)/i.test(reply) && /(L\/n|挠度|deflection)/i.test(reply),
+    'the check reply does not list the lateral-stability and deflection judgment inputs');
   return { locale, variant: 'beam', pass: failures.length === 0, failures, wallMs: { first: first.wallMs, check: follow.wallMs },
+    questionCount: { first: questionCount(first), check: questionCount(follow) },
     conversationId: first.conversationId, offersCheckInFinalAnswer: offersCheck,
-    toolSequence: { first: first.steps.filter(step => step.status !== 'running').map(step => `${step.tool}:${step.status}`),
-      check: follow.steps.filter(step => step.status !== 'running').map(step => `${step.tool}:${step.status}`) },
+    toolSequence: { first: toolSequence(first), check: toolSequence(follow) },
     values, checkSummary: lastCheck ?? null,
     finalAnswer: first.response, checkAnswer: follow.response };
 }
@@ -192,45 +156,51 @@ async function runExploratory(locale, prompt, answers) {
     finalAnswer: current.response };
 }
 
+const RUNNERS = {
+  beam: runBeam, forces: runForces, continuous: runContinuous, portal: runPortal,
+  'hn-no-thickness': locale => runExploratory(locale, PROMPTS['hn-no-thickness'][locale], [PROMPTS['hn-answer'][locale]]),
+  original: locale => runExploratory(locale, PROMPTS.original[locale],
+    [locale === 'zh' ? '荷载竖直向下；材料Q235钢，截面H400×200×8×13' : 'Load acts downward; Q235 steel, section H400×200×8×13']),
+};
+const EXPLORATORY = new Set(['hn-no-thickness', 'original', 'portal']);
+
 async function main() {
-  let llm;
-  try { llm = await json('GET', '/api/v1/admin/llm'); }
-  catch (error) { console.error(`[live] backend not reachable at ${BASE}: ${error.message}`); process.exit(1); }
+  const llm = await backendLlm();
   if (llm.status !== 200 || llm.body?.hasApiKey !== true) {
     console.log(`[live] SKIPPED: no LLM API key configured for the backend at ${BASE}.`);
     return;
   }
-  console.log(`[live] backend ${BASE}, model ${llm.body.model}, variant ${VARIANT}, locales ${LOCALES.join(',')}, runs ${RUNS}`);
+  for (const variant of VARIANTS) if (!RUNNERS[variant]) throw new Error(`Unknown variant ${variant}`);
+  console.log(`[live] backend ${BASE}, model ${llm.body.model}, variants ${VARIANTS.join(',')}, locales ${LOCALES.join(',')}, runs ${RUNS}`);
   const results = [];
   for (let run = 1; run <= RUNS; run += 1) {
-    for (const locale of LOCALES) {
-      let result;
-      try {
-        if (VARIANT === 'beam') result = await runBeam(locale);
-        else if (VARIANT === 'hn-no-thickness') result = await runExploratory(locale, PROMPTS['hn-no-thickness'][locale], [PROMPTS['hn-answer'][locale]]);
-        else if (VARIANT === 'original') result = await runExploratory(locale, PROMPTS.original[locale],
-          [locale === 'zh' ? '荷载竖直向下；材料Q235钢，截面H400×200×8×13' : 'Load acts downward; Q235 steel, section H400×200×8×13']);
-        else throw new Error(`Unknown variant ${VARIANT}`);
-      } catch (error) {
-        result = { locale, variant: VARIANT, pass: false, failures: [error instanceof Error ? error.message : String(error)] };
-      }
-      result.run = run;
-      results.push(result);
-      const { finalAnswer: _a, checkAnswer: _c, ...brief } = result;
-      console.log(JSON.stringify(brief));
-      if (OUT) {
-        fs.mkdirSync(OUT, { recursive: true });
-        fs.writeFileSync(path.join(OUT, `live-${VARIANT}-${locale}-${run}.json`), JSON.stringify(result, null, 2));
+    for (const variant of VARIANTS) {
+      for (const locale of LOCALES) {
+        let result;
+        try {
+          result = await RUNNERS[variant](locale);
+        } catch (error) {
+          result = { locale, variant, pass: false, failures: [error instanceof Error ? error.message : String(error)] };
+        }
+        result.variant ??= variant;
+        result.run = run;
+        results.push(result);
+        const { finalAnswer: _a, checkAnswer: _c, followUpAnswer: _f, ...brief } = result;
+        console.log(JSON.stringify(brief));
+        if (OUT) {
+          fs.mkdirSync(OUT, { recursive: true });
+          fs.writeFileSync(path.join(OUT, `live-${variant}-${locale}-${run}.json`), JSON.stringify(result, null, 2));
+        }
       }
     }
   }
-  if (VARIANT === 'beam') {
+  for (const variant of VARIANTS) {
     for (const locale of LOCALES) {
-      const mine = results.filter(item => item.locale === locale);
-      console.log(`[live] ${locale}: ${mine.filter(item => item.pass).length}/${mine.length} passed`);
+      const mine = results.filter(item => item.variant === variant && item.locale === locale);
+      console.log(`[live] ${variant} ${locale}: ${mine.filter(item => item.pass).length}/${mine.length} passed${EXPLORATORY.has(variant) ? ' (exploratory)' : ''}`);
     }
-    if (results.some(item => !item.pass)) process.exitCode = 1;
   }
+  if (results.some(item => !item.pass && !EXPLORATORY.has(item.variant))) process.exitCode = 1;
 }
 
 await main();

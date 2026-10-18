@@ -122,7 +122,13 @@ describeWithOpenSees('characterization: natural-language draft path', () => {
 
     const check = toolResultSeenByAgent(turn.requests, 'en-frame-check');
     expect(check).toMatchObject({ success: true, provider: 'builtin', skillId: 'code-check-gb50017', completionStatus: 'incomplete',
-      complianceStatus: 'incomplete', summary: { total: 15, passed: 0, failed: 0, inputRequired: 15 } });
+      complianceStatus: 'incomplete', summary: { total: 15, passed: 8, failed: 0, inputRequired: 6, notApplicable: 1 } });
+    // Code-determined values are looked up (f by grade and flange thickness, clause factors); only
+    // judgment inputs remain: φ (axial stability), effective lengths, φb and the deflection limit.
+    expect(check.designValues.filter(row => row.field === 'material.design.f').map(row => [row.value, row.source]))
+      .toEqual([[305, 'GB 50017-2017 表4.4.1, Q355, t=15mm≤16'], [305, 'GB 50017-2017 表4.4.1, Q355, t=13mm≤16']]);
+    expect([...new Set(check.missingInputs.map(row => row.field))].sort()).toEqual(['member.design.deflectionLimitN',
+      'member.design.l0', 'member.design.phi_axial', 'member.design.phi_b', 'member.design.serviceability_result_keys', 'response.deflection'].sort());
 
     const session = await ctx.backend.session(turn.conversationId);
     expect(session).toMatchObject({ analysis: { current: true }, report: { current: true } });
