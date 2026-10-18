@@ -17,6 +17,7 @@ import type { BaseMessage } from '@langchain/core/messages';
 import type { RunContext } from '../../runtime/run-context.js';
 import { recordGuardEvent } from '../../runtime/run-context.js';
 import { extractMessageText, getMessageType, getToolName } from '../message-inspect.js';
+import { contentHash } from '../../engineering/model-record.js';
 
 /** Identical call (tool + normalized arguments) failing with the same error code this many times is not executed again. */
 export const REPEATED_FAILURE_LIMIT = 2;
@@ -108,6 +109,8 @@ export interface PreflightInput {
   messages: BaseMessage[];
   ledger: GuardLedger | undefined;
   repairEnabled: boolean;
+  /** clarificationStateToken of the current state; a question asked under another state may be asked again. */
+  stateToken?: string;
 }
 
 /**
@@ -151,7 +154,7 @@ export function preflightToolCall(input: PreflightInput): PreflightRejection | u
       'Use one of availableTools, or answer without a tool. / 请使用 availableTools 中的工具，或不调用工具直接回答。', { availableTools: [...toolNames].sort() }) };
   }
   if (ledger && call.name === 'ask_user_clarification' && typeof args.question === 'string') {
-    const answered = findAnsweredClarification(args.question, input.messages);
+    const answered = findAnsweredClarification(args.question, input.messages, input.stateToken);
     if (answered) {
       // An answer inferred from the next user message (external host) may be a new instruction: no turn stop.
       block(ledger, 'duplicate-clarification', call.name, 'DUPLICATE_CLARIFICATION', repairEnabled, { answerSource: answered.source },
@@ -241,14 +244,25 @@ function previousTurnStart(messages: BaseMessage[]): number {
   return 0;
 }
 
-/** An earlier clarification with a non-empty answer whose question matches `question`. */
-export function findAnsweredClarification(question: string, messages: BaseMessage[]): { question: string; answer: string; source: 'tool' | 'next-message' } | undefined {
+/** Model revision and draft a clarification was asked under (recorded in the clarification tool result). */
+export function clarificationStateToken(state: { modelRevision?: number; draftState?: { inferredType?: unknown; engineeringDraft?: unknown } | null } | undefined): string {
+  return contentHash({ modelRevision: state?.modelRevision ?? 0, inferredType: state?.draftState?.inferredType ?? null,
+    engineeringDraft: state?.draftState?.engineeringDraft ?? null });
+}
+
+/**
+ * An earlier clarification with a non-empty answer whose question matches `question`. When both the
+ * earlier result and the caller give a state token and they differ, the model or draft changed since
+ * that question, so it is not a duplicate.
+ */
+export function findAnsweredClarification(question: string, messages: BaseMessage[], stateToken?: string): { question: string; answer: string; source: 'tool' | 'next-message' } | undefined {
   const start = previousTurnStart(messages);
   for (let index = start; index < messages.length; index += 1) {
     const message = messages[index]!;
     if (getMessageType(message) !== 'tool' || getToolName(message) !== 'ask_user_clarification') continue;
     const payload = parseJson(extractMessageText(message));
     if (!payload || typeof payload.question !== 'string') continue;
+    if (stateToken && typeof payload.stateToken === 'string' && payload.stateToken !== stateToken) continue;
     let answer = payload.type === 'clarification_answered' && typeof payload.answer === 'string' ? payload.answer : '';
     if (payload.type === 'clarification_needed') {
       // Externally hosted dialogue: the answer arrives as the next user message.

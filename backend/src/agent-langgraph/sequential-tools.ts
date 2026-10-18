@@ -5,7 +5,7 @@ import type { StructuredToolInterface } from '@langchain/core/tools';
 import type { AgentState } from './state.js';
 import { reserveToolCall, recordToolOutcome, currentRunContext, snapshotRunUsage } from '../runtime/run-context.js';
 import { toolMessageFailure } from '../utils/tool-outcome.js';
-import { guardLedger, preflightToolCall, recordToolResult } from './guards/tool-guards.js';
+import { clarificationStateToken, guardLedger, preflightToolCall, recordToolResult } from './guards/tool-guards.js';
 import { structuredToolError } from './guards/tool-errors.js';
 
 /** Only messages after the current assistant request acknowledge its calls. */
@@ -48,7 +48,7 @@ export async function executeToolsSequentially(tools: StructuredToolInterface[],
   const ledger = guardLedger(runContext);
   // Guards run before the budget ledger: a guarded call is never executed and never reserved.
   const rejection = preflightToolCall({ call, toolNames: tools.map(item => item.name), messages: state.messages, ledger,
-    repairEnabled: runContext?.policy.repair.enabled ?? true });
+    repairEnabled: runContext?.policy.repair.enabled ?? true, stateToken: clarificationStateToken(state) });
   if (rejection) {
     if (rejection.kind === 'rejected') recordToolResult(ledger, call, toolMessageFailure({ content: rejection.content, status: 'error' }), false);
     return unexecuted(callRef, rejection.content);

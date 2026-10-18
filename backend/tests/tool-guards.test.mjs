@@ -95,6 +95,19 @@ describe('tool guards', () => {
     expect(guards.questionSimilarity('What is the span?', 'what is the span')).toBe(1);
   });
 
+  test('a clarification asked under another model revision or draft may be asked again', () => {
+    const before = { modelRevision: 1, draftState: { inferredType: 'beam', engineeringDraft: { geometry: { lengthM: 6 } } } };
+    const token = guards.clarificationStateToken(before);
+    const answered = new ToolMessage({ name: 'ask_user_clarification', tool_call_id: 'c1',
+      content: JSON.stringify({ type: 'clarification_answered', question: 'What is the section?', answer: 'H300', stateToken: token }) });
+    const messages = [new HumanMessage('beam'), new AIMessage(''), answered];
+    expect(guards.findAnsweredClarification('What is the section?', messages, token)).toMatchObject({ answer: 'H300' });
+    const edited = guards.clarificationStateToken({ ...before, modelRevision: 2 });
+    const redrafted = guards.clarificationStateToken({ ...before, draftState: { ...before.draftState, engineeringDraft: { geometry: { lengthM: 8 } } } });
+    expect(guards.findAnsweredClarification('What is the section?', messages, edited)).toBeUndefined();
+    expect(guards.findAnsweredClarification('What is the section?', messages, redrafted)).toBeUndefined();
+  });
+
   test('unknown tools and malformed arguments are rejected without a run context', () => {
     const unknown = guards.preflightToolCall({ call: { name: 'magic', args: {} }, toolNames, messages: [], ledger: undefined, repairEnabled: true });
     expect(unknown.kind).toBe('rejected');

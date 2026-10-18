@@ -5,6 +5,7 @@ import { type LangGraphRunnableConfig, interrupt } from '@langchain/langgraph';
 import { currentRunPolicy, recordRunEvent } from '../../runtime/run-context.js';
 import { getConfigurable } from './shared.js';
 import { supportedClarificationOptions } from '../../agent-runtime/template-properties.js';
+import { clarificationStateToken } from '../guards/tool-guards.js';
 
 export function createAskUserClarificationTool() {
   return tool(
@@ -16,8 +17,9 @@ export function createAskUserClarificationTool() {
       if (proposed && options && options.length < proposed.length) recordRunEvent({ kind: 'clarification_options_ignored',
         reason: 'SECTION_DESIGNATION_UNSUPPORTED', options: proposed.filter(option => !options.includes(option)) });
 
+      const stateToken = clarificationStateToken(getConfigurable(config)?.agentState);
       if (currentRunPolicy()?.executionOwner === 'external') {
-        return JSON.stringify({ type: 'clarification_needed', question: input.question, options,
+        return JSON.stringify({ type: 'clarification_needed', question: input.question, options, stateToken,
           nextAction: 'await_user_input', resume: 'Begin a new user turn with the actual user answer; the external host owns dialogue.' });
       }
 
@@ -34,6 +36,7 @@ export function createAskUserClarificationTool() {
         question: input.question,
         ...(options ? { options } : {}),
         answer: userResponse,
+        stateToken,
         nextAction: hasCurrentModel ? 'query_model' : 'extract_draft_params',
         instruction: hasCurrentModel
           ? 'An existing model is current. Inspect it with query_model; if the answer changes engineering fields, apply only the confirmed changes with edit_model. If those values are already present, continue without rebuilding. / 已有当前模型：用 query_model 确认对象与版本，工程字段的已确认修改通过 edit_model 写入；重复确认已有值时继续执行，不重建草稿。'

@@ -145,7 +145,7 @@ compiled graph 在进程生命周期内缓存。skill 或 tool 变化后，可�
 |---|---|---|
 | 相同失败重复：同一工具、语义相同参数（忽略键序与空值）以同一错误码失败 | 失败 2 次；第 3 次相同调用不执行，返回 `REPEATED_FAILED_CALL`，附先前错误与修改建议 | `guards/tool-guards.ts`，由 `sequential-tools.ts` 在预算账本之前调用 |
 | 无进展：调用未改变任何状态值（模型、草稿、分析、报告、校核、查询数值等）且重复先前成功调用，或调用失败 | 连续 8 次结束本轮 | 同上 |
-| 重复澄清：`ask_user_clarification` 的规范化问题与本轮或上一轮已回答的问题相同（二元组相似度 ≥ 0.8） | 以 `DUPLICATE_CLARIFICATION` 拒绝并附已保存的回答 | 同上 |
+| 重复澄清：`ask_user_clarification` 的规范化问题与本轮或上一轮在相同模型版本和草稿下已回答的问题相同（二元组相似度 ≥ 0.8；模型或草稿改变后可再次询问） | 以 `DUPLICATE_CLARIFICATION` 拒绝并附已保存的回答 | 同上 |
 | 未知工具 / 参数格式错误 / 缺少调用 ID | `UNKNOWN_TOOL` 附 `availableTools`；`MALFORMED_TOOL_ARGUMENTS`；自动生成 ID | `tool-guards.ts`、`guards/response-guards.ts`（agent 节点） |
 | 防护拒绝次数 | 每轮 2 次（`repair.enabled` 为 false 时 1 次）结束本轮 | `tool-guards.ts`；agent 节点不再调用 LLM，由 `guards/stop-answer.ts` 给出已完成步骤、可用结果与受阻事项 |
 | 工具异常 | ToolNode 文本转为 `{ success: false, errorCode, error, hint }`；未知 ID 错误码（`RUN_NOT_FOUND`、`RESULT_NODE_NOT_FOUND`、`MODEL_OBJECT_NOT_FOUND` 等）列出现有 ID | `guards/tool-errors.ts` |
