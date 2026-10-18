@@ -26,7 +26,7 @@ test.each([true, false])('reported design-only missing fields are dropped: they 
       analysisControl: { self_weight: false } },
     draftIssues: issues.map(field => ({ field, severity: 'ambiguous', value: null, reason: 'Design conditions not supplied' })),
   } }));
-  state.requestScope = { responses: ['forces'], method: 'solver', design, report: false, outputs: [] };
+  state.requestScope = { responses: ['forces'], design, report: false, outputs: [] };
   const missing = computeDraftMissing({ id: 'beam', handler }, state, 'execution');
   expect(missing.critical).toEqual([]);
   expect(missing.optional).toEqual([]);

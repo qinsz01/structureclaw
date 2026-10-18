@@ -9,8 +9,8 @@ exports[`characterization: run policy and ablation surface default tool schemas 
   "delete_path": "be7f11a1c434029febfcb4f9f98bb63a5e94cbf851252505bc6d88921c187d66",
   "detect_structure_type": "6b888b5304d5667602ea7b08a17fac73cccda4bea0825fbd7c94b210e7163bf0",
   "edit_model": "bbbcbedc217b437821eb2a4177c427acdcbe1e0af4294ae206eb5dd2281580c6",
-  "extract_draft_params": "7111f0314e5c6aa0c9d22410b595bf623fcdbe50d7d38a287be329698694c16c",
-  "generate_report": "a74e68475cbbbf6172e24f995d620b88867eb250445139224bd958051e1d7e41",
+  "extract_draft_params": "62f9ef0b3afa21d8990ba8f954f18f00dc6ca99981cf8704e52253963849bae1",
+  "generate_report": "a2250e05ef13236ccd167282fad61041df3e068704f498d070f7d33b265da853",
   "glob_files": "efbc99e25aca6e714dafad379e748d0a32c4f6892feff09b60ce9989317b77c9",
   "grep_files": "adc3a8fa71b305d6f00758a92e2a32392a866f915bdba7d847a4bd40541c16a0",
   "memory": "98be207b6dc4697479672f55664ab07ed53a07905b5f75c023e203966d6f2347",
@@ -20,8 +20,8 @@ exports[`characterization: run policy and ablation surface default tool schemas 
   "read_file": "3c1711ff89b15b3789ac4a9e5e1309174099b1516c1e40d9eb41b18c374780a0",
   "replace_in_file": "de85a0776bdb02b5d59d641387f0ec97011550eab750fefedbfb52032e554cdf",
   "review_input": "06f98e5bf62be950320e7f914557b49b74d080abd66c64608002ef82328ba0af",
-  "run_analysis": "d848486e69d900f6d508b865b45ee76402b5bd6a66fd142086597245b3ac3f35",
-  "run_code_check": "107d95ab008287d349bc81e5277a7d45919e78ba7c2a173839b7452d6d8ab1fc",
+  "run_analysis": "a54f6924a9aee0e4a53110e77713a07305c49921bf443668c1400fc58374e11e",
+  "run_code_check": "61c9597986f8a1ade2f5fb665828d0dd2cb87c815a1ee58ab5820b57535c2365",
   "set_session_config": "142d40ccf8f8700d2dde4e31cc87870244efd96f1644c388dd0918f6c8c57ac5",
   "undo_model": "2c4b7e48fe3064fb7877554979941de213f04412a69e636b861771a2b0b831e6",
   "validate_model": "18af35dfd865e3a8446fda04866a7426073fa7cea1e6a48d89ffe991cb2b41d1",
@@ -116,8 +116,8 @@ exports[`characterization: run policy and ablation surface policy variant builde
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 25819,
-  "systemPromptSha256": "013d00a4aaa04e33bd7a42c17cb39d4ef02f33f2ebcdf036725392d1c475173b",
+  "systemPromptChars": 25718,
+  "systemPromptSha256": "6372a7c6765791409ccd02b91f83743f3d58110c42415dbf8dcead3a1f412ede",
 }
 `;
 
@@ -258,7 +258,7 @@ Checking (when the user asks for a check): OpenSees uses run_code_check provider
 Confirmed ordinary text updates: read query_model revision/IDs, then write supplied inputs directly with edit_model; do not first create pending review evidence. review_input resolves existing inputEvidence/inputIssues or attachment observations. Material strengths belong to materials[id].design; member coefficients to elements[id].design; section properties to sections[id].properties in metres; serviceability_result_keys is an array of result keys. Use includeSchema when fields are unclear; never guess paths or invent placeholder keys. Combine supplied inputs into one edit_model transaction. Never issue multiple model mutations in the same message; wait for the returned revision before another mutation. Nested objects and dotted paths in values merge into existing fields, so send only changed fields; adding S/Wnx/b/t does not require resending A/Iy/Iz. Verify changed/revision and updated inputs, leaving genuinely missing conditions incomplete.
 
 Request scope: current requestScope=null. For a new task declare requestScope from the whole request (responses; design=true only for an explicit check request; report; outputs) and keep it for clarification answers. Do what the user asked and no more: force questions do not request deformation, and design or analysis wording requests neither a check nor a report; a report is generated only when the user asks for a report, a calculation book or another deliverable document. Ask only for inputs the requested results need: forces and reactions need no material or section (the model then uses labelled unit stiffness; when a tool reports the equal-EI assumption, state it in the answer), while deflection, periods or a check need the real material and section. If sections are given for some members but not others, ask for the rest; for a design without a section, ask for its dimensions rather than selecting one. Specified solvers run genuinely. Read provided attachments before asking again; modify an existing model with edit_model and stable IDs.
-When a tool result gives nextAction or an instruction (for example partialAnalysisAvailable), follow it; missingRequestedResponses means the task is still incomplete.
+When a tool result gives nextAction or an instruction, follow it.
 Design inputs: never propose, ask for or write engineering-judgment values the user did not give (lateral bracing, effective length, deflection-limit category); code-determined values come from the check tool. Write values the user supplies to an existing model with query_model/edit_model; if the user repeats properties already present, acknowledge them without re-extracting the draft."
 `;
 
@@ -424,8 +424,8 @@ exports[`characterization: run policy and ablation surface policy variant defaul
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 25820,
-  "systemPromptSha256": "1b94aea96027112c5c1b1c6bd7db9169a420fd417bfb9cddabd7573f531e70da",
+  "systemPromptChars": 25719,
+  "systemPromptSha256": "af77e2f797061830fc5efc7c4c9c59c3d6c6f8f1a98b449a5eb42f7cb3c39841",
 }
 `;
 
@@ -566,7 +566,7 @@ Checking (when the user asks for a check): OpenSees uses run_code_check provider
 Confirmed ordinary text updates: read query_model revision/IDs, then write supplied inputs directly with edit_model; do not first create pending review evidence. review_input resolves existing inputEvidence/inputIssues or attachment observations. Material strengths belong to materials[id].design; member coefficients to elements[id].design; section properties to sections[id].properties in metres; serviceability_result_keys is an array of result keys. Use includeSchema when fields are unclear; never guess paths or invent placeholder keys. Combine supplied inputs into one edit_model transaction. Never issue multiple model mutations in the same message; wait for the returned revision before another mutation. Nested objects and dotted paths in values merge into existing fields, so send only changed fields; adding S/Wnx/b/t does not require resending A/Iy/Iz. Verify changed/revision and updated inputs, leaving genuinely missing conditions incomplete.
 
 Request scope: current requestScope=null. For a new task declare requestScope from the whole request (responses; design=true only for an explicit check request; report; outputs) and keep it for clarification answers. Do what the user asked and no more: force questions do not request deformation, and design or analysis wording requests neither a check nor a report; a report is generated only when the user asks for a report, a calculation book or another deliverable document. Ask only for inputs the requested results need: forces and reactions need no material or section (the model then uses labelled unit stiffness; when a tool reports the equal-EI assumption, state it in the answer), while deflection, periods or a check need the real material and section. If sections are given for some members but not others, ask for the rest; for a design without a section, ask for its dimensions rather than selecting one. Specified solvers run genuinely. Read provided attachments before asking again; modify an existing model with edit_model and stable IDs.
-When a tool result gives nextAction or an instruction (for example partialAnalysisAvailable), follow it; missingRequestedResponses means the task is still incomplete.
+When a tool result gives nextAction or an instruction, follow it.
 Design inputs: never propose, ask for or write engineering-judgment values the user did not give (lateral bracing, effective length, deflection-limit category); code-determined values come from the check tool. Write values the user supplies to an existing model with query_model/edit_model; if the user repeats properties already present, acknowledge them without re-extracting the draft."
 `;
 
@@ -732,8 +732,8 @@ exports[`characterization: run policy and ablation surface policy variant defaul
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 13267,
-  "systemPromptSha256": "9f444b2644e0a289ad2c5b25c3bb9080015bbfb6ed2ac2694a73f76758c38a57",
+  "systemPromptChars": 13206,
+  "systemPromptSha256": "27dcff837557f0f9bb0a54152ec08428054d25efd3395d73664859868a1c4a08",
 }
 `;
 
@@ -874,7 +874,7 @@ exports[`characterization: run policy and ablation surface policy variant defaul
 已确认的普通文字补参：query_model读取当前版本和ID，直接edit_model写入已给参数；不要先调用review_input建立一套待应用证据。review_input仅用于已有inputEvidence/inputIssues或附件的复核。材料强度属于materials[id].design，构件系数属于elements[id].design，截面补充属性属于sections[id].properties（米制）；serviceability_result_keys是结果键数组。字段不明确时查询includeSchema，不要猜字段或伪造占位键。将本轮已给参数合并成一次edit_model事务；同一条消息不得提交多个修改模型的调用，必须等待返回新版本后才能继续修改。values内嵌套对象和点路径均为合并更新，只发送需要修改的字段；补充S/Wnx/b/t时不要重传A/Iy/Iz等已有属性。核对changed、新版本及更新后的输入；缺失的其他条件保持缺项。
 
 请求范围：当前requestScope=null。每个新任务根据用户整句语义声明requestScope（responses；仅在明确要求校核时design=true；report；outputs），补充参数时保留范围。用户要什么就做什么：只问内力不求变形，“设计”或分析不触发校核或报告；报告仅在用户要求报告、计算书或其他交付文件时生成。只询问所求结果真正需要的输入：内力和反力不需要材料截面（缺省时以标注的单位刚度求解；工具报告按各构件EI相同计算时，在回答中说明该假定）；挠度、周期或校核需要实际材料和截面。部分构件给了截面而其余未给时，询问其余截面；设计未给截面时询问截面尺寸，不替用户选型。指定的求解器必须真实运行。附件中已提供的数据先读取，不重复索要；修改已有模型用edit_model及稳定ID。
-工具结果给出nextAction或instruction（如partialAnalysisAvailable）时照此执行；missingRequestedResponses表示整题仍未完成。
+工具结果给出nextAction或instruction时照此执行。
 设计输入：不要提议、追问或自行写入用户未给出的工程判断值（侧向支承、计算长度、挠度限值类别等）；规范可确定的数值由校核工具确定。用户给出设计数值时，已有模型用query_model/edit_model写入；用户重复已有属性时说明已满足，不重新提取草稿。"
 `;
 
@@ -1040,8 +1040,8 @@ exports[`characterization: run policy and ablation surface policy variant knowle
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 19101,
-  "systemPromptSha256": "4cb4beb46316c2065b49ce081924f39916aaf62b3df808a667969afe794217b8",
+  "systemPromptChars": 19000,
+  "systemPromptSha256": "0278ce4c7ea8a69b4d1abcee2ee171f68dc5bf69782ab06f1ded346b90dcf08e",
 }
 `;
 
@@ -1182,7 +1182,7 @@ Checking (when the user asks for a check): OpenSees uses run_code_check provider
 Confirmed ordinary text updates: read query_model revision/IDs, then write supplied inputs directly with edit_model; do not first create pending review evidence. review_input resolves existing inputEvidence/inputIssues or attachment observations. Material strengths belong to materials[id].design; member coefficients to elements[id].design; section properties to sections[id].properties in metres; serviceability_result_keys is an array of result keys. Use includeSchema when fields are unclear; never guess paths or invent placeholder keys. Combine supplied inputs into one edit_model transaction. Never issue multiple model mutations in the same message; wait for the returned revision before another mutation. Nested objects and dotted paths in values merge into existing fields, so send only changed fields; adding S/Wnx/b/t does not require resending A/Iy/Iz. Verify changed/revision and updated inputs, leaving genuinely missing conditions incomplete.
 
 Request scope: current requestScope=null. For a new task declare requestScope from the whole request (responses; design=true only for an explicit check request; report; outputs) and keep it for clarification answers. Do what the user asked and no more: force questions do not request deformation, and design or analysis wording requests neither a check nor a report; a report is generated only when the user asks for a report, a calculation book or another deliverable document. Ask only for inputs the requested results need: forces and reactions need no material or section (the model then uses labelled unit stiffness; when a tool reports the equal-EI assumption, state it in the answer), while deflection, periods or a check need the real material and section. If sections are given for some members but not others, ask for the rest; for a design without a section, ask for its dimensions rather than selecting one. Specified solvers run genuinely. Read provided attachments before asking again; modify an existing model with edit_model and stable IDs.
-When a tool result gives nextAction or an instruction (for example partialAnalysisAvailable), follow it; missingRequestedResponses means the task is still incomplete.
+When a tool result gives nextAction or an instruction, follow it.
 Design inputs: never propose, ask for or write engineering-judgment values the user did not give (lateral bracing, effective length, deflection-limit category); code-determined values come from the check tool. Write values the user supplies to an existing model with query_model/edit_model; if the user repeats properties already present, acknowledge them without re-extracting the draft."
 `;
 
@@ -1348,8 +1348,8 @@ exports[`characterization: run policy and ablation surface policy variant routin
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 25820,
-  "systemPromptSha256": "1b94aea96027112c5c1b1c6bd7db9169a420fd417bfb9cddabd7573f531e70da",
+  "systemPromptChars": 25719,
+  "systemPromptSha256": "af77e2f797061830fc5efc7c4c9c59c3d6c6f8f1a98b449a5eb42f7cb3c39841",
 }
 `;
 
@@ -1490,7 +1490,7 @@ Checking (when the user asks for a check): OpenSees uses run_code_check provider
 Confirmed ordinary text updates: read query_model revision/IDs, then write supplied inputs directly with edit_model; do not first create pending review evidence. review_input resolves existing inputEvidence/inputIssues or attachment observations. Material strengths belong to materials[id].design; member coefficients to elements[id].design; section properties to sections[id].properties in metres; serviceability_result_keys is an array of result keys. Use includeSchema when fields are unclear; never guess paths or invent placeholder keys. Combine supplied inputs into one edit_model transaction. Never issue multiple model mutations in the same message; wait for the returned revision before another mutation. Nested objects and dotted paths in values merge into existing fields, so send only changed fields; adding S/Wnx/b/t does not require resending A/Iy/Iz. Verify changed/revision and updated inputs, leaving genuinely missing conditions incomplete.
 
 Request scope: current requestScope=null. For a new task declare requestScope from the whole request (responses; design=true only for an explicit check request; report; outputs) and keep it for clarification answers. Do what the user asked and no more: force questions do not request deformation, and design or analysis wording requests neither a check nor a report; a report is generated only when the user asks for a report, a calculation book or another deliverable document. Ask only for inputs the requested results need: forces and reactions need no material or section (the model then uses labelled unit stiffness; when a tool reports the equal-EI assumption, state it in the answer), while deflection, periods or a check need the real material and section. If sections are given for some members but not others, ask for the rest; for a design without a section, ask for its dimensions rather than selecting one. Specified solvers run genuinely. Read provided attachments before asking again; modify an existing model with edit_model and stable IDs.
-When a tool result gives nextAction or an instruction (for example partialAnalysisAvailable), follow it; missingRequestedResponses means the task is still incomplete.
+When a tool result gives nextAction or an instruction, follow it.
 Design inputs: never propose, ask for or write engineering-judgment values the user did not give (lateral bracing, effective length, deflection-limit category); code-determined values come from the check tool. Write values the user supplies to an existing model with query_model/edit_model; if the user repeats properties already present, acknowledge them without re-extracting the draft."
 `;
 
@@ -1657,8 +1657,8 @@ exports[`characterization: run policy and ablation surface policy variant tools-
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 25802,
-  "systemPromptSha256": "1b222ef078daac170432e824350ef51aebb51078c306d623c63607a0ca00fc9a",
+  "systemPromptChars": 25701,
+  "systemPromptSha256": "5ee4872235977168b1752ca27a336de0c358b8a50318d0d41f4264181a670a0b",
 }
 `;
 
@@ -1799,7 +1799,7 @@ Checking (when the user asks for a check): OpenSees uses run_code_check provider
 Confirmed ordinary text updates: read query_model revision/IDs, then write supplied inputs directly with edit_model; do not first create pending review evidence. review_input resolves existing inputEvidence/inputIssues or attachment observations. Material strengths belong to materials[id].design; member coefficients to elements[id].design; section properties to sections[id].properties in metres; serviceability_result_keys is an array of result keys. Use includeSchema when fields are unclear; never guess paths or invent placeholder keys. Combine supplied inputs into one edit_model transaction. Never issue multiple model mutations in the same message; wait for the returned revision before another mutation. Nested objects and dotted paths in values merge into existing fields, so send only changed fields; adding S/Wnx/b/t does not require resending A/Iy/Iz. Verify changed/revision and updated inputs, leaving genuinely missing conditions incomplete.
 
 Request scope: current requestScope=null. For a new task declare requestScope from the whole request (responses; design=true only for an explicit check request; report; outputs) and keep it for clarification answers. Do what the user asked and no more: force questions do not request deformation, and design or analysis wording requests neither a check nor a report; a report is generated only when the user asks for a report, a calculation book or another deliverable document. Ask only for inputs the requested results need: forces and reactions need no material or section (the model then uses labelled unit stiffness; when a tool reports the equal-EI assumption, state it in the answer), while deflection, periods or a check need the real material and section. If sections are given for some members but not others, ask for the rest; for a design without a section, ask for its dimensions rather than selecting one. Specified solvers run genuinely. Read provided attachments before asking again; modify an existing model with edit_model and stable IDs.
-When a tool result gives nextAction or an instruction (for example partialAnalysisAvailable), follow it; missingRequestedResponses means the task is still incomplete.
+When a tool result gives nextAction or an instruction, follow it.
 Design inputs: never propose, ask for or write engineering-judgment values the user did not give (lateral bracing, effective length, deflection-limit category); code-determined values come from the check tool. Write values the user supplies to an existing model with query_model/edit_model; if the user repeats properties already present, acknowledge them without re-extracting the draft."
 `;
 

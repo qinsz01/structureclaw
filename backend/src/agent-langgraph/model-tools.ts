@@ -208,11 +208,6 @@ export function createQueryResultsTool() {
       if (!isRecord(selected)) throw new Error('RESULT_NOT_FOUND');
       if (selected.success === false || selected.executionStatus === 'failed') throw new Error('RESULT_UNAVAILABLE');
       const data = isRecord(selected.data) ? selected.data : selected;
-      if (isRecord(selected.meta) && selected.meta.method === 'equilibrium'
-        && (input.field && !['forces', 'reactions', 'summary', 'memberResponses'].includes(input.field)
-          || input.component && ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'].includes(input.component))) {
-        throw new Error('RESPONSE_NOT_CALCULATED: equilibrium provides forces/reactions only; displacement needs stiffness. / 平衡计算仅提供内力反力；位移需要刚度，不能填零。');
-      }
       if (input.referenceNodeId !== undefined && (!input.nodeId || input.elementId || input.field !== 'displacements'
         || !input.component || !['ux', 'uy', 'uz', 'rx', 'ry', 'rz'].includes(input.component)
         || input.modeNumber !== undefined || timeIndex !== undefined)) {
@@ -257,7 +252,8 @@ export function createQueryResultsTool() {
         if (input.component && isRecord(availability) && availability[input.component] === false) throw new Error('NODE_DOF_RESPONSE_UNAVAILABLE');
         const source = isRecord(values) && isRecord(values.nodes) ? values.nodes
           : isRecord(values) && isRecord(values.modeShape) ? values.modeShape : values;
-        if (!isRecord(source) || source[input.nodeId] === undefined) throw new Error('RESULT_NODE_NOT_FOUND');
+        if (!isRecord(source)) throw new Error(`RESULT_FIELD_UNAVAILABLE: this result has no ${input.field ?? 'nodal'} values. / 该结果没有${input.field ?? '节点'}数据。`);
+        if (source[input.nodeId] === undefined) throw new Error('RESULT_NODE_NOT_FOUND');
         values = source[input.nodeId];
       }
       if (input.elementId !== undefined) {

@@ -43,7 +43,7 @@ try {
       analysisControl: { self_weight: false }, analysis: { loadCombinations: [] } };
     const draftState = fixture.completeDesign ? structuredClone(persisted.draftState)
       : handler.mergeState(undefined, handler.extractDraft({ locale: 'zh', llmDraftPatch: { engineeringDraft: draft } }));
-    draftState.requestScope = { responses: ['forces','reactions','displacements'], method: 'solver', design: false, report: true, outputs: [] };
+    draftState.requestScope = { responses: ['forces','reactions','displacements'], design: false, report: true, outputs: [] };
     const originalDraft = structuredClone(draftState);
     const configurable = { skillRuntime, engineClient: createLocalAnalysisEngineClient(), structureProtocolClient: protocol,
       codeCheckClient: createLocalCodeCheckClient(), workspaceRoot: directory,

@@ -32,7 +32,7 @@ const firstDraft = {
       reason: '用户仅给出热轧目录型号 HN300x150，未提供数值截面尺寸或属性。', question: '是否采用目录截面数值，还是提供具体截面尺寸？' },
     { field: 'materials.E', kind: 'missing', severity: 'invalid', reason: 'Only the grade designation Q355 is supplied.' },
   ],
-  requestScope: { responses: ['forces', 'reactions', 'displacements', 'rotations'], method: 'solver', design: false, report: true, outputs: [] },
+  requestScope: { responses: ['forces', 'reactions', 'displacements', 'rotations'], design: false, report: true, outputs: [] },
 };
 // The answer supplies the assigned record's geometry and withdraws the catalog lookup; it does not re-send sections.beam.
 const answerDraft = {

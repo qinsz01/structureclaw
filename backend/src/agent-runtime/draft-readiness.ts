@@ -2,8 +2,7 @@ import { buildExplicitDraftModel } from './explicit-model.js';
 import { completeDeclaredGradeMaterials, templatePropertyIssues } from './template-properties.js';
 import type { AgentSkillPlugin, DraftState, InteractionQuestion, SkillMissingResult } from '../shared/types/agent.js';
 import type { AppLocale } from '../shared/locale.js';
-import { equilibriumModel } from '../engineering/beam-equilibrium.js';
-import { forceOnlyScope, missingInputReason, type RequestScope } from '../engineering/request-scope.js';
+import { missingInputReason, type RequestScope } from '../engineering/request-scope.js';
 import { isRecord } from '../engineering/model-state.js';
 import { isDesignDraftField } from './draft-guidance.js';
 import { currentDraftDiagnostics, unresolvedDraftFields } from './draft-diagnostics.js';
@@ -46,10 +45,6 @@ function materialPropertyQuestions(state: DraftState, locale: AppLocale): Intera
 export function computeDraftMissing(plugin: ReadinessPlugin, state: DraftState, phase: 'interactive' | 'execution'): SkillMissingResult {
   state = currentDraftDiagnostics(state);
   const scope = state.requestScope as RequestScope | undefined;
-  if (scope?.method === 'equilibrium' && forceOnlyScope(scope)) {
-    try { equilibriumModel(state); return { critical: [], optional: [] }; }
-    catch (error) { return { critical: [error instanceof Error ? error.message : String(error)], optional: [] }; }
-  }
   if (currentRunPolicy()?.builder === 'llm') {
     // Templates describe one geometry recipe, not what the LLM must ask users.
     // Actual unresolved evidence still blocks; the generated model must pass the
@@ -83,15 +78,10 @@ export function buildDraftQuestions(plugin: ReadinessPlugin | null | undefined, 
   if (!plugin || critical.length === 0) return [];
   const propertyQuestions = materialPropertyQuestions(state, locale).filter((question) => critical.includes(question.paramKey));
   const questions = plugin.handler.buildQuestions([...critical, ...optional], critical, state, locale)
-    .filter((question) => !question.paramKey.startsWith('EQUILIBRIUM_') && !['templateProperties', 'engineeringDraft'].includes(question.paramKey)
+    .filter((question) => !['templateProperties', 'engineeringDraft'].includes(question.paramKey)
       && !propertyQuestions.some((property) => property.paramKey === question.paramKey));
   questions.push(...propertyQuestions);
   const isZh = locale === 'zh';
-  for (const field of critical.filter(key => key.startsWith('EQUILIBRIUM_'))) {
-    const parts = field.split(' / ');
-    questions.push({ paramKey: field, label: isZh ? '当前计算所需条件' : 'Required calculation input',
-      question: isZh ? parts.at(-1)! : parts[0]!, required: true, critical: true });
-  }
   if (critical.includes('templateProperties')) {
     const details = templatePropertyIssues(state).map((issue) => {
       const parts = issue.replace(/^[A-Z_]+:\s*/, '').split(' / ');

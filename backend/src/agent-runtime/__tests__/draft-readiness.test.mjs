@@ -66,7 +66,7 @@ describe('unified draft readiness',()=>{
 
   test('analysis with self-weight explicitly disabled does not ask for unused density', () => {
     const withoutDensity={...material};delete withoutDensity.rho;
-    const state={...beam,requestScope:{responses:['displacements'],method:'solver',design:false,report:false,outputs:[]},
+    const state={...beam,requestScope:{responses:['displacements'],design:false,report:false,outputs:[]},
       engineeringDraft:{materials:[withoutDensity],sections:{beam:'100X200'},analysisControl:{self_weight:false}}};
     expect(computeDraftMissing(plugin,state,'execution').critical).toEqual([]);
     expect(state.engineeringDraft.materials[0].rho).toBeUndefined();
@@ -93,7 +93,7 @@ describe('analysis readiness is separate from code-check completeness', () => {
     'designCheck.stabilityCoefficient', 'designCheck.loadApplicationPoint', 'engineeringDraft.designCriteria.strength',
     'designParameters.gammaX', 'engineeringDraft.designParameters.l0', 'material.designStrength'];
   const issues = fields => fields.map(field => ({ field, severity:'ambiguous', reason:'User input is still required.' }));
-  const complete = { ...beam, requestScope:{ responses:['forces','displacements'], method:'solver', design:true, report:true, outputs:[] },
+  const complete = { ...beam, requestScope:{ responses:['forces','displacements'], design:true, report:true, outputs:[] },
     engineeringDraft:{ materials:[material], sectionRecords:[section], analysisControl:{ self_weight:false } },
     draftIssues:issues(designFields), skillState:{ invalidDraftFields:designFields } };
 

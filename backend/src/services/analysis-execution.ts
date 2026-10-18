@@ -14,7 +14,6 @@ import { runtimeBaseDir } from '../config/index.js';
 import { contentHash, isRecord } from '../engineering/model-state.js';
 import { processIsAlive, withAbandonedSessionRecovery } from '../engineering/persistent-session-lock.js';
 import { writeAtomicJson } from '../engineering/atomic-json.js';
-import { solveBeamEquilibrium } from '../engineering/beam-equilibrium.js';
 
 const ownedRequests = new Map<string, AbortController>();
 function requestOwnerAlive(record: Record<string, unknown>): boolean | null {
@@ -83,9 +82,8 @@ export class AnalysisExecutionService {
       writeAtomicJson(file, { ...record, ...updates, completedAt: new Date().toISOString() });
     };
     try {
-      const result = await executeAnalysisRun({ ...payload, requestId }, (input) => payload.engineId === 'builtin-equilibrium'
-        ? Promise.resolve(solveBeamEquilibrium(input))
-        : this.runner.invoke({ action: 'analyze', input }, { ...requestOptions, signal }), this.persistRun, runId);
+      const result = await executeAnalysisRun({ ...payload, requestId },
+        (input) => this.runner.invoke({ action: 'analyze', input }, { ...requestOptions, signal }), this.persistRun, runId);
       await finish({ status: signal.aborted ? 'cancelled' : 'completed', executionStatus: result.executionStatus, runId: result.runId });
       return { ...result, requestId };
     } catch (error) {

@@ -11,7 +11,7 @@ beforeAll(async () => {
   modelBuilder = await import('../dist/agent-runtime/model-builder.js');
 });
 
-const FORCES = { responses: ['forces', 'reactions'], method: 'solver', design: false, outputs: [] };
+const FORCES = { responses: ['forces', 'reactions'], design: false, outputs: [] };
 const beamPlugin = { id: 'beam', handler: { computeMissing: () => ({ critical: [], optional: [] }) } };
 const beam = (draft = {}, scope = FORCES) => ({ inferredType: 'beam', lengthM: 10, loadKN: 1, loadType: 'point', loadPosition: 'midspan',
   supportType: 'simply-supported', requestScope: scope, engineeringDraft: { structureType: 'beam', geometry: { lengthM: 10 },

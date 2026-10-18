@@ -30,7 +30,7 @@ describeWithOpenSees('characterization: clarification interrupt and resume', () 
             templateAssignments: { beam: { materialId: 'M1', sectionId: 'S1' } },
             analysisControl: { self_weight: false }, analysis: { loadCombinations: [] },
           },
-          requestScope: { responses: ['forces', 'reactions', 'displacements'], method: 'solver', design: false, report: false, outputs: [] },
+          requestScope: { responses: ['forces', 'reactions', 'displacements'], design: false, report: false, outputs: [] },
         };
       },
     }));

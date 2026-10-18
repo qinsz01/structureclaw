@@ -27,7 +27,7 @@ const designIssues = [
   { field: 'design.l0', kind: 'missing', severity: 'invalid', reason: 'Effective length for a GB50017 check is not given.' },
   { field: 'material.designStrength', kind: 'missing', severity: 'invalid', reason: 'Design strength f is not given.' },
 ];
-const scope = { responses: ['forces', 'reactions', 'displacements'], method: 'solver', design: false };
+const scope = { responses: ['forces', 'reactions', 'displacements'], design: false };
 
 const LOCALES = {
   zh: {

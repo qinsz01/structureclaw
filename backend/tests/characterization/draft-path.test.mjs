@@ -40,7 +40,7 @@ describeWithOpenSees('characterization: natural-language draft path', () => {
         loads: [{ id: 'P1', kind: 'point', magnitude: 10, unit: 'kN', direction: 'gravity', target: 'beam', location: { xM: 3 } }],
         analysisControl: { self_weight: false }, analysis: { loadCombinations: [] },
       },
-      requestScope: { responses: ['forces', 'reactions', 'displacements'], method: 'solver', design: false, report: true, outputs: [] },
+      requestScope: { responses: ['forces', 'reactions', 'displacements'], design: false, report: true, outputs: [] },
     };
     const seen = [];
     ctx.llm.setInternal(internalResponder({
@@ -96,7 +96,7 @@ describeWithOpenSees('characterization: natural-language draft path', () => {
         loads: [{ id: 'ROOF', kind: 'line', magnitude: 5, unit: 'kN/m', direction: 'gravity', target: 'roof' }],
         analysisControl: { self_weight: false }, analysis: { loadCombinations: [] },
       },
-      requestScope: { responses: ['forces', 'reactions', 'displacements'], method: 'solver', design: true, report: true, outputs: [] },
+      requestScope: { responses: ['forces', 'reactions', 'displacements'], design: true, report: true, outputs: [] },
     };
     ctx.llm.setInternal(internalResponder({
       'structural-router': () => routerDecision('portal-frame', { confidence: 0.93 }),

@@ -7,7 +7,7 @@
  * Dependency injection uses config.configurable (no globalThis).
  * The graph is built once and cached for the process lifetime.
  */
-import { requestScopeSchema } from '../engineering/request-scope.js';
+import { requestScopeInputSchema } from '../engineering/request-scope.js';
 import { AIMessage, ToolMessage } from '@langchain/core/messages';
 import { randomUUID } from 'crypto';
 import path from 'node:path';
@@ -205,7 +205,7 @@ export class LangGraphAgentService {
       throw new Error(`MODEL_VERSION_CONFLICT: expected ${state.modelRevision ?? 0}`);
     }
     const update: Partial<AgentState> = {};
-    if (input.context?.requestScope) update.requestScope = requestScopeSchema.parse(input.context.requestScope);
+    if (input.context?.requestScope) update.requestScope = requestScopeInputSchema.parse(input.context.requestScope);
     if (input.context?.model) {
       const model = await normalizeEngineeringModel(input.context.model, this.structureProtocolClient, input.context.modelFormat);
       Object.assign(update, commitModel(state, model, 'import_model'));

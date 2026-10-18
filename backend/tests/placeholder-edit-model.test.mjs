@@ -7,7 +7,7 @@ import path from 'node:path';
 process.env.SCLAW_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'sclaw-placeholder-edit-'));
 
 let edit, protocol, initial, stiffnessPlaceholderOf;
-const FORCES = { responses: ['forces', 'reactions'], method: 'solver', design: false, outputs: [] };
+const FORCES = { responses: ['forces', 'reactions'], design: false, outputs: [] };
 const beamDraft = { inferredType: 'beam', lengthM: 10, loadKN: 1, loadType: 'point', loadPosition: 'midspan', supportType: 'simply-supported',
   requestScope: FORCES, engineeringDraft: { structureType: 'beam', geometry: { lengthM: 10 }, boundary: { supportType: 'simply-supported' },
     loads: [{ kind: 'point', magnitude: 1, unit: 'kN', direction: 'gravity', location: { xM: 5 } }] } };

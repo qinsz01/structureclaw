@@ -1,4 +1,4 @@
-import { requestScopeSchema } from '../engineering/request-scope.js';
+import { requestScopeInputSchema } from '../engineering/request-scope.js';
 import { runPolicyInputSchema } from '../runtime/run-policy.js';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
@@ -39,7 +39,7 @@ const sendMessageSchema = z.object({
   traceId: optionalIdSchema,
   context: z.object({
     runPolicy: runPolicyInputSchema.optional(),
-    requestScope: requestScopeSchema.optional(),
+    requestScope: requestScopeInputSchema.optional(),
     locale: localeSchema,
     skillIds: z.array(z.string()).optional(),
     enabledToolIds: z.array(z.string()).optional(),
@@ -87,7 +87,7 @@ const streamMessageSchema = z.object({
   traceId: optionalIdSchema,
   context: z.object({
     runPolicy: runPolicyInputSchema.optional(),
-    requestScope: requestScopeSchema.optional(),
+    requestScope: requestScopeInputSchema.optional(),
     locale: localeSchema,
     skillIds: z.array(z.string()).optional(),
     enabledToolIds: z.array(z.string()).optional(),

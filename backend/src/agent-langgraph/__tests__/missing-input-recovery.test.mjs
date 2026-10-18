@@ -16,7 +16,7 @@ test('design extraction uses the formal schema and rejects bad generated fields 
   const state = { structuralTypeKey: 'beam', draftState: handler.mergeState(undefined, handler.extractDraft({ locale: 'en',
     llmDraftPatch: { engineeringDraft: { structureType: 'beam', geometry: { lengthM: 10 } } } })) };
   const before = structuredClone(state);
-  const requestScope = { responses: ['forces'], method: 'solver', design: true, report: false, outputs: [] };
+  const requestScope = { responses: ['forces'], design: true, report: false, outputs: [] };
   const invoke = () => tool.invoke({ message: 'Use the supplied design conditions', requestScope },
     { toolCall: { id: 'design-extract' }, configurable: { structureProtocolClient: client, agentState: state } });
   for (const design of [
@@ -58,13 +58,6 @@ test('design extraction uses the formal schema and rejects bad generated fields 
   }
   expect(context.usage.recoveries).toBe(1);
   expect(extract).toHaveBeenCalledTimes(2);
-
-  const unavailable = { get: jest.fn(() => { throw Error('Python must not be called for force-only input'); }) };
-  extract.mockResolvedValue({ engineeringDraft: { geometry: { lengthM: 10 } } });
-  await tool.invoke({ message: 'Only calculate forces', requestScope: { ...requestScope, design: false, method: 'equilibrium' } },
-    { toolCall: { id: 'force-only' }, configurable: { structureProtocolClient: unavailable, agentState: state } });
-  expect(unavailable.get).not.toHaveBeenCalled();
-  expect(extract.mock.lastCall[0].designSchema).toBeUndefined();
 });
 describe('missing engineering input is clarification, not recovery', () => {
   test('accepted new parameters archive the old run through the direct tool entry', async () => {
@@ -74,7 +67,7 @@ describe('missing engineering input is clarification, not recovery', () => {
     extract.mockResolvedValue({ engineeringDraft: { structureType: 'beam', geometry: { lengthM: 10 } } });
     const oldRun = { runId: 'old-run', success: true };
     const result = await createExtractDraftParamsTool({ resolvePluginForType: async () => plugin }).invoke({ message: '10m beam',
-      requestScope: { responses: ['forces'], method: 'solver', design: false, report: false, outputs: [] } },
+      requestScope: { responses: ['forces'], design: false, report: false, outputs: [] } },
     { toolCall: { id: 'accepted-change' }, configurable: { agentState: { structuralTypeKey: 'beam', analysisResult: oldRun, report: { runId: 'old-run' } } } });
     expect(result.update.analysisResult).toBeNull();
     expect(result.update.report).toBeNull();
@@ -93,7 +86,7 @@ describe('missing engineering input is clarification, not recovery', () => {
     const runtime = { resolvePluginForType: async () => plugin };
     const context = createRunContext(resolveRunPolicy({ availableSkillIds: ['beam'], availableToolIds: ['extract_draft_params', 'ask_user_clarification'], defaultToolIds: ['extract_draft_params', 'ask_user_clarification'],
       requested: { repair: { enabled: false } } }));
-    const scope = { responses: ['forces', 'reactions'], method: 'solver', design: true, report: false, outputs: [] };
+    const scope = { responses: ['forces', 'reactions'], design: true, report: false, outputs: [] };
     extract.mockClear();
     extract.mockResolvedValue({ engineeringDraft: { structureType: 'beam', geometry: { lengthM: 10 }, boundary: { supportType: 'simply-supported' },
       loads: [{ kind: 'point', magnitude: 1, unit: 'kN', location: { xM: 5 } }] }, requestScope: internalScope });

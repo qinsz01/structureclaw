@@ -14,7 +14,6 @@ import { engineeringModelSchema, draftDesignSchema, hasDraftDesignInputs, assert
 import { createLocalStructureProtocolClient } from '../../skill-shared/structure-protocol-execution.js';
 import { currentRunPolicy, recordRunEvent } from '../../runtime/run-context.js';
 import { requestScopeSchema, resolveExtractedScope, missingInputReason, type RequestScope, type ScopeDiagnostic } from '../../engineering/request-scope.js';
-import { equilibriumModel } from '../../engineering/beam-equilibrium.js';
 import { buildDraftProgress, buildClarificationQuestions, hasStableDraftType, shouldPreserveExistingDraftState, resolveRetryTaskMessage, buildPreservedDraftExtractionResult, resolveExistingDraftPlugin, detectStructuralTypeWithConfiguredLlm, resolveDetectedStructuralTypeMatch } from './draft-helpers.js';
 import { resolveExtractionInputMessage } from './input-message.js';
 import { getConfigurable, getToolCallId, toolResult, nestedLlmUsageCollector, toolSkillScope } from './shared.js';
@@ -97,11 +96,9 @@ async function extractAndMergeDraft(options: {
     extractionMessage, locale, log, onUsage } = options;
   // Step 3: Sub-agent extracts parameters (skill manifest driven)
   const { invokeParamExtractor } = await import('../param-extractor.js');
-  // A force-only extraction does not need the Python model service. Design
-  // extraction and any generated design fields use its authoritative schema.
+  // A scoped request or existing design inputs use the authoritative schema of the Python model service.
   const protocolClient = configurable.structureProtocolClient ?? createLocalStructureProtocolClient();
-  let designContract = requestedScope?.design || hasExistingDesign || requestedScope?.method === 'solver'
-    ? await engineeringModelSchema(protocolClient) : undefined;
+  let designContract = requestedScope || hasExistingDesign ? await engineeringModelSchema(protocolClient) : undefined;
   const draftPatch = await invokeParamExtractor({
     message: extractionMessage,
     existingState,
@@ -232,18 +229,6 @@ async function genericDeterministicOutcome(
   return { responseJson, stateUpdate, missing };
 }
 
-/** Equilibrium context for a complete force-only request, or partial forces when only properties are missing. */
-function resolveEquilibriumContext(requestScope: RequestScope | undefined, missing: SkillMissing, nextState: DraftState) {
-  let equilibriumContext = requestScope?.method === 'equilibrium' && !missing.critical.length
-    ? equilibriumModel(nextState) : undefined;
-  let partialEquilibriumAvailable = false;
-  if (requestScope?.method === 'solver' && !requestScope.design && missing.critical.length
-    && requestScope.responses.some(field => ['forces', 'reactions'].includes(field))) {
-    try { equilibriumContext = equilibriumModel(nextState); partialEquilibriumAvailable = true; } catch { /* Full-model missing conditions remain authoritative. */ }
-  }
-  return { equilibriumContext, partialEquilibriumAvailable };
-}
-
 /** Response of the LLM extraction path: draft, missing input, scope and the next action. */
 function buildLlmExtractionResponse(options: {
   nextState: DraftState;
@@ -255,13 +240,11 @@ function buildLlmExtractionResponse(options: {
   extractionMode: 'llm' | 'deterministic';
   requestScope: RequestScope | undefined;
   scopeDiagnostics: ScopeDiagnostic[];
-  partialEquilibriumAvailable: boolean;
-  equilibriumContext: ReturnType<typeof equilibriumModel> | undefined;
   draftPatch: Record<string, unknown> | null;
   patch: DraftExtraction;
 }) {
   const { nextState, missing, goalRequired, locale, plugin, match, extractionMode, requestScope, scopeDiagnostics,
-    partialEquilibriumAvailable, equilibriumContext, draftPatch, patch } = options;
+    draftPatch, patch } = options;
   return {
     nextState,
     criticalMissing: missing.critical,
@@ -276,13 +259,6 @@ function buildLlmExtractionResponse(options: {
     extractionMode,
     requestScope,
     ...(scopeDiagnostics.length ? { scopeDiagnostics } : {}),
-    ...(partialEquilibriumAvailable ? { partialAnalysisAvailable: { method: 'equilibrium', allowPartial: true,
-      availableResponses: ['forces', 'reactions'], missingForFullAnalysis: missing.critical,
-      instruction: 'First run_analysis(method=equilibrium,allowPartial=true) for independently determined forces. Then ask for stiffness for displacement; the task remains partial. / 先计算可独立确定的内力，再询问位移所需刚度；不能宣布整题完成。' } } : {}),
-    ...(equilibriumContext ? { calculationContext: { nodes: equilibriumContext.nodes, elements: equilibriumContext.elements,
-      resultKeys: (equilibriumContext.load_cases as Record<string, unknown>[]).map(c => `case:${c.id}`),
-      verticalBendingMomentComponent: 'M2', verticalShearComponent: 'V3', verticalReactionComponent: 'fz',
-      note: 'Use these exact IDs and components. resultKey is the load case, not a label for a requested output. / 使用这些实际ID与分量；resultKey是工况键，不是所求结果名称。' } } : {}),
     missingReasons: missing.critical.map(field => ({ field, reason: missingInputReason(field, requestScope, locale) })),
     llmDraftPatch: draftPatch ?? null,
     appliedDraftUpdate: { clearedFields: patch.clearDraftFields ?? [], order: 'clear-then-merge' },
@@ -291,13 +267,6 @@ function buildLlmExtractionResponse(options: {
       ? nextState.skillState.extractionSource
       : (draftPatch ? 'llm-draft-patch' : 'deterministic'),
     ...buildDraftProgress(locale, missing.critical),
-    ...(partialEquilibriumAvailable ? { nextAction: 'run_analysis', canAnalyzePartial: true,
-      instruction: locale === 'zh' ? '完整分析仍缺属性；先run_analysis(method=equilibrium,allowPartial=true)计算独立内力，再澄清位移所需刚度。不要build_model或编造材料截面。'
-        : 'Full analysis lacks properties. First run_analysis(method=equilibrium,allowPartial=true) for independent forces, then clarify stiffness. Do not build_model or invent material/section.' } : {}),
-    ...(requestScope?.method === 'equilibrium' && missing.critical.length === 0 ? {
-      nextAction: 'run_analysis', instruction: locale === 'zh'
-        ? '直接调用run_analysis(method=equilibrium)。仅计算内力和反力，不需要材料截面，不生成未请求的变形或规范校核。'
-        : 'Call run_analysis(method=equilibrium) directly. Forces/reactions only; no material/section, unrequested deformation or code checking.' } : {}),
   };
 }
 
@@ -427,7 +396,6 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
           plugin, match, extractionMessage, locale, log, onUsage: nestedUsage.onUsage,
         });
         const extractionMode = draftPatch ? 'llm' : 'deterministic';
-        const { equilibriumContext, partialEquilibriumAvailable } = resolveEquilibriumContext(requestScope, missing, nextState);
 
         // Missing engineering input is a clarification state, not a failed extraction.
         // Repeating the same evidence cannot supply user-omitted properties and must
@@ -435,7 +403,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
         // separately inside invokeParamExtractor.
 
         const responseJson = buildLlmExtractionResponse({ nextState, missing, goalRequired, locale, plugin, match, extractionMode,
-          requestScope, scopeDiagnostics, partialEquilibriumAvailable, equilibriumContext, draftPatch, patch });
+          requestScope, scopeDiagnostics, draftPatch, patch });
 
         const stateUpdate = llmExtractionStateUpdate(requestScope, nextState, state, match);
 
@@ -459,7 +427,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
       schema: z.object({
         message: z.string().describe('The user message to extract parameters from').optional(),
         locale: z.enum(['zh', 'en']).optional().describe('User locale'),
-        requestScope: requestScopeSchema.optional().describe('Current user goal, not the full engineering workflow. Use equilibrium only for an explicitly force-only, horizontal single-span simply-supported/left-fixed cantilever beam, without a specified engine. Preserve scope while receiving missing-input answers. / 本次用户所求结果；单跨简支或左固悬臂仅求内力且未指定引擎时可用equilibrium。补参数时保留范围。'),
+        requestScope: requestScopeSchema.optional().describe('Current user goal, not the full engineering workflow. Preserve scope while receiving missing-input answers. / 本次用户所求结果；补参数时保留范围。'),
       }),
     },
   );

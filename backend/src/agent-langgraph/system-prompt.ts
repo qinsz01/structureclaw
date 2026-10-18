@@ -199,13 +199,13 @@ export function buildSystemMessages(ctx: SystemPromptContext): BaseMessageLike[]
   const scopeProtocol = isZh
     ? `\n\n请求范围：当前requestScope=${JSON.stringify(state.requestScope ?? null)}。每个新任务根据用户整句语义声明requestScope（responses；仅在明确要求校核时design=true；report；outputs），补充参数时保留范围。用户要什么就做什么：只问内力不求变形，“设计”或分析不触发校核或报告；报告仅在用户要求报告、计算书或其他交付文件时生成。只询问所求结果真正需要的输入：内力和反力不需要材料截面（缺省时以标注的单位刚度求解；工具报告按各构件EI相同计算时，在回答中说明该假定）；挠度、周期或校核需要实际材料和截面。部分构件给了截面而其余未给时，询问其余截面；设计未给截面时询问截面尺寸，不替用户选型。指定的求解器必须真实运行。附件中已提供的数据先读取，不重复索要；修改已有模型用edit_model及稳定ID。`
     : `\n\nRequest scope: current requestScope=${JSON.stringify(state.requestScope ?? null)}. For a new task declare requestScope from the whole request (responses; design=true only for an explicit check request; report; outputs) and keep it for clarification answers. Do what the user asked and no more: force questions do not request deformation, and design or analysis wording requests neither a check nor a report; a report is generated only when the user asks for a report, a calculation book or another deliverable document. Ask only for inputs the requested results need: forces and reactions need no material or section (the model then uses labelled unit stiffness; when a tool reports the equal-EI assumption, state it in the answer), while deflection, periods or a check need the real material and section. If sections are given for some members but not others, ask for the rest; for a design without a section, ask for its dimensions rather than selecting one. Specified solvers run genuinely. Read provided attachments before asking again; modify an existing model with edit_model and stable IDs.`;
-  const partialProtocol = isZh
-    ? '\n工具结果给出nextAction或instruction（如partialAnalysisAvailable）时照此执行；missingRequestedResponses表示整题仍未完成。'
-    : '\nWhen a tool result gives nextAction or an instruction (for example partialAnalysisAvailable), follow it; missingRequestedResponses means the task is still incomplete.';
+  const nextActionProtocol = isZh
+    ? '\n工具结果给出nextAction或instruction时照此执行。'
+    : '\nWhen a tool result gives nextAction or an instruction, follow it.';
   const designInputs = isZh
     ? '\n设计输入：不要提议、追问或自行写入用户未给出的工程判断值（侧向支承、计算长度、挠度限值类别等）；规范可确定的数值由校核工具确定。用户给出设计数值时，已有模型用query_model/edit_model写入；用户重复已有属性时说明已满足，不重新提取草稿。'
     : '\nDesign inputs: never propose, ask for or write engineering-judgment values the user did not give (lateral bracing, effective length, deflection-limit category); code-determined values come from the check tool. Write values the user supplies to an existing model with query_model/edit_model; if the user repeats properties already present, acknowledge them without re-extracting the draft.';
-  return [new SystemMessage(systemContent + policyText + toolAvailability + checkProtocol + editProtocol + scopeProtocol + partialProtocol + designInputs)];
+  return [new SystemMessage(systemContent + policyText + toolAvailability + checkProtocol + editProtocol + scopeProtocol + nextActionProtocol + designInputs)];
 }
 
 // ---------------------------------------------------------------------------

@@ -1,17 +1,21 @@
 import { z } from 'zod';
 import { resultSelectionSchema } from './result-selection.js';
 
-/** Delivery requirements are separate from the writable physical model. */
+/** Delivery requirements are separate from the writable physical model. Tool schemas use this strict form. */
 export const requestScopeSchema = z.object({
   responses: z.array(z.enum(['forces', 'reactions', 'displacements', 'rotations', 'stress', 'dynamic'])).min(1),
-  method: z.enum(['solver', 'equilibrium']).default('solver'),
   design: z.boolean().default(false),
   report: z.boolean().optional().describe('true only when the user asks for a report, a calculation book or another deliverable document; "design a beam" and specific results leave it false. / 仅当用户要求报告、计算书或其他交付文件时为true；“设计一个梁”和只求具体结果时为false。'),
   outputs: z.array(resultSelectionSchema.omit({ runId: true }).extend({
     field: resultSelectionSchema.shape.field.unwrap(), component: resultSelectionSchema.shape.component.unwrap(), unit: resultSelectionSchema.shape.unit.unwrap(),
   })).default([]).describe('Exact scalar queries after real object IDs are known. Before building leave outputs empty; never invent IDs. resultKey is a saved case:<ID>/combination:<ID>, not an output label. / 获得实际对象ID后填写标量查询；建模前留空，不编造ID。resultKey是工况/组合键，不是输出名称。'),
 }).strict();
+
 export type RequestScope = z.infer<typeof requestScopeSchema>;
+
+/** Saved state and API clients may still send the retired `method` field; it is accepted and dropped. */
+export const requestScopeInputSchema = requestScopeSchema.extend({ method: z.string().optional() })
+  .transform(({ method: _retired, ...scope }): RequestScope => scope);
 export type ScopeDiagnostic = { field: string; code: string };
 
 /** Extraction reads the entire user request; a tool's partial plan must not omit a response family. */
@@ -23,7 +27,7 @@ export function resolveExtractedScope(declared: RequestScope | undefined, extrac
     const raw = extracted as Record<string, unknown>;
     // Internal extraction is a patch, never a replacement for the validated tool request.
     // Validate supplied fields independently; empty/invalid responses cannot erase a known goal.
-    for (const key of ['responses', 'method', 'design', 'report'] as const) {
+    for (const key of ['responses', 'design', 'report'] as const) {
       if (raw[key] === undefined) continue;
       const parsed = requestScopeSchema.shape[key].safeParse(raw[key]);
       if (parsed.success) fields[key] = parsed.data;
@@ -39,15 +43,14 @@ export function resolveExtractedScope(declared: RequestScope | undefined, extrac
   }
   // Only grounded public-tool selectors may be executed. New extracted response
   // families have no object IDs yet and cannot supply scalar output labels.
-  const candidate = requestScopeSchema.safeParse(declared ?? { ...previous, ...fields, ...(fields.responses ? { outputs: [] } : {}) });
+  const candidate = requestScopeInputSchema.safeParse(declared ?? { ...previous, ...fields, ...(fields.responses ? { outputs: [] } : {}) });
   if (!candidate.success) {
     diagnostics.push({ field: 'requestScope.responses', code: 'REQUEST_GOAL_REQUIRED' });
     return undefined;
   }
   const goal = candidate.data;
   const responses = [...new Set([...goal.responses, ...(fields.responses as RequestScope['responses'] | undefined ?? [])])];
-  return requestScopeSchema.parse({ ...goal, responses,
-    method: responses.some(field => !['forces', 'reactions'].includes(field)) ? 'solver' : goal.method });
+  return requestScopeSchema.parse({ ...goal, responses });
 }
 
 export function forceOnlyScope(scope: RequestScope | null | undefined): boolean {

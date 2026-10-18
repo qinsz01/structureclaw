@@ -12,7 +12,7 @@ const contract = await engineeringModelSchema(client);
 const shapeSchema = draftSectionShapeSchema(contract);
 const plugin = { id: 'beam', structureType: 'beam', manifest: { structuralTypeKeys: ['beam'] }, handler };
 const tool = createExtractDraftParamsTool({ resolvePluginForType: async () => plugin });
-const requestScope = { responses: ['forces', 'displacements'], method: 'solver', design: true, report: false, outputs: [] };
+const requestScope = { responses: ['forces', 'displacements'], design: true, report: false, outputs: [] };
 const source = { structureType: 'beam', geometry: { lengthM: 10 }, boundary: { supportType: 'simply-supported' },
   material: { family: 'steel', grade: 'Q235B' }, sections: { beam: 'HW300×300×10×15' },
   sectionRecords: [{ id: 'SEC-BEAM-1', name: 'HW300×300×10×15', type: 'h', shape: { kind: 'h', H: 300, B: 300, tw: 10, tf: 15 } }],

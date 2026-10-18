@@ -28,7 +28,7 @@ const beamDraft = (withLoad = true) => ({
     ...(withLoad ? { loads: [{ id: 'P1', kind: 'point', magnitude: 10, unit: 'kN', direction: 'gravity', target: 'beam', location: { xM: 3 } }] } : {}),
     analysisControl: { self_weight: false }, analysis: { loadCombinations: [] },
   },
-  requestScope: { responses: ['forces', 'reactions', 'displacements'], method: 'solver', design: false, report: false, outputs: [] },
+  requestScope: { responses: ['forces', 'reactions', 'displacements'], design: false, report: false, outputs: [] },
 });
 const llmBuiltModel = {
   schema_version: '2.2.0', unit_system: 'SI',

@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { resultEngine } from '../../engineering/result-data.js';
 import { ANALYSIS_SKILL_IDS } from '../../agent-skills/analysis/catalog.js';
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
@@ -13,14 +12,13 @@ import { analysisSettingsHash } from '../../engineering/analysis-runs.js';
 import { assertAnalysisInputEvidenceMatchesRequest, assertInputEvidenceMatchesModel } from '../../engineering/input-evidence.js';
 import { recordRunEvent, reserveToolCall, recordToolOutcome } from '../../runtime/run-context.js';
 import { createQueryResultsTool } from '../model-tools.js';
-import { requestScopeSchema, forceOnlyScope, type RequestScope } from '../../engineering/request-scope.js';
-import { equilibriumModel } from '../../engineering/beam-equilibrium.js';
+import { requestScopeSchema, type RequestScope } from '../../engineering/request-scope.js';
 import { stiffnessPlaceholderOf, withoutPlaceholderDisplacements, type StiffnessPlaceholder } from '../../engineering/stiffness-placeholder.js';
 import { resolveRequestedAnalysisSkillId, resolveUnselectedRequestedAnalysisSkillId, buildAnalysisProviderNotSelectedPayload } from './analysis-resolution.js';
 import { buildAnalysisToolSummary } from './compaction/analysis.js';
 import { parseJsonObjectInput, hasStructuredSeismicWorkflow, hasSemanticSeismicWorkflowInput, mergeSeismicWorkflowInputs } from './seismic-workflow/merge.js';
 import { validateSeismicWorkflowInput } from './seismic-workflow/validate-design.js';
-import { getConfigurable, getToolCallId, toolResult, isRecord, pickStringLike, toolSkillScope, nextActionForMissingInput } from './shared.js';
+import { getConfigurable, getToolCallId, toolResult, isRecord, pickStringLike, toolSkillScope } from './shared.js';
 
 /** Exact requested scalars use the same query service and server-side tool budget. */
 async function queryRequestedOutputs(state: AgentState, scope: RequestScope | null | undefined, config: LangGraphRunnableConfig) {
@@ -28,10 +26,6 @@ async function queryRequestedOutputs(state: AgentState, scope: RequestScope | nu
   const missing: Array<Record<string, unknown>> = [];
   const outputs = scope?.outputs ?? [];
   for (const [index, selection] of outputs.entries()) {
-    if (resultEngine(state.analysisResult ?? {}) === 'equilibrium' && !['forces', 'reactions'].includes(String(selection.field))) {
-      missing.push({ selection, reason: 'RESPONSE_NOT_CALCULATED / 该响应尚未计算，需要对应分析属性' });
-      continue;
-    }
     const callId = `output-${randomUUID()}`;
     let reserved = false;
     try {
@@ -63,8 +57,7 @@ interface RunAnalysisInput {
   loadCombinationIds?: string[];
   floorLoadTransferMode?: 'auto_code_cn' | 'node_tributary' | 'one_way_slab' | 'two_way_slab';
   seismicWorkflowJson?: string;
-  method?: 'modal' | 'time_history' | 'equilibrium';
-  allowPartial?: boolean;
+  method?: 'modal' | 'time_history';
   requestScope?: RequestScope;
   massSource?: 'nodal' | 'member-density' | 'floor-seismic';
   numModes?: number;
@@ -82,66 +75,6 @@ interface RunAnalysisInput {
 
 type AnalysisType = 'static' | 'dynamic' | 'seismic' | 'nonlinear';
 type ToolPayloadOutcome<T> = { errorPayload: Record<string, unknown> } | T;
-
-/** Scope of this call: equilibrium may select only the available responses, but cannot erase the accepted goal. */
-function resolveAnalysisScope(input: RunAnalysisInput, state: AgentState | undefined) {
-  // A built model is solved by the solver; only an explicit method selects equilibrium then.
-  const modelBuilt = !!state?.model && !state.modelPending;
-  const equilibriumRequested = input.method !== undefined ? input.method === 'equilibrium'
-    : input.requestScope !== undefined ? input.requestScope.method === 'equilibrium' && !modelBuilt
-      : !input.analysisSkillId && state?.requestScope?.method === 'equilibrium' && !modelBuilt;
-  // A tool may select only available responses, but cannot erase the accepted goal.
-  const partialGoal = equilibriumRequested && state?.requestScope?.responses.some(field => !['forces', 'reactions'].includes(field))
-    ? state.requestScope : undefined;
-  const goal = partialGoal
-    ? { ...partialGoal, outputs: input.requestScope?.outputs.length ? input.requestScope.outputs : partialGoal.outputs }
-    : input.requestScope ?? state?.requestScope;
-  const scope = !equilibriumRequested && goal?.method === 'equilibrium' ? { ...goal, method: 'solver' as const } : goal;
-  return { equilibriumRequested, partialGoal, scope };
-}
-
-type AnalysisScope = ReturnType<typeof resolveAnalysisScope>;
-
-/** Force-only equilibrium of an accepted single-span beam draft; never a fallback for a specified solver. */
-async function runEquilibriumAnalysis(options: {
-  input: RunAnalysisInput;
-  state: AgentState | undefined;
-  scope: AnalysisScope['scope'];
-  partialGoal: AnalysisScope['partialGoal'];
-  config: LangGraphRunnableConfig;
-  toolCallId: string;
-}): Promise<Command> {
-  const { input, state, scope, partialGoal, config, toolCallId } = options;
-  const configurable = getConfigurable(config);
-  const partial = (input.allowPartial === true || !!partialGoal) && scope && !scope.design
-    && scope.responses.some(field => !['forces', 'reactions'].includes(field))
-    && !scope.responses.includes('dynamic') && scope.responses.some(field => ['forces', 'reactions'].includes(field));
-  if (input.analysisType !== 'static' || !forceOnlyScope(scope) && !partial) throw new Error('EQUILIBRIUM_FORCE_ONLY_REQUIRED / 平衡计算仅适用于静力内力或反力');
-  if (input.analysisSkillId || state?.model && !state.modelPending) throw new Error('EQUILIBRIUM_NOT_A_SOLVER_FALLBACK: a specified engine or a built model is solved by the solver; call run_analysis again without method=equilibrium. / 指定引擎或已有完整模型必须使用真实求解路径；请去掉 method=equilibrium 重新调用 run_analysis。');
-  if (!state?.draftState) throw new Error('ENGINEERING_DRAFT_REQUIRED');
-  const projection = equilibriumModel(state.draftState, state.inputEvidence);
-  const parameters = { ...(input.loadCaseIds ? { loadCaseIds: input.loadCaseIds } : {}),
-    ...(input.loadCombinationIds ? { loadCombinationIds: input.loadCombinationIds } : {}),
-    ...(input.loadCombinationId ? { loadCombinationId: input.loadCombinationId } : {}) };
-  const reservation = beginAnalysisRequest(state, analysisSettingsHash('static', 'builtin-equilibrium', parameters), projection);
-  configurable.agentState = { ...state, ...reservation };
-  configurable.onAnalysisRequest?.(reservation);
-  const requestId = randomUUID();
-  recordRunEvent({ kind: 'analysis_request', requestId, operation: 'analysis', method: 'equilibrium' });
-  const { data: run } = await configurable.engineClient.post<Record<string, unknown>>('/analyze', {
-    type: 'static', engineId: 'builtin-equilibrium', model: projection, parameters, requestScope: scope,
-    requestId, requestBinding: reservation.analysisRequest }, { signal: config.signal });
-  run.meta = { ...(isRecord(run.meta) ? run.meta : {}), requestScope: scope };
-  const update = publishAnalysis(getConfigurable(config).agentState ?? {}, reservation.analysisRequest, run);
-  const delivery = update.analysisResult ? await queryRequestedOutputs({ ...state, ...reservation, ...update }, scope, config) : undefined;
-  return toolResult(toolCallId, 'run_analysis', JSON.stringify({ ...buildAnalysisToolSummary({ result: run, model: projection }),
-    method: 'equilibrium', availableResponses: ['forces', 'reactions'], requestScope: scope,
-    ...(partial ? { deliveryStatus: 'partial', missingRequestedResponses: scope.responses.filter(field => !['forces', 'reactions'].includes(field)),
-      nextAction: nextActionForMissingInput(), message: 'Forces solved; displacement/other requested responses still need analysis properties. / 内力已算；位移等其余所求量仍需分析属性。' } : {}),
-    ...(delivery ? { requestedQuantities: delivery.requestedQuantities, missingRequestedOutputs: delivery.missingRequestedOutputs } : {}),
-    instruction: 'Query forces/reactions by physical position. Displacement, stress and design were not calculated. / 按物理位置查询内力反力；没有计算位移、应力或设计。' }),
-    { ...update, ...(delivery ? { resultQuantities: delivery.resultQuantities } : {}), ...(scope ? { requestScope: scope } : {}) });
-}
 
 /** China seismic workflow: parsed tool argument, else the draft's, else the uploaded context; validated before solving. */
 function resolveSeismicWorkflowInput(input: RunAnalysisInput, state: AgentState | undefined, analysisType: AnalysisType):
@@ -256,7 +189,7 @@ function bindAnalysisResult(
   raw: unknown,
   analysisRequest: ReturnType<typeof beginAnalysisRequest>['analysisRequest'],
   traceId: string,
-  scope: AnalysisScope['scope'],
+  scope: RequestScope | null | undefined,
 ): Record<string, unknown> {
   const analysisResult: Record<string, unknown> = isRecord(raw)
     ? { ...raw }
@@ -288,7 +221,7 @@ function placeholderDelivery(placeholder: StiffnessPlaceholder | undefined, loca
 function analysisResponsePayload(
   analysisSummary: ReturnType<typeof buildAnalysisToolSummary>,
   delivery: Awaited<ReturnType<typeof queryRequestedOutputs>> | undefined,
-  scope: AnalysisScope['scope'],
+  scope: RequestScope | null | undefined,
   placeholder: Record<string, unknown> = {},
 ) {
   return { ...analysisSummary, ...placeholder, ...(delivery ? { requestedQuantities: delivery.requestedQuantities, missingRequestedOutputs: delivery.missingRequestedOutputs,
@@ -306,10 +239,7 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
       const state = configurable.agentState;
       const toolCallId = getToolCallId(config);
 
-      const { equilibriumRequested, partialGoal, scope } = resolveAnalysisScope(input, state);
-      if (equilibriumRequested) {
-        return runEquilibriumAnalysis({ input, state, scope, partialGoal, config, toolCallId });
-      }
+      const scope = input.requestScope ?? state?.requestScope;
 
       // Read model from graph state channel
       const model = state?.model;
@@ -424,7 +354,7 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
       schema: z.object({
         analysisType: z
           .enum(['static', 'dynamic', 'seismic', 'nonlinear'])
-          .default('static').describe('Type of analysis; default static, including equilibrium. method is separate. / 分析类型，缺省静力；equilibrium属于method。'),
+          .default('static').describe('Type of analysis; default static. / 分析类型，缺省静力。'),
         analysisSkillId: z
           .enum(ANALYSIS_SKILL_IDS)
           .optional()
@@ -435,8 +365,7 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
           .describe('Optional single load-combination ID. Without selectors, all declared static cases and combinations are run separately.'),
         loadCaseIds: z.array(z.string()).optional().describe('Explicit load cases to solve independently.'),
         loadCombinationIds: z.array(z.string()).optional().describe('Explicit combinations to solve independently.'),
-        method: z.enum(['modal', 'time_history', 'equilibrium']).optional().describe('equilibrium: forces/reactions from accepted single-span beam draft, no stiffness or displacement; never substitutes for a specified solver. Otherwise modal/time_history / 平衡法只计算已接受单跨梁草稿的内力反力，不能替代指定引擎。'),
-        allowPartial: z.boolean().optional().describe('Only for equilibrium: compute independently available forces first when the request also needs displacement but stiffness is missing. Missing responses remain explicit; never marks the full task complete. / 平衡法先交付独立内力；其余响应仍明确缺项，不能算整题完成。'),
+        method: z.enum(['modal', 'time_history']).optional().describe('Dynamic method: modal or time_history. / 动力分析方法：modal或time_history。'),
         requestScope: requestScopeSchema.optional().describe('Requested response families and exact output locations/cases/units; design/report are independent opt-in deliverables. / 所求响应及明确位置、工况和单位；设计和报告分别按需。'),
         massSource: z.enum(['nodal', 'member-density', 'floor-seismic']).optional().describe('Explicit mass basis; sources are never silently added / 明确质量来源，不隐式叠加。'),
         numModes: z.number().int().positive().optional(),

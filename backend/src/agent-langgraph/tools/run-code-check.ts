@@ -31,7 +31,6 @@ export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
       const state = configurable.agentState;
       const toolCallId = getToolCallId(config);
       // Whether to check is the agent's decision; this tool validates only the state it needs.
-      if (resultEngine(state?.analysisResult ?? {}) === 'equilibrium') throw new Error('DESIGN_REQUIRES_FULL_MODEL / 规范设计需要真实材料截面及完整模型，不能使用无刚度平衡投影');
       if (stiffnessPlaceholderOf(state?.model)) return toolResult(toolCallId, 'run_code_check', JSON.stringify({ success: false,
         errorCode: 'STIFFNESS_PLACEHOLDER_MODEL', nextAction: 'ask_user_clarification',
         message: 'The current model used unit placeholder stiffness for a force-only request. A code check needs the real material grade and section: ask the user for them, extract the answer, rebuild, reanalyze, then check. Do not reuse the placeholder results.',

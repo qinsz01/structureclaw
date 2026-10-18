@@ -13,7 +13,7 @@ import { describeWithOpenSees, internalResponder, queryResult, routerDecision, r
   toolResultSeenByAgent, TURN_TIMEOUT_MS } from './helpers/harness.mjs';
 import { stepStatuses } from './helpers/normalize.mjs';
 
-const FORCE_SCOPE = { responses: ['forces', 'reactions'], method: 'solver', design: false, outputs: [] };
+const FORCE_SCOPE = { responses: ['forces', 'reactions'], design: false, outputs: [] };
 
 const SIMPLE = {
   zh: { message: '计算一个简支梁的内力，跨度10m，跨中集中荷载1kN', rule: '内力和反力不需要材料截面', followUp: '那挠度呢' },
@@ -87,7 +87,7 @@ describeWithOpenSees('characterization: minimal inputs', () => {
 
     // Follow-up deflection request: the placeholder cannot be reused; material and section are asked for.
     ctx.llm.setInternal(internalResponder({ 'structural-router': () => routerDecision('beam'),
-      'param-extractor': () => ({ requestScope: { responses: ['displacements'], method: 'solver', design: false, outputs: [] } }) }));
+      'param-extractor': () => ({ requestScope: { responses: ['displacements'], design: false, outputs: [] } }) }));
     const followUp = await runTurn(ctx, { conversationId: turn.conversationId, message: spec.followUp, context: { locale } }, [
       toolCall('extract_draft_params', { locale, message: spec.followUp }, `${prefix}-deflection`),
       toolCall('run_code_check', { designCode: 'GB50017', requestScope: { ...FORCE_SCOPE, responses: ['forces', 'reactions', 'displacements'], design: true } }, `${prefix}-check`),
@@ -208,7 +208,7 @@ describeWithOpenSees('characterization: minimal inputs', () => {
     expect(await ctx.backend.session(turn.conversationId)).toMatchObject({ analysis: { current: true } });
 
     const check = await runTurn(ctx, { conversationId: turn.conversationId, message: '按GB50010验算', context: { locale: 'zh' } }, [
-      toolCall('run_code_check', { designCode: 'GB50010', requestScope: { responses: ['forces'], method: 'solver', design: true, outputs: [] } }, 'rc-check'),
+      toolCall('run_code_check', { designCode: 'GB50010', requestScope: { responses: ['forces'], design: true, outputs: [] } }, 'rc-check'),
       'CHECK_REPLY_REPLACED_BY_DELIVERY_NOTICE',
     ]);
     const result = toolResultSeenByAgent(check.requests, 'rc-check');

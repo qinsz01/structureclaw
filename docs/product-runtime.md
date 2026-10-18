@@ -170,36 +170,18 @@ while retaining the extracted geometry and loads; do not invent a response list 
 有效请求或已接受目标。内部辅助字段异常单独记录，不再把它误报成用户工程参数错误。确实没有
 可用目标时，保留已抽取的几何与荷载并正常澄清所求结果，不编造响应列表，不重复抽取。
 
-`run_analysis(method="equilibrium")` reuses the job/archive/query services for a
-horizontal single-span left-pinned/right-roller beam or left-fixed cantilever:
-explicit downward point forces, full-span UDL, cases and linear combinations.
-It never substitutes for a specified solver or an already built full model. Its
-read-only V2 geometry/load projection contains no fictional material/section and
-is bound to the accepted draft, revision, settings and request sequence. Only
-forces/reactions are available; displacement, stress and design are not calculated.
-Force curves render without a deformation view. With no requested additional
-weight, only named loads are included and that assumption is recorded. Explicit
-self-weight needs supplied weight data; units and unresolved evidence remain hard
-checks. Before object IDs exist, leave scalar outputs empty rather than invent IDs.
-An equivalent explicit two-node/single-member topology is checked without renaming
-its objects. If force and displacement are both requested but stiffness is missing,
-extraction exposes `partialAnalysisAvailable`. `run_analysis(method="equilibrium",
-allowPartial=true)` retains the complete accepted goal, publishes available forces,
-and records `missingRequestedResponses` with `data.status="partial"`. It cannot
-claim the whole request succeeded or fill the missing displacement with zero.
-Selecting equilibrium for a subset cannot remove other responses from the accepted
-goal; the service records the remaining responses as partial even if the agent
-supplies a temporarily narrowed scope.
+Force-only requests (internal forces, reactions) go through the normal solver. Without a
+declared material or section the template builder uses labelled unit stiffness and records
+the static indeterminacy; an indeterminate structure is solved with equal EI and the answer
+states that assumption. Displacements of such a run are never presented, and a later
+displacement, period or design request asks for the real material and section. Runs saved by
+the retired equilibrium shortcut (engine `builtin-equilibrium`) still load and display
+read-only; the `requestScope.method` field is accepted and ignored.
 
-平衡方法复用同一作业、归档、查询服务，只支持水平单跨左铰右滚梁或左固悬臂梁、明确向下点力、
-全跨均布载、工况与线性组合。不能替代指定求解器或已有完整模型。只读V2几何/荷载投影不填假
-材料截面，有效性绑定草稿、版本、设置和请求次序；仅提供内力反力，不计算位移、应力或设计。
-图中不显示变形。未要求附加重量时仅计算题给荷载并记录假定；明确自重需要重量资料，单位和证据
-冲突检查保持执行。对象ID尚未产生时标量输出留空，不能编造ID或把输出名称当作工况键。
-等价的两节点单构件拓扑会校验支座和连接，保留对象ID。同时求内力与位移但缺少刚度时，抽取
-返回`partialAnalysisAvailable`；以`allowPartial=true`运行平衡法会保留完整请求目标，先交付
-内力，记录`missingRequestedResponses`与`data.status="partial"`，不能宣布整题完成或补零。
-Agent临时只选择内力计算，也不能删除已接受请求中的挠度等其他响应；服务端仍将其记为部分完成。
+只求内力或反力的请求走普通求解器。未给材料或截面时，模板以标注的单位刚度建模并记录超静定
+次数；超静定结构按各构件EI相同求解，回答中说明该假定。此类运行的位移不展示；之后要求位移、
+周期或设计时询问实际材料和截面。旧平衡捷径（引擎`builtin-equilibrium`）保存的运行仍可只读
+加载和显示；`requestScope.method`字段被接受但忽略。
 
 For elastic statics with self-weight explicitly disabled, V2 may omit unused rho.
 OpenSees retains absent density; self-weight and density-derived mass still require
@@ -590,25 +572,18 @@ at least one actual action; empty permission lists retain their existing meaning
 可选澄清按钮格式错误时仍可提出有效问题。输入复核允许未使用的操作列表为空，但至少
 需要一项实际操作；权限空集合的原有含义不变。
 
-An explicit analysis method/scope/provider supersedes a prior equilibrium method;
-an explicitly incompatible equilibrium/solver request remains rejected. Generic
-and explicit models apply confirmed analysis controls before validation. Density
+Generic and explicit models apply confirmed analysis controls before validation. Density
 is not required for elastic analysis with self-weight explicitly disabled; mass
 and self-weight requirements remain enforced by the requested analysis.
 
-本次明确指定的分析方法、目标或引擎优先于旧平衡法设置，显式冲突仍拒绝执行。通用与
-显式模型先应用已确认的分析控制；明确不计自重的弹性分析不强制要求未使用的密度，
+通用与显式模型先应用已确认的分析控制；明确不计自重的弹性分析不强制要求未使用的密度，
 自重与动力质量条件仍按所求分析检查。
 
-For a single-span equilibrium beam, a numeric point-load position and a recognized
-location label may coexist when they agree. Contradictory or unknown labels are
-rejected; point labels cannot turn a line load into a full-span load. A supplied
-load-field correction clears its previous draft diagnostic only for the matching
+A supplied load-field correction clears its previous draft diagnostic only for the matching
 load identity, not another load at the same patch-array offset. Unrelated and
 newly reported issues remain unresolved.
 
-单跨梁平衡计算允许一致的坐标与位置标签同时存在；矛盾或未知标签仍拒绝，集中力位置
-也不能使线荷载被当成全跨均布载。补充荷载字段后，只清理对应荷载的旧诊断，不按补丁
+补充荷载字段后，只清理对应荷载的旧诊断，不按补丁
 数组下标误清其他荷载；其他未解决问题和本轮新问题继续保留。
 
 Template role assignments are draft patches: material and section IDs can arrive
