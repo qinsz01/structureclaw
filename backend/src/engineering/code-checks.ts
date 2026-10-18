@@ -163,7 +163,8 @@ export function codeCheckFeedback(check: ModelRecord, model?: ModelRecord, analy
   });
   const limited = isRecord(check.checkScope) && check.checkScope.limited === true;
   const unresolvedResults = missingFields.filter(row => row.source === 'result' && !(row.field === 'response.deflection' && missingFields.some(field => field.elementId === row.elementId && field.field === 'member.design.serviceability_result_keys')));
-  let nextAction = 'generate_report';
+  // A complete check is delivered as the answer; a report follows only when the user asked for one.
+  let nextAction = 'deliver_results';
   if (check.completionStatus !== 'complete') {
     const unsupported = Number(isRecord(check.summary) ? check.summary.unsupported ?? 0 : 0) > 0;
     // Missing design inputs never interrupt: the check is delivered with performed items and the

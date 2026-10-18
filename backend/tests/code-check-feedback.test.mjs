@@ -153,7 +153,7 @@ test.each(['zh', 'en'])('selected checks are reported as a limited scope in %s, 
   const feedback = codeCheckFeedback(check);
   expect(feedback.conclusionEligible).toBe(false);
   expect(feedback.requestedChecksPassed).toBe(true);
-  expect(feedback.nextAction).toBe('generate_report');
+  expect(feedback.nextAction).toBe('deliver_results');
   const notice = codeCheckDeliveryNotice(check, locale);
   expect(notice).toContain('正应力');
   expect(notice).toContain(locale === 'zh' ? '其余项目未校核' : 'Other checks were not requested');
