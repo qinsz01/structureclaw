@@ -9,7 +9,7 @@ import type { BaseMessage, ToolMessage } from '@langchain/core/messages';
 import type { AgentState } from '../state.js';
 import { extractMessageText, getMessageType, getToolName } from '../message-inspect.js';
 import { toolMessageFailure } from '../../utils/tool-outcome.js';
-import { buildEvidence, derivedInputNumbers, findActionClaims, findUnsupportedNumbers, type ClaimedAction, type UnitNumber } from './answer-integrity.js';
+import { buildEvidence, derivedInputNumbers, quantitySums, findActionClaims, findUnsupportedNumbers, type ClaimedAction, type UnitNumber } from './answer-integrity.js';
 
 export interface AnswerReview { numbers: UnitNumber[]; actions: Array<{ action: ClaimedAction; text: string }> }
 
@@ -40,6 +40,7 @@ export function reviewFinalAnswer(input: { text: string; state: Partial<AgentSta
   const evidence = buildEvidence([
     ...messages.filter(message => ['human', 'tool'].includes(getMessageType(message) ?? '')).map(extractMessageText),
     derivedInputNumbers(userTexts),
+    quantitySums(Object.values(state.resultQuantities ?? {}).map(quantity => Number(quantity.value))),
     state.model, state.draftState, state.analysisResult, state.codeCheckResult, state.report,
     state.resultQuantities, state.analysisRuns, state.inputEvidence,
   ]);

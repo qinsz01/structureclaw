@@ -3,7 +3,7 @@
 // derivations, counts, rounding) must not be flagged; invented result values must be.
 import { describe, expect, test } from '@jest/globals';
 
-const { buildEvidence, derivedInputNumbers, extractUnitNumbers, findActionClaims, findUnsupportedNumbers } = await import('../dist/agent-langgraph/delivery/answer-integrity.js');
+const { buildEvidence, derivedInputNumbers, quantitySums, extractUnitNumbers, findActionClaims, findUnsupportedNumbers } = await import('../dist/agent-langgraph/delivery/answer-integrity.js');
 
 const beamTool = JSON.stringify({ success: true, runId: '3f9c1d2e-8a7b-4c6d-9e0f-123456789abc', createdAt: '2026-10-18T09:12:33.123Z',
   reactions: { '1': { fz: 5.000000000001 }, '3': { fz: 4.999999999 } }, memberForces: { '1': { M2: -15.0000000002 } },
@@ -38,6 +38,9 @@ const NEGATIVES = [
   // Live run 2026-10-18: equilibrium checks and totals derived from the user's inputs.
   ['总反力校核：22.5 + 75 + 22.5 = 120 kN = 10 kN/m × 12 m ✓', continuousEvidence],
   ['The total load is 120 kN over the 12 m length.', continuousEvidence],
+  // Live batch 2: the same value shown once with its derivation; Chinese numeral "两跨" gives no input 2.
+  ['合计 120 kN，与总荷载 2×6×10 = 120 kN 平衡 ✓', buildEvidence(['两跨连续梁，每跨6m，满跨均布荷载10kN/m'])],
+  ['Reactions sum to 120 kN.', buildEvidence([quantitySums([22.5, 75, 22.5])])],
   ['No numbers with units here: case 1, 2 and 3.', beamEvidence],
   // A unit weight is not a line load: kN/m³ is not checked as kN/m.
   ['Concrete unit weight 25 kN/m³ (25 kN/m3).', beamEvidence],
@@ -113,6 +116,8 @@ describe('claimed-action detection', () => {
     '分析已完成。',
     '我已经进行了初步分析。',
     'I have generated a summary of the report.',
+    '本次未执行规范校核，当前分析结果不构成"验算合格"的结论。',
+    '以上数值仅反映弹性分析结果，不构成验算合格与否的判断。',
     '已生成报告摘要。',
   ])('negated, conditional or offered: %s', (answer) => {
     expect(findActionClaims(answer)).toEqual([]);

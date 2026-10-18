@@ -134,6 +134,20 @@ export function derivedInputNumbers(texts: string[]): number[] {
   return derived;
 }
 
+const MAX_QUANTITIES = 30;
+
+/** Sums of two, three and all saved quantity values: equilibrium totals such as ΣR = 120 kN. */
+export function quantitySums(values: number[]): number[] {
+  const items = values.filter(Number.isFinite).map(Math.abs).slice(0, MAX_QUANTITIES);
+  const sums: number[] = items.length > 1 ? [items.reduce((total, value) => total + value, 0)] : [];
+  items.forEach((a, i) => items.forEach((b, j) => {
+    if (j <= i) return;
+    sums.push(a + b);
+    for (let k = j + 1; k < items.length; k += 1) sums.push(a + b + items[k]!);
+  }));
+  return sums;
+}
+
 /** Sorted absolute values of every number in the evidence (JSON values, JSON strings or text). */
 export function buildEvidence(sources: unknown[]): Float64Array {
   const values: number[] = [];
@@ -183,12 +197,23 @@ function sentenceAround(text: string, index: number): string {
 /** "L/250 = 24 mm", "22.5 + 75 + 22.5 = 120 kN": the value is shown with its own derivation. */
 const DERIVED = /[/×*÷+−-][^=＝，,;；。\n]{0,24}[=＝]\s*[≈约]?\s*$/;
 
-/** Values with units that match no evidence, excluding cited code values and shown derivations. */
+function isShownDerivation(answer: string, claim: UnitNumber): boolean {
+  return DERIVED.test(answer.slice(Math.max(0, claim.index - 40), claim.index));
+}
+
+/**
+ * Values with units that match no evidence, excluding cited code values and shown derivations.
+ * A value the answer derives explicitly once ("2×6×10 = 120 kN") is accepted wherever it recurs.
+ */
 export function findUnsupportedNumbers(answer: string, evidence: Float64Array): UnitNumber[] {
-  return extractUnitNumbers(answer).filter((claim) => {
+  const claims = extractUnitNumbers(answer);
+  const shown = claims.filter(claim => isShownDerivation(answer, claim))
+    .map(claim => ({ family: claim.family, base: Math.abs(claim.value) * claim.scale }));
+  return claims.filter((claim) => {
     if (isSupported(claim, evidence)) return false;
     if (CITATION.test(sentenceAround(answer, claim.index))) return false;
-    return !DERIVED.test(answer.slice(Math.max(0, claim.index - 40), claim.index));
+    const base = Math.abs(claim.value) * claim.scale;
+    return !shown.some(item => item.family === claim.family && Math.abs(item.base - base) <= 1e-9 * Math.max(1, base));
   });
 }
 
@@ -225,7 +250,9 @@ const ACTION_PATTERNS: Record<ClaimedAction, RegExp[]> = {
   ],
 };
 
-const ZH_NEGATION = /(未|没有?|尚未|不|无法|若|如果|如需|如|是否|待|需|可)\s*$/;
+/** Negation or condition earlier in the same clause ("不构成“验算合格”的结论", "若验算通过"). */
+const ZH_NEGATION = /(未|没|不|无|非|若|如果|如需|是否|能否|待|需|可)[^，,。；;！？!?\n]{0,8}$/;
+const ZH_QUESTION_AFTER = /^[”"」』）)]?(与否|吗|么|？|\?)/;
 const EN_NEGATION = /\b(not|no|never|if|whether|once|unless|cannot|could|would|will|can|should|may|until)\b[^.;\n]{0,12}$|n't\s*$/i;
 
 /** Affirmative claims of completed actions (negated, conditional and offered actions are ignored). */
@@ -233,8 +260,10 @@ export function findActionClaims(answer: string): Array<{ action: ClaimedAction;
   const claims: Array<{ action: ClaimedAction; text: string }> = [];
   for (const [action, patterns] of Object.entries(ACTION_PATTERNS) as Array<[ClaimedAction, RegExp[]]>) {
     const found = patterns.flatMap(pattern => [...answer.matchAll(pattern)]).find((match) => {
-      const before = answer.slice(Math.max(0, (match.index ?? 0) - 24), match.index ?? 0);
-      return !ZH_NEGATION.test(before.slice(-3)) && !EN_NEGATION.test(before);
+      const start = match.index ?? 0;
+      const before = answer.slice(Math.max(0, start - 24), start);
+      const after = answer.slice(start + match[0].length, start + match[0].length + 4);
+      return !ZH_NEGATION.test(before) && !ZH_QUESTION_AFTER.test(after) && !EN_NEGATION.test(before);
     });
     if (found) claims.push({ action, text: found[0] });
   }
