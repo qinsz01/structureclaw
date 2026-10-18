@@ -63,4 +63,13 @@ describe("agent system prompt", () => {
     expect(content).toContain("After it returns");
     expect(content).not.toContain("detect_structure_type AND extract_draft_params together");
   });
+
+  test.each(["zh", "en"])("reports and checks follow the request, including seismic runs (%s)", async (locale) => {
+    const { buildSystemMessages } = await import("../../../dist/agent-langgraph/system-prompt.js");
+    const [message] = buildSystemMessages({ state: { ...baseState, locale }, skillManifests: [] });
+    const content = String(message.content);
+    expect(content).toContain(locale === "zh" ? "仅当用户要求报告、计算书或其他交付文件时调用 generate_report" : "Call generate_report only when the user asks for a report, a calculation book or another deliverable document");
+    expect(content).toContain(locale === "zh" ? "run_analysis 成功后按用户请求继续" : "After run_analysis succeeds, continue as the user asked");
+    for (const stale of ["完整设计/分析交付", "full design/analysis deliverable", "code-check, generate report", "不要直接从抗震分析跳到报告", "do not jump directly from seismic analysis"]) expect(content).not.toContain(stale);
+  });
 });

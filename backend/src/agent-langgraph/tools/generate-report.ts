@@ -140,8 +140,8 @@ export function createGenerateReportTool(skillRuntime: AgentSkillRuntime) {
         'Generate an engineering report with summary, key metrics, and compliance narrative. ' +
         'Reads analysis results, code check results, and draft state from conversation state automatically — ' +
         'do NOT pass them as parameters. ' +
-        'Requires run_analysis to have been called first. Call when the user asks for a report/calculation book or a full design/analysis deliverable, not for a request for specific results only. For a scalar selection, first call query_results with the identical run/result, location, component, unit and index; reading a full field alone does not register the scalar. The query assigns quantityId automatically. / 指定标量selection前须先用query_results查询同一运行/结果、位置、分量、单位与索引；整个字段查询不会登记标量，数值ID自动生成。 ' +
-        'For China seismic reports, run_code_check with GB/T 50011-2010-2024 must be called first.',
+        'Requires run_analysis to have been called first. Call only when the user asks for a report, a calculation book or another deliverable document; "design a beam" and requests for specific results are not report requests. For a scalar selection, first call query_results with the identical run/result, location, component, unit and index; reading a full field alone does not register the scalar. The query assigns quantityId automatically. / 指定标量selection前须先用query_results查询同一运行/结果、位置、分量、单位与索引；整个字段查询不会登记标量，数值ID自动生成。 ' +
+        'A China seismic report that includes a check needs run_code_check with GB/T 50011-2010-2024 first.',
       schema: z.object({
         message: z.string().describe('Original user message / intent'),
         analysisType: z

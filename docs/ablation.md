@@ -8,11 +8,13 @@ tool interfaces and inputs and removes exactly one mechanism. Removing a mechani
 loss, not a broken interface: the agent still finishes the turn with an answer.
 
 Source of truth: `backend/src/runtime/ablation-profiles.ts` (`ABLATION_PROFILES_VERSION`, currently
-`2026-10-18.2`; `.2` also removed stage names under `no-knowledge`; `2026-10-18.1` changes the default
+`2026-10-18.3`; `.2` also removed stage names under `no-knowledge`; `2026-10-18.1` changes the default
 prompts of every profile: the workflow stops after analysis and report, code checks run only on explicit
 request, and missing design inputs are reported instead of asked for; `2026-10-18.2` changes them again:
 force-only requests need no material or section, reports are generated only when requested, and code
-checks look up code-determined values). Any change to a profile definition requires a new version.
+checks look up code-determined values; `2026-10-18.3` makes the report rule one principle — a report only
+when the user asks for a report, calculation book or other deliverable document, "design a beam" is not one —
+and makes the seismic check and report follow the request). Any change to a profile definition requires a new version.
 
 ## Selecting a profile
 

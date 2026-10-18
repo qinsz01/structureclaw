@@ -6,7 +6,7 @@ export const requestScopeSchema = z.object({
   responses: z.array(z.enum(['forces', 'reactions', 'displacements', 'rotations', 'stress', 'dynamic'])).min(1),
   method: z.enum(['solver', 'equilibrium']).default('solver'),
   design: z.boolean().default(false),
-  report: z.boolean().optional().describe('true when the user asks for a report or a full design/analysis deliverable; false for specific results only. / 用户要求报告或完整设计/分析交付时为true，只求具体结果时为false。'),
+  report: z.boolean().optional().describe('true only when the user asks for a report, a calculation book or another deliverable document; "design a beam" and specific results leave it false. / 仅当用户要求报告、计算书或其他交付文件时为true；“设计一个梁”和只求具体结果时为false。'),
   outputs: z.array(resultSelectionSchema.omit({ runId: true }).extend({
     field: resultSelectionSchema.shape.field.unwrap(), component: resultSelectionSchema.shape.component.unwrap(), unit: resultSelectionSchema.shape.unit.unwrap(),
   })).default([]).describe('Exact scalar queries after real object IDs are known. Before building leave outputs empty; never invent IDs. resultKey is a saved case:<ID>/combination:<ID>, not an output label. / 获得实际对象ID后填写标量查询；建模前留空，不编造ID。resultKey是工况/组合键，不是输出名称。'),

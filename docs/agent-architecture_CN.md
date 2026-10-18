@@ -244,7 +244,7 @@ taxonomy 是稳定的，但 domain 成熟度不同。domain 可以处于：
   -> 停止：总结结果并提示下一步（规范验算、修改模型）
 ```
 
-意图判断由大模型完成：是否校核、是否出报告以及需要哪些响应，均通过提示词和工具说明引导，并在工具参数中声明（`requestScope`）；代码不匹配用户文本。“设计一个梁”即执行上述默认流程，不构成校核请求；用户要求校核时代理才调用 `run_code_check`（声明 `requestScope.design=true`），用户要求报告或完整设计/分析交付时才调用 `generate_report`（`requestScope.report`），只求具体结果时不调用。工具不再复核这些决定，只校验状态和前提条件（有当前分析、结果未过期、ID 和参数有效、校核/报告/位移查询不基于单位刚度占位运行），并返回带中英文恢复提示的结构化错误。默认流程中的澄清只询问所求结果需要的分析输入（几何、支座、荷载、材料弹性属性、截面尺寸或属性）。明确请求的校核不会因设计输入缺失而中断：工具返回 `nextAction: "report_missing_inputs"`，最终回复列出已完成的校核以及未执行项和所缺输入，用户可在后续轮次补充。
+意图判断由大模型完成：是否校核、是否出报告以及需要哪些响应，均通过提示词和工具说明引导，并在工具参数中声明（`requestScope`）；代码不匹配用户文本。“设计一个梁”即执行上述默认流程，不构成校核请求；用户要求校核时代理才调用 `run_code_check`（声明 `requestScope.design=true`），仅当用户要求报告、计算书或其他交付文件时才调用 `generate_report`（`requestScope.report`），“设计一个梁”和只求具体结果都不是报告请求。抗震分析同样如此：校核和报告仅在要求时执行。工具不再复核这些决定，只校验状态和前提条件（有当前分析、结果未过期、ID 和参数有效、校核/报告/位移查询不基于单位刚度占位运行），并返回带中英文恢复提示的结构化错误。默认流程中的澄清只询问所求结果需要的分析输入（几何、支座、荷载、材料弹性属性、截面尺寸或属性）。明确请求的校核不会因设计输入缺失而中断：工具返回 `nextAction: "report_missing_inputs"`，最终回复列出已完成的校核以及未执行项和所缺输入，用户可在后续轮次补充。
 
 LLM 抽取器与 skill handler 产生的草稿补丁由 `ingestDraft`（`agent-runtime/draft/boundary.ts`）归一化，skill handler 直接调用该函数。未提供的字段保持不变，记录数组按稳定 ID 合并，明确删除通过 `clearDraftFields` 完成。tools 从 graph state 中读取 model、analysis、report 和 draft artifacts。LLM 不应该在 tools 之间传递很大的 `modelJson`、`analysisJson` 或 `stateJson` 参数。
 
