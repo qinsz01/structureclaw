@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) / Codex when working
 
 ## Project Overview
 
-StructureClaw is an AI-assisted structural engineering workspace. It takes natural-language structural descriptions through a conversational UI and runs them through a pipeline: draft model → validate → analyze → code-check → report. The system is bilingual (`en` / `zh`); all new user-visible text must ship in both locales.
+StructureClaw is an AI-assisted structural engineering workspace. It takes natural-language structural descriptions through a conversational UI and runs them through a default flow: draft model → validate → analyze, then stops with the requested results and offers next steps. Code checks and reports run only when the user asks for them. The system is bilingual (`en` / `zh`); all new user-visible text must ship in both locales.
 
 ## Architecture
 
@@ -123,7 +123,7 @@ Benchmark exception: `SCLAW_RUN_PROFILE=<id>` selects one of the pre-registered,
 The agent is capability-driven, not mode-driven:
 1. **Base model** (always present): general dialogue, fallback when no engineering capabilities are loaded.
 2. **Skill layer** (optional): engineering intent classification, parameter extraction, guidance.
-3. **Tool layer** (optional): executable engineering actions (analyze, validate, code-check, report).
+3. **Tool layer** (optional): executable engineering actions (validate, analyze; code-check and report on request).
 
 See `docs/agent-architecture.md` for the full canonical design reference.
 
