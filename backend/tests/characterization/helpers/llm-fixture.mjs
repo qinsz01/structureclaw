@@ -106,10 +106,12 @@ export async function startLlmFixture() {
 }
 
 function writeCompletion(response, body, reply) {
-  const message = typeof reply === 'string' ? { role: 'assistant', content: reply } : { role: 'assistant', ...reply };
+  // `finish_reason` in a scripted reply overrides the derived one (e.g. 'length' for a truncated answer).
+  const { finish_reason: scriptedFinish, ...fields } = typeof reply === 'string' ? { content: reply } : reply;
+  const message = { role: 'assistant', ...fields };
   const id = `chatcmpl-characterization-${randomUUID()}`;
   const common = { id, created: Math.floor(Date.now() / 1000), model: 'characterization-scripted' };
-  const finishReason = message.tool_calls?.length ? 'tool_calls' : 'stop';
+  const finishReason = scriptedFinish ?? (message.tool_calls?.length ? 'tool_calls' : 'stop');
   const usage = { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 };
   if (body.stream) {
     response.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' });
