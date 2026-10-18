@@ -52,7 +52,7 @@ export async function queryResult(conversationId, query) {
   return response.body.result;
 }
 
-/** The model of the current run: the built model, or the run's own snapshot (equilibrium runs have no built model). */
+/** The model of the current run: the built model, else the run's own snapshot. */
 export async function runModel(conversationId, runId) {
   const review = (await json('GET', `/api/v1/agent/input-review/${conversationId}`)).body;
   if (review?.model?.nodes) return review.model;
