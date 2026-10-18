@@ -13,6 +13,7 @@ import { checkRunResults, codeCheckFeedback, validateServiceabilitySelection } f
 import { recordRunEvent } from '../../runtime/run-context.js';
 import { requestScopeSchema, type RequestScope } from '../../engineering/request-scope.js';
 import { analysisTraceIdFromResult } from './analysis-resolution.js';
+import { stiffnessPlaceholderOf } from '../../engineering/stiffness-placeholder.js';
 import { getConfigurable, getToolCallId, toolResult, isRecord, toolSkillScope } from './shared.js';
 
 export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
@@ -34,6 +35,10 @@ export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
         skipped: true, reason: 'DESIGN_NOT_REQUESTED', message: 'Code checks run only on an explicit request (e.g. check against GB 50017). Deliver the analysis results and offer the check as a next step. If the user explicitly requested a check in the latest message, call again with requestScope.design=true and the retained responses.',
         messageZh: '规范校核只在用户明确要求时执行（如按 GB 50017 验算）。请交付分析结果并提示可继续验算；若用户最新消息已明确要求验算，请携带 requestScope.design=true 及原有所求结果重新调用。' }));
       if (resultEngine(state?.analysisResult ?? {}) === 'equilibrium') throw new Error('DESIGN_REQUIRES_FULL_MODEL / 规范设计需要真实材料截面及完整模型，不能使用无刚度平衡投影');
+      if (stiffnessPlaceholderOf(state?.model)) return toolResult(toolCallId, 'run_code_check', JSON.stringify({ success: false,
+        errorCode: 'STIFFNESS_PLACEHOLDER_MODEL', nextAction: 'ask_user_clarification',
+        message: 'The current model used unit placeholder stiffness for a force-only request. A code check needs the real material grade and section: ask the user for them, extract the answer (requestScope.design=true), rebuild, reanalyze, then check. Do not reuse the placeholder results.',
+        messageZh: '当前模型仅为内力计算使用了单位刚度占位。规范验算需要实际材料牌号和截面：请向用户询问，提取答复（requestScope.design=true）后重新建模、分析再验算；不要沿用占位结果。' }));
       const skillIds = toolSkillScope(config);
       const selectedDesignCode = skillRuntime.resolveCodeCheckDesignCodeFromSkillIds(skillIds);
       const explicitDesignCode = input.designCode || state?.policy?.designCode;

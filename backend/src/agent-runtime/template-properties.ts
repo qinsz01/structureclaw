@@ -1,5 +1,7 @@
 import type { DraftState } from '../shared/types/agent.js';
 import { applyDraftAnalysisControl, applyDraftTemplateDesign, resolveDraftTemplateAssignment } from './engineering-draft.js';
+import { forceOnlyScope, type RequestScope } from '../engineering/request-scope.js';
+import { describeStiffnessPlaceholder, placeholderMaterialRecord, placeholderSectionRecord } from '../engineering/stiffness-placeholder.js';
 
 type FrameMaterialCategory = 'steel' | 'concrete';
 type FrameMaterialProps = { E: number; G: number; nu: number; rho: number; category: FrameMaterialCategory; fy?: number; fc?: number };
@@ -312,9 +314,37 @@ export function completeDeclaredGradeMaterials<T extends Record<string, unknown>
   });
 }
 
+/** Whether the draft declares any material: records, a grade, or a legacy frame material. */
+function declaresMaterial(state: DraftState): boolean {
+  const draft = state.engineeringDraft;
+  return !!(draft?.materials?.length || draft?.material?.grade || state.frameMaterial);
+}
+
+/** Whether the draft declares any section: records, a role designation, or legacy section fields. */
+function declaresSection(state: DraftState): boolean {
+  const draft = state.engineeringDraft;
+  return !!(draft?.sectionRecords?.length || Object.values(draft?.sections ?? {}).some(value => typeof value === 'string' && value.trim())
+    || state.frameColumnSection || state.frameBeamSection
+    || Number(state.skillState?.sectionWidthM) > 0 || Number(state.skillState?.sectionDepthM) > 0);
+}
+
+/**
+ * A force-only static request (no displacement, no design) may run without material/section: the
+ * missing part is replaced by labelled unit stiffness. Partly declared sections still need the rest,
+ * self-weight needs real data, and commercial engines receive only real properties.
+ */
+export function stiffnessPlaceholderUses(state: DraftState): { material: boolean; section: boolean } {
+  const draft = state.engineeringDraft;
+  const scope = state.requestScope as RequestScope | undefined;
+  if (!forceOnlyScope(scope) || draft?.analysisControl?.self_weight === true || draft?.analysis?.engineTarget
+    || (draft?.analysis?.type && draft.analysis.type !== 'static')) return { material: false, section: false };
+  return { material: !declaresMaterial(state), section: !declaresSection(state) };
+}
+
 export function resolveTemplateProperties(state: DraftState, roles: TemplateRole[]) {
   const draft = state.engineeringDraft;
-  const materials = resolveTemplateMaterials(state);
+  const placeholder = stiffnessPlaceholderUses(state);
+  const materials = placeholder.material ? [placeholderMaterialRecord()] : resolveTemplateMaterials(state);
   const sections = (draft?.sectionRecords ?? []).map(section => hasSectionDefinition(section)
     ? structuredClone(section) : designatedSectionRecord(structuredClone(section), draft));
   const explicitRecords = sections.length > 0;
@@ -338,6 +368,10 @@ export function resolveTemplateProperties(state: DraftState, roles: TemplateRole
       // A single section is unambiguous only when geometry has one member role.
       if (!sectionId && roles.length === 1 && sections.length === 1) sectionId = String(sections[0].id);
       if (!sectionId || !sections.some((entry) => entry.id === sectionId)) propertyError(`${role}.sectionId`);
+    } else if (placeholder.section) {
+      // One shared unit section: every member has the same EI.
+      sectionId = '1';
+      if (!sections.length) sections.push(placeholderSectionRecord(sectionId, role === 'column' ? 'column' : 'beam'));
     } else {
       const concreteColumn = role === 'column' && (draft?.material?.family === 'concrete' || state.skillState?.materialFamily === 'concrete');
       const width = Number(state.skillState?.sectionWidthM), depth = Number(state.skillState?.sectionDepthM);
@@ -351,7 +385,7 @@ export function resolveTemplateProperties(state: DraftState, roles: TemplateRole
     }
     byRole[role] = { materialId, sectionId: sectionId! };
   }
-  return { materials, sections, byRole };
+  return { materials, sections, byRole, placeholder };
 }
 
 export function applyTemplateProperties(model: Record<string, unknown>, state: DraftState): Record<string, unknown> {
@@ -360,7 +394,12 @@ export function applyTemplateProperties(model: Record<string, unknown>, state: D
     : element.type === 'beam' ? 'beam' : 'member';
   const roles = [...new Set(elements.map(roleOf))];
   const properties = resolveTemplateProperties(state, roles);
-  return applyDraftTemplateDesign(applyDraftAnalysisControl({ ...model, materials: properties.materials, sections: properties.sections,
+  const stiffnessPlaceholder = properties.placeholder.material || properties.placeholder.section
+    ? describeStiffnessPlaceholder(model, properties.placeholder) : undefined;
+  // A placeholder material has no density: self-weight is excluded explicitly (it is never requested here).
+  const analysisControl = properties.placeholder.material
+    ? { analysis_control: { ...(model.analysis_control as Record<string, unknown> ?? {}), self_weight: false } } : {};
+  return applyDraftTemplateDesign(applyDraftAnalysisControl({ ...model, ...analysisControl, materials: properties.materials, sections: properties.sections,
     elements: elements.map((element) => {
       const assignment = properties.byRole[roleOf(element)]!;
       return { ...element, material: assignment.materialId, section: assignment.sectionId };
@@ -369,7 +408,7 @@ export function applyTemplateProperties(model: Record<string, unknown>, state: D
     ...(state.engineeringDraft?.analysis?.loadCombinations ? { load_combinations: structuredClone(state.engineeringDraft.analysis.loadCombinations) } : {}),
     metadata: { ...(model.metadata as Record<string, unknown> ?? {}),
       inputEvidence: structuredClone(state.engineeringDraft?.inputEvidence ?? []),
-      templatePropertyAssignments: properties.byRole },
+      templatePropertyAssignments: properties.byRole, ...(stiffnessPlaceholder ? { stiffnessPlaceholder } : {}) },
   }, state.engineeringDraft), state.engineeringDraft);
 }
 

@@ -10,6 +10,7 @@ import { assertModelEditReadback, editCollectionSchema, engineeringModelSchema, 
 import { queryPhysicalResponse, scalarResultQuantity } from '../engineering/result-data.js';
 import { resolveNodalResultSelection, resultSelectionSchema, solverMeshQueryGuidance } from '../engineering/result-selection.js';
 import { loadAnalysisRun } from '../engineering/analysis-runs.js';
+import { isDisplacementSelection, PLACEHOLDER_DISPLACEMENT_ERROR, stiffnessPlaceholderOf, withoutDisplacementComponents, withoutPlaceholderDisplacements } from '../engineering/stiffness-placeholder.js';
 import { randomUUID } from 'node:crypto';
 import { imageRegionSchema } from '../engineering/vision-evidence.js';
 import { activeInputEvidence, analysisInputBinding, canonicalInputValue, evidenceSourceFile, isCanonicalModelField, mergeInputEvidence, unresolvedInputEvidence } from '../engineering/input-evidence.js';
@@ -187,6 +188,9 @@ export function createQueryResultsTool() {
     if (!run) throw new Error('RUN_NOT_FOUND');
     if (requestedInput.nodeId && requestedInput.elementId) throw new Error('RESULT_LOCATION_AMBIGUOUS');
     const input = resolveNodalResultSelection(requestedInput);
+    // Placeholder stiffness yields forces only; its displacements are never presented.
+    const placeholder = stiffnessPlaceholderOf(run);
+    if (placeholder && (isDisplacementSelection(input.field, input.component) || input.referenceNodeId !== undefined)) throw new Error(PLACEHOLDER_DISPLACEMENT_ERROR);
     const fieldResolution = requestedInput.field === undefined && input.field !== undefined
       ? { field: input.field, source: 'node-component-unit', component: input.component, unit: input.unit } : undefined;
     if (input.compareResultKeys && (input.resultKey || !isRecord(run.results) || !input.component || input.modeNumber !== undefined || input.timeIndex !== undefined
@@ -343,7 +347,13 @@ export function createQueryResultsTool() {
         tiePolicy: 'exact-score-equality-first-requested-key',
       } } };
     }
-    const { resultKey, meta, resultSelection, values, quantity, viewData } = chosen;
+    const { resultKey, meta, resultSelection, quantity } = chosen;
+    const values = !placeholder ? chosen.values
+      : input.elementId ? withoutDisplacementComponents(chosen.values)
+        : !input.field && isRecord(chosen.values) ? withoutPlaceholderDisplacements(chosen.values, placeholder)
+          : Array.isArray(chosen.values) ? chosen.values.map(member => isRecord(member) && Array.isArray(member.samples)
+            ? { ...member, samples: member.samples.map(sample => withoutDisplacementComponents(sample)) } : member) : chosen.values;
+    const viewData = placeholder && isRecord(chosen.viewData) ? withoutPlaceholderDisplacements(chosen.viewData, placeholder) : chosen.viewData;
     const modelSnapshot = isRecord(run.modelSnapshot) ? run.modelSnapshot : !input.runId && !currentAnalysisError(state) ? state.model : undefined;
     if (input.includeModelSnapshot && !modelSnapshot) throw new Error('RESULT_MODEL_SNAPSHOT_REQUIRED');
     const response = { runId: run.runId, historical: Boolean(input.runId), current: !input.runId && !currentAnalysisError(state),

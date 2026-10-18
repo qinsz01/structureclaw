@@ -1,6 +1,7 @@
 import type { AgentState } from '../../state.js';
 import { commitModel, invalidateStaleResults } from '../../../engineering/model-state.js';
 import { compactText } from './context.js';
+import { stiffnessPlaceholderOf } from '../../../engineering/stiffness-placeholder.js';
 import { pickAnalysisDiagnostics, buildSuccessfulAnalysisDetails } from './summary.js';
 import { isRecord, optionalRecord } from '../shared.js';
 
@@ -140,11 +141,15 @@ export function buildModelToolSummary(
     };
   }
 
+  const placeholder = stiffnessPlaceholderOf(model);
   return {
     success: true,
     nodeCount,
     elementCount,
     schemaVersion,
+    ...(placeholder ? { stiffnessPlaceholder: { material: placeholder.material, section: placeholder.section,
+      staticIndeterminacy: placeholder.staticIndeterminacy, equalStiffnessAssumed: placeholder.equalStiffnessAssumed,
+      notice: placeholder.notice[locale] } } : {}),
     nextAction: 'run_analysis',
     message: locale === 'zh'
       ? '模型已构建完成。下一步必须调用 run_analysis 执行结构分析。'

@@ -15,6 +15,7 @@ import { recordRunEvent, reserveToolCall, recordToolOutcome } from '../../runtim
 import { createQueryResultsTool } from '../model-tools.js';
 import { requestScopeSchema, forceOnlyScope, type RequestScope } from '../../engineering/request-scope.js';
 import { equilibriumModel } from '../../engineering/beam-equilibrium.js';
+import { stiffnessPlaceholderOf, withoutPlaceholderDisplacements, type StiffnessPlaceholder } from '../../engineering/stiffness-placeholder.js';
 import { resolveRequestedAnalysisSkillId, resolveUnselectedRequestedAnalysisSkillId, buildAnalysisProviderNotSelectedPayload } from './analysis-resolution.js';
 import { buildAnalysisToolSummary } from './compaction/analysis.js';
 import { parseJsonObjectInput, hasStructuredSeismicWorkflow, hasSemanticSeismicWorkflowInput, mergeSeismicWorkflowInputs } from './seismic-workflow/merge.js';
@@ -84,9 +85,11 @@ type ToolPayloadOutcome<T> = { errorPayload: Record<string, unknown> } | T;
 
 /** Scope of this call: equilibrium may select only the available responses, but cannot erase the accepted goal. */
 function resolveAnalysisScope(input: RunAnalysisInput, state: AgentState | undefined) {
+  // A built model is solved by the solver; only an explicit method selects equilibrium then.
+  const modelBuilt = !!state?.model && !state.modelPending;
   const equilibriumRequested = input.method !== undefined ? input.method === 'equilibrium'
-    : input.requestScope !== undefined ? input.requestScope.method === 'equilibrium'
-      : !input.analysisSkillId && state?.requestScope?.method === 'equilibrium';
+    : input.requestScope !== undefined ? input.requestScope.method === 'equilibrium' && !modelBuilt
+      : !input.analysisSkillId && state?.requestScope?.method === 'equilibrium' && !modelBuilt;
   // A tool may select only available responses, but cannot erase the accepted goal.
   const partialGoal = equilibriumRequested && state?.requestScope?.responses.some(field => !['forces', 'reactions'].includes(field))
     ? state.requestScope : undefined;
@@ -273,13 +276,22 @@ function bindAnalysisResult(
   return analysisResult;
 }
 
+/** What the agent must say about a placeholder-stiffness run: the equal-EI assumption, and no displacements. */
+function placeholderDelivery(placeholder: StiffnessPlaceholder | undefined, locale: 'zh' | 'en') {
+  if (!placeholder) return {};
+  return { stiffnessPlaceholder: { material: placeholder.material, section: placeholder.section,
+    staticIndeterminacy: placeholder.staticIndeterminacy, equalStiffnessAssumed: placeholder.equalStiffnessAssumed,
+    notice: placeholder.notice[locale], availableResponses: ['forces', 'reactions'] } };
+}
+
 /** Tool message: compact summary plus the declared output deliveries and next action. */
 function analysisResponsePayload(
   analysisSummary: ReturnType<typeof buildAnalysisToolSummary>,
   delivery: Awaited<ReturnType<typeof queryRequestedOutputs>> | undefined,
   scope: AnalysisScope['scope'],
+  placeholder: Record<string, unknown> = {},
 ) {
-  return { ...analysisSummary, ...(delivery ? { requestedQuantities: delivery.requestedQuantities, missingRequestedOutputs: delivery.missingRequestedOutputs,
+  return { ...analysisSummary, ...placeholder, ...(delivery ? { requestedQuantities: delivery.requestedQuantities, missingRequestedOutputs: delivery.missingRequestedOutputs,
     deliveryScope: 'declared-output-selections',
     deliveryStatus: !scope?.outputs?.length ? 'not-specified' : delivery.missingRequestedOutputs.length ? 'partial' : 'complete' } : {}), ...(scope ? { requestScope: scope, requestedOutputs: scope.outputs,
     nextAction: 'query_results', instruction: 'Deliver the requested result locations, cases and units; code design/report only when explicitly requested. / 按指定位置、工况、单位交付；规范设计和报告分别按需。' } : {}) };
@@ -373,12 +385,14 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
         signal: config.signal,
       });
       const analysisResult = bindAnalysisResult(result.result, reservation.analysisRequest, traceId, scope);
+      const placeholder = stiffnessPlaceholderOf(model);
+      if (placeholder) analysisResult.meta = { ...(isRecord(analysisResult.meta) ? analysisResult.meta : {}), stiffnessPlaceholder: placeholder };
 
       // Store analysis result in graph state via Command.
       // Keep ToolMessage content compact — the full data lives in graph state.
       // The streaming layer reads analysisResult from nodeState for artifact_payload_sync.
       const analysisSummary = buildAnalysisToolSummary({
-        result: analysisResult,
+        result: placeholder ? withoutPlaceholderDisplacements(analysisResult, placeholder) : analysisResult,
         skillId: result.skillId,
         model,
       });
@@ -394,7 +408,7 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
       return toolResult(
         toolCallId,
         'run_analysis',
-        JSON.stringify(analysisResponsePayload(analysisSummary, delivery, scope)),
+        JSON.stringify(analysisResponsePayload(analysisSummary, delivery, scope, placeholderDelivery(placeholder, state?.locale === 'en' ? 'en' : 'zh'))),
         { ...update, ...(delivery ? { resultQuantities: delivery.resultQuantities } : {}), ...(scope ? { requestScope: scope } : {}) },
       );
     },

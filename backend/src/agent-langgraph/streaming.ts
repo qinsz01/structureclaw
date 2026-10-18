@@ -22,6 +22,7 @@ import { createAgentLogger } from '../utils/agent-logger.js';
 import { normalizeClarificationOptions } from '../utils/clarification-options.js';
 import { toolMessageFailure } from '../utils/tool-outcome.js';
 import { toLlmStreamError } from '../utils/llm-error.js';
+import { withoutPlaceholderDisplacements } from '../engineering/stiffness-placeholder.js';
 
 // Re-export the stream chunk type for convenience
 import type { AgentStreamChunk } from '../types/agent-stream.js';
@@ -384,7 +385,8 @@ function emitArtifactSync(toolOutput: string, nodeState?: any): AgentStreamChunk
         chunks.push({
           type: 'artifact_payload_sync',
           artifact: 'analysis',
-          latestResult: { analysis: analysisResult as Record<string, unknown> },
+          // Placeholder-stiffness displacements are solver internals, never presented.
+          latestResult: { analysis: withoutPlaceholderDisplacements(analysisResult as Record<string, unknown>) },
         });
       }
       if (report) {

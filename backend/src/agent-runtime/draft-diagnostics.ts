@@ -1,6 +1,6 @@
 import type { DraftExtraction, DraftIssue, DraftState, EngineeringDraft } from '../shared/types/agent.js';
 import { engineeringLoadClarifiesExisting } from './engineering-draft.js';
-import { resolveTemplateMaterials, resolveTemplateProperties } from './template-properties.js';
+import { resolveTemplateMaterials, resolveTemplateProperties, stiffnessPlaceholderUses } from './template-properties.js';
 import { draftContract, resolveFieldSchema, validDraftValue, type FieldSchema } from '../engineering/draft-contract.js';
 import { canonicalDraftPath as canonicalPath, legacyDraftContract, withLegacyScalarViews } from './draft/legacy-fields.js';
 import { invalidDraftFieldsOf } from './draft/normalize.js';
@@ -108,6 +108,13 @@ export function mergeDraftDiagnostics(existing: DraftState | undefined, patch: D
     if (!issue.field || issue.severity === 'conflict'
       || !issue.kind && issue.severity === 'ambiguous' && issue.value != null) return false;
     const field = issue.target ?? issue.field;
+    // A force-only request runs on labelled unit stiffness when material/section are absent.
+    if (issue.kind === 'missing' && !merged.engineeringDraft?.model) {
+      const root = tokens(canonicalPath(field))[0]?.key ?? '';
+      const placeholder = stiffnessPlaceholderUses(merged);
+      if (placeholder.material && ['material', 'materials'].includes(root)) return true;
+      if (placeholder.section && ['section', 'sections', 'sectionRecords', 'templateAssignments'].includes(root)) return true;
+    }
     // A whole material-group absence can be satisfied by either supported input
     // representation. Reuse the builder's projection, never guess numeric data.
     // A specific record/field or a confirmation/conflict is not interchangeable.
