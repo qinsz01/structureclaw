@@ -1,6 +1,7 @@
 // Scenario: requests answered with minimal inputs (2026-10-18 product decision "用户要什么就做什么").
 // - Internal forces only, no material/section: no clarification. A statically determinate beam runs on
 //   labelled unit stiffness; an indeterminate beam additionally reports the equal-EI assumption.
+//   Cantilever, simple, two-span and portal answers all come from the solver.
 //   Displacements from such a run are never presented. Whether to report or check is the agent's
 //   decision; if it schedules a report anyway, the tool refuses the placeholder run with a recovery hint.
 // - A later displacement request after a placeholder run asks for the real material and section; a code
@@ -136,6 +137,56 @@ describeWithOpenSees('characterization: minimal inputs', () => {
       positionM: middle.x - start.x, side: 'left', field: 'forces', component: 'M2', unit: 'kN.m' })).quantity.value;
     // Hogging support moment wL²/8 = 45 kN·m (sagging is negative M2).
     expect(moment).toBeCloseTo(45, 6);
+  }, TURN_TIMEOUT_MS);
+
+  test('cantilever, forces only: solved on unit stiffness, fixed-end reaction and moment', async () => {
+    ctx.llm.setInternal(internalResponder({ 'structural-router': () => routerDecision('beam'), 'param-extractor': () => ({
+      engineeringDraft: { structureType: 'beam', geometry: { lengthM: 4 }, boundary: { supportType: 'cantilever' },
+        loads: [{ id: 'P1', kind: 'point', magnitude: 2, unit: 'kN', direction: 'gravity', target: 'beam', location: { xM: 4, nodeRole: 'free-end' } }] },
+      requestScope: FORCE_SCOPE }) }));
+    const turn = await runTurn(ctx, { message: '悬臂梁长4m，自由端集中荷载2kN，求固定端反力和弯矩', context: { locale: 'zh' } }, [
+      toolCall('extract_draft_params', { locale: 'zh' }, 'cant-extract'),
+      toolCall('build_model', {}, 'cant-build'),
+      toolCall('run_analysis', { analysisType: 'static' }, 'cant-analysis'),
+      '固定端反力 2 kN，弯矩 8 kN·m。',
+    ]);
+    expect(toolResultSeenByAgent(turn.requests, 'cant-extract').criticalMissing).toEqual([]);
+    expect(turn.interactions).toEqual([]);
+    const analysis = toolResultSeenByAgent(turn.requests, 'cant-analysis');
+    expect(analysis.success).toBe(true);
+    expect(analysis.stiffnessPlaceholder).toMatchObject({ staticIndeterminacy: 0, equalStiffnessAssumed: false });
+    const session = await ctx.backend.session(turn.conversationId);
+    const { model } = await ctx.backend.inputReview(turn.conversationId);
+    const fixed = model.nodes.find(node => Array.isArray(node.restraints) && node.restraints.every(Boolean));
+    const base = { runId: session.analysis.runId, nodeId: fixed.id, field: 'reactions', unit: 'kN' };
+    expect((await queryResult(ctx, turn.conversationId, { ...base, component: 'fz' })).quantity.value).toBeCloseTo(2, 8);
+    expect(Math.abs((await queryResult(ctx, turn.conversationId, { ...base, component: 'my', unit: 'kN.m' })).quantity.value)).toBeCloseTo(8, 8);
+  }, TURN_TIMEOUT_MS);
+
+  test('portal frame, forces only: equal-EI assumption, symmetric vertical reactions and balanced thrust', async () => {
+    ctx.llm.setInternal(internalResponder({ 'structural-router': () => routerDecision('portal-frame'), 'param-extractor': () => ({
+      engineeringDraft: { structureType: 'portal-frame', geometry: { spanLengthsM: [12], heightM: 6 },
+        loads: [{ id: 'ROOF', kind: 'line', magnitude: 5, unit: 'kN/m', direction: 'gravity', target: 'roof' }] },
+      requestScope: FORCE_SCOPE }) }));
+    const turn = await runTurn(ctx, { message: '计算一个门式刚架的内力，跨度12m，柱高6m，屋面均布荷载5kN/m', context: { locale: 'zh' } }, [
+      toolCall('extract_draft_params', { locale: 'zh' }, 'portal-extract'),
+      toolCall('build_model', {}, 'portal-build'),
+      toolCall('run_analysis', { analysisType: 'static' }, 'portal-analysis'),
+      '按各构件EI相同计算：柱脚竖向反力各 30 kN。',
+    ]);
+    expect(toolResultSeenByAgent(turn.requests, 'portal-extract').criticalMissing).toEqual([]);
+    expect(turn.interactions).toEqual([]);
+    const analysis = toolResultSeenByAgent(turn.requests, 'portal-analysis');
+    expect(analysis.success).toBe(true);
+    expect(analysis.stiffnessPlaceholder).toMatchObject({ staticIndeterminacy: 3, equalStiffnessAssumed: true });
+    const session = await ctx.backend.session(turn.conversationId);
+    const { model } = await ctx.backend.inputReview(turn.conversationId);
+    const bases = model.nodes.filter(node => Array.isArray(node.restraints) && node.restraints[2] === true);
+    expect(bases).toHaveLength(2);
+    const reaction = async (nodeId, component) => (await queryResult(ctx, turn.conversationId, { runId: session.analysis.runId,
+      nodeId, field: 'reactions', component, unit: 'kN' })).quantity.value;
+    for (const node of bases) expect(await reaction(node.id, 'fz')).toBeCloseTo(30, 6);
+    expect(await reaction(bases[0].id, 'fx') + await reaction(bases[1].id, 'fx')).toBeCloseTo(0, 8);
   }, TURN_TIMEOUT_MS);
 
   test('concrete frame without a rebar grade: analysis completes; an explicit check lists the rebar strength', async () => {
