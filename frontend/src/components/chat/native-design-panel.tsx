@@ -26,6 +26,7 @@ export function NativeDesignPanel({ review, locale, disabled, reportAllowed, onE
   const options = review.options
   const reason = review.reason === 'TOOL_NOT_ALLOWED' ? l('当前策略未开放原生设计工具。', 'The current policy does not permit native design.')
     : review.reason === 'ANALYSIS_FAILED' ? l('当前分析未成功，请重新分析后再设计。之前完成的设计仅保留为历史记录。', 'The current analysis failed. Analyze again before designing; previous completed designs remain historical records.')
+      : review.reason === 'STIFFNESS_PLACEHOLDER_MODEL' ? l('当前结果仅为内力计算使用了单位刚度占位，不能设计；请提供实际材料和截面后重新分析。', 'This result used unit placeholder stiffness for forces only and cannot be designed. Provide the real material and section, then analyze again.')
       : review.reason === 'NATIVE_DESIGN_ENGINE_REQUIRED' ? l('原生设计需要当前有效的 PKPM 或 YJK 分析。', 'Native design requires a current valid PKPM or YJK analysis.')
         : review.reason ? `${l('尚不能执行', 'Cannot execute yet')}: ${review.reason}` : ''
   const invalid = options?.parameters.some(parameter => {

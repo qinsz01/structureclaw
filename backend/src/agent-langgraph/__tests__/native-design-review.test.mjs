@@ -182,3 +182,10 @@ test('aborting native design preserves the completed analysis and clears prior d
   expect(state.analysisResult.runId).toBe('initial'); expect(currentAnalysisError(state)).toBeUndefined();
   expect(state.analysisRequestSequence).toBe(2); expect(state.codeCheckResult).toBeNull(); expect(state.report).toBeNull();
 });
+
+test('a placeholder-stiffness run reports native design unavailable with its reason', () => {
+  const placeholderModel = { ...model, metadata: { stiffnessPlaceholder: { material: true, section: true } } };
+  const run = { ...designRun('placeholder', { modelHash: modelHash(placeholderModel), modelRevision: 1 }), modelSnapshot: placeholderModel };
+  const view = nativeDesignReview({ model: placeholderModel, modelRevision: 1, analysisResult: run }, ['run_code_check']);
+  expect(view).toMatchObject({ available: false, reason: 'STIFFNESS_PLACEHOLDER_MODEL' });
+});

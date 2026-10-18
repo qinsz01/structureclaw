@@ -1,6 +1,7 @@
 import { currentAnalysisError, isRecord, modelHash, type ModelRecord, type ModelState } from './model-state.js';
 import { nativeDesignRecord } from './native-design.js';
 import { resultEngine } from './result-data.js';
+import { stiffnessPlaceholderOf } from './stiffness-placeholder.js';
 
 type Label = { zh: string; en: string };
 type Parameter = { key: string; label: Label; kind: 'integer' | 'choice' | 'boolean'; min?: number; max?: number; choices?: string[]; unit?: string };
@@ -66,7 +67,9 @@ export function nativeDesignReview(state: ModelState & { analysisRuns?: Record<s
         effectiveParameters: context.effectiveParameters, effectiveMemberInputs: context.effectiveMemberInputs,
         artifacts: context.artifacts, current: run.runId === state.analysisResult?.runId && !currentAnalysisError(state) } as ModelRecord;
     }).filter((row): row is NonNullable<typeof row> => row !== null);
-  const reason = !options ? 'NATIVE_DESIGN_ENGINE_REQUIRED' : currentAnalysisError(state)
+  // A unit-stiffness placeholder model has no real material or section to design.
+  const placeholder = stiffnessPlaceholderOf(state.model) ?? stiffnessPlaceholderOf(state.analysisResult);
+  const reason = placeholder ? 'STIFFNESS_PLACEHOLDER_MODEL' : !options ? 'NATIVE_DESIGN_ENGINE_REQUIRED' : currentAnalysisError(state)
     ?? (!allowed.includes('run_code_check') ? 'TOOL_NOT_ALLOWED' : !options.codes.length ? 'ENGINE_INPUT_UNSUPPORTED' : null);
   return { modelRevision: state.modelRevision ?? 0, modelHash: hash ?? null, runId: state.analysisResult?.runId ?? null,
     options, available: reason === null, reason, latestAttempt: attempts.at(-1) ?? null,
