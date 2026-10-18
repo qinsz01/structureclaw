@@ -1,7 +1,6 @@
 /** Database admin page. */
 export const databaseAdminMessages = {
   en: {
-    databaseAdminConsoleLink: 'Database Status',
     databaseAdminTitle: 'SQLite Database Status',
     databaseAdminIntro: 'Review the local SQLite database file used by StructureClaw. This page reports the resolved file path, writability, and current file size without exposing a table browser.',
     databaseAdminOpen: 'Open Database Tools',
@@ -11,9 +10,7 @@ export const databaseAdminMessages = {
     databaseAdminTargetHelp: 'This path points to the local SQLite file used by the backend runtime.',
     databaseAdminStatusEnabled: 'Ready',
     databaseAdminStatusDisabled: 'Needs attention',
-    databaseAdminStatusUnknown: 'Status unknown',
     databaseAdminStatusLabel: 'Status',
-    databaseAdminDefaultLogin: 'Default Login',
     databaseAdminDirectory: 'Parent Directory',
     databaseAdminMode: 'Storage Mode',
     databaseAdminFileExists: 'Database File',
@@ -30,11 +27,8 @@ export const databaseAdminMessages = {
     databaseAdminFetchFailed: 'Database status could not be loaded. The page is showing a conservative local SQLite fallback instead.',
     databaseAdminUnavailableBody: 'The backend did not report a ready SQLite database state. Check the file path, permissions, and startup logs.',
     databaseAdminOpenHint: 'Read-only status view',
-    databaseAdminConsoleCardTitle: 'Database tools',
-    databaseAdminConsoleCardBody: 'Review SQLite file health, path, and startup readiness without bringing up PostgreSQL or pgAdmin.',
   },
   zh: {
-    databaseAdminConsoleLink: '数据库状态',
     databaseAdminTitle: 'SQLite 数据库状态',
     databaseAdminIntro: '查看 StructureClaw 当前使用的本地 SQLite 数据库文件状态。这里会展示解析后的文件路径、是否可写以及当前文件大小，不再提供表浏览器入口。',
     databaseAdminOpen: '打开数据库工具',
@@ -44,9 +38,7 @@ export const databaseAdminMessages = {
     databaseAdminTargetHelp: '这里显示的是后端运行时实际使用的本地 SQLite 文件路径。',
     databaseAdminStatusEnabled: '已就绪',
     databaseAdminStatusDisabled: '需要处理',
-    databaseAdminStatusUnknown: '状态未知',
     databaseAdminStatusLabel: '当前状态',
-    databaseAdminDefaultLogin: '默认登录账号',
     databaseAdminDirectory: '上级目录',
     databaseAdminMode: '存储模式',
     databaseAdminFileExists: '数据库文件',
@@ -63,7 +55,5 @@ export const databaseAdminMessages = {
     databaseAdminFetchFailed: '无法加载数据库状态，页面当前展示的是保守的本地 SQLite 回退信息。',
     databaseAdminUnavailableBody: '后端尚未报告可用的 SQLite 状态。请检查文件路径、权限以及启动日志。',
     databaseAdminOpenHint: '只读状态视图',
-    databaseAdminConsoleCardTitle: '数据库工具',
-    databaseAdminConsoleCardBody: '直接查看 SQLite 文件状态、路径和启动健康度，不再要求先启 PostgreSQL 或 pgAdmin。',
   },
 } as const

@@ -1,7 +1,6 @@
 /** LLM, capability readiness and general settings pages. */
 export const settingsMessages = {
   en: {
-    settingsNav: 'Settings',
     capabilitySettingsNav: 'Capabilities',
     llmSettingsNav: 'LLM',
     llmSettingsTitle: 'LLM Settings',
@@ -77,12 +76,9 @@ export const settingsMessages = {
     readinessMoreIssues: 'Only the first 100 items are displayed; total',
     readinessCurrentHint: 'This view reads saved state. It neither runs a solver nor replaces model preflight or clause-by-clause engineering checks.',
     capabilitySettingsIntro: 'Choose which built-in skills and tools the model may call. Skills shape understanding and guidance; tools are executable actions.',
-    capabilitySettingsOpen: 'Manage Capabilities',
     capabilityCatalogFailed: 'Could not load the skill and tool catalog. Your selections are saved; retry before changing capabilities or sending a message.',
     capabilityCatalogRetry: 'Retry capability loading',
     capabilitySettingsSectionTitle: 'Built-in capabilities',
-    capabilitySettingsSummaryTitle: 'Current capabilities',
-    capabilitySettingsSummaryBody: 'Capability selection moved into a dedicated settings page so the chat workspace stays focused on conversation and results.',
     capabilitySettingsSidebarTitle: 'How this works',
     capabilitySettingsSidebarLine1: 'Skills are built-in domain abilities. They help the model understand structural tasks, collect parameters, and guide the conversation.',
     capabilitySettingsSidebarLine2: 'Tools are built-in executable actions. They only run when the model decides a call is necessary and the tool remains checked here.',
@@ -145,7 +141,6 @@ export const settingsMessages = {
     generalSettingsSaveButton: 'Save',
   },
   zh: {
-    settingsNav: '设置',
     capabilitySettingsNav: '能力设置',
     llmSettingsNav: 'LLM',
     llmSettingsTitle: 'LLM 设置',
@@ -221,12 +216,9 @@ export const settingsMessages = {
     readinessMoreIssues: '仅显示前100项，总计',
     readinessCurrentHint: '此处只读取保存的状态，不启动求解，也不替代模型预检或逐条工程校核。',
     capabilitySettingsIntro: '选择允许模型调用的内置 skill 和 tool。Skill 决定理解与引导能力，Tool 决定可执行动作能力。',
-    capabilitySettingsOpen: '管理能力',
     capabilityCatalogFailed: '技能与工具目录加载失败，已保留你的选择。请重试后再修改能力或发送消息。',
     capabilityCatalogRetry: '重试加载能力',
     capabilitySettingsSectionTitle: '内置能力',
-    capabilitySettingsSummaryTitle: '当前能力',
-    capabilitySettingsSummaryBody: '能力选择已移动到独立设置页，对话工作台将继续聚焦聊天与结果。',
     capabilitySettingsSidebarTitle: '使用说明',
     capabilitySettingsSidebarLine1: 'Skill 是内置领域能力，负责结构任务理解、补参追问和对话引导。',
     capabilitySettingsSidebarLine2: 'Tool 是内置可执行动作，只有当模型判断确实需要时才会被调用，并且必须仍然保持勾选。',

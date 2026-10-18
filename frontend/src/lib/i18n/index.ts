@@ -14,7 +14,6 @@ import {
 import { shellMessages } from './messages/shell'
 import { settingsMessages } from './messages/settings'
 import { databaseAdminMessages } from './messages/database-admin'
-import { marketingMessages } from './messages/marketing'
 import { consoleMessages } from './messages/console'
 import { resultsMessages } from './messages/results'
 import { engineReportMessages } from './messages/engine-report'
@@ -27,7 +26,6 @@ export const messages = {
     ...shellMessages.en,
     ...settingsMessages.en,
     ...databaseAdminMessages.en,
-    ...marketingMessages.en,
     ...consoleMessages.en,
     ...resultsMessages.en,
     ...engineReportMessages.en,
@@ -38,7 +36,6 @@ export const messages = {
     ...shellMessages.zh,
     ...settingsMessages.zh,
     ...databaseAdminMessages.zh,
-    ...marketingMessages.zh,
     ...consoleMessages.zh,
     ...resultsMessages.zh,
     ...engineReportMessages.zh,

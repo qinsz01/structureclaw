@@ -1,11 +1,7 @@
 /** App shell, language/theme toggles and top-level navigation. */
 export const shellMessages = {
   en: {
-    appName: 'StructureClaw',
-    appTitle: 'StructureClaw - Structural Engineering AI Console',
-    appDescription: 'StructureClaw frontend console for AI-powered structural analysis workflows.',
     console: 'Console',
-    agentConsole: 'Agent Console',
     language: 'Language',
     english: 'EN',
     chinese: '中文',
@@ -16,16 +12,9 @@ export const shellMessages = {
     light: 'Light',
     dark: 'Dark',
     system: 'System',
-    marketingTagline: 'Conversational Engineering AI',
-    marketingOpenConsole: 'Open Console',
-    backHome: 'Back Home',
   },
   zh: {
-    appName: 'StructureClaw',
-    appTitle: 'StructureClaw - 结构工程 AI 控制台',
-    appDescription: 'StructureClaw 前端控制台：AI 驱动的结构分析工作平台。',
     console: '控制台',
-    agentConsole: 'Agent 控制台',
     language: '语言',
     english: 'EN',
     chinese: '中文',
@@ -36,8 +25,5 @@ export const shellMessages = {
     light: '日间',
     dark: '夜间',
     system: '跟随系统',
-    marketingTagline: '会话式工程 AI',
-    marketingOpenConsole: '打开控制台',
-    backHome: '返回首页',
   },
 } as const

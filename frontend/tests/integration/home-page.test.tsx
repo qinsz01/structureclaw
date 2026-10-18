@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import HomePage from '@/app/page'
-import { AppStoreProvider } from '@/lib/stores'
+import { AppStoreProvider } from '@/lib/stores/context'
 
 const renderHomePage = () => render(
   <AppStoreProvider>
