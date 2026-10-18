@@ -38,7 +38,8 @@ test('design extraction uses the formal schema and rejects bad generated fields 
   expect(state).toEqual(before);
 
   // Malformed extraction is a failure, not a successful merge that resets the
-  // correction path. Repeated bad drafts consume the shared limit and stop.
+  // correction path. The second identical failure consumes a recovery; the third identical
+  // call is refused by the repeated-failure guard without running the extractor again.
   const { AIMessage } = await import('@langchain/core/messages');
   const { executeToolsSequentially } = await import('../../../dist/agent-langgraph/sequential-tools.js');
   const { createRunContext, withRunContext } = await import('../../../dist/runtime/run-context.js');
@@ -52,11 +53,11 @@ test('design extraction uses the formal schema and rejects bad generated fields 
       tool_calls: [{ id: `attempt-${attempt}`, name: 'extract_draft_params', args: { message: 'Use supplied conditions', requestScope } }] })] },
       { configurable: { structureProtocolClient: client } }));
     expect(command.update.messages[0].status).toBe('error');
-    expect(command.update.messages[0].content).toContain(attempt === 3 ? 'RECOVERY_BUDGET_EXHAUSTED' : 'MODEL_EDIT_FIELD_INVALID');
+    expect(command.update.messages[0].content).toContain(attempt >= 2 ? 'REPEATED_FAILED_CALL' : 'MODEL_EDIT_FIELD_INVALID');
     expect(command.update.draftState).toBeUndefined();
   }
-  expect(context.usage.recoveries).toBe(2);
-  expect(extract).toHaveBeenCalledTimes(3);
+  expect(context.usage.recoveries).toBe(1);
+  expect(extract).toHaveBeenCalledTimes(2);
 
   const unavailable = { get: jest.fn(() => { throw Error('Python must not be called for force-only input'); }) };
   extract.mockResolvedValue({ engineeringDraft: { geometry: { lengthM: 10 } } });
