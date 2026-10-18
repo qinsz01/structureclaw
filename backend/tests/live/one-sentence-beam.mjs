@@ -6,7 +6,7 @@
 //
 // acceptance (default) runs beam, forces and continuous.
 // beam: one sentence "design a simply supported steel beam ... HN300×150×6.5×9" must finish in one turn
-// with a current analysis and report, no run_code_check call and no clarification; reactions, midspan
+// with a current analysis, no report (none was asked for), no run_code_check call and no clarification; reactions, midspan
 // moment and deflection are compared with closed-form values. The follow-up "check against GB50017" must
 // execute run_code_check without an interrupt, compute the strength checks with f=305 and fv=175 MPa
 // (GB 50017-2017 Table 4.4.1, Q355, t=9 mm) and list the missing judgment inputs.
@@ -90,10 +90,11 @@ async function runBeam(locale) {
   check(failures, first.interactions.length === 0 && toolCalls(first, 'ask_user_clarification').length === 0
     && !first.steps.some(step => step.tool === 'ask_user_clarification'), 'clarification requested (not one turn)');
   check(failures, !first.steps.some(step => step.tool === 'run_code_check'), 'run_code_check was called without an explicit request');
-  for (const tool of ['build_model', 'run_analysis', 'generate_report']) check(failures, toolCalls(first, tool).length > 0, `${tool} did not complete`);
+  for (const tool of ['build_model', 'run_analysis']) check(failures, toolCalls(first, tool).length > 0, `${tool} did not complete`);
+  check(failures, !first.steps.some(step => step.tool === 'generate_report'), 'generate_report was called although no report was asked for');
   const session = (await json('GET', `/api/v1/chat/conversation/${first.conversationId}/session`)).body;
   check(failures, session?.analysis?.current === true, `analysis not current: ${JSON.stringify(session?.analysis)}`);
-  check(failures, session?.report?.current === true, `report not current: ${JSON.stringify(session?.report)}`);
+  check(failures, session?.report?.current !== true, 'a report was generated although none was asked for');
   check(failures, session?.waitingForReply === false, 'session still waiting for a reply');
   const offersCheck = /GB\s*50017|验算|校核|code[- ]check/i.test(first.response ?? '');
   let values;
