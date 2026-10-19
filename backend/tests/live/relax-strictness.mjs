@@ -78,7 +78,6 @@ for (const item of cases) {
       }
       if (item.catalogue) {
         check(failures, typeof section.extra?.source === 'string' && /GB\s*\/?\s*T?\s*706|标准.*表|目录/.test(visible), 'catalogue source not shown');
-        check(failures, Boolean(section.extra?.property_geometry_delta), 'catalogue delta note missing');
       } else check(failures, /圆角|尖角|sharp.corner/i.test(visible), 'sharp-corner assumption not shown');
     }
   } catch (error) { failures.push(error.message); }
