@@ -27,6 +27,10 @@ export const FORCE_PROMPTS = {
 
 // A displacement value presented in prose (e.g. "挠度 3.2 mm", "deflection of 0.02 m").
 const DISPLACEMENT_VALUE = /(挠度|位移|变形|deflection|displacement)[^。.\n]{0,24}?\d+(?:\.\d+)?\s*(?:mm|m)(?![a-z²³/])/i;
+export function displacementValueClaims(answer) {
+  return [...answer.matchAll(new RegExp(DISPLACEMENT_VALUE.source, 'gi'))].map(match => match[0])
+    .filter(claim => !/^(?:(?:挠度|位移|变形)(?:点|位置).*?(?:距|位于|在)|(?:deflection|displacement)\s+(?:point|location).*?\b(?:at|located|from)\b)/i.test(claim));
+}
 const EQUAL_EI = /(EI|刚度)[^。.\n]{0,30}(相同|相等|一致|equal|same|identical|uniform)|(相同|相等|equal|same|identical|uniform)[^。.\n]{0,30}(EI|刚度|stiffness)/i;
 const ASKS_PROPERTIES = /(材料|截面|牌号|material|section)/i;
 
@@ -35,7 +39,7 @@ function commonFirstTurnChecks(failures, first) {
   check(failures, questionCount(first) === 0, 'a clarification was requested');
   check(failures, !first.steps.some(step => step.tool === 'run_code_check'), 'run_code_check was called');
   check(failures, toolCalls(first, 'run_analysis').length > 0, 'run_analysis did not complete');
-  check(failures, !DISPLACEMENT_VALUE.test(first.response ?? ''), 'the answer presents a displacement value');
+  check(failures, !displacementValueClaims(first.response ?? '').length, 'the answer presents a displacement value');
 }
 
 async function supportReactions(conversationId, runId, model) {
@@ -86,7 +90,7 @@ export async function runForces(locale) {
   check(failures, follow.errors.length === 0, `follow-up stream errors: ${JSON.stringify(follow.errors).slice(0, 300)}`);
   check(failures, questions.some(text => ASKS_PROPERTIES.test(text)) || ASKS_PROPERTIES.test(follow.response ?? ''),
     'the deflection follow-up did not ask for the material and section');
-  check(failures, !DISPLACEMENT_VALUE.test(follow.response ?? ''), 'the follow-up presents a displacement from the placeholder run');
+  check(failures, !displacementValueClaims(follow.response ?? '').length, 'the follow-up presents a displacement from the placeholder run');
   return { variant: 'forces', locale, pass: failures.length === 0, failures, wallMs: { first: first.wallMs, followUp: follow.wallMs },
     questionCount: { first: questionCount(first), followUp: questionCount(follow) }, conversationId: first.conversationId,
     toolSequence: { first: toolSequence(first), followUp: toolSequence(follow) }, values, followUpQuestions: questions,
