@@ -4,6 +4,7 @@ import { compactText } from './context.js';
 import { stiffnessPlaceholderOf } from '../../../engineering/stiffness-placeholder.js';
 import { pickAnalysisDiagnostics, buildSuccessfulAnalysisDetails } from './summary.js';
 import { isRecord, optionalRecord } from '../shared.js';
+import { sectionAssumptions } from '../../../engineering/section-assumptions.js';
 
 function normalizeAnalysisErrorCode(...values: unknown[]): string {
   for (const value of values) {
@@ -116,6 +117,7 @@ export function buildAnalysisToolSummary(args: {
     ...(result.runId ? { runId: result.runId, resultKeys: isRecord(result.results) ? Object.keys(result.results) : [], selectedResultKey: result.selectedResultKey,
       executionStatus: result.executionStatus, capabilityStatus: result.capabilityStatus } : {}),
     analysisMode: data?.analysisMode,
+    ...(Array.isArray(data.sectionAssumptions) ? { sectionAssumptions: data.sectionAssumptions } : {}),
     ...(buildSuccessfulAnalysisDetails(data, result, args.model) ?? {}),
   };
 }
@@ -145,6 +147,7 @@ export function buildModelToolSummary(
   const metadata = isRecord(model.metadata) ? model.metadata : {};
   const assumptions = Array.isArray(metadata.templateAssumptions)
     ? metadata.templateAssumptions.filter(isRecord).map(row => String(row[locale])) : [];
+  assumptions.push(...sectionAssumptions(model).map(row => row.message[locale]));
   return {
     success: true,
     nodeCount,

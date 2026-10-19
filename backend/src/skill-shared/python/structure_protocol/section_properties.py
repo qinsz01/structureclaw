@@ -1,9 +1,4 @@
-"""Deterministic section geometry; never reconcile contradictory numeric inputs.
-
-Dimensions are mm; A is m2 and I/J are m4. The comparison tolerance (1e-6
-relative) permits numeric serialization roundoff, not alternate section physics.
-Historical catalog tables are not a verified source of rolled-section properties.
-"""
+"""Section geometry in mm; explicit properties (m²/m⁴) take precedence."""
 from __future__ import annotations
 
 import math
@@ -53,7 +48,7 @@ def geometry_properties(shape):
     return None
 
 
-def validate_derived_section_metadata(section):
+def _check_derived_section_metadata(section):
     """Accept geometry provenance only when its claim can be recomputed now."""
     extra = section.get('extra') or {}
     if 'derived_properties' not in extra:
@@ -73,26 +68,48 @@ def validate_derived_section_metadata(section):
     if len(set(fields)) != len(fields) or set(fields) - set(expected):
         raise ValueError(error)
     properties = section.get('properties') or {}
-    checked = set(fields) | ({'A', 'Iy', 'Iz'} & set(properties))
-    if shape.kind in {'circular', 'pipe', 'hollow-circular'} and 'J' in properties:
-        checked.add('J')
-    for key in checked:
+    for key in fields:
         value = properties.get(key)
         if (type(value) not in (int, float) or not math.isfinite(value)
                 or not math.isclose(value, expected[key], rel_tol=1e-6, abs_tol=1e-14)):
             raise ValueError(error + f' ({key})')
 
 
+def validate_derived_section_metadata(section):
+    """Stale provenance is advisory; it never replaces supplied numerical values."""
+    try:
+        _check_derived_section_metadata(section)
+    except (ValueError, TypeError, KeyError, AttributeError):
+        return {'code': 'SECTION_PROVENANCE_CONFLICT', 'severity': 'warning', 'message': {
+            'en': 'Derived provenance conflicts with current geometry/properties; using current values.',
+            'zh': '截面派生来源与当前几何或属性不符；采用当前显式数值。'}}
+    return None
+
+
 def validate_section_physics(section):
-    validate_derived_section_metadata(section.model_dump(exclude_none=True))
     props = section.properties
     for key in SECTION_PROPERTY_UNITS:
         if key in props and (isinstance(props[key], bool) or not isinstance(props[key], (float, int))
                              or not math.isfinite(props[key]) or props[key] <= 0):
             raise ValueError(f"Section '{section.id}' {key} must be finite and positive")
+    diagnostics = []
+    extra = {key: value for key, value in section.extra.items()
+             if key not in {'section_diagnostics', 'property_geometry_delta'}}
+
+    def note(code, en, zh, severity='warning'):
+        diagnostics.append({'code': code, 'severity': severity, 'message': {'en': en, 'zh': zh}})
+        section.extra = {**extra, 'section_diagnostics': diagnostics}
+
+    provenance = validate_derived_section_metadata(section.model_dump(exclude_none=True))
+    if provenance:
+        diagnostics.append(provenance)
+    # Retain conflicts after canonicalizing type/dimensions on a previous pass.
+    diagnostics.extend(row for row in section.extra.get('section_diagnostics', [])
+                       if row.get('code') in {'SECTION_TYPE_CONFLICT', 'SECTION_DIMENSION_CONFLICT'})
+    section.extra = {**extra, **({'section_diagnostics': diagnostics} if diagnostics else {})}
     if section.standard_steel_name and (section.shape or props):
-        raise ValueError(f"Section '{section.id}' combines a catalog name and explicit geometry/properties; "
-                         'catalog mapping is not calibrated. Supply one reviewed numerical section source.')
+        note('SECTION_CATALOG_LABEL', 'Explicit geometry/properties used; the catalogue name is only a label.',
+             '采用显式几何和属性；目录名称仅作标签。')
     if not section.shape:
         return
     shape = section.shape
@@ -104,32 +121,46 @@ def validate_section_physics(section):
     declared_kind = kind_aliases.get(section.type, section.type)
     geometric_kind = kind_aliases.get(shape.kind, shape.kind)
     if declared_kind in known_kinds and declared_kind != geometric_kind:
-        raise ValueError(f"Section '{section.id}' type '{section.type}' conflicts with shape.kind '{shape.kind}'")
+        extra['type_shape_conflict'] = {'type': section.type, 'shape.kind': shape.kind}
+        note('SECTION_TYPE_CONFLICT', f"type '{section.type}' conflicts with shape.kind '{shape.kind}'; using shape.",
+             f'类型 {section.type} 与几何类型 {shape.kind} 不同；采用 shape。')
+        section.type = shape.kind
     for legacy, canonical in (('width', 'B'), ('height', 'H'), ('diameter', 'd'), ('thickness', 'T')):
         a, b = getattr(section, legacy), getattr(shape, canonical)
         if a is not None and b is not None and not math.isclose(a, b, rel_tol=1e-6, abs_tol=1e-9):
-            raise ValueError(f"Section '{section.id}' {legacy} conflicts with shape.{canonical}")
+            extra[f'{legacy}_shape_conflict'] = {legacy: a, f'shape.{canonical}': b}
+            note('SECTION_DIMENSION_CONFLICT', f'{legacy}={a} conflicts with shape.{canonical}={b}; using shape.',
+                 f'{legacy}={a} 与 shape.{canonical}={b} 不同；采用 shape。')
+            setattr(section, legacy, b)
     derived = geometry_properties(shape)
     if derived is None:
         if any(key in props for key in ('A', 'Iy', 'Iz')):
-            raise ValueError(f"Section '{section.id}' geometry/property consistency is unverified for shape '{shape.kind}'")
+            note('SECTION_GEOMETRY_UNVERIFIED', 'Geometry comparison unavailable; using explicit section properties.',
+                 '无法比较该几何的截面属性；采用显式截面数值。')
         return
-    for key in ('A', 'Iy', 'Iz'):
-        if key in props and not math.isclose(float(props[key]), derived[key], rel_tol=1e-6, abs_tol=1e-14):
-            raise ValueError(f"Section '{section.id}' properties.{key}={props[key]} conflicts with geometry ({derived[key]})")
     # Gross elastic moduli have the same geometric source as I. A net modulus
     # may be smaller (e.g. documented holes), but must never exceed the gross one.
     h = shape.H or shape.d
     b = shape.B or shape.d
     moduli = {'Wx': derived['Iy']/(h/2000), 'Wz': derived['Iz']/(b/2000)} if h and b else {}
-    for key, expected in moduli.items():
-        if key in props and not math.isclose(props[key], expected, rel_tol=1e-6, abs_tol=1e-14):
-            raise ValueError(f"Section '{section.id}' properties.{key} conflicts with geometry ({expected})")
-    if 'Wnx' in props and 'Wx' in moduli and props['Wnx'] > moduli['Wx']*(1+1e-6):
-        raise ValueError(f"Section '{section.id}' net Wnx exceeds gross geometric modulus")
-    if shape.kind in {'circular', 'pipe', 'hollow-circular'} and 'J' in props:
-        if not math.isclose(props['J'], derived['J'], rel_tol=1e-6, abs_tol=1e-14):
-            raise ValueError(f"Section '{section.id}' properties.J conflicts with circular geometry ({derived['J']})")
+    compared = {key: value for key, value in derived.items() if key != 'J'} | moduli
+    if shape.kind in {'circular', 'pipe', 'hollow-circular'}:
+        compared['J'] = derived['J']
+    delta = {}
+    for key, expected in compared.items():
+        # Five significant figures suffice for serialized engineering properties.
+        if key in props and not math.isclose(props[key], expected, rel_tol=5e-5, abs_tol=1e-14):
+            difference = (props[key]/expected-1)*100
+            delta[key] = difference
+            note('SECTION_PROPERTY_GEOMETRY_DELTA',
+                 f'{key}: user/catalogue section property used; differs from sharp-corner geometry by {difference:+.2f}%.',
+                 f'{key}：截面属性采用用户/目录值，与不计圆角的几何值相差 {difference:+.2f}%。',
+                 'warning' if abs(difference) > 5 else 'info')
+    if delta:
+        section.extra = {**section.extra, 'property_geometry_delta': delta}
+    gross = props.get('Wx', props.get('Iy', derived['Iy'])/(h/2000)) if h else None
+    if 'Wnx' in props and gross and props['Wnx'] > gross*1.05:
+        raise ValueError(f"Section '{section.id}' net Wnx exceeds gross modulus by more than 5%")
     # J depends on the stated torsion model. Preserve an explicit J; otherwise
     # record the documented solid-rectangle/thin-wall approximation as its source.
     missing = {key: value for key, value in derived.items() if key not in props}

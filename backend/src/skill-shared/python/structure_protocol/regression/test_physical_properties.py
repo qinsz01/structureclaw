@@ -53,29 +53,61 @@ def test_shape_properties_have_one_consistent_physical_meaning():
     assert section.properties['Iz'] == pytest.approx(.5*.2**3/12,rel=1e-14)
     assert section.extra['derived_properties']['method'] == 'section-geometry-v1'
     section.properties['A'] = .001
-    with pytest.raises(ValueError,match='conflicts with geometry'):
-        validate_section_physics(section)
+    validate_section_physics(section)
+    assert section.properties['A'] == .001
+    assert any(row['severity'] == 'warning' for row in section.extra['section_diagnostics'])
 
 
 def test_catalog_does_not_silently_override_explicit_properties():
     section = SectionV2(id='s',name='s',type='H',standard_steel_name='HW300x300',properties={'A':.01})
-    with pytest.raises(ValueError,match='catalog mapping is not calibrated'):
+    validate_section_physics(section)
+    assert section.properties['A'] == .01
+    assert section.extra['section_diagnostics'][0]['code'] == 'SECTION_CATALOG_LABEL'
+
+
+def test_explicit_moduli_win_but_net_capacity_cannot_exceed_gross_by_over_five_percent():
+    section = SectionV2(id='s',name='s',type='rectangular',
+        shape=SectionShape(kind='rectangular',B=200,H=500),properties={'Wx':1,'Wz':1,'Wnx':1.05})
+    validate_section_physics(section)
+    assert section.properties['Wx'] == 1
+    section.properties['Wnx'] = 1.051
+    with pytest.raises(ValueError, match='net Wnx exceeds gross'):
         validate_section_physics(section)
 
 
-def test_section_moduli_cannot_disagree_with_geometry_or_grow_net_capacity():
-    for properties in ({'Wx':1}, {'Wz':1}, {'Wnx':1}):
-        section = SectionV2(id='s',name='s',type='rectangular',
-            shape=SectionShape(kind='rectangular',B=200,H=500),properties=properties)
-        with pytest.raises(ValueError):
-            validate_section_physics(section)
-
-
-@pytest.mark.parametrize('kind, height', [('H',500), ('rectangular',float('inf'))])
-def test_shape_labels_and_finite_geometry_are_validated(kind, height):
+def test_shape_wins_over_labels_and_legacy_dimensions_but_nonfinite_geometry_fails():
+    section = SectionV2(id='s',name='s',type='H',width=300,
+        shape=SectionShape(kind='rectangular',B=200,H=500))
+    validate_section_physics(section)
+    assert section.type == 'rectangular' and section.width == 200
+    assert section.extra['type_shape_conflict']['type'] == 'H'
+    assert section.extra['width_shape_conflict']['width'] == 300
     with pytest.raises(ValueError):
-        section = SectionV2(id='s',name='s',type=kind,shape=SectionShape(kind='rectangular',B=200,H=height))
-        validate_section_physics(section)
+        validate_section_physics(SectionV2(id='s',name='s',type='rectangular',
+            shape=SectionShape(kind='rectangular',B=200,H=float('inf'))))
+
+
+def test_catalogue_i20a_and_rounded_inertia_are_accepted():
+    shape = SectionShape(kind='I',H=200,B=100,tw=7,tf=11.4)
+    section = SectionV2(id='s',name='I20a',type='I',shape=shape,
+        properties={'A':35.578e-4,'Iy':2370e-8})
+    validate_section_physics(section)
+    assert section.properties['A'] == 35.578e-4 and section.properties['Iy'] == 2370e-8
+    assert section.extra['property_geometry_delta']['A'] == pytest.approx(1.06238,rel=1e-5)
+    assert section.extra['property_geometry_delta']['Iy'] == pytest.approx(.657176,rel=1e-5)
+    assert all(row['severity'] == 'info' for row in section.extra['section_diagnostics'])
+    rounded = SectionV2(id='s',name='I20a',type='I',shape=shape,properties={'Iy':2.3545e-5})
+    validate_section_physics(rounded)
+    assert rounded.properties['Iy'] == 2.3545e-5
+    assert 'property_geometry_delta' not in rounded.extra
+    assert 'section_diagnostics' not in rounded.extra
+
+
+def test_stale_derived_provenance_warns_without_overwriting_properties():
+    section = SectionV2(id='s',name='s',type='custom',properties={'A':.01},extra={'derived_properties':{'bad':True}})
+    validate_section_physics(section)
+    assert section.properties['A'] == .01
+    assert section.extra['section_diagnostics'][0]['code'] == 'SECTION_PROVENANCE_CONFLICT'
 
 
 def test_floor_area_migration_and_mass_direction_contract():

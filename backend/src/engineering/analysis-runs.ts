@@ -9,6 +9,7 @@ import { enrichResultData } from './result-data.js';
 import { assertInputEvidenceMatchesModel, assertResolvedInput } from './input-evidence.js';
 import { writeAtomicFile } from './atomic-json.js';
 import { requestScopeInputSchema } from './request-scope.js';
+import { sectionAssumptions } from './section-assumptions.js';
 
 const compress = promisify(gzip), decompress = promisify(gunzip);
 
@@ -179,6 +180,8 @@ export async function executeAnalysisRun(
     result.meta = { ...(isRecord(result.meta) ? result.meta : {}), ...binding, runId, modelHash: fingerprint, settingsHash, effectiveParameters: effective, requestParameters: parameters,
       ...(requestScope ? { requestScope } : {}) };
     const data = enrichResultData(model, result, selection as unknown as ModelRecord);
+    const sectionNotes = sectionAssumptions(model);
+    if (sectionNotes.length) data.sectionAssumptions = sectionNotes;
     results[selection.key] = {
       ...result, data, selection, executionStatus: executionStatus(result),
       capabilityStatus: result.success === false ? 'unavailable'

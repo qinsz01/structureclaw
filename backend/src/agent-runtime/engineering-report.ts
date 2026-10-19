@@ -9,6 +9,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { runPkpmCalcbook } from '../agent-skills/report-export/calculation-book/pkpm-calcbook/runner.js';
 import { resultEngine } from '../engineering/result-data.js';
+import { sectionAssumptions } from '../engineering/section-assumptions.js';
 
 interface EngineeringReportInput {
   message: string;
@@ -67,6 +68,12 @@ export function finishEngineeringReport(prepared: ReturnType<typeof prepareEngin
   const unverified = check && (check.completionStatus !== 'complete' || check.complianceStatus === 'fail' || limitedChecks);
   let markdown = !unverified && narrative ? narrative : buildDefaultReportNarrative(prepared.narrativeInput);
   markdown += resultTableMarkdown(input.analysis, input.locale);
+  const sectionNotes = sectionAssumptions(input.normalizedModel);
+  if (sectionNotes.length) {
+    json.sectionAssumptions = sectionNotes;
+    markdown += `\n\n${input.locale === 'zh' ? '截面取值及假定' : 'Section values and assumptions'}:\n\n`
+      + sectionNotes.map(row => `- ${row.message[input.locale]}`).join('\n') + '\n';
+  }
   if (limitedChecks) markdown += input.locale === 'zh'
     ? '\n本报告仅包含用户明确选择的专项校核；未请求项目未校核，不构成完整设计合格结论。\n'
     : '\nThis report covers only the explicitly requested checks. Unrequested checks were not performed; this does not establish complete design compliance.\n';

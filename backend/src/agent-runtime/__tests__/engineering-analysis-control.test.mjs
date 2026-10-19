@@ -107,12 +107,14 @@ describe('generic topology uses confirmed section geometry without invented roun
     expect(state).toEqual(before);
   }, 30000);
 
-  test('conflicting properties explicitly present in the confirmed source are retained and rejected, not silently corrected', async () => {
+  test('conflicting properties explicitly present in the confirmed source are retained with a warning', async () => {
     const state = beamState({ self_weight: false });
     state.engineeringDraft.sectionRecords = [{ id: '1', type: 'rectangular', shape: { kind: 'rectangular', B: 100, H: 200 }, properties: { Iy: .0001 } }];
     const candidate = buildModel(beamState({ self_weight: false }));
     const result = await tryBuildGenericModelWithLlm({ invoke: async () => ({ content: JSON.stringify(candidate) }) }, 'Use the supplied record', state, 'en');
     expect(result.sections[0].properties.Iy).toBe(.0001);
-    await expect(normalize(result)).rejects.toThrow(/conflicts with geometry/);
+    const normalized = await normalize(result);
+    expect(normalized.sections[0].properties.Iy).toBe(.0001);
+    expect(normalized.sections[0].extra.section_diagnostics).toContainEqual(expect.objectContaining({ severity: 'warning', code: 'SECTION_PROPERTY_GEOMETRY_DELTA' }));
   }, 30000);
 });
