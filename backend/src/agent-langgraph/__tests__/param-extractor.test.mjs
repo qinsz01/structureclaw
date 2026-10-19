@@ -554,5 +554,9 @@ test.each(['en', 'zh'])('both prompt modes forbid self-weight questions and pres
     expect(prompt).toContain('shape ONLY');
     expect(prompt).toContain('never tool-retrieved');
     expect(prompt).toContain('不能声称工具检索');
+    expect(prompt).toContain('NOT computable before the user confirms');
+    expect(prompt).toContain('确认前不能计算');
+    expect(prompt).toContain('sectionRecords[].extra, alongside shape and properties');
+    expect(prompt).toContain('与shape和properties同级');
   }
 });
