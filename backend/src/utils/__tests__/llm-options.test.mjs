@@ -334,10 +334,18 @@ describe('LLM model options', () => {
 test('only clarification patches cap output and lower GLM-5.3 reasoning', async () => {
   const { buildChatModelOptions } = await import('../../../dist/utils/llm.js');
   const config = { ...baseConfig, llmModel: 'glm-5.3' };
-  expect(buildChatModelOptions(config, 0).reasoningEffort).toBeUndefined();
+  expect(buildChatModelOptions(config, 0).reasoning).toBeUndefined();
   expect(buildChatModelOptions(config, 0).modelKwargs).toBeUndefined();
-  expect(buildChatModelOptions(config, 0, { purpose: 'clarification-patch', maxTokens: 2048 })).toMatchObject({
-    maxTokens: 2048, reasoningEffort: 'low', modelKwargs: { response_format: { type: 'json_object' } },
+  expect(buildChatModelOptions(config, 0, { purpose: 'clarification-patch', maxTokens: 4096 })).toMatchObject({
+    maxTokens: 4096, modelKwargs: { response_format: { type: 'json_object' }, reasoning_effort: 'low' },
   });
-  expect(buildChatModelOptions(baseConfig, 0, { purpose: 'clarification-patch' }).reasoningEffort).toBeUndefined();
+  expect(buildChatModelOptions(baseConfig, 0, { purpose: 'clarification-patch' }).modelKwargs.reasoning_effort).toBeUndefined();
+});
+
+
+test('patch controls reach the compatible Chat Completions wire request', async () => {
+  const { buildChatModelOptions, CompatibleChatOpenAICompletions } = await import('../../../dist/utils/llm.js');
+  const model = new CompatibleChatOpenAICompletions(buildChatModelOptions({ ...baseConfig, llmModel: 'glm-5.3' }, 0,
+    { purpose: 'clarification-patch', maxTokens: 4096, disableStreaming: true }));
+  expect(model.invocationParams()).toMatchObject({ reasoning_effort: 'low', max_tokens: 4096, response_format: { type: 'json_object' } });
 });

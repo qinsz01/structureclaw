@@ -32,6 +32,7 @@ export interface LlmTokenUsage {
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
+  reasoningTokens?: number;
 }
 
 const OPENAI_DEFAULT_BASE_URL = 'https://api.openai.com/v1';
@@ -65,7 +66,9 @@ export function extractLlmTokenUsage(message: unknown): LlmTokenUsage | undefine
   if (inputTokens === undefined && outputTokens === undefined && totalTokens === undefined) {
     return undefined;
   }
+  const reasoningTokens = nonNegativeUsageNumber(usageRecord(usageMetadata?.output_token_details)?.reasoning);
   return {
+    ...(reasoningTokens === undefined ? {} : { reasoningTokens }),
     inputTokens: inputTokens ?? 0,
     outputTokens: outputTokens ?? 0,
     totalTokens: totalTokens ?? (inputTokens ?? 0) + (outputTokens ?? 0),
@@ -79,6 +82,8 @@ export function mergeLlmTokenUsage(usages: LlmTokenUsage[]): LlmTokenUsage | und
       inputTokens: total.inputTokens + usage.inputTokens,
       outputTokens: total.outputTokens + usage.outputTokens,
       totalTokens: total.totalTokens + usage.totalTokens,
+      ...(total.reasoningTokens !== undefined || usage.reasoningTokens !== undefined
+        ? { reasoningTokens: (total.reasoningTokens ?? 0) + (usage.reasoningTokens ?? 0) } : {}),
     }),
     { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
   );
@@ -191,9 +196,10 @@ export function buildChatModelOptions(
     ...(disableStreaming ? { streaming: false } : runtimeOptions.streaming === undefined ? {} : { streaming: runtimeOptions.streaming }),
     ...(Number.isSafeInteger(maxTokens) && (maxTokens ?? 0) > 0 ? { maxTokens } : {}),
     ...(runtimeOptions.purpose === 'clarification-patch' ? {
-      modelKwargs: { response_format: { type: 'json_object' } },
-      // GLM-5.3 always reasons; its documented lowest effort is low (not disabled).
-      ...(/^glm-5\.3(?:-|$)/i.test(modelConfig.llmModel) ? { reasoningEffort: 'low' as const } : {}),
+      modelKwargs: { response_format: { type: 'json_object' },
+        // LangChain filters reasoning options for non-OpenAI model names; pass the compatible wire parameter.
+        ...(/^glm-5\.3(?:-|$)/i.test(modelConfig.llmModel) ? { reasoning_effort: 'low' } : {}),
+      },
     } : {}),
     configuration: {
       baseURL: modelConfig.llmBaseUrl,
