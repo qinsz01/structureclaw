@@ -429,7 +429,8 @@ export async function invokeParamExtractor(
 
   const patchMode = input.patchMode ?? Boolean(input.existingState?.engineeringDraft);
   const llm = input.llm === undefined ? createChatModel(0, patchMode
-    ? { purpose: 'clarification-patch', maxTokens: 4096, disableStreaming: true } : {}) : input.llm;
+    // This cap includes hidden reasoning; smaller caps can exhaust it before returning the JSON patch.
+    ? { purpose: 'clarification-patch', maxTokens: 6144, disableStreaming: true } : {}) : input.llm;
   if (!llm) {
     if (input.requireLlmResult) {
       throw new Error('LLM_PARAM_EXTRACTOR_CONFIGURATION_ERROR: no LLM is configured');
@@ -483,7 +484,7 @@ export async function invokeParamExtractor(
   const finishReason = typeof rawFinishReason === 'string' ? rawFinishReason : undefined;
   const reasoningContentLength = getReasoningContentLength(result);
   recordRunEvent({ kind: 'param_extractor', mode: patchMode ? 'patch' : 'full', promptChars: prompt.length, durationMs: Date.now() - start,
-    usage: usage ?? null, contentChars: content.length, reasoningChars: reasoningContentLength, finishReason, maxOutputTokens: patchMode ? 4096 : null });
+    usage: usage ?? null, contentChars: content.length, reasoningChars: reasoningContentLength, finishReason, maxOutputTokens: patchMode ? 6144 : null });
   log.debug(
     {
       pluginId,

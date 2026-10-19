@@ -110,7 +110,7 @@ describeWithOpenSees('characterization: relaxed section and clarification workfl
     expect(prompts[1]).toContain('PATCH ONLY');
     expect(prompts[1].length).toBeLessThan(10000);
     const request = second.requests.find(row => row.kind === 'param-extractor').body;
-    expect(request.max_tokens).toBe(4096);
+    expect(request.max_tokens).toBe(6144);
     expect(request.response_format).toEqual({ type: 'json_object' });
     const { model } = await ctx.backend.inputReview(first.conversationId);
     expect(model.sections[0].properties.Iy).toBe(2.37e-5);
