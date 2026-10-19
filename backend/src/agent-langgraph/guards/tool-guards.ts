@@ -47,6 +47,9 @@ export interface GuardLedger {
 
 const ledgers = new WeakMap<RunContext, GuardLedger>();
 
+/** A clarification answer is new evidence; rejection/progress streaks start afresh. */
+export function resetClarificationGuards(context: RunContext): void { ledgers.delete(context); }
+
 /** Guard bookkeeping of a run; guards are inactive for direct tool hosts without a run context. */
 export function guardLedger(context: RunContext | undefined): GuardLedger | undefined {
   if (!context) return undefined;

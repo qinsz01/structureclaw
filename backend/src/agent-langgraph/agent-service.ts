@@ -1,3 +1,4 @@
+import { resetClarificationGuards } from './guards/tool-guards.js';
 /**
  * LangGraph-based AgentService — the sole agent implementation.
  *
@@ -21,7 +22,7 @@ import type { AgentState } from './state.js';
 import { getAllowShellTools, getCheckpointerDataDir, getWorkspaceRoot, getWorkspaceSkillRoot } from './config.js';
 import { config, runtimeBaseDir } from '../config/index.js';
 import { resolveApplicationRunPolicy, skillCatalog } from './policy-resolver.js';
-import { createRunContext, withRunContext, snapshotRunUsage, readRunUsage, recordRunEvent, type RunContext, type RunUsage } from '../runtime/run-context.js';
+import { createRunContext, resetClarificationRecovery, withRunContext, snapshotRunUsage, readRunUsage, recordRunEvent, type RunContext, type RunUsage } from '../runtime/run-context.js';
 import type { ConversationRuntimeSnapshot } from '../types/conversation-runtime.js';
 import type { AgentStreamChunk } from '../types/agent-stream.js';
 import type { AppLocale } from '../shared/locale.js';
@@ -345,6 +346,8 @@ export class LangGraphAgentService {
     const resumedState = (await graph.getState({ configurable: { thread_id: conversationId } })).values as AgentState;
     const resumeInput = { conversationId, message: resumedState.lastUserMessage ?? '', signal, context: { locale: resumedState.locale ?? 'zh' } };
     const runtime = await this.prepareRunContext(resumeInput, conversationId, true);
+    resetClarificationRecovery(runtime);
+    resetClarificationGuards(runtime);
     const config = this.buildGraphRuntimeConfig(resumeInput, traceId, conversationId, runtime);
     signal?.throwIfAborted();
 

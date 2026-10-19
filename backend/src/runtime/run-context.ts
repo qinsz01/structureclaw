@@ -6,6 +6,8 @@ import type { EffectiveRunPolicy } from './run-policy.js';
 
 export interface RunUsage {
   runId: string; policyHash: string; toolCalls: number; llmCalls: number; recoveries: number;
+  /** Internal fallbacks since the latest user answer; recoveries remains a cumulative audit count. */
+  recoveriesUsed?: number;
   pendingFailures: Record<string, string>; startedToolCallIds: string[];
   events: Array<Record<string, unknown>>;
   /** Guard interventions per guard kind (agent-langgraph/guards); absent until a guard fires. */
@@ -73,15 +75,25 @@ export function recordGuardEvent(guard: string, details: Record<string, unknown>
 export function requestRecovery(reason: string): void {
   const context = storage.getStore();
   if (!context) return;
-  if (!context.policy.repair.enabled || context.usage.recoveries >= context.policy.repair.maxRecoveriesPerTurn) {
-    throw new Error(`RECOVERY_BUDGET_EXHAUSTED: ${context.usage.recoveries}/${context.policy.repair.maxRecoveriesPerTurn} automatic corrections used; internal routing/extraction corrections share this limit. Existing results are retained. Ask the user for missing inputs and stop automatic retrying. / 本轮自动纠错已使用 ${context.usage.recoveries}/${context.policy.repair.maxRecoveriesPerTurn} 次，包含内部路由及参数纠偏；已有结果保留，请说明缺项并等待用户补充，不再自动重试。`);
+  const used = context.usage.recoveriesUsed ?? context.usage.recoveries;
+  if (!context.policy.repair.enabled || used >= context.policy.repair.maxRecoveriesPerTurn) {
+    throw new Error('RECOVERY_BUDGET_EXHAUSTED: LLM-only hint: stop automatic fallbacks. Describe the blocked operation and the specific input needed. Never mention budgets or ask for a new message. / 仅供模型：停止自动回退，说明受阻操作及所需具体输入，不提预算或要求另发消息。');
   }
   context.usage.recoveries++;
+  context.usage.recoveriesUsed = used + 1;
   recordRunEvent({ kind: 'recovery', reason, recovery: context.usage.recoveries });
 }
 export function canRecover(): boolean {
   const context = storage.getStore();
-  return !context || context.policy.repair.enabled && context.usage.recoveries < context.policy.repair.maxRecoveriesPerTurn;
+  return !context || context.policy.repair.enabled && (context.usage.recoveriesUsed ?? context.usage.recoveries) < context.policy.repair.maxRecoveriesPerTurn;
+}
+
+/** New user evidence permits fresh fallback attempts without erasing the run's audit totals. */
+export function resetClarificationRecovery(context: RunContext): void {
+  context.usage.recoveriesUsed = 0;
+  context.usage.pendingFailures = Object.fromEntries(Object.entries(context.usage.pendingFailures)
+    .filter(([, value]) => value.includes('SOLVER_OUTCOME_UNKNOWN')));
+  withRunContext(context, () => recordRunEvent({ kind: 'clarification_resume', recoveriesUsed: 0 }));
 }
 export function reserveLlmCall(model: string): string | undefined {
   const context = storage.getStore();
@@ -113,13 +125,12 @@ export function reserveToolCall(name: string, callId: string): void {
   // Read-only inspection and clarification remain available in this same run;
   // only a new user turn creates a fresh failure ledger.
   if (!context.policy.repair.enabled && Object.keys(context.usage.pendingFailures).length > 0
-    && (group === 'model' || ['review_input', 'set_session_config', 'run_analysis', 'run_code_check'].includes(name))) {
+    && (context.usage.pendingFailures[group] || group === 'model' || ['review_input', 'set_session_config', 'run_analysis', 'run_code_check'].includes(name))) {
     throw new Error('RECOVERY_BUDGET_EXHAUSTED: automatic repair is disabled; after a failure, inspect existing state or ask the user before changing the model/settings or starting another calculation. / 自动纠错已关闭；本回合发生失败后，只可检查已有状态或请求用户补充，不能自动修改模型、设置或重新计算。');
   }
-  if (context.usage.pendingFailures[group]) {
-    requestRecovery(`${name}: ${context.usage.pendingFailures[group]}`);
-    delete context.usage.pendingFailures[group];
-  }
+  // Tool feedback is ordinary agent work. Only system-triggered fallbacks call
+  // requestRecovery; identical failing calls are limited by the tool guard.
+  delete context.usage.pendingFailures[group];
   context.usage.toolCalls++;
   context.usage.startedToolCallIds.push(callId);
   recordRunEvent({ kind: 'tool_started', name, callId });

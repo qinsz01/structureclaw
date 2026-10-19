@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { resolveRunPolicy, runPolicyInputSchema } from '../../../dist/runtime/run-policy.js';
-import { createRunContext, withRunContext, requestRecovery, reserveToolCall, recordToolOutcome, reserveLlmCall, snapshotRunUsage } from '../../../dist/runtime/run-context.js';
+import { createRunContext, withRunContext, requestRecovery, reserveToolCall, recordToolOutcome, reserveLlmCall, snapshotRunUsage, resetClarificationRecovery } from '../../../dist/runtime/run-context.js';
 const available = { availableSkillIds: ['beam', 'generic', 'opensees-static'], availableToolIds: ['build_model', 'edit_model', 'run_analysis', 'query_results', 'generate_report', 'ask_user_clarification', 'memory'], defaultToolIds: ['build_model', 'edit_model', 'run_analysis', 'query_results', 'generate_report', 'ask_user_clarification', 'memory'] };
 const policy = (requested = {}, extra = {}) => resolveRunPolicy({ ...available, requested, ...extra });
 
@@ -36,16 +36,24 @@ describe('run policy contract and aggregate accounting', () => {
     const context = createRunContext(restricted);
     expect(() => { context.policy.context.memoryScopes.push('workspace'); }).toThrow();
   });
-  test('internal and tool-level corrections share two extra recoveries', () => {
+  test('only internal fallbacks consume recovery allowance; clarification renews it', () => {
     const context = createRunContext(policy());
     withRunContext(context, () => {
       reserveToolCall('build_model', 'first');
       requestRecovery('invalid internal model');
       recordToolOutcome('build_model', 'first', 'invalid revised candidate');
       reserveToolCall('edit_model', 'second');
-      expect(context.usage.recoveries).toBe(2);
+      expect(context.usage.recoveries).toBe(1);
       recordToolOutcome('edit_model', 'second', 'wrong connection');
-      expect(() => reserveToolCall('build_model', 'third')).toThrow('RECOVERY_BUDGET_EXHAUSTED');
+      reserveToolCall('build_model', 'third');
+      recordToolOutcome('build_model', 'third', 'wrong connection');
+      requestRecovery('second internal fallback');
+      expect(() => requestRecovery('third internal fallback')).toThrow('RECOVERY_BUDGET_EXHAUSTED');
+      resetClarificationRecovery(context);
+      expect(context.usage.recoveriesUsed).toBe(0);
+      requestRecovery('fallback after answer');
+      expect(context.usage.recoveries).toBe(3);
+      recordToolOutcome('build_model', 'third', 'wrong connection');
       expect(() => reserveToolCall('run_analysis', 'bypass')).toThrow('UNRESOLVED_MODEL_FAILURE');
       reserveToolCall('query_results', 'read');
     });
