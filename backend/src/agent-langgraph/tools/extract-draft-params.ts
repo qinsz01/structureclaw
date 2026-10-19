@@ -1,4 +1,4 @@
-import { computeDraftMissing } from '../../agent-runtime/draft-readiness.js';
+import { computeDraftMissing, draftSectionConfirmations } from '../../agent-runtime/draft-readiness.js';
 import { projectDraftState } from '../../agent-runtime/draft/boundary.js';
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
@@ -268,6 +268,7 @@ function buildLlmExtractionResponse(options: {
     llmDraftPatch: draftPatch ?? null,
     appliedDraftUpdate: { clearedFields: patch.clearDraftFields ?? [], order: 'clear-then-merge' },
     engineeringDraft: nextState.engineeringDraft ?? patch.engineeringDraft ?? null,
+    sectionConfirmations: draftSectionConfirmations(nextState),
     extractionSource: typeof nextState.skillState?.extractionSource === 'string'
       ? nextState.skillState.extractionSource
       : (draftPatch ? 'llm-draft-patch' : 'deterministic'),
@@ -428,7 +429,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
         'Extract structural engineering parameters from a user message and merge them into the draft state. ' +
         'Reads existing draft state from conversation state automatically — do NOT pass it as a parameter. ' +
         'Returns updated draft state, missing fields, and the matched structural type. ' +
-        'In a conversation, the original user message or latest clarification answer is authoritative. User properties win; dimensions alone require shape only, with extra.provenance.shape="user", and system-derived sharp-corner properties. Only designation-only sections permit assistant table properties, marked extra.provenance.properties="llm-table" and extra.source as unverified. Known material grades get elastic constants and density automatically. Do not ask about unmentioned self-weight; retain the existing setting, default excluded. / 用户显式属性优先；仅给尺寸时只填shape并标记来源user，由系统按尖角推导；仅型号可补未核对表值并标记llm-table来源。已知牌号补弹性常数及密度；未提自重不追问，默认不计。',
+        'Use actual user answers as evidence. Explicit user properties win; dimensions alone use shape with provenance.shape="user" and system-derived sharp-corner properties. A designation alone needs one dimension question together with other missing inputs. Assistant-recalled shape/properties are pending llm-table candidates, labelled "assistant-recalled table value, please verify"; never use them before actual user confirmation. After confirmation retain user-sourced dimensions, omit recalled properties. Known grades get elastic constants and density; unmentioned self-weight is not a question (default excluded). / 仅使用真实用户答复；用户属性优先，仅尺寸由系统按尖角推导。仅型号须将尺寸与其他缺项合并询问一次；记忆值标记llm-table及“助手记忆的标准表值，请核对”，实际确认前不可计算，确认后尺寸标记user并省略记忆属性。已知牌号补弹性常数和密度；未提自重不追问，默认不计。',
       schema: z.object({
         message: z.string().describe('The user message to extract parameters from').optional(),
         locale: z.enum(['zh', 'en']).optional().describe('User locale'),
