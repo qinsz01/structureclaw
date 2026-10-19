@@ -150,7 +150,7 @@ export function normalizeModelEdits(model: ModelRecord, edits: ModelEdit[], root
 }
 
 /** Conversion cannot turn an accepted edit into a silently discarded no-op. */
-export function assertModelEditReadback(model: ModelRecord, edits: ModelEdit[]): void {
+export function assertModelEditReadback(model: ModelRecord, edits: ModelEdit[], sourceModel?: ModelRecord): void {
   const check = (actual: unknown, expected: unknown, path: string) => {
     // Null is the transaction's explicit remove-field operation. The formal
     // schema may restore a declared default; it must still validate the model.
@@ -166,7 +166,17 @@ export function assertModelEditReadback(model: ModelRecord, edits: ModelEdit[]):
     if (edit.operation === 'remove' || !edit.values) continue;
     const owner = edit.collection === 'loads' ? (model.load_cases as ModelRecord[])?.find(row => row.id === edit.caseId) : model;
     const actual = edit.collection === 'model_settings' ? model[edit.id] : (owner?.[edit.collection] as ModelRecord[])?.find(row => row.id === edit.id);
-    check(actual, edit.values, `${edit.collection}.${edit.id}`);
+    let expected = edit.values;
+    const source = edit.collection === 'sections'
+      ? (sourceModel?.sections as ModelRecord[] | undefined)?.find(row => row.id === edit.id) : undefined;
+    if (source && enforceSectionProvenance(source) !== source) {
+      // Source precedence deliberately replaces non-user properties during conversion.
+      // All other requested edits still require exact readback; user properties never take this path.
+      const extra = isRecord(expected.extra) ? expected.extra : {};
+      expected = { ...expected, properties: null, extra: { ...extra, source: null,
+        provenance: { ...(isRecord(extra.provenance) ? extra.provenance : {}), properties: 'geometry' } } };
+    }
+    check(actual, expected, `${edit.collection}.${edit.id}`);
   }
 }
 

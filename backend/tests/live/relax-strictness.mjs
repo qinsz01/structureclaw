@@ -85,7 +85,8 @@ for (const item of cases) {
         check(failures, typeof section.extra?.source === 'string' && /GB\s*\/?\s*T?\s*706|标准.*表|目录/.test(visible), 'catalogue source not shown');
       } else {
         check(failures, /圆角|尖角|sharp.corner/i.test(visible), 'sharp-corner assumption not shown');
-        check(failures, Math.abs(section.properties.Iy / 2.35452664e-5 - 1) < 1e-9, 'user dimensions were overridden by catalogue inertia');
+        check(failures, Math.abs(section.properties.Iy / 2.35452664e-5 - 1) < 1e-9
+          && section.extra?.derived_properties?.fields?.includes('Iy'), 'user-dimension inertia was not derived by the system');
       }
     }
   } catch (error) { failures.push(error.message); }

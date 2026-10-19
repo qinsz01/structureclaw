@@ -43,6 +43,30 @@ const config = thread => ({ configurable: { thread_id: thread, structureProtocol
 const toolMessages = state => state.messages.filter(item => item.getType() === 'tool');
 
 describe('model writes use observed revisions without automatic rebasing', () => {
+  test.each([undefined, 'llm-table', 'user'])('user dimensions normalize properties from source %s at the edit boundary', async propertySource => {
+    const supplied = propertySource === 'user' ? 2.4e-5 : 2.35453e-5;
+    const state = await graph().invoke({ ...structuredClone(initial), messages: [message([call('geometry-source', [{
+      operation: 'update', collection: 'sections', id: 'section', values: {
+        type: 'I', shape: { kind: 'I', H: 200, B: 100, tw: 7, tf: 11.4 },
+        properties: { Iy: supplied, J: 1 },
+        extra: { source: 'LLM: unverified', provenance: { shape: 'user', ...(propertySource ? { properties: propertySource } : {}) } },
+      },
+    }])])] }, config(`geometry-source-${propertySource}`));
+    expect(receipt(toolMessages(state)[0]).success).toBe(true);
+    const section = state.model.sections[0];
+    expect(section.properties.Iy).toBeCloseTo(propertySource === 'user' ? supplied : 2.35452664e-5, 13);
+    if (propertySource !== 'user') {
+      expect(section.properties.J).toBeLessThan(1e-6);
+      expect(section.extra.provenance.properties).toBe('geometry');
+      expect(section.extra.derived_properties.fields).toContain('Iy');
+      expect(section.extra.discarded_nonuser_properties.Iy).toBe(supplied);
+      expect(section.extra.source).toBeUndefined();
+    } else expect(section.properties.J).toBe(1);
+    const again = await normalizeEngineeringModel(state.model, protocol);
+    expect(again).toEqual(state.model);
+    expect(initial.model.sections[0].properties.Iy).toBe(.0000237);
+  }, 30000);
+
   test('one edit atomically applies section and member parameters in one revision', async () => {
     const state = await graph().invoke({ ...structuredClone(initial),
       analysisResult: { runId: 'saved' }, report: { runId: 'saved' },

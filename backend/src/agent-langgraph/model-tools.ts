@@ -41,7 +41,7 @@ export function createEditModelTool() {
     edited.metadata = { ...metadata, inputEvidence: mergeInputEvidence(state.inputEvidence,
       Array.isArray(metadata.inputEvidence) ? metadata.inputEvidence.filter(isRecord) : []) };
     const model = await normalizeEngineeringModel(edited, structureProtocolClient);
-    assertModelEditReadback(model, edits);
+    assertModelEditReadback(model, edits, edited);
     const update = commitModel(state, model, input.label ?? 'edit_model');
     const changed = update.modelRevision !== state.modelRevision;
     return result(id, 'edit_model', { success: true, changed, revision: update.modelRevision,
