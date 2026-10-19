@@ -14,6 +14,16 @@ const policy = (requested = {}) => resolveRunPolicy({ availableSkillIds: [], ava
 const toolNames = ['query_results', 'ask_user_clarification'];
 
 describe('tool guards', () => {
+  test('a user clarification resets rejection and no-progress streaks', () => {
+    const context = createRunContext(policy());
+    const ledger = guards.guardLedger(context);
+    ledger.noProgressStreak = 7;
+    ledger.blocked.push({ guard: 'repeated-failure', tool: 'query_results', code: 'RUN_NOT_FOUND' });
+    ledger.stop = { reason: 'repeated-blocks', calls: 2 };
+    guards.resetClarificationGuards(context);
+    expect(guards.guardLedger(context)).toMatchObject({ noProgressStreak: 0, blocked: [] });
+    expect(guards.guardLedger(context).stop).toBeUndefined();
+  });
   test('call signatures ignore key order, blank values and surrounding whitespace', () => {
     expect(guards.callSignature('q', { b: 1, a: ' x ', c: null, d: '' })).toBe(guards.callSignature('q', { a: 'x', b: 1 }));
     expect(guards.callSignature('q', { a: 'x' })).not.toBe(guards.callSignature('q', { a: 'y' }));

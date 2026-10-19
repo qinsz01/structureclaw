@@ -45,5 +45,8 @@ def test_unknown_or_misplaced_geometry_is_not_discarded(shape):
 def test_case_normalization_does_not_hide_physical_conflicts(extra):
     section = SectionV2.model_validate({'id': 'S', 'name': 'H', 'type': 'h',
         'shape': {'kind': 'h', 'H': 300, 'B': 300, 'tw': 10, 'tf': 15}, **extra})
-    with pytest.raises(ValueError, match='conflicts'):
-        validate_section_physics(section)
+    validate_section_physics(section)
+    assert section.extra['section_diagnostics']
+    assert section.type == section.shape.kind
+    if 'properties' in extra:
+        assert section.properties['A'] == extra['properties']['A']

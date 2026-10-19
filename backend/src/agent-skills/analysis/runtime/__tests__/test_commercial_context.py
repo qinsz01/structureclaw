@@ -134,7 +134,7 @@ def test_normalized_geometry_provenance_is_verified_and_retained(engine):
 
 @pytest.mark.parametrize("defect", ['method','shape','value','missing','duplicate','unknown-field','hidden-conflict'])
 @pytest.mark.parametrize("engine", ["pkpm", "yjk"])
-def test_stale_or_forged_geometry_provenance_cannot_mask_physical_conflicts(engine, defect):
+def test_stale_provenance_is_advisory_and_preserves_numerical_properties(engine, defect):
     model = {'sections': [_normalized_section()]}
     section = model['sections'][0]
     claim = section['extra']['derived_properties']
@@ -147,8 +147,18 @@ def test_stale_or_forged_geometry_provenance_cannot_mask_physical_conflicts(engi
     if defect == 'hidden-conflict':
         claim['fields'] = ['A']
         section['properties']['Iy'] *= 2
-    with pytest.raises(ValueError, match='derived_properties'):
-        project_commercial_model(model, engine)
+    from structure_protocol.section_properties import validate_derived_section_metadata, validate_section_physics
+    from structure_protocol.structure_model_v2 import SectionV2
+    before = copy.deepcopy(model)
+    projected = project_commercial_model(model, engine)
+    assert model == before and projected['analysisModel'] == before
+    if defect != 'hidden-conflict':
+        assert validate_derived_section_metadata(section)['severity'] == 'warning'
+    else:
+        normalized = SectionV2.model_validate(section)
+        validate_section_physics(normalized)
+        assert normalized.properties['Iy'] == section['properties']['Iy']
+        assert normalized.extra['property_geometry_delta']['Iy'] == pytest.approx(100)
 
 
 def test_accepted_provenance_does_not_open_other_section_extensions():

@@ -1,6 +1,21 @@
 import { describe, expect, it } from '@jest/globals';
 import { buildDefaultReportNarrative } from '../dist/agent-runtime/report-template.js';
 
+it.each(['en', 'zh'])('reports adopted section sources and geometry warnings (%s)', async locale => {
+  const { createEngineeringReport } = await import('../dist/agent-runtime/engineering-report.js');
+  const section = { id: 'S', name: 'I20a', properties: { A: .0035578, Iy: .0000237 }, extra: {
+    source: 'LLM: GB/T 706 table value, unverified', property_geometry_delta: { A: 1.06 },
+    section_diagnostics: [{ code: 'SECTION_PROPERTY_GEOMETRY_DELTA', severity: 'warning',
+      message: { en: 'User value used; differs from sharp-corner geometry by +6%.', zh: '采用用户值，与不计圆角的几何值相差 +6%。' } }],
+  } };
+  const report = createEngineeringReport({ message: 'Report', analysisType: 'static', locale,
+    normalizedModel: { sections: [section] }, analysis: { success: true } });
+  expect(report.markdown).toContain('GB/T 706');
+  expect(report.markdown).toContain('0.0000237');
+  expect(report.markdown).toContain(section.extra.section_diagnostics[0].message[locale]);
+  expect(report.json.sectionAssumptions.some(row => row.severity === 'warning')).toBe(true);
+});
+
 /** Minimal valid input for buildDefaultReportNarrative. */
 function makeInput(overrides = {}) {
   return {

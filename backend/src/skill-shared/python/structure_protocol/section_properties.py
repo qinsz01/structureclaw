@@ -31,7 +31,9 @@ def geometry_properties(shape):
                 'J': math.pi*(d**4-inner**4)/32e12}
     if kind in {'H', 'I', 'built-up-I'} and all((h, b, shape.tw, shape.tf)):
         tw, tf = shape.tw, shape.tf
-        if h <= 2*tf or b <= tw or shape.tf2 not in (None, tf) or shape.B2 not in (None, b) or shape.r:
+        if h <= 2*tf or b <= tw:
+            raise ValueError('I section requires positive clear web height and flange outstand')
+        if shape.tf2 not in (None, tf) or shape.B2 not in (None, b) or shape.r:
             return None  # No unverified unequal-flange/fillet approximation.
         hw = h-2*tf
         return {'A': (2*b*tf+tw*hw)/1e6,
@@ -92,6 +94,8 @@ def validate_section_physics(section):
         if key in props and (isinstance(props[key], bool) or not isinstance(props[key], (float, int))
                              or not math.isfinite(props[key]) or props[key] <= 0):
             raise ValueError(f"Section '{section.id}' {key} must be finite and positive")
+    if 'Wnx' in props and 'Wx' in props and props['Wnx'] > props['Wx']*1.05:
+        raise ValueError(f"Section '{section.id}' net Wnx exceeds gross modulus by more than 5%")
     diagnostics = []
     extra = {key: value for key, value in section.extra.items()
              if key not in {'section_diagnostics', 'property_geometry_delta'}}

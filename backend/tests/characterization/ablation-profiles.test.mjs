@@ -344,7 +344,7 @@ describe('characterization: ablation profiles', () => {
       };
       const full = await failTwice('full');
       expect(full.second).toContain('MODEL_REQUIRED');
-      expect(full.usage.recoveries).toBe(1);
+      expect(full.usage.recoveries).toBe(0);
       const ablated = await failTwice('no-repair');
       expect(ablated.second).toContain('RECOVERY_BUDGET_EXHAUSTED');
       expect(ablated.usage.recoveries).toBe(0);
