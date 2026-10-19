@@ -40,6 +40,9 @@ test('all declared kinds have the same canonical spelling in extraction, editing
     for (const spelling of [kind.toLowerCase(), kind.toUpperCase(), ` ${kind.toLowerCase()} `]) {
       const draft = { sectionRecords: [{ id: 'S', type: spelling, shape: { kind: spelling } }] };
       expect(normalizeDraftSectionInputs(draft, contract).sectionRecords[0]).toEqual({ id: 'S', type: kind, shape: { kind } });
+      const shapeOnly = { id: 'S', shape: { kind: spelling } };
+      expect(normalizeDraftSectionInputs({ sectionRecords: [shapeOnly] }, contract).sectionRecords[0].type).toBe(kind);
+      expect(normalizeDraftSectionInputs({ model: { sections: [shapeOnly] } }, contract).model.sections[0].type).toBe(kind);
       const edits = normalizeModelEdits({}, [{ operation: 'update', collection: 'sections', id: 'S', values: { 'shape.kind': spelling } }], contract);
       expect(edits[0].values).toEqual({ shape: { kind } });
       expect(draft.sectionRecords[0].shape.kind).toBe(spelling);

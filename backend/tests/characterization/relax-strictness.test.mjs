@@ -20,7 +20,7 @@ describeWithOpenSees('characterization: relaxed section and clarification workfl
         return text.includes(answer) ? { engineeringDraft: {
           material: { grade: 'Q235' },
           ...(dimensioned ? { materials: [{ id: 'M', name: 'Q235', E: 206000, nu: .3 }] } : {}),
-          sectionRecords: [{ id: 'S1', name: 'I20a', type: 'I', shape: { kind: 'I', H: 200, B: 100, tw: 7, tf: 11.4 },
+          sectionRecords: [{ id: 'S1', name: 'I20a', ...(dimensioned ? {} : { type: 'I' }), shape: { kind: 'I', H: 200, B: 100, tw: 7, tf: 11.4 },
             properties: { ...(rounded || explicit ? {} : { A: 35.578e-4 }), Iy: dimensioned && !explicit ? 2370e-8 : inertia }, extra: { source: 'LLM: GB/T 706 table value, unverified',
               provenance: { shape: dimensioned ? 'user' : 'llm-table', properties: explicit ? 'user' : 'llm-table' } } }],
           templateAssignments: { beam: { sectionId: 'S1' } },
@@ -58,6 +58,7 @@ describeWithOpenSees('characterization: relaxed section and clarification workfl
     expect(ledger.usage.events.some(event => event.kind === 'clarification_resume')).toBe(true);
     const { model } = await ctx.backend.inputReview(first.conversationId);
     const section = model.sections[0];
+    expect(section.type).toBe('I');
     expect(section.properties.Iy).toBeCloseTo(inertia, 13);
     expect(model.materials[0].rho).toBe(7850);
     expect(model.analysis_control?.self_weight ?? false).toBe(false);

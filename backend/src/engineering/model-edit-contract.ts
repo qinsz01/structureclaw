@@ -244,6 +244,7 @@ export function normalizeDraftSectionInputs(draft: EngineeringDraft, root: Schem
       if (!isRecord(next.shape) || next.shape.kind == null) fail(path, 'an object with an explicit kind is required');
       next.shape = normalized(next.shape, schema, root,
         path, {}, { operation: 'update', collection: 'sections', id: String(row.id) });
+      if (next.type == null) next.type = (next.shape as Record<string, unknown>).kind;
     }
     return enforceSectionProvenance(next);
   };
