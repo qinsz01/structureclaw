@@ -137,6 +137,17 @@ test.each([['Q235', 7850], ['Q355B', 7850], ['C30', 2500]])('fills omitted densi
   expect(completeDeclaredGradeMaterials([{ id: 'X', name: 'unknown', E: 1 }])[0].rho).toBeUndefined();
 });
 
+test.each([['Q235钢', 206000, 7850], ['Q355B钢材', 206000, 7850], ['Q235 steel', 206000, 7850],
+  ['steel Q235', 206000, 7850], ['C30混凝土', 30000, 2500], ['concrete C30', 30000, 2500]])(
+  'a bilingual grade display name supplies omitted elastic constants and density: %s', async (name, E, rho) => {
+    const { completeDeclaredGradeMaterials } = await import('../../../dist/agent-runtime/template-properties.js');
+    const input = [{ id: 'M', name }];
+    expect(completeDeclaredGradeMaterials(input)[0]).toMatchObject({ id: 'M', name, E, rho });
+    expect(input[0]).not.toHaveProperty('E');
+    expect(completeDeclaredGradeMaterials([{ ...input[0], E: 123, rho: 456 }])[0]).toMatchObject({ E: 123, rho: 456 });
+    expect(completeDeclaredGradeMaterials([{ id: 'X', name: 'Q235/Q355 steel' }])[0]).not.toHaveProperty('rho');
+  });
+
 
 test('an omitted self-weight switch is not a missing input, while explicit conflicts survive', async () => {
   const { mergeDraftState } = await import('../../../dist/agent-runtime/draft/boundary.js');

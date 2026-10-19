@@ -62,7 +62,11 @@ export function getDefaultBeamSection(storyCount: number): string {
 
 export function normalizeSteelGrade(raw: string): string {
   const upper = raw.toUpperCase().replace(/\s+/g, '');
-  return Object.keys({ ...STEEL_GRADE_PROPERTIES, ...CONCRETE_GRADE_PROPERTIES }).find((grade) => grade === upper) ?? upper;
+  // A material display name may carry the grade (Q235钢 / Q235 steel / C30混凝土).
+  // Match the whole label so ambiguous names never choose a grade implicitly.
+  const labelled = upper.match(/^(?:STEEL|钢材?)?(Q\d+[A-Z]?|S\d+|A36)(?:STEEL|钢材?)?$/)
+    ?? upper.match(/^(?:CONCRETE|混凝土)?(C\d+)(?:CONCRETE|混凝土)?$/);
+  return labelled?.[1] ?? upper;
 }
 
 export function normalizeSectionName(raw: string): string {
