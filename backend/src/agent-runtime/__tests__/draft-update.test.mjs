@@ -15,10 +15,11 @@ const source = { structureType: 'beam', geometry: { lengthM: 10 }, boundary: { s
 const original = handler.mergeState(undefined, handler.extractDraft({ locale: 'zh', llmDraftPatch: { engineeringDraft: source } }));
 const update = (before, raw) => handler.mergeState(before, handler.extractDraft({ locale: 'zh', currentState: before, llmDraftPatch: raw }));
 
-test('the reported saved draft fails before repair; omission preserves it, explicit withdrawal removes only its catalog selector', async () => {
+test('the saved draft retains its catalogue warning; explicit withdrawal removes only its catalog selector', async () => {
   const client = createLocalStructureProtocolClient();
   const snapshot = structuredClone(original);
-  await expect(normalizeEngineeringModel(handler.buildModel(original), client)).rejects.toThrow('combines a catalog name');
+  const accepted = await normalizeEngineeringModel(handler.buildModel(original), client);
+  expect(accepted.sections[0].extra.section_diagnostics).toContainEqual(expect.objectContaining({ code: 'SECTION_CATALOG_LABEL', severity: 'warning' }));
   const patch = { engineeringDraft: { sectionRecords: [{ id: 'S1', shape: { ...source.sectionRecords[0].shape } }] } };
   expect(update(original, patch).engineeringDraft.sectionRecords[0].standard_steel_name).toBe('HN400x200x8x13');
   const corrected = update(original, { ...patch, clearDraftFields: ['sectionRecords["S1"].standard_steel_name'] });
@@ -157,7 +158,7 @@ test('every extraction wrapper preserves removal instructions and both locales e
   for (const locale of ['zh', 'en']) {
     const prompt = buildParamExtractorPrompt(locale, original, plugin, 'Use explicit geometry, no catalog name');
     expect(prompt).toContain('clearDraftFields');
-    expect(prompt).toContain('omission DOES NOT delete');
+    expect(prompt).toMatch(/omission DOES NOT delete|Omission is not deletion/);
     expect(prompt).toContain('standard_steel_name');
   }
 });

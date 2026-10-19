@@ -38,7 +38,7 @@ test('design extraction uses the formal schema and rejects bad generated fields 
   expect(state).toEqual(before);
 
   // Malformed extraction is a failure, not a successful merge that resets the
-  // correction path. The second identical failure consumes a recovery; the third identical
+  // correction path. Tool rejections do not consume recoveries; the third identical
   // call is refused by the repeated-failure guard without running the extractor again.
   const { AIMessage } = await import('@langchain/core/messages');
   const { executeToolsSequentially } = await import('../../../dist/agent-langgraph/sequential-tools.js');
@@ -56,7 +56,7 @@ test('design extraction uses the formal schema and rejects bad generated fields 
     expect(command.update.messages[0].content).toContain(attempt >= 2 ? 'REPEATED_FAILED_CALL' : 'MODEL_EDIT_FIELD_INVALID');
     expect(command.update.draftState).toBeUndefined();
   }
-  expect(context.usage.recoveries).toBe(1);
+  expect(context.usage.recoveries).toBe(0);
   expect(extract).toHaveBeenCalledTimes(2);
 });
 describe('missing engineering input is clarification, not recovery', () => {

@@ -6,7 +6,7 @@ function serviceWithGraph(stream) {
   const release = jest.fn();
   service.sessionLock = { acquire: jest.fn(async () => release) };
   const runtime = { policy: { budgets: { maxToolCallsPerTurn: 200 }, activeToolIds: ['run_analysis'], activeSkillIds: ['beam'] },
-    runId: 'preserved-run', usage: { toolCalls: 7, recoveries: 1 } };
+    runId: 'preserved-run', usage: { toolCalls: 7, recoveries: 1, pendingFailures: {}, events: [] } };
   service.prepareRunContext = jest.fn(async () => runtime);
   service.getGraph = async () => ({ getState: async () => ({ values: { locale: 'en', lastUserMessage: 'continue calculation' }, tasks: [{ interrupts: [{ value: 'Confirm?' }] }] }), stream });
   return { service, release, runtime };
@@ -28,7 +28,8 @@ test('resume sends the actual cancellation signal and the original runtime to La
   const chunks = [];
   try { for await (const chunk of stream) chunks.push(chunk); } catch (error) { expect(error.name).toBe('AbortError'); }
   expect(release).toHaveBeenCalledTimes(1);
-  expect(runtime.usage).toEqual({ toolCalls: 7, recoveries: 1 });
+  expect(runtime.usage).toMatchObject({ toolCalls: 7, recoveries: 1, recoveriesUsed: 0, pendingFailures: {} });
+  expect(runtime.usage.events).toEqual([expect.objectContaining({ kind: 'clarification_resume' })]);
 });
 
 test('an already cancelled resume never acquires the conversation or starts a graph', async () => {
