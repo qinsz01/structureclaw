@@ -43,6 +43,19 @@ const config = thread => ({ configurable: { thread_id: thread, structureProtocol
 const toolMessages = state => state.messages.filter(item => item.getType() === 'tool');
 
 describe('model writes use observed revisions without automatic rebasing', () => {
+  test.each(['shape', 'properties'])('unconfirmed recalled %s cannot commit an edit', async field => {
+    const values = field === 'shape' ? { shape: { kind: 'I', H: 200, B: 100, tw: 5.2, tf: 8.4 } }
+      : { properties: { Iy: 1.809e-5 } };
+    const state = await graph().invoke({ ...structuredClone(initial), analysisResult: { runId: 'saved' },
+      messages: [message([call('unconfirmed-edit', [{ operation: 'update', collection: 'sections', id: 'section',
+        values: { ...values, extra: { provenance: { [field]: 'llm-table' } } } }])])] }, config(`unconfirmed-${field}`));
+    expect(receipt(toolMessages(state)[0])).toMatchObject({ success: false, errorCode: 'SECTION_CONFIRMATION_REQUIRED',
+      recoverable: true, nextAction: 'ask_user_clarification', candidates: [expect.objectContaining({ id: 'section' })] });
+    expect(state.model).toEqual(initial.model);
+    expect(state.modelRevision).toBe(initial.modelRevision);
+    expect(state.analysisResult).toEqual({ runId: 'saved' });
+  }, 30000);
+
   test.each([undefined, 'llm-table', 'user'])('user dimensions normalize properties from source %s at the edit boundary', async propertySource => {
     const supplied = propertySource === 'user' ? 2.4e-5 : 2.35453e-5;
     const state = await graph().invoke({ ...structuredClone(initial), messages: [message([call('geometry-source', [{

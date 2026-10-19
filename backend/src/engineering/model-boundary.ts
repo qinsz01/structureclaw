@@ -1,13 +1,14 @@
 import type { LocalStructureProtocolClient } from '../skill-shared/structure-protocol-execution.js';
 import { isRecord, validateModelReferences, type ModelRecord } from './model-state.js';
 import { assertResolvedInput, assertInputEvidenceMatchesModel } from './input-evidence.js';
-import { enforceSectionProvenance } from './section-provenance.js';
+import { assertConfirmedSectionInputs, enforceSectionProvenance } from './section-provenance.js';
 
 /** All template, imported and edited models enter the same V2 validator. */
 export async function normalizeEngineeringModel(model: ModelRecord, client: LocalStructureProtocolClient, sourceFormat = 'structuremodel-v2'): Promise<ModelRecord> {
   assertResolvedInput(isRecord(model.metadata) ? model.metadata.inputEvidence : undefined);
   const sourceModel = Array.isArray(model.sections)
     ? { ...model, sections: model.sections.map(section => isRecord(section) ? enforceSectionProvenance(section) : section) } : model;
+  assertConfirmedSectionInputs(sourceModel);
   const response = await client.post('/convert', {
     model: sourceModel, source_format: sourceFormat, target_format: 'structuremodel-v2', target_schema_version: '2.2.0',
   }).catch((error: unknown) => {
@@ -21,6 +22,7 @@ export async function normalizeEngineeringModel(model: ModelRecord, client: Loca
   });
   if (!isRecord(response.data) || !isRecord(response.data.model)) throw new Error('MODEL_CONVERSION_FAILED');
   const normalized = structuredClone(response.data.model);
+  assertConfirmedSectionInputs(normalized);
   for (const loadCase of (normalized.load_cases ?? []) as ModelRecord[]) {
     const loads = (loadCase.loads ?? []) as ModelRecord[];
     // Python's exclude_unset serialization may omit the legitimate [] default.

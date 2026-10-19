@@ -12,6 +12,13 @@ afterAll(() => { if (previous === undefined) delete process.env.SCLAW_DATA_DIR; 
   fs.rmSync(temporary, { recursive: true, force: true }); });
 
 describe('durable public tool session', () => {
+  test('import refuses unconfirmed assistant section values before creating a computable model', async () => {
+    await expect(createPublicToolSession({ message: 'Import', model: { sections: [{ id: 'S', name: 'I20a',
+      shape: { kind: 'I', H: 200, B: 100, tw: 5.2, tf: 8.4 }, extra: { provenance: { shape: 'llm-table' } } }] },
+      runPolicy: { skillIds: [], tools: { enabledIds: ['calculate'] } } })).rejects.toMatchObject({
+      code: 'SECTION_CONFIRMATION_REQUIRED', detail: { recoverable: true, candidates: [expect.objectContaining({ id: 'S' })] },
+    });
+  });
   test('real registered tools keep counters on resume, preserve explicit empty scope and cannot widen permissions', async () => {
     const session = await createPublicToolSession({ message: 'Calculate', runPolicy: { skillIds: [], tools: { enabledIds: ['calculate'] }, budgets: { maxToolCallsPerTurn: 2 } } });
     const first = await session.invoke('calculate', { expression: '6 * 7' });

@@ -7,6 +7,7 @@ import { isRecord } from '../engineering/model-state.js';
 import { isDesignDraftField } from './draft-guidance.js';
 import { currentDraftDiagnostics, unresolvedDraftFields } from './draft-diagnostics.js';
 import { currentRunPolicy } from '../runtime/run-context.js';
+import { sectionConfirmationCandidates } from '../engineering/section-provenance.js';
 
 type ReadinessPlugin = Pick<AgentSkillPlugin, 'id' | 'handler'>;
 
@@ -41,8 +42,18 @@ function materialPropertyQuestions(state: DraftState, locale: AppLocale): Intera
   });
 }
 
-/** One draft readiness decision for extraction, clarification, and formal model creation. */
+export function draftSectionConfirmations(state: DraftState): Record<string, unknown>[] {
+  return sectionConfirmationCandidates(state.engineeringDraft?.model?.sections ?? state.engineeringDraft?.sectionRecords);
+}
+
+/** Keep confirmation alongside other missing inputs, including for explicit and LLM-built models. */
 export function computeDraftMissing(plugin: ReadinessPlugin, state: DraftState, phase: 'interactive' | 'execution'): SkillMissingResult {
+  const missing = computeOtherDraftMissing(plugin, state, phase);
+  return { ...missing, critical: [...new Set([...missing.critical,
+    ...(draftSectionConfirmations(state).length ? ['sectionConfirmation'] : [])])] };
+}
+
+function computeOtherDraftMissing(plugin: ReadinessPlugin, state: DraftState, phase: 'interactive' | 'execution'): SkillMissingResult {
   state = currentDraftDiagnostics(state);
   const scope = state.requestScope as RequestScope | undefined;
   if (currentRunPolicy()?.builder === 'llm') {
@@ -78,10 +89,16 @@ export function buildDraftQuestions(plugin: ReadinessPlugin | null | undefined, 
   if (!plugin || critical.length === 0) return [];
   const propertyQuestions = materialPropertyQuestions(state, locale).filter((question) => critical.includes(question.paramKey));
   const questions = plugin.handler.buildQuestions([...critical, ...optional], critical, state, locale)
-    .filter((question) => !['templateProperties', 'engineeringDraft'].includes(question.paramKey)
+    .filter((question) => !['templateProperties', 'engineeringDraft', 'sectionConfirmation'].includes(question.paramKey)
       && !propertyQuestions.some((property) => property.paramKey === question.paramKey));
   questions.push(...propertyQuestions);
   const isZh = locale === 'zh';
+  if (critical.includes('sectionConfirmation')) {
+    questions.push({ paramKey: 'sectionConfirmation', label: isZh ? '确认截面尺寸' : 'Confirm section dimensions',
+      question: isZh ? '请提供或确认截面尺寸；助手记忆的标准表值，请核对。请与其他确实缺少的输入合并询问一次，确认前不得计算。'
+        : 'Provide or confirm the section dimensions; assistant-recalled table value, please verify. Ask once together with other genuinely missing inputs; do not calculate before confirmation.',
+      suggestedValue: draftSectionConfirmations(state), required: true, critical: true });
+  }
   if (critical.includes('templateProperties')) {
     const details = templatePropertyIssues(state).map((issue) => {
       const parts = issue.replace(/^[A-Z_]+:\s*/, '').split(' / ');

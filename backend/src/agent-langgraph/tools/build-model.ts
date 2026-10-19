@@ -5,6 +5,7 @@ import type { LangGraphRunnableConfig } from '@langchain/langgraph';
 import { getLogger, logToolCall } from '../../utils/agent-logger.js';
 import type { AgentConfigurable } from '../configurable.js';
 import { normalizeEngineeringModel } from '../../engineering/model-boundary.js';
+import { assertConfirmedSectionInputs } from '../../engineering/section-provenance.js';
 import { mergeInputEvidence } from '../../engineering/input-evidence.js';
 import { buildModelToolSummary, buildModelToolStateUpdate } from './compaction/analysis.js';
 import { messageRole, messageText } from './input-message.js';
@@ -25,6 +26,7 @@ export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
         throw new Error('No draft state available. Run extract_draft_params first.');
       }
       const skillIds = toolSkillScope(config);
+      assertConfirmedSectionInputs({ sections: draftState.engineeringDraft?.model?.sections ?? draftState.engineeringDraft?.sectionRecords });
 
       let candidate: Record<string, unknown> | undefined;
       try {

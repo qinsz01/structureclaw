@@ -84,6 +84,8 @@ export function structuredToolError(content: string, failure: string, state: Par
     return alternatives ? JSON.stringify({ ...payload, ...alternatives, ...(payload.hint ? {} : { hint: ID_HINT }) }) : undefined;
   }
   const error = content.replace(/^Error:\s*/, '').replace(TOOL_NODE_SUFFIX, '').trim();
+  const structured = parseObject(error);
+  if (structured?.errorCode === 'SECTION_CONFIRMATION_REQUIRED') return JSON.stringify(structured);
   const derived = failureCode(error);
   const errorCode = derived.startsWith('TOOL_FAILED_') ? 'TOOL_EXECUTION_FAILED' : derived;
   const alternatives = idAlternatives(errorCode, error, state);

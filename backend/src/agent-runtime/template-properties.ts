@@ -1,4 +1,4 @@
-import { enforceSectionProvenance } from '../engineering/section-provenance.js';
+import { assertConfirmedSectionInputs, enforceSectionProvenance } from '../engineering/section-provenance.js';
 import type { DraftState } from '../shared/types/agent.js';
 import { applyDraftAnalysisControl, applyDraftTemplateDesign, resolveDraftTemplateAssignment } from './engineering-draft.js';
 import { forceOnlyScope, type RequestScope } from '../engineering/request-scope.js';
@@ -399,6 +399,7 @@ export function applyTemplateProperties(model: Record<string, unknown>, state: D
     : element.type === 'beam' ? 'beam' : 'member';
   const roles = [...new Set(elements.map(roleOf))];
   const properties = resolveTemplateProperties(state, roles);
+  assertConfirmedSectionInputs({ sections: properties.sections });
   const stiffnessPlaceholder = properties.placeholder.material || properties.placeholder.section
     ? describeStiffnessPlaceholder(model, properties.placeholder) : undefined;
   // A placeholder material has no density: self-weight is excluded explicitly (it is never requested here).
