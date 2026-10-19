@@ -166,7 +166,7 @@ describe('archived and requested results', () => {
     const response = queryPhysicalResponse(model,{...result,data},'beam',2,'right');
     expect(scalarResultQuantity(response,'M2','kN.m',true)).toBe(data.memberResponses[0].samples[1].M2);
     const markdown = resultTableMarkdown({runId:'native',results:{'case:D':{...result,data}}},'en');
-    expect(markdown).toContain('| case:D | M2 | -4 | kN.m | beam | 0 | right | solver-direct |');
+    expect(markdown).toContain('| case:D | M2 | -4 | kN.m | beam | 0 | {"x":0,"y":0,"z":3} | right | solver-direct |');
     expect(markdown).toContain('not exact continuous-field extrema');
     result.data.source={kind:'linear-combination',factors:{D:1.2,L:1.4}};
     const combination = enrichResultData(model,result,{kind:'combination',id:'U'});

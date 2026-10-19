@@ -182,7 +182,7 @@ test('real OpenSees reactions and physical member midpoint moments/deflections r
     const reported = output(await call('generate_report', { message: 'Verified physical response', analysisType: 'static',
       narrative: 'structured', selection: selected })).report.json;
     expect(reported.requestedQuantities).toEqual([quantity]);
-    expect(reported.requestedSelection).toEqual(selected);
+    expect(reported.requestedSelection).toEqual({ ...selected, ...(selected.elementId ? { global: { x: 2, y: 0, z: 0 } } : {}) });
     expect(reported.normalizedModel.nodes).toHaveLength(3);
     expect(reported.normalizedModel.elements).toHaveLength(2);
   }
@@ -221,7 +221,8 @@ test('solver mesh receipts distinguish internal nodes and expose physical cuts f
   const interior = receipt.queryGuidance.internalNodeLocations.find(node =>
     node.memberPositions.some(position => position.elementId === 'beam' && position.positionM === 2));
   expect(interior).toMatchObject({ queryableAsNode: false, memberPositions: expect.arrayContaining([
-    { elementId: 'beam', positionM: 2, side: 'left' }, { elementId: 'beam', positionM: 2, side: 'right' },
+    { elementId: 'beam', positionM: 2, side: 'left', global: { x: 2, y: 0, z: 0 } },
+    { elementId: 'beam', positionM: 2, side: 'right', global: { x: 2, y: 0, z: 0 } },
   ]) });
   expect(receipt.values.nodes.find(node => node.id === interior.solverNodeId)).toMatchObject({ physicalNodeId: null, x: 2 });
   expect(receipt.queryGuidance.instruction).toContain('内部节点ID');

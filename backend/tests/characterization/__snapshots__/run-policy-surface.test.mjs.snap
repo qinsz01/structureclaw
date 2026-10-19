@@ -16,7 +16,7 @@ exports[`characterization: run policy and ablation surface default tool schemas 
   "memory": "98be207b6dc4697479672f55664ab07ed53a07905b5f75c023e203966d6f2347",
   "move_path": "b05f5b57df7b3df96af169adabd6d6c75f6266c14090dc990a741e541aedecea",
   "query_model": "7c1534259195f649c504d59db1438094776d056dc8a26f2578f90d4752cfdbb4",
-  "query_results": "aaa7e7bb92e2498edde82be7a107b36f6ba57ce6f6f5563f2880ee76e9983e3f",
+  "query_results": "db54e61ba763028192d7d304226152501d7808b2153ffb39a6869636bd022c9d",
   "read_file": "3c1711ff89b15b3789ac4a9e5e1309174099b1516c1e40d9eb41b18c374780a0",
   "replace_in_file": "de85a0776bdb02b5d59d641387f0ec97011550eab750fefedbfb52032e554cdf",
   "review_input": "06f98e5bf62be950320e7f914557b49b74d080abd66c64608002ef82328ba0af",

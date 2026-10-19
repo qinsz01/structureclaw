@@ -109,6 +109,7 @@ describeWithOpenSees('characterization: minimal inputs', () => {
       toolCall('extract_draft_params', { locale: 'zh' }, 'cont-extract'),
       toolCall('build_model', {}, 'cont-build'),
       toolCall('run_analysis', { analysisType: 'static' }, 'cont-analysis'),
+      toolCall('query_results', { elementId: '2', positionM: 3.45, field: 'forces', component: 'M2', unit: 'kN.m' }, 'cont-global'),
       '按各构件EI相同计算：中支座弯矩 -45 kN·m，反力 22.5/75/22.5 kN。',
     ]);
     expect(toolResultSeenByAgent(turn.requests, 'cont-extract').criticalMissing).toEqual([]);
@@ -116,6 +117,10 @@ describeWithOpenSees('characterization: minimal inputs', () => {
     const analysis = toolResultSeenByAgent(turn.requests, 'cont-analysis');
     expect(analysis.stiffnessPlaceholder).toMatchObject({ staticIndeterminacy: 1, equalStiffnessAssumed: true });
     expect(analysis.stiffnessPlaceholder.notice).toContain('EI');
+    const queried = toolResultSeenByAgent(turn.requests, 'cont-global');
+    expect(queried.values).toMatchObject({ elementId: '2', positionM: 3.45, global: { x: 9.45, y: 0, z: 0 } });
+    expect(queried.quantity.location).toMatchObject({ id: '2', positionM: 3.45, global: { x: 9.45, y: 0, z: 0 } });
+    expect(analysis.controlling.locations.moment.global).toEqual({ x: 6, y: 0, z: 0 });
     const session = await ctx.backend.session(turn.conversationId);
     const { model } = await ctx.backend.inputReview(turn.conversationId);
     const xs = model.nodes.map(node => node.x);
