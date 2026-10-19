@@ -32,7 +32,8 @@ def geometry_properties(shape):
     if kind in {'H', 'I', 'built-up-I'} and all((h, b, shape.tw, shape.tf)):
         tw, tf = shape.tw, shape.tf
         if h <= 2*tf or b <= tw:
-            raise ValueError('I section requires positive clear web height and flange outstand')
+            raise ValueError('I section requires positive clear web height and flange outstand / '
+                             'I 形截面的腹板净高和翼缘外伸宽度必须为正')
         if shape.tf2 not in (None, tf) or shape.B2 not in (None, b) or shape.r:
             return None  # No unverified unequal-flange/fillet approximation.
         hw = h-2*tf
@@ -95,7 +96,8 @@ def validate_section_physics(section):
                              or not math.isfinite(props[key]) or props[key] <= 0):
             raise ValueError(f"Section '{section.id}' {key} must be finite and positive")
     if 'Wnx' in props and 'Wx' in props and props['Wnx'] > props['Wx']*1.05:
-        raise ValueError(f"Section '{section.id}' net Wnx exceeds gross modulus by more than 5%")
+        raise ValueError(f"Section '{section.id}' net Wnx exceeds gross modulus by more than 5% / "
+                         '净截面模量 Wnx 超过毛截面模量的 1.05 倍')
     diagnostics = []
     extra = {key: value for key, value in section.extra.items()
              if key not in {'section_diagnostics', 'property_geometry_delta'}}
@@ -164,7 +166,8 @@ def validate_section_physics(section):
         section.extra = {**section.extra, 'property_geometry_delta': delta}
     gross = props.get('Wx', props.get('Iy', derived['Iy'])/(h/2000)) if h else None
     if 'Wnx' in props and gross and props['Wnx'] > gross*1.05:
-        raise ValueError(f"Section '{section.id}' net Wnx exceeds gross modulus by more than 5%")
+        raise ValueError(f"Section '{section.id}' net Wnx exceeds gross modulus by more than 5% / "
+                         '净截面模量 Wnx 超过毛截面模量的 1.05 倍')
     # J depends on the stated torsion model. Preserve an explicit J; otherwise
     # record the documented solid-rectangle/thin-wall approximation as its source.
     missing = {key: value for key, value in derived.items() if key not in props}
