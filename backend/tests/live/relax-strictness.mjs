@@ -34,7 +34,7 @@ for (const item of cases) {
     runIds.add(session.usage.runId);
     if (item.catalogue) {
       evidence.beforeConfirmation = { session, model: (await json('GET', `/api/v1/agent/input-review/${conversationId}`)).body.model };
-      check(failures, !waiting.analysis?.current && !session.analysis?.current
+      check(failures, !waiting.analysis?.runId && !session.analysis?.runId
         && evidence.turns.every(t => !t.steps.some(step => step.tool === 'run_analysis' && step.status === 'done')), 'calculation occurred before section confirmation');
       check(failures, second.interactions.length === 1 && session.waitingForReply, 'exactly one dimension confirmation was not requested');
       const firstQuestion = JSON.stringify(first.interactions);

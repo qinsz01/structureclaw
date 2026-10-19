@@ -33,6 +33,20 @@ describe('unconfirmed section recall cannot become calculation input', () => {
     expect(() => assertConfirmedSectionInputs({ sections: [section] })).not.toThrow();
   });
 
+  test.each([{ kind: 'I' }, { kind: 'H', H: 300, B: 150 }])('an incomplete shape %j is refused before a solver run is started', async shape => {
+    const model = { sections: [{ id: 'S', name: 'designation only', shape }] };
+    const post = jest.fn();
+    await expect(normalizeEngineeringModel(model, { post })).rejects.toMatchObject({
+      code: 'SECTION_CONFIRMATION_REQUIRED', detail: { candidates: [expect.objectContaining({
+        shape, requiresDimensions: expect.arrayContaining(['tw', 'tf']),
+      })] },
+    });
+    expect(post).not.toHaveBeenCalled();
+    await expect(createRunAnalysisTool({}).invoke({ analysisSkillId: 'opensees-static' }, {
+      toolCall: { id: 'incomplete', name: 'run_analysis' }, configurable: { agentState: { model, locale: 'en' } },
+    })).rejects.toThrow('SECTION_CONFIRMATION_REQUIRED');
+  });
+
   test('explicit user properties remain authoritative', () => {
     expect(sectionConfirmationCandidates([{ id: 'S', shape, properties,
       extra: { provenance: { shape: 'user', properties: 'user' }, source: 'LLM: stale label' } }])).toEqual([]);

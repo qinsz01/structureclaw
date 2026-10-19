@@ -9,7 +9,7 @@ export const SECTION_RECALL_LABEL = {
  * supplied as user-sourced input; a free-form "confirmed" flag cannot bypass this gate. */
 export function sectionConfirmationCandidates(sections: unknown): Record<string, unknown>[] {
   if (!Array.isArray(sections)) return [];
-  return sections.filter(isRecord).flatMap(raw => {
+  return sections.filter(isRecord).flatMap<Record<string, unknown>>(raw => {
     const section = enforceSectionProvenance(raw);
     const extra = isRecord(section.extra) ? section.extra : {};
     const provenance = isRecord(extra.provenance) ? extra.provenance : {};
@@ -17,6 +17,14 @@ export function sectionConfirmationCandidates(sections: unknown): Record<string,
       || provenance[field] == null && typeof extra.source === 'string' && /^LLM\s*:/i.test(extra.source);
     const pending = ['shape', 'dimensions', 'properties'].filter(field => isRecord(section[field])
       && (recalled(field) || field === 'dimensions' && recalled('shape')));
+    // A shape label (or a partial H designation) is not a usable section definition.
+    // Stop before model construction/analysis, even when the extractor supplied no recall values.
+    const shape = isRecord(section.shape) ? section.shape : {};
+    const missingDimensions = ['H', 'I'].includes(String(shape.kind))
+      && (!isRecord(section.properties) || !Object.keys(section.properties).length)
+      ? ['H', 'B', 'tw', 'tf'].filter(key => typeof shape[key] !== 'number' || !Number.isFinite(shape[key]) || shape[key] <= 0) : [];
+    if (missingDimensions.length && !pending.length) return [{ id: section.id, name: section.name,
+      fields: ['shape'], shape, requiresDimensions: missingDimensions }];
     if (!pending.length) return [];
     return [{ id: section.id, name: section.name, fields: pending,
       ...(section.shape ? { shape: section.shape } : {}),
@@ -33,7 +41,7 @@ export class SectionConfirmationRequiredError extends Error {
   constructor(candidates: Record<string, unknown>[]) {
     const detail = { success: false, status: 'input_required', recoverable: true,
       errorCode: 'SECTION_CONFIRMATION_REQUIRED', modelBuilt: false,
-      error: 'Assistant-recalled section values require user confirmation. / 助手记忆的截面数值须先由用户确认。',
+      error: 'Section dimensions need user input or confirmation. / 截面尺寸需要用户提供或确认。',
       hint: 'Ask once for the section dimensions together with any other missing inputs. Offer the labelled candidates for verification if useful. Do not calculate or relabel them as user-supplied before an actual user answer. After confirmation, record user-sourced dimensions and derive sharp-corner properties. / 请将截面尺寸与其他缺项合并询问一次，可提供带标签的候选值供核对；收到用户答复前不得计算或改标为用户提供。确认后记录用户来源尺寸，由系统按尖角几何推导属性。',
       nextAction: 'ask_user_clarification', candidates };
     super(JSON.stringify(detail));
