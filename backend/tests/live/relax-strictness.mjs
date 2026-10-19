@@ -34,18 +34,23 @@ for (const item of cases) {
     evidence.persisted = (await json('GET', `/api/v1/chat/conversation/${conversationId}`)).body;
     evidence.model = (await json('GET', `/api/v1/agent/input-review/${conversationId}`)).body.model;
     const recordPath = path.join(dataDir, 'run-records', `${session.usage.runId}.json`);
-    const record = JSON.parse(fs.readFileSync(recordPath, 'utf8'));
+    const recordPaths = [...new Set([waiting.usage.runId, session.usage.runId])].map(id => path.join(dataDir, 'run-records', `${id}.json`));
+    const records = recordPaths.map(file => JSON.parse(fs.readFileSync(file, 'utf8')));
+    const record = records.find(row => row.usage.runId === session.usage.runId);
+    evidence.runRecords = records;
+    evidence.runRecordPaths = recordPaths;
     evidence.runRecord = record;
     evidence.runRecordPath = recordPath;
     const questions = evidence.turns.reduce((n, t) => n + t.interactions.length, 0);
     const wallMs = evidence.turns.reduce((n, t) => n + t.wallMs, 0);
-    evidence.metrics = { questions, llmCalls: record.usage.llmCalls, recoveries: record.usage.recoveries, wallMs,
-      extractors: record.usage.events.filter(event => event.kind === 'param_extractor') };
+    evidence.metrics = { questions, llmCalls: records.reduce((sum, row) => sum + row.usage.llmCalls, 0),
+      recoveries: Math.max(...records.map(row => row.usage.recoveries)), wallMs,
+      extractors: records.flatMap(row => row.usage.events.filter(event => event.kind === 'param_extractor')) };
     check(failures, questions <= 1 && second.interactions.length === 0, 'more than one clarification or extra question after the answer');
     check(failures, wallMs < 300000, 'system time exceeds five minutes');
     check(failures, session.analysis?.current && !session.waitingForReply, 'no completed current analysis');
-    check(failures, record.usage.recoveries <= 1, 'more than one recovery');
-    check(failures, !JSON.stringify(record).includes('RECOVERY_BUDGET_EXHAUSTED'), 'recovery budget exhausted');
+    check(failures, records.every(row => row.usage.recoveries <= 1), 'more than one recovery');
+    check(failures, !JSON.stringify(records).includes('RECOVERY_BUDGET_EXHAUSTED'), 'recovery budget exhausted');
     const visible = evidence.turns.map(t => t.response ?? '').join('\n');
     evidence.transcript = evidence.turns.map(t => ({ questions: t.interactions, answer: t.response }));
     check(failures, !/预算|纠错次数|重置.*(?:次数|预算)|另发.*消息|send a new message|budget/i.test(visible), 'internal budget mechanics exposed');
