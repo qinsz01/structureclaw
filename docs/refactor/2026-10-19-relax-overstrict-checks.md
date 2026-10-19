@@ -2,6 +2,18 @@
 
 Repo `structureclaw`. Work on a new branch `fix/relax-strictness` cut from `work/research-next`. Commit locally; never push to `upstream`. Do not touch `tests/llm-benchmark`.
 
+## Round 3 amendment: confirmation before recalled section values
+
+The user's 2026-10-19 option A supersedes Principle 2, C2 and the designation-only acceptance rows below. Round 2's three recalled I20a dimension sets were wrong. Assistant recall is a candidate for verification, never calculation input before the user confirms it.
+
+- For a designation without complete dimensions or explicit properties, ask once for section dimensions, together with other genuinely missing inputs. A selectable candidate must be labelled **assistant-recalled table value, please verify / 助手记忆的标准表值，请核对**. A designation alone does not confirm dimensions.
+- `extra.provenance.shape`, `.dimensions` or `.properties` equal to `llm-table` is pending input. Legacy `extra.source = "LLM: ..."` with no field provenance is also pending. Build, edit, model import and analysis boundaries return `SECTION_CONFIRMATION_REQUIRED` with candidate values. A free-form confirmation flag cannot bypass this gate. After an actual user answer, record confirmed dimensions as `user` and derive sharp-corner properties; discard unused assistant properties. Explicit user properties remain authoritative.
+- State who supplied each value: the user, the system (geometry or a code table), or a user-confirmed assistant option. Do not claim adequacy or compliance unless a code check actually ran and passed. Keep material grade defaults including density, and the existing self-weight default without an unsolicited question.
+- Characterize a combined clarification with a recalled option, confirmation and successful analysis in both locales; reject adversarial unconfirmed input before OpenSees; snapshot the intended answer prose. Refresh only intended prompt/tool snapshots and bump the ablation version.
+- Run the complete automated acceptance below. Run the catalogue case three times with the second reply `Q235钢，工字钢 I20a`, followed by actual user dimensions `200×100×7×11.4 mm` when asked. Require exactly one dimension question (two total clarifications allowed when the first asks material and section together), no analysis before confirmation, geometry-derived deflection, and under five minutes of active system time. Keep geometry twice and the existing live suite twice. Record any adequacy claims in the answers.
+
+2026-10-19 用户选择 A，以上规则替代原 C2 及仅给型号的验收要求：助手记忆值必须先经用户确认；型号本身不算确认。尺寸问题与其他真正缺项一次合并询问，确认后按用户尺寸推导不计圆角的几何属性。边界须拒绝未确认的 `llm-table` 输入，并返回候选值及可恢复提示；不得只靠提示词。未实际运行且通过规范校核时，不得作合规或安全充分性结论。下文保留为原始计划与历史问题记录。
+
 ## Evidence: the failed session
 
 Conversation `cmvembhjr0000powm12r6szsf`, 2026-10-19 10:11–10:50. The run record is `sclaw_data/run-records/9c6e14ad-08bc-43db-8630-5dc9a56c98c8.json` and the messages are in `sclaw_data/data/structureclaw.db`.
