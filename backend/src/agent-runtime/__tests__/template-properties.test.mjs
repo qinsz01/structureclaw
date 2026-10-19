@@ -131,6 +131,7 @@ test.each([['Q235', 7850], ['Q355B', 7850], ['C30', 2500]])('fills omitted densi
   const input = [{ id: 'M', name: grade, E: 123456, nu: .23 }];
   const result = completeDeclaredGradeMaterials(input);
   expect(result[0]).toMatchObject({ ...input[0], rho });
+  expect(result[0].G).toBeUndefined();
   expect(input[0].rho).toBeUndefined();
   expect(completeDeclaredGradeMaterials([{ ...input[0], rho: 999 }])[0].rho).toBe(999);
   expect(completeDeclaredGradeMaterials([{ id: 'X', name: 'unknown', E: 1 }])[0].rho).toBeUndefined();

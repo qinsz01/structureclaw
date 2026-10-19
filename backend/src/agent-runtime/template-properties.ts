@@ -310,7 +310,11 @@ export function completeDeclaredGradeMaterials<T extends Record<string, unknown>
     let props: ResolvedFrameMaterialProps;
     try { props = resolveFrameMaterialProps(grade); } catch { return copy; }
     const filled: Record<string, unknown> = { ...copy };
-    for (const key of ['E', 'G', 'nu', 'rho'] as const) if (filled[key] == null) filled[key] = props[key];
+    for (const key of ['E', 'G', 'nu', 'rho'] as const) {
+      // A supplied modulus keeps G derived from the record's E/nu unless G was explicit.
+      if (key === 'G' && copy.E != null) continue;
+      if (filled[key] == null) filled[key] = props[key];
+    }
     return filled as T;
   });
 }
