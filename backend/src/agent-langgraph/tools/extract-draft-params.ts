@@ -424,7 +424,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
         'Extract structural engineering parameters from a user message and merge them into the draft state. ' +
         'Reads existing draft state from conversation state automatically — do NOT pass it as a parameter. ' +
         'Returns updated draft state, missing fields, and the matched structural type. ' +
-        'In a conversation, the original user message or latest clarification answer is authoritative. Do not invent material or section values or repeatedly rephrase missing input; ask the user for the returned missing fields.',
+        'In a conversation, the original user message or latest clarification answer is authoritative. User properties win; dimensions alone require shape only, with extra.provenance.shape="user", and system-derived sharp-corner properties. Only designation-only sections permit assistant table properties, marked extra.provenance.properties="llm-table" and extra.source as unverified. Known material grades get elastic constants and density automatically. Do not ask about unmentioned self-weight; retain the existing setting, default excluded. / 用户显式属性优先；仅给尺寸时只填shape并标记来源user，由系统按尖角推导；仅型号可补未核对表值并标记llm-table来源。已知牌号补弹性常数及密度；未提自重不追问，默认不计。',
       schema: z.object({
         message: z.string().describe('The user message to extract parameters from').optional(),
         locale: z.enum(['zh', 'en']).optional().describe('User locale'),

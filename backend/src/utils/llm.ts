@@ -25,6 +25,7 @@ interface ChatModelRuntimeOptions {
   disableStreaming?: boolean;
   streaming?: boolean;
   maxTokens?: number;
+  purpose?: 'clarification-patch';
 }
 
 export interface LlmTokenUsage {
@@ -189,6 +190,11 @@ export function buildChatModelOptions(
     disableStreaming,
     ...(disableStreaming ? { streaming: false } : runtimeOptions.streaming === undefined ? {} : { streaming: runtimeOptions.streaming }),
     ...(Number.isSafeInteger(maxTokens) && (maxTokens ?? 0) > 0 ? { maxTokens } : {}),
+    ...(runtimeOptions.purpose === 'clarification-patch' ? {
+      modelKwargs: { response_format: { type: 'json_object' } },
+      // GLM-5.3 always reasons; its documented lowest effort is low (not disabled).
+      ...(/^glm-5\.3(?:-|$)/i.test(modelConfig.llmModel) ? { reasoningEffort: 'low' as const } : {}),
+    } : {}),
     configuration: {
       baseURL: modelConfig.llmBaseUrl,
     },
@@ -453,7 +459,7 @@ export function wrapWithLlmLogging<TModel extends StructureClawChatModel>(model:
         : message;
       const content = sanitizeBase64ForLogging(llmContentText(result.content));
       const durationMs = Date.now() - start;
-      recordRunEvent({ kind: 'llm_finished', callId, model: loggedModel, success: true, durationMs, ...contextSize, usage: extractLlmTokenUsage(result) ?? null });
+      recordRunEvent({ kind: 'llm_finished', callId, model: loggedModel, success: true, durationMs, ...contextSize, contentChars: content.length, reasoningChars: getReasoningContentLength(result), usage: extractLlmTokenUsage(result) ?? null });
       llmCallLogger.log({
         model: loggedModel,
         prompt: promptStr,

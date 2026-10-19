@@ -157,10 +157,10 @@ describe("param extractor", () => {
       } } });
     expect(sentPrompt.length).toBeLessThan(10000);
     expect(sentPrompt).toContain('PATCH ONLY');
-    expect(sentPrompt).toContain('user-supplied properties win');
+    expect(sentPrompt).toContain('Explicit USER properties win');
     expect(sentPrompt).toContain('Preserve exact existing IDs');
-    expect(sentPrompt).toContain('"H": 200');
-    expect(sentPrompt).toContain('"Iy": 0.0001');
+    expect(sentPrompt).toContain('"H":200');
+    expect(sentPrompt).toContain('"Iy":0.0001');
     expect(sentPrompt).toContain('explicit-user-table');
     const next = handler.mergeState(state, handler.extractDraft({ locale, currentState: state, llmDraftPatch: patch }));
     expect(next.engineeringDraft.sectionRecords).toEqual([section]);
@@ -285,7 +285,7 @@ describe("param extractor", () => {
     expect(prompt).toContain("当前结构技能参数说明");
     expect(prompt).toContain("\"skillId\": \"beam\"");
     expect(prompt).toContain("已有 draftState");
-    expect(prompt).toContain("\"lengthM\": 6");
+    expect(prompt).toMatch(/"lengthM":\s*6/);
     expect(prompt).toContain("简支梁，跨度20m，均布荷载10kN/m");
     expect(prompt).toContain("restraints 顺序严格为 [ux,uy,uz,rx,ry,rz]");
     expect(prompt).toContain("沿全局 X 向可滑动的滚动支座为 [false,true,true,false,false,false]");
@@ -367,7 +367,7 @@ describe("param extractor", () => {
       "荷载10kN",
     );
 
-    expect(prompt).toContain("\"lengthM\": 6");
+    expect(prompt).toMatch(/"lengthM":\s*6/);
     expect(prompt).not.toContain("\"lc\": 2");
     expect(prompt).not.toContain("\"type\": \"undefined\"");
     expect(prompt).not.toContain("\"loadKN\"");
@@ -542,4 +542,17 @@ describe("param extractor", () => {
       },
     });
   });
+});
+
+
+test.each(['en', 'zh'])('both prompt modes forbid self-weight questions and preserve section provenance (%s)', async locale => {
+  const { buildParamExtractorPrompt } = await import('../../../dist/agent-langgraph/param-extractor.js');
+  for (const patchMode of [false, true]) {
+    const prompt = buildParamExtractorPrompt(locale, { inferredType: 'beam', engineeringDraft: {} }, beamPlugin, 'Q235', [], patchMode);
+    expect(prompt).toContain('If self-weight is unmentioned, do not ask');
+    expect(prompt).toContain('未提及自重时不追问');
+    expect(prompt).toContain('shape ONLY');
+    expect(prompt).toContain('never tool-retrieved');
+    expect(prompt).toContain('不能声称工具检索');
+  }
 });

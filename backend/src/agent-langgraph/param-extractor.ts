@@ -22,6 +22,9 @@ import { currentDraftDiagnostics } from '../agent-runtime/draft-diagnostics.js';
 
 // ---------------------------------------------------------------------------
 // Skill context
+const SECTION_SOURCE_RULE = 'Section source / 截面来源: Explicit USER properties win. With user dimensions but no properties, emit shape ONLY; the SYSTEM derives sharp-corner properties, even for a standard designation. Only a designation with NEITHER user dimensions NOR properties permits assistant table values. Record extra.provenance={shape:"user"|"llm-table",properties:"user"|"llm-table"} for the fields you supply; label table values in extra.source="LLM: standard-table value, unverified" with the standard if known. They are assistant-supplied and unverified, never tool-retrieved. Preserve user properties and sources. Supply sectionRecords and templateAssignments references. / 用户显式属性最优先；仅给尺寸时完全省略properties，由系统按尖角几何计算（sharp-corner），即使同时给了标准型号也如此。只有仅给型号、既无尺寸又无属性时才可补标准表值。extra.provenance记录shape和properties各自来源user或llm-table，extra.source标注助手提供的标准表值及未核对状态，不能声称工具检索。保留用户属性与来源，补齐截面记录和模板引用。';
+const MATERIAL_WEIGHT_RULE = 'Known material grades receive omitted elastic constants and density from system defaults; preserve explicit overrides. If self-weight is unmentioned, do not ask or emit an issue: retain the existing setting, default false, and state this assumption in the answer. / 已知牌号由系统补缺省弹性常数和密度，用户显式值优先。未提及自重时不追问、不报缺项，沿用原设置，默认不计自重，并在回答中说明。';
+
 // ---------------------------------------------------------------------------
 
 function buildSkillInfo(plugin: AgentSkillPlugin): Record<string, unknown> {
@@ -91,13 +94,13 @@ function cleanPromptState(value: unknown, keyPath: string[] = []): unknown {
 
 function engineeringDraftSchemaDescription(locale: 'zh' | 'en'): string {
   const updateContract = 'Draft update protocol / 草稿更新协议: omitted fields stay unchanged; nested objects and record arrays merge by stable ID. To delete an existing field, emit top-level clearDraftFields: [\'sectionRecords["S1"].standard_steel_name\']; omission DOES NOT delete it. Clear operations run atomically BEFORE engineeringDraft updates. To replace an entire shape or properties object, clear that object and provide its replacement. Use exact existing IDs, never array indexes; do not clear identity or input evidence. Only clear fields the latest user explicitly withdrew or replaced. / 省略不等于删除；用户明确“不使用目录名”时必须输出对应 clearDraftFields，不能只在新补丁省略目录名。仅改厚度时保留其他尺寸和未变属性；更换截面来源时明确清除被替代的旧来源，不得删除用户未撤回的冲突证据。';
-  const sectionSources = 'Section source / 截面来源: You may use common standard section and material table values; state the values and source for verification. For a designation such as I20a, emit engineeringDraft.sectionRecords with properties {A,Iy,Iz,J if known} in m²/m⁴ and shape in mm, extra.source="LLM: GB/T 706 table value, unverified", and templateAssignments.beam.sectionId referencing its stable ID. Do not leave templateProperties missing solely for a standard designation. Use material.grade for a standard material or materials records (E in MPa). name is a label, standard_steel_name is only a native PKPM/YJK selector. Explicit dimensions without supplied properties use shape only: deterministic code derives sharp-corner properties. Explicit user properties take precedence over geometry and table knowledge; retain both with their sources. / 可采用常用标准型钢及材料表数值，须写明取值和来源供用户核对；型号补全截面记录及模板引用，不因标准型号缺目录再追问。仅给尺寸时保留 shape，由系统按无圆角几何计算；用户显式属性优先，保留来源。';
+  const sectionSources = SECTION_SOURCE_RULE;
   const seismicEvidence = '"seismicMemberEvidence": {"byElementId": {"<stable member ID>": {"seismicCapacity": {}, "capacityDesign": {}, "strongShearWeakBending": {}, "shearCompression": {}, "jointCore": {}, "wallData": {}, "boundaryElement": {}, "steelSeismicDetailing": {}}}}. Preserve supplied seismic evidence in this top-level field or skillState.seismicWorkflow.memberEvidence. / 抗震构件证据保留在此顶层字段或抗震工作流中，不把证据生成验算结论。';
   if (locale === 'zh') {
     return [
       'engineeringDraft uses this generated contract. All fields may be omitted in a partial draft; preserve explicitly supplied values and stable IDs. / 草稿允许缺项，但不得编造信息：',
       JSON.stringify(promptContract()),
-      updateContract, sectionSources,
+      updateContract, sectionSources, MATERIAL_WEIGHT_RULE,
       seismicEvidence,
       'draftIssues: [{field: string, kind: missing|confirmation, severity: invalid|ambiguous|unrealistic|conflict, reason: string, question?: string}]. Use one exact field per issue with quoted stable IDs, e.g. materials["M1"].E. missing means absent data; confirmation means a present value needs user confirmation. Do not repeat a missing issue after supplying its value. Do not emit skillState.invalidDraftFields; the runtime derives it. / 缺项按当前值重新判断；确认与来源冲突单独保留。每项诊断对应一个字段和稳定ID，不维护第二份缺项列表。',
       '  // restraints 顺序严格为 [ux,uy,uz,rx,ry,rz]，true 表示约束。X-Z 平面铰支座为 [true,true,true,false,false,false]，沿全局 X 向可滑动的滚动支座为 [false,true,true,false,false,false]。',
@@ -129,7 +132,7 @@ function engineeringDraftSchemaDescription(locale: 'zh' | 'en'): string {
   return [
       'engineeringDraft uses this generated contract. All fields may be omitted in a partial draft; preserve explicitly supplied values and stable IDs. / 草稿允许缺项，但不得编造信息：',
       JSON.stringify(promptContract()),
-      updateContract, sectionSources,
+      updateContract, sectionSources, MATERIAL_WEIGHT_RULE,
       seismicEvidence,
       'draftIssues: [{field: string, kind: missing|confirmation, severity: invalid|ambiguous|unrealistic|conflict, reason: string, question?: string}]. Use one exact field per issue with quoted stable IDs, e.g. materials["M1"].E. missing means absent data; confirmation means a present value needs user confirmation. Do not repeat a missing issue after supplying its value. Do not emit skillState.invalidDraftFields; the runtime derives it. / 缺项按当前值重新判断；确认与来源冲突单独保留。每项诊断对应一个字段和稳定ID，不维护第二份缺项列表。',
     '  // restraints are exactly [ux,uy,uz,rx,ry,rz], where true means restrained. In an X-Z model, a pin is [true,true,true,false,false,false] and a roller free in global X is [false,true,true,false,false,false].',
@@ -143,7 +146,7 @@ function engineeringDraftSchemaDescription(locale: 'zh' | 'en'): string {
       '  // Store explicitly role-wide member design inputs in templateAssignments.beam/column/member.design. member means an explicitly declared uniform assignment to all members. A specific role amends uniform fields; clarification patches preserve unchanged values. Templates and new models deterministically project these inputs to elements[].design without a later edit_model restatement.',
       '  // Supported design input examples: {"l0":number,"beta1":number,"phi_b":number,"btLimit":number,"lambdaLimit":number,"deflectionLimitN":number,"serviceability_result_keys":["case:LC1"],"basis":object}. l0 is a declared effective length in mm, never the mesh element length; the other example coefficients are dimensionless and deflectionLimitN is n in L/n. Do not emit aliases l0mm/memberDesignL0Mm or place these values in arbitrary designParameters.',
       '  // For supplied stable member IDs use topology.members[].design; never invent topology to store design inputs. Do not infer design defaults from grades, supports or a code name. Design inputs are never missing items: do not emit draftIssues for design strengths, coefficients, limits, effective lengths or service keys; store only values the user explicitly supplied. Preserve unsupported parameters under metadata.unmappedDesignParameters and never claim that they were used by the checker.',
-      '  // Explicitly include or exclude self-weight using self_weight=true or false. Preserve the stated self-weight case and other analysis controls; never guess unstated controls.',
+      '  // Preserve explicit self_weight controls; if unmentioned retain the existing setting, default false. Do not ask about self-weight.',
     '"skillState": {',
     '  "seismicWorkflow": {',
     '    "methodPreference": "auto|response_spectrum|time_history|pushover|elastic_plastic_time_history",',
@@ -280,11 +283,13 @@ function buildFocusedParamExtractorPrompt(
   return [
     locale === 'zh' ? '你是结构工程参数提取专家，正在处理多轮澄清回答。' : 'You are a structural engineering parameter extraction specialist handling a multi-turn clarification answer.',
     'PATCH ONLY / 仅输出补丁: Return one JSON object containing only newly supplied or corrected fields in engineeringDraft; keep requestScope unchanged unless the user changes the goal. No markdown, examples, reasoning or unchanged records. The system merges nested objects and arrays by stable ID. Preserve exact existing IDs and unrelated fields; do not repeat old draftIssues. / 系统按稳定ID合并，保留未变字段，不重复旧缺项。',
-    'Fields: engineeringDraft={material:{grade},materials:[{id,name,E,nu,rho,extra}],sectionRecords:[{id,name,type,shape,properties,extra}],templateAssignments:{beam|column|member:{materialId,sectionId,design}},geometry:{lengthM,spanLengthM,heightM},boundary:{supportType},loads:[{id,kind,magnitude,unit,direction,target,location:{xM},caseId,caseType}],analysisControl:{self_weight},analysis:{loadCombinations:[]}}. draftPatch may contain existing skill fields. Units: geometry m; loads kN,kN/m,kN/m2; E MPa; shape mm; A m²; Iy/Iz/J m⁴. shape.kind: I,H,rectangular,circular,pipe,box; dimensions: H,B,tw,tf,d,T. Rectangular B=width,H=depth. supports: simply-supported,cantilever,fixed-fixed. Load kinds: point,line,area; downward=gravity.',
-    'Common standard section/material table values are allowed. A designation without dimensions may use properties {A,Iy,Iz,J if known} plus shape and extra.source="LLM: GB/T 706 table value, unverified". Supply sectionRecords and templateAssignments references, never leave templateProperties missing only for a standard designation. If dimensions alone are supplied, emit shape only (sharp corners); user-supplied properties win. State sources for verification. / 可用标准表，标注未核对的来源；仅给尺寸时不加估算属性。',
+    'Output schema: {type:object,additionalProperties:false,properties:{engineeringDraft:{type:object},clearDraftFields:{type:array,items:{type:string}},draftIssues:{type:array},requestScope:{type:object},skillState:{type:object}}}. Omit unchanged fields and empty diagnostics. Never repeat the existing draft.',
+    'Fields: engineeringDraft={material:{grade},materials:[{id,name,E,nu,rho,extra}],sectionRecords:[{id,name,type,shape,properties,extra}],templateAssignments:{beam|column|member:{materialId,sectionId,design}},geometry:{lengthM,spanLengthM,heightM},boundary:{supportType},loads:[{id,kind,magnitude,unit,direction,target,location:{xM},caseId,caseType}],analysisControl:{self_weight},analysis:{loadCombinations:[]}}. Use skillState only for changed skill fields. Units: geometry m; loads kN,kN/m,kN/m2; E MPa; shape mm; A m²; Iy/Iz/J m⁴. shape.kind: I,H,rectangular,circular,pipe,box; dimensions: H,B,tw,tf,d,T. Rectangular B=width,H=depth. supports: simply-supported,cantilever,fixed-fixed. Load kinds: point,line,area; downward=gravity.',
+    SECTION_SOURCE_RULE,
+    MATERIAL_WEIGHT_RULE,
     'To withdraw/replace an existing field emit clearDraftFields using stable IDs, e.g. sectionRecords["S1"].standard_steel_name. Omission is not deletion; clear only explicitly withdrawn/replaced fields. Explicit user values win; resolve consistency/precision/format yourself. Unknown essential inputs use draftIssues=[{field,severity:"missing"|"ambiguous",reason}]. Do not invent loads, units, design conditions or topology. / 不编造荷载、单位、设计条件或拓扑。',
     `Skill: ${plugin.id}; focus fields / 本轮重点字段：${JSON.stringify(focusFields)}`,
-    `Existing draftState / 已有 draftState:\n${JSON.stringify(state ?? {}, null, 2)}`,
+    `Existing draftState / 已有 draftState:\n${JSON.stringify(state ?? {})}`,
     `Latest user answer / 用户最新回答:\n${message}`,
   ].join('\n');
 }
@@ -422,7 +427,9 @@ export async function invokeParamExtractor(
   const locale = input.locale;
   log.info({ pluginId, locale }, 'param extractor started');
 
-  const llm = input.llm === undefined ? createChatModel(0) : input.llm;
+  const patchMode = input.patchMode ?? Boolean(input.existingState?.engineeringDraft);
+  const llm = input.llm === undefined ? createChatModel(0, patchMode
+    ? { purpose: 'clarification-patch', maxTokens: 2048, disableStreaming: true } : {}) : input.llm;
   if (!llm) {
     if (input.requireLlmResult) {
       throw new Error('LLM_PARAM_EXTRACTOR_CONFIGURATION_ERROR: no LLM is configured');
@@ -431,7 +438,6 @@ export async function invokeParamExtractor(
   }
 
   const start = Date.now();
-  const patchMode = input.patchMode ?? Boolean(input.existingState?.engineeringDraft);
   const prompt = buildParamExtractorPrompt(
     input.locale,
     input.existingState,
@@ -439,10 +445,10 @@ export async function invokeParamExtractor(
     input.message,
     input.focusFields,
     patchMode,
-  ) + '\nDesign field contract / 设计字段协议: design.basis is a map of nonempty strings, never booleans, numbers, arrays or nested objects. Descriptive assumptions belong in basis as evidence, not invented executable design fields. Preserve unsupported computational requests in metadata.unmappedDesignParameters and report them as unresolved; do not claim basis implements them. / design.basis的每个值必须是非空字符串；描述性假定作为依据保存，不要编造可执行设计字段。未知计算条件保留为metadata.unmappedDesignParameters待解决，不得声称写入basis就已实现。'
+  ) + (patchMode ? '' : '\nDesign field contract / 设计字段协议: design.basis is a map of nonempty strings, never booleans, numbers, arrays or nested objects. Descriptive assumptions belong in basis as evidence, not invented executable design fields. Preserve unsupported computational requests in metadata.unmappedDesignParameters and report them as unresolved; do not claim basis implements them. / design.basis的每个值必须是非空字符串；描述性假定作为依据保存，不要编造可执行设计字段。未知计算条件保留为metadata.unmappedDesignParameters待解决，不得声称写入basis就已实现。')
     + (input.designSchema && !patchMode ? `\nAuthoritative V2 design schema / 正式V2设计字段定义（只能使用所列字段）:\n${JSON.stringify(input.designSchema)}` : '')
     + (input.sectionShapeSchema && !patchMode ? `\nAuthoritative V2 section shape schema / 正式V2截面几何字段定义（单位mm，kind使用所列大小写，不能猜测尺寸或圆角）:\n${JSON.stringify(input.sectionShapeSchema)}` : '')
-    + '\nRequest goal / 本次所求结果: include top-level requestScope only when this message changes the goal: {responses:[forces|reactions|displacements|rotations|stress|dynamic],design:boolean,report:boolean,outputs:[]}. design=true only for an explicit code-check request (验算/校核/按规范/code check); "design a beam" is not one. report=true only for a requested report, calculation book or other deliverable document; "design a beam" and specific results leave it false. Do not infer design from enabled skills. Missing material must not prevent this scope. Retain the prior goal for a clarification answer. / 仅明确要求规范验算时design=true，“设计”一词不算；仅要求报告、计算书或其他交付文件时report=true，“设计”和只求具体结果时为false；不因勾选技能而请求设计；缺少材料不妨碍声明范围；补参数时保留目标。';
+    + (patchMode ? '' : '\nRequest goal / 本次所求结果: include top-level requestScope only when this message changes the goal: {responses:[forces|reactions|displacements|rotations|stress|dynamic],design:boolean,report:boolean,outputs:[]}. design=true only for an explicit code-check request (验算/校核/按规范/code check); "design a beam" is not one. report=true only for a requested report, calculation book or other deliverable document; "design a beam" and specific results leave it false. Do not infer design from enabled skills. Missing material must not prevent this scope. Retain the prior goal for a clarification answer. / 仅明确要求规范验算时design=true，“设计”一词不算；仅要求报告、计算书或其他交付文件时report=true，“设计”和只求具体结果时为false；不因勾选技能而请求设计；缺少材料不妨碍声明范围；补参数时保留目标。');
 
   let result: {
     content: unknown;
@@ -468,7 +474,6 @@ export async function invokeParamExtractor(
       );
   }
 
-  recordRunEvent({ kind: 'param_extractor', mode: patchMode ? 'patch' : 'full', promptChars: prompt.length, durationMs: Date.now() - start });
   const usage = extractLlmTokenUsage(result);
   if (usage) input.onUsage?.(usage);
   const content = llmContentText(result.content);
@@ -477,6 +482,8 @@ export async function invokeParamExtractor(
     ?? result.response_metadata?.stop_reason;
   const finishReason = typeof rawFinishReason === 'string' ? rawFinishReason : undefined;
   const reasoningContentLength = getReasoningContentLength(result);
+  recordRunEvent({ kind: 'param_extractor', mode: patchMode ? 'patch' : 'full', promptChars: prompt.length, durationMs: Date.now() - start,
+    usage: usage ?? null, contentChars: content.length, reasoningChars: reasoningContentLength, finishReason, maxOutputTokens: patchMode ? 2048 : null });
   log.debug(
     {
       pluginId,

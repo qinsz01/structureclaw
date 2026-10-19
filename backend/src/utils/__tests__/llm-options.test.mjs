@@ -329,3 +329,15 @@ describe('LLM model options', () => {
     expect(request.messages[1]).not.toHaveProperty('reasoning_content');
   });
 });
+
+
+test('only clarification patches cap output and lower GLM-5.3 reasoning', async () => {
+  const { buildChatModelOptions } = await import('../../../dist/utils/llm.js');
+  const config = { ...baseConfig, llmModel: 'glm-5.3' };
+  expect(buildChatModelOptions(config, 0).reasoningEffort).toBeUndefined();
+  expect(buildChatModelOptions(config, 0).modelKwargs).toBeUndefined();
+  expect(buildChatModelOptions(config, 0, { purpose: 'clarification-patch', maxTokens: 2048 })).toMatchObject({
+    maxTokens: 2048, reasoningEffort: 'low', modelKwargs: { response_format: { type: 'json_object' } },
+  });
+  expect(buildChatModelOptions(baseConfig, 0, { purpose: 'clarification-patch' }).reasoningEffort).toBeUndefined();
+});
