@@ -129,7 +129,8 @@ describeWithOpenSees('characterization: relaxed section and clarification workfl
     ctx.llm.setInternal(internalResponder({
       'structural-router': () => routerDecision('beam'),
       'param-extractor': text => text.includes(answer) ? { engineeringDraft: {
-        material: { grade: 'Q235' }, sectionRecords: [{ id: 'S', shape, extra: { provenance: { shape: 'user' } } }],
+        ...(zh ? { material: { grade: 'Q235' } } : { materials: [{ id: 'M', grade: 'Q235' }] }),
+        sectionRecords: [{ id: 'S', shape, extra: { provenance: { shape: 'user' } } }],
       } } : { engineeringDraft: {
         structureType: 'beam', geometry: { lengthM: 10 }, boundary: { supportType: 'simply-supported' },
         loads: [{ id: 'P', kind: 'point', magnitude: 1, unit: 'kN', direction: 'gravity', target: 'beam', location: { xM: 5 } }],

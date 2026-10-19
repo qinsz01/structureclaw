@@ -148,6 +148,12 @@ test.each([['Q235钢', 206000, 7850], ['Q355B钢材', 206000, 7850], ['Q235 stee
     expect(completeDeclaredGradeMaterials([{ id: 'X', name: 'Q235/Q355 steel' }])[0]).not.toHaveProperty('rho');
   });
 
+test('a declared grade supplies a missing display name without another material question', async () => {
+  const { completeDeclaredGradeMaterials } = await import('../../../dist/agent-runtime/template-properties.js');
+  expect(completeDeclaredGradeMaterials([{ id: 'M', grade: 'Q235' }])[0])
+    .toMatchObject({ id: 'M', name: 'Q235', grade: 'Q235', E: 206000, rho: 7850 });
+});
+
 
 test('an omitted self-weight switch is not a missing input, while explicit conflicts survive', async () => {
   const { mergeDraftState } = await import('../../../dist/agent-runtime/draft/boundary.js');
