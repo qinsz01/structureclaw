@@ -102,6 +102,7 @@ async function extractAndMergeDraft(options: {
   const draftPatch = await invokeParamExtractor({
     message: extractionMessage,
     existingState,
+    patchMode: Boolean(existingState?.engineeringDraft) && (!input.requestScope || JSON.stringify(input.requestScope) === JSON.stringify(state?.requestScope)),
     locale,
     plugin,
     traceLogger: log,

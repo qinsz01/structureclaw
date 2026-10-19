@@ -155,11 +155,10 @@ describe("param extractor", () => {
         sentPrompt = prompt;
         return { content: JSON.stringify({ engineeringDraft: { materials: [{ id: 'M', rho: 7850 }] } }) };
       } } });
-    const { promptContract } = await import('../../../dist/engineering/draft-contract.js');
-    expect(sentPrompt).toContain(JSON.stringify(promptContract()));
-    expect(sentPrompt).toContain(locale === 'zh' ? '仅给几何时只保留 shape，完全省略 properties' : 'For geometry-only input, retain shape and OMIT properties completely');
-    expect(sentPrompt).toContain(locale === 'zh' ? '不能删掉显式 properties 隐藏冲突' : 'Never delete explicit properties to hide a conflict');
-    expect(sentPrompt).toContain(locale === 'zh' ? '保留已有已确认记录中的 shape、properties、ID 及来源' : 'Preserve shape, properties, IDs and sources in existing confirmed records');
+    expect(sentPrompt.length).toBeLessThan(10000);
+    expect(sentPrompt).toContain('PATCH ONLY');
+    expect(sentPrompt).toContain('user-supplied properties win');
+    expect(sentPrompt).toContain('Preserve exact existing IDs');
     expect(sentPrompt).toContain('"H": 200');
     expect(sentPrompt).toContain('"Iy": 0.0001');
     expect(sentPrompt).toContain('explicit-user-table');
@@ -469,7 +468,7 @@ describe("param extractor", () => {
     expect(prompt).toContain("本轮重点字段：[\"loadKN\"]");
     expect(prompt).toContain("用户最新回答");
     expect(prompt).toContain("每个上弦节点10kN");
-    expect(prompt).toContain("如果用户最新回答明确提供了本轮重点字段，必须输出");
+    expect(prompt).toContain("only newly supplied or corrected fields");
   });
 
   test("parses direct parameter JSON and draftPatch-wrapped JSON", async () => {

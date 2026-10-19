@@ -15,7 +15,7 @@ import {
 import { logger as rootLogger } from '../utils/agent-logger.js';
 import type { Logger } from 'pino';
 import type { AgentSkillPlugin, DraftState } from '../shared/types/agent.js';
-import { currentRunPolicy, requestRecovery } from '../runtime/run-context.js';
+import { currentRunPolicy, requestRecovery, recordRunEvent } from '../runtime/run-context.js';
 import { llmContentText } from '../utils/llm-content.js';
 import { promptContract } from '../engineering/draft-contract.js';
 import { currentDraftDiagnostics } from '../agent-runtime/draft-diagnostics.js';
@@ -91,7 +91,7 @@ function cleanPromptState(value: unknown, keyPath: string[] = []): unknown {
 
 function engineeringDraftSchemaDescription(locale: 'zh' | 'en'): string {
   const updateContract = 'Draft update protocol / 草稿更新协议: omitted fields stay unchanged; nested objects and record arrays merge by stable ID. To delete an existing field, emit top-level clearDraftFields: [\'sectionRecords["S1"].standard_steel_name\']; omission DOES NOT delete it. Clear operations run atomically BEFORE engineeringDraft updates. To replace an entire shape or properties object, clear that object and provide its replacement. Use exact existing IDs, never array indexes; do not clear identity or input evidence. Only clear fields the latest user explicitly withdrew or replaced. / 省略不等于删除；用户明确“不使用目录名”时必须输出对应 clearDraftFields，不能只在新补丁省略目录名。仅改厚度时保留其他尺寸和未变属性；更换截面来源时明确清除被替代的旧来源，不得删除用户未撤回的冲突证据。';
-  const sectionSources = 'Section source / 截面来源: name is a display label; a designation never selects catalog data. standard_steel_name is only a native PKPM/YJK selector: never copy name into it and never combine it with shape/properties. A designation with four dimensions (HN300×150×6.5×9 or H300x150x6.5x9 = H×B×tw×tf in mm) is explicit geometry: write shape {kind:"H",H,B,tw,tf} and keep the designation in name (sharp-corner idealization). A designation without plate thicknesses (HN300×150) stays in name only; emit one missing draftIssue for that record\'s shape (tw, tf) and never invent thicknesses or properties. / 名称只是标签，不查目录。standard_steel_name 仅为 PKPM/YJK 原生选择器，不复制名称，也不与 shape/properties 并存。四项尺寸型号（HN300×150×6.5×9 或 H300x150x6.5x9，即 H×B×tw×tf，mm）即明确几何：写 shape {kind:"H",H,B,tw,tf}，名称保留型号（无圆角理想化）。缺板厚的型号（HN300×150）只保留名称，并对该截面 shape 提出一项缺项（tw、tf），不得编造厚度或属性。';
+  const sectionSources = 'Section source / 截面来源: You may use common standard section and material table values; state the values and source for verification. For a designation such as I20a, emit engineeringDraft.sectionRecords with properties {A,Iy,Iz,J if known} in m²/m⁴ and shape in mm, extra.source="LLM: GB/T 706 table value, unverified", and templateAssignments.beam.sectionId referencing its stable ID. Do not leave templateProperties missing solely for a standard designation. Use material.grade for a standard material or materials records (E in MPa). name is a label, standard_steel_name is only a native PKPM/YJK selector. Explicit dimensions without supplied properties use shape only: deterministic code derives sharp-corner properties. Explicit user properties take precedence over geometry and table knowledge; retain both with their sources. / 可采用常用标准型钢及材料表数值，须写明取值和来源供用户核对；型号补全截面记录及模板引用，不因标准型号缺目录再追问。仅给尺寸时保留 shape，由系统按无圆角几何计算；用户显式属性优先，保留来源。';
   const seismicEvidence = '"seismicMemberEvidence": {"byElementId": {"<stable member ID>": {"seismicCapacity": {}, "capacityDesign": {}, "strongShearWeakBending": {}, "shearCompression": {}, "jointCore": {}, "wallData": {}, "boundaryElement": {}, "steelSeismicDetailing": {}}}}. Preserve supplied seismic evidence in this top-level field or skillState.seismicWorkflow.memberEvidence. / 抗震构件证据保留在此顶层字段或抗震工作流中，不把证据生成验算结论。';
   if (locale === 'zh') {
     return [
@@ -106,7 +106,7 @@ function engineeringDraftSchemaDescription(locale: 'zh' | 'en'): string {
       '  // 显式节点与连接表须保留 coordinateSystem 中用户指定的二维/三维及平面；二维 XZ 对应 dimension="2d", plane="xz"。不要仅根据坐标共面猜测分析维度。',
       '  // 显式拓扑的每项荷载写入 loadCases[].loads，包含 node/element 目标及有符号分量。只写工况 id/type 会丢失荷载；便捷 loads 仅供模板描述使用，不与 loadCases 重复存放同一力。',
       '  // 仅给几何时只保留 shape，完全省略 properties。矩形 B=宽、H=竖向高度，单位 mm；其他形状按其明确的 shape.kind 和尺寸保留。不计算或补写 A、Iy、Iz、J、截面模量等派生值，交由确定性几何程序计算。',
-      '  // 只有用户或附件明确给出的数值截面属性才写 properties，例如 {"id":string,"type":"custom","properties":{"A":number,"Iy":number}}；A 单位 m²、Iy/Iz/J 单位 m⁴，保留来源并正确换算单位。不要把几何描述替换成舍入后的 properties。',
+      '  // 用户、附件或注明来源的常用标准表给出的数值截面属性可以写 properties，例如 {"id":string,"type":"custom","properties":{"A":number,"Iy":number}}；A 单位 m²、Iy/Iz/J 单位 m⁴，保留来源并正确换算单位。不要把几何描述替换成舍入后的 properties。',
       '  // 保留已有已确认记录中的 shape、properties、ID 及来源；本轮只更正明确改变的字段。若用户同时给了几何和数值属性，两者均保留并交由物理校验，不能删掉显式 properties 隐藏冲突，也不能用派生值覆盖用户数值。',
       '  // 用户明确适用于整类构件的设计输入保存到 templateAssignments.beam/column/member.design；member 仅表示用户明确声明对所有构件统一适用。具体角色覆盖统一字段，补参按字段合并，不丢弃未改变值。模板/新建模型会确定性写入对应 elements[].design；不依赖后续 edit_model 重述。',
       '  // design 字段示例：{"l0":number,"beta1":number,"phi_b":number,"btLimit":number,"lambdaLimit":number,"deflectionLimitN":number,"serviceability_result_keys":["case:LC1"],"basis":object}。l0 是明确给定的计算长度，单位 mm，禁止用网格单元长度代替；其余示例系数无量纲，挠度限值为 L/n 的 n。不输出 l0mm/memberDesignL0Mm 等别名，也不把这些值放进任意 designParameters。',
@@ -138,7 +138,7 @@ function engineeringDraftSchemaDescription(locale: 'zh' | 'en'): string {
       '  // Explicit node/connectivity records retain the user-declared analysis dimension and plane in coordinateSystem: 2D XZ means dimension="2d", plane="xz". Coplanar coordinates alone do not establish the analysis dimension.',
       '  // For explicit topology, put every actual load inside loadCases[].loads with node/element target and signed components. A case id/type alone loses the load. Convenience loads describe templates; do not duplicate the same force in both locations.',
       '  // For geometry-only input, retain shape and OMIT properties completely. For rectangles B is width and H is vertical depth, in mm; preserve the explicit shape.kind and dimensions of other shapes. Do not calculate or add A, Iy, Iz, J or section moduli; deterministic geometry code derives them.',
-      '  // Write properties only for numerical section properties explicitly supplied by the user or attachments, e.g. {"id":string,"type":"custom","properties":{"A":number,"Iy":number}}. A is in m² and Iy/Iz/J in m⁴; preserve their source and convert units correctly. Never replace geometry with rounded properties.',
+      '  // Write properties for numerical section properties supplied by the user, attachments or identified common standard tables, e.g. {"id":string,"type":"custom","properties":{"A":number,"Iy":number}}. A is in m² and Iy/Iz/J in m⁴; preserve their source and convert units correctly. Never replace geometry with rounded properties.',
       '  // Preserve shape, properties, IDs and sources in existing confirmed records; amend only fields explicitly changed this turn. When geometry and numerical properties are both supplied, retain both for physics validation. Never delete explicit properties to hide a conflict or overwrite user values with derived ones.',
       '  // Store explicitly role-wide member design inputs in templateAssignments.beam/column/member.design. member means an explicitly declared uniform assignment to all members. A specific role amends uniform fields; clarification patches preserve unchanged values. Templates and new models deterministically project these inputs to elements[].design without a later edit_model restatement.',
       '  // Supported design input examples: {"l0":number,"beta1":number,"phi_b":number,"btLimit":number,"lambdaLimit":number,"deflectionLimitN":number,"serviceability_result_keys":["case:LC1"],"basis":object}. l0 is a declared effective length in mm, never the mesh element length; the other example coefficients are dimensionless and deflectionLimitN is n in L/n. Do not emit aliases l0mm/memberDesignL0Mm or place these values in arbitrary designParameters.',
@@ -169,8 +169,9 @@ export function buildParamExtractorPrompt(
   plugin: AgentSkillPlugin,
   message: string,
   focusFields: string[] = [],
+  patchMode = Boolean(existingState?.engineeringDraft),
 ): string {
-  if (focusFields.length > 0) {
+  if (patchMode || focusFields.length > 0) {
     return buildFocusedParamExtractorPrompt(locale, existingState, plugin, message, focusFields);
   }
 
@@ -272,69 +273,19 @@ function buildFocusedParamExtractorPrompt(
   message: string,
   focusFields: string[],
 ): string {
-  const stateJson = JSON.stringify(cleanPromptState(existingState) ?? {}, null, 2);
-  const skillInfoJson = JSON.stringify(buildSkillInfo(plugin), null, 2);
-  const draftStageGuidance = getDraftStageGuidance(plugin);
-  const focusJson = JSON.stringify(focusFields);
-
-  if (locale === 'zh') {
-    return [
-      '你是结构工程参数提取专家，正在处理多轮澄清回答。',
-      '',
-      '目标：只从用户最新回答中补齐或更正指定缺失字段；不要重新生成整套模型，也不要只重复已有参数。',
-      '',
-      '当前结构技能：',
-      skillInfoJson,
-      '',
-      '当前 draft 阶段重点说明：',
-      draftStageGuidance,
-      '',
-      `本轮重点字段：${focusJson}`,
-      '',
-      '输出一个 JSON 对象。优先输出 engineeringDraft；为了兼容旧链路，也可以同时输出 draftPatch。',
-      engineeringDraftSchemaDescription(locale),
-      '',
-      '规则：',
-      '- 已有 draftState 由系统保留；本轮 JSON 只输出用户最新回答明确补充或更正的重点字段',
-      '- 如果用户最新回答明确提供了本轮重点字段，必须输出该字段对应的 engineeringDraft/draftPatch',
-      '- 不要把旧的缺参诊断或无效诊断重复输出为本轮结果',
-      '- 不确定时省略字段，不要猜测',
-      '- 若本轮荷载数值仍没有单位，或仍无法区分总力、线荷载或面荷载，不得自行补写；输出 draftIssues，并继续要求确认单位和荷载种类',
-      '- 不要 markdown 包装或解释',
-      '',
-      `已有 draftState:\n${stateJson}`,
-      '',
-      `用户最新回答:\n${message}`,
-    ].join('\n');
-  }
-
+  const state = existingState?.engineeringDraft
+    ? { inferredType: existingState.inferredType, requestScope: existingState.requestScope,
+      engineeringDraft: cleanPromptState(existingState.engineeringDraft) }
+    : cleanPromptState(existingState);
   return [
-    'You are a structural engineering parameter extraction specialist handling a multi-turn clarification answer.',
-    '',
-    'Goal: fill or correct only the specified missing fields from the latest user answer; do not regenerate the whole model and do not merely repeat existing parameters.',
-    '',
-    'Current structural skill:',
-    skillInfoJson,
-    '',
-    'Current draft-stage guidance:',
-    draftStageGuidance,
-    '',
-    `Focus fields for this turn: ${focusJson}`,
-    '',
-    'Output a JSON object. Prefer engineeringDraft; you may also include draftPatch for legacy compatibility.',
-    engineeringDraftSchemaDescription(locale),
-    '',
-    'Rules:',
-    '- Existing draftState values are preserved by the system; output only focus fields explicitly supplied or corrected by the latest user answer',
-    '- If the latest user answer clearly provides a focus field, you MUST output the corresponding engineeringDraft/draftPatch field',
-    '- Do not repeat old missing/invalid diagnostics as the result for this turn',
-    '- Omit fields you are unsure about; do not guess',
-    '- If the latest load magnitude still has no unit, or still does not distinguish total force, line load, or area load, do not supply one; output draftIssues and continue asking for the unit and load kind',
-    '- No markdown fences, no explanations',
-    '',
-    `Existing draftState:\n${stateJson}`,
-    '',
-    `Latest user answer:\n${message}`,
+    locale === 'zh' ? '你是结构工程参数提取专家，正在处理多轮澄清回答。' : 'You are a structural engineering parameter extraction specialist handling a multi-turn clarification answer.',
+    'PATCH ONLY / 仅输出补丁: Return one JSON object containing only newly supplied or corrected fields in engineeringDraft; keep requestScope unchanged unless the user changes the goal. No markdown, examples, reasoning or unchanged records. The system merges nested objects and arrays by stable ID. Preserve exact existing IDs and unrelated fields; do not repeat old draftIssues. / 系统按稳定ID合并，保留未变字段，不重复旧缺项。',
+    'Fields: engineeringDraft={material:{grade},materials:[{id,name,E,nu,rho,extra}],sectionRecords:[{id,name,type,shape,properties,extra}],templateAssignments:{beam|column|member:{materialId,sectionId,design}},geometry:{lengthM,spanLengthM,heightM},boundary:{supportType},loads:[{id,kind,magnitude,unit,direction,target,location:{xM},caseId,caseType}],analysisControl:{self_weight},analysis:{loadCombinations:[]}}. draftPatch may contain existing skill fields. Units: geometry m; loads kN,kN/m,kN/m2; E MPa; shape mm; A m²; Iy/Iz/J m⁴. shape.kind: I,H,rectangular,circular,pipe,box; dimensions: H,B,tw,tf,d,T. Rectangular B=width,H=depth. supports: simply-supported,cantilever,fixed-fixed. Load kinds: point,line,area; downward=gravity.',
+    'Common standard section/material table values are allowed. A designation without dimensions may use properties {A,Iy,Iz,J if known} plus shape and extra.source="LLM: GB/T 706 table value, unverified". Supply sectionRecords and templateAssignments references, never leave templateProperties missing only for a standard designation. If dimensions alone are supplied, emit shape only (sharp corners); user-supplied properties win. State sources for verification. / 可用标准表，标注未核对的来源；仅给尺寸时不加估算属性。',
+    'To withdraw/replace an existing field emit clearDraftFields using stable IDs, e.g. sectionRecords["S1"].standard_steel_name. Omission is not deletion; clear only explicitly withdrawn/replaced fields. Explicit user values win; resolve consistency/precision/format yourself. Unknown essential inputs use draftIssues=[{field,severity:"missing"|"ambiguous",reason}]. Do not invent loads, units, design conditions or topology. / 不编造荷载、单位、设计条件或拓扑。',
+    `Skill: ${plugin.id}; focus fields / 本轮重点字段：${JSON.stringify(focusFields)}`,
+    `Existing draftState / 已有 draftState:\n${JSON.stringify(state ?? {}, null, 2)}`,
+    `Latest user answer / 用户最新回答:\n${message}`,
   ].join('\n');
 }
 
@@ -437,6 +388,7 @@ interface ParamExtractorInput {
   locale: 'zh' | 'en';
   plugin: AgentSkillPlugin;
   focusFields?: string[];
+  patchMode?: boolean;
   /** Read-only projection of the actual V2 design schema, supplied by the tool. */
   designSchema?: Record<string, unknown>;
   sectionShapeSchema?: Record<string, unknown>;
@@ -479,15 +431,17 @@ export async function invokeParamExtractor(
   }
 
   const start = Date.now();
+  const patchMode = input.patchMode ?? Boolean(input.existingState?.engineeringDraft);
   const prompt = buildParamExtractorPrompt(
     input.locale,
     input.existingState,
     input.plugin,
     input.message,
     input.focusFields,
+    patchMode,
   ) + '\nDesign field contract / 设计字段协议: design.basis is a map of nonempty strings, never booleans, numbers, arrays or nested objects. Descriptive assumptions belong in basis as evidence, not invented executable design fields. Preserve unsupported computational requests in metadata.unmappedDesignParameters and report them as unresolved; do not claim basis implements them. / design.basis的每个值必须是非空字符串；描述性假定作为依据保存，不要编造可执行设计字段。未知计算条件保留为metadata.unmappedDesignParameters待解决，不得声称写入basis就已实现。'
-    + (input.designSchema ? `\nAuthoritative V2 design schema / 正式V2设计字段定义（只能使用所列字段）:\n${JSON.stringify(input.designSchema)}` : '')
-    + (input.sectionShapeSchema ? `\nAuthoritative V2 section shape schema / 正式V2截面几何字段定义（单位mm，kind使用所列大小写，不能猜测尺寸或圆角）:\n${JSON.stringify(input.sectionShapeSchema)}` : '')
+    + (input.designSchema && !patchMode ? `\nAuthoritative V2 design schema / 正式V2设计字段定义（只能使用所列字段）:\n${JSON.stringify(input.designSchema)}` : '')
+    + (input.sectionShapeSchema && !patchMode ? `\nAuthoritative V2 section shape schema / 正式V2截面几何字段定义（单位mm，kind使用所列大小写，不能猜测尺寸或圆角）:\n${JSON.stringify(input.sectionShapeSchema)}` : '')
     + '\nRequest goal / 本次所求结果: include top-level requestScope only when this message changes the goal: {responses:[forces|reactions|displacements|rotations|stress|dynamic],design:boolean,report:boolean,outputs:[]}. design=true only for an explicit code-check request (验算/校核/按规范/code check); "design a beam" is not one. report=true only for a requested report, calculation book or other deliverable document; "design a beam" and specific results leave it false. Do not infer design from enabled skills. Missing material must not prevent this scope. Retain the prior goal for a clarification answer. / 仅明确要求规范验算时design=true，“设计”一词不算；仅要求报告、计算书或其他交付文件时report=true，“设计”和只求具体结果时为false；不因勾选技能而请求设计；缺少材料不妨碍声明范围；补参数时保留目标。';
 
   let result: {
@@ -514,6 +468,7 @@ export async function invokeParamExtractor(
       );
   }
 
+  recordRunEvent({ kind: 'param_extractor', mode: patchMode ? 'patch' : 'full', promptChars: prompt.length, durationMs: Date.now() - start });
   const usage = extractLlmTokenUsage(result);
   if (usage) input.onUsage?.(usage);
   const content = llmContentText(result.content);

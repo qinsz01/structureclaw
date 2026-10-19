@@ -81,7 +81,7 @@ const PROMPT_LINES = {
       clarificationOff: "2. **错误恢复**: 如果工具返回错误或 \"unknown\"，不要放弃。继续尝试其他工具，或在最终回复中列出缺失的输入"
     },
     rule5: {
-      full: "5. **主动提问**: 当关键参数缺失时，使用 ask_user_clarification 工具询问用户",
+      full: "5. **主动提问**: 只在结果真正依赖、且无法合理确定的输入上提问；一次把需要的问题问全；一致性、精度、格式问题自行处理并说明",
       clarificationOff: "5. **缺失输入**: 当关键参数缺失时，在最终回复中列出缺失的输入并结束本轮；不得编造数值"
     },
     step2: {
@@ -108,7 +108,7 @@ const PROMPT_LINES = {
       clarificationOff: "2. **Error recovery**: If a tool returns an error or \"unknown\", do NOT give up. Try other tools, or list the missing inputs in your final reply"
     },
     rule5: {
-      full: "5. **Ask when unclear**: Use the ask_user_clarification tool when critical parameters are missing",
+      full: "5. **Ask when unclear**: Ask only for inputs the result truly depends on and that cannot reasonably be determined; ask everything needed at once; resolve consistency, precision and format issues yourself and state what you did",
       clarificationOff: "5. **Missing inputs**: When critical parameters are missing, list the missing inputs in your final reply and end the turn; never invent values"
     },
     step2: {
@@ -188,8 +188,8 @@ export function buildSystemMessages(ctx: SystemPromptContext): BaseMessageLike[]
     ? `\n\n本次调用实际可用工具=${JSON.stringify(activeToolIds)}。此列表是当前配置；历史消息关于工具开启或关闭的描述仅适用于当时，不能覆盖本轮配置。列表为空时说明当前没有可用工具；有工具时按用户最新请求使用，不能声称仍被旧配置关闭。工具可用不代表已经执行或成功。`
     : `\n\nTools available for this invocation=${JSON.stringify(activeToolIds)}. This is the current configuration. Historical statements about enabled or disabled tools applied at that time and do not override this turn. An empty list means no tools are currently available; otherwise use the available tools for the latest user request rather than claiming an old setting still disables them. Availability does not mean execution or success.`);
   const policyText = runtimePolicy ? (isZh
-    ? `\n\n运行约束：知识文本=${runtimePolicy.knowledge}；建模器=${runtimePolicy.builder}；自动纠错=${runtimePolicy.repair.enabled}，全轮最多 ${runtimePolicy.repair.maxRecoveriesPerTurn} 次，内部重试同样计数。纠错关闭或预算耗尽后，如实说明错误并请求用户补充，禁止换工具绕过。持久记忆范围=${runtimePolicy.context.memoryScopes.join(',') || '禁用'}。上述限制优先于一般工作流程建议。`
-    : `\n\nRun constraints: guidance=${runtimePolicy.knowledge}; builder=${runtimePolicy.builder}; recovery=${runtimePolicy.repair.enabled}, maximum ${runtimePolicy.repair.maxRecoveriesPerTurn} extra recoveries per turn including internal retries. When recovery is disabled or exhausted, report the error and ask for user input; do not bypass the limit using another tool. Persistent memory scopes=${runtimePolicy.context.memoryScopes.join(',') || 'disabled'}. These constraints override general workflow suggestions.`) : '';
+    ? `\n\n运行约束：知识文本=${runtimePolicy.knowledge}；建模器=${runtimePolicy.builder}；自动纠错=${runtimePolicy.repair.enabled}，最多 ${runtimePolicy.repair.maxRecoveriesPerTurn} 次系统内部回退；有明确修复反馈的工具拒绝不计数。用户回答后重置。内部回退不可用时说明受阻事项及所需输入，不暴露预算，禁止换工具绕过纠错关闭。持久记忆范围=${runtimePolicy.context.memoryScopes.join(',') || '禁用'}。上述限制优先于一般工作流程建议。`
+    : `\n\nRun constraints: guidance=${runtimePolicy.knowledge}; builder=${runtimePolicy.builder}; recovery=${runtimePolicy.repair.enabled}, maximum ${runtimePolicy.repair.maxRecoveriesPerTurn} system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=${runtimePolicy.context.memoryScopes.join(',') || 'disabled'}. These constraints override general workflow suggestions.`) : '';
   const checkProtocol = isZh
     ? '\n\n校核（用户要求校核时）：OpenSees 使用 run_code_check provider=auto/builtin；native 设计需要 PKPM/YJK 分析，不代表付费版本。规范可确定的数值（强度设计值、截面特性、条文系数）由校核工具确定并给出来源，不向用户索要。校核未完成时，交付已完成的校核，列出未执行项及工具返回的缺项，然后结束本轮。结论只依据已保存的校核状态：分析或报告成功不等于合格，不用手算补出合格结论；模型改动后先重新分析再校核。结果查询或报告仍未完成时，说明尚缺的结果，不宣称全部完成。'
     : '\n\nChecking (when the user asks for a check): OpenSees uses run_code_check provider=auto/builtin; native design needs a PKPM/YJK analysis, not a paid edition. The check tool determines code-determined values (design strengths, section properties, clause factors) and reports their sources; never ask the user for them. If the check is incomplete, deliver the performed checks, list the checks not performed with the missing inputs the tool returns, and end the turn. Conclusions follow the saved check status only: a successful analysis or report is not compliance, and a missing check is never replaced by hand calculation; after model changes, reanalyze before checking. If a result query or the report is still incomplete, name the outstanding results and do not claim the task is complete.';
@@ -205,7 +205,10 @@ export function buildSystemMessages(ctx: SystemPromptContext): BaseMessageLike[]
   const designInputs = isZh
     ? '\n设计输入：不要提议、追问或自行写入用户未给出的工程判断值（侧向支承、计算长度、挠度限值类别等）；规范可确定的数值由校核工具确定。用户给出设计数值时，已有模型用query_model/edit_model写入；用户重复已有属性时说明已满足，不重新提取草稿。'
     : '\nDesign inputs: never propose, ask for or write engineering-judgment values the user did not give (lateral bracing, effective length, deflection-limit category); code-determined values come from the check tool. Write values the user supplies to an existing model with query_model/edit_model; if the user repeats properties already present, acknowledge them without re-extracting the draft.';
-  return [new SystemMessage(systemContent + policyText + toolAvailability + checkProtocol + editProtocol + scopeProtocol + nextActionProtocol + designInputs)];
+  const engineeringPrinciples = isZh
+    ? '\n可采用常用标准型钢/材料表数值，须在回答中写明取值和来源，供用户核对。用户显式数值优先，几何差异保留为说明。不要向用户提及预算、纠错次数或要求“另发消息”；只说明受阻事项和能解除阻碍的具体输入。'
+    : '\nYou may use common standard section and material table values; state the values and their source in the answer for the user to verify. Explicit user values take precedence; describe geometric differences. Never tell the user about budgets or recovery counts or ask them to send a new message; explain what is blocked and the specific input that would unblock it.';
+  return [new SystemMessage(systemContent + engineeringPrinciples + policyText + toolAvailability + checkProtocol + editProtocol + scopeProtocol + nextActionProtocol + designInputs)];
 }
 
 // ---------------------------------------------------------------------------
