@@ -262,7 +262,10 @@ export async function persistConversationWithState(params: {
           records.push({
             conversationId,
             role: 'assistant',
-            content: typeof content === 'string' ? content : JSON.stringify(content),
+            // The SSE clarification summary includes its tool-call narration.
+            // Keep the call chain, but store that user-visible text only once.
+            content: typeof content === 'string' && content.trim() && assistantContent.includes(content.trim())
+              ? '' : typeof content === 'string' ? content : JSON.stringify(content),
             toolCalls: toolCalls.map((tc: any) => ({
               id: tc.id ?? '',
               name: tc.name ?? '',
