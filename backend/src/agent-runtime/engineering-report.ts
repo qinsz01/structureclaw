@@ -10,6 +10,7 @@ import path from 'node:path';
 import { runPkpmCalcbook } from '../agent-skills/report-export/calculation-book/pkpm-calcbook/runner.js';
 import { resultEngine } from '../engineering/result-data.js';
 import { sectionAssumptions } from '../engineering/section-assumptions.js';
+import { withGlobalMemberLocation } from '../engineering/result-locations.js';
 
 interface EngineeringReportInput {
   message: string;
@@ -88,10 +89,12 @@ export function finishEngineeringReport(prepared: ReturnType<typeof prepareEngin
     ? `\n\n计算来源：运行 ${String(analysis.runId)}；结果 ${String(analysis.selectedResultKey ?? 'default')}。\n`
     : `\n\nCalculation source: run ${String(analysis.runId)}; result ${String(analysis.selectedResultKey ?? 'default')}.\n`;
   if (isRecord(analysis.requestedSelection)) {
-    const selection = analysis.requestedSelection;
+    const selection = withGlobalMemberLocation(isRecord(input.normalizedModel) ? input.normalizedModel : undefined, analysis.requestedSelection);
+    json.requestedSelection = selection;
     const tags = [selection.nodeId ? `${input.locale === 'zh' ? '节点' : 'Node'} ${String(selection.nodeId)}` : undefined,
       selection.elementId ? `${input.locale === 'zh' ? '构件' : 'Member'} ${String(selection.elementId)}` : undefined,
-      selection.positionM !== undefined ? `x = ${String(selection.positionM)} m (${String(selection.side ?? 'right')})` : undefined,
+      selection.positionM !== undefined ? `${input.locale === 'zh' ? '距构件首节点' : 'Member position'} = ${String(selection.positionM)} m (${String(selection.side ?? 'right')})` : undefined,
+      selection.global ? `${input.locale === 'zh' ? '全局坐标（模型单位）' : 'Global (model units)'} ${JSON.stringify(selection.global)}` : undefined,
       selection.end, selection.component, selection.unit,
       selection.modeNumber !== undefined ? `${input.locale === 'zh' ? '模态' : 'Mode'} ${String(selection.modeNumber)}` : undefined,
       selection.timeIndex !== undefined ? `${input.locale === 'zh' ? '时间索引' : 'Time index'} ${String(selection.timeIndex)}` : undefined,

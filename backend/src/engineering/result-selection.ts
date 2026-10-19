@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { isRecord } from './model-state.js';
-import { placeholderResponseDefinition, stiffnessPlaceholderOf } from './stiffness-placeholder.js';
+import { placeholderResponseDefinition, stiffnessPlaceholderOf, withoutPlaceholderDisplacements } from './stiffness-placeholder.js';
+import { withGlobalMemberLocation, withGlobalResultLocations } from './result-locations.js';
 
 /** Shared location/index contract. A selection describes a saved result; it never mutates it. */
 export const resultSelectionSchema = z.object({
@@ -32,7 +33,7 @@ export function resolveNodalResultSelection<T extends ResultSelection>(selection
 }
 
 /** Explain the public result locations without relabeling internal solver nodes. */
-export function solverMeshQueryGuidance(data: Record<string, unknown>) {
+export function solverMeshQueryGuidance(data: Record<string, unknown>, model?: Record<string, unknown>) {
   const mesh = isRecord(data.solverMesh) ? data.solverMesh : undefined;
   if (!mesh) return undefined;
   const segments = Array.isArray(mesh.elements) ? mesh.elements.filter(isRecord) : [];
@@ -47,7 +48,7 @@ export function solverMeshQueryGuidance(data: Record<string, unknown>) {
       const positions = typeof nodeId === 'string' ? positionsByNode.get(nodeId) : undefined;
       const positionM = segment[key];
       if (!positions || typeof positionM !== 'number' || !Number.isFinite(positionM) || positionM < 0) continue;
-      const selection = { elementId: segment.physicalElementId, positionM, side };
+      const selection = withGlobalMemberLocation(model, { elementId: segment.physicalElementId, positionM, side });
       positions.set(JSON.stringify(selection), selection);
     }
   }
@@ -74,7 +75,8 @@ export function selectedSavedResult(run: Record<string, unknown>, key?: string) 
 
 export function resultCatalogEntry(run: Record<string, unknown>, current: boolean) {
   const results = isRecord(run.results) ? Object.entries(run.results) : [[String(run.selectedResultKey ?? 'default'), run]] as const;
-  const forceOnly = stiffnessPlaceholderOf(run) !== undefined;
+  const placeholder = stiffnessPlaceholderOf(run);
+  const forceOnly = placeholder !== undefined;
   const model = isRecord(run.modelSnapshot) ? run.modelSnapshot : {};
   const meta = isRecord(run.meta) ? run.meta : {};
   const data = isRecord(run.data) ? run.data : {};
@@ -87,10 +89,12 @@ export function resultCatalogEntry(run: Record<string, unknown>, current: boolea
     members: Array.isArray(model.elements) ? model.elements.filter(isRecord).map(element => String(element.id)) : [],
     results: results.map(([key, value]) => {
       const selected = isRecord(value) ? value : {};
-      const data = isRecord(selected.data) ? selected.data : selected;
+      const data = withGlobalResultLocations(model, withoutPlaceholderDisplacements(isRecord(selected.data) ? selected.data : selected, placeholder));
       const modes = Array.isArray(data.modes) ? data.modes : isRecord(data.modal) && Array.isArray(data.modal.modes) ? data.modal.modes : [];
       const history = Array.isArray(data.timeHistory) ? data.timeHistory : [];
       return { key, selection: selected.selection, available: selected.success !== false && selected.executionStatus !== 'failed',
+        controlLocations: isRecord(data.envelope) ? data.envelope.controlLocations : undefined,
+        memberResponseExtrema: data.memberResponseExtrema,
         modes: modes.filter(isRecord).map(mode => ({ modeNumber: mode.modeNumber, period: mode.period, frequency: mode.frequency })),
         times: history.map((row, index) => ({ index, time: isRecord(row) ? row.time : null })),
         responseDefinition: forceOnly ? placeholderResponseDefinition(data.responseDefinition) : data.responseDefinition };

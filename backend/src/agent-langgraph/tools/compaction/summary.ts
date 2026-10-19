@@ -1,5 +1,6 @@
 import { compactText, compactFinalCompliance, compactCapabilityAssessment, compactSpecialSystemReview, compactFloorLoadTransferSummary, compactAnalysisModelContext } from './context.js';
 import { optionalRecord, countRecordEntries, firstDefined, pickNumberLike, pickStringLike, omitEmptyRecord } from '../shared.js';
+import { withGlobalResultLocations } from '../../../engineering/result-locations.js';
 
 export function pickAnalysisDiagnostics(
   result: Record<string, unknown>,
@@ -40,6 +41,7 @@ export function buildSuccessfulAnalysisDetails(
   result: Record<string, unknown>,
   model?: Record<string, unknown>,
 ) {
+  data = withGlobalResultLocations(model, data);
   const summary = optionalRecord(data.summary);
   const envelope = optionalRecord(data.envelope);
   const responseSpectrumFinalCompliance = optionalRecord(data.responseSpectrumFinalCompliance);

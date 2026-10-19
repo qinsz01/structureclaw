@@ -9,6 +9,7 @@ import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 import { assertModelEditReadback, editCollectionSchema, engineeringModelSchema, modelEditGuidance, modelFieldEdit, normalizeModelEdits } from '../engineering/model-edit-contract.js';
 import { queryPhysicalResponse, scalarResultQuantity } from '../engineering/result-data.js';
 import { resolveNodalResultSelection, resultSelectionSchema, solverMeshQueryGuidance } from '../engineering/result-selection.js';
+import { memberGlobalPoint, withGlobalMemberLocation, withGlobalResultLocations } from '../engineering/result-locations.js';
 import { loadAnalysisRun } from '../engineering/analysis-runs.js';
 import { isDisplacementSelection, PLACEHOLDER_DISPLACEMENT_ERROR, settlePlaceholderStiffness, stiffnessPlaceholderOf, withoutDisplacementComponents, withoutPlaceholderDisplacements } from '../engineering/stiffness-placeholder.js';
 import { randomUUID } from 'node:crypto';
@@ -188,6 +189,7 @@ export function createQueryResultsTool() {
     if (!run) throw new Error('RUN_NOT_FOUND');
     if (requestedInput.nodeId && requestedInput.elementId) throw new Error('RESULT_LOCATION_AMBIGUOUS');
     const input = resolveNodalResultSelection(requestedInput);
+    const modelSnapshot = isRecord(run.modelSnapshot) ? run.modelSnapshot : !input.runId && !currentAnalysisError(state) ? state.model ?? undefined : undefined;
     // Placeholder stiffness yields forces only; its displacements are never presented.
     const placeholder = stiffnessPlaceholderOf(run);
     if (placeholder && (isDisplacementSelection(input.field, input.component) || input.referenceNodeId !== undefined)) throw new Error(PLACEHOLDER_DISPLACEMENT_ERROR);
@@ -207,7 +209,7 @@ export function createQueryResultsTool() {
       const selected = typeof resultKey === 'string' && isRecord(run.results) ? run.results[resultKey] : run;
       if (!isRecord(selected)) throw new Error('RESULT_NOT_FOUND');
       if (selected.success === false || selected.executionStatus === 'failed') throw new Error('RESULT_UNAVAILABLE');
-      const data = isRecord(selected.data) ? selected.data : selected;
+      const data = withGlobalResultLocations(modelSnapshot, isRecord(selected.data) ? selected.data : selected);
       if (input.referenceNodeId !== undefined && (!input.nodeId || input.elementId || input.field !== 'displacements'
         || !input.component || !['ux', 'uy', 'uz', 'rx', 'ry', 'rz'].includes(input.component)
         || input.modeNumber !== undefined || timeIndex !== undefined)) {
@@ -260,8 +262,9 @@ export function createQueryResultsTool() {
         if (timeIndex !== undefined) {
           if (input.field !== 'forces' || !input.end || input.positionM !== undefined || input.side !== undefined) throw new Error('DYNAMIC_MEMBER_END_REQUIRED');
           const member = isRecord(values) ? values[input.elementId] : undefined;
-          if (!isRecord(member) || member.referenceFrame !== 'element-local' || !isRecord(member[input.end])) throw new Error('DYNAMIC_MEMBER_RESULT_UNAVAILABLE');
-          values = member[input.end];
+          const end = isRecord(member) ? member[input.end] : undefined;
+          if (!isRecord(member) || member.referenceFrame !== 'element-local' || !isRecord(end)) throw new Error('DYNAMIC_MEMBER_RESULT_UNAVAILABLE');
+          values = { ...end, global: memberGlobalPoint(modelSnapshot, input.elementId, input.end) };
         } else {
         if (input.positionM === undefined) throw new Error('MEMBER_POSITION_REQUIRED: static elementId queries require positionM in metres from the physical member first node. Use 0 for the first end or the member length with side="left" for the final end; omit elementId to inspect the whole field. Do not edit or split the model just to query a position. / 静力构件查询须给距首节点的positionM（米）；首端0，末端为构件长度并用side="left"。查看整个字段可省略elementId，不需要为查询位置修改或拆分模型。');
         const model = isRecord(run.modelSnapshot) ? run.modelSnapshot : !input.runId && !currentAnalysisError(state) ? state.model : undefined;
@@ -292,7 +295,7 @@ export function createQueryResultsTool() {
           component: input.component, unit: input.unit, location, timeIndex, modeNumber: input.modeNumber,
           ...(input.compareResultKeys ? { compareResultKeys: input.compareResultKeys, comparison: input.comparison ?? 'absolute-max' } : {}) })}`;
         quantity = { id: quantityId, runId: run.runId, selection: resultKey, field: input.field, component: input.component, unit: input.unit,
-          value: difference ? difference.value : value, location, source: selected.meta,
+          value: difference ? difference.value : value, location: withGlobalMemberLocation(modelSnapshot, location), source: selected.meta,
           responseSource: input.elementId && isRecord(values) ? { method: values.method, provenance: values.provenance, source: values.source }
             : { normalization: modalNormalization, responseDefinition: data.responseDefinition, source: data.source,
               objectSource: isRecord(data.objectSources) && input.nodeId ? data.objectSources[input.nodeId] : undefined },
@@ -325,7 +328,7 @@ export function createQueryResultsTool() {
       }
       return JSON.stringify({ runId: run.runId, resultKey: key, ...(fieldResolution ? { fieldResolution } : {}), series: { points, startIndex: start, endIndex: end, stride,
         sampled: stride > 1, interpolation: 'none', component: input.component, unit: input.unit, field: input.field,
-        location: { nodeId: input.nodeId, elementId: input.elementId, end: input.end }, responseDefinition: isRecord(data) ? data.responseDefinition : undefined } });
+        location: withGlobalMemberLocation(modelSnapshot, { nodeId: input.nodeId, elementId: input.elementId, end: input.end }), responseDefinition: isRecord(data) ? data.responseDefinition : undefined } });
     }
     const candidates = (input.compareResultKeys ?? [input.resultKey ?? run.selectedResultKey]).map(key => querySelection(key));
     let chosen = candidates[0]!;
@@ -350,16 +353,15 @@ export function createQueryResultsTool() {
           : Array.isArray(chosen.values) ? chosen.values.map(member => isRecord(member) && Array.isArray(member.samples)
             ? { ...member, samples: member.samples.map(sample => withoutDisplacementComponents(sample)) } : member) : chosen.values;
     const viewData = placeholder && isRecord(chosen.viewData) ? withoutPlaceholderDisplacements(chosen.viewData, placeholder) : chosen.viewData;
-    const modelSnapshot = isRecord(run.modelSnapshot) ? run.modelSnapshot : !input.runId && !currentAnalysisError(state) ? state.model : undefined;
     if (input.includeModelSnapshot && !modelSnapshot) throw new Error('RESULT_MODEL_SNAPSHOT_REQUIRED');
     const response = { runId: run.runId, historical: Boolean(input.runId), current: !input.runId && !currentAnalysisError(state),
       ...(input.includeModelSnapshot ? { modelSnapshot, visualizationData: viewData, analysisType: run.analysis_type ?? run.analysisType } : {}),
       resultKey, meta, resultSelection, resultKeys: isRecord(run.results) ? Object.keys(run.results) : [],
       ...(fieldResolution ? { fieldResolution } : {}),
-      ...(input.field === 'solverMesh' && isRecord(viewData) ? { queryGuidance: solverMeshQueryGuidance(viewData) } : {}),
+      ...(input.field === 'solverMesh' && isRecord(viewData) ? { queryGuidance: solverMeshQueryGuidance(viewData, modelSnapshot) } : {}),
       values, ...(quantity ? { quantity } : {}) };
     return quantity ? result(id, 'query_results', response, { resultQuantities: { [`${String(run.runId)}:${String(quantity.id)}`]: quantity } }) : JSON.stringify(response);
-  }, { name: 'query_results', description: 'Read authoritative signed results for a case/combination or historical run. Use exactly one location: nodeId for nodal responses OR elementId with positionM/end for member responses; omit the other location ID. For a report scalar, supply component, unit and a node or physical member position; the returned quantity is saved with its provenance and an automatic ID. An omitted nodal field is resolved only from unambiguous component/unit pairs: displacement or rotation to displacements, force or moment to reactions; velocities/accelerations need an explicit field. The receipt states any field resolution. Interior displacement and force queries use physical elementId + positionM, never solverMesh internal node IDs, and do not require model edits or remeshing. / 查询指定工况、组合或历史运行的有符号结果。位置二选一：节点响应用nodeId，构件响应用elementId及positionM/end；另一个位置ID必须省略。报告标量需给分量、单位及节点或物理构件位置；返回数值自动编号并保存来源。节点省略字段时仅根据明确的分量及单位选择位移/转角displacements或力/力矩reactions，并在回执说明；速度/加速度须明确字段。跨内位移和内力用物理elementId + positionM，不要使用solverMesh内部节点ID，也不需要修改或细分模型。',
+  }, { name: 'query_results', description: 'Read authoritative signed results for a case/combination or historical run. Use exactly one location: nodeId for nodal responses OR elementId with positionM/end for member responses; omit the other location ID. For a report scalar, supply component, unit and a node or physical member position; the returned quantity is saved with its provenance and an automatic ID. An omitted nodal field is resolved only from unambiguous component/unit pairs: displacement or rotation to displacements, force or moment to reactions; velocities/accelerations need an explicit field. The receipt states any field resolution. Interior displacement and force queries use physical elementId + positionM, never solverMesh internal node IDs, and do not require model edits or remeshing. positionM is measured from the element\'s first node; use global when describing locations to the user. / 查询指定工况、组合或历史运行的有符号结果。位置二选一：节点响应用nodeId，构件响应用elementId及positionM/end；另一个位置ID必须省略。报告标量需给分量、单位及节点或物理构件位置；返回数值自动编号并保存来源。节点省略字段时仅根据明确的分量及单位选择位移/转角displacements或力/力矩reactions，并在回执说明；速度/加速度须明确字段。跨内位移和内力用物理elementId + positionM，不要使用solverMesh内部节点ID，也不需要修改或细分模型。positionM 从构件首节点量取；向用户描述位置时使用 global 全局坐标。',
     schema: resultSelectionSchema.extend({
       includeModelSnapshot: z.boolean().optional().describe('Return the run-bound model and selected direct display data for a viewer. / 返回该运行模型及选定结果的显示数据。'),
       series: z.object({ startIndex: z.number().int().nonnegative().optional(), endIndex: z.number().int().nonnegative().optional(), stride: z.number().int().positive().optional() }).optional().describe('Recorded time series, at most 10000 explicit samples; no interpolation. Exclusive with timeIndex/modeNumber. / 实际记录时程，最多10000点，不插值。'),

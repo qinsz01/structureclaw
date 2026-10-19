@@ -4,6 +4,7 @@ import { contentHash, isRecord, type ModelRecord } from './model-state.js';
 import { nativeForceRecovery } from './native-force-recovery.js';
 import { nativeRigidMember } from './native-rigid-offsets.js';
 import { withRecoveredStaticEnvelope } from './response-envelope.js';
+import { memberGlobalPoint, withGlobalResultLocations } from './result-locations.js';
 
 function recoveryModel(model: ModelRecord): model is ModelRecord & RecoveryModel {
   return model.unit_system === 'SI' && isRecord(model.coordinate_system)
@@ -155,6 +156,10 @@ function nativeMemberData(model: RecoveryModel, data: ModelRecord, factors?: Rec
 
 /** The immutable run stores the same responses consumed by queries, plots and reports. */
 export function enrichResultData(model: ModelRecord, result: ModelRecord, selection: ModelRecord): ModelRecord {
+  return withGlobalResultLocations(model, recoverResultData(model, result, selection));
+}
+
+function recoverResultData(model: ModelRecord, result: ModelRecord, selection: ModelRecord): ModelRecord {
   const data = isRecord(result.data) ? result.data : result;
   if (result.success === false || !recoveryModel(model)) return data;
   const source: ModelRecord = { ...data, meta: { ...(isRecord(data.meta) ? data.meta : {}), ...(isRecord(result.meta) ? result.meta : {}) } };
@@ -177,6 +182,7 @@ export function queryPhysicalResponse(model: ModelRecord, result: ModelRecord, e
   if (result.success === false) throw new Error('RESULT_UNAVAILABLE');
   // An unknown ID is reported as such (the tool error lists the model's member IDs), not as an invalid position.
   if (!model.elements.some(element => isRecord(element) && element.id === elementId)) throw new Error('MEMBER_NOT_FOUND');
+  const global = memberGlobalPoint(model, elementId, positionM);
   const data = isRecord(result.data) ? result.data : result;
   if (commercial(result) || isRecord(data.memberStations)) {
     const { rows, context, length } = nativeStations(model, data, elementId);
@@ -192,7 +198,7 @@ export function queryPhysicalResponse(model: ModelRecord, result: ModelRecord, e
           ? data.source.factors as Record<string, number> : resultFactors(model, isRecord(result.selection) ? result.selection : {});
         const recovery = nativeForceRecovery(model, data, elementId, rows, length, factors);
         const values = recovery.at(positionM,side);
-        return {elementId,positionM,side,method:'section-equilibrium' as const,state:'recovered' as const,
+        return {elementId,positionM,global,side,method:'section-equilibrium' as const,state:'recovered' as const,
           sample:{...values,V2:values.Vy,V3:values.Vz,M2:values.My,M3:values.Mz},
           units:{position:'m',force:'kN',moment:'kN.m'},provenance:'mechanics-recovery',source:recovery.source,nativeContext:context};
       } catch (cause) { throw new Error('EXACT_NATIVE_STATION_UNAVAILABLE', { cause }); }
@@ -203,7 +209,7 @@ export function queryPhysicalResponse(model: ModelRecord, result: ModelRecord, e
     }
     // Aliases are axis names only. No nodal interpolation is exposed as a
     // solver displacement, and no nearest station is substituted for x.
-    return { elementId, positionM, side, method: 'native-station' as const, state: 'solver' as const,
+    return { elementId, positionM, global, side, method: 'native-station' as const, state: 'solver' as const,
       sample: { ...values, N: values.N as number, V2: values.Vy as number, V3: values.Vz as number,
         T: values.T as number, M2: values.My as number, M3: values.Mz as number },
       units: { position: 'm', force: 'kN', moment: 'kN.m' }, provenance: exact[0].provenance,
@@ -212,7 +218,8 @@ export function queryPhysicalResponse(model: ModelRecord, result: ModelRecord, e
   const response = queryMemberResponse(model, data as RecoveryResult, resultEngine(result), elementId, positionM, side,
     resultFactors(model, isRecord(result.selection) ? result.selection : {}));
   if (!response) throw new Error('MEMBER_RESPONSE_UNAVAILABLE_OR_POSITION_INVALID');
-  return { ...response, elementId, positionM, side,
+  return { ...response, elementId, positionM, global, side,
+    sample: { ...response.sample, global: memberGlobalPoint(model, elementId, response.sample.x) },
     units: { position: 'm', displacement: 'm', force: 'kN', moment: 'kN.m' },
     provenance: response.state === 'interpolated' ? 'display-interpolation' : 'mechanics-recovery',
   };
@@ -222,9 +229,11 @@ export function reportResultRows(analysis: unknown) {
   if (!isRecord(analysis)) return [];
   const results = isRecord(analysis.results) ? analysis.results : { [String(analysis.selectedResultKey ?? 'analysis:default')]: analysis };
   return Object.entries(results).filter((entry): entry is [string, ModelRecord] => isRecord(entry[1])).map(([key, result]) => {
-    const data = isRecord(result.data) ? result.data : result;
+    const data = withGlobalResultLocations(isRecord(analysis.modelSnapshot) ? analysis.modelSnapshot : undefined,
+      isRecord(result.data) ? result.data : result);
     return { key, executionStatus: result.executionStatus ?? (result.success === false ? 'failed' : 'completed'),
       capabilityStatus: result.capabilityStatus, summary: data.summary, memberResponseExtrema: data.memberResponseExtrema,
+      controlLocations: isRecord(data.envelope) ? data.envelope.controlLocations : undefined,
       source: result.meta, selection: result.selection };
   });
 }
@@ -244,10 +253,10 @@ export function resultTableMarkdown(analysis: unknown, locale: 'zh' | 'en'): str
   });
   if (samples.length) {
     markdown += locale === 'zh'
-      ? '\n下表为各工况构件采样响应的有符号绝对值极值（非连续场精确极值）；位置沿物理构件起点量取。原生内力站点不提供未经验证的跨内位移。\n\n| 工况/组合 | 分量 | 数值 | 单位 | 构件 | 位置 (m) | 侧别 | 来源 |\n'
-      : '\nSigned absolute extrema at sampled member positions, not exact continuous-field extrema. Positions are measured from the physical member start. Native force stations do not imply verified interior displacement.\n\n| Case / combination | Component | Value | Unit | Member | Position (m) | Side | Provenance |\n';
-    markdown += '| --- | --- | --- | --- | --- | --- | --- | --- |\n';
-    markdown += samples.map(({ key, component, point }) => `| ${cell(key)} | ${cell(component)} | ${cell(point.value)} | ${component.startsWith('u') ? 'm' : component.startsWith('M') || component === 'T' ? 'kN.m' : 'kN'} | ${cell(point.elementId)} | ${cell(point.position)} | ${cell(point.side)} | ${cell(point.provenance ?? 'mechanics-recovery')} |`).join('\n') + '\n';
+      ? '\n下表为各工况构件采样响应的有符号绝对值极值（非连续场精确极值）；位置沿物理构件起点量取。原生内力站点不提供未经验证的跨内位移。\n\n| 工况/组合 | 分量 | 数值 | 单位 | 构件 | 位置 (m) | 全局坐标（模型单位） | 侧别 | 来源 |\n'
+      : '\nSigned absolute extrema at sampled member positions, not exact continuous-field extrema. Positions are measured from the physical member start. Native force stations do not imply verified interior displacement.\n\n| Case / combination | Component | Value | Unit | Member | Position (m) | Global (model units) | Side | Provenance |\n';
+    markdown += '| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n';
+    markdown += samples.map(({ key, component, point }) => `| ${cell(key)} | ${cell(component)} | ${cell(point.value)} | ${component.startsWith('u') ? 'm' : component.startsWith('M') || component === 'T' ? 'kN.m' : 'kN'} | ${cell(point.elementId)} | ${cell(point.position)} | ${cell(JSON.stringify(point.global))} | ${cell(point.side)} | ${cell(point.provenance ?? 'mechanics-recovery')} |`).join('\n') + '\n';
   }
   const quantities = isRecord(analysis) && Array.isArray(analysis.requestedQuantities)
     ? analysis.requestedQuantities.filter(isRecord).filter(item => item.runId === analysis.runId) : [];
@@ -259,8 +268,9 @@ export function resultTableMarkdown(analysis: unknown, locale: 'zh' | 'en'): str
       const location = isRecord(q.location) ? q.location : {};
       const position = location.kind === 'member' ? location.end ? `${location.id}:${location.end}` : `${location.id}@${location.positionM}:${location.side}`
         : location.kind === 'node-pair' ? `${location.id} − ${location.referenceId}` : location.id;
+      const global = isRecord(location.global) ? `; ${locale === 'zh' ? '全局坐标（模型单位）' : 'global (model units)'} ${JSON.stringify(location.global)}` : '';
       const index = q.timeIndex !== undefined ? `; t=${q.time}s [${q.timeIndex}]` : q.modeNumber !== undefined ? `; mode=${q.modeNumber}` : '';
-      return `| ${cell(q.id)} | ${cell(q.selection)}${cell(index)} | ${cell(position)} | ${cell(q.component)} | ${cell(q.value)} | ${cell(q.unit)} |`;
+      return `| ${cell(q.id)} | ${cell(q.selection)}${cell(index)} | ${cell(position)}${cell(global)} | ${cell(q.component)} | ${cell(q.value)} | ${cell(q.unit)} |`;
     }).join('\n') + '\n';
   }
   return markdown;
