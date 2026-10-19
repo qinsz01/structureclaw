@@ -108,6 +108,8 @@ export function mergeDraftDiagnostics(existing: DraftState | undefined, patch: D
     if (!issue.field || issue.severity === 'conflict'
       || !issue.kind && issue.severity === 'ambiguous' && issue.value != null) return false;
     const field = issue.target ?? issue.field;
+    // Omitted self-weight follows the solver default (disabled); it is not a required input.
+    if (issue.kind === 'missing' && canonicalPath(field) === 'analysisControl.self_weight') return true;
     // A force-only request runs on labelled unit stiffness when material/section are absent.
     if (issue.kind === 'missing' && !merged.engineeringDraft?.model) {
       const root = tokens(canonicalPath(field))[0]?.key ?? '';

@@ -16,7 +16,7 @@ const initial = () => handler.mergeState(undefined, ingestDraft({
   inferredType: 'beam', lengthM: 10, supportType: 'simply-supported', loadKN: 1,
   loadType: 'point', loadPosition: 'midspan', loadPositionM: 5,
   engineeringDraft: { structureType: 'beam', geometry: { lengthM: 10 },
-    materials: [{ id: 'MAT-Q235B', name: 'Q235B', f: 215, fv: 125 }],
+    materials: [{ id: 'MAT-Q235B', name: 'unlisted coupon', f: 215, fv: 125 }],
     material: { family: 'steel', grade: 'Q235B' }, sections: { beam: 'I20a' },
     sectionRecords: [{ id: 'SEC-I20A', name: 'I20a (GB/T 706 热轧工字钢)', type: 'custom',
       properties: { A: .003555, Iy: .0000237, Iz: .00000158, S: .000104, Wnx: .000237, b: .0465, t: .0114 } }],

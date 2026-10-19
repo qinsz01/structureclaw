@@ -1,3 +1,4 @@
+import { enforceSectionProvenance } from './section-provenance.js';
 import type { LocalStructureProtocolClient } from '../skill-shared/structure-protocol-execution.js';
 import type { EngineeringDraft } from '../shared/types/agent.js';
 import { isRecord, type ModelEdit, type ModelRecord } from './model-state.js';
@@ -244,7 +245,7 @@ export function normalizeDraftSectionInputs(draft: EngineeringDraft, root: Schem
       next.shape = normalized(next.shape, schema, root,
         path, {}, { operation: 'update', collection: 'sections', id: String(row.id) });
     }
-    return next;
+    return enforceSectionProvenance(next);
   };
   return { ...draft,
     ...(draft.sectionRecords ? { sectionRecords: draft.sectionRecords.map(section) } : {}),

@@ -124,3 +124,23 @@ test('explicit numerical or geometric inputs under a designation name are used a
   expect(model.sections[0].extra?.catalogSource).toBeUndefined();
   expect(()=>buildModel({...beam(),engineeringDraft:{materials:[material],sectionRecords:[{id:'S',name:'I20a',type:'custom',width:120}]}})).toThrow(/provide explicit dimensions/);
 });
+
+
+test.each([['Q235', 7850], ['Q355B', 7850], ['C30', 2500]])('fills omitted density even with explicit E: %s', async (grade, rho) => {
+  const { completeDeclaredGradeMaterials } = await import('../../../dist/agent-runtime/template-properties.js');
+  const input = [{ id: 'M', name: grade, E: 123456, nu: .23 }];
+  const result = completeDeclaredGradeMaterials(input);
+  expect(result[0]).toMatchObject({ ...input[0], rho });
+  expect(input[0].rho).toBeUndefined();
+  expect(completeDeclaredGradeMaterials([{ ...input[0], rho: 999 }])[0].rho).toBe(999);
+  expect(completeDeclaredGradeMaterials([{ id: 'X', name: 'unknown', E: 1 }])[0].rho).toBeUndefined();
+});
+
+
+test('an omitted self-weight switch is not a missing input, while explicit conflicts survive', async () => {
+  const { mergeDraftState } = await import('../../../dist/agent-runtime/draft/boundary.js');
+  const issue = { field: 'analysisControl.self_weight', kind: 'missing', severity: 'ambiguous', reason: 'not specified' };
+  expect(mergeDraftState(undefined, { engineeringDraft: {}, draftIssues: [issue] }).draftIssues ?? []).toEqual([]);
+  expect(mergeDraftState(undefined, { engineeringDraft: { analysisControl: { self_weight: true } },
+    draftIssues: [{ ...issue, kind: 'confirmation', severity: 'conflict' }] }).draftIssues).toHaveLength(1);
+});

@@ -1,3 +1,4 @@
+import { enforceSectionProvenance } from '../engineering/section-provenance.js';
 import type { DraftState } from '../shared/types/agent.js';
 import { applyDraftAnalysisControl, applyDraftTemplateDesign, resolveDraftTemplateAssignment } from './engineering-draft.js';
 import { forceOnlyScope, type RequestScope } from '../engineering/request-scope.js';
@@ -297,15 +298,15 @@ export function resolveTemplateMaterials(state: DraftState) {
     : [buildMaterialRecord(resolveFrameMaterialProps(grade))];
 }
 
-/** A material record that declares a supported grade but no elastic modulus gets that grade's elastic
- * constants for the fields it omits, exactly as a grade declared on `material` does; explicit values are
- * never replaced, and a record with its own E is left to its own data. */
+/** Fill omitted elastic constants and density for a known grade, including an exact grade name.
+ * Explicit values are never replaced, and unknown materials remain incomplete. */
 export function completeDeclaredGradeMaterials<T extends Record<string, unknown>>(records: T[]): T[] {
   return records.map((record) => {
     const copy = structuredClone(record);
     if (!copy || typeof copy !== 'object') return copy;
-    const grade = typeof copy.grade === 'string' && copy.grade.trim() ? copy.grade : undefined;
-    if (!grade || copy.E != null) return copy;
+    const grade = typeof copy.grade === 'string' && copy.grade.trim() ? copy.grade
+      : typeof copy.name === 'string' ? copy.name : undefined;
+    if (!grade) return copy;
     let props: ResolvedFrameMaterialProps;
     try { props = resolveFrameMaterialProps(grade); } catch { return copy; }
     const filled: Record<string, unknown> = { ...copy };
@@ -346,7 +347,7 @@ export function resolveTemplateProperties(state: DraftState, roles: TemplateRole
   const placeholder = stiffnessPlaceholderUses(state);
   const materials = placeholder.material ? [placeholderMaterialRecord()] : resolveTemplateMaterials(state);
   const sections = (draft?.sectionRecords ?? []).map(section => hasSectionDefinition(section)
-    ? structuredClone(section) : designatedSectionRecord(structuredClone(section), draft));
+    ? enforceSectionProvenance(structuredClone(section)) : designatedSectionRecord(structuredClone(section), draft));
   const explicitRecords = sections.length > 0;
   const byRole: Partial<Record<TemplateRole, { materialId: string; sectionId: string }>> = {};
   for (const role of roles) {
