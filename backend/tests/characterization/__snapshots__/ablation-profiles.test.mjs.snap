@@ -28,8 +28,8 @@ exports[`characterization: ablation profiles profile full: offered tools, system
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 26943,
-  "systemPromptSha256": "2479ee3a6d978fd841cac739f6cc15cb81c8e459d03c70038e0e4259f4e57b0a",
+  "systemPromptChars": 27161,
+  "systemPromptSha256": "5d43b507a88227e12104689c68a2248b57b2929ce99481cc35c2a0022d2be0d2",
 }
 `;
 
@@ -158,7 +158,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - Seismic reports include the performed check results or state that no check was run; if generate_report returns SEISMIC_CODE_CHECK_REQUIRED, call run_code_check and retry the report.
 
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
-Explicit user properties win. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets). A designation without complete dimensions or explicit properties requires one dimension question together with other genuinely missing inputs; do not build or calculate before actual confirmation. You may offer an "assistant-recalled table value, please verify" option. A designation is not confirmation: never adopt or relabel recalled values yourself. After confirmation record user-sourced dimensions and derive properties. Say plainly who supplied each value: the user, the system (geometry or a code table), or an assistant option confirmed by the user; never claim tool retrieval. Never state adequacy or compliance pass/fail unless a code check was actually run and passed; with analysis alone report values and assumptions. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never expose budgets/recovery counts or ask for a new message to reset them.
+Explicit user properties win. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets). A designation without complete dimensions or explicit properties requires one dimension question together with other genuinely missing inputs; do not build or calculate before actual confirmation. You may offer an "assistant-recalled table value, please verify" option. A designation is not confirmation: never adopt or relabel recalled values yourself. After confirmation record user-sourced dimensions and derive properties. Confirmation covers only the actual values confirmed, not other recalled properties. Unconfirmed assistant recall belongs only in labelled clarification options, never in answer calculations, estimates or comparisons. Say plainly who supplied each value: the user, the system (geometry or a code table), or an assistant option confirmed by the user; never claim tool retrieval. Never state adequacy or compliance pass/fail unless a code check was actually run and passed; with analysis alone report values and assumptions. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never expose budgets/recovery counts or ask for a new message to reset them.
 
 Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
 
@@ -200,8 +200,8 @@ exports[`characterization: ablation profiles profile generic-only: offered tools
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 25727,
-  "systemPromptSha256": "31aa259ea7ad091f5bd403c1f0eccacaf4d0069276505bf6853a53eaccd156bb",
+  "systemPromptChars": 25945,
+  "systemPromptSha256": "d38eae93cea98d35d98c12424c044330f0c848101dec705b3c5693a52ac8c08f",
 }
 `;
 
@@ -323,7 +323,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - Seismic reports include the performed check results or state that no check was run; if generate_report returns SEISMIC_CODE_CHECK_REQUIRED, call run_code_check and retry the report.
 
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
-Explicit user properties win. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets). A designation without complete dimensions or explicit properties requires one dimension question together with other genuinely missing inputs; do not build or calculate before actual confirmation. You may offer an "assistant-recalled table value, please verify" option. A designation is not confirmation: never adopt or relabel recalled values yourself. After confirmation record user-sourced dimensions and derive properties. Say plainly who supplied each value: the user, the system (geometry or a code table), or an assistant option confirmed by the user; never claim tool retrieval. Never state adequacy or compliance pass/fail unless a code check was actually run and passed; with analysis alone report values and assumptions. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never expose budgets/recovery counts or ask for a new message to reset them.
+Explicit user properties win. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets). A designation without complete dimensions or explicit properties requires one dimension question together with other genuinely missing inputs; do not build or calculate before actual confirmation. You may offer an "assistant-recalled table value, please verify" option. A designation is not confirmation: never adopt or relabel recalled values yourself. After confirmation record user-sourced dimensions and derive properties. Confirmation covers only the actual values confirmed, not other recalled properties. Unconfirmed assistant recall belongs only in labelled clarification options, never in answer calculations, estimates or comparisons. Say plainly who supplied each value: the user, the system (geometry or a code table), or an assistant option confirmed by the user; never claim tool retrieval. Never state adequacy or compliance pass/fail unless a code check was actually run and passed; with analysis alone report values and assumptions. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never expose budgets/recovery counts or ask for a new message to reset them.
 
 Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
 
@@ -364,8 +364,8 @@ exports[`characterization: ablation profiles profile no-clarification: offered t
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 26796,
-  "systemPromptSha256": "bae4c44d7a51ccee11658118cc7922b05a8da8fede99056b25976efd2cc87941",
+  "systemPromptChars": 27014,
+  "systemPromptSha256": "a22078a07ebcd2f0a9d8684942f840710b82cf4ae94849121b2fc1ec1f23ee5a",
 }
 `;
 
@@ -494,7 +494,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - Seismic reports include the performed check results or state that no check was run; if generate_report returns SEISMIC_CODE_CHECK_REQUIRED, call run_code_check and retry the report.
 
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
-Explicit user properties win. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets). A designation without complete dimensions or explicit properties requires one dimension question together with other genuinely missing inputs; do not build or calculate before actual confirmation. You may offer an "assistant-recalled table value, please verify" option. A designation is not confirmation: never adopt or relabel recalled values yourself. After confirmation record user-sourced dimensions and derive properties. Say plainly who supplied each value: the user, the system (geometry or a code table), or an assistant option confirmed by the user; never claim tool retrieval. Never state adequacy or compliance pass/fail unless a code check was actually run and passed; with analysis alone report values and assumptions. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never expose budgets/recovery counts or ask for a new message to reset them.
+Explicit user properties win. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets). A designation without complete dimensions or explicit properties requires one dimension question together with other genuinely missing inputs; do not build or calculate before actual confirmation. You may offer an "assistant-recalled table value, please verify" option. A designation is not confirmation: never adopt or relabel recalled values yourself. After confirmation record user-sourced dimensions and derive properties. Confirmation covers only the actual values confirmed, not other recalled properties. Unconfirmed assistant recall belongs only in labelled clarification options, never in answer calculations, estimates or comparisons. Say plainly who supplied each value: the user, the system (geometry or a code table), or an assistant option confirmed by the user; never claim tool retrieval. Never state adequacy or compliance pass/fail unless a code check was actually run and passed; with analysis alone report values and assumptions. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never expose budgets/recovery counts or ask for a new message to reset them.
 
 Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
 
@@ -536,8 +536,8 @@ exports[`characterization: ablation profiles profile no-evidence-binding: offere
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 26943,
-  "systemPromptSha256": "2479ee3a6d978fd841cac739f6cc15cb81c8e459d03c70038e0e4259f4e57b0a",
+  "systemPromptChars": 27161,
+  "systemPromptSha256": "5d43b507a88227e12104689c68a2248b57b2929ce99481cc35c2a0022d2be0d2",
 }
 `;
 
@@ -666,7 +666,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - Seismic reports include the performed check results or state that no check was run; if generate_report returns SEISMIC_CODE_CHECK_REQUIRED, call run_code_check and retry the report.
 
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
-Explicit user properties win. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets). A designation without complete dimensions or explicit properties requires one dimension question together with other genuinely missing inputs; do not build or calculate before actual confirmation. You may offer an "assistant-recalled table value, please verify" option. A designation is not confirmation: never adopt or relabel recalled values yourself. After confirmation record user-sourced dimensions and derive properties. Say plainly who supplied each value: the user, the system (geometry or a code table), or an assistant option confirmed by the user; never claim tool retrieval. Never state adequacy or compliance pass/fail unless a code check was actually run and passed; with analysis alone report values and assumptions. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never expose budgets/recovery counts or ask for a new message to reset them.
+Explicit user properties win. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets). A designation without complete dimensions or explicit properties requires one dimension question together with other genuinely missing inputs; do not build or calculate before actual confirmation. You may offer an "assistant-recalled table value, please verify" option. A designation is not confirmation: never adopt or relabel recalled values yourself. After confirmation record user-sourced dimensions and derive properties. Confirmation covers only the actual values confirmed, not other recalled properties. Unconfirmed assistant recall belongs only in labelled clarification options, never in answer calculations, estimates or comparisons. Say plainly who supplied each value: the user, the system (geometry or a code table), or an assistant option confirmed by the user; never claim tool retrieval. Never state adequacy or compliance pass/fail unless a code check was actually run and passed; with analysis alone report values and assumptions. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never expose budgets/recovery counts or ask for a new message to reset them.
 
 Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
 
@@ -708,8 +708,8 @@ exports[`characterization: ablation profiles profile no-knowledge: offered tools
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 20224,
-  "systemPromptSha256": "071268cad2f3db4ac4286bb60605c1c0fe2661f839bc5be61107eb752100194c",
+  "systemPromptChars": 20442,
+  "systemPromptSha256": "35c1c209d91fed9d71740aeffc4185499a7a57f2bcf30590faca8134c111ef56",
 }
 `;
 
@@ -838,7 +838,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - Seismic reports include the performed check results or state that no check was run; if generate_report returns SEISMIC_CODE_CHECK_REQUIRED, call run_code_check and retry the report.
 
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
-Explicit user properties win. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets). A designation without complete dimensions or explicit properties requires one dimension question together with other genuinely missing inputs; do not build or calculate before actual confirmation. You may offer an "assistant-recalled table value, please verify" option. A designation is not confirmation: never adopt or relabel recalled values yourself. After confirmation record user-sourced dimensions and derive properties. Say plainly who supplied each value: the user, the system (geometry or a code table), or an assistant option confirmed by the user; never claim tool retrieval. Never state adequacy or compliance pass/fail unless a code check was actually run and passed; with analysis alone report values and assumptions. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never expose budgets/recovery counts or ask for a new message to reset them.
+Explicit user properties win. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets). A designation without complete dimensions or explicit properties requires one dimension question together with other genuinely missing inputs; do not build or calculate before actual confirmation. You may offer an "assistant-recalled table value, please verify" option. A designation is not confirmation: never adopt or relabel recalled values yourself. After confirmation record user-sourced dimensions and derive properties. Confirmation covers only the actual values confirmed, not other recalled properties. Unconfirmed assistant recall belongs only in labelled clarification options, never in answer calculations, estimates or comparisons. Say plainly who supplied each value: the user, the system (geometry or a code table), or an assistant option confirmed by the user; never claim tool retrieval. Never state adequacy or compliance pass/fail unless a code check was actually run and passed; with analysis alone report values and assumptions. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never expose budgets/recovery counts or ask for a new message to reset them.
 
 Run constraints: guidance=disabled; builder=auto; recovery=true, maximum 2 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
 
@@ -880,8 +880,8 @@ exports[`characterization: ablation profiles profile no-repair: offered tools, s
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 26992,
-  "systemPromptSha256": "85c8e7ecadb6104f07504b80a5b720967fe1cea119210cc209b1216636b63cf0",
+  "systemPromptChars": 27210,
+  "systemPromptSha256": "43b3dd9dd17142f5283e3476683e4735adf8418b11d5643212c8ad272a060283",
 }
 `;
 
@@ -1010,7 +1010,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - Seismic reports include the performed check results or state that no check was run; if generate_report returns SEISMIC_CODE_CHECK_REQUIRED, call run_code_check and retry the report.
 
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
-Explicit user properties win. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets). A designation without complete dimensions or explicit properties requires one dimension question together with other genuinely missing inputs; do not build or calculate before actual confirmation. You may offer an "assistant-recalled table value, please verify" option. A designation is not confirmation: never adopt or relabel recalled values yourself. After confirmation record user-sourced dimensions and derive properties. Say plainly who supplied each value: the user, the system (geometry or a code table), or an assistant option confirmed by the user; never claim tool retrieval. Never state adequacy or compliance pass/fail unless a code check was actually run and passed; with analysis alone report values and assumptions. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never expose budgets/recovery counts or ask for a new message to reset them.
+Explicit user properties win. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets). A designation without complete dimensions or explicit properties requires one dimension question together with other genuinely missing inputs; do not build or calculate before actual confirmation. You may offer an "assistant-recalled table value, please verify" option. A designation is not confirmation: never adopt or relabel recalled values yourself. After confirmation record user-sourced dimensions and derive properties. Confirmation covers only the actual values confirmed, not other recalled properties. Unconfirmed assistant recall belongs only in labelled clarification options, never in answer calculations, estimates or comparisons. Say plainly who supplied each value: the user, the system (geometry or a code table), or an assistant option confirmed by the user; never claim tool retrieval. Never state adequacy or compliance pass/fail unless a code check was actually run and passed; with analysis alone report values and assumptions. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never expose budgets/recovery counts or ask for a new message to reset them.
 
 Run constraints: guidance=enabled; builder=auto; recovery=false, maximum 0 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
 
@@ -1052,8 +1052,8 @@ exports[`characterization: ablation profiles profile no-routing: offered tools, 
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 26943,
-  "systemPromptSha256": "2479ee3a6d978fd841cac739f6cc15cb81c8e459d03c70038e0e4259f4e57b0a",
+  "systemPromptChars": 27161,
+  "systemPromptSha256": "5d43b507a88227e12104689c68a2248b57b2929ce99481cc35c2a0022d2be0d2",
 }
 `;
 
@@ -1182,7 +1182,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - Seismic reports include the performed check results or state that no check was run; if generate_report returns SEISMIC_CODE_CHECK_REQUIRED, call run_code_check and retry the report.
 
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
-Explicit user properties win. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets). A designation without complete dimensions or explicit properties requires one dimension question together with other genuinely missing inputs; do not build or calculate before actual confirmation. You may offer an "assistant-recalled table value, please verify" option. A designation is not confirmation: never adopt or relabel recalled values yourself. After confirmation record user-sourced dimensions and derive properties. Say plainly who supplied each value: the user, the system (geometry or a code table), or an assistant option confirmed by the user; never claim tool retrieval. Never state adequacy or compliance pass/fail unless a code check was actually run and passed; with analysis alone report values and assumptions. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never expose budgets/recovery counts or ask for a new message to reset them.
+Explicit user properties win. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets). A designation without complete dimensions or explicit properties requires one dimension question together with other genuinely missing inputs; do not build or calculate before actual confirmation. You may offer an "assistant-recalled table value, please verify" option. A designation is not confirmation: never adopt or relabel recalled values yourself. After confirmation record user-sourced dimensions and derive properties. Confirmation covers only the actual values confirmed, not other recalled properties. Unconfirmed assistant recall belongs only in labelled clarification options, never in answer calculations, estimates or comparisons. Say plainly who supplied each value: the user, the system (geometry or a code table), or an assistant option confirmed by the user; never claim tool retrieval. Never state adequacy or compliance pass/fail unless a code check was actually run and passed; with analysis alone report values and assumptions. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never expose budgets/recovery counts or ask for a new message to reset them.
 
 Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
 
@@ -1224,8 +1224,8 @@ exports[`characterization: ablation profiles profile no-state-versioning: offere
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 26943,
-  "systemPromptSha256": "2479ee3a6d978fd841cac739f6cc15cb81c8e459d03c70038e0e4259f4e57b0a",
+  "systemPromptChars": 27161,
+  "systemPromptSha256": "5d43b507a88227e12104689c68a2248b57b2929ce99481cc35c2a0022d2be0d2",
 }
 `;
 
@@ -1354,7 +1354,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - Seismic reports include the performed check results or state that no check was run; if generate_report returns SEISMIC_CODE_CHECK_REQUIRED, call run_code_check and retry the report.
 
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
-Explicit user properties win. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets). A designation without complete dimensions or explicit properties requires one dimension question together with other genuinely missing inputs; do not build or calculate before actual confirmation. You may offer an "assistant-recalled table value, please verify" option. A designation is not confirmation: never adopt or relabel recalled values yourself. After confirmation record user-sourced dimensions and derive properties. Say plainly who supplied each value: the user, the system (geometry or a code table), or an assistant option confirmed by the user; never claim tool retrieval. Never state adequacy or compliance pass/fail unless a code check was actually run and passed; with analysis alone report values and assumptions. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never expose budgets/recovery counts or ask for a new message to reset them.
+Explicit user properties win. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets). A designation without complete dimensions or explicit properties requires one dimension question together with other genuinely missing inputs; do not build or calculate before actual confirmation. You may offer an "assistant-recalled table value, please verify" option. A designation is not confirmation: never adopt or relabel recalled values yourself. After confirmation record user-sourced dimensions and derive properties. Confirmation covers only the actual values confirmed, not other recalled properties. Unconfirmed assistant recall belongs only in labelled clarification options, never in answer calculations, estimates or comparisons. Say plainly who supplied each value: the user, the system (geometry or a code table), or an assistant option confirmed by the user; never claim tool retrieval. Never state adequacy or compliance pass/fail unless a code check was actually run and passed; with analysis alone report values and assumptions. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never expose budgets/recovery counts or ask for a new message to reset them.
 
 Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
 
@@ -1396,8 +1396,8 @@ exports[`characterization: ablation profiles profile no-template-builder: offere
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 26942,
-  "systemPromptSha256": "d3fb2fddc9069f1ca80f88c4991ecb50f7b30d7dd565ccd308ea7bc50f7614b8",
+  "systemPromptChars": 27160,
+  "systemPromptSha256": "bb91f6f72f8e3d79bff03f4b310063ec02df767435b210f871f45a8db56d3ec9",
 }
 `;
 
@@ -1526,7 +1526,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - Seismic reports include the performed check results or state that no check was run; if generate_report returns SEISMIC_CODE_CHECK_REQUIRED, call run_code_check and retry the report.
 
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
-Explicit user properties win. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets). A designation without complete dimensions or explicit properties requires one dimension question together with other genuinely missing inputs; do not build or calculate before actual confirmation. You may offer an "assistant-recalled table value, please verify" option. A designation is not confirmation: never adopt or relabel recalled values yourself. After confirmation record user-sourced dimensions and derive properties. Say plainly who supplied each value: the user, the system (geometry or a code table), or an assistant option confirmed by the user; never claim tool retrieval. Never state adequacy or compliance pass/fail unless a code check was actually run and passed; with analysis alone report values and assumptions. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never expose budgets/recovery counts or ask for a new message to reset them.
+Explicit user properties win. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets). A designation without complete dimensions or explicit properties requires one dimension question together with other genuinely missing inputs; do not build or calculate before actual confirmation. You may offer an "assistant-recalled table value, please verify" option. A designation is not confirmation: never adopt or relabel recalled values yourself. After confirmation record user-sourced dimensions and derive properties. Confirmation covers only the actual values confirmed, not other recalled properties. Unconfirmed assistant recall belongs only in labelled clarification options, never in answer calculations, estimates or comparisons. Say plainly who supplied each value: the user, the system (geometry or a code table), or an assistant option confirmed by the user; never claim tool retrieval. Never state adequacy or compliance pass/fail unless a code check was actually run and passed; with analysis alone report values and assumptions. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never expose budgets/recovery counts or ask for a new message to reset them.
 
 Run constraints: guidance=enabled; builder=llm; recovery=true, maximum 2 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
 
@@ -1567,8 +1567,8 @@ exports[`characterization: ablation profiles profile no-validation-gate: offered
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 27029,
-  "systemPromptSha256": "79565efc232893470ff58a7eeac07e5c0279a16bfca2346022fd2fba2caf90c2",
+  "systemPromptChars": 27247,
+  "systemPromptSha256": "49f6b980ebcb19c58e6b1a1ed8539a468dc953239c7165705080cc3e902c18d5",
 }
 `;
 
@@ -1697,7 +1697,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - Seismic reports include the performed check results or state that no check was run; if generate_report returns SEISMIC_CODE_CHECK_REQUIRED, call run_code_check and retry the report.
 
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
-Explicit user properties win. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets). A designation without complete dimensions or explicit properties requires one dimension question together with other genuinely missing inputs; do not build or calculate before actual confirmation. You may offer an "assistant-recalled table value, please verify" option. A designation is not confirmation: never adopt or relabel recalled values yourself. After confirmation record user-sourced dimensions and derive properties. Say plainly who supplied each value: the user, the system (geometry or a code table), or an assistant option confirmed by the user; never claim tool retrieval. Never state adequacy or compliance pass/fail unless a code check was actually run and passed; with analysis alone report values and assumptions. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never expose budgets/recovery counts or ask for a new message to reset them.
+Explicit user properties win. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets). A designation without complete dimensions or explicit properties requires one dimension question together with other genuinely missing inputs; do not build or calculate before actual confirmation. You may offer an "assistant-recalled table value, please verify" option. A designation is not confirmation: never adopt or relabel recalled values yourself. After confirmation record user-sourced dimensions and derive properties. Confirmation covers only the actual values confirmed, not other recalled properties. Unconfirmed assistant recall belongs only in labelled clarification options, never in answer calculations, estimates or comparisons. Say plainly who supplied each value: the user, the system (geometry or a code table), or an assistant option confirmed by the user; never claim tool retrieval. Never state adequacy or compliance pass/fail unless a code check was actually run and passed; with analysis alone report values and assumptions. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never expose budgets/recovery counts or ask for a new message to reset them.
 
 Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
 
