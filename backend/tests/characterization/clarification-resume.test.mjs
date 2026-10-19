@@ -70,7 +70,7 @@ describeWithOpenSees('characterization: clarification interrupt and resume', () 
     expect(resumed.requests.map(request => request.kind).filter(kind => kind !== 'agent')).toEqual(['param-extractor']);
     expect(extractorPrompts).toHaveLength(2);
     expect(extractorPrompts[1]).toContain(ANSWER);
-    expect(extractorPrompts[1]).toContain('"lengthM": 8');
+    expect(extractorPrompts[1]).toMatch(/"lengthM":\s*8/);
     const merged = toolResultSeenByAgent(resumed.requests, 'clarify-extract-answer');
     expect(merged.criticalMissing).toEqual([]);
     expect(merged.nextState.engineeringDraft).toMatchObject({ geometry: { lengthM: 8 }, boundary: { supportType: 'simply-supported' },

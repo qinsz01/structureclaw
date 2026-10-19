@@ -9,7 +9,7 @@ exports[`characterization: run policy and ablation surface default tool schemas 
   "delete_path": "be7f11a1c434029febfcb4f9f98bb63a5e94cbf851252505bc6d88921c187d66",
   "detect_structure_type": "6b888b5304d5667602ea7b08a17fac73cccda4bea0825fbd7c94b210e7163bf0",
   "edit_model": "bbbcbedc217b437821eb2a4177c427acdcbe1e0af4294ae206eb5dd2281580c6",
-  "extract_draft_params": "62f9ef0b3afa21d8990ba8f954f18f00dc6ca99981cf8704e52253963849bae1",
+  "extract_draft_params": "db3090488a102642971d87890b01218ec2cf5855e18f63575c63938d129e2895",
   "generate_report": "a2250e05ef13236ccd167282fad61041df3e068704f498d070f7d33b265da853",
   "glob_files": "efbc99e25aca6e714dafad379e748d0a32c4f6892feff09b60ce9989317b77c9",
   "grep_files": "adc3a8fa71b305d6f00758a92e2a32392a866f915bdba7d847a4bd40541c16a0",
@@ -120,8 +120,8 @@ exports[`characterization: run policy and ablation surface policy variant builde
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 26184,
-  "systemPromptSha256": "c67eb22cc479069ec415363cc35efd6b978f894a3c7fb8b508148833b5208074",
+  "systemPromptChars": 26488,
+  "systemPromptSha256": "85e8929f06c783e6db81e008b5ff93a3b30ce9338c51ed7955f637eef0a2baee",
 }
 `;
 
@@ -250,7 +250,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - Seismic reports include the performed check results or state that no check was run; if generate_report returns SEISMIC_CODE_CHECK_REQUIRED, call run_code_check and retry the report.
 
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
-You may use common standard section and material table values; state the values and their source in the answer for the user to verify. Explicit user values take precedence; describe geometric differences. Never tell the user about budgets or recovery counts or ask them to send a new message; explain what is blocked and the specific input that would unblock it.
+Explicit user properties win. Only a designation without user dimensions or properties permits assistant-supplied standard-table values: state the values, source and unverified status, never claim tool retrieval. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets) in the answer. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never tell the user about budgets or recovery counts or ask them to send a new message; explain what is blocked and the specific input that would unblock it.
 
 Run constraints: guidance=enabled; builder=llm; recovery=true, maximum 2 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
 
@@ -426,8 +426,8 @@ exports[`characterization: run policy and ablation surface policy variant defaul
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 26185,
-  "systemPromptSha256": "d58021c939b971fe10f26e9d7c63f04f7614bf3e5d25fb2682767128d357ccee",
+  "systemPromptChars": 26489,
+  "systemPromptSha256": "4ca4b8769ca38036be34b6beb045042e4e258fc553a4179e24339022825ba84a",
 }
 `;
 
@@ -556,7 +556,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - Seismic reports include the performed check results or state that no check was run; if generate_report returns SEISMIC_CODE_CHECK_REQUIRED, call run_code_check and retry the report.
 
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
-You may use common standard section and material table values; state the values and their source in the answer for the user to verify. Explicit user values take precedence; describe geometric differences. Never tell the user about budgets or recovery counts or ask them to send a new message; explain what is blocked and the specific input that would unblock it.
+Explicit user properties win. Only a designation without user dimensions or properties permits assistant-supplied standard-table values: state the values, source and unverified status, never claim tool retrieval. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets) in the answer. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never tell the user about budgets or recovery counts or ask them to send a new message; explain what is blocked and the specific input that would unblock it.
 
 Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
 
@@ -732,8 +732,8 @@ exports[`characterization: run policy and ablation surface policy variant defaul
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 13225,
-  "systemPromptSha256": "0d76b9d8b587b6183160231fb13e0f058d6fcf01f30647cab4959dbf607aa9fa",
+  "systemPromptChars": 13325,
+  "systemPromptSha256": "cac29de02beb5c5cef4acff043d1b3e6974084e22cb4939e4ab0056f65503e9c",
 }
 `;
 
@@ -862,7 +862,7 @@ exports[`characterization: run policy and ablation surface policy variant defaul
 - 抗震报告包含已执行的校核结果，或说明校核未执行；如果 generate_report 返回 SEISMIC_CODE_CHECK_REQUIRED，先调用 run_code_check 后重试报告。
 
 **重要**: 工具从会话状态中自动读取数据（模型、分析结果、草稿状态等）。不要将 modelJson、analysisJson、stateJson 等参数传递给工具。工具会自动使用上一步的结果。
-可采用常用标准型钢/材料表数值，须在回答中写明取值和来源，供用户核对。用户显式数值优先，几何差异保留为说明。不要向用户提及预算、纠错次数或要求“另发消息”；只说明受阻事项和能解除阻碍的具体输入。
+用户显式属性优先。只有型号、既无尺寸也无属性时可用助手提供的标准表值，须写明数值、来源及未核对状态，不能声称工具检索。用户只给尺寸时由系统按尖角几何推导属性，回答须说明sharp-corner（不计圆角）。已知材料牌号的缺省弹性常数及密度由系统补齐；用户未提自重时不追问，沿用设置（默认不计），并在回答说明。不要向用户提及预算、纠错次数或要求“另发消息”；只说明受阻事项和能解除阻碍的具体输入。
 
 运行约束：知识文本=enabled；建模器=auto；自动纠错=true，最多 2 次系统内部回退；有明确修复反馈的工具拒绝不计数。用户回答后重置。内部回退不可用时说明受阻事项及所需输入，不暴露预算，禁止换工具绕过纠错关闭。持久记忆范围=conversation,workspace。上述限制优先于一般工作流程建议。
 
@@ -1038,8 +1038,8 @@ exports[`characterization: run policy and ablation surface policy variant knowle
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 19466,
-  "systemPromptSha256": "0a58e88d523d1f2bb7236edf983500490fe43dd49c86d8223936afe1bd753e90",
+  "systemPromptChars": 19770,
+  "systemPromptSha256": "6aadbe79d929dcc92817c9ffabd89613b9795aeaf73b2c06c17de5a1b968e761",
 }
 `;
 
@@ -1168,7 +1168,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - Seismic reports include the performed check results or state that no check was run; if generate_report returns SEISMIC_CODE_CHECK_REQUIRED, call run_code_check and retry the report.
 
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
-You may use common standard section and material table values; state the values and their source in the answer for the user to verify. Explicit user values take precedence; describe geometric differences. Never tell the user about budgets or recovery counts or ask them to send a new message; explain what is blocked and the specific input that would unblock it.
+Explicit user properties win. Only a designation without user dimensions or properties permits assistant-supplied standard-table values: state the values, source and unverified status, never claim tool retrieval. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets) in the answer. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never tell the user about budgets or recovery counts or ask them to send a new message; explain what is blocked and the specific input that would unblock it.
 
 Run constraints: guidance=disabled; builder=auto; recovery=true, maximum 2 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
 
@@ -1344,8 +1344,8 @@ exports[`characterization: run policy and ablation surface policy variant routin
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 26185,
-  "systemPromptSha256": "d58021c939b971fe10f26e9d7c63f04f7614bf3e5d25fb2682767128d357ccee",
+  "systemPromptChars": 26489,
+  "systemPromptSha256": "4ca4b8769ca38036be34b6beb045042e4e258fc553a4179e24339022825ba84a",
 }
 `;
 
@@ -1474,7 +1474,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - Seismic reports include the performed check results or state that no check was run; if generate_report returns SEISMIC_CODE_CHECK_REQUIRED, call run_code_check and retry the report.
 
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
-You may use common standard section and material table values; state the values and their source in the answer for the user to verify. Explicit user values take precedence; describe geometric differences. Never tell the user about budgets or recovery counts or ask them to send a new message; explain what is blocked and the specific input that would unblock it.
+Explicit user properties win. Only a designation without user dimensions or properties permits assistant-supplied standard-table values: state the values, source and unverified status, never claim tool retrieval. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets) in the answer. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never tell the user about budgets or recovery counts or ask them to send a new message; explain what is blocked and the specific input that would unblock it.
 
 Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
 
@@ -1651,8 +1651,8 @@ exports[`characterization: run policy and ablation surface policy variant tools-
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 26038,
-  "systemPromptSha256": "735b757624a7e73b19e44c9a49f7d33e55a58965542a21eeeae6c44cdd424281",
+  "systemPromptChars": 26342,
+  "systemPromptSha256": "bd4e7d769a43eac07a30d19c4e91171fb18012cc6d780a3bd4b1dfbdc266d584",
 }
 `;
 
@@ -1781,7 +1781,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - Seismic reports include the performed check results or state that no check was run; if generate_report returns SEISMIC_CODE_CHECK_REQUIRED, call run_code_check and retry the report.
 
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
-You may use common standard section and material table values; state the values and their source in the answer for the user to verify. Explicit user values take precedence; describe geometric differences. Never tell the user about budgets or recovery counts or ask them to send a new message; explain what is blocked and the specific input that would unblock it.
+Explicit user properties win. Only a designation without user dimensions or properties permits assistant-supplied standard-table values: state the values, source and unverified status, never claim tool retrieval. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets) in the answer. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never tell the user about budgets or recovery counts or ask them to send a new message; explain what is blocked and the specific input that would unblock it.
 
 Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
 

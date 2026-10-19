@@ -42,7 +42,7 @@ export function offeredToolNames(body) {
 export function classifyRequest(body) {
   if (Array.isArray(body.tools) && body.tools.length > 0) return 'agent';
   const text = requestText(body);
-  if (text.includes('Request goal / 本次所求结果')) return 'param-extractor';
+  if (text.includes('Request goal / 本次所求结果') || text.includes('PATCH ONLY / 仅输出补丁')) return 'param-extractor';
   if (/"action": "continue_current\|switch_skill/.test(text)) return 'structural-router';
   return 'internal-other';
 }

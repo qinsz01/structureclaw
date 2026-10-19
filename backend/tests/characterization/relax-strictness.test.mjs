@@ -7,11 +7,11 @@ import { describeWithOpenSees, internalResponder, querySimplyBeamResponses, rout
 
 describeWithOpenSees('characterization: relaxed section and clarification workflow', () => {
   const ctx = setupHarness();
-  test.each([false, true])('I20a catalogue/rounding builds and analyzes after one answer (rounded=%s)', async rounded => {
-    const answer = 'Q235，工字钢 I20a';
+  test.each([{ rounded: false }, { rounded: true }, { dimensioned: true }, { dimensioned: true, explicit: true }])('section source precedence after one answer (%j)', async ({ rounded, dimensioned, explicit }) => {
+    const answer = dimensioned ? `Q235，I20a 尺寸 200×100×7×11.4${explicit ? '，Iy=2400cm4' : ''}` : 'Q235，工字钢 I20a';
     const question = '请提供材料和截面。';
     const narration = '内力可计算，挠度还需要材料和截面。';
-    const inertia = rounded ? 2.3545e-5 : 2370e-8;
+    const inertia = explicit ? 2.4e-5 : dimensioned ? 2.35452664e-5 : rounded ? 2.3545e-5 : 2370e-8;
     const prompts = [];
     ctx.llm.setInternal(internalResponder({
       'structural-router': () => routerDecision('beam'),
@@ -19,13 +19,15 @@ describeWithOpenSees('characterization: relaxed section and clarification workfl
         prompts.push(text);
         return text.includes(answer) ? { engineeringDraft: {
           material: { grade: 'Q235' },
+          ...(dimensioned ? { materials: [{ id: 'M', name: 'Q235', E: 206000, nu: .3 }] } : {}),
           sectionRecords: [{ id: 'S1', name: 'I20a', type: 'I', shape: { kind: 'I', H: 200, B: 100, tw: 7, tf: 11.4 },
-            properties: { ...(rounded ? {} : { A: 35.578e-4 }), Iy: inertia }, extra: { source: 'LLM: GB/T 706 table value, unverified' } }],
+            properties: { ...(rounded || explicit ? {} : { A: 35.578e-4 }), Iy: dimensioned && !explicit ? 2370e-8 : inertia }, extra: { source: 'LLM: GB/T 706 table value, unverified',
+              provenance: { shape: dimensioned ? 'user' : 'llm-table', properties: explicit ? 'user' : 'llm-table' } } }],
           templateAssignments: { beam: { sectionId: 'S1' } },
         } } : { engineeringDraft: {
           structureType: 'beam', geometry: { lengthM: 10 }, boundary: { supportType: 'simply-supported' },
           loads: [{ id: 'P', kind: 'point', magnitude: 1, unit: 'kN', direction: 'gravity', target: 'beam', location: { xM: 5 } }],
-          analysisControl: { self_weight: false }, analysis: { loadCombinations: [] },
+          analysis: { loadCombinations: [] },
         }, requestScope: { responses: ['forces', 'reactions', 'displacements'], design: false, report: false, outputs: [] } };
       },
     }));
@@ -56,11 +58,15 @@ describeWithOpenSees('characterization: relaxed section and clarification workfl
     expect(ledger.usage.events.some(event => event.kind === 'clarification_resume')).toBe(true);
     const { model } = await ctx.backend.inputReview(first.conversationId);
     const section = model.sections[0];
-    expect(section.properties.Iy).toBe(inertia);
-    if (rounded) expect(section.extra.property_geometry_delta).toBeUndefined();
-    else expect(section.extra.property_geometry_delta.A).toBeGreaterThan(1);
+    expect(section.properties.Iy).toBeCloseTo(inertia, 13);
+    expect(model.materials[0].rho).toBe(7850);
+    expect(model.analysis_control?.self_weight ?? false).toBe(false);
+    if (rounded || dimensioned && !explicit) expect(section.extra.property_geometry_delta).toBeUndefined();
+    else if (!explicit) expect(section.extra.property_geometry_delta.A).toBeGreaterThan(1);
     const summary = toolResultSeenByAgent(resumed.requests, 'analyze');
-    expect(summary.sectionAssumptions.some(note => note.message.zh.includes('GB/T 706'))).toBe(true);
+    expect(summary.sectionAssumptions.some(note => dimensioned && !explicit
+      ? note.code === 'SECTION_USER_GEOMETRY' && note.message.en.includes('sharp-corner') && note.message.zh.includes('尖角')
+      : note.message.zh.includes('GB/T 706'))).toBe(true);
     const values = await querySimplyBeamResponses(ctx, first.conversationId, {
       runId: session.analysis.runId, supports: ['1', '3'], member: '1', positionM: 5,
     });
