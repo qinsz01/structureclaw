@@ -43,6 +43,10 @@ exports[`characterization: run policy and ablation surface policy enforcement in
 
 exports[`characterization: run policy and ablation surface policy enforcement inside tools builder auto uses the beam template; builder llm asks the LLM model builder: llm-builder-build-result 1`] = `
 {
+  "assumptionInstruction": "State these modelling assumptions in the answer.",
+  "assumptions": [
+    "Section S1: ["A","Iy","Iz","J"] derived from the supplied geometry (sharp corners, no fillets).",
+  ],
   "elementCount": 2,
   "message": "Model build is complete. Next, call run_analysis to execute the structural analysis.",
   "nextAction": "run_analysis",
@@ -116,8 +120,8 @@ exports[`characterization: run policy and ablation surface policy variant builde
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 25604,
-  "systemPromptSha256": "60045757223b1465e214108bc61cfdcd78577ee81d5cd870d96e1604a2f95981",
+  "systemPromptChars": 26184,
+  "systemPromptSha256": "c67eb22cc479069ec415363cc35efd6b978f894a3c7fb8b508148833b5208074",
 }
 `;
 
@@ -195,7 +199,7 @@ exports[`characterization: run policy and ablation surface policy variant builde
 2. **Error recovery**: If a tool returns an error or "unknown", do NOT give up. Try other tools or use ask_user_clarification to ask the user
 3. **Safety boundary**: Only call tools enabled for the current session; do not claim access to persistent memory, workspace files, or shell unless those tools are enabled
 4. **Bilingual**: Communicate in English
-5. **Ask when unclear**: Use the ask_user_clarification tool when critical parameters are missing
+5. **Ask when unclear**: Ask only for inputs the result truly depends on and that cannot reasonably be determined; ask everything needed at once; resolve consistency, precision and format issues yourself and state what you did
 6. **Tool call limit**: At most 200 tool calls per conversation turn to avoid infinite loops
 7. **No empty responses**: Every response must contain meaningful text content
 
@@ -246,8 +250,9 @@ When the user makes a structural design or analysis request, follow this workflo
 - Seismic reports include the performed check results or state that no check was run; if generate_report returns SEISMIC_CODE_CHECK_REQUIRED, call run_code_check and retry the report.
 
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
+You may use common standard section and material table values; state the values and their source in the answer for the user to verify. Explicit user values take precedence; describe geometric differences. Never tell the user about budgets or recovery counts or ask them to send a new message; explain what is blocked and the specific input that would unblock it.
 
-Run constraints: guidance=enabled; builder=llm; recovery=true, maximum 2 extra recoveries per turn including internal retries. When recovery is disabled or exhausted, report the error and ask for user input; do not bypass the limit using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
+Run constraints: guidance=enabled; builder=llm; recovery=true, maximum 2 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
 
 Tools available for this invocation=["review_input","query_model","edit_model","undo_model","query_results","detect_structure_type","extract_draft_params","build_model","validate_model","run_analysis","run_code_check","generate_report","calculate","ask_user_clarification","set_session_config","memory","analyze_file","glob_files","grep_files","read_file","write_file","replace_in_file","move_path","delete_path"]. This is the current configuration. Historical statements about enabled or disabled tools applied at that time and do not override this turn. An empty list means no tools are currently available; otherwise use the available tools for the latest user request rather than claiming an old setting still disables them. Availability does not mean execution or success.
 
@@ -421,8 +426,8 @@ exports[`characterization: run policy and ablation surface policy variant defaul
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 25605,
-  "systemPromptSha256": "b5cbf5ceb4899dd7282033ef5aab799c0f19054b50a35bfb7df8d06f2dfeea54",
+  "systemPromptChars": 26185,
+  "systemPromptSha256": "d58021c939b971fe10f26e9d7c63f04f7614bf3e5d25fb2682767128d357ccee",
 }
 `;
 
@@ -500,7 +505,7 @@ exports[`characterization: run policy and ablation surface policy variant defaul
 2. **Error recovery**: If a tool returns an error or "unknown", do NOT give up. Try other tools or use ask_user_clarification to ask the user
 3. **Safety boundary**: Only call tools enabled for the current session; do not claim access to persistent memory, workspace files, or shell unless those tools are enabled
 4. **Bilingual**: Communicate in English
-5. **Ask when unclear**: Use the ask_user_clarification tool when critical parameters are missing
+5. **Ask when unclear**: Ask only for inputs the result truly depends on and that cannot reasonably be determined; ask everything needed at once; resolve consistency, precision and format issues yourself and state what you did
 6. **Tool call limit**: At most 200 tool calls per conversation turn to avoid infinite loops
 7. **No empty responses**: Every response must contain meaningful text content
 
@@ -551,8 +556,9 @@ When the user makes a structural design or analysis request, follow this workflo
 - Seismic reports include the performed check results or state that no check was run; if generate_report returns SEISMIC_CODE_CHECK_REQUIRED, call run_code_check and retry the report.
 
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
+You may use common standard section and material table values; state the values and their source in the answer for the user to verify. Explicit user values take precedence; describe geometric differences. Never tell the user about budgets or recovery counts or ask them to send a new message; explain what is blocked and the specific input that would unblock it.
 
-Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 extra recoveries per turn including internal retries. When recovery is disabled or exhausted, report the error and ask for user input; do not bypass the limit using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
+Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
 
 Tools available for this invocation=["review_input","query_model","edit_model","undo_model","query_results","detect_structure_type","extract_draft_params","build_model","validate_model","run_analysis","run_code_check","generate_report","calculate","ask_user_clarification","set_session_config","memory","analyze_file","glob_files","grep_files","read_file","write_file","replace_in_file","move_path","delete_path"]. This is the current configuration. Historical statements about enabled or disabled tools applied at that time and do not override this turn. An empty list means no tools are currently available; otherwise use the available tools for the latest user request rather than claiming an old setting still disables them. Availability does not mean execution or success.
 
@@ -726,8 +732,8 @@ exports[`characterization: run policy and ablation surface policy variant defaul
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 13092,
-  "systemPromptSha256": "9b1b63ea1c651f66d7d19ee5c33e6201ddc574d9d6aaebf3a8fb8f36a34fa365",
+  "systemPromptChars": 13225,
+  "systemPromptSha256": "0d76b9d8b587b6183160231fb13e0f058d6fcf01f30647cab4959dbf607aa9fa",
 }
 `;
 
@@ -805,7 +811,7 @@ exports[`characterization: run policy and ablation surface policy variant defaul
 2. **错误恢复**: 如果工具返回错误或 "unknown"，不要放弃。继续尝试其他工具或使用 ask_user_clarification 询问用户
 3. **安全边界**: 只能调用当前会话已启用的工具；不要声称可以访问未启用的持久记忆、工作区文件或 shell
 4. **双语支持**: 用 中文 与用户交流
-5. **主动提问**: 当关键参数缺失时，使用 ask_user_clarification 工具询问用户
+5. **主动提问**: 只在结果真正依赖、且无法合理确定的输入上提问；一次把需要的问题问全；一致性、精度、格式问题自行处理并说明
 6. **工具调用限制**: 每轮对话最多调用 200 次工具，避免无限循环
 7. **禁止空回复**: 每次响应必须包含有意义的文字内容
 
@@ -856,8 +862,9 @@ exports[`characterization: run policy and ablation surface policy variant defaul
 - 抗震报告包含已执行的校核结果，或说明校核未执行；如果 generate_report 返回 SEISMIC_CODE_CHECK_REQUIRED，先调用 run_code_check 后重试报告。
 
 **重要**: 工具从会话状态中自动读取数据（模型、分析结果、草稿状态等）。不要将 modelJson、analysisJson、stateJson 等参数传递给工具。工具会自动使用上一步的结果。
+可采用常用标准型钢/材料表数值，须在回答中写明取值和来源，供用户核对。用户显式数值优先，几何差异保留为说明。不要向用户提及预算、纠错次数或要求“另发消息”；只说明受阻事项和能解除阻碍的具体输入。
 
-运行约束：知识文本=enabled；建模器=auto；自动纠错=true，全轮最多 2 次，内部重试同样计数。纠错关闭或预算耗尽后，如实说明错误并请求用户补充，禁止换工具绕过。持久记忆范围=conversation,workspace。上述限制优先于一般工作流程建议。
+运行约束：知识文本=enabled；建模器=auto；自动纠错=true，最多 2 次系统内部回退；有明确修复反馈的工具拒绝不计数。用户回答后重置。内部回退不可用时说明受阻事项及所需输入，不暴露预算，禁止换工具绕过纠错关闭。持久记忆范围=conversation,workspace。上述限制优先于一般工作流程建议。
 
 本次调用实际可用工具=["review_input","query_model","edit_model","undo_model","query_results","detect_structure_type","extract_draft_params","build_model","validate_model","run_analysis","run_code_check","generate_report","calculate","ask_user_clarification","set_session_config","memory","analyze_file","glob_files","grep_files","read_file","write_file","replace_in_file","move_path","delete_path"]。此列表是当前配置；历史消息关于工具开启或关闭的描述仅适用于当时，不能覆盖本轮配置。列表为空时说明当前没有可用工具；有工具时按用户最新请求使用，不能声称仍被旧配置关闭。工具可用不代表已经执行或成功。
 
@@ -1031,8 +1038,8 @@ exports[`characterization: run policy and ablation surface policy variant knowle
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 18886,
-  "systemPromptSha256": "1a4f0ee4ee60354f18bd488e8381d877c2ca8f4d1febfa834545f2585d6ee02f",
+  "systemPromptChars": 19466,
+  "systemPromptSha256": "0a58e88d523d1f2bb7236edf983500490fe43dd49c86d8223936afe1bd753e90",
 }
 `;
 
@@ -1110,7 +1117,7 @@ exports[`characterization: run policy and ablation surface policy variant knowle
 2. **Error recovery**: If a tool returns an error or "unknown", do NOT give up. Try other tools or use ask_user_clarification to ask the user
 3. **Safety boundary**: Only call tools enabled for the current session; do not claim access to persistent memory, workspace files, or shell unless those tools are enabled
 4. **Bilingual**: Communicate in English
-5. **Ask when unclear**: Use the ask_user_clarification tool when critical parameters are missing
+5. **Ask when unclear**: Ask only for inputs the result truly depends on and that cannot reasonably be determined; ask everything needed at once; resolve consistency, precision and format issues yourself and state what you did
 6. **Tool call limit**: At most 200 tool calls per conversation turn to avoid infinite loops
 7. **No empty responses**: Every response must contain meaningful text content
 
@@ -1161,8 +1168,9 @@ When the user makes a structural design or analysis request, follow this workflo
 - Seismic reports include the performed check results or state that no check was run; if generate_report returns SEISMIC_CODE_CHECK_REQUIRED, call run_code_check and retry the report.
 
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
+You may use common standard section and material table values; state the values and their source in the answer for the user to verify. Explicit user values take precedence; describe geometric differences. Never tell the user about budgets or recovery counts or ask them to send a new message; explain what is blocked and the specific input that would unblock it.
 
-Run constraints: guidance=disabled; builder=auto; recovery=true, maximum 2 extra recoveries per turn including internal retries. When recovery is disabled or exhausted, report the error and ask for user input; do not bypass the limit using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
+Run constraints: guidance=disabled; builder=auto; recovery=true, maximum 2 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
 
 Tools available for this invocation=["review_input","query_model","edit_model","undo_model","query_results","detect_structure_type","extract_draft_params","build_model","validate_model","run_analysis","run_code_check","generate_report","calculate","ask_user_clarification","set_session_config","memory","analyze_file","glob_files","grep_files","read_file","write_file","replace_in_file","move_path","delete_path"]. This is the current configuration. Historical statements about enabled or disabled tools applied at that time and do not override this turn. An empty list means no tools are currently available; otherwise use the available tools for the latest user request rather than claiming an old setting still disables them. Availability does not mean execution or success.
 
@@ -1336,8 +1344,8 @@ exports[`characterization: run policy and ablation surface policy variant routin
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 25605,
-  "systemPromptSha256": "b5cbf5ceb4899dd7282033ef5aab799c0f19054b50a35bfb7df8d06f2dfeea54",
+  "systemPromptChars": 26185,
+  "systemPromptSha256": "d58021c939b971fe10f26e9d7c63f04f7614bf3e5d25fb2682767128d357ccee",
 }
 `;
 
@@ -1415,7 +1423,7 @@ exports[`characterization: run policy and ablation surface policy variant routin
 2. **Error recovery**: If a tool returns an error or "unknown", do NOT give up. Try other tools or use ask_user_clarification to ask the user
 3. **Safety boundary**: Only call tools enabled for the current session; do not claim access to persistent memory, workspace files, or shell unless those tools are enabled
 4. **Bilingual**: Communicate in English
-5. **Ask when unclear**: Use the ask_user_clarification tool when critical parameters are missing
+5. **Ask when unclear**: Ask only for inputs the result truly depends on and that cannot reasonably be determined; ask everything needed at once; resolve consistency, precision and format issues yourself and state what you did
 6. **Tool call limit**: At most 200 tool calls per conversation turn to avoid infinite loops
 7. **No empty responses**: Every response must contain meaningful text content
 
@@ -1466,8 +1474,9 @@ When the user makes a structural design or analysis request, follow this workflo
 - Seismic reports include the performed check results or state that no check was run; if generate_report returns SEISMIC_CODE_CHECK_REQUIRED, call run_code_check and retry the report.
 
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
+You may use common standard section and material table values; state the values and their source in the answer for the user to verify. Explicit user values take precedence; describe geometric differences. Never tell the user about budgets or recovery counts or ask them to send a new message; explain what is blocked and the specific input that would unblock it.
 
-Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 extra recoveries per turn including internal retries. When recovery is disabled or exhausted, report the error and ask for user input; do not bypass the limit using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
+Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
 
 Tools available for this invocation=["review_input","query_model","edit_model","undo_model","query_results","detect_structure_type","extract_draft_params","build_model","validate_model","run_analysis","run_code_check","generate_report","calculate","ask_user_clarification","set_session_config","memory","analyze_file","glob_files","grep_files","read_file","write_file","replace_in_file","move_path","delete_path"]. This is the current configuration. Historical statements about enabled or disabled tools applied at that time and do not override this turn. An empty list means no tools are currently available; otherwise use the available tools for the latest user request rather than claiming an old setting still disables them. Availability does not mean execution or success.
 
@@ -1642,8 +1651,8 @@ exports[`characterization: run policy and ablation surface policy variant tools-
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 25587,
-  "systemPromptSha256": "0fd74add7896dac4278f7f373419900caaca73568c02a8ff7f4f4a1d6cc010b1",
+  "systemPromptChars": 26038,
+  "systemPromptSha256": "735b757624a7e73b19e44c9a49f7d33e55a58965542a21eeeae6c44cdd424281",
 }
 `;
 
@@ -1772,8 +1781,9 @@ When the user makes a structural design or analysis request, follow this workflo
 - Seismic reports include the performed check results or state that no check was run; if generate_report returns SEISMIC_CODE_CHECK_REQUIRED, call run_code_check and retry the report.
 
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
+You may use common standard section and material table values; state the values and their source in the answer for the user to verify. Explicit user values take precedence; describe geometric differences. Never tell the user about budgets or recovery counts or ask them to send a new message; explain what is blocked and the specific input that would unblock it.
 
-Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 extra recoveries per turn including internal retries. When recovery is disabled or exhausted, report the error and ask for user input; do not bypass the limit using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
+Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
 
 Tools available for this invocation=["review_input","query_model","edit_model","undo_model","query_results","detect_structure_type","extract_draft_params","build_model","validate_model","run_analysis","run_code_check","generate_report","calculate","set_session_config","memory","analyze_file","glob_files","grep_files","read_file","write_file","replace_in_file","move_path","delete_path"]. This is the current configuration. Historical statements about enabled or disabled tools applied at that time and do not override this turn. An empty list means no tools are currently available; otherwise use the available tools for the latest user request rather than claiming an old setting still disables them. Availability does not mean execution or success.
 
