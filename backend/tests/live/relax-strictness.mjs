@@ -72,7 +72,7 @@ for (const item of cases) {
       check(failures, reactions.length === 2 && reactions.every(row => Math.abs(row.value - .5) < 1e-6), 'R differs from 0.5 kN');
       check(failures, Math.abs(Math.abs(moment.value) - 2.5) < 1e-6, 'M differs from 2.5 kN.m');
       check(failures, Math.abs(Math.abs(deflection.value) / expectedDeflectionMm - 1) < 1e-6, 'deflection does not use the adopted inertia');
-      const claims = extractUnitNumbers(visible);
+      const claims = extractUnitNumbers(visible.replace(/\*\*|__/g, ''));
       for (const [family, baseValue] of [['force', 500], ['moment', 2500], ['length', expectedDeflectionMm / 1000]]) {
         check(failures, claims.some(row => row.family === family && Math.abs(Math.abs(row.value) * row.scale / baseValue - 1) < .03), `answer omits requested ${family} result`);
       }
