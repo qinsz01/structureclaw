@@ -1,0 +1,5 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`characterization: relaxed section and clarification workflow designation-only recall is refused, then one confirmed option completes analysis (en): confirmed dimensions analysis prose 1`] = `"Each reaction is 0.5 kN; midspan moment is 2.5 kN·m; deflection is 4.30 mm. The user confirmed the assistant-proposed dimensions. The system derived sharp-corner properties (no fillets). Self-weight is excluded. No code check was run."`;
+
+exports[`characterization: relaxed section and clarification workflow designation-only recall is refused, then one confirmed option completes analysis (zh): confirmed dimensions analysis prose 1`] = `"支座反力各0.5 kN，跨中弯矩2.5 kN·m，挠度4.30 mm。用户确认了助手候选尺寸，截面属性由系统按尖角几何推导（不计圆角，sharp-corner）。未计自重，未进行规范校核。"`;

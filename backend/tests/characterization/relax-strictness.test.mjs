@@ -8,7 +8,8 @@ import { describeWithOpenSees, internalResponder, querySimplyBeamResponses, rout
 describeWithOpenSees('characterization: relaxed section and clarification workflow', () => {
   const ctx = setupHarness();
   test.each([{ rounded: false }, { rounded: true }, { dimensioned: true }, { dimensioned: true, explicit: true }])('section source precedence after one answer (%j)', async ({ rounded, dimensioned, explicit }) => {
-    const answer = dimensioned ? `Q235，I20a 尺寸 200×100×7×11.4${explicit ? '，Iy=2400cm4' : ''}` : 'Q235，工字钢 I20a';
+    const answer = dimensioned ? `Q235，I20a 尺寸 200×100×7×11.4${explicit ? '，Iy=2400cm4' : ''}`
+      : `Q235，I20a 尺寸 200×100×7×11.4，${rounded ? 'Iy=2354.5cm4' : 'A=35.578cm2，Iy=2370cm4'}`;
     const question = '请提供材料和截面。';
     const narration = '内力可计算，挠度还需要材料和截面。';
     const inertia = explicit ? 2.4e-5 : dimensioned ? 2.35452664e-5 : rounded ? 2.3545e-5 : 2370e-8;
@@ -21,8 +22,8 @@ describeWithOpenSees('characterization: relaxed section and clarification workfl
           material: { grade: 'Q235' },
           ...(dimensioned ? { materials: [{ id: 'M', name: 'Q235', E: 206000, nu: .3 }] } : {}),
           sectionRecords: [{ id: 'S1', name: 'I20a', ...(dimensioned ? {} : { type: 'I' }), shape: { kind: 'I', H: 200, B: 100, tw: 7, tf: 11.4 },
-            properties: { ...(rounded || explicit ? {} : { A: 35.578e-4 }), Iy: dimensioned && !explicit ? 2370e-8 : inertia }, extra: { source: 'LLM: GB/T 706 table value, unverified',
-              provenance: { shape: dimensioned ? 'user' : 'llm-table', properties: explicit ? 'user' : 'llm-table' } } }],
+            properties: { ...(rounded || explicit ? {} : { A: 35.578e-4 }), Iy: dimensioned && !explicit ? 2370e-8 : inertia }, extra: { source: dimensioned && !explicit ? 'LLM: recalled, unconfirmed' : 'User supplied / 用户提供',
+              provenance: { shape: 'user', properties: dimensioned && !explicit ? 'llm-table' : 'user' } } }],
           templateAssignments: { beam: { sectionId: 'S1' } },
         } } : { engineeringDraft: {
           structureType: 'beam', geometry: { lengthM: 10 }, boundary: { supportType: 'simply-supported' },
@@ -67,7 +68,7 @@ describeWithOpenSees('characterization: relaxed section and clarification workfl
     const summary = toolResultSeenByAgent(resumed.requests, 'analyze');
     expect(summary.sectionAssumptions.some(note => dimensioned && !explicit
       ? note.code === 'SECTION_USER_GEOMETRY' && note.message.en.includes('sharp-corner') && note.message.zh.includes('尖角')
-      : note.message.zh.includes('GB/T 706'))).toBe(true);
+      : note.message.zh.includes('用户提供'))).toBe(true);
     const values = await querySimplyBeamResponses(ctx, first.conversationId, {
       runId: session.analysis.runId, supports: ['1', '3'], member: '1', positionM: 5,
     });
@@ -88,8 +89,8 @@ describeWithOpenSees('characterization: relaxed section and clarification workfl
         prompts.push(text);
         return text.includes('Q235, I20a') ? { engineeringDraft: {
           material: { grade: 'Q235' }, sectionRecords: [{ id: 'S', name: 'I20a', type: 'I',
-            shape: { kind: 'I', H: 200, B: 100, tw: 7, tf: 11.4 }, properties: { Iy: 2.37e-5 },
-            extra: { source: 'LLM: GB/T 706 table value, unverified', provenance: { shape: 'llm-table', properties: 'llm-table' } } }],
+            shape: { kind: 'I', H: 200, B: 100, tw: 7, tf: 11.4 },
+            extra: { provenance: { shape: 'user' } } }],
           templateAssignments: { beam: { sectionId: 'S' } },
         } } : { engineeringDraft: { structureType: 'beam', geometry: { lengthM: 10 },
           boundary: { supportType: 'simply-supported' },
@@ -101,7 +102,7 @@ describeWithOpenSees('characterization: relaxed section and clarification workfl
       toolCall('extract_draft_params', { locale: 'en', requestScope: { responses: ['forces', 'reactions'], design: false, report: false, outputs: [] } }, 'force-extract'), toolCall('build_model', {}, 'force-build'),
       toolCall('run_analysis', { analysisSkillId: 'opensees-static' }, 'force-analyze'), 'FORCES_DONE',
     ]);
-    const second = await runTurn(ctx, { conversationId: first.conversationId, message: 'Q235, I20a; include deflection.', context: { locale: 'en' } }, [
+    const second = await runTurn(ctx, { conversationId: first.conversationId, message: 'Q235, I20a dimensions 200×100×7×11.4 mm; include deflection.', context: { locale: 'en' } }, [
       toolCall('extract_draft_params', { locale: 'en', requestScope: { responses: ['forces', 'reactions', 'displacements'], design: false, report: false, outputs: [] } }, 'response-patch'),
       toolCall('build_model', {}, 'response-build'), toolCall('run_analysis', { analysisSkillId: 'opensees-static' }, 'response-analyze'), 'DEFLECTION_DONE',
     ]);
@@ -114,9 +115,61 @@ describeWithOpenSees('characterization: relaxed section and clarification workfl
     expect(request.max_tokens).toBe(6144);
     expect(request.response_format).toEqual({ type: 'json_object' });
     const { model } = await ctx.backend.inputReview(first.conversationId);
-    expect(model.sections[0].properties.Iy).toBe(2.37e-5);
+    expect(model.sections[0].properties.Iy).toBeCloseTo(2.35452664e-5, 13);
     expect(model.materials[0].rho).toBe(7850);
     expect((await ctx.backend.session(first.conversationId)).analysis.current).toBe(true);
+  }, TURN_TIMEOUT_MS);
+
+  test.each(['zh', 'en'])('designation-only recall is refused, then one confirmed option completes analysis (%s)', async locale => {
+    const zh = locale === 'zh';
+    const label = zh ? '助手记忆的标准表值，请核对' : 'assistant-recalled table value, please verify';
+    const answer = zh ? `确认采用 Q235，I20a 尺寸 200×100×7×11.4 mm（${label}）`
+      : `I confirm Q235, I20a dimensions 200×100×7×11.4 mm (${label})`;
+    const shape = { kind: 'I', H: 200, B: 100, tw: 7, tf: 11.4 };
+    ctx.llm.setInternal(internalResponder({
+      'structural-router': () => routerDecision('beam'),
+      'param-extractor': text => text.includes(answer) ? { engineeringDraft: {
+        material: { grade: 'Q235' }, sectionRecords: [{ id: 'S', shape, extra: { provenance: { shape: 'user' } } }],
+      } } : { engineeringDraft: {
+        structureType: 'beam', geometry: { lengthM: 10 }, boundary: { supportType: 'simply-supported' },
+        loads: [{ id: 'P', kind: 'point', magnitude: 1, unit: 'kN', direction: 'gravity', target: 'beam', location: { xM: 5 } }],
+        sectionRecords: [{ id: 'S', name: 'I20a', type: 'I', shape, properties: { A: .0035578, Iy: 2.37e-5 },
+          extra: { provenance: { shape: 'llm-table', properties: 'llm-table' }, source: `LLM: ${label}` } }],
+        templateAssignments: { beam: { sectionId: 'S' } },
+      }, requestScope: { responses: ['forces', 'reactions', 'displacements'], design: false, report: false, outputs: [] } },
+    }));
+    const first = await runTurn(ctx, { message: zh ? '跨度10m简支梁，跨中1kN，工字钢I20a。' : 'Simply supported I20a beam, span 10 m, 1 kN at midspan.', context: { locale } }, [
+      toolCall('extract_draft_params', { locale }, 'unconfirmed-extract'),
+      toolCall('build_model', {}, 'unconfirmed-build'),
+      toolCall('run_analysis', { analysisSkillId: 'opensees-static' }, 'unconfirmed-analysis'),
+      toolCall('ask_user_clarification', { question: zh ? '请一起确认材料与截面尺寸。' : 'Please confirm the material and section dimensions together.', optionsJson: JSON.stringify([answer]) }, 'confirm-dimensions'),
+    ], { expectedToolErrors: 2 });
+    expect(first.interactions).toHaveLength(1);
+    expect(JSON.stringify(first.interactions)).toContain(label);
+    expect(toolResultSeenByAgent(first.requests, 'unconfirmed-extract').criticalMissing).toContain('sectionConfirmation');
+    expect(toolResultSeenByAgent(first.requests, 'unconfirmed-build')).toMatchObject({ errorCode: 'SECTION_CONFIRMATION_REQUIRED',
+      recoverable: true, candidates: [expect.objectContaining({ id: 'S', shape })] });
+    expect((await ctx.backend.session(first.conversationId)).analysis.current).toBe(false);
+    expect((await ctx.backend.inputReview(first.conversationId)).model).toBeFalsy();
+    const prose = zh ? '支座反力各0.5 kN，跨中弯矩2.5 kN·m，挠度4.30 mm。用户确认了助手候选尺寸，截面属性由系统按尖角几何推导（不计圆角，sharp-corner）。未计自重，未进行规范校核。'
+      : 'Each reaction is 0.5 kN; midspan moment is 2.5 kN·m; deflection is 4.30 mm. The user confirmed the assistant-proposed dimensions. The system derived sharp-corner properties (no fillets). Self-weight is excluded. No code check was run.';
+    const resumed = await runTurn(ctx, { conversationId: first.conversationId, resumeValue: answer }, [
+      toolCall('extract_draft_params', { message: answer, locale }, 'confirmed-extract'), toolCall('build_model', {}, 'confirmed-build'),
+      toolCall('run_analysis', { analysisSkillId: 'opensees-static' }, 'confirmed-analysis'), prose,
+    ], { resume: true });
+    expect(resumed.interactions).toHaveLength(0);
+    const { model } = await ctx.backend.inputReview(first.conversationId);
+    expect(model.sections[0].properties.Iy).toBeCloseTo(2.35452664e-5, 13);
+    expect(model.sections[0].extra.provenance).toMatchObject({ shape: 'user', properties: 'geometry' });
+    const session = await ctx.backend.session(first.conversationId);
+    expect(session.analysis.current).toBe(true);
+    const values = await querySimplyBeamResponses(ctx, first.conversationId, { runId: session.analysis.runId, supports: ['1', '3'], member: '1', positionM: 5 });
+    expect(Math.abs(values.displacement.value)).toBeCloseTo(1000 * 10 ** 3 / (48 * 206e9 * 2.35452664e-5) * 1000, 7);
+    const saved = (await ctx.backend.get(`/api/v1/chat/conversation/${first.conversationId}`)).body;
+    const delivered = saved.messages.filter(row => row.role === 'assistant').at(-1).content;
+    expect(delivered).toBe(prose);
+    expect(delivered).not.toMatch(/满足要求|clearly adequate|passes? (?:the )?code/i);
+    expect(delivered).toMatchSnapshot('confirmed dimensions analysis prose');
   }, TURN_TIMEOUT_MS);
 
 });
