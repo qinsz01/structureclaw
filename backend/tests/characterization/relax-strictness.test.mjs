@@ -78,4 +78,44 @@ describeWithOpenSees('characterization: relaxed section and clarification workfl
     expect(texts.filter(text => text.includes(narration))).toHaveLength(1);
     expect(texts.filter(text => text === 'CATALOGUE_DONE')).toHaveLength(1);
   }, TURN_TIMEOUT_MS);
+
+  test('adding deflection to a completed force-only draft uses a bounded patch', async () => {
+    const prompts = [];
+    ctx.llm.setInternal(internalResponder({
+      'structural-router': () => routerDecision('beam'),
+      'param-extractor': text => {
+        prompts.push(text);
+        return text.includes('Q235, I20a') ? { engineeringDraft: {
+          material: { grade: 'Q235' }, sectionRecords: [{ id: 'S', name: 'I20a', type: 'I',
+            shape: { kind: 'I', H: 200, B: 100, tw: 7, tf: 11.4 }, properties: { Iy: 2.37e-5 },
+            extra: { source: 'LLM: GB/T 706 table value, unverified', provenance: { shape: 'llm-table', properties: 'llm-table' } } }],
+          templateAssignments: { beam: { sectionId: 'S' } },
+        } } : { engineeringDraft: { structureType: 'beam', geometry: { lengthM: 10 },
+          boundary: { supportType: 'simply-supported' },
+          loads: [{ id: 'P', kind: 'point', magnitude: 1, unit: 'kN', direction: 'gravity', target: 'beam', location: { xM: 5 } }],
+        }, requestScope: { responses: ['forces', 'reactions'], design: false, report: false, outputs: [] } };
+      },
+    }));
+    const first = await runTurn(ctx, { message: 'Simply supported beam, span 10 m, 1 kN at midspan. Reactions and moment.', context: { locale: 'en' } }, [
+      toolCall('extract_draft_params', { locale: 'en', requestScope: { responses: ['forces', 'reactions'], design: false, report: false, outputs: [] } }, 'force-extract'), toolCall('build_model', {}, 'force-build'),
+      toolCall('run_analysis', { analysisSkillId: 'opensees-static' }, 'force-analyze'), 'FORCES_DONE',
+    ]);
+    const second = await runTurn(ctx, { conversationId: first.conversationId, message: 'Q235, I20a; include deflection.', context: { locale: 'en' } }, [
+      toolCall('extract_draft_params', { locale: 'en', requestScope: { responses: ['forces', 'reactions', 'displacements'], design: false, report: false, outputs: [] } }, 'response-patch'),
+      toolCall('build_model', {}, 'response-build'), toolCall('run_analysis', { analysisSkillId: 'opensees-static' }, 'response-analyze'), 'DEFLECTION_DONE',
+    ]);
+    expect(first.interactions).toHaveLength(0);
+    expect(second.interactions).toHaveLength(0);
+    expect(prompts).toHaveLength(2);
+    expect(prompts[1]).toContain('PATCH ONLY');
+    expect(prompts[1].length).toBeLessThan(10000);
+    const request = second.requests.find(row => row.kind === 'param-extractor').body;
+    expect(request.max_tokens).toBe(4096);
+    expect(request.response_format).toEqual({ type: 'json_object' });
+    const { model } = await ctx.backend.inputReview(first.conversationId);
+    expect(model.sections[0].properties.Iy).toBe(2.37e-5);
+    expect(model.materials[0].rho).toBe(7850);
+    expect((await ctx.backend.session(first.conversationId)).analysis.current).toBe(true);
+  }, TURN_TIMEOUT_MS);
+
 });

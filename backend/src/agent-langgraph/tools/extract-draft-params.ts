@@ -102,7 +102,11 @@ async function extractAndMergeDraft(options: {
   const draftPatch = await invokeParamExtractor({
     message: extractionMessage,
     existingState,
-    patchMode: Boolean(existingState?.engineeringDraft) && (!input.requestScope || JSON.stringify(input.requestScope) === JSON.stringify(state?.requestScope)),
+    // Adding a response such as deflection still patches the same physical draft.
+    // Only a changed design/report/output contract needs the full schema guidance.
+    patchMode: Boolean(existingState?.engineeringDraft) && (!input.requestScope
+      || input.requestScope.design === state?.requestScope?.design && input.requestScope.report === state?.requestScope?.report
+        && JSON.stringify(input.requestScope.outputs) === JSON.stringify(state?.requestScope?.outputs)),
     locale,
     plugin,
     traceLogger: log,
