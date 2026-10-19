@@ -93,9 +93,9 @@ describeWithOpenSees('characterization: guard layer fault injection', () => {
     expect(failures.result.content.response).toContain('本轮已自动停止');
     session = await expectStateUnchanged(ctx, conversationId, before);
     const ledger = ledgerFor(ctx, session.usage.runId);
-    // The existing recovery budget (2) still applies: only three calls were executed.
-    expect(startedTools(ledger)).toEqual(['query_results', 'query_results', 'query_results']);
-    expect(ledger.usage.recoveries).toBe(2);
+    // Structured failures consume no recovery allowance; the no-progress guard bounds them.
+    expect(startedTools(ledger)).toEqual(Array(8).fill('query_results'));
+    expect(ledger.usage.recoveries).toBe(0);
     expect(guardEvents(ledger)).toEqual(['no-progress:end-turn']);
   }, TURN_TIMEOUT_MS * 2);
 
@@ -178,11 +178,11 @@ describeWithOpenSees('characterization: guard layer fault injection', () => {
     expect(guardEvents(ledgerFor(ctx, session.usage.runId))).toEqual(['answer-integrity:correction-requested', 'answer-integrity:corrected']);
 
     const flagged = await runTurn(ctx, { conversationId, message: 'And the moment again?', context: { locale: 'en' } }, [
-      'The moment is 30 kN·m.', 'I am confident it is 30 kN·m.',
+      'The moment is 31.7 kN·m.', 'I am confident it is 31.7 kN·m.',
     ]);
     expect(agentRequests(flagged)).toHaveLength(2);
-    expect(flagged.result.content.response).toMatch(/^I am confident it is 30 kN·m\.\n\n---\nNote \(result check\): these values could not be verified/);
-    expect(flagged.result.content.response).toContain('30 kN·m');
+    expect(flagged.result.content.response).toMatch(/^I am confident it is 31.7 kN·m\.\n\n---\nNote \(result check\): these values could not be verified/);
+    expect(flagged.result.content.response).toContain('31.7 kN·m');
     session = await ctx.backend.session(conversationId);
     expect(guardEvents(ledgerFor(ctx, session.usage.runId))).toEqual(['answer-integrity:correction-requested', 'answer-integrity:flagged']);
 
@@ -218,7 +218,7 @@ describeWithOpenSees('characterization: guard layer fault injection', () => {
     const runPolicy = { profile: 'no-repair' };
     const { conversationId, session: before } = await seedAnalysis(ctx, 'norepair', 'en', runPolicy);
     const flagged = await runTurn(ctx, { conversationId, message: 'Moment?', context: { locale: 'en', runPolicy } },
-      ['The moment is 30 kN·m.']);
+      ['The moment is 31.7 kN·m.']);
     expect(agentRequests(flagged)).toHaveLength(1);
     expect(flagged.result.content.response).toContain('Note (result check)');
     let session = await ctx.backend.session(conversationId);

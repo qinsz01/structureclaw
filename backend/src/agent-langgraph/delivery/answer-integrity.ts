@@ -133,6 +133,13 @@ export function derivedInputNumbers(texts: string[]): number[] {
       for (let k = j + 1; k < inputs.length; k += 1) derived.push(a * b * inputs[k]!);
     }
   }));
+  const elementary = [...inputs, ...derived];
+  const quantities = texts.flatMap(extractUnitNumbers);
+  for (const load of quantities.filter(value => value.family === 'lineLoad')) {
+    for (const span of quantities.filter(value => value.family === 'length')) derived.push(load.value * load.scale * (span.value * span.scale) ** 2 / 8);
+  }
+  derived.push(...quantitySums(inputs));
+  for (const value of elementary) for (const factor of [2, 3, 4, 8]) derived.push(value / factor, value * factor);
   return derived;
 }
 
@@ -188,6 +195,8 @@ export function isSupported(claim: UnitNumber, evidence: Float64Array): boolean 
 }
 
 const CITATION = /GB\s*\/?\s*T?\s*\d{4,5}|JGJ\s*\/?\s*T?\s*\d+|\bEN\s*199\d|Eurocode|\bAISC\b|\bACI\s*318|\bASCE\s*7|表\s*\d|Table\s*\d|第\s*\d+(?:\.\d+)*\s*条|[Cc]lause\s*\d/;
+const ESTIMATE = /约|估算|假定|假设|\b(?:approximately|approximate|assumed|assumption|estimated|estimate)\b/i;
+const SOURCE = /https?:\/\/|\[[^\]]+\]\([^)]+\)|(?:来源|依据|source|according to)\s*[:：]?\s*\S+/i;
 const SENTENCE_BREAKS = ['。', '！', '？', '!', '?', '；', ';', '\n', '. '];
 
 function sentenceAround(text: string, index: number): string {
@@ -216,7 +225,8 @@ export function findUnsupportedNumbers(answer: string, evidence: Float64Array): 
     .map(claim => ({ family: claim.family, base: Math.abs(claim.value) * claim.scale }));
   return claims.filter((claim) => {
     if (isSupported(claim, evidence)) return false;
-    if (CITATION.test(sentenceAround(answer, claim.index))) return false;
+    const sentence = sentenceAround(answer, claim.index);
+    if (CITATION.test(sentence) || SOURCE.test(sentence) || ESTIMATE.test(sentence)) return false;
     const base = Math.abs(claim.value) * claim.scale;
     return !shown.some(item => item.family === claim.family && Math.abs(item.base - base) <= 1e-9 * Math.max(1, base));
   });

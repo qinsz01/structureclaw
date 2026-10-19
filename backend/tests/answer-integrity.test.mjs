@@ -18,6 +18,11 @@ const continuousEvidence = buildEvidence([CONTINUOUS, derivedInputNumbers([CONTI
 
 // [answer, evidence] pairs that must produce no unsupported number.
 const NEGATIVES = [
+  ['支座反力各 0.5 kN，跨中弯矩 2.5 kN·m。', buildEvidence(derivedInputNumbers(['设计一个简支梁，跨度10m，梁中间荷载1kN']))],
+  ['Midspan moment 25 kN·m.', buildEvidence(derivedInputNumbers(['2 kN/m over 10 m']))],
+  ['约 9.876 mm，估算弯矩 83.19 kN·m。', buildEvidence([])],
+  ['Approximately 9.876 mm; assumed reaction 83.19 kN.', buildEvidence([])],
+  ['E = 199123 MPa (source: supplied technical datasheet).', buildEvidence([])],
   ['简支梁分析和报告已完成：支座反力各 5 kN，跨中弯矩 15 kN·m，跨中挠度约 3.15 mm。如需按 GB 50017 验算或修改模型，请告诉我。', beamEvidence],
   ['Analysis and report are done: reactions 5 kN each, midspan moment 15 kN·m, midspan deflection about 3.15 mm. If you want a GB 50017 check or a model change, tell me.', beamEvidence],
   ['支座反力 0.5 kN，跨中弯矩 |M| = 2.5 kN·m（跨度 10 m，跨中 1 kN）。', forcesEvidence],

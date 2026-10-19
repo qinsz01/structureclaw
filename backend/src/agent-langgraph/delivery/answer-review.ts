@@ -43,7 +43,14 @@ export function reviewFinalAnswer(input: { text: string; state: Partial<AgentSta
   const toolBacked = currentTurnMessages.some(message => getMessageType(message) === 'tool')
     || Boolean(state.analysisResult || state.codeCheckResult || state.report);
   if (!toolBacked) return { numbers: [], actions };
-  const userTexts = messages.filter(message => getMessageType(message) === 'human').map(extractMessageText);
+  const userTexts = messages.flatMap(message => {
+    if (getMessageType(message) === 'human') return [extractMessageText(message)];
+    if (getMessageType(message) !== 'tool') return [];
+    try {
+      const payload = JSON.parse(extractMessageText(message));
+      return payload.type === 'clarification_answered' && typeof payload.answer === 'string' ? [payload.answer] : [];
+    } catch { return []; }
+  });
   const evidence = buildEvidence([
     ...messages.filter(message => ['human', 'tool'].includes(getMessageType(message) ?? '')).map(extractMessageText),
     derivedInputNumbers(userTexts),

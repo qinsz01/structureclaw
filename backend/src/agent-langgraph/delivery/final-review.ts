@@ -75,7 +75,8 @@ export async function reviewAndDeliverFinalAnswer(input: FinalReviewInput): Prom
   }
 
   let current = { response: input.response, finishReason: input.finishReason, review: first };
-  const canCorrect = Boolean(ledger) && input.repairEnabled && (ledger?.answerCorrections ?? 0) < MAX_ANSWER_CORRECTIONS;
+  const hasAnalysis = Boolean(state.analysisResult) || Object.keys(state.analysisRuns ?? {}).length > 0;
+  const canCorrect = hasAnalysis && Boolean(ledger) && input.repairEnabled && (ledger?.answerCorrections ?? 0) < MAX_ANSWER_CORRECTIONS;
   if (canCorrect && ledger) {
     ledger.answerCorrections += 1;
     ledger.answerCorrectionPending = true;
