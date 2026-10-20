@@ -71,10 +71,10 @@ export function exportSceneImage({ gl, render, container, filename, scale, palet
     ctx.fillStyle = gradient; ctx.fillRect(x, y + 40, 24, barHeight)
     ctx.fillStyle = palette.foreground
     const max = legend.maxValue * (legend.valueScale ?? 1)
-    ctx.fillText(formatResultNumber(max, locale), x + 32, y + 50)
+    ctx.fillText(formatResultNumber(max, locale, max), x + 32, y + 50)
     if (legend.colorMode !== 'buckling') {
-      ctx.fillText(formatResultNumber(legend.colorMode === 'signed' ? 0 : max / 2, locale), x + 32, y + 125)
-      ctx.fillText(formatResultNumber(legend.colorMode === 'signed' ? -max : 0, locale), x + 32, y + 200)
+      ctx.fillText(formatResultNumber(legend.colorMode === 'signed' ? 0 : max / 2, locale, max), x + 32, y + 125)
+      ctx.fillText(formatResultNumber(legend.colorMode === 'signed' ? -max : 0, locale, max), x + 32, y + 200)
     }
   }
   ctx.fillStyle = palette.foreground; ctx.font = '12px Arial, "Microsoft YaHei", sans-serif'

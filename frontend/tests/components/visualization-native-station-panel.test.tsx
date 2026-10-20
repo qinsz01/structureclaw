@@ -10,10 +10,10 @@ const response: VisualizationMemberResponse={id:'B',length:4,state:'native-stati
 
 describe('native station result panel',()=>{
   it.each(['en','zh'] as const)('shows the same signed samples, units and provenance in %s', locale=>{
-    const { rerender } = render(<NativeStationPanel snapshot={{ lengthUnit: 'ft', resultUnit: 'kip', momentUnit: 'kip·ft' } as VisualizationSnapshot} component="M3" t={key => messages[locale][key]} response={response} locale={locale}/>)
+    const { rerender } = render(<NativeStationPanel snapshot={{ cases: [], lengthUnit: 'ft', resultUnit: 'kip', momentUnit: 'kip·ft' } as VisualizationSnapshot} component="M3" t={key => messages[locale][key]} response={response} locale={locale}/>)
     expect(screen.getByRole('img',{name:'M3 (kip·ft)'})).toBeInTheDocument()
     expect(screen.getByText('-2.00')).toBeInTheDocument()
-    rerender(<NativeStationPanel snapshot={{ lengthUnit: 'ft', resultUnit: 'kip', momentUnit: 'kip·ft' } as VisualizationSnapshot} component="T" t={key => messages[locale][key]} response={response} locale={locale} />)
+    rerender(<NativeStationPanel snapshot={{ cases: [], lengthUnit: 'ft', resultUnit: 'kip', momentUnit: 'kip·ft' } as VisualizationSnapshot} component="T" t={key => messages[locale][key]} response={response} locale={locale} />)
     expect(screen.getByRole('img',{name:'T (kip·ft)'})).toBeInTheDocument()
     expect(screen.getAllByText('0.250')).toHaveLength(3)
     expect(screen.getByText(messages[locale].visualizationStationNote)).toBeInTheDocument()
@@ -23,7 +23,7 @@ describe('native station result panel',()=>{
       {...response.samples[1],side:'left',M3:-5,provenance:'linear-combination'},
       {...response.samples[1],side:'right',M3:7,provenance:'linear-combination'},
     ]}
-    render(<NativeStationPanel snapshot={{ lengthUnit: 'ft', resultUnit: 'kip', momentUnit: 'kip·ft' } as VisualizationSnapshot} component="M3" t={key => messages.en[key]} response={combination} locale="en"/>)
+    render(<NativeStationPanel snapshot={{ cases: [], lengthUnit: 'ft', resultUnit: 'kip', momentUnit: 'kip·ft' } as VisualizationSnapshot} component="M3" t={key => messages.en[key]} response={combination} locale="en"/>)
     expect(screen.getByRole('region',{name:'Linear combination stations'})).toBeInTheDocument()
     expect(screen.getByText('2.00 Left')).toBeInTheDocument()
     expect(screen.getByText('2.00 Right')).toBeInTheDocument()
@@ -33,7 +33,7 @@ describe('native station result panel',()=>{
   it('distinguishes equilibrium recovery from direct native samples without promising displacement',()=>{
     const recovered: VisualizationMemberResponse={...response,samples:[response.samples[0],
       {...response.samples[1],provenance:'mechanics-recovery',source:{kind:'section-equilibrium'}}]}
-    render(<NativeStationPanel snapshot={{ lengthUnit: 'ft', resultUnit: 'kip', momentUnit: 'kip·ft' } as VisualizationSnapshot} component="M3" t={key => messages.en[key]} response={recovered} locale="en"/>)
+    render(<NativeStationPanel snapshot={{ cases: [], lengthUnit: 'ft', resultUnit: 'kip', momentUnit: 'kip·ft' } as VisualizationSnapshot} component="M3" t={key => messages.en[key]} response={recovered} locale="en"/>)
     expect(screen.getByText('Native')).toBeInTheDocument()
     expect(screen.getByText('Equilibrium')).toBeInTheDocument()
     expect(screen.getByText(/Small points use section equilibrium/)).toBeInTheDocument()

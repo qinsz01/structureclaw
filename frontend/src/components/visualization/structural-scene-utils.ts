@@ -148,6 +148,27 @@ export function getElementMetric(activeCase: VisualizationCase, elementId: strin
   return typeof result.moment === 'number' ? result.moment : null
 }
 
+/** Reference magnitude for display rounding; never changes the saved result. */
+export function getResultPeak(activeCase: VisualizationCase | null | undefined, field: string, component: string): number {
+  if (!activeCase) return 0
+  if (field === 'forces' && (isForceComponent(component) || ['axial', 'shear', 'moment'].includes(component))) {
+    const ids = new Set([...Object.keys(activeCase.memberResponses ?? {}), ...Object.keys(activeCase.elementResults)])
+    return Math.max(0, ...[...ids].map(id => Math.abs(getElementMetric(activeCase, id, component as ForceMetric) ?? 0)))
+  }
+  if (field !== 'displacements' && field !== 'reactions') return 0
+  const values = Object.values(activeCase.nodeResults).map(row => {
+    const vector: Partial<Record<string, number>> | undefined = field === 'displacements' ? row.displacement : row.reaction
+    return Math.abs(vector?.[component] ?? 0)
+  })
+  const axis = ['ux', 'uy', 'uz'].indexOf(component)
+  if (field === 'displacements' && axis >= 0) {
+    for (const response of Object.values(activeCase.memberResponses ?? {})) {
+      for (const sample of response.samples) values.push(Math.abs(sample.displacement?.[axis] ?? 0))
+    }
+  }
+  return Math.max(0, ...values)
+}
+
 export function getNodeReactionMagnitude(activeCase: VisualizationCase, nodeId: string) {
   const reaction = activeCase.nodeResults[nodeId]?.reaction
   if (activeCase.kind === 'envelope') {

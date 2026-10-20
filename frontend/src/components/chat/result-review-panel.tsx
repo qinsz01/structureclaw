@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { DialogShell } from '@/components/ui/dialog-shell'
 import { buildVisualizationSnapshot } from '@/components/visualization/adapter'
 import type { VisualizationNodeResults, VisualizationSnapshot } from '@/components/visualization/types'
-import { isForceComponent } from '@/components/visualization/structural-scene-utils'
+import { getResultPeak, isForceComponent } from '@/components/visualization/structural-scene-utils'
 import { MarkdownBody } from './markdown-body'
 import { NativeDesignPanel, type NativeDesignReview } from './native-design-panel'
 
@@ -183,6 +183,8 @@ export function ResultReviewPanel({ open, onClose, conversationId, locale, disab
   const components = member ? selection.field === 'displacements' ? ['ux', 'uy', 'uz'] : ['N', 'V2', 'V3', 'T', 'M2', 'M3'] : selection.field === 'reactions' ? ['fx', 'fy', 'fz', 'mx', 'my', 'mz'] : selection.modeNumber !== undefined ? ['ux', 'uy', 'uz'] : ['ux', 'uy', 'uz', 'rx', 'ry', 'rz']
   const componentUnit = (component: string, field: string) => selection.modeNumber !== undefined ? '1' : ['T','M2','M3','mx','my','mz'].includes(component) ? 'kN.m' : ['N','V2','V3','fx','fy','fz'].includes(component) ? 'kN' : component.startsWith('r') ? field === 'velocities' ? 'rad/s' : field === 'accelerations' ? 'rad/s2' : 'rad' : field === 'velocities' ? 'mm/s' : field === 'accelerations' ? 'mm/s2' : 'mm'
   const quantity = record(result?.quantity)
+  const queryPeak = getResultPeak(snapshot?.cases.find(row => row.id === snapshot.defaultCaseId), selection.field, selection.component)
+    * (selection.field === 'displacements' && ['ux', 'uy', 'uz'].includes(selection.component) && selection.unit === snapshot?.displacementUnit ? snapshot.displacementDisplayFactor ?? 1 : 1)
   return <><DialogShell open={open && !viewer} onClose={onClose} title={l('结果工作区', 'Result workspace')} closeLabel={l('关闭', 'Close')} className="max-w-5xl" description={l('所有数值、图形和报告使用同一保存的运行与结果选择。', 'Values, figures and reports use the same saved run and result selection.')}>
     <div className="space-y-5 p-4">
       {error && <p role="alert" className="rounded-lg border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
@@ -211,17 +213,18 @@ export function ResultReviewPanel({ open, onClose, conversationId, locale, disab
     </div>
   </DialogShell><Viewer open={open && viewer} onClose={() => setViewer(false)} snapshot={viewerSnapshot} locale={locale} t={t}
     figureKey={JSON.stringify(viewerInitial)} onChangeCase={() => setViewer(false)} queryBusy={locked}
-    queryResult={error ? <span role="alert">{error}</span> : result ? <><div>{t('visualizationSelectedValue')}: {typeof quantity.value === 'number' ? formatResultNumber(quantity.value, locale) : '—'} {String(quantity.unit ?? '')}</div><div className="mt-1 text-muted-foreground">{selection.nodeId ?? selection.elementId} · {selection.component}</div></> : undefined}
+    querySelection={error ? undefined : selection}
+    queryResult={error ? <span role="alert">{error}</span> : result ? <><div>{t('visualizationSelectedValue')}: {typeof quantity.value === 'number' ? formatResultNumber(quantity.value, locale, queryPeak) : '—'} {String(quantity.unit ?? '')}</div><div className="mt-1 text-muted-foreground">{selection.nodeId ?? selection.elementId} · {selection.component}</div></> : undefined}
     initialView={viewerInitial.field === 'forces' ? 'forces' : viewerInitial.field === 'reactions' ? 'reactions' : 'deformed'}
     initialForceMetric={isForceComponent(viewerInitial.component) ? viewerInitial.component : 'M2'}
     queryObjectKinds={selection.modeNumber !== undefined ? ['node'] : ['node', 'member']}
     selectedObject={selection.elementId ? { kind: 'member', id: selection.elementId } : selection.nodeId ? { kind: 'node', id: selection.nodeId } : undefined}
-    onQueryObject={async object => {
+    onQueryObject={async (object, quantity) => {
       if (object.kind === 'member' && selection.modeNumber !== undefined) return
       const next: ResultSelection = object.kind === 'node'
-        ? { ...selection, nodeId: object.id, elementId: undefined, positionM: undefined, side: undefined, end: undefined, ...(forceOnly ? { field: 'reactions', component: 'fz', unit: 'kN' } : { field: 'displacements', component: 'uz', unit: componentUnit('uz', 'displacements') }) }
-        : { ...selection, nodeId: undefined, elementId: object.id, positionM: selection.timeIndex === undefined ? 0 : undefined, end: selection.timeIndex === undefined ? undefined : 'n1', field: 'forces', component: 'M2', unit: 'kN.m' }
-      setSelection(next); setReport(null); setSeries(null)
+        ? { ...selection, nodeId: object.id, elementId: undefined, positionM: undefined, side: undefined, end: undefined, ...quantity, unit: componentUnit(quantity.component, quantity.field) }
+        : { ...selection, nodeId: undefined, elementId: object.id, positionM: selection.timeIndex === undefined ? 0 : undefined, end: selection.timeIndex === undefined ? undefined : 'n1', ...quantity, unit: componentUnit(quantity.component, quantity.field) }
+      setSelection(next); setResult(null); setReport(null); setSeries(null)
       const value = await action('query_results', { ...cleanSelection(next), quantityId: 'viewer-selected', includeModelSnapshot: true })
       if (value) setResult(value)
     }} /></>

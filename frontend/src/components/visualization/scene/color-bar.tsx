@@ -17,7 +17,7 @@ export function ColorBar({ show, locale = 'en', ...legend }: LegendProps & { sho
   const palette = useScenePalette()
   if (!show) return null
   const { maxValue, valueScale = 1, unit, label, colorMode } = legend
-  const format = (value: number) => formatResultNumber(value, locale)
+  const format = (value: number) => formatResultNumber(value, locale, maxValue * valueScale)
   return <div data-testid="visualization-legend" className="pointer-events-none absolute right-3 top-3 z-10 flex max-w-[45%] flex-col items-end gap-1.5">
     <div className="rounded-lg border border-border bg-background/95 px-3 py-1.5 text-xs font-medium text-foreground">{label}{unit ? ` (${unit})` : ''}</div>
     <div className="flex items-end gap-2 rounded-lg border border-border bg-background/95 p-2.5">

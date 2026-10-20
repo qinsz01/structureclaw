@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { buildDiagram } from '@/components/visualization/diagram'
-import { classifySupport, getNodeReactionMagnitude, getPlaneCameraFrame } from '@/components/visualization/structural-scene-utils'
+import { classifySupport, getNodeReactionMagnitude, getPlaneCameraFrame, getResultPeak } from '@/components/visualization/structural-scene-utils'
 import { ColorBar } from '@/components/visualization/scene/color-bar'
 import { formatResultNumber } from '@/lib/utils'
 import type { VisualizationElement, VisualizationMemberResponse } from '@/components/visualization/types'
@@ -49,8 +49,22 @@ describe('diagram display geometry', () => {
     for (const locale of ['en', 'zh'] as const) {
       expect(formatResultNumber(-2.500000000000001, locale)).toBe('-2.50')
       expect(formatResultNumber(0.00000123456, locale)).toBe('1.235E-6')
-      expect(formatResultNumber(-0, locale)).toBe('0.00')
+      expect(formatResultNumber(-0, locale)).toBe('0')
+      expect(formatResultNumber(1.332e-15, locale, 2.5)).toBe('0')
+      expect(formatResultNumber(-1.776e-15, locale, 2.5)).toBe('0')
+      expect(formatResultNumber(2.49e-9, locale, 2.5)).toBe('0')
+      expect(formatResultNumber(2.5e-9, locale, 2.5)).toBe('2.50E-9')
+      expect(formatResultNumber(1.332e-15, locale, 2.5e-15)).toBe('1.332E-15')
     }
+  })
+  it('uses the saved component peak for beam end labels and leaves the data unchanged', () => {
+    const saved = response([1.332e-15, -2.5, -1.776e-15])
+    const activeCase = { id: 'D', label: 'D', kind: 'case' as const, nodeResults: {}, elementResults: {}, memberResponses: { beam: saved } }
+    const peak = getResultPeak(activeCase, 'forces', 'M2')
+    const diagram = buildDiagram(saved, element, 'M2', peak, 10)!
+    expect(peak).toBe(2.5)
+    expect(diagram.samples.map(sample => formatResultNumber(sample.value, 'en', peak))).toEqual(['0', '-2.50', '0'])
+    expect(saved.samples[0].M2).toBe(1.332e-15)
   })
   it('moves the camera to front, side and top without changing its target', () => {
     const target: [number, number, number] = [3, 4, 5]

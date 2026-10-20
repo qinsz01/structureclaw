@@ -9,6 +9,7 @@ import {
   getNodeDisplacementMagnitude,
   getNodeLabelOffset,
   getNodeReactionMagnitude,
+  getResultPeak,
   isLoadVisible,
   isRenderableLoadVector,
   projectPosition,
@@ -160,7 +161,7 @@ export function SceneNode({ entry, ctx }: { entry: VisualizationNode; ctx: Scene
         position={finalPosition.clone().add(arrowVector ?? new THREE.Vector3()).add(getNodeLabelOffset(plane, snapshot.dimension).multiplyScalar(3)).toArray()} zIndexRange={[20, 0]}>
         <div data-viz-label className="w-max whitespace-nowrap rounded-md border border-border bg-background/95 px-2 py-1 text-[10px] text-foreground">
           {reactionComponents.map(key =>
-            <div key={key}>{key}: {formatResultNumber(reaction[key]!, locale)} {key.startsWith('m') ? snapshot.momentUnit : snapshot.resultUnit}</div>)}
+            <div key={key}>{key}: {formatResultNumber(reaction[key]!, locale, getResultPeak(activeCase, 'reactions', key))} {key.startsWith('m') ? snapshot.momentUnit : snapshot.resultUnit}</div>)}
         </div>
       </Html>}
       {showLoads && loadVectors.map((vector, index) => (

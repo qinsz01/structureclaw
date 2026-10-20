@@ -3,14 +3,14 @@
 import { useEffect, useMemo, useRef, useState, useReducer, type ReactNode } from 'react'
 import type { MessageKey } from '@/lib/i18n'
 import type { AppLocale } from '@/lib/stores/slices/preferences'
-import { formatNumber } from '@/lib/utils'
+import { formatNumber, formatResultNumber } from '@/lib/utils'
 import { getBucklingModes, BucklingModePanel } from './extensions'
 import { VisualizationModalShell } from './modal-shell'
 import { StructuralScene } from './structural-scene'
-import { getMemberDisplacementMagnitude, getElementMetric, isForceComponent, isMomentMetric, forceMetricLabel, isLoadVisible, type ForceMetric } from './structural-scene-utils'
+import { getMemberDisplacementMagnitude, getElementMetric, getResultPeak, getNodeReactionMagnitude, getNodeReactionMomentMagnitude, isForceComponent, isMomentMetric, forceMetricLabel, isLoadVisible, type ForceMetric } from './structural-scene-utils'
 import type { SceneExportHandle } from './structural-scene'
 import { VisualizationToolbar } from './toolbar'
-import { createVizState, vizReducer, type VizState } from './state'
+import { createVizState, queryMatchesView, vizReducer, type VizState } from './state'
 import { NativeStationPanel } from './native-station-panel'
 import type { VisualizationCase, VisualizationLoad, VisualizationSnapshot, VisualizationViewMode } from './types'
 
@@ -109,10 +109,11 @@ type StructuralVisualizationModalProps = {
   figureKey?: string
   onChangeCase?: () => void
   queryResult?: ReactNode
+  querySelection?: { field: string; component: string }
   queryBusy?: boolean
   queryObjectKinds?: ('node' | 'member')[]
   selectedObject?: { kind: 'node' | 'member'; id: string }
-  onQueryObject?: (object: { kind: 'node' | 'member'; id: string }) => void
+  onQueryObject?: (object: { kind: 'node' | 'member'; id: string }, quantity: { field: string; component: string }) => void
   open: boolean
   snapshot: VisualizationSnapshot | null
   locale: AppLocale
@@ -121,7 +122,7 @@ type StructuralVisualizationModalProps = {
 }
 
 export function StructuralVisualizationModal({
-  selectedObject, onQueryObject, queryObjectKinds, initialView, initialForceMetric, figureKey, onChangeCase, queryResult, queryBusy,
+  selectedObject, onQueryObject, queryObjectKinds, initialView, initialForceMetric, figureKey, onChangeCase, queryResult, querySelection, queryBusy,
   open,
   snapshot,
   locale,
@@ -170,6 +171,10 @@ export function StructuralVisualizationModal({
   const selectedElementNodeIds = selectedElement?.nodeIds || []
   const modelOnly = snapshot?.source === 'model'
   const displacementDisplayFactor = snapshot?.displacementDisplayFactor || 1
+  const formatForce = (value: number, component: ForceMetric) => formatResultNumber(value, locale, getResultPeak(activeCase, 'forces', component))
+  const queryTarget = view === 'forces' && selectedElementId && isForceComponent(forceMetric) ? { field: 'forces', component: forceMetric }
+    : view === 'reactions' && selectedNodeId ? { field: 'reactions', component: 'fz' }
+    : view === 'deformed' && selectedNodeId ? { field: 'displacements', component: 'uz' } : null
   const deformationScaleRange = useMemo(() => {
     const modelSpan = getModelSpan(snapshot)
     const maxDisplacement = getCaseMaxDisplacementMagnitude(activeCase)
@@ -217,12 +222,12 @@ export function StructuralVisualizationModal({
             {onChangeCase && <button type="button" className="mt-2 text-sm text-primary underline" onClick={onChangeCase}>{t('visualizationChangeCase')}</button>}
             {activeCase?.resultStatus === 'unavailable' ? <div className="mt-2 text-sm text-muted-foreground">{t('visualizationUnavailable')}</div> : null}
           </div>
-          {onQueryObject && (selectedNodeId && (!queryObjectKinds || queryObjectKinds.includes('node')) || selectedElementId && (!queryObjectKinds || queryObjectKinds.includes('member'))) && <button type="button"
+          {onQueryObject && queryTarget && (selectedNodeId && (!queryObjectKinds || queryObjectKinds.includes('node')) || selectedElementId && (!queryObjectKinds || queryObjectKinds.includes('member'))) && <button type="button"
             disabled={queryBusy} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm disabled:opacity-50"
-            onClick={() => onQueryObject(selectedNodeId ? { kind: 'node', id: selectedNodeId } : { kind: 'member', id: selectedElementId! })}>
+            onClick={() => onQueryObject(selectedNodeId ? { kind: 'node', id: selectedNodeId } : { kind: 'member', id: selectedElementId! }, queryTarget)}>
             {t('visualizationQueryObject')}
           </button>}
-          {queryResult && <div role="status" data-testid="visualization-query-result" className="rounded-lg border border-border bg-background p-3 text-sm">{queryResult}</div>}
+          {queryResult && (!querySelection || queryMatchesView(querySelection, view, forceMetric)) && <div role="status" data-testid="visualization-query-result" className="rounded-lg border border-border bg-background p-3 text-sm">{queryResult}</div>}
           {snapshot?.statusMessage ? (
             <div className="rounded-2xl border border-accent/40 bg-accent/10 p-4 text-sm leading-6 text-foreground">
               {snapshot.statusMessage}
@@ -273,36 +278,36 @@ export function StructuralVisualizationModal({
                 ) : null}
                 {!modelOnly && selectedNodeResults?.displacement && (
                   <div>
-                    {t('visualizationViewDeformed')}: {withUnit(formatNumber(
+                    {t('visualizationViewDeformed')}: {withUnit(formatResultNumber(
                       Math.sqrt(
                         (selectedNodeResults.displacement.ux || 0) ** 2 +
                         (selectedNodeResults.displacement.uy || 0) ** 2 +
                         (selectedNodeResults.displacement.uz || 0) ** 2
                       ) * displacementDisplayFactor,
-                      locale
+                      locale, getCaseMaxDisplacementMagnitude(activeCase) * displacementDisplayFactor
                     ), snapshot?.displacementUnit || snapshot?.nodeLabelUnit)}
                   </div>
                 )}
                 {!modelOnly && selectedNodeResults?.reaction && (
                   <>
                     <div>
-                      {t('visualizationViewReactions')}: {withUnit(formatNumber(
+                      {t('visualizationViewReactions')}: {withUnit(formatResultNumber(
                         Math.sqrt(
                           (selectedNodeResults.reaction.fx || 0) ** 2 +
                           (selectedNodeResults.reaction.fy || 0) ** 2 +
                           (selectedNodeResults.reaction.fz || 0) ** 2
                         ),
-                        locale
+                        locale, Math.max(0, ...Object.keys(activeCase!.nodeResults).map(id => getNodeReactionMagnitude(activeCase!, id)))
                       ), snapshot?.resultUnit)}
                     </div>
                     <div>
-                      {t('visualizationForceMoment')}: {withUnit(formatNumber(
+                      {t('visualizationForceMoment')}: {withUnit(formatResultNumber(
                         Math.sqrt(
                           (selectedNodeResults.reaction.mx || 0) ** 2 +
                           (selectedNodeResults.reaction.my || 0) ** 2 +
                           (selectedNodeResults.reaction.mz || 0) ** 2
                         ),
-                        locale
+                        locale, Math.max(0, ...Object.keys(activeCase!.nodeResults).map(id => getNodeReactionMomentMagnitude(activeCase!, id)))
                       ), snapshot?.momentUnit)}
                     </div>
                   </>
@@ -328,12 +333,12 @@ export function StructuralVisualizationModal({
                     : selectedMemberResponse.state === 'interpolated' ? 'visualizationMemberInterpolated'
                     : 'visualizationMemberUnavailable')}</div>
                 )}
-                {!modelOnly && typeof selectedElementResults?.axial === 'number' && <div>{t('visualizationForceAxial')}: {withUnit(formatNumber(selectedElementResults.axial, locale), snapshot?.resultUnit)}</div>}
-                {!modelOnly && typeof selectedElementResults?.shear === 'number' && <div>{t('visualizationForceShear')}: {withUnit(formatNumber(selectedElementResults.shear, locale), snapshot?.resultUnit)}</div>}
-                {!modelOnly && typeof selectedElementResults?.moment === 'number' && <div>{t('visualizationForceMoment')}: {withUnit(formatNumber(selectedElementResults.moment, locale), snapshot?.momentUnit)}</div>}
+                {!modelOnly && typeof selectedElementResults?.axial === 'number' && <div>{t('visualizationForceAxial')}: {withUnit(formatForce(selectedElementResults.axial, 'axial'), snapshot?.resultUnit)}</div>}
+                {!modelOnly && typeof selectedElementResults?.shear === 'number' && <div>{t('visualizationForceShear')}: {withUnit(formatForce(selectedElementResults.shear, 'shear'), snapshot?.resultUnit)}</div>}
+                {!modelOnly && typeof selectedElementResults?.moment === 'number' && <div>{t('visualizationForceMoment')}: {withUnit(formatForce(selectedElementResults.moment, 'moment'), snapshot?.momentUnit)}</div>}
                 {!modelOnly && activeCase && isForceComponent(forceMetric) && <div>{forceMetricLabel(forceMetric, t)} · {t('visualizationForceSampled')}: {
                   getElementMetric(activeCase, selectedElement.id, forceMetric) === null ? t('visualizationMemberUnavailable')
-                    : withUnit(formatNumber(getElementMetric(activeCase, selectedElement.id, forceMetric)!, locale), isMomentMetric(forceMetric) ? snapshot?.momentUnit : snapshot?.resultUnit)
+                    : withUnit(formatForce(getElementMetric(activeCase, selectedElement.id, forceMetric)!, forceMetric), isMomentMetric(forceMetric) ? snapshot?.momentUnit : snapshot?.resultUnit)
                 }</div>}
                 {!modelOnly && !isForceComponent(forceMetric) && selectedElementResults?.controlCases?.[forceMetric] && (
                   <div>{t('visualizationControlCase')}: {selectedElementResults.controlCases[forceMetric]}</div>

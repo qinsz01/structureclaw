@@ -120,12 +120,37 @@ describe('StructuralVisualizationModal', () => {
 
 it.each(['en', 'zh'] as const)('queries the inspected object without closing the viewer in %s', locale => {
   const onClose = vi.fn(), query = vi.fn(), t = (key: keyof typeof messages.en) => messages[locale][key]
-  const { rerender } = render(<StructuralVisualizationModal locale={locale} onClose={onClose} onQueryObject={query} open snapshot={modelSnapshot} t={t} />)
+  const snapshot: VisualizationSnapshot = { ...modelSnapshot, source: 'result', availableViews: ['model', 'deformed', 'reactions'] }
+  const props = { locale, onClose, onQueryObject: query, open: true, snapshot, t, initialView: 'deformed' as const }
+  const { rerender } = render(<StructuralVisualizationModal {...props} />)
   fireEvent.click(screen.getByRole('button', { name: '2', exact: true }))
   fireEvent.click(screen.getByRole('button', { name: t('visualizationQueryObject') }))
-  expect(query).toHaveBeenCalledWith({ kind: 'node', id: '2' })
-  rerender(<StructuralVisualizationModal locale={locale} onClose={onClose} onQueryObject={query} queryResult="uz = -1.52 mm" open snapshot={modelSnapshot} t={t} />)
+  expect(query).toHaveBeenCalledWith({ kind: 'node', id: '2' }, { field: 'displacements', component: 'uz' })
+  rerender(<StructuralVisualizationModal {...props} querySelection={{ field: 'displacements', component: 'uz' }} queryResult="uz = -1.52 mm" />)
   expect(onClose).not.toHaveBeenCalled()
   expect(screen.getByRole('dialog')).toBeInTheDocument()
   expect(screen.getByTestId('visualization-query-result')).toHaveTextContent('uz = -1.52 mm')
+  fireEvent.click(screen.getByRole('button', { name: t('visualizationViewReactions') }))
+  expect(screen.queryByTestId('visualization-query-result')).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: t('visualizationQueryObject') }))
+  expect(query).toHaveBeenLastCalledWith({ kind: 'node', id: '2' }, { field: 'reactions', component: 'fz' })
+})
+
+it.each(['en', 'zh'] as const)('hides workspace values that do not match the view or diagram component in %s', locale => {
+  const t = (key: keyof typeof messages.en) => messages[locale][key]
+  const snapshot: VisualizationSnapshot = { ...modelSnapshot, source: 'result',
+    availableViews: ['model', 'deformed', 'forces', 'reactions'],
+    cases: [{ ...modelSnapshot.cases[0], memberResponses: { E1: { id: 'E1', length: 6, state: 'force-only', reason: '',
+      samples: [{ x: 0, position: [0, 0, 0], N: 1, M2: 2.5 }, { x: 6, position: [6, 0, 0], N: 1, M2: 0 }] } } }] }
+  const props = { locale, onClose: vi.fn(), open: true, snapshot, t, initialView: 'deformed' as const }
+  const { rerender } = render(<StructuralVisualizationModal {...props} querySelection={{ field: 'displacements', component: 'uz' }} queryResult="0 mm · A · uz" />)
+  expect(screen.getByTestId('visualization-query-result')).toHaveTextContent('0 mm')
+  fireEvent.click(screen.getByRole('button', { name: t('visualizationViewForces') }))
+  expect(screen.queryByTestId('visualization-query-result')).not.toBeInTheDocument()
+  rerender(<StructuralVisualizationModal {...props} querySelection={{ field: 'forces', component: 'M2' }} queryResult="2.50 kN.m · E1 · M2" />)
+  expect(screen.getByTestId('visualization-query-result')).toHaveTextContent('2.50 kN.m')
+  fireEvent.click(screen.getByRole('button', { name: /^N ·/ }))
+  expect(screen.queryByTestId('visualization-query-result')).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: t('visualizationViewModel') }))
+  expect(screen.queryByTestId('visualization-query-result')).not.toBeInTheDocument()
 })

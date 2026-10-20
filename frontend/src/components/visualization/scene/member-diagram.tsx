@@ -52,7 +52,7 @@ export function MemberDiagram({ element, ctx }: { element: VisualizationElement;
         <Html center position={labelPosition.toArray()} zIndexRange={[20, 0]}>
           <div data-viz-label data-testid={sample === diagram.peak ? 'diagram-peak' : 'diagram-end'}
             className="w-max whitespace-nowrap rounded-md border border-border bg-background/95 px-1.5 py-0.5 text-[10px] text-foreground">
-            {sample === diagram.peak ? `${t('visualizationPeak')} · ` : ''}{formatResultNumber(sample.value, locale)} {unit}
+            {sample === diagram.peak ? `${t('visualizationPeak')} · ` : ''}{formatResultNumber(sample.value, locale, maxElementMetric)} {unit}
           </div>
         </Html>
       </group>

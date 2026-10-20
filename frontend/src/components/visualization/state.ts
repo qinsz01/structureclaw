@@ -40,6 +40,12 @@ export function viewControls(view: VisualizationViewMode, hasLoads: boolean) {
   }
 }
 
+export function queryMatchesView(query: { field: string; component: string }, view: VisualizationViewMode, component: ForceMetric) {
+  if (view === 'forces') return query.field === 'forces' && query.component === component
+  if (view === 'deformed') return query.field === 'displacements' && ['ux', 'uy', 'uz'].includes(query.component)
+  return view === 'reactions' && query.field === 'reactions'
+}
+
 export function availableMetrics(snapshot: VisualizationSnapshot, activeCase: VisualizationCase): ForceMetric[] {
   const components = snapshot.dimension === 2 ? ['N', 'V3', 'M2'] as const : FORCE_COMPONENTS
   const samples = Object.values(activeCase.memberResponses ?? {}).flatMap(row => row.samples)
