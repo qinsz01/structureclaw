@@ -19,6 +19,8 @@ const dimensionsOf = text => {
   return undefined;
 };
 const sameDimensions = (a, b) => a && b && a.every((value, i) => Math.abs(value - b[i]) < 1e-6);
+// This fixture specifies four sharp-corner dimensions, not an additional fillet.
+const radiusOf = text => Number(String(text).match(/(?:\br\b|圆角(?:半径)?)\s*[:=：≈]?\s*(\d+(?:\.\d+)?)/i)?.[1] ?? 0);
 for (let index = 1; index <= Number(args.runs ?? 3); index++) {
   const started = Date.now();
   const failures = [], turns = [], questions = [], answerRoutes = [], runIds = new Set();
@@ -53,10 +55,12 @@ for (let index = 1; index <= Number(args.runs ?? 3); index++) {
         if (JSON.stringify(session.options ?? []) !== JSON.stringify(delivered?.options ?? [])) {
           throw new Error('SSE and session delivered different confirmation options');
         }
-        const option = session.options?.find(value => sameDimensions(offered, dimensionsOf(value)));
+        const matchingOptions = session.options?.filter(value => sameDimensions(offered, dimensionsOf(value))) ?? [];
+        const option = matchingOptions.find(value => radiusOf(value) === 0) ?? matchingOptions[0];
         if (!option) throw new Error('No delivered option contains the offered dimensions');
-        const corrected = !sameDimensions(offered, realDimensions);
-        answer = corrected ? '不采用所列候选尺寸。请采用 I20a 的实际尺寸：H=200 mm，B=100 mm，tw=7 mm，tf=11.4 mm。' : option;
+        const corrected = !sameDimensions(offered, realDimensions) || radiusOf(option) > 0;
+        answer = corrected ? '不采用所列候选尺寸。请采用 I20a 的实际尺寸：H=200 mm，B=100 mm，tw=7 mm，tf=11.4 mm。'
+          + (radiusOf(option) > 0 ? '按不计圆角的尖角几何计算，r=0 mm。' : '') : option;
         Object.assign(confirmationDelivery, { offered, option, corrected, confirmed: realDimensions });
         confirmationDelivery.answer = answer;
       }
