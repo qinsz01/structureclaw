@@ -43,6 +43,22 @@ const config = thread => ({ configurable: { thread_id: thread, structureProtocol
 const toolMessages = state => state.messages.filter(item => item.getType() === 'tool');
 
 describe('model writes use observed revisions without automatic rebasing', () => {
+  test('converter-derived properties retain their source beside explicit user properties across edits', async () => {
+    const userInput = '200×100×7×11.4 mm, Iy=2.4e-5 m4';
+    const model = { ...initial.model, sections: [{ id: 'section', name: 'I20a', type: 'I',
+      shape: { kind: 'I', H: 200, B: 100, tw: 7, tf: 11.4 }, properties: { Iy: 2.4e-5 },
+      extra: { provenance: { shape: 'user', properties: 'user' } } }] };
+    const normalized = await normalizeEngineeringModel(model, protocol, undefined, [userInput]);
+    expect(normalized.sections[0].properties.Iy).toBe(2.4e-5);
+    expect(normalized.sections[0].extra.provenance.propertyFields).toEqual({ A: 'geometry', Iz: 'geometry', J: 'geometry' });
+    const again = await normalizeEngineeringModel(normalized, protocol, undefined, [userInput]);
+    expect(again).toEqual(normalized);
+    const forged = structuredClone(normalized);
+    forged.sections[0].properties.A = 1;
+    const repaired = await normalizeEngineeringModel(forged, protocol, undefined, [userInput]);
+    expect(repaired.sections[0].properties.A).toBe(normalized.sections[0].properties.A);
+  }, 30000);
+
   test.each(['shape', 'properties'])('unconfirmed recalled %s cannot commit an edit', async field => {
     const values = field === 'shape' ? { shape: { kind: 'I', H: 200, B: 100, tw: 5.2, tf: 8.4 } }
       : { properties: { Iy: 1.809e-5 } };
@@ -58,7 +74,8 @@ describe('model writes use observed revisions without automatic rebasing', () =>
 
   test.each([undefined, 'llm-table', 'user'])('user dimensions normalize properties from source %s at the edit boundary', async propertySource => {
     const supplied = propertySource === 'user' ? 2.4e-5 : 2.35453e-5;
-    const state = await graph().invoke({ ...structuredClone(initial), messages: [message([call('geometry-source', [{
+    const userInput = `200×100×7×11.4 mm${propertySource === 'user' ? `, A=.003555m2, Iy=${supplied}m4, Iz=.00000158m4, J=1m4` : ''}`;
+    const state = await graph().invoke({ ...structuredClone(initial), lastUserMessage: userInput, messages: [message([call('geometry-source', [{
       operation: 'update', collection: 'sections', id: 'section', values: {
         type: 'I', shape: { kind: 'I', H: 200, B: 100, tw: 7, tf: 11.4 },
         properties: { Iy: supplied, J: 1 },
@@ -75,7 +92,7 @@ describe('model writes use observed revisions without automatic rebasing', () =>
       expect(section.extra.discarded_nonuser_properties.Iy).toBe(supplied);
       expect(section.extra.source).toBeUndefined();
     } else expect(section.properties.J).toBe(1);
-    const again = await normalizeEngineeringModel(state.model, protocol);
+    const again = await normalizeEngineeringModel(state.model, protocol, undefined, [userInput]);
     expect(again).toEqual(state.model);
     expect(initial.model.sections[0].properties.Iy).toBe(.0000237);
   }, 30000);

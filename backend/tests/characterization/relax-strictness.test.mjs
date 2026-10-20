@@ -112,7 +112,7 @@ describeWithOpenSees('characterization: relaxed section and clarification workfl
     expect(prompts[1]).toContain('PATCH ONLY');
     expect(prompts[1].length).toBeLessThan(10000);
     const request = second.requests.find(row => row.kind === 'param-extractor').body;
-    expect(request.max_tokens).toBe(2048);
+    expect(request.max_tokens).toBe(1024);
     expect(request.response_format).toEqual({ type: 'json_object' });
     const { model } = await ctx.backend.inputReview(first.conversationId);
     expect(model.sections[0].properties.Iy).toBeCloseTo(2.35452664e-5, 13);
@@ -135,7 +135,8 @@ describeWithOpenSees('characterization: relaxed section and clarification workfl
         structureType: 'beam', geometry: { lengthM: 10 }, boundary: { supportType: 'simply-supported' },
         loads: [{ id: 'P', kind: 'point', magnitude: 1, unit: 'kN', direction: 'gravity', target: 'beam', location: { xM: 5 } }],
         sectionRecords: [{ id: 'S', name: 'I20a', type: 'I', shape, properties: { A: .0035578, Iy: 2.37e-5 },
-          extra: { provenance: { shape: 'llm-table', properties: 'llm-table' }, source: `LLM: ${label}` } }],
+          // Reproduce the live failure: the extractor claims that a designation confirms its own numbers.
+          extra: { provenance: { shape: 'user', properties: 'user' }, source: `LLM: ${label}` } }],
         templateAssignments: { beam: { sectionId: 'S' } },
       }, requestScope: { responses: ['forces', 'reactions', 'displacements'], design: false, report: false, outputs: [] } },
     }));

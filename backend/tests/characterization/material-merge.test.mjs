@@ -68,6 +68,6 @@ describeWithOpenSees('characterization: material and section clarification after
       .toEqual(failure === 'length'
         ? [['full', 1, 'accepted'], ['patch', 1, 'length'], ['patch', 2, 'accepted'], ['patch', 1, 'accepted']]
         : [['full', 1, 'accepted'], ['patch', 1, 'invalid_patch'], ['patch', 2, 'accepted'], ['patch', 1, 'invalid_patch'], ['patch', 2, 'accepted']]);
-    expect(second.requests.filter(row => row.kind === 'param-extractor').map(row => row.body.max_tokens)).toEqual([2048, 2048]);
+    expect(second.requests.filter(row => row.kind === 'param-extractor').map(row => row.body.max_tokens)).toEqual([1024, 2048]);
   }, TURN_TIMEOUT_MS);
 });

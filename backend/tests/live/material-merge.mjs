@@ -7,15 +7,22 @@ if (!args['base-url'] || !args['data-dir'] || BASE !== 'http://127.0.0.1:31605')
   throw new Error('Use --base-url http://127.0.0.1:31605 --data-dir <isolated SCLAW_DATA_DIR>');
 }
 const results = [];
-// Fixture assertion only: confirm the dimensions the UI received, never supply missing candidates.
-const offeredDimensions = text => {
-  const numbers = String(text ?? '').match(/\d+(?:\.\d+)?/g)?.map(Number) ?? [];
-  return numbers.some((_, index) => [200, 100, 7, 11.4].every((value, offset) => numbers[index + offset] === value));
+// Fixture parsing only: record the actual candidate, then select it or explicitly correct it.
+const realDimensions = [200, 100, 7, 11.4];
+const dimensionsOf = text => {
+  text = String(text ?? '');
+  const tuple = text.match(/(\d+(?:\.\d+)?)\s*[×x*]\s*(\d+(?:\.\d+)?)\s*[×x*]\s*(\d+(?:\.\d+)?)\s*[×x*]\s*(\d+(?:\.\d+)?)\s*(mm|cm|m)?/i);
+  if (tuple) return tuple.slice(1, 5).map(value => Number(value) * (tuple[5] === 'cm' ? 10 : tuple[5] === 'm' ? 1000 : 1));
+  const labels = ['\\bH\\b|高度|截面高', '\\bB\\b|翼缘宽度|翼缘宽', '\\btw\\b|腹板厚度|腹板厚', '\\btf\\b|翼缘厚度|翼缘厚'];
+  const named = labels.map(label => text.match(new RegExp(`(?:${label})\\s*[:=：]?\\s*(\\d+(?:\\.\\d+)?)\\s*(mm|cm|m)?`, 'i')));
+  if (named.every(Boolean)) return named.map(match => Number(match[1]) * (match[2] === 'cm' ? 10 : match[2] === 'm' ? 1000 : 1));
+  return undefined;
 };
+const sameDimensions = (a, b) => a && b && a.every((value, i) => Math.abs(value - b[i]) < 1e-6);
 for (let index = 1; index <= Number(args.runs ?? 3); index++) {
   const started = Date.now();
   const failures = [], turns = [], questions = [], answerRoutes = [], runIds = new Set();
-  let session, conversationId, deflectionMm, confirmationDelivery;
+  let session, conversationId, deflectionMm, expectedDeflectionMm, confirmationDelivery, preConfirmationAnalysisRuns;
   const readSession = async () => {
     const value = (await json('GET', `/api/v1/chat/conversation/${conversationId}/session`)).body;
     if (value.usage?.runId) runIds.add(value.usage.runId);
@@ -28,19 +35,29 @@ for (let index = 1; index <= Number(args.runs ?? 3); index++) {
     for (let answerIndex = 0; answerIndex < 2; answerIndex++) {
       session = await readSession();
       questions.push(session.waitingForReply ? session.question : turns.at(-1).response);
+      const review = (await json('GET', `/api/v1/agent/result-review/${conversationId}`)).body;
+      preConfirmationAnalysisRuns = review.runs?.length ?? 0;
+      const prematureRequests = [...runIds].flatMap(id => JSON.parse(fs.readFileSync(path.join(args['data-dir'], 'run-records', `${id}.json`))).usage.events)
+        .filter(event => event.kind === 'analysis_request');
+      if (preConfirmationAnalysisRuns || prematureRequests.length) throw new Error('Analysis started before numeric section confirmation');
       let answer = '材料Q235钢，截面工字钢I20a';
       if (answerIndex === 1) {
         const delivered = turns.at(-1).interactions.at(-1)?.content;
         const sseQuestion = delivered?.questions?.map(item => item.question).join('\n');
         confirmationDelivery = { question: session.question, options: session.options,
           sseQuestion, sseOptions: delivered?.options };
-        if (!session.waitingForReply || !offeredDimensions(session.question) || !offeredDimensions(sseQuestion)) {
-          throw new Error('The interface did not offer 200×100×7×11.4 mm in the confirmation question');
+        const offered = dimensionsOf(session.question);
+        if (!session.waitingForReply || !offered || !sameDimensions(offered, dimensionsOf(sseQuestion))) {
+          throw new Error('The interface did not offer numeric dimensions consistently in the confirmation question');
         }
         if (JSON.stringify(session.options ?? []) !== JSON.stringify(delivered?.options ?? [])) {
           throw new Error('SSE and session delivered different confirmation options');
         }
-        answer = session.options?.find(offeredDimensions) ?? '确认采用上述尺寸。';
+        const option = session.options?.find(value => sameDimensions(offered, dimensionsOf(value)));
+        if (!option) throw new Error('No delivered option contains the offered dimensions');
+        const corrected = !sameDimensions(offered, realDimensions);
+        answer = corrected ? '不采用所列候选尺寸。请采用 I20a 的实际尺寸：H=200 mm，B=100 mm，tw=7 mm，tf=11.4 mm。' : option;
+        Object.assign(confirmationDelivery, { offered, option, corrected, confirmed: realDimensions });
         confirmationDelivery.answer = answer;
       }
       answerRoutes.push(session.waitingForReply ? 'resume' : 'message');
@@ -53,11 +70,19 @@ for (let index = 1; index <= Number(args.runs ?? 3); index++) {
     if (!session.analysis?.current) failures.push('No current analysis');
     else {
       const review = (await json('GET', `/api/v1/agent/input-review/${conversationId}`)).body;
+      const confirmedSection = review.model.sections.find(section => section.shape?.kind === 'I');
+      const dimensions = confirmedSection?.shape;
+      if (!dimensions || !sameDimensions(realDimensions, ['H', 'B', 'tw', 'tf'].map(key => dimensions[key]))) {
+        throw new Error('The built section differs from the dimensions in the actual user answer');
+      }
       const mid = review.model.nodes.find(node => Math.abs(node.x - 5) < 1e-9);
       const value = await queryResult(conversationId, { runId: session.analysis.runId, field: 'displacements',
         nodeId: mid.id, component: 'uz', unit: 'mm', quantityId: `material-merge-${index}` });
       deflectionMm = Math.abs(value.quantity.value);
-      if (Math.abs(deflectionMm - 4.295) > .0005) failures.push(`Unexpected deflection: ${deflectionMm}`);
+      const [H, B, tw, tf] = realDimensions, hw = H - 2 * tf;
+      const inertia = (tw * hw ** 3 / 12 + 2 * B * tf ** 3 / 12 + 2 * B * tf * ((hw + tf) / 2) ** 2) / 1e12;
+      expectedDeflectionMm = 1000 * 10 ** 3 / (48 * 206e9 * inertia) * 1000;
+      if (Math.abs(deflectionMm / expectedDeflectionMm - 1) > 1e-6) failures.push(`Unexpected deflection: ${deflectionMm}, expected ${expectedDeflectionMm}`);
     }
   } catch (error) { failures.push(error.message); }
   const wallMs = Date.now() - started, systemMs = turns.reduce((sum, item) => sum + item.wallMs, 0);
@@ -74,8 +99,8 @@ for (let index = 1; index <= Number(args.runs ?? 3); index++) {
   if (failedExtracts.length) failures.push('Extraction failed without applying inputs');
   if (!extracts.length) failures.push('Missing extraction diagnostics');
   const row = { run: index, conversationId, runId: session?.usage?.runId, runIds: [...runIds], wallMs, systemMs,
-    answers: turns.length - 1, answerRoutes, questions, confirmationDelivery,
-    deflectionMm, extractCalls, failedExtracts, extracts: extracts.map(({ applied, unapplied, status }) => ({ applied, unapplied, status })),
+    answers: turns.length - 1, answerRoutes, questions, confirmationDelivery, preConfirmationAnalysisRuns,
+    deflectionMm, expectedDeflectionMm, extractCalls, failedExtracts, extracts: extracts.map(({ applied, unapplied, status }) => ({ applied, unapplied, status })),
     patches: events.filter(event => event.kind === 'param_extractor' && event.mode === 'patch')
       .map(({ attempt, durationMs, finishReason, usage, maxOutputTokens, outcome }) => ({ attempt, durationMs, finishReason,
         reasoningTokens: usage?.reasoningTokens, maxOutputTokens, outcome })),
