@@ -48,7 +48,7 @@ describe('diagram display geometry', () => {
   it('formats noise and small values with significant digits in both locales', () => {
     for (const locale of ['en', 'zh'] as const) {
       expect(formatResultNumber(-2.500000000000001, locale)).toBe('-2.50')
-      expect(formatResultNumber(0.00000123456, locale)).toBe('0.000001235')
+      expect(formatResultNumber(0.00000123456, locale)).toBe('1.235E-6')
       expect(formatResultNumber(-0, locale)).toBe('0.00')
     }
   })

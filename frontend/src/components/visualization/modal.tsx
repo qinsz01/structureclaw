@@ -188,12 +188,12 @@ export function StructuralVisualizationModal({
   useEffect(() => {
     if (!open || !snapshot) return
     dispatch({ type: 'open', key: figureKey ?? `${snapshot.source}:${snapshot.title}:${snapshot.defaultCaseId}`, initial: {
-      view: initialView && snapshot.availableViews.includes(initialView) ? initialView : snapshot.availableViews[0] || 'model',
+      view: initialView && (activeCase?.availableViews ?? snapshot.availableViews).includes(initialView) ? initialView : 'model',
       component: initialForceMetric ?? (snapshot.cases.some(item => Object.values(item.memberResponses ?? {}).some(row => row.samples.some(sample => typeof sample.M2 === 'number'))) ? 'M2' : 'moment'),
       deformScale: deformationScaleRange.recommended,
       selection: selectedObject ? { kind: selectedObject.kind, id: selectedObject.id } : null,
     } })
-  }, [open, snapshot, figureKey, initialView, initialForceMetric, selectedObject, deformationScaleRange.recommended])
+  }, [open, snapshot, activeCase, figureKey, initialView, initialForceMetric, selectedObject, deformationScaleRange.recommended])
 
   return (
     <VisualizationModalShell
@@ -233,7 +233,7 @@ export function StructuralVisualizationModal({
               modes={bucklingModes}
               activeIndex={bucklingModeIndex}
               title={t('visualizationViewBuckling')}
-              onSelect={mode => patch({ mode })}
+              onSelect={bucklingModes.length > 1 ? mode => patch({ mode }) : undefined}
             />
           ) : null}
           {snapshot?.unsupportedElementTypes.length ? (

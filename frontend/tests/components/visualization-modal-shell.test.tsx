@@ -140,7 +140,7 @@ describe('VisualizationModalShell', () => {
 
   it('shows only the model entry when no snapshot exists', () => {
     render(<VisualizationModalShell {...defaultProps} snapshot={null} />)
-    expect(screen.getByRole('button', { name: 'Model' })).toBeInTheDocument()
+    expect(screen.getByText('Model', { exact: true })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Deformed' })).not.toBeInTheDocument()
   })
 

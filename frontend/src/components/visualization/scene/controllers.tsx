@@ -52,17 +52,24 @@ export function PngExporter({
   glRef,
   invalidateRef,
   renderRef,
+  measureRef,
 }: {
   glRef: React.MutableRefObject<THREE.WebGLRenderer | null>
   invalidateRef: React.MutableRefObject<(() => void) | null>
   renderRef: React.MutableRefObject<(() => void) | null>
+  measureRef: React.MutableRefObject<(() => number) | null>
 }) {
-  const { gl, invalidate, scene, camera } = useThree()
+  const { gl, invalidate, scene, camera, controls, size } = useThree()
   useEffect(() => {
     glRef.current = gl
     invalidateRef.current = invalidate
     renderRef.current = () => gl.render(scene, camera)
-  }, [gl, glRef, invalidate, invalidateRef, renderRef, scene, camera])
+    measureRef.current = () => {
+      if (camera instanceof THREE.OrthographicCamera) return (camera.top - camera.bottom) / camera.zoom / size.height
+      const target = (controls as unknown as { target?: THREE.Vector3 })?.target ?? new THREE.Vector3()
+      return 2 * camera.position.distanceTo(target) * Math.tan(THREE.MathUtils.degToRad((camera as THREE.PerspectiveCamera).fov / 2)) / size.height
+    }
+  }, [gl, glRef, invalidate, invalidateRef, renderRef, measureRef, scene, camera, controls, size])
   return null
 }
 

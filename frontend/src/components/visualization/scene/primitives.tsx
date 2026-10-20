@@ -76,6 +76,7 @@ export function VectorArrow({
   const palette = useScenePalette()
   const direction = useMemo(() => vector.clone().normalize(), [vector])
   const length = Math.max(vector.length(), 0.01)
+  const headLength = Math.min(length * 0.35, Math.max(length * 0.26, 0.08))
   const quaternion = useMemo(() => {
     const base = new THREE.Vector3(0, 1, 0)
     const next = new THREE.Quaternion()
@@ -83,7 +84,7 @@ export function VectorArrow({
     return next
   }, [direction])
   const shaftPosition = useMemo(() => origin.clone().add(vector.clone().multiplyScalar(0.4)), [origin, vector])
-  const headPosition = useMemo(() => origin.clone().add(vector.clone().multiplyScalar(0.9)), [origin, vector])
+  const headPosition = useMemo(() => origin.clone().addScaledVector(direction, length - headLength / 2), [origin, direction, length, headLength])
 
   return (
     <>
@@ -95,7 +96,7 @@ export function VectorArrow({
       </group>
       <group position={headPosition} quaternion={quaternion}>
         <mesh>
-          <coneGeometry args={[selected ? 0.14 : 0.1, Math.max(length * 0.26, 0.08), 12]} />
+          <coneGeometry args={[selected ? 0.14 : 0.1, headLength, 12]} />
           <meshStandardMaterial color={color} emissive={selected ? palette.highlight : palette.foreground} emissiveIntensity={selected ? 0.45 : 0} />
         </mesh>
       </group>

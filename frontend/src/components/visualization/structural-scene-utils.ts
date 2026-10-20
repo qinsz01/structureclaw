@@ -140,12 +140,12 @@ export function getElementMetric(activeCase: VisualizationCase, elementId: strin
     return Number(result.envelope?.maxAbsMoment || 0)
   }
   if (forceMetric === 'axial') {
-    return Number(result.axial || 0)
+    return typeof result.axial === 'number' ? result.axial : null
   }
   if (forceMetric === 'shear') {
-    return Number(result.shear || 0)
+    return typeof result.shear === 'number' ? result.shear : null
   }
-  return Number(result.moment || 0)
+  return typeof result.moment === 'number' ? result.moment : null
 }
 
 export function getNodeReactionMagnitude(activeCase: VisualizationCase, nodeId: string) {

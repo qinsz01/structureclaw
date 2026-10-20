@@ -170,7 +170,7 @@ export function VisualizationModalShell({
 
           <div className="relative flex flex-col gap-4 border-b border-border/70 px-5 py-4">
             <div className="flex flex-wrap items-center gap-2">
-              {availableViews.map((view) => (
+              {availableViews.length === 1 ? <span className="rounded-full border border-border bg-background px-4 py-2 text-sm text-foreground">{t(getVisualizationViewLabelKey(availableViews[0]))}</span> : availableViews.map((view) => (
                 <button
                   key={view}
                   className={cn(

@@ -26,5 +26,6 @@ export function formatDate(date: Date | string, locale: AppLocale = 'en'): strin
 }
 
 export function formatResultNumber(num: number, locale: AppLocale = 'en'): string {
-  return formatNumber(num, locale, { maximumSignificantDigits: 4, minimumSignificantDigits: 3, useGrouping: false })
+  return formatNumber(num, locale, { maximumSignificantDigits: 4, minimumSignificantDigits: 3, useGrouping: false,
+    notation: num !== 0 && (Math.abs(num) < 0.0001 || Math.abs(num) >= 1e6) ? 'scientific' : 'standard' })
 }

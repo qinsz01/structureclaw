@@ -5,8 +5,9 @@ import { legendStops, type LegendProps } from './color-bar'
 import type { ScenePalette } from './palette'
 
 /** Compose the WebGL frame and visible HTML labels onto an opaque, printable image. */
-export function exportSceneImage({ gl, render, container, filename, scale, palette, legend, title, note, locale }: {
+export function exportSceneImage({ gl, render, container, filename, scale, palette, legend, title, note, locale, unitsPerPixel, lengthUnit }: {
   gl: THREE.WebGLRenderer; render: () => void; container: HTMLElement; filename: string; scale: number;
+  unitsPerPixel?: number; lengthUnit?: string;
   palette: ScenePalette; legend: LegendProps | null; title: string; note: string; locale: AppLocale
 }) {
   const rect = gl.domElement.getBoundingClientRect()
@@ -63,7 +64,10 @@ export function exportSceneImage({ gl, render, container, filename, scale, palet
     ctx.fillText(legend.unit ?? '', x, y + 22)
     const stops = legendStops(legend, palette), barHeight = legend.colorMode === 'buckling' ? 20 : 160
     const gradient = ctx.createLinearGradient(0, y + 40, 0, y + 40 + barHeight)
-    stops.forEach((color, index) => gradient.addColorStop(index / (stops.length - 1), color))
+    if (legend.colorMode === 'signed') {
+      gradient.addColorStop(0, palette.positive); gradient.addColorStop(0.4999, palette.positive)
+      gradient.addColorStop(0.5, palette.negative); gradient.addColorStop(1, palette.negative)
+    } else stops.forEach((color, index) => gradient.addColorStop(index / (stops.length - 1), color))
     ctx.fillStyle = gradient; ctx.fillRect(x, y + 40, 24, barHeight)
     ctx.fillStyle = palette.foreground
     const max = legend.maxValue * (legend.valueScale ?? 1)
@@ -75,6 +79,15 @@ export function exportSceneImage({ gl, render, container, filename, scale, palet
   }
   ctx.fillStyle = palette.foreground; ctx.font = '12px Arial, "Microsoft YaHei", sans-serif'
   ctx.fillText(note, 20, height + header + 25)
+  if (unitsPerPixel && unitsPerPixel > 0) {
+    const raw = unitsPerPixel * 100
+    const base = 10 ** Math.floor(Math.log10(raw))
+    const length = (raw / base >= 5 ? 5 : raw / base >= 2 ? 2 : 1) * base
+    const pixels = length / unitsPerPixel, x = width - pixels - 24, y = height + header + 24
+    ctx.strokeStyle = palette.foreground; ctx.lineWidth = 1.5
+    ctx.beginPath(); ctx.moveTo(x, y - 4); ctx.lineTo(x, y); ctx.lineTo(x + pixels, y); ctx.lineTo(x + pixels, y - 4); ctx.stroke()
+    ctx.fillText(`${formatResultNumber(length, locale)} ${lengthUnit ?? ''}`, x, y - 8)
+  }
   const link = document.createElement('a')
   link.download = `${filename}@${scale}x.png`
   link.href = canvas.toDataURL('image/png'); link.click()

@@ -6,7 +6,7 @@ import type { VisualizationSnapshot, VisualizationViewMode } from '@/components/
 import { messages } from '@/lib/i18n'
 
 const snapshot: VisualizationSnapshot = { version: 1, title: 'Test', source: 'result', dimension: 2, plane: 'xz',
-  availableViews: ['model', 'deformed', 'forces', 'reactions'], defaultCaseId: 'D', nodes: [], elements: [], unsupportedElementTypes: [],
+  availableViews: ['model', 'deformed', 'forces', 'reactions'], defaultCaseId: 'D', nodes: [], elements: [{ id: 'E', type: 'beam', nodeIds: ['A', 'B'] }], unsupportedElementTypes: [],
   loads: [{ nodeId: 'B', caseId: 'D', vector: { x: 0, y: 0, z: -1 } }], cases: [{ id: 'D', label: 'D', kind: 'case', nodeResults: {}, elementResults: {},
     memberResponses: { E: { id: 'E', state: 'recovered', length: 1, reason: '', samples: [{ x: 0, position: [0, 0, 0], N: 0, V2: 0, V3: 1, T: 0, M2: 2, M3: 0 }] } } }] }
 const range = { min: 1, max: 40, step: 0.1 }

@@ -105,10 +105,7 @@ export function SceneContent({
           makeDefault
           fov={42}
           position={cameraFrame.position}
-          onUpdate={(camera) => {
-            camera.up.set(...cameraFrame.up)
-            camera.lookAt(...cameraFrame.target)
-          }}
+          up={cameraFrame.up}
         />
       ) : (
         <OrthographicCamera
@@ -116,10 +113,7 @@ export function SceneContent({
           makeDefault
           position={cameraFrame.position}
           zoom={48}
-          onUpdate={(camera) => {
-            camera.up.set(...cameraFrame.up)
-            camera.lookAt(...cameraFrame.target)
-          }}
+          up={cameraFrame.up}
         />
       )}
       <ambientLight intensity={0.9} />

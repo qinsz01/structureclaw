@@ -11,6 +11,7 @@ import {
   getMemberDisplacementMagnitude,
   getMemberLoadInterval,
   getNodeDisplacementMagnitude,
+  isForceComponent,
   isLoadVisible,
   isRenderableLoadVector,
   projectPosition,
@@ -44,7 +45,8 @@ export function SceneElement({ element, ctx }: { element: VisualizationElement; 
   const utilizationRatio = activeCase.elementResults[element.id]?.utilization
   const deformedMagnitude = Math.max(getNodeDisplacementMagnitude(activeCase, element.nodeIds[0]),
     getNodeDisplacementMagnitude(activeCase, element.nodeIds[1]), getMemberDisplacementMagnitude(activeCase, element.id))
-  const baseColor = view === 'forces' ? forceColor : view === 'utilization'
+  const hasDiagram = element.localAxes && isForceComponent(forceMetric) && (activeCase.memberResponses?.[element.id]?.samples.filter(sample => typeof sample[forceMetric] === 'number').length ?? 0) >= 2
+  const baseColor = view === 'forces' ? hasDiagram ? palette.neutral : forceColor : view === 'utilization'
     ? utilizationRatio === undefined ? palette.neutral : createUtilizationColor(utilizationRatio, palette)
     : view === 'deformed' ? createColorScale(deformedMagnitude, maxDisplacement, palette)
     : view === 'buckling' ? palette.buckling : palette.member

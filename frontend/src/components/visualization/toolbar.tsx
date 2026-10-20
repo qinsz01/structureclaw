@@ -2,12 +2,13 @@
 import type { MessageKey } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import type { VisualizationSnapshot } from './types'
-import { forceMetricLabel } from './structural-scene-utils'
+import { forceMetricLabel, getElementMetric } from './structural-scene-utils'
 import { availableMetrics, hasCaseLoads, viewControls, type VizState } from './state'
 
 type Props = { snapshot: VisualizationSnapshot; state: VizState; scaleRange: { min: number; max: number; step: number }; onChange: (patch: Partial<VizState>) => void; t: (key: MessageKey) => string }
 export function VisualizationToolbar({ snapshot, state, scaleRange, onChange, t }: Props) {
   const activeCase = snapshot.cases.find(item => item.id === snapshot.defaultCaseId)!
+  const hasOrdinates = snapshot.elements.some(element => Math.abs(getElementMetric(activeCase, element.id, state.component) ?? 0) > 0)
   const controls = viewControls(state.view, hasCaseLoads(snapshot, activeCase))
   const toggles: { key: keyof Pick<VizState, 'showOriginal' | 'showNodeLabels' | 'showElementLabels' | 'showLoads' | 'showLegend'>; label: MessageKey }[] = [
     ...(controls.deformation ? [{ key: 'showOriginal' as const, label: 'visualizationUndeformedOverlay' as const }] : []),
@@ -22,7 +23,7 @@ export function VisualizationToolbar({ snapshot, state, scaleRange, onChange, t 
       aria-pressed={state.component === component} className={button(state.component === component)} onClick={() => onChange({ component })}>
       {forceMetricLabel(component, t)}
     </button>)}
-    {(controls.deformation || controls.diagram) && <label className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+    {(controls.deformation || controls.diagram && hasOrdinates) && <label className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
       <span>{t(controls.diagram ? 'visualizationDiagramScale' : 'visualizationScale')}</span>
       <input className="accent-primary" type="range" min={controls.diagram ? 0.25 : scaleRange.min}
         max={controls.diagram ? 3 : scaleRange.max} step={controls.diagram ? 0.05 : scaleRange.step}

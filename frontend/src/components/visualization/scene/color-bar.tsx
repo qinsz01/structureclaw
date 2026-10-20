@@ -24,7 +24,7 @@ export function ColorBar({ show, locale = 'en', ...legend }: LegendProps & { sho
       {colorMode === 'buckling' ? <span className="text-xs text-foreground">{format(maxValue)}</span> : <div className="flex h-28 flex-col items-end justify-between text-xs text-muted-foreground">
         <span>{format(maxValue * valueScale)}</span><span>{format(colorMode === 'signed' ? 0 : maxValue * 0.5 * valueScale)}</span><span>{colorMode === 'signed' ? format(-maxValue * valueScale) : '0'}</span>
       </div>}
-      <div className={colorMode === 'buckling' ? 'h-4 w-8 rounded-sm' : 'h-28 w-5 rounded-sm'} style={{ background: `linear-gradient(to bottom, ${legendStops(legend, palette).join(',')})` }} />
+      <div className={colorMode === 'buckling' ? 'h-4 w-8 rounded-sm' : 'h-28 w-5 rounded-sm'} style={{ background: colorMode === 'signed' ? `linear-gradient(to bottom, ${palette.positive} 0%, ${palette.positive} 50%, ${palette.negative} 50%, ${palette.negative} 100%)` : `linear-gradient(to bottom, ${legendStops(legend, palette).join(',')})` }} />
     </div>
   </div>
 }

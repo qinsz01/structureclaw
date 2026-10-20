@@ -20,6 +20,7 @@ export function StructuralScene(props: StructuralSceneProps) {
   const { resolvedTheme } = useTheme()
   const palette = scenePalettes[resolvedTheme === 'dark' ? 'dark' : 'light']
   const containerRef = useRef<HTMLDivElement>(null)
+  const measureRef = useRef<(() => number) | null>(null)
   const renderRef = useRef<(() => void) | null>(null)
   const { snapshot, activeCase, forceMetric, view, showLegend, t, exportRef, bucklingModeIndex } = props
 
@@ -120,7 +121,7 @@ export function StructuralScene(props: StructuralSceneProps) {
           title: `${snapshot.title} · ${activeCase.label}`,
           note: view === 'deformed' ? `${t('visualizationScale')}: ${props.deformationScale.toFixed(1)}×`
             : `${t('visualizationGeometryScale')}: ${snapshot.lengthUnit ?? ''}`,
-          locale: props.locale ?? 'en' })
+          locale: props.locale ?? 'en', unitsPerPixel: measureRef.current?.(), lengthUnit: snapshot.lengthUnit })
       } finally { onDone?.() }
     } }
     return () => { exportRef.current = null }
@@ -148,7 +149,7 @@ export function StructuralScene(props: StructuralSceneProps) {
         </div>
       )}
       <Canvas dpr={[1, 1.75]} frameloop={view === 'buckling' ? 'always' : 'demand'} gl={{ preserveDrawingBuffer: true }} onPointerMissed={props.onClearSelection}>
-        <PngExporter glRef={glRef} invalidateRef={invalidateRef} renderRef={renderRef} />
+        <PngExporter glRef={glRef} invalidateRef={invalidateRef} renderRef={renderRef} measureRef={measureRef} />
         {view === 'buckling' && <BucklingAnimator amplitudeRef={bucklingAmplitudeRef} />}
         <Suspense fallback={null}>
           <SceneContent {...props} maxElementMetric={maxElementMetric} rawMaxElementMetric={rawMaxElementMetric} maxReaction={maxReaction} maxReactionMoment={maxReactionMoment} maxDisplacement={maxDisplacement} bucklingAmplitudeRef={bucklingAmplitudeRef} />
