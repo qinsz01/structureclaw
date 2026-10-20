@@ -39,10 +39,13 @@ for (let index = 1; index <= Number(args.runs ?? 3); index++) {
   const recordPath = session?.usage?.runId && path.join(args['data-dir'], 'run-records', `${session.usage.runId}.json`);
   const events = recordPath && fs.existsSync(recordPath) ? JSON.parse(fs.readFileSync(recordPath, 'utf8')).usage.events : [];
   const extracts = events.filter(event => event.kind === 'draft_extraction_result');
+  const failedExtracts = events.filter(event => event.kind === 'tool_finished' && event.name === 'extract_draft_params' && !event.success);
+  const extractCalls = events.filter(event => event.kind === 'tool_started' && event.name === 'extract_draft_params').length;
   if (extracts.some(event => !event.applied.length)) failures.push('Extraction applied nothing');
+  if (failedExtracts.length) failures.push('Extraction failed without applying inputs');
   if (!extracts.length) failures.push('Missing extraction diagnostics');
   const row = { run: index, conversationId, runId: session?.usage?.runId, wallMs, systemMs, answers: turns.length - 1, questions,
-    deflectionMm, extractCalls: extracts.length, extracts: extracts.map(({ applied, unapplied, status }) => ({ applied, unapplied, status })),
+    deflectionMm, extractCalls, failedExtracts, extracts: extracts.map(({ applied, unapplied, status }) => ({ applied, unapplied, status })),
     patches: events.filter(event => event.kind === 'param_extractor' && event.mode === 'patch')
       .map(({ attempt, durationMs, finishReason, usage, maxOutputTokens, outcome }) => ({ attempt, durationMs, finishReason,
         reasoningTokens: usage?.reasoningTokens, maxOutputTokens, outcome })),

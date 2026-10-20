@@ -592,5 +592,10 @@ test.each(['en', 'zh'])('both prompt modes forbid self-weight questions and pres
     expect(prompt).toContain('确认前不能计算');
     expect(prompt).toContain('sectionRecords[].extra, alongside shape and properties');
     expect(prompt).toContain('与shape和properties同级');
+    if (patchMode) {
+      expect(prompt).toContain('Never clear identity or evidence (including extra.source and extra.provenance)');
+      expect(prompt).toContain('confirmation updates provenance.shape="user"');
+      expect(prompt).toContain('materials:[{id,name,family,grade,E,nu,rho,extra}]');
+    }
   }
 });
