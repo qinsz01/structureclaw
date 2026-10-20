@@ -71,6 +71,7 @@ export function VisualizationModalShell({
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
   const [copyStatus, setCopyStatus] = useState<'copied' | 'failed' | null>(null)
+  const [detailsOpen, setDetailsOpen] = useState(false)
   useEffect(() => setCopyStatus(null), [open, snapshot?.runId])
 
   const availableViews = useMemo(
@@ -243,8 +244,11 @@ export function VisualizationModalShell({
 
           <div className={cn('relative flex min-h-0 flex-1 flex-col overflow-y-auto', !inline && 'xl:flex-row xl:overflow-hidden')}>
             <div className={cn('flex-1', inline ? 'min-h-[380px]' : 'min-h-[420px] xl:min-h-0')}>{children}</div>
-            <aside className={cn('shrink-0 overflow-y-auto border-t border-border/70 bg-background/50 p-4', inline ? 'max-h-44' : 'xl:w-[280px] xl:border-l xl:border-t-0')}>
-              {aside}
+            <aside className={cn('shrink-0 overflow-y-auto border-t border-border/70 bg-background/50', !inline && 'p-4 xl:w-[280px] xl:border-l xl:border-t-0')}>
+              <details open={!inline || detailsOpen} onToggle={event => { if (inline) setDetailsOpen(event.currentTarget.open) }}>
+                <summary className={inline ? 'cursor-pointer px-4 py-3 text-sm text-foreground' : 'hidden'}>{t('visualizationObjectDetails')}</summary>
+                <div className={inline ? 'max-h-44 overflow-y-auto p-4 pt-0' : undefined}>{aside}</div>
+              </details>
             </aside>
           </div>
 

@@ -174,27 +174,27 @@ export function ResultReviewPanel({ open, onClose, conversationId, locale, disab
     // Snapshot reads and explicit queries share the saved revision/usage ledger.
     // Serialize them and use the revision returned by the preceding action.
     const request = requests.current.then(async () => {
-    if (!catalogRef.current || disabled || ticket !== generation.current) return null
-    if (!background) setBusy(true)
-    setError('')
-    try {
-      const response = await fetch(`${endpoint}/tools`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ revisionToken: catalogRef.current.revisionToken, tool, args }) })
-      const value = await response.json()
-      if (ticket !== generation.current) return null
-      if (!response.ok) throw new Error(value.error ?? response.statusText)
-      if (value.review?.conversationId !== conversationId) throw new Error('CONVERSATION_MISMATCH')
-      catalogRef.current = value.review
-      setCatalog(value.review); usageChangedRef.current()
-      if (!value.success) throw new Error(JSON.stringify(value.result))
-      const output = record(value.result)
-      if (tool === 'query_results' && (output.runId !== args.runId || output.resultKey !== args.resultKey)) throw new Error('RESULT_SELECTION_MISMATCH')
-      if (tool === 'generate_report') {
-        const returned = record(record(record(output.report).json).requestedSelection)
-        if (!Object.entries(record(args.selection)).every(([key, expected]) => returned[key] === expected)) throw new Error('REPORT_SELECTION_MISMATCH')
-      }
-      return output
-    } catch (cause) { if (ticket === generation.current) setError(String(cause)); return null }
-    finally { if (ticket === generation.current && !background) setBusy(false) }
+      if (!catalogRef.current || disabled || ticket !== generation.current) return null
+      if (!background) setBusy(true)
+      setError('')
+      try {
+        const response = await fetch(`${endpoint}/tools`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ revisionToken: catalogRef.current.revisionToken, tool, args }) })
+        const value = await response.json()
+        if (ticket !== generation.current) return null
+        if (!response.ok) throw new Error(value.error ?? response.statusText)
+        if (value.review?.conversationId !== conversationId) throw new Error('CONVERSATION_MISMATCH')
+        catalogRef.current = value.review
+        setCatalog(value.review); usageChangedRef.current()
+        if (!value.success) throw new Error(JSON.stringify(value.result))
+        const output = record(value.result)
+        if (tool === 'query_results' && (output.runId !== args.runId || output.resultKey !== args.resultKey)) throw new Error('RESULT_SELECTION_MISMATCH')
+        if (tool === 'generate_report') {
+          const returned = record(record(record(output.report).json).requestedSelection)
+          if (!Object.entries(record(args.selection)).every(([key, expected]) => returned[key] === expected)) throw new Error('REPORT_SELECTION_MISMATCH')
+        }
+        return output
+      } catch (cause) { if (ticket === generation.current) setError(String(cause)); return null }
+      finally { if (ticket === generation.current && !background) setBusy(false) }
     })
     requests.current = request
     return request

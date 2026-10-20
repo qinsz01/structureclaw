@@ -3,6 +3,7 @@ export const visualizationMessages = {
   en: {
     visualizationAnalysisResult: 'Analysis result',
     visualizationFullscreen: 'Fullscreen',
+    visualizationObjectDetails: 'Object details',
     visualizationMode: 'Mode',
     visualizationRun: 'Run',
     visualizationCopyRunId: 'Copy full run ID',
@@ -124,6 +125,7 @@ export const visualizationMessages = {
   zh: {
     visualizationAnalysisResult: '分析结果',
     visualizationFullscreen: '全屏',
+    visualizationObjectDetails: '对象详情',
     visualizationMode: '模态',
     visualizationRun: '运行',
     visualizationCopyRunId: '复制完整运行 ID',
