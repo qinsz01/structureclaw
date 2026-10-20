@@ -226,6 +226,8 @@ function analysisResponsePayload(
   scope: RequestScope | null | undefined,
   placeholder: Record<string, unknown> = {},
 ) {
+  if (analysisSummary.success === false) return { ...analysisSummary, nextAction: 'report_failure',
+    instruction: 'Report this analysis failure once with its diagnostics. No requested results were delivered; do not query missing results or repeat the same solve without corrected inputs. / 请一次性说明本次分析失败及诊断；未交付所求结果，不查询缺失结果，也不在输入未修正时重复求解。' };
   return { ...analysisSummary, ...placeholder, ...(delivery ? { requestedQuantities: delivery.requestedQuantities, missingRequestedOutputs: delivery.missingRequestedOutputs,
     deliveryScope: 'declared-output-selections',
     deliveryStatus: !scope?.outputs?.length ? 'not-specified' : delivery.missingRequestedOutputs.length ? 'partial' : 'complete' } : {}), ...(scope ? { requestScope: scope, requestedOutputs: scope.outputs,

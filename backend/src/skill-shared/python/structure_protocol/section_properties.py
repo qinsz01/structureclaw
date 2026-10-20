@@ -34,8 +34,10 @@ def geometry_properties(shape):
         if h <= 2*tf or b <= tw:
             raise ValueError('I section requires positive clear web height and flange outstand / '
                              'I 形截面的腹板净高和翼缘外伸宽度必须为正')
-        if shape.tf2 not in (None, tf) or shape.B2 not in (None, b) or shape.r:
-            return None  # No unverified unequal-flange/fillet approximation.
+        if shape.tf2 not in (None, tf) or shape.B2 not in (None, b):
+            return None  # Unequal flanges still require explicit properties.
+        # Fillets are omitted from this sharp-corner idealization; the caller
+        # records that approximation and preserves the supplied radius.
         hw = h-2*tf
         return {'A': (2*b*tf+tw*hw)/1e6,
             'Iy': (tw*hw**3/12+2*b*tf**3/12+2*b*tf*((hw+tf)/2)**2)/1e12,
@@ -144,6 +146,10 @@ def validate_section_physics(section):
             note('SECTION_GEOMETRY_UNVERIFIED', 'Geometry comparison unavailable; using explicit section properties.',
                  '无法比较该几何的截面属性；采用显式截面数值。')
         return
+    if shape.kind in {'H', 'I', 'built-up-I'} and shape.r:
+        note('SECTION_FILLET_IGNORED',
+             f'Geometry derivation/comparison ignores fillet r={shape.r:g} mm (sharp corners); explicit user properties take precedence.',
+             f'几何推导和比较不计圆角 r={shape.r:g} mm，采用尖角近似；用户显式提供的属性仍优先。')
     # Gross elastic moduli have the same geometric source as I. A net modulus
     # may be smaller (e.g. documented holes), but must never exceed the gross one.
     h = shape.H or shape.d
