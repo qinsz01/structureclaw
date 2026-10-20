@@ -39,6 +39,8 @@ export function SceneNode({ entry, ctx }: { entry: VisualizationNode; ctx: Scene
   const supportPosition = projectPosition(nodeData.position, plane, snapshot.dimension)
   const supportKind = classifySupport(entry.restraints, snapshot.dimension)
   const reaction = activeCase.nodeResults[entry.id]?.reaction
+  const reactionComponents = (['fx', 'fy', 'fz', 'mx', 'my', 'mz'] as const)
+    .filter(key => Math.abs(reaction?.[key] || 0) > 1e-12)
   const arrowVector = reaction
     ? new THREE.Vector3(reaction.fx || 0, reaction.fy || 0, reaction.fz || 0)
         .multiplyScalar(loadArrowLength * 0.9 / Math.max(maxReaction, 1e-12))
@@ -154,10 +156,10 @@ export function SceneNode({ entry, ctx }: { entry: VisualizationNode; ctx: Scene
           }}
         />
       )}
-      {view === 'reactions' && reaction && (magnitude > 0 || reactionMomentMagnitude > 0) && <Html center
-        position={finalPosition.clone().add(getNodeLabelOffset(plane, snapshot.dimension).multiplyScalar(3)).toArray()} zIndexRange={[20, 0]}>
+      {view === 'reactions' && reaction && reactionComponents.length > 0 && <Html center
+        position={finalPosition.clone().add(arrowVector ?? new THREE.Vector3()).add(getNodeLabelOffset(plane, snapshot.dimension).multiplyScalar(3)).toArray()} zIndexRange={[20, 0]}>
         <div data-viz-label className="w-max whitespace-nowrap rounded-md border border-border bg-background/95 px-2 py-1 text-[10px] text-foreground">
-          {(['fx', 'fy', 'fz', 'mx', 'my', 'mz'] as const).filter(key => Math.abs(reaction[key] || 0) > 1e-12).map(key =>
+          {reactionComponents.map(key =>
             <div key={key}>{key}: {formatResultNumber(reaction[key]!, locale)} {key.startsWith('m') ? snapshot.momentUnit : snapshot.resultUnit}</div>)}
         </div>
       </Html>}

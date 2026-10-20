@@ -89,15 +89,15 @@ export function VectorArrow({
   return (
     <>
       <group position={shaftPosition} quaternion={quaternion}>
-        <mesh>
+        <mesh renderOrder={6}>
           <cylinderGeometry args={[selected ? 0.05 : 0.035, selected ? 0.05 : 0.035, Math.max(length * 0.8, 0.001), 12]} />
-          <meshStandardMaterial color={color} emissive={selected ? palette.highlight : palette.foreground} emissiveIntensity={selected ? 0.45 : 0} />
+          <meshStandardMaterial depthTest={false} depthWrite={false} color={color} emissive={selected ? palette.highlight : palette.foreground} emissiveIntensity={selected ? 0.45 : 0} />
         </mesh>
       </group>
       <group position={headPosition} quaternion={quaternion}>
-        <mesh>
+        <mesh renderOrder={6}>
           <coneGeometry args={[selected ? 0.14 : 0.1, headLength, 12]} />
-          <meshStandardMaterial color={color} emissive={selected ? palette.highlight : palette.foreground} emissiveIntensity={selected ? 0.45 : 0} />
+          <meshStandardMaterial depthTest={false} depthWrite={false} color={color} emissive={selected ? palette.highlight : palette.foreground} emissiveIntensity={selected ? 0.45 : 0} />
         </mesh>
       </group>
     </>
