@@ -46,7 +46,7 @@ export function normalizeClarificationOptions(value: unknown): string[] {
   return [...new Set(value.flatMap((item): string[] => {
     if (typeof item === 'string') return item.trim() ? [item.trim()] : [];
     if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
-    for (const key of ['label', 'text', 'value']) {
+    for (const key of ['label', 'text', 'value', 'answer']) {
       if (typeof item[key] === 'string' && item[key].trim()) return [item[key].trim()];
     }
     return [];

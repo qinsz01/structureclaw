@@ -32,6 +32,7 @@ describe('clarification option contract', () => {
     ['redundant outer brackets', '[["A","B"]]'],
     ['missing final bracket', '["A","B"'],
     ['object choices with trailing commas', '[{"label":"A",},{"text":"B",},]'],
+    ['answer objects from the live provider', [{ answer: 'A', paramKey: 'material' }, { answer: 'B', paramKey: 'material' }]],
     ['stray internal closer', '["A",} "B"]'],
   ])('delivers nonempty choices after bounded repair: %s', async (_label, optionsJson) => {
     expect(await ask(optionsJson)).toMatchObject({ type: 'clarification_needed', options: ['A', 'B'] });
