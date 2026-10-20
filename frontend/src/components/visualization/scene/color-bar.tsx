@@ -1,49 +1,30 @@
-import { createColorScale } from '../structural-scene-utils'
+import { formatResultNumber } from '@/lib/utils'
+import type { AppLocale } from '@/lib/stores/slices/preferences'
+import { createColorScale, createUtilizationColor } from '../structural-scene-utils'
+import { useScenePalette, type ScenePalette } from './palette'
 
-export function ColorBar({
-  maxValue,
-  valueScale = 1,
-  unit,
-  label,
-  show,
-  colorMode = 'scale',
-}: {
-  maxValue: number
-  valueScale?: number
-  unit?: string
-  label: string
-  show: boolean
-  colorMode?: 'scale' | 'utilization'
-}) {
+export type LegendProps = {
+  maxValue: number; valueScale?: number; unit?: string; label: string;
+  colorMode?: 'scale' | 'utilization' | 'buckling' | 'signed'
+}
+export function legendStops(legend: LegendProps, palette: ScenePalette) {
+  if (legend.colorMode === 'buckling') return [palette.buckling, palette.buckling]
+  if (legend.colorMode === 'signed') return [palette.positive, palette.negative]
+  if (legend.colorMode === 'utilization') return [1, 0.85, 0.5, 0].map(ratio => createUtilizationColor(ratio, palette))
+  return [createColorScale(legend.maxValue, legend.maxValue, palette), createColorScale(0, legend.maxValue, palette)]
+}
+export function ColorBar({ show, locale = 'en', ...legend }: LegendProps & { show: boolean; locale?: AppLocale }) {
+  const palette = useScenePalette()
   if (!show) return null
-
-  const formatValue = (val: number) => {
-    if (val >= 1000) return val.toFixed(0)
-    if (val >= 1) return val.toFixed(2)
-    return val.toExponential(1)
-  }
-
-  const gradient = colorMode === 'utilization'
-    // Matches createUtilizationColor: blue(0%) → green → yellow → red(100%)
-    ? 'linear-gradient(to bottom, #d91a1a, #e6b800, #22c55e, #1a6fd9)'
-    : `linear-gradient(to bottom, ${createColorScale(maxValue, maxValue)}, ${createColorScale(0, maxValue)})`
-
-  return (
-    <div className="pointer-events-none absolute right-4 top-4 z-10 flex flex-col items-end gap-1.5">
-      <div className="rounded-lg border border-border/70 bg-background/90 px-3 py-1.5 text-sm font-medium text-foreground shadow-lg dark:border-white/10 dark:bg-slate-950/85">
-        {label}{unit ? ` (${unit})` : ''}
-      </div>
-      <div className="flex items-end gap-2.5 rounded-lg border border-border/70 bg-background/90 p-2.5 shadow-lg dark:border-white/10 dark:bg-slate-950/85">
-        <div className="flex flex-col justify-between items-end text-xs text-muted-foreground" style={{ height: '128px' }}>
-          <span>{formatValue(maxValue * valueScale)}</span>
-          <span>{formatValue(maxValue * 0.5 * valueScale)}</span>
-          <span>0</span>
-        </div>
-        <div
-          className="h-32 w-6 rounded-sm"
-          style={{ background: gradient }}
-        />
-      </div>
+  const { maxValue, valueScale = 1, unit, label, colorMode } = legend
+  const format = (value: number) => formatResultNumber(value, locale)
+  return <div data-testid="visualization-legend" className="pointer-events-none absolute right-3 top-3 z-10 flex max-w-[45%] flex-col items-end gap-1.5">
+    <div className="rounded-lg border border-border bg-background/95 px-3 py-1.5 text-xs font-medium text-foreground">{label}{unit ? ` (${unit})` : ''}</div>
+    <div className="flex items-end gap-2 rounded-lg border border-border bg-background/95 p-2.5">
+      {colorMode === 'buckling' ? <span className="text-xs text-foreground">{format(maxValue)}</span> : <div className="flex h-28 flex-col items-end justify-between text-xs text-muted-foreground">
+        <span>{format(maxValue * valueScale)}</span><span>{format(colorMode === 'signed' ? 0 : maxValue * 0.5 * valueScale)}</span><span>{colorMode === 'signed' ? format(-maxValue * valueScale) : '0'}</span>
+      </div>}
+      <div className={colorMode === 'buckling' ? 'h-4 w-8 rounded-sm' : 'h-28 w-5 rounded-sm'} style={{ background: `linear-gradient(to bottom, ${legendStops(legend, palette).join(',')})` }} />
     </div>
-  )
+  </div>
 }

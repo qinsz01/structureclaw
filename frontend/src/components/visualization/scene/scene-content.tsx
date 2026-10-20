@@ -1,3 +1,4 @@
+import { useScenePalette } from './palette'
 import React, { useState } from 'react'
 import { Bounds, OrbitControls, OrthographicCamera, PerspectiveCamera } from '@react-three/drei'
 import { isLoadVisible } from '../structural-scene-utils'
@@ -12,6 +13,10 @@ import { SceneNode } from './scene-node'
 export function SceneContent({
   activeCase,
   deformationScale,
+  diagramScale,
+  cameraPreset,
+  locale,
+  t,
   forceMetric,
   resetToken,
   selectedElementId,
@@ -33,7 +38,6 @@ export function SceneContent({
   maxReaction,
   maxReactionMoment,
   maxDisplacement,
-  maxUtilization,
   bucklingModeIndex,
   bucklingAmplitudeRef,
 }: StructuralSceneProps & {
@@ -42,13 +46,14 @@ export function SceneContent({
   maxReaction: number
   maxReactionMoment: number
   maxDisplacement: number
-  maxUtilization: number
   bucklingAmplitudeRef: React.MutableRefObject<number>
 }) {
+  const palette = useScenePalette()
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
   const [hoveredElementId, setHoveredElementId] = useState<string | null>(null)
   const { gridConfig, cameraFrame, activeBucklingMode, bucklingScale, nodeMap, loadArrowLength, selectedFocusPoint } = useSceneGeometry({
     snapshot,
+    cameraPreset,
     plane,
     view,
     activeCase,
@@ -59,6 +64,7 @@ export function SceneContent({
     selectedLoadIndex,
   })
   const ctx: SceneRenderContext = {
+    diagramScale, locale, t,
     snapshot,
     plane,
     view,
@@ -95,7 +101,7 @@ export function SceneContent({
     <>
       {snapshot.dimension === 3 ? (
         <PerspectiveCamera
-          key={`perspective-${plane}-${resetToken}`}
+          key="perspective"
           makeDefault
           fov={42}
           position={cameraFrame.position}
@@ -106,7 +112,7 @@ export function SceneContent({
         />
       ) : (
         <OrthographicCamera
-          key={`ortho-${plane}-${resetToken}`}
+          key="ortho"
           makeDefault
           position={cameraFrame.position}
           zoom={48}
@@ -119,11 +125,11 @@ export function SceneContent({
       <ambientLight intensity={0.9} />
       <directionalLight intensity={1.2} position={[10, 12, 8]} />
       <directionalLight intensity={0.45} position={[-8, -4, 10]} />
-      <OrbitControls key={`controls-${plane}-${resetToken}`} makeDefault target={cameraFrame.target} />
-      <FocusController focusTarget={selectedFocusPoint} resetToken={resetToken} />
-      <gridHelper args={[gridConfig.size, gridConfig.divisions, '#1f9dc2', '#334155']} position={gridConfig.position} rotation={gridConfig.rotation} />
+      <OrbitControls enableRotate={snapshot.dimension === 3} makeDefault target={cameraFrame.target} />
+      <FocusController focusTarget={selectedFocusPoint} focusKey={`${selectedNodeId}:${selectedElementId}:${selectedLoadIndex}`} />
+      <gridHelper args={[gridConfig.size, gridConfig.divisions, palette.gridAxis, palette.grid]} position={gridConfig.position} rotation={gridConfig.rotation} />
 
-      <Bounds margin={1.2}>
+      <Bounds margin={1.3} maxDuration={0.2}>
         <group onDoubleClick={() => {
           onClearSelection()
         }}>
@@ -133,7 +139,7 @@ export function SceneContent({
             }
             return (
               <AreaLoadMarker
-                color={selectedLoadIndex === index ? '#f59e0b' : '#14b8a6'}
+                color={selectedLoadIndex === index ? palette.selected : palette.area}
                 dimension={snapshot.dimension}
                 key={`area-load-${load.storyId || index}-${index}`}
                 arrowLength={loadArrowLength}
@@ -152,7 +158,7 @@ export function SceneContent({
 
           {snapshot.nodes.map((entry) => <SceneNode key={entry.id} entry={entry} ctx={ctx} />)}
         </group>
-        <PlaneBoundsController plane={plane} resetToken={resetToken} snapshot={snapshot} fitKey={`${view}:${activeCase.id}:${deformationScale}`} />
+        <PlaneBoundsController plane={plane} resetToken={resetToken} snapshot={snapshot} cameraPreset={cameraPreset} fitKey={`${view}:${activeCase.id}`} />
       </Bounds>
     </>
   )

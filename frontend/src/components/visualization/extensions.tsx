@@ -10,10 +10,6 @@ import type {
   VisualizationViewMode,
 } from './types'
 
-type UtilizationExtensionData = {
-  memberUtilizationMap: Record<string, number>
-}
-
 type BucklingExtensionData = {
   bucklingModes: BucklingMode[]
 }
@@ -23,7 +19,7 @@ type VisualizationLegendDefinition = {
   valueScale?: number
   unit?: string
   label: string
-  colorMode?: 'scale' | 'utilization'
+  colorMode?: 'scale' | 'utilization' | 'buckling'
 }
 
 type VisualizationExtensionContext = {
@@ -39,8 +35,6 @@ type VisualizationExtensionDefinition = {
   id: VisualizationExtensionId
   view: VisualizationViewMode
   viewLabelKey: MessageKey
-  isAvailable: (snapshot: VisualizationSnapshot | null) => boolean
-  renderAside?: (context: VisualizationExtensionContext) => ReactNode
   getLegend?: (context: VisualizationExtensionContext) => VisualizationLegendDefinition | null
 }
 
@@ -65,11 +59,6 @@ export function getBucklingModes(snapshot: VisualizationSnapshot | null, activeC
   return snapshot?.bucklingModes || []
 }
 
-function getUtilizationMap(snapshot: VisualizationSnapshot | null): Record<string, number> | null {
-  const entry = getExtensionEntry<UtilizationExtensionData>(snapshot, 'builtin.utilization')
-  return entry?.data?.memberUtilizationMap || null
-}
-
 /**
  * Shared buckling mode selector panel.
  * Pass interactive=true (with onSelect) for a clickable version, or omit for read-only display.
@@ -86,15 +75,15 @@ export function BucklingModePanel({
   onSelect?: (index: number) => void
 }): ReactNode {
   return (
-    <div className="rounded-2xl border border-border/70 bg-card/80 p-4 dark:border-white/10 dark:bg-slate-950/40">
+    <div className="rounded-2xl border border-border/70 bg-card/80 p-4">
       <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{title}</div>
       <div className="mt-2 flex flex-wrap gap-2">
         {modes.map((mode, index) => {
           const active = activeIndex === index
           const baseClass = `rounded-full border px-3 py-1.5 text-xs transition ${
             active
-              ? 'border-violet-400/50 bg-violet-400/16 text-foreground'
-              : 'border-border/70 bg-background/70 text-muted-foreground dark:border-white/10 dark:bg-white/5'
+              ? 'border-primary bg-primary/15 text-foreground'
+              : 'border-border/70 bg-background/70 text-muted-foreground'
           }`
           const label = `λ${index + 1} = ${mode.lambda.toFixed(3)}`
           if (onSelect) {
@@ -125,17 +114,6 @@ const visualizationExtensionRegistry: VisualizationExtensionDefinition[] = [
     id: 'builtin.utilization',
     view: 'utilization',
     viewLabelKey: 'visualizationViewUtilization',
-    isAvailable: (snapshot) => {
-      if (!snapshot) {
-        return false
-      }
-      if (getUtilizationMap(snapshot)) {
-        return true
-      }
-      return snapshot.cases.some((item) =>
-        Object.values(item.elementResults).some((result) => typeof result.utilization === 'number')
-      )
-    },
     getLegend: ({ snapshot, activeCase, t }) => {
       const maxUtilization = Math.max(1, ...snapshot.elements.map((element) => activeCase.elementResults[element.id]?.utilization ?? 0))
       return {
@@ -151,20 +129,6 @@ const visualizationExtensionRegistry: VisualizationExtensionDefinition[] = [
     id: 'builtin.buckling',
     view: 'buckling',
     viewLabelKey: 'visualizationViewBuckling',
-    isAvailable: (snapshot) => getBucklingModes(snapshot).length > 0,
-    renderAside: ({ snapshot, activeCase, bucklingModeIndex, t }) => {
-      const modes = getBucklingModes(snapshot, activeCase)
-      if (!modes.length) {
-        return null
-      }
-      return (
-        <BucklingModePanel
-          modes={modes}
-          activeIndex={bucklingModeIndex}
-          title={t('visualizationViewBuckling')}
-        />
-      )
-    },
     getLegend: ({ snapshot, activeCase, bucklingModeIndex }) => {
       const modes = getBucklingModes(snapshot, activeCase)
       if (!modes.length) {
@@ -173,6 +137,7 @@ const visualizationExtensionRegistry: VisualizationExtensionDefinition[] = [
       const mode = modes[bucklingModeIndex] ?? modes[0]
       return {
         maxValue: mode.lambda,
+        colorMode: 'buckling',
         label: `λ${bucklingModeIndex + 1}`,
         unit: '',
       }

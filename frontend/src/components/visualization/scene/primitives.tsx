@@ -1,3 +1,4 @@
+import { useScenePalette } from './palette'
 import { useEffect, useMemo, useRef } from 'react'
 import { Line } from '@react-three/drei'
 import * as THREE from 'three'
@@ -7,7 +8,7 @@ import { type SupportKind, getProjectedRollerAxis } from '../structural-scene-ut
 export function ElementTube({
   color,
   end,
-  highlightColor = '#f8fafc',
+  highlightColor,
   onClick,
   onHover,
   selected,
@@ -21,6 +22,7 @@ export function ElementTube({
   selected: boolean
   start: THREE.Vector3
 }) {
+  const palette = useScenePalette()
   const group = useRef<THREE.Group | null>(null)
   const diff = useMemo(() => end.clone().sub(start), [end, start])
   const midpoint = useMemo(() => start.clone().add(end).multiplyScalar(0.5), [end, start])
@@ -50,7 +52,7 @@ export function ElementTube({
       ) : null}
       <mesh onClick={onClick} onPointerOut={() => onHover(false)} onPointerOver={() => onHover(true)}>
         <cylinderGeometry args={[selected ? 0.1 : 0.075, selected ? 0.1 : 0.075, Math.max(length, 0.001), 12]} />
-        <meshStandardMaterial color={color} emissive={selected ? highlightColor : '#000000'} emissiveIntensity={selected ? 0.4 : 0} metalness={0.15} roughness={0.32} />
+        <meshStandardMaterial color={color} emissive={selected ? highlightColor : palette.foreground} emissiveIntensity={selected ? 0.4 : 0} metalness={0.15} roughness={0.32} />
       </mesh>
       <mesh onClick={onClick} onPointerOut={() => onHover(false)} onPointerOver={() => onHover(true)} visible={false}>
         <cylinderGeometry args={[0.22, 0.22, Math.max(length, 0.001), 10]} />
@@ -71,6 +73,7 @@ export function VectorArrow({
   selected?: boolean
   vector: THREE.Vector3
 }) {
+  const palette = useScenePalette()
   const direction = useMemo(() => vector.clone().normalize(), [vector])
   const length = Math.max(vector.length(), 0.01)
   const quaternion = useMemo(() => {
@@ -87,13 +90,13 @@ export function VectorArrow({
       <group position={shaftPosition} quaternion={quaternion}>
         <mesh>
           <cylinderGeometry args={[selected ? 0.05 : 0.035, selected ? 0.05 : 0.035, Math.max(length * 0.8, 0.001), 12]} />
-          <meshStandardMaterial color={color} emissive={selected ? '#fff7ed' : '#000000'} emissiveIntensity={selected ? 0.45 : 0} />
+          <meshStandardMaterial color={color} emissive={selected ? palette.highlight : palette.foreground} emissiveIntensity={selected ? 0.45 : 0} />
         </mesh>
       </group>
       <group position={headPosition} quaternion={quaternion}>
         <mesh>
           <coneGeometry args={[selected ? 0.14 : 0.1, Math.max(length * 0.26, 0.08), 12]} />
-          <meshStandardMaterial color={color} emissive={selected ? '#fff7ed' : '#000000'} emissiveIntensity={selected ? 0.45 : 0} />
+          <meshStandardMaterial color={color} emissive={selected ? palette.highlight : palette.foreground} emissiveIntensity={selected ? 0.45 : 0} />
         </mesh>
       </group>
     </>
@@ -111,10 +114,11 @@ export function SupportMarker({
   origin: THREE.Vector3
   plane: VisualizationPlane
 }) {
+  const palette = useScenePalette()
   if (kind === 'none') {
     return null
   }
-  const color = '#94a3b8'
+  const color = palette.neutral
   const rollerAxis = getProjectedRollerAxis(kind, plane, dimension)
   const isRoller = rollerAxis !== null
   const rollerOffsets: Array<[number, number, number]> = rollerAxis
@@ -158,7 +162,7 @@ export function SupportMarker({
     <group position={origin.toArray()}>
       <mesh position={[0, 0, -0.2]}>
         <octahedronGeometry args={[0.22, 0]} />
-        <meshStandardMaterial color="#a78bfa" wireframe />
+        <meshStandardMaterial color={palette.buckling} wireframe />
       </mesh>
     </group>
   )

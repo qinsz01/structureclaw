@@ -1,3 +1,5 @@
+import { formatResultNumber } from '@/lib/utils'
+import { interactionColor, useScenePalette } from './palette'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 import type { VisualizationNode } from '../types'
@@ -17,7 +19,8 @@ import type { SceneRenderContext } from './render-context'
 
 /** One node: support marker, selectable sphere, label, reactions and nodal loads. */
 export function SceneNode({ entry, ctx }: { entry: VisualizationNode; ctx: SceneRenderContext }) {
-  const { snapshot, plane, view, activeCase, selectedLoadIndex, selectedNodeId, showLoads, showNodeLabels, onSelectElement, onSelectLoad, onSelectNode, maxReaction, maxReactionMoment, maxDisplacement, hoveredNodeId, setHoveredNodeId, nodeMap, loadArrowLength } = ctx
+  const palette = useScenePalette()
+  const { locale = 'en', snapshot, plane, view, activeCase, selectedLoadIndex, selectedNodeId, showLoads, showNodeLabels, onSelectElement, onSelectLoad, onSelectNode, maxReaction, maxReactionMoment, maxDisplacement, hoveredNodeId, setHoveredNodeId, nodeMap, loadArrowLength } = ctx
   const nodeData = nodeMap.get(entry.id)
   if (!nodeData) {
     return null
@@ -28,16 +31,9 @@ export function SceneNode({ entry, ctx }: { entry: VisualizationNode; ctx: Scene
       : view === 'deformed'
         ? getNodeDisplacementMagnitude(activeCase, entry.id)
         : 0
-  const color =
-    view === 'reactions'
-      ? createColorScale(magnitude, maxReaction)
-      : view === 'deformed'
-        ? createColorScale(magnitude, maxDisplacement)
-        : selectedNodeId === entry.id
-          ? '#fb923c'
-          : hoveredNodeId === entry.id
-            ? '#67e8f9'
-          : '#f8fafc'
+  const baseColor = view === 'reactions' ? createColorScale(magnitude, maxReaction, palette)
+    : view === 'deformed' ? createColorScale(magnitude, maxDisplacement, palette) : palette.node
+  const color = interactionColor(baseColor, selectedNodeId === entry.id, hoveredNodeId === entry.id, palette)
   const position = view === 'deformed' ? nodeData.displacedPosition : nodeData.position
   const finalPosition = projectPosition(position, plane, snapshot.dimension)
   const supportPosition = projectPosition(nodeData.position, plane, snapshot.dimension)
@@ -45,7 +41,7 @@ export function SceneNode({ entry, ctx }: { entry: VisualizationNode; ctx: Scene
   const reaction = activeCase.nodeResults[entry.id]?.reaction
   const arrowVector = reaction
     ? new THREE.Vector3(reaction.fx || 0, reaction.fy || 0, reaction.fz || 0)
-        .multiplyScalar(loadArrowLength * 0.9 / Math.max(maxReaction, 1))
+        .multiplyScalar(loadArrowLength * 0.9 / Math.max(maxReaction, 1e-12))
     : null
   const reactionMomentVector = reaction
     ? new THREE.Vector3(reaction.mx || 0, reaction.my || 0, reaction.mz || 0)
@@ -104,7 +100,7 @@ export function SceneNode({ entry, ctx }: { entry: VisualizationNode; ctx: Scene
       {selectedNodeId === entry.id ? (
         <mesh position={finalPosition.toArray()}>
           <sphereGeometry args={[snapshot.dimension === 3 ? 0.34 : 0.28, 24, 24]} />
-          <meshBasicMaterial color="#fff7ed" transparent opacity={0.26} />
+          <meshBasicMaterial color={palette.highlight} transparent opacity={0.26} />
         </mesh>
       ) : null}
       <mesh
@@ -118,7 +114,7 @@ export function SceneNode({ entry, ctx }: { entry: VisualizationNode; ctx: Scene
         position={finalPosition.toArray()}
       >
         <sphereGeometry args={[selectedNodeId === entry.id ? 0.23 : 0.14, 20, 20]} />
-        <meshStandardMaterial color={color} emissive={selectedNodeId === entry.id ? '#fff7ed' : '#000000'} emissiveIntensity={selectedNodeId === entry.id ? 0.45 : 0} />
+        <meshStandardMaterial color={color} emissive={selectedNodeId === entry.id ? palette.highlight : palette.node} emissiveIntensity={selectedNodeId === entry.id ? 0.45 : 0} />
       </mesh>
       <mesh
         onClick={() => {
@@ -136,17 +132,17 @@ export function SceneNode({ entry, ctx }: { entry: VisualizationNode; ctx: Scene
       </mesh>
       {showNodeLabels && (
         <Html center position={finalPosition.clone().add(getNodeLabelOffset(plane, snapshot.dimension)).toArray()}>
-          <div className="rounded-full border border-border/70 bg-background/90 px-2 py-1 text-[10px] font-medium text-foreground shadow-lg dark:border-white/10 dark:bg-slate-950/85">
+          <div data-viz-label className="w-max whitespace-nowrap rounded-full border border-border/70 bg-background/90 px-2 py-1 text-[10px] font-medium text-foreground shadow-lg">
             {entry.id}
           </div>
         </Html>
       )}
       {view === 'reactions' && arrowVector && arrowVector.length() > 0.0001 && (
-        <VectorArrow color="#fb923c" origin={finalPosition} vector={projectPosition(arrowVector, plane, snapshot.dimension)} />
+        <VectorArrow color={palette.selected} origin={finalPosition} vector={projectPosition(arrowVector, plane, snapshot.dimension)} />
       )}
       {view === 'reactions' && projectedReactionMomentVector && reactionMomentMagnitude > 1e-12 && (
         <MomentLoadMarker
-          color="#c084fc"
+          color={palette.moment}
           origin={finalPosition}
           radius={loadArrowLength * (0.25 + 0.2 * reactionMomentMagnitude / Math.max(maxReactionMoment, 1e-12))}
           selected={selectedNodeId === entry.id}
@@ -158,18 +154,25 @@ export function SceneNode({ entry, ctx }: { entry: VisualizationNode; ctx: Scene
           }}
         />
       )}
+      {view === 'reactions' && reaction && (magnitude > 0 || reactionMomentMagnitude > 0) && <Html center
+        position={finalPosition.clone().add(getNodeLabelOffset(plane, snapshot.dimension).multiplyScalar(3)).toArray()} zIndexRange={[20, 0]}>
+        <div data-viz-label className="w-max whitespace-nowrap rounded-md border border-border bg-background/95 px-2 py-1 text-[10px] text-foreground">
+          {(['fx', 'fy', 'fz', 'mx', 'my', 'mz'] as const).filter(key => Math.abs(reaction[key] || 0) > 1e-12).map(key =>
+            <div key={key}>{key}: {formatResultNumber(reaction[key]!, locale)} {key.startsWith('m') ? snapshot.momentUnit : snapshot.resultUnit}</div>)}
+        </div>
+      </Html>}
       {showLoads && loadVectors.map((vector, index) => (
         <VectorArrow
-          color={typeof selectedLoadIndex === 'number' && snapshot.loads[selectedLoadIndex]?.nodeId === entry.id ? '#f59e0b' : '#22c55e'}
+          color={typeof selectedLoadIndex === 'number' && snapshot.loads[selectedLoadIndex]?.nodeId === entry.id ? palette.selected : palette.load}
           key={`${entry.id}-load-${index}`}
-          origin={finalPosition}
+          origin={finalPosition.clone().sub(vector)}
           selected={typeof selectedLoadIndex === 'number' && snapshot.loads[selectedLoadIndex]?.nodeId === entry.id}
           vector={vector}
         />
       ))}
       {momentLoads.map((load) => (
         <MomentLoadMarker
-          color={selectedLoadIndex === load.index ? '#f59e0b' : '#22c55e'}
+          color={selectedLoadIndex === load.index ? palette.selected : palette.load}
           key={`${entry.id}-moment-${load.index}`}
           onClick={() => {
             onSelectLoad(load.index)

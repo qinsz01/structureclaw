@@ -1,3 +1,5 @@
+import { MemberDiagram } from './member-diagram'
+import { interactionColor, useScenePalette } from './palette'
 import { Html, Line } from '@react-three/drei'
 import * as THREE from 'three'
 import type { VisualizationElement } from '../types'
@@ -20,7 +22,8 @@ import type { SceneRenderContext } from './render-context'
 
 /** One line member (tube, deformed curve or buckling member) with its label and member loads. */
 export function SceneElement({ element, ctx }: { element: VisualizationElement; ctx: SceneRenderContext }) {
-  const { snapshot, plane, view, activeCase, deformationScale, forceMetric, selectedElementId, selectedLoadIndex, showElementLabels, showLoads, showUndeformed, onSelectElement, onSelectLoad, onSelectNode, maxElementMetric, rawMaxElementMetric, maxDisplacement, bucklingAmplitudeRef, hoveredElementId, setHoveredElementId, nodeMap, loadArrowLength, activeBucklingMode, bucklingScale } = ctx
+  const palette = useScenePalette()
+  const { snapshot, plane, view, activeCase, deformationScale, forceMetric, selectedElementId, selectedLoadIndex, showElementLabels, showLoads, showUndeformed, onSelectElement, onSelectLoad, onSelectNode, maxElementMetric, maxDisplacement, bucklingAmplitudeRef, hoveredElementId, setHoveredElementId, nodeMap, loadArrowLength, activeBucklingMode, bucklingScale } = ctx
   if (!['beam', 'truss', 'column', 'brace', 'link'].includes(element.type)) {
     return null
   }
@@ -37,33 +40,15 @@ export function SceneElement({ element, ctx }: { element: VisualizationElement; 
   const curve = view === 'deformed' ? getMemberDeformedPoints(activeCase, element.id, deformationScale)
     ?.map((point) => projectPosition(point, plane, snapshot.dimension)) : undefined
   const componentValue = getElementMetric(activeCase, element.id, forceMetric)
-  const forceColor = componentValue === null ? '#94a3b8' : rawMaxElementMetric > 0
-    ? createColorScale(componentValue, maxElementMetric)
-    : '#38bdf8'
-  const utilizationRatio = activeCase.elementResults[element.id]?.utilization ?? null
-  const utilizationColor = utilizationRatio !== null
-    ? createUtilizationColor(utilizationRatio)
-    : createUtilizationColor(0)
-  const deformedColor = (() => {
-    if (selectedElementId === element.id) return '#fb923c'
-    if (hoveredElementId === element.id) return '#67e8f9'
-    const mag0 = getNodeDisplacementMagnitude(activeCase, element.nodeIds[0])
-    const mag1 = getNodeDisplacementMagnitude(activeCase, element.nodeIds[1])
-    return createColorScale(Math.max(mag0, mag1, getMemberDisplacementMagnitude(activeCase, element.id)), maxDisplacement)
-  })()
-  const color = view === 'forces'
-    ? forceColor
-    : view === 'utilization'
-      ? (selectedElementId === element.id ? '#fb923c' : hoveredElementId === element.id ? '#67e8f9' : utilizationColor)
-      : view === 'deformed'
-        ? deformedColor
-        : view === 'buckling'
-          ? (selectedElementId === element.id ? '#fb923c' : hoveredElementId === element.id ? '#67e8f9' : '#a78bfa')
-          : selectedElementId === element.id
-            ? '#fb923c'
-            : hoveredElementId === element.id
-              ? '#67e8f9'
-              : '#38bdf8'
+  const forceColor = componentValue === null ? palette.neutral : createColorScale(componentValue, maxElementMetric, palette)
+  const utilizationRatio = activeCase.elementResults[element.id]?.utilization
+  const deformedMagnitude = Math.max(getNodeDisplacementMagnitude(activeCase, element.nodeIds[0]),
+    getNodeDisplacementMagnitude(activeCase, element.nodeIds[1]), getMemberDisplacementMagnitude(activeCase, element.id))
+  const baseColor = view === 'forces' ? forceColor : view === 'utilization'
+    ? utilizationRatio === undefined ? palette.neutral : createUtilizationColor(utilizationRatio, palette)
+    : view === 'deformed' ? createColorScale(deformedMagnitude, maxDisplacement, palette)
+    : view === 'buckling' ? palette.buckling : palette.member
+  const color = interactionColor(baseColor, selectedElementId === element.id, hoveredElementId === element.id, palette)
   const undeformedStart = projectPosition(startData.position, plane, snapshot.dimension)
   const undeformedEnd = projectPosition(endData.position, plane, snapshot.dimension)
   const currentStart = projectPosition(start, plane, snapshot.dimension)
@@ -80,7 +65,7 @@ export function SceneElement({ element, ctx }: { element: VisualizationElement; 
   return (
     <group>
       {(view === 'deformed' && showUndeformed) && (
-        <Line color="#64748b" lineWidth={1} points={[undeformedStart.toArray(), undeformedEnd.toArray()]} transparent opacity={0.45} />
+        <Line color={palette.original} lineWidth={2.5} points={[undeformedStart.toArray(), undeformedEnd.toArray()]} dashed dashSize={0.18} gapSize={0.12} depthTest={false} renderOrder={5} />
       )}
       {view === 'buckling' && activeBucklingMode ? (
         <BucklingMember
@@ -117,7 +102,7 @@ export function SceneElement({ element, ctx }: { element: VisualizationElement; 
         <ElementTube
           color={color}
           end={currentEnd}
-          highlightColor={view === 'utilization' ? '#fff7ed' : '#f8fafc'}
+          highlightColor={palette.highlight}
           onClick={() => {
             onSelectElement(element.id)
             onSelectNode(null)
@@ -128,9 +113,10 @@ export function SceneElement({ element, ctx }: { element: VisualizationElement; 
           start={currentStart}
         />
       )}
+      {view === 'forces' && <MemberDiagram element={element} ctx={ctx} />}
       {showElementLabels && (
         <Html center position={(curve?.[Math.floor(curve.length / 2)] || currentStart.clone().add(currentEnd).multiplyScalar(0.5)).toArray()}>
-          <div className="rounded-full border border-border/70 bg-background/90 px-2 py-1 text-[10px] font-medium text-foreground shadow-lg dark:border-white/10 dark:bg-slate-950/85">
+          <div data-viz-label className="w-max whitespace-nowrap rounded-full border border-border/70 bg-background/90 px-2 py-1 text-[10px] font-medium text-foreground shadow-lg">
             {element.id}
           </div>
         </Html>
@@ -140,7 +126,7 @@ export function SceneElement({ element, ctx }: { element: VisualizationElement; 
         const raw = new THREE.Vector3(load.vector.x, load.vector.y, load.vector.z)
         const projected = projectPosition(raw, plane, snapshot.dimension)
         const selected = selectedLoadIndex === index
-        const loadColor = selected ? '#f59e0b' : '#22c55e'
+        const loadColor = selected ? palette.selected : palette.load
         const select = () => { onSelectLoad(index); onSelectNode(null); onSelectElement(null) }
         const last = load.endVector || load.vector
         return <group key={`${element.id}-load-${index}`} onClick={event => { event.stopPropagation(); select() }}>
@@ -149,7 +135,7 @@ export function SceneElement({ element, ctx }: { element: VisualizationElement; 
             endVector={projectPosition(new THREE.Vector3(last.x, last.y, last.z), plane, snapshot.dimension).multiplyScalar(loadArrowLength / distributedMax)} />
             : load.kind === 'moment' ? <MomentLoadMarker color={loadColor} origin={interval.start}
               radius={loadArrowLength * 0.32} selected={selected} vector={projected} onClick={select} />
-            : isRenderableLoadVector(raw) ? <VectorArrow color={loadColor} origin={interval.start}
+            : isRenderableLoadVector(raw) ? <VectorArrow color={loadColor} origin={interval.start.clone().sub(projected.clone().normalize().multiplyScalar(loadArrowLength))}
               selected={selected} vector={projected.normalize().multiplyScalar(loadArrowLength)} /> : null}
         </group>
       })}

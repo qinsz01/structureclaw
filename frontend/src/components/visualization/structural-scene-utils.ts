@@ -1,4 +1,6 @@
 import * as THREE from 'three'
+import { scenePalettes, type ScenePalette } from './scene/palette'
+import type { CameraPreset } from './state'
 import type { MessageKey } from '@/lib/i18n'
 import type { VisualizationCase, VisualizationLoad, VisualizationPlane, VisualizationSnapshot } from './types'
 
@@ -42,12 +44,14 @@ export function classifySupport(restraints: boolean[] | undefined, dimension: 2 
   }
   const [ux, uy, uz, rx, ry, rz] = restraints
   if (dimension === 2) {
+    if (!ux && !uz && !ry) return 'none'
     if (ux && uz && ry) return 'fixed'
     if (ux && uz && !ry) return 'pinned'
     if (!ux && uz && !ry) return 'roller-x'
     if (ux && !uz && !ry) return 'roller-z'
     return 'partial'
   }
+  if (!ux && !uy && !uz) return 'none'
   if (ux && uy && uz && rx && ry && rz) return 'fixed'
   if (ux && uy && uz && !rx && !ry && !rz) return 'pinned'
   if (!rx && !ry && !rz) {
@@ -124,7 +128,7 @@ export function getElementMetric(activeCase: VisualizationCase, elementId: strin
   }
   const result = activeCase.elementResults[elementId]
   if (!result) {
-    return 0
+    return null
   }
   if (activeCase.kind === 'envelope') {
     if (forceMetric === 'axial') {
@@ -174,33 +178,16 @@ export function getNodeDisplacementMagnitude(activeCase: VisualizationCase, node
   return Math.sqrt((displacement.ux || 0) ** 2 + (displacement.uy || 0) ** 2 + (displacement.uz || 0) ** 2)
 }
 
-/**
- * Utilization ratio color: HSL rainbow from blue (0%) → green (50%) → yellow (85%) → red (100%+).
- * ratio > 1 clamps to deep red to highlight overstressed members.
- */
-export function createUtilizationColor(ratio: number) {
-  const clamped = Math.max(0, ratio)
-  const color = new THREE.Color()
-  if (clamped >= 1) {
-    // Overstressed — deep red
-    color.setRGB(0.85, 0.1, 0.1)
-  } else {
-    // Hue: 240° (blue) → 120° (green) → 60° (yellow) → 0° (red)
-    const hue = (1 - clamped) * 240 / 360
-    color.setHSL(hue, 0.9, 0.48)
-  }
-  return `#${color.getHexString()}`
+export function createUtilizationColor(ratio: number, palette: ScenePalette = scenePalettes.light) {
+  const stops = [palette.low, palette.safe, palette.warning, palette.danger]
+  const value = Math.max(0, Math.min(ratio, 1)) * 3
+  const index = Math.min(2, Math.floor(value))
+  return `#${new THREE.Color(stops[index]).lerp(new THREE.Color(stops[index + 1]), value - index).getHexString()}`
 }
 
-export function createColorScale(value: number, maxValue: number) {
+export function createColorScale(value: number, maxValue: number, palette: ScenePalette = scenePalettes.light) {
   const ratio = maxValue <= 0 ? 0 : Math.min(Math.abs(value) / maxValue, 1)
-  const color = new THREE.Color()
-  color.setRGB(
-    0.18 + ratio * 0.72,
-    0.82 - ratio * 0.32,
-    0.92 - ratio * 0.55
-  )
-  return `#${color.getHexString()}`
+  return `#${new THREE.Color(palette.low).lerp(new THREE.Color(palette.high), ratio).getHexString()}`
 }
 
 function roundUpNice(value: number) {
@@ -214,18 +201,9 @@ function roundUpNice(value: number) {
   return step * base
 }
 
-export function projectPosition(position: THREE.Vector3, plane: VisualizationPlane, dimension: 2 | 3) {
-  if (dimension === 2 || plane === 'xy') {
-    return position.clone()
-  }
-  if (plane === 'xz') {
-    // Rotate the source XZ plane onto the render XY ground. Source +Y becomes
-    // render +Z, while source +Z points toward render -Y.
-    return new THREE.Vector3(position.x, -position.z, position.y)
-  }
-  // Rotate the source YZ plane onto the render XY ground. Source +X becomes
-  // render +Z.
-  return new THREE.Vector3(position.y, position.z, position.x)
+/** Presets move the camera; structural coordinates never change. */
+export function projectPosition(position: THREE.Vector3, _plane: VisualizationPlane, _dimension: 2 | 3) {
+  return position.clone()
 }
 
 export function isRenderableLoadVector(vector: THREE.Vector3) {
@@ -366,11 +344,12 @@ export function getAdaptiveGridConfig(snapshot: VisualizationSnapshot, plane: Vi
   }
 }
 
-export function getPlaneCameraPreset(plane: VisualizationPlane, dimension: 2 | 3) {
+export function getPlaneCameraPreset(plane: VisualizationPlane, dimension: 2 | 3, preset: CameraPreset = 'iso') {
   if (dimension === 3) {
+    const directions: Record<CameraPreset, [number, number, number]> = { front: [0, -1, 0], side: [1, 0, 0], top: [0, 0, 1], iso: [1.25, -1.5, 0.9] }
     return {
-      direction: [1.25, -1.5, 0.65] as [number, number, number],
-      up: [0, 0, 1] as [number, number, number],
+      direction: directions[preset] as [number, number, number],
+      up: (preset === 'top' ? [0, 1, 0] : [0, 0, 1]) as [number, number, number],
     }
   }
   if (plane === 'xy') {
@@ -412,9 +391,10 @@ export function getPlaneCameraFrame(
   plane: VisualizationPlane,
   dimension: 2 | 3,
   target: [number, number, number],
-  distance = 10
+  distance = 10,
+  cameraPreset: CameraPreset = 'iso'
 ) {
-  const preset = getPlaneCameraPreset(plane, dimension)
+  const preset = getPlaneCameraPreset(plane, dimension, cameraPreset)
   const targetVector = new THREE.Vector3(...target)
   const position = new THREE.Vector3(...preset.direction)
     .normalize()

@@ -1,3 +1,4 @@
+import { useScenePalette } from './palette'
 import { useEffect, useMemo } from 'react'
 import { Line } from '@react-three/drei'
 import * as THREE from 'three'
@@ -20,6 +21,7 @@ export function MomentLoadMarker({
   vector: THREE.Vector3
   onClick: () => void
 }) {
+  const palette = useScenePalette()
   const direction = useMemo(() => vector.clone().normalize(), [vector])
   const quaternion = useMemo(() => {
     const base = new THREE.Vector3(0, 0, 1)
@@ -41,7 +43,7 @@ export function MomentLoadMarker({
         <torusGeometry args={[radius, selected ? 0.045 : 0.032, 10, 48]} />
         <meshStandardMaterial
           color={color}
-          emissive={selected ? '#fff7ed' : '#000000'}
+          emissive={selected ? palette.highlight : palette.foreground}
           emissiveIntensity={selected ? 0.45 : 0}
         />
       </mesh>
@@ -65,6 +67,7 @@ export function DistributedLoadMarker({
   endVector?: THREE.Vector3
   arrowCount?: number
 }) {
+  const palette = useScenePalette()
   const arrows = useMemo(() => getDistributedLoadArrows(start, end, vector, endVector, arrowCount), [start, end, vector, endVector, arrowCount])
 
   return (
@@ -75,7 +78,7 @@ export function DistributedLoadMarker({
             color={color}
             key={`distributed-arrow-${index}`}
             origin={arrow.origin}
-            selected={color === '#f59e0b'}
+            selected={color === palette.selected}
             vector={arrow.vector}
           />
         ) : null)}
@@ -100,6 +103,7 @@ export function AreaLoadMarker({
   dimension: 2 | 3
   selected: boolean
 }) {
+  const palette = useScenePalette()
   const panelPoints = useMemo(() => {
     return (load.polygon || []).map((point) =>
       projectPosition(new THREE.Vector3(point.x, point.y, point.z), plane, dimension)
@@ -174,10 +178,10 @@ export function AreaLoadMarker({
           transparent
         />
       </mesh>
-      <Line color={selected ? '#f59e0b' : color} lineWidth={selected ? 2.4 : 1.6} points={outline} />
+      <Line color={selected ? palette.selected : color} lineWidth={selected ? 2.4 : 1.6} points={outline} />
       {arrowData.map((entry, index) => (
         <VectorArrow
-          color={selected ? '#f59e0b' : '#14b8a6'}
+          color={selected ? palette.selected : palette.area}
           key={`area-load-arrow-${index}`}
           origin={entry.origin}
           selected={selected}

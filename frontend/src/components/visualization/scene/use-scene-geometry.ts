@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
 import { getBucklingModes } from '../extensions'
+import type { CameraPreset } from '../state'
 import type { BucklingMode, VisualizationCase, VisualizationPlane, VisualizationSnapshot, VisualizationViewMode } from '../types'
 import {
   getAdaptiveGridConfig,
@@ -16,6 +17,7 @@ import {
 /** Camera frame, grid, node positions, buckling mode and selection focus derived for the scene. */
 export function useSceneGeometry({
   snapshot,
+  cameraPreset,
   plane,
   view,
   activeCase,
@@ -25,6 +27,7 @@ export function useSceneGeometry({
   selectedNodeId,
   selectedLoadIndex,
 }: {
+  cameraPreset?: CameraPreset
   snapshot: VisualizationSnapshot
   plane: VisualizationPlane
   view: VisualizationViewMode
@@ -37,8 +40,8 @@ export function useSceneGeometry({
 }) {
   const gridConfig = useMemo(() => getAdaptiveGridConfig(snapshot, plane), [snapshot, plane])
   const cameraFrame = useMemo(
-    () => getPlaneCameraFrame(plane, snapshot.dimension, getSnapshotCenter(snapshot, plane)),
-    [plane, snapshot]
+    () => getPlaneCameraFrame(plane, snapshot.dimension, getSnapshotCenter(snapshot, plane), 10, cameraPreset),
+    [plane, snapshot, cameraPreset]
   )
 
   // Buckling mode shape for the active mode index

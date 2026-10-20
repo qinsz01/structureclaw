@@ -1,7 +1,8 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useRef } from 'react'
 import { useThree } from '@react-three/fiber'
 import { useBounds } from '@react-three/drei'
 import * as THREE from 'three'
+import type { CameraPreset } from '../state'
 import type { VisualizationPlane, VisualizationSnapshot } from '../types'
 import { getPlaneCameraFrame } from '../structural-scene-utils'
 
@@ -10,11 +11,13 @@ export function PlaneBoundsController({
   resetToken,
   snapshot,
   fitKey,
+  cameraPreset,
 }: {
   plane: VisualizationPlane
   resetToken: number
   snapshot: VisualizationSnapshot
   fitKey: string
+  cameraPreset?: CameraPreset
 }) {
   const bounds = useBounds()
   const camera = useThree((state) => state.camera)
@@ -27,7 +30,8 @@ export function PlaneBoundsController({
       plane,
       snapshot.dimension,
       center.toArray() as [number, number, number],
-      distance
+      distance,
+      cameraPreset
     )
 
     bounds
@@ -37,7 +41,7 @@ export function PlaneBoundsController({
       bounds.fit()
     }
     bounds.clip()
-  }, [bounds, camera, height, plane, resetToken, snapshot, width, fitKey])
+  }, [bounds, camera, cameraPreset, height, plane, resetToken, snapshot, width, fitKey])
 
   return null
 }
@@ -47,45 +51,47 @@ export function PlaneBoundsController({
 export function PngExporter({
   glRef,
   invalidateRef,
+  renderRef,
 }: {
   glRef: React.MutableRefObject<THREE.WebGLRenderer | null>
   invalidateRef: React.MutableRefObject<(() => void) | null>
+  renderRef: React.MutableRefObject<(() => void) | null>
 }) {
-  const { gl, invalidate } = useThree()
+  const { gl, invalidate, scene, camera } = useThree()
   useEffect(() => {
     glRef.current = gl
     invalidateRef.current = invalidate
-  }, [gl, glRef, invalidate, invalidateRef])
+    renderRef.current = () => gl.render(scene, camera)
+  }, [gl, glRef, invalidate, invalidateRef, renderRef, scene, camera])
   return null
 }
 
 export function FocusController({
   focusTarget,
-  resetToken,
+  focusKey,
 }: {
   focusTarget: THREE.Vector3 | null
-  resetToken: number
+  focusKey: string
 }) {
-  const { camera, controls } = useThree()
+  const { camera, controls, invalidate } = useThree()
 
+  const targetRef = useRef(focusTarget)
+  targetRef.current = focusTarget
   useEffect(() => {
-    if (!focusTarget || !controls) {
-      return
-    }
-
-    const orbitControls = controls as unknown as {
-      target: THREE.Vector3
-      update: () => void
-    }
-    const direction = camera.position.clone().sub(orbitControls.target)
-    if (direction.lengthSq() <= 1e-8) {
-      direction.set(1, 1, 1)
-    }
-    const nextPosition = focusTarget.clone().add(direction)
-    camera.position.copy(nextPosition)
-    orbitControls.target.copy(focusTarget)
-    orbitControls.update()
-  }, [camera, controls, focusTarget, resetToken])
-
+    if (!targetRef.current || !controls) return
+    // Bounds animates for 0.2 s. Focus only after it has finished and only on a
+    // new selection, never in response to display-scale slider ticks.
+    const timer = window.setTimeout(() => {
+      const target = targetRef.current
+      if (!target) return
+      const orbit = controls as unknown as { target: THREE.Vector3; update: () => void }
+      const direction = camera.position.clone().sub(orbit.target)
+      camera.position.copy(target.clone().add(direction))
+      orbit.target.copy(target)
+      orbit.update()
+      invalidate()
+    }, 300)
+    return () => window.clearTimeout(timer)
+  }, [camera, controls, focusKey, invalidate])
   return null
 }
