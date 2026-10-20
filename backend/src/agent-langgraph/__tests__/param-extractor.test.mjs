@@ -21,6 +21,26 @@ const beamPlugin = {
 };
 
 describe("param extractor", () => {
+  test.each(['MODEL_EDIT_FIELD_INVALID', 'DRAFT_CLEAR_INVALID'])('repairs schema-invalid patches inside the extraction call (%s)', async code => {
+    const { invokeParamExtractor } = await import('../../../dist/agent-langgraph/param-extractor.js');
+    const prompts = [], expected = { engineeringDraft: { material: { grade: 'Q235' } } };
+    const result = await invokeParamExtractor({ message: 'Q235', locale: 'en', plugin: beamPlugin,
+      existingState: { inferredType: 'beam', engineeringDraft: {} },
+      validatePatch: async patch => { if (patch.invalid) throw new Error(`${code}: unsupported field`); },
+      llm: { invoke: async prompt => { prompts.push(prompt); return { content: JSON.stringify(prompts.length === 1 ? { invalid: true } : expected) }; } } });
+    expect(result).toEqual(expected);
+    expect(prompts).toHaveLength(2);
+    expect(prompts[1]).toContain(`${code}: unsupported field`);
+  });
+  test('does not retry infrastructure failures from candidate validation', async () => {
+    const { invokeParamExtractor } = await import('../../../dist/agent-langgraph/param-extractor.js');
+    let calls = 0;
+    await expect(invokeParamExtractor({ message: 'Q235', locale: 'en', plugin: beamPlugin,
+      existingState: { inferredType: 'beam', engineeringDraft: {} },
+      validatePatch: async () => { throw new Error('schema worker unavailable'); },
+      llm: { invoke: async () => { calls++; return { content: '{}' }; } } })).rejects.toThrow('schema worker unavailable');
+    expect(calls).toBe(1);
+  });
   test.each(['flat', 'wrapped'])('preserves unapplied diagnostics when unwrapping %s patches', async style => {
     const { parseDraftPatchFromContent } = await import('../../../dist/agent-langgraph/param-extractor.js');
     const unapplied = [{ field: 'unknown', reason: 'NO_SCHEMA_FIELD', message: 'No matching field / 无对应字段' }];

@@ -10,7 +10,8 @@ const scope = { responses: ['forces', 'reactions', 'displacements'], design: fal
 
 describeWithOpenSees('characterization: material and section clarification after an exhausted patch', () => {
   const ctx = setupHarness();
-  test.each(['zh', 'en'])('two answers preserve material, compact feedback and review state (%s)', async locale => {
+  test.each([['zh', 'length'], ['en', 'length'], ['zh', 'invalid_patch'], ['en', 'invalid_patch']])(
+    'two answers preserve material, compact feedback and review state (%s, %s)', async (locale, failure) => {
     let patches = 0;
     ctx.llm.setInternal((body, record) => {
       if (record.kind === 'structural-router') return JSON.stringify(routerDecision('beam'));
@@ -18,11 +19,16 @@ describeWithOpenSees('characterization: material and section clarification after
       const text = requestText(body);
       if (!text.includes('PATCH ONLY')) return JSON.stringify({ ...saved.extractions[0].llmDraftPatch, requestScope: scope });
       patches++;
-      if (patches === 1) return { content: '', finish_reason: 'length' };
+      if (patches === 1) return failure === 'length' ? { content: '', finish_reason: 'length' }
+        : JSON.stringify({ engineeringDraft: { material: { grade: 'Q235' },
+          sectionRecords: [{ id: 'S1', shape: { kind: 'I', designation: 'I20a' } }] } });
       if (patches === 2) return JSON.stringify({ engineeringDraft: { material: { grade: 'Q235', family: 'steel' },
         sectionRecords: [{ id: 'S1', name: 'I20a', shape: { kind: 'I', H: 200, B: 100, tw: 7, tf: 11.4 },
           materials: [], extra: { provenance: { shape: 'llm-table' }, source: 'LLM: assistant-recalled table value, please verify' } }] },
         templateAssignments: { beam: { sectionId: 'S1' } } });
+      if (patches === 3 && failure === 'invalid_patch') return JSON.stringify({
+        clearDraftFields: ['sectionRecords["S1"].extra.provenance.llm-table-shape'],
+        engineeringDraft: { sectionRecords: [{ id: 'S1', extra: { provenance: { shape: 'user' } } }] } });
       return JSON.stringify({ engineeringDraft: { sectionRecords: [{ id: 'S1', extra: { provenance: { shape: 'user' } } }] } });
     });
     const first = await runTurn(ctx, { message: saved.answers[0], context: { locale } }, [
@@ -59,7 +65,9 @@ describeWithOpenSees('characterization: material and section clarification after
     expect(Math.abs(result.displacement.value)).toBeCloseTo(4.295, 3);
     const record = JSON.parse(fs.readFileSync(path.join(ctx.backend.dataDir, 'run-records', `${session.usage.runId}.json`), 'utf8'));
     expect(record.usage.events.filter(event => event.kind === 'param_extractor').map(event => [event.mode, event.attempt, event.outcome]))
-      .toEqual([['full', 1, 'accepted'], ['patch', 1, 'length'], ['patch', 2, 'accepted'], ['patch', 1, 'accepted']]);
+      .toEqual(failure === 'length'
+        ? [['full', 1, 'accepted'], ['patch', 1, 'length'], ['patch', 2, 'accepted'], ['patch', 1, 'accepted']]
+        : [['full', 1, 'accepted'], ['patch', 1, 'invalid_patch'], ['patch', 2, 'accepted'], ['patch', 1, 'invalid_patch'], ['patch', 2, 'accepted']]);
     expect(second.requests.filter(row => row.kind === 'param-extractor').map(row => row.body.max_tokens)).toEqual([2048, 2048]);
   }, TURN_TIMEOUT_MS);
 });
