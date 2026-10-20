@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type Locator, type Page } from '@playwright/test'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { visualizationScenarios } from '../fixtures/visualization-models'
@@ -23,6 +23,20 @@ async function pixels(page: Page, mark = false) {
     if (mark) { state.workspacePixels = image; state.workspaceCanvas = canvas }
     return { ink, changed, sameCanvas, width: image.width, height: image.height, ratio: changed / (image.width * image.height) }
   }, mark)
+}
+
+async function expectFigureLayout(workspace: Locator, width: number, locale = 'en') {
+  const selectors = await workspace.getByLabel(locale === 'en' ? 'Run' : '运行', { exact: true }).boundingBox()
+  const figure = await workspace.getByTestId('workspace-inline-figure').boundingBox()
+  if (width < 1024) {
+    expect(figure!.y).toBeGreaterThan(selectors!.y + selectors!.height)
+    expect(figure!.width).toBeGreaterThan(width * .85)
+  } else {
+    expect(figure!.x).toBeGreaterThan(selectors!.x + selectors!.width)
+  }
+  const canvas = await workspace.locator('canvas').boundingBox()
+  const legend = await workspace.getByTestId('visualization-legend').boundingBox()
+  expect(canvas!.x + canvas!.width, 'The legend must not cover any of the camera viewport').toBeLessThanOrEqual(legend!.x + 1)
 }
 
 test.describe('Workspace inline figure', () => {
@@ -77,6 +91,28 @@ test.describe('Workspace inline figure', () => {
       await expect(workspace.getByTestId('workspace-query-result')).toHaveCount(0)
       await expect(workspace.getByRole('button', { name: 'View selected figure', exact: true })).toHaveCount(0)
 
+      // Exercise both sides of the breakpoint at the normal 1000px height.
+      for (const width of [768, 1023, 1024, 1440]) {
+        await page.setViewportSize({ width, height: 1000 })
+        await workspace.getByRole('button', { name: 'Fit', exact: true }).click()
+        await page.waitForTimeout(500)
+        await canvas.scrollIntoViewIfNeeded()
+        await expectFigureLayout(workspace, width)
+        if (scenario.id === 'beam') {
+          await workspace.getByRole('button', { name: 'Node Labels', exact: true }).click()
+          const viewport = await canvas.boundingBox()
+          for (const node of scenario.model.nodes) {
+            const label = workspace.getByTestId('visualization-modal-scene').getByText(node.id, { exact: true })
+            await expect(label).toBeVisible()
+            const bounds = await label.boundingBox()
+            expect(bounds!.x).toBeGreaterThan(viewport!.x)
+            expect(bounds!.x + bounds!.width).toBeLessThan(viewport!.x + viewport!.width)
+            expect(bounds!.y).toBeGreaterThan(viewport!.y)
+            expect(bounds!.y + bounds!.height).toBeLessThan(viewport!.y + viewport!.height)
+          }
+          await workspace.getByRole('button', { name: 'Node Labels', exact: true }).click()
+        }
+      }
       await page.waitForTimeout(500)
       await pixels(page, true)
       const caseResponse = page.waitForResponse(response => response.url().endsWith('/tools') && response.request().postDataJSON()?.args?.resultKey === 'combination:workspace-double')
@@ -152,9 +188,11 @@ test.describe('Workspace inline figure', () => {
           const ws = page.getByRole('dialog', { name: locale === 'en' ? 'Result workspace' : '结果工作区', exact: true })
           await expect(ws.locator('canvas')).toBeVisible()
           for (const width of [1440, 768]) {
-            await page.setViewportSize({ width, height: 1000 })
+            // A portrait viewport shows the complete stacked workspace without changing its styles.
+            await page.setViewportSize({ width, height: width < 1024 ? 1600 : 1000 })
             await ws.getByRole('button', { name: locale === 'en' ? 'Fit' : '适配视图', exact: true }).click()
             await page.waitForTimeout(500)
+            await expectFigureLayout(ws, width, locale)
             expect((await pixels(page)).ink).toBeGreaterThan(300)
             expect(await ws.locator('canvas').evaluate(el => el.getBoundingClientRect().height)).toBeGreaterThan(180)
             expect(await ws.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)

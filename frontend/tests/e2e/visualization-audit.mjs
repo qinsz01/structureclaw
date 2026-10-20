@@ -317,6 +317,11 @@ export async function runVisualizationAudit({ only, out, screenshots = true }) {
                 if (scenario.id === 'beam') assert(!(await page.getByTestId('diagram-end').allTextContents()).some(text => /E-\d+/i.test(text)), 'Beam end noise must format as zero')
               }
               if (locale === 'en' && width === 1440) contrastChecks.push(...await toolbarContrast(page, theme, view))
+              if (index > 0) {
+                const viewport = await canvas.boundingBox()
+                const legend = await page.getByTestId('visualization-legend').boundingBox()
+                assert(viewport && legend && viewport.x + viewport.width <= legend.x + 1, 'The legend must stay outside the camera viewport')
+              }
               const file = path.join(out, `${scenario.id}-${labels.en.views[index].toLowerCase()}-${theme}-${locale}-${width}.png`)
               await captureDialog(page, file); screenshotPaths.push(file)
               assert(await canvas.evaluate(el => el.getBoundingClientRect().height) > 180, 'Responsive canvas must remain usable')
