@@ -3372,7 +3372,7 @@ describe('ConsolePage Integration (CONS-13)', () => {
       expect(screen.getByText('Archived Beam')).toBeInTheDocument()
     })
 
-    expect(screen.getAllByRole('button', { name: /Forces|内力/ }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: /Diagram|内力图/ }).length).toBeGreaterThan(0)
     expect(screen.getAllByRole('button', { name: /Deformed|变形/ }).length).toBeGreaterThan(0)
   })
 })

@@ -198,7 +198,7 @@ test.describe('Live provider: browser analysis delivery', () => {
 
       await workspace.getByRole('button', { name: zh ? '查看所选图形' : 'View selected figure', exact: true }).click();
       const viewer = page.getByRole('dialog');
-      for (const view of zh ? ['变形', '内力', '反力'] : ['Deformed', 'Forces', 'Reactions']) {
+      for (const view of zh ? ['变形', '内力图', '反力'] : ['Deformed', 'Diagram', 'Reactions']) {
         await expect(viewer.getByRole('button', { name: view, exact: true })).toBeVisible();
       }
       await expect(viewer.getByTestId('visualization-modal-scene')).toBeVisible();
@@ -249,7 +249,7 @@ for (const locale of ['zh', 'en'] as const) {
     expect(queried.result.quantity.unit).toBe('kN');
     await workspace.getByRole('button', { name: zh ? '查看所选图形' : 'View selected figure', exact: true }).click();
     const viewer = page.getByRole('dialog');
-    for (const view of zh ? ['内力', '反力'] : ['Forces', 'Reactions']) {
+    for (const view of zh ? ['内力图', '反力'] : ['Diagram', 'Reactions']) {
       await expect(viewer.getByRole('button', { name: view, exact: true })).toBeVisible();
     }
     await expect(viewer.getByRole('button', { name: zh ? '变形' : 'Deformed', exact: true })).toHaveCount(0);

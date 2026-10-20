@@ -36,20 +36,20 @@ describe('structural-scene-utils', () => {
     expect(getProjectedRollerAxis('roller-x', 'xy', 3)?.toArray()).toEqual([1, 0, 0])
     expect(getProjectedRollerAxis('roller-y', 'xy', 3)?.toArray()).toEqual([0, 1, 0])
     expect(getProjectedRollerAxis('roller-z', 'xy', 3)?.toArray()).toEqual([0, 0, 1])
-    expect(getProjectedRollerAxis('roller-y', 'xz', 3)?.toArray()).toEqual([0, 0, 1])
-    expect(getProjectedRollerAxis('roller-z', 'xz', 3)?.toArray()).toEqual([0, -1, 0])
-    expect(getProjectedRollerAxis('roller-x', 'yz', 3)?.toArray()).toEqual([0, 0, 1])
-    expect(getProjectedRollerAxis('roller-y', 'yz', 3)?.toArray()).toEqual([1, 0, 0])
-    expect(getProjectedRollerAxis('roller-z', 'yz', 3)?.toArray()).toEqual([0, 1, 0])
+    expect(getProjectedRollerAxis('roller-y', 'xz', 3)?.toArray()).toEqual([0, 1, 0])
+    expect(getProjectedRollerAxis('roller-z', 'xz', 3)?.toArray()).toEqual([0, 0, 1])
+    expect(getProjectedRollerAxis('roller-x', 'yz', 3)?.toArray()).toEqual([1, 0, 0])
+    expect(getProjectedRollerAxis('roller-y', 'yz', 3)?.toArray()).toEqual([0, 1, 0])
+    expect(getProjectedRollerAxis('roller-z', 'yz', 3)?.toArray()).toEqual([0, 0, 1])
     expect(getProjectedRollerAxis('pinned', 'xy', 3)).toBeNull()
   })
 
-  it('lays the selected 3d source plane onto the horizontal render ground', () => {
+  it('keeps global coordinates unchanged for all 3D presets', () => {
     const point = new THREE.Vector3(1, 2, 3)
 
     expect(projectPosition(point, 'xy', 3).toArray()).toEqual([1, 2, 3])
-    expect(projectPosition(point, 'xz', 3).toArray()).toEqual([1, -3, 2])
-    expect(projectPosition(point, 'yz', 3).toArray()).toEqual([2, 3, 1])
+    expect(projectPosition(point, 'xz', 3).toArray()).toEqual([1, 2, 3])
+    expect(projectPosition(point, 'yz', 3).toArray()).toEqual([1, 2, 3])
     expect(projectPosition(point, 'xz', 2).toArray()).toEqual([1, 2, 3])
   })
 
@@ -66,7 +66,7 @@ describe('structural-scene-utils', () => {
     expect(getNodeReactionMomentMagnitude(activeCase, 'missing')).toBe(0)
   })
 
-  it('places the default 3d grid just below the transformed model base', () => {
+  it('places the default 3d grid just below the global model base', () => {
     const config = getAdaptiveGridConfig(sample3dSnapshot, 'xy')
 
     expect(config.rotation).toEqual([Math.PI / 2, 0, 0])
@@ -75,7 +75,7 @@ describe('structural-scene-utils', () => {
     expect(config.position[2]).toBeLessThan(0)
   })
 
-  it('keeps every selected 3d grid horizontal at the transformed model base', () => {
+  it('keeps every selected 3d grid horizontal at the global model base', () => {
     const xyConfig = getAdaptiveGridConfig(sample3dSnapshot, 'xy')
     const xzConfig = getAdaptiveGridConfig(sample3dSnapshot, 'xz')
     const yzConfig = getAdaptiveGridConfig(sample3dSnapshot, 'yz')
@@ -84,8 +84,8 @@ describe('structural-scene-utils', () => {
     expect(xzConfig.rotation).toEqual([Math.PI / 2, 0, 0])
     expect(yzConfig.rotation).toEqual([Math.PI / 2, 0, 0])
     expect(xyConfig.position.slice(0, 2)).toEqual([3, 4])
-    expect(xzConfig.position.slice(0, 2)).toEqual([3, -4.5])
-    expect(yzConfig.position.slice(0, 2)).toEqual([4, 4.5])
+    expect(xzConfig.position.slice(0, 2)).toEqual([3, 4])
+    expect(yzConfig.position.slice(0, 2)).toEqual([3, 4])
     expect(xyConfig.position[2]).toBeLessThan(0)
     expect(xzConfig.position[2]).toBeLessThan(0)
     expect(yzConfig.position[2]).toBeLessThan(0)
@@ -104,17 +104,17 @@ describe('structural-scene-utils', () => {
 
   it('uses one low-angle perspective preset for all 3d ground planes', () => {
     expect(getPlaneCameraPreset('xy', 3)).toEqual({
-      direction: [1.25, -1.5, 0.65],
+      direction: [1.25, -1.5, 0.9],
       up: [0, 0, 1],
     })
     expect(getPlaneCameraPreset('xz', 3)).toEqual(getPlaneCameraPreset('xy', 3))
     expect(getPlaneCameraPreset('yz', 3)).toEqual(getPlaneCameraPreset('xy', 3))
   })
 
-  it('centers 3d cameras on each transformed model orientation', () => {
+  it('centers 3d cameras on each global model orientation', () => {
     expect(getSnapshotCenter(sample3dSnapshot, 'xy')).toEqual([3, 4, 4.5])
-    expect(getSnapshotCenter(sample3dSnapshot, 'xz')).toEqual([3, -4.5, 4])
-    expect(getSnapshotCenter(sample3dSnapshot, 'yz')).toEqual([4, 4.5, 3])
+    expect(getSnapshotCenter(sample3dSnapshot, 'xz')).toEqual([3, 4, 4.5])
+    expect(getSnapshotCenter(sample3dSnapshot, 'yz')).toEqual([3, 4, 4.5])
 
     const center = getSnapshotCenter(sample3dSnapshot, 'xz')
     const frame = getPlaneCameraFrame('xz', 3, center, 10)

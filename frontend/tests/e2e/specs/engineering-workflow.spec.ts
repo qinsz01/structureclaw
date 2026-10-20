@@ -1,4 +1,5 @@
 import { test, expect, type Page, type Locator } from '@playwright/test'
+import { formatResultNumber } from '../../../src/lib/utils'
 import { readFile } from 'node:fs/promises'
 import { beamModel, beamReference, beamAnalysis } from '../fixtures/engineering-beam'
 import { startLlmFixture, configureFixtureLlm, toolCall } from '../fixtures/llm-server'
@@ -121,11 +122,11 @@ test.describe('Real engineering service through the browser', () => {
     const figure = page.getByRole('dialog')
     await expect(page.getByTestId('visualization-modal-scene')).toBeVisible()
     await expect(page.getByTestId('visualization-scene-fallback')).toHaveCount(0)
-    await expect(figure.getByRole('button', { name: 'Deformed', exact: true })).toHaveClass(/bg-cyan-300\/16/)
-    await expect(figure.getByRole('button', { name: 'Forces', exact: true })).toBeVisible()
+    await expect(figure.getByRole('button', { name: 'Deformed', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await expect(figure.getByRole('button', { name: 'Diagram', exact: true })).toBeVisible()
     await expect(figure.getByRole('button', { name: 'Reactions', exact: true })).toBeVisible()
     await expect(figure).toContainText(initialRunId)
-    await expect(figure).toContainText(`Selected location value: ${displacement.quantity.value} mm`)
+    await expect(figure).toContainText(`Selected location value: ${formatResultNumber(displacement.quantity.value)} mm`)
     await expect(figure).toContainText('2D · 2 nodes · 1 elements')
     await expect(figure.locator('canvas')).toBeVisible()
     const figurePath = testInfo.outputPath('real-beam-deformation.png')
@@ -166,7 +167,7 @@ test.describe('Real engineering service through the browser', () => {
     expect(historical.quantity.value).toBe(displacement.quantity.value)
     await workspace.getByRole('button', { name: 'View selected figure', exact: true }).click()
     await expect(page.getByRole('dialog')).toContainText(initialRunId)
-    await expect(page.getByRole('dialog')).toContainText(`Selected location value: ${displacement.quantity.value} mm`)
+    await expect(page.getByRole('dialog')).toContainText(`Selected location value: ${formatResultNumber(displacement.quantity.value)} mm`)
     await expect(page.getByTestId('visualization-scene-fallback')).toHaveCount(0)
     await page.keyboard.press('Escape')
     await expect(workspace.getByLabel('Run', { exact: true }).locator('option:checked')).toHaveText(`Historical · ${initialRunId}`)

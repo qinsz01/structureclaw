@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { StructuralVisualizationModal } from '@/components/visualization/modal'
 import { messages } from '@/lib/i18n'
 import type { VisualizationSnapshot } from '@/components/visualization/types'
@@ -36,7 +36,7 @@ const modelSnapshot: VisualizationSnapshot = {
 }
 
 describe('StructuralVisualizationModal', () => {
-  it.each(['en', 'zh'] as const)('switches case scope without borrowing views or loads in %s', locale => {
+  it.each(['en', 'zh'] as const)('lets the workspace switch the read-only case without borrowing views or loads in %s', locale => {
     const localized = (key: keyof typeof messages.en) => messages[locale][key]
     const snapshot: VisualizationSnapshot = { ...modelSnapshot, source: 'result', defaultCaseId: 'case:D',
       availableViews: ['model', 'deformed'], loads: [{ kind: 'point', elementId: 'E1', position: 2, caseId: 'case:D', vector: { x: 0, y: 0, z: -3 } }],
@@ -44,11 +44,15 @@ describe('StructuralVisualizationModal', () => {
         { id: 'case:D', label: 'D', kind: 'case', resultStatus: 'available', availableViews: ['model', 'deformed'], nodeResults: { '2': { displacement: { uz: -0.01 } } }, elementResults: {} },
         { id: 'case:L', label: 'L', kind: 'case', resultStatus: 'unavailable', availableViews: ['model'], nodeResults: {}, elementResults: {} },
       ] }
-    render(<StructuralVisualizationModal locale={locale} onClose={() => undefined} open snapshot={snapshot} t={localized} />)
+    const onChangeCase = vi.fn()
+    const { rerender } = render(<StructuralVisualizationModal locale={locale} onClose={() => undefined} onChangeCase={onChangeCase} open snapshot={snapshot} t={localized} />)
     fireEvent.click(screen.getByRole('button', { name: 'E1 · P' }))
     expect(screen.getByText(`${localized('visualizationMemberLoadPosition')}: 2`)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: localized('visualizationViewDeformed') }))
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'case:L' } })
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: localized('visualizationChangeCase') }))
+    expect(onChangeCase).toHaveBeenCalledOnce()
+    rerender(<StructuralVisualizationModal locale={locale} onClose={() => undefined} open snapshot={{ ...snapshot, defaultCaseId: 'case:L' }} t={localized} />)
     expect(screen.queryByRole('button', { name: localized('visualizationViewDeformed') })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'E1 · P' })).not.toBeInTheDocument()
     expect(screen.getByText(localized('visualizationUnavailable'))).toBeInTheDocument()
@@ -97,7 +101,7 @@ describe('StructuralVisualizationModal', () => {
     expect(screen.getByText(/Connected Nodes: 1 - 2/)).toBeInTheDocument()
   })
 
-  it('opens a canonical 3D snapshot with the XY grid selected by default', () => {
+  it('opens a canonical 3D snapshot with the isometric camera selected by default', () => {
     render(
       <StructuralVisualizationModal
         locale="en"
@@ -108,8 +112,20 @@ describe('StructuralVisualizationModal', () => {
       />
     )
 
-    expect(screen.getByRole('button', { name: 'XY' }).className).toContain('border-cyan-300')
-    expect(screen.getByRole('button', { name: 'XZ' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'YZ' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Iso' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Front' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Side' })).toBeInTheDocument()
   })
+})
+
+it.each(['en', 'zh'] as const)('queries the inspected object without closing the viewer in %s', locale => {
+  const onClose = vi.fn(), query = vi.fn(), t = (key: keyof typeof messages.en) => messages[locale][key]
+  const { rerender } = render(<StructuralVisualizationModal locale={locale} onClose={onClose} onQueryObject={query} open snapshot={modelSnapshot} t={t} />)
+  fireEvent.click(screen.getByRole('button', { name: '2', exact: true }))
+  fireEvent.click(screen.getByRole('button', { name: t('visualizationQueryObject') }))
+  expect(query).toHaveBeenCalledWith({ kind: 'node', id: '2' })
+  rerender(<StructuralVisualizationModal locale={locale} onClose={onClose} onQueryObject={query} queryResult="uz = -1.52 mm" open snapshot={modelSnapshot} t={t} />)
+  expect(onClose).not.toHaveBeenCalled()
+  expect(screen.getByRole('dialog')).toBeInTheDocument()
+  expect(screen.getByTestId('visualization-query-result')).toHaveTextContent('uz = -1.52 mm')
 })

@@ -32,9 +32,9 @@ const defaultProps = {
   snapshot: makeSnapshot() as VisualizationSnapshot | null,
   title: 'Test Modal',
   selectedView: 'model' as const,
-  selectedPlane: 'xz' as const,
+  selectedCamera: 'iso' as const,
   onViewChange: vi.fn(),
-  onPlaneChange: vi.fn(),
+  onCameraChange: vi.fn(),
   onClose: vi.fn(),
   onResetView: vi.fn(),
   t,
@@ -125,7 +125,7 @@ describe('VisualizationModalShell', () => {
     render(<VisualizationModalShell {...defaultProps} />)
     expect(screen.getByRole('button', { name: 'Model' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Deformed' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Forces' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Diagram' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Reactions' })).toBeInTheDocument()
   })
 
@@ -134,63 +134,42 @@ describe('VisualizationModalShell', () => {
     render(<VisualizationModalShell {...defaultProps} snapshot={snapshot} />)
     expect(screen.getByRole('button', { name: 'Model' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Deformed' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Forces' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Diagram' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Reactions' })).not.toBeInTheDocument()
   })
 
-  it('falls back to all views when snapshot is null', () => {
+  it('shows only the model entry when no snapshot exists', () => {
     render(<VisualizationModalShell {...defaultProps} snapshot={null} />)
     expect(screen.getByRole('button', { name: 'Model' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Deformed' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Forces' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Reactions' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Deformed' })).not.toBeInTheDocument()
   })
 
   it('applies active styling to the selected view button', () => {
     render(<VisualizationModalShell {...defaultProps} selectedView="deformed" />)
     const deformedButton = screen.getByRole('button', { name: 'Deformed' })
-    expect(deformedButton.className).toContain('border-cyan-300')
+    expect(deformedButton.className).toContain('border-primary')
   })
 
   it('calls onViewChange when a view button is clicked', async () => {
     const onViewChange = vi.fn()
     render(<VisualizationModalShell {...defaultProps} onViewChange={onViewChange} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Forces' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Diagram' }))
     expect(onViewChange).toHaveBeenCalledWith('forces')
   })
 
-  it('locks canonical 2D snapshots to the XZ plane', () => {
+  it('shows only Fit for a 2D camera', () => {
     render(<VisualizationModalShell {...defaultProps} />)
-    expect(screen.getByRole('button', { name: 'XZ' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'XY' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'YZ' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Fit', exact: true })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Front' })).not.toBeInTheDocument()
   })
-
-  it('calls onPlaneChange when a 3D plane button is clicked', () => {
-    const onPlaneChange = vi.fn()
-    const snapshot = makeSnapshot({ dimension: 3, plane: 'xy' })
-    render(<VisualizationModalShell {...defaultProps} snapshot={snapshot} selectedPlane="xy" onPlaneChange={onPlaneChange} />)
-    fireEvent.click(screen.getByRole('button', { name: 'XZ' }))
-    expect(onPlaneChange).toHaveBeenCalledWith('xz')
+  it('moves the 3D camera using four presets', () => {
+    const onCameraChange = vi.fn()
+    render(<VisualizationModalShell {...defaultProps} snapshot={makeSnapshot({ dimension: 3 })} onCameraChange={onCameraChange} />)
+    for (const [label, preset] of [['Front', 'front'], ['Side', 'side'], ['Top', 'top'], ['Iso', 'iso']]) {
+      fireEvent.click(screen.getByRole('button', { name: label, exact: true }))
+      expect(onCameraChange).toHaveBeenLastCalledWith(preset)
+    }
   })
-
-  it('orders 3D grid planes with the z-up default XY first', () => {
-    const snapshot = makeSnapshot({ dimension: 3, plane: 'xy' })
-    render(<VisualizationModalShell {...defaultProps} snapshot={snapshot} selectedPlane="xy" />)
-    const labels = screen.getAllByRole('button')
-      .map((button) => button.textContent?.trim())
-      .filter((label) => label === 'XY' || label === 'XZ' || label === 'YZ')
-
-    expect(labels).toEqual(['XY', 'XZ', 'YZ'])
-  })
-
-  it('applies active styling to the selected 3D plane button', () => {
-    const snapshot = makeSnapshot({ dimension: 3, plane: 'xy' })
-    render(<VisualizationModalShell {...defaultProps} snapshot={snapshot} selectedPlane="yz" />)
-    const yzButton = screen.getByRole('button', { name: 'YZ' })
-    expect(yzButton.className).toContain('border-cyan-300')
-  })
-
   it('calls onClose when backdrop is clicked', () => {
     const onClose = vi.fn()
     render(<VisualizationModalShell {...defaultProps} onClose={onClose} />)
@@ -217,7 +196,7 @@ describe('VisualizationModalShell', () => {
   it('calls onResetView when Reset View button is clicked', () => {
     const onResetView = vi.fn()
     render(<VisualizationModalShell {...defaultProps} onResetView={onResetView} />)
-    fireEvent.click(screen.getByRole('button', { name: /Reset View/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^Fit$/i }))
     expect(onResetView).toHaveBeenCalled()
   })
 
