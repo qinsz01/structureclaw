@@ -27,13 +27,18 @@ export function MemberDiagram({ element, ctx }: { element: VisualizationElement;
   useEffect(() => () => meshes.forEach(mesh => mesh.geometry.dispose()), [meshes])
   if (!diagram) return null
   const labels = [...new Set([diagram.samples[0], diagram.peak, diagram.samples[diagram.samples.length - 1]])]
+  // A full 3D frame can contain dozens of overlapping end values. Keep the
+  // governing member visible by default and expose other values on inspection.
+  const showValues = snapshot.dimension === 2 || (ctx.selectedElementId
+    ? ctx.selectedElementId === element.id
+    : ctx.showElementLabels || Math.abs(diagram.peak.value) === maxElementMetric)
   const unit = isMomentMetric(forceMetric) ? snapshot.momentUnit : snapshot.resultUnit
   return <group>
     {meshes.map(({ geometry, color }, index) => <mesh key={index} geometry={geometry}>
       <meshBasicMaterial color={color} side={THREE.DoubleSide} transparent opacity={0.6} depthWrite={false} />
     </mesh>)}
     <Line points={diagram.samples.map(sample => sample.tip)} color={palette.foreground} lineWidth={1.3} />
-    {labels.map((sample, index) => {
+    {showValues && labels.map((sample, index) => {
       const first = diagram.samples[0], last = diagram.samples[diagram.samples.length - 1]
       // Separate member-end annotations around shared joints; a leader keeps
       // each value attached to its exact sampled ordinate.
