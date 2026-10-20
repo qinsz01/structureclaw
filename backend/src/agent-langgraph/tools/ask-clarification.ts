@@ -9,11 +9,19 @@ import { clarificationStateToken } from '../guards/tool-guards.js';
 
 export function createAskUserClarificationTool() {
   return tool(
-    async (input: { question: string; optionsJson?: string }, config: LangGraphRunnableConfig) => {
+    async (input: { question: string; optionsJson?: string | unknown[] }, config: LangGraphRunnableConfig) => {
       const proposed = input.optionsJson === undefined ? undefined : normalizeClarificationOptions(input.optionsJson);
-      if (input.optionsJson && !proposed?.length) recordRunEvent({ kind: 'clarification_options_ignored', reason: 'OPTIONAL_CHOICES_UNAVAILABLE' });
       // A choice the template would reject again only restarts the same clarification.
       const options = proposed && supportedClarificationOptions(proposed, getConfigurable(config)?.agentState?.draftState);
+      if (input.optionsJson !== undefined && !options?.length) {
+        const reason = proposed?.length ? 'NO_SUPPORTED_OPTIONS' : 'INVALID_OR_EMPTY_OPTIONS';
+        recordRunEvent({ kind: 'clarification_options_rejected', reason });
+        return JSON.stringify({
+          success: false, errorCode: 'CLARIFICATION_OPTIONS_INVALID', reason, nextAction: 'resend_clarification',
+          message: 'The supplied options could not be delivered; no question was sent to the user. / 所提供的选项无法交付，尚未向用户发送问题。',
+          hint: 'Resend a nonempty array or JSON array string of complete supported answers. Include every candidate value in the question text too. Omit optionsJson only for an open-ended question. / 请重发非空数组或 JSON 数组字符串，每项须为完整且受支持的回答；问题正文也必须包含所有候选值。仅开放式问题可省略 optionsJson。',
+        });
+      }
       if (proposed && options && options.length < proposed.length) recordRunEvent({ kind: 'clarification_options_ignored',
         reason: 'SECTION_DESIGNATION_UNSUPPORTED', options: proposed.filter(option => !options.includes(option)) });
 
@@ -48,13 +56,14 @@ export function createAskUserClarificationTool() {
       description:
         'Pause execution and ask the user a clarification question. ' +
         'Use this when you cannot proceed without user input. ' +
-        'The graph will resume once the user provides an answer.',
+        'The graph will resume once the user provides an answer. ' +
+        'All candidate values, including recalled section dimensions, MUST also appear in the question text, so the user can see exactly what is being confirmed even if options are unavailable. / 所有候选值（包括记忆的截面尺寸）也必须写入问题正文，确保选项不可用时用户仍能看到具体确认内容。',
       schema: z.object({
         question: z.string().trim().min(1).describe('The question to ask the user'),
         optionsJson: z
-          .string()
+          .union([z.string(), z.array(z.unknown())])
           .optional()
-          .describe('JSON array of suggested answer strings; each string must contain the complete answer to send when selected'),
+          .describe('Array or JSON array string of suggested answers; each item must contain the complete answer to send when selected'),
       }),
     },
   );
