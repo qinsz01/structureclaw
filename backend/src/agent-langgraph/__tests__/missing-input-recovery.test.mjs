@@ -95,8 +95,8 @@ describe('missing engineering input is clarification, not recovery', () => {
     }, { toolCall: { id: 'extract-internal-scope' }, configurable: { agentState: { structuralTypeKey: 'beam' } } }));
     const output = JSON.parse(result.update.messages[0].content);
     expect(output.requestScope).toEqual(scope);
-    expect(output.nextState.engineeringDraft.geometry.lengthM).toBe(10);
-    expect(output.nextState.engineeringDraft.loads).toHaveLength(1);
+    expect(result.update.draftState.engineeringDraft.geometry.lengthM).toBe(10);
+    expect(result.update.draftState.engineeringDraft.loads).toHaveLength(1);
     expect(output.nextAction).toBe('ask_user_clarification');
     expect(output.criticalMissing).toContain('templateProperties');
     expect(extract).toHaveBeenCalledTimes(1);
@@ -122,7 +122,7 @@ describe('missing engineering input is clarification, not recovery', () => {
     expect(output.canProceed).toBe(false);
     expect(extract).toHaveBeenCalledTimes(1);
     expect(context.usage.recoveries).toBe(0);
-    expect(output.nextState.engineeringDraft.geometry.lengthM).toBe(10);
+    expect(result.update.draftState.engineeringDraft.geometry.lengthM).toBe(10);
   });
   test.each(['zh','en'])('unknown internal response goal asks once while preserving engineering input (%s)', async locale => {
     const { handler } = await import('../../../dist/agent-skills/structure-type/beam/handler.js');
@@ -138,8 +138,8 @@ describe('missing engineering input is clarification, not recovery', () => {
     expect(output.nextAction).toBe('ask_user_clarification');
     expect(output.clarificationQuestions).toHaveLength(1);
     expect(output.clarificationQuestions[0].question).toMatch(locale==='zh'?/所求|需要/:/need/);
-    expect(output.nextState.engineeringDraft.geometry.lengthM).toBe(10);
-    expect(output.nextState.engineeringDraft.loads).toHaveLength(1);
+    expect(result.update.draftState.engineeringDraft.geometry.lengthM).toBe(10);
+    expect(result.update.draftState.engineeringDraft.loads).toHaveLength(1);
     expect(extract).toHaveBeenCalledTimes(1);
   });
 });

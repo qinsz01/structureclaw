@@ -89,9 +89,8 @@ describeWithOpenSees('characterization: HN designation without plate thicknesses
     expect(extractorPrompts).toHaveLength(2);
     const merged = toolResultSeenByAgent(resumed.requests, 'hn-extract-answer');
     expect(merged.criticalMissing).toEqual([]);
-    expect(merged.nextState.draftIssues).toBeUndefined();
-    expect(merged.nextState.engineeringDraft.sectionRecords).toEqual([
-      expect.not.objectContaining({ standard_steel_name: expect.anything() })]);
+    expect(merged).not.toHaveProperty('nextState');
+    expect(merged.applied).toContain('engineeringDraft.sectionRecords["SEC1"].standard_steel_name');
     expect(stepStatuses(resumed.steps)).toEqual([
       { tool: 'ask_user_clarification', status: 'done' }, { tool: 'extract_draft_params', status: 'done' },
       { tool: 'build_model', status: 'done' }, { tool: 'run_analysis', status: 'done' }, { tool: 'generate_report', status: 'done' }]);
@@ -100,6 +99,7 @@ describeWithOpenSees('characterization: HN designation without plate thicknesses
     expect(session).toMatchObject({ waitingForReply: false, modelRevision: 1, modelPending: false,
       analysis: { current: true }, report: { current: true } });
     const { model } = await ctx.backend.inputReview(first.conversationId);
+    expect(model.sections[0]).not.toHaveProperty('standard_steel_name');
     expect(model.sections).toEqual([expect.objectContaining({ id: 'SEC1', shape: { kind: 'H', H: 300, B: 150, tw: 6.5, tf: 9 } })]);
     expect(model.materials[0]).toMatchObject({ id: 'M1', E: 206000 });
     const values = await querySimplyBeamResponses(ctx, first.conversationId, {

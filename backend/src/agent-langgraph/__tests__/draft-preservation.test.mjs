@@ -326,3 +326,17 @@ test('external hosts retain canonical turn evidence and can supply input directl
   expect(resolveExtractionInputMessage('assistant restatement','actual clarification in a new turn',[])).toBe('actual clarification in a new turn');
   expect(resolveExtractionInputMessage('direct host input','',[])).toBe('direct host input');
 });
+
+test('a resumed answer retains earlier actual user evidence lost by a previous extraction', async () => {
+  const { resolveExtractionInputMessage } = await import('../../../dist/agent-langgraph/tools.js');
+  const reply = (question, answer) => ({ role: 'tool', name: 'ask_user_clarification',
+    content: JSON.stringify({ type: 'clarification_answered', question, answer }) });
+  const resolved = resolveExtractionInputMessage('Invented Q999', '10m beam', [
+    { role: 'user', content: '10m beam' }, reply('Material and section?', '材料Q235钢，截面工字钢I20a'),
+    { role: 'assistant', content: 'Use invented Q999' }, reply('Confirm dimensions?', '200×100×7×11.4 mm'),
+  ]);
+  expect(resolved).toContain('材料Q235钢，截面工字钢I20a');
+  expect(resolved).toContain('200×100×7×11.4 mm');
+  expect(resolved).not.toContain('Q999');
+  expect(resolved).toContain('unless superseded');
+});

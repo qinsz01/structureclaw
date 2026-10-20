@@ -73,9 +73,8 @@ describeWithOpenSees('characterization: clarification interrupt and resume', () 
     expect(extractorPrompts[1]).toMatch(/"lengthM":\s*8/);
     const merged = toolResultSeenByAgent(resumed.requests, 'clarify-extract-answer');
     expect(merged.criticalMissing).toEqual([]);
-    expect(merged.nextState.engineeringDraft).toMatchObject({ geometry: { lengthM: 8 }, boundary: { supportType: 'simply-supported' },
-      templateAssignments: { beam: { materialId: 'M1', sectionId: 'S1' } },
-      loads: [expect.objectContaining({ id: 'P1', magnitude: 20, location: { xM: 4 } })] });
+    expect(merged).not.toHaveProperty('nextState');
+    expect(merged.applied).toContain('engineeringDraft.loads["P1"].magnitude');
 
     const session = await ctx.backend.session(first.conversationId);
     expect(session).toMatchObject({ waitingForReply: false, question: null, modelRevision: 1, modelPending: false, analysis: { current: true } });

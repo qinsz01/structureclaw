@@ -1,0 +1,56 @@
+// Real-provider regression. Run only against an explicitly selected isolated backend.
+import fs from 'node:fs';
+import path from 'node:path';
+import { args, BASE, json, turn, queryResult } from './client.mjs';
+
+if (!args['base-url'] || !args['data-dir'] || BASE !== 'http://127.0.0.1:31605') {
+  throw new Error('Use --base-url http://127.0.0.1:31605 --data-dir <isolated SCLAW_DATA_DIR>');
+}
+const results = [];
+for (let index = 1; index <= Number(args.runs ?? 3); index++) {
+  const started = Date.now();
+  const failures = [], turns = [], questions = [];
+  let session, conversationId, deflectionMm;
+  try {
+    const first = await turn('/api/v1/chat/stream', { message: '设计一个简支梁，跨度10m，梁中间荷载1kN', context: { locale: 'zh' } });
+    turns.push(first);
+    conversationId = first.conversationId;
+    for (const answer of ['材料Q235钢，截面工字钢I20a', '确认采用 I20a 尺寸：200×100×7×11.4 mm']) {
+      session = (await json('GET', `/api/v1/chat/conversation/${conversationId}/session`)).body;
+      if (!session.waitingForReply) { failures.push('Expected a clarification before the next answer'); break; }
+      questions.push(session.question);
+      turns.push(await turn('/api/v1/chat/stream/resume', { conversationId, resumeValue: answer }));
+    }
+    session = (await json('GET', `/api/v1/chat/conversation/${conversationId}/session`)).body;
+    if (session.waitingForReply) failures.push(`Extra clarification: ${session.question}`);
+    if (!session.analysis?.current) failures.push('No current analysis');
+    else {
+      const review = (await json('GET', `/api/v1/agent/input-review/${conversationId}`)).body;
+      const mid = review.model.nodes.find(node => Math.abs(node.x - 5) < 1e-9);
+      const value = await queryResult(conversationId, { runId: session.analysis.runId, field: 'displacements',
+        nodeId: mid.id, component: 'uz', unit: 'mm', quantityId: `material-merge-${index}` });
+      deflectionMm = Math.abs(value.quantity.value);
+      if (Math.abs(deflectionMm - 4.295) > .0005) failures.push(`Unexpected deflection: ${deflectionMm}`);
+    }
+  } catch (error) { failures.push(error.message); }
+  const wallMs = Date.now() - started, systemMs = turns.reduce((sum, item) => sum + item.wallMs, 0);
+  if (systemMs >= 180000) failures.push('System time exceeded three minutes');
+  if (turns.some(item => item.errors.length)) failures.push('SSE errors');
+  const recordPath = session?.usage?.runId && path.join(args['data-dir'], 'run-records', `${session.usage.runId}.json`);
+  const events = recordPath && fs.existsSync(recordPath) ? JSON.parse(fs.readFileSync(recordPath, 'utf8')).usage.events : [];
+  const extracts = events.filter(event => event.kind === 'draft_extraction_result');
+  if (extracts.some(event => !event.applied.length)) failures.push('Extraction applied nothing');
+  if (!extracts.length) failures.push('Missing extraction diagnostics');
+  const row = { run: index, conversationId, runId: session?.usage?.runId, wallMs, systemMs, answers: turns.length - 1, questions,
+    deflectionMm, extractCalls: extracts.length, extracts: extracts.map(({ applied, unapplied, status }) => ({ applied, unapplied, status })),
+    patches: events.filter(event => event.kind === 'param_extractor' && event.mode === 'patch')
+      .map(({ attempt, durationMs, finishReason, usage, maxOutputTokens, outcome }) => ({ attempt, durationMs, finishReason,
+        reasoningTokens: usage?.reasoningTokens, maxOutputTokens, outcome })),
+    wireControls: events.filter(event => event.kind === 'llm_request_options' && event.responseFormat === 'json_object'),
+    maxAgentPromptChars: Math.max(0, ...events.filter(event => event.kind === 'llm_finished' && event.messageCount > 1).map(event => event.promptChars)),
+    failures, passed: !failures.length };
+  results.push(row);
+  if (args.out) fs.writeFileSync(args.out, JSON.stringify({ results }, null, 2) + '\n');
+  console.log(JSON.stringify({ ...row, extracts: undefined, wireControls: undefined, questions: undefined }));
+}
+process.exitCode = results.every(row => row.passed) ? 0 : 1;
