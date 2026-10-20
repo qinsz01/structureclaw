@@ -65,6 +65,9 @@ describe('diagram display geometry', () => {
     expect(peak).toBe(2.5)
     expect(diagram.samples.map(sample => formatResultNumber(sample.value, 'en', peak))).toEqual(['0', '-2.50', '0'])
     expect(saved.samples[0].M2).toBe(1.332e-15)
+    const legacyEnds = { ...activeCase, elementResults: { beam: { moment: 1.554e-15 } } }
+    expect(getResultPeak(legacyEnds, 'forces', 'moment')).toBe(2.5)
+    expect(formatResultNumber(legacyEnds.elementResults.beam.moment, 'en', getResultPeak(legacyEnds, 'forces', 'moment'))).toBe('0')
   })
   it('moves the camera to front, side and top without changing its target', () => {
     const target: [number, number, number] = [3, 4, 5]

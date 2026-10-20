@@ -33,6 +33,10 @@ const defaultSelection = (run?: RunInfo, key?: string): ResultSelection => {
     ...(forceOnlyRun(run, resultKey) ? {field:'reactions',component:'fz',unit:'kN'} : {field:'displacements',component:'uz',unit:'mm'}) }
 }
 const cleanSelection = (selection: ResultSelection) => Object.fromEntries(Object.entries(selection).filter(([, value]) => value !== undefined))
+function queryDisplayPeak(snapshot: VisualizationSnapshot | null, selection: ResultSelection) {
+  return getResultPeak(snapshot?.cases.find(row => row.id === snapshot.defaultCaseId), selection.field, selection.component)
+    * (selection.field === 'displacements' && ['ux', 'uy', 'uz'].includes(selection.component) && selection.unit === snapshot?.displacementUnit ? snapshot.displacementDisplayFactor ?? 1 : 1)
+}
 /** Print the already-rendered selected report; never parses raw HTML from a model response. */
 export function printSelectedReport(element: HTMLElement | null, title: string) {
   if (!element) return
@@ -58,8 +62,7 @@ export function selectedResultSnapshot(output: Row, selection: ResultSelection, 
   const model = record(output.modelSnapshot); const data = record(output.visualizationData)
   if (!Array.isArray(model.nodes)) return null
   const metadata = record(model.metadata), text = visualizationMessages[zh ? 'zh' : 'en']
-  const structure = [metadata.name, metadata.description, metadata.structureType, model.structure_type,
-    metadata.frameDimension === '2d' ? text.visualizationFrame2D : metadata.frameDimension === '3d' ? text.visualizationFrame3D : undefined]
+  const structure = [metadata.name, metadata.description, metadata.structureType, model.structure_type]
     .find(value => typeof value === 'string' && value.trim())
   const caseId = String(record(output.resultSelection).id ?? selection.resultKey.replace(/^(case|combination):/, ''))
   const sourceCase = (Array.isArray(model.load_cases) ? model.load_cases : []).map(record).find(row => row.id === caseId)
@@ -71,7 +74,7 @@ export function selectedResultSnapshot(output: Row, selection: ResultSelection, 
       results: { [selection.resultKey]: { success: true, selection: output.resultSelection, meta: output.meta, data } } }
       : { success: true, meta: output.meta, data }, mode: 'analysis-result' })
     const quantity = record(output.quantity)
-    return snapshot ? { ...snapshot, runId: selection.runId, statusMessage: `${visualizationMessages[zh ? 'zh' : 'en'].visualizationSelectedValue}: ${typeof quantity.value === 'number' ? formatResultNumber(quantity.value, zh ? 'zh' : 'en') : '—'} ${String(quantity.unit ?? '')}` } : null
+    return snapshot ? { ...snapshot, runId: selection.runId, statusMessage: `${visualizationMessages[zh ? 'zh' : 'en'].visualizationSelectedValue}: ${typeof quantity.value === 'number' ? formatResultNumber(quantity.value, zh ? 'zh' : 'en', queryDisplayPeak(snapshot, selection)) : '—'} ${String(quantity.unit ?? '')}` } : null
   }
   const geometry = buildVisualizationSnapshot({ title, model, mode: 'model-only' })
   if (!geometry) return null
@@ -190,8 +193,7 @@ export function ResultReviewPanel({ open, onClose, conversationId, locale, disab
   const components = member ? selection.field === 'displacements' ? ['ux', 'uy', 'uz'] : ['N', 'V2', 'V3', 'T', 'M2', 'M3'] : selection.field === 'reactions' ? ['fx', 'fy', 'fz', 'mx', 'my', 'mz'] : selection.modeNumber !== undefined ? ['ux', 'uy', 'uz'] : ['ux', 'uy', 'uz', 'rx', 'ry', 'rz']
   const componentUnit = (component: string, field: string) => selection.modeNumber !== undefined ? '1' : ['T','M2','M3','mx','my','mz'].includes(component) ? 'kN.m' : ['N','V2','V3','fx','fy','fz'].includes(component) ? 'kN' : component.startsWith('r') ? field === 'velocities' ? 'rad/s' : field === 'accelerations' ? 'rad/s2' : 'rad' : field === 'velocities' ? 'mm/s' : field === 'accelerations' ? 'mm/s2' : 'mm'
   const quantity = record(result?.quantity)
-  const queryPeak = getResultPeak(snapshot?.cases.find(row => row.id === snapshot.defaultCaseId), selection.field, selection.component)
-    * (selection.field === 'displacements' && ['ux', 'uy', 'uz'].includes(selection.component) && selection.unit === snapshot?.displacementUnit ? snapshot.displacementDisplayFactor ?? 1 : 1)
+  const queryPeak = queryDisplayPeak(snapshot, selection)
   return <><DialogShell open={open && !viewer} onClose={onClose} title={l('结果工作区', 'Result workspace')} closeLabel={l('关闭', 'Close')} className="max-w-5xl" description={l('所有数值、图形和报告使用同一保存的运行与结果选择。', 'Values, figures and reports use the same saved run and result selection.')}>
     <div className="space-y-5 p-4">
       {error && <p role="alert" className="rounded-lg border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}

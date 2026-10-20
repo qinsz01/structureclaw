@@ -153,7 +153,12 @@ export function getResultPeak(activeCase: VisualizationCase | null | undefined, 
   if (!activeCase) return 0
   if (field === 'forces' && (isForceComponent(component) || ['axial', 'shear', 'moment'].includes(component))) {
     const ids = new Set([...Object.keys(activeCase.memberResponses ?? {}), ...Object.keys(activeCase.elementResults)])
-    return Math.max(0, ...[...ids].map(id => Math.abs(getElementMetric(activeCase, id, component as ForceMetric) ?? 0)))
+    const components = isForceComponent(component) ? [component] : component === 'axial' ? ['N'] as const
+      : component === 'shear' ? ['V2', 'V3'] as const : ['M2', 'M3'] as const
+    const sampledPeak = Object.values(activeCase.memberResponses ?? {})
+      .filter(row => row.state !== 'unavailable' && row.state !== 'interpolated')
+      .reduce((peak, row) => row.samples.reduce((peak, sample) => Math.max(peak, ...components.map(key => Math.abs(sample[key] ?? 0))), peak), 0)
+    return Math.max(sampledPeak, ...[...ids].map(id => Math.abs(getElementMetric(activeCase, id, component as ForceMetric) ?? 0)))
   }
   if (field !== 'displacements' && field !== 'reactions') return 0
   const values = Object.values(activeCase.nodeResults).map(row => {

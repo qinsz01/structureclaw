@@ -20,7 +20,8 @@ it.each([
   [false, {}, 'Analysis result'],
   [true, {}, '分析结果'],
   [false, { description: 'South bridge' }, 'South bridge'],
-  [true, { frameDimension: '3d' }, '三维框架'],
+  [true, { structureType: '三维框架' }, '三维框架'],
+  [false, { frameDimension: '3d' }, 'Analysis result'],
 ] as const)('uses a human figure title and separate run provenance (%s, %j)', (zh, metadata, expected) => {
   const selection = { runId: '0494e9c1-573d-4000-8000-123456789abc', resultKey: 'case:D',
     nodeId: 'b', timeIndex: 1, field: 'displacements', component: 'uz', unit: 'mm' }
