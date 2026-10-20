@@ -2,6 +2,8 @@
 
 Date: 2026-10-20. Branch: `fix/visualization`, created from `work/research-next`. Local commits only; nothing pushed. / 日期：2026-10-20；分支由 `work/research-next` 创建，仅本地提交，未推送。
 
+The later [visualization polish report](2026-10-20-visualization-polish-report.md) records the follow-up requested after screenshot review. This report's original artifact folders and indexes are archived at `G:/StructureClaw-All/verification/visualization-20261019/polish-20261020/before/`; the shared screenshot paths now contain the regenerated matrix. The historical results below remain unchanged. / 截图审阅后的细节修复见后续报告。本报告对应的原始证据目录及索引已备份，共用截图路径已重新生成；下文保留当时的验证结果。
+
 **The visualization control audit passed, but overall acceptance is not met: one existing live-provider e2e workflow failed, and the first integration run disturbed the development watcher. This is not a claim that every requirement passed. / 可视化控件审计通过，但整体验收未满足：一个现有真实模型 e2e 流程失败，首次集成测试还触发了开发 watcher 重载，不能声称所有要求均已通过。**
 
 ## Delivered behavior / 已实现行为
