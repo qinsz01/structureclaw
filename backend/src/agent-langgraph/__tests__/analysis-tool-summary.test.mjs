@@ -2003,6 +2003,33 @@ describe("analysis tool summary", () => {
     expect(postCalls).toBe(1);
   });
 
+  test("a failed scoped solve reports the failure instead of directing queries to missing results", async () => {
+    const { createRunAnalysisTool } = await import("../../../dist/agent-langgraph/tools.js");
+    const runAnalysis = createRunAnalysisTool({
+      async executeAnalysisSkill() {
+        return { skillId: "opensees-static", result: {
+          success: false, error_code: "RESULT_SET_INCOMPLETE",
+          message: "Missing section A/I/J", meta: { exceptionType: "OpenSeesMissingInputError" },
+        } };
+      },
+    });
+    const command = await runAnalysis.invoke({ requestScope: {
+      responses: ["displacements"], design: false, outputs: [
+        { nodeId: "2", field: "displacements", component: "uz", unit: "mm" },
+      ],
+    } }, { toolCall: { id: "failed-fillet" }, configurable: {
+      toolContext: { skillScope: ["opensees-static"] },
+      agentState: { model: { nodes: [], elements: [], materials: [], sections: [] } },
+    } });
+    const payload = JSON.parse(command.update.messages[0].content);
+    expect(payload).toMatchObject({
+      success: false, errorCode: "RESULT_SET_INCOMPLETE", nextAction: "report_failure",
+    });
+    expect(payload.requestedQuantities).toBeUndefined();
+    expect(payload.instruction).toContain("once");
+    expect(payload.instruction).toContain("一次");
+  });
+
   test("surfaces failed analysis artifact feedback to the model", async () => {
     const { buildAnalysisToolSummary } = await import("../../../dist/agent-langgraph/tools.js");
 

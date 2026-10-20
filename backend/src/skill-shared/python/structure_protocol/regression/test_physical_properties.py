@@ -110,6 +110,23 @@ def test_stale_derived_provenance_warns_without_overwriting_properties():
     assert section.extra['section_diagnostics'][0]['code'] == 'SECTION_PROVENANCE_CONFLICT'
 
 
+@pytest.mark.parametrize('explicit', [{}, {'A': .0035578, 'Iy': .0000237}])
+def test_confirmed_i20a_fillet_uses_noted_sharp_corner_geometry(explicit):
+    section = SectionV2(id='S1', name='I20a', type='steel',
+        shape=SectionShape(kind='I', H=200, B=100, tw=7, tf=11.4, r=9),
+        properties=explicit)
+    validate_section_physics(section)
+    assert section.shape.r == 9  # Retain the confirmed input, including the ignored radius.
+    assert section.properties['A'] == pytest.approx(explicit.get('A', .0035204))
+    assert section.properties['Iy'] == pytest.approx(explicit.get('Iy', .0000235452664))
+    assert section.properties['Iz'] > 0 and section.properties['J'] > 0
+    note = next(row for row in section.extra['section_diagnostics'] if row['code'] == 'SECTION_FILLET_IGNORED')
+    assert 'r=9' in note['message']['en'] and '圆角' in note['message']['zh']
+    first = section.model_dump()
+    validate_section_physics(section)
+    assert section.model_dump() == first
+
+
 def test_floor_area_migration_and_mass_direction_contract():
     story = StoryDef(id='F1',height=3,extra={'tributary_area':18})
     assert story.load_area_m2 == 18 and story.extra == {}

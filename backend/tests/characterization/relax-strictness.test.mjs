@@ -7,8 +7,9 @@ import { describeWithOpenSees, internalResponder, querySimplyBeamResponses, rout
 
 describeWithOpenSees('characterization: relaxed section and clarification workflow', () => {
   const ctx = setupHarness();
-  test.each([{ rounded: false }, { rounded: true }, { dimensioned: true }, { dimensioned: true, explicit: true }])('section source precedence after one answer (%j)', async ({ rounded, dimensioned, explicit }) => {
-    const answer = dimensioned ? `Q235，I20a 尺寸 200×100×7×11.4${explicit ? '，Iy=2400cm4' : ''}`
+  test.each([{ rounded: false }, { rounded: true }, { dimensioned: true }, { dimensioned: true, explicit: true },
+    { dimensioned: true, filleted: true }])('section source precedence after one answer (%j)', async ({ rounded, dimensioned, explicit, filleted }) => {
+    const answer = dimensioned ? `Q235，I20a 尺寸 200×100×7×11.4${explicit ? '，Iy=2400cm4' : ''}${filleted ? '，圆角 r=9mm' : ''}`
       : `Q235，I20a 尺寸 200×100×7×11.4，${rounded ? 'Iy=2354.5cm4' : 'A=35.578cm2，Iy=2370cm4'}`;
     const question = '请提供材料和截面。';
     const narration = '内力可计算，挠度还需要材料和截面。';
@@ -21,7 +22,7 @@ describeWithOpenSees('characterization: relaxed section and clarification workfl
         return text.includes(answer) ? { engineeringDraft: {
           material: { grade: 'Q235' },
           ...(dimensioned ? { materials: [{ id: 'M', name: 'Q235', E: 206000, nu: .3 }] } : {}),
-          sectionRecords: [{ id: 'S1', name: 'I20a', ...(dimensioned ? {} : { type: 'I' }), shape: { kind: 'I', H: 200, B: 100, tw: 7, tf: 11.4 },
+          sectionRecords: [{ id: 'S1', name: 'I20a', ...(dimensioned ? {} : { type: 'I' }), shape: { kind: 'I', H: 200, B: 100, tw: 7, tf: 11.4, ...(filleted ? { r: 9 } : {}) },
             properties: { ...(rounded || explicit ? {} : { A: 35.578e-4 }), Iy: dimensioned && !explicit ? 2370e-8 : inertia }, extra: { source: dimensioned && !explicit ? 'LLM: recalled, unconfirmed' : 'User supplied / 用户提供',
               provenance: { shape: 'user', properties: dimensioned && !explicit ? 'llm-table' : 'user' } } }],
           templateAssignments: { beam: { sectionId: 'S1' } },
@@ -66,6 +67,14 @@ describeWithOpenSees('characterization: relaxed section and clarification workfl
     if (rounded || dimensioned && !explicit) expect(section.extra.property_geometry_delta).toBeUndefined();
     else if (!explicit) expect(section.extra.property_geometry_delta.A).toBeGreaterThan(1);
     const summary = toolResultSeenByAgent(resumed.requests, 'analyze');
+    if (filleted) {
+      expect(section.shape.r).toBe(9);
+      expect(summary.success).toBe(true);
+      expect(summary.sectionAssumptions).toContainEqual(expect.objectContaining({ code: 'SECTION_FILLET_IGNORED',
+        message: { en: expect.stringContaining('r=9'), zh: expect.stringContaining('圆角') } }));
+      expect(resumed.requests.filter(row => row.kind === 'agent').flatMap(row => row.body.messages)
+        .filter(row => row.role === 'tool' && row.tool_call_id === 'analyze').length).toBe(1);
+    }
     expect(summary.sectionAssumptions.some(note => dimensioned && !explicit
       ? note.code === 'SECTION_USER_GEOMETRY' && note.message.en.includes('sharp-corner') && note.message.zh.includes('尖角')
       : note.message.zh.includes('用户提供'))).toBe(true);
