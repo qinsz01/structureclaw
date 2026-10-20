@@ -13,8 +13,9 @@ function quantities(text: string): Quantity[] {
     const terms = [...group[0].matchAll(new RegExp(`(${NUMBER})(?:\\s*(${UNIT}))?`, 'g'))];
     const before = text[(group.index ?? 0) - 1] ?? '';
     const after = text[(group.index ?? 0) + group[0].length] ?? '';
-    // Q235 / I20a are identifiers. Fully dimensioned H300×150×6.5×9 is numeric input.
-    if ((terms.length === 1 && /[A-Za-z0-9_.]/.test(before)) || /[A-Za-z_]/.test(after)) continue;
+    // Schema field notation H200, B100, tw7 is numeric input; Q235 / I20a are identifiers.
+    const labelled = /\b(?:H|B|tw|tf|r|A|As|Asy|Asz|Iy|Iz|J|Wx|Wz|Wnx|S|Sz|tz|t|imin)$/i.test(text.slice(0, group.index));
+    if ((terms.length === 1 && /[A-Za-z0-9_.]/.test(before) && !labelled) || /[A-Za-z_]/.test(after)) continue;
     const sharedUnit = terms.at(-1)?.[2];
     for (const term of terms) {
       const unit = (term[2] ?? sharedUnit)?.replace(/\s|\^/g, '').replace('²', '2').replace('³', '3').replace('⁴', '4')

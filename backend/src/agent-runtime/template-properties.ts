@@ -247,6 +247,10 @@ function sectionDesignations(section: Record<string, unknown>, draft: DraftState
   return [...new Set(names.filter((name): name is string => typeof name === 'string' && !!name.trim()).map(name => name.trim()))];
 }
 
+export function sectionRequiresNumericDefinition(section: Record<string, unknown>, draft: DraftState['engineeringDraft']): boolean {
+  return !hasSectionDefinition(section) && !designationGeometry(sectionDesignations(section, draft));
+}
+
 /** Declared H designations the template cannot build because plate thicknesses are missing. */
 function unsupportedSectionDesignations(state: DraftState): string[] {
   const draft = state.engineeringDraft;

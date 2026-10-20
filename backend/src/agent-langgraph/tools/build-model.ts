@@ -5,7 +5,8 @@ import type { LangGraphRunnableConfig } from '@langchain/langgraph';
 import { getLogger, logToolCall } from '../../utils/agent-logger.js';
 import type { AgentConfigurable } from '../configurable.js';
 import { normalizeEngineeringModel } from '../../engineering/model-boundary.js';
-import { assertConfirmedSectionInputs } from '../../engineering/section-provenance.js';
+import { assertConfirmedSectionInputs, SectionConfirmationRequiredError } from '../../engineering/section-provenance.js';
+import { draftSectionConfirmations } from '../../agent-runtime/draft-readiness.js';
 import { mergeInputEvidence } from '../../engineering/input-evidence.js';
 import { buildModelToolSummary, buildModelToolStateUpdate } from './compaction/analysis.js';
 import { conversationUserTexts, messageRole, messageText } from './input-message.js';
@@ -28,6 +29,8 @@ export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
       const skillIds = toolSkillScope(config);
       const userTexts = conversationUserTexts(state);
       assertConfirmedSectionInputs({ sections: draftState.engineeringDraft?.model?.sections ?? draftState.engineeringDraft?.sectionRecords }, userTexts);
+      const pendingSections = draftSectionConfirmations(draftState);
+      if (pendingSections.length) throw new SectionConfirmationRequiredError(pendingSections);
 
       let candidate: Record<string, unknown> | undefined;
       try {

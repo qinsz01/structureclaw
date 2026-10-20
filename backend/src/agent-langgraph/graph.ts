@@ -47,6 +47,7 @@ import { guardLedger } from './guards/tool-guards.js';
 import { buildGuardStopAnswer } from './guards/stop-answer.js';
 import { repairResponseToolCalls } from './guards/response-guards.js';
 import { DEFAULT_MAX_TOOL_CALLS_PER_TURN } from '../runtime/limits.js';
+import { hasExtractedCurrentInput } from './tools/input-message.js';
 
 
 function getAgentLogger(config: LangGraphRunnableConfig) {
@@ -55,10 +56,13 @@ function getAgentLogger(config: LangGraphRunnableConfig) {
 
 /** Tool context for a graph node: derived from the turn's frozen policy and the node state. */
 export function toolContextForNode(state: AgentState, configurable: Partial<AgentConfigurable>): ToolContext {
-  return deriveToolContext(state, configurable.runContext?.policy, {
+  const context = deriveToolContext(state, configurable.runContext?.policy, {
     allowShell: configurable.allowShell ?? false,
     fileAccessAllowlist: configurable.fileAccessAllowlist,
   });
+  return hasExtractedCurrentInput(state.messages)
+    ? Object.freeze({ ...context, activeToolIds: Object.freeze(context.activeToolIds.filter(id => id !== 'extract_draft_params')) })
+    : context;
 }
 
 // ---------------------------------------------------------------------------

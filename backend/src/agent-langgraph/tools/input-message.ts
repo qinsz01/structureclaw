@@ -35,6 +35,29 @@ export function messageText(message: unknown): string {
   return content == null ? '' : String(content);
 }
 
+/** A completed extraction consumes this actual answer, irrespective of an agent's restatement. */
+export function hasExtractedCurrentInput(messages: unknown[] = []): boolean {
+  for (let index = messages.length - 1; index >= 0; index--) {
+    const message = messages[index];
+    const role = messageRole(message);
+    if (role === 'human' || role === 'user') return false;
+    if (role !== 'tool') continue;
+    const tool = message as { name?: string; kwargs?: { name?: string } };
+    const name = tool.name ?? tool.kwargs?.name;
+    // Newly read evidence or a changed routing decision may justify another extraction.
+    if (name === 'read_file' || name === 'analyze_file' || name === 'detect_structure_type') return false;
+    try {
+      const result = JSON.parse(messageText(message));
+      if (name === 'ask_user_clarification' && result.type === 'clarification_answered') return false;
+      if (name === 'extract_draft_params') {
+        return ['applied', 'no_change'].includes(result.status)
+          && Array.isArray(result.unapplied) && result.unapplied.length === 0;
+      }
+    } catch { /* Historical or failed results do not establish a completed extraction. */ }
+  }
+  return false;
+}
+
 function latestHumanMessageText(messages: unknown[] | undefined): string {
   if (!Array.isArray(messages)) return '';
   for (let i = messages.length - 1; i >= 0; i--) {

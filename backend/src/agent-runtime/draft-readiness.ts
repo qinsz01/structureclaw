@@ -1,5 +1,5 @@
 import { buildExplicitDraftModel } from './explicit-model.js';
-import { completeDeclaredGradeMaterials, templatePropertyIssues } from './template-properties.js';
+import { completeDeclaredGradeMaterials, sectionRequiresNumericDefinition, templatePropertyIssues } from './template-properties.js';
 import type { AgentSkillPlugin, DraftState, InteractionQuestion, SkillMissingResult } from '../shared/types/agent.js';
 import type { AppLocale } from '../shared/locale.js';
 import { missingInputReason, type RequestScope } from '../engineering/request-scope.js';
@@ -43,7 +43,14 @@ function materialPropertyQuestions(state: DraftState, locale: AppLocale): Intera
 }
 
 export function draftSectionConfirmations(state: DraftState): Record<string, unknown>[] {
-  return sectionConfirmationCandidates(state.engineeringDraft?.model?.sections ?? state.engineeringDraft?.sectionRecords);
+  const draft = state.engineeringDraft;
+  const sections = draft?.model?.sections ?? draft?.sectionRecords;
+  const pending = sectionConfirmationCandidates(sections);
+  const records = Array.isArray(sections) ? sections.filter(isRecord) : [];
+  return [...pending, ...records.filter(section => !pending.some(candidate => candidate.id === section.id)
+    && sectionRequiresNumericDefinition(section, draft)).map(section => ({
+    id: section.id, name: section.name, fields: ['shape'], requiresNumericDefinition: true,
+  }))];
 }
 
 /** Keep confirmation alongside other missing inputs, including for explicit and LLM-built models. */

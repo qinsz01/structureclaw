@@ -18,6 +18,7 @@ import type { RunContext } from '../../runtime/run-context.js';
 import { recordGuardEvent } from '../../runtime/run-context.js';
 import { extractMessageText, getMessageType, getToolName } from '../message-inspect.js';
 import { contentHash } from '../../engineering/model-record.js';
+import { hasExtractedCurrentInput } from '../tools/input-message.js';
 
 /** Identical call (tool + normalized arguments) failing with the same error code this many times is not executed again. */
 export const REPEATED_FAILURE_LIMIT = 2;
@@ -29,7 +30,7 @@ export const GUARD_BLOCK_STOP_LIMIT = 2;
 export const MALFORMED_ARGUMENTS_KEY = '__malformedArguments';
 
 export type GuardKind = 'repeated-failure' | 'duplicate-clarification' | 'no-progress' | 'guard-stop'
-  | 'unknown-tool' | 'malformed-arguments' | 'missing-tool-call-id';
+  | 'unknown-tool' | 'malformed-arguments' | 'missing-tool-call-id' | 'duplicate-extraction';
 
 export interface GuardStop { reason: 'repeated-blocks' | 'no-progress'; calls: number }
 interface FailureRecord { tool: string; code: string; count: number }
@@ -149,6 +150,13 @@ export function preflightToolCall(input: PreflightInput): PreflightRejection | u
       `The arguments of ${call.name} were not valid JSON and the call was not executed. / ${call.name} 的参数不是有效 JSON，调用未执行。`,
       'Resend the call with a complete JSON object that matches the tool schema. / 请按工具参数结构重新发送完整的 JSON 对象。',
       { receivedArguments: String(args[MALFORMED_ARGUMENTS_KEY]).slice(0, 300) }) };
+  }
+  if (call.name === 'extract_draft_params' && hasExtractedCurrentInput(input.messages)) {
+    if (ledger) block(ledger, 'duplicate-extraction', call.name, 'INPUT_ALREADY_EXTRACTED', repairEnabled, {});
+    return { kind: 'blocked', content: guardError('INPUT_ALREADY_EXTRACTED', 'duplicate-extraction',
+      'This user input was already extracted; no extraction was executed again. / 当前用户输入已提取，本次没有重复执行。',
+      'Use the saved draft and its missing-field diagnostics. Ask for missing facts or section confirmation; extraction becomes available with a new user answer. / 请使用已保存草稿及缺项诊断，询问缺少的事实或确认截面；收到新答复后可再次提取。',
+      { nextAction: 'use_current_draft' }) };
   }
   if (!toolNames.includes(call.name)) {
     recordGuardEvent('unknown-tool', { action: 'rejected', tool: call.name });
