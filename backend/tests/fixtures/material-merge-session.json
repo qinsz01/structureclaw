@@ -1,0 +1,2107 @@
+{
+  "source": {
+    "conversationId": "cmvge58q2000044wmywox2xeg",
+    "runId": "733edd29-7238-42f8-a9ce-eccca16a7b49"
+  },
+  "answers": [
+    "设计一个简支梁，跨度10m，梁中间荷载1kN",
+    "材料Q235钢，截面工字钢I20a",
+    "确认采用 I20a 标准尺寸：h=200mm，b=100mm，腹板厚 tw=7mm，翼缘厚 tf=11.4mm",
+    "Q235"
+  ],
+  "extractions": [
+    {
+      "messageId": "cmvge6xm9000544wm1v992bto",
+      "calls": [
+        {
+          "id": "call_4ed9ed629806431699fc4a21",
+          "name": "extract_draft_params",
+          "args": {
+            "locale": "zh",
+            "message": "设计一个简支梁，跨度10m，梁中间荷载1kN",
+            "requestScope": {
+              "design": false,
+              "outputs": [],
+              "responses": [
+                "forces",
+                "reactions",
+                "displacements"
+              ]
+            }
+          }
+        }
+      ],
+      "nextState": {
+        "inferredType": "beam",
+        "engineeringDraft": {
+          "structureType": "beam",
+          "geometry": {
+            "lengthM": 10
+          },
+          "boundary": {
+            "supportType": "simply-supported"
+          },
+          "loads": [
+            {
+              "id": "L1",
+              "kind": "point",
+              "magnitude": 1,
+              "unit": "kN",
+              "direction": "gravity",
+              "target": "beam",
+              "location": {
+                "xM": 5,
+                "nodeRole": "midspan"
+              }
+            }
+          ]
+        },
+        "lengthM": 10,
+        "supportType": "simply-supported",
+        "loadKN": 1,
+        "loadType": "point",
+        "loadPosition": "midspan",
+        "loadPositionM": 5,
+        "updatedAt": 1792483135206,
+        "skillState": {
+          "engineeringDraft": {
+            "structureType": "beam",
+            "geometry": {
+              "lengthM": 10
+            },
+            "boundary": {
+              "supportType": "simply-supported"
+            },
+            "loads": [
+              {
+                "id": "L1",
+                "kind": "point",
+                "magnitude": 1,
+                "unit": "kN",
+                "direction": "gravity",
+                "target": "beam",
+                "location": {
+                  "xM": 5,
+                  "nodeRole": "midspan"
+                }
+              }
+            ]
+          },
+          "extractionSource": "engineering-draft",
+          "beamLoads": [
+            {
+              "kind": "point",
+              "magnitude": 1,
+              "unit": "kN",
+              "direction": "gravity",
+              "target": "beam",
+              "xM": 5
+            }
+          ]
+        },
+        "skillId": "beam",
+        "structuralTypeKey": "beam",
+        "coordinateSemantics": "global-z-up",
+        "supportLevel": "supported",
+        "routingSource": "current-state",
+        "requestScope": {
+          "responses": [
+            "forces",
+            "reactions",
+            "displacements"
+          ],
+          "design": false,
+          "outputs": []
+        }
+      },
+      "llmDraftPatch": {
+        "lengthM": 10,
+        "supportType": "simply-supported",
+        "loadKN": 1,
+        "loadType": "point",
+        "loadPositionM": 5,
+        "loadPosition": "midspan",
+        "engineeringDraft": {
+          "structureType": "beam",
+          "geometry": {
+            "lengthM": 10
+          },
+          "boundary": {
+            "supportType": "simply-supported"
+          },
+          "loads": [
+            {
+              "id": "L1",
+              "kind": "point",
+              "magnitude": 1,
+              "unit": "kN",
+              "direction": "gravity",
+              "target": "beam",
+              "location": {
+                "xM": 5,
+                "nodeRole": "midspan"
+              }
+            }
+          ]
+        },
+        "draftIssues": []
+      },
+      "criticalMissing": [
+        "templateProperties"
+      ],
+      "payloadChars": 2758
+    },
+    {
+      "messageId": "cmvgf42a0000b44wmfccf7e7u",
+      "calls": [
+        {
+          "id": "call_14c9cd40091b49b593ffbf89",
+          "name": "extract_draft_params",
+          "args": {
+            "locale": "zh",
+            "message": "材料Q235钢，截面工字钢I20a",
+            "requestScope": {
+              "design": false,
+              "outputs": [],
+              "responses": [
+                "forces",
+                "reactions",
+                "displacements"
+              ]
+            }
+          }
+        }
+      ],
+      "nextState": {
+        "inferredType": "beam",
+        "engineeringDraft": {
+          "structureType": "beam",
+          "geometry": {
+            "lengthM": 10
+          },
+          "boundary": {
+            "supportType": "simply-supported"
+          },
+          "loads": [
+            {
+              "id": "L1",
+              "kind": "point",
+              "magnitude": 1,
+              "unit": "kN",
+              "direction": "gravity",
+              "target": "beam",
+              "location": {
+                "xM": 5,
+                "nodeRole": "midspan"
+              }
+            }
+          ]
+        },
+        "lengthM": 10,
+        "supportType": "simply-supported",
+        "loadKN": 1,
+        "loadType": "point",
+        "loadPosition": "midspan",
+        "loadPositionM": 5,
+        "updatedAt": 1792484678202,
+        "skillState": {
+          "engineeringDraft": {
+            "structureType": "beam",
+            "geometry": {
+              "lengthM": 10
+            },
+            "boundary": {
+              "supportType": "simply-supported"
+            },
+            "loads": [
+              {
+                "id": "L1",
+                "kind": "point",
+                "magnitude": 1,
+                "unit": "kN",
+                "direction": "gravity",
+                "target": "beam",
+                "location": {
+                  "xM": 5,
+                  "nodeRole": "midspan"
+                }
+              }
+            ]
+          },
+          "extractionSource": "engineering-draft",
+          "beamLoads": [
+            {
+              "kind": "point",
+              "magnitude": 1,
+              "unit": "kN",
+              "direction": "gravity",
+              "target": "beam",
+              "xM": 5
+            }
+          ]
+        },
+        "skillId": "beam",
+        "structuralTypeKey": "beam",
+        "coordinateSemantics": "global-z-up",
+        "supportLevel": "supported",
+        "routingSource": "current-state",
+        "requestScope": {
+          "responses": [
+            "forces",
+            "reactions",
+            "displacements"
+          ],
+          "design": false,
+          "outputs": []
+        }
+      },
+      "llmDraftPatch": null,
+      "criticalMissing": [
+        "templateProperties"
+      ],
+      "payloadChars": 2377
+    },
+    {
+      "messageId": "cmvgfb0kc000h44wmtv2rpch1",
+      "calls": [
+        {
+          "id": "call_1d6cf998d3234dcd89ce1497",
+          "name": "extract_draft_params",
+          "args": {
+            "locale": "zh",
+            "message": "确认采用 I20a 标准尺寸：h=200mm，b=100mm，腹板厚 tw=7mm，翼缘厚 tf=11.4mm（材料Q235钢）",
+            "requestScope": {
+              "design": false,
+              "outputs": [],
+              "responses": [
+                "forces",
+                "reactions",
+                "displacements"
+              ]
+            }
+          }
+        }
+      ],
+      "nextState": {
+        "inferredType": "beam",
+        "engineeringDraft": {
+          "structureType": "beam",
+          "geometry": {
+            "lengthM": 10
+          },
+          "topology": {},
+          "sectionRecords": [
+            {
+              "id": "S1",
+              "name": "I20a",
+              "type": "steel",
+              "shape": {
+                "kind": "I",
+                "H": 200,
+                "B": 100,
+                "tw": 7,
+                "tf": 11.4
+              },
+              "extra": {
+                "provenance": {
+                  "shape": "user",
+                  "properties": "geometry"
+                }
+              }
+            }
+          ],
+          "templateAssignments": {},
+          "material": {},
+          "sections": {},
+          "boundary": {
+            "supportType": "simply-supported"
+          },
+          "loads": [
+            {
+              "id": "L1",
+              "kind": "point",
+              "magnitude": 1,
+              "unit": "kN",
+              "direction": "gravity",
+              "target": "beam",
+              "location": {
+                "xM": 5,
+                "nodeRole": "midspan"
+              }
+            }
+          ],
+          "analysis": {}
+        },
+        "lengthM": 10,
+        "supportType": "simply-supported",
+        "loadKN": 1,
+        "loadType": "point",
+        "loadPosition": "midspan",
+        "loadPositionM": 5,
+        "updatedAt": 1792484801975,
+        "skillState": {
+          "engineeringDraft": {
+            "structureType": "beam",
+            "geometry": {
+              "lengthM": 10
+            },
+            "topology": {},
+            "sectionRecords": [
+              {
+                "id": "S1",
+                "name": "I20a",
+                "type": "steel",
+                "shape": {
+                  "kind": "I",
+                  "H": 200,
+                  "B": 100,
+                  "tw": 7,
+                  "tf": 11.4
+                },
+                "extra": {
+                  "provenance": {
+                    "shape": "user",
+                    "properties": "geometry"
+                  }
+                }
+              }
+            ],
+            "templateAssignments": {},
+            "material": {},
+            "sections": {},
+            "boundary": {
+              "supportType": "simply-supported"
+            },
+            "loads": [
+              {
+                "id": "L1",
+                "kind": "point",
+                "magnitude": 1,
+                "unit": "kN",
+                "direction": "gravity",
+                "target": "beam",
+                "location": {
+                  "xM": 5,
+                  "nodeRole": "midspan"
+                }
+              }
+            ],
+            "analysis": {}
+          },
+          "extractionSource": "engineering-draft",
+          "beamLoads": [
+            {
+              "kind": "point",
+              "magnitude": 1,
+              "unit": "kN",
+              "direction": "gravity",
+              "target": "beam",
+              "xM": 5
+            }
+          ]
+        },
+        "skillId": "beam",
+        "structuralTypeKey": "beam",
+        "coordinateSemantics": "global-z-up",
+        "supportLevel": "supported",
+        "routingSource": "current-state",
+        "requestScope": {
+          "responses": [
+            "forces",
+            "reactions",
+            "displacements"
+          ],
+          "design": false,
+          "outputs": []
+        }
+      },
+      "llmDraftPatch": {
+        "engineeringDraft": {
+          "sectionRecords": [
+            {
+              "id": "S1",
+              "name": "I20a",
+              "type": "steel",
+              "shape": {
+                "kind": "I",
+                "H": 200,
+                "B": 100,
+                "tw": 7,
+                "tf": 11.4
+              },
+              "extra": {
+                "provenance": {
+                  "shape": "user"
+                },
+                "source": "GB/T 706 I20a 标准尺寸，用户已确认采用"
+              }
+            }
+          ]
+        },
+        "templateAssignments": {
+          "beam": {
+            "sectionId": "S1"
+          }
+        }
+      },
+      "criticalMissing": [
+        "templateProperties"
+      ],
+      "payloadChars": 3404
+    },
+    {
+      "messageId": "cmvgfb0kc000j44wmsumbbtti",
+      "calls": [
+        {
+          "id": "call_062684628e3a459493fb953c",
+          "name": "extract_draft_params",
+          "args": {
+            "locale": "zh",
+            "message": "材料牌号：Q235钢，用于梁构件，梁截面I20a（已确认：h=200mm，b=100mm，tw=7mm，tf=11.4mm）",
+            "requestScope": {
+              "design": false,
+              "outputs": [],
+              "responses": [
+                "forces",
+                "reactions",
+                "displacements"
+              ]
+            }
+          }
+        }
+      ],
+      "nextState": {
+        "inferredType": "beam",
+        "engineeringDraft": {
+          "structureType": "beam",
+          "geometry": {
+            "lengthM": 10
+          },
+          "topology": {},
+          "sectionRecords": [
+            {
+              "id": "S1",
+              "name": "I20a",
+              "type": "steel",
+              "shape": {
+                "kind": "I",
+                "H": 200,
+                "B": 100,
+                "tw": 7,
+                "tf": 11.4
+              },
+              "extra": {
+                "provenance": {
+                  "shape": "user",
+                  "properties": "geometry"
+                }
+              }
+            }
+          ],
+          "templateAssignments": {},
+          "material": {},
+          "sections": {},
+          "boundary": {
+            "supportType": "simply-supported"
+          },
+          "loads": [
+            {
+              "id": "L1",
+              "kind": "point",
+              "magnitude": 1,
+              "unit": "kN",
+              "direction": "gravity",
+              "target": "beam",
+              "location": {
+                "xM": 5,
+                "nodeRole": "midspan"
+              }
+            }
+          ],
+          "analysis": {}
+        },
+        "lengthM": 10,
+        "supportType": "simply-supported",
+        "loadKN": 1,
+        "loadType": "point",
+        "loadPosition": "midspan",
+        "loadPositionM": 5,
+        "updatedAt": 1792484824002,
+        "skillState": {
+          "engineeringDraft": {
+            "structureType": "beam",
+            "geometry": {
+              "lengthM": 10
+            },
+            "topology": {},
+            "sectionRecords": [
+              {
+                "id": "S1",
+                "name": "I20a",
+                "type": "steel",
+                "shape": {
+                  "kind": "I",
+                  "H": 200,
+                  "B": 100,
+                  "tw": 7,
+                  "tf": 11.4
+                },
+                "extra": {
+                  "provenance": {
+                    "shape": "user",
+                    "properties": "geometry"
+                  }
+                }
+              }
+            ],
+            "templateAssignments": {},
+            "material": {},
+            "sections": {},
+            "boundary": {
+              "supportType": "simply-supported"
+            },
+            "loads": [
+              {
+                "id": "L1",
+                "kind": "point",
+                "magnitude": 1,
+                "unit": "kN",
+                "direction": "gravity",
+                "target": "beam",
+                "location": {
+                  "xM": 5,
+                  "nodeRole": "midspan"
+                }
+              }
+            ],
+            "analysis": {}
+          },
+          "extractionSource": "engineering-draft",
+          "beamLoads": [
+            {
+              "kind": "point",
+              "magnitude": 1,
+              "unit": "kN",
+              "direction": "gravity",
+              "target": "beam",
+              "xM": 5
+            }
+          ]
+        },
+        "skillId": "beam",
+        "structuralTypeKey": "beam",
+        "coordinateSemantics": "global-z-up",
+        "supportLevel": "supported",
+        "routingSource": "current-state",
+        "requestScope": {
+          "responses": [
+            "forces",
+            "reactions",
+            "displacements"
+          ],
+          "design": false,
+          "outputs": []
+        }
+      },
+      "llmDraftPatch": {
+        "engineeringDraft": {
+          "sectionRecords": [
+            {
+              "id": "S1",
+              "shape": {
+                "kind": "I",
+                "H": 200,
+                "B": 100,
+                "tw": 7,
+                "tf": 11.4
+              },
+              "extra": {
+                "provenance": {
+                  "shape": "user",
+                  "properties": "geometry"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "criticalMissing": [
+        "templateProperties"
+      ],
+      "payloadChars": 3311
+    },
+    {
+      "messageId": "cmvgfb0kc000l44wm30n859yz",
+      "calls": [
+        {
+          "id": "call_f0df53c468964142a77af12f",
+          "name": "extract_draft_params",
+          "args": {
+            "locale": "zh",
+            "message": "梁的材料牌号是Q235钢",
+            "requestScope": {
+              "design": false,
+              "outputs": [],
+              "responses": [
+                "forces",
+                "reactions",
+                "displacements"
+              ]
+            }
+          }
+        }
+      ],
+      "nextState": {
+        "inferredType": "beam",
+        "engineeringDraft": {
+          "structureType": "beam",
+          "geometry": {
+            "lengthM": 10
+          },
+          "topology": {},
+          "sectionRecords": [
+            {
+              "id": "S1",
+              "name": "I20a",
+              "type": "steel",
+              "shape": {
+                "kind": "I",
+                "H": 200,
+                "B": 100,
+                "tw": 7,
+                "tf": 11.4
+              },
+              "extra": {
+                "provenance": {
+                  "shape": "user",
+                  "properties": "geometry"
+                }
+              }
+            }
+          ],
+          "templateAssignments": {},
+          "material": {},
+          "sections": {},
+          "boundary": {
+            "supportType": "simply-supported"
+          },
+          "loads": [
+            {
+              "id": "L1",
+              "kind": "point",
+              "magnitude": 1,
+              "unit": "kN",
+              "direction": "gravity",
+              "target": "beam",
+              "location": {
+                "xM": 5,
+                "nodeRole": "midspan"
+              }
+            }
+          ],
+          "analysis": {}
+        },
+        "lengthM": 10,
+        "supportType": "simply-supported",
+        "loadKN": 1,
+        "loadType": "point",
+        "loadPosition": "midspan",
+        "loadPositionM": 5,
+        "updatedAt": 1792484851613,
+        "skillState": {
+          "engineeringDraft": {
+            "structureType": "beam",
+            "geometry": {
+              "lengthM": 10
+            },
+            "topology": {},
+            "sectionRecords": [
+              {
+                "id": "S1",
+                "name": "I20a",
+                "type": "steel",
+                "shape": {
+                  "kind": "I",
+                  "H": 200,
+                  "B": 100,
+                  "tw": 7,
+                  "tf": 11.4
+                },
+                "extra": {
+                  "provenance": {
+                    "shape": "user",
+                    "properties": "geometry"
+                  }
+                }
+              }
+            ],
+            "templateAssignments": {},
+            "material": {},
+            "sections": {},
+            "boundary": {
+              "supportType": "simply-supported"
+            },
+            "loads": [
+              {
+                "id": "L1",
+                "kind": "point",
+                "magnitude": 1,
+                "unit": "kN",
+                "direction": "gravity",
+                "target": "beam",
+                "location": {
+                  "xM": 5,
+                  "nodeRole": "midspan"
+                }
+              }
+            ],
+            "analysis": {}
+          },
+          "extractionSource": "engineering-draft",
+          "beamLoads": [
+            {
+              "kind": "point",
+              "magnitude": 1,
+              "unit": "kN",
+              "direction": "gravity",
+              "target": "beam",
+              "xM": 5
+            }
+          ]
+        },
+        "skillId": "beam",
+        "structuralTypeKey": "beam",
+        "coordinateSemantics": "global-z-up",
+        "supportLevel": "supported",
+        "routingSource": "current-state",
+        "requestScope": {
+          "responses": [
+            "forces",
+            "reactions",
+            "displacements"
+          ],
+          "design": false,
+          "outputs": []
+        }
+      },
+      "llmDraftPatch": {
+        "engineeringDraft": {
+          "sectionRecords": [
+            {
+              "id": "S1",
+              "shape": {
+                "kind": "I",
+                "H": 200,
+                "B": 100,
+                "tw": 7,
+                "tf": 11.4
+              },
+              "extra": {
+                "provenance": {
+                  "shape": "user"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "criticalMissing": [
+        "templateProperties"
+      ],
+      "payloadChars": 3287
+    },
+    {
+      "messageId": "cmvgfb0kc000n44wmjh9nlges",
+      "calls": [
+        {
+          "id": "call_ad2535f79c07481f9b212bab",
+          "name": "extract_draft_params",
+          "args": {
+            "locale": "zh",
+            "message": "材料记录：牌号Q235（钢材），弹性模量E=206000 MPa，泊松比0.3，密度7850 kg/m³；梁使用该材料，截面S1（I20a，h=200mm，b=100mm，tw=7mm，tf=11.4mm）",
+            "requestScope": {
+              "design": false,
+              "outputs": [],
+              "responses": [
+                "forces",
+                "reactions",
+                "displacements"
+              ]
+            }
+          }
+        }
+      ],
+      "nextState": {
+        "inferredType": "beam",
+        "engineeringDraft": {
+          "structureType": "beam",
+          "geometry": {
+            "lengthM": 10
+          },
+          "topology": {},
+          "sectionRecords": [
+            {
+              "id": "S1",
+              "name": "I20a",
+              "type": "steel",
+              "shape": {
+                "kind": "I",
+                "H": 200,
+                "B": 100,
+                "tw": 7,
+                "tf": 11.4
+              },
+              "extra": {
+                "provenance": {
+                  "shape": "user",
+                  "properties": "geometry"
+                }
+              },
+              "materials": []
+            }
+          ],
+          "templateAssignments": {},
+          "material": {},
+          "sections": {},
+          "boundary": {
+            "supportType": "simply-supported"
+          },
+          "loads": [
+            {
+              "id": "L1",
+              "kind": "point",
+              "magnitude": 1,
+              "unit": "kN",
+              "direction": "gravity",
+              "target": "beam",
+              "location": {
+                "xM": 5,
+                "nodeRole": "midspan"
+              }
+            }
+          ],
+          "analysis": {}
+        },
+        "lengthM": 10,
+        "supportType": "simply-supported",
+        "loadKN": 1,
+        "loadType": "point",
+        "loadPosition": "midspan",
+        "loadPositionM": 5,
+        "updatedAt": 1792484867740,
+        "skillState": {
+          "engineeringDraft": {
+            "structureType": "beam",
+            "geometry": {
+              "lengthM": 10
+            },
+            "topology": {},
+            "sectionRecords": [
+              {
+                "id": "S1",
+                "name": "I20a",
+                "type": "steel",
+                "shape": {
+                  "kind": "I",
+                  "H": 200,
+                  "B": 100,
+                  "tw": 7,
+                  "tf": 11.4
+                },
+                "extra": {
+                  "provenance": {
+                    "shape": "user",
+                    "properties": "geometry"
+                  }
+                },
+                "materials": []
+              }
+            ],
+            "templateAssignments": {},
+            "material": {},
+            "sections": {},
+            "boundary": {
+              "supportType": "simply-supported"
+            },
+            "loads": [
+              {
+                "id": "L1",
+                "kind": "point",
+                "magnitude": 1,
+                "unit": "kN",
+                "direction": "gravity",
+                "target": "beam",
+                "location": {
+                  "xM": 5,
+                  "nodeRole": "midspan"
+                }
+              }
+            ],
+            "analysis": {}
+          },
+          "extractionSource": "engineering-draft",
+          "beamLoads": [
+            {
+              "kind": "point",
+              "magnitude": 1,
+              "unit": "kN",
+              "direction": "gravity",
+              "target": "beam",
+              "xM": 5
+            }
+          ]
+        },
+        "skillId": "beam",
+        "structuralTypeKey": "beam",
+        "coordinateSemantics": "global-z-up",
+        "supportLevel": "supported",
+        "routingSource": "current-state",
+        "requestScope": {
+          "responses": [
+            "forces",
+            "reactions",
+            "displacements"
+          ],
+          "design": false,
+          "outputs": []
+        }
+      },
+      "llmDraftPatch": {
+        "engineeringDraft": {
+          "sectionRecords": [
+            {
+              "id": "S1",
+              "shape": {
+                "kind": "I",
+                "H": 200,
+                "B": 100,
+                "tw": 7,
+                "tf": 11.4
+              },
+              "extra": {
+                "provenance": {
+                  "shape": "user"
+                }
+              },
+              "materials": []
+            }
+          ]
+        }
+      },
+      "criticalMissing": [
+        "templateProperties"
+      ],
+      "payloadChars": 3347
+    },
+    {
+      "messageId": "cmvgfb0kc000p44wmhk7s6n9g",
+      "calls": [
+        {
+          "id": "call_b921064fa12a4a02951e14af",
+          "name": "extract_draft_params",
+          "args": {
+            "locale": "zh",
+            "message": "钢材牌号Q235B（GB/T 700碳素结构钢），用于本梁；梁截面为工字钢I20a（h=200mm，b=100mm，tw=7mm，tf=11.4mm），材料与截面均属于梁构件",
+            "requestScope": {
+              "design": false,
+              "outputs": [],
+              "responses": [
+                "forces",
+                "reactions",
+                "displacements"
+              ]
+            }
+          }
+        }
+      ],
+      "nextState": {
+        "inferredType": "beam",
+        "engineeringDraft": {
+          "structureType": "beam",
+          "geometry": {
+            "lengthM": 10
+          },
+          "topology": {},
+          "sectionRecords": [
+            {
+              "id": "S1",
+              "name": "I20a",
+              "type": "steel",
+              "shape": {
+                "kind": "I",
+                "H": 200,
+                "B": 100,
+                "tw": 7,
+                "tf": 11.4
+              },
+              "extra": {
+                "provenance": {
+                  "shape": "user",
+                  "properties": "geometry"
+                }
+              },
+              "materials": []
+            }
+          ],
+          "templateAssignments": {},
+          "material": {},
+          "sections": {},
+          "boundary": {
+            "supportType": "simply-supported"
+          },
+          "loads": [
+            {
+              "id": "L1",
+              "kind": "point",
+              "magnitude": 1,
+              "unit": "kN",
+              "direction": "gravity",
+              "target": "beam",
+              "location": {
+                "xM": 5,
+                "nodeRole": "midspan"
+              }
+            }
+          ],
+          "analysis": {}
+        },
+        "lengthM": 10,
+        "supportType": "simply-supported",
+        "loadKN": 1,
+        "loadType": "point",
+        "loadPosition": "midspan",
+        "loadPositionM": 5,
+        "updatedAt": 1792484887156,
+        "skillState": {
+          "engineeringDraft": {
+            "structureType": "beam",
+            "geometry": {
+              "lengthM": 10
+            },
+            "topology": {},
+            "sectionRecords": [
+              {
+                "id": "S1",
+                "name": "I20a",
+                "type": "steel",
+                "shape": {
+                  "kind": "I",
+                  "H": 200,
+                  "B": 100,
+                  "tw": 7,
+                  "tf": 11.4
+                },
+                "extra": {
+                  "provenance": {
+                    "shape": "user",
+                    "properties": "geometry"
+                  }
+                },
+                "materials": []
+              }
+            ],
+            "templateAssignments": {},
+            "material": {},
+            "sections": {},
+            "boundary": {
+              "supportType": "simply-supported"
+            },
+            "loads": [
+              {
+                "id": "L1",
+                "kind": "point",
+                "magnitude": 1,
+                "unit": "kN",
+                "direction": "gravity",
+                "target": "beam",
+                "location": {
+                  "xM": 5,
+                  "nodeRole": "midspan"
+                }
+              }
+            ],
+            "analysis": {}
+          },
+          "extractionSource": "engineering-draft",
+          "beamLoads": [
+            {
+              "kind": "point",
+              "magnitude": 1,
+              "unit": "kN",
+              "direction": "gravity",
+              "target": "beam",
+              "xM": 5
+            }
+          ]
+        },
+        "skillId": "beam",
+        "structuralTypeKey": "beam",
+        "coordinateSemantics": "global-z-up",
+        "supportLevel": "supported",
+        "routingSource": "current-state",
+        "requestScope": {
+          "responses": [
+            "forces",
+            "reactions",
+            "displacements"
+          ],
+          "design": false,
+          "outputs": []
+        }
+      },
+      "llmDraftPatch": {
+        "engineeringDraft": {
+          "sectionRecords": [
+            {
+              "id": "S1",
+              "shape": {
+                "kind": "I",
+                "H": 200,
+                "B": 100,
+                "tw": 7,
+                "tf": 11.4
+              },
+              "extra": {
+                "provenance": {
+                  "shape": "user",
+                  "properties": "geometry"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "criticalMissing": [
+        "templateProperties"
+      ],
+      "payloadChars": 3356
+    },
+    {
+      "messageId": "cmvgfb0kc000r44wm035rpsv0",
+      "calls": [
+        {
+          "id": "call_c248797cdac94440ab046ed4",
+          "name": "extract_draft_params",
+          "args": {
+            "locale": "zh",
+            "message": "材料牌号：Q235",
+            "requestScope": {
+              "design": false,
+              "outputs": [],
+              "responses": [
+                "forces",
+                "reactions",
+                "displacements"
+              ]
+            }
+          }
+        }
+      ],
+      "nextState": {
+        "inferredType": "beam",
+        "engineeringDraft": {
+          "structureType": "beam",
+          "geometry": {
+            "lengthM": 10
+          },
+          "topology": {},
+          "sectionRecords": [
+            {
+              "id": "S1",
+              "name": "I20a",
+              "type": "steel",
+              "shape": {
+                "kind": "I",
+                "H": 200,
+                "B": 100,
+                "tw": 7,
+                "tf": 11.4
+              },
+              "extra": {
+                "provenance": {
+                  "shape": "user",
+                  "properties": "geometry"
+                }
+              },
+              "materials": []
+            }
+          ],
+          "templateAssignments": {},
+          "material": {},
+          "sections": {},
+          "boundary": {
+            "supportType": "simply-supported"
+          },
+          "loads": [
+            {
+              "id": "L1",
+              "kind": "point",
+              "magnitude": 1,
+              "unit": "kN",
+              "direction": "gravity",
+              "target": "beam",
+              "location": {
+                "xM": 5,
+                "nodeRole": "midspan"
+              }
+            }
+          ],
+          "analysis": {}
+        },
+        "lengthM": 10,
+        "supportType": "simply-supported",
+        "loadKN": 1,
+        "loadType": "point",
+        "loadPosition": "midspan",
+        "loadPositionM": 5,
+        "updatedAt": 1792484919314,
+        "skillState": {
+          "engineeringDraft": {
+            "structureType": "beam",
+            "geometry": {
+              "lengthM": 10
+            },
+            "topology": {},
+            "sectionRecords": [
+              {
+                "id": "S1",
+                "name": "I20a",
+                "type": "steel",
+                "shape": {
+                  "kind": "I",
+                  "H": 200,
+                  "B": 100,
+                  "tw": 7,
+                  "tf": 11.4
+                },
+                "extra": {
+                  "provenance": {
+                    "shape": "user",
+                    "properties": "geometry"
+                  }
+                },
+                "materials": []
+              }
+            ],
+            "templateAssignments": {},
+            "material": {},
+            "sections": {},
+            "boundary": {
+              "supportType": "simply-supported"
+            },
+            "loads": [
+              {
+                "id": "L1",
+                "kind": "point",
+                "magnitude": 1,
+                "unit": "kN",
+                "direction": "gravity",
+                "target": "beam",
+                "location": {
+                  "xM": 5,
+                  "nodeRole": "midspan"
+                }
+              }
+            ],
+            "analysis": {}
+          },
+          "extractionSource": "engineering-draft",
+          "beamLoads": [
+            {
+              "kind": "point",
+              "magnitude": 1,
+              "unit": "kN",
+              "direction": "gravity",
+              "target": "beam",
+              "xM": 5
+            }
+          ]
+        },
+        "skillId": "beam",
+        "structuralTypeKey": "beam",
+        "coordinateSemantics": "global-z-up",
+        "supportLevel": "supported",
+        "routingSource": "current-state",
+        "requestScope": {
+          "responses": [
+            "forces",
+            "reactions",
+            "displacements"
+          ],
+          "design": false,
+          "outputs": []
+        }
+      },
+      "llmDraftPatch": {
+        "engineeringDraft": {
+          "sectionRecords": [
+            {
+              "id": "S1",
+              "shape": {
+                "kind": "I",
+                "H": 200,
+                "B": 100,
+                "tw": 7,
+                "tf": 11.4
+              },
+              "extra": {
+                "provenance": {
+                  "shape": "user",
+                  "properties": "geometry"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "criticalMissing": [
+        "templateProperties"
+      ],
+      "payloadChars": 3356
+    },
+    {
+      "messageId": "cmvgfb0kc000t44wmxh4avrgt",
+      "calls": [
+        {
+          "id": "call_87ee5dbd3c55499bb41a80d3",
+          "name": "extract_draft_params",
+          "args": {
+            "locale": "zh",
+            "message": "本结构所有构件采用Q235钢，fy=235MPa，E=2.06e5MPa，构件截面为S1（I20a工字钢），材料分配：Q235→S1→梁",
+            "requestScope": {
+              "design": false,
+              "outputs": [],
+              "responses": [
+                "forces",
+                "reactions",
+                "displacements"
+              ]
+            }
+          }
+        }
+      ],
+      "nextState": {
+        "inferredType": "beam",
+        "engineeringDraft": {
+          "structureType": "beam",
+          "geometry": {
+            "lengthM": 10
+          },
+          "topology": {},
+          "sectionRecords": [
+            {
+              "id": "S1",
+              "name": "I20a",
+              "type": "steel",
+              "shape": {
+                "kind": "I",
+                "H": 200,
+                "B": 100,
+                "tw": 7,
+                "tf": 11.4
+              },
+              "extra": {
+                "provenance": {
+                  "shape": "user",
+                  "properties": "geometry"
+                }
+              },
+              "materials": []
+            }
+          ],
+          "templateAssignments": {},
+          "material": {},
+          "sections": {},
+          "boundary": {
+            "supportType": "simply-supported"
+          },
+          "loads": [
+            {
+              "id": "L1",
+              "kind": "point",
+              "magnitude": 1,
+              "unit": "kN",
+              "direction": "gravity",
+              "target": "beam",
+              "location": {
+                "xM": 5,
+                "nodeRole": "midspan"
+              }
+            }
+          ],
+          "analysis": {}
+        },
+        "lengthM": 10,
+        "supportType": "simply-supported",
+        "loadKN": 1,
+        "loadType": "point",
+        "loadPosition": "midspan",
+        "loadPositionM": 5,
+        "updatedAt": 1792484961668,
+        "skillState": {
+          "engineeringDraft": {
+            "structureType": "beam",
+            "geometry": {
+              "lengthM": 10
+            },
+            "topology": {},
+            "sectionRecords": [
+              {
+                "id": "S1",
+                "name": "I20a",
+                "type": "steel",
+                "shape": {
+                  "kind": "I",
+                  "H": 200,
+                  "B": 100,
+                  "tw": 7,
+                  "tf": 11.4
+                },
+                "extra": {
+                  "provenance": {
+                    "shape": "user",
+                    "properties": "geometry"
+                  }
+                },
+                "materials": []
+              }
+            ],
+            "templateAssignments": {},
+            "material": {},
+            "sections": {},
+            "boundary": {
+              "supportType": "simply-supported"
+            },
+            "loads": [
+              {
+                "id": "L1",
+                "kind": "point",
+                "magnitude": 1,
+                "unit": "kN",
+                "direction": "gravity",
+                "target": "beam",
+                "location": {
+                  "xM": 5,
+                  "nodeRole": "midspan"
+                }
+              }
+            ],
+            "analysis": {}
+          },
+          "extractionSource": "engineering-draft",
+          "beamLoads": [
+            {
+              "kind": "point",
+              "magnitude": 1,
+              "unit": "kN",
+              "direction": "gravity",
+              "target": "beam",
+              "xM": 5
+            }
+          ]
+        },
+        "skillId": "beam",
+        "structuralTypeKey": "beam",
+        "coordinateSemantics": "global-z-up",
+        "supportLevel": "supported",
+        "routingSource": "current-state",
+        "requestScope": {
+          "responses": [
+            "forces",
+            "reactions",
+            "displacements"
+          ],
+          "design": false,
+          "outputs": []
+        }
+      },
+      "llmDraftPatch": {
+        "engineeringDraft": {}
+      },
+      "criticalMissing": [
+        "templateProperties"
+      ],
+      "payloadChars": 3208
+    },
+    {
+      "messageId": "cmvgfb0kc000x44wm6mz4gty4",
+      "calls": [
+        {
+          "id": "call_19f54a56efdf44ee9f38e1f8",
+          "name": "extract_draft_params",
+          "args": {
+            "locale": "zh",
+            "message": "材料记录：{id:\"M1\", 牌号:\"Q235\", 类型:钢材, fy=235MPa, E=206000MPa}；梁的材料为M1",
+            "requestScope": {
+              "design": false,
+              "outputs": [],
+              "responses": [
+                "forces",
+                "reactions",
+                "displacements"
+              ]
+            }
+          }
+        }
+      ],
+      "nextState": {
+        "inferredType": "beam",
+        "engineeringDraft": {
+          "structureType": "beam",
+          "geometry": {
+            "lengthM": 10
+          },
+          "topology": {},
+          "sectionRecords": [
+            {
+              "id": "S1",
+              "name": "I20a",
+              "type": "steel",
+              "shape": {
+                "kind": "I",
+                "H": 200,
+                "B": 100,
+                "tw": 7,
+                "tf": 11.4
+              },
+              "extra": {
+                "provenance": {
+                  "shape": "user",
+                  "properties": "geometry"
+                }
+              },
+              "materials": []
+            }
+          ],
+          "templateAssignments": {},
+          "material": {},
+          "sections": {},
+          "boundary": {
+            "supportType": "simply-supported"
+          },
+          "loads": [
+            {
+              "id": "L1",
+              "kind": "point",
+              "magnitude": 1,
+              "unit": "kN",
+              "direction": "gravity",
+              "target": "beam",
+              "location": {
+                "xM": 5,
+                "nodeRole": "midspan"
+              }
+            }
+          ],
+          "analysis": {}
+        },
+        "lengthM": 10,
+        "supportType": "simply-supported",
+        "loadKN": 1,
+        "loadType": "point",
+        "loadPosition": "midspan",
+        "loadPositionM": 5,
+        "updatedAt": 1792485015782,
+        "skillState": {
+          "engineeringDraft": {
+            "structureType": "beam",
+            "geometry": {
+              "lengthM": 10
+            },
+            "topology": {},
+            "sectionRecords": [
+              {
+                "id": "S1",
+                "name": "I20a",
+                "type": "steel",
+                "shape": {
+                  "kind": "I",
+                  "H": 200,
+                  "B": 100,
+                  "tw": 7,
+                  "tf": 11.4
+                },
+                "extra": {
+                  "provenance": {
+                    "shape": "user",
+                    "properties": "geometry"
+                  }
+                },
+                "materials": []
+              }
+            ],
+            "templateAssignments": {},
+            "material": {},
+            "sections": {},
+            "boundary": {
+              "supportType": "simply-supported"
+            },
+            "loads": [
+              {
+                "id": "L1",
+                "kind": "point",
+                "magnitude": 1,
+                "unit": "kN",
+                "direction": "gravity",
+                "target": "beam",
+                "location": {
+                  "xM": 5,
+                  "nodeRole": "midspan"
+                }
+              }
+            ],
+            "analysis": {}
+          },
+          "extractionSource": "engineering-draft",
+          "beamLoads": [
+            {
+              "kind": "point",
+              "magnitude": 1,
+              "unit": "kN",
+              "direction": "gravity",
+              "target": "beam",
+              "xM": 5
+            }
+          ]
+        },
+        "skillId": "beam",
+        "structuralTypeKey": "beam",
+        "coordinateSemantics": "global-z-up",
+        "supportLevel": "supported",
+        "routingSource": "current-state",
+        "requestScope": {
+          "responses": [
+            "forces",
+            "reactions",
+            "displacements"
+          ],
+          "design": false,
+          "outputs": []
+        }
+      },
+      "llmDraftPatch": {
+        "engineeringDraft": {
+          "sectionRecords": [
+            {
+              "id": "S1",
+              "shape": {
+                "kind": "I",
+                "H": 200,
+                "B": 100,
+                "tw": 7,
+                "tf": 11.4
+              },
+              "extra": {
+                "provenance": {
+                  "shape": "user",
+                  "properties": "geometry"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "criticalMissing": [
+        "templateProperties"
+      ],
+      "payloadChars": 3356
+    },
+    {
+      "messageId": "cmvgfc8ew001344wm2aoh0auj",
+      "calls": [
+        {
+          "id": "call_ad2c37806e5f4fc1b10ecd35",
+          "name": "extract_draft_params",
+          "args": {
+            "locale": "zh",
+            "message": "Q235",
+            "requestScope": {
+              "design": false,
+              "outputs": [],
+              "responses": [
+                "forces",
+                "reactions",
+                "displacements"
+              ]
+            }
+          }
+        }
+      ],
+      "nextState": {
+        "inferredType": "beam",
+        "engineeringDraft": {
+          "structureType": "beam",
+          "geometry": {
+            "lengthM": 10
+          },
+          "topology": {},
+          "materials": [
+            {
+              "id": "M1",
+              "name": "Q235",
+              "grade": "Q235"
+            }
+          ],
+          "sectionRecords": [
+            {
+              "id": "S1",
+              "name": "I20a",
+              "type": "steel",
+              "shape": {
+                "kind": "I",
+                "H": 200,
+                "B": 100,
+                "tw": 7,
+                "tf": 11.4
+              },
+              "extra": {
+                "provenance": {
+                  "shape": "user",
+                  "properties": "geometry"
+                }
+              },
+              "materials": []
+            }
+          ],
+          "templateAssignments": {
+            "beam": {
+              "materialId": "M1",
+              "sectionId": "S1"
+            }
+          },
+          "material": {},
+          "sections": {},
+          "boundary": {
+            "supportType": "simply-supported"
+          },
+          "loads": [
+            {
+              "id": "L1",
+              "kind": "point",
+              "magnitude": 1,
+              "unit": "kN",
+              "direction": "gravity",
+              "target": "beam",
+              "location": {
+                "xM": 5,
+                "nodeRole": "midspan"
+              }
+            }
+          ],
+          "analysis": {}
+        },
+        "lengthM": 10,
+        "supportType": "simply-supported",
+        "loadKN": 1,
+        "loadType": "point",
+        "loadPosition": "midspan",
+        "loadPositionM": 5,
+        "updatedAt": 1792485044625,
+        "skillState": {
+          "engineeringDraft": {
+            "structureType": "beam",
+            "geometry": {
+              "lengthM": 10
+            },
+            "topology": {},
+            "materials": [
+              {
+                "id": "M1",
+                "name": "Q235",
+                "grade": "Q235"
+              }
+            ],
+            "sectionRecords": [
+              {
+                "id": "S1",
+                "name": "I20a",
+                "type": "steel",
+                "shape": {
+                  "kind": "I",
+                  "H": 200,
+                  "B": 100,
+                  "tw": 7,
+                  "tf": 11.4
+                },
+                "extra": {
+                  "provenance": {
+                    "shape": "user",
+                    "properties": "geometry"
+                  }
+                },
+                "materials": []
+              }
+            ],
+            "templateAssignments": {
+              "beam": {
+                "materialId": "M1",
+                "sectionId": "S1"
+              }
+            },
+            "material": {},
+            "sections": {},
+            "boundary": {
+              "supportType": "simply-supported"
+            },
+            "loads": [
+              {
+                "id": "L1",
+                "kind": "point",
+                "magnitude": 1,
+                "unit": "kN",
+                "direction": "gravity",
+                "target": "beam",
+                "location": {
+                  "xM": 5,
+                  "nodeRole": "midspan"
+                }
+              }
+            ],
+            "analysis": {}
+          },
+          "extractionSource": "engineering-draft",
+          "beamLoads": [
+            {
+              "kind": "point",
+              "magnitude": 1,
+              "unit": "kN",
+              "direction": "gravity",
+              "target": "beam",
+              "xM": 5
+            }
+          ]
+        },
+        "skillId": "beam",
+        "structuralTypeKey": "beam",
+        "coordinateSemantics": "global-z-up",
+        "supportLevel": "supported",
+        "routingSource": "current-state",
+        "requestScope": {
+          "responses": [
+            "forces",
+            "reactions",
+            "displacements"
+          ],
+          "design": false,
+          "outputs": []
+        }
+      },
+      "llmDraftPatch": {
+        "engineeringDraft": {
+          "materials": [
+            {
+              "id": "M1",
+              "name": "Q235",
+              "grade": "Q235"
+            }
+          ],
+          "templateAssignments": {
+            "beam": {
+              "materialId": "M1",
+              "sectionId": "S1"
+            }
+          }
+        }
+      },
+      "criticalMissing": [],
+      "payloadChars": 3278
+    }
+  ],
+  "metrics": {
+    "toolCalls": 23,
+    "llmCalls": 32,
+    "extractCalls": 11,
+    "maxPromptChars": 124696,
+    "llmWallMs": 538673,
+    "toolPayloadChars": 35038
+  },
+  "extractorEvents": [
+    {
+      "at": "2026-10-20T07:58:55.189Z",
+      "kind": "param_extractor",
+      "mode": "full",
+      "promptChars": 54094,
+      "durationMs": 28944,
+      "usage": {
+        "reasoningTokens": 1519,
+        "inputTokens": 16042,
+        "outputTokens": 1716,
+        "totalTokens": 17758
+      },
+      "contentChars": 637,
+      "reasoningChars": 5886,
+      "finishReason": "stop",
+      "maxOutputTokens": null
+    },
+    {
+      "at": "2026-10-20T08:24:38.195Z",
+      "kind": "param_extractor",
+      "mode": "patch",
+      "promptChars": 4578,
+      "durationMs": 141784,
+      "usage": {
+        "reasoningTokens": 6144,
+        "inputTokens": 1308,
+        "outputTokens": 6144,
+        "totalTokens": 7452
+      },
+      "contentChars": 0,
+      "reasoningChars": 27303,
+      "finishReason": "length",
+      "maxOutputTokens": 6144
+    },
+    {
+      "at": "2026-10-20T08:26:41.968Z",
+      "kind": "param_extractor",
+      "mode": "patch",
+      "promptChars": 4623,
+      "durationMs": 3190,
+      "usage": {
+        "reasoningTokens": 0,
+        "inputTokens": 1341,
+        "outputTokens": 93,
+        "totalTokens": 1434
+      },
+      "contentChars": 264,
+      "reasoningChars": 0,
+      "finishReason": "stop",
+      "maxOutputTokens": 6144
+    },
+    {
+      "at": "2026-10-20T08:27:03.997Z",
+      "kind": "param_extractor",
+      "mode": "patch",
+      "promptChars": 4801,
+      "durationMs": 7976,
+      "usage": {
+        "reasoningTokens": 15,
+        "inputTokens": 1399,
+        "outputTokens": 69,
+        "totalTokens": 1468
+      },
+      "contentChars": 171,
+      "reasoningChars": 70,
+      "finishReason": "stop",
+      "maxOutputTokens": 6144
+    },
+    {
+      "at": "2026-10-20T08:27:31.608Z",
+      "kind": "param_extractor",
+      "mode": "patch",
+      "promptChars": 4801,
+      "durationMs": 2166,
+      "usage": {
+        "reasoningTokens": 0,
+        "inputTokens": 1399,
+        "outputTokens": 50,
+        "totalTokens": 1449
+      },
+      "contentChars": 147,
+      "reasoningChars": 0,
+      "finishReason": "stop",
+      "maxOutputTokens": 6144
+    },
+    {
+      "at": "2026-10-20T08:27:47.735Z",
+      "kind": "param_extractor",
+      "mode": "patch",
+      "promptChars": 4801,
+      "durationMs": 1812,
+      "usage": {
+        "reasoningTokens": 0,
+        "inputTokens": 1399,
+        "outputTokens": 54,
+        "totalTokens": 1453
+      },
+      "contentChars": 162,
+      "reasoningChars": 0,
+      "finishReason": "stop",
+      "maxOutputTokens": 6144
+    },
+    {
+      "at": "2026-10-20T08:28:07.151Z",
+      "kind": "param_extractor",
+      "mode": "patch",
+      "promptChars": 4801,
+      "durationMs": 2167,
+      "usage": {
+        "reasoningTokens": 0,
+        "inputTokens": 1399,
+        "outputTokens": 54,
+        "totalTokens": 1453
+      },
+      "contentChars": 171,
+      "reasoningChars": 0,
+      "finishReason": "stop",
+      "maxOutputTokens": 6144
+    },
+    {
+      "at": "2026-10-20T08:28:39.309Z",
+      "kind": "param_extractor",
+      "mode": "patch",
+      "promptChars": 4801,
+      "durationMs": 3609,
+      "usage": {
+        "reasoningTokens": 0,
+        "inputTokens": 1399,
+        "outputTokens": 54,
+        "totalTokens": 1453
+      },
+      "contentChars": 171,
+      "reasoningChars": 0,
+      "finishReason": "stop",
+      "maxOutputTokens": 6144
+    },
+    {
+      "at": "2026-10-20T08:29:21.665Z",
+      "kind": "param_extractor",
+      "mode": "patch",
+      "promptChars": 4801,
+      "durationMs": 5717,
+      "usage": {
+        "reasoningTokens": 39,
+        "inputTokens": 1399,
+        "outputTokens": 47,
+        "totalTokens": 1446
+      },
+      "contentChars": 23,
+      "reasoningChars": 206,
+      "finishReason": "stop",
+      "maxOutputTokens": 6144
+    },
+    {
+      "at": "2026-10-20T08:30:15.776Z",
+      "kind": "param_extractor",
+      "mode": "patch",
+      "promptChars": 4801,
+      "durationMs": 3308,
+      "usage": {
+        "reasoningTokens": 0,
+        "inputTokens": 1399,
+        "outputTokens": 54,
+        "totalTokens": 1453
+      },
+      "contentChars": 171,
+      "reasoningChars": 0,
+      "finishReason": "stop",
+      "maxOutputTokens": 6144
+    },
+    {
+      "at": "2026-10-20T08:30:44.618Z",
+      "kind": "param_extractor",
+      "mode": "patch",
+      "promptChars": 4610,
+      "durationMs": 3215,
+      "usage": {
+        "reasoningTokens": 0,
+        "inputTokens": 1268,
+        "outputTokens": 43,
+        "totalTokens": 1311
+      },
+      "contentChars": 145,
+      "reasoningChars": 0,
+      "finishReason": "stop",
+      "maxOutputTokens": 6144
+    }
+  ]
+}

@@ -4,6 +4,8 @@
 // captured from the pre-refactor runtime; every replay must stay byte-identical.
 // 2026-10-18 (stop before code check): fixture-hw-design-no-mirror.next no longer carries a design-field
 // invalidDraftFields entry, and frame-legacy-flat.model reports the missing tw/tf instead of a catalog error.
+// 2026-10-20: material representations are reconciled; the four affected expectations include the
+// grade mirror or a material record/assignment. Original persisted inputs remain unchanged.
 import { readFileSync } from 'node:fs';
 import { describe, expect, test } from '@jest/globals';
 import { withDeclaredProperties } from '../../../tests/fixtures/declared-template-properties.mjs';
@@ -34,10 +36,11 @@ describe('old persisted draft states', () => {
     const ingested = attempt(() => ingestDraft(structuredClone(scenario.state)));
     expect(ingested).toEqual(scenario.expected.ingest);
     expect(pick(ingested.value, FLAT_FIELDS)).toBe(pick(scenario.state, FLAT_FIELDS));
-    // Normalization only drops an empty topology container; every engineering value round-trips.
+    // Original engineering values survive; normalization may add material records and the grade mirror.
     const stored = structuredClone(scenario.state.engineeringDraft);
     if (stored?.topology && !Object.keys(stored.topology).length) delete stored.topology;
-    expect(ingested.value.engineeringDraft).toEqual(stored);
+    if (stored) expect(ingested.value.engineeringDraft).toMatchObject(stored);
+    else expect(ingested.value.engineeringDraft).toBeUndefined();
   });
 
   test.each(fixture.scenarios.map(item => [item.id, item]))('%s: ingest -> project round-trips through the boundary', (_id, scenario) => {

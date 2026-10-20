@@ -35,6 +35,7 @@ import {
   normalizeSupportType,
 } from './normalize.js';
 import { projectDraftPatch } from './project-patch.js';
+import { cleanSectionMaterials, reconcileDraftMaterials } from './materials.js';
 import type {
   DraftExtraction,
   DraftFloorLoad,
@@ -129,7 +130,7 @@ export function mergeDraftState(existing: DraftState | undefined, patch: DraftEx
   const bayWidthsXM = patch.bayWidthsXM ?? existing?.bayWidthsXM;
   const bayWidthsYM = patch.bayWidthsYM ?? existing?.bayWidthsYM;
   const floorLoads = mergeStateFloorLoads(existing?.floorLoads, patch.floorLoads);
-  const engineeringDraft = mergeEngineeringDraft(existing?.engineeringDraft, patch.engineeringDraft);
+  const engineeringDraft = cleanSectionMaterials(mergeEngineeringDraft(existing?.engineeringDraft, patch.engineeringDraft));
   const result: DraftState = {
     inferredType: mergedType,
     engineeringDraft,
@@ -336,7 +337,12 @@ export function ingestDraft(patch: Record<string, unknown> | null | undefined, e
   const draftIssues = normalizeDraftIssues(patch.draftIssues);
   const cleared = patch.clearDraftFields !== undefined ? normalizeClearDraftFields(patch.clearDraftFields) : undefined;
   const accepted = existing ? clearDraftFields(existing, cleared) : existing;
-  const engineeringDraft = normalizeDraftWithReportedLoadIssue(patch.engineeringDraft, draftIssues, accepted);
+  // Some providers place canonical fields alongside engineeringDraft. Accept the same field contract
+  // at either boundary; the nested value wins when both are present.
+  const rootDraft = Object.fromEntries(Object.entries(patch).filter(([key]) => Object.hasOwn(draftContract.properties, key)));
+  const rawDraft = Object.keys(rootDraft).length ? { ...rootDraft, ...asRecord(patch.engineeringDraft) } : patch.engineeringDraft;
+  const engineeringDraft = reconcileDraftMaterials(normalizeDraftWithReportedLoadIssue(rawDraft, draftIssues, accepted),
+    accepted?.engineeringDraft, normalizeInferredType(patch.inferredType) ?? accepted?.inferredType);
   const issueFields = draftIssues
     ?.map((issue) => issue.field)
     .filter((field): field is string => typeof field === 'string' && field.trim().length > 0);

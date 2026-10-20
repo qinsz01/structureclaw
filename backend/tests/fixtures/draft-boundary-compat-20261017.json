@@ -1467,6 +1467,9 @@
        },
        "analysisControl": {
         "self_weight": false
+       },
+       "material": {
+        "grade": "Q355"
        }
       },
       "skillState": {
@@ -1561,7 +1564,7 @@
      }
     },
     "next": {
-     "json": "{\"inferredType\":\"portal-frame\",\"engineeringDraft\":{\"structureType\":\"portal-frame\",\"geometry\":{\"heightM\":7,\"spanLengthsM\":[12]},\"topology\":{},\"materials\":[{\"id\":\"Q355\",\"name\":\"Q355 steel\",\"E\":206000,\"nu\":0.3,\"rho\":7850,\"grade\":\"Q355\",\"category\":\"steel\"}],\"sectionRecords\":[{\"id\":\"COL\",\"name\":\"HW300×300×10×15\",\"type\":\"H\",\"shape\":{\"kind\":\"H\",\"H\":300,\"B\":300,\"tw\":10,\"tf\":15}},{\"id\":\"RAF\",\"name\":\"HN400×200×8×13\",\"type\":\"H\",\"shape\":{\"kind\":\"H\",\"H\":400,\"B\":200,\"tw\":8,\"tf\":13}}],\"templateAssignments\":{\"column\":{\"materialId\":\"Q355\",\"sectionId\":\"COL\"},\"beam\":{\"materialId\":\"Q355\",\"sectionId\":\"RAF\"}},\"material\":{},\"sections\":{},\"boundary\":{\"frameBaseSupportType\":\"fixed\"},\"loads\":[{\"id\":\"ROOF\",\"kind\":\"line\",\"magnitude\":5,\"unit\":\"kN/m\",\"direction\":\"gravity\",\"target\":\"roof\"}],\"analysis\":{\"loadCombinations\":[]},\"analysisControl\":{\"self_weight\":false}},\"spanLengthM\":12,\"heightM\":7,\"frameBaseSupportType\":\"fixed\",\"loadKN\":5,\"loadType\":\"distributed\",\"loadPosition\":\"full-span\",\"updatedAt\":0,\"skillState\":{\"engineeringDraft\":{\"structureType\":\"portal-frame\",\"geometry\":{\"heightM\":7,\"spanLengthsM\":[12]},\"topology\":{},\"materials\":[{\"id\":\"Q355\",\"name\":\"Q355 steel\",\"E\":206000,\"nu\":0.3,\"rho\":7850,\"grade\":\"Q355\",\"category\":\"steel\"}],\"sectionRecords\":[{\"id\":\"COL\",\"name\":\"HW300×300×10×15\",\"type\":\"H\",\"shape\":{\"kind\":\"H\",\"H\":300,\"B\":300,\"tw\":10,\"tf\":15}},{\"id\":\"RAF\",\"name\":\"HN400×200×8×13\",\"type\":\"H\",\"shape\":{\"kind\":\"H\",\"H\":400,\"B\":200,\"tw\":8,\"tf\":13}}],\"templateAssignments\":{\"column\":{\"materialId\":\"Q355\",\"sectionId\":\"COL\"},\"beam\":{\"materialId\":\"Q355\",\"sectionId\":\"RAF\"}},\"material\":{},\"sections\":{},\"boundary\":{\"frameBaseSupportType\":\"fixed\"},\"loads\":[{\"id\":\"ROOF\",\"kind\":\"line\",\"magnitude\":5,\"unit\":\"kN/m\",\"direction\":\"gravity\",\"target\":\"roof\"}],\"analysis\":{\"loadCombinations\":[]},\"analysisControl\":{\"self_weight\":false}},\"extractionSource\":\"engineering-draft\",\"portalBaySpansM\":[12],\"portalBayCount\":1,\"roofLoadKNM\":5},\"skillId\":\"portal-frame\",\"structuralTypeKey\":\"portal-frame\",\"coordinateSemantics\":\"global-z-up\"}"
+     "json": "{\"inferredType\":\"portal-frame\",\"engineeringDraft\":{\"structureType\":\"portal-frame\",\"geometry\":{\"heightM\":7,\"spanLengthsM\":[12]},\"topology\":{},\"materials\":[{\"id\":\"Q355\",\"name\":\"Q355 steel\",\"E\":206000,\"nu\":0.3,\"rho\":7850,\"grade\":\"Q355\",\"category\":\"steel\"}],\"sectionRecords\":[{\"id\":\"COL\",\"name\":\"HW300×300×10×15\",\"type\":\"H\",\"shape\":{\"kind\":\"H\",\"H\":300,\"B\":300,\"tw\":10,\"tf\":15}},{\"id\":\"RAF\",\"name\":\"HN400×200×8×13\",\"type\":\"H\",\"shape\":{\"kind\":\"H\",\"H\":400,\"B\":200,\"tw\":8,\"tf\":13}}],\"templateAssignments\":{\"column\":{\"materialId\":\"Q355\",\"sectionId\":\"COL\"},\"beam\":{\"materialId\":\"Q355\",\"sectionId\":\"RAF\"}},\"material\":{\"grade\":\"Q355\"},\"sections\":{},\"boundary\":{\"frameBaseSupportType\":\"fixed\"},\"loads\":[{\"id\":\"ROOF\",\"kind\":\"line\",\"magnitude\":5,\"unit\":\"kN/m\",\"direction\":\"gravity\",\"target\":\"roof\"}],\"analysis\":{\"loadCombinations\":[]},\"analysisControl\":{\"self_weight\":false}},\"spanLengthM\":12,\"heightM\":7,\"frameBaseSupportType\":\"fixed\",\"loadKN\":5,\"loadType\":\"distributed\",\"loadPosition\":\"full-span\",\"updatedAt\":0,\"skillState\":{\"engineeringDraft\":{\"structureType\":\"portal-frame\",\"geometry\":{\"heightM\":7,\"spanLengthsM\":[12]},\"topology\":{},\"materials\":[{\"id\":\"Q355\",\"name\":\"Q355 steel\",\"E\":206000,\"nu\":0.3,\"rho\":7850,\"grade\":\"Q355\",\"category\":\"steel\"}],\"sectionRecords\":[{\"id\":\"COL\",\"name\":\"HW300×300×10×15\",\"type\":\"H\",\"shape\":{\"kind\":\"H\",\"H\":300,\"B\":300,\"tw\":10,\"tf\":15}},{\"id\":\"RAF\",\"name\":\"HN400×200×8×13\",\"type\":\"H\",\"shape\":{\"kind\":\"H\",\"H\":400,\"B\":200,\"tw\":8,\"tf\":13}}],\"templateAssignments\":{\"column\":{\"materialId\":\"Q355\",\"sectionId\":\"COL\"},\"beam\":{\"materialId\":\"Q355\",\"sectionId\":\"RAF\"}},\"material\":{\"grade\":\"Q355\"},\"sections\":{},\"boundary\":{\"frameBaseSupportType\":\"fixed\"},\"loads\":[{\"id\":\"ROOF\",\"kind\":\"line\",\"magnitude\":5,\"unit\":\"kN/m\",\"direction\":\"gravity\",\"target\":\"roof\"}],\"analysis\":{\"loadCombinations\":[]},\"analysisControl\":{\"self_weight\":false}},\"extractionSource\":\"engineering-draft\",\"portalBaySpansM\":[12],\"portalBayCount\":1,\"roofLoadKNM\":5},\"skillId\":\"portal-frame\",\"structuralTypeKey\":\"portal-frame\",\"coordinateSemantics\":\"global-z-up\"}"
     },
     "missingExecution": {
      "value": {
@@ -1947,7 +1950,11 @@
          "standard_steel_name": "HN400x200x8x13"
         }
        ],
-       "templateAssignments": {},
+       "templateAssignments": {
+        "beam": {
+         "materialId": "M1"
+        }
+       },
        "material": {
         "family": "steel",
         "grade": "Q235"
@@ -1975,7 +1982,14 @@
        "analysis": {},
        "analysisControl": {
         "self_weight": true
-       }
+       },
+       "materials": [
+        {
+         "family": "steel",
+         "grade": "Q235",
+         "id": "M1"
+        }
+       ]
       },
       "skillState": {
        "engineeringDraft": {
@@ -2051,7 +2065,7 @@
      }
     },
     "next": {
-     "json": "{\"inferredType\":\"beam\",\"engineeringDraft\":{\"structureType\":\"beam\",\"geometry\":{\"lengthM\":10},\"topology\":{},\"sectionRecords\":[{\"id\":\"S1\",\"name\":\"HN400X200X8X13\",\"type\":\"H\",\"purpose\":\"beam\",\"shape\":{\"kind\":\"H\",\"H\":400,\"B\":200,\"tw\":8,\"tf\":13}}],\"templateAssignments\":{},\"material\":{\"family\":\"steel\",\"grade\":\"Q235\"},\"sections\":{\"beam\":\"HN400X200X8X13\"},\"boundary\":{\"supportType\":\"simply-supported\"},\"loads\":[{\"id\":\"L1\",\"kind\":\"point\",\"magnitude\":1,\"unit\":\"kN\",\"direction\":\"gravity\",\"target\":\"beam\",\"location\":{\"xM\":5,\"nodeRole\":\"midspan\"}}],\"analysis\":{},\"analysisControl\":{\"self_weight\":true}},\"lengthM\":10,\"supportType\":\"simply-supported\",\"loadKN\":1,\"loadType\":\"point\",\"loadPosition\":\"midspan\",\"loadPositionM\":5,\"updatedAt\":0,\"skillState\":{\"engineeringDraft\":{\"structureType\":\"beam\",\"geometry\":{\"lengthM\":10},\"topology\":{},\"sectionRecords\":[{\"id\":\"S1\",\"name\":\"HN400X200X8X13\",\"type\":\"H\",\"purpose\":\"beam\",\"shape\":{\"kind\":\"H\",\"H\":400,\"B\":200,\"tw\":8,\"tf\":13}}],\"templateAssignments\":{},\"material\":{\"family\":\"steel\",\"grade\":\"Q235\"},\"sections\":{\"beam\":\"HN400X200X8X13\"},\"boundary\":{\"supportType\":\"simply-supported\"},\"loads\":[{\"id\":\"L1\",\"kind\":\"point\",\"magnitude\":1,\"unit\":\"kN\",\"direction\":\"gravity\",\"target\":\"beam\",\"location\":{\"xM\":5,\"nodeRole\":\"midspan\"}}],\"analysis\":{},\"analysisControl\":{\"self_weight\":true}},\"extractionSource\":\"engineering-draft\",\"beamLoads\":[{\"kind\":\"point\",\"magnitude\":1,\"unit\":\"kN\",\"direction\":\"gravity\",\"target\":\"beam\",\"xM\":5}]},\"skillId\":\"beam\",\"structuralTypeKey\":\"beam\",\"coordinateSemantics\":\"global-z-up\"}"
+     "json": "{\"inferredType\":\"beam\",\"engineeringDraft\":{\"structureType\":\"beam\",\"geometry\":{\"lengthM\":10},\"topology\":{},\"materials\":[{\"family\":\"steel\",\"grade\":\"Q235\",\"id\":\"M1\"}],\"sectionRecords\":[{\"id\":\"S1\",\"name\":\"HN400X200X8X13\",\"type\":\"H\",\"purpose\":\"beam\",\"shape\":{\"kind\":\"H\",\"H\":400,\"B\":200,\"tw\":8,\"tf\":13}}],\"templateAssignments\":{\"beam\":{\"materialId\":\"M1\"}},\"material\":{\"family\":\"steel\",\"grade\":\"Q235\"},\"sections\":{\"beam\":\"HN400X200X8X13\"},\"boundary\":{\"supportType\":\"simply-supported\"},\"loads\":[{\"id\":\"L1\",\"kind\":\"point\",\"magnitude\":1,\"unit\":\"kN\",\"direction\":\"gravity\",\"target\":\"beam\",\"location\":{\"xM\":5,\"nodeRole\":\"midspan\"}}],\"analysis\":{},\"analysisControl\":{\"self_weight\":true}},\"lengthM\":10,\"supportType\":\"simply-supported\",\"loadKN\":1,\"loadType\":\"point\",\"loadPosition\":\"midspan\",\"loadPositionM\":5,\"updatedAt\":0,\"skillState\":{\"engineeringDraft\":{\"structureType\":\"beam\",\"geometry\":{\"lengthM\":10},\"topology\":{},\"materials\":[{\"family\":\"steel\",\"grade\":\"Q235\",\"id\":\"M1\"}],\"sectionRecords\":[{\"id\":\"S1\",\"name\":\"HN400X200X8X13\",\"type\":\"H\",\"purpose\":\"beam\",\"shape\":{\"kind\":\"H\",\"H\":400,\"B\":200,\"tw\":8,\"tf\":13}}],\"templateAssignments\":{\"beam\":{\"materialId\":\"M1\"}},\"material\":{\"family\":\"steel\",\"grade\":\"Q235\"},\"sections\":{\"beam\":\"HN400X200X8X13\"},\"boundary\":{\"supportType\":\"simply-supported\"},\"loads\":[{\"id\":\"L1\",\"kind\":\"point\",\"magnitude\":1,\"unit\":\"kN\",\"direction\":\"gravity\",\"target\":\"beam\",\"location\":{\"xM\":5,\"nodeRole\":\"midspan\"}}],\"analysis\":{},\"analysisControl\":{\"self_weight\":true}},\"extractionSource\":\"engineering-draft\",\"beamLoads\":[{\"kind\":\"point\",\"magnitude\":1,\"unit\":\"kN\",\"direction\":\"gravity\",\"target\":\"beam\",\"xM\":5}]},\"skillId\":\"beam\",\"structuralTypeKey\":\"beam\",\"coordinateSemantics\":\"global-z-up\"}"
     },
     "missingExecution": {
      "value": {
@@ -2116,7 +2130,7 @@
          "1",
          "2"
         ],
-        "material": "1",
+        "material": "M1",
         "section": "S1"
        },
        {
@@ -2126,21 +2140,20 @@
          "2",
          "3"
         ],
-        "material": "1",
+        "material": "M1",
         "section": "S1"
        }
       ],
       "materials": [
        {
-        "id": "1",
-        "name": "Q235",
+        "family": "steel",
         "grade": "Q235",
-        "category": "steel",
+        "id": "M1",
+        "name": "Q235",
         "E": 206000,
         "G": 79000,
         "nu": 0.3,
-        "rho": 7850,
-        "fy": 235
+        "rho": 7850
        }
       ],
       "sections": [
@@ -2181,7 +2194,7 @@
        "inputEvidence": [],
        "templatePropertyAssignments": {
         "beam": {
-         "materialId": "1",
+         "materialId": "M1",
          "sectionId": "S1"
         }
        },
@@ -2382,7 +2395,11 @@
          "standard_steel_name": "HN400x200x8x13"
         }
        ],
-       "templateAssignments": {},
+       "templateAssignments": {
+        "beam": {
+         "materialId": "M1"
+        }
+       },
        "material": {
         "family": "steel",
         "grade": "Q235"
@@ -2410,7 +2427,14 @@
        "analysis": {},
        "analysisControl": {
         "self_weight": true
-       }
+       },
+       "materials": [
+        {
+         "family": "steel",
+         "grade": "Q235",
+         "id": "M1"
+        }
+       ]
       },
       "skillState": {
        "engineeringDraft": {
@@ -2864,7 +2888,9 @@
           },
           "f": 215,
           "fv": 125
-         }
+         },
+         "family": "steel",
+         "grade": "Q235B"
         }
        ],
        "sectionRecords": [
