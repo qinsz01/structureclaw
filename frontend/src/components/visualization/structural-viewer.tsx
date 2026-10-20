@@ -146,7 +146,7 @@ export function StructuralViewer({
   const selectedElementId = state.selection?.kind === 'member' ? state.selection.id : null
   const selectedLoadIndex = state.selection?.kind === 'load' ? Number(state.selection.id) : null
   const select = (kind: 'node' | 'member' | 'load', id: string | number | null) => {
-    if (id === null || (kind !== 'load' && queryObjectKinds && !queryObjectKinds.includes(kind))) return
+    if ((queryBusy && onSelectObject) || id === null || (kind !== 'load' && queryObjectKinds && !queryObjectKinds.includes(kind))) return
     patch({ selection: { kind, id: String(id) } })
     if (kind !== 'load') onSelectObject?.({ kind, id: String(id) })
   }

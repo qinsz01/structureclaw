@@ -162,6 +162,31 @@ describe('inline workspace figure', () => {
     expect(screen.queryByTestId('test-scene')).toBeNull()
     expect(props.onUsageChanged).not.toHaveBeenCalled()
   })
+
+  it('keeps the scene and selectors aligned while a quantity query is pending', async () => {
+    workspaceFixture()
+    const fetchFixture = vi.mocked(fetch).getMockImplementation()!
+    let release!: () => void
+    const gate = new Promise<void>(resolve => { release = resolve })
+    vi.mocked(fetch).mockImplementation(async (...args) => {
+      const response = await fetchFixture(...args)
+      if (args[1]?.body && JSON.parse(String(args[1].body)).args.component) await gate
+      return response
+    })
+    render(<ResultReviewPanel open conversationId="A" locale="en" disabled={false} onClose={() => {}} onUsageChanged={() => {}} />)
+    const scene = await screen.findByTestId('test-scene')
+    fireEvent.click(screen.getByRole('button', { name: 'Query selected result' }))
+    await waitFor(() => expect(screen.getByLabelText('Object')).toBeDisabled())
+    fireEvent.click(screen.getByTestId('scene-node-b'))
+    expect(scene).toHaveAttribute('data-node', 'a')
+    expect(screen.getByLabelText('Object')).toHaveValue('a')
+    await act(async () => { release(); await gate })
+    await screen.findByTestId('workspace-query-result')
+    fireEvent.click(screen.getByTestId('scene-node-b'))
+    expect(scene).toHaveAttribute('data-node', 'b')
+    expect(screen.getByLabelText('Object')).toHaveValue('b')
+    expect(screen.queryByTestId('workspace-query-result')).toBeNull()
+  })
 })
 
 it.each([
