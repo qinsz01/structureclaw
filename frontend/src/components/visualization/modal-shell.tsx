@@ -7,16 +7,17 @@ import { Button } from '@/components/ui/button'
 import type { MessageKey } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import { getVisualizationViewLabelKey } from './extensions'
-import type { VisualizationPlane, VisualizationSnapshot, VisualizationViewMode } from './types'
+import type { CameraPreset } from './state'
+import type { VisualizationSnapshot, VisualizationViewMode } from './types'
 
 type VisualizationModalShellProps = {
   open: boolean
   snapshot: VisualizationSnapshot | null
   title: string
   selectedView: VisualizationViewMode
-  selectedPlane: VisualizationPlane
+  selectedCamera: CameraPreset
   onViewChange: (mode: VisualizationViewMode) => void
-  onPlaneChange: (plane: VisualizationPlane) => void
+  onCameraChange: (preset: CameraPreset) => void
   onClose: () => void
   onResetView: () => void
   t: (key: MessageKey) => string
@@ -24,22 +25,17 @@ type VisualizationModalShellProps = {
   aside?: ReactNode
 }
 
-const PLANE_LABELS: Record<VisualizationPlane, MessageKey> = {
-  xy: 'visualizationPlaneXY',
-  xz: 'visualizationPlaneXZ',
-  yz: 'visualizationPlaneYZ',
-}
-
-const PLANE_OPTIONS: VisualizationPlane[] = ['xy', 'xz', 'yz']
+const CAMERA_LABELS: Record<CameraPreset, MessageKey> = { front: 'visualizationCameraFront', side: 'visualizationCameraSide', top: 'visualizationCameraTop', iso: 'visualizationCameraIso' }
+const CAMERA_OPTIONS: CameraPreset[] = ['front', 'side', 'top', 'iso']
 
 export function VisualizationModalShell({
   open,
   snapshot,
   title,
   selectedView,
-  selectedPlane,
+  selectedCamera,
   onViewChange,
-  onPlaneChange,
+  onCameraChange,
   onClose,
   onResetView,
   t,
@@ -51,14 +47,9 @@ export function VisualizationModalShell({
   const lastActiveElementRef = useRef<HTMLElement | null>(null)
 
   const availableViews = useMemo(
-    (): VisualizationViewMode[] => snapshot?.availableViews || ['model', 'deformed', 'forces', 'reactions'],
+    (): VisualizationViewMode[] => snapshot?.availableViews || ['model'],
     [snapshot]
   )
-  const availablePlanes = useMemo(
-    (): VisualizationPlane[] => snapshot?.dimension === 2 ? [snapshot.plane] : PLANE_OPTIONS,
-    [snapshot]
-  )
-
   useEffect(() => {
     if (!open) {
       return
@@ -119,7 +110,7 @@ export function VisualizationModalShell({
     <div className="fixed inset-0 z-80">
       <button
         aria-label={t('visualizationClose')}
-        className="absolute inset-0 bg-slate-950/72 backdrop-blur-xs"
+        className="absolute inset-0 bg-foreground/60 backdrop-blur-xs"
         onClick={onClose}
         type="button"
       />
@@ -127,13 +118,14 @@ export function VisualizationModalShell({
         <div
           ref={containerRef}
           aria-modal="true"
-          className="relative flex h-full flex-col overflow-hidden rounded-[30px] border border-border/70 bg-card/95 shadow-[0_40px_120px_-40px_rgba(8,145,178,0.55)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/95"
+          aria-label={t('visualizationTitle')}
+          className="relative flex h-full flex-col overflow-hidden rounded-[30px] border border-border/70 bg-card/95 shadow-2xl backdrop-blur-xl"
           role="dialog"
         >
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(251,146,60,0.12),transparent_26%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.2),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(251,146,60,0.18),transparent_28%)]" />
-          <div className="relative flex items-start justify-between gap-4 border-b border-border/70 px-5 py-4 dark:border-white/10">
+          <div className="pointer-events-none absolute inset-0 bg-background dark:bg-background" />
+          <div className="relative flex items-start justify-between gap-4 border-b border-border/70 px-5 py-4">
             <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-cyan-700/80 dark:text-cyan-200/70">{t('visualizationTitle')}</p>
+              <p className="text-xs uppercase tracking-[0.24em] text-primary">{t('visualizationTitle')}</p>
               <h2 className="mt-1 text-2xl font-semibold text-foreground">{title}</h2>
               {snapshot ? (
                 <div className="mt-2 space-y-2 text-sm text-muted-foreground">
@@ -141,11 +133,11 @@ export function VisualizationModalShell({
                     {snapshot.dimension}D · {snapshot.nodes.length} {t('analysisOverviewCountsNodes').toLowerCase()} · {snapshot.elements.length} {t('analysisOverviewCountsElements').toLowerCase()}
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full border border-border/70 bg-background/70 px-2.5 py-1 text-xs dark:border-white/10 dark:bg-white/5">
+                    <span className="rounded-full border border-border/70 bg-background/70 px-2.5 py-1 text-xs">
                       {t('visualizationStatusCurrentSource')}: {snapshot.source === 'model' ? t('visualizationSourceModel') : t('visualizationSourceResult')}
                     </span>
                     {snapshot.statusMessage ? (
-                      <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-2.5 py-1 text-xs text-amber-900 dark:text-amber-100">
+                      <span className="rounded-full border border-accent/40 bg-accent/10 px-2.5 py-1 text-xs text-foreground">
                         {snapshot.statusMessage}
                       </span>
                     ) : null}
@@ -155,7 +147,7 @@ export function VisualizationModalShell({
             </div>
             <div className="flex items-center gap-2">
               <Button
-                className="rounded-full border border-border/70 bg-background/80 text-foreground hover:bg-accent/30 dark:border-white/10 dark:bg-white/5"
+                className="rounded-full border border-border/70 bg-background/80 text-foreground hover:bg-accent/30"
                 onClick={onResetView}
                 type="button"
                 variant="outline"
@@ -165,7 +157,7 @@ export function VisualizationModalShell({
               </Button>
               <Button
                 ref={closeButtonRef}
-                className="rounded-full border border-border/70 bg-background/80 text-foreground hover:bg-accent/30 dark:border-white/10 dark:bg-white/5"
+                className="rounded-full border border-border/70 bg-background/80 text-foreground hover:bg-accent/30"
                 onClick={onClose}
                 type="button"
                 variant="outline"
@@ -176,7 +168,7 @@ export function VisualizationModalShell({
             </div>
           </div>
 
-          <div className="relative flex flex-col gap-4 border-b border-border/70 px-5 py-4 dark:border-white/10">
+          <div className="relative flex flex-col gap-4 border-b border-border/70 px-5 py-4">
             <div className="flex flex-wrap items-center gap-2">
               {availableViews.map((view) => (
                 <button
@@ -184,9 +176,10 @@ export function VisualizationModalShell({
                   className={cn(
                     'rounded-full border px-4 py-2 text-sm transition',
                     selectedView === view
-                      ? 'border-cyan-300/50 bg-cyan-300/16 text-foreground'
-                      : 'border-border/70 bg-background/70 text-muted-foreground hover:border-cyan-300/30 hover:text-foreground dark:border-white/10 dark:bg-white/5'
+                      ? 'border-primary bg-primary/15 text-foreground'
+                      : 'border-border/70 bg-background/70 text-muted-foreground hover:border-primary hover:text-foreground'
                   )}
+                  aria-pressed={selectedView === view}
                   onClick={() => onViewChange(view)}
                   type="button"
                 >
@@ -194,34 +187,35 @@ export function VisualizationModalShell({
                 </button>
               ))}
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{t('visualizationGridPlane')}</span>
-              {availablePlanes.map((plane) => (
+            {snapshot?.dimension === 3 && <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{t('visualizationCamera')}</span>
+              {CAMERA_OPTIONS.map((preset) => (
                 <button
-                  key={plane}
+                  key={preset}
                   className={cn(
                     'rounded-full border px-3 py-1.5 text-xs font-medium transition',
-                    selectedPlane === plane
-                      ? 'border-cyan-300/50 bg-cyan-300/16 text-foreground'
-                      : 'border-border/70 bg-background/70 text-muted-foreground hover:border-cyan-300/30 hover:text-foreground dark:border-white/10 dark:bg-white/5'
+                    selectedCamera === preset
+                      ? 'border-primary bg-primary/15 text-foreground'
+                      : 'border-border/70 bg-background/70 text-muted-foreground hover:border-primary hover:text-foreground'
                   )}
-                  onClick={() => onPlaneChange(plane)}
+                  aria-pressed={selectedCamera === preset}
+                  onClick={() => onCameraChange(preset)}
                   type="button"
                 >
-                  {t(PLANE_LABELS[plane])}
+                  {t(CAMERA_LABELS[preset])}
                 </button>
               ))}
-            </div>
+            </div>}
           </div>
 
-          <div className="relative flex min-h-0 flex-1 flex-col xl:flex-row">
-            <div className="min-h-[300px] flex-1 xl:min-h-0">{children}</div>
-            <aside className="overflow-y-auto border-t border-border/70 bg-background/50 p-4 xl:w-[320px] xl:border-l xl:border-t-0 dark:border-white/10 dark:bg-white/5">
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto xl:flex-row xl:overflow-hidden">
+            <div className="min-h-[420px] flex-1 xl:min-h-0">{children}</div>
+            <aside className="shrink-0 overflow-y-auto border-t border-border/70 bg-background/50 p-4 xl:w-[280px] xl:border-l xl:border-t-0">
               {aside}
             </aside>
           </div>
 
-          <div className="relative border-t border-border/70 px-5 py-3 text-xs text-muted-foreground dark:border-white/10">
+          <div className="relative border-t border-border/70 px-5 py-3 text-xs text-muted-foreground">
             <div className="flex items-center gap-2">
               <Maximize2 className="h-3.5 w-3.5" />
               <span>{t('visualizationDoubleClickHint')}</span>

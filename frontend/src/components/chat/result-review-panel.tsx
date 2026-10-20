@@ -4,6 +4,8 @@ import dynamic from 'next/dynamic'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { API_BASE } from '@/lib/api-base'
 import { useI18n } from '@/lib/i18n'
+import { formatResultNumber } from '@/lib/utils'
+import { visualizationMessages } from '@/lib/i18n/messages/visualization'
 import { Button } from '@/components/ui/button'
 import { DialogShell } from '@/components/ui/dialog-shell'
 import { buildVisualizationSnapshot } from '@/components/visualization/adapter'
@@ -62,7 +64,7 @@ export function selectedResultSnapshot(output: Row, selection: ResultSelection, 
       results: { [selection.resultKey]: { success: true, selection: output.resultSelection, meta: output.meta, data } } }
       : { success: true, meta: output.meta, data }, mode: 'analysis-result' })
     const quantity = record(output.quantity)
-    return snapshot ? { ...snapshot, statusMessage: `${zh ? '所选位置数值' : 'Selected location value'}: ${String(quantity.value ?? '—')} ${String(quantity.unit ?? '')}. ${zh ? '内力着色表示所选局部分量在各构件采样位置的绝对值最大值；构件读数保留符号，灰色表示缺数据。精确位置和断点侧以查询数值为准。' : 'Force colors show each member’s sampled maximum magnitude of the selected local component; member readouts retain the sign, and gray means unavailable. The queried quantity identifies the exact location and cut side.'}` } : null
+    return snapshot ? { ...snapshot, statusMessage: `${visualizationMessages[zh ? 'zh' : 'en'].visualizationSelectedValue}: ${typeof quantity.value === 'number' ? formatResultNumber(quantity.value, zh ? 'zh' : 'en') : '—'} ${String(quantity.unit ?? '')}` } : null
   }
   const geometry = buildVisualizationSnapshot({ title, model, mode: 'model-only' })
   if (!geometry) return null
@@ -107,6 +109,8 @@ export function ResultReviewPanel({ open, onClose, conversationId, locale, disab
   const [selection, setSelection] = useState<ResultSelection>(defaultSelection())
   const [result, setResult] = useState<Row | null>(null); const [series, setSeries] = useState<Row | null>(null); const [report, setReport] = useState<Row | null>(null)
   const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [viewer, setViewer] = useState(false)
+  const [viewerSnapshot, setViewerSnapshot] = useState<VisualizationSnapshot | null>(null)
+  const [viewerInitial, setViewerInitial] = useState<ResultSelection>(defaultSelection())
   const [range, setRange] = useState({ startIndex: 0, endIndex: 0, stride: 1 })
   const endpoint = `${API_BASE}/api/v1/agent/result-review/${encodeURIComponent(conversationId)}`
   const generation = useRef(0)
@@ -199,21 +203,26 @@ export function ResultReviewPanel({ open, onClose, conversationId, locale, disab
         {member && selection.timeIndex === undefined && <><label className="text-xs">{l('沿构件位置 (m)', 'Member position (m)')}<input aria-label={l('沿构件位置 (m)', 'Member position (m)')} className={box} type="number" min="0" step="any" value={selection.positionM ?? 0} onChange={event => change({ ...selection, positionM: Number(event.target.value) })} /></label><label className="text-xs">{l('断点侧', 'Cut side')}<select className={box} value={selection.side ?? 'right'} onChange={event => change({ ...selection, side: event.target.value as 'left' | 'right' })}><option value="left">{l('左侧', 'Left')}</option><option value="right">{l('右侧', 'Right')}</option></select></label></>}
         {member && selection.timeIndex !== undefined && <label className="text-xs">{l('物理端点', 'Physical end')}<select className={box} value={selection.end ?? 'n1'} onChange={event => change({ ...selection, end: event.target.value as 'n1' | 'n2' })}><option>n1</option><option>n2</option></select></label>}
       </fieldset>
-      <div className="flex flex-wrap gap-2"><Button disabled={locked || !item?.available || !catalog?.allowedTools.includes('query_results')} onClick={query}>{busy ? l('处理中…', 'Working…') : l('查询所选结果', 'Query selected result')}</Button><Button variant="outline" disabled={!snapshot || locked} onClick={() => setViewer(true)}>{l('查看所选图形', 'View selected figure')}</Button><Button variant="outline" disabled={!result || locked || !catalog?.allowedTools.includes('generate_report')} onClick={makeReport}>{l('生成所选报告', 'Report selected result')}</Button></div>
+      <div className="flex flex-wrap gap-2"><Button disabled={locked || !item?.available || !catalog?.allowedTools.includes('query_results')} onClick={query}>{busy ? l('处理中…', 'Working…') : l('查询所选结果', 'Query selected result')}</Button><Button variant="outline" disabled={!snapshot || locked} onClick={() => { setViewerSnapshot(snapshot); setViewerInitial(selection); setViewer(true) }}>{l('查看所选图形', 'View selected figure')}</Button><Button variant="outline" disabled={!result || locked || !catalog?.allowedTools.includes('generate_report')} onClick={makeReport}>{l('生成所选报告', 'Report selected result')}</Button></div>
       {result ? <div className="rounded-xl border border-border bg-muted/30 p-4"><p className="text-xs text-muted-foreground">{selection.resultKey} · {selection.nodeId ?? selection.elementId} · {selection.component}{selection.timeIndex !== undefined ? ` · ${quantity.time} s` : selection.modeNumber !== undefined ? ` · mode ${selection.modeNumber}` : ''}</p><p className="mt-1 text-2xl tabular-nums">{typeof quantity.value === 'number' ? quantity.value.toPrecision(10) : '—'} <span className="text-base">{String(quantity.unit ?? '')}</span></p>{selection.modeNumber !== undefined && <p className="text-xs">{l('无量纲归一化振型，不是实际位移。', 'Dimensionless normalized mode shape, not a physical displacement.')}</p>}<details className="mt-2 text-xs"><summary>{l('数值来源', 'Quantity source')}</summary><pre className="overflow-auto whitespace-pre-wrap">{JSON.stringify(quantity, null, 2)}</pre></details></div> : <p className="text-sm text-muted-foreground">{l('更改选择后请重新查询；不会沿用上一项的数字。', 'Query again after changing the selection; previous values are cleared.')}</p>}
       {selection.timeIndex !== undefined && <div className="space-y-3 rounded-xl border border-border p-4"><p className="text-sm">{l('响应曲线：实际记录样本，连接线仅辅助阅读。', 'Response curve: recorded samples; joining lines are visual guides.')}</p><fieldset disabled={locked} className="grid grid-cols-3 gap-3">{(['startIndex', 'endIndex', 'stride'] as const).map((key, index) => <label key={key} className="text-xs">{[l('起始索引', 'Start index'), l('末尾索引', 'End index'), l('采样间隔', 'Sample stride')][index]}<input className={box} type="number" min={key === 'stride' ? 1 : 0} value={range[key]} onChange={event => { setRange({ ...range, [key]: Number(event.target.value) }); setSeries(null) }} /></label>)}</fieldset><Button variant="outline" disabled={locked || !item?.available || !catalog?.allowedTools.includes('query_results')} onClick={querySeries}>{l('读取响应曲线', 'Read response curve')}</Button>{series && <><div ref={curveRef}><ResponseCurve points={series.points as { timeIndex: number; time: number; value: number }[]} unit={String(series.unit)} label={l('响应随时间变化', 'Response over time')} /></div><p className="text-xs">{String(series.component)} · {String(series.unit)} · {l('采样间隔', 'Sample stride')} {String(series.stride)} · {JSON.stringify(series.responseDefinition ?? null)}</p><Button variant="outline" onClick={() => download('response.csv', 'timeIndex,time_s,value,unit\n' + (series.points as Row[]).map(point => `${point.timeIndex},${point.time},${point.value},${series.unit}`).join('\n'), 'text/csv;charset=utf-8')}>{l('导出曲线 CSV', 'Export curve CSV')}</Button><Button variant="outline" onClick={() => { const svg = curveRef.current?.querySelector('svg')?.cloneNode(true) as SVGElement | undefined; if (!svg) return; svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg'); svg.setAttribute('style', 'color:#16202a;background:white'); download('response.svg', svg.outerHTML, 'image/svg+xml') }}>{l('导出曲线 SVG', 'Export curve SVG')}</Button></>}</div>}
       {catalog?.nativeDesign && <NativeDesignPanel key={conversationId} review={catalog.nativeDesign} locale={locale} disabled={locked} reportAllowed={catalog.allowedTools.includes('generate_report')} onExecute={runDesign} onReport={reportDesign} />}
       {report && <div className="space-y-3 rounded-xl border border-border p-4"><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => download('selected-report.md', String(report.markdown ?? ''), 'text/markdown;charset=utf-8')}>{l('导出 Markdown', 'Export Markdown')}</Button><Button variant="outline" onClick={() => download('selected-report.json', JSON.stringify(report.json, null, 2), 'application/json')}>{l('导出 JSON', 'Export JSON')}</Button><Button variant="outline" onClick={() => printSelectedReport(reportRef.current, String(record(record(report.json).meta).runId ?? selection.runId))}>{l('打印／保存 PDF', 'Print / save PDF')}</Button></div><div ref={reportRef}><MarkdownBody content={String(report.markdown ?? '')} /></div></div>}
     </div>
-  </DialogShell><Viewer open={open && viewer} onClose={() => setViewer(false)} snapshot={snapshot} locale={locale} t={t}
-    initialView={selection.field === 'forces' ? 'forces' : selection.field === 'reactions' ? 'reactions' : 'deformed'}
-    initialForceMetric={isForceComponent(selection.component) ? selection.component : 'M2'} forceMetricLocked
+  </DialogShell><Viewer open={open && viewer} onClose={() => setViewer(false)} snapshot={viewerSnapshot} locale={locale} t={t}
+    figureKey={JSON.stringify(viewerInitial)} onChangeCase={() => setViewer(false)} queryBusy={locked}
+    queryResult={error ? <span role="alert">{error}</span> : result ? <>{t('visualizationSelectedValue')}: {selection.nodeId ?? selection.elementId} · {selection.component} = {typeof quantity.value === 'number' ? formatResultNumber(quantity.value, locale) : '—'} {String(quantity.unit ?? '')}</> : undefined}
+    initialView={viewerInitial.field === 'forces' ? 'forces' : viewerInitial.field === 'reactions' ? 'reactions' : 'deformed'}
+    initialForceMetric={isForceComponent(viewerInitial.component) ? viewerInitial.component : 'M2'}
     queryObjectKinds={selection.modeNumber !== undefined ? ['node'] : ['node', 'member']}
     selectedObject={selection.elementId ? { kind: 'member', id: selection.elementId } : selection.nodeId ? { kind: 'node', id: selection.nodeId } : undefined}
-    onQueryObject={object => {
+    onQueryObject={async object => {
       if (object.kind === 'member' && selection.modeNumber !== undefined) return
-      change(object.kind === 'node'
+      const next: ResultSelection = object.kind === 'node'
         ? { ...selection, nodeId: object.id, elementId: undefined, positionM: undefined, side: undefined, end: undefined, ...(forceOnly ? { field: 'reactions', component: 'fz', unit: 'kN' } : { field: 'displacements', component: 'uz', unit: componentUnit('uz', 'displacements') }) }
-        : { ...selection, nodeId: undefined, elementId: object.id, positionM: selection.timeIndex === undefined ? 0 : undefined, end: selection.timeIndex === undefined ? undefined : 'n1', field: 'forces', component: 'M2', unit: 'kN.m' })
+        : { ...selection, nodeId: undefined, elementId: object.id, positionM: selection.timeIndex === undefined ? 0 : undefined, end: selection.timeIndex === undefined ? undefined : 'n1', field: 'forces', component: 'M2', unit: 'kN.m' }
+      setSelection(next); setReport(null); setSeries(null)
+      const value = await action('query_results', { ...cleanSelection(next), quantityId: 'viewer-selected', includeModelSnapshot: true })
+      if (value) setResult(value)
     }} /></>
 }

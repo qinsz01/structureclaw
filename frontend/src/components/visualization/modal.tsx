@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useReducer, type ReactNode } from 'react'
 import type { MessageKey } from '@/lib/i18n'
 import type { AppLocale } from '@/lib/stores/slices/preferences'
 import { formatNumber } from '@/lib/utils'
@@ -10,8 +10,9 @@ import { StructuralScene } from './structural-scene'
 import { getMemberDisplacementMagnitude, getElementMetric, isForceComponent, isMomentMetric, forceMetricLabel, isLoadVisible, type ForceMetric } from './structural-scene-utils'
 import type { SceneExportHandle } from './structural-scene'
 import { VisualizationToolbar } from './toolbar'
+import { createVizState, vizReducer, type VizState } from './state'
 import { NativeStationPanel } from './native-station-panel'
-import type { VisualizationCase, VisualizationLoad, VisualizationPlane, VisualizationSnapshot, VisualizationViewMode } from './types'
+import type { VisualizationCase, VisualizationLoad, VisualizationSnapshot, VisualizationViewMode } from './types'
 
 function getCaseLabel(caseId: string, fallbackLabel: string, t: (key: MessageKey) => string) {
   if (caseId === 'model') return t('visualizationSourceModel')
@@ -105,7 +106,10 @@ function roundStep(value: number) {
 type StructuralVisualizationModalProps = {
   initialView?: VisualizationViewMode
   initialForceMetric?: ForceMetric
-  forceMetricLocked?: boolean
+  figureKey?: string
+  onChangeCase?: () => void
+  queryResult?: ReactNode
+  queryBusy?: boolean
   queryObjectKinds?: ('node' | 'member')[]
   selectedObject?: { kind: 'node' | 'member'; id: string }
   onQueryObject?: (object: { kind: 'node' | 'member'; id: string }) => void
@@ -117,72 +121,40 @@ type StructuralVisualizationModalProps = {
 }
 
 export function StructuralVisualizationModal({
-  selectedObject, onQueryObject, queryObjectKinds, initialView, initialForceMetric, forceMetricLocked,
+  selectedObject, onQueryObject, queryObjectKinds, initialView, initialForceMetric, figureKey, onChangeCase, queryResult, queryBusy,
   open,
   snapshot,
   locale,
   onClose,
   t,
 }: StructuralVisualizationModalProps) {
-  const [view, setView] = useState<VisualizationViewMode>('model')
-  const [planeSelection, setPlaneSelection] = useState<{
-    snapshot: VisualizationSnapshot | null
-    plane: VisualizationPlane
-  }>(() => ({ snapshot, plane: snapshot?.plane ?? 'xy' }))
-  const plane = planeSelection.snapshot === snapshot
-    ? planeSelection.plane
-    : snapshot?.plane ?? 'xy'
-  const [resetToken, setResetToken] = useState(0)
-  const [activeCaseId, setActiveCaseId] = useState('')
-  const [deformationScale, setDeformationScale] = useState(12)
-  const [forceMetric, setForceMetric] = useState<ForceMetric>('M2')
-  const [showUndeformed, setShowUndeformed] = useState(true)
-  const [showNodeLabels, setShowNodeLabels] = useState(false)
-  const [showElementLabels, setShowElementLabels] = useState(false)
-  const [showLoads, setShowLoads] = useState(true)
-  const [showLegend, setShowLegend] = useState(true)
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
-  const [selectedElementId, setSelectedElementId] = useState<string | null>(null)
-  const [selectedLoadIndex, setSelectedLoadIndex] = useState<number | null>(null)
-  const [isExporting, setIsExporting] = useState(false)
-  const [bucklingModeIndex, setBucklingModeIndex] = useState(0)
-  const exportRef = useRef<SceneExportHandle | null>(null)
-
-  const handlePlaneChange = (nextPlane: VisualizationPlane) => {
-    setPlaneSelection({ snapshot, plane: nextPlane })
-    setResetToken((current) => current + 1)
+  const [state, dispatch] = useReducer(vizReducer, undefined, () => createVizState())
+  const patch = (patch: Partial<VizState>) => dispatch({ type: 'patch', patch })
+  const { view, component: forceMetric, deformScale: deformationScale, showOriginal: showUndeformed,
+    showNodeLabels, showElementLabels, showLoads, showLegend, mode: bucklingModeIndex, resetToken } = state
+  const selectedNodeId = state.selection?.kind === 'node' ? state.selection.id : null
+  const selectedElementId = state.selection?.kind === 'member' ? state.selection.id : null
+  const selectedLoadIndex = state.selection?.kind === 'load' ? Number(state.selection.id) : null
+  const select = (kind: 'node' | 'member' | 'load', id: string | number | null) => {
+    if (id !== null) patch({ selection: { kind, id: String(id) } })
   }
-
-  useEffect(() => {
-    if (!open || !snapshot) {
-      return
-    }
-    setView(initialView && snapshot.availableViews.includes(initialView) ? initialView : snapshot.availableViews[0] || 'model')
-    setForceMetric(initialForceMetric ?? (snapshot?.cases.some(item => Object.values(item.memberResponses ?? {})
-      .some(row => row.samples.some(sample => typeof sample.M2 === 'number'))) ? 'M2' : 'moment'))
-    setActiveCaseId(snapshot.defaultCaseId)
-    setSelectedNodeId(selectedObject?.kind === 'node' ? selectedObject.id : null)
-    setSelectedElementId(selectedObject?.kind === 'member' ? selectedObject.id : null)
-    setSelectedLoadIndex(null)
-    setBucklingModeIndex(0)
-  }, [open, snapshot, selectedObject?.id, selectedObject?.kind, initialView, initialForceMetric])
-
+  const setSelectedNodeId = (id: string | null) => select('node', id)
+  const setSelectedElementId = (id: string | null) => select('member', id)
+  const setSelectedLoadIndex = (id: number | null) => select('load', id)
+  const plane = snapshot?.plane ?? 'xz'
+  const [isExporting, setIsExporting] = useState(false)
+  const exportRef = useRef<SceneExportHandle | null>(null)
   const placeholderTitle = useMemo(
     () => snapshot?.title || t('visualizationTitle'),
     [snapshot, t]
   )
   const activeCase = useMemo<VisualizationCase | null>(
-    () => snapshot?.cases.find((item) => item.id === (activeCaseId || snapshot.defaultCaseId)) || null,
-    [activeCaseId, snapshot]
+    () => snapshot?.cases.find((item) => item.id === snapshot.defaultCaseId) || null,
+    [snapshot]
   )
   const bucklingModes = useMemo(() => getBucklingModes(snapshot, activeCase), [snapshot, activeCase])
   const caseSnapshot = useMemo(() => snapshot && activeCase?.availableViews
     ? { ...snapshot, availableViews: activeCase.availableViews } : snapshot, [snapshot, activeCase])
-  useEffect(() => {
-    setSelectedLoadIndex(null)
-    setBucklingModeIndex(0)
-    setView(current => activeCase?.availableViews && !activeCase.availableViews.includes(current) ? 'model' : current)
-  }, [activeCase])
   const selectedNode = useMemo(
     () => snapshot?.nodes.find((item) => item.id === selectedNodeId) || null,
     [selectedNodeId, snapshot]
@@ -214,44 +186,45 @@ export function StructuralVisualizationModal({
   }, [snapshot, activeCase])
 
   useEffect(() => {
-    if (!open || !snapshot) {
-      return
-    }
-    setDeformationScale(deformationScaleRange.recommended)
-  }, [open, snapshot, deformationScaleRange.recommended])
-
-  useEffect(() => {
-    setDeformationScale((current) => Math.min(deformationScaleRange.max, Math.max(deformationScaleRange.min, current)))
-  }, [deformationScaleRange.min, deformationScaleRange.max])
+    if (!open || !snapshot) return
+    dispatch({ type: 'open', key: figureKey ?? `${snapshot.source}:${snapshot.title}:${snapshot.defaultCaseId}`, initial: {
+      view: initialView && snapshot.availableViews.includes(initialView) ? initialView : snapshot.availableViews[0] || 'model',
+      component: initialForceMetric ?? (snapshot.cases.some(item => Object.values(item.memberResponses ?? {}).some(row => row.samples.some(sample => typeof sample.M2 === 'number'))) ? 'M2' : 'moment'),
+      deformScale: deformationScaleRange.recommended,
+      selection: selectedObject ? { kind: selectedObject.kind, id: selectedObject.id } : null,
+    } })
+  }, [open, snapshot, figureKey, initialView, initialForceMetric, selectedObject, deformationScaleRange.recommended])
 
   return (
     <VisualizationModalShell
       onClose={onClose}
-      onResetView={() => setResetToken((current) => current + 1)}
-      onPlaneChange={handlePlaneChange}
-      onViewChange={setView}
+      onResetView={() => patch({ resetToken: resetToken + 1, selection: null })}
+      onCameraChange={camera => patch({ camera, resetToken: resetToken + 1 })}
+      onViewChange={view => patch({ view })}
       open={open}
-      selectedPlane={plane}
+      selectedCamera={state.camera}
       selectedView={view}
       snapshot={caseSnapshot}
       t={t}
       title={placeholderTitle}
       aside={
         <div className="space-y-4">
-          <div className="rounded-2xl border border-border/70 bg-card/80 p-4 dark:border-white/10 dark:bg-slate-950/40">
+          <div className="rounded-2xl border border-border/70 bg-card/80 p-4">
             <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{t('visualizationCurrentCase')}</div>
             <div className="mt-2 text-base font-semibold text-foreground">
               {activeCase ? getCaseLabel(activeCase.id, activeCase.label, t) : t('visualizationUnavailable')}
             </div>
+            {onChangeCase && <button type="button" className="mt-2 text-sm text-primary underline" onClick={onChangeCase}>{t('visualizationChangeCase')}</button>}
             {activeCase?.resultStatus === 'unavailable' ? <div className="mt-2 text-sm text-muted-foreground">{t('visualizationUnavailable')}</div> : null}
           </div>
           {onQueryObject && (selectedNodeId && (!queryObjectKinds || queryObjectKinds.includes('node')) || selectedElementId && (!queryObjectKinds || queryObjectKinds.includes('member'))) && <button type="button"
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            disabled={queryBusy} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm disabled:opacity-50"
             onClick={() => onQueryObject(selectedNodeId ? { kind: 'node', id: selectedNodeId } : { kind: 'member', id: selectedElementId! })}>
-            {locale === 'zh' ? '使用此对象查询数值' : 'Query this object'}
+            {t('visualizationQueryObject')}
           </button>}
+          {queryResult && <div role="status" data-testid="visualization-query-result" className="rounded-lg border border-border bg-background p-3 text-sm">{queryResult}</div>}
           {snapshot?.statusMessage ? (
-            <div className="rounded-2xl border border-amber-300/30 bg-amber-300/10 p-4 text-sm leading-6 text-amber-900 dark:text-amber-100">
+            <div className="rounded-2xl border border-accent/40 bg-accent/10 p-4 text-sm leading-6 text-foreground">
               {snapshot.statusMessage}
             </div>
           ) : null}
@@ -260,31 +233,31 @@ export function StructuralVisualizationModal({
               modes={bucklingModes}
               activeIndex={bucklingModeIndex}
               title={t('visualizationViewBuckling')}
-              onSelect={setBucklingModeIndex}
+              onSelect={mode => patch({ mode })}
             />
           ) : null}
           {snapshot?.unsupportedElementTypes.length ? (
-            <div className="rounded-2xl border border-amber-300/30 bg-amber-300/10 p-4 text-sm leading-6 text-amber-900 dark:text-amber-100">
+            <div className="rounded-2xl border border-accent/40 bg-accent/10 p-4 text-sm leading-6 text-foreground">
               {t('visualizationUnsupportedElements')}: {snapshot.unsupportedElementTypes.join(', ')}
             </div>
           ) : null}
           {snapshot ? (
-            <div className="rounded-2xl border border-border/70 bg-card/80 p-4 dark:border-white/10 dark:bg-slate-950/40">
+            <div className="rounded-2xl border border-border/70 bg-card/80 p-4">
               <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{t('visualizationUnits')}</div>
               <div className="mt-2 space-y-1.5 text-sm text-muted-foreground">
                 <div>{t('visualizationUnitSystem')}: {snapshot.unitSystem || 'SI'}</div>
                 <div>{t('visualizationLength')}: {snapshot.lengthUnit || snapshot.nodeLabelUnit || '-'}</div>
-                <div>{t('visualizationDisplacement')}: {snapshot.displacementUnit || '-'}</div>
-                <div>{t('visualizationReactions')}: {snapshot.resultUnit || '-'}</div>
-                <div>{t('visualizationForceMoment')}: {snapshot.momentUnit || '-'}</div>
-                <div>{t('visualizationLoadsList')}: {snapshot.nodalLoadUnit || '-'}</div>
-                <div>q: {snapshot.distributedLoadUnit || '-'}</div>
-                <div>A: {snapshot.floorLoadUnit || '-'}</div>
+                {view === 'deformed' && <div>{t('visualizationDisplacement')}: {snapshot.displacementUnit || '-'}</div>}
+                {['forces', 'reactions'].includes(view) && <div>{t('visualizationReactions')}: {snapshot.resultUnit || '-'}</div>}
+                {['forces', 'reactions'].includes(view) && <div>{t('visualizationForceMoment')}: {snapshot.momentUnit || '-'}</div>}
+                {view === 'model' && showLoads && <div>{t('visualizationLoadsList')}: {snapshot.nodalLoadUnit || '-'}</div>}
+                {view === 'model' && showLoads && snapshot.loads.some(load => load.kind === 'distributed') && <div>{t('visualizationDistributedUnit')}: {snapshot.distributedLoadUnit || '-'}</div>}
+                {view === 'model' && showLoads && snapshot.loads.some(load => load.kind === 'area') && <div>{t('visualizationAreaUnit')}: {snapshot.floorLoadUnit || '-'}</div>}
               </div>
             </div>
           ) : null}
           {selectedNode ? (
-            <div className="rounded-2xl border border-border/70 bg-card/80 p-4 dark:border-white/10 dark:bg-slate-950/40">
+            <div className="rounded-2xl border border-border/70 bg-card/80 p-4">
               <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{t('visualizationSelectedNode')}</div>
               <div className="mt-2 text-lg font-semibold text-foreground">{selectedNode.id}</div>
               <div className="mt-3 space-y-2 text-sm text-muted-foreground">
@@ -341,7 +314,7 @@ export function StructuralVisualizationModal({
             </div>
           ) : null}
           {selectedElement ? (
-            <div className="rounded-2xl border border-border/70 bg-card/80 p-4 dark:border-white/10 dark:bg-slate-950/40">
+            <div className="rounded-2xl border border-border/70 bg-card/80 p-4">
               <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{t('visualizationSelectedElement')}</div>
               <div className="mt-2 text-lg font-semibold text-foreground">{selectedElement.id}</div>
               <div className="mt-1 text-sm text-muted-foreground">{selectedElement.type}</div>
@@ -366,13 +339,13 @@ export function StructuralVisualizationModal({
                   <div>{t('visualizationControlCase')}: {selectedElementResults.controlCases[forceMetric]}</div>
                 )}
                 {!modelOnly && selectedMemberResponse?.state === 'native-stations' && (
-                  <NativeStationPanel response={selectedMemberResponse} locale={locale} />
+                  <NativeStationPanel response={selectedMemberResponse} locale={locale} snapshot={snapshot!} component={forceMetric} t={t} />
                 )}
               </div>
             </div>
           ) : null}
           {selectedLoad ? (
-            <div className="rounded-2xl border border-border/70 bg-card/80 p-4 dark:border-white/10 dark:bg-slate-950/40">
+            <div className="rounded-2xl border border-border/70 bg-card/80 p-4">
               <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{t('visualizationSelectedLoad')}</div>
               <div className="mt-2 text-sm text-muted-foreground">{getLoadTargetLabel(selectedLoad, t)}</div>
               <div className="mt-3 space-y-2 text-sm text-muted-foreground">
@@ -416,20 +389,18 @@ export function StructuralVisualizationModal({
             </div>
           ) : null}
           {snapshot ? (
-            <div className="rounded-2xl border border-border/70 bg-card/80 p-4 dark:border-white/10 dark:bg-slate-950/40">
+            <div className="rounded-2xl border border-border/70 bg-card/80 p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{t('visualizationObjectList')}</div>
-                <button
-                  className="rounded-full border border-border/70 bg-background/70 px-3 py-1 text-xs text-muted-foreground transition hover:text-foreground dark:border-white/10 dark:bg-white/5"
+                {state.selection && <button
+                  className="rounded-full border border-border/70 bg-background/70 px-3 py-1 text-xs text-muted-foreground transition hover:text-foreground"
                   onClick={() => {
-                    setSelectedNodeId(null)
-                    setSelectedElementId(null)
-                    setSelectedLoadIndex(null)
+                    patch({ selection: null })
                   }}
                   type="button"
                 >
                   {t('visualizationClearSelection')}
-                </button>
+                </button>}
               </div>
               <div className="space-y-3">
                 <div>
@@ -438,7 +409,7 @@ export function StructuralVisualizationModal({
                     {snapshot.nodes.map((node) => (
                       <button
                         key={node.id}
-                        className={`rounded-full border px-3 py-1.5 text-xs transition ${selectedNodeId === node.id ? 'border-cyan-300/50 bg-cyan-300/14 text-foreground' : 'border-border/70 bg-background/70 text-muted-foreground hover:text-foreground dark:border-white/10 dark:bg-white/5'}`}
+                        className={`rounded-full border px-3 py-1.5 text-xs transition ${selectedNodeId === node.id ? 'border-primary bg-primary/15 text-foreground' : 'border-border/70 bg-background/70 text-muted-foreground hover:text-foreground'}`}
                         onClick={() => {
                           setSelectedNodeId(node.id)
                           setSelectedElementId(null)
@@ -457,7 +428,7 @@ export function StructuralVisualizationModal({
                     {snapshot.elements.map((element) => (
                       <button
                         key={element.id}
-                        className={`rounded-full border px-3 py-1.5 text-xs transition ${selectedElementId === element.id ? 'border-cyan-300/50 bg-cyan-300/14 text-foreground' : 'border-border/70 bg-background/70 text-muted-foreground hover:text-foreground dark:border-white/10 dark:bg-white/5'}`}
+                        className={`rounded-full border px-3 py-1.5 text-xs transition ${selectedElementId === element.id ? 'border-primary bg-primary/15 text-foreground' : 'border-border/70 bg-background/70 text-muted-foreground hover:text-foreground'}`}
                         onClick={() => {
                           setSelectedElementId(element.id)
                           setSelectedNodeId(null)
@@ -470,14 +441,14 @@ export function StructuralVisualizationModal({
                     ))}
                   </div>
                 </div>
-                {snapshot.loads.length > 0 ? (
+                {view === 'model' && showLoads && snapshot.loads.length > 0 ? (
                   <div>
                     <div className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{t('visualizationLoadsList')}</div>
                     <div className="flex max-h-28 flex-wrap gap-2 overflow-auto">
                       {snapshot.loads.map((load, index) => activeCase && isLoadVisible(snapshot, activeCase, load) ? (
                         <button
                           key={`${load.caseId || 'default'}-${load.nodeId || load.elementId || load.storyId || index}-${index}`}
-                          className={`rounded-full border px-3 py-1.5 text-xs transition ${selectedLoadIndex === index ? 'border-cyan-300/50 bg-cyan-300/14 text-foreground' : 'border-border/70 bg-background/70 text-muted-foreground hover:text-foreground dark:border-white/10 dark:bg-white/5'}`}
+                          className={`rounded-full border px-3 py-1.5 text-xs transition ${selectedLoadIndex === index ? 'border-primary bg-primary/15 text-foreground' : 'border-border/70 bg-background/70 text-muted-foreground hover:text-foreground'}`}
                           onClick={() => {
                             setSelectedLoadIndex(index)
                             setSelectedNodeId(null)
@@ -495,7 +466,7 @@ export function StructuralVisualizationModal({
             </div>
           ) : null}
           {!selectedNode && !selectedElement && !selectedLoad && (
-            <div className="rounded-2xl border border-border/70 bg-card/80 p-4 text-sm leading-6 text-muted-foreground dark:border-white/10 dark:bg-slate-950/40">
+            <div className="rounded-2xl border border-border/70 bg-card/80 p-4 text-sm leading-6 text-muted-foreground">
               {snapshot ? `${t('visualizationSceneSelectionHelp')} ${t('visualizationSceneClickEmpty')}` : t('visualizationMissingModel')}
             </div>
           )}
@@ -504,66 +475,30 @@ export function StructuralVisualizationModal({
     >
       {snapshot && activeCase ? (
         <div className="flex h-full min-h-0 flex-col">
-          <VisualizationToolbar
-            activeCaseId={activeCase.id}
-            deformationScale={deformationScale}
-            forceMetric={forceMetric}
-            forceMetricLocked={forceMetricLocked}
-            selectedView={view}
-            deformationScaleMin={deformationScaleRange.min}
-            deformationScaleMax={deformationScaleRange.max}
-            deformationScaleStep={deformationScaleRange.step}
-            onActiveCaseChange={setActiveCaseId}
-            onDeformationScaleChange={setDeformationScale}
-            onForceMetricChange={setForceMetric}
-            onSwitchToForcesView={() => setView('forces')}
-            onSwitchToUtilizationView={() => setView('utilization')}
-            onToggleElementLabels={() => setShowElementLabels((current) => !current)}
-            onToggleLegend={() => setShowLegend((current) => !current)}
-            onToggleLoads={() => setShowLoads((current) => !current)}
-            onToggleNodeLabels={() => setShowNodeLabels((current) => !current)}
-            onToggleUndeformed={() => setShowUndeformed((current) => !current)}
-            showElementLabels={showElementLabels}
-            showLegend={showLegend}
-            showLoads={showLoads}
-            showNodeLabels={showNodeLabels}
-            showUndeformed={showUndeformed}
-            snapshot={caseSnapshot || snapshot}
-            t={t}
-          />
-          <div className="flex items-center justify-end gap-2 border-b border-border/70 px-4 py-2 dark:border-white/10">
-            {([1, 2, 4] as const).map((scale) => (
-              <button
-                key={scale}
-                className="flex items-center gap-1.5 rounded-full border border-border/70 bg-background/70 px-3 py-1.5 text-sm text-muted-foreground transition hover:border-cyan-300/30 hover:text-foreground disabled:opacity-50 dark:border-white/10 dark:bg-white/5"
-                disabled={isExporting}
-                onClick={() => {
-                  if (!snapshot) return
-                  setIsExporting(true)
-                  const filename = `${snapshot.title.replace(/\s+/g, '_')}_${activeCase.id}`
-                  exportRef.current?.exportPng(filename, scale, () => setIsExporting(false))
-                }}
-                title={`${t('visualizationExportPng')} ${scale}x`}
-                type="button"
-              >
-                <span aria-hidden="true">{isExporting ? '…' : '↓'}</span> {t('visualizationExportPng')} {scale}x
-              </button>
-            ))}
+          <VisualizationToolbar snapshot={caseSnapshot || snapshot} state={state} scaleRange={deformationScaleRange} onChange={patch} t={t} />
+          <div className="flex items-center justify-end border-b border-border px-4 py-2">
+            <button className="rounded-full border border-border bg-background px-3 py-1.5 text-sm text-foreground disabled:opacity-50"
+              disabled={isExporting} type="button" onClick={() => {
+                setIsExporting(true)
+                exportRef.current?.exportPng(snapshot.title.replace(/[^a-z0-9_-]/gi, '_'), 2, () => setIsExporting(false))
+              }}>{t('visualizationExportPng')}</button>
           </div>
           <div className="min-h-0 flex-1" data-testid="visualization-modal-scene">
             <StructuralScene
               activeCase={activeCase}
               bucklingModeIndex={bucklingModeIndex}
               deformationScale={deformationScale}
+              diagramScale={state.diagramScale}
+              cameraPreset={state.camera}
+              locale={locale}
+              onFit={() => patch({ resetToken: resetToken + 1, selection: null })}
               exportRef={exportRef}
               forceMetric={forceMetric}
               onSelectElement={setSelectedElementId}
               onSelectLoad={setSelectedLoadIndex}
               onSelectNode={setSelectedNodeId}
               onClearSelection={() => {
-                setSelectedElementId(null)
-                setSelectedNodeId(null)
-                setSelectedLoadIndex(null)
+                patch({ selection: null })
               }}
               resetToken={resetToken}
               plane={plane}
@@ -572,7 +507,7 @@ export function StructuralVisualizationModal({
               selectedNodeId={selectedNodeId}
               showElementLabels={showElementLabels}
               showLegend={showLegend}
-              showLoads={showLoads}
+              showLoads={view === 'model' && showLoads}
               showNodeLabels={showNodeLabels}
               showUndeformed={showUndeformed}
               snapshot={snapshot}
@@ -583,8 +518,8 @@ export function StructuralVisualizationModal({
         </div>
       ) : (
         <div className="flex h-full items-center justify-center px-6 py-10 text-center" data-testid="visualization-modal-placeholder">
-          <div className="max-w-xl rounded-[28px] border border-dashed border-cyan-300/35 bg-cyan-300/8 p-8">
-            <div className="text-sm uppercase tracking-[0.24em] text-cyan-700 dark:text-cyan-200">{t('visualizationTitle')}</div>
+          <div className="max-w-xl rounded-[28px] border border-dashed border-primary bg-primary/15 p-8">
+            <div className="text-sm uppercase tracking-[0.24em] text-primary">{t('visualizationTitle')}</div>
             <div className="mt-3 text-2xl font-semibold text-foreground">{t('visualizationUnavailable')}</div>
             <div className="mt-3 text-sm leading-6 text-muted-foreground">{t('visualizationMissingModel')}</div>
           </div>

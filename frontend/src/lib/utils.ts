@@ -10,8 +10,8 @@ function toIntlLocale(locale: AppLocale): string {
   return locale === 'zh' ? 'zh-CN' : 'en-US'
 }
 
-export function formatNumber(num: number, locale: AppLocale = 'en'): string {
-  return new Intl.NumberFormat(toIntlLocale(locale)).format(num)
+export function formatNumber(num: number, locale: AppLocale = 'en', options?: Intl.NumberFormatOptions): string {
+  return new Intl.NumberFormat(toIntlLocale(locale), options).format(Object.is(num, -0) ? 0 : num)
 }
 
 export function formatDate(date: Date | string, locale: AppLocale = 'en'): string {
@@ -23,4 +23,8 @@ export function formatDate(date: Date | string, locale: AppLocale = 'en'): strin
     hour: '2-digit',
     minute: '2-digit',
   }).format(d)
+}
+
+export function formatResultNumber(num: number, locale: AppLocale = 'en'): string {
+  return formatNumber(num, locale, { maximumSignificantDigits: 4, minimumSignificantDigits: 3, useGrouping: false })
 }

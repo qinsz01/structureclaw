@@ -1,4 +1,6 @@
 import React from 'react'
+import type { AppLocale } from '@/lib/stores/slices/preferences'
+import type { CameraPreset } from '../state'
 import type { MessageKey } from '@/lib/i18n'
 import type { VisualizationCase, VisualizationPlane, VisualizationSnapshot, VisualizationViewMode } from '../types'
 import type { ForceMetric } from '../structural-scene-utils'
@@ -13,6 +15,10 @@ export type StructuralSceneProps = {
   plane: VisualizationPlane
   activeCase: VisualizationCase
   deformationScale: number
+  diagramScale?: number
+  cameraPreset?: CameraPreset
+  locale?: AppLocale
+  onFit?: () => void
   forceMetric: ForceMetric
   resetToken: number
   selectedElementId: string | null
