@@ -3,8 +3,10 @@ import { resultSelectionSchema } from './result-selection.js';
 
 /** Delivery requirements are separate from the writable physical model. Tool schemas use this strict form. */
 export const requestScopeSchema = z.object({
-  responses: z.array(z.enum(['forces', 'reactions', 'displacements', 'rotations', 'stress', 'dynamic'])).min(1),
-  design: z.boolean().default(false),
+  responses: z.array(z.enum(['forces', 'reactions', 'displacements', 'rotations', 'stress', 'dynamic'])).min(1)
+    .describe('For an ordinary static analysis/design request with no specific outputs, use forces, reactions and displacements. Add other response families only when requested; preserve explicitly requested outputs. / 普通静力分析或设计请求未指定输出时，使用内力、反力和位移；其他响应仅在用户要求时加入，保留明确要求的输出。'),
+  design: z.boolean().default(false)
+    .describe('true only for an explicit code-check request; "design a beam" alone is false. / 仅明确要求规范验算或校核时为true；仅“设计一个梁”为false。'),
   report: z.boolean().optional().describe('true only when the user asks for a report, a calculation book or another deliverable document; "design a beam" and specific results leave it false. / 仅当用户要求报告、计算书或其他交付文件时为true；“设计一个梁”和只求具体结果时为false。'),
   outputs: z.array(resultSelectionSchema.omit({ runId: true }).extend({
     field: resultSelectionSchema.shape.field.unwrap(), component: resultSelectionSchema.shape.component.unwrap(), unit: resultSelectionSchema.shape.unit.unwrap(),
