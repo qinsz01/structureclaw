@@ -77,13 +77,16 @@ describe('unified draft readiness',()=>{
   test.each([{}, {properties:{}}])('a named section with no numerical definition cannot be reported ready: %j', definition => {
     const state={...beam,engineeringDraft:{materials:[material],sectionRecords:[{id:'S',name:'UNREVIEWED-I999',type:'custom',...definition}]}};
     const missing=computeDraftMissing(plugin,state,'execution');
-    expect(missing.critical).toContain('templateProperties');
-    expect(buildDraftQuestions(plugin,missing.critical,[],state,'en')[0].question).toContain('section S');
+    expect(missing.critical).toEqual(['templateProperties', 'sectionConfirmation']);
+    const questions=buildDraftQuestions(plugin,missing.critical,[],state,'en');
+    expect(questions.find(question=>question.paramKey==='templateProperties').question).toContain('section S');
+    expect(questions.find(question=>question.paramKey==='sectionConfirmation').suggestedValue)
+      .toEqual([{id:'S',name:'UNREVIEWED-I999',fields:['shape'],requiresNumericDefinition:true}]);
   });
 
 test.each([{}, { properties: {} }, { shape: {}, dimensions: {} }])('a name-only section record is a label: no catalog completes it, so its properties are asked for: %j', definition => {
   const state={...beam,engineeringDraft:{materials:[material],sectionRecords:[{id:'S',name:'I20a',type:'custom',...definition}]}};
-  expect(computeDraftMissing(plugin,state,'execution').critical).toEqual(['templateProperties']);
+  expect(computeDraftMissing(plugin,state,'execution').critical).toEqual(['templateProperties', 'sectionConfirmation']);
   expect(state.engineeringDraft.sectionRecords[0].properties?.A).toBeUndefined();
 });
 
