@@ -1,5 +1,5 @@
 import type { VisualizationElement, VisualizationLocalAxes } from '../types'
-import { normalizeMemberResponses } from '../normalization'
+import { hasUnavailableDisplacements, normalizeMemberResponses } from '../normalization'
 import { asRecord, asNumber, parseVector3 } from './values'
 import { COORDINATE_TOLERANCE } from './vectors'
 
@@ -100,7 +100,11 @@ export function validateAnalysisResultReferences(
     }
   }
   const validateResultSet = (result: Record<string, unknown>) => {
-    normalizeMemberResponses(result.memberResponses, elements, dimension)
+    const displacementsUnavailable = hasUnavailableDisplacements(result)
+    if (displacementsUnavailable && Object.keys(asRecord(result.displacements) || {}).length) {
+      throw new Error('Displacements conflict with the declared unavailable response scope')
+    }
+    normalizeMemberResponses(result.memberResponses, elements, dimension, displacementsUnavailable)
     validateResultEntityMap(result.displacements, nodeIds, 'Displacements', ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'])
     validateResultEntityMap(result.reactions, nodeIds, 'Reactions', ['fx', 'fy', 'fz', 'mx', 'my', 'mz'])
     validateElementForceMap(result.forces, elements, 'Element forces')

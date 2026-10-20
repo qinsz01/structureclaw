@@ -99,6 +99,7 @@ export function buildCase(
   forcesInput: Record<string, unknown> | null,
   envelopeInput?: Record<string, unknown> | null,
   memberResponses?: Record<string, VisualizationMemberResponse>,
+  displacementsUnavailable = false,
 ): VisualizationCase {
   const nodeResults: Record<string, VisualizationNodeResults> = {}
   const elementResults: Record<string, VisualizationElementResults> = {}
@@ -139,7 +140,8 @@ export function buildCase(
     })
   }
 
-  return { id, label, kind, nodeResults, elementResults, ...(memberResponses ? { memberResponses } : {}) }
+  return { id, label, kind, nodeResults, elementResults, ...(memberResponses ? { memberResponses } : {}),
+    ...(displacementsUnavailable ? { displacementsUnavailable } : {}) }
 }
 
 export function applyEnvelopeTables(target: VisualizationCase, envelopeTables: Record<string, unknown> | null) {

@@ -1,5 +1,5 @@
 import type { BucklingMode, VisualizationCase, VisualizationElement, VisualizationExtensionMap } from '../types'
-import { normalizeMemberResponses } from '../normalization'
+import { hasUnavailableDisplacements, normalizeMemberResponses } from '../normalization'
 import { asRecord } from './values'
 import { applyEnvelopeTables, buildCase } from './result-cases'
 
@@ -14,8 +14,9 @@ export function buildResultCases(
   const baseForces = asRecord(data?.forces)
   const baseEnvelope = asRecord(data?.envelope)
   const responseElements = new Map(elements.map((element) => [element.id, element]))
+  const baseDisplacementsUnavailable = hasUnavailableDisplacements(data)
   const baseCase = buildCase('result', 'Result', 'result', baseDisplacements, baseReactions, baseForces, baseEnvelope,
-    normalizeMemberResponses(data?.memberResponses, responseElements, dimension))
+    normalizeMemberResponses(data?.memberResponses, responseElements, dimension, baseDisplacementsUnavailable), baseDisplacementsUnavailable)
   const nextCases: VisualizationCase[] = [baseCase]
 
   const caseResults = asRecord(data?.caseResults)
@@ -24,6 +25,7 @@ export function buildResultCases(
     if (!entry) {
       return
     }
+    const displacementsUnavailable = hasUnavailableDisplacements(entry)
     nextCases.push(
       buildCase(
         caseId,
@@ -33,7 +35,8 @@ export function buildResultCases(
         asRecord(entry.reactions),
         asRecord(entry.forces),
         asRecord(entry.envelope),
-        normalizeMemberResponses(entry.memberResponses, responseElements, dimension)
+        normalizeMemberResponses(entry.memberResponses, responseElements, dimension, displacementsUnavailable),
+        displacementsUnavailable
       )
     )
   })

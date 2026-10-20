@@ -6,10 +6,10 @@ export function buildAvailableViews(cases: VisualizationCase[], source: Visualiz
   if (source === 'model') {
     return ['model']
   }
-  const hasDisplacements = cases.some((item) =>
+  const hasDisplacements = cases.some((item) => !item.displacementsUnavailable && (
     Object.values(item.nodeResults).some((result) => vectorMagnitude([result.displacement?.ux, result.displacement?.uy, result.displacement?.uz]) > 0)
     || Object.values(item.memberResponses || {}).some((row) => row.samples.some((sample) => sample.displacement && vectorMagnitude(sample.displacement) > 0))
-  )
+  ))
   const hasForces = cases.some((item) =>
     Object.values(item.elementResults).some((result) =>
       [result.axial, result.shear, result.moment, result.torsion].some((value) => typeof value === 'number')

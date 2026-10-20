@@ -104,6 +104,8 @@ export type VisualizationCase = {
   elementResults: Record<string, VisualizationElementResults>
   /** Precomputed physical-member samples in model length units; never recovered in the UI. */
   memberResponses?: Record<string, VisualizationMemberResponse>
+  /** Explicit response scope; omitted displacement samples must not invalidate saved forces. */
+  displacementsUnavailable?: boolean
   /** Present for independently saved run results; an unavailable case has no fallback data. */
   resultStatus?: 'available' | 'unavailable'
   availableViews?: VisualizationViewMode[]

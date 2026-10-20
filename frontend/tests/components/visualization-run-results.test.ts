@@ -36,6 +36,34 @@ function snapshot(analysis: Record<string, unknown> = run()) {
 }
 
 describe('saved analysis run visualization', () => {
+  it.each([true, false])('accepts omitted recovered displacements only with explicit unavailable scope (%s)', scoped => {
+    const result = child('D', 1)
+    const { displacements: _nodal, ...data } = result.data
+    const memberResponses = data.memberResponses.map(row => ({ ...row,
+      samples: row.samples.map(({ displacement: _sample, ...sample }) => ({ ...sample, N: 0, V3: 0.5, M2: -2.5 })),
+    }))
+    const input = { ...run(), selectedResultKey: 'case:D', results: { 'case:D': { ...result,
+      data: { ...data, memberResponses, ...(scoped ? { responseDefinition: { unavailable: ['displacements', 'rotations'] } } : {}) },
+    } } }
+    const before = JSON.stringify(input)
+    const view = snapshot(input)!
+    expect(view.cases[0].resultStatus).toBe(scoped ? 'available' : 'unavailable')
+    expect(view.availableViews).toEqual(scoped ? ['model', 'forces', 'reactions'] : ['model'])
+    if (scoped) {
+      expect(isCanonicalVisualizationSnapshot(view)).toBe(true)
+      expect(view.cases[0].memberResponses?.E1.samples[1]).toMatchObject({ x: 3, M2: -2.5 })
+      expect(view.cases[0].memberResponses?.E1.samples[1]).not.toHaveProperty('displacement')
+      for (const kind of ['member', 'node']) {
+        const contradictory = structuredClone(input)
+        const scopedData = contradictory.results['case:D'].data
+        if (kind === 'member') Object.assign(scopedData.memberResponses[0].samples[1], { displacement: [0, 0, 1] })
+        else Object.assign(scopedData, { displacements: { '2': { uz: 1 } } })
+        expect(snapshot(contradictory)!.cases[0].resultStatus).toBe('unavailable')
+      }
+    }
+    expect(JSON.stringify(input)).toBe(before)
+  })
+
   it('uses the selected child and keeps curves, forces, reactions and loads in their own case', () => {
     const input = run()
     const before = JSON.stringify(input)

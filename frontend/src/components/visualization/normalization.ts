@@ -9,11 +9,17 @@ import type {
 const COORDINATE_TOLERANCE = 1e-8
 const LINE_ELEMENT_TYPES = new Set(['beam', 'truss', 'column', 'brace', 'link'])
 
+export function hasUnavailableDisplacements(data: Record<string, unknown> | null) {
+  const definition = data?.responseDefinition as { unavailable?: unknown } | undefined
+  return Array.isArray(definition?.unavailable) && definition.unavailable.includes('displacements')
+}
+
 /** Validates transport samples without introducing a second mechanics implementation. */
 export function normalizeMemberResponses(
   value: unknown,
   elements: Map<string, VisualizationElement>,
   dimension: 2 | 3,
+  displacementsUnavailable = false,
 ): Record<string, VisualizationMemberResponse> | undefined {
   if (value === undefined) return undefined
   if (!Array.isArray(value)) throw new Error('memberResponses must be an array')
@@ -35,7 +41,7 @@ export function normalizeMemberResponses(
       if (!sample || typeof sample.x !== 'number' || !Number.isFinite(sample.x)
         || sample.x < -COORDINATE_TOLERANCE || sample.x > row.length + COORDINATE_TOLERANCE || sample.x < previous
         || !finiteTuple(sample.position)
-        || (forceOnly ? sample.displacement !== undefined : !finiteTuple(sample.displacement))
+        || (forceOnly || displacementsUnavailable ? sample.displacement !== undefined : !finiteTuple(sample.displacement))
         || (sample.side !== undefined && !['left', 'right'].includes(sample.side))
         || (sample.segmentId !== undefined && typeof sample.segmentId !== 'string')
         || (dimension === 2 && (Math.abs(sample.position[1]) > COORDINATE_TOLERANCE
@@ -245,11 +251,12 @@ export function isCanonicalVisualizationSnapshot(snapshot: VisualizationSnapshot
       if (!resultCase.memberResponses || typeof resultCase.memberResponses !== 'object' || Array.isArray(resultCase.memberResponses)
         || Object.entries(resultCase.memberResponses).some(([id, row]) => id !== row?.id)) return false
       try {
-        normalizeMemberResponses(Object.values(resultCase.memberResponses), elements, snapshot.dimension)
+        normalizeMemberResponses(Object.values(resultCase.memberResponses), elements, snapshot.dimension, resultCase.displacementsUnavailable)
       } catch { return false }
     }
     for (const [nodeId, result] of Object.entries(resultCase.nodeResults || {})) {
       if (!nodePositions.has(nodeId) || !result) return false
+      if (resultCase.displacementsUnavailable && result.displacement !== undefined) return false
       if (!finiteResultComponents(result.displacement) || !finiteResultComponents(result.reaction)) return false
       if (snapshot.dimension === 2) {
         const displacement = result.displacement || {}
