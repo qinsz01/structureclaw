@@ -7,6 +7,7 @@ import { createRunAnalysisTool } from '../../../dist/agent-langgraph/tools/run-a
 import { createBuildModelTool } from '../../../dist/agent-langgraph/tools/build-model.js';
 import { createEditModelTool } from '../../../dist/agent-langgraph/model-tools.js';
 import { createLocalStructureProtocolClient } from '../../../dist/services/structure-protocol-execution.js';
+import { draftSectionConfirmations } from '../../../dist/agent-runtime/draft-readiness.js';
 
 const shape = { kind: 'I', H: 200, B: 100, tw: 7, tf: 11.4 };
 const section = () => ({ id: 'S', name: 'I20a', type: 'I', shape: { ...shape }, extra: { provenance: { shape: 'user' } } });
@@ -33,6 +34,7 @@ describe('section numbers require actual user evidence', () => {
     '0.2×0.1×0.007×0.0114 m',
     '20×10×0.7×1.14 cm',
     'H200x100x7x11.4',
+    '确认 I20a：H200,B100,tw7,tf11.4',
     'H=200.01 mm, B=100, tw=7, tf=11.4 mm',
   ])('typed dimensions and unit variants are accepted: %s', text => {
     expect(enforceSectionUserEvidence(section(), [text]).extra.provenance.shape).toBe('user');
@@ -67,6 +69,25 @@ describe('section numbers require actual user evidence', () => {
     expect(enforceSectionUserEvidence(record, ['A=35.578cm, Iy=2370cm², Iz=140cm, J=4.8cm'])
       .extra.provenance.properties).toBe('llm-table');
     expect(enforceSectionUserEvidence(section(), ['200×100×7×11.2 mm']).extra.provenance.shape).toBe('llm-table');
+    expect(enforceSectionUserEvidence({ shape: { H: 235 }, extra: { provenance: { shape: 'user' } } }, ['Q235'])
+      .extra.provenance.shape).toBe('llm-table');
+  });
+
+  test('a name-only section asks for a numeric definition without losing its material', async () => {
+    const state = { messages: [user('材料Q235钢，截面工字钢I20a')], draftState: { engineeringDraft: {
+      materials: [{ id: 'M1', family: 'steel', grade: 'Q235', name: 'Q235' }],
+      sectionRecords: [{ id: 'S1', family: 'steel', name: 'I20a', type: 'I', extra: { source: 'user' } }],
+      templateAssignments: { beam: { materialId: 'M1' } },
+    } } };
+    expect(draftSectionConfirmations(state.draftState)).toEqual([
+      { id: 'S1', name: 'I20a', fields: ['shape'], requiresNumericDefinition: true },
+    ]);
+    const buildModel = jest.fn();
+    await expect(createBuildModelTool({ buildModel }).invoke({}, { toolCall: { id: 'name-only' },
+      configurable: { agentState: state } })).rejects.toThrow('SECTION_CONFIRMATION_REQUIRED');
+    expect(buildModel).not.toHaveBeenCalled();
+    expect(state.draftState.engineeringDraft.materials[0].grade).toBe('Q235');
+    expect(draftSectionConfirmations({ engineeringDraft: { sectionRecords: [{ id: 'S1', name: 'HN300×150×6.5×9' }] } })).toEqual([]);
   });
 
   test('a forged user source cannot cross build, import or analysis boundaries', async () => {

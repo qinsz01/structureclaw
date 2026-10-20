@@ -13,7 +13,7 @@ const dimensionsOf = text => {
   text = String(text ?? '');
   const tuple = text.match(/(\d+(?:\.\d+)?)\s*[×x*]\s*(\d+(?:\.\d+)?)\s*[×x*]\s*(\d+(?:\.\d+)?)\s*[×x*]\s*(\d+(?:\.\d+)?)\s*(mm|cm|m)?/i);
   if (tuple) return tuple.slice(1, 5).map(value => Number(value) * (tuple[5] === 'cm' ? 10 : tuple[5] === 'm' ? 1000 : 1));
-  const labels = ['\\bH\\b|高度|截面高', '\\bB\\b|翼缘宽度|翼缘宽', '\\btw\\b|腹板厚度|腹板厚', '\\btf\\b|翼缘厚度|翼缘厚'];
+  const labels = ['\\bH(?=\\b|\\d)|高度|截面高', '\\bB(?=\\b|\\d)|翼缘宽度|翼缘宽', '\\btw(?=\\b|\\d)|腹板厚度|腹板厚', '\\btf(?=\\b|\\d)|翼缘厚度|翼缘厚'];
   const named = labels.map(label => text.match(new RegExp(`(?:${label})(?:\\s*[（(][^()（）\\d]*[)）])?\\s*[:=：]?\\s*(\\d+(?:\\.\\d+)?)\\s*(mm|cm|m)?`, 'i')));
   if (named.every(Boolean)) return named.map(match => Number(match[1]) * (match[2] === 'cm' ? 10 : match[2] === 'm' ? 1000 : 1));
   return undefined;
