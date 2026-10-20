@@ -249,8 +249,8 @@ export function ResultReviewPanel({ open, onClose, conversationId, locale, disab
     className="my-[2vh] h-[92vh] max-w-[min(1600px,96vw)] bg-card dark:bg-card"
     contentClassName="p-0 sm:p-0"
     description={l('所有数值、图形和报告使用同一保存的运行与结果选择。', 'Values, figures and reports use the same saved run and result selection.')}>
-    <div className="grid min-h-full grid-cols-1 md:h-full md:min-h-0 md:grid-cols-[minmax(220px,280px)_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)]">
-    <div className="space-y-4 p-4 md:overflow-y-auto">
+    <div className="grid min-h-full grid-cols-1 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(220px,280px)_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)]">
+    <div className="space-y-4 p-4 lg:overflow-y-auto">
       {error && <p role="alert" className="rounded-lg border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
       {catalog && !catalog.allowedTools.includes('query_results') && <p className="text-sm text-muted-foreground">{l('当前会话策略未开放结果查询。已有会话权限不会自动扩大。', 'The saved conversation policy does not allow result queries; its permissions are not expanded automatically.')}</p>}
       <fieldset disabled={locked} className="grid grid-cols-2 gap-3">
@@ -275,7 +275,7 @@ export function ResultReviewPanel({ open, onClose, conversationId, locale, disab
       {catalog?.nativeDesign && <NativeDesignPanel key={conversationId} review={catalog.nativeDesign} locale={locale} disabled={locked} reportAllowed={catalog.allowedTools.includes('generate_report')} onExecute={runDesign} onReport={reportDesign} />}
       {report && <div className="space-y-3 rounded-xl border border-border p-4"><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => download('selected-report.md', String(report.markdown ?? ''), 'text/markdown;charset=utf-8')}>{l('导出 Markdown', 'Export Markdown')}</Button><Button variant="outline" onClick={() => download('selected-report.json', JSON.stringify(report.json, null, 2), 'application/json')}>{l('导出 JSON', 'Export JSON')}</Button><Button variant="outline" onClick={() => printSelectedReport(reportRef.current, String(record(record(report.json).meta).runId ?? selection.runId))}>{l('打印／保存 PDF', 'Print / save PDF')}</Button></div><div ref={reportRef}><MarkdownBody content={String(report.markdown ?? '')} /></div></div>}
     </div>
-    <div className="relative h-[780px] min-w-0 p-3 md:h-full md:min-h-0 md:pl-0" aria-busy={figureLoading}>
+    <div className="relative h-[780px] min-w-0 p-3 lg:h-full lg:min-h-0 lg:pl-0" aria-busy={figureLoading}>
     <StructuralViewer embedded fullscreen={fullscreen} onFullscreenChange={setFullscreen} open={open} onClose={() => setFullscreen(false)} snapshot={snapshot} locale={locale} t={t}
     figureKey={snapshot?.runId ?? selection.runId} responseKey={String(responseRevision)} onViewChange={setActiveView}
     onChangeCase={() => { setFullscreen(false); requestAnimationFrame(() => document.querySelector<HTMLSelectElement>(`select[aria-label="${l('工况／组合', 'Case / combination')}"]`)?.focus()) }} queryBusy={locked}

@@ -142,13 +142,16 @@ export function StructuralScene(props: StructuralSceneProps) {
 
   return (
     <ScenePaletteContext.Provider value={palette}>
-    <div ref={containerRef} className="relative h-full w-full" style={{ background: palette.background }} onDoubleClick={props.onFit}>
+    <div ref={containerRef} className="flex h-full w-full flex-col" style={{ background: palette.background }} onDoubleClick={props.onFit}>
       {invalidElementReferenceCount > 0 && invalidElementReferenceCount === snapshot.elements.length && (
-        <div className="pointer-events-none absolute left-4 top-4 z-10 max-w-lg rounded-xl border border-accent/40 bg-accent/10 px-3 py-2 text-xs text-foreground shadow-lg">
+        <div className="pointer-events-none shrink-0 rounded-xl border border-accent/40 bg-accent/10 px-3 py-2 text-xs text-foreground shadow-lg">
           <div className="font-semibold">{t('visualizationElementReferenceMismatchTitle')}</div>
           <div className="mt-1 leading-5">{t('visualizationElementReferenceMismatchBody')}</div>
         </div>
       )}
+      {/* Keep scene UI outside the WebGL viewport so fit uses the unobstructed area. */}
+      <div className="flex min-h-0 flex-1">
+      <div className="relative min-w-0 flex-1 overflow-hidden">
       <Canvas dpr={[1, 1.75]} frameloop={view === 'buckling' ? 'always' : 'demand'} gl={{ preserveDrawingBuffer: true }} onPointerMissed={props.onClearSelection}>
         <PngExporter glRef={glRef} invalidateRef={invalidateRef} renderRef={renderRef} measureRef={measureRef} />
         {view === 'buckling' && <BucklingAnimator amplitudeRef={bucklingAmplitudeRef} />}
@@ -156,10 +159,12 @@ export function StructuralScene(props: StructuralSceneProps) {
           <SceneContent {...props} maxElementMetric={maxElementMetric} rawMaxElementMetric={rawMaxElementMetric} maxReaction={maxReaction} maxReactionMoment={maxReactionMoment} maxDisplacement={maxDisplacement} bucklingAmplitudeRef={bucklingAmplitudeRef} />
         </Suspense>
       </Canvas>
-      {view === 'reactions' && activeCase.kind === 'envelope' && <p className="absolute bottom-3 left-3 right-3 rounded-lg bg-background p-3 text-sm text-foreground">{t('visualizationEnvelopeReactions')}</p>}
+      </div>
       {showLegend && colorBarProps && (
         <ColorBar {...colorBarProps} locale={props.locale} show={true} />
       )}
+      </div>
+      {view === 'reactions' && activeCase.kind === 'envelope' && <p className="shrink-0 rounded-lg bg-background p-3 text-sm text-foreground">{t('visualizationEnvelopeReactions')}</p>}
     </div>
     </ScenePaletteContext.Provider>
   )

@@ -18,7 +18,7 @@ export function ColorBar({ show, locale = 'en', ...legend }: LegendProps & { sho
   if (!show) return null
   const { maxValue, valueScale = 1, unit, label, colorMode } = legend
   const format = (value: number) => formatResultNumber(value, locale, maxValue * valueScale)
-  return <div data-testid="visualization-legend" className="pointer-events-none absolute right-3 top-3 z-10 flex max-w-[45%] flex-col items-end gap-1.5">
+  return <div data-testid="visualization-legend" className="pointer-events-none flex max-w-36 shrink-0 flex-col items-end gap-1.5 p-3">
     <div className="rounded-lg border border-border bg-background/95 px-3 py-1.5 text-xs font-medium text-foreground">{label}{unit ? ` (${unit})` : ''}</div>
     <div className="flex items-end gap-2 rounded-lg border border-border bg-background/95 p-2.5">
       {colorMode === 'buckling' ? <span className="text-xs text-foreground">{format(maxValue)}</span> : <div className="flex h-28 flex-col items-end justify-between text-xs text-muted-foreground">
