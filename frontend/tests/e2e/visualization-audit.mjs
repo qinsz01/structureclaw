@@ -283,7 +283,8 @@ export async function runVisualizationAudit({ only, out, screenshots = true }) {
         const response = page.waitForResponse(r => r.url().includes('/result-review/') && r.url().endsWith('/tools') && r.request().postDataJSON()?.args?.component)
         await ws.getByRole('button', { name: 'Query selected result', exact: true }).click(); assert.equal((await (await response).json()).success, true)
         await ws.getByRole('button', { name: 'Fullscreen', exact: true }).click(); await pause(page)
-        assert((await dialog(page).innerText()).includes(cases[1].replace(/^(case|combination):/, '')))
+        // The selected case snapshot can finish rendering after the quantity response.
+        await dialog(page).locator('h2').filter({ hasText: cases[1].replace(/^(case|combination):/, '') }).waitFor()
         rows.push({ scenario: scenario.id, control: 'workspace-case-to-viewer', class: 'a', domChanged: true })
         await button(page, 'Close Visualization').click()
       }
@@ -318,9 +319,12 @@ export async function runVisualizationAudit({ only, out, screenshots = true }) {
               }
               if (locale === 'en' && width === 1440) contrastChecks.push(...await toolbarContrast(page, theme, view))
               if (index > 0) {
-                const viewport = await canvas.boundingBox()
-                const legend = await page.getByTestId('visualization-legend').boundingBox()
-                assert(viewport && legend && viewport.x + viewport.width <= legend.x + 1, 'The legend must stay outside the camera viewport')
+                // Canvas dimensions follow ResizeObserver after a view or locale changes.
+                await page.waitForFunction(() => {
+                  const viewport = document.querySelector('[data-testid="visualization-modal-scene"] canvas')?.getBoundingClientRect()
+                  const legend = document.querySelector('[data-testid="visualization-legend"]')?.getBoundingClientRect()
+                  return viewport && legend && viewport.width > 0 && viewport.right <= legend.left + 1
+                }, undefined, { timeout: 5000 })
               }
               const file = path.join(out, `${scenario.id}-${labels.en.views[index].toLowerCase()}-${theme}-${locale}-${width}.png`)
               await captureDialog(page, file); screenshotPaths.push(file)
