@@ -5,10 +5,10 @@ import { legendStops, type LegendProps } from './color-bar'
 import type { ScenePalette } from './palette'
 
 /** Compose the WebGL frame and visible HTML labels onto an opaque, printable image. */
-export function exportSceneImage({ gl, render, container, filename, scale, palette, legend, title, note, locale, unitsPerPixel, lengthUnit }: {
+export function exportSceneImage({ gl, render, container, filename, scale, palette, legend, title, subtitle, note, locale, unitsPerPixel, lengthUnit }: {
   gl: THREE.WebGLRenderer; render: () => void; container: HTMLElement; filename: string; scale: number;
   unitsPerPixel?: number; lengthUnit?: string;
-  palette: ScenePalette; legend: LegendProps | null; title: string; note: string; locale: AppLocale
+  palette: ScenePalette; legend: LegendProps | null; title: string; subtitle?: string; note: string; locale: AppLocale
 }) {
   const rect = gl.domElement.getBoundingClientRect()
   const labels = Array.from(container.querySelectorAll<HTMLElement>('[data-viz-label]')).map(element => ({
@@ -32,7 +32,8 @@ export function exportSceneImage({ gl, render, container, filename, scale, palet
     line += char
   }
   lines.push(line)
-  lines.slice(0, 3).forEach((text, index) => ctx.fillText(text, 20, 24 + index * 22))
+  lines.slice(0, subtitle ? 2 : 3).forEach((text, index) => ctx.fillText(text, 20, 24 + index * 22))
+  if (subtitle) { ctx.font = '12px Arial, "Microsoft YaHei", sans-serif'; ctx.fillText(subtitle, 20, 68) }
   const ratio = gl.getPixelRatio()
   try {
     gl.setPixelRatio(scale)

@@ -1,6 +1,14 @@
 /** Structural visualization modal. */
 export const visualizationMessages = {
   en: {
+    visualizationAnalysisResult: 'Analysis result',
+    visualizationMode: 'Mode',
+    visualizationFrame2D: '2D frame',
+    visualizationFrame3D: '3D frame',
+    visualizationRun: 'Run',
+    visualizationCopyRunId: 'Copy full run ID',
+    visualizationRunIdCopied: 'Run ID copied',
+    visualizationRunIdCopyFailed: 'Could not copy the run ID',
     visualizationDiagramScale: 'Diagram scale',
     visualizationCamera: 'Camera',
     visualizationCameraFront: 'Front',
@@ -115,6 +123,14 @@ export const visualizationMessages = {
     visualizationStatusCurrentSource: 'Current Source',
   },
   zh: {
+    visualizationAnalysisResult: '分析结果',
+    visualizationMode: '模态',
+    visualizationFrame2D: '二维框架',
+    visualizationFrame3D: '三维框架',
+    visualizationRun: '运行',
+    visualizationCopyRunId: '复制完整运行 ID',
+    visualizationRunIdCopied: '已复制运行 ID',
+    visualizationRunIdCopyFailed: '无法复制运行 ID',
     visualizationDiagramScale: '内力图比例',
     visualizationCamera: '相机',
     visualizationCameraFront: '正视',

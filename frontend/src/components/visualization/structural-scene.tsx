@@ -118,7 +118,8 @@ export function StructuralScene(props: StructuralSceneProps) {
       try {
         if (glRef.current && containerRef.current) exportSceneImage({ gl: glRef.current, render: () => renderRef.current?.(),
           container: containerRef.current, filename, scale, palette, legend: colorBarProps,
-          title: `${snapshot.title} · ${activeCase.label}`,
+          title: snapshot.title,
+          subtitle: snapshot.runId ? `${t('visualizationRun')} · ${snapshot.runId.slice(0, 8)}` : undefined,
           note: view === 'deformed' ? `${t('visualizationScale')}: ${props.deformationScale.toFixed(1)}×`
             : `${t('visualizationGeometryScale')}: ${snapshot.lengthUnit ?? ''}`,
           locale: props.locale ?? 'en', unitsPerPixel: measureRef.current?.(), lengthUnit: snapshot.lengthUnit })

@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState, useReducer, type ReactNode } from 'react'
 import type { MessageKey } from '@/lib/i18n'
 import type { AppLocale } from '@/lib/stores/slices/preferences'
-import { formatNumber, formatResultNumber } from '@/lib/utils'
+import { cn, formatNumber, formatResultNumber } from '@/lib/utils'
+import { viewerButtonClass } from './button-style'
 import { getBucklingModes, BucklingModePanel } from './extensions'
 import { VisualizationModalShell } from './modal-shell'
 import { StructuralScene } from './structural-scene'
@@ -219,11 +220,11 @@ export function StructuralVisualizationModal({
             <div className="mt-2 text-base font-semibold text-foreground">
               {activeCase ? getCaseLabel(activeCase.id, activeCase.label, t) : t('visualizationUnavailable')}
             </div>
-            {onChangeCase && <button type="button" className="mt-2 text-sm text-primary underline" onClick={onChangeCase}>{t('visualizationChangeCase')}</button>}
+            {onChangeCase && <button type="button" className="mt-2 text-sm text-foreground underline" onClick={onChangeCase}>{t('visualizationChangeCase')}</button>}
             {activeCase?.resultStatus === 'unavailable' ? <div className="mt-2 text-sm text-muted-foreground">{t('visualizationUnavailable')}</div> : null}
           </div>
           {onQueryObject && queryTarget && (selectedNodeId && (!queryObjectKinds || queryObjectKinds.includes('node')) || selectedElementId && (!queryObjectKinds || queryObjectKinds.includes('member'))) && <button type="button"
-            disabled={queryBusy} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm disabled:opacity-50"
+            disabled={queryBusy} className={cn('w-full rounded-lg px-3 py-2 text-sm', viewerButtonClass())}
             onClick={() => onQueryObject(selectedNodeId ? { kind: 'node', id: selectedNodeId } : { kind: 'member', id: selectedElementId! }, queryTarget)}>
             {t('visualizationQueryObject')}
           </button>}
@@ -482,7 +483,7 @@ export function StructuralVisualizationModal({
         <div className="flex h-full min-h-0 flex-col">
           <VisualizationToolbar snapshot={caseSnapshot || snapshot} state={state} scaleRange={deformationScaleRange} onChange={patch} t={t} />
           <div className="flex items-center justify-end border-b border-border px-4 py-2">
-            <button className="rounded-full border border-border bg-background px-3 py-1.5 text-sm text-foreground disabled:opacity-50"
+            <button className={cn('rounded-full px-3 py-1.5 text-sm', viewerButtonClass())}
               disabled={isExporting} type="button" onClick={() => {
                 setIsExporting(true)
                 exportRef.current?.exportPng(snapshot.title.replace(/[^a-z0-9_-]/gi, '_'), 2, () => setIsExporting(false))

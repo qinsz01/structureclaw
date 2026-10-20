@@ -57,14 +57,21 @@ function download(name: string, content: string, type: string) {
 export function selectedResultSnapshot(output: Row, selection: ResultSelection, zh: boolean): VisualizationSnapshot | null {
   const model = record(output.modelSnapshot); const data = record(output.visualizationData)
   if (!Array.isArray(model.nodes)) return null
-  const title = `${String(record(model.metadata).name ?? record(model.metadata).description ?? visualizationMessages[zh ? 'zh' : 'en'].visualizationTitle)} · ${selection.runId} · ${selection.resultKey}${selection.modeNumber ? ` · mode ${selection.modeNumber}` : selection.timeIndex !== undefined ? ` · t=${String(data.time)} s` : ''}`
+  const metadata = record(model.metadata), text = visualizationMessages[zh ? 'zh' : 'en']
+  const structure = [metadata.name, metadata.description, metadata.structureType, model.structure_type,
+    metadata.frameDimension === '2d' ? text.visualizationFrame2D : metadata.frameDimension === '3d' ? text.visualizationFrame3D : undefined]
+    .find(value => typeof value === 'string' && value.trim())
+  const caseId = String(record(output.resultSelection).id ?? selection.resultKey.replace(/^(case|combination):/, ''))
+  const sourceCase = (Array.isArray(model.load_cases) ? model.load_cases : []).map(record).find(row => row.id === caseId)
+  const caseLabel = String(sourceCase?.name ?? caseId)
+  const title = `${structure ?? text.visualizationAnalysisResult} · ${caseLabel}${selection.modeNumber ? ` · ${text.visualizationMode} ${selection.modeNumber}` : selection.timeIndex !== undefined ? ` · t=${String(data.time)} s` : ''}`
   if (selection.modeNumber === undefined && selection.timeIndex === undefined) {
     const snapshot = buildVisualizationSnapshot({
     title, model, analysis: output.resultSelection ? { runId: output.runId, meta: output.meta, selectedResultKey: selection.resultKey,
       results: { [selection.resultKey]: { success: true, selection: output.resultSelection, meta: output.meta, data } } }
       : { success: true, meta: output.meta, data }, mode: 'analysis-result' })
     const quantity = record(output.quantity)
-    return snapshot ? { ...snapshot, statusMessage: `${visualizationMessages[zh ? 'zh' : 'en'].visualizationSelectedValue}: ${typeof quantity.value === 'number' ? formatResultNumber(quantity.value, zh ? 'zh' : 'en') : '—'} ${String(quantity.unit ?? '')}` } : null
+    return snapshot ? { ...snapshot, runId: selection.runId, statusMessage: `${visualizationMessages[zh ? 'zh' : 'en'].visualizationSelectedValue}: ${typeof quantity.value === 'number' ? formatResultNumber(quantity.value, zh ? 'zh' : 'en') : '—'} ${String(quantity.unit ?? '')}` } : null
   }
   const geometry = buildVisualizationSnapshot({ title, model, mode: 'model-only' })
   if (!geometry) return null
@@ -78,9 +85,9 @@ export function selectedResultSnapshot(output: Row, selection: ResultSelection, 
   const availableViews: VisualizationSnapshot['availableViews'] = ['model']
   if (geometry.nodes.every(node => ['ux', 'uy', 'uz'].every(key => typeof record(displacements[node.id])[key] === 'number' && Number.isFinite(record(displacements[node.id])[key])))) availableViews.push('deformed')
   if (Object.keys(reactions).length) availableViews.push('reactions')
-  return { ...geometry, source: 'result', title, loads: [], defaultCaseId: selection.resultKey, availableViews,
+  return { ...geometry, source: 'result', title, runId: selection.runId, loads: [], defaultCaseId: selection.resultKey, availableViews,
     ...(selection.modeNumber !== undefined ? { displacementUnit: '1', displacementDisplayFactor: 1 } : {}),
-    cases: [{ id: selection.resultKey, label: title, kind: 'result', nodeResults, elementResults: {}, availableViews }],
+    cases: [{ id: selection.resultKey, label: caseLabel, kind: 'result', nodeResults, elementResults: {}, availableViews }],
     statusMessage: selection.modeNumber !== undefined
       ? zh ? '振型按最大平动分量归一化，无量纲；杆线连接仅用于显示，不代表跨内物理位移。' : 'Mode shape normalized by its maximum translational component, dimensionless. Connecting member lines are display interpolation, not physical interior displacements.'
       : `${zh ? '实际记录时间点；整体变形需全部节点平动记录完整，缺测不补零。杆线连接仅用于显示。响应定义：' : 'Recorded time sample; global deformation requires all node translations. Missing DOFs are not filled with zero. Connecting lines are display interpolation. Response definition: '}${JSON.stringify(data.responseDefinition ?? null)}` }

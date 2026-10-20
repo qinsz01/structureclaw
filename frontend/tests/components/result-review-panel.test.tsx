@@ -16,6 +16,21 @@ const catalog = { conversationId:'A',revisionToken:'v1',currentRunId:'now',allow
 const result = {runId:'now',resultKey:'analysis:dynamic',quantity:{value:-2,unit:'mm',time:.03},modelSnapshot:model,visualizationData:{time:.03,displacements:{a:{ux:0,uy:0,uz:0},b:{ux:0,uy:0,uz:-.002}}}}
 beforeEach(() => vi.restoreAllMocks())
 
+it.each([
+  [false, {}, 'Analysis result'],
+  [true, {}, '分析结果'],
+  [false, { description: 'South bridge' }, 'South bridge'],
+  [true, { frameDimension: '3d' }, '三维框架'],
+] as const)('uses a human figure title and separate run provenance (%s, %j)', (zh, metadata, expected) => {
+  const selection = { runId: '0494e9c1-573d-4000-8000-123456789abc', resultKey: 'case:D',
+    nodeId: 'b', timeIndex: 1, field: 'displacements', component: 'uz', unit: 'mm' }
+  const snapshot = selectedResultSnapshot({ ...result, modelSnapshot: { ...model, metadata } }, selection, zh)!
+  expect(snapshot.title).toBe(`${expected} · D · t=0.03 s`)
+  expect(snapshot.title).not.toContain(selection.runId)
+  expect(snapshot.title).not.toContain('case:')
+  expect(snapshot.runId).toBe(selection.runId)
+})
+
 describe('one selected result for query, curve and report', () => {
   it.each(['zh','en'] as const)('uses exact time and archived run, clearing old values on a new selection (%s)', async locale => {
     const posts: {tool:string;args:Record<string,unknown>;revisionToken:string}[]=[]

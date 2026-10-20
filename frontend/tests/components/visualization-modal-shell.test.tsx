@@ -67,6 +67,28 @@ describe('VisualizationModalShell', () => {
     expect(screen.getByText('My Title')).toBeInTheDocument()
   })
 
+  it.each(['en', 'zh'] as const)('keeps the full run ID in a copyable secondary line in %s', async locale => {
+    const runId = '0494e9c1-573d-4000-8000-123456789abc'
+    const t = (key: keyof typeof messages.en) => messages[locale][key]
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    const previous = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+    try {
+      render(<VisualizationModalShell {...defaultProps} t={t} title="Beam · D" snapshot={makeSnapshot({ runId })} />)
+      expect(screen.getByRole('heading', { name: 'Beam · D' })).not.toHaveTextContent(runId)
+      const copy = screen.getByRole('button', { name: t('visualizationCopyRunId') })
+      expect(copy).toHaveAttribute('title', runId)
+      expect(copy).toHaveTextContent(runId.slice(0, 8))
+      expect(copy).not.toHaveTextContent(runId)
+      await act(async () => fireEvent.click(copy))
+      expect(writeText).toHaveBeenCalledWith(runId)
+      expect(screen.getByRole('status')).toHaveTextContent(t('visualizationRunIdCopied'))
+    } finally {
+      if (previous) Object.defineProperty(navigator, 'clipboard', previous)
+      else Reflect.deleteProperty(navigator, 'clipboard')
+    }
+  })
+
   it('renders children content', () => {
     render(<VisualizationModalShell {...defaultProps} />)
     expect(screen.getByTestId('canvas')).toBeInTheDocument()
@@ -147,7 +169,8 @@ describe('VisualizationModalShell', () => {
   it('applies active styling to the selected view button', () => {
     render(<VisualizationModalShell {...defaultProps} selectedView="deformed" />)
     const deformedButton = screen.getByRole('button', { name: 'Deformed' })
-    expect(deformedButton.className).toContain('border-primary')
+    expect(deformedButton).toHaveAttribute('aria-pressed', 'true')
+    expect(deformedButton.className).toContain('border-foreground')
   })
 
   it('calls onViewChange when a view button is clicked', async () => {

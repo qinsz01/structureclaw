@@ -138,6 +138,7 @@ export type VisualizationMemberResponse = {
 export type VisualizationSnapshot = {
   version: 1
   title: string
+  runId?: string
   source: VisualizationSource
   dimension: 2 | 3
   plane: VisualizationPlane

@@ -1,14 +1,15 @@
 'use client'
 
-import { useEffect, useMemo, useRef, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { Focus, Maximize2, X } from 'lucide-react'
+import { Copy, Focus, Maximize2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { MessageKey } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import { getVisualizationViewLabelKey } from './extensions'
 import type { CameraPreset } from './state'
 import type { VisualizationSnapshot, VisualizationViewMode } from './types'
+import { viewerButtonClass } from './button-style'
 
 type VisualizationModalShellProps = {
   open: boolean
@@ -45,6 +46,8 @@ export function VisualizationModalShell({
   const containerRef = useRef<HTMLDivElement | null>(null)
   const closeButtonRef = useRef<HTMLButtonElement | null>(null)
   const lastActiveElementRef = useRef<HTMLElement | null>(null)
+  const [copyStatus, setCopyStatus] = useState<'copied' | 'failed' | null>(null)
+  useEffect(() => setCopyStatus(null), [open, snapshot?.runId])
 
   const availableViews = useMemo(
     (): VisualizationViewMode[] => snapshot?.availableViews || ['model'],
@@ -127,6 +130,17 @@ export function VisualizationModalShell({
             <div>
               <p className="text-xs uppercase tracking-[0.24em] text-primary">{t('visualizationTitle')}</p>
               <h2 className="mt-1 text-2xl font-semibold text-foreground">{title}</h2>
+              {snapshot?.runId && <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <button type="button" title={snapshot.runId} aria-label={t('visualizationCopyRunId')} data-testid="visualization-copy-run-id"
+                  className={cn('inline-flex items-center gap-1.5 rounded-md px-2 py-1', viewerButtonClass())}
+                  onClick={async () => {
+                    try { await navigator.clipboard.writeText(snapshot.runId!); setCopyStatus('copied') }
+                    catch { setCopyStatus('failed') }
+                  }}>
+                  {t('visualizationRun')} · {snapshot.runId.slice(0, 8)} <Copy className="h-3 w-3" />
+                </button>
+                {copyStatus && <span role="status" data-testid="visualization-run-copy-status">{t(copyStatus === 'copied' ? 'visualizationRunIdCopied' : 'visualizationRunIdCopyFailed')}</span>}
+              </div>}
               {snapshot ? (
                 <div className="mt-2 space-y-2 text-sm text-muted-foreground">
                   <p>
@@ -147,7 +161,7 @@ export function VisualizationModalShell({
             </div>
             <div className="flex items-center gap-2">
               <Button
-                className="rounded-full border border-border/70 bg-background/80 text-foreground hover:bg-accent/30"
+                className={cn('rounded-full', viewerButtonClass())}
                 onClick={onResetView}
                 type="button"
                 variant="outline"
@@ -157,7 +171,7 @@ export function VisualizationModalShell({
               </Button>
               <Button
                 ref={closeButtonRef}
-                className="rounded-full border border-border/70 bg-background/80 text-foreground hover:bg-accent/30"
+                className={cn('rounded-full', viewerButtonClass())}
                 onClick={onClose}
                 type="button"
                 variant="outline"
@@ -174,10 +188,7 @@ export function VisualizationModalShell({
                 <button
                   key={view}
                   className={cn(
-                    'rounded-full border px-4 py-2 text-sm transition',
-                    selectedView === view
-                      ? 'border-primary bg-primary/15 text-foreground'
-                      : 'border-border/70 bg-background/70 text-muted-foreground hover:border-primary hover:text-foreground'
+                    'rounded-full px-4 py-2 text-sm', viewerButtonClass(selectedView === view)
                   )}
                   aria-pressed={selectedView === view}
                   onClick={() => onViewChange(view)}
@@ -193,10 +204,7 @@ export function VisualizationModalShell({
                 <button
                   key={preset}
                   className={cn(
-                    'rounded-full border px-3 py-1.5 text-xs font-medium transition',
-                    selectedCamera === preset
-                      ? 'border-primary bg-primary/15 text-foreground'
-                      : 'border-border/70 bg-background/70 text-muted-foreground hover:border-primary hover:text-foreground'
+                    'rounded-full px-3 py-1.5 text-xs font-medium', viewerButtonClass(selectedCamera === preset)
                   )}
                   aria-pressed={selectedCamera === preset}
                   onClick={() => onCameraChange(preset)}

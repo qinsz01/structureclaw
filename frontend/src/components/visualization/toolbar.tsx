@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import type { VisualizationSnapshot } from './types'
 import { forceMetricLabel, getElementMetric } from './structural-scene-utils'
 import { availableMetrics, hasCaseLoads, viewControls, type VizState } from './state'
+import { viewerButtonClass } from './button-style'
 
 type Props = { snapshot: VisualizationSnapshot; state: VizState; scaleRange: { min: number; max: number; step: number }; onChange: (patch: Partial<VizState>) => void; t: (key: MessageKey) => string }
 export function VisualizationToolbar({ snapshot, state, scaleRange, onChange, t }: Props) {
@@ -16,8 +17,7 @@ export function VisualizationToolbar({ snapshot, state, scaleRange, onChange, t 
     ...(controls.loads ? [{ key: 'showLoads' as const, label: 'visualizationShowLoads' as const }] : []),
     ...(controls.legend ? [{ key: 'showLegend' as const, label: 'visualizationLegend' as const }] : []),
   ]
-  const button = (active: boolean) => cn('rounded-full border px-3 py-2 text-sm transition', active
-    ? 'border-primary bg-primary/15 text-foreground' : 'border-border bg-background text-muted-foreground hover:text-foreground')
+  const button = (active: boolean) => cn('rounded-full px-3 py-2 text-sm', viewerButtonClass(active))
   return <div data-testid="visualization-toolbar" className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
     {controls.diagram && availableMetrics(snapshot, activeCase).map(component => <button key={component} type="button"
       aria-pressed={state.component === component} className={button(state.component === component)} onClick={() => onChange({ component })}>
