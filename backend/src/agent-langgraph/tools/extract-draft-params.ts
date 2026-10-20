@@ -102,6 +102,22 @@ async function extractAndMergeDraft(options: {
   // A scoped request or existing design inputs use the authoritative schema of the Python model service.
   const protocolClient = configurable.structureProtocolClient ?? createLocalStructureProtocolClient();
   let designContract = requestedScope || hasExistingDesign ? await engineeringModelSchema(protocolClient) : undefined;
+  const { withStructuralTypeState } = await import('../../agent-runtime/plugin-helpers.js');
+  const prepareDraft = async (draftPatch: Record<string, unknown> | null) => {
+    const patch = plugin.handler.extractDraft({ message: extractionMessage, locale, currentState: existingState,
+      llmDraftPatch: draftPatch, structuralTypeMatch: match });
+    let nextState = withStructuralTypeState(plugin.handler.mergeState(existingState, patch), match);
+    if (nextState.engineeringDraft?.sectionRecords?.length || Array.isArray(nextState.engineeringDraft?.model?.sections)) {
+      designContract ??= await engineeringModelSchema(protocolClient);
+      nextState = projectDraftState(normalizeDraftSectionInputs(nextState.engineeringDraft!, designContract), nextState);
+    }
+    if (hasDraftDesignInputs(nextState.engineeringDraft)) {
+      designContract ??= await engineeringModelSchema(protocolClient);
+      assertDraftDesignInputs(nextState.engineeringDraft, designContract);
+    }
+    return { patch, nextState };
+  };
+  let prepared: Awaited<ReturnType<typeof prepareDraft>> | undefined;
   const draftPatch = await invokeParamExtractor({
     message: extractionMessage,
     existingState,
@@ -117,31 +133,18 @@ async function extractAndMergeDraft(options: {
     onUsage,
     designSchema: designContract ? draftDesignSchema(designContract) : undefined,
     sectionShapeSchema: designContract ? draftSectionShapeSchema(designContract) : undefined,
+    validatePatch: async candidate => { prepared = await prepareDraft(candidate); },
   });
 
   // Step 4: Handler pipeline (extractDraft → mergeState → computeMissing)
-  const patch = plugin.handler.extractDraft({
-    message: extractionMessage,
-    locale,
-    currentState: existingState,
-    llmDraftPatch: draftPatch,
-    structuralTypeMatch: match,
-  });
-  const { withStructuralTypeState } = await import('../../agent-runtime/plugin-helpers.js');
+  const accepted = prepared ?? await prepareDraft(draftPatch);
+  const patch = accepted.patch;
   const scopeDiagnostics: ScopeDiagnostic[] = [];
   const requestScope = resolveExtractedScope(input.requestScope, draftPatch?.requestScope, state?.requestScope, scopeDiagnostics);
   if (scopeDiagnostics.length) recordRunEvent({ kind: 'request_scope_diagnostic', source: 'parameter-extractor', diagnostics: scopeDiagnostics,
     resolvedBy: input.requestScope ? 'declared-request' : state?.requestScope ? 'accepted-request' : 'clarification' });
-  let nextState = { ...withStructuralTypeState(plugin.handler.mergeState(existingState, patch), match),
+  const nextState = { ...accepted.nextState,
     ...(requestScope ? { requestScope } : {}) };
-  if (nextState.engineeringDraft?.sectionRecords?.length || Array.isArray(nextState.engineeringDraft?.model?.sections)) {
-    designContract ??= await engineeringModelSchema(protocolClient);
-    nextState = projectDraftState(normalizeDraftSectionInputs(nextState.engineeringDraft!, designContract), nextState);
-  }
-  if (hasDraftDesignInputs(nextState.engineeringDraft)) {
-    designContract ??= await engineeringModelSchema(protocolClient);
-    assertDraftDesignInputs(nextState.engineeringDraft, designContract);
-  }
   const goalRequired = scopeDiagnostics.some(issue => issue.code === 'REQUEST_GOAL_REQUIRED');
   const missing = goalRequired ? { critical: ['requestScope'], optional: [] } : computeDraftMissing(plugin, nextState, 'execution');
   return { draftPatch, patch, scopeDiagnostics, requestScope, nextState, goalRequired, missing };

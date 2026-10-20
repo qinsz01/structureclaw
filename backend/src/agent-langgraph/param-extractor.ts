@@ -409,6 +409,8 @@ interface ParamExtractorInput {
   signal?: AbortSignal;
   /** Records provider usage for nested-call reporting. */
   onUsage?: (usage: LlmTokenUsage) => void;
+  /** Validate the candidate without persisting it; schema-invalid patches use the same bounded recovery. */
+  validatePatch?: (patch: Record<string, unknown>) => Promise<void>;
   /** Test injection; production callers use the configured chat model. */
   llm?: {
     invoke: (
@@ -456,6 +458,7 @@ export async function invokeParamExtractor(
     + (patchMode ? '' : '\nRequest goal / 本次所求结果: include top-level requestScope only when this message changes the goal: {responses:[forces|reactions|displacements|rotations|stress|dynamic],design:boolean,report:boolean,outputs:[]}. design=true only for an explicit code-check request (验算/校核/按规范/code check); "design a beam" is not one. report=true only for a requested report, calculation book or other deliverable document; "design a beam" and specific results leave it false. Do not infer design from enabled skills. Missing material must not prevent this scope. Retain the prior goal for a clarification answer. / 仅明确要求规范验算时design=true，“设计”一词不算；仅要求报告、计算书或其他交付文件时report=true，“设计”和只求具体结果时为false；不因勾选技能而请求设计；缺少材料不妨碍声明范围；补参数时保留目标。');
 
   let diagnostic = '';
+  let rejectionFeedback = '';
   for (let attempt = 1; attempt <= (patchMode ? 3 : 1); attempt++) {
     const mode = patchMode && attempt < 3 ? 'patch' : 'full';
     const maxOutputTokens = patchMode ? (attempt === 3 ? 8192 : 2048) : null;
@@ -463,7 +466,7 @@ export async function invokeParamExtractor(
       ? createChatModel(0, { purpose: 'clarification-patch', maxTokens: maxOutputTokens!, disableStreaming: true }) : input.llm;
     const prompt = promptFor(mode === 'patch') + (attempt === 2
       ? '\nRETRY CONTRACT / 重试协议: The previous output was empty, invalid or truncated. Return ONLY one short JSON object: {"engineeringDraft":{changed fields only}}; optional clearDraftFields, draftIssues, unapplied. Capture EVERY supplied field independently, including fields unrelated to pending confirmations. No unchanged data or commentary. / 上次输出无效；仅返回短JSON，分别保留用户给出的所有字段，待确认字段不得阻止其他字段。'
-      : '');
+      : '') + (rejectionFeedback ? `\nRejected patch feedback / 上次补丁校验反馈: ${rejectionFeedback}\nCorrect these fields while retaining every supplied value. / 修正上述字段并保留所有已提供的值。` : '');
     const start = Date.now();
     let result: {
       content: unknown;
@@ -491,15 +494,33 @@ export async function invokeParamExtractor(
     const rawFinishReason = result.response_metadata?.finish_reason ?? result.response_metadata?.stop_reason;
     const finishReason = typeof rawFinishReason === 'string' ? rawFinishReason : undefined;
     const reasoningContentLength = getReasoningContentLength(result);
-    const invalidReason = finishReason === 'length' || finishReason === 'max_tokens' ? 'length'
+    let invalidReason = finishReason === 'length' || finishReason === 'max_tokens' ? 'length'
       : !content.trim() ? 'empty' : !patch ? 'unparsable' : undefined;
+    let validationError: string | undefined;
+    if (!invalidReason && patch) {
+      try { await input.validatePatch?.(patch); }
+      catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        // Retry model-authored field/clear errors, not infrastructure failures or programming errors.
+        if (!/^(MODEL_EDIT_FIELD_INVALID|DRAFT_CLEAR_INVALID):/.test(message)) {
+          recordRunEvent({ kind: 'param_extractor', attempt, mode, promptChars: prompt.length, durationMs: Date.now() - start,
+            usage: usage ?? null, contentChars: content.length, finishReason, maxOutputTokens, outcome: 'validation_failed' });
+          throw error;
+        }
+        invalidReason = 'invalid_patch';
+        validationError = message.slice(0, 2000);
+        rejectionFeedback = validationError;
+      }
+    }
     recordRunEvent({ kind: 'param_extractor', attempt, mode, promptChars: prompt.length, durationMs: Date.now() - start,
       usage: usage ?? null, contentChars: content.length, reasoningChars: reasoningContentLength, finishReason, maxOutputTokens,
-      outcome: invalidReason ?? 'accepted' });
+      outcome: invalidReason ?? 'accepted', ...(validationError ? { validationError } : {}) });
     log.debug({ pluginId, durationMs: Date.now() - start, hasDraftPatch: !!patch, finishReason,
       contentLength: content.length, reasoningContentLength }, 'param extractor completed');
     if (!invalidReason) return patch;
-    diagnostic = `finishReason=${finishReason ?? 'unknown'}; contentLength=${content.length}; reasoningContentLength=${reasoningContentLength}`;
+    if (validationError && (attempt === 3 || !patchMode)) throw new Error(validationError);
+    diagnostic = `finishReason=${finishReason ?? 'unknown'}; contentLength=${content.length}; reasoningContentLength=${reasoningContentLength}`
+      + (validationError ? `; validationError=${validationError}` : '');
     if (patchMode && attempt < 3) requestRecovery(`parameter extraction: ${invalidReason}; ${attempt === 1 ? 'retry short patch' : 'retry full extraction'}`);
   }
   throw new Error('LLM_PARAM_EXTRACTOR_INVALID_OUTPUT: response was not a usable JSON draft patch; ' + diagnostic);
