@@ -37,32 +37,41 @@ const PROPERTY_POWER: Record<string, number> = {
 export function enforceSectionUserEvidence(section: Record<string, unknown>, userTexts: readonly string[]): Record<string, unknown> {
   const extra = isRecord(section.extra) ? section.extra : {};
   const provenance = isRecord(extra.provenance) ? extra.provenance : {};
+  const evidence = userTexts.flatMap(quantities);
+  const supported = (field: string, key: string, value: number) => {
+    const power = field === 'properties' ? PROPERTY_POWER[key] : 1;
+    const target = field === 'properties' ? value : value / 1000;
+    return evidence.some(item => {
+      if (item.power !== undefined && item.power !== power) return false;
+      const numeric = item.scale === undefined ? (field === 'properties' ? item.value : item.value / 1000)
+        : item.value * item.scale ** (power ?? 1);
+      return Math.abs(numeric - target) <= Math.max(Math.abs(numeric), Math.abs(target), Number.MIN_VALUE) * 1e-4;
+    });
+  };
+  const nextProvenance = { ...provenance };
   // Mixed records must rederive their geometry fields at every model write.
   // A claimed per-field source never authorizes supplied numerical properties.
   if (provenance.properties === 'user' && isRecord(provenance.propertyFields) && isRecord(section.properties)) {
-    const sources = provenance.propertyFields;
-    const properties = Object.fromEntries(Object.entries(section.properties).filter(([key]) => sources[key] !== 'geometry'));
+    const sources = { ...provenance.propertyFields };
+    const properties = Object.fromEntries(Object.entries(section.properties).filter(([key, value]) => {
+      if (sources[key] !== 'geometry') return true;
+      if (typeof value !== 'number' || !supported('properties', key, value)) return false;
+      sources[key] = 'user';
+      return true;
+    }));
+    nextProvenance.propertyFields = sources;
     if (Object.keys(properties).length !== Object.keys(section.properties).length) {
       const { derived_properties: _derived, ...retainedExtra } = extra;
       section = { ...section, properties, extra: retainedExtra };
     }
+    section = { ...section, extra: { ...(isRecord(section.extra) ? section.extra : {}), provenance: nextProvenance } };
   }
-  const evidence = userTexts.flatMap(quantities);
-  const nextProvenance = { ...provenance };
   const unsupported: string[] = [];
   for (const field of ['shape', 'dimensions', 'properties']) {
     if (provenance[field] !== 'user' || !isRecord(section[field])) continue;
     for (const [key, value] of Object.entries(section[field])) {
       if (typeof value !== 'number') continue;
-      const power = field === 'properties' ? PROPERTY_POWER[key] : 1;
-      const target = field === 'properties' ? value : value / 1000;
-      const found = evidence.some(item => {
-        if (item.power !== undefined && item.power !== power) return false;
-        const numeric = item.scale === undefined ? (field === 'properties' ? item.value : item.value / 1000)
-          : item.value * item.scale ** (power ?? 1);
-        return Math.abs(numeric - target) <= Math.max(Math.abs(numeric), Math.abs(target), Number.MIN_VALUE) * 1e-4;
-      });
-      if (!found) {
+      if (!supported(field, key, value)) {
         nextProvenance[field] = 'llm-table';
         unsupported.push(`${field}.${key}`);
       }

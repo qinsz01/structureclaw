@@ -57,6 +57,11 @@ describe('model writes use observed revisions without automatic rebasing', () =>
     forged.sections[0].properties.A = 1;
     const repaired = await normalizeEngineeringModel(forged, protocol, undefined, [userInput]);
     expect(repaired.sections[0].properties.A).toBe(normalized.sections[0].properties.A);
+    const suppliedLater = structuredClone(normalized);
+    suppliedLater.sections[0].properties.J = 9e-8;
+    const explicit = await normalizeEngineeringModel(suppliedLater, protocol, undefined, [userInput, 'J=9e-8 m4']);
+    expect(explicit.sections[0].properties.J).toBe(9e-8);
+    expect(explicit.sections[0].extra.provenance.propertyFields.J).toBe('user');
   }, 30000);
 
   test.each(['shape', 'properties'])('unconfirmed recalled %s cannot commit an edit', async field => {
