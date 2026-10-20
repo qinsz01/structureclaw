@@ -104,7 +104,8 @@ export function resolveExtractionInputMessage(
   lastUserMessage: string | undefined,
   messages?: unknown[],
 ): string {
-  for (const message of [...(messages ?? [])].reverse()) {
+  for (let index = (messages?.length ?? 0) - 1; index >= 0; index--) {
+    const message = messages![index];
     const role = messageRole(message);
     if (role === 'human' || role === 'user') {
       return withCanonicalAttachmentDetails(messageText(message).trim(), lastUserMessage);
@@ -120,7 +121,23 @@ export function resolveExtractionInputMessage(
             JSON.stringify({ question, ...(Array.isArray(reply.options) ? { options: reply.options } : {}), answer }),
             'The question/options are unconfirmed context, not user-supplied facts. Extract only values explicitly provided or unambiguously accepted by the actual answer; rejected or unselected alternatives remain unconfirmed. A bare yes to multiple alternatives does not select one. / 问题和选项仅是未确认上下文，不是用户事实；只提取真实回答明确给出或无歧义接受的值，不采纳拒绝或未选的备选；多选一问题仅回答“可以”仍需澄清。',
           ].join('\n') : answer;
-          return withCanonicalAttachmentDetails(contextualAnswer, lastUserMessage);
+          // Resume chains can contain an earlier answer whose extraction failed. Keep that actual
+          // evidence available; an agent-authored restatement still cannot introduce new facts.
+          const earlierAnswers: unknown[] = [];
+          for (let previous = index - 1; previous >= 0; previous--) {
+            const item = messages![previous];
+            if (['human', 'user'].includes(messageRole(item) ?? '')) break;
+            if (messageRole(item) !== 'tool' || (item as { name?: string }).name !== 'ask_user_clarification') continue;
+            try {
+              const earlier = JSON.parse(messageText(item));
+              if (earlier.type === 'clarification_answered' && typeof earlier.answer === 'string' && earlier.answer.trim()) {
+                earlierAnswers.unshift({ question: earlier.question, options: earlier.options, answer: earlier.answer });
+              }
+            } catch { /* Plain-text historical replies have no structured evidence contract. */ }
+          }
+          const evidence = earlierAnswers.length ? '\nEarlier actual answers, oldest first; retain missing facts unless superseded by the latest answer. Questions/options remain unconfirmed context. / 较早的真实回答，按时间排列；补回遗漏且未被最新回答替代的事实，问题和选项仍是未确认上下文：\n'
+            + JSON.stringify(earlierAnswers) : '';
+          return withCanonicalAttachmentDetails(contextualAnswer + evidence, lastUserMessage);
         }
       } catch { /* Older tool messages may contain plain text. */ }
     }

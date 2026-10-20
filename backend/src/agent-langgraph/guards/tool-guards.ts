@@ -184,7 +184,7 @@ export function recordToolResult(ledger: GuardLedger | undefined, call: { name: 
     ledger.failed.push({ tool: call.name, code });
   } else {
     ledger.failures.delete(signature);
-    isNewInformation = !ledger.successSignatures.has(signature);
+    isNewInformation = call.name !== 'extract_draft_params' && !ledger.successSignatures.has(signature);
     ledger.successSignatures.add(signature);
   }
   // A state change can remove the cause of earlier failures: identical retries become legitimate again.

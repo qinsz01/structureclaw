@@ -7,6 +7,7 @@ import { reserveToolCall, recordToolOutcome, currentRunContext, snapshotRunUsage
 import { toolMessageFailure } from '../utils/tool-outcome.js';
 import { clarificationStateToken, guardLedger, preflightToolCall, recordToolResult } from './guards/tool-guards.js';
 import { structuredToolError } from './guards/tool-errors.js';
+import { draftChangedFields } from '../agent-runtime/draft/changes.js';
 
 /** Only messages after the current assistant request acknowledge its calls. */
 export function pendingToolCalls(state: AgentState) {
@@ -103,7 +104,9 @@ export async function executeToolsSequentially(tools: StructuredToolInterface[],
   }
   recordToolOutcome(call.name, invocationId, failure ? String(failure) : undefined);
   // Progress means a state value actually changed (an identical re-query rewrites the same value).
-  const progressed = stateChanged || [...touched].some(key => JSON.stringify(state[key as keyof AgentState]) !== JSON.stringify(current[key as keyof AgentState]));
+  const progressed = call.name === 'extract_draft_params'
+    ? draftChangedFields(state.draftState ?? undefined, current.draftState ?? undefined).length > 0
+    : stateChanged || [...touched].some(key => JSON.stringify(state[key as keyof AgentState]) !== JSON.stringify(current[key as keyof AgentState]));
   recordToolResult(ledger, call, failure, progressed);
   const runtime = currentRunContext();
   if (runtime) update.runUsage = snapshotRunUsage(runtime);

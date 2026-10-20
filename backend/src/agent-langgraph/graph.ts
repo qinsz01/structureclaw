@@ -30,6 +30,7 @@ import { createRegisteredTools, type AgentToolFactoryDeps, type AgentToolDefinit
 import { loadUserTools } from './user-tool-loader.js';
 import { getWorkspaceToolRoot } from './config.js';
 import { buildSystemMessages } from './system-prompt.js';
+import { compactDraftToolPayload } from './draft-tool-summary.js';
 import type { SkillManifest } from '../shared/types/agent.js';
 import type { AgentConfigurable } from './configurable.js';
 import { deriveToolContext, type ToolContext } from './tool-context.js';
@@ -121,13 +122,19 @@ export function projectToolMessagesForContext(messages: BaseMessage[]): BaseMess
       continue;
     }
     const content = typeof message.content === 'string' ? message.content : '';
-    if (getToolName(message) === 'run_code_check') {
+    if (['run_code_check', 'extract_draft_params'].includes(getToolName(message) ?? '')) {
       try {
         const parsed = JSON.parse(content);
         if (asRecord(parsed)) {
-          const projected = JSON.stringify(compactCodeCheckFeedback(parsed));
+          const projected = JSON.stringify(getToolName(message) === 'extract_draft_params'
+            ? compactDraftToolPayload(parsed) : compactCodeCheckFeedback(parsed));
           if (projected.length < content.length) {
-            result.push(new ToolMessage({ ...message, content: projected, tool_call_id: (message as ToolMessage).tool_call_id }));
+            // Spreading a BaseMessage copies lc_kwargs, which can nest the original full payload
+            // inside serialized prompt diagnostics even though content was compacted.
+            const source = message as ToolMessage;
+            result.push(new ToolMessage({ content: projected, tool_call_id: source.tool_call_id, name: source.name,
+              id: source.id, status: source.status, artifact: source.artifact,
+              response_metadata: source.response_metadata, additional_kwargs: source.additional_kwargs }));
             continue;
           }
         }

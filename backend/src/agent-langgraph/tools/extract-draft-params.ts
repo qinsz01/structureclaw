@@ -1,5 +1,8 @@
 import { computeDraftMissing, draftSectionConfirmations } from '../../agent-runtime/draft-readiness.js';
 import { projectDraftState } from '../../agent-runtime/draft/boundary.js';
+import { draftChangedFields, unappliedDraftFields } from '../../agent-runtime/draft/changes.js';
+import { sectionMaterialNotes } from '../../agent-runtime/draft/materials.js';
+import { compactDraftToolPayload } from '../draft-tool-summary.js';
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 import type { AgentSkillRuntime } from '../../agent-runtime/index.js';
@@ -150,9 +153,10 @@ function llmExtractionStateUpdate(requestScope: RequestScope | undefined, nextSt
   const stateUpdate: Partial<AgentState> = {};
   if (requestScope) stateUpdate.requestScope = requestScope;
   if (nextState) {
-    Object.assign(stateUpdate, invalidateStaleResults(state));
+    const changed = draftChangedFields(state?.draftState ?? undefined, nextState).length > 0;
+    if (changed) Object.assign(stateUpdate, invalidateStaleResults(state), { modelPending: true });
+    // Diagnostics and sanitation still persist; only changed inputs invalidate computed results.
     stateUpdate.draftState = nextState;
-    stateUpdate.modelPending = true;
   }
   if (match.key) stateUpdate.structuralTypeKey = match.key;
   return stateUpdate;
@@ -267,6 +271,8 @@ function buildLlmExtractionResponse(options: {
     missingReasons: missing.critical.map(field => ({ field, reason: missingInputReason(field, requestScope, locale) })),
     llmDraftPatch: draftPatch ?? null,
     appliedDraftUpdate: { clearedFields: patch.clearDraftFields ?? [], order: 'clear-then-merge' },
+    unapplied: [...unappliedDraftFields(patch, nextState),
+      ...(Array.isArray(draftPatch?.unapplied) ? draftPatch.unapplied : [])],
     engineeringDraft: nextState.engineeringDraft ?? patch.engineeringDraft ?? null,
     sectionConfirmations: draftSectionConfirmations(nextState),
     extractionSource: typeof nextState.skillState?.extractionSource === 'string'
@@ -321,15 +327,24 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
       const extractionToolResult = (
         content: string,
         stateUpdate?: Partial<AgentState>,
-      ): Command => toolResult(
-        toolCallId,
-        'extract_draft_params',
-        content,
-        { ...stateUpdate, ...(stateUpdate?.requestScope || requestedScope ? { requestScope: stateUpdate?.requestScope ?? requestedScope } : {}),
-          ...(stateUpdate?.draftState ? { draftState: { ...stateUpdate.draftState,
-            ...(stateUpdate.requestScope || requestedScope ? { requestScope: stateUpdate.requestScope ?? requestedScope } : {}) } } : {}) },
-        nestedUsage.total(),
-      );
+      ): Command => {
+        const payload = JSON.parse(content) as Record<string, unknown>;
+        const rawDraft = payload.llmDraftPatch as { engineeringDraft?: DraftState['engineeringDraft'] } | undefined;
+        const notes = [...sectionMaterialNotes(existingState?.engineeringDraft), ...sectionMaterialNotes(rawDraft?.engineeringDraft)];
+        const summary = compactDraftToolPayload({ ...payload, ...(notes.length ? { notes } : {}) }, state?.draftState ?? undefined,
+          stateUpdate?.draftState ?? undefined);
+        recordRunEvent({ kind: 'draft_extraction_result', applied: summary.applied ?? [], unapplied: summary.unapplied ?? [],
+          status: summary.status ?? 'failed', payloadChars: JSON.stringify(summary).length });
+        return toolResult(
+          toolCallId,
+          'extract_draft_params',
+          JSON.stringify(summary),
+          { ...stateUpdate, ...(stateUpdate?.requestScope || requestedScope ? { requestScope: stateUpdate?.requestScope ?? requestedScope } : {}),
+            ...(stateUpdate?.draftState ? { draftState: { ...stateUpdate.draftState,
+              ...(stateUpdate.requestScope || requestedScope ? { requestScope: stateUpdate.requestScope ?? requestedScope } : {}) } } : {}) },
+          nestedUsage.total(),
+        );
+      };
 
       try {
         // Step 1: Detect structural type
@@ -428,7 +443,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
       description:
         'Extract structural engineering parameters from a user message and merge them into the draft state. ' +
         'Reads existing draft state from conversation state automatically — do NOT pass it as a parameter. ' +
-        'Returns updated draft state, missing fields, and the matched structural type. ' +
+        'Returns applied field paths, unapplied values/reasons, missing fields and the next action; full state stays in conversation state. A no_change result means do not repeat extraction with the same evidence. / 返回已应用字段、未应用原因、缺项和下一步；完整草稿保留在会话状态。no_change 时不要用相同证据重复提取。 ' +
         'Use actual user answers as evidence. Explicit user properties win; dimensions alone use shape with provenance.shape="user" and system-derived sharp-corner properties. A designation alone needs one dimension question together with other missing inputs. Assistant-recalled shape/properties are pending llm-table candidates, labelled "assistant-recalled table value, please verify"; never use them before actual user confirmation. After confirmation retain user-sourced dimensions, omit recalled properties. Known grades get elastic constants and density; unmentioned self-weight is not a question (default excluded). / 仅使用真实用户答复；用户属性优先，仅尺寸由系统按尖角推导。仅型号须将尺寸与其他缺项合并询问一次；记忆值标记llm-table及“助手记忆的标准表值，请核对”，实际确认前不可计算，确认后尺寸标记user并省略记忆属性。已知牌号补弹性常数和密度；未提自重不追问，默认不计。',
       schema: z.object({
         message: z.string().describe('The user message to extract parameters from').optional(),
