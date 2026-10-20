@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Copy, Focus, Maximize2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,9 @@ import type { VisualizationSnapshot, VisualizationViewMode } from './types'
 import { viewerButtonClass } from './button-style'
 
 type VisualizationModalShellProps = {
+  embedded?: boolean
+  fullscreen?: boolean
+  onFullscreenChange?: (fullscreen: boolean) => void
   open: boolean
   snapshot: VisualizationSnapshot | null
   title: string
@@ -30,6 +33,9 @@ const CAMERA_LABELS: Record<CameraPreset, MessageKey> = { front: 'visualizationC
 const CAMERA_OPTIONS: CameraPreset[] = ['front', 'side', 'top', 'iso']
 
 export function VisualizationModalShell({
+  embedded = false,
+  fullscreen = false,
+  onFullscreenChange,
   open,
   snapshot,
   title,
@@ -43,9 +49,27 @@ export function VisualizationModalShell({
   children,
   aside,
 }: VisualizationModalShellProps) {
+  const inline = embedded && !fullscreen
+  const inlineRef = useRef<HTMLDivElement>(null)
+  // Move the portal host, not the React tree: canvas, orbit controls and viewer
+  // state survive the fullscreen round trip.
+  const [host] = useState(() => {
+    if (typeof document === 'undefined') return null
+    const element = document.createElement('div')
+    element.className = 'h-full min-h-0'
+    return element
+  })
+  useLayoutEffect(() => {
+    if (!open || !host) return
+    const target = inline ? inlineRef.current : document.body
+    target?.appendChild(host)
+    return () => { host.remove() }
+  }, [host, inline, open])
   const containerRef = useRef<HTMLDivElement | null>(null)
   const closeButtonRef = useRef<HTMLButtonElement | null>(null)
   const lastActiveElementRef = useRef<HTMLElement | null>(null)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
   const [copyStatus, setCopyStatus] = useState<'copied' | 'failed' | null>(null)
   useEffect(() => setCopyStatus(null), [open, snapshot?.runId])
 
@@ -54,7 +78,7 @@ export function VisualizationModalShell({
     [snapshot]
   )
   useEffect(() => {
-    if (!open) {
+    if (!open || inline) {
       return
     }
 
@@ -66,7 +90,7 @@ export function VisualizationModalShell({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault()
-        onClose()
+        onCloseRef.current()
         return
       }
 
@@ -103,33 +127,34 @@ export function VisualizationModalShell({
       window.removeEventListener('keydown', handleKeyDown)
       lastActiveElementRef.current?.focus()
     }
-  }, [onClose, open])
+  }, [open, inline])
 
   if (!open || typeof document === 'undefined') {
     return null
   }
 
-  return createPortal(
-    <div className="fixed inset-0 z-80">
+  return <>{embedded && <div ref={inlineRef} className="h-full min-h-0" data-testid="workspace-inline-figure" />}{host && createPortal(
+    <div className={inline ? 'h-full min-h-0' : 'fixed inset-0 z-90'}>
       <button
+        hidden={inline}
         aria-label={t('visualizationClose')}
         className="absolute inset-0 bg-foreground/60 backdrop-blur-xs"
         onClick={onClose}
         type="button"
       />
-      <div className="absolute inset-0 p-2 sm:p-4">
+      <div className={inline ? 'h-full min-h-0' : 'absolute inset-0 p-2 sm:p-4'}>
         <div
           ref={containerRef}
-          aria-modal="true"
+          aria-modal={inline ? undefined : true}
           aria-label={t('visualizationTitle')}
           className="relative flex h-full flex-col overflow-hidden rounded-[30px] border border-border/70 bg-card/95 shadow-2xl backdrop-blur-xl"
-          role="dialog"
+          role={inline ? 'region' : 'dialog'}
         >
           <div className="pointer-events-none absolute inset-0 bg-background dark:bg-background" />
-          <div className="relative flex items-start justify-between gap-4 border-b border-border/70 px-5 py-4">
-            <div>
+          <div className={cn('relative flex items-start justify-between gap-3 border-b border-border/70', inline ? 'flex-wrap px-3 py-2' : 'px-5 py-4')}>
+            <div className="min-w-0">
               <p className="text-xs uppercase tracking-[0.24em] text-primary">{t('visualizationTitle')}</p>
-              <h2 className="mt-1 text-2xl font-semibold text-foreground">{title}</h2>
+              <h2 className={cn('mt-1 font-semibold text-foreground', inline ? 'text-base' : 'text-2xl')}>{title}</h2>
               {snapshot?.runId && <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <button type="button" title={snapshot.runId} aria-label={t('visualizationCopyRunId')} data-testid="visualization-copy-run-id"
                   className={cn('inline-flex items-center gap-1.5 rounded-md px-2 py-1', viewerButtonClass())}
@@ -146,7 +171,7 @@ export function VisualizationModalShell({
                   <p>
                     {snapshot.dimension}D · {snapshot.nodes.length} {t('analysisOverviewCountsNodes').toLowerCase()} · {snapshot.elements.length} {t('analysisOverviewCountsElements').toLowerCase()}
                   </p>
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className={cn('flex flex-wrap items-center gap-2', inline && 'hidden')}>
                     <span className="rounded-full border border-border/70 bg-background/70 px-2.5 py-1 text-xs">
                       {t('visualizationStatusCurrentSource')}: {snapshot.source === 'model' ? t('visualizationSourceModel') : t('visualizationSourceResult')}
                     </span>
@@ -172,17 +197,17 @@ export function VisualizationModalShell({
               <Button
                 ref={closeButtonRef}
                 className={cn('rounded-full', viewerButtonClass())}
-                onClick={onClose}
+                onClick={inline ? () => onFullscreenChange?.(true) : onClose}
                 type="button"
                 variant="outline"
               >
-                <X className="h-4 w-4" />
-                {t('visualizationClose')}
+                {inline ? <Maximize2 className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                {t(inline ? 'visualizationFullscreen' : 'visualizationClose')}
               </Button>
             </div>
           </div>
 
-          <div className="relative flex flex-col gap-4 border-b border-border/70 px-5 py-4">
+          <div className={cn('relative flex flex-col gap-2 border-b border-border/70', inline ? 'px-3 py-2' : 'px-5 py-4')}>
             <div className="flex flex-wrap items-center gap-2">
               {availableViews.length === 1 ? <span className="rounded-full border border-border bg-background px-4 py-2 text-sm text-foreground">{t(getVisualizationViewLabelKey(availableViews[0]))}</span> : availableViews.map((view) => (
                 <button
@@ -216,9 +241,9 @@ export function VisualizationModalShell({
             </div>}
           </div>
 
-          <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto xl:flex-row xl:overflow-hidden">
-            <div className="min-h-[420px] flex-1 xl:min-h-0">{children}</div>
-            <aside className="shrink-0 overflow-y-auto border-t border-border/70 bg-background/50 p-4 xl:w-[280px] xl:border-l xl:border-t-0">
+          <div className={cn('relative flex min-h-0 flex-1 flex-col overflow-y-auto', !inline && 'xl:flex-row xl:overflow-hidden')}>
+            <div className={cn('flex-1', inline ? 'min-h-[380px]' : 'min-h-[420px] xl:min-h-0')}>{children}</div>
+            <aside className={cn('shrink-0 overflow-y-auto border-t border-border/70 bg-background/50 p-4', inline ? 'max-h-44' : 'xl:w-[280px] xl:border-l xl:border-t-0')}>
               {aside}
             </aside>
           </div>
@@ -232,6 +257,6 @@ export function VisualizationModalShell({
         </div>
       </div>
     </div>,
-    document.body
-  )
+    host
+  )}</>
 }

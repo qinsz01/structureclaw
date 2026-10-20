@@ -12,17 +12,21 @@ export function PlaneBoundsController({
   snapshot,
   fitKey,
   cameraPreset,
+  preserveCameraOnResize = false,
 }: {
   plane: VisualizationPlane
   resetToken: number
   snapshot: VisualizationSnapshot
   fitKey: string
   cameraPreset?: CameraPreset
+  preserveCameraOnResize?: boolean
 }) {
   const bounds = useBounds()
   const camera = useThree((state) => state.camera)
   const height = useThree((state) => state.size.height)
   const width = useThree((state) => state.size.width)
+  const fitHeight = preserveCameraOnResize ? 0 : height
+  const fitWidth = preserveCameraOnResize ? 0 : width
 
   useEffect(() => {
     const { center, distance } = bounds.refresh().getSize()
@@ -41,7 +45,7 @@ export function PlaneBoundsController({
       bounds.fit()
     }
     bounds.clip()
-  }, [bounds, camera, cameraPreset, height, plane, resetToken, snapshot, width, fitKey])
+  }, [bounds, camera, cameraPreset, fitHeight, plane, resetToken, snapshot, fitWidth, fitKey])
 
   return null
 }

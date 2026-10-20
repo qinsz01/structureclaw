@@ -15,11 +15,13 @@ export function SceneContent({
   deformationScale,
   diagramScale,
   cameraPreset,
+  preserveCameraOnResize,
   locale,
   t,
   forceMetric,
   resetToken,
   selectedElementId,
+  selectedPositionM,
   selectedLoadIndex,
   selectedNodeId,
   showElementLabels,
@@ -72,6 +74,7 @@ export function SceneContent({
     deformationScale,
     forceMetric,
     selectedElementId,
+    selectedPositionM,
     selectedLoadIndex,
     selectedNodeId,
     showElementLabels,
@@ -152,7 +155,7 @@ export function SceneContent({
 
           {snapshot.nodes.map((entry) => <SceneNode key={entry.id} entry={entry} ctx={ctx} />)}
         </group>
-        <PlaneBoundsController plane={plane} resetToken={resetToken} snapshot={snapshot} cameraPreset={cameraPreset} fitKey={`${view}:${activeCase.id}`} />
+        <PlaneBoundsController plane={plane} resetToken={resetToken} snapshot={snapshot} cameraPreset={cameraPreset} preserveCameraOnResize={preserveCameraOnResize} fitKey={`${view}:${activeCase.id}`} />
       </Bounds>
     </>
   )

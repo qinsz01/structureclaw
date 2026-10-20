@@ -55,6 +55,19 @@ export function SceneElement({ element, ctx }: { element: VisualizationElement; 
   const undeformedEnd = projectPosition(endData.position, plane, snapshot.dimension)
   const currentStart = projectPosition(start, plane, snapshot.dimension)
   const currentEnd = projectPosition(end, plane, snapshot.dimension)
+  const length = startData.position.distanceTo(endData.position)
+  const positionM = ctx.selectedPositionM
+  const position = positionM === undefined ? undefined : positionM * (snapshot.lengthUnit === 'mm' ? 1000 : 1)
+  let selectedPosition: THREE.Vector3 | undefined
+  if (selectedElementId === element.id && position !== undefined && position >= 0 && position <= length && length > 0) {
+    selectedPosition = currentStart.clone().lerp(currentEnd, position / length)
+    const samples = activeCase.memberResponses?.[element.id]?.samples
+    if (curve && samples) {
+      const index = samples.findIndex(sample => sample.x >= position)
+      if (index === 0) selectedPosition = curve[0]
+      else if (index > 0) selectedPosition = curve[index - 1].clone().lerp(curve[index], (position - samples[index - 1].x) / (samples[index].x - samples[index - 1].x || 1))
+    }
+  }
   const modeStart = activeBucklingMode?.modeShape[element.nodeIds[0]] ?? [0, 0, 0]
   const modeEnd = activeBucklingMode?.modeShape[element.nodeIds[1]] ?? [0, 0, 0]
   const projectedModeStart = projectPosition(new THREE.Vector3(...modeStart), plane, snapshot.dimension).toArray() as [number, number, number]
@@ -116,6 +129,17 @@ export function SceneElement({ element, ctx }: { element: VisualizationElement; 
         />
       )}
       {view === 'forces' && <MemberDiagram element={element} ctx={ctx} />}
+      {selectedPosition && <group position={selectedPosition}>
+        <mesh renderOrder={20}>
+          <sphereGeometry args={[0.16, 16, 16]} />
+          <meshBasicMaterial color={palette.selected} depthTest={false} />
+        </mesh>
+        <Html center position={[0, 0.3, 0]}>
+          <span data-viz-label data-testid="visualization-selected-position" className="whitespace-nowrap rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground">
+            {element.id} · {positionM} m
+          </span>
+        </Html>
+      </group>}
       {showElementLabels && (
         <Html center position={(curve?.[Math.floor(curve.length / 2)] || currentStart.clone().add(currentEnd).multiplyScalar(0.5)).toArray()}>
           <div data-viz-label className="w-max whitespace-nowrap rounded-full border border-border/70 bg-background/90 px-2 py-1 text-[10px] font-medium text-foreground shadow-lg">

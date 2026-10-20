@@ -17,11 +17,13 @@ export type StructuralSceneProps = {
   deformationScale: number
   diagramScale?: number
   cameraPreset?: CameraPreset
+  preserveCameraOnResize?: boolean
   locale?: AppLocale
   onFit?: () => void
   forceMetric: ForceMetric
   resetToken: number
   selectedElementId: string | null
+  selectedPositionM?: number
   selectedLoadIndex?: number | null
   selectedNodeId: string | null
   showElementLabels: boolean

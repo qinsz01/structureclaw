@@ -15,6 +15,7 @@ export type DialogShellProps = {
   description?: string
   className?: string
   contentClassName?: string
+  suspended?: boolean
 }
 
 export function DialogShell({
@@ -26,6 +27,7 @@ export function DialogShell({
   description,
   className,
   contentClassName,
+  suspended = false,
 }: DialogShellProps) {
   const titleId = useId()
   const descriptionId = useId()
@@ -34,6 +36,8 @@ export function DialogShell({
   const lastActiveElementRef = useRef<HTMLElement | null>(null)
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
+  const suspendedRef = useRef(suspended)
+  suspendedRef.current = suspended
   const pointerDownOnOverlayRef = useRef(false)
 
   function handleOverlayPointerDown(event: PointerEvent<HTMLDivElement>) {
@@ -61,6 +65,7 @@ export function DialogShell({
     closeButtonRef.current?.focus()
 
     function handleKeyDown(event: KeyboardEvent) {
+      if (suspendedRef.current) return
       if (event.key === 'Escape') {
         event.preventDefault()
         onCloseRef.current()
@@ -109,6 +114,8 @@ export function DialogShell({
           aria-describedby={description ? descriptionId : undefined}
           aria-labelledby={titleId}
           aria-modal="true"
+          aria-hidden={suspended || undefined}
+          inert={suspended || undefined}
           className={cn(
             'relative mx-auto flex h-full max-w-6xl flex-col overflow-hidden rounded-[24px] border border-border/70 bg-card/95 shadow-[0_40px_120px_-40px_rgba(8,145,178,0.55)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/95',
             className
