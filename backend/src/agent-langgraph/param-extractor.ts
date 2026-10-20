@@ -436,7 +436,7 @@ export async function invokeParamExtractor(
   const patchMode = input.patchMode ?? Boolean(input.existingState?.engineeringDraft);
   const llm = input.llm === undefined ? createChatModel(0, patchMode
     // GLM-5.3 cannot disable reasoning. Bound an exhausted attempt, then retry with a short JSON contract.
-    ? { purpose: 'clarification-patch', maxTokens: 2048, disableStreaming: true } : {}) : input.llm;
+    ? { purpose: 'clarification-patch', maxTokens: 1024, disableStreaming: true } : {}) : input.llm;
   if (!llm) {
     if (input.requireLlmResult) {
       throw new Error('LLM_PARAM_EXTRACTOR_CONFIGURATION_ERROR: no LLM is configured');
@@ -461,7 +461,7 @@ export async function invokeParamExtractor(
   let rejectionFeedback = '';
   for (let attempt = 1; attempt <= (patchMode ? 3 : 1); attempt++) {
     const mode = patchMode && attempt < 3 ? 'patch' : 'full';
-    const maxOutputTokens = patchMode ? (attempt === 3 ? 8192 : 2048) : null;
+    const maxOutputTokens = patchMode ? (attempt === 3 ? 8192 : attempt === 2 ? 2048 : 1024) : null;
     const model = attempt === 1 ? llm : input.llm === undefined
       ? createChatModel(0, { purpose: 'clarification-patch', maxTokens: maxOutputTokens!, disableStreaming: true }) : input.llm;
     const prompt = promptFor(mode === 'patch') + (attempt === 2

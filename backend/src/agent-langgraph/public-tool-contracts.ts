@@ -3,7 +3,8 @@ import { AgentSkillRuntime } from '../agent-runtime/index.js';
 import { createRegisteredTools, listAgentToolDefinitions, type AgentToolFactoryDeps } from './tool-registry.js';
 import { AgentStateAnnotation } from './state.js';
 import type { AgentState } from './state.js';
-import { AIMessage, type BaseMessage, type ToolMessage } from '@langchain/core/messages';
+import { AIMessage, HumanMessage, type BaseMessage, type ToolMessage } from '@langchain/core/messages';
+import { conversationUserTexts } from './tools/input-message.js';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -188,10 +189,13 @@ export async function createPublicToolSession(input: {
       if (policy.routing.mode === 'fixed' && !await deps.skillRuntime.resolvePluginForType(policy.routing.skillId, policy.activeSkillIds)) throw new Error('FIXED_SKILL_NOT_A_MODELING_PROVIDER');
       const runtime = createRunContext(policy, { journalDir });
       const defaults = Object.fromEntries(Object.entries(AgentStateAnnotation.spec).map(([key, channel]) => [key, (channel as unknown as { initialValueFactory?: () => unknown }).initialValueFactory?.()]));
-      const state = { ...defaults, ...saved?.state, messages: [], selectedSkillIds: policy.activeSkillIds,
+      const state = { ...defaults, ...saved?.state,
+        messages: [...(Array.isArray(saved?.state.messages) ? saved.state.messages : []),
+          ...(input.message ? [new HumanMessage(input.message)] : [])], selectedSkillIds: policy.activeSkillIds,
         runPolicy: policy, runUsage: snapshotRunUsage(runtime), locale: input.locale ?? saved?.state.locale ?? 'zh',
         lastUserMessage: input.message ?? '', workspaceRoot: deps.workspaceRoot ?? config.agentWorkspaceRoot };
-      if (input.model) Object.assign(state, commitModel(state as unknown as AgentState, await normalizeEngineeringModel(input.model, protocol, input.modelFormat), 'import_model'));
+      if (input.model) Object.assign(state, commitModel(state as unknown as AgentState,
+        await normalizeEngineeringModel(input.model, protocol, input.modelFormat, conversationUserTexts(state)), 'import_model'));
       record = { sessionId, policy, usage: snapshotRunUsage(runtime), state, attachmentPaths: [...(input.attachmentPaths ?? [])],
         completedHostCalls: saved?.completedHostCalls ?? {} };
       write(record);
@@ -225,7 +229,8 @@ export async function createPublicToolSession(input: {
         const tools = createRegisteredTools(deps).filter(item => saved.policy.activeToolIds.includes(item.name));
         if (!tools.some(item => item.name === name)) throw new Error(`UNKNOWN_TOOL: ${name}`);
         const id = randomUUID();
-        const state = { ...saved.state, messages: [new AIMessage({ content: '', tool_calls: [{ id, name, args }] })] } as AgentState;
+        const state = { ...saved.state, messages: [...conversationUserTexts(saved.state).map(text => new HumanMessage(text)),
+          new AIMessage({ content: '', tool_calls: [{ id, name, args }] })] } as AgentState;
         const pending = { ...saved, pendingCall: { id, name } };
         write(pending);
         const output = await withRunContext(runtime, () => executeToolsSequentially(tools, state, { configurable: {
@@ -244,7 +249,7 @@ export async function createPublicToolSession(input: {
         } }));
         const update = output.update as Record<string, unknown>;
         const next = applyPublicToolStateUpdate(saved.state, update);
-        next.messages = [];
+        next.messages = saved.state.messages ?? [];
         record = { sessionId, policy: saved.policy, usage: snapshotRunUsage(runtime), state: next, attachmentPaths: saved.attachmentPaths ?? [],
           completedHostCalls: { ...saved.completedHostCalls,
             ...(hostCallKey ? { [hostCallKey]: { name, argsHash, callId: id, runId: saved.usage.runId } } : {}) } };

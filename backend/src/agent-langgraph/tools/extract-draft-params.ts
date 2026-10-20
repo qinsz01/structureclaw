@@ -1,5 +1,5 @@
 import { computeDraftMissing, draftSectionConfirmations } from '../../agent-runtime/draft-readiness.js';
-import { projectDraftState } from '../../agent-runtime/draft/boundary.js';
+import { projectDraftState, verifyDraftSectionEvidence } from '../../agent-runtime/draft/boundary.js';
 import { draftChangedFields, unappliedDraftFields } from '../../agent-runtime/draft/changes.js';
 import { sectionMaterialNotes } from '../../agent-runtime/draft/materials.js';
 import { compactDraftToolPayload } from '../draft-tool-summary.js';
@@ -18,7 +18,7 @@ import { createLocalStructureProtocolClient } from '../../skill-shared/structure
 import { currentRunPolicy, recordRunEvent } from '../../runtime/run-context.js';
 import { requestScopeSchema, resolveExtractedScope, missingInputReason, type RequestScope, type ScopeDiagnostic } from '../../engineering/request-scope.js';
 import { buildDraftProgress, buildClarificationQuestions, hasStableDraftType, shouldPreserveExistingDraftState, resolveRetryTaskMessage, buildPreservedDraftExtractionResult, resolveExistingDraftPlugin, detectStructuralTypeWithConfiguredLlm, resolveDetectedStructuralTypeMatch } from './draft-helpers.js';
-import { resolveExtractionInputMessage } from './input-message.js';
+import { conversationUserTexts, resolveExtractionInputMessage } from './input-message.js';
 import { getConfigurable, getToolCallId, toolResult, nestedLlmUsageCollector, toolSkillScope } from './shared.js';
 
 type ExtractionLocale = 'zh' | 'en';
@@ -99,14 +99,16 @@ async function extractAndMergeDraft(options: {
     extractionMessage, locale, log, onUsage } = options;
   // Step 3: Sub-agent extracts parameters (skill manifest driven)
   const { invokeParamExtractor } = await import('../param-extractor.js');
-  // A scoped request or existing design inputs use the authoritative schema of the Python model service.
+  // Only code-design input needs the full design schema in the extraction prompt.
+  // Section inputs still cross the authoritative schema below before persistence.
   const protocolClient = configurable.structureProtocolClient ?? createLocalStructureProtocolClient();
-  let designContract = requestedScope || hasExistingDesign ? await engineeringModelSchema(protocolClient) : undefined;
+  let designContract = requestedScope?.design === true || hasExistingDesign ? await engineeringModelSchema(protocolClient) : undefined;
   const { withStructuralTypeState } = await import('../../agent-runtime/plugin-helpers.js');
   const prepareDraft = async (draftPatch: Record<string, unknown> | null) => {
     const patch = plugin.handler.extractDraft({ message: extractionMessage, locale, currentState: existingState,
       llmDraftPatch: draftPatch, structuralTypeMatch: match });
     let nextState = withStructuralTypeState(plugin.handler.mergeState(existingState, patch), match);
+    nextState = projectDraftState(verifyDraftSectionEvidence(nextState.engineeringDraft, conversationUserTexts(state)), nextState);
     if (nextState.engineeringDraft?.sectionRecords?.length || Array.isArray(nextState.engineeringDraft?.model?.sections)) {
       designContract ??= await engineeringModelSchema(protocolClient);
       nextState = projectDraftState(normalizeDraftSectionInputs(nextState.engineeringDraft!, designContract), nextState);

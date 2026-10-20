@@ -4,10 +4,10 @@ import { assertResolvedInput, assertInputEvidenceMatchesModel } from './input-ev
 import { assertConfirmedSectionInputs, enforceSectionProvenance } from './section-provenance.js';
 
 /** All template, imported and edited models enter the same V2 validator. */
-export async function normalizeEngineeringModel(model: ModelRecord, client: LocalStructureProtocolClient, sourceFormat = 'structuremodel-v2'): Promise<ModelRecord> {
+export async function normalizeEngineeringModel(model: ModelRecord, client: LocalStructureProtocolClient, sourceFormat = 'structuremodel-v2', userTexts: readonly string[] = []): Promise<ModelRecord> {
   assertResolvedInput(isRecord(model.metadata) ? model.metadata.inputEvidence : undefined);
   const sourceModel = Array.isArray(model.sections)
-    ? { ...model, sections: model.sections.map(section => isRecord(section) ? enforceSectionProvenance(section) : section) } : model;
+    ? { ...model, sections: model.sections.map(section => isRecord(section) ? enforceSectionProvenance(section, userTexts) : section) } : model;
   assertConfirmedSectionInputs(sourceModel);
   const response = await client.post('/convert', {
     model: sourceModel, source_format: sourceFormat, target_format: 'structuremodel-v2', target_schema_version: '2.2.0',
@@ -22,7 +22,17 @@ export async function normalizeEngineeringModel(model: ModelRecord, client: Loca
   });
   if (!isRecord(response.data) || !isRecord(response.data.model)) throw new Error('MODEL_CONVERSION_FAILED');
   const normalized = structuredClone(response.data.model);
-  assertConfirmedSectionInputs(normalized);
+  for (const section of (Array.isArray(normalized.sections) ? normalized.sections : []).filter(isRecord)) {
+    const source = (Array.isArray(sourceModel.sections) ? sourceModel.sections : []).filter(isRecord).find(row => row.id === section.id);
+    const extra = isRecord(section.extra) ? section.extra : {};
+    const provenance = isRecord(extra.provenance) ? extra.provenance : {};
+    if (provenance.properties !== 'user' || !isRecord(section.properties)) continue;
+    const supplied = isRecord(source?.properties) ? source.properties : {};
+    const derived = Object.fromEntries(Object.keys(section.properties).filter(key => !(key in supplied)).map(key => [key, 'geometry']));
+    if (Object.keys(derived).length) section.extra = { ...extra, provenance: { ...provenance,
+      propertyFields: { ...(isRecord(provenance.propertyFields) ? provenance.propertyFields : {}), ...derived } } };
+  }
+  assertConfirmedSectionInputs(normalized, userTexts);
   for (const loadCase of (normalized.load_cases ?? []) as ModelRecord[]) {
     const loads = (loadCase.loads ?? []) as ModelRecord[];
     // Python's exclude_unset serialization may omit the legitimate [] default.

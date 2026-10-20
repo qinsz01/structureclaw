@@ -12,6 +12,7 @@
  * read back (the top-level `engineeringDraft` is authoritative) and is refreshed on output.
  */
 import { fieldTokens } from '../../engineering/field-path.js';
+import { enforceSectionProvenance } from '../../engineering/section-provenance.js';
 import { draftContract } from '../../engineering/draft-contract.js';
 import { draftFieldValues, mergeDraftDiagnostics } from '../draft-diagnostics.js';
 import { mergeEngineeringDraft, normalizeEngineeringDraft } from '../engineering-draft.js';
@@ -330,7 +331,7 @@ function normalizeDraftWithReportedLoadIssue(value: unknown, issues: DraftIssue[
 }
 
 /** Raw patch (canonical draft and/or legacy flat scalars) -> normalized extraction. */
-export function ingestDraft(patch: Record<string, unknown> | null | undefined, existing?: DraftState): DraftExtraction {
+export function ingestDraft(patch: Record<string, unknown> | null | undefined, existing?: DraftState, userTexts?: readonly string[]): DraftExtraction {
   if (!patch) {
     return {};
   }
@@ -342,8 +343,8 @@ export function ingestDraft(patch: Record<string, unknown> | null | undefined, e
   const rootDraft = Object.fromEntries(Object.entries(patch)
     .filter(([key]) => ['material', 'materials', 'sectionRecords', 'templateAssignments'].includes(key)));
   const rawDraft = Object.keys(rootDraft).length ? { ...rootDraft, ...asRecord(patch.engineeringDraft) } : patch.engineeringDraft;
-  const engineeringDraft = reconcileDraftMaterials(normalizeDraftWithReportedLoadIssue(rawDraft, draftIssues, accepted),
-    accepted?.engineeringDraft, normalizeInferredType(patch.inferredType) ?? accepted?.inferredType);
+  const engineeringDraft = verifyDraftSectionEvidence(reconcileDraftMaterials(normalizeDraftWithReportedLoadIssue(rawDraft, draftIssues, accepted),
+    accepted?.engineeringDraft, normalizeInferredType(patch.inferredType) ?? accepted?.inferredType), userTexts);
   const issueFields = draftIssues
     ?.map((issue) => issue.field)
     .filter((field): field is string => typeof field === 'string' && field.trim().length > 0);
@@ -382,6 +383,16 @@ export function ingestDraft(patch: Record<string, unknown> | null | undefined, e
     loadType: normalizeLoadType(patch.loadType),
     loadPosition: normalizeLoadPosition(patch.loadPosition),
     loadPositionM: normalizeLoadPositionM(patch.loadPositionM),
+  };
+}
+
+/** Run after merging too: a partial patch can retain numbers from an older untrusted claim. */
+export function verifyDraftSectionEvidence(draft: EngineeringDraft | undefined, userTexts?: readonly string[]): EngineeringDraft | undefined {
+  if (!draft || userTexts === undefined) return draft;
+  return { ...draft,
+    ...(draft.sectionRecords ? { sectionRecords: draft.sectionRecords.map(section => enforceSectionProvenance(section, userTexts)) } : {}),
+    ...(Array.isArray(draft.model?.sections) ? { model: { ...draft.model,
+      sections: draft.model.sections.map(section => enforceSectionProvenance(section, userTexts)) } } : {}),
   };
 }
 

@@ -6,16 +6,20 @@ export function messageRole(message: unknown): string | null {
     return String(getType.call(message));
   }
   if (typeof record.role === 'string') return record.role;
-  if (typeof record.type === 'string') return record.type;
   if (Array.isArray(record.id) && record.id.some((part) => String(part).includes('HumanMessage'))) {
     return 'human';
   }
+  if (Array.isArray(record.id) && record.id.some((part) => String(part).includes('ToolMessage'))) {
+    return 'tool';
+  }
+  if (typeof record.type === 'string') return record.type;
   return null;
 }
 
 export function messageText(message: unknown): string {
   if (!message || typeof message !== 'object') return '';
-  const content = (message as { content?: unknown }).content;
+  const record = message as { content?: unknown; kwargs?: { content?: unknown } };
+  const content = record.content ?? record.kwargs?.content;
   if (typeof content === 'string') return content;
   if (Array.isArray(content)) {
     return content
@@ -67,6 +71,27 @@ function hasAttachmentDetails(message: string | undefined): boolean {
 function canonicalAttachmentDetailsOnly(message: string): string {
   const start = findAttachmentDetailsStart(message);
   return start === -1 ? '' : message.slice(start).trim();
+}
+
+/** Actual conversation input only. Clarification tool messages store the verbatim resume answer. */
+export function conversationUserTexts(state?: { messages?: unknown[]; lastUserMessage?: string }): string[] {
+  const texts = [state?.lastUserMessage ?? ''];
+  for (const message of state?.messages ?? []) {
+    const role = messageRole(message);
+    if (role === 'human' || role === 'user') texts.push(messageText(message));
+    else if (role === 'tool') {
+      const tool = message as { name?: string; kwargs?: { name?: string } };
+      if ((tool.name ?? tool.kwargs?.name) !== 'ask_user_clarification') continue;
+      try {
+        const reply = JSON.parse(messageText(message));
+        if (reply.type === 'clarification_answered' && typeof reply.answer === 'string') texts.push(reply.answer);
+      } catch { /* Historical non-JSON tool results are not evidence. */ }
+    }
+  }
+  return [...new Set(texts.map(text => {
+    const attachmentStart = findAttachmentDetailsStart(text);
+    return (attachmentStart === -1 ? text : text.slice(0, attachmentStart)).trim();
+  }).filter(Boolean))];
 }
 
 function withCanonicalAttachmentDetails(message: string, canonicalUserMessage: string | undefined): string {
@@ -131,7 +156,7 @@ export function resolveExtractionInputMessage(
             try {
               const earlier = JSON.parse(messageText(item));
               if (earlier.type === 'clarification_answered' && typeof earlier.answer === 'string' && earlier.answer.trim()) {
-                earlierAnswers.unshift({ question: earlier.question, options: earlier.options, answer: earlier.answer });
+                earlierAnswers.unshift({ answer: earlier.answer });
               }
             } catch { /* Plain-text historical replies have no structured evidence contract. */ }
           }

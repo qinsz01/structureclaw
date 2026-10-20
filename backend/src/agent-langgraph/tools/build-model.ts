@@ -8,7 +8,7 @@ import { normalizeEngineeringModel } from '../../engineering/model-boundary.js';
 import { assertConfirmedSectionInputs } from '../../engineering/section-provenance.js';
 import { mergeInputEvidence } from '../../engineering/input-evidence.js';
 import { buildModelToolSummary, buildModelToolStateUpdate } from './compaction/analysis.js';
-import { messageRole, messageText } from './input-message.js';
+import { conversationUserTexts, messageRole, messageText } from './input-message.js';
 import { getConfigurable, getToolCallId, toolResult, isRecord, toolSkillScope, nextActionForMissingInput, clarificationAvailable } from './shared.js';
 
 export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
@@ -26,7 +26,8 @@ export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
         throw new Error('No draft state available. Run extract_draft_params first.');
       }
       const skillIds = toolSkillScope(config);
-      assertConfirmedSectionInputs({ sections: draftState.engineeringDraft?.model?.sections ?? draftState.engineeringDraft?.sectionRecords });
+      const userTexts = conversationUserTexts(state);
+      assertConfirmedSectionInputs({ sections: draftState.engineeringDraft?.model?.sections ?? draftState.engineeringDraft?.sectionRecords }, userTexts);
 
       let candidate: Record<string, unknown> | undefined;
       try {
@@ -53,7 +54,7 @@ export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
       }
       const metadata = isRecord(candidate.metadata) ? candidate.metadata : {};
       const model = await normalizeEngineeringModel({ ...candidate, metadata: { ...metadata,
-        inputEvidence: mergeInputEvidence(state?.inputEvidence, Array.isArray(metadata.inputEvidence) ? metadata.inputEvidence.filter(isRecord) : []) } }, configurable.structureProtocolClient);
+        inputEvidence: mergeInputEvidence(state?.inputEvidence, Array.isArray(metadata.inputEvidence) ? metadata.inputEvidence.filter(isRecord) : []) } }, configurable.structureProtocolClient, undefined, userTexts);
 
       // Store model in graph state via Command.
       // Keep ToolMessage content compact — full model lives in graph state.
