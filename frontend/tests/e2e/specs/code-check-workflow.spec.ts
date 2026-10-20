@@ -36,17 +36,17 @@ for (const locale of ['en', 'zh'] as const) for (const scenario of scenarios) {
       await page.getByRole('button', { name: /^(Context|工程上下文)$/ }).click();
       await page.getByPlaceholder(/Paste StructureModel v2 JSON here|将 StructureModel v2 JSON 粘贴/).fill(JSON.stringify(scenario.model));
       await page.keyboard.press('Escape');
-      const message = `E2E-${locale}-${randomUUID().slice(0,8)}: Analyze and check the supplied beam, asking for missing conditions.`;
+      const message = `E2E-${locale}-${randomUUID().slice(0,8)}: Analyze and check the supplied beam, reporting missing conditions.`;
       // Deliberately unreliable prose must not override the real saved status.
       const initial = await send(page, llm, message, [toolCall('run_analysis', scenario.analysis),
         toolCall('run_code_check', { designCode: 'GB50017', provider: 'auto' }), 'UNVERIFIED_COMPLIANCE_SENTINEL: all checks passed, design complete.']);
       const missing = await lastCheck(request, initial);
-      expect(missing).toMatchObject({ provider: 'builtin', engine: 'opensees', completionStatus: 'incomplete', complianceStatus: 'incomplete', conclusionEligible: false, nextAction: 'ask_user_clarification' });
+      expect(missing).toMatchObject({ provider: 'builtin', engine: 'opensees', completionStatus: 'incomplete', complianceStatus: 'incomplete', conclusionEligible: false, nextAction: 'report_missing_inputs' });
       expect(missing.missingInputs.map((row: { field: string }) => row.field)).toEqual(expect.arrayContaining(['material.design.f', 'material.design.fv', 'member.design.deflectionLimitN', 'member.design.serviceability_result_keys']));
       await expect(page.locator('body')).not.toContainText('UNVERIFIED_COMPLIANCE_SENTINEL');
       const persisted = await (await request.get(`/api/v1/chat/conversation/${initial}`)).json();
       expect(persisted.messages.at(-1).content).not.toContain('UNVERIFIED_COMPLIANCE_SENTINEL');
-      expect(persisted.messages.at(-1).content).toContain(locale === 'zh' ? '规范校核尚未完成' : 'Code checking is incomplete');
+      expect(persisted.messages.at(-1).content).toContain(locale === 'zh' ? '规范校核未全部完成' : 'Code checking is not complete');
       const before = await (await request.get(`/api/v1/chat/conversation/${initial}/session`)).json();
       const design = { beta1: 1, phi_b: 1, l0: 1000, lambdaLimit: 150, deflectionLimitN: 250, serviceability_result_keys: ['case:LC1'] };
       // Product fixture: these are expressly supplied conditions, not inferred defaults.

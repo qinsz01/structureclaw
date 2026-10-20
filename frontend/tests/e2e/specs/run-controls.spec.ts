@@ -61,7 +61,9 @@ for (const locale of ['en', 'zh'] as const) {
       expect(offRequest.messages[0].content).not.toContain(beamGuidance);
       expect(offRequest.tools?.map(tool => tool.function.name)).toContain('calculate');
       expect(offRequest.tools?.map(tool => tool.function.name)).not.toContain('memory');
-      expect(JSON.stringify(llm.requests[4].messages)).toContain('TOOL_NOT_ALLOWED');
+      const deniedMemory = JSON.parse(llm.requests[4].messages.find(message => message.role === 'tool')!.content!);
+      expect(deniedMemory).toMatchObject({ success: false, errorCode: 'UNKNOWN_TOOL', guard: 'unknown-tool' });
+      expect(deniedMemory.availableTools).not.toContain('memory');
 
       await reopen(page, title, first.id);
       await settings(page);
