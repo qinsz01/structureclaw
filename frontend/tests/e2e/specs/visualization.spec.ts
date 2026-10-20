@@ -7,7 +7,7 @@ import path from 'node:path'
 // Keep its evidence as artifacts, never as strict image baselines.
 for (const scenario of ['beam', 'frame2d', 'frame3d']) {
   test(`visualization controls, PNG and responsive locale/theme matrix: ${scenario}`, async ({}, info) => {
-    test.setTimeout(1_200_000)
+    test.setTimeout(1_800_000)
     const out = process.env.SCLAW_VIZ_ACCEPTANCE_OUT ? path.join(process.env.SCLAW_VIZ_ACCEPTANCE_OUT, scenario) : info.outputPath('audit')
     const lines: string[] = []
     const status = await new Promise<number | null>((resolve, reject) => {

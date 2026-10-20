@@ -57,7 +57,7 @@ async function content(page) {
     const d = [...document.querySelectorAll('[role="dialog"][aria-modal="true"]')].at(-1)
     if (!d) return ''
     // Ignore pressed styling: a toggle must affect content or actual canvas pixels.
-    return ['[data-testid="visualization-modal-scene"]', 'aside', '[data-testid="visualization-toolbar"]'].map(q => d.querySelector(q)?.innerText || '').join('\n')
+    return ['[data-testid="visualization-modal-scene"]', 'aside', '[data-testid="visualization-toolbar"]', '[data-testid="visualization-run-copy-status"]'].map(q => d.querySelector(q)?.innerText || '').join('\n')
   })
 }
 async function exportedImage(page, file) {
@@ -78,6 +78,47 @@ async function exportedImage(page, file) {
   }, data)
 }
 
+function readButtonContrast(elements, states) {
+  const checks = []
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = 1
+  const ctx = canvas.getContext('2d')
+  const rgba = color => { ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = color; ctx.fillRect(0, 0, 1, 1); return [...ctx.getImageData(0, 0, 1, 1).data] }
+  const luminance = rgb => rgb.slice(0, 3).map(v => v / 255).map(v => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4).reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0)
+  elements.forEach((el, index) => {
+    if (!el.getClientRects().length || getComputedStyle(el).visibility === 'hidden' || el.closest('aside')) return
+    for (const state of states) {
+      const target = state === 'disabled' ? el.cloneNode(true) : el
+      if (state === 'disabled') { target.disabled = true; target.style.position = 'fixed'; target.style.left = '-10000px'; document.body.append(target) }
+      const style = getComputedStyle(target), foreground = rgba(style.color), background = rgba(style.backgroundColor)
+      const a = luminance(foreground), b = luminance(background)
+      checks.push({ index, label: el.innerText, state, active: el.getAttribute('aria-pressed') === 'true',
+        ratio: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05), opacity: Number(style.opacity),
+        opaque: background[3] === 255 && foreground[3] === 255 })
+      if (state === 'disabled') target.remove()
+    }
+  })
+  return checks
+}
+
+async function toolbarContrast(page, theme, view) {
+  const buttons = dialog(page).locator('button')
+  await page.mouse.move(2, 2); await page.waitForTimeout(180)
+  const checks = await buttons.evaluateAll(readButtonContrast, ['enabled', 'disabled'])
+  for (const { index } of checks.filter(check => check.state === 'enabled')) {
+    const button = buttons.nth(index)
+    await button.hover(); await page.waitForTimeout(180)
+    const [check] = await button.evaluateAll(readButtonContrast, ['hover'])
+    assert(check, `Missing hover target: ${theme} ${view} button ${index}`)
+    checks.push({ ...check, index })
+  }
+  await page.mouse.move(2, 2); await page.waitForTimeout(180)
+  for (const check of checks) {
+    assert(check.opaque && check.opacity === 1 && check.ratio >= 4.5, `${theme} ${view} ${check.label} ${check.state}: ${JSON.stringify(check)}`)
+  }
+  return checks.map(check => ({ theme, view, ...check }))
+}
+
 export async function runVisualizationAudit({ only, out, screenshots = true }) {
   fs.mkdirSync(out, { recursive: true })
   const port = Number(process.env.SCLAW_E2E_PORT || 31595)
@@ -91,13 +132,14 @@ export async function runVisualizationAudit({ only, out, screenshots = true }) {
   const api = await request.newContext({ baseURL: BASE })
   const llm = await startLlmFixture()
   let browser
-  const rows = [], errors = [], exports = [], screenshotPaths = []
-  const save = () => fs.writeFileSync(path.join(out, `${only || 'all'}-results.json`), JSON.stringify({ rows, errors, exports, screenshotPaths }, null, 2))
+  const rows = [], errors = [], exports = [], screenshotPaths = [], contrastChecks = []
+  const save = () => fs.writeFileSync(path.join(out, `${only || 'all'}-results.json`), JSON.stringify({ rows, errors, exports, screenshotPaths, contrastChecks }, null, 2))
   try {
     await configureFixtureLlm(api, llm)
     browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] })
     for (const scenario of scenarios.filter(s => !only || s.id === only)) {
-      const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, acceptDownloads: true })
+      const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, acceptDownloads: true,
+        permissions: ['clipboard-read', 'clipboard-write'] })
       const page = await context.newPage(); page.setDefaultTimeout(15000)
       page.on('pageerror', error => errors.push(`${scenario.id}: ${error.message}`))
       page.on('console', message => { if (message.type() === 'error') errors.push(`${scenario.id}: ${message.text()}`) })
@@ -142,6 +184,15 @@ export async function runVisualizationAudit({ only, out, screenshots = true }) {
         assert.equal(row.class, 'a', `${scenario.id} ${control} has no visible effect`)
         return row
       }
+      const copyRun = page.getByTestId('visualization-copy-run-id')
+      const runId = await copyRun.getAttribute('title')
+      assert(runId && (await copyRun.innerText()).includes(runId.slice(0, 8)))
+      assert(!(await dialog(page).locator('h2').innerText()).includes(runId))
+      await probe('copy-run-id', async () => {
+        await copyRun.click()
+        assert.equal(await page.evaluate(() => navigator.clipboard.readText()), runId)
+        await page.getByTestId('visualization-run-copy-status').waitFor()
+      })
       for (const view of labels.en.views) {
         await probe(`view-${view}`, () => button(page, view).click())
         const applicable = view === 'Model' ? ['Load Markers', 'Node Labels', 'Element Labels']
@@ -207,7 +258,20 @@ export async function runVisualizationAudit({ only, out, screenshots = true }) {
         const response = page.waitForResponse(r => r.url().includes('/result-review/') && r.url().endsWith('/tools'))
         await button(page, 'Query this object').click(); assert.equal((await (await response).json()).success, true)
         assert.equal(await page.getByTestId('visualization-modal-scene').count(), 1)
+        assert((await page.getByTestId('visualization-query-result').innerText()).includes('fz'))
       })
+      for (const [view, objectId, component] of [['Deformed', scenario.model.nodes[1].id, 'uz'], ['Diagram', scenario.model.elements[0].id, 'M2']]) {
+        await button(page, view).click()
+        assert.equal(await page.getByTestId('visualization-query-result').count(), 0, 'Hide the previous quantity in a different view')
+        if (view === 'Diagram') await dialog(page).getByRole('button', { name: /^M2 ·/ }).click()
+        await button(page, objectId).click()
+        await probe(`query-${view}-in-place`, async () => {
+          const response = page.waitForResponse(r => r.url().includes('/result-review/') && r.url().endsWith('/tools'))
+          await button(page, 'Query this object').click(); assert.equal((await (await response).json()).success, true)
+          assert((await page.getByTestId('visualization-query-result').innerText()).includes(component))
+          if (scenario.id === 'beam' && view === 'Diagram') assert(!/E-\d+/i.test(await dialog(page).locator('aside').innerText()), 'Beam side-panel noise must format as zero')
+        })
+      }
       await probe('change-case-link', () => button(page, 'Change case').click())
       const ws = page.getByRole('dialog', { name: 'Result workspace', exact: true })
       const cases = await ws.getByLabel('Case / combination', { exact: true }).locator('option').evaluateAll(os => os.map(o => o.value))
@@ -216,7 +280,7 @@ export async function runVisualizationAudit({ only, out, screenshots = true }) {
         const response = page.waitForResponse(r => r.url().includes('/result-review/') && r.url().endsWith('/tools'))
         await ws.getByRole('button', { name: 'Query selected result', exact: true }).click(); assert.equal((await (await response).json()).success, true)
         await ws.getByRole('button', { name: 'View selected figure', exact: true }).click(); await pause(page)
-        assert((await dialog(page).innerText()).includes(cases[1]))
+        assert((await dialog(page).innerText()).includes(cases[1].replace(/^(case|combination):/, '')))
         rows.push({ scenario: scenario.id, control: 'workspace-case-to-viewer', class: 'a', domChanged: true })
         await button(page, 'Close Visualization').click()
       }
@@ -245,6 +309,11 @@ export async function runVisualizationAudit({ only, out, screenshots = true }) {
             await page.setViewportSize({ width, height: 1000 })
             for (const [index, view] of labels[locale].views.entries()) {
               await button(page, view).click(); await button(page, labels[locale].fit).click(); await pause(page)
+              if (index === 2) {
+                assert.equal(await page.getByTestId('visualization-query-result').count(), 0, 'A displacement query must not appear in Diagram')
+                if (scenario.id === 'beam') assert(!(await page.getByTestId('diagram-end').allTextContents()).some(text => /E-\d+/i.test(text)), 'Beam end noise must format as zero')
+              }
+              if (locale === 'en' && width === 1440) contrastChecks.push(...await toolbarContrast(page, theme, view))
               const file = path.join(out, `${scenario.id}-${labels.en.views[index].toLowerCase()}-${theme}-${locale}-${width}.png`)
               await dialog(page).screenshot({ path: file }); screenshotPaths.push(file)
               assert(await canvas.evaluate(el => el.getBoundingClientRect().height) > 180, 'Responsive canvas must remain usable')
