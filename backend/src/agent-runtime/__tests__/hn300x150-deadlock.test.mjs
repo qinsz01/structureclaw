@@ -48,7 +48,7 @@ describe('defect 1: a designation is a label; four dimensions are geometry, two 
     const state = withSection(scenario('catalogNameWithoutGeometry'),
       { id: 'SEC1', name: 'HN300x150', type: 'H', purpose: 'beam', standard_steel_name: 'HN300x150' });
     const missing = computeDraftMissing(plugin, state, 'execution');
-    expect(missing.critical).toEqual(['templateProperties']);
+    expect(missing.critical).toEqual(['templateProperties', 'sectionConfirmation']);
     const question = buildDraftQuestions(plugin, missing.critical, missing.optional, state, locale)
       .find(item => item.paramKey === 'templateProperties');
     expect(question.question).toContain('SEC1');
