@@ -137,7 +137,8 @@ describe('inline workspace figure', () => {
   it('offers only Model, Diagram and Reactions for a force-only placeholder', async () => {
     workspaceFixture(true)
     render(<ResultReviewPanel open conversationId="A" locale="en" disabled={false} onClose={() => {}} onUsageChanged={() => {}} />)
-    expect(await screen.findByTestId('test-scene')).toHaveAttribute('data-view', 'reactions')
+    const scene = await screen.findByTestId('test-scene')
+    await waitFor(() => expect(scene).toHaveAttribute('data-view', 'reactions'))
     for (const name of ['Model', 'Diagram', 'Reactions']) expect(screen.getByRole('button', { name, exact: true })).toBeVisible()
     expect(screen.queryByRole('button', { name: 'Deformed', exact: true })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Fullscreen', exact: true }))
