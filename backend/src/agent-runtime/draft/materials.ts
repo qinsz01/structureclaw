@@ -34,7 +34,8 @@ export function reconcileDraftMaterials(patch: EngineeringDraft | undefined, exi
     if (id) {
       const existingRecord = materials?.find(row => row.id === id);
       const incomingRecord = patch.materials?.find(row => row.id === id);
-      const metadata = patch.material ?? (!existingRecord ? material : {});
+      const metadata = { ...Object.fromEntries(Object.entries(material).filter(([key]) => existingRecord?.[key] === undefined)),
+        ...patch.material };
       const record = { ...existingRecord, ...metadata, ...incomingRecord, id };
       materials = existingRecord ? materials!.map(row => row.id === id ? record : row) : [...(materials ?? []), record];
       const type = draft.structureType ?? inferredType;

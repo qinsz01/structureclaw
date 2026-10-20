@@ -54,3 +54,10 @@ test('an unscoped grade never overwrites multiple assigned materials', () => {
   expect(patch.engineeringDraft.material.grade).toBe('Q345');
 });
 
+test('a property-record patch inherits an already declared legacy grade during a style transition', () => {
+  const state = merge(saved.extractions[0].nextState, { engineeringDraft: { material: { grade: 'Q235' } } });
+  const next = merge(state, { engineeringDraft: { materials: [{ id: 'M', E: 200000, nu: .3 }] } });
+  expect(next.engineeringDraft.materials).toEqual([{ id: 'M', grade: 'Q235', E: 200000, nu: .3 }]);
+  expect(next.engineeringDraft.material.grade).toBe('Q235');
+});
+

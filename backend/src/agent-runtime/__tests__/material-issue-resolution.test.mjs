@@ -61,7 +61,9 @@ describe('clarification retires only the material issues it resolves', () => {
 
   test('the actual beam reply clears the stale wildcard E issue and permits the original template', async () => {
     const before = initial(), saved = structuredClone(before);
-    expect(computeDraftMissing(plugin, before, 'execution').critical).toEqual(['materials.MAT-Q235B.E', 'materials.MAT-Q235B.nu']);
+    // The legacy grade now reaches the record and supplies omitted constants. The explicit
+    // confirmation issue is still unresolved until the user supplies/accepts E.
+    expect(computeDraftMissing(plugin, before, 'execution').critical).toEqual(['materials[].E']);
     expect(handler.buildModel(before)).toBeUndefined();
     const after = handler.mergeState(before, clarification());
     // Design diagnostics are not draft issues: the code check reports its own missing inputs.
@@ -135,6 +137,6 @@ describe('clarification retires only the material issues it resolves', () => {
         toolContext: { skillScope: ['beam'] }, agentState: { draftState: initial(), locale: 'zh', messages: [], lastUserMessage: '' },
       },
     });
-    await expect(invoke).rejects.toThrow('MODEL_DRAFT_INCOMPLETE: materials.MAT-Q235B.E, materials.MAT-Q235B.nu');
+    await expect(invoke).rejects.toThrow('MODEL_DRAFT_INCOMPLETE: materials[].E');
   });
 });

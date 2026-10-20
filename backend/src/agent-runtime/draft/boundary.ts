@@ -337,9 +337,10 @@ export function ingestDraft(patch: Record<string, unknown> | null | undefined, e
   const draftIssues = normalizeDraftIssues(patch.draftIssues);
   const cleared = patch.clearDraftFields !== undefined ? normalizeClearDraftFields(patch.clearDraftFields) : undefined;
   const accepted = existing ? clearDraftFields(existing, cleared) : existing;
-  // Some providers place canonical fields alongside engineeringDraft. Accept the same field contract
-  // at either boundary; the nested value wins when both are present.
-  const rootDraft = Object.fromEntries(Object.entries(patch).filter(([key]) => Object.hasOwn(draftContract.properties, key)));
+  // Providers sometimes place property records/assignments alongside engineeringDraft. Other flat
+  // skill fields (for example wind) retain their existing skill-specific interpretation.
+  const rootDraft = Object.fromEntries(Object.entries(patch)
+    .filter(([key]) => ['material', 'materials', 'sectionRecords', 'templateAssignments'].includes(key)));
   const rawDraft = Object.keys(rootDraft).length ? { ...rootDraft, ...asRecord(patch.engineeringDraft) } : patch.engineeringDraft;
   const engineeringDraft = reconcileDraftMaterials(normalizeDraftWithReportedLoadIssue(rawDraft, draftIssues, accepted),
     accepted?.engineeringDraft, normalizeInferredType(patch.inferredType) ?? accepted?.inferredType);
