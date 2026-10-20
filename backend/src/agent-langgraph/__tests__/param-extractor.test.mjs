@@ -21,6 +21,14 @@ const beamPlugin = {
 };
 
 describe("param extractor", () => {
+  test.each(['flat', 'wrapped'])('preserves unapplied diagnostics when unwrapping %s patches', async style => {
+    const { parseDraftPatchFromContent } = await import('../../../dist/agent-langgraph/param-extractor.js');
+    const unapplied = [{ field: 'unknown', reason: 'NO_SCHEMA_FIELD', message: 'No matching field / 无对应字段' }];
+    const input = style === 'flat' ? { material: { grade: 'Q235' }, unapplied }
+      : { draftPatch: { engineeringDraft: { material: { grade: 'Q235' } } }, unapplied };
+    expect(parseDraftPatchFromContent(JSON.stringify(input))).toMatchObject({ unapplied,
+      engineeringDraft: { material: { grade: 'Q235' } } });
+  });
   test.each(['length', 'empty', 'unparsable'])('retries an unusable patch once with a short contract (%s)', async kind => {
     const { invokeParamExtractor } = await import('../../../dist/agent-langgraph/param-extractor.js');
     const prompts = [];

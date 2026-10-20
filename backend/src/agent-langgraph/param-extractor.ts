@@ -361,6 +361,7 @@ function unwrapDraftPatch(parsed: Record<string, unknown>): Record<string, unkno
       ? { skillState: parsed.skillState }
       : {}),
     ...(Array.isArray(parsed.draftIssues) ? { draftIssues: parsed.draftIssues } : {}),
+    ...(Array.isArray(parsed.unapplied) ? { unapplied: parsed.unapplied } : {}),
   };
   if (draftPatch && typeof draftPatch === 'object' && !Array.isArray(draftPatch)) {
     return {
