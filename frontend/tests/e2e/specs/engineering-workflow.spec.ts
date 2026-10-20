@@ -46,7 +46,7 @@ test.describe('Real engineering service through the browser', () => {
     await expect(workspace.getByLabel('Run', { exact: true }).locator('option:checked')).toHaveText(`Current · ${before.analysis.runId}`)
     await selectMidpointDisplacement(workspace)
     expect((await querySelected(page, workspace)).quantity.value).toBeCloseTo(beamReference.midpointDisplacementMm, 8)
-    await workspace.getByRole('button', { name: 'View selected figure', exact: true }).click()
+    await workspace.getByRole('button', { name: 'Fullscreen', exact: true }).click()
     await expect(page.getByTestId('visualization-modal-scene')).toBeVisible()
     await expect(page.getByTestId('visualization-scene-fallback')).toHaveCount(0)
     expect(pageErrors).toEqual([])
@@ -118,7 +118,7 @@ test.describe('Real engineering service through the browser', () => {
     expect(JSON.parse(await readFile(reportPath, 'utf8')).requestedQuantities).toEqual([displacement.quantity])
     await testInfo.attach('real-selected-report', { path: reportPath, contentType: 'application/json' })
 
-    await workspace.getByRole('button', { name: 'View selected figure', exact: true }).click()
+    await workspace.getByRole('button', { name: 'Fullscreen', exact: true }).click()
     const figure = page.getByRole('dialog')
     await expect(page.getByTestId('visualization-modal-scene')).toBeVisible()
     await expect(page.getByTestId('visualization-scene-fallback')).toHaveCount(0)
@@ -167,7 +167,7 @@ test.describe('Real engineering service through the browser', () => {
     const historical = await querySelected(page, workspace)
     expect(historical).toMatchObject({ runId: initialRunId, historical: true, current: false })
     expect(historical.quantity.value).toBe(displacement.quantity.value)
-    await workspace.getByRole('button', { name: 'View selected figure', exact: true }).click()
+    await workspace.getByRole('button', { name: 'Fullscreen', exact: true }).click()
     await expect(page.getByTestId('visualization-copy-run-id')).toHaveAttribute('title', initialRunId)
     await expect(page.getByTestId('visualization-copy-run-id')).toContainText(initialRunId.slice(0, 8))
     await expect(page.getByRole('dialog')).toContainText(`Selected location value: ${formatResultNumber(displacement.quantity.value)} mm`)
@@ -229,6 +229,8 @@ async function openResults(page: Page) {
   await page.getByRole('button', { name: 'Results and history', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'Result workspace', exact: true })
   await expect(dialog.getByLabel('Run', { exact: true }).locator('option:checked')).not.toHaveText('No saved runs')
+  await expect(dialog.locator('canvas')).toBeVisible()
+  await expect(dialog.getByRole('button', { name: 'Query selected result', exact: true })).toBeEnabled()
   return dialog
 }
 
@@ -239,12 +241,12 @@ async function selectMidpointDisplacement(workspace: Locator) {
 }
 
 async function querySelected(page: Page, workspace: Locator) {
-  const responsePromise = page.waitForResponse(response => response.url().includes('/result-review/') && response.url().endsWith('/tools'))
+  const responsePromise = page.waitForResponse(response => response.url().includes('/result-review/') && response.url().endsWith('/tools') && response.request().postDataJSON()?.args?.component)
   await workspace.getByRole('button', { name: 'Query selected result', exact: true }).click()
   const response = await responsePromise
   expect(response.status()).toBe(200)
   const body = await response.json()
   expect(body.success).toBe(true)
-  await expect(workspace.locator('p.text-2xl')).toContainText(`${body.result.quantity.value.toPrecision(10)} ${body.result.quantity.unit}`)
+  await expect(workspace.locator('p.text-2xl')).toContainText(`${formatResultNumber(body.result.quantity.value)} ${body.result.quantity.unit}`)
   return body.result
 }

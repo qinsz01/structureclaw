@@ -11,17 +11,12 @@ import assert from 'node:assert/strict'
 const REPO = process.env.SCLAW_VIZ_REPO || (fs.existsSync(path.resolve(import.meta.dirname, '../../..', 'frontend')) ? path.resolve(import.meta.dirname, '../../..') : 'G:/StructureClaw-All/structureclaw')
 const require = createRequire(`${REPO}/frontend/package.json`)
 const { chromium, request } = require('playwright')
-const { beamModel, beamAnalysis } = await import(pathToFileURL(`${REPO}/frontend/tests/e2e/fixtures/engineering-beam.ts`).href)
+const { visualizationScenarios: scenarios } = await import(pathToFileURL(`${REPO}/frontend/tests/e2e/fixtures/visualization-models.ts`).href)
 const { startLlmFixture, configureFixtureLlm, toolCall } = await import(pathToFileURL(`${REPO}/frontend/tests/e2e/fixtures/llm-server.ts`).href)
-const scenarios = ['beam', 'frame2d', 'frame3d'].map(id => {
-  const model = id === 'beam' ? beamModel : JSON.parse(fs.readFileSync(`${REPO}/frontend/tests/e2e/fixtures/visualization-${id}.json`, 'utf8'))
-  return { id, model, analysis: id === 'beam' ? beamAnalysis : { analysisType: 'static', analysisSkillId: 'opensees-static',
-    loadCaseIds: model.load_cases.map(c => c.id), loadCombinationIds: model.load_combinations.map(c => c.id) } }
-})
 const labels = {
-  en: { results: 'Results and history', workspace: 'Result workspace', query: 'Query selected result', figure: 'View selected figure',
+  en: { results: 'Results and history', workspace: 'Result workspace', query: 'Query selected result', figure: 'Fullscreen',
     views: ['Model', 'Deformed', 'Diagram', 'Reactions'], close: 'Close Visualization', fit: 'Fit', change: 'Change case' },
-  zh: { results: '结果与历史', workspace: '结果工作区', query: '查询所选结果', figure: '查看所选图形',
+  zh: { results: '结果与历史', workspace: '结果工作区', query: '查询所选结果', figure: '全屏',
     views: ['模型', '变形', '内力图', '反力'], close: '关闭可视化', fit: '适配视图', change: '切换工况' },
 }
 const safe = text => text.replace(/[^a-z0-9._-]+/gi, '_')
@@ -29,6 +24,13 @@ const pause = page => page.waitForTimeout(450)
 const setRange = (slider, value) => slider.evaluate((el, value) => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, value); el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })) }, value)
 const dialog = page => page.locator('[role="dialog"][aria-modal="true"]').last()
 const button = (page, name) => dialog(page).getByRole('button', { name, exact: true })
+
+async function captureDialog(page, file) {
+  const bounds = await dialog(page).boundingBox()
+  assert(bounds && bounds.width > 0 && bounds.height > 0, 'The figure dialog must be visible')
+  // Capture the settled dialog rectangle without scrolling the animated WebGL surface.
+  await page.screenshot({ path: file, clip: bounds, animations: 'disabled' })
+}
 
 async function markPixels(page) {
   await page.evaluate(() => {
@@ -82,7 +84,7 @@ function readButtonContrast(elements, states) {
   const checks = []
   const canvas = document.createElement('canvas')
   canvas.width = canvas.height = 1
-  const ctx = canvas.getContext('2d')
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
   const rgba = color => { ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = color; ctx.fillRect(0, 0, 1, 1); return [...ctx.getImageData(0, 0, 1, 1).data] }
   const luminance = rgb => rgb.slice(0, 3).map(v => v / 255).map(v => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4).reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0)
   elements.forEach((el, index) => {
@@ -136,7 +138,7 @@ export async function runVisualizationAudit({ only, out, screenshots = true }) {
   const save = () => fs.writeFileSync(path.join(out, `${only || 'all'}-results.json`), JSON.stringify({ rows, errors, exports, screenshotPaths, contrastChecks }, null, 2))
   try {
     await configureFixtureLlm(api, llm)
-    browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] })
+    browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader'] })
     for (const scenario of scenarios.filter(s => !only || s.id === only)) {
       const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, acceptDownloads: true,
         permissions: ['clipboard-read', 'clipboard-write'] })
@@ -161,7 +163,8 @@ export async function runVisualizationAudit({ only, out, screenshots = true }) {
         await page.getByRole('button', { name: labels[locale].results, exact: true }).click()
         const ws = page.getByRole('dialog', { name: labels[locale].workspace, exact: true })
         await ws.getByLabel(locale === 'en' ? 'Run' : '运行', { exact: true }).waitFor()
-        const response = page.waitForResponse(r => r.url().includes('/result-review/') && r.url().endsWith('/tools'))
+        await ws.locator('canvas').waitFor()
+        const response = page.waitForResponse(r => r.url().includes('/result-review/') && r.url().endsWith('/tools') && r.request().postDataJSON()?.args?.component)
         await ws.getByRole('button', { name: labels[locale].query, exact: true }).click()
         const result = await (await response).json(); assert.equal(result.success, true, JSON.stringify(result.result))
         await ws.getByRole('button', { name: labels[locale].figure, exact: true }).click()
@@ -174,10 +177,10 @@ export async function runVisualizationAudit({ only, out, screenshots = true }) {
         await page.mouse.move(2, 2); await pause(page)
         const beforeText = await content(page); await markPixels(page)
         const stem = path.join(out, safe(`${scenario.id}-${control}`))
-        await dialog(page).screenshot({ path: `${stem}-before.png` })
+        await captureDialog(page, `${stem}-before.png`)
         await action(); await page.mouse.move(2, 2); await pause(page)
         const diff = await pixelDifference(page), domChanged = beforeText !== await content(page)
-        await dialog(page).screenshot({ path: `${stem}-after.png` }).catch(() => {})
+        await captureDialog(page, `${stem}-after.png`).catch(() => {})
         const row = { scenario: scenario.id, control, pixels: diff.pixels, ratio: diff.ratio, domChanged,
           artifact: artifact || null, class: diff.pixels > 80 || domChanged || artifact ? 'a' : 'c' }
         rows.push(row); save(); console.log(JSON.stringify(row))
@@ -255,7 +258,7 @@ export async function runVisualizationAudit({ only, out, screenshots = true }) {
       await probe('clear-selection', () => button(page, 'Clear Selection').click())
       await button(page, scenario.model.nodes[1].id).click()
       await probe('query-object-in-place', async () => {
-        const response = page.waitForResponse(r => r.url().includes('/result-review/') && r.url().endsWith('/tools'))
+        const response = page.waitForResponse(r => r.url().includes('/result-review/') && r.url().endsWith('/tools') && r.request().postDataJSON()?.args?.component)
         await button(page, 'Query this object').click(); assert.equal((await (await response).json()).success, true)
         assert.equal(await page.getByTestId('visualization-modal-scene').count(), 1)
         assert((await page.getByTestId('visualization-query-result').innerText()).includes('fz'))
@@ -266,7 +269,7 @@ export async function runVisualizationAudit({ only, out, screenshots = true }) {
         if (view === 'Diagram') await dialog(page).getByRole('button', { name: /^M2 ·/ }).click()
         await button(page, objectId).click()
         await probe(`query-${view}-in-place`, async () => {
-          const response = page.waitForResponse(r => r.url().includes('/result-review/') && r.url().endsWith('/tools'))
+          const response = page.waitForResponse(r => r.url().includes('/result-review/') && r.url().endsWith('/tools') && r.request().postDataJSON()?.args?.component)
           await button(page, 'Query this object').click(); assert.equal((await (await response).json()).success, true)
           assert((await page.getByTestId('visualization-query-result').innerText()).includes(component))
           if (scenario.id === 'beam' && view === 'Diagram') assert(!/E-\d+/i.test(await dialog(page).locator('aside').innerText()), 'Beam side-panel noise must format as zero')
@@ -277,9 +280,9 @@ export async function runVisualizationAudit({ only, out, screenshots = true }) {
       const cases = await ws.getByLabel('Case / combination', { exact: true }).locator('option').evaluateAll(os => os.map(o => o.value))
       if (cases.length > 1) {
         await ws.getByLabel('Case / combination', { exact: true }).selectOption(cases[1])
-        const response = page.waitForResponse(r => r.url().includes('/result-review/') && r.url().endsWith('/tools'))
+        const response = page.waitForResponse(r => r.url().includes('/result-review/') && r.url().endsWith('/tools') && r.request().postDataJSON()?.args?.component)
         await ws.getByRole('button', { name: 'Query selected result', exact: true }).click(); assert.equal((await (await response).json()).success, true)
-        await ws.getByRole('button', { name: 'View selected figure', exact: true }).click(); await pause(page)
+        await ws.getByRole('button', { name: 'Fullscreen', exact: true }).click(); await pause(page)
         assert((await dialog(page).innerText()).includes(cases[1].replace(/^(case|combination):/, '')))
         rows.push({ scenario: scenario.id, control: 'workspace-case-to-viewer', class: 'a', domChanged: true })
         await button(page, 'Close Visualization').click()
@@ -315,7 +318,7 @@ export async function runVisualizationAudit({ only, out, screenshots = true }) {
               }
               if (locale === 'en' && width === 1440) contrastChecks.push(...await toolbarContrast(page, theme, view))
               const file = path.join(out, `${scenario.id}-${labels.en.views[index].toLowerCase()}-${theme}-${locale}-${width}.png`)
-              await dialog(page).screenshot({ path: file }); screenshotPaths.push(file)
+              await captureDialog(page, file); screenshotPaths.push(file)
               assert(await canvas.evaluate(el => el.getBoundingClientRect().height) > 180, 'Responsive canvas must remain usable')
             }
           }

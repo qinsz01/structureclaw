@@ -188,7 +188,7 @@ test.describe('Live provider: browser analysis delivery', () => {
       const workspace = page.getByRole('dialog', { name: zh ? '结果工作区' : 'Result workspace' });
       await expect(workspace.getByRole('combobox', { name: zh ? '运行' : 'Run', exact: true })).toHaveValue(session.analysis.runId);
       await expect(workspace.getByRole('combobox', { name: zh ? '工况／组合' : 'Case / combination' })).toHaveValue(session.analysis.resultKey);
-      const queryResponse = page.waitForResponse(value => value.url().includes('/result-review/' + conversationId + '/tools') && value.request().postDataJSON()?.tool === 'query_results');
+      const queryResponse = page.waitForResponse(value => value.url().includes('/result-review/' + conversationId + '/tools') && value.request().postDataJSON()?.tool === 'query_results' && value.request().postDataJSON()?.args?.component);
       await workspace.getByRole('button', { name: zh ? '查询所选结果' : 'Query selected result', exact: true }).click();
       const query = await (await queryResponse).json();
       expect(query.success).toBe(true);
@@ -196,7 +196,7 @@ test.describe('Live provider: browser analysis delivery', () => {
       expect(Number.isFinite(query.result.quantity?.value)).toBe(true);
       expect(query.result.quantity?.unit).toBe('mm');
 
-      await workspace.getByRole('button', { name: zh ? '查看所选图形' : 'View selected figure', exact: true }).click();
+      await workspace.getByRole('button', { name: zh ? '全屏' : 'Fullscreen', exact: true }).click();
       const viewer = page.getByRole('dialog');
       for (const view of zh ? ['变形', '内力图', '反力'] : ['Deformed', 'Diagram', 'Reactions']) {
         await expect(viewer.getByRole('button', { name: view, exact: true })).toBeVisible();
@@ -242,12 +242,12 @@ for (const locale of ['zh', 'en'] as const) {
     expect(verticalReaction).toBeCloseTo(zh?1:2,8);
     await page.getByRole('button', { name: zh ? '结果与历史' : 'Results and history', exact: true }).click();
     const workspace = page.getByRole('dialog', { name: zh ? '结果工作区' : 'Result workspace' });
-    const selectedQuery = page.waitForResponse(r => r.url().includes('/result-review/' + id + '/tools') && r.request().postDataJSON()?.tool === 'query_results');
+    const selectedQuery = page.waitForResponse(r => r.url().includes('/result-review/' + id + '/tools') && r.request().postDataJSON()?.tool === 'query_results' && r.request().postDataJSON()?.args?.component);
     await workspace.getByRole('button', { name: zh ? '查询所选结果' : 'Query selected result', exact: true }).click();
     const queried = await (await selectedQuery).json();
     expect(queried.success).toBe(true);
     expect(queried.result.quantity.unit).toBe('kN');
-    await workspace.getByRole('button', { name: zh ? '查看所选图形' : 'View selected figure', exact: true }).click();
+    await workspace.getByRole('button', { name: zh ? '全屏' : 'Fullscreen', exact: true }).click();
     const viewer = page.getByRole('dialog');
     for (const view of zh ? ['内力图', '反力'] : ['Diagram', 'Reactions']) {
       await expect(viewer.getByRole('button', { name: view, exact: true })).toBeVisible();
