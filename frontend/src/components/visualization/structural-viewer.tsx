@@ -218,11 +218,14 @@ export function StructuralViewer({
   useEffect(() => {
     if (!responseKey) return
     dispatch({ type: 'patch', patch: { view: initialView ?? 'model', component: initialForceMetric ?? 'M2' } })
-  }, [responseKey, initialView, initialForceMetric])
+    // Only a new selector response requests a view. Scene picks and subsequent
+    // manual view changes must not replay that request.
+  }, [responseKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (caseSnapshot && !caseSnapshot.availableViews.includes(view)) dispatch({ type: 'patch', patch: { view: 'model' } })
-  }, [caseSnapshot, view])
+    const key = figureKey ?? `${snapshot?.source}:${snapshot?.title}:${snapshot?.defaultCaseId}`
+    if (caseSnapshot && state.figureKey === key && !caseSnapshot.availableViews.includes(view)) dispatch({ type: 'patch', patch: { view: 'model' } })
+  }, [caseSnapshot, figureKey, snapshot, state.figureKey, view])
 
   useEffect(() => { onViewChange?.({ view, component: forceMetric }) }, [onViewChange, view, forceMetric])
 
