@@ -7,10 +7,15 @@ if (!args['base-url'] || !args['data-dir'] || BASE !== 'http://127.0.0.1:31605')
   throw new Error('Use --base-url http://127.0.0.1:31605 --data-dir <isolated SCLAW_DATA_DIR>');
 }
 const results = [];
+// Fixture assertion only: confirm the dimensions the UI received, never supply missing candidates.
+const offeredDimensions = text => {
+  const numbers = String(text ?? '').match(/\d+(?:\.\d+)?/g)?.map(Number) ?? [];
+  return numbers.some((_, index) => [200, 100, 7, 11.4].every((value, offset) => numbers[index + offset] === value));
+};
 for (let index = 1; index <= Number(args.runs ?? 3); index++) {
   const started = Date.now();
   const failures = [], turns = [], questions = [], answerRoutes = [], runIds = new Set();
-  let session, conversationId, deflectionMm;
+  let session, conversationId, deflectionMm, confirmationDelivery;
   const readSession = async () => {
     const value = (await json('GET', `/api/v1/chat/conversation/${conversationId}/session`)).body;
     if (value.usage?.runId) runIds.add(value.usage.runId);
@@ -20,9 +25,24 @@ for (let index = 1; index <= Number(args.runs ?? 3); index++) {
     const first = await turn('/api/v1/chat/stream', { message: '设计一个简支梁，跨度10m，梁中间荷载1kN', context: { locale: 'zh' } });
     turns.push(first);
     conversationId = first.conversationId;
-    for (const answer of ['材料Q235钢，截面工字钢I20a', '确认采用 I20a 尺寸：200×100×7×11.4 mm']) {
+    for (let answerIndex = 0; answerIndex < 2; answerIndex++) {
       session = await readSession();
       questions.push(session.waitingForReply ? session.question : turns.at(-1).response);
+      let answer = '材料Q235钢，截面工字钢I20a';
+      if (answerIndex === 1) {
+        const delivered = turns.at(-1).interactions.at(-1)?.content;
+        const sseQuestion = delivered?.questions?.map(item => item.question).join('\n');
+        confirmationDelivery = { question: session.question, options: session.options,
+          sseQuestion, sseOptions: delivered?.options };
+        if (!session.waitingForReply || !offeredDimensions(session.question) || !offeredDimensions(sseQuestion)) {
+          throw new Error('The interface did not offer 200×100×7×11.4 mm in the confirmation question');
+        }
+        if (JSON.stringify(session.options ?? []) !== JSON.stringify(delivered?.options ?? [])) {
+          throw new Error('SSE and session delivered different confirmation options');
+        }
+        answer = session.options?.find(offeredDimensions) ?? '确认采用上述尺寸。';
+        confirmationDelivery.answer = answer;
+      }
       answerRoutes.push(session.waitingForReply ? 'resume' : 'message');
       turns.push(await (session.waitingForReply
         ? turn('/api/v1/chat/stream/resume', { conversationId, resumeValue: answer })
@@ -54,7 +74,7 @@ for (let index = 1; index <= Number(args.runs ?? 3); index++) {
   if (failedExtracts.length) failures.push('Extraction failed without applying inputs');
   if (!extracts.length) failures.push('Missing extraction diagnostics');
   const row = { run: index, conversationId, runId: session?.usage?.runId, runIds: [...runIds], wallMs, systemMs,
-    answers: turns.length - 1, answerRoutes, questions,
+    answers: turns.length - 1, answerRoutes, questions, confirmationDelivery,
     deflectionMm, extractCalls, failedExtracts, extracts: extracts.map(({ applied, unapplied, status }) => ({ applied, unapplied, status })),
     patches: events.filter(event => event.kind === 'param_extractor' && event.mode === 'patch')
       .map(({ attempt, durationMs, finishReason, usage, maxOutputTokens, outcome }) => ({ attempt, durationMs, finishReason,

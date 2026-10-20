@@ -13,6 +13,27 @@ const ANSWER = '跨中作用20kN集中荷载，竖直向下。';
 describeWithOpenSees('characterization: clarification interrupt and resume', () => {
   const ctx = setupHarness();
 
+  test.each(['zh', 'en'])('invalid options are rejected before interrupt; repaired choices reach SSE and session (%s)', async locale => {
+    ctx.llm.setInternal(null);
+    const question = locale === 'zh' ? '请确认尺寸 200×100×7×11.4 mm。' : 'Confirm dimensions 200×100×7×11.4 mm.';
+    const option = locale === 'zh' ? '确认采用 200×100×7×11.4 mm' : 'Confirm 200×100×7×11.4 mm';
+    const first = await runTurn(ctx, { message: question, context: { locale } }, [
+      toolCall('ask_user_clarification', { question, optionsJson: '["unfinished' }, 'bad-options'),
+      toolCall('ask_user_clarification', { question, optionsJson: JSON.stringify([option]) + '}' }, 'repaired-options'),
+    ], { expectedToolErrors: 1 });
+    expect(toolResultSeenByAgent(first.requests, 'bad-options')).toMatchObject({
+      success: false, errorCode: 'CLARIFICATION_OPTIONS_INVALID', nextAction: 'resend_clarification',
+    });
+    expect(first.interactions).toHaveLength(1);
+    expect(first.interactions[0].content).toMatchObject({ options: [option], questions: [{ question }] });
+    expect(await ctx.backend.session(first.conversationId)).toMatchObject({ waitingForReply: true, question, options: [option] });
+    const resumed = await runTurn(ctx, { conversationId: first.conversationId, resumeValue: option }, ['CONFIRMED'], { resume: true });
+    expect(toolResultSeenByAgent(resumed.requests, 'repaired-options')).toMatchObject({
+      type: 'clarification_answered', question, options: [option], answer: option,
+    });
+    expect((await ctx.backend.session(first.conversationId)).waitingForReply).toBe(false);
+  }, TURN_TIMEOUT_MS);
+
   test('missing load pauses on ask_user_clarification; the resumed answer completes the draft and analysis', async () => {
     const extractorPrompts = [];
     ctx.llm.setInternal(internalResponder({
