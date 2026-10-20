@@ -55,6 +55,7 @@ describe('diagram display geometry', () => {
       expect(formatResultNumber(2.49e-9, locale, 2.5)).toBe('0')
       expect(formatResultNumber(2.5e-9, locale, 2.5)).toBe('2.50E-9')
       expect(formatResultNumber(1.332e-15, locale, 2.5e-15)).toBe('1.332E-15')
+      expect(formatResultNumber(1.25e-22, locale, 2.5e-15)).toBe('1.25E-22')
     }
   })
   it('uses the saved component peak for beam end labels and leaves the data unchanged', () => {

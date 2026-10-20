@@ -31,7 +31,7 @@ export function MemberDiagram({ element, ctx }: { element: VisualizationElement;
   // governing member visible by default and expose other values on inspection.
   const showValues = snapshot.dimension === 2 || (ctx.selectedElementId
     ? ctx.selectedElementId === element.id
-    : ctx.showElementLabels || Math.abs(diagram.peak.value) === maxElementMetric)
+    : ctx.showElementLabels || Math.abs(diagram.peak.value) === ctx.rawMaxElementMetric)
   const unit = isMomentMetric(forceMetric) ? snapshot.momentUnit : snapshot.resultUnit
   return <group>
     {meshes.map(({ geometry, color }, index) => <mesh key={index} geometry={geometry}>
@@ -52,7 +52,7 @@ export function MemberDiagram({ element, ctx }: { element: VisualizationElement;
         <Html center position={labelPosition.toArray()} zIndexRange={[20, 0]}>
           <div data-viz-label data-testid={sample === diagram.peak ? 'diagram-peak' : 'diagram-end'}
             className="w-max whitespace-nowrap rounded-md border border-border bg-background/95 px-1.5 py-0.5 text-[10px] text-foreground">
-            {sample === diagram.peak ? `${t('visualizationPeak')} · ` : ''}{formatResultNumber(sample.value, locale, maxElementMetric)} {unit}
+            {sample === diagram.peak ? `${t('visualizationPeak')} · ` : ''}{formatResultNumber(sample.value, locale, ctx.rawMaxElementMetric)} {unit}
           </div>
         </Html>
       </group>
