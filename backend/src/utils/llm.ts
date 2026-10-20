@@ -372,6 +372,11 @@ export class CompatibleChatOpenAICompletions extends ChatOpenAICompletions {
   completionWithRetry(request: any, requestOptions?: any): Promise<any> {
     const sourceMessages = getSourceMessagesFromOptions(requestOptions);
     const patchedRequest = attachDeepSeekReasoningContent(request, sourceMessages);
+    // Record only safe wire controls, never headers, credentials or request content.
+    recordRunEvent({ kind: 'llm_request_options', model: patchedRequest.model,
+      reasoningEffort: patchedRequest.reasoning_effort ?? null, thinking: usageRecord(patchedRequest.thinking)?.type ?? null,
+      maxOutputTokens: patchedRequest.max_tokens ?? patchedRequest.max_completion_tokens ?? null,
+      responseFormat: usageRecord(patchedRequest.response_format)?.type ?? null, stream: patchedRequest.stream ?? false });
     return super.completionWithRetry(patchedRequest as any, withoutSourceMessagesOption(requestOptions));
   }
 }

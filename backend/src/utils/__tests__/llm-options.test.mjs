@@ -349,3 +349,30 @@ test('patch controls reach the compatible Chat Completions wire request', async 
     { purpose: 'clarification-patch', maxTokens: 6144, disableStreaming: true }));
   expect(model.invocationParams()).toMatchObject({ reasoning_effort: 'low', max_tokens: 6144, response_format: { type: 'json_object' } });
 });
+
+test('the HTTP provider receives low reasoning and the patch cap through the ChatOpenAI wrapper', async () => {
+  const { createServer } = await import('node:http');
+  const { ChatOpenAI } = await import('@langchain/openai');
+  const { buildChatModelOptions, CompatibleChatOpenAICompletions } = await import('../../../dist/utils/llm.js');
+  let received;
+  const server = createServer(async (request, response) => {
+    const chunks = [];
+    for await (const chunk of request) chunks.push(chunk);
+    received = JSON.parse(Buffer.concat(chunks).toString());
+    response.writeHead(200, { 'Content-Type': 'application/json' });
+    response.end(JSON.stringify({ id: 'wire-test', object: 'chat.completion', model: 'glm-5.3',
+      choices: [{ index: 0, message: { role: 'assistant', content: '{"engineeringDraft":{}}' }, finish_reason: 'stop' }] }));
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const options = buildChatModelOptions({ ...baseConfig, llmModel: 'glm-5.3',
+      llmBaseUrl: `http://127.0.0.1:${server.address().port}/v1` }, 0,
+    { purpose: 'clarification-patch', maxTokens: 2048, disableStreaming: true });
+    const model = new ChatOpenAI({ ...options, completions: new CompatibleChatOpenAICompletions(options) });
+    await model.invoke('Return a JSON patch.');
+    expect(received).toMatchObject({ reasoning_effort: 'low', max_tokens: 2048,
+      response_format: { type: 'json_object' }, stream: false });
+  } finally {
+    await new Promise(resolve => { server.close(resolve); server.closeAllConnections(); });
+  }
+});

@@ -345,6 +345,9 @@ function looksLikeTopLevelEngineeringDraft(parsed: Record<string, unknown>): boo
     || isRecord(parsed.boundary)
     || Array.isArray(parsed.loads)
     || isRecord(parsed.analysis)
+    || Array.isArray(parsed.materials)
+    || Array.isArray(parsed.sectionRecords)
+    || isRecord(parsed.templateAssignments)
   );
 }
 
@@ -429,8 +432,8 @@ export async function invokeParamExtractor(
 
   const patchMode = input.patchMode ?? Boolean(input.existingState?.engineeringDraft);
   const llm = input.llm === undefined ? createChatModel(0, patchMode
-    // This cap includes hidden reasoning; smaller caps can exhaust it before returning the JSON patch.
-    ? { purpose: 'clarification-patch', maxTokens: 6144, disableStreaming: true } : {}) : input.llm;
+    // GLM-5.3 cannot disable reasoning. Bound an exhausted attempt, then retry with a short JSON contract.
+    ? { purpose: 'clarification-patch', maxTokens: 2048, disableStreaming: true } : {}) : input.llm;
   if (!llm) {
     if (input.requireLlmResult) {
       throw new Error('LLM_PARAM_EXTRACTOR_CONFIGURATION_ERROR: no LLM is configured');
@@ -438,8 +441,7 @@ export async function invokeParamExtractor(
     return null;
   }
 
-  const start = Date.now();
-  const prompt = buildParamExtractorPrompt(
+  const promptFor = (patchMode: boolean) => buildParamExtractorPrompt(
     input.locale,
     input.existingState,
     input.plugin,
@@ -451,58 +453,52 @@ export async function invokeParamExtractor(
     + (input.sectionShapeSchema && !patchMode ? `\nAuthoritative V2 section shape schema / 正式V2截面几何字段定义（单位mm，kind使用所列大小写，不能猜测尺寸或圆角）:\n${JSON.stringify(input.sectionShapeSchema)}` : '')
     + (patchMode ? '' : '\nRequest goal / 本次所求结果: include top-level requestScope only when this message changes the goal: {responses:[forces|reactions|displacements|rotations|stress|dynamic],design:boolean,report:boolean,outputs:[]}. design=true only for an explicit code-check request (验算/校核/按规范/code check); "design a beam" is not one. report=true only for a requested report, calculation book or other deliverable document; "design a beam" and specific results leave it false. Do not infer design from enabled skills. Missing material must not prevent this scope. Retain the prior goal for a clarification answer. / 仅明确要求规范验算时design=true，“设计”一词不算；仅要求报告、计算书或其他交付文件时report=true，“设计”和只求具体结果时为false；不因勾选技能而请求设计；缺少材料不妨碍声明范围；补参数时保留目标。');
 
-  let result: {
-    content: unknown;
-    response_metadata?: Record<string, unknown>;
-    usage_metadata?: Record<string, unknown>;
-  };
-  try {
-    result = await llm.invoke(prompt, { signal: input.signal });
-  } catch (error) {
-    log.warn(
-      {
-        pluginId,
-        durationMs: Date.now() - start,
-        error: error instanceof Error ? error.message : String(error),
-      },
-      'param extractor LLM call failed',
-    );
-    throw new Error(
+  let diagnostic = '';
+  for (let attempt = 1; attempt <= (patchMode ? 3 : 1); attempt++) {
+    const mode = patchMode && attempt < 3 ? 'patch' : 'full';
+    const maxOutputTokens = patchMode ? (attempt === 3 ? 8192 : 2048) : null;
+    const model = attempt === 1 ? llm : input.llm === undefined
+      ? createChatModel(0, { purpose: 'clarification-patch', maxTokens: maxOutputTokens!, disableStreaming: true }) : input.llm;
+    const prompt = promptFor(mode === 'patch') + (attempt === 2
+      ? '\nRETRY CONTRACT / 重试协议: The previous output was empty, invalid or truncated. Return ONLY one short JSON object: {"engineeringDraft":{changed fields only}}; optional clearDraftFields, draftIssues, unapplied. Capture EVERY supplied field independently, including fields unrelated to pending confirmations. No unchanged data or commentary. / 上次输出无效；仅返回短JSON，分别保留用户给出的所有字段，待确认字段不得阻止其他字段。'
+      : '');
+    const start = Date.now();
+    let result: {
+      content: unknown;
+      response_metadata?: Record<string, unknown>;
+      usage_metadata?: Record<string, unknown>;
+    };
+    try {
+      result = await model!.invoke(prompt, { signal: input.signal });
+    } catch (error) {
+      recordRunEvent({ kind: 'param_extractor', attempt, mode, promptChars: prompt.length,
+        durationMs: Date.now() - start, outcome: 'infrastructure_error', maxOutputTokens });
+      log.warn({ pluginId, durationMs: Date.now() - start }, 'param extractor LLM call failed');
+      throw new Error(
         `LLM_PARAM_EXTRACTOR_INFRASTRUCTURE_ERROR: network error: ${
           error instanceof Error ? error.message : String(error)
         }`,
         { cause: error },
       );
-  }
+    }
 
-  const usage = extractLlmTokenUsage(result);
-  if (usage) input.onUsage?.(usage);
-  const content = llmContentText(result.content);
-  const patch = parseDraftPatchFromContent(content);
-  const rawFinishReason = result.response_metadata?.finish_reason
-    ?? result.response_metadata?.stop_reason;
-  const finishReason = typeof rawFinishReason === 'string' ? rawFinishReason : undefined;
-  const reasoningContentLength = getReasoningContentLength(result);
-  recordRunEvent({ kind: 'param_extractor', mode: patchMode ? 'patch' : 'full', promptChars: prompt.length, durationMs: Date.now() - start,
-    usage: usage ?? null, contentChars: content.length, reasoningChars: reasoningContentLength, finishReason, maxOutputTokens: patchMode ? 6144 : null });
-  log.debug(
-    {
-      pluginId,
-      durationMs: Date.now() - start,
-      hasDraftPatch: !!patch,
-      finishReason,
-      contentLength: content.length,
-      reasoningContentLength,
-    },
-    'param extractor completed',
-  );
-  if (!patch && input.requireLlmResult) {
-    throw new Error(
-      'LLM_PARAM_EXTRACTOR_INVALID_OUTPUT: response was not a usable JSON draft patch; '
-      + `finishReason=${finishReason ?? 'unknown'}; contentLength=${content.length}; `
-      + `reasoningContentLength=${reasoningContentLength}`,
-    );
+    const usage = extractLlmTokenUsage(result);
+    if (usage) input.onUsage?.(usage);
+    const content = llmContentText(result.content);
+    const patch = parseDraftPatchFromContent(content);
+    const rawFinishReason = result.response_metadata?.finish_reason ?? result.response_metadata?.stop_reason;
+    const finishReason = typeof rawFinishReason === 'string' ? rawFinishReason : undefined;
+    const reasoningContentLength = getReasoningContentLength(result);
+    const invalidReason = finishReason === 'length' || finishReason === 'max_tokens' ? 'length'
+      : !content.trim() ? 'empty' : !patch ? 'unparsable' : undefined;
+    recordRunEvent({ kind: 'param_extractor', attempt, mode, promptChars: prompt.length, durationMs: Date.now() - start,
+      usage: usage ?? null, contentChars: content.length, reasoningChars: reasoningContentLength, finishReason, maxOutputTokens,
+      outcome: invalidReason ?? 'accepted' });
+    log.debug({ pluginId, durationMs: Date.now() - start, hasDraftPatch: !!patch, finishReason,
+      contentLength: content.length, reasoningContentLength }, 'param extractor completed');
+    if (!invalidReason) return patch;
+    diagnostic = `finishReason=${finishReason ?? 'unknown'}; contentLength=${content.length}; reasoningContentLength=${reasoningContentLength}`;
+    if (patchMode && attempt < 3) requestRecovery(`parameter extraction: ${invalidReason}; ${attempt === 1 ? 'retry short patch' : 'retry full extraction'}`);
   }
-  if (!patch) requestRecovery('parameter extraction: unusable LLM output, applying explicit handler extraction');
-  return patch;
+  throw new Error('LLM_PARAM_EXTRACTOR_INVALID_OUTPUT: response was not a usable JSON draft patch; ' + diagnostic);
 }

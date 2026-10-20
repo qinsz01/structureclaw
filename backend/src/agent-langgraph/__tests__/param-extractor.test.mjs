@@ -21,6 +21,40 @@ const beamPlugin = {
 };
 
 describe("param extractor", () => {
+  test.each(['length', 'empty', 'unparsable'])('retries an unusable patch once with a short contract (%s)', async kind => {
+    const { invokeParamExtractor } = await import('../../../dist/agent-langgraph/param-extractor.js');
+    const prompts = [];
+    const expected = { engineeringDraft: { material: { grade: 'Q235' } } };
+    const actual = await invokeParamExtractor({ message: '材料Q235钢，截面工字钢I20a', locale: 'zh', plugin: beamPlugin,
+      existingState: { inferredType: 'beam', engineeringDraft: { geometry: { lengthM: 10 } } },
+      llm: { invoke: async prompt => {
+        prompts.push(prompt);
+        return prompts.length === 1
+          ? { content: kind === 'unparsable' ? 'invalid JSON' : kind === 'length' ? JSON.stringify(expected) : '',
+            response_metadata: { finish_reason: kind === 'length' ? 'length' : 'stop' } }
+          : { content: JSON.stringify(expected) };
+      } } });
+    expect(actual).toEqual(expected);
+    expect(prompts).toHaveLength(2);
+    expect(prompts[1]).toContain('RETRY CONTRACT');
+    expect(prompts.every(prompt => prompt.includes('PATCH ONLY'))).toBe(true);
+  });
+
+  test('two unusable patches fall back to full extraction, never rule-only success', async () => {
+    const { invokeParamExtractor } = await import('../../../dist/agent-langgraph/param-extractor.js');
+    const prompts = [];
+    const input = { message: 'Q235', locale: 'en', plugin: beamPlugin,
+      existingState: { inferredType: 'beam', engineeringDraft: {} } };
+    await expect(invokeParamExtractor({ ...input, llm: { invoke: async prompt => {
+      prompts.push(prompt);
+      return { content: prompts.length < 3 ? '' : '{"engineeringDraft":{"material":{"grade":"Q235"}}}' };
+    } } })).resolves.toMatchObject({ engineeringDraft: { material: { grade: 'Q235' } } });
+    expect(prompts).toHaveLength(3);
+    expect(prompts[2]).toContain('Request goal');
+    expect(prompts[2]).not.toContain('PATCH ONLY');
+    await expect(invokeParamExtractor({ ...input, llm: { invoke: async () => ({ content: '' }) } }))
+      .rejects.toThrow('LLM_PARAM_EXTRACTOR_INVALID_OUTPUT');
+  });
   test.each(['zh', 'en'])('passes the authoritative design field definitions to the extraction model (%s)', async locale => {
     const { invokeParamExtractor } = await import('../../../dist/agent-langgraph/param-extractor.js');
     const { createLocalStructureProtocolClient } = await import('../../../dist/services/structure-protocol-execution.js');
