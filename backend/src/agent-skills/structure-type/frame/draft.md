@@ -56,3 +56,6 @@
 
 - 构件上的集中荷载不同于节点荷载：使用 `kind: "point"`，`location.xM` 为距构件起点的距离（m）；用准确的构件 ID `target` 或二维框架的 `location.story` + `location.spanIndex`（从 1 开始）定位构件。已给出构件和沿构件位置时，不要追问节点角色，也不要转为楼层总荷载。
 - A member point load is distinct from a joint load: use `kind: "point"` and `location.xM` in metres from the member start. Identify the member by its exact `target` ID or, for a 2D frame, by one-based `location.story` and `location.spanIndex`. A stated member and position needs no node-role clarification and must not become a floor load.
+
+## Repeated nodal loads / 重复节点荷载
+When a force is given **per node**, preserve that force on every specified node. Enumerate located nodal loads by story and node role where supported, or preserve explicit topology and node IDs. Never interpret the per-node force as a per-story total. Ground nodes excluded by the user receive no such load. / 每个节点的荷载大小必须逐节点保留，可按楼层及节点角色逐条列出，或保留显式拓扑及节点 ID；不得把每节点荷载当作每层总荷载，用户排除的地面节点不施加该荷载。

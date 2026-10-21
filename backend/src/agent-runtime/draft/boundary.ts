@@ -344,7 +344,7 @@ export function ingestDraft(patch: Record<string, unknown> | null | undefined, e
   const rootDraft = Object.fromEntries(Object.entries(patch)
     .filter(([key]) => ['material', 'materials', 'sectionRecords', 'templateAssignments'].includes(key)));
   const rawDraft = Object.keys(rootDraft).length ? { ...rootDraft, ...asRecord(patch.engineeringDraft) } : patch.engineeringDraft;
-  const engineeringDraft = verifyDraftSectionEvidence(reconcileDraftMaterials(normalizeDraftWithReportedLoadIssue(normalizeFrameBoundary(rawDraft, normalizeInferredType(patch.inferredType) ?? accepted?.inferredType), draftIssues, accepted),
+  const engineeringDraft = verifyDraftSectionEvidence(reconcileDraftMaterials(normalizeDraftWithReportedLoadIssue(normalizeFrameBoundary(rawDraft, normalizeInferredType(patch.inferredType) ?? normalizeInferredType(asRecord(rawDraft)?.structureType) ?? accepted?.inferredType), draftIssues, accepted),
     accepted?.engineeringDraft, normalizeInferredType(patch.inferredType) ?? accepted?.inferredType), userTexts);
   const issueFields = draftIssues
     ?.map((issue) => issue.field)

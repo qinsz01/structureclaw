@@ -109,7 +109,15 @@ export function buildConcreteFrameModel(
       engineeringDraft: state.engineeringDraft,
     });
 
-    if (codeCheckResults) {
+    if (!state.frameBaseSupportType) model3d.metadata = { ...model3d.metadata, templateAssumptions: [{
+      field: 'boundary.frameBaseSupportType', value: 'fixed', reason: 'Unstated frame bases default to fixed / 未说明柱脚时默认刚接',
+    }] };
+
+    if (!state.frameBaseSupportType) model2d.metadata = { ...model2d.metadata, templateAssumptions: [{
+    field: 'boundary.frameBaseSupportType', value: 'fixed', reason: 'Unstated frame bases default to fixed / 未说明柱脚时默认刚接',
+  }] };
+
+  if (codeCheckResults) {
       model3d.metadata = {
         ...model3d.metadata,
         codeCheckResults: buildCodeCheckMetadata(codeCheckResults),

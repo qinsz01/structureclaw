@@ -1,3 +1,4 @@
+import { matchConservativeStructuralRoute } from './structural-routing.js';
 import { prepareEngineeringReport, finishEngineeringReport } from './engineering-report.js';
 import { computeDraftMissing, describeCriticalMissing } from './draft-readiness.js';
 import { assertResolvedInput } from '../engineering/input-evidence.js';
@@ -386,20 +387,23 @@ export class AgentSkillRuntime {
         supportLevel: 'supported', routingSource: 'policy-fixed' };
     }
     const enabled = await this.registry.resolveEnabledPlugins(skillIds);
+    const requested = matchConservativeStructuralRoute(message);
+    const excluded = requested && !enabled.some(plugin => plugin.id === requested.skillId)
+      ? await this.registry.resolvePluginById(requested.skillId) : null;
     const applyScope = (match: StructuralTypeMatch): StructuralTypeMatch => {
-      if (!match.skillId || enabled.some(plugin => plugin.id === match.skillId)) return match;
+      if (!excluded) return match;
       const generic = enabled.find(plugin => plugin.id === 'generic');
       const supportNote = locale === 'zh'
-        ? `${match.skillId} 能力未启用（能力设置）。${generic ? '已用通用建模继续；' : ''}可在能力设置中启用。`
-        : `${match.skillId} is disabled in Capability settings. ${generic ? 'Continuing with generic modeling; ' : ''}enable it there.`;
+        ? `${excluded.name.zh} 能力未启用（能力设置）。${generic ? '已用通用建模继续；' : ''}可在能力设置中启用。`
+        : `${excluded.name.en} is disabled in Capability settings. ${generic ? 'Continuing with generic modeling; ' : ''}enable it there.`;
       const result: StructuralTypeMatch = { ...match, skillId: generic?.id,
         supportLevel: generic ? 'fallback' : 'unsupported', supportNote,
-        scopeExclusion: { code: 'STRUCTURE_SKILL_DISABLED', skillId: match.skillId } };
+        scopeExclusion: { code: 'STRUCTURE_SKILL_DISABLED', skillId: excluded.id } };
       recordRunEvent({ kind: 'structural_scope_exclusion', ...result.scopeExclusion, message: supportNote });
       return result;
     };
     if (llm) {
-      const plugins = await this.registry.resolveEnabledPlugins();
+      const plugins = enabled;
       const currentPlugin = await this.registry.resolvePluginForState(currentState, skillIds);
       for (let attempt = 1; attempt <= 2; attempt++) {
         signal?.throwIfAborted();
@@ -419,7 +423,7 @@ export class AgentSkillRuntime {
       }
     }
     // Rules are evaluated only without an LLM or after its retry failed.
-    const match = applyScope(await this.registry.detectStructuralType(message, locale, undefined));
+    const match = applyScope(await this.registry.detectStructuralType(message, locale, undefined, skillIds));
     recordRunEvent({ kind: 'structural_routing', path: 'rule-fallback',
       reason: llm ? 'failed-after-retry' : 'not-configured', key: match.key });
     return match;
