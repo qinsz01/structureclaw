@@ -33,6 +33,7 @@ shares, requires a new version. History:
 - `2026-10-21.12`: Resolve section-role diagnostics independently of missing material properties, using the same section-reference resolver as the builder / 截面角色诊断与缺失材料属性独立解析，复用建模器的截面引用解析。
 
 - `2026-10-22.1`: skills now contain structure modelling methods only. Solvers, codes, parsers and exporters use an independent provider catalog. Legacy ids migrate at the boundary; generic-only retains all enabled providers; no-knowledge also removes shared engineering knowledge. Unified settings separate global defaults from conversation overrides; excessive tool budgets are rejected.
+- `2026-10-22.2`: generic drafts retain canonical physics without template projection. Shared property completion and kinematic-rank/load checks feed the policy-controlled repair loop; readiness asks for physical gaps rather than a template name.
 
 ## Selecting a profile
 

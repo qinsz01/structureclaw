@@ -34,7 +34,7 @@ const frontendDir = path.join(dataDir, 'frontend');
 fs.cpSync(path.join(repository, 'frontend/out'), frontendDir, { recursive: true });
 const settings = {
   server: { port, host: '127.0.0.1', frontendPort: port }, database: { url: databaseUrl },
-  llm: { baseUrl: process.env.LLM_BASE_URL ?? source.llm?.baseUrl, model: process.env.LLM_MODEL ?? source.llm?.model,
+  llm: { baseUrl: source.llm?.baseUrl ?? process.env.LLM_BASE_URL, model: source.llm?.model ?? process.env.LLM_MODEL,
     timeoutMs: 180000, maxRetries: 0 },
   analysis: { ...source.analysis, pythonBin },
   agent: { workspaceRoot: dataDir, checkpointDir: path.join(dataDir, 'checkpoints'), allowShell: false },
@@ -68,9 +68,9 @@ try {
   }
   fs.writeFileSync(path.join(evidence, 'providers.json'), JSON.stringify(await json('/api/v1/agent/providers'), null, 2));
   browser = await chromium.launch({ headless: true });
-  const cases = phase === 'phase1' ? phaseOneCases() : genericCases();
+  const cases = phase === 'phase1' ? phaseOneCases() : [...genericCases(), ...phaseOneCases()];
   const requested = process.env.SCLAW_ACCEPTANCE_CASES?.split(',');
-  for (const scenario of cases.filter(item => !requested || requested.includes(item.id))) {
+  async function runScenario(scenario) {
     const directory = path.join(evidence, scenario.id);
     fs.mkdirSync(directory, { recursive: true });
     const context = await browser.newContext({ baseURL, locale: 'zh-CN', viewport: { width: 1440, height: 1000 } });
@@ -83,15 +83,18 @@ try {
     let session;
     let conversation;
     let failure;
+    const captureWarnings = [];
     let turns = 0;
     const start = Date.now();
     try {
       await page.goto('/');
       if (scenario.generic) {
-        await page.getByRole('button', { name: '运行设置', exact: true }).click();
+        const scope = page.locator('summary').filter({ hasText: /^会话设置$/ });
+        await scope.click();
         await page.getByLabel('结构技能', { exact: true }).selectOption('restricted');
+        for (const checkbox of await page.getByRole('checkbox').all()) await checkbox.uncheck();
         await page.getByLabel('通用结构类型', { exact: true }).check();
-        await page.getByRole('button', { name: '运行设置', exact: true }).click();
+        await scope.click();
       }
       for (const prompt of [scenario.prompt, ...(scenario.followups ?? [])]) {
         if (turns && !session?.waitingForReply) break;
@@ -102,7 +105,9 @@ try {
         turns++;
         const response = await responsePromise;
         conversationId = response.request().postDataJSON().conversationId ?? conversationId;
-        const stream = await response.text();
+        await response.finished();
+        let stream = '';
+        try { stream = await response.text(); } catch (error) { captureWarnings.push(String(error)); }
         fs.writeFileSync(path.join(directory, `turn-${turns}.sse`), stream);
         if (!conversationId) {
           for (const line of stream.split('\n').filter(line => line.startsWith('data: ') && !line.includes('[DONE]'))) {
@@ -111,6 +116,10 @@ try {
           }
         }
         session = await json(`/api/v1/chat/conversation/${conversationId}/session`);
+        for (let attempt = 0; session.busy && attempt < 120; attempt++) {
+          await pause(500);
+          session = await json(`/api/v1/chat/conversation/${conversationId}/session`);
+        }
         conversation = await json(`/api/v1/chat/conversation/${conversationId}`);
         fs.writeFileSync(path.join(directory, `turn-${turns}.json`), JSON.stringify({ prompt, session, conversation }, null, 2));
         console.log(JSON.stringify({ case: scenario.id, turn: turns, analysis: session.analysis?.current,
@@ -125,20 +134,21 @@ try {
       await page.screenshot({ path: path.join(directory, 'browser.png'), fullPage: true });
     } catch (error) { failure ??= String(error); }
     const tools = conversation?.messages?.filter(message => message.role === 'tool') ?? [];
-    const questions = tools.filter(message => message.name === 'ask_user_clarification');
+    const questions = (conversation?.messages ?? []).flatMap(message => message.toolCalls ?? [])
+      .filter(call => call.name === 'ask_user_clarification');
     let run;
     if (session?.analysis?.runId) {
       try { run = await json('/runs/' + session.analysis.runId); fs.writeFileSync(path.join(directory, 'run.json'), JSON.stringify(run, null, 2)); }
       catch (error) { failure ??= String(error); }
     }
     const summary = { id: scenario.id, conversationId, seconds: (Date.now() - start) / 1000, turns,
-      questionCalls: questions.length, toolCalls: tools.length, usage: session?.usage, expected: scenario.expected,
+      questionCalls: questions.length, toolCalls: session?.usage?.toolCalls ?? tools.length, usage: session?.usage, expected: scenario.expected,
       analysis: session?.analysis, waiting: session?.waitingForReply, policy: session?.policy,
       analysisResponses: tools.filter(message => message.name === 'run_analysis').map(message => parse(message.content)),
-      questions: questions.map(message => parse(message.content)),
+      questions: questions.map(call => call.args),
       toolErrors: tools.filter(message => /^Error:|"success":false|RECOVERY_BUDGET_EXHAUSTED/.test(message.content)),
       lastAssistant: conversation?.messages?.filter(message => message.role === 'assistant').at(-1)?.content,
-      pageErrors, failure };
+      pageErrors, captureWarnings, failure };
     fs.writeFileSync(path.join(directory, 'summary.json'), JSON.stringify(summary, null, 2));
     summaries.push(summary);
     fs.writeFileSync(path.join(evidence, 'summary.json'), JSON.stringify(summaries, null, 2));
@@ -146,6 +156,12 @@ try {
       toolCalls: tools.length, analysis: session?.analysis?.current, failure }));
     await context.close();
   }
+  const pending = cases.filter(item => !requested || requested.includes(item.id));
+  const concurrency = Number(process.env.SCLAW_ACCEPTANCE_CONCURRENCY ?? 2);
+  if (![1, 2].includes(concurrency)) throw new Error('ACCEPTANCE_CONCURRENCY_MUST_BE_1_OR_2');
+  await Promise.all(Array.from({ length: concurrency }, async () => {
+    while (pending.length) await runScenario(pending.shift());
+  }));
 } finally {
   await browser?.close();
   server.kill();
@@ -165,6 +181,13 @@ function phaseOneCases() {
   ]);
 }
 function genericCases() {
-  // Filled by phase 2 alongside its physics checklist and independent hand checks.
-  throw new Error('GENERIC_ACCEPTANCE_CASES_NOT_IMPLEMENTED');
+  const steel = '所有材料Q235，E=206000MPa、nu=0.3、rho=7850kg/m³；除注明纯轴力杆外截面均为实心矩形宽200mm高300mm，高沿竖向。不计自重。只用OpenSees线弹性静力，不做规范设计或报告。';
+  return [
+    { id: 'generic-frame', generic: true, prompt: '建立二维X-Z平面两跨两层刚接框架，跨度每跨5m、每层3m；底层3节点全固定，上方两层各3节点，每个上部节点全局+x方向10kN。给基底X反力总和。' + steel, expected: { totalFxKN: 60, baseReactionFxKN: -60 } },
+    { id: 'generic-portal', generic: true, prompt: '建立二维坡屋面门式刚架：A=(0,0,0)、B=(0,0,3)、C=(3,0,4)、D=(6,0,3)、E=(6,0,0)。A、E全固定，AB、DE为柱，BC、CD为刚接屋面梁。C节点全局Z向下20kN。给两个基底竖向反力。' + steel, expected: { reactionsZKN: [10, 10], totalFzKN: -20 } },
+    { id: 'generic-arch', generic: true, prompt: '建立二维X-Z平面上半圆拱，圆心(3,0,0)，半径3m，从A=(0,0,0)经冠点C=(3,0,3)到B=(6,0,0)，等分为12个直梁段近似。两端全固定，各段连续刚接，冠点全局Z向下10kN。给两端竖向反力，保留A、B、C的ID。' + steel, expected: { reactionsZKN: [5, 5], totalFzKN: -10 } },
+    { id: 'generic-inclined-truss', generic: true, prompt: '建立倾斜下弦的二维三角桁架：A=(0,0,0)、B=(6,0,2)、C=(3,0,4)，AB、AC、BC纯轴力杆，全铰接，A约束X/Y/Z平移，B只约束Y/Z平移，C自由。C全局Z向下10kN。各杆截面面积0.002m²，E=206000MPa、nu=0.3、rho=7850kg/m³。用OpenSees线弹性静力，不计自重，不做规范设计或报告。给两端竖向反力与杆轴力。', expected: { reactionsZKN: [5, 5], totalFzKN: -10 } },
+    { id: 'generic-grid3d', generic: true, prompt: '建立三维刚接框架，X、Y各2跨各跨5m，两层各高3m。底部9节点全固定，上部18节点各沿全局+x方向100N，不计其他荷载。C30材料E=30000MPa、nu=0.2、rho=2500kg/m³，梁250mm宽400mm高，柱400mm方形。只做OpenSees线弹性静力，不计自重，不做规范设计或报告。给基底X反力合计，核对节点与荷载数。', expected: { totalFxKN: 1.8, baseReactionFxKN: -1.8 } },
+    { id: 'generic-cantilever-brace', generic: true, prompt: '建立无专用模板的二维框架加悬挑和斜撑：A=(0,0,0)、B=(5,0,0)、C=(0,0,3)、D=(5,0,3)、E=(7,0,3)。柱AC、BD，连续刚接梁CD和悬挑DE，AD为纯轴力铰接斜撑。A、B全固定。E全局Z向下10kN，D全局+x方向5kN，保留全部ID与两项荷载。给基底X/Z反力合计。' + steel, expected: { totalFxKN: 5, totalFzKN: -10, baseReactionFxKN: -5, baseReactionFzKN: 10 } },
+  ];
 }

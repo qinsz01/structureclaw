@@ -7,7 +7,7 @@ StructureClaw 提供预先注册、带版本号的消融配置档，基准测试
 代理仍然以一条回答结束本轮。
 
 唯一来源：`backend/src/runtime/ablation-profiles.ts`（`ABLATION_PROFILES_VERSION`，当前为
-`2026-10-22.1`）。修改任何配置档定义，或所有配置档共用的默认提示词与工具，都必须更新版本号。历史：
+`2026-10-22.2`）。修改任何配置档定义，或所有配置档共用的默认提示词与工具，都必须更新版本号。历史：
 
 - `2026-10-17.1`：初版配置档。`2026-10-17.2`：`no-knowledge` 同时移除阶段名称。
 - `2026-10-18.1`：默认流程在规范校核前停止；缺少设计输入时报告而不追问。
@@ -31,6 +31,7 @@ StructureClaw 提供预先注册、带版本号的消融配置档，基准测试
 - `2026-10-21.12`: Resolve section-role diagnostics independently of missing material properties, using the same section-reference resolver as the builder / 截面角色诊断与缺失材料属性独立解析，复用建模器的截面引用解析。
 
 - `2026-10-22.1`：技能仅表示结构建模方法；求解器、规范、解析器和导出器使用独立 Provider 目录。旧 ID 在边界迁移，generic-only 保留全部已启用 Provider，no-knowledge 同时移除共享工程知识；统一设置和会话覆盖，调用上限超额明确拒绝。
+- `2026-10-22.2`：通用草稿保留完整物理输入，不再投影到模板；共享属性补全及运动学秩、荷载校核接入策略控制的纠错循环，补参只询问物理缺项。
 
 ## 选择配置档
 
