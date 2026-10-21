@@ -74,5 +74,9 @@ Concrete frame sections are described as rectangular cross‑sections:
 ## Missing Values
 Omit what the user did not give; the skill asks for missing required inputs.
 
+For explicitly delegated preliminary choices in a one- or two-story concrete frame, propose C30 and 400×400 mm columns. For rectangular beams, use the existing preliminary sizing rule: depth H = maximum bay span / 10, rounded to 50 mm (minimum 250 mm); width B = H / 2, rounded to 25 mm (minimum 200 mm). Thus a 5 m span proposes 250×500 mm beams. Put all proposed values in one confirmation question; do not enter them as accepted input before the user's acceptance. These are provisional analysis choices, not a code-checked design. Preserve explicitly supplied values instead.
+
+用户明确委托选择一至两层混凝土框架的初步材料与截面时，建议 C30、400×400 mm 柱。矩形梁沿用现有初估规则：梁高 H 取最大跨度的 1/10，按 50 mm 取整且不小于 250 mm；梁宽 B 取 H/2，按 25 mm 取整且不小于 200 mm。因此 5 m 跨度建议 250×500 mm 梁。将全部建议合并为一次确认，用户接受前不得当作已确认输入。这些只是初步分析取值，不代表已通过规范设计；用户已给数值必须保留。
+
 ## Repeated nodal loads / 重复节点荷载
 When a force is given **per node**, preserve that force on every specified node. Enumerate located nodal loads by story and node role where supported, or preserve explicit topology and node IDs. Never interpret the per-node force as a per-story total. Ground nodes excluded by the user receive no such load. / 每个节点的荷载大小必须逐节点保留，可按楼层及节点角色逐条列出，或保留显式拓扑及节点 ID；不得把每节点荷载当作每层总荷载，用户排除的地面节点不施加该荷载。

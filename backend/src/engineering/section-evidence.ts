@@ -49,7 +49,17 @@ export function confirmedSectionValue(section: ModelRecord, field: string, key: 
       // Free-text acceptance is interpreted by the extractor, never by keyword matching.
       const accepted = binding.clarificationId === receipt.clarificationId && Array.isArray(binding.candidateIds)
         && binding.candidateIds.includes(candidate.id);
-      return selected || accepted;
+      // A semantic acceptance may name the receipt but omit its redundant candidate hash.
+      // Resolve that omission only for a single candidate for this section/field, with identical numbers.
+      const values = isRecord(section[field]) ? section[field] : {};
+      const numeric = Object.entries(values).filter(([, item]) => typeof item === 'number');
+      const candidateValues = candidate.values;
+      const unique = binding.clarificationId === receipt.clarificationId && binding.candidateIds === undefined
+        && (receipt.sectionCandidates as unknown[]).filter(item => isRecord(item)
+          && item.sectionId === section.id && item.field === field).length === 1
+        && numeric.length === Object.values(candidateValues).filter(item => typeof item === 'number').length
+        && numeric.every(([name, item]) => candidateValues[name] === item);
+      return selected || accepted || unique;
     }));
 }
 

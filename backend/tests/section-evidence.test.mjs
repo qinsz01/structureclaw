@@ -12,6 +12,20 @@ const table = fileInputEvidence({ type: 'csv', success: true, headers: ['id', 'H
   rows: [['S1', '200', '100', '7', '11.4']], source: { parser: 'csv-parse', sha256: 'table-sha' } }, 'sections.csv');
 
 describe('section evidence boundary', () => {
+  test('an accepted receipt resolves its unique unchanged candidate without a redundant candidate ID', () => {
+    const candidate = { id: 'c1', sectionId: 'S1', field: 'shape', values: shape };
+    const receipt = { clarificationId: 'q1', answer: '全部确认，按你提出的方案继续计算。', sectionCandidates: [candidate] };
+    const accepted = { ...section('llm-table'), extra: { provenance: { shape: 'llm-table' }, confirmation: { clarificationId: 'q1' } } };
+    const context = { userTexts: [], confirmations: [receipt] };
+    expect(() => assertConfirmedSectionInputs({ sections: [accepted] }, context)).not.toThrow();
+    expect(() => assertConfirmedSectionInputs({ sections: [section('llm-table')] }, context)).toThrow();
+    expect(() => assertConfirmedSectionInputs({ sections: [accepted] }, { ...context, confirmations: [] })).toThrow();
+    expect(() => assertConfirmedSectionInputs({ sections: [{ ...accepted, shape: { ...shape, H: 250 } }] }, context)).toThrow();
+    expect(() => assertConfirmedSectionInputs({ sections: [accepted] }, { ...context, confirmations: [{ ...receipt,
+      sectionCandidates: [candidate, { ...candidate, id: 'c2', values: { ...shape, H: 250 } }] }] })).toThrow();
+    expect(() => assertConfirmedSectionInputs({ sections: [{ ...accepted, extra: { ...accepted.extra,
+      confirmation: { clarificationId: 'q1', candidateIds: ['wrong'] } } }] }, context)).toThrow();
+  });
   test('verified table values bind without an extractor provenance label', () => {
     const raw = { id: 'S1', shape, extra: { source: 'sections.csv' } };
     const adopted = enforceSectionProvenance(raw, { userTexts: [], inputEvidence: table });
