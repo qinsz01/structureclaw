@@ -40,7 +40,7 @@ export function checkModelPhysics(model: ModelRecord, draft?: EngineeringDraft):
     if (ends.length !== 2 || ends.some(end => !connected.has(end))) {
       add('INVALID_MEMBER_CONNECTIVITY', [id], 'A line member needs two existing end nodes.', '线构件必须连接两个已有端点。'); continue;
     }
-    const a = nodes.find(node => node.id === ends[0])!, b = nodes.find(node => node.id === ends[1])!;
+    const a = nodes.find(node => String(node.id) === ends[0])!, b = nodes.find(node => String(node.id) === ends[1])!;
     const delta = subtract(coordinates(b), coordinates(a)), length = Math.hypot(...delta);
     if (!Number.isFinite(length) || length < 1e-9) {
       add('ZERO_LENGTH_MEMBER', [id, ...ends], 'The member has zero or invalid length.', '构件长度为零或无效。'); continue;
@@ -73,8 +73,12 @@ export function checkModelPhysics(model: ModelRecord, draft?: EngineeringDraft):
   }
   let stability: PhysicsCheck['stability'] = null;
   if (usable.length && !diagnostics.some(item => ['ZERO_LENGTH_MEMBER', 'INVALID_MEMBER_CONNECTIVITY', 'STABILITY_CHECK_UNSUPPORTED'].includes(item.code))) {
-    stability = kinematicRank(model, nodes.filter(node => !orphan.includes(String(node.id))), usable);
-    if (stability.freeModes) add('KINEMATIC_MECHANISM', [], 'The supported structure has unrestrained rigid-body motion or internal mechanisms.', '支承后的结构仍有未约束刚体运动或内部机构。', stability);
+    try {
+      stability = kinematicRank(model, nodes.filter(node => !orphan.includes(String(node.id))), usable);
+      if (stability.freeModes) add('KINEMATIC_MECHANISM', [], 'The supported structure has unrestrained rigid-body motion or internal mechanisms.', '支承后的结构仍有未约束刚体运动或内部机构。', stability);
+    } catch (error) {
+      add('INVALID_KINEMATICS', [], 'Member axes or kinematic coefficients are invalid or numerically unresolvable.', '构件局部轴或运动学系数无效，或无法进行可靠的数值校核。', { error: String(error) });
+    }
   }
   let loadTotals: Record<string, Vector3> = {};
   try {
@@ -117,10 +121,12 @@ function kinematicRank(model: ModelRecord, nodes: ModelRecord[], elements: Model
   const row = (terms: Array<[number, number]>) => {
     const values = new Map<number, number>();
     for (const [index, value] of terms) values.set(index, (values.get(index) ?? 0) + value);
+    if ([...values.values()].some(value => !Number.isFinite(value))) throw new Error('NON_FINITE_KINEMATIC_COEFFICIENT');
     const largest = Math.max(0, ...Array.from(values.values(), Math.abs));
     if (largest < 1e-12) return;
     for (const [key, value] of values) values.set(key, value / largest);
     while (values.size) {
+      if ([...values.values()].some(value => !Number.isFinite(value))) throw new Error('NON_FINITE_KINEMATIC_ELIMINATION');
       for (const [key, value] of values) if (Math.abs(value) < 1e-9) values.delete(key);
       if (!values.size) return;
       const pivot = Math.min(...values.keys()), value = values.get(pivot)!;

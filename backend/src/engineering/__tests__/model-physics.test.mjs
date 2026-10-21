@@ -57,4 +57,8 @@ describe('deterministic model physics', () => {
     // Planar local Z is vertical for a horizontal member.
     expect(appliedLoadTotals(model).L).toEqual([0, 0, -6]);
   });
+  test.each([NaN, Infinity, 'invalid'])('non-finite rotation %s yields a diagnostic instead of an elimination loop', rotation => {
+    const model = copy(0); model.elements[0].rotation_angle = rotation;
+    expect(codes(model)).toContain('INVALID_KINEMATICS');
+  });
 });

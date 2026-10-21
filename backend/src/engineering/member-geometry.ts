@@ -26,6 +26,7 @@ export function memberGeometry(model: ModelRecord, element: ModelRecord) {
   const y = planar ? [0, 1, 0] as Vector3 : unit(cross(reference, x));
   const z = unit(cross(x, y));
   const angle = Number(element.rotation_angle ?? 0) * Math.PI / 180;
+  if (!Number.isFinite(angle)) throw new Error('INVALID_MEMBER_ROTATION / 构件转角必须是有限数值');
   const c = Math.cos(angle), s = Math.sin(angle);
   const axes: [Vector3, Vector3, Vector3] = [x,
     y.map((value, index) => c * value + s * z[index]!) as Vector3,
