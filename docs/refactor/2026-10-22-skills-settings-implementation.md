@@ -82,13 +82,59 @@ and separately reports connectivity, roles, duplicates, zero lengths and load to
 supported components are warnings. Non-line element stability is explicitly unsupported, not a
 claimed successful check; ambiguous abstract load targets receive a verification warning.
 
-Verified so far: six scripted-LLM graph cases reach real OpenSees and satisfy independent support
-equilibrium (2-storey frame, portal, arch, inclined truss, 3D grid, frame+brace). Physics/completion/
-repair and canonical-boundary focused tests pass; frontend production build and 1290 Python tests
-pass. The first full run found an incomplete worktree Python environment and obsolete generic
-expectations, plus real mirror/name/readiness regressions now fixed and under final regression.
-The generic-only real-LLM matrix is running, with the saved server policy checked as `['generic']`.
-Full suites, default-route live regression and final acceptance table remain pending.
+Automated acceptance: 217 Jest suites / 3181 tests / 57 snapshots passed in 938.5s
+(`phase2/backend-clean-final.log`); all 1290 Python tests, analysis regression and three validators
+passed. Backend Prisma/build/lint/dependency rules and frontend type/lint/production build passed;
+327 frontend unit and 83 integration tests passed. Default E2E: 54 passed / 12 live-only skipped.
+The six scripted-LLM graph fixtures reach real OpenSees and independently balance support reactions.
+
+The initial full run exposed a non-finite rotation that could stall rank elimination. The checker
+now rejects non-finite kinematics before and during elimination; the clean full run finishes.
+Empty extracted load-case stubs also falsely implied zero loads; they no longer override separately
+declared physical loads. Tests distinguish empty stubs from explicit zero-load intent. The worktree
+uses the same analysis Python via a junction, rather than the WindowsApps Python stub.
+Updated compatibility expectations use canonical fields and stable supports. Snapshot changes in
+`3364c1d6`: 18 profile and 10 policy snapshots change only the generic description and corresponding
+prompt hashes/lengths. Numerical snapshots are unchanged.
+
+Real frontend / `glm-5.3`, fresh browser context, conversation scope exactly `['generic']`:
+
+| Initial case | Seconds | Turns | Issued questions | Tool calls | Independently checked outcome |
+|---|---:|---:|---:|---:|---|
+| 2-storey, 2-bay frame | 1086.3 | 1 | 1 | 8 | No solve: false zero-load diagnostic from empty case stub |
+| Portal | 392.6 | 1 | 0 | 7 | 5 nodes / 4 members; reactions 10 + 10 kN |
+| 12-segment arch | 363.7 | 1 | 0 | 5 | 13 nodes / 12 members, A/B/C preserved; reactions 5 + 5 kN |
+| Inclined truss | 244.1 | 1 | 0 | 10 | 3 nodes / 3 members, A/B/C preserved; reactions 5 + 5 kN |
+| 3D 2×2 grid, 2 storeys | 369.5 | 1 | 0 | 6 | 27 nodes / 42 members / 18 loads; base Fx −1.8 kN |
+| Frame, cantilever and brace | 261.7 | 1 | 1 | 3 | Correctly asks for the omitted axial-brace area; no solve |
+
+Initial completion: 4/6, two issued question groups. Evidence: `phase2/live-generic`.
+Subsequent corrections are kept separate, not substituted into this baseline:
+
+| Follow-up | Seconds | Turns | Issued questions | Tool calls | Outcome |
+|---|---:|---:|---:|---:|---|
+| Frame after empty-case fix | 285.6 | 1 | 0 | 6 | 9 nodes / 10 members / 6 loads; base Fx −60 kN |
+| Mixed structure, same initial prompt then AD area 0.002m² when asked | 591.4 | 2 | 1 | 22 | 5 nodes / 5 members / 2 loads; base Fx/Fz −5/+10 kN; first three analysis calls rejected, final solve correct |
+| Extra scale probe: 4×4 bays, 4 storeys | 654.1 | 1 | 0 | 7 | 125 nodes / 260 members / 100 loads, A preserved; base Fx −10 kN |
+
+Evidence: `phase2/live-defaults-and-fix`, `phase2/live-mixed-followup`, `phase2/live-scale`.
+With the correction the fully specified first-turn cases pass 5/6; the mixed case needs its genuine
+missing area and then passes. There is no basis to claim that a later operations implementation can
+remove that necessary question. The scale probe also already passes without operations.
+
+Default-route regression (`phase2/live-defaults-and-fix`) retained the first sentence and specified
+clarification protocol from Phase 1. Concrete 1: 287.4s / 2 turns / 2 issued questions (one additional
+proposal rejected before delivery) / 11 tool calls; concrete 2: 158.6s / 2 turns / 2 questions / 6 calls.
+Both still ask redundantly for floor totals instead of using their explicit node loads. Steel frame:
+123.2s / 1 turn / 0 questions / 6 calls, base Fx −60 kN. Truss: 132.9s / 1 / 0 / 5, reactions 5 + 5 kN
+and axial 7.071068 kN. I20a: 174.4s / 1 / 0 / 11, reactions 10 + 10 kN, moment 10 kNm, displacement
+3.413762 mm. PKPM: 200.9s / 1 / 1 / 3, redundant floor prerequisite, provider not reached. GB50017:
+185.2s / 1 / 0 / 10, code tool reached; no invented overall compliance result.
+
+Hand checks and model/run snapshots are audited in the external evidence file `live-audit.json`.
+Question counts exclude refused proposals and include pending interrupts; tool counts use the saved
+runtime ledger, including after clarification. The original arithmetic literal for I20a was corrected
+to 5qL⁴/(384EI); observed solver displacement did not change. No failed run was erased.
 
 ## Phase 3 — shared modelling operations
 
