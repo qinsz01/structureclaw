@@ -1,4 +1,4 @@
-import { buildLegacyModel } from '../../../agent-runtime/legacy.js';
+import { buildFrameModel } from '../frame/model.js';
 import { ingestDraft } from '../../../agent-runtime/draft/boundary.js';
 import type { RequestScope } from '../../../engineering/request-scope.js';
 import { computeFrameMissing } from '../frame/interaction.js';
@@ -335,7 +335,7 @@ export const handler: SkillHandler = {
   buildModel(state) {
     if ((state.requestScope as RequestScope | undefined)?.design === false) {
       // Elastic analysis does not require reinforcement sizing or slab design.
-      return buildLegacyModel({ ...state, inferredType: 'frame', skillId: 'frame',
+      return buildFrameModel({ ...state, inferredType: 'frame', skillId: 'frame',
         engineeringDraft: { ...state.engineeringDraft,
           material: state.engineeringDraft?.material ?? { family: 'concrete', grade: state.frameConcreteGrade },
           sections: state.engineeringDraft?.sections ?? { beam: state.frameBeamSection, column: state.frameColumnSection } } });
