@@ -127,7 +127,9 @@ def test_normalized_geometry_provenance_is_verified_and_retained(engine):
     model = {'sections': [_normalized_section()]}
     before = copy.deepcopy(model)
     projected = project_commercial_model(model, engine)
-    assert model == before and projected['analysisModel'] == before
+    assert model == before
+    assert {key: value for key, value in projected['analysisModel'].items() if key != 'analysis_control'} == before
+    assert set(projected['analysisModel']['analysis_control'].values()) == {False}
     if engine == 'pkpm':
         validate_pkpm_sections(projected['analysisModel'])
 
@@ -151,7 +153,9 @@ def test_stale_provenance_is_advisory_and_preserves_numerical_properties(engine,
     from structure_protocol.structure_model_v2 import SectionV2
     before = copy.deepcopy(model)
     projected = project_commercial_model(model, engine)
-    assert model == before and projected['analysisModel'] == before
+    assert model == before
+    assert {key: value for key, value in projected['analysisModel'].items() if key != 'analysis_control'} == before
+    assert set(projected['analysisModel']['analysis_control'].values()) == {False}
     if defect != 'hidden-conflict':
         assert validate_derived_section_metadata(section)['severity'] == 'warning'
     else:

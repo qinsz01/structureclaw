@@ -80,8 +80,10 @@ class NativeModelContractTest(unittest.TestCase):
                                      "PKPM_NATIVE_MATERIAL_PROPERTIES_UNVERIFIED", f"materials.C.{field}")
         incomplete = self.model()
         incomplete["materials"][0]["G"] = 12500
+        validate_pkpm_material_properties(incomplete)  # C30 fills omitted E/nu/rho; explicit G still agrees.
+        incomplete["materials"][0]["G"] = 12000
         self.assert_rejected(lambda: validate_pkpm_material_properties(incomplete),
-                             "PKPM_NATIVE_MATERIAL_PROPERTIES_UNVERIFIED", "materials.C.E")
+                             "PKPM_NATIVE_MATERIAL_PROPERTIES_UNVERIFIED", "materials.C.G")
 
     def test_nested_material_and_reinforcement_overrides_cannot_disappear(self):
         model = self.model()

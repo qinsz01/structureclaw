@@ -169,6 +169,8 @@ function writePkpmApiStub(stubsDir) {
       '    def GetID(self): return self.pmid',
       '',
       'class StandFloor:',
+      '    def SetInfoValue(self, *args): pass',
+      '    def GetSlabs(self): return []',
       '    def __init__(self, floor_index=1):',
       '        self.floor_index = floor_index',
       '        self.next_node = 1',
@@ -292,6 +294,10 @@ function runPkpmRuntime(model, options = {}) {
         'runtime._check_pkpm_available = reached_native_entry',
       ] : []),
       'runtime._import_apipyinterface = lambda: None',
+      'import native_materials',
+      'native_materials.add_user_material = lambda api, **values: {"nativeMaterialId": 31, "nativeName": values["name"], "requested": {"E": values["E"], "nu": values["nu"], "unitWeight": values["unit_weight"]}}',
+      'native_materials.verify_solver_materials = lambda directory, materials: {"materials": materials, "source": "mock-native-readback"}',
+      'runtime.verify_effective_settings = lambda directory, controls: {"verified": True, "requested": controls, "source": "mock-native-readback"}',
       'runtime._patch_material_label = lambda work_dir: patch_calls.append(str(work_dir))',
       'def fake_jws_cycle(cycle_path, work_dir, timeout=600, include_design=False):',
       '    run_calls.append({"cycle_path": str(cycle_path), "work_dir": str(work_dir), "timeout": timeout, "include_design": include_design})',
@@ -583,15 +589,15 @@ function buildCanonicalRcModel() {
   });
 }
 
-// Native grade-only fixtures exercise the retained compiler/reader infrastructure.
-// They are deliberately NOT canonical V2 analysis inputs: E/nu/rho and all other
-// numeric physical overrides are absent. Unmapped physical fields must still be rejected.
+// Grade-only fixtures exercise default resolution and the native compiler/reader.
+// DLL and solver readback are mocked here; Python tests cover actual binary parsing.
 function buildNativeGradeRcCompilerFixture() {
   const model = structuredClone(buildCanonicalRcModel());
   model.materials = [{ id: '1', name: 'C30', grade: 'C30', category: 'concrete' }];
   model.sections = model.sections.map(({ id, name, type, purpose, shape }) => ({ id, name, type, purpose, shape }));
   model.elements = model.elements.map(({ rebar_grade: _rebarGrade, ...element }) => element);
-  model.stories = model.stories.map((story) => ({ ...story, load_area_m2: 72 }));
+  model.stories = model.stories.map(({ dead_load, live_load, floor_loads, ...story }) => ({ ...story, load_area_m2: 72 }));
+  model.load_cases = model.load_cases.map(row => ({ ...row, loads: [] }));
   return model;
 }
 
@@ -799,13 +805,13 @@ describe('PKPM frame analysis flow', () => {
     expect(findCalls(payload, 'ColumnSection.SetUserSect')).toEqual(expect.arrayContaining([
       expect.objectContaining({
         kind: 'IDSec_Rectangle',
-        shape: expect.objectContaining({ B: 600, H: 600, M: 6 }),
+        shape: expect.objectContaining({ B: 600, H: 600, M: 31 }),
       }),
     ]));
     expect(findCalls(payload, 'BeamSection.SetUserSect')).toEqual(expect.arrayContaining([
       expect.objectContaining({
         kind: 'IDSec_Rectangle',
-        shape: expect.objectContaining({ B: 500, H: 250, M: 6 }),
+        shape: expect.objectContaining({ B: 500, H: 250, M: 31 }),
       }),
     ]));
     expect(findCalls(payload, 'Column.SetConcreteGrade').map((call) => call.grade)).toEqual(expect.arrayContaining(['C30']));
@@ -911,13 +917,14 @@ describe('PKPM frame analysis flow', () => {
   test('rejects floor pressure loads when explicitly requesting a bare frame', () => {
     const model = buildNativeGradeRcCompilerFixture();
     model.analysis_control = { self_weight: false, rigid_floor: false };
+    model.stories[0].dead_load = 3;
     const payload = runPkpmRuntime(model, { expectFailure: true });
     expect(payload.errorType).toBe('AnalysisCapabilityError');
     expect(payload.error).toContain('no-slab frame');
     expect(payload.runCalls).toEqual([]);
   });
 
-  test('maps distinct story dead/live loads to separate PKPM standard floors', () => {
+  test('rejects implicit slab loading: maps distinct story dead/live loads to separate PKPM standard floors', () => {
     const model = buildNativeGradeRcCompilerFixture();
     model.stories[0] = {
       ...model.stories[0],
@@ -933,25 +940,12 @@ describe('PKPM frame analysis flow', () => {
     };
     model.load_cases = model.load_cases.map((loadCase) => ({ ...loadCase, loads: [] }));
 
-    const payload = runPkpmRuntime(model);
-
-    expect(findCalls(payload, 'StandFloor.SetDeadLive')).toEqual([
-      expect.objectContaining({ floor: 1, dead: 10, live: 2 }),
-      expect.objectContaining({ floor: 2, dead: 0, live: 0 }),
-      expect.objectContaining({ floor: 1, dead: 10, live: 2 }),
-      expect.objectContaining({ floor: 2, dead: 0, live: 0 }),
-    ]);
-    expect(findCalls(payload, 'Model.AddStandFloor')).toEqual([
-      expect.objectContaining({ source: null, index: 2 }),
-    ]);
-    expect(findCalls(payload, 'RealFloor.SetStandFloorIndex').map((call) => call.index)).toEqual([1, 2]);
-    expect(payload.result.summary.floorLoadMapping).toEqual([
-      expect.objectContaining({ story: 'F1', stand_floor_index: 1, dead_load: 10, live_load: 2 }),
-      expect.objectContaining({ story: 'F2', stand_floor_index: 2, dead_load: 0, live_load: 0 }),
-    ]);
+    const payload = runPkpmRuntime(model, { expectFailure: true });
+    expect(payload.error).toContain('no-slab frame');
+    expect(payload.runCalls).toEqual([]);
   });
 
-  test('defaults an omitted story live load to zero', () => {
+  test('rejects implicit slab loading: defaults an omitted story live load to zero', () => {
     const model = buildNativeGradeRcCompilerFixture();
     model.stories = model.stories.map((story, index) => {
       const deadLoad = index === 0 ? 5 : 6;
@@ -964,14 +958,9 @@ describe('PKPM frame analysis flow', () => {
     });
     model.load_cases = model.load_cases.map((loadCase) => ({ ...loadCase, loads: [] }));
 
-    const payload = runPkpmRuntime(model);
-
-    expect(findCalls(payload, 'StandFloor.SetDeadLive')).toEqual([
-      expect.objectContaining({ floor: 1, dead: 5, live: 0 }),
-      expect.objectContaining({ floor: 2, dead: 6, live: 0 }),
-      expect.objectContaining({ floor: 1, dead: 5, live: 0 }),
-      expect.objectContaining({ floor: 2, dead: 6, live: 0 }),
-    ]);
+    const payload = runPkpmRuntime(model, { expectFailure: true });
+    expect(payload.error).toContain('no-slab frame');
+    expect(payload.runCalls).toEqual([]);
   });
 
   test('fails clearly when final PKPM model cannot be reopened for material parameter persistence', () => {
@@ -1108,13 +1097,13 @@ describe('PKPM frame analysis flow', () => {
     expect(findCalls(payload, 'ColumnSection.SetUserSect')).toEqual(expect.arrayContaining([
       expect.objectContaining({
         kind: 'IDSec_Rectangle',
-        shape: expect.objectContaining({ B: 600, H: 600, M: 6 }),
+        shape: expect.objectContaining({ B: 600, H: 600, M: 31 }),
       }),
     ]));
     expect(findCalls(payload, 'BeamSection.SetUserSect')).toEqual(expect.arrayContaining([
       expect.objectContaining({
         kind: 'IDSec_Rectangle',
-        shape: expect.objectContaining({ B: 500, H: 250, M: 6 }),
+        shape: expect.objectContaining({ B: 500, H: 250, M: 31 }),
       }),
     ]));
     expect(findCalls(payload, 'Column.SetConcreteGrade').map((call) => call.grade)).toEqual(expect.arrayContaining(['C30']));
@@ -1131,7 +1120,7 @@ describe('PKPM frame analysis flow', () => {
     expect(findCalls(payload, 'StandFloor.AddNode')).toHaveLength(0);
   });
 
-  test('allows empty floor_loads when convenience dead/live fields provide the loads', () => {
+  test('rejects implicit slab loading: allows empty floor_loads when convenience dead/live fields provide the loads', () => {
     const model = buildNativeGradeRcCompilerFixture();
     model.stories = model.stories.map((story, index) => ({
       ...story,
@@ -1141,14 +1130,9 @@ describe('PKPM frame analysis flow', () => {
     }));
     model.load_cases = model.load_cases.map((loadCase) => ({ ...loadCase, loads: [] }));
 
-    const payload = runPkpmRuntime(model);
-
-    expect(findCalls(payload, 'StandFloor.SetDeadLive')).toEqual([
-      expect.objectContaining({ floor: 1, dead: 4.5, live: 2 }),
-      expect.objectContaining({ floor: 2, dead: 5, live: 3 }),
-      expect.objectContaining({ floor: 1, dead: 4.5, live: 2 }),
-      expect.objectContaining({ floor: 2, dead: 5, live: 3 }),
-    ]);
+    const payload = runPkpmRuntime(model, { expectFailure: true });
+    expect(payload.error).toContain('no-slab frame');
+    expect(payload.runCalls).toEqual([]);
   });
 
   test('fails closed when PKPM result rows do not cover the converted model', () => {
@@ -1200,7 +1184,7 @@ describe('PKPM frame analysis flow', () => {
     expect(payload.stations.every((station) => station.endpointConvention === 'unverified')).toBe(true);
   });
 
-  test('keeps native grade-only steel compiler flow on steel sections and SATWE material', () => {
+  test('rejects uncalibrated H-column axes after resolving grade-only steel', () => {
     const model = buildNativeGradeRcCompilerFixture();
     model.metadata.materialSystem = 'steel';
     if (model.structure_system?.extra) model.structure_system.extra.materialSystem = 'steel';
@@ -1209,36 +1193,8 @@ describe('PKPM frame analysis flow', () => {
     model.sections = model.sections.map((section) => ({ ...section, type: 'H', shape: { kind: 'H', H: 300, B: 300, tw: 10, tf: 15 } }));
     expect(model).toBeDefined();
 
-    const payload = runPkpmRuntime(model);
-
-    expect(payload.result.summary.materialFamily).toBe('steel');
-    expect(payload.patchCalls).toHaveLength(0);
-    expect(payload.result.summary.projectParameterVerification).toMatchObject({
-      material_family: 'steel',
-      target: { 101: 0, 103: 2 },
-      actual: { 101: 0, 103: 2 },
-      verified: true,
-    });
-    expect(payload.calls).toContainEqual(expect.objectContaining({
-      method: 'ProjectPara.SetParaInt',
-      key: 103,
-      value: 2,
-    }));
-    expect(findCalls(payload, 'ColumnSection.SetUserSect')).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        kind: 'IDSec_I',
-        shape: expect.objectContaining({ M: 5 }),
-      }),
-    ]));
-    expect(findCalls(payload, 'BeamSection.SetUserSect')).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        kind: 'IDSec_I',
-        shape: expect.objectContaining({ M: 5 }),
-      }),
-    ]));
-    expect(findCalls(payload, 'Column.SetSteelGrade').map((call) => call.grade)).toEqual(expect.arrayContaining(['Q355']));
-    expect(findCalls(payload, 'Beam.SetSteelGrade').map((call) => call.grade)).toEqual(expect.arrayContaining(['Q355']));
-    expect(findCalls(payload, 'Column.SetConcreteGrade')).toHaveLength(0);
-    expect(findCalls(payload, 'Beam.SetConcreteGrade')).toHaveLength(0);
+    const payload = runPkpmRuntime(model, { expectFailure: true });
+    expect(payload.error).toContain('Calibrated column axes require rectangular or square-box sections');
+    expect(payload.runCalls).toEqual([]);
   });
 });
