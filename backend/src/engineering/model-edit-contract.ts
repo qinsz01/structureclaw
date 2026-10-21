@@ -250,6 +250,9 @@ export function normalizeDraftSectionInputs(draft: EngineeringDraft, root: Schem
   const kinds = schema.properties.kind.enum as string[];
   const section = (row: Record<string, unknown>) => {
     const next = structuredClone(row);
+    // The stable table ID is also a valid display label; it is not missing engineering input.
+    if ((next.name === undefined || typeof next.name === 'string' && !next.name.trim())
+      && typeof next.id === 'string' && next.id.trim()) next.name = next.id;
     if (next.type !== undefined) next.type = canonicalEnum(next.type, kinds);
     if (next.shape != null) {
       const path = `sectionRecords[${row.id}].shape`;

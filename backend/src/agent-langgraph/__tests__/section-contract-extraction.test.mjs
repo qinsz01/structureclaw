@@ -40,7 +40,7 @@ test('all declared kinds have the same canonical spelling in extraction, editing
   for (const kind of shapeSchema.properties.kind.enum) {
     for (const spelling of [kind.toLowerCase(), kind.toUpperCase(), ` ${kind.toLowerCase()} `]) {
       const draft = { sectionRecords: [{ id: 'S', type: spelling, shape: { kind: spelling } }] };
-      expect(normalizeDraftSectionInputs(draft, contract).sectionRecords[0]).toEqual({ id: 'S', type: kind, shape: { kind } });
+      expect(normalizeDraftSectionInputs(draft, contract).sectionRecords[0]).toEqual({ id: 'S', name: 'S', type: kind, shape: { kind } });
       const shapeOnly = { id: 'S', shape: { kind: spelling } };
       expect(normalizeDraftSectionInputs({ sectionRecords: [shapeOnly] }, contract).sectionRecords[0].type).toBe(kind);
       expect(normalizeDraftSectionInputs({ model: { sections: [shapeOnly] } }, contract).model.sections[0].type).toBe(kind);
@@ -103,4 +103,12 @@ test('public extraction clears a withdrawn selector in the persisted failed draf
   expect(model.sections[0].shape.kind).toBe('H');
   expect(model.analysis_control.self_weight).toBe(true);
   expect(saved.engineeringDraft.sectionRecords[0].standard_steel_name).toBe('HW300x300x10x15');
+});
+test.each([undefined, ''])('a section table ID supplies an omitted display label (%j)', name => {
+ const section={id:'S1',...(name!==undefined?{name}:{}),type:'general',properties:{A:.004,Iy:.00008,Iz:.00002,J:.000001},extra:{provenance:{properties:'attachment'}}};
+ const normalized=normalizeDraftSectionInputs({sectionRecords:[section]},contract).sectionRecords[0];
+ expect(normalized.name).toBe('S1');
+ expect(normalized.properties).toEqual(section.properties);
+ expect(normalized.extra.provenance.properties).toBe('attachment');
+ expect(normalizeDraftSectionInputs({sectionRecords:[{...section,name:'User label'}]},contract).sectionRecords[0].name).toBe('User label');
 });
