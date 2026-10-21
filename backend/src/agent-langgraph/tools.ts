@@ -13,7 +13,7 @@
  */
 export { resolveToolInputMessage, resolveExtractionInputMessage } from './tools/input-message.js';
 export { resolveRequestedAnalysisSkillId, resolveRequestedAnalysisEngineId, resolveUnselectedRequestedAnalysisSkillId } from './tools/analysis-resolution.js';
-export { shouldPreserveExistingDraftState, resolveRetryTaskMessage, buildPreservedDraftExtractionResult, resolveDetectedStructuralTypeMatch } from './tools/draft-helpers.js';
+export { shouldPreserveExistingDraftState, resolveRetryTaskMessage, buildPreservedDraftExtractionResult } from './tools/draft-helpers.js';
 export { buildAnalysisToolSummary, buildModelToolSummary, buildModelToolStateUpdate } from './tools/compaction/analysis.js';
 export { createDetectStructureTypeTool } from './tools/detect-structure-type.js';
 export { createExtractDraftParamsTool } from './tools/extract-draft-params.js';

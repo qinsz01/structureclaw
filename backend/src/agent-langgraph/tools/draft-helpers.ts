@@ -2,7 +2,7 @@ import { computeDraftMissing, buildDraftQuestions } from '../../agent-runtime/dr
 import type { AgentSkillRuntime } from '../../agent-runtime/index.js';
 import { createChatModel, type LlmTokenUsage } from '../../utils/llm.js';
 import type { AgentState } from '../state.js';
-import type { AgentSkillPlugin, DraftState, InteractionQuestion, StructuralTypeKey, StructuralTypeMatch } from '../../shared/types/agent.js';
+import type { AgentSkillPlugin, DraftState, InteractionQuestion, StructuralTypeMatch } from '../../shared/types/agent.js';
 import type { MissingInputNextAction } from '../../runtime/ablation-profiles.js';
 import { nextActionForMissingInput } from './shared.js';
 
@@ -225,21 +225,4 @@ export function detectStructuralTypeWithConfiguredLlm(
     args.signal,
     args.onUsage,
   );
-}
-
-export async function resolveDetectedStructuralTypeMatch(
-  skillRuntime: Pick<AgentSkillRuntime, 'resolvePluginForType'>,
-  structuralTypeKey: string | null | undefined,
-  skillIds?: string[],
-): Promise<StructuralTypeMatch | null> {
-  if (!structuralTypeKey) return null;
-  const plugin = await skillRuntime.resolvePluginForType(structuralTypeKey, skillIds);
-  if (!plugin) return null;
-  return {
-    key: structuralTypeKey as StructuralTypeKey,
-    mappedType: plugin.structureType,
-    skillId: plugin.id,
-    supportLevel: 'supported',
-    routingSource: 'current-state',
-  };
 }

@@ -44,13 +44,6 @@ export function withStructuralTypeState(state: DraftState, structuralTypeMatch: 
   };
 }
 
-export function isFreshGenericStructuralRoute(structuralTypeMatch: StructuralTypeMatch): boolean {
-  return structuralTypeMatch.routingSource === 'llm-suggested'
-    && structuralTypeMatch.key === 'unknown'
-    && structuralTypeMatch.mappedType === 'unknown'
-    && structuralTypeMatch.skillId === 'generic';
-}
-
 export function resolveLegacyStructuralStage(missingKeys: string[]): StructuralStage {
   if (missingKeys.includes('inferredType')) {
     return 'intent';
