@@ -134,15 +134,19 @@ try {
       await page.screenshot({ path: path.join(directory, 'browser.png'), fullPage: true });
     } catch (error) { failure ??= String(error); }
     const tools = conversation?.messages?.filter(message => message.role === 'tool') ?? [];
-    const questions = (conversation?.messages ?? []).flatMap(message => message.toolCalls ?? [])
+    const questionAttempts = (conversation?.messages ?? []).flatMap(message => message.toolCalls ?? [])
       .filter(call => call.name === 'ask_user_clarification');
+    const refused = new Set(tools.filter(message => message.name === 'ask_user_clarification'
+      && (/^Error:/.test(message.content) || parse(message.content)?.success === false)).map(message => message.toolCallId));
+    const questions = questionAttempts.filter(call => !refused.has(call.id));
     let run;
     if (session?.analysis?.runId) {
       try { run = await json('/runs/' + session.analysis.runId); fs.writeFileSync(path.join(directory, 'run.json'), JSON.stringify(run, null, 2)); }
       catch (error) { failure ??= String(error); }
     }
     const summary = { id: scenario.id, conversationId, seconds: (Date.now() - start) / 1000, turns,
-      questionCalls: questions.length, toolCalls: session?.usage?.toolCalls ?? tools.length, usage: session?.usage, expected: scenario.expected,
+      questionCalls: questions.length, questionAttempts: questionAttempts.length, rejectedQuestions: refused.size,
+      toolCalls: session?.usage?.toolCalls ?? tools.length, usage: session?.usage, expected: scenario.expected,
       analysis: session?.analysis, waiting: session?.waitingForReply, policy: session?.policy,
       analysisResponses: tools.filter(message => message.name === 'run_analysis').map(message => parse(message.content)),
       questions: questions.map(call => call.args),
@@ -153,7 +157,7 @@ try {
     summaries.push(summary);
     fs.writeFileSync(path.join(evidence, 'summary.json'), JSON.stringify(summaries, null, 2));
     console.log(JSON.stringify({ completed: scenario.id, seconds: summary.seconds, turns, questions: questions.length,
-      toolCalls: tools.length, analysis: session?.analysis?.current, failure }));
+      toolCalls: summary.toolCalls, analysis: session?.analysis?.current, failure }));
     await context.close();
   }
   const pending = cases.filter(item => !requested || requested.includes(item.id));
@@ -189,6 +193,8 @@ function genericCases() {
     { id: 'generic-inclined-truss', generic: true, prompt: '建立倾斜下弦的二维三角桁架：A=(0,0,0)、B=(6,0,2)、C=(3,0,4)，AB、AC、BC纯轴力杆，全铰接，A约束X/Y/Z平移，B只约束Y/Z平移，C自由。C全局Z向下10kN。各杆截面面积0.002m²，E=206000MPa、nu=0.3、rho=7850kg/m³。用OpenSees线弹性静力，不计自重，不做规范设计或报告。给两端竖向反力与杆轴力。', expected: { reactionsZKN: [5, 5], totalFzKN: -10 } },
     { id: 'generic-grid3d', generic: true, prompt: '建立三维刚接框架，X、Y各2跨各跨5m，两层各高3m。底部9节点全固定，上部18节点各沿全局+x方向100N，不计其他荷载。C30材料E=30000MPa、nu=0.2、rho=2500kg/m³，梁250mm宽400mm高，柱400mm方形。只做OpenSees线弹性静力，不计自重，不做规范设计或报告。给基底X反力合计，核对节点与荷载数。', expected: { totalFxKN: 1.8, baseReactionFxKN: -1.8 } },
     { id: 'generic-scale-grid', generic: true, prompt: '建立三维规则刚接混凝土框架，X、Y各4跨、每跨5m，共4层，每层3m。基点A=(0,0,0)，请保留A的ID，其余节点自行命名；全部25个底部节点全固定，上部100个节点各沿全局+x施加100N。所有梁柱均用400mm方形实心截面，C30材料E=30000MPa、nu=0.2、rho=2500kg/m³。不计自重、无其他荷载。只用OpenSees线弹性静力，给节点、构件与荷载计数以及基底X反力合计，不做规范设计或报告。', expected: { totalFxKN: 10, baseReactionFxKN: -10, nodeCount: 125, memberCount: 260, loadCount: 100 } },
-    { id: 'generic-cantilever-brace', generic: true, prompt: '建立无专用模板的二维框架加悬挑和斜撑：A=(0,0,0)、B=(5,0,0)、C=(0,0,3)、D=(5,0,3)、E=(7,0,3)。柱AC、BD，连续刚接梁CD和悬挑DE，AD为纯轴力铰接斜撑。A、B全固定。E全局Z向下10kN，D全局+x方向5kN，保留全部ID与两项荷载。给基底X/Z反力合计。' + steel, expected: { totalFxKN: 5, totalFzKN: -10, baseReactionFxKN: -5, baseReactionFzKN: 10 } },
+    { id: 'generic-cantilever-brace', generic: true, prompt: '建立无专用模板的二维框架加悬挑和斜撑：A=(0,0,0)、B=(5,0,0)、C=(0,0,3)、D=(5,0,3)、E=(7,0,3)。柱AC、BD，连续刚接梁CD和悬挑DE，AD为纯轴力铰接斜撑。A、B全固定。E全局Z向下10kN，D全局+x方向5kN，保留全部ID与两项荷载。给基底X/Z反力合计。' + steel,
+      followups: ['补充：纯轴力斜撑AD的截面面积为0.002m²，材料与其他杆件相同；其余已给几何、梁柱截面、支承和两项节点荷载保持不变。'],
+      expected: { totalFxKN: 5, totalFzKN: -10, baseReactionFxKN: -5, baseReactionFzKN: 10 } },
   ];
 }
