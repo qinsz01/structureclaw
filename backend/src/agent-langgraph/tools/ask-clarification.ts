@@ -56,8 +56,10 @@ export function createAskUserClarificationTool() {
           const numbers = Object.values(values).filter(value => typeof value === 'number');
           const contains = (text: string) => numbers.length > 0 && numbers.every(value => quantities(text).some(item => item.value === value));
           const inQuestion = contains(input.question);
-          const optionIds = (options ?? []).flatMap((option, index) => contains(option) || inQuestion && input.candidateOptions?.some(
-            binding => binding.sectionId === section.id && binding.field === field && binding.optionIndex === index)
+          const bindings = (input.candidateOptions ?? []).filter(binding => binding.sectionId === section.id && binding.field === field);
+          const optionIds = (options ?? []).flatMap((option, index) => (bindings.length ? bindings.some(
+            binding => binding.optionIndex === index && (inQuestion || contains(option))
+              && (!binding.values || contentHash(binding.values) === contentHash(Object.fromEntries(Object.entries(values).filter(([, value]) => typeof value === 'number'))))) : contains(option))
             ? [`option-${index + 1}`] : []);
           if (!inQuestion && !optionIds.length) return [];
           const candidate = { sectionId: section.id, field, values };

@@ -114,6 +114,17 @@ describe('clarification option contract', () => {
     expect(JSON.parse(output).options).toEqual(['Q235, 100×200 mm', 'C30, 250×500 mm', 'Explicit elastic properties', 'Other section']);
   });
 
+  test('alternative numeric candidates bind only to their own option', async () => {
+    const output = JSON.parse(await withRunContext(createRunContext(policy), () => createAskUserClarificationTool().invoke({
+      question: '柱400×400 mm，梁250×500 mm？', optionsJson: ['柱400×400 mm，梁250×500 mm', '柱300×300 mm，梁200×400 mm'],
+      candidateOptions: [
+        { sectionId: 'col', field: 'dimensions', optionIndex: 0, values: { B: 400, H: 400 } },
+        { sectionId: 'col', field: 'dimensions', optionIndex: 1, values: { B: 300, H: 300 } },
+      ],
+    })));
+    expect(output.sectionCandidates.map(candidate => candidate.optionIds)).toEqual([['option-1'], ['option-2']]);
+  });
+
   test.each(['Confirm columns 400×400 mm and beams 250×500 mm?', '确认柱400×400毫米、梁250×500毫米？'])(
     'rejects an unbound numeric proposal before asking the user: %s', async question => {
       const result = JSON.parse(await createAskUserClarificationTool().invoke({ question }));

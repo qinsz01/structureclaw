@@ -30,13 +30,30 @@ describeWithOpenSees('all structure skills with frontend default scope', () => {
     ctx.llm.setInternal(internalResponder({
       'structural-router': () => ({ action: id === 'generic' ? 'generic' : 'switch_skill', skillId: id,
         structuralTypeKey: id === 'generic' ? 'unknown' : id, mappedType: ['concrete-frame', 'frame'].includes(id) ? 'frame' : id === 'generic' ? 'unknown' : id, confidence: .99 }),
-      'param-extractor': () => { extractionCount++; return { requestScope: scope, engineeringDraft: { ...engineeringDraft, analysisControl: { self_weight: false } } }; },
+      'param-extractor': text => {
+        extractionCount++;
+        if (id === 'concrete-frame') {
+          const { sections, material, ...geometryAndLoads } = engineeringDraft;
+          if (extractionCount === 1) return { requestScope: scope, engineeringDraft: { ...geometryAndLoads, analysisControl: { self_weight: false } } };
+          const receipt = JSON.parse(text.split('\n').find(line => line.startsWith('{"question"')));
+          return { engineeringDraft: { material, materials: [{ id: 'M1', grade: 'C30' }],
+            sectionRecords: [['beam', 250, 500], ['column', 400, 400]].map(([id, B, H]) => ({ id, name: id,
+              type: 'rectangular', shape: { kind: 'rectangular', B, H },
+              extra: { provenance: { shape: 'user' }, confirmation: { clarificationId: receipt.clarificationId } } })),
+            ...(extractionCount > 2 ? { templateAssignments: { beam: { materialId: 'M1', sectionId: 'beam' }, column: { materialId: 'M1', sectionId: 'column' } } } : {}),
+          } };
+        }
+        return { requestScope: scope, engineeringDraft: { ...engineeringDraft, analysisControl: { self_weight: false } } };
+      },
     }));
     const script = [toolCall('detect_structure_type', {}, 'route'), toolCall('extract_draft_params', {}, 'extract')];
     let first;
     if (id === 'concrete-frame') {
       first = await runTurn(ctx, { message, context: { locale: 'zh', skillIds } }, [...script,
-        toolCall('ask_user_clarification', { question: '确认采用C30、梁250×500mm、柱400×400mm、柱脚刚接？', optionsJson: ['全部确认'] }, 'confirm')]);
+        toolCall('ask_user_clarification', { question: '确认采用C30、梁250×500mm、柱400×400mm、柱脚刚接？', optionsJson: ['全部确认'],
+          candidateOptions: [{ sectionId: 'beam', field: 'shape', optionIndex: 0, values: { B: 250, H: 500 } },
+            { sectionId: 'column', field: 'shape', optionIndex: 0, values: { B: 400, H: 400 } }],
+        }, 'confirm')]);
       expect(first.interactions).toHaveLength(1);
     }
     const turn = await runTurn(ctx, first ? { conversationId: first.conversationId, resumeValue: '全部确认：C30、梁250×500mm、柱400×400mm、柱脚刚接。' }
@@ -45,7 +62,7 @@ describeWithOpenSees('all structure skills with frontend default scope', () => {
         toolCall('build_model', {}, 'build'), toolCall('run_analysis', { analysisType: 'static', analysisSkillId: 'opensees-static' }, 'analysis'), 'DONE',
       ], { resume: !!first });
     expect(toolResultSeenByAgent((first ?? turn).requests, 'route').skillId).toBe(id);
-    expect(extractionCount).toBeLessThanOrEqual(2);
+    expect(extractionCount).toBe(id === 'concrete-frame' ? 3 : 1);
     const session = await ctx.backend.session(turn.conversationId);
     expect(session.analysis.current).toBe(true);
     if (id === 'concrete-frame') {
@@ -54,8 +71,8 @@ describeWithOpenSees('all structure skills with frontend default scope', () => {
       expect(model.nodes.filter(n => n.z === 0).every(n => n.restraints.every(Boolean))).toBe(true);
       expect(model.materials).toEqual(expect.arrayContaining([expect.objectContaining({ grade: 'C30' })]));
       expect(model.sections).toEqual(expect.arrayContaining([
-        expect.objectContaining({ purpose: 'beam', name: '250X500' }),
-        expect.objectContaining({ purpose: 'column', name: '400X400' }),
+        expect.objectContaining({ shape: expect.objectContaining({ B: 250, H: 500 }) }),
+        expect.objectContaining({ shape: expect.objectContaining({ B: 400, H: 400 }) }),
       ]));
       const loads = model.load_cases.flatMap(c => c.loads).filter(l => l.fx);
       expect(loads).toHaveLength(6);

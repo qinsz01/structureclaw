@@ -4,6 +4,7 @@ import { projectDraftState, verifyDraftSectionEvidence } from '../../agent-runti
 import { mergeDraftDiagnostics } from '../../agent-runtime/draft-diagnostics.js';
 import { draftChangedFields, unappliedDraftFields, unresolvedAppliedFields } from '../../agent-runtime/draft/changes.js';
 import { sectionMaterialNotes } from '../../agent-runtime/draft/materials.js';
+import { templatePropertyIssues } from '../../agent-runtime/template-properties.js';
 import { compactDraftToolPayload } from '../draft-tool-summary.js';
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
@@ -178,7 +179,18 @@ async function extractAndMergeDraft(options: {
     onUsage,
     designSchema: designContract ? draftDesignSchema(designContract) : undefined,
     sectionShapeSchema: designContract ? draftSectionShapeSchema(designContract) : undefined,
-    validatePatch: async candidate => { prepared = await prepareDraft(candidate); },
+    validatePatch: async candidate => {
+      const result = await prepareDraft(candidate);
+      const evidence = conversationSectionEvidence(state);
+      const confirmed = result.nextState.engineeringDraft?.sectionRecords?.some(section =>
+        isRecord(section.extra) && isRecord(section.extra.confirmation));
+      const issues = confirmed && evidence.confirmations?.length ? templatePropertyIssues(result.nextState) : [];
+      const missingAssignment = issues.find(issue => /(?:beam|column|member)\.sectionId/.test(issue));
+      if (missingAssignment && !(Array.isArray(candidate.draftIssues) && candidate.draftIssues.length)) {
+        throw new Error(`MODEL_EDIT_FIELD_INVALID: ${missingAssignment}. Accepted sections must include templateAssignments.beam/column/member.sectionId using the stored section IDs and the roles already stated in the answered question. Repair the extraction; do not ask the user to confirm the same assignment again. If the supplied roles are genuinely ambiguous, declare that ambiguity in draftIssues. / 已确认截面须同时写入已说明的构件角色引用；修复提取，不重复要求用户确认。`);
+      }
+      prepared = result;
+    },
   });
 
   // Step 4: Handler pipeline (extractDraft → mergeState → computeMissing)

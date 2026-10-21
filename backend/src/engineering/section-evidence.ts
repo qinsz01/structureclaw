@@ -40,9 +40,11 @@ export function confirmedSectionValue(section: ModelRecord, field: string, key: 
   context: SectionEvidenceContext): boolean {
   const extra = isRecord(section.extra) ? section.extra : {};
   const binding = isRecord(extra.confirmation) ? extra.confirmation : {};
+  const sameField = (other: unknown) => other === field || ['shape', 'dimensions'].includes(field)
+    && typeof other === 'string' && ['shape', 'dimensions'].includes(other);
   return (context.confirmations ?? []).some(receipt => typeof receipt.answer === 'string' && receipt.answer.trim()
     && Array.isArray(receipt.sectionCandidates) && receipt.sectionCandidates.filter(isRecord).some(candidate => {
-      if (candidate.sectionId !== section.id || candidate.field !== field || !isRecord(candidate.values)
+      if (candidate.sectionId !== section.id || !sameField(candidate.field) || !isRecord(candidate.values)
         || candidate.values[key] !== value) return false;
       const selected = typeof receipt.selectedOptionId === 'string' && Array.isArray(candidate.optionIds)
         && candidate.optionIds.includes(receipt.selectedOptionId);
@@ -56,7 +58,7 @@ export function confirmedSectionValue(section: ModelRecord, field: string, key: 
       const candidateValues = candidate.values;
       const unique = binding.clarificationId === receipt.clarificationId && binding.candidateIds === undefined
         && (receipt.sectionCandidates as unknown[]).filter(item => isRecord(item)
-          && item.sectionId === section.id && item.field === field).length === 1
+          && item.sectionId === section.id && sameField(item.field)).length === 1
         && numeric.length === Object.values(candidateValues).filter(item => typeof item === 'number').length
         && numeric.every(([name, item]) => candidateValues[name] === item);
       return selected || accepted || unique;
