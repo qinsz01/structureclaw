@@ -56,6 +56,11 @@ export function checkModelPhysics(model: ModelRecord, draft?: EngineeringDraft):
     if (!['beam', 'column', 'truss', 'brace'].includes(String(element.type))) {
       add('STABILITY_CHECK_UNSUPPORTED', [id], 'Kinematic stability checking requires beam, column or axial truss/brace members.', '运动学稳定性检查要求梁、柱或纯轴力桁架/支撑构件。'); continue;
     }
+    if (['truss', 'brace'].includes(String(element.type)) && isRecord(element.releases)
+      && Object.values(element.releases).some(end => isRecord(end) && Object.values(end).some(flag => flag === true))) {
+      add('AXIAL_MEMBER_RELEASES_UNSUPPORTED', [id], 'Axial truss/brace members are already hinged. Additional end releases are unsupported; do not invent or silently remove confirmed releases.',
+        '纯轴力桁架及支撑构件本身已铰接，不支持另加端释放；不得编造或静默删除已确认的端释放。');
+    }
     usable.push(element);
   }
   const orphan = [...connected].filter(([, neighbours]) => !neighbours.size).map(([id]) => id);

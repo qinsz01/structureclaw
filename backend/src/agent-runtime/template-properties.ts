@@ -3,6 +3,7 @@ import type { DraftState } from '../shared/types/agent.js';
 import { applyDraftAnalysisControl, applyDraftTemplateDesign, resolveDraftTemplateAssignment } from './engineering-draft.js';
 import { forceOnlyScope, type RequestScope } from '../engineering/request-scope.js';
 import { describeStiffnessPlaceholder, placeholderMaterialRecord, placeholderSectionRecord } from '../engineering/stiffness-placeholder.js';
+import { isRecord } from '../engineering/model-state.js';
 
 type FrameMaterialCategory = 'steel' | 'concrete';
 type FrameMaterialProps = { E: number; G: number; nu: number; rho: number; category: FrameMaterialCategory; fy?: number; fc?: number };
@@ -452,6 +453,17 @@ export function completeGenericModelProperties(model: Record<string, unknown>, s
     ? value.filter((item): item is Record<string, unknown> => !!item && typeof item === 'object' && !Array.isArray(item)) : [];
   const elements = rows(copy.elements);
   const placeholder = stiffnessPlaceholderUses(state);
+  // Placeholder permission belongs to the host policy, never to model-authored provenance.
+  // In particular, a partly specified real structure cannot gain invented relative stiffness.
+  const isPlaceholder = (record: Record<string, unknown>) => isRecord(record.extra)
+    && (record.extra.stiffnessPlaceholder === true || isRecord(record.extra.provenance)
+      && Object.values(record.extra.provenance).includes('unit-stiffness'));
+  for (const [key, allowed] of [['materials', placeholder.material], ['sections', placeholder.section]] as const) {
+    const unauthorized = rows(copy[key]).filter(isPlaceholder);
+    if (!allowed && unauthorized.length) propertyError(`${key}: actual properties required for ${unauthorized.map(row => row.id).join(', ')}`,
+      '已声明部分真实属性时须补齐缺失属性，助手不得自行加入单位刚度占位。');
+  }
+  if (isRecord(copy.metadata)) delete copy.metadata.stiffnessPlaceholder;
   let materials = rows(copy.materials);
   const sourceMaterials = state.engineeringDraft?.materials ?? [];
   materials = materials.map(material => ({ ...material, ...sourceMaterials.find(source => source.id === material.id) }));

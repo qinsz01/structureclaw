@@ -16,6 +16,12 @@ describe('deterministic model physics', () => {
     const model = copy(3); model.elements = model.elements.filter(element => element.id !== 'AB');
     expect(codes(model)).toContain('KINEMATIC_MECHANISM');
   });
+  test('axial members do not pass with additional releases unsupported by the solver', () => {
+    const model = copy(3); model.elements[0].releases = { i: { ry: true } };
+    expect(codes(model)).toContain('AXIAL_MEMBER_RELEASES_UNSUPPORTED');
+    model.elements[0].releases.i.ry = false;
+    expect(checkModelPhysics(model).valid).toBe(true);
+  });
   test('detects a rigid-body mode when the frame has no supports', () => {
     const model = copy(0); for (const node of model.nodes) delete node.restraints;
     expect(codes(model)).toEqual(expect.arrayContaining(['SUPPORTS_MISSING', 'KINEMATIC_MECHANISM']));

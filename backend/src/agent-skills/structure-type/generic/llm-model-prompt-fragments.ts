@@ -36,8 +36,8 @@ const STRUCTURE_MODEL_V2_TEMPLATE = JSON.stringify({
 
 const COMMON_CONSTRAINTS_EN = [
   'Model physical roles: beams carry transverse span loads, columns carry storeys vertically, truss/brace members are axial-only and hinged. Orientation alone does not turn a chord or arch into a column; document intentional exceptions in element.metadata.roleReason. Give storey elevations in stories when storeys exist and declare each section purpose (beam/column/brace/other).',
-  'End releases describe actual joints in element-local axes (releases.i/j.ry/rz), not supports. Declare rotation_angle where section orientation matters. Do not release frame joints unless requested. A pin restrains translations, a roller restrains its stated direction, and a fixed support restrains all active DOFs. Verify the supported stiffness has no mechanism.',
-  'Section evidence: do not treat a remembered section-table value as confirmed input. Return missing_fields together for unsupported designations or pending confirmation; use confirmed geometry or evidenced properties only. For force-only requests the shared runtime supplies labelled unit stiffness; do not invent real material/section values.',
+  'End releases describe actual joints in element-local axes (releases.i/j.ry/rz), not supports. Axial truss/brace members are already hinged: omit additional rotational releases. Declare rotation_angle where section orientation matters. Do not release frame joints unless requested. A pin restrains translations, a roller restrains its stated direction, and a fixed support restrains all active DOFs. Verify the supported stiffness has no mechanism.',
+  'Section evidence: do not treat a remembered section-table value as confirmed input. Return missing_fields together for unsupported designations or pending confirmation; use confirmed geometry or evidenced properties only. Only the shared runtime may supply labelled unit stiffness for an eligible force-only request. Partly specified real sections require the missing properties: never invent a unit section for an omitted brace or write placeholder provenance/metadata yourself.',
   'Load directions are signed physical vectors: preserve global components as given, convert gravity-positive magnitudes to negative global Z, and rotate element-local components through the member axes. Preserve every load and its target, case, interval and position. Never infer a global force from the apparent drawing direction.',
   'Output StructureModel V2 with schema_version exactly "2.2.0" and unit_system exactly "SI".',
   'Always output the complete coordinate_system object. Use dimension="2d" and plane="xz" for a 2D model; use dimension="3d" and plane=null for a 3D model. Never infer or omit this declaration.',
@@ -57,8 +57,8 @@ const COMMON_CONSTRAINTS_EN = [
 
 const COMMON_CONSTRAINTS_ZH = [
   '按物理功能声明构件角色：梁承受跨向横向荷载，柱承担楼层竖向传力，truss/brace为纯轴力铰接杆；不能仅凭朝向把弦杆或拱改成柱。有意例外在element.metadata.roleReason说明。存在楼层时在stories写明标高，并声明截面purpose（beam/column/brace/other）。',
-  '端部释放表示真实节点连接，使用构件局部轴releases.i/j.ry/rz，不是支座。截面方向有影响时声明rotation_angle；没有依据不得释放框架节点。铰支约束平移，滚支约束指定方向，固支约束全部有效自由度。检查支承后的刚度是否存在机构。',
-  '截面证据规则：记忆的截面表值不是已确认输入。无法据实定义的型号或尚待确认的属性应与其他缺项一起返回missing_fields，只用已确认几何或有依据的属性。仅求内力时共享程序会提供标注的单位刚度，不得编造真实材料和截面数值。',
+  '端部释放表示真实节点连接，使用构件局部轴releases.i/j.ry/rz，不是支座。truss/brace纯轴力杆本身已铰接，不另加转动释放。截面方向有影响时声明rotation_angle；没有依据不得释放框架节点。铰支约束平移，滚支约束指定方向，固支约束全部有效自由度。检查支承后的刚度是否存在机构。',
+  '截面证据规则：记忆的截面表值不是已确认输入。无法据实定义的型号或尚待确认的属性应与其他缺项一起返回missing_fields，只用已确认几何或有依据的属性。只有共享程序可为符合条件的仅内力请求加入单位刚度；部分真实截面已给出时须补齐其余属性，不得自行给缺失斜撑编造单位截面或写占位来源、元数据。',
   '荷载方向必须保持物理符号：原样保留全局分量，gravity正幅值转换为全局负Z，构件局部分量通过构件局部轴旋转。保留每个荷载的目标、工况、区间和位置，不能凭图面朝向猜全局力。',
   '输出 StructureModel V2，schema_version 必须是 "2.2.0"，unit_system 必须是 "SI"。',
   '必须完整输出 coordinate_system。二维模型使用 dimension="2d"、plane="xz"；三维模型使用 dimension="3d"、plane=null。不得省略该声明或留给下游推断。',

@@ -47,4 +47,18 @@ describe('generic physics repair and shared completion', () => {
     expect(model.analysis_control.self_weight).toBe(false);
     expect(model.sections[0].extra.stiffnessPlaceholder).toBe(true);
   });
+  test('a model cannot insert partial unit stiffness beside confirmed real properties', async () => {
+    const candidate = structuredClone(fixture.model);
+    candidate.sections.push({ id: 'invented', type: 'custom', name: 'Unit brace', properties: { A: 1 }, extra: { provenance: { properties: 'unit-stiffness' } } });
+    candidate.elements[0].section = 'invented';
+    await expect(withRunContext(context({ enabled: false }), () => tryBuildGenericModelWithLlm({ invoke: async () => ({ content: JSON.stringify(candidate) }) },
+      'Use supplied real sections; ask for missing ones.', { ...state, engineeringDraft: fixture.draft.engineeringDraft }, 'en'))).rejects.toThrow('actual properties required for invented');
+  });
+  test('model-authored placeholder metadata cannot hide displacement of a real-property model', async () => {
+    const candidate = structuredClone(fixture.model); candidate.metadata = { stiffnessPlaceholder: { material: true, section: true } };
+    const model = await tryBuildGenericModelWithLlm({ invoke: async () => ({ content: JSON.stringify(candidate) }) }, 'Use real properties.',
+      { ...state, engineeringDraft: fixture.draft.engineeringDraft }, 'en');
+    expect(model.metadata.stiffnessPlaceholder).toBeUndefined();
+    expect(candidate.metadata.stiffnessPlaceholder).toBeDefined();
+  });
 });
