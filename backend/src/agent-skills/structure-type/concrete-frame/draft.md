@@ -57,6 +57,10 @@ Concrete frame sections are described as rectangular cross‑sections:
 1. **Story/bay numbers**: Look for patterns like "3‑story 2‑bay", "4层3跨".
 2. **Dimensions**: Extract numbers followed by "m", "米", "mm", "毫米". Convert mm to m for story heights and bay widths.
 3. **Loads**: "dead load 5 kN/m²", "恒载 5 kN/m²", "live load 3 kN/m²", "活载 3 kN/m²". Prefer `engineeringDraft.loads` with `kind: "area"` and `unit: "kN/m2"` when floor geometry is available; the runtime can convert it to per-story total loads. Use legacy `floorLoads` only when the total kN per story is explicitly given or can be computed reliably.
+   - Preserve a load at a specified joint as `kind: "nodal"`, with both `location.story` (one-based, including 1 for a single-storey frame) and `location.nodeRole` (`left-side`, `right-side`, or `middle`). Preserve each global force component separately. A located load is not a floor total and needs no question about distributing it.
+   - 指定节点的荷载使用 `kind: "nodal"`，同时填写 `location.story`（从 1 开始，单层框架也填 1）和 `location.nodeRole`（`left-side`、`right-side` 或 `middle`），各全局方向分量分别保留。已定位的节点荷载不是楼层总荷载，不要再询问如何分摊。
+   - For a point load along a member, use `kind: "point"`, `location.xM` from the member start, and an exact member ID in `target` or one-based `location.story` + `location.spanIndex`; do not request a node role for this load.
+   - 构件上的集中荷载使用 `kind: "point"`、距构件起点的 `location.xM`，以及 `target` 中的准确构件 ID 或从 1 开始的 `location.story` + `location.spanIndex`，不要为此追问节点角色。
 4. **Materials**: Look for concrete grades (C20–C80) and rebar grades (HPB300, HRB400, HRB500). A missing rebar grade is not a missing analysis input.
 5. **Seismic / wind design basis**: Semantically identify seismic fortification inputs such as intensity, design acceleration, design group, site category, fortification category, seismic grade, regularity, and explicit method requirements. Put scalar site parameters into `siteSeismic`; put China-code workflow intent into `skillState.seismicWorkflow`. Do not infer the analysis method through keyword/regex matching.
 6. **Boundary**: "fixed base", "pinned base", "固接", "铰接".
