@@ -60,3 +60,10 @@ describe('run settings', () => {
     expect(onChange).toHaveBeenLastCalledWith({ ...value, budgets: { maxToolCallsPerTurn: 12, maxLlmCallsPerTurn: 5 } })
   })
 })
+
+it.each(['en', 'zh'] as const)('shows the narrowed capability scope (%s)', locale => {
+  render(<RunSettings value={{}} onChange={() => {}} locale={locale} disabled={false}
+    capabilityScope={{ skills: ['beam'], narrowed: true }} />)
+  expect(screen.getByRole('status')).toHaveTextContent('beam')
+  expect(screen.getByRole('status')).toHaveTextContent(locale === 'zh' ? '能力设置' : 'Capability settings')
+})

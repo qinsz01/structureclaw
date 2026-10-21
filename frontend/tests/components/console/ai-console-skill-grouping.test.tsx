@@ -403,6 +403,7 @@ describe('Capability settings and console integration', () => {
     window.localStorage.setItem(CAPABILITY_PREFERENCE_STORAGE_KEY, JSON.stringify({
       skillIds: ['structure-json-validation'],
       toolIds: ['validate_model'],
+      explicit: true,
     }))
 
     const fetchMock = vi.spyOn(global, 'fetch').mockImplementation(async (input, init) => {

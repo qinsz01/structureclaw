@@ -54,10 +54,10 @@ describe('Preferences Slice (STAT-04)', () => {
     })
   })
 
-  it.each([{ skillIds: [] }, { skillIds: ['generic', 'opensees-static'] }])('preserves legacy selections without expanding their scope: $skillIds', ({ skillIds }) => {
+  it.each([{ skillIds: [] }, { skillIds: ['generic', 'opensees-static'] }])('does not treat unconfirmed legacy selections as explicit: $skillIds', ({ skillIds }) => {
     window.localStorage.setItem(CAPABILITY_PREFERENCE_STORAGE_KEY, JSON.stringify({ skillIds, toolIds: [] }))
     expect(createAppStore().getState()).toMatchObject({
-      capabilityExplicit: true, capabilitySkillIds: skillIds, capabilityToolIds: [],
+      capabilityExplicit: false, capabilitySkillIds: skillIds, capabilityToolIds: [],
     })
   })
 

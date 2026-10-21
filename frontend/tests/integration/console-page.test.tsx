@@ -470,6 +470,7 @@ describe('ConsolePage Integration (CONS-13)', () => {
       JSON.stringify({
         skillIds,
         toolIds,
+        explicit: true,
       })
     )
   }
