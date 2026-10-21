@@ -392,7 +392,7 @@ export function resolveTemplateProperties(state: DraftState, roles: TemplateRole
     const declaredSection = draft?.sections?.[role] ?? draft?.sections?.member
       ?? (role === 'column' ? state.frameColumnSection as string | undefined
         : role === 'beam' ? state.frameBeamSection as string | undefined : undefined);
-    let sectionId = mapping?.sectionId;
+    let sectionId: string | undefined;
     if (explicitRecords) {
       sectionId = resolveTemplateSectionId(state, role, roles.length);
     } else if (placeholder.section) {
