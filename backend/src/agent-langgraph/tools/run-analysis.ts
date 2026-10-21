@@ -1,5 +1,7 @@
+import { getAnalysisSkillCatalogEntry } from '../../providers/analysis-catalog.js';
+import { providerAccessError } from '../../providers/access.js';
 import { randomUUID } from 'node:crypto';
-import { ANALYSIS_SKILL_IDS } from '../../agent-skills/analysis/catalog.js';
+import { ANALYSIS_SKILL_IDS } from '../../providers/analysis-catalog.js';
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 import type { AgentSkillRuntime } from '../../agent-runtime/index.js';
@@ -16,7 +18,7 @@ import { recordRunEvent, reserveToolCall, recordToolOutcome } from '../../runtim
 import { createQueryResultsTool } from '../model-tools.js';
 import { requestScopeSchema, type RequestScope } from '../../engineering/request-scope.js';
 import { stiffnessPlaceholderOf, withoutPlaceholderDisplacements, type StiffnessPlaceholder } from '../../engineering/stiffness-placeholder.js';
-import { resolveRequestedAnalysisSkillId, resolveUnselectedRequestedAnalysisSkillId, buildAnalysisProviderNotSelectedPayload } from './analysis-resolution.js';
+import { resolveRequestedAnalysisSkillId } from './analysis-resolution.js';
 import { buildAnalysisToolSummary } from './compaction/analysis.js';
 import { parseJsonObjectInput, hasStructuredSeismicWorkflow, hasSemanticSeismicWorkflowInput, mergeSeismicWorkflowInputs } from './seismic-workflow/merge.js';
 import { validateSeismicWorkflowInput } from './seismic-workflow/validate-design.js';
@@ -255,25 +257,20 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
       assertInputEvidenceMatchesModel(model, state?.inputEvidence);
       const skillIds = toolSkillScope(config);
       const analysisType = (input.analysisType || 'static') as 'static' | 'dynamic' | 'seismic' | 'nonlinear';
-      const unselectedRequestedSkillId = resolveUnselectedRequestedAnalysisSkillId(
-        state?.lastUserMessage,
-        skillIds,
-        analysisType,
-        input.analysisSkillId,
-      );
-      if (unselectedRequestedSkillId) {
-        return toolResult(
-          toolCallId,
-          'run_analysis',
-          JSON.stringify(buildAnalysisProviderNotSelectedPayload(unselectedRequestedSkillId)),
-        );
-      }
       const requestedAnalysisSkillId = resolveRequestedAnalysisSkillId(
         state?.lastUserMessage,
         skillIds,
         analysisType,
-        input.analysisSkillId,
+        input.analysisSkillId ?? (getAnalysisSkillCatalogEntry(state?.policy?.analysisProviderPreference)?.analysisType === analysisType
+          ? state?.policy?.analysisProviderPreference : undefined),
       );
+      const provider = getAnalysisSkillCatalogEntry(requestedAnalysisSkillId);
+      const denied = requestedAnalysisSkillId && providerAccessError(requestedAnalysisSkillId, state?.runPolicy);
+      if (denied) return toolResult(toolCallId, 'run_analysis', JSON.stringify(denied));
+      if (!provider || provider.analysisType !== analysisType) return toolResult(toolCallId, 'run_analysis', JSON.stringify({
+        success: false, error_code: 'ENGINE_UNAVAILABLE', providerId: requestedAnalysisSkillId,
+        message: 'No enabled solver supports the requested analysis type.', messageZh: '没有已启用的求解器支持请求的分析类型。',
+      }));
       const traceId = `lg-${Date.now()}`;
       const seismic = resolveSeismicWorkflowInput(input, state, analysisType);
       if ('errorPayload' in seismic) return toolResult(toolCallId, 'run_analysis', JSON.stringify(seismic.errorPayload));
@@ -354,7 +351,7 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
         'Reads the model from conversation state automatically — do NOT pass it as a parameter. ' +
         'Returns analysis results including displacements, forces, and reactions, plus compact normalized-model ' +
         'node coordinates and element connectivity for grounding result IDs to physical locations. ' +
-        'The analysis engine is resolved from the selected analysis skill automatically. ' +
+        'Select a solver provider with analysisSkillId, independently of structure-skill restrictions. An explicit unavailable provider fails without substitution. ' +
         'For China seismic analysis, pass seismicWorkflowJson only as the structured result of semantic understanding.',
       schema: z.object({
         analysisType: z
@@ -363,7 +360,7 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
         analysisSkillId: z
           .enum(ANALYSIS_SKILL_IDS)
           .optional()
-          .describe('Optional structured analysis skill ID from LLM semantic understanding or UI selection. Do not infer it from keyword matching.'),
+          .describe('Solver provider ID selected by LLM semantic understanding; independent of structure skills. / 求解器 Provider ID，由大模型理解需求后选择，与结构技能范围独立。'),
         loadCombinationId: z
           .string()
           .optional()

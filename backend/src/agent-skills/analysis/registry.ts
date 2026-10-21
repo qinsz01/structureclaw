@@ -1,10 +1,7 @@
 import { existsSync } from 'fs';
 import path from 'path';
-import {
-  loadSkillManifestsFromDirectorySync,
-  resolveBuiltinSkillManifestRoot,
-  type LoadedSkillManifest,
-} from '../../skill-shared/skill-manifest-loader.js';
+import { listProviders, type ProviderDefinition } from '../../providers/catalog.js';
+import { resolveBackendAsset } from '../../utils/bundled-paths.js';
 import type {
   AnalysisEngineDefinition,
   AnalysisExecutionAction,
@@ -16,56 +13,26 @@ import type {
 const ANALYSIS_TYPE_ORDER = ['static', 'dynamic', 'seismic', 'nonlinear'] as const;
 const MODEL_FAMILY_ORDER = ['frame', 'truss', 'generic'] as const;
 
-function assertAnalysisManifestField(
-  manifest: LoadedSkillManifest,
-  field: 'software' | 'analysisType' | 'engineId' | 'adapterKey',
-): string {
-  const value = manifest[field];
-  if (typeof value !== 'string' || value.trim().length === 0) {
-    throw new Error(`Analysis skill manifest ${manifest.manifestPath} is missing required field '${field}'`);
+function toAnalysisSkillManifest(provider: ProviderDefinition): AnalysisSkillManifest {
+  if (!provider.runtimePath || !existsSync(resolveBackendAsset('src/' + provider.runtimePath))) {
+    throw new Error('Missing solver runtime: ' + provider.id);
   }
-  return value.trim();
-}
-
-function toAnalysisSkillManifest(manifest: LoadedSkillManifest): AnalysisSkillManifest {
-  const runtimeRelativePath = typeof manifest.runtimeRelativePath === 'string' && manifest.runtimeRelativePath.trim().length > 0
-    ? manifest.runtimeRelativePath.trim()
-    : 'runtime.py';
-  const runtimePath = path.join(path.dirname(manifest.manifestPath), runtimeRelativePath);
-
-  if (!existsSync(runtimePath)) {
-    throw new Error(`Analysis skill manifest ${manifest.manifestPath} references missing runtime '${runtimeRelativePath}'`);
+  if (!provider.software || !provider.analysisType || !provider.engineId || !provider.adapterKey) {
+    throw new Error('Incomplete solver provider metadata: ' + provider.id);
   }
-
   return {
-    id: manifest.id,
-    domain: 'analysis',
-    name: manifest.name,
-    description: manifest.description,
-    software: assertAnalysisManifestField(manifest, 'software') as AnalysisSkillManifest['software'],
-    analysisType: assertAnalysisManifestField(manifest, 'analysisType') as AnalysisSkillManifest['analysisType'],
-    engineId: assertAnalysisManifestField(manifest, 'engineId') as AnalysisSkillManifest['engineId'],
-    adapterKey: assertAnalysisManifestField(manifest, 'adapterKey') as AnalysisSkillManifest['adapterKey'],
-    triggers: Array.isArray(manifest.triggers) ? [...manifest.triggers] : [],
-    stages: ['analysis'],
-    capabilities: Array.isArray(manifest.capabilities) && manifest.capabilities.length > 0
-      ? [...manifest.capabilities]
-      : ['analysis-policy', 'analysis-execution'],
-    supportedModelFamilies: (
-      Array.isArray(manifest.supportedModelFamilies) && manifest.supportedModelFamilies.length > 0
-        ? manifest.supportedModelFamilies
-        : ['generic']
-    ) as AnalysisModelFamily[],
-    priority: manifest.priority ?? 0,
-    runtimeRelativePath,
+    id: provider.id, domain: 'analysis', name: provider.name, description: provider.description,
+    software: provider.software as AnalysisSkillManifest['software'], analysisType: provider.analysisType,
+    engineId: provider.engineId as BuiltInAnalysisEngineId,
+    adapterKey: provider.adapterKey as AnalysisSkillManifest['adapterKey'],
+    triggers: [], stages: ['analysis'], capabilities: ['analysis-policy', 'analysis-execution'],
+    supportedModelFamilies: provider.supportedModelFamilies as AnalysisModelFamily[],
+    priority: provider.priority, runtimeRelativePath: path.basename(provider.runtimePath),
   };
 }
 
 function discoverBuiltinAnalysisSkills(): AnalysisSkillManifest[] {
-  const manifests = loadSkillManifestsFromDirectorySync(resolveBuiltinSkillManifestRoot());
-  return manifests
-    .filter((manifest) => manifest.domain === 'analysis')
-    .map((manifest) => toAnalysisSkillManifest(manifest))
+  return listProviders('solver').map(toAnalysisSkillManifest)
     .sort((left, right) => right.priority - left.priority || left.id.localeCompare(right.id));
 }
 

@@ -12,10 +12,11 @@ describe('run policy contract and aggregate accounting', () => {
     expect(policy().budgets.maxToolCallsPerTurn).toBe(200);
     expect(policy().repair).toEqual({ enabled: true, maxRecoveriesPerTurn: 2 });
     expect(policy({ skillIds: [], tools: { enabledIds: [] } })).toMatchObject({ activeSkillIds: [], activeToolIds: [] });
-    const restricted = policy({ skillIds: ['beam', 'generic'], budgets: { maxToolCallsPerTurn: 100 } }, { allowedSkillIds: ['beam'], maxToolCallsPerTurn: 50 });
+    const restricted = policy({ skillIds: ['beam', 'generic'], budgets: { maxToolCallsPerTurn: 50 } }, { allowedSkillIds: ['beam'], maxToolCallsPerTurn: 50 });
     expect(restricted.activeSkillIds).toEqual(['beam']);
     expect(restricted.deniedSkillIds).toEqual(['generic']);
-    expect(restricted.fieldSources['budgets.maxToolCallsPerTurn']).toBe('server-limit');
+    expect(restricted.fieldSources['budgets.maxToolCallsPerTurn']).toBe('request');
+    expect(() => policy({ budgets: { maxToolCallsPerTurn: 51 } }, { maxToolCallsPerTurn: 50 })).toThrow('TOOL_CALL_LIMIT_EXCEEDED');
     expect(restricted.budgets.maxToolCallsPerTurn).toBe(50);
     expect(policy({}, { legacy: { skillIds: [] } }).activeSkillIds).toEqual([]);
   });

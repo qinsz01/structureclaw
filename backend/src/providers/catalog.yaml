@@ -1,0 +1,325 @@
+- id: opensees-dynamic
+  kind: solver
+  name:
+    zh: OpenSees 动力分析
+    en: OpenSees Dynamic Analysis
+  description:
+    zh: OpenSees
+      线弹性模态与一致时间步地震时程分析；显式质量方案、激励方向、阻尼，记录指定节点六分量位移/速度/加速度、构件端力和支座反力。时程运动相对地面；暂不提供任意跨内瞬态响应或通用非线性动力。
+    en: OpenSees linear modal and earthquake time-history analysis with explicit
+      mass source, direction, damping and time step. Records requested
+      six-component nodal motion, member end forces and support reactions.
+      Motion is relative to the ground; arbitrary interior transient responses
+      and general nonlinear dynamics are unsupported.
+  priority: 150
+  software: opensees
+  analysisType: dynamic
+  engineId: builtin-opensees
+  adapterKey: builtin-opensees
+  supportedAnalysisTypes:
+    - dynamic
+  supportedModelFamilies:
+    - frame
+    - truss
+    - generic
+  aliases: []
+  runtimePath: agent-skills/analysis/opensees-dynamic/runtime.py
+- id: opensees-nonlinear
+  kind: solver
+  name:
+    zh: OpenSees 非线性分析
+    en: OpenSees Nonlinear Analysis
+  description:
+    zh: 面向 OpenSees 非线性分析需求识别与路由的 skill。
+    en: Skill for recognizing and routing OpenSees nonlinear analysis requests.
+  priority: 160
+  software: opensees
+  analysisType: nonlinear
+  engineId: builtin-opensees
+  adapterKey: builtin-opensees
+  supportedAnalysisTypes:
+    - nonlinear
+  supportedModelFamilies:
+    - frame
+    - truss
+    - generic
+  aliases: []
+  runtimePath: agent-skills/analysis/opensees-nonlinear/runtime.py
+- id: opensees-seismic
+  kind: solver
+  name:
+    zh: OpenSees 抗震分析
+    en: OpenSees Seismic Analysis
+  description:
+    zh: 使用 OpenSees 执行中国抗震反应谱、弹性时程和 Pushover 等抗震分析的 skill。
+    en: Skill for China-code seismic response-spectrum, elastic time-history, and
+      pushover analysis using OpenSees.
+  priority: 145
+  software: opensees
+  analysisType: seismic
+  engineId: builtin-opensees
+  adapterKey: builtin-opensees
+  supportedAnalysisTypes:
+    - seismic
+  supportedModelFamilies:
+    - frame
+    - truss
+    - generic
+  aliases: []
+  runtimePath: agent-skills/analysis/opensees-seismic/runtime.py
+- id: opensees-static
+  kind: solver
+  name:
+    zh: OpenSees 静力分析
+    en: OpenSees Static Analysis
+  description:
+    zh: OpenSees
+      二维/三维线弹性杆系静力分析：梁柱、桁架与混合支撑，局部/集中荷载、多工况组合及弯曲端释放。跨内力学恢复与直接节点结果区分；轴向/剪切/扭转释放、刚端偏心和二阶分析尚不支持。
+    en: OpenSees 2-D/3-D linear frame statics with beams, columns, trusses, mixed
+      braces, partial/point loads, case combinations and bending end releases.
+      Interior mechanics recovery is distinct from direct nodal results.
+      Axial/shear/torsional releases, rigid offsets and second-order analysis
+      are unsupported.
+  priority: 140
+  software: opensees
+  analysisType: static
+  engineId: builtin-opensees
+  adapterKey: builtin-opensees
+  supportedAnalysisTypes:
+    - static
+  supportedModelFamilies:
+    - frame
+    - truss
+    - generic
+  aliases: []
+  runtimePath: agent-skills/analysis/opensees-static/runtime.py
+- id: pkpm-static
+  kind: solver
+  name:
+    zh: PKPM 静力分析
+    en: PKPM Static Analysis
+  description:
+    zh: PKPM
+      线弹性杆系静力分析，逐层保持实际拓扑、显式材料与截面属性；接通节点六分量荷载、多工况、有符号截面结果与线性组合。显式设计请求可使用已验证标准材料和真实截面计算所需配筋或读取原生钢构件校核；普通分析不发布设计结论，缺失结果不补零。
+    en: PKPM linear elastic frame statics preserving per-floor topology and explicit
+      material/section properties, with six-component nodal loads, multiple
+      cases, signed stations and linear combinations. Explicit design requests
+      use verified standard materials and physical sections for required
+      reinforcement or native steel checks. Ordinary analysis publishes no
+      design conclusions; missing results are not zero-filled.
+  priority: 130
+  software: pkpm
+  analysisType: static
+  engineId: builtin-pkpm
+  adapterKey: builtin-pkpm
+  supportedAnalysisTypes:
+    - static
+  supportedModelFamilies:
+    - frame
+    - generic
+  aliases: []
+  runtimePath: agent-skills/analysis/pkpm-static/runtime.py
+- id: yjk-static
+  kind: solver
+  name:
+    zh: YJK 静力分析
+    en: YJK Static Analysis
+  description:
+    zh: YJK
+      三维杆系静力分析及原生框架设计。分析保留物理构件、荷载位置与源工况，支持普通竖柱固定、铰支、方向支座及梁端成对局部弯曲释放，保留扭转；普通梁柱自重绑定源密度、面积及明确工况。显式设计请求读取混凝土矩形梁柱配筋及钢
+      H/箱形梁柱应力验算，核对真实几何、材料牌号、规范和原生组合。缺项不填零，参考截面不用于设计。
+    en: YJK 3-D frame statics and native frame design. Analysis preserves physical
+      members, load positions and source cases, with fixed/pinned/directional
+      vertical-column bases and paired local beam bending releases retaining
+      torsion; ordinary beam/column weight binds authored density and area to an
+      explicit case. Explicit design requests read concrete rectangular-member
+      reinforcement or steel I/box stress checks with physical geometry, grade,
+      code and native combinations verified. Missing values never become zero
+      and reference sections cannot be designed.
+  priority: 125
+  software: yjk
+  analysisType: static
+  engineId: builtin-yjk
+  adapterKey: builtin-yjk
+  supportedAnalysisTypes:
+    - static
+  supportedModelFamilies:
+    - frame
+    - generic
+  aliases: []
+  runtimePath: agent-skills/analysis/yjk-static/runtime.py
+- id: code-check-gb50010
+  kind: design-code
+  name:
+    zh: 规范校核 GB50010
+    en: Code Check GB50010
+  description:
+    zh: 按 GB50010 执行混凝土结构规范校核。
+    en: Run concrete structure code checks under GB50010.
+  priority: 110
+  designCode: GB50010
+  supportedAnalysisTypes: []
+  supportedModelFamilies:
+    - frame
+    - generic
+  aliases: []
+- id: code-check-gb50011
+  kind: design-code
+  name:
+    zh: 规范校核 GB50011
+    en: Code Check GB50011
+  description:
+    zh: 按 GB50011 执行抗震规范校核。
+    en: Run seismic code checks under GB50011.
+  priority: 120
+  designCode: GB50011
+  supportedAnalysisTypes: []
+  supportedModelFamilies:
+    - generic
+  aliases: []
+- id: code-check-gb50017
+  kind: design-code
+  name:
+    zh: 规范校核 GB50017
+    en: Code Check GB50017
+  description:
+    zh: 按 GB50017 执行钢结构规范校核。
+    en: Run steel structure code checks under GB50017.
+  priority: 100
+  designCode: GB50017
+  supportedAnalysisTypes: []
+  supportedModelFamilies:
+    - frame
+    - generic
+  aliases: []
+- id: code-check-jgj3
+  kind: design-code
+  name:
+    zh: 规范校核 JGJ3
+    en: Code Check JGJ3
+  description:
+    zh: 按 JGJ3 执行高层混凝土结构规程校核。
+    en: Run high-rise concrete checks under JGJ3.
+  priority: 130
+  designCode: JGJ3
+  supportedAnalysisTypes: []
+  supportedModelFamilies:
+    - generic
+  aliases: []
+- id: cad-dxf-input
+  kind: input-parser
+  name:
+    zh: DXF/CAD 结构图纸解析
+    en: DXF/CAD Structural Drawing Parsing
+  description:
+    zh: 解析来自 CAD 软件的 DXF 文件，提取线条、标注、文字实体，将结构几何信息映射到 DraftState 字段。
+    en: Parse DXF files from CAD software, extract line, dimension, and text
+      entities, and map structural geometry information to DraftState fields.
+  priority: 25
+  supportedAnalysisTypes: []
+  supportedModelFamilies: []
+  aliases:
+    - dxf-input
+    - cad-input
+  formats:
+    - dxf
+- id: csv-excel-input
+  kind: input-parser
+  name:
+    zh: CSV/Excel 结构参数读取
+    en: CSV/Excel Structural Parameter Input
+  description:
+    zh: 从 CSV 或 Excel 文件中解析结构参数（楼层、截面、荷载），映射到 DraftState 字段供下游结构技能消费。
+    en: Parse structural parameters (stories, sections, loads) from CSV or Excel
+      files and map them to DraftState fields for downstream structural skills.
+  priority: 30
+  supportedAnalysisTypes: []
+  supportedModelFamilies: []
+  aliases:
+    - csv-input
+    - excel-input
+  formats:
+    - csv
+    - xlsx
+    - xls
+    - tsv
+    - json
+- id: image-vision-input
+  kind: input-parser
+  name:
+    zh: 图片结构信息识别
+    en: Image Structural Information Recognition
+  description:
+    zh: 使用多模态视觉能力，从照片、扫描图、截图等图像中识别结构构件、尺寸标注和材料信息，映射到 DraftState。
+    en: Use multimodal vision capabilities to recognize structural members,
+      dimension annotations, and material information from photos, scanned
+      drawings, and screenshots, mapping them to DraftState.
+  priority: 20
+  supportedAnalysisTypes: []
+  supportedModelFamilies:
+    - multimodal
+  aliases:
+    - image-input
+    - vision-input
+  formats:
+    - png
+    - jpg
+    - jpeg
+    - webp
+- id: pdf-input
+  kind: input-parser
+  name:
+    zh: PDF 结构文档解析
+    en: PDF Structural Document Parsing
+  description:
+    zh: 从 PDF 结构图纸或计算报告中提取文本内容，识别关键结构参数（尺寸、材料等级、荷载），映射到 DraftState。
+    en: Extract text from PDF structural drawings or calculation reports, identify
+      key structural parameters (dimensions, material grades, loads), and map
+      them to DraftState.
+  priority: 25
+  supportedAnalysisTypes: []
+  supportedModelFamilies: []
+  aliases:
+    - pdf-parsing
+  formats:
+    - pdf
+- id: report-export-builtin
+  kind: report-exporter
+  name:
+    zh: 内置报告导出
+    en: Builtin Report Export
+  description:
+    zh: 汇总分析与规范校核结果，生成可导出的结构工程报告。
+    en: Assemble analysis and code-check outputs into exportable structural
+      engineering reports.
+  priority: 100
+  supportedAnalysisTypes: []
+  supportedModelFamilies:
+    - generic
+  aliases: []
+  formats:
+    - markdown
+    - json
+- id: pkpm-calcbook
+  kind: report-exporter
+  name:
+    zh: PKPM SATWE 计算书导出
+    en: PKPM SATWE Calculation Report Export
+  description:
+    zh: 从已完成的 PKPM SATWE 分析结果中提取计算书数据，包括模态分析、层刚度、层间位移角、基底剪力、构件设计结果等，输出
+      Markdown/Word/PDF。
+    en: Extract calculation report data from completed PKPM SATWE analysis results,
+      including modal analysis, story stiffness, drift ratios, base shear, and
+      member design results. Outputs Markdown, Word, and PDF.
+  priority: 60
+  software: pkpm
+  engineId: builtin-pkpm
+  adapterKey: builtin-pkpm
+  supportedModelFamilies:
+    - frame
+    - generic
+  runtimePath: agent-skills/report-export/calculation-book/pkpm-calcbook/runtime.py
+  formats:
+    - markdown
+    - docx
+    - pdf

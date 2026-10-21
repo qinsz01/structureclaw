@@ -3,7 +3,7 @@
  *
  *   L0 shared       src/shared/, src/types/
  *   L1 kernel       src/runtime/, src/config/, src/utils/, src/generated/
- *   L2 domain       src/engineering/, src/skill-shared/, src/agent-skills/
+ *   L2 domain       src/engineering/, src/skill-shared/, src/agent-skills/, src/providers/
  *   L3 agent-core   src/agent-runtime/
  *   L4 services     src/services/
  *   L5 agent-host   src/agent-langgraph/
@@ -16,13 +16,13 @@ const SEVERITY = 'error';
 
 const L0 = '^src/(shared|types)/';
 const L1 = '^src/(runtime|config|utils|generated)/';
-const L2 = '^src/(engineering|skill-shared|agent-skills)/';
+const L2 = '^src/(engineering|skill-shared|agent-skills|providers)/';
 const L3 = '^src/agent-runtime/';
 const L4 = '^src/services/';
 const L5 = '^src/agent-langgraph/';
 
-const ABOVE_L0 = '^src/(runtime|config|utils|generated|engineering|skill-shared|agent-skills|agent-runtime|services|agent-langgraph|api)/|^src/index\\.ts$';
-const ABOVE_L1 = '^src/(engineering|skill-shared|agent-skills|agent-runtime|services|agent-langgraph|api)/|^src/index\\.ts$';
+const ABOVE_L0 = '^src/(runtime|config|utils|generated|engineering|skill-shared|agent-skills|providers|agent-runtime|services|agent-langgraph|api)/|^src/index\\.ts$';
+const ABOVE_L1 = '^src/(engineering|skill-shared|agent-skills|providers|agent-runtime|services|agent-langgraph|api)/|^src/index\\.ts$';
 const ABOVE_L2 = '^src/(agent-runtime|services|agent-langgraph|api)/|^src/index\\.ts$';
 const ABOVE_L3 = '^src/(services|agent-langgraph|api)/|^src/index\\.ts$';
 const ABOVE_L4 = '^src/(agent-langgraph|api)/|^src/index\\.ts$';
@@ -34,13 +34,13 @@ const ABOVE_L5 = '^src/api/|^src/index\\.ts$';
 //    dist/runtime/policy-settings.js; the implementation lives in agent-langgraph/policy-resolver.ts.
 const COMPAT_SHIMS = '^src/runtime/policy-settings\\.ts$';
 //
-// 2. Structure-type and section skill handlers are plugins of agent-runtime and consume its
+// 2. Structure-type skill handlers are plugins of agent-runtime and consume its
 //    skill-handler/draft SDK (legacy draft normalisation, fallback, engineering-draft, draft guidance,
 //    routing and report helpers, and the agent-runtime/draft/ boundary). Moving that SDK out of
 //    agent-runtime would pull the whole draft core into the domain layer, so exactly these edges are
 //    allowed. No other L2 module may import L3, and the handlers may not import any other
 //    agent-runtime module.
-const SKILL_HANDLER_PLUGINS = '^src/agent-skills/(structure-type|section)/';
+const SKILL_HANDLER_PLUGINS = '^src/agent-skills/structure-type/';
 const SKILL_HANDLER_SDK = '^src/agent-runtime/(legacy|fallback|engineering-draft|draft/boundary|draft/normalize|draft/project-patch|draft-guidance|explicit-model|template-properties|plugin-helpers|structural-routing|report-template|reference-vectors|domains/structural-domains)\\.ts$';
 
 function layerRule(name, from, to, comment, { fromNot = COMPAT_SHIMS, toNot } = {}) {

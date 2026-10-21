@@ -80,6 +80,7 @@ export class AgentSkillCatalogService {
     if (!this.builtinSkillEntriesPromise) {
       this.builtinSkillEntriesPromise = loadSkillManifestsFromDirectory(this.builtinSkillManifestRoot)
         .then((fileManifests) => fileManifests
+          .filter(manifest => manifest.domain === 'structure-type')
           .map((manifest) => this.buildCatalogEntry(manifest))
           .sort((left, right) =>
             left.domain.localeCompare(right.domain)

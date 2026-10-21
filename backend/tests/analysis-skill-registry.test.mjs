@@ -11,33 +11,15 @@ const repoRoot = path.resolve(process.cwd(), '..');
 const analysisRoot = path.join(repoRoot, 'backend', 'src', 'agent-skills', 'analysis');
 
 describe('analysis skill registry', () => {
-  test('should discover builtin analysis skills from manifest-backed catalog entries', async () => {
-    const skillCatalog = new AgentSkillCatalogService();
-    const analysisSkills = (await skillCatalog.listBuiltinSkills())
-      .filter((skill) => skill.domain === 'analysis')
-      .sort((left, right) => left.canonicalId.localeCompare(right.canonicalId));
-
-    expect(analysisSkills.length).toBeGreaterThan(0);
-    const discoveredDirs = fs.readdirSync(analysisRoot, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory() && entry.name !== 'runtime')
-      .filter((entry) => fs.existsSync(path.join(analysisRoot, entry.name, 'skill.yaml')))
-      .filter((entry) => fs.existsSync(path.join(analysisRoot, entry.name, 'runtime.py')))
-      .map((entry) => entry.name)
-      .sort();
-
-    expect(analysisSkills.map((skill) => skill.canonicalId)).toEqual(discoveredDirs);
-
-    for (const skill of analysisSkills) {
-      const manifestPath = path.join(analysisRoot, skill.canonicalId, 'skill.yaml');
-      const runtimePath = path.join(analysisRoot, skill.canonicalId, 'runtime.py');
-      expect(fs.existsSync(manifestPath)).toBe(true);
-      expect(fs.existsSync(runtimePath)).toBe(true);
-      expect(skill.stages).toContain('analysis');
-      expect(skill.capabilities.length).toBeGreaterThan(0);
+  test('solver providers retain their execution paths and are absent from skill selection', async () => {
+    const { listProviders } = await import('../dist/providers/catalog.js');
+    const solvers = listProviders('solver');
+    expect(solvers).toHaveLength(6);
+    expect((await new AgentSkillCatalogService().listBuiltinSkills()).every(skill => skill.domain === 'structure-type')).toBe(true);
+    for (const solver of solvers) {
+      expect(fs.existsSync(path.join(repoRoot, 'backend/src', solver.runtimePath))).toBe(true);
+      expect(fs.existsSync(path.join(analysisRoot, solver.id, 'skill.yaml'))).toBe(false);
     }
-
-    expect(analysisSkills.find((skill) => skill.canonicalId === 'pkpm-static').materialFamilies)
-      .toEqual(expect.arrayContaining(['steel', 'concrete']));
   });
 
   test('should derive runtime adapter keys from builtin analysis engines', () => {

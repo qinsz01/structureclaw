@@ -14,6 +14,8 @@ import { runtimeBaseDir } from '../config/index.js';
 import { contentHash, isRecord } from '../engineering/model-state.js';
 import { processIsAlive, withAbandonedSessionRecovery } from '../engineering/persistent-session-lock.js';
 import { writeAtomicJson } from '../engineering/atomic-json.js';
+import { listProviders } from '../providers/catalog.js';
+import { providerAccessError } from '../providers/access.js';
 
 const ownedRequests = new Map<string, AbortController>();
 function requestOwnerAlive(record: Record<string, unknown>): boolean | null {
@@ -60,6 +62,10 @@ export class AnalysisExecutionService {
   }
 
   async analyze(payload: Record<string, unknown>, requestOptions?: ExecutionRequestOptions): Promise<Record<string, unknown>> {
+    const provider = listProviders('solver').find(item => item.engineId === (payload.engineId ?? 'builtin-opensees')
+      && item.analysisType === (payload.type ?? 'static'));
+    const denied = provider && providerAccessError(provider.id);
+    if (denied) return denied;
     const requestId = payload.requestId === undefined ? randomUUID() : String(payload.requestId);
     const file = this.requestFile(requestId);
     const requestHash = analysisRequestHash(payload);

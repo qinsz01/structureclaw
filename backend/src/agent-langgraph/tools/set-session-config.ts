@@ -1,3 +1,6 @@
+import { migrateLegacySkillIds } from '../../shared/legacy-capabilities.js';
+import { getProvider } from '../../providers/catalog.js';
+import { AgentSkillLoader } from '../../agent-runtime/loader.js';
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 import type { LangGraphRunnableConfig } from '@langchain/langgraph';
@@ -6,20 +9,10 @@ import { invalidateStaleResults, staleResultsKept } from '../../engineering/mode
 import { currentRunPolicy } from '../../runtime/run-context.js';
 import { getConfigurable, getToolCallId, toolResult } from './shared.js';
 
-const CHINA_SEISMIC_BASELINE_SKILL_IDS = [
-  'generic',
-  'frame',
-  'concrete-frame',
-  'opensees-seismic',
-  'code-check-gb50011',
-  'validation-structure-model',
-  'report-export-builtin',
-];
-
 function parseSkillIdsJson(value: string): { ok: true; value: string[] } | { ok: false; error: string } {
   try {
     const parsed = JSON.parse(value);
-    if (!Array.isArray(parsed)) {
+    if (!Array.isArray(parsed) || parsed.some(item => typeof item !== 'string' || !item.trim())) {
       return { ok: false, error: 'skillIdsJson must be a JSON array of strings.' };
     }
     return {
@@ -36,38 +29,6 @@ function parseSkillIdsJson(value: string): { ok: true; value: string[] } | { ok:
   }
 }
 
-function uniqueStrings(values: string[]): string[] {
-  const seen = new Set<string>();
-  return values.filter((value) => {
-    if (seen.has(value)) {
-      return false;
-    }
-    seen.add(value);
-    return true;
-  });
-}
-
-function isChinaSeismicSessionConfig(args: {
-  analysisType?: string;
-  designCode?: string;
-  skillIds: string[];
-}): boolean {
-  const designCode = (args.designCode || '').toUpperCase();
-  return args.analysisType === 'seismic'
-    || designCode.includes('50011')
-    || designCode.includes('55002')
-    || args.skillIds.includes('opensees-seismic')
-    || args.skillIds.includes('code-check-gb50011');
-}
-
-function completeChinaSeismicSkillIds(skillIds: string[]): string[] {
-  const requested = new Set(skillIds);
-  return uniqueStrings([
-    ...CHINA_SEISMIC_BASELINE_SKILL_IDS,
-    ...skillIds.filter((skillId) => !CHINA_SEISMIC_BASELINE_SKILL_IDS.includes(skillId)),
-  ]).filter((skillId) => requested.has(skillId) || CHINA_SEISMIC_BASELINE_SKILL_IDS.includes(skillId));
-}
-
 export function createSetSessionConfigTool() {
   return tool(
     async (input: {
@@ -80,11 +41,8 @@ export function createSetSessionConfigTool() {
 
       const updatedKeys: string[] = [];
       const stateUpdate: Partial<AgentState> = {};
-      const existingSkillIds = Array.isArray(state?.selectedSkillIds)
-        ? state.selectedSkillIds.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
-        : [];
       let nextSkillIds: string[] | undefined;
-
+      let preferredProviderIds: string[] = [];
       if (input.analysisType) {
         stateUpdate.policy = {
           ...(state?.policy || {}),
@@ -109,27 +67,19 @@ export function createSetSessionConfigTool() {
             message: parsedSkillIds.error,
           }));
         }
-        nextSkillIds = parsedSkillIds.value;
+        const migrated = migrateLegacySkillIds(parsedSkillIds.value);
+        preferredProviderIds = migrated.preferredProviderIds;
+        // Provider/text-only selections keep the current structure scope.
+        nextSkillIds = parsedSkillIds.value.length && !migrated.skillIds.length ? undefined : migrated.skillIds;
       }
 
-      const nextAnalysisType = stateUpdate.policy?.analysisType ?? state?.policy?.analysisType;
-      const nextDesignCode = stateUpdate.policy?.designCode ?? state?.policy?.designCode;
-      const skillIdsForDecision = nextSkillIds ?? existingSkillIds;
       if (nextSkillIds !== undefined) {
-        stateUpdate.selectedSkillIds = isChinaSeismicSessionConfig({
-          analysisType: nextAnalysisType,
-          designCode: nextDesignCode,
-          skillIds: nextSkillIds,
-        })
-          ? completeChinaSeismicSkillIds(nextSkillIds)
-          : uniqueStrings(nextSkillIds);
-        updatedKeys.push('selectedSkillIds');
-      } else if (isChinaSeismicSessionConfig({
-        analysisType: nextAnalysisType,
-        designCode: nextDesignCode,
-        skillIds: skillIdsForDecision,
-      })) {
-        stateUpdate.selectedSkillIds = completeChinaSeismicSkillIds(skillIdsForDecision);
+        const known = new Set(new AgentSkillLoader().loadBundles().filter(skill => skill.domain === 'structure-type').map(skill => skill.id));
+        const unknown = nextSkillIds.filter(id => !known.has(id) && !state?.runPolicy?.activeSkillIds.includes(id));
+        if (unknown.length) return toolResult(toolCallId, 'set_session_config', JSON.stringify({ success: false,
+          error_code: 'INVALID_SKILL_IDS', deniedSkillIds: unknown,
+          message: 'Only structure-type skills may be selected.', messageZh: '仅可选择结构类型技能。' }));
+        stateUpdate.selectedSkillIds = nextSkillIds;
         updatedKeys.push('selectedSkillIds');
       }
 
@@ -144,6 +94,17 @@ export function createSetSessionConfigTool() {
         }
       }
 
+      if (preferredProviderIds.length) {
+        const providers = preferredProviderIds.map(getProvider);
+        const analysis = providers.find(provider => provider?.kind === 'solver'
+          && (!input.analysisType || provider.analysisType === input.analysisType));
+        const code = providers.find(provider => provider?.kind === 'design-code');
+        stateUpdate.policy = { ...state?.policy, ...stateUpdate.policy,
+          ...(analysis ? { analysisProviderPreference: analysis.id } : {}),
+          ...(code ? { codeCheckProviderPreference: code.id } : {}) };
+        updatedKeys.push('providerPreferences');
+      }
+
       const responseJson = {
         success: true,
         updatedKeys,
@@ -152,7 +113,8 @@ export function createSetSessionConfigTool() {
 
       // Only return Command if there are actual updates
       if (updatedKeys.length > 0) {
-        if (input.analysisType && input.analysisType !== state?.policy?.analysisType || input.skillIdsJson) {
+        if (input.analysisType && input.analysisType !== state?.policy?.analysisType || stateUpdate.selectedSkillIds
+          || stateUpdate.policy?.analysisProviderPreference && stateUpdate.policy.analysisProviderPreference !== state?.policy?.analysisProviderPreference) {
           Object.assign(stateUpdate, invalidateStaleResults(state));
         } else if (input.designCode && input.designCode !== state?.policy?.designCode && !staleResultsKept(state)) {
           stateUpdate.codeCheckResult = null;
@@ -167,7 +129,7 @@ export function createSetSessionConfigTool() {
       description:
         'Update current-session configuration: analysis type (static/dynamic/seismic/nonlinear), ' +
         'design code (GB50010/GB50011/GB50017), or selected skill IDs. ' +
-        'For China seismic analysis, set analysisType to seismic; the tool will keep the workflow-safe baseline skills for modeling, OpenSees seismic analysis, GB50011 code-check, validation, and reporting. ' +
+        'Only structure-type skills may be selected. Legacy provider IDs become provider preferences without changing the structure scope. ' +
         'This does not create persistent memory.',
       schema: z.object({
         analysisType: z
@@ -181,7 +143,7 @@ export function createSetSessionConfigTool() {
         skillIdsJson: z
           .string()
           .optional()
-          .describe('JSON array of skill IDs to select. For China seismic workflows, opensees-seismic or GB50011 selection is auto-completed with the required modeling, code-check, validation, and report baseline skills.'),
+          .describe('JSON array of structure-type skill IDs. Providers are selected through run_analysis/run_code_check arguments; legacy provider IDs are migrated to preferences.'),
       }),
     },
   );

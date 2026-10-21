@@ -156,6 +156,7 @@ function loadBundlesFromRoot(
     }
 
     if (options?.skipExisting && bundlesById.has(manifest.id)) continue;
+    if (manifest.domain !== 'structure-type') continue;
 
     const stageEntries = readdirSync(skillDir, { withFileTypes: true });
     for (const stageEntry of stageEntries) {

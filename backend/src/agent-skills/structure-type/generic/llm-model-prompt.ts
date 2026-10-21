@@ -1,3 +1,4 @@
+import { engineeringKnowledge } from '../../../engineering/knowledge.js';
 import type { AppLocale } from '../../../shared/locale.js';
 import type { DraftState } from '../../../shared/types/agent.js';
 import { composePromptByIntent } from './llm-model-prompt-intents.js';
@@ -24,7 +25,8 @@ export function buildGenericModelPrompt(
   currentModel?: Record<string, unknown>,
 ): string {
   const stateHint = buildCleanStateHint(state);
-  const base = composePromptByIntent('build-structure-model-v2', locale, stateHint, message, conversationHistory);
+  const base = [composePromptByIntent('build-structure-model-v2', locale, stateHint, message, conversationHistory),
+    engineeringKnowledge(locale, ['loads', 'boundaries', 'combinations', 'validation'])].filter(Boolean).join('\n');
   if (!currentModel) return base;
   return `${base}\n\n${locale === 'zh'
     ? '当前已确认的完整 V2 模型如下。本轮只改变用户明确指定的对象和字段，保留其余节点、连接、属性、荷载与组合及其 ID；不要按结构名称重建或简化。目标不唯一或关键数据缺失时不得猜测。'

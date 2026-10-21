@@ -11,18 +11,13 @@ import {
   analysisSkillLabel,
   getAnalysisSkillCatalogEntry,
   matchesAnalysisContext,
-} from '../dist/agent-skills/analysis/catalog.js';
+} from '../dist/providers/analysis-catalog.js';
 
 const backendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const analysisRoot = path.join(backendRoot, 'src', 'agent-skills', 'analysis');
 
 function readAnalysisManifests() {
-  return fs.readdirSync(analysisRoot, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => path.join(analysisRoot, entry.name, 'skill.yaml'))
-    .filter((file) => fs.existsSync(file))
-    .map((file) => parseYaml(fs.readFileSync(file, 'utf8')))
-    .filter((manifest) => manifest?.domain === 'analysis');
+  return parseYaml(fs.readFileSync(path.join(backendRoot, 'src/providers/catalog.yaml'), 'utf8')).filter(provider => provider.kind === 'solver');
 }
 
 /** Top-level keys of the ENGINE_DEFAULTS dict literal in analysis/runtime/registry.py. */
@@ -39,7 +34,7 @@ function readPythonEngineIds() {
 const byId = (left, right) => left.id.localeCompare(right.id);
 
 describe('analysis skill catalog parity', () => {
-  test('catalog entries match the analysis skill.yaml manifests', () => {
+  test('catalog entries match the solver provider metadata', () => {
     const manifests = readAnalysisManifests()
       .map(({ id, engineId, analysisType }) => ({ id, engineId, analysisType }))
       .sort(byId);

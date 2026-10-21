@@ -4,48 +4,12 @@ import os from 'os';
 import path from 'path';
 import { AgentSkillLoader } from '../dist/agent-runtime/loader.js';
 
-describe('section skill loader', () => {
-  test('should discover modular section bundles', () => {
+describe('structure skill loader after provider cleanup', () => {
+  test('only structure modelling bundles and plugins are discovered', async () => {
     const loader = new AgentSkillLoader();
-    const bundles = loader.loadBundles();
-    const ids = bundles.map((bundle) => bundle.id);
-
-    expect(ids).toEqual(expect.arrayContaining([
-      'section-common',
-      'section-bridge',
-      'section-irregular',
-    ]));
-    expect(ids).not.toContain('section');
-  });
-
-  test('should discover the memory utility skill bundle', () => {
-    const loader = new AgentSkillLoader();
-    const bundle = loader.loadBundles().find((entry) => entry.id === 'memory');
-
-    expect(bundle).toBeDefined();
-    expect(bundle?.domain).toBe('general');
-    expect(bundle?.markdownByStage.intent).toContain('persistent memory');
-  });
-
-  test('should load modular section plugins and keep legacy root plugin removed', async () => {
-    const loader = new AgentSkillLoader();
-    const plugins = await loader.loadPlugins();
-    const pluginIds = plugins.map((plugin) => plugin.id);
-
-    expect(pluginIds).toEqual(expect.arrayContaining([
-      'section-common',
-      'section-bridge',
-      'section-irregular',
-    ]));
-    expect(pluginIds).not.toContain('section');
-
-    const common = plugins.find((plugin) => plugin.id === 'section-common');
-    const bridge = plugins.find((plugin) => plugin.id === 'section-bridge');
-    const irregular = plugins.find((plugin) => plugin.id === 'section-irregular');
-
-    expect(common?.manifest.domain).toBe('section');
-    expect(bridge?.manifest.domain).toBe('section');
-    expect(irregular?.manifest.domain).toBe('section');
+    const expected = ['beam', 'column', 'concrete-frame', 'double-span-beam', 'frame', 'generic', 'portal-frame', 'truss'];
+    expect(loader.loadBundles().map(bundle => bundle.id).sort()).toEqual(expected);
+    expect((await loader.loadPlugins()).map(plugin => plugin.id).sort()).toEqual(expected);
   });
 
   test('should load plugins by relative skill path and strip CRLF legacy frontmatter', async () => {

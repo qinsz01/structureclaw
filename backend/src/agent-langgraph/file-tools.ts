@@ -31,6 +31,7 @@ import { conversationUserTexts } from './tools/input-message.js';
 import { commitModel } from '../engineering/model-state.js';
 import { fileInputEvidence } from '../engineering/file-evidence.js';
 import { bindImportedModelEvidence, mergeInputEvidence } from '../engineering/input-evidence.js';
+import { providerAccessError } from '../providers/access.js';
 
 const UPLOAD_DIR = path.join(runtimeBaseDir, '.uploads');
 const MAX_READ_BYTES = 10 * 1024 * 1024; // 10 MB cap for analysis
@@ -225,6 +226,10 @@ async function readUploadedFile(
 
   try {
   const ext = path.extname(resolvedPath).toLowerCase();
+  const parserId = IMAGE_EXTS.has(ext) ? 'image-vision-input' : EXCEL_EXTS.has(ext) || ['.csv', '.tsv', '.json'].includes(ext)
+    ? 'csv-excel-input' : ext === '.pdf' ? 'pdf-input' : ext === '.dxf' ? 'cad-dxf-input' : undefined;
+  const denied = parserId && providerAccessError(parserId);
+  if (denied) return denied;
   const size = stat.size;
 
   // ── Image ────────────────────────────────────────────────────────────

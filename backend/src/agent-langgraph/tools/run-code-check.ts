@@ -1,3 +1,4 @@
+import { providerAccessError } from '../../providers/access.js';
 import { randomUUID } from 'node:crypto';
 import { nativeDesignRecord, resolveCheckProvider, type CodeCheckProvider } from '../../engineering/native-design.js';
 import { resultEngine } from '../../engineering/result-data.js';
@@ -36,7 +37,9 @@ export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
         message: 'The current model used unit placeholder stiffness for a force-only request. A code check needs the real material grade and section: ask the user for them, extract the answer, rebuild, reanalyze, then check. Do not reuse the placeholder results.',
         messageZh: '当前模型仅为内力计算使用了单位刚度占位。规范验算需要实际材料牌号和截面：请向用户询问，提取答复后重新建模、分析再验算；不要沿用占位结果。' }));
       const skillIds = toolSkillScope(config);
-      const selectedDesignCode = skillRuntime.resolveCodeCheckDesignCodeFromSkillIds(skillIds);
+      const selectedDesignCode = skillRuntime.resolveCodeCheckDesignCodeFromSkillIds([
+        ...(state?.policy?.codeCheckProviderPreference ? [state.policy.codeCheckProviderPreference] : []),
+        ...(state?.runPolicy?.providers?.preferredIds ?? []), ...(skillIds ?? [])]);
       const explicitDesignCode = input.designCode || state?.policy?.designCode;
       const requestedDesignCode = explicitDesignCode || selectedDesignCode;
       const codeCheckSkillId = requestedDesignCode
@@ -53,6 +56,8 @@ export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
         return toolResult(toolCallId, 'run_code_check', JSON.stringify(skipped));
       }
 
+      const providerDenied = codeCheckSkillId && providerAccessError(codeCheckSkillId, state?.runPolicy);
+      if (providerDenied) return toolResult(toolCallId, 'run_code_check', JSON.stringify(providerDenied));
       // Read model and analysis from graph state channels
       const model = state?.model;
       if (!model) {
@@ -99,7 +104,8 @@ export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
           published);
       }
       if (!codeCheckSkillId) throw new Error('BUILTIN_CODE_UNSUPPORTED / 公共规范未实现');
-      if (skillIds && !skillIds.includes(codeCheckSkillId)) throw new Error('CODE_CHECK_OUTSIDE_SCOPE / 当前技能范围不允许此规范');
+      const denied = providerAccessError(codeCheckSkillId, state?.runPolicy);
+      if (denied) return toolResult(toolCallId, 'run_code_check', JSON.stringify(denied));
       if (input.design) throw new Error('BUILTIN_DESIGN_REQUEST_UNSUPPORTED / 公共校核不执行商业设计条件');
       validateServiceabilitySelection(model, analysis);
       const traceId = `lg-cc-${Date.now()}`;

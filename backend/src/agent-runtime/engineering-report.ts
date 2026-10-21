@@ -11,6 +11,7 @@ import { runPkpmCalcbook } from '../agent-skills/report-export/calculation-book/
 import { resultEngine } from '../engineering/result-data.js';
 import { sectionAssumptions } from '../engineering/section-assumptions.js';
 import { withGlobalMemberLocation } from '../engineering/result-locations.js';
+import { providerAccessError } from '../providers/access.js';
 
 interface EngineeringReportInput {
   message: string;
@@ -26,6 +27,8 @@ interface EngineeringReportInput {
 
 /** A single structured source for HTTP, chat and public-tool reports. */
 export function prepareEngineeringReport(input: EngineeringReportInput) {
+  const denied = providerAccessError('report-export-builtin');
+  if (denied) throw new Error(`${denied.error_code}: ${denied.message} / ${denied.messageZh}`);
   const analysis = isRecord(input.analysis) ? input.analysis : {};
   const check = isRecord(input.codeCheck) ? input.codeCheck : {};
   const meta = isRecord(analysis.meta) ? analysis.meta : {};

@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
-import { DEFAULT_MAX_TOOL_CALLS_PER_TURN } from './limits.js';
-import { runPolicyInputSchema, type RunPolicyInput } from './run-policy-schema.js';
+import { DEFAULT_MAX_TOOL_CALLS_PER_TURN, MAX_TOOL_CALLS_PER_TURN_LIMIT } from './limits.js';
+import { migrateLegacySkillIds } from '../shared/legacy-capabilities.js';
+import { runPolicyInputSchema, migrateRunPolicyInput, type RunPolicyInput } from './run-policy-schema.js';
 import { DEFAULT_RUN_FEATURES, genericOnlySkillIds, profilePolicyInput, profileRestrictsStructureSkills,
   type ProfileId, type RunFeatures } from './ablation-profiles.js';
-export { runPolicyInputSchema, type RunPolicyInput };
+export { runPolicyInputSchema, migrateRunPolicyInput, type RunPolicyInput };
 export interface RunPolicy {
   knowledge: 'enabled' | 'disabled';
   builder: 'auto' | 'llm';
@@ -12,6 +13,7 @@ export interface RunPolicy {
   repair: { enabled: boolean; maxRecoveriesPerTurn: number };
   context: { history: 'full' | 'current-turn'; memoryScopes: Array<'conversation' | 'workspace'> };
   tools: { enabledIds: string[] | null; disabledIds: string[] };
+  providers?: { preferredIds: string[]; disabledIds: string[] };
   budgets: { maxToolCallsPerTurn: number; maxLlmCallsPerTurn: number | null };
   /** Mechanism switches; omitted when every feature is at its default (see runFeatures()). */
   features?: RunFeatures;
@@ -42,10 +44,11 @@ export const DEFAULT_RUN_POLICY: RunPolicy = {
 };
 type PolicyPatch = Omit<RunPolicyInput, 'profile'> & { profileId?: ProfileId };
 function merge(base: RunPolicy, input: PolicyPatch): RunPolicy {
-  const { features, ...patch } = input;
+  const { features, providers, ...patch } = input;
   const merged: RunPolicy = { ...base, ...patch, repair: { ...base.repair, ...patch.repair }, context: { ...base.context, ...patch.context },
     tools: { ...base.tools, ...patch.tools }, budgets: { ...base.budgets, ...patch.budgets } };
   if (base.features || features) merged.features = { ...DEFAULT_RUN_FEATURES, ...base.features, ...features };
+  if (base.providers || providers) merged.providers = { preferredIds: [], disabledIds: [], ...base.providers, ...providers };
   return merged;
 }
 function withoutProfile(input: RunPolicyInput): PolicyPatch {
@@ -72,9 +75,9 @@ function profileOverrideFields(value: RunPolicy, preset: RunPolicyInput): string
     .map(([path]) => path);
 }
 function runPolicyValues(value: RunPolicy): RunPolicy {
-  const { knowledge, builder, skillIds, routing, repair, context, tools, budgets, features, profileId } = value;
+  const { knowledge, builder, skillIds, routing, repair, context, tools, budgets, features, profileId, providers } = value;
   return { knowledge, builder, skillIds, routing, repair: { ...repair }, context: { ...context }, tools: { ...tools }, budgets: { ...budgets },
-    ...(features ? { features: { ...features } } : {}), ...(profileId ? { profileId } : {}) };
+    ...(features ? { features: { ...features } } : {}), ...(profileId ? { profileId } : {}), ...(providers ? { providers: { ...providers } } : {}) };
 }
 function isDefaultFeatures(features: RunFeatures): boolean {
   return (Object.keys(DEFAULT_RUN_FEATURES) as Array<keyof RunFeatures>).every(key => features[key] === DEFAULT_RUN_FEATURES[key]);
@@ -90,9 +93,10 @@ export function resolveRunPolicy(input: {
   allowedSkillIds?: string[]; allowedToolIds?: string[]; allowedMemoryScopes?: RunPolicy['context']['memoryScopes']; maxToolCallsPerTurn?: number;
   executionOwner?: 'structureclaw' | 'external';
 }): EffectiveRunPolicy {
-  const defaults = runPolicyInputSchema.parse(input.defaults ?? {});
-  const requested = runPolicyInputSchema.parse(input.requested ?? {});
-  const catalog = { availableSkillIds: input.availableSkillIds, structureTypeSkillIds: input.structureTypeSkillIds };
+  const defaults = migrateRunPolicyInput(runPolicyInputSchema.parse(input.defaults ?? {}));
+  const requested = migrateRunPolicyInput(runPolicyInputSchema.parse(input.requested ?? {}));
+  const availableSkillIds = migrateLegacySkillIds(input.availableSkillIds, () => {}).skillIds;
+  const catalog = { availableSkillIds, structureTypeSkillIds: input.structureTypeSkillIds };
   const fieldSources: EffectiveRunPolicy['fieldSources'] = {};
   const mark = (values: Record<string, unknown>, source: RunPolicyFieldSource, prefix = '') => {
     for (const [key, value] of Object.entries(values)) {
@@ -110,11 +114,12 @@ export function resolveRunPolicy(input: {
   profileLayer(defaults.profile, 'settings');
   layers.push([withoutProfile(defaults), 'settings']);
   profileLayer(input.envProfile, 'env');
-  if (input.previous) layers.push([runPolicyValues(input.previous), 'session']);
+  if (input.previous) layers.push([migrateRunPolicyInput(runPolicyValues(input.previous)), 'session']);
   profileLayer(requested.profile, 'request');
-  const legacy: RunPolicyInput = {};
+  const legacyInput: RunPolicyInput = input.legacy?.skillIds ? migrateRunPolicyInput({ skillIds: input.legacy.skillIds }) : {};
+  const legacy: RunPolicyInput = { ...(legacyInput.providers ? { providers: legacyInput.providers } : {}) };
   for (const [old, key] of [['skillIds', 'skillIds'], ['enabledToolIds', 'enabledIds'], ['disabledToolIds', 'disabledIds']] as const) {
-    const value = input.legacy?.[old];
+    const value = old === 'skillIds' ? legacyInput.skillIds : input.legacy?.[old];
     if (value === undefined) continue;
     const current = key === 'skillIds' ? requested.skillIds : requested.tools?.[key];
     if (current !== undefined && JSON.stringify(current) !== JSON.stringify(value)) throw new Error(`RUN_POLICY_CONFLICT: ${old}`);
@@ -128,17 +133,17 @@ export function resolveRunPolicy(input: {
     mark(patch as Record<string, unknown>, source);
     value = merge(value, patch);
   }
-  const knownSkills = new Set(input.availableSkillIds), knownTools = new Set(input.availableToolIds);
+  const knownSkills = new Set(availableSkillIds), knownTools = new Set(input.availableToolIds);
   for (const id of value.skillIds ?? []) if (!knownSkills.has(id)) throw new Error(`UNKNOWN_SKILL: ${id}`);
   for (const id of [...(value.tools.enabledIds ?? []), ...value.tools.disabledIds]) if (!knownTools.has(id)) throw new Error(`UNKNOWN_TOOL: ${id}`);
-  let skillCeiling = new Set(input.allowedSkillIds ?? input.availableSkillIds);
+  let skillCeiling = new Set(input.allowedSkillIds ?? availableSkillIds);
   if (profileRestrictsStructureSkills(value.profileId)) {
     if (!input.structureTypeSkillIds) throw new Error('RUN_PROFILE_SKILL_DOMAINS_REQUIRED: generic-only needs structure-type skill ids');
-    const scope = new Set(genericOnlySkillIds(input.availableSkillIds, input.structureTypeSkillIds));
+    const scope = new Set(genericOnlySkillIds(availableSkillIds, input.structureTypeSkillIds));
     skillCeiling = new Set([...skillCeiling].filter(id => scope.has(id)));
   }
   const toolCeiling = new Set(input.allowedToolIds ?? input.availableToolIds);
-  const wantedSkills = sorted(value.skillIds ?? input.availableSkillIds);
+  const wantedSkills = sorted(value.skillIds ?? availableSkillIds);
   const wantedTools = sorted(value.tools.enabledIds ?? input.defaultToolIds);
   const disabled = new Set(value.tools.disabledIds);
   const memoryScopes = value.context.memoryScopes.filter(scope => !input.allowedMemoryScopes || input.allowedMemoryScopes.includes(scope));
@@ -152,12 +157,15 @@ export function resolveRunPolicy(input: {
   const activeToolIds = wantedTools.filter(id => toolCeiling.has(id) && !disabled.has(id));
   if (value.routing.mode === 'fixed' && !activeSkillIds.includes(value.routing.skillId)) throw new Error('FIXED_SKILL_OUTSIDE_SCOPE');
   if (input.executionOwner === 'external' && value.context.history !== 'full') throw new Error('HOST_CONTEXT_CONTROL_UNSUPPORTED');
-  if (input.maxToolCallsPerTurn !== undefined && value.budgets.maxToolCallsPerTurn > input.maxToolCallsPerTurn) fieldSources['budgets.maxToolCallsPerTurn'] = 'server-limit';
+  const toolCallCeiling = input.maxToolCallsPerTurn ?? MAX_TOOL_CALLS_PER_TURN_LIMIT;
+  if (value.budgets.maxToolCallsPerTurn > toolCallCeiling) {
+    throw new Error(`TOOL_CALL_LIMIT_EXCEEDED: requested ${value.budgets.maxToolCallsPerTurn}, server ceiling ${toolCallCeiling} / 工具调用次数超过服务器上限 ${toolCallCeiling}`);
+  }
   value = { ...value, skillIds: value.skillIds === null ? null : sorted(value.skillIds),
     repair: { ...value.repair, maxRecoveriesPerTurn: value.repair.enabled ? value.repair.maxRecoveriesPerTurn : 0 },
     tools: { enabledIds: value.tools.enabledIds === null ? null : sorted(value.tools.enabledIds), disabledIds: sorted(value.tools.disabledIds) },
     context: { ...value.context, memoryScopes: sorted(value.context.memoryScopes) as RunPolicy['context']['memoryScopes'] },
-    budgets: { ...value.budgets, maxToolCallsPerTurn: Math.min(value.budgets.maxToolCallsPerTurn, input.maxToolCallsPerTurn ?? Infinity) } };
+    budgets: { ...value.budgets } };
   // New fields stay out of the hash body at their defaults so the default policyHash is unchanged.
   const { features, profileId, ...core } = value;
   const hashedFeatures = features && !isDefaultFeatures(features) ? { features } : {};

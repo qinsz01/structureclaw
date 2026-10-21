@@ -1030,46 +1030,23 @@ except Exception as exc:
         return manifests
 
     def _discover_builtin_skills(self) -> List[Dict[str, Any]]:
-        analysis_root = Path(__file__).resolve().parents[1]
+        source_root = Path(__file__).resolve().parents[3]
+        catalog_path = source_root / "providers" / "catalog.yaml"
+        metadata_list = yaml.safe_load(catalog_path.read_text(encoding="utf-8"))
+        if not isinstance(metadata_list, list):
+            raise ValueError("Invalid provider catalog / Provider 目录无效")
         skills: List[Dict[str, Any]] = []
-
-        for child in analysis_root.iterdir():
-            if not child.is_dir() or child.name.startswith(".") or child.name == "runtime":
+        for metadata in metadata_list:
+            if metadata.get("kind") != "solver":
                 continue
-
-            manifest_path = child / "skill.yaml"
-            runtime_path = child / "runtime.py"
-            if not manifest_path.exists() or not runtime_path.exists():
-                continue
-
-            try:
-                metadata = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
-            except (yaml.YAMLError, OSError) as error:
-                logger.warning("Failed to parse analysis skill manifest %s: %s", manifest_path, error)
-                continue
-
-            if not isinstance(metadata, dict) or str(metadata.get("domain", "")).strip() != "analysis":
-                continue
-
-            skill_id = str(metadata.get("id", child.name)).strip()
-            engine_id = str(metadata.get("engineId", "")).strip()
-            adapter_key = str(metadata.get("adapterKey", "")).strip()
-            analysis_type = str(metadata.get("analysisType", "")).strip()
-
-            if not skill_id or not engine_id or not adapter_key or not analysis_type:
-                continue
-
-            supported_model_families = metadata.get("supportedModelFamilies", ["frame", "truss", "generic"])
-            if not isinstance(supported_model_families, list):
-                supported_model_families = ["frame", "truss", "generic"]
-
+            runtime_path = source_root / metadata["runtimePath"]
+            if not runtime_path.is_file():
+                raise ValueError(f"Provider runtime missing / 缺少 Provider 运行文件: {runtime_path}")
             skills.append({
-                "id": skill_id,
-                "engineId": engine_id,
-                "adapterKey": adapter_key,
-                "analysisType": analysis_type,
+                "id": metadata["id"], "engineId": metadata["engineId"],
+                "adapterKey": metadata["adapterKey"], "analysisType": metadata["analysisType"],
                 "priority": int(metadata.get("priority", 0)),
-                "supportedModelFamilies": [str(item) for item in supported_model_families],
+                "supportedModelFamilies": metadata["supportedModelFamilies"],
                 "runtimePath": str(runtime_path),
             })
 

@@ -13,6 +13,30 @@ SECTION_PROPERTY_UNITS = {
 }
 
 
+def polygon_properties(points):
+    """Centroidal properties of a simple solid outline in mm (no torsion estimate).
+
+    Retains the useful polygon integration from the retired section-common runtime.
+    Clockwise and counter-clockwise outlines produce the same area and inertias.
+    """
+    if len(points) < 3 or any(len(point) != 2 or not all(math.isfinite(v) for v in point) for point in points):
+        raise ValueError('A section outline needs at least three finite 2D points / 截面轮廓须至少包含三个有限二维点')
+    area2 = ix = iy = cx = cy = 0.0
+    for (x, y), (xn, yn) in zip(points, [*points[1:], points[0]]):
+        cross = x*yn - xn*y
+        area2 += cross
+        ix += (y*y + y*yn + yn*yn)*cross
+        iy += (x*x + x*xn + xn*xn)*cross
+        cx += (x + xn)*cross
+        cy += (y + yn)*cross
+    if abs(area2) < 1e-9:
+        raise ValueError('Degenerate section outline / 截面轮廓退化')
+    cx, cy = cx/(3*area2), cy/(3*area2)
+    area = area2/2
+    return {'A': abs(area)/1e6, 'Iy': abs(ix/12 - area*cy*cy)/1e12,
+            'Iz': abs(iy/12 - area*cx*cx)/1e12, 'centroid_mm': [cx, cy]}
+
+
 def geometry_properties(shape):
     kind = shape.kind
     h, b = shape.H, shape.B

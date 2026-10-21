@@ -197,7 +197,7 @@ export const config = {
     return getCurrentAgentSettings()?.shellTimeoutMs ?? AGENT_DEFAULTS.shellTimeoutMs;
   },
   get agentMaxToolCallsPerTurn() {
-    return getCurrentAgentSettings()?.maxToolCallsPerTurn ?? AGENT_DEFAULTS.maxToolCallsPerTurn;
+    return getCurrentAgentSettings()?.runPolicy?.budgets?.maxToolCallsPerTurn ?? AGENT_DEFAULTS.maxToolCallsPerTurn;
   },
 
   // PKPM 引擎配置

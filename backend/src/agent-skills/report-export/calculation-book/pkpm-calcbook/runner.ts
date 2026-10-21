@@ -1,4 +1,5 @@
 import { PythonWorkerRunner, resolveWorkerPath } from '../../../../utils/python-worker-runner.js';
+import { providerAccessError } from '../../../../providers/access.js';
 
 interface PkpmCalcbookInput {
   model: Record<string, unknown>;
@@ -26,6 +27,8 @@ interface PkpmCalcbookResult {
 
 export async function runPkpmCalcbook(jwsPath: string, outputDir?: string,
   options: { includeDesign?: boolean; designContext?: Record<string, unknown> } = {}): Promise<PkpmCalcbookResult> {
+  const denied = providerAccessError('pkpm-calcbook');
+  if (denied) throw new Error(`${denied.error_code}: ${denied.message} / ${denied.messageZh}`);
   const workerPath = resolveWorkerPath('agent-skills/report-export/calculation-book/pkpm-calcbook/runtime.py');
   const runner = new PythonWorkerRunner<PkpmCalcbookInput>(workerPath);
   return runner.invoke<PkpmCalcbookResult>({

@@ -3,8 +3,9 @@ import { z } from 'zod';
 import type { AgentSkillRuntime } from '../../agent-runtime/index.js';
 import type { LangGraphRunnableConfig } from '@langchain/langgraph';
 import { assertInputEvidenceMatchesModel } from '../../engineering/input-evidence.js';
-import { resolveRequestedAnalysisEngineId, resolveUnselectedRequestedAnalysisSkillId, buildAnalysisProviderNotSelectedPayload, normalizeAnalysisType } from './analysis-resolution.js';
+import { resolveRequestedAnalysisEngineId, normalizeAnalysisType } from './analysis-resolution.js';
 import { getConfigurable, toolSkillScope } from './shared.js';
+import { getAnalysisSkillCatalogEntry } from '../../providers/analysis-catalog.js';
 
 export function createValidateModelTool(skillRuntime: AgentSkillRuntime) {
   return tool(
@@ -19,15 +20,9 @@ export function createValidateModelTool(skillRuntime: AgentSkillRuntime) {
       assertInputEvidenceMatchesModel(model, state?.inputEvidence);
       const skillIds = toolSkillScope(config);
       const analysisType = normalizeAnalysisType(state?.policy?.analysisType);
-      const unselectedRequestedSkillId = resolveUnselectedRequestedAnalysisSkillId(
-        state?.lastUserMessage,
-        skillIds,
-        analysisType,
-      );
-      if (unselectedRequestedSkillId) {
-        return JSON.stringify(buildAnalysisProviderNotSelectedPayload(unselectedRequestedSkillId));
-      }
-      const requestedEngineId = resolveRequestedAnalysisEngineId(state?.lastUserMessage, skillIds, analysisType);
+      const preferred = getAnalysisSkillCatalogEntry(state?.policy?.analysisProviderPreference);
+      const requestedEngineId = preferred && (!analysisType || preferred.analysisType === analysisType) ? preferred.engineId
+        : resolveRequestedAnalysisEngineId(state?.lastUserMessage, skillIds, analysisType);
       const result = await skillRuntime.executeValidationSkill({
         model,
         engineId: input.engineId || requestedEngineId,

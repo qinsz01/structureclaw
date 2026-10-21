@@ -22,7 +22,7 @@ async function setup(tools = ['run_analysis', 'query_results']) {
   const runtime = createRunContext(policy, { journalDir: path.join(directory, 'run-records') });
   const graph = new StateGraph(AgentStateAnnotation).addNode('agent', () => ({})).addEdge(START, 'agent').addEdge('agent', END)
     .compile({ checkpointer: new FileCheckpointer(path.join(directory, 'checkpoints')) });
-  const service = new LangGraphAgentService({ listSkillManifests: async () => [{ id: 'generic' }] });
+  const service = new LangGraphAgentService({ listSkillManifests: async () => [{ id: 'generic', domain: 'structure-type' }] });
   service.getGraph = async () => graph;
   const config = { configurable: { thread_id: id } };
   await graph.updateState(config, { runPolicy: policy, runUsage: snapshotRunUsage(runtime), selectedSkillIds: ['generic'],

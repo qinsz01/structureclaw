@@ -26,64 +26,12 @@ describe("analysis tool summary", () => {
       .toBe("yjk-static");
   });
 
-  test("does not infer analysis providers from message text", async () => {
-    const {
-      resolveRequestedAnalysisEngineId,
-      resolveRequestedAnalysisSkillId,
-      resolveUnselectedRequestedAnalysisSkillId,
-    } = await import("../../../dist/agent-langgraph/tools.js");
-
-    expect(resolveRequestedAnalysisSkillId("这次试一下 PKPM", ["concrete-frame", "yjk-static"], "static"))
-      .toBe("yjk-static");
-    expect(resolveUnselectedRequestedAnalysisSkillId("这次试一下 PKPM", ["concrete-frame", "yjk-static"], "static"))
-      .toBeUndefined();
-    expect(resolveRequestedAnalysisEngineId("用 SATWE 复核", ["concrete-frame"], "static"))
-      .toBeUndefined();
-    expect(resolveUnselectedRequestedAnalysisSkillId("用 SATWE 复核", ["concrete-frame"], "static"))
-      .toBeUndefined();
-    expect(resolveRequestedAnalysisSkillId("做一次静力分析", ["concrete-frame", "opensees-static"], "static"))
-      .toBe("opensees-static");
-    expect(resolveUnselectedRequestedAnalysisSkillId("做一次静力分析", ["concrete-frame", "opensees-static"], "static"))
-      .toBeUndefined();
-    expect(resolveRequestedAnalysisSkillId("忽略文字，结构化指定 PKPM", ["concrete-frame", "yjk-static"], "static", "pkpm-static"))
-      .toBeUndefined();
-    expect(resolveUnselectedRequestedAnalysisSkillId("忽略文字，结构化指定 PKPM", ["concrete-frame", "yjk-static"], "static", "pkpm-static"))
-      .toBe("pkpm-static");
-  });
-
-  test("ignores provider keyword routing for seismic analysis", async () => {
-    const {
-      resolveRequestedAnalysisEngineId,
-      resolveRequestedAnalysisSkillId,
-      resolveUnselectedRequestedAnalysisSkillId,
-    } = await import("../../../dist/agent-langgraph/tools.js");
-
-    expect(resolveRequestedAnalysisSkillId(
-      "Use OpenSees for this China seismic workflow",
-      ["concrete-frame", "opensees-seismic"],
-      "seismic",
-    )).toBe("opensees-seismic");
-    expect(resolveRequestedAnalysisEngineId(
-      "Use OpenSees for this China seismic workflow",
-      ["concrete-frame", "opensees-seismic"],
-      "seismic",
-    )).toBe("builtin-opensees");
-    expect(resolveRequestedAnalysisSkillId(
-      "这次想用 PKPM 做中国抗震流程",
-      ["concrete-frame", "opensees-seismic"],
-      "seismic",
-    )).toBe("opensees-seismic");
-    expect(resolveUnselectedRequestedAnalysisSkillId(
-      "这次想用 PKPM 做中国抗震流程",
-      ["concrete-frame", "opensees-seismic"],
-      "seismic",
-    )).toBeUndefined();
-    expect(resolveUnselectedRequestedAnalysisSkillId(
-      "这次想用 PKPM 做中国抗震流程",
-      ["concrete-frame", "opensees-seismic"],
-      "seismic",
-      "pkpm-static",
-    )).toBe("pkpm-static");
+  test('provider choice uses structured arguments and legacy preferences, never keywords', async () => {
+    const { resolveRequestedAnalysisEngineId, resolveRequestedAnalysisSkillId } = await import('../../../dist/agent-langgraph/tools.js');
+    expect(resolveRequestedAnalysisSkillId('这次试一下 PKPM', ['generic', 'yjk-static'], 'static')).toBe('yjk-static');
+    expect(resolveRequestedAnalysisEngineId('用 SATWE 复核', ['generic'], 'static')).toBe('builtin-opensees');
+    expect(resolveRequestedAnalysisSkillId('Use PKPM', ['generic'], 'static', 'pkpm-static')).toBe('pkpm-static');
+    expect(resolveRequestedAnalysisSkillId('想用 PKPM 做抗震', ['generic'], 'seismic')).toBe('opensees-seismic');
   });
 
   test("validate_model resolves the analysis engine from session analysis type", async () => {
@@ -127,45 +75,14 @@ describe("analysis tool summary", () => {
     });
   });
 
-  test("blocks run_analysis from substituting another engine for an unselected explicit provider", async () => {
-    const { createRunAnalysisTool } = await import("../../../dist/agent-langgraph/tools.js");
-    const runAnalysis = createRunAnalysisTool({
-      executeAnalysisSkill() {
-        throw new Error("executeAnalysisSkill should not be called");
-      },
+  test('a mismatched requested analysis type fails before any engine is called', async () => {
+    const { createRunAnalysisTool } = await import('../../../dist/agent-langgraph/tools.js');
+    const runAnalysis = createRunAnalysisTool({ executeAnalysisSkill() { throw new Error('engine must not be called'); } });
+    const command = await runAnalysis.invoke({ analysisType: 'static', analysisSkillId: 'opensees-seismic' }, {
+      toolCall: { id: 'call-test' }, configurable: { toolContext: { skillScope: ['generic'] },
+        agentState: { model: { nodes: [], elements: [], sections: [], materials: [] } } },
     });
-
-    const command = await runAnalysis.invoke({ analysisType: "static", analysisSkillId: "pkpm-static" }, {
-      toolCall: { id: "call-test" },
-      configurable: {
-        toolContext: { skillScope: ["concrete-frame", "opensees-static"] },
-        agentState: {
-          lastUserMessage: "请用 PKPM 计算这个框架",
-          model: {
-            schemaVersion: "2.0.0",
-            nodes: [],
-            elements: [],
-            materials: [],
-            sections: [],
-            loadCases: [],
-            loadCombinations: [],
-          },
-        },
-        engineClient: {
-          post() {
-            throw new Error("engine should not be called");
-          },
-        },
-      },
-    });
-    const message = command.update.messages[0];
-    const payload = JSON.parse(message.content);
-
-    expect(payload).toMatchObject({
-      success: false,
-      error_code: "ANALYSIS_PROVIDER_NOT_SELECTED",
-      requestedAnalysisSkillId: "pkpm-static",
-    });
+    expect(JSON.parse(command.update.messages[0].content)).toMatchObject({ success: false, error_code: 'ENGINE_UNAVAILABLE' });
   });
 
   test("delegates complete static selection to the common run service", async () => {

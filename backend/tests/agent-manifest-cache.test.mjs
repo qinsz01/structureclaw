@@ -13,7 +13,7 @@ async function writeSkillManifest(rootDir, relativeDir, skillId) {
     manifestPath,
     [
       `id: ${skillId}`,
-      'domain: analysis',
+      'domain: structure-type',
       'source: builtin',
       'name:',
       '  zh: 缓存测试技能',
@@ -52,7 +52,7 @@ describe('agent manifest caching', () => {
     const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'structureclaw-runtime-cache-'));
 
     try {
-      const manifestPath = await writeSkillManifest(tempRoot, path.join('analysis', 'cache-static'), 'cache-static');
+      const manifestPath = await writeSkillManifest(tempRoot, path.join('structure-type', 'cache-static'), 'cache-static');
       const runtime = new AgentSkillRuntime({ builtinSkillManifestRoot: tempRoot });
 
       await unlink(manifestPath);
@@ -68,7 +68,7 @@ describe('agent manifest caching', () => {
     const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'structureclaw-skill-catalog-cache-'));
 
     try {
-      const manifestPath = await writeSkillManifest(tempRoot, path.join('analysis', 'cache-skill'), 'cache-skill');
+      const manifestPath = await writeSkillManifest(tempRoot, path.join('structure-type', 'cache-skill'), 'cache-skill');
       const service = new AgentSkillCatalogService(tempRoot);
 
       const first = await service.listBuiltinSkills();

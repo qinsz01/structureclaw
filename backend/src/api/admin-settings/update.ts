@@ -138,7 +138,8 @@ export function applyUpdate(current: SettingsFile, input: UpdateSettingsInput): 
     if (input.agent.allowShell !== undefined) agent.allowShell = input.agent.allowShell;
     if (input.agent.allowedShellCommands !== undefined) agent.allowedShellCommands = input.agent.allowedShellCommands;
     if (input.agent.shellTimeoutMs !== undefined) agent.shellTimeoutMs = input.agent.shellTimeoutMs;
-    if (input.agent.maxToolCallsPerTurn !== undefined) agent.maxToolCallsPerTurn = input.agent.maxToolCallsPerTurn;
+    if (input.agent.maxToolCallsPerTurn !== undefined) agent.runPolicy = { ...agent.runPolicy,
+      budgets: { ...agent.runPolicy?.budgets, maxToolCallsPerTurn: input.agent.maxToolCallsPerTurn } };
     if (input.agent.runPolicy !== undefined) agent.runPolicy = input.agent.runPolicy;
     next.agent = agent;
   }

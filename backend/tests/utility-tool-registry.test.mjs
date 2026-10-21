@@ -1,9 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 import { loadSkillManifestsFromDirectorySync, resolveBuiltinSkillManifestRoot } from '../dist/agent-runtime/skill-manifest-loader.js';
 import { listAgentToolDefinitions } from '../dist/agent-langgraph/tool-registry.js';
-import path from 'node:path';
 
-const REMAINING_GENERAL_SKILL_IDS = ['memory', 'shell', 'skill-creation'];
 const CURRENT_TOOL_IDS = [
   'review_input',
   'query_model', 'edit_model', 'undo_model', 'query_results',
@@ -51,23 +49,8 @@ describe('code-owned agent tool registry', () => {
   });
 });
 
-describe('general skill manifests load correctly', () => {
-  const allSkills = loadSkillManifestsFromDirectorySync(path.join(resolveBuiltinSkillManifestRoot(), 'general'));
-  const generalSkills = allSkills.filter((skill) => REMAINING_GENERAL_SKILL_IDS.includes(skill.id));
-
-  test('remaining general skill manifests load successfully', () => {
-    expect(generalSkills.map((skill) => skill.id).sort()).toEqual([...REMAINING_GENERAL_SKILL_IDS].sort());
-  });
-
-  test('general skills retain general-domain metadata', () => {
-    for (const skill of generalSkills) {
-      expect(skill.domain).toBe('general');
-      expect(skill.source).toBe('builtin');
-      expect(skill.name.zh.length).toBeGreaterThan(0);
-      expect(skill.name.en.length).toBeGreaterThan(0);
-      expect(skill.description.zh.length).toBeGreaterThan(0);
-      expect(skill.description.en.length).toBeGreaterThan(0);
-      expect(skill.capabilities.length).toBeGreaterThan(0);
-    }
-  });
+test('tools are not duplicated as selectable skills', () => {
+  const skills = loadSkillManifestsFromDirectorySync(resolveBuiltinSkillManifestRoot());
+  expect(skills.map(skill => skill.id)).not.toEqual(expect.arrayContaining(['memory', 'shell', 'skill-creation']));
+  expect(skills.every(skill => skill.domain === 'structure-type')).toBe(true);
 });

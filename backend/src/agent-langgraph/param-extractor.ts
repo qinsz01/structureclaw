@@ -1,3 +1,4 @@
+import { engineeringKnowledge } from '../engineering/knowledge.js';
 /**
  * Helper for extracting structural engineering parameters from user messages.
  *
@@ -40,9 +41,8 @@ function buildSkillInfo(plugin: AgentSkillPlugin): Record<string, unknown> {
 
 function getDraftStageGuidance(plugin: AgentSkillPlugin): string {
   if (currentRunPolicy()?.knowledge === 'disabled') return '';
-  return plugin.markdownByStage.draft
-    || plugin.markdownByStage.intent
-    || '(no draft-stage guidance)';
+  return [plugin.markdownByStage.draft || plugin.markdownByStage.intent || '',
+    engineeringKnowledge('en', ['loads', 'boundaries', 'combinations', 'input'])].join('\n');
 }
 
 function isSerializedUndefined(value: unknown): boolean {

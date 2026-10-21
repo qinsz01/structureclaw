@@ -46,7 +46,7 @@ describe('tool context matrix', () => {
       skillScope: nullable(context.skillScope),
       maxToolCallsPerTurn: nullable(context.maxToolCallsPerTurn),
       fileAccessAllowlist: nullable(context.fileAccessAllowlist),
-    }).toEqual(item.expected);
+    }).toEqual({ ...item.expected, skillScope: item.expected.skillScope?.filter(id => ['beam', 'frame', 'generic'].includes(id)) ?? null });
     expect(Object.isFrozen(context)).toBe(true);
     expect(state).toEqual(snapshot);
   });

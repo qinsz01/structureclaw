@@ -142,7 +142,7 @@ export async function executeAnalysisRun(
             nativeResponse = await invoke({ ...payload, model,
               parameters: { ...effective, _internalResultSelections: selections } });
           } catch (error) {
-            nativeResponse = { success: false, error_code: 'ANALYSIS_EXECUTION_FAILED',
+            nativeResponse = { success: false, error_code: isRecord(error) && typeof error.errorCode === 'string' ? error.errorCode : 'ANALYSIS_EXECUTION_FAILED',
               message: error instanceof Error ? error.message : String(error), data: {} };
           }
         }
@@ -194,6 +194,7 @@ export async function executeAnalysisRun(
   const selectedResultKey = selections[0]!.key;
   const selected = results[selectedResultKey] as ModelRecord;
   const success = Object.values(results).every((item) => isRecord(item) && item.success !== false);
+  const engineUnavailable = Object.values(results).every(item => isRecord(item) && item.error_code === 'ENGINE_UNAVAILABLE');
   const capabilityStatus = Object.values(results).every((item) => isRecord(item) && item.capabilityStatus === 'complete') ? 'complete' : 'partial';
   const record = {
     runId, requestId: payload.requestId, requestHash: analysisRequestHash(payload),
@@ -205,7 +206,9 @@ export async function executeAnalysisRun(
   return {
     ...selected, success, runId, requestId: record.requestId, requestHash: record.requestHash,
     modelSnapshot: model, results, selectedResultKey, executionStatus: record.executionStatus, capabilityStatus,
-    ...(!success ? { error_code: 'RESULT_SET_INCOMPLETE', message: 'One or more requested results failed; inspect results by key.' } : {}),
+    ...(!success ? engineUnavailable ? { error_code: 'ENGINE_UNAVAILABLE', message: selected.message,
+      messageZh: '请求的求解器当前不可用，请检查安装与配置。' }
+      : { error_code: 'RESULT_SET_INCOMPLETE', message: 'One or more requested results failed; inspect results by key.' } : {}),
     meta: { ...(isRecord(selected.meta) ? selected.meta : {}), startedAt, completedAt: record.completedAt, resultCount: selections.length },
   };
 }

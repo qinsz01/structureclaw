@@ -1,6 +1,9 @@
-import { analysisSkillLabel, getAnalysisSkillCatalogEntry, matchesAnalysisContext } from '../../agent-skills/analysis/catalog.js';
+import { getAnalysisSkillCatalogEntry, matchesAnalysisContext } from '../../providers/analysis-catalog.js';
 import { getAnalysisPayload } from './compaction/analysis.js';
 import { isRecord, pickStringLike } from './shared.js';
+import { ANALYSIS_SKILL_CATALOG } from '../../providers/analysis-catalog.js';
+import { providerAccessError } from '../../providers/access.js';
+import { currentRunPolicy } from '../../runtime/run-context.js';
 
 function selectedAnalysisSkillIds(
   selectedSkillIds?: string[],
@@ -22,16 +25,13 @@ export function resolveRequestedAnalysisSkillId(
 ): string | undefined {
   const analysisSkillIds = selectedAnalysisSkillIds(selectedSkillIds, analysisType);
   if (requestedAnalysisSkillId) {
-    if (
-      analysisSkillIds.includes(requestedAnalysisSkillId)
-      && (!analysisType || getAnalysisSkillCatalogEntry(requestedAnalysisSkillId)?.analysisType === analysisType)
-    ) {
-      return requestedAnalysisSkillId;
-    }
-    return undefined;
+    return requestedAnalysisSkillId;
   }
-
-  return analysisSkillIds[0];
+  const preferred = [...(currentRunPolicy()?.providers?.preferredIds ?? []), ...analysisSkillIds];
+  return [...preferred, ...ANALYSIS_SKILL_CATALOG.map(provider => provider.id)].find(id => {
+    const entry = getAnalysisSkillCatalogEntry(id);
+    return entry && (!analysisType || entry.analysisType === analysisType) && !providerAccessError(id);
+  });
 }
 
 export function resolveRequestedAnalysisEngineId(
@@ -42,38 +42,6 @@ export function resolveRequestedAnalysisEngineId(
 ): string | undefined {
   const skillId = resolveRequestedAnalysisSkillId(message, selectedSkillIds, analysisType, requestedAnalysisSkillId);
   return skillId ? getAnalysisSkillCatalogEntry(skillId)?.engineId : undefined;
-}
-
-export function resolveUnselectedRequestedAnalysisSkillId(
-  _message: string | undefined,
-  selectedSkillIds?: string[],
-  analysisType?: 'static' | 'dynamic' | 'seismic' | 'nonlinear',
-  requestedAnalysisSkillId?: string,
-): string | undefined {
-  const requested = getAnalysisSkillCatalogEntry(requestedAnalysisSkillId);
-  if (!requestedAnalysisSkillId || !requested) {
-    return undefined;
-  }
-  if (analysisType && requested.analysisType !== analysisType) {
-    return requestedAnalysisSkillId;
-  }
-  const selected = selectedAnalysisSkillIds(selectedSkillIds, analysisType);
-  const providerSatisfied = selected.some((skillId) =>
-    skillId === requestedAnalysisSkillId || getAnalysisSkillCatalogEntry(skillId)?.engineId === requested.engineId);
-  return providerSatisfied
-    ? undefined
-    : requestedAnalysisSkillId;
-}
-
-export function buildAnalysisProviderNotSelectedPayload(skillId: string) {
-  const label = analysisSkillLabel(skillId);
-  return {
-    success: false,
-    error_code: 'ANALYSIS_PROVIDER_NOT_SELECTED',
-    requestedAnalysisSkillId: skillId,
-    message: `The requested analysis provider (${label}) is not enabled in the current skill selection.`,
-    messageZh: `当前会话未勾选请求的分析技能（${label}），不会改用其他分析引擎代跑。`,
-  };
 }
 
 type ToolAnalysisType = 'static' | 'dynamic' | 'seismic' | 'nonlinear';

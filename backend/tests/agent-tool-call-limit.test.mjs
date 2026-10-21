@@ -33,9 +33,8 @@ describe('agent tool call limit defaults', () => {
     expect(read('src/agent-langgraph/graph.ts')).not.toContain('DEFAULT_MAX_TOOL_CALLS_PER_TURN = 200');
   });
 
-  test('frontend settings default matches the backend default', () => {
-    // The frontend cannot import backend modules, so it keeps its own literal.
-    const frontendSettingsSource = read('../frontend/src/components/settings/general-settings-panel.tsx');
-    expect(frontendSettingsSource).toContain('maxToolCallsPerTurn: 200');
+  test('the frontend budget control imports the shared default and the old General editor is gone', () => {
+    expect(read('../frontend/src/components/settings/run-policy-fields.tsx')).toContain('DEFAULT_MAX_TOOL_CALLS_PER_TURN');
+    expect(read('../frontend/src/components/settings/general-settings-panel.tsx')).not.toContain("key: 'agent.maxToolCallsPerTurn'");
   });
 });

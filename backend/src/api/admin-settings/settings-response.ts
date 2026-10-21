@@ -3,7 +3,7 @@ import path from 'node:path';
 import type { RunPolicyInput } from '../../runtime/run-policy.js';
 import { readSettingsFile } from '../../config/settings-file.js';
 import { runtimeBaseDir } from '../../config/index.js';
-import { DEFAULT_MAX_TOOL_CALLS_PER_TURN } from '../../runtime/limits.js';
+import { DEFAULT_MAX_TOOL_CALLS_PER_TURN, MAX_TOOL_CALLS_PER_TURN_LIMIT } from '../../runtime/limits.js';
 
 // ---------------------------------------------------------------------------
 // Source resolution
@@ -92,6 +92,7 @@ export type SettingsResponse = {
     shellTimeoutMs: ValueField<number>;
     maxToolCallsPerTurn: ValueField<number>;
     runPolicy: ValueField<RunPolicyInput>;
+    toolCallCeiling: number;
   };
   pkpm: {
     cyclePath: ValueField<string>;
@@ -211,13 +212,14 @@ export function buildSettingsResponse(): SettingsResponse {
       origins: stringSource(file?.cors?.origins, defaults.corsOrigins),
     },
     agent: {
+      toolCallCeiling: MAX_TOOL_CALLS_PER_TURN_LIMIT,
       runPolicy: { value: file?.agent?.runPolicy ?? {}, source: file?.agent?.runPolicy ? 'runtime' : 'default', defaultValue: {} },
       workspaceRoot: stringSource(file?.agent?.workspaceRoot, defaults.workspaceRoot),
       checkpointDir: stringSource(file?.agent?.checkpointDir, defaults.checkpointDir),
       allowShell: booleanSource(file?.agent?.allowShell, defaults.allowShell),
       allowedShellCommands: stringSource(file?.agent?.allowedShellCommands, defaults.allowedShellCommands),
       shellTimeoutMs: numberSource(file?.agent?.shellTimeoutMs, defaults.shellTimeoutMs),
-      maxToolCallsPerTurn: numberSource(file?.agent?.maxToolCallsPerTurn, defaults.agentMaxToolCallsPerTurn),
+      maxToolCallsPerTurn: numberSource(file?.agent?.runPolicy?.budgets?.maxToolCallsPerTurn, defaults.agentMaxToolCallsPerTurn),
     },
     pkpm: {
       cyclePath: stringSource(file?.pkpm?.cyclePath, defaults.pkpmCyclePath),

@@ -189,7 +189,7 @@ describe('characterization: ablation profiles', () => {
       }
       expect(generic.extraction.skillId).toBe('generic');
       const session = await ctx.backend.session(generic.turn.conversationId);
-      expect(session.policy.activeSkillIds).toEqual(expect.arrayContaining(['generic', 'opensees-static']));
+      expect(session.policy.activeSkillIds).toEqual(expect.arrayContaining(['generic']));
       expect(session.policy.activeSkillIds).not.toEqual(expect.arrayContaining(['beam']));
     }, TURN_TIMEOUT_MS);
 

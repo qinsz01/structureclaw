@@ -9,7 +9,7 @@
  */
 import type { RunPolicyInput } from './run-policy-schema.js';
 
-export const ABLATION_PROFILES_VERSION = '2026-10-21.12';
+export const ABLATION_PROFILES_VERSION = '2026-10-22.1';
 
 export const PROFILE_IDS = [
   'full', 'generic-only', 'no-routing', 'no-knowledge', 'no-template-builder', 'no-validation-gate',
@@ -36,7 +36,7 @@ interface Localized { en: string; zh: string }
 interface ProfileDefinition {
   /** Mechanism fields. `skillIds` is resolved from manifests when `genericStructureOnly` is set. */
   policy: RunPolicyInput;
-  /** Restrict structure-type skills to `generic`; analysis and other domains stay. */
+  /** Restrict modelling skills to `generic`; provider access is independent. */
   genericStructureOnly?: boolean;
   removes: Localized;
   targets: CapabilityGroup[];
@@ -53,14 +53,14 @@ const PROFILES: Record<ProfileId, ProfileDefinition> = {
   full: { policy: preset({}), targets: [],
     removes: { en: 'Nothing (reference configuration).', zh: '不移除任何机制（参照配置）。' } },
   'generic-only': { policy: preset({}), genericStructureOnly: true, targets: ['A', 'B'],
-    removes: { en: 'Specialist structure-type skills; only the generic structure skill stays (analysis, code-check, report and other domains unchanged).',
-      zh: '专用结构类型技能；结构类型仅保留 generic（分析、校核、报告等其他领域技能不变）。' } },
+    removes: { en: 'Specialist structure-type skills; only generic stays. All enabled providers remain available.',
+      zh: '专用结构类型技能；仅保留 generic，所有已启用的 Provider 仍可使用。' } },
   'no-routing': { policy: preset({ routing: { mode: 'fixed', skillId: 'generic' } }), targets: ['A'],
     removes: { en: 'Automatic structure-skill selection; routing is fixed to the generic skill.',
       zh: '自动结构技能选择；路由固定为 generic 技能。' } },
   'no-knowledge': { policy: preset({ knowledge: 'disabled' }), targets: ['A', 'C'],
-    removes: { en: 'Skill descriptions, triggers, stage names and stage markdown in every prompt (agent, structural router, parameter extractor).',
-      zh: '所有提示词中的技能描述、触发词、阶段名称和阶段知识文本（主代理、结构路由、参数抽取）。' } },
+    removes: { en: 'Skill descriptions, triggers, stage names, stage markdown and shared engineering knowledge in all prompts, including the model builder.',
+      zh: '所有提示词中的技能描述、触发词、阶段名称、阶段文本及共享工程知识，包括建模器提示词。' } },
   'no-template-builder': { policy: preset({ builder: 'llm' }), targets: ['A'],
     removes: { en: 'Deterministic template model builders; build_model asks the LLM model builder.',
       zh: '确定性模板建模器；build_model 改由大模型建模器生成模型。' } },
@@ -110,8 +110,8 @@ export function profilePolicyInput(id: ProfileId, catalog: { availableSkillIds: 
 }
 
 export function genericOnlySkillIds(availableSkillIds: string[], structureTypeSkillIds: string[]): string[] {
-  const specialist = new Set(structureTypeSkillIds.filter(id => id !== 'generic'));
-  return [...new Set(availableSkillIds.filter(id => !specialist.has(id)))].sort();
+  const structure = new Set(structureTypeSkillIds);
+  return [...new Set(availableSkillIds.filter(id => structure.has(id) && id === 'generic'))].sort();
 }
 
 /** Whether the profile restricts the skill ceiling (explicit skillIds are intersected with it). */

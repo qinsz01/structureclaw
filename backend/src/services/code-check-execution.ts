@@ -1,6 +1,8 @@
 import type { ExecutionRequestOptions } from '../agent-skills/analysis/types.js';
 import { PythonWorkerRunner, resolveWorkerPath } from '../utils/python-worker-runner.js';
 import type { CodeCheckClient } from '../agent-skills/code-check/rule.js';
+import { resolveCodeCheckRule } from '../agent-skills/code-check/registry.js';
+import { providerAccessError } from '../providers/access.js';
 
 interface CodeCheckExecutionInput {
   action: 'code_check';
@@ -13,6 +15,11 @@ export class CodeCheckExecutionService {
   );
 
   async codeCheck(payload: Record<string, unknown>, requestOptions?: ExecutionRequestOptions): Promise<Record<string, unknown>> {
+    const code = payload.code ?? payload.designCode;
+    if (typeof code === 'string') {
+      const denied = providerAccessError(resolveCodeCheckRule(code).skillId);
+      if (denied) return denied;
+    }
     return this.runner.invoke({ action: 'code_check', input: payload }, requestOptions);
   }
 }

@@ -41,7 +41,7 @@ describe('ablation profiles', () => {
   test('each ablation profile changes the hash and only its own mechanism', () => {
     const base = resolve();
     const expectations = {
-      'generic-only': policy => expect(policy.activeSkillIds).toEqual(['generic', 'opensees-static', 'report-export-builtin']),
+      'generic-only': policy => expect(policy.activeSkillIds).toEqual(['generic']),
       'no-routing': policy => expect(policy.routing).toEqual({ mode: 'fixed', skillId: 'generic' }),
       'no-knowledge': policy => expect(policy.knowledge).toBe('disabled'),
       'no-template-builder': policy => expect(policy.builder).toBe('llm'),
@@ -117,12 +117,12 @@ describe('ablation profiles', () => {
 
   test('generic-only is a skill ceiling: explicit or legacy skill lists cannot re-enable specialist structure skills', () => {
     const legacy = resolve({ envProfile: 'generic-only', legacy: { skillIds: ['beam', 'generic', 'opensees-static'] } });
-    expect(legacy.activeSkillIds).toEqual(['generic', 'opensees-static']);
+    expect(legacy.activeSkillIds).toEqual(['generic']);
     expect(legacy.deniedSkillIds).toEqual(['beam']);
     expect(legacy.fieldSources).toMatchObject({ profileId: 'env', skillIds: 'legacy' });
     expect(() => resolveRunPolicy({ ...catalog, structureTypeSkillIds: undefined, requested: { profile: 'generic-only' } }))
       .toThrow('RUN_PROFILE_SKILL_DOMAINS_REQUIRED');
-    expect(profilePolicyInput('generic-only', catalog).skillIds).toEqual(['generic', 'opensees-static', 'report-export-builtin']);
+    expect(profilePolicyInput('generic-only', catalog).skillIds).toEqual(['generic']);
   });
 
   test('unknown profile ids fail fast with a bilingual error at request validation and startup', () => {

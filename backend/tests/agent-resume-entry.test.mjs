@@ -17,7 +17,7 @@ const { createAskUserClarificationTool } = await import('../dist/agent-langgraph
 const { executeToolsSequentially } = await import('../dist/agent-langgraph/sequential-tools.js');
 const { withRunContext, snapshotRunUsage, requestRecovery, reserveLlmCall } = await import('../dist/runtime/run-context.js');
 const service = getAgentService();
-service.skillRuntime = { listSkillManifests: async () => [{ id: 'generic' }] };
+service.skillRuntime = { listSkillManifests: async () => [{ id: 'generic', domain: 'structure-type' }] };
 const app = Fastify();
 await app.register(agentRoutes, { prefix: '/api/v1/agent' });
 await app.ready();

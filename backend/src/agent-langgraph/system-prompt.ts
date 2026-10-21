@@ -1,3 +1,6 @@
+import { listProviders } from '../providers/catalog.js';
+import { providerAccessError } from '../providers/access.js';
+import { engineeringKnowledge } from '../engineering/knowledge.js';
 /**
  * Dynamic system prompt builder for the StructureClaw ReAct agent.
  *
@@ -181,6 +184,9 @@ export function buildSystemMessages(ctx: SystemPromptContext): BaseMessageLike[]
 
   const runtimePolicy = state.runPolicy;
   const activeToolIds = ctx.activeToolIds ?? runtimePolicy?.activeToolIds;
+  const providerSummary = listProviders().map(provider => '- ' + provider.id + ': ' + provider.name[state.locale === 'zh' ? 'zh' : 'en']
+    + (providerAccessError(provider.id, state.runPolicy) ? ' [disabled / 已禁用]' : '')).join('\n');
+  const sharedKnowledge = engineeringKnowledge(state.locale, ['loads', 'boundaries', 'validation', 'results'], state.runPolicy);
   const features = promptFeatures(state, activeToolIds);
   const systemContent = isZh
     ? buildZhPrompt(state, skillList, toolCallLimit, features)
@@ -210,7 +216,8 @@ export function buildSystemMessages(ctx: SystemPromptContext): BaseMessageLike[]
   const engineeringPrinciples = isZh
     ? '\n用户显式属性优先；仅给尺寸时由系统按尖角几何推导属性，回答注明sharp-corner（不计圆角）。仅给型号、无完整尺寸及显式属性时，将截面尺寸与其他确实缺少的输入合并询问一次，实际确认前不建模、不计算。可提供“助手记忆的标准表值，请核对”候选供用户选择；型号本身不是确认，不得自行采用或改标来源。实际确认后将尺寸记为用户来源，由系统推导属性。确认仅覆盖用户实际确认的数值，不包括其他记忆属性；未确认的助手记忆值只能出现在带标签的澄清候选中，不得用于答案中的计算、估算或对比。明确说明每项数值由谁提供：用户、系统（几何推导或规范表），或助手候选经用户确认；不得声称工具检索。只有实际运行且通过的规范校核才允许作满足要求或通过/不通过等合规结论；仅有分析结果时只报告数值和假定。已知材料牌号由系统补缺省弹性常数和密度；未提自重不追问，沿用设置（默认不计）并说明。不得向用户提及预算、纠错次数或要求另发消息。'
     : '\nExplicit user properties win. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets). A designation without complete dimensions or explicit properties requires one dimension question together with other genuinely missing inputs; do not build or calculate before actual confirmation. You may offer an "assistant-recalled table value, please verify" option. A designation is not confirmation: never adopt or relabel recalled values yourself. After confirmation record user-sourced dimensions and derive properties. Confirmation covers only the actual values confirmed, not other recalled properties. Unconfirmed assistant recall belongs only in labelled clarification options, never in answer calculations, estimates or comparisons. Say plainly who supplied each value: the user, the system (geometry or a code table), or an assistant option confirmed by the user; never claim tool retrieval. Never state adequacy or compliance pass/fail unless a code check was actually run and passed; with analysis alone report values and assumptions. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never expose budgets/recovery counts or ask for a new message to reset them.';
-  return [new SystemMessage(systemContent + engineeringPrinciples + SECTION_EVIDENCE_RULE + '\n' + LOAD_DIRECTION_RULE + policyText + toolAvailability + checkProtocol + editProtocol + scopeProtocol + nextActionProtocol + designInputs)];
+  return [new SystemMessage(systemContent + '\n\nProviders (select by tool arguments) / Provider（通过工具参数选择）:\n' + providerSummary + '\n' + sharedKnowledge
+    + engineeringPrinciples + SECTION_EVIDENCE_RULE + '\n' + LOAD_DIRECTION_RULE + policyText + toolAvailability + checkProtocol + editProtocol + scopeProtocol + nextActionProtocol + designInputs)];
 }
 
 // ---------------------------------------------------------------------------
@@ -284,7 +291,7 @@ ${promptLine("zh", "answers", features)}
 - analyze_file 返回 PDF 文本后，基于 LLM 语义理解提取尺寸、荷载、材料等参数，再调用 extract_draft_params；不要用关键词或正则匹配替代语义理解。
 
 **中国抗震分析规则**:
-- 当用户要求按中国抗震规范、抗震设防、反应谱、地震波或时程分析执行时，优先用 set_session_config 设置 analysisType="seismic"、designCode="GB/T 50011-2010-2024"，并通过 skillIdsJson 选择 opensees-seismic（同时保留结构建模、校验和报告相关 skill）。
+- 当用户要求按中国抗震规范、抗震设防、反应谱、地震波或时程分析执行时，优先用 set_session_config 设置 analysisType="seismic"、designCode="GB/T 50011-2010-2024"；通过 run_analysis.analysisSkillId="opensees-seismic" 选择求解器。
 - 抗震方法选择必须来自 LLM 对完整需求的语义理解，输出结构化 seismicWorkflow；不要用关键词或正则匹配决定 response_spectrum、time_history、pushover 或 elastic_plastic_time_history。
 - 调用 run_analysis 前必须已经有非空结构化 seismicWorkflow（来自 extract_draft_params 写入 draftState.skillState.seismicWorkflow、前端结构化上下文 contextSeismicWorkflow，或本次工具入参 seismicWorkflowJson）；如果没有，先抽取或追问，不要直接运行抗震分析。
 - seismicWorkflow 至少应包含 methodPreference、designBasis.siteSeismic、designRequirements（含已知的 fortificationCategory、seismicGrade、irregularity）、structure、groundMotionSet、responseSpectrum.modalCombination 和 directions 中已知的字段；3D 结构优先输出 directions=["x","y"]，2D 框架输出 directions=["x"]；modalCombination 仅使用 cqc/srss 结构化枚举，默认 cqc；未知字段保持缺失并追问或让 runtime 返回 partial。
@@ -367,7 +374,7 @@ ${promptLine("en", "answers", features)}
 - After analyze_file returns PDF text, extract dimensions, loads, and materials by LLM semantic understanding, then call extract_draft_params; do not replace semantic understanding with keyword or regex matching.
 
 **China seismic analysis rules**:
-- When the user requests China-code seismic design, seismic fortification, response-spectrum analysis, selected ground motions, or time-history analysis, use set_session_config with analysisType="seismic", designCode="GB/T 50011-2010-2024", and skillIdsJson selecting opensees-seismic while retaining the relevant modeling, validation, and report skills.
+- When the user requests China-code seismic design, seismic fortification, response-spectrum analysis, selected ground motions, or time-history analysis, use set_session_config with analysisType="seismic", designCode="GB/T 50011-2010-2024", and select run_analysis.analysisSkillId="opensees-seismic".
 - Seismic method selection must come from LLM semantic understanding of the full request and be emitted as structured seismicWorkflow; do not choose response_spectrum, time_history, pushover, or elastic_plastic_time_history by keyword or regex matching.
 - Before calling run_analysis, a non-empty structured seismicWorkflow must already exist from extract_draft_params in draftState.skillState.seismicWorkflow, frontend structured contextSeismicWorkflow, or the current seismicWorkflowJson input; otherwise extract it or ask for clarification instead of running seismic analysis directly.
 - seismicWorkflow should include the known fields among methodPreference, designBasis.siteSeismic, designRequirements including known fortificationCategory, seismicGrade, and irregularity, structure, groundMotionSet, responseSpectrum.modalCombination, and directions; prefer directions=["x","y"] for 3D structures and directions=["x"] for 2D frames. Use only structured cqc/srss enum values for modalCombination and default to cqc. Leave unknown fields missing and ask for clarification or allow the runtime to return partial.

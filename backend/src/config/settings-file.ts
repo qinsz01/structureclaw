@@ -8,7 +8,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { runPolicyInputSchema, type RunPolicyInput } from '../runtime/run-policy-schema.js';
+import { runPolicyInputSchema, migrateRunPolicyInput, type RunPolicyInput } from '../runtime/run-policy-schema.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -252,7 +252,7 @@ function normalizeAgentSection(raw: unknown): SettingsFileAgent | undefined {
     error.name = 'RunPolicySettingsError';
     throw error;
   }
-  const runPolicy = parsedPolicy?.success ? parsedPolicy.data : undefined;
+  let runPolicy = parsedPolicy?.success ? migrateRunPolicyInput(parsedPolicy.data) : undefined;
   const workspaceRoot = normalizeOptionalString(record.workspaceRoot);
   const checkpointDir = normalizeOptionalString(record.checkpointDir);
   const allowShell = normalizeOptionalBoolean(record.allowShell);
@@ -267,7 +267,10 @@ function normalizeAgentSection(raw: unknown): SettingsFileAgent | undefined {
   if (allowShell !== undefined) result.allowShell = allowShell;
   if (allowedShellCommands !== undefined) result.allowedShellCommands = allowedShellCommands;
   if (shellTimeoutMs !== undefined) result.shellTimeoutMs = shellTimeoutMs;
-  if (maxToolCallsPerTurn !== undefined) result.maxToolCallsPerTurn = maxToolCallsPerTurn;
+  if (maxToolCallsPerTurn !== undefined && runPolicy?.budgets?.maxToolCallsPerTurn === undefined) {
+    runPolicy = { ...runPolicy, budgets: { ...runPolicy?.budgets, maxToolCallsPerTurn } };
+    result.runPolicy = runPolicy;
+  }
   return result;
 }
 

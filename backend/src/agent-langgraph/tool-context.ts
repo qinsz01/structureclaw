@@ -10,6 +10,7 @@
 import type { EffectiveRunPolicy } from '../runtime/run-policy.js';
 import type { AgentState, AgentToolAccessPolicy } from './state.js';
 import { resolveActiveToolIds } from './tool-policy.js';
+import { migrateLegacySkillIds } from '../shared/legacy-capabilities.js';
 
 export interface ToolContext {
   /** Registry tool IDs bound to the model and executable in this node (sorted). */
@@ -33,9 +34,10 @@ type ToolContextState = Partial<Pick<AgentState, 'runPolicy' | 'selectedSkillIds
 /** Skill scope: the policy's active skills intersected with the session selection. */
 function deriveSkillScope(state: ToolContextState, policy: EffectiveRunPolicy | undefined): string[] | undefined {
   const effective = state.runPolicy ?? policy;
+  const selection = state.selectedSkillIds ? migrateLegacySkillIds(state.selectedSkillIds, () => {}).skillIds : [];
   return effective
-    ? effective.activeSkillIds.filter(id => state.selectedSkillIds!.includes(id))
-    : state.selectedSkillIds?.length ? state.selectedSkillIds : undefined;
+    ? migrateLegacySkillIds(effective.activeSkillIds, () => {}).skillIds.filter(id => selection.includes(id))
+    : selection.length ? selection : undefined;
 }
 
 /**

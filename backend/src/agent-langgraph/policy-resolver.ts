@@ -6,10 +6,11 @@ import { getWorkspaceSkillRoot } from './config.js';
 import { listAgentToolDefinitions } from './tool-registry.js';
 import { resolveActiveToolIds } from './tool-policy.js';
 import { resolveRunPolicy, type RunPolicyInput, type RunPolicy } from '../runtime/run-policy.js';
+import { MAX_TOOL_CALLS_PER_TURN_LIMIT } from '../runtime/limits.js';
 
 /** Skill ids plus the structure-type subset the generic-only ablation profile needs. */
 export function skillCatalog(manifests: Array<{ id: string; domain: string }>): { availableSkillIds: string[]; structureTypeSkillIds: string[] } {
-  return { availableSkillIds: manifests.map(item => item.id),
+  return { availableSkillIds: manifests.filter(item => item.domain === 'structure-type').map(item => item.id),
     structureTypeSkillIds: manifests.filter(item => item.domain === 'structure-type').map(item => item.id) };
 }
 
@@ -35,16 +36,14 @@ export function resolveApplicationRunPolicy(input: {
   executionOwner?: 'structureclaw' | 'external';
 }) {
   const settings = readSettingsFile()?.agent;
-  const defaults: RunPolicyInput = { ...settings?.runPolicy,
-    budgets: { maxToolCallsPerTurn: config.agentMaxToolCallsPerTurn, ...settings?.runPolicy?.budgets } };
+  const defaults: RunPolicyInput = settings?.runPolicy ?? {};
   const definitions = listAgentToolDefinitions();
   const ceiling = resolveActiveToolIds({ requestedEnabledToolIds: defaults.tools?.enabledIds ?? definitions.map(item => item.id),
     requestedDisabledToolIds: defaults.tools?.disabledIds, allowShell: config.agentAllowShell });
   return resolveRunPolicy({ ...input, structureTypeSkillIds: input.structureTypeSkillIds ?? catalogStructureTypeSkillIds(),
     defaults, envProfile: config.runProfile,
     availableToolIds: definitions.map(item => item.id), defaultToolIds: definitions.filter(item => item.defaultEnabled).map(item => item.id),
-    allowedSkillIds: defaults.skillIds ?? undefined, allowedToolIds: ceiling.activeToolIds,
-    allowedMemoryScopes: defaults.context?.memoryScopes,
-    maxToolCallsPerTurn: defaults.budgets?.maxToolCallsPerTurn,
+    allowedToolIds: ceiling.activeToolIds,
+    maxToolCallsPerTurn: MAX_TOOL_CALLS_PER_TURN_LIMIT,
   });
 }

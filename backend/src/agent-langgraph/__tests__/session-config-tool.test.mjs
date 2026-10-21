@@ -1,127 +1,28 @@
-import { describe, expect, test } from "@jest/globals";
+import { describe, expect, test } from '@jest/globals';
+import { createSetSessionConfigTool } from '../../../dist/agent-langgraph/tools.js';
 
-describe("session config tool", () => {
-  test("can switch the current session to the OpenSees seismic workflow", async () => {
-    const { createSetSessionConfigTool } = await import("../../../dist/agent-langgraph/tools.js");
-    const setSessionConfig = createSetSessionConfigTool();
+const invoke = input => createSetSessionConfigTool().invoke(input, { toolCall: { id: 'session' }, configurable: {
+  agentState: { policy: {}, selectedSkillIds: ['generic'] } } });
 
-    const command = await setSessionConfig.invoke({
-      analysisType: "seismic",
-      designCode: "GB/T 50011-2010-2024",
-      skillIdsJson: JSON.stringify([
-        "concrete-frame",
-        "opensees-seismic",
-        "validation-structure-model",
-        "report-export-builtin",
-      ]),
-    }, {
-      toolCall: { id: "call-test" },
-      configurable: {
-        agentState: {
-          policy: { analysisType: "static" },
-          selectedSkillIds: ["concrete-frame", "opensees-static"],
-        },
-      },
-    });
-
-    expect(command.update.policy).toMatchObject({
-      analysisType: "seismic",
-      designCode: "GB/T 50011-2010-2024",
-    });
-    expect(command.update.selectedSkillIds).toEqual([
-      "generic",
-      "frame",
-      "concrete-frame",
-      "opensees-seismic",
-      "code-check-gb50011",
-      "validation-structure-model",
-      "report-export-builtin",
-    ]);
-    expect(JSON.parse(command.update.messages[0].content)).toMatchObject({
-      success: true,
-      updatedKeys: ["analysisType", "designCode", "selectedSkillIds"],
-    });
+describe('session config tool', () => {
+  test('seismic configuration migrates legacy providers without auto-enabling structure skills', async () => {
+    const command = await invoke({ analysisType: 'seismic', designCode: 'GB/T 50011-2010-2024',
+      skillIdsJson: JSON.stringify(['concrete-frame', 'opensees-seismic', 'validation-structure-model', 'report-export-builtin']) });
+    expect(command.update.selectedSkillIds).toEqual(['concrete-frame']);
+    expect(command.update.policy).toMatchObject({ analysisType: 'seismic', designCode: 'GB/T 50011-2010-2024', analysisProviderPreference: 'opensees-seismic' });
   });
-
-  test("auto-completes China seismic skill scope when only the seismic provider is supplied", async () => {
-    const { createSetSessionConfigTool } = await import("../../../dist/agent-langgraph/tools.js");
-    const setSessionConfig = createSetSessionConfigTool();
-
-    const command = await setSessionConfig.invoke({
-      analysisType: "seismic",
-      designCode: "GB/T 50011-2010-2024",
-      skillIdsJson: JSON.stringify(["opensees-seismic"]),
-    }, {
-      toolCall: { id: "call-test" },
-      configurable: {
-        agentState: {
-          policy: {},
-          selectedSkillIds: [],
-        },
-      },
-    });
-
-    expect(command.update.selectedSkillIds).toEqual([
-      "generic",
-      "frame",
-      "concrete-frame",
-      "opensees-seismic",
-      "code-check-gb50011",
-      "validation-structure-model",
-      "report-export-builtin",
-    ]);
+  test('provider-only selection preserves existing structure scope', async () => {
+    const command = await invoke({ skillIdsJson: '["opensees-static"]' });
+    expect(command.update.selectedSkillIds).toBeUndefined();
+    expect(command.update.policy.analysisProviderPreference).toBe('opensees-static');
   });
-
-  test("auto-completes China seismic skill scope even when skillIdsJson is omitted", async () => {
-    const { createSetSessionConfigTool } = await import("../../../dist/agent-langgraph/tools.js");
-    const setSessionConfig = createSetSessionConfigTool();
-
-    const command = await setSessionConfig.invoke({
-      analysisType: "seismic",
-      designCode: "GB/T 50011-2010-2024",
-    }, {
-      toolCall: { id: "call-test" },
-      configurable: {
-        agentState: {
-          policy: {},
-          selectedSkillIds: ["generic"],
-        },
-      },
-    });
-
-    expect(command.update.selectedSkillIds).toEqual([
-      "generic",
-      "frame",
-      "concrete-frame",
-      "opensees-seismic",
-      "code-check-gb50011",
-      "validation-structure-model",
-      "report-export-builtin",
-    ]);
-    expect(JSON.parse(command.update.messages[0].content).updatedKeys).toEqual([
-      "analysisType",
-      "designCode",
-      "selectedSkillIds",
-    ]);
+  test('changing analysis type alone does not alter skills', async () => {
+    const command = await invoke({ analysisType: 'seismic' });
+    expect(command.update.selectedSkillIds).toBeUndefined();
+    expect(command.update.policy.analysisType).toBe('seismic');
   });
-
-  test("does not auto-complete non-seismic skill scope", async () => {
-    const { createSetSessionConfigTool } = await import("../../../dist/agent-langgraph/tools.js");
-    const setSessionConfig = createSetSessionConfigTool();
-
-    const command = await setSessionConfig.invoke({
-      analysisType: "static",
-      skillIdsJson: JSON.stringify(["opensees-static"]),
-    }, {
-      toolCall: { id: "call-test" },
-      configurable: {
-        agentState: {
-          policy: {},
-          selectedSkillIds: [],
-        },
-      },
-    });
-
-    expect(command.update.selectedSkillIds).toEqual(["opensees-static"]);
+  test('invalid non-structure ids are rejected clearly', async () => {
+    const command = await invoke({ skillIdsJson: '["not-a-skill"]' });
+    expect(JSON.parse(command.update.messages[0].content).error_code).toBe('INVALID_SKILL_IDS');
   });
 });

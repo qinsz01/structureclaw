@@ -1,3 +1,5 @@
+import { listProviders, type ProviderDefinition } from '../providers/catalog.js';
+import { providerAccessError } from '../providers/access.js';
 import { matchConservativeStructuralRoute } from './structural-routing.js';
 import { prepareEngineeringReport, finishEngineeringReport } from './engineering-report.js';
 import { computeDraftMissing, describeCriticalMissing } from './draft-readiness.js';
@@ -13,7 +15,7 @@ import {
 import { resolveCodeCheckRule } from '../agent-skills/code-check/registry.js';
 import type { CodeCheckClient } from '../agent-skills/code-check/rule.js';
 import { AgentSkillRegistry } from './registry.js';
-import { matchesAnalysisContext } from '../agent-skills/analysis/catalog.js';
+import { matchesAnalysisContext } from '../providers/analysis-catalog.js';
 import { AgentSkillLoader } from './loader.js';
 import { invokeStructuralTypeRouter } from './llm-router.js';
 import { buildDefaultReportNarrative } from './report-template.js';
@@ -64,7 +66,7 @@ export class AgentSkillRuntime {
       workspaceSkillRoot: options?.workspaceSkillRoot,
     }));
     const builtinSkillManifestRoot = options?.builtinSkillManifestRoot || resolveBuiltinSkillManifestRoot();
-    this.builtinSkillFileManifests = loadSkillManifestsFromDirectorySync(builtinSkillManifestRoot);
+    this.builtinSkillFileManifests = loadSkillManifestsFromDirectorySync(builtinSkillManifestRoot).filter(manifest => manifest.domain === 'structure-type');
     this.builtinRuntimeSkillManifests = this.builtinSkillFileManifests.map((manifest) => toRuntimeSkillManifest(manifest));
   }
 
@@ -161,8 +163,7 @@ export class AgentSkillRuntime {
         .map((family) => family.trim().toLowerCase())
       : [];
 
-    const matchesContext = (skill: LoadedSkillManifest): boolean => skill.domain === 'analysis'
-      && matchesAnalysisContext(skill, {
+    const matchesContext = (skill: ProviderDefinition): boolean => matchesAnalysisContext(skill, {
         analysisType: options?.analysisType,
         engineId: normalizedEngineId,
         supportedModelFamilies: supportedFamilies,
@@ -178,9 +179,7 @@ export class AgentSkillRuntime {
       // listBuiltinAnalysisSkillManifests() is already sorted by descending priority.
       return matchedSelected[0];
     }
-    // No analysis skill selected → return undefined; pipeline will report
-    // "analysisProvider binding required" instead of silently picking an engine.
-    return undefined;
+    return analysisSkills.find(skill => matchesContext(skill) && !providerAccessError(skill.id));
   }
 
   async executeAnalysisSkill(options: {
@@ -328,17 +327,12 @@ export class AgentSkillRuntime {
     };
   }
 
-  private listBuiltinAnalysisSkillManifests(): LoadedSkillManifest[] {
-    return this.builtinSkillFileManifests
-      .filter((skill) => skill.domain === 'analysis')
-      .sort((left, right) => right.priority - left.priority || left.id.localeCompare(right.id));
+  private listBuiltinAnalysisSkillManifests(): ProviderDefinition[] {
+    return listProviders('solver').sort((left, right) => right.priority - left.priority || left.id.localeCompare(right.id));
   }
 
-  private listBuiltinCodeCheckSkillManifests(): LoadedSkillManifest[] {
-    return this.builtinSkillFileManifests
-      .filter((skill) => skill.domain === 'code-check')
-      // Code-check provider routing intentionally prefers lower numeric priorities first.
-      .sort((left, right) => left.priority - right.priority || left.id.localeCompare(right.id));
+  private listBuiltinCodeCheckSkillManifests(): ProviderDefinition[] {
+    return listProviders('design-code').sort((left, right) => left.priority - right.priority || left.id.localeCompare(right.id));
   }
 
   async executeReportSkill(options: {

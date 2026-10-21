@@ -20,9 +20,9 @@ exports[`characterization: run policy and ablation surface default tool schemas 
   "read_file": "3c1711ff89b15b3789ac4a9e5e1309174099b1516c1e40d9eb41b18c374780a0",
   "replace_in_file": "de85a0776bdb02b5d59d641387f0ec97011550eab750fefedbfb52032e554cdf",
   "review_input": "423637f04a60741d3da9aa89b337eb0298d752ed72e85e885c5bd6e8618b30b7",
-  "run_analysis": "65d69a8c39aaa35cce0291be4497eb793e8709f5841e8efda94903c6be2f6964",
+  "run_analysis": "ff3702cc3ef1d52aa9ebe25c96f0de3ba41d5b6f7982033aff70242350247f1c",
   "run_code_check": "a052fedfad9baedcae72ae4bc6c2dab0f840d466e274b11999bf7130ffe9ae24",
-  "set_session_config": "142d40ccf8f8700d2dde4e31cc87870244efd96f1644c388dd0918f6c8c57ac5",
+  "set_session_config": "6a7b71639f9775db8d902516c616af716b3f7fcb9b40e91a3e4832043391c38d",
   "undo_model": "2c4b7e48fe3064fb7877554979941de213f04412a69e636b861771a2b0b831e6",
   "validate_model": "18af35dfd865e3a8446fda04866a7426073fa7cea1e6a48d89ffe991cb2b41d1",
   "write_file": "8e10d8cfa7a850fd069d3676d6208f9d6a50658c010b32364649e397cf6da92b",
@@ -120,8 +120,8 @@ exports[`characterization: run policy and ablation surface policy variant builde
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 29324,
-  "systemPromptSha256": "29f6b8ca1a2c7b7fe97fc48cf096ae6715d544d9ac1ce41f70a4e30e39789639",
+  "systemPromptChars": 22649,
+  "systemPromptSha256": "a8839990009b9978f7d12fdc8846081a7abbe210386068eb8d2b9bdfa307aa07",
 }
 `;
 
@@ -134,48 +134,13 @@ exports[`characterization: run policy and ablation surface policy variant builde
 ## Available Skills
 
 - beam (Beam): Skill for beam or cantilever intent detection and clarification. [domain=structure-type, stages=intent/draft/analysis/design]
-- boundary-condition (Boundary Condition): Define boundary conditions including nodal constraints and member end releases. [domain=load-boundary, stages=intent/analysis]
-- cad-dxf-input (DXF/CAD Structural Drawing Parsing): Parse DXF files from CAD software, extract line, dimension, and text entities, and map structural geometry information to DraftState fields. [domain=data-input, stages=intent/draft]
-- code-check-gb50010 (Code Check GB50010): Run concrete structure code checks under GB50010. [domain=code-check, stages=intent/analysis/design]
-- code-check-gb50011 (Code Check GB50011): Run seismic code checks under GB50011. [domain=code-check, stages=intent/analysis/design]
-- code-check-gb50017 (Code Check GB50017): Run steel structure code checks under GB50017. [domain=code-check, stages=intent/analysis/design]
-- code-check-jgj3 (Code Check JGJ3): Run high-rise concrete checks under JGJ3. [domain=code-check, stages=intent/analysis/design]
 - column (Column): Skill for standalone column intent detection and axial-load analysis guidance. [domain=structure-type, stages=intent/draft/analysis/design]
 - concrete-frame (Concrete Frame): Skill for regular 2D/3D concrete frame intent detection and parameter clarification. [domain=structure-type, stages=intent/draft/analysis/design]
-- crane-load (Crane Load): Generate crane loads for industrial buildings with multiple crane configurations. [domain=load-boundary, stages=intent/analysis]
-- csv-excel-input (CSV/Excel Structural Parameter Input): Parse structural parameters (stories, sections, loads) from CSV or Excel files and map them to DraftState fields for downstream structural skills. [domain=data-input, stages=intent/draft]
-- dead-load (Dead Load): Generate dead loads including gravity loads from structural elements and fixed equipment. [domain=load-boundary, stages=intent/analysis]
 - double-span-beam (Continuous Beam): Skill for intent detection, clarification, and model construction of continuous beams with two or more spans. [domain=structure-type, stages=intent/draft/analysis/design]
 - frame (Regular Frame): Skill for regular 2D/3D frame intent detection and parameter clarification. [domain=structure-type, stages=intent/draft/analysis/design]
 - generic (Generic Structure Type): Generic fallback structure-type skill. It is not always the strongest, but it catches unmatched structural modeling requests and guides downstream skills and tools. [domain=structure-type, stages=intent/draft/analysis/design]
-- image-vision-input (Image Structural Information Recognition): Use multimodal vision capabilities to recognize structural members, dimension annotations, and material information from photos, scanned drawings, and screenshots, mapping them to DraftState. [domain=data-input, stages=intent/draft]
-- live-load (Live Load): Generate live loads including floor loads, roof loads, and other variable loads according to GB50009-2012. [domain=load-boundary, stages=intent/analysis]
-- load-combination (Load Combination): Generate load combinations for ultimate and serviceability limit states including seismic combinations. [domain=load-boundary, stages=intent/analysis]
-- memory (Context Memory): Maintain cross-turn state in engineering sessions, helping the agent remember key parameters and decision context. [domain=general, stages=intent/draft/analysis/design]
-- nodal-constraint (Nodal Constraint): Define nodal constraints including restraints and elastic supports. [domain=load-boundary, stages=analysis]
-- opensees-dynamic (OpenSees Dynamic Analysis): OpenSees linear modal and earthquake time-history analysis with explicit mass source, direction, damping and time step. Records requested six-component nodal motion, member end forces and support reactions. Motion is relative to the ground; arbitrary interior transient responses and general nonlinear dynamics are unsupported. [domain=analysis, stages=intent/analysis]
-- opensees-nonlinear (OpenSees Nonlinear Analysis): Skill for recognizing and routing OpenSees nonlinear analysis requests. [domain=analysis, stages=intent/analysis]
-- opensees-seismic (OpenSees Seismic Analysis): Skill for China-code seismic response-spectrum, elastic time-history, and pushover analysis using OpenSees. [domain=analysis, stages=intent/analysis]
-- opensees-static (OpenSees Static Analysis): OpenSees 2-D/3-D linear frame statics with beams, columns, trusses, mixed braces, partial/point loads, case combinations and bending end releases. Interior mechanics recovery is distinct from direct nodal results. Axial/shear/torsional releases, rigid offsets and second-order analysis are unsupported. [domain=analysis, stages=intent/analysis]
-- pdf-input (PDF Structural Document Parsing): Extract text from PDF structural drawings or calculation reports, identify key structural parameters (dimensions, material grades, loads), and map them to DraftState. [domain=data-input, stages=intent/draft]
-- pkpm-calcbook (PKPM SATWE Calculation Report Export): Extract calculation report data from completed PKPM SATWE analysis results, including modal analysis, story stiffness, drift ratios, base shear, and member design results. Outputs Markdown, Word, and PDF. [domain=report-export, stages=design]
-- pkpm-static (PKPM Static Analysis): PKPM linear elastic frame statics preserving per-floor topology and explicit material/section properties, with six-component nodal loads, multiple cases, signed stations and linear combinations. Explicit design requests use verified standard materials and physical sections for required reinforcement or native steel checks. Ordinary analysis publishes no design conclusions; missing results are not zero-filled. [domain=analysis, stages=intent/analysis]
 - portal-frame (Portal Frame): Skill for portal-frame intent detection and clarification. [domain=structure-type, stages=intent/draft/analysis/design]
-- postprocess-builtin (Builtin Result Postprocessing): Extract envelopes, key metrics, and controlling cases from raw analysis results for downstream code-check and report generation. [domain=result-postprocess, stages=analysis]
-- report-export-builtin (Builtin Report Export): Assemble analysis and code-check outputs into exportable structural engineering reports. [domain=report-export, stages=design]
-- section-bridge (Bridge Section Designer): Parameter clarification and model skeleton generation for bridge girders, box girders, deck width, and girder spacing. [domain=section, stages=intent/draft/analysis/design]
-- section-common (Common Section Designer): Parameter clarification, default guidance, and model skeleton generation for common beams, frames, columns, and standard profiles. [domain=section, stages=intent/draft/analysis/design]
-- section-irregular (Irregular Section Designer): Parameter clarification, default guidance, and outline-skeleton generation for tapered, asymmetric, perforated, and custom sections. [domain=section, stages=intent/draft/analysis/design]
-- seismic-load (Seismic Load): Generate seismic loads using equivalent base shear method according to GB50011-2010 with multiple force distribution strategies. [domain=load-boundary, stages=intent/analysis]
-- shell (Restricted Shell Execution): Execute restricted shell commands in a sandboxed environment, limited to allowlisted analysis engines and scripting tools. [domain=general, stages=analysis]
-- skill-creation (Skill Creation Wizard): Guide users through creating new StructureClaw skills, including skill.yaml manifest, stage markdown files, and optional handler.ts modules. [domain=general, stages=intent/draft]
-- snow-load (Snow Load): Generate roof snow loads with code-based defaults or user-specified values. [domain=load-boundary, stages=intent/analysis]
-- temperature-load (Temperature Load): Generate temperature loads for thermal expansion and contraction effects. [domain=load-boundary, stages=intent/analysis]
 - truss (Truss): Skill for planar truss intent detection and clarification. [domain=structure-type, stages=intent/draft/analysis/design]
-- validation-structure-model (Structure Model Validation): Validate structural model inputs, schema compliance, and consistency before downstream analysis. [domain=validation, stages=intent/draft/analysis]
-- visualization-frame-summary (Frame Structure Summary): Show frame statistics including node and element counts, max displacement, max reaction, and max force. [domain=visualization, stages=intent/analysis]
-- wind-load (Wind Load): Generate wind loads according to GB50009-2012 including exposure categories and building shapes. [domain=load-boundary, stages=intent/analysis]
-- yjk-static (YJK Static Analysis): YJK 3-D frame statics and native frame design. Analysis preserves physical members, load positions and source cases, with fixed/pinned/directional vertical-column bases and paired local beam bending releases retaining torsion; ordinary beam/column weight binds authored density and area to an explicit case. Explicit design requests read concrete rectangular-member reinforcement or steel I/box stress checks with physical geometry, grade, code and native combinations verified. Missing values never become zero and reference sections cannot be designed. [domain=analysis, stages=intent/analysis]
 
 ## Current Session State
 
@@ -191,7 +156,7 @@ exports[`characterization: run policy and ablation surface policy variant builde
 ### Session Config
 - Analysis type: not set
 - Design code: not set
-- Selected skills: beam, boundary-condition, cad-dxf-input, code-check-gb50010, code-check-gb50011, code-check-gb50017, code-check-jgj3, column, concrete-frame, crane-load, csv-excel-input, dead-load, double-span-beam, frame, generic, image-vision-input, live-load, load-combination, memory, nodal-constraint, opensees-dynamic, opensees-nonlinear, opensees-seismic, opensees-static, pdf-input, pkpm-calcbook, pkpm-static, portal-frame, postprocess-builtin, report-export-builtin, section-bridge, section-common, section-irregular, seismic-load, shell, skill-creation, snow-load, temperature-load, truss, validation-structure-model, visualization-frame-summary, wind-load, yjk-static
+- Selected skills: beam, column, concrete-frame, double-span-beam, frame, generic, portal-frame, truss
 
 ## Behaviour Rules
 
@@ -238,7 +203,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - After analyze_file returns PDF text, extract dimensions, loads, and materials by LLM semantic understanding, then call extract_draft_params; do not replace semantic understanding with keyword or regex matching.
 
 **China seismic analysis rules**:
-- When the user requests China-code seismic design, seismic fortification, response-spectrum analysis, selected ground motions, or time-history analysis, use set_session_config with analysisType="seismic", designCode="GB/T 50011-2010-2024", and skillIdsJson selecting opensees-seismic while retaining the relevant modeling, validation, and report skills.
+- When the user requests China-code seismic design, seismic fortification, response-spectrum analysis, selected ground motions, or time-history analysis, use set_session_config with analysisType="seismic", designCode="GB/T 50011-2010-2024", and select run_analysis.analysisSkillId="opensees-seismic".
 - Seismic method selection must come from LLM semantic understanding of the full request and be emitted as structured seismicWorkflow; do not choose response_spectrum, time_history, pushover, or elastic_plastic_time_history by keyword or regex matching.
 - Before calling run_analysis, a non-empty structured seismicWorkflow must already exist from extract_draft_params in draftState.skillState.seismicWorkflow, frontend structured contextSeismicWorkflow, or the current seismicWorkflowJson input; otherwise extract it or ask for clarification instead of running seismic analysis directly.
 - seismicWorkflow should include the known fields among methodPreference, designBasis.siteSeismic, designRequirements including known fortificationCategory, seismicGrade, and irregularity, structure, groundMotionSet, responseSpectrum.modalCombination, and directions; prefer directions=["x","y"] for 3D structures and directions=["x"] for 2D frames. Use only structured cqc/srss enum values for modalCombination and default to cqc. Leave unknown fields missing and ask for clarification or allow the runtime to return partial.
@@ -251,6 +216,28 @@ When the user makes a structural design or analysis request, follow this workflo
 - Seismic reports include the performed check results or state that no check was run; if generate_report returns SEISMIC_CODE_CHECK_REQUIRED, call run_code_check and retry the report.
 
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
+
+Providers (select by tool arguments) / Provider（通过工具参数选择）:
+- opensees-dynamic: OpenSees Dynamic Analysis
+- opensees-nonlinear: OpenSees Nonlinear Analysis
+- opensees-seismic: OpenSees Seismic Analysis
+- opensees-static: OpenSees Static Analysis
+- pkpm-static: PKPM Static Analysis
+- yjk-static: YJK Static Analysis
+- code-check-gb50010: Code Check GB50010
+- code-check-gb50011: Code Check GB50011
+- code-check-gb50017: Code Check GB50017
+- code-check-jgj3: Code Check JGJ3
+- cad-dxf-input: DXF/CAD Structural Drawing Parsing
+- csv-excel-input: CSV/Excel Structural Parameter Input
+- image-vision-input: Image Structural Information Recognition
+- pdf-input: PDF Structural Document Parsing
+- report-export-builtin: Builtin Report Export
+- pkpm-calcbook: PKPM SATWE Calculation Report Export
+Keep every load, case, target, sign and unit. Distinguish nodal forces (kN), member loads (kN/m) and area loads (kN/m²); transfer floor loads once and verify the total. Self-weight is included only when requested. Wind, snow, crane and temperature actions need their physical direction and supplied basis.
+Supports restrain physical degrees of freedom; releases describe member-end freedom. Keep their axes explicit and check connectivity and stability. A pin transfers forces without fixing rotations; a roller leaves its declared translation free. Do not infer member design lengths from mesh lengths.
+Before analysis check geometry, referenced records, connectivity, supports, section/material evidence, units and load totals. Report unsupported capability or remaining errors honestly rather than substituting a different structure or engine.
+Summarise supports, applied totals, reactions and governing signed results with case, member, position and units. Use only the current model/run. Forces from placeholder stiffness cannot justify displacements or design. Generate reports only when requested; distinguish diagrams from numerical evidence.
 Explicit user properties win. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets). A designation without complete dimensions or explicit properties requires one dimension question together with other genuinely missing inputs; do not build or calculate before actual confirmation. You may offer an "assistant-recalled table value, please verify" option. A designation is not confirmation: never adopt or relabel recalled values yourself. After confirmation record user-sourced dimensions and derive properties. Confirmation covers only the actual values confirmed, not other recalled properties. Unconfirmed assistant recall belongs only in labelled clarification options, never in answer calculations, estimates or comparisons. Say plainly who supplied each value: the user, the system (geometry or a code table), or an assistant option confirmed by the user; never claim tool retrieval. Never state adequacy or compliance pass/fail unless a code check was actually run and passed; with analysis alone report values and assumptions. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never expose budgets/recovery counts or ask for a new message to reset them.
 Section evidence / 截面证据: Parsed attachment numbers are supplied input: mark extra.provenance.shape/properties="attachment"; extra.evidence may cite each numeric field, e.g. {"properties.A":{evidenceId:"file:...",path:"rows.0.1",unit:"m2"}}. The system verifies parser candidates; image values require a reviewed observation. For free-text acceptance of offered candidates, use extra.confirmation={clarificationId,candidateIds:[...]}, using ONLY the answered clarification receipt; confirmation covers exactly its stored values. For a stated ratio use extra.provenance.properties="rule" and extra.rules={"properties.Iy":{sourceSectionId:"B1",sourceField:"properties.Iy",factor:1.5,statement:"verbatim user rule"}}; the system recomputes from evidenced inputs. Never promote unconfirmed recall. / 附件解析数值属于输入，来源标 attachment，可逐字段引用解析证据ID与路径；图像必须已有复核观察记录。无数字的确认由语义理解后用 extra.confirmation 关联已回答的澄清ID和候选ID，仅确认原候选值。比例规则记录来源截面、字段、倍数及用户原文，系统用已证实输入重算；未确认记忆值不得进入求解。
 Interpret signed loads using the stated coordinate or direction convention. When it determines the direction, preserve signed canonical components, or use a nonnegative magnitude with the corresponding direction in magnitude/direction fields. Ask only when direction remains undetermined. / 按已声明的坐标或方向约定解释荷载正负号；方向已确定时保留规范分量的符号，或在大小/方向字段中使用非负大小与对应方向。仅在方向仍无法确定时追问。
@@ -271,48 +258,13 @@ exports[`characterization: run policy and ablation surface policy variant builde
 {
   "activeSkillIds": [
     "beam",
-    "boundary-condition",
-    "cad-dxf-input",
-    "code-check-gb50010",
-    "code-check-gb50011",
-    "code-check-gb50017",
-    "code-check-jgj3",
     "column",
     "concrete-frame",
-    "crane-load",
-    "csv-excel-input",
-    "dead-load",
     "double-span-beam",
     "frame",
     "generic",
-    "image-vision-input",
-    "live-load",
-    "load-combination",
-    "memory",
-    "nodal-constraint",
-    "opensees-dynamic",
-    "opensees-nonlinear",
-    "opensees-seismic",
-    "opensees-static",
-    "pdf-input",
-    "pkpm-calcbook",
-    "pkpm-static",
     "portal-frame",
-    "postprocess-builtin",
-    "report-export-builtin",
-    "section-bridge",
-    "section-common",
-    "section-irregular",
-    "seismic-load",
-    "shell",
-    "skill-creation",
-    "snow-load",
-    "temperature-load",
     "truss",
-    "validation-structure-model",
-    "visualization-frame-summary",
-    "wind-load",
-    "yjk-static",
   ],
   "activeToolIds": [
     "analyze_file",
@@ -366,7 +318,7 @@ exports[`characterization: run policy and ablation surface policy variant builde
   "executionOwner": "structureclaw",
   "fieldSources": {
     "budgets.maxLlmCallsPerTurn": "default",
-    "budgets.maxToolCallsPerTurn": "settings",
+    "budgets.maxToolCallsPerTurn": "default",
     "builder": "request",
     "context.history": "default",
     "context.memoryScopes": "default",
@@ -379,7 +331,7 @@ exports[`characterization: run policy and ablation surface policy variant builde
     "tools.enabledIds": "default",
   },
   "knowledge": "enabled",
-  "policyHash": "4a74b6f47e3c147fea2f004c7069b57173db13bb2ece391b5e04a839eccf9f90",
+  "policyHash": "9e543ac8300fbc80189cd385afbebf4a5d346232e2896577c76b9309b6b72382",
   "repair": {
     "enabled": true,
     "maxRecoveriesPerTurn": 2,
@@ -429,8 +381,8 @@ exports[`characterization: run policy and ablation surface policy variant defaul
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 29325,
-  "systemPromptSha256": "c3ba99b8b7cb194b1a056bd8133e5190c8fcf14dac6e8cbe50f42a900b4d264a",
+  "systemPromptChars": 22650,
+  "systemPromptSha256": "a648911cef272334dba4a88d4b7ace10ac40bc8c5b0cff9ef90dee52e710322e",
 }
 `;
 
@@ -443,48 +395,13 @@ exports[`characterization: run policy and ablation surface policy variant defaul
 ## Available Skills
 
 - beam (Beam): Skill for beam or cantilever intent detection and clarification. [domain=structure-type, stages=intent/draft/analysis/design]
-- boundary-condition (Boundary Condition): Define boundary conditions including nodal constraints and member end releases. [domain=load-boundary, stages=intent/analysis]
-- cad-dxf-input (DXF/CAD Structural Drawing Parsing): Parse DXF files from CAD software, extract line, dimension, and text entities, and map structural geometry information to DraftState fields. [domain=data-input, stages=intent/draft]
-- code-check-gb50010 (Code Check GB50010): Run concrete structure code checks under GB50010. [domain=code-check, stages=intent/analysis/design]
-- code-check-gb50011 (Code Check GB50011): Run seismic code checks under GB50011. [domain=code-check, stages=intent/analysis/design]
-- code-check-gb50017 (Code Check GB50017): Run steel structure code checks under GB50017. [domain=code-check, stages=intent/analysis/design]
-- code-check-jgj3 (Code Check JGJ3): Run high-rise concrete checks under JGJ3. [domain=code-check, stages=intent/analysis/design]
 - column (Column): Skill for standalone column intent detection and axial-load analysis guidance. [domain=structure-type, stages=intent/draft/analysis/design]
 - concrete-frame (Concrete Frame): Skill for regular 2D/3D concrete frame intent detection and parameter clarification. [domain=structure-type, stages=intent/draft/analysis/design]
-- crane-load (Crane Load): Generate crane loads for industrial buildings with multiple crane configurations. [domain=load-boundary, stages=intent/analysis]
-- csv-excel-input (CSV/Excel Structural Parameter Input): Parse structural parameters (stories, sections, loads) from CSV or Excel files and map them to DraftState fields for downstream structural skills. [domain=data-input, stages=intent/draft]
-- dead-load (Dead Load): Generate dead loads including gravity loads from structural elements and fixed equipment. [domain=load-boundary, stages=intent/analysis]
 - double-span-beam (Continuous Beam): Skill for intent detection, clarification, and model construction of continuous beams with two or more spans. [domain=structure-type, stages=intent/draft/analysis/design]
 - frame (Regular Frame): Skill for regular 2D/3D frame intent detection and parameter clarification. [domain=structure-type, stages=intent/draft/analysis/design]
 - generic (Generic Structure Type): Generic fallback structure-type skill. It is not always the strongest, but it catches unmatched structural modeling requests and guides downstream skills and tools. [domain=structure-type, stages=intent/draft/analysis/design]
-- image-vision-input (Image Structural Information Recognition): Use multimodal vision capabilities to recognize structural members, dimension annotations, and material information from photos, scanned drawings, and screenshots, mapping them to DraftState. [domain=data-input, stages=intent/draft]
-- live-load (Live Load): Generate live loads including floor loads, roof loads, and other variable loads according to GB50009-2012. [domain=load-boundary, stages=intent/analysis]
-- load-combination (Load Combination): Generate load combinations for ultimate and serviceability limit states including seismic combinations. [domain=load-boundary, stages=intent/analysis]
-- memory (Context Memory): Maintain cross-turn state in engineering sessions, helping the agent remember key parameters and decision context. [domain=general, stages=intent/draft/analysis/design]
-- nodal-constraint (Nodal Constraint): Define nodal constraints including restraints and elastic supports. [domain=load-boundary, stages=analysis]
-- opensees-dynamic (OpenSees Dynamic Analysis): OpenSees linear modal and earthquake time-history analysis with explicit mass source, direction, damping and time step. Records requested six-component nodal motion, member end forces and support reactions. Motion is relative to the ground; arbitrary interior transient responses and general nonlinear dynamics are unsupported. [domain=analysis, stages=intent/analysis]
-- opensees-nonlinear (OpenSees Nonlinear Analysis): Skill for recognizing and routing OpenSees nonlinear analysis requests. [domain=analysis, stages=intent/analysis]
-- opensees-seismic (OpenSees Seismic Analysis): Skill for China-code seismic response-spectrum, elastic time-history, and pushover analysis using OpenSees. [domain=analysis, stages=intent/analysis]
-- opensees-static (OpenSees Static Analysis): OpenSees 2-D/3-D linear frame statics with beams, columns, trusses, mixed braces, partial/point loads, case combinations and bending end releases. Interior mechanics recovery is distinct from direct nodal results. Axial/shear/torsional releases, rigid offsets and second-order analysis are unsupported. [domain=analysis, stages=intent/analysis]
-- pdf-input (PDF Structural Document Parsing): Extract text from PDF structural drawings or calculation reports, identify key structural parameters (dimensions, material grades, loads), and map them to DraftState. [domain=data-input, stages=intent/draft]
-- pkpm-calcbook (PKPM SATWE Calculation Report Export): Extract calculation report data from completed PKPM SATWE analysis results, including modal analysis, story stiffness, drift ratios, base shear, and member design results. Outputs Markdown, Word, and PDF. [domain=report-export, stages=design]
-- pkpm-static (PKPM Static Analysis): PKPM linear elastic frame statics preserving per-floor topology and explicit material/section properties, with six-component nodal loads, multiple cases, signed stations and linear combinations. Explicit design requests use verified standard materials and physical sections for required reinforcement or native steel checks. Ordinary analysis publishes no design conclusions; missing results are not zero-filled. [domain=analysis, stages=intent/analysis]
 - portal-frame (Portal Frame): Skill for portal-frame intent detection and clarification. [domain=structure-type, stages=intent/draft/analysis/design]
-- postprocess-builtin (Builtin Result Postprocessing): Extract envelopes, key metrics, and controlling cases from raw analysis results for downstream code-check and report generation. [domain=result-postprocess, stages=analysis]
-- report-export-builtin (Builtin Report Export): Assemble analysis and code-check outputs into exportable structural engineering reports. [domain=report-export, stages=design]
-- section-bridge (Bridge Section Designer): Parameter clarification and model skeleton generation for bridge girders, box girders, deck width, and girder spacing. [domain=section, stages=intent/draft/analysis/design]
-- section-common (Common Section Designer): Parameter clarification, default guidance, and model skeleton generation for common beams, frames, columns, and standard profiles. [domain=section, stages=intent/draft/analysis/design]
-- section-irregular (Irregular Section Designer): Parameter clarification, default guidance, and outline-skeleton generation for tapered, asymmetric, perforated, and custom sections. [domain=section, stages=intent/draft/analysis/design]
-- seismic-load (Seismic Load): Generate seismic loads using equivalent base shear method according to GB50011-2010 with multiple force distribution strategies. [domain=load-boundary, stages=intent/analysis]
-- shell (Restricted Shell Execution): Execute restricted shell commands in a sandboxed environment, limited to allowlisted analysis engines and scripting tools. [domain=general, stages=analysis]
-- skill-creation (Skill Creation Wizard): Guide users through creating new StructureClaw skills, including skill.yaml manifest, stage markdown files, and optional handler.ts modules. [domain=general, stages=intent/draft]
-- snow-load (Snow Load): Generate roof snow loads with code-based defaults or user-specified values. [domain=load-boundary, stages=intent/analysis]
-- temperature-load (Temperature Load): Generate temperature loads for thermal expansion and contraction effects. [domain=load-boundary, stages=intent/analysis]
 - truss (Truss): Skill for planar truss intent detection and clarification. [domain=structure-type, stages=intent/draft/analysis/design]
-- validation-structure-model (Structure Model Validation): Validate structural model inputs, schema compliance, and consistency before downstream analysis. [domain=validation, stages=intent/draft/analysis]
-- visualization-frame-summary (Frame Structure Summary): Show frame statistics including node and element counts, max displacement, max reaction, and max force. [domain=visualization, stages=intent/analysis]
-- wind-load (Wind Load): Generate wind loads according to GB50009-2012 including exposure categories and building shapes. [domain=load-boundary, stages=intent/analysis]
-- yjk-static (YJK Static Analysis): YJK 3-D frame statics and native frame design. Analysis preserves physical members, load positions and source cases, with fixed/pinned/directional vertical-column bases and paired local beam bending releases retaining torsion; ordinary beam/column weight binds authored density and area to an explicit case. Explicit design requests read concrete rectangular-member reinforcement or steel I/box stress checks with physical geometry, grade, code and native combinations verified. Missing values never become zero and reference sections cannot be designed. [domain=analysis, stages=intent/analysis]
 
 ## Current Session State
 
@@ -500,7 +417,7 @@ exports[`characterization: run policy and ablation surface policy variant defaul
 ### Session Config
 - Analysis type: not set
 - Design code: not set
-- Selected skills: beam, boundary-condition, cad-dxf-input, code-check-gb50010, code-check-gb50011, code-check-gb50017, code-check-jgj3, column, concrete-frame, crane-load, csv-excel-input, dead-load, double-span-beam, frame, generic, image-vision-input, live-load, load-combination, memory, nodal-constraint, opensees-dynamic, opensees-nonlinear, opensees-seismic, opensees-static, pdf-input, pkpm-calcbook, pkpm-static, portal-frame, postprocess-builtin, report-export-builtin, section-bridge, section-common, section-irregular, seismic-load, shell, skill-creation, snow-load, temperature-load, truss, validation-structure-model, visualization-frame-summary, wind-load, yjk-static
+- Selected skills: beam, column, concrete-frame, double-span-beam, frame, generic, portal-frame, truss
 
 ## Behaviour Rules
 
@@ -547,7 +464,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - After analyze_file returns PDF text, extract dimensions, loads, and materials by LLM semantic understanding, then call extract_draft_params; do not replace semantic understanding with keyword or regex matching.
 
 **China seismic analysis rules**:
-- When the user requests China-code seismic design, seismic fortification, response-spectrum analysis, selected ground motions, or time-history analysis, use set_session_config with analysisType="seismic", designCode="GB/T 50011-2010-2024", and skillIdsJson selecting opensees-seismic while retaining the relevant modeling, validation, and report skills.
+- When the user requests China-code seismic design, seismic fortification, response-spectrum analysis, selected ground motions, or time-history analysis, use set_session_config with analysisType="seismic", designCode="GB/T 50011-2010-2024", and select run_analysis.analysisSkillId="opensees-seismic".
 - Seismic method selection must come from LLM semantic understanding of the full request and be emitted as structured seismicWorkflow; do not choose response_spectrum, time_history, pushover, or elastic_plastic_time_history by keyword or regex matching.
 - Before calling run_analysis, a non-empty structured seismicWorkflow must already exist from extract_draft_params in draftState.skillState.seismicWorkflow, frontend structured contextSeismicWorkflow, or the current seismicWorkflowJson input; otherwise extract it or ask for clarification instead of running seismic analysis directly.
 - seismicWorkflow should include the known fields among methodPreference, designBasis.siteSeismic, designRequirements including known fortificationCategory, seismicGrade, and irregularity, structure, groundMotionSet, responseSpectrum.modalCombination, and directions; prefer directions=["x","y"] for 3D structures and directions=["x"] for 2D frames. Use only structured cqc/srss enum values for modalCombination and default to cqc. Leave unknown fields missing and ask for clarification or allow the runtime to return partial.
@@ -560,6 +477,28 @@ When the user makes a structural design or analysis request, follow this workflo
 - Seismic reports include the performed check results or state that no check was run; if generate_report returns SEISMIC_CODE_CHECK_REQUIRED, call run_code_check and retry the report.
 
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
+
+Providers (select by tool arguments) / Provider（通过工具参数选择）:
+- opensees-dynamic: OpenSees Dynamic Analysis
+- opensees-nonlinear: OpenSees Nonlinear Analysis
+- opensees-seismic: OpenSees Seismic Analysis
+- opensees-static: OpenSees Static Analysis
+- pkpm-static: PKPM Static Analysis
+- yjk-static: YJK Static Analysis
+- code-check-gb50010: Code Check GB50010
+- code-check-gb50011: Code Check GB50011
+- code-check-gb50017: Code Check GB50017
+- code-check-jgj3: Code Check JGJ3
+- cad-dxf-input: DXF/CAD Structural Drawing Parsing
+- csv-excel-input: CSV/Excel Structural Parameter Input
+- image-vision-input: Image Structural Information Recognition
+- pdf-input: PDF Structural Document Parsing
+- report-export-builtin: Builtin Report Export
+- pkpm-calcbook: PKPM SATWE Calculation Report Export
+Keep every load, case, target, sign and unit. Distinguish nodal forces (kN), member loads (kN/m) and area loads (kN/m²); transfer floor loads once and verify the total. Self-weight is included only when requested. Wind, snow, crane and temperature actions need their physical direction and supplied basis.
+Supports restrain physical degrees of freedom; releases describe member-end freedom. Keep their axes explicit and check connectivity and stability. A pin transfers forces without fixing rotations; a roller leaves its declared translation free. Do not infer member design lengths from mesh lengths.
+Before analysis check geometry, referenced records, connectivity, supports, section/material evidence, units and load totals. Report unsupported capability or remaining errors honestly rather than substituting a different structure or engine.
+Summarise supports, applied totals, reactions and governing signed results with case, member, position and units. Use only the current model/run. Forces from placeholder stiffness cannot justify displacements or design. Generate reports only when requested; distinguish diagrams from numerical evidence.
 Explicit user properties win. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets). A designation without complete dimensions or explicit properties requires one dimension question together with other genuinely missing inputs; do not build or calculate before actual confirmation. You may offer an "assistant-recalled table value, please verify" option. A designation is not confirmation: never adopt or relabel recalled values yourself. After confirmation record user-sourced dimensions and derive properties. Confirmation covers only the actual values confirmed, not other recalled properties. Unconfirmed assistant recall belongs only in labelled clarification options, never in answer calculations, estimates or comparisons. Say plainly who supplied each value: the user, the system (geometry or a code table), or an assistant option confirmed by the user; never claim tool retrieval. Never state adequacy or compliance pass/fail unless a code check was actually run and passed; with analysis alone report values and assumptions. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never expose budgets/recovery counts or ask for a new message to reset them.
 Section evidence / 截面证据: Parsed attachment numbers are supplied input: mark extra.provenance.shape/properties="attachment"; extra.evidence may cite each numeric field, e.g. {"properties.A":{evidenceId:"file:...",path:"rows.0.1",unit:"m2"}}. The system verifies parser candidates; image values require a reviewed observation. For free-text acceptance of offered candidates, use extra.confirmation={clarificationId,candidateIds:[...]}, using ONLY the answered clarification receipt; confirmation covers exactly its stored values. For a stated ratio use extra.provenance.properties="rule" and extra.rules={"properties.Iy":{sourceSectionId:"B1",sourceField:"properties.Iy",factor:1.5,statement:"verbatim user rule"}}; the system recomputes from evidenced inputs. Never promote unconfirmed recall. / 附件解析数值属于输入，来源标 attachment，可逐字段引用解析证据ID与路径；图像必须已有复核观察记录。无数字的确认由语义理解后用 extra.confirmation 关联已回答的澄清ID和候选ID，仅确认原候选值。比例规则记录来源截面、字段、倍数及用户原文，系统用已证实输入重算；未确认记忆值不得进入求解。
 Interpret signed loads using the stated coordinate or direction convention. When it determines the direction, preserve signed canonical components, or use a nonnegative magnitude with the corresponding direction in magnitude/direction fields. Ask only when direction remains undetermined. / 按已声明的坐标或方向约定解释荷载正负号；方向已确定时保留规范分量的符号，或在大小/方向字段中使用非负大小与对应方向。仅在方向仍无法确定时追问。
@@ -580,48 +519,13 @@ exports[`characterization: run policy and ablation surface policy variant defaul
 {
   "activeSkillIds": [
     "beam",
-    "boundary-condition",
-    "cad-dxf-input",
-    "code-check-gb50010",
-    "code-check-gb50011",
-    "code-check-gb50017",
-    "code-check-jgj3",
     "column",
     "concrete-frame",
-    "crane-load",
-    "csv-excel-input",
-    "dead-load",
     "double-span-beam",
     "frame",
     "generic",
-    "image-vision-input",
-    "live-load",
-    "load-combination",
-    "memory",
-    "nodal-constraint",
-    "opensees-dynamic",
-    "opensees-nonlinear",
-    "opensees-seismic",
-    "opensees-static",
-    "pdf-input",
-    "pkpm-calcbook",
-    "pkpm-static",
     "portal-frame",
-    "postprocess-builtin",
-    "report-export-builtin",
-    "section-bridge",
-    "section-common",
-    "section-irregular",
-    "seismic-load",
-    "shell",
-    "skill-creation",
-    "snow-load",
-    "temperature-load",
     "truss",
-    "validation-structure-model",
-    "visualization-frame-summary",
-    "wind-load",
-    "yjk-static",
   ],
   "activeToolIds": [
     "analyze_file",
@@ -675,7 +579,7 @@ exports[`characterization: run policy and ablation surface policy variant defaul
   "executionOwner": "structureclaw",
   "fieldSources": {
     "budgets.maxLlmCallsPerTurn": "default",
-    "budgets.maxToolCallsPerTurn": "settings",
+    "budgets.maxToolCallsPerTurn": "default",
     "builder": "default",
     "context.history": "default",
     "context.memoryScopes": "default",
@@ -688,7 +592,7 @@ exports[`characterization: run policy and ablation surface policy variant defaul
     "tools.enabledIds": "default",
   },
   "knowledge": "enabled",
-  "policyHash": "b6875b0214513a828455bfa4a128a143b2dd1b1dae22d44a25ae3ea7a6abec75",
+  "policyHash": "6f9278e133aef562f5ceddff4efcdfdf031a28e623354cff8623addd307c15e3",
   "repair": {
     "enabled": true,
     "maxRecoveriesPerTurn": 2,
@@ -738,8 +642,8 @@ exports[`characterization: run policy and ablation surface policy variant defaul
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 15107,
-  "systemPromptSha256": "9c345f558c0426ddd6c9c5fb380cde70d909c17dd2ce2283a0d9fb76b31c653b",
+  "systemPromptChars": 11132,
+  "systemPromptSha256": "99e7f85c84f63371537ddd00695f7a9af58c341d20f9f375ce818c9ac8527c96",
 }
 `;
 
@@ -752,48 +656,13 @@ exports[`characterization: run policy and ablation surface policy variant defaul
 ## 可用技能
 
 - beam (梁): 单跨梁或悬臂梁的需求识别与补参 skill。 [domain=structure-type, stages=intent/draft/analysis/design]
-- boundary-condition (边界条件): 定义边界条件，包括节点约束和杆端释放。 [domain=load-boundary, stages=intent/analysis]
-- cad-dxf-input (DXF/CAD 结构图纸解析): 解析来自 CAD 软件的 DXF 文件，提取线条、标注、文字实体，将结构几何信息映射到 DraftState 字段。 [domain=data-input, stages=intent/draft]
-- code-check-gb50010 (规范校核 GB50010): 按 GB50010 执行混凝土结构规范校核。 [domain=code-check, stages=intent/analysis/design]
-- code-check-gb50011 (规范校核 GB50011): 按 GB50011 执行抗震规范校核。 [domain=code-check, stages=intent/analysis/design]
-- code-check-gb50017 (规范校核 GB50017): 按 GB50017 执行钢结构规范校核。 [domain=code-check, stages=intent/analysis/design]
-- code-check-jgj3 (规范校核 JGJ3): 按 JGJ3 执行高层混凝土结构规程校核。 [domain=code-check, stages=intent/analysis/design]
 - column (柱): 独立柱或单根柱轴向受力分析的需求识别与补参 skill。 [domain=structure-type, stages=intent/draft/analysis/design]
 - concrete-frame (混凝土框架): 规则混凝土平面/空间框架需求识别与补参 skill。 [domain=structure-type, stages=intent/draft/analysis/design]
-- crane-load (吊车荷载): 生成吊车荷载，适用于工业建筑，支持多种吊车配置。 [domain=load-boundary, stages=intent/analysis]
-- csv-excel-input (CSV/Excel 结构参数读取): 从 CSV 或 Excel 文件中解析结构参数（楼层、截面、荷载），映射到 DraftState 字段供下游结构技能消费。 [domain=data-input, stages=intent/draft]
-- dead-load (恒荷载): 生成恒荷载，包括结构构件自重和固定设备重力荷载。 [domain=load-boundary, stages=intent/analysis]
 - double-span-beam (连续梁): 两跨及以上连续梁的需求识别、补参与模型构建 skill。 [domain=structure-type, stages=intent/draft/analysis/design]
 - frame (规则框架): 规则平面/空间框架需求识别与补参 skill。 [domain=structure-type, stages=intent/draft/analysis/design]
 - generic (通用结构类型): 通用兜底的结构类型 skill。它不一定最强，但会先接住未命中的结构建模请求并引导后续技能与工具调用。 [domain=structure-type, stages=intent/draft/analysis/design]
-- image-vision-input (图片结构信息识别): 使用多模态视觉能力，从照片、扫描图、截图等图像中识别结构构件、尺寸标注和材料信息，映射到 DraftState。 [domain=data-input, stages=intent/draft]
-- live-load (活荷载): 生成活荷载，包括楼面荷载、屋面荷载及其他可变荷载，符合 GB50009-2012 规范。 [domain=load-boundary, stages=intent/analysis]
-- load-combination (荷载组合): 生成荷载组合，包括承载力极限状态和正常使用极限状态组合，以及地震组合。 [domain=load-boundary, stages=intent/analysis]
-- memory (上下文记忆): 在工程会话中维持跨轮次状态，帮助 agent 记住关键参数和决策上下文。 [domain=general, stages=intent/draft/analysis/design]
-- nodal-constraint (节点约束): 定义节点约束，包括刚性约束和弹性支座。 [domain=load-boundary, stages=analysis]
-- opensees-dynamic (OpenSees 动力分析): OpenSees 线弹性模态与一致时间步地震时程分析；显式质量方案、激励方向、阻尼，记录指定节点六分量位移/速度/加速度、构件端力和支座反力。时程运动相对地面；暂不提供任意跨内瞬态响应或通用非线性动力。 [domain=analysis, stages=intent/analysis]
-- opensees-nonlinear (OpenSees 非线性分析): 面向 OpenSees 非线性分析需求识别与路由的 skill。 [domain=analysis, stages=intent/analysis]
-- opensees-seismic (OpenSees 抗震分析): 使用 OpenSees 执行中国抗震反应谱、弹性时程和 Pushover 等抗震分析的 skill。 [domain=analysis, stages=intent/analysis]
-- opensees-static (OpenSees 静力分析): OpenSees 二维/三维线弹性杆系静力分析：梁柱、桁架与混合支撑，局部/集中荷载、多工况组合及弯曲端释放。跨内力学恢复与直接节点结果区分；轴向/剪切/扭转释放、刚端偏心和二阶分析尚不支持。 [domain=analysis, stages=intent/analysis]
-- pdf-input (PDF 结构文档解析): 从 PDF 结构图纸或计算报告中提取文本内容，识别关键结构参数（尺寸、材料等级、荷载），映射到 DraftState。 [domain=data-input, stages=intent/draft]
-- pkpm-calcbook (PKPM SATWE 计算书导出): 从已完成的 PKPM SATWE 分析结果中提取计算书数据，包括模态分析、层刚度、层间位移角、基底剪力、构件设计结果等，输出 Markdown/Word/PDF。 [domain=report-export, stages=design]
-- pkpm-static (PKPM 静力分析): PKPM 线弹性杆系静力分析，逐层保持实际拓扑、显式材料与截面属性；接通节点六分量荷载、多工况、有符号截面结果与线性组合。显式设计请求可使用已验证标准材料和真实截面计算所需配筋或读取原生钢构件校核；普通分析不发布设计结论，缺失结果不补零。 [domain=analysis, stages=intent/analysis]
 - portal-frame (门式刚架): 门式刚架需求识别与补参 skill。 [domain=structure-type, stages=intent/draft/analysis/design]
-- postprocess-builtin (内置结果后处理): 对分析原始结果提取包络、关键指标和控制工况，为下游规范校核与报告生成提供结构化后处理数据。 [domain=result-postprocess, stages=analysis]
-- report-export-builtin (内置报告导出): 汇总分析与规范校核结果，生成可导出的结构工程报告。 [domain=report-export, stages=design]
-- section-bridge (桥梁截面设计): 桥梁主梁、箱梁、工字梁、桥面宽度与梁间距相关的截面补参与模型骨架生成。 [domain=section, stages=intent/draft/analysis/design]
-- section-common (通用截面设计): 常规梁、框架、柱与标准型钢截面的补参、默认建议与模型骨架生成。 [domain=section, stages=intent/draft/analysis/design]
-- section-irregular (异形与变截面设计): 变截面、异形、开孔、偏心与自定义轮廓截面的补参、默认建议与轮廓骨架生成。 [domain=section, stages=intent/draft/analysis/design]
-- seismic-load (地震荷载): 生成地震荷载，使用底部剪力法，符合 GB50011-2010 规范，支持多种力分配策略。 [domain=load-boundary, stages=intent/analysis]
-- shell (受限命令执行): 在沙箱环境中执行受限的 shell 命令，仅允许白名单中的分析引擎和脚本工具。 [domain=general, stages=analysis]
-- skill-creation (技能创建向导): 指导用户创建新的 StructureClaw 技能，包括 skill.yaml 清单、阶段 Markdown 文件和可选 handler.ts 模块。 [domain=general, stages=intent/draft]
-- snow-load (雪荷载): 生成屋面积雪荷载，支持按规范自动生成或指定雪载值。 [domain=load-boundary, stages=intent/analysis]
-- temperature-load (温度荷载): 生成温度荷载，考虑热胀冷缩效应。 [domain=load-boundary, stages=intent/analysis]
 - truss (桁架): 平面桁架的需求识别与补参 skill。 [domain=structure-type, stages=intent/draft/analysis/design]
-- validation-structure-model (结构模型校验): 对结构模型执行输入、Schema 与一致性校验，在下游分析前暴露错误与缺项。 [domain=validation, stages=intent/draft/analysis]
-- visualization-frame-summary (框架结构摘要): 展示框架结构统计摘要，包括节点数、单元数、最大位移、最大反力和最大内力。 [domain=visualization, stages=intent/analysis]
-- wind-load (风荷载): 生成风荷载，符合 GB50009-2012 规范，包括暴露类别和建筑形状。 [domain=load-boundary, stages=intent/analysis]
-- yjk-static (YJK 静力分析): YJK 三维杆系静力分析及原生框架设计。分析保留物理构件、荷载位置与源工况，支持普通竖柱固定、铰支、方向支座及梁端成对局部弯曲释放，保留扭转；普通梁柱自重绑定源密度、面积及明确工况。显式设计请求读取混凝土矩形梁柱配筋及钢 H/箱形梁柱应力验算，核对真实几何、材料牌号、规范和原生组合。缺项不填零，参考截面不用于设计。 [domain=analysis, stages=intent/analysis]
 
 ## 当前会话状态
 
@@ -809,7 +678,7 @@ exports[`characterization: run policy and ablation surface policy variant defaul
 ### 会话配置
 - 分析类型: 未设置
 - 设计规范: 未设置
-- 已选技能: beam, boundary-condition, cad-dxf-input, code-check-gb50010, code-check-gb50011, code-check-gb50017, code-check-jgj3, column, concrete-frame, crane-load, csv-excel-input, dead-load, double-span-beam, frame, generic, image-vision-input, live-load, load-combination, memory, nodal-constraint, opensees-dynamic, opensees-nonlinear, opensees-seismic, opensees-static, pdf-input, pkpm-calcbook, pkpm-static, portal-frame, postprocess-builtin, report-export-builtin, section-bridge, section-common, section-irregular, seismic-load, shell, skill-creation, snow-load, temperature-load, truss, validation-structure-model, visualization-frame-summary, wind-load, yjk-static
+- 已选技能: beam, column, concrete-frame, double-span-beam, frame, generic, portal-frame, truss
 
 ## 行为规则
 
@@ -855,7 +724,7 @@ exports[`characterization: run policy and ablation surface policy variant defaul
 - analyze_file 返回 PDF 文本后，基于 LLM 语义理解提取尺寸、荷载、材料等参数，再调用 extract_draft_params；不要用关键词或正则匹配替代语义理解。
 
 **中国抗震分析规则**:
-- 当用户要求按中国抗震规范、抗震设防、反应谱、地震波或时程分析执行时，优先用 set_session_config 设置 analysisType="seismic"、designCode="GB/T 50011-2010-2024"，并通过 skillIdsJson 选择 opensees-seismic（同时保留结构建模、校验和报告相关 skill）。
+- 当用户要求按中国抗震规范、抗震设防、反应谱、地震波或时程分析执行时，优先用 set_session_config 设置 analysisType="seismic"、designCode="GB/T 50011-2010-2024"；通过 run_analysis.analysisSkillId="opensees-seismic" 选择求解器。
 - 抗震方法选择必须来自 LLM 对完整需求的语义理解，输出结构化 seismicWorkflow；不要用关键词或正则匹配决定 response_spectrum、time_history、pushover 或 elastic_plastic_time_history。
 - 调用 run_analysis 前必须已经有非空结构化 seismicWorkflow（来自 extract_draft_params 写入 draftState.skillState.seismicWorkflow、前端结构化上下文 contextSeismicWorkflow，或本次工具入参 seismicWorkflowJson）；如果没有，先抽取或追问，不要直接运行抗震分析。
 - seismicWorkflow 至少应包含 methodPreference、designBasis.siteSeismic、designRequirements（含已知的 fortificationCategory、seismicGrade、irregularity）、structure、groundMotionSet、responseSpectrum.modalCombination 和 directions 中已知的字段；3D 结构优先输出 directions=["x","y"]，2D 框架输出 directions=["x"]；modalCombination 仅使用 cqc/srss 结构化枚举，默认 cqc；未知字段保持缺失并追问或让 runtime 返回 partial。
@@ -868,6 +737,28 @@ exports[`characterization: run policy and ablation surface policy variant defaul
 - 抗震报告包含已执行的校核结果，或说明校核未执行；如果 generate_report 返回 SEISMIC_CODE_CHECK_REQUIRED，先调用 run_code_check 后重试报告。
 
 **重要**: 工具从会话状态中自动读取数据（模型、分析结果、草稿状态等）。不要将 modelJson、analysisJson、stateJson 等参数传递给工具。工具会自动使用上一步的结果。
+
+Providers (select by tool arguments) / Provider（通过工具参数选择）:
+- opensees-dynamic: OpenSees 动力分析
+- opensees-nonlinear: OpenSees 非线性分析
+- opensees-seismic: OpenSees 抗震分析
+- opensees-static: OpenSees 静力分析
+- pkpm-static: PKPM 静力分析
+- yjk-static: YJK 静力分析
+- code-check-gb50010: 规范校核 GB50010
+- code-check-gb50011: 规范校核 GB50011
+- code-check-gb50017: 规范校核 GB50017
+- code-check-jgj3: 规范校核 JGJ3
+- cad-dxf-input: DXF/CAD 结构图纸解析
+- csv-excel-input: CSV/Excel 结构参数读取
+- image-vision-input: 图片结构信息识别
+- pdf-input: PDF 结构文档解析
+- report-export-builtin: 内置报告导出
+- pkpm-calcbook: PKPM SATWE 计算书导出
+保留全部荷载、工况、目标、符号和单位。区分节点力(kN)、杆件线荷载(kN/m)和面荷载(kN/m²)；楼面荷载只传递一次并核对总量。仅按要求计入自重。风、雪、吊车和温度作用须有明确物理方向和给定依据。
+支座约束物理自由度，端释放描述构件端部自由度。明确坐标轴并检查连接与稳定性。铰支座传力而不约束转动，滚动支座保留指定平动自由度。不得将网格长度当作设计计算长度。
+分析前核对几何、记录引用、连接、支座、截面和材料依据、单位及荷载总量。能力不支持或仍有错误时如实报告，不能替换结构或引擎。
+汇总支座、荷载总量、反力及控制有符号结果，标注工况、构件、位置和单位。只使用当前模型与运行结果。占位刚度的内力不能用于位移或设计判断。仅按请求生成报告，区分图示与数值证据。
 用户显式属性优先；仅给尺寸时由系统按尖角几何推导属性，回答注明sharp-corner（不计圆角）。仅给型号、无完整尺寸及显式属性时，将截面尺寸与其他确实缺少的输入合并询问一次，实际确认前不建模、不计算。可提供“助手记忆的标准表值，请核对”候选供用户选择；型号本身不是确认，不得自行采用或改标来源。实际确认后将尺寸记为用户来源，由系统推导属性。确认仅覆盖用户实际确认的数值，不包括其他记忆属性；未确认的助手记忆值只能出现在带标签的澄清候选中，不得用于答案中的计算、估算或对比。明确说明每项数值由谁提供：用户、系统（几何推导或规范表），或助手候选经用户确认；不得声称工具检索。只有实际运行且通过的规范校核才允许作满足要求或通过/不通过等合规结论；仅有分析结果时只报告数值和假定。已知材料牌号由系统补缺省弹性常数和密度；未提自重不追问，沿用设置（默认不计）并说明。不得向用户提及预算、纠错次数或要求另发消息。
 Section evidence / 截面证据: Parsed attachment numbers are supplied input: mark extra.provenance.shape/properties="attachment"; extra.evidence may cite each numeric field, e.g. {"properties.A":{evidenceId:"file:...",path:"rows.0.1",unit:"m2"}}. The system verifies parser candidates; image values require a reviewed observation. For free-text acceptance of offered candidates, use extra.confirmation={clarificationId,candidateIds:[...]}, using ONLY the answered clarification receipt; confirmation covers exactly its stored values. For a stated ratio use extra.provenance.properties="rule" and extra.rules={"properties.Iy":{sourceSectionId:"B1",sourceField:"properties.Iy",factor:1.5,statement:"verbatim user rule"}}; the system recomputes from evidenced inputs. Never promote unconfirmed recall. / 附件解析数值属于输入，来源标 attachment，可逐字段引用解析证据ID与路径；图像必须已有复核观察记录。无数字的确认由语义理解后用 extra.confirmation 关联已回答的澄清ID和候选ID，仅确认原候选值。比例规则记录来源截面、字段、倍数及用户原文，系统用已证实输入重算；未确认记忆值不得进入求解。
 Interpret signed loads using the stated coordinate or direction convention. When it determines the direction, preserve signed canonical components, or use a nonnegative magnitude with the corresponding direction in magnitude/direction fields. Ask only when direction remains undetermined. / 按已声明的坐标或方向约定解释荷载正负号；方向已确定时保留规范分量的符号，或在大小/方向字段中使用非负大小与对应方向。仅在方向仍无法确定时追问。
@@ -888,48 +779,13 @@ exports[`characterization: run policy and ablation surface policy variant defaul
 {
   "activeSkillIds": [
     "beam",
-    "boundary-condition",
-    "cad-dxf-input",
-    "code-check-gb50010",
-    "code-check-gb50011",
-    "code-check-gb50017",
-    "code-check-jgj3",
     "column",
     "concrete-frame",
-    "crane-load",
-    "csv-excel-input",
-    "dead-load",
     "double-span-beam",
     "frame",
     "generic",
-    "image-vision-input",
-    "live-load",
-    "load-combination",
-    "memory",
-    "nodal-constraint",
-    "opensees-dynamic",
-    "opensees-nonlinear",
-    "opensees-seismic",
-    "opensees-static",
-    "pdf-input",
-    "pkpm-calcbook",
-    "pkpm-static",
     "portal-frame",
-    "postprocess-builtin",
-    "report-export-builtin",
-    "section-bridge",
-    "section-common",
-    "section-irregular",
-    "seismic-load",
-    "shell",
-    "skill-creation",
-    "snow-load",
-    "temperature-load",
     "truss",
-    "validation-structure-model",
-    "visualization-frame-summary",
-    "wind-load",
-    "yjk-static",
   ],
   "activeToolIds": [
     "analyze_file",
@@ -983,7 +839,7 @@ exports[`characterization: run policy and ablation surface policy variant defaul
   "executionOwner": "structureclaw",
   "fieldSources": {
     "budgets.maxLlmCallsPerTurn": "default",
-    "budgets.maxToolCallsPerTurn": "settings",
+    "budgets.maxToolCallsPerTurn": "default",
     "builder": "default",
     "context.history": "default",
     "context.memoryScopes": "default",
@@ -996,7 +852,7 @@ exports[`characterization: run policy and ablation surface policy variant defaul
     "tools.enabledIds": "default",
   },
   "knowledge": "enabled",
-  "policyHash": "b6875b0214513a828455bfa4a128a143b2dd1b1dae22d44a25ae3ea7a6abec75",
+  "policyHash": "6f9278e133aef562f5ceddff4efcdfdf031a28e623354cff8623addd307c15e3",
   "repair": {
     "enabled": true,
     "maxRecoveriesPerTurn": 2,
@@ -1046,8 +902,8 @@ exports[`characterization: run policy and ablation surface policy variant knowle
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 22606,
-  "systemPromptSha256": "51ab053dbb4a915489ecdd93be00de43a9edc677537c23dc44b54304b314dd8b",
+  "systemPromptChars": 20515,
+  "systemPromptSha256": "c9b533d9963e7c8efe4234b89bc385f1d58852c9b0a9850f65f01e851e4a8dd7",
 }
 `;
 
@@ -1060,48 +916,13 @@ exports[`characterization: run policy and ablation surface policy variant knowle
 ## Available Skills
 
 - beam (Beam):  [domain=structure-type]
-- boundary-condition (Boundary Condition):  [domain=load-boundary]
-- cad-dxf-input (DXF/CAD Structural Drawing Parsing):  [domain=data-input]
-- code-check-gb50010 (Code Check GB50010):  [domain=code-check]
-- code-check-gb50011 (Code Check GB50011):  [domain=code-check]
-- code-check-gb50017 (Code Check GB50017):  [domain=code-check]
-- code-check-jgj3 (Code Check JGJ3):  [domain=code-check]
 - column (Column):  [domain=structure-type]
 - concrete-frame (Concrete Frame):  [domain=structure-type]
-- crane-load (Crane Load):  [domain=load-boundary]
-- csv-excel-input (CSV/Excel Structural Parameter Input):  [domain=data-input]
-- dead-load (Dead Load):  [domain=load-boundary]
 - double-span-beam (Continuous Beam):  [domain=structure-type]
 - frame (Regular Frame):  [domain=structure-type]
 - generic (Generic Structure Type):  [domain=structure-type]
-- image-vision-input (Image Structural Information Recognition):  [domain=data-input]
-- live-load (Live Load):  [domain=load-boundary]
-- load-combination (Load Combination):  [domain=load-boundary]
-- memory (Context Memory):  [domain=general]
-- nodal-constraint (Nodal Constraint):  [domain=load-boundary]
-- opensees-dynamic (OpenSees Dynamic Analysis):  [domain=analysis]
-- opensees-nonlinear (OpenSees Nonlinear Analysis):  [domain=analysis]
-- opensees-seismic (OpenSees Seismic Analysis):  [domain=analysis]
-- opensees-static (OpenSees Static Analysis):  [domain=analysis]
-- pdf-input (PDF Structural Document Parsing):  [domain=data-input]
-- pkpm-calcbook (PKPM SATWE Calculation Report Export):  [domain=report-export]
-- pkpm-static (PKPM Static Analysis):  [domain=analysis]
 - portal-frame (Portal Frame):  [domain=structure-type]
-- postprocess-builtin (Builtin Result Postprocessing):  [domain=result-postprocess]
-- report-export-builtin (Builtin Report Export):  [domain=report-export]
-- section-bridge (Bridge Section Designer):  [domain=section]
-- section-common (Common Section Designer):  [domain=section]
-- section-irregular (Irregular Section Designer):  [domain=section]
-- seismic-load (Seismic Load):  [domain=load-boundary]
-- shell (Restricted Shell Execution):  [domain=general]
-- skill-creation (Skill Creation Wizard):  [domain=general]
-- snow-load (Snow Load):  [domain=load-boundary]
-- temperature-load (Temperature Load):  [domain=load-boundary]
 - truss (Truss):  [domain=structure-type]
-- validation-structure-model (Structure Model Validation):  [domain=validation]
-- visualization-frame-summary (Frame Structure Summary):  [domain=visualization]
-- wind-load (Wind Load):  [domain=load-boundary]
-- yjk-static (YJK Static Analysis):  [domain=analysis]
 
 ## Current Session State
 
@@ -1117,7 +938,7 @@ exports[`characterization: run policy and ablation surface policy variant knowle
 ### Session Config
 - Analysis type: not set
 - Design code: not set
-- Selected skills: beam, boundary-condition, cad-dxf-input, code-check-gb50010, code-check-gb50011, code-check-gb50017, code-check-jgj3, column, concrete-frame, crane-load, csv-excel-input, dead-load, double-span-beam, frame, generic, image-vision-input, live-load, load-combination, memory, nodal-constraint, opensees-dynamic, opensees-nonlinear, opensees-seismic, opensees-static, pdf-input, pkpm-calcbook, pkpm-static, portal-frame, postprocess-builtin, report-export-builtin, section-bridge, section-common, section-irregular, seismic-load, shell, skill-creation, snow-load, temperature-load, truss, validation-structure-model, visualization-frame-summary, wind-load, yjk-static
+- Selected skills: beam, column, concrete-frame, double-span-beam, frame, generic, portal-frame, truss
 
 ## Behaviour Rules
 
@@ -1164,7 +985,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - After analyze_file returns PDF text, extract dimensions, loads, and materials by LLM semantic understanding, then call extract_draft_params; do not replace semantic understanding with keyword or regex matching.
 
 **China seismic analysis rules**:
-- When the user requests China-code seismic design, seismic fortification, response-spectrum analysis, selected ground motions, or time-history analysis, use set_session_config with analysisType="seismic", designCode="GB/T 50011-2010-2024", and skillIdsJson selecting opensees-seismic while retaining the relevant modeling, validation, and report skills.
+- When the user requests China-code seismic design, seismic fortification, response-spectrum analysis, selected ground motions, or time-history analysis, use set_session_config with analysisType="seismic", designCode="GB/T 50011-2010-2024", and select run_analysis.analysisSkillId="opensees-seismic".
 - Seismic method selection must come from LLM semantic understanding of the full request and be emitted as structured seismicWorkflow; do not choose response_spectrum, time_history, pushover, or elastic_plastic_time_history by keyword or regex matching.
 - Before calling run_analysis, a non-empty structured seismicWorkflow must already exist from extract_draft_params in draftState.skillState.seismicWorkflow, frontend structured contextSeismicWorkflow, or the current seismicWorkflowJson input; otherwise extract it or ask for clarification instead of running seismic analysis directly.
 - seismicWorkflow should include the known fields among methodPreference, designBasis.siteSeismic, designRequirements including known fortificationCategory, seismicGrade, and irregularity, structure, groundMotionSet, responseSpectrum.modalCombination, and directions; prefer directions=["x","y"] for 3D structures and directions=["x"] for 2D frames. Use only structured cqc/srss enum values for modalCombination and default to cqc. Leave unknown fields missing and ask for clarification or allow the runtime to return partial.
@@ -1177,6 +998,25 @@ When the user makes a structural design or analysis request, follow this workflo
 - Seismic reports include the performed check results or state that no check was run; if generate_report returns SEISMIC_CODE_CHECK_REQUIRED, call run_code_check and retry the report.
 
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
+
+Providers (select by tool arguments) / Provider（通过工具参数选择）:
+- opensees-dynamic: OpenSees Dynamic Analysis
+- opensees-nonlinear: OpenSees Nonlinear Analysis
+- opensees-seismic: OpenSees Seismic Analysis
+- opensees-static: OpenSees Static Analysis
+- pkpm-static: PKPM Static Analysis
+- yjk-static: YJK Static Analysis
+- code-check-gb50010: Code Check GB50010
+- code-check-gb50011: Code Check GB50011
+- code-check-gb50017: Code Check GB50017
+- code-check-jgj3: Code Check JGJ3
+- cad-dxf-input: DXF/CAD Structural Drawing Parsing
+- csv-excel-input: CSV/Excel Structural Parameter Input
+- image-vision-input: Image Structural Information Recognition
+- pdf-input: PDF Structural Document Parsing
+- report-export-builtin: Builtin Report Export
+- pkpm-calcbook: PKPM SATWE Calculation Report Export
+
 Explicit user properties win. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets). A designation without complete dimensions or explicit properties requires one dimension question together with other genuinely missing inputs; do not build or calculate before actual confirmation. You may offer an "assistant-recalled table value, please verify" option. A designation is not confirmation: never adopt or relabel recalled values yourself. After confirmation record user-sourced dimensions and derive properties. Confirmation covers only the actual values confirmed, not other recalled properties. Unconfirmed assistant recall belongs only in labelled clarification options, never in answer calculations, estimates or comparisons. Say plainly who supplied each value: the user, the system (geometry or a code table), or an assistant option confirmed by the user; never claim tool retrieval. Never state adequacy or compliance pass/fail unless a code check was actually run and passed; with analysis alone report values and assumptions. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never expose budgets/recovery counts or ask for a new message to reset them.
 Section evidence / 截面证据: Parsed attachment numbers are supplied input: mark extra.provenance.shape/properties="attachment"; extra.evidence may cite each numeric field, e.g. {"properties.A":{evidenceId:"file:...",path:"rows.0.1",unit:"m2"}}. The system verifies parser candidates; image values require a reviewed observation. For free-text acceptance of offered candidates, use extra.confirmation={clarificationId,candidateIds:[...]}, using ONLY the answered clarification receipt; confirmation covers exactly its stored values. For a stated ratio use extra.provenance.properties="rule" and extra.rules={"properties.Iy":{sourceSectionId:"B1",sourceField:"properties.Iy",factor:1.5,statement:"verbatim user rule"}}; the system recomputes from evidenced inputs. Never promote unconfirmed recall. / 附件解析数值属于输入，来源标 attachment，可逐字段引用解析证据ID与路径；图像必须已有复核观察记录。无数字的确认由语义理解后用 extra.confirmation 关联已回答的澄清ID和候选ID，仅确认原候选值。比例规则记录来源截面、字段、倍数及用户原文，系统用已证实输入重算；未确认记忆值不得进入求解。
 Interpret signed loads using the stated coordinate or direction convention. When it determines the direction, preserve signed canonical components, or use a nonnegative magnitude with the corresponding direction in magnitude/direction fields. Ask only when direction remains undetermined. / 按已声明的坐标或方向约定解释荷载正负号；方向已确定时保留规范分量的符号，或在大小/方向字段中使用非负大小与对应方向。仅在方向仍无法确定时追问。
@@ -1197,48 +1037,13 @@ exports[`characterization: run policy and ablation surface policy variant knowle
 {
   "activeSkillIds": [
     "beam",
-    "boundary-condition",
-    "cad-dxf-input",
-    "code-check-gb50010",
-    "code-check-gb50011",
-    "code-check-gb50017",
-    "code-check-jgj3",
     "column",
     "concrete-frame",
-    "crane-load",
-    "csv-excel-input",
-    "dead-load",
     "double-span-beam",
     "frame",
     "generic",
-    "image-vision-input",
-    "live-load",
-    "load-combination",
-    "memory",
-    "nodal-constraint",
-    "opensees-dynamic",
-    "opensees-nonlinear",
-    "opensees-seismic",
-    "opensees-static",
-    "pdf-input",
-    "pkpm-calcbook",
-    "pkpm-static",
     "portal-frame",
-    "postprocess-builtin",
-    "report-export-builtin",
-    "section-bridge",
-    "section-common",
-    "section-irregular",
-    "seismic-load",
-    "shell",
-    "skill-creation",
-    "snow-load",
-    "temperature-load",
     "truss",
-    "validation-structure-model",
-    "visualization-frame-summary",
-    "wind-load",
-    "yjk-static",
   ],
   "activeToolIds": [
     "analyze_file",
@@ -1292,7 +1097,7 @@ exports[`characterization: run policy and ablation surface policy variant knowle
   "executionOwner": "structureclaw",
   "fieldSources": {
     "budgets.maxLlmCallsPerTurn": "default",
-    "budgets.maxToolCallsPerTurn": "settings",
+    "budgets.maxToolCallsPerTurn": "default",
     "builder": "default",
     "context.history": "default",
     "context.memoryScopes": "default",
@@ -1305,7 +1110,7 @@ exports[`characterization: run policy and ablation surface policy variant knowle
     "tools.enabledIds": "default",
   },
   "knowledge": "disabled",
-  "policyHash": "ce6f48194ff2322012d6ae50bd7aca97da0d182baa3ce7f0979ca604b58d909d",
+  "policyHash": "6d7fc3871566e9041b5fa6fc6b368d0c6259103fa26097e4b1bcfcfc5c388f48",
   "repair": {
     "enabled": true,
     "maxRecoveriesPerTurn": 2,
@@ -1355,8 +1160,8 @@ exports[`characterization: run policy and ablation surface policy variant routin
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 29325,
-  "systemPromptSha256": "c3ba99b8b7cb194b1a056bd8133e5190c8fcf14dac6e8cbe50f42a900b4d264a",
+  "systemPromptChars": 22650,
+  "systemPromptSha256": "a648911cef272334dba4a88d4b7ace10ac40bc8c5b0cff9ef90dee52e710322e",
 }
 `;
 
@@ -1369,48 +1174,13 @@ exports[`characterization: run policy and ablation surface policy variant routin
 ## Available Skills
 
 - beam (Beam): Skill for beam or cantilever intent detection and clarification. [domain=structure-type, stages=intent/draft/analysis/design]
-- boundary-condition (Boundary Condition): Define boundary conditions including nodal constraints and member end releases. [domain=load-boundary, stages=intent/analysis]
-- cad-dxf-input (DXF/CAD Structural Drawing Parsing): Parse DXF files from CAD software, extract line, dimension, and text entities, and map structural geometry information to DraftState fields. [domain=data-input, stages=intent/draft]
-- code-check-gb50010 (Code Check GB50010): Run concrete structure code checks under GB50010. [domain=code-check, stages=intent/analysis/design]
-- code-check-gb50011 (Code Check GB50011): Run seismic code checks under GB50011. [domain=code-check, stages=intent/analysis/design]
-- code-check-gb50017 (Code Check GB50017): Run steel structure code checks under GB50017. [domain=code-check, stages=intent/analysis/design]
-- code-check-jgj3 (Code Check JGJ3): Run high-rise concrete checks under JGJ3. [domain=code-check, stages=intent/analysis/design]
 - column (Column): Skill for standalone column intent detection and axial-load analysis guidance. [domain=structure-type, stages=intent/draft/analysis/design]
 - concrete-frame (Concrete Frame): Skill for regular 2D/3D concrete frame intent detection and parameter clarification. [domain=structure-type, stages=intent/draft/analysis/design]
-- crane-load (Crane Load): Generate crane loads for industrial buildings with multiple crane configurations. [domain=load-boundary, stages=intent/analysis]
-- csv-excel-input (CSV/Excel Structural Parameter Input): Parse structural parameters (stories, sections, loads) from CSV or Excel files and map them to DraftState fields for downstream structural skills. [domain=data-input, stages=intent/draft]
-- dead-load (Dead Load): Generate dead loads including gravity loads from structural elements and fixed equipment. [domain=load-boundary, stages=intent/analysis]
 - double-span-beam (Continuous Beam): Skill for intent detection, clarification, and model construction of continuous beams with two or more spans. [domain=structure-type, stages=intent/draft/analysis/design]
 - frame (Regular Frame): Skill for regular 2D/3D frame intent detection and parameter clarification. [domain=structure-type, stages=intent/draft/analysis/design]
 - generic (Generic Structure Type): Generic fallback structure-type skill. It is not always the strongest, but it catches unmatched structural modeling requests and guides downstream skills and tools. [domain=structure-type, stages=intent/draft/analysis/design]
-- image-vision-input (Image Structural Information Recognition): Use multimodal vision capabilities to recognize structural members, dimension annotations, and material information from photos, scanned drawings, and screenshots, mapping them to DraftState. [domain=data-input, stages=intent/draft]
-- live-load (Live Load): Generate live loads including floor loads, roof loads, and other variable loads according to GB50009-2012. [domain=load-boundary, stages=intent/analysis]
-- load-combination (Load Combination): Generate load combinations for ultimate and serviceability limit states including seismic combinations. [domain=load-boundary, stages=intent/analysis]
-- memory (Context Memory): Maintain cross-turn state in engineering sessions, helping the agent remember key parameters and decision context. [domain=general, stages=intent/draft/analysis/design]
-- nodal-constraint (Nodal Constraint): Define nodal constraints including restraints and elastic supports. [domain=load-boundary, stages=analysis]
-- opensees-dynamic (OpenSees Dynamic Analysis): OpenSees linear modal and earthquake time-history analysis with explicit mass source, direction, damping and time step. Records requested six-component nodal motion, member end forces and support reactions. Motion is relative to the ground; arbitrary interior transient responses and general nonlinear dynamics are unsupported. [domain=analysis, stages=intent/analysis]
-- opensees-nonlinear (OpenSees Nonlinear Analysis): Skill for recognizing and routing OpenSees nonlinear analysis requests. [domain=analysis, stages=intent/analysis]
-- opensees-seismic (OpenSees Seismic Analysis): Skill for China-code seismic response-spectrum, elastic time-history, and pushover analysis using OpenSees. [domain=analysis, stages=intent/analysis]
-- opensees-static (OpenSees Static Analysis): OpenSees 2-D/3-D linear frame statics with beams, columns, trusses, mixed braces, partial/point loads, case combinations and bending end releases. Interior mechanics recovery is distinct from direct nodal results. Axial/shear/torsional releases, rigid offsets and second-order analysis are unsupported. [domain=analysis, stages=intent/analysis]
-- pdf-input (PDF Structural Document Parsing): Extract text from PDF structural drawings or calculation reports, identify key structural parameters (dimensions, material grades, loads), and map them to DraftState. [domain=data-input, stages=intent/draft]
-- pkpm-calcbook (PKPM SATWE Calculation Report Export): Extract calculation report data from completed PKPM SATWE analysis results, including modal analysis, story stiffness, drift ratios, base shear, and member design results. Outputs Markdown, Word, and PDF. [domain=report-export, stages=design]
-- pkpm-static (PKPM Static Analysis): PKPM linear elastic frame statics preserving per-floor topology and explicit material/section properties, with six-component nodal loads, multiple cases, signed stations and linear combinations. Explicit design requests use verified standard materials and physical sections for required reinforcement or native steel checks. Ordinary analysis publishes no design conclusions; missing results are not zero-filled. [domain=analysis, stages=intent/analysis]
 - portal-frame (Portal Frame): Skill for portal-frame intent detection and clarification. [domain=structure-type, stages=intent/draft/analysis/design]
-- postprocess-builtin (Builtin Result Postprocessing): Extract envelopes, key metrics, and controlling cases from raw analysis results for downstream code-check and report generation. [domain=result-postprocess, stages=analysis]
-- report-export-builtin (Builtin Report Export): Assemble analysis and code-check outputs into exportable structural engineering reports. [domain=report-export, stages=design]
-- section-bridge (Bridge Section Designer): Parameter clarification and model skeleton generation for bridge girders, box girders, deck width, and girder spacing. [domain=section, stages=intent/draft/analysis/design]
-- section-common (Common Section Designer): Parameter clarification, default guidance, and model skeleton generation for common beams, frames, columns, and standard profiles. [domain=section, stages=intent/draft/analysis/design]
-- section-irregular (Irregular Section Designer): Parameter clarification, default guidance, and outline-skeleton generation for tapered, asymmetric, perforated, and custom sections. [domain=section, stages=intent/draft/analysis/design]
-- seismic-load (Seismic Load): Generate seismic loads using equivalent base shear method according to GB50011-2010 with multiple force distribution strategies. [domain=load-boundary, stages=intent/analysis]
-- shell (Restricted Shell Execution): Execute restricted shell commands in a sandboxed environment, limited to allowlisted analysis engines and scripting tools. [domain=general, stages=analysis]
-- skill-creation (Skill Creation Wizard): Guide users through creating new StructureClaw skills, including skill.yaml manifest, stage markdown files, and optional handler.ts modules. [domain=general, stages=intent/draft]
-- snow-load (Snow Load): Generate roof snow loads with code-based defaults or user-specified values. [domain=load-boundary, stages=intent/analysis]
-- temperature-load (Temperature Load): Generate temperature loads for thermal expansion and contraction effects. [domain=load-boundary, stages=intent/analysis]
 - truss (Truss): Skill for planar truss intent detection and clarification. [domain=structure-type, stages=intent/draft/analysis/design]
-- validation-structure-model (Structure Model Validation): Validate structural model inputs, schema compliance, and consistency before downstream analysis. [domain=validation, stages=intent/draft/analysis]
-- visualization-frame-summary (Frame Structure Summary): Show frame statistics including node and element counts, max displacement, max reaction, and max force. [domain=visualization, stages=intent/analysis]
-- wind-load (Wind Load): Generate wind loads according to GB50009-2012 including exposure categories and building shapes. [domain=load-boundary, stages=intent/analysis]
-- yjk-static (YJK Static Analysis): YJK 3-D frame statics and native frame design. Analysis preserves physical members, load positions and source cases, with fixed/pinned/directional vertical-column bases and paired local beam bending releases retaining torsion; ordinary beam/column weight binds authored density and area to an explicit case. Explicit design requests read concrete rectangular-member reinforcement or steel I/box stress checks with physical geometry, grade, code and native combinations verified. Missing values never become zero and reference sections cannot be designed. [domain=analysis, stages=intent/analysis]
 
 ## Current Session State
 
@@ -1426,7 +1196,7 @@ exports[`characterization: run policy and ablation surface policy variant routin
 ### Session Config
 - Analysis type: not set
 - Design code: not set
-- Selected skills: beam, boundary-condition, cad-dxf-input, code-check-gb50010, code-check-gb50011, code-check-gb50017, code-check-jgj3, column, concrete-frame, crane-load, csv-excel-input, dead-load, double-span-beam, frame, generic, image-vision-input, live-load, load-combination, memory, nodal-constraint, opensees-dynamic, opensees-nonlinear, opensees-seismic, opensees-static, pdf-input, pkpm-calcbook, pkpm-static, portal-frame, postprocess-builtin, report-export-builtin, section-bridge, section-common, section-irregular, seismic-load, shell, skill-creation, snow-load, temperature-load, truss, validation-structure-model, visualization-frame-summary, wind-load, yjk-static
+- Selected skills: beam, column, concrete-frame, double-span-beam, frame, generic, portal-frame, truss
 
 ## Behaviour Rules
 
@@ -1473,7 +1243,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - After analyze_file returns PDF text, extract dimensions, loads, and materials by LLM semantic understanding, then call extract_draft_params; do not replace semantic understanding with keyword or regex matching.
 
 **China seismic analysis rules**:
-- When the user requests China-code seismic design, seismic fortification, response-spectrum analysis, selected ground motions, or time-history analysis, use set_session_config with analysisType="seismic", designCode="GB/T 50011-2010-2024", and skillIdsJson selecting opensees-seismic while retaining the relevant modeling, validation, and report skills.
+- When the user requests China-code seismic design, seismic fortification, response-spectrum analysis, selected ground motions, or time-history analysis, use set_session_config with analysisType="seismic", designCode="GB/T 50011-2010-2024", and select run_analysis.analysisSkillId="opensees-seismic".
 - Seismic method selection must come from LLM semantic understanding of the full request and be emitted as structured seismicWorkflow; do not choose response_spectrum, time_history, pushover, or elastic_plastic_time_history by keyword or regex matching.
 - Before calling run_analysis, a non-empty structured seismicWorkflow must already exist from extract_draft_params in draftState.skillState.seismicWorkflow, frontend structured contextSeismicWorkflow, or the current seismicWorkflowJson input; otherwise extract it or ask for clarification instead of running seismic analysis directly.
 - seismicWorkflow should include the known fields among methodPreference, designBasis.siteSeismic, designRequirements including known fortificationCategory, seismicGrade, and irregularity, structure, groundMotionSet, responseSpectrum.modalCombination, and directions; prefer directions=["x","y"] for 3D structures and directions=["x"] for 2D frames. Use only structured cqc/srss enum values for modalCombination and default to cqc. Leave unknown fields missing and ask for clarification or allow the runtime to return partial.
@@ -1486,6 +1256,28 @@ When the user makes a structural design or analysis request, follow this workflo
 - Seismic reports include the performed check results or state that no check was run; if generate_report returns SEISMIC_CODE_CHECK_REQUIRED, call run_code_check and retry the report.
 
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
+
+Providers (select by tool arguments) / Provider（通过工具参数选择）:
+- opensees-dynamic: OpenSees Dynamic Analysis
+- opensees-nonlinear: OpenSees Nonlinear Analysis
+- opensees-seismic: OpenSees Seismic Analysis
+- opensees-static: OpenSees Static Analysis
+- pkpm-static: PKPM Static Analysis
+- yjk-static: YJK Static Analysis
+- code-check-gb50010: Code Check GB50010
+- code-check-gb50011: Code Check GB50011
+- code-check-gb50017: Code Check GB50017
+- code-check-jgj3: Code Check JGJ3
+- cad-dxf-input: DXF/CAD Structural Drawing Parsing
+- csv-excel-input: CSV/Excel Structural Parameter Input
+- image-vision-input: Image Structural Information Recognition
+- pdf-input: PDF Structural Document Parsing
+- report-export-builtin: Builtin Report Export
+- pkpm-calcbook: PKPM SATWE Calculation Report Export
+Keep every load, case, target, sign and unit. Distinguish nodal forces (kN), member loads (kN/m) and area loads (kN/m²); transfer floor loads once and verify the total. Self-weight is included only when requested. Wind, snow, crane and temperature actions need their physical direction and supplied basis.
+Supports restrain physical degrees of freedom; releases describe member-end freedom. Keep their axes explicit and check connectivity and stability. A pin transfers forces without fixing rotations; a roller leaves its declared translation free. Do not infer member design lengths from mesh lengths.
+Before analysis check geometry, referenced records, connectivity, supports, section/material evidence, units and load totals. Report unsupported capability or remaining errors honestly rather than substituting a different structure or engine.
+Summarise supports, applied totals, reactions and governing signed results with case, member, position and units. Use only the current model/run. Forces from placeholder stiffness cannot justify displacements or design. Generate reports only when requested; distinguish diagrams from numerical evidence.
 Explicit user properties win. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets). A designation without complete dimensions or explicit properties requires one dimension question together with other genuinely missing inputs; do not build or calculate before actual confirmation. You may offer an "assistant-recalled table value, please verify" option. A designation is not confirmation: never adopt or relabel recalled values yourself. After confirmation record user-sourced dimensions and derive properties. Confirmation covers only the actual values confirmed, not other recalled properties. Unconfirmed assistant recall belongs only in labelled clarification options, never in answer calculations, estimates or comparisons. Say plainly who supplied each value: the user, the system (geometry or a code table), or an assistant option confirmed by the user; never claim tool retrieval. Never state adequacy or compliance pass/fail unless a code check was actually run and passed; with analysis alone report values and assumptions. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never expose budgets/recovery counts or ask for a new message to reset them.
 Section evidence / 截面证据: Parsed attachment numbers are supplied input: mark extra.provenance.shape/properties="attachment"; extra.evidence may cite each numeric field, e.g. {"properties.A":{evidenceId:"file:...",path:"rows.0.1",unit:"m2"}}. The system verifies parser candidates; image values require a reviewed observation. For free-text acceptance of offered candidates, use extra.confirmation={clarificationId,candidateIds:[...]}, using ONLY the answered clarification receipt; confirmation covers exactly its stored values. For a stated ratio use extra.provenance.properties="rule" and extra.rules={"properties.Iy":{sourceSectionId:"B1",sourceField:"properties.Iy",factor:1.5,statement:"verbatim user rule"}}; the system recomputes from evidenced inputs. Never promote unconfirmed recall. / 附件解析数值属于输入，来源标 attachment，可逐字段引用解析证据ID与路径；图像必须已有复核观察记录。无数字的确认由语义理解后用 extra.confirmation 关联已回答的澄清ID和候选ID，仅确认原候选值。比例规则记录来源截面、字段、倍数及用户原文，系统用已证实输入重算；未确认记忆值不得进入求解。
 Interpret signed loads using the stated coordinate or direction convention. When it determines the direction, preserve signed canonical components, or use a nonnegative magnitude with the corresponding direction in magnitude/direction fields. Ask only when direction remains undetermined. / 按已声明的坐标或方向约定解释荷载正负号；方向已确定时保留规范分量的符号，或在大小/方向字段中使用非负大小与对应方向。仅在方向仍无法确定时追问。
@@ -1506,48 +1298,13 @@ exports[`characterization: run policy and ablation surface policy variant routin
 {
   "activeSkillIds": [
     "beam",
-    "boundary-condition",
-    "cad-dxf-input",
-    "code-check-gb50010",
-    "code-check-gb50011",
-    "code-check-gb50017",
-    "code-check-jgj3",
     "column",
     "concrete-frame",
-    "crane-load",
-    "csv-excel-input",
-    "dead-load",
     "double-span-beam",
     "frame",
     "generic",
-    "image-vision-input",
-    "live-load",
-    "load-combination",
-    "memory",
-    "nodal-constraint",
-    "opensees-dynamic",
-    "opensees-nonlinear",
-    "opensees-seismic",
-    "opensees-static",
-    "pdf-input",
-    "pkpm-calcbook",
-    "pkpm-static",
     "portal-frame",
-    "postprocess-builtin",
-    "report-export-builtin",
-    "section-bridge",
-    "section-common",
-    "section-irregular",
-    "seismic-load",
-    "shell",
-    "skill-creation",
-    "snow-load",
-    "temperature-load",
     "truss",
-    "validation-structure-model",
-    "visualization-frame-summary",
-    "wind-load",
-    "yjk-static",
   ],
   "activeToolIds": [
     "analyze_file",
@@ -1601,7 +1358,7 @@ exports[`characterization: run policy and ablation surface policy variant routin
   "executionOwner": "structureclaw",
   "fieldSources": {
     "budgets.maxLlmCallsPerTurn": "default",
-    "budgets.maxToolCallsPerTurn": "settings",
+    "budgets.maxToolCallsPerTurn": "default",
     "builder": "default",
     "context.history": "default",
     "context.memoryScopes": "default",
@@ -1615,7 +1372,7 @@ exports[`characterization: run policy and ablation surface policy variant routin
     "tools.enabledIds": "default",
   },
   "knowledge": "enabled",
-  "policyHash": "1eb5c274d3b4cfe09510e359fcf8ee91a675e782de4b553d4edfcaa8263e9d34",
+  "policyHash": "744875a8127d4b79e91d89b7d955d000f2c42ec99a92e8afd33212d86d005c2b",
   "repair": {
     "enabled": true,
     "maxRecoveriesPerTurn": 2,
@@ -1665,8 +1422,8 @@ exports[`characterization: run policy and ablation surface policy variant tools-
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 29178,
-  "systemPromptSha256": "c05b23f92bbb994aaed124b47e4b855b6b2a1d2e9847d4c53b971260d9044a21",
+  "systemPromptChars": 22503,
+  "systemPromptSha256": "c242e46fb0a2b32ca4edfbc253f6c9a98e18f75e8b9a79cb6c76f5953718f736",
 }
 `;
 
@@ -1679,48 +1436,13 @@ exports[`characterization: run policy and ablation surface policy variant tools-
 ## Available Skills
 
 - beam (Beam): Skill for beam or cantilever intent detection and clarification. [domain=structure-type, stages=intent/draft/analysis/design]
-- boundary-condition (Boundary Condition): Define boundary conditions including nodal constraints and member end releases. [domain=load-boundary, stages=intent/analysis]
-- cad-dxf-input (DXF/CAD Structural Drawing Parsing): Parse DXF files from CAD software, extract line, dimension, and text entities, and map structural geometry information to DraftState fields. [domain=data-input, stages=intent/draft]
-- code-check-gb50010 (Code Check GB50010): Run concrete structure code checks under GB50010. [domain=code-check, stages=intent/analysis/design]
-- code-check-gb50011 (Code Check GB50011): Run seismic code checks under GB50011. [domain=code-check, stages=intent/analysis/design]
-- code-check-gb50017 (Code Check GB50017): Run steel structure code checks under GB50017. [domain=code-check, stages=intent/analysis/design]
-- code-check-jgj3 (Code Check JGJ3): Run high-rise concrete checks under JGJ3. [domain=code-check, stages=intent/analysis/design]
 - column (Column): Skill for standalone column intent detection and axial-load analysis guidance. [domain=structure-type, stages=intent/draft/analysis/design]
 - concrete-frame (Concrete Frame): Skill for regular 2D/3D concrete frame intent detection and parameter clarification. [domain=structure-type, stages=intent/draft/analysis/design]
-- crane-load (Crane Load): Generate crane loads for industrial buildings with multiple crane configurations. [domain=load-boundary, stages=intent/analysis]
-- csv-excel-input (CSV/Excel Structural Parameter Input): Parse structural parameters (stories, sections, loads) from CSV or Excel files and map them to DraftState fields for downstream structural skills. [domain=data-input, stages=intent/draft]
-- dead-load (Dead Load): Generate dead loads including gravity loads from structural elements and fixed equipment. [domain=load-boundary, stages=intent/analysis]
 - double-span-beam (Continuous Beam): Skill for intent detection, clarification, and model construction of continuous beams with two or more spans. [domain=structure-type, stages=intent/draft/analysis/design]
 - frame (Regular Frame): Skill for regular 2D/3D frame intent detection and parameter clarification. [domain=structure-type, stages=intent/draft/analysis/design]
 - generic (Generic Structure Type): Generic fallback structure-type skill. It is not always the strongest, but it catches unmatched structural modeling requests and guides downstream skills and tools. [domain=structure-type, stages=intent/draft/analysis/design]
-- image-vision-input (Image Structural Information Recognition): Use multimodal vision capabilities to recognize structural members, dimension annotations, and material information from photos, scanned drawings, and screenshots, mapping them to DraftState. [domain=data-input, stages=intent/draft]
-- live-load (Live Load): Generate live loads including floor loads, roof loads, and other variable loads according to GB50009-2012. [domain=load-boundary, stages=intent/analysis]
-- load-combination (Load Combination): Generate load combinations for ultimate and serviceability limit states including seismic combinations. [domain=load-boundary, stages=intent/analysis]
-- memory (Context Memory): Maintain cross-turn state in engineering sessions, helping the agent remember key parameters and decision context. [domain=general, stages=intent/draft/analysis/design]
-- nodal-constraint (Nodal Constraint): Define nodal constraints including restraints and elastic supports. [domain=load-boundary, stages=analysis]
-- opensees-dynamic (OpenSees Dynamic Analysis): OpenSees linear modal and earthquake time-history analysis with explicit mass source, direction, damping and time step. Records requested six-component nodal motion, member end forces and support reactions. Motion is relative to the ground; arbitrary interior transient responses and general nonlinear dynamics are unsupported. [domain=analysis, stages=intent/analysis]
-- opensees-nonlinear (OpenSees Nonlinear Analysis): Skill for recognizing and routing OpenSees nonlinear analysis requests. [domain=analysis, stages=intent/analysis]
-- opensees-seismic (OpenSees Seismic Analysis): Skill for China-code seismic response-spectrum, elastic time-history, and pushover analysis using OpenSees. [domain=analysis, stages=intent/analysis]
-- opensees-static (OpenSees Static Analysis): OpenSees 2-D/3-D linear frame statics with beams, columns, trusses, mixed braces, partial/point loads, case combinations and bending end releases. Interior mechanics recovery is distinct from direct nodal results. Axial/shear/torsional releases, rigid offsets and second-order analysis are unsupported. [domain=analysis, stages=intent/analysis]
-- pdf-input (PDF Structural Document Parsing): Extract text from PDF structural drawings or calculation reports, identify key structural parameters (dimensions, material grades, loads), and map them to DraftState. [domain=data-input, stages=intent/draft]
-- pkpm-calcbook (PKPM SATWE Calculation Report Export): Extract calculation report data from completed PKPM SATWE analysis results, including modal analysis, story stiffness, drift ratios, base shear, and member design results. Outputs Markdown, Word, and PDF. [domain=report-export, stages=design]
-- pkpm-static (PKPM Static Analysis): PKPM linear elastic frame statics preserving per-floor topology and explicit material/section properties, with six-component nodal loads, multiple cases, signed stations and linear combinations. Explicit design requests use verified standard materials and physical sections for required reinforcement or native steel checks. Ordinary analysis publishes no design conclusions; missing results are not zero-filled. [domain=analysis, stages=intent/analysis]
 - portal-frame (Portal Frame): Skill for portal-frame intent detection and clarification. [domain=structure-type, stages=intent/draft/analysis/design]
-- postprocess-builtin (Builtin Result Postprocessing): Extract envelopes, key metrics, and controlling cases from raw analysis results for downstream code-check and report generation. [domain=result-postprocess, stages=analysis]
-- report-export-builtin (Builtin Report Export): Assemble analysis and code-check outputs into exportable structural engineering reports. [domain=report-export, stages=design]
-- section-bridge (Bridge Section Designer): Parameter clarification and model skeleton generation for bridge girders, box girders, deck width, and girder spacing. [domain=section, stages=intent/draft/analysis/design]
-- section-common (Common Section Designer): Parameter clarification, default guidance, and model skeleton generation for common beams, frames, columns, and standard profiles. [domain=section, stages=intent/draft/analysis/design]
-- section-irregular (Irregular Section Designer): Parameter clarification, default guidance, and outline-skeleton generation for tapered, asymmetric, perforated, and custom sections. [domain=section, stages=intent/draft/analysis/design]
-- seismic-load (Seismic Load): Generate seismic loads using equivalent base shear method according to GB50011-2010 with multiple force distribution strategies. [domain=load-boundary, stages=intent/analysis]
-- shell (Restricted Shell Execution): Execute restricted shell commands in a sandboxed environment, limited to allowlisted analysis engines and scripting tools. [domain=general, stages=analysis]
-- skill-creation (Skill Creation Wizard): Guide users through creating new StructureClaw skills, including skill.yaml manifest, stage markdown files, and optional handler.ts modules. [domain=general, stages=intent/draft]
-- snow-load (Snow Load): Generate roof snow loads with code-based defaults or user-specified values. [domain=load-boundary, stages=intent/analysis]
-- temperature-load (Temperature Load): Generate temperature loads for thermal expansion and contraction effects. [domain=load-boundary, stages=intent/analysis]
 - truss (Truss): Skill for planar truss intent detection and clarification. [domain=structure-type, stages=intent/draft/analysis/design]
-- validation-structure-model (Structure Model Validation): Validate structural model inputs, schema compliance, and consistency before downstream analysis. [domain=validation, stages=intent/draft/analysis]
-- visualization-frame-summary (Frame Structure Summary): Show frame statistics including node and element counts, max displacement, max reaction, and max force. [domain=visualization, stages=intent/analysis]
-- wind-load (Wind Load): Generate wind loads according to GB50009-2012 including exposure categories and building shapes. [domain=load-boundary, stages=intent/analysis]
-- yjk-static (YJK Static Analysis): YJK 3-D frame statics and native frame design. Analysis preserves physical members, load positions and source cases, with fixed/pinned/directional vertical-column bases and paired local beam bending releases retaining torsion; ordinary beam/column weight binds authored density and area to an explicit case. Explicit design requests read concrete rectangular-member reinforcement or steel I/box stress checks with physical geometry, grade, code and native combinations verified. Missing values never become zero and reference sections cannot be designed. [domain=analysis, stages=intent/analysis]
 
 ## Current Session State
 
@@ -1736,7 +1458,7 @@ exports[`characterization: run policy and ablation surface policy variant tools-
 ### Session Config
 - Analysis type: not set
 - Design code: not set
-- Selected skills: beam, boundary-condition, cad-dxf-input, code-check-gb50010, code-check-gb50011, code-check-gb50017, code-check-jgj3, column, concrete-frame, crane-load, csv-excel-input, dead-load, double-span-beam, frame, generic, image-vision-input, live-load, load-combination, memory, nodal-constraint, opensees-dynamic, opensees-nonlinear, opensees-seismic, opensees-static, pdf-input, pkpm-calcbook, pkpm-static, portal-frame, postprocess-builtin, report-export-builtin, section-bridge, section-common, section-irregular, seismic-load, shell, skill-creation, snow-load, temperature-load, truss, validation-structure-model, visualization-frame-summary, wind-load, yjk-static
+- Selected skills: beam, column, concrete-frame, double-span-beam, frame, generic, portal-frame, truss
 
 ## Behaviour Rules
 
@@ -1783,7 +1505,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - After analyze_file returns PDF text, extract dimensions, loads, and materials by LLM semantic understanding, then call extract_draft_params; do not replace semantic understanding with keyword or regex matching.
 
 **China seismic analysis rules**:
-- When the user requests China-code seismic design, seismic fortification, response-spectrum analysis, selected ground motions, or time-history analysis, use set_session_config with analysisType="seismic", designCode="GB/T 50011-2010-2024", and skillIdsJson selecting opensees-seismic while retaining the relevant modeling, validation, and report skills.
+- When the user requests China-code seismic design, seismic fortification, response-spectrum analysis, selected ground motions, or time-history analysis, use set_session_config with analysisType="seismic", designCode="GB/T 50011-2010-2024", and select run_analysis.analysisSkillId="opensees-seismic".
 - Seismic method selection must come from LLM semantic understanding of the full request and be emitted as structured seismicWorkflow; do not choose response_spectrum, time_history, pushover, or elastic_plastic_time_history by keyword or regex matching.
 - Before calling run_analysis, a non-empty structured seismicWorkflow must already exist from extract_draft_params in draftState.skillState.seismicWorkflow, frontend structured contextSeismicWorkflow, or the current seismicWorkflowJson input; otherwise extract it or ask for clarification instead of running seismic analysis directly.
 - seismicWorkflow should include the known fields among methodPreference, designBasis.siteSeismic, designRequirements including known fortificationCategory, seismicGrade, and irregularity, structure, groundMotionSet, responseSpectrum.modalCombination, and directions; prefer directions=["x","y"] for 3D structures and directions=["x"] for 2D frames. Use only structured cqc/srss enum values for modalCombination and default to cqc. Leave unknown fields missing and ask for clarification or allow the runtime to return partial.
@@ -1796,6 +1518,28 @@ When the user makes a structural design or analysis request, follow this workflo
 - Seismic reports include the performed check results or state that no check was run; if generate_report returns SEISMIC_CODE_CHECK_REQUIRED, call run_code_check and retry the report.
 
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
+
+Providers (select by tool arguments) / Provider（通过工具参数选择）:
+- opensees-dynamic: OpenSees Dynamic Analysis
+- opensees-nonlinear: OpenSees Nonlinear Analysis
+- opensees-seismic: OpenSees Seismic Analysis
+- opensees-static: OpenSees Static Analysis
+- pkpm-static: PKPM Static Analysis
+- yjk-static: YJK Static Analysis
+- code-check-gb50010: Code Check GB50010
+- code-check-gb50011: Code Check GB50011
+- code-check-gb50017: Code Check GB50017
+- code-check-jgj3: Code Check JGJ3
+- cad-dxf-input: DXF/CAD Structural Drawing Parsing
+- csv-excel-input: CSV/Excel Structural Parameter Input
+- image-vision-input: Image Structural Information Recognition
+- pdf-input: PDF Structural Document Parsing
+- report-export-builtin: Builtin Report Export
+- pkpm-calcbook: PKPM SATWE Calculation Report Export
+Keep every load, case, target, sign and unit. Distinguish nodal forces (kN), member loads (kN/m) and area loads (kN/m²); transfer floor loads once and verify the total. Self-weight is included only when requested. Wind, snow, crane and temperature actions need their physical direction and supplied basis.
+Supports restrain physical degrees of freedom; releases describe member-end freedom. Keep their axes explicit and check connectivity and stability. A pin transfers forces without fixing rotations; a roller leaves its declared translation free. Do not infer member design lengths from mesh lengths.
+Before analysis check geometry, referenced records, connectivity, supports, section/material evidence, units and load totals. Report unsupported capability or remaining errors honestly rather than substituting a different structure or engine.
+Summarise supports, applied totals, reactions and governing signed results with case, member, position and units. Use only the current model/run. Forces from placeholder stiffness cannot justify displacements or design. Generate reports only when requested; distinguish diagrams from numerical evidence.
 Explicit user properties win. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets). A designation without complete dimensions or explicit properties requires one dimension question together with other genuinely missing inputs; do not build or calculate before actual confirmation. You may offer an "assistant-recalled table value, please verify" option. A designation is not confirmation: never adopt or relabel recalled values yourself. After confirmation record user-sourced dimensions and derive properties. Confirmation covers only the actual values confirmed, not other recalled properties. Unconfirmed assistant recall belongs only in labelled clarification options, never in answer calculations, estimates or comparisons. Say plainly who supplied each value: the user, the system (geometry or a code table), or an assistant option confirmed by the user; never claim tool retrieval. Never state adequacy or compliance pass/fail unless a code check was actually run and passed; with analysis alone report values and assumptions. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never expose budgets/recovery counts or ask for a new message to reset them.
 Section evidence / 截面证据: Parsed attachment numbers are supplied input: mark extra.provenance.shape/properties="attachment"; extra.evidence may cite each numeric field, e.g. {"properties.A":{evidenceId:"file:...",path:"rows.0.1",unit:"m2"}}. The system verifies parser candidates; image values require a reviewed observation. For free-text acceptance of offered candidates, use extra.confirmation={clarificationId,candidateIds:[...]}, using ONLY the answered clarification receipt; confirmation covers exactly its stored values. For a stated ratio use extra.provenance.properties="rule" and extra.rules={"properties.Iy":{sourceSectionId:"B1",sourceField:"properties.Iy",factor:1.5,statement:"verbatim user rule"}}; the system recomputes from evidenced inputs. Never promote unconfirmed recall. / 附件解析数值属于输入，来源标 attachment，可逐字段引用解析证据ID与路径；图像必须已有复核观察记录。无数字的确认由语义理解后用 extra.confirmation 关联已回答的澄清ID和候选ID，仅确认原候选值。比例规则记录来源截面、字段、倍数及用户原文，系统用已证实输入重算；未确认记忆值不得进入求解。
 Interpret signed loads using the stated coordinate or direction convention. When it determines the direction, preserve signed canonical components, or use a nonnegative magnitude with the corresponding direction in magnitude/direction fields. Ask only when direction remains undetermined. / 按已声明的坐标或方向约定解释荷载正负号；方向已确定时保留规范分量的符号，或在大小/方向字段中使用非负大小与对应方向。仅在方向仍无法确定时追问。
@@ -1816,48 +1560,13 @@ exports[`characterization: run policy and ablation surface policy variant tools-
 {
   "activeSkillIds": [
     "beam",
-    "boundary-condition",
-    "cad-dxf-input",
-    "code-check-gb50010",
-    "code-check-gb50011",
-    "code-check-gb50017",
-    "code-check-jgj3",
     "column",
     "concrete-frame",
-    "crane-load",
-    "csv-excel-input",
-    "dead-load",
     "double-span-beam",
     "frame",
     "generic",
-    "image-vision-input",
-    "live-load",
-    "load-combination",
-    "memory",
-    "nodal-constraint",
-    "opensees-dynamic",
-    "opensees-nonlinear",
-    "opensees-seismic",
-    "opensees-static",
-    "pdf-input",
-    "pkpm-calcbook",
-    "pkpm-static",
     "portal-frame",
-    "postprocess-builtin",
-    "report-export-builtin",
-    "section-bridge",
-    "section-common",
-    "section-irregular",
-    "seismic-load",
-    "shell",
-    "skill-creation",
-    "snow-load",
-    "temperature-load",
     "truss",
-    "validation-structure-model",
-    "visualization-frame-summary",
-    "wind-load",
-    "yjk-static",
   ],
   "activeToolIds": [
     "analyze_file",
@@ -1911,7 +1620,7 @@ exports[`characterization: run policy and ablation surface policy variant tools-
   "executionOwner": "structureclaw",
   "fieldSources": {
     "budgets.maxLlmCallsPerTurn": "default",
-    "budgets.maxToolCallsPerTurn": "settings",
+    "budgets.maxToolCallsPerTurn": "default",
     "builder": "default",
     "context.history": "default",
     "context.memoryScopes": "default",
@@ -1924,7 +1633,7 @@ exports[`characterization: run policy and ablation surface policy variant tools-
     "tools.enabledIds": "default",
   },
   "knowledge": "enabled",
-  "policyHash": "3edd023afd8ce6ff9bbe80c77f431ae48b3baf776db227531a003a70b7811631",
+  "policyHash": "431ab9c3d9cee9bd69751b6f2cfb8368d99ccbd6c9bf166d8aaa937452099004",
   "repair": {
     "enabled": true,
     "maxRecoveriesPerTurn": 2,
