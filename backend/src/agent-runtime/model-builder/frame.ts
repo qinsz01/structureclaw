@@ -99,7 +99,7 @@ export function buildFrame2dModel(state: DraftState, metadata: Record<string, un
       ...metadata,
       coordinateSemantics: STRUCTURAL_COORDINATE_SEMANTICS,
       baseSupport,
-      ...(!state.frameBaseSupportType ? { templateAssumptions: [{ field: 'boundary.frameBaseSupportType', value: 'fixed', reason: 'Unstated frame bases default to fixed / 未说明柱脚时默认刚接' }] } : {}),
+      ...(!state.frameBaseSupportType ? { templateAssumptions: [{ field: 'boundary.frameBaseSupportType', value: 'fixed', en: 'Unstated frame bases default to fixed.', zh: '未说明柱脚时默认刚接。' }] } : {}),
       storyCount: storyHeights.length,
       bayCount: bayWidths.length,
       geometry: {
@@ -227,7 +227,7 @@ export function buildFrame3dModel(state: DraftState, metadata: Record<string, un
       coordinateSemantics: STRUCTURAL_COORDINATE_SEMANTICS,
       elementReferenceVectors,
       baseSupport,
-      ...(!state.frameBaseSupportType ? { templateAssumptions: [{ field: 'boundary.frameBaseSupportType', value: 'fixed', reason: 'Unstated frame bases default to fixed / 未说明柱脚时默认刚接' }] } : {}),
+      ...(!state.frameBaseSupportType ? { templateAssumptions: [{ field: 'boundary.frameBaseSupportType', value: 'fixed', en: 'Unstated frame bases default to fixed.', zh: '未说明柱脚时默认刚接。' }] } : {}),
       storyCount: storyHeights.length,
       bayCountX: bayWidthsX.length,
       bayCountY: bayWidthsY.length,
