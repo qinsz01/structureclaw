@@ -7,7 +7,7 @@ StructureClaw 提供预先注册、带版本号的消融配置档，基准测试
 代理仍然以一条回答结束本轮。
 
 唯一来源：`backend/src/runtime/ablation-profiles.ts`（`ABLATION_PROFILES_VERSION`，当前为
-`2026-10-21.1`）。修改任何配置档定义，或所有配置档共用的默认提示词与工具，都必须更新版本号。历史：
+`2026-10-21.6`）。修改任何配置档定义，或所有配置档共用的默认提示词与工具，都必须更新版本号。历史：
 
 - `2026-10-17.1`：初版配置档。`2026-10-17.2`：`no-knowledge` 同时移除阶段名称。
 - `2026-10-18.1`：默认流程在规范校核前停止；缺少设计输入时报告而不追问。
@@ -16,6 +16,9 @@ StructureClaw 提供预先注册、带版本号的消融配置档，基准测试
 - `2026-10-19.1`：移除平衡捷径（`run_analysis` 的 `method=equilibrium`/`allowPartial`、`requestScope.method`）；默认提示词去除重复规则，结构类型草稿说明不再建议默认牌号或截面。
 - `2026-10-19.2`–`2026-10-20.8`：显式截面属性优先于几何（接受舍入）；助手记忆的表值需用户确认，用户来源的截面数值需有证据；紧凑澄清补丁；结果位置给出全局坐标；圆角按尖角近似。
 - `2026-10-21.1`：截面证据接受已核对附件、已确认候选值和规则推导值；尊重用户声明的荷载符号约定；结构路由优先由大模型判断；隐式开启的分析默认项改为未声明即关闭；声明的源坐标系映射到全局 Z 向上；澄清回复可携带附件。
+
+- `2026-10-21.5`：显式说明被禁用的结构能力，修复柱脚草稿映射和提取提示，阻止已回答字段反复追问，明确模型导入错误。
+- `2026-10-21.6`：保留范围内路由提示，在追问与最终交付中强制说明能力限制，提示逐节点保留框架荷载，识别柱脚别名映射故障；仅把重复缺项的已应用答案视为映射故障。
 
 ## 选择配置档
 
@@ -109,5 +112,3 @@ SCLAW_RUN_PROFILE=no-clarification node tests/runner.mjs llm-benchmark --scenari
 ```json
 { "message": "...", "context": { "locale": "zh", "runPolicy": { "profile": "no-knowledge" } } }
 ```
-
-- `2026-10-21.5`: disclose excluded structure skills, repair frame-base draft mapping and focused extraction guidance, stop unresolved applied answers, and clarify model import errors. / 显式说明被禁用的结构能力，修复柱脚草稿映射和提取提示，阻止已回答字段反复追问，明确模型导入错误。

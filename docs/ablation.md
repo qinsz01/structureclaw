@@ -8,7 +8,7 @@ tool interfaces and inputs and removes exactly one mechanism. Removing a mechani
 loss, not a broken interface: the agent still finishes the turn with an answer.
 
 Source of truth: `backend/src/runtime/ablation-profiles.ts` (`ABLATION_PROFILES_VERSION`, currently
-`2026-10-21.1`). Any change to a profile definition, or to the default prompts or tools that every profile
+`2026-10-21.6`). Any change to a profile definition, or to the default prompts or tools that every profile
 shares, requires a new version. History:
 
 - `2026-10-17.1`: initial profiles. `2026-10-17.2`: `no-knowledge` also removes stage names.
@@ -18,6 +18,9 @@ shares, requires a new version. History:
 - `2026-10-19.1`: the equilibrium shortcut is removed (`run_analysis` `method=equilibrium`/`allowPartial`, `requestScope.method`); the default prompts drop duplicated rules, and the structure-type draft guidance no longer proposes default grades or sections.
 - `2026-10-19.2`–`2026-10-20.8`: explicit section properties win over geometry (rounding accepted); recalled table values need user confirmation and user-sourced section numbers need evidence; compact clarification patches; global result coordinates; fillets approximated as sharp corners.
 - `2026-10-21.1`: section evidence accepts reviewed attachments, confirmed candidates and rule-derived values; stated load-sign conventions are honoured; structural routing is LLM-first; silently enabled analysis defaults are off unless stated; declared source frames are mapped to global Z-up; clarification replies may carry attachments.
+
+- `2026-10-21.5`: disclose excluded structure skills, repair frame-base draft mapping and focused extraction guidance, stop unresolved applied answers, and clarify model import errors.
+- `2026-10-21.6`: preserve scoped router prompts; enforce capability notices at clarification/final delivery, preserve per-node frame loads in guidance, and detect frame alias mapping faults. Only an applied answer to a previously missing field can trigger the mapping-fault guard.
 
 ## Selecting a profile
 
@@ -129,5 +132,3 @@ SCLAW_RUN_PROFILE=no-clarification node tests/runner.mjs llm-benchmark --scenari
 ```json
 { "message": "...", "context": { "locale": "en", "runPolicy": { "profile": "no-knowledge" } } }
 ```
-
-- `2026-10-21.5`: disclose excluded structure skills, repair frame-base draft mapping and focused extraction guidance, stop unresolved applied answers, and clarify model import errors. / 显式说明被禁用的结构能力，修复柱脚草稿映射和提取提示，阻止已回答字段反复追问，明确模型导入错误。
