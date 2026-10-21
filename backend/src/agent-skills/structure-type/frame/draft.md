@@ -1,7 +1,7 @@
 # Draft
 
-- 2D 框架核心收集：维度、层数、跨数、各层层高、各跨跨度、各层总荷载。
-- 3D 框架核心收集：维度、层数、X/Y 向跨数、各层层高、X/Y 向各跨跨度、各层总荷载。
+- 2D 框架收集维度、层数、跨数、层高、跨度及有明确目标的节点、构件或楼面荷载。/ Collect dimension, stories, bays, heights, spans and targeted node/member/floor loads for 2D frames.
+- 3D 框架收集维度、层数、X/Y 轴网、层高及有明确目标的节点、构件或楼面荷载。/ Collect dimension, stories, X/Y grids, heights and targeted node/member/floor loads for 3D frames.
 - 材料牌号、柱截面、梁截面在用户给出时提取；未给出时留空，不替用户选择（只求内力时不需要，其余情况由系统询问）。
 
 ## 材料牌号（frameMaterial）
@@ -28,16 +28,15 @@
 - 3D 框架：X 和 Y 为柱网两个水平方向，Z 为层高和竖向荷载方向。
 
 ## 荷载提取
-- 对 `floorLoads`，优先把自然语言映射为统一的各层总荷载数组（单位 kN）：
+- `floorLoads` 仅表示明确给出的各层总荷载（kN），不要求节点或构件荷载再提供楼层总量。/ Use floorLoads only for explicitly given story totals, never as an extra prerequisite for node/member loads.
   - 每个 `floorLoads` 数组项必须包含 `story`，如 `{ "story": 1, "verticalKN": 1000 }`
-  - `每层节点荷载都是1000kN` → 每层输出 `{ "story": 层号, "verticalKN": 1000 }`
   - `每层竖向荷载1000kN` 或 `每层竖向1000kN` → 每层输出 `{ "story": 层号, "verticalKN": 1000 }`
   - `水平荷载500kN` → 2D 框架优先映射为 `{ "story": 层号, "lateralXKN": 500 }`
   - `x、y向水平荷载都是500kN` → 每层输出 `lateralXKN = 500` 且 `lateralYKN = 500`
 - 若用户给出面荷载/线荷载（如 `12kN/m²`、`8kN/m`）且层数、跨度等几何信息足够，应优先输出 `engineeringDraft.loads` 中的 `area` / `line` 荷载，由 runtime 换算为各层总荷载；只有几何信息不足以换算时，才追问各层总荷载（kN）。
 - 若用户明确说明某线荷载是由面荷载按受荷宽度折算得到，且要求采用该折算结果，则面荷载只是计算依据：只输出并施加折算后的 `line` 荷载，不要同时输出源 `area` 荷载。只有用户明确要求两者分别叠加时才同时保留。
 - 若用户只给出楼面荷载数值而没有单位，或没有说明它是总力、线荷载还是面荷载，不得自行补写单位或荷载种类；应输出 `draftIssues` 和 `skillState.invalidDraftFields`，要求用户确认。
-- 对作用在单个框架节点的 `point` / `nodal` 荷载，必须同时输出 `engineeringDraft.loads[].location.story` 和 `location.nodeRole`。`nodeRole` 使用 `left-side`、`right-side` 或 `middle`，不要只输出含糊的 `target: "column-top"`。
+- 单节点力使用准确节点 ID，或正式协议中的 `location.story` 与 `nodeRole`；`left-side/right-side/middle` 只适用于二维，三维使用 X/Y 轴网索引。/ Locate a joint force by exact node ID or the formal story/nodeRole contract; left-side/right-side/middle apply only to 2D, and 3D uses X/Y grid indices.
 - 若用户只说“柱顶”但没有指定左柱、右柱或中间柱，不要自行选择一侧；输出 `draftIssues`，字段使用 `frameNodalLoadLocation`，并要求用户确认节点位置。
 - 若消息中明确出现 `y向水平荷载`、`x、y向`、`x/y向` 等双向水平荷载语义，应优先输出 `frameDimension = "3d"`。
 - 若没有任何 Y 向证据，默认按 `2d` 收敛，而不是把 `frameDimension` 留空。
@@ -56,6 +55,3 @@
 
 - 构件上的集中荷载不同于节点荷载：使用 `kind: "point"`，`location.xM` 为距构件起点的距离（m）；用准确的构件 ID `target` 或二维框架的 `location.story` + `location.spanIndex`（从 1 开始）定位构件。已给出构件和沿构件位置时，不要追问节点角色，也不要转为楼层总荷载。
 - A member point load is distinct from a joint load: use `kind: "point"` and `location.xM` in metres from the member start. Identify the member by its exact `target` ID or, for a 2D frame, by one-based `location.story` and `location.spanIndex`. A stated member and position needs no node-role clarification and must not become a floor load.
-
-## Repeated nodal loads / 重复节点荷载
-When a force is given **per node**, preserve that force on every specified node. Enumerate located nodal loads by story and node role where supported, or preserve explicit topology and node IDs. Never interpret the per-node force as a per-story total. Ground nodes excluded by the user receive no such load. / 每个节点的荷载大小必须逐节点保留，可按楼层及节点角色逐条列出，或保留显式拓扑及节点 ID；不得把每节点荷载当作每层总荷载，用户排除的地面节点不施加该荷载。

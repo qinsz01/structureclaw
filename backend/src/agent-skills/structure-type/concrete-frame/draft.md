@@ -57,8 +57,8 @@ Concrete frame sections are described as rectangular cross‑sections:
 1. **Story/bay numbers**: Look for patterns like "3‑story 2‑bay", "4层3跨".
 2. **Dimensions**: Extract numbers followed by "m", "米", "mm", "毫米". Convert mm to m for story heights and bay widths.
 3. **Loads**: "dead load 5 kN/m²", "恒载 5 kN/m²", "live load 3 kN/m²", "活载 3 kN/m²". Prefer `engineeringDraft.loads` with `kind: "area"` and `unit: "kN/m2"` when floor geometry is available; the runtime can convert it to per-story total loads. Use legacy `floorLoads` only when the total kN per story is explicitly given or can be computed reliably.
-   - Preserve a load at a specified joint as `kind: "nodal"`, with both `location.story` (one-based, including 1 for a single-storey frame) and `location.nodeRole` (`left-side`, `right-side`, or `middle`). Preserve each global force component separately. A located load is not a floor total and needs no question about distributing it.
-   - 指定节点的荷载使用 `kind: "nodal"`，同时填写 `location.story`（从 1 开始，单层框架也填 1）和 `location.nodeRole`（`left-side`、`right-side` 或 `middle`），各全局方向分量分别保留。已定位的节点荷载不是楼层总荷载，不要再询问如何分摊。
+   - Preserve a joint load as `kind: "nodal"`, using an exact node ID or the formal story/nodeRole contract. left-side/right-side/middle are 2D-only; 3D uses X/Y grid indices. Repeated loads may use all-non-base-nodes or all-top-nodes; these global selectors need no story. Preserve every global component. A located node load requires no additional floor total.
+   - 节点荷载使用 `kind: "nodal"`，用准确节点 ID 或正式的 story/nodeRole 协议定位。left-side/right-side/middle 仅用于二维，三维用 X/Y 轴网索引。重复荷载可用 all-non-base-nodes 或 all-top-nodes，这两个全局选择器无需 story；保留各方向分量，不另要求楼层总荷载。
    - For a point load along a member, use `kind: "point"`, `location.xM` from the member start, and an exact member ID in `target` or one-based `location.story` + `location.spanIndex`; do not request a node role for this load.
    - 构件上的集中荷载使用 `kind: "point"`、距构件起点的 `location.xM`，以及 `target` 中的准确构件 ID 或从 1 开始的 `location.story` + `location.spanIndex`，不要为此追问节点角色。
 4. **Materials**: Look for concrete grades (C20–C80) and rebar grades (HPB300, HRB400, HRB500). A missing rebar grade is not a missing analysis input.
@@ -77,6 +77,3 @@ Omit what the user did not give; the skill asks for missing required inputs.
 For explicitly delegated preliminary choices in a one- or two-story concrete frame, propose C30 and 400×400 mm columns. For rectangular beams, use the existing preliminary sizing rule: depth H = maximum bay span / 10, rounded to 50 mm (minimum 250 mm); width B = H / 2, rounded to 25 mm (minimum 200 mm). Thus a 5 m span proposes 250×500 mm beams. Put all proposed values in one confirmation question; do not enter them as accepted input before the user's acceptance. These are provisional analysis choices, not a code-checked design. Preserve explicitly supplied values instead.
 
 用户明确委托选择一至两层混凝土框架的初步材料与截面时，建议 C30、400×400 mm 柱。矩形梁沿用现有初估规则：梁高 H 取最大跨度的 1/10，按 50 mm 取整且不小于 250 mm；梁宽 B 取 H/2，按 25 mm 取整且不小于 200 mm。因此 5 m 跨度建议 250×500 mm 梁。将全部建议合并为一次确认，用户接受前不得当作已确认输入。这些只是初步分析取值，不代表已通过规范设计；用户已给数值必须保留。
-
-## Repeated nodal loads / 重复节点荷载
-When a force is given **per node**, preserve that force on every specified node. Enumerate located nodal loads by story and node role where supported, or preserve explicit topology and node IDs. Never interpret the per-node force as a per-story total. Ground nodes excluded by the user receive no such load. / 每个节点的荷载大小必须逐节点保留，可按楼层及节点角色逐条列出，或保留显式拓扑及节点 ID；不得把每节点荷载当作每层总荷载，用户排除的地面节点不施加该荷载。

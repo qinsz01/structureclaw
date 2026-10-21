@@ -5,8 +5,8 @@ import type { RunPolicy } from '../runtime/run-policy.js';
 /** Principle-level guidance shared by extraction, building and delivery. Never a selectable skill. */
 const TOPICS = {
   loads: {
-    en: 'Keep every load, case, target, sign and unit. Distinguish nodal forces (kN), member loads (kN/m) and area loads (kN/m²); transfer floor loads once and verify the total. Self-weight is included only when requested. Wind, snow, crane and temperature actions need their physical direction and supplied basis.',
-    zh: '保留全部荷载、工况、目标、符号和单位。区分节点力(kN)、杆件线荷载(kN/m)和面荷载(kN/m²)；楼面荷载只传递一次并核对总量。仅按要求计入自重。风、雪、吊车和温度作用须有明确物理方向和给定依据。',
+    en: 'Keep every load, case, target, sign and unit. A per-node force acts on EACH specified node, never as a floor total; exclude ground nodes when requested. When a clarification replaces a load pattern, update its existing ID rather than retaining an obsolete target as an additional action. Distinguish nodal forces (kN), member loads (kN/m) and area loads (kN/m²); transfer floor loads once and verify the total. Self-weight is included only when requested. Wind, snow, crane and temperature actions need their physical direction and supplied basis.',
+    zh: '保留全部荷载、工况、目标、符号和单位。每节点力须分别施加到每个指定节点，不得当作楼层总力；按要求排除地面节点。澄清替换荷载模式时更新原有ID，不把过时目标保留为新增作用。区分节点力(kN)、杆件线荷载(kN/m)和面荷载(kN/m²)；楼面荷载只传递一次并核对总量。仅按要求计入自重。风、雪、吊车和温度作用须有明确物理方向和给定依据。',
   },
   boundaries: {
     en: 'Supports restrain physical degrees of freedom; releases describe member-end freedom. Keep their axes explicit and check connectivity and stability. A pin transfers forces without fixing rotations; a roller leaves its declared translation free. Do not infer member design lengths from mesh lengths.',

@@ -28,8 +28,8 @@ exports[`characterization: ablation profiles profile full: offered tools, system
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 22605,
-  "systemPromptSha256": "583f8e87ce9add93dd6d0e30e617ef510bdf4b875029b042542b86a2eecb7cf3",
+  "systemPromptChars": 22847,
+  "systemPromptSha256": "ecb8cc9906d21e4ae3931ff03afac07857721989bc64411bad0c3e4da2c334e1",
 }
 `;
 
@@ -142,7 +142,7 @@ Providers (select by tool arguments) / Provider（通过工具参数选择）:
 - pdf-input: PDF Structural Document Parsing
 - report-export-builtin: Builtin Report Export
 - pkpm-calcbook: PKPM SATWE Calculation Report Export
-Keep every load, case, target, sign and unit. Distinguish nodal forces (kN), member loads (kN/m) and area loads (kN/m²); transfer floor loads once and verify the total. Self-weight is included only when requested. Wind, snow, crane and temperature actions need their physical direction and supplied basis.
+Keep every load, case, target, sign and unit. A per-node force acts on EACH specified node, never as a floor total; exclude ground nodes when requested. When a clarification replaces a load pattern, update its existing ID rather than retaining an obsolete target as an additional action. Distinguish nodal forces (kN), member loads (kN/m) and area loads (kN/m²); transfer floor loads once and verify the total. Self-weight is included only when requested. Wind, snow, crane and temperature actions need their physical direction and supplied basis.
 Supports restrain physical degrees of freedom; releases describe member-end freedom. Keep their axes explicit and check connectivity and stability. A pin transfers forces without fixing rotations; a roller leaves its declared translation free. Do not infer member design lengths from mesh lengths.
 Before analysis check geometry, referenced records, connectivity, supports, section/material evidence, units and load totals. Report unsupported capability or remaining errors honestly rather than substituting a different structure or engine.
 Summarise supports, applied totals, reactions and governing signed results with case, member, position and units. Use only the current model/run. Forces from placeholder stiffness cannot justify displacements or design. Generate reports only when requested; distinguish diagrams from numerical evidence.
@@ -190,8 +190,8 @@ exports[`characterization: ablation profiles profile generic-only: offered tools
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 21389,
-  "systemPromptSha256": "ea1405e2f0ab64c4ec566b22ef0af3d1eb4389b6e3c643d9e1265c5b86a769a4",
+  "systemPromptChars": 21631,
+  "systemPromptSha256": "bac779b90e4b7919170276b3bda495dffd10b3cedae47140e2da261a95f68730",
 }
 `;
 
@@ -297,7 +297,7 @@ Providers (select by tool arguments) / Provider（通过工具参数选择）:
 - pdf-input: PDF Structural Document Parsing
 - report-export-builtin: Builtin Report Export
 - pkpm-calcbook: PKPM SATWE Calculation Report Export
-Keep every load, case, target, sign and unit. Distinguish nodal forces (kN), member loads (kN/m) and area loads (kN/m²); transfer floor loads once and verify the total. Self-weight is included only when requested. Wind, snow, crane and temperature actions need their physical direction and supplied basis.
+Keep every load, case, target, sign and unit. A per-node force acts on EACH specified node, never as a floor total; exclude ground nodes when requested. When a clarification replaces a load pattern, update its existing ID rather than retaining an obsolete target as an additional action. Distinguish nodal forces (kN), member loads (kN/m) and area loads (kN/m²); transfer floor loads once and verify the total. Self-weight is included only when requested. Wind, snow, crane and temperature actions need their physical direction and supplied basis.
 Supports restrain physical degrees of freedom; releases describe member-end freedom. Keep their axes explicit and check connectivity and stability. A pin transfers forces without fixing rotations; a roller leaves its declared translation free. Do not infer member design lengths from mesh lengths.
 Before analysis check geometry, referenced records, connectivity, supports, section/material evidence, units and load totals. Report unsupported capability or remaining errors honestly rather than substituting a different structure or engine.
 Summarise supports, applied totals, reactions and governing signed results with case, member, position and units. Use only the current model/run. Forces from placeholder stiffness cannot justify displacements or design. Generate reports only when requested; distinguish diagrams from numerical evidence.
@@ -344,8 +344,8 @@ exports[`characterization: ablation profiles profile no-clarification: offered t
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 22458,
-  "systemPromptSha256": "cc2485d7c20888bcdbf94e872817c71106931e62df22f0023dc83f74fa827db1",
+  "systemPromptChars": 22700,
+  "systemPromptSha256": "e50588efcba59200a0d6922b4eb1daa02103f094128d51dab613bacfbcc5379f",
 }
 `;
 
@@ -458,7 +458,7 @@ Providers (select by tool arguments) / Provider（通过工具参数选择）:
 - pdf-input: PDF Structural Document Parsing
 - report-export-builtin: Builtin Report Export
 - pkpm-calcbook: PKPM SATWE Calculation Report Export
-Keep every load, case, target, sign and unit. Distinguish nodal forces (kN), member loads (kN/m) and area loads (kN/m²); transfer floor loads once and verify the total. Self-weight is included only when requested. Wind, snow, crane and temperature actions need their physical direction and supplied basis.
+Keep every load, case, target, sign and unit. A per-node force acts on EACH specified node, never as a floor total; exclude ground nodes when requested. When a clarification replaces a load pattern, update its existing ID rather than retaining an obsolete target as an additional action. Distinguish nodal forces (kN), member loads (kN/m) and area loads (kN/m²); transfer floor loads once and verify the total. Self-weight is included only when requested. Wind, snow, crane and temperature actions need their physical direction and supplied basis.
 Supports restrain physical degrees of freedom; releases describe member-end freedom. Keep their axes explicit and check connectivity and stability. A pin transfers forces without fixing rotations; a roller leaves its declared translation free. Do not infer member design lengths from mesh lengths.
 Before analysis check geometry, referenced records, connectivity, supports, section/material evidence, units and load totals. Report unsupported capability or remaining errors honestly rather than substituting a different structure or engine.
 Summarise supports, applied totals, reactions and governing signed results with case, member, position and units. Use only the current model/run. Forces from placeholder stiffness cannot justify displacements or design. Generate reports only when requested; distinguish diagrams from numerical evidence.
@@ -506,8 +506,8 @@ exports[`characterization: ablation profiles profile no-evidence-binding: offere
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 22605,
-  "systemPromptSha256": "583f8e87ce9add93dd6d0e30e617ef510bdf4b875029b042542b86a2eecb7cf3",
+  "systemPromptChars": 22847,
+  "systemPromptSha256": "ecb8cc9906d21e4ae3931ff03afac07857721989bc64411bad0c3e4da2c334e1",
 }
 `;
 
@@ -620,7 +620,7 @@ Providers (select by tool arguments) / Provider（通过工具参数选择）:
 - pdf-input: PDF Structural Document Parsing
 - report-export-builtin: Builtin Report Export
 - pkpm-calcbook: PKPM SATWE Calculation Report Export
-Keep every load, case, target, sign and unit. Distinguish nodal forces (kN), member loads (kN/m) and area loads (kN/m²); transfer floor loads once and verify the total. Self-weight is included only when requested. Wind, snow, crane and temperature actions need their physical direction and supplied basis.
+Keep every load, case, target, sign and unit. A per-node force acts on EACH specified node, never as a floor total; exclude ground nodes when requested. When a clarification replaces a load pattern, update its existing ID rather than retaining an obsolete target as an additional action. Distinguish nodal forces (kN), member loads (kN/m) and area loads (kN/m²); transfer floor loads once and verify the total. Self-weight is included only when requested. Wind, snow, crane and temperature actions need their physical direction and supplied basis.
 Supports restrain physical degrees of freedom; releases describe member-end freedom. Keep their axes explicit and check connectivity and stability. A pin transfers forces without fixing rotations; a roller leaves its declared translation free. Do not infer member design lengths from mesh lengths.
 Before analysis check geometry, referenced records, connectivity, supports, section/material evidence, units and load totals. Report unsupported capability or remaining errors honestly rather than substituting a different structure or engine.
 Summarise supports, applied totals, reactions and governing signed results with case, member, position and units. Use only the current model/run. Forces from placeholder stiffness cannot justify displacements or design. Generate reports only when requested; distinguish diagrams from numerical evidence.
@@ -827,8 +827,8 @@ exports[`characterization: ablation profiles profile no-repair: offered tools, s
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 22654,
-  "systemPromptSha256": "7595732f56a21c8c3e3168dc138d9e34124df12ef6cba6005613c44b1f03c1d5",
+  "systemPromptChars": 22896,
+  "systemPromptSha256": "f1d4518f3ba6c563a81ed6f254e58a7f264770fcbfe350a7d572bd70e47313f8",
 }
 `;
 
@@ -941,7 +941,7 @@ Providers (select by tool arguments) / Provider（通过工具参数选择）:
 - pdf-input: PDF Structural Document Parsing
 - report-export-builtin: Builtin Report Export
 - pkpm-calcbook: PKPM SATWE Calculation Report Export
-Keep every load, case, target, sign and unit. Distinguish nodal forces (kN), member loads (kN/m) and area loads (kN/m²); transfer floor loads once and verify the total. Self-weight is included only when requested. Wind, snow, crane and temperature actions need their physical direction and supplied basis.
+Keep every load, case, target, sign and unit. A per-node force acts on EACH specified node, never as a floor total; exclude ground nodes when requested. When a clarification replaces a load pattern, update its existing ID rather than retaining an obsolete target as an additional action. Distinguish nodal forces (kN), member loads (kN/m) and area loads (kN/m²); transfer floor loads once and verify the total. Self-weight is included only when requested. Wind, snow, crane and temperature actions need their physical direction and supplied basis.
 Supports restrain physical degrees of freedom; releases describe member-end freedom. Keep their axes explicit and check connectivity and stability. A pin transfers forces without fixing rotations; a roller leaves its declared translation free. Do not infer member design lengths from mesh lengths.
 Before analysis check geometry, referenced records, connectivity, supports, section/material evidence, units and load totals. Report unsupported capability or remaining errors honestly rather than substituting a different structure or engine.
 Summarise supports, applied totals, reactions and governing signed results with case, member, position and units. Use only the current model/run. Forces from placeholder stiffness cannot justify displacements or design. Generate reports only when requested; distinguish diagrams from numerical evidence.
@@ -989,8 +989,8 @@ exports[`characterization: ablation profiles profile no-routing: offered tools, 
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 22605,
-  "systemPromptSha256": "583f8e87ce9add93dd6d0e30e617ef510bdf4b875029b042542b86a2eecb7cf3",
+  "systemPromptChars": 22847,
+  "systemPromptSha256": "ecb8cc9906d21e4ae3931ff03afac07857721989bc64411bad0c3e4da2c334e1",
 }
 `;
 
@@ -1103,7 +1103,7 @@ Providers (select by tool arguments) / Provider（通过工具参数选择）:
 - pdf-input: PDF Structural Document Parsing
 - report-export-builtin: Builtin Report Export
 - pkpm-calcbook: PKPM SATWE Calculation Report Export
-Keep every load, case, target, sign and unit. Distinguish nodal forces (kN), member loads (kN/m) and area loads (kN/m²); transfer floor loads once and verify the total. Self-weight is included only when requested. Wind, snow, crane and temperature actions need their physical direction and supplied basis.
+Keep every load, case, target, sign and unit. A per-node force acts on EACH specified node, never as a floor total; exclude ground nodes when requested. When a clarification replaces a load pattern, update its existing ID rather than retaining an obsolete target as an additional action. Distinguish nodal forces (kN), member loads (kN/m) and area loads (kN/m²); transfer floor loads once and verify the total. Self-weight is included only when requested. Wind, snow, crane and temperature actions need their physical direction and supplied basis.
 Supports restrain physical degrees of freedom; releases describe member-end freedom. Keep their axes explicit and check connectivity and stability. A pin transfers forces without fixing rotations; a roller leaves its declared translation free. Do not infer member design lengths from mesh lengths.
 Before analysis check geometry, referenced records, connectivity, supports, section/material evidence, units and load totals. Report unsupported capability or remaining errors honestly rather than substituting a different structure or engine.
 Summarise supports, applied totals, reactions and governing signed results with case, member, position and units. Use only the current model/run. Forces from placeholder stiffness cannot justify displacements or design. Generate reports only when requested; distinguish diagrams from numerical evidence.
@@ -1151,8 +1151,8 @@ exports[`characterization: ablation profiles profile no-state-versioning: offere
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 22605,
-  "systemPromptSha256": "583f8e87ce9add93dd6d0e30e617ef510bdf4b875029b042542b86a2eecb7cf3",
+  "systemPromptChars": 22847,
+  "systemPromptSha256": "ecb8cc9906d21e4ae3931ff03afac07857721989bc64411bad0c3e4da2c334e1",
 }
 `;
 
@@ -1265,7 +1265,7 @@ Providers (select by tool arguments) / Provider（通过工具参数选择）:
 - pdf-input: PDF Structural Document Parsing
 - report-export-builtin: Builtin Report Export
 - pkpm-calcbook: PKPM SATWE Calculation Report Export
-Keep every load, case, target, sign and unit. Distinguish nodal forces (kN), member loads (kN/m) and area loads (kN/m²); transfer floor loads once and verify the total. Self-weight is included only when requested. Wind, snow, crane and temperature actions need their physical direction and supplied basis.
+Keep every load, case, target, sign and unit. A per-node force acts on EACH specified node, never as a floor total; exclude ground nodes when requested. When a clarification replaces a load pattern, update its existing ID rather than retaining an obsolete target as an additional action. Distinguish nodal forces (kN), member loads (kN/m) and area loads (kN/m²); transfer floor loads once and verify the total. Self-weight is included only when requested. Wind, snow, crane and temperature actions need their physical direction and supplied basis.
 Supports restrain physical degrees of freedom; releases describe member-end freedom. Keep their axes explicit and check connectivity and stability. A pin transfers forces without fixing rotations; a roller leaves its declared translation free. Do not infer member design lengths from mesh lengths.
 Before analysis check geometry, referenced records, connectivity, supports, section/material evidence, units and load totals. Report unsupported capability or remaining errors honestly rather than substituting a different structure or engine.
 Summarise supports, applied totals, reactions and governing signed results with case, member, position and units. Use only the current model/run. Forces from placeholder stiffness cannot justify displacements or design. Generate reports only when requested; distinguish diagrams from numerical evidence.
@@ -1313,8 +1313,8 @@ exports[`characterization: ablation profiles profile no-template-builder: offere
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 22604,
-  "systemPromptSha256": "bcf9f521696a99c13b459a6770680fdc376767fd5e81ca55a462a58ce1c8ef80",
+  "systemPromptChars": 22846,
+  "systemPromptSha256": "22c1f9e17542f34e2167fbbbd26118820b3ce44461520ccaa41caeaf91a25e11",
 }
 `;
 
@@ -1427,7 +1427,7 @@ Providers (select by tool arguments) / Provider（通过工具参数选择）:
 - pdf-input: PDF Structural Document Parsing
 - report-export-builtin: Builtin Report Export
 - pkpm-calcbook: PKPM SATWE Calculation Report Export
-Keep every load, case, target, sign and unit. Distinguish nodal forces (kN), member loads (kN/m) and area loads (kN/m²); transfer floor loads once and verify the total. Self-weight is included only when requested. Wind, snow, crane and temperature actions need their physical direction and supplied basis.
+Keep every load, case, target, sign and unit. A per-node force acts on EACH specified node, never as a floor total; exclude ground nodes when requested. When a clarification replaces a load pattern, update its existing ID rather than retaining an obsolete target as an additional action. Distinguish nodal forces (kN), member loads (kN/m) and area loads (kN/m²); transfer floor loads once and verify the total. Self-weight is included only when requested. Wind, snow, crane and temperature actions need their physical direction and supplied basis.
 Supports restrain physical degrees of freedom; releases describe member-end freedom. Keep their axes explicit and check connectivity and stability. A pin transfers forces without fixing rotations; a roller leaves its declared translation free. Do not infer member design lengths from mesh lengths.
 Before analysis check geometry, referenced records, connectivity, supports, section/material evidence, units and load totals. Report unsupported capability or remaining errors honestly rather than substituting a different structure or engine.
 Summarise supports, applied totals, reactions and governing signed results with case, member, position and units. Use only the current model/run. Forces from placeholder stiffness cannot justify displacements or design. Generate reports only when requested; distinguish diagrams from numerical evidence.
@@ -1474,8 +1474,8 @@ exports[`characterization: ablation profiles profile no-validation-gate: offered
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 22691,
-  "systemPromptSha256": "09e6225bb153897df97e02094a8e947fa76493a0dabd5425ed71b54e950e03f8",
+  "systemPromptChars": 22933,
+  "systemPromptSha256": "f69746c7f697ab5822d50c4ce011e3f8e024ee11f450eb98d7a09ec70d0f3763",
 }
 `;
 
@@ -1588,7 +1588,7 @@ Providers (select by tool arguments) / Provider（通过工具参数选择）:
 - pdf-input: PDF Structural Document Parsing
 - report-export-builtin: Builtin Report Export
 - pkpm-calcbook: PKPM SATWE Calculation Report Export
-Keep every load, case, target, sign and unit. Distinguish nodal forces (kN), member loads (kN/m) and area loads (kN/m²); transfer floor loads once and verify the total. Self-weight is included only when requested. Wind, snow, crane and temperature actions need their physical direction and supplied basis.
+Keep every load, case, target, sign and unit. A per-node force acts on EACH specified node, never as a floor total; exclude ground nodes when requested. When a clarification replaces a load pattern, update its existing ID rather than retaining an obsolete target as an additional action. Distinguish nodal forces (kN), member loads (kN/m) and area loads (kN/m²); transfer floor loads once and verify the total. Self-weight is included only when requested. Wind, snow, crane and temperature actions need their physical direction and supplied basis.
 Supports restrain physical degrees of freedom; releases describe member-end freedom. Keep their axes explicit and check connectivity and stability. A pin transfers forces without fixing rotations; a roller leaves its declared translation free. Do not infer member design lengths from mesh lengths.
 Before analysis check geometry, referenced records, connectivity, supports, section/material evidence, units and load totals. Report unsupported capability or remaining errors honestly rather than substituting a different structure or engine.
 Summarise supports, applied totals, reactions and governing signed results with case, member, position and units. Use only the current model/run. Forces from placeholder stiffness cannot justify displacements or design. Generate reports only when requested; distinguish diagrams from numerical evidence.
