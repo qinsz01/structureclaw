@@ -359,4 +359,3 @@ export function build3dBeamLineLoads(
   }
   return loads;
 }
-

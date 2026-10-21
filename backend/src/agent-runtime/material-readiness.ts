@@ -33,4 +33,3 @@ export function materialPropertyQuestions(state: DraftState, locale: AppLocale):
     }));
   });
 }
-

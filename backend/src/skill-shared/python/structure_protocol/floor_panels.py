@@ -343,4 +343,3 @@ class FloorPanelLoadMixin:
 
     def _coord_key(self, value: float) -> int:
         return int(round(float(value) * 1_000_000))
-

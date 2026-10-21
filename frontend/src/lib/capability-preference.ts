@@ -43,4 +43,3 @@ export function loadCapabilityPreferences(): CapabilityPreferenceState | null {
     return null
   }
 }
-
