@@ -8,7 +8,7 @@ tool interfaces and inputs and removes exactly one mechanism. Removing a mechani
 loss, not a broken interface: the agent still finishes the turn with an answer.
 
 Source of truth: `backend/src/runtime/ablation-profiles.ts` (`ABLATION_PROFILES_VERSION`, currently
-`2026-10-21.8`). Any change to a profile definition, or to the default prompts or tools that every profile
+`2026-10-21.9`). Any change to a profile definition, or to the default prompts or tools that every profile
 shares, requires a new version. History:
 
 - `2026-10-17.1`: initial profiles. `2026-10-17.2`: `no-knowledge` also removes stage names.
@@ -23,6 +23,8 @@ shares, requires a new version. History:
 - `2026-10-21.6`: preserve scoped router prompts; enforce capability notices at clarification/final delivery, preserve per-node frame loads in guidance, and detect frame alias mapping faults. Only an applied answer to a previously missing field can trigger the mapping-fault guard.
 - `2026-10-21.7`: publish fixed-base defaults in the existing bilingual assumption format consumed by tool delivery.
 - `2026-10-21.8`: resolve an accepted clarification receipt's unique unchanged section candidate when the extractor omits its redundant candidate ID; guide delegated low-rise concrete-frame proposals using span-based preliminary beam sizing and one bundled confirmation.
+
+- `2026-10-21.9`: Validate stored numeric section candidates before delivering a confirmation question / 发送确认问题前校验数值截面候选已保存。
 
 ## Selecting a profile
 

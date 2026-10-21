@@ -40,7 +40,7 @@ describe('clarification option contract', () => {
 
   test('repair leaves quoted punctuation and escaped quotes intact', async () => {
     const options = ['A: ],}, commas,,', 'B: "quoted" \\ path', '尺寸 200×100×7×11.4 mm'];
-    expect((await ask(JSON.stringify(options) + '},')).options).toEqual(options);
+    expect(normalizeClarificationOptions(JSON.stringify(options) + '},')).toEqual(options);
   });
 
   test('repair is bounded by punctuation edits, input length and redundant nesting', () => {
@@ -104,6 +104,7 @@ describe('clarification option contract', () => {
     const policy = resolveRunPolicy({ availableSkillIds: [], availableToolIds: ['ask_user_clarification'],
       defaultToolIds: ['ask_user_clarification'], executionOwner: 'external' });
     const output = await withRunContext(createRunContext(policy), () => createAskUserClarificationTool().invoke({
+      candidateOptions: [{ sectionId: 'S1', field: 'shape', optionIndex: 0, values: { B: 100, H: 200 } }],
       question: 'Material and section?', optionsJson: JSON.stringify([
         { label: ' Q235, 100×200 mm ', value: 'alternative' }, { label: 'C30, 250×500 mm' },
         { label: '', text: 'Explicit elastic properties' }, { value: 'Other section' },
@@ -112,4 +113,20 @@ describe('clarification option contract', () => {
     }));
     expect(JSON.parse(output).options).toEqual(['Q235, 100×200 mm', 'C30, 250×500 mm', 'Explicit elastic properties', 'Other section']);
   });
+
+  test.each(['Confirm columns 400×400 mm and beams 250×500 mm?', '确认柱400×400毫米、梁250×500毫米？'])(
+    'rejects an unbound numeric proposal before asking the user: %s', async question => {
+      const result = JSON.parse(await createAskUserClarificationTool().invoke({ question }));
+      expect(result.errorCode).toBe('SECTION_CANDIDATES_REQUIRED');
+      expect(result).not.toHaveProperty('type');
+      expect(result.hint).toContain('candidateOptions');
+      const repaired = JSON.parse(await withRunContext(createRunContext(policy), () => createAskUserClarificationTool().invoke({
+        question, candidateOptions: [
+          { sectionId: 'column', field: 'shape', optionIndex: 0, values: { B: 400, H: 400 } },
+          { sectionId: 'beam', field: 'shape', optionIndex: 0, values: { B: 250, H: 500 } },
+        ],
+      })));
+      expect(repaired.type).toBe('clarification_needed');
+      expect(repaired.sectionCandidates).toHaveLength(2);
+    });
 });

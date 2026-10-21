@@ -64,6 +64,15 @@ export function createAskUserClarificationTool() {
           return [{ ...candidate, id: `candidate:${contentHash(candidate)}`, optionIds }];
         });
       });
+      // Numeric section proposals must be captured before asking, otherwise an accepted
+      // answer has no immutable candidate to bind on the next extraction.
+      const hasDimensions = [input.question, ...(options ?? [])].some(text => /\d+(?:\.\d+)?\s*[×xX*]\s*\d+(?:\.\d+)?\s*(?:mm|毫米)/.test(text));
+      if (hasDimensions && !sectionCandidates.length) {
+        recordRunEvent({ kind: 'clarification_options_rejected', reason: 'SECTION_CANDIDATES_REQUIRED' });
+        return JSON.stringify({ success: false, errorCode: 'SECTION_CANDIDATES_REQUIRED', nextAction: 'resend_clarification',
+          message: 'No question was sent: numeric section proposals need stored candidates. / 尚未发送问题：数值截面建议必须先保存候选。',
+          hint: 'Resend with candidateOptions containing sectionId, field, optionIndex and values for every proposed section. Preserve those IDs when extracting the answer. / 请重发，并用 candidateOptions 为每个建议截面提供 sectionId、field、optionIndex、values；提取回答时保留这些标识。' });
+      }
       if (currentRunPolicy()?.executionOwner === 'external') {
         return JSON.stringify({ type: 'clarification_needed', question: input.question, options, stateToken, clarificationId, sectionCandidates,
           nextAction: 'await_user_input', resume: 'Begin a new user turn with the actual user answer; the external host owns dialogue.' });
