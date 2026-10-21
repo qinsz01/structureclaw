@@ -120,8 +120,8 @@ exports[`characterization: run policy and ablation surface policy variant builde
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 27652,
-  "systemPromptSha256": "cd91e7325ab9760f0ce23349adb2ecf566910e7523a7d65047fe598b40d30728",
+  "systemPromptChars": 27831,
+  "systemPromptSha256": "a392564e9866355f1f0bf54457b9da41ff47497e0058c7dd0eaee23774dccb05",
 }
 `;
 
@@ -233,6 +233,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - When a user uploads a file, its relPath is passed in the conversation context. Call analyze_file first to retrieve the file content.
 - After analyze_file returns CSV/Excel tabular data, call extract_draft_params to map the data to structural parameters.
 - Image attachments are parsed into text summaries by the independent vision model before reaching the main agent; the main agent uses only those summaries and parsed text. If analyze_file returns image metadata or base64DataUri, do not pass it as image_url to the standard model; ask for missing information when no vision summary is available.
+- Declare known source axes with model.source_frame ("y-up" or right-handed signed x/y/z axes); the model boundary converts them to global Z-up / 已知源坐标系用 source_frame 声明，由模型边界转换。
 - DXF coordinates returned by analyze_file remain in the source drawing frame. Confirm plan/elevation/3D WCS from the request and labels before mapping axes: elevation source X/Y maps to global X/Z with global Y=0; plan source X/Y maps to global X/Y with Z supplied by an explicit story; source X/Y/Z is usable for 3D only when its WCS and vertical axis are documented. Ask when view, units, or axis mapping is ambiguous; never infer 3D from nonzero source Y or silently swap Y/Z. Then call extract_draft_params.
 - After analyze_file returns PDF text, extract dimensions, loads, and materials by LLM semantic understanding, then call extract_draft_params; do not replace semantic understanding with keyword or regex matching.
 
@@ -426,8 +427,8 @@ exports[`characterization: run policy and ablation surface policy variant defaul
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 27653,
-  "systemPromptSha256": "b602198e051c0eb83fccc581b69fa446813b663f5f72c8f9beec6670d4cb1c89",
+  "systemPromptChars": 27832,
+  "systemPromptSha256": "083999b77579a44ffe9ec509217e8c9324f64fe36205c9db9bd8d24dff4f4ea1",
 }
 `;
 
@@ -539,6 +540,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - When a user uploads a file, its relPath is passed in the conversation context. Call analyze_file first to retrieve the file content.
 - After analyze_file returns CSV/Excel tabular data, call extract_draft_params to map the data to structural parameters.
 - Image attachments are parsed into text summaries by the independent vision model before reaching the main agent; the main agent uses only those summaries and parsed text. If analyze_file returns image metadata or base64DataUri, do not pass it as image_url to the standard model; ask for missing information when no vision summary is available.
+- Declare known source axes with model.source_frame ("y-up" or right-handed signed x/y/z axes); the model boundary converts them to global Z-up / 已知源坐标系用 source_frame 声明，由模型边界转换。
 - DXF coordinates returned by analyze_file remain in the source drawing frame. Confirm plan/elevation/3D WCS from the request and labels before mapping axes: elevation source X/Y maps to global X/Z with global Y=0; plan source X/Y maps to global X/Y with Z supplied by an explicit story; source X/Y/Z is usable for 3D only when its WCS and vertical axis are documented. Ask when view, units, or axis mapping is ambiguous; never infer 3D from nonzero source Y or silently swap Y/Z. Then call extract_draft_params.
 - After analyze_file returns PDF text, extract dimensions, loads, and materials by LLM semantic understanding, then call extract_draft_params; do not replace semantic understanding with keyword or regex matching.
 
@@ -1038,8 +1040,8 @@ exports[`characterization: run policy and ablation surface policy variant knowle
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 20934,
-  "systemPromptSha256": "128cbdb6fdfa45ea8cc16f8d7db4157bccba8710d514e5c535e76b95f5c26cd2",
+  "systemPromptChars": 21113,
+  "systemPromptSha256": "e8ca50c4f98e1df14d5e3fc676a71103e7e8a7ebc0590633e14d725503a2c99c",
 }
 `;
 
@@ -1151,6 +1153,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - When a user uploads a file, its relPath is passed in the conversation context. Call analyze_file first to retrieve the file content.
 - After analyze_file returns CSV/Excel tabular data, call extract_draft_params to map the data to structural parameters.
 - Image attachments are parsed into text summaries by the independent vision model before reaching the main agent; the main agent uses only those summaries and parsed text. If analyze_file returns image metadata or base64DataUri, do not pass it as image_url to the standard model; ask for missing information when no vision summary is available.
+- Declare known source axes with model.source_frame ("y-up" or right-handed signed x/y/z axes); the model boundary converts them to global Z-up / 已知源坐标系用 source_frame 声明，由模型边界转换。
 - DXF coordinates returned by analyze_file remain in the source drawing frame. Confirm plan/elevation/3D WCS from the request and labels before mapping axes: elevation source X/Y maps to global X/Z with global Y=0; plan source X/Y maps to global X/Y with Z supplied by an explicit story; source X/Y/Z is usable for 3D only when its WCS and vertical axis are documented. Ask when view, units, or axis mapping is ambiguous; never infer 3D from nonzero source Y or silently swap Y/Z. Then call extract_draft_params.
 - After analyze_file returns PDF text, extract dimensions, loads, and materials by LLM semantic understanding, then call extract_draft_params; do not replace semantic understanding with keyword or regex matching.
 
@@ -1344,8 +1347,8 @@ exports[`characterization: run policy and ablation surface policy variant routin
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 27653,
-  "systemPromptSha256": "b602198e051c0eb83fccc581b69fa446813b663f5f72c8f9beec6670d4cb1c89",
+  "systemPromptChars": 27832,
+  "systemPromptSha256": "083999b77579a44ffe9ec509217e8c9324f64fe36205c9db9bd8d24dff4f4ea1",
 }
 `;
 
@@ -1457,6 +1460,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - When a user uploads a file, its relPath is passed in the conversation context. Call analyze_file first to retrieve the file content.
 - After analyze_file returns CSV/Excel tabular data, call extract_draft_params to map the data to structural parameters.
 - Image attachments are parsed into text summaries by the independent vision model before reaching the main agent; the main agent uses only those summaries and parsed text. If analyze_file returns image metadata or base64DataUri, do not pass it as image_url to the standard model; ask for missing information when no vision summary is available.
+- Declare known source axes with model.source_frame ("y-up" or right-handed signed x/y/z axes); the model boundary converts them to global Z-up / 已知源坐标系用 source_frame 声明，由模型边界转换。
 - DXF coordinates returned by analyze_file remain in the source drawing frame. Confirm plan/elevation/3D WCS from the request and labels before mapping axes: elevation source X/Y maps to global X/Z with global Y=0; plan source X/Y maps to global X/Y with Z supplied by an explicit story; source X/Y/Z is usable for 3D only when its WCS and vertical axis are documented. Ask when view, units, or axis mapping is ambiguous; never infer 3D from nonzero source Y or silently swap Y/Z. Then call extract_draft_params.
 - After analyze_file returns PDF text, extract dimensions, loads, and materials by LLM semantic understanding, then call extract_draft_params; do not replace semantic understanding with keyword or regex matching.
 
@@ -1651,8 +1655,8 @@ exports[`characterization: run policy and ablation surface policy variant tools-
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 27506,
-  "systemPromptSha256": "b23c6c69b16812c4777ec85a884d97b17b78625e11e1575d2c7193f7203e15af",
+  "systemPromptChars": 27685,
+  "systemPromptSha256": "88c43b282c1c5db0617028516883d7d38660aa706876c31ec5343c5237ea117f",
 }
 `;
 
@@ -1764,6 +1768,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - When a user uploads a file, its relPath is passed in the conversation context. Call analyze_file first to retrieve the file content.
 - After analyze_file returns CSV/Excel tabular data, call extract_draft_params to map the data to structural parameters.
 - Image attachments are parsed into text summaries by the independent vision model before reaching the main agent; the main agent uses only those summaries and parsed text. If analyze_file returns image metadata or base64DataUri, do not pass it as image_url to the standard model; ask for missing information when no vision summary is available.
+- Declare known source axes with model.source_frame ("y-up" or right-handed signed x/y/z axes); the model boundary converts them to global Z-up / 已知源坐标系用 source_frame 声明，由模型边界转换。
 - DXF coordinates returned by analyze_file remain in the source drawing frame. Confirm plan/elevation/3D WCS from the request and labels before mapping axes: elevation source X/Y maps to global X/Z with global Y=0; plan source X/Y maps to global X/Y with Z supplied by an explicit story; source X/Y/Z is usable for 3D only when its WCS and vertical axis are documented. Ask when view, units, or axis mapping is ambiguous; never infer 3D from nonzero source Y or silently swap Y/Z. Then call extract_draft_params.
 - After analyze_file returns PDF text, extract dimensions, loads, and materials by LLM semantic understanding, then call extract_draft_params; do not replace semantic understanding with keyword or regex matching.
 
