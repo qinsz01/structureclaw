@@ -19,7 +19,9 @@ describeWithOpenSees('characterization: clarification interrupt and resume', () 
     const option = locale === 'zh' ? '确认采用 200×100×7×11.4 mm' : 'Confirm 200×100×7×11.4 mm';
     const first = await runTurn(ctx, { message: question, context: { locale } }, [
       toolCall('ask_user_clarification', { question, optionsJson: '["unfinished' }, 'bad-options'),
-      toolCall('ask_user_clarification', { question, optionsJson: JSON.stringify([option]) + '}' }, 'repaired-options'),
+      toolCall('ask_user_clarification', { question, optionsJson: JSON.stringify([option]) + '}',
+        candidateOptions: [{ sectionId: 'S1', field: 'shape', optionIndex: 0, values: { H: 200, B: 100, tw: 7, tf: 11.4 } }],
+      }, 'repaired-options'),
     ], { expectedToolErrors: 1 });
     expect(toolResultSeenByAgent(first.requests, 'bad-options')).toMatchObject({
       success: false, errorCode: 'CLARIFICATION_OPTIONS_INVALID', nextAction: 'resend_clarification',
