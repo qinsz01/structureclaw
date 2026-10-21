@@ -32,6 +32,11 @@ describe('section evidence boundary', () => {
     expect(bindVerifiedSectionTable([adopted], bound)).toEqual(bound);
     const partial = { ...adopted, extra: { ...adopted.extra, evidence: { 'shape.H': adopted.extra.evidence['shape.H'] } } };
     expect(unresolvedInputEvidence(bindVerifiedSectionTable([partial], table))).not.toEqual([]);
+    const extraText = fileInputEvidence({ type: 'csv', headers: ['id', 'H (mm)', 'note'], rows: [['S1', 200, 'hinged connection']],
+      source: { parser: 'csv-parse', sha256: 'unmapped-text' } }, 'notes.csv');
+    const textSection = enforceSectionProvenance({ id: 'S1', shape: { H: 200 }, extra: { provenance: { shape: 'attachment' } } },
+      { userTexts: [], inputEvidence: extraText });
+    expect(unresolvedInputEvidence(bindVerifiedSectionTable([textSection], extraText))).not.toEqual([]);
     const truncated = fileInputEvidence({ type: 'csv', headers: ['H (mm)'], rows: [[200]], truncated: true,
       source: { parser: 'csv-parse', sha256: 'truncated' } }, 'partial.csv');
     const one = enforceSectionProvenance({ id: 'S1', shape: { H: 200 }, extra: { provenance: { shape: 'attachment' } } },

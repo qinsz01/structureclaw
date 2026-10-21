@@ -1,11 +1,12 @@
 import { contentHash, isRecord, type ModelRecord } from './model-state.js';
 
+const NUMBER_CELL = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
+
 /** Scalar candidates retain their parser path and declared units; text is never executed. */
 function parsedCandidates(analysis: ModelRecord): ModelRecord[] {
   const values: ModelRecord[] = [];
-  const number = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
   const add = (raw: unknown, path: string, unit?: string, location: ModelRecord = {}) => {
-    if (typeof raw !== 'number' && !(typeof raw === 'string' && number.test(raw.trim()))) return;
+    if (typeof raw !== 'number' && !(typeof raw === 'string' && NUMBER_CELL.test(raw.trim()))) return;
     if (Number.isFinite(Number(raw))) values.push({ value: Number(raw), path, ...(unit ? { unit } : {}), ...location });
   };
   const table = (data: ModelRecord, prefix = '', sheet?: string) => {
@@ -39,8 +40,13 @@ export function fileInputEvidence(analysis: ModelRecord, file: string): ModelRec
   const records: ModelRecord[] = [];
   const add = (suffix: string, status: string, reason: string, complete: boolean, location: ModelRecord = {}, requirement = 'field-mapping') => {
     const candidates = parsedCandidates(analysis).filter(candidate => location.sheet === undefined || candidate.sheet === location.sheet);
+    const table = analysis.type === 'csv' ? analysis
+      : analysis.type === 'excel' && isRecord(analysis.sheets) ? analysis.sheets[String(location.sheet)] : undefined;
+    const tableLabels = isRecord(table) && Array.isArray(table.rows) ? [...new Set(table.rows.flatMap(row => Array.isArray(row) ? row : [])
+      .filter((cell): cell is string => typeof cell === 'string' && !!cell.trim() && !NUMBER_CELL.test(cell.trim()))
+      .map(cell => cell.trim()))] : undefined;
     const item = { field: `file:${file}:${suffix}`, status, required: true, requirement, reason,
-      ...(requirement === 'field-mapping' && candidates.length ? { candidates } : {}),
+      ...(requirement === 'field-mapping' && candidates.length ? { candidates, ...(tableLabels ? { tableLabels } : {}) } : {}),
       source: { ...source, ...location, complete } };
     records.push({ ...item, id: `file:${contentHash(item)}` });
   };

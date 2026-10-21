@@ -90,7 +90,9 @@ export function bindVerifiedSectionTable(sections: ModelRecord[], evidence: Mode
     if (records.some(record => record.status === 'resolved')) continue;
     const complete = records.every(record => {
       const binding = mapped.get(sourceKey(record.source));
-      return binding && isRecord(record.source) && record.source.complete === true && Array.isArray(record.candidates)
+      return binding && Array.isArray(record.tableLabels) && record.tableLabels.every(label => sections.some(section =>
+        [section.id, section.name, section.type, isRecord(section.shape) ? section.shape.kind : undefined].includes(label)))
+        && isRecord(record.source) && record.source.complete === true && Array.isArray(record.candidates)
         && record.candidates.length > 0 && record.candidates.every(candidate => isRecord(candidate) && binding.paths.has(String(candidate.path)));
     });
     if (!complete) continue;
