@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const labels = {
   en: ['Model', 'Engines & codes', 'Skills', 'Run policy defaults', 'Appearance', 'Data'],
@@ -25,11 +27,17 @@ for (const locale of ['en', 'zh'] as const) for (const theme of ['light', 'dark'
       if (index === 1) await expect(dialog.getByText(locale === 'en' ? 'OpenSees Static Analysis' : 'OpenSees 静力分析', { exact: true })).toBeVisible();
       if (index === 2) await expect(dialog.getByLabel(locale === 'en' ? 'Structure skills' : '结构技能')).toBeEnabled();
       const name = `${locale}-${theme}-${index}`;
-      await info.attach(name, { body: await dialog.screenshot(), contentType: 'image/png' });
+      const screenshot = async (suffix: string) => {
+        const directory = process.env.SCLAW_SETTINGS_SCREENSHOT_OUT;
+        if (directory) fs.mkdirSync(directory, { recursive: true });
+        const body = await dialog.screenshot(directory ? { path: path.join(directory, `${suffix}.png`) } : {});
+        await info.attach(suffix, { body, contentType: 'image/png' });
+      };
+      await screenshot(name);
       const overflow = await body.evaluate(element => element.scrollHeight > element.clientHeight + 5);
       if (overflow) {
         await body.evaluate(element => { element.scrollTop = element.scrollHeight; });
-        await info.attach(`${name}-bottom`, { body: await dialog.screenshot(), contentType: 'image/png' });
+        await screenshot(`${name}-bottom`);
       }
     }
   });
