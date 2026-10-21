@@ -331,13 +331,13 @@ export function completeDeclaredGradeMaterials<T extends Record<string, unknown>
 /** Whether the draft declares any material: records, a grade, or a legacy frame material. */
 function declaresMaterial(state: DraftState): boolean {
   const draft = state.engineeringDraft;
-  return !!(draft?.materials?.length || draft?.material?.grade || state.frameMaterial);
+  return !!(draft?.materials?.length || Array.isArray(draft?.model?.materials) && draft.model.materials.length || draft?.material?.grade || state.frameMaterial);
 }
 
 /** Whether the draft declares any section: records, a role designation, or legacy section fields. */
 function declaresSection(state: DraftState): boolean {
   const draft = state.engineeringDraft;
-  return !!(draft?.sectionRecords?.length || Object.values(draft?.sections ?? {}).some(value => typeof value === 'string' && value.trim())
+  return !!(draft?.sectionRecords?.length || Array.isArray(draft?.model?.sections) && draft.model.sections.length || Object.values(draft?.sections ?? {}).some(value => typeof value === 'string' && value.trim())
     || state.frameColumnSection || state.frameBeamSection
     || Number(state.skillState?.sectionWidthM) > 0 || Number(state.skillState?.sectionDepthM) > 0);
 }
@@ -441,6 +441,50 @@ export function applyTemplateProperties(model: Record<string, unknown>, state: D
       inputEvidence: structuredClone(state.engineeringDraft?.inputEvidence ?? []),
       templatePropertyAssignments: properties.byRole, ...(stiffnessPlaceholder ? { stiffnessPlaceholder } : {}) },
   }, state.engineeringDraft), state.engineeringDraft);
+}
+
+/** Free-form topology uses the same grade, geometry provenance and unit-stiffness paths.
+ * No section table, stiffness value or member assignment is guessed here.
+ */
+export function completeGenericModelProperties(model: Record<string, unknown>, state: DraftState): Record<string, unknown> {
+  const copy = structuredClone(model);
+  const rows = (value: unknown): Record<string, unknown>[] => Array.isArray(value)
+    ? value.filter((item): item is Record<string, unknown> => !!item && typeof item === 'object' && !Array.isArray(item)) : [];
+  const elements = rows(copy.elements);
+  const placeholder = stiffnessPlaceholderUses(state);
+  let materials = rows(copy.materials);
+  const sourceMaterials = state.engineeringDraft?.materials ?? [];
+  materials = materials.map(material => ({ ...material, ...sourceMaterials.find(source => source.id === material.id) }));
+  if (!materials.length && !placeholder.material) {
+    try { materials = resolveTemplateMaterials(state); } catch { /* Explicit validator reports missing real data. */ }
+  }
+  if (placeholder.material) {
+    const ids = [...new Set(elements.map(element => String(element.material ?? 'unit-material')))];
+    materials = ids.map(id => placeholderMaterialRecord(id));
+    for (const element of elements) element.material ??= ids[0];
+  }
+  let sections = rows(copy.sections);
+  if (placeholder.section) {
+    const ids = [...new Set(elements.map(element => String(element.section ?? 'unit-section')))];
+    sections = ids.map(id => placeholderSectionRecord(id));
+    for (const element of elements) element.section ??= ids[0];
+  } else {
+    const sources = state.engineeringDraft?.sectionRecords ?? [];
+    sections = (sections.length ? sections : sources).map(section => {
+      const source = sources.find(item => item.id === section.id);
+      const confirmed = source && (source.shape || source.properties || source.dimensions)
+        ? { ...source, name: source.name ?? section.name ?? source.id, type: source.type ?? section.type } : section;
+      return hasSectionDefinition(confirmed) ? enforceSectionProvenance(confirmed) : designatedSectionRecord(confirmed, state.engineeringDraft);
+    });
+  }
+  copy.materials = completeDeclaredGradeMaterials(materials);
+  copy.sections = sections;
+  copy.elements = elements;
+  if (placeholder.material || placeholder.section) {
+    copy.analysis_control = { ...(copy.analysis_control as Record<string, unknown> ?? {}), self_weight: false };
+    copy.metadata = { ...(copy.metadata as Record<string, unknown> ?? {}), stiffnessPlaceholder: describeStiffnessPlaceholder(copy, placeholder) };
+  }
+  return copy;
 }
 
 export function templatePropertyIssues(state: DraftState): string[] {

@@ -41,7 +41,7 @@ const COMPAT_SHIMS = '^src/runtime/policy-settings\\.ts$';
 //    allowed. No other L2 module may import L3, and the handlers may not import any other
 //    agent-runtime module.
 const SKILL_HANDLER_PLUGINS = '^src/agent-skills/structure-type/';
-const SKILL_HANDLER_SDK = '^src/agent-runtime/(legacy|fallback|engineering-draft|draft/boundary|draft/normalize|draft/project-patch|draft-guidance|explicit-model|template-properties|plugin-helpers|structural-routing|report-template|reference-vectors|domains/structural-domains)\\.ts$';
+const SKILL_HANDLER_SDK = '^src/agent-runtime/(legacy|fallback|engineering-draft|draft/boundary|draft/normalize|draft/project-patch|draft-guidance|explicit-model|template-properties|generic-readiness|plugin-helpers|structural-routing|report-template|reference-vectors|domains/structural-domains)\\.ts$';
 
 function layerRule(name, from, to, comment, { fromNot = COMPAT_SHIMS, toNot } = {}) {
   return {

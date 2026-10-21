@@ -1,10 +1,7 @@
-import { mapMissingFieldLabels } from '../../../agent-runtime/draft-guidance.js';
-import { buildInteractionQuestions } from '../../../agent-runtime/fallback.js';
-import { ingestGenericDraft, mergeDraftState } from '../../../agent-runtime/draft/boundary.js';
+import { genericMissing, genericQuestions } from '../../../agent-runtime/generic-readiness.js';
+import { ingestGenericDraft, mergeGenericDraftState } from '../../../agent-runtime/draft/boundary.js';
 import { buildStructuralTypeMatch } from '../../../agent-runtime/plugin-helpers.js';
 import type {
-  DraftExtraction,
-  DraftState,
   SkillHandler,
   SkillReportNarrativeInput,
 } from '../../../shared/types/agent.js';
@@ -70,69 +67,27 @@ export const handler: SkillHandler = {
   },
 
   parseProvidedValues(values) {
-    const patch: DraftExtraction = {};
-    if (values && typeof values === 'object') {
-      const v = values as Record<string, unknown>;
-      if (typeof v.inferredType === 'string') {
-        patch.inferredType = v.inferredType as DraftExtraction['inferredType'];
-      }
-    }
-    return patch;
+    return ingestGenericDraft(values);
   },
 
-  extractDraft({ llmDraftPatch, currentState }) {
-    return ingestGenericDraft(llmDraftPatch, currentState);
+  extractDraft({ llmDraftPatch, currentState, message }) {
+    return ingestGenericDraft(llmDraftPatch, currentState, message);
   },
 
   mergeState(existing, patch) {
-    const merged = mergeDraftState(existing, patch);
-    const inferredType = merged.inferredType;
-    return {
-      ...merged,
-      inferredType,
-      skillId: 'generic',
-      structuralTypeKey: (inferredType === 'unknown' ? 'unknown' : inferredType) as DraftState['structuralTypeKey'],
-      supportLevel: patch.supportLevel ?? existing?.supportLevel ?? 'fallback',
-      supportNote: patch.supportNote ?? existing?.supportNote,
-      skillState: merged.skillState,
-      updatedAt: Date.now(),
-    };
+    return mergeGenericDraftState(existing, patch);
   },
 
   computeMissing(state) {
-    const invalidDraftFields = Array.isArray(state.skillState?.invalidDraftFields)
-      ? state.skillState.invalidDraftFields.filter((field): field is string => typeof field === 'string')
-      : [];
-    if (state.inferredType === 'unknown') {
-      return {
-        critical: Array.from(new Set(['inferredType', ...invalidDraftFields])),
-        optional: [],
-      };
-    }
-    return { critical: invalidDraftFields, optional: [] };
+    return { critical: genericMissing(state), optional: [] };
   },
 
   mapLabels(keys, locale) {
-    return mapMissingFieldLabels(keys, locale);
+    return genericQuestions(keys, undefined, locale).map(question => question.label);
   },
 
-  buildQuestions(keys, criticalMissing, state, locale) {
-    if (state.inferredType === 'unknown') {
-      return buildInteractionQuestions(keys, criticalMissing, state, locale).map((question) => (
-        question.paramKey === 'inferredType'
-          ? {
-            ...question,
-            question: locale === 'zh'
-              ? '请先描述结构体系、构件连接关系和主要荷载；如果你已经有可计算结构模型，也可以直接贴 JSON。'
-              : 'Please first describe the structural system, member connectivity, and main loads. If you already have a computable structural model, you can paste the JSON directly.',
-          }
-          : question
-      ));
-    }
-    return buildInteractionQuestions(keys, criticalMissing, state, locale).map((question) => {
-      const issue = state.draftIssues?.find((candidate) => candidate.field === question.paramKey);
-      return issue?.question ? { ...question, question: issue.question } : question;
-    });
+  buildQuestions(keys, _criticalMissing, state, locale) {
+    return genericQuestions(keys, state, locale);
   },
 
   buildDefaultProposals() {
@@ -148,10 +103,7 @@ export const handler: SkillHandler = {
   },
 
   resolveStage(_missingKeys, state) {
-    if (state.inferredType === 'unknown') {
-      return 'intent';
-    }
-    return 'model';
+    return genericMissing(state).length ? 'intent' : 'model';
   },
 };
 

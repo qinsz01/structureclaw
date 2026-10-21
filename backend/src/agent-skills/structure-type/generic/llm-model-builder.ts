@@ -11,8 +11,10 @@ import { llmContentText } from '../../../utils/llm-content.js';
 import type { StructureClawChatModel } from '../../../utils/llm.js';
 import { buildGenericModelPrompt, buildRetrySuffix } from './llm-model-prompt.js';
 import { validateExplicitModel } from '../../../agent-runtime/explicit-model.js';
-import { canRecover, requestRecovery } from '../../../runtime/run-context.js';
+import { canRecover, currentRunPolicy, requestRecovery } from '../../../runtime/run-context.js';
 import { applyDraftAnalysisControl, applyDraftTemplateDesign, projectDraftMaterialDesign } from '../../../agent-runtime/engineering-draft.js';
+import { completeGenericModelProperties } from '../../../agent-runtime/template-properties.js';
+import { checkModelPhysics, ModelPhysicsError } from '../../../engineering/model-physics.js';
 
 export class ModelInputRequiredError extends Error {
   constructor(readonly missingFields: Array<string | { field: string; reason?: string }>) {
@@ -37,9 +39,12 @@ export async function tryBuildGenericModelWithLlm(
 
   const basePrompt = buildGenericModelPrompt(message, state, locale, conversationHistory, currentModel);
   let failure: { error: string; candidate: string } | undefined;
+  let lastError: unknown;
   const stateHint = JSON.stringify(state);
 
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  const policy = currentRunPolicy();
+  const repairs = policy ? policy.repair.enabled ? policy.repair.maxRecoveriesPerTurn : 0 : 2;
+  for (let attempt = 0; attempt <= repairs; attempt += 1) {
     if (attempt > 0) {
       if (!canRecover()) break;
       requestRecovery('generic model: invalid candidate');
@@ -90,11 +95,15 @@ export async function tryBuildGenericModelWithLlm(
       if (!currentModel) projectConfirmedGeometricSections(parsed, state);
       const dimension = stampCanonicalMetadata(parsed, state);
       const controlled = applyDraftAnalysisControl(parsed, state.engineeringDraft);
-      const candidate = currentModel ? controlled
+      const projected = currentModel ? controlled
         : projectDraftMaterialDesign(applyDraftTemplateDesign(controlled, state.engineeringDraft), state.engineeringDraft);
+      const candidate = completeGenericModelProperties(projected, state);
+      const physics = checkModelPhysics(candidate, state.engineeringDraft);
+      if (!physics.valid) throw new ModelPhysicsError(physics);
       assertCanonicalCoordinateModel(candidate, dimension);
       validateExplicitModel(candidate);
       const validated = validateCandidate ? await validateCandidate(candidate) : candidate;
+      validated.metadata = { ...(validated.metadata as Record<string, unknown> ?? {}), physicsCheck: physics };
 
       logger.info({
         attempt: attempt + 1,
@@ -113,6 +122,7 @@ export async function tryBuildGenericModelWithLlm(
       }, 'generic llm model attempt failed with upstream error');
       if (error instanceof ModelInputRequiredError || error instanceof Error && /BUDGET_EXHAUSTED/.test(error.message)) throw error;
       failure = { error: error instanceof Error ? error.message : String(error), candidate: content };
+      lastError = error;
       continue;
     }
   }
@@ -123,6 +133,7 @@ export async function tryBuildGenericModelWithLlm(
     messagePreview: message.slice(0, 160),
   }, 'generic llm model exhausted all attempts without a valid model');
 
+  if (lastError instanceof ModelPhysicsError) throw lastError;
   throw new Error(`LLM_MODEL_VALIDATION_FAILED: ${failure?.error ?? 'No valid model / 无有效模型'}`);
 }
 

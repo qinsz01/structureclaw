@@ -36,7 +36,6 @@ import {
   normalizeSkillState,
   normalizeSupportType,
 } from './normalize.js';
-import { projectDraftPatch } from './project-patch.js';
 import { cleanSectionMaterials, reconcileDraftMaterials } from './materials.js';
 import type {
   DraftExtraction,
@@ -402,10 +401,6 @@ export function verifyDraftSectionEvidence(draft: EngineeringDraft | undefined, 
 // Inbound: loose generic-skill patches (free-form aliases such as span/load/pointLoads)
 // ---------------------------------------------------------------------------
 
-function firstRecord(value: unknown): Record<string, unknown> | undefined {
-  return Array.isArray(value) ? asRecord(value[0]) : asRecord(value);
-}
-
 function stringValue(value: unknown): string | undefined {
   return typeof value === 'string' ? value.trim() : undefined;
 }
@@ -437,115 +432,43 @@ function draftIssuesFromSource(source: Record<string, unknown>): DraftExtraction
   ));
 }
 
-function genericSkillStateFromSource(source: Record<string, unknown>): Record<string, unknown> {
-  const sourceSkillState = asRecord(source.skillState);
-  return {
-    ...(sourceSkillState ?? {}),
-    genericDraft: source,
-  };
-}
-
-function inferSupportTypeFromText(value: unknown): DraftExtraction['supportType'] {
-  const normalized = normalizeSupportType(value);
-  if (normalized) return normalized;
-  const text = stringValue(value)?.toLowerCase();
-  if (!text) return undefined;
-  if (text.includes('simply') || text.includes('simple') || text.includes('简支')) return 'simply-supported';
-  if (text.includes('cantilever') || text.includes('悬臂')) return 'cantilever';
-  if (text.includes('fixed-fixed') || text.includes('两端固')) return 'fixed-fixed';
-  if (text.includes('fixed-pinned') || text.includes('固铰')) return 'fixed-pinned';
-  return undefined;
-}
-
-function inferLoadTypeFromPatch(patch: Record<string, unknown>): DraftExtraction['loadType'] {
-  const normalized = normalizeLoadType(patch.loadType ?? patch.load_type);
-  if (normalized) return normalized;
-  if (Array.isArray(patch.pointLoads) || Array.isArray(patch.point_loads)) return 'point';
-  if (Array.isArray(patch.distributedLoads) || Array.isArray(patch.distributed_loads)) return 'distributed';
-  return undefined;
-}
-
-/** Generic-skill raw patch (canonical draft plus loose aliases) -> normalized extraction. */
+/** Generic input remains canonical; aliases are retained as context, never projected onto a template. */
 export function ingestGenericDraft(
   llmDraftPatch: Record<string, unknown> | null | undefined,
   existing?: DraftState,
+  userText?: string,
 ): DraftExtraction {
   const source = llmDraftPatch ?? {};
   const cleared = source.clearDraftFields !== undefined ? normalizeClearDraftFields(source.clearDraftFields) : undefined;
-  const accepted = existing ? clearDraftFields(existing, cleared) : existing;
-  const engineeringDraft = normalizeEngineeringDraft(normalizeFrameBoundary(source.engineeringDraft,
-    normalizeLlmDeclaredType(source.inferredType ?? asRecord(source.engineeringDraft)?.structureType ?? source.structureType) ?? accepted?.inferredType), accepted?.engineeringDraft);
-  const pointLoad = firstRecord(source.pointLoads ?? source.point_loads);
-  const distributedLoad = firstRecord(source.distributedLoads ?? source.distributed_loads);
-  const span = normalizeNumber(source.lengthM ?? source.spanLengthM ?? source.span ?? source.length);
-  const loadValue = normalizeNumber(
-    source.loadKN
-    ?? source.load
-    ?? source.loadValue
-    ?? pointLoad?.force
-    ?? pointLoad?.value
-    ?? pointLoad?.magnitude
-    ?? distributedLoad?.force
-    ?? distributedLoad?.value,
-  );
-  const loadPositionM = normalizeLoadPositionM(
-    source.loadPositionM
-    ?? source.position
-    ?? pointLoad?.position
-    ?? pointLoad?.positionM,
-  );
-  const loadType = inferLoadTypeFromPatch(source);
-  const explicitType = normalizeInferredType(source.inferredType);
-  const inferredType =
-    (explicitType && explicitType !== 'unknown' ? explicitType : undefined)
-    ?? normalizeLlmDeclaredType(engineeringDraft?.structureType)
-    ?? normalizeLlmDeclaredType(source.componentType)
-    ?? normalizeLlmDeclaredType(source.structureType)
-    ?? normalizeLlmDeclaredType(source.structuralType)
-    ?? normalizeLlmDeclaredType(source.type)
-    ?? accepted?.inferredType;
-
-  const patch: DraftExtraction = {};
-  if (cleared !== undefined) patch.clearDraftFields = cleared;
-  if (inferredType) patch.inferredType = inferredType;
-  if (engineeringDraft) patch.engineeringDraft = engineeringDraft;
+  const accepted = clearDraftFields(existing, cleared);
   const draftIssues = draftIssuesFromSource(source);
-  if (draftIssues?.length) patch.draftIssues = draftIssues;
-  if (span !== undefined) patch.lengthM = span;
-  if (loadValue !== undefined) patch.loadKN = loadValue;
-  if (loadType) patch.loadType = loadType;
-  const supportType = inferSupportTypeFromText(
-    source.supportType
-    ?? source.supportCondition
-    ?? source.support_condition
-    ?? source.boundaryCondition,
-  );
-  if (supportType) patch.supportType = supportType;
-  const loadPosition = normalizeLoadPosition(source.loadPosition ?? source.load_position);
-  if (loadPosition) {
-    patch.loadPosition = loadPosition;
-  } else if (loadType === 'point' && span !== undefined && loadPositionM !== undefined && Math.abs(loadPositionM - span / 2) < 1e-6) {
-    patch.loadPosition = 'midspan';
-  } else if (loadType === 'distributed') {
-    patch.loadPosition = 'full-span';
+  const engineeringDraft = normalizeEngineeringDraft(source.engineeringDraft, accepted?.engineeringDraft);
+  const rawLoads = asRecord(source.engineeringDraft)?.loads;
+  if (Array.isArray(rawLoads) && engineeringDraft?.loads?.length !== rawLoads.length) {
+    throw new Error('INVALID_GENERIC_LOADS: every declared load must have a valid kind, magnitude and unit / 每个已声明荷载都必须具有有效类型、数值和单位，不得丢弃后继续建模');
   }
-  if (loadPositionM !== undefined) patch.loadPositionM = loadPositionM;
+  return {
+    skillId: 'generic', structuralTypeKey: 'unknown',
+    inferredType: normalizeLlmDeclaredType(source.inferredType ?? engineeringDraft?.structureType) ?? accepted?.inferredType ?? 'unknown',
+    ...(cleared !== undefined ? { clearDraftFields: cleared } : {}),
+    ...(engineeringDraft ? { engineeringDraft } : {}),
+    ...(draftIssues?.length ? { draftIssues } : {}),
+    skillState: { ...asRecord(source.skillState), genericDraft: structuredClone(source), ...(userText ? { userText } : {}) },
+  };
+}
 
-  if (Object.keys(source).length > 0) {
-    const skillState = genericSkillStateFromSource(source);
-    const existingInvalidDraftFields = Array.isArray(skillState.invalidDraftFields)
-      ? skillState.invalidDraftFields.filter((field): field is string => typeof field === 'string')
-      : [];
-    const issueFields = draftIssues
-      ?.map((issue) => issue.field)
-      .filter((field): field is string => typeof field === 'string' && field.trim().length > 0)
-      ?? [];
-    patch.skillState = {
-      ...skillState,
-      ...((existingInvalidDraftFields.length || issueFields.length)
-        ? { invalidDraftFields: Array.from(new Set([...existingInvalidDraftFields, ...issueFields])) }
-        : {}),
-    };
-  }
-  return inferredType ? projectDraftPatch(patch, inferredType) : patch;
+/** No scalar, floor-load or frame-boundary synthesis on the free-form path. */
+export function mergeGenericDraftState(existing: DraftState | undefined, patch: DraftExtraction): DraftState {
+  existing = clearDraftFields(existing, patch.clearDraftFields);
+  const engineeringDraft = cleanSectionMaterials(mergeEngineeringDraft(existing?.engineeringDraft, patch.engineeringDraft));
+  const merged: DraftState = {
+    inferredType: patch.inferredType ?? existing?.inferredType ?? 'unknown',
+    skillId: 'generic', structuralTypeKey: 'unknown',
+    engineeringDraft,
+    supportLevel: patch.supportLevel ?? existing?.supportLevel ?? 'fallback',
+    supportNote: patch.supportNote ?? existing?.supportNote,
+    ...(existing?.requestScope ? { requestScope: existing.requestScope } : {}),
+    updatedAt: Date.now(),
+  };
+  return projectDraftState(engineeringDraft, { ...merged, ...mergeDraftDiagnostics(existing, patch, merged) });
 }

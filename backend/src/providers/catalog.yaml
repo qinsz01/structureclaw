@@ -30,8 +30,8 @@
     zh: OpenSees 非线性分析
     en: OpenSees Nonlinear Analysis
   description:
-    zh: 面向 OpenSees 非线性分析需求识别与路由的 skill。
-    en: Skill for recognizing and routing OpenSees nonlinear analysis requests.
+    zh: 使用 OpenSees 执行非线性结构分析。
+    en: OpenSees nonlinear structural analysis.
   priority: 160
   software: opensees
   analysisType: nonlinear
@@ -51,8 +51,8 @@
     zh: OpenSees 抗震分析
     en: OpenSees Seismic Analysis
   description:
-    zh: 使用 OpenSees 执行中国抗震反应谱、弹性时程和 Pushover 等抗震分析的 skill。
-    en: Skill for China-code seismic response-spectrum, elastic time-history, and
+    zh: 使用 OpenSees 执行中国抗震反应谱、弹性时程和 Pushover 分析。
+    en: OpenSees China-code seismic response-spectrum, elastic time-history, and
       pushover analysis using OpenSees.
   priority: 145
   software: opensees

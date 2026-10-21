@@ -47,6 +47,11 @@ export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
         });
       } catch (error) {
         const { ModelInputRequiredError } = await import('../../agent-skills/structure-type/generic/llm-model-builder.js');
+        const { ModelPhysicsError } = await import('../../engineering/model-physics.js');
+        if (error instanceof ModelPhysicsError) return toolResult(toolCallId, 'build_model', JSON.stringify({
+          success: false, errorCode: error.code, modelBuilt: false, ...error.check, nextAction: nextActionForMissingInput(),
+          instruction: 'Automatic repair ended with these physical diagnostics. Explain the unresolved inputs together; do not claim a valid model or calculation. / 自动修正结束后仍有这些物理诊断；请一次说明未解决输入，不得声称模型或计算已完成。',
+        }));
         if (!(error instanceof ModelInputRequiredError)) throw error;
         // An identified missing fact is a normal clarification state, not an
         // invalid candidate or a reason to consume the automatic-repair budget.

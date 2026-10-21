@@ -5,8 +5,8 @@ name:
   zh: 通用结构类型
   en: Generic Structure Type
 description:
-  zh: 通用兜底的结构类型 skill。它不一定最强，但会先接住未命中的结构建模请求并引导后续技能与工具调用。
-  en: Generic fallback structure-type skill. It is not always the strongest, but it catches unmatched structural modeling requests and guides downstream skills and tools.
+  zh: 依据完整物理输入进行自由结构建模，校核生成的几何、约束、属性和荷载。
+  en: Free-form structural modelling from physical inputs, with checks on generated geometry, supports, properties and loads.
 triggers:
   - structure
   - model
@@ -26,12 +26,6 @@ stages:
 structureType: unknown
 structuralTypeKeys:
   - unknown
-  - beam
-  - truss
-  - portal-frame
-  - double-span-beam
-  - frame
-  - steel-frame
 capabilities:
   - intent-detection
   - draft-extraction

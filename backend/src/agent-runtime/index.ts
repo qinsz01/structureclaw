@@ -438,22 +438,25 @@ export class AgentSkillRuntime {
     const { currentDraftDiagnostics, unresolvedDraftFields, isDesignDraftField } = await import('./draft-diagnostics.js');
     state = currentDraftDiagnostics(state);
     if (policy) skillIds = policy.activeSkillIds.filter(id => skillIds === undefined || skillIds.includes(id));
+    const plugin = await this.registry.resolvePluginForState(state, skillIds);
     assertResolvedInput(state.engineeringDraft?.inputEvidence);
     const { buildExplicitDraftModel } = await import('./explicit-model.js');
     // A complete imported model is immutable input. Partial topology is still a
     // modeling task: llm policy must be allowed to finish it using the source text.
-    const explicit = policy?.builder === 'llm' && !state.engineeringDraft?.model ? undefined : buildExplicitDraftModel(state);
+    const explicit = (plugin?.id === 'generic' || policy?.builder === 'llm') && !state.engineeringDraft?.model ? undefined : buildExplicitDraftModel(state);
     if (explicit) {
       const unresolved = unresolvedDraftFields(state).filter(field => !isDesignDraftField(field));
       if (unresolved.length) throw new Error(`MODEL_DRAFT_INCOMPLETE: ${unresolved.join(', ')} / 尚有未解决的工程输入`);
       recordRunEvent({ kind: 'model_builder', builder: 'explicit', requestedBuilder: policy?.builder ?? 'auto',
         source: state.engineeringDraft?.model ? 'model' : 'topology' });
+      if (plugin?.id === 'generic') {
+        const { checkModelPhysics, ModelPhysicsError } = await import('../engineering/model-physics.js');
+        const physics = checkModelPhysics(explicit, state.engineeringDraft);
+        if (!physics.valid) throw new ModelPhysicsError(physics);
+      }
       return explicit;
     }
-    const plugin = await this.registry.resolvePluginForState(state, skillIds);
-    if (!plugin) {
-      return undefined;
-    }
+    if (!plugin) return undefined;
 
     const missing = computeDraftMissing(plugin, state, 'execution');
     if (missing.critical.length > 0) {
