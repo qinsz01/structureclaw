@@ -104,7 +104,15 @@ export function enforceSectionUserEvidence(section: Record<string, unknown>, inp
   }
   const unsupported: string[] = [];
   for (const field of ['shape', 'dimensions', 'properties']) {
-    if (!['user', 'attachment', 'rule'].includes(String(provenance[field])) || !isRecord(section[field])) continue;
+    if (!isRecord(section[field])) continue;
+    const numbers = Object.entries(section[field]).filter((entry): entry is [string, number] => typeof entry[1] === 'number');
+    // A verified answer supersedes the old recall label, without relying on the extractor to relabel it.
+    if (provenance[field] === 'llm-table' && numbers.length
+      && numbers.every(([key, value]) => confirmedSectionValue(section, field, key, value, context))) {
+      nextProvenance[field] = 'user';
+      matchedSources.set(field, 'user');
+    }
+    if (!['user', 'attachment', 'rule'].includes(String(nextProvenance[field]))) continue;
     for (const [key, value] of Object.entries(section[field])) {
       if (typeof value !== 'number') continue;
       if (!supported(field, key, value)) {

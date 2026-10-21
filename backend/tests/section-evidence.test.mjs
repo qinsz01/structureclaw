@@ -44,15 +44,16 @@ describe('section evidence boundary', () => {
     expect(unresolvedInputEvidence(bindVerifiedSectionTable([one], truncated))).not.toEqual([]);
   });
 
-  test.each(['确认', '按附表', 'use these'])('a recorded option selection accepts precisely its candidates: %s', answer => {
+  test.each(['确认', '按附表', 'use these'].flatMap(answer => ['user', 'llm-table'].map(source => [answer, source])))
+  ('a recorded option selection accepts precisely its candidates: %s (%s)', (answer, source) => {
     const receipt = { type: 'clarification_answered', clarificationId: 'q1', answer, selectedOptionId: 'option-1',
       sectionCandidates: [{ id: 'c1', sectionId: 'S1', field: 'shape', values: shape, optionIds: ['option-1'] }] };
     const context = conversationSectionEvidence({ messages: [{ role: 'tool', name: 'ask_user_clarification', content: JSON.stringify(receipt) }] });
-    expect(() => assertConfirmedSectionInputs({ sections: [section()] }, context)).not.toThrow();
-    expect(() => assertConfirmedSectionInputs({ sections: [{ ...section(), shape: { ...shape, tf: 12 } }] }, context)).toThrow();
+    expect(() => assertConfirmedSectionInputs({ sections: [section(source)] }, context)).not.toThrow();
+    expect(() => assertConfirmedSectionInputs({ sections: [{ ...section(source), shape: { ...shape, tf: 12 } }] }, context)).toThrow();
     const freeText = { ...context, confirmations: [{ ...receipt, selectedOptionId: undefined }] };
-    expect(() => assertConfirmedSectionInputs({ sections: [section()] }, freeText)).toThrow();
-    const accepted = { ...section(), extra: { ...section().extra, confirmation: { clarificationId: 'q1', candidateIds: ['c1'] } } };
+    expect(() => assertConfirmedSectionInputs({ sections: [section(source)] }, freeText)).toThrow();
+    const accepted = { ...section(source), extra: { ...section(source).extra, confirmation: { clarificationId: 'q1', candidateIds: ['c1'] } } };
     expect(() => assertConfirmedSectionInputs({ sections: [accepted] }, freeText)).not.toThrow();
     expect(() => assertConfirmedSectionInputs({ sections: [accepted] }, { ...freeText, confirmations: [] })).toThrow();
   });
