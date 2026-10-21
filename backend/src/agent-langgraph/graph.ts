@@ -1,3 +1,4 @@
+import { fieldContractFailure, withCapabilityNotice } from './capability-notice.js';
 /**
  * LangGraph StateGraph for the StructureClaw ReAct agent.
  *
@@ -304,6 +305,8 @@ function createCallModelNode(
       }
     }
     const currentTurnMessages = lastHumanIndex === -1 ? msgs : msgs.slice(lastHumanIndex + 1);
+    const contractFailure = fieldContractFailure(currentTurnMessages);
+    if (contractFailure) return { messages: [withCapabilityNotice(new AIMessage(contractFailure), currentTurnMessages)] };
     const toolCallCount = currentTurnMessages.reduce((count, m) => {
       if (
         m != null
@@ -388,7 +391,7 @@ function createCallModelNode(
       return { final, message: applyFinalAnswerPolicy({ response: repaired, hasToolCalls: !final, currentTurnMessages, state, log }) };
     };
     const delivered = applyFinalAnswerPolicy({ response, hasToolCalls, currentTurnMessages, state, log });
-    if (hasToolCalls || delivered !== response) return { messages: [delivered] };
+    if (hasToolCalls || delivered !== response) return { messages: [withCapabilityNotice(delivered, currentTurnMessages)] };
     const message = await reviewAndDeliverFinalAnswer({
       response, finishReason, state, messages: msgs, currentTurnMessages, ledger: guards, log,
       repairEnabled: configurable?.runContext?.policy.repair.enabled ?? true,
@@ -399,7 +402,7 @@ function createCallModelNode(
         return { response: retried, finishReason: responseFinishReason(retried) };
       },
     });
-    return { messages: [message] };
+    return { messages: [withCapabilityNotice(message, currentTurnMessages)] };
   };
 }
 

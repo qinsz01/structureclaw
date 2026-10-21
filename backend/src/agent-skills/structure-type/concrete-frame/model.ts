@@ -113,11 +113,7 @@ export function buildConcreteFrameModel(
       field: 'boundary.frameBaseSupportType', value: 'fixed', reason: 'Unstated frame bases default to fixed / 未说明柱脚时默认刚接',
     }] };
 
-    if (!state.frameBaseSupportType) model2d.metadata = { ...model2d.metadata, templateAssumptions: [{
-    field: 'boundary.frameBaseSupportType', value: 'fixed', reason: 'Unstated frame bases default to fixed / 未说明柱脚时默认刚接',
-  }] };
-
-  if (codeCheckResults) {
+    if (codeCheckResults) {
       model3d.metadata = {
         ...model3d.metadata,
         codeCheckResults: buildCodeCheckMetadata(codeCheckResults),
@@ -157,6 +153,10 @@ export function buildConcreteFrameModel(
     analysisControl,
     engineeringDraft: state.engineeringDraft,
   });
+
+  if (!state.frameBaseSupportType) model2d.metadata = { ...model2d.metadata, templateAssumptions: [{
+    field: 'boundary.frameBaseSupportType', value: 'fixed', reason: 'Unstated frame bases default to fixed / 未说明柱脚时默认刚接',
+  }] };
 
   if (codeCheckResults) {
     model2d.metadata = {

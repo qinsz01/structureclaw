@@ -1,4 +1,4 @@
-import { canonicalDraftPath, withLegacyScalarViews } from './legacy-fields.js';
+import { canonicalDraftPath, withLegacyScalarViews, normalizeFrameBoundary } from './legacy-fields.js';
 import { draftFieldValues } from '../draft-diagnostics.js';
 import { validDraftValue } from '../../engineering/draft-contract.js';
 import { isDeepStrictEqual } from 'node:util';
@@ -49,11 +49,12 @@ export function unresolvedAppliedFields(patch: DraftExtraction, after: DraftStat
   return critical.flatMap(requiredPath => {
     const required = canonicalDraftPath(requiredPath);
     const appliedPaths = [...supplied].filter(([path, value]) => {
-      const canonical = canonicalDraftPath(path);
+      let canonical = canonicalDraftPath(path);
+      if (['frame', 'portal-frame'].includes(after.inferredType) && canonical === 'boundary.supportType') canonical = 'boundary.frameBaseSupportType';
       const sameFact = canonical === required || canonical.startsWith(required + '.') || canonical.startsWith(required + '[');
       return sameFact && value != null && isDeepStrictEqual(value, actual.get(path));
     }).map(([path]) => path);
-    const values = draftFieldValues(withLegacyScalarViews(patch), requiredPath);
+    const values = draftFieldValues(normalizeFrameBoundary(withLegacyScalarViews(patch), after.inferredType) as NonNullable<DraftExtraction['engineeringDraft']>, requiredPath);
     return appliedPaths.length && values.length && values.every(item => validDraftValue(item.schema, item.value))
       ? [{ requiredPath, appliedPaths }] : [];
   });

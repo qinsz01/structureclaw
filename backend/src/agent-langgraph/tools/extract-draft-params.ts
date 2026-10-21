@@ -1,3 +1,4 @@
+import { canonicalDraftPath } from '../../agent-runtime/draft/legacy-fields.js';
 import { computeDraftMissing, draftSectionConfirmations } from '../../agent-runtime/draft-readiness.js';
 import { projectDraftState, verifyDraftSectionEvidence } from '../../agent-runtime/draft/boundary.js';
 import { mergeDraftDiagnostics } from '../../agent-runtime/draft-diagnostics.js';
@@ -226,10 +227,12 @@ function unmatchedSkillOutcome(existingState: DraftState | undefined, match: Str
     optionalMissing: [],
     clarificationQuestions: [],
     structuralTypeMatch: match,
+    ...(match.scopeExclusion ? { scopeExclusion: match.scopeExclusion, supportNote: match.supportNote, userNotice: match.supportNote, mustDisclose: true } : {}),
     skillId: undefined,
     routingSource: match.routingSource,
     extractionMode: 'not-applicable',
     ...buildDraftProgress(locale, ['inferredType']),
+    ...(match.scopeExclusion ? { success: false, errorCode: 'STRUCTURE_SKILL_DISABLED', criticalMissing: [], canProceed: false, nextAction: 'explain_capability_boundary', instruction: match.supportNote } : {}),
   };
   const stateUpdate: Partial<AgentState> = { draftState: nextState };
   if (match.key) stateUpdate.structuralTypeKey = match.key;
@@ -247,10 +250,12 @@ function unavailablePluginOutcome(existingState: DraftState | undefined, match: 
     optionalMissing: [],
     clarificationQuestions: [],
     structuralTypeMatch: match,
+    ...(match.scopeExclusion ? { scopeExclusion: match.scopeExclusion, supportNote: match.supportNote, userNotice: match.supportNote, mustDisclose: true } : {}),
     skillId: undefined,
     routingSource: match.routingSource,
     extractionMode: 'unavailable',
     ...buildDraftProgress(locale, ['inferredType']),
+    ...(match.scopeExclusion ? { success: false, errorCode: 'STRUCTURE_SKILL_DISABLED', criticalMissing: [], canProceed: false, nextAction: 'explain_capability_boundary', instruction: match.supportNote } : {}),
   };
   return { responseJson, nextState };
 }
@@ -280,6 +285,7 @@ function buildLlmExtractionResponse(options: {
         : 'Do you need forces/reactions, displacement/deflection, or also code design or a report? The supplied span and loads are retained.',
       required: true, critical: true }] : buildClarificationQuestions(plugin, missing.critical, missing.optional, nextState, locale),
     structuralTypeMatch: match,
+    ...(match.scopeExclusion ? { scopeExclusion: match.scopeExclusion, supportNote: match.supportNote, userNotice: match.supportNote, mustDisclose: true } : {}),
     skillId: plugin.id,
     routingSource: match.routingSource,
     extractionMode,
@@ -423,7 +429,8 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
           plugin, match, extractionMessage, locale, log, onUsage: nestedUsage.onUsage,
         });
         const extractionMode = draftPatch ? 'llm' : 'deterministic';
-        const unresolved = unresolvedAppliedFields(patch, nextState, missing.critical);
+        const previouslyMissing = new Set(existingState ? computeDraftMissing(plugin, existingState, 'execution').critical.map(canonicalDraftPath) : []);
+        const unresolved = unresolvedAppliedFields(patch, nextState, missing.critical.filter(field => previouslyMissing.has(canonicalDraftPath(field))));
         if (unresolved.length) {
           const fault = { success: false, errorCode: 'FIELD_CONTRACT_UNRESOLVED', unresolved,
             criticalMissing: missing.critical, clarificationQuestions: [], nextAction: 'report_internal_error',

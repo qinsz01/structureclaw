@@ -1,3 +1,4 @@
+import { capabilityNotice } from '../capability-notice.js';
 import { messageRole, messageText } from './input-message.js';
 import { normalizeClarificationOptions } from '../../utils/clarification-options.js';
 import { tool } from '@langchain/core/tools';
@@ -25,6 +26,8 @@ export function createAskUserClarificationTool() {
           break;
         }
       }
+      const notice = capabilityNotice(messages);
+      if (notice && !input.question.includes(notice)) input = { ...input, question: `${notice}\n\n${input.question}` };
       const proposed = input.optionsJson === undefined ? undefined : normalizeClarificationOptions(input.optionsJson);
       // A choice the template would reject again only restarts the same clarification.
       const options = proposed && supportedClarificationOptions(proposed, getConfigurable(config)?.agentState?.draftState);
