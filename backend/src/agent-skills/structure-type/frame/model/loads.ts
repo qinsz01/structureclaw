@@ -1,7 +1,7 @@
+import { hasFrameNodalLoadInput } from '../../../../skill-shared/modelling/frame-loads.js';
 /** Frame floor, line and nodal load projection into load cases. */
 import type { DraftFloorLoad, EngineeringDraftLoad, DraftState, EngineeringDraftLoadCaseType, EngineeringDraftLoadCombination } from '../../../../shared/types/agent.js';
-import { isLocalizedFramePointLoad, isFrameMemberPointLoad, hasIncompleteFramePointLoadLocation } from '../../../../agent-runtime/draft/project-patch.js';
-import { n2dId } from './geometry.js';
+import { isFrameMemberPointLoad, hasIncompleteFramePointLoadLocation } from '../../../../agent-runtime/draft/project-patch.js';
 
 export function buildStoryFloorLoadFields(deadLoad: number | undefined, liveLoad: number | undefined): Record<string, unknown> {
   const exactDeadLoad = deadLoad && Number.isFinite(deadLoad) ? deadLoad : undefined;
@@ -43,16 +43,8 @@ function isGravityLineLoad(load: EngineeringDraftLoad): boolean {
     && (load.direction === undefined || load.direction === 'gravity' || load.direction === 'globalZ');
 }
 
-function isExplicit2dNodalLoad(load: EngineeringDraftLoad): boolean {
-  return (load.kind === 'nodal' || load.kind === 'point')
-    && Number.isFinite(load.magnitude)
-    && Number.isFinite(load.magnitude)
-    && isLocalizedFramePointLoad(load)
-    && (load.direction === undefined || load.direction === 'globalX' || load.direction === 'gravity' || load.direction === 'globalZ');
-}
-
 export function hasFrameAnalysisLoadInput(state: Pick<DraftState, 'floorLoads' | 'engineeringDraft' | 'wind' | 'frameDimension'>): boolean {
-  if (hasFloorLoadValue(state.floorLoads)) return true;
+  if (hasFloorLoadValue(state.floorLoads) || hasFrameNodalLoadInput(state)) return true;
   if (typeof state.wind?.basicPressureKNM2 === 'number' && Number.isFinite(state.wind.basicPressureKNM2) && state.wind.basicPressureKNM2 > 0) {
     return true;
   }
@@ -60,8 +52,7 @@ export function hasFrameAnalysisLoadInput(state: Pick<DraftState, 'floorLoads' |
     Number.isFinite(load.magnitude)
     && Number.isFinite(load.magnitude)
     && (isGravityLineLoad(load)
-      || (isFrameMemberPointLoad(load) && !hasIncompleteFramePointLoadLocation(load))
-      || (state.frameDimension !== '3d' && isExplicit2dNodalLoad(load)))
+      || (isFrameMemberPointLoad(load) && !hasIncompleteFramePointLoadLocation(load)))
   )));
 }
 
@@ -369,45 +360,3 @@ export function build3dBeamLineLoads(
   return loads;
 }
 
-function frame2dNodeIndex(nodeRole: string, nodeCount: number): number | undefined {
-  const role = nodeRole.trim().toLowerCase();
-  if (role.includes('right') || role.includes('end') || /右侧|右端/u.test(role)) return nodeCount - 1;
-  if (role.includes('left') || role.includes('start') || /左侧|左端/u.test(role)) return 0;
-  if (role.includes('middle') || role.includes('center') || role.includes('centre') || /中间|中央/u.test(role)) {
-    return Math.floor((nodeCount - 1) / 2);
-  }
-  return undefined;
-}
-
-export function build2dEngineeringNodalLoads(
-  state: DraftState,
-  storyCount: number,
-  levelNodeCount: number,
-): FrameNamedLoad[] {
-  const loads: FrameNamedLoad[] = [];
-  for (const load of state.engineeringDraft?.loads ?? []) {
-    if (!isExplicit2dNodalLoad(load)) continue;
-    const story = load.location!.story!;
-    if (story > storyCount) continue;
-    const nodeIndex = frame2dNodeIndex(load.location!.nodeRole!, levelNodeCount);
-    if (nodeIndex === undefined) continue;
-
-    const nodeLoad: Record<string, unknown> = {
-      type: 'nodal',
-      node: n2dId(story, nodeIndex),
-      story: `F${story}`,
-      source: 'engineering_draft_nodal_loads',
-    };
-    if (load.direction === 'globalX') {
-      nodeLoad.fx = load.magnitude;
-    } else {
-      nodeLoad.fz = (load.direction === 'globalZ' ? load.magnitude : -load.magnitude);
-    }
-    loads.push({
-      record: nodeLoad,
-      caseId: load.caseId,
-      caseType: load.caseType,
-    });
-  }
-  return loads;
-}

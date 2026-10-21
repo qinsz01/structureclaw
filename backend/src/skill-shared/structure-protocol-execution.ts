@@ -5,6 +5,7 @@ type StructureProtocolAction =
   | 'structure_model_schema'
   | 'converter_schema'
   | 'validate'
+  | 'expand_floor_load'
   | 'convert';
 
 interface StructureProtocolExecutionInput {
@@ -26,6 +27,7 @@ const LOCAL_GET_PATHS: Record<string, StructureProtocolAction> = {
 const LOCAL_POST_PATHS: Record<string, StructureProtocolAction> = {
   '/validate': 'validate',
   '/convert': 'convert',
+  '/expand-floor-load': 'expand_floor_load',
 };
 
 export class StructureProtocolExecutionService {
@@ -47,6 +49,10 @@ export class StructureProtocolExecutionService {
 
   async convert(payload: Record<string, unknown>, requestOptions?: ExecutionRequestOptions): Promise<Record<string, unknown>> {
     return this.runner.invoke({ action: 'convert', input: payload }, requestOptions);
+  }
+
+  async expandFloorLoad(payload: Record<string, unknown>, requestOptions?: ExecutionRequestOptions): Promise<Record<string, unknown>> {
+    return this.runner.invoke({ action: 'expand_floor_load', input: payload }, requestOptions);
   }
 }
 
@@ -84,6 +90,8 @@ export function createLocalStructureProtocolClient(
           return { data: await service.validate(payload, requestOptions) as T };
         case 'convert':
           return { data: await service.convert(payload, requestOptions) as T };
+        case 'expand_floor_load':
+          return { data: await service.expandFloorLoad(payload, requestOptions) as T };
         default:
           throw buildError(`Unsupported local POST action: ${String(action)}`, 400);
       }

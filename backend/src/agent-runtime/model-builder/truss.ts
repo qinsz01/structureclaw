@@ -1,3 +1,4 @@
+import { trussPanelGeometry } from '../../skill-shared/modelling/geometry.js';
 /** Planar truss template model. */
 import type { DraftState, EngineeringDraftLoad } from '../../shared/types/agent.js';
 import { PINNED_RESTRAINT, ROLLER_X_RESTRAINT } from '../../engineering/coordinate-semantics.js';
@@ -16,13 +17,6 @@ function clampTrussPanelCount(value: number | undefined, span: number): number {
     return Math.max(2, Math.min(30, Math.round(span / 3)));
   }
   return Math.max(2, Math.min(30, Math.round(value)));
-}
-
-function buildTrussTopElevation(topology: string, x: number, span: number, height: number): number {
-  if (topology === 'trapezoidal') {
-    return Math.max(height - Math.abs(x - span / 2) * 0.1, height * 0.4);
-  }
-  return height;
 }
 
 function buildExplicitTrussTopology(state: DraftState): {
@@ -165,75 +159,9 @@ export function buildTrussModel(state: DraftState, metadata: Record<string, unkn
   const load = state.loadKN!;
   const topology = getTrussTopology(state);
   const panelLength = span / panelCount;
-  const fixed = [...PINNED_RESTRAINT];
-  const roller = [...ROLLER_X_RESTRAINT];
   const explicitTopology = buildExplicitTrussTopology(state);
-  const nodes: Array<Record<string, unknown>> = explicitTopology?.nodes ?? [];
-  const elements: Array<Record<string, unknown>> = explicitTopology?.elements ?? [];
-
-  for (let i = 0; !explicitTopology && i <= panelCount; i += 1) {
-    const node: Record<string, unknown> = {
-      id: `B${i}`,
-      x: i * panelLength,
-      y: 0,
-      z: 0,
-    };
-    if (i === 0) {
-      node.restraints = fixed;
-    } else if (i === panelCount) {
-      node.restraints = roller;
-    }
-    nodes.push(node);
-  }
-
-  for (let i = 0; !explicitTopology && i <= panelCount; i += 1) {
-    const x = i * panelLength;
-    nodes.push({
-      id: `T${i}`,
-      x,
-      y: 0,
-      z: buildTrussTopElevation(topology, x, span, height),
-    });
-  }
-
-  for (let i = 0; !explicitTopology && i < panelCount; i += 1) {
-    elements.push({
-      id: `BC${i}`,
-      type: 'truss',
-      nodes: [`B${i}`, `B${i + 1}`],
-      material: '1',
-      section: '1',
-    });
-    elements.push({
-      id: `TC${i}`,
-      type: 'truss',
-      nodes: [`T${i}`, `T${i + 1}`],
-      material: '1',
-      section: '1',
-    });
-  }
-
-  for (let i = 0; !explicitTopology && i <= panelCount; i += 1) {
-    elements.push({
-      id: `WV${i}`,
-      type: 'truss',
-      nodes: [`B${i}`, `T${i}`],
-      material: '1',
-      section: '1',
-    });
-    if (i < panelCount) {
-      const diagonalNodes = i < panelCount / 2
-        ? [`B${i}`, `T${i + 1}`]
-        : [`B${i + 1}`, `T${i}`];
-      elements.push({
-        id: `WD${i}`,
-        type: 'truss',
-        nodes: diagonalNodes,
-        material: '1',
-        section: '1',
-      });
-    }
-  }
+  const generated = explicitTopology ?? trussPanelGeometry({ span, height, panels: panelCount, topology: topology === 'trapezoidal' ? 'trapezoidal' : 'generic' });
+  const { nodes, elements } = generated;
 
   const loadChord = getTrussLoadChord(state);
   const loadPrefix = loadChord === 'bottom' ? 'B' : 'T';

@@ -164,7 +164,7 @@ export function appliedLoadTotals(model: ModelRecord): Record<string, Vector3> {
     const total: Vector3 = [0, 0, 0];
     for (const load of records(loadCase.loads)) {
       const distributed = load.type === 'distributed';
-      const vector = (distributed ? ['wx', 'wy', 'wz'] : ['fx', 'fy', 'fz']).map((key, index) => Number(load[key] ?? (Array.isArray(load.forces) ? load.forces[index] : 0))) as Vector3;
+      let vector = (distributed ? ['wx', 'wy', 'wz'] : ['fx', 'fy', 'fz']).map((key, index) => Number(load[key] ?? (Array.isArray(load.forces) ? load.forces[index] : 0))) as Vector3;
       let global = vector;
       let factor = 1;
       if (load.element !== undefined) {
@@ -172,6 +172,18 @@ export function appliedLoadTotals(model: ModelRecord): Record<string, Vector3> {
         if (!element) throw new Error(`Unknown element ${load.element}`);
         const geometry = memberGeometry(model, element);
         if (distributed) factor = Number(load.end ?? geometry.length) - Number(load.start ?? 0);
+        if (distributed && Array.isArray(load.points)) {
+          const points = records(load.points);
+          if (points.length < 2) throw new Error('Invalid piecewise load / 分段荷载至少需要两个控制点');
+          vector = [0, 0, 0]; factor = 1;
+          for (let i = 1; i < points.length; i++) {
+            const a = points[i - 1]!, b = points[i]!;
+            const start = Number(a.position), end = Number(b.position);
+            if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end > 1 || end <= start) throw new Error('Invalid load fractions / 荷载相对位置无效');
+            for (const [axis, key] of ['wx', 'wy', 'wz'].entries()) vector[axis]! += (Number(a[key] ?? 0) + Number(b[key] ?? 0)) * (end - start) * geometry.length / 2;
+          }
+        }
+        global = vector;
         if (load.reference_frame === 'element-local') global = [0, 1, 2].map(index => geometry.axes.reduce((sum, axis, j) => sum + axis[index]! * vector[j]!, 0)) as Vector3;
       } else if (!records(model.nodes).some(node => node.id === load.node)) throw new Error(`Unknown load node ${load.node}`);
       for (const index of [0, 1, 2]) total[index]! += global[index]! * factor;

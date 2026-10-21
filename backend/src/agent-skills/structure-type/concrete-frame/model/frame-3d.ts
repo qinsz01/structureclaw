@@ -1,5 +1,7 @@
+import { frameNodalLoads } from '../../../../skill-shared/modelling/frame-loads.js';
+import { regularFrameGeometry } from '../../../../skill-shared/modelling/geometry.js';
 /** Spatial concrete frame local model. */
-import { accumulateCoords, n3dId, buildBaseRestraint, buildCommonModelFields } from './records.js';
+import { accumulateCoords, n3dId, buildCommonModelFields } from './records.js';
 import type { ConcreteFrameModel } from './records.js';
 import type { ConcreteMaterialProps, RebarMaterialProps, SectionProps } from './materials.js';
 import type { DraftState } from '../../../../shared/types/agent.js';
@@ -32,82 +34,11 @@ export function buildConcreteFrame3dLocalModel(options: {
   const yCoords = accumulateCoords(options.bayWidthsYM);
   const zCoords = accumulateCoords(options.storyHeightsM);
   const floorLoads = normalizeFloorLoadsByStory(options.floorLoads);
-  const nodes: Array<Record<string, unknown>> = [];
-  const elements: Array<Record<string, unknown>> = [];
+  const { nodes, elements } = regularFrameGeometry({ dimension: '3d', bayWidthsX: options.bayWidthsXM, bayWidthsY: options.bayWidthsYM, storeyHeights: options.storyHeightsM, baseRestraint: options.frameBaseSupportType as 'fixed' | 'pinned' });
+  for (const element of elements) { element.concrete_grade = options.frameConcreteGrade; element.rebar_grade = options.frameRebarGrade; }
   const deadLoads: Array<Record<string, unknown>> = [];
   const liveLoads: Array<Record<string, unknown>> = [];
   const lateralLoads: Array<Record<string, unknown>> = [];
-  let elementId = 1;
-
-  for (let storyIdx = 0; storyIdx < zCoords.length; storyIdx++) {
-    for (let xIdx = 0; xIdx < xCoords.length; xIdx++) {
-      for (let yIdx = 0; yIdx < yCoords.length; yIdx++) {
-        const node: Record<string, unknown> = {
-          id: n3dId(storyIdx, xIdx, yIdx),
-          x: xCoords[xIdx],
-          y: yCoords[yIdx],
-          z: zCoords[storyIdx],
-          ...(storyIdx > 0 ? { story: `F${storyIdx}` } : {}),
-        };
-        if (storyIdx === 0) node.restraints = buildBaseRestraint(options.frameBaseSupportType);
-        nodes.push(node);
-      }
-    }
-  }
-
-  for (let storyIdx = 1; storyIdx < zCoords.length; storyIdx++) {
-    for (let xIdx = 0; xIdx < xCoords.length; xIdx++) {
-      for (let yIdx = 0; yIdx < yCoords.length; yIdx++) {
-        elements.push({
-          id: `C${elementId}`,
-          type: 'column',
-          nodes: [n3dId(storyIdx - 1, xIdx, yIdx), n3dId(storyIdx, xIdx, yIdx)],
-          material: '1',
-          section: '1',
-          story: `F${storyIdx}`,
-          concrete_grade: options.frameConcreteGrade,
-          rebar_grade: options.frameRebarGrade,
-        });
-        elementId += 1;
-      }
-    }
-  }
-
-  for (let storyIdx = 1; storyIdx < zCoords.length; storyIdx++) {
-    for (let xIdx = 0; xIdx < options.bayWidthsXM.length; xIdx++) {
-      for (let yIdx = 0; yIdx < yCoords.length; yIdx++) {
-        elements.push({
-          id: `BX${elementId}`,
-          type: 'beam',
-          nodes: [n3dId(storyIdx, xIdx, yIdx), n3dId(storyIdx, xIdx + 1, yIdx)],
-          material: '1',
-          section: '2',
-          story: `F${storyIdx}`,
-          concrete_grade: options.frameConcreteGrade,
-          rebar_grade: options.frameRebarGrade,
-        });
-        elementId += 1;
-      }
-    }
-  }
-
-  for (let storyIdx = 1; storyIdx < zCoords.length; storyIdx++) {
-    for (let xIdx = 0; xIdx < xCoords.length; xIdx++) {
-      for (let yIdx = 0; yIdx < options.bayWidthsYM.length; yIdx++) {
-        elements.push({
-          id: `BY${elementId}`,
-          type: 'beam',
-          nodes: [n3dId(storyIdx, xIdx, yIdx), n3dId(storyIdx, xIdx, yIdx + 1)],
-          material: '1',
-          section: '2',
-          story: `F${storyIdx}`,
-          concrete_grade: options.frameConcreteGrade,
-          rebar_grade: options.frameRebarGrade,
-        });
-        elementId += 1;
-      }
-    }
-  }
 
   const levelNodeCount = xCoords.length * yCoords.length;
   for (const load of floorLoads) {
@@ -152,6 +83,7 @@ export function buildConcreteFrame3dLocalModel(options: {
   });
   const lineLoads = build3dConcreteBeamLineLoads(options.engineeringDraft, options.storyCount, elements);
   const loadCaseBundle = buildConcreteLoadCaseBundle(deadLoads, liveLoads, lineLoads, lateralLoads, {
+    nodalLoads: frameNodalLoads(options.engineeringDraft?.loads, nodes),
     includeWind: options.wind !== undefined,
     includeSeismic: options.siteSeismic !== undefined,
     frameDimension: '3d',

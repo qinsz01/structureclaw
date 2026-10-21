@@ -1,6 +1,7 @@
+import { regularFrameGeometry } from '../../skill-shared/modelling/geometry.js';
 /** Regular 2D/3D frame template models. */
 import type { DraftState } from '../../shared/types/agent.js';
-import { accumulateCoordinates, buildFixedRestraint } from './readers.js';
+import { accumulateCoordinates } from './readers.js';
 import { STRUCTURAL_COORDINATE_SEMANTICS } from '../../engineering/coordinate-semantics.js';
 import { buildElementReferenceVectors } from '../reference-vectors.js';
 
@@ -19,51 +20,8 @@ export function buildFrame2dModel(state: DraftState, metadata: Record<string, un
   const xCoordinates = accumulateCoordinates(bayWidths);
   const zCoordinates = accumulateCoordinates(storyHeights);
   const baseSupport = state.frameBaseSupportType || 'fixed';
-  const nodes: Array<Record<string, unknown>> = [];
-  const elements: Array<Record<string, unknown>> = [];
+  const { nodes, elements } = regularFrameGeometry({ dimension: '2d', bayWidthsX: bayWidths, storeyHeights: storyHeights, baseRestraint: baseSupport, includeStories: false });
   const loadCases = [{ id: 'LC1', type: 'other', loads: [] as Array<Record<string, unknown>> }];
-  let elementId = 1;
-
-  for (let storyIndex = 0; storyIndex < zCoordinates.length; storyIndex += 1) {
-    for (let bayNodeIndex = 0; bayNodeIndex < xCoordinates.length; bayNodeIndex += 1) {
-      const node: Record<string, unknown> = {
-        id: get2dNodeId(storyIndex, bayNodeIndex),
-        x: xCoordinates[bayNodeIndex],
-        y: 0,
-        z: zCoordinates[storyIndex],
-      };
-      if (storyIndex === 0) {
-        node.restraints = buildFixedRestraint(baseSupport);
-      }
-      nodes.push(node);
-    }
-  }
-
-  for (let storyIndex = 1; storyIndex < zCoordinates.length; storyIndex += 1) {
-    for (let bayNodeIndex = 0; bayNodeIndex < xCoordinates.length; bayNodeIndex += 1) {
-      elements.push({
-        id: `C${elementId}`,
-        type: 'column',
-        nodes: [get2dNodeId(storyIndex - 1, bayNodeIndex), get2dNodeId(storyIndex, bayNodeIndex)],
-        material: '1',
-        section: '1',
-      });
-      elementId += 1;
-    }
-  }
-
-  for (let storyIndex = 1; storyIndex < zCoordinates.length; storyIndex += 1) {
-    for (let bayIndex = 0; bayIndex < bayWidths.length; bayIndex += 1) {
-      elements.push({
-        id: `B${elementId}`,
-        type: 'beam',
-        nodes: [get2dNodeId(storyIndex, bayIndex), get2dNodeId(storyIndex, bayIndex + 1)],
-        material: '1',
-        section: '2',
-      });
-      elementId += 1;
-    }
-  }
 
   const levelNodeCount = xCoordinates.length;
   for (const load of floorLoads) {
@@ -119,69 +77,8 @@ export function buildFrame3dModel(state: DraftState, metadata: Record<string, un
   const yCoordinates = accumulateCoordinates(bayWidthsY);
   const zCoordinates = accumulateCoordinates(storyHeights);
   const baseSupport = state.frameBaseSupportType || 'fixed';
-  const nodes: Array<Record<string, unknown>> = [];
-  const elements: Array<Record<string, unknown>> = [];
+  const { nodes, elements } = regularFrameGeometry({ dimension: '3d', bayWidthsX: bayWidthsX, bayWidthsY: bayWidthsY, storeyHeights: storyHeights, baseRestraint: baseSupport, includeStories: false });
   const loadCases = [{ id: 'LC1', type: 'other', loads: [] as Array<Record<string, unknown>> }];
-  let elementId = 1;
-
-  for (let storyIndex = 0; storyIndex < zCoordinates.length; storyIndex += 1) {
-    for (let xIndex = 0; xIndex < xCoordinates.length; xIndex += 1) {
-      for (let yIndex = 0; yIndex < yCoordinates.length; yIndex += 1) {
-        const node: Record<string, unknown> = {
-          id: get3dNodeId(storyIndex, xIndex, yIndex),
-          x: xCoordinates[xIndex],
-          y: yCoordinates[yIndex],
-          z: zCoordinates[storyIndex],
-        };
-        if (storyIndex === 0) {
-          node.restraints = buildFixedRestraint(baseSupport);
-        }
-        nodes.push(node);
-      }
-    }
-  }
-
-  for (let storyIndex = 1; storyIndex < zCoordinates.length; storyIndex += 1) {
-    for (let xIndex = 0; xIndex < xCoordinates.length; xIndex += 1) {
-      for (let yIndex = 0; yIndex < yCoordinates.length; yIndex += 1) {
-        elements.push({
-          id: `C${elementId}`,
-          type: 'column',
-          nodes: [get3dNodeId(storyIndex - 1, xIndex, yIndex), get3dNodeId(storyIndex, xIndex, yIndex)],
-          material: '1',
-          section: '1',
-        });
-        elementId += 1;
-      }
-    }
-  }
-
-  for (let storyIndex = 1; storyIndex < zCoordinates.length; storyIndex += 1) {
-    for (let xIndex = 0; xIndex < bayWidthsX.length; xIndex += 1) {
-      for (let yIndex = 0; yIndex < yCoordinates.length; yIndex += 1) {
-        elements.push({
-          id: `BX${elementId}`,
-          type: 'beam',
-          nodes: [get3dNodeId(storyIndex, xIndex, yIndex), get3dNodeId(storyIndex, xIndex + 1, yIndex)],
-          material: '1',
-          section: '2',
-        });
-        elementId += 1;
-      }
-    }
-    for (let xIndex = 0; xIndex < xCoordinates.length; xIndex += 1) {
-      for (let yIndex = 0; yIndex < bayWidthsY.length; yIndex += 1) {
-        elements.push({
-          id: `BY${elementId}`,
-          type: 'beam',
-          nodes: [get3dNodeId(storyIndex, xIndex, yIndex), get3dNodeId(storyIndex, xIndex, yIndex + 1)],
-          material: '1',
-          section: '2',
-        });
-        elementId += 1;
-      }
-    }
-  }
 
   const levelNodeCount = xCoordinates.length * yCoordinates.length;
   for (const load of floorLoads) {

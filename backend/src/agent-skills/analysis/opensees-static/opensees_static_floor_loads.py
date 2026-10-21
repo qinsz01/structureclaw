@@ -470,16 +470,6 @@ class StoryFloorLoadMixin:
             lengths[self._coord_key(value)] = max(float(length), 0.0)
         return lengths
 
-    def _unique_sorted_coordinates(self, values: Any) -> List[float]:
-        by_key: Dict[int, float] = {}
-        for value in values:
-            key = self._coord_key(float(value))
-            by_key.setdefault(key, float(value))
-        return sorted(by_key.values())
-
-    def _coord_key(self, value: float) -> int:
-        return int(round(float(value) * 1_000_000))
-
     def _floor_load_tributary_width(self, parameters: Dict[str, Any]) -> float:
         for key in ('floorLoadTributaryWidthM', 'floor_load_tributary_width_m', 'tributaryWidthM', 'tributary_width_m'):
             value = self._to_float(parameters.get(key, 0.0), 0.0)

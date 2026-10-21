@@ -1,4 +1,5 @@
 import { normalizeFrameBoundary } from './legacy-fields.js';
+import { isGlobalFrameNodeRole } from '../../skill-shared/modelling/frame-loads.js';
 /**
  * Draft -> flat projection (outbound half of the draft boundary, re-exported by `boundary.ts`).
  *
@@ -104,7 +105,7 @@ function isTopStoryTarget(target: string): boolean {
 
 export function isLocalizedFramePointLoad(load: EngineeringDraftLoad): boolean {
   if (!isPointLikeLoad(load)) return false;
-  return load.location?.story !== undefined && Boolean(load.location.nodeRole?.trim());
+  return isGlobalFrameNodeRole(load.location?.nodeRole) || load.location?.story !== undefined && Boolean(load.location.nodeRole?.trim());
 }
 
 /** Member positions are distinct from joint locations; never spread them over a floor. */
@@ -114,6 +115,7 @@ export function isFrameMemberPointLoad(load: EngineeringDraftLoad): boolean {
 
 export function hasIncompleteFramePointLoadLocation(load: EngineeringDraftLoad): boolean {
   if (!isPointLikeLoad(load)) return false;
+  if (isGlobalFrameNodeRole(load.location?.nodeRole)) return false;
   if (isFrameMemberPointLoad(load)) {
     return !load.target?.trim()
       && !(load.location?.story !== undefined && load.location.spanIndex !== undefined);

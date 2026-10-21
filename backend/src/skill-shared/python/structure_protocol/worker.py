@@ -82,6 +82,10 @@ def main() -> int:
                 get_converter,
             ))
             return 0
+        if action == "expand_floor_load":
+            from structure_protocol.modelling_floor_loads import expand_modelling_floor_load
+            _ok(expand_modelling_floor_load(dict(payload.get("input") or {})))
+            return 0
         _error("UNKNOWN_ACTION", f"Unknown worker action: {action}", status_code=400)
         return 1
     except HTTPException as error:

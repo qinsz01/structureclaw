@@ -1,3 +1,5 @@
+import { frameNodalLoads } from '../../../skill-shared/modelling/frame-loads.js';
+import { regularFrameGeometry } from '../../../skill-shared/modelling/geometry.js';
 import { computeMissingCriticalKeys } from '../../../agent-runtime/draft-guidance.js';
 import { STRUCTURAL_COORDINATE_SEMANTICS, withCanonicalCoordinateContract } from '../../../engineering/coordinate-semantics.js';
 import { buildElementReferenceVectors } from '../../../agent-runtime/reference-vectors.js';
@@ -5,9 +7,9 @@ import { buildExplicitDraftModel, validateExplicitModel } from '../../../agent-r
 import type { DraftState } from '../../../shared/types/agent.js';
 import { REQUIRED_KEYS } from './constants.js';
 import { applyTemplateProperties } from '../../../agent-runtime/template-properties.js';
-import { buildFrameMemberPointLoads, normalizeFloorLoadsByStory, build2dEngineeringNodalLoads, buildStoryFloorLoadFields, build2dBeamLineLoads, buildFrameLoadCaseBundle, hasFloorLoadValue, build3dBeamLineLoads, hasFrameAnalysisLoadInput } from './model/loads.js';
+import { buildFrameMemberPointLoads, normalizeFloorLoadsByStory, buildStoryFloorLoadFields, build2dBeamLineLoads, buildFrameLoadCaseBundle, hasFloorLoadValue, build3dBeamLineLoads, hasFrameAnalysisLoadInput } from './model/loads.js';
 import type { FrameNamedLoad } from './model/loads.js';
-import { accumulateCoords, n2dId, buildBaseRestraint, n3dId } from './model/geometry.js';
+import { accumulateCoords, n2dId, n3dId } from './model/geometry.js';
 import { buildExplicitFrameTopologyModel } from './model/explicit-topology.js';
 
 function buildFrame2dLocalModel(
@@ -20,38 +22,8 @@ function buildFrame2dLocalModel(
   const baseSupport = (state.frameBaseSupportType as string | undefined) ?? 'fixed';
   const xCoords = accumulateCoords(bayWidths);
   const zCoords = accumulateCoords(storyHeights);
-  const nodes: Array<Record<string, unknown>> = [];
-  const elements: Array<Record<string, unknown>> = [];
+  const { nodes, elements } = regularFrameGeometry({ dimension: '2d', bayWidthsX: bayWidths, storeyHeights: storyHeights, baseRestraint: baseSupport as 'fixed' | 'pinned' });
   const lateralLoads: FrameNamedLoad[] = [];
-  let elementId = 1;
-
-  for (let storyIdx = 0; storyIdx < zCoords.length; storyIdx++) {
-    for (let bayIdx = 0; bayIdx < xCoords.length; bayIdx++) {
-      const node: Record<string, unknown> = {
-        id: n2dId(storyIdx, bayIdx),
-        x: xCoords[bayIdx],
-        y: 0,
-        z: zCoords[storyIdx],
-        ...(storyIdx > 0 ? { story: `F${storyIdx}` } : {}),
-      };
-      if (storyIdx === 0) node.restraints = buildBaseRestraint(baseSupport);
-      nodes.push(node);
-    }
-  }
-
-  for (let storyIdx = 1; storyIdx < zCoords.length; storyIdx++) {
-    for (let bayIdx = 0; bayIdx < xCoords.length; bayIdx++) {
-      elements.push({ id: `C${elementId}`, type: 'column', nodes: [n2dId(storyIdx - 1, bayIdx), n2dId(storyIdx, bayIdx)], material: '1', section: '1', story: `F${storyIdx}` });
-      elementId += 1;
-    }
-  }
-
-  for (let storyIdx = 1; storyIdx < zCoords.length; storyIdx++) {
-    for (let bayIdx = 0; bayIdx < bayWidths.length; bayIdx++) {
-      elements.push({ id: `B${elementId}`, type: 'beam', nodes: [n2dId(storyIdx, bayIdx), n2dId(storyIdx, bayIdx + 1)], material: '1', section: '2', story: `F${storyIdx}` });
-      elementId += 1;
-    }
-  }
 
   const levelNodeCount = xCoords.length;
   for (const load of floorLoads) {
@@ -70,7 +42,7 @@ function buildFrame2dLocalModel(
       if (nodeLoad.fx !== undefined) lateralLoads.push({ record: nodeLoad });
     }
   }
-  lateralLoads.push(...build2dEngineeringNodalLoads(state, storyHeights.length, levelNodeCount));
+  lateralLoads.push(...frameNodalLoads(state.engineeringDraft?.loads, nodes));
 
   const stories = storyHeights.map((h, i) => {
     const storyIdx = i + 1;
@@ -128,53 +100,8 @@ function buildFrame3dLocalModel(
   const xCoords = accumulateCoords(bayWidthsX);
   const yCoords = accumulateCoords(bayWidthsY);
   const zCoords = accumulateCoords(storyHeights);
-  const nodes: Array<Record<string, unknown>> = [];
-  const elements: Array<Record<string, unknown>> = [];
+  const { nodes, elements } = regularFrameGeometry({ dimension: '3d', bayWidthsX: bayWidthsX, bayWidthsY: bayWidthsY, storeyHeights: storyHeights, baseRestraint: baseSupport as 'fixed' | 'pinned' });
   const lateralLoads: FrameNamedLoad[] = [];
-  let elementId = 1;
-
-  for (let storyIdx = 0; storyIdx < zCoords.length; storyIdx++) {
-    for (let xIdx = 0; xIdx < xCoords.length; xIdx++) {
-      for (let yIdx = 0; yIdx < yCoords.length; yIdx++) {
-        const node: Record<string, unknown> = {
-          id: n3dId(storyIdx, xIdx, yIdx),
-          x: xCoords[xIdx],
-          y: yCoords[yIdx],
-          z: zCoords[storyIdx],
-          ...(storyIdx > 0 ? { story: `F${storyIdx}` } : {}),
-        };
-        if (storyIdx === 0) node.restraints = buildBaseRestraint(baseSupport);
-        nodes.push(node);
-      }
-    }
-  }
-
-  for (let storyIdx = 1; storyIdx < zCoords.length; storyIdx++) {
-    for (let xIdx = 0; xIdx < xCoords.length; xIdx++) {
-      for (let yIdx = 0; yIdx < yCoords.length; yIdx++) {
-        elements.push({ id: `C${elementId}`, type: 'column', nodes: [n3dId(storyIdx - 1, xIdx, yIdx), n3dId(storyIdx, xIdx, yIdx)], material: '1', section: '1', story: `F${storyIdx}` });
-        elementId += 1;
-      }
-    }
-  }
-
-  for (let storyIdx = 1; storyIdx < zCoords.length; storyIdx++) {
-    for (let xIdx = 0; xIdx < bayWidthsX.length; xIdx++) {
-      for (let yIdx = 0; yIdx < yCoords.length; yIdx++) {
-        elements.push({ id: `BX${elementId}`, type: 'beam', nodes: [n3dId(storyIdx, xIdx, yIdx), n3dId(storyIdx, xIdx + 1, yIdx)], material: '1', section: '2', story: `F${storyIdx}` });
-        elementId += 1;
-      }
-    }
-  }
-
-  for (let storyIdx = 1; storyIdx < zCoords.length; storyIdx++) {
-    for (let xIdx = 0; xIdx < xCoords.length; xIdx++) {
-      for (let yIdx = 0; yIdx < bayWidthsY.length; yIdx++) {
-        elements.push({ id: `BY${elementId}`, type: 'beam', nodes: [n3dId(storyIdx, xIdx, yIdx), n3dId(storyIdx, xIdx, yIdx + 1)], material: '1', section: '2', story: `F${storyIdx}` });
-        elementId += 1;
-      }
-    }
-  }
 
   const levelNodeCount = xCoords.length * yCoords.length;
   for (const load of floorLoads) {
@@ -197,6 +124,8 @@ function buildFrame3dLocalModel(
       }
     }
   }
+
+  lateralLoads.push(...frameNodalLoads(state.engineeringDraft?.loads, nodes));
 
   const elementReferenceVectors = buildElementReferenceVectors(elements, nodes);
   const stories = storyHeights.map((h, i) => {
