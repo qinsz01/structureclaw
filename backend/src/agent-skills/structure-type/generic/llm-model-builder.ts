@@ -15,6 +15,8 @@ import { canRecover, currentRunPolicy, requestRecovery } from '../../../runtime/
 import { applyDraftAnalysisControl, applyDraftTemplateDesign, projectDraftMaterialDesign } from '../../../agent-runtime/engineering-draft.js';
 import { completeGenericModelProperties } from '../../../agent-runtime/template-properties.js';
 import { checkModelPhysics, ModelPhysicsError } from '../../../engineering/model-physics.js';
+import { expandModellingOperations, assertUserTopologyIds } from '../../../skill-shared/modelling/operations.js';
+import { ModellingOperationError } from '../../../skill-shared/modelling/contract.js';
 
 export class ModelInputRequiredError extends Error {
   constructor(readonly missingFields: Array<string | { field: string; reason?: string }>) {
@@ -63,7 +65,7 @@ export async function tryBuildGenericModelWithLlm(
     const aiMessage = await llm.invoke(prompt, { signal });
     const content = llmContentText(aiMessage.content);
     try {
-      const parsed = parseJsonObject(content);
+      let parsed = parseJsonObject(content);
       if (!parsed) {
         logger.warn({
           attempt: attempt + 1,
@@ -79,6 +81,11 @@ export async function tryBuildGenericModelWithLlm(
           || field && typeof field === 'object' && typeof field.field === 'string' && field.field.trim())) {
         throw new ModelInputRequiredError(parsed.missing_fields);
       }
+
+      parsed = await expandModellingOperations(parsed, currentModel ?? {
+        nodes: state.engineeringDraft?.topology?.nodes ?? [], elements: state.engineeringDraft?.topology?.members ?? [],
+        materials: state.engineeringDraft?.materials ?? [], sections: state.engineeringDraft?.sectionRecords ?? [],
+      });
 
       if (!Array.isArray(parsed.nodes) || !Array.isArray(parsed.elements) || !Array.isArray(parsed.load_cases)) {
         logger.warn({
@@ -98,6 +105,7 @@ export async function tryBuildGenericModelWithLlm(
       const projected = currentModel ? controlled
         : projectDraftMaterialDesign(applyDraftTemplateDesign(controlled, state.engineeringDraft), state.engineeringDraft);
       const candidate = completeGenericModelProperties(projected, state);
+      assertUserTopologyIds(candidate, state.engineeringDraft?.topology, !currentModel);
       const physics = checkModelPhysics(candidate, state.engineeringDraft);
       if (!physics.valid) throw new ModelPhysicsError(physics);
       assertCanonicalCoordinateModel(candidate, dimension);
@@ -133,7 +141,7 @@ export async function tryBuildGenericModelWithLlm(
     messagePreview: message.slice(0, 160),
   }, 'generic llm model exhausted all attempts without a valid model');
 
-  if (lastError instanceof ModelPhysicsError) throw lastError;
+  if (lastError instanceof ModelPhysicsError || lastError instanceof ModellingOperationError) throw lastError;
   throw new Error(`LLM_MODEL_VALIDATION_FAILED: ${failure?.error ?? 'No valid model / 无有效模型'}`);
 }
 

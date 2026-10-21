@@ -48,6 +48,10 @@ export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
       } catch (error) {
         const { ModelInputRequiredError } = await import('../../agent-skills/structure-type/generic/llm-model-builder.js');
         const { ModelPhysicsError } = await import('../../engineering/model-physics.js');
+        const { ModellingOperationError } = await import('../../skill-shared/modelling/contract.js');
+        if (error instanceof ModellingOperationError) return toolResult(toolCallId, 'build_model', JSON.stringify({ success: false,
+          errorCode: error.code, modelBuilt: false, details: error.details, nextAction: nextActionForMissingInput(),
+          instruction: 'Modelling operations remain invalid after repair. Explain the unresolved geometry, targets or identities; do not claim a successful calculation. / 修正后建模操作仍无效，请说明未解决的几何、目标或标识，不得声称计算成功。' }));
         if (error instanceof ModelPhysicsError) return toolResult(toolCallId, 'build_model', JSON.stringify({
           success: false, errorCode: error.code, modelBuilt: false, ...error.check, nextAction: nextActionForMissingInput(),
           instruction: 'Automatic repair ended with these physical diagnostics. Explain the unresolved inputs together; do not claim a valid model or calculation. / 自动修正结束后仍有这些物理诊断；请一次说明未解决输入，不得声称模型或计算已完成。',
