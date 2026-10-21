@@ -101,6 +101,9 @@ export function createReviewInputTool() {
       Object.assign(records[0]!, item.analysisParameters);
     }
     const patch = (input.resolutions ?? []).map(item => {
+      if (item.modelField && !isCanonicalModelField(item.modelField)) {
+        throw new Error(`INPUT_EVIDENCE_MODEL_FIELD_REQUIRED: ${item.modelField}. Use canonical model fields such as nodes.A.x, not draft paths / 请使用规范模型字段，如 nodes.A.x，而非草稿字段`);
+      }
       if (item.selectedSource !== undefined && item.value !== undefined) throw new Error('INPUT_RESOLUTION_SOURCE_OR_VALUE_ONLY');
       if (item.selectedSource !== undefined && !existing.some(record => record.id === item.selectedSource
         && record.field === item.field && record.status === 'observed')) throw new Error('OBSERVED_INPUT_SOURCE_REQUIRED');
@@ -175,7 +178,7 @@ export function createReviewInputTool() {
         timeColumn: z.union([z.number().int().nonnegative(), z.string().min(1)]).optional(),
         accelerationColumn: z.union([z.number().int().nonnegative(), z.string().min(1)]).optional(),
       }).optional().describe('Confirmed sampling parameters; original samples and file references cannot be replaced / 确认采样参数，不能替换原始样本或文件引用'),
-      mappedFields: z.array(z.string().min(1)).min(1).optional().describe('Concrete reviewed fields used from this source / 该来源已复核并采用的具体字段'),
+      mappedFields: z.array(z.string().min(1)).min(1).optional().describe('Canonical model fields used from this source, e.g. nodes.A.x; never engineeringDraft paths / 该来源采用的规范模型字段，如 nodes.A.x，不能填写 engineeringDraft 草稿路径'),
       modelField: z.string().optional().describe('Canonical model field for a semantic observation, e.g. nodes.A.x / 语义识别值对应的规范模型字段') })).optional(),
       excludeSources: z.array(z.object({ sourceFile: z.string().min(1), reason: z.string().min(1),
         evidenceIds: z.array(z.string().min(1)).min(1).optional() })).optional()

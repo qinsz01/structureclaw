@@ -10,6 +10,11 @@ const review = async (evidence, resolutions, other = {}) => (await createReviewI
   { toolCall:{id:'review'}, configurable:{agentState:{inputEvidence:evidence,model,...other}} })).update.inputEvidence;
 
 describe('parsed input must reach the engineering model or an explicit analysis source', () => {
+  test('review rejects draft model paths before a model exists', async () => {
+    const resolution = { field: 'file:table.csv:fields', value: true, reason: 'Reviewed dimension',
+      modelField: 'engineeringDraft.geometry.lengthM' };
+    await expect(review([], [resolution], { model: undefined })).rejects.toThrow('INPUT_EVIDENCE_MODEL_FIELD_REQUIRED');
+  });
   test('successful parsing and arbitrary acknowledgment do not prove a field mapping', async () => {
     const parsed = fileInputEvidence({success:true,type:'csv',source:{...source,parser:'csv-parse'}}, 'table.csv');
     expect(unresolvedInputEvidence(parsed)).toHaveLength(1);
