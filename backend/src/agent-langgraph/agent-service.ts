@@ -44,7 +44,7 @@ import { SessionLock } from '../engineering/session-lock.js';
 import { applyInputEvidence, commitModel, invalidateStaleResults, staleResultsKept } from '../engineering/model-state.js';
 import { nativeDesignReview } from '../engineering/native-design-options.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
-import { conversationUserTexts } from './tools/input-message.js';
+import { conversationSectionEvidence } from './tools/input-message.js';
 import { isRecord } from './attachments/attachment-analysis.js';
 import { extractContextSeismicWorkflow } from './attachments/ground-motion.js';
 import { toInitialHumanMessage, buildInitialHumanMessagePayload } from './attachments/initial-message.js';
@@ -210,7 +210,7 @@ export class LangGraphAgentService {
     if (input.context?.requestScope) update.requestScope = requestScopeInputSchema.parse(input.context.requestScope);
     if (input.context?.model) {
       const model = await normalizeEngineeringModel(input.context.model, this.structureProtocolClient, input.context.modelFormat,
-        conversationUserTexts({ ...state, lastUserMessage: input.message }));
+        conversationSectionEvidence({ ...state, lastUserMessage: input.message }));
       Object.assign(update, commitModel(state, model, 'import_model'));
     }
     if (input.context?.analysisType && input.context.analysisType !== state.policy?.analysisType

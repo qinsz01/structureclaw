@@ -1,5 +1,6 @@
 import { isRecord } from './model-record.js';
 import { enforceSectionUserEvidence } from './section-user-evidence.js';
+import { sectionEvidenceContext, type SectionEvidence } from './section-evidence.js';
 
 export const SECTION_RECALL_LABEL = {
   en: 'assistant-recalled table value, please verify',
@@ -8,10 +9,10 @@ export const SECTION_RECALL_LABEL = {
 
 /** Pending recall is draft data, never calculation input. Confirmed values must be
  * supplied as user-sourced input; a free-form "confirmed" flag cannot bypass this gate. */
-export function sectionConfirmationCandidates(sections: unknown, userTexts?: readonly string[]): Record<string, unknown>[] {
+export function sectionConfirmationCandidates(sections: unknown, userTexts?: SectionEvidence): Record<string, unknown>[] {
   if (!Array.isArray(sections)) return [];
   return sections.filter(isRecord).flatMap<Record<string, unknown>>(raw => {
-    const section = enforceSectionProvenance(raw, userTexts);
+    const section = enforceSectionProvenance(raw, userTexts === undefined ? undefined : { ...sectionEvidenceContext(userTexts), sections: sections.filter(isRecord) });
     const extra = isRecord(section.extra) ? section.extra : {};
     const provenance = isRecord(extra.provenance) ? extra.provenance : {};
     const recalled = (field: string) => provenance[field] === 'llm-table'
@@ -51,7 +52,7 @@ export class SectionConfirmationRequiredError extends Error {
   }
 }
 
-export function assertConfirmedSectionInputs(model: Record<string, unknown>, userTexts?: readonly string[]): void {
+export function assertConfirmedSectionInputs(model: Record<string, unknown>, userTexts?: SectionEvidence): void {
   const candidates = sectionConfirmationCandidates(model.sections, userTexts);
   if (candidates.length) throw new SectionConfirmationRequiredError(candidates);
 }
@@ -59,11 +60,12 @@ export function assertConfirmedSectionInputs(model: Record<string, unknown>, use
 /** User dimensions cannot be overridden by assistant-generated or unattributed properties.
  * Explicit user properties still win, including when both sources are present.
  */
-export function enforceSectionProvenance(section: Record<string, unknown>, userTexts?: readonly string[]): Record<string, unknown> {
+export function enforceSectionProvenance(section: Record<string, unknown>, userTexts?: SectionEvidence): Record<string, unknown> {
   if (userTexts !== undefined) section = enforceSectionUserEvidence(section, userTexts);
   const extra = isRecord(section.extra) ? section.extra : {};
   const provenance = isRecord(extra.provenance) ? extra.provenance : {};
-  if (!isRecord(section.shape) || provenance.shape !== 'user' || provenance.properties === 'user') return section;
+  if (!isRecord(section.shape) || !['user', 'attachment', 'rule'].includes(String(provenance.shape))
+    || ['user', 'attachment', 'rule'].includes(String(provenance.properties))) return section;
   const alreadyDerived = provenance.properties === 'geometry' && isRecord(extra.derived_properties);
   const { properties: _properties, ...rest } = section;
   const { source: _source, ...retainedExtra } = extra;

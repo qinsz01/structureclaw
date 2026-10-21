@@ -6,10 +6,14 @@ import { currentRunPolicy, recordRunEvent } from '../../runtime/run-context.js';
 import { getConfigurable } from './shared.js';
 import { supportedClarificationOptions } from '../../agent-runtime/template-properties.js';
 import { clarificationStateToken } from '../guards/tool-guards.js';
+import { draftSectionConfirmations } from '../../agent-runtime/draft-readiness.js';
+import { contentHash, isRecord } from '../../engineering/model-record.js';
+import { quantities } from '../../engineering/section-user-evidence.js';
 
 export function createAskUserClarificationTool() {
   return tool(
-    async (input: { question: string; optionsJson?: string | unknown[] }, config: LangGraphRunnableConfig) => {
+    async (input: { question: string; optionsJson?: string | unknown[];
+      candidateOptions?: Array<{ sectionId: string; field: string; optionIndex: number }> }, config: LangGraphRunnableConfig) => {
       const proposed = input.optionsJson === undefined ? undefined : normalizeClarificationOptions(input.optionsJson);
       // A choice the template would reject again only restarts the same clarification.
       const options = proposed && supportedClarificationOptions(proposed, getConfigurable(config)?.agentState?.draftState);
@@ -26,8 +30,25 @@ export function createAskUserClarificationTool() {
         reason: 'SECTION_DESIGNATION_UNSUPPORTED', options: proposed.filter(option => !options.includes(option)) });
 
       const stateToken = clarificationStateToken(getConfigurable(config)?.agentState);
+      const clarificationId = `clarification:${contentHash({ question: input.question, options, stateToken })}`;
+      const draftState = getConfigurable(config)?.agentState?.draftState;
+      const sectionCandidates = (draftState ? draftSectionConfirmations(draftState) : []).flatMap(section => {
+        return (Array.isArray(section.fields) ? section.fields : []).flatMap(field => {
+          const values = section[String(field)];
+          if (!isRecord(values)) return [];
+          const numbers = Object.values(values).filter(value => typeof value === 'number');
+          const contains = (text: string) => numbers.length > 0 && numbers.every(value => quantities(text).some(item => item.value === value));
+          const inQuestion = contains(input.question);
+          const optionIds = (options ?? []).flatMap((option, index) => contains(option) || inQuestion && input.candidateOptions?.some(
+            binding => binding.sectionId === section.id && binding.field === field && binding.optionIndex === index)
+            ? [`option-${index + 1}`] : []);
+          if (!inQuestion && !optionIds.length) return [];
+          const candidate = { sectionId: section.id, field, values };
+          return [{ ...candidate, id: `candidate:${contentHash(candidate)}`, optionIds }];
+        });
+      });
       if (currentRunPolicy()?.executionOwner === 'external') {
-        return JSON.stringify({ type: 'clarification_needed', question: input.question, options, stateToken,
+        return JSON.stringify({ type: 'clarification_needed', question: input.question, options, stateToken, clarificationId, sectionCandidates,
           nextAction: 'await_user_input', resume: 'Begin a new user turn with the actual user answer; the external host owns dialogue.' });
       }
 
@@ -35,6 +56,8 @@ export function createAskUserClarificationTool() {
         type: 'clarification_needed',
         question: input.question,
         options,
+        clarificationId,
+        sectionCandidates,
       }) as string;
 
       const state = getConfigurable(config).agentState;
@@ -45,6 +68,9 @@ export function createAskUserClarificationTool() {
         ...(options ? { options } : {}),
         answer: userResponse,
         stateToken,
+        clarificationId,
+        sectionCandidates,
+        ...(options?.includes(userResponse) ? { selectedOptionId: `option-${options.indexOf(userResponse) + 1}` } : {}),
         nextAction: hasCurrentModel ? 'query_model' : 'extract_draft_params',
         instruction: hasCurrentModel
           ? 'An existing model is current. Inspect it with query_model; if the answer changes engineering fields, apply only the confirmed changes with edit_model. If those values are already present, continue without rebuilding. / 已有当前模型：用 query_model 确认对象与版本，工程字段的已确认修改通过 edit_model 写入；重复确认已有值时继续执行，不重建草稿。'
@@ -64,6 +90,9 @@ export function createAskUserClarificationTool() {
           .union([z.string(), z.array(z.unknown())])
           .optional()
           .describe('Array or JSON array string of suggested answers; each item must contain the complete answer to send when selected'),
+        candidateOptions: z.array(z.object({ sectionId: z.string(), field: z.enum(['shape', 'dimensions', 'properties']),
+          optionIndex: z.number().int().nonnegative() })).optional()
+          .describe('Bind a short acceptance option to the stored section candidates displayed in the question. Zero-based optionIndex. / 将简短确认选项绑定到问题中展示的已存截面候选，optionIndex从0开始。'),
       }),
     },
   );

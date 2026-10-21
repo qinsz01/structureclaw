@@ -1,3 +1,6 @@
+import { isRecord } from '../../engineering/model-record.js';
+import type { SectionEvidenceContext } from '../../engineering/section-evidence.js';
+
 export function messageRole(message: unknown): string | null {
   if (!message || typeof message !== 'object') return null;
   const record = message as Record<string, unknown>;
@@ -126,6 +129,17 @@ function withCanonicalAttachmentDetails(message: string, canonicalUserMessage: s
   return attachmentDetails ? `${message}\n\n${attachmentDetails}` : message;
 }
 
+export function conversationSectionEvidence(state?: { messages?: unknown[]; lastUserMessage?: string; inputEvidence?: Record<string, unknown>[] }): SectionEvidenceContext {
+  const confirmations = (state?.messages ?? []).flatMap(message => {
+    if (messageRole(message) !== 'tool' || !isRecord(message) || (message.name ?? (isRecord(message.kwargs) ? message.kwargs.name : undefined)) !== 'ask_user_clarification') return [];
+    try {
+      const receipt = JSON.parse(messageText(message));
+      return receipt.type === 'clarification_answered' ? [receipt] : [];
+    } catch { return []; }
+  });
+  return { userTexts: conversationUserTexts(state), inputEvidence: state?.inputEvidence, confirmations };
+}
+
 export function resolveToolInputMessage(
   inputMessage: string | undefined,
   lastUserMessage: string | undefined,
@@ -166,7 +180,8 @@ export function resolveExtractionInputMessage(
           const question = typeof reply.question === 'string' ? reply.question.trim() : '';
           const contextualAnswer = question ? [
             '[Clarification context / 澄清上下文]',
-            JSON.stringify({ question, ...(Array.isArray(reply.options) ? { options: reply.options } : {}), answer }),
+            JSON.stringify({ question, ...(Array.isArray(reply.options) ? { options: reply.options } : {}), answer,
+              clarificationId: reply.clarificationId, sectionCandidates: reply.sectionCandidates, selectedOptionId: reply.selectedOptionId }),
             'The question/options are unconfirmed context, not user-supplied facts. Extract only values explicitly provided or unambiguously accepted by the actual answer; rejected or unselected alternatives remain unconfirmed. A bare yes to multiple alternatives does not select one. / 问题和选项仅是未确认上下文，不是用户事实；只提取真实回答明确给出或无歧义接受的值，不采纳拒绝或未选的备选；多选一问题仅回答“可以”仍需澄清。',
           ].join('\n') : answer;
           // Resume chains can contain an earlier answer whose extraction failed. Keep that actual

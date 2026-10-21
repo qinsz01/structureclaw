@@ -13,6 +13,7 @@
  */
 import { fieldTokens } from '../../engineering/field-path.js';
 import { enforceSectionProvenance } from '../../engineering/section-provenance.js';
+import { sectionEvidenceContext, type SectionEvidence } from '../../engineering/section-evidence.js';
 import { draftContract } from '../../engineering/draft-contract.js';
 import { draftFieldValues, mergeDraftDiagnostics } from '../draft-diagnostics.js';
 import { mergeEngineeringDraft, normalizeEngineeringDraft } from '../engineering-draft.js';
@@ -331,7 +332,7 @@ function normalizeDraftWithReportedLoadIssue(value: unknown, issues: DraftIssue[
 }
 
 /** Raw patch (canonical draft and/or legacy flat scalars) -> normalized extraction. */
-export function ingestDraft(patch: Record<string, unknown> | null | undefined, existing?: DraftState, userTexts?: readonly string[]): DraftExtraction {
+export function ingestDraft(patch: Record<string, unknown> | null | undefined, existing?: DraftState, userTexts?: SectionEvidence): DraftExtraction {
   if (!patch) {
     return {};
   }
@@ -387,8 +388,9 @@ export function ingestDraft(patch: Record<string, unknown> | null | undefined, e
 }
 
 /** Run after merging too: a partial patch can retain numbers from an older untrusted claim. */
-export function verifyDraftSectionEvidence(draft: EngineeringDraft | undefined, userTexts?: readonly string[]): EngineeringDraft | undefined {
+export function verifyDraftSectionEvidence(draft: EngineeringDraft | undefined, userTexts?: SectionEvidence): EngineeringDraft | undefined {
   if (!draft || userTexts === undefined) return draft;
+  userTexts = { ...sectionEvidenceContext(userTexts), sections: Array.isArray(draft.model?.sections) ? draft.model.sections : draft.sectionRecords };
   return { ...draft,
     ...(draft.sectionRecords ? { sectionRecords: draft.sectionRecords.map(section => enforceSectionProvenance(section, userTexts)) } : {}),
     ...(Array.isArray(draft.model?.sections) ? { model: { ...draft.model,

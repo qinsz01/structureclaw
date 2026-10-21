@@ -13,12 +13,13 @@ import type { AgentConfigurable } from '../configurable.js';
 import type { AgentSkillPlugin, DraftExtraction, DraftState, StructuralTypeMatch } from '../../shared/types/agent.js';
 import { isFreshGenericStructuralRoute } from '../../agent-runtime/plugin-helpers.js';
 import { invalidateStaleResults } from '../../engineering/model-state.js';
+import { mergeInputEvidence } from '../../engineering/input-evidence.js';
 import { engineeringModelSchema, draftDesignSchema, hasDraftDesignInputs, assertDraftDesignInputs, draftSectionShapeSchema, normalizeDraftSectionInputs } from '../../engineering/model-edit-contract.js';
 import { createLocalStructureProtocolClient } from '../../skill-shared/structure-protocol-execution.js';
 import { currentRunPolicy, recordRunEvent } from '../../runtime/run-context.js';
 import { requestScopeSchema, resolveExtractedScope, missingInputReason, type RequestScope, type ScopeDiagnostic } from '../../engineering/request-scope.js';
 import { buildDraftProgress, buildClarificationQuestions, hasStableDraftType, shouldPreserveExistingDraftState, resolveRetryTaskMessage, buildPreservedDraftExtractionResult, resolveExistingDraftPlugin, detectStructuralTypeWithConfiguredLlm, resolveDetectedStructuralTypeMatch } from './draft-helpers.js';
-import { conversationUserTexts, resolveExtractionInputMessage } from './input-message.js';
+import { conversationSectionEvidence, resolveExtractionInputMessage } from './input-message.js';
 import { getConfigurable, getToolCallId, toolResult, nestedLlmUsageCollector, toolSkillScope } from './shared.js';
 
 type ExtractionLocale = 'zh' | 'en';
@@ -105,10 +106,13 @@ async function extractAndMergeDraft(options: {
   let designContract = requestedScope?.design === true || hasExistingDesign ? await engineeringModelSchema(protocolClient) : undefined;
   const { withStructuralTypeState } = await import('../../agent-runtime/plugin-helpers.js');
   const prepareDraft = async (draftPatch: Record<string, unknown> | null) => {
-    const patch = plugin.handler.extractDraft({ message: extractionMessage, locale, currentState: existingState,
+    const extracted = plugin.handler.extractDraft({ message: extractionMessage, locale, currentState: existingState,
       llmDraftPatch: draftPatch, structuralTypeMatch: match });
+    // Bind draft reviews to the parser records before merge stamps resolution hashes.
+    const patch = extracted.engineeringDraft ? { ...extracted, engineeringDraft: { ...extracted.engineeringDraft,
+      inputEvidence: mergeInputEvidence(state?.inputEvidence, extracted.engineeringDraft.inputEvidence) } } : extracted;
     let nextState = withStructuralTypeState(plugin.handler.mergeState(existingState, patch), match);
-    nextState = projectDraftState(verifyDraftSectionEvidence(nextState.engineeringDraft, conversationUserTexts(state)), nextState);
+    nextState = projectDraftState(verifyDraftSectionEvidence(nextState.engineeringDraft, conversationSectionEvidence(state)), nextState);
     if (nextState.engineeringDraft?.sectionRecords?.length || Array.isArray(nextState.engineeringDraft?.model?.sections)) {
       designContract ??= await engineeringModelSchema(protocolClient);
       nextState = projectDraftState(normalizeDraftSectionInputs(nextState.engineeringDraft!, designContract), nextState);
@@ -162,6 +166,7 @@ function llmExtractionStateUpdate(requestScope: RequestScope | undefined, nextSt
     if (changed) Object.assign(stateUpdate, invalidateStaleResults(state), { modelPending: true });
     // Diagnostics and sanitation still persist; only changed inputs invalidate computed results.
     stateUpdate.draftState = nextState;
+    if (nextState.engineeringDraft?.inputEvidence) stateUpdate.inputEvidence = nextState.engineeringDraft.inputEvidence;
   }
   if (match.key) stateUpdate.structuralTypeKey = match.key;
   return stateUpdate;

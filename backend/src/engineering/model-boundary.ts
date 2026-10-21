@@ -2,9 +2,11 @@ import type { LocalStructureProtocolClient } from '../skill-shared/structure-pro
 import { isRecord, validateModelReferences, type ModelRecord } from './model-state.js';
 import { assertResolvedInput, assertInputEvidenceMatchesModel } from './input-evidence.js';
 import { assertConfirmedSectionInputs, enforceSectionProvenance } from './section-provenance.js';
+import { sectionEvidenceContext, type SectionEvidence } from './section-evidence.js';
 
 /** All template, imported and edited models enter the same V2 validator. */
-export async function normalizeEngineeringModel(model: ModelRecord, client: LocalStructureProtocolClient, sourceFormat = 'structuremodel-v2', userTexts: readonly string[] = []): Promise<ModelRecord> {
+export async function normalizeEngineeringModel(model: ModelRecord, client: LocalStructureProtocolClient, sourceFormat = 'structuremodel-v2', userTexts: SectionEvidence = []): Promise<ModelRecord> {
+  userTexts = { ...sectionEvidenceContext(userTexts), sections: Array.isArray(model.sections) ? model.sections.filter(isRecord) : [] };
   assertResolvedInput(isRecord(model.metadata) ? model.metadata.inputEvidence : undefined);
   const sourceModel = Array.isArray(model.sections)
     ? { ...model, sections: model.sections.map(section => isRecord(section) ? enforceSectionProvenance(section, userTexts) : section) } : model;
@@ -26,7 +28,7 @@ export async function normalizeEngineeringModel(model: ModelRecord, client: Loca
     const source = (Array.isArray(sourceModel.sections) ? sourceModel.sections : []).filter(isRecord).find(row => row.id === section.id);
     const extra = isRecord(section.extra) ? section.extra : {};
     const provenance = isRecord(extra.provenance) ? extra.provenance : {};
-    if (provenance.properties !== 'user' || !isRecord(section.properties)) continue;
+    if (!['user', 'attachment', 'rule'].includes(String(provenance.properties)) || !isRecord(section.properties)) continue;
     const supplied = isRecord(source?.properties) ? source.properties : {};
     const derived = Object.fromEntries(Object.keys(section.properties).filter(key => !(key in supplied)).map(key => [key, 'geometry']));
     if (Object.keys(derived).length) section.extra = { ...extra, provenance: { ...provenance,

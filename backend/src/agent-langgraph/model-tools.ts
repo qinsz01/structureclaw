@@ -6,7 +6,7 @@ import type { AgentState } from './state.js';
 import type { AgentConfigurable } from './configurable.js';
 import { applyModelEdits, commitModel, contentHash, currentAnalysisError, invalidateStaleResults, isRecord, undoModel, type ModelEdit } from '../engineering/model-state.js';
 import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
-import { conversationUserTexts } from './tools/input-message.js';
+import { conversationSectionEvidence } from './tools/input-message.js';
 import { assertModelEditReadback, editCollectionSchema, engineeringModelSchema, modelEditGuidance, modelFieldEdit, normalizeModelEdits } from '../engineering/model-edit-contract.js';
 import { queryPhysicalResponse, scalarResultQuantity } from '../engineering/result-data.js';
 import { resolveNodalResultSelection, resultSelectionSchema, solverMeshQueryGuidance } from '../engineering/result-selection.js';
@@ -42,7 +42,7 @@ export function createEditModelTool() {
     const metadata = isRecord(edited.metadata) ? edited.metadata : {};
     edited.metadata = { ...metadata, inputEvidence: mergeInputEvidence(state.inputEvidence,
       Array.isArray(metadata.inputEvidence) ? metadata.inputEvidence.filter(isRecord) : []) };
-    const model = await normalizeEngineeringModel(edited, structureProtocolClient, undefined, conversationUserTexts(state));
+    const model = await normalizeEngineeringModel(edited, structureProtocolClient, undefined, conversationSectionEvidence(state));
     assertModelEditReadback(model, edits, edited);
     const update = commitModel(state, model, input.label ?? 'edit_model');
     const changed = update.modelRevision !== state.modelRevision;
@@ -67,7 +67,7 @@ export function createUndoModelTool() {
     if (input.baseRevision !== state.modelRevision) throw new Error(`MODEL_VERSION_CONFLICT: expected ${state.modelRevision}`);
     const candidate = undoModel(state, input.transactionId);
     const transaction = candidate.modelHistory.at(-1)!;
-    const normalized = await normalizeEngineeringModel(candidate.model, structureProtocolClient, undefined, conversationUserTexts(state));
+    const normalized = await normalizeEngineeringModel(candidate.model, structureProtocolClient, undefined, conversationSectionEvidence(state));
     const update = commitModel(state, normalized, transaction.label, transaction.undoOf);
     return result(id, 'undo_model', { success: true, revision: update.modelRevision, ...analysisAvailability({ ...state, ...update }) }, update);
   }, { name: 'undo_model', description: 'Undo the selected transaction as a new revision, preserving unrelated later edits. Issue only one model-changing tool call per assistant message, wait for the latest revision, and reject conflicts with changed fields or references. / 选择性撤销指定事务，保留后续无关修改；每条助手消息只发起一次模型写入并等待最新版本；字段或引用冲突时拒绝。',

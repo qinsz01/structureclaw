@@ -4,7 +4,7 @@ import { createRegisteredTools, listAgentToolDefinitions, type AgentToolFactoryD
 import { AgentStateAnnotation } from './state.js';
 import type { AgentState } from './state.js';
 import { AIMessage, HumanMessage, type BaseMessage, type ToolMessage } from '@langchain/core/messages';
-import { conversationUserTexts } from './tools/input-message.js';
+import { conversationUserTexts, conversationSectionEvidence } from './tools/input-message.js';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -195,7 +195,7 @@ export async function createPublicToolSession(input: {
         runPolicy: policy, runUsage: snapshotRunUsage(runtime), locale: input.locale ?? saved?.state.locale ?? 'zh',
         lastUserMessage: input.message ?? '', workspaceRoot: deps.workspaceRoot ?? config.agentWorkspaceRoot };
       if (input.model) Object.assign(state, commitModel(state as unknown as AgentState,
-        await normalizeEngineeringModel(input.model, protocol, input.modelFormat, conversationUserTexts(state)), 'import_model'));
+        await normalizeEngineeringModel(input.model, protocol, input.modelFormat, conversationSectionEvidence(state)), 'import_model'));
       record = { sessionId, policy, usage: snapshotRunUsage(runtime), state, attachmentPaths: [...(input.attachmentPaths ?? [])],
         completedHostCalls: saved?.completedHostCalls ?? {} };
       write(record);

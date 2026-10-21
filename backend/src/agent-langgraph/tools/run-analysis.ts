@@ -11,7 +11,7 @@ import { beginAnalysisRequest, publishAnalysis } from '../../engineering/model-s
 import { analysisSettingsHash } from '../../engineering/analysis-runs.js';
 import { assertAnalysisInputEvidenceMatchesRequest, assertInputEvidenceMatchesModel } from '../../engineering/input-evidence.js';
 import { assertConfirmedSectionInputs } from '../../engineering/section-provenance.js';
-import { conversationUserTexts } from './input-message.js';
+import { conversationSectionEvidence } from './input-message.js';
 import { recordRunEvent, reserveToolCall, recordToolOutcome } from '../../runtime/run-context.js';
 import { createQueryResultsTool } from '../model-tools.js';
 import { requestScopeSchema, type RequestScope } from '../../engineering/request-scope.js';
@@ -247,7 +247,7 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
 
       // Read model from graph state channel
       const model = state?.model;
-      if (model) assertConfirmedSectionInputs(model, conversationUserTexts(state));
+      if (model) assertConfirmedSectionInputs(model, conversationSectionEvidence(state));
       if (!model) {
         return toolResult(toolCallId, 'run_analysis', JSON.stringify({ error: 'No model available. Run build_model first.' }));
       }

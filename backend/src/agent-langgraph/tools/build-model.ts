@@ -9,7 +9,7 @@ import { assertConfirmedSectionInputs, SectionConfirmationRequiredError } from '
 import { draftSectionConfirmations } from '../../agent-runtime/draft-readiness.js';
 import { mergeInputEvidence } from '../../engineering/input-evidence.js';
 import { buildModelToolSummary, buildModelToolStateUpdate } from './compaction/analysis.js';
-import { conversationUserTexts, messageRole, messageText } from './input-message.js';
+import { conversationSectionEvidence, messageRole, messageText } from './input-message.js';
 import { getConfigurable, getToolCallId, toolResult, isRecord, toolSkillScope, nextActionForMissingInput, clarificationAvailable } from './shared.js';
 
 export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
@@ -27,7 +27,7 @@ export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
         throw new Error('No draft state available. Run extract_draft_params first.');
       }
       const skillIds = toolSkillScope(config);
-      const userTexts = conversationUserTexts(state);
+      const userTexts = conversationSectionEvidence(state);
       assertConfirmedSectionInputs({ sections: draftState.engineeringDraft?.model?.sections ?? draftState.engineeringDraft?.sectionRecords }, userTexts);
       const pendingSections = draftSectionConfirmations(draftState);
       if (pendingSections.length) throw new SectionConfirmationRequiredError(pendingSections);

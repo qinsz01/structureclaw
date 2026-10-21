@@ -19,6 +19,7 @@ import { currentRunPolicy, requestRecovery, recordRunEvent } from '../runtime/ru
 import { llmContentText } from '../utils/llm-content.js';
 import { promptContract } from '../engineering/draft-contract.js';
 import { currentDraftDiagnostics } from '../agent-runtime/draft-diagnostics.js';
+import { SECTION_EVIDENCE_RULE } from '../engineering/section-evidence.js';
 
 // ---------------------------------------------------------------------------
 // Skill context
@@ -94,7 +95,7 @@ function cleanPromptState(value: unknown, keyPath: string[] = []): unknown {
 
 function engineeringDraftSchemaDescription(locale: 'zh' | 'en'): string {
   const updateContract = 'Draft update protocol / 草稿更新协议: omitted fields stay unchanged; nested objects and record arrays merge by stable ID. To delete an existing field, emit top-level clearDraftFields: [\'sectionRecords["S1"].standard_steel_name\']; omission DOES NOT delete it. Clear operations run atomically BEFORE engineeringDraft updates. To replace an entire shape or properties object, clear that object and provide its replacement. Use exact existing IDs, never array indexes; do not clear identity or input evidence. Only clear fields the latest user explicitly withdrew or replaced. / 省略不等于删除；用户明确“不使用目录名”时必须输出对应 clearDraftFields，不能只在新补丁省略目录名。仅改厚度时保留其他尺寸和未变属性；更换截面来源时明确清除被替代的旧来源，不得删除用户未撤回的冲突证据。';
-  const sectionSources = SECTION_SOURCE_RULE;
+  const sectionSources = SECTION_SOURCE_RULE + SECTION_EVIDENCE_RULE;
   const seismicEvidence = '"seismicMemberEvidence": {"byElementId": {"<stable member ID>": {"seismicCapacity": {}, "capacityDesign": {}, "strongShearWeakBending": {}, "shearCompression": {}, "jointCore": {}, "wallData": {}, "boundaryElement": {}, "steelSeismicDetailing": {}}}}. Preserve supplied seismic evidence in this top-level field or skillState.seismicWorkflow.memberEvidence. / 抗震构件证据保留在此顶层字段或抗震工作流中，不把证据生成验算结论。';
   if (locale === 'zh') {
     return [
@@ -285,7 +286,7 @@ function buildFocusedParamExtractorPrompt(
     'PATCH ONLY / 仅输出补丁: Return one JSON object containing only newly supplied or corrected fields in engineeringDraft; keep requestScope unchanged unless the user changes the goal. No markdown, examples, reasoning or unchanged records. The system merges nested objects and arrays by stable ID. Preserve exact existing IDs and unrelated fields; do not repeat old draftIssues. / 系统按稳定ID合并，保留未变字段，不重复旧缺项。',
     'Output schema: {type:object,additionalProperties:false,properties:{engineeringDraft:{type:object},clearDraftFields:{type:array,items:{type:string}},draftIssues:{type:array},requestScope:{type:object},skillState:{type:object},unapplied:{type:array,items:{type:object}}}}. Omit unchanged fields and empty diagnostics. Never repeat the existing draft.',
     'Fields: engineeringDraft={material:{family,grade},materials:[{id,name,family,grade,E,nu,rho,extra}],sectionRecords:[{id,name,type,shape,properties,extra}],templateAssignments:{beam|column|member:{materialId,sectionId,design}},geometry:{lengthM,spanLengthM,heightM},boundary:{supportType},loads:[{id,kind,magnitude,unit,direction,target,location:{xM},caseId,caseType}],analysisControl:{self_weight},analysis:{loadCombinations:[]}}. Use skillState only for changed skill fields. Units: geometry m; loads kN,kN/m,kN/m2; E MPa; shape mm; A m²; Iy/Iz/J m⁴. shape.kind: I,H,rectangular,circular,pipe,box; dimensions: H,B,tw,tf,d,T. Rectangular B=width,H=depth. supports: simply-supported,cantilever,fixed-fixed. Load kinds: point,line,area; downward=gravity.',
-    SECTION_SOURCE_RULE,
+    SECTION_SOURCE_RULE + SECTION_EVIDENCE_RULE,
     MATERIAL_WEIGHT_RULE,
     'To withdraw/replace an existing field emit clearDraftFields using stable IDs, e.g. sectionRecords["S1"].standard_steel_name. Omission is not deletion; clear only explicitly withdrawn/replaced fields. Never clear identity or evidence (including extra.source and extra.provenance); confirmation updates provenance.shape="user" through engineeringDraft, without deleting source evidence. / 不得删除标识或来源证据；确认尺寸时通过补丁更新provenance.shape为user，不清除extra.source或extra.provenance。 Explicit user values win; resolve consistency/precision/format yourself. Unknown essential inputs use draftIssues=[{field,severity:"missing"|"ambiguous",reason}]. Do not invent loads, units, design conditions or topology. / 不编造荷载、单位、设计条件或拓扑。',
     `Skill: ${plugin.id}; focus fields / 本轮重点字段：${JSON.stringify(focusFields)}`,

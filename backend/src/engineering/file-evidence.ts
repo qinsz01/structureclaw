@@ -1,11 +1,46 @@
 import { contentHash, isRecord, type ModelRecord } from './model-state.js';
 
+/** Scalar candidates retain their parser path and declared units; text is never executed. */
+function parsedCandidates(analysis: ModelRecord): ModelRecord[] {
+  const values: ModelRecord[] = [];
+  const number = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
+  const add = (raw: unknown, path: string, unit?: string, location: ModelRecord = {}) => {
+    if (typeof raw !== 'number' && !(typeof raw === 'string' && number.test(raw.trim()))) return;
+    if (Number.isFinite(Number(raw))) values.push({ value: Number(raw), path, ...(unit ? { unit } : {}), ...location });
+  };
+  const table = (data: ModelRecord, prefix = '', sheet?: string) => {
+    const headers = Array.isArray(data.headers) ? data.headers : [];
+    (Array.isArray(data.rows) ? data.rows : []).forEach((row, r) => {
+      if (!Array.isArray(row)) return;
+      row.forEach((cell, c) => add(cell, `${prefix}rows.${r}.${c}`,
+        String(headers[c] ?? '').match(/(?:^|[\s(_/])((?:mm|cm|m)(?:\^?[234]|[²³⁴])?)(?=$|[\s)\]])/i)?.[1],
+        { row: r + 2, column: c + 1, ...(sheet ? { sheet } : {}) }));
+    });
+  };
+  if (analysis.type === 'csv') table(analysis);
+  if (analysis.type === 'excel' && isRecord(analysis.sheets)) for (const [sheet, data] of Object.entries(analysis.sheets)) {
+    if (isRecord(data)) table(data, `sheets.${sheet}.`, sheet);
+  }
+  const walk = (value: unknown, path: string) => {
+    if (Array.isArray(value)) value.forEach((item, index) => walk(item, `${path}.${index}`));
+    else if (isRecord(value)) for (const [key, item] of Object.entries(value)) walk(item, `${path}.${key}`);
+    else add(value, path);
+  };
+  if (analysis.type === 'json') walk(analysis.data, 'data');
+  if (analysis.type === 'dxf' && Array.isArray(analysis.candidates)) {
+    values.push(...analysis.candidates.filter(isRecord));
+  }
+  return values;
+}
+
 /** Parsing supplies candidates, never proof that engineering fields were applied. */
 export function fileInputEvidence(analysis: ModelRecord, file: string): ModelRecord[] {
   const source: ModelRecord = { ...(isRecord(analysis.source) ? analysis.source : {}), file };
   const records: ModelRecord[] = [];
   const add = (suffix: string, status: string, reason: string, complete: boolean, location: ModelRecord = {}, requirement = 'field-mapping') => {
+    const candidates = parsedCandidates(analysis).filter(candidate => location.sheet === undefined || candidate.sheet === location.sheet);
     const item = { field: `file:${file}:${suffix}`, status, required: true, requirement, reason,
+      ...(requirement === 'field-mapping' && candidates.length ? { candidates } : {}),
       source: { ...source, ...location, complete } };
     records.push({ ...item, id: `file:${contentHash(item)}` });
   };
