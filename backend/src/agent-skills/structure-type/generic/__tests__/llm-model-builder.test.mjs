@@ -44,7 +44,7 @@ describe('generic LLM model builder', () => {
               dof_order: ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'],
             },
             nodes: [
-              { id: 'N1', x: 0, y: 0, z: 0 },
+              { id: 'N1', x: 0, y: 0, z: 0, restraints: [true, true, true, true, true, true] },
               { id: 'N2', x: 12, y: 0, z: 0 },
             ],
             materials: [{id:'M1',type:'steel',E:206000,nu:0.3,rho:7850}],
@@ -146,6 +146,6 @@ describe('generic LLM model builder', () => {
 
     await expect(tryBuildGenericModelWithLlm(fakeLlm,
       'Single-bay lateral frame, span 6m, height 4m, lateral 50kN.',
-      { inferredType: 'generic', updatedAt: 0 }, 'en')).rejects.toThrow('LLM_MODEL_VALIDATION_FAILED');
+      { inferredType: 'generic', updatedAt: 0 }, 'en')).rejects.toMatchObject({ code: 'MODEL_PHYSICS_INVALID', check: { valid: false } });
   });
 });

@@ -1,328 +1,51 @@
 import { describe, expect, test } from '@jest/globals';
 import { handler } from '../../../../../dist/agent-skills/structure-type/generic/handler.js';
+import { genericFixtures } from '../../../../../tests/characterization/fixtures/generic-physics.mjs';
 
-describe('generic structure-type handler', () => {
-  test.each(['帮我看看这个', 'Please take a look at this'])('is the routing fallback without matching keywords in the text: %s', message => {
+const extract = (llmDraftPatch, message = 'User topology and every load must survive.') => handler.extractDraft({ llmDraftPatch, message, locale: 'en' });
+describe('free-form generic draft boundary', () => {
+  test.each(['帮我看看这个', 'Please take a look at this'])('is a routing fallback without text matching: %s', message => {
     expect(handler.detectStructuralType({ message, locale: 'en' })).toMatchObject({ skillId: 'generic', supportLevel: 'fallback' });
   });
-
-  test('normalizes generic beam aliases from LLM extraction output', () => {
-    const patch = handler.extractDraft({
-      message: '这条用户消息不参与参数抽取',
-      locale: 'zh',
-      llmDraftPatch: {
-        componentType: 'beam',
-        supportCondition: 'simply supported',
-        span: 10,
-        pointLoads: [
-          {
-            force: 1,
-            position: 5,
-          },
-        ],
-      },
-      structuralTypeMatch: {
-        key: 'unknown',
-        mappedType: 'unknown',
-        skillId: 'generic',
-        supportLevel: 'fallback',
-      },
-    });
-
-    expect(patch).toEqual(expect.objectContaining({
-      inferredType: 'beam',
-      lengthM: 10,
-      supportType: 'simply-supported',
-      loadKN: 1,
-      loadType: 'point',
-      loadPosition: 'midspan',
-      loadPositionM: 5,
-    }));
-    expect(patch.skillState?.genericDraft).toEqual(expect.objectContaining({
-      componentType: 'beam',
-    }));
-  });
-
-  test('merges normalized aliases into a generic draft without requiring clarification', () => {
-    const patch = handler.extractDraft({
-      message: '这条用户消息不参与参数抽取',
-      locale: 'zh',
-      llmDraftPatch: {
-        componentType: 'beam',
-        supportCondition: 'simply supported',
-        span: 10,
-        pointLoads: [{ value: 1, position: 5 }],
-      },
-      structuralTypeMatch: {
-        key: 'unknown',
-        mappedType: 'unknown',
-        skillId: 'generic',
-        supportLevel: 'fallback',
-      },
-    });
-
+  test('keeps canonical geometry, all loads and original text without scalar or frame projection', () => {
+    const draft = structuredClone(genericFixtures[0].draft);
+    const patch = extract({ ...draft, lengthM: 999, loadKN: 999, pointLoads: [{ value: 1 }, { value: 2 }] });
+    expect(patch.engineeringDraft.loadCases[0].loads).toHaveLength(6);
+    expect(patch.lengthM).toBeUndefined(); expect(patch.loadKN).toBeUndefined();
     const state = handler.mergeState(undefined, patch);
-    const missing = handler.computeMissing(state, 'execution');
-
-    expect(state).toEqual(expect.objectContaining({
-      inferredType: 'beam',
-      skillId: 'generic',
-      structuralTypeKey: 'beam',
-      lengthM: 10,
-      loadKN: 1,
-    }));
-    expect(missing.critical).toEqual([]);
-  });
-
-  test('keeps structured generic ambiguities as execution blockers and questions', () => {
-    const patch = handler.extractDraft({
-      message: 'Analyze this unusual structure. The load is 20.',
-      locale: 'en',
-      llmDraftPatch: {
-        inferredType: 'beam',
-        lengthM: 6,
-        supportType: 'simply-supported',
-        loadKN: 20,
-        draftIssues: [{
-          field: 'loadType',
-          severity: 'ambiguous',
-          reason: 'The load type and unit are not specified.',
-          question: 'Is 20 a point load in kN or a distributed load in kN/m?',
-        }],
-      },
-      structuralTypeMatch: {
-        key: 'unknown',
-        mappedType: 'unknown',
-        skillId: 'generic',
-        supportLevel: 'fallback',
-      },
-    });
-    const state = handler.mergeState(undefined, patch);
-    const missing = handler.computeMissing(state, 'execution');
-    const questions = handler.buildQuestions(missing.critical, missing.critical, state, 'en');
-
-    expect(missing.critical).toContain('loadType');
-    expect(questions).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        paramKey: 'loadType',
-        question: 'Is 20 a point load in kN or a distributed load in kN/m?',
-      }),
-    ]));
-  });
-
-  test('preserves structured seismic workflow in generic draft state', () => {
-    const seismicWorkflow = {
-      methodPreference: 'auto',
-      designBasis: {
-        siteSeismic: { intensity: 8, designGroup: '2', siteCategory: 'III' },
-      },
-      groundMotionSet: { requiredCount: 3 },
-      directions: ['x', 'y'],
-    };
-    const patch = handler.extractDraft({
-      message: 'unused',
-      locale: 'zh',
-      llmDraftPatch: {
-        engineeringDraft: {
-          structureType: 'frame',
-          geometry: { storyHeightsM: [3.6, 3.6], bayWidthsM: [6] },
-        },
-        skillState: { seismicWorkflow },
-      },
-      structuralTypeMatch: {
-        key: 'unknown',
-        mappedType: 'unknown',
-        skillId: 'generic',
-        supportLevel: 'fallback',
-      },
-    });
-    const state = handler.mergeState({
-      inferredType: 'unknown',
-      updatedAt: 0,
-      skillState: { existingFlag: true },
-    }, patch);
-
-    expect(patch.skillState?.seismicWorkflow).toEqual(seismicWorkflow);
-    expect(state.skillState).toMatchObject({
-      existingFlag: true,
-      seismicWorkflow,
-    });
-  });
-
-  test('uses LLM engineeringDraft structure type while staying on generic skill', () => {
-    const patch = handler.extractDraft({
-      message: '这条用户消息不参与参数抽取',
-      locale: 'en',
-      llmDraftPatch: {
-        engineeringDraft: {
-          structureType: 'truss',
-          geometry: {
-            lengthM: '18',
-            heightM: '3',
-            spanLengthsM: ['3', '3', '3', '3', '3', '3'],
-          },
-          loads: [
-            {
-              kind: 'nodal',
-              magnitude: '12',
-              unit: 'kN',
-              direction: 'gravity',
-              target: 'top-chord-node',
-              location: { xM: '3' },
-            },
-          ],
-          analysis: { type: 'static' },
-        },
-      },
-      structuralTypeMatch: {
-        key: 'unknown',
-        mappedType: 'unknown',
-        skillId: 'generic',
-        supportLevel: 'fallback',
-      },
-    });
-
-    const state = handler.mergeState(undefined, patch);
-    const missing = handler.computeMissing(state, 'execution');
-
-    expect(patch).toEqual(expect.objectContaining({
-      inferredType: 'truss',
-      lengthM: 18,
-      heightM: 3,
-      bayCount: 6,
-      loadKN: 12,
-    }));
-    expect(state).toEqual(expect.objectContaining({
-      inferredType: 'truss',
-      skillId: 'generic',
-      structuralTypeKey: 'truss',
-    }));
-    expect(state.engineeringDraft?.structureType).toBe('truss');
-    expect(state.skillState?.genericDraft).toEqual(expect.objectContaining({
-      engineeringDraft: expect.objectContaining({ structureType: 'truss' }),
-    }));
-    expect(missing.critical).toEqual([]);
-  });
-
-  test('maps LLM steel-frame engineeringDraft to generic frame family', () => {
-    const patch = handler.extractDraft({
-      message: '这条用户消息不参与参数抽取',
-      locale: 'zh',
-      llmDraftPatch: {
-        engineeringDraft: {
-          structureType: 'steel-frame',
-          geometry: {
-            storyHeightsM: [3.3, 3.3],
-            bayWidthsM: [6],
-          },
-          loads: [
-            {
-              kind: 'line',
-              magnitude: 15,
-              unit: 'kN/m',
-              direction: 'gravity',
-              target: 'floor',
-            },
-          ],
-        },
-      },
-      structuralTypeMatch: {
-        key: 'unknown',
-        mappedType: 'unknown',
-        skillId: 'generic',
-        supportLevel: 'fallback',
-      },
-    });
-
-    const state = handler.mergeState(undefined, patch);
-
-    expect(state).toEqual(expect.objectContaining({
-      inferredType: 'frame',
-      skillId: 'generic',
-      structuralTypeKey: 'frame',
-      frameDimension: '2d',
-      storyCount: 2,
-      bayCount: 1,
-    }));
-    expect(state.engineeringDraft?.structureType).toBe('steel-frame');
+    expect(state.structuralTypeKey).toBe('unknown');
+    expect(state.floorLoads).toBeUndefined(); expect(state.bayWidthsM).toBeUndefined();
+    expect(state.engineeringDraft.topology).toEqual(draft.engineeringDraft.topology);
+    expect(state.skillState.userText).toContain('every load');
+    expect(state.skillState.genericDraft.pointLoads).toHaveLength(2);
     expect(handler.computeMissing(state, 'execution').critical).toEqual([]);
   });
-
-  test('maps explicit generic engineeringDraft aliases without scanning user text', () => {
-    const portalPatch = handler.extractDraft({
-      message: 'unused',
-      locale: 'en',
-      llmDraftPatch: {
-        engineeringDraft: {
-          structureType: 'portal',
-          geometry: {
-            spanLengthsM: [18],
-            heightM: 6,
-          },
-          loads: [{ kind: 'line', magnitude: 8, unit: 'kN/m', direction: 'gravity' }],
-        },
-      },
-      structuralTypeMatch: {
-        key: 'unknown',
-        mappedType: 'unknown',
-        skillId: 'generic',
-        supportLevel: 'fallback',
-      },
-    });
-    const girderPatch = handler.extractDraft({
-      message: 'unused',
-      locale: 'en',
-      llmDraftPatch: {
-        engineeringDraft: {
-          structureType: 'girder',
-          geometry: { lengthM: 12 },
-          loads: [{ kind: 'line', magnitude: 5, unit: 'kN/m', direction: 'gravity' }],
-        },
-      },
-      structuralTypeMatch: {
-        key: 'unknown',
-        mappedType: 'unknown',
-        skillId: 'generic',
-        supportLevel: 'fallback',
-      },
-    });
-
-    expect(portalPatch).toEqual(expect.objectContaining({
-      inferredType: 'portal-frame',
-      spanLengthM: 18,
-      heightM: 6,
-      loadKN: 8,
-    }));
-    expect(girderPatch).toEqual(expect.objectContaining({
-      inferredType: 'beam',
-      lengthM: 12,
-      loadKN: 5,
-    }));
+  test('merges every canonical load and retains workflow context across user answers', () => {
+    const initial = extract({ engineeringDraft: { loads: [{ id: 'P1', kind: 'point', unit: 'kN', magnitude: 5, direction: 'gravity', target: 'A' }] }, skillState: { seismicWorkflow: { directions: ['x', 'y'] } } });
+    const next = extract({ engineeringDraft: { loads: [{ id: 'P2', kind: 'nodal', unit: 'kN', magnitude: 10, direction: 'globalX', target: 'B' }] } });
+    const state = handler.mergeState(handler.mergeState(undefined, initial), next);
+    expect(state.engineeringDraft.loads.map(load => load.id)).toEqual(['P1', 'P2']);
+    expect(state.skillState.seismicWorkflow.directions).toEqual(['x', 'y']);
+    expect(state.loadKN).toBeUndefined();
   });
-
-  test('does not infer draft parameters from the raw message', () => {
-    const patch = handler.extractDraft({
-      message: '简支梁，跨度10m，梁中间荷载1kN',
-      locale: 'zh',
-      llmDraftPatch: {
-        inferredType: 'unknown',
-        span: 10,
-        pointLoads: [{ value: 1, position: 5 }],
-      },
-      structuralTypeMatch: {
-        key: 'unknown',
-        mappedType: 'unknown',
-        skillId: 'generic',
-        supportLevel: 'fallback',
-      },
-    });
-
-    expect(patch).toEqual(expect.objectContaining({
-      lengthM: 10,
-      loadKN: 1,
-      loadType: 'point',
-      loadPosition: 'midspan',
-    }));
-    expect(patch.inferredType).toBeUndefined();
+  test('does not require a template type; asks once for the absent physical groups in both locales', () => {
+    const state = handler.mergeState(undefined, extract({}));
+    const missing = handler.computeMissing(state, 'execution').critical;
+    expect(missing).toEqual(['geometry', 'supports', 'loads', 'properties']);
+    expect(missing).not.toContain('inferredType');
+    for (const locale of ['en', 'zh']) {
+      const questions = handler.buildQuestions(missing, missing, state, locale);
+      expect(questions).toHaveLength(4);
+      expect(questions.every(question => question.required && question.question !== question.paramKey)).toBe(true);
+    }
+  });
+  test('retains a genuine load ambiguity alongside all other missing physics', () => {
+    const state = handler.mergeState(undefined, extract({ draftIssues: [{ field: 'loads', severity: 'ambiguous', reason: 'Unknown direction', question: 'Which physical direction?' }] }));
+    expect(handler.buildQuestions(['loads'], ['loads'], state, 'en')[0].question).toBe('Which physical direction?');
+  });
+  test('never extracts numbers or support defaults by scanning the user text', () => {
+    const patch = extract({}, '2 storeys, 3m high, 6m spans, 20kN/m; fixed base.');
+    expect(patch.engineeringDraft).toBeUndefined();
+    expect(patch.heightM).toBeUndefined(); expect(patch.supportType).toBeUndefined();
   });
 });

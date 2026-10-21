@@ -100,9 +100,12 @@ for (const id of ids) test(`${id}: readiness material-record fields resolve thro
     engineeringDraft: { analysisControl: { self_weight: true },
       materials: [{ id: 'M', name: '', E: -1, nu: -1, rho: -1, G: -1 }] } };
   const critical = computeDraftMissing({ id, handler }, before, 'execution').critical;
-  expect(critical).toEqual(['materials.M.name', 'materials.M.E', 'materials.M.nu', 'materials.M.rho', 'materials.M.G']);
+  const materialFields = ['materials.M.name', 'materials.M.E', 'materials.M.nu', 'materials.M.rho', 'materials.M.G'];
+  expect(critical.filter(field => field.startsWith('materials.'))).toEqual(materialFields);
+  if (id === 'generic') expect(critical).toEqual(expect.arrayContaining(['geometry', 'supports', 'loads', 'properties']));
+  else expect(critical).toEqual(materialFields);
   const patch = handler.extractDraft({ message: '', locale: 'en', currentState: before,
     llmDraftPatch: { engineeringDraft: { materials: [{ id: 'M', name: 'Custom', E: 30000, nu: .2, rho: 2500, G: 12500 }] } } });
   const after = handler.mergeState(before, patch);
-  expect(computeDraftMissing({ id, handler }, after, 'execution').critical.filter(field => critical.includes(field))).toEqual([]);
+  expect(computeDraftMissing({ id, handler }, after, 'execution').critical.filter(field => materialFields.includes(field))).toEqual([]);
 });

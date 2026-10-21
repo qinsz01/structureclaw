@@ -6,6 +6,7 @@
 // invalidDraftFields entry, and frame-legacy-flat.model reports the missing tw/tf instead of a catalog error.
 // 2026-10-20: material representations are reconciled; the four affected expectations include the
 // grade mirror or a material record/assignment. Original persisted inputs remain unchanged.
+// 2026-10-22 phase 2: generic retains alias patches as context and uses canonical physics only.
 import { readFileSync } from 'node:fs';
 import { describe, expect, test } from '@jest/globals';
 import { withDeclaredProperties } from '../../../tests/fixtures/declared-template-properties.mjs';
@@ -62,6 +63,17 @@ describe('old persisted draft states', () => {
     const handler = handlers[scenario.skillId];
     const original = structuredClone(scenario.state);
     const next = attempt(() => resume(scenario));
+    if (scenario.skillId === 'generic') {
+      expect(next.error).toBeUndefined();
+      expect(next.value.structuralTypeKey).toBe('unknown');
+      expect(next.value.engineeringDraft.loads).toHaveLength(1);
+      expect(next.value.engineeringDraft.loads[0]).toMatchObject({ magnitude: 12, kind: 'point' });
+      expect(next.value.skillState.genericDraft.distributedLoads).toEqual([{ value: 2 }]);
+      expect(next.value.loadKN).toBeUndefined();
+      expect(next.value.lengthM).toBeUndefined();
+      expect(scenario.state).toEqual(original);
+      return;
+    }
     expect(next.error ? next : { json: JSON.stringify(next.value) }).toEqual(scenario.expected.next);
     expect(scenario.state).toEqual(original);
     if (!next.value) return;
