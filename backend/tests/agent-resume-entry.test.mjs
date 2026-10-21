@@ -141,3 +141,22 @@ test('a schema-invalid run body is rejected with 400 and the bilingual profile m
   expect(response.json().message).toContain('UNKNOWN_RUN_PROFILE');
   expect(response.json().message).toContain('未知的运行配置档');
 });
+
+
+test.each(['en', 'zh'])('stream resume parses attached section table and preserves evidence (%s)', async locale => {
+  const id = `attached-reply-${locale}`;
+  const fixture = graphFor(id, { ask: true });
+  await post('run', { conversationId: id, message: 'Ask', context: { locale, restrictFileAccessToAttachments: true,
+    runPolicy: { skillIds: ['generic'], tools: { enabledIds: ['ask_user_clarification', 'analyze_file'] } } } });
+  const relPath = `.uploads/${id}/sections.csv`;
+  fs.mkdirSync(path.dirname(path.join(temporary, relPath)), { recursive: true });
+  fs.writeFileSync(path.join(temporary, relPath), 'section,A,Iy\nS,0.01,0.0001\n');
+  const attachments = [{ fileId: 'section', originalName: 'sections.csv', relPath }];
+  for await (const chunk of service.resumeStream(id, 'Use attached properties', undefined, attachments)) {
+    expect(chunk.type).not.toBe('error');
+  }
+  const state = fixture.observed();
+  expect(state.messages.at(-1).content).toContain('0.0001');
+  expect(state.inputEvidence.some(item => item.source?.file === relPath)).toBe(true);
+  expect(state.toolAccessPolicy.fileAccessAllowlist).toEqual([relPath]);
+});

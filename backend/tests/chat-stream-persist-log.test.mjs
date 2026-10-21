@@ -8,6 +8,7 @@ jest.unstable_mockModule('../dist/services/chat-persistence.js', () => ({ ...per
 
 describe('SSE turn persistence failures are logged', () => {
   const records = [];
+  let resumeSpy;
   let app;
 
   beforeAll(async () => {
@@ -19,7 +20,7 @@ describe('SSE turn persistence failures are logged', () => {
       yield { type: 'result', content: { conversationId: 'conv-log', traceId: 'trace-log', response: 'ok', success: true, toolCalls: [] } };
     };
     jest.spyOn(LangGraphAgentService.prototype, 'runStream').mockImplementation(turn);
-    jest.spyOn(LangGraphAgentService.prototype, 'resumeStream').mockImplementation(turn);
+    resumeSpy = jest.spyOn(LangGraphAgentService.prototype, 'resumeStream').mockImplementation(turn);
     jest.spyOn(LangGraphAgentService.prototype, 'getConversationSessionSnapshot').mockResolvedValue(undefined);
     const { chatRoutes } = await import('../dist/api/chat.js');
     app = Fastify({ logger: { level: 'error', stream: { write: line => records.push(JSON.parse(line)) } } });
@@ -29,6 +30,13 @@ describe('SSE turn persistence failures are logged', () => {
   afterAll(async () => {
     jest.restoreAllMocks();
     await app?.close();
+  });
+
+  test('resume forwards attachment references', async () => {
+    const attachments = [{ fileId: 'section', originalName: 'section.csv', relPath: '.uploads/conv-log/section.csv' }];
+    const response = await app.inject({ method: 'POST', url: '/stream/resume', payload: { conversationId: 'conv-log', resumeValue: 'Use table', attachments } });
+    expect(response.statusCode).toBe(200);
+    expect(resumeSpy).toHaveBeenLastCalledWith('conv-log', 'Use table', expect.any(AbortSignal), attachments);
   });
 
   test.each([

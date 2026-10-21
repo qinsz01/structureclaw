@@ -106,13 +106,13 @@ describe('file-tools helpers', () => {
       expect(result.lineEntityCount).toBe(1);
       expect(result.insertionUnits).toMatchObject({ code: 4, metersPerUnit: 0.001 });
     });
-    test('keeps text insertion positions and flags unsupported curves', async () => {
+    test('keeps text insertion positions and counts circle annotations', async () => {
       const { parseDxf } = await import('../../../dist/agent-langgraph/file-tools.js');
       const result = await parseDxf(validDxf(['0','TEXT','10','3','20','4','40','1','1','Beam Label','0','CIRCLE','10','0','20','0','40','2']));
       expect(result.texts).toEqual(['Beam Label']);
       expect(result.annotations[0]).toMatchObject({ position: [3,4,0], source: { entityIndex: 0 } });
-      expect(result.unsupportedEntities.CIRCLE).toBe(1);
-      expect(result.complete).toBe(false);
+      expect(result.ignoredAnnotations.CIRCLE).toBe(1);
+      expect(result.complete).toBe(true);
     });
     test('rejects malformed DXF rather than returning an apparently empty drawing', async () => {
       const { parseDxf } = await import('../../../dist/agent-langgraph/file-tools.js');
@@ -140,6 +140,39 @@ describe('createAnalyzeFileTool', () => {
 
   afterEach(async () => {
     await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  test('JSON records and TSV are data tables; invalid and oversized JSON fail honestly', async () => {
+    const { analyzeUploadedFile } = await import('../../../dist/agent-langgraph/file-tools.js');
+    const file = path.join(tmpDir, 'properties.json');
+    await fs.writeFile(file, JSON.stringify([{ section: 'S', A: 0.01, Iy: 0.0001 }]));
+    expect(await analyzeUploadedFile(file, tmpDir)).toMatchObject({ type: 'json', headers: ['section', 'A', 'Iy'], rows: [['S', 0.01, 0.0001]] });
+    await fs.writeFile(file, 'process.exit(1)');
+    expect(await analyzeUploadedFile(file, tmpDir)).toMatchObject({ success: false, error: 'FILE_PARSE_FAILED' });
+    await fs.writeFile(file, ' '.repeat(10 * 1024 * 1024 + 1));
+    expect(await analyzeUploadedFile(file, tmpDir)).toMatchObject({ success: false, error: 'FILE_TOO_LARGE' });
+    const tsv = path.join(tmpDir, 'properties.tsv');
+    await fs.writeFile(tsv, 'section\tA\nS\t0.01');
+    expect(await analyzeUploadedFile(tsv, tmpDir)).toMatchObject({ type: 'csv', headers: ['section', 'A'], rows: [['S', '0.01']] });
+  });
+
+  test('valid V2 JSON is offered for model import; invalid V2 remains data', async () => {
+    const { analyzeUploadedFile } = await import('../../../dist/agent-langgraph/file-tools.js');
+    const file = path.join(tmpDir, 'model.json');
+    const fixture = JSON.parse(await fs.readFile(new URL('../../skill-shared/python/structure_protocol/examples_v2/model_16_steel_frame.json', import.meta.url), 'utf8'));
+    await fs.writeFile(file, JSON.stringify(fixture));
+    expect(await analyzeUploadedFile(file, tmpDir)).toMatchObject({ success: true, modelFormat: 'structuremodel-v2', model: fixture });
+    const { createAnalyzeFileTool } = await import('../../../dist/agent-langgraph/file-tools.js');
+    const { createLocalStructureProtocolClient } = await import('../../../dist/skill-shared/structure-protocol-execution.js');
+    const imported = await createAnalyzeFileTool().invoke({ filePath: file, importModel: true }, {
+      toolCall: { id: 'import' }, configurable: { workspaceRoot: tmpDir, agentState: {}, structureProtocolClient: createLocalStructureProtocolClient() },
+    });
+    expect(imported.update.modelRevision).toBe(1);
+    expect(imported.update.model.nodes).toHaveLength(fixture.nodes.length);
+    await fs.writeFile(file, JSON.stringify({ schema_version: '2.2.0', nodes: 'invalid' }));
+    const invalid = await analyzeUploadedFile(file, tmpDir);
+    expect(invalid.modelValidationError).toBeTruthy();
+    expect(invalid.model).toBeUndefined();
   });
 
   test('analyzes a CSV file', async () => {

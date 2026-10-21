@@ -21,6 +21,7 @@ function fixture(savedPolicy = false) {
   } } : {}) })
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, options) => {
     const url = new URL(String(input), 'http://localhost')
+    if (url.pathname.endsWith('/files/upload')) return Response.json({ success: true, files: [{ fileId: 'section', originalName: 'section.csv', relPath: '.uploads/a/section.csv', mimeType: 'text/csv', size: 24 }] })
     if (url.pathname.endsWith('/session')) {
       const id = url.pathname.split('/').at(-2)!
       return failed ? Response.json({}, { status: 503 }) : Response.json(saved(id))
@@ -89,11 +90,16 @@ describe('web conversation resume routing', () => {
     render(<AppStoreProvider initialState={{ locale }}><AIConsole /></AppStoreProvider>)
     await user.click(await screen.findByRole('button', { name: 'Paused A' }))
     await waitFor(() => expect(screen.getByText(locale === 'en' ? /Waiting for your reply/ : /等待你的答复/)).toBeInTheDocument())
+    const upload = document.querySelector('input[type=file]') as HTMLInputElement
+    expect(upload.accept).toContain('.json')
+    expect(upload.accept).toContain('.tsv')
+    await user.upload(upload, new File(['id,A,Iy\nS,0.01,0.0001'], 'section.csv', { type: 'text/csv' }))
+    await screen.findByText('section.csv')
     const composer = screen.getByRole('textbox')
     await user.type(composer, 'Pinned')
     await user.click(screen.getByRole('button', { name: locale === 'en' ? 'Send' : '发送' }))
     await waitFor(() => expect(sent).toHaveLength(1))
-    expect(sent[0]).toMatchObject({ path: '/api/v1/chat/stream/resume', body: { conversationId: 'a', resumeValue: 'Pinned' } })
+    expect(sent[0]).toMatchObject({ path: '/api/v1/chat/stream/resume', body: { conversationId: 'a', resumeValue: 'Pinned', attachments: [expect.objectContaining({ fileId: 'section', relPath: '.uploads/a/section.csv' })] } })
     await user.click(screen.getByRole('button', { name: 'Ready B' }))
     await waitFor(() => expect(screen.queryByText('Support?')).not.toBeInTheDocument())
     await user.type(screen.getByRole('textbox'), 'Calculate B')

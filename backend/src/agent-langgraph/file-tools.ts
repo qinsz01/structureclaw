@@ -25,6 +25,10 @@ import { collectVisionEvidence, imageRegionSchema, type ImageRegion } from '../e
 import { Command } from '@langchain/langgraph';
 import { ToolMessage } from '@langchain/core/messages';
 import { applyInputEvidence, invalidateStaleResults, isRecord, type ModelState } from '../engineering/model-state.js';
+import { createLocalStructureProtocolClient } from '../skill-shared/structure-protocol-execution.js';
+import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
+import { conversationUserTexts } from './tools/input-message.js';
+import { commitModel } from '../engineering/model-state.js';
 import { fileInputEvidence } from '../engineering/file-evidence.js';
 import { mergeInputEvidence } from '../engineering/input-evidence.js';
 
@@ -318,6 +322,33 @@ async function readUploadedFile(
     }
   }
 
+  // JSON is parsed only as data. Model candidates use the canonical V2 validator.
+  if (ext === '.json') {
+    const buf = await fsp.readFile(resolvedPath);
+    const data: unknown = JSON.parse(buf.toString('utf-8').replace(/^\uFEFF/, ''));
+    const source = { filePath: resolvedPath, sha256: createHash('sha256').update(buf).digest('hex'), parser: 'JSON.parse' };
+    if (isRecord(data) && String(data.schema_version ?? '').startsWith('2.')) {
+      try {
+        await createLocalStructureProtocolClient().post('/validate', { model: data });
+        return { success: true, type: 'json', ext, size, source, data, model: data, modelFormat: 'structuremodel-v2',
+          note: 'StructureModel v2 validated. Use analyze_file with importModel=true to import through the model boundary. / 已验证 StructureModel v2，可用 analyze_file 的 importModel=true 经模型边界导入。' };
+      } catch (error) {
+        return { success: true, type: 'json', ext, size, source, data, modelValidationError: String(error),
+          note: 'Invalid model candidate; retained as data only / 模型候选无效，仅保留为数据' };
+      }
+    }
+    const records = Array.isArray(data) ? data : isRecord(data) ? [data] : [];
+    if (records.length && records.every(isRecord)) {
+      const headers = [...new Set(records.flatMap(record => Object.keys(record)))];
+      const rowLimit = options.mode === 'full' ? records.length : Math.min(maxRows ?? CSV_MAX_ROWS, 500);
+      return { success: true, type: 'json', ext, size, source, headers,
+        rows: records.slice(0, rowLimit).map(record => headers.map(key => record[key] ?? null)),
+        rowSources: records.slice(0, rowLimit).map((_, index) => ({ jsonPointer: Array.isArray(data) ? `/${index}` : '' })),
+        totalRows: records.length, truncated: records.length > rowLimit };
+    }
+    return { success: true, type: 'json', ext, size, source, data };
+  }
+
   // ── CSV / TSV / AT2 / plain text ───────────────────────────────────────
   if (ext === '.csv' || ext === '.tsv' || TEXT_EXTS.has(ext)) {
     const buf = await fsp.readFile(resolvedPath);
@@ -364,7 +395,14 @@ async function readUploadedFile(
       ext,
       size,
       ...dxfData,
-      source: { filePath: resolvedPath, sha256: createHash('sha256').update(buf).digest('hex'), parser: 'ezdxf' },
+      source: { filePath: resolvedPath, sha256: createHash('sha256').update(buf).digest('hex'), parser: 'ezdxf',
+        coordinateFrame: 'source-dxf', insertionUnits: dxfData.insertionUnits,
+        candidates: {
+          lines: dxfData.lines.map((line: Record<string, any>, index: number) => ({ index, source: line.source,
+            start: [line.x1, line.y1, line.z1], end: [line.x2, line.y2, line.z2],
+            length: Math.hypot(line.x2 - line.x1, line.y2 - line.y1, line.z2 - line.z1) })),
+          dimensions: dxfData.dimensions,
+        } },
       entityCount: dxfData.entityCount,
       lineCount: dxfData.lineEntityCount,
       textCount: dxfData.textEntityCount,
@@ -400,7 +438,7 @@ export function createAnalyzeFileTool() {
   return tool(
     async (
       input: { filePath: string; maxRows?: number; mode?: 'preview' | 'full'; pageStart?: number; pageCount?: number;
-        region?: ImageRegion; requiredFields?: string[]; groundMotion?: Record<string, unknown> },
+        region?: ImageRegion; requiredFields?: string[]; groundMotion?: Record<string, unknown>; importModel?: boolean },
       config: LangGraphRunnableConfig,
     ) => {
       const configurable = config.configurable as Partial<AgentConfigurable> & { agentState?: ModelState & { contextSeismicWorkflow?: Record<string, unknown> | null } };
@@ -431,6 +469,15 @@ export function createAnalyzeFileTool() {
       const analysis = await analyzeUploadedFile(input.filePath, workspaceRoot, input.maxRows, { includeImageData: true,
         mode: input.groundMotion ? 'full' : input.mode, pageStart: input.pageStart, pageCount: input.pageCount });
       let workflowUpdate: Record<string, unknown> = {};
+      if (input.importModel) {
+        if (!isRecord(analysis.model) || analysis.modelFormat !== 'structuremodel-v2') {
+          throw new Error('VALID_MODEL_ATTACHMENT_REQUIRED / 需要有效模型附件');
+        }
+        const state = configurable.agentState ?? {};
+        const model = await normalizeEngineeringModel(analysis.model, configurable.structureProtocolClient!, 'structuremodel-v2',
+          [...conversationUserTexts(state as { messages?: unknown[]; lastUserMessage?: string }), JSON.stringify(analysis.model)]);
+        workflowUpdate = commitModel(state, model, 'import_model');
+      }
       if (input.groundMotion) {
         const sheets = isRecord(analysis.sheets) ? Object.keys(analysis.sheets) : [];
         const selection = { ...input.groundMotion,
@@ -456,7 +503,7 @@ export function createAnalyzeFileTool() {
       delete parsed.base64DataUri;
       const evidence = collectVisionEvidence(parsed);
       const toolCallId = (config as LangGraphRunnableConfig & { toolCall?: { id: string } }).toolCall?.id;
-      if (evidence.length && toolCallId) return new Command({ update: { ...workflowUpdate, ...applyInputEvidence(configurable.agentState ?? {}, evidence),
+      if ((evidence.length || input.importModel) && toolCallId) return new Command({ update: { ...workflowUpdate, ...applyInputEvidence({ ...configurable.agentState, ...workflowUpdate }, evidence),
         messages: [new ToolMessage({ name: 'analyze_file', tool_call_id: toolCallId, content: JSON.stringify(parsed) })] } });
       return JSON.stringify(parsed);
     },
@@ -464,11 +511,13 @@ export function createAnalyzeFileTool() {
       name: 'analyze_file',
       description:
         'Analyze an uploaded file and extract its content. ' +
+        'JSON data and validated StructureModel v2 attachments (importModel=true imports the model). ' +
         'Supports CSV/TSV (structured rows), AT2/TXT ground-motion text, Excel (.xlsx/.xls, multi-sheet), ' +
         'PDF (text extraction), images (metadata/base64 for the configured vision parser), ' +
         'DXF/CAD (structural entity extraction), and plain text. ' +
         'filePath may be a relative path under .uploads/<conversationId>/ or an absolute path inside the upload directory.',
       schema: z.object({
+        importModel: z.boolean().optional().describe('Import a validated StructureModel v2 JSON attachment through the normal model boundary / 经标准模型边界导入有效的 StructureModel v2 JSON 附件'),
         filePath: z.string().describe('Path to the uploaded file (relPath from upload response, or absolute path)'),
         mode: z.enum(['preview', 'full']).optional().describe('Full reads preserve all table rows and text; PDF uses explicit pagination / 完整读取全部表格行和文本，PDF仍逐页读取'),
         groundMotion: z.object({ sheetName: z.string().min(1).optional(), unit: z.string().min(1).optional(),

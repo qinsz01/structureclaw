@@ -22,6 +22,8 @@ const SERVE_MIME_MAP: Record<string, string> = {
 const UPLOAD_MIME_WHITELIST = new Set([
   'application/pdf',
   'text/csv',
+  'text/tab-separated-values',
+  'application/json',
   'text/plain',
   'application/vnd.ms-excel',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -37,7 +39,7 @@ const UPLOAD_MIME_WHITELIST = new Set([
 
 /** Allowed file extensions for upload (whitelist). */
 const UPLOAD_EXT_WHITELIST = new Set([
-  '.pdf', '.csv', '.txt', '.at2',
+  '.pdf', '.csv', '.tsv', '.json', '.txt', '.at2',
   '.xls', '.xlsx',
   '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp',
   '.dxf',
