@@ -118,6 +118,23 @@ describe('tool guards', () => {
     expect(guards.findAnsweredClarification('What is the section?', messages, redrafted)).toBeUndefined();
   });
 
+  test.each(['no_change', 'partial'])('an invalid answer twice may be re-asked after %s extraction', status => {
+    const messages = [new HumanMessage('Analyze the beam')];
+    for (let attempt = 0; attempt < 2; attempt++) {
+      messages.push(new ToolMessage({ name: 'ask_user_clarification', tool_call_id: `q${attempt}`,
+        content: JSON.stringify({ type: 'clarification_answered', question: 'Span in metres?', answer: 'unknown', stateToken: 'same' }) }));
+      messages.push(new ToolMessage({ name: 'extract_draft_params', tool_call_id: `e${attempt}`,
+        content: JSON.stringify({ status, unapplied: status === 'partial' ? [{ field: 'lengthM', reason: 'not a number' }] : [] }) }));
+      expect(guards.preflightToolCall({ call: { name: 'ask_user_clarification', args: { question: 'Span in metres?' } },
+        toolNames, messages, stateToken: 'same', ledger: guards.guardLedger(createRunContext(policy())), repairEnabled: true })).toBeUndefined();
+    }
+    messages.push(new ToolMessage({ name: 'ask_user_clarification', tool_call_id: 'q3',
+      content: JSON.stringify({ type: 'clarification_answered', question: 'Span in metres?', answer: '6', stateToken: 'same' }) }));
+    messages.push(new ToolMessage({ name: 'extract_draft_params', tool_call_id: 'e3',
+      content: JSON.stringify({ status: 'applied', unapplied: [] }) }));
+    expect(guards.findAnsweredClarification('Span in metres?', messages, 'same')).toMatchObject({ answer: '6' });
+  });
+
   test('unknown tools and malformed arguments are rejected without a run context', () => {
     const unknown = guards.preflightToolCall({ call: { name: 'magic', args: {} }, toolNames, messages: [], ledger: undefined, repairEnabled: true });
     expect(unknown.kind).toBe('rejected');

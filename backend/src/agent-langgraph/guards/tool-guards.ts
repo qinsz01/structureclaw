@@ -268,19 +268,34 @@ export function clarificationStateToken(state: { modelRevision?: number; draftSt
  */
 export function findAnsweredClarification(question: string, messages: BaseMessage[], stateToken?: string): { question: string; answer: string; source: 'tool' | 'next-message' } | undefined {
   const start = previousTurnStart(messages);
-  for (let index = start; index < messages.length; index += 1) {
+  for (let index = messages.length - 1; index >= start; index -= 1) {
     const message = messages[index]!;
     if (getMessageType(message) !== 'tool' || getToolName(message) !== 'ask_user_clarification') continue;
     const payload = parseJson(extractMessageText(message));
     if (!payload || typeof payload.question !== 'string') continue;
-    if (stateToken && typeof payload.stateToken === 'string' && payload.stateToken !== stateToken) continue;
+    if (questionSimilarity(payload.question, question) < DUPLICATE_SIMILARITY) continue;
+    if (stateToken && typeof payload.stateToken === 'string' && payload.stateToken !== stateToken) return undefined;
     let answer = payload.type === 'clarification_answered' && typeof payload.answer === 'string' ? payload.answer : '';
     if (payload.type === 'clarification_needed') {
       // Externally hosted dialogue: the answer arrives as the next user message.
       const reply = messages.slice(index + 1).find(item => getMessageType(item) === 'human');
       answer = reply ? extractMessageText(reply) : '';
     }
-    if (answer.trim() && questionSimilarity(payload.question, question) >= DUPLICATE_SIMILARITY) {
+    if (answer.trim()) {
+      // An answered question is not necessarily a satisfied requirement. Inspect the
+      // extraction of this answer, stopping at the next answer/turn boundary.
+      let externalReplySeen = payload.type !== 'clarification_needed';
+      for (const next of messages.slice(index + 1)) {
+        if (getMessageType(next) === 'human') {
+          if (externalReplySeen) break;
+          externalReplySeen = true;
+        }
+        if (getMessageType(next) !== 'tool') continue;
+        if (getToolName(next) === 'ask_user_clarification') break;
+        if (getToolName(next) !== 'extract_draft_params') continue;
+        const result = parseJson(extractMessageText(next));
+        if (result?.status === 'no_change' || Array.isArray(result?.unapplied) && result.unapplied.length) return undefined;
+      }
       return { question: payload.question, answer: answer.trim(), source: payload.type === 'clarification_answered' ? 'tool' : 'next-message' };
     }
   }
