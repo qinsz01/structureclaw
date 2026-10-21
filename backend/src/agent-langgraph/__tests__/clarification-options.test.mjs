@@ -69,6 +69,19 @@ describe('clarification option contract', () => {
     expect(createAskUserClarificationTool().description).toContain('也必须写入问题正文');
   });
 
+  test('short acceptance options are bound to the exact displayed draft candidates', async () => {
+    const shape = { kind: 'I', H: 200, B: 100, tw: 7, tf: 11.4 };
+    const output = JSON.parse(await withRunContext(createRunContext(policy), () => createAskUserClarificationTool().invoke({
+      question: '请核对助手记忆的尺寸 200×100×7×11.4 mm。', optionsJson: ['确认', '另填'],
+      candidateOptions: [{ sectionId: 'S1', field: 'shape', optionIndex: 0 }],
+    }, { configurable: { agentState: { draftState: { inferredType: 'beam', engineeringDraft: {
+      sectionRecords: [{ id: 'S1', shape, extra: { provenance: { shape: 'llm-table' } } }],
+    } } } } })));
+    expect(output.sectionCandidates).toEqual([{ id: expect.stringMatching(/^candidate:/), sectionId: 'S1', field: 'shape',
+      values: shape, optionIds: ['option-1'] }]);
+    expect(output.clarificationId).toMatch(/^clarification:/);
+  });
+
   test('normalizes provider object choices before exposing them to a UI or host', async () => {
     const policy = resolveRunPolicy({ availableSkillIds: [], availableToolIds: ['ask_user_clarification'],
       defaultToolIds: ['ask_user_clarification'], executionOwner: 'external' });
