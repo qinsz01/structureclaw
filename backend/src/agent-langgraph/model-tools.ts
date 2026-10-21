@@ -35,7 +35,7 @@ function analysisAvailability(state: Parameters<typeof currentAnalysisError>[0])
 export function createEditModelTool() {
   return tool(async (input, config) => {
     const { id, state, structureProtocolClient } = context(config);
-    if (!state.model) throw new Error('MODEL_REQUIRED');
+    if (!state.model) throw new Error('MODEL_REQUIRED: No model exists yet. Use build_model from the draft, or attach a validated StructureModel v2 JSON file. / 尚无模型，请从草稿调用 build_model，或上传有效的 StructureModel v2 JSON 文件。');
     if (input.baseRevision !== state.modelRevision) throw new Error(`MODEL_VERSION_CONFLICT: expected ${state.modelRevision}`);
     const edits = normalizeModelEdits(state.model, input.edits as ModelEdit[], await engineeringModelSchema(structureProtocolClient));
     const edited = settlePlaceholderStiffness(applyModelEdits(state.model, edits), edits);

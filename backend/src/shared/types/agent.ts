@@ -210,6 +210,7 @@ export type RoutingSource = 'explicit-keyword' | 'current-state' | 'llm-suggeste
 export type SkillStage = 'intent' | 'draft' | 'analysis' | 'design';
 
 export interface StructuralTypeMatch {
+  scopeExclusion?: { code: 'STRUCTURE_SKILL_DISABLED'; skillId: string };
   key: StructuralTypeKey;
   mappedType: InferredModelType;
   skillId?: string;

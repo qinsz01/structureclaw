@@ -1,3 +1,4 @@
+import { messageRole, messageText } from './input-message.js';
 import { normalizeClarificationOptions } from '../../utils/clarification-options.js';
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
@@ -14,6 +15,16 @@ export function createAskUserClarificationTool() {
   return tool(
     async (input: { question: string; optionsJson?: string | unknown[];
       candidateOptions?: Array<{ sectionId: string; field: string; optionIndex: number; values?: Record<string, number> }> }, config: LangGraphRunnableConfig) => {
+      const messages = getConfigurable(config)?.agentState?.messages ?? [];
+      for (const message of [...messages].reverse()) {
+        if (['human', 'user'].includes(messageRole(message) ?? '')) break;
+        if (messageRole(message) === 'tool' && message.name === 'extract_draft_params') {
+          let result: Record<string, unknown> = {};
+          try { result = JSON.parse(messageText(message)); } catch { /* Non-JSON results cannot establish a contract fault. */ }
+          if (result.errorCode === 'FIELD_CONTRACT_UNRESOLVED') return JSON.stringify(result);
+          break;
+        }
+      }
       const proposed = input.optionsJson === undefined ? undefined : normalizeClarificationOptions(input.optionsJson);
       // A choice the template would reject again only restarts the same clarification.
       const options = proposed && supportedClarificationOptions(proposed, getConfigurable(config)?.agentState?.draftState);

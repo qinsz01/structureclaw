@@ -109,3 +109,5 @@ SCLAW_RUN_PROFILE=no-clarification node tests/runner.mjs llm-benchmark --scenari
 ```json
 { "message": "...", "context": { "locale": "zh", "runPolicy": { "profile": "no-knowledge" } } }
 ```
+
+- `2026-10-21.5`: disclose excluded structure skills, repair frame-base draft mapping and focused extraction guidance, stop unresolved applied answers, and clarify model import errors. / 显式说明被禁用的结构能力，修复柱脚草稿映射和提取提示，阻止已回答字段反复追问，明确模型导入错误。

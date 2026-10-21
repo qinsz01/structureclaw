@@ -60,3 +60,16 @@ export function legacyScalarsShadowing(path: string, overlaps: (a: string, b: st
     .map(([alias]) => alias);
   return fieldTokens(path)[0]?.key === 'loads' ? [...aliases, ...LEGACY_LOAD_SCALARS] : aliases;
 }
+
+/** Frame bases and beam end conditions are different facts. Translate only frame patches. */
+export function normalizeFrameBoundary(value: unknown, inferredType: string | undefined): unknown {
+  if (!['frame', 'portal-frame', 'concrete-frame'].includes(inferredType ?? '')
+    || !value || typeof value !== 'object' || Array.isArray(value)) return value;
+  const draft = value as Record<string, any>;
+  const boundary = draft.boundary;
+  if (!boundary || boundary.frameBaseSupportType !== undefined) return value;
+  const aliases: Record<string, string> = { fixed: 'fixed', 'fixed-fixed': 'fixed', '刚接': 'fixed', '固结': 'fixed', '嵌固': 'fixed',
+    pinned: 'pinned', '铰接': 'pinned' };
+  const base = aliases[String(boundary.supportType).trim().toLowerCase()];
+  return base ? { ...draft, boundary: { ...boundary, supportType: undefined, frameBaseSupportType: base } } : value;
+}

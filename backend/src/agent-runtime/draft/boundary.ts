@@ -17,7 +17,7 @@ import { sectionEvidenceContext, type SectionEvidence } from '../../engineering/
 import { draftContract } from '../../engineering/draft-contract.js';
 import { draftFieldValues, mergeDraftDiagnostics } from '../draft-diagnostics.js';
 import { mergeEngineeringDraft, normalizeEngineeringDraft } from '../engineering-draft.js';
-import { legacyScalarsShadowing } from './legacy-fields.js';
+import { legacyScalarsShadowing, normalizeFrameBoundary } from './legacy-fields.js';
 import {
   asRecord,
   invalidDraftFieldsOf,
@@ -344,7 +344,7 @@ export function ingestDraft(patch: Record<string, unknown> | null | undefined, e
   const rootDraft = Object.fromEntries(Object.entries(patch)
     .filter(([key]) => ['material', 'materials', 'sectionRecords', 'templateAssignments'].includes(key)));
   const rawDraft = Object.keys(rootDraft).length ? { ...rootDraft, ...asRecord(patch.engineeringDraft) } : patch.engineeringDraft;
-  const engineeringDraft = verifyDraftSectionEvidence(reconcileDraftMaterials(normalizeDraftWithReportedLoadIssue(rawDraft, draftIssues, accepted),
+  const engineeringDraft = verifyDraftSectionEvidence(reconcileDraftMaterials(normalizeDraftWithReportedLoadIssue(normalizeFrameBoundary(rawDraft, normalizeInferredType(patch.inferredType) ?? accepted?.inferredType), draftIssues, accepted),
     accepted?.engineeringDraft, normalizeInferredType(patch.inferredType) ?? accepted?.inferredType), userTexts);
   const issueFields = draftIssues
     ?.map((issue) => issue.field)
@@ -473,7 +473,8 @@ export function ingestGenericDraft(
   const source = llmDraftPatch ?? {};
   const cleared = source.clearDraftFields !== undefined ? normalizeClearDraftFields(source.clearDraftFields) : undefined;
   const accepted = existing ? clearDraftFields(existing, cleared) : existing;
-  const engineeringDraft = normalizeEngineeringDraft(source.engineeringDraft, accepted?.engineeringDraft);
+  const engineeringDraft = normalizeEngineeringDraft(normalizeFrameBoundary(source.engineeringDraft,
+    normalizeLlmDeclaredType(source.inferredType ?? asRecord(source.engineeringDraft)?.structureType ?? source.structureType) ?? accepted?.inferredType), accepted?.engineeringDraft);
   const pointLoad = firstRecord(source.pointLoads ?? source.point_loads);
   const distributedLoad = firstRecord(source.distributedLoads ?? source.distributed_loads);
   const span = normalizeNumber(source.lengthM ?? source.spanLengthM ?? source.span ?? source.length);
@@ -501,7 +502,8 @@ export function ingestGenericDraft(
     ?? normalizeLlmDeclaredType(source.componentType)
     ?? normalizeLlmDeclaredType(source.structureType)
     ?? normalizeLlmDeclaredType(source.structuralType)
-    ?? normalizeLlmDeclaredType(source.type);
+    ?? normalizeLlmDeclaredType(source.type)
+    ?? accepted?.inferredType;
 
   const patch: DraftExtraction = {};
   if (cleared !== undefined) patch.clearDraftFields = cleared;

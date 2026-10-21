@@ -39,8 +39,10 @@ export function createDetectStructureTypeTool(skillRuntime: AgentSkillRuntime) {
           routingSource: match.routingSource,
           supportLevel: match.supportLevel,
           supportNote: match.supportNote,
+          scopeExclusion: match.scopeExclusion,
+          ...(match.scopeExclusion ? { userNotice: match.supportNote, mustDisclose: true } : {}),
           nextAction: unsupported ? 'explain_capability_boundary' : 'extract_draft_params',
-          instruction: unsupported
+          instruction: match.scopeExclusion ? `${match.supportNote} ${locale === 'zh' ? '必须向用户说明能力范围限制，禁止静默回退。' : 'Tell the user about this scope restriction; never silently fall back.'}` : unsupported
             ? (locale === 'zh'
               ? '当前技能或适配器不支持该请求。不得继续提取参数、构建模型或运行分析；请明确说明具体能力边界，并询问用户是否改用当前明确支持的替代工作流。'
               : 'The current skills or adapters do not support this request. Do not extract parameters, build a model, or run analysis. Explain the specific capability boundary and ask whether the user wants a currently supported alternative workflow.')

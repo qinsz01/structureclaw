@@ -471,7 +471,7 @@ export function createAnalyzeFileTool() {
       let workflowUpdate: Record<string, unknown> = {};
       if (input.importModel) {
         if (!isRecord(analysis.model) || analysis.modelFormat !== 'structuremodel-v2') {
-          throw new Error('VALID_MODEL_ATTACHMENT_REQUIRED / 需要有效模型附件');
+          throw new Error('VALID_MODEL_ATTACHMENT_REQUIRED: analyze_file accepts a validated uploaded StructureModel v2 attachment, not a workspace JSON path. Use build_model from the draft; agent-written files do not establish user evidence for material/section values. / analyze_file 需要通过校验的 StructureModel v2 上传附件，不接受工作区 JSON 路径。请从草稿调用 build_model；助手写出的文件不能作为材料和截面数值的用户证据。');
         }
         const state = configurable.agentState ?? {};
         const model = await normalizeEngineeringModel(analysis.model, configurable.structureProtocolClient!, 'structuremodel-v2',

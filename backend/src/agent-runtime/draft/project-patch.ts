@@ -1,3 +1,4 @@
+import { normalizeFrameBoundary } from './legacy-fields.js';
 /**
  * Draft -> flat projection (outbound half of the draft boundary, re-exported by `boundary.ts`).
  *
@@ -340,7 +341,7 @@ export function projectDraftPatch(
   patch: DraftExtraction,
   inferredType: InferredModelType,
 ): DraftExtraction {
-  const engineeringDraft = patch.engineeringDraft;
+  const engineeringDraft = normalizeFrameBoundary(patch.engineeringDraft, inferredType) as typeof patch.engineeringDraft;
   if (!engineeringDraft) return patch;
 
   const loads = engineeringDraft.loads ?? [];

@@ -1,7 +1,7 @@
 import { computeDraftMissing, draftSectionConfirmations } from '../../agent-runtime/draft-readiness.js';
 import { projectDraftState, verifyDraftSectionEvidence } from '../../agent-runtime/draft/boundary.js';
 import { mergeDraftDiagnostics } from '../../agent-runtime/draft-diagnostics.js';
-import { draftChangedFields, unappliedDraftFields } from '../../agent-runtime/draft/changes.js';
+import { draftChangedFields, unappliedDraftFields, unresolvedAppliedFields } from '../../agent-runtime/draft/changes.js';
 import { sectionMaterialNotes } from '../../agent-runtime/draft/materials.js';
 import { compactDraftToolPayload } from '../draft-tool-summary.js';
 import { tool } from '@langchain/core/tools';
@@ -423,6 +423,16 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
           plugin, match, extractionMessage, locale, log, onUsage: nestedUsage.onUsage,
         });
         const extractionMode = draftPatch ? 'llm' : 'deterministic';
+        const unresolved = unresolvedAppliedFields(patch, nextState, missing.critical);
+        if (unresolved.length) {
+          const fault = { success: false, errorCode: 'FIELD_CONTRACT_UNRESOLVED', unresolved,
+            criticalMissing: missing.critical, clarificationQuestions: [], nextAction: 'report_internal_error',
+            message: locale === 'zh' ? '系统未能将你已提供的答案映射到必填字段，这是系统错误，不需要你重复回答。'
+              : 'The system failed to map your supplied answer to a required field. This is a system error; do not repeat your answer.',
+            instruction: 'Tell the user about this internal mapping failure and stop. Do not ask again or bypass validation. / 请说明内部映射失败并停止，不得再次追问或绕过校验。' };
+          recordRunEvent({ kind: 'field_contract_unresolved', ...fault });
+          return extractionToolResult(JSON.stringify(fault), llmExtractionStateUpdate(requestScope, nextState, state, match));
+        }
 
         // Missing engineering input is a clarification state, not a failed extraction.
         // Repeating the same evidence cannot supply user-omitted properties and must

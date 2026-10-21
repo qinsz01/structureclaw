@@ -1,3 +1,6 @@
+import { canonicalDraftPath, withLegacyScalarViews } from './legacy-fields.js';
+import { draftFieldValues } from '../draft-diagnostics.js';
+import { validDraftValue } from '../../engineering/draft-contract.js';
 import { isDeepStrictEqual } from 'node:util';
 import type { DraftExtraction, DraftState } from '../../shared/types/agent.js';
 
@@ -37,4 +40,21 @@ export function unappliedDraftFields(patch: DraftExtraction | undefined, after: 
   return [...leaves(draftValues(patch))].filter(([path, value]) => !path.includes('.extra.') && !isDeepStrictEqual(value, actual.get(path)))
     .map(([field]) => ({ field, reason: 'NOT_RETAINED',
       message: 'The extracted value was not retained in the draft. / 提取出的值未保留在草稿中。' }));
+}
+
+/** A valid applied answer that readiness still rejects is a contract error, not another question. */
+export function unresolvedAppliedFields(patch: DraftExtraction, after: DraftState, critical: string[]) {
+  const supplied = leaves(draftValues(patch));
+  const actual = leaves(draftValues(after));
+  return critical.flatMap(requiredPath => {
+    const required = canonicalDraftPath(requiredPath);
+    const appliedPaths = [...supplied].filter(([path, value]) => {
+      const canonical = canonicalDraftPath(path);
+      const sameFact = canonical === required || canonical.startsWith(required + '.') || canonical.startsWith(required + '[');
+      return sameFact && value != null && isDeepStrictEqual(value, actual.get(path));
+    }).map(([path]) => path);
+    const values = draftFieldValues(withLegacyScalarViews(patch), requiredPath);
+    return appliedPaths.length && values.length && values.every(item => validDraftValue(item.schema, item.value))
+      ? [{ requiredPath, appliedPaths }] : [];
+  });
 }
