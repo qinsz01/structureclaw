@@ -48,7 +48,7 @@ import { conversationUserTexts } from './tools/input-message.js';
 import { isRecord } from './attachments/attachment-analysis.js';
 import { extractContextSeismicWorkflow } from './attachments/ground-motion.js';
 import { toInitialHumanMessage, buildInitialHumanMessagePayload } from './attachments/initial-message.js';
-import type { LangGraphRunInput, LangGraphRunResult } from './service-types.js';
+import type { AttachmentInfo, LangGraphRunInput, LangGraphRunResult } from './service-types.js';
 import { INPUT_REVIEW_TOOLS, type InputReviewTool, RESULT_REVIEW_TOOLS, type ResultReviewTool, clarificationState, inputReviewRevision, conversationJobReferences, sessionRunUsage, conversationJobSnapshots, buildConversationSessionSnapshot, buildInputReview, buildResultReview } from './session/snapshot.js';
 import { getLangGraphRecursionLimit, buildToolAccessPolicy } from './turn-config.js';
 
@@ -304,13 +304,14 @@ export class LangGraphAgentService {
     conversationId: string,
     resumeValue: string,
     signal?: AbortSignal,
+    attachments?: AttachmentInfo[],
   ): AsyncGenerator<AgentStreamChunk> {
     signal?.throwIfAborted();
     const release = await this.sessionLock.acquire(conversationId);
     try {
       signal?.throwIfAborted();
       await this.assertTurnState(conversationId, true);
-      yield* this.resumeStreamUnlocked(conversationId, resumeValue, signal);
+      yield* this.resumeStreamUnlocked(conversationId, resumeValue, signal, attachments);
     } finally { release(); }
   }
 
@@ -338,7 +339,7 @@ export class LangGraphAgentService {
     } finally { release(); }
   }
 
-  private async *resumeStreamUnlocked(conversationId: string, resumeValue: string, signal?: AbortSignal): AsyncGenerator<AgentStreamChunk> {
+  private async *resumeStreamUnlocked(conversationId: string, resumeValue: string, signal?: AbortSignal, attachments?: AttachmentInfo[]): AsyncGenerator<AgentStreamChunk> {
     const traceId = randomUUID();
     const startedAt = new Date().toISOString();
     const reqStart = Date.now();
@@ -346,7 +347,7 @@ export class LangGraphAgentService {
     const graph = await this.getGraph();
 
     const resumedState = (await graph.getState({ configurable: { thread_id: conversationId } })).values as AgentState;
-    const resumeInput = { conversationId, message: resumedState.lastUserMessage ?? '', signal, context: { locale: resumedState.locale ?? 'zh' } };
+    const resumeInput = { conversationId, message: resumedState.lastUserMessage ?? '', signal, context: { locale: resumedState.locale ?? 'zh', attachments } };
     const runtime = await this.prepareRunContext(resumeInput, conversationId, true);
     resetClarificationRecovery(runtime);
     resetClarificationGuards(runtime);
@@ -356,8 +357,21 @@ export class LangGraphAgentService {
     const reqLogger = createAgentLogger(traceId, conversationId);
     reqLogger.info('LangGraph agent resume started');
 
+    const payload = await withRunContext(runtime, () => buildInitialHumanMessagePayload(
+      resumeValue, attachments, resumedState.locale ?? 'zh', this.workspaceRoot, { summarizeImages: true, signal },
+    ));
+    const evidence = payload.attachmentAnalyses.flatMap(({ analysis }) => collectVisionEvidence(analysis));
+    const update: Partial<AgentState> = attachments?.length ? {
+      ...applyInputEvidence(resumedState, evidence),
+      lastUserMessage: payload.canonicalMessage,
+      contextSeismicWorkflow: extractContextSeismicWorkflow({ seismicWorkflow: resumedState.contextSeismicWorkflow ?? undefined }, payload.attachmentAnalyses),
+      ...(resumedState.toolAccessPolicy?.fileAccessAllowlist ? {
+        toolAccessPolicy: { ...resumedState.toolAccessPolicy,
+          fileAccessAllowlist: [...new Set([...resumedState.toolAccessPolicy.fileAccessAllowlist, ...attachments.map(file => file.relPath)])] },
+      } : {}),
+    } : {};
     const stream = await graph.stream(
-      new Command({ resume: resumeValue }),
+      new Command({ resume: payload.canonicalMessage, update }),
       { ...config, streamMode: ['messages', 'updates', 'custom'] as any },
     );
 

@@ -122,6 +122,7 @@ const streamMessageSchema = z.object({
 const resumeStreamSchema = z.object({
   conversationId: z.string().min(1),
   resumeValue: z.string().min(1).max(10000),
+  attachments: streamMessageSchema.shape.context.unwrap().shape.attachments,
 });
 
 const persistMessagesSchema = z.object({
@@ -693,7 +694,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
       catch { /* The durable graph checkpoint remains authoritative if its read fails. */ }
       await persistConversationWithState({ conversationId: body.conversationId, userMessage: body.resumeValue,
         assistantContent: resumeAssistantContent, assistantAborted, traceId: resumeTraceId,
-        assistantPresentation: resumePresentation, state });
+        assistantPresentation: resumePresentation, state, userMessageAttachments: body.attachments });
       resumePersisted = true;
       if (resumeLatestResult) await persistLatestConversationResult({
         conversationId: body.conversationId, latestResult: resumeLatestResult,
@@ -701,7 +702,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
     };
 
     const relay = async (session: SseTurnSession) => {
-      const stream = agentService.resumeStream(body.conversationId, body.resumeValue, session.signal);
+      const stream = agentService.resumeStream(body.conversationId, body.resumeValue, session.signal, body.attachments);
 
       for await (const chunk of stream) {
         if (session.signal.aborted) break;

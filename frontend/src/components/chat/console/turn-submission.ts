@@ -222,6 +222,7 @@ export function createTurnSubmission(state: ConsoleState, mutators: Conversation
             body: JSON.stringify({
               conversationId: nextConversationId,
               resumeValue: trimmedInput,
+              attachments: contextPayload.attachments,
             }),
             signal: abortController.signal,
           })
