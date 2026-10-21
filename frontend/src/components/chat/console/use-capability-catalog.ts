@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '@/lib/stores/context'
 import { API_BASE } from '@/lib/api-base'
-import { ALL_SKILL_DOMAINS, buildSkillNormalizationContext, DEFAULT_CONSOLE_SKILL_IDS } from '@/lib/skill-normalization'
+import { ALL_SKILL_DOMAINS, buildSkillNormalizationContext, defaultCapabilitySkillIds } from '@/lib/skill-normalization'
 import type { AppLocale } from '@/lib/stores/slices/preferences'
 import type { ConversationRuntimeSnapshot } from '../use-conversation-runtime'
 import type { AgentSkillSummary, CapabilityMatrixPayload } from './types'
@@ -38,8 +38,7 @@ export function useCapabilityCatalog(locale: AppLocale, sessionView: Conversatio
   }, [skillNormalization, storeSkillIds, availableSkills])
 
   const defaultSelectedSkillIds = useMemo(() => {
-    const available = new Set(availableSkills.map((skill) => skill.id))
-    return DEFAULT_CONSOLE_SKILL_IDS.filter((skillId) => available.has(skillId))
+    return defaultCapabilitySkillIds(availableSkills)
   }, [availableSkills])
 
   const hasSelectedCodeCheckSkill = useMemo(

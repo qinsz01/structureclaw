@@ -28,8 +28,8 @@ export function loadCapabilityPreferences(): CapabilityPreferenceState | null {
     return {
       skillIds: normalizeStringArray(parsed?.skillIds),
       toolIds: normalizeStringArray(parsed?.toolIds),
-      // Legacy stored selections are retained, including an explicit empty set.
-      explicit: typeof parsed?.explicit === 'boolean' ? parsed.explicit : true,
+      // Only an explicit user confirmation may restrict the default scope.
+      explicit: parsed?.explicit === true,
     }
   } catch {
     return null

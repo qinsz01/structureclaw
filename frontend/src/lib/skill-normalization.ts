@@ -219,3 +219,8 @@ export const DEFAULT_CONSOLE_SKILL_IDS = [
   'validation-structure-model',
   'report-export-builtin',
 ] as const
+
+export function defaultCapabilitySkillIds(skills: SkillMetadataLike[]): string[] {
+  const defaults = new Set<string>(DEFAULT_CONSOLE_SKILL_IDS)
+  return skills.filter(skill => skill.domain === 'structure-type' || defaults.has(skill.id)).map(skill => skill.id)
+}

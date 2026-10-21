@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { API_BASE } from '@/lib/api-base'
-import { ALL_SKILL_DOMAINS, buildSkillNormalizationContext, DEFAULT_CONSOLE_SKILL_IDS, normalizeSkillDomain, type SkillDomain, type SkillMetadataLike } from '@/lib/skill-normalization'
+import { ALL_SKILL_DOMAINS, buildSkillNormalizationContext, defaultCapabilitySkillIds, normalizeSkillDomain, type SkillDomain, type SkillMetadataLike } from '@/lib/skill-normalization'
 import { useI18n, type MessageKey } from '@/lib/i18n'
 import type { AppLocale } from '@/lib/stores/slices/preferences'
 import { useStore } from '@/lib/stores/context'
@@ -146,8 +146,7 @@ export function CapabilitySettingsPanel() {
   }, [capabilityMatrix, locale])
 
   const defaultSelectedSkillIds = useMemo(() => {
-    const available = new Set(availableSkills.map((skill) => skill.id))
-    return [...DEFAULT_CONSOLE_SKILL_IDS].filter((skillId) => available.has(skillId))
+    return defaultCapabilitySkillIds(availableSkills)
   }, [availableSkills])
 
   const defaultSelectedToolIds = useMemo(
@@ -391,6 +390,7 @@ export function CapabilitySettingsPanel() {
             <p className="mt-2 text-sm leading-6 text-muted-foreground">{t('skillSelectionHelp')}</p>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">{t('toolSelectionHelp')}</p>
             <p className="mt-3 text-xs text-muted-foreground">{t('capabilitySelectionDefaultNotice')}</p>
+            {defaultSelectedSkillIds.some(id => !selectedSkillIds.includes(id)) && <p role="status" className="mt-2 text-sm text-foreground">{t('capabilityScopeNarrowed')}: {selectedSkillIds.join(', ') || '∅'}</p>}
           </div>
 
           <div className="rounded-[24px] border border-border/70 bg-background/75 p-5 dark:border-white/10 dark:bg-white/5">
