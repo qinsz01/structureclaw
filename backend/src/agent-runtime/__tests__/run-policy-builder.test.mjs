@@ -5,13 +5,41 @@ import { getStructureModelTemplate } from '../../../dist/agent-skills/structure-
 import { withDeclaredProperties } from '../../../tests/fixtures/declared-template-properties.mjs';
 const llmModule = await import('../../../dist/utils/llm.js');
 let generated = 0;
-jest.unstable_mockModule('../../../dist/utils/llm.js', () => ({ ...llmModule, createChatModel: () => ({ invoke: async () => { generated++; return { content: getStructureModelTemplate() }; } }) }));
+let generatedContent;
+jest.unstable_mockModule('../../../dist/utils/llm.js', () => ({ ...llmModule, createChatModel: () => ({ invoke: async () => { generated++; return { content: generatedContent ?? getStructureModelTemplate() }; } }) }));
 const { AgentSkillRuntime } = await import('../../../dist/agent-runtime/index.js');
 const { tryBuildGenericModelWithLlm } = await import('../../../dist/agent-skills/structure-type/generic/llm-model-builder.js');
 const resolve = requested => resolveRunPolicy({ requested, availableSkillIds: ['test-provider'], availableToolIds: ['build_model'], defaultToolIds: ['build_model'] });
-beforeEach(() => { generated = 0; });
+beforeEach(() => { generated = 0; generatedContent = undefined; });
 
 describe('model builder choice is independent of routing and guidance', () => {
+  test('the tool forwards answered section evidence through generic candidate validation', async () => {
+    const { createBuildModelTool } = await import('../../../dist/agent-langgraph/tools.js');
+    const { createLocalStructureProtocolClient } = await import('../../../dist/skill-shared/structure-protocol-execution.js');
+    const runtime = new AgentSkillRuntime();
+    runtime.registry.resolvePluginForState = async () => ({ id: 'generic', handler: {
+      computeMissing: () => ({ critical: [], optional: [] }), buildModel: () => undefined,
+    } });
+    const model = JSON.parse(getStructureModelTemplate());
+    const section = { id: model.sections[0].id, name: 'Confirmed rectangle', type: 'rectangular',
+      shape: { kind: 'rectangular', B: 250, H: 500 }, extra: { provenance: { shape: 'user' },
+        confirmation: { clarificationId: 'q1', candidateIds: ['c1'] } } };
+    model.sections = [section];
+    generatedContent = JSON.stringify(model);
+    const receipt = { type: 'clarification_answered', clarificationId: 'q1', answer: 'Accept the proposal',
+      sectionCandidates: [{ id: 'c1', sectionId: section.id, field: 'shape', values: { B: 250, H: 500 } }] };
+    const state = { draftState: { inferredType: 'beam', engineeringDraft: {
+      sectionRecords: [section], materials: model.materials,
+    } }, messages: [{ role: 'tool', name: 'ask_user_clarification', content: JSON.stringify(receipt) }], lastUserMessage: 'Accept the proposal' };
+    const result = await withRunContext(createRunContext(resolve({ builder: 'llm', repair: { enabled: false } })),
+      () => createBuildModelTool(runtime).invoke({}, { toolCall: { id: 'confirmed-build', name: 'build_model' },
+        configurable: { agentState: state, structureProtocolClient: createLocalStructureProtocolClient() } }));
+    expect(result.update.model.sections[0].shape).toMatchObject({ B: 250, H: 500 });
+    expect(generated).toBe(1);
+    await expect(createBuildModelTool(runtime).invoke({}, { toolCall: { id: 'unconfirmed-build', name: 'build_model' },
+      configurable: { agentState: { ...state, messages: [] } } }))
+      .rejects.toThrow('SECTION_CONFIRMATION_REQUIRED');
+  }, 20_000);
   test('the registered beam template runs only in auto mode; llm mode invokes the generic builder with the same draft', async () => {
     const runtime = new AgentSkillRuntime();
     const plugin = await runtime.resolvePluginForType('beam', ['beam']);

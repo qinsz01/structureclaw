@@ -2,6 +2,7 @@ import { matchConservativeStructuralRoute } from './structural-routing.js';
 import { prepareEngineeringReport, finishEngineeringReport } from './engineering-report.js';
 import { computeDraftMissing, describeCriticalMissing } from './draft-readiness.js';
 import { assertResolvedInput } from '../engineering/input-evidence.js';
+import type { SectionEvidence } from '../engineering/section-evidence.js';
 import { currentRunPolicy, requestRecovery, recordRunEvent } from '../runtime/run-context.js';
 import type { AppLocale } from '../shared/locale.js';
 import type { LlmTokenUsage, StructureClawChatModel } from '../utils/llm.js';
@@ -436,7 +437,8 @@ export class AgentSkillRuntime {
   async buildModel(
     state: DraftState,
     skillIds?: string[],
-    context?: { message?: string; locale?: AppLocale; currentModel?: Record<string, unknown>; conversationHistory?: string },
+    context?: { message?: string; locale?: AppLocale; currentModel?: Record<string, unknown>; conversationHistory?: string;
+      sectionEvidence?: SectionEvidence },
   ): Promise<Record<string, unknown> | undefined> {
     const policy = currentRunPolicy();
     const { currentDraftDiagnostics, unresolvedDraftFields, isDesignDraftField } = await import('./draft-diagnostics.js');
@@ -489,7 +491,7 @@ export class AgentSkillRuntime {
       }
       return tryBuildGenericModelWithLlm(
         llm, context.message || '', state, context.locale || 'zh', policy?.context.history === 'current-turn' ? undefined : context.conversationHistory, undefined, context.currentModel,
-        candidate => normalizeEngineeringModel(candidate, protocol),
+        candidate => normalizeEngineeringModel(candidate, protocol, undefined, context.sectionEvidence),
       );
     }
 

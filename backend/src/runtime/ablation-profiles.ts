@@ -9,7 +9,7 @@
  */
 import type { RunPolicyInput } from './run-policy-schema.js';
 
-export const ABLATION_PROFILES_VERSION = '2026-10-21.10';
+export const ABLATION_PROFILES_VERSION = '2026-10-21.11';
 
 export const PROFILE_IDS = [
   'full', 'generic-only', 'no-routing', 'no-knowledge', 'no-template-builder', 'no-validation-gate',

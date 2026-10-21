@@ -43,6 +43,7 @@ export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
           locale: state?.locale || 'zh',
           currentModel: state?.model ?? undefined,
           conversationHistory: state?.messages.map((message) => `${messageRole(message)}: ${messageText(message)}`).join('\n'),
+          sectionEvidence: userTexts,
         });
       } catch (error) {
         const { ModelInputRequiredError } = await import('../../agent-skills/structure-type/generic/llm-model-builder.js');
