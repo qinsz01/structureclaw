@@ -1,4 +1,5 @@
 import { describe, expect, test, jest } from '@jest/globals';
+const route = async () => ({ key: 'beam', mappedType: 'beam', skillId: 'beam', supportLevel: 'supported', routingSource: 'llm-suggested' });
 const extract = jest.fn();
 jest.unstable_mockModule('../../../dist/agent-langgraph/param-extractor.js', () => ({ invokeParamExtractor: extract }));
 
@@ -12,7 +13,7 @@ test('design extraction uses the formal schema and rejects bad generated fields 
   expect(contract.$defs.MemberDesign.additionalProperties).toBe(false);
   expect(contract.$defs.MemberDesign.properties.basis.additionalProperties.type).toBe('string');
   const plugin = { id: 'beam', structureType: 'beam', manifest: { structuralTypeKeys: ['beam'] }, handler };
-  const tool = createExtractDraftParamsTool({ resolvePluginForType: async () => plugin });
+  const tool = createExtractDraftParamsTool({ resolvePluginForType: async () => plugin, detectStructuralTypeWithLlm: route });
   const state = { structuralTypeKey: 'beam', draftState: handler.mergeState(undefined, handler.extractDraft({ locale: 'en',
     llmDraftPatch: { engineeringDraft: { structureType: 'beam', geometry: { lengthM: 10 } } } })) };
   const before = structuredClone(state);
@@ -66,7 +67,7 @@ describe('missing engineering input is clarification, not recovery', () => {
     const plugin = { id: 'beam', structureType: 'beam', manifest: { structuralTypeKeys: ['beam'] }, handler };
     extract.mockResolvedValue({ engineeringDraft: { structureType: 'beam', geometry: { lengthM: 10 } } });
     const oldRun = { runId: 'old-run', success: true };
-    const result = await createExtractDraftParamsTool({ resolvePluginForType: async () => plugin }).invoke({ message: '10m beam',
+    const result = await createExtractDraftParamsTool({ resolvePluginForType: async () => plugin, detectStructuralTypeWithLlm: route }).invoke({ message: '10m beam',
       requestScope: { responses: ['forces'], design: false, report: false, outputs: [] } },
     { toolCall: { id: 'accepted-change' }, configurable: { agentState: { structuralTypeKey: 'beam', analysisResult: oldRun, report: { runId: 'old-run' } } } });
     expect(result.update.analysisResult).toBeNull();
@@ -83,7 +84,7 @@ describe('missing engineering input is clarification, not recovery', () => {
     const { createRunContext, withRunContext } = await import('../../../dist/runtime/run-context.js');
     const { resolveRunPolicy } = await import('../../../dist/runtime/run-policy.js');
     const plugin = { id: 'beam', structureType: 'beam', manifest: { structuralTypeKeys: ['beam'] }, handler };
-    const runtime = { resolvePluginForType: async () => plugin };
+    const runtime = { resolvePluginForType: async () => plugin, detectStructuralTypeWithLlm: route };
     const context = createRunContext(resolveRunPolicy({ availableSkillIds: ['beam'], availableToolIds: ['extract_draft_params', 'ask_user_clarification'], defaultToolIds: ['extract_draft_params', 'ask_user_clarification'],
       requested: { repair: { enabled: false } } }));
     const scope = { responses: ['forces', 'reactions'], design: true, report: false, outputs: [] };
@@ -110,7 +111,7 @@ describe('missing engineering input is clarification, not recovery', () => {
     const { createRunContext, withRunContext } = await import('../../../dist/runtime/run-context.js');
     const { resolveRunPolicy } = await import('../../../dist/runtime/run-policy.js');
     const plugin = { id: 'beam', structureType: 'beam', manifest: { structuralTypeKeys: ['beam'] }, handler };
-    const runtime = { resolvePluginForType: async () => plugin };
+    const runtime = { resolvePluginForType: async () => plugin, detectStructuralTypeWithLlm: route };
     const policy = resolveRunPolicy({ availableSkillIds: ['beam'], availableToolIds: ['extract_draft_params', 'ask_user_clarification'], defaultToolIds: ['extract_draft_params', 'ask_user_clarification'], requested: { repair: { enabled, maxRecoveriesPerTurn: 2 } } });
     const context = createRunContext(policy);
     extract.mockClear();
@@ -131,7 +132,7 @@ describe('missing engineering input is clarification, not recovery', () => {
     extract.mockClear();
     extract.mockResolvedValue({ engineeringDraft: { structureType:'beam', geometry:{lengthM:10}, boundary:{supportType:'simply-supported'},
       loads:[{kind:'point',magnitude:1,unit:'kN',location:{xM:5}}] }, requestScope:{design:true,responses:[]} });
-    const result=await createExtractDraftParamsTool({resolvePluginForType:async()=>plugin}).invoke({message:'10m beam, 1kN at midspan',locale},
+    const result=await createExtractDraftParamsTool({resolvePluginForType:async()=>plugin,detectStructuralTypeWithLlm:route}).invoke({message:'10m beam, 1kN at midspan',locale},
       {toolCall:{id:'unknown-goal'},configurable:{agentState:{structuralTypeKey:'beam'}}});
     const output=JSON.parse(result.update.messages[0].content);
     expect(output.criticalMissing).toEqual(['requestScope']);

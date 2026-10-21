@@ -87,8 +87,8 @@ describeWithOpenSees('characterization: clarification interrupt and resume', () 
       { tool: 'ask_user_clarification', status: 'done' }, { tool: 'extract_draft_params', status: 'done' },
       { tool: 'build_model', status: 'done' }, { tool: 'run_analysis', status: 'done' }]);
     expect(eventSignature(resumed.events)).toMatchSnapshot('resume-turn-sse-event-sequence');
-    // The existing draft is reused: no second router call, the answer is the extractor input.
-    expect(resumed.requests.map(request => request.kind).filter(kind => kind !== 'agent')).toEqual(['param-extractor']);
+    // A new answer is routed by the LLM with the existing draft as context.
+    expect(resumed.requests.map(request => request.kind).filter(kind => kind !== 'agent')).toEqual(['structural-router', 'param-extractor']);
     expect(extractorPrompts).toHaveLength(2);
     expect(extractorPrompts[1]).toContain(ANSWER);
     expect(extractorPrompts[1]).toMatch(/"lengthM":\s*8/);

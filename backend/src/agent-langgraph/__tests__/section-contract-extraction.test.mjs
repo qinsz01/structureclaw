@@ -11,7 +11,8 @@ const client = createLocalStructureProtocolClient();
 const contract = await engineeringModelSchema(client);
 const shapeSchema = draftSectionShapeSchema(contract);
 const plugin = { id: 'beam', structureType: 'beam', manifest: { structuralTypeKeys: ['beam'] }, handler };
-const tool = createExtractDraftParamsTool({ resolvePluginForType: async () => plugin });
+const tool = createExtractDraftParamsTool({ resolvePluginForType: async () => plugin,
+    detectStructuralTypeWithLlm: async () => ({ key: 'beam', mappedType: 'beam', skillId: 'beam', supportLevel: 'supported', routingSource: 'llm-suggested' }) });
 const requestScope = { responses: ['forces', 'displacements'], design: true, report: false, outputs: [] };
 const source = { structureType: 'beam', geometry: { lengthM: 10 }, boundary: { supportType: 'simply-supported' },
   material: { family: 'steel', grade: 'Q235B' }, sections: { beam: 'HW300×300×10×15' },
