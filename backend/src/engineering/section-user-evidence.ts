@@ -112,6 +112,11 @@ export function enforceSectionUserEvidence(section: Record<string, unknown>, inp
       nextProvenance[field] = 'user';
       matchedSources.set(field, 'user');
     }
+    // Parser evidence establishes provenance even when extraction omitted its redundant label.
+    if (provenance[field] == null && numbers.length
+      && numbers.every(([key, value]) => supported(field, key, value)) && matchedSources.get(field) === 'attachment') {
+      nextProvenance[field] = 'attachment';
+    }
     if (!['user', 'attachment', 'rule'].includes(String(nextProvenance[field]))) continue;
     for (const [key, value] of Object.entries(section[field])) {
       if (typeof value !== 'number') continue;

@@ -12,6 +12,16 @@ const table = fileInputEvidence({ type: 'csv', success: true, headers: ['id', 'H
   rows: [['S1', '200', '100', '7', '11.4']], source: { parser: 'csv-parse', sha256: 'table-sha' } }, 'sections.csv');
 
 describe('section evidence boundary', () => {
+  test('verified table values bind without an extractor provenance label', () => {
+    const raw = { id: 'S1', shape, extra: { source: 'sections.csv' } };
+    const adopted = enforceSectionProvenance(raw, { userTexts: [], inputEvidence: table });
+    expect(adopted.extra.provenance.shape).toBe('attachment');
+    expect(adopted.extra.evidence['shape.H'].evidenceId).toBe(table[0].id);
+    expect(unresolvedInputEvidence(bindVerifiedSectionTable([adopted], table))).toEqual([]);
+    expect(raw.extra).toEqual({ source: 'sections.csv' });
+    const changed = enforceSectionProvenance({ ...raw, shape: { ...shape, H: 999 } }, { userTexts: [], inputEvidence: table });
+    expect(changed.extra.provenance?.shape).not.toBe('attachment');
+  });
   test('parsed table values are attached to parser records without a confirmation question', () => {
     const context = { userTexts: ['Use the attached section table.'], inputEvidence: table };
     const adopted = enforceSectionProvenance(section('attachment'), context);
