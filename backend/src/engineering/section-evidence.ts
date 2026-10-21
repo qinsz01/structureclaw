@@ -1,5 +1,5 @@
 import { contentHash, isRecord, type ModelRecord } from './model-record.js';
-import { activeInputEvidence } from './input-evidence.js';
+import { activeInputEvidence, mergeInputEvidence, modelFieldUnit } from './input-evidence.js';
 
 export const SECTION_EVIDENCE_RULE = '\nSection evidence / 截面证据: Parsed attachment numbers are supplied input: mark extra.provenance.shape/properties="attachment"; extra.evidence may cite each numeric field, e.g. {"properties.A":{evidenceId:"file:...",path:"rows.0.1",unit:"m2"}}. The system verifies parser candidates; image values require a reviewed observation. For free-text acceptance of offered candidates, use extra.confirmation={clarificationId,candidateIds:[...]}, using ONLY the answered clarification receipt; confirmation covers exactly its stored values. For a stated ratio use extra.provenance.properties="rule" and extra.rules={"properties.Iy":{sourceSectionId:"B1",sourceField:"properties.Iy",factor:1.5,statement:"verbatim user rule"}}; the system recomputes from evidenced inputs. Never promote unconfirmed recall. / 附件解析数值属于输入，来源标 attachment，可逐字段引用解析证据ID与路径；图像必须已有复核观察记录。无数字的确认由语义理解后用 extra.confirmation 关联已回答的澄清ID和候选ID，仅确认原候选值。比例规则记录来源截面、字段、倍数及用户原文，系统用已证实输入重算；未确认记忆值不得进入求解。';
 
@@ -51,4 +51,54 @@ export function confirmedSectionValue(section: ModelRecord, field: string, key: 
         && binding.candidateIds.includes(candidate.id);
       return selected || accepted;
     }));
+}
+
+/** Complete numeric tables need no second semantic review after every cell has a verified field citation. */
+export function bindVerifiedSectionTable(sections: ModelRecord[], evidence: ModelRecord[] = []): ModelRecord[] {
+  const candidates = attachmentSectionCandidates(evidence);
+  const sourceKey = (source: unknown) => {
+    const record = isRecord(source) ? source : {};
+    return contentHash([record.file, record.sha256, record.parser, record.sheet]);
+  };
+  const mapped = new Map<string, { paths: Set<string>; fields: Set<string> }>();
+  const additions: ModelRecord[] = [];
+  for (const section of sections) {
+    const extra = isRecord(section.extra) ? section.extra : {};
+    const provenance = isRecord(extra.provenance) ? extra.provenance : {};
+    for (const [field, citation] of Object.entries(isRecord(extra.evidence) ? extra.evidence : {})) {
+      const [group, key] = field.split('.');
+      if (provenance[group!] !== 'attachment' || !isRecord(citation) || !isRecord(section[group!])) continue;
+      const value = (section[group!] as ModelRecord)[key!];
+      const candidate = candidates.find(item => item.evidenceId === citation.evidenceId && item.path === citation.path);
+      if (!candidate || typeof value !== 'number') continue;
+      const unit = modelFieldUnit(['sections', group!, key!]);
+      if (!unit) continue;
+      const modelField = `sections.${section.id}.${field}`;
+      const binding = mapped.get(sourceKey(candidate.source)) ?? { paths: new Set<string>(), fields: new Set<string>() };
+      binding.paths.add(String(candidate.path)); binding.fields.add(modelField);
+      mapped.set(sourceKey(candidate.source), binding);
+      if (evidence.some(item => item.field === modelField && item.status === 'observed')) continue;
+      const observed = { field: modelField, status: 'observed', required: true, value, unit,
+        source: { ...(isRecord(candidate.source) ? candidate.source : {}), path: candidate.path,
+          ...(candidate.row !== undefined ? { row: candidate.row, column: candidate.column } : {}) } };
+      additions.push({ ...observed, id: `section-map:${contentHash(observed)}` });
+    }
+  }
+  const active = activeInputEvidence(evidence);
+  for (const field of new Set(active.filter(record => record.requirement === 'field-mapping').map(record => record.field))) {
+    const records = active.filter(record => record.field === field);
+    if (records.some(record => record.status === 'resolved')) continue;
+    const complete = records.every(record => {
+      const binding = mapped.get(sourceKey(record.source));
+      return binding && isRecord(record.source) && record.source.complete === true && Array.isArray(record.candidates)
+        && record.candidates.length > 0 && record.candidates.every(candidate => isRecord(candidate) && binding.paths.has(String(candidate.path)));
+    });
+    if (!complete) continue;
+    const fields = [...new Set(records.flatMap(record => [...mapped.get(sourceKey(record.source))!.fields]))];
+    const resolved = { field, status: 'resolved', required: true, source: records[0]!.source,
+      resolution: { value: 'mapped', mappedFields: fields, evidenceHashes: records.map(contentHash),
+        reason: 'Every numeric parser candidate has a verified section field citation / 每个数值解析候选均已绑定核实的截面字段' } };
+    additions.push({ ...resolved, id: `section-map:${contentHash(resolved)}` });
+  }
+  return mergeInputEvidence(evidence, additions)!;
 }

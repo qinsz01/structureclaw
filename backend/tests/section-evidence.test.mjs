@@ -3,7 +3,8 @@ import { fileInputEvidence } from '../dist/engineering/file-evidence.js';
 import { enforceSectionProvenance, assertConfirmedSectionInputs } from '../dist/engineering/section-provenance.js';
 import { conversationSectionEvidence } from '../dist/agent-langgraph/tools/input-message.js';
 import { parseVisionEvidence } from '../dist/engineering/vision-evidence.js';
-import { mergeInputEvidence } from '../dist/engineering/input-evidence.js';
+import { bindVerifiedSectionTable } from '../dist/engineering/section-evidence.js';
+import { mergeInputEvidence, unresolvedInputEvidence, assertInputEvidenceMatchesModel } from '../dist/engineering/input-evidence.js';
 
 const shape = { kind: 'I', H: 200, B: 100, tw: 7, tf: 11.4 };
 const section = (source = 'user') => ({ id: 'S1', shape, extra: { provenance: { shape: source } } });
@@ -21,6 +22,21 @@ describe('section evidence boundary', () => {
     expect(() => assertConfirmedSectionInputs({ sections: [adopted] }, { ...context, inputEvidence: [] })).toThrow('SECTION_CONFIRMATION_REQUIRED');
     expect(() => assertConfirmedSectionInputs({ sections: [adopted] }, { ...context,
       inputEvidence: table.map(record => ({ ...record, id: 'invented-parser-record' })) })).toThrow('SECTION_CONFIRMATION_REQUIRED');
+  });
+
+  test('verified citations resolve only completely consumed numeric tables', () => {
+    const adopted = enforceSectionProvenance(section('attachment'), { userTexts: [], inputEvidence: table });
+    const bound = bindVerifiedSectionTable([adopted], table);
+    expect(unresolvedInputEvidence(bound)).toEqual([]);
+    expect(() => assertInputEvidenceMatchesModel({ sections: [adopted] }, bound)).not.toThrow();
+    expect(bindVerifiedSectionTable([adopted], bound)).toEqual(bound);
+    const partial = { ...adopted, extra: { ...adopted.extra, evidence: { 'shape.H': adopted.extra.evidence['shape.H'] } } };
+    expect(unresolvedInputEvidence(bindVerifiedSectionTable([partial], table))).not.toEqual([]);
+    const truncated = fileInputEvidence({ type: 'csv', headers: ['H (mm)'], rows: [[200]], truncated: true,
+      source: { parser: 'csv-parse', sha256: 'truncated' } }, 'partial.csv');
+    const one = enforceSectionProvenance({ id: 'S1', shape: { H: 200 }, extra: { provenance: { shape: 'attachment' } } },
+      { userTexts: [], inputEvidence: truncated });
+    expect(unresolvedInputEvidence(bindVerifiedSectionTable([one], truncated))).not.toEqual([]);
   });
 
   test.each(['确认', '按附表', 'use these'])('a recorded option selection accepts precisely its candidates: %s', answer => {

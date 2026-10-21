@@ -208,7 +208,7 @@ function readModelField(model: ModelRecord, field: string, allowMissing = false)
 }
 
 /** V2 unit declarations; unknown numeric fields require an explicit implementation. */
-function modelFieldUnit(route: string[]): string | undefined {
+export function modelFieldUnit(route: string[]): string | undefined {
   const path = route.join('.');
   if (/^nodes\.[xyz]$|^elements\.offsets\.[ij]_[xyz]$|^stories\.(height|elevation)$|^load_cases\.loads\.(position|start|end)$/.test(path)) return 'm';
   if (/^nodes\.mass$/.test(path)) return 'tonne';

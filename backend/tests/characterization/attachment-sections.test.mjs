@@ -31,7 +31,7 @@ describeWithOpenSees('characterization: section table evidence', () => {
       'param-extractor': () => {
         extracts++;
         const sectionInputs = { sectionRecords: [{ id: 'S1', type: 'custom', name: 'Table S1', properties,
-          extra: { provenance: { properties: 'attachment' } } }], inputEvidence,
+          extra: { provenance: { properties: 'attachment' } } }], ...(twoTurns ? { inputEvidence } : {}),
           templateAssignments: { beam: { materialId: 'M1', sectionId: 'S1' } } };
         return extracts > 1 ? { engineeringDraft: sectionInputs } : { requestScope: scope, engineeringDraft: {
           structureType: 'beam', geometry: { lengthM: 6 }, boundary: { supportType: 'simply-supported' },
