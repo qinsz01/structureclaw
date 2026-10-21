@@ -351,7 +351,8 @@ function declaresSection(state: DraftState): boolean {
 export function stiffnessPlaceholderUses(state: DraftState): { material: boolean; section: boolean } {
   const draft = state.engineeringDraft;
   const scope = state.requestScope as RequestScope | undefined;
-  if (!forceOnlyScope(scope) || draft?.analysisControl?.self_weight === true || draft?.analysis?.engineTarget
+  if (!forceOnlyScope(scope) || draft?.analysisControl?.self_weight === true
+    || draft?.analysis?.engineTarget && draft.analysis.engineTarget !== 'opensees'
     || (draft?.analysis?.type && draft.analysis.type !== 'static')) return { material: false, section: false };
   return { material: !declaresMaterial(state), section: !declaresSection(state) };
 }

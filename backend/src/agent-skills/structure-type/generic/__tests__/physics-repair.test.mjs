@@ -37,10 +37,11 @@ describe('generic physics repair and shared completion', () => {
     expect(model.sections[0].shape).toEqual(fixture.model.sections[0].shape);
     expect(model.sections[0].properties).toBeUndefined();
   });
-  test('force-only topology gets the same labelled unit stiffness and excludes self-weight', async () => {
+  test.each([undefined, 'opensees'])('force-only topology with engine %s gets host unit stiffness and excludes self-weight', async engineTarget => {
     const candidate = structuredClone(fixture.model); candidate.materials = []; candidate.sections = [];
     const model = await tryBuildGenericModelWithLlm({ invoke: async () => ({ content: JSON.stringify(candidate) }) }, 'Forces only.', {
-      ...state, requestScope: { responses: ['forces', 'reactions'], design: false, report: false, outputs: [] },
+      ...state, engineeringDraft: { analysis: { type: 'static', ...(engineTarget ? { engineTarget } : {}) } },
+      requestScope: { responses: ['forces', 'reactions'], design: false, report: false, outputs: [] },
     }, 'en');
     expect(model.materials[0].E).toBe(1);
     expect(model.metadata.stiffnessPlaceholder).toMatchObject({ material: true, section: true });
