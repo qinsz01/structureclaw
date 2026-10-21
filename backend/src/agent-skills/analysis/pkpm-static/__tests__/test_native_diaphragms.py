@@ -72,7 +72,7 @@ def test_mpc_cannot_be_inferred_from_incomplete_or_conflicting_evidence(native, 
 def test_rigid_floor_is_explicit_and_does_not_create_a_slab(tmp_path):
     assert resolved_rigid_floor({'stories': [{'rigid_diaphragm': True}]}) is True
     integers, _ = control_parameters({'rigid_floor': True})
-    assert integers == {606: 1, 607: 0}
+    assert integers == {601: 1, 606: 1, 607: 0, 608: 0, 609: 0, 641: 0}
     for model in ({'stories': [{'rigid_diaphragm': True}, {'rigid_diaphragm': False}]},
                   {'stories': [{'rigid_diaphragm': True}, {}]},
                   {'analysis_control': {'rigid_floor': True}, 'stories': [{'rigid_diaphragm': False}]}):

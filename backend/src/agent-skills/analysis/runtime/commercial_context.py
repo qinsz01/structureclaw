@@ -37,6 +37,8 @@ def project_commercial_model(source: dict, engine: str) -> dict:
             from structure_protocol.section_properties import validate_derived_section_metadata
             validate_derived_section_metadata(section)
     analysis = copy.deepcopy(source)
+    from native_defaults import apply_native_defaults
+    assumptions = apply_native_defaults(analysis, engine)
     separated = {}
     for collection, fields in (("materials", MATERIAL_DESIGN_FIELDS), ("elements", MEMBER_DESIGN_FIELDS)):
         for row in analysis.get(collection, []):
@@ -62,7 +64,7 @@ def project_commercial_model(source: dict, engine: str) -> dict:
     }
     return {"schema": "sclaw-commercial-projection/v1", "engine": engine,
             "sourceModelHash": content_hash(source), "analysisModelHash": content_hash(analysis),
-            "analysisModel": analysis, "designInputs": design_inputs,
+            "analysisModel": analysis, "designInputs": design_inputs, "assumptions": assumptions,
             "designInputsHash": content_hash(design_inputs)}
 
 
@@ -119,6 +121,8 @@ def build_native_design_context(source: dict, projection: dict, *, native_projec
 def attach_native_design_context(result: dict, source: dict, projection: dict, *,
                                  native_project: str, parameters: dict, representation: dict | None = None) -> dict:
     result["modelProjection"] = {key: value for key, value in projection.items() if key != "analysisModel"}
+    result["assumptions"] = [*result.get("assumptions", []), *projection.get("assumptions", []),
+                             *source.get("metadata", {}).get("materialDefaultAssumptions", [])]
     context = build_native_design_context(source, projection, native_project=native_project,
                                          parameters=parameters, representation=representation)
     result["nativeDesignContext"] = context

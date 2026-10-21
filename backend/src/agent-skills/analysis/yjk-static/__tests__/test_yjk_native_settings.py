@@ -10,6 +10,17 @@ settings = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(settings)
 
 
+def test_omitted_controls_are_off_and_partial_story_diaphragms_are_rejected():
+    import pytest
+    plan = settings.compile_settings({})
+    assert set(plan["controls"].values()) == {False}
+    assert plan["parameters"]["int"]["606"] == 0
+    assert plan["parameters"]["int"]["609"] == 0
+    assert plan["parameters"]["int"]["650"] == 0
+    with pytest.raises(ValueError, match="mixed diaphragm"):
+        settings.compile_settings({"stories": [{"rigid_diaphragm": True}, {}]})
+
+
 class NativeAPI:
     """The official getters return strings, including an empty unset value."""
     def __init__(self):

@@ -144,6 +144,17 @@ async def analyze(request: AnalysisRequest) -> AnalysisResponse:
     try:
         logger.info(f"Starting {request.type} analysis")
         result = engine_registry.run_analysis(request.type, request.model, request.parameters, request.engine_id)
+        assumptions = result.setdefault("assumptions", [])
+        assumptions.extend(item for item in request.model.metadata.get("materialDefaultAssumptions", []) if item not in assumptions)
+        mapping = request.model.metadata.get("sourceFrameMapping")
+        if mapping:
+            from structure_protocol.axis_mapping import results_in_source_frame
+            views = [result, *(entry["data"] for entry in result.get("nativeResultSet", {}).get("results", {}).values()
+                               if entry.get("success"))]
+            for view in views:
+                view["sourceFrameResults"] = results_in_source_frame(
+                    {key: view[key] for key in ("displacements", "reactions", "caseResults", "combinationResults") if key in view},
+                    mapping["sourceFrame"])
 
         logger.info(f"Analysis completed successfully")
         now = datetime.now(timezone.utc).isoformat()

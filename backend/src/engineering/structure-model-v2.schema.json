@@ -2602,6 +2602,29 @@
     "coordinate_system": {
       "$ref": "#/$defs/CoordinateSystemV2"
     },
+    "source_frame": {
+      "anyOf": [
+        {
+          "enum": [
+            "y-up",
+            "z-up"
+          ],
+          "type": "string"
+        },
+        {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Declared source axes, mapped once to global Z-up; e.g. {x:x,y:z,z:-y} / 声明源坐标轴，由系统统一转换为 Z 向上",
+      "title": "Source Frame"
+    },
     "project": {
       "anyOf": [
         {

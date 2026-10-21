@@ -362,6 +362,7 @@ ${promptLine("en", "answers", features)}
 - When a user uploads a file, its relPath is passed in the conversation context. Call analyze_file first to retrieve the file content.
 - After analyze_file returns CSV/Excel tabular data, call extract_draft_params to map the data to structural parameters.
 - Image attachments are parsed into text summaries by the independent vision model before reaching the main agent; the main agent uses only those summaries and parsed text. If analyze_file returns image metadata or base64DataUri, do not pass it as image_url to the standard model; ask for missing information when no vision summary is available.
+- Declare known source axes with model.source_frame ("y-up" or right-handed signed x/y/z axes); the model boundary converts them to global Z-up / 已知源坐标系用 source_frame 声明，由模型边界转换。
 - DXF coordinates returned by analyze_file remain in the source drawing frame. Confirm plan/elevation/3D WCS from the request and labels before mapping axes: elevation source X/Y maps to global X/Z with global Y=0; plan source X/Y maps to global X/Y with Z supplied by an explicit story; source X/Y/Z is usable for 3D only when its WCS and vertical axis are documented. Ask when view, units, or axis mapping is ambiguous; never infer 3D from nonzero source Y or silently swap Y/Z. Then call extract_draft_params.
 - After analyze_file returns PDF text, extract dimensions, loads, and materials by LLM semantic understanding, then call extract_draft_params; do not replace semantic understanding with keyword or regex matching.
 

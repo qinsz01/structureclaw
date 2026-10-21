@@ -25,6 +25,9 @@ from pkpm_static_runtime import _verify_native_completion
 
 
 class NativeSettingsTest(unittest.TestCase):
+    def test_omitted_controls_compile_to_off(self):
+        self.assertEqual(control_parameters({}), ({601: 1, 606: 0, 608: 0, 609: 0, 641: 0}, {801: 0., 803: 0.}))
+
     def test_compact_enums_and_zero_weights_are_distinct_from_option_ids(self):
         ints, doubles = control_parameters(dict.fromkeys(
             ("self_weight", "rigid_floor", "p_delta", "rigid_offsets", "construction_stage"), False))

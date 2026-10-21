@@ -131,7 +131,7 @@ export function buildWindRecord(input: DraftWindParams | undefined): Record<stri
 export function buildAnalysisControlRecord(input: DraftAnalysisControl | undefined, includeDefaults = true): Record<string, unknown> | undefined {
   const base: Record<string, unknown> = {
     ...((includeDefaults || input?.pDelta !== undefined) && { p_delta: input?.pDelta ?? false }),
-    ...((includeDefaults || input?.rigidFloor !== undefined) && { rigid_floor: input?.rigidFloor ?? true }),
+    ...((includeDefaults || input?.rigidFloor !== undefined) && { rigid_floor: input?.rigidFloor ?? false }),
     ...((includeDefaults || input?.considerationTorsion !== undefined) && { consideration_torsion: input?.considerationTorsion ?? true }),
   };
   if (input?.periodReductionFactor !== undefined) base.period_reduction_factor = input.periodReductionFactor;

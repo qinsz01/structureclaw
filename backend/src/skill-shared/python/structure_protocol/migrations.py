@@ -403,7 +403,14 @@ def ensure_v2_dict(model: Dict[str, Any]) -> Dict[str, Any]:
     V2-specific top-level keys (project, stories, etc.) are left absent so
     that StructureModelV2 will apply its own defaults during validation.
     """
-    migrated = deepcopy(model)
+    from .axis_mapping import canonicalize_source_frame
+    migrated = canonicalize_source_frame(model)
+    from .material_defaults import apply_grade_defaults
+    assumptions = apply_grade_defaults(migrated.get("materials", []))
+    if assumptions:
+        migrated.setdefault("metadata", {}).setdefault("materialDefaultAssumptions", []).extend(assumptions)
+    if model.get("source_frame") is not None:
+        _stamp_coordinate_contract(migrated)
     version = str(migrated.get("schema_version", "1.0.0"))
     if version.startswith("2"):
         if not isinstance(migrated.get("coordinate_system"), dict):

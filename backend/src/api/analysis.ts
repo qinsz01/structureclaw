@@ -29,6 +29,7 @@ export const createAnalysisSchema = z.object({
 const createModelSchema = z.object({
   name: z.string().min(1),
   conversationId: z.string().optional(),
+  source_frame: z.union([z.enum(['y-up', 'z-up']), z.record(z.string(), z.string())]).optional(),
   coordinate_system: z.object({
     semantics: z.literal('global-z-up'),
     version: z.literal(1),
@@ -49,7 +50,7 @@ const createModelSchema = z.object({
     if (value.dimension === '3d' && value.plane !== null) {
       context.addIssue({ code: 'custom', message: 'Canonical 3-D models cannot declare a 2-D plane' });
     }
-  }),
+  }).optional(),
   nodes: z.array(z.object({
     id: z.string(),
     x: z.number(),
@@ -67,15 +68,19 @@ const createModelSchema = z.object({
   materials: z.array(z.object({
     id: z.string(),
     name: z.string(),
-    E: z.number(),
-    nu: z.number(),
-    rho: z.number(),
+    E: z.number().optional(),
+    nu: z.number().optional(),
+    rho: z.number().optional(),
     fy: z.number().optional(),
   }).passthrough()),
   sections: z.array(z.any()),
   load_cases: z.array(z.record(z.string(), z.unknown())).optional(),
   load_combinations: z.array(z.record(z.string(), z.unknown())).optional(),
-}).passthrough();
+}).passthrough().superRefine((value, context) => {
+  if (!value.coordinate_system && !value.source_frame) {
+    context.addIssue({ code: 'custom', message: 'Declare coordinate_system or source_frame / 请声明坐标系', path: ['coordinate_system'] });
+  }
+});
 
 export const codeCheckSchema = z.object({
   provider: z.enum(['auto', 'native', 'builtin']).optional(),
