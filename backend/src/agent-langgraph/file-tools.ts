@@ -30,7 +30,7 @@ import { normalizeEngineeringModel } from '../engineering/model-boundary.js';
 import { conversationUserTexts } from './tools/input-message.js';
 import { commitModel } from '../engineering/model-state.js';
 import { fileInputEvidence } from '../engineering/file-evidence.js';
-import { mergeInputEvidence } from '../engineering/input-evidence.js';
+import { bindImportedModelEvidence, mergeInputEvidence } from '../engineering/input-evidence.js';
 
 const UPLOAD_DIR = path.join(runtimeBaseDir, '.uploads');
 const MAX_READ_BYTES = 10 * 1024 * 1024; // 10 MB cap for analysis
@@ -502,6 +502,10 @@ export function createAnalyzeFileTool() {
       const parsed = summarize ? await summarize(analysis, input.filePath, config.signal) : analysis;
       delete parsed.base64DataUri;
       const evidence = collectVisionEvidence(parsed);
+      if (input.importModel && isRecord(workflowUpdate.model) && isRecord(analysis.source) && typeof analysis.source.sha256 === 'string') {
+        workflowUpdate.inputEvidence = bindImportedModelEvidence(workflowUpdate.model,
+          mergeInputEvidence(configurable.agentState?.inputEvidence, evidence) ?? [], analysis.source.sha256);
+      }
       const toolCallId = (config as LangGraphRunnableConfig & { toolCall?: { id: string } }).toolCall?.id;
       if ((evidence.length || input.importModel) && toolCallId) return new Command({ update: { ...workflowUpdate, ...applyInputEvidence({ ...configurable.agentState, ...workflowUpdate }, evidence),
         messages: [new ToolMessage({ name: 'analyze_file', tool_call_id: toolCallId, content: JSON.stringify(parsed) })] } });

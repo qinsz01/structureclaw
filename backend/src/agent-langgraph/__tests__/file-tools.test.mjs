@@ -169,6 +169,12 @@ describe('createAnalyzeFileTool', () => {
     });
     expect(imported.update.modelRevision).toBe(1);
     expect(imported.update.model.nodes).toHaveLength(fixture.nodes.length);
+    const { assertInputEvidenceMatchesModel } = await import('../../../dist/engineering/input-evidence.js');
+    expect(() => assertInputEvidenceMatchesModel(imported.update.model, imported.update.inputEvidence)).not.toThrow();
+    const changed = structuredClone(imported.update.model);
+    changed.nodes[0].x += 1;
+    expect(() => assertInputEvidenceMatchesModel(changed, imported.update.inputEvidence)).toThrow('INPUT_EVIDENCE_IMPORTED_MODEL_CHANGED');
+
     await fs.writeFile(file, JSON.stringify({ schema_version: '2.2.0', nodes: 'invalid' }));
     const invalid = await analyzeUploadedFile(file, tmpDir);
     expect(invalid.modelValidationError).toBeTruthy();

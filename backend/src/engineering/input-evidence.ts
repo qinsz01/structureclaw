@@ -1,4 +1,4 @@
-import { contentHash, isRecord, type ModelRecord } from './model-record.js';
+import { contentHash, modelHash, isRecord, type ModelRecord } from './model-record.js';
 
 function evidenceField(item: ModelRecord): string {
   return typeof item.field === 'string' ? item.field : String(item.id ?? 'input');
@@ -45,6 +45,15 @@ export function activeInputEvidence(value: unknown): ModelRecord[] {
 
 function assertSourceResolution(field: string, records: ModelRecord[], active: ModelRecord[], resolution: ModelRecord): void {
   if (resolution.modelField !== undefined || !field.startsWith('file:')) return;
+  if (isRecord(resolution.modelImport)) {
+    const imported = resolution.modelImport;
+    if (typeof imported.modelHash !== 'string' || !Array.isArray(imported.sourceIds)
+      || !imported.sourceIds.length || imported.sourceIds.some(id => !records.some(record => record.id === id
+        && isRecord(record.source) && record.source.complete === true && record.source.sha256 === imported.sha256))) {
+      throw new Error('MODEL_IMPORT_COMPLETE_SOURCE_REQUIRED / 导入模型需要完整且一致的来源证据');
+    }
+    return;
+  }
   if (isRecord(resolution.analysisInput)) {
     const binding = resolution.analysisInput;
     const reference = isRecord(binding.parameters) && isRecord(binding.parameters.fileReference) ? binding.parameters.fileReference : {};
@@ -178,6 +187,21 @@ export function assertAnalysisInputEvidenceMatchesRequest(evidence: unknown, wor
 
 const modelCollections = new Set(['nodes', 'elements', 'materials', 'sections', 'stories', 'load_cases', 'load_combinations']);
 const modelSingletons = new Set(['analysis_control', 'site_seismic', 'structure_system', 'wind', 'coordinate_system']);
+
+export function bindImportedModelEvidence(model: ModelRecord, evidence: ModelRecord[], sha256: string): ModelRecord[] {
+  const sources = evidence.filter(item => item.requirement === 'field-mapping' && evidenceField(item).startsWith('file:')
+    && isRecord(item.source) && item.source.sha256 === sha256 && item.source.complete === true);
+  const fields = [...new Set(sources.map(evidenceField))];
+  const receipts = fields.map(field => {
+    const receipt = { field, status: 'resolved', required: true, resolution: {
+      reason: 'Validated StructureModel imported through the model boundary / 已经模型边界验证并导入完整结构模型',
+      value: 'imported-model', modelImport: { sha256, modelHash: modelHash(model),
+        sourceIds: sources.filter(item => evidenceField(item) === field).map(item => item.id) },
+    } };
+    return { id: `model-import:${contentHash(receipt)}`, ...receipt };
+  });
+  return mergeInputEvidence(evidence, receipts) ?? evidence;
+}
 const unsafeKeys = new Set(['__proto__', 'prototype', 'constructor']);
 export function isCanonicalModelField(field: string): boolean {
   const root = field.split('.')[0]!;
@@ -297,6 +321,9 @@ export function assertInputEvidenceMatchesModel(model: ModelRecord, evidence: un
       throw new Error(`INPUT_EVIDENCE_MODEL_FIELD_REQUIRED: ${field} / 必需识别值尚未绑定到稳定模型字段`);
     }
     const resolution = latest < 0 ? {} : records[latest]!.resolution as ModelRecord;
+    if (isRecord(resolution.modelImport) && resolution.modelImport.modelHash !== modelHash(model)) {
+      throw new Error('INPUT_EVIDENCE_IMPORTED_MODEL_CHANGED / 已导入模型已改变，须重新复核来源映射');
+    }
     if (resolution.modelField === undefined && field.startsWith('file:')) continue;
     if (resolution.modelField === undefined && /^coverage\.(geometry|connectivity|supports|loads|materials|sections)$/.test(field)) continue;
     if (canonical && resolution.modelField !== undefined && resolution.modelField !== field) throw new Error(`INPUT_EVIDENCE_MODEL_FIELD_CONFLICT: ${field}`);
