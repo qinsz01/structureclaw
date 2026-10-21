@@ -47,15 +47,15 @@ test('a valid applied field cannot remain critical; unrelated and invalid values
 });
 
 // Enumerate critical keys from both readiness phases and 2D/3D branches; no hardcoded list of missing keys.
-for (const id of ids) for (const dimension of ['2d', '3d']) test(`${id} ${dimension}: every initial critical field has an extractor path`, () => {
+for (const id of ids) for (const dimension of [undefined, '2d', '3d']) for (const responses of [['forces'], ['forces', 'displacements']]) test(`${id} ${dimension} ${responses}: every initial critical field has an extractor path`, () => {
   const handler = handlers[id];
   const inferredType = ['generic', 'concrete-frame'].includes(id) ? 'frame' : id;
   const before = { inferredType, skillId: id, frameDimension: dimension, updatedAt: 0,
-    requestScope: { responses: ['forces'], design: false, report: false, outputs: [] } };
+    requestScope: { responses, design: false, report: false, outputs: [] } };
   const critical = [...new Set(['interactive', 'execution'].flatMap(phase => computeDraftMissing({ id, handler }, before, phase).critical))];
-  const engineeringDraft = { structureType: inferredType, coordinateSystem: { dimension },
+  const engineeringDraft = { structureType: inferredType, coordinateSystem: { dimension: dimension ?? '2d' },
     geometry: { lengthM: 6, heightM: 3, spanLengthsM: [6, 6], storyHeightsM: [3, 3],
-      ...(dimension === '2d' ? { bayWidthsM: [5, 5] } : { bayWidthsXM: [5, 5], bayWidthsYM: [5, 5] }) },
+      ...(dimension !== '3d' ? { bayWidthsM: [5, 5] } : { bayWidthsXM: [5, 5], bayWidthsYM: [5, 5] }) },
     boundary: { supportType: 'simply-supported', frameBaseSupportType: 'fixed' },
     material: { family: id === 'concrete-frame' ? 'concrete' : 'steel', grade: id === 'concrete-frame' ? 'C30' : 'Q355' },
     sections: { beam: '250X500', column: '400X400', member: '250X500' },
@@ -67,4 +67,10 @@ for (const id of ids) for (const dimension of ['2d', '3d']) test(`${id} ${dimens
     const remaining = computeDraftMissing({ id, handler }, after, phase).critical;
     expect(remaining.filter(field => critical.includes(field))).toEqual([]);
   }
+});
+
+test('the original frame alias mismatch is a contract fault if a future mapper drops the translation', () => {
+  const patch = { engineeringDraft: { boundary: { supportType: 'fixed-fixed' } } };
+  expect(unresolvedAppliedFields(patch, { ...patch, inferredType: 'frame' }, ['boundary.frameBaseSupportType']))
+    .toEqual([{ requiredPath: 'boundary.frameBaseSupportType', appliedPaths: ['engineeringDraft.boundary.supportType'] }]);
 });

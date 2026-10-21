@@ -172,8 +172,11 @@ describe('characterization: ablation profiles', () => {
       const answer = `DONE_${profile}`;
       const turn = await runTurn(ctx, { message: script?.message ?? MESSAGE, context: { locale: 'en', runPolicy: { profile } } },
         [toolCall('extract_draft_params', { locale: 'en' }, id), answer]);
-      expectCompletedTurn(turn, answer);
-      return { turn, prompts, extraction: toolResultSeenByAgent(turn.requests, id) };
+      const extraction = toolResultSeenByAgent(turn.requests, id);
+      const notice = profile === 'generic-only' ? 'Beam is disabled in Capability settings. Continuing with generic modeling; enable it there.' : undefined;
+      if (notice) expect(extraction.supportNote).toBe(notice);
+      expectCompletedTurn(turn, notice ? `${notice}\n\n${answer}` : answer);
+      return { turn, prompts, extraction };
     };
 
     test('generic-only: only the generic structure skill is routable', async () => {

@@ -21,7 +21,7 @@ const cases = [
   ['concrete-frame', '计算一个2*2的小混凝土框架，跨度5m，高度3米每层，一共两层，其他材料你自己安排，荷载除了地面外每个节点都有100N的x方向荷载', frame],
   ['portal-frame', '计算门式刚架，跨度12m，柱高6m，屋面向下20kN/m。', { structureType: 'portal-frame', geometry: { spanLengthsM: [12], heightM: 6 }, loads: [line] }],
   ['truss', '计算跨度6m高2m桁架，顶部节点向下1kN。', { structureType: 'truss', geometry: { lengthM: 6, heightM: 2 }, loads: [{ ...point, target: 'top-nodes', location: {} }] }],
-  ['generic', '按所给显式节点和连接计算自定义结构。', { model: beamModel }],
+  ['generic', '按所给显式节点和连接计算自定义结构：' + JSON.stringify(beamModel), { model: beamModel }],
 ];
 describeWithOpenSees('all structure skills with frontend default scope', () => {
   const ctx = setupHarness();
@@ -50,6 +50,13 @@ describeWithOpenSees('all structure skills with frontend default scope', () => {
     expect(session.analysis.current).toBe(true);
     if (id === 'concrete-frame') {
       const { model } = await ctx.backend.inputReview(turn.conversationId);
+      expect(model.nodes).toHaveLength(9);
+      expect(model.nodes.filter(n => n.z === 0).every(n => n.restraints.every(Boolean))).toBe(true);
+      expect(model.materials).toEqual(expect.arrayContaining([expect.objectContaining({ grade: 'C30' })]));
+      expect(model.sections).toEqual(expect.arrayContaining([
+        expect.objectContaining({ purpose: 'beam', name: '250X500' }),
+        expect.objectContaining({ purpose: 'column', name: '400X400' }),
+      ]));
       const loads = model.load_cases.flatMap(c => c.loads).filter(l => l.fx);
       expect(loads).toHaveLength(6);
       expect(loads.every(l => Math.abs(l.fx - .1) < 1e-10)).toBe(true);
