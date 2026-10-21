@@ -175,11 +175,55 @@ protected. A full scripted Agent turn corrects L1 to LC1 and reaches real OpenSe
 
 Verified so far: 1290 Python tests; 327 frontend unit / 83 integration tests; frontend type/lint and
 production build; backend build/lint/dependency rules; analysis regression and three validators.
+Default browser E2E: 54 passed / 12 live-only skipped in 30.1 minutes (`phase3/e2e.log`).
 Operation tests: 14 pass, including real slab solves and bounded failure with the saved model intact.
 The first full Jest attempt found one intentionally changed old readiness expectation, now explicitly
 documented and passing in all 57 compatibility tests. Concurrent compilation also interfered with
-eight Jest module imports; a clean full run is now executing against a fixed compiled tree. There
-are no Phase 3 characterization snapshot changes. Final Jest/default E2E and live table are pending.
+eight Jest module imports. Another invocation used the repository rather than backend working
+directory and failed four path-sensitive suites; their source was not changed to hide that setup
+error. The final full run uses the backend directory and a fixed compiled tree
+(`phase3/backend-final-all.log`). Final full Jest and the last live follow-ups remain pending.
+
+The live mixed case exposed a second invalid apparent success: the LLM invented a labelled unit
+brace area beside real beam/column sections. This is excluded from the pass count. Only the host
+may create placeholder stiffness and its metadata; partial real-property models must supply the
+missing properties. Additional axial-member end releases are now caught before solving. Explicit
+OpenSees selection also retains the eligible force-only unit-stiffness path; commercial targets
+still require real properties. These changes passed focused physics/stiffness/compatibility tests.
+
+The initial concrete runs also exposed a 2D-only node-role instruction being applied to 3D grids.
+The formal draft contract now documents global upper-node selectors and 3D grid indices; the
+specialised guidance limits side roles to 2D. Per-node force and load-ID replacement principles
+live once in shared knowledge; ambiguous/duplicated old node-to-floor examples were removed.
+Intentional Phase 3 snapshot changes (`d74247a2`): 18 profile and 10 policy snapshots change only
+shared load guidance and prompt lengths/hashes. Numerical results, policy hashes and no-knowledge
+snapshots are unchanged; all 35 targeted tests / 44 snapshots passed.
+
+Initial Phase 3 real frontend matrix (`phase3/live`, saved `glm-5.3`, fresh contexts):
+
+| Case | Seconds | Turns | Issued questions | Tool calls | Independent outcome |
+|---|---:|---:|---:|---:|---|
+| Generic frame | 494.0 | 1 | 0 | 10 | 9 nodes / 10 members / 6 loads; base Fx −60kN |
+| Generic portal | 295.0 | 1 | 0 | 7 | Reactions 10 + 10kN |
+| Generic arch | 348.2 | 1 | 0 | 5 | 13 upper-semicircle nodes, A/B/C preserved; reactions 5 + 5kN |
+| Generic inclined truss | 262.8 | 1 | 0 | 5 | Pure axial members, supplied coordinates preserved; reactions 5 + 5kN |
+| Generic 3D grid | 331.6 | 1 | 0 | 17 | No solve: wrong L1 selector became a false uncertain-outcome lock |
+| Generic mixed structure | 901.7 | 1 | 0 | 14 | Excluded: invented partial unit brace stiffness, despite balanced reactions |
+| Extra scale probe | 461.9 | 1 | 0 | 7 | 125 nodes / 260 members / 100 loads, A preserved, base Fx −10kN; operations used |
+| Original concrete 1 | 748.0 | 2 | 1 | 17 | Final 27/42/18, −1.8kN; unnecessary retries and generic fallback |
+| Original concrete 2 | 1009.3 | 2 | 1 | 43 | Final 27/42/18, −1.8kN; one refused proposal and unnecessary retries |
+| Steel frame | 126.4 | 1 | 0 | 6 | Base Fx −60kN |
+| Triangle truss | 163.4 | 1 | 0 | 5 | Reactions 5 + 5kN, axial 7.071068kN |
+| I20a | 116.9 | 1 | 0 | 5 | Reactions 10 + 10kN, moment 10kNm, deflection 3.413762mm |
+| PKPM | 312.7 | 1 | 0 | 30 | Same wrong-case lock, no native solve; licence still not established |
+| GB50017 | 186.1 | 1 | 0 | 9 | Code tool called independently; analysis 10 + 10kN and 10kNm |
+
+Initial required generic completion: 4/6. A reduction in questions obtained by inventing a brace
+section is not accepted as an improvement. After selector preflight, a fresh 3D grid run passed in
+560.6s / 1 turn / 0 questions / 7 calls, using regular-frame and nodal-load operations, with
+27 nodes / 42 members / 18 per-node actions and −1.8kN (`phase3/live-grid-followup`).
+The mixed case and original concrete/PKPM requests are being remeasured after the stiffness and
+node-selector corrections in `phase3/live-final-followup`; initial failures stay in the table.
 
 Early observed scale result: the real LLM chose regular-frame, merge-coincident and nodal-load
 operations, preserved A, produced 125 nodes / 260 members / 100 loads and base Fx −10kN. Phase 2
