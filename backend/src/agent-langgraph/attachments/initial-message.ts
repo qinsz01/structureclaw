@@ -78,7 +78,7 @@ function shouldKeepFullAttachmentAnalysis(
 ): boolean {
   const name = `${attachment.originalName} ${attachment.relPath}`.toLowerCase();
   const type = typeof analysis.type === 'string' ? analysis.type : '';
-  return type === 'excel' || (type === 'csv' || type === 'text')
+  return type === 'json' || type === 'excel' || (type === 'csv' || type === 'text')
     && (
       name.endsWith('.csv')
       || name.endsWith('.tsv')

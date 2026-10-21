@@ -63,7 +63,7 @@ export function ConsoleComposer({
         ref={fileInputRef}
         type="file"
         multiple
-        accept=".pdf,.csv,.xlsx,.xls,.png,.jpg,.jpeg,.gif,.webp,.bmp,.dxf,.txt,.at2"
+        accept=".pdf,.csv,.tsv,.json,.xlsx,.xls,.png,.jpg,.jpeg,.gif,.webp,.bmp,.dxf,.txt,.at2"
         aria-label={t('attachFile')}
         className="hidden"
         onChange={(e) => { handleFileSelect(e.target.files); e.target.value = '' }}
