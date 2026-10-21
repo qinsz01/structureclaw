@@ -14,7 +14,7 @@ frontend (Next.js 14)  →  backend (Fastify + Prisma)  →  analysis engine (e.
 
 - **Backend** (`backend/`): Fastify API with Prisma ORM (SQLite default). Route handlers in `src/api`, the LangGraph agent host in `src/agent-langgraph`, the skill runtime and draft boundary in `src/agent-runtime`, domain logic in `src/engineering`, services in `src/services`, shared helpers in `src/utils`. Layering is enforced by `npm run check:deps --prefix backend` (see `docs/agent-architecture.md` §3).
 - **Frontend** (`frontend/`): Next.js 14 app-router. Routes in `src/app`, reusable UI in `src/components`, client state (Zustand) and i18n in `src/lib`.
-- **Agent runtime** (`backend/src/agent-runtime/`): Capability-driven orchestration — base model (chat) → skill layer (engineering advisor) → tool layer (executable agent). 14 skill domains live under `backend/src/agent-skills/` (structure-type, analysis, code-check, data-input, design, drawing, general, load-boundary, material, report-export, result-postprocess, section, validation, visualization).
+- **Agent runtime** (`backend/src/agent-runtime/`): Capability-driven orchestration — base model (chat) → skill layer (engineering advisor) → tool layer (executable agent). Eight structure modelling skills live under `backend/src/agent-skills/structure-type/`. Solvers, codes, input parsers and report exporters are providers described by `backend/src/providers/catalog.yaml`; their execution code stays in the existing domain directories. Shared guidance lives in `backend/src/engineering/knowledge.ts`.
 - **Analysis execution** (`backend/src/agent-skills/analysis/`): Spawns a Python subprocess using OpenSees for structural analysis. Python runtime lives in `~/.structureclaw/.venv/`.
 - **CLI** (`scripts/cli/`): The `./sclaw` and `./sclaw_cn` commands wrap all startup, health-check, and lifecycle operations. Always prefer `./sclaw ...` over calling script paths directly.
 - **Tests** (`tests/`): Regression and contract validation via `node tests/runner.mjs`.
@@ -95,7 +95,9 @@ node tests/runner.mjs llm-benchmark --scenario <id>          # Run a single benc
 | Engineering domain logic | `backend/src/engineering/` |
 | Run policy, ablation profiles, limits | `backend/src/runtime/` |
 | Services (execution clients, persistence) | `backend/src/services/` |
-| Skill domains | `backend/src/agent-skills/<domain>/` |
+| Modelling skills | `backend/src/agent-skills/structure-type/` |
+| Provider metadata | `backend/src/providers/` |
+| Engineering knowledge | `backend/src/engineering/knowledge.ts` |
 | Executable agent tools | `backend/src/agent-langgraph/tools/` (one module per tool; `tools.ts` is the barrel) and `backend/src/agent-langgraph/tool-registry.ts` |
 | Shared skill utilities | `backend/src/skill-shared/` |
 | Shared helpers | `backend/src/utils/` |
@@ -160,7 +162,7 @@ See `docs/agent-architecture.md` for the full canonical design reference.
 
 ## Skill Development
 
-A skill is the unit of extensibility in the agent. Each skill lives under `backend/src/agent-skills/<domain>/` and consists of two parts:
+A skill is the unit of extensibility in the agent. Each skill lives under `backend/src/agent-skills/structure-type/` and consists of two parts:
 
 ### 1. Skill Manifest (`skill.yaml`)
 
@@ -168,7 +170,7 @@ Required file. Declares identity, capabilities, and routing. Schema validated by
 
 ```yaml
 id: frame                          # unique skill identifier
-domain: structure-type              # one of 14 domains (see ALL_SKILL_DOMAINS)
+domain: structure-type              # only structure modelling methods are skills
 name: { zh: 规则框架, en: Regular Frame }
 description: { zh: ..., en: ... }
 triggers: [frame, 框架, steel frame] # keywords for intent detection
@@ -205,7 +207,7 @@ buildReportNarrative()  → custom report narrative (optional)
 
 ### Creating a New Skill
 
-1. Create directory: `backend/src/agent-skills/<domain>/<skill-name>/`
+1. Create directory: `backend/src/agent-skills/structure-type/<skill-name>/`
 2. Add `skill.yaml` with all required fields (validate against `skillManifestFileSchema`)
 3. Add at least one stage markdown file (`intent.md`, `draft.md`, etc.) — required for auto-discovery
 4. For structure-type skills with interactive drafts, add `handler.ts` implementing `SkillHandler`

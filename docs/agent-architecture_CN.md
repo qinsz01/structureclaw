@@ -119,7 +119,7 @@ agent capability、运行、审阅与 SkillHub routes 位于 [backend/src/api/ag
 | Skill runtime | [backend/src/agent-runtime/index.ts](../backend/src/agent-runtime/index.ts) | `AgentSkillRuntime`：manifest 列表、结构类型识别、模型构建，以及分析、规范校核、校验与报告 skill 的执行。 |
 | Skill loader | [backend/src/agent-runtime/loader.ts](../backend/src/agent-runtime/loader.ts) | 发现 skill 目录，加载阶段 Markdown，并导入可选 handler。 |
 | Skill registry | [backend/src/agent-runtime/registry.ts](../backend/src/agent-runtime/registry.ts) | 按 ID、结构类型和 domain 解析 skills / plugins。 |
-| 分析目录 | [backend/src/agent-skills/analysis/catalog.ts](../backend/src/agent-skills/analysis/catalog.ts) | 内置分析 skill 的唯一 engine 目录（ID、engine ID、分析类型），由各 `skill.yaml` 派生，并提供 `run_analysis` 的 skill 枚举。 |
+| 分析目录 | [backend/src/providers/analysis-catalog.ts](../backend/src/providers/analysis-catalog.ts) | 内置分析 skill 的唯一 engine 目录（ID、engine ID、分析类型），由 `providers/catalog.yaml` 派生，提供兼容的 `run_analysis.analysisSkillId` Provider 枚举。 |
 | Capability API | [backend/src/services/agent-capability.ts](../backend/src/services/agent-capability.ts) | 根据 skills、tools 与 engine 可用性生成前端 capability 元数据。 |
 | 执行 client | [analysis-execution.ts](../backend/src/services/analysis-execution.ts)、[code-check-execution.ts](../backend/src/services/code-check-execution.ts)、[structure-protocol-execution.ts](../backend/src/services/structure-protocol-execution.ts) | agent tool 层使用的本地 client，以及结构校验与转换辅助函数。 |
 | Chat 持久化 | [backend/src/services/chat-persistence.ts](../backend/src/services/chat-persistence.ts) | 为 chat routes 持久化 assistant 消息、调试详情、最新结果与会话状态。 |
@@ -128,7 +128,7 @@ agent capability、运行、审阅与 SkillHub routes 位于 [backend/src/api/ag
 
 当前 graph 很小：
 
-1. `agent` node 构建双语 system prompt，依据冻结的运行策略与 checkpoint 状态为该节点导出 `ToolContext`，绑定 active tools，调用 chat model；一旦达到本轮工具调用预算即以警告结束本轮。预算即生效运行策略中的 `budgets.maxToolCallsPerTurn`，来自设置中的 `agent.maxToolCallsPerTurn`；默认 200，上限同为 200（`runtime/limits.ts`）。
+1. `agent` node 构建双语 system prompt，依据冻结的运行策略与 checkpoint 状态为该节点导出 `ToolContext`，绑定 active tools，调用 chat model；一旦达到本轮工具调用预算即以警告结束本轮。预算即生效运行策略中的 `budgets.maxToolCallsPerTurn`，来自设置中的 `agent.runPolicy.budgets.maxToolCallsPerTurn`（默认 200）；超过服务器上限 200 的请求明确报错，旧 `agent.maxToolCallsPerTurn` 字段仅供迁移读取。
 2. `shouldContinue` 检查模型是否返回 tool calls。
 3. `tools` node 为该节点构造新的 config（`{ ...config, configurable: { ..., agentState, toolContext } }`），在本轮 run context 中按顺序执行调用，并把 artifacts 写回 graph state。策略通过 `toolContext` 和 `runContext` 传给 tools；共享的 `configurable` 不会被写入策略字段。
 4. 控制流回到 `agent`，直到模型不再请求 tool call。
@@ -179,55 +179,17 @@ tool 选择是 request-scoped：
 
 工程工具从 graph state 中读取 model、analysis、report 和 draft artifacts，而不是依赖大型序列化参数（见第 8 节）。
 
-## 6. Skill 模型
+## 6. 技能、Provider 与工程知识
 
-Skills 是 [backend/src/agent-skills](../backend/src/agent-skills) 下的 filesystem-backed capabilities。每个 skill 由 `skill.yaml` 描述，并可包含阶段 Markdown 与可执行 handler。
+技能仅表示结构建模方法，清单与阶段文本位于 `backend/src/agent-skills/structure-type/`，内置 beam、column、double-span-beam、frame、concrete-frame、portal-frame、truss、generic。默认由 LLM 自动路由，高级设置可限制或固定结构技能。
 
-最小可发现结构：
+Provider 元数据位于 `backend/src/providers/catalog.yaml`，分为 solver、design-code、input-parser、report-exporter；执行代码和 Python 路径保持在原领域目录。代理通过工具参数选择 Provider，与结构技能范围独立；设置中显式禁用的 Provider 不可调用。环境就绪不代表商业许可证已验证，许可证仅由实际作业证明。
 
-```text
-backend/src/agent-skills/<domain>/<skill-id>/
-  skill.yaml
-  intent.md        # 可选阶段内容
-  draft.md         # 可选阶段内容
-  analysis.md      # 可选阶段内容
-  design.md        # 可选阶段内容
-  handler.ts       # 可选 TypeScript handler
-  runtime.py       # 可选 Python runtime
-```
+共享原则文本位于 `engineering/knowledge.ts`，按荷载、边界、组合、输入格式、验证和结果组织，在抽取、建模及主代理提示中按需注入；knowledge=disabled 会移除。旧技能 ID 在输入边界迁为 Provider 偏好或带日志的无操作。memory、shell、skill-creation 及截面占位技能已移除，25 个工具保持独立。
 
-运行行为由 domain 决定：
+## 7. 设置与范围
 
-- `structure-type` skills 使用 `handler.ts` 识别结构类型、提取草稿、询问缺失信息并构建 StructureModel JSON。
-- `analysis` skills 选择 OpenSees、PKPM、YJK 等后端分析 adapter。
-- `code-check` skills 选择设计规范校核行为。
-- 其他 domains 可能是 catalog-visible、partial wired 或 reserved。当前成熟度见 [skill-runtime-status_CN.md](./skill-runtime-status_CN.md)。
-
-## 7. 稳定 Skill Domains
-
-domain taxonomy 由 [backend/src/shared/types/agent.ts](../backend/src/shared/types/agent.ts) 中的 `ALL_SKILL_DOMAINS` 定义：
-
-- `structure-type`
-- `analysis`
-- `code-check`
-- `data-input`
-- `design`
-- `drawing`
-- `general`
-- `load-boundary`
-- `material`
-- `report-export`
-- `result-postprocess`
-- `section`
-- `validation`
-- `visualization`
-
-taxonomy 是稳定的，但 domain 成熟度不同。domain 可以处于：
-
-- `active`：已接入主执行路径。
-- `partial`：可发现，并且部分接入运行时。
-- `discoverable`：对 catalog / capability APIs 可见，但不会自动参与主 tool flow。
-- `reserved`：属于 taxonomy，但当前没有内置实现。
+工作区设置统一提供模型、引擎与规范、技能、运行策略默认值、外观、数据六个分区。`/llm`、`/capabilities`、`/database` 打开同一对话框。全局默认值保存在 settings.json；会话覆盖在会话顶部编辑并由服务端保存；输入框显示本轮生效技能范围。打开会话不写全局偏好，旧 localStorage 显式偏好只迁移一次。旧领域枚举仅供协议兼容，不能使非结构类型重新成为可选技能。
 
 ## 8. 工程管线
 
@@ -255,7 +217,7 @@ LLM 抽取器与 skill handler 产生的草稿补丁由 `ingestDraft`（`agent-r
 ```mermaid
 flowchart LR
   Tool[run_analysis tool] --> Runtime[AgentSkillRuntime]
-  Runtime --> Select[Selected analysis skill]
+  Runtime --> Select[Solver provider]
   Select --> Client[Local analysis client]
   Client --> API[/analyze]
   API --> Registry[Engine registry]
@@ -267,32 +229,4 @@ flowchart LR
   YJK --> Result
 ```
 
-分析选择会使用请求中的 analysis type、engine ID、selected skill IDs、supported model families 以及 skill manifest 元数据。skill ID、engine ID 与分析类型均来自 `agent-skills/analysis/catalog.ts` 这一唯一目录；`backend/tests/analysis-skill-catalog.test.mjs` 检查该目录与 `skill.yaml` manifests 一致。如果没有兼容的 analysis skill 被选中，runtime 不会静默挑选 engine，而会通过 tool path 返回绑定错误。
-
-## 10. 会话状态与流式输出
-
-`LangGraphAgentService` 创建或复用 conversation record，分配 trace ID，并通过 [backend/src/agent-langgraph/streaming.ts](../backend/src/agent-langgraph/streaming.ts) 流式输出 LangGraph 结果。chat API 会把 stream events 归约成 assistant presentation object，用于持久化和前端渲染。`/stream` 使用 `runSseTurn`；`/stream/resume` 在 `api/chat.ts` 中有自己的 SSE 处理函数。两者都通过 `services/chat-persistence.ts` 持久化。
-
-Graph checkpoint 数据通过 [backend/src/agent-langgraph/file-checkpointer.ts](../backend/src/agent-langgraph/file-checkpointer.ts) 存储，路径由 [backend/src/agent-langgraph/config.ts](../backend/src/agent-langgraph/config.ts) 中的 agent 配置辅助函数解析。
-
-每次工具节点只执行一个调用，保存状态更新与工具响应后，再执行下一个待处理调用。后续澄清问题触发暂停时，恢复会从该调用继续，不重放之前已完成的模型修改。自定义工具仍需避免在同一个调用的暂停点之前产生副作用。
-
-## 11. 扩展边界
-
-当前有两个扩展面：
-
-- Skills：built-in 和 workspace skills 通过 `AgentSkillRuntime`、`AgentSkillLoader` 与 manifest validation 加载。
-- Tools：built-in tools 由代码拥有；workspace tools 由 `user-tool-loader.ts` 加载，并在 graph 构建时追加到 tool registry。
-
-高风险 tools 仍受 policy gate 约束。尤其是 shell execution，只有配置中的 shell gate 允许时才可用。
-
-每次运行只会在一个预注册的消融 profile 或完整系统下执行。profile 只移除一种机制，工具、接口与求解器保持不变，因此 agent 仍会以回答结束本轮。profile 的选择优先级与记录字段见 [ablation_CN.md](./ablation_CN.md)。
-
-## 12. 贡献者规则
-
-- 将本文档视为 1.0.0 实现快照。
-- 不要把不存在的模块或计划中的文件写成当前架构。
-- 产品行为变化时，公开文案需要保持中英文一致。
-- 修改 agent 架构时，同步更新本文档和 `agent-architecture.md`。
-- 修改 import 后运行 `npm run check:deps --prefix backend`；新增跨层 import 时，必须同时更新分层规则和本节。
-- 新增、删除或改变 skill-domain 成熟度时，同步更新 [skill-runtime-status_CN.md](./skill-runtime-status_CN.md)。
+求解器选择使用结构化工具参数、分析类型及 Provider 偏好，不根据用户文字做关键词判断。元数据唯一来源为 `providers/catalog.yaml`，TypeScript 与 Python 注册器共用；不可用或被禁用的显式引擎返回 ENGINE_UNAVAILABLE，不静默换引擎。旧 analysisSkillId 字段名供 API 兼容，不再表示技能勾选。

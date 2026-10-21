@@ -119,7 +119,7 @@ The dependency rules have two deliberate exceptions:
 | Skill runtime | [backend/src/agent-runtime/index.ts](../backend/src/agent-runtime/index.ts) | `AgentSkillRuntime`: manifest listing, structural-type detection, model building, and analysis, code-check, validation and report skill execution. |
 | Skill loader | [backend/src/agent-runtime/loader.ts](../backend/src/agent-runtime/loader.ts) | Discovers skill directories, loads stage markdown, and imports optional handlers. |
 | Skill registry | [backend/src/agent-runtime/registry.ts](../backend/src/agent-runtime/registry.ts) | Resolves skills and plugins by ID, structure type and domain. |
-| Analysis catalog | [backend/src/agent-skills/analysis/catalog.ts](../backend/src/agent-skills/analysis/catalog.ts) | Single engine catalog for builtin analysis skills (IDs, engine IDs, analysis types), derived from each `skill.yaml`. It feeds the `run_analysis` skill enum. |
+| Analysis catalog | [backend/src/providers/analysis-catalog.ts](../backend/src/providers/analysis-catalog.ts) | Single engine catalog for builtin analysis skills (IDs, engine IDs, analysis types), derived from `providers/catalog.yaml`. It feeds the compatible `run_analysis.analysisSkillId` provider enum. |
 | Capability API | [backend/src/services/agent-capability.ts](../backend/src/services/agent-capability.ts) | Builds frontend-facing capability metadata from skills, tools and engine availability. |
 | Execution clients | [analysis-execution.ts](../backend/src/services/analysis-execution.ts), [code-check-execution.ts](../backend/src/services/code-check-execution.ts), [structure-protocol-execution.ts](../backend/src/services/structure-protocol-execution.ts) | Local clients used by the agent tool layer, plus structure validation and conversion helpers. |
 | Chat persistence | [backend/src/services/chat-persistence.ts](../backend/src/services/chat-persistence.ts) | Persists assistant messages, debug details, latest results and session state for the chat routes. |
@@ -128,7 +128,7 @@ The dependency rules have two deliberate exceptions:
 
 The graph is intentionally small:
 
-1. `agent` node builds the bilingual system prompt, derives the node's `ToolContext` from the frozen run policy and checkpointed state, binds the active tools, invokes the chat model, and stops the turn with a warning once the tool-call budget is reached. The budget is `budgets.maxToolCallsPerTurn` in the effective run policy. It comes from `agent.maxToolCallsPerTurn` in settings, which defaults to 200 and is capped at 200 (`runtime/limits.ts`).
+1. `agent` node builds the bilingual system prompt, derives the node's `ToolContext` from the frozen run policy and checkpointed state, binds the active tools, invokes the chat model, and stops the turn with a warning once the tool-call budget is reached. The budget is `budgets.maxToolCallsPerTurn` in the effective run policy. It comes from `agent.runPolicy.budgets.maxToolCallsPerTurn` in settings (default 200). Requests above the server ceiling of 200 fail visibly; the old `agent.maxToolCallsPerTurn` key is read once as a migration.
 2. `shouldContinue` checks whether the model returned tool calls.
 3. `tools` node builds a fresh config for the node (`{ ...config, configurable: { ..., agentState, toolContext } }`), runs the calls sequentially inside the turn's run context, and writes artifacts back into graph state. Policy reaches tools through `toolContext` and `runContext`; the shared `configurable` is not mutated with policy fields.
 4. Control returns to `agent` until no tool calls remain.
@@ -179,55 +179,17 @@ Tool selection is request-scoped:
 
 Engineering tools read model, analysis, report and draft artifacts from graph state rather than from large serialized arguments (see section 8).
 
-## 6. Skill Model
+## 6. Skills, providers and engineering knowledge
 
-Skills are filesystem-backed capabilities under [backend/src/agent-skills](../backend/src/agent-skills). Each skill is described by `skill.yaml` and may include stage markdown and executable handlers.
+Skills are structure modelling methods under `backend/src/agent-skills/structure-type/`: beam, column, double-span-beam, frame, concrete-frame, portal-frame, truss and generic. The LLM routes automatically by default; advanced settings may restrict or pin these skills.
 
-Minimum discoverable shape:
+Provider metadata lives in `backend/src/providers/catalog.yaml`: solver, design-code, input-parser and report-exporter. Execution code and Python paths stay in their existing domain directories. Tool arguments select providers independently of structure-skill restrictions. Explicit global provider disables are enforced. Environment readiness never proves a commercial licence; a real job supplies that evidence.
 
-```text
-backend/src/agent-skills/<domain>/<skill-id>/
-  skill.yaml
-  intent.md        # optional stage content
-  draft.md         # optional stage content
-  analysis.md      # optional stage content
-  design.md        # optional stage content
-  handler.ts       # optional TypeScript handler
-  runtime.py       # optional Python runtime
-```
+`engineering/knowledge.ts` contains short principles by load, boundary, combination, input format, validation and results topic. Extraction, modelling and agent prompts inject the relevant topics unless knowledge=disabled. Legacy capability ids migrate to provider preferences or logged no-ops. Memory, shell, skill-creation and placeholder section skills are removed; the 25 tools remain independent.
 
-Runtime behavior is domain-specific:
+## 7. Settings and scopes
 
-- `structure-type` skills use `handler.ts` to detect structure type, extract drafts, ask for missing data, and build StructureModel JSON.
-- `analysis` skills select backend analysis adapters such as OpenSees, PKPM, and YJK.
-- `code-check` skills select design-code checking behavior.
-- Other domains can be catalog-visible, partially wired, or reserved. See [skill-runtime-status.md](./skill-runtime-status.md) for the current maturity matrix.
-
-## 7. Stable Skill Domains
-
-The domain taxonomy is defined by `ALL_SKILL_DOMAINS` in [backend/src/shared/types/agent.ts](../backend/src/shared/types/agent.ts):
-
-- `structure-type`
-- `analysis`
-- `code-check`
-- `data-input`
-- `design`
-- `drawing`
-- `general`
-- `load-boundary`
-- `material`
-- `report-export`
-- `result-postprocess`
-- `section`
-- `validation`
-- `visualization`
-
-The taxonomy is stable, but domain maturity differs. A domain can be:
-
-- `active`: wired into the main execution path.
-- `partial`: discoverable and partly runtime-connected.
-- `discoverable`: visible to catalog/capability APIs but not automatically participating in the main tool flow.
-- `reserved`: part of the taxonomy with no current built-in implementation.
+One workspace dialog contains Model, Engines & codes, Skills, Run policy defaults, Appearance and Data. The legacy /llm, /capabilities and /database URLs open this dialog. Global defaults live in settings.json. Conversation overrides are edited in the conversation header and saved by the server; the composer displays the effective turn scope. Opening conversations never writes global preferences; explicit legacy localStorage preferences migrate once. Historical domain enum values remain protocol-compatible but do not make non-structure capabilities selectable skills.
 
 ## 8. Engineering Pipeline
 
@@ -255,7 +217,7 @@ Analysis tool calls go through `AgentSkillRuntime.executeAnalysisSkill()` and th
 ```mermaid
 flowchart LR
   Tool[run_analysis tool] --> Runtime[AgentSkillRuntime]
-  Runtime --> Select[Selected analysis skill]
+  Runtime --> Select[Solver provider]
   Select --> Client[Local analysis client]
   Client --> API[/analyze]
   API --> Registry[Engine registry]
@@ -267,32 +229,4 @@ flowchart LR
   YJK --> Result
 ```
 
-Analysis selection uses the requested analysis type, engine ID, selected skill IDs, supported model families, and skill manifest metadata. The skill IDs, engine IDs and analysis types come from the single catalog in `agent-skills/analysis/catalog.ts`; `backend/tests/analysis-skill-catalog.test.mjs` checks that the catalog matches the `skill.yaml` manifests. If no compatible analysis skill is selected, the runtime does not silently pick an engine; it returns a binding error through the tool path.
-
-## 10. Conversation State And Streaming
-
-`LangGraphAgentService` creates or reuses a conversation record, assigns a trace ID, and streams LangGraph output through [backend/src/agent-langgraph/streaming.ts](../backend/src/agent-langgraph/streaming.ts). The chat API reduces stream events into an assistant presentation object for persistence and frontend rendering. `/stream` uses `runSseTurn`; `/stream/resume` has its own SSE handler in `api/chat.ts`. Both persist through `services/chat-persistence.ts`.
-
-Graph checkpoint data is stored through [backend/src/agent-langgraph/file-checkpointer.ts](../backend/src/agent-langgraph/file-checkpointer.ts), with paths resolved from agent configuration helpers in [backend/src/agent-langgraph/config.ts](../backend/src/agent-langgraph/config.ts).
-
-Each tools-node invocation executes one call, then checkpoints its state update and tool response before executing the next pending call. A later clarification interrupt therefore resumes at that call without replaying previously completed model edits. Custom tools must still avoid side effects before an interrupt inside the same call.
-
-## 11. Extension Boundaries
-
-There are two extension surfaces:
-
-- Skills: built-in and workspace skills are loaded through `AgentSkillRuntime`, `AgentSkillLoader`, and manifest validation.
-- Tools: built-in tools are code-owned; workspace tools are loaded by `user-tool-loader.ts` and appended to the tool registry when the graph is built.
-
-High-risk tools remain policy-gated. In particular, shell execution is unavailable unless the configured shell gate allows it.
-
-Each run executes under one pre-registered ablation profile or the full system. A profile removes exactly one mechanism while keeping tools, interfaces and the solver unchanged, so the agent still ends the turn with an answer. Profile selection precedence and the recorded fields are described in [ablation.md](./ablation.md).
-
-## 12. Contributor Rules
-
-- Treat this document as a snapshot of the 1.0.0 implementation.
-- Do not document nonexistent modules or planned files as current architecture.
-- Keep public-facing wording bilingual when product behavior changes.
-- Update this file together with `agent-architecture_CN.md` when changing agent architecture.
-- Run `npm run check:deps --prefix backend` after changing imports; do not add a cross-layer import without updating the layering rules and this section.
-- Update [skill-runtime-status.md](./skill-runtime-status.md) when adding, removing, or changing skill-domain maturity.
+Solver selection uses structured tool arguments, analysis type and provider preferences, never keyword rules on user text. Both TypeScript and Python registries consume `providers/catalog.yaml`. An explicitly requested unavailable or disabled engine returns ENGINE_UNAVAILABLE without substitution. The API keeps the analysisSkillId field name for compatibility; it no longer means a skill checkbox.
