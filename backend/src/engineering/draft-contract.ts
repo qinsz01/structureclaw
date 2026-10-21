@@ -2,6 +2,8 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import type { ValidateFunction } from 'ajv';
 import generatedModelSchema from './structure-model-v2.schema.json' with { type: 'json' };
 
+export const LOAD_DIRECTION_RULE = 'Interpret signed loads using the stated coordinate or direction convention. When it determines the direction, preserve signed canonical components, or use a nonnegative magnitude with the corresponding direction in magnitude/direction fields. Ask only when direction remains undetermined. / 按已声明的坐标或方向约定解释荷载正负号；方向已确定时保留规范分量的符号，或在大小/方向字段中使用非负大小与对应方向。仅在方向仍无法确定时追问。';
+
 // Generated from StructureModelV2, never maintained separately by hand.
 export type FieldSchema = Record<string, any>;
 export const modelContract: FieldSchema = generatedModelSchema;

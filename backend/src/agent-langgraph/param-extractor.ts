@@ -17,7 +17,7 @@ import type { Logger } from 'pino';
 import type { AgentSkillPlugin, DraftState } from '../shared/types/agent.js';
 import { currentRunPolicy, requestRecovery, recordRunEvent } from '../runtime/run-context.js';
 import { llmContentText } from '../utils/llm-content.js';
-import { promptContract } from '../engineering/draft-contract.js';
+import { promptContract, LOAD_DIRECTION_RULE } from '../engineering/draft-contract.js';
 import { currentDraftDiagnostics } from '../agent-runtime/draft-diagnostics.js';
 import { SECTION_EVIDENCE_RULE } from '../engineering/section-evidence.js';
 
@@ -202,7 +202,7 @@ export function buildParamExtractorPrompt(
       '- 不确定时省略字段，不要猜测',
       '- 不得补写用户未提供的荷载单位或荷载种类；若荷载数值没有单位，或“楼面荷载”等表述无法区分总力、线荷载或面荷载，必须省略该荷载，输出 draftIssues，要求用户确认单位和荷载种类',
       '- 如果用户给出数学上无效的几何尺寸、荷载符号/单位/位置含义不明确，或要求彼此矛盾，不要把相关值写入 engineeringDraft/draftPatch；输出 draftIssues。数值仅仅非常规或很大/很小并不自动构成无效输入',
-      '- 负号可能表示方向或吸力时，必须用 draftIssues 标记为 ambiguous 并追问；只有方向明确且数值大小为正时，才写入荷载 magnitude',
+      LOAD_DIRECTION_RULE,
       '- 对框架楼面线荷载/面荷载（如 kN/m、kN/m2），如果已有层数和跨度信息，应输出 engineeringDraft.loads 中的 line/area 荷载；不要因为它不是总 kN 就追问',
       '- 对“基本风压 / basic wind pressure”输出 engineeringDraft.wind.basicPressureKNM2；不要把风压当作竖向楼面荷载',
       '- 当用户提出中国抗震、反应谱、时程、Pushover、弹塑性时程、设防烈度、设计地震分组、场地类别或地震波选择等抗震设计意图时，必须基于整句语义输出 skillState.seismicWorkflow；方法选择只允许来自语义理解后的结构化字段，不要用关键词或正则匹配决定 response_spectrum/time_history/pushover/elastic_plastic_time_history',
@@ -246,7 +246,7 @@ export function buildParamExtractorPrompt(
       '- Omit fields you are unsure about — do NOT guess',
       '- Never supply a load unit or load kind that the user did not provide; if a load magnitude has no unit, or wording such as "floor load" does not distinguish total force, line load, or area load, omit that load, output draftIssues and ask the user to confirm the unit and load kind',
       '- If geometry is mathematically invalid, a load sign/unit/location is ambiguous, or requirements contradict one another, do NOT write the affected value into engineeringDraft/draftPatch; output draftIssues. An unusual, large, or small value is not invalid by magnitude alone',
-    '- If a negative sign may mean direction or suction/uplift, mark it as an ambiguous draftIssue and ask for clarification; only write a load magnitude when the direction is clear and the magnitude is positive',
+    LOAD_DIRECTION_RULE,
     '- For frame floor line/area loads such as kN/m or kN/m2, output line/area entries in engineeringDraft.loads when story and span geometry are available; do not ask for total kN just because the user provided intensity units',
     '- For basic wind pressure, output engineeringDraft.wind.basicPressureKNM2; do not treat wind pressure as a vertical floor load',
     '- When the user asks for China seismic design, response spectrum, time history, pushover, elastic-plastic time history, seismic intensity, design group, site class, or ground-motion selection, output skillState.seismicWorkflow from whole-message semantic understanding; method selection may only come from structured semantic fields, never keyword or regex matching',
@@ -288,6 +288,7 @@ function buildFocusedParamExtractorPrompt(
     'Fields: engineeringDraft={material:{family,grade},materials:[{id,name,family,grade,E,nu,rho,extra}],sectionRecords:[{id,name,type,shape,properties,extra}],templateAssignments:{beam|column|member:{materialId,sectionId,design}},geometry:{lengthM,spanLengthM,heightM},boundary:{supportType},loads:[{id,kind,magnitude,unit,direction,target,location:{xM},caseId,caseType}],analysisControl:{self_weight},analysis:{loadCombinations:[]}}. Use skillState only for changed skill fields. Units: geometry m; loads kN,kN/m,kN/m2; E MPa; shape mm; A m²; Iy/Iz/J m⁴. shape.kind: I,H,rectangular,circular,pipe,box; dimensions: H,B,tw,tf,d,T. Rectangular B=width,H=depth. supports: simply-supported,cantilever,fixed-fixed. Load kinds: point,line,area; downward=gravity.',
     SECTION_SOURCE_RULE + SECTION_EVIDENCE_RULE,
     MATERIAL_WEIGHT_RULE,
+    LOAD_DIRECTION_RULE,
     'To withdraw/replace an existing field emit clearDraftFields using stable IDs, e.g. sectionRecords["S1"].standard_steel_name. Omission is not deletion; clear only explicitly withdrawn/replaced fields. Never clear identity or evidence (including extra.source and extra.provenance); confirmation updates provenance.shape="user" through engineeringDraft, without deleting source evidence. / 不得删除标识或来源证据；确认尺寸时通过补丁更新provenance.shape为user，不清除extra.source或extra.provenance。 Explicit user values win; resolve consistency/precision/format yourself. Unknown essential inputs use draftIssues=[{field,severity:"missing"|"ambiguous",reason}]. Do not invent loads, units, design conditions or topology. / 不编造荷载、单位、设计条件或拓扑。',
     `Skill: ${plugin.id}; focus fields / 本轮重点字段：${JSON.stringify(focusFields)}`,
     `Existing draftState / 已有 draftState:\n${JSON.stringify(state ?? {})}`,
