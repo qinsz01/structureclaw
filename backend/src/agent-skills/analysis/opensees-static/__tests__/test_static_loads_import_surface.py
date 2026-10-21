@@ -10,6 +10,7 @@ import opensees_static_loads  # noqa: E402
 from opensees_static_floor_loads import StoryFloorLoadMixin  # noqa: E402
 from opensees_static_floor_panels import FloorPanelLoadMixin  # noqa: E402
 from opensees_static_loads import StaticLoadContext  # noqa: E402
+from structure_protocol.floor_panels import FloorPanelLoadMixin as SharedFloorPanelLoadMixin  # noqa: E402
 
 # Methods StaticLoadContext defined before the split.
 PRE_SPLIT_METHODS = [
@@ -39,9 +40,10 @@ def test_all_pre_split_methods_resolve_on_static_load_context():
 def test_mixins_are_bases_and_partition_the_moved_methods():
     assert StaticLoadContext.__mro__[1:3] == (StoryFloorLoadMixin, FloorPanelLoadMixin)
     moved_floor = set(vars(StoryFloorLoadMixin)) & set(PRE_SPLIT_METHODS)
-    moved_panel = set(vars(FloorPanelLoadMixin)) & set(PRE_SPLIT_METHODS)
+    assert issubclass(FloorPanelLoadMixin, SharedFloorPanelLoadMixin)
+    moved_panel = set(vars(SharedFloorPanelLoadMixin)) & set(PRE_SPLIT_METHODS)
     kept = set(vars(StaticLoadContext)) & set(PRE_SPLIT_METHODS)
-    assert (len(moved_floor), len(moved_panel), len(kept)) == (29, 14, 15)
+    assert (len(moved_floor), len(moved_panel), len(kept)) == (27, 16, 15)
     assert moved_floor | moved_panel | kept == set(PRE_SPLIT_METHODS)
 
 

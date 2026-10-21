@@ -138,6 +138,15 @@ describe('model builder choice is independent of routing and guidance', () => {
     const state = { inferredType: 'frame', engineeringDraft: {
       topology: { members: [{ id: 'E', type: 'beam', nodes: ['A', 'B'] }] },
     } };
+    const completed = JSON.parse(getStructureModelTemplate());
+    const aliases = { N1: 'A', N2: 'B' };
+    for (const node of completed.nodes) node.id = aliases[node.id] ?? node.id;
+    completed.elements[0] = { ...completed.elements[0], ...state.engineeringDraft.topology.members[0] };
+    for (const loadCase of completed.load_cases) for (const load of loadCase.loads) {
+      if (load.node) load.node = aliases[load.node] ?? load.node;
+      if (load.element === 'E1') load.element = 'E';
+    }
+    generatedContent = JSON.stringify(completed);
     const before = generated;
     await withRunContext(createRunContext(resolve({ builder: 'llm' })), () => runtime.buildModel(state, ['test-provider'], { message: 'Use the complete geometry supplied in this user message', locale: 'en' }));
     expect(generated).toBe(before + 1);
