@@ -394,13 +394,13 @@ describe('agent runtime helper utilities', () => {
         'en',
       );
 
-      expect(invocations).toBe(0);
-      expect(routerPrompt).toBe('');
+      expect(invocations).toBe(1);
+      expect(routerPrompt).not.toContain('Rule hint:');
       expect(match).toMatchObject({
         key: 'bridge',
         mappedType: 'unknown',
         supportLevel: 'unsupported',
-        routingSource: 'explicit-keyword',
+        routingSource: 'llm-suggested',
       });
       expect(match.skillId).toBeUndefined();
     } finally {
@@ -410,7 +410,42 @@ describe('agent runtime helper utilities', () => {
   });
 
 
-  test('requires an LLM for LLM-first structural routing', async () => {
+  test.each(['invalid', 'network'])('retries %s routing before falling back', async failure => {
+    const { AgentSkillRuntime } = await import('../../../dist/agent-runtime/index.js');
+    const runtime = new AgentSkillRuntime();
+    let calls = 0;
+    const llm = { invoke: async () => {
+      calls++;
+      if (failure === 'network') throw new Error('unavailable');
+      return { content: 'invalid' };
+    } };
+    const match = await runtime.detectStructuralTypeWithLlm(llm, 'simply supported beam', 'en');
+    expect(calls).toBe(2);
+    expect(match).toMatchObject({ key: 'beam', routingSource: 'explicit-keyword' });
+  });
+
+  test('a successful retry remains an LLM decision even for unsupported keywords', async () => {
+    const { AgentSkillRuntime } = await import('../../../dist/agent-runtime/index.js');
+    let calls = 0;
+    const match = await new AgentSkillRuntime().detectStructuralTypeWithLlm({ invoke: async () => ({
+      content: ++calls === 1 ? 'invalid' : JSON.stringify({ action: 'switch_skill', skillId: 'beam',
+        structuralTypeKey: 'beam', mappedType: 'beam', supportLevel: 'supported', confidence: .99 }),
+    }) }, 'A beam in a bridge; only analyze this simply supported member.', 'en');
+    expect(calls).toBe(2);
+    expect(match).toMatchObject({ key: 'beam', routingSource: 'llm-suggested' });
+  });
+
+  test('aborted routing does not retry or fall back', async () => {
+    const { AgentSkillRuntime } = await import('../../../dist/agent-runtime/index.js');
+    const controller = new AbortController();
+    let calls = 0;
+    await expect(new AgentSkillRuntime().detectStructuralTypeWithLlm({ invoke: async () => {
+      calls++; controller.abort(new Error('cancelled')); throw new Error('cancelled');
+    } }, 'beam', 'en', undefined, undefined, controller.signal)).rejects.toThrow('cancelled');
+    expect(calls).toBe(1);
+  });
+
+  test('uses rules when no LLM is configured', async () => {
     const { AgentSkillRuntime } = await import('../../../dist/agent-runtime/index.js');
     const runtime = new AgentSkillRuntime();
 
@@ -418,7 +453,7 @@ describe('agent runtime helper utilities', () => {
       null,
       '简支梁跨度6m',
       'zh',
-    )).rejects.toThrow('LLM 未配置');
+    )).resolves.toMatchObject({ key: 'beam', routingSource: 'explicit-keyword' });
   });
 
   test('does not preserve old draft over an LLM-suggested generic route', async () => {

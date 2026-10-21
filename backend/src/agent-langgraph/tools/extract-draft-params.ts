@@ -11,15 +11,14 @@ import { getLogger, logToolCall } from '../../utils/agent-logger.js';
 import type { AgentState } from '../state.js';
 import type { AgentConfigurable } from '../configurable.js';
 import type { AgentSkillPlugin, DraftExtraction, DraftState, StructuralTypeMatch } from '../../shared/types/agent.js';
-import { isFreshGenericStructuralRoute } from '../../agent-runtime/plugin-helpers.js';
 import { invalidateStaleResults } from '../../engineering/model-state.js';
 import { mergeInputEvidence } from '../../engineering/input-evidence.js';
 import { engineeringModelSchema, draftDesignSchema, hasDraftDesignInputs, assertDraftDesignInputs, draftSectionShapeSchema, normalizeDraftSectionInputs } from '../../engineering/model-edit-contract.js';
 import { createLocalStructureProtocolClient } from '../../skill-shared/structure-protocol-execution.js';
 import { currentRunPolicy, recordRunEvent } from '../../runtime/run-context.js';
 import { requestScopeSchema, resolveExtractedScope, missingInputReason, type RequestScope, type ScopeDiagnostic } from '../../engineering/request-scope.js';
-import { buildDraftProgress, buildClarificationQuestions, hasStableDraftType, shouldPreserveExistingDraftState, resolveRetryTaskMessage, buildPreservedDraftExtractionResult, resolveExistingDraftPlugin, detectStructuralTypeWithConfiguredLlm, resolveDetectedStructuralTypeMatch } from './draft-helpers.js';
-import { conversationSectionEvidence, resolveExtractionInputMessage } from './input-message.js';
+import { buildDraftProgress, buildClarificationQuestions, shouldPreserveExistingDraftState, resolveRetryTaskMessage, buildPreservedDraftExtractionResult, resolveExistingDraftPlugin, detectStructuralTypeWithConfiguredLlm } from './draft-helpers.js';
+import { conversationSectionEvidence, resolveExtractionInputMessage, messageRole, messageText } from './input-message.js';
 import { getConfigurable, getToolCallId, toolResult, nestedLlmUsageCollector, toolSkillScope } from './shared.js';
 
 type ExtractionLocale = 'zh' | 'en';
@@ -27,9 +26,25 @@ type SkillMissing = ReturnType<typeof computeDraftMissing>;
 
 type UsageListener = ReturnType<typeof nestedLlmUsageCollector>['onUsage'];
 
+/** A saved type is reusable only after routing this turn's input. */
+function currentTurnDetection(state: AgentState | undefined): StructuralTypeMatch | null {
+  for (const message of [...(state?.messages ?? [])].reverse()) {
+    const role = messageRole(message);
+    if (role === 'human' || role === 'user') return null;
+    if (role === 'tool' && message.name === 'ask_user_clarification') return null;
+    if (role === 'tool' && message.name === 'detect_structure_type') {
+      try {
+        const result = JSON.parse(messageText(message));
+        return result.key && result.mappedType && result.routingSource && result.supportLevel ? result : null;
+      } catch { return null; }
+    }
+  }
+  return null;
+}
+
 /** Step 1: reuse the accepted structural type unless routing is fixed, else ask the configured LLM router. */
 async function detectStructuralMatch(skillRuntime: AgentSkillRuntime, options: {
-  structuralTypeKey: AgentState['structuralTypeKey'] | undefined;
+  detectedMatch: StructuralTypeMatch | null;
   existingState: DraftState | undefined;
   skillIds: string[] | undefined;
   extractionMessage: string;
@@ -37,12 +52,8 @@ async function detectStructuralMatch(skillRuntime: AgentSkillRuntime, options: {
   signal: AbortSignal | undefined;
   onUsage: UsageListener;
 }) {
-  const { structuralTypeKey, existingState, skillIds, extractionMessage, locale, signal, onUsage } = options;
-  const detectedMatch = currentRunPolicy()?.routing.mode === 'fixed' ? null : await resolveDetectedStructuralTypeMatch(
-    skillRuntime,
-    structuralTypeKey,
-    skillIds,
-  );
+  const { existingState, skillIds, extractionMessage, locale, signal, onUsage } = options;
+  const detectedMatch = currentRunPolicy()?.routing.mode === 'fixed' ? null : options.detectedMatch;
   const match = detectedMatch ?? await detectStructuralTypeWithConfiguredLlm(skillRuntime, {
     message: extractionMessage,
     locale,
@@ -217,37 +228,6 @@ function unavailablePluginOutcome(existingState: DraftState | undefined, match: 
   return { responseJson, nextState };
 }
 
-/** Generic skill with a stable draft: deterministic merge, no LLM extraction. */
-async function genericDeterministicOutcome(
-  plugin: AgentSkillPlugin,
-  stableExistingState: DraftState,
-  match: StructuralTypeMatch,
-  state: AgentState | undefined,
-  locale: ExtractionLocale,
-) {
-  const { withStructuralTypeState } = await import('../../agent-runtime/plugin-helpers.js');
-  const resetToGeneric = isFreshGenericStructuralRoute(match);
-  const nextState = withStructuralTypeState(
-    plugin.handler.mergeState(resetToGeneric ? undefined : stableExistingState, resetToGeneric ? { inferredType: 'unknown' } : {}),
-    match,
-  );
-  const missing = computeDraftMissing(plugin, nextState, 'execution');
-  const responseJson = {
-    nextState,
-    criticalMissing: missing.critical,
-    optionalMissing: missing.optional,
-    clarificationQuestions: buildClarificationQuestions(plugin, missing.critical, missing.optional, nextState, locale),
-    structuralTypeMatch: match,
-    skillId: plugin.id,
-    routingSource: match.routingSource,
-    extractionMode: 'deterministic',
-    ...buildDraftProgress(locale, missing.critical),
-  };
-  const stateUpdate: Partial<AgentState> = { ...(resetToGeneric ? { ...invalidateStaleResults(state), modelPending: true } : {}),
-    draftState: nextState, structuralTypeKey: match.key };
-  return { responseJson, stateUpdate, missing };
-}
-
 /** Response of the LLM extraction path: draft, missing input, scope and the next action. */
 function buildLlmExtractionResponse(options: {
   nextState: DraftState;
@@ -366,7 +346,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
           extractionMessagePreview: extractionMessage.slice(0, 120),
         }, 'extract_draft_params resolved message');
         const { detectedMatch, match, matchedPlugin } = await detectStructuralMatch(skillRuntime, {
-          structuralTypeKey: state?.structuralTypeKey, existingState, skillIds, extractionMessage, locale,
+          detectedMatch: currentTurnDetection(state), existingState, skillIds, extractionMessage, locale,
           signal: config.signal, onUsage: nestedUsage.onUsage,
         });
         log.debug({
@@ -409,17 +389,6 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
           const { responseJson, nextState } = unavailablePluginOutcome(existingState, match, locale);
           logToolCall(log, { tool: 'extract_draft_params', durationMs: Date.now() - start, extra: { skillId: match.skillId, pluginResolved: false, routingSource: match.routingSource } });
           return extractionToolResult(JSON.stringify(responseJson), { draftState: nextState });
-        }
-
-        // Generic skill: deterministic path (no LLM extraction needed)
-        const stableExistingState = hasStableDraftType(existingState) ? existingState : undefined;
-        if (
-          plugin.id === 'generic'
-          && stableExistingState
-        ) {
-          const { responseJson, stateUpdate, missing } = await genericDeterministicOutcome(plugin, stableExistingState, match, state, locale);
-          logToolCall(log, { tool: 'extract_draft_params', durationMs: Date.now() - start, extra: { skillId: plugin.id, extractionMode: 'deterministic', criticalMissing: missing.critical.length, routingSource: match.routingSource } });
-          return extractionToolResult(JSON.stringify(responseJson), stateUpdate);
         }
 
         const { draftPatch, patch, scopeDiagnostics, requestScope, nextState, goalRequired, missing } = await extractAndMergeDraft({

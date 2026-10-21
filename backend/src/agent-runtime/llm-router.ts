@@ -36,7 +36,6 @@ interface StructuralRouterInput {
   currentState?: DraftState;
   currentPlugin?: AgentSkillPlugin | null;
   plugins: AgentSkillPlugin[];
-  ruleMatch?: StructuralTypeMatch;
   signal?: AbortSignal;
   onUsage?: (usage: LlmTokenUsage) => void;
 }
@@ -281,7 +280,6 @@ function buildPluginSummary(plugin: AgentSkillPlugin): Record<string, unknown> {
 function buildRouterPrompt(input: StructuralRouterInput): string {
   const stateJson = JSON.stringify(cleanStateForPrompt(input.currentState) ?? {}, null, 2);
   const skillsJson = JSON.stringify(input.plugins.map(buildPluginSummary), null, 2);
-  const ruleMatchJson = JSON.stringify(input.ruleMatch ?? null, null, 2);
   const currentSkill = input.currentPlugin
     ? JSON.stringify(buildPluginSummary(input.currentPlugin), null, 2)
     : 'null';
@@ -290,7 +288,7 @@ function buildRouterPrompt(input: StructuralRouterInput): string {
     return [
       '你是结构工程对话的结构类型路由器。请直接判断本轮用户消息应该继续当前 draft，切换到某个结构 skill，还是进入 generic 澄清。',
       '',
-      '规则 hints 只是参考，不是最终裁判。不要因为存在 current draft 就自动继续；只有用户是在修改、补充、回答追问或明确引用当前模型时才 continue_current。',
+      '不要因为存在 current draft 就自动继续；只有用户是在修改、补充、回答追问或明确引用当前模型时才 continue_current。',
       '如果最新消息像一个新的结构描述，尤其是从构件级草稿转到办公楼、柱网、楼层、体系描述，不要被旧 draft 锁定。',
       '“梁上荷载”里的梁通常是框架构件上下文，不一定要切到 beam；“柱网/柱距”里的柱通常不是单柱。',
       '',
@@ -311,7 +309,6 @@ function buildRouterPrompt(input: StructuralRouterInput): string {
       '',
       `当前 draftState:\n${stateJson}`,
       '',
-      `规则 hint:\n${ruleMatchJson}`,
       '',
       `用户最新消息:\n${input.message}`,
     ].join('\n');
@@ -320,7 +317,7 @@ function buildRouterPrompt(input: StructuralRouterInput): string {
   return [
     'You are the structural-type router for a structural engineering conversation. Decide whether the latest user message should continue the current draft, switch to a structure skill, or go to generic clarification.',
     '',
-    'Rule hints are advisory, not authoritative. Do not continue the current draft just because it exists; continue only when the user is editing, supplementing, answering a clarification, or explicitly referring to the current model.',
+    'Do not continue the current draft just because it exists; continue only when the user is editing, supplementing, answering a clarification, or explicitly referring to the current model.',
     'If the latest message looks like a new structural description, especially a shift from a member draft to a building/grid/story/system description, do not lock it to the old draft.',
     'A beam mentioned in "load on the beam" may be member context inside a frame; a column mentioned in "column grid/spacing" is usually not a standalone column.',
     '',
@@ -336,7 +333,6 @@ function buildRouterPrompt(input: StructuralRouterInput): string {
     '',
     `Current draftState:\n${stateJson}`,
     '',
-    `Rule hint:\n${ruleMatchJson}`,
     '',
     `Latest user message:\n${input.message}`,
   ].join('\n');

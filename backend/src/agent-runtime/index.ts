@@ -30,16 +30,6 @@ import type {
   SkillManifest,
 } from '../shared/types/agent.js';
 
-function requireStructuralRouterLlm(llm: StructureClawChatModel | null, locale: AppLocale): StructureClawChatModel {
-  if (llm) {
-    return llm;
-  }
-  throw new Error(locale === 'zh'
-    ? 'LLM 未配置，无法进行结构类型路由。请检查 LLM_API_KEY 设置。'
-    : 'LLM is not configured, so structural type routing cannot run. Please check LLM_API_KEY settings.');
-}
-
-
 export type {
   AgentSkillBundle,
   AgentSkillPlugin,
@@ -372,7 +362,7 @@ export class AgentSkillRuntime {
       skillId: 'report-export-builtin' };
   }
 
-  /** Rule-only router used for guardrail hints and fallback; user-facing flows should prefer detectStructuralTypeWithLlm. */
+  /** Rule-only router used for offline operation and fallback; user-facing flows should prefer detectStructuralTypeWithLlm. */
   async detectStructuralType(message: string, locale: AppLocale, currentState?: DraftState, skillIds?: string[]): Promise<StructuralTypeMatch> {
     return this.registry.detectStructuralType(message, locale, currentState, skillIds);
   }
@@ -391,41 +381,35 @@ export class AgentSkillRuntime {
     if (policy?.routing.mode === 'fixed') {
       const plugin = await this.registry.resolvePluginForIdentifier(policy.routing.skillId, skillIds);
       if (!plugin) throw new Error('FIXED_SKILL_NOT_A_MODELING_PROVIDER');
+      recordRunEvent({ kind: 'structural_routing', path: 'policy-fixed', skillId: plugin.id });
       return { key: plugin.manifest.structuralTypeKeys[0] ?? 'unknown', mappedType: plugin.structureType ?? 'unknown', skillId: plugin.id,
         supportLevel: 'supported', routingSource: 'policy-fixed' };
     }
-    const routerLlm = requireStructuralRouterLlm(llm, locale);
-    const ruleMatch = await this.registry.detectStructuralType(message, locale, undefined, skillIds);
-    if (
-      ruleMatch?.supportLevel === 'unsupported'
-      && ruleMatch.key !== 'unknown'
-    ) {
-      return ruleMatch;
+    if (llm) {
+      const plugins = await this.registry.resolveEnabledPlugins(skillIds);
+      const currentPlugin = await this.registry.resolvePluginForState(currentState, skillIds);
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        signal?.throwIfAborted();
+        try {
+          const match = await invokeStructuralTypeRouter({
+            llm, message, locale, currentState, currentPlugin, plugins, signal, onUsage,
+          });
+          if (match) {
+            recordRunEvent({ kind: 'structural_routing', path: 'llm', attempt, key: match.key });
+            return match;
+          }
+        } catch (error) {
+          signal?.throwIfAborted();
+          if (!(error instanceof Error) || !error.message.startsWith('LLM_STRUCTURAL_ROUTER_INFRASTRUCTURE_ERROR:')) throw error;
+        }
+        if (attempt === 1) requestRecovery('structural routing: retry unusable or failed LLM decision');
+      }
     }
-
-    const plugins = await this.registry.resolveEnabledPlugins(skillIds);
-    const currentPlugin = await this.registry.resolvePluginForState(currentState, skillIds);
-    const llmMatch = await invokeStructuralTypeRouter({
-      llm: routerLlm,
-      message,
-      locale,
-      currentState,
-      currentPlugin,
-      plugins,
-      ruleMatch,
-      signal,
-      onUsage,
-    });
-    if (llmMatch) {
-      return llmMatch;
-    }
-
-    // Fallback is allowed only after an available LLM failed to produce a usable routing decision.
-    if (ruleMatch) {
-      requestRecovery('structural routing: unusable LLM decision, applying explicit rule result');
-      return ruleMatch;
-    }
-    throw new Error('LLM_STRUCTURAL_ROUTER_INVALID_OUTPUT: response did not contain a usable routing decision');
+    // Rules are evaluated only without an LLM or after its retry failed.
+    const match = await this.registry.detectStructuralType(message, locale, undefined, skillIds);
+    recordRunEvent({ kind: 'structural_routing', path: 'rule-fallback',
+      reason: llm ? 'failed-after-retry' : 'not-configured', key: match.key });
+    return match;
   }
 
   async resolvePluginForType(skillId: string, skillIds?: string[]): Promise<AgentSkillPlugin | null> {
