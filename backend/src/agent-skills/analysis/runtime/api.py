@@ -144,6 +144,12 @@ async def analyze(request: AnalysisRequest) -> AnalysisResponse:
     try:
         logger.info(f"Starting {request.type} analysis")
         result = engine_registry.run_analysis(request.type, request.model, request.parameters, request.engine_id)
+        mapping = request.model.metadata.get("sourceFrameMapping")
+        if mapping:
+            from structure_protocol.axis_mapping import results_in_source_frame
+            result["sourceFrameResults"] = results_in_source_frame(
+                {key: result[key] for key in ("displacements", "reactions", "caseResults", "combinationResults") if key in result},
+                mapping["sourceFrame"])
 
         logger.info(f"Analysis completed successfully")
         now = datetime.now(timezone.utc).isoformat()

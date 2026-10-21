@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import math
 from copy import deepcopy
-from typing import Any, Dict, List, Literal, Optional, get_args
+from typing import Any, Dict, List, Literal, Optional, Union, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator, model_validator
 from structure_protocol.design_properties import MaterialDesign, MemberDesign, migrate_design_fields
@@ -716,6 +716,17 @@ class StructureModelV2(BaseModel):
     schema_version: Literal["2.0.0", "2.1.0", "2.2.0"] = Field(default="2.2.0")
     unit_system: str = Field(default="SI")
     coordinate_system: CoordinateSystemV2
+    source_frame: Optional[Union[Literal['y-up', 'z-up'], Dict[str, str]]] = Field(
+        default=None, exclude=True,
+        description='Declared source axes, mapped once to global Z-up; e.g. {x:x,y:z,z:-y} / 声明源坐标轴，由系统统一转换为 Z 向上')
+
+    @model_validator(mode='before')
+    @classmethod
+    def map_declared_source_frame(cls, value):
+        if isinstance(value, dict) and value.get('source_frame') is not None:
+            from .migrations import ensure_v2_dict
+            return ensure_v2_dict(value)
+        return value
 
     # --- NEW in V2 ---
     project: Optional[ProjectInfo] = None
