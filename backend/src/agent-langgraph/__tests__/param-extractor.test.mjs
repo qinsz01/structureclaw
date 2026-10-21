@@ -21,6 +21,15 @@ const beamPlugin = {
 };
 
 describe("param extractor", () => {
+  test.each(['en', 'zh'])('the nested extractor receives the agent-declared goal on a first turn (%s)', async locale => {
+    const { invokeParamExtractor } = await import('../../../dist/agent-langgraph/param-extractor.js');
+    const requestScope = { responses: ['forces', 'reactions'], design: false, report: false, outputs: [] };
+    let captured;
+    await invokeParamExtractor({ message: 'Analyze beam forces', locale, plugin: beamPlugin, requestScope,
+      llm: { invoke: async prompt => { captured = prompt; return { content: JSON.stringify({ requestScope }) }; } } });
+    expect(captured).toContain(`Agent-declared request goal / 代理已声明的所求结果: ${JSON.stringify(requestScope)}`);
+    expect(captured).toContain('never merely because they are common analysis outputs');
+  });
   test.each(['MODEL_EDIT_FIELD_INVALID', 'DRAFT_CLEAR_INVALID'])('repairs schema-invalid patches inside the extraction call (%s)', async code => {
     const { invokeParamExtractor } = await import('../../../dist/agent-langgraph/param-extractor.js');
     const prompts = [], expected = { engineeringDraft: { material: { grade: 'Q235' } } };

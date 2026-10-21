@@ -146,6 +146,7 @@ async function extractAndMergeDraft(options: {
   };
   let prepared: Awaited<ReturnType<typeof prepareDraft>> | undefined;
   const draftPatch = await invokeParamExtractor({
+    requestScope: requestedScope ?? undefined,
     message: extractionMessage,
     existingState,
     // Adding a response such as deflection still patches the same physical draft.
