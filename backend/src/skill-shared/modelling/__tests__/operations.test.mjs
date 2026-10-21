@@ -5,6 +5,10 @@ import { tryBuildGenericModelWithLlm } from '../../../../dist/agent-skills/struc
 import { createLocalStructureProtocolClient } from '../../../../dist/skill-shared/structure-protocol-execution.js';
 import { normalizeEngineeringModel } from '../../../../dist/engineering/model-boundary.js';
 import { createLocalAnalysisEngineClient } from '../../../../dist/services/analysis-execution.js';
+import { ModellingOperationError } from '../../../../dist/skill-shared/modelling/contract.js';
+import { resolveRunPolicy } from '../../../../dist/runtime/run-policy.js';
+import { createRunContext, withRunContext } from '../../../../dist/runtime/run-context.js';
+import { createBuildModelTool } from '../../../../dist/agent-langgraph/tools.js';
 
 const fixed = [true, true, true, true, true, true];
 const base = dimension => ({ schema_version: '2.2.0', unit_system: 'SI', coordinate_system: { dimension },
@@ -106,5 +110,22 @@ describe('deterministic modelling operations', () => {
     expect(model.nodes).toHaveLength(9);
     expect(model.metadata.physicsCheck.loadTotals.LC1).toEqual([60, 0, 0]);
     expect(model.operations).toBeUndefined();
+  });
+  test('unresolved operations exhaust exactly the configured repair budget and preserve the cause', async () => {
+    const policy = resolveRunPolicy({ availableSkillIds: ['generic'], structureTypeSkillIds: ['generic'], availableToolIds: [], requested: { repair: { enabled: true, maxRecoveriesPerTurn: 1 } } });
+    const run = createRunContext(policy); let calls = 0;
+    const input = { ...base('2d'), operations: [{ ...lateral, selector: { ids: ['missing'] } }] };
+    await expect(withRunContext(run, () => tryBuildGenericModelWithLlm({ invoke: async () => { calls++; return { content: JSON.stringify(input) }; } }, 'Do not guess a target', {}, 'en')))
+      .rejects.toMatchObject({ code: 'OPERATION_SELECTOR_UNRESOLVED' });
+    expect(calls).toBe(2); expect(run.usage.recoveries).toBe(1);
+  });
+  test('the public build tool returns structured operation diagnostics without replacing a saved model', async () => {
+    const saved = { nodes: [{ id: 'saved' }] };
+    const state = { model: saved, modelRevision: 3, draftState: { skillId: 'generic' }, messages: [] };
+    const result = await createBuildModelTool({ buildModel: async () => { throw new ModellingOperationError('USER_TOPOLOGY_IDS_NOT_PRESERVED', { missingNodes: ['A'] }); } }).invoke({},
+      { toolCall: { id: 'failed-operation' }, configurable: { agentState: state } });
+    expect(JSON.parse(result.update.messages[0].content)).toMatchObject({ success: false, errorCode: 'USER_TOPOLOGY_IDS_NOT_PRESERVED', details: { missingNodes: ['A'] } });
+    expect(result.update.model).toBeUndefined();
+    expect(state.model).toBe(saved); expect(state.modelRevision).toBe(3);
   });
 });
