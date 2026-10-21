@@ -34,7 +34,7 @@ const frontendDir = path.join(dataDir, 'frontend');
 fs.cpSync(path.join(repository, 'frontend/out'), frontendDir, { recursive: true });
 const settings = {
   server: { port, host: '127.0.0.1', frontendPort: port }, database: { url: databaseUrl },
-  llm: { baseUrl: process.env.LLM_BASE_URL ?? source.llm?.baseUrl, model: process.env.LLM_MODEL ?? source.llm?.model,
+  llm: { baseUrl: source.llm?.baseUrl ?? process.env.LLM_BASE_URL, model: source.llm?.model ?? process.env.LLM_MODEL,
     timeoutMs: 180000, maxRetries: 0 },
   analysis: { ...source.analysis, pythonBin },
   agent: { workspaceRoot: dataDir, checkpointDir: path.join(dataDir, 'checkpoints'), allowShell: false },
@@ -83,15 +83,18 @@ try {
     let session;
     let conversation;
     let failure;
+    const captureWarnings = [];
     let turns = 0;
     const start = Date.now();
     try {
       await page.goto('/');
       if (scenario.generic) {
-        await page.getByRole('button', { name: '运行设置', exact: true }).click();
+        const scope = page.locator('summary').filter({ hasText: /^会话设置$/ });
+        await scope.click();
         await page.getByLabel('结构技能', { exact: true }).selectOption('restricted');
+        for (const checkbox of await page.getByRole('checkbox').all()) await checkbox.uncheck();
         await page.getByLabel('通用结构类型', { exact: true }).check();
-        await page.getByRole('button', { name: '运行设置', exact: true }).click();
+        await scope.click();
       }
       for (const prompt of [scenario.prompt, ...(scenario.followups ?? [])]) {
         if (turns && !session?.waitingForReply) break;
@@ -102,7 +105,9 @@ try {
         turns++;
         const response = await responsePromise;
         conversationId = response.request().postDataJSON().conversationId ?? conversationId;
-        const stream = await response.text();
+        await response.finished();
+        let stream = '';
+        try { stream = await response.text(); } catch (error) { captureWarnings.push(String(error)); }
         fs.writeFileSync(path.join(directory, `turn-${turns}.sse`), stream);
         if (!conversationId) {
           for (const line of stream.split('\n').filter(line => line.startsWith('data: ') && !line.includes('[DONE]'))) {
@@ -138,7 +143,7 @@ try {
       questions: questions.map(message => parse(message.content)),
       toolErrors: tools.filter(message => /^Error:|"success":false|RECOVERY_BUDGET_EXHAUSTED/.test(message.content)),
       lastAssistant: conversation?.messages?.filter(message => message.role === 'assistant').at(-1)?.content,
-      pageErrors, failure };
+      pageErrors, captureWarnings, failure };
     fs.writeFileSync(path.join(directory, 'summary.json'), JSON.stringify(summary, null, 2));
     summaries.push(summary);
     fs.writeFileSync(path.join(evidence, 'summary.json'), JSON.stringify(summaries, null, 2));
