@@ -355,6 +355,27 @@ export function stiffnessPlaceholderUses(state: DraftState): { material: boolean
   return { material: !declaresMaterial(state), section: !declaresSection(state) };
 }
 
+/** Section references are independent of material availability. */
+export function resolveTemplateSectionId(state: DraftState, role: TemplateRole, roleCount = 1): string | undefined {
+  const draft = state.engineeringDraft;
+  const sections = (draft?.sectionRecords ?? []).map(section => hasSectionDefinition(section)
+    ? enforceSectionProvenance(structuredClone(section)) : designatedSectionRecord(structuredClone(section), draft));
+  if (!sections.length) return undefined;
+  const mapping = resolveDraftTemplateAssignment(draft, role);
+  const declared = draft?.sections?.[role] ?? draft?.sections?.member
+    ?? (role === 'column' ? state.frameColumnSection as string | undefined
+      : role === 'beam' ? state.frameBeamSection as string | undefined : undefined);
+  let sectionId = mapping?.sectionId ?? declared;
+  if (!mapping?.sectionId && declared && !sections.some(entry => entry.id === sectionId)) {
+    const byName = sections.filter(entry => typeof entry.name === 'string'
+      && normalizeSectionName(entry.name.replace(/\s*[（(].*$/, '')) === normalizeSectionName(declared));
+    if (byName.length === 1) sectionId = String(byName[0].id);
+  }
+  if (!sectionId && roleCount === 1 && sections.length === 1) sectionId = String(sections[0].id);
+  if (!sectionId || !sections.some(entry => entry.id === sectionId)) propertyError(`${role}.sectionId`);
+  return sectionId;
+}
+
 export function resolveTemplateProperties(state: DraftState, roles: TemplateRole[]) {
   const draft = state.engineeringDraft;
   const placeholder = stiffnessPlaceholderUses(state);
@@ -373,15 +394,7 @@ export function resolveTemplateProperties(state: DraftState, roles: TemplateRole
         : role === 'beam' ? state.frameBeamSection as string | undefined : undefined);
     let sectionId = mapping?.sectionId;
     if (explicitRecords) {
-      sectionId ??= declaredSection;
-      if (!mapping?.sectionId && declaredSection && !sections.some(entry => entry.id === sectionId)) {
-        const byName = sections.filter(entry => typeof entry.name === 'string'
-          && normalizeSectionName(entry.name.replace(/\s*[（(].*$/, '')) === normalizeSectionName(declaredSection));
-        if (byName.length === 1) sectionId = String(byName[0].id);
-      }
-      // A single section is unambiguous only when geometry has one member role.
-      if (!sectionId && roles.length === 1 && sections.length === 1) sectionId = String(sections[0].id);
-      if (!sectionId || !sections.some((entry) => entry.id === sectionId)) propertyError(`${role}.sectionId`);
+      sectionId = resolveTemplateSectionId(state, role, roles.length);
     } else if (placeholder.section) {
       // One shared unit section: every member has the same EI.
       sectionId = '1';

@@ -18,6 +18,23 @@ const fields = {
   'loads': [{ id: 'P', kind: 'point', magnitude: 1, unit: 'kN', direction: 'gravity', target: 'beam', location: { xM: 3 } }],
 };
 const nested = (path, value) => path.split('.').reverse().reduce((v, key) => ({ [key]: v }), value);
+for (const id of ids) for (const role of ['beam', 'column', 'member']) test(`${id}: assigned ${role} section clears independently of missing material`, () => {
+  const handler = handlers[id];
+  const inferredType = ['generic', 'concrete-frame'].includes(id) ? 'frame' : id;
+  const field = `sections.${role}`;
+  const before = { inferredType, skillId: id, updatedAt: 0,
+    requestScope: { responses: ['forces', 'displacements'], design: false, report: false, outputs: [] },
+    draftIssues: [field, 'material.grade'].map(field => ({ field, kind: 'missing', severity: 'invalid', reason: 'Missing input' })) };
+  expect(computeDraftMissing({ id, handler }, before, 'execution').critical).toContain(field);
+  const patch = handler.extractDraft({ message: 'Use a 250×500 mm rectangle for this role.', locale: 'en', currentState: before,
+    llmDraftPatch: { engineeringDraft: { sectionRecords: [{ id: 'S1', name: 'Rectangle', type: 'rectangular',
+      shape: { kind: 'rectangular', B: 250, H: 500 }, extra: { provenance: { shape: 'user' } } }],
+    templateAssignments: { [role]: { sectionId: 'S1' } } } } });
+  const after = handler.mergeState(before, patch);
+  const missing = computeDraftMissing({ id, handler }, after, 'execution').critical;
+  expect(missing).not.toContain(field);
+  expect(missing).toContain('material.grade');
+});
 for (const id of ids) {
   describe(`${id}: canonical field answers`, () => {
     const handler = handlers[id];

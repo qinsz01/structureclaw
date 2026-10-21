@@ -1,6 +1,6 @@
 import type { DraftExtraction, DraftIssue, DraftState, EngineeringDraft } from '../shared/types/agent.js';
 import { engineeringLoadClarifiesExisting } from './engineering-draft.js';
-import { resolveTemplateMaterials, resolveTemplateProperties, stiffnessPlaceholderUses } from './template-properties.js';
+import { resolveTemplateMaterials, resolveTemplateSectionId, stiffnessPlaceholderUses } from './template-properties.js';
 import { draftContract, resolveFieldSchema, validDraftValue, type FieldSchema } from '../engineering/draft-contract.js';
 import { canonicalDraftPath as canonicalPath, legacyDraftContract, withLegacyScalarViews } from './draft/legacy-fields.js';
 import { invalidDraftFieldsOf } from './draft/normalize.js';
@@ -90,7 +90,7 @@ function assignedRoleSection(field: string, merged: DraftState): { role: Templat
     || !merged.engineeringDraft?.sectionRecords?.length || merged.engineeringDraft.model) return undefined;
   const key = role!.key as TemplateRole;
   try {
-    const sectionId = resolveTemplateProperties(merged, [key]).byRole[key]?.sectionId;
+    const sectionId = resolveTemplateSectionId(merged, key);
     return sectionId ? { role: key, sectionId } : undefined;
   } catch { return undefined; }
 }

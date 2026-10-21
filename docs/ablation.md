@@ -8,7 +8,7 @@ tool interfaces and inputs and removes exactly one mechanism. Removing a mechani
 loss, not a broken interface: the agent still finishes the turn with an answer.
 
 Source of truth: `backend/src/runtime/ablation-profiles.ts` (`ABLATION_PROFILES_VERSION`, currently
-`2026-10-21.11`). Any change to a profile definition, or to the default prompts or tools that every profile
+`2026-10-21.12`). Any change to a profile definition, or to the default prompts or tools that every profile
 shares, requires a new version. History:
 
 - `2026-10-17.1`: initial profiles. `2026-10-17.2`: `no-knowledge` also removes stage names.
@@ -29,6 +29,8 @@ shares, requires a new version. History:
 - `2026-10-21.10`: Normalize dimensions/shape confirmation aliases and bind alternatives to their exact options; retry incomplete accepted-section assignments inside extraction; preserve stated beam/column roles without asking again / 在提取内部重试已确认截面的角色引用缺漏，保留已说明的梁柱分配，不重复询问。
 
 - `2026-10-21.11`: Forward answered section evidence into generic model validation / 将已回答的截面确认证据传递给通用模型内部验证。
+
+- `2026-10-21.12`: Resolve section-role diagnostics independently of missing material properties, using the same section-reference resolver as the builder / 截面角色诊断与缺失材料属性独立解析，复用建模器的截面引用解析。
 
 ## Selecting a profile
 
