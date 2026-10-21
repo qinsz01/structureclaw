@@ -20,6 +20,10 @@ def bending_releases(element, dimension):
         if not isinstance(flags, dict) or set(flags)-{'ux', 'uy', 'uz', 'rx', 'ry', 'rz'} or any(type(v) is not bool for v in flags.values()):
             raise OpenSeesInputError(f"End release on '{element.id}' requires explicit boolean local DOFs")
         active = {key for key, enabled in flags.items() if enabled}
+        # Axial elements already have no rotational stiffness. Preserve the authored model,
+        # but realize redundant rotational hinges through the native axial formulation.
+        if element.type in {'truss', 'brace'} and not getattr(element, 'offsets', None) and not active-{'rx', 'ry', 'rz'}:
+            active = set()
         if active and (element.type not in {'beam', 'column'} or active-{'ry', 'rz'}):
             raise OpenSeesCapabilityError(f"Only elastic beam/column bending releases are supported on '{element.id}'")
         if dimension == '2d':

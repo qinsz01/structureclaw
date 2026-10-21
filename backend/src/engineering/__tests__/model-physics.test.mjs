@@ -16,9 +16,13 @@ describe('deterministic model physics', () => {
     const model = copy(3); model.elements = model.elements.filter(element => element.id !== 'AB');
     expect(codes(model)).toContain('KINEMATIC_MECHANISM');
   });
-  test('axial members do not pass with additional releases unsupported by the solver', () => {
+  test('axial rotational releases are equivalent hinges, while translational releases remain unsupported', () => {
     const model = copy(3); model.elements[0].releases = { i: { ry: true } };
+    expect(checkModelPhysics(model)).toMatchObject({ valid: true, diagnostics: [expect.objectContaining({ code: 'AXIAL_ROTATION_RELEASES_REDUNDANT', severity: 'warning' })] });
+    expect(model.elements[0].releases).toEqual({ i: { ry: true } });
+    model.elements[0].releases.i.ux = true;
     expect(codes(model)).toContain('AXIAL_MEMBER_RELEASES_UNSUPPORTED');
+    model.elements[0].releases.i.ux = false;
     model.elements[0].releases.i.ry = false;
     expect(checkModelPhysics(model).valid).toBe(true);
   });

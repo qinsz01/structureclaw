@@ -6,6 +6,30 @@ import pytest
 from test_solver_mesh import beam, solve
 
 
+@pytest.mark.parametrize('kind', ['truss', 'brace'])
+def test_axial_rotational_hinges_preserve_authored_input_and_native_equilibrium(kind):
+    model = beam()
+    payload = model.model_dump()
+    payload['nodes'].append({'id': 'C', 'x': 3, 'y': 0, 'z': 3})
+    original = payload['elements'][0]
+    payload['elements'] = [{**original, 'id': name, 'type': kind, 'nodes': list(name)} for name in ('AB', 'AC', 'BC')]
+    payload['load_cases'][0]['loads'] = [{'type': 'nodal', 'node': 'C', 'fz': -10}]
+    model = type(model).model_validate(payload)
+    reference = solve(model)
+    for member in model.elements:
+        member.releases = {end: {'rx': True, 'ry': True, 'rz': True} for end in ('i', 'j')}
+    authored = copy.deepcopy(model.model_dump())
+    result = solve(model)
+    assert model.model_dump() == authored
+    for node in ('A', 'B'):
+        assert result['reactions'][node]['fz'] == pytest.approx(5, abs=1e-10)
+    for name in ('AB', 'AC', 'BC'):
+        assert result['forces'][name]['n1']['N'] == pytest.approx(reference['forces'][name]['n1']['N'], abs=1e-10)
+    model.elements[0].releases = {'i': {'ux': True}}
+    with pytest.raises(ValueError, match='releases'):
+        solve(model)
+
+
 @pytest.mark.parametrize('dimension', ['2d', '3d'])
 @pytest.mark.parametrize('angle', [0, 90])
 def test_two_end_hinges_preserve_refined_beam_continuity(dimension, angle):

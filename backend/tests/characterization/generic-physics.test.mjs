@@ -17,10 +17,15 @@ const operationsFixture = {
       { id: 'P', op: 'nodal-load', selector: { coordinate: { axis: 'z', gt: 0 } }, caseId: 'LC1', vector: [10, 0, 0] },
     ] },
 };
+const axialHingeFixture = structuredClone(genericFixtures[5]);
+axialHingeFixture.id = 'axial-rotational-hinge-equivalence';
+for (const member of [axialHingeFixture.model.elements, axialHingeFixture.draft.engineeringDraft.topology.members].flat()) {
+  if (member.id === 'AD') member.releases = { i: { ry: true }, j: { ry: true } };
+}
 
 describeWithOpenSees('characterization: generic physical modelling', () => {
   const ctx = setupHarness();
-  test.each([...genericFixtures, operationsFixture])('$id: scripted extraction and free-form builder → real OpenSees → equilibrium', async fixture => {
+  test.each([...genericFixtures, operationsFixture, axialHingeFixture])('$id: scripted extraction and free-form builder → real OpenSees → equilibrium', async fixture => {
     let builds = 0;
     // Pydantic's authoritative nullable node field is a normal LLM serialization of a free joint.
     const extracted = structuredClone(fixture.draft);

@@ -58,8 +58,12 @@ export function checkModelPhysics(model: ModelRecord, draft?: EngineeringDraft):
     }
     if (['truss', 'brace'].includes(String(element.type)) && isRecord(element.releases)
       && Object.values(element.releases).some(end => isRecord(end) && Object.values(end).some(flag => flag === true))) {
-      add('AXIAL_MEMBER_RELEASES_UNSUPPORTED', [id], 'Axial truss/brace members are already hinged. Additional end releases are unsupported; do not invent or silently remove confirmed releases.',
-        '纯轴力桁架及支撑构件本身已铰接，不支持另加端释放；不得编造或静默删除已确认的端释放。');
+      const active = Object.values(element.releases).filter(isRecord).flatMap(end => Object.entries(end).filter(([, flag]) => flag === true).map(([dof]) => dof));
+      const equivalent = active.every(dof => ['rx', 'ry', 'rz'].includes(dof)) && (!isRecord(element.offsets) || !Object.keys(element.offsets).length);
+      if (equivalent) add('AXIAL_ROTATION_RELEASES_REDUNDANT', [id], 'Axial members already have free rotations. Authored rotational release flags are retained and realized by the axial formulation; no user decision is needed.',
+        '纯轴力构件本身不传递转矩；原转动释放定义保留，由纯轴力单元实现等价铰接，无需用户另选建模方式。', { releases: element.releases }, 'warning');
+      else add('AXIAL_MEMBER_RELEASES_UNSUPPORTED', [id], 'Translational end releases or released offsets on an axial member are unsupported; do not silently remove confirmed input.',
+        '纯轴力构件的平移端释放或带偏心端释放尚不支持，不得静默删除已确认输入。');
     }
     usable.push(element);
   }
