@@ -17,7 +17,12 @@ export function frameNodalLoads(loads: EngineeringDraftLoad[] | undefined, nodes
   for (const load of loads ?? []) {
     if (!individual(load)) continue;
     if (!load.location?.nodeRole && !nodes.some(node => node.id === load.target)
-      && !/^N\d+_\d+(?:_\d+)?$/.test(load.target ?? '')) continue;
+      && !/^N\d+_\d+(?:_\d+)?$/.test(load.target ?? '')) {
+      if (load.kind === 'nodal' && load.target && !/^(?:floor|story|level)\s*\d+$/i.test(load.target)) {
+        throw new Error(`FRAME_NODAL_TARGET_UNRESOLVED: ${JSON.stringify(load)} / Nodal target is unresolved; do not discard this load / 节点荷载目标未解析，不得丢弃后计算`);
+      }
+      continue;
+    }
     let targets = nodes.filter(node => node.id === load.target);
     const role = load.location?.nodeRole?.trim().toLowerCase();
     if (!targets.length && role) {

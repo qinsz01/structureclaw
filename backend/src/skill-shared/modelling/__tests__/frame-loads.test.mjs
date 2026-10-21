@@ -21,4 +21,5 @@ test.each([['concrete', concrete], ['frame', frame]])('%s preserves four named c
   const loads = ['x0y0', 'x0y2', 'x2y0', 'x2y2'].map(nodeRole => ({ kind: 'nodal', magnitude: 10, unit: 'kN', direction: 'globalX', location: { story: 2, nodeRole: `corner-${nodeRole}` }, caseId: 'CORNERS' }));
   expect(appliedLoadTotals(handler.buildModel(state(loads))).CORNERS).toEqual([40, 0, 0]);
   expect(() => handler.buildModel(state([{ ...loads[0], location: { story: 2, nodeRole: 'unspecified-joint' } }]))).toThrow('FRAME_NODAL_TARGET_UNRESOLVED');
+  expect(() => handler.buildModel(state([...loads, { kind: 'nodal', magnitude: 4, unit: 'kN', direction: 'globalX', target: 'missing-user-node' }]))).toThrow('FRAME_NODAL_TARGET_UNRESOLVED');
 });
