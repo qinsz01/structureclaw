@@ -7,6 +7,7 @@ import type { AgentConfigurable } from '../configurable.js';
 import { normalizeEngineeringModel } from '../../engineering/model-boundary.js';
 import { assertConfirmedSectionInputs, SectionConfirmationRequiredError } from '../../engineering/section-provenance.js';
 import { draftSectionConfirmations } from '../../agent-runtime/draft-readiness.js';
+import { verifyDraftSectionEvidence } from '../../agent-runtime/draft/boundary.js';
 import { mergeInputEvidence } from '../../engineering/input-evidence.js';
 import { buildModelToolSummary, buildModelToolStateUpdate } from './compaction/analysis.js';
 import { conversationSectionEvidence, messageRole, messageText } from './input-message.js';
@@ -22,12 +23,15 @@ export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
       const toolCallId = getToolCallId(config);
 
       // Read draft state from graph state channel
-      const draftState = state?.draftState;
-      if (!draftState) {
+      const savedDraft = state?.draftState;
+      if (!savedDraft) {
         throw new Error('No draft state available. Run extract_draft_params first.');
       }
       const skillIds = toolSkillScope(config);
       const userTexts = conversationSectionEvidence(state);
+      const draftState = { ...savedDraft, engineeringDraft: verifyDraftSectionEvidence(savedDraft.engineeringDraft
+        ? { ...savedDraft.engineeringDraft, inputEvidence: mergeInputEvidence(savedDraft.engineeringDraft.inputEvidence, state?.inputEvidence) }
+        : undefined, userTexts) };
       assertConfirmedSectionInputs({ sections: draftState.engineeringDraft?.model?.sections ?? draftState.engineeringDraft?.sectionRecords }, userTexts);
       const pendingSections = draftSectionConfirmations(draftState);
       if (pendingSections.length) throw new SectionConfirmationRequiredError(pendingSections);
