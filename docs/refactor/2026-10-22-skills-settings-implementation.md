@@ -229,8 +229,8 @@ Initial required generic completion: 4/6. A reduction in questions obtained by i
 section is not accepted as an improvement. After selector preflight, a fresh 3D grid run passed in
 560.6s / 1 turn / 0 questions / 7 calls, using regular-frame and nodal-load operations, with
 27 nodes / 42 members / 18 per-node actions and −1.8kN (`phase3/live-grid-followup`).
-The mixed case and original concrete/PKPM requests are being remeasured after the stiffness and
-node-selector corrections; the completed follow-ups are separated below and initial failures stay
+The mixed case and original concrete/PKPM requests were remeasured after the stiffness and
+node-selector corrections. The completed follow-ups are separated below and initial failures stay
 in the table.
 
 | Final follow-up | Seconds | Turns | Issued questions | Tool calls | Independently checked outcome |
@@ -282,8 +282,15 @@ to claim a reduction.
 The final full Jest, Python, analysis regression, three validators, frontend checks/build and default
 E2E have passed. All requested live structure/provider cases have completed with independent checks,
 with genuine missing physics supplied through the frontend. The strict R3.5 comparison limitation
-above remains explicit. The phase branches are retained; primary checkout integration and a clean
-staged compilation follow. No push or scenario-freeze generation is requested.
+above remains explicit. All three phase branches are retained and fast-forward integrated into
+`work/research-next` in the primary checkout. A fresh backend compilation was staged separately,
+then promoted with the previous dist archived outside the repository; the primary dist-surface
+smoke passed all 26 tests (`phase3/primary-dist-surface.log`). The verified Phase 3 frontend export
+was promoted only after confirming byte-identical source inputs (four checkout-only line-ending
+differences were normalized), and its build fingerprint matches the primary checkout. Previous
+frontend output is also archived outside the repository. The primary checkout is clean; benchmark
+sources and historical freezes are unchanged. Existing services were not restarted. No push or
+scenario-freeze generation was performed.
 
 Early observed scale result: the real LLM chose regular-frame, merge-coincident and nodal-load
 operations, preserved A, produced 125 nodes / 260 members / 100 loads and base Fx −10kN. Phase 2
