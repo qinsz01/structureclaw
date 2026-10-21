@@ -60,8 +60,21 @@ export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
         throw new Error('MODEL_BUILD_UNAVAILABLE: the selected builder did not produce a model. Inspect the active modeling skill and builder diagnostics before continuing; do not repeat extraction without new user input / 所选建模器未生成模型；请检查当前建模技能和诊断，不要在没有新用户输入时重复提取。');
       }
       const metadata = isRecord(candidate.metadata) ? candidate.metadata : {};
-      const model = await normalizeEngineeringModel({ ...candidate, metadata: { ...metadata,
-        inputEvidence: mergeInputEvidence(state?.inputEvidence, Array.isArray(metadata.inputEvidence) ? metadata.inputEvidence.filter(isRecord) : []) } }, configurable.structureProtocolClient, undefined, userTexts);
+      let model: Record<string, unknown>;
+      try {
+        model = await normalizeEngineeringModel({ ...candidate, metadata: { ...metadata,
+          inputEvidence: mergeInputEvidence(state?.inputEvidence, Array.isArray(metadata.inputEvidence) ? metadata.inputEvidence.filter(isRecord) : []) } }, configurable.structureProtocolClient, undefined, userTexts);
+      } catch (error) {
+        if (!(error instanceof Error) || !error.message.startsWith('INPUT_EVIDENCE_MODEL_FIELD_NOT_FOUND_OR_AMBIGUOUS:')) throw error;
+        const preview = (collection: unknown, keys: string[]) => Array.isArray(collection)
+          ? collection.filter(isRecord).slice(0, 50).map(row => Object.fromEntries(keys.map(key => [key, row[key]]))) : [];
+        return toolResult(toolCallId, 'build_model', JSON.stringify({ success: false, modelBuilt: false,
+          errorCode: 'INPUT_EVIDENCE_MODEL_FIELD_NOT_FOUND_OR_AMBIGUOUS', error: error.message,
+          hint: 'Review the evidence against these candidate IDs, then build again. This preview is not an accepted model. / 请按候选模型的实际 ID 复核证据后重新建模；此预览不是已接受的模型。',
+          availableNodes: preview(candidate.nodes, ['id', 'x', 'y', 'z']),
+          availableElements: preview(candidate.elements, ['id', 'nodes']),
+        }));
+      }
 
       // Store model in graph state via Command.
       // Keep ToolMessage content compact — full model lives in graph state.
