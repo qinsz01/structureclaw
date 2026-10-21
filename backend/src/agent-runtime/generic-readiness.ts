@@ -32,7 +32,8 @@ export function genericMissing(state: DraftState): string[] {
     || typeof description?.supportDescription === 'string' && !!description.supportDescription.trim();
   if (!supported) missing.push('supports');
   const cases = model?.load_cases ?? draft?.loadCases;
-  if (!(Array.isArray(cases) || draft?.loads?.length || description?.zeroLoads === true)) missing.push('loads');
+  const concreteLoads = Array.isArray(cases) && cases.some(loadCase => isRecord(loadCase) && Array.isArray(loadCase.loads) && loadCase.loads.length > 0);
+  if (!(concreteLoads || draft?.loads?.length || description?.zeroLoads === true || model && Array.isArray(cases))) missing.push('loads');
   const placeholder = stiffnessPlaceholderUses(state);
   let materials = Array.isArray(model?.materials) ? completeDeclaredGradeMaterials(model.materials.filter(isRecord)) : [];
   if (!materials.length) { try { materials = resolveTemplateMaterials(state); } catch { /* Missing or unknown grade. */ } }

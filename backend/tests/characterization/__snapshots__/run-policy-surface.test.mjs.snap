@@ -120,8 +120,8 @@ exports[`characterization: run policy and ablation surface policy variant builde
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 22649,
-  "systemPromptSha256": "a8839990009b9978f7d12fdc8846081a7abbe210386068eb8d2b9bdfa307aa07",
+  "systemPromptChars": 22604,
+  "systemPromptSha256": "bcf9f521696a99c13b459a6770680fdc376767fd5e81ca55a462a58ce1c8ef80",
 }
 `;
 
@@ -138,7 +138,7 @@ exports[`characterization: run policy and ablation surface policy variant builde
 - concrete-frame (Concrete Frame): Skill for regular 2D/3D concrete frame intent detection and parameter clarification. [domain=structure-type, stages=intent/draft/analysis/design]
 - double-span-beam (Continuous Beam): Skill for intent detection, clarification, and model construction of continuous beams with two or more spans. [domain=structure-type, stages=intent/draft/analysis/design]
 - frame (Regular Frame): Skill for regular 2D/3D frame intent detection and parameter clarification. [domain=structure-type, stages=intent/draft/analysis/design]
-- generic (Generic Structure Type): Generic fallback structure-type skill. It is not always the strongest, but it catches unmatched structural modeling requests and guides downstream skills and tools. [domain=structure-type, stages=intent/draft/analysis/design]
+- generic (Generic Structure Type): Free-form structural modelling from physical inputs, with checks on generated geometry, supports, properties and loads. [domain=structure-type, stages=intent/draft/analysis/design]
 - portal-frame (Portal Frame): Skill for portal-frame intent detection and clarification. [domain=structure-type, stages=intent/draft/analysis/design]
 - truss (Truss): Skill for planar truss intent detection and clarification. [domain=structure-type, stages=intent/draft/analysis/design]
 
@@ -381,8 +381,8 @@ exports[`characterization: run policy and ablation surface policy variant defaul
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 22650,
-  "systemPromptSha256": "a648911cef272334dba4a88d4b7ace10ac40bc8c5b0cff9ef90dee52e710322e",
+  "systemPromptChars": 22605,
+  "systemPromptSha256": "583f8e87ce9add93dd6d0e30e617ef510bdf4b875029b042542b86a2eecb7cf3",
 }
 `;
 
@@ -399,7 +399,7 @@ exports[`characterization: run policy and ablation surface policy variant defaul
 - concrete-frame (Concrete Frame): Skill for regular 2D/3D concrete frame intent detection and parameter clarification. [domain=structure-type, stages=intent/draft/analysis/design]
 - double-span-beam (Continuous Beam): Skill for intent detection, clarification, and model construction of continuous beams with two or more spans. [domain=structure-type, stages=intent/draft/analysis/design]
 - frame (Regular Frame): Skill for regular 2D/3D frame intent detection and parameter clarification. [domain=structure-type, stages=intent/draft/analysis/design]
-- generic (Generic Structure Type): Generic fallback structure-type skill. It is not always the strongest, but it catches unmatched structural modeling requests and guides downstream skills and tools. [domain=structure-type, stages=intent/draft/analysis/design]
+- generic (Generic Structure Type): Free-form structural modelling from physical inputs, with checks on generated geometry, supports, properties and loads. [domain=structure-type, stages=intent/draft/analysis/design]
 - portal-frame (Portal Frame): Skill for portal-frame intent detection and clarification. [domain=structure-type, stages=intent/draft/analysis/design]
 - truss (Truss): Skill for planar truss intent detection and clarification. [domain=structure-type, stages=intent/draft/analysis/design]
 
@@ -642,8 +642,8 @@ exports[`characterization: run policy and ablation surface policy variant defaul
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 11132,
-  "systemPromptSha256": "99e7f85c84f63371537ddd00695f7a9af58c341d20f9f375ce818c9ac8527c96",
+  "systemPromptChars": 11115,
+  "systemPromptSha256": "3e1d2234a054cd64d89d26b3bf60de9a73e7994d5a9efb4e695f620ae32f7c53",
 }
 `;
 
@@ -660,7 +660,7 @@ exports[`characterization: run policy and ablation surface policy variant defaul
 - concrete-frame (混凝土框架): 规则混凝土平面/空间框架需求识别与补参 skill。 [domain=structure-type, stages=intent/draft/analysis/design]
 - double-span-beam (连续梁): 两跨及以上连续梁的需求识别、补参与模型构建 skill。 [domain=structure-type, stages=intent/draft/analysis/design]
 - frame (规则框架): 规则平面/空间框架需求识别与补参 skill。 [domain=structure-type, stages=intent/draft/analysis/design]
-- generic (通用结构类型): 通用兜底的结构类型 skill。它不一定最强，但会先接住未命中的结构建模请求并引导后续技能与工具调用。 [domain=structure-type, stages=intent/draft/analysis/design]
+- generic (通用结构类型): 依据完整物理输入进行自由结构建模，校核生成的几何、约束、属性和荷载。 [domain=structure-type, stages=intent/draft/analysis/design]
 - portal-frame (门式刚架): 门式刚架需求识别与补参 skill。 [domain=structure-type, stages=intent/draft/analysis/design]
 - truss (桁架): 平面桁架的需求识别与补参 skill。 [domain=structure-type, stages=intent/draft/analysis/design]
 
@@ -1160,8 +1160,8 @@ exports[`characterization: run policy and ablation surface policy variant routin
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 22650,
-  "systemPromptSha256": "a648911cef272334dba4a88d4b7ace10ac40bc8c5b0cff9ef90dee52e710322e",
+  "systemPromptChars": 22605,
+  "systemPromptSha256": "583f8e87ce9add93dd6d0e30e617ef510bdf4b875029b042542b86a2eecb7cf3",
 }
 `;
 
@@ -1178,7 +1178,7 @@ exports[`characterization: run policy and ablation surface policy variant routin
 - concrete-frame (Concrete Frame): Skill for regular 2D/3D concrete frame intent detection and parameter clarification. [domain=structure-type, stages=intent/draft/analysis/design]
 - double-span-beam (Continuous Beam): Skill for intent detection, clarification, and model construction of continuous beams with two or more spans. [domain=structure-type, stages=intent/draft/analysis/design]
 - frame (Regular Frame): Skill for regular 2D/3D frame intent detection and parameter clarification. [domain=structure-type, stages=intent/draft/analysis/design]
-- generic (Generic Structure Type): Generic fallback structure-type skill. It is not always the strongest, but it catches unmatched structural modeling requests and guides downstream skills and tools. [domain=structure-type, stages=intent/draft/analysis/design]
+- generic (Generic Structure Type): Free-form structural modelling from physical inputs, with checks on generated geometry, supports, properties and loads. [domain=structure-type, stages=intent/draft/analysis/design]
 - portal-frame (Portal Frame): Skill for portal-frame intent detection and clarification. [domain=structure-type, stages=intent/draft/analysis/design]
 - truss (Truss): Skill for planar truss intent detection and clarification. [domain=structure-type, stages=intent/draft/analysis/design]
 
@@ -1422,8 +1422,8 @@ exports[`characterization: run policy and ablation surface policy variant tools-
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 22503,
-  "systemPromptSha256": "c242e46fb0a2b32ca4edfbc253f6c9a98e18f75e8b9a79cb6c76f5953718f736",
+  "systemPromptChars": 22458,
+  "systemPromptSha256": "cc2485d7c20888bcdbf94e872817c71106931e62df22f0023dc83f74fa827db1",
 }
 `;
 
@@ -1440,7 +1440,7 @@ exports[`characterization: run policy and ablation surface policy variant tools-
 - concrete-frame (Concrete Frame): Skill for regular 2D/3D concrete frame intent detection and parameter clarification. [domain=structure-type, stages=intent/draft/analysis/design]
 - double-span-beam (Continuous Beam): Skill for intent detection, clarification, and model construction of continuous beams with two or more spans. [domain=structure-type, stages=intent/draft/analysis/design]
 - frame (Regular Frame): Skill for regular 2D/3D frame intent detection and parameter clarification. [domain=structure-type, stages=intent/draft/analysis/design]
-- generic (Generic Structure Type): Generic fallback structure-type skill. It is not always the strongest, but it catches unmatched structural modeling requests and guides downstream skills and tools. [domain=structure-type, stages=intent/draft/analysis/design]
+- generic (Generic Structure Type): Free-form structural modelling from physical inputs, with checks on generated geometry, supports, properties and loads. [domain=structure-type, stages=intent/draft/analysis/design]
 - portal-frame (Portal Frame): Skill for portal-frame intent detection and clarification. [domain=structure-type, stages=intent/draft/analysis/design]
 - truss (Truss): Skill for planar truss intent detection and clarification. [domain=structure-type, stages=intent/draft/analysis/design]
 

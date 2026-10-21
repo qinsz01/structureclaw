@@ -8,7 +8,7 @@ import { normalizeEngineeringModel } from '../dist/engineering/model-boundary.js
 const optionalFieldModel = () => ({
   schema_version: '2.2.0', unit_system: 'SI',
   coordinate_system: { semantics: 'global-z-up', version: 1, dimension: '2d', plane: 'xz', dof_order: ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'] },
-  nodes: [{ id: 'N1', x: 0, y: 0, z: 0 }, { id: 'N2', x: 2, y: 0, z: 0 }],
+  nodes: [{ id: 'N1', x: 0, y: 0, z: 0, restraints: [true, true, true, true, true, true] }, { id: 'N2', x: 2, y: 0, z: 0 }],
   elements: [{ id: 'E1', type: 'beam', nodes: ['N1', 'N2'], material: 'M1', section: 'S1' }],
   materials: [{ id: 'M1', name: 'Explicit steel', type: 'steel', E: 200000, nu: 0.3, rho: 7850 }],
   sections: [{ id: 'S1', name: 'Explicit rectangle', type: 'rectangular', shape: { kind: 'rectangular', B: 100, H: 200 } }],
@@ -38,7 +38,7 @@ describe('tryBuildGenericModelWithLlm', () => {
     await expect(withRunContext(context, () => tryBuildGenericModelWithLlm({ invoke: async () => {
       calls++; return { content: JSON.stringify(source) };
     } }, 'Use the explicit model', { inferredType: 'beam', updatedAt: 0 }, 'en')))
-      .rejects.toThrow("LLM_MODEL_VALIDATION_FAILED: Element 'E1' rotation_angle must be a finite number");
+      .rejects.toMatchObject({ code: 'MODEL_PHYSICS_INVALID', check: { diagnostics: expect.arrayContaining([expect.objectContaining({ code: 'INVALID_KINEMATICS' })]) } });
     expect(calls).toBe(1); expect(context.usage.recoveries).toBe(0);
   });
 
@@ -56,7 +56,7 @@ describe('tryBuildGenericModelWithLlm', () => {
             dof_order: ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'],
           },
           nodes: [
-            { id: 'N1', x: 0, y: 0, z: 0 },
+            { id: 'N1', x: 0, y: 0, z: 0, restraints: [true, true, true, true, true, true] },
             { id: 'N2', x: 10, y: 0, z: 0 },
           ],
           elements: [
@@ -94,7 +94,7 @@ describe('tryBuildGenericModelWithLlm', () => {
         content: JSON.stringify({
           schema_version: '2.0.0',
           unit_system: 'SI',
-          nodes: [{ id: 'N1', x: 0, y: 0, z: 0 }, { id: 'N2', x: 10, y: 0, z: 0 }],
+          nodes: [{ id: 'N1', x: 0, y: 0, z: 0, restraints: [true, true, true, true, true, true] }, { id: 'N2', x: 10, y: 0, z: 0 }],
           elements: [{ id: 'E1', type: 'beam', nodes: ['N1', 'N2'] }],
           materials: [],
           sections: [],

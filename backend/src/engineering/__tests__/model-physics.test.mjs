@@ -61,4 +61,11 @@ describe('deterministic model physics', () => {
     const model = copy(0); model.elements[0].rotation_angle = rotation;
     expect(codes(model)).toContain('INVALID_KINEMATICS');
   });
+  test('empty case placeholders do not replace declared nodal forces with a zero-load requirement', () => {
+    const model = copy(0);
+    const draft = { loadCases: [{ id: 'LC1', loads: [] }], loads: model.load_cases[0].loads.map(load => ({ kind: 'nodal', magnitude: load.fx, unit: 'kN', direction: 'globalX', target: load.node, caseId: 'LC1' })) };
+    expect(checkModelPhysics(model, draft)).toMatchObject({ valid: true, loadTotals: { LC1: [60, 0, 0] } });
+    model.load_cases[0].loads[0].fx = 20;
+    expect(checkModelPhysics(model, draft).diagnostics).toContainEqual(expect.objectContaining({ code: 'LOAD_TOTAL_MISMATCH' }));
+  });
 });

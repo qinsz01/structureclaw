@@ -182,7 +182,11 @@ export function appliedLoadTotals(model: ModelRecord): Record<string, Vector3> {
 
 function expectedLoads(model: ModelRecord, draft: EngineeringDraft): Record<string, Vector3> | undefined {
   if (draft.model && Array.isArray(draft.model.load_cases)) return appliedLoadTotals(draft.model);
-  if (draft.loadCases) return appliedLoadTotals({ ...model, load_cases: draft.loadCases });
+  // An extractor may name cases before it has generated the individual load targets.
+  // Empty case placeholders cannot override separately declared physical loads as zero.
+  if (draft.loadCases?.some(loadCase => records(loadCase.loads).length > 0) || draft.metadata?.zeroLoads === true) {
+    return appliedLoadTotals({ ...model, load_cases: draft.loadCases ?? [] });
+  }
   if (!draft.loads?.length) return undefined;
   const cases = new Map<string, ModelRecord[]>();
   for (const load of draft.loads) {

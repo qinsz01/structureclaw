@@ -9,7 +9,7 @@ describe('generic frame answer contract', () => {
       draftIssues: [{ field: 'boundary.frameBaseSupportType', kind: 'missing', severity: 'missing', reason: 'base required' }],
       skillState: { invalidDraftFields: ['boundary.frameBaseSupportType'] } };
     const patch = handler.extractDraft({ currentState: before, message: value, locale: 'zh',
-      llmDraftPatch: { engineeringDraft: { boundary: { supportType: value } } } });
+      llmDraftPatch: { engineeringDraft: { boundary: { frameBaseSupportType: value === 'pinned' ? 'pinned' : 'fixed' } } } });
     const after = handler.mergeState(before, patch);
     expect(after.engineeringDraft.boundary.frameBaseSupportType).toBe(value === 'pinned' ? 'pinned' : 'fixed');
     expect(computeDraftMissing({ id: 'generic', handler }, after, 'execution').critical).not.toContain('boundary.frameBaseSupportType');
