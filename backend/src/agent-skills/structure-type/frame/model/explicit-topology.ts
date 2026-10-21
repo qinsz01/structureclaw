@@ -1,7 +1,7 @@
 /** Frame model from an explicit draft topology. */
 import type { DraftState } from '../../../../shared/types/agent.js';
 import { uniqueSortedCoordinates, explicitFrameRestraints, buildBaseRestraint, coordinateIntervals } from './geometry.js';
-import { normalizeFloorLoadsByStory, buildStoryFloorLoadFields, build3dBeamLineLoads, build2dBeamLineLoads, buildFrameLoadCaseBundle } from './loads.js';
+import { buildFrameMemberPointLoads, normalizeFloorLoadsByStory, buildStoryFloorLoadFields, build3dBeamLineLoads, build2dBeamLineLoads, buildFrameLoadCaseBundle } from './loads.js';
 import type { FrameNamedLoad } from './loads.js';
 import { buildElementReferenceVectors } from '../../../../agent-runtime/reference-vectors.js';
 import { STRUCTURAL_COORDINATE_SEMANTICS } from '../../../../engineering/coordinate-semantics.js';
@@ -114,6 +114,7 @@ export function buildExplicitFrameTopologyModel(
   const lineLoads = state.frameDimension === '3d'
     ? build3dBeamLineLoads(state, stories.length, elements)
     : build2dBeamLineLoads(state, stories.length, elements);
+  lineLoads.push(...buildFrameMemberPointLoads(state, elements, nodes));
   const loadCaseBundle = buildFrameLoadCaseBundle(
     state,
     stories.some((story) => 'dead_load' in story),

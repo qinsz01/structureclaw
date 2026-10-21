@@ -53,3 +53,6 @@
 - `x方向4跨，间隔3m` → `bayCountX = 4`, `bayWidthsXM = [3, 3, 3, 3]`
 - `y方向3跨间隔也是3m` → `bayCountY = 3`, `bayWidthsYM = [3, 3, 3]`
 - 如果只能稳定识别统一标量，也应输出最终数组字段，而不是让用户继续手动逐层逐跨补全。
+
+- 构件上的集中荷载不同于节点荷载：使用 `kind: "point"`，`location.xM` 为距构件起点的距离（m）；用准确的构件 ID `target` 或二维框架的 `location.story` + `location.spanIndex`（从 1 开始）定位构件。已给出构件和沿构件位置时，不要追问节点角色，也不要转为楼层总荷载。
+- A member point load is distinct from a joint load: use `kind: "point"` and `location.xM` in metres from the member start. Identify the member by its exact `target` ID or, for a 2D frame, by one-based `location.story` and `location.spanIndex`. A stated member and position needs no node-role clarification and must not become a floor load.

@@ -5,7 +5,7 @@ import { buildExplicitDraftModel, validateExplicitModel } from '../../../agent-r
 import type { DraftState } from '../../../shared/types/agent.js';
 import { REQUIRED_KEYS } from './constants.js';
 import { applyTemplateProperties } from '../../../agent-runtime/template-properties.js';
-import { normalizeFloorLoadsByStory, build2dEngineeringNodalLoads, buildStoryFloorLoadFields, build2dBeamLineLoads, buildFrameLoadCaseBundle, hasFloorLoadValue, build3dBeamLineLoads, hasFrameAnalysisLoadInput } from './model/loads.js';
+import { buildFrameMemberPointLoads, normalizeFloorLoadsByStory, build2dEngineeringNodalLoads, buildStoryFloorLoadFields, build2dBeamLineLoads, buildFrameLoadCaseBundle, hasFloorLoadValue, build3dBeamLineLoads, hasFrameAnalysisLoadInput } from './model/loads.js';
 import type { FrameNamedLoad } from './model/loads.js';
 import { accumulateCoords, n2dId, buildBaseRestraint, n3dId } from './model/geometry.js';
 import { buildExplicitFrameTopologyModel } from './model/explicit-topology.js';
@@ -86,7 +86,7 @@ function buildFrame2dLocalModel(
       ...buildStoryFloorLoadFields(deadLoad, liveLoad),
     };
   });
-  const lineLoads = build2dBeamLineLoads(state, storyHeights.length, elements);
+  const lineLoads = [...build2dBeamLineLoads(state, storyHeights.length, elements), ...buildFrameMemberPointLoads(state, elements, nodes)];
   const loadCaseBundle = buildFrameLoadCaseBundle(
     state,
     hasFloorLoadValue(floorLoads, 'verticalKN'),
@@ -212,7 +212,7 @@ function buildFrame3dLocalModel(
       ...buildStoryFloorLoadFields(deadLoad, liveLoad),
     };
   });
-  const lineLoads = build3dBeamLineLoads(state, storyHeights.length, elements);
+  const lineLoads = [...build3dBeamLineLoads(state, storyHeights.length, elements), ...buildFrameMemberPointLoads(state, elements, nodes)];
   const loadCaseBundle = buildFrameLoadCaseBundle(
     state,
     hasFloorLoadValue(floorLoads, 'verticalKN'),

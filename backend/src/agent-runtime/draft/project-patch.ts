@@ -106,8 +106,17 @@ export function isLocalizedFramePointLoad(load: EngineeringDraftLoad): boolean {
   return load.location?.story !== undefined && Boolean(load.location.nodeRole?.trim());
 }
 
+/** Member positions are distinct from joint locations; never spread them over a floor. */
+export function isFrameMemberPointLoad(load: EngineeringDraftLoad): boolean {
+  return load.kind === 'point' && load.location?.xM !== undefined;
+}
+
 export function hasIncompleteFramePointLoadLocation(load: EngineeringDraftLoad): boolean {
   if (!isPointLikeLoad(load)) return false;
+  if (isFrameMemberPointLoad(load)) {
+    return !load.target?.trim()
+      && !(load.location?.story !== undefined && load.location.spanIndex !== undefined);
+  }
   const hasStory = load.location?.story !== undefined;
   const hasNodeRole = Boolean(load.location?.nodeRole?.trim());
   return hasStory !== hasNodeRole;
@@ -254,6 +263,7 @@ function projectFrameFloorLoads(loads: EngineeringDraftLoad[], patch: DraftExtra
       item.totalKN !== undefined
       && Number.isFinite(item.totalKN)
       && !isLocalizedFramePointLoad(item.load)
+        && !isFrameMemberPointLoad(item.load)
       && !hasIncompleteFramePointLoadLocation(item.load)
     ));
 

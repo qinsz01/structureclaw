@@ -1,6 +1,6 @@
 /** Frame floor, line and nodal load projection into load cases. */
 import type { DraftFloorLoad, EngineeringDraftLoad, DraftState, EngineeringDraftLoadCaseType, EngineeringDraftLoadCombination } from '../../../../shared/types/agent.js';
-import { isLocalizedFramePointLoad } from '../../../../agent-runtime/draft/project-patch.js';
+import { isLocalizedFramePointLoad, isFrameMemberPointLoad, hasIncompleteFramePointLoadLocation } from '../../../../agent-runtime/draft/project-patch.js';
 import { n2dId } from './geometry.js';
 
 export function buildStoryFloorLoadFields(deadLoad: number | undefined, liveLoad: number | undefined): Record<string, unknown> {
@@ -59,7 +59,9 @@ export function hasFrameAnalysisLoadInput(state: Pick<DraftState, 'floorLoads' |
   return Boolean(state.engineeringDraft?.loads?.some((load) => (
     Number.isFinite(load.magnitude)
     && Number.isFinite(load.magnitude)
-    && (isGravityLineLoad(load) || (state.frameDimension !== '3d' && isExplicit2dNodalLoad(load)))
+    && (isGravityLineLoad(load)
+      || (isFrameMemberPointLoad(load) && !hasIncompleteFramePointLoadLocation(load))
+      || (state.frameDimension !== '3d' && isExplicit2dNodalLoad(load)))
   )));
 }
 
@@ -203,6 +205,37 @@ export function buildFrameLoadCaseBundle(
     load_cases: Array.from(loadCases.values()),
     load_combinations: loadCombinations,
   };
+}
+
+export function buildFrameMemberPointLoads(
+  state: DraftState,
+  elements: Array<Record<string, unknown>>,
+  nodes: Array<Record<string, unknown>>,
+): FrameNamedLoad[] {
+  return (state.engineeringDraft?.loads ?? []).filter(isFrameMemberPointLoad).map((load) => {
+    const target = load.target?.trim().toLowerCase();
+    let element = target ? elements.find((item) => String(item.id).toLowerCase() === target) : undefined;
+    if (!element && state.frameDimension !== '3d') {
+      const beams = elements.filter((item) => item.type === 'beam' && item.story === `F${load.location?.story}`);
+      const span = load.location?.spanIndex;
+      if (span !== undefined && Number.isInteger(span) && span >= 1) element = beams[span - 1];
+    }
+    const endpoints = (element?.nodes as string[] | undefined)?.map((id) => nodes.find((node) => node.id === id));
+    const length = endpoints?.length === 2 && endpoints.every(Boolean)
+      ? Math.hypot(...['x', 'y', 'z'].map((axis) => Number(endpoints[1]![axis]) - Number(endpoints[0]![axis])))
+      : NaN;
+    const position = load.location!.xM!;
+    if (!element || !Number.isFinite(length) || !Number.isFinite(position) || position < 0 || position > length) {
+      throw new Error('INVALID_MEMBER_LOAD_LOCATION: identify a member and a position within its length / 请指定构件及其长度范围内的荷载位置');
+    }
+    const component = load.direction === 'globalX' ? 'fx' : load.direction === 'globalY' ? 'fy' : 'fz';
+    return {
+      record: { type: 'point', element: element.id, position, reference_frame: 'global',
+        [component]: load.direction === 'gravity' || load.direction === undefined ? -load.magnitude : load.magnitude },
+      caseId: load.caseId,
+      caseType: load.caseType,
+    };
+  });
 }
 
 type ResolvedFrameLineLoad = {
