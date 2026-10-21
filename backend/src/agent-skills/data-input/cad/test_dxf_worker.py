@@ -10,16 +10,27 @@ class DxfEvidenceTests(unittest.TestCase):
         doc.write(stream)
         return extract(stream.getvalue(), **kwargs)
 
-    def test_insert_transform_polyline_and_provenance(self):
+    def test_symbols_and_annotations_do_not_make_file_incomplete(self):
         doc = ezdxf.new()
-        block = doc.blocks.new("FRAME")
-        block.add_lwpolyline([(0, 0), (4, 0), (4, 3)])
-        doc.modelspace().add_blockref("FRAME", (10, 2), dxfattribs={"layer": "STRUCT"})
+        doc.header["$INSUNITS"] = 4
+        block = doc.blocks.new("SYMBOL")
+        block.add_line((0, 0), (1, 1))
+        space = doc.modelspace()
+        space.add_blockref("SYMBOL", (10, 2))
+        space.add_circle((0, 0), 1)
+        space.add_arc((0, 0), 1, 0, 90)
+        space.add_hatch().paths.add_polyline_path([(0, 0), (1, 0), (1, 1)], is_closed=True)
+        space.add_line((0, 0), (6000, 0))
+        space.add_linear_dim(base=(0, 2), p1=(0, 0), p2=(6000, 0), text="6000 nominal").render()
         result = self.extract_doc(doc)
-        self.assertEqual(result["lineEntityCount"], 2)
-        self.assertEqual((result["lines"][0]["x1"], result["lines"][0]["y1"]), (10, 2))
-        self.assertEqual(result["lines"][0]["source"]["blockPath"], ["FRAME"])
-        self.assertEqual(result["lines"][0]["source"]["effectiveLayer"], "STRUCT")
+        self.assertTrue(result["complete"])
+        self.assertEqual(result["lineEntityCount"], 1)
+        self.assertEqual(result["ignoredAnnotations"], {"INSERT": 1, "CIRCLE": 1, "ARC": 1, "HATCH": 1})
+        dimension = result["dimensions"][0]
+        self.assertEqual(dimension["measurement"], 6000)
+        self.assertEqual(dimension["text"], "6000 nominal")
+        self.assertEqual(dimension["metersPerUnit"], 0.001)
+        self.assertEqual(dimension["definitionPoints"]["defpoint3"], [6000, 0, 0])
 
     def test_dimension_graphics_never_become_structural_lines(self):
         doc = ezdxf.new()
@@ -37,7 +48,7 @@ class DxfEvidenceTests(unittest.TestCase):
         result = self.extract_doc(doc, limit=1)
         self.assertTrue(result["linesTruncated"])
         self.assertFalse(result["complete"])
-        self.assertIn("ARC", result["unsupportedEntities"])
+        self.assertIn("CURVED_POLYLINE", result["unsupportedEntities"])
         self.assertIn("PAPERSPACE_NOT_EXTRACTED", result["unsupportedEntities"])
 
 

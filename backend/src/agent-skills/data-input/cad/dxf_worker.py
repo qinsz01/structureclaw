@@ -13,6 +13,7 @@ def extract(text, limit=500, text_limit=200, file_path=None):
     doc = ezdxf.readfile(file_path) if file_path else ezdxf.read(io.StringIO(text))
     lines, texts, annotations, dimensions, unsupported = [], [], [], [], Counter()
     counts = Counter()
+    ignored = Counter()
     code = int(doc.header.get("$INSUNITS", 0))
     try:
         unit_name = units.unit_name(code)
@@ -37,15 +38,18 @@ def extract(text, limit=500, text_limit=200, file_path=None):
         layer = entity.dxf.get("layer", "0")
         effective_layer = source.get("effectiveLayer", layer) if layer == "0" else layer
         provenance = {**source, "entityType": kind, "handle": entity.dxf.get("handle"), "layer": layer, "effectiveLayer": effective_layer}
-        if kind in ("INSERT", "LWPOLYLINE", "POLYLINE"):
+        if kind in ("CIRCLE", "ARC", "LEADER", "MLEADER", "MULTILEADER", "SOLID", "HATCH", "INSERT"):
+            if kind == "ARC" and source.get("entityType") in ("LWPOLYLINE", "POLYLINE"):
+                unsupported["CURVED_POLYLINE"] += 1
+            else:
+                ignored[kind] += 1
+        elif kind in ("LWPOLYLINE", "POLYLINE"):
             if kind == "POLYLINE" and not (entity.is_2d_polyline or entity.is_3d_polyline):
                 unsupported[kind] += 1
                 return
             try:
-                children = entity.multi_insert() if kind == "INSERT" and entity.mcount > 1 else [entity]
-                for instance in children:
-                    for index, child in enumerate(instance.virtual_entities()):
-                        visit(child, {**provenance, "parentHandle": entity.dxf.get("handle"), "childIndex": index, "blockPath": source.get("blockPath", []) + ([entity.dxf.name] if kind == "INSERT" else [])}, depth + 1)
+                for index, child in enumerate(entity.virtual_entities()):
+                    visit(child, {**provenance, "parentHandle": entity.dxf.get("handle"), "childIndex": index}, depth + 1)
             except (ezdxf.DXFError, NotImplementedError) as error:
                 unsupported[f"{kind}:{type(error).__name__}"] += 1
         elif kind == "LINE":
@@ -62,8 +66,23 @@ def extract(text, limit=500, text_limit=200, file_path=None):
         elif kind == "DIMENSION":
             counts["dimension"] += 1
             if len(dimensions) < text_limit:
+                try:
+                    measurement = entity.get_measurement()
+                    measurement = list(measurement) if hasattr(measurement, "x") else float(measurement)
+                    values = measurement if isinstance(measurement, list) else [measurement]
+                    if not all(math.isfinite(value) for value in values):
+                        raise ValueError("Non-finite dimension")
+                except (ezdxf.DXFError, ValueError, TypeError, AttributeError, NotImplementedError):
+                    measurement = None
+                    unsupported["DIMENSION_MEASUREMENT"] += 1
+                angular = entity.dimtype in (2, 5)
                 dimensions.append({"text": entity.dxf.get("text", ""), "dimensionType": entity.dxf.dimtype,
-                                   "definitionPoint": point(entity.dxf.defpoint), "source": provenance})
+                                   "measurement": measurement, "measurementUnit": "degree" if angular else unit_name,
+                                   "metersPerUnit": None if angular else scale,
+                                   "definitionPoint": point(entity.dxf.defpoint),
+                                   "definitionPoints": {name: point(entity.dxf.get(name)) for name in
+                                                        ("defpoint", "defpoint2", "defpoint3", "defpoint4", "defpoint5")
+                                                        if entity.dxf.hasattr(name)}, "source": provenance})
             # Dimension graphics are annotations, never structural member candidates.
         else:
             unsupported[kind] += 1
@@ -84,6 +103,8 @@ def extract(text, limit=500, text_limit=200, file_path=None):
             "insertionUnits": {"code": code, "name": unit_name, "metersPerUnit": scale},
             "linesTruncated": counts["line"] > len(lines), "textsTruncated": counts["text"] > len(texts),
             "dimensionsTruncated": counts["dimension"] > len(dimensions),
+            "ignoredAnnotations": dict(ignored),
+            "annotationNote": "Ignored as annotation; not structural geometry / 作为注释忽略，不作为结构几何",
             "unsupportedEntities": dict(unsupported), "complete": not unsupported and counts["line"] <= len(lines) and counts["text"] <= len(texts) and counts["dimension"] <= len(dimensions),
             "parser": "ezdxf", "parserVersion": ezdxf.__version__}
 
