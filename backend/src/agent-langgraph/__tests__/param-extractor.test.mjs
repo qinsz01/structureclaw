@@ -21,6 +21,28 @@ const beamPlugin = {
 };
 
 describe("param extractor", () => {
+  test.each(['en', 'zh'])('clarification covers 3D geometry and every storey load (%s)', async locale => {
+    const { invokeParamExtractor } = await import('../../../dist/agent-langgraph/param-extractor.js');
+    const { handler } = await import('../../../dist/agent-skills/structure-type/frame/handler.js');
+    const patch = { engineeringDraft: { coordinateSystem: { dimension: '3d' },
+      geometry: { bayWidthsXM: [5, 5], bayWidthsYM: [5, 5], storyHeightsM: [3, 3] },
+      loads: [1, 2].map(story => ({ id: `FX${story}`, kind: 'nodal', magnitude: 0.9, unit: 'kN', direction: 'globalX', target: `floor ${story}` })),
+    } };
+    const result = await invokeParamExtractor({ locale, plugin: { ...beamPlugin, id: 'frame' },
+      existingState: { inferredType: 'frame', updatedAt: 0, engineeringDraft: { geometry: { bayWidthsM: [5, 5] } } },
+      message: 'Confirm 2 bays each in X and Y at 5m, two 3m storeys, 0.9kN in +X on each floor.',
+      focusFields: ['bayWidthsXM', 'floorLoads'], llm: { invoke: async prompt => {
+        for (const field of ['bayWidthsXM', 'bayWidthsYM', 'storyHeightsM', 'nodeRole', 'story', 'nodal', 'loadCases']) expect(prompt).toContain(field);
+        return { content: JSON.stringify(patch) };
+      } },
+    });
+    const extracted = handler.extractDraft({ locale, llmDraftPatch: result, message: 'confirmed' });
+    const state = handler.mergeState(undefined, extracted);
+    expect(state.frameDimension).toBe('3d');
+    expect(state.bayWidthsXM).toEqual([5, 5]);
+    expect(state.engineeringDraft.loads).toHaveLength(2);
+    expect(state.floorLoads.map(load => load.lateralXKN)).toEqual([0.9, 0.9]);
+  });
   test.each(['en', 'zh'])('the nested extractor receives the agent-declared goal on a first turn (%s)', async locale => {
     const { invokeParamExtractor } = await import('../../../dist/agent-langgraph/param-extractor.js');
     const requestScope = { responses: ['forces', 'reactions'], design: false, report: false, outputs: [] };
