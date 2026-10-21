@@ -82,6 +82,24 @@ describe('clarification option contract', () => {
     expect(output.clarificationId).toMatch(/^clarification:/);
   });
 
+  test('newly offered dimensions bind a number-free external reply without a prior draft candidate', async () => {
+    const { conversationSectionEvidence } = await import('../../../dist/agent-langgraph/tools/input-message.js');
+    const { assertConfirmedSectionInputs } = await import('../../../dist/engineering/section-provenance.js');
+    const values = { H: 200, B: 100, tw: 7, tf: 11.4 };
+    const output = JSON.parse(await withRunContext(createRunContext(policy), () => createAskUserClarificationTool().invoke({
+      question: 'Please verify assistant-recalled dimensions 200×100×7×11.4 mm.', optionsJson: ['确认', 'Other'],
+      candidateOptions: [{ sectionId: 'S1', field: 'shape', optionIndex: 0, values }],
+    })));
+    expect(output.sectionCandidates).toHaveLength(1);
+    const messages = [{ role: 'tool', name: 'ask_user_clarification', content: JSON.stringify(output) }];
+    const section = { id: 'S1', shape: { kind: 'I', ...values }, extra: { provenance: { shape: 'user' } } };
+    expect(() => assertConfirmedSectionInputs({ sections: [section] }, conversationSectionEvidence({ messages }))).toThrow();
+    messages.push({ role: 'human', content: '确认' });
+    expect(() => assertConfirmedSectionInputs({ sections: [section] }, conversationSectionEvidence({ messages }))).not.toThrow();
+    expect(() => assertConfirmedSectionInputs({ sections: [{ ...section, shape: { ...section.shape, tw: 8 } }] },
+      conversationSectionEvidence({ messages }))).toThrow();
+  });
+
   test('normalizes provider object choices before exposing them to a UI or host', async () => {
     const policy = resolveRunPolicy({ availableSkillIds: [], availableToolIds: ['ask_user_clarification'],
       defaultToolIds: ['ask_user_clarification'], executionOwner: 'external' });

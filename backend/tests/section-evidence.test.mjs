@@ -19,6 +19,8 @@ describe('section evidence boundary', () => {
     expect(() => assertConfirmedSectionInputs({ sections: [adopted] }, context)).not.toThrow();
     expect(() => assertConfirmedSectionInputs({ sections: [{ ...adopted, shape: { ...shape, tw: 8 } }] }, context)).toThrow('SECTION_CONFIRMATION_REQUIRED');
     expect(() => assertConfirmedSectionInputs({ sections: [adopted] }, { ...context, inputEvidence: [] })).toThrow('SECTION_CONFIRMATION_REQUIRED');
+    expect(() => assertConfirmedSectionInputs({ sections: [adopted] }, { ...context,
+      inputEvidence: table.map(record => ({ ...record, id: 'invented-parser-record' })) })).toThrow('SECTION_CONFIRMATION_REQUIRED');
   });
 
   test.each(['确认', '按附表', 'use these'])('a recorded option selection accepts precisely its candidates: %s', answer => {

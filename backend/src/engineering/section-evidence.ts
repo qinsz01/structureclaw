@@ -19,9 +19,13 @@ export function attachmentSectionCandidates(evidence: ModelRecord[] = []): Model
   const active = activeInputEvidence(evidence);
   return active.flatMap(record => {
     if (!isRecord(record.source) || typeof record.source.sha256 !== 'string') return [];
-    if (Array.isArray(record.candidates)) return record.candidates.filter(isRecord).map(candidate => ({
-      ...candidate, evidenceId: record.id, source: record.source,
-    }));
+    if (Array.isArray(record.candidates)) {
+      const { id, ...parsed } = record;
+      if (record.requirement !== 'field-mapping' || id !== `file:${contentHash(parsed)}`) return [];
+      return record.candidates.filter(isRecord).map(candidate => ({
+        ...candidate, evidenceId: record.id, source: record.source,
+      }));
+    }
     if (!String(record.id).startsWith('vision:') || record.status !== 'observed'
       || typeof record.value !== 'number' || !Array.isArray(record.source.region)) return [];
     const reviewed = active.some(item => item.status === 'resolved' && isRecord(item.resolution)

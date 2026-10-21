@@ -123,7 +123,8 @@ async function extractAndMergeDraft(options: {
     const patch = extracted.engineeringDraft ? { ...extracted, engineeringDraft: { ...extracted.engineeringDraft,
       inputEvidence: mergeInputEvidence(state?.inputEvidence, extracted.engineeringDraft.inputEvidence) } } : extracted;
     let nextState = withStructuralTypeState(plugin.handler.mergeState(existingState, patch), match);
-    nextState = projectDraftState(verifyDraftSectionEvidence(nextState.engineeringDraft, conversationSectionEvidence(state)), nextState);
+    nextState = projectDraftState(verifyDraftSectionEvidence(nextState.engineeringDraft, { ...conversationSectionEvidence(state),
+      inputEvidence: nextState.engineeringDraft?.inputEvidence ?? state?.inputEvidence }), nextState);
     if (nextState.engineeringDraft?.sectionRecords?.length || Array.isArray(nextState.engineeringDraft?.model?.sections)) {
       designContract ??= await engineeringModelSchema(protocolClient);
       nextState = projectDraftState(normalizeDraftSectionInputs(nextState.engineeringDraft!, designContract), nextState);

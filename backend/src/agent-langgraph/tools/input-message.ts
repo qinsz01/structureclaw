@@ -130,13 +130,27 @@ function withCanonicalAttachmentDetails(message: string, canonicalUserMessage: s
 }
 
 export function conversationSectionEvidence(state?: { messages?: unknown[]; lastUserMessage?: string; inputEvidence?: Record<string, unknown>[] }): SectionEvidenceContext {
-  const confirmations = (state?.messages ?? []).flatMap(message => {
-    if (messageRole(message) !== 'tool' || !isRecord(message) || (message.name ?? (isRecord(message.kwargs) ? message.kwargs.name : undefined)) !== 'ask_user_clarification') return [];
+  const confirmations: Record<string, unknown>[] = [];
+  let pending: Record<string, unknown> | undefined;
+  for (const message of state?.messages ?? []) {
+    const role = messageRole(message);
+    if (role === 'human' || role === 'user') {
+      if (pending) {
+        const answer = messageText(message);
+        const options = Array.isArray(pending.options) ? pending.options : [];
+        confirmations.push({ ...pending, type: 'clarification_answered', answer,
+          ...(options.includes(answer) ? { selectedOptionId: `option-${options.indexOf(answer) + 1}` } : {}) });
+        pending = undefined;
+      }
+      continue;
+    }
+    if (role !== 'tool' || !isRecord(message) || (message.name ?? (isRecord(message.kwargs) ? message.kwargs.name : undefined)) !== 'ask_user_clarification') continue;
     try {
       const receipt = JSON.parse(messageText(message));
-      return receipt.type === 'clarification_answered' ? [receipt] : [];
-    } catch { return []; }
-  });
+      pending = receipt.type === 'clarification_needed' ? receipt : undefined;
+      if (receipt.type === 'clarification_answered') confirmations.push(receipt);
+    } catch { pending = undefined; }
+  }
   return { userTexts: conversationUserTexts(state), inputEvidence: state?.inputEvidence, confirmations };
 }
 

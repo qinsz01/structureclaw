@@ -184,8 +184,8 @@ describe('attachment context', () => {
     const configured = JSON.parse(await fs.readFile(path.join(tmpDir,'settings.json'),'utf8')).analysis.pythonBin;
     const moduleDir = fileURLToPath(new URL('../../agent-skills/analysis/opensees-seismic/',import.meta.url));
     const output = execFileSync(configured,['-c',
-      'import sys,json; sys.path.insert(0,sys.argv[1]); from ground_motion_input import values; p=values(json.loads(sys.argv[2])); print(json.dumps({"count":len(p.values),"last":p.values[-1],"dt":p.inferred_dt,"source":p.source}))',
-      moduleDir,JSON.stringify(record)],{encoding:'utf8'});
+      'import sys,json; sys.path.insert(0,sys.argv[1]); from ground_motion_input import values; p=values(json.load(sys.stdin)); print(json.dumps({"count":len(p.values),"last":p.values[-1],"dt":p.inferred_dt,"source":p.source}))',
+      moduleDir],{encoding:'utf8',input:JSON.stringify(record)});
     expect(JSON.parse(output)).toMatchObject({count:250,last:.249,dt:.02,source:{sha256:record.fileReference.sha256}});
     expect(payload.attachmentAnalyses[0].analysis.inputEvidence.some(item=>item.status==='truncated')).toBe(true);
   });

@@ -13,7 +13,7 @@ import { quantities } from '../../engineering/section-user-evidence.js';
 export function createAskUserClarificationTool() {
   return tool(
     async (input: { question: string; optionsJson?: string | unknown[];
-      candidateOptions?: Array<{ sectionId: string; field: string; optionIndex: number }> }, config: LangGraphRunnableConfig) => {
+      candidateOptions?: Array<{ sectionId: string; field: string; optionIndex: number; values?: Record<string, number> }> }, config: LangGraphRunnableConfig) => {
       const proposed = input.optionsJson === undefined ? undefined : normalizeClarificationOptions(input.optionsJson);
       // A choice the template would reject again only restarts the same clarification.
       const options = proposed && supportedClarificationOptions(proposed, getConfigurable(config)?.agentState?.draftState);
@@ -32,7 +32,10 @@ export function createAskUserClarificationTool() {
       const stateToken = clarificationStateToken(getConfigurable(config)?.agentState);
       const clarificationId = `clarification:${contentHash({ question: input.question, options, stateToken })}`;
       const draftState = getConfigurable(config)?.agentState?.draftState;
-      const sectionCandidates = (draftState ? draftSectionConfirmations(draftState) : []).flatMap(section => {
+      const offered = (input.candidateOptions ?? []).filter(binding => binding.values).map(binding => ({
+        id: binding.sectionId, fields: [binding.field], [binding.field]: binding.values,
+      }));
+      const sectionCandidates = [...(draftState ? draftSectionConfirmations(draftState) : []), ...offered].flatMap(section => {
         return (Array.isArray(section.fields) ? section.fields : []).flatMap(field => {
           const values = section[String(field)];
           if (!isRecord(values)) return [];
@@ -91,8 +94,8 @@ export function createAskUserClarificationTool() {
           .optional()
           .describe('Array or JSON array string of suggested answers; each item must contain the complete answer to send when selected'),
         candidateOptions: z.array(z.object({ sectionId: z.string(), field: z.enum(['shape', 'dimensions', 'properties']),
-          optionIndex: z.number().int().nonnegative() })).optional()
-          .describe('Bind a short acceptance option to the stored section candidates displayed in the question. Zero-based optionIndex. / 将简短确认选项绑定到问题中展示的已存截面候选，optionIndex从0开始。'),
+          optionIndex: z.number().int().nonnegative(), values: z.record(z.string(), z.number().finite()).optional() })).optional()
+          .describe('Bind a short acceptance option to section candidates displayed in the question. Supply values for newly offered candidates not yet in the draft (shape/dimensions in mm, properties in SI). Zero-based optionIndex. / 将简短确认选项绑定到问题中展示的截面候选；尚未入草稿的新候选须提供values（尺寸mm、属性SI），optionIndex从0开始。'),
       }),
     },
   );
