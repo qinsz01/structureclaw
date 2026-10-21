@@ -29,7 +29,8 @@ import {
 interface CreateModelParams {
   [key: string]: unknown;
   name: string;
-  coordinate_system: ReturnType<typeof buildStructuralCoordinateSystem>;
+  coordinate_system?: ReturnType<typeof buildStructuralCoordinateSystem>;
+  source_frame?: 'y-up' | 'z-up' | Record<string, string>;
   nodes: any[];
   elements: any[];
   materials: any[];
@@ -174,11 +175,14 @@ export class AnalysisService {
   async createModel(params: CreateModelParams) {
     const conversationId = await ensureConversationId(params.conversationId, params.name);
     const { conversationId: _conversationId, ...inputModel } = params;
-    const canonicalInput = await normalizeEngineeringModel(withDirectModelCoordinateContract({
+    const rawInput = {
       ...inputModel,
       load_cases: params.load_cases ?? [],
       load_combinations: params.load_combinations ?? [],
-    }), createLocalStructureProtocolClient());
+    };
+    const canonicalInput = await normalizeEngineeringModel(
+      rawInput.source_frame !== undefined ? { schema_version: '2.2.0', ...rawInput } : withDirectModelCoordinateContract(rawInput),
+      createLocalStructureProtocolClient());
 
     const model = await prisma.structuralModel.create({
       data: {

@@ -82,6 +82,9 @@ def canonicalize_source_frame(model):
             if "forces" in load:
                 load["forces"] = map_vector(load["forces"], frame)
     metadata = result.setdefault("metadata", {})
+    dimension = (result.get("coordinate_system") or {}).get("dimension")
+    if dimension in ("2d", "3d"):
+        metadata.setdefault("frameDimension", dimension)
     for key, vector in metadata.get("elementReferenceVectors", {}).items():
         metadata["elementReferenceVectors"][key] = map_vector(vector, frame)
     controls = result.get("analysis_control") or {}

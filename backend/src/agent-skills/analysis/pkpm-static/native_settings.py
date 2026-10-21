@@ -19,7 +19,7 @@ def resolved_rigid_floor(data):
             or rigid is None and values and len(values) != len(data.get("stories", []))):
         raise AnalysisCapabilityError(engine="pkpm", capability="per-floor-diaphragms",
             reason="Conflicting or mixed diaphragm settings require explicit per-floor native mapping / 楼板约束冲突或混合设置须逐层原生映射")
-    return rigid if rigid is not None else values[0] if values else None
+    return rigid if rigid is not None else values[0] if values else False
 
 
 def validate_settings(data: dict) -> None:
@@ -42,6 +42,7 @@ def validate_settings(data: dict) -> None:
 
 
 def control_parameters(controls: dict) -> tuple[dict[int, int], dict[int, float]]:
+    controls = {**dict.fromkeys(CONTROLS, False), **controls}
     integers, doubles = {}, {}
     if controls.get("construction_stage") is False:
         integers[601] = 1  # Documentation option 60102 is NOT the stored enum.

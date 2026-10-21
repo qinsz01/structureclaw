@@ -121,7 +121,8 @@ def build_native_design_context(source: dict, projection: dict, *, native_projec
 def attach_native_design_context(result: dict, source: dict, projection: dict, *,
                                  native_project: str, parameters: dict, representation: dict | None = None) -> dict:
     result["modelProjection"] = {key: value for key, value in projection.items() if key != "analysisModel"}
-    result["assumptions"] = [*result.get("assumptions", []), *projection.get("assumptions", [])]
+    result["assumptions"] = [*result.get("assumptions", []), *projection.get("assumptions", []),
+                             *source.get("metadata", {}).get("materialDefaultAssumptions", [])]
     context = build_native_design_context(source, projection, native_project=native_project,
                                          parameters=parameters, representation=representation)
     result["nativeDesignContext"] = context

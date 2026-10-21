@@ -26,7 +26,8 @@ class SettingsCapabilityError(ValueError):
 
 def compile_settings(model: dict) -> dict:
     """Compile the elastic frame settings; native evidence still gates support."""
-    control = model.get("analysis_control") or {}
+    control = {**dict.fromkeys(("self_weight", "rigid_offsets", "construction_stage", "p_delta"), False),
+               **(model.get("analysis_control") or {})}
     if control.get("rigid_offsets") is True:
         nodes = {str(row['id']): row for row in model.get('nodes', [])}
         for member in model.get('elements', []):
@@ -43,8 +44,12 @@ def compile_settings(model: dict) -> dict:
                     if story.get("rigid_diaphragm") is not None}
     if len(story_values) > 1 or (story_values and rigid is not None and story_values != {rigid}):
         raise ValueError("YJK mixed/conflicting diaphragm settings require per-floor constraints / 楼板约束冲突或需逐层指定")
+    if rigid is None and story_values and any(story.get("rigid_diaphragm") is None for story in model.get("stories", [])):
+        raise ValueError("YJK mixed diaphragm settings require per-floor constraints / 混合楼板约束须逐层指定")
     if rigid is None and story_values:
         rigid = story_values.pop()
+    if rigid is None:
+        rigid = False
     if rigid is True:
         from native_story_geometry import compile_story_geometry
         geometry = compile_story_geometry(model)
