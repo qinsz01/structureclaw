@@ -205,19 +205,7 @@ export function buildSkillNormalizationContext(
 }
 
 export const DEFAULT_CONSOLE_SKILL_IDS = [
-  'opensees-static',
-  'generic',
-  'beam',
-  'column',
-  'double-span-beam',
-  'frame',
-  'concrete-frame',
-  'portal-frame',
-  'truss',
-  'code-check-gb50017',
-  'code-check-gb50010',
-  'validation-structure-model',
-  'report-export-builtin',
+  'generic', 'beam', 'column', 'double-span-beam', 'frame', 'concrete-frame', 'portal-frame', 'truss',
 ] as const
 
 export function defaultCapabilitySkillIds(skills: SkillMetadataLike[]): string[] {

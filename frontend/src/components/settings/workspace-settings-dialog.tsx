@@ -1,12 +1,14 @@
 'use client'
 
 import { type ReactNode, useId } from 'react'
-import { CapabilitySettingsPanel } from '@/components/chat/capability-settings-panel'
 import { DialogShell } from '@/components/ui/dialog-shell'
 import { Button } from '@/components/ui/button'
 import { LlmSettingsPanel } from '@/components/settings/llm-settings-panel'
 import { DatabaseSettingsPanel } from '@/components/settings/database-settings-panel'
 import { GeneralSettingsPanel } from '@/components/settings/general-settings-panel'
+import { ProviderSettingsPanel } from './provider-settings-panel'
+import { PolicySettingsPanel } from './policy-settings-panel'
+import { AppearanceSettingsPanel } from './appearance-settings-panel'
 import { useI18n } from '@/lib/i18n'
 import { useStore } from '@/lib/stores/context'
 import { cn } from '@/lib/utils'
@@ -19,10 +21,18 @@ type TabConfig = {
 }
 
 const TAB_CONFIG: Record<WorkspaceSettingsTab, TabConfig> = {
-  general: { labelKey: 'generalSettingsNav', panel: <GeneralSettingsPanel /> },
-  capabilities: { labelKey: 'capabilitySettingsNav', panel: <CapabilitySettingsPanel /> },
-  llm: { labelKey: 'llmSettingsNav', panel: <LlmSettingsPanel /> },
-  database: { labelKey: 'databaseAdminNav', panel: <DatabaseSettingsPanel /> },
+  llm: { labelKey: 'settingsModel', panel: <LlmSettingsPanel /> },
+  engines: { labelKey: 'settingsEngines', panel: <ProviderSettingsPanel /> },
+  capabilities: { labelKey: 'settingsSkills', panel: <PolicySettingsPanel section="skills" /> },
+  'run-policy': { labelKey: 'settingsRunPolicy', panel: <PolicySettingsPanel section="run-policy" /> },
+  appearance: { labelKey: 'settingsAppearance', panel: <AppearanceSettingsPanel /> },
+  database: { labelKey: 'settingsData', panel: <DataSettingsPanel /> },
+}
+
+function DataSettingsPanel() {
+  const { t } = useI18n()
+  return <><DatabaseSettingsPanel /><details className="mt-4"><summary>{t('settingsAdvanced')}</summary>
+    <GeneralSettingsPanel sections={['server', 'logging', 'storage', 'cors', 'agent']} /></details></>
 }
 
 const SETTINGS_TABS = Object.keys(TAB_CONFIG) as WorkspaceSettingsTab[]

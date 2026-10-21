@@ -21,17 +21,6 @@ for (const locale of ['en', 'zh'] as const) for (const scenario of scenarios) {
       await configureFixtureLlm(request, llm);
       await page.context().addCookies([{ name: 'structureclaw.locale', value: locale, url: baseURL! }]);
       await page.addInitScript(value => localStorage.setItem('structureclaw.locale', value), locale);
-      await page.goto('/capabilities');
-      await page.waitForLoadState('networkidle');
-      await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem('structureclaw.console.capabilities') ?? '{}').toolIds ?? []))
-        .toEqual(expect.arrayContaining(['run_analysis', 'run_code_check', 'edit_model', 'generate_report']));
-      const { skills } = await (await request.get('/api/v1/agent/skills')).json();
-      for (const id of ['beam', 'opensees-static', 'validation-structure-model', 'report-export-builtin', 'code-check-gb50017']) {
-        const skill = skills.find((skill: { id: string }) => skill.id === id);
-        expect(skill).toBeTruthy();
-        const selected = await page.evaluate(() => JSON.parse(localStorage.getItem('structureclaw.console.capabilities') ?? '{}').skillIds ?? []);
-        if (!selected.includes(id)) await page.getByRole('button', { name: skill.name[locale], exact: true }).click();
-      }
       await page.goto('/');
       await page.getByRole('button', { name: /^(Context|工程上下文)$/ }).click();
       await page.getByPlaceholder(/Paste StructureModel v2 JSON here|将 StructureModel v2 JSON 粘贴/).fill(JSON.stringify(scenario.model));

@@ -92,7 +92,6 @@ const FIELDS: FieldDef[] = [
   { key: 'agent.allowShell', labelKey: 'generalSettingsAllowShellLabel', kind: 'checkbox', sectionKey: 'agent', stateKey: 'allowShell' },
   { key: 'agent.allowedShellCommands', labelKey: 'generalSettingsAllowedShellLabel', kind: 'text', sectionKey: 'agent', stateKey: 'allowedShellCommands' },
   { key: 'agent.shellTimeoutMs', labelKey: 'generalSettingsShellTimeoutLabel', kind: 'number', sectionKey: 'agent', stateKey: 'shellTimeoutMs', props: { min: 1000 } },
-  { key: 'agent.maxToolCallsPerTurn', labelKey: 'generalSettingsMaxToolCallsPerTurnLabel', kind: 'number', sectionKey: 'agent', stateKey: 'maxToolCallsPerTurn', props: { min: 1, max: 200 } },
   // PKPM
   { key: 'pkpm.cyclePath', labelKey: 'generalSettingsPkpmCyclePathLabel', kind: 'text', sectionKey: 'pkpm', stateKey: 'pkpmCyclePath' },
   { key: 'pkpm.workDir', labelKey: 'generalSettingsPkpmWorkDirLabel', kind: 'text', sectionKey: 'pkpm', stateKey: 'pkpmWorkDir' },
@@ -117,7 +116,7 @@ const DEFAULTS: Record<string, string | number | boolean> = {
   pythonBin: '', pythonTimeoutMs: 600000, engineManifestPath: '',
   reportsDir: '', maxFileSize: 104857600,
   origins: '',
-  workspaceRoot: '', checkpointDir: '', allowShell: false, allowedShellCommands: 'node,npm,python,python3,./sclaw,./sclaw_cn', shellTimeoutMs: 300000, maxToolCallsPerTurn: 200,
+  workspaceRoot: '', checkpointDir: '', allowShell: false, allowedShellCommands: 'node,npm,python,python3,./sclaw,./sclaw_cn', shellTimeoutMs: 300000,
   pkpmCyclePath: '', pkpmWorkDir: '',
   yjkInstallRoot: '', yjkExePath: '', yjkPythonBin: '', yjkSdkArchivePath: '', yjkWorkDir: '', yjkVersion: '8.0.0', yjkTimeoutS: 600, yjkInvisible: false,
   yjkLauncherPrewarm: 'always', yjkLauncherPrewarmS: 18, yjkDirectReadyTimeoutS: 12,
@@ -174,7 +173,7 @@ function SourceBadge({ source, t }: { source: ValueSource; t: (key: MessageKey) 
 // Component
 // ---------------------------------------------------------------------------
 
-export function GeneralSettingsPanel() {
+export function GeneralSettingsPanel({ sections, onSaved }: { sections?: string[]; onSaved?: () => void }) {
   const { t } = useI18n()
   const tRef = useRef(t)
   tRef.current = t
@@ -259,6 +258,7 @@ export function GeneralSettingsPanel() {
       if (!res.ok) throw new Error(`${t('requestFailedHttp')} ${res.status}`)
       const data = await res.json() as SettingsResponse
       applyPayload(data)
+      onSaved?.()
       setStatus(t('generalSettingsSavedToast'))
       setShowRestartBanner(true)
     } catch (err) {
@@ -301,6 +301,7 @@ export function GeneralSettingsPanel() {
       }
       const data = await res.json() as YjkAutoConfigureResponse
       applyPayload(data.settings)
+      onSaved?.()
       const skipped = data.steps.filter((step) => step.status === 'skipped').length
       setStatus(skipped > 0 ? t('generalSettingsYjkAutoConfigurePartial') : t('generalSettingsYjkAutoConfigureDone'))
       setShowRestartBanner(true)
@@ -385,14 +386,14 @@ export function GeneralSettingsPanel() {
         <CardHeader>
           <div>
             <div className="text-xs uppercase tracking-[0.28em] text-cyan-700/80 dark:text-cyan-200/70">
-              {t('generalSettingsNav')}
+              {t(sections?.includes('analysis') ? 'providerPaths' : 'generalSettingsNav')}
             </div>
             <CardTitle className="mt-1 flex items-center gap-2 text-2xl">
               <Server className="h-6 w-6 text-cyan-600 dark:text-cyan-300" />
-              {t('generalSettingsNav')}
+              {t(sections?.includes('analysis') ? 'providerPaths' : 'generalSettingsNav')}
             </CardTitle>
             <CardDescription className="max-w-2xl text-sm leading-6 text-muted-foreground">
-              Server, logging, analysis, and engine configuration. Some changes require a restart.
+              {t('generalSettingsRestartBanner')}
             </CardDescription>
           </div>
         </CardHeader>
@@ -404,7 +405,7 @@ export function GeneralSettingsPanel() {
           )}
 
           <form className="space-y-5" onSubmit={handleSubmit}>
-            {SECTIONS.map((section) => {
+            {SECTIONS.filter(section => !sections || sections.includes(section.key)).map((section) => {
               const sectionFields = FIELDS.filter((f) => f.sectionKey === section.key)
               if (sectionFields.length === 0) return null
               const Icon = section.icon
@@ -438,7 +439,7 @@ export function GeneralSettingsPanel() {
             {status && <p className="text-sm leading-6 text-emerald-700 dark:text-emerald-200">{status}</p>}
 
             <Button className="rounded-full px-6" type="submit" disabled={isSaving}>
-              {isSaving ? '...' : t('generalSettingsSaveButton')}
+              {isSaving ? '...' : t(sections?.includes('analysis') ? 'providerPathsSave' : 'generalSettingsSaveButton')}
             </Button>
           </form>
         </CardContent>
@@ -446,14 +447,14 @@ export function GeneralSettingsPanel() {
 
       <Card className="border-border/70 bg-card/85 dark:border-white/10 dark:bg-slate-950/70">
         <CardHeader>
-          <CardTitle className="text-lg">Configuration Sources</CardTitle>
+          <CardTitle className="text-lg">{t('llmSettingsRuntimeTitle')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm leading-6 text-muted-foreground">
           <p>
-            <span className="font-medium text-foreground">settings.json</span> — Configuration saved via this panel or the API. All changes are stored here.
+            <span className="font-medium text-foreground">settings.json</span> — {t('generalSettingsSourceRuntime')}
           </p>
           <p>
-            <span className="font-medium text-foreground">Defaults</span> — Built-in defaults used when settings.json does not provide a value.
+            <span className="font-medium text-foreground">{t('generalSettingsSourceDefault')}</span>
           </p>
         </CardContent>
       </Card>

@@ -25,6 +25,7 @@ describe('explicitly ending a paused conversation turn', () => {
       report: { current: false, runId: null }, jobs: [] }
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, options) => {
       const url = new URL(String(input), 'http://localhost')
+      if (url.pathname.endsWith('/admin/settings')) return Response.json({agent:{runPolicy:{value:{}}}})
       if (url.pathname.endsWith('/session')) return Response.json(runtime)
       if (url.pathname.endsWith('/conversations')) return Response.json([{ id, title: 'Paused beam' }])
       if (url.pathname.endsWith(`/conversation/${id}`)) return Response.json({ id, title: 'Paused beam', messages: [

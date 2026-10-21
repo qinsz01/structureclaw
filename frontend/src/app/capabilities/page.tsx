@@ -1,7 +1,7 @@
 'use client'
 
-import { CapabilitySettingsPanel } from '@/components/chat/capability-settings-panel'
+import { SettingsDeepLink } from '@/components/settings/settings-deep-link'
 
-export default function CapabilitySettingsPage() {
-  return <CapabilitySettingsPanel />
+export default function SettingsPage() {
+  return <SettingsDeepLink section="capabilities" />
 }

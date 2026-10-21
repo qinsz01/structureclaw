@@ -1,8 +1,8 @@
 import { type StateCreator } from 'zustand'
-import { loadCapabilityPreferences, saveCapabilityPreferences } from '../../capability-preference'
+import { loadCapabilityPreferences } from '../../capability-preference'
 
 export type AppLocale = 'en' | 'zh'
-export type WorkspaceSettingsTab = 'general' | 'capabilities' | 'llm' | 'database'
+export type WorkspaceSettingsTab = 'engines' | 'capabilities' | 'llm' | 'run-policy' | 'appearance' | 'database'
 
 /**
  * Preferences State Interface
@@ -47,7 +47,7 @@ export function createInitialPreferencesState(): PreferencesState {
   return {
     locale: 'en',
     workspaceSettingsOpen: false,
-    workspaceSettingsTab: 'general',
+    workspaceSettingsTab: 'llm',
     capabilitySkillIds: initialCapabilities.skillIds,
     capabilityToolIds: initialCapabilities.toolIds,
     capabilityExplicit: initialCapabilities.explicit,
@@ -64,13 +64,12 @@ export const createPreferencesSlice: StateCreator<
 > = (set) => ({
   ...createInitialPreferencesState(),
   setLocale: (locale) => set({ locale }),
-  openWorkspaceSettings: (tab = 'general') => set({
+  openWorkspaceSettings: (tab = 'llm') => set({
     workspaceSettingsOpen: true,
     workspaceSettingsTab: tab,
   }),
   closeWorkspaceSettings: () => set({ workspaceSettingsOpen: false }),
   setCapabilityPreferences: (skillIds, toolIds, explicit) => {
-    saveCapabilityPreferences({ skillIds, toolIds, explicit })
     set({ capabilitySkillIds: skillIds, capabilityToolIds: toolIds, capabilityExplicit: explicit })
   },
 })

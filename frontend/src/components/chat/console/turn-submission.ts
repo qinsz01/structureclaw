@@ -48,17 +48,9 @@ export function createTurnSubmission(state: ConsoleState, mutators: Conversation
     conversationIdRef,
     setConversationId,
     registerStreamSession,
-    skillNormalization,
     selectedSkillIds,
-    defaultSelectedSkillIds,
-    hasExplicitSkillSelection,
     selectedToolIds,
-    hasExplicitToolSelection,
-    restoredScopeRef,
-    storeSkillIds,
-    storeToolIds,
     runPolicy,
-    hasSelectedCodeCheckSkill,
     setPendingOptions,
     streamingSessionsRef,
     setLatestResult,
@@ -183,32 +175,16 @@ export function createTurnSubmission(state: ConsoleState, mutators: Conversation
       })
 
       const contextPayload = buildTurnContextPayload({
-        skillNormalization,
-        selectedSkillIds,
-        defaultSelectedSkillIds,
-        hasExplicitSkillSelection,
-        selectedToolIds,
-        hasExplicitToolSelection,
-        restoredScopeRef,
-        turnRuntime,
-        nextConversationId,
-        storeSkillIds,
-        storeToolIds,
         runPolicy,
         locale,
         requestedContextModel,
         requestedModelRevision,
-        hasSelectedCodeCheckSkill,
         resumeFromMessage,
         attachedFiles,
       })
       const promptSnapshot = buildPromptSnapshot(trimmedInput, contextPayload as Record<string, unknown>)
-      const debugSkillIds = Array.isArray((contextPayload as Record<string, unknown>).skillIds)
-        ? ((contextPayload as Record<string, unknown>).skillIds as string[])
-        : []
-      const debugToolIds = Array.isArray((contextPayload as Record<string, unknown>).enabledToolIds)
-        ? ((contextPayload as Record<string, unknown>).enabledToolIds as string[])
-        : []
+      const debugSkillIds = selectedSkillIds
+      const debugToolIds = selectedToolIds
 
       // If the LangGraph agent is paused with interrupt(), resume it
       // by calling /stream/resume instead of starting a new /stream

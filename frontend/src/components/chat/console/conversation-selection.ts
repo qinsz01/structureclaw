@@ -22,8 +22,6 @@ export function createConversationSelection(state: ConsoleState) {
     conversationIdRef,
     setPendingOptions,
     setAttachedFiles,
-    setCapabilityPreferences,
-    restoredScopeRef,
     setMessages,
     setModelText,
     modelEditedRef,
@@ -89,11 +87,6 @@ export function createConversationSelection(state: ConsoleState) {
       conversationIdRef.current = nextConversationId
       setPendingOptions(authoritativeRuntime?.waitingForReply ? normalizeClarificationOptions(authoritativeRuntime.options) : [])
       setAttachedFiles([])
-      if (authoritativeRuntime?.policy) {
-        const { activeSkillIds: skills, activeToolIds: tools } = authoritativeRuntime.policy
-        setCapabilityPreferences(skills, tools, true)
-        restoredScopeRef.current = { conversationId: nextConversationId, skills, tools }
-      } else restoredScopeRef.current = null
       setMessages(nextMessages)
       setModelText(safeModelText)
       modelEditedRef.current = false
@@ -166,7 +159,6 @@ export function createConversationSelection(state: ConsoleState) {
     setPendingOptions([])
     setAttachedFiles([])
     setInput('')
-    restoredScopeRef.current = null
     setMessages([initialAssistantMessage])
     setModelText('')
     modelEditedRef.current = false

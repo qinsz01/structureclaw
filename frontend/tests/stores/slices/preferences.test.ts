@@ -48,7 +48,7 @@ describe('Preferences Slice (STAT-04)', () => {
   it('distinguishes first use from an explicitly empty selection after reload', () => {
     const store = createAppStore()
     expect(store.getState().capabilityExplicit).toBe(false)
-    store.getState().setCapabilityPreferences([], [], true)
+    window.localStorage.setItem(CAPABILITY_PREFERENCE_STORAGE_KEY, JSON.stringify({ skillIds: [], toolIds: [], explicit: true }))
     expect(createAppStore().getState()).toMatchObject({
       capabilityExplicit: true, capabilitySkillIds: [], capabilityToolIds: [],
     })
@@ -57,13 +57,15 @@ describe('Preferences Slice (STAT-04)', () => {
   it.each([{ skillIds: [] }, { skillIds: ['generic', 'opensees-static'] }])('does not treat unconfirmed legacy selections as explicit: $skillIds', ({ skillIds }) => {
     window.localStorage.setItem(CAPABILITY_PREFERENCE_STORAGE_KEY, JSON.stringify({ skillIds, toolIds: [] }))
     expect(createAppStore().getState()).toMatchObject({
-      capabilityExplicit: false, capabilitySkillIds: skillIds, capabilityToolIds: [],
+      capabilityExplicit: false, capabilitySkillIds: skillIds.filter(id => id !== 'opensees-static'), capabilityToolIds: [],
     })
   })
 
-  it('persists automatic default provenance separately from the selected capabilities', () => {
-    createAppStore().getState().setCapabilityPreferences(['beam', 'generic'], ['build_model'], false)
-    expect(createAppStore().getState()).toMatchObject({
+  it('keeps fetched defaults in memory without creating new localStorage preferences', () => {
+    const store = createAppStore()
+    store.getState().setCapabilityPreferences(['beam', 'generic'], ['build_model'], false)
+    expect(window.localStorage.getItem(CAPABILITY_PREFERENCE_STORAGE_KEY)).toBeNull()
+    expect(store.getState()).toMatchObject({
       capabilityExplicit: false, capabilitySkillIds: ['beam', 'generic'], capabilityToolIds: ['build_model'],
     })
   })

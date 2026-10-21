@@ -1,7 +1,7 @@
 'use client'
 
-import { LlmSettingsPanel } from '@/components/settings/llm-settings-panel'
+import { SettingsDeepLink } from '@/components/settings/settings-deep-link'
 
-export default function LlmSettingsPage() {
-  return <LlmSettingsPanel />
+export default function SettingsPage() {
+  return <SettingsDeepLink section="llm" />
 }

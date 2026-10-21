@@ -1,9 +1,13 @@
 'use client'
 
+import { migrateLegacySkillIds } from '../../../backend/src/shared/legacy-capabilities'
+
 export type CapabilityPreferenceState = {
   skillIds: string[]
   toolIds: string[]
   explicit: boolean
+  preferredProviderIds?: string[]
+  emptyScope?: boolean
 }
 
 export const CAPABILITY_PREFERENCE_STORAGE_KEY = 'structureclaw.console.capabilities'
@@ -25,8 +29,12 @@ export function loadCapabilityPreferences(): CapabilityPreferenceState | null {
       return null
     }
     const parsed = JSON.parse(raw) as { skillIds?: unknown; toolIds?: unknown; explicit?: unknown }
+    const ids = normalizeStringArray(parsed?.skillIds)
+    const migrated = migrateLegacySkillIds(ids)
     return {
-      skillIds: normalizeStringArray(parsed?.skillIds),
+      skillIds: migrated.skillIds,
+      preferredProviderIds: migrated.preferredProviderIds,
+      emptyScope: ids.length === 0,
       toolIds: normalizeStringArray(parsed?.toolIds),
       // Only an explicit user confirmation may restrict the default scope.
       explicit: parsed?.explicit === true,
@@ -36,17 +44,3 @@ export function loadCapabilityPreferences(): CapabilityPreferenceState | null {
   }
 }
 
-export function saveCapabilityPreferences(preferences: CapabilityPreferenceState) {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  window.localStorage.setItem(
-    CAPABILITY_PREFERENCE_STORAGE_KEY,
-    JSON.stringify({
-      skillIds: preferences.skillIds,
-      toolIds: preferences.toolIds,
-      explicit: preferences.explicit,
-    })
-  )
-}

@@ -39,13 +39,12 @@ for (const locale of ['en', 'zh'] as const) {
       expect(llm.requests[2].messages.filter(message => message.role === 'tool').map(message => message.content).join(' ')).toContain('42');
 
       await settings(page);
-      await page.getByRole('combobox', { name: /^(Professional guidance|专业指导)$/ }).selectOption('disabled');
+      await page.getByRole('combobox', { name: /^(Engineering guidance|工程指导)$/ }).selectOption('disabled');
       await page.getByRole('combobox', { name: /^(Model builder|建模方式)$/ }).selectOption('llm');
-      await page.getByRole('combobox', { name: /^(Automatic correction after failure|失败后自动纠正)$/ }).selectOption('0');
+      await page.getByRole('spinbutton', { name: /^(Recovery limit \(0 disables recovery\)|自动纠正次数（0 为关闭）)$/ }).fill('0');
       await page.getByRole('combobox', { name: /^(Conversation context|对话上下文)$/ }).selectOption('current-turn');
       await page.getByRole('spinbutton', { name: /^(Tool call limit|工具调用上限)$/ }).fill('8');
-      await advanced(page);
-      await page.getByRole('combobox', { name: /^(Memory read and write scope|记忆读取与写入范围)$/ }).selectOption('');
+      await page.getByRole('combobox', { name: /^(Memory read and write scopes|记忆读写范围)$/ }).selectOption('');
       // Deliberately request a forbidden tool: a scripted model cannot bypass the server policy.
       llm.enqueue(toolCall('memory', { action: 'retrieve', key: 'report_style' }), 'CURRENT_ANSWER_SENTINEL');
       const changed = await send(page, 'CURRENT_DIALOGUE_SENTINEL');
@@ -69,8 +68,7 @@ for (const locale of ['en', 'zh'] as const) {
       await settings(page);
       // Controls request overrides for the next turn; reopening leaves them at
       // "inherit" and displays the actual saved values in the server summary.
-      await expect(page.getByRole('combobox', { name: /^(Professional guidance|专业指导)$/ })).toHaveValue('');
-      await expect(page.getByLabel(/^(Server session state|服务端会话状态)$/)).toContainText(locale === 'en' ? 'Disabled' : '关闭');
+      await expect(page.getByRole('combobox', { name: /^(Engineering guidance|工程指导)$/ })).toHaveValue('disabled');
       expect((await runtime(request, first.id)).policy.policyHash).toBe(off.policy.policyHash);
       llm.enqueue('INHERITED_ANSWER_SENTINEL');
       await send(page, 'INHERITED_DIALOGUE_SENTINEL');
@@ -80,10 +78,9 @@ for (const locale of ['en', 'zh'] as const) {
       expect(JSON.stringify(llm.requests.at(-1)?.messages)).not.toContain('CURRENT_DIALOGUE_SENTINEL');
 
       await settings(page);
-      await page.getByRole('combobox', { name: /^(Professional guidance|专业指导)$/ }).selectOption('enabled');
+      await page.getByRole('combobox', { name: /^(Engineering guidance|工程指导)$/ }).selectOption('enabled');
       await page.getByRole('combobox', { name: /^(Conversation context|对话上下文)$/ }).selectOption('full');
-      await advanced(page);
-      await page.getByRole('combobox', { name: /^(Memory read and write scope|记忆读取与写入范围)$/ }).selectOption('conversation');
+      await page.getByRole('combobox', { name: /^(Memory read and write scopes|记忆读写范围)$/ }).selectOption('conversation');
       llm.enqueue(toolCall('memory', { action: 'retrieve', key: 'report_style' }), 'RESTORED_ANSWER_SENTINEL');
       await send(page, 'RESTORED_DIALOGUE_SENTINEL');
       const restoredRequest = llm.requests.at(-2)!;
@@ -129,7 +126,7 @@ for (const locale of ['en', 'zh'] as const) {
       await page.getByPlaceholder(/Paste StructureModel v2 JSON here|将 StructureModel v2 JSON 粘贴/).fill(JSON.stringify(beamModel));
       await page.keyboard.press('Escape');
       await settings(page);
-      await page.getByRole('combobox', { name: /^(Automatic correction after failure|失败后自动纠正)$/ }).selectOption('0');
+      await page.getByRole('spinbutton', { name: /^(Recovery limit \(0 disables recovery\)|自动纠正次数（0 为关闭）)$/ }).fill('0');
       llm.enqueue(toolCall('query_results', { field: 'displacements', nodeId: 'A', component: 'uz', unit: 'mm' }),
         toolCall('edit_model', { baseRevision: 1, edits: [{ operation: 'update', collection: 'nodes', id: 'B', values: { x: 12 } }] }),
         toolCall('query_model', {}), toolCall('ask_user_clarification', { question: 'End this failed turn explicitly / 请结束本轮' }));
@@ -173,8 +170,8 @@ for (const locale of ['en', 'zh'] as const) {
     test('a batched model response cannot exceed the tool limit selected in the UI', async ({ page, request, baseURL }) => {
       await settings(page);
       await page.getByRole('spinbutton', { name: /^(Tool call limit|工具调用上限)$/ }).fill('1');
-      await advanced(page);
-      await page.getByRole('combobox', { name: /^(Skill routing|技能路由)$/ }).selectOption('skill:beam');
+      await page.getByRole('combobox', { name: /^(Structure skills|结构技能)$/ }).selectOption('fixed');
+      await page.getByRole('combobox', { name: /^(Pinned skill|固定技能)$/ }).selectOption('beam');
       llm.enqueue({ content: '', tool_calls: [
         ...toolCall('calculate', { expression: '6 * 7' }).tool_calls!,
         ...toolCall('calculate', { expression: '999' }).tool_calls!,
@@ -198,13 +195,10 @@ for (const locale of ['en', 'zh'] as const) {
 }
 
 async function settings(page: Page) {
-  const summary = page.locator('summary').filter({ hasText: /^(Run settings|运行设置)$/ });
+  const summary = page.locator('summary').filter({ hasText: /^(Conversation settings|会话设置)$/ });
   if (!(await summary.locator('..').evaluate(element => element.hasAttribute('open')))) await summary.click();
 }
-async function advanced(page: Page) {
-  const summary = page.locator('summary').filter({ hasText: /^(Advanced settings|高级设置)$/ });
-  if (!(await summary.locator('..').evaluate(element => element.hasAttribute('open')))) await summary.click();
-}
+
 async function runtime(request: APIRequestContext, id: string) {
   const response = await request.get(`/api/v1/chat/conversation/${id}/session`);
   expect(response.ok()).toBe(true);

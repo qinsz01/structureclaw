@@ -2,6 +2,14 @@ import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 
+async function setLocale(page: import('@playwright/test').Page, locale: 'en' | 'zh') {
+  await page.getByRole('button', { name: /^(Open settings|打开设置)$/ }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('tab', { name: /^(Appearance|外观)$/ }).click();
+  await dialog.getByRole('combobox', { name: /^(Language|语言)$/ }).selectOption(locale);
+  await page.keyboard.press('Escape');
+}
+
 test('Live provider: confirmed design inputs survive edit, check and report', async ({ page, request }, info) => {
   test.skip(process.env.SCLAW_E2E_LIVE !== '1', 'Requires a configured isolated live provider');
   test.setTimeout(900_000);
@@ -11,15 +19,6 @@ test('Live provider: confirmed design inputs survive edit, check and report', as
   page.on('pageerror', error => errors.push(error.message));
   await page.context().addCookies([{ name: 'structureclaw.locale', value: 'zh', url: info.project.use.baseURL! }]);
   await page.addInitScript(() => localStorage.setItem('structureclaw.locale', 'zh'));
-  await page.goto('/capabilities');
-  await page.waitForLoadState('networkidle');
-  const { skills } = await (await request.get('/api/v1/agent/skills')).json();
-  for (const id of ['beam', 'opensees-static', 'validation-structure-model', 'report-export-builtin', 'code-check-gb50017']) {
-    const skill = skills.find((item: { id: string }) => item.id === id);
-    expect(skill).toBeTruthy();
-    const selected = await page.evaluate(() => JSON.parse(localStorage.getItem('structureclaw.console.capabilities') ?? '{}').skillIds ?? []);
-    if (!selected.includes(id)) await page.getByRole('button', { name: skill.name.zh, exact: true }).click();
-  }
   await page.goto('/');
   await page.getByRole('button', { name: /^(Context|工程上下文)$/ }).click();
   await page.getByPlaceholder(/Paste StructureModel v2 JSON here|将 StructureModel v2 JSON 粘贴/).fill(JSON.stringify(fixture.model));
@@ -64,7 +63,7 @@ for (const attempt of [1, 2]) {
     const pageErrors: string[] = [];
     page.on('pageerror', error => pageErrors.push(error.message));
     await page.goto('/');
-    await page.getByRole('button', { name: /Switch language to Chinese|切换语言为中文/ }).click();
+    await setLocale(page, 'zh');
     const sent = page.waitForRequest(r => r.url().endsWith('/api/v1/chat/stream') && r.method() === 'POST');
     const response = page.waitForResponse(r => r.url().endsWith('/api/v1/chat/stream') && r.request().method() === 'POST');
     await page.getByRole('textbox').fill('设计一个简支梁，跨度10m，梁中间荷载1kN');
@@ -95,7 +94,7 @@ test('Live provider: omitted properties pause, supplied properties resume and ca
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
-  await page.getByRole('button', { name: /Switch language to Chinese|切换语言为中文/ }).click();
+  await setLocale(page, 'zh');
   const sent = page.waitForRequest(r => r.url().endsWith('/api/v1/chat/stream') && r.method() === 'POST');
   const response = page.waitForResponse(r => r.url().endsWith('/api/v1/chat/stream') && r.request().method() === 'POST');
   await page.getByRole('textbox').fill('设计一个简支梁，跨度10m，梁中间荷载1kN');
@@ -159,7 +158,7 @@ test.describe('Live provider: browser analysis delivery', () => {
         if (response.url().includes('/_next/') && response.status() >= 400) failedAssets.push(response.status() + ' ' + response.url());
       });
       await page.goto('/');
-      await page.getByRole('button', { name: zh ? /Switch language to Chinese|切换语言为中文/ : /Switch language to English|切换语言为英文/ }).click();
+      await setLocale(page, zh ? 'zh' : 'en');
       const prompt = zh
         ? '网页验收：实际计算10 m简支梁，左端铰支、右端滚支，跨中向下集中力1 kN。弹性钢材E=206000 MPa、泊松比0.3、密度7850 kg/m³；实心矩形截面宽100 mm、高200 mm，高沿竖向。不计自重，使用OpenSees二维线弹性静力。请查询两端竖向反力、跨中弯矩和竖向挠度，并生成分析报告；不做规范设计。'
         : 'Browser acceptance: actually analyze a 3 m cantilever beam, fixed at the left end and free at the right end, with a downward 2 kN point load at the free end. Elastic steel E=200000 MPa, Poisson ratio 0.3, density 7850 kg/m³. Solid rectangular section 200 mm wide and 300 mm high, height vertical. Disable self-weight. Use OpenSees 2D linear elastic statics. Query the fixed-end vertical reaction, fixed-end reaction moment and free-end vertical deflection, and generate an analysis report. No code design.';
@@ -217,7 +216,7 @@ for (const locale of ['zh', 'en'] as const) {
     const zh=locale==='zh', errors:string[]=[];
     page.on('pageerror', e=>errors.push(e.message));
     await page.goto('/');
-    await page.getByRole('button',{name:zh?/Switch language to Chinese|切换语言为中文/:/Switch language to English|切换语言为英文/}).click();
+    await setLocale(page, zh ? 'zh' : 'en');
     const prompt=zh?'只求内力：10m水平简支梁，左铰右滚，跨中向下1kN集中力，仅考虑这个荷载，不计自重。告诉我跨中弯矩和两端竖向反力，不求变形，不做规范设计，不生成计算书。'
       :'Forces only: horizontal 3 m cantilever, fixed at the left and free at the right, downward 2 kN concentrated force at the free end, no self-weight. Find the fixed-end bending moment and vertical reaction. No deformation, code design or report.';
     const sent=page.waitForRequest(r=>r.url().endsWith('/api/v1/chat/stream')&&r.method()==='POST');
@@ -267,7 +266,7 @@ test('Live provider: a deflection request without stiffness asks for the materia
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
-  await page.getByRole('button', { name: /Switch language to Chinese|切换语言为中文/ }).click();
+  await setLocale(page, 'zh');
   const sent = page.waitForRequest(r => r.url().endsWith('/api/v1/chat/stream') && r.method() === 'POST');
   const response = page.waitForResponse(r => r.url().endsWith('/api/v1/chat/stream') && r.request().method() === 'POST');
   await page.getByRole('textbox').fill('10m水平简支梁，左铰右滚，跨中向下1kN集中力，仅考虑这个荷载，不计自重。请告诉我跨中弯矩、两端竖向反力和跨中竖向挠度。不做规范设计，不生成计算书。');

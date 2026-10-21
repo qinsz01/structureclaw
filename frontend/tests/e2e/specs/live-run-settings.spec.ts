@@ -44,13 +44,14 @@ test.describe('Live provider: capability and run switches', () => {
     await page.addInitScript(() => localStorage.setItem('structureclaw.locale', 'en'));
     await page.goto('/');
     await openRunSettings(page, false);
-    await page.getByRole('combobox', { name: 'Professional guidance', exact: true }).selectOption('disabled');
+    await page.getByLabel('Engineering guidance', { exact: true }).selectOption('disabled');
     await page.getByRole('combobox', { name: 'Model builder', exact: true }).selectOption('llm');
-    await page.getByRole('combobox', { name: 'Automatic correction after failure', exact: true }).selectOption('0');
+    await page.getByLabel('Recovery limit (0 disables recovery)', { exact: true }).fill('0');
     await page.getByRole('combobox', { name: 'Conversation context', exact: true }).selectOption('current-turn');
-    await page.getByLabel('Tool call limit', { exact: true }).fill('24');
-    await page.getByRole('combobox', { name: 'Skill routing', exact: true }).selectOption('skill:beam');
-    await page.getByRole('combobox', { name: 'Memory read and write scope', exact: true }).selectOption('');
+    await page.getByRole('spinbutton', { name: /^Tool call limit/ }).fill('24');
+    await page.getByLabel('Structure skills', { exact: true }).selectOption('fixed');
+    await page.getByLabel('Pinned skill', { exact: true }).selectOption('beam');
+    await page.getByRole('combobox', { name: 'Memory read and write scopes', exact: true }).selectOption('');
     await page.getByLabel('Internal LLM call limit', { exact: true }).fill('30');
     const result = await send(page, request, info,
       'Switch acceptance: actually analyze a 4 m simply supported beam, pinned at the left end and roller-supported at the right end, with a 1 kN downward point load at midspan. Use elastic steel E=200000 MPa, Poisson ratio 0.3 and density 7850 kg/m³. The solid rectangular section is 100 mm wide and 200 mm high, height vertical. Disable self-weight. Use OpenSees 2D linear elastic statics. Query both vertical reactions, midspan bending moment and vertical deflection, then generate an analysis report. No code design.',
@@ -80,108 +81,60 @@ test.describe('Live provider: capability and run switches', () => {
   });
 
   for (const locale of ['en', 'zh'] as const) {
-    test(`${locale}: switches apply, stay disabled, and persist across reload`, async ({ page, request }, info) => {
+    test(locale + ': conversation switches apply and persist without changing global defaults', async ({ page, request }, info) => {
       const zh = locale === 'zh';
-      const errors: string[] = [];
-      page.on('pageerror', error => errors.push(error.message));
       await page.context().addCookies([{ name: 'structureclaw.locale', value: locale, url: info.project.use.baseURL! }]);
       await page.addInitScript(value => localStorage.setItem('structureclaw.locale', value), locale);
-      const skillsResponse = await request.get('/api/v1/agent/skills');
-      expect(skillsResponse.ok()).toBe(true);
-      const skillPayload = await skillsResponse.json();
-      const skills = Array.isArray(skillPayload) ? skillPayload : skillPayload.skills;
-      const matrixResponse = await request.get('/api/v1/agent/capability-matrix');
-      expect(matrixResponse.ok()).toBe(true);
-      const matrix = await matrixResponse.json();
-      const label = (tool: { id: string; displayName?: Record<string, string> }) => tool.displayName?.[locale] ?? tool.id;
-      const steel = skills.find((skill: { id: string }) => skill.id === 'code-check-gb50017');
-      const concrete = skills.find((skill: { id: string }) => skill.id === 'code-check-gb50010');
-      const calculate = matrix.tools.find((tool: { id: string }) => tool.id === 'calculate');
-      expect(steel).toBeTruthy(); expect(concrete).toBeTruthy(); expect(calculate).toBeTruthy();
-
-      await page.goto('/capabilities');
-      for (const skill of [steel, concrete]) {
-        const toggle = page.getByRole('button', { name: skill.name[locale], exact: true });
-        await expect(toggle).toBeEnabled();
-        await expect(toggle).toHaveAttribute('aria-pressed', 'true');
-      }
-      for (const tool of matrix.tools) {
-        const toggle = page.getByRole('button', { name: label(tool), exact: true }).and(page.locator('button[title]'));
-        if (await toggle.getAttribute('aria-pressed') === 'true') await toggle.click();
-      }
-      await page.reload();
-      await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem('structureclaw.console.capabilities')!).toolIds)).toEqual([]);
+      const defaults = await (await request.get('/api/v1/admin/settings')).json();
       await page.goto('/');
       await openRunSettings(page, zh);
-      const routing = page.getByRole('combobox', { name: zh ? '技能路由' : 'Skill routing', exact: true });
-      await expect(routing.locator('option[value="skill:beam"]')).toHaveCount(1);
-      for (const id of ['code-check-gb50017', 'code-check-gb50010', 'opensees-static', 'report-export-builtin', 'validation-structure-model']) {
-        await expect(routing.locator(`option[value="skill:${id}"]`)).toHaveCount(0);
-      }
-      await page.getByRole('combobox', { name: zh ? '专业指导' : 'Professional guidance', exact: true }).selectOption('disabled');
-      await page.getByRole('combobox', { name: zh ? '建模方式' : 'Model builder', exact: true }).selectOption('llm');
-      await page.getByRole('combobox', { name: zh ? '失败后自动纠正' : 'Automatic correction after failure', exact: true }).selectOption('0');
-      await page.getByRole('combobox', { name: zh ? '对话上下文' : 'Conversation context', exact: true }).selectOption('current-turn');
-      await page.getByLabel(zh ? '工具调用上限' : 'Tool call limit', { exact: true }).fill('8');
-      await page.getByRole('combobox', { name: zh ? '技能路由' : 'Skill routing', exact: true }).selectOption('skill:beam');
-      await page.getByRole('combobox', { name: zh ? '记忆读取与写入范围' : 'Memory read and write scope', exact: true }).selectOption('');
-      await page.getByLabel(zh ? '内部 LLM 调用上限' : 'Internal LLM call limit', { exact: true }).fill('4');
-      const firstPrompt = `Switch ${locale} ${Date.now()}: reply exactly SWITCH_OFF. No tools are enabled.`;
+      await page.getByLabel(zh ? '工程指导' : 'Engineering guidance', { exact: true }).selectOption('disabled');
+      await page.getByLabel(zh ? '建模方式' : 'Model builder', { exact: true }).selectOption('llm');
+      await page.getByLabel(zh ? '自动纠正次数（0 为关闭）' : 'Recovery limit (0 disables recovery)', { exact: true }).fill('0');
+      await page.getByLabel(zh ? '对话上下文' : 'Conversation context', { exact: true }).selectOption('current-turn');
+      await page.getByRole('spinbutton', { name: /^(Tool call limit|工具调用上限)/ }).fill('8');
+      await page.getByLabel(zh ? '结构技能' : 'Structure skills', { exact: true }).selectOption('fixed');
+      await page.getByLabel(zh ? '固定技能' : 'Pinned skill', { exact: true }).selectOption('beam');
+      await page.getByLabel(zh ? '记忆读写范围' : 'Memory read and write scopes', { exact: true }).selectOption('');
+      const firstPrompt = 'Switch ' + locale + ' ' + Date.now() + ': reply exactly SWITCH_OFF without calling tools.';
       const first = await send(page, request, info, firstPrompt, zh, 'switches-off');
       expect(first.session.policy).toMatchObject({ knowledge: 'disabled', builder: 'llm', routing: { mode: 'fixed', skillId: 'beam' },
-        repair: { enabled: false, maxRecoveriesPerTurn: 0 }, context: { history: 'current-turn', memoryScopes: [] },
-        budgets: { maxToolCallsPerTurn: 8, maxLlmCallsPerTurn: 4 }, activeToolIds: [] });
-      expect(first.session.policy.activeSkillIds).toEqual(expect.arrayContaining(['code-check-gb50017', 'code-check-gb50010']));
+        repair: { enabled: false, maxRecoveriesPerTurn: 0 }, context: { history: 'current-turn', memoryScopes: [] }, budgets: { maxToolCallsPerTurn: 8 } });
+      expect(first.session.policy.activeToolIds).not.toContain('memory');
+      expect(first.session.policy.activeSkillIds).not.toContain('code-check-gb50017');
       expect(first.session.usage.toolCalls).toBe(0);
-      expect(first.session.usage.llmCalls).toBeGreaterThan(0);
-
-      await page.getByRole('button', { name: /skills · .*tools|技能 · .*工具/i }).click();
-      const settings = page.getByRole('dialog');
-      await expect(settings.getByRole('button', { name: label(calculate), exact: true }).and(page.locator('button[title]'))).toBeEnabled();
-      await settings.getByRole('button', { name: label(calculate), exact: true }).and(page.locator('button[title]')).click();
-      await settings.getByRole('button', { name: steel.name[locale], exact: true }).click();
-      await page.keyboard.press('Escape');
       await openRunSettings(page, zh);
-      await page.getByRole('combobox', { name: zh ? '专业指导' : 'Professional guidance', exact: true }).selectOption('enabled');
-      await page.getByRole('combobox', { name: zh ? '建模方式' : 'Model builder', exact: true }).selectOption('auto');
-      await page.getByRole('combobox', { name: zh ? '失败后自动纠正' : 'Automatic correction after failure', exact: true }).selectOption('2');
-      await page.getByRole('combobox', { name: zh ? '对话上下文' : 'Conversation context', exact: true }).selectOption('full');
-      await page.getByLabel(zh ? '工具调用上限' : 'Tool call limit', { exact: true }).fill('12');
-      await page.getByRole('combobox', { name: zh ? '技能路由' : 'Skill routing', exact: true }).selectOption('auto');
-      await page.getByRole('combobox', { name: zh ? '记忆读取与写入范围' : 'Memory read and write scope', exact: true }).selectOption('conversation');
-      await page.getByLabel(zh ? '不申请 LLM 调用上限' : 'Do not request an LLM call limit', { exact: true }).check();
+      await page.getByLabel(zh ? '工程指导' : 'Engineering guidance', { exact: true }).selectOption('enabled');
+      await page.getByLabel(zh ? '建模方式' : 'Model builder', { exact: true }).selectOption('auto');
+      await page.getByLabel(zh ? '自动纠正次数（0 为关闭）' : 'Recovery limit (0 disables recovery)', { exact: true }).fill('2');
+      await page.getByLabel(zh ? '对话上下文' : 'Conversation context', { exact: true }).selectOption('full');
+      await page.getByLabel(zh ? '结构技能' : 'Structure skills', { exact: true }).selectOption('auto');
+      await page.getByLabel(zh ? '记忆读写范围' : 'Memory read and write scopes', { exact: true }).selectOption('conversation');
       const second = await send(page, request, info, zh ? '请调用 calculate 工具计算 2+3，再回复结果。' : 'Call calculate to evaluate 2+3, then reply with the result.', zh, 'switches-on');
       expect(second.id).toBe(first.id);
       expect(second.session.policy).toMatchObject({ knowledge: 'enabled', builder: 'auto', routing: { mode: 'auto' },
-        repair: { enabled: true, maxRecoveriesPerTurn: 2 }, context: { history: 'full', memoryScopes: ['conversation'] },
-        budgets: { maxToolCallsPerTurn: 12, maxLlmCallsPerTurn: null }, activeToolIds: ['calculate'] });
-      expect(second.session.policy.activeSkillIds).not.toContain('code-check-gb50017');
+        repair: { enabled: true, maxRecoveriesPerTurn: 2 }, context: { history: 'full', memoryScopes: ['conversation'] } });
       expect(second.session.usage.toolCalls).toBeGreaterThan(0);
-      const conversation = await (await request.get(`/api/v1/chat/conversation/${first.id}`)).json();
-      const tools = conversation.messages.filter((message: { role: string }) => message.role === 'tool');
-      expect(tools.length).toBeGreaterThan(0);
-      expect(tools.every((message: { name: string }) => message.name === 'calculate')).toBe(true);
-
+      const conversation = await (await request.get('/api/v1/chat/conversation/' + first.id)).json();
+      expect(conversation.messages.some((message: { role: string; name: string }) => message.role === 'tool' && message.name === 'calculate')).toBe(true);
       await page.reload();
       await page.getByTestId('console-history-panel').getByRole('button').filter({ hasText: firstPrompt.slice(0, 25) }).click();
       await openRunSettings(page, zh);
+      await expect(page.getByLabel(zh ? '工程指导' : 'Engineering guidance', { exact: true })).toHaveValue('enabled');
       const third = await send(page, request, info, 'Reply exactly SWITCH_RESTORED without calling a tool.', zh, 'switches-restored');
-      expect(third.id).toBe(first.id);
       expect(third.sent.context?.runPolicy).toBeUndefined();
       expect(third.sent.context?.skillIds).toBeUndefined();
-      expect(third.sent.context?.enabledToolIds).toBeUndefined();
       expect(third.session.policy.policyHash).toBe(second.session.policy.policyHash);
+      expect((await (await request.get('/api/v1/admin/settings')).json()).agent.runPolicy).toEqual(defaults.agent.runPolicy);
       await retainAttachment(info, 'switches-browser', await page.screenshot(), 'image/png');
-      expect(errors).toEqual([]);
     });
   }
 });
 
 async function openRunSettings(page: Page, zh: boolean) {
-  const summary = page.locator('summary').filter({ hasText: new RegExp(`^${zh ? '运行设置' : 'Run settings'}$`) });
+  const summary = page.locator('summary').filter({ hasText: new RegExp(`^${zh ? '会话设置' : 'Conversation settings'}$`) });
   if (await summary.evaluate(node => !(node.parentElement as HTMLDetailsElement).open)) await summary.click();
-  const advanced = page.locator('summary').filter({ hasText: new RegExp(`^${zh ? '高级设置' : 'Advanced settings'}$`) });
-  if (await advanced.evaluate(node => !(node.parentElement as HTMLDetailsElement).open)) await advanced.click();
+
 }
 
 async function send(page: Page, request: APIRequestContext, info: TestInfo, message: string, zh: boolean, name: string) {

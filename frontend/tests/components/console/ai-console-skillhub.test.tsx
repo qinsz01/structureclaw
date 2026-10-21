@@ -18,7 +18,7 @@ describe('AIConsole SkillHub actions', () => {
     const capabilitySummary = await screen.findByRole('button', { name: /skills · .*tools/i }, { timeout: 15_000 })
     await user.click(capabilitySummary)
 
-    expect(await screen.findByRole('heading', { name: /capability settings/i })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /^skills$/i })).toBeInTheDocument()
   })
 
   it('moves capability editing out of inline console controls', async () => {

@@ -3,7 +3,6 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
-import { RunSettings } from '../run-settings'
 import type { ConsoleState } from './use-console-state'
 
 /** Message composer: attachments, run settings, engine status and send/stop actions. */
@@ -25,11 +24,8 @@ export function ConsoleComposer({
     capabilityMatrixFailed,
     setCatalogRefresh,
     runPolicy,
-    setRunPolicy,
     locale,
-    availableSkills,
     selectedSkillIds,
-    skillDomainById,
     isStreaming,
     sessionRuntime,
     conversationId,
@@ -93,13 +89,11 @@ export function ConsoleComposer({
         <p>{t('capabilityCatalogFailed')}</p>
         <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => setCatalogRefresh(value => value + 1)}>{t('capabilityCatalogRetry')}</Button>
       </div>}
-      {state.hasExplicitSkillSelection && state.defaultSelectedSkillIds.some(id => !selectedSkillIds.includes(id)) && <p role="status" className="mx-3 mb-2 text-xs">{t('capabilityScopeNarrowed')}</p>}
-      <RunSettings capabilityScope={{ skills: selectedSkillIds, narrowed: state.hasExplicitSkillSelection && state.defaultSelectedSkillIds.some(id => !selectedSkillIds.includes(id)) }} value={runPolicy} onChange={setRunPolicy} locale={locale}
-        modelingSkills={availableSkills.filter(skill => selectedSkillIds.includes(skill.id) && skillDomainById[skill.id] === 'structure-type')
-          .map(skill => ({ id: skill.id, label: skill.name[locale] || skill.id }))}
-        disabled={isStreaming || Boolean(sessionRuntime.view?.busy || sessionRuntime.view?.waitingForReply)}
-        runtime={sessionRuntime.view} statusError={sessionRuntime.error}
-        onRefresh={conversationId ? () => { void sessionRuntime.refresh().catch(() => {}) } : undefined} />
+      <p role="status" className="mx-3 mb-2 text-xs text-muted-foreground">
+        {t('policyEffectiveScope')}: {runPolicy.routing?.mode === 'fixed' ? runPolicy.routing.skillId
+          : sessionRuntime.view?.policy?.routing.mode === 'fixed' && runPolicy.routing === undefined ? sessionRuntime.view.policy.routing.skillId
+          : state.hasExplicitSkillSelection ? selectedSkillIds.join(', ') || t('policyScopeEmpty') : t('policyScopeAutomatic')}
+      </p>
       <Textarea
         ref={composerTextareaRef}
         className="min-h-[96px] resize-none border-0 bg-transparent px-3 py-2.5 text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"

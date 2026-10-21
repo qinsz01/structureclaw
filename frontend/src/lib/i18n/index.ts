@@ -1,5 +1,7 @@
 'use client'
 
+import { runPolicyMessages } from './messages/run-policy'
+
 import { useCallback, useContext, useEffect, useLayoutEffect } from 'react'
 import { createStore } from 'zustand/vanilla'
 import { useStore as useZustandStore } from 'zustand'
@@ -25,6 +27,7 @@ export const messages = {
   en: {
     ...shellMessages.en,
     ...settingsMessages.en,
+    ...runPolicyMessages.en,
     ...databaseAdminMessages.en,
     ...consoleMessages.en,
     ...resultsMessages.en,
@@ -35,6 +38,7 @@ export const messages = {
   zh: {
     ...shellMessages.zh,
     ...settingsMessages.zh,
+    ...runPolicyMessages.zh,
     ...databaseAdminMessages.zh,
     ...consoleMessages.zh,
     ...resultsMessages.zh,

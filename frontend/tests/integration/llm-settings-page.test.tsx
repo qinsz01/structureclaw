@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import LlmSettingsPage from '@/app/llm/page'
+import { LlmSettingsPanel as LlmSettingsPage } from '@/components/settings/llm-settings-panel'
 
 function runtimePayload(overrides: Partial<Record<string, unknown>> = {}) {
   return {

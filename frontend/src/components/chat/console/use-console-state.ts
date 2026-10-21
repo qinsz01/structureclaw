@@ -57,7 +57,7 @@ export function useConsoleState() {
   const conversationSelectionRef = useRef(0)
   useEffect(() => { conversationIdRef.current = conversationId }, [conversationId])
   const [errorMessage, setErrorMessage] = useState('')
-  const catalog = useCapabilityCatalog(locale, sessionRuntime.view)
+  const catalog = useCapabilityCatalog(locale, sessionRuntime.view, runPolicy)
   const { selectedSkillIds, selectedToolIds, hasExplicitSkillSelection, hasExplicitToolSelection } = catalog
   const engines = useAnalysisEngines()
   const model = useModelDraft({ t, conversationId, messages, mergedConversations, sessionView: sessionRuntime.view })

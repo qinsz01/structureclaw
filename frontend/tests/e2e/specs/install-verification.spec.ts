@@ -68,6 +68,8 @@ test.describe('Install verification', () => {
     const { skills } = await (await request.get('/api/v1/agent/skills')).json();
     const beam = skills.find((skill: { id: string }) => skill.id === 'beam');
     expect(beam).toBeTruthy();
-    await expect(page.getByRole('button', { name: beam.name.en, exact: true })).toBeVisible();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel('Structure skills').selectOption('restricted');
+    await expect(dialog.getByRole('checkbox', { name: beam.name.en, exact: true })).toBeVisible();
   });
 });

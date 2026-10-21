@@ -88,7 +88,7 @@ export function HistorySidebar({
               type="button"
               className="h-9 w-9 rounded-full text-muted-foreground hover:bg-cyan-300/10 hover:text-foreground"
               aria-label={t('sidebarGearAriaLabel')}
-              onClick={() => openWorkspaceSettings('general')}
+              onClick={() => openWorkspaceSettings('llm')}
             >
               <Settings className="h-4 w-4" />
             </button>
@@ -255,7 +255,7 @@ export function HistorySidebar({
                 type="button"
                 className="h-9 w-9 rounded-full text-muted-foreground hover:bg-cyan-300/10 hover:text-foreground"
                 aria-label={t('sidebarGearAriaLabel')}
-                onClick={() => openWorkspaceSettings('general')}
+                onClick={() => openWorkspaceSettings('llm')}
               >
                 <Settings className="h-4 w-4" />
               </button>

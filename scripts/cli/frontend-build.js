@@ -17,6 +17,8 @@ function frontendSourceHash(frontendDir) {
     }
   }
   for (const directory of ["src", "public", "scripts"]) include(directory);
+  // Pure contracts imported by the browser are part of its build, even though they live in backend/.
+  for (const contract of ["runtime/limits.ts", "shared/legacy-capabilities.ts"]) include(path.join("..", "backend", "src", contract));
   for (const name of fs.readdirSync(frontendDir).sort()) {
     if (name !== "next-env.d.ts" && (/\.(?:json|[cm]?js|ts)$/u.test(name) || name.startsWith(".env"))) include(name);
   }

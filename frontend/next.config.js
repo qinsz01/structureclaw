@@ -7,7 +7,8 @@ const nextConfig = {
   reactStrictMode: true,
   output: 'export',
   turbopack: {
-    root: __dirname,
+    // The browser shares pure policy limits and legacy-id migration with the backend.
+    root: path.resolve(__dirname, '..'),
   },
 }
 

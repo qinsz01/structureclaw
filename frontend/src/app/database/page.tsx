@@ -1,7 +1,7 @@
 'use client'
 
-import { DatabaseSettingsPanel } from '@/components/settings/database-settings-panel'
+import { SettingsDeepLink } from '@/components/settings/settings-deep-link'
 
-export default function DatabasePage() {
-  return <DatabaseSettingsPanel />
+export default function SettingsPage() {
+  return <SettingsDeepLink section="database" />
 }

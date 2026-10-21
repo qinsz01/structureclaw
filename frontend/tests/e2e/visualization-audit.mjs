@@ -302,11 +302,17 @@ export async function runVisualizationAudit({ only, out, screenshots = true }) {
       for (const name of ['Load Markers', 'Node Labels', 'Element Labels']) if (await button(page, name).count()) await probe(`model-only-${name}`, () => button(page, name).click())
       await button(page, 'Close Visualization').click(); await page.keyboard.press('Escape')
       if (screenshots) for (const locale of ['en', 'zh']) {
-        if (locale === 'zh') await page.getByRole('button', { name: 'Switch language to Chinese', exact: true }).click()
+        if (locale === 'zh') {
+          await page.getByRole('button', { name: /^(Open settings|打开设置)$/ }).click()
+          await page.getByRole('tab', { name: /^(Appearance|外观)$/ }).click()
+          await page.getByLabel('Language', { exact: true }).selectOption('zh')
+          await page.keyboard.press('Escape')
+        }
         for (const theme of ['light', 'dark']) {
-          for (let attempt = 0; attempt < 3 && await page.evaluate(() => localStorage.getItem('theme')) !== theme; attempt++) {
-            await page.getByRole('button', { name: locale === 'en' ? /^Toggle theme/ : /切换主题/ }).click()
-          }
+          await page.getByRole('button', { name: /^(Open settings|打开设置)$/ }).click()
+          await page.getByRole('tab', { name: /^(Appearance|外观)$/ }).click()
+          await page.getByLabel(locale === 'en' ? 'Theme' : '主题', { exact: true }).selectOption(theme)
+          await page.keyboard.press('Escape')
           assert.equal(await page.evaluate(() => localStorage.getItem('theme')), theme)
           await openFigure(locale)
           for (const width of [1440, 768]) {

@@ -25,6 +25,9 @@ export function useConsoleLayout() {
   useEffect(() => {
     setUiPreferences(loadConsoleUiPreferences())
     setUiPreferencesHydrated(true)
+    const restoreLayout = () => setUiPreferences(loadConsoleUiPreferences())
+    window.addEventListener('structureclaw:layout-changed', restoreLayout)
+    return () => window.removeEventListener('structureclaw:layout-changed', restoreLayout)
   }, [])
 
   useEffect(() => {

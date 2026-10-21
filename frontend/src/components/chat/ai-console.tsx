@@ -1,7 +1,7 @@
 'use client'
 
-import { LanguageToggle } from '@/components/language-toggle'
-import { ThemeToggle } from '@/components/theme-toggle'
+import { RunSettings } from './run-settings'
+
 import { cn } from '@/lib/utils'
 import { useConsoleState } from './console/use-console-state'
 import { createConversationMutators } from './console/conversation-mutators'
@@ -51,8 +51,12 @@ export function AIConsole() {
 
       <div className="flex min-h-0 flex-col xl:min-h-0">
         <div className="flex items-center justify-end gap-1.5 px-3 py-2">
-          <LanguageToggle />
-          <ThemeToggle />
+          <RunSettings value={state.runPolicy} onChange={state.setRunPolicy} defaults={state.globalRunPolicy} locale={state.locale}
+            modelingSkills={state.availableSkills.filter(skill => state.skillDomainById[skill.id] === 'structure-type')
+              .map(skill => ({ id: skill.id, label: skill.name[state.locale] || skill.id }))}
+            disabled={state.isStreaming || Boolean(state.sessionRuntime.view?.busy || state.sessionRuntime.view?.waitingForReply)}
+            runtime={state.sessionRuntime.view} statusError={state.sessionRuntime.error}
+            onRefresh={state.conversationId ? () => { void state.sessionRuntime.refresh().catch(() => {}) } : undefined} />
         </div>
 
         <section

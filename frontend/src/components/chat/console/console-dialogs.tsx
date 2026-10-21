@@ -51,8 +51,6 @@ export function ConsoleDialogs({
     messages,
     attachedFiles,
     runPolicy,
-    selectedSkillIds,
-    selectedToolIds,
     conversationIdRef,
     setLatestResult,
     setLatestResultVisualizationSnapshot,
@@ -98,7 +96,7 @@ export function ConsoleDialogs({
         locale={locale} disabled={isStreaming || Boolean(sessionRuntime.view?.busy)} onUsageChanged={() => { void sessionRuntime.refresh().catch(() => {}) }} />
       <InputReviewPanel open={inputReviewOpen} onClose={() => setInputReviewOpen(false)} conversationId={conversationId}
         locale={locale} disabled={isStreaming} attachments={[...messages.flatMap(message => message.attachments ?? []), ...attachedFiles]}
-        initialContext={{ locale, runPolicy, skillIds: selectedSkillIds, enabledToolIds: selectedToolIds,
+        initialContext={{ locale, runPolicy,
           attachments: [...messages.flatMap(message => message.attachments ?? []), ...attachedFiles], restrictFileAccessToAttachments: true }}
         onUpdate={review => {
           if (review.conversationId !== conversationIdRef.current) return

@@ -2710,7 +2710,7 @@ describe('ConsolePage Integration (CONS-13)', () => {
     })
   })
 
-  it('sends autoCodeCheck=true during execute when a code-check skill is selected', async () => {
+  it('does not infer a code-check request from a legacy provider preference', async () => {
     const executeBodies: Array<Record<string, unknown>> = []
 
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
@@ -2776,8 +2776,8 @@ describe('ConsolePage Integration (CONS-13)', () => {
     })
 
     const context = (executeBodies[0].context || {}) as Record<string, unknown>
-    expect(context.autoCodeCheck).toBe(true)
-    expect(context.skillIds).toEqual(expect.arrayContaining(['code-check-gb50017']))
+    expect(context.autoCodeCheck).toBeUndefined()
+    expect(context.skillIds).toBeUndefined()
   })
 
   it('sends autoCodeCheck=false during execute when no code-check skill is selected', async () => {
@@ -2968,9 +2968,8 @@ describe('ConsolePage Integration (CONS-13)', () => {
     expect(context.designCode).toBeUndefined()
     expect(context.autoCodeCheck).toBeUndefined()
     expect(context.seismicWorkflow).toBeUndefined()
-    expect(context.skillIds).toEqual(expect.arrayContaining(['generic', 'beam', 'opensees-static']))
-    expect(context.skillIds).not.toEqual(expect.arrayContaining(['opensees-seismic', 'code-check-gb50011']))
-    expect(context.enabledToolIds).toEqual(['build_model'])
+    expect(context.skillIds).toBeUndefined()
+    expect(context.enabledToolIds).toBeUndefined()
   })
 
   it('disables the visualization action when a restored result has no model snapshot', async () => {

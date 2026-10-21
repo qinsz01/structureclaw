@@ -178,11 +178,17 @@ test.describe('Workspace inline figure', () => {
       await workspace.getByRole('button', { name: 'Close', exact: true }).click()
 
       for (const locale of ['en', 'zh'] as const) {
-        if (locale === 'zh') await page.getByRole('button', { name: 'Switch language to Chinese', exact: true }).click()
+        if (locale === 'zh') {
+          await page.getByRole('button', { name: /^(Open settings|打开设置)$/ }).click()
+          await page.getByRole('tab', { name: /^(Appearance|外观)$/ }).click()
+          await page.getByLabel('Language', { exact: true }).selectOption('zh')
+          await page.keyboard.press('Escape')
+        }
         for (const theme of ['light', 'dark']) {
-          for (let attempt = 0; attempt < 3 && await page.evaluate(() => localStorage.getItem('theme')) !== theme; attempt++) {
-            await page.getByRole('button', { name: locale === 'en' ? /^Toggle theme/ : /切换主题/ }).click()
-          }
+          await page.getByRole('button', { name: /^(Open settings|打开设置)$/ }).click()
+          await page.getByRole('tab', { name: /^(Appearance|外观)$/ }).click()
+          await page.getByLabel(locale === 'en' ? 'Theme' : '主题', { exact: true }).selectOption(theme)
+          await page.keyboard.press('Escape')
           expect(await page.evaluate(() => localStorage.getItem('theme'))).toBe(theme)
           await page.getByRole('button', { name: locale === 'en' ? 'Results and history' : '结果与历史', exact: true }).click()
           const ws = page.getByRole('dialog', { name: locale === 'en' ? 'Result workspace' : '结果工作区', exact: true })

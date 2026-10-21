@@ -14,12 +14,16 @@ test.describe('i18n and theme', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    await page.getByRole('button', { name: 'Switch language to Chinese', exact: true }).click();
+    await openAppearance(page);
+    await page.getByLabel('Language', { exact: true }).selectOption('zh');
+    await page.keyboard.press('Escape');
     await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
     await expect(page.getByRole('button', { name: '发送', exact: true })).toBeVisible();
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
-    await page.getByRole('button', { name: '切换语言为英文', exact: true }).click();
+    await openAppearance(page);
+    await page.getByLabel('语言', { exact: true }).selectOption('en');
+    await page.keyboard.press('Escape');
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   });
 
@@ -43,7 +47,9 @@ test.describe('i18n and theme', () => {
     await page.waitForLoadState('networkidle');
 
     const before = await page.evaluate(() => localStorage.getItem('theme'));
-    await page.getByRole('button', { name: /^Toggle theme/ }).click();
+    await openAppearance(page);
+    await page.getByLabel('Theme', { exact: true }).selectOption(before === 'dark' ? 'light' : 'dark');
+    await page.keyboard.press('Escape');
     await expect.poll(() => page.evaluate(() => localStorage.getItem('theme'))).not.toBe(before);
     const selected = await page.evaluate(() => localStorage.getItem('theme'));
     await page.reload();
@@ -68,3 +74,8 @@ test.describe('i18n and theme', () => {
     expect(['en', 'zh-CN']).toContain(htmlLang);
   });
 });
+
+async function openAppearance(page: import('@playwright/test').Page) {
+  await page.getByRole('button', { name: /^(Open settings|打开设置)$/ }).click();
+  await page.getByRole('tab', { name: /^(Appearance|外观)$/ }).click();
+}
