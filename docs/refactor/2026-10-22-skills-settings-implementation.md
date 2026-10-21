@@ -173,7 +173,7 @@ now uses the existing deterministic selection validator before reserving a job o
 result, with bilingual diagnostics and available IDs. Actual uncertain solver outcomes remain
 protected. A full scripted Agent turn corrects L1 to LC1 and reaches real OpenSees with zero repairs.
 
-Verified so far: 1290 Python tests; 327 frontend unit / 83 integration tests; frontend type/lint and
+Verified so far: 1292 Python tests; 327 frontend unit / 83 integration tests; frontend type/lint and
 production build; backend build/lint/dependency rules; analysis regression and three validators.
 Default browser E2E: 54 passed / 12 live-only skipped in 30.1 minutes (`phase3/e2e.log`).
 Operation tests: 14 pass, including real slab solves and bounded failure with the saved model intact.
@@ -182,12 +182,17 @@ documented and passing in all 57 compatibility tests. Concurrent compilation als
 eight Jest module imports. Another invocation used the repository rather than backend working
 directory and failed four path-sensitive suites; their source was not changed to hide that setup
 error. The final full run uses the backend directory and a fixed compiled tree
-(`phase3/backend-final-all.log`). Final full Jest and the last live follow-ups remain pending.
+(`phase3/backend-final-success.log`). Final full Jest remains pending; the live follow-ups below
+have completed. Earlier interrupted runs were stopped when new real-input defects required a
+correction; none is counted as a complete full-suite pass.
 
 The live mixed case exposed a second invalid apparent success: the LLM invented a labelled unit
 brace area beside real beam/column sections. This is excluded from the pass count. Only the host
 may create placeholder stiffness and its metadata; partial real-property models must supply the
-missing properties. Additional axial-member end releases are now caught before solving. Explicit
+missing properties. Redundant rotational hinges on pure axial members retain their authored
+definitions and are realized by the axial formulation, with a bilingual equivalence diagnostic;
+translational releases and released offsets remain unsupported. Native triangle tests prove unchanged
+forces, 5 + 5kN reactions and input immutability for both truss and brace types. Explicit
 OpenSees selection also retains the eligible force-only unit-stiffness path; commercial targets
 still require real properties. These changes passed focused physics/stiffness/compatibility tests.
 
@@ -223,7 +228,57 @@ section is not accepted as an improvement. After selector preflight, a fresh 3D 
 560.6s / 1 turn / 0 questions / 7 calls, using regular-frame and nodal-load operations, with
 27 nodes / 42 members / 18 per-node actions and −1.8kN (`phase3/live-grid-followup`).
 The mixed case and original concrete/PKPM requests are being remeasured after the stiffness and
-node-selector corrections in `phase3/live-final-followup`; initial failures stay in the table.
+node-selector corrections; the completed follow-ups are separated below and initial failures stay
+in the table.
+
+| Final follow-up | Seconds | Turns | Issued questions | Tool calls | Independently checked outcome |
+|---|---:|---:|---:|---:|---|
+| Original concrete 1 | 234.6 | 2 | 1 | 9 | Specialised template; 27 nodes / 42 members / 18 loads; base Fx −1.8kN |
+| Original concrete 2 | 201.9 | 2 | 1 | 10 | Specialised template; same counts and −1.8kN |
+| PKPM | 145.1 | 1 | 0 | 5 | Real PKPM/SATWE 2025R2.5; four bases each −10kN, total −40kN; no engine substitution |
+| Generic mixed frame + cantilever + brace | 281.2 | 2 | 1 | 9 | 5 nodes / 5 members / 2 loads; all A–E and member IDs preserved; AD area 0.002m²; base Fx/Fz −5/+10kN |
+
+Concrete and PKPM evidence: `phase3/live-final-followup`; final mixed case:
+`phase3/live-mixed-final`. Each concrete run has one additional rejected numeric proposal before
+the issued confirmation; this is retained in `questionAttempts`/`rejectedQuestions` and included in
+the tool count. The confirmed C30 properties, 250×400mm beam sections, 400×400mm columns and all
+nine fixed bases were checked in the final models. PKPM has a bound native context with verified
+settings/station conventions and hashed native artifacts; base reactions are recovered from native
+column-end actions with calibrated fixed-base DOFs. Native availability is demonstrated for this
+test, not assumed from an installation probe. A PDB-version warning did not prevent the solve.
+
+An intermediate matched mixed run (`phase3/live-final-followup`, 606.1s / 2 turns / 2 questions /
+17 calls) failed because a protocol-valid free-node `restraints: null` was rejected by the draft
+normalizer. `735cb0fd` aligns that boundary with the authoritative optional field, preserving strict
+array validation; 68 boundary/Agent tests pass. The subsequent `phase3/live-null-followup` run
+(382.8s / 2 / 2 / 6) then exposed the unnecessary element-representation confirmation for axial
+hinges, resolved by `8f394d5f`. Both failed trials remain in evidence.
+
+Measured comparison: the initial Phase 2 required matrix completed 4/6 with two question groups.
+After its empty-case correction, five fully specified cases completed in one turn; the mixed case
+completed after one genuinely missing area was supplied. The final Phase 3 matrix likewise completes
+5/6 in one turn and all 6/6 after that one supplied area. Matched corrected-matrix tool calls are
+56 for Phase 2 versus 43 for Phase 3. The mixed task falls from 22 to 9 calls, and the extra scale
+probe uses three compact operations instead of enumerating the generated records. Timings are
+individual measurements under differing concurrent workloads, not a statistically established
+speedup. **R3.5's strict success-rate and question-count improvement over the already corrected
+Phase 2 baseline is not demonstrated**: both now complete 6/6 after clarification and need the same
+one real question. No input was made artificially complete and no unknown brace section was invented
+to claim a reduction.
+
+## Commit index and remaining verification
+
+- Phase 1, `refactor/skills-settings-phase1`: `acd7992f`, `a395862f`, `47ad9904`,
+  `3ff4b41d`, `a518c9b0`.
+- Phase 2, `refactor/generic-physics-phase2`: `d6498fea`, `8678ca93`, `75d36ad3`,
+  `92c51342`, `3364c1d6`, `2c6953bb`, `b587b1cf`.
+- Phase 3, `refactor/generic-operations-phase3`: extraction `d41a61b1`, operations/report
+  `65eea060`, tests `d171ee9a`/`9bf5a886`, selector validation `99793fec`, node targets
+  `6a804ebc`, host stiffness `0079e9d6`, selector guidance `d74247a2`, explicit force-only
+  OpenSees `364328e6`, nullable restraints `735cb0fd`, equivalent axial hinges `8f394d5f`.
+
+Pending before integration: final full Jest, clean final compilation in the primary checkout, and
+the final clean-tree/benchmark exclusion check. No push or scenario-freeze generation is requested.
 
 Early observed scale result: the real LLM chose regular-frame, merge-coincident and nodal-load
 operations, preserved A, produced 125 nodes / 260 members / 100 loads and base Fx −10kN. Phase 2
