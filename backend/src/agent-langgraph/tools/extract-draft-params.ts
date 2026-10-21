@@ -1,5 +1,6 @@
 import { computeDraftMissing, draftSectionConfirmations } from '../../agent-runtime/draft-readiness.js';
 import { projectDraftState, verifyDraftSectionEvidence } from '../../agent-runtime/draft/boundary.js';
+import { mergeDraftDiagnostics } from '../../agent-runtime/draft-diagnostics.js';
 import { draftChangedFields, unappliedDraftFields } from '../../agent-runtime/draft/changes.js';
 import { sectionMaterialNotes } from '../../agent-runtime/draft/materials.js';
 import { compactDraftToolPayload } from '../draft-tool-summary.js';
@@ -148,7 +149,10 @@ async function extractAndMergeDraft(options: {
     }
     if (nextState.engineeringDraft?.sectionRecords?.length || Array.isArray(nextState.engineeringDraft?.model?.sections)) {
       designContract ??= await engineeringModelSchema(protocolClient);
-      nextState = projectDraftState(normalizeDraftSectionInputs(nextState.engineeringDraft!, designContract), nextState);
+      const normalized = normalizeDraftSectionInputs(nextState.engineeringDraft!, designContract);
+      const projected = projectDraftState(normalized, nextState);
+      nextState = { ...projected, ...mergeDraftDiagnostics(projected,
+        { engineeringDraft: { sectionRecords: normalized.sectionRecords } }, projected) };
     }
     if (hasDraftDesignInputs(nextState.engineeringDraft)) {
       designContract ??= await engineeringModelSchema(protocolClient);

@@ -261,6 +261,7 @@ export function normalizeDraftSectionInputs(draft: EngineeringDraft, root: Schem
         path, {}, { operation: 'update', collection: 'sections', id: String(row.id) });
       if (next.type == null) next.type = (next.shape as Record<string, unknown>).kind;
     }
+    if (next.type == null && isRecord(next.properties) && Object.keys(next.properties).length) next.type = 'general';
     return enforceSectionProvenance(next);
   };
   return { ...draft,

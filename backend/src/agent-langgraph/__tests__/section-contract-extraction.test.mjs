@@ -112,3 +112,18 @@ test.each([undefined, ''])('a section table ID supplies an omitted display label
  expect(normalized.extra.provenance.properties).toBe('attachment');
  expect(normalizeDraftSectionInputs({sectionRecords:[{...section,name:'User label'}]},contract).sectionRecords[0].name).toBe('User label');
 });
+
+test('property-only sections need no shape classification and clear pre-normalization diagnostics', async () => {
+  const properties = { A: .004, Iy: .00008, Iz: .00002, J: .000001 };
+  const draft = { ...source, sections: {}, sectionRecords: [{ id: 'S1', properties }],
+    templateAssignments: { beam: { materialId: 'M1', sectionId: 'S1' } },
+    materials: [{ id: 'M1', name: 'Q235', family: 'steel', grade: 'Q235' }] };
+  extract.mockResolvedValue({ engineeringDraft: draft });
+  const result = await tool.invoke({ locale: 'en', message: 'Use section A=.004m2, Iy=.00008m4, Iz=.00002m4, J=.000001m4', requestScope },
+    { toolCall: { id: 'properties-only' }, configurable: { structureProtocolClient: client,
+      agentState: { structuralTypeKey: 'beam', messages: [{ role: 'user', content: 'A=.004m2, Iy=.00008m4, Iz=.00002m4, J=.000001m4' }] } } });
+  const state = result.update.draftState;
+  expect(state.engineeringDraft.sectionRecords[0]).toMatchObject({ id: 'S1', name: 'S1', type: 'general', properties });
+  expect(state.skillState?.invalidDraftFields ?? []).not.toContain('sectionRecords');
+  expect(JSON.parse(result.update.messages[0].content).canProceed).toBe(true);
+});
