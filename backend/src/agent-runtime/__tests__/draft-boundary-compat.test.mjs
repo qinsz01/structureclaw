@@ -7,6 +7,8 @@
 // 2026-10-20: material representations are reconciled; the four affected expectations include the
 // grade mirror or a material record/assignment. Original persisted inputs remain unchanged.
 // 2026-10-22 phase 2: generic retains alias patches as context and uses canonical physics only.
+// Phase 3: explicit 3D node loads no longer require redundant floor totals. The original stored
+// inputs remain unchanged; an unresolved node location still blocks the same replay.
 import { readFileSync } from 'node:fs';
 import { describe, expect, test } from '@jest/globals';
 import { withDeclaredProperties } from '../../../tests/fixtures/declared-template-properties.mjs';
@@ -77,12 +79,17 @@ describe('old persisted draft states', () => {
     expect(next.error ? next : { json: JSON.stringify(next.value) }).toEqual(scenario.expected.next);
     expect(scenario.state).toEqual(original);
     if (!next.value) return;
-    expect(attempt(() => handler.computeMissing(next.value, 'execution'))).toEqual(scenario.expected.missingExecution);
-    expect(attempt(() => handler.computeMissing(next.value, 'interactive'))).toEqual(scenario.expected.missingInteractive);
+    const expected = structuredClone(scenario.expected);
+    if (scenario.id === 'frame-3d-engineering') {
+      expected.missingExecution = expected.missingInteractive = { value: { critical: ['frameNodalLoadLocation'], optional: [] } };
+      expected.questions.value = expected.questions.value.filter(question => question.paramKey !== 'floorLoads');
+    }
+    expect(attempt(() => handler.computeMissing(next.value, 'execution'))).toEqual(expected.missingExecution);
+    expect(attempt(() => handler.computeMissing(next.value, 'interactive'))).toEqual(expected.missingInteractive);
     expect(attempt(() => {
       const missing = handler.computeMissing(next.value, 'interactive');
       return handler.buildQuestions([...missing.critical, ...missing.optional], missing.critical, next.value, 'en');
-    })).toEqual(scenario.expected.questions);
+    })).toEqual(expected.questions);
     expect(attempt(() => handler.buildModel(withDeclaredProperties(next.value)) ?? null)).toEqual(scenario.expected.model);
   });
 
