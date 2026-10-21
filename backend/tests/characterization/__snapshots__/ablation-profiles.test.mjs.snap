@@ -28,8 +28,8 @@ exports[`characterization: ablation profiles profile full: offered tools, system
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 29149,
-  "systemPromptSha256": "69afa6446045cbeada7f170f5d766b1d37527a8b4caaa1be7dc19f93db978726",
+  "systemPromptChars": 29325,
+  "systemPromptSha256": "c3ba99b8b7cb194b1a056bd8133e5190c8fcf14dac6e8cbe50f42a900b4d264a",
 }
 `;
 
@@ -114,7 +114,7 @@ exports[`characterization: ablation profiles profile full: offered tools, system
 ## Tool Usage Strategy
 
 When the user makes a structural design or analysis request, follow this workflow:
-1. For a new model, call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel
+1. For a new model, call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel. For parameter updates and clarification replies, extract directly and reuse the accepted route; if the user changes the structure type, call detect_structure_type again first
 2. If extract_draft_params returns criticalMissing fields, use ask_user_clarification to ask for them
 3. Once parameters are complete, call build_model to construct the model
 4. Call validate_model to validate the model
@@ -203,8 +203,8 @@ exports[`characterization: ablation profiles profile generic-only: offered tools
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 27933,
-  "systemPromptSha256": "38afa10efabe47f4278f772aec5321b277b1a6fa514f216548157fdca1d85898",
+  "systemPromptChars": 28109,
+  "systemPromptSha256": "a7e77e5c042df40d23d3fa806c3d0095ff2bb7c87979c04744f9f42bcec8e4db",
 }
 `;
 
@@ -282,7 +282,7 @@ exports[`characterization: ablation profiles profile generic-only: offered tools
 ## Tool Usage Strategy
 
 When the user makes a structural design or analysis request, follow this workflow:
-1. For a new model, call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel
+1. For a new model, call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel. For parameter updates and clarification replies, extract directly and reuse the accepted route; if the user changes the structure type, call detect_structure_type again first
 2. If extract_draft_params returns criticalMissing fields, use ask_user_clarification to ask for them
 3. Once parameters are complete, call build_model to construct the model
 4. Call validate_model to validate the model
@@ -370,8 +370,8 @@ exports[`characterization: ablation profiles profile no-clarification: offered t
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 29002,
-  "systemPromptSha256": "20571f5bb54101798140db9de79c8f6410b133f004d92c29a8204b278e04b6f6",
+  "systemPromptChars": 29178,
+  "systemPromptSha256": "c05b23f92bbb994aaed124b47e4b855b6b2a1d2e9847d4c53b971260d9044a21",
 }
 `;
 
@@ -456,7 +456,7 @@ exports[`characterization: ablation profiles profile no-clarification: offered t
 ## Tool Usage Strategy
 
 When the user makes a structural design or analysis request, follow this workflow:
-1. For a new model, call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel
+1. For a new model, call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel. For parameter updates and clarification replies, extract directly and reuse the accepted route; if the user changes the structure type, call detect_structure_type again first
 2. If extract_draft_params returns criticalMissing fields, list them in your final reply and end the turn; never invent values
 3. Once parameters are complete, call build_model to construct the model
 4. Call validate_model to validate the model
@@ -545,8 +545,8 @@ exports[`characterization: ablation profiles profile no-evidence-binding: offere
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 29149,
-  "systemPromptSha256": "69afa6446045cbeada7f170f5d766b1d37527a8b4caaa1be7dc19f93db978726",
+  "systemPromptChars": 29325,
+  "systemPromptSha256": "c3ba99b8b7cb194b1a056bd8133e5190c8fcf14dac6e8cbe50f42a900b4d264a",
 }
 `;
 
@@ -631,7 +631,7 @@ exports[`characterization: ablation profiles profile no-evidence-binding: offere
 ## Tool Usage Strategy
 
 When the user makes a structural design or analysis request, follow this workflow:
-1. For a new model, call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel
+1. For a new model, call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel. For parameter updates and clarification replies, extract directly and reuse the accepted route; if the user changes the structure type, call detect_structure_type again first
 2. If extract_draft_params returns criticalMissing fields, use ask_user_clarification to ask for them
 3. Once parameters are complete, call build_model to construct the model
 4. Call validate_model to validate the model
@@ -720,8 +720,8 @@ exports[`characterization: ablation profiles profile no-knowledge: offered tools
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 22430,
-  "systemPromptSha256": "98e1ec31afb2f88209678c0901734d03eedbc0ff6bde4505f5a89cdf2de16345",
+  "systemPromptChars": 22606,
+  "systemPromptSha256": "51ab053dbb4a915489ecdd93be00de43a9edc677537c23dc44b54304b314dd8b",
 }
 `;
 
@@ -806,7 +806,7 @@ exports[`characterization: ablation profiles profile no-knowledge: offered tools
 ## Tool Usage Strategy
 
 When the user makes a structural design or analysis request, follow this workflow:
-1. For a new model, call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel
+1. For a new model, call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel. For parameter updates and clarification replies, extract directly and reuse the accepted route; if the user changes the structure type, call detect_structure_type again first
 2. If extract_draft_params returns criticalMissing fields, use ask_user_clarification to ask for them
 3. Once parameters are complete, call build_model to construct the model
 4. Call validate_model to validate the model
@@ -895,8 +895,8 @@ exports[`characterization: ablation profiles profile no-repair: offered tools, s
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 29198,
-  "systemPromptSha256": "156465b749dda949abe1a2b9ed07a2d0f553ce919808da89ae3046e24244daa7",
+  "systemPromptChars": 29374,
+  "systemPromptSha256": "273d7e6113cf49db7dd39f3a4899c14d1541a27388bfeff50e4302ae2f4c9f2d",
 }
 `;
 
@@ -981,7 +981,7 @@ exports[`characterization: ablation profiles profile no-repair: offered tools, s
 ## Tool Usage Strategy
 
 When the user makes a structural design or analysis request, follow this workflow:
-1. For a new model, call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel
+1. For a new model, call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel. For parameter updates and clarification replies, extract directly and reuse the accepted route; if the user changes the structure type, call detect_structure_type again first
 2. If extract_draft_params returns criticalMissing fields, use ask_user_clarification to ask for them
 3. Once parameters are complete, call build_model to construct the model
 4. Call validate_model to validate the model
@@ -1070,8 +1070,8 @@ exports[`characterization: ablation profiles profile no-routing: offered tools, 
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 29149,
-  "systemPromptSha256": "69afa6446045cbeada7f170f5d766b1d37527a8b4caaa1be7dc19f93db978726",
+  "systemPromptChars": 29325,
+  "systemPromptSha256": "c3ba99b8b7cb194b1a056bd8133e5190c8fcf14dac6e8cbe50f42a900b4d264a",
 }
 `;
 
@@ -1156,7 +1156,7 @@ exports[`characterization: ablation profiles profile no-routing: offered tools, 
 ## Tool Usage Strategy
 
 When the user makes a structural design or analysis request, follow this workflow:
-1. For a new model, call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel
+1. For a new model, call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel. For parameter updates and clarification replies, extract directly and reuse the accepted route; if the user changes the structure type, call detect_structure_type again first
 2. If extract_draft_params returns criticalMissing fields, use ask_user_clarification to ask for them
 3. Once parameters are complete, call build_model to construct the model
 4. Call validate_model to validate the model
@@ -1245,8 +1245,8 @@ exports[`characterization: ablation profiles profile no-state-versioning: offere
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 29149,
-  "systemPromptSha256": "69afa6446045cbeada7f170f5d766b1d37527a8b4caaa1be7dc19f93db978726",
+  "systemPromptChars": 29325,
+  "systemPromptSha256": "c3ba99b8b7cb194b1a056bd8133e5190c8fcf14dac6e8cbe50f42a900b4d264a",
 }
 `;
 
@@ -1331,7 +1331,7 @@ exports[`characterization: ablation profiles profile no-state-versioning: offere
 ## Tool Usage Strategy
 
 When the user makes a structural design or analysis request, follow this workflow:
-1. For a new model, call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel
+1. For a new model, call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel. For parameter updates and clarification replies, extract directly and reuse the accepted route; if the user changes the structure type, call detect_structure_type again first
 2. If extract_draft_params returns criticalMissing fields, use ask_user_clarification to ask for them
 3. Once parameters are complete, call build_model to construct the model
 4. Call validate_model to validate the model
@@ -1420,8 +1420,8 @@ exports[`characterization: ablation profiles profile no-template-builder: offere
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 29148,
-  "systemPromptSha256": "5128fa75cb736d10c7837cbc87f3fdf5256f45065ac580484f57c12090127a9b",
+  "systemPromptChars": 29324,
+  "systemPromptSha256": "29f6b8ca1a2c7b7fe97fc48cf096ae6715d544d9ac1ce41f70a4e30e39789639",
 }
 `;
 
@@ -1506,7 +1506,7 @@ exports[`characterization: ablation profiles profile no-template-builder: offere
 ## Tool Usage Strategy
 
 When the user makes a structural design or analysis request, follow this workflow:
-1. For a new model, call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel
+1. For a new model, call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel. For parameter updates and clarification replies, extract directly and reuse the accepted route; if the user changes the structure type, call detect_structure_type again first
 2. If extract_draft_params returns criticalMissing fields, use ask_user_clarification to ask for them
 3. Once parameters are complete, call build_model to construct the model
 4. Call validate_model to validate the model
@@ -1594,8 +1594,8 @@ exports[`characterization: ablation profiles profile no-validation-gate: offered
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 29235,
-  "systemPromptSha256": "c18368e793931229b3bfedcabda118e1ca20aebb0d207ed324ce41ea74171c6b",
+  "systemPromptChars": 29411,
+  "systemPromptSha256": "bb3e4ce0f3387aac5dc92de4f6184e86e50df07a1ea14aeda31385166421ff87",
 }
 `;
 
@@ -1680,7 +1680,7 @@ exports[`characterization: ablation profiles profile no-validation-gate: offered
 ## Tool Usage Strategy
 
 When the user makes a structural design or analysis request, follow this workflow:
-1. For a new model, call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel
+1. For a new model, call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel. For parameter updates and clarification replies, extract directly and reuse the accepted route; if the user changes the structure type, call detect_structure_type again first
 2. If extract_draft_params returns criticalMissing fields, use ask_user_clarification to ask for them
 3. Once parameters are complete, call build_model to construct the model
 4. A separate model-validation step is not available in this run; proceed to run_analysis (build_model normalization and solver checks still apply)

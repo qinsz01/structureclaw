@@ -4,7 +4,7 @@ import { describeWithOpenSees, internalResponder, routerDecision, runTurn, setup
 
 describeWithOpenSees('characterization: LLM-first routing', () => {
   const ctx = setupHarness();
-  test('routes each new turn, reuses current-turn detection, and extracts generic drafts through the LLM', async () => {
+  test('routes new structures, reuses their detection, and extracts generic drafts through the LLM', async () => {
     let routes = 0, extracts = 0;
     ctx.llm.setInternal(internalResponder({
       'structural-router': () => { routes++; return routes === 1 ? routerDecision('beam') : {
@@ -21,7 +21,7 @@ describeWithOpenSees('characterization: LLM-first routing', () => {
     ]);
     expect([routes, extracts]).toEqual([1, 1]);
     const second = await runTurn(ctx, { conversationId: first.conversationId, message: 'Start a new custom structure draft, 9m long.', context: { locale: 'en' } }, [
-      toolCall('extract_draft_params', {}, 'extract-new'), 'DRAFT_RECORDED',
+      toolCall('detect_structure_type', {}, 'detect-new'), toolCall('extract_draft_params', {}, 'extract-new'), 'DRAFT_RECORDED',
     ]);
     expect([routes, extracts]).toEqual([2, 2]);
     expect(second.requests.some(request => request.kind === 'param-extractor')).toBe(true);

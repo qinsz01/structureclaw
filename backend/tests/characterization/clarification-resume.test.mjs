@@ -88,7 +88,7 @@ describeWithOpenSees('characterization: clarification interrupt and resume', () 
       { tool: 'build_model', status: 'done' }, { tool: 'run_analysis', status: 'done' }]);
     expect(eventSignature(resumed.events)).toMatchSnapshot('resume-turn-sse-event-sequence');
     // A new answer is routed by the LLM with the existing draft as context.
-    expect(resumed.requests.map(request => request.kind).filter(kind => kind !== 'agent')).toEqual(['structural-router', 'param-extractor']);
+    expect(resumed.requests.map(request => request.kind).filter(kind => kind !== 'agent')).toEqual(['param-extractor']);
     expect(extractorPrompts).toHaveLength(2);
     expect(extractorPrompts[1]).toContain(ANSWER);
     expect(extractorPrompts[1]).toMatch(/"lengthM":\s*8/);
