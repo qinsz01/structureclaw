@@ -2,20 +2,18 @@
 
 import type { RunPolicyInput } from '../../../../backend/src/runtime/run-policy'
 import type { ConversationRuntimeSnapshot } from './use-conversation-runtime'
-import { useStore } from '@/lib/stores/context'
-import { DEFAULT_CONSOLE_SKILL_IDS } from '@/lib/skill-normalization'
 import { ConversationJobs } from './conversation-jobs'
 
 export type { RunPolicyInput }
 
-export function RunSettings({ value, onChange, locale, disabled, runtime, statusError, onRefresh, modelingSkills = [] }: {
+export function RunSettings({ value, onChange, locale, disabled, runtime, statusError, onRefresh, modelingSkills = [], capabilityScope }: {
   value: RunPolicyInput; onChange: (value: RunPolicyInput) => void; locale: 'zh' | 'en'; disabled: boolean
   runtime?: ConversationRuntimeSnapshot | null; statusError?: string; onRefresh?: () => void
   modelingSkills?: Array<{ id: string; label: string }>
+  capabilityScope?: { skills: string[]; narrowed: boolean }
 }) {
-  const skills = useStore(s => s.capabilitySkillIds)
-  const explicit = useStore(s => s.capabilityExplicit)
-  const narrowed = explicit && DEFAULT_CONSOLE_SKILL_IDS.some(id => !skills.includes(id))
+  const skills = capabilityScope?.skills ?? runtime?.policy?.activeSkillIds ?? []
+  const narrowed = capabilityScope?.narrowed ?? false
   const zh = locale === 'zh'
   const inherit = zh ? '沿用会话／系统设置' : 'Use conversation / system settings'
   const selectClass = 'rounded-lg border border-border bg-background px-2 py-1 text-xs'
@@ -28,7 +26,7 @@ export function RunSettings({ value, onChange, locale, disabled, runtime, status
   }
   const usage = runtime?.usage
   return <details className="mx-2 mb-2 rounded-xl border border-border/60 p-3 text-xs text-muted-foreground">
-    <summary className="cursor-pointer font-medium text-foreground">{zh ? '运行设置' : 'Run settings'}{narrowed ? (zh ? ' · 能力范围已缩小' : ' · Limited capability scope') : ''}</summary>
+    <summary className="cursor-pointer font-medium text-foreground">{zh ? '运行设置' : 'Run settings'}</summary>
     {narrowed && <p role="status" className="mt-2">{zh ? '当前启用的能力（可在能力设置中修改）' : 'Active capabilities (change in Capability settings)'}: {skills.join(', ') || '∅'}</p>}
     {statusError && <p role="alert" className="mt-3 text-amber-700 dark:text-amber-300">{zh ? '无法读取服务端会话状态；发送前必须重新确认。' : 'Server session state is unavailable; it must be checked before sending.'}</p>}
     {runtime && <div className="my-3 space-y-2 rounded-lg bg-muted/40 p-3" aria-label={zh ? '服务端会话状态' : 'Server session state'}>

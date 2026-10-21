@@ -93,7 +93,8 @@ export function ConsoleComposer({
         <p>{t('capabilityCatalogFailed')}</p>
         <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => setCatalogRefresh(value => value + 1)}>{t('capabilityCatalogRetry')}</Button>
       </div>}
-      <RunSettings value={runPolicy} onChange={setRunPolicy} locale={locale}
+      {state.hasExplicitSkillSelection && state.defaultSelectedSkillIds.some(id => !selectedSkillIds.includes(id)) && <p role="status" className="mx-3 mb-2 text-xs">{t('capabilityScopeNarrowed')}</p>}
+      <RunSettings capabilityScope={{ skills: selectedSkillIds, narrowed: state.hasExplicitSkillSelection && state.defaultSelectedSkillIds.some(id => !selectedSkillIds.includes(id)) }} value={runPolicy} onChange={setRunPolicy} locale={locale}
         modelingSkills={availableSkills.filter(skill => selectedSkillIds.includes(skill.id) && skillDomainById[skill.id] === 'structure-type')
           .map(skill => ({ id: skill.id, label: skill.name[locale] || skill.id }))}
         disabled={isStreaming || Boolean(sessionRuntime.view?.busy || sessionRuntime.view?.waitingForReply)}
