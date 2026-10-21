@@ -94,7 +94,7 @@ export function createAskUserClarificationTool() {
           .optional()
           .describe('Array or JSON array string of suggested answers; each item must contain the complete answer to send when selected'),
         candidateOptions: z.array(z.object({ sectionId: z.string(), field: z.enum(['shape', 'dimensions', 'properties']),
-          optionIndex: z.number().int().nonnegative(), values: z.record(z.string(), z.number().finite()).optional() })).optional()
+          optionIndex: z.number().int().nonnegative(), values: z.record(z.string(), z.number().finite()).optional().describe('Flat numeric fields only, e.g. {H:200,B:100,tw:7,tf:11.4}; omit shape kind/type, names and nested prefixes. / 仅平铺数值字段，不含截面类型、名称或嵌套前缀。') })).optional()
           .describe('Bind a short acceptance option to section candidates displayed in the question. Supply values for newly offered candidates not yet in the draft (shape/dimensions in mm, properties in SI). Zero-based optionIndex. / 将简短确认选项绑定到问题中展示的截面候选；尚未入草稿的新候选须提供values（尺寸mm、属性SI），optionIndex从0开始。'),
       }),
     },

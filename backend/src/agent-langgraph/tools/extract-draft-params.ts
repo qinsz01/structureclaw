@@ -55,7 +55,19 @@ async function detectStructuralMatch(skillRuntime: AgentSkillRuntime, options: {
   onUsage: UsageListener;
 }) {
   const { existingState, skillIds, extractionMessage, locale, signal, onUsage } = options;
-  const detectedMatch = currentRunPolicy()?.routing.mode === 'fixed' ? null : options.detectedMatch;
+  // The outer LLM selects detect_structure_type for a structural change. Parameter
+  // updates and clarification answers can reuse its previously accepted LLM route.
+  const acceptedMatch: StructuralTypeMatch | null = existingState?.routingSource === 'llm-suggested'
+    && existingState.skillId && existingState.supportLevel === 'supported'
+    && (skillIds === undefined || skillIds.includes(existingState.skillId))
+    ? { key: existingState.structuralTypeKey ?? existingState.inferredType,
+        mappedType: existingState.inferredType, skillId: existingState.skillId,
+        supportLevel: existingState.supportLevel, routingSource: existingState.routingSource }
+    : null;
+  const detectedMatch = currentRunPolicy()?.routing.mode === 'fixed' ? null : options.detectedMatch ?? acceptedMatch;
+  if (detectedMatch && !options.detectedMatch) {
+    recordRunEvent({ kind: 'structural_routing', path: 'reused', key: detectedMatch.key, source: detectedMatch.routingSource });
+  }
   const match = detectedMatch ?? await detectStructuralTypeWithConfiguredLlm(skillRuntime, {
     message: extractionMessage,
     locale,

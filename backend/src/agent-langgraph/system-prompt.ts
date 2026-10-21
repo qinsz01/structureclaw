@@ -253,7 +253,7 @@ ${promptLine("zh", "rule5", features)}
 ## 工具使用策略
 
 当用户提出结构设计或分析请求时，按以下流程执行：
-1. 新建模型时先调用 detect_structure_type（传入用户的完整原始消息，不要改写或翻译）；等待其返回后，再调用 extract_draft_params。extract_draft_params 会复用本次检测结果，禁止并行调用这两个工具
+1. 新建模型时先调用 detect_structure_type（传入用户的完整原始消息，不要改写或翻译）；等待其返回后，再调用 extract_draft_params。extract_draft_params 会复用本次检测结果，禁止并行调用这两个工具。已有类型的参数补充和澄清回复直接提取，复用已接受的路由；若用户改变结构类型，先重新调用 detect_structure_type
 ${promptLine("zh", "step2", features)}
 3. 参数齐全后，调用 build_model 构建模型
 ${promptLine("zh", "step4", features)}
@@ -335,7 +335,7 @@ ${promptLine("en", "rule5", features)}
 ## Tool Usage Strategy
 
 When the user makes a structural design or analysis request, follow this workflow:
-1. For a new model, call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel
+1. For a new model, call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel. For parameter updates and clarification replies, extract directly and reuse the accepted route; if the user changes the structure type, call detect_structure_type again first
 ${promptLine("en", "step2", features)}
 3. Once parameters are complete, call build_model to construct the model
 ${promptLine("en", "step4", features)}
