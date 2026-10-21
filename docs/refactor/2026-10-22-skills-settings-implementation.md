@@ -11,8 +11,9 @@ Shared engineering guidance is short, topic-based and controlled by the knowledg
 Global defaults live in settings, conversation overrides remain local to their conversation,
 and the composer displays the effective scope. Provider disables are explicit settings.
 
-Status: implementation delivered; automated acceptance passed. Live acceptance exposed the
-remaining modelling issues below, so full phase acceptance has not yet been established.
+Historical Phase 1 status: implementation and automated acceptance passed; its initial live
+snapshot exposed the modelling issues below. Their integrated resolutions and final measurements
+are recorded in Phase 3, rather than rewriting the initial observations as passes.
 
 Implemented: 8 structure skills; 16 provider definitions shared by TypeScript and Python;
 explicit provider disables; legacy capability migration; topic knowledge under the knowledge
@@ -173,7 +174,8 @@ now uses the existing deterministic selection validator before reserving a job o
 result, with bilingual diagnostics and available IDs. Actual uncertain solver outcomes remain
 protected. A full scripted Agent turn corrects L1 to LC1 and reaches real OpenSees with zero repairs.
 
-Verified so far: 1292 Python tests; 327 frontend unit / 83 integration tests; frontend type/lint and
+Verified: 220 Jest suites / 3213 tests / 57 snapshots passed in 988.6s
+(`phase3/backend-final-success.log`); 1292 Python tests; 327 frontend unit / 83 integration tests; frontend type/lint and
 production build; backend build/lint/dependency rules; analysis regression and three validators.
 Default browser E2E: 54 passed / 12 live-only skipped in 30.1 minutes (`phase3/e2e.log`).
 Operation tests: 14 pass, including real slab solves and bounded failure with the saved model intact.
@@ -182,8 +184,8 @@ documented and passing in all 57 compatibility tests. Concurrent compilation als
 eight Jest module imports. Another invocation used the repository rather than backend working
 directory and failed four path-sensitive suites; their source was not changed to hide that setup
 error. The final full run uses the backend directory and a fixed compiled tree
-(`phase3/backend-final-success.log`). Final full Jest remains pending; the live follow-ups below
-have completed. Earlier interrupted runs were stopped when new real-input defects required a
+(`phase3/backend-final-success.log`). The final full Jest and live follow-ups below have completed.
+Earlier interrupted runs were stopped when new real-input defects required a
 correction; none is counted as a complete full-suite pass.
 
 The live mixed case exposed a second invalid apparent success: the LLM invented a labelled unit
@@ -266,7 +268,7 @@ Phase 2 baseline is not demonstrated**: both now complete 6/6 after clarificatio
 one real question. No input was made artificially complete and no unknown brace section was invented
 to claim a reduction.
 
-## Commit index and remaining verification
+## Commit index and integration
 
 - Phase 1, `refactor/skills-settings-phase1`: `acd7992f`, `a395862f`, `47ad9904`,
   `3ff4b41d`, `a518c9b0`.
@@ -277,8 +279,11 @@ to claim a reduction.
   `6a804ebc`, host stiffness `0079e9d6`, selector guidance `d74247a2`, explicit force-only
   OpenSees `364328e6`, nullable restraints `735cb0fd`, equivalent axial hinges `8f394d5f`.
 
-Pending before integration: final full Jest, clean final compilation in the primary checkout, and
-the final clean-tree/benchmark exclusion check. No push or scenario-freeze generation is requested.
+The final full Jest, Python, analysis regression, three validators, frontend checks/build and default
+E2E have passed. All requested live structure/provider cases have completed with independent checks,
+with genuine missing physics supplied through the frontend. The strict R3.5 comparison limitation
+above remains explicit. The phase branches are retained; primary checkout integration and a clean
+staged compilation follow. No push or scenario-freeze generation is requested.
 
 Early observed scale result: the real LLM chose regular-frame, merge-coincident and nodal-load
 operations, preserved A, produced 125 nodes / 260 members / 100 loads and base Fx −10kN. Phase 2
