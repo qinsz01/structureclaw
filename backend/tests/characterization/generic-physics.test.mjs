@@ -48,4 +48,24 @@ describeWithOpenSees('characterization: generic physical modelling', () => {
       expect(sum).toBeCloseTo(-fixture.total[index], 6);
     }
   }, TURN_TIMEOUT_MS);
+  test('an invalid case ID is corrected in the same turn before any uncertain solver outcome', async () => {
+    const fixture = genericFixtures[0];
+    ctx.llm.setInternal(internalResponder({
+      'structural-router': () => routerDecision('generic'), 'param-extractor': () => fixture.draft,
+      'internal-other': () => fixture.model,
+    }));
+    const turn = await runTurn(ctx, { message: `Analyze this supplied frame. ${JSON.stringify(fixture.draft.engineeringDraft)}`,
+      context: { locale: 'en', runPolicy: { skillIds: ['generic'] } } }, [
+      toolCall('extract_draft_params', { locale: 'en' }, 'extract-case'), toolCall('build_model', {}, 'build-case'),
+      toolCall('run_analysis', { analysisType: 'static', analysisSkillId: 'opensees-static', loadCaseIds: ['L1'] }, 'wrong-case'),
+      toolCall('run_analysis', { analysisType: 'static', analysisSkillId: 'opensees-static', loadCaseIds: ['LC1'] }, 'correct-case'), 'CASE_CORRECTED',
+    ], { expectedToolErrors: 1 });
+    expect(toolResultSeenByAgent(turn.requests, 'wrong-case')).toMatchObject({ success: false, error_code: 'ANALYSIS_SELECTION_INVALID', availableLoadCaseIds: ['LC1'] });
+    expect(toolResultSeenByAgent(turn.requests, 'correct-case').success).toBe(true);
+    const session = await ctx.backend.session(turn.conversationId);
+    expect(session.analysis.current).toBe(true); expect(session.usage.recoveries).toBe(0);
+    let total = 0;
+    for (const nodeId of fixture.supports) total += (await queryResult(ctx, turn.conversationId, { runId: session.analysis.runId, resultKey: 'case:LC1', nodeId, field: 'reactions', component: 'fx', unit: 'kN' })).quantity.value;
+    expect(total).toBeCloseTo(-60, 6);
+  }, TURN_TIMEOUT_MS);
 });

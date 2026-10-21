@@ -10,7 +10,7 @@ import { getLogger, logToolCall } from '../../utils/agent-logger.js';
 import type { AgentState } from '../state.js';
 import type { AgentConfigurable } from '../configurable.js';
 import { beginAnalysisRequest, publishAnalysis } from '../../engineering/model-state.js';
-import { analysisSettingsHash } from '../../engineering/analysis-runs.js';
+import { analysisSettingsHash, analysisSelections } from '../../engineering/analysis-runs.js';
 import { assertAnalysisInputEvidenceMatchesRequest, assertInputEvidenceMatchesModel } from '../../engineering/input-evidence.js';
 import { assertConfirmedSectionInputs } from '../../engineering/section-provenance.js';
 import { conversationSectionEvidence } from './input-message.js';
@@ -280,6 +280,18 @@ export function createRunAnalysisTool(skillRuntime: AgentSkillRuntime) {
       const loadCombination = resolveLoadCombinationId(model, input.loadCombinationId);
       if ('errorPayload' in loadCombination) return toolResult(toolCallId, 'run_analysis', JSON.stringify(loadCombination.errorPayload));
       const parameters = buildAnalysisParameters(input, analysisType, seismicWorkflow, loadCombination.loadCombinationId);
+      // A bad case ID is a correctable input error, never an uncertain solver outcome.
+      // Validate with the same selector used by execution before reserving/invalidation or I/O.
+      try { analysisSelections(model, parameters, analysisType); }
+      catch (error) {
+        return toolResult(toolCallId, 'run_analysis', JSON.stringify({ success: false, error_code: 'ANALYSIS_SELECTION_INVALID',
+          message: 'Correct the selected load cases or combinations using the available IDs.',
+          messageZh: '请使用模型中的可用 ID 修正荷载工况或组合选择。',
+          detail: error instanceof Error ? error.message : String(error),
+          availableLoadCaseIds: Array.isArray(model.load_cases) ? model.load_cases.filter(isRecord).map(row => row.id) : [],
+          availableLoadCombinationIds: Array.isArray(model.load_combinations) ? model.load_combinations.filter(isRecord).map(row => row.id) : [],
+          nextAction: 'correct_selection' }));
+      }
       let reservation = beginAnalysisRequest(state ?? {}, analysisSettingsHash(analysisType, requestedAnalysisSkillId, parameters));
       const reserve = () => {
         configurable.agentState = { ...configurable.agentState, ...reservation } as AgentState;
