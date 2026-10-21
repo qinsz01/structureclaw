@@ -8,7 +8,7 @@ tool interfaces and inputs and removes exactly one mechanism. Removing a mechani
 loss, not a broken interface: the agent still finishes the turn with an answer.
 
 Source of truth: `backend/src/runtime/ablation-profiles.ts` (`ABLATION_PROFILES_VERSION`, currently
-`2026-10-19.1`). Any change to a profile definition, or to the default prompts or tools that every profile
+`2026-10-21.1`). Any change to a profile definition, or to the default prompts or tools that every profile
 shares, requires a new version. History:
 
 - `2026-10-17.1`: initial profiles. `2026-10-17.2`: `no-knowledge` also removes stage names.
@@ -16,6 +16,8 @@ shares, requires a new version. History:
 - `2026-10-18.2`: force-only requests need no material or section; reports only on request; code checks look up code-determined values.
 - `2026-10-18.3`: one report rule (a report only when the user asks for a report, calculation book or other deliverable document); the seismic check and report follow the request.
 - `2026-10-19.1`: the equilibrium shortcut is removed (`run_analysis` `method=equilibrium`/`allowPartial`, `requestScope.method`); the default prompts drop duplicated rules, and the structure-type draft guidance no longer proposes default grades or sections.
+- `2026-10-19.2`–`2026-10-20.8`: explicit section properties win over geometry (rounding accepted); recalled table values need user confirmation and user-sourced section numbers need evidence; compact clarification patches; global result coordinates; fillets approximated as sharp corners.
+- `2026-10-21.1`: section evidence accepts reviewed attachments, confirmed candidates and rule-derived values; stated load-sign conventions are honoured; structural routing is LLM-first; silently enabled analysis defaults are off unless stated; declared source frames are mapped to global Z-up; clarification replies may carry attachments.
 
 ## Selecting a profile
 
