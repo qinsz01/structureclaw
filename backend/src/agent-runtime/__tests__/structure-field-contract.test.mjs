@@ -47,11 +47,11 @@ test('a valid applied field cannot remain critical; unrelated and invalid values
 });
 
 // Enumerate critical keys from both readiness phases and 2D/3D branches; no hardcoded list of missing keys.
-for (const id of ids) for (const dimension of [undefined, '2d', '3d']) for (const responses of [['forces'], ['forces', 'displacements']]) test(`${id} ${dimension} ${responses}: every initial critical field has an extractor path`, () => {
+for (const id of ids) for (const dimension of [undefined, '2d', '3d']) for (const responses of [['forces'], ['forces', 'displacements']]) for (const design of [false, true]) test(`${id} ${dimension} ${responses} design=${design}: every initial critical field has an extractor path`, () => {
   const handler = handlers[id];
   const inferredType = ['generic', 'concrete-frame'].includes(id) ? 'frame' : id;
   const before = { inferredType, skillId: id, frameDimension: dimension, updatedAt: 0,
-    requestScope: { responses, design: false, report: false, outputs: [] } };
+    requestScope: { responses, design, report: false, outputs: [] } };
   const critical = [...new Set(['interactive', 'execution'].flatMap(phase => computeDraftMissing({ id, handler }, before, phase).critical))];
   const engineeringDraft = { structureType: inferredType, coordinateSystem: { dimension: dimension ?? '2d' },
     geometry: { lengthM: 6, heightM: 3, spanLengthsM: [6, 6], storyHeightsM: [3, 3],
@@ -73,4 +73,19 @@ test('the original frame alias mismatch is a contract fault if a future mapper d
   const patch = { engineeringDraft: { boundary: { supportType: 'fixed-fixed' } } };
   expect(unresolvedAppliedFields(patch, { ...patch, inferredType: 'frame' }, ['boundary.frameBaseSupportType']))
     .toEqual([{ requiredPath: 'boundary.frameBaseSupportType', appliedPaths: ['engineeringDraft.boundary.supportType'] }]);
+});
+
+for (const id of ids) test(`${id}: readiness material-record fields resolve through canonical extraction`, () => {
+  const handler = handlers[id];
+  const inferredType = ['generic', 'concrete-frame'].includes(id) ? 'frame' : id;
+  const before = { inferredType, skillId: id, updatedAt: 0,
+    requestScope: { responses: ['forces'], design: false, report: false, outputs: [] },
+    engineeringDraft: { analysisControl: { self_weight: true },
+      materials: [{ id: 'M', name: '', E: -1, nu: -1, rho: -1, G: -1 }] } };
+  const critical = computeDraftMissing({ id, handler }, before, 'execution').critical;
+  expect(critical).toEqual(['materials.M.name', 'materials.M.E', 'materials.M.nu', 'materials.M.rho', 'materials.M.G']);
+  const patch = handler.extractDraft({ message: '', locale: 'en', currentState: before,
+    llmDraftPatch: { engineeringDraft: { materials: [{ id: 'M', name: 'Custom', E: 30000, nu: .2, rho: 2500, G: 12500 }] } } });
+  const after = handler.mergeState(before, patch);
+  expect(computeDraftMissing({ id, handler }, after, 'execution').critical.filter(field => critical.includes(field))).toEqual([]);
 });
