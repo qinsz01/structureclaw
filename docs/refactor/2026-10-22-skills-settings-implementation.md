@@ -138,8 +138,53 @@ to 5qL⁴/(384EI); observed solver displacement did not change. No failed run wa
 
 ## Phase 3 — shared modelling operations
 
-Pending: R3.1–R3.5, shared deterministic expanders and frame builder consolidation, automated
-suites and measured live comparison with phase 2.
+Branch: `refactor/generic-operations-phase3`. Shared extraction `d41a61b1`, generic contract/report
+`65eea060`, operation/equilibrium tests `d171ee9a`, selector preflight `99793fec`.
+Version: `2026-10-22.3`; the Agent registry remains 25 tools (shell is separately disabled in live tests).
+
+The generic builder accepts explicit V2 records and/or 14 operation variants in the same JSON.
+Shared geometry expands regular 2D/3D frames, panel trusses, polylines and segmented arcs; selectors
+apply properties, restraints and node/member loads; transforms replicate, translate, mirror and
+merge coincident nodes. Partial user records may anchor generated geometry; known IDs, coordinates,
+restraints and assignments are checked before accepting the completion. A failed expansion feeds
+the existing policy-controlled repair loop and returns structured diagnostics without replacing
+the saved model. Replication copies loads only when requested; geometry transforms do not silently
+change global load vectors. Unsupported or unmatched selectors fail rather than dropping input.
+
+Frame geometry is extracted from the existing runtime and structure-type builders, including
+concrete 2D/3D adapters. Specialised adapters keep their existing load and material handling, IDs and
+ordering. The old unused 2D node-load implementation is removed; structured per-node actions share
+one 2D/3D target expander, preserving individual actions and case IDs rather than requiring floor
+totals. Regression tests cover 18×100N = 1.8kN and four corner loads of 10kN = 40kN in both builders.
+
+Floor transfer reuses the existing Python one-/two-way panel algorithms through an internal protocol
+action, without adding an Agent tool. Explicit bounds and support beams are required; unsupported
+panels fail. Partial member intervals are retained, qA is checked independently, and all three modes
+(one-way X/Y and two-way) reach real OpenSees with 240kN support equilibrium. The original Python
+import path remains a thin compatibility class. All 58 historical methods still resolve.
+
+Generic reports describe supports, explicit applied-load totals excluding self-weight, and governing
+metrics with recorded engine units and controlling identities. Force-only unit stiffness is labelled
+and does not produce a claimed physical displacement. English/Chinese tests cover both paths.
+
+Live testing found a pre-existing orchestration bug: an invented case ID (L1 instead of LC1) failed
+before solving but was labelled SOLVER_OUTCOME_UNKNOWN, which then blocked correction. Selection
+now uses the existing deterministic selection validator before reserving a job or invalidating a
+result, with bilingual diagnostics and available IDs. Actual uncertain solver outcomes remain
+protected. A full scripted Agent turn corrects L1 to LC1 and reaches real OpenSees with zero repairs.
+
+Verified so far: 1290 Python tests; 327 frontend unit / 83 integration tests; frontend type/lint and
+production build; backend build/lint/dependency rules; analysis regression and three validators.
+Operation tests: 14 pass, including real slab solves and bounded failure with the saved model intact.
+The first full Jest attempt found one intentionally changed old readiness expectation, now explicitly
+documented and passing in all 57 compatibility tests. Concurrent compilation also interfered with
+eight Jest module imports; a clean full run is now executing against a fixed compiled tree. There
+are no Phase 3 characterization snapshot changes. Final Jest/default E2E and live table are pending.
+
+Early observed scale result: the real LLM chose regular-frame, merge-coincident and nodal-load
+operations, preserved A, produced 125 nodes / 260 members / 100 loads and base Fx −10kN. Phase 2
+also passed this probe using explicit records (654.1s vs 461.9s observed in Phase 3). These are
+individual observations with different concurrent request loads, not a guaranteed speedup.
 
 Each phase records commits, validation summary lines, live timings, user turns, questions,
 tool calls, hand checks and evidence paths here when actually observed. No pending item is a pass.

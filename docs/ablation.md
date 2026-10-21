@@ -8,7 +8,7 @@ tool interfaces and inputs and removes exactly one mechanism. Removing a mechani
 loss, not a broken interface: the agent still finishes the turn with an answer.
 
 Source of truth: `backend/src/runtime/ablation-profiles.ts` (`ABLATION_PROFILES_VERSION`, currently
-`2026-10-21.12`). Any change to a profile definition, or to the default prompts or tools that every profile
+`2026-10-22.3`). Any change to a profile definition, or to the default prompts or tools that every profile
 shares, requires a new version. History:
 
 - `2026-10-17.1`: initial profiles. `2026-10-17.2`: `no-knowledge` also removes stage names.
@@ -34,6 +34,7 @@ shares, requires a new version. History:
 
 - `2026-10-22.1`: skills now contain structure modelling methods only. Solvers, codes, parsers and exporters use an independent provider catalog. Legacy ids migrate at the boundary; generic-only retains all enabled providers; no-knowledge also removes shared engineering knowledge. Unified settings separate global defaults from conversation overrides; excessive tool budgets are rejected.
 - `2026-10-22.2`: generic drafts retain canonical physics without template projection. Shared property completion and kinematic-rank/load checks feed the policy-controlled repair loop; readiness asks for physical gaps rather than a template name.
+- `2026-10-22.3`: generic builders may emit deterministic modelling operations, sharing frame/truss geometry and slab-load transfer with specialised builders. User topology IDs are checked; generic reports include supports, applied-load totals and governing results. The agent tool registry is unchanged.
 
 ## Selecting a profile
 
