@@ -22,9 +22,12 @@ describeWithOpenSees('characterization: generic physical modelling', () => {
   const ctx = setupHarness();
   test.each([...genericFixtures, operationsFixture])('$id: scripted extraction and free-form builder → real OpenSees → equilibrium', async fixture => {
     let builds = 0;
+    // Pydantic's authoritative nullable node field is a normal LLM serialization of a free joint.
+    const extracted = structuredClone(fixture.draft);
+    for (const node of extracted.engineeringDraft.topology?.nodes ?? []) if (!node.restraints) node.restraints = null;
     ctx.llm.setInternal(internalResponder({
       'structural-router': () => routerDecision('generic'),
-      'param-extractor': () => fixture.draft,
+      'param-extractor': () => extracted,
       'internal-other': () => { builds++; return fixture.model; },
     }));
     const turn = await runTurn(ctx, {

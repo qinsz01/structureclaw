@@ -14,6 +14,7 @@ import { describe, expect, test } from '@jest/globals';
 import { withDeclaredProperties } from '../../../tests/fixtures/declared-template-properties.mjs';
 import { ingestDraft, projectDraftState } from '../../../dist/agent-runtime/draft/boundary.js';
 import { buildParamExtractorPrompt } from '../../../dist/agent-langgraph/param-extractor.js';
+import { normalizeEngineeringDraft } from '../../../dist/agent-runtime/engineering-draft.js';
 
 const fixture = JSON.parse(readFileSync(new URL('../../../tests/fixtures/draft-boundary-compat-20261017.json', import.meta.url), 'utf8'));
 const handlers = {};
@@ -33,6 +34,18 @@ const resume = ({ skillId, state, raw }) => {
   return handler.mergeState(persisted, handler.extractDraft({ message: '', locale: 'zh', currentState: persisted, llmDraftPatch: structuredClone(raw), structuralTypeMatch: match(skillId) }));
 };
 const pick = (value, keys) => JSON.stringify(Object.fromEntries(keys.map(key => [key, value?.[key]])));
+
+describe('optional restraints in the canonical node contract', () => {
+  test.each([undefined, null])('accepts %s as an unrestrained node without mutating input', restraints => {
+    const raw = { topology: { nodes: [{ id: 'C', x: 0, y: 0, z: 3, restraints }] } };
+    const original = structuredClone(raw);
+    expect(normalizeEngineeringDraft(raw).topology.nodes[0].restraints).toBeUndefined();
+    expect(raw).toEqual(original);
+  });
+  test('continues to reject a malformed restraint array', () => {
+    expect(() => normalizeEngineeringDraft({ topology: { nodes: [{ id: 'C', x: 0, y: 0, z: 3, restraints: [true] }] } })).toThrow('needs six boolean restraints');
+  });
+});
 
 describe('old persisted draft states', () => {
   test.each(fixture.scenarios.map(item => [item.id, item]))('%s: ingesting the stored state keeps every flat field', (_id, scenario) => {

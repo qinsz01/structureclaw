@@ -45,7 +45,7 @@ function normalizeTopologyNode(value: unknown): EngineeringDraftTopologyNode | u
     && raw.restraints.every((item) => typeof item === 'boolean')
     ? [...raw.restraints] as boolean[]
     : undefined;
-  if (raw.restraints !== undefined && !restraints) {
+  if (raw.restraints != null && !restraints) {
     throw new Error(`INVALID_EXPLICIT_TOPOLOGY: node '${id}' needs six boolean restraints / 节点约束必须为六个布尔值`);
   }
   return { ...structuredClone(raw), id, x, y, z, restraints };
