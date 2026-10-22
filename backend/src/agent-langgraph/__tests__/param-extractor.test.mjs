@@ -32,6 +32,8 @@ describe("param extractor", () => {
       llm: { invoke: async prompt => { prompts.push(prompt); return { content: JSON.stringify(prompts.length === 1 ? invalid : valid) }; } } });
     expect(result).toEqual(valid); expect(prompts).toHaveLength(2);
     expect(prompts[1]).toContain('unknownRotation'); expect(prompts[1]).toContain('RETRY CONTRACT');
+    expect(prompts[0]).toContain('Section assignment scope / 截面适用范围');
+    expect(prompts[0]).toContain('must not be assigned to that excluded group');
   });
   test.each([0, 1, 2])('first-extraction repairs respect the shared budget of %i', async repairs => {
     const { invokeParamExtractor } = await import('../../../dist/agent-langgraph/param-extractor.js');

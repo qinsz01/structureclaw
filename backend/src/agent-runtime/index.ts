@@ -485,7 +485,7 @@ export class AgentSkillRuntime {
       const { createLocalStructureProtocolClient } = await import('../skill-shared/structure-protocol-execution.js');
       const protocol = createLocalStructureProtocolClient();
       context.signal?.throwIfAborted();
-      const llm = createChatModel(0, { purpose: 'structured-output' });
+      const llm = createChatModel(0, { purpose: 'model-build' });
       if (!llm) {
         throw new Error(
           context.locale === 'zh'
