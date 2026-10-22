@@ -504,7 +504,8 @@ zero browser-page error. The first turn reached the area question in 429.4s; ext
 original reasoning setting, so external-model inference still dominates latency. This is one
 successful observation, not a general latency or success-rate guarantee.
 
-The independent checker (`draft-release-scope-live-check.log`) verifies five nodes, five members,
+The independent checks (`draft-release-scope-live-check.log` and `draft-release-scope-live-final-check.log`)
+verify five nodes, five members,
 two actions, all A–E / AC–BD–CD–DE–AD identities and connectivity, both fixed supports, 200×300mm
 beam/column geometry, AD's user-supplied **A=0.002m²** with no invented equivalent shape, Q235
 constants, both signed actions and all six global force/moment balances. Base Fx/Fz are −5/+10kN;
