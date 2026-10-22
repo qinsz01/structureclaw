@@ -122,7 +122,7 @@ export function SceneContent({
       <ambientLight intensity={0.9} />
       <directionalLight intensity={1.2} position={[10, 12, 8]} />
       <directionalLight intensity={0.45} position={[-8, -4, 10]} />
-      <OrbitControls enableRotate={snapshot.dimension === 3} makeDefault target={cameraFrame.target} />
+      <OrbitControls enableRotate={snapshot.dimension === 3} makeDefault target={cameraFrame.target} zoomToCursor />
       <FocusController focusTarget={selectedFocusPoint} focusKey={`${selectedNodeId}:${selectedElementId}:${selectedLoadIndex}`} />
       <gridHelper args={[gridConfig.size, gridConfig.divisions, palette.gridAxis, palette.grid]} position={gridConfig.position} rotation={gridConfig.rotation} />
 

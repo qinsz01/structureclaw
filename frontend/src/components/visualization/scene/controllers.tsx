@@ -4,7 +4,7 @@ import { useBounds } from '@react-three/drei'
 import * as THREE from 'three'
 import type { CameraPreset } from '../state'
 import type { VisualizationPlane, VisualizationSnapshot } from '../types'
-import { getPlaneCameraFrame } from '../structural-scene-utils'
+import { getPlaneCameraFrame, getSnapshotCenter } from '../structural-scene-utils'
 
 export function PlaneBoundsController({
   plane,
@@ -29,7 +29,12 @@ export function PlaneBoundsController({
   const fitWidth = preserveCameraOnResize ? 0 : width
 
   useEffect(() => {
-    const { center, distance } = bounds.refresh().getSize()
+    const { box } = bounds.refresh().getSize()
+    const center = new THREE.Vector3(...getSnapshotCenter(snapshot, plane))
+    // Keep the structure centered while leaving room for asymmetric load/result markers.
+    const size = box.max.clone().sub(center).max(center.clone().sub(box.min)).multiplyScalar(2)
+    bounds.refresh(new THREE.Box3().setFromCenterAndSize(center, size))
+    const { distance } = bounds.getSize()
     const frame = getPlaneCameraFrame(
       plane,
       snapshot.dimension,
