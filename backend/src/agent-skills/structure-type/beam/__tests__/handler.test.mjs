@@ -3,15 +3,6 @@ import { describe, expect, test } from '@jest/globals';
 import { handler } from '../../../../../dist/agent-skills/structure-type/beam/handler.js';
 
 describe('beam handler', () => {
-  test('detects beam requests deterministically', () => {
-    const match = handler.detectStructuralType({
-      message: '一根简支梁，跨度6米',
-      locale: 'zh',
-    });
-
-    expect(match?.skillId).toBe('beam');
-    expect(match?.mappedType).toBe('beam');
-  });
 
   test('builds combined beam loads from engineeringDraft', () => {
     const patch = handler.extractDraft({
@@ -151,7 +142,6 @@ describe('beam handler', () => {
               unit: 'kN/m',
               direction: 'gravity',
               target: 'E1',
-              location: { spanIndex: 1 },
             },
             {
               kind: 'line',
@@ -159,7 +149,6 @@ describe('beam handler', () => {
               unit: 'kN/m',
               direction: 'gravity',
               target: 'E2',
-              location: { spanIndex: 2 },
             },
           ],
         },

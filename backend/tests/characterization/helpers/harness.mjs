@@ -56,7 +56,8 @@ export function internalResponder(handlers) {
 }
 
 export function routerDecision(skillId, { action = 'switch_skill', confidence = 0.95, reason = 'characterization' } = {}) {
-  return { action, skillId, structuralTypeKey: skillId, mappedType: skillId, supportLevel: 'supported', confidence, reason };
+  const mappedType = { 'concrete-frame': 'frame', generic: 'unknown' }[skillId] ?? skillId;
+  return { action, skillId, structuralTypeKey: skillId, mappedType, supportLevel: 'supported', confidence, reason };
 }
 
 /** Query a saved result through the same result-review endpoint the frontend workspace uses. */

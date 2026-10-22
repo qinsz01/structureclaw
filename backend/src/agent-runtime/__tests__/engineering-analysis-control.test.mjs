@@ -10,7 +10,7 @@ import { buildConcreteFrameModel } from '../../../dist/agent-skills/structure-ty
 import { handler as concreteHandler } from '../../../dist/agent-skills/structure-type/concrete-frame/handler.js';
 
 const beamState = control => ({ inferredType: 'beam', frameDimension: '2d', lengthM: 6, loadKN: 10,
-  loadType: 'distributed', supportType: 'simply-supported', engineeringDraft: normalizeEngineeringDraft({
+  loadType: 'distributed', loadPosition: 'full-span', supportType: 'simply-supported', engineeringDraft: normalizeEngineeringDraft({
     material: { grade: 'Q235' }, sections: { member: 'H300X200X8X12' }, analysisControl: control,
   }) });
 const normalize = model => normalizeEngineeringModel(model, createLocalStructureProtocolClient());

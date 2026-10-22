@@ -2,14 +2,14 @@ import { expect, test } from '@jest/globals';
 import { toolCall } from './helpers/llm-fixture.mjs';
 import { describeWithOpenSees, internalResponder, routerDecision, runTurn, setupHarness, TURN_TIMEOUT_MS } from './helpers/harness.mjs';
 
-describeWithOpenSees('characterization: LLM-first routing', () => {
+describeWithOpenSees('characterization: LLM-required routing', () => {
   const ctx = setupHarness();
   test('routes new structures, reuses their detection, and extracts generic drafts through the LLM', async () => {
     let routes = 0, extracts = 0;
     ctx.llm.setInternal(internalResponder({
       'structural-router': () => { routes++; return routes === 1 ? routerDecision('beam') : {
         action: 'generic', skillId: 'generic', structuralTypeKey: 'unknown', mappedType: 'unknown',
-        supportLevel: 'fallback', confidence: .99,
+        supportLevel: 'supported', confidence: .99,
       }; },
       'param-extractor': () => { extracts++; return {
         requestScope: { responses: ['forces'], design: false, report: false, outputs: [] },
@@ -28,10 +28,13 @@ describeWithOpenSees('characterization: LLM-first routing', () => {
     const third = await runTurn(ctx, { conversationId: first.conversationId, message: 'Keep this custom draft and record its length as 9m.', context: { locale: 'en' } }, [
       toolCall('extract_draft_params', {}, 'extract-generic'), 'DRAFT_RECORDED',
     ]);
-    expect([routes, extracts]).toEqual([3, 3]);
+    // Accepted generic state is supported and reusable; extraction still calls the LLM.
+    expect([routes, extracts]).toEqual([2, 3]);
     const routingEvents = ctx.backend.runRecords().flatMap(item => item.record.usage.events).filter(event => event.kind === 'structural_routing');
-    expect(routingEvents).toHaveLength(3);
-    expect(routingEvents.every(event => event.path === 'llm')).toBe(true);
+    expect(routingEvents.filter(event => event.path === 'llm')).toHaveLength(2);
+    expect(routingEvents.filter(event => event.path === 'reused')).toEqual([
+      expect.objectContaining({ skillId: 'generic', source: 'llm-suggested' }),
+    ]);
     expect(third.requests.some(request => request.kind === 'param-extractor')).toBe(true);
   }, TURN_TIMEOUT_MS);
 });

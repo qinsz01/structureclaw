@@ -13,15 +13,6 @@ const prattTrussPatch = {
 };
 
 describe('truss handler', () => {
-  test('detects truss requests deterministically', () => {
-    const match = handler.detectStructuralType({
-      message: '三角桁架，跨度12m，高3m',
-      locale: 'zh',
-    });
-
-    expect(match?.skillId).toBe('truss');
-    expect(match?.mappedType).toBe('truss');
-  });
 
   test('normalizes truss geometry from an llm draft patch', () => {
     const patch = handler.extractDraft({
@@ -423,6 +414,7 @@ describe('truss handler', () => {
         lengthM: 15,
         bayCount: 5,
         loadKN: 10,
+        loadPosition: 'top-nodes',
       },
     });
     const state = handler.mergeState(undefined, patch);
@@ -442,6 +434,7 @@ describe('truss handler', () => {
         lengthM: 12,
         heightM: 3,
         loadKN: 20,
+        loadPosition: 'top-nodes',
       },
     });
     const state = handler.mergeState(undefined, patch);
@@ -483,6 +476,7 @@ describe('truss handler', () => {
         heightM: 0,
         bayCount: 5,
         loadKN: 10,
+        loadPosition: 'top-nodes',
       },
     });
     const invalidState = handler.mergeState(undefined, invalidPatch);

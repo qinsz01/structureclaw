@@ -168,31 +168,24 @@ async function validateAgentOrchestration(context) {
 async function validateAgentBaseChatFallback(context) {
   await runBackendBuildOnce(context);
 
-  process.env.LLM_API_KEY = process.env.LLM_API_KEY || "";
+  clearProviderEnv();
 
   const LangGraphAgentService = await importBackendAgentService(context.rootDir);
   const AgentSkillRuntime = await importAgentSkillRuntime(context.rootDir);
   const skillRuntime = new AgentSkillRuntime();
   const svc = new LangGraphAgentService(skillRuntime);
 
-  // With empty skillIds, run should still work and return a deterministic shape.
-  const chatResult = await svc.run({
+  // Empty skill selection still requires a real language model; no canned successful chat.
+  await require("node:assert/strict").rejects(svc.run({
     conversationId: "conv-empty-skill-chat",
     message: "先聊需求，我要算一个门式刚架",
     context: {
       skillIds: [],
       locale: "zh",
     },
-  });
-  assert(typeof chatResult.success === "boolean", "run should return boolean success");
-  assert(typeof chatResult.response === "string", "run should return string response");
-  assert(Array.isArray(chatResult.toolCalls), "run should return toolCalls array");
-  assert(typeof chatResult.conversationId === "string", "run should return conversationId");
-  assert(typeof chatResult.traceId === "string", "run should return traceId");
-  assert(chatResult.mode === "conversation", "empty-skill chat should use conversation mode");
-  assert(Array.isArray(chatResult.toolCalls) && chatResult.toolCalls.length === 0, "empty-skill chat should not invoke tools");
+  }), /LLM_NOT_CONFIGURED/);
 
-  console.log("[ok] base-chat fallback contract");
+  console.log("[ok] base chat explicitly fails without an LLM");
 }
 
 async function validateAgentCapabilityModes(context) {
@@ -209,23 +202,18 @@ async function validateAgentCapabilityModes(context) {
   const defaultSkillIds = skills.map((skill) => skill.id);
   assert(Array.isArray(defaultSkillIds) && defaultSkillIds.length > 0, "should have default skills");
   assert(skills.some((s) => s.domain === "structure-type"), "should include structure-type skills");
-  assert(skills.some((s) => s.domain === "analysis"), "should include analysis skills");
+  assert(skills.every((s) => s.domain === "structure-type"), "skills should contain modelling guidance only");
+  assert(skillRuntime.listAnalysisSkillIds().length > 0, "analysis providers should be available separately from modelling skills");
 
-  // Verify run returns the expected shape.
-  const result = await svc.run({
+  // Listing capabilities is independent of LLM availability; natural-language execution is not.
+  await require("node:assert/strict").rejects(svc.run({
     conversationId: "conv-capability-test",
     message: "先聊一下需求",
     context: {
       locale: "zh",
       skillIds: [],
     },
-  });
-  assert(typeof result.success === "boolean", "run should return boolean success");
-  assert(typeof result.response === "string", "run should return response string");
-  assert(Array.isArray(result.toolCalls), "run should return toolCalls array");
-  assert(typeof result.conversationId === "string", "run should return conversationId");
-  assert(typeof result.traceId === "string", "run should return traceId");
-  assert(typeof result.mode === "string", "run should return mode string");
+  }), /LLM_NOT_CONFIGURED/);
 
   console.log("[ok] capability-mode contract");
 }
@@ -1484,39 +1472,39 @@ async function validateStructureJsonSkill(context) {
 }
 
 async function validateSkillRouting(context) {
-  const { loadLlmFixtures } = require("../llm-integration/lib/discovery.cjs");
   const AgentSkillRuntime = await importAgentSkillRuntime(context.rootDir);
   const runtime = new AgentSkillRuntime();
-
-  const allCases = loadLlmFixtures(context.rootDir);
-  const routingCases = allCases.filter((c) => c.category === "routing");
-
-  assert(routingCases.length > 0, "should have at least one routing fixture case");
-
-  let passed = 0;
-  for (const testCase of routingCases) {
-    const locale = testCase.locale === "zh" ? "zh" : "en";
-    const message = testCase.messages[0];
-    const match = await runtime.detectStructuralType(message, locale, undefined, testCase.enabledSkillIds);
-    const expected = testCase.expect || {};
-
-    if (expected.inferredType) {
-      const actualKey = match.mappedType || match.key;
-      assert(
-        actualKey === expected.inferredType || match.skillId === expected.inferredType,
-        `[${testCase.id}] expected inferredType="${expected.inferredType}", got key="${match.key}" mappedType="${match.mappedType}" skillId="${match.skillId}"`
-      );
-    }
-    if (expected.structuralTypeKey) {
-      assert(
-        match.key === expected.structuralTypeKey || match.mappedType === expected.structuralTypeKey,
-        `[${testCase.id}] expected structuralTypeKey="${expected.structuralTypeKey}", got key="${match.key}" mappedType="${match.mappedType}"`
-      );
-    }
-    passed += 1;
+  assert(runtime.detectStructuralType === undefined, "the rule-only routing API must not exist");
+  assert(runtime.getRegistry().detectStructuralType === undefined, "the registry must not expose keyword routing");
+  const original = { inferredType: "beam", skillId: "beam", structuralTypeKey: "beam", lengthM: 10, updatedAt: 0 };
+  const saved = JSON.stringify(original);
+  const reject = async (llm, code) => {
+    let failure;
+    try { await runtime.detectStructuralTypeWithLlm(llm, "template / 腹板 / bridge", "en", original, ["beam", "generic"]); }
+    catch (error) { failure = error; }
+    assert(failure?.message.startsWith(`${code}:`), `routing must fail explicitly with ${code}`);
+    assert(JSON.stringify(original) === saved, "failed routing must preserve the original draft");
+  };
+  await reject(null, "LLM_STRUCTURAL_ROUTER_REQUIRED");
+  for (const networkFailure of [false, true]) {
+    let calls = 0;
+    await reject({ invoke: async () => {
+      calls++;
+      if (networkFailure) throw new Error("offline fixture");
+      return { content: "invalid fixture response" };
+    } }, networkFailure ? "LLM_STRUCTURAL_ROUTER_INFRASTRUCTURE_ERROR" : "LLM_STRUCTURAL_ROUTER_INVALID_OUTPUT");
+    assert(calls === 2, "routing may retry the same LLM once but must never invoke a rule detector");
   }
+  console.log("[ok] routing protocol rejects missing/unavailable/invalid LLM results without changing the draft");
 
-  console.log(`[ok] skill routing: ${passed}/${routingCases.length} cases passed`);
+  // This verifies protocol handling, not natural-language accuracy. Semantic cases belong to live LLM integration.
+  const decision = { action: "switch_skill", skillId: "beam", structuralTypeKey: "beam", mappedType: "beam", confidence: 1 };
+  const match = await runtime.detectStructuralTypeWithLlm({ invoke: async () => ({ content: JSON.stringify(decision) }) },
+    "template / 腹板 / bridge", "en", original, ["beam", "generic"]);
+  assert(match.skillId === "beam" && match.routingSource === "llm-suggested", "accepted LLM decisions must not be overridden by keywords");
+  await reject({ invoke: async () => ({ content: JSON.stringify({ ...decision, skillId: "concrete-frame", structuralTypeKey: "concrete-frame", mappedType: "frame" }) }) },
+    "LLM_STRUCTURAL_ROUTER_INVALID_OUTPUT");
+  console.log("[ok] routing protocol preserves valid LLM selections and rejects disabled skills without substitution");
 }
 
 const BACKEND_VALIDATIONS = {

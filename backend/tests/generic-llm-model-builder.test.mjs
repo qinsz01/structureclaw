@@ -18,6 +18,11 @@ const noRepair = () => createRunContext(resolveRunPolicy({ availableSkillIds: []
   requested: { repair: { enabled: false } } }));
 
 describe('tryBuildGenericModelWithLlm', () => {
+  test('missing LLM is an explicit failure rather than an absent model to fall back from', async () => {
+    await expect(tryBuildGenericModelWithLlm(null, 'Build the supplied beam', {}, 'en'))
+      .rejects.toThrow('LLM_MODEL_BUILDER_REQUIRED');
+  });
+
   test.each(['rotation_angle', 'restraints'])('accepts optional null %s consistently with the real V2 protocol without repair', async field => {
     const source = optionalFieldModel();
     (field === 'rotation_angle' ? source.elements[0] : source.nodes[1])[field] = null;
@@ -31,6 +36,14 @@ describe('tryBuildGenericModelWithLlm', () => {
     expect(result.nodes[1].restraints ?? null).toBeNull();
     expect(calls).toBe(1); expect(context.usage.recoveries).toBe(0); expect(source).toEqual(original);
   }, 20000);
+
+  test('provider failure stops model generation without candidate retries or a substitute', async () => {
+    let calls = 0;
+    const cause = new Error('provider offline');
+    await expect(tryBuildGenericModelWithLlm({ invoke: async () => { calls += 1; throw cause; } }, 'model', {}, 'en'))
+      .rejects.toMatchObject({ message: expect.stringContaining('LLM_MODEL_BUILDER_INFRASTRUCTURE_ERROR'), cause });
+    expect(calls).toBe(1);
+  });
 
   test('repair disabled preserves the original invalid field error and invokes the builder once', async () => {
     const source = optionalFieldModel(); source.elements[0].rotation_angle = 'not-a-number';

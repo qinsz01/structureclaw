@@ -120,7 +120,7 @@ describeWithOpenSees('characterization: natural-language draft path', () => {
       { id: 'C1', type: 'column', nodes: ['B1', 'T1'], material: 'Q355', section: 'COL' },
       { id: 'R0', type: 'beam', nodes: ['T0', 'T1'], material: 'Q355', section: 'RAF' },
     ]);
-    expect(model.load_cases[0].loads).toEqual([{ type: 'distributed', element: 'R0', wz: -5, wy: 0, reference_frame: 'global', id: 'LC1:load:1' }]);
+    expect(model.load_cases[0].loads).toEqual([{ type: 'distributed', element: 'R0', wz: -5, reference_frame: 'global', id: 'LC1:load:1' }]);
 
     const check = toolResultSeenByAgent(turn.requests, 'en-frame-check');
     expect(check).toMatchObject({ success: true, provider: 'builtin', skillId: 'code-check-gb50017', completionStatus: 'incomplete',

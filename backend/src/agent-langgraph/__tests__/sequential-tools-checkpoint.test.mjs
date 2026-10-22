@@ -1,12 +1,90 @@
 import { describe, expect, test } from '@jest/globals';
-import { AIMessage, ToolMessage } from '@langchain/core/messages';
+import { AIMessage, HumanMessage, ToolMessage } from '@langchain/core/messages';
 import { tool } from '@langchain/core/tools';
 import { Command, END, MemorySaver, START, StateGraph, interrupt } from '@langchain/langgraph';
 import { z } from 'zod';
 import { AgentStateAnnotation } from '../../../dist/agent-langgraph/state.js';
 import { executeToolsSequentially, pendingToolCalls } from '../../../dist/agent-langgraph/sequential-tools.js';
+import { createRunContext, withRunContext } from '../../../dist/runtime/run-context.js';
+import { resolveRunPolicy } from '../../../dist/runtime/run-policy.js';
+import { createBuildModelTool } from '../../../dist/agent-langgraph/tools/build-model.js';
+import { ModelInputRequiredError } from '../../../dist/agent-skills/structure-type/generic/llm-model-builder.js';
 
 describe('sequential tool checkpoints', () => {
+  test('the real builder input_required outcome blocks stale-model analysis and permits clarification without charging recovery', async () => {
+    let analyses = 0, clarifications = 0;
+    const build = createBuildModelTool({ buildModel: async () => { throw new ModelInputRequiredError(['loads.target']); } });
+    const analyze = tool(async () => { analyses++; return 'should not execute'; },
+      { name: 'run_analysis', description: 'analyze', schema: z.object({}) });
+    const ask = tool(async () => { clarifications++; return 'Please specify the load target.'; },
+      { name: 'ask_user_clarification', description: 'clarify', schema: z.object({}) });
+    const graph = new StateGraph(AgentStateAnnotation)
+      .addNode('tools', (state, config) => executeToolsSequentially([build, analyze, ask], state, config))
+      .addEdge(START, 'tools')
+      .addConditionalEdges('tools', state => pendingToolCalls(state).length ? 'tools' : END, ['tools', END]).compile();
+    const runtime = createRunContext(resolveRunPolicy({ availableSkillIds: [],
+      availableToolIds: ['build_model', 'run_analysis', 'ask_user_clarification'],
+      defaultToolIds: ['build_model', 'run_analysis', 'ask_user_clarification'] }));
+    const saved = { model: { retained: true }, modelPending: false, analysisResult: { runId: 'old-result' },
+      draftState: { inferredType: 'unknown', updatedAt: 1, engineeringDraft: { structureType: 'beam' } } };
+    const result = await withRunContext(runtime, () => graph.invoke({ ...saved, messages: [
+      new HumanMessage('Change the load and calculate'), new AIMessage({ content: '', tool_calls: [
+        { id: 'incomplete-build', name: 'build_model', args: {} }, { id: 'blocked-analysis', name: 'run_analysis', args: {} },
+        { id: 'clarify-input', name: 'ask_user_clarification', args: {} },
+      ] }),
+    ] }));
+    expect(JSON.parse(result.messages.find(message => message.tool_call_id === 'incomplete-build').content))
+      .toMatchObject({ status: 'input_required', modelBuilt: false, missingFields: ['loads.target'] });
+    expect(JSON.parse(result.messages.find(message => message.tool_call_id === 'blocked-analysis').content))
+      .toMatchObject({ success: false, errorCode: 'MODEL_REBUILD_REQUIRED' });
+    expect(analyses).toBe(0);
+    expect(clarifications).toBe(1);
+    expect(runtime.usage.recoveries).toBe(0);
+    expect(runtime.usage.pendingFailures).toEqual({});
+    for (const [key, value] of Object.entries(saved)) expect(result[key]).toEqual(value);
+  });
+
+  test('a failed physical build blocks old-model execution but permits clarification and a successful rebuild', async () => {
+    let builds = 0;
+    const executed = [];
+    const build = tool(async () => {
+      builds++;
+      executed.push('build');
+      if (builds === 1) throw new Error('MODEL_PHYSICS_INVALID: resolve the load location / 请明确荷载位置');
+      return JSON.stringify({ success: true, modelBuilt: true });
+    }, { name: 'build_model', description: 'build', schema: z.object({}) });
+    const analyze = tool(async () => { executed.push('analysis'); return JSON.stringify({ success: true }); },
+      { name: 'run_analysis', description: 'analyze', schema: z.object({}) });
+    const ask = tool(async () => { executed.push('clarify'); return 'location supplied'; },
+      { name: 'ask_user_clarification', description: 'clarify', schema: z.object({}) });
+    const graph = new StateGraph(AgentStateAnnotation)
+      .addNode('tools', (state, config) => executeToolsSequentially([build, analyze, ask], state, config))
+      .addEdge(START, 'tools')
+      .addConditionalEdges('tools', state => pendingToolCalls(state).length ? 'tools' : END, ['tools', END])
+      .compile();
+    const runtime = createRunContext(resolveRunPolicy({ availableSkillIds: [],
+      availableToolIds: ['build_model', 'run_analysis', 'ask_user_clarification'],
+      defaultToolIds: ['build_model', 'run_analysis', 'ask_user_clarification'] }));
+    const result = await withRunContext(runtime, () => graph.invoke({ model: { retained: true }, analysisResult: { runId: 'old-result' }, messages: [
+      new HumanMessage('Change the load and calculate'), new AIMessage({ content: '', tool_calls: [
+        { id: 'failed-build', name: 'build_model', args: {} }, { id: 'blocked-analysis', name: 'run_analysis', args: {} },
+        { id: 'second-blocked-analysis', name: 'run_analysis', args: {} },
+        { id: 'clarify', name: 'ask_user_clarification', args: {} }, { id: 'new-build', name: 'build_model', args: {} },
+        { id: 'new-analysis', name: 'run_analysis', args: {} },
+      ] }),
+    ] }));
+    expect(executed).toEqual(['build', 'clarify', 'build', 'analysis']);
+    const blocked = result.messages.find(message => message.tool_call_id === 'blocked-analysis');
+    expect(JSON.parse(blocked.content)).toMatchObject({ success: false, errorCode: 'MODEL_REBUILD_REQUIRED', guard: 'failed-model-build' });
+    expect(result.model).toEqual({ retained: true });
+    expect(result.analysisResult).toEqual({ runId: 'old-result' });
+    const newTurn = { ...result, messages: [...result.messages.slice(0, 3), new HumanMessage('Use the retained model'),
+      new AIMessage({ content: '', tool_calls: [{ id: 'new-turn-analysis', name: 'run_analysis', args: {} }] })] };
+    await executeToolsSequentially([analyze], newTurn, {});
+    expect(executed.at(-1)).toBe('analysis');
+    expect(executed.filter(name => name === 'analysis')).toHaveLength(2);
+  });
+
   test.each(['run_analysis', 'build_model', 'extract_draft_params'])('a rejected %s cannot clear a valid result or report', async name => {
     let invoked = false;
     const operation = tool(async () => { invoked = true; throw new Error('candidate rejected'); }, {

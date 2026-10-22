@@ -125,17 +125,27 @@ describe('detect_structure_type tool guidance', () => {
       },
     });
 
+    const state = { structuralTypeKey: 'beam', draftState: {
+      inferredType: 'beam', engineeringDraft: { geometry: { lengthM: 10 } }, updatedAt: 1,
+    }, requestScope: { responses: ['forces'], design: false, report: false, outputs: [] } };
+    const snapshot = structuredClone(state);
     const command = await detectStructureType.invoke(
       { message: 'Analyze this structure.', locale: 'en' },
-      { toolCall: { id: 'call-invalid' }, configurable: { agentState: {} } },
+      { toolCall: { id: 'call-invalid' }, configurable: { agentState: state } },
     );
     const toolMessage = command.update.messages[0];
 
     expect(JSON.parse(toolMessage.content)).toMatchObject({
       success: false,
       errorCode: 'LLM_STRUCTURAL_ROUTER_INVALID_OUTPUT',
-      nextAction: 'retry_detection',
+      canProceed: false,
+      nextAction: 'report_internal_error',
     });
+    expect(JSON.parse(toolMessage.content).instruction).toContain('stop');
+    expect(command.update).not.toHaveProperty('draftState');
+    expect(command.update).not.toHaveProperty('structuralTypeKey');
+    expect(command.update).not.toHaveProperty('requestScope');
+    expect(state).toEqual(snapshot);
     expect(toolMessage.response_metadata.tokenUsage).toEqual({
       promptTokens: 25,
       completionTokens: 5,

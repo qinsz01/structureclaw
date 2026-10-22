@@ -16,8 +16,8 @@ const frame = { structureType: 'frame', coordinateSystem: { dimension: '2d' }, g
 const cases = [
   ['beam', '计算6m简支梁，跨中1kN向下集中力。', { structureType: 'beam', geometry: { lengthM: 6 }, boundary: { supportType: 'simply-supported' }, loads: [point] }],
   ['column', '计算3m悬臂柱，顶部向下1kN轴力。', { structureType: 'column', geometry: { heightM: 3 }, loads: [{ ...point, target: 'top', location: {} }] }],
-  ['double-span-beam', '计算两跨连续梁，每跨6m，满跨向下20kN/m。', { structureType: 'double-span-beam', geometry: { spanLengthsM: [6, 6] }, loads: [line] }],
-  ['frame', '计算两跨两层钢框架，跨度6m，层高3.5m，每层梁上20kN/m。', { structureType: 'frame', coordinateSystem: { dimension: '2d' }, geometry: { storyHeightsM: [3.5, 3.5], bayWidthsM: [6, 6] }, loads: [{ ...line, target: 'all beams' }] }],
+  ['double-span-beam', '计算两跨连续梁，每跨6m，满跨向下20kN/m。', { structureType: 'double-span-beam', geometry: { spanLengthsM: [6, 6] }, loads: [{ ...line, target: 'beam' }] }],
+  ['frame', '计算两跨两层钢框架，跨度6m，层高3.5m，每层梁上20kN/m。', { structureType: 'frame', coordinateSystem: { dimension: '2d' }, geometry: { storyHeightsM: [3.5, 3.5], bayWidthsM: [6, 6] }, loads: [{ ...line, target: 'all-beams' }] }],
   ['concrete-frame', '计算一个2*2的小混凝土框架，跨度5m，高度3米每层，一共两层，其他材料你自己安排，荷载除了地面外每个节点都有100N的x方向荷载', frame],
   ['portal-frame', '计算门式刚架，跨度12m，柱高6m，屋面向下20kN/m。', { structureType: 'portal-frame', geometry: { spanLengthsM: [12], heightM: 6 }, loads: [line] }],
   ['truss', '计算跨度6m高2m桁架，顶部节点向下1kN。', { structureType: 'truss', geometry: { lengthM: 6, heightM: 2 }, loads: [{ ...point, target: 'top-nodes', location: {} }] }],

@@ -85,6 +85,8 @@ test.each(['beam', 'column', 'truss', 'portal-frame', 'double-span-beam', 'frame
   const plugin = await new AgentSkillRuntime().resolvePluginForType(id);
   const before = structuredClone(original);
   before.engineeringDraft.loads[0].location = { xM: 5 };
+  if (id === 'portal-frame') before.engineeringDraft.loads[0].target = 'roof';
+  if (id === 'column') before.engineeringDraft.loads[0].target = 'column-top';
   before.engineeringDraft.topology = {
     nodes: [{ id: 'N1', x: 0, y: 0, z: 0 }, { id: 'N2', x: 10, y: 0, z: 0 }],
     members: [{ id: 'E1', nodes: ['N1', 'N2'], type: 'beam', material: 'M', section: 'S1', design: { beta1: 1.1 } }],
@@ -99,7 +101,7 @@ test.each(['beam', 'column', 'truss', 'portal-frame', 'double-span-beam', 'frame
   const after = plugin.handler.mergeState(before, patch);
   expect(after.engineeringDraft.topology.nodes).toEqual([snapshot.engineeringDraft.topology.nodes[0], { ...snapshot.engineeringDraft.topology.nodes[1], z: 1 }]);
   expect(after.engineeringDraft.topology.members[0]).toEqual({ ...snapshot.engineeringDraft.topology.members[0], design: { beta1: 1.1, l0: 5000 } });
-  expect(after.engineeringDraft.loads[0]).toMatchObject({ id: 'L1', magnitude: 1, unit: 'kN', kind: 'point', location: { xM: 4 } });
+  expect(after.engineeringDraft.loads[0]).toMatchObject({ id: 'L1', magnitude: 1, unit: 'kN', kind: 'point', target: snapshot.engineeringDraft.loads[0].target, location: { xM: 4 } });
   expect(after.engineeringDraft.analysis.loadCombinations).toEqual([{ id: 'C1', factors: { D: 1.2, L: 1.5 } }, snapshot.engineeringDraft.analysis.loadCombinations[1]]);
   expect(after.skillState.invalidDraftFields ?? []).toEqual([]);
   expect(after.skillState.engineeringDraft).toEqual(after.engineeringDraft);

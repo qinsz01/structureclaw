@@ -1,24 +1,9 @@
 import { describe, expect, test } from '@jest/globals';
 import { handler } from '../../../../../dist/agent-skills/structure-type/concrete-frame/handler.js';
-import { detectConcreteFrameStructuralType } from '../../../../../dist/agent-skills/structure-type/concrete-frame/detect.js';
 import { mergeConcreteFrameState } from '../../../../../dist/agent-skills/structure-type/concrete-frame/merge.js';
 import { buildConcreteFrameQuestions } from '../../../../../dist/agent-skills/structure-type/concrete-frame/interaction.js';
 
 describe('concrete-frame handler composed modules', () => {
-  test('leaves follow-up sticky routing to the runtime registry', () => {
-    const match = detectConcreteFrameStructuralType({
-      message: '层高3.6m',
-      locale: 'zh',
-      currentState: {
-        inferredType: 'concrete-frame',
-        structuralTypeKey: 'concrete-frame',
-        supportLevel: 'supported',
-        updatedAt: 0,
-      },
-    });
-
-    expect(match).toBeNull();
-  });
 
   test('does not treat material and sections as critical blockers', () => {
     const missing = handler.computeMissing({
@@ -52,7 +37,7 @@ describe('concrete-frame handler composed modules', () => {
           material: { family: 'concrete', grade: 'C35', rebarGrade: 'HRB400' },
           sections: { column: '500x500', beam: '300x600' },
           loads: [
-            { kind: 'nodal', magnitude: 120, unit: 'kN', direction: 'gravity', target: 'floor' },
+            { kind: 'nodal', magnitude: 120, unit: 'kN', direction: 'gravity', target: 'all-stories' },
           ],
         },
       },
@@ -158,7 +143,7 @@ describe('concrete-frame handler composed modules', () => {
       engineeringDraft: {
         structureType: 'concrete-frame',
         loads: [
-          { kind: 'line', magnitude: 20, unit: 'kN/m', direction: 'gravity' },
+          { kind: 'line', magnitude: 20, unit: 'kN/m', direction: 'gravity', target: 'all-beams' },
         ],
       },
       frameConcreteGrade: 'C30',
@@ -175,7 +160,7 @@ describe('concrete-frame handler composed modules', () => {
   test('the interactive phase never requires or asks for the rebar grade', () => {
     const state = { inferredType: 'concrete-frame', structuralTypeKey: 'concrete-frame', frameDimension: '2d', storyCount: 2, bayCount: 1,
       storyHeightsM: [3.6, 3.6], bayWidthsM: [6], frameBaseSupportType: 'fixed', updatedAt: 0,
-      engineeringDraft: { structureType: 'concrete-frame', loads: [{ kind: 'line', magnitude: 20, unit: 'kN/m', direction: 'gravity' }] } };
+      engineeringDraft: { structureType: 'concrete-frame', loads: [{ kind: 'line', magnitude: 20, unit: 'kN/m', direction: 'gravity', target: 'all-beams' }] } };
     const missing = handler.computeMissing(state, 'interactive');
     expect(missing.critical).toEqual(expect.arrayContaining(['frameConcreteGrade', 'frameColumnSection', 'frameBeamSection']));
     expect(missing.critical).not.toContain('frameRebarGrade');
@@ -213,7 +198,7 @@ describe('concrete-frame handler composed modules', () => {
         engineeringDraft: {
           structureType: 'concrete-frame',
           loads: [
-            { kind: 'line', magnitude: 20, unit: 'kN/m', direction: 'gravity' },
+            { kind: 'line', magnitude: 20, unit: 'kN/m', direction: 'gravity', target: 'all-beams' },
           ],
         },
       },
@@ -257,7 +242,7 @@ describe('concrete-frame handler composed modules', () => {
         engineeringDraft: {
           structureType: 'concrete-frame',
           loads: [
-            { kind: 'line', magnitude: 60, unit: 'kN/m', direction: 'gravity' },
+            { kind: 'line', magnitude: 60, unit: 'kN/m', direction: 'gravity', target: 'all-beams' },
           ],
         },
       },

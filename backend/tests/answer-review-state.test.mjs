@@ -24,6 +24,18 @@ test('a turn without analysis only appends a note and never asks the LLM to corr
   expect(result.content).toContain('Note (result check)');
 });
 
+test.each(['provider unavailable', 'LLM_CALL_BUDGET_EXHAUSTED', 'AbortError'])('failed answer correction is surfaced instead of delivering the rejected draft (%s)', async reason => {
+  const { reviewAndDeliverFinalAnswer } = await import('../dist/agent-langgraph/delivery/final-review.js');
+  const failure = new Error(reason);
+  let delivered = false;
+  await expect(reviewAndDeliverFinalAnswer({ response: new AIMessage('The report has been generated.'),
+    state: { locale: 'en', analysisResult: { runId: 'r1' } }, messages: [], currentTurnMessages: [],
+    ledger: { answerCorrections: 0 }, repairEnabled: true, log: { warn() {} },
+    reinvoke: async () => { throw failure; }, deliver: response => { delivered = true; return { message: response, final: true }; },
+  })).rejects.toBe(failure);
+  expect(delivered).toBe(false);
+});
+
 const model = { nodes: [{ id: 'A', x: 0, y: 0, z: 0 }, { id: 'B', x: 10, y: 0, z: 0 }], elements: [{ id: '1', type: 'beam', nodes: ['A', 'B'] }],
   materials: [], sections: [], load_cases: [] };
 

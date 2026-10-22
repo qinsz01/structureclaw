@@ -70,7 +70,7 @@ describe('attachment context', () => {
     await fs.rm(tmpDir, { recursive: true, force: true });
   });
 
-  test('keeps uploaded image binaries out of the main agent message', async () => {
+  test('keeps uploaded image binaries out of the main agent message when vision is not requested', async () => {
     const { buildInitialHumanMessagePayload } = await import('../../../dist/agent-langgraph/attachments/initial-message.js');
     const pngPath = path.join(tmpDir, 'beam-sketch.png');
     await fs.writeFile(
@@ -88,41 +88,23 @@ describe('attachment context', () => {
       }],
       'en',
       tmpDir,
-      { summarizeImages: true },
+      { summarizeImages: false },
     );
 
     expect(typeof payload.content).toBe('string');
     expect(payload.content).toContain('beam-sketch.png');
-    expect(payload.content).toContain('vision summary unavailable');
     expect(payload.content).not.toContain('image_url');
     expect(payload.content).not.toContain('base64DataUri');
     expect(payload.content).not.toContain('data:image/png;base64');
   });
 
-  test('preserves large image notes and asks for missing vision details', async () => {
+  test('stops image interpretation when the image cannot be supplied to vision', async () => {
     const { buildInitialHumanMessagePayload } = await import('../../../dist/agent-langgraph/attachments/initial-message.js');
     const pngPath = path.join(tmpDir, 'large-frame-sketch.png');
     await fs.writeFile(pngPath, Buffer.alloc(4 * 1024 * 1024 + 1, 1));
-
-    const payload = await buildInitialHumanMessagePayload(
-      'Analyze the attached large frame sketch.',
-      [{
-        fileId: 'img-large',
-        originalName: 'large-frame-sketch.png',
-        relPath: pngPath,
-        mimeType: 'image/png',
-      }],
-      'en',
-      tmpDir,
-      { summarizeImages: true },
-    );
-
-    expect(typeof payload.content).toBe('string');
-    expect(payload.content).toContain('Image too large for base64 encoding');
-    expect(payload.content).toContain('vision summary unavailable');
-    expect(payload.content).not.toContain('Image binary is parsed only by the configured vision model');
-    expect(payload.content).not.toContain('base64DataUri');
-    expect(payload.content).not.toContain('data:image/png;base64');
+    await expect(buildInitialHumanMessagePayload('Analyze the image.',
+      [{ fileId: 'large', originalName: 'large.png', relPath: pngPath, mimeType: 'image/png' }],
+      'en', tmpDir, { summarizeImages: true })).rejects.toThrow('VISION_INPUT_UNAVAILABLE');
   });
 
   test('embeds DXF structural hints as text context', async () => {

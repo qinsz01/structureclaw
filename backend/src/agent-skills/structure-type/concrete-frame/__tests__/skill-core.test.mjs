@@ -8,7 +8,6 @@ import {
   coerceConcreteFrameDimension,
 } from '../../../../../dist/agent-skills/structure-type/concrete-frame/extract-llm.js';
 import { mergeConcreteFrameState } from '../../../../../dist/agent-skills/structure-type/concrete-frame/merge.js';
-import { detectConcreteFrameStructuralType } from '../../../../../dist/agent-skills/structure-type/concrete-frame/detect.js';
 import { computeConcreteFrameMissing } from '../../../../../dist/agent-skills/structure-type/concrete-frame/interaction.js';
 
 describe('concrete-frame canonicalize core contract', () => {
@@ -527,7 +526,7 @@ describe('concrete-frame canonicalize core contract', () => {
             bayWidthsM: [6],
           },
           loads: [
-            { kind: 'area', magnitude: 10, unit: 'kN/m2', direction: 'gravity' },
+            { kind: 'area', magnitude: 10, unit: 'kN/m2', direction: 'gravity', target: 'all-stories' },
           ],
         },
       },
@@ -683,7 +682,7 @@ describe('concrete-frame canonicalize core contract', () => {
             bayWidthsM: [5.4, 6],
           },
           loads: [
-            { kind: 'line', magnitude: 15, unit: 'kN/m', direction: 'gravity' },
+            { kind: 'line', magnitude: 15, unit: 'kN/m', direction: 'gravity', target: 'all-beams' },
           ],
         },
       },
@@ -703,7 +702,7 @@ describe('concrete-frame canonicalize core contract', () => {
       engineeringDraft: {
         structureType: 'concrete-frame',
         loads: [
-          { kind: 'line', magnitude: 15, unit: 'kN/m', direction: 'gravity' },
+          { kind: 'line', magnitude: 15, unit: 'kN/m', direction: 'gravity', target: 'all-beams' },
         ],
       },
       frameConcreteGrade: 'C30',
@@ -755,7 +754,7 @@ describe('concrete-frame canonicalize core contract', () => {
     ]);
   });
 
-  test('prefers structured story locations over textual load targets and array order', () => {
+  test('uses structured story locations without inferring from array order', () => {
     const model = buildConcreteFrameModel({
       inferredType: 'concrete-frame',
       structuralTypeKey: 'concrete-frame',
@@ -767,7 +766,7 @@ describe('concrete-frame canonicalize core contract', () => {
       engineeringDraft: {
         structureType: 'concrete-frame',
         loads: [
-          { kind: 'line', magnitude: 8, unit: 'kN/m', direction: 'gravity', target: 'top-story beam', location: { story: 1 } },
+          { kind: 'line', magnitude: 8, unit: 'kN/m', direction: 'gravity', target: 'beam', location: { story: 1 } },
           { kind: 'line', magnitude: 12, unit: 'kN/m', direction: 'gravity', location: { story: 3 } },
         ],
       },
@@ -800,112 +799,6 @@ describe('concrete-frame canonicalize core contract', () => {
     }, undefined);
 
     expect(patch.frameDimension).toBeUndefined();
-  });
-});
-
-// CRITICAL: detect.ts all branches coverage
-describe('detectConcreteFrameStructuralType branches', () => {
-  test('detects unsupported irregular concrete frame', () => {
-    const result = detectConcreteFrameStructuralType({
-      message: '混凝土框架不规则，有退台',
-      locale: 'zh',
-    });
-    expect(result?.supportLevel).toBe('unsupported');
-    expect(result?.key).toBe('concrete-frame');
-  });
-
-  test('detects explicit concrete frame', () => {
-    const result = detectConcreteFrameStructuralType({
-      message: '混凝土框架',
-      locale: 'zh',
-    });
-    expect(result?.supportLevel).toBe('supported');
-    expect(result?.mappedType).toBe('frame');
-  });
-
-  test('detects concrete frame with concrete keyword', () => {
-    const result = detectConcreteFrameStructuralType({
-      message: 'concrete frame structure',
-      locale: 'en',
-    });
-    expect(result?.supportLevel).toBe('supported');
-  });
-
-  test('detects concrete frame with rc keyword', () => {
-    const result = detectConcreteFrameStructuralType({
-      message: 'RC框架，三层两跨',
-      locale: 'zh',
-    });
-    expect(result?.supportLevel).toBe('supported');
-  });
-
-  test('does not treat architectural arch text as rc concrete evidence', () => {
-    const result = detectConcreteFrameStructuralType({
-      message: 'Use this architectural DXF of a steel frame building from arch-frame-simple-1s1b.dxf.',
-      locale: 'en',
-    });
-    expect(result).toBeNull();
-  });
-
-  test('does not route explicit steel frame descriptions to concrete-frame', () => {
-    const result = detectConcreteFrameStructuralType({
-      message: '请根据建筑平面图DXF建立单层单跨钢框架结构计算模型并进行分析',
-      locale: 'zh',
-    });
-    expect(result).toBeNull();
-  });
-
-  test('routes concrete building and column-grid context to concrete-frame', () => {
-    const result = detectConcreteFrameStructuralType({
-      message: '办公楼，混凝土柱网，三层',
-      locale: 'zh',
-    });
-    expect(result?.key).toBe('concrete-frame');
-    expect(result?.mappedType).toBe('frame');
-    expect(result?.supportLevel).toBe('supported');
-  });
-
-  test('routes concrete grade with building and grid context to concrete-frame', () => {
-    const result = detectConcreteFrameStructuralType({
-      message: 'C30办公楼，柱网8m，三层',
-      locale: 'zh',
-    });
-    expect(result?.key).toBe('concrete-frame');
-    expect(result?.mappedType).toBe('frame');
-    expect(result?.supportLevel).toBe('supported');
-  });
-
-  test('does not route building and column-grid context without concrete evidence', () => {
-    const result = detectConcreteFrameStructuralType({
-      message: '办公楼，柱网8m，三层',
-      locale: 'zh',
-    });
-    expect(result).toBeNull();
-  });
-
-  test('detects frame with concrete grade and context', () => {
-    const result = detectConcreteFrameStructuralType({
-      message: 'C30混凝土框架，两层',
-      locale: 'zh',
-    });
-    expect(result?.supportLevel).toBe('supported');
-  });
-
-  test('does not apply current-state routing inside the skill handler', () => {
-    const result = detectConcreteFrameStructuralType({
-      message: '请分析这个结构',
-      locale: 'zh',
-      currentState: { structuralTypeKey: 'concrete-frame', supportLevel: 'supported' },
-    });
-    expect(result).toBeNull();
-  });
-
-  test('returns null when no concrete frame evidence', () => {
-    const result = detectConcreteFrameStructuralType({
-      message: '这是一个普通文本',
-      locale: 'zh',
-    });
-    expect(result).toBeNull();
   });
 });
 

@@ -1,42 +1,24 @@
 import { describe, expect, test } from '@jest/globals';
 import { AIMessage, ToolMessage } from '@langchain/core/messages';
+import { applyFinalAnswerPolicy } from '../../../dist/agent-langgraph/delivery/final-answer.js';
 
-describe('agent graph empty final response guard', () => {
-  test('replaces an empty final response after tool results', async () => {
-    const { buildEmptyFinalResponseFallback, shouldReplaceEmptyFinalResponse } = await import('../../../dist/agent-langgraph/delivery/final-answer.js');
-
-    const toolMessage = new ToolMessage({
-      name: 'memory',
-      tool_call_id: 'call-memory',
-      content: '{"success":true,"entries":[]}',
-    });
-    const emptyResponse = new AIMessage('');
-
-    expect(shouldReplaceEmptyFinalResponse(emptyResponse, [toolMessage])).toBe(true);
-    expect(buildEmptyFinalResponseFallback('zh', ['glob_files', 'memory'])).toContain('本轮工具已执行完成');
-    expect(buildEmptyFinalResponseFallback('zh', ['glob_files', 'memory'])).toContain('glob_files, memory');
+describe('agent graph empty final response failure', () => {
+  test.each(['en', 'zh'])('fails without inventing a response or changing saved tool results (%s)', locale => {
+    const analysisResult = { runId: 'saved-run', success: true };
+    const state = { locale, analysisResult };
+    for (const currentTurnMessages of [[], [new ToolMessage({ name: 'run_analysis', tool_call_id: 'analysis', content: '{"success":true}' })]]) {
+      expect(() => applyFinalAnswerPolicy({ response: new AIMessage('  '), hasToolCalls: false,
+        currentTurnMessages, state, log: { warn() {} } })).toThrow('LLM_EMPTY_RESPONSE:');
+      expect(state.analysisResult).toBe(analysisResult);
+    }
   });
 
-  test('keeps normal content and tool-call responses unchanged', async () => {
-    const { shouldReplaceEmptyFinalResponse } = await import('../../../dist/agent-langgraph/delivery/final-answer.js');
-    const toolMessage = new ToolMessage({
-      name: 'memory',
-      tool_call_id: 'call-memory',
-      content: '{}',
-    });
-
-    expect(shouldReplaceEmptyFinalResponse(new AIMessage('done'), [toolMessage])).toBe(false);
-    expect(shouldReplaceEmptyFinalResponse(new AIMessage(''), [])).toBe(false);
-
-    const responseWithToolCall = new AIMessage({
-      content: '',
-      tool_calls: [{
-        name: 'memory',
-        args: { action: 'list' },
-        id: 'call-memory',
-        type: 'tool_call',
-      }],
-    });
-    expect(shouldReplaceEmptyFinalResponse(responseWithToolCall, [toolMessage])).toBe(false);
+  test('keeps normal text and tool-call responses unchanged', () => {
+    for (const response of [new AIMessage('Done'), new AIMessage({ content: '', tool_calls: [
+      { name: 'memory', args: { action: 'list' }, id: 'memory', type: 'tool_call' },
+    ] })]) {
+      expect(applyFinalAnswerPolicy({ response, hasToolCalls: response.tool_calls.length > 0,
+        currentTurnMessages: [], state: { locale: 'en' }, log: { warn() {} } })).toBe(response);
+    }
   });
 });

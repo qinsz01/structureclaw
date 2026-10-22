@@ -1,8 +1,6 @@
 import { withDeclaredProperties } from './fixtures/declared-template-properties.mjs';
 import { describe, expect, it, test } from '@jest/globals';
 import {
-  buildUnknownStructuralType,
-  detectUnsupportedStructuralTypeByRules,
   buildInteractionQuestions,
 } from '../dist/agent-runtime/fallback.js';
 import { buildModel } from '../dist/agent-runtime/model-builder.js';
@@ -331,120 +329,6 @@ describe('normalizeFloorLoads', () => {
     expect(result).toHaveLength(2);
     expect(result[0].story).toBe(1);
     expect(result[1].story).toBe(2);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// buildUnknownStructuralType
-// ---------------------------------------------------------------------------
-describe('buildUnknownStructuralType', () => {
-  it('should return a StructuralTypeMatch with key "unknown" for English locale', () => {
-    const result = buildUnknownStructuralType('en');
-    expect(result.key).toBe('unknown');
-    expect(result.mappedType).toBe('unknown');
-    expect(result.supportLevel).toBe('unsupported');
-    expect(result.supportNote).toContain('I have not yet refined');
-  });
-
-  it('should return Chinese note for zh locale', () => {
-    const result = buildUnknownStructuralType('zh');
-    expect(result.supportNote).toContain('\u6211\u8FD8\u6CA1\u6709\u4ECE\u5F53\u524D\u63CF\u8FF0\u4E2D');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// detectUnsupportedStructuralTypeByRules
-// ---------------------------------------------------------------------------
-describe('detectUnsupportedStructuralTypeByRules', () => {
-  it('should detect "space frame" in English', () => {
-    const result = detectUnsupportedStructuralTypeByRules('I want a space frame structure', 'en');
-    expect(result).not.toBeNull();
-    expect(result.key).toBe('space-frame');
-    expect(result.supportLevel).toBe('unsupported');
-  });
-
-  it('should detect Chinese term for space frame', () => {
-    const result = detectUnsupportedStructuralTypeByRules('\u7F51\u67B6\u7ED3\u6784', 'zh');
-    expect(result).not.toBeNull();
-    expect(result.key).toBe('space-frame');
-  });
-
-  it('should detect "slab" keyword', () => {
-    const result = detectUnsupportedStructuralTypeByRules('I need a concrete slab', 'en');
-    expect(result).not.toBeNull();
-    expect(result.key).toBe('plate-slab');
-  });
-
-  it('should detect "plate" keyword', () => {
-    const result = detectUnsupportedStructuralTypeByRules('flat plate model', 'en');
-    expect(result).not.toBeNull();
-    expect(result.key).toBe('plate-slab');
-  });
-
-  it('should detect Chinese term for slab', () => {
-    const result = detectUnsupportedStructuralTypeByRules('\u697C\u677F\u8BBE\u8BA1', 'zh');
-    expect(result).not.toBeNull();
-    expect(result.key).toBe('plate-slab');
-  });
-
-  it('should detect Chinese character for plate/slab', () => {
-    const result = detectUnsupportedStructuralTypeByRules('\u677F\u7ED3\u6784', 'zh');
-    expect(result).not.toBeNull();
-    expect(result.key).toBe('plate-slab');
-  });
-
-  it('should detect "shell" keyword', () => {
-    const result = detectUnsupportedStructuralTypeByRules('thin shell structure', 'en');
-    expect(result).not.toBeNull();
-    expect(result.key).toBe('shell');
-  });
-
-  it('should detect Chinese term for shell', () => {
-    const result = detectUnsupportedStructuralTypeByRules('\u58F3\u4F53\u7ED3\u6784', 'zh');
-    expect(result).not.toBeNull();
-    expect(result.key).toBe('shell');
-  });
-
-  it('should detect "tower" keyword', () => {
-    const result = detectUnsupportedStructuralTypeByRules('transmission tower analysis', 'en');
-    expect(result).not.toBeNull();
-    expect(result.key).toBe('tower');
-  });
-
-  it('should detect Chinese term for tower', () => {
-    const result = detectUnsupportedStructuralTypeByRules('\u5854\u67B6\u8BBE\u8BA1', 'zh');
-    expect(result).not.toBeNull();
-    expect(result.key).toBe('tower');
-  });
-
-  it('should detect "bridge" keyword', () => {
-    const result = detectUnsupportedStructuralTypeByRules('cable-stayed bridge model', 'en');
-    expect(result).not.toBeNull();
-    expect(result.key).toBe('bridge');
-  });
-
-  it('should detect Chinese term for bridge', () => {
-    const result = detectUnsupportedStructuralTypeByRules('\u6865\u6881\u7ED3\u6784', 'zh');
-    expect(result).not.toBeNull();
-    expect(result.key).toBe('bridge');
-  });
-
-  it('should return null when no unsupported type is matched', () => {
-    expect(detectUnsupportedStructuralTypeByRules('simple beam analysis', 'en')).toBeNull();
-    expect(detectUnsupportedStructuralTypeByRules('\u7B80\u652F\u6881\u8BA1\u7B97', 'zh')).toBeNull();
-    expect(detectUnsupportedStructuralTypeByRules('', 'en')).toBeNull();
-  });
-
-  it('should be case-insensitive', () => {
-    const result = detectUnsupportedStructuralTypeByRules('Space Frame Structure', 'en');
-    expect(result).not.toBeNull();
-    expect(result.key).toBe('space-frame');
-  });
-
-  it('should prioritize space-frame before slab before shell before tower before bridge', () => {
-    // "space frame slab" contains both space frame and slab, but space frame should win
-    const result = detectUnsupportedStructuralTypeByRules('space frame slab', 'en');
-    expect(result.key).toBe('space-frame');
   });
 });
 

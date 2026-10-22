@@ -8,7 +8,6 @@ import {
   coerceFrameDimension,
 } from '../../../../../dist/agent-skills/structure-type/frame/extract-llm.js';
 import { mergeFrameState } from '../../../../../dist/agent-skills/structure-type/frame/merge.js';
-import { detectFrameStructuralType } from '../../../../../dist/agent-skills/structure-type/frame/detect.js';
 
 describe('frame canonicalize core contract', () => {
   test('promotes to 3d when y-direction evidence conflicts with llm 2d output', () => {
@@ -69,15 +68,6 @@ describe('frame canonicalize core contract', () => {
       { story: 1, verticalKN: 90, lateralXKN: 18, lateralYKN: 12 },
       { story: 2, verticalKN: 90, lateralXKN: 18, lateralYKN: 12 },
     ]);
-  });
-
-  test('does not claim explicit reinforced-concrete frame prompts', () => {
-    const result = detectFrameStructuralType({
-      message: '两层钢筋混凝土框架，X向2跨，Z向1跨',
-      locale: 'zh',
-    });
-
-    expect(result).toBeNull();
   });
 
   test('normalizes repeated story and bay scalars into canonical arrays', () => {
@@ -157,7 +147,7 @@ describe('frame canonicalize core contract', () => {
             bayWidthsM: [7],
           },
           loads: [
-            { kind: 'nodal', magnitude: 80, unit: 'kN', direction: 'gravity', target: 'floor' },
+            { kind: 'nodal', magnitude: 80, unit: 'kN', direction: 'gravity', target: 'all-stories' },
           ],
         },
       },
@@ -338,7 +328,7 @@ describe('frame canonicalize core contract', () => {
             bayWidthsM: [6],
           },
           loads: [
-            { kind: 'area', magnitude: 10, unit: 'kN/m2', direction: 'gravity' },
+            { kind: 'area', magnitude: 10, unit: 'kN/m2', direction: 'gravity', target: 'all-stories' },
           ],
         },
       },
@@ -422,7 +412,7 @@ describe('frame canonicalize core contract', () => {
             bayWidthsM: [5.4, 6],
           },
           loads: [
-            { kind: 'line', magnitude: 15, unit: 'kN/m', direction: 'gravity' },
+            { kind: 'line', magnitude: 15, unit: 'kN/m', direction: 'gravity', target: 'all-beams' },
           ],
         },
       },
@@ -460,6 +450,7 @@ describe('frame canonicalize core contract', () => {
               magnitude: 10,
               unit: 'kN/m',
               direction: 'gravity',
+              target: 'all-beams',
               caseId: 'D',
               caseType: 'dead',
             },
@@ -468,6 +459,7 @@ describe('frame canonicalize core contract', () => {
               magnitude: 8,
               unit: 'kN/m',
               direction: 'gravity',
+              target: 'all-beams',
               caseId: 'L',
               caseType: 'live',
             },
@@ -511,7 +503,7 @@ describe('frame canonicalize core contract', () => {
     ]);
   });
 
-  test('targets Chinese top-story frame line loads to top story beams', () => {
+  test('targets an explicit roof selector to top story beams', () => {
     const model = buildFrameModel(withDeclaredProperties({
       inferredType: 'frame',
       structuralTypeKey: 'steel-frame',
@@ -523,7 +515,7 @@ describe('frame canonicalize core contract', () => {
       engineeringDraft: {
         structureType: 'steel-frame',
         loads: [
-          { kind: 'line', magnitude: 12, unit: 'kN/m', direction: 'gravity', target: '顶层梁' },
+          { kind: 'line', magnitude: 12, unit: 'kN/m', direction: 'gravity', target: 'roof' },
         ],
       },
       frameBaseSupportType: 'fixed',
@@ -568,7 +560,7 @@ describe('frame canonicalize core contract', () => {
     ]);
   });
 
-  test('prefers structured story locations over textual load targets and array order', () => {
+  test('uses structured story locations without inferring from array order', () => {
     const model = buildFrameModel(withDeclaredProperties({
       inferredType: 'frame',
       structuralTypeKey: 'steel-frame',
@@ -580,7 +572,7 @@ describe('frame canonicalize core contract', () => {
       engineeringDraft: {
         structureType: 'steel-frame',
         loads: [
-          { kind: 'line', magnitude: 8, unit: 'kN/m', direction: 'gravity', target: 'top-story beam', location: { story: 1 } },
+          { kind: 'line', magnitude: 8, unit: 'kN/m', direction: 'gravity', target: 'beam', location: { story: 1 } },
           { kind: 'line', magnitude: 12, unit: 'kN/m', direction: 'gravity', location: { story: 3 } },
         ],
       },
@@ -747,7 +739,7 @@ describe('frame canonicalize core contract', () => {
       engineeringDraft: {
         structureType: 'steel-frame',
         loads: [
-          { kind: 'line', magnitude: 36, unit: 'kN/m', direction: 'gravity', target: 'roof-beam' },
+          { kind: 'line', magnitude: 36, unit: 'kN/m', direction: 'gravity', target: 'roof' },
           { kind: 'point', magnitude: 98, unit: 'kN', direction: 'gravity', location: { story: 1, nodeRole: 'right-side' } },
           { kind: 'point', magnitude: 10, unit: 'kN', direction: 'globalX', location: { story: 1, nodeRole: 'right-side' } },
         ],
@@ -781,7 +773,7 @@ describe('frame canonicalize core contract', () => {
             magnitude: 36,
             unit: 'kN/m',
             direction: 'gravity',
-            target: 'roof-beam',
+            target: 'roof',
             caseId: 'D',
             caseType: 'dead',
           },
@@ -821,8 +813,8 @@ describe('frame canonicalize core contract', () => {
     expect(model.load_combinations).toEqual([{ id: 'ULS', factors: { D: 1 } }]);
   });
 
-  test('does not treat member-end top wording as a top-story frame line target', () => {
-    const model = buildFrameModel(withDeclaredProperties({
+  test('rejects member-end prose instead of loading the roof or every story', () => {
+    expect(() => buildFrameModel(withDeclaredProperties({
       inferredType: 'frame',
       structuralTypeKey: 'steel-frame',
       frameDimension: '2d',
@@ -838,12 +830,7 @@ describe('frame canonicalize core contract', () => {
       },
       frameBaseSupportType: 'fixed',
       updatedAt: 0,
-    }));
-
-    const lineCase = model.load_cases.find((loadCase) => loadCase.id === 'LINE');
-    expect(lineCase).toBeDefined();
-    expect(lineCase.loads).toHaveLength(6);
-    expect(lineCase.loads.map((load) => load.story)).toEqual(['F1', 'F1', 'F2', 'F2', 'F3', 'F3']);
+    }))).toThrow('FRAME_LINE_TARGET_UNRESOLVED');
   });
 
   test('targets explicit-topology line loads to their named beam elements', () => {
@@ -896,7 +883,7 @@ describe('frame canonicalize core contract', () => {
     ]);
   });
 
-  test('targets Chinese x-axis frame line loads to x-direction beams in 3d', () => {
+  test('targets structured x-beam selectors to requested 3d stories', () => {
     const model = buildFrameModel(withDeclaredProperties({
       inferredType: 'frame',
       structuralTypeKey: 'steel-frame',
@@ -910,7 +897,8 @@ describe('frame canonicalize core contract', () => {
       engineeringDraft: {
         structureType: 'steel-frame',
         loads: [
-          { kind: 'line', magnitude: 8, unit: 'kN/m', direction: 'gravity', target: 'X轴梁' },
+          { kind: 'line', magnitude: 8, unit: 'kN/m', direction: 'gravity', target: 'x-beams', location: { story: 1 } },
+          { kind: 'line', magnitude: 8, unit: 'kN/m', direction: 'gravity', target: 'x-beams', location: { story: 2 } },
         ],
       },
       frameBaseSupportType: 'fixed',

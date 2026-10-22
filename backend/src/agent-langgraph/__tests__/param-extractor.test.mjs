@@ -21,6 +21,14 @@ const beamPlugin = {
 };
 
 describe("param extractor", () => {
+  test.each(['en', 'zh'])('missing LLM fails explicitly without rule extraction (%s)', async locale => {
+    const { invokeParamExtractor } = await import('../../../dist/agent-langgraph/param-extractor.js');
+    let validated = false;
+    await expect(invokeParamExtractor({ message: '简支梁跨度10m，C30，250×500mm，跨中1kN', locale,
+      plugin: beamPlugin, llm: null, validatePatch: async () => { validated = true; } }))
+      .rejects.toThrow('LLM_PARAM_EXTRACTOR_CONFIGURATION_ERROR');
+    expect(validated).toBe(false);
+  });
   test.each(['en', 'zh'])('rejects an invalid first extraction before persistence and repairs it using bounded feedback (%s)', async locale => {
     const { invokeParamExtractor } = await import('../../../dist/agent-langgraph/param-extractor.js');
     const { ingestGenericDraft } = await import('../../../dist/agent-runtime/draft/boundary.js');
@@ -45,8 +53,36 @@ describe("param extractor", () => {
     await expect(withRunContext(run, () => invokeParamExtractor({ locale: 'en', plugin: { ...beamPlugin, id: 'generic' },
       message: 'Preserve the original structure.', validatePatch: () => { throw new Error('MODEL_EDIT_FIELD_INVALID: invalid release'); },
       llm: { invoke: async () => { calls++; return { content: '{}' }; } } })))
-      .rejects.toThrow(repairs === 2 ? 'MODEL_EDIT_FIELD_INVALID' : 'RECOVERY_BUDGET_EXHAUSTED');
+      .rejects.toThrow(repairs === 2 ? 'LLM_PARAM_EXTRACTOR_INVALID_OUTPUT' : 'RECOVERY_BUDGET_EXHAUSTED');
     expect(calls).toBe(repairs + 1); expect(run.usage.recoveries).toBe(repairs);
+  });
+  test.each(['en', 'zh'])('exhausted real draft validation is terminal and preserves the accepted draft (%s)', async locale => {
+    const { invokeParamExtractor } = await import('../../../dist/agent-langgraph/param-extractor.js');
+    const { handler } = await import('../../../dist/agent-skills/structure-type/generic/handler.js');
+    const { semanticFailurePayload } = await import('../../../dist/agent-langgraph/tools/draft-helpers.js');
+    const state = { inferredType: 'unknown', updatedAt: 1, skillId: 'generic',
+      engineeringDraft: { geometry: { lengthM: 10 }, material: { family: 'concrete', grade: 'C30' } } };
+    const snapshot = structuredClone(state), prompts = [];
+    const invalid = { engineeringDraft: { geometry: { lengthM: 999 },
+      topology: { members: [{ id: 'AD', nodes: ['A', 'D'], type: 'truss', releases: { i: { unknownRotation: true } } }] } } };
+    let failure;
+    try {
+      await invokeParamExtractor({ locale, plugin: { ...beamPlugin, id: 'generic' }, existingState: state,
+        message: 'Keep the original geometry and release AD rotation.',
+        validatePatch: candidate => { handler.extractDraft({ locale, currentState: state, llmDraftPatch: candidate }); },
+        llm: { invoke: async prompt => { prompts.push(prompt); return { content: JSON.stringify(invalid) }; } },
+      });
+    } catch (error) { failure = error; }
+    expect(failure).toBeInstanceOf(Error);
+    expect(failure.message).toMatch(/^LLM_PARAM_EXTRACTOR_INVALID_OUTPUT:/);
+    expect(failure.message).toContain('MODEL_EDIT_FIELD_INVALID');
+    expect(failure.message).toContain('unknownRotation');
+    expect(prompts).toHaveLength(3);
+    expect(prompts[1]).toContain('unknownRotation');
+    expect(semanticFailurePayload(failure.message)).toMatchObject({
+      success: false, errorCode: 'LLM_PARAM_EXTRACTOR_INVALID_OUTPUT', canProceed: false, nextAction: 'report_internal_error',
+    });
+    expect(state).toEqual(snapshot);
   });
   test.each(['en', 'zh'])('clarification covers 3D geometry and every storey load (%s)', async locale => {
     const { invokeParamExtractor } = await import('../../../dist/agent-langgraph/param-extractor.js');
@@ -198,14 +234,14 @@ describe("param extractor", () => {
     const { invokeParamExtractor } = await import('../../../dist/agent-langgraph/param-extractor.js');
     const patch = { engineeringDraft: { geometry: { lengthM: 10 } }, requestScope: { responses: [] } };
     const result = await invokeParamExtractor({ message: '10m beam', locale: 'en', plugin: beamPlugin,
-      requireLlmResult: true, llm: { invoke: async () => ({ content: wrap(JSON.stringify(patch)) }) } });
+      llm: { invoke: async () => ({ content: wrap(JSON.stringify(patch)) }) } });
     expect(result).toEqual(patch);
   });
 
   test.each([undefined, null, [], [{ type: 'reasoning', reasoning: '{"geometry":{"lengthM":999}}' }]])('empty/non-text provider output has a controlled diagnostic (%j)', async content => {
     const { invokeParamExtractor } = await import('../../../dist/agent-langgraph/param-extractor.js');
     await expect(invokeParamExtractor({ message: '10m beam', locale: 'en', plugin: beamPlugin,
-      requireLlmResult: true, llm: { invoke: async () => ({ content }) } })).rejects.toThrow('LLM_PARAM_EXTRACTOR_INVALID_OUTPUT');
+      llm: { invoke: async () => ({ content }) } })).rejects.toThrow('LLM_PARAM_EXTRACTOR_INVALID_OUTPUT');
   });
 
   test('a density clarification preserves accepted elastic constants and reaches formal model validation', async () => {
@@ -271,7 +307,7 @@ describe("param extractor", () => {
     const before = structuredClone(state);
     let sentPrompt;
     const patch = await invokeParamExtractor({ message: 'rho=7850 kg/m3', existingState: state, locale, plugin: beamPlugin,
-      focusFields, requireLlmResult: true, llm: { invoke: async prompt => {
+      focusFields, llm: { invoke: async prompt => {
         sentPrompt = prompt;
         return { content: JSON.stringify({ engineeringDraft: { materials: [{ id: 'M', rho: 7850 }] } }) };
       } } });
@@ -288,7 +324,7 @@ describe("param extractor", () => {
     expect(state).toEqual(before);
   });
 
-  test("benchmark LLM-only mode rejects provider failures instead of using deterministic extraction", async () => {
+  test("extraction rejects provider failures instead of using deterministic extraction", async () => {
     const { invokeParamExtractor } = await import("../../../dist/agent-langgraph/param-extractor.js");
 
     await expect(invokeParamExtractor({
@@ -296,7 +332,6 @@ describe("param extractor", () => {
       existingState: undefined,
       locale: "en",
       plugin: beamPlugin,
-      requireLlmResult: true,
       llm: {
         invoke: async () => {
           throw new Error("terminated");
@@ -305,7 +340,7 @@ describe("param extractor", () => {
     })).rejects.toThrow("LLM_PARAM_EXTRACTOR_INFRASTRUCTURE_ERROR");
   });
 
-  test("benchmark LLM-only mode counts unusable extraction output as a model failure", async () => {
+  test("extraction counts unusable extraction output as a model failure", async () => {
     const { invokeParamExtractor } = await import("../../../dist/agent-langgraph/param-extractor.js");
 
     await expect(invokeParamExtractor({
@@ -313,7 +348,6 @@ describe("param extractor", () => {
       existingState: undefined,
       locale: "en",
       plugin: beamPlugin,
-      requireLlmResult: true,
       llm: {
         invoke: async () => ({ content: "I cannot provide JSON." }),
       },
@@ -328,7 +362,6 @@ describe("param extractor", () => {
       existingState: undefined,
       locale: "en",
       plugin: beamPlugin,
-      requireLlmResult: true,
       llm: {
         invoke: async () => ({
           content: '{"draftPatch":{"storyCount":3',

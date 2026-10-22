@@ -3,15 +3,6 @@ import { describe, expect, test } from '@jest/globals';
 import { handler } from '../../../../../dist/agent-skills/structure-type/portal-frame/handler.js';
 
 describe('portal-frame handler', () => {
-  test('detects portal-frame requests deterministically', () => {
-    const match = handler.detectStructuralType({
-      message: '门式刚架，跨度18m，高度6m',
-      locale: 'zh',
-    });
-
-    expect(match?.skillId).toBe('portal-frame');
-    expect(match?.mappedType).toBe('portal-frame');
-  });
 
   test('keeps portal-frame load-position guidance deterministic', () => {
     const [question] = handler.buildQuestions(
@@ -34,8 +25,8 @@ describe('portal-frame handler', () => {
           geometry: { spanLengthsM: [18, 18], heightM: 9 },
           loads: [
             { kind: 'line', magnitude: 6, unit: 'kN/m', direction: 'gravity', target: 'roof' },
-            { kind: 'point', magnitude: 49, unit: 'kN', direction: 'gravity', target: 'middle column top', location: { nodeRole: 'middle-column-top' } },
-            { kind: 'point', magnitude: 4.9, unit: 'kN', direction: 'globalX', target: 'middle column top', location: { nodeRole: 'middle-column-top' } },
+            { kind: 'point', magnitude: 49, unit: 'kN', direction: 'gravity', target: 'T1', location: { nodeRole: 'middle-column-top' } },
+            { kind: 'point', magnitude: 4.9, unit: 'kN', direction: 'globalX', target: 'T1', location: { nodeRole: 'middle-column-top' } },
           ],
         },
       },
@@ -98,8 +89,8 @@ describe('portal-frame handler', () => {
           structureType: 'portal-frame',
           geometry: { spanLengthsM: [18], heightM: 7, mezzanineHeightM: '', platform: { heightM: 3, lengthM: 6 } },
           loads: [
-            { kind: 'line', magnitude: 4, unit: 'kN/m', direction: 'gravity', target: '夹层梁' },
-            { kind: 'line', magnitude: 6, unit: 'kN/m', direction: 'gravity', target: '屋面' },
+            { kind: 'line', magnitude: 4, unit: 'kN/m', direction: 'gravity', target: 'mezzanine' },
+            { kind: 'line', magnitude: 6, unit: 'kN/m', direction: 'gravity', target: 'roof' },
           ],
         },
       },
@@ -132,7 +123,7 @@ describe('portal-frame handler', () => {
           geometry: { spanLengthsM: [18], heightM: 7, mezzanineHeightM: 3, mezzanineLengthM: 6 },
           loads: [
             { kind: 'line', magnitude: 6, unit: 'kN/m', direction: 'gravity', target: 'roof' },
-            { kind: 'point', magnitude: 12, unit: 'kN', direction: 'gravity', target: 'mezzanine' },
+            { kind: 'point', magnitude: 12, unit: 'kN', direction: 'gravity', target: 'M1' },
           ],
         },
       },
@@ -141,6 +132,7 @@ describe('portal-frame handler', () => {
     const model = handler.buildModel(withDeclaredProperties(state));
 
     expect(state.skillState?.mezzanineLoadKN).toBeUndefined();
+    expect(model.load_cases[0].loads).toContainEqual(expect.objectContaining({ node: 'M1', fz: -12 }));
     expect(model.load_cases[0].loads).toEqual(expect.arrayContaining([
       expect.objectContaining({ element: 'R0', wz: -6 }),
     ]));
@@ -149,8 +141,8 @@ describe('portal-frame handler', () => {
     ]));
   });
 
-  test('does not duplicate ambiguous roof mezzanine line loads', () => {
-    const patch = handler.extractDraft({
+  test('rejects ambiguous roof mezzanine line loads without discarding their magnitude', () => {
+    const input = {
       message: '',
       llmDraftPatch: {
         engineeringDraft: {
@@ -158,23 +150,14 @@ describe('portal-frame handler', () => {
           geometry: { spanLengthsM: [18], heightM: 7, mezzanineHeightM: 3, mezzanineLengthM: 6 },
           loads: [
             { kind: 'line', magnitude: 5, unit: 'kN/m', direction: 'gravity', target: '屋面夹层' },
-            { kind: 'line', magnitude: 6, unit: 'kN/m', direction: 'gravity', target: '屋面' },
+            { kind: 'line', magnitude: 6, unit: 'kN/m', direction: 'gravity', target: 'roof' },
           ],
         },
       },
-    });
-    const state = handler.mergeState(undefined, patch);
-    const model = handler.buildModel(withDeclaredProperties(state));
-
-    expect(state.loadKN).toBe(6);
-    expect(state.skillState?.roofLoadKNM).toBe(6);
-    expect(state.skillState?.mezzanineLoadKN).toBeUndefined();
-    expect(model.load_cases[0].loads).toEqual(expect.arrayContaining([
-      expect.objectContaining({ element: 'R0', wz: -6 }),
-    ]));
-    expect(model.load_cases[0].loads).not.toEqual(expect.arrayContaining([
-      expect.objectContaining({ element: 'MEZ1' }),
-    ]));
+    };
+    const snapshot = structuredClone(input);
+    expect(() => handler.extractDraft(input)).toThrow('MODEL_EDIT_FIELD_INVALID');
+    expect(input).toEqual(snapshot);
   });
 
   test('uses pinned restraints for pinned portal-frame bases', () => {

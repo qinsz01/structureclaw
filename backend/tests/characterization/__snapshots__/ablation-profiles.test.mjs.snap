@@ -28,8 +28,8 @@ exports[`characterization: ablation profiles profile full: offered tools, system
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 22798,
-  "systemPromptSha256": "7116853f23bb2563cc51fc79b9e0394adbe3d8e244b15ba936d24c3e3e170089",
+  "systemPromptChars": 23220,
+  "systemPromptSha256": "7962a7498a03251f479488680d1cb3db64befca6cd7c47ab258af81f916c079d",
 }
 `;
 
@@ -69,7 +69,7 @@ exports[`characterization: ablation profiles profile full: offered tools, system
 ## Behaviour Rules
 
 1. **Reason first**: Think about user intent and current state before calling a tool
-2. **Error recovery**: If a tool returns an error or "unknown", do NOT give up. Try other tools or use ask_user_clarification to ask the user
+2. **Errors**: Ask for missing inputs with ask_user_clarification; retry correctable arguments within the run policy. If an LLM is unconfigured, unavailable or still invalid after correction, report the failure and stop dependent steps; do not switch tools to bypass it
 3. **Safety boundary**: Only call tools enabled for the current session; do not claim access to persistent memory, workspace files, or shell unless those tools are enabled
 4. **Bilingual**: Communicate in English
 5. **Ask when unclear**: Ask only for inputs the result truly depends on and that cannot reasonably be determined; ask everything needed at once; resolve consistency, precision and format issues yourself and state what you did
@@ -150,7 +150,8 @@ Explicit user properties win. Dimensions alone use system-derived geometry prope
 Section evidence / 截面证据: Parsed attachment numbers are supplied input: mark extra.provenance.shape/properties="attachment"; extra.evidence may cite each numeric field, e.g. {"properties.A":{evidenceId:"file:...",path:"rows.0.1",unit:"m2"}}. The system verifies parser candidates; image values require a reviewed observation. For free-text acceptance of offered candidates, use extra.confirmation={clarificationId,candidateIds:[...]}, using ONLY the answered clarification receipt; confirmation covers exactly its stored values. For a stated ratio use extra.provenance.properties="rule" and extra.rules={"properties.Iy":{sourceSectionId:"B1",sourceField:"properties.Iy",factor:1.5,statement:"verbatim user rule"}}; the system recomputes from evidenced inputs. Never promote unconfirmed recall. / 附件解析数值属于输入，来源标 attachment，可逐字段引用解析证据ID与路径；图像必须已有复核观察记录。无数字的确认由语义理解后用 extra.confirmation 关联已回答的澄清ID和候选ID，仅确认原候选值。比例规则记录来源截面、字段、倍数及用户原文，系统用已证实输入重算；未确认记忆值不得进入求解。
 Interpret signed loads using the stated coordinate or direction convention. When it determines the direction, preserve signed canonical components, or use a nonnegative magnitude with the corresponding direction in magnitude/direction fields. Ask only when direction remains undetermined. / 按已声明的坐标或方向约定解释荷载正负号；方向已确定时保留规范分量的符号，或在大小/方向字段中使用非负大小与对应方向。仅在方向仍无法确定时追问。
 
-Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
+Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 system-triggered correction attempts; structured tool rejections do not count. A user answer resets the allowance. If internal retry is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
+When an LLM service or configuration is unavailable, or invalid output cannot be corrected, report the failure and stop dependent steps. Never substitute keyword rules, regexes, templates, other skills or solvers to claim success. Unselected alternatives cannot change confirmed inputs.
 
 Tools available for this invocation=["review_input","query_model","edit_model","undo_model","query_results","detect_structure_type","extract_draft_params","build_model","validate_model","run_analysis","run_code_check","generate_report","calculate","ask_user_clarification","set_session_config","memory","analyze_file","glob_files","grep_files","read_file","write_file","replace_in_file","move_path","delete_path"]. This is the current configuration. Historical statements about enabled or disabled tools applied at that time and do not override this turn. An empty list means no tools are currently available; otherwise use the available tools for the latest user request rather than claiming an old setting still disables them. Availability does not mean execution or success.
 
@@ -190,8 +191,8 @@ exports[`characterization: ablation profiles profile generic-only: offered tools
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 21481,
-  "systemPromptSha256": "87e46944380fcea405f49c53c6f45b33be20e348a6aec54989bd9db1430b6475",
+  "systemPromptChars": 21903,
+  "systemPromptSha256": "b522cd8425c7ba6a14d7a17eb4b2465c16e31b83ce44e2f239a8531e7bc37e2b",
 }
 `;
 
@@ -224,7 +225,7 @@ exports[`characterization: ablation profiles profile generic-only: offered tools
 ## Behaviour Rules
 
 1. **Reason first**: Think about user intent and current state before calling a tool
-2. **Error recovery**: If a tool returns an error or "unknown", do NOT give up. Try other tools or use ask_user_clarification to ask the user
+2. **Errors**: Ask for missing inputs with ask_user_clarification; retry correctable arguments within the run policy. If an LLM is unconfigured, unavailable or still invalid after correction, report the failure and stop dependent steps; do not switch tools to bypass it
 3. **Safety boundary**: Only call tools enabled for the current session; do not claim access to persistent memory, workspace files, or shell unless those tools are enabled
 4. **Bilingual**: Communicate in English
 5. **Ask when unclear**: Ask only for inputs the result truly depends on and that cannot reasonably be determined; ask everything needed at once; resolve consistency, precision and format issues yourself and state what you did
@@ -305,7 +306,8 @@ Explicit user properties win. Dimensions alone use system-derived geometry prope
 Section evidence / 截面证据: Parsed attachment numbers are supplied input: mark extra.provenance.shape/properties="attachment"; extra.evidence may cite each numeric field, e.g. {"properties.A":{evidenceId:"file:...",path:"rows.0.1",unit:"m2"}}. The system verifies parser candidates; image values require a reviewed observation. For free-text acceptance of offered candidates, use extra.confirmation={clarificationId,candidateIds:[...]}, using ONLY the answered clarification receipt; confirmation covers exactly its stored values. For a stated ratio use extra.provenance.properties="rule" and extra.rules={"properties.Iy":{sourceSectionId:"B1",sourceField:"properties.Iy",factor:1.5,statement:"verbatim user rule"}}; the system recomputes from evidenced inputs. Never promote unconfirmed recall. / 附件解析数值属于输入，来源标 attachment，可逐字段引用解析证据ID与路径；图像必须已有复核观察记录。无数字的确认由语义理解后用 extra.confirmation 关联已回答的澄清ID和候选ID，仅确认原候选值。比例规则记录来源截面、字段、倍数及用户原文，系统用已证实输入重算；未确认记忆值不得进入求解。
 Interpret signed loads using the stated coordinate or direction convention. When it determines the direction, preserve signed canonical components, or use a nonnegative magnitude with the corresponding direction in magnitude/direction fields. Ask only when direction remains undetermined. / 按已声明的坐标或方向约定解释荷载正负号；方向已确定时保留规范分量的符号，或在大小/方向字段中使用非负大小与对应方向。仅在方向仍无法确定时追问。
 
-Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
+Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 system-triggered correction attempts; structured tool rejections do not count. A user answer resets the allowance. If internal retry is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
+When an LLM service or configuration is unavailable, or invalid output cannot be corrected, report the failure and stop dependent steps. Never substitute keyword rules, regexes, templates, other skills or solvers to claim success. Unselected alternatives cannot change confirmed inputs.
 
 Tools available for this invocation=["review_input","query_model","edit_model","undo_model","query_results","detect_structure_type","extract_draft_params","build_model","validate_model","run_analysis","run_code_check","generate_report","calculate","ask_user_clarification","set_session_config","memory","analyze_file","glob_files","grep_files","read_file","write_file","replace_in_file","move_path","delete_path"]. This is the current configuration. Historical statements about enabled or disabled tools applied at that time and do not override this turn. An empty list means no tools are currently available; otherwise use the available tools for the latest user request rather than claiming an old setting still disables them. Availability does not mean execution or success.
 
@@ -344,8 +346,8 @@ exports[`characterization: ablation profiles profile no-clarification: offered t
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 22651,
-  "systemPromptSha256": "93336a76b58725aca19b8520207b4f2094ea1616c4fc7aa99618814f55f3ca9b",
+  "systemPromptChars": 23059,
+  "systemPromptSha256": "f9f59494794f48ff2a753593939d470a388e29e6ef40e30c491edae93eecaa2e",
 }
 `;
 
@@ -385,7 +387,7 @@ exports[`characterization: ablation profiles profile no-clarification: offered t
 ## Behaviour Rules
 
 1. **Reason first**: Think about user intent and current state before calling a tool
-2. **Error recovery**: If a tool returns an error or "unknown", do NOT give up. Try other tools, or list the missing inputs in your final reply
+2. **Errors**: List missing inputs in the final reply; retry correctable arguments within the run policy. If an LLM is unconfigured, unavailable or still invalid after correction, report the failure and stop dependent steps; do not switch tools to bypass it
 3. **Safety boundary**: Only call tools enabled for the current session; do not claim access to persistent memory, workspace files, or shell unless those tools are enabled
 4. **Bilingual**: Communicate in English
 5. **Missing inputs**: When critical parameters are missing, list the missing inputs in your final reply and end the turn; never invent values
@@ -466,7 +468,8 @@ Explicit user properties win. Dimensions alone use system-derived geometry prope
 Section evidence / 截面证据: Parsed attachment numbers are supplied input: mark extra.provenance.shape/properties="attachment"; extra.evidence may cite each numeric field, e.g. {"properties.A":{evidenceId:"file:...",path:"rows.0.1",unit:"m2"}}. The system verifies parser candidates; image values require a reviewed observation. For free-text acceptance of offered candidates, use extra.confirmation={clarificationId,candidateIds:[...]}, using ONLY the answered clarification receipt; confirmation covers exactly its stored values. For a stated ratio use extra.provenance.properties="rule" and extra.rules={"properties.Iy":{sourceSectionId:"B1",sourceField:"properties.Iy",factor:1.5,statement:"verbatim user rule"}}; the system recomputes from evidenced inputs. Never promote unconfirmed recall. / 附件解析数值属于输入，来源标 attachment，可逐字段引用解析证据ID与路径；图像必须已有复核观察记录。无数字的确认由语义理解后用 extra.confirmation 关联已回答的澄清ID和候选ID，仅确认原候选值。比例规则记录来源截面、字段、倍数及用户原文，系统用已证实输入重算；未确认记忆值不得进入求解。
 Interpret signed loads using the stated coordinate or direction convention. When it determines the direction, preserve signed canonical components, or use a nonnegative magnitude with the corresponding direction in magnitude/direction fields. Ask only when direction remains undetermined. / 按已声明的坐标或方向约定解释荷载正负号；方向已确定时保留规范分量的符号，或在大小/方向字段中使用非负大小与对应方向。仅在方向仍无法确定时追问。
 
-Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
+Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 system-triggered correction attempts; structured tool rejections do not count. A user answer resets the allowance. If internal retry is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
+When an LLM service or configuration is unavailable, or invalid output cannot be corrected, report the failure and stop dependent steps. Never substitute keyword rules, regexes, templates, other skills or solvers to claim success. Unselected alternatives cannot change confirmed inputs.
 
 Tools available for this invocation=["review_input","query_model","edit_model","undo_model","query_results","detect_structure_type","extract_draft_params","build_model","validate_model","run_analysis","run_code_check","generate_report","calculate","set_session_config","memory","analyze_file","glob_files","grep_files","read_file","write_file","replace_in_file","move_path","delete_path"]. This is the current configuration. Historical statements about enabled or disabled tools applied at that time and do not override this turn. An empty list means no tools are currently available; otherwise use the available tools for the latest user request rather than claiming an old setting still disables them. Availability does not mean execution or success.
 
@@ -506,8 +509,8 @@ exports[`characterization: ablation profiles profile no-evidence-binding: offere
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 22798,
-  "systemPromptSha256": "7116853f23bb2563cc51fc79b9e0394adbe3d8e244b15ba936d24c3e3e170089",
+  "systemPromptChars": 23220,
+  "systemPromptSha256": "7962a7498a03251f479488680d1cb3db64befca6cd7c47ab258af81f916c079d",
 }
 `;
 
@@ -547,7 +550,7 @@ exports[`characterization: ablation profiles profile no-evidence-binding: offere
 ## Behaviour Rules
 
 1. **Reason first**: Think about user intent and current state before calling a tool
-2. **Error recovery**: If a tool returns an error or "unknown", do NOT give up. Try other tools or use ask_user_clarification to ask the user
+2. **Errors**: Ask for missing inputs with ask_user_clarification; retry correctable arguments within the run policy. If an LLM is unconfigured, unavailable or still invalid after correction, report the failure and stop dependent steps; do not switch tools to bypass it
 3. **Safety boundary**: Only call tools enabled for the current session; do not claim access to persistent memory, workspace files, or shell unless those tools are enabled
 4. **Bilingual**: Communicate in English
 5. **Ask when unclear**: Ask only for inputs the result truly depends on and that cannot reasonably be determined; ask everything needed at once; resolve consistency, precision and format issues yourself and state what you did
@@ -628,7 +631,8 @@ Explicit user properties win. Dimensions alone use system-derived geometry prope
 Section evidence / 截面证据: Parsed attachment numbers are supplied input: mark extra.provenance.shape/properties="attachment"; extra.evidence may cite each numeric field, e.g. {"properties.A":{evidenceId:"file:...",path:"rows.0.1",unit:"m2"}}. The system verifies parser candidates; image values require a reviewed observation. For free-text acceptance of offered candidates, use extra.confirmation={clarificationId,candidateIds:[...]}, using ONLY the answered clarification receipt; confirmation covers exactly its stored values. For a stated ratio use extra.provenance.properties="rule" and extra.rules={"properties.Iy":{sourceSectionId:"B1",sourceField:"properties.Iy",factor:1.5,statement:"verbatim user rule"}}; the system recomputes from evidenced inputs. Never promote unconfirmed recall. / 附件解析数值属于输入，来源标 attachment，可逐字段引用解析证据ID与路径；图像必须已有复核观察记录。无数字的确认由语义理解后用 extra.confirmation 关联已回答的澄清ID和候选ID，仅确认原候选值。比例规则记录来源截面、字段、倍数及用户原文，系统用已证实输入重算；未确认记忆值不得进入求解。
 Interpret signed loads using the stated coordinate or direction convention. When it determines the direction, preserve signed canonical components, or use a nonnegative magnitude with the corresponding direction in magnitude/direction fields. Ask only when direction remains undetermined. / 按已声明的坐标或方向约定解释荷载正负号；方向已确定时保留规范分量的符号，或在大小/方向字段中使用非负大小与对应方向。仅在方向仍无法确定时追问。
 
-Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
+Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 system-triggered correction attempts; structured tool rejections do not count. A user answer resets the allowance. If internal retry is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
+When an LLM service or configuration is unavailable, or invalid output cannot be corrected, report the failure and stop dependent steps. Never substitute keyword rules, regexes, templates, other skills or solvers to claim success. Unselected alternatives cannot change confirmed inputs.
 
 Tools available for this invocation=["review_input","query_model","edit_model","undo_model","query_results","detect_structure_type","extract_draft_params","build_model","validate_model","run_analysis","run_code_check","generate_report","calculate","ask_user_clarification","set_session_config","memory","analyze_file","glob_files","grep_files","read_file","write_file","replace_in_file","move_path","delete_path"]. This is the current configuration. Historical statements about enabled or disabled tools applied at that time and do not override this turn. An empty list means no tools are currently available; otherwise use the available tools for the latest user request rather than claiming an old setting still disables them. Availability does not mean execution or success.
 
@@ -668,8 +672,8 @@ exports[`characterization: ablation profiles profile no-knowledge: offered tools
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 20466,
-  "systemPromptSha256": "d80d3737a9d6072f7bc26652d125c0b70161e7adeaded0a102c9c4f664026453",
+  "systemPromptChars": 20888,
+  "systemPromptSha256": "7a450b9e1b8a9f834041b470dd1d9c8c35e4ace9e4686bbf66f5c07c3e99f1e8",
 }
 `;
 
@@ -709,7 +713,7 @@ exports[`characterization: ablation profiles profile no-knowledge: offered tools
 ## Behaviour Rules
 
 1. **Reason first**: Think about user intent and current state before calling a tool
-2. **Error recovery**: If a tool returns an error or "unknown", do NOT give up. Try other tools or use ask_user_clarification to ask the user
+2. **Errors**: Ask for missing inputs with ask_user_clarification; retry correctable arguments within the run policy. If an LLM is unconfigured, unavailable or still invalid after correction, report the failure and stop dependent steps; do not switch tools to bypass it
 3. **Safety boundary**: Only call tools enabled for the current session; do not claim access to persistent memory, workspace files, or shell unless those tools are enabled
 4. **Bilingual**: Communicate in English
 5. **Ask when unclear**: Ask only for inputs the result truly depends on and that cannot reasonably be determined; ask everything needed at once; resolve consistency, precision and format issues yourself and state what you did
@@ -787,7 +791,8 @@ Explicit user properties win. Dimensions alone use system-derived geometry prope
 Section evidence / 截面证据: Parsed attachment numbers are supplied input: mark extra.provenance.shape/properties="attachment"; extra.evidence may cite each numeric field, e.g. {"properties.A":{evidenceId:"file:...",path:"rows.0.1",unit:"m2"}}. The system verifies parser candidates; image values require a reviewed observation. For free-text acceptance of offered candidates, use extra.confirmation={clarificationId,candidateIds:[...]}, using ONLY the answered clarification receipt; confirmation covers exactly its stored values. For a stated ratio use extra.provenance.properties="rule" and extra.rules={"properties.Iy":{sourceSectionId:"B1",sourceField:"properties.Iy",factor:1.5,statement:"verbatim user rule"}}; the system recomputes from evidenced inputs. Never promote unconfirmed recall. / 附件解析数值属于输入，来源标 attachment，可逐字段引用解析证据ID与路径；图像必须已有复核观察记录。无数字的确认由语义理解后用 extra.confirmation 关联已回答的澄清ID和候选ID，仅确认原候选值。比例规则记录来源截面、字段、倍数及用户原文，系统用已证实输入重算；未确认记忆值不得进入求解。
 Interpret signed loads using the stated coordinate or direction convention. When it determines the direction, preserve signed canonical components, or use a nonnegative magnitude with the corresponding direction in magnitude/direction fields. Ask only when direction remains undetermined. / 按已声明的坐标或方向约定解释荷载正负号；方向已确定时保留规范分量的符号，或在大小/方向字段中使用非负大小与对应方向。仅在方向仍无法确定时追问。
 
-Run constraints: guidance=disabled; builder=auto; recovery=true, maximum 2 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
+Run constraints: guidance=disabled; builder=auto; recovery=true, maximum 2 system-triggered correction attempts; structured tool rejections do not count. A user answer resets the allowance. If internal retry is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
+When an LLM service or configuration is unavailable, or invalid output cannot be corrected, report the failure and stop dependent steps. Never substitute keyword rules, regexes, templates, other skills or solvers to claim success. Unselected alternatives cannot change confirmed inputs.
 
 Tools available for this invocation=["review_input","query_model","edit_model","undo_model","query_results","detect_structure_type","extract_draft_params","build_model","validate_model","run_analysis","run_code_check","generate_report","calculate","ask_user_clarification","set_session_config","memory","analyze_file","glob_files","grep_files","read_file","write_file","replace_in_file","move_path","delete_path"]. This is the current configuration. Historical statements about enabled or disabled tools applied at that time and do not override this turn. An empty list means no tools are currently available; otherwise use the available tools for the latest user request rather than claiming an old setting still disables them. Availability does not mean execution or success.
 
@@ -827,8 +832,8 @@ exports[`characterization: ablation profiles profile no-repair: offered tools, s
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 22847,
-  "systemPromptSha256": "9a34d79090c2e0312eb5a057fcf6ae0c264b599da4ef09501c57a91cc1b2823e",
+  "systemPromptChars": 23141,
+  "systemPromptSha256": "bcf0ded51cd69e7cc0e14e725db0bca76b64778354a0991ad013ede07be80c12",
 }
 `;
 
@@ -949,7 +954,8 @@ Explicit user properties win. Dimensions alone use system-derived geometry prope
 Section evidence / 截面证据: Parsed attachment numbers are supplied input: mark extra.provenance.shape/properties="attachment"; extra.evidence may cite each numeric field, e.g. {"properties.A":{evidenceId:"file:...",path:"rows.0.1",unit:"m2"}}. The system verifies parser candidates; image values require a reviewed observation. For free-text acceptance of offered candidates, use extra.confirmation={clarificationId,candidateIds:[...]}, using ONLY the answered clarification receipt; confirmation covers exactly its stored values. For a stated ratio use extra.provenance.properties="rule" and extra.rules={"properties.Iy":{sourceSectionId:"B1",sourceField:"properties.Iy",factor:1.5,statement:"verbatim user rule"}}; the system recomputes from evidenced inputs. Never promote unconfirmed recall. / 附件解析数值属于输入，来源标 attachment，可逐字段引用解析证据ID与路径；图像必须已有复核观察记录。无数字的确认由语义理解后用 extra.confirmation 关联已回答的澄清ID和候选ID，仅确认原候选值。比例规则记录来源截面、字段、倍数及用户原文，系统用已证实输入重算；未确认记忆值不得进入求解。
 Interpret signed loads using the stated coordinate or direction convention. When it determines the direction, preserve signed canonical components, or use a nonnegative magnitude with the corresponding direction in magnitude/direction fields. Ask only when direction remains undetermined. / 按已声明的坐标或方向约定解释荷载正负号；方向已确定时保留规范分量的符号，或在大小/方向字段中使用非负大小与对应方向。仅在方向仍无法确定时追问。
 
-Run constraints: guidance=enabled; builder=auto; recovery=false, maximum 0 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
+Run constraints: guidance=enabled; builder=auto; recovery=false, maximum 0 system-triggered correction attempts; structured tool rejections do not count. A user answer resets the allowance. If internal retry is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
+When an LLM service or configuration is unavailable, or invalid output cannot be corrected, report the failure and stop dependent steps. Never substitute keyword rules, regexes, templates, other skills or solvers to claim success. Unselected alternatives cannot change confirmed inputs.
 
 Tools available for this invocation=["review_input","query_model","edit_model","undo_model","query_results","detect_structure_type","extract_draft_params","build_model","validate_model","run_analysis","run_code_check","generate_report","calculate","ask_user_clarification","set_session_config","memory","analyze_file","glob_files","grep_files","read_file","write_file","replace_in_file","move_path","delete_path"]. This is the current configuration. Historical statements about enabled or disabled tools applied at that time and do not override this turn. An empty list means no tools are currently available; otherwise use the available tools for the latest user request rather than claiming an old setting still disables them. Availability does not mean execution or success.
 
@@ -989,8 +995,8 @@ exports[`characterization: ablation profiles profile no-routing: offered tools, 
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 22798,
-  "systemPromptSha256": "7116853f23bb2563cc51fc79b9e0394adbe3d8e244b15ba936d24c3e3e170089",
+  "systemPromptChars": 23220,
+  "systemPromptSha256": "7962a7498a03251f479488680d1cb3db64befca6cd7c47ab258af81f916c079d",
 }
 `;
 
@@ -1030,7 +1036,7 @@ exports[`characterization: ablation profiles profile no-routing: offered tools, 
 ## Behaviour Rules
 
 1. **Reason first**: Think about user intent and current state before calling a tool
-2. **Error recovery**: If a tool returns an error or "unknown", do NOT give up. Try other tools or use ask_user_clarification to ask the user
+2. **Errors**: Ask for missing inputs with ask_user_clarification; retry correctable arguments within the run policy. If an LLM is unconfigured, unavailable or still invalid after correction, report the failure and stop dependent steps; do not switch tools to bypass it
 3. **Safety boundary**: Only call tools enabled for the current session; do not claim access to persistent memory, workspace files, or shell unless those tools are enabled
 4. **Bilingual**: Communicate in English
 5. **Ask when unclear**: Ask only for inputs the result truly depends on and that cannot reasonably be determined; ask everything needed at once; resolve consistency, precision and format issues yourself and state what you did
@@ -1111,7 +1117,8 @@ Explicit user properties win. Dimensions alone use system-derived geometry prope
 Section evidence / 截面证据: Parsed attachment numbers are supplied input: mark extra.provenance.shape/properties="attachment"; extra.evidence may cite each numeric field, e.g. {"properties.A":{evidenceId:"file:...",path:"rows.0.1",unit:"m2"}}. The system verifies parser candidates; image values require a reviewed observation. For free-text acceptance of offered candidates, use extra.confirmation={clarificationId,candidateIds:[...]}, using ONLY the answered clarification receipt; confirmation covers exactly its stored values. For a stated ratio use extra.provenance.properties="rule" and extra.rules={"properties.Iy":{sourceSectionId:"B1",sourceField:"properties.Iy",factor:1.5,statement:"verbatim user rule"}}; the system recomputes from evidenced inputs. Never promote unconfirmed recall. / 附件解析数值属于输入，来源标 attachment，可逐字段引用解析证据ID与路径；图像必须已有复核观察记录。无数字的确认由语义理解后用 extra.confirmation 关联已回答的澄清ID和候选ID，仅确认原候选值。比例规则记录来源截面、字段、倍数及用户原文，系统用已证实输入重算；未确认记忆值不得进入求解。
 Interpret signed loads using the stated coordinate or direction convention. When it determines the direction, preserve signed canonical components, or use a nonnegative magnitude with the corresponding direction in magnitude/direction fields. Ask only when direction remains undetermined. / 按已声明的坐标或方向约定解释荷载正负号；方向已确定时保留规范分量的符号，或在大小/方向字段中使用非负大小与对应方向。仅在方向仍无法确定时追问。
 
-Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
+Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 system-triggered correction attempts; structured tool rejections do not count. A user answer resets the allowance. If internal retry is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
+When an LLM service or configuration is unavailable, or invalid output cannot be corrected, report the failure and stop dependent steps. Never substitute keyword rules, regexes, templates, other skills or solvers to claim success. Unselected alternatives cannot change confirmed inputs.
 
 Tools available for this invocation=["review_input","query_model","edit_model","undo_model","query_results","detect_structure_type","extract_draft_params","build_model","validate_model","run_analysis","run_code_check","generate_report","calculate","ask_user_clarification","set_session_config","memory","analyze_file","glob_files","grep_files","read_file","write_file","replace_in_file","move_path","delete_path"]. This is the current configuration. Historical statements about enabled or disabled tools applied at that time and do not override this turn. An empty list means no tools are currently available; otherwise use the available tools for the latest user request rather than claiming an old setting still disables them. Availability does not mean execution or success.
 
@@ -1151,8 +1158,8 @@ exports[`characterization: ablation profiles profile no-state-versioning: offere
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 22798,
-  "systemPromptSha256": "7116853f23bb2563cc51fc79b9e0394adbe3d8e244b15ba936d24c3e3e170089",
+  "systemPromptChars": 23220,
+  "systemPromptSha256": "7962a7498a03251f479488680d1cb3db64befca6cd7c47ab258af81f916c079d",
 }
 `;
 
@@ -1192,7 +1199,7 @@ exports[`characterization: ablation profiles profile no-state-versioning: offere
 ## Behaviour Rules
 
 1. **Reason first**: Think about user intent and current state before calling a tool
-2. **Error recovery**: If a tool returns an error or "unknown", do NOT give up. Try other tools or use ask_user_clarification to ask the user
+2. **Errors**: Ask for missing inputs with ask_user_clarification; retry correctable arguments within the run policy. If an LLM is unconfigured, unavailable or still invalid after correction, report the failure and stop dependent steps; do not switch tools to bypass it
 3. **Safety boundary**: Only call tools enabled for the current session; do not claim access to persistent memory, workspace files, or shell unless those tools are enabled
 4. **Bilingual**: Communicate in English
 5. **Ask when unclear**: Ask only for inputs the result truly depends on and that cannot reasonably be determined; ask everything needed at once; resolve consistency, precision and format issues yourself and state what you did
@@ -1273,7 +1280,8 @@ Explicit user properties win. Dimensions alone use system-derived geometry prope
 Section evidence / 截面证据: Parsed attachment numbers are supplied input: mark extra.provenance.shape/properties="attachment"; extra.evidence may cite each numeric field, e.g. {"properties.A":{evidenceId:"file:...",path:"rows.0.1",unit:"m2"}}. The system verifies parser candidates; image values require a reviewed observation. For free-text acceptance of offered candidates, use extra.confirmation={clarificationId,candidateIds:[...]}, using ONLY the answered clarification receipt; confirmation covers exactly its stored values. For a stated ratio use extra.provenance.properties="rule" and extra.rules={"properties.Iy":{sourceSectionId:"B1",sourceField:"properties.Iy",factor:1.5,statement:"verbatim user rule"}}; the system recomputes from evidenced inputs. Never promote unconfirmed recall. / 附件解析数值属于输入，来源标 attachment，可逐字段引用解析证据ID与路径；图像必须已有复核观察记录。无数字的确认由语义理解后用 extra.confirmation 关联已回答的澄清ID和候选ID，仅确认原候选值。比例规则记录来源截面、字段、倍数及用户原文，系统用已证实输入重算；未确认记忆值不得进入求解。
 Interpret signed loads using the stated coordinate or direction convention. When it determines the direction, preserve signed canonical components, or use a nonnegative magnitude with the corresponding direction in magnitude/direction fields. Ask only when direction remains undetermined. / 按已声明的坐标或方向约定解释荷载正负号；方向已确定时保留规范分量的符号，或在大小/方向字段中使用非负大小与对应方向。仅在方向仍无法确定时追问。
 
-Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
+Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 system-triggered correction attempts; structured tool rejections do not count. A user answer resets the allowance. If internal retry is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
+When an LLM service or configuration is unavailable, or invalid output cannot be corrected, report the failure and stop dependent steps. Never substitute keyword rules, regexes, templates, other skills or solvers to claim success. Unselected alternatives cannot change confirmed inputs.
 
 Tools available for this invocation=["review_input","query_model","edit_model","undo_model","query_results","detect_structure_type","extract_draft_params","build_model","validate_model","run_analysis","run_code_check","generate_report","calculate","ask_user_clarification","set_session_config","memory","analyze_file","glob_files","grep_files","read_file","write_file","replace_in_file","move_path","delete_path"]. This is the current configuration. Historical statements about enabled or disabled tools applied at that time and do not override this turn. An empty list means no tools are currently available; otherwise use the available tools for the latest user request rather than claiming an old setting still disables them. Availability does not mean execution or success.
 
@@ -1313,8 +1321,8 @@ exports[`characterization: ablation profiles profile no-template-builder: offere
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 22797,
-  "systemPromptSha256": "0d8e73c7d8b7385317adfc4fe632e56b3ff2ad36c1bcbfe269bfa904a4f1c6b0",
+  "systemPromptChars": 23219,
+  "systemPromptSha256": "264039478c318ad389f2b4fa27b0f286ada02dc20ecdb3970d94ca23cae81856",
 }
 `;
 
@@ -1354,7 +1362,7 @@ exports[`characterization: ablation profiles profile no-template-builder: offere
 ## Behaviour Rules
 
 1. **Reason first**: Think about user intent and current state before calling a tool
-2. **Error recovery**: If a tool returns an error or "unknown", do NOT give up. Try other tools or use ask_user_clarification to ask the user
+2. **Errors**: Ask for missing inputs with ask_user_clarification; retry correctable arguments within the run policy. If an LLM is unconfigured, unavailable or still invalid after correction, report the failure and stop dependent steps; do not switch tools to bypass it
 3. **Safety boundary**: Only call tools enabled for the current session; do not claim access to persistent memory, workspace files, or shell unless those tools are enabled
 4. **Bilingual**: Communicate in English
 5. **Ask when unclear**: Ask only for inputs the result truly depends on and that cannot reasonably be determined; ask everything needed at once; resolve consistency, precision and format issues yourself and state what you did
@@ -1435,7 +1443,8 @@ Explicit user properties win. Dimensions alone use system-derived geometry prope
 Section evidence / 截面证据: Parsed attachment numbers are supplied input: mark extra.provenance.shape/properties="attachment"; extra.evidence may cite each numeric field, e.g. {"properties.A":{evidenceId:"file:...",path:"rows.0.1",unit:"m2"}}. The system verifies parser candidates; image values require a reviewed observation. For free-text acceptance of offered candidates, use extra.confirmation={clarificationId,candidateIds:[...]}, using ONLY the answered clarification receipt; confirmation covers exactly its stored values. For a stated ratio use extra.provenance.properties="rule" and extra.rules={"properties.Iy":{sourceSectionId:"B1",sourceField:"properties.Iy",factor:1.5,statement:"verbatim user rule"}}; the system recomputes from evidenced inputs. Never promote unconfirmed recall. / 附件解析数值属于输入，来源标 attachment，可逐字段引用解析证据ID与路径；图像必须已有复核观察记录。无数字的确认由语义理解后用 extra.confirmation 关联已回答的澄清ID和候选ID，仅确认原候选值。比例规则记录来源截面、字段、倍数及用户原文，系统用已证实输入重算；未确认记忆值不得进入求解。
 Interpret signed loads using the stated coordinate or direction convention. When it determines the direction, preserve signed canonical components, or use a nonnegative magnitude with the corresponding direction in magnitude/direction fields. Ask only when direction remains undetermined. / 按已声明的坐标或方向约定解释荷载正负号；方向已确定时保留规范分量的符号，或在大小/方向字段中使用非负大小与对应方向。仅在方向仍无法确定时追问。
 
-Run constraints: guidance=enabled; builder=llm; recovery=true, maximum 2 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
+Run constraints: guidance=enabled; builder=llm; recovery=true, maximum 2 system-triggered correction attempts; structured tool rejections do not count. A user answer resets the allowance. If internal retry is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
+When an LLM service or configuration is unavailable, or invalid output cannot be corrected, report the failure and stop dependent steps. Never substitute keyword rules, regexes, templates, other skills or solvers to claim success. Unselected alternatives cannot change confirmed inputs.
 
 Tools available for this invocation=["review_input","query_model","edit_model","undo_model","query_results","detect_structure_type","extract_draft_params","build_model","validate_model","run_analysis","run_code_check","generate_report","calculate","ask_user_clarification","set_session_config","memory","analyze_file","glob_files","grep_files","read_file","write_file","replace_in_file","move_path","delete_path"]. This is the current configuration. Historical statements about enabled or disabled tools applied at that time and do not override this turn. An empty list means no tools are currently available; otherwise use the available tools for the latest user request rather than claiming an old setting still disables them. Availability does not mean execution or success.
 
@@ -1474,8 +1483,8 @@ exports[`characterization: ablation profiles profile no-validation-gate: offered
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 22884,
-  "systemPromptSha256": "6f1902b0bcf5137fa84b15e8f67c6f3a9e55c9dd976316bcd9ab3a18b4a55db9",
+  "systemPromptChars": 23306,
+  "systemPromptSha256": "88aed8ea6297ea47db05f72f5db4d87bb5108d9dd8219c1d10cfe443d9192a1c",
 }
 `;
 
@@ -1515,7 +1524,7 @@ exports[`characterization: ablation profiles profile no-validation-gate: offered
 ## Behaviour Rules
 
 1. **Reason first**: Think about user intent and current state before calling a tool
-2. **Error recovery**: If a tool returns an error or "unknown", do NOT give up. Try other tools or use ask_user_clarification to ask the user
+2. **Errors**: Ask for missing inputs with ask_user_clarification; retry correctable arguments within the run policy. If an LLM is unconfigured, unavailable or still invalid after correction, report the failure and stop dependent steps; do not switch tools to bypass it
 3. **Safety boundary**: Only call tools enabled for the current session; do not claim access to persistent memory, workspace files, or shell unless those tools are enabled
 4. **Bilingual**: Communicate in English
 5. **Ask when unclear**: Ask only for inputs the result truly depends on and that cannot reasonably be determined; ask everything needed at once; resolve consistency, precision and format issues yourself and state what you did
@@ -1596,7 +1605,8 @@ Explicit user properties win. Dimensions alone use system-derived geometry prope
 Section evidence / 截面证据: Parsed attachment numbers are supplied input: mark extra.provenance.shape/properties="attachment"; extra.evidence may cite each numeric field, e.g. {"properties.A":{evidenceId:"file:...",path:"rows.0.1",unit:"m2"}}. The system verifies parser candidates; image values require a reviewed observation. For free-text acceptance of offered candidates, use extra.confirmation={clarificationId,candidateIds:[...]}, using ONLY the answered clarification receipt; confirmation covers exactly its stored values. For a stated ratio use extra.provenance.properties="rule" and extra.rules={"properties.Iy":{sourceSectionId:"B1",sourceField:"properties.Iy",factor:1.5,statement:"verbatim user rule"}}; the system recomputes from evidenced inputs. Never promote unconfirmed recall. / 附件解析数值属于输入，来源标 attachment，可逐字段引用解析证据ID与路径；图像必须已有复核观察记录。无数字的确认由语义理解后用 extra.confirmation 关联已回答的澄清ID和候选ID，仅确认原候选值。比例规则记录来源截面、字段、倍数及用户原文，系统用已证实输入重算；未确认记忆值不得进入求解。
 Interpret signed loads using the stated coordinate or direction convention. When it determines the direction, preserve signed canonical components, or use a nonnegative magnitude with the corresponding direction in magnitude/direction fields. Ask only when direction remains undetermined. / 按已声明的坐标或方向约定解释荷载正负号；方向已确定时保留规范分量的符号，或在大小/方向字段中使用非负大小与对应方向。仅在方向仍无法确定时追问。
 
-Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
+Run constraints: guidance=enabled; builder=auto; recovery=true, maximum 2 system-triggered correction attempts; structured tool rejections do not count. A user answer resets the allowance. If internal retry is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=conversation,workspace. These constraints override general workflow suggestions.
+When an LLM service or configuration is unavailable, or invalid output cannot be corrected, report the failure and stop dependent steps. Never substitute keyword rules, regexes, templates, other skills or solvers to claim success. Unselected alternatives cannot change confirmed inputs.
 
 Tools available for this invocation=["review_input","query_model","edit_model","undo_model","query_results","detect_structure_type","extract_draft_params","build_model","run_analysis","run_code_check","generate_report","calculate","ask_user_clarification","set_session_config","memory","analyze_file","glob_files","grep_files","read_file","write_file","replace_in_file","move_path","delete_path"]. This is the current configuration. Historical statements about enabled or disabled tools applied at that time and do not override this turn. An empty list means no tools are currently available; otherwise use the available tools for the latest user request rather than claiming an old setting still disables them. Availability does not mean execution or success.
 

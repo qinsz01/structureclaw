@@ -128,144 +128,6 @@ describe('agent runtime helper utilities', () => {
     expect(en.report.summary).toContain('Code checks passed 1 / 4, failed 1, warnings 1, not applicable 1');
   });
 
-  test('keeps owning plugin enabled when scope uses a structural type key', async () => {
-    const { AgentSkillRuntime } = await import('../../../dist/agent-runtime/index.js');
-    const runtime = new AgentSkillRuntime();
-
-    expect((await runtime.resolvePluginForType('steel-frame', ['steel-frame']))?.id).toBe('frame');
-
-    const match = await runtime.detectStructuralType(
-      '2层单跨钢框架，层高3.6m，跨度6m，请建立模型并进行静力分析。',
-      'zh',
-      undefined,
-      ['steel-frame'],
-    );
-
-    expect(match).toMatchObject({
-      key: 'steel-frame',
-      mappedType: 'frame',
-      skillId: 'frame',
-      supportLevel: 'supported',
-      routingSource: 'explicit-keyword',
-    });
-  });
-
-  test('routes structure types correctly within the China seismic baseline skill scope', async () => {
-    const { AgentSkillRuntime } = await import('../../../dist/agent-runtime/index.js');
-    const runtime = new AgentSkillRuntime();
-    const seismicBaseline = [
-      'generic',
-      'frame',
-      'concrete-frame',
-      'opensees-seismic',
-      'code-check-gb50011',
-      'validation-structure-model',
-      'report-export-builtin',
-    ];
-
-    await expect(runtime.resolvePluginForType('concrete-frame', seismicBaseline))
-      .resolves.toMatchObject({ id: 'concrete-frame' });
-    await expect(runtime.resolvePluginForType('steel-frame', seismicBaseline))
-      .resolves.toMatchObject({ id: 'frame' });
-
-    await expect(runtime.detectStructuralType(
-      '三层两跨钢筋混凝土框架，层高3.6m，跨度6m，8度第三组III类场地',
-      'zh',
-      undefined,
-      seismicBaseline,
-    )).resolves.toMatchObject({
-      key: 'concrete-frame',
-      mappedType: 'frame',
-      skillId: 'concrete-frame',
-    });
-    await expect(runtime.detectStructuralType(
-      '三层两跨钢框架，层高3.6m，跨度6m，8度第三组III类场地',
-      'zh',
-      undefined,
-      seismicBaseline,
-    )).resolves.toMatchObject({
-      key: 'steel-frame',
-      mappedType: 'frame',
-      skillId: 'frame',
-    });
-    await expect(runtime.detectStructuralType(
-      '办公楼，三层，按中国抗震考虑',
-      'zh',
-      undefined,
-      seismicBaseline,
-    )).resolves.toMatchObject({
-      key: 'unknown',
-      mappedType: 'unknown',
-      skillId: 'generic',
-    });
-  });
-
-  test('routes broad building descriptions without material or system cues to generic fallback', async () => {
-    const { AgentSkillRuntime } = await import('../../../dist/agent-runtime/index.js');
-    const runtime = new AgentSkillRuntime();
-
-    const match = await runtime.detectStructuralType(
-      '办公楼，三层',
-      'zh',
-    );
-
-    expect(match).toMatchObject({
-      key: 'unknown',
-      mappedType: 'unknown',
-      skillId: 'generic',
-      supportLevel: 'fallback',
-      routingSource: 'generic-fallback',
-    });
-  });
-
-  test('keeps stable current draft when a follow-up does not explicitly switch type', async () => {
-    const { AgentSkillRuntime } = await import('../../../dist/agent-runtime/index.js');
-    const runtime = new AgentSkillRuntime();
-
-    const match = await runtime.detectStructuralType(
-      '柱顶荷载增加20kN',
-      'zh',
-      {
-        inferredType: 'frame',
-        structuralTypeKey: 'concrete-frame',
-        skillId: 'concrete-frame',
-        supportLevel: 'supported',
-        updatedAt: 0,
-      },
-    );
-
-    expect(match).toMatchObject({
-      key: 'concrete-frame',
-      mappedType: 'frame',
-      skillId: 'concrete-frame',
-      routingSource: 'current-state',
-    });
-  });
-
-  test('allows explicit structure-type switches over current draft state', async () => {
-    const { AgentSkillRuntime } = await import('../../../dist/agent-runtime/index.js');
-    const runtime = new AgentSkillRuntime();
-
-    const match = await runtime.detectStructuralType(
-      '改成简支梁跨度6m',
-      'zh',
-      {
-        inferredType: 'frame',
-        structuralTypeKey: 'concrete-frame',
-        skillId: 'concrete-frame',
-        supportLevel: 'supported',
-        updatedAt: 0,
-      },
-    );
-
-    expect(match).toMatchObject({
-      key: 'beam',
-      mappedType: 'beam',
-      skillId: 'beam',
-      routingSource: 'explicit-keyword',
-    });
-  });
-
   test('uses LLM router decision instead of locking broad new requests to the current draft', async () => {
     const { AgentSkillRuntime } = await import('../../../dist/agent-runtime/index.js');
     const runtime = new AgentSkillRuntime();
@@ -276,7 +138,7 @@ describe('agent runtime helper utilities', () => {
           skillId: 'generic',
           structuralTypeKey: 'unknown',
           mappedType: 'unknown',
-          supportLevel: 'fallback',
+          supportLevel: 'supported',
           confidence: 0.88,
           reason: '新的办公楼柱网描述不应继续旧梁草稿',
         }),
@@ -301,12 +163,12 @@ describe('agent runtime helper utilities', () => {
       key: 'unknown',
       mappedType: 'unknown',
       skillId: 'generic',
-      supportLevel: 'fallback',
+      supportLevel: 'supported',
       routingSource: 'llm-suggested',
     });
   });
 
-  test('falls back to rule hints without re-locking the current draft when LLM routing is unusable', async () => {
+  test('rejects unusable LLM routing without changing the current draft', async () => {
     const { AgentSkillRuntime } = await import('../../../dist/agent-runtime/index.js');
     const runtime = new AgentSkillRuntime();
     const fakeRouterLlm = {
@@ -319,7 +181,7 @@ describe('agent runtime helper utilities', () => {
       }),
     };
 
-    const match = await runtime.detectStructuralTypeWithLlm(
+    await expect(runtime.detectStructuralTypeWithLlm(
       fakeRouterLlm,
       '五层混凝土办公楼，柱网8m×8m，层高3.6m',
       'zh',
@@ -331,18 +193,10 @@ describe('agent runtime helper utilities', () => {
         lengthM: 6,
         updatedAt: 0,
       },
-    );
-
-    expect(match).toMatchObject({
-      key: 'concrete-frame',
-      mappedType: 'frame',
-      skillId: 'concrete-frame',
-      supportLevel: 'supported',
-      routingSource: 'explicit-keyword',
-    });
+    )).rejects.toThrow('LLM_STRUCTURAL_ROUTER_INVALID_OUTPUT');
   });
 
-  test('legacy environment flags cannot change runtime router fallback', async () => {
+  test('legacy environment flags cannot enable rule routing', async () => {
     const previous = process.env.SCLAW_BENCHMARK_LLM_ONLY;
     process.env.SCLAW_BENCHMARK_LLM_ONLY = '1';
     try {
@@ -358,7 +212,7 @@ describe('agent runtime helper utilities', () => {
         },
         'A two-story steel frame',
         'en',
-      )).resolves.toMatchObject({ routingSource: 'explicit-keyword' });
+      )).rejects.toThrow('LLM_STRUCTURAL_ROUTER_INVALID_OUTPUT');
     } finally {
       if (previous === undefined) delete process.env.SCLAW_BENCHMARK_LLM_ONLY;
       else process.env.SCLAW_BENCHMARK_LLM_ONLY = previous;
@@ -410,7 +264,7 @@ describe('agent runtime helper utilities', () => {
   });
 
 
-  test.each(['invalid', 'network'])('retries %s routing before falling back', async failure => {
+  test.each(['invalid', 'network'])('fails explicitly after two %s routing attempts', async failure => {
     const { AgentSkillRuntime } = await import('../../../dist/agent-runtime/index.js');
     const runtime = new AgentSkillRuntime();
     let calls = 0;
@@ -419,9 +273,9 @@ describe('agent runtime helper utilities', () => {
       if (failure === 'network') throw new Error('unavailable');
       return { content: 'invalid' };
     } };
-    const match = await runtime.detectStructuralTypeWithLlm(llm, 'simply supported beam', 'en');
+    await expect(runtime.detectStructuralTypeWithLlm(llm, 'simply supported beam', 'en')).rejects.toThrow(
+      failure === 'network' ? 'LLM_STRUCTURAL_ROUTER_INFRASTRUCTURE_ERROR' : 'LLM_STRUCTURAL_ROUTER_INVALID_OUTPUT');
     expect(calls).toBe(2);
-    expect(match).toMatchObject({ key: 'beam', routingSource: 'explicit-keyword' });
   });
 
   test('a successful retry remains an LLM decision even for unsupported keywords', async () => {
@@ -445,7 +299,7 @@ describe('agent runtime helper utilities', () => {
     expect(calls).toBe(1);
   });
 
-  test('uses rules when no LLM is configured', async () => {
+  test('fails explicitly when no LLM is configured', async () => {
     const { AgentSkillRuntime } = await import('../../../dist/agent-runtime/index.js');
     const runtime = new AgentSkillRuntime();
 
@@ -453,30 +307,7 @@ describe('agent runtime helper utilities', () => {
       null,
       '简支梁跨度6m',
       'zh',
-    )).resolves.toMatchObject({ key: 'beam', routingSource: 'explicit-keyword' });
-  });
-
-  test('does not preserve old draft over an LLM-suggested generic route', async () => {
-    const { shouldPreserveExistingDraftState } = await import('../../../dist/agent-langgraph/tools.js');
-
-    expect(shouldPreserveExistingDraftState(
-      {
-        inferredType: 'beam',
-        structuralTypeKey: 'beam',
-        skillId: 'beam',
-        supportLevel: 'supported',
-        lengthM: 6,
-        updatedAt: 0,
-      },
-      {
-        key: 'unknown',
-        mappedType: 'unknown',
-        skillId: 'generic',
-        supportLevel: 'fallback',
-        routingSource: 'llm-suggested',
-      },
-      '办公楼，混凝土柱网，三层',
-    )).toBe(false);
+    )).rejects.toThrow('LLM_STRUCTURAL_ROUTER_REQUIRED');
   });
 
   test('stampDraftSemantics adds global coordinate semantics without mutating input', () => {
@@ -694,58 +525,6 @@ describe('agent runtime helper utilities', () => {
       inferredType: 'beam',
       updatedAt: 0,
     })).rejects.toThrow('MODEL_DRAFT_INCOMPLETE: loadType');
-  });
-
-  test('detectStructuralType keeps current portal-frame context for parameter updates', async () => {
-    const { AgentSkillRuntime } = await import('../../../dist/agent-runtime/index.js');
-    const runtime = new AgentSkillRuntime();
-
-    const match = await runtime.detectStructuralType('柱高改成9m', 'zh', {
-      inferredType: 'portal-frame',
-      skillId: 'portal-frame',
-      structuralTypeKey: 'portal-frame',
-      spanLengthM: 24,
-      heightM: 8,
-      loadKN: 10,
-      updatedAt: 0,
-    });
-
-    expect(match.skillId).toBe('portal-frame');
-    expect(match.mappedType).toBe('portal-frame');
-  });
-
-  test('detectStructuralType does not treat member parameter edits as structural switches', async () => {
-    const { AgentSkillRuntime } = await import('../../../dist/agent-runtime/index.js');
-    const runtime = new AgentSkillRuntime();
-
-    const match = await runtime.detectStructuralType('change height to 4m for the column', 'en', {
-      inferredType: 'frame',
-      skillId: 'frame',
-      structuralTypeKey: 'steel-frame',
-      storyCount: 2,
-      bayCount: 1,
-      updatedAt: 0,
-    });
-
-    expect(match.skillId).toBe('frame');
-    expect(match.mappedType).toBe('frame');
-  });
-
-  test('detectStructuralType handles explicit English switches with articles', async () => {
-    const { AgentSkillRuntime } = await import('../../../dist/agent-runtime/index.js');
-    const runtime = new AgentSkillRuntime();
-
-    const match = await runtime.detectStructuralType('change to a beam', 'en', {
-      inferredType: 'frame',
-      skillId: 'frame',
-      structuralTypeKey: 'steel-frame',
-      storyCount: 2,
-      bayCount: 1,
-      updatedAt: 0,
-    });
-
-    expect(match.skillId).toBe('beam');
-    expect(match.mappedType).toBe('beam');
   });
 
   test('valid engineering draft span arrays clear prior invalid span issues', async () => {
@@ -1133,106 +912,21 @@ describe('agent runtime helper utilities', () => {
     expect(patch.bayWidthsXM).toBeUndefined();
   });
 
-  test('maps partial untargeted frame point loads by order instead of duplicating to every story', async () => {
+  test.each([undefined, '第十一层', '不是第三层', '非屋顶', '柱顶'])('requires structured selectors for unresolved frame loads: %s', async target => {
     const { projectDraftPatch } = await import('../../../dist/agent-runtime/draft/project-patch.js');
-
-    const patch = projectDraftPatch({
-      engineeringDraft: {
-        structureType: 'steel-frame',
-        geometry: {
-          storyHeightsM: [3, 3, 3],
-          bayWidthsM: [6],
-        },
-        loads: [
-          { kind: 'point', magnitude: 60, unit: 'kN', direction: 'gravity' },
-          { kind: 'point', magnitude: 72, unit: 'kN', direction: 'gravity' },
-        ],
-      },
-    }, 'frame');
-
-    expect(patch.floorLoads).toEqual([
-      { story: 1, verticalKN: 60 },
-      { story: 2, verticalKN: 72 },
-    ]);
+    expect(() => projectDraftPatch({ engineeringDraft: {
+      geometry: { storyHeightsM: [3, 3, 3], bayWidthsM: [5] },
+      loads: [{ kind: 'point', magnitude: 10, unit: 'kN', direction: 'gravity', ...(target ? { target } : {}) }],
+    } }, 'frame')).toThrow('MODEL_EDIT_FIELD_INVALID');
   });
 
-  test('parses compound Chinese story ordinals for targeted frame point loads', async () => {
+  test('projects declared story indices without inferring them from load order or display labels', async () => {
     const { projectDraftPatch } = await import('../../../dist/agent-runtime/draft/project-patch.js');
-
-    const patch = projectDraftPatch({
-      engineeringDraft: {
-        structureType: 'steel-frame',
-        geometry: {
-          storyHeightsM: Array.from({ length: 12 }, () => 3),
-          bayWidthsM: [5],
-        },
-        loads: [
-          { kind: 'point', magnitude: 10, unit: 'kN', direction: 'gravity', target: '第十一层' },
-        ],
-      },
-    }, 'frame');
-
+    const patch = projectDraftPatch({ engineeringDraft: {
+      geometry: { storyHeightsM: Array.from({ length: 12 }, () => 3), bayWidthsM: [5] },
+      loads: [{ kind: 'point', magnitude: 10, unit: 'kN', direction: 'gravity', target: 'floor', location: { story: 11 } }],
+    } }, 'frame');
     expect(patch.floorLoads).toEqual([{ story: 11, verticalKN: 10 }]);
-  });
-
-  test('parses Chinese top-story targets without treating member tops as roof stories', async () => {
-    const { projectDraftPatch } = await import('../../../dist/agent-runtime/draft/project-patch.js');
-
-    const topStoryPatch = projectDraftPatch({
-      engineeringDraft: {
-        structureType: 'steel-frame',
-        geometry: {
-          storyHeightsM: [3, 3, 3],
-          bayWidthsM: [5],
-        },
-        loads: [
-          { kind: 'point', magnitude: 10, unit: 'kN', direction: 'gravity', target: '顶层' },
-        ],
-      },
-    }, 'frame');
-    const memberTopPatch = projectDraftPatch({
-      engineeringDraft: {
-        structureType: 'steel-frame',
-        geometry: {
-          storyHeightsM: [3, 3, 3],
-          bayWidthsM: [5],
-        },
-        loads: [
-          { kind: 'point', magnitude: 5, unit: 'kN', direction: 'gravity', target: '柱顶' },
-        ],
-      },
-    }, 'frame');
-
-    expect(topStoryPatch.floorLoads).toEqual([{ story: 3, verticalKN: 10 }]);
-    expect(memberTopPatch.floorLoads).toEqual([
-      { story: 1, verticalKN: 5 },
-      { story: 2, verticalKN: 5 },
-      { story: 3, verticalKN: 5 },
-    ]);
-  });
-
-  test('does not duplicate excess untargeted frame point loads onto every story', async () => {
-    const { projectDraftPatch } = await import('../../../dist/agent-runtime/draft/project-patch.js');
-
-    const patch = projectDraftPatch({
-      engineeringDraft: {
-        structureType: 'steel-frame',
-        geometry: {
-          storyHeightsM: [3, 3],
-          bayWidthsM: [5],
-        },
-        loads: [
-          { kind: 'point', magnitude: 5, unit: 'kN', direction: 'gravity' },
-          { kind: 'point', magnitude: 10, unit: 'kN', direction: 'gravity' },
-          { kind: 'point', magnitude: 15, unit: 'kN', direction: 'gravity' },
-        ],
-      },
-    }, 'frame');
-
-    expect(patch.floorLoads).toEqual([
-      { story: 1, verticalKN: 5 },
-      { story: 2, verticalKN: 10 },
-    ]);
   });
 
   test('does not convert frame load intensity into fallback floor totals', async () => {

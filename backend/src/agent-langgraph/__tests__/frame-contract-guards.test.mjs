@@ -13,12 +13,12 @@ test('a mapped-answer contract fault ends the current turn with an honest explan
   expect(fieldContractFailure([fault, new HumanMessage('new request')])).toBeUndefined();
 });
 
-for (const locale of ['en', 'zh']) test(`scope exclusions are explicit (${locale})`, async () => {
+for (const locale of ['en', 'zh']) test(`an unavailable LLM-selected skill is rejected without replacing it (${locale})`, async () => {
   const runtime = new AgentSkillRuntime();
-  const match = await runtime.detectStructuralTypeWithLlm(null, '计算混凝土框架', locale, undefined, ['beam', 'generic']);
-  expect(match.scopeExclusion).toEqual({ code: 'STRUCTURE_SKILL_DISABLED', skillId: 'concrete-frame' });
-  expect(match.supportNote).toContain(locale === 'zh' ? '能力未启用' : 'disabled');
-  expect(match.skillId).toBe('generic');
+  const llm = { invoke: async () => ({ content: JSON.stringify({ action: 'switch_skill', skillId: 'concrete-frame',
+    structuralTypeKey: 'concrete-frame', mappedType: 'frame', confidence: 1 }) }) };
+  await expect(runtime.detectStructuralTypeWithLlm(llm, '计算混凝土框架', locale, undefined, ['beam', 'generic']))
+    .rejects.toThrow('LLM_STRUCTURAL_ROUTER_INVALID_OUTPUT');
 });
 
 test('a field contract fault cannot be overwritten by no_change or another clarification', async () => {

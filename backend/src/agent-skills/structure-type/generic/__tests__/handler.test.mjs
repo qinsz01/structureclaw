@@ -4,9 +4,6 @@ import { genericFixtures } from '../../../../../tests/characterization/fixtures/
 
 const extract = (llmDraftPatch, message = 'User topology and every load must survive.') => handler.extractDraft({ llmDraftPatch, message, locale: 'en' });
 describe('free-form generic draft boundary', () => {
-  test.each(['帮我看看这个', 'Please take a look at this'])('is a routing fallback without text matching: %s', message => {
-    expect(handler.detectStructuralType({ message, locale: 'en' })).toMatchObject({ skillId: 'generic', supportLevel: 'fallback' });
-  });
   test('keeps canonical geometry, all loads and original text without scalar or frame projection', () => {
     const draft = structuredClone(genericFixtures[0].draft);
     const patch = extract({ ...draft, lengthM: 999, loadKN: 999, pointLoads: [{ value: 1 }, { value: 2 }] });

@@ -938,7 +938,7 @@ describe('ConsolePage Integration (CONS-13)', () => {
     expect(screen.queryByText(/当前分析尚未完成（已停止）/)).not.toBeInTheDocument()
   })
 
-  it('sends resumeFromMessage when continuing after an aborted turn', async () => {
+  it.each(['继续', 'go ahead'])('preserves continuation %s without replaying an earlier request', async (continuation) => {
     const streamBodies: Array<Record<string, unknown>> = []
 
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
@@ -1033,7 +1033,7 @@ describe('ConsolePage Integration (CONS-13)', () => {
     })
 
     fireEvent.change(screen.getByPlaceholderText(/Describe your structural goal|描述你的结构目标/), {
-      target: { value: '继续' },
+      target: { value: continuation },
     })
     fireEvent.click(screen.getByRole('button', { name: /^Send$|^发送$/ }))
 
@@ -1041,8 +1041,8 @@ describe('ConsolePage Integration (CONS-13)', () => {
       expect(streamBodies.length).toBe(1)
     })
 
-    expect(streamBodies[0]?.message).toBe('继续')
-    expect((streamBodies[0]?.context as Record<string, unknown> | undefined)?.resumeFromMessage).toBe('设计一个简支梁，跨度10m，梁中间荷载1kN')
+    expect(streamBodies[0]?.message).toBe(continuation)
+    expect(streamBodies[0]?.context).not.toHaveProperty('resumeFromMessage')
   })
 
   it('persists the paused turn to the backend when stopping an in-flight stream', async () => {

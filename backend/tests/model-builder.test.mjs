@@ -2,16 +2,23 @@ import { withDeclaredProperties } from './fixtures/declared-template-properties.
 import { describe, it, expect } from '@jest/globals';
 import { buildModel } from '../dist/agent-runtime/model-builder.js';
 
-/** Minimal DraftState with required `updatedAt` and the fields under test. */
+/** Declared template fixtures; negative tests explicitly clear required fields. */
 function makeState(overrides) {
-  return withDeclaredProperties({ updatedAt: Date.now(), ...overrides });
+  const declared = {
+    beam: { supportType: 'cantilever', loadType: 'point', loadPosition: 'midspan' },
+    truss: { loadPosition: 'top-nodes' },
+    column: { loadType: 'point', loadPosition: 'top-nodes' },
+    'portal-frame': { loadPosition: 'top-nodes' },
+    'double-span-beam': { loadType: 'point', loadPosition: 'middle-joint' },
+  };
+  return withDeclaredProperties({ updatedAt: Date.now(), ...declared[overrides.inferredType], ...overrides });
 }
 
 // ---------------------------------------------------------------------------
-// 1. Beam (default fallback when inferredType is not a recognised structural type)
+// 1. Explicit beam template
 // ---------------------------------------------------------------------------
 describe('buildModel - beam', () => {
-  it('should build a cantilever beam model with point load at midspan by default', () => {
+  it('builds the explicitly declared cantilever with a midspan point load', () => {
     const state = makeState({
       inferredType: 'beam',
       lengthM: 6,
@@ -92,6 +99,7 @@ describe('buildModel - beam', () => {
       lengthM: 6,
       loadKN: 5,
       loadType: 'distributed',
+      loadPosition: 'full-span',
     });
 
     const model = buildModel(state);
@@ -107,6 +115,7 @@ describe('buildModel - beam', () => {
       inferredType: 'beam',
       lengthM: 6,
       loadKN: 8,
+      loadType: 'distributed',
       loadPosition: 'full-span',
     });
 
@@ -146,7 +155,7 @@ describe('buildModel - beam', () => {
     expect(model.metadata.loadPositionM).toBe(4);
   });
 
-  it('should default to midspan when loadPositionM is zero', () => {
+  it('preserves an explicit point coordinate of zero', () => {
     const state = makeState({
       inferredType: 'beam',
       lengthM: 10,
@@ -155,12 +164,10 @@ describe('buildModel - beam', () => {
     });
 
     const model = buildModel(state);
-
-    // 0 is not > 0, so falls back to length / 2
-    expect(model.nodes[1].x).toBe(5);
+    expect(model.load_cases[0].loads).toEqual([{ node: '1', fz: -5, reference_frame: 'global' }]);
   });
 
-  it('should default to midspan when loadPositionM equals length', () => {
+  it('preserves an explicit point coordinate at the beam end', () => {
     const state = makeState({
       inferredType: 'beam',
       lengthM: 10,
@@ -169,12 +176,10 @@ describe('buildModel - beam', () => {
     });
 
     const model = buildModel(state);
-
-    // 10 is not < 10, so falls back to length / 2
-    expect(model.nodes[1].x).toBe(5);
+    expect(model.load_cases[0].loads).toEqual([{ node: '3', fz: -5, reference_frame: 'global' }]);
   });
 
-  it('should default to midspan when loadPositionM exceeds length', () => {
+  it('rejects a point coordinate exceeding the beam length', () => {
     const state = makeState({
       inferredType: 'beam',
       lengthM: 10,
@@ -182,9 +187,7 @@ describe('buildModel - beam', () => {
       loadPositionM: 99,
     });
 
-    const model = buildModel(state);
-
-    expect(model.nodes[1].x).toBe(5);
+    expect(() => buildModel(state)).toThrow('MODEL_EDIT_FIELD_INVALID');
   });
 
   it('should include correct material and section definitions', () => {
@@ -509,7 +512,7 @@ describe('buildModel - frame 2D', () => {
     expect(loads[1]).toEqual({ node: 'N1_1', fz: -6, fx: 3, reference_frame: 'global' });
   });
 
-  it('should skip floor loads for invalid story indices', () => {
+  it('rejects floor loads with invalid story indices', () => {
     const state = makeState({
       inferredType: 'frame',
       frameDimension: '2d',
@@ -522,9 +525,7 @@ describe('buildModel - frame 2D', () => {
       ],
     });
 
-    const model = buildModel(state);
-
-    expect(model.load_cases[0].loads).toHaveLength(0);
+    expect(() => buildModel(state)).toThrow('MODEL_EDIT_FIELD_INVALID');
   });
 
   it('should handle only vertical load (no lateral) in 2D frame', () => {
@@ -718,7 +719,7 @@ describe('buildModel - frame 3D', () => {
     }
   });
 
-  it('should skip invalid story indices in 3D frame loads', () => {
+  it('rejects invalid story indices in 3D frame loads', () => {
     const state = makeState({
       inferredType: 'frame',
       frameDimension: '3d',
@@ -731,9 +732,7 @@ describe('buildModel - frame 3D', () => {
       ],
     });
 
-    const model = buildModel(state);
-
-    expect(model.load_cases[0].loads).toHaveLength(0);
+    expect(() => buildModel(state)).toThrow('MODEL_EDIT_FIELD_INVALID');
   });
 
   it('should use pinned base support for 3D frame', () => {
@@ -800,26 +799,20 @@ describe('buildModel - frame 3D', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 7. Unknown / fallback type (treated as beam)
+// 7. Unknown types cannot select a template
 // ---------------------------------------------------------------------------
-describe('buildModel - unknown type falls back to beam', () => {
-  it('should treat unknown inferredType as a cantilever beam', () => {
+describe('buildModel - unknown type is rejected', () => {
+  it('rejects unknown inferredType without choosing a beam template', () => {
     const state = makeState({
       inferredType: 'unknown',
       lengthM: 4,
       loadKN: 8,
     });
 
-    const model = buildModel(state);
-
-    // Falls through all if-checks to the default beam builder
-    expect(model.metadata.inferredType).toBe('unknown');
-    expect(model.metadata.supportType).toBe('cantilever');
-    expect(model.nodes).toHaveLength(3);
-    expect(model.load_cases[0].loads).toEqual([{ node: '2', fz: -8, reference_frame: 'global' }]);
+    expect(() => buildModel(state)).toThrow('MODEL_EDIT_FIELD_INVALID');
   });
 
-  it('should treat an unmapped type as beam', () => {
+  it('rejects an unmapped type without choosing a beam template', () => {
     const state = makeState({
       inferredType: 'girder',
       lengthM: 10,
@@ -827,11 +820,7 @@ describe('buildModel - unknown type falls back to beam', () => {
       supportType: 'simply-supported',
     });
 
-    const model = buildModel(state);
-
-    expect(model.metadata.inferredType).toBe('girder');
-    expect(model.metadata.supportType).toBe('simply-supported');
-    expect(model.nodes).toHaveLength(3);
+    expect(() => buildModel(state)).toThrow('MODEL_EDIT_FIELD_INVALID');
   });
 });
 
@@ -839,7 +828,7 @@ describe('buildModel - unknown type falls back to beam', () => {
 // 8. Edge cases: missing fields, partial data
 // ---------------------------------------------------------------------------
 describe('buildModel - edge cases', () => {
-  it('should handle beam with undefined loadType and undefined loadPosition (defaults to point at midspan)', () => {
+  it('rejects beam loads with unspecified type and location', () => {
     const state = makeState({
       inferredType: 'beam',
       lengthM: 8,
@@ -848,28 +837,21 @@ describe('buildModel - edge cases', () => {
       loadPosition: undefined,
     });
 
-    const model = buildModel(state);
-
-    // Neither distributed nor full-span, so point load on pointNodeId ('2')
-    expect(model.load_cases[0].loads).toEqual([{ node: '2', fz: -15, reference_frame: 'global' }]);
-    expect(model.nodes[1].x).toBe(4);
+    expect(() => buildModel(state)).toThrow('MODEL_EDIT_FIELD_INVALID');
   });
 
-  it('should default supportType to cantilever when not provided', () => {
+  it('rejects a missing support type without assuming a cantilever', () => {
     const state = makeState({
       inferredType: 'beam',
+      supportType: undefined,
       lengthM: 6,
       loadKN: 10,
     });
 
-    const model = buildModel(state);
-
-    expect(model.metadata.supportType).toBe('cantilever');
-    // Cantilever: left fixed, right has no restraints
-    expect(model.nodes[0].restraints).toEqual([true, true, true, true, true, true]);
+    expect(() => buildModel(state)).toThrow('MODEL_EDIT_FIELD_INVALID');
   });
 
-  it('should handle beam with negative loadPositionM (defaults to midspan)', () => {
+  it('rejects a negative beam point coordinate', () => {
     const state = makeState({
       inferredType: 'beam',
       lengthM: 8,
@@ -877,10 +859,7 @@ describe('buildModel - edge cases', () => {
       loadPositionM: -3,
     });
 
-    const model = buildModel(state);
-
-    // -3 is not > 0, so falls back to 8/2 = 4
-    expect(model.nodes[1].x).toBe(4);
+    expect(() => buildModel(state)).toThrow('MODEL_EDIT_FIELD_INVALID');
   });
 
   it('should handle frame 2D with no floorLoads (empty loads)', () => {
@@ -1162,7 +1141,7 @@ describe('stated rebar grade on template members', () => {
     const draft = { inferredType: 'beam', lengthM: 6, loadKN: 20, loadType: 'distributed', loadPosition: 'full-span', supportType: 'simply-supported',
       engineeringDraft: { structureType: 'beam', geometry: { lengthM: 6 }, boundary: { supportType: 'simply-supported' },
         material: { family: 'concrete', grade: 'C30', rebarGrade: 'HRB400' }, sections: { beam: '250X500' },
-        loads: [{ kind: 'distributed', magnitude: 20, unit: 'kN/m', direction: 'gravity' }] } };
+        loads: [{ kind: 'distributed', magnitude: 20, unit: 'kN/m', direction: 'gravity', target: 'full-span' }] } };
     const model = buildModel(draft);
     expect(model.elements.every(element => element.rebar_grade === 'HRB400')).toBe(true);
     expect(Object.values(extractElementContextById(model)).every(context => context.rebarGrade === 'HRB400')).toBe(true);

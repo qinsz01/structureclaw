@@ -57,7 +57,9 @@ describe('run policy at real orchestration boundaries', () => {
       const first = await executeToolsSequentially(tools, state, { configurable: { runContext: runtime } });
       state = { ...state, ...first.update, messages: [...state.messages, ...first.update.messages, new AIMessage({ content: '', tool_calls: [{ id: 'same-id', name: 'edit_model', args: {} }] })] };
       const second = await executeToolsSequentially(tools, state, { configurable: { runContext: runtime } });
-      expect(second.update.messages[0].content).toContain('RECOVERY_BUDGET_EXHAUSTED');
+      expect(JSON.parse(second.update.messages[0].content)).toMatchObject({
+        success: false, errorCode: 'MODEL_REBUILD_REQUIRED', guard: 'failed-model-build',
+      });
     });
     expect(edits).toBe(0);
     expect(runtime.usage.toolCalls).toBe(1);

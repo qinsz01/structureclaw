@@ -173,9 +173,8 @@ describe('characterization: ablation profiles', () => {
       const turn = await runTurn(ctx, { message: script?.message ?? MESSAGE, context: { locale: 'en', runPolicy: { profile } } },
         [toolCall('extract_draft_params', { locale: 'en' }, id), answer]);
       const extraction = toolResultSeenByAgent(turn.requests, id);
-      const notice = profile === 'generic-only' ? 'Beam is disabled in Capability settings. Continuing with generic modeling; enable it there.' : undefined;
-      if (notice) expect(extraction.supportNote).toBe(notice);
-      expectCompletedTurn(turn, notice ? `${notice}\n\n${answer}` : answer);
+      expect(extraction.scopeExclusion).toBeUndefined();
+      expectCompletedTurn(turn, answer);
       return { turn, prompts, extraction };
     };
 
@@ -183,10 +182,8 @@ describe('characterization: ablation profiles', () => {
       const full = await extractorTurn('full');
       expect(full.prompts.router.join('\n')).toContain('"id": "beam"');
       const generic = await extractorTurn('generic-only', { router: 'generic' });
-      for (const text of generic.prompts.router) {
-        expect(text).toContain('"id": "generic"');
-        expect(text).not.toMatch(/"id": "(beam|frame|truss|portal-frame|double-span-beam|column|concrete-frame)"/);
-      }
+      expect(generic.prompts.router).toEqual([]);
+      expect(generic.extraction.routingSource).toBe('scope-selected');
       expect(generic.extraction.skillId).toBe('generic');
       const session = await ctx.backend.session(generic.turn.conversationId);
       expect(session.policy.activeSkillIds).toEqual(expect.arrayContaining(['generic']));

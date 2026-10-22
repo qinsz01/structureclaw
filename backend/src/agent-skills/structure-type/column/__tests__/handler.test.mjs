@@ -3,23 +3,44 @@ import { describe, expect, test } from '@jest/globals';
 import { handler } from '../../../../../dist/agent-skills/structure-type/column/handler.js';
 
 describe('column handler', () => {
-  test('detects standalone concrete column requests', () => {
-    const match = handler.detectStructuralType({
-      message: '独立混凝土柱，截面400x400mm，高度4.5m，柱顶轴向荷载500kN，做静力分析',
-      locale: 'zh',
-    });
 
-    expect(match?.skillId).toBe('column');
-    expect(match?.mappedType).toBe('column');
+  test.each([
+    [undefined, undefined, ['loadType', 'loadPosition']],
+    ['point', undefined, ['loadPosition']],
+    [undefined, 'top-nodes', ['loadType']],
+  ])('legacy column load fields %s/%s cannot acquire a type or top location', (loadType, loadPosition, missingFields) => {
+    const raw = { heightM: 3, loadKN: 10, loadType, loadPosition };
+    const snapshot = structuredClone(raw);
+    const patch = handler.extractDraft({ llmDraftPatch: raw });
+    const state = handler.mergeState(undefined, patch);
+    for (const field of missingFields) {
+      expect(patch[field]).toBeUndefined();
+      expect(state[field]).toBeUndefined();
+      expect(handler.computeMissing(state, 'interactive').critical).toContain(field);
+      expect(handler.computeMissing(state, 'execution').critical).toContain(field);
+    }
+    expect(raw).toEqual(snapshot);
   });
 
-  test('does not treat column-grid building descriptions as standalone columns', () => {
-    const match = handler.detectStructuralType({
-      message: '五层混凝土办公楼，柱网8m×8m，层高3.6m',
-      locale: 'zh',
-    });
+  test('explicit legacy top-point loads remain executable and magnitude-only edits preserve their location', () => {
+    const before = handler.mergeState(undefined, handler.extractDraft({
+      llmDraftPatch: { heightM: 3, loadKN: 10, loadType: 'point', loadPosition: 'top-nodes' },
+    }));
+    const after = handler.mergeState(before, handler.extractDraft({ currentState: before, llmDraftPatch: { loadKN: 20 } }));
+    expect(after).toMatchObject({ loadKN: 20, loadType: 'point', loadPosition: 'top-nodes' });
+    expect(handler.computeMissing(after, 'execution').critical).toEqual([]);
+    expect(handler.buildModel(withDeclaredProperties(after)).load_cases[0].loads)
+      .toContainEqual(expect.objectContaining({ node: '2', fz: -20 }));
+    expect(before.loadKN).toBe(10);
+  });
 
-    expect(match).toBeNull();
+  test('an explicit legacy distributed load is not converted into a column-top point load', () => {
+    const state = handler.mergeState(undefined, handler.extractDraft({
+      llmDraftPatch: { heightM: 3, loadKN: 10, loadType: 'distributed', loadPosition: 'top-nodes' },
+    }));
+    expect(state.loadType).toBe('distributed');
+    expect(handler.computeMissing(state, 'execution').critical).toContain('loadType');
+    expect(() => handler.buildModel(withDeclaredProperties(state))).toThrow('MODEL_EDIT_FIELD_INVALID');
   });
 
   test('preserves semantic draft issues for column clarification', () => {

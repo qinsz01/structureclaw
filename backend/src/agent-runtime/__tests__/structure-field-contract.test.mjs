@@ -44,6 +44,8 @@ for (const id of ids) {
         draftIssues: [{ field, kind: 'confirmation', severity: 'ambiguous', reason: 'Confirm this input' }],
         skillState: { invalidDraftFields: [field] } };
       const draft = nested(field, value);
+      if (field === 'loads' && id === 'portal-frame') draft.loads = value.map(load => ({ ...load, target: 'roof' }));
+      if (field === 'loads' && id === 'column') draft.loads = value.map(load => ({ ...load, target: 'column-top' }));
       expect(draftFieldValues(draft, field).every(item => validDraftValue(item.schema, item.value))).toBe(true);
       expect(computeDraftMissing({ id, handler }, before, 'execution').critical).toContain(field);
       const patch = handler.extractDraft({ message: '', locale: 'en', currentState: before,

@@ -37,6 +37,15 @@ describe('characterization: run policy and ablation surface', () => {
       const tools = request.body.tools.map(item => item.function.name);
       const prompt = normalizeText(systemPrompt(request.body), { dataDir: ctx.backend.dataDir });
       captured[variant.name] = { tools, prompt };
+      if (variant.locale === 'zh') {
+        expect(prompt).toContain('明确报告失败并停止依赖该结果的步骤');
+        expect(prompt).toContain('禁止改用关键词、正则、模板、其他技能或求解器冒充成功');
+        expect(prompt).not.toContain('继续尝试其他工具');
+      } else {
+        expect(prompt).toContain('report the failure and stop dependent steps');
+        expect(prompt).toContain('Never substitute keyword rules, regexes, templates, other skills or solvers to claim success');
+        expect(prompt).not.toContain('do NOT give up. Try other tools');
+      }
 
       expect({
         offeredTools: tools,

@@ -2,8 +2,8 @@
 // The scripted LLM misbehaves on purpose: it repeats failing calls, thrashes without progress,
 // re-asks an answered question, calls hallucinated tools/IDs, sends malformed arguments, invents
 // result numbers, claims actions that never ran, and returns empty or truncated answers.
-// Each case must recover or end honestly: no crash, no stream error, bounded LLM/tool calls,
-// saved state unchanged, a terminal `done` event, and guard events in the run record.
+// Each case must recover or end honestly: bounded LLM/tool calls, saved state unchanged,
+// explicit model failures or a terminal `done` event, and guard events in the run record.
 import { expect, test } from '@jest/globals';
 import { toolCall } from './helpers/llm-fixture.mjs';
 import { describeWithOpenSees, runTurn, setupHarness, toolResultSeenByAgent, TURN_TIMEOUT_MS } from './helpers/harness.mjs';
@@ -239,13 +239,19 @@ describeWithOpenSees('characterization: guard layer fault injection', () => {
     expect(guardEvents(ledger)).toEqual(['repeated-failure:blocked', 'guard-stop:end-turn']);
   }, TURN_TIMEOUT_MS);
 
-  test('empty and truncated final answers are replaced or marked', async () => {
+  test('empty final answers fail explicitly and truncated answers are marked', async () => {
     ctx.llm.setInternal(null);
-    const empty = await runTurn(ctx, { message: 'Hello.', context: { locale: 'en' } }, ['']);
-    expectTerminated(empty);
-    expect(empty.result.content.response).toContain('The model did not produce a valid response');
+    ctx.llm.enqueue('');
+    const empty = await ctx.backend.stream({ message: 'Hello.', context: { locale: 'en' } });
+    expect(ctx.llm.failures).toEqual([]);
+    expect(ctx.llm.pending()).toBe(0);
+    expect(empty.errors).toEqual([
+      expect.objectContaining({ type: 'presentation_error', message: expect.stringContaining('LLM_EMPTY_RESPONSE') }),
+      expect.objectContaining({ type: 'error', code: 'LLM_EMPTY_RESPONSE' }),
+    ]);
+    expect(empty.result).toBeUndefined();
     let session = await ctx.backend.session(empty.conversationId);
-    expect(guardEvents(ledgerFor(ctx, session.usage.runId))).toEqual(['empty-final-answer:replaced']);
+    expect(guardEvents(ledgerFor(ctx, session.usage.runId))).toEqual(['empty-final-answer:failed']);
 
     const truncated = await runTurn(ctx, { message: '你好。', context: { locale: 'zh' } }, [{ content: '这是一个被截断的回答', finish_reason: 'length' }]);
     expectTerminated(truncated);

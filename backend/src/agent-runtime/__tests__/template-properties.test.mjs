@@ -3,7 +3,7 @@ import { buildModel } from '../../../dist/agent-runtime/model-builder.js';
 import { buildFrameModel } from '../../../dist/agent-skills/structure-type/frame/model.js';
 import { normalizeEngineeringDraft, mergeEngineeringDraft } from '../../../dist/agent-runtime/engineering-draft.js';
 
-const beam = () => ({ inferredType:'beam', frameDimension:'2d', lengthM:6, loadKN:10, loadType:'distributed', supportType:'simply-supported', updatedAt:0 });
+const beam = () => ({ inferredType:'beam', frameDimension:'2d', lengthM:6, loadKN:10, loadType:'distributed', loadPosition:'full-span', supportType:'simply-supported', updatedAt:0 });
 const material = { id:'M',E:70000,nu:0.3,rho:2700 };
 const section = { id:'S',properties:{A:0.02,Iy:2e-4,Iz:3e-4,J:1e-5} };
 

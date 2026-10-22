@@ -1,24 +1,9 @@
 import { describe, expect, test } from '@jest/globals';
 import { handler } from '../../../../../dist/agent-skills/structure-type/frame/handler.js';
-import { detectFrameStructuralType } from '../../../../../dist/agent-skills/structure-type/frame/detect.js';
 import { mergeFrameState } from '../../../../../dist/agent-skills/structure-type/frame/merge.js';
 import { buildFrameQuestions } from '../../../../../dist/agent-skills/structure-type/frame/interaction.js';
 
 describe('frame handler composed modules', () => {
-  test('leaves follow-up sticky routing to the runtime registry', () => {
-    const match = detectFrameStructuralType({
-      message: '层高3.6m',
-      locale: 'zh',
-      currentState: {
-        inferredType: 'frame',
-        structuralTypeKey: 'frame',
-        supportLevel: 'supported',
-        updatedAt: 0,
-      },
-    });
-
-    expect(match).toBeNull();
-  });
 
   test('does not treat material and sections as critical blockers', () => {
     const missing = handler.computeMissing({
@@ -255,7 +240,7 @@ describe('frame handler composed modules', () => {
             bayWidthsM: [6],
           },
           loads: [
-            { kind: 'line', magnitude: 60, unit: 'kN/m', direction: 'gravity' },
+            { kind: 'line', magnitude: 60, unit: 'kN/m', direction: 'gravity', target: 'all-beams' },
           ],
         },
       },
@@ -295,7 +280,7 @@ describe('frame handler composed modules', () => {
         engineeringDraft: {
           structureType: 'steel-frame',
           loads: [
-            { kind: 'line', magnitude: 60, unit: 'kN/m', direction: 'gravity' },
+            { kind: 'line', magnitude: 60, unit: 'kN/m', direction: 'gravity', target: 'all-beams' },
           ],
         },
       },
@@ -347,7 +332,7 @@ describe('frame handler composed modules', () => {
         engineeringDraft: {
           structureType: 'steel-frame',
           loads: [
-            { kind: 'line', magnitude: 60, unit: 'kN/m', direction: 'gravity' },
+            { kind: 'line', magnitude: 60, unit: 'kN/m', direction: 'gravity', target: 'all-beams' },
           ],
         },
       },
@@ -418,7 +403,7 @@ describe('frame handler composed modules', () => {
         engineeringDraft: {
           structureType: 'steel-frame',
           loads: [
-            { kind: 'line', magnitude: 13, unit: 'kN/m', direction: 'gravity', target: 'roof-beam' },
+            { kind: 'line', magnitude: 13, unit: 'kN/m', direction: 'gravity', target: 'roof' },
             { kind: 'point', magnitude: 41, unit: 'kN', direction: 'gravity', location: { story: 1, nodeRole: 'right-side' } },
             { kind: 'point', magnitude: 7, unit: 'kN', direction: 'globalX', location: { story: 1, nodeRole: 'right-side' } },
           ],

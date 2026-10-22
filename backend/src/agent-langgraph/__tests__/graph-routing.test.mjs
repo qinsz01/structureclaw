@@ -57,34 +57,6 @@ describe('agent graph conditional routing (shouldContinue)', () => {
   });
 });
 
-describe('agent graph empty final response guard', () => {
-  test('buildEmptyFinalResponseFallback zh with tool names', async () => {
-    const { buildEmptyFinalResponseFallback } = await import('../../../dist/agent-langgraph/delivery/final-answer.js');
-
-    const msg = buildEmptyFinalResponseFallback('zh', ['run_analysis', 'validate_model']);
-    expect(msg).toContain('run_analysis');
-    expect(msg).toContain('validate_model');
-    expect(msg).toContain('本轮工具已执行完成');
-  });
-
-  test('buildEmptyFinalResponseFallback en with empty tool list', async () => {
-    const { buildEmptyFinalResponseFallback } = await import('../../../dist/agent-langgraph/delivery/final-answer.js');
-
-    const msg = buildEmptyFinalResponseFallback('en', []);
-    expect(msg).toContain('did not produce');
-    expect(msg).not.toContain('undefined');
-  });
-
-  test('buildEmptyFinalResponseFallback deduplicates repeated tool names', async () => {
-    const { buildEmptyFinalResponseFallback } = await import('../../../dist/agent-langgraph/delivery/final-answer.js');
-
-    const msg = buildEmptyFinalResponseFallback('zh', ['memory', 'memory', 'glob_files']);
-    // Should not have duplicate tool names
-    const memoryCount = (msg.match(/memory/g) || []).length;
-    expect(memoryCount).toBe(1);
-  });
-});
-
 describe('agent graph runtime config', () => {
   test('raises LangGraph recursion limit above the default graph limit', async () => {
     const { getLangGraphRecursionLimit } = await import('../../../dist/agent-langgraph/turn-config.js');

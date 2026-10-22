@@ -11,18 +11,19 @@ process.env.SCLAW_DATA_DIR = directory;
 const prompts = [];
 const boundTools = [];
 let responses = [];
+let modelAvailable = true;
 const llm = await import('../../../dist/utils/llm.js');
 jest.unstable_mockModule('../../../dist/utils/llm.js', () => ({ ...llm,
-  createChatModel: () => ({ bindTools: tools => {
+  createChatModel: () => modelAvailable ? ({ bindTools: tools => {
     boundTools.push(tools.map(tool => tool.name));
     return { invoke: async messages => { prompts.push(messages); return responses.shift() ?? new AIMessage('Recorded.'); } };
-  } }),
+  } }) : null,
 }));
 const { LangGraphAgentService } = await import('../../../dist/agent-langgraph/agent-service.js');
 const manifest = { id: 'beam', domain: 'structure-type', structureType: 'beam', stages: ['draft'],
   name: { en: 'Beam', zh: '梁' }, description: { en: 'OPTIONAL_SKILL_SENTINEL', zh: 'OPTIONAL_SKILL_SENTINEL' } };
 const skillRuntime = { listSkillManifests: async () => [manifest] };
-beforeEach(() => { prompts.length = 0; boundTools.length = 0; responses = []; });
+beforeEach(() => { prompts.length = 0; boundTools.length = 0; responses = []; modelAvailable = true; });
 afterAll(() => {
   if (previousDirectory === undefined) delete process.env.SCLAW_DATA_DIR; else process.env.SCLAW_DATA_DIR = previousDirectory;
   if (path.dirname(path.resolve(directory)) !== path.resolve(os.tmpdir())) throw new Error('Unsafe test cleanup');
@@ -30,6 +31,23 @@ afterAll(() => {
 });
 
 describe('policy applied through the persisted chat service and real graph', () => {
+  test.each(['en', 'zh'])('missing LLM fails the real graph instead of completing a successful chat (%s)', async locale => {
+    modelAvailable = false;
+    const service = new LangGraphAgentService(skillRuntime);
+    await expect(service.runFull({ conversationId: randomUUID(), message: 'Design a beam', context: { locale } }))
+      .rejects.toThrow('LLM_NOT_CONFIGURED:');
+    expect(prompts).toEqual([]);
+    expect(boundTools).toEqual([]);
+  });
+
+  test.each(['en', 'zh'])('empty LLM output fails the real graph without a synthetic answer (%s)', async locale => {
+    responses = [new AIMessage('')];
+    const service = new LangGraphAgentService(skillRuntime);
+    await expect(service.runFull({ conversationId: randomUUID(), message: 'Hello', context: { locale } }))
+      .rejects.toThrow('LLM_EMPTY_RESPONSE:');
+    expect(prompts).toHaveLength(1);
+  });
+
   test('next-turn controls survive reopening, reach model prompts and remove memory access', async () => {
     const conversationId = randomUUID();
     const service = new LangGraphAgentService(skillRuntime);

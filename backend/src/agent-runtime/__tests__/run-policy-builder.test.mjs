@@ -96,7 +96,8 @@ describe('model builder choice is independent of routing and guidance', () => {
     const draft = { inferredType: 'beam', skillId: 'test-provider' };
     expect(await withRunContext(createRunContext(base), () => runtime.buildModel(draft, ['test-provider'], context))).toEqual({ template: true });
     const result = await withRunContext(createRunContext(generic), async () => {
-      expect(await runtime.detectStructuralTypeWithLlm(null, 'beam', 'en')).toMatchObject({ skillId: 'test-provider', routingSource: 'policy-fixed' });
+      expect(await runtime.detectStructuralTypeWithLlm({ invoke: async () => { throw new Error('fixed routing does not invoke the router'); } }, 'beam', 'en'))
+        .toMatchObject({ skillId: 'test-provider', routingSource: 'policy-fixed' });
       return runtime.buildModel(draft, ['test-provider'], context);
     });
     expect(result.schema_version).toBe('2.2.0');
@@ -109,7 +110,9 @@ describe('model builder choice is independent of routing and guidance', () => {
     expect(calls).toBe(1);
     expect(runtime.usage.recoveries).toBe(0);
     calls = 0;
-    await expect(withRunContext(createRunContext(resolve({})), () => tryBuildGenericModelWithLlm({ invoke: async () => { calls++; throw new Error('transport'); } }, 'model', {}, 'en'))).rejects.toThrow('transport');
+    const transport = new Error('transport');
+    await expect(withRunContext(createRunContext(resolve({})), () => tryBuildGenericModelWithLlm({ invoke: async () => { calls++; throw transport; } }, 'model', {}, 'en')))
+      .rejects.toMatchObject({ message: expect.stringContaining('LLM_MODEL_BUILDER_INFRASTRUCTURE_ERROR'), cause: transport });
     expect(calls).toBe(1);
   });
 
