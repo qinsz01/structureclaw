@@ -566,3 +566,52 @@ Evidence and runnable checks are retained under
 `runtime-warnings.json` and `final-health.json`. Final health retained the same new instance,
 the smoke conversation was neither busy nor waiting, and the settings hash was unchanged.
 The primary service is left running; no push, benchmark change or freeze regeneration occurred.
+
+## Responsive history repair (2026-10-22)
+
+`c9aaf8b6` fixes the narrow-screen issue found above. Below the 1280px sidebar breakpoint,
+history now opens in the existing accessible dialog shell from a compact navigation bar.
+The list scrolls inside the dialog instead of growing before the chat. Escape, backdrop and
+the close button dismiss it; selection or a new conversation returns to chat. Unsent text
+survives opening/closing history. Mobile open state is temporary and independent of the saved
+desktop collapsed preference; widening closes the dialog and narrowing again does not reopen it.
+The first server/client render also uses consistent navigation markup before viewport detection.
+
+The application height follows the dynamic viewport. The transcript, welcome content and history
+have their own bounded scroll areas, while the composer remains reachable. Short viewports
+also use less welcome padding and a shorter textarea. The first browser pass exposed a
+partially clipped Send button at 844×390; the density adjustment fixes that without weakening
+the viewport assertions. Desktop navigation retains its expanded sidebar and collapsed rail.
+
+`f3f52673` adds bilingual browser coverage with 50 saved-history fixtures and a long transcript,
+plus the integration regression replacing the old forced-expanded narrow behavior. Checks cover
+375×667, 768×1000, 1024×768, 844×390 and the desktop breakpoint, history scrolling, unsent text,
+Escape/focus return, backdrop/close actions, conversation selection, settings and resize behavior.
+The final run passed **all 24 browser tests**, including existing chat, navigation, locale/theme
+and light/dark settings checks. Eight focused unit tests passed; integration passed 59 tests
+with one existing key-dependent timeout-fixture test skipped. Lint, production TypeScript build
+and the chat-stream contract passed. A test initially sampled the desktop sidebar during its
+300ms width transition; it now waits for the measured expanded width without changing the limit.
+
+Work was built and tested in `structureclaw-responsive-history`. The default Turbopack build
+rejected that worktree's external node_modules junction; the supported `next build --webpack`
+production build passed instead. The failed build log is retained. The implementation and tests
+were fast-forward integrated into the primary checkout, whose frontend source fingerprint matches
+the tested export: `80be0890eaad5b6b2770508c1800302481ce9014f7dae5f7032db131170fdbf9`.
+The preceding export is archived, referenced assets were copied before page entry points, all 142
+new export files were byte-verified, and 89 older asset files remain available for existing tabs.
+
+The actual running port-31415 service then passed a read-only browser check in both languages,
+with its real 50 saved conversations and the earlier mixed-structure run. Sixteen viewport/state
+measurements passed; at 768×1000, the chat starts at y=119px and the document stays 1000px tall
+(previously y=4414px / 5047px document). A second check explicitly waited for the capability
+catalog and verified that a nonempty unsent draft enables Send both before and after selecting
+the saved conversation. No chat submission or new LLM call was made. Camera centering still
+passes and measured cursor-zoom anchor error remains 0.151px. No page or HTTP errors were observed.
+
+Evidence is under `G:/StructureClaw-All/verification/responsive-history-20261022/`: final browser
+results are in `e2e-release*`, running-instance checks and screenshots in `running-ready/`,
+and `promotion.json` records the verified export and backup. Earlier failed checks are retained
+separately. The owned port-31535 test instance was stopped. The primary service remains healthy
+on the same `da54e299-2e0c-4555-8abb-655419c1ded5` instance, with unchanged settings; refreshing
+loads the new interface. No push, benchmark change or freeze regeneration occurred.
