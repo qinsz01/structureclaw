@@ -15,6 +15,7 @@ describe('AIConsole SkillHub actions', () => {
       </AppStoreProvider>
     )
 
+    await user.click(screen.getByRole('button', { name: 'Expand History' }))
     const capabilitySummary = await screen.findByRole('button', { name: /skills · .*tools/i }, { timeout: 15_000 })
     await user.click(capabilitySummary)
 
@@ -22,11 +23,14 @@ describe('AIConsole SkillHub actions', () => {
   })
 
   it('moves capability editing out of inline console controls', async () => {
+    const user = userEvent.setup()
     render(<AppStoreProvider><AIConsole /></AppStoreProvider>)
 
+    await user.click(screen.getByRole('button', { name: 'Expand History' }))
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /skills · .*tools/i })).toBeInTheDocument()
     }, { timeout: 15_000 })
+    await user.keyboard('{Escape}')
 
     expect(screen.queryByText(/selected skills:/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/selected tools:/i)).not.toBeInTheDocument()

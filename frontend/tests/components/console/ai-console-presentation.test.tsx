@@ -357,6 +357,7 @@ describe('AIConsole presentation rendering', () => {
 
     render(<AppStoreProvider><AIConsole /></AppStoreProvider>)
 
+    await user.click(screen.getByRole('button', { name: 'Expand History' }))
     await user.click(await screen.findByRole('button', { name: /portal frame restore test/i }))
 
     await waitFor(() => {

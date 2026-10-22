@@ -49,6 +49,7 @@ describe('explicitly ending a paused conversation turn', () => {
       return Response.json({})
     })
     render(<AppStoreProvider initialState={{ locale }}><AIConsole /></AppStoreProvider>)
+    await user.click(screen.getByRole('button', { name: /^(Expand History|展开历史)$/ }))
     await user.click(await screen.findByRole('button', { name: 'Paused beam' }))
     const endButton = await screen.findByRole('button', { name: endLabel })
     await screen.findByText(locale === 'en' ? /Waiting for your reply/ : /等待你的答复/)

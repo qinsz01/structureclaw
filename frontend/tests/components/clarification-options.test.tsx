@@ -57,6 +57,7 @@ describe('clarification choices from older sessions and model responses', () => 
       return Response.json({})
     })
     render(<AppStoreProvider initialState={{ locale }}><AIConsole /></AppStoreProvider>)
+    await user.click(screen.getByRole('button', { name: /^(Expand History|展开历史)$/ }))
     await user.click(await screen.findByRole('button', { name: 'Old clarification' }))
     if (entry === 'stream') {
       await user.type(screen.getByRole('textbox'), 'Calculate the beam')
