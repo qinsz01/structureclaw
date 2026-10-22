@@ -54,8 +54,13 @@ describe('generic physics repair and shared completion', () => {
     if (change === 'candidate-translation') axial.releases = { i: { ux: true } };
     if (change.startsWith('offset')) source.offsets = { i_x: .1 };
     if (change === 'offset-with-releases') axial.releases = structuredClone(source.releases);
-    await expect(withRunContext(context({ enabled: false }), () => tryBuildGenericModelWithLlm({ invoke: async () => ({ content: JSON.stringify(candidate) }) },
-      'Preserve all supplied member definitions.', { ...state, engineeringDraft: draft.engineeringDraft }, 'en'))).rejects.toMatchObject({ code: 'USER_TOPOLOGY_VALUE_CHANGED' });
+    let calls = 0;
+    const result = withRunContext(context({ enabled: false }), () => tryBuildGenericModelWithLlm({ invoke: async () => {
+      calls++; return { content: JSON.stringify(candidate) };
+    } }, 'Preserve all supplied member definitions.', { ...state, engineeringDraft: draft.engineeringDraft }, 'en'));
+    if (change.includes('translation')) await expect(result).rejects.toThrow('unsupported translational release');
+    else await expect(result).rejects.toMatchObject({ code: 'USER_TOPOLOGY_VALUE_CHANGED' });
+    expect(calls).toBe(change === 'authored-translation' ? 0 : 1);
   });
   test('feeds the actual bilingual diagnostics and previous candidate back into one correction', async () => {
     const prompts = [], run = context({ enabled: true, maxRecoveriesPerTurn: 2 });

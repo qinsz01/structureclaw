@@ -37,10 +37,33 @@ momentAliasFixture.model.elements.find(member => member.id === 'AD').type = 'tru
 const invalidExtractionFixture = structuredClone(genericFixtures[5]);
 invalidExtractionFixture.id = 'invalid-first-extraction-repaired-before-persistence';
 invalidExtractionFixture.invalidFirstExtraction = true;
+const invalidAxialExtractionFixture = structuredClone(invalidExtractionFixture);
+invalidAxialExtractionFixture.id = 'invalid-axial-translation-repaired-before-persistence';
+invalidAxialExtractionFixture.invalidAxialTranslation = true;
+const axialAreaFixture = structuredClone(genericFixtures[5]);
+axialAreaFixture.id = 'axial-area-only-resolves-missing-shape';
+axialAreaFixture.model = structuredClone(axialAreaFixture.model);
+axialAreaFixture.total = [5, 0, -10];
+const axialSection = { id: 'AX', name: 'Axial area only', type: 'custom', properties: { A: .002 }, extra: { provenance: { properties: 'user' } } };
+for (const source of [axialAreaFixture.model, {
+  nodes: axialAreaFixture.draft.engineeringDraft.topology.nodes,
+  elements: axialAreaFixture.draft.engineeringDraft.topology.members,
+  sections: axialAreaFixture.draft.engineeringDraft.sectionRecords,
+  load_cases: axialAreaFixture.draft.engineeringDraft.loadCases,
+}]) {
+  source.nodes.push({ id: 'E', x: 7, y: 0, z: 3 });
+  source.elements.push({ id: 'DE', type: 'beam', nodes: ['D', 'E'], material: 'Q235', section: 'R' });
+  source.elements.find(member => member.id === 'AD').section = 'AX';
+  source.sections[0].shape = { kind: 'rectangular', B: 200, H: 300 };
+  source.sections.push(structuredClone(axialSection));
+  source.load_cases[0].loads = [{ type: 'nodal', node: 'D', fx: 5 }, { type: 'nodal', node: 'E', fz: -10 }];
+}
+axialAreaFixture.draft.draftIssues = [{ field: 'sectionRecords["AX"].shape', kind: 'missing', severity: 'invalid', reason: 'Area or shape missing.' }];
+axialAreaFixture.draft.skillState = { invalidDraftFields: ['sectionRecords["AX"].shape'] };
 
 describeWithOpenSees('characterization: generic physical modelling', () => {
   const ctx = setupHarness();
-  test.each([...genericFixtures, operationsFixture, axialHingeFixture, axialAliasFixture, momentAliasFixture, invalidExtractionFixture])('$id: scripted extraction and free-form builder → real OpenSees → equilibrium', async fixture => {
+  test.each([...genericFixtures, operationsFixture, axialHingeFixture, axialAliasFixture, momentAliasFixture, invalidExtractionFixture, invalidAxialExtractionFixture, axialAreaFixture])('$id: scripted extraction and free-form builder → real OpenSees → equilibrium', async fixture => {
     let builds = 0, extractions = 0;
     // Pydantic's authoritative nullable node field is a normal LLM serialization of a free joint.
     const extracted = structuredClone(fixture.draft);
@@ -51,7 +74,9 @@ describeWithOpenSees('characterization: generic physical modelling', () => {
         extractions++;
         if (fixture.invalidFirstExtraction && extractions === 1) {
           const invalid = structuredClone(extracted);
-          invalid.engineeringDraft.topology.members.find(member => member.id === 'AD').releases = { i: { unknownRotation: true } };
+          invalid.engineeringDraft.topology.members.find(member => member.id === 'AD').releases = {
+            i: fixture.invalidAxialTranslation ? { uy: true } : { unknownRotation: true },
+          };
           return invalid;
         }
         return extracted;
@@ -76,6 +101,11 @@ describeWithOpenSees('characterization: generic physical modelling', () => {
     expect(session.modeling).toMatchObject({ usedSkillIds: ['generic'], builder: 'llm' });
     expect(builds).toBe(1);
     const input = await ctx.backend.inputReview(turn.conversationId);
+    if (fixture.id === axialAreaFixture.id) {
+      const section = input.model.sections.find(section => section.id === 'AX');
+      expect(section.properties).toEqual({ A: .002 }); expect(section.shape).toBeUndefined();
+      expect(input.model.nodes).toHaveLength(5); expect(input.model.elements).toHaveLength(5);
+    }
     if (fixture.id === axialAliasFixture.id) expect(input.model.elements.find(member => member.id === 'AD'))
       .toMatchObject({ type: 'brace', releases: { i: { ry: true }, j: { ry: true } } });
     if (fixture.id === momentAliasFixture.id) expect(input.model.elements.find(member => member.id === 'AD'))

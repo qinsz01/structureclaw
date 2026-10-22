@@ -92,6 +92,16 @@ describe('member release draft boundary', () => {
     expect(outcome).toMatchObject({ errorCode: 'DRAFT_PROTOCOL_INVALID', repair: { conflicting: false, clearDraftFields: [] } });
     expect(runtime.buildModel).not.toHaveBeenCalled(); expect(draftState).toEqual(before);
   });
+  test.each(['ux', 'uy', 'uz'])('an unsupported axial %s release is rejected before persistence or generation', async dof => {
+    const draftState = stored({ i: { [dof]: true, ry: true } });
+    const before = structuredClone(draftState), runtime = { buildModel: jest.fn() };
+    expect(() => ingestGenericDraft({ engineeringDraft: draftState.engineeringDraft })).toThrow('unsupported translational release');
+    const outcome = resultBody(await createBuildModelTool(runtime).invoke({}, {
+      toolCall: { id: `legacy-${dof}` }, configurable: { agentState: { draftState } },
+    }));
+    expect(outcome).toMatchObject({ errorCode: 'DRAFT_PROTOCOL_INVALID', repair: { conflicting: false, clearDraftFields: [] } });
+    expect(runtime.buildModel).not.toHaveBeenCalled(); expect(draftState).toEqual(before);
+  });
   test('a successful build stores canonical legacy metadata and keeps its persisted mirror consistent', async () => {
     const draftState = stored({ releaseI: { my: true }, j: { mz: true } });
     const before = structuredClone(draftState);
