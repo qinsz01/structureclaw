@@ -26,6 +26,7 @@ export function ConsoleComposer({
     runPolicy,
     locale,
     selectedSkillIds,
+    availableSkills,
     isStreaming,
     sessionRuntime,
     conversationId,
@@ -52,6 +53,16 @@ export function ConsoleComposer({
     capabilityMatrixLoaded,
     endingTurnConversationId,
   } = state
+  const skillName = (id: string) => {
+    const skill = availableSkills.find(entry => entry.id === id)
+    return skill ? skill.name[locale] || skill.name.en || id : id
+  }
+  const modeling = sessionRuntime.view?.modeling
+  const usageLabel = !conversationId || sessionRuntime.view && !sessionRuntime.view.usage ? t('policySkillsNotStarted')
+    : !modeling ? t('policySkillUsageUnavailable')
+      : modeling.usedSkillIds.length ? modeling.usedSkillIds.map(skillName).join(', ')
+        : modeling.routedSkillId ? `${skillName(modeling.routedSkillId)} (${t('policySkillNotInvoked')})`
+          : t('policyNoSkillsUsed')
 
   return (
     <div className="rounded-[24px] border border-border/70 bg-background/70 p-2.5 dark:border-white/10 dark:bg-black/20">
@@ -89,10 +100,11 @@ export function ConsoleComposer({
         <p>{t('capabilityCatalogFailed')}</p>
         <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => setCatalogRefresh(value => value + 1)}>{t('capabilityCatalogRetry')}</Button>
       </div>}
-      <p role="status" className="mx-3 mb-2 text-xs text-muted-foreground">
-        {t('policyEffectiveScope')}: {runPolicy.routing?.mode === 'fixed' ? runPolicy.routing.skillId
-          : sessionRuntime.view?.policy?.routing.mode === 'fixed' && runPolicy.routing === undefined ? sessionRuntime.view.policy.routing.skillId
-          : state.hasExplicitSkillSelection ? selectedSkillIds.join(', ') || t('policyScopeEmpty') : t('policyScopeAutomatic')}
+      <p role="status" className="mx-3 mb-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground" data-testid="run-skill-summary">
+        <span>{t('policyEffectiveScope')}: {runPolicy.routing?.mode === 'fixed' ? skillName(runPolicy.routing.skillId)
+          : sessionRuntime.view?.policy?.routing.mode === 'fixed' && runPolicy.routing === undefined ? skillName(sessionRuntime.view.policy.routing.skillId)
+          : state.hasExplicitSkillSelection ? selectedSkillIds.map(skillName).join(', ') || t('policyScopeEmpty') : t('policyScopeAutomatic')}</span>
+        <span data-testid="run-used-skills">{t(modeling?.routedSkillId && !modeling.usedSkillIds.length ? 'policySkillRouted' : 'policyActualSkills')}: {usageLabel}</span>
       </p>
       <Textarea
         ref={composerTextareaRef}

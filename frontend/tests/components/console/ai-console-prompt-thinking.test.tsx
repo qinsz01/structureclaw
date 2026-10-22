@@ -89,11 +89,12 @@ describe('AIConsole prompt and thinking details', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/prompt snapshot/i)).toBeInTheDocument()
-      expect(screen.getByText(/^skills$/i)).toBeInTheDocument()
-      const resolvedSkillsSection = screen.getByText(/resolved skills/i).parentElement
+      expect(screen.getByText(/^allowed skills$/i)).toBeInTheDocument()
+      const resolvedSkillsSection = screen.getByText(/resolved routing/i).parentElement
       expect(resolvedSkillsSection).not.toBeNull()
       expect(screen.getAllByText(/beam/i).length).toBeGreaterThan(0)
       expect(within(resolvedSkillsSection as HTMLElement).getByText(/opensees-static/i)).toBeInTheDocument()
+      expect(within(resolvedSkillsSection as HTMLElement).getByText(/analysis provider/i)).toBeInTheDocument()
       expect(screen.getByText(/thinking process/i)).toBeInTheDocument()
       expect(screen.getByText(/tool calls/i)).toBeInTheDocument()
       expect(screen.getAllByText(/analyze_structure/i).length).toBeGreaterThan(0)

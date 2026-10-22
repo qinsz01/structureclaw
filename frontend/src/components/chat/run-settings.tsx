@@ -29,6 +29,7 @@ export function RunSettings({ value, onChange, locale, disabled, runtime, status
         {runtime.waitingForReply && <p>{runtime.question}</p>}
         <p>{t('policyModelRevision')}: {runtime.modelRevision}</p>
         {runtime.usage && <p>{t('policyUsage')}: {runtime.usage.toolCalls} / {runtime.usage.llmCalls} / {runtime.usage.recoveries}</p>}
+        {runtime.modeling?.builder && <p>{t('policyBuilderUsed')}: {t(runtime.modeling.builder === 'explicit' ? 'policyBuilderExplicit' : runtime.modeling.builder === 'template' ? 'policyBuilderTemplate' : 'policyBuilderLlm')}</p>}
         <ConversationJobs runtime={runtime} locale={locale} onRefresh={onRefresh} />
         {runtime.policy && <details><summary>{t('policyRecord')}</summary><p className="break-all">{runtime.policy.policyHash}</p></details>}
       </div>}

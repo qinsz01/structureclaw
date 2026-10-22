@@ -45,6 +45,8 @@ describeWithOpenSees('characterization: generic physical modelling', () => {
     expect(session.analysis.current).toBe(true);
     expect(session.waitingForReply).toBe(false);
     expect(session.usage.recoveries).toBe(0);
+    expect(turn.requests.some(request => request.kind === 'structural-router')).toBe(false);
+    expect(session.modeling).toMatchObject({ usedSkillIds: ['generic'], builder: 'llm' });
     expect(builds).toBe(1);
     const input = await ctx.backend.inputReview(turn.conversationId);
     expect(input.model.metadata.physicsCheck).toMatchObject({ valid: true, stability: { freeModes: 0 }, loadTotals: { LC1: fixture.total } });

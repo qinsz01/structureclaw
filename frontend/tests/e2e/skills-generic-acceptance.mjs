@@ -94,6 +94,7 @@ try {
         await page.getByLabel('结构技能', { exact: true }).selectOption('restricted');
         for (const checkbox of await page.getByRole('checkbox').all()) await checkbox.uncheck();
         await page.getByLabel('通用结构类型', { exact: true }).check();
+        if (scenario.builder) await page.getByLabel('建模方式', { exact: true }).selectOption(scenario.builder);
         await scope.click();
       }
       for (const prompt of [scenario.prompt, ...(scenario.followups ?? [])]) {
@@ -140,13 +141,23 @@ try {
       && (/^Error:/.test(message.content) || parse(message.content)?.success === false)).map(message => message.toolCallId));
     const questions = questionAttempts.filter(call => !refused.has(call.id));
     let run;
+    const uiSkillUsage = await page.getByTestId('run-used-skills').innerText().catch(() => '');
+    if (session?.usage?.runId) {
+      const ledger = path.join(dataDir, 'run-records', `${session.usage.runId}.json`);
+      if (fs.existsSync(ledger)) fs.copyFileSync(ledger, path.join(directory, 'usage.json'));
+    }
+    if (scenario.generic && session?.analysis?.current && (!session.modeling?.usedSkillIds.includes('generic')
+      || session.modeling.usedSkillIds.some(id => id !== 'generic')
+      || !uiSkillUsage.includes('本轮实际使用') || !uiSkillUsage.includes('通用'))) {
+      failure ??= 'Generic execution and the visible skill-usage record must agree.';
+    }
     if (session?.analysis?.runId) {
       try { run = await json('/runs/' + session.analysis.runId); fs.writeFileSync(path.join(directory, 'run.json'), JSON.stringify(run, null, 2)); }
       catch (error) { failure ??= String(error); }
     }
     const summary = { id: scenario.id, conversationId, seconds: (Date.now() - start) / 1000, turns,
       questionCalls: questions.length, questionAttempts: questionAttempts.length, rejectedQuestions: refused.size,
-      toolCalls: session?.usage?.toolCalls ?? tools.length, usage: session?.usage, expected: scenario.expected,
+      toolCalls: session?.usage?.toolCalls ?? tools.length, usage: session?.usage, modeling: session?.modeling, uiSkillUsage, expected: scenario.expected,
       analysis: session?.analysis, waiting: session?.waitingForReply, policy: session?.policy,
       analysisResponses: tools.filter(message => message.name === 'run_analysis').map(message => parse(message.content)),
       questions: questions.map(call => call.args),
@@ -187,6 +198,10 @@ function phaseOneCases() {
 function genericCases() {
   const steel = '所有材料Q235，E=206000MPa、nu=0.3、rho=7850kg/m³；除注明纯轴力杆外截面均为实心矩形宽200mm高300mm，高沿竖向。不计自重。只用OpenSees线弹性静力，不做规范设计或报告。';
   return [
+    { id: 'generic-delegated-frame3d', generic: true, builder: 'llm',
+      prompt: '你就计算一个3d的小混凝土框架，x，y方向各两跨，跨度5m，高度3米每层，一共两层，其他材料你自己安排，荷载除了地面外每个节点都有100N的x方向荷载',
+      followups: ['同意按上述 C30 + 梁250×500 + 柱400×400 建模并计算'],
+      expected: { totalFxKN: 1.8, baseReactionFxKN: -1.8, nodeCount: 27, memberCount: 42, loadCount: 18 } },
     { id: 'generic-frame', generic: true, prompt: '建立二维X-Z平面两跨两层刚接框架，跨度每跨5m、每层3m；底层3节点全固定，上方两层各3节点，每个上部节点全局+x方向10kN。给基底X反力总和。' + steel, expected: { totalFxKN: 60, baseReactionFxKN: -60 } },
     { id: 'generic-portal', generic: true, prompt: '建立二维坡屋面门式刚架：A=(0,0,0)、B=(0,0,3)、C=(3,0,4)、D=(6,0,3)、E=(6,0,0)。A、E全固定，AB、DE为柱，BC、CD为刚接屋面梁。C节点全局Z向下20kN。给两个基底竖向反力。' + steel, expected: { reactionsZKN: [10, 10], totalFzKN: -20 } },
     { id: 'generic-arch', generic: true, prompt: '建立二维X-Z平面上半圆拱，圆心(3,0,0)，半径3m，从A=(0,0,0)经冠点C=(3,0,3)到B=(6,0,0)，等分为12个直梁段近似。两端全固定，各段连续刚接，冠点全局Z向下10kN。给两端竖向反力，保留A、B、C的ID。' + steel, expected: { reactionsZKN: [5, 5], totalFzKN: -10 } },

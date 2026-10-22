@@ -12,6 +12,7 @@ import { activeInputEvidence, assertInputEvidenceMatchesModel, unresolvedInputEv
 import { resultCatalogEntry } from '../../engineering/result-selection.js';
 import { nativeDesignReview } from '../../engineering/native-design-options.js';
 import { isRecord } from '../attachments/attachment-analysis.js';
+import { messageRole, messageText } from '../tools/input-message.js';
 
 export const INPUT_REVIEW_TOOLS = ['analyze_file', 'review_input', 'query_model', 'edit_model', 'validate_model'] as const;
 
@@ -62,6 +63,42 @@ export function sessionRunUsage(state: AgentState): RunUsage | null {
   return policy && state.runUsage ? readRunUsage(policy, state.runUsage, path.join(runtimeBaseDir, 'run-records')) : null;
 }
 
+/** Allowed skills and a previous draft are not evidence that a skill ran this turn. */
+export function conversationModelingUsage(state: Pick<AgentState, 'messages' | 'runPolicy'>, usage: RunUsage | null): NonNullable<ConversationRuntimeSnapshot['modeling']> {
+  const allowed = new Set(state.runPolicy?.activeSkillIds ?? []);
+  const used = new Set<string>();
+  let routedSkillId: string | null = null;
+  let builder: NonNullable<ConversationRuntimeSnapshot['modeling']>['builder'] = null;
+  const permitted = (value: unknown): value is string => typeof value === 'string' && allowed.has(value);
+  // Older ledgers did not attach skill IDs to routing/extraction events. Read only
+  // tool receipts whose call IDs belong to this run, never assistant claims or old turns.
+  const callIds = new Set(usage?.startedToolCallIds ?? []);
+  for (const message of state.messages ?? []) {
+    if (messageRole(message) !== 'tool') continue;
+    const receipt = message as unknown as { name?: string; tool_call_id?: string; kwargs?: { name?: string; tool_call_id?: string } };
+    const name = receipt.name ?? receipt.kwargs?.name;
+    if (!callIds.has(receipt.tool_call_id ?? receipt.kwargs?.tool_call_id ?? '')
+      || name !== 'detect_structure_type' && name !== 'extract_draft_params') continue;
+    try {
+      const output = JSON.parse(messageText(message));
+      const skillId = output.structuralTypeMatch?.skillId ?? output.skillId;
+      if (!permitted(skillId)) continue;
+      routedSkillId = skillId;
+      if (name === 'extract_draft_params' && output.success !== false) used.add(skillId);
+    } catch { /* Unreadable historical receipts are not evidence of execution. */ }
+  }
+  for (const event of usage?.events ?? []) {
+    if (event.kind === 'structural_routing' && permitted(event.skillId)) routedSkillId = event.skillId;
+    if (event.kind === 'param_extractor' || event.kind === 'model_builder') {
+      if (permitted(event.skillId)) used.add(event.skillId);
+      if (event.kind === 'model_builder' && ['template', 'llm', 'explicit'].includes(String(event.builder))) {
+        builder = event.builder as NonNullable<ConversationRuntimeSnapshot['modeling']>['builder'];
+      }
+    }
+  }
+  return { routedSkillId, usedSkillIds: [...used].sort(), builder };
+}
+
 /** Job receipts for every analysis/native-design request owned by this conversation. */
 export function conversationJobSnapshots(
   execution: AnalysisExecutionService,
@@ -105,6 +142,7 @@ export function buildConversationSessionSnapshot(input: {
     modelRevision: state.modelRevision ?? 0, modelPending: state.modelPending ?? false, policy,
     usage: usage ? { runId: usage.runId, policyHash: usage.policyHash, toolCalls: usage.toolCalls,
       llmCalls: usage.llmCalls, recoveries: usage.recoveries } : null,
+    modeling: conversationModelingUsage(state, usage),
     analysis: { runId, resultKey: typeof state.analysisResult?.selectedResultKey === 'string' ? state.analysisResult.selectedResultKey : null,
       current: !reason, reason: reason ?? null }, report: { current: reportCurrent, runId: reportCurrent ? runId : null }, jobs };
 

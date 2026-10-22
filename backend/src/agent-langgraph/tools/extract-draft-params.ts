@@ -69,7 +69,7 @@ async function detectStructuralMatch(skillRuntime: AgentSkillRuntime, options: {
     : null;
   const detectedMatch = currentRunPolicy()?.routing.mode === 'fixed' ? null : options.detectedMatch ?? acceptedMatch;
   if (detectedMatch && !options.detectedMatch) {
-    recordRunEvent({ kind: 'structural_routing', path: 'reused', key: detectedMatch.key, source: detectedMatch.routingSource });
+    recordRunEvent({ kind: 'structural_routing', path: 'reused', key: detectedMatch.key, skillId: detectedMatch.skillId, source: detectedMatch.routingSource });
   }
   const match = detectedMatch ?? await detectStructuralTypeWithConfiguredLlm(skillRuntime, {
     message: extractionMessage,

@@ -480,7 +480,7 @@ export async function invokeParamExtractor(
     try {
       result = await model!.invoke(prompt, { signal: input.signal });
     } catch (error) {
-      recordRunEvent({ kind: 'param_extractor', attempt, mode, promptChars: prompt.length,
+      recordRunEvent({ kind: 'param_extractor', skillId: pluginId, attempt, mode, promptChars: prompt.length,
         durationMs: Date.now() - start, outcome: 'infrastructure_error', maxOutputTokens });
       log.warn({ pluginId, durationMs: Date.now() - start }, 'param extractor LLM call failed');
       throw new Error(
@@ -507,7 +507,7 @@ export async function invokeParamExtractor(
         const message = error instanceof Error ? error.message : String(error);
         // Retry model-authored field/clear errors, not infrastructure failures or programming errors.
         if (!/^(MODEL_EDIT_FIELD_INVALID|DRAFT_CLEAR_INVALID):/.test(message)) {
-          recordRunEvent({ kind: 'param_extractor', attempt, mode, promptChars: prompt.length, durationMs: Date.now() - start,
+          recordRunEvent({ kind: 'param_extractor', skillId: pluginId, attempt, mode, promptChars: prompt.length, durationMs: Date.now() - start,
             usage: usage ?? null, contentChars: content.length, finishReason, maxOutputTokens, outcome: 'validation_failed' });
           throw error;
         }
@@ -516,7 +516,7 @@ export async function invokeParamExtractor(
         rejectionFeedback = validationError;
       }
     }
-    recordRunEvent({ kind: 'param_extractor', attempt, mode, promptChars: prompt.length, durationMs: Date.now() - start,
+    recordRunEvent({ kind: 'param_extractor', skillId: pluginId, attempt, mode, promptChars: prompt.length, durationMs: Date.now() - start,
       usage: usage ?? null, contentChars: content.length, reasoningChars: reasoningContentLength, finishReason, maxOutputTokens,
       outcome: invalidReason ?? 'accepted', ...(validationError ? { validationError } : {}) });
     log.debug({ pluginId, durationMs: Date.now() - start, hasDraftPatch: !!patch, finishReason,
