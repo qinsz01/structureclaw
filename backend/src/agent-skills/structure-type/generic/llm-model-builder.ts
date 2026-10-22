@@ -12,12 +12,13 @@ import type { StructureClawChatModel } from '../../../utils/llm.js';
 import { buildGenericModelPrompt, buildRetrySuffix } from './llm-model-prompt.js';
 import { validateExplicitModel } from '../../../agent-runtime/explicit-model.js';
 import { canRecover, currentRunPolicy, requestRecovery } from '../../../runtime/run-context.js';
-import { applyDraftAnalysisControl, applyDraftTemplateDesign, projectDraftMaterialDesign } from '../../../agent-runtime/engineering-draft.js';
+import { applyDraftAnalysisControl, applyDraftTemplateDesign, projectDraftMaterialDesign, normalizeDraftTopologyReleases } from '../../../agent-runtime/engineering-draft.js';
 import { completeGenericModelProperties } from '../../../agent-runtime/template-properties.js';
 import { checkModelPhysics, ModelPhysicsError } from '../../../engineering/model-physics.js';
 import { expandModellingOperations, assertUserTopologyIds } from '../../../skill-shared/modelling/operations.js';
 import { ModellingOperationError } from '../../../skill-shared/modelling/contract.js';
 import { isRecord } from '../../../engineering/model-state.js';
+import { normalizeMemberReleases } from '../../../engineering/member-releases.js';
 
 export class ModelInputRequiredError extends Error {
   constructor(readonly missingFields: Array<string | { field: string; reason?: string }>) {
@@ -40,6 +41,10 @@ export async function tryBuildGenericModelWithLlm(
     return undefined;
   }
 
+  signal?.throwIfAborted();
+  if (state.engineeringDraft) state = { ...state, engineeringDraft: { ...state.engineeringDraft,
+    topology: normalizeDraftTopologyReleases(state.engineeringDraft.topology) } };
+
   const basePrompt = buildGenericModelPrompt(message, state, locale, conversationHistory, currentModel);
   let failure: { error: string; candidate: string } | undefined;
   let lastError: unknown;
@@ -48,6 +53,7 @@ export async function tryBuildGenericModelWithLlm(
   const policy = currentRunPolicy();
   const repairs = policy ? policy.repair.enabled ? policy.repair.maxRecoveriesPerTurn : 0 : 2;
   for (let attempt = 0; attempt <= repairs; attempt += 1) {
+    signal?.throwIfAborted();
     if (attempt > 0) {
       if (!canRecover()) break;
       requestRecovery('generic model: invalid candidate');
@@ -169,7 +175,7 @@ function projectConfirmedAxialMembers(model: Record<string, unknown>, state: Dra
 
 function axialRotationReleases(value: unknown): boolean {
   return value === undefined || isRecord(value) && Object.entries(value).every(([end, flags]) =>
-    ['i', 'j', 'releaseI', 'releaseJ'].includes(end) && isRecord(flags) && Object.entries(flags).every(([dof, flag]) =>
+    end === 'reference_frame' ? flags === 'element-local' : ['i', 'j', 'releaseI', 'releaseJ'].includes(end) && isRecord(flags) && Object.entries(flags).every(([dof, flag]) =>
       ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'].includes(dof) && typeof flag === 'boolean' && (!flag || ['rx', 'ry', 'rz'].includes(dof))));
 }
 
@@ -200,6 +206,8 @@ function projectConfirmedGeometricSections(model: Record<string, unknown>, state
 function canonicalizeGenericModel(model: Record<string, unknown>): void {
   model.schema_version = '2.2.0';
   model.unit_system = 'SI';
+  if (Array.isArray(model.elements)) model.elements = model.elements.map(value => !isRecord(value) || value.releases === undefined ? value
+    : { ...value, releases: normalizeMemberReleases(value.releases, `model.elements[${JSON.stringify(String(value.id ?? '?'))}].releases`) });
   if (!Array.isArray(model.load_cases)) {
     return;
   }

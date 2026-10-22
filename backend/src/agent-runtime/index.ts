@@ -438,7 +438,7 @@ export class AgentSkillRuntime {
     state: DraftState,
     skillIds?: string[],
     context?: { message?: string; locale?: AppLocale; currentModel?: Record<string, unknown>; conversationHistory?: string;
-      sectionEvidence?: SectionEvidence },
+      sectionEvidence?: SectionEvidence; signal?: AbortSignal },
   ): Promise<Record<string, unknown> | undefined> {
     const policy = currentRunPolicy();
     const { currentDraftDiagnostics, unresolvedDraftFields, isDesignDraftField } = await import('./draft-diagnostics.js');
@@ -484,7 +484,8 @@ export class AgentSkillRuntime {
       const { normalizeEngineeringModel } = await import('../engineering/model-boundary.js');
       const { createLocalStructureProtocolClient } = await import('../skill-shared/structure-protocol-execution.js');
       const protocol = createLocalStructureProtocolClient();
-      const llm = createChatModel(0);
+      context.signal?.throwIfAborted();
+      const llm = createChatModel(0, { purpose: 'structured-output' });
       if (!llm) {
         throw new Error(
           context.locale === 'zh'
@@ -493,7 +494,7 @@ export class AgentSkillRuntime {
         );
       }
       return tryBuildGenericModelWithLlm(
-        llm, context.message || '', state, context.locale || 'zh', policy?.context.history === 'current-turn' ? undefined : context.conversationHistory, undefined, context.currentModel,
+        llm, context.message || '', state, context.locale || 'zh', policy?.context.history === 'current-turn' ? undefined : context.conversationHistory, context.signal, context.currentModel,
         candidate => normalizeEngineeringModel(candidate, protocol, undefined, context.sectionEvidence),
       );
     }

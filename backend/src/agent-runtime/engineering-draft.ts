@@ -1,5 +1,6 @@
 import { mergeInputEvidence } from '../engineering/input-evidence.js';
 import { isDeepStrictEqual } from 'node:util';
+import { normalizeMemberReleases } from '../engineering/member-releases.js';
 import type {
   AgentAnalysisType,
   EngineeringDraft,
@@ -51,8 +52,21 @@ function normalizeTopologyNode(value: unknown): EngineeringDraftTopologyNode | u
   return { ...structuredClone(raw), id, x, y, z, restraints };
 }
 
+function normalizeMemberRecordReleases(raw: Record<string, unknown>): Record<string, unknown> {
+  return raw.releases === undefined ? raw : { ...raw, releases: normalizeMemberReleases(raw.releases,
+    `engineeringDraft.topology.members[${JSON.stringify(String(raw.id ?? '?'))}].releases`) };
+}
+
+/** Stored draft metadata uses the same boundary as newly extracted definitions. */
+export function normalizeDraftTopologyReleases(topology: EngineeringDraftTopology | undefined): EngineeringDraftTopology | undefined {
+  return topology ? { ...topology, ...(topology.members ? {
+    members: topology.members.map(member => normalizeMemberRecordReleases(member) as EngineeringDraftTopologyMember),
+  } : {}) } : undefined;
+}
+
 function normalizeTopologyMember(value: unknown): EngineeringDraftTopologyMember | undefined {
-  const raw = asRecord(value);
+  const input = asRecord(value);
+  const raw = input ? normalizeMemberRecordReleases(input) : undefined;
   if (!raw || !Array.isArray(raw.nodes) || raw.nodes.length !== 2) return undefined;
   const start = normalizeString(raw.nodes[0]);
   const end = normalizeString(raw.nodes[1]);
@@ -71,12 +85,13 @@ function normalizeTopologyMember(value: unknown): EngineeringDraftTopologyMember
 }
 
 /** Validate partial records using their accepted fields, never guessed coordinates or load units. */
-function hydrateDraftRecord(value: unknown, existing: Array<Record<string, unknown>> | undefined): unknown {
-  const patch = asRecord(value);
+function hydrateDraftRecord(value: unknown, existing: Array<Record<string, unknown>> | undefined, member = false): unknown {
+  const input = asRecord(value);
+  const patch = member && input ? normalizeMemberRecordReleases(input) : input;
   if (!patch || typeof patch.id !== 'string') return value;
   const matches = existing?.filter(record => record.id === patch.id) ?? [];
   if (matches.length > 1) throw new Error(`AMBIGUOUS_DRAFT_RECORD_ID: ${patch.id} / 无法唯一定位草稿对象`);
-  return matches.length ? mergeDraftRecord(matches[0]!, patch) : value;
+  return matches.length ? mergeDraftRecord(member ? normalizeMemberRecordReleases(matches[0]!) : matches[0]!, patch) : patch;
 }
 
 function normalizeEngineeringTopology(value: unknown, existing?: EngineeringDraftTopology): EngineeringDraftTopology | undefined {
@@ -86,7 +101,7 @@ function normalizeEngineeringTopology(value: unknown, existing?: EngineeringDraf
     ? raw.nodes.map(item => normalizeTopologyNode(hydrateDraftRecord(item, existing?.nodes))).filter((node): node is EngineeringDraftTopologyNode => node !== undefined)
     : undefined;
   const members = Array.isArray(raw.members)
-    ? raw.members.map(item => normalizeTopologyMember(hydrateDraftRecord(item, existing?.members))).filter((member): member is EngineeringDraftTopologyMember => member !== undefined)
+    ? raw.members.map(item => normalizeTopologyMember(hydrateDraftRecord(item, existing?.members, true))).filter((member): member is EngineeringDraftTopologyMember => member !== undefined)
     : undefined;
   if ((Array.isArray(raw.nodes) && nodes?.length !== raw.nodes.length)
     || (Array.isArray(raw.members) && members?.length !== raw.members.length)) {
@@ -514,6 +529,8 @@ export function mergeEngineeringDraft(
   patch: EngineeringDraft | undefined,
 ): EngineeringDraft | undefined {
   if (!existing && !patch) return undefined;
+  if (existing?.topology) existing = { ...existing, topology: normalizeDraftTopologyReleases(existing.topology) };
+  if (patch?.topology) patch = { ...patch, topology: normalizeDraftTopologyReleases(patch.topology) };
   if (!patch) return existing;
   if (!existing) {
     return {

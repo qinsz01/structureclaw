@@ -439,7 +439,7 @@ export async function invokeParamExtractor(
   const patchMode = input.patchMode ?? Boolean(input.existingState?.engineeringDraft);
   const llm = input.llm === undefined ? createChatModel(0, patchMode
     // GLM-5.3 cannot disable reasoning. Bound an exhausted attempt, then retry with a short JSON contract.
-    ? { purpose: 'clarification-patch', maxTokens: 1024, disableStreaming: true } : {}) : input.llm;
+    ? { purpose: 'clarification-patch', maxTokens: 1024, disableStreaming: true } : { purpose: 'structured-output' }) : input.llm;
   if (!llm) {
     if (input.requireLlmResult) {
       throw new Error('LLM_PARAM_EXTRACTOR_CONFIGURATION_ERROR: no LLM is configured');
@@ -455,6 +455,7 @@ export async function invokeParamExtractor(
     input.focusFields,
     patchMode,
   ) + '\nInput completeness / 输入完整性: Extract each supplied field independently. A pending confirmation on one field never blocks other fields. If a supplied value cannot be represented, include top-level unapplied:[{field,reason,message}] instead of omitting it silently. / 分别提取每个已给字段；某字段待确认不得阻止其他字段。无法表达的已给值必须列入顶层unapplied并说明原因，不能静默遗漏。'
+    + '\nMember end releases / 构件端释放: releases uses i/j with explicit boolean local DOFs ux/uy/uz/rx/ry/rz, never force/moment result fields. Use reference_frame="element-local" if specified. Pure axial truss/brace rotations are already free; never remove translational releases or offsets to pass validation. / 端释放使用局部自由度布尔值，不要使用力或弯矩结果字段；不得删除平移释放或偏心来通过校验。'
     + (patchMode ? '' : '\nDesign field contract / 设计字段协议: design.basis is a map of nonempty strings, never booleans, numbers, arrays or nested objects. Descriptive assumptions belong in basis as evidence, not invented executable design fields. Preserve unsupported computational requests in metadata.unmappedDesignParameters and report them as unresolved; do not claim basis implements them. / design.basis的每个值必须是非空字符串；描述性假定作为依据保存，不要编造可执行设计字段。未知计算条件保留为metadata.unmappedDesignParameters待解决，不得声称写入basis就已实现。')
     + (input.designSchema && !patchMode ? `\nAuthoritative V2 design schema / 正式V2设计字段定义（只能使用所列字段）:\n${JSON.stringify(input.designSchema)}` : '')
     + (input.sectionShapeSchema && !patchMode ? `\nAuthoritative V2 section shape schema / 正式V2截面几何字段定义（单位mm，kind使用所列大小写，不能猜测尺寸或圆角）:\n${JSON.stringify(input.sectionShapeSchema)}` : '')
@@ -463,14 +464,17 @@ export async function invokeParamExtractor(
 
   let diagnostic = '';
   let rejectionFeedback = '';
-  for (let attempt = 1; attempt <= (patchMode ? 3 : 1); attempt++) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    input.signal?.throwIfAborted();
     const mode = patchMode && attempt < 3 ? 'patch' : 'full';
     const maxOutputTokens = patchMode ? (attempt === 3 ? 8192 : attempt === 2 ? 2048 : 1024) : null;
     const model = attempt === 1 ? llm : input.llm === undefined
-      ? createChatModel(0, { purpose: 'clarification-patch', maxTokens: maxOutputTokens!, disableStreaming: true }) : input.llm;
-    const prompt = promptFor(mode === 'patch') + (attempt === 2
+      ? createChatModel(0, patchMode ? { purpose: 'clarification-patch', maxTokens: maxOutputTokens!, disableStreaming: true }
+        : { purpose: 'structured-output' }) : input.llm;
+    const prompt = promptFor(mode === 'patch') + (attempt === 2 && patchMode
       ? '\nRETRY CONTRACT / 重试协议: The previous output was empty, invalid or truncated. Return ONLY one short JSON object: {"engineeringDraft":{changed fields only}}; optional clearDraftFields, draftIssues, unapplied. Capture EVERY supplied field independently, including fields unrelated to pending confirmations. No unchanged data or commentary. / 上次输出无效；仅返回短JSON，分别保留用户给出的所有字段，待确认字段不得阻止其他字段。'
-      : '') + (rejectionFeedback ? `\nRejected patch feedback / 上次补丁校验反馈: ${rejectionFeedback}\nCorrect these fields while retaining every supplied value. / 修正上述字段并保留所有已提供的值。` : '');
+      : attempt > 1 && !patchMode ? '\nRETRY CONTRACT / 重试协议: The prior draft was invalid. Return one complete JSON draft object, correct the reported fields and retain every supplied engineering value; no commentary. / 上次草稿无效，请返回完整JSON草稿、修正错误字段并保留全部已给工程数值，不输出说明。'
+        : '') + (rejectionFeedback ? `\nRejected patch feedback / 上次补丁校验反馈: ${rejectionFeedback}\nCorrect these fields while retaining every supplied value. / 修正上述字段并保留所有已提供的值。` : '');
     const start = Date.now();
     let result: {
       content: unknown;
@@ -522,10 +526,10 @@ export async function invokeParamExtractor(
     log.debug({ pluginId, durationMs: Date.now() - start, hasDraftPatch: !!patch, finishReason,
       contentLength: content.length, reasoningContentLength }, 'param extractor completed');
     if (!invalidReason) return patch;
-    if (validationError && (attempt === 3 || !patchMode)) throw new Error(validationError);
+    if (validationError && attempt === 3) throw new Error(validationError);
     diagnostic = `finishReason=${finishReason ?? 'unknown'}; contentLength=${content.length}; reasoningContentLength=${reasoningContentLength}`
       + (validationError ? `; validationError=${validationError}` : '');
-    if (patchMode && attempt < 3) requestRecovery(`parameter extraction: ${invalidReason}; ${attempt === 1 ? 'retry short patch' : 'retry full extraction'}`);
+    if (attempt < 3) requestRecovery(`parameter extraction: ${invalidReason}; ${patchMode && attempt === 1 ? 'retry short patch' : 'retry full extraction'}`);
   }
   throw new Error('LLM_PARAM_EXTRACTOR_INVALID_OUTPUT: response was not a usable JSON draft patch; ' + diagnostic);
 }

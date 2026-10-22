@@ -1,5 +1,6 @@
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
+import { isDeepStrictEqual } from 'node:util';
 import type { AgentSkillRuntime } from '../../agent-runtime/index.js';
 import type { LangGraphRunnableConfig } from '@langchain/langgraph';
 import { getLogger, logToolCall } from '../../utils/agent-logger.js';
@@ -7,8 +8,10 @@ import type { AgentConfigurable } from '../configurable.js';
 import { normalizeEngineeringModel } from '../../engineering/model-boundary.js';
 import { assertConfirmedSectionInputs, SectionConfirmationRequiredError } from '../../engineering/section-provenance.js';
 import { draftSectionConfirmations } from '../../agent-runtime/draft-readiness.js';
-import { verifyDraftSectionEvidence } from '../../agent-runtime/draft/boundary.js';
+import { verifyDraftSectionEvidence, projectDraftState } from '../../agent-runtime/draft/boundary.js';
 import { mergeInputEvidence } from '../../engineering/input-evidence.js';
+import { normalizeDraftTopologyReleases } from '../../agent-runtime/engineering-draft.js';
+import { MemberReleaseValidationError } from '../../engineering/member-releases.js';
 import { buildModelToolSummary, buildModelToolStateUpdate } from './compaction/analysis.js';
 import { conversationSectionEvidence, messageRole, messageText } from './input-message.js';
 import { getConfigurable, getToolCallId, toolResult, isRecord, toolSkillScope, nextActionForMissingInput, clarificationAvailable } from './shared.js';
@@ -23,9 +26,20 @@ export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
       const toolCallId = getToolCallId(config);
 
       // Read draft state from graph state channel
-      const savedDraft = state?.draftState;
-      if (!savedDraft) {
+      const storedDraft = state?.draftState;
+      if (!storedDraft) {
         throw new Error('No draft state available. Run extract_draft_params first.');
+      }
+      let savedDraft = storedDraft;
+      try {
+        if (storedDraft.engineeringDraft) savedDraft = projectDraftState({ ...storedDraft.engineeringDraft,
+          topology: normalizeDraftTopologyReleases(storedDraft.engineeringDraft.topology) }, storedDraft);
+      } catch (error) {
+        if (!(error instanceof MemberReleaseValidationError)) throw error;
+        return toolResult(toolCallId, 'build_model', JSON.stringify({ success: false, modelBuilt: false,
+          errorCode: 'DRAFT_PROTOCOL_INVALID', field: error.releaseField, error: error.message,
+          nextAction: 'extract_draft_params', repair: { clearDraftFields: error.conflicting ? [] : [error.invalidField], conflicting: error.conflicting },
+          instruction: 'Repair this invalid draft representation from the original user input with extract_draft_params. Clear only the reported invalid field before merging its corrected definition; preserve all other release flags, geometry, supports, loads and section values. This is not a missing engineering fact; do not ask the user to repeat known input. Conflicting definitions require authoritative input, never choose or delete one side automatically. / 请依据原始用户输入修复草稿协议，只显式清除报告的无效字段再合并正确定义，保留其余释放标记、几何、支承、荷载和截面数值，不重复追问已知输入；冲突定义须核对原始依据，不得自行选择或删除其中一方。' }));
       }
       const skillIds = toolSkillScope(config);
       const userTexts = conversationSectionEvidence(state);
@@ -44,6 +58,7 @@ export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
           currentModel: state?.model ?? undefined,
           conversationHistory: state?.messages.map((message) => `${messageRole(message)}: ${messageText(message)}`).join('\n'),
           sectionEvidence: userTexts,
+          signal: config.signal,
         });
       } catch (error) {
         const { ModelInputRequiredError } = await import('../../agent-skills/structure-type/generic/llm-model-builder.js');
@@ -96,7 +111,8 @@ export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
         toolCallId,
         'build_model',
         JSON.stringify(summary),
-        buildModelToolStateUpdate(model, summary, state),
+        { ...buildModelToolStateUpdate(model, summary, state),
+          ...(success && !isDeepStrictEqual(savedDraft, storedDraft) ? { draftState: savedDraft } : {}) },
       );
     },
     {

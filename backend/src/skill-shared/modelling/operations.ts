@@ -1,4 +1,5 @@
 import { isRecord, type ModelRecord } from '../../engineering/model-state.js';
+import { isDeepStrictEqual } from 'node:util';
 import { memberGeometry, coordinates } from '../../engineering/member-geometry.js';
 import { buildStructuralCoordinateSystem } from '../../engineering/coordinate-semantics.js';
 import { appliedLoadTotals } from '../../engineering/model-physics.js';
@@ -178,7 +179,8 @@ export function assertUserTopologyIds(model: ModelRecord, source: { nodes?: unkn
   ] as const) for (const original of originals) {
     if (!original.id) continue;
     const candidate = rows(model[collection]).find(record => record.id === original.id)!;
-    for (const field of fields) if (original[field] !== undefined && JSON.stringify(original[field]) !== JSON.stringify(candidate[field])) {
+    // Compare persisted values, independent of key order and runtime-specific object prototypes.
+    for (const field of fields) if (original[field] !== undefined && !isDeepStrictEqual(structuredClone(original[field]), structuredClone(candidate[field]))) {
       throw new ModellingOperationError('USER_TOPOLOGY_VALUE_CHANGED', { id: original.id, field, expected: original[field], actual: candidate[field] });
     }
   }

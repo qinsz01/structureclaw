@@ -25,7 +25,7 @@ interface ChatModelRuntimeOptions {
   disableStreaming?: boolean;
   streaming?: boolean;
   maxTokens?: number;
-  purpose?: 'clarification-patch';
+  purpose?: 'clarification-patch' | 'structured-output';
 }
 
 export interface LlmTokenUsage {
@@ -195,10 +195,10 @@ export function buildChatModelOptions(
     disableStreaming,
     ...(disableStreaming ? { streaming: false } : runtimeOptions.streaming === undefined ? {} : { streaming: runtimeOptions.streaming }),
     ...(Number.isSafeInteger(maxTokens) && (maxTokens ?? 0) > 0 ? { maxTokens } : {}),
-    ...(runtimeOptions.purpose === 'clarification-patch' ? {
+    ...(runtimeOptions.purpose === 'clarification-patch' || runtimeOptions.purpose === 'structured-output' ? {
       modelKwargs: { response_format: { type: 'json_object' },
         // LangChain filters reasoning options for non-OpenAI model names; pass the compatible wire parameter.
-        ...(/^glm-5\.3(?:-|$)/i.test(modelConfig.llmModel) ? { reasoning_effort: 'low' } : {}),
+        ...(runtimeOptions.purpose === 'clarification-patch' && /^glm-5\.3(?:-|$)/i.test(modelConfig.llmModel) ? { reasoning_effort: 'low' } : {}),
       },
     } : {}),
     configuration: {
