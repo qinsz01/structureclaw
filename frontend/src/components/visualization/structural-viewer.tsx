@@ -528,6 +528,7 @@ export function StructuralViewer({
               diagramScale={state.diagramScale}
               cameraPreset={state.camera}
               preserveCameraOnResize={embedded}
+              focusOnSelection={state.figureKey === (figureKey ?? `${snapshot.source}:${snapshot.title}:${snapshot.defaultCaseId}`)}
               locale={locale}
               onFit={() => patch({ resetToken: resetToken + 1, selection: null })}
               exportRef={exportRef}

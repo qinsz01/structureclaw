@@ -18,6 +18,7 @@ export type StructuralSceneProps = {
   diagramScale?: number
   cameraPreset?: CameraPreset
   preserveCameraOnResize?: boolean
+  focusOnSelection?: boolean
   locale?: AppLocale
   onFit?: () => void
   forceMetric: ForceMetric

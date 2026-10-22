@@ -16,6 +16,7 @@ export function SceneContent({
   diagramScale,
   cameraPreset,
   preserveCameraOnResize,
+  focusOnSelection = true,
   locale,
   t,
   forceMetric,
@@ -123,7 +124,7 @@ export function SceneContent({
       <directionalLight intensity={1.2} position={[10, 12, 8]} />
       <directionalLight intensity={0.45} position={[-8, -4, 10]} />
       <OrbitControls enableRotate={snapshot.dimension === 3} makeDefault target={cameraFrame.target} zoomToCursor />
-      <FocusController focusTarget={selectedFocusPoint} focusKey={`${selectedNodeId}:${selectedElementId}:${selectedLoadIndex}`} />
+      {focusOnSelection && <FocusController focusTarget={selectedFocusPoint} focusKey={`${selectedNodeId}:${selectedElementId}:${selectedLoadIndex}`} />}
       <gridHelper args={[gridConfig.size, gridConfig.divisions, palette.gridAxis, palette.grid]} position={gridConfig.position} rotation={gridConfig.rotation} />
 
       <Bounds margin={1.3} maxDuration={0.2}>

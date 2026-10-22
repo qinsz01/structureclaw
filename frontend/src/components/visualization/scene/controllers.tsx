@@ -92,9 +92,13 @@ export function FocusController({
   const { camera, controls, invalidate } = useThree()
 
   const targetRef = useRef(focusTarget)
+  const previousFocusKey = useRef(focusKey)
   targetRef.current = focusTarget
   useEffect(() => {
-    if (!targetRef.current || !controls) return
+    const selectionChanged = previousFocusKey.current !== focusKey
+    previousFocusKey.current = focusKey
+    // The initial selection identifies the query; only later picks request a camera focus.
+    if (!selectionChanged || !targetRef.current || !controls) return
     // Bounds animates for 0.2 s. Focus only after it has finished and only on a
     // new selection, never in response to display-scale slider ticks.
     const timer = window.setTimeout(() => {
