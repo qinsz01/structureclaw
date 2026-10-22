@@ -75,7 +75,9 @@ try {
     fs.mkdirSync(directory, { recursive: true });
     const context = await browser.newContext({ baseURL, locale: 'zh-CN', viewport: { width: 1440, height: 1000 } });
     await context.addCookies([{ name: 'structureclaw.locale', value: 'zh', url: baseURL }]);
-    await context.addInitScript(() => localStorage.setItem('structureclaw.locale', 'zh'));
+    await context.addInitScript(() => {
+      if (location.origin !== 'null') localStorage.setItem('structureclaw.locale', 'zh');
+    });
     const page = await context.newPage();
     const pageErrors = [];
     page.on('pageerror', error => pageErrors.push(error.message));
