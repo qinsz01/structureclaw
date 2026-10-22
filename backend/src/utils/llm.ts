@@ -198,7 +198,7 @@ export function buildChatModelOptions(
     ...(runtimeOptions.purpose === 'clarification-patch' || runtimeOptions.purpose === 'structured-output' ? {
       modelKwargs: { response_format: { type: 'json_object' },
         // LangChain filters reasoning options for non-OpenAI model names; pass the compatible wire parameter.
-        ...(runtimeOptions.purpose === 'clarification-patch' && /^glm-5\.3(?:-|$)/i.test(modelConfig.llmModel) ? { reasoning_effort: 'low' } : {}),
+        ...(/^glm-5\.3(?:-|$)/i.test(modelConfig.llmModel) ? { reasoning_effort: 'low' } : {}),
       },
     } : {}),
     configuration: {

@@ -11,10 +11,11 @@ const baseConfig = {
 };
 
 describe('LLM model options', () => {
-  test('structured extraction/build requests use JSON mode without changing ordinary chat or reasoning settings', async () => {
+  test('structured extraction/build requests use JSON mode and bounded GLM reasoning while ordinary chat keeps its settings', async () => {
     const { buildChatModelOptions } = await import('../../../dist/utils/llm.js');
     const config = { ...baseConfig, llmModel: 'glm-5.3' };
-    expect(buildChatModelOptions(config, 0, { purpose: 'structured-output' }).modelKwargs).toEqual({ response_format: { type: 'json_object' } });
+    expect(buildChatModelOptions(config, 0, { purpose: 'structured-output' }).modelKwargs).toEqual({ response_format: { type: 'json_object' }, reasoning_effort: 'low' });
+    expect(buildChatModelOptions(baseConfig, 0, { purpose: 'structured-output' }).modelKwargs).toEqual({ response_format: { type: 'json_object' } });
     expect(buildChatModelOptions(config, .2).modelKwargs).toBeUndefined();
   });
   test('keeps streaming available by default', async () => {
