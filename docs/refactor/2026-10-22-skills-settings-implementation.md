@@ -404,3 +404,118 @@ its predecessor is also archived outside the repository. Existing services were 
 so the running backend needs a restart before it can serve the new projection and routing code.
 The UI reports unavailable usage honestly when connected to an older backend. No push, benchmark
 change, or historical scenario-freeze regeneration was performed.
+
+## Mixed-structure draft protocol repair (2026-10-22)
+
+The failed axial follow-up exposed a host boundary problem as well as model mistakes: unchecked
+`mx/my/mz` release keys entered the draft, deep merge retained them, and later identity checks
+protected the malformed dictionary. `897d02ee` validates end releases before draft persistence,
+before merging partial member records, and before the generic builder consumes a stored draft.
+It translates unambiguous moment/rotation and end aliases to boolean local `i/j.ux/uy/uz/rx/ry/rz`,
+preserves false flags and explicit local axes, and rejects unknown fields, unsupported axes and
+conflicting definitions. Old and new dictionaries are normalized before deep merge. Complete
+imported models retain their ordinary authoritative model-validation boundary.
+
+A malformed old draft produces `DRAFT_PROTOCOL_INVALID` before any model call, with a field-specific
+repair path. Clearing that invalid leaf and supplying a corrected representation preserves the
+other release flags, geometry, supports, materials, sections and actions. Conflicting aliases
+never get an automatic choice or deletion. `53cc79fc` also withholds any clear-field suggestion for
+unsupported reference axes. Successful builds persist canonical metadata and keep
+the legacy engineering-draft mirror consistent; failures do not adopt an unvalidated candidate.
+Topology preservation compares values without depending on object-key order. Axial equivalence
+still excludes offsets and translational releases, and all physical/section-provenance gates remain.
+
+Extraction and generic construction request JSON-object mode on the OpenAI-compatible adapter.
+`02e4a0e7` also uses the existing low-reasoning GLM-5.3 option for those internal JSON tasks;
+native Anthropic handling and ordinary chat options are unchanged. First-extraction field errors
+now receive bounded feedback retries using the same recovery ledger as clarification and builder
+repairs. Disabling repair prevents those retries. The enclosing cancellation signal reaches the
+nested generic call and is checked before another attempt or recovery reservation. This is not
+a guarantee against every provider output error or slow response.
+
+`85bdefef` adds legacy replay, atomic rejection, lossless correction, conflict, persistence,
+key-order, JSON-option, cancellation and shared-budget regressions. The focused run passed 127
+tests, including 11 fully specified fixtures through real OpenSees; the additional extraction-budget
+checks passed in a 51-test extraction run. The fixture that first emits an invalid release field
+must correct it before persistence, with exactly one shared recovery and no extra user question.
+The alias fixture must build once with no recovery and retain authored metadata and equilibrium.
+
+The full backend run at `85bdefef` passed 3248 tests and all 57 snapshots (219 suites). Four suites
+failed because the direct Jest command ran from the repository root while those tests resolve
+files relative to the backend working directory: two path assertions failed and two suites could
+not import CLI modules. Running from `backend/` resolved all four without application or assertion
+changes. That rerun also covers the final axis guard and GLM options: 132 tests in nine suites passed.
+Both original failure logs and clean rerun logs remain under `G:/StructureClaw-All/verification/draft-release-*`.
+Final lint and architecture checks passed (301 modules / 906 dependencies). At `02e4a0e7`, the primary
+compilation passed 170 tests in 11 suites, including the compiled surface and all 11 fully specified
+OpenSees fixtures. All three orchestration, chat-stream and analysis contract validators passed.
+
+The first fresh real-provider trial with JSON mode but default reasoning is retained in
+`draft-release-live`: it **failed** after the first response exceeded 600s (635.7s including cleanup,
+one turn, no issued question, two tool calls, five LLM calls, no completed analysis). Extraction
+alone used 308.5s and 15696 reasoning tokens; the missing-area builder response used another 148.7s.
+No malformed-release error or automatic recovery was recorded, but that is not a successful run.
+The GLM reasoning change addresses this separately observed internal-call latency, rather than
+claiming the release normalization alone fixed response time. The original axial failure and this
+new failed measurement are preserved separately from the subsequent code revision and trial.
+
+The next low-reasoning trial is retained in `draft-release-low-live`: the first turn reached the
+one genuine area question in 113.4s, but the full 267.1s run **did not complete analysis**. After
+the answer supplied A=0.002m², a stale missing diagnostic for `sectionRecords["S2"].shape` survived.
+It caused a second, unnecessary question asking for an equivalent rectangular shape. The trial
+used two user turns, two issued questions, six tool calls, nine LLM calls and no tool errors or
+automatic recovery. It is not a successful result or an improvement in question count.
+
+The additional correction resolves only a missing whole-shape/dimensions diagnostic when an
+evidenced positive area exists, the section has exclusively axial consumers, and no beam/column
+assignment or requested design needs that geometry. It preserves explicit conflicts, unknown or
+bending consumers, unconfirmed/invalid areas and independent diagnostics. No equivalent rectangle
+or bending/torsion properties are invented. The same trial's draft also exposed generated
+transverse translation releases on the axial brace. These were already unsupported by the physics
+gate; they now fail at extraction before persistence, with feedback explaining that absent shear
+stiffness is intrinsic to an axial member. Unsupported stored release conditions receive no
+automatic clear-field suggestion. New tests retain rejection of confirmed unsupported conditions.
+
+The focused diagnostic, section/provenance, property-merge, stiffness and release suite passed
+455 tests. The new full-flow area fixture then exposed a second route for the same stale field:
+an incoming resolved missing issue was reintroduced through its duplicate legacy invalid-field
+list. `f5c4259d` makes the legacy list follow both incoming and existing structured diagnostics.
+The fixture now reaches real OpenSees with five nodes, five members, two loads and only A=0.002m²
+for the brace, with no equivalent geometry and no additional clarification.
+
+The third trial (`draft-release-area-live`) returned an analysis in 162.0s with one user turn,
+no questions, six tool calls, eight LLM calls and no recovery/tool error, but **failed independent
+input validation**: it assigned the excluded beam/column 200×300mm section to AD (A=0.06m²).
+Force/moment equilibrium and a solver success flag do not make that model faithful to the input.
+The failed check and original result are retained. `161e734c` restores the provider's original
+reasoning setting for first/full extraction and reinforces section inclusion/exclusion scope;
+only the model-build and existing short-patch calls request the GLM low-reasoning option. That
+guidance is not a proof that every natural-language scope will be interpreted correctly.
+
+Final verification at `161e734c` passed 487 tests in 12 suites in the isolated checkout, including
+all 13 fully specified OpenSees cases and the intentional invalid-case correction. The fresh
+primary compilation passed 513 tests in 13 suites including the compiled surface. The final
+three validators, lint, dependency checks and unchanged frontend build fingerprint all passed.
+
+The final fresh trial at `161e734c` is retained in `draft-release-scope-live` with the same original
+prompt and the same free-text area follow-up. It completed in **522.4s**, two user turns and one
+genuine area question, with eight tool calls, eleven LLM calls, zero recovery, zero tool error and
+zero browser-page error. The first turn reached the area question in 429.4s; extraction keeps its
+original reasoning setting, so external-model inference still dominates latency. This is one
+successful observation, not a general latency or success-rate guarantee.
+
+The independent checker (`draft-release-scope-live-check.log`) verifies five nodes, five members,
+two actions, all A–E / AC–BD–CD–DE–AD identities and connectivity, both fixed supports, 200×300mm
+beam/column geometry, AD's user-supplied **A=0.002m²** with no invented equivalent shape, Q235
+constants, both signed actions and all six global force/moment balances. Base Fx/Fz are −5/+10kN;
+force residuals are below 4e−14kN and moment residuals below 1.2e−13kN·m. Run-ledger routing and
+actual invocation contain only generic, its builder is LLM, and the visible usage label agrees.
+Earlier incomplete or input-invalid trials are not overwritten or counted as passes.
+
+All implementation/test commits through `161e734c` are fast-forward integrated into primary
+`work/research-next`. Fresh backend output was compiled separately and promoted after path and
+reparse-point checks; earlier primary outputs are archived as `draft-release-primary-dist-before`
+and `draft-release-primary-dist-before-area-scope` under `verification/`. The frontend sources are
+unchanged and the existing export fingerprint remains current. The owned trial servers are shut
+down; existing user services were never restarted. No push, benchmark change or freeze regeneration
+was performed. The newly built backend takes effect when the user next restarts their service.
