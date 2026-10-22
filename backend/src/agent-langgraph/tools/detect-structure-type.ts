@@ -5,8 +5,8 @@ import type { LangGraphRunnableConfig } from '@langchain/langgraph';
 import { getLogger, logToolCall } from '../../utils/agent-logger.js';
 import type { AgentState } from '../state.js';
 import type { AgentConfigurable } from '../configurable.js';
-import { resolveRetryTaskMessage, detectStructuralTypeWithConfiguredLlm } from './draft-helpers.js';
-import { resolveToolInputMessage } from './input-message.js';
+import { resolveRetryTaskMessage, detectStructuralTypeWithConfiguredLlm, semanticFailurePayload } from './draft-helpers.js';
+import { resolveStructuralRoutingInputMessage } from './input-message.js';
 import { getConfigurable, getToolCallId, toolResult, nestedLlmUsageCollector, toolSkillScope } from './shared.js';
 
 export function createDetectStructureTypeTool(skillRuntime: AgentSkillRuntime) {
@@ -18,8 +18,8 @@ export function createDetectStructureTypeTool(skillRuntime: AgentSkillRuntime) {
       const state = configurable.agentState;
       const toolCallId = getToolCallId(config);
       const skillIds = toolSkillScope(config);
-        const locale = (input.locale ?? state?.locale ?? 'zh') as 'en' | 'zh';
-      const message = resolveToolInputMessage(input.message, state?.lastUserMessage, state?.messages);
+      const locale = (input.locale ?? state?.locale ?? 'zh') as 'en' | 'zh';
+      const message = resolveStructuralRoutingInputMessage(input.message, state?.lastUserMessage, state?.messages);
       const detectionMessage = resolveRetryTaskMessage(message);
       const nestedUsage = nestedLlmUsageCollector();
       try {
@@ -33,6 +33,7 @@ export function createDetectStructureTypeTool(skillRuntime: AgentSkillRuntime) {
         });
         const unsupported = match.supportLevel === 'unsupported';
         const result = {
+          ...(unsupported ? { success: false, errorCode: 'STRUCTURE_TYPE_UNSUPPORTED', canProceed: false } : {}),
           key: match.key,
           mappedType: match.mappedType,
           skillId: match.skillId,
@@ -51,7 +52,7 @@ export function createDetectStructureTypeTool(skillRuntime: AgentSkillRuntime) {
               : 'Structural type detected. If the user requested modeling, analysis, or reporting, call extract_draft_params next; do not stop after reporting the type.'),
         };
         const stateUpdate: Partial<AgentState> = {};
-        if (match.key) stateUpdate.structuralTypeKey = match.key;
+        if (!unsupported && match.skillId && match.key) stateUpdate.structuralTypeKey = match.key;
         logToolCall(log, { tool: 'detect_structure_type', durationMs: Date.now() - start, extra: { matchedKey: match.key, skillId: match.skillId, routingSource: match.routingSource } });
         return toolResult(
           toolCallId,
@@ -63,18 +64,12 @@ export function createDetectStructureTypeTool(skillRuntime: AgentSkillRuntime) {
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         logToolCall(log, { tool: 'detect_structure_type', durationMs: Date.now() - start, success: false, extra: { error: errorMessage } });
-        if (
-          errorMessage.startsWith('LLM_STRUCTURAL_ROUTER_INVALID_OUTPUT:')
-        ) {
+        const failure = semanticFailurePayload(errorMessage);
+        if (failure) {
           return toolResult(
             toolCallId,
             'detect_structure_type',
-            JSON.stringify({
-              success: false,
-              errorCode: 'LLM_STRUCTURAL_ROUTER_INVALID_OUTPUT',
-              message: errorMessage,
-              nextAction: 'retry_detection',
-            }),
+            JSON.stringify(failure),
             undefined,
             nestedUsage.total(),
           );

@@ -56,64 +56,6 @@ export function resolveAbortedAssistantContent(content: string, assistantSeed: s
   return content.trim() === assistantSeed.trim() ? '' : content
 }
 
-const RESUME_MESSAGE_INTENTS = new Set([
-  '继续',
-  '继续吧',
-  '继续分析',
-  '继续执行',
-  '开始',
-  '开始吧',
-  '开始分析',
-  '开始计算',
-  '可以了',
-  '就这样',
-  '确认',
-  '确认执行',
-  'continue',
-  'goahead',
-  'proceed',
-  'start',
-  'startnow',
-  'runit',
-  'confirm',
-])
-
-function inferProceedIntent(message: string) {
-  const normalized = message
-    .trim()
-    .toLowerCase()
-    .replace(/[\s。．.!！?？,，;；:：'"`]+/gu, '')
-
-  return normalized.length > 0 && RESUME_MESSAGE_INTENTS.has(normalized)
-}
-
-export function resolveResumeFromMessage(messages: Message[], input: string) {
-  if (!inferProceedIntent(input)) {
-    return undefined
-  }
-
-  const lastAssistantIndex = [...messages].map((message, index) => ({ message, index }))
-    .reverse()
-    .find(({ message }) => message.role === 'assistant')?.index
-
-  if (lastAssistantIndex === undefined || messages[lastAssistantIndex]?.status !== 'aborted') {
-    return undefined
-  }
-
-  for (let index = lastAssistantIndex - 1; index >= 0; index -= 1) {
-    const message = messages[index]
-    if (message.role !== 'user') {
-      continue
-    }
-    const content = message.content.trim()
-    if (content) {
-      return content
-    }
-  }
-
-  return undefined
-}
-
 export function buildMessageDebugDetails(promptSnapshot: string, skillIds: string[], toolIds: string[], result: AgentResult): MessageDebugDetails {
   const safeToolCalls = normalizeToolCalls(result.toolCalls)
 

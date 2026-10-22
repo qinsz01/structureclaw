@@ -175,6 +175,36 @@ export function resolveToolInputMessage(
 }
 
 /** Extraction consumes user evidence, never an agent-authored restatement with invented values. */
+export function resolveStructuralRoutingInputMessage(
+  inputMessage: string | undefined,
+  lastUserMessage: string | undefined,
+  messages?: unknown[],
+): string {
+  for (let index = (messages?.length ?? 0) - 1; index >= 0; index--) {
+    const message = messages![index];
+    const role = messageRole(message);
+    if (role === 'human' || role === 'user') {
+      return withCanonicalAttachmentDetails(messageText(message).trim(), lastUserMessage);
+    }
+    const record = message as { name?: string; kwargs?: { name?: string } };
+    if (role !== 'tool' || (record.name ?? record.kwargs?.name) !== 'ask_user_clarification') continue;
+    try {
+      const reply = JSON.parse(messageText(message));
+      if (reply.type !== 'clarification_answered' || typeof reply.answer !== 'string' || !reply.answer.trim()) continue;
+      const answer = reply.answer.trim();
+      // Only a recorded selection may introduce an option's text. The question and
+      // all other alternatives are extraction context, never a new routing request.
+      const optionId = typeof reply.selectedOptionId === 'string' ? /^option-([1-9]\d*)$/.exec(reply.selectedOptionId) : null;
+      const selected = optionId && Array.isArray(reply.options) ? reply.options[Number(optionId[1]) - 1] : undefined;
+      const evidence = typeof selected === 'string' && selected.trim() && selected.trim() !== answer
+        ? JSON.stringify({ answer, selectedOption: selected.trim() }) : answer;
+      return withCanonicalAttachmentDetails(evidence, lastUserMessage);
+    } catch { /* Historical plain-text messages do not contain a confirmed answer. */ }
+  }
+  return lastUserMessage?.trim() || inputMessage?.trim() || '';
+}
+
+/** Full clarification context is for LLM extraction only; routing uses actual answers above. */
 export function resolveExtractionInputMessage(
   inputMessage: string | undefined,
   lastUserMessage: string | undefined,
@@ -186,7 +216,8 @@ export function resolveExtractionInputMessage(
     if (role === 'human' || role === 'user') {
       return withCanonicalAttachmentDetails(messageText(message).trim(), lastUserMessage);
     }
-    if (role === 'tool' && (message as { name?: string }).name === 'ask_user_clarification') {
+    const toolMessage = message as { name?: string; kwargs?: { name?: string } };
+    if (role === 'tool' && (toolMessage.name ?? toolMessage.kwargs?.name) === 'ask_user_clarification') {
       try {
         const reply = JSON.parse(messageText(message));
         if (reply.type === 'clarification_answered' && typeof reply.answer === 'string' && reply.answer.trim()) {
@@ -204,7 +235,8 @@ export function resolveExtractionInputMessage(
           for (let previous = index - 1; previous >= 0; previous--) {
             const item = messages![previous];
             if (['human', 'user'].includes(messageRole(item) ?? '')) break;
-            if (messageRole(item) !== 'tool' || (item as { name?: string }).name !== 'ask_user_clarification') continue;
+            const prior = item as { name?: string; kwargs?: { name?: string } };
+            if (messageRole(item) !== 'tool' || (prior.name ?? prior.kwargs?.name) !== 'ask_user_clarification') continue;
             try {
               const earlier = JSON.parse(messageText(item));
               if (earlier.type === 'clarification_answered' && typeof earlier.answer === 'string' && earlier.answer.trim()) {

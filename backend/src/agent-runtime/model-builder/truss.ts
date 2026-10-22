@@ -8,8 +8,14 @@ function getTrussTopology(state: DraftState): string {
   return typeof topology === 'string' ? topology : 'generic';
 }
 
-function getTrussLoadChord(state: DraftState): 'top' | 'bottom' {
-  return state.skillState?.trussLoadChord === 'bottom' ? 'bottom' : 'top';
+function getTrussLoadChord(state: DraftState): 'top' | 'bottom' | undefined {
+  const chord = state.skillState?.trussLoadChord;
+  if (chord === 'top' || chord === 'bottom') return chord;
+  return state.loadPosition === 'top-nodes' ? 'top' : undefined;
+}
+
+function loadTargetError(field: string): Error {
+  return new Error(`MODEL_EDIT_FIELD_INVALID: ${field} requires an explicit valid truss load target. / 桁架荷载需要明确有效的节点或标准选择器，不能猜测或丢弃荷载。`);
 }
 
 function clampTrussPanelCount(value: number | undefined, span: number): number {
@@ -24,11 +30,13 @@ function buildExplicitTrussTopology(state: DraftState): {
   elements: Array<Record<string, unknown>>;
 } | null {
   const topology = state.engineeringDraft?.topology;
-  if (!topology?.nodes?.length || !topology.members?.length) return null;
+  if (topology?.nodes === undefined && topology?.members === undefined) return null;
+  if (!topology?.nodes?.length || !topology.members?.length) throw loadTargetError('topology.nodes/members');
   const nodeIds = new Set(topology.nodes.map((node) => node.id));
   if (nodeIds.size !== topology.nodes.length
+    || topology.nodes.some(node => !node.id || ![node.x, node.y, node.z].every(Number.isFinite))
     || topology.members.some((member) => !nodeIds.has(member.nodes[0]) || !nodeIds.has(member.nodes[1]))) {
-    return null;
+    throw loadTargetError('topology node IDs/coordinates/member references');
   }
 
   const nodes = topology.nodes.map((node) => ({
@@ -93,14 +101,15 @@ function buildExplicitTrussLoads(
   const minZ = Math.min(...coordinates.map((node) => Number(node.z)));
 
   function semanticTargetIds(load: EngineeringDraftLoad): string[] {
-    const role = `${load.location?.nodeRole ?? ''} ${load.target ?? ''}`.trim().toLowerCase();
-    const chord = role.includes('top') || role.includes('upper') || role.includes('上弦')
+    const role = load.location?.nodeRole ?? load.target;
+    const chord = role === 'top' || role === 'top-nodes' || role === 'interior-top-nodes'
       ? 'top'
-      : role.includes('bottom') || role.includes('lower') || role.includes('下弦')
+      : role === 'bottom' || role === 'bottom-nodes' || role === 'interior-bottom-nodes'
         ? 'bottom'
         : undefined;
     const locationX = load.location?.xM;
-    if (typeof locationX === 'number' && Number.isFinite(locationX)) {
+    if (locationX !== undefined) {
+      if (!Number.isFinite(locationX)) throw loadTargetError('location.xM');
       const nodesAtLocation = coordinates.filter(
         (node) => Math.abs(Number(node.x) - locationX) <= 1e-9,
       );
@@ -113,7 +122,7 @@ function buildExplicitTrussLoads(
         : nodesAtLocation.length === 1
           ? nodesAtLocation
           : [];
-      if (locatedTargets.length > 0) {
+      if (locatedTargets.length === 1) {
         return locatedTargets
           .sort((left, right) => (
             Number(left.z) - Number(right.z)
@@ -122,6 +131,7 @@ function buildExplicitTrussLoads(
           ))
           .map((node) => String(node.id));
       }
+      throw loadTargetError('location.xM');
     }
     if (!chord) return [];
 
@@ -142,10 +152,12 @@ function buildExplicitTrussLoads(
   }
 
   return (state.engineeringDraft?.loads ?? []).flatMap((load) => {
-    const target = load.target?.trim();
-    if (load.kind !== 'point' && load.kind !== 'nodal') return [];
+    const target = load.target;
+    if ((load.kind !== 'point' && load.kind !== 'nodal') || load.unit !== 'kN' || !Number.isFinite(load.magnitude)) {
+      throw loadTargetError('load kind/unit/magnitude');
+    }
     const targets = target && nodeIds.has(target) ? [target] : semanticTargetIds(load);
-    if (targets.length === 0) return [];
+    if (targets.length === 0) throw loadTargetError('load.target');
     const component = load.direction === 'globalX' ? 'fx' : load.direction === 'globalY' ? 'fy' : 'fz';
     const sign = component === 'fz' && load.direction !== 'globalZ' ? -1 : 1;
     return targets.map((node) => ({ node, [component]: sign * load.magnitude }));
@@ -169,6 +181,10 @@ export function buildTrussModel(state: DraftState, metadata: Record<string, unkn
     ? [Math.max(1, Math.min(panelCount - 1, Math.round(panelCount / 2)))]
     : Array.from({ length: Math.max(0, panelCount - 1) }, (_, index) => index + 1);
   const explicitLoads = buildExplicitTrussLoads(state, nodes);
+  if (!state.engineeringDraft?.loads?.length && (!loadChord || !Number.isFinite(load)
+    || !['middle-joint', 'top-nodes'].includes(state.loadPosition ?? ''))) {
+    throw loadTargetError('load position/chord');
+  }
   const nodalLoads = explicitLoads.length > 0
     ? explicitLoads
     : loadNodeIndexes.map((index) => ({ node: `${loadPrefix}${index}`, fz: -load }));

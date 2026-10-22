@@ -1,6 +1,6 @@
 import { API_BASE } from '@/lib/api-base'
 import type { Message } from './types'
-import { buildPromptSnapshot, createId, resolveResumeFromMessage } from './message-utils'
+import { buildPromptSnapshot, createId } from './message-utils'
 import { parseModelJson } from './result-utils'
 import { buildTurnContextPayload } from './turn-context'
 import {
@@ -85,7 +85,6 @@ export function createTurnSubmission(state: ConsoleState, mutators: Conversation
     const requestedContextModel = modelEditedRef.current ? contextModel : undefined
     const requestedModelRevision = displayedModelRevisionRef.current
     const submittedModelEditSequence = modelEditSequenceRef.current
-    const resumeFromMessage = resolveResumeFromMessage(messagesRef.current, trimmedInput)
 
     const userMessage: Message = {
       id: createId('user'),
@@ -179,7 +178,6 @@ export function createTurnSubmission(state: ConsoleState, mutators: Conversation
         locale,
         requestedContextModel,
         requestedModelRevision,
-        resumeFromMessage,
         attachedFiles,
       })
       const promptSnapshot = buildPromptSnapshot(trimmedInput, contextPayload as Record<string, unknown>)

@@ -11,17 +11,15 @@ export function buildTurnContextPayload(params: {
   locale: AppLocale
   requestedContextModel: Record<string, unknown> | undefined
   requestedModelRevision: number | null
-  resumeFromMessage: string | undefined
   attachedFiles: UploadedFileAttachment[]
 }) {
-  const { runPolicy, locale, requestedContextModel, requestedModelRevision, resumeFromMessage, attachedFiles } = params
+  const { runPolicy, locale, requestedContextModel, requestedModelRevision, attachedFiles } = params
   const contextPayload = {
     runPolicy: Object.keys(runPolicy).length ? runPolicy : undefined,
     locale,
     model: requestedContextModel,
     modelRevision: requestedContextModel ? requestedModelRevision ?? undefined : undefined,
     modelFormat: requestedContextModel ? 'structuremodel-v2' : undefined,
-    resumeFromMessage,
     attachments: attachedFiles.length > 0
       ? attachedFiles.map(f => ({ fileId: f.fileId, originalName: f.originalName, relPath: f.relPath, mimeType: f.mimeType }))
       : undefined,

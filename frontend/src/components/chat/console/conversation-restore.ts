@@ -1,5 +1,6 @@
 import type { MessageKey } from '@/lib/i18n'
 import type { ConversationDetail, Message, PersistedConversation } from './types'
+import type { TimelineStepItem } from '../message-presentation'
 import {
   mapToolNameToPhase,
   parsePersistedAttachments,
@@ -7,6 +8,7 @@ import {
   parsePersistedMessageStatus,
   parsePersistedPresentation,
   stripLegacyAbortedSuffix,
+  toObjectRecord,
 } from './persisted-messages'
 import { pickPreferredLatestResult } from './result-utils'
 import {
@@ -25,7 +27,13 @@ export function mapBackendConversationMessages(payloadMessages: BackendConversat
   // Build a toolCallId → args index from assistant messages so
   // tool-role messages can recover their input parameters.
   const argsByToolCallId = new Map<string, Record<string, unknown>>()
+  const stepsByToolCallId = new Map<string, TimelineStepItem>()
   for (const msg of payloadMessages) {
+    for (const phase of parsePersistedPresentation(msg.metadata)?.phases ?? []) {
+      for (const step of phase.steps) {
+        if (typeof step?.id === 'string') stepsByToolCallId.set(step.id.replace(/^step-/, ''), step)
+      }
+    }
     if (msg.role === 'assistant') {
       const toolCalls = (msg as any).toolCalls as Array<{ id?: string; name: string; args?: Record<string, unknown> }> | undefined
       if (Array.isArray(toolCalls)) {
@@ -39,28 +47,37 @@ export function mapBackendConversationMessages(payloadMessages: BackendConversat
   const mapped = payloadMessages.flatMap((message): Message[] => {
   // Handle tool messages — these come from persistConversationWithState
   if (message.role === 'tool') {
-    let restoredSkillId: string | undefined
-    try {
-      const parsed = JSON.parse(message.content)
-      if (typeof parsed?.skillId === 'string') restoredSkillId = parsed.skillId
-    } catch {}
     const toolCallId = (message as any).toolCallId || message.id
+    const recordedStep = stepsByToolCallId.get(toolCallId)
+    let restoredSkillId: string | undefined
+    let failure = recordedStep?.status === 'error' ? recordedStep.errorMessage || message.content : undefined
+    try {
+      const parsed = toObjectRecord(JSON.parse(message.content))
+      if (typeof parsed?.skillId === 'string') restoredSkillId = parsed.skillId
+      if (parsed && (parsed.success === false || parsed.valid === false || parsed.error || parsed.status === 'failed')) {
+        failure = failure || [parsed.errorCode, parsed.error_code, parsed.error, parsed.message].filter(Boolean).map(String).join(': ')
+          || 'Tool execution failed. / 工具执行失败。'
+      }
+    } catch {}
+    if (!failure && parsePersistedMessageStatus(message.metadata, message.content) === 'error') failure = message.content
+    const status = failure !== undefined ? 'error' as const : 'done' as const
     return [{
       id: message.id,
       role: 'tool' as const,
       content: message.content,
-      status: 'done' as const,
+      status,
       timestamp: message.createdAt,
       toolStep: {
         id: toolCallId,
         phase: mapToolNameToPhase((message as any).name || 'unknown'),
-        status: 'done' as const,
+        status,
         tool: (message as any).name || 'unknown',
         title: (message as any).name || 'unknown',
-        skillId: restoredSkillId,
+        skillId: restoredSkillId ?? recordedStep?.skillId,
         args: argsByToolCallId.get(toolCallId),
         output: message.content,
-        completedAt: message.createdAt,
+        completedAt: recordedStep?.completedAt ?? message.createdAt,
+        ...(failure !== undefined ? { errorMessage: failure } : {}),
       },
     }]
   }

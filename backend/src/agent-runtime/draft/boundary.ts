@@ -238,7 +238,7 @@ function invalidIfNonPositive(patch: Record<string, unknown>, key: string, inval
     return;
   }
   const parsed = normalizeNumber(patch[key]);
-  if (parsed !== undefined && parsed <= 0) {
+  if (parsed === undefined && patch[key] != null || parsed !== undefined && parsed <= 0) {
     pushUnique(invalid, key);
   }
 }
@@ -250,7 +250,7 @@ function invalidIfArrayHasNonPositive(patch: Record<string, unknown>, key: strin
   }
   const hasInvalid = value.some((item) => {
     const parsed = normalizeNumber(item);
-    return parsed !== undefined && parsed <= 0;
+    return parsed === undefined || parsed <= 0;
   });
   if (hasInvalid) {
     pushUnique(invalid, key);
@@ -465,7 +465,7 @@ export function mergeGenericDraftState(existing: DraftState | undefined, patch: 
     inferredType: patch.inferredType ?? existing?.inferredType ?? 'unknown',
     skillId: 'generic', structuralTypeKey: 'unknown',
     engineeringDraft,
-    supportLevel: patch.supportLevel ?? existing?.supportLevel ?? 'fallback',
+    supportLevel: patch.supportLevel === 'unsupported' ? 'unsupported' : 'supported',
     supportNote: patch.supportNote ?? existing?.supportNote,
     ...(existing?.requestScope ? { requestScope: existing.requestScope } : {}),
     updatedAt: Date.now(),

@@ -35,6 +35,8 @@
   - `x、y向水平荷载都是500kN` → 每层输出 `lateralXKN = 500` 且 `lateralYKN = 500`
 - 若用户给出面荷载/线荷载（如 `12kN/m²`、`8kN/m`）且层数、跨度等几何信息足够，应优先输出 `engineeringDraft.loads` 中的 `area` / `line` 荷载，由 runtime 换算为各层总荷载；只有几何信息不足以换算时，才追问各层总荷载（kN）。
 - 若用户明确说明某线荷载是由面荷载按受荷宽度折算得到，且要求采用该折算结果，则面荷载只是计算依据：只输出并施加折算后的 `line` 荷载，不要同时输出源 `area` 荷载。只有用户明确要求两者分别叠加时才同时保留。
+- 梁线荷载用准确的梁 ID，或数字 `location.story`（二维可加从 1 开始的 `spanIndex`）；整层梁可用 `beam` + `story`，屋面可用标准选择器 `roof`。仅明确所有楼层梁均受载时使用 `all-beams`；三维按方向选择梁用 `x-beams` / `y-beams` + `story`。将用户描述交由模型转成这些结构化字段；无法确定目标时记录缺项，不输出任意描述字符串或默认全楼受载。
+- Locate a beam line load by exact beam ID or numeric `location.story` (with optional one-based `spanIndex` in 2D). Use `beam` plus `story` for a complete story, or canonical `roof` for the roof. Use `all-beams` only for an explicitly requested load on every story; use `x-beams` / `y-beams` plus `story` for 3D directions. Resolve prose into these fields through the model; unresolved targets remain missing inputs and must not become free-text selectors or whole-building loads.
 - 若用户只给出楼面荷载数值而没有单位，或没有说明它是总力、线荷载还是面荷载，不得自行补写单位或荷载种类；应输出 `draftIssues` 和 `skillState.invalidDraftFields`，要求用户确认。
 - 单节点力使用准确节点 ID，或正式协议中的 `location.story` 与 `nodeRole`；`left-side/right-side/middle` 只适用于二维，三维使用 X/Y 轴网索引。/ Locate a joint force by exact node ID or the formal story/nodeRole contract; left-side/right-side/middle apply only to 2D, and 3D uses X/Y grid indices.
 - 若用户只说“柱顶”但没有指定左柱、右柱或中间柱，不要自行选择一侧；输出 `draftIssues`，字段使用 `frameNodalLoadLocation`，并要求用户确认节点位置。

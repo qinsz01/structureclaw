@@ -13,7 +13,8 @@
  * counted in `usage.guards`.
  */
 import { createHash } from 'node:crypto';
-import type { BaseMessage } from '@langchain/core/messages';
+import type { BaseMessage, ToolMessage } from '@langchain/core/messages';
+import { toolMessageFailure } from '../../utils/tool-outcome.js';
 import type { RunContext } from '../../runtime/run-context.js';
 import { recordGuardEvent } from '../../runtime/run-context.js';
 import { extractMessageText, getMessageType, getToolName } from '../message-inspect.js';
@@ -30,7 +31,7 @@ export const GUARD_BLOCK_STOP_LIMIT = 2;
 export const MALFORMED_ARGUMENTS_KEY = '__malformedArguments';
 
 export type GuardKind = 'repeated-failure' | 'duplicate-clarification' | 'no-progress' | 'guard-stop'
-  | 'unknown-tool' | 'malformed-arguments' | 'missing-tool-call-id' | 'duplicate-extraction';
+  | 'unknown-tool' | 'malformed-arguments' | 'missing-tool-call-id' | 'duplicate-extraction' | 'failed-model-build';
 
 export interface GuardStop { reason: 'repeated-blocks' | 'no-progress'; calls: number }
 interface FailureRecord { tool: string; code: string; count: number }
@@ -124,6 +125,23 @@ export interface PreflightInput {
  */
 export interface PreflightRejection { kind: 'blocked' | 'rejected' | 'skipped'; content: string }
 
+// Read-only queries retain access to the saved revision and run for inspection.
+const MODEL_DEPENDENT_TOOLS = new Set(['run_analysis', 'run_code_check', 'generate_report',
+  'validate_model', 'edit_model', 'undo_model']);
+
+function latestBuildIncomplete(messages: BaseMessage[]): boolean {
+  for (let index = messages.length - 1; index >= 0; index--) {
+    const message = messages[index]!;
+    if (getMessageType(message) === 'human') return false;
+    if (getMessageType(message) === 'tool' && getToolName(message) === 'build_model') {
+      const payload = parseJson(extractMessageText(message));
+      return payload?.modelBuilt === false || payload?.status === 'input_required'
+        || toolMessageFailure(message as ToolMessage) !== undefined;
+    }
+  }
+  return false;
+}
+
 /**
  * Structured rejection for a call that must not execute, or undefined to execute it.
  * Unknown tools and malformed arguments are rejected even without a run context.
@@ -134,6 +152,13 @@ export function preflightToolCall(input: PreflightInput): PreflightRejection | u
     return { kind: 'skipped', content: guardError('TURN_STOPPED_BY_GUARD', 'guard-stop',
       'This turn was stopped by the StructureClaw guard; the call was not executed. / 本轮已被防护机制停止，该调用未执行。',
       'Summarize the available results and what is blocked. / 请总结已有结果和受阻事项。', { skipped: true }) };
+  }
+  if (MODEL_DEPENDENT_TOOLS.has(call.name) && latestBuildIncomplete(input.messages)) {
+    if (ledger) block(ledger, 'failed-model-build', call.name, 'MODEL_REBUILD_REQUIRED', repairEnabled, {}, false);
+    return { kind: 'blocked', content: guardError('MODEL_REBUILD_REQUIRED', 'failed-model-build',
+      'The latest model build is incomplete; retained models and results cannot represent this request. This call was not executed. / 最新建模尚未完成，保留的旧模型与结果不能代表本次请求；本次调用未执行。',
+      'Resolve the reported inputs through clarification or extraction, then build successfully before using model or result tools. / 请通过澄清或提取解决已报告的问题，成功构建后再使用模型或结果工具。',
+      { nextAction: 'clarify_or_rebuild' }) };
   }
   const args = call.args ?? {};
   const previous = ledger?.failures.get(callSignature(call.name, args));

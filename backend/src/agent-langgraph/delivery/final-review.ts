@@ -82,25 +82,19 @@ export async function reviewAndDeliverFinalAnswer(input: FinalReviewInput): Prom
     ledger.answerCorrectionPending = true;
     recordGuardEvent('answer-integrity', { action: 'correction-requested', ...summary(first) });
     log.warn({ node: 'agent', ...summary(first) }, 'final answer integrity: correction requested');
-    let retried: { response: BaseMessage; finishReason?: string } | undefined;
-    try {
-      retried = await input.reinvoke(input.response, buildCorrectionPrompt(first));
-    } catch (error) {
-      // The correction is advisory: a provider or budget failure keeps the draft, flagged below.
-      log.warn({ node: 'agent', err: error }, 'final answer integrity: correction request failed');
-    }
-    const retriedText = retried ? extractMessageText(retried.response).trim() : '';
-    const delivered = retried ? input.deliver(retried.response) : undefined;
+    const retried = await input.reinvoke(input.response, buildCorrectionPrompt(first));
+    const retriedText = extractMessageText(retried.response).trim();
+    const delivered = input.deliver(retried.response);
     // A tool call (e.g. query_results) continues the turn; a policy notice ends it normally.
-    // An empty retry keeps the original draft (flagged) instead of the generic empty-answer fallback.
-    if (retried && delivered && (!delivered.final || (retriedText && delivered.message !== retried.response))) return delivered.message;
-    const second = retried && retriedText ? review(retriedText) : first;
-    if (retried && retriedText && !hasIntegrityIssues(second)) {
+    // The delivery policy rejects empty retries instead of restoring the rejected draft.
+    if (!delivered.final || (retriedText && delivered.message !== retried.response)) return delivered.message;
+    const second = retriedText ? review(retriedText) : first;
+    if (retriedText && !hasIntegrityIssues(second)) {
       ledger.answerCorrectionPending = false;
       recordGuardEvent('answer-integrity', { action: 'corrected' });
       return finish(retried.response, retried.finishReason, locale);
     }
-    if (retried && retriedText) current = { response: retried.response, finishReason: retried.finishReason, review: second };
+    if (retriedText) current = { response: retried.response, finishReason: retried.finishReason, review: second };
   }
   if (ledger) ledger.answerCorrectionPending = false;
   recordGuardEvent('answer-integrity', { action: 'flagged', ...summary(current.review) });

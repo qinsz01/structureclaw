@@ -3,7 +3,6 @@ import { ingestDraft } from '../../../agent-runtime/draft/boundary.js';
 import type { RequestScope } from '../../../engineering/request-scope.js';
 import { computeFrameMissing } from '../frame/interaction.js';
 import type { SkillHandler } from '../../../shared/types/agent.js';
-import { detectConcreteFrameStructuralType } from './detect.js';
 import { buildConcreteFrameDraftPatch, coerceConcreteFrameDimension, toConcreteFramePatch } from './extract-llm.js';
 import {
   buildConcreteFrameDefaultProposals,
@@ -284,9 +283,6 @@ export function generateSlabs(input: ConcreteFrameInput): ConcreteSlab[] {
 }
 
 export const handler: SkillHandler = {
-  detectStructuralType(input) {
-    return detectConcreteFrameStructuralType(input);
-  },
 
   parseProvidedValues(values) {
     const base = coerceConcreteFrameDimension(

@@ -7,6 +7,7 @@ import { reserveToolCall, recordToolOutcome, currentRunContext, snapshotRunUsage
 import { toolMessageFailure } from '../utils/tool-outcome.js';
 import { clarificationStateToken, guardLedger, preflightToolCall, recordToolResult } from './guards/tool-guards.js';
 import { structuredToolError } from './guards/tool-errors.js';
+import { assertNoTerminalSemanticFailure } from './guards/terminal-failures.js';
 import { draftChangedFields } from '../agent-runtime/draft/changes.js';
 
 /** Only messages after the current assistant request acknowledge its calls. */
@@ -41,6 +42,7 @@ function structureFailures(messages: BaseMessage[], state: AgentState): BaseMess
 
 /** One call per graph node invocation: the resulting checkpoint survives a later interrupt. */
 export async function executeToolsSequentially(tools: StructuredToolInterface[], state: AgentState, config: LangGraphRunnableConfig) {
+  assertNoTerminalSemanticFailure(state.messages);
   const call = pendingToolCalls(state)[0];
   if (!call) return new Command({ update: {} });
   if (!call.id) throw new Error('TOOL_CALL_ID_REQUIRED');

@@ -1,6 +1,5 @@
 import { listProviders, type ProviderDefinition } from '../providers/catalog.js';
 import { providerAccessError } from '../providers/access.js';
-import { matchConservativeStructuralRoute } from './structural-routing.js';
 import { prepareEngineeringReport, finishEngineeringReport } from './engineering-report.js';
 import { computeDraftMissing, describeCriticalMissing } from './draft-readiness.js';
 import { assertResolvedInput } from '../engineering/input-evidence.js';
@@ -358,11 +357,6 @@ export class AgentSkillRuntime {
       skillId: 'report-export-builtin' };
   }
 
-  /** Rule-only router used for offline operation and fallback; user-facing flows should prefer detectStructuralTypeWithLlm. */
-  async detectStructuralType(message: string, locale: AppLocale, currentState?: DraftState, skillIds?: string[]): Promise<StructuralTypeMatch> {
-    return this.registry.detectStructuralType(message, locale, currentState, skillIds);
-  }
-
   async detectStructuralTypeWithLlm(
     llm: StructureClawChatModel | null,
     message: string,
@@ -372,62 +366,51 @@ export class AgentSkillRuntime {
     signal?: AbortSignal,
     onUsage?: (usage: LlmTokenUsage) => void,
   ): Promise<StructuralTypeMatch> {
+    signal?.throwIfAborted();
+    if (!llm) {
+      throw new Error('LLM_STRUCTURAL_ROUTER_REQUIRED: Structural interpretation requires a configured LLM; no keyword routing is available. / 结构语义判断需要已配置的大模型；不会改用关键词路由。');
+    }
     const policy = currentRunPolicy();
     if (policy) skillIds = policy.activeSkillIds.filter(id => skillIds === undefined || skillIds.includes(id));
     if (policy?.routing.mode === 'fixed') {
       const plugin = await this.registry.resolvePluginForIdentifier(policy.routing.skillId, skillIds);
-      if (!plugin) throw new Error('FIXED_SKILL_NOT_A_MODELING_PROVIDER');
+      if (!plugin) throw new Error('FIXED_SKILL_NOT_A_MODELING_PROVIDER: The configured modeling skill is unavailable. / 配置指定的建模技能不可用。');
       recordRunEvent({ kind: 'structural_routing', path: 'policy-fixed', skillId: plugin.id });
       return { key: plugin.manifest.structuralTypeKeys[0] ?? 'unknown', mappedType: plugin.structureType ?? 'unknown', skillId: plugin.id,
         supportLevel: 'supported', routingSource: 'policy-fixed' };
     }
     const enabled = await this.registry.resolveEnabledPlugins(skillIds);
-    const requested = matchConservativeStructuralRoute(message);
-    const excluded = requested && !enabled.some(plugin => plugin.id === requested.skillId)
-      ? await this.registry.resolvePluginById(requested.skillId) : null;
-    const applyScope = (match: StructuralTypeMatch): StructuralTypeMatch => {
-      if (!excluded) return match;
-      const generic = enabled.find(plugin => plugin.id === 'generic');
-      const supportNote = locale === 'zh'
-        ? `${excluded.name.zh} 能力未启用（能力设置）。${generic ? '已用通用建模继续；' : ''}可在能力设置中启用。`
-        : `${excluded.name.en} is disabled in Capability settings. ${generic ? 'Continuing with generic modeling; ' : ''}enable it there.`;
-      const result: StructuralTypeMatch = { ...match, skillId: generic?.id,
-        supportLevel: generic ? 'fallback' : 'unsupported', supportNote,
-        scopeExclusion: { code: 'STRUCTURE_SKILL_DISABLED', skillId: excluded.id } };
-      recordRunEvent({ kind: 'structural_scope_exclusion', ...result.scopeExclusion, message: supportNote });
-      return result;
-    };
+    if (enabled.length === 0) {
+      throw new Error('STRUCTURE_SKILL_UNAVAILABLE: No modeling skill is enabled for this request. / 本次请求未启用任何建模技能。');
+    }
     if (enabled.length === 1 && enabled[0].id === 'generic') {
-      const match = applyScope(await this.registry.detectStructuralType(message, locale, currentState, skillIds));
-      recordRunEvent({ kind: 'structural_routing', path: 'scope-only', key: match.key, skillId: match.skillId });
-      return match;
+      // This is a configured provider binding, not a classification of the input text.
+      recordRunEvent({ kind: 'structural_routing', path: 'scope-only', key: 'unknown', skillId: 'generic' });
+      return { key: 'unknown', mappedType: 'unknown', skillId: 'generic', supportLevel: 'supported', routingSource: 'scope-selected' };
     }
-    if (llm) {
-      const plugins = enabled;
-      const currentPlugin = await this.registry.resolvePluginForState(currentState, skillIds);
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        signal?.throwIfAborted();
-        try {
-          const match = await invokeStructuralTypeRouter({
-            llm, message, locale, currentState, currentPlugin, plugins, signal, onUsage,
-          });
-          if (match) {
-            const scoped = applyScope(match);
-            recordRunEvent({ kind: 'structural_routing', path: 'llm', attempt, key: scoped.key, skillId: scoped.skillId });
-            return scoped;
-          }
-        } catch (error) {
-          signal?.throwIfAborted();
-          if (!(error instanceof Error) || !error.message.startsWith('LLM_STRUCTURAL_ROUTER_INFRASTRUCTURE_ERROR:')) throw error;
+    const currentPlugin = await this.registry.resolvePluginForState(currentState, skillIds);
+    let infrastructureError: Error | undefined;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      signal?.throwIfAborted();
+      infrastructureError = undefined;
+      try {
+        const match = await invokeStructuralTypeRouter({
+          llm, message, locale, currentState, currentPlugin, plugins: enabled, signal, onUsage,
+        });
+        if (match) {
+          recordRunEvent({ kind: 'structural_routing', path: 'llm', attempt, key: match.key, skillId: match.skillId });
+          return match;
         }
-        if (attempt === 1) requestRecovery('structural routing: retry unusable or failed LLM decision');
+      } catch (error) {
+        signal?.throwIfAborted();
+        if (!(error instanceof Error) || !error.message.startsWith('LLM_STRUCTURAL_ROUTER_INFRASTRUCTURE_ERROR:')) throw error;
+        infrastructureError = error;
       }
+      if (attempt === 1) requestRecovery('structural routing: retry unusable or failed LLM decision');
     }
-    // Rules are evaluated only without an LLM or after its retry failed.
-    const match = applyScope(await this.registry.detectStructuralType(message, locale, undefined, skillIds));
-    recordRunEvent({ kind: 'structural_routing', path: 'rule-fallback',
-      reason: llm ? 'failed-after-retry' : 'not-configured', key: match.key, skillId: match.skillId });
-    return match;
+    recordRunEvent({ kind: 'structural_routing', path: 'failed', reason: infrastructureError ? 'llm-unavailable' : 'invalid-llm-decision' });
+    if (infrastructureError) throw infrastructureError;
+    throw new Error('LLM_STRUCTURAL_ROUTER_INVALID_OUTPUT: The LLM did not return a valid decision within the enabled skill scope. No draft was changed. / 大模型未返回符合已启用技能范围的有效路由结果，原草稿未修改。');
   }
 
   async resolvePluginForType(skillId: string, skillIds?: string[]): Promise<AgentSkillPlugin | null> {
@@ -476,7 +459,7 @@ export class AgentSkillRuntime {
       return model;
     }
 
-    // Generic skill: fall back to LLM model builder
+    // The generic skill and an explicit LLM builder policy require the configured model builder.
     if ((plugin.id === 'generic' || policy?.builder === 'llm') && context) {
       recordRunEvent({ kind: 'model_builder', builder: 'llm', skillId: plugin.id });
       const { tryBuildGenericModelWithLlm } = await import('../agent-skills/structure-type/generic/llm-model-builder.js');
@@ -489,8 +472,8 @@ export class AgentSkillRuntime {
       if (!llm) {
         throw new Error(
           context.locale === 'zh'
-            ? 'LLM 未配置，无法为通用技能构建模型。请检查 LLM_API_KEY 设置。'
-            : 'LLM is not configured — cannot build model for generic skill. Please check LLM_API_KEY settings.',
+            ? 'LLM_MODEL_BUILDER_REQUIRED: 尚未配置大模型，无法构建模型。请在设置中配置并启用模型提供商。'
+            : 'LLM_MODEL_BUILDER_REQUIRED: Model building requires an LLM. Configure and enable a model provider in Settings.',
         );
       }
       return tryBuildGenericModelWithLlm(

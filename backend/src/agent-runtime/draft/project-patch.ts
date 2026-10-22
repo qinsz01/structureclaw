@@ -1,5 +1,5 @@
 import { normalizeFrameBoundary } from './legacy-fields.js';
-import { isGlobalFrameNodeRole } from '../../skill-shared/modelling/frame-loads.js';
+import { isGlobalFrameNodeRole, isFrameFloorTarget, resolveFrameLoadStory, isAllFrameStoriesTarget } from '../../skill-shared/modelling/frame-loads.js';
 /**
  * Draft -> flat projection (outbound half of the draft boundary, re-exported by `boundary.ts`).
  *
@@ -23,33 +23,35 @@ function legacyLoadType(load: EngineeringDraftLoad): DraftLoadType {
   return isLineLoad(load) ? 'distributed' : 'point';
 }
 
-function legacyLoadPosition(load: EngineeringDraftLoad): DraftLoadPosition {
+function legacyLoadPosition(load: EngineeringDraftLoad): DraftLoadPosition | undefined {
   if (isLineLoad(load)) return 'full-span';
-  const role = load.location?.nodeRole?.toLowerCase();
-  if (role?.includes('top')) return 'top-nodes';
+  const role = (load.location?.nodeRole ?? load.target)?.trim().toLowerCase();
+  if (role && ['top', 'top-node', 'top-nodes', 'all-top-nodes'].includes(role)) return 'top-nodes';
   if (load.location?.xM !== undefined) return 'free-joint';
-  return 'midspan';
+  if (role === 'midspan') return 'midspan';
+  if (role && ['end', 'free-end', 'right-end'].includes(role)) return 'end';
+  if (role === 'start' || role === 'left-end') return 'free-joint';
+  return undefined;
 }
 
-function targetIncludes(load: EngineeringDraftLoad, text: string): boolean {
-  const targetText = [load.target, load.location?.nodeRole]
-    .filter((item): item is string => typeof item === 'string' && item.length > 0)
-    .join(' ')
-    .toLowerCase();
-  return targetText.includes(text.toLowerCase());
+// Exact structured target names, never substrings of prose.
+const PORTAL_TARGETS: Record<string, 'roof' | 'mezzanine' | 'crane'> = {
+  roof: 'roof', 'all-roof-beams': 'roof', mezzanine: 'mezzanine', crane: 'crane',
+};
+function portalTarget(load: EngineeringDraftLoad, exactIds: Set<string>): 'roof' | 'mezzanine' | 'crane' | undefined {
+  const target = load.target?.trim().toLowerCase();
+  const role = load.location?.nodeRole?.trim().toLowerCase();
+  // Explicit nodes and members stay in canonical loads for the model builder; a legacy
+  // roof scalar cannot represent them without discarding their selected location.
+  if (load.target && (exactIds.has(load.target) || /^(?:[BTR]\d+|C\d+[ab]?|M[01]|MEZ1)$/.test(load.target))) return undefined;
+  if (isPointLikeLoad(load) && role && ['left-column-top', 'middle-column-top', 'right-column-top', 'column-top', 'top-nodes'].includes(role)) return undefined;
+  if (isPointLikeLoad(load) && target === 'top-nodes') return undefined;
+  if (isLineLoad(load) && !target && load.location?.spanIndex !== undefined) return undefined;
+  const selected = target && Object.hasOwn(PORTAL_TARGETS, target) ? PORTAL_TARGETS[target]
+    : !target && role && Object.hasOwn(PORTAL_TARGETS, role) ? PORTAL_TARGETS[role] : undefined;
+  if (!selected) throw new Error('MODEL_EDIT_FIELD_INVALID: loads.target: specify roof, mezzanine or crane explicitly / 请明确门式刚架荷载的结构化目标，不得按文字或默认值推断。');
+  return selected;
 }
-
-function targetMatches(load: EngineeringDraftLoad, terms: readonly string[]): boolean {
-  return terms.some((term) => targetIncludes(load, term));
-}
-
-function isClearPortalTarget(load: EngineeringDraftLoad, includeTerms: readonly string[], excludeTerms: readonly string[]): boolean {
-  return targetMatches(load, includeTerms) && !targetMatches(load, excludeTerms);
-}
-
-const PORTAL_ROOF_TARGETS = ['roof', 'rafter', 'eave', '屋面', '屋顶', '檐梁'];
-const PORTAL_MEZZANINE_TARGETS = ['mezzanine', 'platform', 'intermediate floor', '夹层', '平台'];
-const PORTAL_CRANE_TARGETS = ['crane', '吊车'];
 
 function modelLoadDirection(load: EngineeringDraftLoad): 'fx' | 'fy' | 'fz' {
   if (load.direction === 'globalX') return 'fx';
@@ -95,14 +97,6 @@ function frameLoadTotalKN(load: EngineeringDraftLoad, patch: DraftExtraction): n
   return undefined;
 }
 
-function isTopStoryTarget(target: string): boolean {
-  const trimmed = target.trim();
-  const text = trimmed.toLowerCase();
-  return text.includes('roof')
-    || /屋面|屋顶|楼顶|顶层|顶楼/u.test(trimmed)
-    || trimmed === '顶';
-}
-
 export function isLocalizedFramePointLoad(load: EngineeringDraftLoad): boolean {
   if (!isPointLikeLoad(load)) return false;
   return isGlobalFrameNodeRole(load.location?.nodeRole) || load.location?.story !== undefined && Boolean(load.location.nodeRole?.trim());
@@ -122,65 +116,8 @@ export function hasIncompleteFramePointLoadLocation(load: EngineeringDraftLoad):
   }
   const hasStory = load.location?.story !== undefined;
   const hasNodeRole = Boolean(load.location?.nodeRole?.trim());
+  if (!hasNodeRole && isFrameFloorTarget(load)) return false;
   return hasStory !== hasNodeRole;
-}
-
-function parseStoryOrdinal(target: string | undefined, storyCount: number): number | undefined {
-  if (!target) return undefined;
-  const text = target.toLowerCase();
-  if (isTopStoryTarget(target)) return storyCount;
-  const numericMatch = text.match(/(?:floor|story|level)\s*([0-9]+)/i)
-    ?? target.match(/第?\s*([0-9]+)\s*层/u);
-  if (numericMatch?.[1]) {
-    const parsed = Number.parseInt(numericMatch[1], 10);
-    return parsed >= 1 && parsed <= storyCount ? parsed : undefined;
-  }
-  const chineseMatch = target.match(/第?\s*([一二两三四五六七八九十廿]+)\s*层/u);
-  if (!chineseMatch?.[1]) return undefined;
-  const table: Record<string, number> = {
-    一: 1,
-    二: 2,
-    两: 2,
-    三: 3,
-    四: 4,
-    五: 5,
-    六: 6,
-    七: 7,
-    八: 8,
-    九: 9,
-    十: 10,
-    廿: 20,
-  };
-  const raw = chineseMatch[1];
-  let parsed: number | undefined;
-  if (raw === '十' || raw === '廿') {
-    parsed = table[raw];
-  } else if (raw.startsWith('十')) {
-    parsed = 10 + (table[raw[1]] ?? 0);
-  } else if (raw.startsWith('廿')) {
-    parsed = 20 + (table[raw[1]] ?? 0);
-  } else if (raw.endsWith('十')) {
-    parsed = (table[raw[0]] ?? 1) * 10;
-  } else if (raw.includes('十')) {
-    const [tens, ones] = raw.split('十');
-    parsed = (table[tens] ?? 1) * 10 + (table[ones] ?? 0);
-  } else {
-    parsed = table[raw];
-  }
-  return parsed !== undefined && parsed >= 1 && parsed <= storyCount ? parsed : undefined;
-}
-
-function resolveFrameLoadStory(load: EngineeringDraftLoad, storyCount: number): number | undefined {
-  const locationStory = load.location?.story;
-  if (
-    typeof locationStory === 'number'
-    && Number.isInteger(locationStory)
-    && locationStory >= 1
-    && locationStory <= storyCount
-  ) {
-    return locationStory;
-  }
-  return parseStoryOrdinal(load.target, storyCount);
 }
 
 function hasFloorLoadValues(floorLoads: DraftFloorLoad[] | undefined): boolean {
@@ -251,7 +188,6 @@ function frameFloorLoadField(load: EngineeringDraftLoad): 'verticalKN' | 'latera
 
 type ConvertibleFrameLoad = {
   load: EngineeringDraftLoad;
-  index: number;
   totalKN: number;
 };
 
@@ -260,12 +196,14 @@ function projectFrameFloorLoads(loads: EngineeringDraftLoad[], patch: DraftExtra
   if (!storyCount) return undefined;
 
   const floorLoadsByStory = new Map<number, DraftFloorLoad>();
+  const nodeIds = new Set(patch.engineeringDraft?.topology?.nodes?.map(node => node.id) ?? []);
   const convertibleLoads: ConvertibleFrameLoad[] = loads
-    .map((load, index) => ({ load, index, totalKN: frameLoadTotalKN(load, patch) }))
+    .map(load => ({ load, totalKN: frameLoadTotalKN(load, patch) }))
     .filter((item): item is ConvertibleFrameLoad => (
       item.totalKN !== undefined
       && Number.isFinite(item.totalKN)
       && !isLocalizedFramePointLoad(item.load)
+      && !(item.load.target && (nodeIds.has(item.load.target) || /^N\d+_\d+(?:_\d+)?$/.test(item.load.target)))
         && !isFrameMemberPointLoad(item.load)
       && !hasIncompleteFramePointLoadLocation(item.load)
     ));
@@ -278,24 +216,15 @@ function projectFrameFloorLoads(loads: EngineeringDraftLoad[], patch: DraftExtra
     || item.load.direction === undefined
   ));
 
-  for (const { load, index, totalKN } of comparableLoads) {
+  for (const { load, totalKN } of comparableLoads) {
     const field = frameFloorLoadField(load);
     let stories: number[];
     const explicitStory = resolveFrameLoadStory(load, storyCount);
     if (explicitStory !== undefined) {
       stories = [explicitStory];
-    } else {
-      const sameFieldUntargetedLoads: ConvertibleFrameLoad[] = comparableLoads.filter((item) => (
-        frameFloorLoadField(item.load) === field
-        && resolveFrameLoadStory(item.load, storyCount) === undefined
-      ));
-      const untargetedIndex = sameFieldUntargetedLoads.findIndex((item) => item.index === index);
-      if (sameFieldUntargetedLoads.length > 1) {
-        stories = untargetedIndex >= 0 && untargetedIndex < storyCount ? [untargetedIndex + 1] : [];
-      } else {
-        stories = Array.from({ length: storyCount }, (_, storyIndex) => storyIndex + 1);
-      }
-    }
+    } else if (isAllFrameStoriesTarget(load.target)) {
+      stories = Array.from({ length: storyCount }, (_, storyIndex) => storyIndex + 1);
+    } else throw new Error('MODEL_EDIT_FIELD_INVALID: loads.location.story: specify a story or an explicit all-stories target / 缺少荷载楼层选择器；不得按文字、数组顺序或默认全楼分配。');
 
     for (const story of stories) {
       assignFloorLoadValue(floorLoadsByStory, story, field, Number((load.direction === 'globalZ' ? -totalKN : totalKN).toFixed(6)));
@@ -309,12 +238,12 @@ function projectFrameFloorLoads(loads: EngineeringDraftLoad[], patch: DraftExtra
 
 function sectionDimensionsM(section: string | undefined): { sectionWidthM?: number; sectionDepthM?: number } {
   if (!section) return {};
-  const match = section.match(/([0-9]+(?:\.[0-9]+)?)\s*[xX×*]\s*([0-9]+(?:\.[0-9]+)?)/u);
+  const match = section.trim().match(/^([0-9]+(?:\.[0-9]+)?)\s*[xX×*]\s*([0-9]+(?:\.[0-9]+)?)\s*(mm|m)?$/u);
   if (!match?.[1] || !match[2]) return {};
   const width = Number(match[1]);
   const depth = Number(match[2]);
   if (!Number.isFinite(width) || !Number.isFinite(depth) || width <= 0 || depth <= 0) return {};
-  const scale = width > 20 || depth > 20 ? 1000 : 1;
+  const scale = match[3] === 'm' ? 1 : 1000;
   return {
     sectionWidthM: width / scale,
     sectionDepthM: depth / scale,
@@ -389,6 +318,18 @@ export function projectDraftPatch(
       next.lengthM = spanLengths.reduce((total, span) => total + span, 0);
     }
     skillState.beamLoads = projectBeamLoads(loads);
+    const missingLocations = loads.filter(load => isPointLikeLoad(load) && !isLineLoad(load)
+      && load.location?.xM === undefined
+      && !['start', 'left-end', 'end', 'free-end', 'right-end', 'midspan'].includes(load.location?.nodeRole ?? '')
+      && ['', 'beam', 'member'].includes(load.target ?? ''));
+    if (missingLocations.length) {
+      next.draftIssues = [...(next.draftIssues ?? []), ...missingLocations.map(load => ({
+        field: `loads[${load.id ? JSON.stringify(load.id) : loads.indexOf(load)}].location.xM`,
+        kind: 'missing' as const, severity: 'ambiguous' as const,
+        reason: 'The point load has no explicit location; do not use an earlier load position or assume midspan. / 点荷载缺少明确位置，不得沿用旧位置或默认跨中。',
+        question: 'Where is this point load applied (xM or a canonical nodeRole)? / 该点荷载施加在何处（xM或明确节点位置）？',
+      }))];
+    }
   }
 
   if (inferredType === 'truss') {
@@ -467,7 +408,21 @@ export function projectDraftPatch(
     }
     const columnLoads = loads
       .filter((load) => isPointLikeLoad(load))
-      .map((load) => signedNodalComponent(load));
+      .flatMap(load => {
+        const target = load.location?.nodeRole ?? load.target;
+        if (!target) {
+          next.draftIssues = [...(next.draftIssues ?? []), {
+            field: `loads[${load.id ? JSON.stringify(load.id) : loads.indexOf(load)}].target`,
+            kind: 'missing', severity: 'ambiguous',
+            reason: 'The column load has no explicit target; its location cannot be assumed. / 柱荷载缺少明确目标，不能默认施加于柱顶。',
+          }];
+          return [];
+        }
+        if (!['column-top', 'top-node', 'top-nodes', 'top', '2', 'end'].includes(target)) {
+          throw new Error('MODEL_EDIT_FIELD_INVALID: loads.target: the column template requires an explicit column-top target / 单柱模板要求明确column-top荷载目标，不能从文字猜测或丢弃定位信息。');
+        }
+        return [signedNodalComponent(load)];
+      });
     if (columnLoads.length) {
       skillState.columnLoads = columnLoads;
     }
@@ -514,39 +469,30 @@ export function projectDraftPatch(
     if (engineeringDraft.geometry?.mezzanineLengthM !== undefined) {
       skillState.mezzanineLengthM = engineeringDraft.geometry.mezzanineLengthM;
     }
-    const mezzanineLoad = loads.find((load) => (
-      isLineLoad(load)
-      && isClearPortalTarget(load, PORTAL_MEZZANINE_TARGETS, PORTAL_ROOF_TARGETS)
-    ));
+    const exactIds = new Set([
+      ...(engineeringDraft.topology?.nodes?.map(node => node.id) ?? []),
+      ...(engineeringDraft.topology?.members?.map(member => member.id) ?? []),
+    ].filter((id): id is string => typeof id === 'string'));
+    const targetedLoads = loads.map(load => ({ load, target: portalTarget(load, exactIds) }));
+    const mezzanineLoad = targetedLoads.find(({ load, target }) => isLineLoad(load) && target === 'mezzanine')?.load;
     if (mezzanineLoad) {
       skillState.mezzanineLoadKN = (mezzanineLoad.direction === 'globalZ' ? -mezzanineLoad.magnitude : mezzanineLoad.magnitude);
     }
-    const roofLoad = loads.find((load) => (
-      isLineLoad(load)
-      && isClearPortalTarget(load, PORTAL_ROOF_TARGETS, PORTAL_MEZZANINE_TARGETS)
-    ))
-      ?? loads.find((load) => (
-        isLineLoad(load)
-        && !targetMatches(load, PORTAL_MEZZANINE_TARGETS)
-        && !targetMatches(load, PORTAL_CRANE_TARGETS)
-      ));
+    const roofLoad = targetedLoads.find(({ load, target }) => isLineLoad(load) && target === 'roof')?.load;
     if (roofLoad) {
       skillState.roofLoadKNM = (roofLoad.direction === 'globalZ' ? -roofLoad.magnitude : roofLoad.magnitude);
       next.loadKN = (roofLoad.direction === 'globalZ' ? -roofLoad.magnitude : roofLoad.magnitude);
       next.loadType = 'distributed';
       next.loadPosition = 'full-span';
     } else {
-      const defaultPortalLoad = loads.find((load) => (
-        !targetMatches(load, PORTAL_MEZZANINE_TARGETS)
-        && !targetMatches(load, PORTAL_CRANE_TARGETS)
-      ));
-      if (defaultPortalLoad) {
-        next.loadKN = next.loadKN ?? defaultPortalLoad.magnitude;
-        next.loadType = next.loadType ?? legacyLoadType(defaultPortalLoad);
-        next.loadPosition = next.loadPosition ?? legacyLoadPosition(defaultPortalLoad);
+      const explicitRoofLoad = targetedLoads.find(({ target }) => target === 'roof')?.load;
+      if (explicitRoofLoad) {
+        next.loadKN = next.loadKN ?? explicitRoofLoad.magnitude;
+        next.loadType = next.loadType ?? legacyLoadType(explicitRoofLoad);
+        next.loadPosition = next.loadPosition ?? legacyLoadPosition(explicitRoofLoad);
       }
     }
-    const craneLoad = loads.find((load) => targetMatches(load, PORTAL_CRANE_TARGETS));
+    const craneLoad = targetedLoads.find(({ target }) => target === 'crane')?.load;
     if (craneLoad) {
       skillState.craneLoadKN = (craneLoad.direction === 'globalZ' ? -craneLoad.magnitude : craneLoad.magnitude);
     }

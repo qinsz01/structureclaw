@@ -60,7 +60,6 @@ const sendMessageSchema = z.object({
     seismicWorkflow: seismicWorkflowSchema,
     userDecision: z.enum(['provide_values', 'confirm_all', 'allow_auto_decide', 'revise']).optional(),
     providedValues: z.record(z.string(), z.any()).optional(),
-    resumeFromMessage: z.string().max(10000).optional(),
     attachments: z.array(z.object({
       fileId: z.string(),
       originalName: z.string(),
@@ -108,7 +107,6 @@ const streamMessageSchema = z.object({
     seismicWorkflow: seismicWorkflowSchema,
     userDecision: z.enum(['provide_values', 'confirm_all', 'allow_auto_decide', 'revise']).optional(),
     providedValues: z.record(z.string(), z.any()).optional(),
-    resumeFromMessage: z.string().max(10000).optional(),
     attachments: z.array(z.object({
       fileId: z.string(),
       originalName: z.string(),
@@ -140,17 +138,6 @@ const persistMessagesSchema = z.object({
   })).optional(),
 });
 
-function buildEffectiveAgentMessage(message: string, resumeFromMessage?: string): string {
-  const normalizedMessage = message.trim();
-  const normalizedResume = typeof resumeFromMessage === 'string' ? resumeFromMessage.trim() : '';
-
-  if (!normalizedResume || normalizedResume === normalizedMessage) {
-    return normalizedMessage;
-  }
-
-  return `${normalizedResume}\n\n${normalizedMessage}`;
-}
-
 export async function chatRoutes(fastify: FastifyInstance) {
   // 发送消息
   fastify.post('/message', {
@@ -171,7 +158,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
   }, async (request: FastifyRequest<{ Body: z.infer<typeof sendMessageSchema> }>, reply: FastifyReply) => {
     try {
       const body = sendMessageSchema.parse(request.body);
-      const effectiveMessage = buildEffectiveAgentMessage(body.message, body.context?.resumeFromMessage);
+      const effectiveMessage = body.message.trim();
       const conversationId = body.conversationId || (await conversationService.createConversation({
         title: body.message.slice(0, 48),
         type: 'general',
@@ -427,7 +414,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
       locale: body.context?.locale,
     })).id;
     let streamConversationId = conversationId;
-    const effectiveMessage = buildEffectiveAgentMessage(body.message, body.context?.resumeFromMessage);
+    const effectiveMessage = body.message.trim();
 
     let assistantContent = '';
     let assistantMetadata: Record<string, unknown> | undefined;

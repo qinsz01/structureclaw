@@ -41,7 +41,7 @@ interface StructuralRouterInput {
 }
 
 const MIN_ROUTER_CONFIDENCE = 0.55;
-const ROUTER_OUTPUT_SCHEMA = '{ "action": "continue_current|switch_skill|unsupported|generic|ask", "skillId": string, "structuralTypeKey": string, "mappedType": string, "supportLevel": "supported|fallback|unsupported", "confidence": number, "reason": string }';
+const ROUTER_OUTPUT_SCHEMA = '{ "action": "continue_current|switch_skill|unsupported|generic|ask", "skillId": string, "structuralTypeKey": string, "mappedType": string, "supportLevel": "supported|unsupported", "confidence": number, "reason": string }';
 const PROMPT_METADATA_KEYS = new Set([
   'updatedAt',
   'coordinateSemantics',
@@ -76,7 +76,7 @@ const MODEL_TYPES = new Set<InferredModelType>([
   'frame',
   'unknown',
 ]);
-const SUPPORT_LEVELS = new Set<StructuralTypeSupportLevel>(['supported', 'fallback', 'unsupported']);
+const SUPPORT_LEVELS = new Set<StructuralTypeSupportLevel>(['supported', 'unsupported']);
 const ACTIONS = new Set<StructuralRouterAction>(['continue_current', 'switch_skill', 'unsupported', 'generic', 'ask']);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -148,11 +148,15 @@ function getConfidence(value: unknown): number {
   return 0;
 }
 
-function normalizeDecision(parsed: Record<string, unknown>): StructuralRouterDecision {
+function normalizeDecision(parsed: Record<string, unknown>): StructuralRouterDecision | null {
   const actionValue = getString(parsed.action);
   const keyValue = getString(parsed.structuralTypeKey ?? parsed.key);
   const mappedTypeValue = getString(parsed.mappedType ?? parsed.inferredType);
   const supportLevelValue = getString(parsed.supportLevel);
+  if (!actionValue || !ACTIONS.has(actionValue as StructuralRouterAction)
+    || (parsed.supportLevel !== undefined && (!supportLevelValue || !SUPPORT_LEVELS.has(supportLevelValue as StructuralTypeSupportLevel)))
+    || ((parsed.structuralTypeKey ?? parsed.key) !== undefined && (!keyValue || !STRUCTURAL_TYPE_KEYS.has(keyValue as StructuralTypeKey)))
+    || ((parsed.mappedType ?? parsed.inferredType) !== undefined && (!mappedTypeValue || !MODEL_TYPES.has(mappedTypeValue as InferredModelType)))) return null;
   return {
     action: actionValue && ACTIONS.has(actionValue as StructuralRouterAction)
       ? actionValue as StructuralRouterAction
@@ -174,23 +178,30 @@ function normalizeDecision(parsed: Record<string, unknown>): StructuralRouterDec
 
 function pluginForDecision(decision: StructuralRouterDecision, plugins: AgentSkillPlugin[]): AgentSkillPlugin | undefined {
   const key = decision.structuralTypeKey;
-  const skillId = decision.skillId;
-  return plugins.find((plugin) => plugin.id === skillId)
-    || (key ? plugins.find((plugin) => plugin.manifest.structuralTypeKeys.includes(key)) : undefined)
-    || (decision.mappedType ? plugins.find((plugin) => plugin.structureType === decision.mappedType) : undefined);
+  // An explicit unavailable skill must not be replaced by another provider sharing its type.
+  const plugin = decision.skillId
+    ? plugins.find((candidate) => candidate.id === decision.skillId)
+    : key ? plugins.find((candidate) => candidate.manifest.structuralTypeKeys.includes(key)) : undefined;
+  if (!plugin || (key && !plugin.manifest.structuralTypeKeys.includes(key))
+    || (decision.mappedType && decision.mappedType !== plugin.structureType)) return undefined;
+  return plugin;
 }
 
 function buildCurrentStateMatch(
   state: DraftState,
   plugin: AgentSkillPlugin,
   supportNote?: string,
-): StructuralTypeMatch {
+): StructuralTypeMatch | null {
+  const key = state.structuralTypeKey ?? plugin.manifest.structuralTypeKeys[0];
+  if ((state.skillId && state.skillId !== plugin.id) || !key
+    || !plugin.manifest.structuralTypeKeys.includes(key)
+    || (plugin.id !== 'generic' && state.inferredType !== plugin.structureType)) return null;
   return {
-    key: (state.structuralTypeKey ?? plugin.id) as StructuralTypeKey,
-    mappedType: state.inferredType,
+    key,
+    mappedType: plugin.structureType,
     skillId: plugin.id,
-    supportLevel: state.supportLevel ?? 'supported',
-    supportNote: supportNote ?? state.supportNote,
+    supportLevel: 'supported',
+    supportNote,
     routingSource: 'llm-suggested',
   };
 }
@@ -198,7 +209,7 @@ function buildCurrentStateMatch(
 function buildGenericMatch(locale: AppLocale, plugins: AgentSkillPlugin[], reason?: string): StructuralTypeMatch | null {
   const genericPlugin = plugins.find((plugin) => plugin.id === 'generic');
   if (!genericPlugin) return null;
-  return buildStructuralTypeMatch('unknown', 'unknown', 'generic', 'fallback', locale, {
+  return buildStructuralTypeMatch('unknown', 'unknown', 'generic', 'supported', locale, {
     zh: reason || '大模型判断当前描述不应被旧结构草稿锁定，先交给通用结构类型 skill 继续澄清。',
     en: reason || 'The LLM router decided this request should not be locked to the prior draft, so it will continue through the generic structure-type skill.',
   }, 'llm-suggested');
@@ -212,22 +223,31 @@ function resolveRouterMatch(
     return null;
   }
 
-  const action = decision.action
-    ?? (decision.skillId || decision.structuralTypeKey ? 'switch_skill' : undefined);
+  const action = decision.action;
+  if (action !== 'unsupported' && decision.supportLevel === 'unsupported') return null;
 
   if (action === 'continue_current') {
-    if (!input.currentState?.inferredType || input.currentState.inferredType === 'unknown' || !input.currentPlugin) {
+    if (!input.currentState?.inferredType || !input.currentPlugin
+      || !input.plugins.some(plugin => plugin.id === input.currentPlugin?.id)
+      || (decision.skillId && decision.skillId !== input.currentPlugin.id)
+      || (decision.structuralTypeKey && !input.currentPlugin.manifest.structuralTypeKeys.includes(decision.structuralTypeKey))
+      || (decision.mappedType && decision.mappedType !== input.currentPlugin.structureType)) {
       return null;
     }
     return buildCurrentStateMatch(input.currentState, input.currentPlugin, decision.reason);
   }
 
   if (action === 'generic' || action === 'ask') {
+    if ((decision.skillId && decision.skillId !== 'generic')
+      || (decision.structuralTypeKey && decision.structuralTypeKey !== 'unknown')
+      || (decision.mappedType && decision.mappedType !== 'unknown')) return null;
     return buildGenericMatch(input.locale, input.plugins, decision.reason);
   }
 
   if (action === 'unsupported') {
-    if (!decision.structuralTypeKey || decision.structuralTypeKey === 'unknown') {
+    if (!decision.structuralTypeKey || decision.structuralTypeKey === 'unknown'
+      || decision.skillId || (decision.mappedType && decision.mappedType !== 'unknown')
+      || decision.supportLevel === 'supported') {
       return null;
     }
     return {
@@ -243,6 +263,8 @@ function resolveRouterMatch(
     return null;
   }
 
+  if (decision.supportLevel === 'unsupported') return null;
+
   const plugin = pluginForDecision(decision, input.plugins);
   if (!plugin) {
     return null;
@@ -255,12 +277,11 @@ function resolveRouterMatch(
     ?? plugin.manifest.structuralTypeKeys[0]
     ?? plugin.structureType;
   const mappedType = decision.mappedType ?? plugin.structureType;
-  const supportLevel = decision.supportLevel ?? 'supported';
   return buildStructuralTypeMatch(
     key as StructuralTypeKey,
     mappedType,
     plugin.id,
-    supportLevel,
+    'supported',
     input.locale,
     decision.reason ? { zh: decision.reason, en: decision.reason } : undefined,
     'llm-suggested',
@@ -291,6 +312,8 @@ function buildRouterPrompt(input: StructuralRouterInput): string {
       '不要因为存在 current draft 就自动继续；只有用户是在修改、补充、回答追问或明确引用当前模型时才 continue_current。',
       '如果最新消息像一个新的结构描述，尤其是从构件级草稿转到办公楼、柱网、楼层、体系描述，不要被旧 draft 锁定。',
       '“梁上荷载”里的梁通常是框架构件上下文，不一定要切到 beam；“柱网/柱距”里的柱通常不是单柱。',
+      '澄清问题、未选选项和助手建议是未确认上下文；只依据用户真实回答判断，不把未选候选当作用户请求。',
+      '只能选择可用 skills 中的准确 skillId；不能把未启用的技能静默替换为另一个技能。',
       '',
       '只输出 JSON，不要 markdown。Schema:',
       ROUTER_OUTPUT_SCHEMA,
@@ -320,6 +343,8 @@ function buildRouterPrompt(input: StructuralRouterInput): string {
     'Do not continue the current draft just because it exists; continue only when the user is editing, supplementing, answering a clarification, or explicitly referring to the current model.',
     'If the latest message looks like a new structural description, especially a shift from a member draft to a building/grid/story/system description, do not lock it to the old draft.',
     'A beam mentioned in "load on the beam" may be member context inside a frame; a column mentioned in "column grid/spacing" is usually not a standalone column.',
+    'Clarification questions, unselected options and assistant suggestions are unconfirmed context. Route the actual user answer, not unselected alternatives.',
+    'Select an exact skillId from the available skills. Do not silently replace a disabled skill with a different skill.',
     '',
     'Return JSON only, no markdown. Schema:',
     ROUTER_OUTPUT_SCHEMA,
@@ -344,7 +369,7 @@ export async function invokeStructuralTypeRouter(input: StructuralRouterInput): 
     result = await input.llm.invoke(buildRouterPrompt(input), { signal: input.signal });
   } catch (error) {
     throw new Error(
-        `LLM_STRUCTURAL_ROUTER_INFRASTRUCTURE_ERROR: network error: ${
+        `LLM_STRUCTURAL_ROUTER_INFRASTRUCTURE_ERROR: The LLM request failed; structural interpretation stopped. / 大模型请求失败，结构语义判断已停止。 ${
           error instanceof Error ? error.message : String(error)
         }`,
         { cause: error },
@@ -354,6 +379,7 @@ export async function invokeStructuralTypeRouter(input: StructuralRouterInput): 
   if (usage) input.onUsage?.(usage);
   const content = llmContentText(result.content);
   const parsed = parseJsonObject(content);
-  const match = parsed ? resolveRouterMatch(normalizeDecision(parsed), input) : null;
+  const decision = parsed ? normalizeDecision(parsed) : null;
+  const match = decision ? resolveRouterMatch(decision, input) : null;
   return match;
 }

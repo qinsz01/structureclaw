@@ -206,7 +206,7 @@ export type StructuralTypeKey =
   | 'bridge'
   | 'unknown';
 export type StructuralTypeSupportLevel = 'supported' | 'fallback' | 'unsupported';
-export type RoutingSource = 'explicit-keyword' | 'current-state' | 'llm-suggested' | 'generic-fallback' | 'policy-fixed';
+export type RoutingSource = 'explicit-keyword' | 'current-state' | 'llm-suggested' | 'generic-fallback' | 'policy-fixed' | 'scope-selected';
 export type SkillStage = 'intent' | 'draft' | 'analysis' | 'design';
 
 export interface StructuralTypeMatch {
@@ -389,12 +389,6 @@ export interface SkillManifest extends AgentSkillMetadata {
   runtimeContract?: SkillRuntimeContract;
 }
 
-export interface SkillDetectionInput {
-  message: string;
-  locale: AppLocale;
-  currentState?: DraftState;
-}
-
 export interface SkillDraftContext {
   message: string;
   locale: AppLocale;
@@ -431,7 +425,6 @@ export interface SkillReportNarrativeInput {
 }
 
 export interface SkillHandler {
-  detectStructuralType(input: SkillDetectionInput): StructuralTypeMatch | null;
   parseProvidedValues(values: Record<string, unknown>): DraftExtraction;
   extractDraft(input: SkillDraftContext): DraftExtraction;
   mergeState(existing: DraftState | undefined, patch: DraftExtraction): DraftState;

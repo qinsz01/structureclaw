@@ -81,9 +81,9 @@ function promptFeatures(state: AgentState, activeToolIds: string[] | undefined):
 const PROMPT_LINES = {
   zh: {
     rule2: {
-      full: "2. **错误恢复**: 如果工具返回错误或 \"unknown\"，不要放弃。继续尝试其他工具或使用 ask_user_clarification 询问用户",
+      full: "2. **错误处理**: 输入缺失时使用 ask_user_clarification；可纠正的参数错误按运行策略重试。LLM 未配置、服务失败或纠错后仍无效时，如实报告并停止依赖步骤，不得换用其他工具绕过",
       repairOff: "2. **错误处理**: 本次运行已关闭自动纠错。工具返回错误或 \"unknown\" 时，如实说明错误及所需输入；不要重试，也不要换用其他工具绕过",
-      clarificationOff: "2. **错误恢复**: 如果工具返回错误或 \"unknown\"，不要放弃。继续尝试其他工具，或在最终回复中列出缺失的输入"
+      clarificationOff: "2. **错误处理**: 输入缺失时在最终回复中列出缺项；可纠正的参数错误按运行策略重试。LLM 未配置、服务失败或纠错后仍无效时，如实报告并停止依赖步骤，不得换用其他工具绕过"
     },
     rule5: {
       full: "5. **主动提问**: 只在结果真正依赖、且无法合理确定的输入上提问；一次把需要的问题问全；一致性、精度、格式问题自行处理并说明",
@@ -108,9 +108,9 @@ const PROMPT_LINES = {
   },
   en: {
     rule2: {
-      full: "2. **Error recovery**: If a tool returns an error or \"unknown\", do NOT give up. Try other tools or use ask_user_clarification to ask the user",
+      full: "2. **Errors**: Ask for missing inputs with ask_user_clarification; retry correctable arguments within the run policy. If an LLM is unconfigured, unavailable or still invalid after correction, report the failure and stop dependent steps; do not switch tools to bypass it",
       repairOff: "2. **Errors**: Automatic recovery is disabled for this run. If a tool returns an error or \"unknown\", report the error and the inputs it needs; do not retry or switch tools to work around it",
-      clarificationOff: "2. **Error recovery**: If a tool returns an error or \"unknown\", do NOT give up. Try other tools, or list the missing inputs in your final reply"
+      clarificationOff: "2. **Errors**: List missing inputs in the final reply; retry correctable arguments within the run policy. If an LLM is unconfigured, unavailable or still invalid after correction, report the failure and stop dependent steps; do not switch tools to bypass it"
     },
     rule5: {
       full: "5. **Ask when unclear**: Ask only for inputs the result truly depends on and that cannot reasonably be determined; ask everything needed at once; resolve consistency, precision and format issues yourself and state what you did",
@@ -197,8 +197,11 @@ export function buildSystemMessages(ctx: SystemPromptContext): BaseMessageLike[]
     ? `\n\n本次调用实际可用工具=${JSON.stringify(activeToolIds)}。此列表是当前配置；历史消息关于工具开启或关闭的描述仅适用于当时，不能覆盖本轮配置。列表为空时说明当前没有可用工具；有工具时按用户最新请求使用，不能声称仍被旧配置关闭。工具可用不代表已经执行或成功。`
     : `\n\nTools available for this invocation=${JSON.stringify(activeToolIds)}. This is the current configuration. Historical statements about enabled or disabled tools applied at that time and do not override this turn. An empty list means no tools are currently available; otherwise use the available tools for the latest user request rather than claiming an old setting still disables them. Availability does not mean execution or success.`);
   const policyText = runtimePolicy ? (isZh
-    ? `\n\n运行约束：知识文本=${runtimePolicy.knowledge}；建模器=${runtimePolicy.builder}；自动纠错=${runtimePolicy.repair.enabled}，最多 ${runtimePolicy.repair.maxRecoveriesPerTurn} 次系统内部回退；有明确修复反馈的工具拒绝不计数。用户回答后重置。内部回退不可用时说明受阻事项及所需输入，不暴露预算，禁止换工具绕过纠错关闭。持久记忆范围=${runtimePolicy.context.memoryScopes.join(',') || '禁用'}。上述限制优先于一般工作流程建议。`
-    : `\n\nRun constraints: guidance=${runtimePolicy.knowledge}; builder=${runtimePolicy.builder}; recovery=${runtimePolicy.repair.enabled}, maximum ${runtimePolicy.repair.maxRecoveriesPerTurn} system-triggered fallbacks; structured tool rejections do not count. A user answer resets the allowance. If internal fallback is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=${runtimePolicy.context.memoryScopes.join(',') || 'disabled'}. These constraints override general workflow suggestions.`) : '';
+    ? `\n\n运行约束：知识文本=${runtimePolicy.knowledge}；建模器=${runtimePolicy.builder}；自动纠错=${runtimePolicy.repair.enabled}，最多 ${runtimePolicy.repair.maxRecoveriesPerTurn} 次系统内部纠错重试；有明确修复反馈的工具拒绝不计数。用户回答后重置。内部重试不可用时说明受阻事项及所需输入，不暴露预算，禁止换工具绕过纠错关闭。持久记忆范围=${runtimePolicy.context.memoryScopes.join(',') || '禁用'}。上述限制优先于一般工作流程建议。`
+    : `\n\nRun constraints: guidance=${runtimePolicy.knowledge}; builder=${runtimePolicy.builder}; recovery=${runtimePolicy.repair.enabled}, maximum ${runtimePolicy.repair.maxRecoveriesPerTurn} system-triggered correction attempts; structured tool rejections do not count. A user answer resets the allowance. If internal retry is unavailable, explain the blocked operation and input needed without exposing budgets; do not bypass disabled recovery using another tool. Persistent memory scopes=${runtimePolicy.context.memoryScopes.join(',') || 'disabled'}. These constraints override general workflow suggestions.`) : '';
+  const semanticFailureProtocol = isZh
+    ? '\nLLM 服务或配置不可用、输出无效且修复失败时，明确报告失败并停止依赖该结果的步骤。禁止改用关键词、正则、模板、其他技能或求解器冒充成功；不得凭未选候选修改已确认输入。'
+    : '\nWhen an LLM service or configuration is unavailable, or invalid output cannot be corrected, report the failure and stop dependent steps. Never substitute keyword rules, regexes, templates, other skills or solvers to claim success. Unselected alternatives cannot change confirmed inputs.';
   const checkProtocol = isZh
     ? '\n\n校核（用户要求校核时）：OpenSees 使用 run_code_check provider=auto/builtin；native 设计需要 PKPM/YJK 分析，不代表付费版本。规范可确定的数值（强度设计值、截面特性、条文系数）由校核工具确定并给出来源，不向用户索要。校核未完成时，交付已完成的校核，列出未执行项及工具返回的缺项，然后结束本轮。结论只依据已保存的校核状态：分析或报告成功不等于合格，不用手算补出合格结论；模型改动后先重新分析再校核。结果查询或报告仍未完成时，说明尚缺的结果，不宣称全部完成。'
     : '\n\nChecking (when the user asks for a check): OpenSees uses run_code_check provider=auto/builtin; native design needs a PKPM/YJK analysis, not a paid edition. The check tool determines code-determined values (design strengths, section properties, clause factors) and reports their sources; never ask the user for them. If the check is incomplete, deliver the performed checks, list the checks not performed with the missing inputs the tool returns, and end the turn. Conclusions follow the saved check status only: a successful analysis or report is not compliance, and a missing check is never replaced by hand calculation; after model changes, reanalyze before checking. If a result query or the report is still incomplete, name the outstanding results and do not claim the task is complete.';
@@ -218,7 +221,7 @@ export function buildSystemMessages(ctx: SystemPromptContext): BaseMessageLike[]
     ? '\n用户显式属性优先；仅给尺寸时由系统按尖角几何推导属性，回答注明sharp-corner（不计圆角）。仅给型号、无完整尺寸及显式属性时，将截面尺寸与其他确实缺少的输入合并询问一次，实际确认前不建模、不计算。可提供“助手记忆的标准表值，请核对”候选供用户选择；型号本身不是确认，不得自行采用或改标来源。实际确认后将尺寸记为用户来源，由系统推导属性。确认仅覆盖用户实际确认的数值，不包括其他记忆属性；未确认的助手记忆值只能出现在带标签的澄清候选中，不得用于答案中的计算、估算或对比。明确说明每项数值由谁提供：用户、系统（几何推导或规范表），或助手候选经用户确认；不得声称工具检索。只有实际运行且通过的规范校核才允许作满足要求或通过/不通过等合规结论；仅有分析结果时只报告数值和假定。已知材料牌号由系统补缺省弹性常数和密度；未提自重不追问，沿用设置（默认不计）并说明。不得向用户提及预算、纠错次数或要求另发消息。'
     : '\nExplicit user properties win. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets). A designation without complete dimensions or explicit properties requires one dimension question together with other genuinely missing inputs; do not build or calculate before actual confirmation. You may offer an "assistant-recalled table value, please verify" option. A designation is not confirmation: never adopt or relabel recalled values yourself. After confirmation record user-sourced dimensions and derive properties. Confirmation covers only the actual values confirmed, not other recalled properties. Unconfirmed assistant recall belongs only in labelled clarification options, never in answer calculations, estimates or comparisons. Say plainly who supplied each value: the user, the system (geometry or a code table), or an assistant option confirmed by the user; never claim tool retrieval. Never state adequacy or compliance pass/fail unless a code check was actually run and passed; with analysis alone report values and assumptions. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never expose budgets/recovery counts or ask for a new message to reset them.';
   return [new SystemMessage(systemContent + '\n\nProviders (select by tool arguments) / Provider（通过工具参数选择）:\n' + providerSummary + '\n' + sharedKnowledge
-    + engineeringPrinciples + SECTION_EVIDENCE_RULE + '\n' + LOAD_DIRECTION_RULE + policyText + toolAvailability + checkProtocol + editProtocol + scopeProtocol + nextActionProtocol + designInputs)];
+    + engineeringPrinciples + SECTION_EVIDENCE_RULE + '\n' + LOAD_DIRECTION_RULE + policyText + semanticFailureProtocol + toolAvailability + checkProtocol + editProtocol + scopeProtocol + nextActionProtocol + designInputs)];
 }
 
 // ---------------------------------------------------------------------------

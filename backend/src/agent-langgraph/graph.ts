@@ -45,6 +45,7 @@ import { extractMessageText, getMessageType, getToolName } from './message-inspe
 import { applyFinalAnswerPolicy } from './delivery/final-answer.js';
 import { reviewAndDeliverFinalAnswer } from './delivery/final-review.js';
 import { guardLedger } from './guards/tool-guards.js';
+import { assertNoTerminalSemanticFailure } from './guards/terminal-failures.js';
 import { buildGuardStopAnswer } from './guards/stop-answer.js';
 import { repairResponseToolCalls } from './guards/response-guards.js';
 import { DEFAULT_MAX_TOOL_CALLS_PER_TURN } from '../runtime/limits.js';
@@ -194,21 +195,14 @@ function createCallModelNode(
     state: AgentState,
     config: LangGraphRunnableConfig,
   ): Promise<Partial<AgentState>> {
+    assertNoTerminalSemanticFailure(state.messages);
     const log = getAgentLogger(config);
     const configurable = config.configurable as Partial<AgentConfigurable> | undefined;
     // Receive long reasoning responses incrementally; the provider adapter aggregates
     // complete, typed assistant/tool-call messages before any tool can execute.
     const model = createChatModel(0, { streaming: true });
     if (!model) {
-      return {
-        messages: [
-          new AIMessage(
-            state.locale === 'zh'
-              ? 'LLM 未配置，无法处理请求。请检查 LLM_API_KEY 设置。'
-              : 'LLM is not configured. Please check LLM_API_KEY settings.',
-          ),
-        ],
-      };
+      throw new Error('LLM_NOT_CONFIGURED: LLM is not configured; configure the model in Settings before continuing. / LLM 未配置，无法处理请求；请先在设置中配置模型。');
     }
 
     const skillRuntime = configurable?.skillRuntime;

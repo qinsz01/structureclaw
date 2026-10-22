@@ -1,6 +1,5 @@
 import { ingestDraft } from '../../../agent-runtime/draft/boundary.js';
 import type { SkillHandler } from '../../../shared/types/agent.js';
-import { detectFrameStructuralType } from './detect.js';
 import { buildFrameDraftPatch, coerceFrameDimension, toFramePatch } from './extract-llm.js';
 import {
   buildFrameDefaultProposals,
@@ -15,9 +14,6 @@ import { buildFrameModel } from './model.js';
 import { normalizeSectionName, normalizeSteelGrade } from '../../../agent-runtime/template-properties.js';
 
 export const handler: SkillHandler = {
-  detectStructuralType(input) {
-    return detectFrameStructuralType(input);
-  },
 
   parseProvidedValues(values) {
     const base = coerceFrameDimension(

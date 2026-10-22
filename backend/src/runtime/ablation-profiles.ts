@@ -77,8 +77,8 @@ const PROFILES: Record<ProfileId, ProfileDefinition> = {
     removes: { en: 'Report provenance checks binding the report to the analysed model, run and code-check.',
       zh: '报告与分析模型、运行及校核结果之间的来源绑定检查。' } },
   'no-repair': { policy: preset({ repair: { enabled: false } }), targets: ['C', 'D'],
-    removes: { en: 'Automatic rule fallbacks and recoveries, plus the recovery-encouraging prompt text.',
-      zh: '自动规则回退与纠错重试，以及鼓励自动恢复的提示文本。' } },
+    removes: { en: 'Automatic LLM correction retries, plus the recovery-encouraging prompt text.',
+      zh: '自动 LLM 纠错重试，以及鼓励自动恢复的提示文本。' } },
 };
 
 function isProfileId(value: unknown): value is ProfileId {

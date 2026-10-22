@@ -38,7 +38,7 @@ export async function tryBuildGenericModelWithLlm(
   validateCandidate?: (candidate: Record<string, unknown>) => Promise<Record<string, unknown>>,
 ): Promise<Record<string, unknown> | undefined> {
   if (!llm) {
-    return undefined;
+    throw new Error('LLM_MODEL_BUILDER_REQUIRED: Model generation requires a configured LLM; no template or rule fallback is available. / 模型生成需要已配置的 LLM；不会回退到模板或规则。');
   }
 
   signal?.throwIfAborted();
@@ -68,8 +68,11 @@ export async function tryBuildGenericModelWithLlm(
       messagePreview: message.slice(0, 160),
     }, 'generic llm model attempt started');
 
-    // Provider/transport failures propagate; only invalid candidates below may be corrected.
-    const aiMessage = await llm.invoke(prompt, { signal });
+    // Transport failures terminate this semantic operation; only invalid candidates below may be corrected.
+    const aiMessage = await llm.invoke(prompt, { signal }).catch((cause: unknown) => {
+      signal?.throwIfAborted();
+      throw new Error('LLM_MODEL_BUILDER_INFRASTRUCTURE_ERROR: The model provider failed; model generation stopped. / 模型服务调用失败，已停止建模。', { cause });
+    });
     const content = llmContentText(aiMessage.content);
     try {
       let parsed = parseJsonObject(content);

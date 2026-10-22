@@ -22,8 +22,8 @@ import { engineeringModelSchema, draftDesignSchema, hasDraftDesignInputs, assert
 import { createLocalStructureProtocolClient } from '../../skill-shared/structure-protocol-execution.js';
 import { currentRunPolicy, recordRunEvent } from '../../runtime/run-context.js';
 import { requestScopeSchema, resolveExtractedScope, missingInputReason, type RequestScope, type ScopeDiagnostic } from '../../engineering/request-scope.js';
-import { buildDraftProgress, buildClarificationQuestions, shouldPreserveExistingDraftState, resolveRetryTaskMessage, buildPreservedDraftExtractionResult, resolveExistingDraftPlugin, detectStructuralTypeWithConfiguredLlm } from './draft-helpers.js';
-import { conversationSectionEvidence, resolveExtractionInputMessage, messageRole, messageText } from './input-message.js';
+import { buildDraftProgress, buildClarificationQuestions, resolveRetryTaskMessage, detectStructuralTypeWithConfiguredLlm, semanticFailurePayload } from './draft-helpers.js';
+import { conversationSectionEvidence, resolveExtractionInputMessage, resolveStructuralRoutingInputMessage, messageRole, messageText } from './input-message.js';
 import { getConfigurable, getToolCallId, toolResult, nestedLlmUsageCollector, toolSkillScope } from './shared.js';
 
 type ExtractionLocale = 'zh' | 'en';
@@ -35,13 +35,25 @@ type UsageListener = ReturnType<typeof nestedLlmUsageCollector>['onUsage'];
 function currentTurnDetection(state: AgentState | undefined): StructuralTypeMatch | null {
   for (const message of [...(state?.messages ?? [])].reverse()) {
     const role = messageRole(message);
+    const record = message as { name?: string; kwargs?: { name?: string } };
+    const name = record.name ?? record.kwargs?.name;
     if (role === 'human' || role === 'user') return null;
-    if (role === 'tool' && message.name === 'ask_user_clarification') return null;
-    if (role === 'tool' && message.name === 'detect_structure_type') {
+    if (role === 'tool' && name === 'ask_user_clarification') return null;
+    if (role === 'tool' && name === 'detect_structure_type') {
       try {
         const result = JSON.parse(messageText(message));
-        return result.key && result.mappedType && result.routingSource && result.supportLevel ? result : null;
-      } catch { return null; }
+        if (result.success === false && !result.key) {
+          throw new Error(typeof result.message === 'string' ? result.message
+            : `${result.errorCode ?? 'LLM_STRUCTURAL_ROUTER_INVALID_OUTPUT'}: Structural routing failed / 结构路由失败`);
+        }
+        if (result.supportLevel === 'unsupported' && result.key && result.mappedType) return result;
+        if (result.success !== false && result.key && result.mappedType && result.routingSource
+          && result.supportLevel === 'supported' && result.skillId) return result;
+        throw new Error('LLM_STRUCTURAL_ROUTER_INVALID_OUTPUT: Current routing result is incomplete; saved draft is unchanged / 本轮路由结果不完整，原草稿未修改。');
+      } catch (error) {
+        if (error instanceof SyntaxError) throw new Error('LLM_STRUCTURAL_ROUTER_INVALID_OUTPUT: Stored routing result is invalid; saved draft is unchanged / 已保存路由结果无效，原草稿未修改。', { cause: error });
+        throw error;
+      }
     }
   }
   return null;
@@ -52,15 +64,16 @@ async function detectStructuralMatch(skillRuntime: AgentSkillRuntime, options: {
   detectedMatch: StructuralTypeMatch | null;
   existingState: DraftState | undefined;
   skillIds: string[] | undefined;
-  extractionMessage: string;
+  routingMessage: string;
   locale: ExtractionLocale;
   signal: AbortSignal | undefined;
   onUsage: UsageListener;
 }) {
-  const { existingState, skillIds, extractionMessage, locale, signal, onUsage } = options;
+  const { existingState, skillIds, routingMessage, locale, signal, onUsage } = options;
   // The outer LLM selects detect_structure_type for a structural change. Parameter
   // updates and clarification answers can reuse its previously accepted LLM route.
-  const acceptedMatch: StructuralTypeMatch | null = existingState?.routingSource === 'llm-suggested'
+  const acceptedMatch: StructuralTypeMatch | null = existingState
+    && ['llm-suggested', 'scope-selected'].includes(existingState.routingSource ?? '')
     && existingState.skillId && existingState.supportLevel === 'supported'
     && (skillIds === undefined || skillIds.includes(existingState.skillId))
     ? { key: existingState.structuralTypeKey ?? existingState.inferredType,
@@ -72,7 +85,7 @@ async function detectStructuralMatch(skillRuntime: AgentSkillRuntime, options: {
     recordRunEvent({ kind: 'structural_routing', path: 'reused', key: detectedMatch.key, skillId: detectedMatch.skillId, source: detectedMatch.routingSource });
   }
   const match = detectedMatch ?? await detectStructuralTypeWithConfiguredLlm(skillRuntime, {
-    message: extractionMessage,
+    message: routingMessage,
     locale,
     currentState: existingState,
     skillIds,
@@ -83,29 +96,6 @@ async function detectStructuralMatch(skillRuntime: AgentSkillRuntime, options: {
     ? await skillRuntime.resolvePluginForType(match.skillId, skillIds)
     : null;
   return { detectedMatch, match, matchedPlugin };
-}
-
-/** A conflicting route does not replace an accepted draft: answer from the existing draft's plugin. */
-async function preserveExistingDraft(
-  skillRuntime: AgentSkillRuntime,
-  existingState: DraftState,
-  match: StructuralTypeMatch,
-  skillIds: string[] | undefined,
-  matchedPlugin: AgentSkillPlugin | null,
-  locale: ExtractionLocale,
-) {
-  const preservationPlugin = await resolveExistingDraftPlugin(
-    skillRuntime,
-    existingState,
-    skillIds,
-    matchedPlugin,
-  );
-  return buildPreservedDraftExtractionResult({
-    existingState,
-    structuralTypeMatch: match,
-    plugin: preservationPlugin,
-    locale,
-  });
 }
 
 /** Steps 3-4: LLM parameter extraction, then the handler pipeline (extractDraft → mergeState → computeMissing). */
@@ -133,7 +123,7 @@ async function extractAndMergeDraft(options: {
   const protocolClient = configurable.structureProtocolClient ?? createLocalStructureProtocolClient();
   let designContract = requestedScope?.design === true || hasExistingDesign ? await engineeringModelSchema(protocolClient) : undefined;
   const { withStructuralTypeState } = await import('../../agent-runtime/plugin-helpers.js');
-  const prepareDraft = async (draftPatch: Record<string, unknown> | null) => {
+  const prepareDraft = async (draftPatch: Record<string, unknown>) => {
     const extracted = plugin.handler.extractDraft({ message: extractionMessage, locale, currentState: existingState,
       llmDraftPatch: draftPatch, structuralTypeMatch: match });
     // Bind draft reviews to the parser records before merge stamps resolution hashes.
@@ -223,19 +213,12 @@ function llmExtractionStateUpdate(requestScope: RequestScope | undefined, nextSt
   return stateUpdate;
 }
 
-/** No skill matched the message: keep the draft and ask for the structure type. */
-function unmatchedSkillOutcome(existingState: DraftState | undefined, match: StructuralTypeMatch, locale: ExtractionLocale) {
-  const nextState = {
-    ...(existingState || { inferredType: 'unknown' as const }),
-    structuralTypeKey: match.key,
-    supportLevel: match.supportLevel,
-    supportNote: match.supportNote,
-    routingSource: match.routingSource,
-    updatedAt: Date.now(),
-  };
-  const responseJson = {
-    nextState,
-    criticalMissing: ['inferredType'],
+/** A rejected route is feedback only; it never replaces an accepted draft or type. */
+function unavailableRoutePayload(match: StructuralTypeMatch, locale: ExtractionLocale) {
+  return {
+    success: false,
+    errorCode: match.supportLevel === 'unsupported' ? 'STRUCTURE_TYPE_UNSUPPORTED' : 'STRUCTURE_SKILL_UNAVAILABLE',
+    criticalMissing: [],
     optionalMissing: [],
     clarificationQuestions: [],
     structuralTypeMatch: match,
@@ -243,33 +226,12 @@ function unmatchedSkillOutcome(existingState: DraftState | undefined, match: Str
     skillId: undefined,
     routingSource: match.routingSource,
     extractionMode: 'not-applicable',
-    ...buildDraftProgress(locale, ['inferredType']),
-    ...(match.scopeExclusion ? { success: false, errorCode: 'STRUCTURE_SKILL_DISABLED', criticalMissing: [], canProceed: false, nextAction: 'explain_capability_boundary', instruction: match.supportNote } : {}),
+    canProceed: false,
+    nextAction: 'explain_capability_boundary',
+    instruction: locale === 'zh'
+      ? '本轮结构请求没有可用的建模技能，原有草稿未修改。说明能力边界并停止，不得改用其他技能或规则解析。'
+      : 'No modeling skill is available for this structural request; the saved draft is unchanged. Explain the capability boundary and stop; do not substitute another skill or rule parser.',
   };
-  const stateUpdate: Partial<AgentState> = { draftState: nextState };
-  if (match.key) stateUpdate.structuralTypeKey = match.key;
-  return { responseJson, stateUpdate };
-}
-
-/** A skill matched but its plugin is not available in this scope. */
-function unavailablePluginOutcome(existingState: DraftState | undefined, match: StructuralTypeMatch, locale: ExtractionLocale) {
-  const nextState: DraftState = existingState == null
-    ? { inferredType: 'unknown' as const, routingSource: match.routingSource, updatedAt: Date.now() }
-    : { ...(existingState as DraftState), routingSource: match.routingSource, updatedAt: Date.now() };
-  const responseJson = {
-    nextState,
-    criticalMissing: ['inferredType'],
-    optionalMissing: [],
-    clarificationQuestions: [],
-    structuralTypeMatch: match,
-    ...(match.scopeExclusion ? { scopeExclusion: match.scopeExclusion, supportNote: match.supportNote, userNotice: match.supportNote, mustDisclose: true } : {}),
-    skillId: undefined,
-    routingSource: match.routingSource,
-    extractionMode: 'unavailable',
-    ...buildDraftProgress(locale, ['inferredType']),
-    ...(match.scopeExclusion ? { success: false, errorCode: 'STRUCTURE_SKILL_DISABLED', criticalMissing: [], canProceed: false, nextAction: 'explain_capability_boundary', instruction: match.supportNote } : {}),
-  };
-  return { responseJson, nextState };
 }
 
 /** Response of the LLM extraction path: draft, missing input, scope and the next action. */
@@ -280,10 +242,10 @@ function buildLlmExtractionResponse(options: {
   locale: ExtractionLocale;
   plugin: AgentSkillPlugin;
   match: StructuralTypeMatch;
-  extractionMode: 'llm' | 'deterministic';
+  extractionMode: 'llm';
   requestScope: RequestScope | undefined;
   scopeDiagnostics: ScopeDiagnostic[];
-  draftPatch: Record<string, unknown> | null;
+  draftPatch: Record<string, unknown>;
   patch: DraftExtraction;
 }) {
   const { nextState, missing, goalRequired, locale, plugin, match, extractionMode, requestScope, scopeDiagnostics,
@@ -312,29 +274,8 @@ function buildLlmExtractionResponse(options: {
     sectionConfirmations: draftSectionConfirmations(nextState),
     extractionSource: typeof nextState.skillState?.extractionSource === 'string'
       ? nextState.skillState.extractionSource
-      : (draftPatch ? 'llm-draft-patch' : 'deterministic'),
+      : 'llm-draft-patch',
     ...buildDraftProgress(locale, missing.critical),
-  };
-}
-
-/** Invalid router/extractor output is returned to the model for a retry; other errors propagate. */
-function invalidLlmOutputPayload(errorMessage: string): Record<string, unknown> | undefined {
-  if (
-    !(
-      errorMessage.startsWith('LLM_PARAM_EXTRACTOR_INVALID_OUTPUT:')
-      || errorMessage.startsWith('LLM_STRUCTURAL_ROUTER_INVALID_OUTPUT:')
-    )
-  ) {
-    return undefined;
-  }
-  const errorCode = errorMessage.startsWith('LLM_PARAM_EXTRACTOR_INVALID_OUTPUT:')
-    ? 'LLM_PARAM_EXTRACTOR_INVALID_OUTPUT'
-    : 'LLM_STRUCTURAL_ROUTER_INVALID_OUTPUT';
-  return {
-    success: false,
-    errorCode,
-    message: errorMessage,
-    nextAction: 'retry_extraction',
   };
 }
 
@@ -358,6 +299,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
       const locale = (input.locale ?? state?.locale ?? 'zh') as 'zh' | 'en';
       const message = resolveExtractionInputMessage(input.message, state?.lastUserMessage, state?.messages);
       const extractionMessage = resolveRetryTaskMessage(message);
+      const routingMessage = resolveRetryTaskMessage(resolveStructuralRoutingInputMessage(input.message, state?.lastUserMessage, state?.messages));
       const nestedUsage = nestedLlmUsageCollector();
       const extractionToolResult = (
         content: string,
@@ -374,9 +316,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
           toolCallId,
           'extract_draft_params',
           JSON.stringify(summary),
-          { ...stateUpdate, ...(stateUpdate?.requestScope || requestedScope ? { requestScope: stateUpdate?.requestScope ?? requestedScope } : {}),
-            ...(stateUpdate?.draftState ? { draftState: { ...stateUpdate.draftState,
-              ...(stateUpdate.requestScope || requestedScope ? { requestScope: stateUpdate.requestScope ?? requestedScope } : {}) } } : {}) },
+          stateUpdate,
           nestedUsage.total(),
         );
       };
@@ -391,7 +331,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
           extractionMessagePreview: extractionMessage.slice(0, 120),
         }, 'extract_draft_params resolved message');
         const { detectedMatch, match, matchedPlugin } = await detectStructuralMatch(skillRuntime, {
-          detectedMatch: currentTurnDetection(state), existingState, skillIds, extractionMessage, locale,
+          detectedMatch: currentTurnDetection(state), existingState, skillIds, routingMessage, locale,
           signal: config.signal, onUsage: nestedUsage.onUsage,
         });
         log.debug({
@@ -402,45 +342,24 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
           matchedPluginId: matchedPlugin?.id,
         }, 'extract_draft_params structural match');
 
-        if (shouldPreserveExistingDraftState(existingState, match, message)) {
-          const preserved = await preserveExistingDraft(skillRuntime, existingState, match, skillIds, matchedPlugin, locale);
-          logToolCall(log, {
-            tool: 'extract_draft_params',
-            durationMs: Date.now() - start,
-            extra: {
-              preservedExistingDraft: true,
-              previousSkillId: existingState.skillId,
-              rejectedSkillId: match.skillId,
-              rejectedKey: match.key,
-              rejectedRoutingSource: match.routingSource,
-            },
-          });
-          return extractionToolResult(
-            JSON.stringify(preserved.responseJson),
-            preserved.stateUpdate,
-          );
-        }
-
         // Early return when no skill matched
-        if (!match.skillId) {
-          const { responseJson, stateUpdate } = unmatchedSkillOutcome(existingState, match, locale);
-          logToolCall(log, { tool: 'extract_draft_params', durationMs: Date.now() - start, extra: { skillId: undefined, criticalMissing: 1, routingSource: match.routingSource } });
-          return extractionToolResult(JSON.stringify(responseJson), stateUpdate);
+        if (!match.skillId || match.supportLevel !== 'supported') {
+          logToolCall(log, { tool: 'extract_draft_params', durationMs: Date.now() - start, success: false, extra: { skillId: undefined, routingSource: match.routingSource } });
+          return extractionToolResult(JSON.stringify(unavailableRoutePayload(match, locale)));
         }
 
         // Step 2: Resolve plugin
         const plugin = matchedPlugin;
         if (!plugin) {
-          const { responseJson, nextState } = unavailablePluginOutcome(existingState, match, locale);
-          logToolCall(log, { tool: 'extract_draft_params', durationMs: Date.now() - start, extra: { skillId: match.skillId, pluginResolved: false, routingSource: match.routingSource } });
-          return extractionToolResult(JSON.stringify(responseJson), { draftState: nextState });
+          logToolCall(log, { tool: 'extract_draft_params', durationMs: Date.now() - start, success: false, extra: { skillId: match.skillId, pluginResolved: false, routingSource: match.routingSource } });
+          return extractionToolResult(JSON.stringify(unavailableRoutePayload(match, locale)));
         }
 
         const { draftPatch, patch, scopeDiagnostics, requestScope, nextState, goalRequired, missing } = await extractAndMergeDraft({
           input, state, existingState, requestedScope, hasExistingDesign, configurable, signal: config.signal,
           plugin, match, extractionMessage, locale, log, onUsage: nestedUsage.onUsage,
         });
-        const extractionMode = draftPatch ? 'llm' : 'deterministic';
+        const extractionMode = 'llm';
         const previouslyMissing = new Set(existingState ? computeDraftMissing(plugin, existingState, 'execution').critical.map(canonicalDraftPath) : []);
         const unresolved = unresolvedAppliedFields(patch, nextState, missing.critical.filter(field => previouslyMissing.has(canonicalDraftPath(field))));
         if (unresolved.length) {
@@ -450,7 +369,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
               : 'The system failed to map your supplied answer to a required field. This is a system error; do not repeat your answer.',
             instruction: 'Tell the user about this internal mapping failure and stop. Do not ask again or bypass validation. / 请说明内部映射失败并停止，不得再次追问或绕过校验。' };
           recordRunEvent({ kind: 'field_contract_unresolved', ...fault });
-          return extractionToolResult(JSON.stringify(fault), llmExtractionStateUpdate(requestScope, nextState, state, match));
+          return extractionToolResult(JSON.stringify(fault));
         }
 
         // Missing engineering input is a clarification state, not a failed extraction.
@@ -468,8 +387,8 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         logToolCall(log, { tool: 'extract_draft_params', durationMs: Date.now() - start, success: false, extra: { error: errorMessage } });
-        const invalidOutput = invalidLlmOutputPayload(errorMessage);
-        if (invalidOutput) return extractionToolResult(JSON.stringify(invalidOutput));
+        const failure = semanticFailurePayload(errorMessage);
+        if (failure) return extractionToolResult(JSON.stringify(failure));
         throw error;
       }
     },

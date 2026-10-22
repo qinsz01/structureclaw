@@ -7,10 +7,9 @@ import {
 import { mapMissingFieldLabels } from '../../../agent-runtime/draft-guidance.js';
 import { ingestDraft, projectDraftPatch } from '../../../agent-runtime/draft/boundary.js';
 import { combineDomainKeys, composeStructuralDomainPatch } from '../../../agent-runtime/domains/structural-domains.js';
-import { buildStructuralTypeMatch, resolveLegacyStructuralStage } from '../../../agent-runtime/plugin-helpers.js';
+import { resolveLegacyStructuralStage } from '../../../agent-runtime/plugin-helpers.js';
 import { buildInteractionQuestions } from '../../../agent-runtime/fallback.js';
 import { buildDefaultReportNarrative } from '../../../agent-runtime/report-template.js';
-import { matchConservativeStructuralRoute } from '../../../agent-runtime/structural-routing.js';
 import type { AppLocale } from '../../../shared/locale.js';
 import type {
   DraftExtraction,
@@ -146,22 +145,6 @@ function buildPortalFrameReportNarrative(input: SkillReportNarrativeInput): stri
 }
 
 export const handler: SkillHandler = {
-  detectStructuralType({ message, locale }) {
-    const route = matchConservativeStructuralRoute(message);
-    if (route?.skillId !== 'portal-frame') {
-      return null;
-    }
-    if (route.key === 'portal-frame') {
-      return buildStructuralTypeMatch('portal-frame', 'portal-frame', 'portal-frame', route.supportLevel, locale, undefined, route.routingSource);
-    }
-    if (route.key === 'portal') {
-      return buildStructuralTypeMatch('portal', 'portal-frame', 'portal-frame', 'fallback', locale, {
-        zh: '已将“门架/刚架”先收敛到门式刚架模板继续补参。',
-        en: '“Portal structure” has been narrowed to the portal-frame template for continued guidance.',
-      }, route.routingSource);
-    }
-    return null;
-  },
   parseProvidedValues(values) {
     return toPortalFramePatch(ingestDraft(values));
   },

@@ -7,10 +7,9 @@ import {
 import { mapMissingFieldLabels } from '../../../agent-runtime/draft-guidance.js';
 import { ingestDraft, projectDraftPatch } from '../../../agent-runtime/draft/boundary.js';
 import { combineDomainKeys, composeStructuralDomainPatch } from '../../../agent-runtime/domains/structural-domains.js';
-import { buildStructuralTypeMatch, resolveLegacyStructuralStage } from '../../../agent-runtime/plugin-helpers.js';
+import { resolveLegacyStructuralStage } from '../../../agent-runtime/plugin-helpers.js';
 import { buildInteractionQuestions } from '../../../agent-runtime/fallback.js';
 import { buildDefaultReportNarrative } from '../../../agent-runtime/report-template.js';
-import { matchConservativeStructuralRoute } from '../../../agent-runtime/structural-routing.js';
 import type { AppLocale } from '../../../shared/locale.js';
 import type {
   DraftExtraction,
@@ -274,13 +273,6 @@ function buildTrussReportNarrative(input: SkillReportNarrativeInput): string {
 }
 
 export const handler: SkillHandler = {
-  detectStructuralType({ message, locale }) {
-    const route = matchConservativeStructuralRoute(message);
-    if (route?.skillId === 'truss') {
-      return buildStructuralTypeMatch('truss', 'truss', 'truss', route.supportLevel, locale, undefined, route.routingSource);
-    }
-    return null;
-  },
   parseProvidedValues(values) {
     return toTrussPatch(ingestDraft(values));
   },

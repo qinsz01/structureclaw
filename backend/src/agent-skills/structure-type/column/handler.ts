@@ -7,9 +7,8 @@ import {
 import { mapMissingFieldLabels } from '../../../agent-runtime/draft-guidance.js';
 import { ingestDraft, projectDraftPatch } from '../../../agent-runtime/draft/boundary.js';
 import { buildInteractionQuestions } from '../../../agent-runtime/fallback.js';
-import { buildStructuralTypeMatch, resolveLegacyStructuralStage } from '../../../agent-runtime/plugin-helpers.js';
+import { resolveLegacyStructuralStage } from '../../../agent-runtime/plugin-helpers.js';
 import { buildDefaultReportNarrative } from '../../../agent-runtime/report-template.js';
-import { matchConservativeStructuralRoute } from '../../../agent-runtime/structural-routing.js';
 import type { AppLocale } from '../../../shared/locale.js';
 import type {
   DraftExtraction,
@@ -30,10 +29,6 @@ function toColumnPatch(patch: DraftExtraction): DraftExtraction {
   }
   if (nextPatch.lengthM === undefined && nextPatch.heightM !== undefined) {
     nextPatch.lengthM = nextPatch.heightM;
-  }
-  if (nextPatch.loadKN !== undefined) {
-    nextPatch.loadType = nextPatch.loadType ?? 'point';
-    nextPatch.loadPosition = nextPatch.loadPosition ?? 'top-nodes';
   }
   if (semanticPatch.skillState) {
     nextPatch.skillState = semanticPatch.skillState;
@@ -90,13 +85,6 @@ function buildColumnReportNarrative(input: SkillReportNarrativeInput): string {
 }
 
 export const handler: SkillHandler = {
-  detectStructuralType({ message, locale }) {
-    const route = matchConservativeStructuralRoute(message);
-    if (route?.skillId === 'column') {
-      return buildStructuralTypeMatch('column', 'column', 'column', route.supportLevel, locale, undefined, route.routingSource);
-    }
-    return null;
-  },
   parseProvidedValues(values) {
     return toColumnPatch(ingestDraft(values));
   },
@@ -107,7 +95,15 @@ export const handler: SkillHandler = {
     return mergeLegacyState(existing, toColumnPatch(patch), 'column', 'column');
   },
   computeMissing(state, phase) {
-    return computeLegacyMissing({ ...state, inferredType: 'column' }, phase, [...ALLOWED_KEYS]);
+    const missing = computeLegacyMissing({ ...state, inferredType: 'column' }, phase, [...ALLOWED_KEYS]);
+    if (state.loadKN !== undefined && !state.engineeringDraft?.loads?.length
+      && !state.engineeringDraft?.loadCases?.length && !state.engineeringDraft?.model) {
+      for (const field of ['loadType', 'loadPosition'] as const) {
+        const expected = field === 'loadType' ? 'point' : 'top-nodes';
+        if (state[field] !== expected && !missing.critical.includes(field)) missing.critical.push(field);
+      }
+    }
+    return missing;
   },
   mapLabels(keys, locale) {
     return mapMissingFieldLabels(keys, locale);

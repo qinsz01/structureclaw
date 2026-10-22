@@ -2,11 +2,8 @@
  * Final-answer delivery policy for the agent node.
  *
  * Applied to every LLM response before it is written to graph state. It only
- * replaces a response that would otherwise end the turn without a usable answer:
- * an empty final message after tool calls, a run that left requested responses
- * uncomputed, or a code check that is incomplete, failed or limited in scope. An empty final
- * response (with or without tool results this turn) is replaced by a bilingual fallback and
- * recorded as a guard event.
+ * stops empty replies as explicit failures and reports a code check that is incomplete,
+ * failed or limited in scope using its structured execution status.
  */
 import { AIMessage, type AIMessageChunk, type BaseMessage } from '@langchain/core/messages';
 import type { Logger } from 'pino';
@@ -14,34 +11,6 @@ import type { AgentState } from '../state.js';
 import { codeCheckDeliveryNotice } from '../../engineering/code-checks.js';
 import { extractMessageText, getMessageType, getToolName } from '../message-inspect.js';
 import { recordGuardEvent } from '../../runtime/run-context.js';
-
-export function buildEmptyFinalResponseFallback(
-  locale: 'zh' | 'en',
-  toolNames: string[],
-): string {
-  const tools = [...new Set(toolNames)].filter(Boolean).join(', ');
-  if (locale === 'zh') {
-    return tools
-      ? `本轮工具已执行完成（${tools}），但模型没有生成最终说明。为避免会话静默结束，请基于这些工具结果继续检查当前模型、荷载或分析状态。`
-      : '模型没有生成有效回复。为避免会话静默结束，请继续说明你希望检查的结构、荷载或分析状态。';
-  }
-  return tools
-    ? `The tools for this turn completed (${tools}), but the model did not produce a final explanation. To avoid a silent stop, continue from these tool results and inspect the current model, loads, or analysis state.`
-    : 'The model did not produce a valid response. To avoid a silent stop, please continue with the structure, load, or analysis state you want to inspect.';
-}
-
-export function shouldReplaceEmptyFinalResponse(response: BaseMessage, currentTurnMessages: BaseMessage[]): boolean {
-  const hasToolCalls = 'tool_calls' in response
-    && Array.isArray((response as any).tool_calls)
-    && (response as any).tool_calls.length > 0;
-  if (hasToolCalls) {
-    return false;
-  }
-  if (extractMessageText(response).trim().length > 0) {
-    return false;
-  }
-  return currentTurnMessages.some((message) => getMessageType(message) === 'tool');
-}
 
 /** Returns the message to deliver for this LLM response: the response itself or a policy override. */
 export function applyFinalAnswerPolicy(input: {
@@ -52,19 +21,11 @@ export function applyFinalAnswerPolicy(input: {
   log: Logger;
 }): BaseMessage {
   const { response, hasToolCalls, currentTurnMessages, state, log } = input;
-  if (shouldReplaceEmptyFinalResponse(response, currentTurnMessages)) {
-    const toolNames = currentTurnMessages
-      .filter((message) => getMessageType(message) === 'tool')
-      .map((message) => getToolName(message))
-      .filter((name): name is string => !!name);
-    log.warn({ node: 'agent', toolNames }, 'empty final LLM response after tool calls');
-    recordGuardEvent('empty-final-answer', { action: 'replaced', afterTools: true });
-    return new AIMessage(buildEmptyFinalResponseFallback(state.locale, toolNames));
-  }
   if (!hasToolCalls && !extractMessageText(response).trim()) {
-    log.warn({ node: 'agent' }, 'empty final LLM response without tool calls');
-    recordGuardEvent('empty-final-answer', { action: 'replaced', afterTools: false });
-    return new AIMessage(buildEmptyFinalResponseFallback(state.locale, []));
+    const afterTools = currentTurnMessages.some(message => getMessageType(message) === 'tool');
+    log.warn({ node: 'agent', afterTools }, 'empty final LLM response');
+    recordGuardEvent('empty-final-answer', { action: 'failed', afterTools });
+    throw new Error('LLM_EMPTY_RESPONSE: The model returned no usable answer. Completed tool results are retained. / 模型未返回有效回复；已完成的工具结果仍保留。');
   }
 
   const check = state.codeCheckResult;

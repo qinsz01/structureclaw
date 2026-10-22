@@ -4,6 +4,10 @@ import { FIXED_RESTRAINT, PINNED_RESTRAINT, ROLLER_X_RESTRAINT } from '../../eng
 import { readNonNegativeNumber, readNonNegativeNumberArray, roundCoordinate, readFiniteNumber, accumulateCoordinates, readPositiveNumberArray, addCoordinate, coordinateMatches, readRecordArray } from './readers.js';
 
 export function buildBeamNodes(length: number, supportType: DraftSupportType, loadPositionM?: number) {
+  validateBeamSupportType(supportType);
+  if (loadPositionM !== undefined && (!Number.isFinite(loadPositionM) || loadPositionM < 0 || loadPositionM > length)) {
+    throw loadTargetError('loadPositionM');
+  }
   const fixedRestraint = FIXED_RESTRAINT;
   const pinnedRestraint = PINNED_RESTRAINT;
   const rollerRestraint = ROLLER_X_RESTRAINT;
@@ -35,7 +39,7 @@ export function buildBeamNodes(length: number, supportType: DraftSupportType, lo
       { id: '1', type: 'beam', nodes: ['1', '2'], material: '1', section: '1' },
       { id: '2', type: 'beam', nodes: ['2', '3'], material: '1', section: '1' },
     ],
-    pointNodeId: '2',
+    pointNodeId: loadPositionM === 0 ? '1' : loadPositionM === length ? '3' : '2',
     endNodeId: '3',
   };
 }
@@ -66,14 +70,17 @@ export function buildBeamLoads(
   loadPosition: DraftLoadPosition | undefined,
   pointNodeId: string,
   endNodeId: string,
+  loadPositionM?: number,
 ) {
-  if (loadType === 'distributed' || loadPosition === 'full-span') {
+  if (loadType === 'distributed' && loadPosition === 'full-span') {
     return [
       { type: 'distributed', element: '1', wz: -loadKN, wy: 0 },
       { type: 'distributed', element: '2', wz: -loadKN, wy: 0 },
     ];
   }
-
+  if (loadType !== 'point' || (!['end', 'midspan'].includes(loadPosition ?? '') && loadPositionM === undefined)) {
+    throw loadTargetError('loadType/loadPosition');
+  }
   const targetNodeId = loadPosition === 'end' ? endNodeId : pointNodeId;
   return [{ node: targetNodeId, fz: -loadKN }];
 }
@@ -90,17 +97,42 @@ export function semanticPointLoadX(load: Record<string, unknown>, state: DraftSt
   const location = load.location && typeof load.location === 'object' && !Array.isArray(load.location)
     ? load.location as Record<string, unknown>
     : undefined;
-  const explicitX = readNonNegativeNumber(load.xM) ?? readNonNegativeNumber(location?.xM);
-  if (explicitX !== undefined) return explicitX;
-  const target = typeof load.target === 'string' ? load.target.toLowerCase() : '';
+  const rawX = location?.xM ?? load.xM;
+  if (rawX !== undefined) {
+    const explicitX = readNonNegativeNumber(rawX);
+    if (explicitX === undefined || explicitX > length) throw loadTargetError('location.xM');
+    return explicitX;
+  }
+  const target = typeof load.target === 'string' ? load.target : '';
   const topologyNode = state.engineeringDraft?.topology?.nodes?.find(
-    (node) => node.id.trim().toLowerCase() === target.trim(),
+    (node) => node.id === target,
   );
   if (topologyNode && topologyNode.x >= 0 && topologyNode.x <= length) {
     return topologyNode.x;
   }
-  if (target.includes('end') || target.includes('free') || target.includes('端')) return length;
-  return state.loadPositionM ?? length / 2;
+  const role = typeof location?.nodeRole === 'string' ? location.nodeRole : target;
+  const spans = state.engineeringDraft?.geometry?.spanLengthsM ?? [length];
+  const spanIndex = location?.spanIndex;
+  if (spanIndex !== undefined && (typeof spanIndex !== 'number' || !Number.isInteger(spanIndex) || spanIndex < 1 || spanIndex > spans.length)) {
+    throw loadTargetError('location.spanIndex');
+  }
+  const boundaries = accumulateCoordinates(spans);
+  const start = spanIndex === undefined ? 0 : boundaries[(spanIndex as number) - 1]!;
+  const end = spanIndex === undefined ? length : boundaries[spanIndex as number]!;
+  if (role === 'start' || role === 'left-end') return start;
+  if (role === 'end' || role === 'free-end' || role === 'right-end') return end;
+  if (role === 'midspan') return (start + end) / 2;
+  throw loadTargetError('point load target/location');
+}
+
+function loadTargetError(field: string): Error {
+  return new Error(`MODEL_EDIT_FIELD_INVALID: ${field} requires an explicit valid ID, coordinate or canonical selector. / 荷载位置需要明确有效的编号、坐标或标准选择器，不能猜测作用位置。`);
+}
+
+function validateBeamSupportType(supportType: DraftSupportType | undefined): asserts supportType is DraftSupportType {
+  if (!supportType || !['cantilever', 'simply-supported', 'fixed-fixed', 'fixed-pinned'].includes(supportType)) {
+    throw new Error('MODEL_EDIT_FIELD_INVALID: beam.supportType must be explicitly specified. / 梁模型必须明确支座类型，不能默认悬臂梁。');
+  }
 }
 
 function beamSupportCoordinates(state: DraftState, supportType: DraftSupportType, length: number): number[] {
@@ -129,10 +161,11 @@ function semanticDistributedLoadElements(
     ? load.location as Record<string, unknown>
     : undefined;
   const spanIndex = readFiniteNumber(location?.spanIndex ?? load.spanIndex);
-  if (spanIndex !== undefined && spanLengths?.length) {
-    if (!Number.isInteger(spanIndex) || spanIndex < 1) return [];
-    const boundaries = accumulateCoordinates(spanLengths);
-    if (spanIndex >= boundaries.length) return [];
+  if (location?.spanIndex !== undefined || load.spanIndex !== undefined) {
+    const boundaries = accumulateCoordinates(spanLengths?.length ? spanLengths : [coordinates[coordinates.length - 1]!]);
+    if (spanIndex === undefined || !Number.isInteger(spanIndex) || spanIndex < 1 || spanIndex >= boundaries.length) {
+      throw loadTargetError('location.spanIndex');
+    }
     const start = boundaries[spanIndex - 1];
     const end = boundaries[spanIndex];
     return elements.filter((_element, index) => {
@@ -143,13 +176,14 @@ function semanticDistributedLoadElements(
 
   let candidates = elements;
   let targetResolved = false;
-  const target = typeof load.target === 'string' ? load.target.trim().toLowerCase() : '';
+  const target = typeof load.target === 'string' ? load.target : '';
+  if (['beam', 'full-span', 'all'].includes(target)) return elements;
   if (target && !['beam', 'full-span', 'all'].includes(target)) {
     const directMatches = elements.filter(
-      (element) => String(element.id ?? '').trim().toLowerCase() === target,
+      (element) => element.id === target,
     );
     const topologyMember = state.engineeringDraft?.topology?.members?.find(
-      (member) => member.id?.trim().toLowerCase() === target,
+      (member) => member.id === target,
     );
     if (directMatches.length > 0) {
       candidates = directMatches;
@@ -172,19 +206,7 @@ function semanticDistributedLoadElements(
   }
 
   if (targetResolved) return candidates;
-  if (spanIndex === undefined) return candidates;
-  if (!Number.isInteger(spanIndex) || spanIndex < 1) return [];
-  const boundaries = spanLengths?.length
-    ? accumulateCoordinates(spanLengths)
-    : [0, coordinates[coordinates.length - 1]];
-  if (spanIndex >= boundaries.length) return [];
-  const start = boundaries[spanIndex - 1];
-  const end = boundaries[spanIndex];
-  return candidates.filter((element) => {
-    const index = elements.indexOf(element);
-    const midpoint = (coordinates[index] + coordinates[index + 1]) / 2;
-    return midpoint >= start - 1e-9 && midpoint <= end + 1e-9;
-  });
+  throw loadTargetError('distributed load target/location');
 }
 
 function beamSupportRestraint(supportType: DraftSupportType, supportIndex: number): boolean[] | undefined {
@@ -209,8 +231,15 @@ export function buildSemanticBeamModel(
   metadata: Record<string, unknown>,
   semanticLoads: Array<Record<string, unknown>>,
 ): Record<string, unknown> {
+  for (const load of semanticLoads) {
+    if ((load.kind === 'point' || load.kind === 'nodal') ? load.unit !== 'kN'
+      : (load.kind === 'line' || load.kind === 'distributed') ? load.unit !== 'kN/m' : true) {
+      throw loadTargetError('load.kind/unit');
+    }
+  }
   const length = state.lengthM!;
-  const supportType = state.supportType || 'cantilever';
+  const supportType = state.supportType;
+  validateBeamSupportType(supportType);
   const hasDistributedLoad = semanticLoads.some(isSemanticDistributedLoad);
   const spanLengths = readPositiveNumberArray(state.engineeringDraft?.geometry?.spanLengthsM);
   const spanBreaks: number[] = [];
@@ -226,7 +255,7 @@ export function buildSemanticBeamModel(
     .map((load) => semanticPointLoadX(load, state, length));
   const coordinateSet = new Set<number>([0, length]);
   const supportXs = beamSupportCoordinates(state, supportType, length);
-  if (hasDistributedLoad) {
+  if (hasDistributedLoad && state.inferredType !== 'double-span-beam') {
     addCoordinate(coordinateSet, length / 2, length);
   }
   for (const x of pointLoadXs) {
@@ -262,7 +291,7 @@ export function buildSemanticBeamModel(
   const loads: Array<Record<string, unknown>> = [];
   for (const load of semanticLoads) {
     const magnitude = typeof load.magnitude === 'number' && Number.isFinite(load.magnitude) ? load.magnitude : undefined;
-    if (magnitude === undefined) continue;
+    if (magnitude === undefined) throw loadTargetError('load.magnitude');
     if (isSemanticDistributedLoad(load)) {
       for (const element of semanticDistributedLoadElements(load, elements, coordinates, spanLengths, state)) {
         const axis = load.direction === 'globalX' ? 'wx' : load.direction === 'globalY' ? 'wy' : 'wz';
@@ -273,7 +302,8 @@ export function buildSemanticBeamModel(
     if (isSemanticPointLoad(load)) {
       const x = semanticPointLoadX(load, state, length);
       const nodeIndex = coordinates.findIndex((coordinate) => coordinateMatches(coordinate, x));
-      const targetNode = nodeIndex >= 0 ? `${nodeIndex + 1}` : `${Math.max(1, Math.round(coordinates.length / 2))}`;
+      if (nodeIndex < 0) throw loadTargetError('point load node');
+      const targetNode = `${nodeIndex + 1}`;
       const direction = typeof load.direction === 'string' ? load.direction : undefined;
       if (direction === 'globalX') {
         loads.push({ node: targetNode, fx: magnitude });
@@ -282,7 +312,9 @@ export function buildSemanticBeamModel(
       } else {
         loads.push({ node: targetNode, fz: direction === 'globalZ' ? magnitude : -magnitude });
       }
+      continue;
     }
+    throw loadTargetError('load.kind');
   }
 
   return {
@@ -304,6 +336,16 @@ export function buildColumnModel(state: DraftState, metadata: Record<string, unk
   const height = state.heightM ?? state.lengthM!;
   const axialLoad = state.loadKN!;
   const materialFamily = state.skillState?.materialFamily === 'concrete' ? 'concrete' : 'steel';
+  const authoredLoads = state.engineeringDraft?.loads;
+  if (authoredLoads?.length) {
+    for (const load of authoredLoads) {
+      const selector = load.location?.nodeRole ?? load.target;
+      if (!['column-top', 'top-node', 'top-nodes', 'top', '2', 'end'].includes(selector ?? '')
+        || (load.kind !== 'point' && load.kind !== 'nodal') || load.unit !== 'kN' || !Number.isFinite(load.magnitude)) {
+        throw loadTargetError('column load target/kind/unit');
+      }
+    }
+  } else if (state.loadType !== 'point' || state.loadPosition !== 'top-nodes') throw loadTargetError('column load type/position');
   const semanticColumnLoads = readRecordArray(state.skillState?.columnLoads);
   const modelLoads = semanticColumnLoads?.map((load) => {
     const fx = readFiniteNumber(load.fxKN);
@@ -316,7 +358,10 @@ export function buildColumnModel(state: DraftState, metadata: Record<string, unk
       ...(fz !== undefined && { fz }),
     };
   }).filter((load) => Object.keys(load).length > 1);
-  const loads = modelLoads?.length ? modelLoads : [{ node: '2', fz: -axialLoad }];
+  const loads = authoredLoads?.length ? authoredLoads.map(load => {
+    const component = load.direction === 'globalX' ? 'fx' : load.direction === 'globalY' ? 'fy' : 'fz';
+    return { node: '2', [component]: component === 'fz' && load.direction !== 'globalZ' ? -load.magnitude : load.magnitude };
+  }) : modelLoads?.length ? modelLoads : [{ node: '2', fz: -axialLoad }];
 
   return {
     schema_version: '2.2.0',

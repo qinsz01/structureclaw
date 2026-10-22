@@ -13,6 +13,12 @@ function get3dNodeId(storyIndex: number, xIndex: number, yIndex: number): string
   return `N${storyIndex}_${xIndex}_${yIndex}`;
 }
 
+function validateFloorLoadStory(story: number, storyCount: number): void {
+  if (!Number.isInteger(story) || story < 1 || story > storyCount) {
+    throw new Error('MODEL_EDIT_FIELD_INVALID: floorLoads.story must identify an existing story; the load cannot be discarded. / 楼层荷载必须指定有效楼层，不能丢弃荷载后继续建模。');
+  }
+}
+
 export function buildFrame2dModel(state: DraftState, metadata: Record<string, unknown>): Record<string, unknown> {
   const bayWidths = state.bayWidthsM!;
   const storyHeights = state.storyHeightsM!;
@@ -26,9 +32,7 @@ export function buildFrame2dModel(state: DraftState, metadata: Record<string, un
   const levelNodeCount = xCoordinates.length;
   for (const load of floorLoads) {
     const storyIndex = load.story;
-    if (storyIndex <= 0 || storyIndex >= zCoordinates.length) {
-      continue;
-    }
+    validateFloorLoadStory(storyIndex, zCoordinates.length - 1);
     const verticalPerNode = load.verticalKN !== undefined ? -load.verticalKN / levelNodeCount : undefined;
     const lateralPerNode = load.lateralXKN !== undefined ? load.lateralXKN / levelNodeCount : undefined;
     for (let bayNodeIndex = 0; bayNodeIndex < xCoordinates.length; bayNodeIndex += 1) {
@@ -83,9 +87,7 @@ export function buildFrame3dModel(state: DraftState, metadata: Record<string, un
   const levelNodeCount = xCoordinates.length * yCoordinates.length;
   for (const load of floorLoads) {
     const storyIndex = load.story;
-    if (storyIndex <= 0 || storyIndex >= zCoordinates.length) {
-      continue;
-    }
+    validateFloorLoadStory(storyIndex, zCoordinates.length - 1);
     const verticalPerNode = load.verticalKN !== undefined ? -load.verticalKN / levelNodeCount : undefined;
     const lateralXPerNode = load.lateralXKN !== undefined ? load.lateralXKN / levelNodeCount : undefined;
     const lateralYPerNode = load.lateralYKN !== undefined ? load.lateralYKN / levelNodeCount : undefined;

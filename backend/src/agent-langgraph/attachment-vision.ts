@@ -5,26 +5,19 @@ import type { AppLocale } from '../shared/locale.js';
 import type { AttachmentInfo } from './service-types.js';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { parseVisionEvidence, visionRequestSchema, type VisionRequest, collectVisionEvidence } from '../engineering/vision-evidence.js';
-import { contentHash } from '../engineering/model-state.js';
-import { mergeInputEvidence } from '../engineering/input-evidence.js';
+import { parseVisionEvidence, visionRequestSchema, type VisionRequest } from '../engineering/vision-evidence.js';
 
 export async function summarizeFileImages(analysis: Record<string, unknown>, filePath: string, locale: AppLocale, message: string, signal?: AbortSignal): Promise<Record<string, unknown>> {
   const result = structuredClone(analysis);
   const request = visionRequestSchema.parse(result.visionRequest ?? {});
   const summarize = async (image: Record<string, unknown>, originalName: string, dataUri?: string) => {
-    const summary = dataUri ? await summarizeImageAttachment({ fileId: filePath, originalName, relPath: filePath }, dataUri, message, locale, signal,
+    signal?.throwIfAborted();
+    if (!dataUri) throw new Error('VISION_INPUT_UNAVAILABLE: The image cannot be supplied to the vision model. / 无法将此图片提供给视觉模型，识别已停止。');
+    const summary = await summarizeImageAttachment({ fileId: filePath, originalName, relPath: filePath }, dataUri, message, locale, signal,
       { ...request, source: { ...(typeof result.source === 'object' && result.source ? result.source : {}), file: filePath, page: image.pageNumber,
-        ...(typeof image.renderedImagePath === 'string' ? { renderedImagePath: image.renderedImagePath } : {}) } }) : null;
+        ...(typeof image.renderedImagePath === 'string' ? { renderedImagePath: image.renderedImagePath } : {}) } });
     image.visionSummary = summary;
-    image.visionStatus = summary ? 'completed' : 'unavailable';
-    if (!summary) {
-      image.visionWarning = locale === 'zh' ? '视觉识别不可用，请补充本页必要信息。' : 'Vision is unavailable; required page information must be supplied.';
-      image.inputEvidence = mergeInputEvidence(collectVisionEvidence(image), (request.requiredFields ?? [`file:${filePath}:${String(image.pageNumber ?? 1)}`]).map(field => {
-        const item = { field, status: 'unread', required: true, reason: image.visionWarning, source: { file: filePath, page: image.pageNumber } };
-        return { ...item, id: `vision:${contentHash(item)}` };
-      }));
-    }
+    image.visionStatus = 'completed';
   };
   if (result.type === 'image') {
     await summarize(result, filePath, typeof result.base64DataUri === 'string' ? result.base64DataUri : undefined);
@@ -64,9 +57,10 @@ export async function summarizeImageAttachment(
   locale: AppLocale,
   signal?: AbortSignal,
   options: VisionRequest & { source?: Record<string, unknown> } = {},
-): Promise<string | null> {
+): Promise<string> {
   const model = createVisionChatModel(0, { disableStreaming: true });
-  if (!model) return null;
+  signal?.throwIfAborted();
+  if (!model) throw new Error('VISION_MODEL_REQUIRED: Image interpretation requires a configured vision model. / 图片识别需要已配置的视觉模型，无法继续识别。');
 
   const prompt = locale === 'zh'
     ? [
@@ -103,12 +97,13 @@ export async function summarizeImageAttachment(
       }),
     ], signal ? { signal } : undefined);
     const text = messageContentText(result.content).trim();
-    return text ? JSON.stringify(parseVisionEvidence(text, source, options)) : null;
+    return JSON.stringify(parseVisionEvidence(text, source, options));
   } catch (error) {
     logger.warn({
       attachment: attachment.originalName,
       error: error instanceof Error ? error.message : String(error),
     }, 'attachment vision summary failed');
-    return null;
+    signal?.throwIfAborted();
+    throw new Error('VISION_MODEL_FAILED: Image interpretation failed; no substitute interpretation was used. / 视觉模型识别失败；未使用替代推断。', { cause: error });
   }
 }

@@ -1,35 +1,13 @@
 import type { AppLocale } from '../shared/locale.js';
 import { listStructureModelingProviders } from '../agent-skills/structure-type/registry.js';
 import { AgentSkillLoader } from './loader.js';
-import { buildUnknownStructuralType, detectUnsupportedStructuralTypeByRules } from './fallback.js';
 import { localize } from './plugin-helpers.js';
-import { isExplicitStructuralSwitch } from './structural-routing.js';
-import type { AgentSkillBundle, AgentSkillPlugin, DraftState, InferredModelType, StructuralTypeMatch, StructuralTypeKey } from '../shared/types/agent.js';
-
-function hasStableCurrentState(state: DraftState | undefined): state is DraftState {
-  return !!state?.inferredType && state.inferredType !== 'unknown';
-}
-
-function buildCurrentStateMatch(
-  state: DraftState,
-  plugin: AgentSkillPlugin,
-): StructuralTypeMatch {
-  return {
-    key: (state.structuralTypeKey ?? plugin.id) as StructuralTypeKey,
-    mappedType: state.inferredType,
-    skillId: plugin.id,
-    supportLevel: state.supportLevel ?? 'supported',
-    supportNote: state.supportNote,
-    routingSource: 'current-state',
-  };
-}
+import type { AgentSkillBundle, AgentSkillPlugin, DraftState, InferredModelType, StructuralTypeKey } from '../shared/types/agent.js';
 
 function providerMatchesScope(provider: { id: string; plugin: AgentSkillPlugin }, requested: Set<string>): boolean {
   const plugin = provider.plugin;
   return requested.has(provider.id)
-    || requested.has(plugin.id)
-    || requested.has(plugin.structureType)
-    || plugin.manifest.structuralTypeKeys.some((key) => requested.has(key));
+    || requested.has(plugin.id);
 }
 
 export class AgentSkillRegistry {
@@ -84,66 +62,6 @@ export class AgentSkillRegistry {
       || skills.find((skill) => skill.manifest.structuralTypeKeys.includes(identifier as StructuralTypeKey))
       || skills.find((skill) => skill.structureType === identifier)
       || null;
-  }
-
-  async detectStructuralType(
-    message: string,
-    locale: AppLocale,
-    currentState?: DraftState,
-    skillIds?: string[],
-  ): Promise<StructuralTypeMatch> {
-    const unsupported = detectUnsupportedStructuralTypeByRules(message, locale);
-    if (unsupported) {
-      return unsupported;
-    }
-
-    const plugins = await this.resolveEnabledPlugins(skillIds);
-    const currentPlugin = await this.resolvePluginForState(currentState, skillIds);
-    const explicitStructuralSwitch = isExplicitStructuralSwitch(message);
-    if (
-      currentPlugin
-      && hasStableCurrentState(currentState)
-      && !explicitStructuralSwitch
-    ) {
-      return buildCurrentStateMatch(currentState, currentPlugin);
-    }
-
-    for (const plugin of plugins) {
-      if (plugin.id === 'generic') {
-        continue;
-      }
-      const matched = plugin.handler.detectStructuralType({
-        message,
-        locale,
-        currentState: explicitStructuralSwitch ? undefined : currentState,
-      });
-      if (matched) {
-        return { ...matched, skillId: matched.skillId ?? plugin.id };
-      }
-    }
-
-    if (currentPlugin && currentState?.inferredType && currentState.inferredType !== 'unknown') {
-      return buildCurrentStateMatch(currentState, currentPlugin);
-    }
-
-    const genericPlugin = plugins.find((plugin) => plugin.id === 'generic');
-    if (genericPlugin) {
-      const matched = genericPlugin.handler.detectStructuralType({
-        message,
-        locale,
-        currentState,
-      });
-      if (matched) {
-        return { ...matched, skillId: matched.skillId ?? genericPlugin.id };
-      }
-    }
-
-    return buildUnknownStructuralType(locale);
-  }
-
-  async resolvePluginById(skillId: string): Promise<AgentSkillPlugin | null> {
-    const plugins = await this.listPlugins();
-    return plugins.find((p) => p.id === skillId) ?? null;
   }
 
   async getStructuralTypeLabel(key: string, locale: AppLocale, skillIds?: string[]): Promise<string> {

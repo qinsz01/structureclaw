@@ -406,8 +406,6 @@ interface ParamExtractorInput {
   sectionShapeSchema?: Record<string, unknown>;
   /** Per-request logger with traceId/conversationId. Falls back to root logger. */
   traceLogger?: Logger;
-  /** Require structured LLM output rather than handler-only extraction. */
-  requireLlmResult?: boolean;
   /** Cancels an in-flight extraction when the enclosing agent run is aborted. */
   signal?: AbortSignal;
   /** Records provider usage for nested-call reporting. */
@@ -429,7 +427,7 @@ interface ParamExtractorInput {
 
 export async function invokeParamExtractor(
   input: ParamExtractorInput,
-): Promise<Record<string, unknown> | null> {
+): Promise<Record<string, unknown>> {
   input = { ...input, existingState: input.existingState ? currentDraftDiagnostics(input.existingState) : undefined };
   const log = input.traceLogger ?? rootLogger;
   const pluginId = input.plugin.id;
@@ -441,10 +439,7 @@ export async function invokeParamExtractor(
     // GLM-5.3 cannot disable reasoning. Bound an exhausted attempt, then retry with a short JSON contract.
     ? { purpose: 'clarification-patch', maxTokens: 1024, disableStreaming: true } : { purpose: 'structured-output' }) : input.llm;
   if (!llm) {
-    if (input.requireLlmResult) {
-      throw new Error('LLM_PARAM_EXTRACTOR_CONFIGURATION_ERROR: no LLM is configured');
-    }
-    return null;
+    throw new Error('LLM_PARAM_EXTRACTOR_CONFIGURATION_ERROR: Parameter extraction requires a configured LLM; no draft was changed. / 参数提取需要已配置的语言模型；草稿未修改。');
   }
 
   const promptFor = (patchMode: boolean) => buildParamExtractorPrompt(
@@ -473,6 +468,7 @@ export async function invokeParamExtractor(
     const model = attempt === 1 ? llm : input.llm === undefined
       ? createChatModel(0, patchMode ? { purpose: 'clarification-patch', maxTokens: maxOutputTokens!, disableStreaming: true }
         : { purpose: 'structured-output' }) : input.llm;
+    if (!model) throw new Error('LLM_PARAM_EXTRACTOR_CONFIGURATION_ERROR: Parameter extraction requires a configured LLM; no draft was changed. / 参数提取需要已配置的语言模型；草稿未修改。');
     const prompt = promptFor(mode === 'patch') + (attempt === 2 && patchMode
       ? '\nRETRY CONTRACT / 重试协议: The previous output was empty, invalid or truncated. Return ONLY one short JSON object: {"engineeringDraft":{changed fields only}}; optional clearDraftFields, draftIssues, unapplied. Capture EVERY supplied field independently, including fields unrelated to pending confirmations. No unchanged data or commentary. / 上次输出无效；仅返回短JSON，分别保留用户给出的所有字段，待确认字段不得阻止其他字段。'
       : attempt > 1 && !patchMode ? '\nRETRY CONTRACT / 重试协议: The prior draft was invalid. Return one complete JSON draft object, correct the reported fields and retain every supplied engineering value; no commentary. / 上次草稿无效，请返回完整JSON草稿、修正错误字段并保留全部已给工程数值，不输出说明。'
@@ -484,13 +480,13 @@ export async function invokeParamExtractor(
       usage_metadata?: Record<string, unknown>;
     };
     try {
-      result = await model!.invoke(prompt, { signal: input.signal });
+      result = await model.invoke(prompt, { signal: input.signal });
     } catch (error) {
       recordRunEvent({ kind: 'param_extractor', skillId: pluginId, attempt, mode, promptChars: prompt.length,
         durationMs: Date.now() - start, outcome: 'infrastructure_error', maxOutputTokens });
       log.warn({ pluginId, durationMs: Date.now() - start }, 'param extractor LLM call failed');
       throw new Error(
-        `LLM_PARAM_EXTRACTOR_INFRASTRUCTURE_ERROR: network error: ${
+        `LLM_PARAM_EXTRACTOR_INFRASTRUCTURE_ERROR: LLM request failed; no draft was changed / 语言模型请求失败，草稿未修改: ${
           error instanceof Error ? error.message : String(error)
         }`,
         { cause: error },
@@ -527,11 +523,10 @@ export async function invokeParamExtractor(
       outcome: invalidReason ?? 'accepted', ...(validationError ? { validationError } : {}) });
     log.debug({ pluginId, durationMs: Date.now() - start, hasDraftPatch: !!patch, finishReason,
       contentLength: content.length, reasoningContentLength }, 'param extractor completed');
-    if (!invalidReason) return patch;
-    if (validationError && attempt === 3) throw new Error(validationError);
+    if (!invalidReason && patch) return patch;
     diagnostic = `finishReason=${finishReason ?? 'unknown'}; contentLength=${content.length}; reasoningContentLength=${reasoningContentLength}`
       + (validationError ? `; validationError=${validationError}` : '');
     if (attempt < 3) requestRecovery(`parameter extraction: ${invalidReason}; ${patchMode && attempt === 1 ? 'retry short patch' : 'retry full extraction'}`);
   }
-  throw new Error('LLM_PARAM_EXTRACTOR_INVALID_OUTPUT: response was not a usable JSON draft patch; ' + diagnostic);
+  throw new Error('LLM_PARAM_EXTRACTOR_INVALID_OUTPUT: response was not a usable JSON draft patch; no draft was changed / 模型未返回有效草稿，草稿未修改; ' + diagnostic);
 }

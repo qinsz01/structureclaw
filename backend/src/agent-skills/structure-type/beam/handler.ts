@@ -7,10 +7,9 @@ import {
 import { mapMissingFieldLabels } from '../../../agent-runtime/draft-guidance.js';
 import { ingestDraft, projectBeamLoads, projectDraftPatch, projectDraftState } from '../../../agent-runtime/draft/boundary.js';
 import { combineDomainKeys, composeStructuralDomainPatch } from '../../../agent-runtime/domains/structural-domains.js';
-import { buildStructuralTypeMatch, resolveLegacyStructuralStage } from '../../../agent-runtime/plugin-helpers.js';
+import { resolveLegacyStructuralStage } from '../../../agent-runtime/plugin-helpers.js';
 import { buildInteractionQuestions } from '../../../agent-runtime/fallback.js';
 import { buildDefaultReportNarrative } from '../../../agent-runtime/report-template.js';
-import { matchConservativeStructuralRoute } from '../../../agent-runtime/structural-routing.js';
 import type { AppLocale } from '../../../shared/locale.js';
 import type {
   DraftExtraction,
@@ -324,19 +323,6 @@ function buildBeamReportNarrative(input: SkillReportNarrativeInput): string {
 }
 
 export const handler: SkillHandler = {
-  detectStructuralType({ message, locale }) {
-    const route = matchConservativeStructuralRoute(message);
-    if (route?.skillId !== 'beam') {
-      return null;
-    }
-    if (route.key === 'girder') {
-      return buildStructuralTypeMatch('girder', 'beam', 'beam', 'fallback', locale, {
-        zh: '已将“主梁/大梁”先按梁模板处理；若实际是连续梁或更复杂体系，请继续说明。',
-        en: '“Girder” has been normalized to the beam template for now. If the actual system is continuous or more complex, please clarify further.',
-      }, route.routingSource);
-    }
-    return buildStructuralTypeMatch('beam', 'beam', 'beam', route.supportLevel, locale, undefined, route.routingSource);
-  },
   parseProvidedValues(values) {
     const patch = ingestDraft(values);
     return toBeamPatch(patch);
