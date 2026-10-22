@@ -9,6 +9,7 @@ on:
   push:
     branches:
       - master
+      - work/research-next
     paths:
       - 'frontend/**'
       - '.github/workflows/frontend-regression.yml'
