@@ -95,6 +95,25 @@ function assignedRoleSection(field: string, merged: DraftState): { role: Templat
   } catch { return undefined; }
 }
 
+/** An evidenced area fully defines a section used exclusively by axial members for analysis. */
+function axialAreaResolvesMissingShape(field: string, state: DraftState): boolean {
+  const [collection, selector, property, ...rest] = tokens(canonicalPath(field));
+  if (collection?.key !== 'sectionRecords' || !selector || selector.wildcard || rest.length
+    || !['shape', 'dimensions'].includes(property?.key ?? '') || record(state.requestScope) && state.requestScope.design === true) return false;
+  const draft = state.engineeringDraft;
+  const sections = draft?.sectionRecords ?? [];
+  const matches = selector.index ? sections.filter((_, index) => index === Number(selector.key)) : sections.filter(section => section.id === selector.key);
+  if (matches.length !== 1) return false;
+  const section = matches[0]!;
+  if (section.shape != null || section.dimensions != null || !record(section.properties)
+    || typeof section.properties.A !== 'number' || !Number.isFinite(section.properties.A) || section.properties.A <= 0
+    || !['user', 'attachment', 'rule'].includes(String(record(section.extra) && section.extra.provenance?.properties))) return false;
+  if (['beam', 'column'].some(role => draft?.templateAssignments?.[role as TemplateRole]?.sectionId === section.id)) return false;
+  const members = draft?.model?.elements ?? draft?.topology?.members;
+  const consumers = Array.isArray(members) ? members.filter(member => record(member) && member.section === section.id) : [];
+  return consumers.length > 0 && consumers.every(member => ['truss', 'brace'].includes(String(member.type)));
+}
+
 /** Missing data is derived; ambiguity/conflicting evidence requires a new explicit answer.
  * Old field strings are accepted conservatively and resolved by stable record identity.
  */
@@ -112,6 +131,7 @@ export function mergeDraftDiagnostics(existing: DraftState | undefined, patch: D
     if (issue.kind === 'missing' && canonicalPath(field) === 'analysisControl.self_weight') return true;
     if (issue.kind === 'missing' && ['frame', 'portal-frame'].includes(merged.inferredType)
       && canonicalPath(field) === 'boundary.frameBaseSupportType') return true;
+    if (issue.kind === 'missing' && axialAreaResolvesMissingShape(field, merged)) return true;
     // A force-only request runs on labelled unit stiffness when material/section are absent.
     if (issue.kind === 'missing' && !merged.engineeringDraft?.model) {
       const root = tokens(canonicalPath(field))[0]?.key ?? '';

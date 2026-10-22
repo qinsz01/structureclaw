@@ -207,7 +207,7 @@ function canonicalizeGenericModel(model: Record<string, unknown>): void {
   model.schema_version = '2.2.0';
   model.unit_system = 'SI';
   if (Array.isArray(model.elements)) model.elements = model.elements.map(value => !isRecord(value) || value.releases === undefined ? value
-    : { ...value, releases: normalizeMemberReleases(value.releases, `model.elements[${JSON.stringify(String(value.id ?? '?'))}].releases`) });
+    : { ...value, releases: normalizeMemberReleases(value.releases, `model.elements[${JSON.stringify(String(value.id ?? '?'))}].releases`, value.type) });
   if (!Array.isArray(model.load_cases)) {
     return;
   }

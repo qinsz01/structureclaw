@@ -54,7 +54,7 @@ function normalizeTopologyNode(value: unknown): EngineeringDraftTopologyNode | u
 
 function normalizeMemberRecordReleases(raw: Record<string, unknown>): Record<string, unknown> {
   return raw.releases === undefined ? raw : { ...raw, releases: normalizeMemberReleases(raw.releases,
-    `engineeringDraft.topology.members[${JSON.stringify(String(raw.id ?? '?'))}].releases`) };
+    `engineeringDraft.topology.members[${JSON.stringify(String(raw.id ?? '?'))}].releases`, raw.type) };
 }
 
 /** Stored draft metadata uses the same boundary as newly extracted definitions. */
