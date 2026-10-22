@@ -131,11 +131,15 @@ Benchmark exception: `SCLAW_RUN_PROFILE=<id>` selects one of the pre-registered,
 ## Agent Architecture Reference
 
 The agent is capability-driven, not mode-driven:
-1. **Base model** (always present): general dialogue, fallback when no engineering capabilities are loaded.
+1. **Base model** (required for natural-language work): general dialogue; with no engineering capabilities loaded it cannot model or execute engineering actions. Missing/unavailable LLMs fail explicitly.
 2. **Skill layer** (optional): engineering intent classification, parameter extraction, guidance.
 3. **Tool layer** (optional): executable engineering actions (validate, analyze; code-check and report on request).
 
 See `docs/agent-architecture.md` for the full canonical design reference.
+
+Natural-language interpretation must use the LLM. Do not add keyword/regex intent routing or rule/template/provider substitutes when an LLM is missing, unavailable or invalid. A sole/fixed skill is selected by explicit configuration; it does not authorize parsing the user message with rules. Clarification alternatives are not accepted facts. Rejected semantic operations preserve confirmed state and report failure, never mark a substitute as success. Deterministic schema validation, exact identifiers/enums, explicit units, geometry formulas, confirmed-model compilation and solver checks remain valid.
+
+自然语言理解依赖 LLM；未配置、不可用或输出无效时明确失败，禁止增加关键词/正则语义路由或规则、模板、Provider 替代。单技能/固定技能是配置选择，不授权规则理解用户文本。未选候选不是用户事实，失败不污染已确认状态。格式、精确 ID/枚举、显式单位、几何计算、已确认模型编译和求解器检查继续使用确定性代码。
 
 ## Security and Config
 
@@ -173,7 +177,7 @@ id: frame                          # unique skill identifier
 domain: structure-type              # only structure modelling methods are skills
 name: { zh: 规则框架, en: Regular Frame }
 description: { zh: ..., en: ... }
-triggers: [frame, 框架, steel frame] # keywords for intent detection
+triggers: [frame, 框架, steel frame] # descriptive metadata for the LLM, not a keyword router
 stages: [intent, draft, analysis, design]
 structureType: frame               # maps to InferredModelType
 priority: 70                       # higher = preferred when multiple skills match
@@ -191,9 +195,8 @@ Markdown files (`intent.md`, `draft.md`, `analysis.md`, `design.md`) with domain
 Exports a `SkillHandler` object (interface defined in `backend/src/shared/types/agent.ts`, re-exported from `backend/src/agent-runtime/types.ts`). The handler methods form the skill's lifecycle:
 
 ```
-detectStructuralType()  → match user message to this skill's structural type
 parseProvidedValues()   → normalize explicit user input into DraftExtraction
-extractDraft()          → combine LLM extraction + rules into DraftExtraction
+extractDraft()          → validate and project structured LLM extraction into DraftExtraction
 mergeState()            → immutable merge of existing state + new patch
 computeMissing()        → return critical/optional missing fields
 mapLabels()             → localize missing-field keys for display

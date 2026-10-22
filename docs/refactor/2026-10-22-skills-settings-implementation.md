@@ -615,3 +615,60 @@ and `promotion.json` records the verified export and backup. Earlier failed chec
 separately. The owned port-31535 test instance was stopped. The primary service remains healthy
 on the same `da54e299-2e0c-4555-8abb-655419c1ded5` instance, with unchanged settings; refreshing
 loads the new interface. No push, benchmark change or freeze regeneration occurred.
+
+## Semantic failure cleanup (2026-10-22)
+
+The generic-session investigation found an old structure keyword router behind a newer
+single-skill shortcut. An unselected clarification option contained `腹板`, and its `板`
+substring was interpreted as a slab request. The previous cleanup had made routing LLM-first
+but retained a rule fallback; the later shortcut made that fallback reachable before the LLM.
+Checking only which skill was selected did not detect the incorrect structural label or
+the failed extraction that followed it.
+
+The execution contract now requires an LLM for natural-language work. No model, provider
+failure, or exhausted invalid output is an explicit failure. A sole or fixed skill is an
+exact configuration binding, not permission to interpret user prose with rules. Selecting
+only `generic` uses that skill's LLM extraction and model generation; selecting no skills
+leaves base conversation without engineering execution capabilities and still requires an LLM.
+
+| Boundary | Removed behavior | Current contract |
+| --- | --- | --- |
+| Routing | Keyword structure detectors, scope override and unavailable-skill substitution | Exact enabled skill IDs; LLM decisions validated against scope; explicit unsupported/failure |
+| Clarification | Unselected alternatives influencing structure routing | Route from the actual answer; preserve the full context for LLM extraction |
+| Extraction | No-LLM deterministic parsing and successful-looking preservation after failure | Failed extraction leaves confirmed state unchanged and reports failure |
+| Draft values | Chinese-number guessing, numeric prefix parsing, implicit dimension-unit guessing | Complete numeric values and documented explicit section/unit formats |
+| Load compilation | Unknown positions becoming midspan, roof, all stories or all members; silently dropped targets | Exact IDs, canonical selectors or structured coordinates; unresolved/invalid inputs block execution |
+| Generic generation | Missing provider returning no candidate; untyped transport failure | Explicit required/provider/validation errors; bounded corrections use the same configured model |
+| Vision and final delivery | Unavailable/empty model output becoming a successful canned result; failed review returning the unreviewed answer | Explicit failure, retaining completed artifacts |
+| Graph execution | A failed semantic tool could be followed by building/analyzing an old draft | Terminal semantic failures stop later model/tool nodes after checkpointing the failed receipt |
+| Failed model build | Retained model/results could be used after this request's build failed | Recalculation, mutations, checks and reports blocked; clarification, inspection of retained artifacts and a successful corrected build remain available |
+| UI/history | Natural-language continuation rewritten by intent keywords; saved tool errors restored as done | Preserve the submitted message; restore explicit failure status |
+
+确定性代码仍负责格式与范围校验、精确 ID/枚举、显式单位换算、几何与截面公式、
+已确认模型的编译、求解器和规范检查。固定系统协议拆包、文件格式识别和错误码映射
+也保留。这些操作不替代模型理解自然语言。显式模板建模是已选择的编译策略，
+不是 LLM 失败后的降级；报告模板也不得被描述成调用了 LLM。
+
+This is an audit of the routing/extraction/build/delivery path and its callers, not a claim
+that every regex or constant in the repository has disappeared. Format parsers, identifiers,
+engineering formulas, diagnostics and presentation defaults have different responsibilities.
+The change does not certify every LLM answer, repair historical conversation content, or
+regenerate the frozen experiment baseline. The benchmark submodule is unchanged.
+
+Validation used the real backend and OpenSees with a local scripted LLM, including provider
+failures and invalid outputs; it does not claim live-model semantic accuracy. The first broad
+run exposed 12 failing suites. Their old fallback expectations, incomplete fixtures and prompt
+snapshots were reviewed and corrected, with the retained-result numerical regression preserved.
+Final acceptance covered **231 suites / 3,453 tests**, with no remaining failures or skipped
+backend tests: 212 core suites plus 19 characterization suites, including 57 passing snapshots.
+The core run initially caught two new assertions expecting a throw instead of the handler's
+documented `undefined` refusal, and one attachment test lacked the split-run Python settings
+fixture. The affected two complete suites were rerun: **45/45 passed**. Product source stayed
+unchanged during this acceptance and recheck. Original failures and the replacement results
+are retained in `acceptance-summary.json` rather than discarded.
+
+Frontend unit tests passed **341 tests** (six existing todo cases); integration passed **82**
+(two existing skips). Backend build/lint/dependency checks, frontend lint/type-check/webpack
+production build, routing/base-chat/capability/chat-stream/message-routing validations and the
+analyze contract passed. Evidence is under
+`G:/StructureClaw-All/verification/no-semantic-fallback-20261022/`.

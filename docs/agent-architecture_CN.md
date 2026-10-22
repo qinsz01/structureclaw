@@ -114,7 +114,7 @@ agent capability、运行、审阅与 SkillHub routes 位于 [backend/src/api/ag
 | Tool registry | [backend/src/agent-langgraph/tool-registry.ts](../backend/src/agent-langgraph/tool-registry.ts) | 声明内置 tools（ID、分类、风险等级、双语元数据、factory）并构建 tool set。位于其他模块中的工具（`model-tools.ts`、`workspace-tools.ts`、`file-tools.ts`、`shell-tool.ts`、`memory-tool.ts`、`calc-tool.ts`）也在此注册。 |
 | Tool policy | [backend/src/agent-langgraph/tool-policy.ts](../backend/src/agent-langgraph/tool-policy.ts) | 解析 enabled / disabled tool ID；shell gate 未开启时阻止 shell tool。 |
 | 用户 tools | [backend/src/agent-langgraph/user-tool-loader.ts](../backend/src/agent-langgraph/user-tool-loader.ts) | 加载 workspace tool 定义，并在 graph 构建时追加。 |
-| 最终回答 | [backend/src/agent-langgraph/delivery/final-answer.ts](../backend/src/agent-langgraph/delivery/final-answer.ts) | `applyFinalAnswerPolicy` 将空的最终模型回复替换为双语兜底文本。 |
+| 最终回答 | [backend/src/agent-langgraph/delivery/final-answer.ts](../backend/src/agent-langgraph/delivery/final-answer.ts) | `applyFinalAnswerPolicy` 对空的最终模型回复返回 `LLM_EMPTY_RESPONSE`，保留已完成工具的产物。 |
 | 草稿边界 | [backend/src/agent-runtime/draft/boundary.ts](../backend/src/agent-runtime/draft/boundary.ts) | 唯一的草稿边界：`ingestDraft` 将抽取补丁（包括 `clearDraftFields`）合并进已有草稿；`projectDraftState` 派生状态视图。辅助模块位于 `draft/normalize.ts`、`draft/project-patch.ts` 与 `draft/legacy-fields.ts`。 |
 | Skill runtime | [backend/src/agent-runtime/index.ts](../backend/src/agent-runtime/index.ts) | `AgentSkillRuntime`：manifest 列表、结构类型识别、模型构建，以及分析、规范校核、校验与报告 skill 的执行。 |
 | Skill loader | [backend/src/agent-runtime/loader.ts](../backend/src/agent-runtime/loader.ts) | 发现 skill 目录，加载阶段 Markdown，并导入可选 handler。 |
@@ -151,7 +151,7 @@ compiled graph 在进程生命周期内缓存。skill 或 tool 变化后，可�
 | 工具异常 | ToolNode 文本转为 `{ success: false, errorCode, error, hint }`；未知 ID 错误码（`RUN_NOT_FOUND`、`RESULT_NODE_NOT_FOUND`、`MODEL_OBJECT_NOT_FOUND` 等）列出现有 ID | `guards/tool-errors.ts` |
 | 最终回答数值：带工程单位（kN/N、kN·m/N·m/N·mm、m/mm、MPa/kPa/Pa、kN/m、rad、Hz）的数值，经单位换算、忽略符号、容差取 max(末位半个单位, 1 %) 后，与用户消息、任一工具结果及已保存的模型/草稿/分析/校核/报告/查询数值均不一致；用户输入数值的乘积/商（q·L、P/2）及已保存查询数值之和（ΣR）也视为依据；引用规范表/条文的句子和紧跟书面公式的数值（`L/250 = 24 mm`、`L/250 (24 mm)`、`22.5 + 75 + 22.5 = 120 kN`、`120 kN = 10×12`，以及回答中其他位置的同一数值）不检查；面积、体积和惯性矩（`cm⁴`、`mm²`）不检查 | 每轮 1 次纠正请求（关闭自动纠错时为 0），之后附注列出未核实数值 | `delivery/answer-integrity.ts`、`answer-review.ts`、`final-review.ts` |
 | 声称的操作（窄化的中英文模式，忽略否定与条件句）与当前状态不符："已完成分析"需当前有效分析，"已生成报告"需该运行的报告，"验算通过"需该运行且 `complianceStatus: pass` 的规范验算。数值证据中的单位刚度占位运行不含位移 | 同样先纠正后附注 | 同上 |
-| 空回答或被截断的回答 | 空回答替换为双语兜底文本；`finish_reason` 为 `length`/`max_tokens` 时附截断提示 | `delivery/final-answer.ts`、`final-review.ts` |
+| 空回答或被截断的回答 | 空回答明确报错；`finish_reason` 为 `length`/`max_tokens` 时附截断提示 | `delivery/final-answer.ts`、`final-review.ts` |
 
 防护账本随运行上下文（一轮或恢复后的一段）存在，不持久化。被防护拒绝的调用不会预留预算、不会执行，也不改变状态。
 
@@ -206,7 +206,7 @@ Provider 元数据位于 `backend/src/providers/catalog.yaml`，分为 solver、
   -> 停止：总结结果并提示下一步（规范验算、修改模型）
 ```
 
-意图判断由大模型完成：是否校核、是否出报告以及需要哪些响应，均通过提示词和工具说明引导，并在工具参数中声明（`requestScope`）。校核、报告与所求响应的判断不匹配用户文本。结构类型路由（包括不支持结构的判断）优先调用大模型。仅在未配置大模型或两次路由尝试均失败时，才使用技能关键词检测器与显式结构切换模式回退。运行记录中的 `structural_routing` 事件包含 `path`（`llm`、`rule-fallback` 或显式策略指定的 `policy-fixed`）以及回退原因。已接受的大模型路由在参数补充和澄清回复中跨轮复用（`path: reused`）。外层大模型在结构类型改变时再次调用检测，新决定优先。通用草稿与其他技能使用同一个大模型抽取入口。始终生效的文本模式仍包括模板荷载布置：读取大模型抽取的 `loads[].target` 标签（楼层序号、屋面/顶层、夹层/吊车、X/Y 向梁），因为草稿没有这些信息的结构化字段。“设计一个梁”即执行上述默认流程，不构成校核请求；用户要求校核时代理才调用 `run_code_check`（声明 `requestScope.design=true`），仅当用户要求报告、计算书或其他交付文件时才调用 `generate_report`（`requestScope.report`），“设计一个梁”和只求具体结果都不是报告请求。抗震分析同样如此：校核和报告仅在要求时执行。工具不再复核这些决定，只校验状态和前提条件（有当前分析、结果未过期、ID 和参数有效、校核/报告/位移查询不基于单位刚度占位运行），并返回带中英文恢复提示的结构化错误。默认流程中的澄清只询问所求结果需要的分析输入（几何、支座、荷载、材料弹性属性、截面尺寸或属性）。明确请求的校核不会因设计输入缺失而中断：工具返回 `nextAction: "report_missing_inputs"`，最终回复列出已完成的校核以及未执行项和所缺输入，用户可在后续轮次补充。
+意图判断由大模型完成：是否校核、是否出报告以及需要哪些响应，均通过提示词和工具说明引导，并在工具参数中声明（`requestScope`）。校核、报告与所求响应的判断不匹配用户文本。自然语言路由必须有可用配置的大模型。未配置、调用失败或输出无效时，不调用关键词、正则、其他技能或模板替代；旧规则路由器及技能检测方法已删除。只选通用或固定策略时按明确技能 ID 绑定，不解释用户文本；参数提取仍需大模型。空技能列表不启用任何建模技能，技能范围仅按精确 ID 生效，不按共享结构类型扩大。运行记录区分 `llm`、纯配置绑定的 `scope-only` 和 `policy-fixed`。已接受的大模型路由在参数补充和澄清回复中跨轮复用（`path: reused`）。外层大模型在结构类型改变时再次调用检测，新决定优先。通用草稿与其他技能使用同一个大模型抽取入口。澄清问题和未选候选只供抽取理解上下文，不进入类型路由。拒绝的路由或提取不修改已确认状态。荷载布置使用结构化位置、ID 或精确约定的选择器；不从含糊文字猜位置。旧数值字段也只接收完整有限数值，不截取数字前缀或中文数词片段。视觉模型缺失、失败或输出无效时明确报错；回答复核调用失败时不静默交付未经复核的原答。前端发送真实用户消息，不把“继续”解释成重发旧请求；历史恢复保留工具的失败状态。“设计一个梁”即执行上述默认流程，不构成校核请求；用户要求校核时代理才调用 `run_code_check`（声明 `requestScope.design=true`），仅当用户要求报告、计算书或其他交付文件时才调用 `generate_report`（`requestScope.report`），“设计一个梁”和只求具体结果都不是报告请求。抗震分析同样如此：校核和报告仅在要求时执行。工具不再复核这些决定，只校验状态和前提条件（有当前分析、结果未过期、ID 和参数有效、校核/报告/位移查询不基于单位刚度占位运行），并返回带中英文恢复提示的结构化错误。默认流程中的澄清只询问所求结果需要的分析输入（几何、支座、荷载、材料弹性属性、截面尺寸或属性）。明确请求的校核不会因设计输入缺失而中断：工具返回 `nextAction: "report_missing_inputs"`，最终回复列出已完成的校核以及未执行项和所缺输入，用户可在后续轮次补充。
 
 LLM 抽取器与 skill handler 产生的草稿补丁由 `ingestDraft`（`agent-runtime/draft/boundary.ts`）归一化，skill handler 直接调用该函数。未提供的字段保持不变，记录数组按稳定 ID 合并，明确删除通过 `clearDraftFields` 完成。tools 从 graph state 中读取 model、analysis、report 和 draft artifacts。LLM 不应该在 tools 之间传递很大的 `modelJson`、`analysisJson` 或 `stateJson` 参数。
 

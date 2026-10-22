@@ -73,7 +73,7 @@ interfaces and solver stay identical and the agent still ends the turn with an a
 | `no-clarification` | `features.clarification: disabled` | clarification interrupt tool + prompt instructions (agent lists missing inputs instead) |
 | `no-state-versioning` | `features.stateVersioning: off` | stale-result invalidation after edits (hashes still recorded) |
 | `no-evidence-binding` | `features.evidenceBinding: off` | report ↔ model/run/combination provenance checks |
-| `no-repair` | `repair.enabled: false` + recovery prompt text | rule fallbacks and recoveries |
+| `no-repair` | `repair.enabled: false` + recovery prompt text | LLM correction retries (semantic rule fallback removed) |
 
 Design references: paper appendix A5 ("matched component ablations") and the
 2026-10-12 bench review protocol (same solver, budget, interface and inputs; capability
