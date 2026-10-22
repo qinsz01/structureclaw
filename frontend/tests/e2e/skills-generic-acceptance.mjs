@@ -106,7 +106,12 @@ try {
         turns++;
         const response = await responsePromise;
         conversationId = response.request().postDataJSON().conversationId ?? conversationId;
-        await response.finished();
+        let streamTimer;
+        try {
+          await Promise.race([response.finished(), new Promise((_, reject) => {
+            streamTimer = setTimeout(() => reject(new Error('LIVE_STREAM_TIMEOUT: response exceeded 600 seconds')), 600000);
+          })]);
+        } finally { clearTimeout(streamTimer); }
         let stream = '';
         try { stream = await response.text(); } catch (error) { captureWarnings.push(String(error)); }
         fs.writeFileSync(path.join(directory, `turn-${turns}.sse`), stream);
@@ -126,7 +131,11 @@ try {
         console.log(JSON.stringify({ case: scenario.id, turn: turns, analysis: session.analysis?.current,
           waiting: session.waitingForReply, tools: session.usage?.toolCalls, seconds: (Date.now() - start) / 1000 }));
       }
-    } catch (error) { failure = String(error); }
+    } catch (error) {
+      failure = String(error);
+      // Unload this test page to cancel its SSE request and the owned provider call.
+      if (failure.includes('LIVE_STREAM_TIMEOUT')) await page.goto('about:blank').catch(() => {});
+    }
     try {
       if (conversationId) {
         session = await json(`/api/v1/chat/conversation/${conversationId}/session`);
