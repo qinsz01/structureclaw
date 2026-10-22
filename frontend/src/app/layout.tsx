@@ -19,8 +19,8 @@ export default function RootLayout({
     <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning>
       <body suppressHydrationWarning>
         <Providers>
-          <div className="min-h-screen flex flex-col bg-slate-50/95 text-foreground xl:h-screen xl:overflow-hidden dark:bg-slate-950/95 dark:text-foreground">
-            <main className="w-full flex-1 min-h-0 xl:overflow-y-auto">
+          <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-slate-50/95 text-foreground dark:bg-slate-950/95 dark:text-foreground">
+            <main className="w-full flex-1 min-h-0 overflow-y-auto">
               {children}
             </main>
             <WorkspaceSettingsDialog />

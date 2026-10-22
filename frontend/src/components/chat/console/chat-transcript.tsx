@@ -38,11 +38,11 @@ export function ChatTranscript({
   const messageProps = { t, locale, availableSkills, messages, setInput, composerTextareaRef }
 
   return (
-    <div className="relative flex h-full min-h-[320px] flex-col xl:min-h-0">
+    <div className="relative flex h-full min-h-0 flex-col">
       <div
         ref={chatScrollRef}
         data-testid="console-chat-scroll"
-        className="flex-1 overflow-auto px-4 py-4 2xl:px-5 2xl:py-5 xl:min-h-0"
+        className="min-h-0 flex-1 overflow-auto px-4 py-4 2xl:px-5 2xl:py-5"
       >
         <div className="flex w-full flex-col gap-4">
           {messages.length === 1 && (
@@ -86,7 +86,7 @@ export function ChatTranscript({
       </div>
 
       {pendingOptions.length > 0 && !isStreaming && (
-        <div className="flex flex-wrap gap-2 px-4 py-2">
+        <div className="flex max-h-[20dvh] shrink-0 flex-wrap gap-2 overflow-y-auto px-4 py-2">
           {pendingOptions.map((option) => (
             <button
               key={option}
@@ -103,7 +103,7 @@ export function ChatTranscript({
         </div>
       )}
 
-      <div data-testid="console-composer" className="border-t border-border/70 px-3 py-3 2xl:px-4 dark:border-white/10 overflow-y-auto max-h-[40vh]">
+      <div data-testid="console-composer" className="shrink-0 border-t border-border/70 px-3 py-3 2xl:px-4 dark:border-white/10 overflow-y-auto max-h-[60dvh] xl:max-h-[40dvh]">
         <div className="w-full space-y-3">
           {errorMessage && (
             <div role="alert" className="rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">

@@ -1,27 +1,38 @@
 import { Clock3, Loader2, MessageSquarePlus, PanelLeftClose, PanelLeftOpen, Settings, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { DialogShell } from '@/components/ui/dialog-shell'
 import { cn, formatDate } from '@/lib/utils'
 import type { ConsoleState } from './use-console-state'
 
-/** Conversation history sidebar (collapsed rail or full list with delete confirmation). */
-export function HistorySidebar({
-  state,
-  handleNewConversation,
-  handleSelectConversation,
-  handleDeleteConversation,
-}: {
+type HistorySidebarProps = {
   state: ConsoleState
   handleNewConversation: () => void
   handleSelectConversation: (nextConversationId: string) => Promise<void>
   handleDeleteConversation: (targetConversationId: string) => Promise<void>
+}
+
+/** Shared history list for the desktop sidebar and narrow-screen dialog. */
+function HistoryPanel({
+  state,
+  handleNewConversation,
+  handleSelectConversation,
+  handleDeleteConversation,
+  historyCollapsed,
+  onCollapse,
+  onExpand,
+  openWorkspaceSettings,
+  testId,
+}: HistorySidebarProps & {
+  historyCollapsed: boolean
+  onCollapse: () => void
+  onExpand: () => void
+  openWorkspaceSettings: ConsoleState['openWorkspaceSettings']
+  testId: string
 }) {
   const {
-    historyCollapsed,
     t,
-    setUiPreferences,
     loadedModules,
     loadedTools,
-    openWorkspaceSettings,
     historyLoading,
     historyError,
     mergedConversations,
@@ -36,10 +47,10 @@ export function HistorySidebar({
 
   return (
     <aside
-      data-testid="console-history-panel"
+      data-testid={testId}
       className={cn(
-        'flex h-full flex-col bg-card/95 xl:min-h-0 dark:bg-slate-950/90',
-        historyCollapsed ? 'min-h-[220px] items-center px-2 py-4' : 'min-h-[320px]'
+        'flex h-full min-h-0 flex-col overflow-hidden bg-card/95 dark:bg-slate-950/90',
+        historyCollapsed && 'items-center px-2 py-4'
       )}
     >
       {historyCollapsed ? (
@@ -50,7 +61,7 @@ export function HistorySidebar({
             variant="ghost"
             className="h-10 w-10 rounded-full text-muted-foreground hover:bg-cyan-300/10 hover:text-foreground"
             aria-label={t('expandHistoryPanel')}
-            onClick={() => setUiPreferences((current) => ({ ...current, historyCollapsed: false }))}
+            onClick={onExpand}
           >
             <PanelLeftOpen className="h-4 w-4" />
           </Button>
@@ -58,7 +69,7 @@ export function HistorySidebar({
             type="button"
             className="mt-2 h-9 w-9 rounded-lg overflow-hidden"
             aria-label={t('expandHistoryPanel')}
-            onClick={() => setUiPreferences((current) => ({ ...current, historyCollapsed: false }))}
+            onClick={onExpand}
           >
             <img
               src="/logo.png"
@@ -75,7 +86,7 @@ export function HistorySidebar({
           >
             <MessageSquarePlus className="h-4 w-4" />
           </Button>
-          <div className="mt-4 flex flex-1 items-center justify-center">
+          <div className="mt-4 flex min-h-0 flex-1 items-center justify-center overflow-hidden">
             <span className="text-xs font-medium uppercase tracking-[0.18em] text-cyan-700/80 dark:text-cyan-200/70 [writing-mode:vertical-rl]">
               StructureClaw
             </span>
@@ -96,8 +107,8 @@ export function HistorySidebar({
         </>
       ) : (
         <>
-          <div className="px-5 py-4">
-            <div className="flex items-center justify-between gap-3">
+          <div className="shrink-0 px-5 py-4">
+            <div className="hidden items-center justify-between gap-3 xl:flex">
               <div className="flex items-center gap-2.5">
                 <img
                   src="/logo.png"
@@ -112,14 +123,14 @@ export function HistorySidebar({
                 variant="ghost"
                 className="h-9 w-9 shrink-0 rounded-full text-muted-foreground hover:bg-cyan-300/10 hover:text-foreground"
                 aria-label={t('collapseHistoryPanel')}
-                onClick={() => setUiPreferences((current) => ({ ...current, historyCollapsed: true }))}
+                onClick={onCollapse}
               >
                 <PanelLeftClose className="h-4 w-4" />
               </Button>
             </div>
             <Button
               type="button"
-              className="mt-4 w-full rounded-full bg-cyan-300 text-slate-950 hover:bg-cyan-200"
+              className="w-full rounded-full bg-cyan-300 text-slate-950 hover:bg-cyan-200 xl:mt-4"
               onClick={handleNewConversation}
             >
               <MessageSquarePlus className="h-4 w-4" />
@@ -127,7 +138,7 @@ export function HistorySidebar({
             </Button>
           </div>
 
-          <div data-testid="console-history-scroll" className="flex-1 overflow-auto p-3 xl:min-h-0">
+          <div data-testid="console-history-scroll" className="min-h-0 flex-1 overflow-auto overscroll-contain p-3">
             {historyLoading && (
               <div className="rounded-2xl border border-border/70 bg-background/70 px-4 py-3 text-sm text-muted-foreground dark:border-white/10 dark:bg-white/5">
                 {t('loadingConversations')}
@@ -240,7 +251,7 @@ export function HistorySidebar({
               })}
             </div>
           </div>
-          <div className="mt-auto border-t border-border/70 px-5 py-4 dark:border-white/10">
+          <div className="mt-auto shrink-0 border-t border-border/70 px-5 py-4 dark:border-white/10">
             <button
               type="button"
               className="w-full text-left text-xs text-muted-foreground hover:text-foreground transition"
@@ -265,4 +276,64 @@ export function HistorySidebar({
       )}
     </aside>
   )
+}
+
+/** Desktop history preference and temporary mobile navigation are independent. */
+export function HistorySidebar(props: HistorySidebarProps) {
+  const { state, handleNewConversation, handleSelectConversation } = props
+  const { t, isSidebarLayout, historyCollapsed, setUiPreferences, mobileHistoryOpen, setMobileHistoryOpen } = state
+  const closeHistory = () => setMobileHistoryOpen(false)
+  const openWorkspaceSettings: ConsoleState['openWorkspaceSettings'] = tab => {
+    closeHistory()
+    state.openWorkspaceSettings(tab)
+  }
+  const newConversation = () => {
+    handleNewConversation()
+    closeHistory()
+  }
+  const selectConversation = async (id: string) => {
+    await handleSelectConversation(id)
+    closeHistory()
+  }
+  const panel = (
+    <HistoryPanel {...props}
+      handleNewConversation={newConversation}
+      handleSelectConversation={selectConversation}
+      historyCollapsed={isSidebarLayout && historyCollapsed}
+      onCollapse={isSidebarLayout
+        ? () => setUiPreferences(current => ({ ...current, historyCollapsed: true })) : closeHistory}
+      onExpand={() => setUiPreferences(current => ({ ...current, historyCollapsed: false }))}
+      openWorkspaceSettings={openWorkspaceSettings}
+      testId={isSidebarLayout ? 'console-history-panel' : 'console-history-dialog-panel'} />
+  )
+  if (isSidebarLayout) return panel
+
+  return <>
+    <aside data-testid="console-history-panel" className="flex items-center justify-between gap-2 border-b border-border/70 bg-card/95 px-3 py-2 dark:border-white/10 dark:bg-slate-950/90">
+      <div className="flex min-w-0 items-center gap-2">
+        <Button type="button" size="icon" variant="ghost" className="shrink-0 rounded-full"
+          aria-label={t('expandHistoryPanel')} aria-haspopup="dialog" aria-expanded={mobileHistoryOpen}
+          onClick={() => setMobileHistoryOpen(true)}>
+          <PanelLeftOpen className="h-4 w-4" />
+        </Button>
+        <img src="/logo.png" alt="StructureClaw" className="h-7 w-7 shrink-0 rounded-lg" />
+        <span className="hidden truncate text-xs uppercase tracking-[0.2em] text-cyan-700/80 sm:inline dark:text-cyan-200/70">StructureClaw</span>
+      </div>
+      <div className="flex shrink-0 items-center gap-1">
+        <Button type="button" className="rounded-full bg-cyan-300 text-slate-950 hover:bg-cyan-200"
+          aria-label={t('newConversation')} onClick={newConversation}>
+          <MessageSquarePlus className="h-4 w-4" />
+          <span className="hidden min-[360px]:inline">{t('newConversation')}</span>
+        </Button>
+        <Button type="button" size="icon" variant="ghost" className="rounded-full"
+          aria-label={t('sidebarGearAriaLabel')} onClick={() => openWorkspaceSettings('llm')}>
+          <Settings className="h-4 w-4" />
+        </Button>
+      </div>
+    </aside>
+    <DialogShell open={mobileHistoryOpen} title={t('historyPanelTitle')} closeLabel={t('collapseHistoryPanel')}
+      onClose={closeHistory} className="ml-0 mr-auto max-w-sm" contentClassName="overflow-hidden p-0 sm:p-0">
+      {panel}
+    </DialogShell>
+  </>
 }

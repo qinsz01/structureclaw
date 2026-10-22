@@ -108,7 +108,7 @@ export function ConsoleComposer({
       </p>
       <Textarea
         ref={composerTextareaRef}
-        className="min-h-[96px] resize-none border-0 bg-transparent px-3 py-2.5 text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
+        className="min-h-[96px] resize-none border-0 bg-transparent px-3 py-2.5 text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0 [@media(max-height:500px)]:min-h-14"
         placeholder={t('composerPlaceholder')}
         value={input}
         onChange={(event) => setInput(event.target.value)}

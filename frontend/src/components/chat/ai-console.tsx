@@ -38,7 +38,7 @@ export function AIConsole() {
       data-testid="console-layout-grid"
       data-history-collapsed={String(historyCollapsed)}
       className={cn(
-        'grid grid-cols-1 h-full min-h-screen xl:min-h-0 xl:overflow-hidden transition-[grid-template-columns] duration-300 ease-in-out',
+        'grid h-full min-h-0 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden xl:grid-rows-1 transition-[grid-template-columns] duration-300 ease-in-out',
         gridCols
       )}
     >
@@ -49,8 +49,8 @@ export function AIConsole() {
         handleDeleteConversation={handleDeleteConversation}
       />
 
-      <div className="flex min-w-0 min-h-0 flex-col xl:min-h-0">
-        <div className="flex items-center justify-end gap-1.5 px-3 py-2">
+      <div className="flex min-w-0 min-h-0 flex-col">
+        <div className="flex max-h-[40dvh] shrink-0 items-start justify-end gap-1.5 overflow-y-auto px-3 py-2">
           <RunSettings value={state.runPolicy} onChange={state.setRunPolicy} defaults={state.globalRunPolicy} locale={state.locale}
             modelingSkills={state.availableSkills.filter(skill => state.skillDomainById[skill.id] === 'structure-type')
               .map(skill => ({ id: skill.id, label: skill.name[state.locale] || skill.id }))}
@@ -61,7 +61,7 @@ export function AIConsole() {
 
         <section
         data-testid="console-chat-panel"
-        className="relative flex h-full flex-col overflow-hidden border-x border-border/50 bg-card/95 xl:min-h-0 dark:border-white/5 dark:bg-slate-950/90"
+        className="relative flex min-h-0 flex-1 flex-col overflow-hidden border-x border-border/50 bg-card/95 dark:border-white/5 dark:bg-slate-950/90"
       >
         {isIdle ? (
           /* ── Idle state: centered welcome + composer ── */

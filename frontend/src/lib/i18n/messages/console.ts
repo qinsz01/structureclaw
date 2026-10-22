@@ -3,6 +3,7 @@ export const consoleMessages = {
   en: {
     collapseHistoryPanel: 'Collapse History',
     expandHistoryPanel: 'Expand History',
+    historyPanelTitle: 'Conversation History',
     closeResultPanel: 'Close Results',
     showResults: 'Show Results',
     resultPanelDialogTitle: 'Analysis Results & Report',
@@ -110,6 +111,7 @@ export const consoleMessages = {
   zh: {
     collapseHistoryPanel: '收起历史',
     expandHistoryPanel: '展开历史',
+    historyPanelTitle: '会话历史',
     closeResultPanel: '关闭结果',
     showResults: '显示结果',
     resultPanelDialogTitle: '分析结果与报告',

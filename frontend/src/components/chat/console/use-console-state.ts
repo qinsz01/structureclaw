@@ -73,7 +73,7 @@ export function useConsoleState() {
   const [inputReviewOpen, setInputReviewOpen] = useState(false)
   const [resultReviewOpen, setResultReviewOpen] = useState(false)
   const layout = useConsoleLayout()
-  const { uiPreferences, isSidebarLayout } = layout
+  const { uiPreferences, isSidebarLayout, mobileHistoryOpen } = layout
   const chatScrollRef = useChatAutoScroll(messages, isStreaming)
   // Interaction option chips from ask_user_clarification
   const [pendingOptions, setPendingOptions] = useState<string[]>([])
@@ -169,7 +169,7 @@ export function useConsoleState() {
     setConversationArchive,
   ])
 
-  const historyCollapsed = uiPreferences.historyCollapsed && isSidebarLayout
+  const historyCollapsed = isSidebarLayout ? uiPreferences.historyCollapsed : !mobileHistoryOpen
   const isIdle = messages.length <= 1
 
   return {

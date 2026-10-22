@@ -20,7 +20,9 @@ function getIsSidebarLayout() {
 export function useConsoleLayout() {
   const [uiPreferences, setUiPreferences] = useState<ConsoleUiPreferences>(DEFAULT_CONSOLE_UI_PREFERENCES)
   const [uiPreferencesHydrated, setUiPreferencesHydrated] = useState(false)
-  const [isSidebarLayout, setIsSidebarLayout] = useState(getIsSidebarLayout)
+  // The server and the first browser render must use the same navigation markup.
+  const [isSidebarLayout, setIsSidebarLayout] = useState(false)
+  const [mobileHistoryOpen, setMobileHistoryOpen] = useState(false)
 
   useEffect(() => {
     setUiPreferences(loadConsoleUiPreferences())
@@ -47,7 +49,9 @@ export function useConsoleLayout() {
       ? window.matchMedia(`(min-width: ${SIDEBAR_LAYOUT_MIN_WIDTH}px)`)
       : null
     const updateSidebarLayout = () => {
-      setIsSidebarLayout(media ? media.matches : window.innerWidth >= SIDEBAR_LAYOUT_MIN_WIDTH)
+      const sidebar = media ? media.matches : getIsSidebarLayout()
+      setIsSidebarLayout(sidebar)
+      if (sidebar) setMobileHistoryOpen(false)
     }
 
     updateSidebarLayout()
@@ -66,5 +70,5 @@ export function useConsoleLayout() {
     return () => window.removeEventListener('resize', updateSidebarLayout)
   }, [])
 
-  return { uiPreferences, setUiPreferences, isSidebarLayout }
+  return { uiPreferences, setUiPreferences, isSidebarLayout, mobileHistoryOpen, setMobileHistoryOpen }
 }
