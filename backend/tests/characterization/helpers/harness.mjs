@@ -41,7 +41,7 @@ export async function runTurn(ctx, body, script, { expectedToolErrors = 0, resum
   expect(ctx.llm.failures).toEqual([]);
   expect(ctx.llm.pending()).toBe(0);
   expect(turn.errors).toEqual([]);
-  expect(turn.steps.filter(step => step.status === 'error').map(step => step.tool)).toHaveLength(expectedToolErrors);
+  expect(turn.steps.filter(step => step.status === 'error')).toHaveLength(expectedToolErrors);
   return { ...turn, requests };
 }
 

@@ -178,7 +178,8 @@ export function mergeDraftDiagnostics(existing: DraftState | undefined, patch: D
   const legacy = [...new Set([...invalidDraftFieldsOf(existing), ...invalidDraftFieldsOf(patch)])]
     .filter(field => !isDesignDraftField(field))
     .filter(field => issues.some(issue => issue.field === field)
-      || !(existing?.draftIssues ?? []).some(issue => issue.field === field) && !resolved({ field, severity: 'invalid', reason: 'Legacy diagnostic' }));
+      || ![...(existing?.draftIssues ?? []), ...newIssues].some(issue => issue.field === field)
+        && !resolved({ field, severity: 'invalid', reason: 'Legacy diagnostic' }));
   const fields = [...new Set([...legacy, ...issues.flatMap(issue => issue.field ? [issue.field] : [])])];
   const { invalidDraftFields: _old, ...skillState } = { ...existing?.skillState, ...patch.skillState };
   return { draftIssues: issues.length ? issues : undefined,

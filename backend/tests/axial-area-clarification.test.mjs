@@ -43,6 +43,12 @@ describe('area-only axial clarification', () => {
     const state = initial(); state.draftIssues[0].field = path; state.skillState.invalidDraftFields = [path];
     expect(issues(withArea(state))).toEqual([]);
   });
+  test('a resolved incoming issue cannot reappear through its duplicate legacy invalid-field list', () => {
+    const raw = initial(); section(raw).properties = { A: .002 }; section(raw).extra = { provenance: { properties: 'user' } };
+    const state = mergeGenericDraftState(undefined, ingestGenericDraft(raw));
+    expect(issues(state)).toEqual([]); expect(state.skillState.invalidDraftFields ?? []).toEqual([]);
+    expect(genericMissing(state)).toEqual([]);
+  });
   test.each(['bending consumer', 'unassigned section', 'unconfirmed area', 'design request', 'explicit conflict', 'beam template assignment'])
   ('an area never erases a different requirement: %s', kind => {
     const state = initial();
