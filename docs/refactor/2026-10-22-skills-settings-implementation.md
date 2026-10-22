@@ -520,3 +520,49 @@ and `draft-release-primary-dist-before-area-scope` under `verification/`. The fr
 unchanged and the existing export fingerprint remains current. The owned trial servers are shut
 down; existing user services were never restarted. No push, benchmark change or freeze regeneration
 was performed. The newly built backend takes effect when the user next restarts their service.
+
+## Restart and running-instance verification (2026-10-22)
+
+After the user explicitly authorized a restart, the primary checkout was restarted through
+`node sclaw stop` followed by `node sclaw start --no-open`. The existing SQLite schema was already
+in sync; no seed or reset ran. The tracked backend changed from PID 24292 to 23960, and the health
+instance changed from `7485d56d-4716-4226-995a-6a1a95b4d00b` to
+`da54e299-2e0c-4555-8abb-655419c1ded5`. The source-checkout CLI runs `tsx watch src/index.ts`;
+the process tree confirms the primary checkout, rather than an isolated test server. UI and API
+remain on port 31415. Backend, static frontend and database health checks passed, the frontend
+fingerprint remained current, and the configured GLM-5.3 credential remained available without
+writing it to evidence or settings.
+
+The same original mixed frame/cantilever/brace prompt and free-text A=0.002m² follow-up were
+submitted through the real product page to this restarted instance. The saved conversation is
+`cmvjecbis0000kowmz4jth4x5`, analysis run `20454623-ce00-40d7-8116-3b78873ff87c`. It completed
+in 422.7s (428.3s including camera checks), with two user turns, one area question, eight tool calls,
+twelve LLM calls and **one internal recovery**. The first model candidate supplied a non-object
+`AC.releases`; validation rejected it before adoption, and the second candidate succeeded. This
+is not a zero-recovery observation. There were no failed tools, browser page errors or failed
+requests. Full extraction took most of the first 327.6s turn, so inference latency remains material.
+
+Independent assertions against the saved run passed for all five node coordinates, five member
+identities/connectivity, material assignments, rectangular beam/column geometry, both supports,
+both signed nodal actions, no self-weight, only the requested static OpenSees provider, and AD's
+exclusive area-only section without invented shape or inertia. Base Fx/Fz are −5/+10kN; maximum
+force and moment residuals are 3.8e−14kN and 1.2e−13kN·m. The policy, invocation ledger and UI
+agree that only the generic modelling skill ran.
+
+The actual result workspace also passed camera measurements: initial horizontal centering and
+Fit centering were within tolerance (horizontal offset 0px; label vertical offset −10.93px),
+wheel zoom enlarged the rendered structure and its measured mouse anchor error was 0.151px.
+Screenshots were visually inspected. Chinese/English page loading at widths 1440 and 768 had no
+script or HTTP asset errors and no horizontal overflow. **This does not mean the narrow layout
+is fully correct**: with the existing 50-entry history, at 768×1000 the history grew to 4352px and
+put the chat at y=4414px. Its collapse control has no effect below the 1280px sidebar breakpoint.
+This additional, pre-existing responsive-layout issue was observed and recorded; the restart and
+mixed-structure repair do not change that layout.
+
+Evidence and runnable checks are retained under
+`G:/StructureClaw-All/verification/draft-release-restart-20261022/`, including `before.json`,
+`after.json`, lifecycle logs, `live-smoke.mjs`, both saved turns, the model/result and usage ledger,
+`final-check.json`, `camera.json`, screenshots, `ui-locales.json`, `narrow-layout.json`,
+`runtime-warnings.json` and `final-health.json`. Final health retained the same new instance,
+the smoke conversation was neither busy nor waiting, and the settings hash was unchanged.
+The primary service is left running; no push, benchmark change or freeze regeneration occurred.
