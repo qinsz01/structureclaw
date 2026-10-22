@@ -38,6 +38,13 @@ describe('deterministic modelling operations', () => {
     expect(() => assertUserTopologyIds(altered, topology)).toThrow('USER_TOPOLOGY_VALUE_CHANGED');
     expect(() => assertUserTopologyIds({ nodes: [], elements: [] }, topology)).toThrow('USER_TOPOLOGY_IDS_NOT_PRESERVED');
   });
+  test('release object key order does not change the authored constraint, while changed values still fail', () => {
+    const member = { id: 'AD', nodes: ['A', 'D'], type: 'beam', releases: { i: { ry: true, rz: false }, j: { ry: false } } };
+    const model = { elements: [{ ...member, releases: { j: { ry: false }, i: { rz: false, ry: true } } }] };
+    expect(() => assertUserTopologyIds(model, { members: [member] })).not.toThrow();
+    model.elements[0].releases.i.ry = false;
+    expect(() => assertUserTopologyIds(model, { members: [member] })).toThrow('USER_TOPOLOGY_VALUE_CHANGED');
+  });
   test('arc and polyline discretisation preserve user IDs and the crown position', async () => {
     const model = await expandModellingOperations({ ...base('2d'), operations: [
       { op: 'arc', id: 'a', center: [3, 0, 0], radius: 3, startDegrees: 180, endDegrees: 0, segments: 12, plane: 'xz', nodeIds: { 0: 'A', 6: 'C', 12: 'B' }, material: 'M', section: 'S' },

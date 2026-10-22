@@ -11,6 +11,23 @@ function context(repair) {
 const state = { skillId: 'generic', inferredType: 'unknown', updatedAt: 0 };
 const broken = () => { const model = structuredClone(fixture.model); for (const node of model.nodes) delete node.restraints; return model; };
 describe('generic physics repair and shared completion', () => {
+  test('an already cancelled request never starts the nested model call', async () => {
+    const controller = new AbortController(); controller.abort(new Error('User cancelled'));
+    let calls = 0;
+    await expect(tryBuildGenericModelWithLlm({ invoke: async () => { calls++; return { content: '{}' }; } },
+      'Cancelled.', state, 'en', undefined, controller.signal)).rejects.toThrow('User cancelled');
+    expect(calls).toBe(0);
+  });
+  test('cancellation during validation prevents a further model attempt or recovery reservation', async () => {
+    const controller = new AbortController(), run = context({ enabled: true, maxRecoveriesPerTurn: 2 });
+    let calls = 0;
+    await expect(withRunContext(run, () => tryBuildGenericModelWithLlm({ invoke: async (prompt, options) => {
+      expect(options.signal).toBe(controller.signal); calls++; return { content: JSON.stringify(fixture.model) };
+    } }, 'Preserve supplied input.', state, 'en', undefined, controller.signal, undefined, async () => {
+      controller.abort(new Error('User cancelled')); throw new Error('Interrupted validation');
+    }))).rejects.toThrow('User cancelled');
+    expect(calls).toBe(1); expect(run.usage.recoveries).toBe(0);
+  });
   test.each([['truss', 'brace'], ['brace', 'truss'], ['truss', 'truss']])('preserves authored %s metadata for an equivalent %s axial candidate without retrying', async (originalType, candidateType) => {
     const draft = structuredClone(genericFixtures[5].draft);
     const candidate = structuredClone(genericFixtures[5].model);

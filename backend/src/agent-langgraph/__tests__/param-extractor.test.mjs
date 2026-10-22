@@ -21,6 +21,31 @@ const beamPlugin = {
 };
 
 describe("param extractor", () => {
+  test.each(['en', 'zh'])('rejects an invalid first extraction before persistence and repairs it using bounded feedback (%s)', async locale => {
+    const { invokeParamExtractor } = await import('../../../dist/agent-langgraph/param-extractor.js');
+    const { ingestGenericDraft } = await import('../../../dist/agent-runtime/draft/boundary.js');
+    const prompts = [];
+    const valid = { engineeringDraft: { topology: { members: [{ id: 'AD', nodes: ['A', 'D'], type: 'truss', releases: { i: { ry: true } } }] } } };
+    const invalid = structuredClone(valid); invalid.engineeringDraft.topology.members[0].releases.i = { unknownRotation: true };
+    const result = await invokeParamExtractor({ locale, plugin: { ...beamPlugin, id: 'generic' }, message: 'AD is a hinged axial member.',
+      validatePatch: patch => { ingestGenericDraft(patch); },
+      llm: { invoke: async prompt => { prompts.push(prompt); return { content: JSON.stringify(prompts.length === 1 ? invalid : valid) }; } } });
+    expect(result).toEqual(valid); expect(prompts).toHaveLength(2);
+    expect(prompts[1]).toContain('unknownRotation'); expect(prompts[1]).toContain('RETRY CONTRACT');
+  });
+  test.each([0, 1, 2])('first-extraction repairs respect the shared budget of %i', async repairs => {
+    const { invokeParamExtractor } = await import('../../../dist/agent-langgraph/param-extractor.js');
+    const { resolveRunPolicy } = await import('../../../dist/runtime/run-policy.js');
+    const { createRunContext, withRunContext } = await import('../../../dist/runtime/run-context.js');
+    const run = createRunContext(resolveRunPolicy({ availableSkillIds: ['generic'], structureTypeSkillIds: ['generic'],
+      availableToolIds: [], requested: { repair: { enabled: repairs > 0, maxRecoveriesPerTurn: repairs } } }));
+    let calls = 0;
+    await expect(withRunContext(run, () => invokeParamExtractor({ locale: 'en', plugin: { ...beamPlugin, id: 'generic' },
+      message: 'Preserve the original structure.', validatePatch: () => { throw new Error('MODEL_EDIT_FIELD_INVALID: invalid release'); },
+      llm: { invoke: async () => { calls++; return { content: '{}' }; } } })))
+      .rejects.toThrow(repairs === 2 ? 'MODEL_EDIT_FIELD_INVALID' : 'RECOVERY_BUDGET_EXHAUSTED');
+    expect(calls).toBe(repairs + 1); expect(run.usage.recoveries).toBe(repairs);
+  });
   test.each(['en', 'zh'])('clarification covers 3D geometry and every storey load (%s)', async locale => {
     const { invokeParamExtractor } = await import('../../../dist/agent-langgraph/param-extractor.js');
     const { handler } = await import('../../../dist/agent-skills/structure-type/frame/handler.js');

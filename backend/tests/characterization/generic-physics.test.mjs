@@ -27,17 +27,35 @@ axialAliasFixture.id = 'axial-type-alias-with-implicit-hinges';
 axialAliasFixture.model = structuredClone(axialAliasFixture.model);
 const axialAlias = axialAliasFixture.model.elements.find(member => member.id === 'AD');
 axialAlias.type = 'truss'; delete axialAlias.releases;
+const momentAliasFixture = structuredClone(genericFixtures[5]);
+momentAliasFixture.id = 'canonical-release-aliases-in-draft-and-model';
+momentAliasFixture.model = structuredClone(momentAliasFixture.model);
+for (const member of [momentAliasFixture.draft.engineeringDraft.topology.members, momentAliasFixture.model.elements].flat()) {
+  if (member.id === 'AD') member.releases = { releaseI: { mx: true, my: true, mz: true }, releaseJ: { my: true }, reference_frame: 'element-local' };
+}
+momentAliasFixture.model.elements.find(member => member.id === 'AD').type = 'truss';
+const invalidExtractionFixture = structuredClone(genericFixtures[5]);
+invalidExtractionFixture.id = 'invalid-first-extraction-repaired-before-persistence';
+invalidExtractionFixture.invalidFirstExtraction = true;
 
 describeWithOpenSees('characterization: generic physical modelling', () => {
   const ctx = setupHarness();
-  test.each([...genericFixtures, operationsFixture, axialHingeFixture, axialAliasFixture])('$id: scripted extraction and free-form builder → real OpenSees → equilibrium', async fixture => {
-    let builds = 0;
+  test.each([...genericFixtures, operationsFixture, axialHingeFixture, axialAliasFixture, momentAliasFixture, invalidExtractionFixture])('$id: scripted extraction and free-form builder → real OpenSees → equilibrium', async fixture => {
+    let builds = 0, extractions = 0;
     // Pydantic's authoritative nullable node field is a normal LLM serialization of a free joint.
     const extracted = structuredClone(fixture.draft);
     for (const node of extracted.engineeringDraft.topology?.nodes ?? []) if (!node.restraints) node.restraints = null;
     ctx.llm.setInternal(internalResponder({
       'structural-router': () => routerDecision('generic'),
-      'param-extractor': () => extracted,
+      'param-extractor': () => {
+        extractions++;
+        if (fixture.invalidFirstExtraction && extractions === 1) {
+          const invalid = structuredClone(extracted);
+          invalid.engineeringDraft.topology.members.find(member => member.id === 'AD').releases = { i: { unknownRotation: true } };
+          return invalid;
+        }
+        return extracted;
+      },
       'internal-other': () => { builds++; return fixture.model; },
     }));
     const turn = await runTurn(ctx, {
@@ -49,13 +67,19 @@ describeWithOpenSees('characterization: generic physical modelling', () => {
     const session = await ctx.backend.session(turn.conversationId);
     expect(session.analysis.current).toBe(true);
     expect(session.waitingForReply).toBe(false);
-    expect(session.usage.recoveries).toBe(0);
+    expect(session.usage.recoveries).toBe(fixture.invalidFirstExtraction ? 1 : 0);
+    expect(extractions).toBe(fixture.invalidFirstExtraction ? 2 : 1);
+    for (const request of turn.requests.filter(request => ['param-extractor', 'internal-other'].includes(request.kind))) {
+      expect(request.body.response_format).toEqual({ type: 'json_object' });
+    }
     expect(turn.requests.some(request => request.kind === 'structural-router')).toBe(false);
     expect(session.modeling).toMatchObject({ usedSkillIds: ['generic'], builder: 'llm' });
     expect(builds).toBe(1);
     const input = await ctx.backend.inputReview(turn.conversationId);
     if (fixture.id === axialAliasFixture.id) expect(input.model.elements.find(member => member.id === 'AD'))
       .toMatchObject({ type: 'brace', releases: { i: { ry: true }, j: { ry: true } } });
+    if (fixture.id === momentAliasFixture.id) expect(input.model.elements.find(member => member.id === 'AD'))
+      .toMatchObject({ type: 'brace', releases: { i: { rx: true, ry: true, rz: true }, j: { ry: true }, reference_frame: 'element-local' } });
     expect(input.model.metadata.physicsCheck).toMatchObject({ valid: true, stability: { freeModes: 0 }, loadTotals: { LC1: fixture.total } });
     expect(input.model.load_cases[0].loads).toHaveLength(fixture.loadCount ?? fixture.model.load_cases[0].loads.length);
     for (const [index, axis] of ['fx', 'fy', 'fz'].entries()) {
