@@ -102,7 +102,9 @@ jobs:
     concurrency:
       group: e2e-${{ github.event.issue.number || github.sha }}
       cancel-in-progress: true
-    timeout-minutes: 20
+    # Installation and the complete visualization audit share this budget.
+    # Slow apt mirrors must not consume the time reserved for browser tests.
+    timeout-minutes: 45
     env:
       NEXT_TELEMETRY_DISABLED: 1
 
@@ -134,6 +136,7 @@ jobs:
 
       - name: Run E2E tests
         id: run-tests
+        timeout-minutes: 30
         run: |
           set -o pipefail
           npm run test:e2e --prefix frontend 2>&1 | tee test-output.txt
@@ -201,4 +204,5 @@ jobs:
           path: |
             frontend/playwright-report/
             frontend/test-results/
+            test-output.txt
           retention-days: 7
