@@ -11,6 +11,34 @@ function context(repair) {
 const state = { skillId: 'generic', inferredType: 'unknown', updatedAt: 0 };
 const broken = () => { const model = structuredClone(fixture.model); for (const node of model.nodes) delete node.restraints; return model; };
 describe('generic physics repair and shared completion', () => {
+  test.each([['truss', 'brace'], ['brace', 'truss'], ['truss', 'truss']])('preserves authored %s metadata for an equivalent %s axial candidate without retrying', async (originalType, candidateType) => {
+    const draft = structuredClone(genericFixtures[5].draft);
+    const candidate = structuredClone(genericFixtures[5].model);
+    const source = draft.engineeringDraft.topology.members.find(member => member.id === 'AD');
+    source.type = originalType; source.releases = { i: { rx: true, ry: true, rz: true }, j: { ry: true } };
+    const axial = candidate.elements.find(member => member.id === 'AD'); axial.type = candidateType; delete axial.releases;
+    const before = JSON.stringify(draft);
+    let calls = 0;
+    const run = context({ enabled: false });
+    const model = await withRunContext(run, () => tryBuildGenericModelWithLlm({ invoke: async () => {
+      calls++; return { content: JSON.stringify(candidate) };
+    } }, 'Preserve this hinged axial member.', { ...state, engineeringDraft: draft.engineeringDraft }, 'en'));
+    expect(model.elements.find(member => member.id === 'AD')).toMatchObject({ type: originalType, releases: source.releases });
+    expect(model.metadata.physicsCheck.valid).toBe(true);
+    expect(calls).toBe(1); expect(run.usage.recoveries).toBe(0);
+    expect(JSON.stringify(draft)).toBe(before);
+  });
+  test.each(['bending-member', 'authored-translation', 'candidate-translation', 'offset'])('does not conceal a changed or unsupported axial definition: %s', async change => {
+    const draft = structuredClone(genericFixtures[5].draft), candidate = structuredClone(genericFixtures[5].model);
+    const source = draft.engineeringDraft.topology.members.find(member => member.id === 'AD');
+    source.type = 'truss'; source.releases = { i: { ry: true }, j: { ry: true } };
+    const axial = candidate.elements.find(member => member.id === 'AD'); axial.type = change === 'bending-member' ? 'beam' : 'brace';
+    if (change === 'authored-translation') source.releases.i.ux = true;
+    if (change === 'candidate-translation') axial.releases = { i: { ux: true } };
+    if (change === 'offset') source.offsets = { i_x: .1 };
+    await expect(withRunContext(context({ enabled: false }), () => tryBuildGenericModelWithLlm({ invoke: async () => ({ content: JSON.stringify(candidate) }) },
+      'Preserve all supplied member definitions.', { ...state, engineeringDraft: draft.engineeringDraft }, 'en'))).rejects.toMatchObject({ code: 'USER_TOPOLOGY_VALUE_CHANGED' });
+  });
   test('feeds the actual bilingual diagnostics and previous candidate back into one correction', async () => {
     const prompts = [], run = context({ enabled: true, maxRecoveriesPerTurn: 2 });
     const llm = { invoke: async prompt => { prompts.push(prompt); return { content: JSON.stringify(prompts.length === 1 ? broken() : fixture.model) }; } };

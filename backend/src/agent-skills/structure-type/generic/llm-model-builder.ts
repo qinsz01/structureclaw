@@ -17,6 +17,7 @@ import { completeGenericModelProperties } from '../../../agent-runtime/template-
 import { checkModelPhysics, ModelPhysicsError } from '../../../engineering/model-physics.js';
 import { expandModellingOperations, assertUserTopologyIds } from '../../../skill-shared/modelling/operations.js';
 import { ModellingOperationError } from '../../../skill-shared/modelling/contract.js';
+import { isRecord } from '../../../engineering/model-state.js';
 
 export class ModelInputRequiredError extends Error {
   constructor(readonly missingFields: Array<string | { field: string; reason?: string }>) {
@@ -99,7 +100,10 @@ export async function tryBuildGenericModelWithLlm(
       }
 
       canonicalizeGenericModel(parsed);
-      if (!currentModel) projectConfirmedGeometricSections(parsed, state);
+      if (!currentModel) {
+        projectConfirmedGeometricSections(parsed, state);
+        projectConfirmedAxialMembers(parsed, state);
+      }
       const dimension = stampCanonicalMetadata(parsed, state);
       const controlled = applyDraftAnalysisControl(parsed, state.engineeringDraft);
       const projected = currentModel ? controlled
@@ -143,6 +147,30 @@ export async function tryBuildGenericModelWithLlm(
 
   if (lastError instanceof ModelPhysicsError || lastError instanceof ModellingOperationError) throw lastError;
   throw new Error(`LLM_MODEL_VALIDATION_FAILED: ${failure?.error ?? 'No valid model / 无有效模型'}`);
+}
+
+function projectConfirmedAxialMembers(model: Record<string, unknown>, state: DraftState): void {
+  if (!Array.isArray(model.elements)) return;
+  model.elements = model.elements.map(value => {
+    if (!isRecord(value)) return value;
+    const source = state.engineeringDraft?.topology?.members?.find(member => member.id === value.id);
+    if (!source || !['truss', 'brace'].includes(String(source.type)) || !['truss', 'brace'].includes(String(value.type))) return value;
+    // Both names use the same axial formulation. Retain authored metadata instead
+    // of rejecting omitted, physically redundant rotational release flags.
+    const member = { ...value, type: source.type };
+    const noOffsets = (offsets: unknown) => offsets === undefined || isRecord(offsets) && !Object.keys(offsets).length;
+    if (source.releases !== undefined && noOffsets(source.offsets) && noOffsets(value.offsets)
+      && axialRotationReleases(source.releases) && axialRotationReleases(value.releases)) {
+      return { ...member, releases: structuredClone(source.releases) };
+    }
+    return member;
+  });
+}
+
+function axialRotationReleases(value: unknown): boolean {
+  return value === undefined || isRecord(value) && Object.entries(value).every(([end, flags]) =>
+    ['i', 'j', 'releaseI', 'releaseJ'].includes(end) && isRecord(flags) && Object.entries(flags).every(([dof, flag]) =>
+      ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'].includes(dof) && typeof flag === 'boolean' && (!flag || ['rx', 'ry', 'rz'].includes(dof))));
 }
 
 /** Topology generation must not replace confirmed section geometry with LLM arithmetic.

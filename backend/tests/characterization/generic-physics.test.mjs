@@ -22,10 +22,15 @@ axialHingeFixture.id = 'axial-rotational-hinge-equivalence';
 for (const member of [axialHingeFixture.model.elements, axialHingeFixture.draft.engineeringDraft.topology.members].flat()) {
   if (member.id === 'AD') member.releases = { i: { ry: true }, j: { ry: true } };
 }
+const axialAliasFixture = structuredClone(axialHingeFixture);
+axialAliasFixture.id = 'axial-type-alias-with-implicit-hinges';
+axialAliasFixture.model = structuredClone(axialAliasFixture.model);
+const axialAlias = axialAliasFixture.model.elements.find(member => member.id === 'AD');
+axialAlias.type = 'truss'; delete axialAlias.releases;
 
 describeWithOpenSees('characterization: generic physical modelling', () => {
   const ctx = setupHarness();
-  test.each([...genericFixtures, operationsFixture, axialHingeFixture])('$id: scripted extraction and free-form builder → real OpenSees → equilibrium', async fixture => {
+  test.each([...genericFixtures, operationsFixture, axialHingeFixture, axialAliasFixture])('$id: scripted extraction and free-form builder → real OpenSees → equilibrium', async fixture => {
     let builds = 0;
     // Pydantic's authoritative nullable node field is a normal LLM serialization of a free joint.
     const extracted = structuredClone(fixture.draft);
@@ -49,6 +54,8 @@ describeWithOpenSees('characterization: generic physical modelling', () => {
     expect(session.modeling).toMatchObject({ usedSkillIds: ['generic'], builder: 'llm' });
     expect(builds).toBe(1);
     const input = await ctx.backend.inputReview(turn.conversationId);
+    if (fixture.id === axialAliasFixture.id) expect(input.model.elements.find(member => member.id === 'AD'))
+      .toMatchObject({ type: 'brace', releases: { i: { ry: true }, j: { ry: true } } });
     expect(input.model.metadata.physicsCheck).toMatchObject({ valid: true, stability: { freeModes: 0 }, loadTotals: { LC1: fixture.total } });
     expect(input.model.load_cases[0].loads).toHaveLength(fixture.loadCount ?? fixture.model.load_cases[0].loads.length);
     for (const [index, axis] of ['fx', 'fy', 'fz'].entries()) {
