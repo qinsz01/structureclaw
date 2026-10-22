@@ -397,6 +397,11 @@ export class AgentSkillRuntime {
       recordRunEvent({ kind: 'structural_scope_exclusion', ...result.scopeExclusion, message: supportNote });
       return result;
     };
+    if (enabled.length === 1 && enabled[0].id === 'generic') {
+      const match = applyScope(await this.registry.detectStructuralType(message, locale, currentState, skillIds));
+      recordRunEvent({ kind: 'structural_routing', path: 'scope-only', key: match.key, skillId: match.skillId });
+      return match;
+    }
     if (llm) {
       const plugins = enabled;
       const currentPlugin = await this.registry.resolvePluginForState(currentState, skillIds);
@@ -407,8 +412,9 @@ export class AgentSkillRuntime {
             llm, message, locale, currentState, currentPlugin, plugins, signal, onUsage,
           });
           if (match) {
-            recordRunEvent({ kind: 'structural_routing', path: 'llm', attempt, key: match.key });
-            return applyScope(match);
+            const scoped = applyScope(match);
+            recordRunEvent({ kind: 'structural_routing', path: 'llm', attempt, key: scoped.key, skillId: scoped.skillId });
+            return scoped;
           }
         } catch (error) {
           signal?.throwIfAborted();
@@ -420,7 +426,7 @@ export class AgentSkillRuntime {
     // Rules are evaluated only without an LLM or after its retry failed.
     const match = applyScope(await this.registry.detectStructuralType(message, locale, undefined, skillIds));
     recordRunEvent({ kind: 'structural_routing', path: 'rule-fallback',
-      reason: llm ? 'failed-after-retry' : 'not-configured', key: match.key });
+      reason: llm ? 'failed-after-retry' : 'not-configured', key: match.key, skillId: match.skillId });
     return match;
   }
 

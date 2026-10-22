@@ -9,6 +9,17 @@ const baseState = {
 };
 
 describe("agent system prompt", () => {
+  test.each(["zh", "en"])("a sole generic skill skips redundant detection and keeps providers independent (%s)", async locale => {
+    const { buildSystemMessages } = await import("../../../dist/agent-langgraph/system-prompt.js");
+    const manifest = { id: 'generic', name: { zh: '通用', en: 'Generic' }, description: { zh: '建模', en: 'Modelling' },
+      domain: 'structure-type', stages: ['draft'] };
+    const [message] = buildSystemMessages({ state: { ...baseState, locale, selectedSkillIds: ['generic'] }, skillManifests: [manifest] });
+    const content = String(message.content);
+    expect(content).toContain(locale === 'zh' ? '直接调用 extract_draft_params' : 'call extract_draft_params directly');
+    expect(content).toContain(locale === 'zh' ? 'Provider 独立于结构技能范围' : 'Providers are independent of the structure skill scope');
+    expect(content).not.toContain(locale === 'zh' ? '只能使用当前会话已勾选的对应分析技能' : 'use only that analysis skill when it is selected');
+  });
+
   test("uses semantic extraction and structured workflow for China seismic analysis", async () => {
     const { buildSystemMessages } = await import("../../../dist/agent-langgraph/system-prompt.js");
     const [message] = buildSystemMessages({

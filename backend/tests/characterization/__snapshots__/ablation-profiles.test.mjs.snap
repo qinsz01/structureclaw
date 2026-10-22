@@ -28,8 +28,8 @@ exports[`characterization: ablation profiles profile full: offered tools, system
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 22847,
-  "systemPromptSha256": "ecb8cc9906d21e4ae3931ff03afac07857721989bc64411bad0c3e4da2c334e1",
+  "systemPromptChars": 22798,
+  "systemPromptSha256": "7116853f23bb2563cc51fc79b9e0394adbe3d8e244b15ba936d24c3e3e170089",
 }
 `;
 
@@ -95,7 +95,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - run_analysis computes static cases and combinations separately by default; use query_results with explicit case/combination keys. Mixed cases, historical models and display interpolation cannot justify current calculations.
 - Record required drawing/table fields in engineeringDraft.inputEvidence with field, source file/page/entity/row, value and unit. Mark conflicts, unread required regions and ambiguous units with status=conflict/unread/ambiguous instead of overwriting silently. Preserve observations and append status=resolved with resolution={value or selectedSource,reason} after review. Ordinary pagination alone does not mean every page is required.
 - These steps apply to every structural request, including force-only ones.
-- If the user explicitly requests PKPM/SATWE, YJK, or OpenSees, pass the corresponding provider as structured analysisSkillId to run_analysis based on semantic understanding, and use only that analysis skill when it is selected in the current session. If that skill is not selected, not configured, or the tool returns 'ANALYSIS_PROVIDER_NOT_SELECTED' / 'ENGINE_UNAVAILABLE', state that exactly and ask the user to enable or configure it; do not claim an automatic switch to another engine, and do not run another engine instead unless the user explicitly agrees.
+- If the user explicitly requests PKPM/SATWE, YJK, or OpenSees, pass the corresponding provider as structured analysisSkillId to run_analysis based on semantic understanding. Providers are independent of the structure skill scope and require no corresponding structure-skill selection; report a limitation only when explicitly disabled, unconfigured or returned as unavailable by the tool. Do not claim an automatic switch to another engine, and do not run another engine instead unless the user explicitly agrees.
 - Do not claim a PKPM/YJK/OpenSees fallback occurred unless the run_analysis result has meta.selectionMode="fallback" and meta.fallbackFrom records the original engine.
 - set_session_config only affects the current session's analysis type, design code, and selected skills; it does not create persistent memory.
 - memory supports conversation and workspace scopes. conversation scope (default) stores current-session context; workspace scope stores cross-session persistent preferences (e.g. default design code, project constraints). Do not store temporary draft parameters in memory.
@@ -190,8 +190,8 @@ exports[`characterization: ablation profiles profile generic-only: offered tools
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 21631,
-  "systemPromptSha256": "bac779b90e4b7919170276b3bda495dffd10b3cedae47140e2da261a95f68730",
+  "systemPromptChars": 21481,
+  "systemPromptSha256": "87e46944380fcea405f49c53c6f45b33be20e348a6aec54989bd9db1430b6475",
 }
 `;
 
@@ -234,7 +234,7 @@ exports[`characterization: ablation profiles profile generic-only: offered tools
 ## Tool Usage Strategy
 
 When the user makes a structural design or analysis request, follow this workflow:
-1. For a new model, call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel. For parameter updates and clarification replies, extract directly and reuse the accepted route; if the user changes the structure type, call detect_structure_type again first
+1. Only the generic modelling skill is allowed. For a new model or parameter update, call extract_draft_params directly with the complete original user message; the host uses generic. Do not first call detect_structure_type or ask whether to switch skills. Combine genuinely missing engineering inputs into a clarification.
 2. If extract_draft_params returns criticalMissing fields, use ask_user_clarification to ask for them
 3. Once parameters are complete, call build_model to construct the model
 4. Call validate_model to validate the model
@@ -250,7 +250,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - run_analysis computes static cases and combinations separately by default; use query_results with explicit case/combination keys. Mixed cases, historical models and display interpolation cannot justify current calculations.
 - Record required drawing/table fields in engineeringDraft.inputEvidence with field, source file/page/entity/row, value and unit. Mark conflicts, unread required regions and ambiguous units with status=conflict/unread/ambiguous instead of overwriting silently. Preserve observations and append status=resolved with resolution={value or selectedSource,reason} after review. Ordinary pagination alone does not mean every page is required.
 - These steps apply to every structural request, including force-only ones.
-- If the user explicitly requests PKPM/SATWE, YJK, or OpenSees, pass the corresponding provider as structured analysisSkillId to run_analysis based on semantic understanding, and use only that analysis skill when it is selected in the current session. If that skill is not selected, not configured, or the tool returns 'ANALYSIS_PROVIDER_NOT_SELECTED' / 'ENGINE_UNAVAILABLE', state that exactly and ask the user to enable or configure it; do not claim an automatic switch to another engine, and do not run another engine instead unless the user explicitly agrees.
+- If the user explicitly requests PKPM/SATWE, YJK, or OpenSees, pass the corresponding provider as structured analysisSkillId to run_analysis based on semantic understanding. Providers are independent of the structure skill scope and require no corresponding structure-skill selection; report a limitation only when explicitly disabled, unconfigured or returned as unavailable by the tool. Do not claim an automatic switch to another engine, and do not run another engine instead unless the user explicitly agrees.
 - Do not claim a PKPM/YJK/OpenSees fallback occurred unless the run_analysis result has meta.selectionMode="fallback" and meta.fallbackFrom records the original engine.
 - set_session_config only affects the current session's analysis type, design code, and selected skills; it does not create persistent memory.
 - memory supports conversation and workspace scopes. conversation scope (default) stores current-session context; workspace scope stores cross-session persistent preferences (e.g. default design code, project constraints). Do not store temporary draft parameters in memory.
@@ -344,8 +344,8 @@ exports[`characterization: ablation profiles profile no-clarification: offered t
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 22700,
-  "systemPromptSha256": "e50588efcba59200a0d6922b4eb1daa02103f094128d51dab613bacfbcc5379f",
+  "systemPromptChars": 22651,
+  "systemPromptSha256": "93336a76b58725aca19b8520207b4f2094ea1616c4fc7aa99618814f55f3ca9b",
 }
 `;
 
@@ -411,7 +411,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - run_analysis computes static cases and combinations separately by default; use query_results with explicit case/combination keys. Mixed cases, historical models and display interpolation cannot justify current calculations.
 - Record required drawing/table fields in engineeringDraft.inputEvidence with field, source file/page/entity/row, value and unit. Mark conflicts, unread required regions and ambiguous units with status=conflict/unread/ambiguous instead of overwriting silently. Preserve observations and append status=resolved with resolution={value or selectedSource,reason} after review. Ordinary pagination alone does not mean every page is required.
 - These steps apply to every structural request, including force-only ones.
-- If the user explicitly requests PKPM/SATWE, YJK, or OpenSees, pass the corresponding provider as structured analysisSkillId to run_analysis based on semantic understanding, and use only that analysis skill when it is selected in the current session. If that skill is not selected, not configured, or the tool returns 'ANALYSIS_PROVIDER_NOT_SELECTED' / 'ENGINE_UNAVAILABLE', state that exactly and ask the user to enable or configure it; do not claim an automatic switch to another engine, and do not run another engine instead unless the user explicitly agrees.
+- If the user explicitly requests PKPM/SATWE, YJK, or OpenSees, pass the corresponding provider as structured analysisSkillId to run_analysis based on semantic understanding. Providers are independent of the structure skill scope and require no corresponding structure-skill selection; report a limitation only when explicitly disabled, unconfigured or returned as unavailable by the tool. Do not claim an automatic switch to another engine, and do not run another engine instead unless the user explicitly agrees.
 - Do not claim a PKPM/YJK/OpenSees fallback occurred unless the run_analysis result has meta.selectionMode="fallback" and meta.fallbackFrom records the original engine.
 - set_session_config only affects the current session's analysis type, design code, and selected skills; it does not create persistent memory.
 - memory supports conversation and workspace scopes. conversation scope (default) stores current-session context; workspace scope stores cross-session persistent preferences (e.g. default design code, project constraints). Do not store temporary draft parameters in memory.
@@ -506,8 +506,8 @@ exports[`characterization: ablation profiles profile no-evidence-binding: offere
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 22847,
-  "systemPromptSha256": "ecb8cc9906d21e4ae3931ff03afac07857721989bc64411bad0c3e4da2c334e1",
+  "systemPromptChars": 22798,
+  "systemPromptSha256": "7116853f23bb2563cc51fc79b9e0394adbe3d8e244b15ba936d24c3e3e170089",
 }
 `;
 
@@ -573,7 +573,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - run_analysis computes static cases and combinations separately by default; use query_results with explicit case/combination keys. Mixed cases, historical models and display interpolation cannot justify current calculations.
 - Record required drawing/table fields in engineeringDraft.inputEvidence with field, source file/page/entity/row, value and unit. Mark conflicts, unread required regions and ambiguous units with status=conflict/unread/ambiguous instead of overwriting silently. Preserve observations and append status=resolved with resolution={value or selectedSource,reason} after review. Ordinary pagination alone does not mean every page is required.
 - These steps apply to every structural request, including force-only ones.
-- If the user explicitly requests PKPM/SATWE, YJK, or OpenSees, pass the corresponding provider as structured analysisSkillId to run_analysis based on semantic understanding, and use only that analysis skill when it is selected in the current session. If that skill is not selected, not configured, or the tool returns 'ANALYSIS_PROVIDER_NOT_SELECTED' / 'ENGINE_UNAVAILABLE', state that exactly and ask the user to enable or configure it; do not claim an automatic switch to another engine, and do not run another engine instead unless the user explicitly agrees.
+- If the user explicitly requests PKPM/SATWE, YJK, or OpenSees, pass the corresponding provider as structured analysisSkillId to run_analysis based on semantic understanding. Providers are independent of the structure skill scope and require no corresponding structure-skill selection; report a limitation only when explicitly disabled, unconfigured or returned as unavailable by the tool. Do not claim an automatic switch to another engine, and do not run another engine instead unless the user explicitly agrees.
 - Do not claim a PKPM/YJK/OpenSees fallback occurred unless the run_analysis result has meta.selectionMode="fallback" and meta.fallbackFrom records the original engine.
 - set_session_config only affects the current session's analysis type, design code, and selected skills; it does not create persistent memory.
 - memory supports conversation and workspace scopes. conversation scope (default) stores current-session context; workspace scope stores cross-session persistent preferences (e.g. default design code, project constraints). Do not store temporary draft parameters in memory.
@@ -668,8 +668,8 @@ exports[`characterization: ablation profiles profile no-knowledge: offered tools
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 20515,
-  "systemPromptSha256": "c9b533d9963e7c8efe4234b89bc385f1d58852c9b0a9850f65f01e851e4a8dd7",
+  "systemPromptChars": 20466,
+  "systemPromptSha256": "d80d3737a9d6072f7bc26652d125c0b70161e7adeaded0a102c9c4f664026453",
 }
 `;
 
@@ -735,7 +735,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - run_analysis computes static cases and combinations separately by default; use query_results with explicit case/combination keys. Mixed cases, historical models and display interpolation cannot justify current calculations.
 - Record required drawing/table fields in engineeringDraft.inputEvidence with field, source file/page/entity/row, value and unit. Mark conflicts, unread required regions and ambiguous units with status=conflict/unread/ambiguous instead of overwriting silently. Preserve observations and append status=resolved with resolution={value or selectedSource,reason} after review. Ordinary pagination alone does not mean every page is required.
 - These steps apply to every structural request, including force-only ones.
-- If the user explicitly requests PKPM/SATWE, YJK, or OpenSees, pass the corresponding provider as structured analysisSkillId to run_analysis based on semantic understanding, and use only that analysis skill when it is selected in the current session. If that skill is not selected, not configured, or the tool returns 'ANALYSIS_PROVIDER_NOT_SELECTED' / 'ENGINE_UNAVAILABLE', state that exactly and ask the user to enable or configure it; do not claim an automatic switch to another engine, and do not run another engine instead unless the user explicitly agrees.
+- If the user explicitly requests PKPM/SATWE, YJK, or OpenSees, pass the corresponding provider as structured analysisSkillId to run_analysis based on semantic understanding. Providers are independent of the structure skill scope and require no corresponding structure-skill selection; report a limitation only when explicitly disabled, unconfigured or returned as unavailable by the tool. Do not claim an automatic switch to another engine, and do not run another engine instead unless the user explicitly agrees.
 - Do not claim a PKPM/YJK/OpenSees fallback occurred unless the run_analysis result has meta.selectionMode="fallback" and meta.fallbackFrom records the original engine.
 - set_session_config only affects the current session's analysis type, design code, and selected skills; it does not create persistent memory.
 - memory supports conversation and workspace scopes. conversation scope (default) stores current-session context; workspace scope stores cross-session persistent preferences (e.g. default design code, project constraints). Do not store temporary draft parameters in memory.
@@ -827,8 +827,8 @@ exports[`characterization: ablation profiles profile no-repair: offered tools, s
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 22896,
-  "systemPromptSha256": "f1d4518f3ba6c563a81ed6f254e58a7f264770fcbfe350a7d572bd70e47313f8",
+  "systemPromptChars": 22847,
+  "systemPromptSha256": "9a34d79090c2e0312eb5a057fcf6ae0c264b599da4ef09501c57a91cc1b2823e",
 }
 `;
 
@@ -894,7 +894,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - run_analysis computes static cases and combinations separately by default; use query_results with explicit case/combination keys. Mixed cases, historical models and display interpolation cannot justify current calculations.
 - Record required drawing/table fields in engineeringDraft.inputEvidence with field, source file/page/entity/row, value and unit. Mark conflicts, unread required regions and ambiguous units with status=conflict/unread/ambiguous instead of overwriting silently. Preserve observations and append status=resolved with resolution={value or selectedSource,reason} after review. Ordinary pagination alone does not mean every page is required.
 - These steps apply to every structural request, including force-only ones.
-- If the user explicitly requests PKPM/SATWE, YJK, or OpenSees, pass the corresponding provider as structured analysisSkillId to run_analysis based on semantic understanding, and use only that analysis skill when it is selected in the current session. If that skill is not selected, not configured, or the tool returns 'ANALYSIS_PROVIDER_NOT_SELECTED' / 'ENGINE_UNAVAILABLE', state that exactly and ask the user to enable or configure it; do not claim an automatic switch to another engine, and do not run another engine instead unless the user explicitly agrees.
+- If the user explicitly requests PKPM/SATWE, YJK, or OpenSees, pass the corresponding provider as structured analysisSkillId to run_analysis based on semantic understanding. Providers are independent of the structure skill scope and require no corresponding structure-skill selection; report a limitation only when explicitly disabled, unconfigured or returned as unavailable by the tool. Do not claim an automatic switch to another engine, and do not run another engine instead unless the user explicitly agrees.
 - Do not claim a PKPM/YJK/OpenSees fallback occurred unless the run_analysis result has meta.selectionMode="fallback" and meta.fallbackFrom records the original engine.
 - set_session_config only affects the current session's analysis type, design code, and selected skills; it does not create persistent memory.
 - memory supports conversation and workspace scopes. conversation scope (default) stores current-session context; workspace scope stores cross-session persistent preferences (e.g. default design code, project constraints). Do not store temporary draft parameters in memory.
@@ -989,8 +989,8 @@ exports[`characterization: ablation profiles profile no-routing: offered tools, 
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 22847,
-  "systemPromptSha256": "ecb8cc9906d21e4ae3931ff03afac07857721989bc64411bad0c3e4da2c334e1",
+  "systemPromptChars": 22798,
+  "systemPromptSha256": "7116853f23bb2563cc51fc79b9e0394adbe3d8e244b15ba936d24c3e3e170089",
 }
 `;
 
@@ -1056,7 +1056,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - run_analysis computes static cases and combinations separately by default; use query_results with explicit case/combination keys. Mixed cases, historical models and display interpolation cannot justify current calculations.
 - Record required drawing/table fields in engineeringDraft.inputEvidence with field, source file/page/entity/row, value and unit. Mark conflicts, unread required regions and ambiguous units with status=conflict/unread/ambiguous instead of overwriting silently. Preserve observations and append status=resolved with resolution={value or selectedSource,reason} after review. Ordinary pagination alone does not mean every page is required.
 - These steps apply to every structural request, including force-only ones.
-- If the user explicitly requests PKPM/SATWE, YJK, or OpenSees, pass the corresponding provider as structured analysisSkillId to run_analysis based on semantic understanding, and use only that analysis skill when it is selected in the current session. If that skill is not selected, not configured, or the tool returns 'ANALYSIS_PROVIDER_NOT_SELECTED' / 'ENGINE_UNAVAILABLE', state that exactly and ask the user to enable or configure it; do not claim an automatic switch to another engine, and do not run another engine instead unless the user explicitly agrees.
+- If the user explicitly requests PKPM/SATWE, YJK, or OpenSees, pass the corresponding provider as structured analysisSkillId to run_analysis based on semantic understanding. Providers are independent of the structure skill scope and require no corresponding structure-skill selection; report a limitation only when explicitly disabled, unconfigured or returned as unavailable by the tool. Do not claim an automatic switch to another engine, and do not run another engine instead unless the user explicitly agrees.
 - Do not claim a PKPM/YJK/OpenSees fallback occurred unless the run_analysis result has meta.selectionMode="fallback" and meta.fallbackFrom records the original engine.
 - set_session_config only affects the current session's analysis type, design code, and selected skills; it does not create persistent memory.
 - memory supports conversation and workspace scopes. conversation scope (default) stores current-session context; workspace scope stores cross-session persistent preferences (e.g. default design code, project constraints). Do not store temporary draft parameters in memory.
@@ -1151,8 +1151,8 @@ exports[`characterization: ablation profiles profile no-state-versioning: offere
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 22847,
-  "systemPromptSha256": "ecb8cc9906d21e4ae3931ff03afac07857721989bc64411bad0c3e4da2c334e1",
+  "systemPromptChars": 22798,
+  "systemPromptSha256": "7116853f23bb2563cc51fc79b9e0394adbe3d8e244b15ba936d24c3e3e170089",
 }
 `;
 
@@ -1218,7 +1218,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - run_analysis computes static cases and combinations separately by default; use query_results with explicit case/combination keys. Mixed cases, historical models and display interpolation cannot justify current calculations.
 - Record required drawing/table fields in engineeringDraft.inputEvidence with field, source file/page/entity/row, value and unit. Mark conflicts, unread required regions and ambiguous units with status=conflict/unread/ambiguous instead of overwriting silently. Preserve observations and append status=resolved with resolution={value or selectedSource,reason} after review. Ordinary pagination alone does not mean every page is required.
 - These steps apply to every structural request, including force-only ones.
-- If the user explicitly requests PKPM/SATWE, YJK, or OpenSees, pass the corresponding provider as structured analysisSkillId to run_analysis based on semantic understanding, and use only that analysis skill when it is selected in the current session. If that skill is not selected, not configured, or the tool returns 'ANALYSIS_PROVIDER_NOT_SELECTED' / 'ENGINE_UNAVAILABLE', state that exactly and ask the user to enable or configure it; do not claim an automatic switch to another engine, and do not run another engine instead unless the user explicitly agrees.
+- If the user explicitly requests PKPM/SATWE, YJK, or OpenSees, pass the corresponding provider as structured analysisSkillId to run_analysis based on semantic understanding. Providers are independent of the structure skill scope and require no corresponding structure-skill selection; report a limitation only when explicitly disabled, unconfigured or returned as unavailable by the tool. Do not claim an automatic switch to another engine, and do not run another engine instead unless the user explicitly agrees.
 - Do not claim a PKPM/YJK/OpenSees fallback occurred unless the run_analysis result has meta.selectionMode="fallback" and meta.fallbackFrom records the original engine.
 - set_session_config only affects the current session's analysis type, design code, and selected skills; it does not create persistent memory.
 - memory supports conversation and workspace scopes. conversation scope (default) stores current-session context; workspace scope stores cross-session persistent preferences (e.g. default design code, project constraints). Do not store temporary draft parameters in memory.
@@ -1313,8 +1313,8 @@ exports[`characterization: ablation profiles profile no-template-builder: offere
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 22846,
-  "systemPromptSha256": "22c1f9e17542f34e2167fbbbd26118820b3ce44461520ccaa41caeaf91a25e11",
+  "systemPromptChars": 22797,
+  "systemPromptSha256": "0d8e73c7d8b7385317adfc4fe632e56b3ff2ad36c1bcbfe269bfa904a4f1c6b0",
 }
 `;
 
@@ -1380,7 +1380,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - run_analysis computes static cases and combinations separately by default; use query_results with explicit case/combination keys. Mixed cases, historical models and display interpolation cannot justify current calculations.
 - Record required drawing/table fields in engineeringDraft.inputEvidence with field, source file/page/entity/row, value and unit. Mark conflicts, unread required regions and ambiguous units with status=conflict/unread/ambiguous instead of overwriting silently. Preserve observations and append status=resolved with resolution={value or selectedSource,reason} after review. Ordinary pagination alone does not mean every page is required.
 - These steps apply to every structural request, including force-only ones.
-- If the user explicitly requests PKPM/SATWE, YJK, or OpenSees, pass the corresponding provider as structured analysisSkillId to run_analysis based on semantic understanding, and use only that analysis skill when it is selected in the current session. If that skill is not selected, not configured, or the tool returns 'ANALYSIS_PROVIDER_NOT_SELECTED' / 'ENGINE_UNAVAILABLE', state that exactly and ask the user to enable or configure it; do not claim an automatic switch to another engine, and do not run another engine instead unless the user explicitly agrees.
+- If the user explicitly requests PKPM/SATWE, YJK, or OpenSees, pass the corresponding provider as structured analysisSkillId to run_analysis based on semantic understanding. Providers are independent of the structure skill scope and require no corresponding structure-skill selection; report a limitation only when explicitly disabled, unconfigured or returned as unavailable by the tool. Do not claim an automatic switch to another engine, and do not run another engine instead unless the user explicitly agrees.
 - Do not claim a PKPM/YJK/OpenSees fallback occurred unless the run_analysis result has meta.selectionMode="fallback" and meta.fallbackFrom records the original engine.
 - set_session_config only affects the current session's analysis type, design code, and selected skills; it does not create persistent memory.
 - memory supports conversation and workspace scopes. conversation scope (default) stores current-session context; workspace scope stores cross-session persistent preferences (e.g. default design code, project constraints). Do not store temporary draft parameters in memory.
@@ -1474,8 +1474,8 @@ exports[`characterization: ablation profiles profile no-validation-gate: offered
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 22933,
-  "systemPromptSha256": "f69746c7f697ab5822d50c4ce011e3f8e024ee11f450eb98d7a09ec70d0f3763",
+  "systemPromptChars": 22884,
+  "systemPromptSha256": "6f1902b0bcf5137fa84b15e8f67c6f3a9e55c9dd976316bcd9ab3a18b4a55db9",
 }
 `;
 
@@ -1541,7 +1541,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - run_analysis computes static cases and combinations separately by default; use query_results with explicit case/combination keys. Mixed cases, historical models and display interpolation cannot justify current calculations.
 - Record required drawing/table fields in engineeringDraft.inputEvidence with field, source file/page/entity/row, value and unit. Mark conflicts, unread required regions and ambiguous units with status=conflict/unread/ambiguous instead of overwriting silently. Preserve observations and append status=resolved with resolution={value or selectedSource,reason} after review. Ordinary pagination alone does not mean every page is required.
 - These steps apply to every structural request, including force-only ones.
-- If the user explicitly requests PKPM/SATWE, YJK, or OpenSees, pass the corresponding provider as structured analysisSkillId to run_analysis based on semantic understanding, and use only that analysis skill when it is selected in the current session. If that skill is not selected, not configured, or the tool returns 'ANALYSIS_PROVIDER_NOT_SELECTED' / 'ENGINE_UNAVAILABLE', state that exactly and ask the user to enable or configure it; do not claim an automatic switch to another engine, and do not run another engine instead unless the user explicitly agrees.
+- If the user explicitly requests PKPM/SATWE, YJK, or OpenSees, pass the corresponding provider as structured analysisSkillId to run_analysis based on semantic understanding. Providers are independent of the structure skill scope and require no corresponding structure-skill selection; report a limitation only when explicitly disabled, unconfigured or returned as unavailable by the tool. Do not claim an automatic switch to another engine, and do not run another engine instead unless the user explicitly agrees.
 - Do not claim a PKPM/YJK/OpenSees fallback occurred unless the run_analysis result has meta.selectionMode="fallback" and meta.fallbackFrom records the original engine.
 - set_session_config only affects the current session's analysis type, design code, and selected skills; it does not create persistent memory.
 - memory supports conversation and workspace scopes. conversation scope (default) stores current-session context; workspace scope stores cross-session persistent preferences (e.g. default design code, project constraints). Do not store temporary draft parameters in memory.

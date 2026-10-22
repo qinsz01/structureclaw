@@ -188,9 +188,10 @@ export function buildSystemMessages(ctx: SystemPromptContext): BaseMessageLike[]
     + (providerAccessError(provider.id, state.runPolicy) ? ' [disabled / 已禁用]' : '')).join('\n');
   const sharedKnowledge = engineeringKnowledge(state.locale, ['loads', 'boundaries', 'validation', 'results'], state.runPolicy);
   const features = promptFeatures(state, activeToolIds);
+  const genericOnly = activeManifests.length === 1 && activeManifests[0].id === 'generic';
   const systemContent = isZh
-    ? buildZhPrompt(state, skillList, toolCallLimit, features)
-    : buildEnPrompt(state, skillList, toolCallLimit, features);
+    ? buildZhPrompt(state, skillList, toolCallLimit, features, genericOnly)
+    : buildEnPrompt(state, skillList, toolCallLimit, features, genericOnly);
 
   const toolAvailability = activeToolIds === undefined ? '' : (isZh
     ? `\n\n本次调用实际可用工具=${JSON.stringify(activeToolIds)}。此列表是当前配置；历史消息关于工具开启或关闭的描述仅适用于当时，不能覆盖本轮配置。列表为空时说明当前没有可用工具；有工具时按用户最新请求使用，不能声称仍被旧配置关闭。工具可用不代表已经执行或成功。`
@@ -224,7 +225,7 @@ export function buildSystemMessages(ctx: SystemPromptContext): BaseMessageLike[]
 // Prompt builders (bilingual)
 // ---------------------------------------------------------------------------
 
-function buildZhPrompt(state: AgentState, skillList: string, toolCallLimit: number, features: PromptFeatures): string {
+function buildZhPrompt(state: AgentState, skillList: string, toolCallLimit: number, features: PromptFeatures, genericOnly: boolean): string {
   return `你是 StructureClaw 结构工程 AI 助手。你具备以下能力：
 1. 结构工程分析 — 识别结构类型、提取参数、构建模型、执行分析；按用户要求进行规范校核、生成报告
 2. 会话配置 — 设置本轮会话的分析类型、设计规范和已选技能
@@ -260,7 +261,7 @@ ${promptLine("zh", "rule5", features)}
 ## 工具使用策略
 
 当用户提出结构设计或分析请求时，按以下流程执行：
-1. 新建模型时先调用 detect_structure_type（传入用户的完整原始消息，不要改写或翻译）；等待其返回后，再调用 extract_draft_params。extract_draft_params 会复用本次检测结果，禁止并行调用这两个工具。已有类型的参数补充和澄清回复直接提取，复用已接受的路由；若用户改变结构类型，先重新调用 detect_structure_type
+1. ${genericOnly ? '当前仅允许通用建模技能。新建模型或补充参数时，直接调用 extract_draft_params（传入用户完整原始消息），由宿主使用通用技能；不需要先调用 detect_structure_type，也不要询问是否改用其他技能。真正缺少的工程输入仍需合并澄清。' : '新建模型时先调用 detect_structure_type（传入用户的完整原始消息，不要改写或翻译）；等待其返回后，再调用 extract_draft_params。extract_draft_params 会复用本次检测结果，禁止并行调用这两个工具。已有类型的参数补充和澄清回复直接提取，复用已接受的路由；若用户改变结构类型，先重新调用 detect_structure_type'}
 ${promptLine("zh", "step2", features)}
 3. 参数齐全后，调用 build_model 构建模型
 ${promptLine("zh", "step4", features)}
@@ -276,7 +277,7 @@ ${promptLine("zh", "step4", features)}
 - run_analysis 默认分别计算静力工况与组合；query_results 按明确 resultKey 查询，禁止混用工况、历史模型或显示插值作为计算依据。
 - 图纸与表格中关键字段的来源写入 engineeringDraft.inputEvidence（field、source 文件/页/实体/行、value、unit）。冲突、未读取必要区域或未知单位标 status=conflict/unread/ambiguous，不默默覆盖；复核后追加 status=resolved 和 resolution={value或selectedSource,reason}，保留原始证据。普通文件分页并不表示所有内容都是必需输入。
 - 以上步骤适用于所有结构请求，包括只求内力的请求。
-- 如果用户明确指定 PKPM/SATWE、YJK/盈建科或 OpenSees，必须基于语义理解把对应 provider 作为结构化 analysisSkillId 传给 run_analysis；只能使用当前会话已勾选的对应分析技能。若该技能未勾选、路径未配置或工具返回 'ANALYSIS_PROVIDER_NOT_SELECTED' / 'ENGINE_UNAVAILABLE'，必须如实说明并请求用户启用或配置；不要声称已自动切换到其他引擎，也不要用其他引擎代跑，除非用户明确同意。
+- 如果用户明确指定 PKPM/SATWE、YJK/盈建科或 OpenSees，必须基于语义理解把对应 provider 作为结构化 analysisSkillId 传给 run_analysis。Provider 独立于结构技能范围，不需要勾选对应结构技能；只有显式禁用、环境未配置或工具返回不可用时才说明相应限制。不要声称已自动切换到其他引擎，也不要用其他引擎代跑，除非用户明确同意。
 - 不要声称 PKPM/YJK/OpenSees 之间发生了 fallback，除非 run_analysis 结果的 meta.selectionMode 为 "fallback" 且 meta.fallbackFrom 明确记录了原引擎。
 - set_session_config 只影响当前会话的分析类型、设计规范和技能选择，不创建持久记忆。
 - memory 支持 conversation 和 workspace 两种 scope。conversation scope（默认）存储当前会话的上下文；workspace scope 存储跨会话持久偏好（如默认设计规范、项目约束）。不要把临时草稿参数写入 memory。
@@ -306,7 +307,7 @@ ${promptLine("zh", "answers", features)}
 **重要**: 工具从会话状态中自动读取数据（模型、分析结果、草稿状态等）。不要将 modelJson、analysisJson、stateJson 等参数传递给工具。工具会自动使用上一步的结果。`;
 }
 
-function buildEnPrompt(state: AgentState, skillList: string, toolCallLimit: number, features: PromptFeatures): string {
+function buildEnPrompt(state: AgentState, skillList: string, toolCallLimit: number, features: PromptFeatures, genericOnly: boolean): string {
   return `You are the StructureClaw structural engineering AI assistant. Your capabilities:
 1. Structural analysis — identify type, extract parameters, build model, run analysis; code checks and reports when the user asks for them
 2. Session configuration — set the current session's analysis type, design code, and selected skills
@@ -342,7 +343,7 @@ ${promptLine("en", "rule5", features)}
 ## Tool Usage Strategy
 
 When the user makes a structural design or analysis request, follow this workflow:
-1. For a new model, call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel. For parameter updates and clarification replies, extract directly and reuse the accepted route; if the user changes the structure type, call detect_structure_type again first
+1. ${genericOnly ? 'Only the generic modelling skill is allowed. For a new model or parameter update, call extract_draft_params directly with the complete original user message; the host uses generic. Do not first call detect_structure_type or ask whether to switch skills. Combine genuinely missing engineering inputs into a clarification.' : "For a new model, call detect_structure_type first (pass the user's EXACT original message — do NOT paraphrase or translate). After it returns, call extract_draft_params, which reuses that detection result; do not call these two tools in parallel. For parameter updates and clarification replies, extract directly and reuse the accepted route; if the user changes the structure type, call detect_structure_type again first"}
 ${promptLine("en", "step2", features)}
 3. Once parameters are complete, call build_model to construct the model
 ${promptLine("en", "step4", features)}
@@ -358,7 +359,7 @@ ${promptLine("en", "step4", features)}
 - run_analysis computes static cases and combinations separately by default; use query_results with explicit case/combination keys. Mixed cases, historical models and display interpolation cannot justify current calculations.
 - Record required drawing/table fields in engineeringDraft.inputEvidence with field, source file/page/entity/row, value and unit. Mark conflicts, unread required regions and ambiguous units with status=conflict/unread/ambiguous instead of overwriting silently. Preserve observations and append status=resolved with resolution={value or selectedSource,reason} after review. Ordinary pagination alone does not mean every page is required.
 - These steps apply to every structural request, including force-only ones.
-- If the user explicitly requests PKPM/SATWE, YJK, or OpenSees, pass the corresponding provider as structured analysisSkillId to run_analysis based on semantic understanding, and use only that analysis skill when it is selected in the current session. If that skill is not selected, not configured, or the tool returns 'ANALYSIS_PROVIDER_NOT_SELECTED' / 'ENGINE_UNAVAILABLE', state that exactly and ask the user to enable or configure it; do not claim an automatic switch to another engine, and do not run another engine instead unless the user explicitly agrees.
+- If the user explicitly requests PKPM/SATWE, YJK, or OpenSees, pass the corresponding provider as structured analysisSkillId to run_analysis based on semantic understanding. Providers are independent of the structure skill scope and require no corresponding structure-skill selection; report a limitation only when explicitly disabled, unconfigured or returned as unavailable by the tool. Do not claim an automatic switch to another engine, and do not run another engine instead unless the user explicitly agrees.
 - Do not claim a PKPM/YJK/OpenSees fallback occurred unless the run_analysis result has meta.selectionMode="fallback" and meta.fallbackFrom records the original engine.
 - set_session_config only affects the current session's analysis type, design code, and selected skills; it does not create persistent memory.
 - memory supports conversation and workspace scopes. conversation scope (default) stores current-session context; workspace scope stores cross-session persistent preferences (e.g. default design code, project constraints). Do not store temporary draft parameters in memory.

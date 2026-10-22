@@ -111,6 +111,7 @@ export function createAskUserClarificationTool() {
         'Pause execution and ask the user a clarification question. ' +
         'Use this when you cannot proceed without user input. ' +
         'The graph will resume once the user provides an answer. ' +
+        'For EVERY numeric section proposal, supply candidateOptions with stable sectionId, field, zero-based optionIndex and flat numeric values in this FIRST call; proposing dimensions only in the question/options is rejected without sending a question. / 每个数值截面建议首次调用就须同时提交candidateOptions（稳定sectionId、field、从0开始的optionIndex及平铺数值values），不能只把尺寸写进问题或选项。 ' +
         'All candidate values, including recalled section dimensions, MUST also appear in the question text, so the user can see exactly what is being confirmed even if options are unavailable. / 所有候选值（包括记忆的截面尺寸）也必须写入问题正文，确保选项不可用时用户仍能看到具体确认内容。',
       schema: z.object({
         question: z.string().trim().min(1).describe('The question to ask the user'),
