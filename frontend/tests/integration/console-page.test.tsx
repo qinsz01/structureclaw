@@ -534,7 +534,7 @@ describe('ConsolePage Integration (CONS-13)', () => {
     expect(screen.getAllByRole('button', { name: 'Expand History' }).length).toBeGreaterThan(0)
   })
 
-  it('keeps history expanded below the sidebar breakpoint', async () => {
+  it('opens narrow-screen history temporarily without changing the desktop preference', async () => {
     setViewportWidth(1024)
     window.localStorage.setItem('structureclaw.console.ui-preferences', JSON.stringify({
       historyCollapsed: true,
@@ -543,9 +543,20 @@ describe('ConsolePage Integration (CONS-13)', () => {
 
     await renderConsolePage()
 
-    expect(screen.getByTestId('console-layout-grid')).toHaveAttribute('data-history-collapsed', 'false')
+    expect(screen.getByTestId('console-layout-grid')).toHaveAttribute('data-history-collapsed', 'true')
     expect(screen.getByTestId('console-history-panel')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Expand History' })).not.toBeInTheDocument()
+    expect(screen.queryByTestId('console-history-scroll')).not.toBeInTheDocument()
+    const trigger = screen.getByRole('button', { name: 'Expand History' })
+    trigger.focus()
+    fireEvent.click(trigger)
+    expect(screen.getByRole('dialog', { name: 'Conversation History' })).toBeInTheDocument()
+    expect(screen.getByTestId('console-layout-grid')).toHaveAttribute('data-history-collapsed', 'false')
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: 'Conversation History' })).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
+    expect(JSON.parse(window.localStorage.getItem('structureclaw.console.ui-preferences') || '{}')).toMatchObject({ historyCollapsed: true })
+    act(() => setViewportWidth(1366))
+    expect(screen.getByTestId('console-layout-grid')).toHaveAttribute('data-history-collapsed', 'true')
   })
 
   it('persists collapsed history changes', async () => {
