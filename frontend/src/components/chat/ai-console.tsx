@@ -38,7 +38,7 @@ export function AIConsole() {
       data-testid="console-layout-grid"
       data-history-collapsed={String(historyCollapsed)}
       className={cn(
-        'grid h-full min-h-screen xl:min-h-0 xl:overflow-hidden transition-[grid-template-columns] duration-300 ease-in-out',
+        'grid grid-cols-1 h-full min-h-screen xl:min-h-0 xl:overflow-hidden transition-[grid-template-columns] duration-300 ease-in-out',
         gridCols
       )}
     >
@@ -49,7 +49,7 @@ export function AIConsole() {
         handleDeleteConversation={handleDeleteConversation}
       />
 
-      <div className="flex min-h-0 flex-col xl:min-h-0">
+      <div className="flex min-w-0 min-h-0 flex-col xl:min-h-0">
         <div className="flex items-center justify-end gap-1.5 px-3 py-2">
           <RunSettings value={state.runPolicy} onChange={state.setRunPolicy} defaults={state.globalRunPolicy} locale={state.locale}
             modelingSkills={state.availableSkills.filter(skill => state.skillDomainById[skill.id] === 'structure-type')

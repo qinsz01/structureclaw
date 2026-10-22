@@ -52,7 +52,10 @@ test.describe('Allowed and actually used modelling skills', () => {
       llm.enqueue(toolCall('extract_draft_params', { locale }), JSON.stringify(draft),
         toolCall('build_model', {}), JSON.stringify(beamModel), toolCall('validate_model', {}),
         toolCall('run_analysis', beamAnalysis), 'GENERIC_USAGE_DONE')
-      const id = await send(page, `Build and analyze this user-specified structure using the allowed modelling skill. ${JSON.stringify(draft.engineeringDraft)}`, labels.send)
+      const prompt = zh
+        ? '仅使用允许的建模技能，计算二维X-Z平面10m简支钢梁，A=(0,0,0)铰支，B=(10,0,0)滚支，跨中全局Z向下1kN。钢材E=206000MPa、nu=0.3、rho=7850kg/m³，实心矩形宽100mm、高200mm。用OpenSees线弹性静力分析，不计自重和其他荷载。'
+        : 'Use the allowed modelling skill to analyze a 10m simply supported steel beam in the X-Z plane. A=(0,0,0) is pinned and B=(10,0,0) is a roller; apply 1kN down global Z at midspan. E=206000MPa, nu=0.3, rho=7850kg/m³; solid rectangular section 100mm wide and 200mm deep. Run OpenSees linear static analysis without self-weight or other loads.'
+      const id = await send(page, prompt, labels.send)
       const runtime = await (await request.get(`/api/v1/chat/conversation/${id}/session`)).json()
       expect(runtime.analysis.current).toBe(true)
       expect(runtime.modeling).toMatchObject({ usedSkillIds: ['generic'], builder: 'llm' })
@@ -73,6 +76,9 @@ test.describe('Allowed and actually used modelling skills', () => {
         for (const width of [1440, 768]) {
           await page.setViewportSize({ width, height: 1000 })
           expect(await summary.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+          const bounds = await summary.boundingBox()
+          expect(bounds).not.toBeNull()
+          expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width)
           await page.screenshot({ path: info.outputPath(`${locale}-${theme}-${width}.png`), fullPage: true })
         }
       }
