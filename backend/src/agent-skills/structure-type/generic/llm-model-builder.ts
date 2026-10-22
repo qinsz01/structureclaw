@@ -155,12 +155,12 @@ function projectConfirmedAxialMembers(model: Record<string, unknown>, state: Dra
     if (!isRecord(value)) return value;
     const source = state.engineeringDraft?.topology?.members?.find(member => member.id === value.id);
     if (!source || !['truss', 'brace'].includes(String(source.type)) || !['truss', 'brace'].includes(String(value.type))) return value;
+    const noOffsets = (offsets: unknown) => offsets === undefined || isRecord(offsets) && !Object.keys(offsets).length;
+    if (!noOffsets(source.offsets) || !noOffsets(value.offsets)) return value;
     // Both names use the same axial formulation. Retain authored metadata instead
     // of rejecting omitted, physically redundant rotational release flags.
     const member = { ...value, type: source.type };
-    const noOffsets = (offsets: unknown) => offsets === undefined || isRecord(offsets) && !Object.keys(offsets).length;
-    if (source.releases !== undefined && noOffsets(source.offsets) && noOffsets(value.offsets)
-      && axialRotationReleases(source.releases) && axialRotationReleases(value.releases)) {
+    if (source.releases !== undefined && axialRotationReleases(source.releases) && axialRotationReleases(value.releases)) {
       return { ...member, releases: structuredClone(source.releases) };
     }
     return member;

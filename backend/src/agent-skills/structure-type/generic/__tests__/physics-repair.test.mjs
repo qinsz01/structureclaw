@@ -28,14 +28,15 @@ describe('generic physics repair and shared completion', () => {
     expect(calls).toBe(1); expect(run.usage.recoveries).toBe(0);
     expect(JSON.stringify(draft)).toBe(before);
   });
-  test.each(['bending-member', 'authored-translation', 'candidate-translation', 'offset'])('does not conceal a changed or unsupported axial definition: %s', async change => {
+  test.each(['bending-member', 'authored-translation', 'candidate-translation', 'offset', 'offset-with-releases'])('does not conceal a changed or unsupported axial definition: %s', async change => {
     const draft = structuredClone(genericFixtures[5].draft), candidate = structuredClone(genericFixtures[5].model);
     const source = draft.engineeringDraft.topology.members.find(member => member.id === 'AD');
     source.type = 'truss'; source.releases = { i: { ry: true }, j: { ry: true } };
     const axial = candidate.elements.find(member => member.id === 'AD'); axial.type = change === 'bending-member' ? 'beam' : 'brace';
     if (change === 'authored-translation') source.releases.i.ux = true;
     if (change === 'candidate-translation') axial.releases = { i: { ux: true } };
-    if (change === 'offset') source.offsets = { i_x: .1 };
+    if (change.startsWith('offset')) source.offsets = { i_x: .1 };
+    if (change === 'offset-with-releases') axial.releases = structuredClone(source.releases);
     await expect(withRunContext(context({ enabled: false }), () => tryBuildGenericModelWithLlm({ invoke: async () => ({ content: JSON.stringify(candidate) }) },
       'Preserve all supplied member definitions.', { ...state, engineeringDraft: draft.engineeringDraft }, 'en'))).rejects.toMatchObject({ code: 'USER_TOPOLOGY_VALUE_CHANGED' });
   });
