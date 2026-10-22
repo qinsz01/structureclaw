@@ -299,3 +299,108 @@ individual observations with different concurrent request loads, not a guarantee
 
 Each phase records commits, validation summary lines, live timings, user turns, questions,
 tool calls, hand checks and evidence paths here when actually observed. No pending item is a pass.
+
+## Generic scope and execution visibility follow-up (2026-10-22)
+
+The user requested both fewer unnecessary generic-route calls and a clear distinction between
+allowed skills and skills actually invoked. `4c2515a4` makes a sole generic scope deterministic
+in the host and asks the outer agent to extract directly, preserving fixed-route precedence and
+genuine engineering-input clarification. It also removes stale provider instructions that required
+selecting an analysis skill, and makes the numeric-candidate requirements explicit in the first
+clarification call. Numeric provenance checks and analysis gates remain enforced.
+
+`a8f50dce` adds a current-run modelling projection from host extraction/builder events and, for
+older ledgers, tool receipts bound to that run's call IDs. An allowed list, stale draft, assistant
+claim, or solver invocation is not proof of a modelling-skill invocation. The bilingual composer
+shows allowed skills and actual usage separately; routing alone, no invocation, not started, and
+unavailable old-server records have distinct states. Runtime details also distinguish the actual
+builder from the configured policy. Prompt-debug labels now distinguish routing and providers.
+
+Automatic selection still routes within the allowed scope. Selecting only generic enables the
+generic modelling skill; explicitly clearing a restricted selection enables no modelling skills,
+not generic. Providers remain independent, so a complete imported model can still be analysed.
+A read-only check of the user's two actual earlier conversations identified generic invocation
+and the LLM builder in both using their original run ledgers, without inferring usage from selection.
+
+Validation evidence is under `G:/StructureClaw-All/verification/generic-usage-*`:
+
+- Backend build, lint and architecture checks passed (300 modules / 901 dependencies after the axial fix). The focused
+  backend set passed 479 tests; prompt/profile checks passed 41 tests / 44 snapshots. The 33 intentional
+  snapshot updates concern generic-only workflow instructions, independent providers, prompt hashes
+  and the clarification tool description; numerical outputs and policy hashes are unchanged.
+- Full Jest covered 3224 tests / 57 snapshots before the axial follow-up: 3223 passed, with one
+  attachment test failing because the isolated settings directory lacked its Python path. Adding
+  that test-environment setting made all five attachment tests pass on rerun; no application or
+  test assertion change was needed for that failure. The original failed log is retained.
+- Frontend build, type-check and lint passed. All 334 unit tests passed (6 existing todo cases).
+  Integration passed all 83 tests after the remaining prompt-debug assertion was updated for the
+  renamed labels. No production change was needed for that assertion.
+- Both new Playwright cases passed in English and Chinese: scripted local LLM transport with real
+  generic extraction/build tools and real OpenSees, followed by an explicitly empty skill scope and
+  complete model import. Eight screenshots cover both locales, both themes and 1440/768px viewports;
+  the skill summary does not overflow. This scripted transport proves UI/tool behaviour, not real
+  LLM routing quality; the separate real-provider runs below cover that.
+- `98d37426` fixes a narrow-screen grid track being expanded by long tool outputs. The final
+  browser assertions also require the summary's right edge to stay inside the viewport, rather
+  than merely checking overflow inside an already expanded element.
+- The three orchestration, chat-stream and analysis contract validators passed.
+
+Fresh real-frontend runs use the saved `glm-5.3` provider in a separate database, frontend copy and
+ephemeral port, with credentials supplied only through the process environment. Evidence:
+`generic-usage-live`, including per-case original streams, conversation snapshots, models, results,
+run ledgers and visible skill-usage labels. The independent checker verifies geometry, connectivity,
+supports, section assignments, loads and all six global force/moment equilibrium components.
+
+| Case | Seconds | Turns | Issued questions | Rejected questions | Tool calls | LLM calls | Independently verified outcome |
+|---|---:|---:|---:|---:|---:|---:|---|
+| Fully specified generic 3D grid | 357.2 | 1 | 0 | 0 | 5 | 7 | 27 nodes / 42 members / 18 actions; base Fx −1.8kN |
+| User's delegated-material 3D request | 748.7 | 2 | 1 | 0 | 8 | 11 | Same counts and equilibrium; confirmed C30, 250×500mm beams and 400×400mm columns |
+| Mixed frame + cantilever + brace, initial follow-up | 1686.7 | 2 | 1 | 0 | 18 | 29 | 5 nodes / 5 members / 2 actions; A–E preserved, AD area 0.002m², base Fx/Fz −5/+10kN; 3 tool errors / 2 recoveries |
+| Mixed structure, fresh axial-fix follow-up | 1104.7 | 2 | 1 | 0 | 8 | 16 | **Failed**: second response exceeded 600s; no completed analysis; 1 tool error / 2 recoveries |
+
+The fully specified grid previously used 7 tool calls; the user's actual generic-only 3D run used
+10 tool / 13 LLM calls and one issued confirmation. The new runs use 5 and 8 / 11 respectively;
+the real material/section/support confirmation is retained. Both new ledgers route only through
+generic without an LLM router, with no recovery or tool error, and the visible usage agrees.
+These are individual observations, not a statistically established speedup. The earlier strict
+R3.5 success-rate/question-count comparison is not changed by eliminating routing overhead.
+
+The mixed follow-up's 18 calls are worse than the previous corrected 9-call run. Its retained
+ledger/log shows an invented section reference, invalid JSON, and two false topology rejections:
+`truss` versus `brace`, and omitted redundant rotation-release flags on a pure axial member.
+Both names already use the same axial formulation in the physics gate and OpenSees. The follow-up
+builder correction therefore restores the authored axial type and rotational-release metadata
+before identity validation, only for equivalent axial candidates without offsets. It does not
+accept a bending member, discard a translational release, overwrite a changed section/material,
+or bypass the physics gate. Genuine modelling errors remain failures. This initial slower trial
+is preserved separately from any fresh measurement after that correction. The live harness also
+bounds each response to 600 seconds and unloads its own page on timeout to cancel its provider call.
+
+The axial correction is `f7885fb1`; `e2c8e34e` keeps any member with offsets out of this equivalence
+normalisation. Its focused set passed 134 tests initially. After the additional offset regression,
+the final primary compilation passed all 170 tests in 11 suites, including the compiled surface,
+usage projection, routing, builder, operation, stiffness and physics checks. Nine fully specified
+physical fixtures include an axial alias with omitted redundant hinges; all require one builder
+call, zero recovery, preserved authored metadata and real OpenSees equilibrium. Negative tests
+retain rejection of bending, translational-release and offset changes. The three validators,
+backend lint and final frontend fingerprint check also passed.
+
+The fresh real-provider follow-up is retained in `generic-usage-live-axial-followup`. It generated
+invalid JSON and noncanonical `mx/my/mz` release keys, where the model/solver contract requires
+`rx/ry/rz`. These were rejected, not interpreted as successful engineering output. It timed out
+on its second response after the same one genuine area clarification; no analysis run completed.
+The 8 observed tool calls are an incomplete run and must not be compared as a success or speedup.
+This failed measurement is not replaced with another trial. Deterministic equivalence regressions
+pass, but general real-LLM stability/latency is **not resolved** and the strict R3.5 improvement is
+still not demonstrated. Its `pageErrors` also contains one localStorage SecurityError from the
+test's `about:blank` timeout cleanup, not an application-page failure; the locale init script now
+skips opaque cleanup origins. The owned live server was shut down after evidence capture.
+
+All code commits were fast-forward integrated into the primary `work/research-next` checkout.
+Fresh backend output was compiled in a separate directory before promotion; earlier dist trees
+are archived under `verification/generic-usage-primary-dist-before*`. The verified frontend export
+was promoted only after checking byte-identical source inputs and a matching build fingerprint;
+its predecessor is also archived outside the repository. Existing services were not restarted,
+so the running backend needs a restart before it can serve the new projection and routing code.
+The UI reports unavailable usage honestly when connected to an older backend. No push, benchmark
+change, or historical scenario-freeze regeneration was performed.
