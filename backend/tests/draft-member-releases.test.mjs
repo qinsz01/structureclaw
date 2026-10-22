@@ -83,6 +83,15 @@ describe('member release draft boundary', () => {
     expect(runtime.buildModel).not.toHaveBeenCalled();
     expect(axial(draftState.engineeringDraft).releases).toEqual({ i: { mx: true, rx: false } });
   });
+  test('unsupported release axes are rejected without suggesting their deletion', async () => {
+    const draftState = stored({ i: { ry: true }, reference_frame: 'global' });
+    const before = structuredClone(draftState), runtime = { buildModel: jest.fn() };
+    const outcome = resultBody(await createBuildModelTool(runtime).invoke({}, {
+      toolCall: { id: 'legacy-axes' }, configurable: { agentState: { draftState } },
+    }));
+    expect(outcome).toMatchObject({ errorCode: 'DRAFT_PROTOCOL_INVALID', repair: { conflicting: false, clearDraftFields: [] } });
+    expect(runtime.buildModel).not.toHaveBeenCalled(); expect(draftState).toEqual(before);
+  });
   test('a successful build stores canonical legacy metadata and keeps its persisted mirror consistent', async () => {
     const draftState = stored({ releaseI: { my: true }, j: { mz: true } });
     const before = structuredClone(draftState);

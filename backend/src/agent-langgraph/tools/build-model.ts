@@ -38,8 +38,9 @@ export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
         if (!(error instanceof MemberReleaseValidationError)) throw error;
         return toolResult(toolCallId, 'build_model', JSON.stringify({ success: false, modelBuilt: false,
           errorCode: 'DRAFT_PROTOCOL_INVALID', field: error.releaseField, error: error.message,
-          nextAction: 'extract_draft_params', repair: { clearDraftFields: error.conflicting ? [] : [error.invalidField], conflicting: error.conflicting },
-          instruction: 'Repair this invalid draft representation from the original user input with extract_draft_params. Clear only the reported invalid field before merging its corrected definition; preserve all other release flags, geometry, supports, loads and section values. This is not a missing engineering fact; do not ask the user to repeat known input. Conflicting definitions require authoritative input, never choose or delete one side automatically. / 请依据原始用户输入修复草稿协议，只显式清除报告的无效字段再合并正确定义，保留其余释放标记、几何、支承、荷载和截面数值，不重复追问已知输入；冲突定义须核对原始依据，不得自行选择或删除其中一方。' }));
+          nextAction: 'extract_draft_params', repair: { clearDraftFields: error.conflicting || error.invalidField === `${error.releaseField}.reference_frame`
+            ? [] : [error.invalidField], conflicting: error.conflicting },
+          instruction: 'Repair this invalid draft representation from the original user input with extract_draft_params. Clear only a reported clearable field before merging its corrected definition; preserve all other release flags, geometry, supports, loads and section values. Do not ask the user to repeat known input. Conflicting definitions and unsupported release axes require authoritative resolution; never choose values or drop reference axes automatically. / 请依据原始用户输入修复草稿协议，只显式清除报告中可清除的无效字段再合并正确定义，保留其余释放标记、几何、支承、荷载和截面数值，不重复追问已知输入；冲突定义和不支持的释放坐标轴须核对原始依据，不得自行选择数值或删除坐标轴定义。' }));
       }
       const skillIds = toolSkillScope(config);
       const userTexts = conversationSectionEvidence(state);
