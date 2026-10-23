@@ -49,18 +49,61 @@ auditedSteel.draft.engineeringDraft.sectionRecords = [['SB', 300, 600], ['SC', 3
     confirmation: { clarificationId: 'confirmed-dimensions' } } }));
 auditedSteel.draft.engineeringDraft.templateAssignments = { beam: { materialId: 'M', sectionId: 'SB' }, column: { materialId: 'M', sectionId: 'SC' } };
 structureCases.push(auditedSteel);
+for (const skillId of ['frame', 'concrete-frame']) {
+  for (const floorTotals of [false, true]) {
+    const fixture = structuredClone(structureCases.find(row => row.id === (skillId === 'frame'
+      ? 'frame-3d-rectangular-base-grade-cases' : 'concrete-frame-3d-cases')));
+    fixture.id = `${skillId}-two-storey-${floorTotals ? 'floor' : 'nodal'}-cases`;
+    fixture.draft.engineeringDraft.geometry.storyHeightsM = [3, 3.6];
+    fixture.draft.engineeringDraft.loads = floorTotals
+      ? [{ ...load(100, 'gravity', 'all-stories'), caseId: 'DL', caseType: 'dead' },
+        { ...load(50, 'gravity', 'top-story'), caseId: 'LL', caseType: 'live' }]
+      : [1, 2].flatMap(story => [0, 1].flatMap(x => [0, 1].map(y => ({
+        ...load(25, 'gravity', `N${story}_${x}_${y}`), caseId: 'DL', caseType: 'dead' }))))
+        .concat([0, 1].flatMap(x => [0, 1].map(y => ({ ...load(12.5, 'gravity', `N2_${x}_${y}`), caseId: 'LL', caseType: 'live' }))));
+    fixture.floorTotals = floorTotals;
+    fixture.analysisArgs = { floorLoadTransferMode: 'node_tributary' };
+    fixture.expectedTotals = { 'case:DL': [0, 0, -200], 'case:LL': [0, 0, -50], 'combination:ULS': [0, 0, -335] };
+    fixture.expectedNative = { 'pkpm-static': floorTotals ? 'refused' : 'solved',
+      'yjk-static': floorTotals ? 'refused' : 'solved' };
+    const ea = (skillId === 'frame' ? 206000 * .3 ** 2 : 32500 * .5 ** 2) * 1000;
+    fixture.referenceChecks = [
+      { resultKey: 'case:DL', z: 3, value: -50 * 3 / ea },
+      { resultKey: 'case:DL', z: 6.6, value: -(50 * 3 + 25 * 3.6) / ea },
+      { resultKey: 'case:LL', z: 6.6, value: -12.5 * 6.6 / ea },
+      { resultKey: 'combination:ULS', z: 6.6, value: -(1.3 * (50 * 3 + 25 * 3.6) + 1.5 * 12.5 * 6.6) / ea },
+    ].map(check => ({ ...check, x: 0, field: 'displacements', component: 'uz', tolerance: 1e-9 }));
+    structureCases.push(fixture);
+  }
+}
+const mixedFloorLine = base('concrete-frame-mixed-floor-line-cases', 'concrete-frame',
+  { storyHeightsM: [3, 3.6], bayWidthsM: [6] },
+  [{ ...load(100, 'gravity', 'all-stories'), caseId: 'DL', caseType: 'dead' },
+    { ...load(50, 'gravity', 'top-story'), caseId: 'LL', caseType: 'live' },
+    { ...load(5, 'gravity', 'roof', undefined, 'line'), caseId: 'SDL', caseType: 'dead' }],
+  { coordinateSystem: { dimension: '2d' }, material: { family: 'concrete', grade: 'C40', rebarGrade: 'HRB500' },
+    sections: { beam: '300X600', column: '500X500' }, boundary: { frameBaseSupportType: 'fixed' },
+    analysis: { type: 'static', loadCombinations: [{ id: 'ULS', factors: { DL: 1.3, SDL: 1.3, LL: 1.5 } }] } }, [0, 0, -280]);
+mixedFloorLine.expectedTotals = { 'case:DL': [0, 0, -200], 'case:LL': [0, 0, -50], 'case:SDL': [0, 0, -30], 'combination:ULS': [0, 0, -374] };
+mixedFloorLine.expectedNative = { 'pkpm-static': 'refused', 'yjk-static': 'refused' };
+mixedFloorLine.analysisArgs = { floorLoadTransferMode: 'node_tributary' };
+mixedFloorLine.referenceChecks = [
+  { resultKey: 'case:DL', value: -(100 * 3 + 50 * 3.6) / (32500 * 1000 * .5 ** 2) },
+  { resultKey: 'case:LL', value: -25 * 6.6 / (32500 * 1000 * .5 ** 2) },
+].map(check => ({ ...check, x: 0, z: 6.6, field: 'displacements', component: 'uz', tolerance: 1e-9 }));
+structureCases.push(mixedFloorLine);
 for (const fixture of structureCases) {
   fixture.draft.engineeringDraft.analysisControl = structuredClone(control);
   if (fixture.model) fixture.model.analysis_control = structuredClone(control);
   const building = fixture.draft.engineeringDraft.coordinateSystem?.dimension === '3d' && !fixture.model;
-  fixture.expectedTotals = building
+  fixture.expectedTotals ??= building
     ? { 'case:DL': [0, 0, -40], 'case:LL': [5, 0, 0], 'combination:ULS': [7.5, 0, -52] }
     : ['steel-frame-two-storey', 'concrete-frame'].includes(fixture.id)
       ? { 'case:D': [0, 0, fixture.total[2]], 'case:LAT': [fixture.total[0], 0, 0] }
       : { 'case:LC1': fixture.total };
-  fixture.expectedNative = { 'pkpm-static': building && fixture.draft.engineeringDraft.material.grade !== 'Q235B' ? 'solved' : 'refused',
+  fixture.expectedNative ??= { 'pkpm-static': building && fixture.draft.engineeringDraft.material.grade !== 'Q235B' ? 'solved' : 'refused',
     'yjk-static': building ? 'solved' : 'refused' };
-  if (building) {
+  if (building && !fixture.referenceChecks) {
     const E = fixture.skillId === 'concrete-frame' ? 32500 : 206000;
     const area = fixture.skillId === 'concrete-frame' ? .5 ** 2
       : fixture.draft.engineeringDraft.sections.column === '300X300' ? .3 ** 2 : 2 * .2 * .012 + (.3 - .024) * .008;

@@ -52,7 +52,7 @@ try {
       });
       llm.enqueue(toolCall('extract_draft_params', { locale: 'en' }, toolId('extract')),
         toolCall('build_model', {}, toolId('build')), toolCall('validate_model', {}, toolId('validate')),
-        toolCall('run_analysis', { analysisType: 'static', analysisSkillId: engine }, toolId('analyze')),
+        toolCall('run_analysis', { analysisType: 'static', analysisSkillId: engine, ...fixture.analysisArgs }, toolId('analyze')),
         (body) => {
           const receipt = seenResult([{ body }], toolId('analyze'));
           return receipt?.success ? toolCall('generate_report', { message: 'Report the requested analysis', analysisType: 'static', locale: 'en', narrative: 'structured' }, toolId('report')) : 'ANALYSIS_REFUSED';
@@ -116,7 +116,7 @@ try {
             assert.ok(Math.abs(queried.body.result.quantity.value - result.data.reactions[nodeId].fz * 1000) < .01);
           }
           for (const check of fixture.referenceChecks ?? []) {
-            const node = review.model.nodes.find(node => node.x === check.x && node.y === 0 && node.z === 0);
+            const node = review.model.nodes.find(node => node.x === check.x && node.y === (check.y ?? 0) && node.z === (check.z ?? 0));
             assert.ok(node, 'The independently specified response location must exist');
             const value = run.body.results[check.resultKey].data[check.field][node.id][check.component];
             assert.ok(Number.isFinite(value) && Math.abs(value - check.value) < check.tolerance,
