@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import type { CameraPreset } from '../state'
 import type { VisualizationPlane, VisualizationSnapshot } from '../types'
 import { getPlaneCameraFrame, getSnapshotCenter } from '../structural-scene-utils'
+import { syncCameraViewport } from './camera-viewport'
 
 export function PlaneBoundsController({
   plane,
@@ -23,12 +24,16 @@ export function PlaneBoundsController({
 }) {
   const bounds = useBounds()
   const camera = useThree((state) => state.camera)
+  const gl = useThree((state) => state.gl)
   const height = useThree((state) => state.size.height)
   const width = useThree((state) => state.size.width)
   const fitHeight = preserveCameraOnResize ? 0 : height
   const fitWidth = preserveCameraOnResize ? 0 : width
 
   useEffect(() => {
+    // A view switch can remove a legend and widen the canvas before R3F receives
+    // its resize notification. Fit must use the visible viewport immediately.
+    syncCameraViewport(camera, gl.domElement)
     const { box } = bounds.refresh().getSize()
     const center = new THREE.Vector3(...getSnapshotCenter(snapshot, plane))
     // Keep the structure centered while leaving room for asymmetric load/result markers.
@@ -50,7 +55,7 @@ export function PlaneBoundsController({
       bounds.fit()
     }
     bounds.clip()
-  }, [bounds, camera, cameraPreset, fitHeight, plane, resetToken, snapshot, fitWidth, fitKey])
+  }, [bounds, camera, gl, cameraPreset, fitHeight, plane, resetToken, snapshot, fitWidth, fitKey])
 
   return null
 }
