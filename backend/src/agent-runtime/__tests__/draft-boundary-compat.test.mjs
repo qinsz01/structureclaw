@@ -117,6 +117,14 @@ describe('old persisted draft states', () => {
       expect(() => handler.buildModel(withDeclaredProperties(next.value))).toThrow('MODEL_EDIT_FIELD_INVALID');
     } else {
       if (scenario.id === 'checkpoint-portal-frame') delete expected.model.value.load_cases[0].loads[0].wy;
+      // Keep frozen input/next-turn evidence intact. Newly compiled isotropic grade defaults
+      // now derive G from E/nu; explicitly authored G values retain their original contract.
+      for (const material of expected.model?.value?.materials ?? []) {
+        const authored = next.value.engineeringDraft?.materials?.find(row => row.id === material.id);
+        if (authored?.G === undefined && material.G === 79000 && material.E === 206000 && material.nu === .3) {
+          material.G = 206000 / 2.6;
+        }
+      }
       expect(attempt(() => handler.buildModel(withDeclaredProperties(next.value)) ?? null)).toEqual(expected.model);
     }
   });

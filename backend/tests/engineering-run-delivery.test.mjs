@@ -14,6 +14,7 @@ describe('archived and requested results', () => {
     let calls = 0;
     const invoke = async request => {
       calls++;
+      expect(request.parameters.loadCaseIds).toEqual(['D','L']);
       expect(request.parameters._internalResultSelections.map(s => s.key)).toEqual(['case:D','case:L','combination:U']);
       return {success:true,data:{nativeResultSet:{schema:'sclaw-native-result-set/v1',results:Object.fromEntries(
         request.parameters._internalResultSelections.map((s,i) => [s.key,{success:true,data:{selectedResult:{kind:s.kind,id:s.id},summary:{maxDisplacement:i+1}}}]))}}};
@@ -30,6 +31,18 @@ describe('archived and requested results', () => {
     calls=0;
     const missing = await executeAnalysisRun(payload, async () => {calls++;return {success:true,data:{}};},async () => {});
     expect(calls).toBe(1); expect(missing.results['case:L'].error_code).toBe('NATIVE_RESULT_SET_INCOMPLETE');
+  });
+  test('a commercial combination requests every contributing source case in its one native job', async () => {
+    const model = { nodes: [], elements: [], materials: [], sections: [], load_cases: ['D','L','unused'].map(id => ({ id, loads: [] })),
+      load_combinations: [{ id: 'U', factors: { D: 1.2, L: 1.4 } }] };
+    const run = await executeAnalysisRun({ model, type: 'static', engineId: 'builtin-pkpm', parameters: { loadCombinationIds: ['U'] } }, async request => {
+      expect(request.parameters.loadCaseIds).toEqual(['D','L']);
+      expect(request.parameters.loadCombinationId).toBeUndefined();
+      return { success: true, data: { nativeResultSet: { schema: 'sclaw-native-result-set/v1', results: {
+        'combination:U': { success: true, data: { selectedResult: { kind: 'combination', id: 'U' } } },
+      } } } };
+    }, async () => {});
+    expect(run.success).toBe(true);
   });
   test('an unknown selection cannot relabel a legacy single-result run', async () => {
     const legacy = { runId: 'legacy', success: true, data: { displacements: { a: { ux: .001 } } } };

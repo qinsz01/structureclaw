@@ -200,7 +200,7 @@ describe('buildModel - beam', () => {
     const model = buildModel(state);
 
     expect(model.materials).toEqual([
-      { id: '1', name: 'Q355', grade: 'Q355', category: 'steel', E: 206000, G: 79000, nu: 0.3, rho: 7850, fy: 355 },
+      { id: '1', name: 'Q355', grade: 'Q355', category: 'steel', E: 206000, G: 206000 / 2.6, nu: 0.3, rho: 7850, fy: 355 },
     ]);
     expect(model.sections[0]).toMatchObject({ id: '1', name: 'H300X200X8X12', type: 'H', properties: { A: 0.007008 } });
   });
@@ -598,7 +598,7 @@ describe('buildModel - frame 2D', () => {
     const model = buildModel(state);
 
     expect(model.materials).toEqual([
-      { id: '1', name: 'Q355', grade: 'Q355', category: 'steel', E: 206000, G: 79000, nu: 0.3, rho: 7850, fy: 355 },
+      { id: '1', name: 'Q355', grade: 'Q355', category: 'steel', E: 206000, G: 206000 / 2.6, nu: 0.3, rho: 7850, fy: 355 },
     ]);
     expect(model.sections).toHaveLength(2);
     expect(model.sections[0].name).toBe('H300X200X8X12');
@@ -792,7 +792,7 @@ describe('buildModel - frame 3D', () => {
 
     const model = buildModel(state);
 
-    expect(model.materials[0]).toEqual({ id: '1', name: 'Q355', grade: 'Q355', category: 'steel', E: 206000, G: 79000, nu: 0.3, rho: 7850, fy: 355 });
+    expect(model.materials[0]).toEqual({ id: '1', name: 'Q355', grade: 'Q355', category: 'steel', E: 206000, G: 206000 / 2.6, nu: 0.3, rho: 7850, fy: 355 });
     expect(model.sections[0].name).toBe('H300X200X8X12');
     expect(model.sections[1].name).toBe('H300X200X8X12');
   });

@@ -57,7 +57,7 @@ function assertSafeTempDir(directory) {
  * Returns HTTP helpers plus the data dir for direct inspection of run-records.
  * `env` adds product environment variables (e.g. SCLAW_RUN_PROFILE) to the child process.
  */
-export async function startBackend({ llmBaseUrl, pythonBin, env: extraEnv = {} }) {
+export async function startBackend({ llmBaseUrl, llmModel = 'characterization-scripted', pythonBin, nativeSettings, env: extraEnv = {} }) {
   const entry = path.join(backendDir, 'dist', 'index.js');
   if (!fs.existsSync(entry)) throw new Error('CHARACTERIZATION_BUILD_REQUIRED: run npm run build --prefix backend');
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), TEMP_PREFIX));
@@ -68,11 +68,13 @@ export async function startBackend({ llmBaseUrl, pythonBin, env: extraEnv = {} }
   const settings = {
     server: { port, host: '127.0.0.1', frontendPort: port },
     database: { url: databaseUrl },
-    llm: { baseUrl: llmBaseUrl, model: 'characterization-scripted', apiKey: 'characterization-fixture-not-a-secret', maxRetries: 0 },
+    llm: { baseUrl: llmBaseUrl, model: llmModel, apiKey: 'characterization-fixture-not-a-secret', maxRetries: 0 },
     vision: { baseUrl: llmBaseUrl, model: 'characterization-scripted', apiKey: 'characterization-fixture-not-a-secret', maxRetries: 0 },
     analysis: { pythonBin },
     agent: { workspaceRoot: dataDir, checkpointDir: path.join(dataDir, 'checkpoints'), allowShell: false },
     logging: { level: 'warn', llmLogEnabled: false },
+    ...(nativeSettings?.pkpm ? { pkpm: { ...nativeSettings.pkpm, workDir: path.join(dataDir, 'native-pkpm') } } : {}),
+    ...(nativeSettings?.yjk ? { yjk: { ...nativeSettings.yjk, workDir: path.join(dataDir, 'native-yjk'), invisible: true } } : {}),
   };
   fs.writeFileSync(path.join(dataDir, 'settings.json'), JSON.stringify(settings, null, 2));
   const env = { ...process.env };

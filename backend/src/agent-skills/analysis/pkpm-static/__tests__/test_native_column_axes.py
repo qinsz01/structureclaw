@@ -8,6 +8,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "runtime"))
 from native_column_axes import column_axis_plan
+from contracts import AnalysisCapabilityError
 
 
 def source(rotation=0):
@@ -41,8 +42,20 @@ def test_endpoint_reversal_preserves_same_physical_section_direction():
 
 def test_unverified_arbitrary_angle_is_rejected_before_native_modeling():
     model = source(25)
-    with pytest.raises(ValueError, match="align with global X/Y"):
+    with pytest.raises(AnalysisCapabilityError, match="align with global X/Y") as caught:
         column_axis_plan(model, model["elements"][0])
+    assert caught.value.error_code == "ENGINE_INPUT_UNSUPPORTED"
+
+
+def test_unverified_h_column_is_a_precise_input_boundary_without_shape_substitution():
+    model = source()
+    model["sections"][0] = {"id": "C", "type": "H", "shape": {"kind": "H", "H": 300, "B": 200, "tw": 8, "tf": 12}}
+    before = deepcopy(model)
+    with pytest.raises(AnalysisCapabilityError) as caught:
+        column_axis_plan(model, model["elements"][0])
+    assert caught.value.error_code == "ENGINE_INPUT_UNSUPPORTED"
+    assert caught.value.meta["inputFields"] == ["sections.C.shape"]
+    assert model == before
 
 
 def test_beam_geometry_is_not_permuted_by_column_rule():

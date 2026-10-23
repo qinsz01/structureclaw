@@ -1,0 +1,56 @@
+// Product-owned contract inputs, separate from the benchmark corpus.
+import { genericFixtures } from '../characterization/fixtures/generic-physics.mjs';
+
+export const control = { self_weight: false, rigid_floor: false, rigid_offsets: false, p_delta: false, construction_stage: false };
+const steel = { family: 'steel', grade: 'Q235B' };
+const sections = { member: 'H300X200X8X12', beam: 'H300X200X8X12', column: 'H300X200X8X12' };
+const load = (magnitude, direction, target, location, kind = 'nodal') => ({ kind, magnitude, unit: kind === 'line' ? 'kN/m' : 'kN', direction, target, ...(location ? { location } : {}) });
+const base = (id, skillId, geometry, loads, extra = {}, total = [0, 0, 0]) => ({ id, skillId, total,
+  draft: { engineeringDraft: { structureType: skillId, geometry, material: steel, sections, loads,
+    analysisControl: control, analysis: { type: 'static', loadCombinations: [] }, ...extra },
+    requestScope: { responses: ['forces', 'reactions', 'displacements'], design: false, report: true, outputs: [] } } });
+
+export const structureCases = [
+  base('beam-point', 'beam', { lengthM: 6 }, [load(10, 'gravity', 'beam', { xM: 3 }, 'point')], { boundary: { supportType: 'simply-supported' } }, [0, 0, -10]),
+  base('continuous-three-span', 'double-span-beam', { spanLengthsM: [4, 5, 4] }, [load(5, 'gravity', 'beam', undefined, 'line')], { boundary: { supportPositionsM: [0, 4, 9, 13] } }, [0, 0, -65]),
+  base('column-biaxial', 'column', { heightM: 3 }, [load(100, 'gravity', 'top-node'), load(10, 'globalX', 'top-node')], {}, [10, 0, -100]),
+  base('steel-frame-two-storey', 'frame', { storyHeightsM: [3, 3.5], bayWidthsM: [4, 5] },
+    [load(20, 'globalX', 'all-stories'), load(100, 'gravity', 'all-stories')], { boundary: { supportType: 'fixed' } }, [40, 0, -200]),
+  base('portal-two-bay', 'portal-frame', { spanLengthsM: [6, 6], heightM: 4 }, [load(5, 'gravity', 'roof', undefined, 'line')], { boundary: { supportType: 'fixed' } }, [0, 0, -60]),
+  base('concrete-frame', 'concrete-frame', { storyHeightsM: [3.6, 3.6], bayWidthsM: [6] },
+    [load(120, 'gravity', 'all-stories'), load(20, 'globalX', 'all-stories')],
+    { material: { family: 'concrete', grade: 'C35', rebarGrade: 'HRB500' }, sections: { beam: '300X600', column: '500X500' }, boundary: { supportType: 'fixed' } }, [40, 0, -240]),
+  base('truss-four-panel', 'truss', { lengthM: 12, heightM: 3, spanLengthsM: [3, 3, 3, 3] },
+    [load(10, 'gravity', 'interior-top-nodes')], {}, [0, 0, -30]),
+  ...['frame', 'concrete-frame'].map(skillId => base(`${skillId}-3d-cases`, skillId,
+    { storyHeightsM: [3.6], bayWidthsXM: [4], bayWidthsYM: [5] },
+    [0, 1].flatMap(x => [0, 1].map(y => ({ ...load(10, 'gravity', `N1_${x}_${y}`), caseId: 'DL', caseType: 'dead' })))
+      .concat([{ ...load(5, 'globalX', 'N1_1_1'), caseId: 'LL', caseType: 'live' }]),
+    { coordinateSystem: { dimension: '3d' }, boundary: { frameBaseSupportType: 'fixed' },
+      ...(skillId === 'concrete-frame' ? { material: { family: 'concrete', grade: 'C40', rebarGrade: 'HRB500' }, sections: { beam: '300X600', column: '500X500' } } : {}),
+      analysis: { type: 'static', loadCombinations: [{ id: 'ULS', factors: { DL: 1.3, LL: 1.5 } }] } }, [5, 0, -40])),
+  ...genericFixtures.map(fixture => ({ ...structuredClone(fixture), id: `generic-${fixture.id}`, skillId: 'generic',
+    draft: { ...structuredClone(fixture.draft), requestScope: { ...fixture.draft.requestScope, report: true } } })),
+];
+const rectangularSteel = structuredClone(structureCases.find(row => row.id === 'frame-3d-cases'));
+rectangularSteel.id = 'frame-3d-rectangular-cases';
+rectangularSteel.draft.engineeringDraft.sections = { beam: '300X600', column: '300X300' };
+structureCases.push(rectangularSteel);
+const baseGradeSteel = structuredClone(rectangularSteel);
+baseGradeSteel.id = 'frame-3d-rectangular-base-grade-cases';
+baseGradeSteel.draft.engineeringDraft.material.grade = 'Q235';
+structureCases.push(baseGradeSteel);
+for (const fixture of structureCases) {
+  fixture.draft.engineeringDraft.analysisControl = structuredClone(control);
+  if (fixture.model) fixture.model.analysis_control = structuredClone(control);
+  const building = fixture.draft.engineeringDraft.coordinateSystem?.dimension === '3d' && !fixture.model;
+  fixture.expectedTotals = building
+    ? { 'case:DL': [0, 0, -40], 'case:LL': [5, 0, 0], 'combination:ULS': [7.5, 0, -52] }
+    : ['steel-frame-two-storey', 'concrete-frame'].includes(fixture.id)
+      ? { 'case:D': [0, 0, fixture.total[2]], 'case:LAT': [fixture.total[0], 0, 0] }
+      : { 'case:LC1': fixture.total };
+  fixture.expectedNative = { 'pkpm-static': building && fixture.draft.engineeringDraft.material.grade !== 'Q235B' ? 'solved' : 'refused',
+    'yjk-static': building ? 'solved' : 'refused' };
+}
+
+export const engines = ['opensees-static', 'pkpm-static', 'yjk-static'];

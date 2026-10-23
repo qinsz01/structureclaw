@@ -105,7 +105,7 @@ describe('defect 2: an unqualified collection field resolves against the collect
     expect(unresolvedDraftFields(currentDraftDiagnostics(state))).toEqual([]);
     expect(computeDraftMissing(plugin, state, 'execution').critical).toEqual([]);
     const model = await new AgentSkillRuntime().buildModel(state, ['beam'], { locale: 'en' });
-    expect(model.materials[0]).toMatchObject({ id: 'M1', grade: 'Q355', E: 206000, G: 79000, nu: 0.3, rho: 7850 });
+    expect(model.materials[0]).toMatchObject({ id: 'M1', grade: 'Q355', E: 206000, G: 206000 / 2.6, nu: 0.3, rho: 7850 });
     // An explicit E is never replaced, and an unknown grade still asks for its properties.
     state.engineeringDraft.materials = [{ id: 'M1', name: 'Q355', grade: 'Q355', E: 200000, nu: 0.3, rho: 7850 }];
     expect((await new AgentSkillRuntime().buildModel(state, ['beam'], { locale: 'en' })).materials[0].E).toBe(200000);
