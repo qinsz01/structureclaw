@@ -17,11 +17,33 @@ test.describe('Visualization camera', () => {
   })
   test.afterAll(async () => { await llm?.close() })
 
-  for (const scenario of visualizationScenarios.filter(row => row.id !== 'frame2d')) {
+  const scenarios = [
+    ...visualizationScenarios.filter(row => row.id !== 'frame2d').map(row => ({ ...row, holdResize: false })),
+    { ...visualizationScenarios.find(row => row.id === 'beam')!, id: 'beam-delayed-resize', holdResize: true },
+  ]
+  for (const scenario of scenarios) {
     test(`centers the structure and zooms around the cursor: ${scenario.id}`, async ({ page }, info) => {
       test.setTimeout(180_000)
       await page.setViewportSize({ width: 1440, height: 1000 })
       await page.addInitScript(() => { localStorage.setItem('structureclaw.locale', 'en'); localStorage.setItem('theme', 'light') })
+      if (scenario.holdResize) await page.addInitScript(() => {
+        const NativeResizeObserver = window.ResizeObserver
+        const pending: Array<() => void> = []
+        window.addEventListener('camera-test-release-resize', () => {
+          delete document.documentElement.dataset.cameraTestHoldResize
+          pending.splice(0).forEach(deliver => deliver())
+        })
+        window.ResizeObserver = class extends NativeResizeObserver {
+          constructor(callback: ResizeObserverCallback) {
+            super((entries, observer) => {
+              const deliver = () => callback(entries, observer)
+              if (document.documentElement.dataset.cameraTestHoldResize === 'yes'
+                && entries.some(entry => entry.target.querySelector('canvas'))) pending.push(deliver)
+              else deliver()
+            })
+          }
+        }
+      })
       await page.goto('/')
       await page.getByRole('button', { name: 'New Conversation', exact: true }).click()
       await page.getByRole('button', { name: 'Context', exact: true }).click()
@@ -47,9 +69,18 @@ test.describe('Visualization camera', () => {
         - initialViewport.x - initialViewport.width / 2
       expect.soft(Math.abs(initialOffsetX), 'Opening the figure must show the whole structure without an extra Fit click').toBeLessThan(initialViewport.width * .03 + 3)
       await workspace.screenshot({ path: info.outputPath(`${scenario.id}-initial.png`) })
+      if (scenario.holdResize) await page.evaluate(() => { document.documentElement.dataset.cameraTestHoldResize = 'yes' })
       await workspace.getByRole('button', { name: 'Model', exact: true }).click()
       if (scenario.id === 'frame3d') await workspace.getByRole('button', { name: 'Front', exact: true }).click()
+      const layoutAtFit = await canvas.evaluate(element => ({
+        canvasWidth: element.clientWidth, canvasHeight: element.clientHeight,
+        viewportWidth: element.parentElement?.clientWidth, viewportHeight: element.parentElement?.clientHeight,
+      }))
       await workspace.getByRole('button', { name: 'Fit', exact: true }).click()
+      if (scenario.holdResize) {
+        await page.waitForTimeout(700)
+        await page.evaluate(() => { window.dispatchEvent(new Event('camera-test-release-resize')) })
+      }
       await page.waitForTimeout(700)
       const viewport = (await canvas.boundingBox())!
       const centers = await Promise.all(scenario.model.nodes.map((node: { id: string }) => labelCenter(scene, node.id)))
@@ -78,7 +109,7 @@ test.describe('Visualization camera', () => {
       const anchor = { x: (after[0].x - scale * before[0].x) / (1 - scale), y: (after[0].y - scale * before[0].y) / (1 - scale) }
       expect.soft(Math.hypot(anchor.x - cursor.x, anchor.y - cursor.y), 'Zoom must be anchored at the mouse, not the viewport center').toBeLessThan(8)
       const receipt = info.outputPath('camera-measurements.json')
-      await fs.writeFile(receipt, JSON.stringify({ initialOffsetX, viewport, offset, cursor, before, after, scale, anchor }, null, 2))
+      await fs.writeFile(receipt, JSON.stringify({ initialOffsetX, layoutAtFit, viewport, offset, cursor, before, after, scale, anchor }, null, 2))
       await info.attach('camera-measurements', { path: receipt, contentType: 'application/json' })
       await workspace.screenshot({ path: info.outputPath(`${scenario.id}-camera.png`) })
 
