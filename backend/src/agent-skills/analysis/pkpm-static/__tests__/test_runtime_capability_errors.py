@@ -46,8 +46,8 @@ class PkpmRuntimeCapabilityErrorTest(unittest.TestCase):
             "coordinate_system": {
                 "semantics": "global-z-up",
                 "version": 1,
-                "dimension": "2d",
-                "plane": "xz",
+                "dimension": "3d",
+                "plane": None,
                 "dof_order": ["ux", "uy", "uz", "rx", "ry", "rz"],
             },
             "nodes": [],
@@ -64,6 +64,16 @@ class PkpmRuntimeCapabilityErrorTest(unittest.TestCase):
 
         self.assertIs(caught.exception, error)
         self.assertEqual(caught.exception.error_code, "ENGINE_INPUT_UNSUPPORTED")
+
+    def test_2d_refusal_precedes_native_model_plans_and_sdk_calls(self) -> None:
+        runtime = _load_runtime_module()
+        model = {"coordinate_system": {"semantics": "global-z-up", "version": 1, "dimension": "2d", "plane": "xz",
+                  "dof_order": ["ux", "uy", "uz", "rx", "ry", "rz"]}, "nodes": [], "elements": []}
+        with patch.object(runtime, "_check_pkpm_available") as sdk:
+            with self.assertRaises(AnalysisCapabilityError) as caught:
+                runtime.run_analysis(model, {})
+        self.assertEqual(caught.exception.capability, "canonical-3d-building-model")
+        sdk.assert_not_called()
 
 
 if __name__ == "__main__":

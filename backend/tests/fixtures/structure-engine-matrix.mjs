@@ -40,6 +40,15 @@ const baseGradeSteel = structuredClone(rectangularSteel);
 baseGradeSteel.id = 'frame-3d-rectangular-base-grade-cases';
 baseGradeSteel.draft.engineeringDraft.material.grade = 'Q235';
 structureCases.push(baseGradeSteel);
+const auditedSteel = structuredClone(baseGradeSteel);
+auditedSteel.id = 'frame-3d-provenance-cases';
+auditedSteel.draft.engineeringDraft.materials = [{ id: 'M', name: 'Q235', grade: 'Q235', E: 206000, nu: .3, rho: 7850 }];
+auditedSteel.draft.engineeringDraft.sectionRecords = [['SB', 300, 600], ['SC', 300, 300]].map(([id, B, H]) => ({ id,
+  name: `${B}X${H}`, type: 'rectangular', shape: { kind: 'rectangular', B, H }, extra: {
+    provenance: { shape: 'user', properties: 'geometry' }, discarded_nonuser_properties: { J: 999 },
+    confirmation: { clarificationId: 'confirmed-dimensions' } } }));
+auditedSteel.draft.engineeringDraft.templateAssignments = { beam: { materialId: 'M', sectionId: 'SB' }, column: { materialId: 'M', sectionId: 'SC' } };
+structureCases.push(auditedSteel);
 for (const fixture of structureCases) {
   fixture.draft.engineeringDraft.analysisControl = structuredClone(control);
   if (fixture.model) fixture.model.analysis_control = structuredClone(control);
@@ -51,6 +60,16 @@ for (const fixture of structureCases) {
       : { 'case:LC1': fixture.total };
   fixture.expectedNative = { 'pkpm-static': building && fixture.draft.engineeringDraft.material.grade !== 'Q235B' ? 'solved' : 'refused',
     'yjk-static': building ? 'solved' : 'refused' };
+  if (building) {
+    const E = fixture.skillId === 'concrete-frame' ? 32500 : 206000;
+    const area = fixture.skillId === 'concrete-frame' ? .5 ** 2
+      : fixture.draft.engineeringDraft.sections.column === '300X300' ? .3 ** 2 : 2 * .2 * .012 + (.3 - .024) * .008;
+    fixture.axialDzM = -10 * 3.6 / (E * 1000 * area); // Four equal top loads: each column carries 10 kN, PL/EA.
+  }
+  if (fixture.id === 'beam-point') fixture.referenceChecks = [{ resultKey: 'case:LC1', x: 3, field: 'displacements', component: 'uz',
+    value: -10 * 6 ** 3 / (48 * 206000000 * ((.2 * .3 ** 3 - (.2 - .008) * (.3 - .024) ** 3) / 12)), tolerance: 1e-9 }];
+  if (fixture.id === 'continuous-three-span') fixture.referenceChecks = [0, 13].map(x => ({ resultKey: 'case:LC1', x,
+    field: 'reactions', component: 'fz', value: 10 - (5 * (4 ** 3 + 5 ** 3) / 4 / 23) / 4, tolerance: 1e-6 }));
 }
 
 export const engines = ['opensees-static', 'pkpm-static', 'yjk-static'];

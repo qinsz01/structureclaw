@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 from typing import Any, Dict
 
@@ -100,6 +101,20 @@ class CapturingRegistry(AnalysisEngineRegistry):
 
 
 class AnalysisRegistryTest(unittest.TestCase):
+    def test_an_explicitly_unexecuted_receipt_cannot_be_published_as_success(self):
+        registry = CapturingRegistry()
+        for nested in (False, True):
+            audit = {"status": "partial", "execution": {"executed": False, "reason": "solver not implemented"},
+                     "detailed": {"missingCapabilities": ["full-member-nonlinear"], "nonlinearModelAudit": {"status": "complete"}}}
+            receipt = {"success": True, "data": audit} if nested else audit
+            with patch.object(registry, "_run_python_analysis", return_value=receipt) as execute:
+                with self.assertRaises(AnalysisCapabilityError) as caught:
+                    registry.run_analysis("nonlinear", build_frame_model(), {}, "builtin-opensees")
+            self.assertEqual(caught.exception.error_code, "ENGINE_INPUT_UNSUPPORTED")
+            self.assertEqual(caught.exception.meta["fallbackFrom"], None)
+            self.assertEqual(caught.exception.detail["nonlinearModelAudit"]["status"], "complete")
+            execute.assert_called_once()
+
     def test_capability_error_has_a_stable_machine_readable_code(self) -> None:
         error = AnalysisCapabilityError(
             engine="yjk",

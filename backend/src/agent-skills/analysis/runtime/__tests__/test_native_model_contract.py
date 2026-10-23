@@ -23,6 +23,25 @@ def load_runtime(engine):
 
 
 class NativeModelContractTest(unittest.TestCase):
+    def test_confirmed_derived_section_audit_is_preserved_without_becoming_native_physics(self):
+        section = {"id": "S", "type": "rectangular", "shape": {"kind": "rectangular", "B": 300, "H": 600},
+                   "properties": {"A": .18, "Iy": .0054, "Iz": .00135, "J": .003707859375},
+                   "extra": {"provenance": {"shape": "user", "properties": "geometry"},
+                             "derived_properties": {"method": "section-geometry-v1", "fields": ["A", "Iy", "Iz", "J"],
+                                                    "shape": {"kind": "rectangular", "B": 300, "H": 600}},
+                             "discarded_nonuser_properties": {"J": 999}, "confirmation": {"clarificationId": "answered-question"}}}
+        before = copy.deepcopy(section)
+        self.assertEqual(pkpm_section_shape(section, "2.2.0"), {"kind": "Rectangle", "B": 300, "H": 600})
+        self.assertEqual(section, before)
+        section["extra"]["stiffness_factor"] = .5
+        self.assert_rejected(lambda: pkpm_section_shape(section), "PKPM_NATIVE_SECTION_PROPERTIES_UNVERIFIED", "sections.S.extra.stiffness_factor")
+
+    def test_unconfirmed_or_unknown_section_provenance_is_not_discarded(self):
+        for provenance in ({"shape": "llm-table"}, {"shape": "user", "J": .5}, {"properties": "geometry"}, {"shape": {"forged": True}}):
+            section = {"id": "S", "type": "rectangular", "shape": {"kind": "rectangular", "B": 300, "H": 600},
+                       "extra": {"provenance": provenance}}
+            self.assert_rejected(lambda: pkpm_section_shape(section), "PKPM_NATIVE_SECTION_PROPERTIES_UNVERIFIED", "sections.S.extra.provenance")
+
     def test_story_area_uses_each_declared_floor_not_global_bounding_box(self):
         model = {
             "nodes": [{"id": "L", "x": 8, "y": 8, "z": 3}, {"id": "S", "x": 4, "y": 4, "z": 6}],
@@ -141,6 +160,7 @@ class NativeModelContractTest(unittest.TestCase):
         model = self.model()
         model["materials"][0].update(E=30000, nu=.2, G=12000, rho=2500)
         with (patch.object(runtime, "validate_coordinate_contract"),
+              patch.object(runtime, "resolve_model_dimension", return_value="3d"),
               patch("native_member_mesh.compile_member_mesh") as mesh,
               patch.object(runtime, "_check_pkpm_available") as available):
             self.assert_rejected(lambda: runtime.run_analysis(model, {}),

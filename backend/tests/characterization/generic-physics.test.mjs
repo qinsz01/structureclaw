@@ -123,11 +123,21 @@ describeWithOpenSees('characterization: generic physical modelling', () => {
       .toMatchObject({ type: 'brace', releases: { i: { rx: true, ry: true, rz: true }, j: { ry: true }, reference_frame: 'element-local' } });
     expect(input.model.metadata.physicsCheck).toMatchObject({ valid: true, stability: { freeModes: 0 }, loadTotals: { LC1: fixture.total } });
     expect(input.model.load_cases[0].loads).toHaveLength(fixture.loadCount ?? fixture.model.load_cases[0].loads.length);
+    const archived = await ctx.backend.get(`/runs/${session.analysis.runId}`);
+    expect(archived.status).toBe(200);
+    const reactions = archived.body.results['case:LC1'].data.reactions;
     for (const [index, axis] of ['fx', 'fy', 'fz'].entries()) {
-      if (fixture.model.coordinate_system.dimension === '2d' && axis === 'fy') continue;
-      let sum = 0;
-      for (const nodeId of fixture.supports) sum += (await queryResult(ctx, turn.conversationId, { runId: session.analysis.runId, resultKey: 'case:LC1', nodeId, field: 'reactions', component: axis, unit: 'kN' })).quantity.value;
+      // Every support/component is still checked. Batch-read the immutable run instead
+      // of creating 27 successive graph checkpoints for one equilibrium assertion.
+      const sum = fixture.supports.reduce((total, nodeId) => {
+        expect(Number.isFinite(reactions[nodeId][axis])).toBe(true);
+        return total + reactions[nodeId][axis];
+      }, 0);
       expect(sum).toBeCloseTo(-fixture.total[index], 6);
+      const nodeId = fixture.supports[0];
+      const queried = await queryResult(ctx, turn.conversationId, { runId: session.analysis.runId, resultKey: 'case:LC1', nodeId,
+        field: 'reactions', component: axis, unit: 'kN' });
+      expect(queried.quantity.value).toBeCloseTo(reactions[nodeId][axis], 9);
     }
   }, TURN_TIMEOUT_MS);
   test('an invalid case ID is corrected in the same turn before any uncertain solver outcome', async () => {

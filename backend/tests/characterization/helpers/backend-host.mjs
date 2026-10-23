@@ -125,7 +125,7 @@ export async function startBackend({ llmBaseUrl, llmModel = 'characterization-sc
     const text = await response.text();
     if (response.status !== 200) throw new Error(`SSE ${url} failed: ${response.status} ${text}`);
     const events = text.split('\n').filter(line => line.startsWith('data: ') && !line.includes('[DONE]')).map(line => JSON.parse(line.slice(6)));
-    return turnFromEvents(events);
+    return { ...turnFromEvents(events), transportBytes: Buffer.byteLength(text) };
   };
 
   return {

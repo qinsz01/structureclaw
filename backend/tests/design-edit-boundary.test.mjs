@@ -4,12 +4,12 @@ import os from 'node:os';
 import path from 'node:path';
 process.env.SCLAW_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'sclaw-design-edit-'));
 const fixture = JSON.parse(fs.readFileSync(new URL('./fixtures/design-edit-boundary-20261015.json', import.meta.url), 'utf8').replace(/^\uFEFF/, ''));
+const { createEditModelTool } = await import('../dist/agent-langgraph/model-tools.js');
+const { createLocalStructureProtocolClient } = await import('../dist/services/structure-protocol-execution.js');
+const { normalizeEngineeringModel } = await import('../dist/engineering/model-boundary.js');
+const { commitModel } = await import('../dist/engineering/model-state.js');
 let edit, protocol, initial;
 beforeAll(async () => {
-  const { createEditModelTool } = await import('../dist/agent-langgraph/model-tools.js');
-  const { createLocalStructureProtocolClient } = await import('../dist/services/structure-protocol-execution.js');
-  const { normalizeEngineeringModel } = await import('../dist/engineering/model-boundary.js');
-  const { commitModel } = await import('../dist/engineering/model-state.js');
   protocol = createLocalStructureProtocolClient(); edit = createEditModelTool();
   initial = { ...commitModel({}, await normalizeEngineeringModel(fixture.model, protocol), 'initial'),
     analysisResult: { runId: 'previous' }, report: { runId: 'previous' } };

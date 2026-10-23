@@ -26,8 +26,12 @@ function host(sessionId, hold = false) {
   const messages = [];
   const waiters = [];
   let stderr = '';
+  let received = 0;
+  let lastMessage;
   child.stderr.on('data', chunk => { stderr += chunk; });
   child.on('message', message => {
+    received++;
+    lastMessage = message;
     if (waiters.length) waiters.shift().resolve(message); else messages.push(message);
   });
   child.on('exit', (code, signal) => {
@@ -36,7 +40,7 @@ function host(sessionId, hold = false) {
   return {
     child,
     next: () => messages.length ? Promise.resolve(messages.shift()) : new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error(`Host response timeout: ${stderr}`)), 15000);
+      const timer = setTimeout(() => reject(new Error(`Host response timeout: pid=${child.pid}, received=${received}, last=${JSON.stringify(lastMessage)}; ${stderr}`)), 15000);
       waiters.push({ resolve: value => { clearTimeout(timer); resolve(value); }, reject: error => { clearTimeout(timer); reject(error); } });
     }),
   };

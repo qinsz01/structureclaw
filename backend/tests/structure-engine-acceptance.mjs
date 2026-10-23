@@ -31,9 +31,15 @@ try {
   } : undefined;
   backend = await startBackend({ llmBaseUrl: llm.baseUrl, pythonBin: resolveOpenSeesPython() ?? '', nativeSettings });
   await save('references.json', structureCases);
-  await save('engines.json', await backend.get('/engines'));
-  for (const fixture of structureCases.filter(row => !args.case || row.id === args.case)) {
-    for (const engine of engines.filter(id => !args.engine || args.engine === id)) {
+  const availability = await backend.get('/engines');
+  await save('engines.json', availability);
+  const selectedEngines = engines.filter(id => (!args.engine || args.engine === id) && (!args.engines || args.engines.split(',').includes(id)));
+  for (const id of selectedEngines) {
+    const manifest = availability.body.engines.find(row => row.id === `builtin-${id.split('-')[0]}`);
+    assert.equal(manifest?.available, true, `ENGINE_UNAVAILABLE: ${id}; configure its installation paths or explicitly select another test matrix`);
+  }
+  for (const fixture of structureCases.filter(row => (!args.case || row.id === args.case) && (!args.cases || args.cases.split(',').includes(row.id)))) {
+    for (const engine of engines.filter(id => (!args.engine || args.engine === id) && (!args.engines || args.engines.split(',').includes(id)))) {
       const id = `${fixture.id}--${engine}`;
       const start = llm.requests.length;
       const prefix = `${id}-${Date.now()}`;
@@ -64,6 +70,7 @@ try {
         record.analysis = seenResult(requests, toolId('analyze'));
         record.report = seenResult(requests, toolId('report'));
         record.session = await backend.session(turn.conversationId);
+        assert.deepEqual(record.session.modeling.usedSkillIds, [fixture.skillId], 'The selected structure skill must actually be used');
         const review = await backend.inputReview(turn.conversationId);
         // Full analysis delivery occurs repeatedly in SSE; keep the saved run once below.
         // The compact trace still pins tool calls, transport errors and model publication.
@@ -93,6 +100,12 @@ try {
             for (const [index, total] of expected.entries()) assert.ok(Math.abs(totals[index] + total) < 1e-3,
               `${key}: reaction imbalance ${totals} against frozen load ${expected}`);
             record.reactionTotals[key] = totals;
+            if (key === 'case:DL' && fixture.axialDzM !== undefined) {
+              const topIds = review.model.nodes.filter(node => node.z === 3.6).map(node => node.id);
+              assert.equal(topIds.length, 4);
+              for (const nodeId of topIds) assert.ok(Math.abs(result.data.displacements[nodeId].uz - fixture.axialDzM) < 1e-9,
+                `${nodeId}: axial displacement must match the independent PL/EA reference`);
+            }
             // Also verify a saved scalar through the same review tool the browser uses, in N.
             const nodeId = Object.keys(result.data.reactions)[0];
             const reviewResult = await backend.get(`/api/v1/agent/result-review/${turn.conversationId}`);
@@ -102,13 +115,21 @@ try {
             assert.equal(queried.body.success, true, JSON.stringify(queried));
             assert.ok(Math.abs(queried.body.result.quantity.value - result.data.reactions[nodeId].fz * 1000) < .01);
           }
+          for (const check of fixture.referenceChecks ?? []) {
+            const node = review.model.nodes.find(node => node.x === check.x && node.y === 0 && node.z === 0);
+            assert.ok(node, 'The independently specified response location must exist');
+            const value = run.body.results[check.resultKey].data[check.field][node.id][check.component];
+            assert.ok(Number.isFinite(value) && Math.abs(value - check.value) < check.tolerance,
+              `Independent closed-form response mismatch: ${value} vs ${check.value}`);
+          }
           record.outcome = 'solved';
         } else {
           assert.equal(record.session.analysis?.current ?? false, false);
+          assert.equal(record.session.report?.current ?? false, false);
           assert.ok(record.failures.length > 0, 'Failure must retain its source result');
           for (const failure of record.failures) {
-            assert.ok(['ENGINE_INPUT_UNSUPPORTED', 'ENGINE_MODEL_FAMILY_UNSUPPORTED'].includes(failure.code), JSON.stringify(failure));
-            assert.equal(failure.meta.fallbackFrom, null);
+            assert.ok(['ENGINE_INPUT_UNSUPPORTED', 'ENGINE_MODEL_FAMILY_UNSUPPORTED', 'ENGINE_UNSUPPORTED'].includes(failure.code), JSON.stringify(failure));
+            assert.equal(failure.meta.fallbackFrom ?? null, null);
           }
           record.outcome = 'refused';
         }
