@@ -28,7 +28,7 @@ from pathlib import Path
 from threading import Lock
 from typing import Any, Dict
 
-from coordinate_semantics import coordinate_contract_metadata, validate_coordinate_contract
+from coordinate_semantics import coordinate_contract_metadata, validate_coordinate_contract, resolve_model_dimension
 from contracts import AnalysisCapabilityError, EngineNotAvailableError
 from pkpm_diagnostics import (
     find_pdb_version_mismatch,
@@ -692,6 +692,9 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
     validate_coordinate_contract(model)
     from native_model_contract import validate_pkpm_material_properties, validate_pkpm_sections
     model_dict = model.model_dump(mode="json", exclude_unset=True) if hasattr(model, "model_dump") else dict(model)
+    if resolve_model_dimension(model_dict) != "3d":
+        raise AnalysisCapabilityError(engine="pkpm", capability="canonical-3d-building-model",
+                                      reason="PKPM floor-model conversion requires a genuine canonical 3-D model / PKPM 楼层模型转换需要真实三维模型")
     from commercial_context import project_commercial_model, attach_native_design_context
     source_model = model_dict
     from pkpm_native_design import compile_design_request

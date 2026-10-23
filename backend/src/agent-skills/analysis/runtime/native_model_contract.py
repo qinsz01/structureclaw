@@ -180,8 +180,24 @@ def pkpm_section_shape(section: dict[str, Any], schema_version: str = "2.0.0") -
                    if value is not None and key not in legacy_geometry | native_checked]
     unsupported += [f"{prefix}.{key}" for key in ("A", "I", "Iy", "Iz", "Iyy", "Izz", "J", "Asy", "Asz")
                     if section.get(key) is not None and key not in native_checked]
-    unsupported += [f"{prefix}.extra.{key}" for key, value in (section.get("extra") or {}).items()
-                    if value is not None and key != "derived_properties"]
+    extra = section.get("extra") or {}
+    audit_fields = {"derived_properties"}
+    provenance = extra.get("provenance")
+    # These are the framework's source records, never stiffness overrides.
+    # Retain them losslessly; recalled/unrecognized provenance still fails.
+    if (isinstance(provenance, dict) and provenance
+            and set(provenance) <= {"shape", "dimensions", "properties"}
+            and all(isinstance(value, str) and value in {"user", "attachment", "rule", "geometry"} for value in provenance.values())
+            and (provenance.get("properties") != "geometry" or "derived_properties" in extra)):
+        audit_fields.add("provenance")
+        if "derived_properties" in extra and isinstance(extra.get("discarded_nonuser_properties"), dict):
+            audit_fields.add("discarded_nonuser_properties")
+        confirmation = extra.get("confirmation")
+        if (isinstance(confirmation, dict) and set(confirmation) == {"clarificationId"}
+                and isinstance(confirmation["clarificationId"], str) and confirmation["clarificationId"]):
+            audit_fields.add("confirmation")
+    unsupported += [f"{prefix}.extra.{key}" for key, value in extra.items()
+                    if value is not None and key not in audit_fields]
     if unsupported:
         reject(unsupported, "Explicit section properties have no accepted native calibration",
                "PKPM_NATIVE_SECTION_PROPERTIES_UNVERIFIED")

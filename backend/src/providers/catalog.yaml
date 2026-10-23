@@ -30,8 +30,8 @@
     zh: OpenSees 非线性分析
     en: OpenSees Nonlinear Analysis
   description:
-    zh: 使用 OpenSees 执行非线性结构分析。
-    en: OpenSees nonlinear structural analysis.
+    zh: 审查结构化非线性输入；完整构件非线性求解尚未实现，明确拒绝执行，不用线弹性或简化模型替代。
+    en: Audit structured nonlinear inputs. Full-member nonlinear execution is not implemented and fails explicitly without a linear or reduced-model substitute.
   priority: 160
   software: opensees
   analysisType: nonlinear

@@ -14,7 +14,7 @@ import httpx
 import yaml
 from fastapi import HTTPException
 
-from contracts import AnalysisResult, EngineNotAvailableError
+from contracts import AnalysisResult, AnalysisCapabilityError, EngineNotAvailableError
 from pkpm_diagnostics import (
     collect_apipyinterface_diagnostics,
     find_pdb_version_mismatch,
@@ -439,6 +439,18 @@ class AnalysisEngineRegistry:
         selection = self._select_engine_for("analyze", analysis_type, model.model_dump(mode="json", exclude_unset=True), engine_id)
         result = self._execute_analysis_selection(selection, analysis_type, model, parameters, engine_id)
 
+        payload = result.get("data") if isinstance(result.get("data"), dict) else result
+        execution = result.get("execution") or payload.get("execution")
+        if isinstance(execution, dict) and execution.get("executed") is False:
+            error = AnalysisCapabilityError(
+                engine=selection.engine["id"], capability="analysis-execution",
+                reason="Analysis did not execute / 分析未执行: " + str(execution.get("reason") or "solver capability unavailable / 求解能力尚不支持"),
+            )
+            details = payload.get("detailed") if isinstance(payload.get("detailed"), dict) else payload
+            error.meta = {**self._build_engine_meta(selection), **(result.get("meta") or {}), **error.meta, "execution": execution}
+            error.detail.update({key: details[key] for key in ("missingInputs", "missingCapabilities", "nonlinearModelAudit") if key in details})
+            raise error
+
         meta = self._build_engine_meta(selection)
         existing_meta = result.get("meta") if isinstance(result, dict) else None
         if isinstance(existing_meta, dict):
@@ -524,8 +536,7 @@ class AnalysisEngineRegistry:
         if run_fn is None:
             raise RuntimeError(f"Analysis skill runtime '{skill['id']}' is missing run_analysis()")
 
-        # Exceptions from skill run_analysis() propagate upward so that
-        # registry.run_analysis() can attempt a fallback engine before failing.
+        # Preserve the selected engine's failure; never substitute another solver.
         result: AnalysisResult = run_fn(model, parameters)
 
         if isinstance(result, dict):
