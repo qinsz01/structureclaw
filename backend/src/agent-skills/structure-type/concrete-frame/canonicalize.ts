@@ -1,4 +1,5 @@
 import { mergeDraftPatchWithSupplemental } from '../../../agent-runtime/legacy.js';
+import { isFrameFloorTotal } from '../../../skill-shared/modelling/frame-floor-cases.js';
 import type { DraftExtraction, DraftFloorLoad, EngineeringDraftLoad } from '../../../shared/types/agent.js';
 import type { ConcreteFramePatchSources } from './types.js';
 
@@ -170,7 +171,9 @@ export function canonicalizeConcreteFramePatch(input: ConcreteFramePatchSources)
     inferredType: 'frame',
   };
 
-  const shouldStripGravityFloorLoads = hasSemanticGravityLineLoads(mergedPatch);
+  const hasConfirmedDeadFloorTotals = mergedPatch.engineeringDraft?.loads?.some(load => isFrameFloorTotal(load)
+    && load.caseType !== 'live' && (load.direction === undefined || load.direction === 'gravity' || load.direction === 'globalZ'));
+  const shouldStripGravityFloorLoads = hasSemanticGravityLineLoads(mergedPatch) && !hasConfirmedDeadFloorTotals;
   const floorLoads = mergeFloorLoadsByStory(
     input.existingState?.floorLoads,
     shouldStripGravityFloorLoads ? stripDeadFloorLoadValues(mergedPatch.floorLoads) : mergedPatch.floorLoads,

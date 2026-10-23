@@ -1,5 +1,6 @@
 import { hasFrameNodalLoadInput } from '../../../../skill-shared/modelling/frame-loads.js';
 import { frameLineLoadTargets } from '../../../../skill-shared/modelling/frame-line-loads.js';
+import { frameFloorCase } from '../../../../skill-shared/modelling/frame-floor-cases.js';
 /** Frame floor, line and nodal load projection into load cases. */
 import type { DraftFloorLoad, EngineeringDraftLoad, DraftState, EngineeringDraftLoadCaseType, EngineeringDraftLoadCombination } from '../../../../shared/types/agent.js';
 import { isFrameMemberPointLoad, hasIncompleteFramePointLoadLocation } from '../../../../agent-runtime/draft/project-patch.js';
@@ -93,6 +94,11 @@ export function buildFrameLoadCaseBundle(
   lineLoads: FrameNamedLoad[],
   nodalLoads: FrameNamedLoad[],
 ): { load_cases: FrameLoadCase[]; load_combinations: EngineeringDraftLoadCombination[] } {
+  const floorCases = {
+    dead: frameFloorCase(state.engineeringDraft?.loads, 'dead'),
+    live: frameFloorCase(state.engineeringDraft?.loads, 'live'),
+    lateral: frameFloorCase(state.engineeringDraft?.loads, 'lateral'),
+  };
   const loadCases = new Map<string, FrameLoadCase>();
   const addLoadCase = (
     id: string,
@@ -102,6 +108,9 @@ export function buildFrameLoadCaseBundle(
   ): void => {
     const existing = loadCases.get(id);
     if (existing) {
+      if (existing.type !== type && existing.type !== 'other' && type !== 'other') {
+        throw new Error('FRAME_CASE_TYPE_CONFLICT: one case ID has conflicting types / 同一工况 ID 的类别冲突。');
+      }
       existing.loads.push(...loads);
       if (existing.type === 'other' && type !== 'other') existing.type = type;
       return;
@@ -110,10 +119,12 @@ export function buildFrameLoadCaseBundle(
   };
 
   if (hasDeadFloorLoads) {
-    addLoadCase('D', 'dead', [], 'Dead floor loads from stories.floor_loads');
+    const identity = floorCases.dead;
+    addLoadCase(identity.id, identity.type, [], 'Dead floor loads from stories.floor_loads');
   }
   if (hasLiveFloorLoads) {
-    addLoadCase('L', 'live', [], 'Live floor loads from stories.floor_loads');
+    const identity = floorCases.live;
+    addLoadCase(identity.id, identity.type, [], 'Live floor loads from stories.floor_loads');
   }
   for (const lineLoad of lineLoads) {
     addLoadCase(
@@ -124,15 +135,23 @@ export function buildFrameLoadCaseBundle(
     );
   }
   for (const nodalLoad of nodalLoads) {
+    const identity = nodalLoad.record.source === 'story_lateral_loads'
+      ? floorCases.lateral : undefined;
     addLoadCase(
-      nodalLoad.caseId ?? 'LAT',
-      nodalLoad.caseType ?? 'other',
+      nodalLoad.caseId ?? identity?.id ?? 'LAT',
+      nodalLoad.caseType ?? identity?.type ?? 'other',
       [nodalLoad.record],
       'Frame nodal loads',
     );
   }
   if (!loadCases.size) {
     addLoadCase('LC1', 'other', []);
+  }
+  for (const channel of ['dead', 'live'] as const) {
+    if ((channel === 'dead' ? hasDeadFloorLoads : hasLiveFloorLoads)
+      && loadCases.get(floorCases[channel].id)?.loads.length) {
+      throw new Error('FRAME_FLOOR_CASE_UNSUPPORTED: floor totals and explicit loads cannot share this case in the frame template; provide explicit member/node loads / 框架模板暂不能在同一工况中混用楼层总荷载与显式荷载；请提供逐构件或节点荷载，避免漏算。');
+    }
   }
 
   const explicitCombinations = state.engineeringDraft?.analysis?.loadCombinations;

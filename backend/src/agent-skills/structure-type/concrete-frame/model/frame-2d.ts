@@ -73,6 +73,7 @@ export function buildConcreteFrame2dLocalModel(options: {
   });
   const lineLoads = build2dConcreteBeamLineLoads(options.engineeringDraft, options.storyCount, elements);
   const loadCaseBundle = buildConcreteLoadCaseBundle(deadLoads, liveLoads, lineLoads, lateralLoads, {
+    engineeringLoads: options.engineeringDraft?.loads,
     nodalLoads: frameNodalLoads(options.engineeringDraft?.loads, nodes),
     includeWind: options.wind !== undefined,
     includeSeismic: options.siteSeismic !== undefined,

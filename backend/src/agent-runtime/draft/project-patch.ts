@@ -170,7 +170,7 @@ export function projectWindPressureToFloorLoads(
 function assignFloorLoadValue(
   floorLoadsByStory: Map<number, DraftFloorLoad>,
   story: number,
-  field: 'verticalKN' | 'lateralXKN' | 'lateralYKN',
+  field: 'verticalKN' | 'liveLoadKN' | 'lateralXKN' | 'lateralYKN',
   value: number,
 ): void {
   const current = floorLoadsByStory.get(story) ?? { story };
@@ -181,9 +181,10 @@ function assignFloorLoadValue(
   });
 }
 
-function frameFloorLoadField(load: EngineeringDraftLoad): 'verticalKN' | 'lateralXKN' | 'lateralYKN' {
+function frameFloorLoadField(load: EngineeringDraftLoad): 'verticalKN' | 'liveLoadKN' | 'lateralXKN' | 'lateralYKN' {
   if (load.direction === 'globalX') return 'lateralXKN';
   if (load.direction === 'globalY') return 'lateralYKN';
+  if (load.caseType === 'live') return 'liveLoadKN';
   return 'verticalKN';
 }
 

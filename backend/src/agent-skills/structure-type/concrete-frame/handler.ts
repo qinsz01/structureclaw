@@ -367,6 +367,8 @@ export const handler: SkillHandler = {
       const memberResults = generateMembers(memberInput);
       return buildConcreteFrameModel(state, memberResults);
     } catch (error) {
+      if (error instanceof Error && (error.message.startsWith('FRAME_FLOOR_CASE_UNSUPPORTED:')
+        || error.message.startsWith('FRAME_CASE_TYPE_CONFLICT:'))) throw error;
       console.error('buildConcreteFrameModel failed:', error);
       return undefined;
     }
