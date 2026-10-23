@@ -160,7 +160,7 @@ test('every extraction wrapper preserves removal instructions and both locales e
   for (const locale of ['zh', 'en']) {
     const prompt = buildParamExtractorPrompt(locale, original, plugin, 'Use explicit geometry, no catalog name');
     expect(prompt).toContain('clearDraftFields');
-    expect(prompt).toMatch(/omission DOES NOT delete|Omission is not deletion/);
+    expect(prompt).toMatch(/omission DOES NOT delete|omission never deletes/);
     expect(prompt).toContain('standard_steel_name');
   }
 });

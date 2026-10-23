@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test, jest } from '@jest/globals';
 import { resolveRunPolicy } from '../../../dist/runtime/run-policy.js';
 import { createRunContext, withRunContext } from '../../../dist/runtime/run-context.js';
+import { appliedLoadTotals } from '../../../dist/engineering/model-physics.js';
 import { getStructureModelTemplate } from '../../../dist/agent-skills/structure-type/generic/llm-model-prompt-fragments.js';
 import { withDeclaredProperties } from '../../../tests/fixtures/declared-template-properties.mjs';
 const llmModule = await import('../../../dist/utils/llm.js');
@@ -46,8 +47,27 @@ describe('model builder choice is independent of routing and guidance', () => {
     expect(plugin?.id).toBe('beam');
     const draft = withDeclaredProperties(plugin.handler.mergeState(undefined, plugin.handler.extractDraft({ message: '', llmDraftPatch: {
       engineeringDraft: { structureType: 'beam', geometry: { lengthM: 6 }, boundary: { supportType: 'simply-supported' },
-        loads: [{ kind: 'line', magnitude: 10, unit: 'kN/m', direction: 'gravity', target: 'beam' }] },
+        loads: ['1', '2'].map(target => ({ id: `UDL-${target}`, kind: 'line', magnitude: 10, unit: 'kN/m',
+          direction: 'gravity', target, caseId: 'LC1' })) },
     } })));
+    // Independent candidate for the same 6 m beam: two 3 m members, each at 10 kN/m.
+    const candidate = JSON.parse(getStructureModelTemplate());
+    candidate.nodes = [
+      { id: '1', x: 0, y: 0, z: 0, restraints: [true, true, true, false, false, false] },
+      { id: '2', x: 3, y: 0, z: 0 },
+      { id: '3', x: 6, y: 0, z: 0, restraints: [false, true, true, false, false, false] },
+    ];
+    candidate.elements = [
+      { id: '1', type: 'beam', nodes: ['1', '2'], material: 'MAT1', section: 'SEC1' },
+      { id: '2', type: 'beam', nodes: ['2', '3'], material: 'MAT1', section: 'SEC1' },
+    ];
+    candidate.materials = [{ id: 'MAT1', name: 'Q355', grade: 'Q355', E: 206000, nu: 0.3, rho: 7850, fy: 355 }];
+    candidate.sections = [{ id: 'SEC1', name: 'H300X200X8X12', type: 'beam', shape: { kind: 'H', H: 300, B: 200, tw: 8, tf: 12 } }];
+    candidate.load_cases = [{ id: 'LC1', type: 'other', loads: [
+      { type: 'distributed', element: '1', wz: -10 }, { type: 'distributed', element: '2', wz: -10 },
+    ] }];
+    generatedContent = JSON.stringify(candidate);
+    const originalDraft = structuredClone(draft);
     const policy = requested => resolveRunPolicy({ requested, availableSkillIds: ['beam'], availableToolIds: ['build_model'], defaultToolIds: ['build_model'] });
     const template = jest.spyOn(plugin.handler, 'buildModel');
     const before = generated;
@@ -55,12 +75,15 @@ describe('model builder choice is independent of routing and guidance', () => {
       const automatic = createRunContext(policy({ builder: 'auto' }));
       const direct = await withRunContext(automatic, () => runtime.buildModel(draft, ['beam'], { message: 'Build the specified beam', locale: 'en' }));
       expect(direct.elements.length).toBeGreaterThan(0);
+      expect(appliedLoadTotals(direct).LC1).toEqual([0, 0, -60]);
       expect(template).toHaveBeenCalledTimes(1);
       expect(generated).toBe(before);
       expect(automatic.usage.events).toContainEqual(expect.objectContaining({ kind: 'model_builder', builder: 'template', skillId: 'beam' }));
 
       const generic = createRunContext(policy({ builder: 'llm' }));
-      await withRunContext(generic, () => runtime.buildModel(draft, ['beam'], { message: 'Build the specified beam', locale: 'en' }));
+      const built = await withRunContext(generic, () => runtime.buildModel(draft, ['beam'], { message: 'Build the specified beam', locale: 'en' }));
+      expect(appliedLoadTotals(built).LC1).toEqual([0, 0, -60]);
+      expect(draft).toEqual(originalDraft);
       expect(template).toHaveBeenCalledTimes(1);
       expect(generated).toBe(before + 1);
       expect(generic.usage.events).toContainEqual(expect.objectContaining({ kind: 'model_builder', builder: 'llm', skillId: 'beam' }));

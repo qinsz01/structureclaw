@@ -221,7 +221,9 @@ describe('characterization: ablation profiles', () => {
 
     test('no-template-builder: build_model asks the LLM model builder instead of the beam template', async () => {
       const builderPrompts = [];
-      ctx.llm.setInternal(internalResponder({ 'structural-router': () => routerDecision('beam'), 'param-extractor': () => beamDraft(),
+      const explicitDraft = beamDraft();
+      explicitDraft.engineeringDraft.loads[0].target = 'LLM-N2';
+      ctx.llm.setInternal(internalResponder({ 'structural-router': () => routerDecision('beam'), 'param-extractor': () => explicitDraft,
         'internal-other': text => { builderPrompts.push(text); return llmBuiltModel; } }));
       const turn = await runTurn(ctx, { message: MESSAGE, context: { locale: 'en', runPolicy: { profile: 'no-template-builder' } } },
         [toolCall('extract_draft_params', { locale: 'en' }, 'ntb-extract'), toolCall('build_model', {}, 'ntb-build'), 'DONE_no-template-builder']);
@@ -229,6 +231,10 @@ describe('characterization: ablation profiles', () => {
       expect(turn.requests.map(request => request.kind)).toContain('internal-other');
       expect(builderPrompts.length).toBeGreaterThan(0);
       const session = await ctx.backend.session(turn.conversationId);
+      const { model } = await ctx.backend.inputReview(turn.conversationId);
+      expect(model.nodes.find(node => node.id === 'LLM-N2')).toMatchObject({ x: 3, y: 0, z: 0 });
+      expect(model.load_cases[0].loads).toHaveLength(1);
+      expect(model.load_cases[0].loads[0]).toMatchObject({ node: 'LLM-N2', fz: -10 });
       const events = ledgerFor(ctx, session.usage.runId).usage.events.filter(event => event.kind === 'model_builder');
       expect(events.map(event => event.builder)).toEqual(['llm']);
     }, TURN_TIMEOUT_MS);

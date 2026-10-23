@@ -145,7 +145,9 @@ describe('characterization: run policy and ablation surface', () => {
       expect((await ctx.backend.inputReview(auto.conversationId)).model.nodes.map(node => node.id)).toEqual(['1', '2', '3']);
 
       const builderPrompts = [];
-      ctx.llm.setInternal(internalResponder({ 'structural-router': () => routerDecision('beam'), 'param-extractor': () => beamDraft,
+      const explicitDraft = structuredClone(beamDraft);
+      explicitDraft.engineeringDraft.loads[0].target = 'LLM-N2';
+      ctx.llm.setInternal(internalResponder({ 'structural-router': () => routerDecision('beam'), 'param-extractor': () => explicitDraft,
         'internal-other': text => { builderPrompts.push(text); return llmBuiltModel; } }));
       const llmTurn = await runTurn(ctx, { message: MESSAGES.en, context: { locale: 'en', runPolicy: { builder: 'llm' } } },
         [toolCall('extract_draft_params', { locale: 'en' }, 'llm-extract'), toolCall('build_model', {}, 'llm-build'), 'LLM_BUILDER_DONE']);
@@ -156,6 +158,9 @@ describe('characterization: run policy and ablation surface', () => {
       expect(builderEvents(llmSession.usage.runId)).toMatchSnapshot('llm-builder-run-events');
       const { model } = await ctx.backend.inputReview(llmTurn.conversationId);
       expect(model?.nodes?.map(node => node.id) ?? null).toMatchSnapshot('llm-builder-model-node-ids');
+      expect(model.nodes.find(node => node.id === 'LLM-N2')).toMatchObject({ x: 3, y: 0, z: 0 });
+      expect(model.load_cases[0].loads).toHaveLength(1);
+      expect(model.load_cases[0].loads[0]).toMatchObject({ node: 'LLM-N2', fz: -10 });
     }, TURN_TIMEOUT_MS);
   });
 });

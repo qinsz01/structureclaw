@@ -9,8 +9,8 @@ describeWithOpenSees('characterization: signed loads with a stated convention', 
     ctx.llm.setInternal(internalResponder({
       'structural-router': () => routerDecision('beam'),
       'param-extractor': prompt => {
-        expect(prompt).toContain('Ask only when direction remains undetermined');
-        expect(prompt).toContain('仅在方向仍无法确定时追问');
+        expect(prompt).toContain('Ask only if the physical direction is undetermined');
+        expect(prompt).toContain('仅方向不明确时追问');
         return { requestScope: { responses: ['forces', 'reactions'], design: false, report: false, outputs: [] }, engineeringDraft: {
           structureType: 'beam', geometry: { lengthM: 6 }, boundary: { supportType: 'simply-supported' },
           loads: [{ id: 'D', caseId: 'D', caseType: 'dead', kind: 'point', magnitude: 8, unit: 'kN', direction: 'gravity', target: 'beam', location: { xM: 3 } }],

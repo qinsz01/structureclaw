@@ -17,6 +17,9 @@ const operationsFixture = {
       { id: 'P', op: 'nodal-load', selector: { coordinate: { axis: 'z', gt: 0 } }, caseId: 'LC1', vector: [10, 0, 0] },
     ] },
 };
+// Explicit extractor mapping for the two storeys and three columns in the user description.
+// These IDs follow regular-frame operation g; they are not read from its candidate output.
+const operationsUpperNodeIds = ['g:N1_0', 'g:N1_1', 'g:N1_2', 'g:N2_0', 'g:N2_1', 'g:N2_2'];
 const axialHingeFixture = structuredClone(genericFixtures[5]);
 axialHingeFixture.id = 'axial-rotational-hinge-equivalence';
 for (const member of [axialHingeFixture.model.elements, axialHingeFixture.draft.engineeringDraft.topology.members].flat()) {
@@ -67,6 +70,9 @@ describeWithOpenSees('characterization: generic physical modelling', () => {
     let builds = 0, extractions = 0;
     // Pydantic's authoritative nullable node field is a normal LLM serialization of a free joint.
     const extracted = structuredClone(fixture.draft);
+    if (fixture.id === operationsFixture.id) extracted.engineeringDraft.loads = operationsUpperNodeIds.map((target, index) => ({
+      ...fixture.draft.engineeringDraft.loads[0], id: `P${index + 1}`, target,
+    }));
     for (const node of extracted.engineeringDraft.topology?.nodes ?? []) if (!node.restraints) node.restraints = null;
     ctx.llm.setInternal(internalResponder({
       'structural-router': () => routerDecision('generic'),
@@ -101,6 +107,11 @@ describeWithOpenSees('characterization: generic physical modelling', () => {
     expect(session.modeling).toMatchObject({ usedSkillIds: ['generic'], builder: 'llm' });
     expect(builds).toBe(1);
     const input = await ctx.backend.inputReview(turn.conversationId);
+    if (fixture.id === operationsFixture.id) {
+      expect(input.model.nodes.filter(node => node.z > 0).map(node => node.id).sort()).toEqual([...operationsUpperNodeIds].sort());
+      expect(input.model.load_cases[0].loads.map(load => load.node).sort()).toEqual([...operationsUpperNodeIds].sort());
+      for (const load of input.model.load_cases[0].loads) expect(load.fx).toBe(10);
+    }
     if (fixture.id === axialAreaFixture.id) {
       const section = input.model.sections.find(section => section.id === 'AX');
       expect(section.properties).toEqual({ A: .002 }); expect(section.shape).toBeUndefined();

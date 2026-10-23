@@ -617,11 +617,11 @@ describe("param extractor", () => {
       ["loadKN"],
     );
 
-    expect(prompt).toContain("正在处理多轮澄清回答");
+    expect(prompt).toContain("提取结构工程澄清补丁");
     expect(prompt).toContain("本轮重点字段：[\"loadKN\"]");
     expect(prompt).toContain("用户最新回答");
     expect(prompt).toContain("每个上弦节点10kN");
-    expect(prompt).toContain("only newly supplied or corrected fields");
+    expect(prompt).toContain("newly supplied/corrected engineeringDraft fields");
   });
 
   test("parses direct parameter JSON and draftPatch-wrapped JSON", async () => {
@@ -702,8 +702,8 @@ test.each(['en', 'zh'])('both prompt modes forbid self-weight questions and pres
   const { buildParamExtractorPrompt } = await import('../../../dist/agent-langgraph/param-extractor.js');
   for (const patchMode of [false, true]) {
     const prompt = buildParamExtractorPrompt(locale, { inferredType: 'beam', engineeringDraft: {} }, beamPlugin, 'Q235', [], patchMode);
-    expect(prompt).toContain('If self-weight is unmentioned, do not ask');
-    expect(prompt).toContain('未提及自重时不追问');
+    expect(prompt).toContain('Unmentioned self-weight: retain the setting, default false, state the assumption; no question or issue');
+    expect(prompt).toContain('未提自重则沿用原设置、默认不计并说明，不追问');
     expect(prompt).toContain('shape ONLY');
     expect(prompt).toContain('never tool-retrieved');
     expect(prompt).toContain('不能声称工具检索');
@@ -713,7 +713,7 @@ test.each(['en', 'zh'])('both prompt modes forbid self-weight questions and pres
     expect(prompt).toContain('与shape和properties同级');
     if (patchMode) {
       expect(prompt).toContain('Never clear identity or evidence (including extra.source and extra.provenance)');
-      expect(prompt).toContain('confirmation updates provenance.shape="user"');
+      expect(prompt).toContain('Confirm dimensions via provenance.shape="user", retaining evidence');
       expect(prompt).toContain('materials:[{id,name,family,grade,E,nu,rho,extra}]');
     }
   }
