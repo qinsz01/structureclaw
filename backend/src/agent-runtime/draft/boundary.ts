@@ -1,3 +1,4 @@
+import { EngineeringValidationError } from '../../engineering/validation-error.js';
 /**
  * The draft boundary. `EngineeringDraft` is the canonical internal representation; this module is
  * the only place where outside representations are converted to and from it.
@@ -171,7 +172,7 @@ export function mergeDraftState(existing: DraftState | undefined, patch: DraftEx
 // ---------------------------------------------------------------------------
 
 const isPlainRecord = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
-const failClear = (path: string, reason: string): never => { throw new Error(`DRAFT_CLEAR_INVALID: ${path}: ${reason} / 草稿删除操作无效，原状态未变`); };
+const failClear = (path: string, reason: string): never => { throw new EngineeringValidationError(`DRAFT_CLEAR_INVALID: ${path}: ${reason} / 草稿删除操作无效，原状态未变`); };
 
 function normalizeClearDraftFields(value: unknown): string[] {
   if (!Array.isArray(value) || value.some(field => typeof field !== 'string' || !field.trim())) failClear('clearDraftFields', 'expected field paths');
@@ -445,7 +446,7 @@ export function ingestGenericDraft(
   const engineeringDraft = normalizeEngineeringDraft(source.engineeringDraft, accepted?.engineeringDraft);
   const rawLoads = asRecord(source.engineeringDraft)?.loads;
   if (Array.isArray(rawLoads) && engineeringDraft?.loads?.length !== rawLoads.length) {
-    throw new Error('INVALID_GENERIC_LOADS: every declared load must have a valid kind, magnitude and unit / 每个已声明荷载都必须具有有效类型、数值和单位，不得丢弃后继续建模');
+    throw new EngineeringValidationError('INVALID_GENERIC_LOADS: every declared load must have a valid kind, magnitude and unit / 每个已声明荷载都必须具有有效类型、数值和单位，不得丢弃后继续建模');
   }
   return {
     skillId: 'generic', structuralTypeKey: 'unknown',

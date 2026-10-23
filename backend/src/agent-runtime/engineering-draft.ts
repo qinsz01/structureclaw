@@ -1,3 +1,4 @@
+import { EngineeringValidationError } from '../engineering/validation-error.js';
 import { mergeInputEvidence } from '../engineering/input-evidence.js';
 import { isDeepStrictEqual } from 'node:util';
 import { normalizeMemberReleases } from '../engineering/member-releases.js';
@@ -47,7 +48,7 @@ function normalizeTopologyNode(value: unknown): EngineeringDraftTopologyNode | u
     ? [...raw.restraints] as boolean[]
     : undefined;
   if (raw.restraints != null && !restraints) {
-    throw new Error(`INVALID_EXPLICIT_TOPOLOGY: node '${id}' needs six boolean restraints / 节点约束必须为六个布尔值`);
+    throw new EngineeringValidationError(`INVALID_EXPLICIT_TOPOLOGY: node '${id}' needs six boolean restraints / 节点约束必须为六个布尔值`);
   }
   return { ...structuredClone(raw), id, x, y, z, restraints };
 }
@@ -90,7 +91,7 @@ function hydrateDraftRecord(value: unknown, existing: Array<Record<string, unkno
   const patch = member && input ? normalizeMemberRecordReleases(input) : input;
   if (!patch || typeof patch.id !== 'string') return value;
   const matches = existing?.filter(record => record.id === patch.id) ?? [];
-  if (matches.length > 1) throw new Error(`AMBIGUOUS_DRAFT_RECORD_ID: ${patch.id} / 无法唯一定位草稿对象`);
+  if (matches.length > 1) throw new EngineeringValidationError(`AMBIGUOUS_DRAFT_RECORD_ID: ${patch.id} / 无法唯一定位草稿对象`);
   return matches.length ? mergeDraftRecord(member ? normalizeMemberRecordReleases(matches[0]!) : matches[0]!, patch) : patch;
 }
 
@@ -105,7 +106,7 @@ function normalizeEngineeringTopology(value: unknown, existing?: EngineeringDraf
     : undefined;
   if ((Array.isArray(raw.nodes) && nodes?.length !== raw.nodes.length)
     || (Array.isArray(raw.members) && members?.length !== raw.members.length)) {
-    throw new Error('INVALID_EXPLICIT_TOPOLOGY: invalid nodes or member endpoints / 显式节点或构件端点无效，不能丢弃后继续建模');
+    throw new EngineeringValidationError('INVALID_EXPLICIT_TOPOLOGY: invalid nodes or member endpoints / 显式节点或构件端点无效，不能丢弃后继续建模');
   }
   return nodes?.length || members?.length ? { nodes, members } : undefined;
 }
@@ -120,15 +121,17 @@ function normalizeMaterialFamily(value: unknown): MaterialFamily | undefined {
 }
 
 function normalizeAnalysisType(value: unknown): AgentAnalysisType | undefined {
+  if (value === undefined) return undefined;
   const raw = normalizeString(value);
-  return raw === 'static' || raw === 'dynamic' || raw === 'seismic' || raw === 'nonlinear'
-    ? raw
-    : undefined;
+  if (raw === 'static' || raw === 'dynamic' || raw === 'seismic' || raw === 'nonlinear') return raw;
+  throw new EngineeringValidationError(`INVALID_ANALYSIS_TYPE: engineeringDraft.analysis.type=${JSON.stringify(value)}; expected static/dynamic/seismic/nonlinear / 分析类型无效，不得丢弃`);
 }
 
 function normalizeEngineTarget(value: unknown): 'opensees' | 'pkpm' | 'yjk' | undefined {
+  if (value === undefined) return undefined;
   const raw = normalizeString(value)?.toLowerCase();
-  return raw === 'opensees' || raw === 'pkpm' || raw === 'yjk' ? raw : undefined;
+  if (raw === 'opensees' || raw === 'pkpm' || raw === 'yjk') return raw;
+  throw new EngineeringValidationError(`INVALID_ANALYSIS_ENGINE: engineeringDraft.analysis.engineTarget=${JSON.stringify(value)}; expected opensees/pkpm/yjk / 分析引擎无效，不得丢弃`);
 }
 
 function normalizeWindParams(value: unknown): DraftWindParams | undefined {
@@ -177,17 +180,17 @@ function normalizeLoadUnit(value: unknown, _kind: EngineeringDraftLoadKind): Eng
   if (raw === 'n') return 'kN';
   if (raw === 'n/m') return 'kN/m';
   if (raw === 'n/m2' || raw === 'n/m^2' || raw === 'n/m²' || raw === 'kpa') return 'kN/m2';
-  throw new Error('LOAD_UNIT_REQUIRED: load units must be explicit and supported / 荷载单位必须明确且受支持');
+  throw new EngineeringValidationError('LOAD_UNIT_REQUIRED: load units must be explicit and supported / 荷载单位必须明确且受支持');
 }
 
-function normalizeLoadDirection(value: unknown): EngineeringDraftLoadDirection | undefined {
+function normalizeLoadDirection(value: unknown, path: string): EngineeringDraftLoadDirection | undefined {
   const raw = normalizeString(value)?.toLowerCase();
   if (!raw) return undefined;
   if (raw === 'gravity' || raw === 'vertical' || raw === 'downward') return 'gravity';
   if (raw === 'globalx' || raw === 'x' || raw === 'fx') return 'globalX';
   if (raw === 'globaly' || raw === 'y' || raw === 'fy') return 'globalY';
   if (raw === 'globalz' || raw === 'z' || raw === 'fz') return 'globalZ';
-  throw new Error('LOAD_DIRECTION_INVALID: declare gravity or globalX/globalY/globalZ / 荷载方向不明确');
+  throw new EngineeringValidationError(`LOAD_DIRECTION_INVALID: ${path}=${JSON.stringify(value)}; declare gravity or globalX/globalY/globalZ / 荷载方向不明确，请修正上述字段与值`);
 }
 
 function normalizeLoadCaseType(value: unknown): EngineeringDraftLoadCaseType | undefined {
@@ -216,7 +219,7 @@ function normalizeLoadLocation(value: unknown): EngineeringDraftLoad['location']
     : undefined;
 }
 
-function normalizeEngineeringLoad(value: unknown): EngineeringDraftLoad | undefined {
+function normalizeEngineeringLoad(value: unknown, path: string): EngineeringDraftLoad | undefined {
   const raw = asRecord(value);
   if (!raw) return undefined;
   const kind = normalizeLoadKind(raw.kind ?? raw.type ?? raw.loadType);
@@ -229,7 +232,7 @@ function normalizeEngineeringLoad(value: unknown): EngineeringDraftLoad | undefi
     kind,
     magnitude: magnitude * forceScale,
     unit: normalizeLoadUnit(raw.unit, kind),
-    direction: normalizeLoadDirection(raw.direction ?? raw.axis),
+    direction: normalizeLoadDirection(raw.direction ?? raw.axis, `${path}.direction`),
     target: normalizeString(raw.target),
     location: normalizeLoadLocation(raw.location),
     caseId: normalizeString(raw.caseId ?? raw.loadCaseId),
@@ -237,18 +240,24 @@ function normalizeEngineeringLoad(value: unknown): EngineeringDraftLoad | undefi
   };
 }
 
-function normalizeLoadCombination(value: unknown): EngineeringDraftLoadCombination | undefined {
+function normalizeLoadCombination(value: unknown, index: number): EngineeringDraftLoadCombination {
+  const path = `engineeringDraft.analysis.loadCombinations[${index}]`;
   const raw = asRecord(value);
   const id = normalizeString(raw?.id);
   const rawFactors = asRecord(raw?.factors);
-  if (!id || !rawFactors) return undefined;
-  const factors: Record<string, number> = {};
+  if (!id || !rawFactors || !Object.keys(rawFactors).length) {
+    throw new EngineeringValidationError(`INVALID_LOAD_COMBINATION: ${path} must be {id:string,factors:{loadCaseId:number}} with nonempty factors, never a formula string / 荷载组合须为含ID和非空工况系数映射的对象，不能使用公式字符串或丢弃`);
+  }
+  const factors: Record<string, number> = Object.create(null);
   for (const [rawCaseId, rawFactor] of Object.entries(rawFactors)) {
     const caseId = rawCaseId.trim();
     const factor = finiteNumber(rawFactor);
-    if (caseId && factor !== undefined) factors[caseId] = factor;
+    if (!caseId || factor === undefined || Object.hasOwn(factors, caseId)) {
+      throw new EngineeringValidationError(`INVALID_LOAD_COMBINATION: ${path}.factors[${JSON.stringify(rawCaseId)}]=${JSON.stringify(rawFactor)}; expected unique nonempty case IDs and finite factors / 工况ID须非空且唯一，组合系数须为有限数值，不得丢弃或覆盖`);
+    }
+    factors[caseId] = factor;
   }
-  return Object.keys(factors).length ? { id, factors } : undefined;
+  return { id, factors };
 }
 
 function normalizeMezzanineHeight(rawGeometry: Record<string, unknown>): number | undefined {
@@ -335,31 +344,35 @@ export function normalizeEngineeringDraft(value: unknown, existing?: Engineering
   } : undefined;
 
   const loads = Array.isArray(raw.loads)
-    ? raw.loads.map(item => normalizeEngineeringLoad(hydrateDraftRecord(item, existing?.loads?.map(load => ({ ...load }))))).filter((load): load is EngineeringDraftLoad => load !== undefined)
+    ? raw.loads.map((item, index) => normalizeEngineeringLoad(hydrateDraftRecord(item, existing?.loads?.map(load => ({ ...load }))), `engineeringDraft.loads[${index}]`)).filter((load): load is EngineeringDraftLoad => load !== undefined)
     : undefined;
   if (raw.loads !== undefined && (!Array.isArray(raw.loads) || raw.loads.length !== loads?.length)) {
-    throw new Error('INVALID_ENGINEERING_LOAD: every load needs supported type, finite signed magnitude and explicit unit / 每条荷载需有效类型、带符号有限数值及单位');
+    throw new EngineeringValidationError('INVALID_ENGINEERING_LOAD: every load needs supported type, finite signed magnitude and explicit unit / 每条荷载需有效类型、带符号有限数值及单位');
   }
 
   const rawAnalysis = asRecord(raw.analysis);
+  if (raw.analysis !== undefined && !rawAnalysis) {
+    throw new EngineeringValidationError('INVALID_ANALYSIS: engineeringDraft.analysis must be an object / 分析设置须为对象，不得丢弃');
+  }
+  if (rawAnalysis?.loadCombinations !== undefined && !Array.isArray(rawAnalysis.loadCombinations)) {
+    throw new EngineeringValidationError('INVALID_LOAD_COMBINATION: engineeringDraft.analysis.loadCombinations must be an array of {id,factors} objects / 荷载组合须为对象数组，不得丢弃');
+  }
   const analysis = rawAnalysis ? {
     type: normalizeAnalysisType(rawAnalysis.type),
     engineTarget: normalizeEngineTarget(rawAnalysis.engineTarget),
     loadCombinations: Array.isArray(rawAnalysis.loadCombinations)
-      ? rawAnalysis.loadCombinations
-        .map(normalizeLoadCombination)
-        .filter((combination): combination is EngineeringDraftLoadCombination => combination !== undefined)
+      ? rawAnalysis.loadCombinations.map(normalizeLoadCombination)
       : undefined,
   } : undefined;
 
   const wind = normalizeWindParams(raw.wind ?? raw.windParams);
   const analysisControl = raw.analysisControl;
   if (analysisControl !== undefined && !asRecord(analysisControl)) {
-    throw new Error('INVALID_ANALYSIS_CONTROL: object required / 分析控制必须是对象');
+    throw new EngineeringValidationError('INVALID_ANALYSIS_CONTROL: object required / 分析控制必须是对象');
   }
 
   if (raw.coordinateSystem !== undefined && !asRecord(raw.coordinateSystem)) {
-    throw new Error('INVALID_COORDINATE_SYSTEM: object required / 坐标定义必须是对象');
+    throw new EngineeringValidationError('INVALID_COORDINATE_SYSTEM: object required / 坐标定义必须是对象');
   }
   const draft: EngineeringDraft = {
     structureType: normalizeString(raw.structureType) as EngineeringDraft['structureType'],
@@ -394,7 +407,7 @@ export function normalizeEngineeringDraft(value: unknown, existing?: Engineering
 function normalizeTemplateAssignments(value: unknown): EngineeringDraft['templateAssignments'] {
   if (value === undefined || value === null) return undefined;
   const mappings = asRecord(value);
-  if (!mappings) throw new Error('INVALID_TEMPLATE_ASSIGNMENTS: object required / 请提供构件角色属性映射');
+  if (!mappings) throw new EngineeringValidationError('INVALID_TEMPLATE_ASSIGNMENTS: object required / 请提供构件角色属性映射');
   const normalized: NonNullable<EngineeringDraft['templateAssignments']> = {};
   for (const [role, raw] of Object.entries(mappings)) {
     if (['beam', 'column', 'member'].includes(role) && raw == null) continue;
@@ -403,7 +416,7 @@ function normalizeTemplateAssignments(value: unknown): EngineeringDraft['templat
       || Object.keys(entry).some(key => !['materialId', 'sectionId', 'design'].includes(key))
       || entry.design !== undefined && !asRecord(entry.design)
       || ['materialId', 'sectionId'].some(key => entry[key] != null && typeof entry[key] !== 'string')) {
-      throw new Error(`INVALID_TEMPLATE_ASSIGNMENTS: ${role} requires supplied materialId/sectionId strings and an optional design object / 角色映射只接受明确的材料、截面ID及设计输入对象`);
+      throw new EngineeringValidationError(`INVALID_TEMPLATE_ASSIGNMENTS: ${role} requires supplied materialId/sectionId strings and an optional design object / 角色映射只接受明确的材料、截面ID及设计输入对象`);
     }
     const materialId = normalizeString(entry.materialId), sectionId = normalizeString(entry.sectionId);
     if (materialId || sectionId || entry.design !== undefined) normalized[role as keyof typeof normalized] = {
@@ -428,7 +441,7 @@ export function projectDraftMaterialDesign(model: Record<string, unknown>, draft
   const sources = (draft?.materials ?? []).filter(material => material.design !== undefined);
   if (!sources.length) return model;
   if (!Array.isArray(model.materials) || model.materials.some(material => !asRecord(material))) {
-    throw new Error('DRAFT_MATERIAL_DESIGN_TARGET_UNRESOLVED / 材料设计输入需要明确的模型材料');
+    throw new EngineeringValidationError('DRAFT_MATERIAL_DESIGN_TARGET_UNRESOLVED / 材料设计输入需要明确的模型材料');
   }
   const materials = structuredClone(model.materials) as Array<Record<string, unknown>>;
   const mapped = new Set<Record<string, unknown>>();
@@ -436,9 +449,9 @@ export function projectDraftMaterialDesign(model: Record<string, unknown>, draft
     const matches = materials.filter(material => material.id === source.id);
     const target = matches.length === 1 ? matches[0]
       : !matches.length && draft?.materials?.length === 1 && materials.length === 1 ? materials[0] : undefined;
-    if (!target || mapped.has(target)) throw new Error(`DRAFT_MATERIAL_DESIGN_TARGET_UNRESOLVED: ${source.id} / 无法唯一对应已确认材料的设计输入`);
+    if (!target || mapped.has(target)) throw new EngineeringValidationError(`DRAFT_MATERIAL_DESIGN_TARGET_UNRESOLVED: ${source.id} / 无法唯一对应已确认材料的设计输入`);
     if (!asRecord(source.design) || target.design != null && !asRecord(target.design)) {
-      throw new Error(`INVALID_MATERIAL_DESIGN: ${source.id} / 材料设计输入必须是对象`);
+      throw new EngineeringValidationError(`INVALID_MATERIAL_DESIGN: ${source.id} / 材料设计输入必须是对象`);
     }
     target.design = mergeDraftRecord(asRecord(target.design) ?? {}, source.design as Record<string, unknown>);
     mapped.add(target);
@@ -453,21 +466,21 @@ export function applyDraftTemplateDesign(model: Record<string, unknown>, draft: 
     .map(([role]) => role);
   if (!declaredRoles.length) return model;
   if (!Array.isArray(model.elements) || model.elements.some(element => !asRecord(element))) {
-    throw new Error('TEMPLATE_DESIGN_TARGET_UNRESOLVED: model elements are required / 构件设计输入需要明确的模型构件');
+    throw new EngineeringValidationError('TEMPLATE_DESIGN_TARGET_UNRESOLVED: model elements are required / 构件设计输入需要明确的模型构件');
   }
   const roleOf = (element: Record<string, unknown>) => element.type === 'column' ? 'column'
     : element.type === 'beam' ? 'beam' : 'member';
   const elements = model.elements as Array<Record<string, unknown>>;
   for (const role of declaredRoles) {
     if (role !== 'member' && !elements.some(element => roleOf(element) === role)) {
-      throw new Error(`TEMPLATE_DESIGN_TARGET_UNRESOLVED: ${role} / 所声明设计条件的构件角色在模型中不存在，不能丢弃或改用于其他构件`);
+      throw new EngineeringValidationError(`TEMPLATE_DESIGN_TARGET_UNRESOLVED: ${role} / 所声明设计条件的构件角色在模型中不存在，不能丢弃或改用于其他构件`);
     }
   }
   return { ...model, elements: elements.map(element => {
     const design = resolveDraftTemplateAssignment(draft, roleOf(element))?.design;
     if (design === undefined) return element;
     if (!asRecord(design) || element.design != null && !asRecord(element.design)) {
-      throw new Error(`INVALID_TEMPLATE_DESIGN: ${element.id} requires an object / 构件设计输入必须是对象`);
+      throw new EngineeringValidationError(`INVALID_TEMPLATE_DESIGN: ${element.id} requires an object / 构件设计输入必须是对象`);
     }
     return { ...element, design: mergeDraftRecord(asRecord(element.design) ?? {}, design) };
   }) };
@@ -476,7 +489,7 @@ export function applyDraftTemplateDesign(model: Record<string, unknown>, draft: 
 function normalizeRecordArray(value: unknown, label: string): Array<Record<string, unknown>> | undefined {
   if (value === undefined) return undefined;
   if (!Array.isArray(value) || value.some((item) => !asRecord(item))) {
-    throw new Error(`INVALID_EXPLICIT_MODEL: ${label} must contain complete records / 必须提供完整对象记录`);
+    throw new EngineeringValidationError(`INVALID_EXPLICIT_MODEL: ${label} must contain complete records / 必须提供完整对象记录`);
   }
   return structuredClone(value) as Array<Record<string, unknown>>;
 }
@@ -493,7 +506,7 @@ function mergeDraftRecord(existing: Record<string, unknown>, patch: Record<strin
   const merged = structuredClone(existing);
   for (const [key, value] of Object.entries(patch)) {
     if (value === undefined) continue;
-    if (['__proto__', 'constructor', 'prototype'].includes(key)) throw new Error('DRAFT_INVALID_FIELD / 草稿字段无效');
+    if (['__proto__', 'constructor', 'prototype'].includes(key)) throw new EngineeringValidationError('DRAFT_INVALID_FIELD / 草稿字段无效');
     const before = asRecord(merged[key]);
     const after = asRecord(value);
     const idRecords = Array.isArray(value) && value.length > 0
@@ -513,10 +526,10 @@ function mergeDraftPropertyRecords(existing: Array<Record<string, unknown>> | un
   const seen = new Set<string>();
   for (const record of patch) {
     const id = typeof record.id === 'string' ? record.id : undefined;
-    if (id && seen.has(id)) throw new Error(`DUPLICATE_DRAFT_RECORD_ID: ${id} / 草稿属性记录 ID 重复`);
+    if (id && seen.has(id)) throw new EngineeringValidationError(`DUPLICATE_DRAFT_RECORD_ID: ${id} / 草稿属性记录 ID 重复`);
     if (id) seen.add(id);
     const matches = id ? updated.flatMap((item, index) => item.id === id ? [index] : []) : [];
-    if (matches.length > 1) throw new Error(`AMBIGUOUS_DRAFT_RECORD_ID: ${id} / 无法唯一定位草稿属性记录`);
+    if (matches.length > 1) throw new EngineeringValidationError(`AMBIGUOUS_DRAFT_RECORD_ID: ${id} / 无法唯一定位草稿属性记录`);
     const index = matches[0];
     if (index === undefined) { updated.push(structuredClone(record)); continue; }
     updated[index] = mergeDraftRecord(updated[index]!, record);
@@ -587,7 +600,7 @@ function mergeAnalysisControl(existing: Record<string, unknown> | undefined, pat
     if (asRecord(before) && asRecord(value)) merged[key] = mergeAnalysisControl(asRecord(before), asRecord(value), rejectConflicts, `${field}.${key}`);
     else {
       if (rejectConflicts && before !== undefined && !isDeepStrictEqual(before, value)) {
-        throw new Error(`ANALYSIS_CONTROL_CONFLICT: ${field}.${key} / 显式模型与草稿的分析控制冲突`);
+        throw new EngineeringValidationError(`ANALYSIS_CONTROL_CONFLICT: ${field}.${key} / 显式模型与草稿的分析控制冲突`);
       }
       merged[key] = structuredClone(value);
     }
@@ -600,7 +613,7 @@ export function applyDraftAnalysisControl(model: Record<string, unknown>, draft:
   preserveExplicitModel = false): Record<string, unknown> {
   if (draft?.analysisControl === undefined) return model;
   if (!asRecord(draft.analysisControl) || (model.analysis_control != null && !asRecord(model.analysis_control))) {
-    throw new Error('INVALID_ANALYSIS_CONTROL: object required / 分析控制必须是对象');
+    throw new EngineeringValidationError('INVALID_ANALYSIS_CONTROL: object required / 分析控制必须是对象');
   }
   return { ...model, analysis_control: mergeAnalysisControl(asRecord(model.analysis_control), draft.analysisControl, preserveExplicitModel) };
 }

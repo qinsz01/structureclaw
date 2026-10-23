@@ -1,3 +1,4 @@
+import { EngineeringValidationError } from '../../engineering/validation-error.js';
 import { normalizeFrameBoundary } from './legacy-fields.js';
 import { isGlobalFrameNodeRole, isFrameFloorTarget, resolveFrameLoadStory, isAllFrameStoriesTarget } from '../../skill-shared/modelling/frame-loads.js';
 /**
@@ -49,7 +50,7 @@ function portalTarget(load: EngineeringDraftLoad, exactIds: Set<string>): 'roof'
   if (isLineLoad(load) && !target && load.location?.spanIndex !== undefined) return undefined;
   const selected = target && Object.hasOwn(PORTAL_TARGETS, target) ? PORTAL_TARGETS[target]
     : !target && role && Object.hasOwn(PORTAL_TARGETS, role) ? PORTAL_TARGETS[role] : undefined;
-  if (!selected) throw new Error('MODEL_EDIT_FIELD_INVALID: loads.target: specify roof, mezzanine or crane explicitly / 请明确门式刚架荷载的结构化目标，不得按文字或默认值推断。');
+  if (!selected) throw new EngineeringValidationError('MODEL_EDIT_FIELD_INVALID: loads.target: specify roof, mezzanine or crane explicitly / 请明确门式刚架荷载的结构化目标，不得按文字或默认值推断。');
   return selected;
 }
 
@@ -224,7 +225,7 @@ function projectFrameFloorLoads(loads: EngineeringDraftLoad[], patch: DraftExtra
       stories = [explicitStory];
     } else if (isAllFrameStoriesTarget(load.target)) {
       stories = Array.from({ length: storyCount }, (_, storyIndex) => storyIndex + 1);
-    } else throw new Error('MODEL_EDIT_FIELD_INVALID: loads.location.story: specify a story or an explicit all-stories target / 缺少荷载楼层选择器；不得按文字、数组顺序或默认全楼分配。');
+    } else throw new EngineeringValidationError('MODEL_EDIT_FIELD_INVALID: loads.location.story: specify a story or an explicit all-stories target / 缺少荷载楼层选择器；不得按文字、数组顺序或默认全楼分配。');
 
     for (const story of stories) {
       assignFloorLoadValue(floorLoadsByStory, story, field, Number((load.direction === 'globalZ' ? -totalKN : totalKN).toFixed(6)));
@@ -293,7 +294,7 @@ export function projectDraftPatch(
   const dimension = engineeringDraft.coordinateSystem?.dimension;
   if (dimension !== undefined) {
     if (!['2d', '3d'].includes(String(dimension)) || next.frameDimension && next.frameDimension !== dimension) {
-      throw new Error('COORDINATE_DIMENSION_CONFLICT: coordinateSystem.dimension / 分析维度无效或与旧字段冲突');
+      throw new EngineeringValidationError('COORDINATE_DIMENSION_CONFLICT: coordinateSystem.dimension / 分析维度无效或与旧字段冲突');
     }
     next.frameDimension = dimension as FrameDimension;
   }
@@ -419,7 +420,7 @@ export function projectDraftPatch(
           return [];
         }
         if (!['column-top', 'top-node', 'top-nodes', 'top', '2', 'end'].includes(target)) {
-          throw new Error('MODEL_EDIT_FIELD_INVALID: loads.target: the column template requires an explicit column-top target / 单柱模板要求明确column-top荷载目标，不能从文字猜测或丢弃定位信息。');
+          throw new EngineeringValidationError('MODEL_EDIT_FIELD_INVALID: loads.target: the column template requires an explicit column-top target / 单柱模板要求明确column-top荷载目标，不能从文字猜测或丢弃定位信息。');
         }
         return [signedNodalComponent(load)];
       });

@@ -2,7 +2,7 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import type { ValidateFunction } from 'ajv';
 import generatedModelSchema from './structure-model-v2.schema.json' with { type: 'json' };
 
-export const LOAD_DIRECTION_RULE = 'Interpret signed loads using the stated coordinate or direction convention. When it determines the direction, preserve signed canonical components, or use a nonnegative magnitude with the corresponding direction in magnitude/direction fields. Ask only when direction remains undetermined. / 按已声明的坐标或方向约定解释荷载正负号；方向已确定时保留规范分量的符号，或在大小/方向字段中使用非负大小与对应方向。仅在方向仍无法确定时追问。';
+export const LOAD_DIRECTION_RULE = 'In engineeringDraft.loads, direction is exactly gravity, globalX, globalY or globalZ. Global-axis magnitude is signed; gravity is positive downward, negative upward. Put the sign in magnitude, never in the direction enum. Downward 27 kN/m uses magnitude:27,direction:"gravity", or magnitude:-27,direction:"globalZ" with Z up. Preserve signed loadCases components. Ask only if the physical direction is undetermined. / direction只用gravity、globalX、globalY、globalZ；全局轴magnitude有符号，gravity正值向下、负值向上。负号不能拼入方向枚举。Z轴向上时，向下27kN/m写gravity与27或globalZ与-27。loadCases保留分量符号，仅方向不明确时追问。';
 
 // Generated from StructureModelV2, never maintained separately by hand.
 export type FieldSchema = Record<string, any>;
@@ -32,11 +32,11 @@ export const draftContract: FieldSchema = { ...object({
   boundary: object({ supportType: choice('cantilever', 'simply-supported', 'fixed-fixed', 'fixed-pinned'),
     frameBaseSupportType: choice('fixed', 'pinned'), supportPositionsM: array({ type: 'number', minimum: 0 }) }),
   loads: array(object({ id: string, kind: choice('point', 'line', 'area', 'nodal', 'distributed'),
-    magnitude: { type: 'number', minimum: 0 }, unit: choice('kN', 'kN/m', 'kN/m2'),
+    magnitude: { type: 'number', description: 'Signed component for globalX/globalY/globalZ; gravity is positive downward and negative upward.' }, unit: choice('kN', 'kN/m', 'kN/m2'),
     direction: choice('gravity', 'globalX', 'globalY', 'globalZ'), target: { ...string,
-      description: 'Use an exact node/member ID or a canonical target, never natural-language prose. Frame floor totals: location.story with target="floor", or explicit all-stories/all-floors. Frame beam loads: location.story and optional spanIndex, with beam/all-beams/x-beams/y-beams; no story means all-beams must explicitly mean every story. Portal loads: roof/mezzanine/crane. Column top loads: column-top. Missing selectors remain missing; do not infer floors from record order or assign all floors by default. / 仅使用准确节点/构件ID或结构化目标，不能写自然语言描述。框架楼层总荷载用location.story及target="floor"，全楼需明确all-stories/all-floors；梁荷载用location.story、可选spanIndex与beam/all-beams/x-beams/y-beams。门刚荷载用roof/mezzanine/crane，柱顶荷载用column-top。缺少目标应保留缺项，不按数组顺序或默认全楼分配。' },
+      description: 'Exact node/member ID or canonical selector only. Frame floor totals: target="floor"+location.story, or explicit all-stories/all-floors. Beam loads: beam/all-beams/x-beams/y-beams+location.story, optional spanIndex; omit story only when all-beams explicitly covers every story. Portal: roof/mezzanine/crane. Column: column-top. Missing selectors stay missing; no prose, record-order mapping or default all-floor allocation. / 仅用准确ID或上述选择器；楼层总荷载与梁荷载须区分，spanIndex可选；缺目标不得按文字、数组顺序或默认全楼补齐。' },
     location: object({ xM: number, spanIndex: integer, story: integer, nodeRole: { ...string,
-      description: 'Frame node selectors: all-non-base-nodes (all above the base), all-top-nodes (roof only), all plus one-based story, or node-xIyJ plus story (zero-based X/Y grid indices). 2D only: left-side/right-side/middle plus story. Each selected node receives magnitude; target may instead be an exact node ID. / 框架节点选择：all-non-base-nodes为全部非底部节点，all-top-nodes为顶层全部节点，all加从1开始的story为整层节点，node-xIyJ加story按从0开始的X/Y轴网索引定位。仅二维可用left-side/right-side/middle加story。每个选中节点各施加magnitude，或用target给准确节点ID。' } }),
+      description: 'Frame nodes: all-non-base-nodes=above base; all-top-nodes=roof only; all+story=whole floor; node-xIyJ+story=zero-based X/Y grid node. story is one-based. 2D only: left-side/right-side/middle+story. EACH selected node receives magnitude; target may be an exact node ID. / story从1起、X/Y索引从0起；非底部全部节点与仅屋面须区分；左右/中间仅二维；magnitude为每节点值，也可target准确ID。' } }),
     caseId: string, caseType: choice('dead', 'live', 'wind', 'seismic', 'other') })),
   analysis: object({ type: choice('static', 'dynamic', 'seismic', 'nonlinear'), engineTarget: choice('opensees', 'pkpm', 'yjk'),
     loadCombinations: modelContract.properties.load_combinations }),

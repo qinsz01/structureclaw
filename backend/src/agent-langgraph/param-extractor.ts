@@ -21,11 +21,12 @@ import { llmContentText } from '../utils/llm-content.js';
 import { draftContract, promptContract, LOAD_DIRECTION_RULE } from '../engineering/draft-contract.js';
 import { currentDraftDiagnostics } from '../agent-runtime/draft-diagnostics.js';
 import { SECTION_EVIDENCE_RULE } from '../engineering/section-evidence.js';
+import { EngineeringValidationError } from '../engineering/validation-error.js';
 
 // ---------------------------------------------------------------------------
 // Skill context
 const SECTION_SOURCE_RULE = 'Section source / 截面来源: Explicit USER properties win. User dimensions alone mean shape ONLY; the SYSTEM derives sharp-corner properties. A designation without complete dimensions or explicit properties needs ONE dimension clarification, combined with other missing inputs. Assistant-recalled values are optional candidates ONLY: extra.provenance.shape/properties="llm-table", extra.source="LLM: assistant-recalled table value, please verify". They are assistant recall, never tool-retrieved, and NOT computable before the user confirms. Only an actual user answer/selected option may change confirmed dimensions to extra.provenance.shape="user"; omit recalled properties and let the system derive them. Do not infer confirmation from a designation, silence, or an assistant message. Provenance belongs in sectionRecords[].extra, alongside shape and properties, never inside shape. Preserve stable sectionRecords IDs and templateAssignments. When introducing or confirming section records, also emit the already stated role assignments: templateAssignments.beam.sectionId and templateAssignments.column.sectionId (or member for an explicitly uniform section). A column/beam label in the accepted proposal already establishes that assignment; never ask for it again. / 用户显式属性优先；仅给尺寸时只填shape，由系统按尖角几何计算。仅型号、无完整尺寸及显式属性时，须将尺寸与其他缺项合并询问一次。助手记忆值只能作为候选，shape/properties来源标记llm-table，source注明“助手记忆的标准表值，请核对”，均为助手记忆，不能声称工具检索，确认前不能计算。只有用户实际答复或选中候选后，已确认尺寸才标记来源user，省略记忆属性，由系统推导；型号、沉默和助手消息都不是确认。来源写在sectionRecords[].extra，与shape和properties同级，不得嵌入shape。保留截面ID与模板引用。新增或确认截面记录时，同时填写已说明的templateAssignments.beam.sectionId和column.sectionId（明确统一截面才用member）。已接受建议中的梁、柱标签已明确分配，不得再询问。';
-const MATERIAL_WEIGHT_RULE = 'Known material grades receive omitted elastic constants and density from system defaults; preserve explicit overrides. If self-weight is unmentioned, do not ask or emit an issue: retain the existing setting, default false, and state this assumption in the answer. / 已知牌号由系统补缺省弹性常数和密度，用户显式值优先。未提及自重时不追问、不报缺项，沿用原设置，默认不计自重，并在回答中说明。';
+const MATERIAL_WEIGHT_RULE = 'Known grades receive omitted elastic constants and density from system defaults; explicit values win. Unmentioned self-weight: retain the setting, default false, state the assumption; no question or issue. Reinforcement grades used only for design belong in material.rebarGrade, not materials records. Explicitly modelled reinforcing members still require analysis material records and properties. / 已知牌号补缺省弹性常数和密度，显式值优先。未提自重则沿用原设置、默认不计并说明，不追问。仅用于设计验算的钢筋牌号写material.rebarGrade，不创建分析材料记录；显式建模的钢筋构件仍须材料记录与分析属性。';
 
 // ---------------------------------------------------------------------------
 
@@ -173,9 +174,9 @@ export function buildParamExtractorPrompt(
   plugin: AgentSkillPlugin,
   message: string,
   focusFields: string[] = [],
-  patchMode = Boolean(existingState?.engineeringDraft),
+  patchMode = Boolean(existingState?.engineeringDraft) || focusFields.length > 0,
 ): string {
-  if (patchMode || focusFields.length > 0) {
+  if (patchMode) {
     return buildFocusedParamExtractorPrompt(locale, existingState, plugin, message, focusFields);
   }
 
@@ -277,19 +278,22 @@ function buildFocusedParamExtractorPrompt(
   message: string,
   focusFields: string[],
 ): string {
+  const loadFields = draftContract.properties.loads.items.properties;
   const state = existingState?.engineeringDraft
     ? { inferredType: existingState.inferredType, requestScope: existingState.requestScope,
       engineeringDraft: cleanPromptState(existingState.engineeringDraft) }
     : cleanPromptState(existingState);
   return [
-    locale === 'zh' ? '你是结构工程参数提取专家，正在处理多轮澄清回答。' : 'You are a structural engineering parameter extraction specialist handling a multi-turn clarification answer.',
-    'PATCH ONLY / 仅输出补丁: Return one JSON object containing only newly supplied or corrected fields in engineeringDraft; keep requestScope unchanged unless the user changes the goal. No markdown, examples, reasoning or unchanged records. The system merges nested objects and arrays by stable ID. Preserve exact existing IDs and unrelated fields; do not repeat old draftIssues. / 系统按稳定ID合并，保留未变字段，不重复旧缺项。',
-    'Output schema: {type:object,additionalProperties:false,properties:{engineeringDraft:{type:object},clearDraftFields:{type:array,items:{type:string}},draftIssues:{type:array},requestScope:{type:object},skillState:{type:object},unapplied:{type:array,items:{type:object}}}}. Omit unchanged fields and empty diagnostics. Never repeat the existing draft.',
-    `Fields: engineeringDraft={coordinateSystem:{dimension:"2d"|"3d"},material:{family,grade},materials:[{id,name,family,grade,E,nu,rho,extra}],sectionRecords:[{id,name,type,shape,properties,extra}],templateAssignments:{beam|column|member:{materialId,sectionId,design}},geometry:{${Object.keys(draftContract.properties.geometry.properties).join(',')}},boundary:{supportType,frameBaseSupportType,supportPositionsM},topology:{nodes,members},loadCases:V2_load_cases,loads:[{id,kind,magnitude,unit,direction,target,location:{${Object.keys(draftContract.properties.loads.items.properties.location.properties).join(',')}},caseId,caseType}],analysisControl:V2_analysis_control,analysis:{type,engineTarget,loadCombinations},metadata:{geometryDescription,supportDescription,zeroLoads}}. Geometry m; loads kN,kN/m,kN/m2; E MPa; shape mm; A m²; Iy/Iz/J m⁴. Shape kinds: I,H,rectangular,circular,pipe,box; dimensions: H,B,tw,tf,d,T. Rectangular B=width,H=depth. Frame geometry: bayWidthsM is 2-D; bayWidthsXM and bayWidthsYM are the 3-D X and Y grids; storyHeightsM lists every storey. Load kinds: ${draftContract.properties.loads.items.properties.kind.enum.join(',')}. Preserve every supplied load and its node/member/storey target. Beam supports: simply-supported,cantilever,fixed-fixed; frame/portal bases: boundary.frameBaseSupportType=fixed|pinned. / 三维X/Y网格分别写bayWidthsXM/bayWidthsYM，逐层高度写storyHeightsM；保留全部荷载、方向及节点/构件/楼层目标。`,
+    locale === 'zh' ? '提取结构工程澄清补丁。' : 'Extract a structural engineering clarification patch.',
+    'PATCH ONLY / 仅输出补丁: One JSON object of newly supplied/corrected engineeringDraft fields; requestScope changes only with the user goal. No markdown, reasoning or unchanged records. The system merges nested objects and arrays by stable ID. Preserve exact existing IDs and unrelated fields; omit old draftIssues. / 按稳定ID合并，仅输出本轮改动。',
+    'Output keys (no others): engineeringDraft/requestScope/skillState objects; clearDraftFields:string[]; draftIssues/unapplied:object[]. Omit empty diagnostics.',
+    `Fields: engineeringDraft={coordinateSystem:{dimension:"2d"|"3d"},material:{${Object.keys(draftContract.properties.material.properties).join(',')}},materials:[{id,name,family,grade,E,nu,rho,extra}],sectionRecords:[{id,name,type,shape,properties,extra}],templateAssignments:{beam|column|member:{materialId,sectionId,design}},geometry:{${Object.keys(draftContract.properties.geometry.properties).join(',')}},boundary:{supportType,frameBaseSupportType,supportPositionsM},topology:{nodes,members},loadCases:V2_load_cases,loads:[{id,kind,magnitude,unit,direction,target,location:{${Object.keys(draftContract.properties.loads.items.properties.location.properties).join(',')}},caseId,caseType}],analysisControl:V2_analysis_control,analysis:{type:${draftContract.properties.analysis.properties.type.enum.join("|")},engineTarget:${draftContract.properties.analysis.properties.engineTarget.enum.join("|")},loadCombinations:[{id:string,factors:{loadCaseId:number}}]},metadata:{geometryDescription,supportDescription,zeroLoads}}. Geometry m; loads kN,kN/m,kN/m2; E MPa; shape mm; A m²; Iy/Iz/J m⁴. Shape kinds: I,H,rectangular,circular,pipe,box; dimensions: H,B,tw,tf,d,T. Rectangular B=width,H=depth. Grids: bayWidthsM=2D, bayWidthsXM/YM=3D X/Y; storyHeightsM=all storeys. Load kinds: ${draftContract.properties.loads.items.properties.kind.enum.join(',')}. Beam supports: simply-supported,cantilever,fixed-fixed; frame/portal bases: boundary.frameBaseSupportType=fixed|pinned. / 按上述维度记录轴网和逐层高度。`,
+    `Load patch contract / 荷载补丁契约: ${JSON.stringify({ direction: loadFields.direction.enum, unit: loadFields.unit.enum,
+      target: loadFields.target.description, nodeRole: loadFields.location.properties.nodeRole.description })}`,
     SECTION_SOURCE_RULE + SECTION_EVIDENCE_RULE,
     MATERIAL_WEIGHT_RULE,
     LOAD_DIRECTION_RULE,
-    'To withdraw/replace an existing field emit clearDraftFields using stable IDs, e.g. sectionRecords["S1"].standard_steel_name. Omission is not deletion; clear only explicitly withdrawn/replaced fields. Never clear identity or evidence (including extra.source and extra.provenance); confirmation updates provenance.shape="user" through engineeringDraft, without deleting source evidence. / 不得删除标识或来源证据；确认尺寸时通过补丁更新provenance.shape为user，不清除extra.source或extra.provenance。 Explicit user values win; resolve consistency/precision/format yourself. Unknown essential inputs use draftIssues=[{field,severity:"missing"|"ambiguous",reason}]. Do not invent loads, units, design conditions or topology. / 不编造荷载、单位、设计条件或拓扑。',
+    'clearDraftFields deletes explicitly withdrawn/replaced fields by stable ID, e.g. sectionRecords["S1"].standard_steel_name; omission never deletes. Never clear identity or evidence (including extra.source and extra.provenance). Confirm dimensions via provenance.shape="user", retaining evidence. Resolve format/precision yourself. Missing inputs: draftIssues=[{field,severity:"missing"|"ambiguous",reason}]. Never invent loads, units, design conditions or topology. / 删除须明确撤回或替换，保留ID和来源证据；缺项报draftIssues，不编造。',
     `Skill: ${plugin.id}; focus fields / 本轮重点字段：${JSON.stringify(focusFields)}`,
     `Existing draftState / 已有 draftState:\n${JSON.stringify(state ?? {})}`,
     `Latest user answer / 用户最新回答:\n${message}`,
@@ -507,8 +511,10 @@ export async function invokeParamExtractor(
       try { await input.validatePatch?.(patch); }
       catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        // Retry model-authored field/clear errors, not infrastructure failures or programming errors.
-        if (!/^(MODEL_EDIT_FIELD_INVALID|DRAFT_CLEAR_INVALID):/.test(message)) {
+        // Only rejected engineering inputs are repairable. Keep the older field/clear contracts
+        // compatible; infrastructure failures and unexpected programming errors must escape.
+        if (!(error instanceof EngineeringValidationError)
+          && !/^(MODEL_EDIT_FIELD_INVALID|DRAFT_CLEAR_INVALID):/.test(message)) {
           recordRunEvent({ kind: 'param_extractor', skillId: pluginId, attempt, mode, promptChars: prompt.length, durationMs: Date.now() - start,
             usage: usage ?? null, contentChars: content.length, finishReason, maxOutputTokens, outcome: 'validation_failed' });
           throw error;

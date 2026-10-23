@@ -92,6 +92,11 @@ export function checkModelPhysics(model: ModelRecord, draft?: EngineeringDraft):
   let loadTotals: Record<string, Vector3> = {};
   try {
     loadTotals = appliedLoadTotals(model);
+    const conflictingLoads = draft?.metadata?.zeroLoads === true
+      ? draft.loads?.filter(load => Number.isFinite(load.magnitude) && load.magnitude !== 0) ?? [] : [];
+    if (conflictingLoads.length) add('ZERO_LOADS_CONFLICT', conflictingLoads.flatMap(load => load.id ? [load.id] : []),
+      'The zero-load declaration conflicts with nonzero declared loads. Resolve the conflicting input before building; neither declaration was changed.',
+      '无外荷载声明与已声明的非零荷载矛盾。请先明确矛盾输入，再建模；两项原始声明均未改写。');
     const expected = draft ? expectedLoads(model, draft) : undefined;
     if (expected) for (const [id, total] of Object.entries(expected)) {
       const actual = loadTotals[id] ?? [0, 0, 0];
@@ -99,7 +104,11 @@ export function checkModelPhysics(model: ModelRecord, draft?: EngineeringDraft):
         add('LOAD_TOTAL_MISMATCH', [id], 'The applied load total differs from the confirmed request.', '施加荷载总量与已确认输入不一致。', { expected: total, actual });
       }
     }
-    if (draft?.loads?.length && !expected) add('LOAD_TOTAL_UNVERIFIABLE', [], 'Draft load targets are not explicit enough for an independent total check; inspect the reported totals.', '草稿荷载目标尚不足以独立核对总量，请检查所列荷载总和。', undefined, 'warning');
+    // A stable candidate is not evidence that every declared load was applied.
+    // Unresolved selectors require explicit input mapping, never guessed coverage.
+    if (draft?.loads?.length && !expected) add('LOAD_TOTAL_UNVERIFIABLE', [],
+      'Declared load targets are unresolved, so their totals cannot be independently verified. Resolve them to explicit node/member IDs or confirmed load cases before building; do not omit or guess loads.',
+      '已声明荷载的作用目标尚未落实，无法独立核对总量。请先明确节点/构件编号或已确认的完整荷载工况，再建模；不得遗漏或猜测荷载。');
   } catch (error) {
     add('LOAD_TARGET_INVALID', [], 'A load has an invalid target or reference frame.', '荷载目标或参考坐标系无效。', { error: String(error) });
   }

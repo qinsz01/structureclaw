@@ -1,3 +1,4 @@
+import { EngineeringValidationError } from './validation-error.js';
 import { enforceSectionProvenance } from './section-provenance.js';
 import { SECTION_EVIDENCE_RULE } from './section-evidence.js';
 import type { LocalStructureProtocolClient } from '../skill-shared/structure-protocol-execution.js';
@@ -53,7 +54,7 @@ function resolved(schema: Schema, root: Schema): Schema {
   return schema;
 }
 function fail(path: string, reason: string): never {
-  throw new Error(`MODEL_EDIT_FIELD_INVALID: ${path}: ${reason} / 编辑字段无效；请按query_model返回的实际字段、类型与单位修改，原模型未变`);
+  throw new EngineeringValidationError(`MODEL_EDIT_FIELD_INVALID: ${path}: ${reason} / 编辑字段无效；请按query_model返回的实际字段、类型与单位修改，原模型未变`);
 }
 function equalValue(left: unknown, right: unknown): boolean {
   if (Array.isArray(left) && Array.isArray(right)) return left.length === right.length && left.every((value, i) => equalValue(value, right[i]));
