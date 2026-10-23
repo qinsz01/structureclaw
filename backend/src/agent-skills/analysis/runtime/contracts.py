@@ -85,7 +85,7 @@ class AnalysisCapabilityError(RuntimeError):
 #   3. SUCCESS  → return AnalysisResult(status="success", summary=..., detailed=...)
 #   4. FAILURE  → raise RuntimeError  (do NOT return an error dict)
 #   5. ENGINE UNAVAILABLE → raise EngineNotAvailableError
-#   6. registry catches exception → tries fallback engine → re-raises if no fallback
+#   6. registry preserves the selected engine's failure without substitution
 #
 # Result collection:
 #   registry._run_python_analysis() injects "meta" into the returned dict.

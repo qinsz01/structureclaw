@@ -14,6 +14,25 @@ def _validate_story_derived_loads(data: dict, *, native_load_precision: bool = T
     compile_load_definitions(data, native_precision=native_load_precision)
 
 
+def validate_floor_transfer(data: dict) -> None:
+    """No slab transfer is calibrated; only verified authored nodal equivalents pass."""
+    from native_model_contract import validate_story_load_totals, reject_native_input
+    validate_story_load_totals(data, "YJK")
+    represented = {(str(load.get("story")), load.get("load_kind"))
+                   for case in data.get("load_cases", []) for load in case.get("loads", [])
+                   if load.get("source") == "story_floor_loads"}
+    missing = []
+    for story in data.get("stories", []):
+        for kind in ("dead", "live"):
+            values = [load.get("value", 0) for load in story.get("floor_loads", []) if load.get("type") == kind]
+            values.append(story.get(f"{kind}_load") or 0)
+            if any(float(value) != 0 for value in values) and (str(story.get("id")), kind) not in represented:
+                missing.append(f"stories.{story.get('id')}.floor_loads.{kind}")
+    if missing:
+        reject_native_input("yjk", "ENGINE_INPUT_UNSUPPORTED", "native-floor-load-transfer", missing,
+            "Floor/slab transfer is not calibrated; provide explicit member/node loads / 楼面或楼板传力尚未校准，请提供显式构件或节点荷载。")
+
+
 def validate_building_model(model_dict: dict, *, native_load_precision: bool = True) -> None:
     """Validate the physical subset supported by per-floor native compilation."""
     validate_execution_settings(model_dict)

@@ -479,6 +479,8 @@ def run_analysis(model: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str,
         # Physical distances along a slope need not be decimal millimetres.
         # Audit native serialization after these loads become mesh-node loads.
         _validate_yjk_grid_conversion_scope(model_dict, native_load_precision=False)
+        from model_contract import validate_floor_transfer
+        validate_floor_transfer(model_dict)
         from member_mesh import compile_member_mesh
         source_model = model_dict
         model_dict, mesh_receipt = compile_member_mesh(source_model)
