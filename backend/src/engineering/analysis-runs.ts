@@ -139,8 +139,15 @@ export async function executeAnalysisRun(
         // projection must not silently launch another analysis/design job.
         if (!nativeResponse) {
           try {
+            const nativeParameters = { ...parameters };
+            for (const key of SELECTION_FIELDS) delete nativeParameters[key];
+            // The one native job must include every case needed by all requested views.
+            // Applying the first view here discards later source cases in PKPM extraction.
+            const sourceCases = selections.flatMap(item => item.kind === 'case' ? [item.id]
+              : Object.keys((model.load_combinations as ModelRecord[]).find(row => row.id === item.id)!.factors as ModelRecord));
+            nativeParameters.loadCaseIds = [...new Set(sourceCases)];
             nativeResponse = await invoke({ ...payload, model,
-              parameters: { ...effective, _internalResultSelections: selections } });
+              parameters: { ...nativeParameters, _internalResultSelections: selections } });
           } catch (error) {
             nativeResponse = { success: false, error_code: isRecord(error) && typeof error.errorCode === 'string' ? error.errorCode : 'ANALYSIS_EXECUTION_FAILED',
               message: error instanceof Error ? error.message : String(error), data: {} };

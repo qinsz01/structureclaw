@@ -19,6 +19,9 @@ export function pickAnalysisDiagnostics(
   copy('engineName', meta.engineName);
   copy('failureKind', meta.failureKind);
   copy('capability', meta.capability);
+  const detail = optionalRecord(meta.detail);
+  copy('inputFields', meta.inputFields ?? detail?.inputFields);
+  copy('reason', detail?.reason);
   copy('exceptionType', meta.exceptionType);
   copy('analysisSkillId', meta.analysisSkillId);
   copy('analysisAdapterKey', meta.analysisAdapterKey);

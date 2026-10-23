@@ -8,28 +8,28 @@ import { isRecord } from '../engineering/model-state.js';
 type FrameMaterialCategory = 'steel' | 'concrete';
 type FrameMaterialProps = { E: number; G: number; nu: number; rho: number; category: FrameMaterialCategory; fy?: number; fc?: number };
 
-const STEEL_GRADE_PROPERTIES: Record<string, FrameMaterialProps & { category: 'steel'; fy: number }> = {
-  Q235: { E: 206000, G: 79000, nu: 0.3, rho: 7850, category: 'steel', fy: 235 },
-  Q345: { E: 206000, G: 79000, nu: 0.3, rho: 7850, category: 'steel', fy: 345 },
-  Q355: { E: 206000, G: 79000, nu: 0.3, rho: 7850, category: 'steel', fy: 355 },
-  Q390: { E: 206000, G: 79000, nu: 0.3, rho: 7850, category: 'steel', fy: 390 },
-  Q420: { E: 206000, G: 79000, nu: 0.3, rho: 7850, category: 'steel', fy: 420 },
-  S235: { E: 210000, G: 81000, nu: 0.3, rho: 7850, category: 'steel', fy: 235 },
-  S275: { E: 210000, G: 81000, nu: 0.3, rho: 7850, category: 'steel', fy: 275 },
-  S355: { E: 210000, G: 81000, nu: 0.3, rho: 7850, category: 'steel', fy: 355 },
-  A36: { E: 200000, G: 77000, nu: 0.3, rho: 7850, category: 'steel', fy: 248 },
+const STEEL_GRADE_PROPERTIES: Record<string, Omit<FrameMaterialProps, 'G'> & { category: 'steel'; fy: number }> = {
+  Q235: { E: 206000, nu: 0.3, rho: 7850, category: 'steel', fy: 235 },
+  Q345: { E: 206000, nu: 0.3, rho: 7850, category: 'steel', fy: 345 },
+  Q355: { E: 206000, nu: 0.3, rho: 7850, category: 'steel', fy: 355 },
+  Q390: { E: 206000, nu: 0.3, rho: 7850, category: 'steel', fy: 390 },
+  Q420: { E: 206000, nu: 0.3, rho: 7850, category: 'steel', fy: 420 },
+  S235: { E: 210000, nu: 0.3, rho: 7850, category: 'steel', fy: 235 },
+  S275: { E: 210000, nu: 0.3, rho: 7850, category: 'steel', fy: 275 },
+  S355: { E: 210000, nu: 0.3, rho: 7850, category: 'steel', fy: 355 },
+  A36: { E: 200000, nu: 0.3, rho: 7850, category: 'steel', fy: 248 },
 };
 
-const CONCRETE_GRADE_PROPERTIES: Record<string, FrameMaterialProps & { category: 'concrete'; fc: number }> = {
-  C20: { E: 25500, G: 10625, nu: 0.2, rho: 2500, category: 'concrete', fc: 9.6 },
-  C25: { E: 28000, G: 11667, nu: 0.2, rho: 2500, category: 'concrete', fc: 11.9 },
-  C30: { E: 30000, G: 12500, nu: 0.2, rho: 2500, category: 'concrete', fc: 14.3 },
-  C35: { E: 31500, G: 13125, nu: 0.2, rho: 2500, category: 'concrete', fc: 16.7 },
-  C40: { E: 32500, G: 13542, nu: 0.2, rho: 2500, category: 'concrete', fc: 19.1 },
-  C45: { E: 33500, G: 13958, nu: 0.2, rho: 2500, category: 'concrete', fc: 21.1 },
-  C50: { E: 34500, G: 14375, nu: 0.2, rho: 2500, category: 'concrete', fc: 23.1 },
-  C55: { E: 35500, G: 14792, nu: 0.2, rho: 2500, category: 'concrete', fc: 25.3 },
-  C60: { E: 36000, G: 15000, nu: 0.2, rho: 2500, category: 'concrete', fc: 27.5 },
+const CONCRETE_GRADE_PROPERTIES: Record<string, Omit<FrameMaterialProps, 'G'> & { category: 'concrete'; fc: number }> = {
+  C20: { E: 25500, nu: 0.2, rho: 2500, category: 'concrete', fc: 9.6 },
+  C25: { E: 28000, nu: 0.2, rho: 2500, category: 'concrete', fc: 11.9 },
+  C30: { E: 30000, nu: 0.2, rho: 2500, category: 'concrete', fc: 14.3 },
+  C35: { E: 31500, nu: 0.2, rho: 2500, category: 'concrete', fc: 16.7 },
+  C40: { E: 32500, nu: 0.2, rho: 2500, category: 'concrete', fc: 19.1 },
+  C45: { E: 33500, nu: 0.2, rho: 2500, category: 'concrete', fc: 21.1 },
+  C50: { E: 34500, nu: 0.2, rho: 2500, category: 'concrete', fc: 23.1 },
+  C55: { E: 35500, nu: 0.2, rho: 2500, category: 'concrete', fc: 25.3 },
+  C60: { E: 36000, nu: 0.2, rho: 2500, category: 'concrete', fc: 27.5 },
 };
 
 type HSectionShape = { kind: 'H'; H: number; B: number; tw: number; tf: number };
@@ -80,10 +80,12 @@ function resolveFrameMaterialProps(grade: string | undefined): ResolvedFrameMate
   // Quality suffixes do not change the elastic constants; retain the declared grade.
   const baseGrade = normalized.replace(/^(Q235)[ABCD]$|^(Q(?:345|355|390|420))[BCDE]$/, '$1$2');
   if (STEEL_GRADE_PROPERTIES[baseGrade]) {
-    return { ...STEEL_GRADE_PROPERTIES[baseGrade]!, resolvedGrade: normalized };
+    const props = STEEL_GRADE_PROPERTIES[baseGrade]!;
+    return { ...props, G: props.E / (2 * (1 + props.nu)), resolvedGrade: normalized };
   }
   if (CONCRETE_GRADE_PROPERTIES[normalized]) {
-    return { ...CONCRETE_GRADE_PROPERTIES[normalized]!, resolvedGrade: normalized };
+    const props = CONCRETE_GRADE_PROPERTIES[normalized]!;
+    return { ...props, G: props.E / (2 * (1 + props.nu)), resolvedGrade: normalized };
   }
   throw new Error(`TEMPLATE_PROPERTY_REQUIRED: unsupported material ${grade} / 未知材料请提供完整材料属性`);
 }
@@ -320,11 +322,12 @@ export function completeDeclaredGradeMaterials<T extends Record<string, unknown>
     try { props = resolveFrameMaterialProps(grade); } catch { return copy; }
     const filled: Record<string, unknown> = { ...copy };
     if (typeof filled.name !== 'string' || !filled.name.trim()) filled.name = props.resolvedGrade;
-    for (const key of ['E', 'G', 'nu', 'rho'] as const) {
-      // A supplied modulus keeps G derived from the record's E/nu unless G was explicit.
-      if (key === 'G' && copy.E != null) continue;
+    for (const key of ['E', 'nu', 'rho'] as const) {
       if (filled[key] == null) filled[key] = props[key];
     }
+    // Isotropic grade defaults use the effective Poisson ratio, without rounding.
+    // A supplied modulus keeps its original record; the model boundary derives omitted G.
+    if (filled.G == null && copy.E == null) filled.G = Number(filled.E) / (2 * (1 + Number(filled.nu)));
     return filled as T;
   });
 }

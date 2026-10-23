@@ -59,7 +59,8 @@ def _resolve_steel_grade(grade_str: str) -> Any:
     key = _GRADE_ALIASES.get(token, token)
     if hasattr(sg, key):
         return getattr(sg, key)
-    raise ValueError(f"Unsupported PKPM steel grade '{grade_str}'")
+    raise AnalysisCapabilityError(engine="pkpm", capability="native-material-grade",
+                                  reason=f"Unsupported PKPM steel grade '{grade_str}' / PKPM 尚不支持该钢材牌号")
 
 
 def _resolve_concrete_grade(grade_str: str) -> Any:
@@ -70,7 +71,8 @@ def _resolve_concrete_grade(grade_str: str) -> Any:
     key = match.group(0) if match else raw
     if hasattr(cg, key):
         return getattr(cg, key)
-    raise ValueError(f"Unsupported PKPM concrete grade '{grade_str}'")
+    raise AnalysisCapabilityError(engine="pkpm", capability="native-material-grade",
+                                  reason=f"Unsupported PKPM concrete grade '{grade_str}' / PKPM 尚不支持该混凝土牌号")
 
 
 def _as_dict(value: Any) -> dict[str, Any]:
@@ -319,7 +321,10 @@ def _normalize_generic_frame_for_pkpm(data: dict) -> tuple[dict, dict[str, Any]]
 
     raw_stories = data.get("stories", [])
     if not isinstance(raw_stories, list) or not raw_stories:
-        raise ValueError("PKPM conversion requires explicit stories; story elevations and loads are not inferred")
+        raise AnalysisCapabilityError(
+            engine="pkpm", capability="native-model-contract",
+            reason="PKPM conversion requires explicit stories; story elevations and loads are not inferred / PKPM 转换需要显式自然层，不推测层标高或荷载",
+        )
     stories = sorted(
         [dict(story) for story in raw_stories],
         key=lambda story: float(story.get("elevation", 0.0)),

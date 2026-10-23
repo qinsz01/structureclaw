@@ -99,10 +99,21 @@ export function buildAnalysisToolSummary(args: {
           result.errorCode ?? data.errorCode,
         );
     const diagnostics = pickAnalysisDiagnostics(result, meta);
+    const results = optionalRecord(result.results) ?? optionalRecord(data.results);
+    const failures = Object.entries(results ?? {}).filter(([, value]) => isExplicitAnalysisFailure(value));
     return {
       success: false,
       skillId: args.skillId,
       errorCode,
+      ...(result.runId ? { runId: result.runId, resultKeys: Object.keys(results ?? {}), selectedResultKey: result.selectedResultKey,
+        executionStatus: result.executionStatus, capabilityStatus: result.capabilityStatus } : {}),
+      ...(failures.length ? { failedResultCount: failures.length, failedResults: failures.slice(0, 20).map(([resultKey, value]) => {
+        const failure = value as Record<string, unknown>;
+        const failureMeta = optionalRecord(failure.meta) ?? {};
+        return { resultKey, errorCode: normalizeAnalysisErrorCode(failure.error_code, failure.errorCode),
+          message: compactText(failure.message) ?? 'Analysis execution failed / 分析执行失败',
+          diagnostics: pickAnalysisDiagnostics(failure, failureMeta) };
+      }) } : {}),
       message: compactText(result.message ?? data.message)
         || (invalidResult
           ? 'Analysis returned no explicit success or failure status'
