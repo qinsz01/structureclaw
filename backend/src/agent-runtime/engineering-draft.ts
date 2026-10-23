@@ -1,4 +1,5 @@
 import { EngineeringValidationError } from '../engineering/validation-error.js';
+import { modelSelectorSchema } from '../engineering/model-selection.js';
 import { mergeInputEvidence } from '../engineering/input-evidence.js';
 import { isDeepStrictEqual } from 'node:util';
 import { normalizeMemberReleases } from '../engineering/member-releases.js';
@@ -227,6 +228,9 @@ function normalizeEngineeringLoad(value: unknown, path: string): EngineeringDraf
   if (!kind || magnitude === undefined) return undefined;
   const sourceUnit = normalizeString(raw.unit)?.toLowerCase().replace(/\s+/g, '');
   const forceScale = sourceUnit && /^n(?:\/m(?:2|\^2|²)?)?$/.test(sourceUnit) ? 0.001 : 1;
+  const selector = raw.selector === undefined ? undefined : modelSelectorSchema.safeParse(raw.selector);
+  if (selector && !selector.success) throw new EngineeringValidationError(`LOAD_SELECTOR_INVALID: ${path}.selector ${JSON.stringify(selector.error.issues)} / 荷载选择器无效，不得丢弃`);
+  if (selector && (normalizeString(raw.target) || normalizeLoadLocation(raw.location))) throw new EngineeringValidationError(`LOAD_SELECTOR_CONFLICT: ${path} must use selector or target/location; clear the replaced target/location before merging / 荷载只保留一个目标表达，先清除被替换的target/location再合并selector`);
   return {
     ...(normalizeString(raw.id) && { id: normalizeString(raw.id) }),
     kind,
@@ -234,6 +238,7 @@ function normalizeEngineeringLoad(value: unknown, path: string): EngineeringDraf
     unit: normalizeLoadUnit(raw.unit, kind),
     direction: normalizeLoadDirection(raw.direction ?? raw.axis, `${path}.direction`),
     target: normalizeString(raw.target),
+    ...(selector?.success ? { selector: selector.data } : {}),
     location: normalizeLoadLocation(raw.location),
     caseId: normalizeString(raw.caseId ?? raw.loadCaseId),
     caseType: normalizeLoadCaseType(raw.caseType ?? raw.loadCaseType),

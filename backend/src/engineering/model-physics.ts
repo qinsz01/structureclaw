@@ -1,6 +1,7 @@
 import type { EngineeringDraft } from '../shared/types/agent.js';
 import { isRecord, type ModelRecord } from './model-state.js';
 import { coordinates, dot, memberGeometry, scale, subtract, unit, type Vector3 } from './member-geometry.js';
+import { modelSelectorSchema, modelLoadMappingsSchema, selectRecords } from './model-selection.js';
 
 export interface PhysicsDiagnostic {
   code: string;
@@ -97,11 +98,22 @@ export function checkModelPhysics(model: ModelRecord, draft?: EngineeringDraft):
     if (conflictingLoads.length) add('ZERO_LOADS_CONFLICT', conflictingLoads.flatMap(load => load.id ? [load.id] : []),
       'The zero-load declaration conflicts with nonzero declared loads. Resolve the conflicting input before building; neither declaration was changed.',
       '无外荷载声明与已声明的非零荷载矛盾。请先明确矛盾输入，再建模；两项原始声明均未改写。');
-    const expected = draft ? expectedLoads(model, draft) : undefined;
+    const expectedTargets = new Map<string, Vector3>();
+    const expected = draft ? expectedLoads(model, draft, expectedTargets) : undefined;
     if (expected) for (const [id, total] of Object.entries(expected)) {
       const actual = loadTotals[id] ?? [0, 0, 0];
       if (total.some((value, index) => Math.abs(value - actual[index]!) > 1e-6 * Math.max(1, Math.abs(value)))) {
         add('LOAD_TOTAL_MISMATCH', [id], 'The applied load total differs from the confirmed request.', '施加荷载总量与已确认输入不一致。', { expected: total, actual });
+      }
+    }
+    if (expected && (draft?.loads?.some(load => load.selector) || isRecord(model.metadata) && model.metadata.loadMappings !== undefined)) for (const [key, total] of expectedTargets) {
+      const [caseId, collection, target] = JSON.parse(key) as [string, string, string];
+      const loadCase = records(model.load_cases).find(row => row.id === caseId);
+      const actual = appliedLoadTotals({ ...model, load_cases: [{ id: caseId,
+        loads: records(loadCase?.loads).filter(load => load[collection] === target) }] })[caseId]!;
+      if (total.some((value, index) => Math.abs(value - actual[index]!) > 1e-6 * Math.max(1, Math.abs(value)))) {
+        add('LOAD_TARGET_MISMATCH', [caseId, target], 'Applied loads do not match the confirmed target group.',
+          '施加荷载与已确认的目标分组不一致。', { expected: total, actual });
       }
     }
     // A stable candidate is not evidence that every declared load was applied.
@@ -210,26 +222,81 @@ export function appliedLoadTotals(model: ModelRecord): Record<string, Vector3> {
   }));
 }
 
-function expectedLoads(model: ModelRecord, draft: EngineeringDraft): Record<string, Vector3> | undefined {
-  if (draft.model && Array.isArray(draft.model.load_cases)) return appliedLoadTotals(draft.model);
+/** LLM-authored mappings resolve identities only: confirmed loads and explicit scopes remain immutable. */
+function resolvedLoads(model: ModelRecord, draft: EngineeringDraft) {
+  const input = isRecord(model.metadata) ? model.metadata.loadMappings : undefined;
+  if (input === undefined || !draft.loads?.length) return draft.loads;
+  const parsed = modelLoadMappingsSchema.safeParse(input);
+  if (!parsed.success) throw new Error(`LOAD_MAPPING_INVALID: ${JSON.stringify(parsed.error.issues)}`);
+  const seen = new Set<string>();
+  const loads = structuredClone(draft.loads ?? []);
+  for (const mapping of parsed.data) {
+    const sources = loads.filter(load => load.id === mapping.loadId);
+    if (sources.length !== 1 || seen.has(mapping.loadId)) throw new Error(`LOAD_MAPPING_ID_INVALID: ${mapping.loadId}`);
+    seen.add(mapping.loadId);
+    const source = sources[0]!;
+    if (source.selector || source.location && Object.entries(source.location).some(([key, value]) => key !== 'story' && value !== undefined)) {
+      throw new Error(`LOAD_MAPPING_SCOPE_CONFLICT: ${mapping.loadId}`);
+    }
+    const available = records(source.unit === 'kN' ? model.nodes : model.elements);
+    const targets = selectRecords(available, mapping.selector, model);
+    if (!targets.length || mapping.selector.ids?.some(id => !targets.some(row => row.id === id))) throw new Error(`LOAD_MAPPING_UNRESOLVED: ${mapping.loadId}`);
+    if (available.some(row => row.id === source.target) && (targets.length !== 1 || targets[0]!.id !== source.target)) {
+      throw new Error(`LOAD_MAPPING_TARGET_CONFLICT: ${mapping.loadId}`);
+    }
+    if (source.location?.story !== undefined) {
+      const story = source.location.story, heights = draft.geometry?.storyHeightsM;
+      if (!heights || story < 1 || story > heights.length) throw new Error(`LOAD_MAPPING_STORY_UNVERIFIABLE: ${mapping.loadId}`);
+      const base = Math.min(...records(model.nodes).map(node => Number(node.z)));
+      const lower = base + heights.slice(0, story - 1).reduce((sum, height) => sum + height, 0), upper = lower + heights[story - 1]!;
+      if (targets.some(row => {
+        const z = source.unit === 'kN' ? [Number(row.z)] : [memberGeometry(model, row).start.z, memberGeometry(model, row).end.z].map(Number);
+        return !z.every(Number.isFinite) || Math.abs(Math.max(...z) - upper) > 1e-8 || Math.min(...z) < lower - 1e-8;
+      })) throw new Error(`LOAD_MAPPING_STORY_CONFLICT: ${mapping.loadId}`);
+    }
+    delete source.target; delete source.location;
+    source.selector = mapping.selector;
+  }
+  return loads;
+}
+
+function expectedLoads(model: ModelRecord, draft: EngineeringDraft, expectedTargets: Map<string, Vector3>): Record<string, Vector3> | undefined {
+  draft = { ...draft, loads: resolvedLoads(model, draft) };
+  const grouped = draft.loads?.some(load => load.selector);
+  if (!grouped && draft.model && Array.isArray(draft.model.load_cases)) return appliedLoadTotals(draft.model);
   // An extractor may name cases before it has generated the individual load targets.
   // Empty case placeholders cannot override separately declared physical loads as zero.
-  if (draft.loadCases?.some(loadCase => records(loadCase.loads).length > 0) || draft.metadata?.zeroLoads === true) {
+  if (!grouped && (draft.loadCases?.some(loadCase => records(loadCase.loads).length > 0) || draft.metadata?.zeroLoads === true)) {
     return appliedLoadTotals({ ...model, load_cases: draft.loadCases ?? [] });
   }
   if (!draft.loads?.length) return undefined;
   const cases = new Map<string, ModelRecord[]>();
   for (const load of draft.loads) {
-    const target = load.target;
-    if (!target || !load.direction) return undefined;
+    if (!load.direction || !['kN', 'kN/m'].includes(load.unit)) return undefined;
     const index = { globalX: 0, globalY: 1, globalZ: 2, gravity: 2 }[load.direction];
     const value = load.magnitude * (load.direction === 'gravity' ? -1 : 1);
     const nodal = load.unit === 'kN';
-    if (nodal && !records(model.nodes).some(node => node.id === target) || !nodal && !records(model.elements).some(element => element.id === target)) return undefined;
+    const available = records(nodal ? model.nodes : model.elements);
+    let targets: ModelRecord[];
+    if (load.selector) {
+      const parsed = modelSelectorSchema.safeParse(load.selector);
+      if (!parsed.success || load.target || load.location) return undefined;
+      targets = selectRecords(available, parsed.data, model);
+      if (!targets.length || parsed.data.ids?.some(id => !targets.some(row => row.id === id))) return undefined;
+    } else {
+      targets = available.filter(row => row.id === load.target);
+      if (targets.length !== 1) return undefined;
+    }
     const id = load.caseId ?? (records(model.load_cases).length === 1 ? String(records(model.load_cases)[0]!.id) : 'LC1');
     const rows = cases.get(id) ?? [];
-    rows.push({ type: nodal ? 'nodal' : 'distributed', [nodal ? 'node' : 'element']: target,
-      [(nodal ? ['fx', 'fy', 'fz'] : ['wx', 'wy', 'wz'])[index]!]: value });
+    for (const target of targets) {
+      rows.push({ type: nodal ? 'nodal' : 'distributed', [nodal ? 'node' : 'element']: target.id,
+        [(nodal ? ['fx', 'fy', 'fz'] : ['wx', 'wy', 'wz'])[index]!]: value });
+      const key = JSON.stringify([id, nodal ? 'node' : 'element', target.id]);
+      const total = expectedTargets.get(key) ?? [0, 0, 0];
+      total[index]! += value * (nodal ? 1 : memberGeometry(model, target).length);
+      expectedTargets.set(key, total);
+    }
     cases.set(id, rows);
   }
   return appliedLoadTotals({ ...model, load_cases: [...cases].map(([id, loads]) => ({ id, loads })) });

@@ -438,7 +438,7 @@ export class AgentSkillRuntime {
       if (unresolved.length) throw new Error(`MODEL_DRAFT_INCOMPLETE: ${unresolved.join(', ')} / 尚有未解决的工程输入`);
       recordRunEvent({ kind: 'model_builder', builder: 'explicit', requestedBuilder: policy?.builder ?? 'auto',
         source: state.engineeringDraft?.model ? 'model' : 'topology' });
-      if (plugin?.id === 'generic') {
+      if (plugin?.id === 'generic' || state.engineeringDraft?.loads?.some(load => load.selector)) {
         const { checkModelPhysics, ModelPhysicsError } = await import('../engineering/model-physics.js');
         const physics = checkModelPhysics(explicit, state.engineeringDraft);
         if (!physics.valid) throw new ModelPhysicsError(physics);
@@ -455,6 +455,11 @@ export class AgentSkillRuntime {
     // Deterministic model building (beam, truss, frame, etc.)
     const model = policy?.builder === 'llm' ? undefined : plugin.handler.buildModel(state);
     if (model) {
+      if (state.engineeringDraft?.loads?.some(load => load.selector)) {
+        const { checkModelPhysics, ModelPhysicsError } = await import('../engineering/model-physics.js');
+        const physics = checkModelPhysics(model, state.engineeringDraft);
+        if (!physics.valid) throw new ModelPhysicsError(physics);
+      }
       recordRunEvent({ kind: 'model_builder', builder: 'template', skillId: plugin.id });
       return model;
     }

@@ -13,7 +13,7 @@ import { mergeInputEvidence } from '../../engineering/input-evidence.js';
 import { normalizeDraftTopologyReleases } from '../../agent-runtime/engineering-draft.js';
 import { MemberReleaseValidationError } from '../../engineering/member-releases.js';
 import { buildModelToolSummary, buildModelToolStateUpdate } from './compaction/analysis.js';
-import { conversationSectionEvidence, messageRole, messageText } from './input-message.js';
+import { conversationSectionEvidence, modellingConversationHistory } from './input-message.js';
 import { getConfigurable, getToolCallId, toolResult, isRecord, toolSkillScope, nextActionForMissingInput, clarificationAvailable } from './shared.js';
 
 export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
@@ -56,7 +56,7 @@ export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
           message: state?.lastUserMessage || '',
           locale: state?.locale || 'zh',
           currentModel: state?.model ?? undefined,
-          conversationHistory: state?.messages.map((message) => `${messageRole(message)}: ${messageText(message)}`).join('\n'),
+          conversationHistory: modellingConversationHistory(state?.messages),
           sectionEvidence: userTexts,
           signal: config.signal,
         });
@@ -65,10 +65,10 @@ export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
         const { ModelPhysicsError } = await import('../../engineering/model-physics.js');
         const { ModellingOperationError } = await import('../../skill-shared/modelling/contract.js');
         if (error instanceof ModellingOperationError) return toolResult(toolCallId, 'build_model', JSON.stringify({ success: false,
-          errorCode: error.code, modelBuilt: false, details: error.details, nextAction: nextActionForMissingInput(),
+          errorCode: error.code, modelBuilt: false, terminal: true, error: error.message, details: error.details, nextAction: 'explain_failure',
           instruction: 'Modelling operations remain invalid after repair. Explain the unresolved geometry, targets or identities; do not claim a successful calculation. / 修正后建模操作仍无效，请说明未解决的几何、目标或标识，不得声称计算成功。' }));
         if (error instanceof ModelPhysicsError) return toolResult(toolCallId, 'build_model', JSON.stringify({
-          success: false, errorCode: error.code, modelBuilt: false, ...error.check, nextAction: nextActionForMissingInput(),
+          success: false, errorCode: error.code, modelBuilt: false, terminal: true, ...error.check, nextAction: 'explain_failure',
           instruction: 'Automatic repair ended with these physical diagnostics. Explain the unresolved inputs together; do not claim a valid model or calculation. / 自动修正结束后仍有这些物理诊断；请一次说明未解决输入，不得声称模型或计算已完成。',
         }));
         if (!(error instanceof ModelInputRequiredError)) throw error;

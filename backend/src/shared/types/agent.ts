@@ -13,6 +13,21 @@ export type EngineeringDraftLoadUnit = 'kN' | 'kN/m' | 'kN/m2';
 export type EngineeringDraftLoadDirection = 'gravity' | 'globalX' | 'globalY' | 'globalZ';
 export type EngineeringDraftLoadCaseType = 'dead' | 'live' | 'wind' | 'seismic' | 'other';
 
+/** Exact identities and geometric predicates, interpreted without natural-language matching. */
+export interface EngineeringCoordinateSelector {
+  axis: 'x' | 'y' | 'z'; at?: 'midpoint' | 'start' | 'end';
+  eq?: number; gt?: number; gte?: number; lt?: number; lte?: number;
+}
+export interface EngineeringModelSelector {
+  ids?: string[];
+  type?: string;
+  story?: string;
+  prefix?: string;
+  parallelTo?: 'x' | 'y' | 'z';
+  coordinate?: EngineeringCoordinateSelector;
+  coordinates?: EngineeringCoordinateSelector[];
+}
+
 interface EngineeringDraftGeometry {
   lengthM?: number;
   heightM?: number;
@@ -83,6 +98,7 @@ export interface EngineeringDraftLoad {
   unit: EngineeringDraftLoadUnit;
   direction?: EngineeringDraftLoadDirection;
   target?: string;
+  selector?: EngineeringModelSelector;
   location?: EngineeringDraftLoadLocation;
   caseId?: string;
   caseType?: EngineeringDraftLoadCaseType;

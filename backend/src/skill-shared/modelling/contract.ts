@@ -1,11 +1,9 @@
 import { z } from 'zod';
+import { modelSelectorSchema as selector } from '../../engineering/model-selection.js';
 
 const number = z.number().finite(), positive = number.positive(), id = z.string().trim().min(1);
 const vector = z.tuple([number, number, number]);
 const segments = z.number().int().min(1).max(1000);
-const selector = z.object({ ids: z.array(id).optional(), type: id.optional(), story: id.optional(), prefix: z.string().optional(),
-  coordinate: z.object({ axis: z.enum(['x', 'y', 'z']), eq: number.optional(), gt: number.optional(), gte: number.optional(), lt: number.optional(), lte: number.optional() }).strict().optional(),
-}).strict();
 const memberType = z.enum(['beam', 'column', 'truss', 'brace']);
 const base = { id };
 const properties = { material: id.optional(), section: id.optional(), type: memberType.optional(), rotation_angle: number.optional(),
@@ -17,7 +15,8 @@ const position = z.union([z.object({ fraction: number.min(0).max(1) }).strict(),
 export const modellingOperationSchema = z.discriminatedUnion('op', [
   z.object({ ...base, op: z.literal('regular-frame'), dimension: z.enum(['2d', '3d']), bayWidthsX: z.array(positive).min(1), bayWidthsY: z.array(positive).min(1).optional(),
     storeyHeights: z.array(positive).min(1), baseRestraint: z.enum(['fixed', 'pinned']), origin: vector.optional(), nodeIds: z.record(z.string(), id).optional(),
-    material: id.optional(), columnSection: id.optional(), beamSection: id.optional(), memberIds: z.record(z.string(), id).optional() }).strict(),
+    material: id.optional(), columnSection: id.optional(), beamSection: id.optional(), memberIds: z.record(z.string(), id).optional(),
+    storyIds: z.record(z.string(), id).optional() }).strict(),
   z.object({ ...base, op: z.literal('truss-panels'), span: positive, height: positive, panels: segments,
     topology: z.enum(['pratt', 'howe', 'warren', 'trapezoidal', 'generic']), origin: vector.optional(), material: id.optional(), section: id.optional() }).strict(),
   z.object({ ...base, op: z.literal('polyline'), points: z.array(vector).min(2), segmentsPerEdge: segments.default(1), nodeIds: z.record(z.string(), id).optional(),

@@ -154,6 +154,25 @@ export function conversationSectionEvidence(state?: { messages?: unknown[]; last
   return { userTexts: conversationUserTexts(state), inputEvidence: state?.inputEvidence, confirmations };
 }
 
+/** The canonical draft carries tool results; model generation needs actual user evidence and answered proposal context. */
+export function modellingConversationHistory(messages: unknown[] = []): string {
+  const evidence: string[] = [];
+  for (const message of messages) {
+    const role = messageRole(message);
+    if (role === 'human' || role === 'user') { evidence.push(`user: ${messageText(message)}`); continue; }
+    const tool = message as { name?: string; kwargs?: { name?: string } };
+    if (role !== 'tool' || (tool.name ?? tool.kwargs?.name) !== 'ask_user_clarification') continue;
+    try {
+      const reply = JSON.parse(messageText(message));
+      if (reply.type === 'clarification_answered' && typeof reply.answer === 'string') evidence.push(JSON.stringify({
+        question: reply.question, options: reply.options, answer: reply.answer, selectedOptionId: reply.selectedOptionId,
+        clarificationId: reply.clarificationId, sectionCandidates: reply.sectionCandidates,
+      }));
+    } catch { /* Unanswered or malformed proposals cannot become accepted facts. */ }
+  }
+  return evidence.length ? 'User evidence / 用户依据: Questions/options are context; only actual answers or selected alternatives confirm values. Historical assistant plans and failed candidates are not requirements. / 问题和选项仅为上下文，只有实际回答或选中方案才确认数值；历史助手计划和失败候选不是要求。\n' + evidence.join('\n') : '';
+}
+
 export function resolveToolInputMessage(
   inputMessage: string | undefined,
   lastUserMessage: string | undefined,
@@ -240,7 +259,8 @@ export function resolveExtractionInputMessage(
             try {
               const earlier = JSON.parse(messageText(item));
               if (earlier.type === 'clarification_answered' && typeof earlier.answer === 'string' && earlier.answer.trim()) {
-                earlierAnswers.unshift({ answer: earlier.answer });
+                earlierAnswers.unshift({ question: earlier.question, options: earlier.options, answer: earlier.answer,
+                  clarificationId: earlier.clarificationId, selectedOptionId: earlier.selectedOptionId });
               }
             } catch { /* Plain-text historical replies have no structured evidence contract. */ }
           }

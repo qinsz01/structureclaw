@@ -1,4 +1,6 @@
 import { isRecord, type ModelRecord } from '../../engineering/model-state.js';
+import { selectRecords } from '../../engineering/model-selection.js';
+export { selectRecords } from '../../engineering/model-selection.js';
 import { isDeepStrictEqual } from 'node:util';
 import { memberGeometry, coordinates } from '../../engineering/member-geometry.js';
 import { buildStructuralCoordinateSystem } from '../../engineering/coordinate-semantics.js';
@@ -8,22 +10,12 @@ import { arcGeometry, polylineGeometry, regularFrameGeometry, trussPanelGeometry
 import { modellingOperationSchema, ModellingOperationError, type ModelSelector, type ModellingOperation } from './contract.js';
 
 const rows = (value: unknown): ModelRecord[] => Array.isArray(value) ? value.filter(isRecord) : [];
-export function selectRecords(records: ModelRecord[], selector: ModelSelector): ModelRecord[] {
-  return records.filter(record => {
-    if (selector.ids && !selector.ids.includes(String(record.id)) || selector.type && record.type !== selector.type
-      || selector.story && record.story !== selector.story || selector.prefix && !String(record.id).startsWith(selector.prefix)) return false;
-    const coordinate = selector.coordinate;
-    if (!coordinate) return true;
-    const value = Number(record[coordinate.axis]);
-    return Number.isFinite(value) && (coordinate.eq === undefined || Math.abs(value - coordinate.eq) < 1e-8)
-      && (coordinate.gt === undefined || value > coordinate.gt) && (coordinate.gte === undefined || value >= coordinate.gte)
-      && (coordinate.lt === undefined || value < coordinate.lt) && (coordinate.lte === undefined || value <= coordinate.lte);
+function selected(records: ModelRecord[], selector: ModelSelector, model?: ModelRecord) {
+  const result = selectRecords(records, selector, model);
+  if (!result.length || selector.ids?.some(id => !result.some(record => record.id === id))) throw new ModellingOperationError('OPERATION_SELECTOR_UNRESOLVED', {
+    selector, availableStories: [...new Set(records.map(record => record.story).filter(value => typeof value === 'string'))],
+    availableIds: records.slice(0, 30).map(record => record.id),
   });
-}
-
-function selected(records: ModelRecord[], selector: ModelSelector) {
-  const result = selectRecords(records, selector);
-  if (!result.length || selector.ids?.some(id => !result.some(record => record.id === id))) throw new ModellingOperationError('OPERATION_SELECTOR_UNRESOLVED', { selector });
   return result;
 }
 function addRecords(model: ModelRecord, collection: string, additions: ModelRecord[]) {
@@ -35,7 +27,9 @@ function addRecords(model: ModelRecord, collection: string, additions: ModelReco
       const matchingNode = collection === 'nodes' && ['x', 'y', 'z'].every(axis => Math.abs(Number(same[axis]) - Number(record[axis])) <= 1e-8);
       const matchingMember = collection === 'elements' && Array.isArray(same.nodes) && Array.isArray(record.nodes)
         && JSON.stringify([...same.nodes].sort()) === JSON.stringify([...record.nodes].sort());
-      if (!matchingNode && !matchingMember) {
+      const matchingStory = collection === 'stories' && ['height', 'elevation'].every(key =>
+        same[key] === undefined || record[key] === undefined || Math.abs(Number(same[key]) - Number(record[key])) <= 1e-8);
+      if (!matchingNode && !matchingMember && !matchingStory) {
         throw new ModellingOperationError('OPERATION_ID_COLLISION', { collection, id: record.id });
       }
       Object.assign(same, { ...record, ...same });
@@ -75,6 +69,7 @@ export async function expandModellingOperations(input: ModelRecord, base?: Model
   for (const key of ['nodes', 'elements', 'materials', 'sections', 'load_cases', 'load_combinations']) model[key] ??= [];
   let dimension = isRecord(model.coordinate_system) ? model.coordinate_system.dimension : undefined;
   const ids = new Set<string>();
+  const generatedStories: ModelRecord[] = [];
   for (const raw of input.operations) {
     const parsed = modellingOperationSchema.safeParse(raw);
     if (!parsed.success) throw new ModellingOperationError('INVALID_MODELLING_OPERATION', { issues: parsed.error.issues });
@@ -85,6 +80,7 @@ export async function expandModellingOperations(input: ModelRecord, base?: Model
       if (dimension && dimension !== op.dimension || op.dimension === '3d' && !op.bayWidthsY?.length) throw new ModellingOperationError('OPERATION_DIMENSION_CONFLICT', { dimension, operationDimension: op.dimension });
       dimension = op.dimension;
       const geometry = regularFrameGeometry({ ...op, prefix: `${op.id}:` });
+      generatedStories.push(...geometry.stories);
       addRecords(model, 'nodes', geometry.nodes); addRecords(model, 'elements', geometry.elements); addRecords(model, 'stories', geometry.stories);
     } else if (op.op === 'truss-panels') {
       const geometry = trussPanelGeometry({ ...op, prefix: `${op.id}:` });
@@ -96,19 +92,19 @@ export async function expandModellingOperations(input: ModelRecord, base?: Model
       for (const element of geometry.elements) { if (op.material) element.material = op.material; if (op.section) element.section = op.section; }
       addRecords(model, 'nodes', geometry.nodes); addRecords(model, 'elements', geometry.elements);
     } else if (op.op === 'translate' || op.op === 'mirror') {
-      for (const node of selected(rows(model.nodes), op.selector)) {
+      for (const node of selected(rows(model.nodes), op.selector, model)) {
         if (op.op === 'translate') for (const [index, axis] of ['x', 'y', 'z'].entries()) node[axis] = Number(node[axis]) + op.vector[index]!;
         else node[op.axis] = 2 * op.offset - Number(node[op.axis]);
       }
     } else if (op.op === 'replicate') replicate(model, op);
     else if (op.op === 'merge-coincident') mergeCoincident(model, op.tolerance, op.preferredIds);
-    else if (op.op === 'assign-properties') for (const element of selected(rows(model.elements), op.selector)) Object.assign(element, structuredClone(op.values));
-    else if (op.op === 'assign-restraints') for (const node of selected(rows(model.nodes), op.selector)) node.restraints = [...op.restraints];
+    else if (op.op === 'assign-properties') for (const element of selected(rows(model.elements), op.selector, model)) Object.assign(element, structuredClone(op.values));
+    else if (op.op === 'assign-restraints') for (const node of selected(rows(model.nodes), op.selector, model)) node.restraints = [...op.restraints];
     else if (op.op === 'nodal-load') {
       if (op.reference_frame !== 'global') throw new ModellingOperationError('NODAL_LOAD_GLOBAL_AXES_REQUIRED');
-      appendLoads(model, op, selected(rows(model.nodes), op.selector).map(node => ({ type: 'nodal', node: node.id, fx: op.vector[0], fy: op.vector[1], fz: op.vector[2], reference_frame: 'global' })));
+      appendLoads(model, op, selected(rows(model.nodes), op.selector, model).map(node => ({ type: 'nodal', node: node.id, fx: op.vector[0], fy: op.vector[1], fz: op.vector[2], reference_frame: 'global' })));
     } else if (op.op === 'member-udl' || op.op === 'member-point-load') {
-      appendLoads(model, op, selected(rows(model.elements), op.selector).map(element => {
+      appendLoads(model, op, selected(rows(model.elements), op.selector, model).map(element => {
         const { length } = memberGeometry(model, element);
         if (op.op === 'member-point-load') return { type: 'point', element: element.id, position: positionM(op.position, length), reference_frame: op.reference_frame,
           fx: op.vector[0], fy: op.vector[1], fz: op.vector[2] };
@@ -118,7 +114,7 @@ export async function expandModellingOperations(input: ModelRecord, base?: Model
       }));
     } else if (op.op === 'floor-to-beam') {
       const { data } = await createLocalStructureProtocolClient().post<{ loads: ModelRecord[]; totalKN: number }>('/expand-floor-load', {
-        nodes: rows(model.nodes), elements: op.beamSelector ? selected(rows(model.elements), op.beamSelector) : rows(model.elements),
+        nodes: rows(model.nodes), elements: op.beamSelector ? selected(rows(model.elements), op.beamSelector, model) : rows(model.elements),
         z: op.z, bounds: op.bounds, pressureKNM2: op.pressureKNM2, distribution: op.distribution,
       }).catch(error => { throw new ModellingOperationError('FLOOR_LOAD_EXPANSION_FAILED', { error: String(error) }); });
       const total = appliedLoadTotals({ ...model, load_cases: [{ id: op.caseId, loads: data.loads }] })[op.caseId]!;
@@ -130,6 +126,14 @@ export async function expandModellingOperations(input: ModelRecord, base?: Model
       ] };
     }
   }
+  const referencedStories = new Set([...rows(model.nodes), ...rows(model.elements)].map(row => row.story));
+  for (const story of rows(input.stories)) if (!referencedStories.has(story.id)) {
+    const duplicate = generatedStories.find(row => row.id !== story.id
+      && Math.abs(Number(row.elevation) - Number(story.elevation)) < 1e-8
+      && Math.abs(Number(row.height) - Number(story.height)) < 1e-8);
+    if (duplicate) throw new ModellingOperationError('OPERATION_STORY_ID_CONFLICT', { providedId: story.id, generatedId: duplicate.id,
+      resolution: 'Use regular-frame.storyIds to map one-based storey numbers to the existing IDs / 用storyIds将从1起的楼层编号映射到已有ID' });
+  }
   if (dimension !== '2d' && dimension !== '3d') throw new ModellingOperationError('OPERATION_DIMENSION_REQUIRED');
   model.coordinate_system = buildStructuralCoordinateSystem(dimension);
   model.metadata = { ...(isRecord(model.metadata) ? model.metadata : {}), modellingOperations: structuredClone(input.operations) };
@@ -137,7 +141,7 @@ export async function expandModellingOperations(input: ModelRecord, base?: Model
 }
 
 function replicate(model: ModelRecord, op: Extract<ModellingOperation, { op: 'replicate' }>) {
-  const elements = selected(rows(model.elements), op.selector), nodeIds = new Set(elements.flatMap(element => element.nodes as string[]));
+  const elements = selected(rows(model.elements), op.selector, model), nodeIds = new Set(elements.flatMap(element => element.nodes as string[]));
   const nodes = rows(model.nodes).filter(node => nodeIds.has(String(node.id)));
   const cases = structuredClone(rows(model.load_cases));
   for (let count = 1; count <= op.count; count++) {

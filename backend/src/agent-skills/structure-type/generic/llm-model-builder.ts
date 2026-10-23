@@ -112,6 +112,7 @@ export async function tryBuildGenericModelWithLlm(
       if (!currentModel) {
         projectConfirmedGeometricSections(parsed, state);
         projectConfirmedAxialMembers(parsed, state);
+        projectConfirmedConcreteGrades(parsed, state);
       }
       const dimension = stampCanonicalMetadata(parsed, state);
       const controlled = applyDraftAnalysisControl(parsed, state.engineeringDraft);
@@ -156,6 +157,21 @@ export async function tryBuildGenericModelWithLlm(
 
   if (lastError instanceof ModelPhysicsError || lastError instanceof ModellingOperationError) throw lastError;
   throw new Error(`LLM_MODEL_VALIDATION_FAILED: ${failure?.error ?? 'No valid model / 无有效模型'}`);
+}
+
+/** Compile explicit concrete/reinforcement grades onto their referenced concrete members. */
+function projectConfirmedConcreteGrades(model: Record<string, unknown>, state: DraftState): void {
+  const source = state.engineeringDraft?.material;
+  if (source?.family !== 'concrete' || !Array.isArray(model.elements) || !Array.isArray(model.materials)) return;
+  const concreteIds = new Set(model.materials.filter(isRecord).filter(material => material.family === 'concrete'
+    || material.category === 'concrete' || source.grade && material.grade === source.grade).map(material => material.id));
+  model.elements = model.elements.map(value => {
+    if (!isRecord(value) || !concreteIds.has(value.material)) return value;
+    const member = state.engineeringDraft?.topology?.members?.find(row => row.id === value.id);
+    const concrete = typeof member?.concrete_grade === 'string' ? member.concrete_grade : source.grade;
+    const rebar = typeof member?.rebar_grade === 'string' ? member.rebar_grade : source.rebarGrade;
+    return { ...value, ...(concrete ? { concrete_grade: concrete } : {}), ...(rebar ? { rebar_grade: rebar } : {}) };
+  });
 }
 
 function projectConfirmedAxialMembers(model: Record<string, unknown>, state: DraftState): void {

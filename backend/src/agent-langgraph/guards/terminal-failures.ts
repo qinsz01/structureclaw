@@ -29,15 +29,18 @@ export function assertNoTerminalSemanticFailure(messages: unknown[] = []): void 
     if (!failure) continue;
     let code = failureCode(failure);
     let detail = failure;
+    let exhaustedBuild = false;
     try {
       const payload = JSON.parse(content);
+      const tool = message as { name?: string; kwargs?: { name?: string } };
+      exhaustedBuild = (tool.name ?? tool.kwargs?.name) === 'build_model' && payload?.terminal === true && payload?.modelBuilt === false;
       if (typeof payload?.errorCode === 'string') code = payload.errorCode;
       else if (typeof payload?.error_code === 'string') code = payload.error_code;
       if (typeof payload?.message === 'string') detail = payload.message;
       else if (typeof payload?.error === 'string') detail = payload.error;
       else if (typeof payload?.supportNote === 'string') detail = payload.supportNote;
     } catch { /* ToolNode plain errors retain their explicit prefix. */ }
-    if (TERMINAL_CODES.has(code)) {
+    if (exhaustedBuild || TERMINAL_CODES.has(code)) {
       if (code === 'STRUCTURE_TYPE_UNSUPPORTED') {
         throw new Error(`${code}: The requested structure is not supported by the enabled capabilities; this turn was stopped. / 已启用的能力不支持本次结构请求，本轮已停止。 ${detail}`);
       }

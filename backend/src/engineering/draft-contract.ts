@@ -1,6 +1,7 @@
 import Ajv2020 from 'ajv/dist/2020.js';
 import type { ValidateFunction } from 'ajv';
 import generatedModelSchema from './structure-model-v2.schema.json' with { type: 'json' };
+import { modelSelectorContract } from './model-selection.js';
 
 export const LOAD_DIRECTION_RULE = 'In engineeringDraft.loads, direction is exactly gravity, globalX, globalY or globalZ. Global-axis magnitude is signed; gravity is positive downward, negative upward. Put the sign in magnitude, never in the direction enum. Downward 27 kN/m uses magnitude:27,direction:"gravity", or magnitude:-27,direction:"globalZ" with Z up. Preserve signed loadCases components. Ask only if the physical direction is undetermined. / direction只用gravity、globalX、globalY、globalZ；全局轴magnitude有符号，gravity正值向下、负值向上。负号不能拼入方向枚举。Z轴向上时，向下27kN/m写gravity与27或globalZ与-27。loadCases保留分量符号，仅方向不明确时追问。';
 
@@ -33,7 +34,8 @@ export const draftContract: FieldSchema = { ...object({
     frameBaseSupportType: choice('fixed', 'pinned'), supportPositionsM: array({ type: 'number', minimum: 0 }) }),
   loads: array(object({ id: string, kind: choice('point', 'line', 'area', 'nodal', 'distributed'),
     magnitude: { type: 'number', description: 'Signed component for globalX/globalY/globalZ; gravity is positive downward and negative upward.' }, unit: choice('kN', 'kN/m', 'kN/m2'),
-    direction: choice('gravity', 'globalX', 'globalY', 'globalZ'), target: { ...string,
+    direction: choice('gravity', 'globalX', 'globalY', 'globalZ'), selector: { ...modelSelectorContract,
+      description: 'Applies magnitude to EACH selected target; replaces target/location. / 对每个选中目标分别施加magnitude，替换target/location。' }, target: { ...string,
       description: 'Exact node/member ID or canonical selector only. Frame floor totals: target="floor"+location.story, or explicit all-stories/all-floors. Beam loads: beam/all-beams/x-beams/y-beams+location.story, optional spanIndex; omit story only when all-beams explicitly covers every story. Portal: roof/mezzanine/crane. Column: column-top. Missing selectors stay missing; no prose, record-order mapping or default all-floor allocation. / 仅用准确ID或上述选择器；楼层总荷载与梁荷载须区分，spanIndex可选；缺目标不得按文字、数组顺序或默认全楼补齐。' },
     location: object({ xM: number, spanIndex: integer, story: integer, nodeRole: { ...string,
       description: 'Frame nodes: all-non-base-nodes=above base; all-top-nodes=roof only; all+story=whole floor; node-xIyJ+story=zero-based X/Y grid node. story is one-based. 2D only: left-side/right-side/middle+story. EACH selected node receives magnitude; target may be an exact node ID. / story从1起、X/Y索引从0起；非底部全部节点与仅屋面须区分；左右/中间仅二维；magnitude为每节点值，也可target准确ID。' } }),

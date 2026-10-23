@@ -6,6 +6,7 @@ export interface FrameGeometryOptions {
   baseRestraint: 'fixed' | 'pinned'; origin?: Vector3; prefix?: string; nodeIds?: Record<string, string>;
   material?: string; columnSection?: string; beamSection?: string; includeStories?: boolean;
   memberIds?: Record<string, string>;
+  storyIds?: Record<string, string>;
 }
 export const accumulate = (lengths: number[]): number[] => lengths.reduce<number[]>((values, length) => [...values, values[values.length - 1]! + length], [0]);
 
@@ -16,7 +17,8 @@ export function regularFrameGeometry(options: FrameGeometryOptions) {
   const nodeId = (story: number, i: number, j: number) => options.nodeIds?.[`${story},${i},${j}`]
     ?? `${prefix}N${story}_${i}${options.dimension === '3d' ? `_${j}` : ''}`;
   const nodes: ModelRecord[] = [], elements: ModelRecord[] = [];
-  const storyField = (story: number) => options.includeStories === false ? {} : { story: `${prefix}F${story}` };
+  const storyId = (story: number) => options.storyIds?.[String(story)] ?? `${prefix}F${story}`;
+  const storyField = (story: number) => options.includeStories === false ? {} : { story: storyId(story) };
   const memberId = (local: string) => options.memberIds?.[local] ?? prefix + local;
   const restraints = options.baseRestraint === 'fixed' ? [true, true, true, true, true, true] : [true, true, true, false, false, false];
   let index = 1;
@@ -36,7 +38,7 @@ export function regularFrameGeometry(options: FrameGeometryOptions) {
     elements.push({ id: memberId(`BY${index++}`), type: 'beam', nodes: [nodeId(story, i, j), nodeId(story, i, j + 1)],
       material: options.material ?? '1', section: options.beamSection ?? '2', ...storyField(story) });
   }
-  const stories = options.storeyHeights.map((height, i) => ({ id: `${prefix}F${i + 1}`, height, elevation: origin[2] + z[i]! }));
+  const stories = options.storeyHeights.map((height, i) => ({ id: storyId(i + 1), height, elevation: origin[2] + z[i]! }));
   return { nodes, elements, stories };
 }
 
