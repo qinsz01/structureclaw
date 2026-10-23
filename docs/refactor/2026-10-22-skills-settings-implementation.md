@@ -672,3 +672,77 @@ Frontend unit tests passed **341 tests** (six existing todo cases); integration 
 production build, routing/base-chat/capability/chat-stream/message-routing validations and the
 analyze contract passed. Evidence is under
 `G:/StructureClaw-All/verification/no-semantic-fallback-20261022/`.
+
+## Invalid load extraction follow-up (2026-10-23)
+
+A subsequent generic-only conversation exposed a gap in the previous validation coverage.
+The user had explicitly supplied downward frame loads. Eight extraction calls each reached
+the configured LLM, but a `LOAD_DIRECTION_INVALID` exception escaped the extractor after its
+first candidate. No internal recovery was counted; the outer agent repeatedly rewrote its
+tool arguments until the eight-call no-progress guard stopped the turn. Those rewrites did
+not alter the effective input, because extraction correctly continued to use the actual user
+answer. The earlier 429 provider errors were separate failures. No model, PKPM analysis,
+code check or report was produced in the affected conversation.
+
+Engineering input rejections now use `EngineeringValidationError`. The extractor feeds these
+rejections back to the same configured LLM within the existing recovery budget; exhausted
+invalid output becomes the existing terminal `LLM_PARAM_EXTRACTOR_INVALID_OUTPUT` failure.
+Infrastructure and unexpected programming errors are not treated as repairable model output.
+Direction diagnostics retain the rejected field and value. Real graph tests cover both
+queued dependent tools and another outer-model response, preserving the old draft and
+artifacts while preventing further extraction/build/analysis after the terminal receipt.
+
+The compact extraction prompt now derives load directions, units and selector guidance from
+the authoritative draft contract. Global-axis magnitudes are signed, matching the existing
+compiler; gravity is positive downward and negative upward. No natural-language direction
+parser or substitute default was added. An explicit full extraction attempt also receives
+the full contract even when focus fields were supplied.
+
+An isolated live-model check with the original answer then accepted all four gravity loads,
+but exposed another compact-prompt omission: `material.rebarGrade`. The model had put the
+reinforcement grade into an independent analysis-material record, causing avoidable E/nu/rho
+questions. The material field list now comes from the same draft schema and distinguishes
+reinforcement design metadata from actual member analysis materials. Analysis-material
+readiness remains strict; the implementation neither guesses a material role from its grade
+name nor invents elastic properties for an incomplete record.
+
+The next live extraction exposed a separate loss at the analysis boundary: a string-valued
+load combination and an invalid analysis type were silently discarded. Analysis inputs now
+reject malformed values through the same typed validation and bounded LLM repair path. The
+focused prompt supplies the analysis enums and structured combination contract; there is no
+rule parser that converts a natural-language combination into an assumed engineering value.
+
+Reviewing this draft also exposed an unsafe physics-check boundary: symbolic load targets
+could prevent an independent total check while empty generated load cases received only a
+warning. Unverifiable declared loads now prevent acceptance, just as mismatched totals do.
+The framework must establish verifiable load targets or explicitly fail; it must not guess
+their allocation or treat an empty load case as successful fulfillment of the request.
+An explicit zero-load declaration that contradicts nonzero draft loads also fails without
+changing either input. This physics guard is on the generic generation path; specialized
+template builders retain their existing deterministic load expansion.
+This deliberately tightens generic/forced-LLM building: a convenience selector such as
+`beam` alone is not a verified mapping to generated node/member IDs. Such requests need
+explicit target records before this path can succeed; a warning is no longer sufficient.
+
+The final isolated check used the actual configured GLM-5.3 and original user answer. Two
+invalid candidates received bounded feedback (role-assignment shape, then section shape);
+the third, full-contract candidate was accepted. It retained downward DL/LL values of
+27/30 and 12/3 kN/m, C30 with `material.rebarGrade=HRB400`, and the structured combination
+`{DL:1.3,LL:1.5}`. No user conversation or settings were changed. This is one successful
+extraction test, not evidence of a completed generated model, solver result or report.
+
+The original conversation and user settings are retained. The isolated extraction check
+does not claim that the requested PKPM calculation/report has run, or that autonomous design
+proposals have acquired a new acceptance protocol. Evidence and original failure logs are
+under `G:/StructureClaw-All/verification/latest-session-20261023/`.
+
+Final acceptance covers **237 suites / 3,508 tests**, with no unresolved failures or skips.
+The final production source passed build, lint, dependency boundaries and seven contract
+validators. Its full core run had 3,406/3,408 passing tests; characterization had 97/100.
+The five failed suites contained one stale prompt-text assertion and four success fixtures
+whose generated load targets/totals were not independently verifiable. Their corrections
+retained the original inputs, routing assertions and physical/numerical checks; additional
+assertions verify the explicit target sets and fixed load totals. Complete suite rechecks
+passed **35 + 13 + 49 tests**, including all 44 snapshots in the three characterization
+suites. Production code stayed unchanged throughout these full runs and rechecks. The
+original failed results and replacement suite results are retained in `acceptance-summary.json`.
