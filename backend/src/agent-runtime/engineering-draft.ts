@@ -1,5 +1,6 @@
 import { EngineeringValidationError } from '../engineering/validation-error.js';
-import { modelSelectorSchema } from '../engineering/model-selection.js';
+import { normalizeMaterialDensity } from '../engineering/material-density.js';
+import { modelSelectorSchema, floorTransferSchema } from '../engineering/model-selection.js';
 import { mergeInputEvidence } from '../engineering/input-evidence.js';
 import { isDeepStrictEqual } from 'node:util';
 import { normalizeMemberReleases } from '../engineering/member-releases.js';
@@ -229,6 +230,10 @@ function normalizeEngineeringLoad(value: unknown, path: string): EngineeringDraf
   const sourceUnit = normalizeString(raw.unit)?.toLowerCase().replace(/\s+/g, '');
   const forceScale = sourceUnit && /^n(?:\/m(?:2|\^2|²)?)?$/.test(sourceUnit) ? 0.001 : 1;
   const selector = raw.selector === undefined ? undefined : modelSelectorSchema.safeParse(raw.selector);
+  const floorTransfer = raw.floorTransfer === undefined ? undefined : floorTransferSchema.safeParse(raw.floorTransfer);
+  if (floorTransfer && (!floorTransfer.success || normalizeLoadUnit(raw.unit, kind) !== 'kN/m2')) {
+    throw new EngineeringValidationError(`FLOOR_TRANSFER_INVALID: ${path}.floorTransfer; preserve explicit distribution and rectangular bounds for an area load / 面荷载传荷需明确方向和矩形范围`);
+  }
   if (selector && !selector.success) throw new EngineeringValidationError(`LOAD_SELECTOR_INVALID: ${path}.selector ${JSON.stringify(selector.error.issues)} / 荷载选择器无效，不得丢弃`);
   if (selector && (normalizeString(raw.target) || normalizeLoadLocation(raw.location))) throw new EngineeringValidationError(`LOAD_SELECTOR_CONFLICT: ${path} must use selector or target/location; clear the replaced target/location before merging / 荷载只保留一个目标表达，先清除被替换的target/location再合并selector`);
   return {
@@ -239,6 +244,7 @@ function normalizeEngineeringLoad(value: unknown, path: string): EngineeringDraf
     direction: normalizeLoadDirection(raw.direction ?? raw.axis, `${path}.direction`),
     target: normalizeString(raw.target),
     ...(selector?.success ? { selector: selector.data } : {}),
+    ...(floorTransfer?.success ? { floorTransfer: floorTransfer.data } : {}),
     location: normalizeLoadLocation(raw.location),
     caseId: normalizeString(raw.caseId ?? raw.loadCaseId),
     caseType: normalizeLoadCaseType(raw.caseType ?? raw.loadCaseType),
@@ -384,7 +390,7 @@ export function normalizeEngineeringDraft(value: unknown, existing?: Engineering
     ...(raw.coordinateSystem !== undefined ? { coordinateSystem: structuredClone(asRecord(raw.coordinateSystem)!) } : {}),
     geometry,
     topology: normalizeEngineeringTopology(raw.topology, existing?.topology),
-    materials: normalizeRecordArray(raw.materials, 'materials'),
+    materials: normalizeRecordArray(raw.materials, 'materials')?.map(normalizeMaterialDensity),
     sectionRecords: normalizeRecordArray(raw.sectionRecords ?? (Array.isArray(raw.sections) ? raw.sections : undefined), 'sections'),
     templateAssignments: normalizeTemplateAssignments(raw.templateAssignments),
     loadCases: normalizeRecordArray(raw.loadCases ?? raw.load_cases, 'loadCases'),

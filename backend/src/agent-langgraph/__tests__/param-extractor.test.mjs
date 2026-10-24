@@ -714,7 +714,7 @@ test.each(['en', 'zh'])('both prompt modes forbid self-weight questions and pres
     if (patchMode) {
       expect(prompt).toContain('Never clear identity or evidence (including extra.source and extra.provenance)');
       expect(prompt).toContain('Confirm dimensions via provenance.shape="user", retaining evidence');
-      expect(prompt).toContain('materials:[{id,name,family,grade,E,nu,rho,extra}]');
+      expect(prompt).toContain('materials:[{id,name,family,grade,E,nu,rho,density,extra}]');
     }
   }
 });

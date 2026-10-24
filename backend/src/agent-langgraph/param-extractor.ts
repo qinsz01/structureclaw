@@ -18,10 +18,11 @@ import type { Logger } from 'pino';
 import type { AgentSkillPlugin, DraftState } from '../shared/types/agent.js';
 import { currentRunPolicy, requestRecovery, recordRunEvent } from '../runtime/run-context.js';
 import { llmContentText } from '../utils/llm-content.js';
-import { draftContract, promptContract, LOAD_DIRECTION_RULE } from '../engineering/draft-contract.js';
+import { draftContract, promptContract, LOAD_DIRECTION_RULE, FLOOR_TRANSFER_RULE } from '../engineering/draft-contract.js';
 import { currentDraftDiagnostics } from '../agent-runtime/draft-diagnostics.js';
 import { SECTION_EVIDENCE_RULE } from '../engineering/section-evidence.js';
 import { EngineeringValidationError } from '../engineering/validation-error.js';
+import { MATERIAL_DENSITY_RULE } from '../engineering/material-density.js';
 
 // ---------------------------------------------------------------------------
 // Skill context
@@ -102,7 +103,7 @@ function engineeringDraftSchemaDescription(locale: 'zh' | 'en'): string {
     return [
       'engineeringDraft uses this generated contract. All fields may be omitted in a partial draft; preserve explicitly supplied values and stable IDs. / 草稿允许缺项，但不得编造信息：',
       JSON.stringify(promptContract()),
-      updateContract, sectionSources, MATERIAL_WEIGHT_RULE,
+      updateContract, sectionSources, MATERIAL_WEIGHT_RULE, MATERIAL_DENSITY_RULE,
       seismicEvidence,
       'draftIssues: [{field: string, kind: missing|confirmation, severity: invalid|ambiguous|unrealistic|conflict, reason: string, question?: string}]. Use one exact field per issue with quoted stable IDs, e.g. materials["M1"].E. missing means absent data; confirmation means a present value needs user confirmation. Do not repeat a missing issue after supplying its value. Do not emit skillState.invalidDraftFields; the runtime derives it. / 缺项按当前值重新判断；确认与来源冲突单独保留。每项诊断对应一个字段和稳定ID，不维护第二份缺项列表。',
       '  // restraints 顺序严格为 [ux,uy,uz,rx,ry,rz]，true 表示约束。X-Z 平面铰支座为 [true,true,true,false,false,false]，沿全局 X 向可滑动的滚动支座为 [false,true,true,false,false,false]。',
@@ -134,7 +135,7 @@ function engineeringDraftSchemaDescription(locale: 'zh' | 'en'): string {
   return [
       'engineeringDraft uses this generated contract. All fields may be omitted in a partial draft; preserve explicitly supplied values and stable IDs. / 草稿允许缺项，但不得编造信息：',
       JSON.stringify(promptContract()),
-      updateContract, sectionSources, MATERIAL_WEIGHT_RULE,
+      updateContract, sectionSources, MATERIAL_WEIGHT_RULE, MATERIAL_DENSITY_RULE,
       seismicEvidence,
       'draftIssues: [{field: string, kind: missing|confirmation, severity: invalid|ambiguous|unrealistic|conflict, reason: string, question?: string}]. Use one exact field per issue with quoted stable IDs, e.g. materials["M1"].E. missing means absent data; confirmation means a present value needs user confirmation. Do not repeat a missing issue after supplying its value. Do not emit skillState.invalidDraftFields; the runtime derives it. / 缺项按当前值重新判断；确认与来源冲突单独保留。每项诊断对应一个字段和稳定ID，不维护第二份缺项列表。',
     '  // restraints are exactly [ux,uy,uz,rx,ry,rz], where true means restrained. In an X-Z model, a pin is [true,true,true,false,false,false] and a roller free in global X is [false,true,true,false,false,false].',
@@ -287,12 +288,12 @@ function buildFocusedParamExtractorPrompt(
     locale === 'zh' ? '提取结构工程澄清补丁。' : 'Extract a structural engineering clarification patch.',
     'PATCH ONLY / 仅输出补丁: One JSON object of newly supplied/corrected engineeringDraft fields; requestScope changes only with the user goal. No markdown, reasoning or unchanged records. The system merges nested objects and arrays by stable ID. Preserve exact existing IDs and unrelated fields; omit old draftIssues. / 按稳定ID合并，仅输出本轮改动。',
     'Output keys (no others): engineeringDraft/requestScope/skillState objects; clearDraftFields:string[]; draftIssues/unapplied:object[]. Omit empty diagnostics.',
-    `Fields: engineeringDraft={coordinateSystem:{dimension:"2d"|"3d"},material:{${Object.keys(draftContract.properties.material.properties).join(',')}},materials:[{id,name,family,grade,E,nu,rho,extra}],sectionRecords:[{id,name,type,shape,properties,extra}],templateAssignments:{beam|column|member:{materialId,sectionId,design}},geometry:{${Object.keys(draftContract.properties.geometry.properties).join(',')}},boundary:{supportType,frameBaseSupportType,supportPositionsM},topology:{nodes,members},loadCases:V2_load_cases,loads:[{id,kind,magnitude,unit,direction,target,location:{${Object.keys(draftContract.properties.loads.items.properties.location.properties).join(',')}},caseId,caseType}],analysisControl:V2_analysis_control,analysis:{type:${draftContract.properties.analysis.properties.type.enum.join("|")},engineTarget:${draftContract.properties.analysis.properties.engineTarget.enum.join("|")},loadCombinations:[{id:string,factors:{loadCaseId:number}}]},metadata:{geometryDescription,supportDescription,zeroLoads}}. Geometry m; loads kN,kN/m,kN/m2; E MPa; shape mm; A m²; Iy/Iz/J m⁴. Shape kinds: I,H,rectangular,circular,pipe,box; dimensions: H,B,tw,tf,d,T. Rectangular B=width,H=depth. Grids: bayWidthsM=2D, bayWidthsXM/YM=3D X/Y; storyHeightsM=all storeys. Load kinds: ${draftContract.properties.loads.items.properties.kind.enum.join(',')}. Beam supports: simply-supported,cantilever,fixed-fixed; frame/portal bases: boundary.frameBaseSupportType=fixed|pinned. / 按上述维度记录轴网和逐层高度。`,
+    `Fields: engineeringDraft={coordinateSystem:{dimension:"2d"|"3d"},material:{${Object.keys(draftContract.properties.material.properties).join(',')}},materials:[{id,name,family,grade,E,nu,rho,density,extra}],sectionRecords:[{id,name,type,shape,properties,extra}],templateAssignments:{beam|column|member:{materialId,sectionId,design}},geometry:{${Object.keys(draftContract.properties.geometry.properties).join(',')}},boundary:{supportType,frameBaseSupportType,supportPositionsM},topology:{nodes,members},loadCases:V2_load_cases,loads:[{id,kind,magnitude,unit,direction,target,location:{${Object.keys(draftContract.properties.loads.items.properties.location.properties).join(',')}},caseId,caseType}],analysisControl:V2_analysis_control,analysis:{type:${draftContract.properties.analysis.properties.type.enum.join("|")},engineTarget:${draftContract.properties.analysis.properties.engineTarget.enum.join("|")},loadCombinations:[{id:string,factors:{loadCaseId:number}}]},metadata:{geometryDescription,supportDescription,zeroLoads}}. Geometry m; loads kN,kN/m,kN/m2; E MPa; shape mm; A m²; Iy/Iz/J m⁴. Shape kinds: I,H,rectangular,circular,pipe,box; dimensions: H,B,tw,tf,d,T. Every shape requires kind, e.g. {kind:"rectangular",B:300,H:600}. design is an object, never a boolean. Combination factors reference caseId, never a load ID. Rectangular B=width,H=depth. Grids: bayWidthsM=2D, bayWidthsXM/YM=3D X/Y; storyHeightsM=all storeys. Load kinds: ${draftContract.properties.loads.items.properties.kind.enum.join(',')}. Beam supports: simply-supported,cantilever,fixed-fixed; frame/portal bases: boundary.frameBaseSupportType=fixed|pinned. / 按上述维度记录轴网和逐层高度。`,
     `Load patch contract / 荷载补丁契约: ${JSON.stringify({ direction: loadFields.direction.enum, unit: loadFields.unit.enum,
       target: loadFields.target.description, nodeRole: loadFields.location.properties.nodeRole.description })}`,
     'Group loads / 分组荷载: use selector:{ids:string[],type,story,prefix,parallelTo:x|y|z,coordinate:{axis:x|y|z,at:midpoint|start|end,eq,gt,gte,lt,lte},coordinates:[coordinate predicates AND]} instead of target/location; magnitude applies to EACH match. Members use endpoint midpoints; story is an exact ID. Clear old target/location first. / 分组用selector替换target/location；构件默认中点，各目标分别施加magnitude，多坐标条件同时满足。',
     SECTION_SOURCE_RULE + SECTION_EVIDENCE_RULE,
-    MATERIAL_WEIGHT_RULE,
+    MATERIAL_WEIGHT_RULE + MATERIAL_DENSITY_RULE,
     LOAD_DIRECTION_RULE,
     'clearDraftFields deletes explicitly withdrawn/replaced fields by stable ID, e.g. sectionRecords["S1"].standard_steel_name; omission never deletes. Never clear identity or evidence (including extra.source and extra.provenance). Confirm dimensions via provenance.shape="user", retaining evidence. Resolve format/precision yourself. Missing inputs: draftIssues=[{field,severity:"missing"|"ambiguous",reason}]. Never invent loads, units, design conditions or topology. / 删除须明确撤回或替换，保留ID和来源证据；缺项报draftIssues，不编造。',
     `Skill: ${plugin.id}; focus fields / 本轮重点字段：${JSON.stringify(focusFields)}`,
@@ -454,7 +455,7 @@ export async function invokeParamExtractor(
     input.message,
     input.focusFields,
     patchMode,
-  ) + '\nInput completeness / 输入完整性: Extract each supplied field independently. A pending confirmation on one field never blocks other fields. If a supplied value cannot be represented, include top-level unapplied:[{field,reason,message}] instead of omitting it silently. / 分别提取每个已给字段；某字段待确认不得阻止其他字段。无法表达的已给值必须列入顶层unapplied并说明原因，不能静默遗漏。'
+  ) + '\n' + FLOOR_TRANSFER_RULE + '\nInput completeness / 输入完整性: Extract each supplied field independently. A pending confirmation on one field never blocks other fields. If a supplied value cannot be represented, include top-level unapplied:[{field,reason,message}] instead of omitting it silently. / 分别提取每个已给字段；某字段待确认不得阻止其他字段。无法表达的已给值必须列入顶层unapplied并说明原因，不能静默遗漏。'
     + '\nMember end releases / 构件端释放: i/j contain boolean local DOFs ux/uy/uz/rx/ry/rz, not result fields; retain reference_frame="element-local" when supplied. Axial rotations are already free; never invent or remove translational releases or offsets. / 保留局部自由度布尔值、参考系和偏心；纯轴力杆转动本已自由，不编造或删除平移释放。'
     + '\nAxial-only sections / 纯轴力截面: Explicit positive A suffices for truss/brace-only sections: no equivalent shape/inertia; resolve old missing-shape issues. No shear/bending stiffness does not imply translational releases. / 纯轴力截面正面积A已足够，撤销旧缺形状问题，不编造形状、惯性矩或平移释放。'
     + '\nSection assignment scope / 截面适用范围: Preserve all inclusions/exclusions. A section for beams/columns or all EXCEPT an axial group must not be assigned to that excluded group. Unspecified axial area stays unassigned/incomplete with a missing diagnostic; never copy another group or invent area. / 保留适用和排除分组；缺轴力杆面积仍报缺失，不借用或编造。'

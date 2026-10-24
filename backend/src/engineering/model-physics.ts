@@ -33,7 +33,9 @@ const endRelease = (element: ModelRecord, end: 'i' | 'j', axis: string): boolean
  * Each beam contributes axial, torsional and unreleased end-curvature constraints. Rotations
  * that no member resists are omitted as solver gauge DOFs, rather than counted as mechanisms.
  */
-export function checkModelPhysics(model: ModelRecord, draft?: EngineeringDraft): PhysicsCheck {
+export type ExpandedAreaLoads = Map<string, { caseId: string; loads: ModelRecord[] }>;
+
+export function checkModelPhysics(model: ModelRecord, draft?: EngineeringDraft, areaLoads?: ExpandedAreaLoads): PhysicsCheck {
   const nodes = records(model.nodes), elements = records(model.elements);
   const diagnostics: PhysicsDiagnostic[] = [];
   const add = (code: string, entityIds: string[], en: string, zh: string, details?: ModelRecord, severity: 'error' | 'warning' = 'error') => {
@@ -105,7 +107,7 @@ export function checkModelPhysics(model: ModelRecord, draft?: EngineeringDraft):
       'The zero-load declaration conflicts with nonzero declared loads. Resolve the conflicting input before building; neither declaration was changed.',
       '无外荷载声明与已声明的非零荷载矛盾。请先明确矛盾输入，再建模；两项原始声明均未改写。');
     const expectedTargets = new Map<string, Vector3>();
-    const expected = draft ? expectedLoads(model, draft, expectedTargets) : undefined;
+    const expected = draft ? expectedLoads(model, draft, expectedTargets, areaLoads) : undefined;
     if (expected) for (const [id, total] of Object.entries(expected)) {
       const actual = loadTotals[id] ?? [0, 0, 0];
       if (total.some((value, index) => Math.abs(value - actual[index]!) > 1e-6 * Math.max(1, Math.abs(value)))) {
@@ -264,12 +266,26 @@ function resolvedLoads(model: ModelRecord, draft: EngineeringDraft) {
         });
       source.caseId = mapping.caseId;
     }
-    if (source.selector || source.location && Object.entries(source.location).some(([key, value]) => key !== 'story' && value !== undefined)) {
+    if (source.location && Object.entries(source.location).some(([key, value]) => key !== 'story' && value !== undefined)) {
       throw new Error(`LOAD_MAPPING_SCOPE_CONFLICT: ${mapping.loadId}`);
     }
     const available = records(source.unit === 'kN' ? model.nodes : model.elements);
     const targets = selectRecords(available, mapping.selector, model);
-    if (!targets.length || mapping.selector.ids?.some(id => !targets.some(row => row.id === id))) throw new Error(`LOAD_MAPPING_UNRESOLVED: ${mapping.loadId}`);
+    if (!targets.length || mapping.selector.ids?.some(id => !targets.some(row => row.id === id))) throw new LoadMappingError('LOAD_MAPPING_UNRESOLVED', [mapping.loadId],
+      { loadId: mapping.loadId, selector: mapping.selector, confirmedSelector: source.selector,
+        availableStories: [...new Set(available.map(row => row.story).filter(value => value !== undefined))],
+        availableTypes: [...new Set(available.map(row => row.type).filter(value => value !== undefined))],
+        availableIds: available.filter(row => !mapping.selector.type || row.type === mapping.selector.type).slice(0, 30).map(row => row.id) }, {
+        en: 'The selector matches no valid target group. Preserve confirmed selectors and bind generated geometry/storyIds to their exact IDs; do not invent aliases.',
+        zh: '选择器未对应有效实体分组。保留已确认选择器，用几何操作的storyIds对应实际楼层编号，不编造别名。',
+      });
+    if (source.selector) {
+      const confirmed = selectRecords(available, modelSelectorSchema.parse(source.selector), model);
+      const identities = (rows: ModelRecord[]) => JSON.stringify(rows.map(row => String(row.id)).sort());
+      if (!confirmed.length || identities(confirmed) !== identities(targets)) throw new Error(`LOAD_MAPPING_SCOPE_CONFLICT: ${mapping.loadId}`);
+      // Equivalent binding evidence never rewrites the confirmed selector expression.
+      continue;
+    }
     if (available.some(row => row.id === source.target) && (targets.length !== 1 || targets[0]!.id !== source.target)) {
       throw new Error(`LOAD_MAPPING_TARGET_CONFLICT: ${mapping.loadId}`);
     }
@@ -289,7 +305,7 @@ function resolvedLoads(model: ModelRecord, draft: EngineeringDraft) {
   return loads;
 }
 
-function expectedLoads(model: ModelRecord, draft: EngineeringDraft, expectedTargets: Map<string, Vector3>): Record<string, Vector3> | undefined {
+function expectedLoads(model: ModelRecord, draft: EngineeringDraft, expectedTargets: Map<string, Vector3>, areaLoads?: ExpandedAreaLoads): Record<string, Vector3> | undefined {
   draft = { ...draft, loads: resolvedLoads(model, draft) };
   const grouped = draft.loads?.some(load => load.selector);
   if (!grouped && draft.model && Array.isArray(draft.model.load_cases)) return appliedLoadTotals(draft.model);
@@ -299,8 +315,40 @@ function expectedLoads(model: ModelRecord, draft: EngineeringDraft, expectedTarg
     return appliedLoadTotals({ ...model, load_cases: draft.loadCases ?? [] });
   }
   if (!draft.loads?.length) return undefined;
+  const cases = declaredLoadCases(model, draft, expectedTargets, areaLoads);
+  return cases ? appliedLoadTotals({ ...model, load_cases: cases }) : undefined;
+}
+
+/** Explicit compiler protocol, never a replacement for a rejected load candidate. */
+export function compileConfirmedModelLoads(model: ModelRecord, draft: EngineeringDraft, areaLoads?: ExpandedAreaLoads): ModelRecord {
+  if (!draft.loads?.length) throw new Error('DRAFT_LOAD_COMPILATION_REQUIRED: confirmed source loads required / 编译需要已确认源荷载');
+  if (records(model.load_cases).some(row => records(row.loads).length)) {
+    throw new Error('DRAFT_LOAD_COMPILATION_CONFLICT: return empty load-case records when requesting source compilation; do not also supply executable loads / 编译模式不可同时提供施加荷载');
+  }
+  if (records(model.stories).some(row => ['dead_load', 'live_load'].some(key => Number(row[key] ?? 0) !== 0))) {
+    throw new Error('DRAFT_LOAD_COMPILATION_CONFLICT: source compilation owns all declared loads; omit stories.dead_load/live_load instead of duplicating floor pressure shorthand / 源荷载编译模式不得同时填写楼层恒活面荷载简写，避免重复施加');
+  }
+  const cases = declaredLoadCases(model, { ...draft, loads: resolvedLoads(model, draft) }, new Map(), areaLoads);
+  if (!cases) throw new Error('DRAFT_LOAD_COMPILATION_UNRESOLVED: bind every confirmed source to exact entities and an existing case / 请明确所有源荷载的实体及工况');
+  return { ...model, load_cases: records(model.load_cases).map(row => ({ ...row, loads: cases.find(source => source.id === row.id)?.loads ?? [] })) };
+}
+
+function declaredLoadCases(model: ModelRecord, draft: EngineeringDraft, expectedTargets: Map<string, Vector3>, areaLoads?: ExpandedAreaLoads): ModelRecord[] | undefined {
   const cases = new Map<string, ModelRecord[]>();
-  for (const load of draft.loads) {
+  for (const load of draft.loads ?? []) {
+    if (load.unit === 'kN/m2') {
+      const expanded = load.id ? areaLoads?.get(load.id) : undefined;
+      if (!expanded || load.caseId !== expanded.caseId) return undefined;
+      const { caseId, loads } = expanded;
+      cases.set(caseId, [...(cases.get(caseId) ?? []), ...loads]);
+      for (const element of new Set(loads.map(row => row.element))) {
+        const total = appliedLoadTotals({ ...model, load_cases: [{ id: caseId, loads: loads.filter(row => row.element === element) }] })[caseId]!;
+        const key = JSON.stringify([caseId, 'element', element]);
+        const previous = expectedTargets.get(key) ?? [0, 0, 0];
+        expectedTargets.set(key, previous.map((value, index) => value + total[index]!) as Vector3);
+      }
+      continue;
+    }
     if (!load.direction || !['kN', 'kN/m'].includes(load.unit)) return undefined;
     const index = { globalX: 0, globalY: 1, globalZ: 2, gravity: 2 }[load.direction];
     const value = load.magnitude * (load.direction === 'gravity' ? -1 : 1);
@@ -311,7 +359,11 @@ function expectedLoads(model: ModelRecord, draft: EngineeringDraft, expectedTarg
       const parsed = modelSelectorSchema.safeParse(load.selector);
       if (!parsed.success || load.target || load.location) return undefined;
       targets = selectRecords(available, parsed.data, model);
-      if (!targets.length || parsed.data.ids?.some(id => !targets.some(row => row.id === id))) return undefined;
+      if (!targets.length || parsed.data.ids?.some(id => !targets.some(row => row.id === id))) throw new LoadMappingError('LOAD_SOURCE_SELECTOR_UNRESOLVED', load.id ? [load.id] : [], {
+        loadId: load.id, selector: parsed.data, availableStories: [...new Set(available.map(row => row.story).filter(value => value !== undefined))],
+        availableTypes: [...new Set(available.map(row => row.type).filter(value => value !== undefined))],
+      }, { en: 'Confirmed selector has no targets. Bind generated storyIds to the confirmed IDs; never rewrite the source selector.',
+        zh: '已确认选择器未匹配实体。请将生成几何的storyIds对应已确认楼层ID，不修改源选择器。' });
     } else {
       targets = available.filter(row => row.id === load.target);
       if (targets.length !== 1) return undefined;
@@ -323,6 +375,7 @@ function expectedLoads(model: ModelRecord, draft: EngineeringDraft, expectedTarg
         en: 'This confirmed load has no case binding and the model has no unique case. Resolve caseId explicitly; do not guess from load names.',
         zh: '该已确认荷载尚未绑定工况，且模型不存在唯一工况。请明确 caseId，不得根据荷载名称猜测。',
       });
+    if (availableCaseIds.filter(caseId => caseId === id).length !== 1) throw new Error(`LOAD_MAPPING_CASE_INVALID: ${load.id ?? '?'}: ${id}`);
     const rows = cases.get(id) ?? [];
     for (const target of targets) {
       rows.push({ type: nodal ? 'nodal' : 'distributed', [nodal ? 'node' : 'element']: target.id,
@@ -334,7 +387,7 @@ function expectedLoads(model: ModelRecord, draft: EngineeringDraft, expectedTarg
     }
     cases.set(id, rows);
   }
-  return appliedLoadTotals({ ...model, load_cases: [...cases].map(([id, loads]) => ({ id, loads })) });
+  return [...cases].map(([id, loads]) => ({ id, loads }));
 }
 
 export class ModelPhysicsError extends Error {

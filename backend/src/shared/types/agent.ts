@@ -100,6 +100,7 @@ export interface EngineeringDraftLoad {
   target?: string;
   selector?: EngineeringModelSelector;
   location?: EngineeringDraftLoadLocation;
+  floorTransfer?: { distribution: 'one-way-x' | 'one-way-y' | 'two-way'; bounds: { x: [number, number]; y: [number, number] } };
   caseId?: string;
   caseType?: EngineeringDraftLoadCaseType;
 }

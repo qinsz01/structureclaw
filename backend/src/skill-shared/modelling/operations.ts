@@ -113,6 +113,8 @@ export async function expandModellingOperations(input: ModelRecord, base?: Model
         return { type: 'distributed', element: element.id, reference_frame: op.reference_frame, wx: op.vector[0], wy: op.vector[1], wz: op.vector[2], start, end };
       }));
     } else if (op.op === 'floor-to-beam') {
+      // Explicit compilation mode defers area expansion until source bindings are validated.
+      if (isRecord(model.metadata) && model.metadata.compileDraftLoads === true) continue;
       const { data } = await createLocalStructureProtocolClient().post<{ loads: ModelRecord[]; totalKN: number }>('/expand-floor-load', {
         nodes: rows(model.nodes), elements: op.beamSelector ? selected(rows(model.elements), op.beamSelector, model) : rows(model.elements),
         z: op.z, bounds: op.bounds, pressureKNM2: op.pressureKNM2, distribution: op.distribution,

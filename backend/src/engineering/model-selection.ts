@@ -13,7 +13,12 @@ export const modelSelectorSchema = z.object({
 }).strict();
 export type ModelSelector = z.infer<typeof modelSelectorSchema>;
 export const modelSelectorContract = z.toJSONSchema(modelSelectorSchema);
+export const floorTransferSchema = z.object({ distribution: z.enum(['one-way-x', 'one-way-y', 'two-way']),
+  bounds: z.object({ x: z.tuple([number, number]), y: z.tuple([number, number]) }).strict(),
+}).strict();
+export const floorTransferContract = z.toJSONSchema(floorTransferSchema);
 export const modelLoadMappingsSchema = z.array(z.object({ loadId: id, selector: modelSelectorSchema,
+  transferId: id.optional().describe('For an area source, exact floor-to-beam operation ID; required to independently verify the transfer / 面荷载必须绑定准确的floor-to-beam操作ID'),
   caseId: id.optional().describe('Bind an unassigned source load to an existing model case; never replace a confirmed case ID / 仅绑定未指定工况的源荷载，不得替换已确认工况ID'),
 }).strict());
 

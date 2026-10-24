@@ -28,6 +28,8 @@ describe('analysis material and reinforcement grade extraction contract', () => 
       if (patchMode) expect(prompt).toContain(`material:{${Object.keys(draftContract.properties.material.properties).join(',')}}`);
       expect(prompt).toContain('Reinforcement grades used only for design belong in material.rebarGrade, not materials records.');
       expect(prompt).toContain('Explicitly modelled reinforcing members still require analysis material records and properties.');
+      expect(prompt).toContain('Do not calculate the conversion.');
+      expect(prompt).toContain('Never infer units from magnitude');
       expect(prompt).toContain('仅用于设计验算的钢筋牌号写material.rebarGrade');
     },
   );

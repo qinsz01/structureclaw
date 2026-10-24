@@ -14,7 +14,8 @@ import { validateExplicitModel } from '../../../agent-runtime/explicit-model.js'
 import { canRecover, currentRunPolicy, requestRecovery } from '../../../runtime/run-context.js';
 import { applyDraftAnalysisControl, applyDraftTemplateDesign, projectDraftMaterialDesign, normalizeDraftTopologyReleases } from '../../../agent-runtime/engineering-draft.js';
 import { completeGenericModelProperties } from '../../../agent-runtime/template-properties.js';
-import { checkModelPhysics, ModelPhysicsError } from '../../../engineering/model-physics.js';
+import { ModelPhysicsError } from '../../../engineering/model-physics.js';
+import { checkModelPhysicsWithAreaLoads, compileDeclaredModelLoads } from '../../../engineering/model-area-loads.js';
 import { expandModellingOperations, assertUserTopologyIds } from '../../../skill-shared/modelling/operations.js';
 import { ModellingOperationError } from '../../../skill-shared/modelling/contract.js';
 import { isRecord } from '../../../engineering/model-state.js';
@@ -96,6 +97,10 @@ export async function tryBuildGenericModelWithLlm(
         nodes: state.engineeringDraft?.topology?.nodes ?? [], elements: state.engineeringDraft?.topology?.members ?? [],
         materials: state.engineeringDraft?.materials ?? [], sections: state.engineeringDraft?.sectionRecords ?? [],
       });
+      if (isRecord(parsed.metadata) && parsed.metadata.compileDraftLoads === true) {
+        if (currentModel) throw new Error('DRAFT_LOAD_COMPILATION_CONFLICT: compilation is for a new confirmed draft, not an existing model edit / 草稿编译不能重写已有模型荷载');
+        parsed = await compileDeclaredModelLoads(parsed, state.engineeringDraft ?? {});
+      }
 
       if (!Array.isArray(parsed.nodes) || !Array.isArray(parsed.elements) || !Array.isArray(parsed.load_cases)) {
         logger.warn({
@@ -120,7 +125,7 @@ export async function tryBuildGenericModelWithLlm(
         : projectDraftMaterialDesign(applyDraftTemplateDesign(controlled, state.engineeringDraft), state.engineeringDraft);
       const candidate = completeGenericModelProperties(projected, state);
       assertUserTopologyIds(candidate, state.engineeringDraft?.topology, !currentModel);
-      const physics = checkModelPhysics(candidate, state.engineeringDraft);
+      const physics = await checkModelPhysicsWithAreaLoads(candidate, state.engineeringDraft);
       if (!physics.valid) throw new ModelPhysicsError(physics);
       assertCanonicalCoordinateModel(candidate, dimension);
       validateExplicitModel(candidate);

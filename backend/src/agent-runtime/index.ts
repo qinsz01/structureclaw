@@ -439,8 +439,9 @@ export class AgentSkillRuntime {
       recordRunEvent({ kind: 'model_builder', builder: 'explicit', requestedBuilder: policy?.builder ?? 'auto',
         source: state.engineeringDraft?.model ? 'model' : 'topology' });
       if (plugin?.id === 'generic' || state.engineeringDraft?.loads?.some(load => load.selector)) {
-        const { checkModelPhysics, ModelPhysicsError } = await import('../engineering/model-physics.js');
-        const physics = checkModelPhysics(explicit, state.engineeringDraft);
+        const { ModelPhysicsError } = await import('../engineering/model-physics.js');
+        const { checkModelPhysicsWithAreaLoads } = await import('../engineering/model-area-loads.js');
+        const physics = await checkModelPhysicsWithAreaLoads(explicit, state.engineeringDraft);
         if (!physics.valid) throw new ModelPhysicsError(physics);
       }
       return explicit;
@@ -456,8 +457,9 @@ export class AgentSkillRuntime {
     const model = policy?.builder === 'llm' ? undefined : plugin.handler.buildModel(state);
     if (model) {
       if (state.engineeringDraft?.loads?.some(load => load.selector)) {
-        const { checkModelPhysics, ModelPhysicsError } = await import('../engineering/model-physics.js');
-        const physics = checkModelPhysics(model, state.engineeringDraft);
+        const { ModelPhysicsError } = await import('../engineering/model-physics.js');
+        const { checkModelPhysicsWithAreaLoads } = await import('../engineering/model-area-loads.js');
+        const physics = await checkModelPhysicsWithAreaLoads(model, state.engineeringDraft);
         if (!physics.valid) throw new ModelPhysicsError(physics);
       }
       recordRunEvent({ kind: 'model_builder', builder: 'template', skillId: plugin.id });

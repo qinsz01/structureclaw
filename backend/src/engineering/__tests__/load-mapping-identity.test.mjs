@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { checkModelPhysics } from '../../../dist/engineering/model-physics.js';
+import { checkModelPhysics, compileConfirmedModelLoads } from '../../../dist/engineering/model-physics.js';
 
 const sourceId = 'LD-BEAM-EDGE-DL-FLOOR';
 function fixture() {
@@ -25,6 +25,32 @@ function fixture() {
 }
 
 describe('generated load identities stay bound to the confirmed draft', () => {
+  test('explicit source compilation preserves exact scope, case identity and source values', () => {
+    const { model, draft } = fixture();
+    for (const row of model.load_cases) row.loads = [];
+    const before = structuredClone({ model, draft });
+    const compiled = compileConfirmedModelLoads(model, draft);
+    expect(compiled.load_cases[0].loads).toEqual(['B1', 'B2'].map(element => ({ type: 'distributed', element, wz: -2 })));
+    expect(checkModelPhysics(compiled, draft)).toMatchObject({ valid: true, loadTotals: { 'D-explicit': [0, 0, -16] } });
+    expect({ model, draft }).toEqual(before);
+  });
+
+  test('source compilation refuses conflicting loads instead of replacing an invalid candidate', () => {
+    const { model, draft } = fixture();
+    model.load_cases[0].loads[0].wz = -3;
+    const before = structuredClone({ model, draft });
+    expect(() => compileConfirmedModelLoads(model, draft)).toThrow('DRAFT_LOAD_COMPILATION_CONFLICT');
+    expect({ model, draft }).toEqual(before);
+  });
+
+  test('source compilation rejects duplicate story pressure shorthand before the solver', () => {
+    const { model, draft } = fixture();
+    for (const row of model.load_cases) row.loads = [];
+    model.stories = [{ id: 'F1', dead_load: 5 }];
+    const before = structuredClone(model);
+    expect(() => compileConfirmedModelLoads(model, draft)).toThrow('DRAFT_LOAD_COMPILATION_CONFLICT');
+    expect(model).toEqual(before);
+  });
   test('one original load can select multiple members without inventing source IDs', () => {
     const { model, draft } = fixture();
     const saved = structuredClone({ model, draft });
@@ -52,6 +78,30 @@ describe('generated load identities stay bound to the confirmed draft', () => {
     const saved = structuredClone({ model, draft });
     expect(checkModelPhysics(model, draft)).toMatchObject({ valid: true, loadTotals: { 'D-explicit': [0, 0, -16] } });
     expect({ model, draft }).toEqual(saved);
+  });
+
+  test.each([false, true])('repeating a confirmed selector is idempotent, while changing it is rejected (changed=%s)', changed => {
+    const { model, draft } = fixture();
+    delete draft.loads[0].target;
+    delete draft.loads[0].location;
+    draft.loads[0].selector = { ids: ['B1', 'B2'] };
+    if (changed) model.metadata.loadMappings[0].selector = { ids: ['B1'] };
+    const saved = structuredClone({ model, draft });
+    const check = checkModelPhysics(model, draft);
+    expect(check.valid).toBe(!changed);
+    if (changed) expect(check.diagnostics).toContainEqual(expect.objectContaining({ code: 'LOAD_TARGET_INVALID',
+      details: expect.objectContaining({ error: expect.stringContaining('LOAD_MAPPING_SCOPE_CONFLICT') }) }));
+    expect({ model, draft }).toEqual(saved);
+  });
+
+  test('equivalent explicit identities verify the same scope without overwriting its confirmed selector', () => {
+    const { model, draft } = fixture();
+    delete draft.loads[0].target;
+    delete draft.loads[0].location;
+    draft.loads[0].selector = { type: 'beam', prefix: 'B' };
+    const before = structuredClone(draft);
+    expect(checkModelPhysics(model, draft).valid).toBe(true);
+    expect(draft).toEqual(before);
   });
 
   test.each(['missing', 'unknown', 'changed-confirmed'])('case binding rejects %s instead of guessing from IDs', kind => {
