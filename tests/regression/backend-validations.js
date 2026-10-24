@@ -10,6 +10,7 @@ const { pathToFileURL } = require("node:url");
 const { COMMAND_NAMES } = require("../../scripts/cli/command-manifest");
 const runtime = require("../../scripts/cli/runtime");
 const { runBackendBuildOnce, ensureRegressionSqliteDatabaseUrl } = require("./shared");
+const BUILTIN_STRUCTURE_SKILL_IDS = ["beam", "column", "concrete-frame", "double-span-beam", "frame", "generic", "portal-frame", "truss"];
 
 function assert(condition, message) {
   if (!condition) {
@@ -296,7 +297,7 @@ async function validateAgentManifestLoader(context) {
     assert(rejectedInvalidSkill, "skill manifest loader should reject malformed or unknown skill.yaml fields");
     const builtinStructureTypeRoot = path.join(context.rootDir, "backend", "src", "agent-skills", "structure-type");
     const builtinStructureTypeSkills = await loadSkillManifestsFromDirectory(builtinStructureTypeRoot);
-    assert(JSON.stringify(builtinStructureTypeSkills.map((skill) => skill.id).sort()) === JSON.stringify(["beam", "double-span-beam", "frame", "generic", "portal-frame", "truss"]), "skill manifest loader should discover builtin structure-type skills from real skill.yaml files");
+    assert(JSON.stringify(builtinStructureTypeSkills.map((skill) => skill.id).sort()) === JSON.stringify(BUILTIN_STRUCTURE_SKILL_IDS), "skill manifest loader should discover all eight builtin structure-type skills from real skill.yaml files");
     await assertDeclaredStagesCoverMarkdownAssets(builtinStructureTypeSkills, builtinStructureTypeRoot, "builtin structure-type skill manifest");
     assertBuiltinCompatibilityMatchesRuntimeDefaults(builtinStructureTypeSkills, "builtin structure-type skill manifest");
     const builtinAnalysisRoot = path.join(context.rootDir, "backend", "src", "agent-skills", "analysis");
@@ -343,20 +344,22 @@ async function validateAgentSkillCatalogManifests(context) {
   const service = new AgentSkillCatalogService();
   const skills = await service.listBuiltinSkills();
   const byId = new Map(skills.map((skill) => [skill.canonicalId, skill]));
-  for (const skillId of ["generic", "beam", "truss", "frame", "portal-frame", "double-span-beam"]) {
+  assert(JSON.stringify([...byId.keys()].sort()) === JSON.stringify(BUILTIN_STRUCTURE_SKILL_IDS), "skill catalog should contain exactly the eight modelling skills");
+  for (const skillId of BUILTIN_STRUCTURE_SKILL_IDS) {
     assert(byId.has(skillId), "skill catalog should include structure-type skill " + skillId);
     const skill = byId.get(skillId);
     assert(typeof skill.manifestPath === "string" && skill.manifestPath.endsWith("skill.yaml"), skillId + " should retain its skill.yaml path");
   }
   assert(byId.get("generic")?.triggers.includes("load"), "generic structure-type skill should preserve the manifest-level load trigger");
-  const validationSkill = skills.find((skill) => skill.canonicalId === "validation-structure-model");
-  assert(validationSkill, "skill catalog should include validation-structure-model");
-  assert(validationSkill.aliases.includes("structure-json-validation"), "validation-structure-model should preserve legacy alias");
-  for (const skillId of ["opensees-dynamic", "opensees-nonlinear", "opensees-seismic", "opensees-static", "code-check-gb50010", "code-check-gb50011", "code-check-gb50017", "code-check-jgj3", "dead-load", "section-common", "visualization-frame-summary"]) {
-    const skill = skills.find((entry) => entry.canonicalId === skillId);
-    assert(skill, "skill catalog should include skill " + skillId);
-    assert(typeof skill.manifestPath === "string" && skill.manifestPath.endsWith("skill.yaml"), skillId + " should retain its skill.yaml path");
+  const { getProvider, listProviders } = await import(pathToFileURL(path.join(context.rootDir, "backend", "dist", "providers", "catalog.js")).href);
+  for (const [providerId, kind] of [["opensees-dynamic", "solver"], ["opensees-nonlinear", "solver"], ["opensees-seismic", "solver"], ["opensees-static", "solver"], ["pkpm-static", "solver"], ["yjk-static", "solver"], ["code-check-gb50010", "design-code"], ["code-check-gb50011", "design-code"], ["code-check-gb50017", "design-code"], ["code-check-jgj3", "design-code"], ["cad-dxf-input", "input-parser"], ["csv-excel-input", "input-parser"], ["image-vision-input", "input-parser"], ["pdf-input", "input-parser"], ["report-export-builtin", "report-exporter"], ["pkpm-calcbook", "report-exporter"]]) {
+    const provider = getProvider(providerId);
+    assert(provider?.kind === kind, providerId + " should remain discoverable in the separate provider catalog");
+    assert(!byId.has(providerId), providerId + " must not masquerade as a modelling skill");
   }
+  assert(listProviders().every(provider => provider.name.zh && provider.name.en && provider.description.zh && provider.description.en), "providers should retain bilingual metadata");
+  const { resolveBuiltinValidationSkillCanonicalId } = await import(pathToFileURL(path.join(context.rootDir, "backend", "dist", "agent-runtime", "builtin-domain-manifests.js")).href);
+  assert(resolveBuiltinValidationSkillCanonicalId("structure-json-validation") === "validation-structure-model", "the legacy validation identifier remains resolvable without registering an extra modelling skill");
   console.log("[ok] agent skill catalog manifest contract");
 }
 
@@ -385,10 +388,15 @@ async function validateAgentRuntimeLoader(context) {
   const byId = new Map(skills.map((skill) => [skill.id, skill]));
   const runtimeManifests = await runtime.listSkillManifests();
   const runtimeManifestById = new Map(runtimeManifests.map((manifest) => [manifest.id, manifest]));
-  for (const [skillId, domain] of [["beam", "structure-type"], ["opensees-static", "analysis"], ["code-check-gb50010", "code-check"], ["dead-load", "load-boundary"], ["visualization-frame-summary", "visualization"], ["section-common", "section"], ["validation-structure-model", "validation"]]) {
+  assert(JSON.stringify([...byId.keys()].sort()) === JSON.stringify(BUILTIN_STRUCTURE_SKILL_IDS), "runtime loader should load all eight modelling skills and no execution providers");
+  for (const skillId of BUILTIN_STRUCTURE_SKILL_IDS) {
     assert(byId.has(skillId), "runtime loader should include manifest-backed " + skillId + " skill");
-    assert(byId.get(skillId)?.domain === domain, skillId + " should take domain from skill.yaml");
+    assert(byId.get(skillId)?.domain === "structure-type", skillId + " should take its modelling domain from skill.yaml");
   }
+  const { listProviders } = await import(pathToFileURL(path.join(context.rootDir, "backend", "dist", "providers", "catalog.js")).href);
+  const solverIds = listProviders("solver").map(provider => provider.id).sort();
+  assert(JSON.stringify(runtime.listAnalysisSkillIds().sort()) === JSON.stringify(solverIds), "analysis identifiers should come from the provider catalog");
+  assert(JSON.stringify(runtime.listCodeCheckSkillIds().sort()) === JSON.stringify(listProviders("design-code").map(provider => provider.id).sort()), "design-code identifiers should come from the provider catalog");
   assert(!byId.has("structure-json-validation"), "runtime loader should not keep legacy validation frontmatter id once manifest-first loader is active");
   assert(Array.isArray(runtimeManifestById.get("beam")?.supportedModelFamilies), "structure-type runtime manifests should come from skill.yaml rather than plugin-only manifests");
   assert(Array.isArray(runtimeManifestById.get("beam")?.materialFamilies), "runtime manifests should preserve manifest schema defaults for structure-type skills");
@@ -417,21 +425,22 @@ async function validateAgentRuntimeLoader(context) {
       "compatibility:", "  minRuntimeVersion: 0.1.0", "  skillApiVersion: v1", "designCode: GB50018", "supportedAnalysisTypes: []", "supportedModelFamilies:", "  - generic", "materialFamilies: []", "",
     ].join("\n"));
     const manifestOnlyRuntime = new AgentSkillRuntime({ builtinSkillManifestRoot: manifestOnlySkillRoot });
-    assert(manifestOnlyRuntime.listAnalysisSkillIds().includes("custom-static"), "analysis skill ids should be resolved from skill.yaml without registry/frontmatter metadata");
-    assert(manifestOnlyRuntime.isAnalysisSkillId("custom-static"), "isAnalysisSkillId should recognize manifest-only analysis skills");
-    assert(manifestOnlyRuntime.resolvePreferredAnalysisSkill({ analysisType: "static", engineId: "builtin-custom", supportedModelFamilies: ["frame"] })?.id === "custom-static", "preferred analysis skill resolution should use manifest-only analysis metadata");
-    assert(manifestOnlyRuntime.resolveCodeCheckDesignCodeFromSkillIds(["code-check-gb50018"]) === "GB50018", "code-check design-code resolution should use manifest-only skill metadata");
-    assert(manifestOnlyRuntime.resolveCodeCheckSkillId("GB50018") === "code-check-gb50018", "code-check skill lookup should use manifest-only skill metadata");
+    assert(JSON.stringify(manifestOnlyRuntime.listAnalysisSkillIds().sort()) === JSON.stringify(solverIds), "legacy skill files must not override the configured provider catalog");
+    assert(!manifestOnlyRuntime.isAnalysisSkillId("custom-static"), "unregistered execution metadata must not become a solver");
+    assert(manifestOnlyRuntime.resolvePreferredAnalysisSkill({ analysisType: "static", engineId: "builtin-custom", supportedModelFamilies: ["frame"] }) === undefined, "an unknown requested engine must not select a substitute provider");
+    assert(manifestOnlyRuntime.resolveCodeCheckDesignCodeFromSkillIds(["code-check-gb50018"]) === undefined, "legacy skill metadata must not register an unsupported design code");
+    assert(manifestOnlyRuntime.resolveCodeCheckSkillId("GB50018") === undefined, "an unregistered design code must remain unsupported");
   } finally {
     await fsp.rm(tempRoot, { recursive: true, force: true });
   }
   assert(typeof analysisEntry.listBuiltinAnalysisSkills === "undefined", "analysis entry should not re-export static metadata helpers once manifest-first runtime is active");
   assert(typeof analysisEntry.getBuiltinAnalysisSkill === "undefined", "analysis entry should not expose builtin analysis metadata lookup");
   assert(typeof analysisEntry.resolvePreferredBuiltinAnalysisSkill === "undefined", "analysis entry should not expose manifest selection logic directly");
-  assert(typeof analysisRegistry.listBuiltinAnalysisSkills === "undefined", "analysis registry should not export static metadata helpers once manifest-first runtime is active");
+  assert(typeof analysisRegistry.listBuiltinAnalysisSkills === "function", "analysis registry should expose catalog-backed solver metadata");
+  assert(JSON.stringify(analysisRegistry.listBuiltinAnalysisSkills().map(provider => provider.id).sort()) === JSON.stringify(solverIds), "analysis execution metadata should match the separate provider catalog");
   assert(typeof analysisRegistry.getBuiltinAnalysisSkill === "undefined", "analysis registry should not expose builtin analysis metadata lookup");
   assert(typeof analysisRegistry.resolvePreferredBuiltinAnalysisSkill === "undefined", "analysis registry should not expose manifest selection logic directly");
-  assert(pythonAnalysisRegistrySource.includes("skill.yaml"), "python analysis runtime registry should discover builtin skills from skill.yaml");
+  assert(pythonAnalysisRegistrySource.includes("catalog.yaml"), "Python analysis execution metadata should come from the provider catalog");
   assert(!pythonAnalysisRegistrySource.includes("intent.md"), "python analysis runtime registry should not depend on intent.md frontmatter metadata");
   console.log("[ok] agent runtime loader contract");
 }
@@ -612,9 +621,10 @@ async function validateAgentCapabilityMatrix(context) {
     assert(Array.isArray(payload.skillIdsByToolId?.run_analysis) && payload.skillIdsByToolId.run_analysis.includes("beam"), "skillIdsByToolId should invert enabled tool mappings");
     assert(payload.tools.every((tool) => Array.isArray(tool.requiresTools)), "capability matrix tools should expose requiresTools arrays");
     assert(payload.skillDomainById.beam === "structure-type", "beam should have structure-type domain mapping");
-    assert(payload.skillDomainById["dead-load"] === "load-boundary", "discoverable load-boundary skills should be exposed in skillDomainById");
+    assert(JSON.stringify(payload.skills.map((skill) => skill.id).sort()) === JSON.stringify(BUILTIN_STRUCTURE_SKILL_IDS), "capability matrix should expose all eight modelling skills");
+    assert(Object.values(payload.skillDomainById).every((domain) => domain === "structure-type"), "execution providers and load helpers must not be advertised as modelling skills");
     assert(payload.skills.find((skill) => skill.id === "beam")?.runtimeStatus === "active", "beam should be marked active");
-    assert(payload.skills.find((skill) => skill.id === "dead-load")?.runtimeStatus === "discoverable", "dead-load should be marked discoverable");
+    assert(payload.skills.every((skill) => skill.runtimeStatus === "active"), "every builtin modelling skill should have an active handler");
     assert(payload.validEngineIdsBySkill.beam.includes("engine-frame-a"), "beam should include frame-compatible engine");
     assert(!payload.validEngineIdsBySkill.beam.includes("engine-disabled"), "beam should not include disabled engine");
     assert(payload.filteredEngineReasonsBySkill.beam["engine-disabled"].includes("engine_disabled"), "beam should mark disabled engine reason");
@@ -1297,7 +1307,6 @@ async function validateChatMessageRouting(context) {
 }
 
 async function validateReportNarrativeContract(context) {
-  context.backendBuildReady = false;
   await runBackendBuildOnce(context);
   clearProviderEnv();
   const LangGraphAgentService = await importBackendAgentServiceFresh(context.rootDir);
@@ -1306,27 +1315,53 @@ async function validateReportNarrativeContract(context) {
   const skillRuntime = new AgentSkillRuntime();
   const svc = new LangGraphAgentService(skillRuntime);
 
-  // Verify the service can be instantiated and run returns the expected shape.
-  // The LangGraph agent uses globalThis clients internally, so we just test
-  // that the service interface is correct.
-  const result = await svc.run({
-    message: "请分析并按规范校核后出报告",
-    context: {
-      skillIds: ["beam", "opensees-static", "validation-structure-model", "report-export-builtin", "code-check-gb50017", "postprocess-builtin"],
-      locale: "zh",
-    },
-  });
+  // Rendering confirmed results is deterministic; interpreting a report request
+  // still requires the LLM and must never use this renderer as a substitute.
+  for (const locale of ["en", "zh"]) {
+    const input = {
+      locale,
+      message: locale === "zh" ? "导出已确认结果" : "Export confirmed results",
+      analysisType: "static",
+      analysisSuccess: true,
+      codeCheckText: locale === "zh" ? "未请求规范校核" : "Code checks not requested",
+      summary: "confirmed-result-summary",
+      keyMetrics: { maxAbsDisplacement: 0.00125, maxAbsReaction: 10 },
+      clauseTraceability: [],
+      controllingCases: {
+        batchControlCase: { displacement: "LC-confirmed", reaction: "LC-confirmed" },
+        controlNodeDisplacement: "N-confirmed",
+        controlNodeReaction: "N-support",
+      },
+      visualizationHints: {},
+      normalizedModel: { nodes: [{ id: "N-confirmed", x: 3, y: 0, z: 0 }] },
+      analysis: { success: true, data: {
+        displacements: { "N-confirmed": { ux: 0.00125, uy: 0, uz: 0 } },
+        meta: { units: { displacement: "m", force: "kN", moment: "kN*m" } },
+      } },
+    };
+    const saved = JSON.stringify(input);
+    for (const skillId of ["beam", "generic"]) {
+      const draft = { skillId, inferredType: skillId, updatedAt: 0 };
+      const report = await skillRuntime.buildReportNarrative(input, draft, [skillId]);
+      assert(report.includes(input.summary) && report.includes(input.codeCheckText), "report must preserve the confirmed summary and check status");
+      assert(report.includes("0.00125 m") && report.includes("10 kN"), "report must preserve result values and engine units");
+      assert(report.includes("LC-confirmed") && report.includes("N-confirmed"), "report must preserve governing case and node IDs");
+      assert(report.includes(locale === "zh" ? "成功" : "success") || report.includes("Success"), "report must localize the confirmed analysis status");
+      const failed = await skillRuntime.buildReportNarrative({ ...input, analysisSuccess: false }, draft, [skillId]);
+      assert(failed.includes(locale === "zh" ? "失败" : skillId === "generic" ? "failed" : "Failure"), "report must not relabel a failed analysis as successful");
+      assert(JSON.stringify(input) === saved, "report rendering must not mutate confirmed results");
+    }
+    let failure;
+    try {
+      await svc.run({
+        message: locale === "zh" ? "请分析并按规范校核后出报告" : "Analyze, check the code and produce a report",
+        context: { skillIds: ["generic"], locale },
+      });
+    } catch (error) { failure = error; }
+    assert(failure?.message.startsWith("LLM_NOT_CONFIGURED:"), "natural-language report requests must fail explicitly without an LLM");
+  }
 
-  assert(typeof result.success === "boolean", "run should return boolean success");
-  assert(typeof result.response === "string", "run should return response string");
-  assert(typeof result.conversationId === "string", "run should return conversationId");
-  assert(typeof result.traceId === "string", "run should return traceId");
-  assert(typeof result.startedAt === "string", "run should return startedAt");
-  assert(typeof result.completedAt === "string", "run should return completedAt");
-  assert(typeof result.mode === "string", "run should return mode string");
-  assert(Array.isArray(result.toolCalls), "run should return toolCalls array");
-
-  console.log("[ok] report narrative contract (LangGraph agent service shape)");
+  console.log("[ok] bilingual confirmed-result reports preserve facts; missing LLM never produces a substitute report");
 }
 
 async function validateDevStartupGuards(context) {
@@ -1393,14 +1428,11 @@ async function validateStructureJsonSkill(context) {
   const python = resolvePythonCommand();
   assert(python !== null, "Structure protocol validation requires a working configured analysis.pythonBin or Python runtime");
 
-  const skill = await new AgentSkillCatalogService().getBuiltinSkillById("validation-structure-model");
-  assert(skill !== undefined, "validation-structure-model should be discoverable from the manifest-backed skill catalog");
-  assert(skill.canonicalId === "validation-structure-model", "validation skill should use the canonical manifest id");
-  assert(skill.aliases.includes("structure-json-validation"), "validation skill should preserve the legacy alias");
-  assert(skill.domain === "validation", "validation skill should keep validation domain");
-  assert(skill.triggers.includes("validate") && skill.triggers.includes("验证"), "validation triggers should remain bilingual");
-  assert(skill.priority === 100, "validation skill priority should stay 100");
-  console.log("[ok] manifest-backed validation skill metadata");
+  const skills = await new AgentSkillCatalogService().listBuiltinSkills();
+  assert(skills.every(skill => skill.domain === "structure-type"), "formal validation must not be advertised as another modelling skill");
+  const { listAgentToolDefinitions } = await fromBackend("dist/agent-langgraph/tool-registry.js");
+  assert(listAgentToolDefinitions().some(tool => tool.id === "validate_model"), "formal validation should remain available through the code-owned tool registry");
+  console.log("[ok] code-owned formal validation tool metadata");
 
   const protocol = createLocalStructureProtocolClient();
   const schema = (await protocol.get("/schema/structure-model-v2")).data;
@@ -1446,7 +1478,24 @@ async function validateStructureJsonSkill(context) {
   await rejectModel("invalid node reference", value => { value.elements[0].nodes[1] = "999"; }, /999/);
   await rejectModel("duplicate node IDs", value => { value.nodes[1].id = "1"; }, /[Dd]uplicate|重复/);
   await rejectModel("negative material stiffness", value => { value.materials[0].E = -1000; }, /materials.*E/);
-  await rejectModel("conflicting section area", value => { value.sections[0].properties = { A: 0.001 }; }, /[Cc]onflict|矛盾|inconsistent/);
+  await rejectModel("nonpositive section area", value => { value.sections[0].properties = { A: 0 }; }, /A.*positive/);
+  await rejectModel("net modulus exceeding gross", value => { value.sections[0].properties = { Wx: 0.01, Wnx: 0.02 }; }, /net Wnx exceeds gross/);
+
+  // Explicit user/catalogue properties are authoritative. A geometry difference
+  // is reported rather than silently replacing the supplied numerical source.
+  const explicit = structuredClone(model);
+  explicit.sections[0].properties = { A: 0.001 };
+  const supplied = JSON.stringify(explicit);
+  const adopted = (await protocol.post("/convert", { model: explicit, source_format: "structuremodel-v2",
+    target_format: "structuremodel-v2", target_schema_version: "2.2.0" })).data.model;
+  assert(adopted.sections[0].properties.A === 0.001, "formal conversion must preserve explicit section properties");
+  assert(adopted.sections[0].shape.B === 300 && adopted.sections[0].shape.H === 600, "property diagnostics must preserve supplied geometry");
+  const diagnostic = adopted.sections[0].extra.section_diagnostics.find(row => row.code === "SECTION_PROPERTY_GEOMETRY_DELTA");
+  assert(diagnostic?.severity === "warning" && diagnostic.message.en && diagnostic.message.zh,
+    "large geometry/property differences must carry a bilingual warning");
+  assert(JSON.stringify(explicit) === supplied, "formal conversion must not mutate explicit section properties");
+  assert((await protocol.post("/validate", { model: adopted })).data.valid === true, "the adopted explicit numerical source must remain valid on reread");
+  console.log("[ok] explicit section properties remain authoritative with visible geometry diagnostics");
 
   // Exercise the same worker transport from CLI; dependency failures are fatal,
   // never a successful contract run with all Python checks skipped.

@@ -1,5 +1,5 @@
 const runtime = require("../../scripts/cli/runtime");
-const { runBackendValidation } = require("./backend-validations");
+const { BACKEND_VALIDATIONS, runBackendValidation } = require("./backend-validations");
 const {
   ensureRegressionSqliteDatabaseUrl,
   resolveRegressionContext,
@@ -7,7 +7,7 @@ const {
   runLoggedStep,
 } = require("./shared");
 
-const BACKEND_STEPS = [
+const BACKEND_STEP_TITLES = new Map([
   ["Dev startup CLI guards", "validate-dev-startup-guards"],
   ["Agent orchestration regression", "validate-agent-orchestration"],
   ["Agent base-chat fallback contract", "validate-agent-base-chat-fallback"],
@@ -21,7 +21,7 @@ const BACKEND_STEPS = [
   ["Chat message routing contract", "validate-chat-message-routing"],
   ["Report narrative contract", "validate-report-narrative-contract"],
   ["Skill routing regression", "validate-skill-routing"],
-];
+].map(([title, name]) => [name, title]));
 
 const JEST_ENV_FORWARD_KEYS = [
   "LLM_API_KEY",
@@ -85,8 +85,10 @@ async function runBackendRegression(rootDir) {
     });
   });
 
-  for (const [title, validationName] of BACKEND_STEPS) {
-    await runLoggedStep(title, async () => {
+  // Every registered contract belongs to the default regression. A separately
+  // maintained subset allowed checks to go stale without running in CI.
+  for (const validationName of Object.keys(BACKEND_VALIDATIONS)) {
+    await runLoggedStep(BACKEND_STEP_TITLES.get(validationName) || validationName, async () => {
       await runBackendValidation(validationName, context);
     });
   }
