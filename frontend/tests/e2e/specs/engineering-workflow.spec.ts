@@ -82,7 +82,13 @@ test.describe('Real engineering service through the browser', () => {
     const initialRunId = session.analysis.runId
     expect(typeof initialRunId).toBe('string')
 
+    const figureResponse = page.waitForResponse(response => response.url().includes('/result-review/') && response.url().endsWith('/tools')
+      && response.request().postDataJSON()?.args?.includeModelSnapshot === true && !response.request().postDataJSON()?.args?.component)
     let workspace = await openResults(page)
+    const savedFigure = (await (await figureResponse).json()).result
+    expect(savedFigure.runId).toBe(initialRunId)
+    expect(savedFigure.modelSnapshot.nodes).toHaveLength(2)
+    expect(savedFigure.modelSnapshot.elements).toHaveLength(1)
     await expect(workspace.getByLabel('Run', { exact: true }).locator('option:checked')).toHaveText(`Current · ${initialRunId}`)
     for (const nodeId of ['A', 'B']) {
       await workspace.getByLabel('Object', { exact: true }).selectOption(nodeId)
@@ -99,14 +105,16 @@ test.describe('Real engineering service through the browser', () => {
     await workspace.getByLabel('Response', { exact: true }).selectOption('displacements')
     const displacement = await querySelected(page, workspace)
     expect(displacement.quantity.value).toBeCloseTo(beamReference.midpointDisplacementMm, 8)
-    expect(displacement.modelSnapshot.nodes).toHaveLength(2)
-    expect(displacement.modelSnapshot.elements).toHaveLength(1)
+    expect(displacement).not.toHaveProperty('modelSnapshot')
+    expect(displacement).not.toHaveProperty('visualizationData')
 
     const reportResponse = page.waitForResponse(response => response.url().includes('/result-review/') && response.url().endsWith('/tools'))
     await workspace.getByRole('button', { name: 'Report selected result', exact: true }).click()
     const reported = await (await reportResponse).json()
     expect(reported.success).toBe(true)
     const report = reported.result.report.json
+    expect(report.normalizedModel.nodes).toHaveLength(2)
+    expect(report.normalizedModel.elements).toHaveLength(1)
     expect(report.requestedQuantities).toEqual([displacement.quantity])
     expect(report.requestedSelection).toMatchObject({ runId: initialRunId, resultKey: 'case:LC1', elementId: 'beam', positionM: 5, component: 'uz', unit: 'mm' })
     await expect(workspace.getByRole('button', { name: 'Export JSON', exact: true })).toBeEnabled()
