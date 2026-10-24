@@ -123,9 +123,9 @@ export class LangGraphAgentService {
     };
   }
 
-  private async prepareRunContext(input: LangGraphRunInput, conversationId: string, resume = false): Promise<RunContext> {
+  private async prepareRunContext(input: LangGraphRunInput, conversationId: string, resume = false, savedState?: AgentState): Promise<RunContext> {
     const graph = await this.getGraph();
-    const saved = (await graph.getState({ configurable: { thread_id: conversationId } })).values as AgentState;
+    const saved = savedState ?? (await graph.getState({ configurable: { thread_id: conversationId } })).values as AgentState;
     const journalDir = path.join(runtimeBaseDir, 'run-records');
     if (resume && saved.runPolicy && saved.runUsage) {
       return createRunContext(saved.runPolicy, { runId: saved.runUsage.runId, usage: saved.runUsage, journalDir, resume: true });
@@ -683,8 +683,10 @@ export class LangGraphAgentService {
       }
       const request: LangGraphRunInput = { conversationId, message: `${purpose === 'input' ? 'Input review / 输入复核' : 'Result review / 结果查看'}: ${input.tool}`, signal: input.signal,
         context: initialized ? { locale: state.locale } : input.initialContext };
-      const runtime = await this.prepareRunContext(request, conversationId, initialized);
-      state = (await graph.getState(graphConfig)).values as AgentState;
+      // The session lock keeps this snapshot current. A resumed review only reads
+      // its saved ledger; do not deserialize a large result archive twice more.
+      const runtime = await this.prepareRunContext(request, conversationId, initialized, state);
+      if (!initialized) state = (await graph.getState(graphConfig)).values as AgentState;
       if (!initialized) {
         const update = { selectedSkillIds: runtime.policy.activeSkillIds, toolAccessPolicy: buildToolAccessPolicy(input.initialContext),
           locale: input.initialContext?.locale ?? 'zh' as AppLocale, workspaceRoot: this.workspaceRoot };
@@ -726,13 +728,21 @@ export class LangGraphAgentService {
         const { messages, ...update } = command.update as Partial<AgentState>;
         // Synthetic calls are not appended to chat: the pending clarification call must stay current.
         // State updates follow LangGraph's normal human-in-the-loop update semantics.
-        await graph.updateState(graphConfig, { ...update, runUsage: snapshotRunUsage(runtime) });
+        const runUsage = snapshotRunUsage(runtime);
+        await graph.updateState(graphConfig, { ...update, runUsage });
         const output = messages?.find(message => message.getType() === 'tool') as ToolMessage | undefined;
         let result: unknown = output?.content;
         if (typeof result === 'string') { try { result = JSON.parse(result); } catch { /* plain tool output */ } }
         const failed = (value: unknown) => isRecord(value) && (value.success === false || value.valid === false || Boolean(value.error) || value.status === 'failed');
-        return { result, success: output?.status !== 'error' && !failed(result) && !failed(isRecord(result) ? result.result : undefined),
-          review: purpose === 'input' ? await this.getInputReview(conversationId) : await this.getResultReview(conversationId) };
+        // A result query changes saved quantities and usage only. Project the
+        // committed update using the same quantity merge as the state channel,
+        // rather than rereading all native cases just to return its revision.
+        const queried = input.tool === 'query_results' ? { ...state, ...update, runUsage,
+          resultQuantities: { ...state.resultQuantities, ...update.resultQuantities } } : null;
+        const review = queried ? buildResultReview(conversationId, queried,
+          [...deriveToolContext(queried, queried.runPolicy ?? undefined, { allowShell: false }).activeToolIds], this.sessionLock.isBusy(conversationId))
+          : purpose === 'input' ? await this.getInputReview(conversationId) : await this.getResultReview(conversationId);
+        return { result, success: output?.status !== 'error' && !failed(result) && !failed(isRecord(result) ? result.result : undefined), review };
       });
     } finally { release(); }
   }

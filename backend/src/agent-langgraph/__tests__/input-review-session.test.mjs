@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, test } from '@jest/globals';
+import { afterAll, describe, expect, jest, test } from '@jest/globals';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -49,12 +49,17 @@ describe('same-conversation input review', () => {
     const saved={runId:'owned',success:true,selectedResultKey:'case:D',data:{displacements:{A:{uz:-.001}}},
       modelSnapshot:{nodes:[{id:'A'}],elements:[]}};
     const id='result-paused'; const config={configurable:{thread_id:id,runContext:runtime}};
-    await graph.invoke({...initial,analysisRuns:{owned:saved}},config);
+    await graph.invoke({...initial,analysisRuns:{owned:saved},resultQuantities:{previous:{value:42,unit:'kN'}}},config);
     const before=await service.getResultReview(id);
+    const read=jest.spyOn(graph,'getState');
     const action=await service.invokeResultReviewTool(id,{revisionToken:before.revisionToken,tool:'query_results',
       args:{runId:'owned',resultKey:'case:D',nodeId:'A',field:'displacements',component:'uz',unit:'mm',quantityId:'selected'}});
+    expect(read).toHaveBeenCalledTimes(1);
+    read.mockRestore();
     expect(action.success).toBe(true);expect(action.result.quantity.value).toBe(-1);
     const state=(await graph.getState(config)).values;
+    expect(state.resultQuantities.previous).toEqual({value:42,unit:'kN'});
+    expect(action.review.revisionToken).toBe((await service.getResultReview(id)).revisionToken);
     expect(state.runUsage.toolCalls).toBe(2);
     expect(state.messages.at(-1).tool_calls[0].id).toBe('question');
     await expect(service.invokeResultReviewTool(id,{revisionToken:before.revisionToken,tool:'query_results',args:{runId:'owned'}})).rejects.toThrow('REVISION_CONFLICT');
