@@ -34,7 +34,7 @@ describe('extraction load contract', () => {
     expect(prompts[2]).not.toContain('PATCH ONLY');
     expect(prompts[2]).toContain(JSON.stringify(promptContract(draftExtractionContract)));
     expect(draftExtractionContract.properties.loads).toEqual(draftContract.properties.loads);
-    expect(prompts[2]).toContain(JSON.stringify(draftExtractionContract.properties.materials));
+    expect(prompts[2]).toContain(JSON.stringify(promptContract(draftExtractionContract).properties.materials));
   });
 
   test.each(['globalX', 'globalY', 'globalZ', 'gravity'])('signed %s loads agree between the declared schema and runtime', async direction => {
