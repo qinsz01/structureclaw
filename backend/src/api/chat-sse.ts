@@ -108,6 +108,12 @@ export async function runSseTurn(request: FastifyRequest, reply: FastifyReply, h
     writeChunk: (chunk) => writeEvent(normalizePublicStreamChunk(chunk)),
     writeEvent,
   };
+  const heartbeat = setInterval(() => {
+    if (!abortController.signal.aborted && !reply.raw.destroyed && !reply.raw.writableEnded) {
+      reply.raw.write(': heartbeat\n\n');
+    }
+  }, 15_000);
+  heartbeat.unref();
 
   try {
     await handlers.relay(session);
@@ -132,6 +138,7 @@ export async function runSseTurn(request: FastifyRequest, reply: FastifyReply, h
       reply.raw.end();
     }
   } finally {
+    clearInterval(heartbeat);
     // Ensure messages are persisted even on unexpected errors.
     await handlers.persist(abortController.signal.aborted).catch(handlers.onFinalPersistError);
     reply.raw.off('close', onClose);
