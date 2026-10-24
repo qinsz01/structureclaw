@@ -26,6 +26,8 @@ This follow-up covers confirmed floor-load compilation, partial updates, applica
 
 The matrix scripts only replace LLM transport with explicit structured extractions. Graph execution, skill handlers, validation, the requested installed solvers, saved runs, result queries and reports remain real. The separate live sessions use the configured real provider. Multiple HTTP turns assert `applied`, with no unretained input, before verifying the final numerical result.
 
+`Backend Regression` only runs automatically for master pushes, so the work-branch verification additionally dispatches that workflow. Attachment tests now use the common Python resolver, including `PYTHON_FOR_TEST`, instead of depending on a personal settings file; the complete attachment suite also passes with an empty isolated data directory.
+
 Commercial engine boundaries remain explicit: unsupported model families, section/axis calibration, SDK grades and uncalibrated floor transfer are refused. Full-member nonlinear execution remains unavailable. This work does not add those solver capabilities or certify arbitrary prompts/models. The earlier optional live-browser skips and frontend TODOs are not counted as passes here.
 
 ## 复现 / Reproduction
