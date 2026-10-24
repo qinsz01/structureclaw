@@ -100,6 +100,22 @@ test('namespace, chronological history, before and metadata filters are preserve
   expect((await saver.getTuple(current)).parentConfig).toEqual(saved);
 });
 
+test('same-millisecond bootstrap and loop checkpoints follow graph steps instead of reversed IDs', async () => {
+  const { root, saver } = await fixture();
+  const ts = '2026-10-24T00:00:00.000Z';
+  const bootstrap = await saver.put(config, { ...emptyCheckpoint(), id: 'z-input', ts, channel_values: { phase: 'input' } },
+    { ...metadata, source: 'input', step: -1 }, {});
+  const paused = await saver.put(bootstrap, { ...emptyCheckpoint(), id: 'a-paused', ts, channel_values: { phase: 'paused' } },
+    { ...metadata, step: 0 }, {});
+  const fresh = new FileCheckpointer(root);
+  expect((await fresh.getTuple(config)).checkpoint.channel_values.phase).toBe('paused');
+  expect((await fresh.getTuple(bootstrap)).checkpoint.channel_values.phase).toBe('input');
+  const history = []; for await (const tuple of fresh.list(config)) history.push(tuple.checkpoint.id);
+  expect(history).toEqual(['a-paused', 'z-input']);
+  const before = []; for await (const tuple of fresh.list(config, { before: paused })) before.push(tuple.checkpoint.id);
+  expect(before).toEqual(['z-input']);
+});
+
 test('corruption and unsafe explicit identities fail instead of silently losing history', async () => {
   const { root, saver } = await fixture();
   const saved = await saver.put(config, emptyCheckpoint(), metadata, {});

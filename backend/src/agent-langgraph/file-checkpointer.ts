@@ -172,7 +172,7 @@ export class FileCheckpointer extends BaseCheckpointSaver {
 
   private async orderedIds(thread: string, namespace: string): Promise<string[]> {
     const directory = this.directory('checkpoints', thread, namespace);
-    const entries: Array<{ id: string; ts: string }> = [];
+    const entries: Array<{ id: string; ts: string; metadata: Serialized | string; step?: number }> = [];
     // Read historical legacy payloads sequentially; large result sets must not all
     // be inflated at once. New checkpoints sort by their payload-bound identity.
     for (const file of await this.files(directory)) {
@@ -181,10 +181,25 @@ export class FileCheckpointer extends BaseCheckpointSaver {
       if ((stored.namespace ?? '') !== namespace) throw new Error('CHECKPOINT_NAMESPACE_MISMATCH');
       const checkpoint = await this.identity(stored);
       if (checkpoint.id !== file.slice(0, -5) || !Number.isFinite(Date.parse(checkpoint.ts))) throw new Error('CHECKPOINT_ID_OR_TIME_INVALID');
-      entries.push({ id: checkpoint.id, ts: checkpoint.ts });
+      entries.push({ id: checkpoint.id, ts: checkpoint.ts, metadata: stored.metadata });
+    }
+    const timestamps = new Map<string, typeof entries>();
+    for (const entry of entries) {
+      const peers = timestamps.get(entry.ts) ?? [];
+      peers.push(entry);
+      timestamps.set(entry.ts, peers);
+    }
+    // Several graph steps can share a millisecond. Bootstrap UUID clock
+    // sequences wrap negative steps, so ID order can select the input state
+    // instead of the paused/completed state. Read only tied metadata to retain
+    // chronological history without inflating unrelated numerical archives.
+    for (const peers of timestamps.values()) if (peers.length > 1) for (const entry of peers) {
+      const metadata = await this.deserialize(entry.metadata) as CheckpointMetadata;
+      if (Number.isSafeInteger(metadata.step)) entry.step = metadata.step;
     }
     return entries
-      .sort((a, b) => b.ts.localeCompare(a.ts) || b.id.localeCompare(a.id)).map(entry => entry.id);
+      .sort((a, b) => b.ts.localeCompare(a.ts) || (b.step ?? -Infinity) - (a.step ?? -Infinity)
+        || b.id.localeCompare(a.id)).map(entry => entry.id);
   }
 
   async getTuple(config: RunnableConfig): Promise<CheckpointTuple | undefined> {

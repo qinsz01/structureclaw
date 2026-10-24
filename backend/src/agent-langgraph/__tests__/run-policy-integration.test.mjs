@@ -1,4 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { AIMessage } from '@langchain/core/messages';
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
@@ -11,7 +14,8 @@ import { createSetSessionConfigTool, createAskUserClarificationTool } from '../.
 import { resolveRunPolicy } from '../../../dist/runtime/run-policy.js';
 import { createRunContext, withRunContext } from '../../../dist/runtime/run-context.js';
 import { wrapWithLlmLogging } from '../../../dist/utils/llm.js';
-import { Command, END, MemorySaver, START, StateGraph } from '@langchain/langgraph';
+import { Command, END, START, StateGraph } from '@langchain/langgraph';
+import { FileCheckpointer } from '../../../dist/agent-langgraph/file-checkpointer.js';
 import { ChatOpenAI } from '@langchain/openai';
 const available = { availableSkillIds: ['beam', 'generic'], availableToolIds: ['build_model', 'edit_model', 'run_analysis', 'query_results', 'query_model', 'ask_user_clarification', 'set_session_config'], defaultToolIds: ['build_model', 'edit_model', 'run_analysis', 'query_results', 'query_model', 'ask_user_clarification', 'set_session_config'] };
 const policy = (requested = {}) => resolveRunPolicy({ ...available, requested });
@@ -100,19 +104,34 @@ describe('run policy at real orchestration boundaries', () => {
     ['existing model', { nodes: [{ id: 'N1', x: 0, y: 0, z: 0 }] }, false, 'query_model'],
     ['pending draft', { nodes: [{ id: 'N1', x: 0, y: 0, z: 0 }] }, true, 'extract_draft_params'],
   ])('a graph interrupt resumes the same ledger and correct editing path for %s', async (_label, model, modelPending, nextAction) => {
-    const runtime = createRunContext(policy());
-    const ask = createAskUserClarificationTool();
-    const graph = new StateGraph(AgentStateAnnotation).addNode('tools', (state, config) => withRunContext(runtime, () => executeToolsSequentially([ask], state, config)))
-      .addEdge(START, 'tools').addEdge('tools', END).compile({ checkpointer: new MemorySaver() });
-    const config = { configurable: { thread_id: 'policy-interrupt', runContext: runtime } };
-    const paused = await graph.invoke({ model, modelPending, messages: [new AIMessage({ content: '', tool_calls: [{ id: 'ask', name: 'ask_user_clarification', args: { question: 'Span?' } }] })] }, config);
-    expect(paused.__interrupt__).toHaveLength(1); expect(runtime.usage.toolCalls).toBe(1);
-    const resumed = await graph.invoke(new Command({ resume: '6 m' }), config);
-    expect(runtime.usage.toolCalls).toBe(1);
-    expect(resumed.messages.at(-1).content).toContain('6 m');
-    expect(JSON.parse(resumed.messages.at(-1).content)).toMatchObject({ answer: '6 m', nextAction });
-    expect(resumed.model).toEqual(model);
-    expect(resumed.modelPending).toBe(modelPending);
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sclaw-policy-interrupt-'));
+    const NativeDate = globalThis.Date;
+    const now = NativeDate.now();
+    // Reproduce a coarse clock deterministically using the production saver:
+    // the input and paused checkpoints must remain distinct in one millisecond.
+    globalThis.Date = class extends NativeDate {
+      constructor(...args) { super(...(args.length ? args : [now])); }
+      static now() { return now; }
+    };
+    try {
+      const runtime = createRunContext(policy());
+      const ask = createAskUserClarificationTool();
+      const graph = new StateGraph(AgentStateAnnotation).addNode('tools', (state, config) => withRunContext(runtime, () => executeToolsSequentially([ask], state, config)))
+        .addEdge(START, 'tools').addEdge('tools', END).compile({ checkpointer: new FileCheckpointer(root) });
+      const config = { configurable: { thread_id: 'policy-interrupt', runContext: runtime } };
+      const paused = await graph.invoke({ model, modelPending, messages: [new AIMessage({ content: '', tool_calls: [{ id: 'ask', name: 'ask_user_clarification', args: { question: 'Span?' } }] })] }, config);
+      expect(paused.__interrupt__).toHaveLength(1); expect(runtime.usage.toolCalls).toBe(1);
+      const resumed = await graph.invoke(new Command({ resume: '6 m' }), config);
+      expect(runtime.usage.toolCalls).toBe(1);
+      expect(resumed.messages.at(-1).content).toContain('6 m');
+      expect(JSON.parse(resumed.messages.at(-1).content)).toMatchObject({ answer: '6 m', nextAction });
+      expect(resumed.model).toEqual(model);
+      expect(resumed.modelPending).toBe(modelPending);
+    } finally {
+      globalThis.Date = NativeDate;
+      if (path.dirname(root) !== path.resolve(os.tmpdir()) || !path.basename(root).startsWith('sclaw-policy-interrupt-')) throw new Error('Invalid fixture root');
+      await fs.rm(root, { recursive: true, force: true });
+    }
   });
   test('external clarification returns a host-owned request, never starts an unresumable local interrupt', async () => {
     const value = resolveRunPolicy({ ...available, executionOwner: 'external' });
