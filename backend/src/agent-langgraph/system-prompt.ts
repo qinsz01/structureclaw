@@ -190,11 +190,19 @@ export function buildSystemMessages(ctx: SystemPromptContext): BaseMessageLike[]
     + (provider.kind === 'solver' ? ` ${JSON.stringify({ dimensions: provider.dimensions,
       analysisTypes: provider.supportedAnalysisTypes, modelFamilies: provider.supportedModelFamilies })}` : '')
     + (runtimePolicy?.knowledge === 'disabled' ? '' : ` — ${provider.description[state.locale]}`)).join('\n');
+  const features = promptFeatures(state, activeToolIds);
   const providerPlanning = isZh
     ? '拟定方案和建模前核对所选 Provider 的维度及能力边界。用户委托拟定方案时，由 LLM 提出符合该能力的明确方案；用户已确认的模型不兼容时说明限制，不得扩展维度、改变结构或换引擎绕过。'
     : 'Check the selected provider dimensions and capabilities before proposing or building a model. For delegated design, the LLM must propose an explicit compatible scheme. If confirmed geometry is incompatible, explain the limitation; never expand its dimension, alter the structure or substitute an engine to bypass it.';
+  const proposalProtocol = !features.clarification ? (isZh
+    ? '\n用户委托拟定缺失参数时，在最终回复中给出完整且兼容所选引擎的方案、假定与待确认值。本轮未开放交互确认；未确认的方案不得作为计算事实。'
+    : '\nFor delegated missing parameters, give a complete provider-compatible proposal, assumptions and values awaiting confirmation in the final reply. Interactive confirmation is unavailable this turn; unconfirmed proposals are not computational facts.') : isZh
+    ? '\n用户委托你拟定缺失参数时，先在一次 ask_user_clarification 的 question 中列出完整、可计算且兼容所选引擎的方案及假定，提供明确的“按此方案执行”选项。方案包含几何、截面尺寸、材料、支承、荷载作用范围和工况、分析及交付要求；不先把助手方案传给 extract_draft_params 冒充用户输入，也不反复查询 schema 代替拟方案。用户选中方案后再提取该真实确认，随后建模、校验、分析、按请求校核和报告。明确给出的参数直接提取；不要要求再次确认已经接受的相同数值。'
+    : '\nWhen the user delegates missing scheme parameters, first put one complete, computable, provider-compatible proposal and its assumptions in ask_user_clarification.question with an explicit execute-this-proposal option. Include geometry, section dimensions, materials, supports, load scope and cases, analysis and deliverables. Do not pass an assistant proposal to extract_draft_params as user input, or repeatedly query schemas instead of proposing. Extract the actual selected confirmation, then build, validate, analyze, check and report as requested. Extract explicit supplied inputs directly; never ask to reconfirm the same accepted values.';
+  const proposalLoads = isZh
+    ? '\n方案中明确每组面荷载的作用楼层、矩形范围及单向/双向传荷方向，或明确折算后的梁上线荷载及作用分组；不得用“默认导荷”代替实际方案。规范校核所需材料（包括采用混凝土构件时的钢筋牌号）也须在方案中明确；工具没有定义的默认参数不可声称会自动采用。'
+    : '\nSpecify the storeys, rectangular bounds and one-way/two-way direction of each proposed floor pressure, or the converted beam line loads and target groups; an undefined default transfer is not a proposal. Include materials needed by the requested check, including reinforcement grade for concrete members. Never claim a tool supplies defaults that its contract does not define.';
   const sharedKnowledge = engineeringKnowledge(state.locale, ['loads', 'boundaries', 'validation', 'results'], state.runPolicy);
-  const features = promptFeatures(state, activeToolIds);
   const genericOnly = activeManifests.length === 1 && activeManifests[0].id === 'generic';
   const systemContent = isZh
     ? buildZhPrompt(state, skillList, toolCallLimit, features, genericOnly)
@@ -227,8 +235,10 @@ export function buildSystemMessages(ctx: SystemPromptContext): BaseMessageLike[]
   const engineeringPrinciples = isZh
     ? '\n用户显式属性优先；仅给尺寸时由系统按尖角几何推导属性，回答注明sharp-corner（不计圆角）。仅给型号、无完整尺寸及显式属性时，将截面尺寸与其他确实缺少的输入合并询问一次，实际确认前不建模、不计算。可提供“助手记忆的标准表值，请核对”候选供用户选择；型号本身不是确认，不得自行采用或改标来源。实际确认后将尺寸记为用户来源，由系统推导属性。确认仅覆盖用户实际确认的数值，不包括其他记忆属性；未确认的助手记忆值只能出现在带标签的澄清候选中，不得用于答案中的计算、估算或对比。明确说明每项数值由谁提供：用户、系统（几何推导或规范表），或助手候选经用户确认；不得声称工具检索。只有实际运行且通过的规范校核才允许作满足要求或通过/不通过等合规结论；仅有分析结果时只报告数值和假定。已知材料牌号由系统补缺省弹性常数和密度；未提自重不追问，沿用设置（默认不计）并说明。不得向用户提及预算、纠错次数或要求另发消息。'
     : '\nExplicit user properties win. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets). A designation without complete dimensions or explicit properties requires one dimension question together with other genuinely missing inputs; do not build or calculate before actual confirmation. You may offer an "assistant-recalled table value, please verify" option. A designation is not confirmation: never adopt or relabel recalled values yourself. After confirmation record user-sourced dimensions and derive properties. Confirmation covers only the actual values confirmed, not other recalled properties. Unconfirmed assistant recall belongs only in labelled clarification options, never in answer calculations, estimates or comparisons. Say plainly who supplied each value: the user, the system (geometry or a code table), or an assistant option confirmed by the user; never claim tool retrieval. Never state adequacy or compliance pass/fail unless a code check was actually run and passed; with analysis alone report values and assumptions. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never expose budgets/recovery counts or ask for a new message to reset them.';
-  return [new SystemMessage(systemContent + '\n\nProviders (select by tool arguments) / Provider（通过工具参数选择）:\n' + providerSummary + '\n' + providerPlanning + '\n' + sharedKnowledge
-    + engineeringPrinciples + SECTION_EVIDENCE_RULE + '\n' + LOAD_DIRECTION_RULE + policyText + semanticFailureProtocol + toolAvailability + checkProtocol + editProtocol + scopeProtocol + nextActionProtocol + designInputs)];
+  const preferredSolvers = listProviders('solver').filter(provider => runtimePolicy?.providers?.preferredIds?.includes(provider.id));
+  const solverContract = preferredSolvers.length ? `Preferred solver constraints / 拟采用优先引擎时必须满足的约束: ${JSON.stringify(preferredSolvers.map(provider => ({ id: provider.id, dimensions: provider.dimensions, analysisTypes: provider.supportedAnalysisTypes })))}. Verify proposal dimension BEFORE asking for confirmation; an unsupported dimension is not a valid scheme. / 提交方案确认前核对维度，不先确认不兼容方案再要求用户修改。\n` : '';
+  return [new SystemMessage(solverContract + systemContent + '\n\nProviders (select by tool arguments) / Provider（通过工具参数选择）:\n' + providerSummary + '\n' + providerPlanning + '\n' + sharedKnowledge
+    + proposalProtocol + proposalLoads + engineeringPrinciples + SECTION_EVIDENCE_RULE + '\n' + LOAD_DIRECTION_RULE + policyText + semanticFailureProtocol + toolAvailability + checkProtocol + editProtocol + scopeProtocol + nextActionProtocol + designInputs)];
 }
 
 // ---------------------------------------------------------------------------

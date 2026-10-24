@@ -1,6 +1,7 @@
 import { isRecord, type ModelRecord } from './model-state.js';
 import { modelEditGuidance, sectionPropertyUnits } from './model-edit-contract.js';
 import { codeCheckLabelEn } from '../agent-skills/code-check/labels.js';
+import { contextTable } from './context-table.js';
 
 /** A declared service case must exist in this run before other cases may be excluded. */
 export function validateServiceabilitySelection(model: ModelRecord, analysis: ModelRecord): void {
@@ -186,12 +187,45 @@ export function codeCheckFeedback(check: ModelRecord, model?: ModelRecord, analy
     conclusionEligible: !limited && check.completionStatus === 'complete' && check.complianceStatus === 'pass' };
 }
 
-/** Lossless grouping for the model context only; saved checks and public tool outputs stay complete. */
+/** Prompt-only projection; saved checks and public tool outputs stay complete. */
 export function compactCodeCheckFeedback(feedback: ModelRecord): ModelRecord {
   if (!isRecord(feedback.checkedItems) || !Array.isArray(feedback.checkedItems.items)
     || !Array.isArray(feedback.missingInputs)) return feedback;
   const items = feedback.checkedItems.items;
   if (!items.every(isRecord) || !feedback.missingInputs.every(isRecord)) return feedback;
+  if (JSON.stringify(feedback).length > 32000) {
+    const table = (value: unknown) => Array.isArray(value) && value.every(isRecord) ? contextTable(value) : value;
+    const columnar = { ...feedback, checkedItems: { ...feedback.checkedItems, items: contextTable(items) },
+      missingInputs: contextTable(feedback.missingInputs), designValues: table(feedback.designValues),
+      inputRequiredChecks: table(feedback.inputRequiredChecks), writeTargets: table(feedback.writeTargets),
+      contextFormat: 'Lossless column tables: rowCount rows; each column has shared (same value in every row) or values[indexes[row]]. Index -1 means the field is absent. Completion/compliance/summary apply to ALL saved checks; truncated checkedItems are examples only. Full original rows remain saved for reports/UI. / 无损列表编码：shared为整列共有值，否则按indexes取values，-1表示字段不存在；完成状态与汇总涵盖全部校核，截断明细仅作示例；报告与界面仍保留原始全部数据。' };
+    if (JSON.stringify(columnar).length <= 32000) return columnar;
+    const requirements = new Map<string, { field: ModelRecord; members: Set<unknown>; results: Set<unknown>; count: number }>();
+    for (const row of feedback.missingInputs) {
+      const { elementId, checks: _checks, resultKeys, writeTarget, ...definition } = row;
+      const target = isRecord(writeTarget) ? Object.fromEntries(Object.entries(writeTarget).filter(([key]) => key !== 'id')) : writeTarget;
+      const field = { ...definition, ...(target ? { writeTarget: target } : {}) }, key = JSON.stringify(field);
+      const group = requirements.get(key) ?? { field, members: new Set(), results: new Set(), count: 0 };
+      group.count++; group.members.add(elementId);
+      for (const result of Array.isArray(resultKeys) ? resultKeys : []) group.results.add(result);
+      requirements.set(key, group);
+    }
+    const missing = [...requirements.values()].map(group => ({ ...group.field, rowCount: group.count,
+      affectedElementCount: group.members.size, exampleElementIds: [...group.members].slice(0, 5), resultKeys: [...group.results] }));
+    const required = Array.isArray(feedback.inputRequiredChecks) ? feedback.inputRequiredChecks.filter(isRecord) : [];
+    const checkNames = [...new Set([...items, ...required].map(row => row.check).filter(value => value !== undefined))];
+    const values = Array.isArray(feedback.designValues) ? [...new Map(feedback.designValues.filter(isRecord).map(row => {
+      const value = Object.fromEntries(Object.entries(row).filter(([key]) => !['elementId', 'resultKey'].includes(key)));
+      return [JSON.stringify(value), value] as const;
+    })).values()] : [];
+    return { ...feedback, checkedItems: { ...feedback.checkedItems, items: items.filter(row => row.status === 'fail').slice(0, 12),
+      previewOnly: true, truncated: true, checkNames },
+      missingInputs: missing.slice(0, 40), missingInputTypeCount: missing.length, missingInputsTruncated: missing.length > 40,
+      designValues: values.slice(0, 20), designValueTypeCount: values.length, designValuesTruncated: values.length > 20,
+      inputRequiredChecks: { totalCount: required.length, checkNames, detailsStored: true },
+      writeTargets: { totalCount: Array.isArray(feedback.writeTargets) ? feedback.writeTargets.length : 0, detailsStored: true },
+      contextFormat: 'Summary of a large saved check. Summary/completion/compliance cover ALL checks. Missing-input groups retain units and owner paths; element IDs and failed rows are labelled examples only. Full per-member values, force states and requirements remain in the saved check/report/UI. Do not infer unlisted items passed or invent missing calculations. Deliver the performed scope and missing inputs; generate the requested report, then end this turn. / 大型校核摘要，汇总状态涵盖全部校核；对象编号与失败明细仅为示例，原始逐构件数据完整保存。不得把未列项视为通过；说明已执行范围及缺项，生成所求报告后结束本轮。' };
+  }
   const group = (rows: ModelRecord[], varying: string[]) => {
     const groups = new Map<string, ModelRecord>();
     for (const row of rows) {

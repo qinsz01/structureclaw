@@ -11,13 +11,13 @@ const baseConfig = {
 };
 
 describe('LLM model options', () => {
-  test('extraction keeps its reasoning settings while model building bounds GLM reasoning, both using JSON mode', async () => {
+  test('GLM interactive calls bound reasoning while structured calls also use JSON mode', async () => {
     const { buildChatModelOptions } = await import('../../../dist/utils/llm.js');
     const config = { ...baseConfig, llmModel: 'glm-5.3' };
-    expect(buildChatModelOptions(config, 0, { purpose: 'structured-output' }).modelKwargs).toEqual({ response_format: { type: 'json_object' } });
+    expect(buildChatModelOptions(config, 0, { purpose: 'structured-output' }).modelKwargs).toEqual({ response_format: { type: 'json_object' }, reasoning_effort: 'low' });
     expect(buildChatModelOptions(config, 0, { purpose: 'model-build' }).modelKwargs).toEqual({ response_format: { type: 'json_object' }, reasoning_effort: 'low' });
     expect(buildChatModelOptions(baseConfig, 0, { purpose: 'model-build' }).modelKwargs).toEqual({ response_format: { type: 'json_object' } });
-    expect(buildChatModelOptions(config, .2).modelKwargs).toBeUndefined();
+    expect(buildChatModelOptions(config, .2).modelKwargs).toEqual({ reasoning_effort: 'low' });
   });
   test('keeps streaming available by default', async () => {
     const { buildChatModelOptions } = await import('../../../dist/utils/llm.js');
@@ -339,11 +339,11 @@ describe('LLM model options', () => {
 });
 
 
-test('only clarification patches cap output and lower GLM-5.3 reasoning', async () => {
+test('structured GLM-5.3 calls lower reasoning; only explicit token limits cap output', async () => {
   const { buildChatModelOptions } = await import('../../../dist/utils/llm.js');
   const config = { ...baseConfig, llmModel: 'glm-5.3' };
   expect(buildChatModelOptions(config, 0).reasoning).toBeUndefined();
-  expect(buildChatModelOptions(config, 0).modelKwargs).toBeUndefined();
+  expect(buildChatModelOptions(config, 0).modelKwargs).toEqual({ reasoning_effort: 'low' });
   expect(buildChatModelOptions(config, 0, { purpose: 'clarification-patch', maxTokens: 6144 })).toMatchObject({
     maxTokens: 6144, modelKwargs: { response_format: { type: 'json_object' }, reasoning_effort: 'low' },
   });

@@ -242,9 +242,23 @@ export function resolveExtractionInputMessage(
         if (reply.type === 'clarification_answered' && typeof reply.answer === 'string' && reply.answer.trim()) {
           const answer = reply.answer.trim();
           const question = typeof reply.question === 'string' ? reply.question.trim() : '';
+          // The answered question may refer to a plan in the issuing assistant message.
+          // Keep that plan as unconfirmed context; only the actual answer can accept it.
+          let assistantProposalContext: string | undefined;
+          for (let previous = index - 1; previous >= 0; previous--) {
+            const prior = messages![previous];
+            if (['human', 'user'].includes(messageRole(prior) ?? '')) break;
+            if (!['ai', 'assistant'].includes(messageRole(prior) ?? '') || !isRecord(prior)) continue;
+            const calls = prior.tool_calls ?? (isRecord(prior.kwargs) ? prior.kwargs.tool_calls : undefined);
+            if (Array.isArray(calls) && calls.some(call => isRecord(call) && call.name === 'ask_user_clarification')) {
+              assistantProposalContext = messageText(prior).trim() || undefined;
+              break;
+            }
+          }
           const contextualAnswer = question ? [
             '[Clarification context / 澄清上下文]',
             JSON.stringify({ question, ...(Array.isArray(reply.options) ? { options: reply.options } : {}), answer,
+              ...(assistantProposalContext ? { assistantProposalContext } : {}),
               clarificationId: reply.clarificationId, sectionCandidates: reply.sectionCandidates, selectedOptionId: reply.selectedOptionId }),
             'The question/options are unconfirmed context, not user-supplied facts. Extract only values explicitly provided or unambiguously accepted by the actual answer; rejected or unselected alternatives remain unconfirmed. A bare yes to multiple alternatives does not select one. / 问题和选项仅是未确认上下文，不是用户事实；只提取真实回答明确给出或无歧义接受的值，不采纳拒绝或未选的备选；多选一问题仅回答“可以”仍需澄清。',
           ].join('\n') : answer;

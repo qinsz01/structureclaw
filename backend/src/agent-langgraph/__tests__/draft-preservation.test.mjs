@@ -104,6 +104,22 @@ test('option labels and numeric answers remain bound to the recorded clarificati
   expect(resolved).toContain('A bare yes to multiple alternatives does not select one');
 });
 
+test.each(['Execute this proposal', 'Reject the proposal'])('an answered reference retains the issuing plan only as context (%s)', async answer => {
+  const { resolveExtractionInputMessage } = await import('../../../dist/agent-langgraph/tools.js');
+  const plan = 'Proposed frame: 3D, fixed bases, beam 300×600 mm; two-way slab transfer.';
+  const messages = [{ role: 'user', content: 'Design a frame.' },
+    { role: 'assistant', content: 'OLDER_UNCONFIRMED_PLAN', tool_calls: [{ name: 'ask_user_clarification' }] },
+    { role: 'assistant', content: plan, tool_calls: [{ name: 'ask_user_clarification' }] },
+    { role: 'tool', name: 'ask_user_clarification', content: JSON.stringify({ type: 'clarification_answered', question: 'Use the proposal above?', answer }) }];
+  const before = structuredClone(messages);
+  const context = resolveExtractionInputMessage('INVENTED_RESTATEMENT', 'Design a frame.', messages);
+  expect(JSON.parse(context.split('\n')[1])).toEqual({ question: 'Use the proposal above?', answer, assistantProposalContext: plan });
+  expect(context).toContain('unconfirmed context');
+  expect(context).not.toContain('OLDER_UNCONFIRMED_PLAN');
+  expect(context).not.toContain('INVENTED_RESTATEMENT');
+  expect(messages).toEqual(before);
+});
+
 test('external hosts retain canonical turn evidence and can supply input directly when no turn message exists', async () => {
   const {resolveExtractionInputMessage}=await import('../../../dist/agent-langgraph/tools.js');
   expect(resolveExtractionInputMessage('assistant restatement','actual first task',[])).toBe('actual first task');

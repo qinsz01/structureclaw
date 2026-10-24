@@ -195,10 +195,13 @@ export function buildChatModelOptions(
     disableStreaming,
     ...(disableStreaming ? { streaming: false } : runtimeOptions.streaming === undefined ? {} : { streaming: runtimeOptions.streaming }),
     ...(Number.isSafeInteger(maxTokens) && (maxTokens ?? 0) > 0 ? { maxTokens } : {}),
-    ...(runtimeOptions.purpose === 'clarification-patch' || runtimeOptions.purpose === 'structured-output' || runtimeOptions.purpose === 'model-build' ? {
-      modelKwargs: { response_format: { type: 'json_object' },
-        // LangChain filters reasoning options for non-OpenAI model names; pass the compatible wire parameter.
-        ...(runtimeOptions.purpose !== 'structured-output' && /^glm-5\.3(?:-|$)/i.test(modelConfig.llmModel) ? { reasoning_effort: 'low' } : {}),
+    ...(runtimeOptions.purpose || /^glm-5\.3(?:-|$)/i.test(modelConfig.llmModel) ? {
+      modelKwargs: {
+        ...(runtimeOptions.purpose ? { response_format: { type: 'json_object' } } : {}),
+        // Bound interactive planning as well as extraction; the provider default can
+        // spend the entire request deadline reasoning before producing a tool call.
+        // LangChain filters this option for non-OpenAI names, so keep it on the wire.
+        ...(/^glm-5\.3(?:-|$)/i.test(modelConfig.llmModel) ? { reasoning_effort: 'low' } : {}),
       },
     } : {}),
     configuration: {
