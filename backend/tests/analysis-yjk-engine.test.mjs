@@ -75,7 +75,7 @@ describe('analysis YJK engine registry', () => {
       );
       writeFile(
         path.join(stubsDir, 'contracts.py'),
-        'AnalysisResult = dict\nclass EngineNotAvailableError(Exception):\n    pass\n',
+        'AnalysisResult = dict\nclass AnalysisCapabilityError(Exception):\n    pass\nclass EngineNotAvailableError(Exception):\n    pass\n',
       );
       writeFile(
         path.join(stubsDir, 'skill_loader.py'),
