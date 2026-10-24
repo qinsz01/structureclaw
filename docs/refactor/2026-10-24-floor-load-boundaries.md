@@ -28,6 +28,26 @@ The matrix scripts only replace LLM transport with explicit structured extractio
 
 The old `Backend Regression` workflow only ran automatically for master pushes. Dispatching it exposed missing Linux BLAS libraries, an incomplete Python dependency set and a Windows-only constant in a mocked process test. This follow-up adds work-branch triggering, installs the declared analysis runtime and its Linux libraries, verifies imports before testing, and supplies the Windows constant only inside the mocked test. No solver failures are skipped or replaced. Attachment tests use the common Python resolver, including `PYTHON_FOR_TEST`, instead of depending on personal settings; their complete suite also passes with an empty isolated data directory.
 
+默认后端回归此前仅执行 21 项已登记契约中的 13 项，另外 8 项因未执行而保留了旧的技能注册断言。现在直接遍历契约注册表，全部纳入默认回归。契约检查准确区分 8 个结构技能与独立的执行 Provider；报告检查覆盖中英文已确认结果、单位、控制工况、失败状态及无 LLM 时的明确拒绝。形式校验保留显式截面数值和几何差异警告，同时拒绝非正面积及不合法的净截面模量。21 项契约已在隔离数据库完整通过。
+
+The default backend runner now executes every registered contract rather than a separate 13-of-21 subset. Stale expectations for six modelling skills, execution providers as skills and successful natural-language work without an LLM were corrected against the current architecture. Explicit section properties remain authoritative with visible geometry diagnostics; invalid physical values still fail. The complete 21-contract local run passes without weakening numerical tolerances or adding production substitutes.
+
+Windows CI 还暴露了 Python 选择不一致：依赖安装在指定解释器中，但工作进程经系统 `py` 启动了另一版本。CI 现在创建并使用 `backend/.venv`，依赖安装、工作进程与测试共用项目环境。修复仅涉及 CI，未增加产品配置回退。
+
+Windows CI also exposed interpreter drift: dependencies were installed in the setup interpreter while workers discovered a different Python through `py`. The workflow now provisions `backend/.venv` and uses it for installation, workers and tests. Product configuration and solver selection are unchanged.
+
+Linux 的完整运行进一步发现 5 份未注册可视化说明仍残留旧技能 YAML 头；原检查只识别 LF，因此 Windows CRLF 检出漏报。已移除旧头、保留正文，并同时检查两种换行。清理前后实际加载的 8 个结构技能完整内容逐字节相同。
+
+The full Linux run additionally found five unregistered visualization notes with retired YAML skill headers. The LF-only guard had missed these on Windows. The headers were removed without changing the bodies, and the guard now covers LF and CRLF. Loaded modelling bundles were compared byte for byte and remain identical.
+
+远端提交 `41850b1a` 的 [后端完整回归](https://github.com/qinsz01/structureclaw/actions/runs/40067567656) 已在 Windows 和 Linux 各自一次全绿：246 个套件、3614 项测试、57 个快照，无测试跳过；两端均执行全部 21 项契约。独立 Python 全套为 1330 项及 30 个子测试通过；[分析回归](https://github.com/qinsz01/structureclaw/actions/runs/40067567684) 也在两端通过。
+
+At `41850b1a`, each Windows/Linux backend job passes all 246 suites, 3,614 tests and 57 snapshots in one complete run, with no skipped tests, followed by all 21 contracts. The Python job passes 1,330 tests and 30 subtests; both analysis-regression platforms also pass. Earlier failed CI runs remain part of the evidence.
+
+同一提交的 [浏览器全套检查](https://github.com/qinsz01/structureclaw/actions/runs/40067567661) 为 61 项通过、12 项可选真实模型测试跳过，耗时 21.9 分钟，无失败、重试或不稳定通过。包括梁、空间框架和延迟尺寸通知下的居中及鼠标位置缩放，以及三类模型的可视化控制、PNG、语言和主题矩阵。部署复核确认原会话、草稿、模型、结果、待答问题、设置及 17 个前端资源均保持正确。
+
+The same revision's browser suite passes 61 tests, with 12 optional live-provider tests skipped, in 21.9 minutes. There are no failures, retries or flaky passes. Camera centering/cursor zoom, held resize delivery and the visualization/export/locale/theme matrix pass. Post-restart checks preserve the original conversation, confirmed artifacts, pending question and settings, and verify all 17 served frontend assets.
+
 Commercial engine boundaries remain explicit: unsupported model families, section/axis calibration, SDK grades and uncalibrated floor transfer are refused. Full-member nonlinear execution remains unavailable. This work does not add those solver capabilities or certify arbitrary prompts/models. The earlier optional live-browser skips and frontend TODOs are not counted as passes here.
 
 ## 复现 / Reproduction
