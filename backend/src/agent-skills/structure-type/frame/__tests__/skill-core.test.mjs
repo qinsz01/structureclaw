@@ -44,8 +44,7 @@ describe('frame canonicalize core contract', () => {
   });
 
   test('merges floor loads by story without dropping earlier values', () => {
-    const patch = canonicalizeFramePatch({
-      existingState: {
+    const existingState = {
         inferredType: 'frame',
         frameDimension: '3d',
         floorLoads: [
@@ -53,7 +52,9 @@ describe('frame canonicalize core contract', () => {
           { story: 2, verticalKN: 90, lateralXKN: 18 },
         ],
         updatedAt: 0,
-      },
+      };
+    const patch = canonicalizeFramePatch({
+      existingState,
       supplementalPatch: {
         inferredType: 'frame',
         floorLoads: [
@@ -64,7 +65,8 @@ describe('frame canonicalize core contract', () => {
       llmPatch: null,
     });
 
-    expect(patch.floorLoads).toEqual([
+    expect(patch.floorLoads).toEqual([{ story: 1, lateralYKN: 12 }, { story: 2, lateralYKN: 12 }]);
+    expect(mergeFrameState(existingState, patch).floorLoads).toEqual([
       { story: 1, verticalKN: 90, lateralXKN: 18, lateralYKN: 12 },
       { story: 2, verticalKN: 90, lateralXKN: 18, lateralYKN: 12 },
     ]);
@@ -361,15 +363,14 @@ describe('frame canonicalize core contract', () => {
     );
 
     expect(patch.wind).toEqual({ basicPressureKNM2: 0.5 });
-    expect(patch.floorLoads).toEqual([
+    expect(patch.floorLoads).toEqual([{ story: 1, lateralXKN: 10.8 }, { story: 2, lateralXKN: 10.8 }]);
+    const state = mergeFrameState(existingState, patch);
+    expect(state.floorLoads).toEqual([
       { story: 1, verticalKN: 120, lateralXKN: 10.8 },
       { story: 2, verticalKN: 120, lateralXKN: 10.8 },
     ]);
 
-    const model = buildFrameModel(withDeclaredProperties({
-      ...existingState,
-      ...patch,
-    }));
+    const model = buildFrameModel(withDeclaredProperties(state));
 
     expect(model.load_cases.map((loadCase) => loadCase.id)).toEqual(['D', 'LAT']);
     expect(model.load_cases.find((loadCase) => loadCase.id === 'LAT').loads.reduce((sum, load) => sum + load.fx, 0)).toBeCloseTo(21.6);

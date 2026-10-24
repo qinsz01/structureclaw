@@ -85,6 +85,11 @@ try {
         if (llm.pending() === 1) llm.clearPending();
         record.turnErrors = turn.errors;
         const requests = llm.requests.slice(start);
+        record.extraction = seenResult(requests, toolId('extract'));
+        if (fixture.updates?.length) {
+          assert.equal(record.extraction?.status, 'applied', 'The final geometry update must be fully applied');
+          assert.deepEqual(record.extraction.unapplied, []);
+        }
         record.build = seenResult(requests, toolId('build'));
         record.validation = seenResult(requests, toolId('validate'));
         record.analysis = seenResult(requests, toolId('analyze'));

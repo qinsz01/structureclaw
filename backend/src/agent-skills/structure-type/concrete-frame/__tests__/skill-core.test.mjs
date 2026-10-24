@@ -100,8 +100,7 @@ describe('concrete-frame canonicalize core contract', () => {
   });
 
   test('merges floor loads by story without dropping earlier values', () => {
-    const patch = canonicalizeConcreteFramePatch({
-      existingState: {
+    const existingState = {
         inferredType: 'concrete-frame',
         frameDimension: '3d',
         floorLoads: [
@@ -109,7 +108,9 @@ describe('concrete-frame canonicalize core contract', () => {
           { story: 2, verticalKN: 90, lateralXKN: 18 },
         ],
         updatedAt: 0,
-      },
+      };
+    const patch = canonicalizeConcreteFramePatch({
+      existingState,
       supplementalPatch: {
         inferredType: 'concrete-frame',
         floorLoads: [
@@ -120,7 +121,8 @@ describe('concrete-frame canonicalize core contract', () => {
       llmPatch: null,
     });
 
-    expect(patch.floorLoads).toEqual([
+    expect(patch.floorLoads).toEqual([{ story: 1, lateralYKN: 12 }, { story: 2, lateralYKN: 12 }]);
+    expect(mergeConcreteFrameState(existingState, patch).floorLoads).toEqual([
       { story: 1, verticalKN: 90, lateralXKN: 18, lateralYKN: 12 },
       { story: 2, verticalKN: 90, lateralXKN: 18, lateralYKN: 12 },
     ]);

@@ -1,5 +1,6 @@
 import { handler as frame } from '../../../dist/agent-skills/structure-type/frame/handler.js';
 import { handler as concrete } from '../../../dist/agent-skills/structure-type/concrete-frame/handler.js';
+import { unappliedDraftFields } from '../../../dist/agent-runtime/draft/changes.js';
 
 const input = (skillId, dimension, geometry, loads) => ({
   engineeringDraft: {
@@ -15,6 +16,43 @@ const input = (skillId, dimension, geometry, loads) => ({
 const area = { id: 'floor', kind: 'area', unit: 'kN/m2', magnitude: 10, direction: 'gravity', target: 'all-stories', caseId: 'DL', caseType: 'dead' };
 const total = { ...area, kind: 'nodal', unit: 'kN', magnitude: 100 };
 const stateFor = (handler, patch) => handler.mergeState(undefined, handler.extractDraft({ llmDraftPatch: patch }));
+
+describe('floor projection application audit', () => {
+  const source = { engineeringDraft: { loads: [{ ...area, magnitude: 12, target: 'top-story' }] } };
+  const projected = { ...source, floorLoads: [{ story: 1, verticalKN: 200 }, { story: 2, verticalKN: 240 }] };
+  const after = { ...source, floorLoads: [{ story: 2, verticalKN: 240 }] };
+  test('audits the canonical declaration without reporting stale derived totals as user facts', () => {
+    const before = structuredClone(projected);
+    expect(unappliedDraftFields(projected, after, source)).toEqual([]);
+    expect(projected).toEqual(before);
+  });
+  test('explicitly supplied floor totals still report a rejected value', () => {
+    expect(unappliedDraftFields(projected, after, projected)).toEqual([expect.objectContaining({ field: 'floorLoads', reason: 'NOT_RETAINED' })]);
+  });
+  test('explicit partial story totals are audited by story, without comparing inherited array entries', () => {
+    expect(unappliedDraftFields(projected, { ...after, floorLoads: [{ story: 3, liveLoadKN: 99 }, ...after.floorLoads] },
+      { floorLoads: [{ story: 2, verticalKN: 240 }] })).toEqual([]);
+  });
+  test('a rejected explicit story total is still reported', () => {
+    expect(unappliedDraftFields(projected, after, { floorLoads: [{ story: 2, verticalKN: 241 }] }))
+      .toEqual([expect.objectContaining({ field: 'floorLoads', reason: 'NOT_RETAINED' })]);
+  });
+  test('an unidentified story cannot be accepted by its array position', () => {
+    expect(unappliedDraftFields(projected, after, { floorLoads: [{ verticalKN: 240 }] }))
+      .toEqual([expect.objectContaining({ field: 'floorLoads', reason: 'NOT_RETAINED' })]);
+  });
+  test('an invalid explicit floor value is not dropped from the audit', () => {
+    expect(unappliedDraftFields(projected, after, { floorLoads: [{ story: 2, verticalKN: 'invalid' }] }))
+      .toEqual([expect.objectContaining({ field: 'floorLoads', reason: 'NOT_RETAINED' })]);
+  });
+  test('callers without source evidence retain the strict audit', () => {
+    expect(unappliedDraftFields(projected, after)).toEqual([expect.objectContaining({ field: 'floorLoads', reason: 'NOT_RETAINED' })]);
+  });
+  test('an unretained canonical magnitude cannot be hidden by a derived view', () => {
+    const rejected = { ...after, engineeringDraft: { loads: [{ ...source.engineeringDraft.loads[0], magnitude: 11 }] } };
+    expect(unappliedDraftFields(projected, rejected, source)).toEqual([expect.objectContaining({ field: 'engineeringDraft.loads["floor"].magnitude', reason: 'NOT_RETAINED' })]);
+  });
+});
 
 describe.each([['frame', frame], ['concrete-frame', concrete]])('%s floor geometry boundaries', (skillId, handler) => {
   test.each([false, true])('retains unconvertible area facts and blocks execution, extra node load=%s', extraNode => {
@@ -93,6 +131,15 @@ describe.each([['frame', frame], ['concrete-frame', concrete]])('%s floor geomet
     expect(next.floorLoads).toEqual([{ story: 1, verticalKN: 200 }]);
     expect(handler.computeMissing(next, 'execution').critical).not.toContain('frameFloorArea');
     expect(handler.buildModel(next).stories[0].dead_load).toBe(10);
+  });
+  test('a geometry-only extraction does not claim inherited floor values as new facts', () => {
+    const old = stateFor(handler, input(skillId, '3d', { bayWidthsXM: [4], bayWidthsYM: [5] }, [area]));
+    const source = { engineeringDraft: { geometry: { bayWidthsXM: [8] } } };
+    const extracted = handler.extractDraft({ currentState: old, llmDraftPatch: source });
+    expect(extracted.floorLoads).toBeUndefined();
+    const next = handler.mergeState(old, extracted);
+    expect(next.floorLoads).toEqual([{ story: 1, verticalKN: 400 }]);
+    expect(unappliedDraftFields(extracted, next, source)).toEqual([]);
   });
 
   test.each([
