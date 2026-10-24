@@ -88,13 +88,22 @@ function normalizeTopologyMember(value: unknown): EngineeringDraftTopologyMember
 }
 
 /** Validate partial records using their accepted fields, never guessed coordinates or load units. */
-function hydrateDraftRecord(value: unknown, existing: Array<Record<string, unknown>> | undefined, member = false): unknown {
+function hydrateDraftRecord(value: unknown, existing: Array<Record<string, unknown>> | undefined, member = false, load = false): unknown {
   const input = asRecord(value);
   const patch = member && input ? normalizeMemberRecordReleases(input) : input;
   if (!patch || typeof patch.id !== 'string') return value;
   const matches = existing?.filter(record => record.id === patch.id) ?? [];
   if (matches.length > 1) throw new EngineeringValidationError(`AMBIGUOUS_DRAFT_RECORD_ID: ${patch.id} / 无法唯一定位草稿对象`);
-  return matches.length ? mergeDraftRecord(member ? normalizeMemberRecordReleases(matches[0]!) : matches[0]!, patch) : patch;
+  if (!matches.length) return patch;
+  const previous = { ...(member ? normalizeMemberRecordReleases(matches[0]!) : matches[0]!) };
+  // A newly supplied scope arm replaces the old target expression atomically.
+  // Positions and storey scope remain confirmed; they are never discarded here.
+  if (load && patch.selector !== undefined && patch.target === undefined) delete previous.target;
+  if (load && patch.target !== undefined && patch.selector === undefined) delete previous.selector;
+  if (load && normalizeString(patch.scopeDescription) && patch.target === undefined && patch.selector === undefined) {
+    delete previous.target; delete previous.selector;
+  }
+  return mergeDraftRecord(previous, patch);
 }
 
 function normalizeEngineeringTopology(value: unknown, existing?: EngineeringDraftTopology): EngineeringDraftTopology | undefined {
@@ -230,12 +239,17 @@ function normalizeEngineeringLoad(value: unknown, path: string): EngineeringDraf
   const sourceUnit = normalizeString(raw.unit)?.toLowerCase().replace(/\s+/g, '');
   const forceScale = sourceUnit && /^n(?:\/m(?:2|\^2|²)?)?$/.test(sourceUnit) ? 0.001 : 1;
   const selector = raw.selector === undefined ? undefined : modelSelectorSchema.safeParse(raw.selector);
+  if (raw.scopeDescription !== undefined && !normalizeString(raw.scopeDescription)) throw new EngineeringValidationError(`LOAD_SCOPE_DESCRIPTION_INVALID: ${path}.scopeDescription / 荷载分组描述须为非空字符串`);
   const floorTransfer = raw.floorTransfer === undefined ? undefined : floorTransferSchema.safeParse(raw.floorTransfer);
   if (floorTransfer && (!floorTransfer.success || normalizeLoadUnit(raw.unit, kind) !== 'kN/m2')) {
     throw new EngineeringValidationError(`FLOOR_TRANSFER_INVALID: ${path}.floorTransfer; preserve explicit distribution and rectangular bounds for an area load / 面荷载传荷需明确方向和矩形范围`);
   }
   if (selector && !selector.success) throw new EngineeringValidationError(`LOAD_SELECTOR_INVALID: ${path}.selector ${JSON.stringify(selector.error.issues)} / 荷载选择器无效，不得丢弃`);
-  if (selector && (normalizeString(raw.target) || normalizeLoadLocation(raw.location))) throw new EngineeringValidationError(`LOAD_SELECTOR_CONFLICT: ${path} must use selector or target/location; clear the replaced target/location before merging / 荷载只保留一个目标表达，先清除被替换的target/location再合并selector`);
+  const location = normalizeLoadLocation(raw.location);
+  if (selector && (normalizeString(raw.target) || location && (selector.data?.story !== undefined
+    || Object.entries(location).some(([key, value]) => key !== 'story' && value !== undefined)))) {
+    throw new EngineeringValidationError(`LOAD_SELECTOR_CONFLICT: ${path} cannot combine target/position with selector, or two storey representations / 选择器不能混入另一目标或荷载位置；楼层仅选准确story ID或location.story层号之一`);
+  }
   return {
     ...(normalizeString(raw.id) && { id: normalizeString(raw.id) }),
     kind,
@@ -243,9 +257,10 @@ function normalizeEngineeringLoad(value: unknown, path: string): EngineeringDraf
     unit: normalizeLoadUnit(raw.unit, kind),
     direction: normalizeLoadDirection(raw.direction ?? raw.axis, `${path}.direction`),
     target: normalizeString(raw.target),
+    scopeDescription: normalizeString(raw.scopeDescription),
     ...(selector?.success ? { selector: selector.data } : {}),
     ...(floorTransfer?.success ? { floorTransfer: floorTransfer.data } : {}),
-    location: normalizeLoadLocation(raw.location),
+    location,
     caseId: normalizeString(raw.caseId ?? raw.loadCaseId),
     caseType: normalizeLoadCaseType(raw.caseType ?? raw.loadCaseType),
   };
@@ -355,7 +370,7 @@ export function normalizeEngineeringDraft(value: unknown, existing?: Engineering
   } : undefined;
 
   const loads = Array.isArray(raw.loads)
-    ? raw.loads.map((item, index) => normalizeEngineeringLoad(hydrateDraftRecord(item, existing?.loads?.map(load => ({ ...load }))), `engineeringDraft.loads[${index}]`)).filter((load): load is EngineeringDraftLoad => load !== undefined)
+    ? raw.loads.map((item, index) => normalizeEngineeringLoad(hydrateDraftRecord(item, existing?.loads?.map(load => ({ ...load })), false, true), `engineeringDraft.loads[${index}]`)).filter((load): load is EngineeringDraftLoad => load !== undefined)
     : undefined;
   if (raw.loads !== undefined && (!Array.isArray(raw.loads) || raw.loads.length !== loads?.length)) {
     throw new EngineeringValidationError('INVALID_ENGINEERING_LOAD: every load needs supported type, finite signed magnitude and explicit unit / 每条荷载需有效类型、带符号有限数值及单位');
@@ -692,6 +707,8 @@ function engineeringLoadMergeKey(
     load.direction ?? '',
     caseKey,
     normalizedTarget,
+    load.scopeDescription ?? '',
+    stableJson(load.selector),
     stableJson(location),
   ].join('|');
 }
@@ -741,6 +758,9 @@ function mergeEngineeringDraftLoads(
     const next = prior ? { ...prior, ...load,
       direction: load.direction ?? prior.direction,
       location: load.location ?? prior.location } : load;
+    if (load.target !== undefined && !load.selector) delete next.selector;
+    if (load.selector && load.target === undefined) delete next.target;
+    if (load.scopeDescription && !load.selector && load.target === undefined) { delete next.target; delete next.selector; }
     merged.set(engineeringLoadMergeKey(next, draft), next);
   }
   return Array.from(merged.values());

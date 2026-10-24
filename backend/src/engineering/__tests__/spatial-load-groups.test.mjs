@@ -1,9 +1,10 @@
 import { describe, expect, test } from '@jest/globals';
 import { expandModellingOperations } from '../../../dist/skill-shared/modelling/operations.js';
-import { normalizeEngineeringDraft } from '../../../dist/agent-runtime/engineering-draft.js';
-import { checkModelPhysics, appliedLoadTotals } from '../../../dist/engineering/model-physics.js';
+import { normalizeEngineeringDraft, mergeEngineeringDraft } from '../../../dist/agent-runtime/engineering-draft.js';
+import { checkModelPhysics, appliedLoadTotals, compileConfirmedModelLoads } from '../../../dist/engineering/model-physics.js';
 import { assertNoTerminalSemanticFailure } from '../../../dist/agent-langgraph/guards/terminal-failures.js';
 import { resolveExtractionInputMessage, modellingConversationHistory } from '../../../dist/agent-langgraph/tools/input-message.js';
+import { tryBuildGenericModelWithLlm } from '../../../dist/agent-skills/structure-type/generic/llm-model-builder.js';
 
 const grid = { id: 'g', op: 'regular-frame', dimension: '3d', bayWidthsX: [6, 6, 6, 6], bayWidthsY: [6, 6, 6],
   storeyHeights: [4.2, 3.6, 3.6], baseRestraint: 'fixed', material: 'M', columnSection: 'C', beamSection: 'B' };
@@ -27,6 +28,53 @@ const loadedFrame = () => expandModellingOperations({ ...base(), operations: [gr
   id: load.id, op: 'member-udl', selector: load.selector, caseId: load.caseId, vector: [0, 0, -load.magnitude] }))] });
 
 describe('spatial selectors and independently checked load groups', () => {
+  test('semantic group descriptions stay immutable while the LLM repairs its own geometry binding', async () => {
+    const definition = base();
+    const draft = normalizeEngineeringDraft({ geometry: { storyHeightsM: grid.storeyHeights, bayWidthsXM: grid.bayWidthsX, bayWidthsYM: grid.bayWidthsY },
+      materials: definition.materials, sectionRecords: definition.sections, analysisControl: { self_weight: false },
+      loads: [{ id: 'accepted-scope', kind: 'line', magnitude: 2, unit: 'kN/m', direction: 'gravity', caseId: 'DL',
+        scopeDescription: 'Second-storey interior X beams, between Y=0 and Y=18m.', location: { story: 2 } }] });
+    const before = structuredClone(draft), prompts = [];
+    const model = await tryBuildGenericModelWithLlm({ invoke: async prompt => {
+      prompts.push(prompt);
+      return { content: JSON.stringify({ ...definition, load_cases: [{ id: 'DL', type: 'dead', loads: [] }],
+        metadata: { compileDraftLoads: true, loadMappings: [{ loadId: 'accepted-scope', caseId: 'DL', selector: prompts.length === 1
+          ? { type: 'beam', parallelTo: 'x', coordinate: { axis: 'z', lt: 0.1 } }
+          : { type: 'beam', parallelTo: 'x', coordinate: { axis: 'y', gt: 0, lt: 18 } } }] }, operations: [grid] }) };
+    } }, 'Use the accepted group without changing its load.', { inferredType: 'frame', engineeringDraft: draft }, 'en');
+    expect(prompts).toHaveLength(2);
+    expect(prompts[1]).toContain('LOAD_MAPPING_UNRESOLVED');
+    expect(prompts[1]).toContain(draft.loads[0].scopeDescription);
+    expect(appliedLoadTotals(model).DL).toEqual([0, 0, -96]);
+    expect(draft).toEqual(before);
+  });
+
+  test('an atomic target-to-selector patch preserves storey scope and compiles only the confirmed floor', async () => {
+    const before = normalizeEngineeringDraft({ geometry: { storyHeightsM: [4.2, 3.6, 3.6] }, loads: [
+      { id: 'scope', kind: 'line', magnitude: 2, unit: 'kN/m', direction: 'gravity', caseId: 'DL', target: 'accepted-interior-beams', location: { story: 2 } },
+    ] });
+    const saved = structuredClone(before);
+    const patch = normalizeEngineeringDraft({ loads: [{ id: 'scope', selector: { type: 'beam', parallelTo: 'x', coordinate: { axis: 'y', gt: 0, lt: 18 } } }] }, before);
+    const draft = mergeEngineeringDraft(before, patch);
+    expect(draft.loads[0].target).toBeUndefined();
+    expect(draft.loads[0]).toMatchObject({ id: 'scope', magnitude: 2, caseId: 'DL', location: { story: 2 } });
+    const model = await expandModellingOperations({ ...base(), load_cases: [{ id: 'DL', type: 'dead', loads: [] }], operations: [grid] });
+    const compiled = compileConfirmedModelLoads(model, draft);
+    expect(compiled.load_cases[0].loads).toHaveLength(8);
+    expect(appliedLoadTotals(compiled).DL).toEqual([0, 0, -96]);
+    expect(checkModelPhysics(compiled, draft).valid).toBe(true);
+    expect(before).toEqual(saved);
+    const inverse = mergeEngineeringDraft(draft, normalizeEngineeringDraft({ loads: [{ id: 'scope', target: 'USER-BEAM' }] }, draft));
+    expect(inverse.loads[0].selector).toBeUndefined();
+    expect(inverse.loads[0]).toMatchObject({ target: 'USER-BEAM', magnitude: 2, location: { story: 2 } });
+  });
+
+  test('scope changes never silently erase a confirmed load position', () => {
+    const before = normalizeEngineeringDraft({ loads: [{ id: 'P', kind: 'point', magnitude: 10, unit: 'kN', target: 'beam', location: { xM: 3 } }] });
+    const saved = structuredClone(before);
+    expect(() => normalizeEngineeringDraft({ loads: [{ id: 'P', selector: { ids: ['N'] } }] }, before)).toThrow('LOAD_SELECTOR_CONFLICT');
+    expect(before).toEqual(saved);
+  });
   test('the confirmed third-storey columns are selected geometrically and assigned without changing lower storeys', async () => {
     const input = { ...base(), operations: [grid, { id: 'top', op: 'assign-properties', target: 'elements',
       selector: { type: 'column', coordinate: { axis: 'z', gt: 7.8 } }, values: { section: 'C3' } }] };

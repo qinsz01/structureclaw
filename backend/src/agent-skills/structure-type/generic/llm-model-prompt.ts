@@ -42,7 +42,7 @@ export function buildGenericModelPrompt(
         : 'All source loads already have confirmed selectors and case IDs. OMIT metadata.loadMappings; compile those selectors directly. / 所有源荷载已有选择器和工况，不再生成映射，直接编译原选择器。',
       'Area sources (kN/m2): each metadata.loadMappings entry must include transferId equal to its distinct floor-to-beam operation.id, selector for its supporting beams and exact caseId. The system independently recomputes pressure×area and member loads; metadata totals are not evidence. Use explicit full-floor bounds and the confirmed transfer direction. / 面荷载须以transferId明确绑定各自的floor-to-beam操作，由系统重算面积合力及各梁荷载，不接受助手声明总量代替校核。',
       `Required source-load bindings / 必须逐条绑定的源荷载: ${JSON.stringify(unresolved.map(load => ({
-        loadId: load.id, caseId: load.caseId, target: load.target, location: load.location, selector: load.selector,
+        loadId: load.id, caseId: load.caseId, target: load.target, scopeDescription: load.scopeDescription, location: load.location, selector: load.selector,
       })))}. Return metadata.loadMappings with one entry for EVERY source load not already resolved by its exact entity ID or selector. Load operations do not replace this evidence. Do not omit mappings merely because operation resultants match. / 荷载操作和相同合力不能替代逐条映射依据。`,
     ] : []),
     engineeringKnowledge(locale, ['loads', 'boundaries', 'combinations', 'validation']),

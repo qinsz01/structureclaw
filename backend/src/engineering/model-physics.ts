@@ -23,6 +23,18 @@ export class LoadMappingError extends Error {
   }
 }
 const records = (value: unknown): ModelRecord[] => Array.isArray(value) ? value.filter(isRecord) : [];
+function storyScopedTargets(model: ModelRecord, draft: EngineeringDraft, load: NonNullable<EngineeringDraft['loads']>[number], targets: ModelRecord[]): ModelRecord[] {
+  const story = load.location?.story;
+  if (story === undefined) return targets;
+  const heights = draft.geometry?.storyHeightsM;
+  if (!heights || story < 1 || story > heights.length) throw new Error(`LOAD_MAPPING_STORY_UNVERIFIABLE: ${load.id}`);
+  const base = Math.min(...records(model.nodes).map(node => Number(node.z)));
+  const lower = base + heights.slice(0, story - 1).reduce((sum, height) => sum + height, 0), upper = lower + heights[story - 1]!;
+  return targets.filter(row => {
+    const z = load.unit === 'kN' ? [Number(row.z)] : [memberGeometry(model, row).start.z, memberGeometry(model, row).end.z].map(Number);
+    return z.every(Number.isFinite) && Math.abs(Math.max(...z) - upper) <= 1e-8 && Math.min(...z) >= lower - 1e-8;
+  });
+}
 const endRelease = (element: ModelRecord, end: 'i' | 'j', axis: string): boolean => {
   const releases = isRecord(element.releases) ? element.releases : {};
   const flags = releases[end] ?? releases[end === 'i' ? 'releaseI' : 'releaseJ'];
@@ -270,9 +282,10 @@ function resolvedLoads(model: ModelRecord, draft: EngineeringDraft) {
       throw new Error(`LOAD_MAPPING_SCOPE_CONFLICT: ${mapping.loadId}`);
     }
     const available = records(source.unit === 'kN' ? model.nodes : model.elements);
-    const targets = selectRecords(available, mapping.selector, model);
+    const selected = selectRecords(available, mapping.selector, model);
+    const targets = source.scopeDescription ? storyScopedTargets(model, draft, source, selected) : selected;
     if (!targets.length || mapping.selector.ids?.some(id => !targets.some(row => row.id === id))) throw new LoadMappingError('LOAD_MAPPING_UNRESOLVED', [mapping.loadId],
-      { loadId: mapping.loadId, selector: mapping.selector, confirmedSelector: source.selector,
+      { loadId: mapping.loadId, selector: mapping.selector, confirmedSelector: source.selector, scopeDescription: source.scopeDescription, location: source.location,
         availableStories: [...new Set(available.map(row => row.story).filter(value => value !== undefined))],
         availableTypes: [...new Set(available.map(row => row.type).filter(value => value !== undefined))],
         availableIds: available.filter(row => !mapping.selector.type || row.type === mapping.selector.type).slice(0, 30).map(row => row.id) }, {
@@ -280,9 +293,10 @@ function resolvedLoads(model: ModelRecord, draft: EngineeringDraft) {
         zh: '选择器未对应有效实体分组。保留已确认选择器，用几何操作的storyIds对应实际楼层编号，不编造别名。',
       });
     if (source.selector) {
-      const confirmed = selectRecords(available, modelSelectorSchema.parse(source.selector), model);
+      const confirmed = storyScopedTargets(model, draft, source, selectRecords(available, modelSelectorSchema.parse(source.selector), model));
+      const scoped = storyScopedTargets(model, draft, source, targets);
       const identities = (rows: ModelRecord[]) => JSON.stringify(rows.map(row => String(row.id)).sort());
-      if (!confirmed.length || identities(confirmed) !== identities(targets)) throw new Error(`LOAD_MAPPING_SCOPE_CONFLICT: ${mapping.loadId}`);
+      if (!confirmed.length || identities(confirmed) !== identities(scoped)) throw new Error(`LOAD_MAPPING_SCOPE_CONFLICT: ${mapping.loadId}`);
       // Equivalent binding evidence never rewrites the confirmed selector expression.
       continue;
     }
@@ -300,7 +314,9 @@ function resolvedLoads(model: ModelRecord, draft: EngineeringDraft) {
       })) throw new Error(`LOAD_MAPPING_STORY_CONFLICT: ${mapping.loadId}`);
     }
     delete source.target; delete source.location;
-    source.selector = mapping.selector;
+    // Keep the resolved floor restriction when the semantic description is bound
+    // to geometry. The original mapping can cover several floors.
+    source.selector = source.scopeDescription ? { ids: targets.map(row => String(row.id)) } : mapping.selector;
   }
   return loads;
 }
@@ -357,8 +373,9 @@ function declaredLoadCases(model: ModelRecord, draft: EngineeringDraft, expected
     let targets: ModelRecord[];
     if (load.selector) {
       const parsed = modelSelectorSchema.safeParse(load.selector);
-      if (!parsed.success || load.target || load.location) return undefined;
-      targets = selectRecords(available, parsed.data, model);
+      if (!parsed.success || load.target || load.location && (parsed.data.story !== undefined
+        || Object.entries(load.location).some(([key, value]) => key !== 'story' && value !== undefined))) return undefined;
+      targets = storyScopedTargets(model, draft, load, selectRecords(available, parsed.data, model));
       if (!targets.length || parsed.data.ids?.some(id => !targets.some(row => row.id === id))) throw new LoadMappingError('LOAD_SOURCE_SELECTOR_UNRESOLVED', load.id ? [load.id] : [], {
         loadId: load.id, selector: parsed.data, availableStories: [...new Set(available.map(row => row.story).filter(value => value !== undefined))],
         availableTypes: [...new Set(available.map(row => row.type).filter(value => value !== undefined))],

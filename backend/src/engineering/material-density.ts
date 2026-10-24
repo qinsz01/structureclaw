@@ -8,7 +8,7 @@ export const materialDensityContract = {
     unit: { type: 'string', enum: ['kg/m3', 't/m3', 'N/m3', 'kN/m3'] } },
 };
 
-export const MATERIAL_DENSITY_RULE = 'Density: materials[].density={value,unit:"kg/m3"|"t/m3"|"N/m3"|"kN/m3"} retains the original quantity; omit rho. Do not calculate the conversion. The system converts to rho (kg/m³) with standard gravity 9.80665 m/s² and keeps the source. Never infer units from magnitude or replace explicit density by grade defaults. Direct rho is kg/m³. / density保留原数值和单位，由系统按标准重力换算；不心算、不猜单位、不覆盖显式值。直接rho仅为kg/m³。';
+export const MATERIAL_DENSITY_RULE = 'Density input: materials[].density={value,unit:"kg/m3"|"t/m3"|"N/m3"|"kN/m3"}; omit rho. Do not calculate the conversion. The system uses g=9.80665 m/s² for rho (kg/m³), retaining source. Never infer units from magnitude or overwrite explicit density. / 原数值及单位写density，由系统换算并保留来源；不猜单位，不用牌号默认值覆盖。';
 
 export function normalizeMaterialDensity(material: Record<string, unknown>): Record<string, unknown> {
   if (material.density === undefined) return material;

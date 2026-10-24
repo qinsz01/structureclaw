@@ -36,6 +36,23 @@ def project_commercial_model(source: dict, engine: str) -> dict:
     assumptions = apply_native_defaults(analysis, engine)
     separated = {}
     input_evidence = {}
+    for section in analysis.get("sections", []):
+        extra = section.get("extra")
+        if not isinstance(extra, dict):
+            continue
+        prefix = f"sections.{section['id']}.extra"
+        confirmation = extra.get("confirmation")
+        if confirmation is not None:
+            if (not isinstance(confirmation, dict) or set(confirmation) != {"clarificationId", "candidateIds"}
+                    or not isinstance(confirmation["clarificationId"], str) or not confirmation["clarificationId"]
+                    or not isinstance(confirmation["candidateIds"], list) or not confirmation["candidateIds"]
+                    or any(not isinstance(value, str) or not value for value in confirmation["candidateIds"])):
+                raise ValueError("Invalid section confirmation evidence / 截面确认依据无效")
+            input_evidence[prefix + ".confirmation"] = extra.pop("confirmation")
+        if isinstance(extra.get("source"), str) and extra["source"].strip():
+            input_evidence[prefix + ".source"] = extra.pop("source")
+        if not extra:
+            section.pop("extra")
     for material in analysis.get("materials", []):
         extra = material.get("extra")
         if not isinstance(extra, dict):

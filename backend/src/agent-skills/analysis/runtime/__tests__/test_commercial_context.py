@@ -84,6 +84,26 @@ def test_density_source_is_preserved_as_evidence_while_canonical_mass_density_re
 
 
 @pytest.mark.parametrize("engine", ["pkpm", "yjk"])
+def test_confirmed_section_evidence_is_archived_without_becoming_a_native_physical_override(engine):
+    model = source()
+    confirmation = {"clarificationId": "answered-question", "candidateIds": ["shown-dimensions"]}
+    model["sections"] = [{"id": "S", "type": "rectangular", "shape": {"kind": "rectangular", "B": 200, "H": 300},
+                          "extra": {"provenance": {"shape": "user"}, "confirmation": confirmation,
+                                    "source": "assistant proposal accepted by user"}}]
+    before = copy.deepcopy(model)
+    result = project_commercial_model(model, engine)
+    assert model == before
+    assert result["inputEvidence"]["sections.S.extra.confirmation"] == confirmation
+    assert result["analysisModel"]["sections"][0]["extra"] == {"provenance": {"shape": "user"}}
+    if engine == "pkpm":
+        from native_model_contract import pkpm_section_shape
+        assert pkpm_section_shape(result["analysisModel"]["sections"][0]) == {"kind": "Rectangle", "B": 200, "H": 300}
+    model["sections"][0]["extra"]["confirmation"]["candidateIds"] = []
+    with pytest.raises(ValueError, match="section confirmation evidence"):
+        project_commercial_model(model, engine)
+
+
+@pytest.mark.parametrize("engine", ["pkpm", "yjk"])
 def test_canonical_design_basis_and_requested_checks_survive_the_elastic_projection(engine):
     from structure_protocol.design_properties import MaterialDesign, MemberDesign
     model = source()
