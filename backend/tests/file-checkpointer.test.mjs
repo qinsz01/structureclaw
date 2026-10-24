@@ -131,6 +131,7 @@ test('large engineering state and pending messages survive lossless compression 
   expect((await fs.stat(file)).size).toBeLessThan(JSON.stringify(responses).length*.6);
   const fresh=new FileCheckpointer(root);
   const loads=jest.spyOn(fresh.serde,'loadsTyped');
+  const decoded=jest.spyOn(fresh,'deserialize');
   try {
     const tuple=await fresh.getTuple(config);
     expect(tuple.checkpoint.channel_values.analysisRuns.run.responses).toEqual(expectedResponses);
@@ -138,8 +139,29 @@ test('large engineering state and pending messages survive lossless compression 
     expect(tuple.checkpoint.channel_values.message.content).toBe('step 3');
     expect(tuple.pendingWrites[0][2]).toEqual({responses:expectedResponses});
     // Checkpoint, metadata and one pending write only; no previous engineering states.
-    expect(loads).toHaveBeenCalledTimes(3);
-  } finally { loads.mockRestore(); }
+    expect(decoded).toHaveBeenCalledTimes(3);
+    // Only the typed message needs the asynchronous serializer; the native
+    // numeric tree, metadata and pending numerical result are plain JSON.
+    expect(loads).toHaveBeenCalledTimes(1);
+  } finally { loads.mockRestore(); decoded.mockRestore(); }
+});
+
+test('plain engineering trees and nested typed values retain the original serializer semantics', async () => {
+  const { saver }=await fixture();
+  const values={native:{rows:Array.from({length:3000},(_,i)=>({id:`E${i}`,force:i/97,
+    source:{text:'literal {"lc":2} is not a typed object'},missing:undefined})),
+    flags:new Set(['D','L']),lookup:new Map([['members',new Set(['E1','E2'])]])},
+    typed:[new AIMessage({content:'saved',additional_kwargs:{units:'kN'}}),new Uint8Array([1,2,255]),/source/giu],
+    ordinary:{lc:'evidence note',child:new Map([['value',12]])}};
+  const [type,bytes]=await saver.serde.dumpsTyped(values);
+  const expected=await saver.serde.loadsTyped(type,bytes);
+  const checkpoint={...emptyCheckpoint(),channel_values:values};
+  const saved=await saver.put(config,checkpoint,metadata,{});
+  const actual=(await saver.getTuple(saved)).checkpoint.channel_values;
+  expect(actual).toEqual(expected);
+  expect(actual.typed[0].getType()).toBe('ai');
+  expect(actual.native.lookup.get('members')).toEqual(new Set(['E1','E2']));
+  expect(Object.hasOwn(actual.native.rows[0],'missing')).toBe(true);
 });
 
 test('typed historical base64 remains readable alongside compressed indexed checkpoints', async () => {

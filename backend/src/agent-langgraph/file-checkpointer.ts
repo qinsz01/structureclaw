@@ -51,10 +51,37 @@ export class FileCheckpointer extends BaseCheckpointSaver {
   }
 
   private async deserialize(value: Serialized | string): Promise<unknown> {
-    if (typeof value === 'string') return this.serde.loadsTyped('json', value);
+    if (typeof value === 'string') return this.deserializeJson(value);
     if (value.encoding !== undefined && value.encoding !== 'gzip-base64') throw new Error('CHECKPOINT_ENCODING_INVALID');
     const bytes = Buffer.from(value.data, 'base64');
-    return this.serde.loadsTyped(value.type, value.encoding === 'gzip-base64' ? await decompress(bytes) : bytes);
+    const decoded = value.encoding === 'gzip-base64' ? await decompress(bytes) : bytes;
+    return value.type === 'json' ? this.deserializeJson(new TextDecoder().decode(decoded)) : this.serde.loadsTyped(value.type, decoded);
+  }
+
+  /** Native result trees are plain JSON. Revive typed subtrees with the original
+   * serializer, without allocating an async continuation for every plain field.
+   * The stored format and typed-message semantics stay unchanged.
+   */
+  private async deserializeJson(text: string): Promise<unknown> {
+    const root: Record<string, unknown> = { value: JSON.parse(text) };
+    const stack: Array<{ parent: object; key: string }> = [{ parent: root, key: 'value' }];
+    const typed: Array<Promise<void>> = [];
+    while (stack.length) {
+      const { parent, key } = stack.pop()!;
+      const node = (parent as Record<string, unknown>)[key];
+      if (!node || typeof node !== 'object') continue;
+      if (Object.hasOwn(node, 'lc') || Object.hasOwn(node, '__proto__')) {
+        typed.push(this.serde.loadsTyped('json', JSON.stringify(node)).then(value => {
+          (parent as Record<string, unknown>)[key] = value;
+        }));
+        continue;
+      }
+      for (const [field, child] of Object.entries(node)) if (child && typeof child === 'object') {
+        stack.push({ parent: node, key: field });
+      }
+    }
+    await Promise.all(typed);
+    return root.value;
   }
 
   private identityHash(stored: StoredCheckpoint, id: string, ts: string): string {
