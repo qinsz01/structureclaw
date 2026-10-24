@@ -117,15 +117,18 @@ function nativeMemberData(model: RecoveryModel, data: ModelRecord, factors?: Rec
         const memberPath = member.id.replace(/~/g, '~0').replace(/\//g, '~1');
         const anchorRef = { path: `#/memberStations/${memberPath}/${anchorIndex}/source`, sha256: contentHash(anchor) };
         const sampleSource = { ...provenance, nativeContextRef, anchorRef };
-        const positions = [...new Set([...Array.from({length:81},(_,i)=>length*i/80),...recovered.breakpoints])].sort((a,b)=>a-b);
+        // Form the unit fraction first: length*80/80 can exceed length by one
+        // ulp, whereas length*(80/80) preserves the exact physical endpoint.
+        const positions = [...new Set([...Array.from({length:81},(_,i)=>length*(i/80)),...recovered.breakpoints])].sort((a,b)=>a-b);
+        const recoveredRows = [...rows];
         for(const positionM of positions) {
           const sides: ('left'|'right')[] = positionM===0?['right']:positionM===length?['left']:
             recovered.jumps.includes(positionM)?['left','right']:['right'];
           for(const side of sides) if(!rows.some(row=>sameNativePosition(row.positionM,positionM,length) && (row.side===side||row.side==='continuous'))) {
-            rows.push({positionM,side,components:recovered.at(positionM,side),source:sampleSource,provenance:'mechanics-recovery'});
+            recoveredRows.push({positionM,side,components:recovered.at(positionM,side),source:sampleSource,provenance:'mechanics-recovery'});
           }
         }
-        rows=rows.sort((a,b)=>a.positionM-b.positionM||(a.side==='left'?-1:1));
+        rows=recoveredRows.sort((a,b)=>a.positionM-b.positionM||(a.side==='left'?-1:1));
       } catch (error) {
         // Preserve direct stations and explain why a continuous force curve is unavailable.
         recovery = { status: 'unavailable', reason: error instanceof Error ? error.message : 'NATIVE_FORCE_RECOVERY_UNVERIFIED',

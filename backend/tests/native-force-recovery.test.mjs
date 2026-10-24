@@ -17,6 +17,24 @@ function cantilever() {
 }
 
 describe('native force equilibrium recovery',()=>{
+  test('fractional storey lengths preserve exact endpoints and sorted verified plot samples',()=>{
+    const {model,result}=cantilever();
+    model.nodes=[{id:'a',x:0,y:0,z:4.5},{id:'b',x:0,y:0,z:8.1}];
+    model.load_cases=[{id:'D',loads:[]}];
+    const length=8.1-4.5;
+    expect(length*80/80).toBeGreaterThan(length); // Reproduces the former endpoint overrun.
+    result.data.memberStations.beam=[{positionM:0,side:'right'},{positionM:length,side:'left'}].map(row=>({...row,
+      components:{N:0,Vy:0,Vz:0,T:0,My:0,Mz:0},referenceFrame:'element-local',
+      localAxes:[[0,0,1],[0,-1,0],[1,0,0]],source:{kind:'independent-zero-load-stations'}}));
+    const before=structuredClone(result);
+    const response=enrichResultData(model,result,result.selection).memberResponses[0];
+    expect(response.recovery.status).toBe('verified');
+    expect(response.samples).toHaveLength(81);
+    expect(response.samples[0].x).toBe(0);
+    expect(response.samples.at(-1).x).toBe(length);
+    expect(response.samples.every((row,index,rows)=>row.x<=length && (!index||row.x>rows[index-1].x))).toBe(true);
+    expect(result).toEqual(before);
+  });
   function rigidCantilever(domain = 'elastic-span') {
     const { model, result } = cantilever();
     model.analysis_control.rigid_offsets = true;
