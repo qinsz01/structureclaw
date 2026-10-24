@@ -75,6 +75,32 @@ def _key(values):
     return tuple(struct.pack("<f", 0. if v == 0 else v) for v in values)
 
 
+def _physical_floor_coordinates(model, floors):
+    stories = model.get("stories")
+    if not isinstance(stories, list) or len(stories) != len(floors):
+        raise NativeGeometryUnavailable("Explicit source stories do not match native floors / 显式源楼层与原生楼层数量不符")
+    try:
+        stories = sorted(stories, key=lambda story: float(story["elevation"]))
+        coordinates = {}
+        for native, source in zip(floors, stories):
+            bottom, height = float(source["elevation"]), float(source["height"])
+            if not math.isfinite(bottom) or not math.isfinite(height) or bottom < 0 or height <= 0:
+                raise ValueError("Invalid source floor dimensions")
+            # The API returns bottom in m and height in mm at binary32
+            # precision. Check each declared component in that representation.
+            # Adding the rounded readback components introduces a second
+            # rounding and can disagree with the independently stored MESH top.
+            if (_key([0., 0., native["bottomM"]]) != _key([0., 0., bottom]) or
+                    _key([0., 0., native["heightMm"]]) != _key([0., 0., height * 1000])):
+                raise NativeGeometryUnavailable("Native floor components differ from source geometry / 原生层底或层高与源几何不符")
+            coordinates[native["floor"]] = (bottom, bottom + height)
+    except (KeyError, TypeError, ValueError, OverflowError) as exc:
+        if isinstance(exc, NativeGeometryUnavailable):
+            raise
+        raise NativeGeometryUnavailable("Invalid explicit source story geometry / 显式源楼层几何无效") from exc
+    return coordinates
+
+
 def _parse_member_controls(text):
     controls = {}
     floor, kind = None, None
@@ -138,7 +164,10 @@ def bind_native_geometry(model, snapshot, artifacts, *, rigid_offsets=None):
         members[str(row["id"])] = {"type": row["type"], "nodeStart": str(ids[0]), "nodeEnd": str(ids[1])}
     from native_node_layout import read_node_layout
     from native_settings import resolved_rigid_floor
-    floor_elevations = {_key([0., 0., row["bottomM"] + row["heightMm"] / 1000]): row["floor"] for row in floors}
+    floor_coordinates = _physical_floor_coordinates(model, floors)
+    floor_elevations = {_key([0., 0., top]): number for number, (_, top) in floor_coordinates.items()}
+    if len(floor_elevations) != len(floors):
+        raise NativeGeometryUnavailable("Native floor levels are ambiguous / 原生楼层标高存在歧义")
     physical = []
     for identity, point in nodes.items():
         floor_number = 0 if point[2] == 0 else floor_elevations.get(_key([0., 0., point[2]]))
@@ -160,9 +189,8 @@ def bind_native_geometry(model, snapshot, artifacts, *, rigid_offsets=None):
     native_members = {}
     native_result_keys = {}
     for floor in floors:
-        number, bottom, height = floor["floor"], floor["bottomM"], floor["heightMm"] / 1000
-        if bottom < 0 or height <= 0:
-            raise NativeGeometryUnavailable("Uncalibrated native floor elevations")
+        number = floor["floor"]
+        bottom, top = floor_coordinates[number]
         wnl = artifacts[f"WNL{number}.OUT"].decode("gb18030")
         report_members = {}
         for match in re.finditer(r"N-([CB])\s*=\s*(\d+)\s*\(?Node-i\s*=\s*(\d+),\s*Node-j\s*=\s*(\d+)", wnl):
@@ -183,8 +211,8 @@ def bind_native_geometry(model, snapshot, artifacts, *, rigid_offsets=None):
                 raise NativeGeometryUnavailable("Native member offset/elevation/rotation is not calibrated")
             plan = [floor["nodes"][str(tag)] for tag in native["planNodeIds"]]
             points = ([[plan[0][0] / 1000, plan[0][1] / 1000, bottom],
-                       [plan[0][0] / 1000, plan[0][1] / 1000, bottom + height]] if kind == "column" else
-                      [[point[0] / 1000, point[1] / 1000, bottom + height] for point in plan])
+                       [plan[0][0] / 1000, plan[0][1] / 1000, top]] if kind == "column" else
+                      [[point[0] / 1000, point[1] / 1000, top] for point in plan])
             try:
                 ids = [by_point[_key(point)] for point in points]
                 edge = (kind, frozenset(ids))
