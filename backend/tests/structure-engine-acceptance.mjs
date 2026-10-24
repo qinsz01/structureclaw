@@ -44,23 +44,42 @@ try {
       const start = llm.requests.length;
       const prefix = `${id}-${Date.now()}`;
       const toolId = name => `${prefix}-${name}`;
+      const drafts = [fixture.draft, ...(fixture.updates ?? [])];
+      let extractionIndex = 0;
       llm.setInternal((_body, record) => {
-        if (record.kind === 'param-extractor') return JSON.stringify(fixture.draft);
+        if (record.kind === 'param-extractor') {
+          assert.ok(extractionIndex < drafts.length, 'Unexpected repeated extraction');
+          return JSON.stringify(drafts[extractionIndex++]);
+        }
         if (record.kind === 'structural-router') throw new Error('Fixed-skill selection must not route');
         if (fixture.model) return JSON.stringify(fixture.model);
         throw new Error(`Unexpected model-builder call for ${fixture.id}`);
       });
-      llm.enqueue(toolCall('extract_draft_params', { locale: 'en' }, toolId('extract')),
-        toolCall('build_model', {}, toolId('build')), toolCall('validate_model', {}, toolId('validate')),
-        toolCall('run_analysis', { analysisType: 'static', analysisSkillId: engine, ...fixture.analysisArgs }, toolId('analyze')),
-        (body) => {
-          const receipt = seenResult([{ body }], toolId('analyze'));
-          return receipt?.success ? toolCall('generate_report', { message: 'Report the requested analysis', analysisType: 'static', locale: 'en', narrative: 'structured' }, toolId('report')) : 'ANALYSIS_REFUSED';
-        }, body => seenResult([{ body }], toolId('report')) ? 'MATRIX_DONE' : 'MATRIX_STOP');
       const record = { id, skillId: fixture.skillId, engine, expectedTotal: fixture.total, startedAt: new Date().toISOString() };
       try {
-        const turn = await backend.stream({ message: `Execute these explicitly confirmed engineering inputs. Preserve geometry, IDs, material, loads and engine. Produce an analysis report; no code design. ${JSON.stringify(fixture.draft.engineeringDraft)}`,
-          context: { locale: 'en', runPolicy: { skillIds: [fixture.skillId], routing: { mode: 'fixed', skillId: fixture.skillId } } } });
+        const context = { locale: 'en', runPolicy: { skillIds: [fixture.skillId], routing: { mode: 'fixed', skillId: fixture.skillId } } };
+        let conversationId;
+        if (fixture.updates?.length) record.draftTurns = [];
+        for (const [index, draft] of drafts.slice(0, -1).entries()) {
+          const extractId = toolId(`draft-${index}`);
+          llm.enqueue(toolCall('extract_draft_params', { locale: 'en' }, extractId), 'DRAFT_STORED');
+          const prior = await backend.stream({ conversationId, message: `Store this confirmed draft update: ${JSON.stringify(draft)}`, context });
+          assert.equal(prior.errors.length, 0);
+          if (conversationId) assert.equal(prior.conversationId, conversationId);
+          conversationId = prior.conversationId;
+          const extraction = seenResult(llm.requests.slice(start), extractId);
+          assert.equal(extraction?.success, true, `Draft update failed: ${JSON.stringify(extraction)}`);
+          record.draftTurns.push({ conversationId, extraction, errors: prior.errors });
+        }
+        llm.enqueue(toolCall('extract_draft_params', { locale: 'en' }, toolId('extract')),
+          toolCall('build_model', {}, toolId('build')), toolCall('validate_model', {}, toolId('validate')),
+          toolCall('run_analysis', { analysisType: 'static', analysisSkillId: engine, ...fixture.analysisArgs }, toolId('analyze')),
+          (body) => {
+            const receipt = seenResult([{ body }], toolId('analyze'));
+            return receipt?.success ? toolCall('generate_report', { message: 'Report the requested analysis', analysisType: 'static', locale: 'en', narrative: 'structured' }, toolId('report')) : 'ANALYSIS_REFUSED';
+          }, body => seenResult([{ body }], toolId('report')) ? 'MATRIX_DONE' : 'MATRIX_STOP');
+        const turn = await backend.stream({ conversationId, message: `Execute these explicitly confirmed engineering inputs. Preserve geometry, IDs, material, loads and engine. Produce an analysis report; no code design. ${JSON.stringify(drafts.at(-1).engineeringDraft)}`, context });
+        if (conversationId) assert.equal(turn.conversationId, conversationId);
         // A refusal consumes its final response immediately; remove the unused report conclusion.
         if (llm.pending() === 1) llm.clearPending();
         record.turnErrors = turn.errors;

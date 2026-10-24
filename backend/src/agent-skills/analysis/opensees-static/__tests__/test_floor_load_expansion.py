@@ -388,11 +388,11 @@ class FloorLoadExpansionTest(unittest.TestCase):
         self.assertEqual(len(loads), 4)
         self.assertAlmostEqual(sum(load["fz"] for load in loads), -273.6)
 
-    def test_infers_common_load_case_id_prefixes_for_floor_load_types(self) -> None:
+    def test_explicit_case_types_bind_floor_components_for_named_cases(self) -> None:
         analyzer = StaticAnalyzer(build_model(
             load_cases=[
-                {"id": "LC-DEAD", "type": "other", "loads": []},
-                {"id": "LC-LIVE", "type": "other", "loads": []},
+                {"id": "LC-DEAD", "type": "dead", "loads": []},
+                {"id": "LC-LIVE", "type": "live", "loads": []},
             ],
             load_combinations=[
                 {"id": "ULS", "factors": {"LC-DEAD": 1.2, "LC-LIVE": 1.4}},

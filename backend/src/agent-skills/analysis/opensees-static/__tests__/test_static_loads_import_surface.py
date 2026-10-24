@@ -16,7 +16,7 @@ from structure_protocol.floor_panels import FloorPanelLoadMixin as SharedFloorPa
 PRE_SPLIT_METHODS = [
     '__init__', '_run_batch_cases', '_accumulate_case_envelope_tables', '_collect_nodal_loads',
     '_is_derived_story_floor_load', '_floor_load_specs_for_case', '_floor_load_types_for_case',
-    '_infer_floor_load_type_from_case_id', '_expand_story_floor_loads', '_expand_story_floor_loads_to_nodes',
+    '_expand_story_floor_loads', '_expand_story_floor_loads_to_nodes',
     '_expand_story_floor_load_to_nodes', '_expand_story_floor_loads_to_slab_beams', '_story_floor_load_intensity',
     '_floor_load_transfer_mode', '_floor_load_transfer_method_label', '_floor_load_transfer_method_label_zh',
     '_story_floor_panels', '_find_beam_between', '_points_match', '_segment_contains_points', '_point_on_segment',
@@ -33,7 +33,7 @@ PRE_SPLIT_METHODS = [
 
 
 def test_all_pre_split_methods_resolve_on_static_load_context():
-    assert len(PRE_SPLIT_METHODS) == 58
+    assert len(PRE_SPLIT_METHODS) == 57
     assert [name for name in PRE_SPLIT_METHODS if not hasattr(StaticLoadContext, name)] == []
 
 
@@ -43,7 +43,7 @@ def test_mixins_are_bases_and_partition_the_moved_methods():
     assert issubclass(FloorPanelLoadMixin, SharedFloorPanelLoadMixin)
     moved_panel = set(vars(SharedFloorPanelLoadMixin)) & set(PRE_SPLIT_METHODS)
     kept = set(vars(StaticLoadContext)) & set(PRE_SPLIT_METHODS)
-    assert (len(moved_floor), len(moved_panel), len(kept)) == (27, 16, 15)
+    assert (len(moved_floor), len(moved_panel), len(kept)) == (26, 16, 15)
     assert moved_floor | moved_panel | kept == set(PRE_SPLIT_METHODS)
 
 

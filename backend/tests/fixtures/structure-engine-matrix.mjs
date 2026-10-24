@@ -92,6 +92,57 @@ mixedFloorLine.referenceChecks = [
   { resultKey: 'case:LL', value: -25 * 6.6 / (32500 * 1000 * .5 ** 2) },
 ].map(check => ({ ...check, x: 0, z: 6.6, field: 'displacements', component: 'uz', tolerance: 1e-9 }));
 structureCases.push(mixedFloorLine);
+for (const skillId of ['frame', 'concrete-frame']) {
+  for (const dimension of ['2d', '3d']) {
+    const fixture = base(`${skillId}-short-span-${dimension}-floor`, skillId,
+      { storyHeightsM: [3], ...(dimension === '3d' ? { bayWidthsXM: [.5], bayWidthsYM: [.4] } : { bayWidthsM: [.5] }) },
+      [{ ...load(100, 'gravity', 'all-stories'), caseId: 'DL', caseType: 'dead' }],
+      { coordinateSystem: { dimension }, material: skillId === 'frame' ? { family: 'steel', grade: 'Q235' }
+        : { family: 'concrete', grade: 'C40', rebarGrade: 'HRB500' },
+      sections: { beam: '300X600', column: '500X500' }, boundary: { frameBaseSupportType: 'fixed' } }, [0, 0, -100]);
+    fixture.expectedTotals = { 'case:DL': [0, 0, -100] };
+    fixture.expectedNative = { 'pkpm-static': 'refused', 'yjk-static': 'refused' };
+    fixture.analysisArgs = { floorLoadTransferMode: 'node_tributary' };
+    fixture.referenceChecks = [{ resultKey: 'case:DL', x: 0, z: 3, field: 'displacements', component: 'uz',
+      value: -(dimension === '3d' ? 25 : 50) * 3 / ((skillId === 'frame' ? 206000 : 32500) * 1000 * .5 ** 2), tolerance: 1e-9 }];
+    structureCases.push(fixture);
+  }
+  const fixture = base(`${skillId}-explicit-roof-area-case`, skillId,
+    { storyHeightsM: [3, 3], bayWidthsXM: [4], bayWidthsYM: [5] },
+    [{ ...load(10, 'gravity', 'top-story'), kind: 'area', unit: 'kN/m2', caseId: 'L', caseType: 'dead' }],
+    { coordinateSystem: { dimension: '3d' }, material: skillId === 'frame' ? { family: 'steel', grade: 'Q235' }
+      : { family: 'concrete', grade: 'C40', rebarGrade: 'HRB500' },
+    sections: { beam: '300X600', column: '500X500' }, boundary: { frameBaseSupportType: 'fixed' } }, [0, 0, -200]);
+  fixture.draft.engineeringDraft.topology = {
+    nodes: [0, 1, 2].flatMap(story => [0, 1].flatMap(x => [0, 1].map(y => ({ id: `N${story}_${x}_${y}`, x: x * 4, y: y * 5, z: story * 3 })))),
+    members: [1, 2].flatMap(story => [0, 1].flatMap(x => [0, 1].map(y => ({
+      id: `C${story}_${x}_${y}`, nodes: [`N${story - 1}_${x}_${y}`, `N${story}_${x}_${y}`],
+    }))).concat([0, 1].flatMap(i => [
+      { id: `BX${story}_${i}`, nodes: [`N${story}_0_${i}`, `N${story}_1_${i}`] },
+      { id: `BY${story}_${i}`, nodes: [`N${story}_${i}_0`, `N${story}_${i}_1`] },
+    ]))),
+  };
+  fixture.expectedTotals = { 'case:L': [0, 0, -200] };
+  fixture.expectedNative = { 'pkpm-static': 'refused', 'yjk-static': 'refused' };
+  fixture.analysisArgs = { floorLoadTransferMode: 'node_tributary' };
+  fixture.referenceChecks = [{ resultKey: 'case:L', x: 0, z: 6, field: 'displacements', component: 'uz',
+    value: -50 * 6 / ((skillId === 'frame' ? 206000 : 32500) * 1000 * .5 ** 2), tolerance: 1e-9 }];
+  structureCases.push(fixture);
+  const edited = structuredClone(fixture);
+  edited.id = `${skillId}-multi-turn-floor-edits`;
+  delete edited.draft.engineeringDraft.topology;
+  const areaLoad = { ...edited.draft.engineeringDraft.loads[0], id: 'floor', caseId: 'DL', target: 'all-stories' };
+  edited.draft.engineeringDraft.loads = [areaLoad];
+  edited.updates = [
+    { engineeringDraft: { loads: [{ ...areaLoad, magnitude: 12, target: 'top-story' }] } },
+    { engineeringDraft: { geometry: { bayWidthsXM: [8] } } },
+  ];
+  edited.total = [0, 0, -480];
+  edited.expectedTotals = { 'case:DL': [0, 0, -480] };
+  edited.referenceChecks = [{ ...edited.referenceChecks[0], resultKey: 'case:DL',
+    value: -120 * 6 / ((skillId === 'frame' ? 206000 : 32500) * 1000 * .5 ** 2) }];
+  structureCases.push(edited);
+}
 for (const fixture of structureCases) {
   fixture.draft.engineeringDraft.analysisControl = structuredClone(control);
   if (fixture.model) fixture.model.analysis_control = structuredClone(control);

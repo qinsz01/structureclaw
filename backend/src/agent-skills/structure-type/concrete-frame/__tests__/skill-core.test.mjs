@@ -516,7 +516,7 @@ describe('concrete-frame canonicalize core contract', () => {
     })).toBeUndefined();
   });
 
-  test('derives 2d per-floor total loads from floor area intensity when single-bay geometry is explicit', () => {
+  test('retains area intensity without inventing a square floor from a 2d span', () => {
     const patch = buildConcreteFrameDraftPatch(
       {
         engineeringDraft: {
@@ -533,10 +533,8 @@ describe('concrete-frame canonicalize core contract', () => {
       undefined,
     );
 
-    expect(patch.floorLoads).toEqual([
-      { story: 1, verticalKN: 360 },
-      { story: 2, verticalKN: 360 },
-    ]);
+    expect(patch.floorLoads).toBeUndefined();
+    expect(patch.engineeringDraft.loads[0]).toMatchObject({ kind: 'area', magnitude: 10, unit: 'kN/m2' });
   });
 
   test('repairs llm floor loads that omit story numbers', () => {
