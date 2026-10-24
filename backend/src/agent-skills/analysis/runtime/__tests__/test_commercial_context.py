@@ -112,6 +112,13 @@ def test_confirmed_section_evidence_is_archived_without_becoming_a_native_physic
     if engine == "pkpm":
         from native_model_contract import pkpm_section_shape
         assert pkpm_section_shape(result["analysisModel"]["sections"][0]) == {"kind": "Rectangle", "B": 200, "H": 300}
+    # The canonical confirmation boundary also accepts a receipt-only binding
+    # when its section/field has exactly one matching numeric candidate. This
+    # projection archives that reference; it does not resolve or certify it.
+    del model["sections"][0]["extra"]["confirmation"]["candidateIds"]
+    legacy = project_commercial_model(model, engine)
+    assert legacy["inputEvidence"]["sections.S.extra.confirmation"] == {"clarificationId": "answered-question"}
+    assert model["sections"][0]["extra"]["confirmation"] == {"clarificationId": "answered-question"}
     model["sections"][0]["extra"]["confirmation"]["candidateIds"] = []
     with pytest.raises(ValueError, match="section confirmation evidence"):
         project_commercial_model(model, engine)

@@ -43,10 +43,11 @@ def project_commercial_model(source: dict, engine: str) -> dict:
         prefix = f"sections.{section['id']}.extra"
         confirmation = extra.get("confirmation")
         if confirmation is not None:
-            if (not isinstance(confirmation, dict) or set(confirmation) != {"clarificationId", "candidateIds"}
-                    or not isinstance(confirmation["clarificationId"], str) or not confirmation["clarificationId"]
-                    or not isinstance(confirmation["candidateIds"], list) or not confirmation["candidateIds"]
-                    or any(not isinstance(value, str) or not value for value in confirmation["candidateIds"])):
+            if (not isinstance(confirmation, dict) or set(confirmation) - {"clarificationId", "candidateIds"}
+                    or not isinstance(confirmation.get("clarificationId"), str) or not confirmation["clarificationId"]
+                    or "candidateIds" in confirmation and (
+                        not isinstance(confirmation["candidateIds"], list) or not confirmation["candidateIds"]
+                        or any(not isinstance(value, str) or not value for value in confirmation["candidateIds"]))):
                 raise ValueError("Invalid section confirmation evidence / 截面确认依据无效")
             input_evidence[prefix + ".confirmation"] = extra.pop("confirmation")
         if isinstance(extra.get("source"), str) and extra["source"].strip():
