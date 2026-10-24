@@ -2,6 +2,7 @@
 import type { DraftState } from '../../shared/types/agent.js';
 import { readPositiveNumberArray, readPositiveInteger, readNonNegativeNumberArray, accumulateCoordinates, readSignedNumber, readNonNegativeNumber, coordinateMatches, readPositiveNumber, buildFixedRestraint } from './readers.js';
 import { buildSemanticBeamModel } from './beam.js';
+import { compileTemplateLoadCases } from './load-cases.js';
 import { PINNED_RESTRAINT, ROLLER_X_RESTRAINT } from '../../engineering/coordinate-semantics.js';
 
 function getContinuousBeamSpanLengths(state: DraftState): number[] {
@@ -111,9 +112,7 @@ export function buildContinuousBeamModel(state: DraftState, metadata: Record<str
     elements,
     materials: [],
     sections: [],
-    load_cases: [
-      { id: 'LC1', type: 'other', loads },
-    ],
+    load_cases: [{ id: 'LC1', type: 'other', loads }],
     load_combinations: [],
     metadata: {
       ...metadata,
@@ -257,9 +256,9 @@ export function buildPortalFrameModel(state: DraftState, metadata: Record<string
     elements,
     materials: [],
     sections: [],
-    load_cases: [
-      { id: 'LC1', type: 'other', loads },
-    ],
+    load_cases: hasDraftLoads ? compileTemplateLoadCases(state.engineeringDraft!.loads!, state.engineeringDraft?.loadCases,
+      load => buildPortalDraftLoads({ ...state, engineeringDraft: { ...state.engineeringDraft, loads: [load] } }, nodes, elements, xCoordinates))
+      : [{ id: 'LC1', type: 'other', loads }],
     load_combinations: [],
     metadata: {
       ...metadata,

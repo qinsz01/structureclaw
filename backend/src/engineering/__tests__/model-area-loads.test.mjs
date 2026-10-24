@@ -24,6 +24,29 @@ beforeAll(async () => {
 }, 60000);
 
 describe('independent source pressure verification', () => {
+  test('a confirmed semantic floor scope binds explicit geometry without inventing a story alias', async () => {
+    const model=structuredClone(models['one-way-x']),source=draft('one-way-x');
+    delete source.loads[0].target;delete source.loads[0].location;
+    source.loads[0].scopeDescription='Confirmed roof floor, transferred along X to its support beams.';
+    const before=structuredClone({model,source});
+    expect((await checkModelPhysicsWithAreaLoads(model,source)).valid).toBe(true);
+    expect({model,source}).toEqual(before);
+    const unscoped=structuredClone(source);delete unscoped.loads[0].scopeDescription;
+    expect((await checkModelPhysicsWithAreaLoads(model,unscoped)).valid).toBe(false);
+    const mixed=structuredClone(model);mixed.metadata.loadMappings[0].selector={type:'column'};
+    expect((await checkModelPhysicsWithAreaLoads(mixed,source)).valid).toBe(false);
+    const wrong=structuredClone(model);wrong.metadata.modellingOperations.find(op=>op.op==='floor-to-beam').z=7.2;
+    expect((await checkModelPhysicsWithAreaLoads(wrong,source)).valid).toBe(false);
+  });
+  test('two competing support selectors fail with exact target IDs instead of silently selecting one',async()=>{
+    const model=structuredClone(models['one-way-x']);
+    model.metadata.modellingOperations.find(op=>op.op==='floor-to-beam').beamSelector={ids:[model.elements.find(e=>e.type==='beam').id]};
+    const check=await checkModelPhysicsWithAreaLoads(model,draft('one-way-x'));
+    expect(check.valid).toBe(false);
+    expect(check.diagnostics).toContainEqual(expect.objectContaining({code:'AREA_LOAD_BINDING_INVALID',details:expect.objectContaining({
+      sourceTargetIds:expect.any(Array),transferTargetIds:expect.any(Array),availableBeams:expect.any(Array),availableStories:expect.any(Array),
+    })}));
+  });
   test('the explicit compiler expands confirmed pressure with the same physical verification', async () => {
     const model = structuredClone(models['two-way']);
     for (const row of model.load_cases) row.loads = [];

@@ -1,6 +1,7 @@
 /** Single-span beam and column template models. */
 import type { DraftSupportType, DraftLoadType, DraftLoadPosition, DraftState } from '../../shared/types/agent.js';
 import { FIXED_RESTRAINT, PINNED_RESTRAINT, ROLLER_X_RESTRAINT } from '../../engineering/coordinate-semantics.js';
+import { compileTemplateLoadCases } from './load-cases.js';
 import { readNonNegativeNumber, readNonNegativeNumberArray, roundCoordinate, readFiniteNumber, accumulateCoordinates, readPositiveNumberArray, addCoordinate, coordinateMatches, readRecordArray } from './readers.js';
 
 export function buildBeamNodes(length: number, supportType: DraftSupportType, loadPositionM?: number) {
@@ -288,8 +289,8 @@ export function buildSemanticBeamModel(
     material: '1',
     section: '1',
   }));
-  const loads: Array<Record<string, unknown>> = [];
-  for (const load of semanticLoads) {
+  const loadCases = compileTemplateLoadCases(semanticLoads, state.engineeringDraft?.loadCases, load => {
+    const loads: Array<Record<string, unknown>> = [];
     const magnitude = typeof load.magnitude === 'number' && Number.isFinite(load.magnitude) ? load.magnitude : undefined;
     if (magnitude === undefined) throw loadTargetError('load.magnitude');
     if (isSemanticDistributedLoad(load)) {
@@ -297,7 +298,7 @@ export function buildSemanticBeamModel(
         const axis = load.direction === 'globalX' ? 'wx' : load.direction === 'globalY' ? 'wy' : 'wz';
         loads.push({ type: 'distributed', element: element.id, ...(axis === 'wz' ? { wy: 0 } : {}), [axis]: axis === 'wz' && load.direction !== 'globalZ' ? -magnitude : magnitude });
       }
-      continue;
+      return loads;
     }
     if (isSemanticPointLoad(load)) {
       const x = semanticPointLoadX(load, state, length);
@@ -312,10 +313,10 @@ export function buildSemanticBeamModel(
       } else {
         loads.push({ node: targetNode, fz: direction === 'globalZ' ? magnitude : -magnitude });
       }
-      continue;
+      return loads;
     }
     throw loadTargetError('load.kind');
-  }
+  });
 
   return {
     schema_version: '2.2.0',
@@ -324,9 +325,7 @@ export function buildSemanticBeamModel(
     elements,
     materials: [],
     sections: [],
-    load_cases: [
-      { id: 'LC1', type: 'other', loads },
-    ],
+    load_cases: loadCases,
     load_combinations: [],
     metadata: { ...metadata, supportType, semanticLoadCount: semanticLoads.length },
   };
@@ -375,9 +374,11 @@ export function buildColumnModel(state: DraftState, metadata: Record<string, unk
     ],
     materials: [],
     sections: [],
-    load_cases: [
-      { id: 'LC1', type: 'other', loads },
-    ],
+    load_cases: authoredLoads?.length
+      ? compileTemplateLoadCases(authoredLoads, state.engineeringDraft?.loadCases, load => {
+        const component = load.direction === 'globalX' ? 'fx' : load.direction === 'globalY' ? 'fy' : 'fz';
+        return [{ node: '2', [component]: load.direction === 'gravity' || load.direction === undefined ? -load.magnitude : load.magnitude }];
+      }) : [{ id: 'LC1', type: 'other', loads }],
     load_combinations: [],
     metadata: {
       ...metadata,

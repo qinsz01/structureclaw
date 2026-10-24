@@ -1,6 +1,7 @@
 import { trussPanelGeometry } from '../../skill-shared/modelling/geometry.js';
 /** Planar truss template model. */
 import type { DraftState, EngineeringDraftLoad } from '../../shared/types/agent.js';
+import { compileTemplateLoadCases } from './load-cases.js';
 import { PINNED_RESTRAINT, ROLLER_X_RESTRAINT } from '../../engineering/coordinate-semantics.js';
 
 function getTrussTopology(state: DraftState): string {
@@ -196,9 +197,9 @@ export function buildTrussModel(state: DraftState, metadata: Record<string, unkn
     elements,
     materials: [],
     sections: [],
-    load_cases: [
-      { id: 'LC1', type: 'other', loads: nodalLoads },
-    ],
+    load_cases: state.engineeringDraft?.loads?.length ? compileTemplateLoadCases(state.engineeringDraft.loads, state.engineeringDraft.loadCases,
+      load => buildExplicitTrussLoads({ ...state, engineeringDraft: { ...state.engineeringDraft, loads: [load] } }, nodes))
+      : [{ id: 'LC1', type: 'other', loads: nodalLoads }],
     load_combinations: [],
     metadata: {
       ...metadata,

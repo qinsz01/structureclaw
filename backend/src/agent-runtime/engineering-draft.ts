@@ -1,6 +1,6 @@
 import { EngineeringValidationError } from '../engineering/validation-error.js';
 import { normalizeMaterialDensity } from '../engineering/material-density.js';
-import { modelSelectorSchema, floorTransferSchema } from '../engineering/model-selection.js';
+import { modelSelectorSchema, floorTransferSchema, isGlobalFrameNodeRole } from '../engineering/model-selection.js';
 import { mergeInputEvidence } from '../engineering/input-evidence.js';
 import { isDeepStrictEqual } from 'node:util';
 import { normalizeMemberReleases } from '../engineering/member-releases.js';
@@ -118,6 +118,12 @@ function normalizeEngineeringTopology(value: unknown, existing?: EngineeringDraf
   if ((Array.isArray(raw.nodes) && nodes?.length !== raw.nodes.length)
     || (Array.isArray(raw.members) && members?.length !== raw.members.length)) {
     throw new EngineeringValidationError('INVALID_EXPLICIT_TOPOLOGY: invalid nodes or member endpoints / 显式节点或构件端点无效，不能丢弃后继续建模');
+  }
+  if (nodes?.length && members?.length) {
+    const available = new Set([...(existing?.nodes ?? []), ...nodes].map(node => node.id));
+    const mergedMembers = new Map([...(existing?.members ?? []), ...members].map(member => [member.id, member]));
+    const invalid = [...mergedMembers.values()].filter(member => member.nodes.some(id => !available.has(id)));
+    if (invalid.length) throw new EngineeringValidationError(`INVALID_EXPLICIT_TOPOLOGY: members reference unknown nodes: ${JSON.stringify(invalid.map(member => ({ id: member.id, nodes: member.nodes })))}; available node IDs: ${JSON.stringify([...available])} / 构件引用不存在的节点，请修正拓扑，不得改变已确认几何`);
   }
   return nodes?.length || members?.length ? { nodes, members } : undefined;
 }
@@ -427,6 +433,20 @@ export function normalizeEngineeringDraft(value: unknown, existing?: Engineering
     } } : {}),
   };
 
+  if (!draft.topology && !draft.model && (draft.loads ?? existing?.loads)?.length
+    && draft.loadCases?.some(row => Array.isArray(row.loads) && row.loads.length)) {
+    throw new EngineeringValidationError('DRAFT_LOAD_REPRESENTATION_CONFLICT: template source loads belong in engineeringDraft.loads. loadCases may declare id/type with loads=[]; do not duplicate loads or invent generated node/member IDs. For user-supplied explicit topology use complete topology and exact executable load records instead. / 模板源荷载保存在loads；loadCases仅声明工况且loads=[]，不得重复荷载或编造尚未生成的实体编号；用户提供显式拓扑时应使用完整拓扑及准确施加荷载。');
+  }
+  for (const load of draft.loads ?? []) {
+    if (load.unit === 'kN' && load.selector?.type !== undefined) {
+      throw new EngineeringValidationError(`LOAD_NODE_SELECTOR_TYPE_INVALID: ${load.id ?? '?'}; nodes have no type field. Preserve the load group with ids/coordinates, not type:${JSON.stringify(load.selector.type)} / 节点没有type字段，请保留分组并使用准确ID或坐标选择器`);
+    }
+    if (['frame','concrete-frame'].includes(draft.structureType ?? existing?.structureType ?? '') && isGlobalFrameNodeRole(load.target)
+      && !draft.topology?.nodes?.some(node => node.id === load.target)) {
+      throw new EngineeringValidationError(`LOAD_NODE_ROLE_FIELD_INVALID: ${load.id ?? '?'}; put the formal node role ${JSON.stringify(load.target)} in location.nodeRole instead of target. Preserve all magnitudes, units and cases / 正式节点角色应写入location.nodeRole，不得当作实体ID；保留全部荷载数值、单位和工况`);
+    }
+  }
+
   return Object.values(draft).some((item) => item !== undefined) ? omitUndefined(draft) : undefined;
 }
 
@@ -464,7 +484,7 @@ export function resolveDraftTemplateAssignment(draft: EngineeringDraft | undefin
 
 /** Preserve canonical material design records when the LLM only generates their topology references. */
 export function projectDraftMaterialDesign(model: Record<string, unknown>, draft: EngineeringDraft | undefined): Record<string, unknown> {
-  const sources = (draft?.materials ?? []).filter(material => material.design !== undefined);
+  const sources = (draft?.materials ?? []).filter(material => material.design != null);
   if (!sources.length) return model;
   if (!Array.isArray(model.materials) || model.materials.some(material => !asRecord(material))) {
     throw new EngineeringValidationError('DRAFT_MATERIAL_DESIGN_TARGET_UNRESOLVED / 材料设计输入需要明确的模型材料');

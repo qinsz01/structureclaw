@@ -12,8 +12,33 @@ export const modelSelectorSchema = z.object({
   coordinates: z.array(coordinate).min(1).optional().describe('All coordinate predicates must match / 全部坐标条件须同时满足'),
 }).strict();
 export type ModelSelector = z.infer<typeof modelSelectorSchema>;
+export const isGlobalFrameNodeRole = (value: unknown): boolean => value === 'all-non-base-nodes' || value === 'all-top-nodes';
+
+/** Resolve the structured node-role protocol against coordinates, never prose. */
+export function selectNodeRole(nodes: ModelRecord[], role: string, story?: number): ModelRecord[] {
+  const levels = [...new Set(nodes.map(node => Number(node.z)))].sort((a, b) => a - b);
+  const level = story !== undefined ? levels[story] : undefined;
+  const candidates = role === 'all-non-base-nodes' ? nodes.filter(node => Number(node.z) > levels[0]!)
+    : role === 'all-top-nodes' ? nodes.filter(node => Number(node.z) === levels[levels.length - 1])
+      : level === undefined ? [] : nodes.filter(node => Number(node.z) === level);
+  const pool = story === undefined ? candidates : candidates.filter(node => Number(node.z) === level);
+  if (role === 'all' || isGlobalFrameNodeRole(role)) return pool;
+  const xs = [...new Set(pool.map(node => Number(node.x)))].sort((a, b) => a - b);
+  const ys = [...new Set(pool.map(node => Number(node.y)))].sort((a, b) => a - b);
+  const grid = role.match(/^(?:corner-|node-)?x(\d+)y(\d+)$/);
+  let xIndex: number | undefined, yIndex: number | undefined;
+  if (grid) { xIndex = Number(grid[1]); yIndex = Number(grid[2]); }
+  else if (ys.length === 1) {
+    yIndex = 0;
+    if (['right', 'right-side', 'right-end', 'end', '右侧', '右端'].includes(role)) xIndex = xs.length - 1;
+    else if (['left', 'left-side', 'left-end', 'start', '左侧', '左端'].includes(role)) xIndex = 0;
+    else if (['middle', 'center', 'centre', 'middle-node', 'center-node', '中间', '中央'].includes(role)) xIndex = Math.floor((xs.length - 1) / 2);
+  }
+  return pool.filter(node => Number(node.x) === xs[xIndex ?? -1] && Number(node.y) === ys[yIndex ?? -1]);
+}
 export const modelSelectorContract = z.toJSONSchema(modelSelectorSchema);
-export const floorTransferSchema = z.object({ distribution: z.enum(['one-way-x', 'one-way-y', 'two-way']),
+export const floorTransferSchema = z.object({ distribution: z.enum(['one-way-x', 'one-way-y', 'two-way'])
+  .describe('Slab spanning direction: one-way-x transfers to constant-X edges (Y-parallel beams); one-way-y to constant-Y edges (X-parallel beams). / 板跨向：X跨传给Y向梁，Y跨传给X向梁；不得混同跨向与受荷梁方向。'),
   bounds: z.object({ x: z.tuple([number, number]), y: z.tuple([number, number]) }).strict(),
 }).strict();
 export const floorTransferContract = z.toJSONSchema(floorTransferSchema);

@@ -440,7 +440,10 @@ export function applyTemplateProperties(model: Record<string, unknown>, state: D
       return { ...element, material: assignment.materialId, section: assignment.sectionId,
         ...(typeof rebarGrade === 'string' && rebarGrade.trim() && element.rebar_grade === undefined ? { rebar_grade: rebarGrade.trim() } : {}) };
     }),
-    ...(state.engineeringDraft?.loadCases ? { load_cases: structuredClone(state.engineeringDraft.loadCases) } : {}),
+    // Semantic source loads have already been compiled against the generated
+    // topology. Case declarations must never replace those executable records.
+    ...(state.engineeringDraft?.loadCases && !state.engineeringDraft.loads?.length
+      ? { load_cases: structuredClone(state.engineeringDraft.loadCases) } : {}),
     ...(state.engineeringDraft?.analysis?.loadCombinations ? { load_combinations: structuredClone(state.engineeringDraft.analysis.loadCombinations) } : {}),
     metadata: { ...(model.metadata as Record<string, unknown> ?? {}),
       inputEvidence: structuredClone(state.engineeringDraft?.inputEvidence ?? []),

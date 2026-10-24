@@ -1,7 +1,7 @@
 import type { EngineeringDraft } from '../shared/types/agent.js';
 import { isRecord, type ModelRecord } from './model-state.js';
 import { coordinates, dot, memberGeometry, scale, subtract, unit, type Vector3 } from './member-geometry.js';
-import { modelSelectorSchema, modelLoadMappingsSchema, selectRecords } from './model-selection.js';
+import { modelSelectorSchema, modelLoadMappingsSchema, selectRecords, selectNodeRole } from './model-selection.js';
 
 export interface PhysicsDiagnostic {
   code: string;
@@ -126,7 +126,7 @@ export function checkModelPhysics(model: ModelRecord, draft?: EngineeringDraft, 
         add('LOAD_TOTAL_MISMATCH', [id], 'The applied load total differs from the confirmed request.', '施加荷载总量与已确认输入不一致。', { expected: total, actual });
       }
     }
-    if (expected && (draft?.loads?.some(load => load.selector) || isRecord(model.metadata) && model.metadata.loadMappings !== undefined)) for (const [key, total] of expectedTargets) {
+    if (expected && (draft?.loads?.some(load => load.selector || load.location?.nodeRole) || isRecord(model.metadata) && model.metadata.loadMappings !== undefined)) for (const [key, total] of expectedTargets) {
       const [caseId, collection, target] = JSON.parse(key) as [string, string, string];
       const loadCase = records(model.load_cases).find(row => row.id === caseId);
       const actual = appliedLoadTotals({ ...model, load_cases: [{ id: caseId,
@@ -278,9 +278,6 @@ function resolvedLoads(model: ModelRecord, draft: EngineeringDraft) {
         });
       source.caseId = mapping.caseId;
     }
-    if (source.location && Object.entries(source.location).some(([key, value]) => key !== 'story' && value !== undefined)) {
-      throw new Error(`LOAD_MAPPING_SCOPE_CONFLICT: ${mapping.loadId}`);
-    }
     const available = records(source.unit === 'kN' ? model.nodes : model.elements);
     const selected = selectRecords(available, mapping.selector, model);
     const targets = source.scopeDescription ? storyScopedTargets(model, draft, source, selected) : selected;
@@ -292,6 +289,31 @@ function resolvedLoads(model: ModelRecord, draft: EngineeringDraft) {
         en: 'The selector matches no valid target group. Preserve confirmed selectors and bind generated geometry/storyIds to their exact IDs; do not invent aliases.',
         zh: '选择器未对应有效实体分组。保留已确认选择器，用几何操作的storyIds对应实际楼层编号，不编造别名。',
       });
+    const location = source.location;
+    if (location && Object.entries(location).some(([key, value]) => key !== 'story' && value !== undefined)) {
+      // A point placed at a generated node is the same physical load only when
+      // its confirmed numerical position is independently verified. Resolving
+      // its entity identity must not discard or reinterpret that position.
+      const spans = draft.geometry?.spanLengthsM ?? (draft.geometry?.lengthM !== undefined ? [draft.geometry.lengthM] : []);
+      const span = location.spanIndex;
+      const lower = span === undefined ? undefined : spans.slice(0, span - 1).reduce((a, b) => a + b, 0);
+      const upper = span === undefined ? undefined : spans.slice(0, span).reduce((a, b) => a + b, 0);
+      const identities = (rows: ModelRecord[]) => JSON.stringify(rows.map(row => String(row.id)).sort());
+      const roleTargets = location.nodeRole === undefined ? undefined : selectNodeRole(records(model.nodes), location.nodeRole, location.story);
+      const matched = source.unit === 'kN' && ['point', 'nodal'].includes(source.kind)
+        && (roleTargets === undefined || roleTargets.length > 0 && identities(targets) === identities(roleTargets))
+        && (location.xM === undefined ? roleTargets !== undefined : spans.length > 0 && !draft.geometry?.storyHeightsM?.length
+          && targets.length === 1 && Math.abs(Number(targets[0]!.x) - location.xM) < 1e-8)
+        && (span === undefined || location.xM !== undefined && Number.isInteger(span) && span >= 1 && span <= spans.length
+          && location.xM >= lower! - 1e-8 && location.xM <= upper! + 1e-8);
+      if (!matched) throw new LoadMappingError('LOAD_MAPPING_POSITION_CONFLICT', [mapping.loadId], {
+        loadId: mapping.loadId, confirmedLocation: location, selector: mapping.selector,
+        selectedNodes: targets.map(row => ({ id: row.id, x: row.x, y: row.y, z: row.z })),
+      }, {
+        en: 'Preserve the confirmed load position/group. A beam/truss point xM binds exactly one node at that global X and within its span. A nodeRole binds exactly its complete coordinate-resolved group. Frame member-local point positions cannot become global nodal positions. Never move or multiply loads.',
+        zh: '必须保留荷载位置及分组。梁/桁架xM集中力对应该全局X及指定跨内的唯一节点；nodeRole必须准确对应完整节点分组。框架构件局部集中力位置不得改为全局节点位置；不得移动或重复荷载。',
+      });
+    }
     if (source.selector) {
       const confirmed = storyScopedTargets(model, draft, source, selectRecords(available, modelSelectorSchema.parse(source.selector), model));
       const scoped = storyScopedTargets(model, draft, source, targets);
@@ -383,7 +405,13 @@ function declaredLoadCases(model: ModelRecord, draft: EngineeringDraft, expected
         zh: '已确认选择器未匹配实体。请将生成几何的storyIds对应已确认楼层ID，不修改源选择器。' });
     } else {
       targets = available.filter(row => row.id === load.target);
-      if (targets.length !== 1) return undefined;
+      if (nodal && load.location?.nodeRole) {
+        const scoped = selectNodeRole(available, load.location.nodeRole, load.location.story);
+        const identities = (rows: ModelRecord[]) => JSON.stringify(rows.map(row => String(row.id)).sort());
+        if (!scoped.length || targets.length && identities(targets) !== identities(scoped)) throw new Error(`LOAD_MAPPING_SCOPE_CONFLICT: ${load.id}`);
+        targets = scoped;
+      }
+      if (!targets.length || !load.location?.nodeRole && targets.length !== 1) return undefined;
     }
     const availableCaseIds = records(model.load_cases).map(row => String(row.id));
     const id = load.caseId ?? (availableCaseIds.length === 1 ? availableCaseIds[0] : undefined);

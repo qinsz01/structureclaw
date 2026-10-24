@@ -1,5 +1,7 @@
 import type { DraftState, EngineeringDraftLoad, EngineeringDraftLoadCaseType } from '../../shared/types/agent.js';
 import type { ModelRecord } from '../../engineering/model-state.js';
+import { modelSelectorSchema, selectRecords, selectNodeRole } from '../../engineering/model-selection.js';
+export { isGlobalFrameNodeRole } from '../../engineering/model-selection.js';
 
 const TOP_STORY_TARGETS = new Set(['roof', 'top-story', 'top-floor', '屋面', '屋顶', '楼顶', '顶层', '顶楼']);
 const ALL_STORY_TARGETS = new Set(['all-stories', 'all-floors']);
@@ -28,12 +30,11 @@ export function resolveFrameLoadStory(load: EngineeringDraftLoad, storyCount: nu
 
 export const isAllFrameStoriesTarget = (target: string | undefined): boolean => ALL_STORY_TARGETS.has(target?.trim().toLowerCase() ?? '');
 
-export const isGlobalFrameNodeRole = (value: unknown): boolean => value === 'all-non-base-nodes' || value === 'all-top-nodes';
 const individual = (load: EngineeringDraftLoad) => ['nodal', 'point'].includes(load.kind) && load.unit === 'kN'
   && Number.isFinite(load.magnitude) && load.location?.xM === undefined;
 export function hasFrameNodalLoadInput(state: Pick<DraftState, 'engineeringDraft'>): boolean {
   const nodeIds = new Set(state.engineeringDraft?.topology?.nodes?.map(node => node.id) ?? []);
-  return !!state.engineeringDraft?.loads?.some(load => individual(load) && (load.location?.nodeRole
+  return !!state.engineeringDraft?.loads?.some(load => individual(load) && (load.selector || load.location?.nodeRole
     || load.target && (nodeIds.has(load.target) || /^N\d+_\d+(?:_\d+)?$/.test(load.target))));
 }
 
@@ -43,7 +44,7 @@ export function frameNodalLoads(loads: EngineeringDraftLoad[] | undefined, nodes
   const levels = [...new Set(nodes.map(node => Number(node.z)))].sort((a, b) => a - b);
   for (const load of loads ?? []) {
     if (!individual(load)) continue;
-    if (!load.location?.nodeRole && !nodes.some(node => node.id === load.target)
+    if (!load.selector && !load.location?.nodeRole && !nodes.some(node => node.id === load.target)
       && !/^N\d+_\d+(?:_\d+)?$/.test(load.target ?? '')) {
       if (!isFrameFloorTarget(load)
         || resolveFrameLoadStory(load, levels.length - 1) === undefined && !isAllFrameStoriesTarget(load.target)) {
@@ -51,29 +52,11 @@ export function frameNodalLoads(loads: EngineeringDraftLoad[] | undefined, nodes
       }
       continue;
     }
-    let targets = nodes.filter(node => node.id === load.target);
+    let targets = load.selector ? selectRecords(nodes, modelSelectorSchema.parse(load.selector)) : nodes.filter(node => node.id === load.target);
+    if (load.selector && load.location?.story !== undefined) targets = targets.filter(node => Number(node.z) === levels[load.location!.story!]);
     const role = load.location?.nodeRole?.trim().toLowerCase();
     if (!targets.length && role) {
-      const story = load.location?.story;
-      const level = story !== undefined ? levels[story] : undefined;
-      const pool = role === 'all-non-base-nodes' ? nodes.filter(node => Number(node.z) > levels[0]!)
-        : role === 'all-top-nodes' ? nodes.filter(node => Number(node.z) === levels[levels.length - 1])
-          : level === undefined ? [] : nodes.filter(node => Number(node.z) === level);
-      const xs = [...new Set(pool.map(node => Number(node.x)))].sort((a, b) => a - b);
-      const ys = [...new Set(pool.map(node => Number(node.y)))].sort((a, b) => a - b);
-      if (role === 'all' || isGlobalFrameNodeRole(role)) targets = pool;
-      else {
-        const grid = role.match(/^(?:corner-|node-)?x(\d+)y(\d+)$/);
-        let xIndex: number | undefined, yIndex: number | undefined;
-        if (grid) { xIndex = Number(grid[1]); yIndex = Number(grid[2]); }
-        else if (ys.length === 1) {
-          yIndex = 0;
-          if (['right', 'right-side', 'right-end', 'end', '右侧', '右端'].includes(role)) xIndex = xs.length - 1;
-          else if (['left', 'left-side', 'left-end', 'start', '左侧', '左端'].includes(role)) xIndex = 0;
-          else if (['middle', 'center', 'centre', 'middle-node', 'center-node', '中间', '中央'].includes(role)) xIndex = Math.floor((xs.length - 1) / 2);
-        }
-        targets = pool.filter(node => Number(node.x) === xs[xIndex ?? -1] && Number(node.y) === ys[yIndex ?? -1]);
-      }
+      targets = selectNodeRole(nodes, role, load.location?.story);
     }
     // Floor-total records are handled by the existing floor-load path.
     if (!targets.length && !role && isFrameFloorTarget(load)) continue;

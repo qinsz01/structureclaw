@@ -25,6 +25,38 @@ function fixture() {
 }
 
 describe('generated load identities stay bound to the confirmed draft', () => {
+  test('formal node roles compile directly and mappings must preserve the complete group', () => {
+    const {model}=fixture();model.load_cases.forEach(row=>{row.loads=[];});model.metadata={};
+    const draft={geometry:{storyHeightsM:[3]},loads:[{id:'all-top',kind:'nodal',unit:'kN',magnitude:10,direction:'gravity',
+      location:{nodeRole:'all-top-nodes',story:1},caseId:'D-explicit'}]};
+    const compiled=compileConfirmedModelLoads(model,draft);
+    expect(compiled.load_cases[0].loads).toEqual(['N1','N2','N3'].map(node=>({type:'nodal',node,fz:-10})));
+    expect(checkModelPhysics(compiled,draft).valid).toBe(true);
+    const wrong=structuredClone(compiled);wrong.load_cases[0].loads[0].fz=-20;wrong.load_cases[0].loads[1].fz=0;
+    expect(checkModelPhysics(wrong,draft).diagnostics).toContainEqual(expect.objectContaining({code:'LOAD_TARGET_MISMATCH'}));
+    model.metadata.loadMappings=[{loadId:'all-top',selector:{ids:['N1','N2','N3']}}];
+    expect(compileConfirmedModelLoads(model,draft).load_cases).toEqual(compiled.load_cases);
+    model.metadata.loadMappings[0].selector.ids=['N1','N2'];
+    expect(()=>compileConfirmedModelLoads(model,draft)).toThrow('LOAD_MAPPING_POSITION_CONFLICT');
+  });
+  test('point-source identity binds its exact generated node without losing the confirmed position', () => {
+    const { model } = fixture();
+    model.load_cases.forEach(row => { row.loads = []; });
+    model.metadata.loadMappings = [{ loadId: 'point', selector: { ids: ['N2'] }, caseId: 'D-explicit' }];
+    const draft = { geometry: { lengthM: 8 }, loads: [{ id: 'point', kind: 'point', unit: 'kN', magnitude: 10,
+      direction: 'gravity', target: 'beam', location: { xM: 4, spanIndex: 1 }, caseId: 'D-explicit' }] };
+    const before = structuredClone({ model, draft });
+    const compiled = compileConfirmedModelLoads(model, draft);
+    expect(compiled.load_cases[0].loads).toEqual([{ type: 'nodal', node: 'N2', fz: -10 }]);
+    expect(checkModelPhysics(compiled, draft).valid).toBe(true);
+    expect({ model, draft }).toEqual(before);
+    for (const selector of [{ ids: ['N1'] }, { ids: ['N2','N3'] }, { ids: ['B1'] }]) {
+      const invalid = structuredClone(model); invalid.metadata.loadMappings[0].selector = selector;
+      expect(() => compileConfirmedModelLoads(invalid, draft)).toThrow(/LOAD_MAPPING_POSITION_CONFLICT|LOAD_MAPPING_UNRESOLVED/);
+    }
+    const outside = structuredClone(draft); outside.loads[0].location.spanIndex = 2;
+    expect(() => compileConfirmedModelLoads(model, outside)).toThrow('LOAD_MAPPING_POSITION_CONFLICT');
+  });
   test('explicit source compilation preserves exact scope, case identity and source values', () => {
     const { model, draft } = fixture();
     for (const row of model.load_cases) row.loads = [];

@@ -216,7 +216,7 @@ export function draftDesignSchema(root: Schema): ModelRecord {
 
 export function hasDraftDesignInputs(draft: unknown): boolean {
   if (!isRecord(draft)) return false;
-  return (Array.isArray(draft.materials) && draft.materials.some(row => isRecord(row) && row.design !== undefined))
+  return (Array.isArray(draft.materials) && draft.materials.some(row => isRecord(row) && row.design != null))
     || (isRecord(draft.templateAssignments) && Object.values(draft.templateAssignments).some(row => isRecord(row) && row.design !== undefined));
 }
 

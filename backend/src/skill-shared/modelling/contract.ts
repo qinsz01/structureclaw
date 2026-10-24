@@ -32,7 +32,8 @@ export const modellingOperationSchema = z.discriminatedUnion('op', [
   z.object({ ...load, op: z.literal('member-point-load'), position }).strict(),
   z.object({ ...base, op: z.literal('floor-to-beam'), caseId: id, caseType: z.enum(['dead', 'live', 'other']).default('other'),
     z: number, bounds: z.object({ x: z.tuple([number, number]), y: z.tuple([number, number]) }).strict(), pressureKNM2: number,
-    distribution: z.enum(['one-way-x', 'one-way-y', 'two-way']), beamSelector: selector.optional() }).strict(),
+    distribution: z.enum(['one-way-x', 'one-way-y', 'two-way'])
+      .describe('Slab span, not support-beam axis: X span loads Y beams; Y span loads X beams. / 指板跨向：X跨传给Y向梁，Y跨传给X向梁。'), beamSelector: selector.optional() }).strict(),
   z.object({ ...base, op: z.literal('assign-properties'), target: z.literal('elements'), selector, values: z.object(properties).strict() }).strict(),
   z.object({ ...base, op: z.literal('assign-restraints'), selector, restraints: z.tuple([z.boolean(), z.boolean(), z.boolean(), z.boolean(), z.boolean(), z.boolean()]) }).strict(),
 ]);

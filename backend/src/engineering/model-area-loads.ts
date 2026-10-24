@@ -1,6 +1,6 @@
 import type { EngineeringDraft } from '../shared/types/agent.js';
 import { createLocalStructureProtocolClient, type LocalStructureProtocolClient } from '../skill-shared/structure-protocol-execution.js';
-import { checkModelPhysics, appliedLoadTotals, compileConfirmedModelLoads, type ExpandedAreaLoads } from './model-physics.js';
+import { checkModelPhysics, appliedLoadTotals, compileConfirmedModelLoads, LoadMappingError, type ExpandedAreaLoads } from './model-physics.js';
 import { isRecord, type ModelRecord } from './model-state.js';
 import { modelLoadMappingsSchema, selectRecords } from './model-selection.js';
 
@@ -18,7 +18,7 @@ export async function checkModelPhysicsWithAreaLoads(model: ModelRecord, draft?:
   } catch (error) {
     const checked = checkModelPhysics(model);
     return { ...checked, valid: false, diagnostics: [...checked.diagnostics, { code: 'AREA_LOAD_BINDING_INVALID', severity: 'error' as const,
-      entityIds: sources.flatMap(load => load.id ? [load.id] : []), details: { error: String(error) },
+      entityIds: sources.flatMap(load => load.id ? [load.id] : []), details: { ...(error instanceof LoadMappingError ? error.details : {}), error: String(error) },
       message: { en: 'Cannot independently verify the declared floor pressure transfer. Bind each source load to its exact floor-to-beam operation and preserve its pressure, full-floor scope and case.',
         zh: '无法独立核对楼面面荷载传递。请将每条源荷载绑定准确的floor-to-beam操作，并保留原压力、整层范围及工况。' } }] };
   }
@@ -34,11 +34,18 @@ async function expandDeclaredAreaLoads(model: ModelRecord, draft: EngineeringDra
     if (!sources.length) return new Map();
     const mappings = modelLoadMappingsSchema.parse(isRecord(model.metadata) ? model.metadata.loadMappings : undefined);
     const operations = rows(isRecord(model.metadata) ? model.metadata.modellingOperations : undefined);
+    const nodes = rows(model.nodes), elements = rows(model.elements);
     const expanded: ExpandedAreaLoads = new Map();
     const used = new Set<string>();
     for (const source of sources) {
-      const fail = (reason: string): never => { throw new Error(`AREA_LOAD_BINDING_INVALID: ${source.id ?? '?'}: ${reason}`); };
       const bindings = mappings.filter(mapping => mapping.loadId === source.id);
+      const fail = (reason: string, details: ModelRecord = {}): never => { throw new LoadMappingError('AREA_LOAD_BINDING_INVALID', [source.id ?? '?'], {
+        loadId: source.id, reason, binding: bindings[0], ...details,
+        availableStories: rows(model.stories).map(row => ({ id: row.id, height: row.height, elevation: row.elevation })),
+        availableBeams: elements.filter(row => row.type === 'beam').slice(0, 40).map(row => ({ id: row.id, story: row.story,
+          endpoints: Array.isArray(row.nodes) ? row.nodes.map(id => { const node = nodes.find(node => node.id === id); return node ? { id, x: node.x, y: node.y, z: node.z } : { id }; }) : [] })),
+      }, { en: `Invalid source floor transfer: ${reason}. Correct the source mapping against the actual geometry; do not guess aliases.`,
+        zh: `源面荷载传递无效：${reason}。请按实际几何修正源荷载映射，不猜测别名。` }); };
       if (bindings.length !== 1 || !bindings[0]!.transferId) fail('one explicit transferId is required / 需唯一明确的传荷操作ID');
       const mapping = bindings[0]!, transfers = operations.filter(op => op.id === mapping.transferId && op.op === 'floor-to-beam');
       if (transfers.length !== 1 || used.has(mapping.transferId!)) fail('transferId must identify one distinct floor-to-beam operation / 传荷操作须唯一且不重复');
@@ -51,10 +58,36 @@ async function expandDeclaredAreaLoads(model: ModelRecord, draft: EngineeringDra
       if (!['gravity', 'globalZ'].includes(String(source.direction))) fail('only explicitly vertical floor pressures are supported / 仅支持明确竖向楼面压力');
       const pressure = source.magnitude * (source.direction === 'gravity' ? 1 : -1);
       if (transfer.pressureKNM2 !== pressure) fail('source pressure changed / 原面荷载数值或方向被改变');
-      const story = source.location?.story, heights = draft!.geometry?.storyHeightsM;
-      if (source.target !== 'floor' || !story || !heights || story > heights.length) fail('full floor and one-based storey scope required / 需明确整层楼面及层号');
-      const nodes = rows(model.nodes), elements = rows(model.elements);
-      const z = Math.min(...nodes.map(node => Number(node.z))) + heights!.slice(0, story).reduce((sum, height) => sum + height, 0);
+      const targets = selectRecords(elements, mapping.selector, model);
+      if (!targets.length || mapping.selector.ids?.some(id => !targets.some(row => row.id === id))) fail('source mapping selects no complete support group / 源荷载映射未选中完整支承分组');
+      if (isRecord(transfer.beamSelector)) {
+        const selected = selectRecords(elements, transfer.beamSelector, model);
+        const identities = (group: ModelRecord[]) => JSON.stringify(group.map(row => String(row.id)).sort());
+        if (identities(selected) !== identities(targets)) fail('source mapping.selector and transfer.beamSelector select different support groups; fix the conflicting selectors / 源映射与传荷操作选中了不同支承分组，须修正冲突选择器', {
+          sourceTargetIds: targets.map(row => row.id), transferTargetIds: selected.map(row => row.id), transferSelector: transfer.beamSelector,
+        });
+      }
+      const heights = draft.geometry?.storyHeightsM;
+      if (!heights?.length) fail('declared storey heights required / 需已声明的逐层层高');
+      const base = Math.min(...nodes.map(node => Number(node.z)));
+      const levels = heights!.map((_, index) => base + heights!.slice(0, index + 1).reduce((sum, height) => sum + height, 0));
+      let z: number;
+      if (source.location?.story !== undefined) {
+        const story = source.location.story;
+        if (!Number.isInteger(story) || story < 1 || story > levels.length
+          || source.target !== 'floor' && !source.scopeDescription && !source.selector) fail('full floor and valid one-based storey scope required / 需明确整层楼面及有效层号');
+        z = levels[story - 1]!;
+      } else {
+        // The LLM's explicit geometry binding resolves a confirmed semantic
+        // scope. Do not interpret its prose, invent a roof alias or default to
+        // every floor. All selected support endpoints must identify one
+        // declared storey and the separately authored transfer must agree.
+        if (!source.scopeDescription && !source.selector) fail('confirmed floor scope required; no implicit floor / 需已确认楼面范围，不默认楼层');
+        const elevations = targets.flatMap(element => Array.isArray(element.nodes) ? element.nodes.map(id => Number(nodes.find(node => node.id === id)?.z)) : []);
+        if (!elevations.length || elevations.some(value => !Number.isFinite(value) || Math.abs(value - elevations[0]!) > 1e-8)
+          || !levels.some(level => Math.abs(level - elevations[0]!) <= 1e-8)) fail('binding must select support beams on exactly one declared storey / 绑定必须选中同一已声明楼层的支承梁');
+        z = elevations[0]!;
+      }
       if (typeof transfer.z !== 'number' || Math.abs(transfer.z - z) > 1e-8) fail('floor elevation differs from confirmed storey / 楼层标高不一致');
       const rawBounds = isRecord(transfer.bounds) ? transfer.bounds : fail('explicit rectangular bounds required / 需明确矩形范围');
       const range = (axis: string): [number, number] => {
@@ -68,7 +101,6 @@ async function expandDeclaredAreaLoads(model: ModelRecord, draft: EngineeringDra
       };
       const bounds = { x: range('x'), y: range('y') };
       if (!['one-way-x', 'one-way-y', 'two-way'].includes(String(transfer.distribution))) fail('explicit transfer direction required / 需明确传荷方向');
-      const targets = selectRecords(elements, mapping.selector, model);
       const { data } = await client.post<{ loads: ModelRecord[]; totalKN: number }>('/expand-floor-load', {
         nodes, elements: targets, z, bounds, pressureKNM2: pressure, distribution: transfer.distribution,
       });

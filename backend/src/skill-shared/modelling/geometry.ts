@@ -1,5 +1,12 @@
 import type { ModelRecord } from '../../engineering/model-state.js';
 import type { Vector3 } from '../../engineering/member-geometry.js';
+import { EngineeringValidationError } from '../../engineering/validation-error.js';
+
+export class GeometryIdentityError extends EngineeringValidationError {
+  constructor(readonly details: Record<string, unknown>) {
+    super(`MODEL_ID_MAPPING_INVALID: ${JSON.stringify(details)} / 编号映射未对应实际生成实体，请按有效键修正，不得静默忽略`);
+  }
+}
 
 export interface FrameGeometryOptions {
   dimension: '2d' | '3d'; bayWidthsX: number[]; bayWidthsY?: number[]; storeyHeights: number[];
@@ -14,12 +21,15 @@ export const accumulate = (lengths: number[]): number[] => lengths.reduce<number
 export function regularFrameGeometry(options: FrameGeometryOptions) {
   const x = accumulate(options.bayWidthsX), y = options.dimension === '3d' ? accumulate(options.bayWidthsY!) : [0], z = accumulate(options.storeyHeights);
   const origin = options.origin ?? [0, 0, 0], prefix = options.prefix ?? '';
-  const nodeId = (story: number, i: number, j: number) => options.nodeIds?.[`${story},${i},${j}`]
-    ?? `${prefix}N${story}_${i}${options.dimension === '3d' ? `_${j}` : ''}`;
+  const nodeKeys = new Set<string>(), memberKeys = new Set<string>(), storyKeys = new Set<string>();
+  const nodeId = (story: number, i: number, j: number) => {
+    const key = `${story},${i},${j}`; nodeKeys.add(key);
+    return options.nodeIds?.[key] ?? `${prefix}N${story}_${i}${options.dimension === '3d' ? `_${j}` : ''}`;
+  };
   const nodes: ModelRecord[] = [], elements: ModelRecord[] = [];
-  const storyId = (story: number) => options.storyIds?.[String(story)] ?? `${prefix}F${story}`;
+  const storyId = (story: number) => { storyKeys.add(String(story)); return options.storyIds?.[String(story)] ?? `${prefix}F${story}`; };
   const storyField = (story: number) => options.includeStories === false ? {} : { story: storyId(story) };
-  const memberId = (local: string) => options.memberIds?.[local] ?? prefix + local;
+  const memberId = (local: string) => { memberKeys.add(local); return options.memberIds?.[local] ?? prefix + local; };
   const restraints = options.baseRestraint === 'fixed' ? [true, true, true, true, true, true] : [true, true, true, false, false, false];
   let index = 1;
   for (let story = 0; story < z.length; story++) for (let i = 0; i < x.length; i++) for (let j = 0; j < y.length; j++) {
@@ -39,6 +49,11 @@ export function regularFrameGeometry(options: FrameGeometryOptions) {
       material: options.material ?? '1', section: options.beamSection ?? '2', ...storyField(story) });
   }
   const stories = options.storeyHeights.map((height, i) => ({ id: storyId(i + 1), height, elevation: origin[2] + z[i]! }));
+  const invalidMappings = ([['nodeIds', nodeKeys], ['memberIds', memberKeys], ['storyIds', storyKeys]] as const).flatMap(([field, keys]) => {
+    const invalidKeys = Object.keys(options[field] ?? {}).filter(key => !keys.has(key));
+    return invalidKeys.length ? [{ field, invalidKeys, availableKeys: [...keys] }] : [];
+  });
+  if (invalidMappings.length) throw new GeometryIdentityError({ invalidMappings });
   return { nodes, elements, stories };
 }
 

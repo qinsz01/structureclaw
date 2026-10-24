@@ -8,6 +8,24 @@ const material = { id:'M',E:70000,nu:0.3,rho:2700 };
 const section = { id:'S',properties:{A:0.02,Iy:2e-4,Iz:3e-4,J:1e-5} };
 
 describe('declared template properties', () => {
+  test('template case declarations retain compiled nodal loads and reject duplicate executable sources', () => {
+    const state = { inferredType:'frame',frameDimension:'3d',storyCount:1,bayCountX:1,bayCountY:1,
+      storyHeightsM:[3.6],bayWidthsXM:[4],bayWidthsYM:[5],frameBaseSupportType:'fixed',updatedAt:0,
+      engineeringDraft:{materials:[material],sectionRecords:[section],
+        templateAssignments:{beam:{materialId:'M',sectionId:'S'},column:{materialId:'M',sectionId:'S'}},
+        loads:[{id:'F',kind:'nodal',magnitude:50,unit:'kN',direction:'gravity',caseId:'D',caseType:'dead',location:{nodeRole:'all-top-nodes'}}],
+        loadCases:[{id:'D',type:'dead',loads:[]}]}};
+    const model = buildFrameModel(state);
+    expect(model.load_cases).toHaveLength(1);
+    expect(model.load_cases[0]).toMatchObject({id:'D',type:'dead'});
+    expect(model.load_cases[0].loads).toHaveLength(4);
+    expect(model.load_cases[0].loads.every(load=>load.fz===-50)).toBe(true);
+    const before = structuredClone(state.engineeringDraft);
+    const bad = structuredClone(before);bad.loadCases[0].loads=[{node:'invented-node',fz:50}];
+    expect(()=>normalizeEngineeringDraft(bad)).toThrow('DRAFT_LOAD_REPRESENTATION_CONFLICT');
+    expect(state.engineeringDraft).toEqual(before);
+    expect(()=>normalizeEngineeringDraft({topology:{nodes:[{id:'A',x:0,y:0,z:0}],members:[{id:'bad',nodes:['A','missing'],type:'beam'}]}})).toThrow('INVALID_EXPLICIT_TOPOLOGY');
+  });
   test('templates do not invent analysis or design combinations; declared combinations remain exact', () => {
     const state = { ...beam(), engineeringDraft: { materials: [material], sectionRecords: [section] } };
     expect(buildModel(state).load_combinations).toEqual([]);
