@@ -220,7 +220,7 @@ export function ResultReviewPanel({ open, onClose, conversationId, locale, disab
   }, [action, canLoadFigure, runId, resultKey, modeNumber, timeIndex])
   const querySelection = async (next: ResultSelection) => {
     setReport(null)
-    const value = await action('query_results', { ...cleanSelection(next), quantityId: 'viewer-selected', includeModelSnapshot: true })
+    const value = await action('query_results', { ...cleanSelection(next), quantityId: 'viewer-selected' })
     if (value && JSON.stringify(selectionRef.current) === JSON.stringify(next)) setResult(value)
   }
   const query = () => querySelection(selection)

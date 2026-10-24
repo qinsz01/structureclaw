@@ -92,7 +92,11 @@ export async function executeToolsSequentially(tools: StructuredToolInterface[],
     const artifacts = { ...current.artifacts, ...changes.artifacts };
     const analysisRuns = { ...current.analysisRuns, ...changes.analysisRuns };
     current = { ...current, ...changes, artifacts, analysisRuns, messages: messagesStateReducer(current.messages, messages) };
-    Object.assign(update, changes, { artifacts, analysisRuns, messages: [...update.messages as BaseMessage[], ...messages] });
+    Object.assign(update, changes, {
+      ...(changes.artifacts !== undefined ? { artifacts } : {}),
+      ...(changes.analysisRuns !== undefined ? { analysisRuns } : {}),
+      messages: [...update.messages as BaseMessage[], ...messages],
+    });
   }
   const messages = structureFailures(update.messages as BaseMessage[], current);
   update.messages = messages;

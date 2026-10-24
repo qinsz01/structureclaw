@@ -25,6 +25,27 @@ const selection = { runId:'saved',resultKey:'analysis:dynamic',field:'displaceme
 const invoke = (saved, input) => createQueryResultsTool().invoke(input,{toolCall:{id:'query'},configurable:{agentState:{analysisRuns:{saved}}}});
 function output(value) { return typeof value === 'string' ? JSON.parse(value) : JSON.parse(value.content ?? value.update.messages[0].content); }
 
+test('a scalar read saves its quantity and usage without writing unchanged numerical archives', async () => {
+  const saved = run();
+  const state = { analysisRuns: { saved }, artifacts: { report: { path: 'saved-report.md' } }, resultQuantities: {},
+    messages: [new AIMessage({ id: 'read-saved-assistant', content: '', tool_calls: [{ id: 'read-saved', name: 'query_results', args: selection }] })] };
+  const before = JSON.stringify(state);
+  const policy = resolveRunPolicy({ availableSkillIds: [], availableToolIds: ['query_results'], defaultToolIds: ['query_results'] });
+  const context = createRunContext(policy);
+  const command = await withRunContext(context, () => executeToolsSequentially([createQueryResultsTool()], state,
+    { configurable: { runContext: context } }));
+  const receipt = JSON.parse(command.update.messages[0].content);
+  expect(receipt.quantity).toMatchObject({ value: -2, unit: 'mm', runId: 'saved' });
+  expect(receipt.modelSnapshot).toBeUndefined();
+  expect(receipt.visualizationData).toBeUndefined();
+  expect(command.update).not.toHaveProperty('analysisRuns');
+  expect(command.update).not.toHaveProperty('artifacts');
+  expect(command.update.resultQuantities[`saved:${receipt.quantity.id}`]).toEqual(receipt.quantity);
+  expect(command.update.runUsage.toolCalls).toBe(1);
+  expect({ ...state, ...command.update }.analysisRuns).toBe(state.analysisRuns);
+  expect(JSON.stringify(state)).toBe(before);
+});
+
 test('recorded time series uses real nonuniform timestamps, signed scalar units, explicit stride and no nearest sample', async () => {
   const saved=run(); const args={...selection,quantityId:'curve',timeIndex:undefined,series:{}};
   expect(output(await invoke(saved,args)).series).toMatchObject({unit:'mm',interpolation:'none',sampled:false,

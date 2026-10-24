@@ -51,14 +51,28 @@ function workspaceFixture(placeholder = false) {
           provenance: 'solver-direct', source: {}, ...(!placeholder ? { displacement: [0, 0, -x * .0005] } : {}) })) }],
     }
     return { ok: true, json: async () => ({ success: true, review: { ...review, revisionToken: `v${posts.length + 1}` },
-      result: { runId: body.args.runId, resultKey: body.args.resultKey, meta, modelSnapshot: model,
-        resultSelection: { key: body.args.resultKey, kind: 'case', id: body.args.resultKey.slice(5) }, visualizationData: data,
+      result: { runId: body.args.runId, resultKey: body.args.resultKey, meta,
+        ...(body.args.includeModelSnapshot ? { modelSnapshot: model, visualizationData: data } : {}),
+        resultSelection: { key: body.args.resultKey, kind: 'case', id: body.args.resultKey.slice(5) },
         ...(body.args.component ? { quantity: { value: -2, unit: body.args.unit } } : {}) } }) }
   }))
   return posts
 }
 
 describe('inline workspace figure', () => {
+  it.each(['en', 'zh'] as const)('reads a scalar without refetching or replacing the archived figure (%s)', async locale => {
+    testLocale.current = locale
+    const posts = workspaceFixture()
+    render(<ResultReviewPanel open conversationId="A" locale={locale} disabled={false} onClose={() => {}} onUsageChanged={() => {}} />)
+    const scene = await screen.findByTestId('test-scene')
+    fireEvent.click(screen.getByRole('button', { name: locale === 'en' ? 'Query selected result' : '查询所选结果' }))
+    expect(await screen.findByTestId('workspace-query-result')).toHaveTextContent('-2.00 mm')
+    expect(posts).toHaveLength(2)
+    expect(posts[0].args.includeModelSnapshot).toBe(true)
+    expect(posts[1].args).not.toHaveProperty('includeModelSnapshot')
+    expect(screen.getByTestId('test-scene')).toBe(scene)
+  })
+
   it.each(['en', 'zh'] as const)('finishes its own pending figure read while session busy polling changes (%s)', async locale => {
     testLocale.current = locale
     const posts = workspaceFixture()
@@ -252,7 +266,8 @@ describe('one selected result for query, curve and report', () => {
     await waitFor(() => expect(screen.getByRole('button',{name:labels.query})).toBeEnabled())
     fireEvent.click(screen.getByRole('button',{name:labels.query}))
     expect(await screen.findByTestId('workspace-query-result')).toHaveTextContent('-2.00')
-    expect(posts[0].args).toMatchObject({runId:'now',resultKey:'analysis:dynamic',timeIndex:1,nodeId:'a',component:'uz',unit:'mm',includeModelSnapshot:true})
+    expect(posts[0].args).toMatchObject({runId:'now',resultKey:'analysis:dynamic',timeIndex:1,nodeId:'a',component:'uz',unit:'mm'})
+    expect(posts[0].args).not.toHaveProperty('includeModelSnapshot')
     fireEvent.click(screen.getByRole('button',{name:labels.report}))
     await screen.findByText('bound selected report')
     expect(posts[1]).toMatchObject({revisionToken:'v2',tool:'generate_report',args:{narrative:'structured',selection:{runId:'now',timeIndex:1,resultKey:'analysis:dynamic'}}})
