@@ -84,10 +84,16 @@ jobs:
           python-version: "3.12"
 
       - name: Install Python dependencies for backend tests
+        shell: bash
         run: |
-          python -m pip install -r backend/src/agent-skills/analysis/runtime/requirements.txt
-          python -c "import numpy, pydantic, openseespy.opensees; print('Analysis runtime imports ready')"
-          python -c "import os, pathlib, sys; pathlib.Path(os.environ['GITHUB_ENV']).open('a', encoding='utf-8').write('PYTHON_FOR_TEST=' + sys.executable + '\nSCLAW_TEST_PYTHON=' + sys.executable + '\nANALYSIS_PYTHON_BIN=' + sys.executable + '\n')"
+          python -m venv backend/.venv
+          python_bin=backend/.venv/bin/python
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            python_bin=backend/.venv/Scripts/python.exe
+          fi
+          "$python_bin" -m pip install -r backend/src/agent-skills/analysis/runtime/requirements.txt
+          "$python_bin" -c "import numpy, pydantic, openseespy.opensees; print('Analysis runtime imports ready')"
+          "$python_bin" -c "import os, pathlib, sys; pathlib.Path(os.environ['GITHUB_ENV']).open('a', encoding='utf-8').write('PYTHON_FOR_TEST=' + sys.executable + '\nSCLAW_TEST_PYTHON=' + sys.executable + '\nANALYSIS_PYTHON_BIN=' + sys.executable + '\n')"
 
       - name: Install backend dependencies
         run: npm ci --prefix backend
