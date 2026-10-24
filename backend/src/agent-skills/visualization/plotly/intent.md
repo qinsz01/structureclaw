@@ -1,14 +1,3 @@
----
-id: visualization-plotly-charts
-structureType: unknown
-zhName: Plotly 交互图表
-enName: Plotly Interactive Charts
-zhDescription: 将分析结果以 Plotly 交互图表呈现，支持荷载-位移曲线、模态频率直方图、内力包络折线图与反应谱曲线，可在图表内缩放、平移和导出数据。
-enDescription: Renders analysis results as Plotly interactive charts including load-displacement curves, modal frequency histograms, force envelope line charts, and response spectrum curves with in-chart zoom, pan, and data export.
-triggers: ["折线图","荷载-位移","荷载位移曲线","模态频率","包络图","反应谱","chart","plotly","交互图","图表","曲线","load-displacement","frequency chart","force envelope","response spectrum","滞回曲线","pushover"]
-stages: ["analysis"]
-domain: visualization
----
 # Plotly 交互图表
 
 本技能将结构分析结果以 Plotly 交互图表的形式呈现，支持以下图表类型：

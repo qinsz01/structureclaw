@@ -402,9 +402,12 @@ async function validateAgentRuntimeLoader(context) {
   assert(Array.isArray(runtimeManifestById.get("beam")?.materialFamilies), "runtime manifests should preserve manifest schema defaults for structure-type skills");
   const stageMarkdownFiles = await collectStageMarkdownFiles(sourceSkillRoot);
   assert(stageMarkdownFiles.length > 0, "runtime loader validation should inspect builtin stage markdown files");
+  const hasLegacyHeader = source => source.replace(/\r\n/gu, "\n").trimStart().startsWith("---\n");
+  assert(hasLegacyHeader("---\nid: legacy\n---\n") && hasLegacyHeader("---\r\nid: legacy\r\n---\r\n"),
+    "legacy stage metadata must be rejected with both LF and CRLF line endings");
   for (const markdownPath of stageMarkdownFiles) {
     const source = await fsp.readFile(markdownPath, "utf8");
-    assert(!source.trimStart().startsWith("---\n"), path.relative(context.rootDir, markdownPath) + " should not keep legacy YAML frontmatter");
+    assert(!hasLegacyHeader(source), path.relative(context.rootDir, markdownPath) + " should not keep legacy YAML frontmatter");
   }
   const tempRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "structureclaw-runtime-selection-"));
   try {

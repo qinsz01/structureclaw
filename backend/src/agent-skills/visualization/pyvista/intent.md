@@ -1,36 +1,3 @@
----
-id: skillhub.pyvista-viz
-domain: visualization
-version: 1.0.0
-structureType: any
-capabilities:
-  - visualization-3d
-  - surface-mesh
-  - contour-plot
-  - isosurface
-  - animation-export
-triggers:
-  - pyvista
-  - 3d mesh visualization
-  - surface contour
-  - isosurface plot
-  - vtk render
-  - volume render
-  - stress contour 3d
-  - deformation mesh
-  - solid element visualization
-  - shell element visualization
-  - plate visualization
-  - 3d contour
-  - mesh export vtk
-  - paraview compatible
-  - scientific visualization
-  - render 3d result
-  - pyvista plot
-  - vtk mesh
-  - 3d stress field
-  - solid mechanics visualization
----
 
 # PyVista Visualization Skill
 

@@ -1,14 +1,3 @@
----
-id: visualization-buckling-mode
-structureType: unknown
-zhName: 屈曲模态动画
-enName: Buckling Mode Animation
-zhDescription: 在三维场景中叠加线性屈曲分析的各阶模态形状，以循环动画方式呈现结构失稳变形，并在视口标注每阶屈曲因子 λ，辅助稳定性评估。
-enDescription: Overlays linear buckling mode shapes on the 3D scene as looping animations, annotating each mode with its buckling factor λ to assist stability assessment.
-triggers: ["屈曲","失稳","屈曲模态","屈曲因子","buckling","eigenvalue","λ","稳定性","稳定验算","模态形状","临界荷载","critical load","buckling mode","失稳模态","整体稳定","局部屈曲"]
-stages: ["analysis"]
-domain: visualization
----
 # 屈曲模态动画
 
 本技能在三维结构场景中叠加线性屈曲分析（特征值屈曲）的模态形状，以循环动画呈现结构失稳形态。
