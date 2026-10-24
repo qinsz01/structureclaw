@@ -68,7 +68,8 @@ try {
           if (conversationId) assert.equal(prior.conversationId, conversationId);
           conversationId = prior.conversationId;
           const extraction = seenResult(llm.requests.slice(start), extractId);
-          assert.equal(extraction?.success, true, `Draft update failed: ${JSON.stringify(extraction)}`);
+          assert.equal(extraction?.status, 'applied', `Draft update failed: ${JSON.stringify(extraction)}`);
+          assert.equal(extraction.extractionMode, 'llm');
           record.draftTurns.push({ conversationId, extraction, errors: prior.errors });
         }
         llm.enqueue(toolCall('extract_draft_params', { locale: 'en' }, toolId('extract')),

@@ -43,6 +43,18 @@ describe.each([['frame', frame], ['concrete-frame', concrete]])('%s floor geomet
     expect(handler.buildModel(state)).toBeUndefined();
   });
 
+  test('an unresolved area update preserves confirmed legacy totals while blocking execution', () => {
+    const old = stateFor(handler, input(skillId, '2d', { bayWidthsM: [6] }, [total]));
+    const before = structuredClone(old);
+    const next = handler.mergeState(old, handler.extractDraft({ currentState: old,
+      llmDraftPatch: { engineeringDraft: { loads: [area] } } }));
+    expect(next.floorLoads).toEqual(old.floorLoads);
+    expect(next.engineeringDraft.loads).toEqual([area]);
+    expect(handler.computeMissing(next, 'execution').critical).toContain('frameFloorArea');
+    expect(handler.buildModel(next)).toBeUndefined();
+    expect(old).toEqual(before);
+  });
+
   test('converts confirmed unequal X/Y floor dimensions without assuming a square', () => {
     const state = stateFor(handler, input(skillId, '3d', { bayWidthsXM: [4], bayWidthsYM: [5] }, [area]));
     expect(state.floorLoads).toEqual([{ story: 1, verticalKN: 200 }]);

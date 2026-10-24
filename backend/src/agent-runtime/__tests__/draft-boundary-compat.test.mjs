@@ -100,6 +100,18 @@ describe('old persisted draft states', () => {
     expect(next.error ? next : { json: JSON.stringify(next.value) }).toEqual(expected.next);
     expect(scenario.state).toEqual(original);
     if (!next.value) return;
+    if (next.value.frameDimension === '2d' && next.value.engineeringDraft?.loads?.some(load => load.unit === 'kN/m2')) {
+      // Keep the frozen next-state bytes, including confirmed legacy totals. A planar span
+      // does not confirm the area needed to execute its retained area-load declaration.
+      for (const phase of ['execution', 'interactive']) {
+        const previous = expected[phase === 'execution' ? 'missingExecution' : 'missingInteractive'].value;
+        expect(handler.computeMissing(next.value, phase)).toEqual({ ...previous, critical: [...previous.critical, 'frameFloorArea'] });
+      }
+      const questions = handler.buildQuestions(['frameFloorArea'], ['frameFloorArea'], next.value, 'en');
+      expect(questions).toEqual([expect.objectContaining({ paramKey: 'frameFloorArea', critical: true, question: expect.stringContaining('loaded area') })]);
+      expect(handler.buildModel(withDeclaredProperties(next.value))).toBeUndefined();
+      return;
+    }
     if (scenario.id === 'frame-3d-engineering') {
       expected.missingExecution = expected.missingInteractive = { value: { critical: ['frameNodalLoadLocation'], optional: [] } };
       expected.questions.value = expected.questions.value.filter(question => question.paramKey !== 'floorLoads');
