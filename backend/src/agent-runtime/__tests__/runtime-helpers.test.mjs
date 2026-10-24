@@ -765,9 +765,11 @@ describe('agent runtime helper utilities', () => {
     const patch = projectDraftPatch({
       engineeringDraft: {
         structureType: 'concrete-frame',
+        coordinateSystem: { dimension: '3d' },
         geometry: {
           storyHeightsM: [3.6, 3.6],
-          bayWidthsM: [6],
+          bayWidthsXM: [6],
+          bayWidthsYM: [6],
         },
         loads: [
           { kind: 'area', magnitude: 12, unit: 'kN/m2', direction: 'gravity', target: 'floor 1' },
@@ -811,9 +813,11 @@ describe('agent runtime helper utilities', () => {
     const patch = projectDraftPatch({
       engineeringDraft: {
         structureType: 'concrete-frame',
+        coordinateSystem: { dimension: '3d' },
         geometry: {
           storyHeightsM: [3.6, 3.6],
-          bayWidthsM: [6],
+          bayWidthsXM: [6],
+          bayWidthsYM: [6],
         },
         loads: [
           {
