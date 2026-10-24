@@ -16,7 +16,9 @@ class BoundaryCapabilityError(ValueError):
 
 
 def node_restraints(node: dict) -> list[bool]:
-    values = node.get("restraints", [False] * 6)
+    values = node.get("restraints")
+    if values is None:
+        values = [False] * 6
     if not isinstance(values, list) or len(values) != 6 or any(type(value) is not bool for value in values):
         raise BoundaryCapabilityError("Node restraints require six explicit booleans / 节点约束须为六个明确布尔值")
     return list(values)

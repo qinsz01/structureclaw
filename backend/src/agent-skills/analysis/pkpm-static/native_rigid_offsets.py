@@ -293,7 +293,8 @@ def verify_case_equilibrium(model, case, case_id):
     from native_settings import resolved_rigid_floor
     floor_groups = {}
     for key, node in nodes.items():
-        free = [index for index, fixed in enumerate(node.get("restraints", [False]*6)) if not fixed]
+        restraints = node.get("restraints")
+        free = [index for index, fixed in enumerate(restraints if restraints is not None else [False]*6) if not fixed]
         if resolved_rigid_floor(model) is True and float(node["z"]) > 0:
             floor_groups.setdefault(float(node["z"]), []).append(key)
             free = [index for index in free if index not in (0, 1, 5)]

@@ -299,7 +299,10 @@ def bind_native_geometry(model, snapshot, artifacts, *, rigid_offsets=None):
     physical_nodes = {str(row["id"]): row for row in model["nodes"]}
     for node_id in nodes:
         expected = [True] * 3 + [False] * 3 if node_id in pinned_nodes else [node_id in expected_fixed] * 6
-        if physical_nodes[node_id].get("restraints", [False] * 6) != expected:
+        requested = physical_nodes[node_id].get("restraints")
+        if requested is None:
+            requested = [False] * 6
+        if requested != expected:
             raise NativeGeometryUnavailable("Native fixed-base scope does not preserve requested restraints")
     case_rows = [line.split() for line in artifacts["WDISPGKNO.OUT"].decode("gb18030").splitlines() if line.strip()]
     if any(len(row) != 2 or row[0] not in ("DISP1.SAT", "DISP1_ZDY.SAT") for row in case_rows):

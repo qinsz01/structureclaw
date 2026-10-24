@@ -46,7 +46,25 @@ def test_solved_two_floor_geometry_and_all_six_reactions_match_frozen_reference(
         assert source["boundary"]["nativeCases"] == ["DL", "LL"]
 
 
-@pytest.mark.parametrize("change", ["unit", "offset", "angle", "release", "missing", "boundary"])
+@pytest.mark.parametrize("representation", ["omitted", "null", "explicit"])
+def test_optional_free_restraints_keep_the_same_verified_native_geometry(native, representation):
+    data, artifacts = native
+    model = copy.deepcopy(data["model"])
+    expected = bind_native_geometry(model, data["snapshot"], artifacts)
+    for node in model["nodes"]:
+        if not any(node["restraints"]):
+            if representation == "omitted":
+                node.pop("restraints")
+            elif representation == "null":
+                node["restraints"] = None
+    before = copy.deepcopy(model)
+    actual = bind_native_geometry(model, data["snapshot"], artifacts)
+    for key in ("nodes", "members", "native_members", "supports"):
+        assert actual[key] == expected[key]
+    assert model == before
+
+
+@pytest.mark.parametrize("change", ["unit", "offset", "angle", "release", "missing", "boundary", "boundary-null"])
 def test_native_geometry_cannot_claim_changed_or_incomplete_physics(native, change):
     data, artifacts = native
     model, snapshot = copy.deepcopy(data["model"]), copy.deepcopy(data["snapshot"])
@@ -60,6 +78,8 @@ def test_native_geometry_cannot_claim_changed_or_incomplete_physics(native, chan
         snapshot["floors"][0]["members"].pop()
     elif change == "boundary":
         model["nodes"][0]["restraints"][3] = False
+    elif change == "boundary-null":
+        model["nodes"][0]["restraints"] = None
     with pytest.raises(NativeGeometryUnavailable):
         bind_native_geometry(model, snapshot, artifacts)
 

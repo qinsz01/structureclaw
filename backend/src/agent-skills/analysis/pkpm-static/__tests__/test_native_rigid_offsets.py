@@ -137,6 +137,20 @@ def test_real_native_node_and_cut_equilibrium(case):
     assert verify_case_equilibrium(data["analysisModel"], data["cases"][case], case)["verified"]
 
 
+@pytest.mark.parametrize("representation", ["null", "omitted"])
+def test_optional_free_restraints_preserve_frozen_rigid_member_equilibrium(representation):
+    data = deepcopy(FIXTURE["passed"])
+    for node in data["analysisModel"]["nodes"]:
+        if not any(node.get("restraints") or []):
+            if representation == "null":
+                node["restraints"] = None
+            else:
+                node.pop("restraints", None)
+    original = deepcopy(data)
+    assert verify_case_equilibrium(data["analysisModel"], data["cases"]["D"], "D")["verified"]
+    assert data == original
+
+
 def test_native_small_moment_loss_fails_despite_successful_sdk_save():
     data = FIXTURE["smallMomentFailure"]
     with pytest.raises(ValueError, match="node/t0"):

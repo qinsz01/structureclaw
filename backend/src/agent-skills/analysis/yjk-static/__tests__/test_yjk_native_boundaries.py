@@ -65,6 +65,21 @@ def support_fixture():
     return json.loads((Path(__file__).parent/'fixtures/native-pinned-support-mismatch.json').read_text('utf8'))
 
 
+@pytest.mark.parametrize('representation', ['null', 'omitted'])
+def test_optional_free_nodes_preserve_native_support_compilation(representation):
+    model = support_fixture()['model']
+    expected = compile_supports(model)
+    for node in model['nodes']:
+        if not any(node.get('restraints') or []):
+            if representation == 'null':
+                node['restraints'] = None
+            else:
+                node.pop('restraints', None)
+    original = deepcopy(model)
+    assert compile_supports(model) == expected
+    assert model == original
+
+
 def test_real_native_pin_cannot_certify_an_authored_fixed_support():
     fixture = support_fixture()
     audit = audit_node_restraints(fixture['model'], fixture['fe'])
