@@ -16,6 +16,12 @@ export interface PhysicsCheck {
   stability: { freeModes: number; rank: number; dofs: number } | null;
   loadTotals: Record<string, Vector3>;
 }
+class LoadMappingError extends Error {
+  constructor(readonly reasonCode: string, readonly entityIds: string[], readonly details: ModelRecord,
+    readonly description: { en: string; zh: string }) {
+    super(`${reasonCode}: ${entityIds.join(', ')}`);
+  }
+}
 const records = (value: unknown): ModelRecord[] => Array.isArray(value) ? value.filter(isRecord) : [];
 const endRelease = (element: ModelRecord, end: 'i' | 'j', axis: string): boolean => {
   const releases = isRecord(element.releases) ? element.releases : {};
@@ -122,7 +128,9 @@ export function checkModelPhysics(model: ModelRecord, draft?: EngineeringDraft):
       'Declared load targets are unresolved, so their totals cannot be independently verified. Resolve them to explicit node/member IDs or confirmed load cases before building; do not omit or guess loads.',
       '已声明荷载的作用目标尚未落实，无法独立核对总量。请先明确节点/构件编号或已确认的完整荷载工况，再建模；不得遗漏或猜测荷载。');
   } catch (error) {
-    add('LOAD_TARGET_INVALID', [], 'A load has an invalid target or reference frame.', '荷载目标或参考坐标系无效。', { error: String(error) });
+    if (error instanceof LoadMappingError) add('LOAD_TARGET_INVALID', error.entityIds, error.description.en, error.description.zh,
+      { error: String(error), reasonCode: error.reasonCode, ...error.details });
+    else add('LOAD_TARGET_INVALID', [], 'A load has an invalid target or reference frame.', '荷载目标或参考坐标系无效。', { error: String(error) });
   }
   return { valid: !diagnostics.some(item => item.severity === 'error'), diagnostics, stability, loadTotals };
 }
@@ -228,13 +236,34 @@ function resolvedLoads(model: ModelRecord, draft: EngineeringDraft) {
   if (input === undefined || !draft.loads?.length) return draft.loads;
   const parsed = modelLoadMappingsSchema.safeParse(input);
   if (!parsed.success) throw new Error(`LOAD_MAPPING_INVALID: ${JSON.stringify(parsed.error.issues)}`);
-  const seen = new Set<string>();
   const loads = structuredClone(draft.loads ?? []);
+  const availableLoadIds = [...new Set(loads.flatMap(load => typeof load.id === 'string' ? [load.id] : []))];
+  const counts = new Map<string, number>();
+  for (const mapping of parsed.data) counts.set(mapping.loadId, (counts.get(mapping.loadId) ?? 0) + 1);
+  const invalidLoadIds = [...counts.keys()].filter(loadId => loads.filter(load => load.id === loadId).length !== 1);
+  const duplicateLoadIds = [...counts].filter(([, count]) => count > 1).map(([loadId]) => loadId);
+  if (invalidLoadIds.length || duplicateLoadIds.length) throw new LoadMappingError('LOAD_MAPPING_ID_INVALID',
+    [...new Set([...invalidLoadIds, ...duplicateLoadIds])], { invalidLoadIds, duplicateLoadIds, availableLoadIds }, {
+      en: 'Each mapping must reference one original confirmed load ID exactly once. Use selector.ids for multiple members; do not invent or duplicate source IDs.',
+      zh: '每项映射必须且只能引用一次原始已确认荷载编号。多个构件请用 selector.ids，不得编造或重复源荷载编号。',
+    });
+  const availableCaseIds = records(model.load_cases).map(row => String(row.id));
   for (const mapping of parsed.data) {
     const sources = loads.filter(load => load.id === mapping.loadId);
-    if (sources.length !== 1 || seen.has(mapping.loadId)) throw new Error(`LOAD_MAPPING_ID_INVALID: ${mapping.loadId}`);
-    seen.add(mapping.loadId);
     const source = sources[0]!;
+    if (mapping.caseId !== undefined) {
+      if (source.caseId !== undefined && source.caseId !== mapping.caseId) throw new LoadMappingError('LOAD_MAPPING_CASE_CONFLICT',
+        [mapping.loadId], { loadId: mapping.loadId, caseId: mapping.caseId, confirmedCaseId: source.caseId, availableCaseIds }, {
+          en: 'The mapping changes a confirmed load-case ID. Preserve the original case identity.',
+          zh: '映射改变了已确认的荷载工况编号，必须保留原工况标识。',
+        });
+      if (availableCaseIds.filter(caseId => caseId === mapping.caseId).length !== 1) throw new LoadMappingError('LOAD_MAPPING_CASE_INVALID',
+        [mapping.loadId], { loadId: mapping.loadId, caseId: mapping.caseId, availableCaseIds }, {
+          en: 'The mapped load case does not uniquely identify an existing model case.',
+          zh: '映射工况未唯一对应模型中的已有工况。',
+        });
+      source.caseId = mapping.caseId;
+    }
     if (source.selector || source.location && Object.entries(source.location).some(([key, value]) => key !== 'story' && value !== undefined)) {
       throw new Error(`LOAD_MAPPING_SCOPE_CONFLICT: ${mapping.loadId}`);
     }
@@ -287,7 +316,13 @@ function expectedLoads(model: ModelRecord, draft: EngineeringDraft, expectedTarg
       targets = available.filter(row => row.id === load.target);
       if (targets.length !== 1) return undefined;
     }
-    const id = load.caseId ?? (records(model.load_cases).length === 1 ? String(records(model.load_cases)[0]!.id) : 'LC1');
+    const availableCaseIds = records(model.load_cases).map(row => String(row.id));
+    const id = load.caseId ?? (availableCaseIds.length === 1 ? availableCaseIds[0] : undefined);
+    if (id === undefined) throw new LoadMappingError('LOAD_MAPPING_CASE_REQUIRED', load.id ? [load.id] : [],
+      { loadId: load.id, availableCaseIds }, {
+        en: 'This confirmed load has no case binding and the model has no unique case. Resolve caseId explicitly; do not guess from load names.',
+        zh: '该已确认荷载尚未绑定工况，且模型不存在唯一工况。请明确 caseId，不得根据荷载名称猜测。',
+      });
     const rows = cases.get(id) ?? [];
     for (const target of targets) {
       rows.push({ type: nodal ? 'nodal' : 'distributed', [nodal ? 'node' : 'element']: target.id,

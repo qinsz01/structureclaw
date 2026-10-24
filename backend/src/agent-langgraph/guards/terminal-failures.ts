@@ -2,6 +2,16 @@ import type { ToolMessage } from '@langchain/core/messages';
 import { toolMessageFailure } from '../../utils/tool-outcome.js';
 import { messageRole, messageText } from '../tools/input-message.js';
 import { failureCode } from './tool-guards.js';
+import type { AppLocale } from '../../shared/locale.js';
+import { isRecord } from '../../engineering/model-state.js';
+
+function physicsFailureDetail(diagnostics: unknown[], locale: AppLocale): string {
+  return diagnostics.filter(isRecord).filter(row => row.severity === 'error').map(row => {
+    const message = isRecord(row.message) ? row.message[locale] ?? row.message.en : row.message;
+    const detail = isRecord(row.details) && typeof row.details.error === 'string' ? row.details.error : '';
+    return [row.code, message, detail].filter(value => typeof value === 'string' && value).join(': ');
+  }).join('\n');
+}
 
 /** Exhausted semantic operations cannot be replaced with an older draft or another tool. */
 const TERMINAL_CODES = new Set([
@@ -17,7 +27,7 @@ const TERMINAL_CODES = new Set([
  * Called at the next graph node, after the failed tool result has checkpointed.
  * Current-turn message evidence survives restarts; a new user turn starts fresh.
  */
-export function assertNoTerminalSemanticFailure(messages: unknown[] = []): void {
+export function assertNoTerminalSemanticFailure(messages: unknown[] = [], locale: AppLocale = 'en'): void {
   for (let index = messages.length - 1; index >= 0; index--) {
     const message = messages[index];
     const role = messageRole(message);
@@ -39,12 +49,13 @@ export function assertNoTerminalSemanticFailure(messages: unknown[] = []): void 
       if (typeof payload?.message === 'string') detail = payload.message;
       else if (typeof payload?.error === 'string') detail = payload.error;
       else if (typeof payload?.supportNote === 'string') detail = payload.supportNote;
+      else if (Array.isArray(payload?.diagnostics)) detail = physicsFailureDetail(payload.diagnostics, locale) || failure;
     } catch { /* ToolNode plain errors retain their explicit prefix. */ }
     if (exhaustedBuild || TERMINAL_CODES.has(code)) {
       if (code === 'STRUCTURE_TYPE_UNSUPPORTED') {
         throw new Error(`${code}: The requested structure is not supported by the enabled capabilities; this turn was stopped. / 已启用的能力不支持本次结构请求，本轮已停止。 ${detail}`);
       }
-      throw new Error(detail.startsWith(`${code}:`) ? detail : `${code}: ${detail}`);
+      throw new Error(detail === code || detail.startsWith(`${code}:`) ? detail : `${code}: ${detail}`);
     }
   }
 }

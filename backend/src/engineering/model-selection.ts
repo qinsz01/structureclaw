@@ -13,7 +13,14 @@ export const modelSelectorSchema = z.object({
 }).strict();
 export type ModelSelector = z.infer<typeof modelSelectorSchema>;
 export const modelSelectorContract = z.toJSONSchema(modelSelectorSchema);
-export const modelLoadMappingsSchema = z.array(z.object({ loadId: id, selector: modelSelectorSchema }).strict());
+export const modelLoadMappingsSchema = z.array(z.object({ loadId: id, selector: modelSelectorSchema,
+  caseId: id.optional().describe('Bind an unassigned source load to an existing model case; never replace a confirmed case ID / 仅绑定未指定工况的源荷载，不得替换已确认工况ID'),
+}).strict());
+
+/** Generated identifiers belong in selector.ids, never in the source-load identity. */
+export function modelLoadMappingsContract(loadIds: string[]) {
+  return z.toJSONSchema(z.array(modelLoadMappingsSchema.element.extend({ loadId: z.enum(loadIds) })));
+}
 
 /** Node positions and member endpoint geometry use the same explicit selector contract. */
 export function selectRecords(records: ModelRecord[], selector: ModelSelector, model?: ModelRecord): ModelRecord[] {

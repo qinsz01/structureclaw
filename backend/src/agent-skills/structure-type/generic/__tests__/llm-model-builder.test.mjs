@@ -3,6 +3,22 @@ import { buildGenericModelPrompt } from '../../../../../dist/agent-skills/struct
 import { tryBuildGenericModelWithLlm } from '../../../../../dist/agent-skills/structure-type/generic/llm-model-builder.js';
 
 describe('generic LLM model builder', () => {
+  test.each(['en', 'zh'])('only canonical state and exact source-load IDs reach the confirmed prompt (%s)', locale => {
+    const state = { inferredType: 'frame', updatedAt: 0, engineeringDraft: {
+      geometry: { storyHeightsM: [3] }, loads: [{ id: 'ORIGINAL-LOAD-ID', kind: 'line',
+        magnitude: 12, unit: 'kN/m', direction: 'gravity', target: 'confirmed-group' }],
+    }, skillState: { genericDraft: { engineeringDraft: { loads: [{ id: 'STALE-CACHED-LOAD', magnitude: 999 }] } },
+      userText: 'UNSELECTED-PROPOSAL' } };
+    const saved = structuredClone(state);
+    const prompt = buildGenericModelPrompt('Build the accepted frame.', state, locale);
+    expect(prompt).not.toContain('STALE-CACHED-LOAD');
+    expect(prompt).not.toContain('UNSELECTED-PROPOSAL');
+    expect(prompt).toContain('"enum":["ORIGINAL-LOAD-ID"]');
+    expect(prompt).toContain('metadata.loadMappings');
+    expect(prompt).toContain('selector.ids');
+    expect(state).toEqual(saved);
+  });
+
   test('prompts for StructureModel V2 and kN-based loads', () => {
     const prompt = buildGenericModelPrompt(
       'Build a 12m beam with 20kN/m uniform load',

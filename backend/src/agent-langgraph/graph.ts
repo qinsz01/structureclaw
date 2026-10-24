@@ -195,7 +195,7 @@ function createCallModelNode(
     state: AgentState,
     config: LangGraphRunnableConfig,
   ): Promise<Partial<AgentState>> {
-    assertNoTerminalSemanticFailure(state.messages);
+    assertNoTerminalSemanticFailure(state.messages, state.locale);
     const log = getAgentLogger(config);
     const configurable = config.configurable as Partial<AgentConfigurable> | undefined;
     // Receive long reasoning responses incrementally; the provider adapter aggregates

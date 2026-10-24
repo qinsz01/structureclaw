@@ -42,7 +42,7 @@ function structureFailures(messages: BaseMessage[], state: AgentState): BaseMess
 
 /** One call per graph node invocation: the resulting checkpoint survives a later interrupt. */
 export async function executeToolsSequentially(tools: StructuredToolInterface[], state: AgentState, config: LangGraphRunnableConfig) {
-  assertNoTerminalSemanticFailure(state.messages);
+  assertNoTerminalSemanticFailure(state.messages, state.locale);
   const call = pendingToolCalls(state)[0];
   if (!call) return new Command({ update: {} });
   if (!call.id) throw new Error('TOOL_CALL_ID_REQUIRED');

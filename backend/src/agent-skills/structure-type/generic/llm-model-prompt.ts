@@ -2,9 +2,11 @@ import { engineeringKnowledge } from '../../../engineering/knowledge.js';
 import type { AppLocale } from '../../../shared/locale.js';
 import type { DraftState } from '../../../shared/types/agent.js';
 import { composePromptByIntent } from './llm-model-prompt-intents.js';
+import { modelLoadMappingsContract } from '../../../engineering/model-selection.js';
 
 const STATE_METADATA_KEYS = new Set([
   'skillId', 'supportLevel', 'supportNote', 'updatedAt', 'structuralTypeKey',
+  'skillState',
 ]);
 
 function buildCleanStateHint(state: DraftState): string {
@@ -25,7 +27,14 @@ export function buildGenericModelPrompt(
   currentModel?: Record<string, unknown>,
 ): string {
   const stateHint = buildCleanStateHint(state);
+  const loadIds = [...new Set(state.engineeringDraft?.loads?.flatMap(load => typeof load.id === 'string' && load.id ? [load.id] : []) ?? [])];
   const base = [composePromptByIntent('build-structure-model-v2', locale, stateHint, message, conversationHistory),
+    ...(loadIds.length ? [
+      locale === 'zh'
+        ? '荷载标识协议 metadata.loadMappings：loadId 只能原样取下列 enum 中的源荷载编号；一项源荷载对应多个构件时使用 selector.ids，不能在 loadId 上追加楼层或构件后缀。源荷载未指定 caseId 时由 LLM 明确绑定到模型中已有的工况；已确认的 caseId 必须原样保留，不能按编号前缀猜测。'
+        : 'Load identity contract metadata.loadMappings: loadId must exactly match a source ID in the enum below. Select multiple members with selector.ids; never append storey/member suffixes to loadId. The LLM must explicitly bind an unassigned caseId to an existing model case. Preserve confirmed case IDs exactly; never infer case identity from ID prefixes.',
+      JSON.stringify(modelLoadMappingsContract(loadIds)),
+    ] : []),
     engineeringKnowledge(locale, ['loads', 'boundaries', 'combinations', 'validation']),
     locale === 'zh' ? '端释放协议：releases 使用 i/j 下的局部自由度布尔值 ux/uy/uz/rx/ry/rz；不要写成力或弯矩结果字段。纯轴力杆已具有自由转动，不需要另选单元表示；无剪切和弯曲刚度也不代表平移端释放。平移释放、偏心与冲突定义不得删除或自行更改。仅供纯轴力杆使用的截面若已给定正面积A，可直接用properties.A，不需补问或编造等代形状与惯性矩。'
       : 'End-release contract: releases uses boolean local DOFs ux/uy/uz/rx/ry/rz under i/j, not force or moment result fields. Axial members already have free rotations; no representation choice is needed. Their lack of shear/bending stiffness does not mean translational end releases. Never remove or guess translational releases, offsets or conflicting definitions. For a section used only by axial members, an explicitly supplied positive properties.A is sufficient; never ask for or invent an equivalent shape or inertia.',
