@@ -12,7 +12,7 @@
  *     summary_replace, result, presentation_complete, done, error
  */
 import type { AIMessageChunk, BaseMessage, ToolMessage } from '@langchain/core/messages';
-import { createHash, randomUUID } from 'crypto';
+import { randomUUID } from 'crypto';
 import { isCommand } from '@langchain/langgraph';
 import {
   createEmptyAssistantPresentation,
@@ -251,12 +251,11 @@ export function langGraphEventToChunks(
           if (toolBlockerReason) {
             chunks.push({ type: 'summary_replace', summaryText: toolBlockerReason });
           }
-        }
-        // Every message in this update shares the same artifact state.
-        // Emit that state once, even when several tool receipts are included.
-        for (const msg of toolMessages) {
-          const sync = emitArtifactSync(typeof msg.content === 'string' ? msg.content : '', nodeState);
-          if (sync.length) { chunks.push(...sync); break; }
+
+          // Emit artifact_payload_sync for tool outputs containing model/analysis/report
+          if (content) {
+            chunks.push(...emitArtifactSync(content, nodeState));
+          }
         }
       }
     }
@@ -517,7 +516,6 @@ export async function* streamGraphToChunks(
   let accumulatedModel: Record<string, unknown> | undefined;
   let accumulatedAnalysis: Record<string, unknown> | undefined;
   let accumulatedReport: Record<string, unknown> | undefined;
-  const artifactHashes = new Map<string, string>();
 
   function processChunk(chunk: AgentStreamChunk): void {
     if (chunk.type === 'interaction_update') {
@@ -593,14 +591,6 @@ export async function* streamGraphToChunks(
       }
 
       for (const chunk of chunks) {
-        if (chunk.type === 'artifact_payload_sync' && chunk.artifact) {
-          // State updates may carry the previous immutable run again. Compare
-          // the exact payload, not just runId: changed selections and explicit
-          // invalidations must still reach the client.
-          const hash = createHash('sha256').update(JSON.stringify(chunk)).digest('hex');
-          if (artifactHashes.get(chunk.artifact) === hash) continue;
-          artifactHashes.set(chunk.artifact, hash);
-        }
         totalChunks += 1;
         processChunk(chunk);
 
