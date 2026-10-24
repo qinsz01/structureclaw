@@ -120,8 +120,8 @@ exports[`characterization: run policy and ablation surface policy variant builde
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 23426,
-  "systemPromptSha256": "ac52fe688b23d85fa7e263fa04ce2c4529893f045b8f20c7d84cab8a50f29d1d",
+  "systemPromptChars": 27324,
+  "systemPromptSha256": "f6fc163bfe94d9cd1c6ab98dab20034b96003305670c1cc5f57634f3ac32030c",
 }
 `;
 
@@ -218,22 +218,23 @@ When the user makes a structural design or analysis request, follow this workflo
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
 
 Providers (select by tool arguments) / Provider（通过工具参数选择）:
-- opensees-dynamic: OpenSees Dynamic Analysis
-- opensees-nonlinear: OpenSees Nonlinear Analysis
-- opensees-seismic: OpenSees Seismic Analysis
-- opensees-static: OpenSees Static Analysis
-- pkpm-static: PKPM Static Analysis
-- yjk-static: YJK Static Analysis
-- code-check-gb50010: Code Check GB50010
-- code-check-gb50011: Code Check GB50011
-- code-check-gb50017: Code Check GB50017
-- code-check-jgj3: Code Check JGJ3
-- cad-dxf-input: DXF/CAD Structural Drawing Parsing
-- csv-excel-input: CSV/Excel Structural Parameter Input
-- image-vision-input: Image Structural Information Recognition
-- pdf-input: PDF Structural Document Parsing
-- report-export-builtin: Builtin Report Export
-- pkpm-calcbook: PKPM SATWE Calculation Report Export
+- opensees-dynamic: OpenSees Dynamic Analysis {"dimensions":["2D","3D"],"analysisTypes":["dynamic"],"modelFamilies":["frame","truss","generic"]} — OpenSees linear modal and earthquake time-history analysis with explicit mass source, direction, damping and time step. Records requested six-component nodal motion, member end forces and support reactions. Motion is relative to the ground; arbitrary interior transient responses and general nonlinear dynamics are unsupported.
+- opensees-nonlinear: OpenSees Nonlinear Analysis {"dimensions":["2D","3D"],"analysisTypes":["nonlinear"],"modelFamilies":["frame","truss","generic"]} — Audit structured nonlinear inputs. Full-member nonlinear execution is not implemented and fails explicitly without a linear or reduced-model substitute.
+- opensees-seismic: OpenSees Seismic Analysis {"dimensions":["2D","3D"],"analysisTypes":["seismic"],"modelFamilies":["frame","truss","generic"]} — OpenSees China-code seismic response-spectrum, elastic time-history, and pushover analysis using OpenSees.
+- opensees-static: OpenSees Static Analysis {"dimensions":["2D","3D"],"analysisTypes":["static"],"modelFamilies":["frame","truss","generic"]} — OpenSees 2-D/3-D linear frame statics with beams, columns, trusses, mixed braces, partial/point loads, case combinations and bending end releases. Interior mechanics recovery is distinct from direct nodal results. Axial/shear/torsional releases, rigid offsets and second-order analysis are unsupported.
+- pkpm-static: PKPM Static Analysis {"dimensions":["3D"],"analysisTypes":["static"],"modelFamilies":["frame","generic"]} — PKPM 3-D linear elastic frame statics preserving per-floor topology and explicit material/section properties, with six-component nodal loads, multiple cases, signed stations and linear combinations. Explicit design requests use verified standard materials and physical sections for required reinforcement or native steel checks. Ordinary analysis publishes no design conclusions; missing results are not zero-filled.
+- yjk-static: YJK Static Analysis {"dimensions":["3D"],"analysisTypes":["static"],"modelFamilies":["frame","generic"]} — YJK 3-D frame statics and native frame design. Analysis preserves physical members, load positions and source cases, with fixed/pinned/directional vertical-column bases and paired local beam bending releases retaining torsion; ordinary beam/column weight binds authored density and area to an explicit case. Explicit design requests read concrete rectangular-member reinforcement or steel I/box stress checks with physical geometry, grade, code and native combinations verified. Missing values never become zero and reference sections cannot be designed.
+- code-check-gb50010: Code Check GB50010 — Run concrete structure code checks under GB50010.
+- code-check-gb50011: Code Check GB50011 — Run seismic code checks under GB50011.
+- code-check-gb50017: Code Check GB50017 — Run steel structure code checks under GB50017.
+- code-check-jgj3: Code Check JGJ3 — Run high-rise concrete checks under JGJ3.
+- cad-dxf-input: DXF/CAD Structural Drawing Parsing — Parse DXF files from CAD software, extract line, dimension, and text entities, and map structural geometry information to DraftState fields.
+- csv-excel-input: CSV/Excel Structural Parameter Input — Parse structural parameters (stories, sections, loads) from CSV or Excel files and map them to DraftState fields for downstream structural skills.
+- image-vision-input: Image Structural Information Recognition — Use multimodal vision capabilities to recognize structural members, dimension annotations, and material information from photos, scanned drawings, and screenshots, mapping them to DraftState.
+- pdf-input: PDF Structural Document Parsing — Extract text from PDF structural drawings or calculation reports, identify key structural parameters (dimensions, material grades, loads), and map them to DraftState.
+- report-export-builtin: Builtin Report Export — Assemble analysis and code-check outputs into exportable structural engineering reports.
+- pkpm-calcbook: PKPM SATWE Calculation Report Export — Extract calculation report data from completed PKPM SATWE analysis results, including modal analysis, story stiffness, drift ratios, base shear, and member design results. Outputs Markdown, Word, and PDF.
+Check the selected provider dimensions and capabilities before proposing or building a model. For delegated design, the LLM must propose an explicit compatible scheme. If confirmed geometry is incompatible, explain the limitation; never expand its dimension, alter the structure or substitute an engine to bypass it.
 Keep every load, case, target, sign and unit. A per-node force acts on EACH specified node, never as a floor total; exclude ground nodes when requested. When a clarification replaces a load pattern, update its existing ID rather than retaining an obsolete target as an additional action. Distinguish nodal forces (kN), member loads (kN/m) and area loads (kN/m²); transfer floor loads once and verify the total. Self-weight is included only when requested. Wind, snow, crane and temperature actions need their physical direction and supplied basis.
 Supports restrain physical degrees of freedom; releases describe member-end freedom. Keep their axes explicit and check connectivity and stability. A pin transfers forces without fixing rotations; a roller leaves its declared translation free. Do not infer member design lengths from mesh lengths.
 Before analysis check geometry, referenced records, connectivity, supports, section/material evidence, units and load totals. Report unsupported capability or remaining errors honestly rather than substituting a different structure or engine.
@@ -382,8 +383,8 @@ exports[`characterization: run policy and ablation surface policy variant defaul
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 23427,
-  "systemPromptSha256": "53479c36faae9ff0fc743ee7320f463b4da3fbc2b1907400be1c64fcdd566f02",
+  "systemPromptChars": 27325,
+  "systemPromptSha256": "e86488025487f150a5f08b598f6e4c13cffd769bffc2d6a6a4c3a3d7ef56cb93",
 }
 `;
 
@@ -480,22 +481,23 @@ When the user makes a structural design or analysis request, follow this workflo
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
 
 Providers (select by tool arguments) / Provider（通过工具参数选择）:
-- opensees-dynamic: OpenSees Dynamic Analysis
-- opensees-nonlinear: OpenSees Nonlinear Analysis
-- opensees-seismic: OpenSees Seismic Analysis
-- opensees-static: OpenSees Static Analysis
-- pkpm-static: PKPM Static Analysis
-- yjk-static: YJK Static Analysis
-- code-check-gb50010: Code Check GB50010
-- code-check-gb50011: Code Check GB50011
-- code-check-gb50017: Code Check GB50017
-- code-check-jgj3: Code Check JGJ3
-- cad-dxf-input: DXF/CAD Structural Drawing Parsing
-- csv-excel-input: CSV/Excel Structural Parameter Input
-- image-vision-input: Image Structural Information Recognition
-- pdf-input: PDF Structural Document Parsing
-- report-export-builtin: Builtin Report Export
-- pkpm-calcbook: PKPM SATWE Calculation Report Export
+- opensees-dynamic: OpenSees Dynamic Analysis {"dimensions":["2D","3D"],"analysisTypes":["dynamic"],"modelFamilies":["frame","truss","generic"]} — OpenSees linear modal and earthquake time-history analysis with explicit mass source, direction, damping and time step. Records requested six-component nodal motion, member end forces and support reactions. Motion is relative to the ground; arbitrary interior transient responses and general nonlinear dynamics are unsupported.
+- opensees-nonlinear: OpenSees Nonlinear Analysis {"dimensions":["2D","3D"],"analysisTypes":["nonlinear"],"modelFamilies":["frame","truss","generic"]} — Audit structured nonlinear inputs. Full-member nonlinear execution is not implemented and fails explicitly without a linear or reduced-model substitute.
+- opensees-seismic: OpenSees Seismic Analysis {"dimensions":["2D","3D"],"analysisTypes":["seismic"],"modelFamilies":["frame","truss","generic"]} — OpenSees China-code seismic response-spectrum, elastic time-history, and pushover analysis using OpenSees.
+- opensees-static: OpenSees Static Analysis {"dimensions":["2D","3D"],"analysisTypes":["static"],"modelFamilies":["frame","truss","generic"]} — OpenSees 2-D/3-D linear frame statics with beams, columns, trusses, mixed braces, partial/point loads, case combinations and bending end releases. Interior mechanics recovery is distinct from direct nodal results. Axial/shear/torsional releases, rigid offsets and second-order analysis are unsupported.
+- pkpm-static: PKPM Static Analysis {"dimensions":["3D"],"analysisTypes":["static"],"modelFamilies":["frame","generic"]} — PKPM 3-D linear elastic frame statics preserving per-floor topology and explicit material/section properties, with six-component nodal loads, multiple cases, signed stations and linear combinations. Explicit design requests use verified standard materials and physical sections for required reinforcement or native steel checks. Ordinary analysis publishes no design conclusions; missing results are not zero-filled.
+- yjk-static: YJK Static Analysis {"dimensions":["3D"],"analysisTypes":["static"],"modelFamilies":["frame","generic"]} — YJK 3-D frame statics and native frame design. Analysis preserves physical members, load positions and source cases, with fixed/pinned/directional vertical-column bases and paired local beam bending releases retaining torsion; ordinary beam/column weight binds authored density and area to an explicit case. Explicit design requests read concrete rectangular-member reinforcement or steel I/box stress checks with physical geometry, grade, code and native combinations verified. Missing values never become zero and reference sections cannot be designed.
+- code-check-gb50010: Code Check GB50010 — Run concrete structure code checks under GB50010.
+- code-check-gb50011: Code Check GB50011 — Run seismic code checks under GB50011.
+- code-check-gb50017: Code Check GB50017 — Run steel structure code checks under GB50017.
+- code-check-jgj3: Code Check JGJ3 — Run high-rise concrete checks under JGJ3.
+- cad-dxf-input: DXF/CAD Structural Drawing Parsing — Parse DXF files from CAD software, extract line, dimension, and text entities, and map structural geometry information to DraftState fields.
+- csv-excel-input: CSV/Excel Structural Parameter Input — Parse structural parameters (stories, sections, loads) from CSV or Excel files and map them to DraftState fields for downstream structural skills.
+- image-vision-input: Image Structural Information Recognition — Use multimodal vision capabilities to recognize structural members, dimension annotations, and material information from photos, scanned drawings, and screenshots, mapping them to DraftState.
+- pdf-input: PDF Structural Document Parsing — Extract text from PDF structural drawings or calculation reports, identify key structural parameters (dimensions, material grades, loads), and map them to DraftState.
+- report-export-builtin: Builtin Report Export — Assemble analysis and code-check outputs into exportable structural engineering reports.
+- pkpm-calcbook: PKPM SATWE Calculation Report Export — Extract calculation report data from completed PKPM SATWE analysis results, including modal analysis, story stiffness, drift ratios, base shear, and member design results. Outputs Markdown, Word, and PDF.
+Check the selected provider dimensions and capabilities before proposing or building a model. For delegated design, the LLM must propose an explicit compatible scheme. If confirmed geometry is incompatible, explain the limitation; never expand its dimension, alter the structure or substitute an engine to bypass it.
 Keep every load, case, target, sign and unit. A per-node force acts on EACH specified node, never as a floor total; exclude ground nodes when requested. When a clarification replaces a load pattern, update its existing ID rather than retaining an obsolete target as an additional action. Distinguish nodal forces (kN), member loads (kN/m) and area loads (kN/m²); transfer floor loads once and verify the total. Self-weight is included only when requested. Wind, snow, crane and temperature actions need their physical direction and supplied basis.
 Supports restrain physical degrees of freedom; releases describe member-end freedom. Keep their axes explicit and check connectivity and stability. A pin transfers forces without fixing rotations; a roller leaves its declared translation free. Do not infer member design lengths from mesh lengths.
 Before analysis check geometry, referenced records, connectivity, supports, section/material evidence, units and load totals. Report unsupported capability or remaining errors honestly rather than substituting a different structure or engine.
@@ -644,8 +646,8 @@ exports[`characterization: run policy and ablation surface policy variant defaul
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 11450,
-  "systemPromptSha256": "e7c2e1fc22353471c52496c7ff6b5a7c985f5a4b4195cddb00ecb60187a0860c",
+  "systemPromptChars": 13144,
+  "systemPromptSha256": "ec9b846b00773d77f01b5e0e7b2237d5272287c4e38ac7f836585f7faada630f",
 }
 `;
 
@@ -741,22 +743,23 @@ exports[`characterization: run policy and ablation surface policy variant defaul
 **重要**: 工具从会话状态中自动读取数据（模型、分析结果、草稿状态等）。不要将 modelJson、analysisJson、stateJson 等参数传递给工具。工具会自动使用上一步的结果。
 
 Providers (select by tool arguments) / Provider（通过工具参数选择）:
-- opensees-dynamic: OpenSees 动力分析
-- opensees-nonlinear: OpenSees 非线性分析
-- opensees-seismic: OpenSees 抗震分析
-- opensees-static: OpenSees 静力分析
-- pkpm-static: PKPM 静力分析
-- yjk-static: YJK 静力分析
-- code-check-gb50010: 规范校核 GB50010
-- code-check-gb50011: 规范校核 GB50011
-- code-check-gb50017: 规范校核 GB50017
-- code-check-jgj3: 规范校核 JGJ3
-- cad-dxf-input: DXF/CAD 结构图纸解析
-- csv-excel-input: CSV/Excel 结构参数读取
-- image-vision-input: 图片结构信息识别
-- pdf-input: PDF 结构文档解析
-- report-export-builtin: 内置报告导出
-- pkpm-calcbook: PKPM SATWE 计算书导出
+- opensees-dynamic: OpenSees 动力分析 {"dimensions":["2D","3D"],"analysisTypes":["dynamic"],"modelFamilies":["frame","truss","generic"]} — OpenSees 线弹性模态与一致时间步地震时程分析；显式质量方案、激励方向、阻尼，记录指定节点六分量位移/速度/加速度、构件端力和支座反力。时程运动相对地面；暂不提供任意跨内瞬态响应或通用非线性动力。
+- opensees-nonlinear: OpenSees 非线性分析 {"dimensions":["2D","3D"],"analysisTypes":["nonlinear"],"modelFamilies":["frame","truss","generic"]} — 审查结构化非线性输入；完整构件非线性求解尚未实现，明确拒绝执行，不用线弹性或简化模型替代。
+- opensees-seismic: OpenSees 抗震分析 {"dimensions":["2D","3D"],"analysisTypes":["seismic"],"modelFamilies":["frame","truss","generic"]} — 使用 OpenSees 执行中国抗震反应谱、弹性时程和 Pushover 分析。
+- opensees-static: OpenSees 静力分析 {"dimensions":["2D","3D"],"analysisTypes":["static"],"modelFamilies":["frame","truss","generic"]} — OpenSees 二维/三维线弹性杆系静力分析：梁柱、桁架与混合支撑，局部/集中荷载、多工况组合及弯曲端释放。跨内力学恢复与直接节点结果区分；轴向/剪切/扭转释放、刚端偏心和二阶分析尚不支持。
+- pkpm-static: PKPM 静力分析 {"dimensions":["3D"],"analysisTypes":["static"],"modelFamilies":["frame","generic"]} — PKPM 三维线弹性杆系静力分析，逐层保持实际拓扑、显式材料与截面属性；接通节点六分量荷载、多工况、有符号截面结果与线性组合。显式设计请求可使用已验证标准材料和真实截面计算所需配筋或读取原生钢构件校核；普通分析不发布设计结论，缺失结果不补零。
+- yjk-static: YJK 静力分析 {"dimensions":["3D"],"analysisTypes":["static"],"modelFamilies":["frame","generic"]} — YJK 三维杆系静力分析及原生框架设计。分析保留物理构件、荷载位置与源工况，支持普通竖柱固定、铰支、方向支座及梁端成对局部弯曲释放，保留扭转；普通梁柱自重绑定源密度、面积及明确工况。显式设计请求读取混凝土矩形梁柱配筋及钢 H/箱形梁柱应力验算，核对真实几何、材料牌号、规范和原生组合。缺项不填零，参考截面不用于设计。
+- code-check-gb50010: 规范校核 GB50010 — 按 GB50010 执行混凝土结构规范校核。
+- code-check-gb50011: 规范校核 GB50011 — 按 GB50011 执行抗震规范校核。
+- code-check-gb50017: 规范校核 GB50017 — 按 GB50017 执行钢结构规范校核。
+- code-check-jgj3: 规范校核 JGJ3 — 按 JGJ3 执行高层混凝土结构规程校核。
+- cad-dxf-input: DXF/CAD 结构图纸解析 — 解析来自 CAD 软件的 DXF 文件，提取线条、标注、文字实体，将结构几何信息映射到 DraftState 字段。
+- csv-excel-input: CSV/Excel 结构参数读取 — 从 CSV 或 Excel 文件中解析结构参数（楼层、截面、荷载），映射到 DraftState 字段供下游结构技能消费。
+- image-vision-input: 图片结构信息识别 — 使用多模态视觉能力，从照片、扫描图、截图等图像中识别结构构件、尺寸标注和材料信息，映射到 DraftState。
+- pdf-input: PDF 结构文档解析 — 从 PDF 结构图纸或计算报告中提取文本内容，识别关键结构参数（尺寸、材料等级、荷载），映射到 DraftState。
+- report-export-builtin: 内置报告导出 — 汇总分析与规范校核结果，生成可导出的结构工程报告。
+- pkpm-calcbook: PKPM SATWE 计算书导出 — 从已完成的 PKPM SATWE 分析结果中提取计算书数据，包括模态分析、层刚度、层间位移角、基底剪力、构件设计结果等，输出 Markdown/Word/PDF。
+拟定方案和建模前核对所选 Provider 的维度及能力边界。用户委托拟定方案时，由 LLM 提出符合该能力的明确方案；用户已确认的模型不兼容时说明限制，不得扩展维度、改变结构或换引擎绕过。
 保留全部荷载、工况、目标、符号和单位。每节点力须分别施加到每个指定节点，不得当作楼层总力；按要求排除地面节点。澄清替换荷载模式时更新原有ID，不把过时目标保留为新增作用。区分节点力(kN)、杆件线荷载(kN/m)和面荷载(kN/m²)；楼面荷载只传递一次并核对总量。仅按要求计入自重。风、雪、吊车和温度作用须有明确物理方向和给定依据。
 支座约束物理自由度，端释放描述构件端部自由度。明确坐标轴并检查连接与稳定性。铰支座传力而不约束转动，滚动支座保留指定平动自由度。不得将网格长度当作设计计算长度。
 分析前核对几何、记录引用、连接、支座、截面和材料依据、单位及荷载总量。能力不支持或仍有错误时如实报告，不能替换结构或引擎。
@@ -905,8 +908,8 @@ exports[`characterization: run policy and ablation surface policy variant knowle
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 21095,
-  "systemPromptSha256": "5d1ec81dfa855d5a91b4fe9a21eb72ef2bc28d5d6b201ec514bc27ff717626f3",
+  "systemPromptChars": 21979,
+  "systemPromptSha256": "21f5ba7e985d36c215fb091e79a9edac28393577cafd87ab206e55f592ed82e8",
 }
 `;
 
@@ -1003,12 +1006,12 @@ When the user makes a structural design or analysis request, follow this workflo
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
 
 Providers (select by tool arguments) / Provider（通过工具参数选择）:
-- opensees-dynamic: OpenSees Dynamic Analysis
-- opensees-nonlinear: OpenSees Nonlinear Analysis
-- opensees-seismic: OpenSees Seismic Analysis
-- opensees-static: OpenSees Static Analysis
-- pkpm-static: PKPM Static Analysis
-- yjk-static: YJK Static Analysis
+- opensees-dynamic: OpenSees Dynamic Analysis {"dimensions":["2D","3D"],"analysisTypes":["dynamic"],"modelFamilies":["frame","truss","generic"]}
+- opensees-nonlinear: OpenSees Nonlinear Analysis {"dimensions":["2D","3D"],"analysisTypes":["nonlinear"],"modelFamilies":["frame","truss","generic"]}
+- opensees-seismic: OpenSees Seismic Analysis {"dimensions":["2D","3D"],"analysisTypes":["seismic"],"modelFamilies":["frame","truss","generic"]}
+- opensees-static: OpenSees Static Analysis {"dimensions":["2D","3D"],"analysisTypes":["static"],"modelFamilies":["frame","truss","generic"]}
+- pkpm-static: PKPM Static Analysis {"dimensions":["3D"],"analysisTypes":["static"],"modelFamilies":["frame","generic"]}
+- yjk-static: YJK Static Analysis {"dimensions":["3D"],"analysisTypes":["static"],"modelFamilies":["frame","generic"]}
 - code-check-gb50010: Code Check GB50010
 - code-check-gb50011: Code Check GB50011
 - code-check-gb50017: Code Check GB50017
@@ -1019,6 +1022,7 @@ Providers (select by tool arguments) / Provider（通过工具参数选择）:
 - pdf-input: PDF Structural Document Parsing
 - report-export-builtin: Builtin Report Export
 - pkpm-calcbook: PKPM SATWE Calculation Report Export
+Check the selected provider dimensions and capabilities before proposing or building a model. For delegated design, the LLM must propose an explicit compatible scheme. If confirmed geometry is incompatible, explain the limitation; never expand its dimension, alter the structure or substitute an engine to bypass it.
 
 Explicit user properties win. Dimensions alone use system-derived geometry properties; state sharp-corner (no fillets). A designation without complete dimensions or explicit properties requires one dimension question together with other genuinely missing inputs; do not build or calculate before actual confirmation. You may offer an "assistant-recalled table value, please verify" option. A designation is not confirmation: never adopt or relabel recalled values yourself. After confirmation record user-sourced dimensions and derive properties. Confirmation covers only the actual values confirmed, not other recalled properties. Unconfirmed assistant recall belongs only in labelled clarification options, never in answer calculations, estimates or comparisons. Say plainly who supplied each value: the user, the system (geometry or a code table), or an assistant option confirmed by the user; never claim tool retrieval. Never state adequacy or compliance pass/fail unless a code check was actually run and passed; with analysis alone report values and assumptions. Known material grades get omitted elastic constants and density from system defaults. Never ask about unmentioned self-weight: retain its setting (default excluded) and state that assumption. Never expose budgets/recovery counts or ask for a new message to reset them.
 Section evidence / 截面证据: Parsed attachment numbers are supplied input: mark extra.provenance.shape/properties="attachment"; extra.evidence may cite each numeric field, e.g. {"properties.A":{evidenceId:"file:...",path:"rows.0.1",unit:"m2"}}. The system verifies parser candidates; image values require a reviewed observation. For free-text acceptance of offered candidates, use extra.confirmation={clarificationId,candidateIds:[...]}, using ONLY the answered clarification receipt; confirmation covers exactly its stored values. For a stated ratio use extra.provenance.properties="rule" and extra.rules={"properties.Iy":{sourceSectionId:"B1",sourceField:"properties.Iy",factor:1.5,statement:"verbatim user rule"}}; the system recomputes from evidenced inputs. Never promote unconfirmed recall. / 附件解析数值属于输入，来源标 attachment，可逐字段引用解析证据ID与路径；图像必须已有复核观察记录。无数字的确认由语义理解后用 extra.confirmation 关联已回答的澄清ID和候选ID，仅确认原候选值。比例规则记录来源截面、字段、倍数及用户原文，系统用已证实输入重算；未确认记忆值不得进入求解。
@@ -1164,8 +1168,8 @@ exports[`characterization: run policy and ablation surface policy variant routin
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 23427,
-  "systemPromptSha256": "53479c36faae9ff0fc743ee7320f463b4da3fbc2b1907400be1c64fcdd566f02",
+  "systemPromptChars": 27325,
+  "systemPromptSha256": "e86488025487f150a5f08b598f6e4c13cffd769bffc2d6a6a4c3a3d7ef56cb93",
 }
 `;
 
@@ -1262,22 +1266,23 @@ When the user makes a structural design or analysis request, follow this workflo
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
 
 Providers (select by tool arguments) / Provider（通过工具参数选择）:
-- opensees-dynamic: OpenSees Dynamic Analysis
-- opensees-nonlinear: OpenSees Nonlinear Analysis
-- opensees-seismic: OpenSees Seismic Analysis
-- opensees-static: OpenSees Static Analysis
-- pkpm-static: PKPM Static Analysis
-- yjk-static: YJK Static Analysis
-- code-check-gb50010: Code Check GB50010
-- code-check-gb50011: Code Check GB50011
-- code-check-gb50017: Code Check GB50017
-- code-check-jgj3: Code Check JGJ3
-- cad-dxf-input: DXF/CAD Structural Drawing Parsing
-- csv-excel-input: CSV/Excel Structural Parameter Input
-- image-vision-input: Image Structural Information Recognition
-- pdf-input: PDF Structural Document Parsing
-- report-export-builtin: Builtin Report Export
-- pkpm-calcbook: PKPM SATWE Calculation Report Export
+- opensees-dynamic: OpenSees Dynamic Analysis {"dimensions":["2D","3D"],"analysisTypes":["dynamic"],"modelFamilies":["frame","truss","generic"]} — OpenSees linear modal and earthquake time-history analysis with explicit mass source, direction, damping and time step. Records requested six-component nodal motion, member end forces and support reactions. Motion is relative to the ground; arbitrary interior transient responses and general nonlinear dynamics are unsupported.
+- opensees-nonlinear: OpenSees Nonlinear Analysis {"dimensions":["2D","3D"],"analysisTypes":["nonlinear"],"modelFamilies":["frame","truss","generic"]} — Audit structured nonlinear inputs. Full-member nonlinear execution is not implemented and fails explicitly without a linear or reduced-model substitute.
+- opensees-seismic: OpenSees Seismic Analysis {"dimensions":["2D","3D"],"analysisTypes":["seismic"],"modelFamilies":["frame","truss","generic"]} — OpenSees China-code seismic response-spectrum, elastic time-history, and pushover analysis using OpenSees.
+- opensees-static: OpenSees Static Analysis {"dimensions":["2D","3D"],"analysisTypes":["static"],"modelFamilies":["frame","truss","generic"]} — OpenSees 2-D/3-D linear frame statics with beams, columns, trusses, mixed braces, partial/point loads, case combinations and bending end releases. Interior mechanics recovery is distinct from direct nodal results. Axial/shear/torsional releases, rigid offsets and second-order analysis are unsupported.
+- pkpm-static: PKPM Static Analysis {"dimensions":["3D"],"analysisTypes":["static"],"modelFamilies":["frame","generic"]} — PKPM 3-D linear elastic frame statics preserving per-floor topology and explicit material/section properties, with six-component nodal loads, multiple cases, signed stations and linear combinations. Explicit design requests use verified standard materials and physical sections for required reinforcement or native steel checks. Ordinary analysis publishes no design conclusions; missing results are not zero-filled.
+- yjk-static: YJK Static Analysis {"dimensions":["3D"],"analysisTypes":["static"],"modelFamilies":["frame","generic"]} — YJK 3-D frame statics and native frame design. Analysis preserves physical members, load positions and source cases, with fixed/pinned/directional vertical-column bases and paired local beam bending releases retaining torsion; ordinary beam/column weight binds authored density and area to an explicit case. Explicit design requests read concrete rectangular-member reinforcement or steel I/box stress checks with physical geometry, grade, code and native combinations verified. Missing values never become zero and reference sections cannot be designed.
+- code-check-gb50010: Code Check GB50010 — Run concrete structure code checks under GB50010.
+- code-check-gb50011: Code Check GB50011 — Run seismic code checks under GB50011.
+- code-check-gb50017: Code Check GB50017 — Run steel structure code checks under GB50017.
+- code-check-jgj3: Code Check JGJ3 — Run high-rise concrete checks under JGJ3.
+- cad-dxf-input: DXF/CAD Structural Drawing Parsing — Parse DXF files from CAD software, extract line, dimension, and text entities, and map structural geometry information to DraftState fields.
+- csv-excel-input: CSV/Excel Structural Parameter Input — Parse structural parameters (stories, sections, loads) from CSV or Excel files and map them to DraftState fields for downstream structural skills.
+- image-vision-input: Image Structural Information Recognition — Use multimodal vision capabilities to recognize structural members, dimension annotations, and material information from photos, scanned drawings, and screenshots, mapping them to DraftState.
+- pdf-input: PDF Structural Document Parsing — Extract text from PDF structural drawings or calculation reports, identify key structural parameters (dimensions, material grades, loads), and map them to DraftState.
+- report-export-builtin: Builtin Report Export — Assemble analysis and code-check outputs into exportable structural engineering reports.
+- pkpm-calcbook: PKPM SATWE Calculation Report Export — Extract calculation report data from completed PKPM SATWE analysis results, including modal analysis, story stiffness, drift ratios, base shear, and member design results. Outputs Markdown, Word, and PDF.
+Check the selected provider dimensions and capabilities before proposing or building a model. For delegated design, the LLM must propose an explicit compatible scheme. If confirmed geometry is incompatible, explain the limitation; never expand its dimension, alter the structure or substitute an engine to bypass it.
 Keep every load, case, target, sign and unit. A per-node force acts on EACH specified node, never as a floor total; exclude ground nodes when requested. When a clarification replaces a load pattern, update its existing ID rather than retaining an obsolete target as an additional action. Distinguish nodal forces (kN), member loads (kN/m) and area loads (kN/m²); transfer floor loads once and verify the total. Self-weight is included only when requested. Wind, snow, crane and temperature actions need their physical direction and supplied basis.
 Supports restrain physical degrees of freedom; releases describe member-end freedom. Keep their axes explicit and check connectivity and stability. A pin transfers forces without fixing rotations; a roller leaves its declared translation free. Do not infer member design lengths from mesh lengths.
 Before analysis check geometry, referenced records, connectivity, supports, section/material evidence, units and load totals. Report unsupported capability or remaining errors honestly rather than substituting a different structure or engine.
@@ -1427,8 +1432,8 @@ exports[`characterization: run policy and ablation surface policy variant tools-
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 23266,
-  "systemPromptSha256": "e63c9cd20b823e7fe610b8a3b84f49e232116c109e27e145387099803474f80b",
+  "systemPromptChars": 27164,
+  "systemPromptSha256": "0c474889ab4f8257950ef56ff9abab0586fcd36e0c01464f351fbc3ce0ec72d4",
 }
 `;
 
@@ -1525,22 +1530,23 @@ When the user makes a structural design or analysis request, follow this workflo
 **IMPORTANT**: Tools read data (model, analysis results, draft state, etc.) from conversation state automatically. Do NOT pass modelJson, analysisJson, stateJson, or other JSON string parameters to tools. Tools automatically use results from previous steps.
 
 Providers (select by tool arguments) / Provider（通过工具参数选择）:
-- opensees-dynamic: OpenSees Dynamic Analysis
-- opensees-nonlinear: OpenSees Nonlinear Analysis
-- opensees-seismic: OpenSees Seismic Analysis
-- opensees-static: OpenSees Static Analysis
-- pkpm-static: PKPM Static Analysis
-- yjk-static: YJK Static Analysis
-- code-check-gb50010: Code Check GB50010
-- code-check-gb50011: Code Check GB50011
-- code-check-gb50017: Code Check GB50017
-- code-check-jgj3: Code Check JGJ3
-- cad-dxf-input: DXF/CAD Structural Drawing Parsing
-- csv-excel-input: CSV/Excel Structural Parameter Input
-- image-vision-input: Image Structural Information Recognition
-- pdf-input: PDF Structural Document Parsing
-- report-export-builtin: Builtin Report Export
-- pkpm-calcbook: PKPM SATWE Calculation Report Export
+- opensees-dynamic: OpenSees Dynamic Analysis {"dimensions":["2D","3D"],"analysisTypes":["dynamic"],"modelFamilies":["frame","truss","generic"]} — OpenSees linear modal and earthquake time-history analysis with explicit mass source, direction, damping and time step. Records requested six-component nodal motion, member end forces and support reactions. Motion is relative to the ground; arbitrary interior transient responses and general nonlinear dynamics are unsupported.
+- opensees-nonlinear: OpenSees Nonlinear Analysis {"dimensions":["2D","3D"],"analysisTypes":["nonlinear"],"modelFamilies":["frame","truss","generic"]} — Audit structured nonlinear inputs. Full-member nonlinear execution is not implemented and fails explicitly without a linear or reduced-model substitute.
+- opensees-seismic: OpenSees Seismic Analysis {"dimensions":["2D","3D"],"analysisTypes":["seismic"],"modelFamilies":["frame","truss","generic"]} — OpenSees China-code seismic response-spectrum, elastic time-history, and pushover analysis using OpenSees.
+- opensees-static: OpenSees Static Analysis {"dimensions":["2D","3D"],"analysisTypes":["static"],"modelFamilies":["frame","truss","generic"]} — OpenSees 2-D/3-D linear frame statics with beams, columns, trusses, mixed braces, partial/point loads, case combinations and bending end releases. Interior mechanics recovery is distinct from direct nodal results. Axial/shear/torsional releases, rigid offsets and second-order analysis are unsupported.
+- pkpm-static: PKPM Static Analysis {"dimensions":["3D"],"analysisTypes":["static"],"modelFamilies":["frame","generic"]} — PKPM 3-D linear elastic frame statics preserving per-floor topology and explicit material/section properties, with six-component nodal loads, multiple cases, signed stations and linear combinations. Explicit design requests use verified standard materials and physical sections for required reinforcement or native steel checks. Ordinary analysis publishes no design conclusions; missing results are not zero-filled.
+- yjk-static: YJK Static Analysis {"dimensions":["3D"],"analysisTypes":["static"],"modelFamilies":["frame","generic"]} — YJK 3-D frame statics and native frame design. Analysis preserves physical members, load positions and source cases, with fixed/pinned/directional vertical-column bases and paired local beam bending releases retaining torsion; ordinary beam/column weight binds authored density and area to an explicit case. Explicit design requests read concrete rectangular-member reinforcement or steel I/box stress checks with physical geometry, grade, code and native combinations verified. Missing values never become zero and reference sections cannot be designed.
+- code-check-gb50010: Code Check GB50010 — Run concrete structure code checks under GB50010.
+- code-check-gb50011: Code Check GB50011 — Run seismic code checks under GB50011.
+- code-check-gb50017: Code Check GB50017 — Run steel structure code checks under GB50017.
+- code-check-jgj3: Code Check JGJ3 — Run high-rise concrete checks under JGJ3.
+- cad-dxf-input: DXF/CAD Structural Drawing Parsing — Parse DXF files from CAD software, extract line, dimension, and text entities, and map structural geometry information to DraftState fields.
+- csv-excel-input: CSV/Excel Structural Parameter Input — Parse structural parameters (stories, sections, loads) from CSV or Excel files and map them to DraftState fields for downstream structural skills.
+- image-vision-input: Image Structural Information Recognition — Use multimodal vision capabilities to recognize structural members, dimension annotations, and material information from photos, scanned drawings, and screenshots, mapping them to DraftState.
+- pdf-input: PDF Structural Document Parsing — Extract text from PDF structural drawings or calculation reports, identify key structural parameters (dimensions, material grades, loads), and map them to DraftState.
+- report-export-builtin: Builtin Report Export — Assemble analysis and code-check outputs into exportable structural engineering reports.
+- pkpm-calcbook: PKPM SATWE Calculation Report Export — Extract calculation report data from completed PKPM SATWE analysis results, including modal analysis, story stiffness, drift ratios, base shear, and member design results. Outputs Markdown, Word, and PDF.
+Check the selected provider dimensions and capabilities before proposing or building a model. For delegated design, the LLM must propose an explicit compatible scheme. If confirmed geometry is incompatible, explain the limitation; never expand its dimension, alter the structure or substitute an engine to bypass it.
 Keep every load, case, target, sign and unit. A per-node force acts on EACH specified node, never as a floor total; exclude ground nodes when requested. When a clarification replaces a load pattern, update its existing ID rather than retaining an obsolete target as an additional action. Distinguish nodal forces (kN), member loads (kN/m) and area loads (kN/m²); transfer floor loads once and verify the total. Self-weight is included only when requested. Wind, snow, crane and temperature actions need their physical direction and supplied basis.
 Supports restrain physical degrees of freedom; releases describe member-end freedom. Keep their axes explicit and check connectivity and stability. A pin transfers forces without fixing rotations; a roller leaves its declared translation free. Do not infer member design lengths from mesh lengths.
 Before analysis check geometry, referenced records, connectivity, supports, section/material evidence, units and load totals. Report unsupported capability or remaining errors honestly rather than substituting a different structure or engine.
