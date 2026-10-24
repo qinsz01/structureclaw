@@ -69,6 +69,10 @@ def project_commercial_model(source: dict, engine: str) -> dict:
             input_evidence[prefix + ".densityInput"] = extra.pop("densityInput")
         if isinstance(extra.get("source"), str) and extra["source"].strip():
             input_evidence[prefix + ".source"] = extra.pop("source")
+        if isinstance(extra.get("provenance"), str) and extra["provenance"].strip():
+            # A narrative records claimed origin, not an elastic property or a
+            # verified source. Keep it in the audit record without interpreting it.
+            input_evidence[prefix + ".provenance"] = extra.pop("provenance")
         if not extra:
             material.pop("extra")
     for collection, fields in (("materials", MATERIAL_DESIGN_FIELDS), ("elements", MEMBER_DESIGN_FIELDS)):

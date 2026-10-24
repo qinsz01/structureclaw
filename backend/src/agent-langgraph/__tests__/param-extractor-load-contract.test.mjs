@@ -23,7 +23,7 @@ describe('extraction load contract', () => {
 
   test.each(['zh', 'en'])('the last focused repair really receives the full contract (%s)', async locale => {
     const { invokeParamExtractor } = await import('../../../dist/agent-langgraph/param-extractor.js');
-    const { draftContract, promptContract } = await import('../../../dist/engineering/draft-contract.js');
+    const { draftContract, draftExtractionContract, promptContract } = await import('../../../dist/engineering/draft-contract.js');
     const prompts = [];
     await invokeParamExtractor({ locale, plugin, message: 'Keep supplied loads.', focusFields: ['loads'],
       existingState: { inferredType: 'unknown', engineeringDraft: {} },
@@ -32,7 +32,9 @@ describe('extraction load contract', () => {
     expect(prompts[0]).toContain('PATCH ONLY');
     expect(prompts[1]).toContain('PATCH ONLY');
     expect(prompts[2]).not.toContain('PATCH ONLY');
-    expect(prompts[2]).toContain(JSON.stringify(promptContract(draftContract)));
+    expect(prompts[2]).toContain(JSON.stringify(promptContract(draftExtractionContract)));
+    expect(draftExtractionContract.properties.loads).toEqual(draftContract.properties.loads);
+    expect(prompts[2]).toContain(JSON.stringify(draftExtractionContract.properties.materials));
   });
 
   test.each(['globalX', 'globalY', 'globalZ', 'gravity'])('signed %s loads agree between the declared schema and runtime', async direction => {

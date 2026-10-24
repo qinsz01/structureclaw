@@ -84,6 +84,20 @@ def test_density_source_is_preserved_as_evidence_while_canonical_mass_density_re
 
 
 @pytest.mark.parametrize("engine", ["pkpm", "yjk"])
+def test_material_source_narrative_is_retained_without_overriding_physics(engine):
+    model = source()
+    model["materials"][0]["extra"] = {"provenance": "user-confirmed material values"}
+    before = copy.deepcopy(model)
+    result = project_commercial_model(model, engine)
+    assert model == before
+    assert result["inputEvidence"]["materials.C.extra.provenance"] == "user-confirmed material values"
+    assert "extra" not in result["analysisModel"]["materials"][0]
+    model["materials"][0]["extra"] = {"provenance": {"stiffness_factor": .5}}
+    retained = project_commercial_model(model, engine)["analysisModel"]
+    assert retained["materials"][0]["extra"] == {"provenance": {"stiffness_factor": .5}}
+
+
+@pytest.mark.parametrize("engine", ["pkpm", "yjk"])
 def test_confirmed_section_evidence_is_archived_without_becoming_a_native_physical_override(engine):
     model = source()
     confirmation = {"clarificationId": "answered-question", "candidateIds": ["shown-dimensions"]}
