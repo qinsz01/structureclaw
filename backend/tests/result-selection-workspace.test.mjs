@@ -291,9 +291,21 @@ test('real physical nodal queries without field resolve only the documented comp
   const rotation = output(await query({ nodeId: '1', component: 'ry', unit: 'rad' }));
   expect(rotation.quantity.field).toBe('displacements');
   expect(rotation.quantity.value).toBe(saved.results['case:LC1'].data.displacements['1'].ry);
-  const moment = output(await query({ nodeId: '1', component: 'my', unit: 'kN.m' }));
+  const momentArgs = { nodeId: '1', component: 'my', unit: 'kN.m' };
+  const momentCommand = await query(momentArgs), moment = output(momentCommand);
   expect(moment.quantity.field).toBe('reactions');
-  expect(moment.quantity.value).toBe(0);
+  // Preserve the actual signed solver value, including floating-point roundoff.
+  // A query must not replace a recorded nonzero component with a guessed zero.
+  const recordedMoment = saved.results['case:LC1'].data.reactions['1'].my;
+  expect(Number.isFinite(recordedMoment)).toBe(true);
+  // The public JSON boundary canonicalizes -0; no nonzero value is rounded.
+  expect(moment.quantity.value).toBe(JSON.parse(JSON.stringify(recordedMoment)));
+  expect(moment.quantity).toEqual(output(await query({ ...momentArgs, field: 'reactions' })).quantity);
+  const momentReport = await tools.get('generate_report').invoke({ message: 'Verified nodal moment', analysisType: 'static', narrative: 'structured',
+    selection: { runId: saved.runId, resultKey: 'case:LC1', ...momentArgs } },
+  { toolCall: { id: 'nodal-moment-report' }, configurable: { ...configurable,
+    agentState: { ...configurable.agentState, resultQuantities: momentCommand.update.resultQuantities } } });
+  expect(output(momentReport).report.json.requestedQuantities).toEqual([moment.quantity]);
   await expect(query({ nodeId: 'missing', component: 'uz', unit: 'mm' })).rejects.toThrow('RESULT_NODE_NOT_FOUND');
   await expect(query({ field: 'displacements', nodeId: '1', component: 'fz', unit: 'kN' })).rejects.toThrow('RESULT_COMPONENT_UNAVAILABLE');
   await expect(query({ field: 'displacements', nodeId: '2', component: 'uz', unit: 'kN' })).rejects.toThrow('RESULT_UNIT_MISMATCH');
