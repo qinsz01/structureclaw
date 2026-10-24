@@ -16,7 +16,7 @@ export interface PhysicsCheck {
   stability: { freeModes: number; rank: number; dofs: number } | null;
   loadTotals: Record<string, Vector3>;
 }
-class LoadMappingError extends Error {
+export class LoadMappingError extends Error {
   constructor(readonly reasonCode: string, readonly entityIds: string[], readonly details: ModelRecord,
     readonly description: { en: string; zh: string }) {
     super(`${reasonCode}: ${entityIds.join(', ')}`);

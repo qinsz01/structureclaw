@@ -18,7 +18,7 @@ import type { Logger } from 'pino';
 import type { AgentSkillPlugin, DraftState } from '../shared/types/agent.js';
 import { currentRunPolicy, requestRecovery, recordRunEvent } from '../runtime/run-context.js';
 import { llmContentText } from '../utils/llm-content.js';
-import { draftContract, promptContract, LOAD_DIRECTION_RULE, FLOOR_TRANSFER_RULE } from '../engineering/draft-contract.js';
+import { draftContract, draftExtractionContract, promptContract, LOAD_DIRECTION_RULE, FLOOR_TRANSFER_RULE } from '../engineering/draft-contract.js';
 import { currentDraftDiagnostics } from '../agent-runtime/draft-diagnostics.js';
 import { SECTION_EVIDENCE_RULE } from '../engineering/section-evidence.js';
 import { EngineeringValidationError } from '../engineering/validation-error.js';
@@ -102,7 +102,7 @@ function engineeringDraftSchemaDescription(locale: 'zh' | 'en'): string {
   if (locale === 'zh') {
     return [
       'engineeringDraft uses this generated contract. All fields may be omitted in a partial draft; preserve explicitly supplied values and stable IDs. / 草稿允许缺项，但不得编造信息：',
-      JSON.stringify(promptContract()),
+      JSON.stringify(promptContract(draftExtractionContract)),
       updateContract, sectionSources, MATERIAL_WEIGHT_RULE, MATERIAL_DENSITY_RULE,
       seismicEvidence,
       'draftIssues: [{field: string, kind: missing|confirmation, severity: invalid|ambiguous|unrealistic|conflict, reason: string, question?: string}]. Use one exact field per issue with quoted stable IDs, e.g. materials["M1"].E. missing means absent data; confirmation means a present value needs user confirmation. Do not repeat a missing issue after supplying its value. Do not emit skillState.invalidDraftFields; the runtime derives it. / 缺项按当前值重新判断；确认与来源冲突单独保留。每项诊断对应一个字段和稳定ID，不维护第二份缺项列表。',
@@ -134,7 +134,7 @@ function engineeringDraftSchemaDescription(locale: 'zh' | 'en'): string {
   }
   return [
       'engineeringDraft uses this generated contract. All fields may be omitted in a partial draft; preserve explicitly supplied values and stable IDs. / 草稿允许缺项，但不得编造信息：',
-      JSON.stringify(promptContract()),
+      JSON.stringify(promptContract(draftExtractionContract)),
       updateContract, sectionSources, MATERIAL_WEIGHT_RULE, MATERIAL_DENSITY_RULE,
       seismicEvidence,
       'draftIssues: [{field: string, kind: missing|confirmation, severity: invalid|ambiguous|unrealistic|conflict, reason: string, question?: string}]. Use one exact field per issue with quoted stable IDs, e.g. materials["M1"].E. missing means absent data; confirmation means a present value needs user confirmation. Do not repeat a missing issue after supplying its value. Do not emit skillState.invalidDraftFields; the runtime derives it. / 缺项按当前值重新判断；确认与来源冲突单独保留。每项诊断对应一个字段和稳定ID，不维护第二份缺项列表。',

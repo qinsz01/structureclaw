@@ -27,9 +27,7 @@ const geometry = object(Object.fromEntries([
 export const draftContract: FieldSchema = { ...object({
   structureType: string, geometry, coordinateSystem: modelContract.properties.coordinate_system,
   topology: object({ nodes: modelContract.properties.nodes, members: modelContract.properties.elements }),
-  materials: { ...modelContract.properties.materials, items: { ...modelContract.$defs.MaterialV2,
-    properties: { ...modelContract.$defs.MaterialV2.properties, density: materialDensityContract } } },
-  sectionRecords: modelContract.properties.sections,
+  materials: modelContract.properties.materials, sectionRecords: modelContract.properties.sections,
   templateAssignments: object({ beam: role, column: role, member: role }),
   loadCases: modelContract.properties.load_cases, model: { $ref: '#/$defs/CompleteModel' },
   material: object({ family: choice('steel', 'concrete', 'composite', 'timber', 'masonry', 'generic'), grade: string, rebarGrade: string }),
@@ -53,6 +51,12 @@ export const draftContract: FieldSchema = { ...object({
   inputEvidence: { type: 'array', items: { type: 'object' } }, metadata: { type: 'object' },
 }), $defs: { ...modelContract.$defs, CompleteModel: { ...modelContract, $defs: undefined } } };
 
+/** Input quantities are consumed before persistence; canonical material records remain V2. */
+export const draftExtractionContract: FieldSchema = { ...draftContract, properties: { ...draftContract.properties,
+  materials: { ...modelContract.properties.materials, items: { ...modelContract.$defs.MaterialV2,
+    properties: { ...modelContract.$defs.MaterialV2.properties, density: materialDensityContract } } },
+} };
+
 export function resolveFieldSchema(schema: FieldSchema, root: FieldSchema = draftContract): FieldSchema {
   if (schema.$ref) return resolveFieldSchema(root.$defs?.[schema.$ref.split('/').at(-1)] ?? {}, root);
   if (schema.anyOf) return resolveFieldSchema(schema.anyOf.find((item: FieldSchema) => item.type !== 'null') ?? {}, root);
@@ -72,7 +76,7 @@ export function validDraftValue(schema: FieldSchema, value: unknown): boolean {
 export function promptContract(schema: FieldSchema = draftContract): FieldSchema {
   const compact = (value: any): any => Array.isArray(value) ? value.map(compact)
     : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value)
-      .filter(([key]) => !['title', 'default', '$defs', ...(schema === draftContract ? ['required'] : [])].includes(key)).map(([key, item]) => [key, compact(item)])) : value;
+      .filter(([key]) => !['title', 'default', '$defs', ...([draftContract, draftExtractionContract].includes(schema) ? ['required'] : [])].includes(key)).map(([key, item]) => [key, compact(item)])) : value;
   const result = compact(schema), definitions: FieldSchema = {};
   const visit = (value: any): void => {
     if (!value || typeof value !== 'object') return;

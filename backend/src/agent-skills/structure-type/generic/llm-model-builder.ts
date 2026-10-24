@@ -14,7 +14,7 @@ import { validateExplicitModel } from '../../../agent-runtime/explicit-model.js'
 import { canRecover, currentRunPolicy, requestRecovery } from '../../../runtime/run-context.js';
 import { applyDraftAnalysisControl, applyDraftTemplateDesign, projectDraftMaterialDesign, normalizeDraftTopologyReleases } from '../../../agent-runtime/engineering-draft.js';
 import { completeGenericModelProperties } from '../../../agent-runtime/template-properties.js';
-import { ModelPhysicsError } from '../../../engineering/model-physics.js';
+import { ModelPhysicsError, LoadMappingError } from '../../../engineering/model-physics.js';
 import { checkModelPhysicsWithAreaLoads, compileDeclaredModelLoads } from '../../../engineering/model-area-loads.js';
 import { expandModellingOperations, assertUserTopologyIds } from '../../../skill-shared/modelling/operations.js';
 import { ModellingOperationError } from '../../../skill-shared/modelling/contract.js';
@@ -148,7 +148,8 @@ export async function tryBuildGenericModelWithLlm(
         error: error instanceof Error ? error.message : String(error),
       }, 'generic llm model attempt failed with upstream error');
       if (error instanceof ModelInputRequiredError || error instanceof Error && /BUDGET_EXHAUSTED/.test(error.message)) throw error;
-      failure = { error: error instanceof Error ? error.message : String(error), candidate: content };
+      failure = { error: error instanceof LoadMappingError ? JSON.stringify({ reasonCode: error.reasonCode,
+        details: error.details, message: error.description[locale] }) : error instanceof Error ? error.message : String(error), candidate: content };
       lastError = error;
       continue;
     }
