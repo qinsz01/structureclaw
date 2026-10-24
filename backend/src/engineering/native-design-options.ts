@@ -2,6 +2,7 @@ import { currentAnalysisError, isRecord, modelHash, type ModelRecord, type Model
 import { nativeDesignRecord } from './native-design.js';
 import { resultEngine } from './result-data.js';
 import { stiffnessPlaceholderOf } from './stiffness-placeholder.js';
+import { nativeDesignCodes } from './native-design-codes.js';
 
 type Label = { zh: string; en: string };
 type Parameter = { key: string; label: Label; kind: 'integer' | 'choice' | 'boolean'; min?: number; max?: number; choices?: string[]; unit?: string };
@@ -13,8 +14,7 @@ export function nativeDesignOptions(engine: string, model: ModelRecord | null | 
   const families = new Set(Array.isArray(model?.materials) ? model.materials.filter(isRecord).map(row => row.category ?? row.type) : []);
   const concrete = families.size === 1 && families.has('concrete');
   const steel = families.size === 1 && families.has('steel');
-  const codes = engine === 'pkpm' ? ['PKPM-2025R2.5-native', ...(steel ? ['GB50017-2017'] : [])]
-    : steel ? ['GB50017-2017'] : concrete ? ['GB/T50010-2010(2024)'] : [];
+  const codes = nativeDesignCodes(engine, model);
   const parameters: Parameter[] = [];
   if (concrete) {
     for (const [role, title] of [['beam', label('梁', 'Beam')], ['column', label('柱', 'Column')]] as const) {

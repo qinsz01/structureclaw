@@ -10,6 +10,9 @@ const run = () => ({ runId: 'run', success: true, meta: { runId: 'run', modelHas
 describe('product report and native design provenance', () => {
   test('provider selection never silently replaces commercial native design', () => {
     expect(resolveCheckProvider('auto', run())).toBe('native');
+    expect(resolveCheckProvider('auto', run(), 'GB50010')).toBe('builtin');
+    expect(resolveCheckProvider('auto', { ...run(), meta: { engineId: 'builtin-pkpm' } }, 'PKPM-2025R2.5-native')).toBe('native');
+    expect(resolveCheckProvider('native', run(), 'GB50010')).toBe('native'); // Explicit native requests never fall back.
     expect(resolveCheckProvider('builtin', run())).toBe('builtin');
     expect(() => resolveCheckProvider('native', {meta:{engineId:'builtin-opensees'}})).toThrow('NATIVE_DESIGN_ENGINE_REQUIRED');
   });

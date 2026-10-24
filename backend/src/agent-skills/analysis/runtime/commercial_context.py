@@ -9,18 +9,13 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import math
 from pathlib import Path
+from structure_protocol.design_properties import MaterialDesign, MemberDesign
 
 
-MATERIAL_DESIGN_FIELDS = frozenset({
-    "f", "fv", "fc", "fck", "ft", "ftk", "Ec", "Es", "fy", "fyk", "fstk", "fyv",
-    "fy_compression", "ecu", "alpha1", "beta1",
-})
-MEMBER_DESIGN_FIELDS = frozenset({
-    "l0", "h0", "phi", "phi_b", "phi_axial", "beta1", "btLimit",
-    "lambdaLimit", "deflectionLimitN", "axialRatioLimit", "crackWidthLimit",
-    "alpha_cr", "serviceability_result_keys", "reinforcement", "rebar_grade",
-})
+MATERIAL_DESIGN_FIELDS = frozenset(MaterialDesign.model_fields)
+MEMBER_DESIGN_FIELDS = frozenset(MemberDesign.model_fields) | {"rebar_grade"}
 
 
 def content_hash(value: dict) -> str:
@@ -40,6 +35,25 @@ def project_commercial_model(source: dict, engine: str) -> dict:
     from native_defaults import apply_native_defaults
     assumptions = apply_native_defaults(analysis, engine)
     separated = {}
+    input_evidence = {}
+    for material in analysis.get("materials", []):
+        extra = material.get("extra")
+        if not isinstance(extra, dict):
+            continue
+        prefix = f"materials.{material['id']}.extra"
+        quantity = extra.get("densityInput")
+        if quantity is not None:
+            factors = {"kg/m3": 1., "t/m3": 1000., "N/m3": 1./9.80665, "kN/m3": 1000./9.80665}
+            if (not isinstance(quantity, dict) or set(quantity) != {"value", "unit"}
+                    or type(quantity.get("value")) not in (int, float) or not math.isfinite(quantity["value"])
+                    or quantity["value"] <= 0 or not isinstance(quantity.get("unit"), str) or quantity["unit"] not in factors
+                    or not math.isclose(float(material.get("rho", 0)), quantity["value"]*factors[quantity["unit"]], rel_tol=1e-12, abs_tol=0)):
+                raise ValueError("Material density source conflicts with canonical rho / 原始密度数值及单位与规范rho不一致")
+            input_evidence[prefix + ".densityInput"] = extra.pop("densityInput")
+        if isinstance(extra.get("source"), str) and extra["source"].strip():
+            input_evidence[prefix + ".source"] = extra.pop("source")
+        if not extra:
+            material.pop("extra")
     for collection, fields in (("materials", MATERIAL_DESIGN_FIELDS), ("elements", MEMBER_DESIGN_FIELDS)):
         for row in analysis.get(collection, []):
             prefix = f"{collection}.{row['id']}"
@@ -64,7 +78,7 @@ def project_commercial_model(source: dict, engine: str) -> dict:
     }
     return {"schema": "sclaw-commercial-projection/v1", "engine": engine,
             "sourceModelHash": content_hash(source), "analysisModelHash": content_hash(analysis),
-            "analysisModel": analysis, "designInputs": design_inputs, "assumptions": assumptions,
+            "analysisModel": analysis, "designInputs": design_inputs, "inputEvidence": input_evidence, "assumptions": assumptions,
             "designInputsHash": content_hash(design_inputs)}
 
 

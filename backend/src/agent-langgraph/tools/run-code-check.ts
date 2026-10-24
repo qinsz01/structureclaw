@@ -76,7 +76,10 @@ export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
           messageZh: '原生设计需要 PKPM/YJK 分析；当前 OpenSees 应使用内置校核。这是引擎不匹配，不是 StructureClaw 需要付费版本。',
           nextAction: 'Use provider auto/builtin without native design arguments; report missing design inputs instead of asking.' }));
       }
-      if (resolveCheckProvider(input.provider, analysis) === 'native') {
+      const checkProvider = resolveCheckProvider(input.provider, analysis, requestedDesignCode, state.model);
+      if (input.design?.code !== undefined && input.design.code !== requestedDesignCode) throw new Error('NATIVE_DESIGN_CODE_CONFLICT: design.code must equal designCode / 原生设计规范标识冲突');
+      if (checkProvider === 'builtin' && input.design && Object.keys(input.design).length) throw new Error('NATIVE_DESIGN_PROFILE_REQUIRED: native design conditions cannot be ignored by a builtin check / 内置校核不能静默忽略原生设计条件，请明确匹配的原生规范配置');
+      if (checkProvider === 'native') {
         const meta = isRecord(analysis.meta) ? analysis.meta : {};
         const engineId = `builtin-${resultEngine(analysis)}`;
         if (input.engineId && input.engineId !== engineId) throw new Error('DESIGN_ENGINE_MISMATCH');
@@ -156,8 +159,11 @@ export function createRunCodeCheckTool(skillRuntime: AgentSkillRuntime) {
         designCode: z
           .string()
           .describe('Design code to check against (GB50010, GB50011, GB/T 50011-2010-2024, GB50017, JGJ3)'),
-        provider: z.enum(['auto', 'native', 'builtin']).optional().describe('Commercial engines prefer native design; OpenSees uses builtin checks / 商业引擎优先原生设计，OpenSees采用公共校核。'),
-        design: z.record(z.string(), z.unknown()).optional().describe('Explicit native design conditions / 明确的原生设计条件。'),
+        provider: z.enum(['auto', 'native', 'builtin']).optional().describe('Use auto unless the user explicitly selects a check provider. Auto matches the requested code against calibrated native profiles; it does not make every PKPM/YJK check native. / 默认auto按所求规范选择已实现的校核，不因PKPM/YJK分析就显式指定native。'),
+        design: z.object({ mode: z.enum(['code-check', 'required-reinforcement']).optional(),
+          adoptedNativeDefaults: z.boolean().optional().describe('True only for explicitly adopted native defaults / 明确采用原生默认参数时为true'),
+          parameters: z.record(z.string(), z.unknown()).optional(), requested: z.literal(true).optional(), code: z.string().optional(),
+        }).strict().optional().describe('Native-only request; omit for builtin checks. mode and adoptedNativeDefaults use these exact names. designCode must identify a calibrated native code profile. / 仅原生设计使用；内置校核省略，字段名不得猜测。'),
         engineId: z.string().optional().describe('Optional engine ID'),
         requestScope: requestScopeSchema.optional().describe('The current goal with design=true; preserve requested responses. / 当前目标（design=true），保留原有所求结果。'),
       }),

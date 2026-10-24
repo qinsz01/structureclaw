@@ -459,7 +459,9 @@ export class AnalysisService {
     if (sourceMeta.settingsHash !== analysisSettingsHash(analysis.type, sourceParameters.engineId, sourceParameters)) throw new Error('ANALYSIS_SETTINGS_MISMATCH');
     const currentInput = { id: analysis.id, type: analysis.type, model: { updatedAt: analysis.model.updatedAt },
       parameters: { equals: analysis.parameters === null ? Prisma.JsonNull : analysis.parameters as Prisma.InputJsonValue } };
-    if (resolveCheckProvider(params.provider, results) === 'native') {
+    const checkProvider = resolveCheckProvider(params.provider, results, params.code, model);
+    if (checkProvider === 'builtin' && params.design && Object.keys(params.design).length) throw new Error('NATIVE_DESIGN_PROFILE_REQUIRED');
+    if (checkProvider === 'native') {
       const engineId = `builtin-${resultEngine(results)}`;
       if (params.engineId && params.engineId !== engineId) throw new Error('DESIGN_ENGINE_MISMATCH');
       const parameters = { ...sourceParameters, engineId, design: { ...params.design, requested: true, code: params.code } };

@@ -1,12 +1,16 @@
 import { isRecord, modelHash, contentHash, type ModelRecord } from './model-state.js';
 import { resultEngine } from './result-data.js';
 import { executionStatus } from './analysis-runs.js';
+import { nativeDesignCodes } from './native-design-codes.js';
 
 export type CodeCheckProvider = 'auto' | 'native' | 'builtin';
-export function resolveCheckProvider(provider: CodeCheckProvider | undefined, analysis: ModelRecord): 'native' | 'builtin' {
+export function resolveCheckProvider(provider: CodeCheckProvider | undefined, analysis: ModelRecord, code?: string, model?: ModelRecord | null): 'native' | 'builtin' {
   const commercial = ['pkpm', 'yjk'].includes(resultEngine(analysis));
   if (provider === 'native' && !commercial) throw new Error('NATIVE_DESIGN_ENGINE_REQUIRED: native design requires a PKPM/YJK analysis; OpenSees uses builtin checks. / 原生设计需要 PKPM/YJK 的分析结果；OpenSees 使用内置校核，并非需要 StructureClaw 付费版本。');
-  return provider === 'builtin' ? 'builtin' : commercial ? 'native' : 'builtin';
+  if (provider === 'native') return 'native';
+  if (provider === 'builtin' || !commercial) return 'builtin';
+  const snapshot = isRecord(analysis.modelSnapshot) ? analysis.modelSnapshot : undefined;
+  return code === undefined || nativeDesignCodes(resultEngine(analysis), model ?? snapshot).includes(code) ? 'native' : 'builtin';
 }
 
 /** Native combinations are a separate design scope, never the selected analysis case. */

@@ -67,6 +67,38 @@ def test_unknown_physics_disguised_as_design_is_not_silently_removed():
 
 
 @pytest.mark.parametrize("engine", ["pkpm", "yjk"])
+def test_density_source_is_preserved_as_evidence_while_canonical_mass_density_reaches_solver(engine):
+    model = source()
+    model["materials"][0].update(rho=25*(1000/9.80665), extra={
+        "source": "accepted proposal", "densityInput": {"value": 25, "unit": "kN/m3"}})
+    before = copy.deepcopy(model)
+    result = project_commercial_model(model, engine)
+    assert model == before
+    assert result["analysisModel"]["materials"][0]["rho"] == model["materials"][0]["rho"]
+    assert "extra" not in result["analysisModel"]["materials"][0]
+    assert result["inputEvidence"]["materials.C.extra.densityInput"] == {"value": 25, "unit": "kN/m3"}
+    assert result["inputEvidence"]["materials.C.extra.source"] == "accepted proposal"
+    model["materials"][0]["rho"] = 2500
+    with pytest.raises(ValueError, match="density source conflicts"):
+        project_commercial_model(model, engine)
+
+
+@pytest.mark.parametrize("engine", ["pkpm", "yjk"])
+def test_canonical_design_basis_and_requested_checks_survive_the_elastic_projection(engine):
+    from structure_protocol.design_properties import MaterialDesign, MemberDesign
+    model = source()
+    model["materials"][0]["design"] = MaterialDesign(fc=14.3, basis={"fc": "confirmed design input"}).model_dump(exclude_none=True)
+    model["elements"][0]["design"] = MemberDesign(l0=3000, requested_checks=["beam-flexure"],
+                                                basis={"l0": "confirmed effective length"}).model_dump(exclude_none=True)
+    before = copy.deepcopy(model)
+    result = project_commercial_model(model, engine)
+    assert model == before
+    for collection, identity in (("materials", "C"), ("elements", "B")):
+        assert result["designInputs"]["fields"][f"{collection}.{identity}.design"] == before[collection][0]["design"]
+        assert "design" not in result["analysisModel"][collection][0]
+
+
+@pytest.mark.parametrize("engine", ["pkpm", "yjk"])
 def test_characteristic_compressive_strength_is_retained_without_changing_elastic_properties(engine):
     model = source()
     model["materials"][0]["fck"] = 30.
