@@ -50,8 +50,14 @@ export function useConversationRuntime(conversationId: string, streaming: boolea
   }, [conversationId, refresh, invalidate])
   useEffect(() => {
     if (!conversationId || (!streaming && !view?.busy)) return
-    const timer = setInterval(() => { void refresh().catch(() => {}) }, 2000)
-    return () => clearInterval(timer)
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout>
+    const poll = async () => {
+      await refresh().catch(() => {})
+      if (!cancelled) timer = setTimeout(poll, 2000)
+    }
+    timer = setTimeout(poll, 2000)
+    return () => { cancelled = true; clearTimeout(timer) }
   }, [conversationId, streaming, view?.busy, refresh])
   return { view: view?.conversationId === conversationId ? view : null, error, loading, refresh }
 }

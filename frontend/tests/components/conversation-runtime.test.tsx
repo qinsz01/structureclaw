@@ -6,9 +6,27 @@ const snapshot = (id: string, waitingForReply = false) => ({ conversationId: id,
   question: waitingForReply ? 'Support?' : null, options: [], modelRevision: 0, modelPending: false,
   policy: null, usage: null, analysis: { current: false, runId: null, resultKey: null, reason: 'ANALYSIS_REQUIRED' },
   report: { current: false, runId: null }, jobs: [] })
-afterEach(() => { cleanup(); vi.restoreAllMocks() })
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks() })
 
 describe('authoritative conversation state', () => {
+  it('waits for a slow status read before polling again so the completed session can unlock', async () => {
+    vi.useFakeTimers()
+    let finish!: (value: Response) => void
+    const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(Response.json({ ...snapshot('a'), busy: true }))
+      .mockImplementation(() => new Promise<Response>(resolve => { finish = resolve }))
+    const { result } = renderHook(() => useConversationRuntime('a', false))
+    await act(async () => {})
+    expect(result.current.view?.busy).toBe(true)
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
+    expect(fetch).toHaveBeenCalledTimes(2)
+    await act(async () => { await vi.advanceTimersByTimeAsync(8000) })
+    expect(fetch).toHaveBeenCalledTimes(2)
+    await act(async () => { finish(Response.json(snapshot('a'))) })
+    expect(result.current.view?.busy).toBe(false)
+    await act(async () => { await vi.advanceTimersByTimeAsync(8000) })
+    expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
   it('recovers a paused state after a fresh mount, clears it on new chat and rejects late previous-chat responses', async () => {
     let finishA!: (value: Response) => void
     let slow = false
