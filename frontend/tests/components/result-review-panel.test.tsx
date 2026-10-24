@@ -59,6 +59,31 @@ function workspaceFixture(placeholder = false) {
 }
 
 describe('inline workspace figure', () => {
+  it.each(['en', 'zh'] as const)('finishes its own pending figure read while session busy polling changes (%s)', async locale => {
+    testLocale.current = locale
+    const posts = workspaceFixture()
+    const fixture = vi.mocked(fetch).getMockImplementation()!
+    let release!: () => void
+    const gate = new Promise<void>(resolve => { release = resolve })
+    vi.mocked(fetch).mockImplementation(async (...args) => {
+      const response = await fixture(...args)
+      if (args[1]?.method) await gate
+      return response
+    })
+    const props = { conversationId: 'A', locale, onClose: vi.fn(), onUsageChanged: vi.fn() }
+    const { rerender } = render(<ResultReviewPanel {...props} open disabled={false} />)
+    await waitFor(() => expect(posts).toHaveLength(1))
+    rerender(<ResultReviewPanel {...props} open disabled />)
+    await act(async () => { release(); await gate })
+    const scene = await screen.findByTestId('test-scene')
+    expect(screen.getByRole('button', { name: locale === 'en' ? 'Query selected result' : '查询所选结果' })).toBeDisabled()
+    rerender(<ResultReviewPanel {...props} open disabled={false} />)
+    await waitFor(() => expect(screen.getByRole('button', { name: locale === 'en' ? 'Query selected result' : '查询所选结果' })).toBeEnabled())
+    expect(screen.getByTestId('test-scene')).toBe(scene)
+    expect(posts).toHaveLength(1)
+    expect(props.onUsageChanged).toHaveBeenCalledOnce()
+  })
+
   it.each(['en', 'zh'] as const)('loads immediately, links both selectors and scene, and keeps free view choice (%s)', async locale => {
     testLocale.current = locale
     const posts = workspaceFixture()

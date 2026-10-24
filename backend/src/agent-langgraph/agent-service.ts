@@ -65,6 +65,7 @@ export function getAgentService(): LangGraphAgentService {
 
 export class LangGraphAgentService {
   private readonly sessionLock = new SessionLock();
+  private readonly resultQuerySnapshots = new Map<string, { state: AgentState; clarification: ReturnType<typeof clarificationState> }>();
   readonly skillRuntime: AgentSkillRuntime;
   private readonly checkpointer: FileCheckpointer;
   private readonly workspaceRoot: string;
@@ -599,9 +600,13 @@ export class LangGraphAgentService {
     try {
       const graph = await this.getGraph();
       const config = { configurable: { thread_id: conversationId } };
-      const stateSnapshot = await graph.getState(config);
-      const state = stateSnapshot.values as AgentState;
-      const clarification = clarificationState(state, stateSnapshot.tasks);
+      // Result reads cannot change the physical model or its runs. Polling their
+      // busy status can reuse the locked snapshot instead of decoding the same
+      // native archive concurrently with the read itself.
+      const queried = this.resultQuerySnapshots.get(conversationId);
+      const stateSnapshot = queried ? null : await graph.getState(config);
+      const state = queried?.state ?? stateSnapshot!.values as AgentState;
+      const clarification = queried?.clarification ?? clarificationState(state, stateSnapshot!.tasks);
       const usage = sessionRunUsage(state);
       const jobs = await this.conversationJobs(state, usage);
       return buildConversationSessionSnapshot({ conversationId, state, clarification, usage, jobs,
@@ -663,8 +668,11 @@ export class LangGraphAgentService {
       input.signal?.throwIfAborted();
       const graph = await this.getGraph();
       const graphConfig = { configurable: { thread_id: conversationId } };
-      let state = (await graph.getState(graphConfig)).values as AgentState;
+      const snapshot = await graph.getState(graphConfig);
+      let state = snapshot.values as AgentState;
       if (input.revisionToken !== inputReviewRevision(state)) throw new Error('INPUT_REVIEW_REVISION_CONFLICT');
+      if (input.tool === 'query_results') this.resultQuerySnapshots.set(conversationId,
+        { state, clarification: clarificationState(state, snapshot.tasks) });
       const initialized = Boolean(state.runPolicy && state.runUsage);
       if (purpose === 'result') {
         if (!initialized) throw new Error('CONVERSATION_POLICY_REQUIRED');
@@ -744,7 +752,10 @@ export class LangGraphAgentService {
           : purpose === 'input' ? await this.getInputReview(conversationId) : await this.getResultReview(conversationId);
         return { result, success: output?.status !== 'error' && !failed(result) && !failed(isRecord(result) ? result.result : undefined), review };
       });
-    } finally { release(); }
+    } finally {
+      if (input.tool === 'query_results') this.resultQuerySnapshots.delete(conversationId);
+      release();
+    }
   }
 
   async listSkills(): Promise<{ skills: SkillManifest[] }> {

@@ -52,14 +52,29 @@ describe('same-conversation input review', () => {
     await graph.invoke({...initial,analysisRuns:{owned:saved},resultQuantities:{previous:{value:42,unit:'kN'}}},config);
     const before=await service.getResultReview(id);
     const read=jest.spyOn(graph,'getState');
-    const action=await service.invokeResultReviewTool(id,{revisionToken:before.revisionToken,tool:'query_results',
+    const persist=graph.updateState.bind(graph);
+    let release, entered;
+    const gate=new Promise(resolve=>{release=resolve;});
+    const pending=new Promise(resolve=>{entered=resolve;});
+    const write=jest.spyOn(graph,'updateState').mockImplementation(async(...args)=>{
+      entered(); await gate; return persist(...args);
+    });
+    const request=service.invokeResultReviewTool(id,{revisionToken:before.revisionToken,tool:'query_results',
       args:{runId:'owned',resultKey:'case:D',nodeId:'A',field:'displacements',component:'uz',unit:'mm',quantityId:'selected'}});
+    await pending;
+    const during=(await service.getConversationSessionSnapshot(id,'en')).snapshot.runtime;
+    expect(during).toMatchObject({busy:true,waitingForReply:true,question:'Support?'});
+    expect(during.usage.toolCalls).toBe(2);
     expect(read).toHaveBeenCalledTimes(1);
+    release();
+    const action=await request;
+    write.mockRestore();
     read.mockRestore();
     expect(action.success).toBe(true);expect(action.result.quantity.value).toBe(-1);
     const state=(await graph.getState(config)).values;
     expect(state.resultQuantities.previous).toEqual({value:42,unit:'kN'});
     expect(action.review.revisionToken).toBe((await service.getResultReview(id)).revisionToken);
+    expect(service.resultQuerySnapshots.size).toBe(0);
     expect(state.runUsage.toolCalls).toBe(2);
     expect(state.messages.at(-1).tool_calls[0].id).toBe('question');
     await expect(service.invokeResultReviewTool(id,{revisionToken:before.revisionToken,tool:'query_results',args:{runId:'owned'}})).rejects.toThrow('REVISION_CONFLICT');

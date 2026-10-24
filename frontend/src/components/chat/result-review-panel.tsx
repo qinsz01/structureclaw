@@ -132,6 +132,8 @@ export function ResultReviewPanel({ open, onClose, conversationId, locale, disab
   const catalogRef = useRef<Catalog | null>(null)
   const selectionRef = useRef(selection)
   selectionRef.current = selection
+  const disabledRef = useRef(disabled)
+  disabledRef.current = disabled
   const usageChangedRef = useRef(onUsageChanged)
   usageChangedRef.current = onUsageChanged
   const requests = useRef<Promise<unknown>>(Promise.resolve())
@@ -174,7 +176,7 @@ export function ResultReviewPanel({ open, onClose, conversationId, locale, disab
     // Snapshot reads and explicit queries share the saved revision/usage ledger.
     // Serialize them and use the revision returned by the preceding action.
     const request = requests.current.then(async () => {
-      if (!catalogRef.current || disabled || ticket !== generation.current) return null
+      if (!catalogRef.current || (!background && disabledRef.current) || ticket !== generation.current) return null
       if (!background) setBusy(true)
       setError('')
       try {
@@ -198,8 +200,11 @@ export function ResultReviewPanel({ open, onClose, conversationId, locale, disab
     })
     requests.current = request
     return request
-  }, [conversationId, disabled, endpoint])
-  const canLoadFigure = Boolean(open && item?.available && catalog?.allowedTools.includes('query_results') && !disabled)
+  }, [conversationId, endpoint])
+  // Reading an archived figure takes the chat lock too. Busy polling must not
+  // cancel that same read and start it again when the lock is released. The
+  // backend still enforces the saved permissions, revision and session lock.
+  const canLoadFigure = Boolean(open && item?.available && catalog?.allowedTools.includes('query_results'))
   const { runId, resultKey, modeNumber, timeIndex } = selection
   useEffect(() => {
     if (!canLoadFigure) { setFigureData(null); setFigureLoading(false); return }
