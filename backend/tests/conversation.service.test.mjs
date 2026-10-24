@@ -34,6 +34,18 @@ describe('ConversationService locale handling', () => {
     expect(chinese.title).toBe('新对话');
   });
 
+  test('checks identity without selecting archived numerical payloads or messages', async () => {
+    const lookup = jest.fn(async ({ where, select }) => {
+      expect(select).toEqual({ id: true });
+      return where.id === 'present' ? { id: 'present' } : null;
+    });
+    prisma.conversation.findUnique = lookup;
+    const svc = new ConversationService();
+    expect(await svc.conversationExists('present')).toBe(true);
+    expect(await svc.conversationExists('missing')).toBe(false);
+    expect(lookup).toHaveBeenCalledTimes(2);
+  });
+
   test('deletes an existing conversation', async () => {
     prisma.conversation.findFirst = async () => ({ id: 'conv-delete' });
     const svc = new ConversationService();

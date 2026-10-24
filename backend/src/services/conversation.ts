@@ -114,6 +114,11 @@ function getDefaultConversationTitle(locale: AppLocale): string {
 }
 
 export class ConversationService {
+  /** Existence checks must not load saved numerical snapshots or message history. */
+  async conversationExists(id: string): Promise<boolean> {
+    return Boolean(await prisma.conversation.findUnique({ where: { id }, select: { id: true } }));
+  }
+
   async createConversation(params: { title?: string; type: string; locale?: AppLocale }) {
     const locale = resolveLocale(params.locale);
     return prisma.conversation.create({
