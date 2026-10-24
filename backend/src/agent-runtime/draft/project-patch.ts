@@ -1,5 +1,5 @@
 import { EngineeringValidationError } from '../../engineering/validation-error.js';
-import { frameFloorAreaM2, isFrameFloorTotal } from '../../skill-shared/modelling/frame-floor-cases.js';
+import { frameFloorAreaM2, hasUnresolvedFrameFloorArea, isFrameFloorTotal } from '../../skill-shared/modelling/frame-floor-cases.js';
 import { normalizeFrameBoundary } from './legacy-fields.js';
 import { isGlobalFrameNodeRole, isFrameFloorTarget, resolveFrameLoadStory, isAllFrameStoriesTarget } from '../../skill-shared/modelling/frame-loads.js';
 /**
@@ -232,6 +232,7 @@ function projectFrameFloorLoads(loads: EngineeringDraftLoad[], patch: DraftExtra
 
 /** Recompute canonical floor channels after partial loads and geometry have been merged. */
 export function reprojectFrameFloorLoadValues(state: DraftState, previous?: DraftState): DraftState {
+  if (hasUnresolvedFrameFloorArea(state)) return state;
   const loads = state.engineeringDraft?.loads ?? [];
   const ownedFields = new Set([...(previous?.engineeringDraft?.loads ?? []), ...loads]
     .filter(isFrameFloorTotal).map(frameFloorLoadField));
