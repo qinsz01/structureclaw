@@ -9,6 +9,31 @@ const baseState = {
 };
 
 describe("agent system prompt", () => {
+  test.each(['en', 'zh'].flatMap(locale => ['enabled', 'disabled'].map(knowledge => [locale, knowledge])))("provider planning exposes declared native dimensions without changing engine policy (%s, guidance %s)", async (locale, knowledge) => {
+    const { buildSystemMessages } = await import('../../../dist/agent-langgraph/system-prompt.js');
+    const { listProviders, getProvider } = await import('../../../dist/providers/catalog.js');
+    const { resolveRunPolicy } = await import('../../../dist/runtime/run-policy.js');
+    const runPolicy = resolveRunPolicy({ availableSkillIds: [], availableToolIds: [], defaultToolIds: [],
+      requested: { knowledge, providers: { preferredIds: ['pkpm-static'], disabledIds: ['yjk-static'] } } });
+    const saved = structuredClone(runPolicy);
+    const [message] = buildSystemMessages({ state: { ...baseState, locale, runPolicy }, skillManifests: [] });
+    const content = String(message.content);
+    for (const provider of listProviders('solver')) {
+      const line = content.split('\n').find(line => line.startsWith(`- ${provider.id}:`));
+      expect(line).toContain(JSON.stringify({ dimensions: provider.dimensions,
+        analysisTypes: provider.supportedAnalysisTypes, modelFamilies: provider.supportedModelFamilies }));
+    }
+    expect(getProvider('pkpm-static').dimensions).toEqual(['3D']);
+    expect(getProvider('yjk-static').dimensions).toEqual(['3D']);
+    expect(getProvider('opensees-static').dimensions).toEqual(['2D', '3D']);
+    expect(content).toMatch(/pkpm-static:.*\[preferred \/ 优先\]/);
+    expect(content).toMatch(/yjk-static:.*\[disabled \/ 已禁用\]/);
+    if (knowledge === 'disabled') expect(content).not.toContain(getProvider('pkpm-static').description[locale]);
+    else expect(content).toContain(getProvider('pkpm-static').description[locale]);
+    expect(content).toContain(locale === 'zh' ? '不得扩展维度、改变结构或换引擎绕过' : 'never expand its dimension, alter the structure or substitute an engine');
+    expect(runPolicy).toEqual(saved);
+  });
+
   test.each(["zh", "en"])("a sole generic skill skips redundant detection and keeps providers independent (%s)", async locale => {
     const { buildSystemMessages } = await import("../../../dist/agent-langgraph/system-prompt.js");
     const manifest = { id: 'generic', name: { zh: '通用', en: 'Generic' }, description: { zh: '建模', en: 'Modelling' },
