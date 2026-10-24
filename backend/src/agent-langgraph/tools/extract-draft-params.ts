@@ -16,6 +16,7 @@ import type { AgentConfigurable } from '../configurable.js';
 import type { AgentSkillPlugin, DraftExtraction, DraftState, StructuralTypeMatch } from '../../shared/types/agent.js';
 import { invalidateStaleResults } from '../../engineering/model-state.js';
 import { isRecord } from '../../engineering/model-record.js';
+import { EngineeringValidationError } from '../../engineering/validation-error.js';
 import { bindVerifiedSectionTable } from '../../engineering/section-evidence.js';
 import { mergeInputEvidence } from '../../engineering/input-evidence.js';
 import { engineeringModelSchema, draftDesignSchema, hasDraftDesignInputs, assertDraftDesignInputs, draftSectionShapeSchema, normalizeDraftSectionInputs } from '../../engineering/model-edit-contract.js';
@@ -171,6 +172,20 @@ async function extractAndMergeDraft(options: {
     sectionShapeSchema: designContract ? draftSectionShapeSchema(designContract) : undefined,
     validatePatch: async candidate => {
       const result = await prepareDraft(candidate);
+      const draft = result.nextState.engineeringDraft;
+      if (plugin.structureType === 'frame' && plugin.id !== 'generic' && currentRunPolicy()?.builder !== 'llm'
+        && !(Array.isArray(candidate.draftIssues) && candidate.draftIssues.length)) {
+        const invalid = draft?.loads?.filter(load => load.target === 'column-top' && !load.location?.nodeRole && !load.selector
+          && !draft.topology?.nodes?.some(node => node.id === load.target)
+          && !(Array.isArray(state?.model?.nodes) && state.model.nodes.some(node => isRecord(node) && node.id === load.target)));
+        if (invalid?.length) throw new EngineeringValidationError('FRAME_NODE_SELECTOR_INVALID: column-top is a single-column selector, not a frame node ID. Re-extract the supplied frame target into an exact node ID or location.nodeRole. If the user target is genuinely ambiguous, declare draftIssues instead of guessing an all-node group or asking for unrelated floor totals. / column-top仅限单柱；请把已给框架目标写为准确节点ID或nodeRole。只有用户目标确实不明确时才声明draftIssues，不得默认全节点或补问无关楼层总荷载');
+      }
+      if (plugin.id !== 'generic' && currentRunPolicy()?.builder !== 'llm' && !draft?.model
+        && draft?.topology?.nodes?.length && draft.topology.members?.length && draft.loads?.length
+        && draft.loads.every(load => load.direction !== undefined)
+        && !draft.loadCases?.some(row => Array.isArray(row.loads) && row.loads.length)) {
+        throw new EngineeringValidationError('DRAFT_EXPLICIT_LOAD_REPRESENTATION_INVALID: explicit topology already has confirmed source loads. Encode their exact node/member IDs, signs and positions in loadCases[].loads. Do not ask the user for internal identifiers or reconfirm the supplied force. / 显式拓扑已有已确认源荷载，请将准确实体编号、有符号分量及位置写入loadCases[].loads，不向用户索要内部编号或重复确认原荷载');
+      }
       const evidence = conversationSectionEvidence(state);
       const confirmed = result.nextState.engineeringDraft?.sectionRecords?.some(section =>
         isRecord(section.extra) && isRecord(section.extra.confirmation));
@@ -178,6 +193,13 @@ async function extractAndMergeDraft(options: {
       const missingAssignment = issues.find(issue => /(?:beam|column|member)\.sectionId/.test(issue));
       if (missingAssignment && !(Array.isArray(candidate.draftIssues) && candidate.draftIssues.length)) {
         throw new Error(`MODEL_EDIT_FIELD_INVALID: ${missingAssignment}. Accepted sections must include templateAssignments.beam/column/member.sectionId using the stored section IDs and the roles already stated in the answered question. Repair the extraction; do not ask the user to confirm the same assignment again. If the supplied roles are genuinely ambiguous, declare that ambiguity in draftIssues. / 已确认截面须同时写入已说明的构件角色引用；修复提取，不重复要求用户确认。`);
+      }
+      // A complete template draft must also have valid generated references.
+      // Feed representation errors back to the same LLM before publishing the
+      // patch; internal node IDs and selectors are not new user facts.
+      if (plugin.id !== 'generic' && plugin.manifest.domain === 'structure-type' && currentRunPolicy()?.builder !== 'llm'
+        && computeDraftMissing(plugin, result.nextState, 'execution').critical.length === 0) {
+        await plugin.handler.buildModel(structuredClone(result.nextState));
       }
       prepared = result;
     },

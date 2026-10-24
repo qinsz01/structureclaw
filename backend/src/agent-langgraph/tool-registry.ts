@@ -41,6 +41,7 @@ export interface AgentToolDefinition {
   risk: AgentToolRisk;
   defaultEnabled: boolean;
   requiresShellGate?: boolean;
+  requiresModelingSkill?: boolean;
   displayName: { zh: string; en: string };
   description: { zh: string; en: string };
   create: (deps: AgentToolFactoryDeps) => StructuredToolInterface;
@@ -59,6 +60,7 @@ export const AGENT_TOOL_DEFINITIONS: readonly AgentToolDefinition[] = [
     displayName: { zh: '查询结果', en: 'Query Results' }, description: { zh: '查询工况、组合和历史运行。', en: 'Query cases, combinations and historical runs.' }, create: () => createQueryResultsTool() },
   {
     id: 'detect_structure_type',
+    requiresModelingSkill: true,
     category: 'engineering',
     risk: 'low',
     defaultEnabled: true,
@@ -71,6 +73,7 @@ export const AGENT_TOOL_DEFINITIONS: readonly AgentToolDefinition[] = [
   },
   {
     id: 'extract_draft_params',
+    requiresModelingSkill: true,
     category: 'engineering',
     risk: 'low',
     defaultEnabled: true,
@@ -83,6 +86,7 @@ export const AGENT_TOOL_DEFINITIONS: readonly AgentToolDefinition[] = [
   },
   {
     id: 'build_model',
+    requiresModelingSkill: true,
     category: 'engineering',
     risk: 'low',
     defaultEnabled: true,

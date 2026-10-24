@@ -120,8 +120,8 @@ exports[`characterization: run policy and ablation surface policy variant builde
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 28580,
-  "systemPromptSha256": "e8e4db590075d6ff08f50fdd64ca1ddc62f8da3a4460b92790b4a83b76f69c15",
+  "systemPromptChars": 28910,
+  "systemPromptSha256": "01d4d58272e9995b0c9d44e1db2ad6837e812d059d171f497b87768d35445556",
 }
 `;
 
@@ -182,6 +182,7 @@ When the user makes a structural design or analysis request, follow this workflo
 **Code checks**: Call run_code_check when the user explicitly asks for a check (requestScope.design=true, retaining the requested responses); "design a beam", enabled code-check skills and a session design code are not check requests. With a current analysis, check directly without re-extracting or rebuilding. Missing inputs never lead to questions or loops; design inputs (design strengths, stability factors, limits, effective lengths) never block ordinary analysis.
 
 **Critical rules**:
+- Generated node/member/case IDs and source-load bindings are modeling work, not missing user facts. Do not reconfirm specified coordinates, groups or loads; bind them with structured selectors/mappings. Repair internal representation errors from diagnostics rather than asking the user to restart or choose internal identifiers.
 - Drawing review: query_model exposes inputEvidence/inputIssues. Use analyze_file region and requiredFields for focused review, then review_input only with observed evidence or explicit user corrections. Map semantic fields with modelField (e.g. nodes.A.x), declare units and apply reviewed values to the model; an unrelated edit cannot clear an unapplied value. Never guess to clear missing inputs.
 - Edits to an existing model: use query_model then edit_model or undo_model with the current revision and stable object IDs; moving a load updates the same ID. Do not recreate the whole model from the last sentence. Current revision: 0; pending build: false.
 - run_analysis computes static cases and combinations separately by default; use query_results with explicit case/combination keys. Mixed cases, historical models and display interpolation cannot justify current calculations.
@@ -385,8 +386,8 @@ exports[`characterization: run policy and ablation surface policy variant defaul
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 28581,
-  "systemPromptSha256": "7ca0cc4b3137a28e8b926910fb5f99cf34a2542403fbb159d547ea7fecc1bbe6",
+  "systemPromptChars": 28911,
+  "systemPromptSha256": "cab6f3931fefe924dcbc3a9f398381117fcf6658dd663968a71f4245e96741ec",
 }
 `;
 
@@ -447,6 +448,7 @@ When the user makes a structural design or analysis request, follow this workflo
 **Code checks**: Call run_code_check when the user explicitly asks for a check (requestScope.design=true, retaining the requested responses); "design a beam", enabled code-check skills and a session design code are not check requests. With a current analysis, check directly without re-extracting or rebuilding. Missing inputs never lead to questions or loops; design inputs (design strengths, stability factors, limits, effective lengths) never block ordinary analysis.
 
 **Critical rules**:
+- Generated node/member/case IDs and source-load bindings are modeling work, not missing user facts. Do not reconfirm specified coordinates, groups or loads; bind them with structured selectors/mappings. Repair internal representation errors from diagnostics rather than asking the user to restart or choose internal identifiers.
 - Drawing review: query_model exposes inputEvidence/inputIssues. Use analyze_file region and requiredFields for focused review, then review_input only with observed evidence or explicit user corrections. Map semantic fields with modelField (e.g. nodes.A.x), declare units and apply reviewed values to the model; an unrelated edit cannot clear an unapplied value. Never guess to clear missing inputs.
 - Edits to an existing model: use query_model then edit_model or undo_model with the current revision and stable object IDs; moving a load updates the same ID. Do not recreate the whole model from the last sentence. Current revision: 0; pending build: false.
 - run_analysis computes static cases and combinations separately by default; use query_results with explicit case/combination keys. Mixed cases, historical models and display interpolation cannot justify current calculations.
@@ -650,8 +652,8 @@ exports[`characterization: run policy and ablation surface policy variant defaul
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 13584,
-  "systemPromptSha256": "23fca533bc8945e92c9cfe6b0fe0315b25661a890155dcc85c7dd276f51fd219",
+  "systemPromptChars": 13698,
+  "systemPromptSha256": "54eda03dbad8483ea04c8e18aca5ba807db53d4702d33d10a1326e8cfab68631",
 }
 `;
 
@@ -712,6 +714,7 @@ exports[`characterization: run policy and ablation surface policy variant defaul
 **规范校核**: 用户明确要求验算/校核时调用 run_code_check（requestScope.design=true，保留原有所求结果）；“设计一个梁”、已勾选的规范技能或会话设计规范都不是校核请求。已有当前分析时直接校核，不重新抽取或建模。缺少输入时不追问、不循环；设计输入（设计强度、稳定系数、限值、计算长度等）从不阻断普通分析。
 
 **关键规则**:
+- 生成节点/构件ID、工况ID及源荷载映射属于建模工作，不是缺失的用户工程输入。用户已明确的坐标、分组和荷载无需再次确认；用结构化选择器或映射绑定生成几何。内部表示错误应依据诊断修正，不得要求用户重开会话或代为决定内部编号。
 - 图纸字段复核：query_model 查看 inputEvidence/inputIssues；analyze_file 可传 region 和 requiredFields 定点复核；只有获得可定位证据或用户明确补充后才 review_input，再将复核值写入模型。语义字段需用 modelField 指定实际模型字段（如 nodes.A.x），明确单位；无关编辑不会解除未应用的复核值。不得用猜测消除缺项。
 - 已有模型的修改：先 query_model 读取版本和稳定对象 ID，再 edit_model 原子修改或 undo_model 撤销；移动荷载修改同一 ID，不从最后一句话重建整个模型。当前版本 0，待构建 false。
 - run_analysis 默认分别计算静力工况与组合；query_results 按明确 resultKey 查询，禁止混用工况、历史模型或显示插值作为计算依据。
@@ -914,8 +917,8 @@ exports[`characterization: run policy and ablation surface policy variant knowle
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 23001,
-  "systemPromptSha256": "50664267f7c15aa73d42a21f6948a3ed7ac98b2037a7b6fe4c73f47b8f0495e4",
+  "systemPromptChars": 23331,
+  "systemPromptSha256": "8eb12e5c173df75cafaf41742077ab314bff976e59361e2969ed26dda350cae8",
 }
 `;
 
@@ -976,6 +979,7 @@ When the user makes a structural design or analysis request, follow this workflo
 **Code checks**: Call run_code_check when the user explicitly asks for a check (requestScope.design=true, retaining the requested responses); "design a beam", enabled code-check skills and a session design code are not check requests. With a current analysis, check directly without re-extracting or rebuilding. Missing inputs never lead to questions or loops; design inputs (design strengths, stability factors, limits, effective lengths) never block ordinary analysis.
 
 **Critical rules**:
+- Generated node/member/case IDs and source-load bindings are modeling work, not missing user facts. Do not reconfirm specified coordinates, groups or loads; bind them with structured selectors/mappings. Repair internal representation errors from diagnostics rather than asking the user to restart or choose internal identifiers.
 - Drawing review: query_model exposes inputEvidence/inputIssues. Use analyze_file region and requiredFields for focused review, then review_input only with observed evidence or explicit user corrections. Map semantic fields with modelField (e.g. nodes.A.x), declare units and apply reviewed values to the model; an unrelated edit cannot clear an unapplied value. Never guess to clear missing inputs.
 - Edits to an existing model: use query_model then edit_model or undo_model with the current revision and stable object IDs; moving a load updates the same ID. Do not recreate the whole model from the last sentence. Current revision: 0; pending build: false.
 - run_analysis computes static cases and combinations separately by default; use query_results with explicit case/combination keys. Mixed cases, historical models and display interpolation cannot justify current calculations.
@@ -1176,8 +1180,8 @@ exports[`characterization: run policy and ablation surface policy variant routin
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 28581,
-  "systemPromptSha256": "7ca0cc4b3137a28e8b926910fb5f99cf34a2542403fbb159d547ea7fecc1bbe6",
+  "systemPromptChars": 28911,
+  "systemPromptSha256": "cab6f3931fefe924dcbc3a9f398381117fcf6658dd663968a71f4245e96741ec",
 }
 `;
 
@@ -1238,6 +1242,7 @@ When the user makes a structural design or analysis request, follow this workflo
 **Code checks**: Call run_code_check when the user explicitly asks for a check (requestScope.design=true, retaining the requested responses); "design a beam", enabled code-check skills and a session design code are not check requests. With a current analysis, check directly without re-extracting or rebuilding. Missing inputs never lead to questions or loops; design inputs (design strengths, stability factors, limits, effective lengths) never block ordinary analysis.
 
 **Critical rules**:
+- Generated node/member/case IDs and source-load bindings are modeling work, not missing user facts. Do not reconfirm specified coordinates, groups or loads; bind them with structured selectors/mappings. Repair internal representation errors from diagnostics rather than asking the user to restart or choose internal identifiers.
 - Drawing review: query_model exposes inputEvidence/inputIssues. Use analyze_file region and requiredFields for focused review, then review_input only with observed evidence or explicit user corrections. Map semantic fields with modelField (e.g. nodes.A.x), declare units and apply reviewed values to the model; an unrelated edit cannot clear an unapplied value. Never guess to clear missing inputs.
 - Edits to an existing model: use query_model then edit_model or undo_model with the current revision and stable object IDs; moving a load updates the same ID. Do not recreate the whole model from the last sentence. Current revision: 0; pending build: false.
 - run_analysis computes static cases and combinations separately by default; use query_results with explicit case/combination keys. Mixed cases, historical models and display interpolation cannot justify current calculations.
@@ -1442,8 +1447,8 @@ exports[`characterization: run policy and ablation surface policy variant tools-
     "delete_path",
   ],
   "streaming": true,
-  "systemPromptChars": 28022,
-  "systemPromptSha256": "84c57f8471f0fc231ed8eff54bcf546bb841183d847ea23c2c73a7560bc87296",
+  "systemPromptChars": 28352,
+  "systemPromptSha256": "a243da206b5f5ef4a70cd5eaccb432c31f439e460b7c7353b97e0fbfdd6cc44e",
 }
 `;
 
@@ -1504,6 +1509,7 @@ When the user makes a structural design or analysis request, follow this workflo
 **Code checks**: Call run_code_check when the user explicitly asks for a check (requestScope.design=true, retaining the requested responses); "design a beam", enabled code-check skills and a session design code are not check requests. With a current analysis, check directly without re-extracting or rebuilding. Missing inputs never lead to questions or loops; design inputs (design strengths, stability factors, limits, effective lengths) never block ordinary analysis.
 
 **Critical rules**:
+- Generated node/member/case IDs and source-load bindings are modeling work, not missing user facts. Do not reconfirm specified coordinates, groups or loads; bind them with structured selectors/mappings. Repair internal representation errors from diagnostics rather than asking the user to restart or choose internal identifiers.
 - Drawing review: query_model exposes inputEvidence/inputIssues. Use analyze_file region and requiredFields for focused review, then review_input only with observed evidence or explicit user corrections. Map semantic fields with modelField (e.g. nodes.A.x), declare units and apply reviewed values to the model; an unrelated edit cannot clear an unapplied value. Never guess to clear missing inputs.
 - Edits to an existing model: use query_model then edit_model or undo_model with the current revision and stable object IDs; moving a load updates the same ID. Do not recreate the whole model from the last sentence. Current revision: 0; pending build: false.
 - run_analysis computes static cases and combinations separately by default; use query_results with explicit case/combination keys. Mixed cases, historical models and display interpolation cannot justify current calculations.

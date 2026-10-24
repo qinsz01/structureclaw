@@ -27,7 +27,7 @@ import {
   AgentStateAnnotation,
   type AgentState,
 } from './state.js';
-import { createRegisteredTools, type AgentToolFactoryDeps, type AgentToolDefinition } from './tool-registry.js';
+import { createRegisteredTools, listAgentToolDefinitions, type AgentToolFactoryDeps, type AgentToolDefinition } from './tool-registry.js';
 import { loadUserTools } from './user-tool-loader.js';
 import { getWorkspaceToolRoot } from './config.js';
 import { buildSystemMessages } from './system-prompt.js';
@@ -429,7 +429,9 @@ interface GraphDeps extends AgentToolFactoryDeps {
 
 function selectActiveTools(tools: StructuredToolInterface[], toolContext: ToolContext): StructuredToolInterface[] {
   const activeIds = new Set(toolContext.activeToolIds);
-  return tools.filter((toolDefinition) => activeIds.has(toolDefinition.name));
+  const unavailable = new Set(toolContext.skillScope?.length === 0
+    ? listAgentToolDefinitions().filter(definition => definition.requiresModelingSkill).map(definition => definition.id) : []);
+  return tools.filter((toolDefinition) => activeIds.has(toolDefinition.name) && !unavailable.has(toolDefinition.name));
 }
 
 export async function buildAgentGraph(deps: GraphDeps) {
