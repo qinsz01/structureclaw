@@ -3,6 +3,7 @@ import { draftFieldValues } from '../draft-diagnostics.js';
 import { validDraftValue } from '../../engineering/draft-contract.js';
 import { isDeepStrictEqual } from 'node:util';
 import type { DraftExtraction, DraftState } from '../../shared/types/agent.js';
+import { normalizeFloorLoads } from './normalize.js';
 
 type RecordValue = Record<string, unknown>;
 const isRecord = (value: unknown): value is RecordValue => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -35,10 +36,30 @@ export function draftChangedFields(before: DraftState | undefined, after: DraftS
 }
 
 /** Read back normalized extracted values, not keywords in user prose. Already stored values are retained. */
-export function unappliedDraftFields(patch: DraftExtraction | undefined, after: DraftState | undefined) {
+export function unappliedDraftFields(patch: DraftExtraction | undefined, after: DraftState | undefined, source?: RecordValue) {
+  const supplied = draftValues(patch);
+  // A canonical load declaration generates this legacy view during compilation. Audit
+  // its source loads, while retaining the check for explicitly supplied floor totals.
+  if (source && !Object.hasOwn(source, 'floorLoads') && patch?.engineeringDraft?.loads) delete supplied.floorLoads;
+  let rejectedFloors = false;
+  if (source && Object.hasOwn(source, 'floorLoads')) {
+    delete supplied.floorLoads;
+    const rows = source.floorLoads;
+    const identified = Array.isArray(rows) && rows.every(row => isRecord(row)
+      && ['number', 'string'].includes(typeof row.story) && Number.isInteger(Number(row.story)) && Number(row.story) > 0);
+    rejectedFloors = !identified || rows.some(raw => {
+      const row = normalizeFloorLoads([raw])?.[0];
+      if (!row) return true;
+      const actual = after?.floorLoads?.find(item => item.story === row.story);
+      const invalidValue = (['verticalKN', 'liveLoadKN', 'lateralXKN', 'lateralYKN'] as const)
+        .some(key => raw[key] !== undefined && row[key] === undefined);
+      return invalidValue || !actual || Object.entries(row).some(([key, value]) => value !== undefined && !isDeepStrictEqual(value, actual[key as keyof typeof actual]));
+    });
+  }
   const actual = leaves(draftValues(after));
-  return [...leaves(draftValues(patch))].filter(([path, value]) => !path.includes('.extra.') && !isDeepStrictEqual(value, actual.get(path)))
-    .map(([field]) => ({ field, reason: 'NOT_RETAINED',
+  const rejected = [...leaves(supplied)].filter(([path, value]) => !path.includes('.extra.') && !isDeepStrictEqual(value, actual.get(path))).map(([path]) => path);
+  return [...rejected, ...(rejectedFloors ? ['floorLoads'] : [])]
+    .map(field => ({ field, reason: 'NOT_RETAINED',
       message: 'The extracted value was not retained in the draft. / 提取出的值未保留在草稿中。' }));
 }
 

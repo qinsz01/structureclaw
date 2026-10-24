@@ -268,7 +268,7 @@ function buildLlmExtractionResponse(options: {
     missingReasons: missing.critical.map(field => ({ field, reason: missingInputReason(field, requestScope, locale) })),
     llmDraftPatch: draftPatch ?? null,
     appliedDraftUpdate: { clearedFields: patch.clearDraftFields ?? [], order: 'clear-then-merge' },
-    unapplied: [...unappliedDraftFields(patch, nextState),
+    unapplied: [...unappliedDraftFields(patch, nextState, draftPatch ?? undefined),
       ...(Array.isArray(draftPatch?.unapplied) ? draftPatch.unapplied : [])],
     engineeringDraft: nextState.engineeringDraft ?? patch.engineeringDraft ?? null,
     sectionConfirmations: draftSectionConfirmations(nextState),

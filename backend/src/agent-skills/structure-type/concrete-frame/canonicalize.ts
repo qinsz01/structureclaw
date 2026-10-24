@@ -169,12 +169,11 @@ export function canonicalizeConcreteFramePatch(input: ConcreteFramePatchSources)
   const hasConfirmedDeadFloorTotals = mergedPatch.engineeringDraft?.loads?.some(load => isFrameFloorTotal(load)
     && load.caseType !== 'live' && (load.direction === undefined || load.direction === 'gravity' || load.direction === 'globalZ'));
   const shouldStripGravityFloorLoads = hasSemanticGravityLineLoads(mergedPatch) && !hasConfirmedDeadFloorTotals;
-  const floorLoads = mergeFloorLoadsByStory(
-    input.existingState?.floorLoads,
-    shouldStripGravityFloorLoads ? stripDeadFloorLoadValues(mergedPatch.floorLoads) : mergedPatch.floorLoads,
-  );
+  const floorLoads = shouldStripGravityFloorLoads ? stripDeadFloorLoadValues(mergedPatch.floorLoads) : mergedPatch.floorLoads;
   if (floorLoads) {
     next.floorLoads = floorLoads;
+  } else {
+    delete next.floorLoads;
   }
 
   next.frameDimension = resolveConcreteFrameDimension(next, input.existingState, floorLoads);

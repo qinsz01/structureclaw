@@ -167,10 +167,7 @@ export function canonicalizeFramePatch(input: FramePatchSources): DraftExtractio
     shouldStripGravityFloorLoads ? stripDeadFloorLoadValues(mergedPatch.floorLoads) : mergedPatch.floorLoads,
     mergedPatch.engineeringDraft?.loads,
   );
-  const floorLoads = mergeFloorLoadsByStory(
-    input.existingState?.floorLoads,
-    incomingFloorLoads,
-  );
+  const floorLoads = incomingFloorLoads;
   if (floorLoads) {
     next.floorLoads = floorLoads;
   } else {
