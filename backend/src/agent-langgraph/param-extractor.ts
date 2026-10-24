@@ -469,7 +469,7 @@ export async function invokeParamExtractor(
     + (patchMode ? '' : '\nRequest goal / 本次所求结果: include top-level requestScope only when this message changes the goal: {responses:[forces|reactions|displacements|rotations|stress|dynamic],design:boolean,report:boolean,outputs:[]}. An ordinary static design/analysis request without specific outputs uses forces, reactions and displacements; add other responses only when requested. design=true only for an explicit code-check request (验算/校核/按规范/code check); "design a beam" is not one. report=true only for a requested report, calculation book or other deliverable document; "design a beam" and specific results leave it false. Do not infer design from enabled skills. Missing material must not prevent this scope. Retain the prior goal for a clarification answer. / 普通静力设计或分析未指定输出时，使用内力、反力和位移，其他响应仅在用户要求时加入。仅明确要求规范验算时design=true，“设计”一词不算；仅要求报告、计算书或其他交付文件时report=true，“设计”和只求具体结果时为false；不因勾选技能而请求设计；缺少材料不妨碍声明范围；补参数时保留目标。');
 
   let diagnostic = '';
-  let rejectionFeedback = '';
+  const rejectionFeedback = new Set<string>();
   for (let attempt = 1; attempt <= 3; attempt++) {
     input.signal?.throwIfAborted();
     const mode = patchMode && attempt < 3 ? 'patch' : 'full';
@@ -481,7 +481,7 @@ export async function invokeParamExtractor(
     const prompt = promptFor(mode === 'patch') + (attempt === 2 && patchMode
       ? '\nRETRY CONTRACT / 重试协议: The previous output was empty, invalid or truncated. Return ONLY one short JSON object: {"engineeringDraft":{changed fields only}}; optional clearDraftFields, draftIssues, unapplied. Capture EVERY supplied field independently, including fields unrelated to pending confirmations. No unchanged data or commentary. / 上次输出无效；仅返回短JSON，分别保留用户给出的所有字段，待确认字段不得阻止其他字段。'
       : attempt > 1 && !patchMode ? '\nRETRY CONTRACT / 重试协议: The prior draft was invalid. Return one complete JSON draft object, correct the reported fields and retain every supplied engineering value; no commentary. / 上次草稿无效，请返回完整JSON草稿、修正错误字段并保留全部已给工程数值，不输出说明。'
-        : '') + (rejectionFeedback ? `\nRejected patch feedback / 上次补丁校验反馈: ${rejectionFeedback}\nCorrect these fields while retaining every supplied value. / 修正上述字段并保留所有已提供的值。` : '');
+        : '') + (rejectionFeedback.size ? `\nRejected patch feedback / 本轮已拒绝补丁的校验反馈: ${[...rejectionFeedback].join('\n')}\nCorrect these fields, retain earlier corrections and every supplied value. / 修正上述字段，保留此前修正及所有已提供的值。` : '');
     const start = Date.now();
     let result: {
       content: unknown;
@@ -526,7 +526,7 @@ export async function invokeParamExtractor(
         }
         invalidReason = 'invalid_patch';
         validationError = message.slice(0, 2000);
-        rejectionFeedback = validationError;
+        rejectionFeedback.add(validationError);
       }
     }
     recordRunEvent({ kind: 'param_extractor', skillId: pluginId, attempt, mode, promptChars: prompt.length, durationMs: Date.now() - start,

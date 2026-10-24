@@ -75,6 +75,24 @@ describe('typed engineering validation in parameter extraction', () => {
     expect(state).toEqual(before);
   });
 
+  test.each([false, true])('a later repair retains earlier field diagnostics without extra attempts (patchMode=%s)', async patchMode => {
+    const state = acceptedState(), before = structuredClone(state), prompts = [];
+    const result = await invokeParamExtractor(extractorInput(state, { invoke: async prompt => {
+      prompts.push(prompt);
+      if (prompts.length === 1) return { content: JSON.stringify(patchWithLoad({ unit: 'tons' })) };
+      if (prompts.length === 2) return { content: JSON.stringify(invalidDirection()) };
+      // Reproduces alternating invalid representations if the earlier
+      // diagnostic is lost, while all engineering facts remain unchanged.
+      return { content: JSON.stringify(prompt.includes('LOAD_UNIT_REQUIRED') && prompt.includes('LOAD_DIRECTION_INVALID')
+        ? acceptedPatch() : patchWithLoad({ unit: 'tons' })) };
+    } }, { patchMode }));
+    expect(result).toEqual(acceptedPatch());
+    expect(prompts).toHaveLength(3);
+    expect(prompts[2]).toContain('LOAD_UNIT_REQUIRED');
+    expect(prompts[2]).toContain('LOAD_DIRECTION_INVALID');
+    expect(state).toEqual(before);
+  });
+
   test.each([0, 1, 2])('typed validation obeys the shared repair budget of %i', async repairs => {
     const state = acceptedState(), before = structuredClone(state);
     const run = createRunContext(resolveRunPolicy({
