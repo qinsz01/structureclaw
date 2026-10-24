@@ -1,5 +1,7 @@
 import { test, expect } from '@jest/globals';
 import { randomUUID } from 'node:crypto';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -40,7 +42,18 @@ test('cancellation only signals a worker owned by this service and unknown jobs 
   expect((await service.getRequest(input.requestId)).status).toBe('cancelled');
   await expect(service.cancelRequest(input.requestId)).rejects.toThrow('NOT_OWNED');
   const orphan=randomUUID();
-  await writeFile(path.join(dir,`${orphan}.json`),JSON.stringify({requestId:orphan,status:'running',ownerPid:1234}));
-  expect(await service.getRequest(orphan)).toMatchObject({status:'outcome_unknown',cancellationAvailable:false});
-  await expect(service.cancelRequest(orphan)).rejects.toThrow('NOT_OWNED');
+  const owner=spawn(process.execPath,['-e','process.stdin.resume()'],{stdio:['pipe','ignore','ignore'],windowsHide:true});
+  const exited=once(owner,'exit');
+  try {
+    await once(owner,'spawn');
+    await writeFile(path.join(dir,`${orphan}.json`),JSON.stringify({requestId:orphan,status:'running',ownerPid:owner.pid}));
+    expect(await service.getRequest(orphan)).toMatchObject({status:'running',cancellationAvailable:false});
+    await expect(service.cancelRequest(orphan)).rejects.toThrow('NOT_OWNED');
+    owner.stdin.end();await exited;
+    expect(await service.getRequest(orphan)).toMatchObject({status:'outcome_unknown',cancellationAvailable:false});
+    await expect(service.cancelRequest(orphan)).rejects.toThrow('NOT_OWNED');
+  } finally {
+    if(owner.exitCode===null && owner.signalCode===null) owner.kill();
+    await exited;
+  }
 }));
