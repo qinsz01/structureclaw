@@ -17,6 +17,11 @@ spec.loader.exec_module(runtime)
 
 class NativeProcessTest(unittest.TestCase):
     def setUp(self):
+        # Popen is mocked in the Windows stage tests; expose its Windows flag on
+        # Linux too without changing the platform or production launch behavior.
+        hidden_window = patch.object(subprocess, "CREATE_NO_WINDOW", 0x08000000, create=True)
+        hidden_window.start()
+        self.addCleanup(hidden_window.stop)
         external_cycle = patch.object(runtime, "_assert_no_external_cycle")
         self.external_cycle = external_cycle.start()
         self.addCleanup(external_cycle.stop)

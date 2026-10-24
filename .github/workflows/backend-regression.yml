@@ -14,6 +14,7 @@ on:
   push:
     branches:
       - master
+      - work/research-next
     paths:
       - 'backend/**'
       - 'scripts/**'
@@ -35,6 +36,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Install Linux system dependencies for OpenSeesPy
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gfortran libopenblas-dev
+
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
@@ -44,6 +48,7 @@ jobs:
         run: |
           pip install -r backend/src/agent-skills/analysis/runtime/requirements.txt
           pip install pytest
+          python -c "import numpy, pydantic, openseespy.opensees; print('Analysis runtime imports ready')"
 
       - name: Run Python unit tests
         run: npm run test:python --prefix backend -- -v
@@ -62,6 +67,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Install Linux system dependencies for OpenSeesPy
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gfortran libopenblas-dev
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
@@ -76,8 +85,9 @@ jobs:
 
       - name: Install Python dependencies for backend tests
         run: |
-          python -m pip install numpy==1.26.4 typing-extensions==4.15.0
-          python -c "import os, pathlib, sys; pathlib.Path(os.environ['GITHUB_ENV']).open('a', encoding='utf-8').write('PYTHON_FOR_TEST=' + sys.executable + '\n')"
+          python -m pip install -r backend/src/agent-skills/analysis/runtime/requirements.txt
+          python -c "import numpy, pydantic, openseespy.opensees; print('Analysis runtime imports ready')"
+          python -c "import os, pathlib, sys; pathlib.Path(os.environ['GITHUB_ENV']).open('a', encoding='utf-8').write('PYTHON_FOR_TEST=' + sys.executable + '\nSCLAW_TEST_PYTHON=' + sys.executable + '\nANALYSIS_PYTHON_BIN=' + sys.executable + '\n')"
 
       - name: Install backend dependencies
         run: npm ci --prefix backend
