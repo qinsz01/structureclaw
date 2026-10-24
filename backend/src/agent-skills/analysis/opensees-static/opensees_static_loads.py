@@ -262,9 +262,9 @@ class StaticLoadContext(StoryFloorLoadMixin, FloorPanelLoadMixin):
                     explicit_loads.append(normalized)
                     case_load_count += 1
             if case_load_count == 0 or has_derived_floor_loads:
-                parameter_floor_specs.extend(self._floor_load_specs_for_case(lc, 1.0))
+                parameter_floor_specs.extend(self._floor_load_specs_for_case(lc, 1.0, parameter_load_cases))
 
-        if parameter_floor_specs:
+        if parameter_load_cases:
             return explicit_loads + self._expand_story_floor_loads(parameters, parameter_floor_specs)
         if explicit_loads:
             return explicit_loads
@@ -315,6 +315,8 @@ class StaticLoadContext(StoryFloorLoadMixin, FloorPanelLoadMixin):
         if explicit_loads:
             return explicit_loads
 
+        if self.model.load_cases:
+            return []
         return self._expand_story_floor_loads(parameters)
 
     def _get_field(self, obj: Any, key: str, fallback: Any = None) -> Any:

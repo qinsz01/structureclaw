@@ -1,9 +1,9 @@
 import {
   restrictLegacyDraftPatch,
 } from '../../../agent-runtime/legacy.js';
-import { ingestDraft, projectDraftPatch } from '../../../agent-runtime/draft/boundary.js';
+import { clearDraftFields, ingestDraft, projectDraftPatch } from '../../../agent-runtime/draft/boundary.js';
 import { composeStructuralDomainPatch } from '../../../agent-runtime/domains/structural-domains.js';
-import { normalizeNumber } from '../../../agent-runtime/draft/normalize.js';
+import { normalizeNumber, normalizeFrameDimension } from '../../../agent-runtime/draft/normalize.js';
 import type {
   DraftAnalysisControl,
   DraftExtraction,
@@ -89,7 +89,10 @@ export function buildConcreteFramePatchFromLlm(
   rawPatch: Record<string, unknown> | null | undefined,
   existingState: DraftState | undefined,
 ): DraftExtraction {
-  const normalized = toConcreteFramePatch(ingestDraft(rawPatch, existingState));
+  const ingested = ingestDraft(rawPatch, existingState);
+  const accepted = clearDraftFields(existingState, ingested.clearDraftFields);
+  const normalized = toConcreteFramePatch({ ...ingested, frameDimension: ingested.frameDimension
+    ?? normalizeFrameDimension(ingested.engineeringDraft?.coordinateSystem?.dimension) ?? accepted?.frameDimension });
   const storyCount = normalized.storyCount ?? existingState?.storyCount ?? existingState?.storyHeightsM?.length;
   const bayCount = normalized.bayCount ?? existingState?.bayCount;
   const bayCountX = normalized.bayCountX ?? existingState?.bayCountX;

@@ -1,4 +1,5 @@
 import { EngineeringValidationError } from '../../engineering/validation-error.js';
+import { frameFloorAreaM2, isFrameFloorTotal } from '../../skill-shared/modelling/frame-floor-cases.js';
 import { normalizeFrameBoundary } from './legacy-fields.js';
 import { isGlobalFrameNodeRole, isFrameFloorTarget, resolveFrameLoadStory, isAllFrameStoriesTarget } from '../../skill-shared/modelling/frame-loads.js';
 /**
@@ -10,6 +11,7 @@ import { isGlobalFrameNodeRole, isFrameFloorTarget, resolveFrameLoadStory, isAll
  */
 import type {
   DraftExtraction,
+  DraftState,
   DraftFloorLoad,
   DraftLoadPosition,
   DraftLoadType,
@@ -76,23 +78,13 @@ function sumPositive(values: number[] | undefined): number | undefined {
   return Number.isFinite(total) && total > 0 ? total : undefined;
 }
 
-function framePlanAreaM2(patch: DraftExtraction): number | undefined {
-  const totalSpanX = sumPositive(patch.bayWidthsXM);
-  const totalSpanY = sumPositive(patch.bayWidthsYM);
-  if (totalSpanX !== undefined && totalSpanY !== undefined) {
-    return totalSpanX * totalSpanY;
-  }
-  const totalSpan2d = sumPositive(patch.bayWidthsM) ?? totalSpanX;
-  return totalSpan2d !== undefined ? totalSpan2d * totalSpan2d : undefined;
-}
-
 function frameLoadTotalKN(load: EngineeringDraftLoad, patch: DraftExtraction): number | undefined {
   if (load.unit === 'kN') return load.magnitude;
   if (load.unit === 'kN/m') {
     return undefined;
   }
   if (load.unit === 'kN/m2') {
-    const areaM2 = framePlanAreaM2(patch);
+    const areaM2 = frameFloorAreaM2(patch);
     return areaM2 !== undefined ? load.magnitude * areaM2 : undefined;
   }
   return undefined;
@@ -238,6 +230,22 @@ function projectFrameFloorLoads(loads: EngineeringDraftLoad[], patch: DraftExtra
     : undefined;
 }
 
+/** Recompute canonical floor channels after partial loads and geometry have been merged. */
+export function reprojectFrameFloorLoadValues(state: DraftState, previous?: DraftState): DraftState {
+  const loads = state.engineeringDraft?.loads ?? [];
+  const ownedFields = new Set([...(previous?.engineeringDraft?.loads ?? []), ...loads]
+    .filter(isFrameFloorTotal).map(frameFloorLoadField));
+  if (!ownedFields.size) return state;
+  const retained = state.floorLoads?.map(load => {
+    const next: DraftFloorLoad = { story: load.story };
+    for (const field of ['verticalKN', 'liveLoadKN', 'lateralXKN', 'lateralYKN'] as const) {
+      if (!ownedFields.has(field) && load[field] !== undefined) next[field] = load[field];
+    }
+    return next;
+  }).filter(load => hasFloorLoadValues([load]));
+  return { ...state, floorLoads: mergeFrameFloorLoadValues(retained?.length ? retained : undefined, projectFrameFloorLoads(loads, state)) };
+}
+
 function sectionDimensionsM(section: string | undefined): { sectionWidthM?: number; sectionDepthM?: number } {
   if (!section) return {};
   const match = section.trim().match(/^([0-9]+(?:\.[0-9]+)?)\s*[xX×*]\s*([0-9]+(?:\.[0-9]+)?)\s*(mm|m)?$/u);
@@ -357,7 +365,7 @@ export function projectDraftPatch(
       next.bayCount = next.bayCount ?? geometry.bayWidthsM.length;
       next.frameDimension = next.frameDimension ?? '2d';
     }
-    if (geometry?.bayWidthsXM?.length && geometry?.bayWidthsYM?.length) {
+    if (geometry?.bayWidthsXM?.length && (next.frameDimension === '3d' || geometry?.bayWidthsYM?.length)) {
       next.bayWidthsXM = next.bayWidthsXM ?? geometry.bayWidthsXM;
       next.bayCountX = next.bayCountX ?? geometry.bayWidthsXM.length;
       next.frameDimension = next.frameDimension ?? '3d';

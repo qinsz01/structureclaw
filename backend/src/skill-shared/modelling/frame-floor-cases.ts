@@ -1,7 +1,21 @@
-import type { EngineeringDraftLoad, EngineeringDraftLoadCaseType } from '../../shared/types/agent.js';
+import type { DraftExtraction, EngineeringDraftLoad, EngineeringDraftLoadCaseType } from '../../shared/types/agent.js';
 import { isFrameFloorTarget } from './frame-loads.js';
 
 export type FrameFloorChannel = 'dead' | 'live' | 'lateral';
+
+/** A planar span does not define an out-of-plane loaded width. */
+export function frameFloorAreaM2(state: Pick<DraftExtraction, 'frameDimension' | 'bayWidthsXM' | 'bayWidthsYM'>): number | undefined {
+  if (state.frameDimension === '2d') return undefined;
+  const { bayWidthsXM: x, bayWidthsYM: y } = state;
+  if (!x?.length || !y?.length || [...x, ...y].some(value => !Number.isFinite(value) || value <= 0)) return undefined;
+  const area = x.reduce((sum, value) => sum + value, 0) * y.reduce((sum, value) => sum + value, 0);
+  return Number.isFinite(area) && area > 0 ? area : undefined;
+}
+
+export function hasUnresolvedFrameFloorArea(state: Pick<DraftExtraction, 'frameDimension' | 'bayWidthsXM' | 'bayWidthsYM' | 'engineeringDraft'>): boolean {
+  return frameFloorAreaM2(state) === undefined
+    && Boolean(state.engineeringDraft?.loads?.some(load => load.unit === 'kN/m2' && isFrameFloorTotal(load)));
+}
 
 export function isFrameFloorTotal(load: EngineeringDraftLoad): boolean {
   return Number.isFinite(load.magnitude) && ['kN', 'kN/m2'].includes(load.unit)

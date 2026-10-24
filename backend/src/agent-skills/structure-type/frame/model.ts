@@ -11,6 +11,7 @@ import { buildFrameMemberPointLoads, normalizeFloorLoadsByStory, buildStoryFloor
 import type { FrameNamedLoad } from './model/loads.js';
 import { accumulateCoords, n2dId, n3dId } from './model/geometry.js';
 import { buildExplicitFrameTopologyModel } from './model/explicit-topology.js';
+import { hasUnresolvedFrameFloorArea } from '../../../skill-shared/modelling/frame-floor-cases.js';
 
 function buildFrame2dLocalModel(
   state: DraftState,
@@ -47,7 +48,7 @@ function buildFrame2dLocalModel(
   const stories = storyHeights.map((h, i) => {
     const storyIdx = i + 1;
     const fl = floorLoads.find((l) => l.story === storyIdx);
-    const floorAreaM2 = Math.max(xCoords[xCoords.length - 1], 1);
+    const floorAreaM2 = xCoords[xCoords.length - 1];
     const deadLoad = fl?.verticalKN ? fl.verticalKN / floorAreaM2 : undefined;
     const liveLoad = fl?.liveLoadKN ? fl.liveLoadKN / floorAreaM2 : undefined;
     return {
@@ -131,7 +132,7 @@ function buildFrame3dLocalModel(
   const stories = storyHeights.map((h, i) => {
     const storyIdx = i + 1;
     const fl = floorLoads.find((l) => l.story === storyIdx);
-    const floorAreaM2 = Math.max(xCoords[xCoords.length - 1], 1) * Math.max(yCoords[yCoords.length - 1], 1);
+    const floorAreaM2 = xCoords[xCoords.length - 1] * yCoords[yCoords.length - 1];
     const deadLoad = fl?.verticalKN ? fl.verticalKN / floorAreaM2 : undefined;
     const liveLoad = fl?.liveLoadKN ? fl.liveLoadKN / floorAreaM2 : undefined;
     return {
@@ -187,6 +188,7 @@ function buildFrameLocalModel(state: DraftState): Record<string, unknown> {
 export function buildFrameModel(state: DraftState): Record<string, unknown> | undefined {
   const explicit = buildExplicitDraftModel(state);
   if (explicit) return explicit;
+  if (hasUnresolvedFrameFloorArea(state)) return undefined;
   const critical = computeMissingCriticalKeys(state).filter((key) => (
     (REQUIRED_KEYS as readonly string[]).includes(key)
     && !(key === 'floorLoads' && hasFrameAnalysisLoadInput(state))

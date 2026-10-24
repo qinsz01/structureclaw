@@ -106,6 +106,11 @@ export function buildInteractionQuestions(
       case 'bayWidthsYM':
         question = { paramKey, label: localize(locale, 'Y向各跨跨度', 'Bay widths in Y'), question: localize(locale, '请确认 3D 框架 Y 向各跨跨度。', 'Please confirm the bay widths in the Y direction for the 3D frame.'), unit: 'm', required: true, critical };
         break;
+      case 'frameFloorArea':
+        question = { paramKey, label: localize(locale, '楼面受荷面积', 'Loaded floor area'), question: localize(locale,
+          '面荷载尚缺明确受荷面积，不能用二维跨度的平方代替。请提供 3D 框架的 X/Y 向跨度；若保留二维模型，请将荷载明确为每层总力（kN）或构件线荷载（kN/m）。',
+          'The area load has no confirmed loaded area; a planar span cannot be squared to invent it. Provide the X/Y bay widths of a 3D frame, or specify per-story total forces (kN) or member line loads (kN/m) for a 2D model.'), required: true, critical };
+        break;
       case 'floorLoads':
         question = { paramKey, label: localize(locale, '各层总荷载', 'Per-floor total load'), question: localize(locale, '请确认各层总荷载（该总荷载将均匀分配到该层所有节点上；至少给出每层竖向荷载；2D 框架可补水平荷载，3D 框架可补 X/Y 向水平荷载）。', 'Please confirm the per-floor total load. The value will be distributed equally across all nodes on that floor. At minimum provide the vertical load for each story; you may also add lateral loads in X for 2D or X/Y for 3D.'), unit: 'kN', required: true, critical };
         break;

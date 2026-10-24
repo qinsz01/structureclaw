@@ -120,11 +120,6 @@ export function fillConcreteFrameDimensionSpecificGeometry(patch: DraftExtractio
   }
 
   if (frameDimension === '3d') {
-    // M2: When user provides directionless bayWidthsM in 3D mode, copy to both directions
-    if (bayWidthsM?.length && !bayWidthsXM?.length && !bayWidthsYM?.length) {
-      bayWidthsXM = [...bayWidthsM];
-      bayWidthsYM = [...bayWidthsM];
-    }
     if (bayCountX === undefined && bayWidthsXM?.length) {
       bayCountX = bayWidthsXM.length;
     }

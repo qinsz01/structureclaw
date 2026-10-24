@@ -38,6 +38,7 @@ import {
   normalizeSupportType,
 } from './normalize.js';
 import { cleanSectionMaterials, reconcileDraftMaterials } from './materials.js';
+import { reprojectFrameFloorLoadValues } from './project-patch.js';
 import type {
   DraftExtraction,
   DraftFloorLoad,
@@ -164,7 +165,8 @@ export function mergeDraftState(existing: DraftState | undefined, patch: DraftEx
     loadPositionM: patch.loadPositionM ?? existing?.loadPositionM,
     updatedAt: Date.now(),
   };
-  return projectDraftState(engineeringDraft, { ...result, ...mergeDraftDiagnostics(existing, patch, result) });
+  const projected = mergedType === 'frame' ? reprojectFrameFloorLoadValues(result, existing) : result;
+  return projectDraftState(engineeringDraft, { ...projected, ...mergeDraftDiagnostics(existing, patch, projected) });
 }
 
 // ---------------------------------------------------------------------------

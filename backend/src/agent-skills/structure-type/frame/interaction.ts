@@ -19,6 +19,7 @@ import {
   REQUIRED_KEYS,
 } from './constants.js';
 import { hasFrameAnalysisLoadInput } from './model/loads.js';
+import { hasUnresolvedFrameFloorArea } from '../../../skill-shared/modelling/frame-floor-cases.js';
 import { getDefaultBeamSection, getDefaultColumnSection } from '../../../agent-runtime/template-properties.js';
 import {
   FRAME_NODAL_LOAD_LOCATION_FIELD,
@@ -81,6 +82,7 @@ export function computeFrameMissing(state: DraftState, phase: 'interactive' | 'e
       FRAME_NODAL_LOAD_LOCATION_FIELD,
     ],
   );
+  if (hasUnresolvedFrameFloorArea(state)) missing.critical.push('frameFloorArea');
   const invalidDraftFields = Array.isArray(state.skillState?.invalidDraftFields)
     ? state.skillState.invalidDraftFields
     : [];
@@ -103,6 +105,7 @@ export function mapFrameLabels(keys: string[], locale: AppLocale): string[] {
       case 'frameMaterial': return locale === 'zh' ? '材料牌号' : 'Material grade';
       case 'frameColumnSection': return locale === 'zh' ? '柱截面' : 'Column section';
       case 'frameBeamSection': return locale === 'zh' ? '梁截面' : 'Beam section';
+      case 'frameFloorArea': return locale === 'zh' ? '楼面受荷面积' : 'Loaded floor area';
       case FRAME_NODAL_LOAD_LOCATION_FIELD: return locale === 'zh' ? '框架节点荷载位置' : 'Frame nodal-load location';
       default: return mapMissingFieldLabels([key], locale)[0];
     }
@@ -201,8 +204,8 @@ export function buildFrameQuestions(
       return {
         ...question,
         question: locale === 'zh'
-          ? `请确认各层总荷载（单位 kN）。该值为整层总荷载，程序会按该层节点数均匀分配到各节点。${loadHint}`
-          : `Please confirm per-story total load (kN). This is the total load on each story, and it will be distributed equally to all nodes on that floor. ${loadHint}`,
+          ? `请确认各层总荷载（单位 kN）。该值为整层总力，具体分配由所选分析引擎及楼面导荷方法决定。${loadHint}`
+          : `Please confirm per-story total load (kN). This is the total force on the story; distribution follows the selected engine and floor-load transfer method. ${loadHint}`,
       };
     }
     if (question.paramKey === 'frameMaterial') {

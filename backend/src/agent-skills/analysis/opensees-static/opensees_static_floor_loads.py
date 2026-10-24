@@ -5,39 +5,47 @@ Moved verbatim from ``opensees_static_loads.py``; mixed into ``StaticLoadContext
 
 from typing import Dict, Any, List, Optional, Set, Tuple
 import re
+from opensees_shared.errors import OpenSeesInputError
 
 
 class StoryFloorLoadMixin:
     def _is_derived_story_floor_load(self, load: Any) -> bool:
         return self._get_field(load, 'source', None) == 'story_floor_loads'
 
-    def _floor_load_specs_for_case(self, load_case: Any, factor: float) -> List[Dict[str, Any]]:
+    def _floor_load_specs_for_case(self, load_case: Any, factor: float, cases: Optional[List[Any]] = None) -> List[Dict[str, Any]]:
         load_case_id = str(self._get_field(load_case, 'id', ''))
         load_case_type = str(self._get_field(load_case, 'type', '')).lower()
-        return [{
-            'types': self._floor_load_types_for_case(load_case_id, load_case_type),
-            'factor': factor,
-        }]
+        types = self._floor_load_types_for_case(load_case_type)
+        derived = any(self._is_derived_story_floor_load(load) for load in self._get_field(load_case, 'loads', []))
+        if not types:
+            if derived:
+                raise OpenSeesInputError(
+                    f"FLOOR_LOAD_CASE_TYPE_REQUIRED: {load_case_id}: derived floor loads require an explicit dead/live type / 楼面等效荷载须声明恒载或活载类别，不能按工况名称猜测。"
+                )
+            return []
+        has_component = any(
+            kind in types and abs(value) > 1e-12
+            for story in getattr(self.model, 'stories', [])
+            for kind, value in self._story_floor_load_components(story)
+        )
+        if derived and not has_component:
+            raise OpenSeesInputError(
+                f"FLOOR_LOAD_COMPONENT_MISSING: {load_case_id}: derived floor loads have no matching story component / 楼面等效荷载缺少对应楼层荷载，不能丢弃原荷载。"
+            )
+        if has_component:
+            owners = [case for case in (cases if cases is not None else self.model.load_cases)
+                      if str(self._get_field(case, 'type', '')).lower() == load_case_type
+                      and (not self._get_field(case, 'loads', []) or any(
+                          self._is_derived_story_floor_load(load) for load in self._get_field(case, 'loads', [])))]
+            if len(owners) > 1:
+                raise OpenSeesInputError(
+                    f"FLOOR_LOAD_CASE_AMBIGUOUS: {load_case_id}: multiple cases claim the same story floor component; use explicit per-case loads / 多个工况共用同一楼层荷载分量，请提供逐工况明确荷载。"
+                )
+        return [{'types': types, 'factor': factor}]
 
-    def _floor_load_types_for_case(self, load_case_id: str, load_case_type: str) -> Optional[Set[str]]:
-        if load_case_type in {'dead', 'live'}:
-            return {load_case_type}
-        if load_case_type == 'other':
-            inferred = self._infer_floor_load_type_from_case_id(load_case_id)
-            return {inferred} if inferred else None
-
-        inferred = self._infer_floor_load_type_from_case_id(load_case_id)
-        return {inferred} if inferred else None
-
-    def _infer_floor_load_type_from_case_id(self, load_case_id: str) -> Optional[str]:
-        normalized = re.sub(r'[^a-z0-9]+', '', load_case_id.lower())
-        dead_aliases = {'d', 'dl', 'dead', 'deadload', 'lcde', 'lcdl', 'lcdead'}
-        live_aliases = {'l', 'll', 'live', 'liveload', 'lcll', 'lclive'}
-        if normalized in dead_aliases or normalized.startswith(('dead', 'deadload', 'dl', 'lcdead', 'lcdl')):
-            return 'dead'
-        if normalized in live_aliases or normalized.startswith(('live', 'liveload', 'll', 'lclive', 'lcll')):
-            return 'live'
-        return None
+    def _floor_load_types_for_case(self, load_case_type: str) -> Set[str]:
+        # Case IDs are identifiers, not physical load classifications.
+        return {load_case_type} if load_case_type in {'dead', 'live'} else set()
 
     def _expand_story_floor_loads(
         self,

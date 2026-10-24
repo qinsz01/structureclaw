@@ -1,4 +1,5 @@
 import { buildExplicitDraftModel } from '../../../agent-runtime/explicit-model.js';
+import { hasUnresolvedFrameFloorArea } from '../../../skill-shared/modelling/frame-floor-cases.js';
 import { applyDraftAnalysisControl } from '../../../agent-runtime/engineering-draft.js';
 import { withCanonicalCoordinateContract } from '../../../engineering/coordinate-semantics.js';
 import type { DraftSiteSeismicParams, DraftState, DraftWindParams } from '../../../shared/types/agent.js';
@@ -23,6 +24,7 @@ export function buildConcreteFrameModel(
 ): ConcreteFrameModel | undefined {
   const explicit = buildExplicitDraftModel(state);
   if (explicit) return explicit as ConcreteFrameModel;
+  if (hasUnresolvedFrameFloorArea(state)) return undefined;
   const storyCount = state.storyCount;
   const storyHeightsM = state.storyHeightsM;
 

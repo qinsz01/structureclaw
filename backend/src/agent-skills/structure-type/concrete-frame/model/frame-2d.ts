@@ -60,7 +60,7 @@ export function buildConcreteFrame2dLocalModel(options: {
   const stories = options.storyHeightsM.map((height, index) => {
     const storyIdx = index + 1;
     const fl = floorLoads.find((load) => load.story === storyIdx);
-    const floorAreaM2 = Math.max(xCoords[xCoords.length - 1], 1);
+    const floorAreaM2 = xCoords[xCoords.length - 1];
     const deadLoad = fl?.verticalKN ? fl.verticalKN / floorAreaM2 : undefined;
     const liveLoad = fl?.liveLoadKN ? fl.liveLoadKN / floorAreaM2 : undefined;
     return {

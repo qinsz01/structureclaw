@@ -63,28 +63,14 @@ export function buildExplicitFrameTopologyModel(
   });
 
   const floorLoads = normalizeFloorLoadsByStory(state.floorLoads ?? []);
-  const areaLoads = (state.engineeringDraft?.loads ?? []).filter((load) => (
-    load.kind === 'area'
-    && load.unit === 'kN/m2'
-    && Number.isFinite(load.magnitude)
-    && Number.isFinite(load.magnitude)
-  ));
   const floorAreaM2 = state.frameDimension === '3d'
-    ? Math.max((xCoords.at(-1)! - xCoords[0]!) * (yCoords.at(-1)! - yCoords[0]!), 1)
-    : Math.max(xCoords.at(-1)! - xCoords[0]!, 1);
+    ? (xCoords.at(-1)! - xCoords[0]!) * (yCoords.at(-1)! - yCoords[0]!)
+    : xCoords.at(-1)! - xCoords[0]!;
   const stories = coordinateIntervals(zCoords).map((height, index) => {
     const story = index + 1;
     const floorLoad = floorLoads.find((load) => load.story === story);
-    const explicitAreaLoads = areaLoads.filter((load) => (
-      load.location?.story === story
-      || (load.location?.story === undefined && areaLoads.length === 1)
-    ));
-    const deadAreaLoad = explicitAreaLoads.find((load) => load.caseType !== 'live' && load.caseId !== 'L');
-    const liveAreaLoad = explicitAreaLoads.find((load) => load.caseType === 'live' || load.caseId === 'L');
-    const deadLoad = deadAreaLoad?.magnitude
-      ?? (floorLoad?.verticalKN ? floorLoad.verticalKN / floorAreaM2 : undefined);
-    const liveLoad = liveAreaLoad?.magnitude
-      ?? (floorLoad?.liveLoadKN ? floorLoad.liveLoadKN / floorAreaM2 : undefined);
+    const deadLoad = floorLoad?.verticalKN ? floorLoad.verticalKN / floorAreaM2 : undefined;
+    const liveLoad = floorLoad?.liveLoadKN ? floorLoad.liveLoadKN / floorAreaM2 : undefined;
     return {
       id: `F${story}`,
       height,
