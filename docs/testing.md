@@ -113,6 +113,22 @@ For live smoke, set `SCLAW_E2E_ATTACH=1` and the matching port, then run `npm ru
 
 The deterministic engineering workflow covers real OpenSees execution, agreement between selected-position queries/reports/figures, JSON export, reload, edit invalidation, history and undo/recalculation. Bilingual browser controls verify actual guidance, context, memory permission, correction, clarification/resume and tool-budget behavior. Browser assertions cover builder/fixed-routing control transmission; the corresponding runtime regressions own execution-branch coverage. These are not model-answer quality tests.
 
+### Real-LLM structure and engine matrix / 真实 LLM 结构与引擎测试
+
+Start a separately configured backend with its own `SCLAW_DATA_DIR`, database and real LLM settings, then run:
+
+```bash
+npm run test:live:structures --prefix backend -- --base-url http://127.0.0.1:31515 --out .tmp/live-structures
+```
+
+The address is mandatory (`SCLAW_LIVE_BASE_URL` is also accepted). This suite creates test conversations; point it at the isolated instance. Missing LLM credentials fail the suite. The client never reads or prints provider credentials. Use `--cases beam-specialist,arch-generic` for a subset. This is product acceptance, separate from the frozen benchmark; it supplies natural-language requests, never canned extraction, models, tool plans or solver answers.
+
+The cases cover all eight active modeling skills, specialized/generic/unrestricted/empty skill scopes, OpenSees statics, modal and earthquake time-history analysis, native PKPM/YJK frames, multiple cases/combinations, self-weight, pressure transfer, clarification/resume, edits, reports and saved-result queries. Numerical checks use force/moment equilibrium, analytical beam and axial-column solutions, modal frequencies and an independent Newmark recurrence. Explicitly unsupported paths must retain failed runs and refuse without changing engines or input grades. The known PKPM Q235B native-grade limitation has its own narrowly checked capability outcome; Q235 cases separately exercise real native solving.
+
+`summary.json` separates `solved`, `answered`, `refused` and `failed`; refusal is never a successful engineering calculation (`goalCompleted=false`). Each case preserves the request, tool receipts, model, saved results and failures. A supplied clarification answer contains only the deliberately omitted physical input; the runner never selects an arbitrary proposed option. All attempts remain evidence: do not overwrite failed attempts, increase tolerances or change input requirements to obtain a pass. A passing finite suite does not prove every model, skill/engine combination, nonlinear workflow or future provider response will succeed.
+
+先为测试实例单独配置数据目录、数据库和真实 LLM，再显式指定地址运行。脚本创建新的测试会话，不读取或打印凭据，不注入提取结果、模型或工具计划。结果分别统计实际求解、普通回答、能力拒绝和失败；拒绝不算计算完成。保留失败记录，不通过更换引擎、材料或放宽数值标准获得通过。有限场景通过不代表任意结构、引擎组合或模型输出都能成功。
+
 ### Manual live beam replay
 
 For a reviewed, multi-turn reproduction with a real provider and real solver, use `frontend/tests/e2e/manual/live-beam-browser.cjs`. Build first, start `frontend/tests/e2e/start-server.mjs` on a dedicated `SCLAW_E2E_PORT`, and configure the LLM through that isolated instance's settings UI or API. The probe verifies its server receipt, instance ID and database path; it rejects normal product ports and scripted/unconfigured model identities. It never updates provider settings or copies credentials.
