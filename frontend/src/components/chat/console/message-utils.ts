@@ -5,6 +5,20 @@ import { conversationStageLabel } from '@/lib/conversation-stage'
 import type { Message, MessageDebugDetails, AgentResult, StreamPayload, MessageRenderGroup } from './types'
 import { normalizeToolCalls } from './persisted-messages'
 
+/** Check the text actually rendered in this turn, not tool output or older replies. */
+export function isQuestionVisibleInCurrentTurn(messages: Message[], question: string): boolean {
+  const text = question.trim()
+  if (!text) return false
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]
+    if (message.role === 'user') break
+    if (message.role !== 'assistant') continue
+    const visibleText = message.presentation ? message.presentation.summaryText : message.content
+    if (visibleText.includes(text)) return true
+  }
+  return false
+}
+
 export function groupMessagesForRendering(messages: Message[]): MessageRenderGroup[] {
   const groups: MessageRenderGroup[] = []
 

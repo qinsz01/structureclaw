@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { MarkdownBody } from '../markdown-body'
 import { ExecutionGroupMessage } from './execution-group-message'
 import { ChatMessageBubble } from './chat-message-bubble'
+import { isQuestionVisibleInCurrentTurn } from './message-utils'
 import type { ConsoleState } from './use-console-state'
 
 /** Active state: scrolling transcript, pending clarification, option chips and composer. */
@@ -34,8 +35,12 @@ export function ChatTranscript({
     conversationId,
     pendingOptions,
     errorMessage,
+    skillsLoaded,
+    capabilityMatrixLoaded,
   } = state
   const messageProps = { t, locale, availableSkills, messages, setInput, composerTextareaRef }
+  const pendingQuestion = sessionRuntime.view?.question
+  const showPendingQuestion = Boolean(pendingQuestion && !isQuestionVisibleInCurrentTurn(messages, pendingQuestion))
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
@@ -78,7 +83,7 @@ export function ChatTranscript({
                   {t('endTurn')}
                 </Button>
               </div>
-              {sessionRuntime.view.question && <MarkdownBody compact content={sessionRuntime.view.question} />}
+              {showPendingQuestion && <MarkdownBody compact content={pendingQuestion!} />}
             </div>
           )}
           <div />
@@ -91,7 +96,7 @@ export function ChatTranscript({
             <button
               key={option}
               type="button"
-              disabled={Boolean(endingTurnConversationId)}
+              disabled={Boolean(endingTurnConversationId) || !skillsLoaded || !capabilityMatrixLoaded}
               onClick={() => {
                 handleSubmit(option)
               }}

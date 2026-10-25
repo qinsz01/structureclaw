@@ -64,16 +64,15 @@ export function handlePresentationPayload(turn: TurnState, deps: TurnStreamDeps,
   }
 
   if (payload.type === 'interaction_update') {
-    const interactionMessage = buildInteractionMessage(payload, t, locale)
+    // Interrupts send an authoritative summary before their interaction state.
+    // Interaction metadata is not another assistant response. Keep a fallback
+    // for older streams that only supply the interaction event.
+    const interactionMessage = currentPresentationRef.current?.summaryText || buildInteractionMessage(payload, t, locale)
     turn.assistantContent = interactionMessage
     if (currentPresentationRef.current) {
-      const existingSummary = currentPresentationRef.current.summaryText || ''
-      const combinedSummary = existingSummary
-        ? `${existingSummary}\n\n---\n\n${interactionMessage}`
-        : interactionMessage
       const nextPresentation = reducePresentationEvent(currentPresentationRef.current, {
         type: 'summary_replace',
-        summaryText: combinedSummary,
+        summaryText: interactionMessage,
       })
       syncTextPresentation(turn, deps, nextPresentation, 'streaming')
     } else {

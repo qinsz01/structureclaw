@@ -101,8 +101,10 @@ for (const locale of ['en', 'zh'] as const) {
       const waiting = await runtime(request, started.id);
       expect(waiting).toMatchObject({ waitingForReply: true, busy: false, usage: { toolCalls: 1, llmCalls: 1, recoveries: 0 } });
       await expect(page.getByTestId('pending-clarification')).toBeVisible();
+      await expect(page.getByTestId('console-chat-scroll').getByText('Choose a value / 请选择数值', { exact: true })).toHaveCount(1);
       await reopen(page, title, started.id);
-      await expect(page.getByTestId('pending-clarification')).toContainText('Choose a value');
+      await expect(page.getByTestId('pending-clarification')).toBeVisible();
+      await expect(page.getByTestId('console-chat-scroll').getByText('Choose a value / 请选择数值', { exact: true })).toHaveCount(1);
       await settings(page);
       await expect(page.getByRole('spinbutton', { name: /^(Tool call limit|工具调用上限)$/ })).toBeDisabled();
       expect((await runtime(request, started.id)).usage).toEqual(waiting.usage);
@@ -119,6 +121,38 @@ for (const locale of ['en', 'zh'] as const) {
       await expect(page.getByTestId('pending-clarification')).toHaveCount(0);
       expect((await runtime(request, started.id)).usage).toEqual(done.usage);
       expect(pageErrors).toEqual([]);
+    });
+
+    test('multiline load confirmation appears once before refresh and resume', async ({ page, request }, info) => {
+      const question = locale === 'zh'
+        ? '荷载施加位置确认：恒载与活载均为竖直向下（gravity，正值）的梁上线荷载，作用于单榀纵向框架全部4跨梁上：\n- 1、2层梁（12根中第8根，即两楼层各4根梁）：DEAD工况 30 kN/m，LIVE工况 12 kN/m\n- 屋面梁（顶层4根梁）：DEAD 25 kN/m，LIVE 5 kN/m\n方向均为竖直向下。是否确认？'
+        : 'Confirm beam line loads on all four spans of the longitudinal frame:\n- Floors 1 and 2: DEAD 30 kN/m and LIVE 12 kN/m.\n- Roof: DEAD 25 kN/m and LIVE 5 kN/m.\nAll loads act downward. Confirm?';
+      const heading = question.split('\n')[0];
+      const choice = locale === 'zh' ? '确认这些荷载' : 'Confirm these loads';
+      llm.enqueue(toolCall('ask_user_clarification', { question, options: [choice] }));
+      const started = await send(page, `${title} Multiline confirmation rendering regression`);
+      const transcript = page.getByTestId('console-chat-scroll');
+      await expect(transcript.getByText(heading, { exact: true })).toHaveCount(1);
+      await expect(page.getByRole('button', { name: choice, exact: true })).toBeEnabled();
+      await reopen(page, title, started.id);
+      await expect(transcript.getByText(heading, { exact: true })).toHaveCount(1);
+      await expect(page.getByTestId('pending-clarification')).toBeVisible();
+      await info.attach(`confirmation-once-${locale}`, { body: await page.screenshot(), contentType: 'image/png' });
+      llm.enqueue('LOAD_CONFIRMATION_RESUMED');
+      const response = page.waitForResponse(value => value.url().endsWith('/chat/stream/resume'));
+      await page.getByRole('button', { name: choice, exact: true }).click();
+      const resumed = await response;
+      expect(resumed.ok()).toBe(true);
+      expect(resumed.request().postDataJSON()).toMatchObject({ conversationId: started.id, resumeValue: choice });
+      const events = (await resumed.text()).split('\n').filter(line => line.startsWith('data: ')).flatMap(line => {
+        try { return [JSON.parse(line.slice(6))]; } catch { return []; }
+      });
+      expect(events.filter(event => event.type === 'error')).toEqual([]);
+      expect(events.some(event => event.type === 'result' && event.content?.response === 'LOAD_CONFIRMATION_RESUMED')).toBe(true);
+      await expect(transcript.getByText('LOAD_CONFIRMATION_RESUMED', { exact: true })).toBeVisible();
+      await expect(page.getByTestId('pending-clarification')).toHaveCount(0);
+      await expect(transcript.getByText(heading, { exact: true })).toHaveCount(1);
+      expect((await runtime(request, started.id)).waitingForReply).toBe(false);
     });
 
     test('repair off blocks cross-tool model edits; ending a turn preserves ledger and model', async ({ page, request, baseURL }) => {

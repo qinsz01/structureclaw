@@ -64,7 +64,8 @@ describe('clarification choices from older sessions and model responses', () => 
       await user.click(screen.getByRole('button', { name: locale === 'en' ? 'Send' : '发送' }))
     }
     await screen.findByText(locale === 'en' ? /Waiting for your reply/ : /等待你的答复/)
-    expect(within(await screen.findByTestId('pending-clarification')).getByText(question)).toBeInTheDocument()
+    expect(await screen.findByTestId('pending-clarification')).toBeInTheDocument()
+    expect(within(screen.getByTestId('console-chat-panel')).getAllByText(question)).toHaveLength(1)
     await user.click(await screen.findByRole('button', { name: label }))
     await waitFor(() => expect(sent).toHaveLength(1))
     expect(sent[0]).toMatchObject({ conversationId: id, resumeValue: label })
