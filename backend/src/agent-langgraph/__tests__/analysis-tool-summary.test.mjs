@@ -37,7 +37,7 @@ describe("analysis tool summary", () => {
   test('supported numeric seismic acceleration is retained without inference or unit parsing', async () => {
     const { validateSeismicWorkflowInput } = await import('../../../dist/agent-langgraph/tools/seismic-workflow/validate-design.js');
     const workflow = { methodPreference: 'response_spectrum', designBasis: { siteSeismic: {
-      intensity: 8, accelerationG: 0.2, designGroup: '2', siteCategory: 'II', characteristicPeriod: 0.4,
+      intensity: 8, accelerationG: 0.2, designGroup: '2', siteCategory: 'II', characteristicPeriod: 0.4, regionCode: 'EX-001',
     } } };
     const before = structuredClone(workflow);
     expect(validateSeismicWorkflowInput(workflow)).toEqual([]);

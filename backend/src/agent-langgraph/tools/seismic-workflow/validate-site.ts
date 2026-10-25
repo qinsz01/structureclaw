@@ -69,7 +69,7 @@ const siteSeismicFields = new Set([
   'designGroup', 'design_group', 'siteCategory', 'site_category', 'siteClass',
   'dampingRatio', 'damping_ratio', 'characteristicPeriod', 'characteristic_period', 'Tg',
   'rareCharacteristicPeriod', 'rare_characteristic_period', 'maxInfluenceCoefficient', 'max_influence_coefficient',
-  'earthquakeLevel', 'earthquake_level', 'region', 'city', 'extra', 'zonationRecord',
+  'earthquakeLevel', 'earthquake_level', 'region', 'regionCode', 'city', 'extra', 'zonationRecord',
 ]);
 
 export function validateSiteSeismicFields(siteSeismic: Record<string, unknown>, fieldPath: string, errors: string[]): void {
