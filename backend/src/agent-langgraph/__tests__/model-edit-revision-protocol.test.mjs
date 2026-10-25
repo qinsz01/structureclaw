@@ -43,6 +43,29 @@ const config = thread => ({ configurable: { thread_id: thread, structureProtocol
 const toolMessages = state => state.messages.filter(item => item.getType() === 'tool');
 
 describe('model writes use observed revisions without automatic rebasing', () => {
+  test('a property override relinquishes only its own derived source before a later geometry edit', async () => {
+    const original = await normalizeEngineeringModel({ ...initial.model, sections: [{ id: 'section', name: '100x200',
+      type: 'rectangular', shape: { kind: 'rectangular', B: 100, H: 200 } }] }, protocol);
+    const overridden = await normalizeEngineeringModel(applyModelEdits(original, [{ operation: 'update', collection: 'sections',
+      id: 'section', values: { properties: { J: 9e-8 } } }]), protocol);
+    expect(overridden.sections[0].extra.derived_properties.fields).toEqual(['A', 'Iy', 'Iz']);
+    const resized = await normalizeEngineeringModel(applyModelEdits(overridden, [{ operation: 'update', collection: 'sections',
+      id: 'section', values: { shape: { H: 300 } } }]), protocol);
+    expect(resized.sections[0].properties).toMatchObject({ A: .03, Iy: .000225, Iz: .000025, J: 9e-8 });
+    expect(original.sections[0].shape.H).toBe(200);
+  }, 30000);
+
+  test('removing the shape preserves the existing numerical section', async () => {
+    const original = await normalizeEngineeringModel({ ...initial.model, sections: [{ id: 'section', name: '100x200',
+      type: 'rectangular', shape: { kind: 'rectangular', B: 100, H: 200 } }] }, protocol);
+    const state = await graph().invoke({ ...commitModel({}, original, 'geometry-to-numerical'),
+      messages: [message([call('remove-shape', [{ operation: 'update', collection: 'sections', id: 'section',
+        values: { shape: null } }])])] }, config('remove-shape-keep-properties'));
+    expect(receipt(toolMessages(state)[0]).success).toBe(true);
+    expect(state.model.sections[0].shape).toBeFalsy();
+    expect(state.model.sections[0].properties).toEqual(original.sections[0].properties);
+  }, 30000);
+
   test('a shape-only edit refreshes converter-derived stiffness before committing the new revision', async () => {
     // Reproduces the real-LLM 100x200 -> 100x300 edit, including absent source labels.
     const original = await normalizeEngineeringModel({ ...initial.model, sections: [{ id: 'section', name: '100x200',

@@ -143,7 +143,9 @@ function loadCaseNotFoundMessage(edit: ModelEdit, available: string[]): string {
  * The previous normalized record identifies which fields the converter derived;
  * catalogue/user properties without that valid provenance remain authoritative. */
 function invalidateEditedSectionGeometry(before: ModelRecord, after: ModelRecord, values: ModelRecord): ModelRecord {
-  if (contentHash(before.shape) === contentHash(after.shape)) return after;
+  const geometryChanged = contentHash(before.shape) !== contentHash(after.shape);
+  // Removing the geometric representation retains its already known numbers.
+  if (!isRecord(after.shape) || !geometryChanged && !isRecord(values.properties)) return after;
   const extra = isRecord(before.extra) ? before.extra : {};
   const derived = isRecord(extra.derived_properties) ? extra.derived_properties : undefined;
   const diagnostics = Array.isArray(extra.section_diagnostics) ? extra.section_diagnostics : [];
@@ -152,10 +154,13 @@ function invalidateEditedSectionGeometry(before: ModelRecord, after: ModelRecord
     || contentHash(derived.shape) !== contentHash(before.shape)
     || diagnostics.some(note => isRecord(note) && note.code === 'SECTION_PROVENANCE_CONFLICT')) return after;
   const supplied = isRecord(values.properties) ? values.properties : {};
+  const remaining = derived.fields.filter(field => !Object.hasOwn(supplied, field));
+  if (!geometryChanged && remaining.length === derived.fields.length) return after;
   const properties = isRecord(after.properties) ? { ...after.properties } : {};
-  for (const field of derived.fields) if (!Object.hasOwn(supplied, field)) delete properties[field];
+  if (geometryChanged) for (const field of remaining) delete properties[field];
   const nextExtra = isRecord(after.extra) ? { ...after.extra } : {};
-  delete nextExtra.derived_properties;
+  if (geometryChanged || !remaining.length) delete nextExtra.derived_properties;
+  else nextExtra.derived_properties = { ...derived, fields: remaining };
   return { ...after, properties, extra: nextExtra };
 }
 
