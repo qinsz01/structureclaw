@@ -14,6 +14,22 @@ const policy = (requested = {}) => resolveRunPolicy({ availableSkillIds: [], ava
 const toolNames = ['query_results', 'ask_user_clarification'];
 
 describe('tool guards', () => {
+  test.each([true, false])('blocked model-dependent calls also stop at the no-progress limit (repair=%s)', repairEnabled => {
+    const context = createRunContext(policy()), ledger = guards.guardLedger(context);
+    const messages = [new HumanMessage('Repair and analyze.'), new ToolMessage({ name: 'build_model', tool_call_id: 'build',
+      content: JSON.stringify({ success: false, modelBuilt: false, errorCode: 'DRAFT_PROTOCOL_INVALID', nextAction: 'extract_draft_params' }) })];
+    for (let index = 0; index < guards.NO_PROGRESS_LIMIT; index++) {
+      const blocked = guards.preflightToolCall({ call: { name: 'edit_model', args: { label: `attempt-${index}` } },
+        toolNames: ['edit_model'], messages, ledger, repairEnabled });
+      expect(JSON.parse(blocked.content).errorCode).toBe('MODEL_REBUILD_REQUIRED');
+      if (index < guards.NO_PROGRESS_LIMIT - 1) expect(ledger.stop).toBeUndefined();
+    }
+    expect(ledger.stop).toEqual({ reason: 'no-progress', calls: guards.NO_PROGRESS_LIMIT });
+    expect(guards.preflightToolCall({ call: { name: 'edit_model' }, toolNames: ['edit_model'], messages, ledger, repairEnabled }).kind).toBe('skipped');
+    expect(context.usage.toolCalls).toBe(0);
+    expect(context.usage.recoveries).toBe(0);
+  });
+
   test('a user clarification resets rejection and no-progress streaks', () => {
     const context = createRunContext(policy());
     const ledger = guards.guardLedger(context);

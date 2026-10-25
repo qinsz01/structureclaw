@@ -24,6 +24,25 @@ const invoke = (tool, agentState) => tool.invoke({ message: '助手重述：楼�
 
 beforeEach(() => { extract.mockReset(); extract.mockResolvedValue({ engineeringDraft: { material: { family: 'concrete', grade: 'C30' }, sections: { beam: '250X500' } } }); });
 
+test('an omitted invalid legacy purpose fails merged-state validation and reaches extractor repair feedback', async () => {
+  const before = state(); before.draftState.supportLevel = 'supported'; before.draftState.routingSource = 'scope-selected';
+  before.lastUserMessage = '梁截面为实心矩形100×200mm，保留其余已确认输入。';
+  before.messages = [{ role: 'user', content: before.lastUserMessage }];
+  before.draftState.engineeringDraft.sectionRecords = [{ id: 'S1', type: 'rectangular', purpose: 'member',
+    shape: { kind: 'rectangular', B: 100, H: 200 } }];
+  const snapshot = structuredClone(before);
+  const correction = { engineeringDraft: { sectionRecords: [{ id: 'S1', purpose: 'beam' }] } };
+  extract.mockImplementation(async input => {
+    await expect(input.validatePatch({})).rejects.toThrow('DRAFT_SECTION_INVALID');
+    await input.validatePatch(correction);
+    return correction;
+  });
+  const result = await invoke(createExtractDraftParamsTool(runtime(jest.fn())), before);
+  expect(result.update.draftState.engineeringDraft.sectionRecords[0]).toMatchObject({ purpose: 'beam', shape: { B: 100, H: 200 } });
+  expect(result.update.draftState.engineeringDraft.loads).toEqual(before.draftState.engineeringDraft.loads);
+  expect(before).toEqual(snapshot);
+});
+
 test('the generic C30 clarification routes only actual evidence while extraction retains its labelled context', async () => {
   const route = jest.fn(async () => match);
   const result = await invoke(createExtractDraftParamsTool(runtime(route)), state());

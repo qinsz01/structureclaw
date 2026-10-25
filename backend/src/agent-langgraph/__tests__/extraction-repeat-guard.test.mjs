@@ -38,6 +38,21 @@ describe('one complete extraction per actual input', () => {
     expect(toolContextForNode(state, {}).activeToolIds).toContain('extract_draft_params');
   });
 
+  test('a recoverable builder protocol diagnostic reopens extraction in both exposure and execution', async () => {
+    const state = { messages: [...messages(), result('build_model', { success: false, modelBuilt: false,
+      errorCode: 'DRAFT_PROTOCOL_INVALID', nextAction: 'extract_draft_params',
+      repair: { clearDraftFields: ['sectionRecords["S1"].purpose'] } })], selectedSkillIds: ['generic'] };
+    expect(hasExtractedCurrentInput(state.messages)).toBe(false);
+    expect(toolContextForNode(state, {}).activeToolIds).toContain('extract_draft_params');
+    const invoke = jest.fn(async () => '{}');
+    const extractor = tool(invoke, { name: 'extract_draft_params', description: 'test', schema: z.object({}) });
+    await executeToolsSequentially([extractor], { ...state, messages: [...state.messages,
+      new AIMessage({ content: '', tool_calls: [{ name: 'extract_draft_params', args: {}, id: 'repair-protocol' }] })] }, {});
+    expect(invoke).toHaveBeenCalledTimes(1);
+    // A successful correction consumes the input again; it is not a permanent bypass.
+    expect(hasExtractedCurrentInput([...state.messages, extracted()])).toBe(true);
+  });
+
   test.each([
     { status: 'partial', unapplied: [{ path: 'sectionRecords', reason: 'invalid' }] },
     { status: 'no_change', applied: [], unapplied: [{ reason: 'missing evidence' }] },
