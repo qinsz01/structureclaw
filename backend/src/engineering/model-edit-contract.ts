@@ -183,9 +183,9 @@ export function assertModelEditReadback(model: ModelRecord, edits: ModelEdit[], 
     let expected = edit.values;
     const source = edit.collection === 'sections'
       ? (sourceModel?.sections as ModelRecord[] | undefined)?.find(row => row.id === edit.id) : undefined;
-    if (source && enforceSectionProvenance(source) !== source) {
-      // Source precedence deliberately replaces non-user properties during conversion.
-      // All other requested edits still require exact readback; user properties never take this path.
+    if (source && enforceSectionProvenance(source) !== source && expected.shape !== undefined) {
+      // Geometry writes may replace non-user properties during conversion.
+      // Property-only writes require exact readback; user properties never take this path.
       const extra = isRecord(expected.extra) ? expected.extra : {};
       expected = { ...expected, properties: null, extra: { ...extra, source: null,
         provenance: { ...(isRecord(extra.provenance) ? extra.provenance : {}), properties: 'geometry' } } };
