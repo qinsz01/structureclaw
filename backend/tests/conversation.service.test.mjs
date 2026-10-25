@@ -46,6 +46,15 @@ describe('ConversationService locale handling', () => {
     expect(lookup).toHaveBeenCalledTimes(2);
   });
 
+  test('history reads metadata and messages without loading a second copy of snapshots', async () => {
+    const lookup = jest.fn(async () => ({ id: 'history', messages: [] }));
+    prisma.conversation.findFirst = lookup;
+    expect(await new ConversationService().getConversation('history')).toEqual({ id: 'history', messages: [] });
+    expect(lookup).toHaveBeenCalledWith({ where: { id: 'history' }, select: {
+      id: true, title: true, type: true, createdAt: true, updatedAt: true, messages: { orderBy: { createdAt: 'asc' } },
+    } });
+  });
+
   test('deletes an existing conversation', async () => {
     prisma.conversation.findFirst = async () => ({ id: 'conv-delete' });
     const svc = new ConversationService();

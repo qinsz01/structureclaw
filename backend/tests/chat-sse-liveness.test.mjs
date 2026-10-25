@@ -34,6 +34,22 @@ test('silent work sends SSE comments and completion clears the timer', async () 
   expect(ctx.raw.write).toHaveBeenLastCalledWith('data: [DONE]\n\n');
 });
 
+test('the public wire sends a complete artifact once and a bound reference in the final event', async () => {
+  const analysis = { runId: 'run', selectedResultKey: 'case:D', data: { reactions: { n: { fz: 42 } } }, results: {
+    'case:D': { success: true, selection: { key: 'case:D' }, data: { reactions: { n: { fz: 42 } } } },
+  } };
+  const original = structuredClone(analysis);
+  const ctx = fixture(async session => {
+    session.writeChunk({ type: 'artifact_payload_sync', artifact: 'analysis', latestResult: { analysis } });
+    session.writeChunk({ type: 'result', content: { response: 'Done', analysis } });
+  });
+  await ctx.run();
+  const events = ctx.raw.write.mock.calls.map(([value]) => value).filter(value => value.startsWith('data: {')).map(value => JSON.parse(value.slice(6)));
+  expect(events[0].latestResult.analysis.results['case:D'].data.reactions.n.fz).toBe(42);
+  expect(events[1].content).toEqual({ response: 'Done', artifactReferences: { analysis: events[0].artifactId } });
+  expect(analysis).toEqual(original);
+});
+
 test('provider failure stays an explicit failure and clears the timer', async () => {
   jest.useFakeTimers();
   const gate = deferred();

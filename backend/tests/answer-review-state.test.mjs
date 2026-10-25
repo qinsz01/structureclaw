@@ -6,6 +6,26 @@ import { AIMessage, HumanMessage, ToolMessage } from '@langchain/core/messages';
 const { reviewFinalAnswer } = await import('../dist/agent-langgraph/delivery/answer-review.js');
 const { beginAnalysisRequest } = await import('../dist/engineering/model-state.js');
 
+test('derived quantities can be verified by calculate and retained after the correction tool call', async () => {
+  const { reviewAndDeliverFinalAnswer } = await import('../dist/agent-langgraph/delivery/final-review.js');
+  const { createCalculateTool } = await import('../dist/agent-langgraph/calc-tool.js');
+  const messages = [new HumanMessage('Compare the totals'), new ToolMessage({ tool_call_id: 'totals', content: '{"before":15810,"after":14880}' })];
+  const ledger = { answerCorrections: 0 }, state = { locale: 'en', analysisResult: { runId: 'r1' } };
+  const draft = new AIMessage('The decrease is 930 kN.');
+  let correction;
+  const toolCall = new AIMessage({ content: '', tool_calls: [{ id: 'difference', name: 'calculate', args: { expression: '15810-14880', unit: 'kN' } }] });
+  const pending = await reviewAndDeliverFinalAnswer({ response: draft, state, messages, currentTurnMessages: messages, ledger, repairEnabled: true,
+    log: { warn() {} }, reinvoke: async (_draft, prompt) => { correction = prompt; return { response: toolCall }; },
+    deliver: response => ({ message: response, final: false }) });
+  expect(pending).toBe(toolCall);expect(correction).toContain('calculate');expect(correction).toContain('核实推导总量、差值');
+  expect(correction).not.toContain('do not repeat the removed values');
+  const result = await createCalculateTool().invoke({ expression: '15810-14880', unit: 'kN' });
+  const completed = [...messages, toolCall, new ToolMessage({ tool_call_id: 'difference', content: result })];
+  const final = await reviewAndDeliverFinalAnswer({ response: draft, state, messages: completed, currentTurnMessages: completed, ledger, repairEnabled: true,
+    log: { warn() {} }, reinvoke: async () => { throw new Error('No second correction needed'); }, deliver: response => ({ message: response, final: true }) });
+  expect(final.content).toBe('The decrease is 930 kN.');expect(ledger.answerCorrectionPending).toBe(false);
+});
+
 test('historical tool values and statics derived from a clarification answer are evidence', () => {
   const messages = [new ToolMessage({ tool_call_id: 'past', content: '{"value":9.876}' }), new HumanMessage('Continue'),
     new ToolMessage({ tool_call_id: 'answer', content: JSON.stringify({ type: 'clarification_answered', answer: '10 m, 1 kN' }) })];
