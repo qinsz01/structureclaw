@@ -12,6 +12,7 @@ describe('LLM error mapping', () => {
     expect(toLlmStreamError(error)).toMatchObject({ type: 'error', code: 'LLM_NOT_CONFIGURED', retriable: false });
   });
   test.each([
+    ['MODEL_PHYSICS_INVALID', 422, false],
     ['FIELD_CONTRACT_UNRESOLVED', 500, false],
     ['VISION_INPUT_UNAVAILABLE', 400, false],
     ['STRUCTURE_TYPE_UNSUPPORTED', 422, false],

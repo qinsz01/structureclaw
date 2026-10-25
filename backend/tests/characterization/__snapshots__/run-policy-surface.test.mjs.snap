@@ -3,7 +3,7 @@
 exports[`characterization: run policy and ablation surface default tool schemas (names, descriptions, parameters) are pinned by hash: default-tool-schema-hashes 1`] = `
 {
   "analyze_file": "cfcb8792ec8c2f1ccfd103df043f8b6fe9126baa1b9bbbf11c4ef69313c4a8f5",
-  "ask_user_clarification": "e67cb643f4bb9861ebe362a320cff232862054997922033726921e218502a1c2",
+  "ask_user_clarification": "b02b72e89f560ca216998fa7e025d6cbb7ced17141ede14c09e7308eb0ecef79",
   "build_model": "817bae8a0c7a9803c439bf46032d464a7238b3b7c69e8f9e7bbdf89e6446e71b",
   "calculate": "592bf26fd2b6c3699250d4adcef663347166487a6582d63459637ce91b6888b9",
   "delete_path": "be7f11a1c434029febfcb4f9f98bb63a5e94cbf851252505bc6d88921c187d66",

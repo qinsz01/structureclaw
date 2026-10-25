@@ -126,8 +126,9 @@ describe('clarification option contract', () => {
   });
 
   test.each(['Confirm columns 400×400 mm and beams 250×500 mm?', '确认柱400×400毫米、梁250×500毫米？'])(
-    'rejects an unbound numeric proposal before asking the user: %s', async question => {
-      const result = JSON.parse(await createAskUserClarificationTool().invoke({ question }));
+    'rejects an explicitly declared but unresolved numeric proposal before asking the user: %s', async question => {
+      const result = JSON.parse(await createAskUserClarificationTool().invoke({ question,
+        candidateOptions: [{ sectionId: 'missing', field: 'shape', optionIndex: 0 }] }));
       expect(result.errorCode).toBe('SECTION_CANDIDATES_REQUIRED');
       expect(result).not.toHaveProperty('type');
       expect(result.hint).toContain('candidateOptions');
@@ -140,4 +141,26 @@ describe('clarification option contract', () => {
       expect(repaired.type).toBe('clarification_needed');
       expect(repaired.sectionCandidates).toHaveLength(2);
     });
+
+  test.each([
+    '截面100×200 mm已经确认。跨度6m和8m冲突，请选择正确跨度。',
+    'The 100x200 mm section is confirmed. Is the span 6 m or 8 m?',
+    '跨度6000的单位是什么？截面100×200毫米已按用户给定记录。',
+  ])('ordinary clarifications can repeat confirmed dimensions without being classified as section proposals: %s', async question => {
+    const output = JSON.parse(await withRunContext(createRunContext(policy), () => createAskUserClarificationTool().invoke({
+      question, optionsJson: ['6m', '8m'],
+    })));
+    expect(output).toMatchObject({ type: 'clarification_needed', question, options: ['6m', '8m'], sectionCandidates: [] });
+  });
+
+  test('a plain confirmation of an undeclared proposal still cannot authorize recalled section dimensions', async () => {
+    const { conversationSectionEvidence } = await import('../../../dist/agent-langgraph/tools/input-message.js');
+    const { assertConfirmedSectionInputs } = await import('../../../dist/engineering/section-provenance.js');
+    const output = await withRunContext(createRunContext(policy), () => createAskUserClarificationTool().invoke({
+      question: 'Please verify assistant-recalled dimensions 200×100×7×11.4 mm.', optionsJson: ['Confirm', 'Other'],
+    }));
+    const messages = [{ role: 'tool', name: 'ask_user_clarification', content: output }, { role: 'human', content: 'Confirm' }];
+    const section = { id: 'S1', shape: { kind: 'I', H: 200, B: 100, tw: 7, tf: 11.4 }, extra: { provenance: { shape: 'user' } } };
+    expect(() => assertConfirmedSectionInputs({ sections: [section] }, conversationSectionEvidence({ messages }))).toThrow();
+  });
 });

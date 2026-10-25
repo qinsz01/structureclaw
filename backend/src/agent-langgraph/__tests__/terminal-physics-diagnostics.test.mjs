@@ -1,6 +1,7 @@
 import { expect, test } from '@jest/globals';
 import { HumanMessage, ToolMessage } from '@langchain/core/messages';
 import { assertNoTerminalSemanticFailure } from '../../../dist/agent-langgraph/guards/terminal-failures.js';
+import { toLlmApiError, toLlmStreamError } from '../../../dist/utils/llm-error.js';
 
 test.each(['en', 'zh'])('terminal model failure preserves the actual diagnosis (%s)', locale => {
   const receipt = { success: false, errorCode: 'MODEL_PHYSICS_INVALID', modelBuilt: false, terminal: true,
@@ -15,5 +16,8 @@ test.each(['en', 'zh'])('terminal model failure preserves the actual diagnosis (
   expect(failure.message).toContain(receipt.diagnostics[0].message[locale]);
   expect(failure.message).toContain('LOAD_MAPPING_ID_INVALID: bad-source-id');
   expect(failure.message).not.toContain('MODEL_PHYSICS_INVALID: MODEL_PHYSICS_INVALID');
+  expect(toLlmApiError(failure)).toMatchObject({ statusCode: 422, body: { error: { code: 'MODEL_PHYSICS_INVALID', retriable: false } } });
+  expect(toLlmStreamError(failure)).toMatchObject({ type: 'error', code: 'MODEL_PHYSICS_INVALID', retriable: false,
+    error: expect.stringContaining(receipt.diagnostics[0].message[locale]) });
   expect(JSON.stringify(messages)).toBe(saved);
 });
