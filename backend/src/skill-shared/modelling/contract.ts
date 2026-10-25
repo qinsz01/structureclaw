@@ -14,7 +14,8 @@ const position = z.union([z.object({ fraction: number.min(0).max(1) }).strict(),
 
 export const modellingOperationSchema = z.discriminatedUnion('op', [
   z.object({ ...base, op: z.literal('regular-frame'), dimension: z.enum(['2d', '3d']), bayWidthsX: z.array(positive).min(1), bayWidthsY: z.array(positive).min(1).optional(),
-    storeyHeights: z.array(positive).min(1), baseRestraint: z.enum(['fixed', 'pinned']), origin: vector.optional(), nodeIds: z.record(z.string(), id).optional(),
+    storeyHeights: z.array(positive).min(1), baseRestraint: z.enum(['fixed', 'pinned']), origin: vector.optional(), nodeIds: z.record(z.string(), id).optional()
+      .describe('Map "levelIndex,xIndex,yIndex" to exact node IDs. All indices are zero-based: level 0 is the base, level 1 the first elevated floor; the roof level equals storeyHeights.length. 2D still uses yIndex=0. / 节点映射键为"层索引,X索引,Y索引"，均从0起；层0为基底，层1为首个楼层，屋面层索引等于层高数组长度；二维仍写Y索引0。'),
     material: id.optional(), columnSection: id.optional(), beamSection: id.optional(), memberIds: z.record(z.string(), id).optional(),
     storyIds: z.record(z.string(), id).optional() }).strict(),
   z.object({ ...base, op: z.literal('truss-panels'), span: positive, height: positive, panels: segments,
