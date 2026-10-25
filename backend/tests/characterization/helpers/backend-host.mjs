@@ -166,12 +166,35 @@ export async function startBackend({ llmBaseUrl, llmModel = 'characterization-sc
 
 export function turnFromEvents(events) {
   const start = events.find(event => event.type === 'start');
+  const artifacts = new Map();
+  for (const event of events) {
+    if (event.type !== 'artifact_payload_sync' || !event.artifact) continue;
+    if (event.invalidated) {
+      artifacts.delete(event.artifact);
+      if (event.artifact === 'analysis') artifacts.delete('report');
+      continue;
+    }
+    const value = event.artifact === 'model' ? event.model : event.latestResult?.[event.artifact];
+    if (event.artifactId && value) artifacts.set(event.artifact, { id: event.artifactId, value });
+  }
+  const wireResult = [...events].reverse().find(event => event.type === 'result');
+  let result = wireResult;
+  if (wireResult?.content?.artifactReferences) {
+    const { artifactReferences, ...content } = wireResult.content;
+    for (const [kind, id] of Object.entries(artifactReferences)) {
+      const saved = artifacts.get(kind);
+      if (!saved || saved.id !== id) throw new Error('STREAM_ARTIFACT_REFERENCE_MISSING');
+      content[kind] = saved.value;
+    }
+    result = { ...wireResult, content };
+  }
   return {
     events,
     steps: events.filter(event => event.type === 'step_upsert').map(event => event.step),
     conversationId: start?.content?.conversationId,
     errors: events.filter(event => event.type === 'error' || event.type === 'presentation_error'),
     interactions: events.filter(event => event.type === 'interaction_update'),
-    result: [...events].reverse().find(event => event.type === 'result'),
+    result,
+    wireResult,
   };
 }
