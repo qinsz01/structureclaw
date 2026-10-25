@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from out_parsers import _parse_floor_dimensions, _parse_unit_mass, _parse_wdisp_cases
 from report_render import _generate_docx, _generate_markdown, _generate_pdf
+import report_render
 
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -114,3 +115,45 @@ def test_pdf_renders_both_vertical_cases_without_a_fake_average(tmp_path, monkey
     assert any(["2", "1", "Z", "-0.82"] in table for table in rows)
     assert any(["2", "1", "Z", "-0.27"] in table for table in rows)
     assert all("平均位移" not in str(cell) for table in rows for row in table for cell in row)
+
+
+def test_pdf_embeds_available_cjk_truetype_font(tmp_path):
+    pytest.importorskip("reportlab")
+    font = Path("C:/Windows/Fonts/simsun.ttc")
+    if not font.is_file():
+        pytest.skip("Windows SimSun font is not installed on this platform")
+    output = tmp_path / "embedded-cjk.pdf"
+    _generate_pdf(_report(), output)
+    assert b"/FontFile2" in output.read_bytes()
+
+
+def test_pdf_font_fallback_works_without_installed_font_files(tmp_path, monkeypatch):
+    pytest.importorskip("reportlab")
+    monkeypatch.setattr(report_render, "_pdf_cjk_font_candidates", lambda: [], raising=False)
+    output = tmp_path / "cid-font.pdf"
+    _generate_pdf(_report(), output)
+    assert output.read_bytes().startswith(b"%PDF")
+    assert b"/STSong-Light" in output.read_bytes()
+
+
+def test_pdf_repeats_column_headers_when_a_native_table_spans_pages(tmp_path, monkeypatch):
+    pytest.importorskip("reportlab")
+    from reportlab.platypus import Table
+
+    splits = []
+    original = Table.split
+
+    def capture(self, *args, **kwargs):
+        parts = original(self, *args, **kwargs)
+        if len(parts) > 1:
+            splits.append((self._cellvalues[0], [part._cellvalues[0] for part in parts]))
+        return parts
+
+    monkeypatch.setattr(Table, "split", capture)
+    report = _report()
+    report["detailed"]["out_file_data"]["unit_mass"] = [
+        {"floor": floor, "tower": 1, "unit_mass": 500, "mass_ratio": 1} for floor in range(1, 121)
+    ]
+    _generate_pdf(report, tmp_path / "split-table.pdf")
+    assert splits
+    assert all(all(header == original_header for header in parts) for original_header, parts in splits)

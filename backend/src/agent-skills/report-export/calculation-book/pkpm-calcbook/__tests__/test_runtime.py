@@ -81,7 +81,7 @@ def _make_column(**kwargs):
     return c
 
 
-def _decode_pdf_literal(value: bytes) -> str:
+def _decode_pdf_literal(value: bytes, unicode_map=None) -> str:
     raw = bytearray()
     i = 0
     while i < len(value):
@@ -98,6 +98,8 @@ def _decode_pdf_literal(value: bytes) -> str:
         raw.append(value[i])
         i += 1
     data = bytes(raw)
+    if unicode_map is not None:
+        return "".join(unicode_map.get(value, chr(value)) for value in data)
     try:
         return data.decode("utf-16-be")
     except UnicodeDecodeError:
@@ -106,7 +108,14 @@ def _decode_pdf_literal(value: bytes) -> str:
 
 def _extract_uncompressed_pdf_text(pdf_path: Path) -> str:
     data = pdf_path.read_bytes()
-    return "\n".join(_decode_pdf_literal(value) for value in re.findall(rb"\((.*?)\)\s*Tj", data, flags=re.S))
+    # Embedded TrueType subsets use an explicit ToUnicode map rather than the
+    # old viewer-provided CID font's UTF-16 literals. This fixture uses one subset.
+    mappings = re.findall(rb"beginbfchar\s+(.*?)\s+endbfchar", data, flags=re.S)
+    unicode_map = None
+    if mappings:
+        unicode_map = {int(source, 16): bytes.fromhex(target.decode()).decode("utf-16-be")
+                       for block in mappings for source, target in re.findall(rb"<([0-9A-Fa-f]{2})>\s+<([0-9A-Fa-f]+)>", block)}
+    return "\n".join(_decode_pdf_literal(value, unicode_map) for value in re.findall(rb"\((.*?)\)\s*Tj", data, flags=re.S))
 
 
 class TestResolveJwsPath:

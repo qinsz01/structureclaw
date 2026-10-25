@@ -671,17 +671,48 @@ def _generate_docx(report: Dict[str, Any], output_path: Path, images: Optional[L
 # ── PDF generation ──────────────────────────────────────────────────────
 
 
+def _pdf_cjk_font_candidates() -> List[Path]:
+    windows_fonts = Path(os.environ.get("WINDIR", "C:/Windows")) / "Fonts"
+    return [windows_fonts / name for name in ("simsun.ttc", "simhei.ttf", "msyh.ttc")] + [
+        Path("/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc"),
+        Path("/usr/share/fonts/truetype/wqy/wqy-microhei.ttc"),
+    ]
+
+
+def _register_pdf_cjk_font() -> str:
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+    from reportlab.pdfbase.ttfonts import TTFont
+
+    for source in _pdf_cjk_font_candidates():
+        if not source.is_file():
+            continue
+        name = "StructureClawCJK-" + source.stem
+        if name in pdfmetrics.getRegisteredFontNames():
+            return name
+        try:
+            font = TTFont(name, str(source), subfontIndex=0)
+            if not all(ord(character) in font.face.charToGlyph for character in "结构计算楼层位移质量"):
+                continue
+            pdfmetrics.registerFont(font)
+            return name
+        except Exception as exc:
+            _logger.warning("Cannot embed CJK font %s: %s", source.name, exc)
+
+    # Keep resource-free export available on hosts without a CJK TrueType font.
+    # This legacy CID font requires corresponding font support in the viewer.
+    pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))
+    return "STSong-Light"
+
+
 def _generate_pdf(report: Dict[str, Any], output_path: Path, images: Optional[List[Path]] = None) -> Path:
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import mm
-    from reportlab.pdfbase import pdfmetrics
-    from reportlab.pdfbase.cidfonts import UnicodeCIDFont
     from reportlab.platypus import Image as RLImage, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-    pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))
-    cn_font = "STSong-Light"
+    cn_font = _register_pdf_cjk_font()
 
     doc = SimpleDocTemplate(
         str(output_path), pagesize=A4,
@@ -724,7 +755,7 @@ def _generate_pdf(report: Dict[str, Any], output_path: Path, images: Optional[Li
         col_count = len(headers)
         avail = doc.width
         col_w = [avail / col_count] * col_count
-        t = Table(data, colWidths=col_w)
+        t = Table(data, colWidths=col_w, repeatRows=1)
         t.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#D9E2F3")),
             ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
