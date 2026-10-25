@@ -1,4 +1,5 @@
 import { EngineeringValidationError } from '../engineering/validation-error.js';
+import { assertDraftSectionPurposes } from '../engineering/draft-sections.js';
 import { normalizeMaterialDensity } from '../engineering/material-density.js';
 import { modelSelectorSchema, floorTransferSchema, isGlobalFrameNodeRole } from '../engineering/model-selection.js';
 import { mergeInputEvidence } from '../engineering/input-evidence.js';
@@ -56,6 +57,10 @@ function normalizeTopologyNode(value: unknown): EngineeringDraftTopologyNode | u
 }
 
 function normalizeMemberRecordReleases(raw: Record<string, unknown>): Record<string, unknown> {
+  if (raw.releases === null) {
+    const { releases: _absent, ...record } = raw;
+    return record;
+  }
   return raw.releases === undefined ? raw : { ...raw, releases: normalizeMemberReleases(raw.releases,
     `engineeringDraft.topology.members[${JSON.stringify(String(raw.id ?? '?'))}].releases`, raw.type) };
 }
@@ -90,10 +95,13 @@ function normalizeTopologyMember(value: unknown): EngineeringDraftTopologyMember
 /** Validate partial records using their accepted fields, never guessed coordinates or load units. */
 function hydrateDraftRecord(value: unknown, existing: Array<Record<string, unknown>> | undefined, member = false, load = false): unknown {
   const input = asRecord(value);
-  const patch = member && input ? normalizeMemberRecordReleases(input) : input;
-  if (!patch || typeof patch.id !== 'string') return value;
-  const matches = existing?.filter(record => record.id === patch.id) ?? [];
-  if (matches.length > 1) throw new EngineeringValidationError(`AMBIGUOUS_DRAFT_RECORD_ID: ${patch.id} / 无法唯一定位草稿对象`);
+  if (!input || typeof input.id !== 'string') return value;
+  const matches = existing?.filter(record => record.id === input.id) ?? [];
+  if (matches.length > 1) throw new EngineeringValidationError(`AMBIGUOUS_DRAFT_RECORD_ID: ${input.id} / 无法唯一定位草稿对象`);
+  // V2 permits null on a new/full record. It must never erase an existing release definition.
+  if (member && input.releases === null && matches[0]?.releases != null) normalizeMemberReleases(null,
+    `engineeringDraft.topology.members[${JSON.stringify(input.id)}].releases`, input.type);
+  const patch = member ? normalizeMemberRecordReleases(input) : input;
   if (!matches.length) return patch;
   const previous = { ...(member ? normalizeMemberRecordReleases(matches[0]!) : matches[0]!) };
   // A newly supplied scope arm replaces the old target expression atomically.
@@ -537,7 +545,9 @@ function normalizeRecordArray(value: unknown, label: string): Array<Record<strin
   if (!Array.isArray(value) || value.some((item) => !asRecord(item))) {
     throw new EngineeringValidationError(`INVALID_EXPLICIT_MODEL: ${label} must contain complete records / 必须提供完整对象记录`);
   }
-  return structuredClone(value) as Array<Record<string, unknown>>;
+  const records = structuredClone(value) as Array<Record<string, unknown>>;
+  if (label === 'sections') assertDraftSectionPurposes(records);
+  return records;
 }
 
 /** A partial update must not overwrite confirmed nested fields with undefined. */
@@ -589,7 +599,8 @@ export function mergeEngineeringDraft(
 ): EngineeringDraft | undefined {
   if (!existing && !patch) return undefined;
   if (existing?.topology) existing = { ...existing, topology: normalizeDraftTopologyReleases(existing.topology) };
-  if (patch?.topology) patch = { ...patch, topology: normalizeDraftTopologyReleases(patch.topology) };
+  if (patch?.topology) patch = { ...patch, topology: { ...normalizeDraftTopologyReleases(patch.topology),
+    ...(patch.topology.members ? { members: patch.topology.members.map(member => hydrateDraftRecord(member, existing?.topology?.members, true) as EngineeringDraftTopologyMember) } : {}) } };
   if (!patch) return existing;
   if (!existing) {
     return {

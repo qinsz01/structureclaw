@@ -20,6 +20,7 @@ import { expandModellingOperations, assertUserTopologyIds } from '../../../skill
 import { ModellingOperationError } from '../../../skill-shared/modelling/contract.js';
 import { isRecord } from '../../../engineering/model-state.js';
 import { normalizeMemberReleases } from '../../../engineering/member-releases.js';
+import { assertDraftSectionPurposes } from '../../../engineering/draft-sections.js';
 
 export class ModelInputRequiredError extends Error {
   constructor(readonly missingFields: Array<string | { field: string; reason?: string }>) {
@@ -43,6 +44,7 @@ export async function tryBuildGenericModelWithLlm(
   }
 
   signal?.throwIfAborted();
+  assertDraftSectionPurposes(state.engineeringDraft?.sectionRecords);
   if (state.engineeringDraft) state = { ...state, engineeringDraft: { ...state.engineeringDraft,
     topology: normalizeDraftTopologyReleases(state.engineeringDraft.topology) } };
 

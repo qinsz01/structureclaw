@@ -12,6 +12,7 @@ import { verifyDraftSectionEvidence, projectDraftState } from '../../agent-runti
 import { mergeInputEvidence } from '../../engineering/input-evidence.js';
 import { normalizeDraftTopologyReleases } from '../../agent-runtime/engineering-draft.js';
 import { MemberReleaseValidationError } from '../../engineering/member-releases.js';
+import { assertDraftSectionPurposes, DraftSectionValidationError } from '../../engineering/draft-sections.js';
 import { buildModelToolSummary, buildModelToolStateUpdate } from './compaction/analysis.js';
 import { conversationSectionEvidence, modellingConversationHistory } from './input-message.js';
 import { getConfigurable, getToolCallId, toolResult, isRecord, toolSkillScope, nextActionForMissingInput, clarificationAvailable } from './shared.js';
@@ -38,9 +39,15 @@ export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
       }
       let savedDraft = storedDraft;
       try {
+        assertDraftSectionPurposes(storedDraft.engineeringDraft?.sectionRecords);
         if (storedDraft.engineeringDraft) savedDraft = projectDraftState({ ...storedDraft.engineeringDraft,
           topology: normalizeDraftTopologyReleases(storedDraft.engineeringDraft.topology) }, storedDraft);
       } catch (error) {
+        if (error instanceof DraftSectionValidationError) return toolResult(toolCallId, 'build_model', JSON.stringify({
+          success: false, modelBuilt: false, errorCode: 'DRAFT_PROTOCOL_INVALID', field: error.field, error: error.message,
+          nextAction: 'extract_draft_params', repair: { clearDraftFields: [error.field] },
+          instruction: 'Repair this invalid draft field from the original user input with extract_draft_params before building. Clear only this invalid field and provide its corrected definition; preserve all other confirmed inputs. Do not ask the user to repeat known input. / 建模前依据原始用户输入修正该草稿协议字段，只清除上述无效字段并合并正确定义，保留其余已确认输入，不重复追问已知信息。',
+        }));
         if (!(error instanceof MemberReleaseValidationError)) throw error;
         return toolResult(toolCallId, 'build_model', JSON.stringify({ success: false, modelBuilt: false,
           errorCode: 'DRAFT_PROTOCOL_INVALID', field: error.releaseField, error: error.message,
