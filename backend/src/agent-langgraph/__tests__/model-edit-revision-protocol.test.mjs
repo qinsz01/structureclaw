@@ -43,6 +43,55 @@ const config = thread => ({ configurable: { thread_id: thread, structureProtocol
 const toolMessages = state => state.messages.filter(item => item.getType() === 'tool');
 
 describe('model writes use observed revisions without automatic rebasing', () => {
+  test('a shape-only edit refreshes converter-derived stiffness before committing the new revision', async () => {
+    // Reproduces the real-LLM 100x200 -> 100x300 edit, including absent source labels.
+    const original = await normalizeEngineeringModel({ ...initial.model, sections: [{ id: 'section', name: '100x200',
+      type: 'rectangular', shape: { kind: 'rectangular', B: 100, H: 200 } }] }, protocol);
+    const saved = structuredClone(original);
+    const state = await graph().invoke({ ...commitModel({}, original, 'derived-geometry'),
+      analysisResult: { runId: 'old-geometry' }, messages: [message([call('height-only', [{
+        operation: 'update', collection: 'sections', id: 'section', values: { 'shape.H': 300 },
+      }])])] }, config('height-only-derived'));
+    expect(receipt(toolMessages(state)[0])).toMatchObject({ success: true, revision: 2, analysisCurrent: false });
+    expect(state.model.sections[0].properties).toMatchObject({ A: .03, Iy: .000225, Iz: .000025 });
+    expect(state.model.sections[0].extra.derived_properties.shape).toEqual({ kind: 'rectangular', H: 300, B: 100 });
+    expect(state.model.sections[0].extra.section_diagnostics ?? []).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'SECTION_PROVENANCE_CONFLICT' }),
+    ]));
+    expect(state.analysisResult).toBeNull();
+    expect(original).toEqual(saved);
+    expect(state.modelHistory.at(-1).beforeModel).toEqual(saved);
+  }, 30000);
+
+  test('a geometry refresh preserves explicit properties and numerical overrides in the same edit', async () => {
+    const original = await normalizeEngineeringModel({ ...initial.model, sections: [{ id: 'section', name: '100x200',
+      type: 'rectangular', shape: { kind: 'rectangular', B: 100, H: 200 }, properties: { Iy: .00008 } }] }, protocol);
+    const state = await graph().invoke({ ...commitModel({}, original, 'mixed-geometry'),
+      messages: [message([call('height-and-torsion', [{ operation: 'update', collection: 'sections', id: 'section',
+        values: { shape: { H: 300 }, properties: { J: 9e-8 } },
+      }])])] }, config('height-and-explicit-properties'));
+    expect(receipt(toolMessages(state)[0]).success).toBe(true);
+    expect(state.model.sections[0].properties).toMatchObject({ A: .03, Iy: .00008, Iz: .000025, J: 9e-8 });
+    expect(state.model.sections[0].extra.derived_properties.fields).toEqual(['A', 'Iz']);
+    expect(original.sections[0].shape.H).toBe(200);
+  }, 30000);
+
+  test('unverified stale provenance never authorizes discarding supplied numerical values', async () => {
+    const original = await normalizeEngineeringModel({ ...initial.model, sections: [{ id: 'section', name: '100x200',
+      type: 'rectangular', shape: { kind: 'rectangular', B: 100, H: 200 } }] }, protocol);
+    original.sections[0].properties.Iy = .00008;
+    const conflicting = await normalizeEngineeringModel(original, protocol);
+    expect(conflicting.sections[0].extra.section_diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'SECTION_PROVENANCE_CONFLICT' }),
+    ]));
+    const state = await graph().invoke({ ...commitModel({}, conflicting, 'explicit-conflict'),
+      messages: [message([call('height-with-explicit-values', [{ operation: 'update', collection: 'sections', id: 'section',
+        values: { shape: { H: 300 } },
+      }])])] }, config('height-conflicting-provenance'));
+    expect(receipt(toolMessages(state)[0]).success).toBe(true);
+    expect(state.model.sections[0].properties).toEqual(conflicting.sections[0].properties);
+  }, 30000);
+
   test('converter-derived properties retain their source beside explicit user properties across edits', async () => {
     const userInput = '200×100×7×11.4 mm, Iy=2.4e-5 m4';
     const model = { ...initial.model, sections: [{ id: 'section', name: 'I20a', type: 'I',

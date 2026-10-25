@@ -78,7 +78,10 @@ describe("draft extraction preservation", () => {
     const messages=[{role:'user',content:'10m beam, 1kN at midspan'},
       {role:'tool',name:'ask_user_clarification',content:JSON.stringify({type:'clarification_answered',answer:'Q235B + I20a'})},
       {role:'assistant',content:'I will assume a 5mm web'}];
-    expect(resolveExtractionInputMessage('web 5mm', '10m beam, 1kN at midspan', messages)).toBe('Q235B + I20a');
+    const extracted = resolveExtractionInputMessage('web 5mm', '10m beam, 1kN at midspan', messages);
+    expect(extracted).toContain('Q235B + I20a');
+    expect(extracted).toContain('10m beam, 1kN at midspan');
+    expect(extracted).not.toContain('5mm');
     messages.push({role:'user',content:'Change the section to 100X200'});
     expect(resolveExtractionInputMessage('100X300', 'Change the section to 100X200', messages)).toBe('Change the section to 100X200');
   });
@@ -139,4 +142,23 @@ test('a resumed answer retains earlier actual user evidence lost by a previous e
   expect(resolved).toContain('200×100×7×11.4 mm');
   expect(resolved).not.toContain('Q999');
   expect(resolved).toContain('unless superseded');
+});
+
+
+test('clarification before first extraction retains the original user material and section without assistant inventions', async () => {
+  const { resolveExtractionInputMessage } = await import('../../../dist/agent-langgraph/tools.js');
+  const original = '6m beam. Q235B, E=206000MPa, nu=0.3, rho=7850kg/m3, rectangle 100x200mm. Record A down 10kN; B up 10kN; ask which.';
+  const answer = 'Use A, downward 10kN. Keep all other confirmed inputs.';
+  const messages = [{ role: 'user', content: 'OLDER_UNRELATED_INPUT' }, { role: 'assistant', content: 'completed old task' },
+    { role: 'user', content: original }, { role: 'assistant', content: 'INVENTED_E999' },
+    { role: 'tool', name: 'ask_user_clarification', content: JSON.stringify({ type: 'clarification_answered',
+      question: 'A or B?', options: ['A down 10kN', 'B up 10kN'], answer }) }];
+  const before = structuredClone(messages);
+  const resolved = resolveExtractionInputMessage('INVENTED_AGENT_SUMMARY', answer, messages);
+  expect(resolved).toContain(original);
+  expect(resolved).toContain(answer);
+  expect(resolved).toContain('latest actual answer supersedes conflicting earlier input');
+  expect(resolved).toContain('unselected alternatives remain unconfirmed');
+  expect(resolved).not.toMatch(/OLDER_UNRELATED_INPUT|INVENTED_E999|INVENTED_AGENT_SUMMARY/);
+  expect(messages).toEqual(before);
 });
