@@ -10,6 +10,31 @@ from typing import Any, Dict, List, Optional
 
 _logger = logging.getLogger(__name__)
 
+_UNAVAILABLE = "不可用 / N/A"
+_AREA_MASS_NOTE = ("楼层面积未定义或非正，单位面积质量不可用；原生值保留供追溯。 / "
+                   "Unit-area mass is unavailable without a positive floor area; vendor values remain in the source data.")
+
+
+def _unit_mass_rows(rows: List[Dict[str, Any]]) -> List[List[str]]:
+    return [[str(row["floor"]), str(row["tower"]),
+             _UNAVAILABLE if row.get("status") == "unavailable" else str(row["unit_mass"]),
+             _UNAVAILABLE if row.get("status") == "unavailable" else str(row["mass_ratio"])] for row in rows]
+
+
+def _displacement_table(case: Dict[str, Any]) -> tuple[List[str], List[List[str]]]:
+    floors = case["floors"]
+    has_axis = any(row.get("axis") for row in floors)
+    has_average = any(row.get("ave_disp") is not None for row in floors)
+    headers = ["层号", "塔号"] + (["方向 / Axis"] if has_axis else []) + ["最大位移(mm)"]
+    if has_average:
+        headers.append("平均位移(mm)")
+    rows = [[str(row["floor"]), str(row["tower"])]
+            + ([str(row.get("axis", "")).upper()] if has_axis else [])
+            + [str(row["max_disp"])]
+            + ([str(row["ave_disp"]) if row.get("ave_disp") is not None else _UNAVAILABLE] if has_average else [])
+            for row in floors]
+    return headers, rows
+
 
 # ── Image helpers ────────────────────────────────────────────────────────
 
@@ -139,8 +164,10 @@ def _generate_markdown(report: Dict[str, Any]) -> str:
         lines.append("")
         lines.append("| 层号 | 塔号 | 单位面积质量(kg/m²) | 质量比 |")
         lines.append("|------|------|--------------------|--------|")
-        for r in unit_mass:
-            lines.append(f"| {r['floor']} | {r['tower']} | {r['unit_mass']} | {r['mass_ratio']} |")
+        for row in _unit_mass_rows(unit_mass):
+            lines.append("| " + " | ".join(row) + " |")
+        if any(row.get("status") == "unavailable" for row in unit_mass):
+            lines.append("\n" + _AREA_MASS_NOTE)
         lines.append("")
 
     # Section 4: Wind Load
@@ -212,16 +239,16 @@ def _generate_markdown(report: Dict[str, Any]) -> str:
     # Section 8: Floor Displacement
     wdisp_cases = out_data.get("wdisp_cases", [])
     if wdisp_cases:
-        lines.append("## 八、层间位移")
+        lines.append("## 八、楼层位移 / Floor displacements")
         lines.append("")
         for case in wdisp_cases:
             lines.append(f"### 工况 {case['case_num']}: {case['title']}")
             lines.append("")
             if case["floors"]:
-                lines.append("| 层号 | 塔号 | 最大位移(mm) | 平均位移(mm) |")
-                lines.append("|------|------|------------|------------|")
-                for f in case["floors"]:
-                    lines.append(f"| {f['floor']} | {f['tower']} | {f['max_disp']} | {f['ave_disp']} |")
+                headers, rows = _displacement_table(case)
+                lines.append("| " + " | ".join(headers) + " |")
+                lines.append("| " + " | ".join(["---"] * len(headers)) + " |")
+                lines.extend("| " + " | ".join(row) + " |" for row in rows)
             if case["max_drift_summary"]:
                 lines.append(f"\n**最大层间位移角**: {case['max_drift_summary']}")
             lines.append("")
@@ -481,8 +508,9 @@ def _generate_docx(report: Dict[str, Any], output_path: Path, images: Optional[L
         doc.add_heading("三、单位面积质量分布", level=1)
         _add_table(doc,
             ["层号", "塔号", "单位面积质量(kg/m²)", "质量比"],
-            [[str(r["floor"]), str(r["tower"]), str(r["unit_mass"]), str(r["mass_ratio"])]
-             for r in unit_mass])
+            _unit_mass_rows(unit_mass))
+        if any(row.get("status") == "unavailable" for row in unit_mass):
+            doc.add_paragraph(_AREA_MASS_NOTE)
 
     # Section 4: Wind Load
     wind_load = out_data.get("wind_load", [])
@@ -536,14 +564,12 @@ def _generate_docx(report: Dict[str, Any], output_path: Path, images: Optional[L
     # Section 8: Displacement
     wdisp_cases = out_data.get("wdisp_cases", [])
     if wdisp_cases:
-        doc.add_heading("八、层间位移", level=1)
+        doc.add_heading("八、楼层位移 / Floor displacements", level=1)
         for case in wdisp_cases:
             doc.add_heading(f"工况 {case['case_num']}: {case['title']}", level=2)
             if case["floors"]:
-                _add_table(doc,
-                    ["层号", "塔号", "最大位移(mm)", "平均位移(mm)"],
-                    [[str(f["floor"]), str(f["tower"]), str(f["max_disp"]), str(f["ave_disp"])]
-                     for f in case["floors"]])
+                headers, rows = _displacement_table(case)
+                _add_table(doc, headers, rows)
             if case["max_drift_summary"]:
                 doc.add_paragraph(f"最大层间位移角: {case['max_drift_summary']}")
 
@@ -744,8 +770,9 @@ def _generate_pdf(report: Dict[str, Any], output_path: Path, images: Optional[Li
         elements.append(Paragraph("三、单位面积质量分布", h1_style))
         _add_pdf_table(
             ["层号", "塔号", "单位质量(kg/m²)", "质量比"],
-            [[str(r["floor"]), str(r["tower"]), str(r["unit_mass"]), str(r["mass_ratio"])]
-             for r in unit_mass])
+            _unit_mass_rows(unit_mass))
+        if any(row.get("status") == "unavailable" for row in unit_mass):
+            elements.append(Paragraph(_AREA_MASS_NOTE, body_style))
 
     # Section 4: Wind
     wind_load = out_data.get("wind_load", [])
@@ -798,14 +825,12 @@ def _generate_pdf(report: Dict[str, Any], output_path: Path, images: Optional[Li
     # Section 8: Displacement
     wdisp_cases = out_data.get("wdisp_cases", [])
     if wdisp_cases:
-        elements.append(Paragraph("八、层间位移", h1_style))
+        elements.append(Paragraph("八、楼层位移 / Floor displacements", h1_style))
         for case in wdisp_cases:
             elements.append(Paragraph(f"工况{case['case_num']}: {case['title']}", h2_style))
             if case["floors"]:
-                _add_pdf_table(
-                    ["层号", "塔号", "最大位移", "平均位移"],
-                    [[str(f["floor"]), str(f["tower"]), str(f["max_disp"]), str(f["ave_disp"])]
-                     for f in case["floors"]])
+                headers, rows = _displacement_table(case)
+                _add_pdf_table(headers, rows)
 
     # Section 9: Stiffness
     stiff_api = detailed.get("story_stiffness", [])

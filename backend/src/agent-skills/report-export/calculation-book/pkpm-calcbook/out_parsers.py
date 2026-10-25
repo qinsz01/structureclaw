@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 import logging
+import math
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -170,7 +171,7 @@ def _parse_wind_load(text: str) -> List[Dict[str, Any]]:
 
 
 def _parse_floor_dimensions(text: str) -> List[Dict[str, Any]]:
-    pattern = r"各楼层等效尺寸.*?\n\s*[-]+\s*\n(.*?)(?=\n\s*\*)"
+    pattern = r"各楼层等效尺寸[^\n]*\n[ \t]*[-=]+[ \t]*\n(.*?)(?=\n[ \t]*\*|\Z)"
     m = re.search(pattern, text, re.DOTALL)
     if not m:
         return []
@@ -197,6 +198,7 @@ def _parse_floor_dimensions(text: str) -> List[Dict[str, Any]]:
 
 def _parse_unit_mass(text: str) -> List[Dict[str, Any]]:
     rows: List[Dict[str, Any]] = []
+    areas = {(row["floor"], row["tower"]): row["area"] for row in _parse_floor_dimensions(text)}
     found_data = False
     for line in text.split("\n"):
         stripped = line.strip()
@@ -210,12 +212,20 @@ def _parse_unit_mass(text: str) -> List[Dict[str, Any]]:
         if len(parts) >= 4:
             try:
                 int(parts[0])
-                rows.append({
+                row = {
                     "floor": int(parts[0]),
                     "tower": int(parts[1]),
                     "unit_mass": float(parts[2]),
                     "mass_ratio": float(parts[3]),
-                })
+                }
+                area = areas.get((row["floor"], row["tower"]))
+                if area is not None and (not math.isfinite(area) or area <= 0):
+                    # SATWE still prints a numeric density for a frame without
+                    # floor area. Retain that vendor value for audit, not as a
+                    # physically defined mass per unit area.
+                    row.update(native_unit_mass=row["unit_mass"], unit_mass=None,
+                               floor_area=area, status="unavailable", reason="FLOOR_AREA_UNAVAILABLE")
+                rows.append(row)
             except (ValueError, IndexError):
                 continue
     return rows
@@ -536,25 +546,35 @@ def _parse_wzq_shear_weight_ratio(text: str) -> List[Dict[str, Any]]:
 
 def _parse_wdisp_cases(text: str) -> List[Dict[str, Any]]:
     cases: List[Dict[str, Any]] = []
-    for m in re.finditer(
-        r"=== 工况\s+(\d+)\s+===\s*(.*?)(?=\n=== 工况|\Z)",
-        text,
-        re.DOTALL,
-    ):
-        case_title = m.group(2).split("\n")[0].strip()
-        block = m.group(0)
+    headers = list(re.finditer(r"^[ \t]*===[ \t]*工况[ \t]+(\d+)[ \t]*===[ \t]*([^\r\n]*)", text, re.MULTILINE))
+    for index, m in enumerate(headers):
+        case_title = m.group(2).strip()
+        block = text[m.end():headers[index + 1].start() if index + 1 < len(headers) else len(text)]
         floor_data: List[Dict[str, Any]] = []
-        for fm in re.finditer(
-            r"(\d+)\s+(\d+)\s+(\d+)\s+([\d.-]+)\s+([\d.-]+)",
-            block,
-        ):
+        columns: List[str] = []
+        axis = ""
+        for line in block.splitlines():
+            parts = line.split()
+            if parts[:3] == ["Floor", "Tower", "Jmax"]:
+                columns = parts
+                component = re.fullmatch(r"Max-\(([XYZ])\)", parts[3]) if len(parts) > 3 else None
+                axis = component.group(1).lower() if component else ""
+                continue
+            if not axis or len(parts) != len(columns) or not all(re.fullmatch(r"\d+", value) for value in parts[:3]):
+                continue
             try:
+                maximum = float(parts[3])
+                average_column = f"Ave-({axis.upper()})"
+                average = float(parts[columns.index(average_column)]) if average_column in columns else None
+                if not math.isfinite(maximum) or average is not None and not math.isfinite(average):
+                    continue
                 floor_data.append({
-                    "floor": int(fm.group(1)),
-                    "tower": int(fm.group(2)),
-                    "jmax": int(fm.group(3)),
-                    "max_disp": float(fm.group(4)),
-                    "ave_disp": float(fm.group(5)),
+                    "floor": int(parts[0]),
+                    "tower": int(parts[1]),
+                    "jmax": int(parts[2]),
+                    "axis": axis,
+                    "max_disp": maximum,
+                    "ave_disp": average,
                 })
             except (ValueError, IndexError):
                 continue
