@@ -43,6 +43,38 @@ const config = thread => ({ configurable: { thread_id: thread, structureProtocol
 const toolMessages = state => state.messages.filter(item => item.getType() === 'tool');
 
 describe('model writes use observed revisions without automatic rebasing', () => {
+  test('a verified property-only edit supersedes a geometry source and survives a later resize', async () => {
+    const userInput = '矩形100×200mm';
+    const original = await normalizeEngineeringModel({ ...initial.model, sections: [{ id: 'section', name: '100x200',
+      type: 'rectangular', shape: { kind: 'rectangular', B: 100, H: 200 },
+      extra: { provenance: { shape: 'user', properties: 'geometry' } } }] }, protocol, undefined, [userInput]);
+    const application = graph(), options = config('verified-property-only-then-resize');
+    const first = await application.invoke({ ...commitModel({}, original, 'user-geometry'),
+      lastUserMessage: userInput + '; J=9e-8 m4', messages: [message([call('user-J', [{ operation: 'update',
+        collection: 'sections', id: 'section', values: { properties: { J: 9e-8 } } }])])] }, options);
+    expect(receipt(toolMessages(first).at(-1)).success).toBe(true);
+    expect(first.model.sections[0].properties.J).toBe(9e-8);
+    expect(first.model.sections[0].extra.provenance.propertyFields).toMatchObject({ J: 'user', A: 'geometry', Iy: 'geometry', Iz: 'geometry' });
+    const resized = await application.invoke({ lastUserMessage: userInput + '; J=9e-8 m4; 高度改为300mm',
+      messages: [message([call('resize-after-user-J', [{ operation: 'update', collection: 'sections', id: 'section',
+        values: { shape: { H: 300 } } }], first.modelRevision)])] }, options);
+    expect(receipt(toolMessages(resized).at(-1)).success).toBe(true);
+    expect(resized.model.sections[0].properties).toMatchObject({ A: .03, Iy: .000225, Iz: .000025, J: 9e-8 });
+  }, 30000);
+
+  test('a discarded property-only edit cannot report success or invalidate the saved analysis', async () => {
+    const original = await normalizeEngineeringModel({ ...initial.model, sections: [{ id: 'section', name: '100x200',
+      type: 'rectangular', shape: { kind: 'rectangular', B: 100, H: 200 },
+      extra: { provenance: { shape: 'user', properties: 'geometry' } } }] }, protocol, undefined, ['100×200mm']);
+    const state = await graph().invoke({ ...commitModel({}, original, 'user-geometry'), lastUserMessage: '100×200mm',
+      analysisResult: { runId: 'saved' }, messages: [message([call('unverified-J', [{ operation: 'update',
+        collection: 'sections', id: 'section', values: { properties: { J: 9e-8 } } }])])] }, config('discarded-property-only'));
+    expect(toolMessages(state).at(-1).status).toBe('error');
+    expect(state.model).toEqual(original);
+    expect(state.modelRevision).toBe(1);
+    expect(state.analysisResult).toEqual({ runId: 'saved' });
+  }, 30000);
+
   test('a property override relinquishes only its own derived source before a later geometry edit', async () => {
     const original = await normalizeEngineeringModel({ ...initial.model, sections: [{ id: 'section', name: '100x200',
       type: 'rectangular', shape: { kind: 'rectangular', B: 100, H: 200 } }] }, protocol);
