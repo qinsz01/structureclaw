@@ -162,3 +162,16 @@ test('clarification before first extraction retains the original user material a
   expect(resolved).not.toMatch(/OLDER_UNRELATED_INPUT|INVENTED_E999|INVENTED_AGENT_SUMMARY/);
   expect(messages).toEqual(before);
 });
+
+
+test('an accepted extraction keeps clarification patches compact without replaying the original task', async () => {
+  const { resolveExtractionInputMessage } = await import('../../../dist/agent-langgraph/tools.js');
+  const original = 'ORIGINAL_ALREADY_STORED '.repeat(1000);
+  const resolved = resolveExtractionInputMessage(undefined, original, [{ role: 'user', content: original },
+    { role: 'tool', name: 'extract_draft_params', content: JSON.stringify({ status: 'applied', unapplied: [] }) },
+    { role: 'tool', name: 'ask_user_clarification', content: JSON.stringify({ type: 'clarification_answered',
+      question: 'Choose load?', answer: '10kN down' }) }]);
+  expect(resolved).not.toContain('ORIGINAL_ALREADY_STORED');
+  expect(resolved).toContain('10kN down');
+  expect(resolved.length).toBeLessThan(2000);
+});

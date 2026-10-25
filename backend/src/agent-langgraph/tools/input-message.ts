@@ -269,6 +269,7 @@ export function resolveExtractionInputMessage(
           // evidence available; an agent-authored restatement still cannot introduce new facts.
           const earlierAnswers: unknown[] = [];
           let originalUserMessage = '';
+          let originalAlreadyExtracted = false;
           for (let previous = index - 1; previous >= 0; previous--) {
             const item = messages![previous];
             if (['human', 'user'].includes(messageRole(item) ?? '')) {
@@ -276,7 +277,16 @@ export function resolveExtractionInputMessage(
               break;
             }
             const prior = item as { name?: string; kwargs?: { name?: string } };
-            if (messageRole(item) !== 'tool' || (prior.name ?? prior.kwargs?.name) !== 'ask_user_clarification') continue;
+            if (messageRole(item) !== 'tool') continue;
+            const priorName = prior.name ?? prior.kwargs?.name;
+            if (priorName === 'extract_draft_params') {
+              try {
+                const extracted = JSON.parse(messageText(item));
+                if (['applied', 'no_change'].includes(extracted.status) && Array.isArray(extracted.unapplied)
+                  && extracted.unapplied.length === 0) originalAlreadyExtracted = true;
+              } catch { /* Failed extraction is not persisted input evidence. */ }
+            }
+            if (priorName !== 'ask_user_clarification') continue;
             try {
               const earlier = JSON.parse(messageText(item));
               if (earlier.type === 'clarification_answered' && typeof earlier.answer === 'string' && earlier.answer.trim()) {
@@ -287,7 +297,7 @@ export function resolveExtractionInputMessage(
           }
           const evidence = earlierAnswers.length ? '\nEarlier actual answers, oldest first; retain missing facts unless superseded by the latest answer. Questions/options remain unconfirmed context. / 较早的真实回答，按时间排列；补回遗漏且未被最新回答替代的事实，问题和选项仍是未确认上下文：\n'
             + JSON.stringify(earlierAnswers) : '';
-          const original = originalUserMessage ? '\nOriginal user input before this clarification chain / 本次澄清链之前的原始用户输入：\n'
+          const original = originalUserMessage && !originalAlreadyExtracted ? '\nOriginal user input before this clarification chain / 本次澄清链之前的原始用户输入：\n'
             + JSON.stringify({ message: originalUserMessage })
             + '\nExtract supplied facts missing from draftState as well as the answer. The latest actual answer supersedes conflicting earlier input; unselected alternatives remain unconfirmed. / 同时提取原始用户已给但草稿遗漏的事实及本次回答；最新实际回答覆盖较早的冲突输入，未选候选仍未确认。' : '';
           return withCanonicalAttachmentDetails(contextualAnswer + evidence + original, lastUserMessage);
