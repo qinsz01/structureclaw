@@ -80,6 +80,15 @@ describe('old persisted draft states', () => {
     const handler = handlers[scenario.skillId];
     const original = structuredClone(scenario.state);
     const next = attempt(() => resume(scenario));
+    if (scenario.id === 'frame-3d-engineering') {
+      // The frozen input adds the ambiguous role "corner". New extraction must
+      // reject that protocol value, while leaving the historical state readable.
+      expect(next).toEqual({ error: expect.stringContaining('LOAD_NODE_ROLE_INVALID: ? location.nodeRole="corner"') });
+      expect(scenario.state).toEqual(original);
+      expect(handler.computeMissing(original, 'execution').critical).toContain('frameNodalLoadLocation');
+      expect(handler.buildModel(withDeclaredProperties(original))).toBeUndefined();
+      return;
+    }
     if (scenario.skillId === 'generic') {
       expect(next.error).toBeUndefined();
       expect(next.value.structuralTypeKey).toBe('unknown');
@@ -111,10 +120,6 @@ describe('old persisted draft states', () => {
       expect(questions).toEqual([expect.objectContaining({ paramKey: 'frameFloorArea', critical: true, question: expect.stringContaining('loaded area') })]);
       expect(handler.buildModel(withDeclaredProperties(next.value))).toBeUndefined();
       return;
-    }
-    if (scenario.id === 'frame-3d-engineering') {
-      expected.missingExecution = expected.missingInteractive = { value: { critical: ['frameNodalLoadLocation'], optional: [] } };
-      expected.questions.value = expected.questions.value.filter(question => question.paramKey !== 'floorLoads');
     }
     expect(attempt(() => handler.computeMissing(next.value, 'execution'))).toEqual(expected.missingExecution);
     expect(attempt(() => handler.computeMissing(next.value, 'interactive'))).toEqual(expected.missingInteractive);
