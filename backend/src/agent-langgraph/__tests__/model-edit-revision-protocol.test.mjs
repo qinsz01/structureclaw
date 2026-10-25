@@ -43,7 +43,8 @@ const config = thread => ({ configurable: { thread_id: thread, structureProtocol
 const toolMessages = state => state.messages.filter(item => item.getType() === 'tool');
 
 describe('model writes use observed revisions without automatic rebasing', () => {
-  test.each([{}, { shape: 'user', properties: 'geometry' }])('a verified property-only edit supersedes derived source %j and survives a later resize', async provenance => {
+  test.each([[{}, false], [{ shape: 'user', properties: 'geometry' }, false],
+    [{}, true], [{ shape: 'user', properties: 'geometry' }, true]])('a verified property-only edit supersedes derived source %j (mark user=%s) and survives a later resize', async (provenance, markUser) => {
     const userInput = '矩形100×200mm';
     const original = await normalizeEngineeringModel({ ...initial.model, sections: [{ id: 'section', name: '100x200',
       type: 'rectangular', shape: { kind: 'rectangular', B: 100, H: 200 },
@@ -51,10 +52,13 @@ describe('model writes use observed revisions without automatic rebasing', () =>
     const application = graph(), options = config('verified-property-only-then-resize-' + JSON.stringify(provenance));
     const first = await application.invoke({ ...commitModel({}, original, 'user-geometry'),
       lastUserMessage: userInput + '; J=9e-8 m4', messages: [message([call('user-J', [{ operation: 'update',
-        collection: 'sections', id: 'section', values: { properties: { J: 9e-8 } } }])])] }, options);
+        collection: 'sections', id: 'section', values: { properties: { J: 9e-8 },
+          ...(markUser ? { extra: { provenance: { properties: 'user' } } } : {}) } }])])] }, options);
     expect(receipt(toolMessages(first).at(-1)).success).toBe(true);
     expect(first.model.sections[0].properties.J).toBe(9e-8);
-    expect(first.model.sections[0].extra.provenance.propertyFields).toMatchObject({ J: 'user', A: 'geometry', Iy: 'geometry', Iz: 'geometry' });
+    const sources = first.model.sections[0].extra.provenance;
+    expect(sources.propertyFields).toMatchObject({ A: 'geometry', Iy: 'geometry', Iz: 'geometry' });
+    expect(sources.propertyFields.J ?? sources.properties).toBe('user');
     const resized = await application.invoke({ lastUserMessage: userInput + '; J=9e-8 m4; 高度改为300mm',
       messages: [message([call('resize-after-user-J', [{ operation: 'update', collection: 'sections', id: 'section',
         values: { shape: { H: 300 }, extra: { provenance: { shape: 'user' } } } }], first.modelRevision)])] }, options);

@@ -85,12 +85,12 @@ export function enforceSectionUserEvidence(section: Record<string, unknown>, inp
     return true;
   };
   const nextProvenance = { ...provenance };
+  const derived = isRecord(extra.derived_properties) && Array.isArray(extra.derived_properties.fields)
+    ? extra.derived_properties.fields : [];
   // An explicit edit relinquishes that field's derived-cache claim. Promote it
   // only when the actual user/attachment evidence verifies its numeric value.
   if ((provenance.properties === 'geometry' || provenance.properties == null && isRecord(extra.derived_properties))
     && isRecord(section.properties)) {
-    const derived = isRecord(extra.derived_properties) && Array.isArray(extra.derived_properties.fields)
-      ? extra.derived_properties.fields : [];
     const verified = Object.entries(section.properties).filter(([key, value]) => !derived.includes(key)
       && typeof value === 'number' && supported('properties', key, value));
     if (verified.length) {
@@ -99,6 +99,10 @@ export function enforceSectionUserEvidence(section: Record<string, unknown>, inp
         ...Object.fromEntries(derived.map(key => [String(key), 'geometry'])),
         ...Object.fromEntries(verified.map(([key]) => [key, matchedSources.get('properties') ?? 'user'])) };
     }
+  }
+  if (derived.length && ['user', 'attachment', 'rule'].includes(String(nextProvenance.properties))) {
+    nextProvenance.propertyFields = { ...Object.fromEntries(derived.map(key => [String(key), 'geometry'])),
+      ...(isRecord(nextProvenance.propertyFields) ? nextProvenance.propertyFields : {}) };
   }
   // Mixed records must rederive their geometry fields at every model write.
   // A claimed per-field source never authorizes supplied numerical properties.
