@@ -268,9 +268,13 @@ export function resolveExtractionInputMessage(
           // Resume chains can contain an earlier answer whose extraction failed. Keep that actual
           // evidence available; an agent-authored restatement still cannot introduce new facts.
           const earlierAnswers: unknown[] = [];
+          let originalUserMessage = '';
           for (let previous = index - 1; previous >= 0; previous--) {
             const item = messages![previous];
-            if (['human', 'user'].includes(messageRole(item) ?? '')) break;
+            if (['human', 'user'].includes(messageRole(item) ?? '')) {
+              originalUserMessage = messageText(item).trim();
+              break;
+            }
             const prior = item as { name?: string; kwargs?: { name?: string } };
             if (messageRole(item) !== 'tool' || (prior.name ?? prior.kwargs?.name) !== 'ask_user_clarification') continue;
             try {
@@ -283,7 +287,10 @@ export function resolveExtractionInputMessage(
           }
           const evidence = earlierAnswers.length ? '\nEarlier actual answers, oldest first; retain missing facts unless superseded by the latest answer. Questions/options remain unconfirmed context. / 较早的真实回答，按时间排列；补回遗漏且未被最新回答替代的事实，问题和选项仍是未确认上下文：\n'
             + JSON.stringify(earlierAnswers) : '';
-          return withCanonicalAttachmentDetails(contextualAnswer + evidence, lastUserMessage);
+          const original = originalUserMessage ? '\nOriginal user input before this clarification chain / 本次澄清链之前的原始用户输入：\n'
+            + JSON.stringify({ message: originalUserMessage })
+            + '\nExtract supplied facts missing from draftState as well as the answer. The latest actual answer supersedes conflicting earlier input; unselected alternatives remain unconfirmed. / 同时提取原始用户已给但草稿遗漏的事实及本次回答；最新实际回答覆盖较早的冲突输入，未选候选仍未确认。' : '';
+          return withCanonicalAttachmentDetails(contextualAnswer + evidence + original, lastUserMessage);
         }
       } catch { /* Older tool messages may contain plain text. */ }
     }
