@@ -34,6 +34,57 @@ const extractorInput = (state, llm, extra = {}) => ({
 });
 
 describe('typed engineering validation in parameter extraction', () => {
+  test.each(['direct', 'wrapped'])('rejects misplaced canonical fields before accepting a %s patch', async style => {
+    const state = acceptedState(), before = structuredClone(state), prompts = [], validated = [];
+    const corrected = acceptedPatch();
+    const misplaced = { engineeringDraft: { geometry: { lengthM: 8 } }, loads: corrected.engineeringDraft.loads,
+      loadCases: [{ id: 'D', type: 'dead', loads: [] }], analysis: { type: 'static', engineTarget: 'pkpm' },
+      analysisControl: { self_weight: false } };
+    const result = await invokeParamExtractor(extractorInput(state, { invoke: async prompt => {
+      prompts.push(prompt);
+      return { content: JSON.stringify(prompts.length === 1
+        ? style === 'wrapped' ? { draftPatch: { engineeringDraft: misplaced.engineeringDraft },
+          ...Object.fromEntries(Object.entries(misplaced).filter(([key]) => key !== 'engineeringDraft')) } : misplaced
+        : corrected) };
+    } }, { validatePatch: candidate => { validated.push(candidate); validateWithHandler(state)(candidate); } }));
+    expect(result).toEqual(corrected);
+    expect(validated).toEqual([corrected]);
+    expect(prompts).toHaveLength(2);
+    expect(prompts[1]).toContain('DRAFT_ENVELOPE_INVALID');
+    for (const key of ['loads', 'loadCases', 'analysis', 'analysisControl']) expect(prompts[1]).toContain(`"${key}"`);
+    expect(state).toEqual(before);
+  });
+
+  test('persistent misplaced fields fail explicitly without persisting an incomplete draft', async () => {
+    const state = acceptedState(), before = structuredClone(state);
+    let calls = 0, validations = 0;
+    await expect(invokeParamExtractor(extractorInput(state, { invoke: async () => {
+      calls++;
+      return { content: JSON.stringify({ engineeringDraft: {}, loads: acceptedPatch().engineeringDraft.loads }) };
+    } }, { validatePatch: () => { validations++; } }))).rejects.toThrow('DRAFT_ENVELOPE_INVALID');
+    expect(calls).toBe(3);
+    expect(validations).toBe(0);
+    expect(state).toEqual(before);
+  });
+
+  test.each(['all+1', 'all+2', 'node-x0y1+2', 'made-up-role'])('repairs invalid formal frame role %s before it becomes confirmed state', async nodeRole => {
+    const state = acceptedState(), before = structuredClone(state), prompts = [];
+    const valid = { engineeringDraft: { loads: [{ id: 'N', kind: 'nodal', magnitude: 50, unit: 'kN',
+      direction: 'gravity', location: { nodeRole: 'all', story: 1 } }] } };
+    const invalid = structuredClone(valid);
+    invalid.engineeringDraft.loads[0].location.nodeRole = nodeRole;
+    const result = await invokeParamExtractor(extractorInput(state, { invoke: async prompt => {
+      prompts.push(prompt);
+      return { content: JSON.stringify(prompts.length === 1 ? invalid : valid) };
+    } }));
+    expect(result).toEqual(valid);
+    expect(prompts).toHaveLength(2);
+    expect(prompts[1]).toContain('LOAD_NODE_ROLE_INVALID');
+    expect(prompts[1]).toContain(JSON.stringify(nodeRole));
+    expect(prompts[1]).toContain('{"nodeRole":"all","story":1}');
+    expect(state).toEqual(before);
+  });
+
   test('the real handler identifies the rejected direction field and value without changing accepted inputs', () => {
     const state = acceptedState(), before = structuredClone(state);
     let failure;
