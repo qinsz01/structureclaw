@@ -374,8 +374,10 @@ function unwrapDraftPatch(parsed: Record<string, unknown>): Record<string, unkno
     ...(Array.isArray(parsed.unapplied) ? { unapplied: parsed.unapplied } : {}),
   };
   if (draftPatch && typeof draftPatch === 'object' && !Array.isArray(draftPatch)) {
+    const { draftPatch: _wrapper, ...outer } = parsed;
     return {
       ...(draftPatch as Record<string, unknown>),
+      ...outer,
       ...(engineeringDraft && typeof engineeringDraft === 'object' && !Array.isArray(engineeringDraft)
         ? { engineeringDraft }
         : {}),
@@ -513,7 +515,18 @@ export async function invokeParamExtractor(
       : !content.trim() ? 'empty' : !patch ? 'unparsable' : undefined;
     let validationError: string | undefined;
     if (!invalidReason && patch) {
-      try { await input.validatePatch?.(patch); }
+      try {
+        // Preserve misplaced fields through unwrapping, then reject them rather than
+        // accepting a partial draft and treating supplied values as missing user input.
+        const compatibilityFields = input.plugin.id === 'generic' ? []
+          : ['material', 'materials', 'sectionRecords', 'templateAssignments', 'wind', 'analysisControl'];
+        const misplaced = Object.keys(patch).filter(key => Object.hasOwn(draftContract.properties, key)
+          && !compatibilityFields.includes(key));
+        if (misplaced.length) throw new EngineeringValidationError(
+          `DRAFT_ENVELOPE_INVALID: ${misplaced.map(key => JSON.stringify(key)).join(', ')} belong inside engineeringDraft, not beside it. Return the complete corrected patch, preserving all supplied values; do not ask the user to repeat them. / 上述字段须放在engineeringDraft内部，不得丢弃；返回保留全部已给数值的正确补丁，不向用户重复追问。`,
+        );
+        await input.validatePatch?.(patch);
+      }
       catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         // Only rejected engineering inputs are repairable. Keep the older field/clear contracts

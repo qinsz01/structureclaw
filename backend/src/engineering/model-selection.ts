@@ -13,6 +13,14 @@ export const modelSelectorSchema = z.object({
 }).strict();
 export type ModelSelector = z.infer<typeof modelSelectorSchema>;
 export const isGlobalFrameNodeRole = (value: unknown): boolean => value === 'all-non-base-nodes' || value === 'all-top-nodes';
+const rightRoles = ['right', 'right-side', 'right-end', 'end', '右侧', '右端'] as const;
+const leftRoles = ['left', 'left-side', 'left-end', 'start', '左侧', '左端'] as const;
+const middleRoles = ['middle', 'center', 'centre', 'middle-node', 'center-node', '中间', '中央'] as const;
+const gridNodeRole = /^(?:corner-|node-)?x(\d+)y(\d+)$/;
+export const frameNodeRoleSchema = z.union([
+  z.enum(['all', 'all-non-base-nodes', 'all-top-nodes', ...rightRoles, ...leftRoles, ...middleRoles]),
+  z.string().regex(gridNodeRole),
+]);
 
 /** Resolve the structured node-role protocol against coordinates, never prose. */
 export function selectNodeRole(nodes: ModelRecord[], role: string, story?: number): ModelRecord[] {
@@ -25,14 +33,14 @@ export function selectNodeRole(nodes: ModelRecord[], role: string, story?: numbe
   if (role === 'all' || isGlobalFrameNodeRole(role)) return pool;
   const xs = [...new Set(pool.map(node => Number(node.x)))].sort((a, b) => a - b);
   const ys = [...new Set(pool.map(node => Number(node.y)))].sort((a, b) => a - b);
-  const grid = role.match(/^(?:corner-|node-)?x(\d+)y(\d+)$/);
+  const grid = role.match(gridNodeRole);
   let xIndex: number | undefined, yIndex: number | undefined;
   if (grid) { xIndex = Number(grid[1]); yIndex = Number(grid[2]); }
   else if (ys.length === 1) {
     yIndex = 0;
-    if (['right', 'right-side', 'right-end', 'end', '右侧', '右端'].includes(role)) xIndex = xs.length - 1;
-    else if (['left', 'left-side', 'left-end', 'start', '左侧', '左端'].includes(role)) xIndex = 0;
-    else if (['middle', 'center', 'centre', 'middle-node', 'center-node', '中间', '中央'].includes(role)) xIndex = Math.floor((xs.length - 1) / 2);
+    if ((rightRoles as readonly string[]).includes(role)) xIndex = xs.length - 1;
+    else if ((leftRoles as readonly string[]).includes(role)) xIndex = 0;
+    else if ((middleRoles as readonly string[]).includes(role)) xIndex = Math.floor((xs.length - 1) / 2);
   }
   return pool.filter(node => Number(node.x) === xs[xIndex ?? -1] && Number(node.y) === ys[yIndex ?? -1]);
 }

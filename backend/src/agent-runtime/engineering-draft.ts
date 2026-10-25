@@ -1,7 +1,7 @@
 import { EngineeringValidationError } from '../engineering/validation-error.js';
 import { assertDraftSectionPurposes } from '../engineering/draft-sections.js';
 import { normalizeMaterialDensity } from '../engineering/material-density.js';
-import { modelSelectorSchema, floorTransferSchema, isGlobalFrameNodeRole } from '../engineering/model-selection.js';
+import { modelSelectorSchema, floorTransferSchema, isGlobalFrameNodeRole, frameNodeRoleSchema } from '../engineering/model-selection.js';
 import { mergeInputEvidence } from '../engineering/input-evidence.js';
 import { isDeepStrictEqual } from 'node:util';
 import { normalizeMemberReleases } from '../engineering/member-releases.js';
@@ -446,6 +446,12 @@ export function normalizeEngineeringDraft(value: unknown, existing?: Engineering
     throw new EngineeringValidationError('DRAFT_LOAD_REPRESENTATION_CONFLICT: template source loads belong in engineeringDraft.loads. loadCases may declare id/type with loads=[]; do not duplicate loads or invent generated node/member IDs. For user-supplied explicit topology use complete topology and exact executable load records instead. / 模板源荷载保存在loads；loadCases仅声明工况且loads=[]，不得重复荷载或编造尚未生成的实体编号；用户提供显式拓扑时应使用完整拓扑及准确施加荷载。');
   }
   for (const load of draft.loads ?? []) {
+    const geometry = draft.geometry ?? existing?.geometry;
+    if (load.location?.nodeRole !== undefined && geometry?.storyHeightsM?.length
+      && (geometry.bayWidthsM?.length || geometry.bayWidthsXM?.length || geometry.bayWidthsYM?.length)
+      && !frameNodeRoleSchema.safeParse(load.location.nodeRole).success) {
+      throw new EngineeringValidationError(`LOAD_NODE_ROLE_INVALID: ${load.id ?? '?'} location.nodeRole=${JSON.stringify(load.location.nodeRole)}; use a formal frame node role, with story in the separate location.story field, e.g. {"nodeRole":"all","story":1} or {"nodeRole":"node-x0y1","story":2}. Exact node IDs belong in target or selector.ids. Preserve every load and case. / 框架nodeRole须使用正式角色，层号单独写入location.story，不得拼入角色；准确节点编号写入target或selector.ids，保留全部荷载及工况。`);
+    }
     if (load.unit === 'kN' && load.selector?.type !== undefined) {
       throw new EngineeringValidationError(`LOAD_NODE_SELECTOR_TYPE_INVALID: ${load.id ?? '?'}; nodes have no type field. Preserve the load group with ids/coordinates, not type:${JSON.stringify(load.selector.type)} / 节点没有type字段，请保留分组并使用准确ID或坐标选择器`);
     }
