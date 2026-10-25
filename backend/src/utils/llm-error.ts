@@ -47,6 +47,9 @@ export function isContextOverflowError(error: unknown): boolean {
 
 export function toLlmApiError(error: unknown): { statusCode: number; body: ApiErrorBody } {
   const code = error instanceof Error ? error.message.split(':', 1)[0] ?? '' : '';
+  if (code === 'MODEL_PHYSICS_INVALID') return { statusCode: 422, body: { error: { code,
+    message: 'The generated model failed physical validation. No successful calculation was published. / 生成模型未通过物理校验，未发布成功的计算结果。',
+    retriable: false } } };
   if (code === 'FIELD_CONTRACT_UNRESOLVED') return { statusCode: 500, body: { error: { code,
     message: 'The system could not apply the supplied input. This operation stopped without changing the saved model; do not repeat the same answer. / 系统未能应用已提供的输入，本次操作已停止且原模型未变；无需重复回答。',
     retriable: false } } };
