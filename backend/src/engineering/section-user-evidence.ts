@@ -87,7 +87,8 @@ export function enforceSectionUserEvidence(section: Record<string, unknown>, inp
   const nextProvenance = { ...provenance };
   // An explicit edit relinquishes that field's derived-cache claim. Promote it
   // only when the actual user/attachment evidence verifies its numeric value.
-  if (provenance.properties === 'geometry' && isRecord(section.properties)) {
+  if ((provenance.properties === 'geometry' || provenance.properties == null && isRecord(extra.derived_properties))
+    && isRecord(section.properties)) {
     const derived = isRecord(extra.derived_properties) && Array.isArray(extra.derived_properties.fields)
       ? extra.derived_properties.fields : [];
     const verified = Object.entries(section.properties).filter(([key, value]) => !derived.includes(key)
