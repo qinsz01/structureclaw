@@ -13,6 +13,12 @@ _logger = logging.getLogger(__name__)
 _UNAVAILABLE = "不可用 / N/A"
 _AREA_MASS_NOTE = ("楼层面积未定义或非正，单位面积质量不可用；原生值保留供追溯。 / "
                    "Unit-area mass is unavailable without a positive floor area; vendor values remain in the source data.")
+_ANALYSIS_SCOPE_NOTE = (
+    "本报告仅整理原生分析结果，未执行规范设计校核，也不提供规范合规结论。"
+    "原生工程中的默认设计参数仅作追溯资料，不代表用户已确认的设计输入。 / "
+    "This report summarizes native analysis results only; no code design checks or compliance conclusions are included. "
+    "Native project defaults are audit data, not user-confirmed design inputs."
+)
 
 
 def _unit_mass_rows(rows: List[Dict[str, Any]]) -> List[List[str]]:
@@ -88,6 +94,8 @@ def _generate_markdown(report: Dict[str, Any]) -> str:
     lines: List[str] = []
     lines.append("# PKPM SATWE 结构计算书")
     lines.append("")
+    if report.get("summary", {}).get("includeDesign") is False:
+        lines.extend([_ANALYSIS_SCOPE_NOTE, ""])
 
     # Structural images
     images: List[str] = report.get("detailed", {}).get("images", [])
@@ -447,6 +455,8 @@ def _generate_docx(report: Dict[str, Any], output_path: Path, images: Optional[L
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     for run in title.runs:
         run.font.size = Pt(22)
+    if report.get("summary", {}).get("includeDesign") is False:
+        doc.add_paragraph(_ANALYSIS_SCOPE_NOTE)
 
     # Insert structural images after title
     if images:
@@ -732,6 +742,9 @@ def _generate_pdf(report: Dict[str, Any], output_path: Path, images: Optional[Li
 
     elements.append(Paragraph("PKPM SATWE 结构计算书", title_style))
     elements.append(Spacer(1, 10))
+    if report.get("summary", {}).get("includeDesign") is False:
+        elements.append(Paragraph(_ANALYSIS_SCOPE_NOTE, body_style))
+        elements.append(Spacer(1, 10))
 
     # Insert structural images after title
     if images:

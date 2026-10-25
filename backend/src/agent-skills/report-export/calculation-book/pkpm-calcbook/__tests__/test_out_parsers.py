@@ -157,3 +157,43 @@ def test_pdf_repeats_column_headers_when_a_native_table_spans_pages(tmp_path, mo
     _generate_pdf(report, tmp_path / "split-table.pdf")
     assert splits
     assert all(all(header == original_header for header in parts) for original_header, parts in splits)
+
+
+@pytest.mark.parametrize("include_design", [False, True])
+@pytest.mark.parametrize("format_name", ["markdown", "docx", "pdf"])
+def test_standalone_analysis_report_states_its_actual_scope_before_native_parameters(
+        tmp_path, monkeypatch, include_design, format_name):
+    report = _report()
+    report["summary"]["includeDesign"] = include_design
+    report["detailed"]["out_file_data"]["wmass_params"] = {"design_params": "梁保护层厚度 (mm): BCB = 30.00"}
+    if format_name == "markdown":
+        text = _generate_markdown(report)
+    elif format_name == "docx":
+        docx = pytest.importorskip("docx")
+        target = tmp_path / "scope.docx"
+        _generate_docx(report, target)
+        text = "\n".join(paragraph.text for paragraph in docx.Document(target).paragraphs)
+    else:
+        pytest.importorskip("reportlab")
+        from reportlab.platypus import Paragraph
+
+        paragraphs = []
+        original = Paragraph.__init__
+
+        def capture(self, text, *args, **kwargs):
+            paragraphs.append(text)
+            original(self, text, *args, **kwargs)
+
+        monkeypatch.setattr(Paragraph, "__init__", capture)
+        _generate_pdf(report, tmp_path / "scope.pdf")
+        text = "\n".join(paragraphs)
+    assert "BCB" in text and "30.00" in text
+    if include_design:
+        assert "未执行规范设计校核" not in text
+    else:
+        assert "未执行规范设计校核" in text
+        assert "不提供规范合规结论" in text
+        assert "不代表用户已确认的设计输入" in text
+        assert "no code design checks or compliance conclusions" in text
+        assert "Native project defaults are audit data" in text
+        assert text.index("未执行规范设计校核") < text.index("BCB")
