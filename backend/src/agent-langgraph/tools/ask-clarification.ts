@@ -66,10 +66,10 @@ export function createAskUserClarificationTool() {
           return [{ ...candidate, id: `candidate:${contentHash(candidate)}`, optionIds }];
         });
       });
-      // Numeric section proposals must be captured before asking, otherwise an accepted
-      // answer has no immutable candidate to bind on the next extraction.
-      const hasDimensions = [input.question, ...(options ?? [])].some(text => /\d+(?:\.\d+)?\s*[×xX*]\s*\d+(?:\.\d+)?\s*(?:mm|毫米)/.test(text));
-      if (hasDimensions && !sectionCandidates.length) {
+      // Candidate declarations are structural, never inferred from question text.
+      // General questions may repeat confirmed dimensions without proposing a section.
+      // Unbound proposals still cannot become confirmed input at the evidence boundary.
+      if (input.candidateOptions !== undefined && !sectionCandidates.length) {
         recordRunEvent({ kind: 'clarification_options_rejected', reason: 'SECTION_CANDIDATES_REQUIRED' });
         return JSON.stringify({ success: false, errorCode: 'SECTION_CANDIDATES_REQUIRED', nextAction: 'resend_clarification',
           message: 'No question was sent: numeric section proposals need stored candidates. / 尚未发送问题：数值截面建议必须先保存候选。',
@@ -111,7 +111,7 @@ export function createAskUserClarificationTool() {
         'Pause execution and ask the user a clarification question. ' +
         'Use this when you cannot proceed without user input. ' +
         'The graph will resume once the user provides an answer. ' +
-        'For EVERY numeric section proposal, supply candidateOptions with stable sectionId, field, zero-based optionIndex and flat numeric values in this FIRST call; proposing dimensions only in the question/options is rejected without sending a question. / 每个数值截面建议首次调用就须同时提交candidateOptions（稳定sectionId、field、从0开始的optionIndex及平铺数值values），不能只把尺寸写进问题或选项。 ' +
+        'Declare EVERY new numeric section proposal with candidateOptions containing stable sectionId, field, zero-based optionIndex and flat numeric values in this FIRST call. Unbound proposals cannot become confirmed calculation input. For general questions, omit candidateOptions; merely repeating confirmed dimensions does not propose a section. / 新数值截面建议首次调用须通过candidateOptions声明稳定sectionId、field、从0开始的optionIndex及平铺数值values；未绑定建议不能成为已确认计算输入。普通问题省略candidateOptions，复述已确认尺寸不代表提出截面建议。 ' +
         'All candidate values, including recalled section dimensions, MUST also appear in the question text, so the user can see exactly what is being confirmed even if options are unavailable. / 所有候选值（包括记忆的截面尺寸）也必须写入问题正文，确保选项不可用时用户仍能看到具体确认内容。',
       schema: z.object({
         question: z.string().trim().min(1).describe('The question to ask the user'),
