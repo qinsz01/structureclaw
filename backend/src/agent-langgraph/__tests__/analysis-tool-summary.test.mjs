@@ -12,6 +12,38 @@ async function invokeCurrentReport(tool, input, config) {
 }
 
 describe("analysis tool summary", () => {
+  test.each(['siteSeismic', 'designBasis.siteSeismic'])('rejects unexecuted site parameter names before solver execution (%s)', async path => {
+    const { createRunAnalysisTool } = await import('../../../dist/agent-langgraph/tools.js');
+    let executions = 0;
+    const tool = createRunAnalysisTool({ async executeAnalysisSkill() { executions++; throw new Error('must not execute'); } });
+    const site = { intensity: 8, designBasicAcceleration: '0.2g', inventedControl: false, anotherControl: 0 };
+    const workflow = { methodPreference: 'response_spectrum', ...(path === 'siteSeismic'
+      ? { siteSeismic: site } : { designBasis: { siteSeismic: site } }) };
+    const state = { lastUserMessage: 'Use the supplied seismic parameters.', model: { schema_version: '2.2.0',
+      nodes: [], elements: [], materials: [], sections: [], load_cases: [], load_combinations: [] } };
+    const before = structuredClone(state);
+    const result = await tool.invoke({ analysisType: 'seismic', analysisSkillId: 'opensees-seismic',
+      seismicWorkflowJson: JSON.stringify(workflow) }, { toolCall: { id: 'site-contract' },
+      configurable: { toolContext: { skillScope: ['opensees-seismic'] }, agentState: state } });
+    const receipt = JSON.parse(result.update.messages[0].content);
+    expect(receipt).toMatchObject({ success: false, error_code: 'INVALID_SEISMIC_WORKFLOW' });
+    for (const field of ['designBasicAcceleration', 'inventedControl', 'anotherControl']) {
+      expect(receipt.errors.some(error => error.includes(`${path}.${field} is unsupported`))).toBe(true);
+    }
+    expect(executions).toBe(0);
+    expect(state).toEqual(before);
+  });
+
+  test('supported numeric seismic acceleration is retained without inference or unit parsing', async () => {
+    const { validateSeismicWorkflowInput } = await import('../../../dist/agent-langgraph/tools/seismic-workflow/validate-design.js');
+    const workflow = { methodPreference: 'response_spectrum', designBasis: { siteSeismic: {
+      intensity: 8, accelerationG: 0.2, designGroup: '2', siteCategory: 'II', characteristicPeriod: 0.4,
+    } } };
+    const before = structuredClone(workflow);
+    expect(validateSeismicWorkflowInput(workflow)).toEqual([]);
+    expect(workflow).toEqual(before);
+  });
+
   test("uses structured analysis skill selection within the selected skill scope", async () => {
     const {
       resolveRequestedAnalysisEngineId,

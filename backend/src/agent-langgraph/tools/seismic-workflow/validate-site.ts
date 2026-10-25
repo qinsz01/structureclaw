@@ -62,7 +62,20 @@ export function localCatalogRecordIds(records: unknown): Set<string> {
   return ids;
 }
 
+// Field names consumed by the seismic design-basis reader, plus its zonation input.
+// This is a structured protocol boundary, not interpretation of user prose.
+const siteSeismicFields = new Set([
+  'intensity', 'accelerationG', 'acceleration_g', 'basicAccelerationG', 'designBasicAccelerationG',
+  'designGroup', 'design_group', 'siteCategory', 'site_category', 'siteClass',
+  'dampingRatio', 'damping_ratio', 'characteristicPeriod', 'characteristic_period', 'Tg',
+  'rareCharacteristicPeriod', 'rare_characteristic_period', 'maxInfluenceCoefficient', 'max_influence_coefficient',
+  'earthquakeLevel', 'earthquake_level', 'region', 'city', 'extra', 'zonationRecord',
+]);
+
 export function validateSiteSeismicFields(siteSeismic: Record<string, unknown>, fieldPath: string, errors: string[]): void {
+  for (const key of Object.keys(siteSeismic)) {
+    if (!siteSeismicFields.has(key)) errors.push(`${fieldPath}.${key} is unsupported and would not be executed; use a supported field (numeric accelerationG in g for acceleration), never omit a supplied requirement. / 未支持的场地参数不能忽略后计算；请改用已接通的正式字段（地震加速度用以g为单位的数值accelerationG），不得丢弃已给要求。`);
+  }
   validateIntegerRangeValue(siteSeismic['intensity'], `${fieldPath}.intensity`, 6, 9, errors);
   validatePositiveNumberValue(siteSeismic['accelerationG'], `${fieldPath}.accelerationG`, errors);
   validatePositiveNumberValue(siteSeismic['acceleration_g'], `${fieldPath}.acceleration_g`, errors);
