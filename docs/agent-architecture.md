@@ -68,6 +68,8 @@ Chat payloads are display projections, not another solver archive (`services/cha
 
 The answer check treats an unmatched quantity as unverified, not necessarily incorrect. Its repair prompt permits the LLM to query saved responses or call the available `calculate` tool for derived differences/totals using supported operands. Verified derivations remain deliverable; the repair uses explicit calculator results as evidence.
 
+Load edits use stable IDs: `collection="loads"` updates one record without deleting its neighbours. A `load_cases` update that supplies a replacement `loads` array must retain every existing load ID, except records explicitly removed earlier in the same transaction. Implicit deletion is rejected atomically with `MODEL_EDIT_EXPLICIT_LOAD_REMOVAL_REQUIRED`; explicit per-load or whole-case removal remains supported.
+
 Agent capability, run, review and SkillHub routes live in [backend/src/api/agent.ts](../backend/src/api/agent.ts) under `/api/v1/agent`:
 
 - `GET /api/v1/agent/skills`, `GET /api/v1/agent/tools`, `GET /api/v1/agent/capability-matrix`

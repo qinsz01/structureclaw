@@ -14,6 +14,7 @@ export const sectionPropertyUnits: Record<string, string> = Object.fromEntries(
 );
 export const modelEditGuidance = {
   format: 'Use nested objects or canonical dotted paths within values; do not prefix paths with material/member. / values使用嵌套对象或规范点路径，不加material/member前缀。',
+  loads: 'Modify an existing load with collection="loads", caseId and its stable id; values contains only changed fields. A load_cases update containing loads replaces that array and must retain every existing load ID. Deleting loads requires explicit remove operations; omitted rows are not deletion authorization. / 修改荷载使用collection="loads"、caseId及稳定id，只传修改字段；load_cases更新中的loads为整数组替换，必须保留全部已有荷载ID。删除必须使用明确remove操作，省略记录不代表删除授权。',
   materials: 'materials[id].design: f/fv in MPa; material design strengths belong to the referenced material, not the element. / 设计强度写入引用材料的design。',
   elements: 'elements[id].design: beta1, phi_b, btLimit, lambdaLimit, deflectionLimitN; l0/h0 in mm; serviceability_result_keys is an array of saved result keys; requested_checks is an optional nonempty array of user-selected check IDs/names (omit for all checks); basis maps field names to supplied evidence. / 构件设计条件、使用工况数组及依据；requested_checks仅用于用户明确指定的专项范围，省略则检查全部。',
   sections: 'sections[id].properties: A/As m2, Iy/Iz/J m4, Wnx/Wx/Wz/S/Sz m3, tw/tz/b/t/imin m. shape dimensions are mm. Updates deep-merge: send only changed properties, preserving supplied values and axis mappings. Never infer units from magnitude. / 截面属性采用米制，shape尺寸为mm；更新会递归合并，只传修改字段，保留已给数值及轴映射，禁止按大小猜单位。',
@@ -124,7 +125,7 @@ function insert(target: ModelRecord, keys: string[], value: unknown, path: strin
   } else if (!equalValue(target[key], value)) fail(path, 'MODEL_EDIT_PATH_CONFLICT');
 }
 export function normalizeModelEdits(model: ModelRecord, edits: ModelEdit[], root: Schema): ModelEdit[] {
-  return edits.map(edit => {
+  return edits.map((edit, index) => {
     if (!edit.values) return edit;
     const collection = edit.collection === 'loads' ? resolved(resolved(root.properties.load_cases.items, root).properties.loads, root).items
       : edit.collection === 'model_settings' ? root.properties[edit.id] : root.properties[edit.collection]?.items;
@@ -147,6 +148,16 @@ export function normalizeModelEdits(model: ModelRecord, edits: ModelEdit[], root
         else schema = { type: 'object', additionalProperties: { type: 'number' } };
       }
       insert(values, keys, normalized(raw, schema, root, `${edit.collection}.${edit.id}.${name}`, model, edit), name);
+    }
+    if (edit.operation === 'update' && edit.collection === 'load_cases' && Array.isArray(values.loads)) {
+      const earlier = edits.slice(0, index);
+      const caseRemoved = earlier.some(row => row.operation === 'remove' && row.collection === 'load_cases' && row.id === edit.id);
+      const explicitlyRemoved = new Set(earlier.filter(row => row.operation === 'remove' && row.collection === 'loads' && row.caseId === edit.id).map(row => row.id));
+      const previous = Array.isArray(model.load_cases) ? model.load_cases.find(row => isRecord(row) && row.id === edit.id) : undefined;
+      const retained = new Set(values.loads.filter(isRecord).map(row => row.id));
+      const missing = !caseRemoved && isRecord(previous) && Array.isArray(previous.loads)
+        ? previous.loads.filter(isRecord).filter(row => typeof row.id === 'string' && !retained.has(row.id) && !explicitlyRemoved.has(row.id)).map(row => row.id) : [];
+      if (missing.length) throw new EngineeringValidationError(`MODEL_EDIT_EXPLICIT_LOAD_REMOVAL_REQUIRED: ${edit.id}; omitted ${missing.length} existing loads: ${missing.slice(0, 20).join(', ')}. Update individual loads with collection="loads", caseId, id and changed values; deletion requires an explicit remove operation. The original model is unchanged. / 不得通过省略已有荷载实施删除。请用collection="loads"、caseId和id逐项修改；删除使用明确remove操作，原模型保持不变。`);
     }
     return { ...edit, values };
   });

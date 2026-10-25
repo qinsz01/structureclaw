@@ -68,6 +68,8 @@ chat routes 位于 [backend/src/api/chat.ts](../backend/src/api/chat.ts)，挂�
 
 回答核对把未匹配的数值视为“尚未核实”，不直接认定错误。修复提示允许 LLM 查询已有响应，或调用可用的 `calculate` 工具，使用已支持的操作数核实差值、总量等推导；核实后的推导量可以交付，推导依据是计算工具的明确结果。
 
+荷载编辑使用稳定 ID：`collection="loads"` 只更新指定记录，不删除其他荷载。`load_cases` 更新若提供完整替换的 `loads` 数组，必须保留已有全部荷载 ID，当前事务中已明确删除的记录除外。隐式删除以 `MODEL_EDIT_EXPLICIT_LOAD_REMOVAL_REQUIRED` 原子拒绝；逐项删除或整工况的明确删除仍受支持。
+
 agent capability、运行、审阅与 SkillHub routes 位于 [backend/src/api/agent.ts](../backend/src/api/agent.ts)，挂载在 `/api/v1/agent` 下：
 
 - `GET /api/v1/agent/skills`、`GET /api/v1/agent/tools`、`GET /api/v1/agent/capability-matrix`
