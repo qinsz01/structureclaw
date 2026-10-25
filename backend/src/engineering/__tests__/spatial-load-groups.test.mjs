@@ -28,6 +28,28 @@ const loadedFrame = () => expandModellingOperations({ ...base(), operations: [gr
   id: load.id, op: 'member-udl', selector: load.selector, caseId: load.caseId, vector: [0, 0, -load.magnitude] }))] });
 
 describe('spatial selectors and independently checked load groups', () => {
+  test('the same LLM repairs an ambiguous mixed-role floor binding before publishing compiled line loads', async () => {
+    const definition = base();
+    const draft = normalizeEngineeringDraft({ geometry: { storyHeightsM: grid.storeyHeights, bayWidthsXM: grid.bayWidthsX, bayWidthsYM: grid.bayWidthsY },
+      materials: definition.materials, sectionRecords: definition.sections, analysisControl: { self_weight: false },
+      loads: [{ id: 'confirmed-floor-load', kind: 'line', magnitude: 2, unit: 'kN/m', direction: 'gravity', caseId: 'DL',
+        scopeDescription: 'First-storey beams.', location: { story: 1 } }] });
+    const before = structuredClone(draft), prompts = [];
+    const model = await tryBuildGenericModelWithLlm({ invoke: async prompt => {
+      prompts.push(prompt);
+      return { content: JSON.stringify({ ...definition, load_cases: [{ id: 'DL', type: 'dead', loads: [] }], operations: [grid],
+        metadata: { compileDraftLoads: true, loadMappings: [{ loadId: 'confirmed-floor-load', caseId: 'DL',
+          selector: prompts.length === 1 ? { story: 'g:F1' } : { story: 'g:F1', type: 'beam' } }] } }) };
+    } }, 'Build the confirmed frame and load group.', { inferredType: 'frame', engineeringDraft: draft }, 'en');
+    expect(prompts).toHaveLength(2);
+    expect(prompts[1]).toContain('LOAD_MAPPING_MEMBER_ROLE_AMBIGUOUS');
+    expect(prompts[1]).toContain('selector.type or selector.ids');
+    expect(model.load_cases[0].loads).toHaveLength(31);
+    expect(model.load_cases[0].loads.every(load => model.elements.find(row => row.id === load.element)?.type === 'beam')).toBe(true);
+    expect(appliedLoadTotals(model).DL).toEqual([0, 0, -372]);
+    expect(draft).toEqual(before);
+  });
+
   test('semantic group descriptions stay immutable while the LLM repairs its own geometry binding', async () => {
     const definition = base();
     const draft = normalizeEngineeringDraft({ geometry: { storyHeightsM: grid.storeyHeights, bayWidthsXM: grid.bayWidthsX, bayWidthsYM: grid.bayWidthsY },

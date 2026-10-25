@@ -83,6 +83,46 @@ describe('generated load identities stay bound to the confirmed draft', () => {
     expect(() => compileConfirmedModelLoads(model, draft)).toThrow('DRAFT_LOAD_COMPILATION_CONFLICT');
     expect(model).toEqual(before);
   });
+
+  test('a newly bound line-load group must explicitly distinguish mixed member roles', () => {
+    const { model, draft } = fixture();
+    model.load_cases.forEach(row => { row.loads = []; });
+    model.elements.forEach(row => { row.story = 'F1'; });
+    model.metadata.loadMappings[0].selector = { story: 'F1' };
+    const before = structuredClone({ model, draft });
+    let failure;
+    try { compileConfirmedModelLoads(model, draft); } catch (error) { failure = error; }
+    expect(failure).toMatchObject({ reasonCode: 'LOAD_MAPPING_MEMBER_ROLE_AMBIGUOUS', details: {
+      loadId: sourceId, selector: { story: 'F1' }, selectedMemberCount: 3, selectedMemberTypes: ['column', 'beam'],
+    } });
+    expect(checkModelPhysics(model, draft).diagnostics).toContainEqual(expect.objectContaining({ code: 'LOAD_TARGET_INVALID',
+      details: expect.objectContaining({ reasonCode: 'LOAD_MAPPING_MEMBER_ROLE_AMBIGUOUS' }) }));
+    expect({ model, draft }).toEqual(before);
+    model.metadata.loadMappings[0].selector = { story: 'F1', type: 'beam' };
+    const repaired = compileConfirmedModelLoads(model, draft);
+    expect(repaired.load_cases[0].loads).toEqual(['B1', 'B2'].map(element => ({ type: 'distributed', element, wz: -2 })));
+  });
+
+  test.each(['uniform-role', 'mixed-ids', 'confirmed-story', 'confirmed-all'])('line-load mappings retain explicit or unambiguous groups (%s)', kind => {
+    const { model, draft } = fixture();
+    model.load_cases.forEach(row => { row.loads = []; });
+    model.elements.forEach(row => { row.story = 'F1'; });
+    let ids = ['C1', 'B1', 'B2'];
+    model.metadata.loadMappings[0].selector = { story: 'F1' };
+    if (kind === 'uniform-role') {
+      model.elements[0].story = 'base';
+      ids = ['B1', 'B2'];
+    } else if (kind === 'mixed-ids') model.metadata.loadMappings[0].selector = { ids };
+    else {
+      delete draft.loads[0].target;
+      delete draft.loads[0].location;
+      draft.loads[0].selector = kind === 'confirmed-story' ? { story: 'F1' } : {};
+      model.metadata.loadMappings[0].selector = draft.loads[0].selector;
+    }
+    const before = structuredClone({ model, draft });
+    expect(compileConfirmedModelLoads(model, draft).load_cases[0].loads).toEqual(ids.map(element => ({ type: 'distributed', element, wz: -2 })));
+    expect({ model, draft }).toEqual(before);
+  });
   test('one original load can select multiple members without inventing source IDs', () => {
     const { model, draft } = fixture();
     const saved = structuredClone({ model, draft });

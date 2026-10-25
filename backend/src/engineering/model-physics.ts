@@ -289,6 +289,17 @@ function resolvedLoads(model: ModelRecord, draft: EngineeringDraft) {
         en: 'The selector matches no valid target group. Preserve confirmed selectors and bind generated geometry/storyIds to their exact IDs; do not invent aliases.',
         zh: '选择器未对应有效实体分组。保留已确认选择器，用几何操作的storyIds对应实际楼层编号，不编造别名。',
       });
+    const memberTypes = [...new Set(targets.map(row => String(row.type)))];
+    if (source.unit === 'kN/m' && !source.selector && !mapping.selector.ids && !mapping.selector.type && memberTypes.length > 1) {
+      throw new LoadMappingError('LOAD_MAPPING_MEMBER_ROLE_AMBIGUOUS', [mapping.loadId], {
+        loadId: mapping.loadId, selector: mapping.selector, scopeDescription: source.scopeDescription, location: source.location,
+        selectedMemberTypes: memberTypes, selectedMemberCount: targets.length,
+        selectedMembers: targets.slice(0, 50).map(row => ({ id: row.id, type: row.type, story: row.story })),
+      }, {
+        en: 'This new line-load binding selects mixed member roles without an explicit role or exact IDs. Resolve the confirmed source with selector.type or selector.ids; a storey alone does not identify member roles. Preserve the confirmed load values and case; do not silently filter targets or ask the user for internal IDs.',
+        zh: '新增线荷载映射选中了多种构件角色，却未指定角色或准确编号。请依据已确认源荷载填写 selector.type 或 selector.ids；单独楼层不能确定构件角色。保留原荷载数值与工况，不静默筛选目标，也不向用户索要内部编号。',
+      });
+    }
     const location = source.location;
     if (location && Object.entries(location).some(([key, value]) => key !== 'story' && value !== undefined)) {
       // A point placed at a generated node is the same physical load only when
