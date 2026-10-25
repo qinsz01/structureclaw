@@ -28,8 +28,8 @@ exports[`characterization: ablation profiles profile full: offered tools, system
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 28911,
-  "systemPromptSha256": "cab6f3931fefe924dcbc3a9f398381117fcf6658dd663968a71f4245e96741ec",
+  "systemPromptChars": 29434,
+  "systemPromptSha256": "497eef292dab74e62867572cc3d5fb928f00009dfdd16adde97804ab322c9455",
 }
 `;
 
@@ -93,6 +93,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - Generated node/member/case IDs and source-load bindings are modeling work, not missing user facts. Do not reconfirm specified coordinates, groups or loads; bind them with structured selectors/mappings. Repair internal representation errors from diagnostics rather than asking the user to restart or choose internal identifiers.
 - Drawing review: query_model exposes inputEvidence/inputIssues. Use analyze_file region and requiredFields for focused review, then review_input only with observed evidence or explicit user corrections. Map semantic fields with modelField (e.g. nodes.A.x), declare units and apply reviewed values to the model; an unrelated edit cannot clear an unapplied value. Never guess to clear missing inputs.
 - Edits to an existing model: use query_model then edit_model or undo_model with the current revision and stable object IDs; moving a load updates the same ID. Do not recreate the whole model from the last sentence. Current revision: 0; pending build: false.
+- When the user explicitly requests complete reconstruction (for example, expanding a single frame into a full spatial structure), extract the complete confirmed inputs together with the requested changes, query_model for the latest revision, then call build_model({mode:"rebuild",baseRevision:latestRevision}). The candidate replaces the saved model only after all validation succeeds. Never automatically rebuild after a failed local edit, or discard confirmed loads, sections, supports or the requested analysis engine.
 - run_analysis computes static cases and combinations separately by default; use query_results with explicit case/combination keys. Mixed cases, historical models and display interpolation cannot justify current calculations.
 - Record required drawing/table fields in engineeringDraft.inputEvidence with field, source file/page/entity/row, value and unit. Mark conflicts, unread required regions and ambiguous units with status=conflict/unread/ambiguous instead of overwriting silently. Preserve observations and append status=resolved with resolution={value or selectedSource,reason} after review. Ordinary pagination alone does not mean every page is required.
 - These steps apply to every structural request, including force-only ones.
@@ -195,8 +196,8 @@ exports[`characterization: ablation profiles profile generic-only: offered tools
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 27594,
-  "systemPromptSha256": "1e9082ecd0c3e53020137af9076156c3d49ad625cf9007c884d4b519d8c42f61",
+  "systemPromptChars": 28117,
+  "systemPromptSha256": "35e95ba39f3bebdb73c5473d3a7a4ac6ee649aa850b5b0ce163f09a536d2f55d",
 }
 `;
 
@@ -253,6 +254,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - Generated node/member/case IDs and source-load bindings are modeling work, not missing user facts. Do not reconfirm specified coordinates, groups or loads; bind them with structured selectors/mappings. Repair internal representation errors from diagnostics rather than asking the user to restart or choose internal identifiers.
 - Drawing review: query_model exposes inputEvidence/inputIssues. Use analyze_file region and requiredFields for focused review, then review_input only with observed evidence or explicit user corrections. Map semantic fields with modelField (e.g. nodes.A.x), declare units and apply reviewed values to the model; an unrelated edit cannot clear an unapplied value. Never guess to clear missing inputs.
 - Edits to an existing model: use query_model then edit_model or undo_model with the current revision and stable object IDs; moving a load updates the same ID. Do not recreate the whole model from the last sentence. Current revision: 0; pending build: false.
+- When the user explicitly requests complete reconstruction (for example, expanding a single frame into a full spatial structure), extract the complete confirmed inputs together with the requested changes, query_model for the latest revision, then call build_model({mode:"rebuild",baseRevision:latestRevision}). The candidate replaces the saved model only after all validation succeeds. Never automatically rebuild after a failed local edit, or discard confirmed loads, sections, supports or the requested analysis engine.
 - run_analysis computes static cases and combinations separately by default; use query_results with explicit case/combination keys. Mixed cases, historical models and display interpolation cannot justify current calculations.
 - Record required drawing/table fields in engineeringDraft.inputEvidence with field, source file/page/entity/row, value and unit. Mark conflicts, unread required regions and ambiguous units with status=conflict/unread/ambiguous instead of overwriting silently. Preserve observations and append status=resolved with resolution={value or selectedSource,reason} after review. Ordinary pagination alone does not mean every page is required.
 - These steps apply to every structural request, including force-only ones.
@@ -354,8 +356,8 @@ exports[`characterization: ablation profiles profile no-clarification: offered t
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 28352,
-  "systemPromptSha256": "a243da206b5f5ef4a70cd5eaccb432c31f439e460b7c7353b97e0fbfdd6cc44e",
+  "systemPromptChars": 28875,
+  "systemPromptSha256": "258e28d046372a8497e9e384816ac1ff62bce40cb01e07f8b51929a98bf282ef",
 }
 `;
 
@@ -419,6 +421,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - Generated node/member/case IDs and source-load bindings are modeling work, not missing user facts. Do not reconfirm specified coordinates, groups or loads; bind them with structured selectors/mappings. Repair internal representation errors from diagnostics rather than asking the user to restart or choose internal identifiers.
 - Drawing review: query_model exposes inputEvidence/inputIssues. Use analyze_file region and requiredFields for focused review, then review_input only with observed evidence or explicit user corrections. Map semantic fields with modelField (e.g. nodes.A.x), declare units and apply reviewed values to the model; an unrelated edit cannot clear an unapplied value. Never guess to clear missing inputs.
 - Edits to an existing model: use query_model then edit_model or undo_model with the current revision and stable object IDs; moving a load updates the same ID. Do not recreate the whole model from the last sentence. Current revision: 0; pending build: false.
+- When the user explicitly requests complete reconstruction (for example, expanding a single frame into a full spatial structure), extract the complete confirmed inputs together with the requested changes, query_model for the latest revision, then call build_model({mode:"rebuild",baseRevision:latestRevision}). The candidate replaces the saved model only after all validation succeeds. Never automatically rebuild after a failed local edit, or discard confirmed loads, sections, supports or the requested analysis engine.
 - run_analysis computes static cases and combinations separately by default; use query_results with explicit case/combination keys. Mixed cases, historical models and display interpolation cannot justify current calculations.
 - Record required drawing/table fields in engineeringDraft.inputEvidence with field, source file/page/entity/row, value and unit. Mark conflicts, unread required regions and ambiguous units with status=conflict/unread/ambiguous instead of overwriting silently. Preserve observations and append status=resolved with resolution={value or selectedSource,reason} after review. Ordinary pagination alone does not mean every page is required.
 - These steps apply to every structural request, including force-only ones.
@@ -521,8 +524,8 @@ exports[`characterization: ablation profiles profile no-evidence-binding: offere
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 28911,
-  "systemPromptSha256": "cab6f3931fefe924dcbc3a9f398381117fcf6658dd663968a71f4245e96741ec",
+  "systemPromptChars": 29434,
+  "systemPromptSha256": "497eef292dab74e62867572cc3d5fb928f00009dfdd16adde97804ab322c9455",
 }
 `;
 
@@ -586,6 +589,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - Generated node/member/case IDs and source-load bindings are modeling work, not missing user facts. Do not reconfirm specified coordinates, groups or loads; bind them with structured selectors/mappings. Repair internal representation errors from diagnostics rather than asking the user to restart or choose internal identifiers.
 - Drawing review: query_model exposes inputEvidence/inputIssues. Use analyze_file region and requiredFields for focused review, then review_input only with observed evidence or explicit user corrections. Map semantic fields with modelField (e.g. nodes.A.x), declare units and apply reviewed values to the model; an unrelated edit cannot clear an unapplied value. Never guess to clear missing inputs.
 - Edits to an existing model: use query_model then edit_model or undo_model with the current revision and stable object IDs; moving a load updates the same ID. Do not recreate the whole model from the last sentence. Current revision: 0; pending build: false.
+- When the user explicitly requests complete reconstruction (for example, expanding a single frame into a full spatial structure), extract the complete confirmed inputs together with the requested changes, query_model for the latest revision, then call build_model({mode:"rebuild",baseRevision:latestRevision}). The candidate replaces the saved model only after all validation succeeds. Never automatically rebuild after a failed local edit, or discard confirmed loads, sections, supports or the requested analysis engine.
 - run_analysis computes static cases and combinations separately by default; use query_results with explicit case/combination keys. Mixed cases, historical models and display interpolation cannot justify current calculations.
 - Record required drawing/table fields in engineeringDraft.inputEvidence with field, source file/page/entity/row, value and unit. Mark conflicts, unread required regions and ambiguous units with status=conflict/unread/ambiguous instead of overwriting silently. Preserve observations and append status=resolved with resolution={value or selectedSource,reason} after review. Ordinary pagination alone does not mean every page is required.
 - These steps apply to every structural request, including force-only ones.
@@ -688,8 +692,8 @@ exports[`characterization: ablation profiles profile no-knowledge: offered tools
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 23331,
-  "systemPromptSha256": "8eb12e5c173df75cafaf41742077ab314bff976e59361e2969ed26dda350cae8",
+  "systemPromptChars": 23854,
+  "systemPromptSha256": "4c4e994d6169d94ca2df47cf47da52a913300e27e1ff1d4e6f0badab24ff7beb",
 }
 `;
 
@@ -753,6 +757,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - Generated node/member/case IDs and source-load bindings are modeling work, not missing user facts. Do not reconfirm specified coordinates, groups or loads; bind them with structured selectors/mappings. Repair internal representation errors from diagnostics rather than asking the user to restart or choose internal identifiers.
 - Drawing review: query_model exposes inputEvidence/inputIssues. Use analyze_file region and requiredFields for focused review, then review_input only with observed evidence or explicit user corrections. Map semantic fields with modelField (e.g. nodes.A.x), declare units and apply reviewed values to the model; an unrelated edit cannot clear an unapplied value. Never guess to clear missing inputs.
 - Edits to an existing model: use query_model then edit_model or undo_model with the current revision and stable object IDs; moving a load updates the same ID. Do not recreate the whole model from the last sentence. Current revision: 0; pending build: false.
+- When the user explicitly requests complete reconstruction (for example, expanding a single frame into a full spatial structure), extract the complete confirmed inputs together with the requested changes, query_model for the latest revision, then call build_model({mode:"rebuild",baseRevision:latestRevision}). The candidate replaces the saved model only after all validation succeeds. Never automatically rebuild after a failed local edit, or discard confirmed loads, sections, supports or the requested analysis engine.
 - run_analysis computes static cases and combinations separately by default; use query_results with explicit case/combination keys. Mixed cases, historical models and display interpolation cannot justify current calculations.
 - Record required drawing/table fields in engineeringDraft.inputEvidence with field, source file/page/entity/row, value and unit. Mark conflicts, unread required regions and ambiguous units with status=conflict/unread/ambiguous instead of overwriting silently. Preserve observations and append status=resolved with resolution={value or selectedSource,reason} after review. Ordinary pagination alone does not mean every page is required.
 - These steps apply to every structural request, including force-only ones.
@@ -852,8 +857,8 @@ exports[`characterization: ablation profiles profile no-repair: offered tools, s
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 28832,
-  "systemPromptSha256": "c458958b59772910ab37bec59b835c514548e4106e8be807a5bd0e13589fcbfe",
+  "systemPromptChars": 29355,
+  "systemPromptSha256": "2d0811ba9526134274abf21c5e0fa29debf5e4b081b902cd7725cb2067d97911",
 }
 `;
 
@@ -917,6 +922,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - Generated node/member/case IDs and source-load bindings are modeling work, not missing user facts. Do not reconfirm specified coordinates, groups or loads; bind them with structured selectors/mappings. Repair internal representation errors from diagnostics rather than asking the user to restart or choose internal identifiers.
 - Drawing review: query_model exposes inputEvidence/inputIssues. Use analyze_file region and requiredFields for focused review, then review_input only with observed evidence or explicit user corrections. Map semantic fields with modelField (e.g. nodes.A.x), declare units and apply reviewed values to the model; an unrelated edit cannot clear an unapplied value. Never guess to clear missing inputs.
 - Edits to an existing model: use query_model then edit_model or undo_model with the current revision and stable object IDs; moving a load updates the same ID. Do not recreate the whole model from the last sentence. Current revision: 0; pending build: false.
+- When the user explicitly requests complete reconstruction (for example, expanding a single frame into a full spatial structure), extract the complete confirmed inputs together with the requested changes, query_model for the latest revision, then call build_model({mode:"rebuild",baseRevision:latestRevision}). The candidate replaces the saved model only after all validation succeeds. Never automatically rebuild after a failed local edit, or discard confirmed loads, sections, supports or the requested analysis engine.
 - run_analysis computes static cases and combinations separately by default; use query_results with explicit case/combination keys. Mixed cases, historical models and display interpolation cannot justify current calculations.
 - Record required drawing/table fields in engineeringDraft.inputEvidence with field, source file/page/entity/row, value and unit. Mark conflicts, unread required regions and ambiguous units with status=conflict/unread/ambiguous instead of overwriting silently. Preserve observations and append status=resolved with resolution={value or selectedSource,reason} after review. Ordinary pagination alone does not mean every page is required.
 - These steps apply to every structural request, including force-only ones.
@@ -1019,8 +1025,8 @@ exports[`characterization: ablation profiles profile no-routing: offered tools, 
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 28911,
-  "systemPromptSha256": "cab6f3931fefe924dcbc3a9f398381117fcf6658dd663968a71f4245e96741ec",
+  "systemPromptChars": 29434,
+  "systemPromptSha256": "497eef292dab74e62867572cc3d5fb928f00009dfdd16adde97804ab322c9455",
 }
 `;
 
@@ -1084,6 +1090,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - Generated node/member/case IDs and source-load bindings are modeling work, not missing user facts. Do not reconfirm specified coordinates, groups or loads; bind them with structured selectors/mappings. Repair internal representation errors from diagnostics rather than asking the user to restart or choose internal identifiers.
 - Drawing review: query_model exposes inputEvidence/inputIssues. Use analyze_file region and requiredFields for focused review, then review_input only with observed evidence or explicit user corrections. Map semantic fields with modelField (e.g. nodes.A.x), declare units and apply reviewed values to the model; an unrelated edit cannot clear an unapplied value. Never guess to clear missing inputs.
 - Edits to an existing model: use query_model then edit_model or undo_model with the current revision and stable object IDs; moving a load updates the same ID. Do not recreate the whole model from the last sentence. Current revision: 0; pending build: false.
+- When the user explicitly requests complete reconstruction (for example, expanding a single frame into a full spatial structure), extract the complete confirmed inputs together with the requested changes, query_model for the latest revision, then call build_model({mode:"rebuild",baseRevision:latestRevision}). The candidate replaces the saved model only after all validation succeeds. Never automatically rebuild after a failed local edit, or discard confirmed loads, sections, supports or the requested analysis engine.
 - run_analysis computes static cases and combinations separately by default; use query_results with explicit case/combination keys. Mixed cases, historical models and display interpolation cannot justify current calculations.
 - Record required drawing/table fields in engineeringDraft.inputEvidence with field, source file/page/entity/row, value and unit. Mark conflicts, unread required regions and ambiguous units with status=conflict/unread/ambiguous instead of overwriting silently. Preserve observations and append status=resolved with resolution={value or selectedSource,reason} after review. Ordinary pagination alone does not mean every page is required.
 - These steps apply to every structural request, including force-only ones.
@@ -1186,8 +1193,8 @@ exports[`characterization: ablation profiles profile no-state-versioning: offere
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 28911,
-  "systemPromptSha256": "cab6f3931fefe924dcbc3a9f398381117fcf6658dd663968a71f4245e96741ec",
+  "systemPromptChars": 29434,
+  "systemPromptSha256": "497eef292dab74e62867572cc3d5fb928f00009dfdd16adde97804ab322c9455",
 }
 `;
 
@@ -1251,6 +1258,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - Generated node/member/case IDs and source-load bindings are modeling work, not missing user facts. Do not reconfirm specified coordinates, groups or loads; bind them with structured selectors/mappings. Repair internal representation errors from diagnostics rather than asking the user to restart or choose internal identifiers.
 - Drawing review: query_model exposes inputEvidence/inputIssues. Use analyze_file region and requiredFields for focused review, then review_input only with observed evidence or explicit user corrections. Map semantic fields with modelField (e.g. nodes.A.x), declare units and apply reviewed values to the model; an unrelated edit cannot clear an unapplied value. Never guess to clear missing inputs.
 - Edits to an existing model: use query_model then edit_model or undo_model with the current revision and stable object IDs; moving a load updates the same ID. Do not recreate the whole model from the last sentence. Current revision: 0; pending build: false.
+- When the user explicitly requests complete reconstruction (for example, expanding a single frame into a full spatial structure), extract the complete confirmed inputs together with the requested changes, query_model for the latest revision, then call build_model({mode:"rebuild",baseRevision:latestRevision}). The candidate replaces the saved model only after all validation succeeds. Never automatically rebuild after a failed local edit, or discard confirmed loads, sections, supports or the requested analysis engine.
 - run_analysis computes static cases and combinations separately by default; use query_results with explicit case/combination keys. Mixed cases, historical models and display interpolation cannot justify current calculations.
 - Record required drawing/table fields in engineeringDraft.inputEvidence with field, source file/page/entity/row, value and unit. Mark conflicts, unread required regions and ambiguous units with status=conflict/unread/ambiguous instead of overwriting silently. Preserve observations and append status=resolved with resolution={value or selectedSource,reason} after review. Ordinary pagination alone does not mean every page is required.
 - These steps apply to every structural request, including force-only ones.
@@ -1353,8 +1361,8 @@ exports[`characterization: ablation profiles profile no-template-builder: offere
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 28910,
-  "systemPromptSha256": "01d4d58272e9995b0c9d44e1db2ad6837e812d059d171f497b87768d35445556",
+  "systemPromptChars": 29433,
+  "systemPromptSha256": "0f2e243cc73aeb3dece70d0b64b88d7f0dfb4882d97ff44ddffed25ceff266a0",
 }
 `;
 
@@ -1418,6 +1426,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - Generated node/member/case IDs and source-load bindings are modeling work, not missing user facts. Do not reconfirm specified coordinates, groups or loads; bind them with structured selectors/mappings. Repair internal representation errors from diagnostics rather than asking the user to restart or choose internal identifiers.
 - Drawing review: query_model exposes inputEvidence/inputIssues. Use analyze_file region and requiredFields for focused review, then review_input only with observed evidence or explicit user corrections. Map semantic fields with modelField (e.g. nodes.A.x), declare units and apply reviewed values to the model; an unrelated edit cannot clear an unapplied value. Never guess to clear missing inputs.
 - Edits to an existing model: use query_model then edit_model or undo_model with the current revision and stable object IDs; moving a load updates the same ID. Do not recreate the whole model from the last sentence. Current revision: 0; pending build: false.
+- When the user explicitly requests complete reconstruction (for example, expanding a single frame into a full spatial structure), extract the complete confirmed inputs together with the requested changes, query_model for the latest revision, then call build_model({mode:"rebuild",baseRevision:latestRevision}). The candidate replaces the saved model only after all validation succeeds. Never automatically rebuild after a failed local edit, or discard confirmed loads, sections, supports or the requested analysis engine.
 - run_analysis computes static cases and combinations separately by default; use query_results with explicit case/combination keys. Mixed cases, historical models and display interpolation cannot justify current calculations.
 - Record required drawing/table fields in engineeringDraft.inputEvidence with field, source file/page/entity/row, value and unit. Mark conflicts, unread required regions and ambiguous units with status=conflict/unread/ambiguous instead of overwriting silently. Preserve observations and append status=resolved with resolution={value or selectedSource,reason} after review. Ordinary pagination alone does not mean every page is required.
 - These steps apply to every structural request, including force-only ones.
@@ -1519,8 +1528,8 @@ exports[`characterization: ablation profiles profile no-validation-gate: offered
     "move_path",
     "delete_path",
   ],
-  "systemPromptChars": 28997,
-  "systemPromptSha256": "fb1351fee3fc9acfef04e0913fd3b93267777b6e8022bfbcccde2d41e46e4fc8",
+  "systemPromptChars": 29520,
+  "systemPromptSha256": "2366db9144cd0dca02cea787faef04a52ae8b3e69e96848fa41060a7ebb00625",
 }
 `;
 
@@ -1584,6 +1593,7 @@ When the user makes a structural design or analysis request, follow this workflo
 - Generated node/member/case IDs and source-load bindings are modeling work, not missing user facts. Do not reconfirm specified coordinates, groups or loads; bind them with structured selectors/mappings. Repair internal representation errors from diagnostics rather than asking the user to restart or choose internal identifiers.
 - Drawing review: query_model exposes inputEvidence/inputIssues. Use analyze_file region and requiredFields for focused review, then review_input only with observed evidence or explicit user corrections. Map semantic fields with modelField (e.g. nodes.A.x), declare units and apply reviewed values to the model; an unrelated edit cannot clear an unapplied value. Never guess to clear missing inputs.
 - Edits to an existing model: use query_model then edit_model or undo_model with the current revision and stable object IDs; moving a load updates the same ID. Do not recreate the whole model from the last sentence. Current revision: 0; pending build: false.
+- When the user explicitly requests complete reconstruction (for example, expanding a single frame into a full spatial structure), extract the complete confirmed inputs together with the requested changes, query_model for the latest revision, then call build_model({mode:"rebuild",baseRevision:latestRevision}). The candidate replaces the saved model only after all validation succeeds. Never automatically rebuild after a failed local edit, or discard confirmed loads, sections, supports or the requested analysis engine.
 - run_analysis computes static cases and combinations separately by default; use query_results with explicit case/combination keys. Mixed cases, historical models and display interpolation cannot justify current calculations.
 - Record required drawing/table fields in engineeringDraft.inputEvidence with field, source file/page/entity/row, value and unit. Mark conflicts, unread required regions and ambiguous units with status=conflict/unread/ambiguous instead of overwriting silently. Preserve observations and append status=resolved with resolution={value or selectedSource,reason} after review. Ordinary pagination alone does not mean every page is required.
 - These steps apply to every structural request, including force-only ones.

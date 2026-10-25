@@ -18,12 +18,18 @@ import { getConfigurable, getToolCallId, toolResult, isRecord, toolSkillScope, n
 
 export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
   return tool(
-    async (_input: Record<string, unknown>, config: LangGraphRunnableConfig) => {
+    async (input: { mode?: 'preserve' | 'rebuild'; baseRevision?: number }, config: LangGraphRunnableConfig) => {
       const log = getLogger(config.configurable as Partial<AgentConfigurable> | undefined);
       const start = Date.now();
       const configurable = getConfigurable(config);
       const state = configurable.agentState;
       const toolCallId = getToolCallId(config);
+      const rebuilding = input.mode === 'rebuild';
+      if (rebuilding && state?.model && (input.baseRevision === undefined || input.baseRevision !== (state.modelRevision ?? 0))) {
+        return toolResult(toolCallId, 'build_model', JSON.stringify({ success: false, modelBuilt: false,
+          errorCode: 'MODEL_VERSION_CONFLICT', expectedRevision: state.modelRevision ?? 0, nextAction: 'query_model',
+          instruction: 'Read the current model revision with query_model before rebuilding. Rebuild only when the user authorized replacing the complete model, preserving all confirmed inputs. / 重建前先用 query_model 获取当前模型版本。仅在用户明确要求整体重建时使用，并保留全部已确认输入。' }));
+      }
 
       // Read draft state from graph state channel
       const storedDraft = state?.draftState;
@@ -55,7 +61,7 @@ export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
         candidate = await skillRuntime.buildModel(draftState, skillIds, {
           message: state?.lastUserMessage || '',
           locale: state?.locale || 'zh',
-          currentModel: state?.model ?? undefined,
+          currentModel: rebuilding ? undefined : state?.model ?? undefined,
           conversationHistory: modellingConversationHistory(state?.messages),
           sectionEvidence: userTexts,
           signal: config.signal,
@@ -104,7 +110,7 @@ export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
       // Store model in graph state via Command.
       // Keep ToolMessage content compact — full model lives in graph state.
       // The streaming layer reads model from nodeState for artifact_payload_sync.
-      const summary = buildModelToolSummary(model, state?.locale || 'zh');
+      const summary: Record<string, unknown> = { ...buildModelToolSummary(model, state?.locale || 'zh'), ...(rebuilding ? { buildMode: 'rebuild' } : {}) };
       const success = summary.success !== false;
       logToolCall(log, { tool: 'build_model', durationMs: Date.now() - start, success, extra: summary });
       return toolResult(
@@ -120,8 +126,12 @@ export function createBuildModelTool(skillRuntime: AgentSkillRuntime) {
       description:
         'Build a computable structural model from the current draft state. ' +
         'Reads draft state from conversation state automatically — do NOT pass it as a parameter. ' +
+        'For a user-authorized complete reconstruction (e.g. a changed spatial topology), extract all confirmed inputs, query_model for the latest revision, then set mode="rebuild" and baseRevision. This builds a new candidate and replaces the saved model only after validation succeeds. Ordinary local changes use query_model/edit_model; never use rebuild to bypass a failed edit or silently replace loads. / 用户明确要求整体重建时，先提取全部已确认输入、查询最新版本，再传 mode="rebuild" 与 baseRevision；仅校验成功后替换原模型。局部修改使用 query_model/edit_model，不得借重建绕过失败编辑或静默替换荷载。 ' +
         'Returns the model if all critical parameters are present, or an error if the draft is incomplete.',
-      schema: z.object({}),
+      schema: z.object({
+        mode: z.enum(['preserve', 'rebuild']).optional().describe('Defaults to preserve. Choose rebuild only for user-authorized complete reconstruction from the confirmed draft; it does not inherit the existing model. / 默认保留已有模型上下文；仅用户授权整体重建时选 rebuild，依据已确认草稿生成新模型。'),
+        baseRevision: z.number().int().nonnegative().optional().describe('Required with mode="rebuild" when a model exists: latest revision from query_model. / 已有模型整体重建时必填，使用 query_model 返回的最新版本。'),
+      }),
     },
   );
 }

@@ -101,7 +101,7 @@ export function createAskUserClarificationTool() {
         ...(options?.includes(userResponse) ? { selectedOptionId: `option-${options.indexOf(userResponse) + 1}` } : {}),
         nextAction: hasCurrentModel ? 'query_model' : 'extract_draft_params',
         instruction: hasCurrentModel
-          ? 'An existing model is current. Inspect it with query_model; if the answer changes engineering fields, apply only the confirmed changes with edit_model. If those values are already present, continue without rebuilding. / 已有当前模型：用 query_model 确认对象与版本，工程字段的已确认修改通过 edit_model 写入；重复确认已有值时继续执行，不重建草稿。'
+          ? 'An existing model is current. Inspect it with query_model; apply local confirmed changes with edit_model. If the user authorized complete reconstruction, extract the exact answer with all confirmed inputs, then call build_model with mode="rebuild" and the latest queried baseRevision. A repeated confirmation alone does not authorize a rebuild. / 已有当前模型：用 query_model 确认对象与版本，局部已确认修改通过 edit_model 写入。用户明确授权整体重建时，结合全部已确认输入提取回答原文，再以 mode="rebuild" 和最新查询的 baseRevision 调用 build_model；单纯重复确认已有值不代表授权重建。'
           : 'Clarification answers are not merged into draftState automatically. Call extract_draft_params with this exact answer before build_model. / 澄清答案尚未自动合并到草稿；先用原文调用 extract_draft_params，再构建模型。',
       });
     },

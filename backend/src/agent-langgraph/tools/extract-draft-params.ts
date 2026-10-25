@@ -399,8 +399,13 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
         // not consume the semantic recovery budget. Invalid LLM output is handled
         // separately inside invokeParamExtractor.
 
-        const responseJson = buildLlmExtractionResponse({ nextState, missing, goalRequired, locale, plugin, match, extractionMode,
+        const extractedResponse = buildLlmExtractionResponse({ nextState, missing, goalRequired, locale, plugin, match, extractionMode,
           requestScope, scopeDiagnostics, draftPatch, patch });
+        const responseJson = state?.model && extractedResponse.canProceed ? {
+          ...extractedResponse, nextAction: 'query_model', instruction: locale === 'zh'
+            ? '先 query_model 获取最新版本与对象 ID。已有模型的局部修改通过 edit_model 完成；若用户明确授权整体重建，保留全部已确认输入，再调用 build_model({mode:"rebuild",baseRevision:最新版本})。不要把整体重建当作局部编辑，也不要仅因草稿变化就默认重建。'
+            : 'First query_model for the latest revision and object IDs. Apply local changes through edit_model. If the user authorized complete reconstruction, preserve all confirmed inputs, then call build_model({mode:"rebuild",baseRevision:latestRevision}). Do not treat reconstruction as a local edit or infer rebuild authorization merely from changed draft fields.',
+        } : extractedResponse;
 
         const stateUpdate = llmExtractionStateUpdate(requestScope, nextState, state, match);
 
@@ -419,6 +424,7 @@ export function createExtractDraftParamsTool(skillRuntime: AgentSkillRuntime) {
       description:
         'Extract structural engineering parameters from a user message and merge them into the draft state. ' +
         'Reads existing draft state from conversation state automatically — do NOT pass it as a parameter. ' +
+        'For a user-authorized complete rebuild, merge the full confirmed input history and the requested changes; then use build_model mode="rebuild" with the latest queried model revision. Ordinary local edits use query_model/edit_model. / 用户授权整体重建时，合并完整已确认历史输入及新要求，再以最新查询版本调用 build_model 的 rebuild 模式；局部修改走 query_model/edit_model。 ' +
         'Returns applied field paths, unapplied values/reasons, missing fields and the next action; full state stays in conversation state. A no_change result means do not repeat extraction with the same evidence. / 返回已应用字段、未应用原因、缺项和下一步；完整草稿保留在会话状态。no_change 时不要用相同证据重复提取。 ' +
         'Use actual user answers as evidence. Explicit user properties win; dimensions alone use shape with provenance.shape="user" and system-derived sharp-corner properties. A designation alone needs one dimension question together with other missing inputs. Assistant-recalled shape/properties are pending llm-table candidates, labelled "assistant-recalled table value, please verify"; never use them before actual user confirmation. After confirmation retain user-sourced dimensions, omit recalled properties. Known grades get elastic constants and density; unmentioned self-weight is not a question (default excluded). / 仅使用真实用户答复；用户属性优先，仅尺寸由系统按尖角推导。仅型号须将尺寸与其他缺项合并询问一次；记忆值标记llm-table及“助手记忆的标准表值，请核对”，实际确认前不可计算，确认后尺寸标记user并省略记忆属性。已知牌号补弹性常数和密度；未提自重不追问，默认不计。',
       schema: z.object({

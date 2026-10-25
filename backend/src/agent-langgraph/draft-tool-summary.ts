@@ -9,7 +9,8 @@ export function compactDraftToolPayload(payload: Record<string, unknown>, before
   return { ...summary,
     ...(applied && payload.success !== false ? { applied, status: applied.length ? (Array.isArray(payload.unapplied) && payload.unapplied.length ? 'partial' : 'applied') : 'no_change',
       ...(applied.length ? {} : {
-        nextAction: Array.isArray(payload.criticalMissing) && payload.criticalMissing.length ? 'ask_user_clarification' : 'use_current_draft',
+        nextAction: Array.isArray(payload.criticalMissing) && payload.criticalMissing.length ? 'ask_user_clarification'
+          : payload.nextAction === 'query_model' ? 'query_model' : 'use_current_draft',
         hint: 'No draft inputs changed. Do not repeat extraction with the same evidence; use the current draft or explain the unapplied fields. / 草稿输入没有变化。不要用相同证据重复提取；请使用现有草稿或说明未应用字段。',
       }) } : {}),
     ...(nextState && !after && !applied ? { stateStored: true } : {}),
